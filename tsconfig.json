@@ -1,0 +1,3 @@
+{
+  "extends": "@sprite-anvil/config/tsconfig.base.json"
+}
