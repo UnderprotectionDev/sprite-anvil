@@ -8,7 +8,6 @@
   "files": {
     "ignoreUnknown": false,
     "includes": [
-      "**",
       "!**/.next",
       "!**/dist",
       "!**/.turbo",
@@ -17,6 +16,9 @@
       "!**/.zed",
       "!**/.vscode",
       "!**/routeTree.gen.ts",
+      "!**/test-results",
+      "!**/playwright-report",
+      "!**/src/env.ts",
       "!**/src-tauri",
       "!**/.nuxt",
       "!bts.jsonc",
@@ -33,13 +35,32 @@
     "enabled": true,
     "indentStyle": "tab"
   },
-  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
   "linter": {
     "enabled": true,
     "rules": {
       "preset": "recommended",
+      "a11y": {
+        "useSemanticElements": "off"
+      },
+      "complexity": {
+        "noVoid": "off"
+      },
       "correctness": {
+        "noUnresolvedImports": "off",
+        "useImportExtensions": "off",
         "useExhaustiveDependencies": "info"
+      },
+      "performance": {
+        "noBarrelFile": "off",
+        "noJsxPropsBind": "off",
+        "noNamespaceImport": "off"
       },
       "nursery": {
         "useSortedClasses": {
@@ -61,6 +82,9 @@
         "useNumberNamespace": "error",
         "noInferrableTypes": "error",
         "noUselessElse": "error"
+      },
+      "suspicious": {
+        "noUnnecessaryConditions": "off"
       }
     }
   },
@@ -73,5 +97,11 @@
     "parser": {
       "tailwindDirectives": true
     }
-  }
+  },
+  "extends": [
+    "ultracite/biome/core",
+    "ultracite/biome/type-aware",
+    "ultracite/biome/react",
+    "ultracite/biome/tanstack"
+  ]
 }

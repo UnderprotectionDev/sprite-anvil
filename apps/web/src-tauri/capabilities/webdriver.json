@@ -1,0 +1,6 @@
+{
+  "identifier": "webdriver",
+  "description": "WebDriver testing only",
+  "windows": ["main"],
+  "permissions": ["wdio:default"]
+}

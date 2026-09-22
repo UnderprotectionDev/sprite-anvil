@@ -6,7 +6,8 @@
     "types": [],
     "paths": {
       "@sprite-anvil/ui/*": ["./src/*"]
-    }
+    },
+    "strictNullChecks": true
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "exclude": ["node_modules"]

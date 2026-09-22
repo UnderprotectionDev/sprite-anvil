@@ -1,0 +1,3 @@
+# Quality waivers are version-specific
+
+A Quality Waiver records the exact rule, observed value, Unit or Composite Version, rationale, user, time, and relevant Context Revision and Canonical Design. Quality rules are classified as non-waivable Integrity Gates, deterministic Waivable Requirements, or non-blocking Quality Advisories. A waiver travels with any Export Bundle that relies on it and is re-evaluated when the content, governing rule, or relevant dependency changes; it never applies to Integrity Gates or silently carries into future family versions. This keeps intentional exceptions auditable without allowing corrupt packages or permanent blind spots, at the cost of classifying every profile rule and repeating review for recurring intentional deviations.

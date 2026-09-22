@@ -5,10 +5,10 @@
   "scripts": {
     "build": "next build",
     "dev": "next dev --port=4000",
+    "format": "ultracite fix",
+    "lint": "ultracite check",
     "start": "next start",
-    "types:check": "next typegen && tsc --noEmit",
-    "lint": "biome check",
-    "format": "biome format --write"
+    "types:check": "next typegen && tsc --noEmit"
   },
   "dependencies": {
     "cn": "^0.3.0",
@@ -21,7 +21,6 @@
     "react-dom": "^19.3.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.14",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/mdx": "^2.0.14",
     "@types/node": "^26.6.1",

@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "enables the default permissions",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "fs:default", "fs:allow-appdata-write-recursive", "fs:scope-appdata-recursive"]
 }

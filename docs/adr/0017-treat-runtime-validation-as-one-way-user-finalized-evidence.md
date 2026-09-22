@@ -1,0 +1,3 @@
+# Treat runtime validation as one-way, user-finalized evidence
+
+A Runtime Validation Record is immutable evidence for one exact Export Bundle, game build, engine version, and adapter version. A verified adapter may prepare technical evidence and a draft result, but the user finalizes the outcome and any failure-source classification; only the confirmed affected scope requires revalidation. Runtime evidence does not make the game project authoritative and does not introduce continuous or bidirectional synchronization. This closes the gap between Workbench QA and actual game behavior without turning the product into an engine integration platform, at the cost of explicit retesting when relevant package or environment inputs change.

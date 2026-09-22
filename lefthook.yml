@@ -1,10 +1,13 @@
 # Lefthook configuration
 # https://github.com/evilmartians/lefthook
 
+glob_matcher: doublestar
+
 pre-commit:
   parallel: true
   jobs:
-    - name: biome
-      glob: "*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}"
-      run: bun biome check --write --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
+    - name: ultracite-biome
+      run: bun x ultracite fix {staged_files}
+      glob:
+        - "**/*.{js,jsx,cjs,mjs,ts,tsx,cts,mts,json,jsonc,css,graphql,gql,html}"
       stage_fixed: true
