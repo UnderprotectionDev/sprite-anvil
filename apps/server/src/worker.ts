@@ -36,8 +36,8 @@ while (true) {
 		if (acks.length > 0 || retries.length > 0) {
 			await queue.settle(acks, retries);
 		}
-	} catch (error) {
-		console.error("Queue poll failed", error);
+	} catch {
+		console.error("Queue poll failed");
 	}
 
 	await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));

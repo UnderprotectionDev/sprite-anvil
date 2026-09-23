@@ -15,6 +15,7 @@
     "@orpc/server": "catalog:",
     "@orpc/zod": "catalog:",
     "@sprite-anvil/auth": "workspace:*",
+    "@sprite-anvil/db": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {

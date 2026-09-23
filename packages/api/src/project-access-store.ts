@@ -1,3 +1,5 @@
+import type { ProjectContextCreateInput } from "./project-context";
+
 export const contextAgentScopes = [
 	"project_context:read",
 	"context_proposals:write",
@@ -29,7 +31,10 @@ export interface ToolAccessPermission {
 }
 
 export interface ProjectAccessStore {
-	createProject: (ownerId: string, name: string) => Promise<ProjectRecord>;
+	createProject: (
+		ownerId: string,
+		input: ProjectContextCreateInput
+	) => Promise<ProjectRecord>;
 	getProject: (
 		ownerId: string,
 		projectId: string

@@ -5,6 +5,7 @@ import type {
 	ToolAccessPermission,
 } from "@sprite-anvil/api/project-access-store";
 import { contextAgentScopes } from "@sprite-anvil/api/project-access-store";
+import type { ProjectContextStore } from "@sprite-anvil/api/project-context";
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
 import { project } from "@sprite-anvil/db/schema/project";
 import { toolAccessPermission } from "@sprite-anvil/db/schema/project-access";
@@ -45,17 +46,18 @@ function toToolAccessPermission(
 	};
 }
 
-export function createProjectAccessStore(db: Database): ProjectAccessStore {
+export function createProjectAccessStore(
+	db: Database,
+	projectContextStore: ProjectContextStore
+): ProjectAccessStore {
 	return {
-		async createProject(ownerId, name) {
-			const [record] = await db
-				.insert(project)
-				.values({ id: crypto.randomUUID(), name, ownerUserId: ownerId })
-				.returning();
-			if (!record) {
-				throw new Error("Project could not be created");
-			}
-			return toProjectRecord(record);
+		async createProject(ownerId, input) {
+			const record = await projectContextStore.createProject(ownerId, input);
+			return {
+				createdAt: record.createdAt,
+				id: record.id,
+				name: record.name,
+			};
 		},
 		async getProject(ownerId, projectId) {
 			const record = await getProjectForUser(db, ownerId, projectId);

@@ -10,7 +10,7 @@ English terms are the canonical technical names used in code and contracts. Turk
 
 | English technical name | Turkish product label |
 | --- | --- |
-| Project | Oyun Projesi |
+| Project | Proje |
 | Project Context | Proje Bağlamı |
 | 2D Visual Asset | 2D Görsel Varlık |
 | Visual World | Görsel Dünya |
@@ -116,8 +116,8 @@ English terms are the canonical technical names used in code and contracts. Turk
 ## Project rules
 
 **Project**:
-A private game-project record in the Workbench that stores its owner and project name. It contains and scopes Project Context and other project records; it is distinct from the repository and Conductor workspaces used to develop Sprite Anvil.
-_Avoid_: Project Context, Conductor workspace, `context.md`
+A private game-project record in the Workbench owned by one user. It stores the project name and scopes production data, including Project Context and Asset Records. Reading a Project grants no review or approval authority. It is distinct from the repository and Conductor workspaces used to develop Sprite Anvil.
+_Avoid_: Project Context, account, shared workspace, Conductor workspace, `context.md`
 
 **Project Context**:
 The authoritative, scoped set of approved visual rules, exceptions, and production decisions for one game project. It is represented by the agent-maintained, human-readable `context.md` and consumed by the Workbench.

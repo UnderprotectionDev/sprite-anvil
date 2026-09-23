@@ -5,10 +5,7 @@ import { protectedProcedure } from "../index";
 import { assertProjectToolAccess } from "../project-access-policy";
 import type { ProjectAccessStore } from "../project-access-store";
 import { connectionScopes, contextAgentScopes } from "../project-access-store";
-
-const projectNameSchema = z.object({
-	name: z.string().trim().min(1).max(80),
-});
+import { projectContextCreateInputSchema } from "../project-context";
 
 const projectIdSchema = z.string().min(1).max(200);
 const purposeSchema = z.string().trim().min(3).max(160);
@@ -59,9 +56,9 @@ export const projectsRouter = {
 		context.projectAccess.listProjects(context.session.user.id)
 	),
 	create: protectedProcedure
-		.input(projectNameSchema)
+		.input(projectContextCreateInputSchema)
 		.handler(({ context, input }) =>
-			context.projectAccess.createProject(context.session.user.id, input.name)
+			context.projectAccess.createProject(context.session.user.id, input)
 		),
 	get: protectedProcedure
 		.input(projectIdInputSchema)

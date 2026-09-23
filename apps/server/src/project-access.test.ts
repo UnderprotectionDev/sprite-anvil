@@ -6,12 +6,14 @@ import type {
 	ContextAgentScope,
 	ProjectAccessStore,
 } from "@sprite-anvil/api/project-access-store";
+import type { ProjectContextStore } from "@sprite-anvil/api/project-context";
 import type { AppRouterClient } from "@sprite-anvil/api/routers/index";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import type { Session } from "@sprite-anvil/auth";
 import { createDb } from "@sprite-anvil/db";
 import { user as userTable } from "@sprite-anvil/db/schema/auth";
 import { project as projectTable } from "@sprite-anvil/db/schema/project";
+import { contextRevisions } from "@sprite-anvil/db/schema/project-context";
 import { betterAuth } from "better-auth";
 import { type MemoryDB, memoryAdapter } from "better-auth/adapters/memory";
 import { testUtils } from "better-auth/plugins";
@@ -19,6 +21,19 @@ import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 
 import { createProjectAccessStore } from "./features/projects/server/project-access-store";
+import { createProjectContextStore } from "./project-context-store";
+
+const unusedProjectContextStore = {
+	createProject: () => {
+		throw new Error("Unexpected Project Context access in this test");
+	},
+	createProposal: () => {
+		throw new Error("Unexpected Context Proposal access in this test");
+	},
+	getRevision: () => Promise.resolve(null),
+	listProjects: () => Promise.resolve([]),
+	listProposals: () => Promise.resolve([]),
+} satisfies ProjectContextStore;
 
 function createTestAuth() {
 	const database: MemoryDB = {};
@@ -69,11 +84,11 @@ function createMemoryProjectAccessStore(
 	>();
 
 	return {
-		createProject(ownerId, name) {
+		createProject(ownerId, input) {
 			const project = {
 				createdAt: new Date().toISOString(),
 				id: projectIdForCreatedProject,
-				name,
+				name: input.name,
 				ownerId,
 			};
 			projects.set(project.id, project);
@@ -155,7 +170,12 @@ function createRpcClient(
 	app.use("/*", async (c, next) => {
 		const result = await rpcHandler.handle(c.req.raw, {
 			context: {
+				db: createDb({
+					DATABASE_URL:
+						"postgresql://user:password@localhost:5432/sprite-anvil-test",
+				}),
 				projectAccess: store,
+				projectContextStore: unusedProjectContextStore,
 				session: await getSession(c.req.raw.headers),
 			},
 			prefix: "/rpc",
@@ -191,7 +211,10 @@ test("a project owner can grant, read back, and revoke Context Agent access", as
 	const purpose = "Prepare a project context proposal";
 	const scopes: ContextAgentScope[] = ["project_context:read"];
 
-	const project = await client.projects.create({ name: "Forest Quest" });
+	const project = await client.projects.create({
+		name: "Forest Quest",
+		generalArtDirection: "Pixel art with a limited palette",
+	});
 	const permission = await client.projects.access.grantContextAgent({
 		projectId: project.id,
 		purpose,
@@ -253,7 +276,10 @@ test("existing opaque Project IDs can be read and authorized", async () => {
 		createMemoryProjectAccessStore("ash-knight-v1"),
 		cookie
 	);
-	const project = await client.projects.create({ name: "Ash Knight" });
+	const project = await client.projects.create({
+		name: "Ash Knight",
+		generalArtDirection: "Dark fantasy pixel art",
+	});
 	expect(await client.projects.get({ projectId: project.id })).toMatchObject({
 		id: "ash-knight-v1",
 		name: "Ash Knight",
@@ -290,7 +316,7 @@ test.skipIf(!databaseUrl)(
 			throw new Error("DATABASE_URL must point to an isolated test branch");
 		}
 		const db = createDb({ DATABASE_URL: databaseUrl });
-		const store = createProjectAccessStore(db);
+		const store = createProjectAccessStore(db, createProjectContextStore(db));
 		const ownerUserId = crypto.randomUUID();
 		await db.insert(userTable).values({
 			id: ownerUserId,
@@ -300,11 +326,20 @@ test.skipIf(!databaseUrl)(
 		let projectId: string | null = null;
 
 		try {
-			const project = await store.createProject(
-				ownerUserId,
-				"Permission Persistence Check"
-			);
+			const project = await store.createProject(ownerUserId, {
+				name: "Permission Persistence Check",
+				generalArtDirection: "Pixel art with a limited palette",
+			});
 			projectId = project.id;
+			const [initialRevision] = await db
+				.select()
+				.from(contextRevisions)
+				.where(eq(contextRevisions.projectId, project.id));
+			expect(initialRevision).toMatchObject({
+				revisionNumber: 0,
+				state: "baseline",
+				contractVersion: "context-rule/1.0.0",
+			});
 			const granted = await store.grantContextAgentPermission(
 				ownerUserId,
 				project.id,
@@ -376,7 +411,10 @@ test("project access controls require an authenticated owner", async () => {
 	);
 
 	await expect(
-		anonymousClient.projects.create({ name: "Private Project" })
+		anonymousClient.projects.create({
+			name: "Private Project",
+			generalArtDirection: "Stylized pixel art",
+		})
 	).rejects.toMatchObject({ code: "UNAUTHORIZED" });
 });
 
@@ -420,7 +458,10 @@ test("project permissions are hidden from another user's session", async () => {
 	const otherCookie = await createUserSession(auth, "another-user");
 	const owner = createRpcClient(auth, store, ownerCookie);
 	const otherUser = createRpcClient(auth, store, otherCookie);
-	const project = await owner.projects.create({ name: "Private Project" });
+	const project = await owner.projects.create({
+		name: "Private Project",
+		generalArtDirection: "Stylized pixel art",
+	});
 
 	expect(await otherUser.projects.list()).toEqual([]);
 	await expect(
@@ -439,7 +480,10 @@ test("project permission grants reject scopes outside the Context Agent boundary
 		createMemoryProjectAccessStore(),
 		cookie
 	);
-	const project = await client.projects.create({ name: "Private Project" });
+	const project = await client.projects.create({
+		name: "Private Project",
+		generalArtDirection: "Stylized pixel art",
+	});
 
 	const grantWithUnapprovedScope = Reflect.apply(
 		client.projects.access.grantContextAgent,
@@ -469,7 +513,10 @@ test("a connection cannot access project data before a provider is selected", as
 		createMemoryProjectAccessStore(),
 		cookie
 	);
-	const project = await client.projects.create({ name: "Forest Quest" });
+	const project = await client.projects.create({
+		name: "Forest Quest",
+		generalArtDirection: "Pixel art with a limited palette",
+	});
 
 	const access = client.projects.access.checkConnection({
 		projectId: project.id,

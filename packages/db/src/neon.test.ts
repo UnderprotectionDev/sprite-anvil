@@ -6,18 +6,19 @@ import { createDb } from "./index";
 import { project } from "./schema/project";
 import { toolAccessPermission } from "./schema/project-access";
 
-test("the isolated Neon branch contains the migrated auth schema", async () => {
+test("the isolated Neon branch contains the auth and project schema", async () => {
 	const databaseUrl = process.env.DATABASE_URL;
 	if (!databaseUrl) {
 		throw new Error("DATABASE_URL must point to the CI test branch");
 	}
-	const neonSql = neon(databaseUrl);
-	const rows = await neonSql`
-		select table_name
-		from information_schema.tables
-		where table_schema = 'public' and table_name = 'user'
+	const neonQuery = neon(databaseUrl);
+	const rows = await neonQuery`
+		select
+			to_regclass('public.user') IS NOT NULL as has_user_table,
+			to_regclass('public.project') IS NOT NULL as has_project_table
 	`;
-	expect(rows[0]?.table_name).toBe("user");
+	expect(rows[0]?.has_user_table).toBe(true);
+	expect(rows[0]?.has_project_table).toBe(true);
 });
 
 test("the Neon branch supports project creation and tool permission reads", async () => {

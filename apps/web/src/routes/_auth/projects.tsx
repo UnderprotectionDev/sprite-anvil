@@ -15,6 +15,7 @@ export const Route = createFileRoute("/_auth/projects")({
 function ProjectsRoute() {
 	const projectsQuery = useQuery(orpc.projects.list.queryOptions());
 	const [name, setName] = useState("");
+	const [generalArtDirection, setGeneralArtDirection] = useState("");
 	const [isSaving, setIsSaving] = useState(false);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -22,15 +23,20 @@ function ProjectsRoute() {
 	async function handleCreateProject(event: SyntheticEvent<HTMLFormElement>) {
 		event.preventDefault();
 		const trimmedName = name.trim();
-		if (trimmedName.length === 0) {
+		const trimmedArtDirection = generalArtDirection.trim();
+		if (trimmedName.length === 0 || trimmedArtDirection.length === 0) {
 			return;
 		}
 		setErrorMessage(null);
 		setStatusMessage(null);
 		setIsSaving(true);
 		try {
-			await client.projects.create({ name: trimmedName });
+			await client.projects.create({
+				name: trimmedName,
+				generalArtDirection: trimmedArtDirection,
+			});
 			setName("");
+			setGeneralArtDirection("");
 			setStatusMessage("Oyun projesi kaydedildi.");
 			await projectsQuery.refetch();
 		} catch (error) {
@@ -74,14 +80,33 @@ function ProjectsRoute() {
 						<Input
 							autoComplete="off"
 							id="project-name"
-							maxLength={80}
+							maxLength={120}
 							name="name"
 							onChange={(event) => setName(event.target.value)}
 							required
 							value={name}
 						/>
 					</div>
-					<Button disabled={isSaving || name.trim().length === 0} type="submit">
+					<div className="flex-1 space-y-2">
+						<Label htmlFor="project-art-direction">Genel sanat yaklaşımı</Label>
+						<textarea
+							className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm"
+							id="project-art-direction"
+							maxLength={1000}
+							name="generalArtDirection"
+							onChange={(event) => setGeneralArtDirection(event.target.value)}
+							required
+							value={generalArtDirection}
+						/>
+					</div>
+					<Button
+						disabled={
+							isSaving ||
+							name.trim().length === 0 ||
+							generalArtDirection.trim().length === 0
+						}
+						type="submit"
+					>
 						{isSaving ? "Kaydediliyor…" : "Proje oluştur"}
 					</Button>
 				</form>
