@@ -61,4 +61,4 @@ Dış araca amaç ve kapsamla erişim verme, ayrı kullanıcı izin akışıdır
 **Kabul izlenebilirliği**
 
 - [YAS-04](../../prd/10-acceptance-scenarios.md)
-- Mevcut uygulama yalnız temel web/masaüstü kabuğu ve sınırlı sunucu yükleme yolunu içeriyor; bu spec teslim edilmiş ürün iddiası değildir. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.
+- Mevcut uygulama temel web/masaüstü kabuğu, sınırlı sunucu yükleme yolu ve sahipliğe göre korunan Proje kaydı/önizleme okuma uçlarını içerir; fazın tüm davranışları teslim edilmiş değildir. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.

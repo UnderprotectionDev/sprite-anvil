@@ -10,6 +10,7 @@ English terms are the canonical technical names used in code and contracts. Turk
 
 | English technical name | Turkish product label |
 | --- | --- |
+| Project | Proje |
 | Project Context | Proje Bağlamı |
 | 2D Visual Asset | 2D Görsel Varlık |
 | Visual World | Görsel Dünya |
@@ -111,6 +112,10 @@ English terms are the canonical technical names used in code and contracts. Turk
 | Animation Family Normalization | Animasyon Ailesi Normalizasyonu |
 
 ## Project rules
+
+**Project**:
+A private game-workspace record owned by one user. It contains the project's production data, including its Project Context and Asset Records; reading a Project grants no review or approval authority.
+_Avoid_: Project Context, account, shared workspace
 
 **Project Context**:
 The authoritative, scoped set of approved visual rules, exceptions, and production decisions for one game project. It is represented by the agent-maintained, human-readable `context.md` and consumed by the Workbench.

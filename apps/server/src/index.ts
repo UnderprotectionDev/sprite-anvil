@@ -16,7 +16,9 @@ import {
 } from "./cloudflare";
 import { createContext } from "./context";
 import { desktopOrigins, ENV } from "./env.server";
-import { auth } from "./services";
+import { findOwnedProject } from "./project-repository";
+import { mountProjectRoutes } from "./project-routes";
+import { auth, db } from "./services";
 
 const app = new Hono();
 const cloudflareConfig = () => requireCloudflareConfig(ENV);
@@ -41,6 +43,13 @@ mountAssetRoutes(app, {
 	cloudflareConfig,
 	createQueue,
 	createStorage,
+});
+
+mountProjectRoutes(app, {
+	getSession: (headers) => auth.api.getSession({ headers }),
+	findOwnedProject: (projectId, ownerUserId) =>
+		findOwnedProject(db, projectId, ownerUserId),
+	getPreview: (key) => createStorage(cloudflareConfig()).getPreview(key),
 });
 
 export const apiHandler = new OpenAPIHandler(appRouter, {

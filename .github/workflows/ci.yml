@@ -41,8 +41,8 @@ jobs:
         env:
           DATABASE_URL: ${{ steps.branch.outputs.db_url }}
         run: |
-          bun run --cwd packages/db db:push
-          bun test packages/db/src/neon.test.ts
+          bun run --cwd packages/db db:migrate
+          bun test packages/db/src/neon.test.ts apps/server/src/project-access.test.ts
       - if: always() && steps.branch.outputs.branch_id != ''
         uses: neondatabase/delete-branch-action@v3
         with:
