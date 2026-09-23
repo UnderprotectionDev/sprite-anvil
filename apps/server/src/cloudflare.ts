@@ -1,4 +1,5 @@
 import {
+	GetObjectCommand,
 	HeadObjectCommand,
 	PutObjectCommand,
 	S3Client,
@@ -28,6 +29,11 @@ export interface CloudflareConfig {
 	R2_ACCESS_KEY_ID: string;
 	R2_BUCKET: string;
 	R2_SECRET_ACCESS_KEY: string;
+}
+
+export interface PrivatePreview {
+	body: ReadableStream<Uint8Array>;
+	contentType: "image/png" | "image/webp";
 }
 
 export function requireCloudflareConfig(
@@ -74,6 +80,34 @@ export function createStorage(config: CloudflareConfig) {
 			await client.send(
 				new HeadObjectCommand({ Bucket: config.R2_BUCKET, Key: key })
 			);
+		},
+		async getPreview(key: string): Promise<PrivatePreview | null> {
+			try {
+				const object = await client.send(
+					new GetObjectCommand({ Bucket: config.R2_BUCKET, Key: key })
+				);
+				const contentType = object.ContentType;
+				if (!object.Body) {
+					return null;
+				}
+				const body = object.Body.transformToWebStream();
+				if (contentType !== "image/png" && contentType !== "image/webp") {
+					await body.cancel();
+					return null;
+				}
+				return {
+					body,
+					contentType,
+				};
+			} catch (error) {
+				if (
+					error instanceof Error &&
+					(error.name === "NoSuchKey" || error.name === "NotFound")
+				) {
+					return null;
+				}
+				throw error;
+			}
 		},
 	};
 }

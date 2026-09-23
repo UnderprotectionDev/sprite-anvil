@@ -16,6 +16,7 @@
       "!**/.zed",
       "!**/.vscode",
       "!**/routeTree.gen.ts",
+      "!**/src/migrations/**/snapshot.json",
       "!**/test-results",
       "!**/playwright-report",
       "!**/src/env.ts",
