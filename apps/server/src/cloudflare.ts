@@ -1,26 +1,72 @@
+import { Readable } from "node:stream";
 import {
+	DeleteObjectCommand,
 	GetObjectCommand,
 	HeadObjectCommand,
 	PutObjectCommand,
 	S3Client,
 } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import z from "zod";
 
-export const assetUploadSchema = z.object({
-	name: z.string().min(1).max(200),
-	contentType: z.enum(["image/png", "image/webp"]),
-});
+const uuidPattern =
+	"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+const projectKeySegmentPattern = "(?:[A-Za-z0-9_.!~*'()-]|%[0-9A-F]{2})+";
 
-export const assetReadySchema = z.object({
-	key: z.string().regex(/^users\/[a-zA-Z0-9-]+\/[a-zA-Z0-9-]+\.(png|webp)$/),
-});
+export const visualAssetUploadContentTypeSchema = z.enum([
+	"image/png",
+	"image/webp",
+]);
 
-export const queueMessageSchema = z.object({
-	version: z.literal(1),
-	kind: z.literal("asset-uploaded"),
-	key: assetReadySchema.shape.key,
-});
+export const visualAssetKeySchema = z
+	.string()
+	.regex(
+		new RegExp(
+			`^projects/${projectKeySegmentPattern}/visual-assets/${uuidPattern}$`
+		)
+	);
+
+export const legacyAssetKeySchema = z
+	.string()
+	.regex(/^users\/[a-zA-Z0-9-]+\/[a-zA-Z0-9-]+\.(png|webp)$/);
+
+export function createProjectVisualAssetKey(
+	projectId: string,
+	visualAssetId: string
+) {
+	const projectKeySegment = encodeURIComponent(projectId);
+	return visualAssetKeySchema.parse(
+		`projects/${projectKeySegment}/visual-assets/${visualAssetId}`
+	);
+}
+
+const legacyQueueMessageSchema = z
+	.object({
+		version: z.literal(1),
+		kind: z.literal("asset-uploaded"),
+		key: legacyAssetKeySchema,
+	})
+	.strict();
+
+const projectQueueMessageSchema = z
+	.object({
+		version: z.literal(2),
+		kind: z.literal("visual-asset-uploaded"),
+		key: visualAssetKeySchema,
+	})
+	.strict();
+
+export function serializeProjectQueueMessage(key: string) {
+	return projectQueueMessageSchema.parse({
+		version: 2,
+		kind: "visual-asset-uploaded",
+		key,
+	});
+}
+
+export const queueMessageSchema = z.discriminatedUnion("version", [
+	legacyQueueMessageSchema,
+	projectQueueMessageSchema,
+]);
 
 export interface CloudflareConfig {
 	CLOUDFLARE_ACCOUNT_ID: string;
@@ -29,11 +75,6 @@ export interface CloudflareConfig {
 	R2_ACCESS_KEY_ID: string;
 	R2_BUCKET: string;
 	R2_SECRET_ACCESS_KEY: string;
-}
-
-export interface PrivatePreview {
-	body: ReadableStream<Uint8Array>;
-	contentType: "image/png" | "image/webp";
 }
 
 export function requireCloudflareConfig(
@@ -51,10 +92,13 @@ export function requireCloudflareConfig(
 		.parse(config);
 }
 
-export function createStorage(config: CloudflareConfig) {
+export function createStorage(
+	config: CloudflareConfig,
+	endpoint = `https://${config.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`
+) {
 	const client = new S3Client({
 		region: "auto",
-		endpoint: `https://${config.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+		endpoint,
 		credentials: {
 			accessKeyId: config.R2_ACCESS_KEY_ID,
 			secretAccessKey: config.R2_SECRET_ACCESS_KEY,
@@ -62,54 +106,70 @@ export function createStorage(config: CloudflareConfig) {
 	});
 
 	return {
-		async signUpload(userId: string, contentType: "image/png" | "image/webp") {
-			const extension = contentType === "image/png" ? "png" : "webp";
-			const key = `users/${userId}/${crypto.randomUUID()}.${extension}`;
-			const url = await getSignedUrl(
-				client,
-				new PutObjectCommand({
-					Bucket: config.R2_BUCKET,
-					Key: key,
-					ContentType: contentType,
-				}),
-				{ expiresIn: 300 }
-			);
-			return { key, url };
-		},
 		async exists(key: string) {
 			await client.send(
 				new HeadObjectCommand({ Bucket: config.R2_BUCKET, Key: key })
 			);
 		},
-		async getPreview(key: string): Promise<PrivatePreview | null> {
+		async put(
+			key: string,
+			body: ReadableStream<Uint8Array>,
+			contentType: "image/png" | "image/webp",
+			contentLength?: number
+		) {
+			await client.send(
+				new PutObjectCommand({
+					Bucket: config.R2_BUCKET,
+					Key: key,
+					Body: Readable.fromWeb(body),
+					ContentType: contentType,
+					...(contentLength === undefined
+						? {}
+						: { ContentLength: contentLength }),
+				})
+			);
+		},
+		async get(key: string) {
 			try {
-				const object = await client.send(
+				const result = await client.send(
 					new GetObjectCommand({ Bucket: config.R2_BUCKET, Key: key })
 				);
-				const contentType = object.ContentType;
-				if (!object.Body) {
-					return null;
-				}
-				const body = object.Body.transformToWebStream();
-				if (contentType !== "image/png" && contentType !== "image/webp") {
-					await body.cancel();
+				if (!result.Body) {
 					return null;
 				}
 				return {
-					body,
-					contentType,
+					body: result.Body.transformToWebStream(),
+					contentLength: result.ContentLength,
+					contentType: result.ContentType ?? "application/octet-stream",
 				};
 			} catch (error) {
-				if (
-					error instanceof Error &&
-					(error.name === "NoSuchKey" || error.name === "NotFound")
-				) {
+				if (isMissingObject(error)) {
 					return null;
 				}
 				throw error;
 			}
 		},
+		async delete(key: string) {
+			await client.send(
+				new DeleteObjectCommand({ Bucket: config.R2_BUCKET, Key: key })
+			);
+		},
 	};
+}
+
+function isMissingObject(error: unknown) {
+	if (!error || typeof error !== "object") {
+		return false;
+	}
+	const candidate = error as {
+		$metadata?: { httpStatusCode?: unknown };
+		name?: unknown;
+	};
+	return (
+		candidate.$metadata?.httpStatusCode === 404 ||
+		candidate.name === "NoSuchKey" ||
+		candidate.name === "NotFound"
+	);
 }
 
 export function createQueue(
@@ -137,8 +197,9 @@ export function createQueue(
 
 	return {
 		async send(key: string) {
+			const message = serializeProjectQueueMessage(key);
 			await request("", {
-				body: { version: 1, kind: "asset-uploaded", key },
+				body: message,
 			});
 		},
 		async pull() {

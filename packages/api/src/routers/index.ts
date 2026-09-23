@@ -2,6 +2,10 @@ import type { RouterClient } from "@orpc/server";
 import { ORPCError } from "@orpc/server";
 import { protectedProcedure, publicProcedure } from "../index";
 import {
+	serializePrivateDataResponse,
+	serializeRpcHealthResponse,
+} from "../output-contracts";
+import {
 	contextProposalInputSchema,
 	contextProposalListInputSchema,
 	contextProposalSchema,
@@ -11,11 +15,10 @@ import {
 } from "../project-context";
 
 export const appRouter = {
-	healthCheck: publicProcedure.handler(() => "OK"),
-	privateData: protectedProcedure.handler(({ context }) => ({
-		message: "This is private",
-		user: context.session?.user,
-	})),
+	healthCheck: publicProcedure.handler(() => serializeRpcHealthResponse()),
+	privateData: protectedProcedure.handler(({ context }) =>
+		serializePrivateDataResponse(context.session?.user)
+	),
 	projectContexts: {
 		list: protectedProcedure.handler(async ({ context }) =>
 			Promise.all(

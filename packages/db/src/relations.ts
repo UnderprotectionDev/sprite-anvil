@@ -5,5 +5,6 @@ import * as schema from "./schema";
 export const relations = {
 	...defineRelations(schema),
 	...schema.authRelations,
+	// This relation part includes Project ownership plus Context Revision and Proposal relations.
 	...schema.projectContextRelations,
 };
