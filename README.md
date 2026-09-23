@@ -1,122 +1,86 @@
-# sprite-anvil
+# Sprite Anvil
 
-This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines React, TanStack Router, Hono, ORPC, and more.
+Sprite Anvil is a ChatGPT-first, provider-neutral workspace for producing and managing 2D game art. It is designed to keep project context, asset families, versions, review evidence, quality checks, and engine-neutral exports connected across web and desktop workflows.
 
-## Features
+The product requirements live in [`docs/prd/`](docs/prd/README.md), domain language in [`docs/CONTEXT.md`](docs/CONTEXT.md), architecture decisions in [`docs/adr/`](docs/adr/), workflow guidance in [`docs/workflow/`](docs/workflow/), and the selected technologies in [`docs/tech-stack.md`](docs/tech-stack.md).
 
-- **TypeScript** - For type safety and improved developer experience
-- **TanStack Router** - File-based routing with full type safety
-- **TailwindCSS** - Utility-first CSS for rapid UI development
-- **Shared UI package** - shadcn/ui primitives live in `packages/ui`
-- **Hono** - Lightweight, performant server framework
-- **oRPC** - End-to-end type-safe APIs with OpenAPI integration
-- **Bun** - Runtime environment
-- **Drizzle** - TypeScript-first ORM
-- **PostgreSQL** - Database engine
-- **Authentication** - Better-Auth
-- **Biome** - Linting and formatting
-- **Tauri** - Build native desktop applications
-- **Turborepo** - Optimized monorepo build system
+## Repository structure
 
-## Getting Started
+```text
+apps/
+  web/          React + TanStack Router web app; Tauri desktop shell in src-tauri/
+  server/       Hono API and Cloudflare Queues worker
+  fumadocs/     Next.js product documentation site
+packages/
+  api/          Shared oRPC contracts and routers
+  auth/         Better Auth configuration
+  config/       Shared TypeScript configuration
+  db/           Drizzle schema and versioned SQL migrations
+  ui/           Shared UI components and styles
+docs/           Product requirements, domain glossary, ADRs, and workflows
+cloudflare/     Cloudflare configuration examples
+.railway/       Railway app and worker service configuration
+```
 
-First, install the dependencies:
+`bts.jsonc` records the Better-T-Stack generator configuration. The product requirements and this repository's technical decisions are maintained separately from that generator metadata.
+
+## Getting started
+
+Use Bun 1.3.13, then install the workspace dependencies:
 
 ```bash
 bun install
 ```
 
-## Database Setup
+Environment variable definitions are maintained in the owning `.env.schema` files: `apps/web/.env.schema`, `apps/server/.env.schema`, and `packages/db/.env.schema`. Put local values in ignored `.env.local` files under the owning app or package, and never commit secrets. The server requires `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, and `CORS_ORIGIN`; the web app requires `VITE_SERVER_URL`. Optional Cloudflare and R2 settings are needed for upload and queue workflows. Run `bun run env:generate` after changing a schema; installation also generates the Varlock TypeScript accessors.
 
-This project uses PostgreSQL with Drizzle ORM.
-
-1. Make sure you have a PostgreSQL database set up.
-2. Update your `apps/server/.env` file with your PostgreSQL connection details.
-
-3. Apply the schema to your database:
+For a database schema change or a new database, generate and review a versioned migration before applying it:
 
 ```bash
-bun run db:push
+bun run db:generate
+# Review SQL in packages/db/src/migrations/
+bun run db:migrate
 ```
 
-Then, run the development server:
+Use `bun run db:push` only with a disposable local database. See [`docs/deployment.md`](docs/deployment.md) for Railway, Cloudflare Queues, and R2 deployment configuration.
+
+## Development
+
+Start the workspace:
 
 ```bash
 bun run dev
 ```
 
-Open [http://localhost:3001](http://localhost:3001) in your browser to see the web application.
-The API is running at [http://localhost:3000](http://localhost:3000).
+The web app runs at `http://localhost:3001`, the API at `http://localhost:3000`, and Fumadocs at `http://localhost:4000`. To start only the web app or API, use `bun run dev:web` or `bun run dev:server`. Start the documentation site alone with `bun run --cwd apps/fumadocs dev`.
 
-## UI Customization
-
-React web apps in this stack share shadcn/ui primitives through `packages/ui`.
-
-- Change design tokens and global styles in `packages/ui/src/styles/globals.css`
-- Update shared primitives in `packages/ui/src/components/*`
-- Adjust shadcn aliases or style config in `packages/ui/components.json` and `apps/web/components.json`
-
-### Add more shared components
-
-Run this from the project root to add more primitives to the shared UI package:
+Run the Tauri desktop app with:
 
 ```bash
-npx shadcn@latest add accordion dialog popover sheet table -c packages/ui
+bun run --cwd apps/web desktop:dev
 ```
 
-Import shared components like this:
+## Common commands
 
-```tsx
-import { Button } from "@sprite-anvil/ui/components/button";
+| Command | Purpose |
+| --- | --- |
+| `bun run build` | Build all workspace packages and apps |
+| `bun run build:app` | Build the web app and server |
+| `bun run check` | Run Ultracite formatting and lint checks |
+| `bun run check-types` | Check TypeScript across the workspace |
+| `bun run test` | Run web unit tests and server tests |
+| `bun run test:e2e` | Run Playwright web application smoke tests |
+| `bun run --cwd apps/web desktop:test:build` | Build the Tauri WebDriver test app |
+| `bun run --cwd apps/web desktop:test` | Run Tauri WebDriver smoke tests |
+| `bun run db:generate` | Generate versioned SQL from the Drizzle schema |
+| `bun run db:migrate` | Apply reviewed versioned migrations |
+| `bun run db:push` | Push schema to a disposable database |
+| `bun run db:studio` | Open Drizzle Studio |
+| `bun run auth:generate` | Generate the Better Auth database schema |
+| `bun run env:generate` | Generate Varlock TypeScript accessors |
+
+Shared UI components live in `packages/ui`. Add shared primitives from the repository root with:
+
+```bash
+bunx --bun shadcn@latest add button dialog popover -c packages/ui
 ```
-
-### Add app-specific blocks
-
-If you want to add app-specific blocks instead of shared primitives, run the shadcn CLI from `apps/web`.
-
-## Environment Configuration
-
-Each app owns its environment schema in `.env.schema`. Varlock generates `src/env.ts` during installation; run `bun run env:generate` after changing a schema. Commit schemas, and keep secrets in ignored env files or your deployment platform.
-
-Import the generated `ENV` accessor in application code. Shared database and auth packages receive configuration or initialized clients from the application. See [Varlock's monorepo guide](https://varlock.dev/guides/monorepos/).
-
-Bun's automatic env loading is disabled in `bunfig.toml`; the framework integration or server bootstrap loads Varlock. Node deployments must include Varlock and its dependencies alongside the app schema.
-
-Run standalone Node/Bun tools that use Varlock from the owning app directory so they load that app's schema and env files. `env:generate` only generates TypeScript files; it does not initialize environment values in a subsequent command.
-
-## Git Hooks and Formatting
-
-- Run checks: `bun run check`
-
-## Project Structure
-
-```
-sprite-anvil/
-├── apps/
-│   ├── web/         # Frontend application (React + TanStack Router)
-│   └── server/      # Backend API (Hono, ORPC)
-├── packages/
-│   ├── ui/          # Shared shadcn/ui components and styles
-│   ├── api/         # API layer / business logic
-│   ├── auth/        # Authentication configuration & logic
-│   └── db/          # Database schema & queries
-```
-
-## Available Scripts
-
-- `bun run dev`: Start all applications in development mode
-- `bun run build`: Build all applications
-- `bun run dev:web`: Start only the web application
-- `bun run dev:server`: Start only the server
-- `bun run check-types`: Check TypeScript types across all apps
-- `bun run db:push`: Push schema changes to database
-- `bun run db:generate`: Generate database client/types
-- `bun run db:migrate`: Run database migrations
-- `bun run db:studio`: Open database studio UI
-- `bun run check`: Run Biome formatting and linting
-- `cd apps/web && bun run desktop:dev`: Start Tauri desktop app in development
-- `cd apps/web && bun run desktop:build`: Build Tauri desktop app
-
-## Better Auth Schema Generation
-
-After changing auth plugins or schema options, run `bun run auth:generate` from the project root. The script runs the Better Auth CLI through `varlock run` from the owning app directory, loading the auth instance from `src/services.ts`. Review the schema changes, then use your ORM's migration workflow to apply them.
