@@ -8,7 +8,7 @@ Kullanıcı bağımsız ürün anlamı taşıyan 2D görselleri kalıcı kayıtl
 
 ### Varlık Kaydı Oluşturma ve İzleme
 
-Kayıt onaylı sürüm, alternatif, türev, referans, kalite ve üretim geçmişini aynı kimlikte gösterir.
+Kayıt onaylı sürüm, alternatif, Türetilmiş Varlık, referans, kalite ve üretim geçmişini aynı kimlikte gösterir.
 
 Kayıt sınırı dosya veya değiştirilebilir birim sayısına göre değil bağımsız anlam, yaşam döngüsü veya teslimat kimliğine göre kurulur.
 

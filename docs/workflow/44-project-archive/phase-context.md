@@ -6,11 +6,17 @@ Taşınabilir arşiv teslimat paketinden daha geniş proje, ilişki ve kanıt ge
 
 ## Alt Fazlar
 
-### Proje Arşivi Oluşturma
+### Temel Proje Kayıtlarını Arşive Aktarma
 
-Sürümlü arşiv gerekli kayıtları, ilişkileri ve dahil edilmeyen ikili kanıtların kimlik/özet bilgisini taşır; sırları dışlar.
+Sürümlü arşiv Bağlam Sürümlerini, varlık ilişkilerini ve dosyalarını, referans rollerini ve seçilmiş çalışma dosyalarını taşır. Dışarıda bırakılan büyük ikili kanıtın kimliği, özeti ve eksikliği görünür; sırlar arşive girmez.
 
-Arşiv bağlam sürümlerini, varlık ilişkilerini ve dosyalarını, referans rollerini, inceleme ve kalite geçmişini, metadata önerileri ile kullanıcı kararlarını, üretim kanıtı ve deneylerini, tarifleri, hak kayıtlarını, dışa aktarım profili ve yenileme kilitlerini, hedef ve gerçekleşme geçmişini, tarihsel risk bildirimlerini, teslimat farklarını, çalışma zamanı doğrulamalarını ve paket manifestlerini taşır. Sırlar dışlanır; içerilmeyen büyük ikili kanıtın kimliği, özeti ve eksikliği manifestte belirtilir.
+### Üretim ve Değerlendirme Geçmişini Arşive Ekleme
+
+Arşiv inceleme ve kalite geçmişini, metadata önerileri ile kullanıcı kararlarını, üretim kanıtı ve deneylerini, tarifleri ve hak kayıtlarını taşır. Mevcut geçmiş kayıtları değiştirilmez.
+
+### Teslimat ve Doğrulama Geçmişini Arşive Ekleme
+
+Arşiv dışa aktarım profilleri ve yenileme kilitlerini, teslimat hedefi ve gerçekleşme geçmişini, tarihsel risk bildirimlerini, teslimat farklarını, çalışma zamanı doğrulamalarını ve paket manifestlerini taşır.
 
 ### Bağımsız Projeye Geri Yükleme
 
@@ -21,6 +27,7 @@ Geri yükleme dosya özetlerini ve iç ilişkileri doğrular, ardından yeni bul
 ## Tamamlanma Ölçütleri
 
 - Arşiv içeriği ile dışarıda bırakılan büyük ikili kanıt ayrışır; yeni projede ilişki ve dosya özetleri tutarlı olarak geri kurulur.
+- Etkileşimli istekte güvenle tamamlanamayan arşivleme veya geri yükleme OPS-01 yetkili işlem yaşam döngüsünü kullanır. OV-09 boyut sınırı ve OV-10 performans/bellek kanıtı kapanmadan arşiv kabulü tamamlanmış sayılmaz.
 
 ## Kapsam Sınırları
 

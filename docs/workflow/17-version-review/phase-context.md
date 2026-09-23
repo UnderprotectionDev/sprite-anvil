@@ -2,7 +2,7 @@
 
 Kullanıcı kesin Varlık Sürümünü onaylama, reddetme veya yeniden Aday yapma kararını değişmez İnceleme Kaydıyla verir. Kararın geçmişi, sürümün güncel Bağlama Uygunluk ve Kalite Kontrol Durumundan ayrı korunur.
 
-Ana Tasarım onaylanmadan türevlerin keşif sonuçları nihai kabul sayılmaz. Bütünlük hatası veya eksik zorunlu kanıt onayı durdurur. Toplu inceleme her uygun öğe için ayrı kayıt üretir; engelli öğe sessizce atlanmaz veya otomatik istisna almaz.
+Ana Tasarım onaylanmadan Türetilmiş Varlıkların keşif sonuçları nihai kabul sayılmaz. Bütünlük hatası veya eksik zorunlu kanıt onayı durdurur. Toplu inceleme her uygun öğe için ayrı kayıt üretir; engelli öğe sessizce atlanmaz veya otomatik istisna almaz.
 
 ## Tamamlanma Ölçütleri
 
