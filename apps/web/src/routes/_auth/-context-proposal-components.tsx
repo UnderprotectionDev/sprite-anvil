@@ -1,10 +1,16 @@
 import type {
 	ContextProposal,
 	ContextProposalInput,
+	ContextRevision,
 	ContextRuleChange,
 	ContextRuleValue,
 	ProjectContext,
 	ProjectContextCreateInput,
+	StructuredContextRuleId,
+} from "@sprite-anvil/api/project-context";
+import {
+	STRUCTURED_CONTEXT_RULE_IDS,
+	STRUCTURED_CONTEXT_RULES,
 } from "@sprite-anvil/api/project-context";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useMutation } from "@tanstack/react-query";
@@ -14,7 +20,22 @@ import { toast } from "sonner";
 import { client } from "@/utils/orpc";
 
 type EvidenceKind = "user_decision" | "observed_change";
-type ValueType = "text" | "number" | "boolean" | "text_list";
+type ValueType =
+	(typeof STRUCTURED_CONTEXT_RULES)[StructuredContextRuleId]["valueType"];
+
+const structuredRuleLabels: Record<StructuredContextRuleId, string> = {
+	perspective: "Perspektif",
+	"camera.approach": "Kamera yaklaşımı",
+	palette: "Palet",
+	outline: "Kontur",
+	"outline.width": "Kontur kalınlığı",
+	shading: "Gölgelendirme",
+	"light.direction": "Işık yönü",
+	"detail.density": "Ayrıntı yoğunluğu",
+	"material.language": "Malzeme dili",
+	"motif.allowed": "Kullanılabilecek motifler",
+	"motif.avoided": "Kaçınılacak motifler",
+};
 
 interface ChangeDraft {
 	evidence: string;
@@ -24,7 +45,6 @@ interface ChangeDraft {
 	rationale: string;
 	ruleId: string;
 	value: string;
-	valueType: ValueType;
 }
 
 interface ProjectSetupFormProps {
@@ -154,7 +174,11 @@ export function ContextWorkspace({
 				</Button>
 			</div>
 			<div className="context-grid">
-				<ProposalForm onRefresh={onRefreshProposals} project={project} />
+				<ProposalForm
+					key={`${project.id}:${project.currentContextRevision.id}`}
+					onRefresh={onRefreshProposals}
+					project={project}
+				/>
 				<ProposalLedger
 					isError={isProposalsError}
 					isPending={isProposalsPending}
@@ -175,15 +199,23 @@ interface ProposalFormProps {
 function ProposalForm({ onRefresh, project }: ProposalFormProps) {
 	const [summary, setSummary] = useState("");
 	const [changes, setChanges] = useState<ChangeDraft[]>(() => [
-		newChangeDraft(),
+		newChangeDraft(
+			availableRules(project.currentContextRevision, "add")[0]?.id ?? ""
+		),
 	]);
 	const [formError, setFormError] = useState<string | null>(null);
+	const currentRevision = project.currentContextRevision;
+	const supportedBaseRuleCount = STRUCTURED_CONTEXT_RULE_IDS.filter((ruleId) =>
+		currentRevision.rules.some((rule) => rule.id === ruleId)
+	).length;
 	const createProposal = useMutation({
 		mutationFn: (input: ContextProposalInput) =>
 			client.contextProposals.create(input),
 		onSuccess: async () => {
 			setSummary("");
-			setChanges([newChangeDraft()]);
+			setChanges([
+				newChangeDraft(availableRules(currentRevision, "add")[0]?.id ?? ""),
+			]);
 			setFormError(null);
 			await onRefresh();
 			toast.success("Bağlam Önerisi kaydedildi.");
@@ -204,7 +236,7 @@ function ProposalForm({ onRefresh, project }: ProposalFormProps) {
 		setFormError(null);
 		createProposal.mutate({
 			projectId: project.id,
-			baseContextRevisionId: project.initialContextRevision.id,
+			baseContextRevisionId: currentRevision.id,
 			summary,
 			changes: changes.map((change) => toContextRuleChange(change, project.id)),
 		});
@@ -224,23 +256,29 @@ function ProposalForm({ onRefresh, project }: ProposalFormProps) {
 				role="group"
 			>
 				<span aria-hidden="true" className="base-revision-mark">
-					R{project.initialContextRevision.revisionNumber}
+					R{currentRevision.revisionNumber}
 				</span>
 				<div>
 					<span className="stamp-label">DAYANAK BAĞLAM SÜRÜMÜ</span>
-					<strong>Başlangıç sürümü</strong>
+					<strong>
+						{currentRevision.isActive
+							? "Etkin Bağlam Sürümü"
+							: "Başlangıç taban sürümü"}
+					</strong>
 				</div>
-				<span className="base-state">Etkin değil</span>
+				<span className="base-state">
+					{currentRevision.isActive ? "Etkin" : "Etkin değil"}
+				</span>
 			</div>
 			<p className="panel-copy">
 				Her değişiklik için kuralı, gerekçeyi ve karar ya da gözlem kanıtını
 				ekleyin. Bu ekran yapılandırılmış alanları kaydeder; ham{" "}
 				<code>context.md</code> düzenlemez.
 			</p>
-			{changes.some((change) => change.operation !== "add") ? (
+			{supportedBaseRuleCount === 0 ? (
 				<p className="context-notice" role="status">
-					Başlangıç sürümü boş. Değiştirme ve kaldırma önerileri kaydedilir;
-					eşleşen bir kural olmadığında çakışmalı olarak işaretlenir.
+					Bu Bağlam Sürümünde yapılandırılmış kontrollerle değiştirilebilecek
+					bir kural yok. Yalnızca ekleme önerisi hazırlayabilirsiniz.
 				</p>
 			) : null}
 			<form className="context-form" onSubmit={submitProposal}>
@@ -261,7 +299,7 @@ function ProposalForm({ onRefresh, project }: ProposalFormProps) {
 				<div className="rule-drafts">
 					{changes.map((change, index) => (
 						<RuleDraftCard
-							baseRevisionNumber={project.initialContextRevision.revisionNumber}
+							baseRevision={currentRevision}
 							canRemove={changes.length > 1}
 							change={change}
 							index={index}
@@ -278,7 +316,12 @@ function ProposalForm({ onRefresh, project }: ProposalFormProps) {
 				<Button
 					className="add-change"
 					onClick={() =>
-						setChanges((current) => [...current, newChangeDraft()])
+						setChanges((current) => [
+							...current,
+							newChangeDraft(
+								availableRules(currentRevision, "add")[0]?.id ?? ""
+							),
+						])
 					}
 					type="button"
 				>
@@ -306,7 +349,7 @@ function ProposalForm({ onRefresh, project }: ProposalFormProps) {
 }
 
 interface RuleDraftCardProps {
-	baseRevisionNumber: number;
+	baseRevision: ContextRevision;
 	canRemove: boolean;
 	change: ChangeDraft;
 	index: number;
@@ -315,13 +358,26 @@ interface RuleDraftCardProps {
 }
 
 function RuleDraftCard({
-	baseRevisionNumber,
+	baseRevision,
 	canRemove,
 	change,
 	index,
 	onChange,
 	onRemove,
 }: RuleDraftCardProps) {
+	const operationRules = availableRules(baseRevision, change.operation);
+	const addRules = availableRules(baseRevision, "add");
+	const existingRules = availableRules(baseRevision, "replace");
+	const valueType = structuredValueType(change.ruleId);
+
+	function changeOperation(operation: ChangeDraft["operation"]) {
+		const rules = availableRules(baseRevision, operation);
+		const ruleId = rules.some((rule) => rule.id === change.ruleId)
+			? change.ruleId
+			: (rules[0]?.id ?? "");
+		onChange({ operation, ruleId, value: "" });
+	}
+
 	return (
 		<fieldset className="rule-card">
 			<legend>
@@ -335,32 +391,44 @@ function RuleDraftCard({
 				<select
 					aria-label={`Değişiklik ${index + 1} işlemi`}
 					onChange={(event) =>
-						onChange({
-							operation: event.target.value as ChangeDraft["operation"],
-						})
+						changeOperation(event.target.value as ChangeDraft["operation"])
 					}
 					value={change.operation}
 				>
-					<option value="add">Ekleme</option>
-					<option value="replace">Değiştirme</option>
-					<option value="remove">Kaldırma</option>
+					<option disabled={addRules.length === 0} value="add">
+						Ekleme
+					</option>
+					<option disabled={existingRules.length === 0} value="replace">
+						Değiştirme
+					</option>
+					<option disabled={existingRules.length === 0} value="remove">
+						Kaldırma
+					</option>
 				</select>
 			</label>
 			<label className="context-field">
-				<span>Kural anahtarı</span>
-				<input
-					autoComplete="off"
-					maxLength={128}
-					onChange={(event) => onChange({ ruleId: event.target.value })}
-					pattern="[a-z][a-z0-9._-]*"
-					placeholder="palette.character"
+				<span>Kural</span>
+				<select
+					aria-label={`Değişiklik ${index + 1} kuralı`}
+					onChange={(event) =>
+						onChange({ ruleId: event.target.value, value: "" })
+					}
 					required
 					value={change.ruleId}
-				/>
+				>
+					<option disabled value="">
+						Kural seçin
+					</option>
+					{operationRules.map((rule) => (
+						<option key={rule.id} value={rule.id}>
+							{rule.label}
+						</option>
+					))}
+				</select>
 				<span className="field-hint">
 					{change.operation === "add"
-						? "Bu kimlik sonraki sürümlerde de aynı kuralı tanımlar."
-						: `Bağlam Sürümü ${baseRevisionNumber} içinde bu kimlikte bir kural bulunmalıdır.`}
+						? "Yalnızca henüz bu sürümde bulunmayan yaygın kurallar eklenebilir."
+						: `Bağlam Sürümü ${baseRevision.revisionNumber} içindeki bir kural seçilir.`}
 				</span>
 			</label>
 			{change.operation === "remove" ? (
@@ -370,24 +438,7 @@ function RuleDraftCard({
 				</p>
 			) : (
 				<div className="field-pair">
-					<label className="context-field">
-						<span>Değer türü</span>
-						<select
-							aria-label={`Değişiklik ${index + 1} değer türü`}
-							onChange={(event) =>
-								onChange({
-									valueType: event.target.value as ValueType,
-									value: "",
-								})
-							}
-							value={change.valueType}
-						>
-							<option value="text">Metin</option>
-							<option value="number">Sayı</option>
-							<option value="boolean">Evet / Hayır</option>
-							<option value="text_list">Metin listesi</option>
-						</select>
-					</label>
+					<p className="field-hint">Değer türü: {valueTypeLabel(valueType)}</p>
 					<RuleValueField change={change} index={index} onChange={onChange} />
 				</div>
 			)}
@@ -452,29 +503,32 @@ function RuleValueField({ change, index, onChange }: RuleValueFieldProps) {
 		<div className="context-field">
 			<label htmlFor={inputId}>Kural değeri</label>
 			<RuleValueControl
-				change={change}
 				id={inputId}
 				index={index}
 				onChange={(value) => onChange({ value })}
+				value={change.value}
+				valueType={structuredValueType(change.ruleId)}
 			/>
 		</div>
 	);
 }
 
 interface RuleValueControlProps {
-	change: ChangeDraft;
 	id: string;
 	index: number;
 	onChange: (value: string) => void;
+	value: string;
+	valueType: ValueType;
 }
 
 function RuleValueControl({
-	change,
 	id,
 	index,
 	onChange,
+	value,
+	valueType,
 }: RuleValueControlProps) {
-	if (change.valueType === "text_list") {
+	if (valueType === "text_list") {
 		return (
 			<textarea
 				aria-label={`Değişiklik ${index + 1} kural değeri`}
@@ -483,39 +537,23 @@ function RuleValueControl({
 				placeholder="Her satıra bir değer yazın"
 				required
 				rows={2}
-				value={change.value}
+				value={value}
 			/>
-		);
-	}
-	if (change.valueType === "boolean") {
-		return (
-			<select
-				aria-label={`Değişiklik ${index + 1} kural değeri`}
-				id={id}
-				onChange={(event) => onChange(event.target.value)}
-				required
-				value={change.value}
-			>
-				<option disabled value="">
-					Seçin
-				</option>
-				<option value="true">Evet</option>
-				<option value="false">Hayır</option>
-			</select>
 		);
 	}
 	return (
 		<input
 			aria-label={`Değişiklik ${index + 1} kural değeri`}
 			id={id}
-			max={change.valueType === "number" ? "1000000000" : undefined}
-			maxLength={change.valueType === "text" ? 2000 : undefined}
-			min={change.valueType === "number" ? "-1000000000" : undefined}
+			max={valueType === "number" ? "1000000000" : undefined}
+			maxLength={valueType === "text" ? 2000 : undefined}
+			min={valueType === "number" ? "-1000000000" : undefined}
 			onChange={(event) => onChange(event.target.value)}
-			placeholder={change.valueType === "number" ? "12" : "Karar verilen değer"}
+			placeholder={valueType === "number" ? "12" : "Karar verilen değer"}
 			required
-			type={change.valueType === "number" ? "number" : "text"}
-			value={change.value}
+			step={valueType === "number" ? "any" : undefined}
+			type={valueType === "number" ? "number" : "text"}
+			value={value}
 		/>
 	);
 }
@@ -606,6 +644,9 @@ function ProposalRecord({ proposal }: { proposal: ContextProposal }) {
 							<strong>
 								{operationLabel(change.operation)} · {change.ruleId}
 							</strong>
+							{"value" in change ? (
+								<p>Önerilen değer: {formatRuleValue(change.value)}</p>
+							) : null}
 							<p>{change.rationale}</p>
 							{withOccurrenceKeys(change.evidence, evidenceKey).map(
 								({ item: evidence, key: evidenceItemKey }) => (
@@ -639,12 +680,42 @@ function EmptyProposalLedger() {
 	);
 }
 
-function newChangeDraft(): ChangeDraft {
+function availableRules(
+	baseRevision: ContextRevision,
+	operation: ChangeDraft["operation"]
+) {
+	const existingRuleIds = new Set(baseRevision.rules.map((rule) => rule.id));
+	return STRUCTURED_CONTEXT_RULE_IDS.filter((ruleId) =>
+		operation === "add"
+			? !existingRuleIds.has(ruleId)
+			: existingRuleIds.has(ruleId)
+	).map((id) => ({ id, label: structuredRuleLabels[id] }));
+}
+
+function structuredValueType(ruleId: string): ValueType {
+	if (ruleId in STRUCTURED_CONTEXT_RULES) {
+		return STRUCTURED_CONTEXT_RULES[ruleId as StructuredContextRuleId]
+			.valueType;
+	}
+	return "text";
+}
+
+function valueTypeLabel(valueType: ValueType) {
+	switch (valueType) {
+		case "number":
+			return "sayı";
+		case "text_list":
+			return "metin listesi";
+		default:
+			return "metin";
+	}
+}
+
+function newChangeDraft(ruleId: string): ChangeDraft {
 	return {
 		id: crypto.randomUUID(),
 		operation: "add",
-		ruleId: "",
-		valueType: "text",
+		ruleId,
 		value: "",
 		rationale: "",
 		evidenceKind: "user_decision",
@@ -670,26 +741,24 @@ function toContextRuleChange(
 	return {
 		operation: change.operation,
 		...shared,
-		value: parseRuleValue(change),
+		value: parseRuleValue(change.value, structuredValueType(change.ruleId)),
 	};
 }
 
-function parseRuleValue(change: ChangeDraft): ContextRuleValue {
-	switch (change.valueType) {
+function parseRuleValue(value: string, valueType: ValueType): ContextRuleValue {
+	switch (valueType) {
 		case "number":
-			return { type: "number", value: Number(change.value) };
-		case "boolean":
-			return { type: "boolean", value: change.value === "true" };
+			return { type: "number", value: Number(value) };
 		case "text_list":
 			return {
 				type: "text_list",
-				value: change.value
+				value: value
 					.split("\n")
 					.map((item) => item.trim())
 					.filter(Boolean),
 			};
 		default:
-			return { type: "text", value: change.value.trim() };
+			return { type: "text", value: value.trim() };
 	}
 }
 
@@ -705,6 +774,16 @@ function operationLabel(operation: ChangeDraft["operation"]) {
 
 function evidenceLabel(kind: EvidenceKind) {
 	return kind === "user_decision" ? "Kullanıcı kararı" : "Gözlenen değişiklik";
+}
+
+function formatRuleValue(value: ContextRuleValue) {
+	if (value.type === "text_list") {
+		return value.value.join(", ");
+	}
+	if (value.type === "boolean") {
+		return value.value ? "Evet" : "Hayır";
+	}
+	return String(value.value);
 }
 
 function ruleChangeKey(change: ContextRuleChange) {

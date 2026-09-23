@@ -35,7 +35,7 @@ class MemoryProjectContextStore implements ProjectContextStore {
 		input: Parameters<ProjectContextStore["createProject"]>[1]
 	) {
 		const id = crypto.randomUUID();
-		const initialContextRevision: ContextRevision = {
+		const currentContextRevision: ContextRevision = {
 			id: crypto.randomUUID(),
 			projectId: id,
 			revisionNumber: 0,
@@ -48,11 +48,11 @@ class MemoryProjectContextStore implements ProjectContextStore {
 			id,
 			name: input.name,
 			generalArtDirection: input.generalArtDirection,
-			initialContextRevision,
+			currentContextRevision,
 			createdAt: new Date().toISOString(),
 		};
 		this.projects.set(id, { ownerId: userId, value: project });
-		this.revisions.set(initialContextRevision.id, initialContextRevision);
+		this.revisions.set(currentContextRevision.id, currentContextRevision);
 		return Promise.resolve(project);
 	}
 
@@ -83,6 +83,12 @@ class MemoryProjectContextStore implements ProjectContextStore {
 
 	addRevisionForTest(revision: ContextRevision) {
 		this.revisions.set(revision.id, revision);
+		if (revision.isActive) {
+			const project = this.projects.get(revision.projectId);
+			if (project) {
+				project.value.currentContextRevision = revision;
+			}
+		}
 	}
 }
 
@@ -139,17 +145,20 @@ test("creates a project context proposal and reads the persisted record back", a
 		{ context }
 	);
 
-	expect(project.initialContextRevision.revisionNumber).toBe(0);
-	expect(project.initialContextRevision.isActive).toBe(false);
+	expect(project.currentContextRevision.revisionNumber).toBe(0);
+	expect(project.currentContextRevision.isActive).toBe(false);
 
 	const created = await call(
 		appRouter.contextProposals.create,
-		proposalInput(project.id, project.initialContextRevision.id, [
+		proposalInput(project.id, project.currentContextRevision.id, [
 			{
 				operation: "add",
-				ruleId: "palette.restriction",
+				ruleId: "palette",
 				scope: { kind: "project", id: project.id },
-				value: { type: "text", value: "Keep character palettes to 12 colors" },
+				value: {
+					type: "text_list",
+					value: ["Keep character palettes to 12 colors"],
+				},
 				rationale:
 					"The first character sheet reads more clearly with fewer colors.",
 				evidence: [
@@ -179,7 +188,7 @@ test("creates a project context proposal and reads the persisted record back", a
 		controlId: "context-proposal-form",
 		controlVersion: "1.0.0",
 	});
-	expect(created.baseContextRevisionId).toBe(project.initialContextRevision.id);
+	expect(created.baseContextRevisionId).toBe(project.currentContextRevision.id);
 	expect(created.ruleContractVersion).toBe("context-rule/1.0.0");
 	expect(created.validation).toMatchObject({ isValid: true, conflicts: [] });
 	expect(created.activationAllowed).toBe(false);
@@ -201,12 +210,12 @@ test("records add, replace, and remove proposals with evidence against the pinne
 		{ context }
 	);
 	const baseRevision: ContextRevision = {
-		...project.initialContextRevision,
+		...project.currentContextRevision,
 		id: crypto.randomUUID(),
 		revisionNumber: 4,
 		rules: [
-			projectScopedRule(project.id, "outline.width", "one pixel"),
-			projectScopedRule(project.id, "palette.shadow", "blue-violet"),
+			projectScopedRule(project.id, "outline", "one pixel"),
+			projectScopedRule(project.id, "palette", "blue-violet"),
 		],
 	};
 	store.addRevisionForTest(baseRevision);
@@ -216,7 +225,7 @@ test("records add, replace, and remove proposals with evidence against the pinne
 		proposalInput(project.id, baseRevision.id, [
 			{
 				operation: "add",
-				ruleId: "material.stone",
+				ruleId: "material.language",
 				scope: { kind: "project", id: project.id },
 				value: { type: "text", value: "Use broad, chipped stone blocks" },
 				rationale:
@@ -230,9 +239,9 @@ test("records add, replace, and remove proposals with evidence against the pinne
 			},
 			{
 				operation: "replace",
-				ruleId: "outline.width",
+				ruleId: "outline",
 				scope: { kind: "project", id: project.id },
-				value: { type: "number", value: 2 },
+				value: { type: "text", value: "two pixels" },
 				rationale: "The current sprite scale needs a heavier outline.",
 				evidence: [
 					{ kind: "user_decision", statement: "Use a two-pixel outline." },
@@ -240,7 +249,7 @@ test("records add, replace, and remove proposals with evidence against the pinne
 			},
 			{
 				operation: "remove",
-				ruleId: "palette.shadow",
+				ruleId: "palette",
 				scope: { kind: "project", id: project.id },
 				rationale: "The palette decision is no longer part of the style.",
 				evidence: [
@@ -276,9 +285,9 @@ test("stores conflicts as validation evidence without activating the proposal", 
 	);
 	const change = {
 		operation: "add" as const,
-		ruleId: "palette.accent",
+		ruleId: "motif.allowed",
 		scope: { kind: "project" as const, id: project.id },
-		value: { type: "text" as const, value: "Use amber" },
+		value: { type: "text_list" as const, value: ["Use amber"] },
 		rationale: "Record the accent color decision.",
 		evidence: [
 			{ kind: "user_decision" as const, statement: "Use amber for accents." },
@@ -286,12 +295,12 @@ test("stores conflicts as validation evidence without activating the proposal", 
 	};
 	const created = await call(
 		appRouter.contextProposals.create,
-		proposalInput(project.id, project.initialContextRevision.id, [
+		proposalInput(project.id, project.currentContextRevision.id, [
 			change,
 			change,
 			{
 				operation: "replace",
-				ruleId: "palette.missing.replace",
+				ruleId: "shading",
 				scope: { kind: "project", id: project.id },
 				value: { type: "text", value: "Use blue" },
 				rationale: "Replace a palette rule that is not in the base revision.",
@@ -304,7 +313,7 @@ test("stores conflicts as validation evidence without activating the proposal", 
 			},
 			{
 				operation: "remove",
-				ruleId: "palette.missing.remove",
+				ruleId: "detail.density",
 				scope: { kind: "project", id: project.id },
 				rationale: "Remove a palette rule that is not in the base revision.",
 				evidence: [
@@ -336,10 +345,10 @@ test("rejects missing sessions, foreign project data, and changes without eviden
 		},
 		{ context: ownerContext }
 	);
-	const input = proposalInput(project.id, project.initialContextRevision.id, [
+	const input = proposalInput(project.id, project.currentContextRevision.id, [
 		{
 			operation: "add",
-			ruleId: "shape.silhouette",
+			ruleId: "perspective",
 			scope: { kind: "project", id: project.id },
 			value: { type: "text", value: "Readable at 32 pixels" },
 			rationale: "Improve clarity.",
@@ -377,6 +386,81 @@ test("rejects missing sessions, foreign project data, and changes without eviden
 				source: { kind: "agent", agentId: "impostor" },
 			} as unknown as ContextProposalInput,
 			{ context: ownerContext }
+		)
+	).rejects.toMatchObject({ code: "BAD_REQUEST" });
+});
+
+test("structured controls reject unsupported rule keys and value types", async () => {
+	const store = new MemoryProjectContextStore();
+	const context = makeContext(store, "user-1");
+	const project = await call(
+		appRouter.projectContexts.create,
+		{
+			name: "Juniper Station",
+			generalArtDirection: "Clean silhouettes with restrained colors",
+		},
+		{ context }
+	);
+	const baseInput = {
+		operation: "add" as const,
+		ruleId: "custom.unbounded-rule",
+		scope: { kind: "project" as const, id: project.id },
+		value: { type: "text" as const, value: "Anything the user enters" },
+		rationale: "Record the requested project rule.",
+		evidence: [{ kind: "user_decision" as const, statement: "Use this rule." }],
+	};
+
+	await expect(
+		call(
+			appRouter.contextProposals.create,
+			proposalInput(project.id, project.currentContextRevision.id, [baseInput]),
+			{ context }
+		)
+	).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+	await expect(
+		call(
+			appRouter.contextProposals.create,
+			proposalInput(project.id, project.currentContextRevision.id, [
+				{
+					...baseInput,
+					ruleId: "outline.width",
+					value: { type: "text", value: "one pixel" },
+				},
+			]),
+			{ context }
+		)
+	).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+	const fractionalOutline = await call(
+		appRouter.contextProposals.create,
+		proposalInput(project.id, project.currentContextRevision.id, [
+			{
+				...baseInput,
+				ruleId: "outline.width",
+				value: { type: "number", value: 1.5 },
+			},
+		]),
+		{ context }
+	);
+	expect(fractionalOutline.validation.isValid).toBe(true);
+	expect(fractionalOutline.changes[0]).toMatchObject({
+		ruleId: "outline.width",
+		value: { type: "number", value: 1.5 },
+	});
+
+	await expect(
+		call(
+			appRouter.contextProposals.create,
+			proposalInput(project.id, project.currentContextRevision.id, [
+				{
+					...baseInput,
+					ruleId: "outline.width",
+					value: { type: "number", value: 2 },
+					scope: { kind: "project", id: crypto.randomUUID() },
+				},
+			]),
+			{ context }
 		)
 	).rejects.toMatchObject({ code: "BAD_REQUEST" });
 });

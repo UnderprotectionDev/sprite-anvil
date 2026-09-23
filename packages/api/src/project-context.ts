@@ -10,6 +10,40 @@ const identifierSchema = z
 		"Use lowercase letters, numbers, dots, underscores, or hyphens."
 	);
 
+export const STRUCTURED_CONTEXT_RULE_IDS = [
+	"perspective",
+	"camera.approach",
+	"palette",
+	"outline",
+	"outline.width",
+	"shading",
+	"light.direction",
+	"detail.density",
+	"material.language",
+	"motif.allowed",
+	"motif.avoided",
+] as const;
+
+export const STRUCTURED_CONTEXT_RULES = {
+	perspective: { valueType: "text" },
+	"camera.approach": { valueType: "text" },
+	palette: { valueType: "text_list" },
+	outline: { valueType: "text" },
+	"outline.width": { valueType: "number" },
+	shading: { valueType: "text" },
+	"light.direction": { valueType: "text" },
+	"detail.density": { valueType: "text" },
+	"material.language": { valueType: "text" },
+	"motif.allowed": { valueType: "text_list" },
+	"motif.avoided": { valueType: "text_list" },
+} as const satisfies Record<
+	(typeof STRUCTURED_CONTEXT_RULE_IDS)[number],
+	{ valueType: "text" | "number" | "boolean" | "text_list" }
+>;
+
+export type StructuredContextRuleId =
+	(typeof STRUCTURED_CONTEXT_RULE_IDS)[number];
+
 const contextScopeSchema = z.discriminatedUnion("kind", [
 	z.object({ kind: z.literal("project"), id: z.string().uuid() }).strict(),
 	z
@@ -87,7 +121,7 @@ export const projectContextSchema = z
 		id: z.string().uuid(),
 		name: z.string().trim().min(1).max(120),
 		generalArtDirection: z.string().trim().min(1).max(1000),
-		initialContextRevision: contextRevisionSchema,
+		currentContextRevision: contextRevisionSchema,
 		createdAt: z.string().datetime(),
 	})
 	.strict();
@@ -138,7 +172,45 @@ export const contextProposalInputSchema = z
 		summary: z.string().trim().min(1).max(240),
 		changes: z.array(contextRuleChangeSchema).min(1).max(50),
 	})
-	.strict();
+	.strict()
+	.superRefine((input, context) => {
+		input.changes.forEach((change, index) => {
+			const rule =
+				STRUCTURED_CONTEXT_RULES[change.ruleId as StructuredContextRuleId];
+			if (!rule) {
+				context.addIssue({
+					code: "custom",
+					path: ["changes", index, "ruleId"],
+					message:
+						"Structured controls can only propose common Project Context rules.",
+				});
+				return;
+			}
+
+			if (
+				change.scope.kind !== "project" ||
+				change.scope.id !== input.projectId
+			) {
+				context.addIssue({
+					code: "custom",
+					path: ["changes", index, "scope"],
+					message:
+						"Structured controls can only propose rules for this Project Context.",
+				});
+			}
+
+			if (
+				change.operation !== "remove" &&
+				change.value.type !== rule.valueType
+			) {
+				context.addIssue({
+					code: "custom",
+					path: ["changes", index, "value", "type"],
+					message: `The ${change.ruleId} rule requires a ${rule.valueType} value.`,
+				});
+			}
+		});
+	});
 
 export const contextProposalConflictSchema = z
 	.object({

@@ -15,7 +15,7 @@ import {
 	contextRevisions,
 	projects,
 } from "@sprite-anvil/db/schema/project-context";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, or, sql } from "drizzle-orm";
 
 function toISOString(value: Date | string) {
 	return value instanceof Date
@@ -58,13 +58,28 @@ export function createProjectContextStore(db: Database): ProjectContextStore {
 					contextRevisions,
 					and(
 						eq(contextRevisions.projectId, projects.id),
-						eq(contextRevisions.revisionNumber, 0)
+						or(
+							eq(contextRevisions.state, "active"),
+							eq(contextRevisions.revisionNumber, 0)
+						)
 					)
 				)
 				.where(eq(projects.ownerUserId, userId))
-				.orderBy(asc(projects.createdAt));
+				.orderBy(
+					asc(projects.createdAt),
+					desc(
+						sql`case when ${contextRevisions.state} = 'active' then 1 else 0 end`
+					),
+					desc(contextRevisions.revisionNumber)
+				);
+			const currentRows = new Map<string, (typeof rows)[number]>();
+			for (const row of rows) {
+				if (!currentRows.has(row.projectId)) {
+					currentRows.set(row.projectId, row);
+				}
+			}
 
-			return rows.map((row) => {
+			return [...currentRows.values()].map((row) => {
 				if (
 					!(
 						row.revisionId &&
@@ -83,7 +98,7 @@ export function createProjectContextStore(db: Database): ProjectContextStore {
 					name: row.name,
 					generalArtDirection: row.generalArtDirection,
 					createdAt: toISOString(row.projectCreatedAt),
-					initialContextRevision: contextRevisionSchema.parse({
+					currentContextRevision: contextRevisionSchema.parse({
 						id: row.revisionId,
 						projectId: row.projectId,
 						revisionNumber: row.revisionNumber,
@@ -139,7 +154,7 @@ export function createProjectContextStore(db: Database): ProjectContextStore {
 				name: project.name,
 				generalArtDirection: project.generalArtDirection,
 				createdAt: toISOString(project.createdAt),
-				initialContextRevision: mapContextRevision(revision),
+				currentContextRevision: mapContextRevision(revision),
 			});
 		},
 
