@@ -2,7 +2,7 @@
 
 Arayüz ekranları ve bileşen durumları aile stili, doğal ölçü, dokuz parçalı germe, metin güvenli alanı ve hedef boyut davranışıyla sınanır.
 
-Arayüz ekranı ile panel ve düğme gibi türev bileşenler kendi Görsel Dünyasında bir aile olur. Durum kimliği ve germe alanı kesin metadata olarak taşınır.
+Arayüz ekranı ile panel ve düğme gibi Türetilmiş Varlık niteliğindeki bileşenler kendi Görsel Dünyasında bir aile olur. Durum kimliği ve germe alanı kesin metadata olarak taşınır.
 
 ## Alt Fazlar
 

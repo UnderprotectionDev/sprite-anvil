@@ -10,17 +10,17 @@ Her Varlık Ailesi tek Görsel Dünya, kullanım bağlamı ve Ana Tasarım soyun
 
 Sprite, portre ve ikon gibi temsiller ortak kimliğe bağlanırken aile sınırları korunur.
 
-Aynı konunun farklı Görsel Dünya veya kullanım bağlamındaki temsili yeni aile olur; yön, animasyon, durum ve türev ilişkileri yalnız doğru aile içinde kurulur.
+Aynı konunun farklı Görsel Dünya veya kullanım bağlamındaki temsili yeni aile olur; yön, animasyon, durum ve Türetilmiş Varlık ilişkileri yalnız doğru aile içinde kurulur.
 
-### Ana Tasarımı Seçme ve Türevleri Bağlama
+### Ana Tasarımı Seçme ve Türetilmiş Varlıkları Bağlama
 
-Kullanıcının seçtiği onaylı Ana Tasarım her türevin kimlik kaynağı olarak açıkça kaydedilir.
+Kullanıcının seçtiği onaylı Ana Tasarım her Türetilmiş Varlığın kimlik kaynağı olarak açıkça kaydedilir.
 
-Ana Tasarım onaylanmadan keşif Aday olarak kalabilir; türev hangi kesin Ana Tasarımdan geldiğini saklar ve kullanıcı kararı olmadan üretim için onaylı sayılmaz.
+Ana Tasarım onaylanmadan keşif Aday olarak kalabilir; Türetilmiş Varlık hangi kesin Ana Tasarımdan geldiğini saklar ve kullanıcı kararı olmadan üretim için onaylı sayılmaz.
 
 ## Tamamlanma Ölçütleri
 
-- Aynı konu için farklı dünyalarda ayrı aile ve Ana Tasarım seçilir; her türevin kesin tasarım soyu bulunur.
+- Aynı konu için farklı dünyalarda ayrı aile ve Ana Tasarım seçilir; her Türetilmiş Varlığın kesin tasarım soyu bulunur.
 
 ## Kapsam Sınırları
 

@@ -1,0 +1,86 @@
+# 02 — Desteklenen platform kabulünü yayımlama
+
+**What to build:** Kullanıcı **Tam platform kabulünü yayımlama** adımını baştan sona tamamlar: Aşama 4/5 kapsamındaki tüm RAS/YAS senaryoları, erişilebilir temel akış ve Desteklenen Platformlar Tablosundaki her birleşim web ve masaüstünde eşdeğer sonuç verir; yayımlanmış süre, bellek ve sözleşme sınırlarını geçer. OV-08–OV-11 kapanmadan ilgili silme, arşiv boyutu, operasyonel kapasite veya platform desteği kabul edilmiş sayılmaz. Ölçülmemiş birleşim destekleniyor diye ilan edilmez; destek kaldırma öncesi duyuru ve veri dışa aktarma yolu verilir.
+
+**Blocked by:**
+
+- [01-project-privacy / 01 — Özel proje içeriği erişimini koruma](../../01-project-privacy/issues/01-project-privacy-01.md)
+- [01-project-privacy / 02 — Teslim çıktılarında sırları dışlama](../../01-project-privacy/issues/02-project-privacy-02.md)
+- [02-tool-permissions / 01 — Dış araç erişimini amaç ve kapsamla yönetme](../../02-tool-permissions/issues/01-tool-permissions-01.md)
+- [02-tool-permissions / 02 — Harici Görsel Analizine ayrı izin verme](../../02-tool-permissions/issues/02-tool-permissions-02.md)
+- [04-visual-worlds / 01 — Görsel Dünyaları ve Temaları Tanımlama](../../04-visual-worlds/issues/01-visual-worlds-01.md)
+- [06-asset-records / 01 — Varlık Kaydı Oluşturma ve İzleme](../../06-asset-records/issues/01-asset-records-01.md)
+- [06-asset-records / 02 — Bağımsız Görsel Ölçüleri Kaydetme](../../06-asset-records/issues/02-asset-records-02.md)
+- [06-asset-records / 03 — Kaydı Arşivleme ve Geri Alma](../../06-asset-records/issues/03-asset-records-03.md)
+- [07-asset-discovery / 01 — Varlıkları Arama ve Filtreleme](../../07-asset-discovery/issues/01-asset-discovery-01.md)
+- [08-collections / 01 — Koleksiyonları Düzenleme](../../08-collections/issues/01-collections-01.md)
+- [09-immutable-versioning / 02 — Yeni Birleşik Sürümü kesin birimlerle kurma](../../09-immutable-versioning/issues/02-immutable-versioning-02.md)
+- [11-production-package / 02 — Çatışan aktarım kuralıyla paketi durdurma](../../11-production-package/issues/02-production-package-02.md)
+- [12-import-mapping / 01 — İçe Aktarma Gelen Kutusuna Alma](../../12-import-mapping/issues/01-import-mapping-01.md)
+- [12-import-mapping / 02 — Metadata Eşleme Önerisi Hazırlama](../../12-import-mapping/issues/02-import-mapping-02.md)
+- [12-import-mapping / 03 — Alan Bazında Eşleme Kesinleştirme](../../12-import-mapping/issues/03-import-mapping-03.md)
+- [13-production-provenance / 01 — Elle İçe Aktarma Kanıtı](../../13-production-provenance/issues/01-production-provenance-01.md)
+- [13-production-provenance / 02 — Sağlayıcı Üretim Kaydı](../../13-production-provenance/issues/02-production-provenance-02.md)
+- [13-production-provenance / 03 — Geçmiş Varlık Beyanı](../../13-production-provenance/issues/03-production-provenance-03.md)
+- [13-production-provenance / 04 — Harici Çalışma Dosyasını Kanıtla Bağlama](../../13-production-provenance/issues/04-production-provenance-04.md)
+- [16-quality-evidence / 03 — Sürüme Özgü Kalite İstisnası Verme](../../16-quality-evidence/issues/03-quality-evidence-03.md)
+- [17-version-review / 01 — Kesin sürüme İnceleme Kaydı yazma](../../17-version-review/issues/01-version-review-01.md)
+- [17-version-review / 02 — Toplu incelemede kararları ayırma](../../17-version-review/issues/02-version-review-02.md)
+- [18-dependency-revalidation / 01 — Değişiklik Etkisini Belirleme](../../18-dependency-revalidation/issues/01-dependency-revalidation-01.md)
+- [18-dependency-revalidation / 02 — Güncel Türetilmiş Varlığı Yeniden İnceleme](../../18-dependency-revalidation/issues/02-dependency-revalidation-02.md)
+- [18-dependency-revalidation / 03 — Tarihsel Bileşimi Sabitleme](../../18-dependency-revalidation/issues/03-dependency-revalidation-03.md)
+- [19-gameplay-metadata / 01 — Oyun İçi Bilgileri Yazma ve Eşleme](../../19-gameplay-metadata/issues/01-gameplay-metadata-01.md)
+- [19-gameplay-metadata / 02 — Bilgileri İnceleme ve Koruma](../../19-gameplay-metadata/issues/02-gameplay-metadata-02.md)
+- [20-character-animation-profile / 01 — Kimlik ve Yön Tutarlılığını İnceleme](../../20-character-animation-profile/issues/01-character-animation-profile-01.md)
+- [20-character-animation-profile / 02 — Animasyon Zamanlamasını ve Geçişlerini İnceleme](../../20-character-animation-profile/issues/02-character-animation-profile-02.md)
+- [20-character-animation-profile / 03 — Animasyon Metadata Bütünlüğünü Doğrulama](../../20-character-animation-profile/issues/03-character-animation-profile-03.md)
+- [21-object-equipment-profile / 01 — Durum ve Yön Ailesini Karşılaştırma](../../21-object-equipment-profile/issues/01-object-equipment-profile-01.md)
+- [21-object-equipment-profile / 02 — Yerleşim ve Kullanım Noktalarını Sınama](../../21-object-equipment-profile/issues/02-object-equipment-profile-02.md)
+- [22-icon-profile / 01 — İkonu Kullanım Boyutunda Önizleme](../../22-icon-profile/issues/01-icon-profile-01.md)
+- [22-icon-profile / 02 — İkon Ailesi Tutarlılığını İnceleme](../../22-icon-profile/issues/02-icon-profile-02.md)
+- [23-vfx-profile / 01 — Efekt Görünümünü ve Taşmasını Sınama](../../23-vfx-profile/issues/01-vfx-profile-01.md)
+- [23-vfx-profile / 02 — Efekti Sahibi ve Olayıyla Eşzamanlama](../../23-vfx-profile/issues/02-vfx-profile-02.md)
+- [24-tileset-texture-profile / 01 — Karo Komşuluklarını Test Haritasında Sınama](../../24-tileset-texture-profile/issues/01-tileset-texture-profile-01.md)
+- [24-tileset-texture-profile / 02 — Kesintisiz Doku Tekrarını İnceleme](../../24-tileset-texture-profile/issues/02-tileset-texture-profile-02.md)
+- [25-background-parallax-profile / 01 — Katman Düzenini ve Güvenli Alanı Kurma](../../25-background-parallax-profile/issues/01-background-parallax-profile-01.md)
+- [25-background-parallax-profile / 02 — Gerçek Kaydırma Davranışını Sınama](../../25-background-parallax-profile/issues/02-background-parallax-profile-02.md)
+- [26-ui-profile / 01 — Ekran ve Bileşen Durumlarını Karşılaştırma](../../26-ui-profile/issues/01-ui-profile-01.md)
+- [26-ui-profile / 02 — Germe ve Metin Alanını Sınama](../../26-ui-profile/issues/02-ui-profile-02.md)
+- [27-portrait-marketing-profile / 01 — Portre Kimliğini ve Kırpmayı İnceleme](../../27-portrait-marketing-profile/issues/01-portrait-marketing-profile-01.md)
+- [27-portrait-marketing-profile / 02 — Logo ve Tanıtım Kullanımlarını Sınama](../../27-portrait-marketing-profile/issues/02-portrait-marketing-profile-02.md)
+- [28-scene-qa / 01 — Sahne Kalite Kontrolü Yapma](../../28-scene-qa/issues/01-scene-qa-01.md)
+- [29-pixel-editor / 01 — Deterministik Piksel ve Palet Düzeltme](../../29-pixel-editor/issues/01-pixel-editor-01.md)
+- [29-pixel-editor / 02 — Kare ve Görsel Sayfası Yapısını Düzenleme](../../29-pixel-editor/issues/02-pixel-editor-02.md)
+- [29-pixel-editor / 03 — Üretimle Seçici Düzeltme Hazırlama](../../29-pixel-editor/issues/03-pixel-editor-03.md)
+- [30-production-experiments / 01 — Denemeleri Karşılaştırma ve Sonuçlandırma](../../30-production-experiments/issues/01-production-experiments-01.md)
+- [30-production-experiments / 02 — Deney Öğrenimini Bağlam Önerisine Dönüştürme](../../30-production-experiments/issues/02-production-experiments-02.md)
+- [31-production-recipes / 01 — Üretim Tarifi Oluşturma](../../31-production-recipes/issues/01-production-recipes-01.md)
+- [31-production-recipes / 02 — Tarifi Kopyalama ve Kullanma](../../31-production-recipes/issues/02-production-recipes-02.md)
+- [32-offline-staging / 02 — Çakışma Kaydını Çözme](../../32-offline-staging/issues/02-offline-staging-02.md)
+- [33-atomic-records / 02 — Yinelenen isteği aynı sonuca bağlama](../../33-atomic-records/issues/02-atomic-records-02.md)
+- [35-delivery-planning / 02 — Kanıt politikasıyla hedefi yeniden sürümleme](../../35-delivery-planning/issues/02-delivery-planning-02.md)
+- [37-export-bundles / 03 — Paketi Çevrimdışı Doğrulama](../../37-export-bundles/issues/03-export-bundles-03.md)
+- [38-godot-output / 01 — Godot Motor Çıktısı Üretme](../../38-godot-output/issues/01-godot-output-01.md)
+- [39-runtime-validation / 02 — Sonucu ve Başarısızlık Kaynağını Kesinleştirme](../../39-runtime-validation/issues/02-runtime-validation-02.md)
+- [40-delivery-refresh / 02 — Ayrışmayı Çözerek Yenileme](../../40-delivery-refresh/issues/02-delivery-refresh-02.md)
+- [41-delivery-fulfilment / 02 — Değişmez Teslimat Gerçekleşmesi oluşturma](../../41-delivery-fulfilment/issues/02-delivery-fulfilment-02.md)
+- [42-delivery-diff / 01 — Teslimat Gerçekleşmelerini Karşılaştırma](../../42-delivery-diff/issues/01-delivery-diff-01.md)
+- [43-historical-rights-risk / 01 — Tarihsel Teslimat Hak Riskini Bildirme](../../43-historical-rights-risk/issues/01-historical-rights-risk-01.md)
+- [44-project-archive / 04 — Bağımsız Projeye Geri Yükleme](../../44-project-archive/issues/04-project-archive-04.md)
+- [45-permanent-erasure / 02 — Silme İşlemini Tamamlama](../../45-permanent-erasure/issues/02-permanent-erasure-02.md)
+- [46-product-measurement / 01 — Ölçüm Tanımını Etkinleştirme](../../46-product-measurement/issues/01-product-measurement-01.md)
+- [46-product-measurement / 02 — Gizlilik Korumalı Olay Toplama](../../46-product-measurement/issues/02-product-measurement-02.md)
+- [46-product-measurement / 03 — Ürün Ölçülerini Hesaplama ve Gösterme](../../46-product-measurement/issues/03-product-measurement-03.md)
+- [47-accessible-workflow / 01 — Karar ve Durumları Erişilebilir Sunma](../../47-accessible-workflow/issues/01-accessible-workflow-01.md)
+- [47-accessible-workflow / 02 — Görsel Çalışma Araçlarına Eşdeğer Yol Sağlama](../../47-accessible-workflow/issues/02-accessible-workflow-02.md)
+- [48-platform-equivalence / 01 — Çekirdek Üretim Akışı eşdeğerliğini kanıtlama](01-platform-equivalence-01.md)
+
+**Status:** ready-for-agent
+
+- [ ] RAS-01–RAS-08 ve YAS-01–YAS-04 senaryolarının her biri web ve masaüstünde karşılaştırılır; yetkili kayıt, sabitlenmiş sürüm, kalite kanıtı, paket, kilit ve ayrışma sonuçlarının anlamı eşdeğer olur.
+- [ ] Desteklenen birleşimlerde OPS-04'ün erişilebilir temel akış kabulü de geçer; ekran adımları aynı olmak zorunda değildir.
+- [ ] OV-08, OV-09, OV-10 ve OV-11 için yayımlanmış parametre ve kabul kanıtı bulunmadan silme, arşiv boyutu, operasyonel kapasite/performans veya platform desteği kabulü kapatılmaz. Parametreler gelene kadar fixture ve geliştirme çalışması varsayımsız sürdürülebilir.
+- [ ] Desteklenen Platformlar Tablosundaki her birleşim ilgili kabul senaryolarını ve yayımlanmış süre, bellek ve sözleşme sınırlarını geçer. Ölçülmemiş birleşim destekleniyor diye ilan edilmez; destek kaldırma öncesi duyuru ve veri dışa aktarma yolu verilir.
+- [ ] Kapsam sınırı korunur: Telefon/tablet veya tam çevrimdışı çalışma desteği vaat edilmez.
+
+Kaynak spec: [spec.md](../spec.md).

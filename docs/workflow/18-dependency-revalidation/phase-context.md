@@ -1,6 +1,6 @@
 # Bağımlılık Etkisini ve Bileşim Seçimini Yönetme
 
-Kullanıcı bağlam veya Ana Tasarım değişikliğinin etkilediği sürümleri görür; güncel türevleri yeniden inceler veya kesin geçmiş bileşimi açıkça seçer.
+Kullanıcı bağlam veya Ana Tasarım değişikliğinin etkilediği sürümleri görür; güncel Türetilmiş Varlıkları yeniden inceler veya kesin geçmiş bileşimi açıkça seçer.
 
 Bağımlılık bağlantıları değişiklik türüyle eşleşir; geçmiş onay ve bileşimler değişmez.
 
@@ -8,11 +8,11 @@ Bağımlılık bağlantıları değişiklik türüyle eşleşir; geçmiş onay v
 
 ### Değişiklik Etkisini Belirleme
 
-Doğrudan ve dolaylı türevler ile eksik tanımlanmış bağlantılar Yeniden Doğrulama Gerekli olarak görünür.
+Doğrudan ve dolaylı Türetilmiş Varlıklar ile eksik tanımlanmış bağlantılar Yeniden Doğrulama Gerekli olarak görünür.
 
 Yalnız değişiklik tanımıyla eşleşen açık bağımlılıklar etkilenir; eksik bağımlılık güvenli tarafta işaretlenir. Bu durum Kalite Kontrol Durumundan ayrıdır.
 
-### Güncel Türevi Yeniden İnceleme
+### Güncel Türetilmiş Varlığı Yeniden İnceleme
 
 Kullanıcı etkilenen sürümü seçili güncel bağlam ve Ana Tasarım için yeniden inceler.
 
@@ -26,7 +26,7 @@ Uyumluluk raporu tarihsel seçimi ve çözülememiş engelleri gösterir. Bu yol
 
 ## Tamamlanma Ölçütleri
 
-- Etkilenen türevler güncel kullanım için yeni kanıt ister, etkilenmeyenler korunur; tarihsel bileşim yalnız bütün bağımlılıkları ve kalite kanıtı sabitlenince paketlenir.
+- Etkilenen Türetilmiş Varlıklar güncel kullanım için yeni kanıt ister, etkilenmeyenler korunur; tarihsel bileşim yalnız bütün bağımlılıkları ve kalite kanıtı sabitlenince paketlenir.
 
 ## Kapsam Sınırları
 

@@ -2,7 +2,9 @@
 
 Kullanıcı bir varlığı silmeden önce tüm yönetilen kopyaları, değişmez kapsayıcıları ve tarihsel etkileri görür; onaylanan kesin kapsam izlenebilir biçimde temizlenir.
 
-Kullanıcı silme öncesi yönetilen her kopyanın ve tarihsel bağlantının etkisini görür. Seçilen kapsam uzun iş olarak izlenir.
+Kullanıcı silme öncesi yönetilen her kopyanın ve tarihsel bağlantının etkisini görür. Seçilen kapsam uzun iş olarak izlenir; etkileşimli istekte güvenle bitmeyen işlem 34. fazdaki yetkili işlem kaydı ve dayanıklı yürütümü kullanır.
+
+Güvenle iptal edilebilen iş geri döndürülemez sınırdan önce iptal isteğini destekler; OV-08 kapanmadan silme kabulü tamamlanmış sayılmaz.
 
 ## Alt Fazlar
 

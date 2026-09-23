@@ -16,7 +16,7 @@ Referans veya sonuca bağlı kaynak, beyan edilen hak durumu, kısıt ve belirsi
 
 Sonucun kendi kaydı ile Ana Tasarım, referans ve bağımlı kaynak kayıtları ayrı gösterilir; haklar otomatik aktarılmaz.
 
-Sonucun kendi Hak Kaydı, Ana Tasarımın, referansların ve bağımlı kaynakların ayrı kayıtlarıyla birlikte izlenir. Bir kaynaktaki beyan türevine otomatik hak aktarmadığı için eksik ya da Kısıtlı durum hedef politikasında görünür olur.
+Sonucun kendi Hak Kaydı, Ana Tasarımın, referansların ve bağımlı kaynakların ayrı kayıtlarıyla birlikte izlenir. Bir kaynaktaki beyan Türetilmiş Varlığa otomatik hak aktarmadığı için eksik ya da Kısıtlı durum hedef politikasında görünür olur.
 
 ## Tamamlanma Ölçütleri
 
@@ -24,4 +24,4 @@ Sonucun kendi Hak Kaydı, Ana Tasarımın, referansların ve bağımlı kaynakla
 
 ## Kapsam Sınırları
 
-- Uygulama lisans geçerliliği hakkında hukuki karar vermez ve kaynağın beyanını türev görsele otomatik aktarmaz.
+- Uygulama lisans geçerliliği hakkında hukuki karar vermez ve kaynağın beyanını Türetilmiş Varlığa otomatik aktarmaz.
