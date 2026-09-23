@@ -38,7 +38,7 @@ Tamamlanma kanıtı: Yetkisiz proje erişimi reddedilir; korunan içerik ve sır
 
 - **Birincil test seam’i:** Hono istek sınırında oturum, proje sahipliği ve nesne erişimini birlikte sınama; eksik, bozuk, süresi dolmuş ve başka kullanıcıya ait erişimlerin hiçbir depolama yan etkisi üretmediğini doğrulama.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.
-- Bu issue diliminin çalıştırılabilir kanıtı: Hono proje/varlık yanıtlarının sahiplik ve secret-safe serileştirme sınırı, RPC kullanıcı yanıtının allowlist’i ve Queue v2 mesajının katı sözleşmesi; başarısız yetkilendirme ve depolama yan etkileri de sunucu testlerinde doğrulanır.
+- Bu issue diliminin çalıştırılabilir kanıtı: Hono Proje ve 2D Görsel Varlık yanıtlarının sahiplik ve sır güvenli serileştirme sınırı, RPC kullanıcı yanıtının allowlist’i ve Queue v2 mesajının katı sözleşmesi; başarısız yetkilendirme ve depolama yan etkileri de sunucu testlerinde doğrulanır.
 - Proje Arşivi, Dışa Aktarım Paketi, telemetri ve kaynak geçmişi üreticileri repoda bulunmuyor. Bu dilim onları oluşturmaz ve bu çıktılarda sırların dışlandığını teslim iddiası olarak sunmaz.
 - YAS-04 çevrimdışı çakışma ve kalıcı silmeyi sınar; secret-safe serileştirmenin kabul kanıtı değildir. Dış araca amaç ve kapsamla erişim verme ayrı kullanıcı izin akışıdır; erişim kararı sanatsal onay yetkisi oluşturmaz.
 
