@@ -1,7 +1,7 @@
 import type { Session } from "@sprite-anvil/auth";
-import type { Database } from "@sprite-anvil/db";
+import type { ProjectAccessStore } from "./project-access-store";
 
 export interface Context {
-	db: Database;
+	projectAccess: ProjectAccessStore;
 	session: Session | null;
 }

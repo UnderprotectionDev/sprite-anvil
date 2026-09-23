@@ -1,0 +1,158 @@
+// @vitest-environment jsdom
+
+import {
+	cleanup,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+} from "@testing-library/react";
+import "@testing-library/jest-dom/vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+	createMemoryHistory,
+	createRootRoute,
+	createRoute,
+	createRouter,
+	Outlet,
+	RouterProvider,
+} from "@tanstack/react-router";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
+
+import { ProjectAccessScreen } from "./_auth/projects.$projectId.access";
+
+const projectId = "7e7eb5e3-25e5-4661-aa3b-6805955c8d14";
+
+const fakeStore = vi.hoisted(() => ({
+	permissions: [] as {
+		createdAt: string;
+		id: string;
+		principal: "context_agent";
+		projectId: string;
+		purpose: string;
+		revokedAt: string | null;
+		scopes: string[];
+	}[],
+}));
+
+vi.mock("@/utils/orpc", () => ({
+	client: {
+		projects: {
+			access: {
+				grantContextAgent(input: {
+					projectId: string;
+					purpose: string;
+					scopes: string[];
+				}) {
+					const permission = {
+						createdAt: new Date().toISOString(),
+						id: "permission-1",
+						principal: "context_agent" as const,
+						projectId: input.projectId,
+						purpose: input.purpose,
+						revokedAt: null,
+						scopes: input.scopes,
+					};
+					fakeStore.permissions.unshift(permission);
+					return Promise.resolve(permission);
+				},
+				revoke(input: { permissionId: string }) {
+					const permission = fakeStore.permissions.find(
+						(candidate) => candidate.id === input.permissionId
+					);
+					if (permission) {
+						permission.revokedAt = new Date().toISOString();
+					}
+					return Promise.resolve({ revoked: true });
+				},
+			},
+		},
+	},
+	orpc: {
+		projects: {
+			get: {
+				queryOptions: () => ({
+					queryKey: ["project", projectId],
+					queryFn: async () => ({ id: projectId, name: "Forest Quest" }),
+				}),
+			},
+			access: {
+				list: {
+					queryOptions: () => ({
+						queryKey: ["permissions", projectId],
+						queryFn: async () => fakeStore.permissions,
+					}),
+				},
+			},
+		},
+	},
+}));
+
+afterEach(() => {
+	cleanup();
+	vi.restoreAllMocks();
+});
+
+beforeEach(() => {
+	fakeStore.permissions.length = 0;
+	vi.spyOn(window, "scrollTo").mockReturnValue(undefined);
+});
+
+test("a user can grant, refetch, and revoke purpose-scoped Context Agent access", async () => {
+	const rootRoute = createRootRoute({ component: () => <Outlet /> });
+	const projectsRoute = createRoute({
+		getParentRoute: () => rootRoute,
+		path: "/projects",
+		component: () => <p>Oyun projeleri</p>,
+	});
+	const accessRoute = createRoute({
+		getParentRoute: () => rootRoute,
+		path: "/access",
+		component: () => <ProjectAccessScreen projectId={projectId} />,
+	});
+	const router = createRouter({
+		history: createMemoryHistory({ initialEntries: ["/access"] }),
+		routeTree: rootRoute.addChildren([projectsRoute, accessRoute]),
+	});
+	const queryClient = new QueryClient({
+		defaultOptions: { queries: { retry: false } },
+	});
+
+	render(
+		<QueryClientProvider client={queryClient}>
+			<RouterProvider router={router} />
+		</QueryClientProvider>
+	);
+
+	expect(
+		await screen.findByRole("heading", { name: "Forest Quest" })
+	).toBeVisible();
+	expect(screen.getByText("Sağlayıcı seçilmedi")).toBeVisible();
+	expect(screen.getByText("Kapalı")).toBeVisible();
+
+	fireEvent.click(
+		screen.getByRole("button", { name: "Bağlam Ajanı izni ver" })
+	);
+
+	await waitFor(() =>
+		expect(screen.getByText("Bağlam Ajanı izni kaydedildi.")).toBeVisible()
+	);
+	expect(screen.getByText("Etkin")).toBeVisible();
+	expect(fakeStore.permissions[0]).toMatchObject({
+		purpose: "Proje Bağlamı için öneri hazırlama",
+		scopes: ["project_context:read", "context_proposals:write"],
+	});
+
+	fireEvent.click(
+		screen.getByRole("button", {
+			name: "Proje Bağlamı için öneri hazırlama iznini geri al",
+		})
+	);
+
+	await waitFor(() =>
+		expect(screen.getByRole("status")).toHaveTextContent(
+			"İzin geri alındı. Yeni erişim istekleri reddedilir."
+		)
+	);
+	expect(screen.getByText("Geri alındı")).toBeVisible();
+});

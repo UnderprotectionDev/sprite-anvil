@@ -23,11 +23,13 @@
     "@sprite-anvil/auth": "workspace:*",
     "@sprite-anvil/db": "workspace:*",
     "better-auth": "catalog:",
+    "drizzle-orm": "catalog:",
     "hono": "^4.13.7",
     "varlock": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@orpc/client": "catalog:",
     "@sprite-anvil/config": "workspace:*",
     "@types/bun": "catalog:",
     "tsdown": "^0.23.0",

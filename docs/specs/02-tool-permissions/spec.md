@@ -33,6 +33,7 @@ Tamamlanma kanıtı: İzinli araç yalnız açıklanan amaç ve kapsamda erişir
 
 - **Dış araç erişimini amaç ve kapsamla yönetme:** Kullanıcı bağlantı ve Bağlam Ajanı için proje, amaç ve erişim kapsamını görüp izin verir; geri alınan izin yeni erişimi durdurur.
 - **Harici Görsel Analizine ayrı izin verme:** Görsel gönderimi proje ve analiz kategorisi için varsayılan olarak kapalıdır. Sağlayıcı, aktarılacak veri ve saklama koşulları gösterilmeden gönderim başlamaz; bir kategorinin izni diğerine geçmez.
+- **Issue #5 için uygulama kararı:** Sağlayıcı seçimi ertelendiğinden şimdi yalnız kullanıcıya ait asgari Oyun Projesi kaydı ve kalıcı izin ekranı kurulur. Bağlam Ajanı amacı ve kapsamı sunucu kapısında denetlenir; Dış Araç Bağlantısı için izin verme ve erişim her zaman reddedilir. Harici Görsel Analizi kapalı kalır. Bu karar, §11.6'daki sağlayıcı seçimi önkoşulunu değiştirmez.
 
 - **Yetki ve sürüm sınırı:** Aşağıdaki PRD hükümleri normatiftir. Fazın iş kırılımı, başka bir özelliğin kararını bu kapsama eklemez. Kesin kullanıcı kararları ajan veya otomasyon tarafından verilmez.
 - **Kapsam sınırı:** Teknik araç izni bağlam sürümünü etkinleştirme, İnceleme Kaydı oluşturma, Kalite İstisnası verme veya kalıcı silme kararı değildir. Harici analiz kapalıyken yerel denetim ve elle karşılaştırma sürer.
