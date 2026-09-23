@@ -1,7 +1,9 @@
 import { describe, expect, it } from "bun:test";
+import { createServer } from "node:http";
 
 import {
 	createQueue,
+	createStorage,
 	queueMessageSchema,
 	serializeProjectQueueMessage,
 } from "./cloudflare";
@@ -106,5 +108,47 @@ describe("Cloudflare Queues HTTP transport", () => {
 				"projects/00000000-0000-4000-8000-000000000001/assets/00000000-0000-4000-8000-000000000002"
 			)
 		).rejects.toThrow("Cloudflare Queues request failed: 403");
+	});
+});
+
+describe("Cloudflare R2 HTTP transport", () => {
+	it("uploads a Web ReadableStream through the S3 client", async () => {
+		let uploadedBody = "";
+		const server = createServer(async (request, response) => {
+			const chunks: Buffer[] = [];
+			for await (const chunk of request) {
+				chunks.push(Buffer.from(chunk));
+			}
+			uploadedBody = Buffer.concat(chunks).toString("utf8");
+			response.writeHead(200);
+			response.end();
+		});
+		await new Promise<void>((resolve, reject) => {
+			server.once("error", reject);
+			server.listen(0, "127.0.0.1", () => {
+				server.off("error", reject);
+				resolve();
+			});
+		});
+		const address = server.address();
+		if (!address || typeof address === "string") {
+			throw new Error("Expected the test HTTP server to have a TCP address");
+		}
+
+		try {
+			const storage = createStorage(config, `http://127.0.0.1:${address.port}`);
+			await storage.put(
+				"projects/00000000-0000-4000-8000-000000000001/assets/00000000-0000-4000-8000-000000000002",
+				new Blob(["sprite-bytes"]).stream(),
+				"image/png",
+				12
+			);
+
+			expect(uploadedBody).toContain("sprite-bytes");
+		} finally {
+			await new Promise<void>((resolve, reject) => {
+				server.close((error) => (error ? reject(error) : resolve()));
+			});
+		}
 	});
 });

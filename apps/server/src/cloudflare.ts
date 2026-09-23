@@ -1,3 +1,4 @@
+import { Readable } from "node:stream";
 import {
 	DeleteObjectCommand,
 	GetObjectCommand,
@@ -73,10 +74,13 @@ export function requireCloudflareConfig(
 		.parse(config);
 }
 
-export function createStorage(config: CloudflareConfig) {
+export function createStorage(
+	config: CloudflareConfig,
+	endpoint = `https://${config.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`
+) {
 	const client = new S3Client({
 		region: "auto",
-		endpoint: `https://${config.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+		endpoint,
 		credentials: {
 			accessKeyId: config.R2_ACCESS_KEY_ID,
 			secretAccessKey: config.R2_SECRET_ACCESS_KEY,
@@ -99,7 +103,7 @@ export function createStorage(config: CloudflareConfig) {
 				new PutObjectCommand({
 					Bucket: config.R2_BUCKET,
 					Key: key,
-					Body: body,
+					Body: Readable.fromWeb(body),
 					ContentType: contentType,
 					...(contentLength === undefined
 						? {}
