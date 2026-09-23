@@ -19,7 +19,8 @@ import {
 } from "@tanstack/react-router";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
-import { ProjectAccessScreen } from "./_auth/projects.$projectId.access";
+import { routeTree } from "../routeTree.gen";
+import { ProjectAccessScreen } from "./_auth/projects_.$projectId.access";
 
 const projectId = "7e7eb5e3-25e5-4661-aa3b-6805955c8d14";
 
@@ -36,6 +37,7 @@ const fakeStore = vi.hoisted(() => ({
 }));
 
 vi.mock("@/utils/orpc", () => ({
+	link: {},
 	client: {
 		projects: {
 			access: {
@@ -70,6 +72,12 @@ vi.mock("@/utils/orpc", () => ({
 	},
 	orpc: {
 		projects: {
+			list: {
+				queryOptions: () => ({
+					queryKey: ["projects"],
+					queryFn: async () => [{ id: projectId, name: "Forest Quest" }],
+				}),
+			},
 			get: {
 				queryOptions: () => ({
 					queryKey: ["project", projectId],
@@ -88,13 +96,63 @@ vi.mock("@/utils/orpc", () => ({
 	},
 }));
 
+vi.mock("@/lib/auth-client", () => ({
+	authClient: {
+		getSession: async () => ({
+			data: {
+				user: {
+					id: "user-1",
+					name: "Test Player",
+					email: "player@example.com",
+				},
+				session: { id: "session-1" },
+			},
+		}),
+		signOut: vi.fn(),
+		useSession: () => ({
+			data: {
+				user: {
+					id: "user-1",
+					name: "Test Player",
+					email: "player@example.com",
+				},
+			},
+			isPending: false,
+		}),
+	},
+}));
+
+vi.mock("@orpc/client", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@orpc/client")>()),
+	createORPCClient: () => ({}),
+}));
+
+vi.mock("@orpc/tanstack-query", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@orpc/tanstack-query")>()),
+	createTanstackQueryUtils: () => ({}),
+}));
+
 afterEach(() => {
 	cleanup();
+	vi.unstubAllGlobals();
 	vi.restoreAllMocks();
 });
 
 beforeEach(() => {
 	fakeStore.permissions.length = 0;
+	vi.stubGlobal(
+		"matchMedia",
+		vi.fn().mockImplementation((media: string) => ({
+			matches: false,
+			media,
+			onchange: null,
+			addListener: vi.fn(),
+			removeListener: vi.fn(),
+			addEventListener: vi.fn(),
+			removeEventListener: vi.fn(),
+			dispatchEvent: vi.fn(),
+		}))
+	);
 	vi.spyOn(window, "scrollTo").mockReturnValue(undefined);
 });
 
@@ -155,4 +213,40 @@ test("a user can grant, refetch, and revoke purpose-scoped Context Agent access"
 		)
 	);
 	expect(screen.getByText("Geri alındı")).toBeVisible();
+});
+
+test("the generated project route opens access from the authenticated project list", async () => {
+	const queryClient = new QueryClient({
+		defaultOptions: { queries: { retry: false } },
+	});
+	const router = createRouter({
+		context: { orpc: {} as never, queryClient },
+		history: createMemoryHistory({ initialEntries: ["/projects"] }),
+		routeTree,
+	});
+
+	render(
+		<QueryClientProvider client={queryClient}>
+			<RouterProvider router={router} />
+		</QueryClientProvider>
+	);
+
+	const manageAccessLink = await screen.findByRole("link", {
+		name: "Forest Quest izinlerini yönet",
+	});
+	expect(manageAccessLink).toHaveAttribute(
+		"href",
+		`/projects/${projectId}/access`
+	);
+	fireEvent.click(manageAccessLink);
+
+	await waitFor(() =>
+		expect(router.state.location.pathname).toBe(`/projects/${projectId}/access`)
+	);
+	expect(
+		await screen.findByRole("link", { name: "Oyun projelerine dön" })
+	).toBeVisible();
+	expect(screen.getByRole("heading", { name: "Bağlam Ajanı" })).toBeVisible();
+	expect(screen.getByText("Sağlayıcı seçilmedi")).toBeVisible();
+	expect(screen.getByText("Kapalı")).toBeVisible();
 });

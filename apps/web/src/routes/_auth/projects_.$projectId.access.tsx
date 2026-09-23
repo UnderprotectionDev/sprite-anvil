@@ -12,7 +12,7 @@ import { type SyntheticEvent, useState } from "react";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
 
-export const Route = createFileRoute("/_auth/projects/$projectId/access")({
+export const Route = createFileRoute("/_auth/projects_/$projectId/access")({
 	component: ProjectAccessRoute,
 });
 

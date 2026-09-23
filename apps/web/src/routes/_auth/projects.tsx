@@ -1,4 +1,4 @@
-import { Button } from "@sprite-anvil/ui/components/button";
+import { Button, buttonVariants } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
 import { useQuery } from "@tanstack/react-query";
@@ -150,18 +150,14 @@ function ProjectsList({
 						<h3 className="font-medium">{project.name}</h3>
 						<p className="text-muted-foreground text-sm">Oyun projesi</p>
 					</div>
-					<Button
+					<Link
 						aria-label={`${project.name} izinlerini yönet`}
-						render={
-							<Link
-								params={{ projectId: project.id }}
-								to="/projects/$projectId/access"
-							/>
-						}
-						variant="outline"
+						className={buttonVariants({ variant: "outline" })}
+						params={{ projectId: project.id }}
+						to="/projects/$projectId/access"
 					>
 						İzinleri yönet
-					</Button>
+					</Link>
 				</li>
 			))}
 		</ul>

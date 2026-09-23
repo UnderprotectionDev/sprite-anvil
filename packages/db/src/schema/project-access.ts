@@ -1,28 +1,12 @@
 import { index, pgEnum, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
+import { project } from "./project";
 
 export const toolAccessPrincipal = pgEnum("tool_access_principal", [
 	"context_agent",
 	"external_connection",
 ]);
-
-export const project = pgTable(
-	"project",
-	{
-		id: text("id").primaryKey(),
-		ownerId: text("owner_id")
-			.notNull()
-			.references(() => user.id, { onDelete: "cascade" }),
-		name: text("name").notNull(),
-		createdAt: timestamp("created_at").defaultNow().notNull(),
-		updatedAt: timestamp("updated_at")
-			.defaultNow()
-			.$onUpdate(() => new Date())
-			.notNull(),
-	},
-	(table) => [index("project_ownerId_idx").on(table.ownerId)]
-);
 
 export const toolAccessPermission = pgTable(
 	"tool_access_permission",

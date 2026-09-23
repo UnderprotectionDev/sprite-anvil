@@ -1,11 +1,16 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "e923b657-c078-40b3-b44f-19b810370897",
-  "prevIds": ["00000000-0000-0000-0000-000000000000"],
+  "id": "7f292068-00e6-4db4-955d-60911a312a6f",
+  "prevIds": [
+    "9abc5cdc-a957-45bf-9748-fe1fe2a790d8"
+  ],
   "ddl": [
     {
-      "values": ["context_agent", "external_connection"],
+      "values": [
+        "context_agent",
+        "external_connection"
+      ],
       "name": "tool_access_principal",
       "entityType": "enums",
       "schema": "public"
@@ -509,7 +514,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "owner_id",
+      "name": "owner_user_id",
       "entityType": "columns",
       "schema": "public",
       "table": "project"
@@ -523,6 +528,19 @@
       "generated": null,
       "identity": null,
       "name": "name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "project"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "preview_key",
       "entityType": "columns",
       "schema": "public",
       "table": "project"
@@ -724,7 +742,7 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "owner_id",
+          "value": "owner_user_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -736,7 +754,7 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "project_ownerId_idx",
+      "name": "project_ownerUserId_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "project"
@@ -792,10 +810,14 @@
     },
     {
       "nameExplicit": false,
-      "columns": ["user_id"],
+      "columns": [
+        "user_id"
+      ],
       "schemaTo": "public",
       "tableTo": "user",
-      "columnsTo": ["id"],
+      "columnsTo": [
+        "id"
+      ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "account_user_id_user_id_fkey",
@@ -805,10 +827,14 @@
     },
     {
       "nameExplicit": false,
-      "columns": ["user_id"],
+      "columns": [
+        "user_id"
+      ],
       "schemaTo": "public",
       "tableTo": "user",
-      "columnsTo": ["id"],
+      "columnsTo": [
+        "id"
+      ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "session_user_id_user_id_fkey",
@@ -818,23 +844,31 @@
     },
     {
       "nameExplicit": false,
-      "columns": ["owner_id"],
+      "columns": [
+        "owner_user_id"
+      ],
       "schemaTo": "public",
       "tableTo": "user",
-      "columnsTo": ["id"],
+      "columnsTo": [
+        "id"
+      ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
-      "name": "project_owner_id_user_id_fkey",
+      "name": "project_owner_user_id_user_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "project"
     },
     {
       "nameExplicit": false,
-      "columns": ["project_id"],
+      "columns": [
+        "project_id"
+      ],
       "schemaTo": "public",
       "tableTo": "project",
-      "columnsTo": ["id"],
+      "columnsTo": [
+        "id"
+      ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "tool_access_permission_project_id_project_id_fkey",
@@ -844,10 +878,14 @@
     },
     {
       "nameExplicit": false,
-      "columns": ["granted_by_user_id"],
+      "columns": [
+        "granted_by_user_id"
+      ],
       "schemaTo": "public",
       "tableTo": "user",
-      "columnsTo": ["id"],
+      "columnsTo": [
+        "id"
+      ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "name": "tool_access_permission_granted_by_user_id_user_id_fkey",
@@ -856,7 +894,9 @@
       "table": "tool_access_permission"
     },
     {
-      "columns": ["id"],
+      "columns": [
+        "id"
+      ],
       "nameExplicit": false,
       "name": "account_pkey",
       "schema": "public",
@@ -864,7 +904,9 @@
       "entityType": "pks"
     },
     {
-      "columns": ["id"],
+      "columns": [
+        "id"
+      ],
       "nameExplicit": false,
       "name": "session_pkey",
       "schema": "public",
@@ -872,7 +914,9 @@
       "entityType": "pks"
     },
     {
-      "columns": ["id"],
+      "columns": [
+        "id"
+      ],
       "nameExplicit": false,
       "name": "user_pkey",
       "schema": "public",
@@ -880,7 +924,9 @@
       "entityType": "pks"
     },
     {
-      "columns": ["id"],
+      "columns": [
+        "id"
+      ],
       "nameExplicit": false,
       "name": "verification_pkey",
       "schema": "public",
@@ -888,7 +934,9 @@
       "entityType": "pks"
     },
     {
-      "columns": ["id"],
+      "columns": [
+        "id"
+      ],
       "nameExplicit": false,
       "name": "project_pkey",
       "schema": "public",
@@ -896,7 +944,9 @@
       "entityType": "pks"
     },
     {
-      "columns": ["id"],
+      "columns": [
+        "id"
+      ],
       "nameExplicit": false,
       "name": "tool_access_permission_pkey",
       "schema": "public",
@@ -905,7 +955,9 @@
     },
     {
       "nameExplicit": false,
-      "columns": ["token"],
+      "columns": [
+        "token"
+      ],
       "nullsNotDistinct": false,
       "name": "session_token_key",
       "schema": "public",
@@ -914,7 +966,9 @@
     },
     {
       "nameExplicit": false,
-      "columns": ["email"],
+      "columns": [
+        "email"
+      ],
       "nullsNotDistinct": false,
       "name": "user_email_key",
       "schema": "public",

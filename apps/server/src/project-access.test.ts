@@ -9,10 +9,16 @@ import type {
 import type { AppRouterClient } from "@sprite-anvil/api/routers/index";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import type { Session } from "@sprite-anvil/auth";
+import { createDb } from "@sprite-anvil/db";
+import { user as userTable } from "@sprite-anvil/db/schema/auth";
+import { project as projectTable } from "@sprite-anvil/db/schema/project";
 import { betterAuth } from "better-auth";
 import { type MemoryDB, memoryAdapter } from "better-auth/adapters/memory";
 import { testUtils } from "better-auth/plugins";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
+
+import { createProjectAccessStore } from "./project-access-store";
 
 function createTestAuth() {
 	const database: MemoryDB = {};
@@ -42,7 +48,9 @@ async function createUserSession(
 	return login.headers.get("cookie") ?? "";
 }
 
-function createMemoryProjectAccessStore(): ProjectAccessStore {
+function createMemoryProjectAccessStore(
+	projectIdForCreatedProject: string = crypto.randomUUID()
+): ProjectAccessStore {
 	const projects = new Map<
 		string,
 		{ createdAt: string; id: string; name: string; ownerId: string }
@@ -64,7 +72,7 @@ function createMemoryProjectAccessStore(): ProjectAccessStore {
 		createProject(ownerId, name) {
 			const project = {
 				createdAt: new Date().toISOString(),
-				id: crypto.randomUUID(),
+				id: projectIdForCreatedProject,
 				name,
 				ownerId,
 			};
@@ -236,6 +244,129 @@ test("a project owner can grant, read back, and revoke Context Agent access", as
 	expect(allowedBeforeRevocation).toBe(true);
 	expect(readBackAfterRevocation[0]?.revokedAt).toEqual(expect.any(String));
 });
+
+test("existing opaque Project IDs can be read and authorized", async () => {
+	const { auth } = createTestAuth();
+	const cookie = await createUserSession(auth, "opaque-project-owner");
+	const client = createRpcClient(
+		auth,
+		createMemoryProjectAccessStore("ash-knight-v1"),
+		cookie
+	);
+	const project = await client.projects.create({ name: "Ash Knight" });
+	expect(await client.projects.get({ projectId: project.id })).toMatchObject({
+		id: "ash-knight-v1",
+		name: "Ash Knight",
+	});
+	const permission = await client.projects.access.grantContextAgent({
+		projectId: project.id,
+		purpose: "Prepare a project context proposal",
+		scopes: ["project_context:read"],
+	});
+
+	expect(project.id).toBe("ash-knight-v1");
+	expect(
+		await client.projects.access.checkContextAgent({
+			projectId: project.id,
+			purpose: permission.purpose,
+			scope: "project_context:read",
+		})
+	).toBe(true);
+	await expect(
+		client.projects.access.checkConnection({
+			projectId: project.id,
+			purpose: "Generate a candidate asset",
+			scope: "candidate_versions:write",
+		})
+	).rejects.toMatchObject({ code: "FORBIDDEN" });
+});
+
+const databaseUrl = process.env.DATABASE_URL;
+
+test.skipIf(!databaseUrl)(
+	"Context Agent permission grants persist and revocation stops new access",
+	async () => {
+		if (!databaseUrl) {
+			throw new Error("DATABASE_URL must point to an isolated test branch");
+		}
+		const db = createDb({ DATABASE_URL: databaseUrl });
+		const store = createProjectAccessStore(db);
+		const ownerUserId = crypto.randomUUID();
+		await db.insert(userTable).values({
+			id: ownerUserId,
+			name: "Permission Test Owner",
+			email: `${ownerUserId}@example.test`,
+		});
+		let projectId: string | null = null;
+
+		try {
+			const project = await store.createProject(
+				ownerUserId,
+				"Permission Persistence Check"
+			);
+			projectId = project.id;
+			const granted = await store.grantContextAgentPermission(
+				ownerUserId,
+				project.id,
+				{
+					purpose: "Prepare a project context proposal",
+					scopes: ["project_context:read"],
+				}
+			);
+			if (!granted) {
+				throw new Error("Expected the owner to grant project access");
+			}
+
+			const readBack = await store.listContextAgentPermissions(
+				ownerUserId,
+				project.id
+			);
+			expect(readBack).toMatchObject([
+				{
+					id: granted.id,
+					purpose: granted.purpose,
+					scopes: granted.scopes,
+					revokedAt: null,
+				},
+			]);
+			expect(
+				await store.hasContextAgentPermission(
+					project.id,
+					granted.purpose,
+					"project_context:read"
+				)
+			).toBe(true);
+
+			expect(
+				await store.revokeContextAgentPermission(
+					ownerUserId,
+					project.id,
+					granted.id
+				)
+			).toBe(true);
+			const readBackAfterRevocation = await store.listContextAgentPermissions(
+				ownerUserId,
+				project.id
+			);
+			expect(readBackAfterRevocation?.[0]).toMatchObject({
+				id: granted.id,
+				revokedAt: expect.any(String),
+			});
+			expect(
+				await store.hasContextAgentPermission(
+					project.id,
+					granted.purpose,
+					"project_context:read"
+				)
+			).toBe(false);
+		} finally {
+			if (projectId) {
+				await db.delete(projectTable).where(eq(projectTable.id, projectId));
+			}
+			await db.delete(userTable).where(eq(userTable.id, ownerUserId));
+		}
+	}
+);
 
 test("project access controls require an authenticated owner", async () => {
 	const { auth } = createTestAuth();

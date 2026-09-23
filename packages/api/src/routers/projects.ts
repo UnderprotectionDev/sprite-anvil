@@ -10,12 +10,12 @@ const projectNameSchema = z.object({
 	name: z.string().trim().min(1).max(80),
 });
 
-const projectIdSchema = z.object({
-	projectId: z.uuid(),
-});
+const projectIdSchema = z.string().min(1).max(200);
+
+const projectIdInputSchema = z.object({ projectId: projectIdSchema });
 
 const grantContextAgentSchema = z.object({
-	projectId: z.uuid(),
+	projectId: projectIdSchema,
 	purpose: z.string().trim().min(3).max(160),
 	scopes: z
 		.array(z.enum(contextAgentScopes))
@@ -25,18 +25,18 @@ const grantContextAgentSchema = z.object({
 });
 
 const revokePermissionSchema = z.object({
-	projectId: z.uuid(),
+	projectId: projectIdSchema,
 	permissionId: z.uuid(),
 });
 
 const checkContextAgentSchema = z.object({
-	projectId: z.uuid(),
+	projectId: projectIdSchema,
 	purpose: z.string().trim().min(3).max(160),
 	scope: z.enum(contextAgentScopes),
 });
 
 const checkConnectionSchema = z.object({
-	projectId: z.uuid(),
+	projectId: projectIdSchema,
 	purpose: z.string().trim().min(3).max(160),
 	scope: z.enum(connectionScopes),
 });
@@ -63,7 +63,7 @@ export const projectsRouter = {
 			context.projectAccess.createProject(context.session.user.id, input.name)
 		),
 	get: protectedProcedure
-		.input(projectIdSchema)
+		.input(projectIdInputSchema)
 		.handler(({ context, input }) =>
 			requireOwnedProject(
 				context.projectAccess,
@@ -73,7 +73,7 @@ export const projectsRouter = {
 		),
 	access: {
 		list: protectedProcedure
-			.input(projectIdSchema)
+			.input(projectIdInputSchema)
 			.handler(async ({ context, input }) => {
 				const permissions =
 					await context.projectAccess.listContextAgentPermissions(

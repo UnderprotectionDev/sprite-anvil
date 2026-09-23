@@ -5,14 +5,14 @@ import type {
 	ToolAccessPermission,
 } from "@sprite-anvil/api/project-access-store";
 import { contextAgentScopes } from "@sprite-anvil/api/project-access-store";
-import type { Database } from "@sprite-anvil/db";
-import {
-	project,
-	toolAccessPermission,
-} from "@sprite-anvil/db/schema/project-access";
+import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import { project } from "@sprite-anvil/db/schema/project";
+import { toolAccessPermission } from "@sprite-anvil/db/schema/project-access";
 import { and, desc, eq, isNull } from "drizzle-orm";
 
-function toProjectRecord(record: typeof project.$inferSelect): ProjectRecord {
+function toProjectRecord(
+	record: Pick<typeof project.$inferSelect, "createdAt" | "id" | "name">
+): ProjectRecord {
 	return {
 		createdAt: record.createdAt.toISOString(),
 		id: record.id,
@@ -46,20 +46,11 @@ function toToolAccessPermission(
 }
 
 export function createProjectAccessStore(db: Database): ProjectAccessStore {
-	async function getOwnedProject(ownerId: string, projectId: string) {
-		const [record] = await db
-			.select()
-			.from(project)
-			.where(and(eq(project.ownerId, ownerId), eq(project.id, projectId)))
-			.limit(1);
-		return record ?? null;
-	}
-
 	return {
 		async createProject(ownerId, name) {
 			const [record] = await db
 				.insert(project)
-				.values({ id: crypto.randomUUID(), name, ownerId })
+				.values({ id: crypto.randomUUID(), name, ownerUserId: ownerId })
 				.returning();
 			if (!record) {
 				throw new Error("Project could not be created");
@@ -67,19 +58,19 @@ export function createProjectAccessStore(db: Database): ProjectAccessStore {
 			return toProjectRecord(record);
 		},
 		async getProject(ownerId, projectId) {
-			const record = await getOwnedProject(ownerId, projectId);
+			const record = await getProjectForUser(db, ownerId, projectId);
 			return record ? toProjectRecord(record) : null;
 		},
 		async listProjects(ownerId) {
 			const records = await db
 				.select()
 				.from(project)
-				.where(eq(project.ownerId, ownerId))
+				.where(eq(project.ownerUserId, ownerId))
 				.orderBy(desc(project.createdAt));
 			return records.map(toProjectRecord);
 		},
 		async listContextAgentPermissions(ownerId, projectId) {
-			const ownedProject = await getOwnedProject(ownerId, projectId);
+			const ownedProject = await getProjectForUser(db, ownerId, projectId);
 			if (!ownedProject) {
 				return null;
 			}
@@ -96,7 +87,7 @@ export function createProjectAccessStore(db: Database): ProjectAccessStore {
 			return records.map(toToolAccessPermission);
 		},
 		async grantContextAgentPermission(ownerId, projectId, input) {
-			const ownedProject = await getOwnedProject(ownerId, projectId);
+			const ownedProject = await getProjectForUser(db, ownerId, projectId);
 			if (!ownedProject) {
 				return null;
 			}
@@ -123,7 +114,7 @@ export function createProjectAccessStore(db: Database): ProjectAccessStore {
 				.innerJoin(project, eq(project.id, toolAccessPermission.projectId))
 				.where(
 					and(
-						eq(project.ownerId, ownerId),
+						eq(project.ownerUserId, ownerId),
 						eq(project.id, projectId),
 						eq(toolAccessPermission.id, permissionId),
 						eq(toolAccessPermission.principal, "context_agent")
