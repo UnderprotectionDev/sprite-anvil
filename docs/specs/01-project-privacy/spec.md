@@ -38,9 +38,9 @@ Tamamlanma kanıtı: Yetkisiz proje erişimi reddedilir; korunan içerik ve sır
 
 - **Birincil test seam’i:** Hono istek sınırında oturum, proje sahipliği ve nesne erişimini birlikte sınama; eksik, bozuk, süresi dolmuş ve başka kullanıcıya ait erişimlerin hiçbir depolama yan etkisi üretmediğini doğrulama.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.
-- Bugün repoda bu faza ait ürün sözleşmesi bulunmuyor. Mevcut sunucu ve yüzey test örnekleri: [`account-access.test.ts`](../../../apps/server/src/account-access.test.ts), [`app-shell.spec.ts` (web)](../../../apps/web/e2e/app-shell.spec.ts) ve [`app-shell.spec.ts` (desktop)](../../../apps/web/desktop-e2e/app-shell.spec.ts). Bunlar bu özelliğin test edildiği anlamına gelmez.
-- Fazın özgül başarı ve red kanıtı: Yetkisiz proje erişimi reddedilir; korunan içerik ve sırlar istemci ile teslim çıktılarında bulunmaz. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Dış araca amaç ve kapsamla erişim verme, ayrı kullanıcı izin akışıdır; erişim kararı sanatsal onay yetkisi oluşturmaz.
-- Kabul örnekleri: YAS-04. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
+- Bu issue diliminin çalıştırılabilir kanıtı: Hono Proje ve 2D Görsel Varlık yanıtlarının sahiplik ve sır güvenli serileştirme sınırı, RPC kullanıcı yanıtının allowlist’i ve Queue v2 mesajının katı sözleşmesi; başarısız yetkilendirme ve depolama yan etkileri de sunucu testlerinde doğrulanır.
+- Proje Arşivi, Dışa Aktarım Paketi, telemetri ve kaynak geçmişi üreticileri repoda bulunmuyor. Bu dilim onları oluşturmaz ve bu çıktılarda sırların dışlandığını teslim iddiası olarak sunmaz.
+- YAS-04 çevrimdışı çakışma ve kalıcı silmeyi sınar; secret-safe serileştirmenin kabul kanıtı değildir. Dış araca amaç ve kapsamla erişim verme ayrı kullanıcı izin akışıdır; erişim kararı sanatsal onay yetkisi oluşturmaz.
 
 ## Out of Scope
 
@@ -60,5 +60,6 @@ Dış araca amaç ve kapsamla erişim verme, ayrı kullanıcı izin akışıdır
 
 **Kabul izlenebilirliği**
 
-- [YAS-04](../../prd/10-acceptance-scenarios.md)
-- Mevcut uygulama temel web/masaüstü kabuğu, sınırlı sunucu yükleme yolu ve sahipliğe göre korunan Proje kaydı/önizleme okuma uçlarını içerir; fazın tüm davranışları teslim edilmiş değildir. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.
+- Bu uygulama diliminin kanıtı: [`project-access.test.ts`](../../../apps/server/src/project-access.test.ts), [`api-output-contracts.test.ts`](../../../apps/server/src/api-output-contracts.test.ts) ve [`cloudflare.test.ts`](../../../apps/server/src/cloudflare.test.ts).
+- [YAS-04](../../prd/10-acceptance-scenarios.md) çevrimdışı çakışma ve kalıcı silme senaryosudur; secret-safe serileştirme sözleşmesi için kabul kanıtı sayılmaz.
+- Mevcut uygulama yalnız temel web/masaüstü kabuğu ve sınırlı sunucu yükleme yolunu içeriyor; bu spec teslim edilmiş ürün iddiası değildir. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.
