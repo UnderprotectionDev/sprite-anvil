@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
+import { createDb, getProjectForUser } from "@sprite-anvil/db";
+import { user as userTable } from "@sprite-anvil/db/schema/auth";
+import { project as projectTable } from "@sprite-anvil/db/schema/project";
 import { betterAuth } from "better-auth";
 import { type MemoryDB, memoryAdapter } from "better-auth/adapters/memory";
 import { testUtils } from "better-auth/plugins";
+import { eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import type { CloudflareConfig } from "./cloudflare";
 import {
@@ -88,7 +92,8 @@ function createTestApp(
 					? {
 							id: projectId,
 							name: "Ash Knight",
-							ownerId: userId,
+							ownerUserId: userId,
+							previewKey: `users/${userId}/preview.png`,
 							accessToken: "provider-access-token",
 							encryptionKey: "project-encryption-key",
 						}
@@ -145,6 +150,7 @@ test("denies unauthenticated project reads before looking up project data", asyn
 
 	expect(response.status).toBe(401);
 	expect(await response.json()).toEqual({ error: "Unauthorized" });
+	expect(response.headers.get("cache-control")).toBe("private, no-store");
 	expect(calls.getProjectForUser).toEqual([]);
 	optedOutOfStorage(calls);
 });
@@ -159,7 +165,11 @@ test("returns only the authenticated user's public project fields", async () => 
 
 	expect(response.status).toBe(200);
 	const payload: unknown = await response.json();
-	expect(payload).toEqual({ id: projectId, name: "Ash Knight" });
+	expect(payload).toEqual({
+		id: projectId,
+		name: "Ash Knight",
+		previewUrl: `/api/projects/${projectId}/preview`,
+	});
 	expect(JSON.stringify(payload)).not.toMatch(secretMaterialPattern);
 	expect(response.headers.get("cache-control")).toBe("private, no-store");
 	expect(calls.getProjectForUser).toEqual([{ projectId, userId: "user-a" }]);
@@ -171,7 +181,15 @@ test("strict output contracts reject credential-shaped fields", () => {
 		projectSummaryResponseSchema.safeParse({
 			id: projectId,
 			name: "Ash Knight",
+			previewUrl: null,
 			encryptionKey: "project-encryption-key",
+		}).success
+	).toBe(false);
+	expect(
+		projectSummaryResponseSchema.safeParse({
+			id: projectId,
+			name: "Ash Knight",
+			previewUrl: "https://assets.example.test/preview",
 		}).success
 	).toBe(false);
 	expect(
@@ -367,6 +385,187 @@ test("serves previews only through the owner-checked project route", async () =>
 	expect(await response.text()).toBe("sprite-bytes");
 	expect(calls.getObject).toEqual([`projects/${projectId}/assets/${assetId}`]);
 });
+
+test("preserves owner-scoped routes for opaque project IDs", async () => {
+	const { auth } = createTestAuth();
+	const user = await createUserSession(auth, "user-a");
+	const opaqueProjectId = "ash-knight-v1";
+	const { app, calls } = createTestApp(auth, {
+		getProjectForUser: (_userId, id) =>
+			Promise.resolve(
+				id === opaqueProjectId
+					? {
+							id,
+							name: "Ash Knight",
+							ownerUserId: "user-a",
+							previewKey: "users/user-a/preview.png",
+						}
+					: null
+			),
+	});
+	const headers = new Headers({ cookie: user.headers.get("cookie") ?? "" });
+
+	const projectResponse = await app.request(
+		`/api/projects/${opaqueProjectId}`,
+		{ headers }
+	);
+	expect(projectResponse.status).toBe(200);
+	expect(await projectResponse.json()).toEqual({
+		id: opaqueProjectId,
+		name: "Ash Knight",
+		previewUrl: `/api/projects/${opaqueProjectId}/preview`,
+	});
+
+	const previewResponse = await app.request(
+		`/api/projects/${opaqueProjectId}/preview`,
+		{ headers }
+	);
+	expect(previewResponse.status).toBe(200);
+	expect(previewResponse.headers.get("content-type")).toBe("image/png");
+	expect(previewResponse.headers.get("cache-control")).toBe(
+		"private, no-store"
+	);
+	expect(await previewResponse.text()).toBe("sprite-bytes");
+	expect(calls.getObject).toEqual(["users/user-a/preview.png"]);
+
+	const uploadResponse = await app.request(
+		`/api/projects/${opaqueProjectId}/assets`,
+		{
+			method: "POST",
+			headers: new Headers({
+				cookie: user.headers.get("cookie") ?? "",
+				"content-type": "image/png",
+			}),
+			body: "sprite-bytes",
+		}
+	);
+	expect(uploadResponse.status).toBe(201);
+	expect(calls.putObject).toEqual([
+		{
+			contentType: "image/png",
+			key: `projects/${opaqueProjectId}/assets/${assetId}`,
+			body: "sprite-bytes",
+		},
+	]);
+});
+
+test("does not read a legacy preview object outside the owner scope", async () => {
+	const { auth } = createTestAuth();
+	const user = await createUserSession(auth, "user-a");
+	const { app, calls } = createTestApp(auth, {
+		getProjectForUser: (_userId, id) =>
+			Promise.resolve(
+				id === projectId
+					? {
+							id,
+							name: "Ash Knight",
+							ownerUserId: "user-a",
+							previewKey: "users/user-b/preview.png",
+						}
+					: null
+			),
+	});
+	const headers = new Headers({ cookie: user.headers.get("cookie") ?? "" });
+
+	const projectResponse = await app.request(`/api/projects/${projectId}`, {
+		headers,
+	});
+	expect(await projectResponse.json()).toEqual({
+		id: projectId,
+		name: "Ash Knight",
+		previewUrl: null,
+	});
+
+	const previewResponse = await app.request(
+		`/api/projects/${projectId}/preview`,
+		{ headers }
+	);
+	expect(previewResponse.status).toBe(404);
+	expect(previewResponse.headers.get("cache-control")).toBe(
+		"private, no-store"
+	);
+	expect(calls.getObject).toEqual([]);
+});
+
+const databaseUrl = process.env.DATABASE_URL;
+
+test.skipIf(!databaseUrl)(
+	"reads persisted projects only for their authenticated owner",
+	async () => {
+		if (!databaseUrl) {
+			throw new Error("DATABASE_URL must point to an isolated test branch");
+		}
+		const database = createDb({ DATABASE_URL: databaseUrl });
+		const ownerUserId = crypto.randomUUID();
+		const otherUserId = crypto.randomUUID();
+		const persistedProjectId = crypto.randomUUID();
+		const { auth } = createTestAuth();
+		const ownerSession = await createUserSession(auth, ownerUserId);
+		const otherUserSession = await createUserSession(auth, otherUserId);
+		const { app, calls } = createTestApp(auth, {
+			getProjectForUser: (userId, id) =>
+				getProjectForUser(database, userId, id),
+		});
+
+		try {
+			await database.insert(userTable).values([
+				{
+					id: ownerUserId,
+					name: "Test Owner",
+					email: `${ownerUserId}@example.test`,
+				},
+				{
+					id: otherUserId,
+					name: "Other User",
+					email: `${otherUserId}@example.test`,
+				},
+			]);
+			await database.insert(projectTable).values({
+				id: persistedProjectId,
+				ownerUserId,
+				name: "Persisted Project",
+				previewKey: null,
+			});
+
+			const ownerResponse = await app.request(
+				`/api/projects/${persistedProjectId}`,
+				{
+					headers: new Headers({
+						cookie: ownerSession.headers.get("cookie") ?? "",
+					}),
+				}
+			);
+			expect(ownerResponse.status).toBe(200);
+			expect(await ownerResponse.json()).toEqual({
+				id: persistedProjectId,
+				name: "Persisted Project",
+				previewUrl: null,
+			});
+
+			const otherResponse = await app.request(
+				`/api/projects/${persistedProjectId}`,
+				{
+					headers: new Headers({
+						cookie: otherUserSession.headers.get("cookie") ?? "",
+					}),
+				}
+			);
+			expect(otherResponse.status).toBe(404);
+			expect(await otherResponse.json()).toEqual({ error: "Not found" });
+			expect(calls.getProjectForUser).toEqual([
+				{ projectId: persistedProjectId, userId: ownerUserId },
+				{ projectId: persistedProjectId, userId: otherUserId },
+			]);
+		} finally {
+			await database
+				.delete(projectTable)
+				.where(eq(projectTable.id, persistedProjectId));
+			await database
+				.delete(userTable)
+				.where(inArray(userTable.id, [ownerUserId, otherUserId]));
+		}
+	}
+);
 
 test("does not keep an uploaded object when queue publication fails", async () => {
 	const { auth } = createTestAuth();

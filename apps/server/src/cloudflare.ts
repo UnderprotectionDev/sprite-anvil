@@ -10,16 +10,26 @@ import z from "zod";
 
 const uuidPattern =
 	"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+const projectKeySegmentPattern = "(?:[A-Za-z0-9_.!~*'()-]|%[0-9A-F]{2})+";
 
 export const assetUploadContentTypeSchema = z.enum(["image/png", "image/webp"]);
 
 export const assetKeySchema = z
 	.string()
-	.regex(new RegExp(`^projects/${uuidPattern}/assets/${uuidPattern}$`));
+	.regex(
+		new RegExp(`^projects/${projectKeySegmentPattern}/assets/${uuidPattern}$`)
+	);
 
-const legacyAssetKeySchema = z
+export const legacyAssetKeySchema = z
 	.string()
 	.regex(/^users\/[a-zA-Z0-9-]+\/[a-zA-Z0-9-]+\.(png|webp)$/);
+
+export function createProjectAssetKey(projectId: string, assetId: string) {
+	const projectKeySegment = encodeURIComponent(projectId);
+	return assetKeySchema.parse(
+		`projects/${projectKeySegment}/assets/${assetId}`
+	);
+}
 
 const legacyQueueMessageSchema = z
 	.object({

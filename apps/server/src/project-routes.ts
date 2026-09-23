@@ -2,11 +2,12 @@ import type { Context, Hono } from "hono";
 import z from "zod";
 
 import {
-	assetKeySchema,
 	assetUploadContentTypeSchema,
 	type CloudflareConfig,
+	createProjectAssetKey,
 	type createQueue,
 	type createStorage,
+	legacyAssetKeySchema,
 } from "./cloudflare";
 import {
 	serializeAssetAcceptedResponse,
@@ -14,7 +15,7 @@ import {
 	serializePublicApiError,
 } from "./output-contracts";
 
-const projectIdSchema = z.string().uuid();
+const projectIdSchema = z.string().min(1).max(200);
 const assetIdSchema = z.string().uuid();
 
 export interface ProjectSession {
@@ -24,6 +25,8 @@ export interface ProjectSession {
 export interface ProjectRecord {
 	id: string;
 	name: string;
+	ownerUserId: string;
+	previewKey: string | null;
 }
 
 export interface ProjectRouteDependencies {
@@ -43,7 +46,7 @@ export interface ProjectRouteDependencies {
 }
 
 type ProjectAccess =
-	| { ok: true; project: ProjectRecord }
+	| { ok: true; project: ProjectRecord; ownerUserId: string }
 	| { ok: false; error: "Unauthorized"; status: 401 }
 	| { ok: false; error: "Not found"; status: 404 };
 
@@ -70,13 +73,25 @@ async function resolveProjectAccess(
 		return { ok: false, error: "Not found", status: 404 };
 	}
 
-	return { ok: true, project };
+	return { ok: true, project, ownerUserId: session.user.id };
+}
+
+function isOwnedLegacyPreviewKey(
+	key: string | null,
+	ownerUserId: string
+): key is string {
+	return (
+		key !== null &&
+		legacyAssetKeySchema.safeParse(key).success &&
+		key.startsWith(`users/${ownerUserId}/`)
+	);
 }
 
 function errorResponse(
 	c: Context,
 	access: Exclude<ProjectAccess, { ok: true }>
 ) {
+	c.header("Cache-Control", "private, no-store");
 	return c.json(serializePublicApiError(access.error), access.status);
 }
 
@@ -85,6 +100,7 @@ export function mountProjectRoutes(
 	dependencies: ProjectRouteDependencies
 ) {
 	app.get("/api/projects/:projectId", async (c) => {
+		c.header("Cache-Control", "private, no-store");
 		const access = await resolveProjectAccess(
 			c.req.raw.headers,
 			c.req.param("projectId"),
@@ -94,11 +110,19 @@ export function mountProjectRoutes(
 			return errorResponse(c, access);
 		}
 
-		c.header("Cache-Control", "private, no-store");
-		return c.json(serializeProjectSummaryResponse(access.project));
+		const previewUrl = isOwnedLegacyPreviewKey(
+			access.project.previewKey,
+			access.ownerUserId
+		)
+			? `/api/projects/${encodeURIComponent(access.project.id)}/preview`
+			: null;
+		return c.json(
+			serializeProjectSummaryResponse({ ...access.project, previewUrl })
+		);
 	});
 
 	app.post("/api/projects/:projectId/assets", async (c) => {
+		c.header("Cache-Control", "private, no-store");
 		const access = await resolveProjectAccess(
 			c.req.raw.headers,
 			c.req.param("projectId"),
@@ -137,8 +161,7 @@ export function mountProjectRoutes(
 
 		const assetId = (dependencies.createId ?? crypto.randomUUID)();
 		const acceptedResponse = serializeAssetAcceptedResponse(assetId);
-		const key = `projects/${access.project.id}/assets/${assetId}`;
-		assetKeySchema.parse(key);
+		const key = createProjectAssetKey(access.project.id, assetId);
 
 		const config = dependencies.cloudflareConfig();
 		const storage = dependencies.createStorage(config);
@@ -158,6 +181,7 @@ export function mountProjectRoutes(
 	});
 
 	app.get("/api/projects/:projectId/assets/:assetId/preview", async (c) => {
+		c.header("Cache-Control", "private, no-store");
 		const access = await resolveProjectAccess(
 			c.req.raw.headers,
 			c.req.param("projectId"),
@@ -174,8 +198,56 @@ export function mountProjectRoutes(
 
 		const object = await dependencies
 			.createStorage(dependencies.cloudflareConfig())
-			.get(`projects/${access.project.id}/assets/${assetId.data}`);
+			.get(createProjectAssetKey(access.project.id, assetId.data));
 		if (!object) {
+			return c.json(serializePublicApiError("Not found"), 404);
+		}
+		if (
+			object.contentType !== "image/png" &&
+			object.contentType !== "image/webp"
+		) {
+			await object.body.cancel();
+			return c.json(serializePublicApiError("Not found"), 404);
+		}
+
+		c.header("Cache-Control", "private, no-store");
+		c.header("X-Content-Type-Options", "nosniff");
+		const headers: Record<string, string> = {
+			"Content-Type": object.contentType,
+		};
+		if (object.contentLength !== undefined) {
+			headers["Content-Length"] = object.contentLength.toString();
+		}
+		return c.body(object.body, 200, headers);
+	});
+
+	app.get("/api/projects/:projectId/preview", async (c) => {
+		c.header("Cache-Control", "private, no-store");
+		const access = await resolveProjectAccess(
+			c.req.raw.headers,
+			c.req.param("projectId"),
+			dependencies
+		);
+		if (!access.ok) {
+			return errorResponse(c, access);
+		}
+		if (
+			!isOwnedLegacyPreviewKey(access.project.previewKey, access.ownerUserId)
+		) {
+			return c.json(serializePublicApiError("Not found"), 404);
+		}
+
+		const object = await dependencies
+			.createStorage(dependencies.cloudflareConfig())
+			.get(access.project.previewKey);
+		if (!object) {
+			return c.json(serializePublicApiError("Not found"), 404);
+		}
+		if (
+			object.contentType !== "image/png" &&
+			object.contentType !== "image/webp"
+		) {
+			await object.body.cancel();
 			return c.json(serializePublicApiError("Not found"), 404);
 		}
 

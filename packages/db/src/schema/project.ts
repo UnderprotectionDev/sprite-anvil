@@ -9,24 +9,25 @@ export const project = pgTable(
 		id: text("id")
 			.primaryKey()
 			.$defaultFn(() => crypto.randomUUID()),
-		ownerId: text("owner_id")
+		ownerUserId: text("owner_user_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
 		name: text("name").notNull(),
+		previewKey: text("preview_key"),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		updatedAt: timestamp("updated_at")
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ new Date())
 			.notNull(),
 	},
-	(table) => [index("project_owner_id_idx").on(table.ownerId)]
+	(table) => [index("project_ownerUserId_idx").on(table.ownerUserId)]
 );
 
 export const projectRelations = defineRelationsPart({ project, user }, (r) => ({
 	project: {
-		owner: r.one.user({ from: r.project.ownerId, to: r.user.id }),
+		owner: r.one.user({ from: r.project.ownerUserId, to: r.user.id }),
 	},
 	user: {
-		projects: r.many.project({ from: r.user.id, to: r.project.ownerId }),
+		projects: r.many.project({ from: r.user.id, to: r.project.ownerUserId }),
 	},
 }));

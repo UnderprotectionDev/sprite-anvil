@@ -6,18 +6,24 @@ import z from "zod";
  */
 export const projectSummaryResponseSchema = z
 	.object({
-		id: z.string().uuid(),
+		id: z.string().min(1),
 		name: z.string(),
+		previewUrl: z
+			.string()
+			.regex(/^\/api\/projects\/[^/?#]+\/preview$/)
+			.nullable(),
 	})
 	.strict();
 
 export function serializeProjectSummaryResponse(project: {
 	id: string;
 	name: string;
+	previewUrl: string | null;
 }) {
 	return projectSummaryResponseSchema.parse({
 		id: project.id,
 		name: project.name,
+		previewUrl: project.previewUrl,
 	});
 }
 

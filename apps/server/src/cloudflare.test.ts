@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { createServer } from "node:http";
 
 import {
+	createProjectAssetKey,
 	createQueue,
 	createStorage,
 	queueMessageSchema,
@@ -96,6 +97,18 @@ describe("Cloudflare Queues HTTP transport", () => {
 			version: 2,
 			kind: "asset-uploaded",
 			key: "projects/00000000-0000-4000-8000-000000000001/assets/00000000-0000-4000-8000-000000000002",
+		});
+	});
+
+	it("encodes opaque project IDs as one strict asset-key segment", () => {
+		const assetId = "00000000-0000-4000-8000-000000000002";
+		const key = createProjectAssetKey("ash knight/portrait", assetId);
+
+		expect(key).toBe(`projects/ash%20knight%2Fportrait/assets/${assetId}`);
+		expect(serializeProjectQueueMessage(key)).toEqual({
+			version: 2,
+			kind: "asset-uploaded",
+			key,
 		});
 	});
 

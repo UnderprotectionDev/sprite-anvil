@@ -9,9 +9,14 @@ export async function getProjectForUser(
 	projectId: string
 ) {
 	const [record] = await database
-		.select({ id: project.id, name: project.name })
+		.select({
+			id: project.id,
+			name: project.name,
+			ownerUserId: project.ownerUserId,
+			previewKey: project.previewKey,
+		})
 		.from(project)
-		.where(and(eq(project.id, projectId), eq(project.ownerId, userId)))
+		.where(and(eq(project.id, projectId), eq(project.ownerUserId, userId)))
 		.limit(1);
 
 	return record ?? null;
