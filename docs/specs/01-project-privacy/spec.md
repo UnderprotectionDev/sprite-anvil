@@ -38,7 +38,7 @@ Tamamlanma kanıtı: Yetkisiz proje erişimi reddedilir; korunan içerik ve sır
 
 - **Birincil test seam’i:** Hono istek sınırında oturum, proje sahipliği ve nesne erişimini birlikte sınama; eksik, bozuk, süresi dolmuş ve başka kullanıcıya ait erişimlerin hiçbir depolama yan etkisi üretmediğini doğrulama.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.
-- Bu issue diliminin çalıştırılabilir kanıtı: Hono proje/varlık yanıtlarının sahiplik ve secret-safe serileştirme sınırı ile Queue v2 mesajının katı sözleşmesi; başarısız yetkilendirme ve depolama yan etkileri de aynı sunucu testlerinde doğrulanır.
+- Bu issue diliminin çalıştırılabilir kanıtı: Hono proje/varlık yanıtlarının sahiplik ve secret-safe serileştirme sınırı, RPC kullanıcı yanıtının allowlist’i ve Queue v2 mesajının katı sözleşmesi; başarısız yetkilendirme ve depolama yan etkileri de sunucu testlerinde doğrulanır.
 - Proje Arşivi, Dışa Aktarım Paketi, telemetri ve kaynak geçmişi üreticileri repoda bulunmuyor. Bu dilim onları oluşturmaz ve bu çıktılarda sırların dışlandığını teslim iddiası olarak sunmaz.
 - YAS-04 çevrimdışı çakışma ve kalıcı silmeyi sınar; secret-safe serileştirmenin kabul kanıtı değildir. Dış araca amaç ve kapsamla erişim verme ayrı kullanıcı izin akışıdır; erişim kararı sanatsal onay yetkisi oluşturmaz.
 
@@ -60,6 +60,6 @@ Dış araca amaç ve kapsamla erişim verme, ayrı kullanıcı izin akışıdır
 
 **Kabul izlenebilirliği**
 
-- Bu uygulama diliminin kanıtı: [`project-access.test.ts`](../../../apps/server/src/project-access.test.ts) ve [`cloudflare.test.ts`](../../../apps/server/src/cloudflare.test.ts).
+- Bu uygulama diliminin kanıtı: [`project-access.test.ts`](../../../apps/server/src/project-access.test.ts), [`api-output-contracts.test.ts`](../../../apps/server/src/api-output-contracts.test.ts) ve [`cloudflare.test.ts`](../../../apps/server/src/cloudflare.test.ts).
 - [YAS-04](../../prd/10-acceptance-scenarios.md) çevrimdışı çakışma ve kalıcı silme senaryosudur; secret-safe serileştirme sözleşmesi için kabul kanıtı sayılmaz.
 - Mevcut uygulama yalnız temel web/masaüstü kabuğu ve sınırlı sunucu yükleme yolunu içeriyor; bu spec teslim edilmiş ürün iddiası değildir. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.
