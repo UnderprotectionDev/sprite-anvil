@@ -8,6 +8,11 @@ import {
 	type createQueue,
 	type createStorage,
 } from "./cloudflare";
+import {
+	serializeAssetAcceptedResponse,
+	serializeProjectSummaryResponse,
+	serializePublicApiError,
+} from "./output-contracts";
 
 const projectIdSchema = z.string().uuid();
 const assetIdSchema = z.string().uuid();
@@ -72,7 +77,7 @@ function errorResponse(
 	c: Context,
 	access: Exclude<ProjectAccess, { ok: true }>
 ) {
-	return c.json({ error: access.error }, access.status);
+	return c.json(serializePublicApiError(access.error), access.status);
 }
 
 export function mountProjectRoutes(
@@ -90,7 +95,7 @@ export function mountProjectRoutes(
 		}
 
 		c.header("Cache-Control", "private, no-store");
-		return c.json({ id: access.project.id, name: access.project.name });
+		return c.json(serializeProjectSummaryResponse(access.project));
 	});
 
 	app.post("/api/projects/:projectId/assets", async (c) => {
@@ -107,12 +112,12 @@ export function mountProjectRoutes(
 			c.req.header("content-type")?.split(";")[0]?.trim()
 		);
 		if (!contentType.success) {
-			return c.json({ error: "Unsupported asset type" }, 415);
+			return c.json(serializePublicApiError("Unsupported asset type"), 415);
 		}
 
 		const { body } = c.req.raw;
 		if (!body) {
-			return c.json({ error: "Missing asset content" }, 400);
+			return c.json(serializePublicApiError("Missing asset content"), 400);
 		}
 
 		const rawLength = c.req.header("content-length");
@@ -124,10 +129,14 @@ export function mountProjectRoutes(
 				!Number.isSafeInteger(contentLength) ||
 				contentLength <= 0)
 		) {
-			return c.json({ error: "Invalid asset content length" }, 400);
+			return c.json(
+				serializePublicApiError("Invalid asset content length"),
+				400
+			);
 		}
 
 		const assetId = (dependencies.createId ?? crypto.randomUUID)();
+		const acceptedResponse = serializeAssetAcceptedResponse(assetId);
 		const key = `projects/${access.project.id}/assets/${assetId}`;
 		assetKeySchema.parse(key);
 
@@ -142,10 +151,10 @@ export function mountProjectRoutes(
 			} catch {
 				// The upload still fails closed if cleanup is unavailable.
 			}
-			return c.json({ error: "Asset upload failed" }, 503);
+			return c.json(serializePublicApiError("Asset upload failed"), 503);
 		}
 
-		return c.json({ assetId }, 201);
+		return c.json(acceptedResponse, 201);
 	});
 
 	app.get("/api/projects/:projectId/assets/:assetId/preview", async (c) => {
@@ -160,14 +169,14 @@ export function mountProjectRoutes(
 
 		const assetId = assetIdSchema.safeParse(c.req.param("assetId"));
 		if (!assetId.success) {
-			return c.json({ error: "Not found" }, 404);
+			return c.json(serializePublicApiError("Not found"), 404);
 		}
 
 		const object = await dependencies
 			.createStorage(dependencies.cloudflareConfig())
 			.get(`projects/${access.project.id}/assets/${assetId.data}`);
 		if (!object) {
-			return c.json({ error: "Not found" }, 404);
+			return c.json(serializePublicApiError("Not found"), 404);
 		}
 
 		c.header("Cache-Control", "private, no-store");

@@ -5,13 +5,19 @@ import { testUtils } from "better-auth/plugins";
 import { Hono } from "hono";
 import type { CloudflareConfig } from "./cloudflare";
 import {
+	assetAcceptedResponseSchema,
+	projectSummaryResponseSchema,
+	publicApiErrorSchema,
+} from "./output-contracts";
+import {
 	mountProjectRoutes,
 	type ProjectRouteDependencies,
 } from "./project-routes";
 
 const projectId = "00000000-0000-4000-8000-000000000001";
 const assetId = "00000000-0000-4000-8000-000000000002";
-const secretMaterialPattern = /X-Amz-|access-key|secret-key|token|https?:\/\//i;
+const secretMaterialPattern =
+	/X-Amz-|access[-_ ]?key|secret[-_ ]?key|access[-_ ]?token|encryption[-_ ]?key|server[-_ ]?secret|password|authorization|credential|token|https?:\/\//i;
 const cloudflareConfig: CloudflareConfig = {
 	CLOUDFLARE_ACCOUNT_ID: "test-account",
 	CLOUDFLARE_QUEUE_ID: "test-queue",
@@ -54,6 +60,7 @@ function createTestApp(
 	overrides: {
 		getProjectForUser?: ProjectRouteDependencies["getProjectForUser"];
 		getSession?: ProjectRouteDependencies["getSession"];
+		createId?: () => string;
 		failQueue?: boolean;
 	} = {}
 ) {
@@ -124,7 +131,7 @@ function createTestApp(
 				return Promise.resolve();
 			},
 		}),
-		createId: () => assetId,
+		createId: overrides.createId ?? (() => assetId),
 	});
 
 	return { app, calls };
@@ -151,10 +158,34 @@ test("returns only the authenticated user's public project fields", async () => 
 	});
 
 	expect(response.status).toBe(200);
-	expect(await response.json()).toEqual({ id: projectId, name: "Ash Knight" });
+	const payload: unknown = await response.json();
+	expect(payload).toEqual({ id: projectId, name: "Ash Knight" });
+	expect(JSON.stringify(payload)).not.toMatch(secretMaterialPattern);
 	expect(response.headers.get("cache-control")).toBe("private, no-store");
 	expect(calls.getProjectForUser).toEqual([{ projectId, userId: "user-a" }]);
 	optedOutOfStorage(calls);
+});
+
+test("strict output contracts reject credential-shaped fields", () => {
+	expect(
+		projectSummaryResponseSchema.safeParse({
+			id: projectId,
+			name: "Ash Knight",
+			encryptionKey: "project-encryption-key",
+		}).success
+	).toBe(false);
+	expect(
+		assetAcceptedResponseSchema.safeParse({
+			assetId,
+			accessToken: "storage-access-token",
+		}).success
+	).toBe(false);
+	expect(
+		publicApiErrorSchema.safeParse({
+			error: "Asset upload failed",
+			serverSecret: "database-password",
+		}).success
+	).toBe(false);
 });
 
 test("denies malformed sessions before looking up the project", async () => {
@@ -247,6 +278,27 @@ test("fails closed when session lookup fails", async () => {
 	optedOutOfStorage(calls);
 });
 
+test("fails closed without exposing project lookup errors", async () => {
+	const { auth } = createTestAuth();
+	const { app, calls } = createTestApp(auth, {
+		getProjectForUser: () =>
+			Promise.reject(new Error("database access token leaked")),
+	});
+	const response = await app.request(`/api/projects/${projectId}`, {
+		headers: new Headers({
+			cookie:
+				(await createUserSession(auth, "user-a")).headers.get("cookie") ?? "",
+		}),
+	});
+
+	expect(response.status).toBe(500);
+	const payload: unknown = await response.json();
+	expect(payload).toEqual({ error: "Internal Server Error" });
+	expect(JSON.stringify(payload)).not.toMatch(secretMaterialPattern);
+	expect(calls.getProjectForUser).toEqual([{ projectId, userId: "user-a" }]);
+	optedOutOfStorage(calls);
+});
+
 test("uploads project assets through the server without returning a storage token", async () => {
 	const { auth } = createTestAuth();
 	const user = await createUserSession(auth, "user-a");
@@ -272,6 +324,29 @@ test("uploads project assets through the server without returning a storage toke
 		},
 	]);
 	expect(calls.queuedKeys).toEqual([`projects/${projectId}/assets/${assetId}`]);
+});
+
+test("rejects an invalid serialized asset ID before storage side effects", async () => {
+	const { auth } = createTestAuth();
+	const user = await createUserSession(auth, "user-a");
+	const { app, calls } = createTestApp(auth, {
+		createId: () => "00000000-0000-0000-0000-000000000003",
+	});
+	const response = await app.request(`/api/projects/${projectId}/assets`, {
+		method: "POST",
+		headers: new Headers({
+			cookie: user.headers.get("cookie") ?? "",
+			"content-type": "image/png",
+		}),
+		body: "sprite-bytes",
+	});
+
+	expect(response.status).toBe(500);
+	expect(await response.json()).toEqual({ error: "Internal Server Error" });
+	expect(calls.cloudflareConfig).toBe(0);
+	expect(calls.putObject).toEqual([]);
+	expect(calls.queuedKeys).toEqual([]);
+	expect(calls.deletedKeys).toEqual([]);
 });
 
 test("serves previews only through the owner-checked project route", async () => {
@@ -307,7 +382,9 @@ test("does not keep an uploaded object when queue publication fails", async () =
 	});
 
 	expect(response.status).toBe(503);
-	expect(await response.json()).toEqual({ error: "Asset upload failed" });
+	const payload: unknown = await response.json();
+	expect(payload).toEqual({ error: "Asset upload failed" });
+	expect(JSON.stringify(payload)).not.toMatch(secretMaterialPattern);
 	expect(calls.queuedKeys).toEqual([`projects/${projectId}/assets/${assetId}`]);
 	expect(calls.putObject).toHaveLength(1);
 	expect(calls.deletedKeys).toEqual([

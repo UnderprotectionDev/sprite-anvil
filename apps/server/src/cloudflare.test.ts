@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import { createQueue, queueMessageSchema } from "./cloudflare";
+import {
+	createQueue,
+	queueMessageSchema,
+	serializeProjectQueueMessage,
+} from "./cloudflare";
 
 const config = {
 	CLOUDFLARE_ACCOUNT_ID: "account",
@@ -82,6 +86,15 @@ describe("Cloudflare Queues HTTP transport", () => {
 				accessToken: "must-not-enter-queue",
 			}).success
 		).toBe(false);
+		expect(
+			serializeProjectQueueMessage(
+				"projects/00000000-0000-4000-8000-000000000001/assets/00000000-0000-4000-8000-000000000002"
+			)
+		).toEqual({
+			version: 2,
+			kind: "asset-uploaded",
+			key: "projects/00000000-0000-4000-8000-000000000001/assets/00000000-0000-4000-8000-000000000002",
+		});
 	});
 
 	it("rejects unsuccessful API envelopes", async () => {

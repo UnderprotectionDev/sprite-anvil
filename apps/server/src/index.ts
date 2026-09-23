@@ -16,6 +16,10 @@ import {
 } from "./cloudflare";
 import { createContext } from "./context";
 import { desktopOrigins, ENV } from "./env.server";
+import {
+	serializeHealthResponse,
+	serializePublicApiError,
+} from "./output-contracts";
 import { mountProjectRoutes } from "./project-routes";
 import { auth, db } from "./services";
 
@@ -24,7 +28,7 @@ const cloudflareConfig = () => requireCloudflareConfig(ENV);
 
 app.onError((_error, c) => {
 	console.error("Unhandled request error");
-	return c.json({ error: "Internal Server Error" }, 500);
+	return c.json(serializePublicApiError("Internal Server Error"), 500);
 });
 
 app.use(logger());
@@ -40,7 +44,7 @@ app.use(
 
 app.on(["POST", "GET"], "/api/auth/*", async (c) => auth.handler(c.req.raw));
 
-app.get("/health", (c) => c.json({ status: "ok" }));
+app.get("/health", (c) => c.json(serializeHealthResponse()));
 
 mountProjectRoutes(app, {
 	getSession: (headers) => auth.api.getSession({ headers }),

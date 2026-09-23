@@ -36,6 +36,14 @@ const projectQueueMessageSchema = z
 	})
 	.strict();
 
+export function serializeProjectQueueMessage(key: string) {
+	return projectQueueMessageSchema.parse({
+		version: 2,
+		kind: "asset-uploaded",
+		key,
+	});
+}
+
 export const queueMessageSchema = z.discriminatedUnion("version", [
 	legacyQueueMessageSchema,
 	projectQueueMessageSchema,
@@ -167,11 +175,7 @@ export function createQueue(
 
 	return {
 		async send(key: string) {
-			const message = queueMessageSchema.parse({
-				version: 2,
-				kind: "asset-uploaded",
-				key,
-			});
+			const message = serializeProjectQueueMessage(key);
 			await request("", {
 				body: message,
 			});
