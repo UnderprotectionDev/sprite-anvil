@@ -27,12 +27,14 @@ export function serializeProjectSummaryResponse(project: {
 	});
 }
 
-export const visualAssetAcceptedResponseSchema = z
-	.object({ visualAssetId: z.string().uuid() })
+export const twoDVisualAssetAcceptedResponseSchema = z
+	.object({ twoDVisualAssetId: z.string().uuid() })
 	.strict();
 
-export function serializeVisualAssetAcceptedResponse(visualAssetId: string) {
-	return visualAssetAcceptedResponseSchema.parse({ visualAssetId });
+export function serializeTwoDVisualAssetAcceptedResponse(
+	twoDVisualAssetId: string
+) {
+	return twoDVisualAssetAcceptedResponseSchema.parse({ twoDVisualAssetId });
 }
 
 export const publicApiErrorSchema = z
@@ -40,10 +42,10 @@ export const publicApiErrorSchema = z
 		error: z.enum([
 			"Unauthorized",
 			"Not found",
-			"Unsupported visual asset type",
-			"Missing visual asset content",
-			"Invalid visual asset content length",
-			"Visual asset upload failed",
+			"Unsupported 2D Visual Asset type",
+			"Missing 2D Visual Asset content",
+			"Invalid 2D Visual Asset content length",
+			"2D Visual Asset upload failed",
 			"Internal Server Error",
 		]),
 	})

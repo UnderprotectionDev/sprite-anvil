@@ -9,17 +9,17 @@ import { eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import type { CloudflareConfig } from "./cloudflare";
 import {
-	projectSummaryResponseSchema,
-	publicApiErrorSchema,
-	visualAssetAcceptedResponseSchema,
-} from "./output-contracts";
-import {
 	mountProjectRoutes,
 	type ProjectRouteDependencies,
-} from "./project-routes";
+} from "./features/projects/server/project-routes";
+import {
+	projectSummaryResponseSchema,
+	publicApiErrorSchema,
+	twoDVisualAssetAcceptedResponseSchema,
+} from "./output-contracts";
 
 const projectId = "00000000-0000-4000-8000-000000000001";
-const visualAssetId = "00000000-0000-4000-8000-000000000002";
+const twoDVisualAssetId = "00000000-0000-4000-8000-000000000002";
 const secretMaterialPattern =
 	/X-Amz-|access[-_ ]?key|secret[-_ ]?key|access[-_ ]?token|encryption[-_ ]?key|server[-_ ]?secret|password|authorization|credential|token|https?:\/\//i;
 const cloudflareConfig: CloudflareConfig = {
@@ -136,7 +136,7 @@ function createTestApp(
 				return Promise.resolve();
 			},
 		}),
-		createId: overrides.createId ?? (() => visualAssetId),
+		createId: overrides.createId ?? (() => twoDVisualAssetId),
 	});
 
 	return { app, calls };
@@ -189,18 +189,18 @@ test("strict output contracts reject credential-shaped fields", () => {
 		projectSummaryResponseSchema.safeParse({
 			id: projectId,
 			name: "Ash Knight",
-			previewUrl: "https://visual-assets.example.test/preview",
+			previewUrl: "https://2d-visual-assets.example.test/preview",
 		}).success
 	).toBe(false);
 	expect(
-		visualAssetAcceptedResponseSchema.safeParse({
-			visualAssetId,
+		twoDVisualAssetAcceptedResponseSchema.safeParse({
+			twoDVisualAssetId,
 			accessToken: "storage-access-token",
 		}).success
 	).toBe(false);
 	expect(
 		publicApiErrorSchema.safeParse({
-			error: "Visual asset upload failed",
+			error: "2D Visual Asset upload failed",
 			serverSecret: "database-password",
 		}).success
 	).toBe(false);
@@ -233,11 +233,11 @@ test("denies another user's project reads and previews before object access", as
 		headers,
 	});
 	const previewResponse = await app.request(
-		`/api/projects/${projectId}/visual-assets/${visualAssetId}/preview`,
+		`/api/projects/${projectId}/2d-visual-assets/${twoDVisualAssetId}/preview`,
 		{ headers }
 	);
 	const uploadResponse = await app.request(
-		`/api/projects/${projectId}/visual-assets`,
+		`/api/projects/${projectId}/2d-visual-assets`,
 		{
 			method: "POST",
 			headers: new Headers({
@@ -317,12 +317,12 @@ test("fails closed without exposing project lookup errors", async () => {
 	optedOutOfStorage(calls);
 });
 
-test("uploads project visual assets through the server without returning a storage token", async () => {
+test("uploads project 2D Visual Assets through the server without returning a storage token", async () => {
 	const { auth } = createTestAuth();
 	const user = await createUserSession(auth, "user-a");
 	const { app, calls } = createTestApp(auth);
 	const response = await app.request(
-		`/api/projects/${projectId}/visual-assets`,
+		`/api/projects/${projectId}/2d-visual-assets`,
 		{
 			method: "POST",
 			headers: new Headers({
@@ -335,17 +335,17 @@ test("uploads project visual assets through the server without returning a stora
 
 	expect(response.status).toBe(201);
 	const payload: unknown = await response.json();
-	expect(payload).toEqual({ visualAssetId });
+	expect(payload).toEqual({ twoDVisualAssetId });
 	expect(JSON.stringify(payload)).not.toMatch(secretMaterialPattern);
 	expect(calls.putObject).toEqual([
 		{
 			contentType: "image/png",
-			key: `projects/${projectId}/visual-assets/${visualAssetId}`,
+			key: `projects/${projectId}/2d-visual-assets/${twoDVisualAssetId}`,
 			body: "sprite-bytes",
 		},
 	]);
 	expect(calls.queuedKeys).toEqual([
-		`projects/${projectId}/visual-assets/${visualAssetId}`,
+		`projects/${projectId}/2d-visual-assets/${twoDVisualAssetId}`,
 	]);
 });
 
@@ -356,7 +356,7 @@ test("rejects an invalid serialized asset ID before storage side effects", async
 		createId: () => "00000000-0000-0000-0000-000000000003",
 	});
 	const response = await app.request(
-		`/api/projects/${projectId}/visual-assets`,
+		`/api/projects/${projectId}/2d-visual-assets`,
 		{
 			method: "POST",
 			headers: new Headers({
@@ -380,7 +380,7 @@ test("serves previews only through the owner-checked project route", async () =>
 	const user = await createUserSession(auth, "user-a");
 	const { app, calls } = createTestApp(auth);
 	const response = await app.request(
-		`/api/projects/${projectId}/visual-assets/${visualAssetId}/preview`,
+		`/api/projects/${projectId}/2d-visual-assets/${twoDVisualAssetId}/preview`,
 		{
 			headers: new Headers({ cookie: user.headers.get("cookie") ?? "" }),
 		}
@@ -392,7 +392,7 @@ test("serves previews only through the owner-checked project route", async () =>
 	expect(response.headers.get("x-content-type-options")).toBe("nosniff");
 	expect(await response.text()).toBe("sprite-bytes");
 	expect(calls.getObject).toEqual([
-		`projects/${projectId}/visual-assets/${visualAssetId}`,
+		`projects/${projectId}/2d-visual-assets/${twoDVisualAssetId}`,
 	]);
 });
 
@@ -439,7 +439,7 @@ test("preserves owner-scoped routes for opaque project IDs", async () => {
 	expect(calls.getObject).toEqual(["users/user-a/preview.png"]);
 
 	const uploadResponse = await app.request(
-		`/api/projects/${opaqueProjectId}/visual-assets`,
+		`/api/projects/${opaqueProjectId}/2d-visual-assets`,
 		{
 			method: "POST",
 			headers: new Headers({
@@ -453,7 +453,7 @@ test("preserves owner-scoped routes for opaque project IDs", async () => {
 	expect(calls.putObject).toEqual([
 		{
 			contentType: "image/png",
-			key: `projects/${opaqueProjectId}/visual-assets/${visualAssetId}`,
+			key: `projects/${opaqueProjectId}/2d-visual-assets/${twoDVisualAssetId}`,
 			body: "sprite-bytes",
 		},
 	]);
@@ -582,7 +582,7 @@ test("does not keep an uploaded object when queue publication fails", async () =
 	const user = await createUserSession(auth, "user-a");
 	const { app, calls } = createTestApp(auth, { failQueue: true });
 	const response = await app.request(
-		`/api/projects/${projectId}/visual-assets`,
+		`/api/projects/${projectId}/2d-visual-assets`,
 		{
 			method: "POST",
 			headers: new Headers({
@@ -595,14 +595,14 @@ test("does not keep an uploaded object when queue publication fails", async () =
 
 	expect(response.status).toBe(503);
 	const payload: unknown = await response.json();
-	expect(payload).toEqual({ error: "Visual asset upload failed" });
+	expect(payload).toEqual({ error: "2D Visual Asset upload failed" });
 	expect(JSON.stringify(payload)).not.toMatch(secretMaterialPattern);
 	expect(calls.queuedKeys).toEqual([
-		`projects/${projectId}/visual-assets/${visualAssetId}`,
+		`projects/${projectId}/2d-visual-assets/${twoDVisualAssetId}`,
 	]);
 	expect(calls.putObject).toHaveLength(1);
 	expect(calls.deletedKeys).toEqual([
-		`projects/${projectId}/visual-assets/${visualAssetId}`,
+		`projects/${projectId}/2d-visual-assets/${twoDVisualAssetId}`,
 	]);
 });
 
@@ -611,7 +611,7 @@ test("rejects unsupported upload types before storage configuration is read", as
 	const user = await createUserSession(auth, "user-a");
 	const { app, calls } = createTestApp(auth);
 	const response = await app.request(
-		`/api/projects/${projectId}/visual-assets`,
+		`/api/projects/${projectId}/2d-visual-assets`,
 		{
 			method: "POST",
 			headers: new Headers({
@@ -624,7 +624,7 @@ test("rejects unsupported upload types before storage configuration is read", as
 
 	expect(response.status).toBe(415);
 	expect(await response.json()).toEqual({
-		error: "Unsupported visual asset type",
+		error: "Unsupported 2D Visual Asset type",
 	});
 	expect(calls.cloudflareConfig).toBe(0);
 	expect(calls.putObject).toEqual([]);

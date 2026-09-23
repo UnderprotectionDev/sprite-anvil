@@ -12,16 +12,16 @@ const uuidPattern =
 	"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const projectKeySegmentPattern = "(?:[A-Za-z0-9_.!~*'()-]|%[0-9A-F]{2})+";
 
-export const visualAssetUploadContentTypeSchema = z.enum([
+export const twoDVisualAssetUploadContentTypeSchema = z.enum([
 	"image/png",
 	"image/webp",
 ]);
 
-export const visualAssetKeySchema = z
+export const twoDVisualAssetKeySchema = z
 	.string()
 	.regex(
 		new RegExp(
-			`^projects/${projectKeySegmentPattern}/visual-assets/${uuidPattern}$`
+			`^projects/${projectKeySegmentPattern}/2d-visual-assets/${uuidPattern}$`
 		)
 	);
 
@@ -29,13 +29,13 @@ export const legacyAssetKeySchema = z
 	.string()
 	.regex(/^users\/[a-zA-Z0-9-]+\/[a-zA-Z0-9-]+\.(png|webp)$/);
 
-export function createProjectVisualAssetKey(
+export function createProjectTwoDVisualAssetKey(
 	projectId: string,
-	visualAssetId: string
+	twoDVisualAssetId: string
 ) {
 	const projectKeySegment = encodeURIComponent(projectId);
-	return visualAssetKeySchema.parse(
-		`projects/${projectKeySegment}/visual-assets/${visualAssetId}`
+	return twoDVisualAssetKeySchema.parse(
+		`projects/${projectKeySegment}/2d-visual-assets/${twoDVisualAssetId}`
 	);
 }
 
@@ -50,15 +50,15 @@ const legacyQueueMessageSchema = z
 const projectQueueMessageSchema = z
 	.object({
 		version: z.literal(2),
-		kind: z.literal("visual-asset-uploaded"),
-		key: visualAssetKeySchema,
+		kind: z.literal("2d-visual-asset-uploaded"),
+		key: twoDVisualAssetKeySchema,
 	})
 	.strict();
 
 export function serializeProjectQueueMessage(key: string) {
 	return projectQueueMessageSchema.parse({
 		version: 2,
-		kind: "visual-asset-uploaded",
+		kind: "2d-visual-asset-uploaded",
 		key,
 	});
 }

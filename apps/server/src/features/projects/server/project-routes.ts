@@ -3,20 +3,20 @@ import z from "zod";
 
 import {
 	type CloudflareConfig,
-	createProjectVisualAssetKey,
+	createProjectTwoDVisualAssetKey,
 	type createQueue,
 	type createStorage,
 	legacyAssetKeySchema,
-	visualAssetUploadContentTypeSchema,
-} from "./cloudflare";
+	twoDVisualAssetUploadContentTypeSchema,
+} from "../../../cloudflare";
 import {
 	serializeProjectSummaryResponse,
 	serializePublicApiError,
-	serializeVisualAssetAcceptedResponse,
-} from "./output-contracts";
+	serializeTwoDVisualAssetAcceptedResponse,
+} from "../../../output-contracts";
 
 const projectIdSchema = z.string().min(1).max(200);
-const visualAssetIdSchema = z.string().uuid();
+const twoDVisualAssetIdSchema = z.string().uuid();
 
 type StoredObject = NonNullable<
 	Awaited<ReturnType<ReturnType<typeof createStorage>["get"]>>
@@ -99,7 +99,7 @@ function errorResponse(
 	return c.json(serializePublicApiError(access.error), access.status);
 }
 
-async function visualAssetPreviewResponse(
+async function twoDVisualAssetPreviewResponse(
 	c: Context,
 	object: StoredObject | null
 ) {
@@ -151,7 +151,7 @@ export function mountProjectRoutes(
 		);
 	});
 
-	app.post("/api/projects/:projectId/visual-assets", async (c) => {
+	app.post("/api/projects/:projectId/2d-visual-assets", async (c) => {
 		c.header("Cache-Control", "private, no-store");
 		const access = await resolveProjectAccess(
 			c.req.raw.headers,
@@ -162,12 +162,12 @@ export function mountProjectRoutes(
 			return errorResponse(c, access);
 		}
 
-		const contentType = visualAssetUploadContentTypeSchema.safeParse(
+		const contentType = twoDVisualAssetUploadContentTypeSchema.safeParse(
 			c.req.header("content-type")?.split(";")[0]?.trim()
 		);
 		if (!contentType.success) {
 			return c.json(
-				serializePublicApiError("Unsupported visual asset type"),
+				serializePublicApiError("Unsupported 2D Visual Asset type"),
 				415
 			);
 		}
@@ -175,7 +175,7 @@ export function mountProjectRoutes(
 		const { body } = c.req.raw;
 		if (!body) {
 			return c.json(
-				serializePublicApiError("Missing visual asset content"),
+				serializePublicApiError("Missing 2D Visual Asset content"),
 				400
 			);
 		}
@@ -190,15 +190,18 @@ export function mountProjectRoutes(
 				contentLength <= 0)
 		) {
 			return c.json(
-				serializePublicApiError("Invalid visual asset content length"),
+				serializePublicApiError("Invalid 2D Visual Asset content length"),
 				400
 			);
 		}
 
-		const visualAssetId = (dependencies.createId ?? crypto.randomUUID)();
+		const twoDVisualAssetId = (dependencies.createId ?? crypto.randomUUID)();
 		const acceptedResponse =
-			serializeVisualAssetAcceptedResponse(visualAssetId);
-		const key = createProjectVisualAssetKey(access.project.id, visualAssetId);
+			serializeTwoDVisualAssetAcceptedResponse(twoDVisualAssetId);
+		const key = createProjectTwoDVisualAssetKey(
+			access.project.id,
+			twoDVisualAssetId
+		);
 
 		const config = dependencies.cloudflareConfig();
 		const storage = dependencies.createStorage(config);
@@ -211,14 +214,17 @@ export function mountProjectRoutes(
 			} catch {
 				// The upload still fails closed if cleanup is unavailable.
 			}
-			return c.json(serializePublicApiError("Visual asset upload failed"), 503);
+			return c.json(
+				serializePublicApiError("2D Visual Asset upload failed"),
+				503
+			);
 		}
 
 		return c.json(acceptedResponse, 201);
 	});
 
 	app.get(
-		"/api/projects/:projectId/visual-assets/:visualAssetId/preview",
+		"/api/projects/:projectId/2d-visual-assets/:twoDVisualAssetId/preview",
 		async (c) => {
 			c.header("Cache-Control", "private, no-store");
 			const access = await resolveProjectAccess(
@@ -230,19 +236,22 @@ export function mountProjectRoutes(
 				return errorResponse(c, access);
 			}
 
-			const visualAssetId = visualAssetIdSchema.safeParse(
-				c.req.param("visualAssetId")
+			const twoDVisualAssetId = twoDVisualAssetIdSchema.safeParse(
+				c.req.param("twoDVisualAssetId")
 			);
-			if (!visualAssetId.success) {
+			if (!twoDVisualAssetId.success) {
 				return c.json(serializePublicApiError("Not found"), 404);
 			}
 
 			const object = await dependencies
 				.createStorage(dependencies.cloudflareConfig())
 				.get(
-					createProjectVisualAssetKey(access.project.id, visualAssetId.data)
+					createProjectTwoDVisualAssetKey(
+						access.project.id,
+						twoDVisualAssetId.data
+					)
 				);
-			return visualAssetPreviewResponse(c, object);
+			return twoDVisualAssetPreviewResponse(c, object);
 		}
 	);
 
@@ -265,6 +274,6 @@ export function mountProjectRoutes(
 		const object = await dependencies
 			.createStorage(dependencies.cloudflareConfig())
 			.get(access.project.previewKey);
-		return visualAssetPreviewResponse(c, object);
+		return twoDVisualAssetPreviewResponse(c, object);
 	});
 }

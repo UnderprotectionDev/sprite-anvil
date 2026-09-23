@@ -18,7 +18,7 @@ import { testUtils } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 
-import { createProjectAccessStore } from "./project-access-store";
+import { createProjectAccessStore } from "./features/projects/server/project-access-store";
 
 function createTestAuth() {
 	const database: MemoryDB = {};

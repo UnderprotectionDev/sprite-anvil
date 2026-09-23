@@ -12,7 +12,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:migrate:deploy": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "test": "bun test src/migration-compatibility.test.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

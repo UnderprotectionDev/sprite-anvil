@@ -11,12 +11,13 @@ const projectNameSchema = z.object({
 });
 
 const projectIdSchema = z.string().min(1).max(200);
+const purposeSchema = z.string().trim().min(3).max(160);
 
 const projectIdInputSchema = z.object({ projectId: projectIdSchema });
 
 const grantContextAgentSchema = z.object({
 	projectId: projectIdSchema,
-	purpose: z.string().trim().min(3).max(160),
+	purpose: purposeSchema,
 	scopes: z
 		.array(z.enum(contextAgentScopes))
 		.min(1)
@@ -31,13 +32,13 @@ const revokePermissionSchema = z.object({
 
 const checkContextAgentSchema = z.object({
 	projectId: projectIdSchema,
-	purpose: z.string().trim().min(3).max(160),
+	purpose: purposeSchema,
 	scope: z.enum(contextAgentScopes),
 });
 
 const checkConnectionSchema = z.object({
 	projectId: projectIdSchema,
-	purpose: z.string().trim().min(3).max(160),
+	purpose: purposeSchema,
 	scope: z.enum(connectionScopes),
 });
 

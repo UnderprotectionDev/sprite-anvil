@@ -74,6 +74,8 @@
 │   │   │   │   │   └── server/
 │   │   │   │   ├── projects/
 │   │   │   │   │   └── server/
+│   │   │   │   │       ├── project-access-store.ts
+│   │   │   │   │       └── project-routes.ts
 │   │   │   │   ├── quality-evidence/
 │   │   │   │   │   └── server/
 │   │   │   │   ├── reference-production/
@@ -92,12 +94,12 @@
 │   │   │   │   │   └── server/
 │   │   │   │   └── visual-worlds/
 │   │   │   │       └── server/
-│   │   │   ├── asset-routes.ts
 │   │   │   ├── cloudflare.ts
 │   │   │   ├── context.ts
 │   │   │   ├── env.server.ts
 │   │   │   ├── env.ts
 │   │   │   ├── index.ts
+│   │   │   ├── output-contracts.ts
 │   │   │   ├── services.ts
 │   │   │   └── worker.ts
 │   │   ├── .env.schema

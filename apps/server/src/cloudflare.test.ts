@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { createServer } from "node:http";
 
 import {
-	createProjectVisualAssetKey,
+	createProjectTwoDVisualAssetKey,
 	createQueue,
 	createStorage,
 	queueMessageSchema,
@@ -31,9 +31,9 @@ describe("Cloudflare Queues HTTP transport", () => {
 								{
 									lease_id: "lease-1",
 									body: {
-										kind: "visual-asset-uploaded",
+										kind: "2d-visual-asset-uploaded",
 										version: 2,
-										key: "projects/00000000-0000-4000-8000-000000000001/visual-assets/00000000-0000-4000-8000-000000000002",
+										key: "projects/00000000-0000-4000-8000-000000000001/2d-visual-assets/00000000-0000-4000-8000-000000000002",
 									},
 								},
 							],
@@ -45,7 +45,7 @@ describe("Cloudflare Queues HTTP transport", () => {
 		const queue = createQueue(config, fetcher);
 
 		await queue.send(
-			"projects/00000000-0000-4000-8000-000000000001/visual-assets/00000000-0000-4000-8000-000000000002"
+			"projects/00000000-0000-4000-8000-000000000001/2d-visual-assets/00000000-0000-4000-8000-000000000002"
 		);
 		const messages = await queue.pull();
 		expect(messages).toHaveLength(1);
@@ -59,8 +59,8 @@ describe("Cloudflare Queues HTTP transport", () => {
 		expect(calls.at(0)?.body).toEqual({
 			body: {
 				version: 2,
-				kind: "visual-asset-uploaded",
-				key: "projects/00000000-0000-4000-8000-000000000001/visual-assets/00000000-0000-4000-8000-000000000002",
+				kind: "2d-visual-asset-uploaded",
+				key: "projects/00000000-0000-4000-8000-000000000001/2d-visual-assets/00000000-0000-4000-8000-000000000002",
 			},
 		});
 		expect(calls.at(2)?.body).toEqual({
@@ -84,35 +84,35 @@ describe("Cloudflare Queues HTTP transport", () => {
 		expect(
 			queueMessageSchema.safeParse({
 				version: 2,
-				kind: "visual-asset-uploaded",
-				key: "projects/00000000-0000-4000-8000-000000000001/visual-assets/00000000-0000-4000-8000-000000000002",
+				kind: "2d-visual-asset-uploaded",
+				key: "projects/00000000-0000-4000-8000-000000000001/2d-visual-assets/00000000-0000-4000-8000-000000000002",
 				accessToken: "must-not-enter-queue",
 			}).success
 		).toBe(false);
 		expect(
 			serializeProjectQueueMessage(
-				"projects/00000000-0000-4000-8000-000000000001/visual-assets/00000000-0000-4000-8000-000000000002"
+				"projects/00000000-0000-4000-8000-000000000001/2d-visual-assets/00000000-0000-4000-8000-000000000002"
 			)
 		).toEqual({
 			version: 2,
-			kind: "visual-asset-uploaded",
-			key: "projects/00000000-0000-4000-8000-000000000001/visual-assets/00000000-0000-4000-8000-000000000002",
+			kind: "2d-visual-asset-uploaded",
+			key: "projects/00000000-0000-4000-8000-000000000001/2d-visual-assets/00000000-0000-4000-8000-000000000002",
 		});
 	});
 
-	it("encodes opaque project IDs as one strict visual-asset-key segment", () => {
-		const visualAssetId = "00000000-0000-4000-8000-000000000002";
-		const key = createProjectVisualAssetKey(
+	it("encodes opaque project IDs as one strict 2d-visual-asset-key segment", () => {
+		const twoDVisualAssetId = "00000000-0000-4000-8000-000000000002";
+		const key = createProjectTwoDVisualAssetKey(
 			"ash knight/portrait",
-			visualAssetId
+			twoDVisualAssetId
 		);
 
 		expect(key).toBe(
-			`projects/ash%20knight%2Fportrait/visual-assets/${visualAssetId}`
+			`projects/ash%20knight%2Fportrait/2d-visual-assets/${twoDVisualAssetId}`
 		);
 		expect(serializeProjectQueueMessage(key)).toEqual({
 			version: 2,
-			kind: "visual-asset-uploaded",
+			kind: "2d-visual-asset-uploaded",
 			key,
 		});
 	});
@@ -123,7 +123,7 @@ describe("Cloudflare Queues HTTP transport", () => {
 		);
 		await expect(
 			queue.send(
-				"projects/00000000-0000-4000-8000-000000000001/visual-assets/00000000-0000-4000-8000-000000000002"
+				"projects/00000000-0000-4000-8000-000000000001/2d-visual-assets/00000000-0000-4000-8000-000000000002"
 			)
 		).rejects.toThrow("Cloudflare Queues request failed: 403");
 	});
@@ -156,7 +156,7 @@ describe("Cloudflare R2 HTTP transport", () => {
 		try {
 			const storage = createStorage(config, `http://127.0.0.1:${address.port}`);
 			await storage.put(
-				"projects/00000000-0000-4000-8000-000000000001/visual-assets/00000000-0000-4000-8000-000000000002",
+				"projects/00000000-0000-4000-8000-000000000001/2d-visual-assets/00000000-0000-4000-8000-000000000002",
 				new Blob(["sprite-bytes"]).stream(),
 				"image/png",
 				12
