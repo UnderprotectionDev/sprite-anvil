@@ -13,6 +13,7 @@ export const project = pgTable(
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
 		name: text("name").notNull(),
+		generalArtDirection: text("general_art_direction").notNull().default(""),
 		previewKey: text("preview_key"),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		updatedAt: timestamp("updated_at")
