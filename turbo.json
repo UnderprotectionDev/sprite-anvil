@@ -42,12 +42,7 @@
     "CORS_ORIGIN",
     "DATABASE_URL",
     "NODE_ENV",
-    "VERCEL",
-    "VERCEL_ENV",
-    "VERCEL_PROJECT_PRODUCTION_URL",
-    "VERCEL_URL",
-    "VITE_SERVER_URL",
-    "_VARLOCK_ENV_KEY"
+    "VITE_SERVER_URL"
   ],
   "globalDependencies": [".env*", "apps/*/.env*", "packages/*/.env*"]
 }

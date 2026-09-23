@@ -8,9 +8,8 @@ import { Hono } from "hono";
 import { serveStatic } from "hono/bun";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import { mountAssetRoutes } from "./asset-routes";
 import {
-	assetReadySchema,
-	assetUploadSchema,
 	createQueue,
 	createStorage,
 	requireCloudflareConfig,
@@ -37,38 +36,11 @@ app.on(["POST", "GET"], "/api/auth/*", async (c) => auth.handler(c.req.raw));
 
 app.get("/health", (c) => c.json({ status: "ok" }));
 
-app.post("/api/assets/upload-url", async (c) => {
-	const session = await auth.api.getSession({ headers: c.req.raw.headers });
-	if (!session?.user) {
-		return c.json({ error: "Unauthorized" }, 401);
-	}
-	const input = assetUploadSchema.safeParse(await c.req.json());
-	if (!input.success) {
-		return c.json({ error: "Invalid upload request" }, 400);
-	}
-	return c.json(
-		await createStorage(cloudflareConfig()).signUpload(
-			session.user.id,
-			input.data.contentType
-		)
-	);
-});
-
-app.post("/api/assets/complete", async (c) => {
-	const session = await auth.api.getSession({ headers: c.req.raw.headers });
-	if (!session?.user) {
-		return c.json({ error: "Unauthorized" }, 401);
-	}
-	const input = assetReadySchema.safeParse(await c.req.json());
-	if (
-		!(input.success && input.data.key.startsWith(`users/${session.user.id}/`))
-	) {
-		return c.json({ error: "Invalid asset key" }, 400);
-	}
-	const config = cloudflareConfig();
-	await createStorage(config).exists(input.data.key);
-	await createQueue(config).send(input.data.key);
-	return c.json({ queued: true });
+mountAssetRoutes(app, {
+	getSession: (headers) => auth.api.getSession({ headers }),
+	cloudflareConfig,
+	createQueue,
+	createStorage,
 });
 
 export const apiHandler = new OpenAPIHandler(appRouter, {
@@ -115,8 +87,6 @@ app.use("/*", async (c, next) => {
 
 	await next();
 });
-
-app.get("/", (c) => c.redirect("/studio"));
 
 app.use("/*", serveStatic({ root: "../web/dist" }));
 app.get("/*", serveStatic({ path: "../web/dist/index.html" }));
