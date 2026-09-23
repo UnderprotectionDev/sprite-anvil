@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { createServer } from "node:http";
 
 import {
-	createProjectAssetKey,
+	createProjectVisualAssetKey,
 	createQueue,
 	createStorage,
 	queueMessageSchema,
@@ -31,9 +31,9 @@ describe("Cloudflare Queues HTTP transport", () => {
 								{
 									lease_id: "lease-1",
 									body: {
-										kind: "asset-uploaded",
+										kind: "visual-asset-uploaded",
 										version: 2,
-										key: "projects/00000000-0000-4000-8000-000000000001/assets/00000000-0000-4000-8000-000000000002",
+										key: "projects/00000000-0000-4000-8000-000000000001/visual-assets/00000000-0000-4000-8000-000000000002",
 									},
 								},
 							],
@@ -45,7 +45,7 @@ describe("Cloudflare Queues HTTP transport", () => {
 		const queue = createQueue(config, fetcher);
 
 		await queue.send(
-			"projects/00000000-0000-4000-8000-000000000001/assets/00000000-0000-4000-8000-000000000002"
+			"projects/00000000-0000-4000-8000-000000000001/visual-assets/00000000-0000-4000-8000-000000000002"
 		);
 		const messages = await queue.pull();
 		expect(messages).toHaveLength(1);
@@ -59,8 +59,8 @@ describe("Cloudflare Queues HTTP transport", () => {
 		expect(calls.at(0)?.body).toEqual({
 			body: {
 				version: 2,
-				kind: "asset-uploaded",
-				key: "projects/00000000-0000-4000-8000-000000000001/assets/00000000-0000-4000-8000-000000000002",
+				kind: "visual-asset-uploaded",
+				key: "projects/00000000-0000-4000-8000-000000000001/visual-assets/00000000-0000-4000-8000-000000000002",
 			},
 		});
 		expect(calls.at(2)?.body).toEqual({
@@ -84,30 +84,35 @@ describe("Cloudflare Queues HTTP transport", () => {
 		expect(
 			queueMessageSchema.safeParse({
 				version: 2,
-				kind: "asset-uploaded",
-				key: "projects/00000000-0000-4000-8000-000000000001/assets/00000000-0000-4000-8000-000000000002",
+				kind: "visual-asset-uploaded",
+				key: "projects/00000000-0000-4000-8000-000000000001/visual-assets/00000000-0000-4000-8000-000000000002",
 				accessToken: "must-not-enter-queue",
 			}).success
 		).toBe(false);
 		expect(
 			serializeProjectQueueMessage(
-				"projects/00000000-0000-4000-8000-000000000001/assets/00000000-0000-4000-8000-000000000002"
+				"projects/00000000-0000-4000-8000-000000000001/visual-assets/00000000-0000-4000-8000-000000000002"
 			)
 		).toEqual({
 			version: 2,
-			kind: "asset-uploaded",
-			key: "projects/00000000-0000-4000-8000-000000000001/assets/00000000-0000-4000-8000-000000000002",
+			kind: "visual-asset-uploaded",
+			key: "projects/00000000-0000-4000-8000-000000000001/visual-assets/00000000-0000-4000-8000-000000000002",
 		});
 	});
 
-	it("encodes opaque project IDs as one strict asset-key segment", () => {
-		const assetId = "00000000-0000-4000-8000-000000000002";
-		const key = createProjectAssetKey("ash knight/portrait", assetId);
+	it("encodes opaque project IDs as one strict visual-asset-key segment", () => {
+		const visualAssetId = "00000000-0000-4000-8000-000000000002";
+		const key = createProjectVisualAssetKey(
+			"ash knight/portrait",
+			visualAssetId
+		);
 
-		expect(key).toBe(`projects/ash%20knight%2Fportrait/assets/${assetId}`);
+		expect(key).toBe(
+			`projects/ash%20knight%2Fportrait/visual-assets/${visualAssetId}`
+		);
 		expect(serializeProjectQueueMessage(key)).toEqual({
 			version: 2,
-			kind: "asset-uploaded",
+			kind: "visual-asset-uploaded",
 			key,
 		});
 	});
@@ -118,7 +123,7 @@ describe("Cloudflare Queues HTTP transport", () => {
 		);
 		await expect(
 			queue.send(
-				"projects/00000000-0000-4000-8000-000000000001/assets/00000000-0000-4000-8000-000000000002"
+				"projects/00000000-0000-4000-8000-000000000001/visual-assets/00000000-0000-4000-8000-000000000002"
 			)
 		).rejects.toThrow("Cloudflare Queues request failed: 403");
 	});
@@ -151,7 +156,7 @@ describe("Cloudflare R2 HTTP transport", () => {
 		try {
 			const storage = createStorage(config, `http://127.0.0.1:${address.port}`);
 			await storage.put(
-				"projects/00000000-0000-4000-8000-000000000001/assets/00000000-0000-4000-8000-000000000002",
+				"projects/00000000-0000-4000-8000-000000000001/visual-assets/00000000-0000-4000-8000-000000000002",
 				new Blob(["sprite-bytes"]).stream(),
 				"image/png",
 				12

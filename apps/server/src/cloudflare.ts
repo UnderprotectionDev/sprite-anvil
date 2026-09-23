@@ -12,22 +12,30 @@ const uuidPattern =
 	"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const projectKeySegmentPattern = "(?:[A-Za-z0-9_.!~*'()-]|%[0-9A-F]{2})+";
 
-export const assetUploadContentTypeSchema = z.enum(["image/png", "image/webp"]);
+export const visualAssetUploadContentTypeSchema = z.enum([
+	"image/png",
+	"image/webp",
+]);
 
-export const assetKeySchema = z
+export const visualAssetKeySchema = z
 	.string()
 	.regex(
-		new RegExp(`^projects/${projectKeySegmentPattern}/assets/${uuidPattern}$`)
+		new RegExp(
+			`^projects/${projectKeySegmentPattern}/visual-assets/${uuidPattern}$`
+		)
 	);
 
 export const legacyAssetKeySchema = z
 	.string()
 	.regex(/^users\/[a-zA-Z0-9-]+\/[a-zA-Z0-9-]+\.(png|webp)$/);
 
-export function createProjectAssetKey(projectId: string, assetId: string) {
+export function createProjectVisualAssetKey(
+	projectId: string,
+	visualAssetId: string
+) {
 	const projectKeySegment = encodeURIComponent(projectId);
-	return assetKeySchema.parse(
-		`projects/${projectKeySegment}/assets/${assetId}`
+	return visualAssetKeySchema.parse(
+		`projects/${projectKeySegment}/visual-assets/${visualAssetId}`
 	);
 }
 
@@ -42,15 +50,15 @@ const legacyQueueMessageSchema = z
 const projectQueueMessageSchema = z
 	.object({
 		version: z.literal(2),
-		kind: z.literal("asset-uploaded"),
-		key: assetKeySchema,
+		kind: z.literal("visual-asset-uploaded"),
+		key: visualAssetKeySchema,
 	})
 	.strict();
 
 export function serializeProjectQueueMessage(key: string) {
 	return projectQueueMessageSchema.parse({
 		version: 2,
-		kind: "asset-uploaded",
+		kind: "visual-asset-uploaded",
 		key,
 	});
 }

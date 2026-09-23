@@ -9,9 +9,9 @@ import { eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
 import type { CloudflareConfig } from "./cloudflare";
 import {
-	assetAcceptedResponseSchema,
 	projectSummaryResponseSchema,
 	publicApiErrorSchema,
+	visualAssetAcceptedResponseSchema,
 } from "./output-contracts";
 import {
 	mountProjectRoutes,
@@ -19,7 +19,7 @@ import {
 } from "./project-routes";
 
 const projectId = "00000000-0000-4000-8000-000000000001";
-const assetId = "00000000-0000-4000-8000-000000000002";
+const visualAssetId = "00000000-0000-4000-8000-000000000002";
 const secretMaterialPattern =
 	/X-Amz-|access[-_ ]?key|secret[-_ ]?key|access[-_ ]?token|encryption[-_ ]?key|server[-_ ]?secret|password|authorization|credential|token|https?:\/\//i;
 const cloudflareConfig: CloudflareConfig = {
@@ -136,7 +136,7 @@ function createTestApp(
 				return Promise.resolve();
 			},
 		}),
-		createId: overrides.createId ?? (() => assetId),
+		createId: overrides.createId ?? (() => visualAssetId),
 	});
 
 	return { app, calls };
@@ -189,18 +189,18 @@ test("strict output contracts reject credential-shaped fields", () => {
 		projectSummaryResponseSchema.safeParse({
 			id: projectId,
 			name: "Ash Knight",
-			previewUrl: "https://assets.example.test/preview",
+			previewUrl: "https://visual-assets.example.test/preview",
 		}).success
 	).toBe(false);
 	expect(
-		assetAcceptedResponseSchema.safeParse({
-			assetId,
+		visualAssetAcceptedResponseSchema.safeParse({
+			visualAssetId,
 			accessToken: "storage-access-token",
 		}).success
 	).toBe(false);
 	expect(
 		publicApiErrorSchema.safeParse({
-			error: "Asset upload failed",
+			error: "Visual asset upload failed",
 			serverSecret: "database-password",
 		}).success
 	).toBe(false);
@@ -233,11 +233,11 @@ test("denies another user's project reads and previews before object access", as
 		headers,
 	});
 	const previewResponse = await app.request(
-		`/api/projects/${projectId}/assets/${assetId}/preview`,
+		`/api/projects/${projectId}/visual-assets/${visualAssetId}/preview`,
 		{ headers }
 	);
 	const uploadResponse = await app.request(
-		`/api/projects/${projectId}/assets`,
+		`/api/projects/${projectId}/visual-assets`,
 		{
 			method: "POST",
 			headers: new Headers({
@@ -317,31 +317,36 @@ test("fails closed without exposing project lookup errors", async () => {
 	optedOutOfStorage(calls);
 });
 
-test("uploads project assets through the server without returning a storage token", async () => {
+test("uploads project visual assets through the server without returning a storage token", async () => {
 	const { auth } = createTestAuth();
 	const user = await createUserSession(auth, "user-a");
 	const { app, calls } = createTestApp(auth);
-	const response = await app.request(`/api/projects/${projectId}/assets`, {
-		method: "POST",
-		headers: new Headers({
-			cookie: user.headers.get("cookie") ?? "",
-			"content-type": "image/png",
-		}),
-		body: "sprite-bytes",
-	});
+	const response = await app.request(
+		`/api/projects/${projectId}/visual-assets`,
+		{
+			method: "POST",
+			headers: new Headers({
+				cookie: user.headers.get("cookie") ?? "",
+				"content-type": "image/png",
+			}),
+			body: "sprite-bytes",
+		}
+	);
 
 	expect(response.status).toBe(201);
 	const payload: unknown = await response.json();
-	expect(payload).toEqual({ assetId });
+	expect(payload).toEqual({ visualAssetId });
 	expect(JSON.stringify(payload)).not.toMatch(secretMaterialPattern);
 	expect(calls.putObject).toEqual([
 		{
 			contentType: "image/png",
-			key: `projects/${projectId}/assets/${assetId}`,
+			key: `projects/${projectId}/visual-assets/${visualAssetId}`,
 			body: "sprite-bytes",
 		},
 	]);
-	expect(calls.queuedKeys).toEqual([`projects/${projectId}/assets/${assetId}`]);
+	expect(calls.queuedKeys).toEqual([
+		`projects/${projectId}/visual-assets/${visualAssetId}`,
+	]);
 });
 
 test("rejects an invalid serialized asset ID before storage side effects", async () => {
@@ -350,14 +355,17 @@ test("rejects an invalid serialized asset ID before storage side effects", async
 	const { app, calls } = createTestApp(auth, {
 		createId: () => "00000000-0000-0000-0000-000000000003",
 	});
-	const response = await app.request(`/api/projects/${projectId}/assets`, {
-		method: "POST",
-		headers: new Headers({
-			cookie: user.headers.get("cookie") ?? "",
-			"content-type": "image/png",
-		}),
-		body: "sprite-bytes",
-	});
+	const response = await app.request(
+		`/api/projects/${projectId}/visual-assets`,
+		{
+			method: "POST",
+			headers: new Headers({
+				cookie: user.headers.get("cookie") ?? "",
+				"content-type": "image/png",
+			}),
+			body: "sprite-bytes",
+		}
+	);
 
 	expect(response.status).toBe(500);
 	expect(await response.json()).toEqual({ error: "Internal Server Error" });
@@ -372,7 +380,7 @@ test("serves previews only through the owner-checked project route", async () =>
 	const user = await createUserSession(auth, "user-a");
 	const { app, calls } = createTestApp(auth);
 	const response = await app.request(
-		`/api/projects/${projectId}/assets/${assetId}/preview`,
+		`/api/projects/${projectId}/visual-assets/${visualAssetId}/preview`,
 		{
 			headers: new Headers({ cookie: user.headers.get("cookie") ?? "" }),
 		}
@@ -383,7 +391,9 @@ test("serves previews only through the owner-checked project route", async () =>
 	expect(response.headers.get("cache-control")).toBe("private, no-store");
 	expect(response.headers.get("x-content-type-options")).toBe("nosniff");
 	expect(await response.text()).toBe("sprite-bytes");
-	expect(calls.getObject).toEqual([`projects/${projectId}/assets/${assetId}`]);
+	expect(calls.getObject).toEqual([
+		`projects/${projectId}/visual-assets/${visualAssetId}`,
+	]);
 });
 
 test("preserves owner-scoped routes for opaque project IDs", async () => {
@@ -429,7 +439,7 @@ test("preserves owner-scoped routes for opaque project IDs", async () => {
 	expect(calls.getObject).toEqual(["users/user-a/preview.png"]);
 
 	const uploadResponse = await app.request(
-		`/api/projects/${opaqueProjectId}/assets`,
+		`/api/projects/${opaqueProjectId}/visual-assets`,
 		{
 			method: "POST",
 			headers: new Headers({
@@ -443,7 +453,7 @@ test("preserves owner-scoped routes for opaque project IDs", async () => {
 	expect(calls.putObject).toEqual([
 		{
 			contentType: "image/png",
-			key: `projects/${opaqueProjectId}/assets/${assetId}`,
+			key: `projects/${opaqueProjectId}/visual-assets/${visualAssetId}`,
 			body: "sprite-bytes",
 		},
 	]);
@@ -571,23 +581,28 @@ test("does not keep an uploaded object when queue publication fails", async () =
 	const { auth } = createTestAuth();
 	const user = await createUserSession(auth, "user-a");
 	const { app, calls } = createTestApp(auth, { failQueue: true });
-	const response = await app.request(`/api/projects/${projectId}/assets`, {
-		method: "POST",
-		headers: new Headers({
-			cookie: user.headers.get("cookie") ?? "",
-			"content-type": "image/webp",
-		}),
-		body: "sprite-bytes",
-	});
+	const response = await app.request(
+		`/api/projects/${projectId}/visual-assets`,
+		{
+			method: "POST",
+			headers: new Headers({
+				cookie: user.headers.get("cookie") ?? "",
+				"content-type": "image/webp",
+			}),
+			body: "sprite-bytes",
+		}
+	);
 
 	expect(response.status).toBe(503);
 	const payload: unknown = await response.json();
-	expect(payload).toEqual({ error: "Asset upload failed" });
+	expect(payload).toEqual({ error: "Visual asset upload failed" });
 	expect(JSON.stringify(payload)).not.toMatch(secretMaterialPattern);
-	expect(calls.queuedKeys).toEqual([`projects/${projectId}/assets/${assetId}`]);
+	expect(calls.queuedKeys).toEqual([
+		`projects/${projectId}/visual-assets/${visualAssetId}`,
+	]);
 	expect(calls.putObject).toHaveLength(1);
 	expect(calls.deletedKeys).toEqual([
-		`projects/${projectId}/assets/${assetId}`,
+		`projects/${projectId}/visual-assets/${visualAssetId}`,
 	]);
 });
 
@@ -595,17 +610,22 @@ test("rejects unsupported upload types before storage configuration is read", as
 	const { auth } = createTestAuth();
 	const user = await createUserSession(auth, "user-a");
 	const { app, calls } = createTestApp(auth);
-	const response = await app.request(`/api/projects/${projectId}/assets`, {
-		method: "POST",
-		headers: new Headers({
-			cookie: user.headers.get("cookie") ?? "",
-			"content-type": "text/plain",
-		}),
-		body: "not an image",
-	});
+	const response = await app.request(
+		`/api/projects/${projectId}/visual-assets`,
+		{
+			method: "POST",
+			headers: new Headers({
+				cookie: user.headers.get("cookie") ?? "",
+				"content-type": "text/plain",
+			}),
+			body: "not an image",
+		}
+	);
 
 	expect(response.status).toBe(415);
-	expect(await response.json()).toEqual({ error: "Unsupported asset type" });
+	expect(await response.json()).toEqual({
+		error: "Unsupported visual asset type",
+	});
 	expect(calls.cloudflareConfig).toBe(0);
 	expect(calls.putObject).toEqual([]);
 	expect(calls.queuedKeys).toEqual([]);
