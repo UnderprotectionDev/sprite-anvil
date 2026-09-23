@@ -11,20 +11,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
-
-export const projects = pgTable(
-	"projects",
-	{
-		id: text("id").primaryKey(),
-		ownerUserId: text("owner_user_id")
-			.notNull()
-			.references(() => user.id, { onDelete: "cascade" }),
-		name: text("name").notNull(),
-		generalArtDirection: text("general_art_direction").notNull(),
-		createdAt: timestamp("created_at").defaultNow().notNull(),
-	},
-	(table) => [index("projects_owner_user_id_idx").on(table.ownerUserId)]
-);
+import { project } from "./project";
 
 export const contextRevisions = pgTable(
 	"context_revisions",
@@ -32,7 +19,7 @@ export const contextRevisions = pgTable(
 		id: text("id").primaryKey(),
 		projectId: text("project_id")
 			.notNull()
-			.references(() => projects.id, { onDelete: "cascade" }),
+			.references(() => project.id, { onDelete: "cascade" }),
 		revisionNumber: integer("revision_number").notNull(),
 		state: text("state").$type<"baseline" | "active">().notNull(),
 		contractVersion: text("contract_version").notNull(),
@@ -60,7 +47,7 @@ export const contextProposals = pgTable(
 		id: text("id").primaryKey(),
 		projectId: text("project_id")
 			.notNull()
-			.references(() => projects.id, { onDelete: "cascade" }),
+			.references(() => project.id, { onDelete: "cascade" }),
 		baseContextRevisionId: text("base_context_revision_id").notNull(),
 		createdByUserId: text("created_by_user_id")
 			.notNull()
@@ -87,12 +74,12 @@ export const contextProposals = pgTable(
 );
 
 export const projectContextRelations = defineRelationsPart(
-	{ user, projects, contextRevisions, contextProposals },
+	{ user, project, contextRevisions, contextProposals },
 	(r) => ({
 		user: {
-			projects: r.many.projects({
+			projects: r.many.project({
 				from: r.user.id,
-				to: r.projects.ownerUserId,
+				to: r.project.ownerUserId,
 			}),
 			contextRevisions: r.many.contextRevisions({
 				from: r.user.id,
@@ -103,21 +90,21 @@ export const projectContextRelations = defineRelationsPart(
 				to: r.contextProposals.createdByUserId,
 			}),
 		},
-		projects: {
-			owner: r.one.user({ from: r.projects.ownerUserId, to: r.user.id }),
+		project: {
+			owner: r.one.user({ from: r.project.ownerUserId, to: r.user.id }),
 			revisions: r.many.contextRevisions({
-				from: r.projects.id,
+				from: r.project.id,
 				to: r.contextRevisions.projectId,
 			}),
 			proposals: r.many.contextProposals({
-				from: r.projects.id,
+				from: r.project.id,
 				to: r.contextProposals.projectId,
 			}),
 		},
 		contextRevisions: {
-			project: r.one.projects({
+			project: r.one.project({
 				from: r.contextRevisions.projectId,
-				to: r.projects.id,
+				to: r.project.id,
 			}),
 			creator: r.one.user({
 				from: r.contextRevisions.createdByUserId,
@@ -129,9 +116,9 @@ export const projectContextRelations = defineRelationsPart(
 			}),
 		},
 		contextProposals: {
-			project: r.one.projects({
+			project: r.one.project({
 				from: r.contextProposals.projectId,
-				to: r.projects.id,
+				to: r.project.id,
 			}),
 			baseContextRevision: r.one.contextRevisions({
 				from: r.contextProposals.baseContextRevisionId,

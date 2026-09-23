@@ -10,10 +10,10 @@ import {
 	projectContextSchema,
 } from "@sprite-anvil/api/project-context";
 import type { Database } from "@sprite-anvil/db";
+import { project as projectTable } from "@sprite-anvil/db/schema/project";
 import {
 	contextProposals,
 	contextRevisions,
-	projects,
 } from "@sprite-anvil/db/schema/project-context";
 import { and, asc, desc, eq, or, sql } from "drizzle-orm";
 
@@ -42,10 +42,10 @@ export function createProjectContextStore(db: Database): ProjectContextStore {
 		async listProjects(userId) {
 			const rows = await db
 				.select({
-					projectId: projects.id,
-					name: projects.name,
-					generalArtDirection: projects.generalArtDirection,
-					projectCreatedAt: projects.createdAt,
+					projectId: projectTable.id,
+					name: projectTable.name,
+					generalArtDirection: projectTable.generalArtDirection,
+					projectCreatedAt: projectTable.createdAt,
 					revisionId: contextRevisions.id,
 					revisionNumber: contextRevisions.revisionNumber,
 					revisionState: contextRevisions.state,
@@ -53,20 +53,20 @@ export function createProjectContextStore(db: Database): ProjectContextStore {
 					rules: contextRevisions.rules,
 					revisionCreatedAt: contextRevisions.createdAt,
 				})
-				.from(projects)
+				.from(projectTable)
 				.leftJoin(
 					contextRevisions,
 					and(
-						eq(contextRevisions.projectId, projects.id),
+						eq(contextRevisions.projectId, projectTable.id),
 						or(
 							eq(contextRevisions.state, "active"),
 							eq(contextRevisions.revisionNumber, 0)
 						)
 					)
 				)
-				.where(eq(projects.ownerUserId, userId))
+				.where(eq(projectTable.ownerUserId, userId))
 				.orderBy(
-					asc(projects.createdAt),
+					asc(projectTable.createdAt),
 					desc(
 						sql`case when ${contextRevisions.state} = 'active' then 1 else 0 end`
 					),
@@ -116,7 +116,7 @@ export function createProjectContextStore(db: Database): ProjectContextStore {
 			const revisionId = crypto.randomUUID();
 			const createdAt = new Date();
 			const projectInsert = db
-				.insert(projects)
+				.insert(projectTable)
 				.values({
 					id,
 					ownerUserId: userId,
@@ -143,17 +143,17 @@ export function createProjectContextStore(db: Database): ProjectContextStore {
 				projectInsert,
 				revisionInsert,
 			]);
-			const [project] = projectRows;
+			const [projectRecord] = projectRows;
 			const [revision] = revisionRows;
-			if (!(project && revision)) {
+			if (!(projectRecord && revision)) {
 				throw new Error("Project Context could not be created");
 			}
 
 			return projectContextSchema.parse({
-				id: project.id,
-				name: project.name,
-				generalArtDirection: project.generalArtDirection,
-				createdAt: toISOString(project.createdAt),
+				id: projectRecord.id,
+				name: projectRecord.name,
+				generalArtDirection: projectRecord.generalArtDirection,
+				createdAt: toISOString(projectRecord.createdAt),
 				currentContextRevision: mapContextRevision(revision),
 			});
 		},
@@ -162,12 +162,15 @@ export function createProjectContextStore(db: Database): ProjectContextStore {
 			const rows = await db
 				.select({ revision: contextRevisions })
 				.from(contextRevisions)
-				.innerJoin(projects, eq(projects.id, contextRevisions.projectId))
+				.innerJoin(
+					projectTable,
+					eq(projectTable.id, contextRevisions.projectId)
+				)
 				.where(
 					and(
 						eq(contextRevisions.id, revisionId),
 						eq(contextRevisions.projectId, projectId),
-						eq(projects.ownerUserId, userId)
+						eq(projectTable.ownerUserId, userId)
 					)
 				)
 				.limit(1);
@@ -192,11 +195,14 @@ export function createProjectContextStore(db: Database): ProjectContextStore {
 			const rows = await db
 				.select({ proposal: contextProposals.proposal })
 				.from(contextProposals)
-				.innerJoin(projects, eq(projects.id, contextProposals.projectId))
+				.innerJoin(
+					projectTable,
+					eq(projectTable.id, contextProposals.projectId)
+				)
 				.where(
 					and(
 						eq(contextProposals.projectId, projectId),
-						eq(projects.ownerUserId, userId)
+						eq(projectTable.ownerUserId, userId)
 					)
 				)
 				.orderBy(desc(contextProposals.createdAt));

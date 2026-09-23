@@ -34,7 +34,7 @@ class MemoryProjectContextStore implements ProjectContextStore {
 		userId: string,
 		input: Parameters<ProjectContextStore["createProject"]>[1]
 	) {
-		const id = crypto.randomUUID();
+		const id = "project-ash-knight";
 		const currentContextRevision: ContextRevision = {
 			id: crypto.randomUUID(),
 			projectId: id,

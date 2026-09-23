@@ -10,6 +10,8 @@ const identifierSchema = z
 		"Use lowercase letters, numbers, dots, underscores, or hyphens."
 	);
 
+const projectIdSchema = z.string().trim().min(1).max(128);
+
 export const STRUCTURED_CONTEXT_RULE_IDS = [
 	"perspective",
 	"camera.approach",
@@ -45,7 +47,7 @@ export type StructuredContextRuleId =
 	(typeof STRUCTURED_CONTEXT_RULE_IDS)[number];
 
 const contextScopeSchema = z.discriminatedUnion("kind", [
-	z.object({ kind: z.literal("project"), id: z.string().uuid() }).strict(),
+	z.object({ kind: z.literal("project"), id: projectIdSchema }).strict(),
 	z
 		.object({ kind: z.literal("visual_world"), id: z.string().min(1).max(128) })
 		.strict(),
@@ -107,7 +109,7 @@ export const contextRuleSchema = z
 export const contextRevisionSchema = z
 	.object({
 		id: z.string().uuid(),
-		projectId: z.string().uuid(),
+		projectId: projectIdSchema,
 		revisionNumber: z.number().int().nonnegative(),
 		ruleContractVersion: z.literal("context-rule/1.0.0"),
 		isActive: z.boolean(),
@@ -118,9 +120,9 @@ export const contextRevisionSchema = z
 
 export const projectContextSchema = z
 	.object({
-		id: z.string().uuid(),
+		id: projectIdSchema,
 		name: z.string().trim().min(1).max(120),
-		generalArtDirection: z.string().trim().min(1).max(1000),
+		generalArtDirection: z.string().trim().max(1000),
 		currentContextRevision: contextRevisionSchema,
 		createdAt: z.string().datetime(),
 	})
@@ -167,7 +169,7 @@ export const contextRuleChangeSchema = z.discriminatedUnion("operation", [
 
 export const contextProposalInputSchema = z
 	.object({
-		projectId: z.string().uuid(),
+		projectId: projectIdSchema,
 		baseContextRevisionId: z.string().uuid(),
 		summary: z.string().trim().min(1).max(240),
 		changes: z.array(contextRuleChangeSchema).min(1).max(50),
@@ -246,7 +248,7 @@ export const contextProposalSourceSchema = z.discriminatedUnion("kind", [
 export const contextProposalSchema = z
 	.object({
 		id: z.string().uuid(),
-		projectId: z.string().uuid(),
+		projectId: projectIdSchema,
 		baseContextRevisionId: z.string().uuid(),
 		contractVersion: z.literal("context-agent/1.0.0"),
 		ruleContractVersion: z.literal("context-rule/1.0.0"),
@@ -266,7 +268,7 @@ export const contextProposalSchema = z
 	.strict();
 
 export const contextProposalListInputSchema = z
-	.object({ projectId: z.string().uuid() })
+	.object({ projectId: projectIdSchema })
 	.strict();
 
 export type ContextRule = z.infer<typeof contextRuleSchema>;

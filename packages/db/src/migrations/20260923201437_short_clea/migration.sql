@@ -20,22 +20,33 @@ CREATE TABLE "context_revisions" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "projects" (
-	"id" text PRIMARY KEY,
-	"owner_user_id" text NOT NULL,
-	"name" text NOT NULL,
-	"general_art_direction" text NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL
-);
---> statement-breakpoint
+ALTER TABLE "project" ADD COLUMN "general_art_direction" text DEFAULT '' NOT NULL;--> statement-breakpoint
 CREATE INDEX "context_proposals_project_created_at_idx" ON "context_proposals" ("project_id","created_at");--> statement-breakpoint
 CREATE INDEX "context_proposals_created_by_user_id_idx" ON "context_proposals" ("created_by_user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "context_revisions_project_id_id_idx" ON "context_revisions" ("project_id","id");--> statement-breakpoint
 CREATE UNIQUE INDEX "context_revisions_project_revision_number_idx" ON "context_revisions" ("project_id","revision_number");--> statement-breakpoint
-CREATE INDEX "projects_owner_user_id_idx" ON "projects" ("owner_user_id");--> statement-breakpoint
-ALTER TABLE "context_proposals" ADD CONSTRAINT "context_proposals_project_id_projects_id_fkey" FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "context_proposals" ADD CONSTRAINT "context_proposals_project_id_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "project"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "context_proposals" ADD CONSTRAINT "context_proposals_created_by_user_id_user_id_fkey" FOREIGN KEY ("created_by_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "context_proposals" ADD CONSTRAINT "context_proposals_project_revision_fk" FOREIGN KEY ("project_id","base_context_revision_id") REFERENCES "context_revisions"("project_id","id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "context_revisions" ADD CONSTRAINT "context_revisions_project_id_projects_id_fkey" FOREIGN KEY ("project_id") REFERENCES "projects"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "context_revisions" ADD CONSTRAINT "context_revisions_created_by_user_id_user_id_fkey" FOREIGN KEY ("created_by_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "projects" ADD CONSTRAINT "projects_owner_user_id_user_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "user"("id") ON DELETE CASCADE;
+ALTER TABLE "context_revisions" ADD CONSTRAINT "context_revisions_project_id_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "project"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "context_revisions" ADD CONSTRAINT "context_revisions_created_by_user_id_user_id_fkey" FOREIGN KEY ("created_by_user_id") REFERENCES "user"("id") ON DELETE CASCADE;
+--> statement-breakpoint
+INSERT INTO "context_revisions" (
+	"id",
+	"project_id",
+	"revision_number",
+	"state",
+	"contract_version",
+	"rules",
+	"created_by_user_id"
+)
+SELECT
+	gen_random_uuid()::text,
+	"project"."id",
+	0,
+	'baseline',
+	'context-rule/1.0.0',
+	'[]'::jsonb,
+	"project"."owner_user_id"
+FROM "project"
+ON CONFLICT ("project_id", "revision_number") DO NOTHING;
