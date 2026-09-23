@@ -4,11 +4,11 @@ import { onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { appRouter } from "@sprite-anvil/api/routers/index";
+import { getProjectForUser } from "@sprite-anvil/db";
 import { Hono } from "hono";
 import { serveStatic } from "hono/bun";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import { mountAssetRoutes } from "./asset-routes";
 import {
 	createQueue,
 	createStorage,
@@ -16,12 +16,16 @@ import {
 } from "./cloudflare";
 import { createContext } from "./context";
 import { desktopOrigins, ENV } from "./env.server";
-import { findOwnedProject } from "./project-repository";
 import { mountProjectRoutes } from "./project-routes";
 import { auth, db } from "./services";
 
 const app = new Hono();
 const cloudflareConfig = () => requireCloudflareConfig(ENV);
+
+app.onError((_error, c) => {
+	console.error("Unhandled request error");
+	return c.json({ error: "Internal Server Error" }, 500);
+});
 
 app.use(logger());
 app.use(
@@ -38,18 +42,13 @@ app.on(["POST", "GET"], "/api/auth/*", async (c) => auth.handler(c.req.raw));
 
 app.get("/health", (c) => c.json({ status: "ok" }));
 
-mountAssetRoutes(app, {
+mountProjectRoutes(app, {
 	getSession: (headers) => auth.api.getSession({ headers }),
+	getProjectForUser: (userId, projectId) =>
+		getProjectForUser(db, userId, projectId),
 	cloudflareConfig,
 	createQueue,
 	createStorage,
-});
-
-mountProjectRoutes(app, {
-	getSession: (headers) => auth.api.getSession({ headers }),
-	findOwnedProject: (projectId, ownerUserId) =>
-		findOwnedProject(db, projectId, ownerUserId),
-	getPreview: (key) => createStorage(cloudflareConfig()).getPreview(key),
 });
 
 export const apiHandler = new OpenAPIHandler(appRouter, {
@@ -59,16 +58,16 @@ export const apiHandler = new OpenAPIHandler(appRouter, {
 		}),
 	],
 	interceptors: [
-		onError((error) => {
-			console.error(error);
+		onError(() => {
+			console.error("Unhandled API reference request");
 		}),
 	],
 });
 
 export const rpcHandler = new RPCHandler(appRouter, {
 	interceptors: [
-		onError((error) => {
-			console.error(error);
+		onError(() => {
+			console.error("Unhandled RPC request");
 		}),
 	],
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { createQueue } from "./cloudflare";
+import { createQueue, queueMessageSchema } from "./cloudflare";
 
 const config = {
 	CLOUDFLARE_ACCOUNT_ID: "account",
@@ -25,8 +25,8 @@ describe("Cloudflare Queues HTTP transport", () => {
 									lease_id: "lease-1",
 									body: {
 										kind: "asset-uploaded",
-										version: 1,
-										key: "users/u/a.png",
+										version: 2,
+										key: "projects/00000000-0000-4000-8000-000000000001/assets/00000000-0000-4000-8000-000000000002",
 									},
 								},
 							],
@@ -37,7 +37,9 @@ describe("Cloudflare Queues HTTP transport", () => {
 		};
 		const queue = createQueue(config, fetcher);
 
-		await queue.send("users/u/a.png");
+		await queue.send(
+			"projects/00000000-0000-4000-8000-000000000001/assets/00000000-0000-4000-8000-000000000002"
+		);
 		const messages = await queue.pull();
 		expect(messages).toHaveLength(1);
 		await queue.settle([messages[0]?.lease_id ?? ""], []);
@@ -47,18 +49,49 @@ describe("Cloudflare Queues HTTP transport", () => {
 			"https://api.cloudflare.com/client/v4/accounts/account/queues/queue/messages/pull",
 			"https://api.cloudflare.com/client/v4/accounts/account/queues/queue/messages/ack",
 		]);
+		expect(calls.at(0)?.body).toEqual({
+			body: {
+				version: 2,
+				kind: "asset-uploaded",
+				key: "projects/00000000-0000-4000-8000-000000000001/assets/00000000-0000-4000-8000-000000000002",
+			},
+		});
 		expect(calls.at(2)?.body).toEqual({
 			acks: [{ lease_id: "lease-1" }],
 			retries: [],
 		});
 	});
 
+	it("accepts legacy version 1 messages and rejects secret-bearing version 2 messages", () => {
+		expect(
+			queueMessageSchema.parse({
+				version: 1,
+				kind: "asset-uploaded",
+				key: "users/user-a/asset.png",
+			})
+		).toEqual({
+			version: 1,
+			kind: "asset-uploaded",
+			key: "users/user-a/asset.png",
+		});
+		expect(
+			queueMessageSchema.safeParse({
+				version: 2,
+				kind: "asset-uploaded",
+				key: "projects/00000000-0000-4000-8000-000000000001/assets/00000000-0000-4000-8000-000000000002",
+				accessToken: "must-not-enter-queue",
+			}).success
+		).toBe(false);
+	});
+
 	it("rejects unsuccessful API envelopes", async () => {
 		const queue = createQueue(config, () =>
 			Promise.resolve(Response.json({ success: false }, { status: 403 }))
 		);
-		await expect(queue.send("users/u/a.png")).rejects.toThrow(
-			"Cloudflare Queues request failed: 403"
-		);
+		await expect(
+			queue.send(
+				"projects/00000000-0000-4000-8000-000000000001/assets/00000000-0000-4000-8000-000000000002"
+			)
+		).rejects.toThrow("Cloudflare Queues request failed: 403");
 	});
 });
