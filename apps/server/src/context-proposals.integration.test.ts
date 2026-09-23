@@ -7,6 +7,7 @@ import { createDb } from "@sprite-anvil/db";
 import { user } from "@sprite-anvil/db/schema/auth";
 import { contextRevisions } from "@sprite-anvil/db/schema/project-context";
 import { eq } from "drizzle-orm";
+import { createProjectAccessStore } from "./features/projects/server/project-access-store";
 import { createProjectContextStore } from "./project-context-store";
 
 const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
@@ -34,6 +35,7 @@ test.skipIf(!databaseUrl)(
 			const store = createProjectContextStore(db);
 			const context: Context = {
 				db,
+				projectAccess: createProjectAccessStore(db, store),
 				projectContextStore: store,
 				session: { user: { id: userId } } as Context["session"],
 			};

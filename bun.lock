@@ -60,6 +60,7 @@
         "zod": "catalog:",
       },
       "devDependencies": {
+        "@orpc/client": "catalog:",
         "@sprite-anvil/config": "workspace:*",
         "@types/bun": "catalog:",
         "tsdown": "^0.23.0",

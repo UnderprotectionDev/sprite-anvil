@@ -74,6 +74,8 @@
 │   │   │   │   │   └── server/
 │   │   │   │   ├── projects/
 │   │   │   │   │   └── server/
+│   │   │   │   │       ├── project-access-store.ts
+│   │   │   │   │       └── project-routes.ts
 │   │   │   │   ├── quality-evidence/
 │   │   │   │   │   └── server/
 │   │   │   │   ├── reference-production/
@@ -92,12 +94,13 @@
 │   │   │   │   │   └── server/
 │   │   │   │   └── visual-worlds/
 │   │   │   │       └── server/
-│   │   │   ├── asset-routes.ts
 │   │   │   ├── cloudflare.ts
 │   │   │   ├── context.ts
 │   │   │   ├── env.server.ts
 │   │   │   ├── env.ts
 │   │   │   ├── index.ts
+│   │   │   ├── output-contracts.ts
+│   │   │   ├── project-context-store.ts
 │   │   │   ├── services.ts
 │   │   │   └── worker.ts
 │   │   ├── .env.schema
@@ -274,6 +277,7 @@
 │       │   │   └── auth-client.ts
 │       │   ├── routes/
 │       │   │   ├── _auth/
+│       │   │   │   ├── context-proposals.tsx
 │       │   │   │   ├── dashboard.tsx
 │       │   │   │   └── route.tsx
 │       │   │   ├── __root.tsx
@@ -322,6 +326,9 @@
 │   │   ├── src/
 │   │   │   ├── routers/
 │   │   │   ├── context.ts
+│   │   │   ├── project-access-policy.ts
+│   │   │   ├── project-access-store.ts
+│   │   │   ├── project-context.ts
 │   │   │   └── index.ts
 │   │   └── package.json
 │   ├── auth/
@@ -335,6 +342,8 @@
 │   │   ├── src/
 │   │   │   ├── migrations/
 │   │   │   ├── schema/
+│   │   │   ├── project-access.ts
+│   │   │   ├── project-context.ts
 │   │   │   ├── config.ts
 │   │   │   ├── env.ts
 │   │   │   ├── index.ts

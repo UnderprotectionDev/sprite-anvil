@@ -33,6 +33,7 @@ Tamamlanma kanıtı: İzinli araç yalnız açıklanan amaç ve kapsamda erişir
 
 - **Dış araç erişimini amaç ve kapsamla yönetme:** Kullanıcı bağlantı ve Bağlam Ajanı için proje, amaç ve erişim kapsamını görüp izin verir; geri alınan izin yeni erişimi durdurur.
 - **Harici Görsel Analizine ayrı izin verme:** Görsel gönderimi proje ve analiz kategorisi için varsayılan olarak kapalıdır. Sağlayıcı, aktarılacak veri ve saklama koşulları gösterilmeden gönderim başlamaz; bir kategorinin izni diğerine geçmez.
+- **Issue #5 için uygulama kararı:** Sağlayıcı seçimi ertelendiğinden şimdi yalnız kullanıcıya ait asgari Oyun Projesi kaydı ve kalıcı izin ekranı kurulur. Bağlam Ajanı amacı ve kapsamı sunucu kapısında denetlenir; Dış Araç Bağlantısı için izin verme ve erişim her zaman reddedilir. Harici Görsel Analizi kapalı kalır. Bu karar, §11.6'daki sağlayıcı seçimi önkoşulunu değiştirmez.
 
 - **Yetki ve sürüm sınırı:** Aşağıdaki PRD hükümleri normatiftir. Fazın iş kırılımı, başka bir özelliğin kararını bu kapsama eklemez. Kesin kullanıcı kararları ajan veya otomasyon tarafından verilmez.
 - **Kapsam sınırı:** Teknik araç izni bağlam sürümünü etkinleştirme, İnceleme Kaydı oluşturma, Kalite İstisnası verme veya kalıcı silme kararı değildir. Harici analiz kapalıyken yerel denetim ve elle karşılaştırma sürer.
@@ -41,7 +42,7 @@ Tamamlanma kanıtı: İzinli araç yalnız açıklanan amaç ve kapsamda erişir
 
 - **Birincil test seam’i:** İzin ver, görsel aktar, izni geri al ve yeniden aktarımı reddet yolunu yetkili sunucu isteği ile görünür kullanıcı akışında sınama.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.
-- Bugün repoda bu faza ait ürün sözleşmesi bulunmuyor. Mevcut sunucu ve yüzey test örnekleri: [`account-access.test.ts`](../../../apps/server/src/account-access.test.ts), [`app-shell.spec.ts` (web)](../../../apps/web/e2e/app-shell.spec.ts) ve [`app-shell.spec.ts` (desktop)](../../../apps/web/desktop-e2e/app-shell.spec.ts). Bunlar bu özelliğin test edildiği anlamına gelmez.
+- Bu uygulama diliminin çalıştırılabilir kanıtı: [`project-access.test.ts`](../../../apps/server/src/project-access.test.ts), [`project-routes.test.ts`](../../../apps/server/src/project-routes.test.ts) ve [`-project-access.test.tsx`](../../../apps/web/src/routes/-project-access.test.tsx). Daha geniş ürün kabulü ve masaüstü/web sonuç eşdeğerliği bu testlerin kapsamı dışındadır.
 - Fazın özgül başarı ve red kanıtı: İzinli araç yalnız açıklanan amaç ve kapsamda erişir; geri alınan veya verilmeyen izin yeni görsel aktarımını engeller. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Teknik araç izni bağlam sürümünü etkinleştirme, İnceleme Kaydı oluşturma, Kalite İstisnası verme veya kalıcı silme kararı değildir. Harici analiz kapalıyken yerel denetim ve elle karşılaştırma sürer.
 - Kabul örnekleri: 8.1. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
 

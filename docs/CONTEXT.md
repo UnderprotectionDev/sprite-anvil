@@ -101,6 +101,8 @@ English terms are the canonical technical names used in code and contracts. Turk
 | Runtime Validation Record | Çalışma Zamanı Doğrulama Kaydı |
 | Gameplay Metadata | Oyun İçi Bilgiler |
 | Deletion Job | Silme İşlemi |
+| Tool Access Permission | Dış Araç Erişim İzni |
+| External Tool Connection | Dış Araç Bağlantısı |
 | Operational Acceptance Profile | Operasyonel Kabul Profili |
 | Supported Platform Matrix | Desteklenen Platformlar Tablosu |
 | Reference Acceptance Scenario | Referans Kabul Senaryosu |
@@ -114,8 +116,8 @@ English terms are the canonical technical names used in code and contracts. Turk
 ## Project rules
 
 **Project**:
-A private game-workspace record owned by one user. It contains the project's production data, including its Project Context and Asset Records; reading a Project grants no review or approval authority.
-_Avoid_: Project Context, account, shared workspace
+A private game-project record in the Workbench owned by one user. It stores the project name and scopes production data, including Project Context and Asset Records. Reading a Project grants no review or approval authority. It is distinct from the repository and Conductor workspaces used to develop Sprite Anvil.
+_Avoid_: Project Context, account, shared workspace, Conductor workspace, `context.md`
 
 **Project Context**:
 The authoritative, scoped set of approved visual rules, exceptions, and production decisions for one game project. It is represented by the agent-maintained, human-readable `context.md` and consumed by the Workbench.
@@ -508,6 +510,14 @@ _Avoid_: Archived file, recoverable version
 **External Visual Analysis**:
 Optional identity, theme, or style analysis performed by a third-party AI service. It is disabled by default and requires project- and analysis-category-specific permission with a payload, purpose, provider, and known-retention preview.
 _Avoid_: Deterministic QA, local visual comparison
+
+**Tool Access Permission**:
+A revocable authorization for one Project and one Context Agent or External Tool Connection. It records the stated purpose and allowed access scopes; it does not grant authority to make user-gated decisions.
+_Avoid_: Blanket project access, artistic approval, permanent authorization
+
+**External Tool Connection**:
+A named MCP or plug-in integration that can access a Project only through its Tool Access Permission. Until a specific provider is selected and supported, its access remains denied. It may prepare outputs but cannot activate a Context Revision, create a Review Event, issue a Quality Waiver, or erase project content.
+_Avoid_: General project access, provider credential, autonomous approval
 
 **Scene QA Playground**:
 A lightweight, profile-driven visual usage harness for placement, scale, layering and Y-sort, simple movement and animation transitions, event synchronization, camera behavior, and overlays. It is not a scripting environment, level editor, physics engine, or source of gameplay truth.

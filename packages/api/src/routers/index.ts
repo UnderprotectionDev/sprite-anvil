@@ -13,12 +13,14 @@ import {
 	projectContextSchema,
 	validateContextProposal,
 } from "../project-context";
+import { projectsRouter } from "./projects";
 
 export const appRouter = {
 	healthCheck: publicProcedure.handler(() => serializeRpcHealthResponse()),
 	privateData: protectedProcedure.handler(({ context }) =>
 		serializePrivateDataResponse(context.session?.user)
 	),
+	projects: projectsRouter,
 	projectContexts: {
 		list: protectedProcedure.handler(async ({ context }) =>
 			Promise.all(

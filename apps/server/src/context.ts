@@ -1,6 +1,6 @@
 import type { Context as ApiContext } from "@sprite-anvil/api/context";
 import type { Context as HonoContext } from "hono";
-import { auth, db, projectContextStore } from "./services";
+import { auth, db, projectAccess, projectContextStore } from "./services";
 
 export interface CreateContextOptions {
 	context: HonoContext;
@@ -13,6 +13,7 @@ export async function createContext({
 		headers: context.req.raw.headers,
 	});
 	return {
+		projectAccess,
 		db,
 		projectContextStore,
 		session,

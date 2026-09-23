@@ -59,6 +59,46 @@ CREATE INDEX IF NOT EXISTS "session_userId_idx" ON "session" ("user_id");
 --> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "verification_identifier_idx" ON "verification" ("identifier");
 --> statement-breakpoint
+DO $$
+BEGIN
+	IF EXISTS (
+		SELECT 1
+		FROM information_schema.columns
+		WHERE table_schema = 'public'
+			AND table_name = 'project'
+			AND column_name = 'owner_id'
+	) AND NOT EXISTS (
+		SELECT 1
+		FROM information_schema.columns
+		WHERE table_schema = 'public'
+			AND table_name = 'project'
+			AND column_name = 'owner_user_id'
+	) THEN
+		ALTER TABLE "project" RENAME COLUMN "owner_id" TO "owner_user_id";
+	END IF;
+
+	IF to_regclass('public."project_ownerId_idx"') IS NOT NULL
+		AND to_regclass('public."project_ownerUserId_idx"') IS NULL THEN
+		ALTER INDEX "project_ownerId_idx" RENAME TO "project_ownerUserId_idx";
+	END IF;
+
+	IF EXISTS (
+		SELECT 1
+		FROM pg_constraint
+		WHERE conname = 'project_owner_id_user_id_fkey'
+			AND conrelid = 'public.project'::regclass
+	) AND NOT EXISTS (
+		SELECT 1
+		FROM pg_constraint
+		WHERE conname = 'project_owner_user_id_user_id_fkey'
+			AND conrelid = 'public.project'::regclass
+	) THEN
+		ALTER TABLE "project"
+			RENAME CONSTRAINT "project_owner_id_user_id_fkey"
+			TO "project_owner_user_id_user_id_fkey";
+	END IF;
+END $$;
+--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "project_ownerUserId_idx" ON "project" ("owner_user_id");
 --> statement-breakpoint
 DO $$

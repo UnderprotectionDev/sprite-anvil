@@ -98,6 +98,7 @@ function makeContext(
 ): Context {
 	return {
 		db: {} as Database,
+		projectAccess: {} as Context["projectAccess"],
 		projectContextStore: store,
 		session: userId ? ({ user: { id: userId } } as Context["session"]) : null,
 	};

@@ -109,6 +109,7 @@ test("mounted RPC output does not return secret fields from the session user", a
 		const rpcResult = await rpcHandler.handle(c.req.raw, {
 			prefix: "/rpc",
 			context: {
+				projectAccess: {} as never,
 				db: createDb({
 					DATABASE_URL:
 						"postgresql://user:password@localhost:5432/sprite-anvil-test",

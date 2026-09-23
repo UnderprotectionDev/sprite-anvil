@@ -42,7 +42,7 @@ jobs:
           DATABASE_URL: ${{ steps.branch.outputs.db_url }}
         run: |
           bun run --cwd packages/db db:migrate
-          bun test packages/db/src/neon.test.ts apps/server/src/project-access.test.ts
+          bun test packages/db/src/neon.test.ts apps/server/src/project-routes.test.ts apps/server/src/project-access.test.ts
       - name: Verify Project Context persistence through the API
         env:
           CONTEXT_TEST_DATABASE_URL: ${{ steps.branch.outputs.db_url }}

@@ -1,35 +1,39 @@
 import { expect, test } from "bun:test";
-import { createDb, getProjectForUser } from "@sprite-anvil/db";
+import { createORPCClient } from "@orpc/client";
+import { RPCLink } from "@orpc/client/fetch";
+import { RPCHandler } from "@orpc/server/fetch";
+import type {
+	ContextAgentScope,
+	ProjectAccessStore,
+} from "@sprite-anvil/api/project-access-store";
+import type { ProjectContextStore } from "@sprite-anvil/api/project-context";
+import type { AppRouterClient } from "@sprite-anvil/api/routers/index";
+import { appRouter } from "@sprite-anvil/api/routers/index";
+import type { Session } from "@sprite-anvil/auth";
+import { createDb } from "@sprite-anvil/db";
 import { user as userTable } from "@sprite-anvil/db/schema/auth";
 import { project as projectTable } from "@sprite-anvil/db/schema/project";
+import { contextRevisions } from "@sprite-anvil/db/schema/project-context";
 import { betterAuth } from "better-auth";
 import { type MemoryDB, memoryAdapter } from "better-auth/adapters/memory";
 import { testUtils } from "better-auth/plugins";
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { Hono } from "hono";
-import type { CloudflareConfig } from "./cloudflare";
-import {
-	projectSummaryResponseSchema,
-	publicApiErrorSchema,
-	visualAssetAcceptedResponseSchema,
-} from "./output-contracts";
-import {
-	mountProjectRoutes,
-	type ProjectRouteDependencies,
-} from "./project-routes";
 
-const projectId = "00000000-0000-4000-8000-000000000001";
-const visualAssetId = "00000000-0000-4000-8000-000000000002";
-const secretMaterialPattern =
-	/X-Amz-|access[-_ ]?key|secret[-_ ]?key|access[-_ ]?token|encryption[-_ ]?key|server[-_ ]?secret|password|authorization|credential|token|https?:\/\//i;
-const cloudflareConfig: CloudflareConfig = {
-	CLOUDFLARE_ACCOUNT_ID: "test-account",
-	CLOUDFLARE_QUEUE_ID: "test-queue",
-	CLOUDFLARE_QUEUES_TOKEN: "test-queue-token",
-	R2_ACCESS_KEY_ID: "test-access-key",
-	R2_SECRET_ACCESS_KEY: "test-secret-key",
-	R2_BUCKET: "test-assets",
-};
+import { createProjectAccessStore } from "./features/projects/server/project-access-store";
+import { createProjectContextStore } from "./project-context-store";
+
+const unusedProjectContextStore = {
+	createProject: () => {
+		throw new Error("Unexpected Project Context access in this test");
+	},
+	createProposal: () => {
+		throw new Error("Unexpected Context Proposal access in this test");
+	},
+	getRevision: () => Promise.resolve(null),
+	listProjects: () => Promise.resolve([]),
+	listProposals: () => Promise.resolve([]),
+} satisfies ProjectContextStore;
 
 function createTestAuth() {
 	const database: MemoryDB = {};
@@ -56,585 +60,469 @@ async function createUserSession(
 		})
 	);
 	const login = await context.test.login({ userId: user.id });
-	return { headers: login.headers, session: login.session };
+	return login.headers.get("cookie") ?? "";
 }
 
-function createTestApp(
-	auth: ReturnType<typeof createTestAuth>["auth"],
-	overrides: {
-		getProjectForUser?: ProjectRouteDependencies["getProjectForUser"];
-		getSession?: ProjectRouteDependencies["getSession"];
-		createId?: () => string;
-		failQueue?: boolean;
-	} = {}
-) {
-	const calls = {
-		cloudflareConfig: 0,
-		getProjectForUser: [] as { projectId: string; userId: string }[],
-		getObject: [] as string[],
-		putObject: [] as { contentType: string; key: string; body: string }[],
-		deletedKeys: [] as string[],
-		queuedKeys: [] as string[],
-	};
-	const app = new Hono();
-	app.onError((_error, c) => c.json({ error: "Internal Server Error" }, 500));
+function createMemoryProjectAccessStore(
+	projectIdForCreatedProject: string = crypto.randomUUID()
+): ProjectAccessStore {
+	const projects = new Map<
+		string,
+		{ createdAt: string; id: string; name: string; ownerId: string }
+	>();
+	const permissions = new Map<
+		string,
+		{
+			createdAt: string;
+			id: string;
+			principal: "context_agent";
+			projectId: string;
+			purpose: string;
+			revokedAt: string | null;
+			scopes: ContextAgentScope[];
+		}
+	>();
 
-	mountProjectRoutes(app, {
-		getSession:
-			overrides.getSession ?? ((headers) => auth.api.getSession({ headers })),
-		getProjectForUser: (userId, id) => {
-			calls.getProjectForUser.push({ projectId: id, userId });
-			if (overrides.getProjectForUser) {
-				return overrides.getProjectForUser(userId, id);
-			}
+	return {
+		createProject(ownerId, input) {
+			const project = {
+				createdAt: new Date().toISOString(),
+				id: projectIdForCreatedProject,
+				name: input.name,
+				ownerId,
+			};
+			projects.set(project.id, project);
+			return Promise.resolve(project);
+		},
+		getProject(ownerId, projectId) {
+			const project = projects.get(projectId);
+			return Promise.resolve(project?.ownerId === ownerId ? project : null);
+		},
+		listProjects(ownerId) {
 			return Promise.resolve(
-				userId === "user-a" && id === projectId
-					? {
-							id: projectId,
-							name: "Ash Knight",
-							ownerUserId: userId,
-							previewKey: `users/${userId}/preview.png`,
-							accessToken: "provider-access-token",
-							encryptionKey: "project-encryption-key",
-						}
-					: null
+				[...projects.values()].filter((project) => project.ownerId === ownerId)
 			);
 		},
-		cloudflareConfig: () => {
-			calls.cloudflareConfig += 1;
-			return cloudflareConfig;
+		listContextAgentPermissions(ownerId, projectId) {
+			const project = projects.get(projectId);
+			if (project?.ownerId !== ownerId) {
+				return Promise.resolve(null);
+			}
+			return Promise.resolve(
+				[...permissions.values()].filter(
+					(permission) => permission.projectId === projectId
+				)
+			);
 		},
-		createStorage: () => ({
-			delete: (key) => {
-				calls.deletedKeys.push(key);
-				return Promise.resolve();
-			},
-			get: (key) => {
-				calls.getObject.push(key);
-				return Promise.resolve({
-					body: new Blob(["sprite-bytes"]).stream(),
-					contentLength: 12,
-					contentType: "image/png",
-				});
-			},
-			put: async (key, body, contentType) => {
-				calls.putObject.push({
-					contentType,
-					key,
-					body: await new Response(body).text(),
-				});
-			},
-		}),
-		createQueue: () => ({
-			send: (key) => {
-				calls.queuedKeys.push(key);
-				if (overrides.failQueue) {
-					return Promise.reject(
-						new Error("queue token leaked in this message")
-					);
-				}
-				return Promise.resolve();
-			},
-		}),
-		createId: overrides.createId ?? (() => visualAssetId),
-	});
-
-	return { app, calls };
+		grantContextAgentPermission(ownerId, projectId, input) {
+			const project = projects.get(projectId);
+			if (project?.ownerId !== ownerId) {
+				return Promise.resolve(null);
+			}
+			const permission = {
+				createdAt: new Date().toISOString(),
+				id: crypto.randomUUID(),
+				principal: "context_agent" as const,
+				projectId,
+				purpose: input.purpose,
+				revokedAt: null,
+				scopes: input.scopes,
+			};
+			permissions.set(permission.id, permission);
+			return Promise.resolve(permission);
+		},
+		revokeContextAgentPermission(ownerId, projectId, permissionId) {
+			const project = projects.get(projectId);
+			const permission = permissions.get(permissionId);
+			if (project?.ownerId !== ownerId || permission?.projectId !== projectId) {
+				return Promise.resolve(false);
+			}
+			permissions.set(permissionId, {
+				...permission,
+				revokedAt: new Date().toISOString(),
+			});
+			return Promise.resolve(true);
+		},
+		hasContextAgentPermission(projectId, purpose, scope) {
+			return Promise.resolve(
+				[...permissions.values()].some(
+					(permission) =>
+						permission.projectId === projectId &&
+						permission.purpose === purpose &&
+						permission.revokedAt === null &&
+						permission.scopes.includes(scope)
+				)
+			);
+		},
+	};
 }
 
-test("denies unauthenticated project reads before looking up project data", async () => {
+function createRpcClient(
+	auth: ReturnType<typeof createTestAuth>["auth"],
+	store: ProjectAccessStore,
+	cookie?: string,
+	getSession: (headers: Headers) => Promise<Session | null> = (headers) =>
+		auth.api.getSession({ headers })
+) {
+	const rpcHandler = new RPCHandler(appRouter);
+	const app = new Hono();
+	app.onError((_error, c) => c.text("Internal Server Error", 500));
+	app.use("/*", async (c, next) => {
+		const result = await rpcHandler.handle(c.req.raw, {
+			context: {
+				db: createDb({
+					DATABASE_URL:
+						"postgresql://user:password@localhost:5432/sprite-anvil-test",
+				}),
+				projectAccess: store,
+				projectContextStore: unusedProjectContextStore,
+				session: await getSession(c.req.raw.headers),
+			},
+			prefix: "/rpc",
+		});
+		if (result.matched) {
+			return c.newResponse(result.response.body, result.response);
+		}
+		await next();
+	});
+	const client = createORPCClient<AppRouterClient>(
+		new RPCLink({
+			url: "http://localhost/rpc",
+			fetch: async (input, init) => {
+				const request = new Request(input, init);
+				if (cookie) {
+					request.headers.set("cookie", cookie);
+				}
+				return await app.fetch(request);
+			},
+		})
+	);
+	return client;
+}
+
+test("a project owner can grant, read back, and revoke Context Agent access", async () => {
 	const { auth } = createTestAuth();
-	const { app, calls } = createTestApp(auth);
+	const cookie = await createUserSession(auth, "project-owner");
+	const client = createRpcClient(
+		auth,
+		createMemoryProjectAccessStore(),
+		cookie
+	);
+	const purpose = "Prepare a project context proposal";
+	const scopes: ContextAgentScope[] = ["project_context:read"];
 
-	const response = await app.request(`/api/projects/${projectId}`);
+	const project = await client.projects.create({
+		name: "Forest Quest",
+		generalArtDirection: "Pixel art with a limited palette",
+	});
+	const permission = await client.projects.access.grantContextAgent({
+		projectId: project.id,
+		purpose,
+		scopes,
+	});
+	const readBack = await client.projects.access.list({ projectId: project.id });
+	const allowedBeforeRevocation =
+		await client.projects.access.checkContextAgent({
+			projectId: project.id,
+			purpose,
+			scope: "project_context:read",
+		});
+	await expect(
+		client.projects.access.checkContextAgent({
+			projectId: project.id,
+			purpose,
+			scope: "context_proposals:write",
+		})
+	).rejects.toMatchObject({ code: "FORBIDDEN" });
+	await expect(
+		client.projects.access.checkContextAgent({
+			projectId: project.id,
+			purpose: "Read project references",
+			scope: "project_context:read",
+		})
+	).rejects.toMatchObject({ code: "FORBIDDEN" });
 
-	expect(response.status).toBe(401);
-	expect(await response.json()).toEqual({ error: "Unauthorized" });
-	expect(response.headers.get("cache-control")).toBe("private, no-store");
-	expect(calls.getProjectForUser).toEqual([]);
-	optedOutOfStorage(calls);
+	await client.projects.access.revoke({
+		projectId: project.id,
+		permissionId: permission.id,
+	});
+	const readBackAfterRevocation = await client.projects.access.list({
+		projectId: project.id,
+	});
+	await expect(
+		client.projects.access.checkContextAgent({
+			projectId: project.id,
+			purpose,
+			scope: "project_context:read",
+		})
+	).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+	expect(project.name).toBe("Forest Quest");
+	expect(readBack[0]).toMatchObject({
+		id: permission.id,
+		purpose,
+		scopes,
+		revokedAt: null,
+	});
+	expect(allowedBeforeRevocation).toBe(true);
+	expect(readBackAfterRevocation[0]?.revokedAt).toEqual(expect.any(String));
 });
 
-test("returns only the authenticated user's public project fields", async () => {
+test("existing opaque Project IDs can be read and authorized", async () => {
 	const { auth } = createTestAuth();
-	const user = await createUserSession(auth, "user-a");
-	const { app, calls } = createTestApp(auth);
-	const response = await app.request(`/api/projects/${projectId}`, {
-		headers: new Headers({ cookie: user.headers.get("cookie") ?? "" }),
-	});
-
-	expect(response.status).toBe(200);
-	const payload: unknown = await response.json();
-	expect(payload).toEqual({
-		id: projectId,
+	const cookie = await createUserSession(auth, "opaque-project-owner");
+	const client = createRpcClient(
+		auth,
+		createMemoryProjectAccessStore("ash-knight-v1"),
+		cookie
+	);
+	const project = await client.projects.create({
 		name: "Ash Knight",
-		previewUrl: `/api/projects/${projectId}/preview`,
+		generalArtDirection: "Dark fantasy pixel art",
 	});
-	expect(JSON.stringify(payload)).not.toMatch(secretMaterialPattern);
-	expect(response.headers.get("cache-control")).toBe("private, no-store");
-	expect(calls.getProjectForUser).toEqual([{ projectId, userId: "user-a" }]);
-	optedOutOfStorage(calls);
-});
-
-test("strict output contracts reject credential-shaped fields", () => {
-	expect(
-		projectSummaryResponseSchema.safeParse({
-			id: projectId,
-			name: "Ash Knight",
-			previewUrl: null,
-			encryptionKey: "project-encryption-key",
-		}).success
-	).toBe(false);
-	expect(
-		projectSummaryResponseSchema.safeParse({
-			id: projectId,
-			name: "Ash Knight",
-			previewUrl: "https://visual-assets.example.test/preview",
-		}).success
-	).toBe(false);
-	expect(
-		visualAssetAcceptedResponseSchema.safeParse({
-			visualAssetId,
-			accessToken: "storage-access-token",
-		}).success
-	).toBe(false);
-	expect(
-		publicApiErrorSchema.safeParse({
-			error: "Visual asset upload failed",
-			serverSecret: "database-password",
-		}).success
-	).toBe(false);
-});
-
-test("denies malformed sessions before looking up the project", async () => {
-	const { auth } = createTestAuth();
-	const { app, calls } = createTestApp(auth);
-	const response = await app.request(`/api/projects/${projectId}`, {
-		headers: new Headers({ cookie: "better-auth.session_token=malformed" }),
-	});
-
-	expect(response.status).toBe(401);
-	expect(await response.json()).toEqual({ error: "Unauthorized" });
-	expect(calls.getProjectForUser).toEqual([]);
-	optedOutOfStorage(calls);
-});
-
-test("denies another user's project reads and previews before object access", async () => {
-	const { auth } = createTestAuth();
-	const otherUser = await createUserSession(auth, "user-b");
-	const { app, calls } = createTestApp(auth);
-	const headers = new Headers(
-		otherUser.headers.get("cookie")
-			? { cookie: otherUser.headers.get("cookie") ?? "" }
-			: undefined
-	);
-
-	const projectResponse = await app.request(`/api/projects/${projectId}`, {
-		headers,
-	});
-	const previewResponse = await app.request(
-		`/api/projects/${projectId}/visual-assets/${visualAssetId}/preview`,
-		{ headers }
-	);
-	const uploadResponse = await app.request(
-		`/api/projects/${projectId}/visual-assets`,
-		{
-			method: "POST",
-			headers: new Headers({
-				cookie: otherUser.headers.get("cookie") ?? "",
-				"content-type": "image/png",
-			}),
-			body: "sprite-bytes",
-		}
-	);
-
-	expect(projectResponse.status).toBe(404);
-	expect(previewResponse.status).toBe(404);
-	expect(uploadResponse.status).toBe(404);
-	expect(calls.getProjectForUser).toEqual([
-		{ projectId, userId: "user-b" },
-		{ projectId, userId: "user-b" },
-		{ projectId, userId: "user-b" },
-	]);
-	optedOutOfStorage(calls);
-});
-
-test("rejects expired sessions before looking up the project", async () => {
-	const { auth, database } = createTestAuth();
-	const userSession = await createUserSession(auth, "user-a");
-	const sessionRecord = database.session?.find(
-		(record) => record.id === userSession.session.id
-	);
-	if (!sessionRecord) {
-		throw new Error("Expected the test session to be stored in memory");
-	}
-	sessionRecord.expiresAt = new Date(Date.now() - 1000);
-
-	const { app, calls } = createTestApp(auth);
-	const response = await app.request(`/api/projects/${projectId}`, {
-		headers: new Headers({
-			cookie: userSession.headers.get("cookie") ?? "",
-		}),
-	});
-
-	expect(response.status).toBe(401);
-	expect(await response.json()).toEqual({ error: "Unauthorized" });
-	expect(calls.getProjectForUser).toEqual([]);
-	optedOutOfStorage(calls);
-});
-
-test("fails closed when session lookup fails", async () => {
-	const { auth } = createTestAuth();
-	const { app, calls } = createTestApp(auth, {
-		getSession: () => Promise.reject(new Error("database password leaked")),
-	});
-	const response = await app.request(`/api/projects/${projectId}`);
-
-	expect(response.status).toBe(500);
-	expect(await response.json()).toEqual({ error: "Internal Server Error" });
-	expect(calls.getProjectForUser).toEqual([]);
-	optedOutOfStorage(calls);
-});
-
-test("fails closed without exposing project lookup errors", async () => {
-	const { auth } = createTestAuth();
-	const { app, calls } = createTestApp(auth, {
-		getProjectForUser: () =>
-			Promise.reject(new Error("database access token leaked")),
-	});
-	const response = await app.request(`/api/projects/${projectId}`, {
-		headers: new Headers({
-			cookie:
-				(await createUserSession(auth, "user-a")).headers.get("cookie") ?? "",
-		}),
-	});
-
-	expect(response.status).toBe(500);
-	const payload: unknown = await response.json();
-	expect(payload).toEqual({ error: "Internal Server Error" });
-	expect(JSON.stringify(payload)).not.toMatch(secretMaterialPattern);
-	expect(calls.getProjectForUser).toEqual([{ projectId, userId: "user-a" }]);
-	optedOutOfStorage(calls);
-});
-
-test("uploads project visual assets through the server without returning a storage token", async () => {
-	const { auth } = createTestAuth();
-	const user = await createUserSession(auth, "user-a");
-	const { app, calls } = createTestApp(auth);
-	const response = await app.request(
-		`/api/projects/${projectId}/visual-assets`,
-		{
-			method: "POST",
-			headers: new Headers({
-				cookie: user.headers.get("cookie") ?? "",
-				"content-type": "image/png",
-			}),
-			body: "sprite-bytes",
-		}
-	);
-
-	expect(response.status).toBe(201);
-	const payload: unknown = await response.json();
-	expect(payload).toEqual({ visualAssetId });
-	expect(JSON.stringify(payload)).not.toMatch(secretMaterialPattern);
-	expect(calls.putObject).toEqual([
-		{
-			contentType: "image/png",
-			key: `projects/${projectId}/visual-assets/${visualAssetId}`,
-			body: "sprite-bytes",
-		},
-	]);
-	expect(calls.queuedKeys).toEqual([
-		`projects/${projectId}/visual-assets/${visualAssetId}`,
-	]);
-});
-
-test("rejects an invalid serialized asset ID before storage side effects", async () => {
-	const { auth } = createTestAuth();
-	const user = await createUserSession(auth, "user-a");
-	const { app, calls } = createTestApp(auth, {
-		createId: () => "00000000-0000-0000-0000-000000000003",
-	});
-	const response = await app.request(
-		`/api/projects/${projectId}/visual-assets`,
-		{
-			method: "POST",
-			headers: new Headers({
-				cookie: user.headers.get("cookie") ?? "",
-				"content-type": "image/png",
-			}),
-			body: "sprite-bytes",
-		}
-	);
-
-	expect(response.status).toBe(500);
-	expect(await response.json()).toEqual({ error: "Internal Server Error" });
-	expect(calls.cloudflareConfig).toBe(0);
-	expect(calls.putObject).toEqual([]);
-	expect(calls.queuedKeys).toEqual([]);
-	expect(calls.deletedKeys).toEqual([]);
-});
-
-test("serves previews only through the owner-checked project route", async () => {
-	const { auth } = createTestAuth();
-	const user = await createUserSession(auth, "user-a");
-	const { app, calls } = createTestApp(auth);
-	const response = await app.request(
-		`/api/projects/${projectId}/visual-assets/${visualAssetId}/preview`,
-		{
-			headers: new Headers({ cookie: user.headers.get("cookie") ?? "" }),
-		}
-	);
-
-	expect(response.status).toBe(200);
-	expect(response.headers.get("content-type")).toBe("image/png");
-	expect(response.headers.get("cache-control")).toBe("private, no-store");
-	expect(response.headers.get("x-content-type-options")).toBe("nosniff");
-	expect(await response.text()).toBe("sprite-bytes");
-	expect(calls.getObject).toEqual([
-		`projects/${projectId}/visual-assets/${visualAssetId}`,
-	]);
-});
-
-test("preserves owner-scoped routes for opaque project IDs", async () => {
-	const { auth } = createTestAuth();
-	const user = await createUserSession(auth, "user-a");
-	const opaqueProjectId = "ash-knight-v1";
-	const { app, calls } = createTestApp(auth, {
-		getProjectForUser: (_userId, id) =>
-			Promise.resolve(
-				id === opaqueProjectId
-					? {
-							id,
-							name: "Ash Knight",
-							ownerUserId: "user-a",
-							previewKey: "users/user-a/preview.png",
-						}
-					: null
-			),
-	});
-	const headers = new Headers({ cookie: user.headers.get("cookie") ?? "" });
-
-	const projectResponse = await app.request(
-		`/api/projects/${opaqueProjectId}`,
-		{ headers }
-	);
-	expect(projectResponse.status).toBe(200);
-	expect(await projectResponse.json()).toEqual({
-		id: opaqueProjectId,
+	expect(await client.projects.get({ projectId: project.id })).toMatchObject({
+		id: "ash-knight-v1",
 		name: "Ash Knight",
-		previewUrl: `/api/projects/${opaqueProjectId}/preview`,
+	});
+	const permission = await client.projects.access.grantContextAgent({
+		projectId: project.id,
+		purpose: "Prepare a project context proposal",
+		scopes: ["project_context:read"],
 	});
 
-	const previewResponse = await app.request(
-		`/api/projects/${opaqueProjectId}/preview`,
-		{ headers }
-	);
-	expect(previewResponse.status).toBe(200);
-	expect(previewResponse.headers.get("content-type")).toBe("image/png");
-	expect(previewResponse.headers.get("cache-control")).toBe(
-		"private, no-store"
-	);
-	expect(await previewResponse.text()).toBe("sprite-bytes");
-	expect(calls.getObject).toEqual(["users/user-a/preview.png"]);
-
-	const uploadResponse = await app.request(
-		`/api/projects/${opaqueProjectId}/visual-assets`,
-		{
-			method: "POST",
-			headers: new Headers({
-				cookie: user.headers.get("cookie") ?? "",
-				"content-type": "image/png",
-			}),
-			body: "sprite-bytes",
-		}
-	);
-	expect(uploadResponse.status).toBe(201);
-	expect(calls.putObject).toEqual([
-		{
-			contentType: "image/png",
-			key: `projects/${opaqueProjectId}/visual-assets/${visualAssetId}`,
-			body: "sprite-bytes",
-		},
-	]);
-});
-
-test("does not read a legacy preview object outside the owner scope", async () => {
-	const { auth } = createTestAuth();
-	const user = await createUserSession(auth, "user-a");
-	const { app, calls } = createTestApp(auth, {
-		getProjectForUser: (_userId, id) =>
-			Promise.resolve(
-				id === projectId
-					? {
-							id,
-							name: "Ash Knight",
-							ownerUserId: "user-a",
-							previewKey: "users/user-b/preview.png",
-						}
-					: null
-			),
-	});
-	const headers = new Headers({ cookie: user.headers.get("cookie") ?? "" });
-
-	const projectResponse = await app.request(`/api/projects/${projectId}`, {
-		headers,
-	});
-	expect(await projectResponse.json()).toEqual({
-		id: projectId,
-		name: "Ash Knight",
-		previewUrl: null,
-	});
-
-	const previewResponse = await app.request(
-		`/api/projects/${projectId}/preview`,
-		{ headers }
-	);
-	expect(previewResponse.status).toBe(404);
-	expect(previewResponse.headers.get("cache-control")).toBe(
-		"private, no-store"
-	);
-	expect(calls.getObject).toEqual([]);
+	expect(project.id).toBe("ash-knight-v1");
+	expect(
+		await client.projects.access.checkContextAgent({
+			projectId: project.id,
+			purpose: permission.purpose,
+			scope: "project_context:read",
+		})
+	).toBe(true);
+	await expect(
+		client.projects.access.checkConnection({
+			projectId: project.id,
+			purpose: "Generate a candidate asset",
+			scope: "candidate_versions:write",
+		})
+	).rejects.toMatchObject({ code: "FORBIDDEN" });
 });
 
 const databaseUrl = process.env.DATABASE_URL;
 
 test.skipIf(!databaseUrl)(
-	"reads persisted projects only for their authenticated owner",
+	"Context Agent permission grants persist and revocation stops new access",
 	async () => {
 		if (!databaseUrl) {
 			throw new Error("DATABASE_URL must point to an isolated test branch");
 		}
-		const database = createDb({ DATABASE_URL: databaseUrl });
+		const db = createDb({ DATABASE_URL: databaseUrl });
+		const store = createProjectAccessStore(db, createProjectContextStore(db));
 		const ownerUserId = crypto.randomUUID();
-		const otherUserId = crypto.randomUUID();
-		const persistedProjectId = crypto.randomUUID();
-		const { auth } = createTestAuth();
-		const ownerSession = await createUserSession(auth, ownerUserId);
-		const otherUserSession = await createUserSession(auth, otherUserId);
-		const { app, calls } = createTestApp(auth, {
-			getProjectForUser: (userId, id) =>
-				getProjectForUser(database, userId, id),
+		await db.insert(userTable).values({
+			id: ownerUserId,
+			name: "Permission Test Owner",
+			email: `${ownerUserId}@example.test`,
 		});
+		let projectId: string | null = null;
 
 		try {
-			await database.insert(userTable).values([
-				{
-					id: ownerUserId,
-					name: "Test Owner",
-					email: `${ownerUserId}@example.test`,
-				},
-				{
-					id: otherUserId,
-					name: "Other User",
-					email: `${otherUserId}@example.test`,
-				},
-			]);
-			await database.insert(projectTable).values({
-				id: persistedProjectId,
+			const project = await store.createProject(ownerUserId, {
+				name: "Permission Persistence Check",
+				generalArtDirection: "Pixel art with a limited palette",
+			});
+			projectId = project.id;
+			const [initialRevision] = await db
+				.select()
+				.from(contextRevisions)
+				.where(eq(contextRevisions.projectId, project.id));
+			expect(initialRevision).toMatchObject({
+				revisionNumber: 0,
+				state: "baseline",
+				contractVersion: "context-rule/1.0.0",
+			});
+			const granted = await store.grantContextAgentPermission(
 				ownerUserId,
-				name: "Persisted Project",
-				previewKey: null,
-			});
-
-			const ownerResponse = await app.request(
-				`/api/projects/${persistedProjectId}`,
+				project.id,
 				{
-					headers: new Headers({
-						cookie: ownerSession.headers.get("cookie") ?? "",
-					}),
+					purpose: "Prepare a project context proposal",
+					scopes: ["project_context:read"],
 				}
 			);
-			expect(ownerResponse.status).toBe(200);
-			expect(await ownerResponse.json()).toEqual({
-				id: persistedProjectId,
-				name: "Persisted Project",
-				previewUrl: null,
-			});
+			if (!granted) {
+				throw new Error("Expected the owner to grant project access");
+			}
 
-			const otherResponse = await app.request(
-				`/api/projects/${persistedProjectId}`,
-				{
-					headers: new Headers({
-						cookie: otherUserSession.headers.get("cookie") ?? "",
-					}),
-				}
+			const readBack = await store.listContextAgentPermissions(
+				ownerUserId,
+				project.id
 			);
-			expect(otherResponse.status).toBe(404);
-			expect(await otherResponse.json()).toEqual({ error: "Not found" });
-			expect(calls.getProjectForUser).toEqual([
-				{ projectId: persistedProjectId, userId: ownerUserId },
-				{ projectId: persistedProjectId, userId: otherUserId },
+			expect(readBack).toMatchObject([
+				{
+					id: granted.id,
+					purpose: granted.purpose,
+					scopes: granted.scopes,
+					revokedAt: null,
+				},
 			]);
+			expect(
+				await store.hasContextAgentPermission(
+					project.id,
+					granted.purpose,
+					"project_context:read"
+				)
+			).toBe(true);
+
+			expect(
+				await store.revokeContextAgentPermission(
+					ownerUserId,
+					project.id,
+					granted.id
+				)
+			).toBe(true);
+			const readBackAfterRevocation = await store.listContextAgentPermissions(
+				ownerUserId,
+				project.id
+			);
+			expect(readBackAfterRevocation?.[0]).toMatchObject({
+				id: granted.id,
+				revokedAt: expect.any(String),
+			});
+			expect(
+				await store.hasContextAgentPermission(
+					project.id,
+					granted.purpose,
+					"project_context:read"
+				)
+			).toBe(false);
 		} finally {
-			await database
-				.delete(projectTable)
-				.where(eq(projectTable.id, persistedProjectId));
-			await database
-				.delete(userTable)
-				.where(inArray(userTable.id, [ownerUserId, otherUserId]));
+			if (projectId) {
+				await db.delete(projectTable).where(eq(projectTable.id, projectId));
+			}
+			await db.delete(userTable).where(eq(userTable.id, ownerUserId));
 		}
 	}
 );
 
-test("does not keep an uploaded object when queue publication fails", async () => {
+test("project access controls require an authenticated owner", async () => {
 	const { auth } = createTestAuth();
-	const user = await createUserSession(auth, "user-a");
-	const { app, calls } = createTestApp(auth, { failQueue: true });
-	const response = await app.request(
-		`/api/projects/${projectId}/visual-assets`,
-		{
-			method: "POST",
-			headers: new Headers({
-				cookie: user.headers.get("cookie") ?? "",
-				"content-type": "image/webp",
-			}),
-			body: "sprite-bytes",
-		}
+	const anonymousClient = createRpcClient(
+		auth,
+		createMemoryProjectAccessStore()
 	);
 
-	expect(response.status).toBe(503);
-	const payload: unknown = await response.json();
-	expect(payload).toEqual({ error: "Visual asset upload failed" });
-	expect(JSON.stringify(payload)).not.toMatch(secretMaterialPattern);
-	expect(calls.queuedKeys).toEqual([
-		`projects/${projectId}/visual-assets/${visualAssetId}`,
-	]);
-	expect(calls.putObject).toHaveLength(1);
-	expect(calls.deletedKeys).toEqual([
-		`projects/${projectId}/visual-assets/${visualAssetId}`,
-	]);
+	await expect(
+		anonymousClient.projects.create({
+			name: "Private Project",
+			generalArtDirection: "Stylized pixel art",
+		})
+	).rejects.toMatchObject({ code: "UNAUTHORIZED" });
 });
 
-test("rejects unsupported upload types before storage configuration is read", async () => {
-	const { auth } = createTestAuth();
-	const user = await createUserSession(auth, "user-a");
-	const { app, calls } = createTestApp(auth);
-	const response = await app.request(
-		`/api/projects/${projectId}/visual-assets`,
-		{
-			method: "POST",
-			headers: new Headers({
-				cookie: user.headers.get("cookie") ?? "",
-				"content-type": "text/plain",
-			}),
-			body: "not an image",
-		}
+test("project access controls reject expired sessions", async () => {
+	const { auth, database } = createTestAuth();
+	const cookie = await createUserSession(auth, "expired-project-owner");
+	const sessionRecord = database.session?.[0];
+	if (!sessionRecord) {
+		throw new Error("Expected the test session to be stored in memory");
+	}
+	sessionRecord.expiresAt = new Date(Date.now() - 1000);
+	const client = createRpcClient(
+		auth,
+		createMemoryProjectAccessStore(),
+		cookie
 	);
 
-	expect(response.status).toBe(415);
-	expect(await response.json()).toEqual({
-		error: "Unsupported visual asset type",
+	await expect(client.projects.list()).rejects.toMatchObject({
+		code: "UNAUTHORIZED",
 	});
-	expect(calls.cloudflareConfig).toBe(0);
-	expect(calls.putObject).toEqual([]);
-	expect(calls.queuedKeys).toEqual([]);
 });
 
-function optedOutOfStorage(calls: ReturnType<typeof createTestApp>["calls"]) {
-	expect(calls.cloudflareConfig).toBe(0);
-	expect(calls.getObject).toEqual([]);
-	expect(calls.putObject).toEqual([]);
-	expect(calls.deletedKeys).toEqual([]);
-	expect(calls.queuedKeys).toEqual([]);
-}
+test("project access controls fail closed when session lookup fails", async () => {
+	const { auth } = createTestAuth();
+	const client = createRpcClient(
+		auth,
+		createMemoryProjectAccessStore(),
+		undefined,
+		() => Promise.reject(new Error("Session lookup failed"))
+	);
+
+	await expect(client.projects.list()).rejects.toMatchObject({
+		code: "INTERNAL_SERVER_ERROR",
+	});
+});
+
+test("project permissions are hidden from another user's session", async () => {
+	const { auth } = createTestAuth();
+	const store = createMemoryProjectAccessStore();
+	const ownerCookie = await createUserSession(auth, "project-owner");
+	const otherCookie = await createUserSession(auth, "another-user");
+	const owner = createRpcClient(auth, store, ownerCookie);
+	const otherUser = createRpcClient(auth, store, otherCookie);
+	const project = await owner.projects.create({
+		name: "Private Project",
+		generalArtDirection: "Stylized pixel art",
+	});
+
+	expect(await otherUser.projects.list()).toEqual([]);
+	await expect(
+		otherUser.projects.get({ projectId: project.id })
+	).rejects.toMatchObject({ code: "NOT_FOUND" });
+	await expect(
+		otherUser.projects.access.list({ projectId: project.id })
+	).rejects.toMatchObject({ code: "NOT_FOUND" });
+});
+
+test("project permission grants reject scopes outside the Context Agent boundary", async () => {
+	const { auth } = createTestAuth();
+	const cookie = await createUserSession(auth, "scope-owner");
+	const client = createRpcClient(
+		auth,
+		createMemoryProjectAccessStore(),
+		cookie
+	);
+	const project = await client.projects.create({
+		name: "Private Project",
+		generalArtDirection: "Stylized pixel art",
+	});
+
+	const grantWithUnapprovedScope = Reflect.apply(
+		client.projects.access.grantContextAgent,
+		undefined,
+		[
+			{
+				projectId: project.id,
+				purpose: "Prepare project context",
+				scopes: ["project_context:read", "context_revision:activate"],
+			},
+		]
+	);
+
+	await expect(grantWithUnapprovedScope).rejects.toMatchObject({
+		code: "BAD_REQUEST",
+	});
+	expect(
+		await client.projects.access.list({ projectId: project.id })
+	).toHaveLength(0);
+});
+
+test("a connection cannot access project data before a provider is selected", async () => {
+	const { auth } = createTestAuth();
+	const cookie = await createUserSession(auth, "connection-owner");
+	const client = createRpcClient(
+		auth,
+		createMemoryProjectAccessStore(),
+		cookie
+	);
+	const project = await client.projects.create({
+		name: "Forest Quest",
+		generalArtDirection: "Pixel art with a limited palette",
+	});
+
+	const access = client.projects.access.checkConnection({
+		projectId: project.id,
+		purpose: "Generate a candidate asset",
+		scope: "candidate_versions:write",
+	});
+
+	await expect(access).rejects.toMatchObject({ code: "FORBIDDEN" });
+});

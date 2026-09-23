@@ -14,6 +14,7 @@ export async function getProjectForUser(
 			name: project.name,
 			ownerUserId: project.ownerUserId,
 			previewKey: project.previewKey,
+			createdAt: project.createdAt,
 		})
 		.from(project)
 		.where(and(eq(project.id, projectId), eq(project.ownerUserId, userId)))

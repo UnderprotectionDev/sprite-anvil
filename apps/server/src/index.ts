@@ -16,11 +16,11 @@ import {
 } from "./cloudflare";
 import { createContext } from "./context";
 import { desktopOrigins, ENV } from "./env.server";
+import { mountProjectRoutes } from "./features/projects/server/project-routes";
 import {
 	serializeHealthResponse,
 	serializePublicApiError,
 } from "./output-contracts";
-import { mountProjectRoutes } from "./project-routes";
 import { auth, db } from "./services";
 
 const app = new Hono();
