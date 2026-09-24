@@ -7,7 +7,7 @@ const identifierSchema = z
 	.max(128)
 	.regex(
 		/^[a-z][a-z0-9._-]*$/,
-		"Use lowercase letters, numbers, dots, underscores, or hyphens."
+		"Küçük harf, sayı, nokta, alt çizgi veya tire kullanın."
 	);
 
 const projectIdSchema = z.string().trim().min(1).max(128);
@@ -111,6 +111,7 @@ export const contextRevisionSchema = z
 		id: z.string().uuid(),
 		projectId: projectIdSchema,
 		revisionNumber: z.number().int().nonnegative(),
+		sourceProposalId: z.string().uuid().nullable(),
 		ruleContractVersion: z.literal("context-rule/1.0.0"),
 		isActive: z.boolean(),
 		rules: z.array(contextRuleSchema),
@@ -145,6 +146,8 @@ const evidenceSchema = z
 const sharedChangeFields = {
 	ruleId: identifierSchema,
 	scope: contextScopeSchema,
+	supersedesRuleId: identifierSchema.optional(),
+	precedenceChain: z.array(contextScopeSchema).min(1).max(6).optional(),
 	rationale: z.string().trim().min(1).max(2000),
 	evidence: z.array(evidenceSchema).min(1).max(20),
 };
@@ -184,7 +187,7 @@ export const contextProposalInputSchema = z
 					code: "custom",
 					path: ["changes", index, "ruleId"],
 					message:
-						"Structured controls can only propose common Project Context rules.",
+						"Yapılandırılmış kontroller yalnızca yaygın Proje Bağlamı kurallarını önerebilir.",
 				});
 				return;
 			}
@@ -197,7 +200,7 @@ export const contextProposalInputSchema = z
 					code: "custom",
 					path: ["changes", index, "scope"],
 					message:
-						"Structured controls can only propose rules for this Project Context.",
+						"Yapılandırılmış kontroller yalnızca bu Proje Bağlamı için kural önerebilir.",
 				});
 			}
 
@@ -208,7 +211,7 @@ export const contextProposalInputSchema = z
 				context.addIssue({
 					code: "custom",
 					path: ["changes", index, "value", "type"],
-					message: `The ${change.ruleId} rule requires a ${rule.valueType} value.`,
+					message: `${change.ruleId} kuralı ${rule.valueType} türünde bir değer gerektirir.`,
 				});
 			}
 		});
@@ -218,13 +221,38 @@ export const contextProposalConflictSchema = z
 	.object({
 		code: z.enum([
 			"duplicate_change",
+			"same_scope_contradiction",
 			"existing_rule",
 			"missing_base_rule",
 			"scope_mismatch",
 			"project_scope_mismatch",
+			"invalid_context_rule",
+			"invalid_precedence_chain",
+			"missing_context_override",
+			"invalid_context_override",
+			"unresolved_reference",
+			"stale_rule_conflict",
+			"invalid_base_revision",
 		]),
 		ruleId: identifierSchema,
 		message: z.string().min(1),
+	})
+	.strict();
+
+export const contextProposalReviewSchema = z
+	.object({
+		proposalId: z.string().uuid(),
+		baseContextRevisionId: z.string().uuid(),
+		baseRevisionNumber: z.number().int().nonnegative(),
+		currentRevisionId: z.string().uuid(),
+		currentRevisionNumber: z.number().int().nonnegative(),
+		targetRevisionNumber: z.number().int().positive(),
+		isRebased: z.boolean(),
+		activationAllowed: z.boolean(),
+		checkedAt: z.string().datetime(),
+		conflicts: z.array(contextProposalConflictSchema),
+		candidateRules: z.array(contextRuleSchema),
+		contextCopy: z.string(),
 	})
 	.strict();
 
@@ -271,6 +299,21 @@ export const contextProposalListInputSchema = z
 	.object({ projectId: projectIdSchema })
 	.strict();
 
+export const contextProposalReviewInputSchema = z
+	.object({
+		projectId: projectIdSchema,
+		proposalId: z.string().uuid(),
+	})
+	.strict();
+
+export const contextProposalActivationInputSchema = z
+	.object({
+		projectId: projectIdSchema,
+		proposalId: z.string().uuid(),
+		expectedCurrentRevisionId: z.string().uuid(),
+	})
+	.strict();
+
 export type ContextRule = z.infer<typeof contextRuleSchema>;
 export type ContextRevision = z.infer<typeof contextRevisionSchema>;
 export type ProjectContext = z.infer<typeof projectContextSchema>;
@@ -284,13 +327,27 @@ export type ContextProposalConflict = z.infer<
 	typeof contextProposalConflictSchema
 >;
 export type ContextProposal = z.infer<typeof contextProposalSchema>;
+export type ContextProposalReview = z.infer<typeof contextProposalReviewSchema>;
 
 export interface ProjectContextStore {
+	activateProposal: (input: {
+		userId: string;
+		projectId: string;
+		proposalId: string;
+		expectedCurrentRevisionId: string;
+		ruleContractVersion: ContextRevision["ruleContractVersion"];
+		rules: ContextRule[];
+	}) => Promise<ContextRevision | null>;
 	createProject: (
 		userId: string,
 		input: ProjectContextCreateInput
 	) => Promise<ProjectContext>;
 	createProposal: (userId: string, proposal: ContextProposal) => Promise<void>;
+	getProposal: (
+		userId: string,
+		projectId: string,
+		proposalId: string
+	) => Promise<ContextProposal | null>;
 	getRevision: (
 		userId: string,
 		projectId: string,
@@ -310,62 +367,547 @@ export function validateContextProposal(
 	checkedAt: string
 ) {
 	const conflicts: ContextProposalConflict[] = [];
-	const seenRuleIds = new Set<string>();
-	const baseRules = new Map(baseRevision.rules.map((rule) => [rule.id, rule]));
+	const seenRuleKeys = new Set<string>();
+	const baseRules = new Map(
+		baseRevision.rules.map((rule) => [
+			contextRuleKey(rule.id, rule.scope),
+			rule,
+		])
+	);
 
 	for (const change of changes) {
-		if (seenRuleIds.has(change.ruleId)) {
+		const key = contextRuleKey(change.ruleId, change.scope);
+		if (seenRuleKeys.has(key)) {
 			conflicts.push({
 				code: "duplicate_change",
 				ruleId: change.ruleId,
-				message: "A rule can appear only once in a proposal.",
+				message:
+					"Aynı kapsamda bir kural öneride yalnızca bir kez yer alabilir.",
 			});
 			continue;
 		}
-		seenRuleIds.add(change.ruleId);
+		seenRuleKeys.add(key);
 
 		if (change.scope.kind === "project" && change.scope.id !== projectId) {
 			conflicts.push({
 				code: "project_scope_mismatch",
 				ruleId: change.ruleId,
-				message: "Project-scoped rules must use the proposal's project.",
+				message:
+					"Proje kapsamındaki kurallar önerinin projesini kullanmalıdır.",
 			});
 		}
 
-		const baseRule = baseRules.get(change.ruleId);
+		const baseRule = baseRules.get(key);
 		if (change.operation === "add") {
 			if (baseRule) {
 				conflicts.push({
 					code: "existing_rule",
 					ruleId: change.ruleId,
-					message: "This rule already exists in the base Context Revision.",
+					message: "Bu kural dayanak Bağlam Sürümü'nde zaten bulunuyor.",
 				});
 			}
 			continue;
 		}
 
 		if (!baseRule) {
+			const sameRuleAtAnotherScope = baseRevision.rules.some(
+				(rule) => rule.id === change.ruleId
+			);
 			conflicts.push({
-				code: "missing_base_rule",
+				code: sameRuleAtAnotherScope ? "scope_mismatch" : "missing_base_rule",
 				ruleId: change.ruleId,
-				message:
-					"The rule to change is not present in the base Context Revision.",
-			});
-			continue;
-		}
-
-		if (
-			baseRule.scope.kind !== change.scope.kind ||
-			baseRule.scope.id !== change.scope.id
-		) {
-			conflicts.push({
-				code: "scope_mismatch",
-				ruleId: change.ruleId,
-				message:
-					"The proposed scope does not match the rule in the base Context Revision.",
+				message: sameRuleAtAnotherScope
+					? "Değiştirilecek kural dayanak Bağlam Sürümü'nde yalnızca başka bir kapsamda bulunuyor."
+					: "Değiştirilecek kural dayanak Bağlam Sürümü'nde bulunmuyor.",
 			});
 		}
 	}
 
 	return { isValid: conflicts.length === 0, checkedAt, conflicts };
+}
+
+const scopeSpecificity = {
+	operation: 0,
+	asset: 1,
+	asset_family: 2,
+	theme: 3,
+	visual_world: 4,
+	project: 5,
+} as const;
+
+function contextScopeKey(scope: ContextRule["scope"]) {
+	return `${scope.kind}:${scope.id}`;
+}
+
+function contextRuleKey(ruleId: string, scope: ContextRule["scope"]) {
+	return `${ruleId}\u0000${contextScopeKey(scope)}`;
+}
+
+function sameScope(left: ContextRule["scope"], right: ContextRule["scope"]) {
+	return left.kind === right.kind && left.id === right.id;
+}
+
+function scopeIsInChain(
+	chain: ContextRule["precedenceChain"],
+	scope: ContextRule["scope"]
+) {
+	return chain.some((entry) => sameScope(entry, scope));
+}
+
+function scopeChainsOverlap(
+	leftScope: ContextRule["scope"],
+	leftChain: ContextRule["precedenceChain"],
+	rightScope: ContextRule["scope"],
+	rightChain: ContextRule["precedenceChain"]
+) {
+	return (
+		scopeIsInChain(leftChain, rightScope) ||
+		scopeIsInChain(rightChain, leftScope)
+	);
+}
+
+function resolvePrecedenceChain(
+	projectId: string,
+	scope: ContextRule["scope"],
+	providedChain?: ContextRule["precedenceChain"],
+	baseRule?: ContextRule
+) {
+	if (providedChain) {
+		return providedChain;
+	}
+	if (baseRule) {
+		return baseRule.precedenceChain;
+	}
+	return scope.kind === "project"
+		? [scope]
+		: [scope, { kind: "project" as const, id: projectId }];
+}
+
+function sameRuleMeaning(
+	left: ContextRule | undefined,
+	right: ContextRule | undefined
+) {
+	if (!(left && right)) {
+		return left === right;
+	}
+	return (
+		left.id === right.id &&
+		sameScope(left.scope, right.scope) &&
+		JSON.stringify(left.value) === JSON.stringify(right.value) &&
+		left.supersedesRuleId === right.supersedesRuleId &&
+		JSON.stringify(left.precedenceChain) ===
+			JSON.stringify(right.precedenceChain)
+	);
+}
+
+function proposedRule(
+	projectId: string,
+	change: ContextRuleChange,
+	proposal: ContextProposal,
+	baseRule?: ContextRule
+): ContextRule | undefined {
+	if (change.operation === "remove") {
+		return undefined;
+	}
+	const precedenceChain = resolvePrecedenceChain(
+		projectId,
+		change.scope,
+		change.precedenceChain,
+		baseRule
+	);
+	return {
+		contractVersion: proposal.ruleContractVersion,
+		id: change.ruleId,
+		scope: change.scope,
+		value: change.value,
+		source: { kind: "context_proposal", proposalId: proposal.id },
+		rationale: change.rationale,
+		createdAt: proposal.createdAt,
+		...((change.supersedesRuleId ?? baseRule?.supersedesRuleId)
+			? {
+					supersedesRuleId:
+						change.supersedesRuleId ?? baseRule?.supersedesRuleId,
+				}
+			: {}),
+		precedenceChain,
+	};
+}
+
+function applyContextProposal(
+	projectId: string,
+	currentRules: ContextRule[],
+	proposal: ContextProposal
+) {
+	const nextRules = [...currentRules];
+	for (const change of proposal.changes) {
+		const index = nextRules.findIndex(
+			(rule) =>
+				contextRuleKey(rule.id, rule.scope) ===
+				contextRuleKey(change.ruleId, change.scope)
+		);
+		if (change.operation === "remove") {
+			if (index >= 0) {
+				nextRules.splice(index, 1);
+			}
+			continue;
+		}
+		const replacement = proposedRule(
+			projectId,
+			change,
+			proposal,
+			index >= 0 ? nextRules[index] : undefined
+		);
+		if (!replacement) {
+			continue;
+		}
+		if (index >= 0) {
+			nextRules[index] = replacement;
+		} else {
+			nextRules.push(replacement);
+		}
+	}
+	return nextRules;
+}
+
+function validateContextRule(
+	projectId: string,
+	rule: ContextRule,
+	rulesByKey: Map<string, ContextRule>
+) {
+	const conflicts: ContextProposalConflict[] = [];
+	if (!contextRuleSchema.safeParse(rule).success) {
+		return [
+			{
+				code: "invalid_context_rule" as const,
+				ruleId: rule.id,
+				message: "Bağlam Kuralı context-rule/1.0.0 sözleşmesine uymuyor.",
+			},
+		];
+	}
+	if (rule.scope.kind === "project" && rule.scope.id !== projectId) {
+		conflicts.push({
+			code: "project_scope_mismatch",
+			ruleId: rule.id,
+			message: "Proje kapsamındaki kurallar bu Projeyi kullanmalıdır.",
+		});
+	}
+
+	const key = contextRuleKey(rule.id, rule.scope);
+	if (rulesByKey.has(key)) {
+		conflicts.push({
+			code: "same_scope_contradiction",
+			ruleId: rule.id,
+			message: "Aynı Bağlam Kuralı aynı kapsamda birden fazla tanımlanmış.",
+		});
+	} else {
+		rulesByKey.set(key, rule);
+	}
+
+	if (!hasValidPrecedenceChain(projectId, rule)) {
+		conflicts.push({
+			code: "invalid_precedence_chain",
+			ruleId: rule.id,
+			message:
+				"Bağlam Kuralı öncelik zinciri kendi kapsamından başlayıp dar kapsamdan geniş kapsama ilerleyerek bu Projede bitmelidir.",
+		});
+	}
+	return conflicts;
+}
+
+function hasValidPrecedenceChain(projectId: string, rule: ContextRule) {
+	const chain = rule.precedenceChain;
+	const [firstScope] = chain;
+	const lastScope = chain.at(-1);
+	const endsAtProject =
+		lastScope?.kind === "project" && lastScope.id === projectId;
+	const chainKeys = chain.map(contextScopeKey);
+	const ranks = chain.map((scope) => scopeSpecificity[scope.kind]);
+	const isOrdered = ranks.every((rank, index) => {
+		const previousRank = ranks[index - 1];
+		return index === 0 || (previousRank !== undefined && rank > previousRank);
+	});
+	const isUnique = new Set(chainKeys).size === chainKeys.length;
+	const usesProjectRoot = chain.every(
+		(scope) => scope.kind !== "project" || scope.id === projectId
+	);
+	return (
+		firstScope !== undefined &&
+		sameScope(firstScope, rule.scope) &&
+		endsAtProject &&
+		isOrdered &&
+		isUnique &&
+		usesProjectRoot
+	);
+}
+
+function validateContextRuleOverrides(rule: ContextRule, rules: ContextRule[]) {
+	const inheritedRules = rules
+		.filter(
+			(candidate) =>
+				candidate.id === rule.id &&
+				!sameScope(candidate.scope, rule.scope) &&
+				scopeSpecificity[candidate.scope.kind] >
+					scopeSpecificity[rule.scope.kind] &&
+				scopeIsInChain(rule.precedenceChain, candidate.scope)
+		)
+		.sort(
+			(left, right) =>
+				scopeSpecificity[left.scope.kind] - scopeSpecificity[right.scope.kind]
+		);
+	const [nearestInheritedRule] = inheritedRules;
+	const conflicts: ContextProposalConflict[] = [];
+	if (
+		nearestInheritedRule &&
+		rule.supersedesRuleId !== nearestInheritedRule.id
+	) {
+		conflicts.push({
+			code: "missing_context_override",
+			ruleId: rule.id,
+			message:
+				"Daha dar kapsamlı Bağlam Kuralı devraldığı kuralı açıkça geçersiz kılmalıdır.",
+		});
+	}
+
+	if (
+		rule.supersedesRuleId &&
+		!inheritedRules.some((candidate) => candidate.id === rule.supersedesRuleId)
+	) {
+		conflicts.push({
+			code: "invalid_context_override",
+			ruleId: rule.id,
+			message:
+				"Bağlam Kuralı İstisnası öncelik zincirindeki devralınan bir kurala bağlanmalıdır.",
+		});
+	}
+	return conflicts;
+}
+
+function validateContextRules(projectId: string, rules: ContextRule[]) {
+	const conflicts: ContextProposalConflict[] = [];
+	const rulesByKey = new Map<string, ContextRule>();
+	for (const rule of rules) {
+		conflicts.push(...validateContextRule(projectId, rule, rulesByKey));
+	}
+	for (const rule of rules) {
+		conflicts.push(...validateContextRuleOverrides(rule, rules));
+	}
+
+	return conflicts;
+}
+
+function mapContextRules(rules: ContextRule[]) {
+	return new Map(
+		rules.map((rule) => [contextRuleKey(rule.id, rule.scope), rule])
+	);
+}
+
+function changedRules(
+	baseRulesByKey: Map<string, ContextRule>,
+	currentRulesByKey: Map<string, ContextRule>
+) {
+	const changed: ContextRule[] = [];
+	const keys = new Set([...baseRulesByKey.keys(), ...currentRulesByKey.keys()]);
+	for (const key of keys) {
+		const baseRule = baseRulesByKey.get(key);
+		const currentRule = currentRulesByKey.get(key);
+		if (!sameRuleMeaning(baseRule, currentRule)) {
+			const changedRule = currentRule ?? baseRule;
+			if (changedRule) {
+				changed.push(changedRule);
+			}
+		}
+	}
+	return changed;
+}
+
+function validateStaleProposalChanges(
+	proposal: ContextProposal,
+	baseRulesByKey: Map<string, ContextRule>,
+	currentRulesByKey: Map<string, ContextRule>,
+	changedCurrentRules: ContextRule[]
+) {
+	const conflicts: ContextProposalConflict[] = [];
+	for (const change of proposal.changes) {
+		const key = contextRuleKey(change.ruleId, change.scope);
+		const baseRule = baseRulesByKey.get(key);
+		const changeChain = resolvePrecedenceChain(
+			proposal.projectId,
+			change.scope,
+			change.precedenceChain,
+			baseRule
+		);
+		const desiredRule = proposedRule(
+			proposal.projectId,
+			change,
+			proposal,
+			baseRule
+		);
+		const currentRule = currentRulesByKey.get(key);
+		const hasChangedOverlap = changedCurrentRules.some(
+			(changedRule) =>
+				changedRule.id === change.ruleId &&
+				scopeChainsOverlap(
+					change.scope,
+					changeChain,
+					changedRule.scope,
+					changedRule.precedenceChain
+				)
+		);
+		if (hasChangedOverlap && !sameRuleMeaning(currentRule, desiredRule)) {
+			conflicts.push({
+				code: "stale_rule_conflict",
+				ruleId: change.ruleId,
+				message:
+					"Bu kural veya kesişen kapsam, dayanak sürümden sonra değişmiş. Öneriyi güncel Bağlam Sürümü ile yeniden inceleyin.",
+			});
+		}
+	}
+	return conflicts;
+}
+
+function validateProposalReferences(
+	rules: ContextRule[],
+	knownProposalIds: Set<string>
+) {
+	return rules.flatMap((rule) => {
+		if (
+			rule.source.kind !== "context_proposal" ||
+			knownProposalIds.has(rule.source.proposalId)
+		) {
+			return [];
+		}
+		return [
+			{
+				code: "unresolved_reference" as const,
+				ruleId: rule.id,
+				message:
+					"Bir Bağlam Kuralı bulunmayan bir Bağlam Önerisi'ne referans veriyor.",
+			},
+		];
+	});
+}
+
+function uniqueConflicts(conflicts: ContextProposalConflict[]) {
+	return [
+		...new Map(
+			conflicts.map((conflict) => [
+				`${conflict.code}\u0000${conflict.ruleId}\u0000${conflict.message}`,
+				conflict,
+			])
+		).values(),
+	];
+}
+
+function validateRevisionRelationship(
+	proposal: ContextProposal,
+	baseRevision: ContextRevision,
+	currentRevision: ContextRevision
+) {
+	if (
+		baseRevision.projectId === proposal.projectId &&
+		currentRevision.projectId === proposal.projectId &&
+		baseRevision.revisionNumber <= currentRevision.revisionNumber
+	) {
+		return [];
+	}
+	return [
+		{
+			code: "invalid_base_revision" as const,
+			ruleId: "project.context",
+			message: "Önerinin dayanağı bu Projenin önceki bir Bağlam Sürümü değil.",
+		},
+	];
+}
+
+export function previewContextProposalActivation(
+	proposal: ContextProposal,
+	baseRevision: ContextRevision,
+	currentRevision: ContextRevision,
+	knownProposalIds: Set<string>,
+	checkedAt: string
+): ContextProposalReview {
+	const proposalValidation = validateContextProposal(
+		proposal.projectId,
+		baseRevision,
+		proposal.changes,
+		checkedAt
+	);
+	const baseRulesByKey = mapContextRules(baseRevision.rules);
+	const currentRulesByKey = mapContextRules(currentRevision.rules);
+	const changedCurrentRules = changedRules(baseRulesByKey, currentRulesByKey);
+
+	const candidateRules = applyContextProposal(
+		proposal.projectId,
+		currentRevision.rules,
+		proposal
+	);
+	const conflicts = uniqueConflicts([
+		...proposalValidation.conflicts,
+		...validateRevisionRelationship(proposal, baseRevision, currentRevision),
+		...validateStaleProposalChanges(
+			proposal,
+			baseRulesByKey,
+			currentRulesByKey,
+			changedCurrentRules
+		),
+		...validateContextRules(proposal.projectId, candidateRules),
+		...validateProposalReferences(candidateRules, knownProposalIds),
+	]);
+	return contextProposalReviewSchema.parse({
+		proposalId: proposal.id,
+		baseContextRevisionId: proposal.baseContextRevisionId,
+		baseRevisionNumber: baseRevision.revisionNumber,
+		currentRevisionId: currentRevision.id,
+		currentRevisionNumber: currentRevision.revisionNumber,
+		targetRevisionNumber: currentRevision.revisionNumber + 1,
+		isRebased: baseRevision.id !== currentRevision.id,
+		activationAllowed: conflicts.length === 0,
+		checkedAt,
+		conflicts,
+		candidateRules,
+		contextCopy: renderContextCopy(
+			proposal.projectId,
+			currentRevision.revisionNumber + 1,
+			candidateRules
+		),
+	});
+}
+
+export function renderContextCopy(
+	projectId: string,
+	revisionNumber: number,
+	rules: ContextRule[]
+) {
+	const orderedRules = [...rules].sort((left, right) => {
+		const specificity =
+			scopeSpecificity[right.scope.kind] - scopeSpecificity[left.scope.kind];
+		return specificity || left.id.localeCompare(right.id);
+	});
+	const lines = [
+		"# Project Context",
+		"",
+		`Revision: ${revisionNumber}`,
+		`Project: ${JSON.stringify(projectId)}`,
+		"Rule contract: context-rule/1.0.0",
+		"",
+		"This read-only context copy is derived from the validated Context Revision.",
+		"Rules are resolved from their most specific matching scope toward the Project scope.",
+		"",
+	];
+	if (orderedRules.length === 0) {
+		lines.push("No Context Rules are active.");
+	} else {
+		for (const rule of orderedRules) {
+			lines.push(
+				`## ${rule.id}`,
+				`- Scope: ${JSON.stringify(rule.scope)}`,
+				`- Value: ${JSON.stringify(rule.value)}`,
+				`- Precedence chain: ${JSON.stringify(rule.precedenceChain)}`,
+				`- Supersedes rule: ${JSON.stringify(rule.supersedesRuleId ?? null)}`,
+				`- Rationale: ${JSON.stringify(rule.rationale)}`,
+				""
+			);
+		}
+	}
+	return lines.join("\n");
 }

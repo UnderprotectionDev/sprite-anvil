@@ -57,8 +57,16 @@ describe("Project Context proposals", () => {
 		const savedProposal = await $(`h3=${projectContextFixture.summary}`);
 		await savedProposal.waitForDisplayed();
 		await expect(await $("p=Önerilen değer: 1.5")).toBeDisplayed();
+		await (await $("button=Öneriyi incele")).click();
+		await $("h4=Etkinleştirme özeti · R1").waitForDisplayed();
+		await expect(await $("span=Etkinleştirilebilir")).toBeDisplayed();
+		await (await $("button=R1 sürümünü etkinleştir")).click();
+		await $(
+			"p=Bu öneri Etkin Bağlam Sürümü R1 olarak kaydedildi."
+		).waitForDisplayed();
 		await browser.refresh();
 		await $(`h3=${projectContextFixture.summary}`).waitForDisplayed();
 		await expect(await $("p=Önerilen değer: 1.5")).toBeDisplayed();
+		await expect(await $("span=Etkin")).toBeDisplayed();
 	});
 });

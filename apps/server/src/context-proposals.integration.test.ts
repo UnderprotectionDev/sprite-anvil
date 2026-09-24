@@ -13,7 +13,7 @@ import { createProjectContextStore } from "./project-context-store";
 const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
 
 test.skipIf(!databaseUrl)(
-	"creates and rereads a structured proposal through Neon and Drizzle",
+	"creates, reviews, and activates a structured proposal through Neon and Drizzle",
 	async () => {
 		if (!databaseUrl) {
 			throw new Error("CONTEXT_TEST_DATABASE_URL is required for this test.");
@@ -107,11 +107,53 @@ test.skipIf(!databaseUrl)(
 					createDb({ DATABASE_URL: databaseUrl })
 				),
 			};
+			const review = await call(
+				appRouter.contextProposals.review,
+				{ projectId: project.id, proposalId: created.id },
+				{ context: rereadContext }
+			);
+			const activated = await call(
+				appRouter.contextProposals.activate,
+				{
+					projectId: project.id,
+					proposalId: created.id,
+					expectedCurrentRevisionId: review.currentRevisionId,
+				},
+				{ context: rereadContext }
+			);
+			const repeatedReview = await call(
+				appRouter.contextProposals.review,
+				{ projectId: project.id, proposalId: created.id },
+				{ context: rereadContext }
+			);
+			const repeatedActivation = await call(
+				appRouter.contextProposals.activate,
+				{
+					projectId: project.id,
+					proposalId: created.id,
+					expectedCurrentRevisionId: repeatedReview.currentRevisionId,
+				},
+				{ context: rereadContext }
+			);
 			const reread = await call(
 				appRouter.contextProposals.list,
 				{ projectId: project.id },
 				{ context: rereadContext }
 			);
+			const currentProjects = await call(
+				appRouter.projectContexts.list,
+				{},
+				{ context: rereadContext }
+			);
+			const revisions = await db
+				.select({
+					id: contextRevisions.id,
+					revisionNumber: contextRevisions.revisionNumber,
+					state: contextRevisions.state,
+					sourceProposalId: contextRevisions.sourceProposalId,
+				})
+				.from(contextRevisions)
+				.where(eq(contextRevisions.projectId, project.id));
 
 			expect(created.baseContextRevisionId).toBe(activeRevisionId);
 			expect(created.changes[0]).toMatchObject({
@@ -119,6 +161,29 @@ test.skipIf(!databaseUrl)(
 				value: { type: "number", value: 1.5 },
 			});
 			expect(reread).toEqual([created]);
+			expect(review.activationAllowed).toBe(true);
+			expect(review.contextCopy).toContain("1.5");
+			expect(activated).toMatchObject({
+				revisionNumber: 2,
+				sourceProposalId: created.id,
+				isActive: true,
+			});
+			expect(repeatedActivation).toEqual(activated);
+			expect(currentProjects[0]?.currentContextRevision).toEqual(activated);
+			expect(revisions).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						id: activeRevisionId,
+						revisionNumber: 1,
+						state: "inactive",
+					}),
+					expect.objectContaining({
+						revisionNumber: 2,
+						state: "active",
+						sourceProposalId: created.id,
+					}),
+				])
+			);
 		} finally {
 			if (insertedUser) {
 				await db.delete(user).where(eq(user.id, userId));

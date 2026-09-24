@@ -1,19 +1,70 @@
 import type { RouterClient } from "@orpc/server";
 import { ORPCError } from "@orpc/server";
+import type { Context } from "../context";
 import { protectedProcedure, publicProcedure } from "../index";
 import {
 	serializePrivateDataResponse,
 	serializeRpcHealthResponse,
 } from "../output-contracts";
 import {
+	contextProposalActivationInputSchema,
 	contextProposalInputSchema,
 	contextProposalListInputSchema,
+	contextProposalReviewInputSchema,
+	contextProposalReviewSchema,
 	contextProposalSchema,
+	previewContextProposalActivation,
 	projectContextCreateInputSchema,
 	projectContextSchema,
 	validateContextProposal,
 } from "../project-context";
 import { projectsRouter } from "./projects";
+
+async function readContextProposalReview(
+	context: Context,
+	projectId: string,
+	proposalId: string
+) {
+	const userId = context.session?.user.id;
+	if (!userId) {
+		throw new ORPCError("UNAUTHORIZED");
+	}
+	const proposal = await context.projectContextStore.getProposal(
+		userId,
+		projectId,
+		proposalId
+	);
+	if (!proposal) {
+		throw new ORPCError("NOT_FOUND", { message: "Context Proposal not found" });
+	}
+	const [baseRevision, project] = await Promise.all([
+		context.projectContextStore.getRevision(
+			userId,
+			projectId,
+			proposal.baseContextRevisionId
+		),
+		context.projectContextStore
+			.listProjects(userId)
+			.then((projects) => projects.find((entry) => entry.id === projectId)),
+	]);
+	if (!(baseRevision && project)) {
+		throw new ORPCError("NOT_FOUND", { message: "Project Context not found" });
+	}
+	const knownProposalIds = new Set(
+		(await context.projectContextStore.listProposals(userId, projectId)).map(
+			(entry) => entry.id
+		)
+	);
+	return contextProposalReviewSchema.parse(
+		previewContextProposalActivation(
+			proposal,
+			baseRevision,
+			project.currentContextRevision,
+			knownProposalIds,
+			new Date().toISOString()
+		)
+	);
+}
 
 export const appRouter = {
 	healthCheck: publicProcedure.handler(() => serializeRpcHealthResponse()),
@@ -62,6 +113,48 @@ export const appRouter = {
 						input.projectId
 					)
 				).map((proposal) => contextProposalSchema.parse(proposal));
+			}),
+		review: protectedProcedure
+			.input(contextProposalReviewInputSchema)
+			.handler(async ({ context, input }) =>
+				readContextProposalReview(context, input.projectId, input.proposalId)
+			),
+		activate: protectedProcedure
+			.input(contextProposalActivationInputSchema)
+			.handler(async ({ context, input }) => {
+				const review = await readContextProposalReview(
+					context,
+					input.projectId,
+					input.proposalId
+				);
+				if (!review.activationAllowed) {
+					throw new ORPCError("BAD_REQUEST", {
+						message:
+							review.conflicts[0]?.message ??
+							"Çakışmalar çözülmeden Bağlam Önerisi etkinleştirilemez.",
+					});
+				}
+				if (review.currentRevisionId !== input.expectedCurrentRevisionId) {
+					throw new ORPCError("CONFLICT", {
+						message:
+							"Etkin Bağlam Sürümü değişti. Etkinleştirmeden önce öneriyi yeniden inceleyin.",
+					});
+				}
+				const revision = await context.projectContextStore.activateProposal({
+					userId: context.session.user.id,
+					projectId: input.projectId,
+					proposalId: input.proposalId,
+					expectedCurrentRevisionId: input.expectedCurrentRevisionId,
+					ruleContractVersion: "context-rule/1.0.0",
+					rules: review.candidateRules,
+				});
+				if (!revision) {
+					throw new ORPCError("CONFLICT", {
+						message:
+							"Etkin Bağlam Sürümü değişti. Etkinleştirmeden önce öneriyi yeniden inceleyin.",
+					});
+				}
+				return revision;
 			}),
 		create: protectedProcedure
 			.input(contextProposalInputSchema)

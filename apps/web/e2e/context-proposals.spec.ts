@@ -48,8 +48,29 @@ test("persists a structured Project Context proposal from the web flow", async (
 	});
 	await expect(savedProposal).toBeVisible();
 	await expect(page.getByText("Önerilen değer: 1.5")).toBeVisible();
+	await page.getByRole("button", { name: "Öneriyi incele" }).click();
+	await expect(
+		page.getByRole("heading", { name: "Etkinleştirme özeti · R1" })
+	).toBeVisible();
+	await expect(
+		page.locator(".review-revisions").getByText("R0", { exact: true })
+	).toBeVisible();
+	await expect(page.getByText("Etkinleştirilebilir")).toBeVisible();
+	await page.getByRole("button", { name: "R1 sürümünü etkinleştir" }).click();
+	await expect(
+		page.getByText("Bu öneri Etkin Bağlam Sürümü R1 olarak kaydedildi.")
+	).toBeVisible();
 
 	await page.reload();
 	await expect(savedProposal).toBeVisible();
 	await expect(page.getByText("Önerilen değer: 1.5")).toBeVisible();
+	const proposalRecord = page.locator(".proposal-record").filter({
+		has: savedProposal,
+	});
+	await expect(
+		proposalRecord.getByText("Etkin", { exact: true })
+	).toBeVisible();
+	await expect(
+		page.getByText("Etkin Bağlam Sürümü", { exact: true })
+	).toBeVisible();
 });

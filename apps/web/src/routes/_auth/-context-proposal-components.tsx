@@ -1,7 +1,9 @@
 import type {
 	ContextProposal,
 	ContextProposalInput,
+	ContextProposalReview,
 	ContextRevision,
+	ContextRule,
 	ContextRuleChange,
 	ContextRuleValue,
 	ProjectContext,
@@ -13,11 +15,11 @@ import {
 	STRUCTURED_CONTEXT_RULES,
 } from "@sprite-anvil/api/project-context";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Send, Trash2 } from "lucide-react";
 import { type ReactNode, type SyntheticEvent, useState } from "react";
 import { toast } from "sonner";
-import { client } from "@/utils/orpc";
+import { client, orpc } from "@/utils/orpc";
 
 type EvidenceKind = "user_decision" | "observed_change";
 type ValueType =
@@ -590,7 +592,11 @@ function ProposalLedger({
 		content = (
 			<div className="proposal-list">
 				{proposals.map((proposal) => (
-					<ProposalRecord key={proposal.id} proposal={proposal} />
+					<ProposalRecord
+						key={proposal.id}
+						project={project}
+						proposal={proposal}
+					/>
 				))}
 			</div>
 		);
@@ -616,26 +622,70 @@ function ProposalLedger({
 	);
 }
 
-function ProposalRecord({ proposal }: { proposal: ContextProposal }) {
+function ProposalRecord({
+	proposal,
+	project,
+}: {
+	proposal: ContextProposal;
+	project: ProjectContext;
+}) {
+	const queryClient = useQueryClient();
+	const [review, setReview] = useState<ContextProposalReview | null>(null);
+	const reviewProposal = useMutation({
+		mutationFn: () =>
+			client.contextProposals.review({
+				projectId: project.id,
+				proposalId: proposal.id,
+			}),
+		onSuccess: setReview,
+	});
+	const activateProposal = useMutation({
+		mutationFn: (currentReview: ContextProposalReview) =>
+			client.contextProposals.activate({
+				projectId: project.id,
+				proposalId: proposal.id,
+				expectedCurrentRevisionId: currentReview.currentRevisionId,
+			}),
+		onSuccess: async () => {
+			await Promise.all([
+				queryClient.invalidateQueries({
+					queryKey: orpc.projectContexts.list.queryKey(),
+				}),
+				queryClient.invalidateQueries({
+					queryKey: orpc.contextProposals.list.queryKey({
+						input: { projectId: project.id },
+					}),
+				}),
+			]);
+			toast.success("Etkin Bağlam Sürümü oluşturuldu.");
+		},
+	});
 	const source =
 		proposal.source.kind === "structured_control"
 			? `Yapılandırılmış kontrol · ${proposal.source.controlId}`
 			: `Bağlam ajanı · ${proposal.source.agentId} / ${proposal.source.modelId}`;
+	const isCurrent =
+		project.currentContextRevision.sourceProposalId === proposal.id;
 
 	return (
 		<article className="proposal-record">
 			<div className="proposal-record-top">
 				<span>{new Date(proposal.createdAt).toLocaleString("tr-TR")}</span>
 				<span
-					className={proposal.validation.isValid ? "valid-tag" : "conflict-tag"}
+					className={
+						isCurrent || proposal.validation.isValid
+							? "valid-tag"
+							: "conflict-tag"
+					}
 				>
-					{proposal.validation.isValid ? "Doğrulandı" : "Çakışma var"}
+					{proposalStatusLabel(isCurrent, proposal.validation.isValid)}
 				</span>
 			</div>
 			<h3>{proposal.summary}</h3>
 			<p className="proposal-source">Kaynak: {source}</p>
 			<p className="proposal-base">
-				Dayanak Bağlam Sürümü: {proposal.baseContextRevisionId}
+				Dayanak sürüm, incelemede güncel Etkin Bağlam Sürümü ile
+				karşılaştırılır.
 			</p>
 			<ul className="proposal-changes">
 				{withOccurrenceKeys(proposal.changes, ruleChangeKey).map(
@@ -659,11 +709,238 @@ function ProposalRecord({ proposal }: { proposal: ContextProposal }) {
 					)
 				)}
 			</ul>
-			<p className="proposal-gate">
-				Hazırlandı; etkinleştirme için kullanıcı incelemesi gerekir.
-			</p>
+			<div className="proposal-actions">
+				<Button
+					className="quiet-button"
+					disabled={reviewProposal.isPending}
+					onClick={() => reviewProposal.mutate()}
+					type="button"
+				>
+					{reviewButtonLabel(reviewProposal.isPending, Boolean(review))}
+				</Button>
+				{reviewProposal.error ? (
+					<p className="context-error" role="alert">
+						İnceleme alınamadı. {reviewProposal.error.message}
+					</p>
+				) : null}
+				{review ? (
+					<ProposalReviewPanel
+						activationError={activateProposal.error?.message}
+						currentRevisionId={project.currentContextRevision.id}
+						isActivating={activateProposal.isPending}
+						isCurrent={isCurrent}
+						onActivate={() => activateProposal.mutate(review)}
+						review={review}
+					/>
+				) : null}
+			</div>
 		</article>
 	);
+}
+
+function proposalStatusLabel(isCurrent: boolean, wasValid: boolean) {
+	if (isCurrent) {
+		return "Etkin";
+	}
+	return wasValid ? "İlk kontrolde temiz" : "İlk kontrolde çakışma";
+}
+
+function reviewButtonLabel(isPending: boolean, hasReview: boolean) {
+	if (isPending) {
+		return "Güncel sürüm denetleniyor…";
+	}
+	return hasReview ? "İncelemeyi yenile" : "Öneriyi incele";
+}
+
+function ProposalReviewPanel({
+	activationError,
+	currentRevisionId,
+	isActivating,
+	isCurrent,
+	onActivate,
+	review,
+}: {
+	activationError?: string;
+	currentRevisionId: string;
+	isActivating: boolean;
+	isCurrent: boolean;
+	onActivate: () => void;
+	review: ContextProposalReview;
+}) {
+	const isStale = !isCurrent && review.currentRevisionId !== currentRevisionId;
+	return (
+		<section
+			aria-labelledby={`review-${review.proposalId}`}
+			className="proposal-review"
+		>
+			<div className="review-heading">
+				<div>
+					<p className="panel-index">GÜNCEL İNCELEME</p>
+					<h4 id={`review-${review.proposalId}`}>
+						Etkinleştirme özeti · R{review.targetRevisionNumber}
+					</h4>
+				</div>
+				<span
+					className={
+						(review.activationAllowed && !isStale) || isCurrent
+							? "valid-tag"
+							: "conflict-tag"
+					}
+				>
+					{reviewStatusLabel(isCurrent, isStale, review)}
+				</span>
+			</div>
+			<dl className="review-revisions">
+				<div>
+					<dt>Dayanak</dt>
+					<dd>R{review.baseRevisionNumber}</dd>
+				</div>
+				<div>
+					<dt>Güncel</dt>
+					<dd>R{review.currentRevisionNumber}</dd>
+				</div>
+				<div>
+					<dt>Oluşacak</dt>
+					<dd>R{review.targetRevisionNumber}</dd>
+				</div>
+			</dl>
+			{review.isRebased ? (
+				<p className="review-rebase" role="status">
+					Öneri R{review.baseRevisionNumber} sürümünden hazırlanmış. Çakışmayan
+					güncel kurallar yeni sürümde korunuyor.
+				</p>
+			) : null}
+			{isStale ? (
+				<p className="review-rebase" role="status">
+					Etkin Bağlam Sürümü değişti. Etkinleştirmeden önce incelemeyi
+					yenileyin.
+				</p>
+			) : null}
+			{!isStale && review.conflicts.length > 0 ? (
+				<div className="review-conflicts" role="alert">
+					<h5>Etkinleştirme engelleri</h5>
+					<ul>
+						{withOccurrenceKeys(review.conflicts, conflictKey).map(
+							({ item: conflict, key }) => (
+								<li key={key}>
+									<strong>{conflict.ruleId}</strong>
+									<span>{conflict.message}</span>
+								</li>
+							)
+						)}
+					</ul>
+				</div>
+			) : null}
+			{!isStale && review.conflicts.length === 0 ? (
+				<p className="review-ready" role="status">
+					Kapsam önceliği, istisnalar ve çakışmalar denetlendi. Bu sürüm
+					yalnızca onayınızla etkinleşir.
+				</p>
+			) : null}
+			<div className="effective-rules">
+				<h5>Etkin kural zinciri · {review.candidateRules.length} kural</h5>
+				{review.candidateRules.length ? (
+					<ul>
+						{withOccurrenceKeys(review.candidateRules, contextRuleKey).map(
+							({ item: rule, key }) => (
+								<li key={key}>
+									<div>
+										<strong>{rule.id}</strong>
+										<span>{contextScopeLabel(rule.scope)}</span>
+									</div>
+									<p>{formatRuleValue(rule.value)}</p>
+									<small>
+										Öncelik:{" "}
+										{rule.precedenceChain.map(contextScopeLabel).join(" → ")}
+									</small>
+									{rule.supersedesRuleId ? (
+										<small>
+											İstisna: {rule.supersedesRuleId} kuralını geçersiz kılar
+										</small>
+									) : null}
+									<small>Kaynak: {contextRuleSourceLabel(rule.source)}</small>
+									<small>Gerekçe: {rule.rationale}</small>
+								</li>
+							)
+						)}
+					</ul>
+				) : (
+					<p className="field-hint">Etkin kural bulunmuyor.</p>
+				)}
+			</div>
+			<details className="context-copy-details">
+				<summary>Üretim Bağlamı Kopyası</summary>
+				<pre>{review.contextCopy}</pre>
+			</details>
+			{activationError ? (
+				<p className="context-error" role="alert">
+					Etkinleştirme tamamlanamadı. {activationError} İncelemeyi yenileyip
+					tekrar deneyin.
+				</p>
+			) : null}
+			{isCurrent ? (
+				<p className="review-ready" role="status">
+					Bu öneri Etkin Bağlam Sürümü R{review.targetRevisionNumber} olarak
+					kaydedildi.
+				</p>
+			) : (
+				<Button
+					className="signal-button activate-proposal"
+					disabled={!review.activationAllowed || isActivating || isStale}
+					onClick={onActivate}
+					type="button"
+				>
+					{isActivating
+						? "Etkinleştiriliyor…"
+						: `R${review.targetRevisionNumber} sürümünü etkinleştir`}
+				</Button>
+			)}
+		</section>
+	);
+}
+
+function reviewStatusLabel(
+	isCurrent: boolean,
+	isStale: boolean,
+	review: ContextProposalReview
+) {
+	if (isCurrent) {
+		return "Etkin";
+	}
+	if (isStale) {
+		return "Yeniden inceleme gerekli";
+	}
+	return review.activationAllowed
+		? "Etkinleştirilebilir"
+		: `${review.conflicts.length} engel`;
+}
+
+function conflictKey(conflict: ContextProposalReview["conflicts"][number]) {
+	return `${conflict.code}:${conflict.ruleId}:${conflict.message}`;
+}
+
+function contextRuleKey(rule: ContextRule) {
+	return `${rule.id}:${rule.scope.kind}:${rule.scope.id}`;
+}
+
+function contextScopeLabel(scope: ContextRule["scope"]) {
+	const labels = {
+		project: "Proje",
+		visual_world: "Görsel Dünya",
+		theme: "Tema",
+		asset_family: "Varlık Ailesi",
+		asset: "Varlık",
+		operation: "İşlem",
+	};
+	return scope.kind === "project"
+		? labels[scope.kind]
+		: `${labels[scope.kind]} · ${scope.id}`;
+}
+
+function contextRuleSourceLabel(source: ContextRule["source"]) {
+	return source.kind === "project_setup"
+		? "Proje kurulumu"
+		: `Bağlam Önerisi ${source.proposalId}`;
 }
 
 function EmptyProposalLedger() {

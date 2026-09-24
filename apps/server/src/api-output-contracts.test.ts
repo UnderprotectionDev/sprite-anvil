@@ -24,6 +24,8 @@ const unusedProjectContextStore = {
 		throw new Error("Unexpected Context Proposal access in this test");
 	},
 	getRevision: () => Promise.resolve(null),
+	getProposal: () => Promise.resolve(null),
+	activateProposal: () => Promise.resolve(null),
 	listProjects: () => Promise.resolve([]),
 	listProposals: () => Promise.resolve([]),
 } satisfies ProjectContextStore;
