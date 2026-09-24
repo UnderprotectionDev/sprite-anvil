@@ -19,9 +19,8 @@ import {
 	RouterProvider,
 } from "@tanstack/react-router";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-
+import { ProjectAccessScreen } from "@/features/projects/ui/views/project-access-view";
 import { routeTree } from "../routeTree.gen";
-import { ProjectAccessScreen } from "./_auth/projects_.$projectId.access";
 
 const projectId = "7e7eb5e3-25e5-4661-aa3b-6805955c8d14";
 
