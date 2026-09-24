@@ -4,8 +4,10 @@ import { RPCLink } from "@orpc/client/fetch";
 import { RPCHandler } from "@orpc/server/fetch";
 import type {
 	ContextAgentScope,
+	ExternalVisualAnalysisCategory,
 	ProjectAccessStore,
 } from "@sprite-anvil/api/project-access-store";
+import { externalVisualAnalysisPurposeByCategory } from "@sprite-anvil/api/project-access-store";
 import type { ProjectContextStore } from "@sprite-anvil/api/project-context";
 import type { AppRouterClient } from "@sprite-anvil/api/routers/index";
 import { appRouter } from "@sprite-anvil/api/routers/index";
@@ -66,28 +68,38 @@ async function createUserSession(
 function createMemoryProjectAccessStore(
 	projectIdForCreatedProject: string = crypto.randomUUID()
 ): ProjectAccessStore {
+	type MemoryPermission =
+		| {
+				createdAt: string;
+				id: string;
+				principal: "context_agent";
+				projectId: string;
+				purpose: string;
+				revokedAt: string | null;
+				scopes: ContextAgentScope[];
+		  }
+		| {
+				category: ExternalVisualAnalysisCategory;
+				createdAt: string;
+				id: string;
+				projectId: string;
+				purpose: string;
+				revokedAt: string | null;
+		  };
 	const projects = new Map<
 		string,
 		{ createdAt: string; id: string; name: string; ownerId: string }
 	>();
-	const permissions = new Map<
-		string,
-		{
-			createdAt: string;
-			id: string;
-			principal: "context_agent";
-			projectId: string;
-			purpose: string;
-			revokedAt: string | null;
-			scopes: ContextAgentScope[];
-		}
-	>();
+	const permissions = new Map<string, MemoryPermission>();
 
 	return {
 		createProject(ownerId, input) {
+			const id = projects.has(projectIdForCreatedProject)
+				? crypto.randomUUID()
+				: projectIdForCreatedProject;
 			const project = {
 				createdAt: new Date().toISOString(),
-				id: projectIdForCreatedProject,
+				id,
 				name: input.name,
 				ownerId,
 			};
@@ -110,7 +122,15 @@ function createMemoryProjectAccessStore(
 			}
 			return Promise.resolve(
 				[...permissions.values()].filter(
-					(permission) => permission.projectId === projectId
+					(
+						permission
+					): permission is Extract<
+						MemoryPermission,
+						{ principal: "context_agent" }
+					> =>
+						permission.projectId === projectId &&
+						"principal" in permission &&
+						permission.principal === "context_agent"
 				)
 			);
 		},
@@ -134,7 +154,12 @@ function createMemoryProjectAccessStore(
 		revokeContextAgentPermission(ownerId, projectId, permissionId) {
 			const project = projects.get(projectId);
 			const permission = permissions.get(permissionId);
-			if (project?.ownerId !== ownerId || permission?.projectId !== projectId) {
+			if (
+				project?.ownerId !== ownerId ||
+				permission?.projectId !== projectId ||
+				!("principal" in permission) ||
+				permission.principal !== "context_agent"
+			) {
 				return Promise.resolve(false);
 			}
 			permissions.set(permissionId, {
@@ -148,9 +173,77 @@ function createMemoryProjectAccessStore(
 				[...permissions.values()].some(
 					(permission) =>
 						permission.projectId === projectId &&
+						"principal" in permission &&
+						permission.principal === "context_agent" &&
 						permission.purpose === purpose &&
 						permission.revokedAt === null &&
 						permission.scopes.includes(scope)
+				)
+			);
+		},
+		listExternalVisualAnalysisPermissions(ownerId, projectId) {
+			const project = projects.get(projectId);
+			if (project?.ownerId !== ownerId) {
+				return Promise.resolve(null);
+			}
+			return Promise.resolve(
+				[...permissions.values()].filter(
+					(
+						permission
+					): permission is Extract<
+						MemoryPermission,
+						{ category: ExternalVisualAnalysisCategory }
+					> => permission.projectId === projectId && "category" in permission
+				)
+			);
+		},
+		grantExternalVisualAnalysisPermission(ownerId, projectId, input) {
+			const project = projects.get(projectId);
+			if (project?.ownerId !== ownerId) {
+				return Promise.resolve(null);
+			}
+			const permission = {
+				category: input.category,
+				createdAt: new Date().toISOString(),
+				id: crypto.randomUUID(),
+				projectId,
+				purpose: externalVisualAnalysisPurposeByCategory[input.category],
+				revokedAt: null,
+			};
+			permissions.set(permission.id, permission);
+			return Promise.resolve(permission);
+		},
+		revokeExternalVisualAnalysisPermission(ownerId, projectId, permissionId) {
+			const project = projects.get(projectId);
+			const permission = permissions.get(permissionId);
+			if (
+				project?.ownerId !== ownerId ||
+				permission?.projectId !== projectId ||
+				!("category" in permission)
+			) {
+				return Promise.resolve(false);
+			}
+			const revokedAt = new Date().toISOString();
+			for (const [id, candidate] of permissions) {
+				if (
+					candidate.projectId === projectId &&
+					"category" in candidate &&
+					candidate.category === permission.category &&
+					candidate.revokedAt === null
+				) {
+					permissions.set(id, { ...candidate, revokedAt });
+				}
+			}
+			return Promise.resolve(true);
+		},
+		hasExternalVisualAnalysisPermission(projectId, category) {
+			return Promise.resolve(
+				[...permissions.values()].some(
+					(permission) =>
+						permission.projectId === projectId &&
+						"category" in permission &&
+						permission.category === category &&
+						permission.revokedAt === null
 				)
 			);
 		},
@@ -266,6 +359,71 @@ test("a project owner can grant, read back, and revoke Context Agent access", as
 	});
 	expect(allowedBeforeRevocation).toBe(true);
 	expect(readBackAfterRevocation[0]?.revokedAt).toEqual(expect.any(String));
+});
+
+test("External Visual Analysis stays unavailable until provider policy is verified", async () => {
+	const { auth } = createTestAuth();
+	const cookie = await createUserSession(auth, "visual-analysis-owner");
+	const client = createRpcClient(
+		auth,
+		createMemoryProjectAccessStore(),
+		cookie
+	);
+	const project = await client.projects.create({
+		name: "Forest Quest",
+		generalArtDirection: "Pixel art with a limited palette",
+	});
+	const invalidCategory = Reflect.apply(
+		client.projects.access.grantExternalVisualAnalysis,
+		undefined,
+		[{ projectId: project.id, category: "all_visuals" }]
+	);
+	await expect(invalidCategory).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+	await expect(
+		client.projects.access.checkExternalVisualAnalysis({
+			projectId: project.id,
+			category: "identity",
+		})
+	).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+	await expect(
+		client.projects.access.grantExternalVisualAnalysis({
+			projectId: project.id,
+			category: "identity",
+		})
+	).rejects.toMatchObject({ code: "FORBIDDEN" });
+	const otherProject = await client.projects.create({
+		name: "Ash Knight",
+		generalArtDirection: "Dark fantasy pixel art",
+	});
+	const readBack = await client.projects.access.listExternalVisualAnalysis({
+		projectId: project.id,
+	});
+	expect(readBack).toEqual([]);
+	await expect(
+		client.projects.access.checkExternalVisualAnalysis({
+			projectId: project.id,
+			category: "identity",
+		})
+	).rejects.toMatchObject({ code: "FORBIDDEN" });
+	await expect(
+		client.projects.access.checkExternalVisualAnalysis({
+			projectId: project.id,
+			category: "theme",
+		})
+	).rejects.toMatchObject({ code: "FORBIDDEN" });
+	await expect(
+		client.projects.access.checkExternalVisualAnalysis({
+			projectId: otherProject.id,
+			category: "identity",
+		})
+	).rejects.toMatchObject({ code: "FORBIDDEN" });
+	expect(
+		await client.projects.access.listExternalVisualAnalysis({
+			projectId: otherProject.id,
+		})
+	).toEqual([]);
 });
 
 test("existing opaque Project IDs can be read and authorized", async () => {
@@ -394,6 +552,28 @@ test.skipIf(!databaseUrl)(
 					"project_context:read"
 				)
 			).toBe(false);
+
+			const visualPermission =
+				await store.grantExternalVisualAnalysisPermission(
+					ownerUserId,
+					project.id,
+					{
+						category: "identity",
+					}
+				);
+			expect(visualPermission).toBeNull();
+			expect(
+				await store.hasExternalVisualAnalysisPermission(project.id, "identity")
+			).toBe(false);
+			expect(
+				await store.hasExternalVisualAnalysisPermission(project.id, "theme")
+			).toBe(false);
+			expect(
+				await store.listExternalVisualAnalysisPermissions(
+					ownerUserId,
+					project.id
+				)
+			).toEqual([]);
 		} finally {
 			if (projectId) {
 				await db.delete(projectTable).where(eq(projectTable.id, projectId));
@@ -411,9 +591,8 @@ test("project access controls require an authenticated owner", async () => {
 	);
 
 	await expect(
-		anonymousClient.projects.create({
-			name: "Private Project",
-			generalArtDirection: "Stylized pixel art",
+		anonymousClient.projects.access.listExternalVisualAnalysis({
+			projectId: crypto.randomUUID(),
 		})
 	).rejects.toMatchObject({ code: "UNAUTHORIZED" });
 });
@@ -435,6 +614,12 @@ test("project access controls reject expired sessions", async () => {
 	await expect(client.projects.list()).rejects.toMatchObject({
 		code: "UNAUTHORIZED",
 	});
+	await expect(
+		client.projects.access.checkExternalVisualAnalysis({
+			projectId: crypto.randomUUID(),
+			category: "identity",
+		})
+	).rejects.toMatchObject({ code: "UNAUTHORIZED" });
 });
 
 test("project access controls fail closed when session lookup fails", async () => {
@@ -449,6 +634,12 @@ test("project access controls fail closed when session lookup fails", async () =
 	await expect(client.projects.list()).rejects.toMatchObject({
 		code: "INTERNAL_SERVER_ERROR",
 	});
+	await expect(
+		client.projects.access.checkExternalVisualAnalysis({
+			projectId: crypto.randomUUID(),
+			category: "identity",
+		})
+	).rejects.toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
 });
 
 test("project permissions are hidden from another user's session", async () => {
@@ -462,6 +653,12 @@ test("project permissions are hidden from another user's session", async () => {
 		name: "Private Project",
 		generalArtDirection: "Stylized pixel art",
 	});
+	await expect(
+		owner.projects.access.grantExternalVisualAnalysis({
+			projectId: project.id,
+			category: "identity",
+		})
+	).rejects.toMatchObject({ code: "FORBIDDEN" });
 
 	expect(await otherUser.projects.list()).toEqual([]);
 	await expect(
@@ -469,6 +666,11 @@ test("project permissions are hidden from another user's session", async () => {
 	).rejects.toMatchObject({ code: "NOT_FOUND" });
 	await expect(
 		otherUser.projects.access.list({ projectId: project.id })
+	).rejects.toMatchObject({ code: "NOT_FOUND" });
+	await expect(
+		otherUser.projects.access.listExternalVisualAnalysis({
+			projectId: project.id,
+		})
 	).rejects.toMatchObject({ code: "NOT_FOUND" });
 });
 
