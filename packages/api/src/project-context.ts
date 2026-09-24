@@ -714,16 +714,12 @@ function hasValidPrecedenceChain(projectId: string, rule: ContextRule) {
 }
 
 function validateContextRuleOverrides(rule: ContextRule, rules: ContextRule[]) {
-	const inheritedRules = rules
-		.filter(
-			(candidate) =>
-				candidate.id === rule.id &&
-				isInheritedBy(rule.scope, rule.precedenceChain, candidate.scope)
-		)
-		.sort(
-			(left, right) =>
-				scopeSpecificity[left.scope.kind] - scopeSpecificity[right.scope.kind]
-		);
+	const inheritedRules = findInheritedContextRules(
+		rule.id,
+		rule.scope,
+		rule.precedenceChain,
+		rules
+	);
 	const [nearestInheritedRule] = inheritedRules;
 	const conflicts: ContextProposalConflict[] = [];
 	if (
@@ -758,6 +754,15 @@ export function findNearestInheritedContextRule(
 	precedenceChain: ContextScope[],
 	rules: ContextRule[]
 ) {
+	return findInheritedContextRules(ruleId, scope, precedenceChain, rules)[0];
+}
+
+function findInheritedContextRules(
+	ruleId: string,
+	scope: ContextScope,
+	precedenceChain: ContextScope[],
+	rules: ContextRule[]
+) {
 	return rules
 		.filter(
 			(candidate) =>
@@ -767,7 +772,7 @@ export function findNearestInheritedContextRule(
 		.sort(
 			(left, right) =>
 				scopeSpecificity[left.scope.kind] - scopeSpecificity[right.scope.kind]
-		)[0];
+		);
 }
 
 function isInheritedBy(
