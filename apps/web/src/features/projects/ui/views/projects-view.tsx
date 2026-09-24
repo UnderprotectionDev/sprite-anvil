@@ -221,6 +221,14 @@ function ProjectsList({
 					>
 						İzinleri yönet
 					</Link>
+					<Link
+						aria-label={`${project.name} varlık kayıtlarını aç`}
+						className={buttonVariants({ variant: "outline" })}
+						params={{ projectId: project.id }}
+						to="/projects/$projectId/assets"
+					>
+						Varlık kayıtları
+					</Link>
 				</li>
 			))}
 		</ul>

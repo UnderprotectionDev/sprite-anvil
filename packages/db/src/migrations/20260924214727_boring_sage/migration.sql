@@ -1,0 +1,1 @@
+ALTER TABLE "asset_records" ADD CONSTRAINT "asset_records_availability_check" CHECK ("availability" IN ('active', 'archived', 'erased'));

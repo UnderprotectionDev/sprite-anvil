@@ -1,3 +1,4 @@
+export * from "./asset-records";
 export * from "./auth";
 export * from "./context-scopes";
 export * from "./external-visual-analysis";

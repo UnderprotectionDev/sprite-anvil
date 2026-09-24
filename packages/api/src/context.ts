@@ -1,10 +1,12 @@
 import type { Session } from "@sprite-anvil/auth";
 import type { Database } from "@sprite-anvil/db";
+import type { AssetRecordStore } from "./asset-records";
 import type { ProjectContextScopeStore } from "./context-scopes";
 import type { ProjectAccessStore } from "./project-access-store";
 import type { ProjectContextStore } from "./project-context";
 
 export interface Context {
+	assetRecordStore: AssetRecordStore;
 	db: Database;
 	projectAccess: ProjectAccessStore;
 	projectContextScopeStore: ProjectContextScopeStore;

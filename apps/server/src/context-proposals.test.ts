@@ -271,6 +271,7 @@ function makeContext(
 	)
 ): Context {
 	return {
+		assetRecordStore: {} as Context["assetRecordStore"],
 		db: {} as Database,
 		projectAccess: {} as Context["projectAccess"],
 		projectContextScopeStore: scopeStore,
