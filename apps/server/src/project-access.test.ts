@@ -361,7 +361,7 @@ test("a project owner can grant, read back, and revoke Context Agent access", as
 	expect(readBackAfterRevocation[0]?.revokedAt).toEqual(expect.any(String));
 });
 
-test("External Visual Analysis consent is separate by project and category and revocable", async () => {
+test("External Visual Analysis stays unavailable until provider policy is verified", async () => {
 	const { auth } = createTestAuth();
 	const cookie = await createUserSession(auth, "visual-analysis-owner");
 	const client = createRpcClient(
@@ -387,15 +387,12 @@ test("External Visual Analysis consent is separate by project and category and r
 		})
 	).rejects.toMatchObject({ code: "FORBIDDEN" });
 
-	const permission = await client.projects.access.grantExternalVisualAnalysis({
-		projectId: project.id,
-		category: "identity",
-	});
-	const duplicatePermission =
-		await client.projects.access.grantExternalVisualAnalysis({
+	await expect(
+		client.projects.access.grantExternalVisualAnalysis({
 			projectId: project.id,
 			category: "identity",
-		});
+		})
+	).rejects.toMatchObject({ code: "FORBIDDEN" });
 	const otherProject = await client.projects.create({
 		name: "Ash Knight",
 		generalArtDirection: "Dark fantasy pixel art",
@@ -403,20 +400,13 @@ test("External Visual Analysis consent is separate by project and category and r
 	const readBack = await client.projects.access.listExternalVisualAnalysis({
 		projectId: project.id,
 	});
-	expect(duplicatePermission.id).not.toBe(permission.id);
-	expect(readBack).toHaveLength(2);
-
-	expect(permission).toMatchObject({
-		category: "identity",
-		purpose: "Görsel kimliğini analiz etme",
-		revokedAt: null,
-	});
-	expect(
-		await client.projects.access.checkExternalVisualAnalysis({
+	expect(readBack).toEqual([]);
+	await expect(
+		client.projects.access.checkExternalVisualAnalysis({
 			projectId: project.id,
 			category: "identity",
 		})
-	).toBe(true);
+	).rejects.toMatchObject({ code: "FORBIDDEN" });
 	await expect(
 		client.projects.access.checkExternalVisualAnalysis({
 			projectId: project.id,
@@ -434,36 +424,6 @@ test("External Visual Analysis consent is separate by project and category and r
 			projectId: otherProject.id,
 		})
 	).toEqual([]);
-	expect(readBack).toEqual(
-		expect.arrayContaining([
-			expect.objectContaining({ id: permission.id, category: "identity" }),
-			expect.objectContaining({
-				id: duplicatePermission.id,
-				category: "identity",
-			}),
-		])
-	);
-
-	await client.projects.access.revokeExternalVisualAnalysis({
-		projectId: project.id,
-		permissionId: permission.id,
-	});
-	await expect(
-		client.projects.access.checkExternalVisualAnalysis({
-			projectId: project.id,
-			category: "identity",
-		})
-	).rejects.toMatchObject({ code: "FORBIDDEN" });
-	const permissionsAfterRevocation =
-		await client.projects.access.listExternalVisualAnalysis({
-			projectId: project.id,
-		});
-	expect(permissionsAfterRevocation).toHaveLength(2);
-	expect(
-		permissionsAfterRevocation.every(
-			(visualPermission) => visualPermission.revokedAt !== null
-		)
-	).toBe(true);
 });
 
 test("existing opaque Project IDs can be read and authorized", async () => {
@@ -601,57 +561,19 @@ test.skipIf(!databaseUrl)(
 						category: "identity",
 					}
 				);
-			const duplicateVisualPermission =
-				await store.grantExternalVisualAnalysisPermission(
-					ownerUserId,
-					project.id,
-					{
-						category: "identity",
-					}
-				);
-			if (!visualPermission) {
-				throw new Error(
-					"Expected the owner to grant visual analysis permission"
-				);
-			}
-			if (!duplicateVisualPermission) {
-				throw new Error(
-					"Expected the owner to grant a duplicate visual analysis permission"
-				);
-			}
+			expect(visualPermission).toBeNull();
 			expect(
 				await store.hasExternalVisualAnalysisPermission(project.id, "identity")
-			).toBe(true);
-			expect(
-				await store.hasExternalVisualAnalysisPermission(project.id, "theme")
 			).toBe(false);
 			expect(
-				await store.revokeExternalVisualAnalysisPermission(
-					ownerUserId,
-					project.id,
-					visualPermission.id
-				)
-			).toBe(true);
-			expect(
-				await store.hasExternalVisualAnalysisPermission(project.id, "identity")
+				await store.hasExternalVisualAnalysisPermission(project.id, "theme")
 			).toBe(false);
 			expect(
 				await store.listExternalVisualAnalysisPermissions(
 					ownerUserId,
 					project.id
 				)
-			).toEqual(
-				expect.arrayContaining([
-					expect.objectContaining({
-						id: visualPermission.id,
-						revokedAt: expect.any(String),
-					}),
-					expect.objectContaining({
-						id: duplicateVisualPermission.id,
-						revokedAt: expect.any(String),
-					}),
-				])
-			);
+			).toEqual([]);
 		} finally {
 			if (projectId) {
 				await db.delete(projectTable).where(eq(projectTable.id, projectId));
@@ -731,10 +653,12 @@ test("project permissions are hidden from another user's session", async () => {
 		name: "Private Project",
 		generalArtDirection: "Stylized pixel art",
 	});
-	await owner.projects.access.grantExternalVisualAnalysis({
-		projectId: project.id,
-		category: "identity",
-	});
+	await expect(
+		owner.projects.access.grantExternalVisualAnalysis({
+			projectId: project.id,
+			category: "identity",
+		})
+	).rejects.toMatchObject({ code: "FORBIDDEN" });
 
 	expect(await otherUser.projects.list()).toEqual([]);
 	await expect(

@@ -1,3 +1,4 @@
+import { isExternalVisualAnalysisProviderPolicyVerified } from "@sprite-anvil/api/external-visual-analysis-policy";
 import type {
 	ContextAgentScope,
 	ExternalVisualAnalysisPermission,
@@ -146,6 +147,10 @@ export function createProjectAccessStore(
 			return toToolAccessPermission(record);
 		},
 		async grantExternalVisualAnalysisPermission(ownerId, projectId, input) {
+			if (!isExternalVisualAnalysisProviderPolicyVerified()) {
+				return null;
+			}
+
 			const ownedProject = await getProjectForUser(db, ownerId, projectId);
 			if (!ownedProject) {
 				return null;
@@ -248,6 +253,10 @@ export function createProjectAccessStore(
 			return records.some((record) => record.scopes.includes(scope));
 		},
 		async hasExternalVisualAnalysisPermission(projectId, category) {
+			if (!isExternalVisualAnalysisProviderPolicyVerified()) {
+				return false;
+			}
+
 			const records = await db
 				.select({
 					category: externalVisualAnalysisPermission.category,

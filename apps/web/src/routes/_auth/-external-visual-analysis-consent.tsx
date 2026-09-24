@@ -1,3 +1,4 @@
+import { isExternalVisualAnalysisProviderPolicyVerified } from "@sprite-anvil/api/external-visual-analysis-policy";
 import type {
 	ExternalVisualAnalysisCategory,
 	ExternalVisualAnalysisPermission,
@@ -28,6 +29,22 @@ const categoryDetails: Record<
 	},
 };
 
+function getPermissionStatus(
+	hasActivePermission: boolean,
+	providerPolicyVerified: boolean
+): string {
+	if (hasActivePermission && providerPolicyVerified) {
+		return "İzin etkin";
+	}
+	if (hasActivePermission) {
+		return "İzin kaydı var · kullanım kapalı";
+	}
+	if (providerPolicyVerified) {
+		return "Kapalı";
+	}
+	return "Kullanılamıyor";
+}
+
 export function ExternalVisualAnalysisConsent({
 	projectId,
 }: {
@@ -45,6 +62,8 @@ export function ExternalVisualAnalysisConsent({
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 	const permissions = permissionsQuery.data ?? [];
 	const isSaving = savingCategory !== null || revokingId !== null;
+	const providerPolicyVerified =
+		isExternalVisualAnalysisProviderPolicyVerified();
 
 	async function grantPermission(category: ExternalVisualAnalysisCategory) {
 		setErrorMessage(null);
@@ -103,29 +122,26 @@ export function ExternalVisualAnalysisConsent({
 						Harici Görsel Analizi
 					</h2>
 					<span className="rounded-full border px-2.5 py-1 font-medium text-xs">
-						Varsayılan olarak kapalı
+						Kullanılamıyor
 					</span>
 				</div>
 				<p className="text-muted-foreground text-sm">
-					Her proje ve analiz kategorisi için ayrı izin verin. Bir kategoriye
-					verilen izin diğer kategorilere geçmez.
+					İzinler proje ve analiz kategorisine göre ayrı tutulur. Sağlayıcı
+					koşulları doğrulanana kadar yeni izin verilemez.
 				</p>
 			</header>
 
 			<div className="space-y-2 rounded-md bg-muted p-4 text-sm">
-				<p className="font-medium">Gönderim öncesi açıklama</p>
+				<p className="font-medium">Mevcut durum</p>
 				<p>Sağlayıcı: seçilmedi</p>
-				<p>
-					Gönderilecek veri: bu ekranda görsel seçilmiyor; kategori izni tek
-					başına dosya göndermez.
-				</p>
+				<p>Gönderilecek veri: bu ekranda görsel seçilmiyor.</p>
 				<p>Saklama koşulları: bilinmiyor</p>
-				<p>
-					Sağlayıcı seçilmediği için şu anda görsel aktarımı yapılamaz. Bir
-					aktarımı başlatan özellik eklenirse, aktarılacak görseller, amaç,
-					sağlayıcı ve bilinen saklama koşulları gösterilmeden gönderim
-					başlamaz.
-				</p>
+				{providerPolicyVerified ? null : (
+					<p className="text-muted-foreground">
+						Sağlayıcı ve veri işleme koşulları doğrulanana kadar analiz
+						kategorileri kullanılamaz; izin oluşturulamaz ve görsel aktarılamaz.
+					</p>
+				)}
 			</div>
 
 			{errorMessage ? <p role="alert">{errorMessage}</p> : null}
@@ -162,7 +178,10 @@ export function ExternalVisualAnalysisConsent({
 								Amaç: {externalVisualAnalysisPurposeByCategory[category]}
 							</p>
 							<p className="text-sm">
-								{activePermission ? "İzin etkin" : "Kapalı"}
+								{getPermissionStatus(
+									activePermission !== undefined,
+									providerPolicyVerified
+								)}
 								{!activePermission && latestPermission?.revokedAt
 									? ` · Son izin ${new Date(latestPermission.revokedAt).toLocaleString()} tarihinde geri alındı`
 									: ""}
@@ -182,6 +201,7 @@ export function ExternalVisualAnalysisConsent({
 								<Button
 									disabled={
 										isSaving ||
+										!providerPolicyVerified ||
 										permissionsQuery.isPending ||
 										permissionsQuery.isError
 									}

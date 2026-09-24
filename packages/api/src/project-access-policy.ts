@@ -1,5 +1,6 @@
 import { ORPCError } from "@orpc/server";
 
+import { isExternalVisualAnalysisProviderPolicyVerified } from "./external-visual-analysis-policy";
 import type {
 	ConnectionScope,
 	ContextAgentScope,
@@ -31,6 +32,10 @@ export async function assertProjectAccess(
 	request: ProjectAccessCheck
 ): Promise<void> {
 	if ("type" in request) {
+		if (!isExternalVisualAnalysisProviderPolicyVerified()) {
+			throw new ORPCError("FORBIDDEN");
+		}
+
 		const allowed = await store.hasExternalVisualAnalysisPermission(
 			request.projectId,
 			request.category

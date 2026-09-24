@@ -1,6 +1,7 @@
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 
+import { isExternalVisualAnalysisProviderPolicyVerified } from "../external-visual-analysis-policy";
 import { protectedProcedure } from "../index";
 import { assertProjectAccess } from "../project-access-policy";
 import type { ProjectAccessStore } from "../project-access-store";
@@ -122,6 +123,15 @@ export const projectsRouter = {
 		grantExternalVisualAnalysis: protectedProcedure
 			.input(externalVisualAnalysisPermissionSchema)
 			.handler(async ({ context, input }) => {
+				await requireOwnedProject(
+					context.projectAccess,
+					context.session.user.id,
+					input.projectId
+				);
+				if (!isExternalVisualAnalysisProviderPolicyVerified()) {
+					throw new ORPCError("FORBIDDEN");
+				}
+
 				const permission =
 					await context.projectAccess.grantExternalVisualAnalysisPermission(
 						context.session.user.id,

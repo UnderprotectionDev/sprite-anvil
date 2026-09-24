@@ -24,10 +24,8 @@ import { routeTree } from "../routeTree.gen";
 import { ProjectAccessScreen } from "./_auth/projects_.$projectId.access";
 
 const projectId = "7e7eb5e3-25e5-4661-aa3b-6805955c8d14";
-const revokedStatusMatcher = /Kapalı/;
 
 const fakeStore = vi.hoisted(() => ({
-	analysisGrantError: false,
 	analysisPermissions: [] as {
 		category: "identity" | "theme" | "style";
 		createdAt: string;
@@ -56,9 +54,6 @@ vi.mock("@/utils/orpc", () => ({
 					category: "identity" | "theme" | "style";
 					projectId: string;
 				}) {
-					if (fakeStore.analysisGrantError) {
-						return Promise.reject(new Error("Permission service unavailable"));
-					}
 					const purposeByCategory = {
 						identity: "Görsel kimliğini analiz etme",
 						theme: "Görsel temasını analiz etme",
@@ -188,7 +183,6 @@ afterEach(() => {
 });
 
 beforeEach(() => {
-	fakeStore.analysisGrantError = false;
 	fakeStore.permissions.length = 0;
 	fakeStore.analysisPermissions.length = 0;
 	vi.stubGlobal(
@@ -237,7 +231,7 @@ test("a user can grant, refetch, and revoke purpose-scoped Context Agent access"
 		await screen.findByRole("heading", { name: "Forest Quest" })
 	).toBeVisible();
 	expect(screen.getByText("Sağlayıcı seçilmedi")).toBeVisible();
-	expect(screen.getAllByText("Kapalı")).toHaveLength(3);
+	expect(screen.getAllByText("Kullanılamıyor")).toHaveLength(4);
 
 	fireEvent.click(
 		screen.getByRole("button", { name: "Bağlam Ajanı izni ver" })
@@ -266,46 +260,18 @@ test("a user can grant, refetch, and revoke purpose-scoped Context Agent access"
 	expect(screen.getByText("Geri alındı")).toBeVisible();
 
 	const identityConsent = await screen.findByRole("group", { name: "Kimlik" });
-	expect(within(identityConsent).getByText("Kapalı")).toBeVisible();
+	expect(within(identityConsent).getByText("Kullanılamıyor")).toBeVisible();
 	expect(screen.getByText("Sağlayıcı: seçilmedi")).toBeVisible();
 	expect(screen.getByText("Saklama koşulları: bilinmiyor")).toBeVisible();
-
-	fakeStore.analysisGrantError = true;
-	fireEvent.click(
-		within(identityConsent).getByRole("button", {
-			name: "Kimlik analizi için izin ver",
-		})
-	);
-	expect(await screen.findByRole("alert")).toHaveTextContent(
-		"Permission service unavailable"
-	);
-	fakeStore.analysisGrantError = false;
-	fireEvent.click(
-		within(identityConsent).getByRole("button", {
-			name: "Kimlik analizi için izin ver",
-		})
-	);
-	await waitFor(() =>
-		expect(screen.getByText("Kimlik analizi izni kaydedildi.")).toBeVisible()
-	);
-	expect(fakeStore.analysisPermissions[0]).toMatchObject({
-		category: "identity",
-		purpose: "Görsel kimliğini analiz etme",
-		revokedAt: null,
-	});
-	expect(within(identityConsent).getByText("İzin etkin")).toBeVisible();
-	const themeConsent = screen.getByRole("group", { name: "Tema" });
-	expect(within(themeConsent).getByText("Kapalı")).toBeVisible();
-
-	fireEvent.click(
-		within(identityConsent).getByRole("button", {
-			name: "Kimlik analizi iznini geri al",
-		})
-	);
-	await waitFor(() =>
-		expect(screen.getByText("Kimlik analizi izni geri alındı.")).toBeVisible()
-	);
-	expect(within(identityConsent).getByText(revokedStatusMatcher)).toBeVisible();
+	for (const category of ["Kimlik", "Tema", "Stil"]) {
+		const consent = screen.getByRole("group", { name: category });
+		expect(
+			within(consent).getByRole("button", {
+				name: `${category} analizi için izin ver`,
+			})
+		).toBeDisabled();
+	}
+	expect(fakeStore.analysisPermissions).toEqual([]);
 });
 
 test("the generated project route opens access from the authenticated project list", async () => {
