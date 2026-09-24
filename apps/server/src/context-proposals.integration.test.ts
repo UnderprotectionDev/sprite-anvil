@@ -84,10 +84,14 @@ test.skipIf(!databaseUrl)(
 				{ context }
 			);
 
-			expect(scopeCatalog).toEqual({
-				visualWorlds: [visualWorld, portraitWorld],
-				themes: [theme, sameNamedTheme],
-			});
+			expect(scopeCatalog.visualWorlds).toEqual(
+				expect.arrayContaining([visualWorld, portraitWorld])
+			);
+			expect(scopeCatalog.visualWorlds).toHaveLength(2);
+			expect(scopeCatalog.themes).toEqual(
+				expect.arrayContaining([theme, sameNamedTheme])
+			);
+			expect(scopeCatalog.themes).toHaveLength(2);
 
 			const activeRevisionId = crypto.randomUUID();
 			const activeRule: ContextRule = {

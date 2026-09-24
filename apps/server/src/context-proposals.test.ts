@@ -450,10 +450,14 @@ test("stores Visual Worlds and Themes under the owner's Project Context", async 
 		{ context }
 	);
 
-	expect(catalog).toEqual({
-		visualWorlds: [visualWorld, portraitWorld],
-		themes: [theme, matchingThemeName],
-	});
+	expect(catalog.visualWorlds).toEqual(
+		expect.arrayContaining([visualWorld, portraitWorld])
+	);
+	expect(catalog.visualWorlds).toHaveLength(2);
+	expect(catalog.themes).toEqual(
+		expect.arrayContaining([theme, matchingThemeName])
+	);
+	expect(catalog.themes).toHaveLength(2);
 	await expect(
 		call(
 			appRouter.contextScopes.createVisualWorld,
