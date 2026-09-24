@@ -43,6 +43,8 @@ const fakeStore = vi.hoisted(() => ({
 		revokedAt: string | null;
 		scopes: string[];
 	}[],
+	failedPermissionReads: 0,
+	nextGrantError: null as Error | null,
 }));
 
 vi.mock("@/utils/orpc", () => ({
@@ -85,6 +87,11 @@ vi.mock("@/utils/orpc", () => ({
 						scopes: input.scopes,
 					};
 					fakeStore.permissions.unshift(permission);
+					if (fakeStore.nextGrantError) {
+						const error = fakeStore.nextGrantError;
+						fakeStore.nextGrantError = null;
+						throw error;
+					}
 					return Promise.resolve(permission);
 				},
 				revoke(input: { permissionId: string }) {
@@ -132,7 +139,13 @@ vi.mock("@/utils/orpc", () => ({
 				list: {
 					queryOptions: () => ({
 						queryKey: ["permissions", projectId],
-						queryFn: async () => fakeStore.permissions,
+						queryFn: () => {
+							if (fakeStore.failedPermissionReads > 0) {
+								fakeStore.failedPermissionReads -= 1;
+								throw new TypeError("Failed to fetch");
+							}
+							return fakeStore.permissions;
+						},
 					}),
 				},
 			},
@@ -185,6 +198,8 @@ afterEach(() => {
 beforeEach(() => {
 	fakeStore.permissions.length = 0;
 	fakeStore.analysisPermissions.length = 0;
+	fakeStore.failedPermissionReads = 0;
+	fakeStore.nextGrantError = null;
 	vi.stubGlobal(
 		"matchMedia",
 		vi.fn().mockImplementation((media: string) => ({
@@ -272,6 +287,78 @@ test("a user can grant, refetch, and revoke purpose-scoped Context Agent access"
 		).toBeDisabled();
 	}
 	expect(fakeStore.analysisPermissions).toEqual([]);
+});
+
+test("uncertain permission writes stay locked until the permission state is refreshed", async () => {
+	const rootRoute = createRootRoute({ component: () => <Outlet /> });
+	const accessRoute = createRoute({
+		getParentRoute: () => rootRoute,
+		path: "/access",
+		component: () => <ProjectAccessScreen projectId={projectId} />,
+	});
+	const router = createRouter({
+		history: createMemoryHistory({ initialEntries: ["/access"] }),
+		routeTree: rootRoute.addChildren([accessRoute]),
+	});
+	const queryClient = new QueryClient({
+		defaultOptions: { queries: { retry: false } },
+	});
+	fakeStore.nextGrantError = new TypeError("Load failed");
+
+	render(
+		<QueryClientProvider client={queryClient}>
+			<RouterProvider router={router} />
+		</QueryClientProvider>
+	);
+
+	await screen.findByRole("heading", { name: "Forest Quest" });
+	fireEvent.click(
+		screen.getByRole("button", { name: "Bağlam Ajanı izni ver" })
+	);
+
+	const grantButton = screen.getByRole("button", {
+		name: "Bağlam Ajanı izni ver",
+	});
+	await waitFor(() => expect(grantButton).toBeDisabled());
+	expect(fakeStore.permissions).toHaveLength(1);
+
+	fireEvent.click(screen.getByRole("button", { name: "Durumu kontrol et" }));
+
+	await waitFor(() => expect(grantButton).toBeEnabled());
+	expect(screen.getByText("Etkin")).toBeVisible();
+	expect(screen.getByRole("status")).toHaveTextContent(
+		"İzin listesi yenilendi."
+	);
+});
+
+test("inline permission query failures provide a working Retry action", async () => {
+	const rootRoute = createRootRoute({ component: () => <Outlet /> });
+	const accessRoute = createRoute({
+		getParentRoute: () => rootRoute,
+		path: "/access",
+		component: () => <ProjectAccessScreen projectId={projectId} />,
+	});
+	const router = createRouter({
+		history: createMemoryHistory({ initialEntries: ["/access"] }),
+		routeTree: rootRoute.addChildren([accessRoute]),
+	});
+	const queryClient = new QueryClient({
+		defaultOptions: { queries: { retry: false } },
+	});
+	fakeStore.failedPermissionReads = 1;
+
+	render(
+		<QueryClientProvider client={queryClient}>
+			<RouterProvider router={router} />
+		</QueryClientProvider>
+	);
+
+	await screen.findByRole("alert");
+	fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+	expect(
+		await screen.findByText("Bu projede kayıtlı Bağlam Ajanı izni yok.")
+	).toBeVisible();
 });
 
 test("the generated project route opens access from the authenticated project list", async () => {

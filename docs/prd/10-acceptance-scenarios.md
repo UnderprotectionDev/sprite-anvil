@@ -17,6 +17,7 @@
 | `PLT-01` | Bütün RAS ve YAS senaryolarının web/masaüstü sonuç karşılaştırması |
 | `PLT-02` | YAS-04 |
 | `OPS-01`–`OPS-05` | YAS-03, YAS-04, Operasyonel Kabul Profili ve [Bölüm 10](12-completion-criteria.md) tamamlanma matrisi |
+| `OPS-06` | YAS-05 |
 
 ### 8.1 Tüm profiller için ortak senaryo akışı
 
@@ -140,4 +141,13 @@ Senaryo web ve masaüstünde aynı kayıt ve karar anlamlarını üretir. Masaü
 5. Korunan içeriksiz Teslimat Gerçekleşmesi artık doğrulanamaz olduğunu gösterir. Silme Makbuzu içerik taşımaz; seçilen kapsamı, özetleri, kapsam dışı bağımlılıkları ve saklama takvimi sürümünü taşır.
 6. Yayımlanmış yedek temizleme süresi sonunda operasyonel kontrol, seçilen bütün yönetilen kopyaların etkin depoda ve yedeklerde bulunmadığını doğrular.
 
+#### YAS-05 — Hata sonucunu güvenli ve erişilebilir biçimde bildirme
 
+**Test örneği:** Bir okuma isteği beklenmeyen sunucu hatasıyla başarısız olur; başka bir yazma isteğinin yanıtı işlem sonucu doğrulanamadan kesilir. Ayrıca sunucuya ulaşmayan bir bağlantı hatası ve kullanıcıya açıklanabilir bir doğrulama hatası bulunur.
+
+**Kanıt:**
+
+1. Beklenmeyen sunucu hatası web ve masaüstünde aynı genel açıklama ile Destek Referansı gösterir. Referans sunucu hata kaydında bulunur; ham istisna, Proje içeriği ve sırlar istemci yanıtında veya referanslı olay kaydında yer almaz.
+2. Okuma hatasının `Retry` eylemi aynı sorguyu yeniden çalıştırır ve başarısızlık sürerse güncel hata bildirimi ile referans yeniden görünür.
+3. Sonucu doğrulanamayan yazma hatası, kaydın kesinlikle yazılmadığını iddia etmez ve işlemi tekrar gönderen bir eylem içermez. Kullanıcı mevcut durumu kontrol etmesi gerektiğini metin ve erişilebilir durum bildirimiyle görür.
+4. Bağlantı hatası destek referansı uydurmaz; doğrulama hatası ise sunucunun güvenli, kullanıcıya dönük açıklamasını korur.

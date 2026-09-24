@@ -11,6 +11,7 @@
 - Proje Arşivi bağımsız yeni bir projeye geri yüklenir. Sürüm ilişkileri, inceleme kayıtları, kalite kanıtları ve istisnalar, Kaynak Metadata Eşleme Önerileri ve kullanıcı kararları, Sağlayıcı Üretim Kayıtları, üretim deneyleri ve tarifleri, Dışa Aktarım Profilleri ve Teslimat Yenileme Kilitleri, hak ve teslimat kayıtları, çalışma zamanı doğrulamaları ile dışa aktarım paketi bilgileri korunur; dahil edilen ve dışarıda bırakılan dosyaların özetleri doğrulanır.
 - Aynı değişmez Dışa Aktarım Paketi sabitlenmiş bağlam ve varlık sürümleri, istisnalar, veri yapısı, Dışa Aktarım Profili ve motor bağdaştırıcısı bilgileriyle yeniden doğrulanır. Paket Doğrulama Kiti çevrimdışı doğrulamayı geçer ve çalıştırılabilir içerik taşımaz.
 - OPS-01 kabul testinde yinelenen mesaj ikinci sonuç oluşturmaz; taşıma yayını veya yürütücü kesintisinden sonra outbox/uzlaştırma işlemi işi kaybetmeden yeniden teslim eder; deneme sınırını aşan iş başarısız işler alanına taşınır ve kullanıcıya başarısız durum gösterilir.
+- YAS-05 beklenmeyen sunucu hatalarını Destek Referansı ile ilişkilendirir; güvenli okuma yeniden denemesi, belirsiz yazma sonucu, erişilebilir bildirim ve referanssız bağlantı hatası web/masaüstünde aynı anlamı korur.
 - YAS-01 web ve masaüstünde tamamlanır; etkin Teslimat Hedefi, hesaplanan Hedef Hazırlığı, kullanıcı tarafından oluşturulan Teslimat Gerçekleşmesi, Teslimat Farkı ve Tarihsel Risk Bildirimi geçmişi değiştirmeden doğrulanır.
 - YAS-03 web ve masaüstünde tamamlanır; hedef ayrışması kullanıcı kararı olmadan üzerine yazılmaz, tanınmayan dosya korunur ve iki yüzey aynı profil, kilit ve ayrışma sonucunu üretir.
 - YAS-04 web ve masaüstünde tamamlanır; çevrimdışı taslak bulut kaydının üzerine yazılmaz, kullanıcı seçimi yeni ve idempotent kayıt üretir, silme etki dökümü gömülü bütün kopyaları gösterir ve değişmez paket ya da arşiv kısmen yeniden yazılmaz.
@@ -24,5 +25,3 @@
 - Tamamlanmayı engelleyen açık doğrulama kayıtları için gereken kanıt ve değer PRD’de yayımlanır. Yalnızca tabloda Tam Ürün Kapsamının tamamlanmasını engellemediği belirtilen kayıtlar çözümsüz kalabilir; doğrulanmamış özellikler destekleniyor diye sunulmaz.
 
 Unity doğrulaması, telefon ve tablet uygulamaları, kendi sunucusunda barındırma ve tam çevrimdışı çalışma Tam Ürün Kapsamının tamamlanma kanıtlarına dahil değildir.
-
-

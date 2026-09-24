@@ -5,6 +5,10 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { type SyntheticEvent, useState } from "react";
 
+import {
+	isWriteOutcomeUncertain,
+	QueryRetryButton,
+} from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
 
@@ -13,15 +17,49 @@ export const Route = createFileRoute("/_auth/projects")({
 });
 
 function ProjectsRoute() {
-	const projectsQuery = useQuery(orpc.projects.list.queryOptions());
+	const projectsQueryOptions = orpc.projects.list.queryOptions();
+	const projectsQuery = useQuery({
+		...projectsQueryOptions,
+		meta: { errorPresentation: "inline" },
+	});
 	const [name, setName] = useState("");
 	const [generalArtDirection, setGeneralArtDirection] = useState("");
 	const [isSaving, setIsSaving] = useState(false);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
+	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
+	const [isCheckingProjectState, setIsCheckingProjectState] = useState(false);
+
+	async function refreshProjects() {
+		setIsCheckingProjectState(true);
+		try {
+			const result = await projectsQuery.refetch();
+			if (result.isError) {
+				if (writeOutcomeUncertain) {
+					setErrorMessage(
+						"Proje işleminin durumu doğrulanamadı. Yeniden göndermeden önce proje listesini yenileyin."
+					);
+				}
+				return;
+			}
+
+			if (writeOutcomeUncertain) {
+				setWriteOutcomeUncertain(false);
+				setErrorMessage(null);
+				setStatusMessage(
+					"Proje listesi yenilendi. Kaydı yeniden göndermeden önce mevcut durumu kontrol edin."
+				);
+			}
+		} finally {
+			setIsCheckingProjectState(false);
+		}
+	}
 
 	async function handleCreateProject(event: SyntheticEvent<HTMLFormElement>) {
 		event.preventDefault();
+		if (writeOutcomeUncertain) {
+			return;
+		}
 		const trimmedName = name.trim();
 		const trimmedArtDirection = generalArtDirection.trim();
 		if (trimmedName.length === 0 || trimmedArtDirection.length === 0) {
@@ -40,8 +78,14 @@ function ProjectsRoute() {
 			setStatusMessage("Oyun projesi kaydedildi.");
 			await projectsQuery.refetch();
 		} catch (error) {
+			if (isWriteOutcomeUncertain(error)) {
+				setWriteOutcomeUncertain(true);
+			}
 			setErrorMessage(
-				getErrorMessage(error, "Oyun projesi kaydedilemedi. Yeniden deneyin.")
+				getErrorMessage(
+					error,
+					"Oyun projesinin sonucu doğrulanamadı. Kaydı kontrol edin."
+				)
 			);
 		} finally {
 			setIsSaving(false);
@@ -79,6 +123,7 @@ function ProjectsRoute() {
 						<Label htmlFor="project-name">Oyun projesi adı</Label>
 						<Input
 							autoComplete="off"
+							disabled={writeOutcomeUncertain}
 							id="project-name"
 							maxLength={120}
 							name="name"
@@ -91,6 +136,7 @@ function ProjectsRoute() {
 						<Label htmlFor="project-art-direction">Genel sanat yaklaşımı</Label>
 						<textarea
 							className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm"
+							disabled={writeOutcomeUncertain}
 							id="project-art-direction"
 							maxLength={1000}
 							name="generalArtDirection"
@@ -102,6 +148,7 @@ function ProjectsRoute() {
 					<Button
 						disabled={
 							isSaving ||
+							writeOutcomeUncertain ||
 							name.trim().length === 0 ||
 							generalArtDirection.trim().length === 0
 						}
@@ -111,6 +158,18 @@ function ProjectsRoute() {
 					</Button>
 				</form>
 				{errorMessage ? <p role="alert">{errorMessage}</p> : null}
+				{writeOutcomeUncertain ? (
+					<Button
+						disabled={isCheckingProjectState}
+						onClick={() => void refreshProjects()}
+						type="button"
+						variant="outline"
+					>
+						{isCheckingProjectState
+							? "Durum kontrol ediliyor…"
+							: "Durumu kontrol et"}
+					</Button>
+				) : null}
 				{statusMessage ? (
 					<p aria-live="polite" role="status">
 						{statusMessage}
@@ -131,9 +190,17 @@ function ProjectsRoute() {
 
 				<ProjectsList
 					errorMessage={
-						projectsQuery.isError ? projectsQuery.error.message : null
+						projectsQuery.isError
+							? getErrorMessage(
+									projectsQuery.error,
+									"Projeler yüklenemedi. Yeniden deneyin.",
+									"query"
+								)
+							: null
 					}
+					isFetching={projectsQuery.isFetching || isCheckingProjectState}
 					isPending={projectsQuery.isPending}
+					onRetry={() => void refreshProjects()}
 					projects={projectsQuery.data ?? []}
 				/>
 			</section>
@@ -143,18 +210,27 @@ function ProjectsRoute() {
 
 function ProjectsList({
 	errorMessage,
+	isFetching,
 	isPending,
+	onRetry,
 	projects,
 }: {
 	errorMessage: string | null;
+	isFetching: boolean;
 	isPending: boolean;
+	onRetry: () => void;
 	projects: { id: string; name: string }[];
 }) {
 	if (isPending) {
 		return <p aria-live="polite">Projeler yükleniyor…</p>;
 	}
 	if (errorMessage) {
-		return <p role="alert">Projeler yüklenemedi: {errorMessage}</p>;
+		return (
+			<div className="space-y-2">
+				<p role="alert">Projeler yüklenemedi: {errorMessage}</p>
+				<QueryRetryButton disabled={isFetching} onRetry={onRetry} />
+			</div>
+		);
 	}
 	if (projects.length === 0) {
 		return (

@@ -59,6 +59,16 @@
 
 İnceleme Kararı, Bağlama Uygunluk Durumu, Kalite Kontrol Durumu, Kayıt Durumu, görsel farklar, uyarılar ve hatalar yalnızca renkle anlatılmaz. Animasyon ve yanıp sönme önizlemesi durdurulabilir. Azaltılmış hareket tercihi açıkken çalışma araçları anlaşılır kalır. Piksel, karo seti ve sahne düzenleme alanlarında klavyeyle kullanılabilen eşdeğer görevler veya erişilebilir özellik panelleri bulunur.
 
+### Hata bildirimi
+
+**OPS-06 — Güvenli ve izlenebilir hata bildirimi.** Uygulama API'sinin oRPC işlem sınırında veya genel HTTP hata sınırında yakaladığı beklenmeyen sunucu hatalarında, kullanıcıya gösterilen hata sunucunun doğrulayabildiği işlem sonucunu ve güvenli sonraki adımı açıkça belirtir.
+
+- Beklenmeyen sunucu hataları, ham istisna ayrıntılarını veya sırları istemciye göndermeden genel bir açıklama ve **Destek Referansı** taşır. Aynı referans sunucu tarafındaki hata kaydında bulunur; istek girdisi, Proje içeriği veya kimlik bilgisi bu kayıtla birlikte yazılmaz.
+- Okuma isteği hata verdiğinde kullanıcı aynı okumayı güvenle yeniden deneyebilir; `Retry` eylemi başarısız sorguyu gerçekten yeniden çalıştırır.
+- Yazma isteğinin sonucu belirsizse arayüz “kaydedilmedi” demez ve aynı işlemi yeniden gönderen bir eylem sunmaz. Kullanıcıya güncel durumu kontrol etmesi söylenir. “Kaydedilmedi” yalnız yetkili işlem sınırı yazmanın gerçekleşmediğini doğruladığında gösterilebilir.
+- Sunucuya ulaşmayan bağlantı hataları için üretilmiş gibi bir Destek Referansı gösterilmez; bağlantı durumu ve güvenli sonraki adım açıklanır.
+- Destek Referansı hata veya operasyon kimliği değildir; tek başına işlem sonucunu, idempotency güvencesini ya da veri kurtarma başarısını kanıtlamaz.
+
 ### Performans ve uzun işlemler
 
 **OPS-05 — Ölçülebilir performans.** Harici ChatGPT ve üçüncü taraf analiz süreleri ürün performansından ayrı ölçülür. Yerel veya bulut işlemi kullanıcı eylemine bir saniye içinde yanıt veremiyorsa ilerleme durumu gösterilir.
@@ -106,5 +116,3 @@ Değişmez kayıt yerinde göç ettirilmez. Eski sözleşmeden yeni sözleşmeye
 İlk Kaynak Metadata Eşleme parser matrisi dört giriş biçimini tanır: `aseprite-json-array/1`, `aseprite-json-hash/1`, `texturepacker-json-array/1` ve `texturepacker-json-hash/1`. Biçim tanıma dosya adına değil, kök yapı ile zorunlu alanlara dayanır. Kare dikdörtgeni ve kimliği bütün biçimlerde zorunludur. Süre, tag, slice, pivot, 9-slice ve palet yalnız kaynakta bulunduğunda kaynak değeri olarak alınır; bulunmayan alan uydurulmaz. Aynı alan için birden fazla kaynak farklı değer verirse zorunlu alan çakışması oluşur. Tanınmayan alanlar temizlenmiş kaynak anlık kaydında korunur, ancak kullanıcı kararı veya yetkili oyun içi anlam sayılmaz.
 
 Paket Manifesti ile Paket Doğrulama Kiti aynı ana sürümde olmalıdır. Doğrulayıcı; manifest şemasını, her dosya özetini, göreli yolların tekilliğini, referans verilen kayıt kimliklerini ve sözleşme sürümlerini ağ erişimi olmadan denetler. Şema uyumsuzluğu, eksik dosya, özet farkı, yol çakışması veya çözülemeyen zorunlu referans Bütünlük Denetimi hatasıdır. README veya statik örnekler manifestle çelişirse paket geçerli sayılmaz.
-
-
