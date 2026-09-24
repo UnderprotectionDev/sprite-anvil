@@ -88,6 +88,14 @@ const scopeCatalog: ProjectContextScopeCatalog = {
 			createdAt: "2026-09-25T00:00:00.000Z",
 		},
 		{
+			id: "theme-gameplay-citadel",
+			projectId,
+			visualWorldId: worldId,
+			name: "Citadel",
+			description: "A fortified mountain settlement.",
+			createdAt: "2026-09-25T00:00:00.000Z",
+		},
+		{
 			id: "theme-portrait-ruins",
 			projectId,
 			visualWorldId: portraitWorldId,
@@ -177,6 +185,7 @@ test("shows repeated Theme names beneath their own Visual Worlds and saves to th
 	const gameplayWorld = getWorldListItem("Gameplay art");
 	const portraitWorld = getWorldListItem("Portraits");
 	expect(within(gameplayWorld).getByText("Ruins")).toBeVisible();
+	expect(within(gameplayWorld).getByText("Citadel")).toBeVisible();
 	expect(within(portraitWorld).getByText("Ruins")).toBeVisible();
 
 	fireEvent.change(screen.getByLabelText("Görsel Dünya"), {

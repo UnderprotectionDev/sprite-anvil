@@ -64,6 +64,15 @@ test.skipIf(!databaseUrl)(
 				},
 				{ context }
 			);
+			const secondGameplayTheme = await call(
+				appRouter.contextScopes.createTheme,
+				{
+					projectId: project.id,
+					visualWorldId: visualWorld.id,
+					name: "Moonlit path",
+				},
+				{ context }
+			);
 			const portraitWorld = await call(
 				appRouter.contextScopes.createVisualWorld,
 				{ projectId: project.id, name: "Portraits" },
@@ -89,9 +98,9 @@ test.skipIf(!databaseUrl)(
 			);
 			expect(scopeCatalog.visualWorlds).toHaveLength(2);
 			expect(scopeCatalog.themes).toEqual(
-				expect.arrayContaining([theme, sameNamedTheme])
+				expect.arrayContaining([theme, secondGameplayTheme, sameNamedTheme])
 			);
-			expect(scopeCatalog.themes).toHaveLength(2);
+			expect(scopeCatalog.themes).toHaveLength(3);
 
 			const activeRevisionId = crypto.randomUUID();
 			const activeRule: ContextRule = {

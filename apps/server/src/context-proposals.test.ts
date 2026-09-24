@@ -425,6 +425,16 @@ test("stores Visual Worlds and Themes under the owner's Project Context", async 
 		},
 		{ context }
 	);
+	const secondGameplayTheme = await call(
+		appRouter.contextScopes.createTheme,
+		{
+			projectId: project.id,
+			visualWorldId: visualWorld.id,
+			name: "Cloud terraces",
+			description: "White stone structures above the mist.",
+		},
+		{ context }
+	);
 	const portraitWorld = await call(
 		appRouter.contextScopes.createVisualWorld,
 		{
@@ -455,9 +465,9 @@ test("stores Visual Worlds and Themes under the owner's Project Context", async 
 	);
 	expect(catalog.visualWorlds).toHaveLength(2);
 	expect(catalog.themes).toEqual(
-		expect.arrayContaining([theme, matchingThemeName])
+		expect.arrayContaining([theme, secondGameplayTheme, matchingThemeName])
 	);
-	expect(catalog.themes).toHaveLength(2);
+	expect(catalog.themes).toHaveLength(3);
 	await expect(
 		call(
 			appRouter.contextScopes.createVisualWorld,
