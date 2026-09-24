@@ -15,6 +15,7 @@ test("unexpected RPC failures return a support reference without exposing the ex
 	const handler = new RPCHandler(appRouter);
 	const app = new Hono();
 	const context = {
+		assetFamilyStore: {} as never,
 		db: {} as never,
 		projectAccess: {} as never,
 		projectContextStore: {

@@ -26,6 +26,7 @@ import {
 	projectContextSchema,
 	validateContextProposal,
 } from "../project-context";
+import { assetFamiliesRouter } from "./asset-families";
 import { projectsRouter } from "./projects";
 
 async function readContextProposalReview(
@@ -89,6 +90,7 @@ export const appRouter = {
 		serializePrivateDataResponse(context.session?.user)
 	),
 	projects: projectsRouter,
+	assetFamilies: assetFamiliesRouter,
 	contextScopes: {
 		list: protectedProcedure
 			.input(projectContextScopeListInputSchema)

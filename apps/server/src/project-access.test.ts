@@ -271,6 +271,7 @@ function createRpcClient(
 	app.use("/*", async (c, next) => {
 		const result = await rpcHandler.handle(c.req.raw, {
 			context: {
+				assetFamilyStore: {} as never,
 				db: createDb({
 					DATABASE_URL:
 						"postgresql://user:password@localhost:5432/sprite-anvil-test",

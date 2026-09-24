@@ -7,6 +7,7 @@ import { createDb } from "@sprite-anvil/db";
 import { user } from "@sprite-anvil/db/schema/auth";
 import { contextRevisions } from "@sprite-anvil/db/schema/project-context";
 import { eq } from "drizzle-orm";
+import { createAssetFamilyStore } from "./features/asset-families/server/asset-family-store";
 import { createProjectContextStore } from "./features/project-context/server/project-context-store";
 import { createProjectAccessStore } from "./features/projects/server/project-access-store";
 import { createProjectContextScopeStore } from "./features/visual-worlds/server/project-context-scope-store";
@@ -36,6 +37,7 @@ test.skipIf(!databaseUrl)(
 			const store = createProjectContextStore(db);
 			const scopeStore = createProjectContextScopeStore(db);
 			const context: Context = {
+				assetFamilyStore: createAssetFamilyStore(db),
 				db,
 				projectAccess: createProjectAccessStore(db, store),
 				projectContextScopeStore: scopeStore,
@@ -130,6 +132,9 @@ test.skipIf(!databaseUrl)(
 
 			const rereadContext: Context = {
 				...context,
+				assetFamilyStore: createAssetFamilyStore(
+					createDb({ DATABASE_URL: databaseUrl })
+				),
 				projectContextScopeStore: createProjectContextScopeStore(
 					createDb({ DATABASE_URL: databaseUrl })
 				),

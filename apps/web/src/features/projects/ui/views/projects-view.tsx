@@ -213,14 +213,23 @@ function ProjectsList({
 						<h3 className="font-medium">{project.name}</h3>
 						<p className="text-muted-foreground text-sm">Oyun projesi</p>
 					</div>
-					<Link
-						aria-label={`${project.name} izinlerini yönet`}
-						className={buttonVariants({ variant: "outline" })}
-						params={{ projectId: project.id }}
-						to="/projects/$projectId/access"
-					>
-						İzinleri yönet
-					</Link>
+					<div className="flex flex-wrap gap-2">
+						<Link
+							className={buttonVariants({ variant: "outline" })}
+							params={{ projectId: project.id }}
+							to="/projects/$projectId/asset-families"
+						>
+							Varlık Aileleri
+						</Link>
+						<Link
+							aria-label={`${project.name} izinlerini yönet`}
+							className={buttonVariants({ variant: "outline" })}
+							params={{ projectId: project.id }}
+							to="/projects/$projectId/access"
+						>
+							İzinleri yönet
+						</Link>
+					</div>
 				</li>
 			))}
 		</ul>
