@@ -6,11 +6,7 @@ vi.mock("sonner", () => ({
 	toast: { dismiss: vi.fn(), error: errorToast },
 }));
 
-vi.mock("../env", () => ({
-	ENV: { VITE_SERVER_URL: "http://localhost:3001" },
-}));
-
-import { createQueryClient } from "./orpc";
+import { createQueryClient } from "./query-client";
 
 const supportReference = "SUP-7CFB1C3A-A7A3-4BC2-B748-B5065AA2314A";
 
@@ -75,6 +71,29 @@ test("global mutation failures show the uncertain result without a retry action"
 	expect(options.action).toBeUndefined();
 });
 
+test("read operations using a mutation expose a safe Retry action", async () => {
+	const queryClient = createQueryClient();
+	const failure = internalServerError();
+	let attempts = 0;
+	const mutation = queryClient.getMutationCache().build(queryClient, {
+		meta: { errorOperationKind: "query" },
+		mutationFn: () => {
+			attempts += 1;
+			throw failure;
+		},
+	});
+
+	await expect(mutation.execute(undefined)).rejects.toBe(failure);
+	const [title, options] = errorToast.mock.calls[0] as [
+		string,
+		{ action?: { label: string; onClick: () => void } },
+	];
+	expect(title).toBe("Data could not be loaded.");
+	expect(options.action?.label).toBe("Retry");
+	options.action?.onClick();
+	await vi.waitFor(() => expect(attempts).toBe(2));
+});
+
 test("queries with an inline error surface do not produce duplicate toasts", async () => {
 	const queryClient = createQueryClient();
 	const failure = internalServerError();
@@ -85,7 +104,7 @@ test("queries with an inline error surface do not produce duplicate toasts", asy
 			queryFn: () => {
 				throw failure;
 			},
-			meta: { errorPresentation: "inline" },
+			meta: { suppressGlobalErrorToast: true },
 			retry: false,
 		})
 	).rejects.toBe(failure);
@@ -97,7 +116,7 @@ test("mutations with an inline error surface do not produce duplicate toasts", a
 	const queryClient = createQueryClient();
 	const failure = internalServerError();
 	const mutation = queryClient.getMutationCache().build(queryClient, {
-		meta: { errorPresentation: "inline" },
+		meta: { suppressGlobalErrorToast: true },
 		mutationFn: () => {
 			throw failure;
 		},

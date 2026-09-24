@@ -10,10 +10,15 @@ import {
 } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import type { ProjectContextScopeCatalog } from "@sprite-anvil/api/context-scopes";
-import type { ProjectContext } from "@sprite-anvil/api/project-context";
+import type {
+	ContextProposal,
+	ContextProposalReview,
+	ProjectContext,
+} from "@sprite-anvil/api/project-context";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { ContextWorkspace } from "@/features/project-context/ui/components/context-proposal-components";
+import { createQueryClient as createAppQueryClient } from "@/utils/query-client";
 import { ScopeRegistryPanel } from "./context-scope-registry";
 
 const projectId = "project-lantern-vale";
@@ -24,12 +29,19 @@ const mocked = vi.hoisted(() => ({
 	createTheme: vi.fn(),
 	createVisualWorld: vi.fn(),
 	createProposal: vi.fn(),
+	reviewProposal: vi.fn(),
+	activateProposal: vi.fn(),
+	toastError: vi.fn(),
 	toastSuccess: vi.fn(),
 }));
 
 vi.mock("@/utils/orpc", () => ({
 	client: {
-		contextProposals: { create: mocked.createProposal },
+		contextProposals: {
+			create: mocked.createProposal,
+			review: mocked.reviewProposal,
+			activate: mocked.activateProposal,
+		},
 		contextScopes: {
 			createTheme: mocked.createTheme,
 			createVisualWorld: mocked.createVisualWorld,
@@ -37,11 +49,17 @@ vi.mock("@/utils/orpc", () => ({
 	},
 	orpc: {
 		contextScopes: { list: { queryKey: () => ["context-scopes"] } },
+		contextProposals: { list: { queryKey: () => ["context-proposals"] } },
+		projectContexts: { list: { queryKey: () => ["project-contexts"] } },
 	},
 }));
 
 vi.mock("sonner", () => ({
-	toast: { success: mocked.toastSuccess },
+	toast: {
+		dismiss: vi.fn(),
+		error: mocked.toastError,
+		success: mocked.toastSuccess,
+	},
 }));
 
 const project: ProjectContext = {
@@ -130,9 +148,9 @@ function renderScopeRegistry() {
 	);
 }
 
-function renderWorkspace() {
+function renderWorkspace(proposals: ContextProposal[] = []) {
 	return render(
-		<QueryClientProvider client={createQueryClient()}>
+		<QueryClientProvider client={createAppQueryClient()}>
 			<ContextWorkspace
 				isProposalsError={false}
 				isProposalsFetching={false}
@@ -148,7 +166,7 @@ function renderWorkspace() {
 				onSelectProject={() => undefined}
 				project={project}
 				projects={[project]}
-				proposals={[]}
+				proposals={proposals}
 				scopeCatalog={scopeCatalog}
 			/>
 		</QueryClientProvider>
@@ -234,4 +252,62 @@ test("keeps each Theme rule scope attached to the selected Visual World", () => 
 			"Öncelik: Tema · Portraits / Ruins → Görsel Dünya · Portraits → Proje · Lantern Vale"
 		)
 	).toBeVisible();
+});
+
+test("reports a failed post-activation review as a read failure after saving", async () => {
+	const proposal: ContextProposal = {
+		id: "86407f45-5948-4874-9a36-27bb6c8531f7",
+		projectId,
+		baseContextRevisionId: project.currentContextRevision.id,
+		contractVersion: "context-agent/1.0.0",
+		ruleContractVersion: "context-rule/1.0.0",
+		summary: "Use the gameplay palette",
+		source: {
+			kind: "structured_control",
+			controlId: "context-proposal-form",
+			controlVersion: "1.0.0",
+		},
+		changes: [],
+		validation: {
+			isValid: true,
+			checkedAt: "2026-09-25T00:00:00.000Z",
+			conflicts: [],
+		},
+		activationAllowed: false,
+		createdAt: "2026-09-25T00:00:00.000Z",
+	};
+	const review: ContextProposalReview = {
+		proposalId: proposal.id,
+		baseContextRevisionId: project.currentContextRevision.id,
+		baseRevisionNumber: 0,
+		currentRevisionId: project.currentContextRevision.id,
+		currentRevisionNumber: 0,
+		targetRevisionNumber: 1,
+		activatedRevisionNumber: null,
+		isRebased: false,
+		activationAllowed: true,
+		checkedAt: "2026-09-25T00:00:00.000Z",
+		conflicts: [],
+		candidateRules: [],
+		contextCopy: "{}",
+	};
+	mocked.reviewProposal
+		.mockResolvedValueOnce(review)
+		.mockRejectedValueOnce(new TypeError("Load failed"));
+	mocked.activateProposal.mockResolvedValue({});
+	renderWorkspace([proposal]);
+
+	fireEvent.click(screen.getByRole("button", { name: "Öneriyi incele" }));
+	fireEvent.click(
+		await screen.findByRole("button", { name: "R1 sürümünü etkinleştir" })
+	);
+
+	await waitFor(() => expect(mocked.reviewProposal).toHaveBeenCalledTimes(2));
+	expect(mocked.toastSuccess).toHaveBeenCalledWith(
+		"Etkin Bağlam Sürümü oluşturuldu."
+	);
+	expect(mocked.toastError).toHaveBeenCalledWith(
+		"Data could not be loaded.",
+		expect.anything()
+	);
 });

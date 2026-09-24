@@ -20,7 +20,6 @@ import { Plus, Send, Trash2 } from "lucide-react";
 import { type SyntheticEvent, useState } from "react";
 import { toast } from "sonner";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
-import { getErrorMessage } from "@/utils/get-error-message";
 import { client } from "@/utils/orpc";
 
 export type EvidenceKind = "user_decision" | "observed_change";
@@ -92,7 +91,6 @@ export function ProposalForm({
 		currentRevision.rules.some((rule) => rule.id === ruleId)
 	).length;
 	const createProposal = useMutation({
-		meta: { errorPresentation: "inline" },
 		mutationFn: (input: ContextProposalInput) =>
 			client.contextProposals.create(input),
 		onSuccess: async () => {
@@ -112,12 +110,7 @@ export function ProposalForm({
 			if (isWriteOutcomeUncertain(error)) {
 				setWriteOutcomeUncertain(true);
 			}
-			setFormError(
-				getErrorMessage(
-					error,
-					"Bağlam Önerisi işleminin sonucu doğrulanamadı. Öneri kaydını kontrol edin."
-				)
-			);
+			setFormError(null);
 		},
 	});
 

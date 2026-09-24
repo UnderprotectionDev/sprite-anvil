@@ -22,7 +22,7 @@ export function ContextProposalsView() {
 	const projectsQueryOptions = orpc.projectContexts.list.queryOptions();
 	const projectsQuery = useQuery({
 		...projectsQueryOptions,
-		meta: { errorPresentation: "inline" },
+		meta: { suppressGlobalErrorToast: true },
 	});
 	const [selectedProjectId, setSelectedProjectId] = useState("");
 	const selectedProject =
@@ -35,7 +35,7 @@ export function ContextProposalsView() {
 	const scopeQuery = useQuery({
 		...scopeQueryOptions,
 		enabled: Boolean(projectId),
-		meta: { errorPresentation: "inline" },
+		meta: { suppressGlobalErrorToast: true },
 	});
 	const proposalsQueryOptions = orpc.contextProposals.list.queryOptions({
 		input: { projectId: projectId ?? "00000000-0000-4000-8000-000000000000" },
@@ -43,7 +43,7 @@ export function ContextProposalsView() {
 	const proposalsQuery = useQuery({
 		...proposalsQueryOptions,
 		enabled: Boolean(projectId),
-		meta: { errorPresentation: "inline" },
+		meta: { suppressGlobalErrorToast: true },
 	});
 	const [projectFormOpen, setProjectFormOpen] = useState(false);
 	const [projectError, setProjectError] = useState<string | null>(null);
@@ -55,7 +55,6 @@ export function ContextProposalsView() {
 		useState(false);
 
 	const createProject = useMutation({
-		meta: { errorPresentation: "inline" },
 		mutationFn: (input: ProjectContextCreateInput) =>
 			client.projectContexts.create(input),
 		onSuccess: async (project) => {
@@ -72,12 +71,7 @@ export function ContextProposalsView() {
 				setProjectCreateOutcomeUncertain(true);
 				setUncertainProjectInput(input);
 			}
-			setProjectError(
-				getErrorMessage(
-					error,
-					"Oyun projesinin sonucu doğrulanamadı. Kaydı kontrol edin."
-				)
-			);
+			setProjectError(null);
 		},
 	});
 

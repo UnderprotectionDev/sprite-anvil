@@ -1,7 +1,7 @@
 import {
 	buildErrorNotification,
 	type ErrorOperationKind,
-	isConnectionError,
+	isWriteOutcomeUncertain,
 } from "./error-notification";
 
 function getErrorProperty(error: unknown, property: string): unknown {
@@ -18,13 +18,7 @@ export function getErrorMessage(
 ): string {
 	const notification = buildErrorNotification(error, kind);
 	const code = getErrorProperty(error, "code");
-	const status = getErrorProperty(error, "status");
-	const isUnexpected =
-		code === "INTERNAL_SERVER_ERROR" ||
-		(typeof status === "number" && status >= 500) ||
-		isConnectionError(error);
-
-	if (isUnexpected) {
+	if (isWriteOutcomeUncertain(error)) {
 		return [
 			notification.description,
 			notification.supportReference

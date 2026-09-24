@@ -10,6 +10,7 @@ export const scopeOptions: { label: string; scope: ContextAgentScope }[] = [
 ];
 
 export function ContextAgentPermissionForm({
+	isDisabled,
 	isSaving,
 	onPurposeChange,
 	onSubmit,
@@ -18,6 +19,7 @@ export function ContextAgentPermissionForm({
 	selectedScopes,
 	writeOutcomeUncertain,
 }: {
+	isDisabled: boolean;
 	isSaving: boolean;
 	onPurposeChange: (value: string) => void;
 	onSubmit: (event: SyntheticEvent<HTMLFormElement>) => void;
@@ -66,6 +68,7 @@ export function ContextAgentPermissionForm({
 			<Button
 				disabled={
 					isSaving ||
+					isDisabled ||
 					writeOutcomeUncertain ||
 					purpose.trim().length < 3 ||
 					selectedScopes.length === 0
