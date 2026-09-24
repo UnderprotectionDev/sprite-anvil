@@ -1,12 +1,17 @@
 import type {
 	ContextAgentScope,
+	ExternalVisualAnalysisPermission,
 	ProjectAccessStore,
 	ProjectRecord,
 	ToolAccessPermission,
 } from "@sprite-anvil/api/project-access-store";
-import { contextAgentScopes } from "@sprite-anvil/api/project-access-store";
+import {
+	contextAgentScopes,
+	externalVisualAnalysisPurposeByCategory,
+} from "@sprite-anvil/api/project-access-store";
 import type { ProjectContextStore } from "@sprite-anvil/api/project-context";
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import { externalVisualAnalysisPermission } from "@sprite-anvil/db/schema/external-visual-analysis";
 import { project } from "@sprite-anvil/db/schema/project";
 import { toolAccessPermission } from "@sprite-anvil/db/schema/project-access";
 import { and, desc, eq, isNull } from "drizzle-orm";
@@ -43,6 +48,25 @@ function toToolAccessPermission(
 		purpose: record.purpose,
 		revokedAt: record.revokedAt?.toISOString() ?? null,
 		scopes: record.scopes,
+	};
+}
+
+function toExternalVisualAnalysisPermission(
+	record: typeof externalVisualAnalysisPermission.$inferSelect
+): ExternalVisualAnalysisPermission {
+	if (
+		record.purpose !== externalVisualAnalysisPurposeByCategory[record.category]
+	) {
+		throw new Error("Unsupported External Visual Analysis permission purpose");
+	}
+
+	return {
+		category: record.category,
+		createdAt: record.createdAt.toISOString(),
+		id: record.id,
+		projectId: record.projectId,
+		purpose: record.purpose,
+		revokedAt: record.revokedAt?.toISOString() ?? null,
 	};
 }
 
@@ -88,6 +112,18 @@ export function createProjectAccessStore(
 				.orderBy(desc(toolAccessPermission.createdAt));
 			return records.map(toToolAccessPermission);
 		},
+		async listExternalVisualAnalysisPermissions(ownerId, projectId) {
+			const ownedProject = await getProjectForUser(db, ownerId, projectId);
+			if (!ownedProject) {
+				return null;
+			}
+			const records = await db
+				.select()
+				.from(externalVisualAnalysisPermission)
+				.where(and(eq(externalVisualAnalysisPermission.projectId, projectId)))
+				.orderBy(desc(externalVisualAnalysisPermission.createdAt));
+			return records.map(toExternalVisualAnalysisPermission);
+		},
 		async grantContextAgentPermission(ownerId, projectId, input) {
 			const ownedProject = await getProjectForUser(db, ownerId, projectId);
 			if (!ownedProject) {
@@ -108,6 +144,28 @@ export function createProjectAccessStore(
 				throw new Error("Context Agent permission could not be created");
 			}
 			return toToolAccessPermission(record);
+		},
+		async grantExternalVisualAnalysisPermission(ownerId, projectId, input) {
+			const ownedProject = await getProjectForUser(db, ownerId, projectId);
+			if (!ownedProject) {
+				return null;
+			}
+			const [record] = await db
+				.insert(externalVisualAnalysisPermission)
+				.values({
+					id: crypto.randomUUID(),
+					projectId,
+					category: input.category,
+					purpose: externalVisualAnalysisPurposeByCategory[input.category],
+					grantedByUserId: ownerId,
+				})
+				.returning();
+			if (!record) {
+				throw new Error(
+					"External Visual Analysis permission could not be created"
+				);
+			}
+			return toExternalVisualAnalysisPermission(record);
 		},
 		async revokeContextAgentPermission(ownerId, projectId, permissionId) {
 			const [record] = await db
@@ -140,6 +198,41 @@ export function createProjectAccessStore(
 			}
 			return true;
 		},
+		async revokeExternalVisualAnalysisPermission(
+			ownerId,
+			projectId,
+			permissionId
+		) {
+			const [record] = await db
+				.select({ category: externalVisualAnalysisPermission.category })
+				.from(externalVisualAnalysisPermission)
+				.innerJoin(
+					project,
+					eq(project.id, externalVisualAnalysisPermission.projectId)
+				)
+				.where(
+					and(
+						eq(project.ownerUserId, ownerId),
+						eq(project.id, projectId),
+						eq(externalVisualAnalysisPermission.id, permissionId)
+					)
+				)
+				.limit(1);
+			if (!record) {
+				return false;
+			}
+			await db
+				.update(externalVisualAnalysisPermission)
+				.set({ revokedAt: new Date() })
+				.where(
+					and(
+						eq(externalVisualAnalysisPermission.projectId, projectId),
+						eq(externalVisualAnalysisPermission.category, record.category),
+						isNull(externalVisualAnalysisPermission.revokedAt)
+					)
+				);
+			return true;
+		},
 		async hasContextAgentPermission(projectId, purpose, scope) {
 			const records = await db
 				.select({ scopes: toolAccessPermission.scopes })
@@ -153,6 +246,26 @@ export function createProjectAccessStore(
 					)
 				);
 			return records.some((record) => record.scopes.includes(scope));
+		},
+		async hasExternalVisualAnalysisPermission(projectId, category) {
+			const records = await db
+				.select({
+					category: externalVisualAnalysisPermission.category,
+					purpose: externalVisualAnalysisPermission.purpose,
+				})
+				.from(externalVisualAnalysisPermission)
+				.where(
+					and(
+						eq(externalVisualAnalysisPermission.projectId, projectId),
+						eq(externalVisualAnalysisPermission.category, category),
+						isNull(externalVisualAnalysisPermission.revokedAt)
+					)
+				);
+			return records.some(
+				(record) =>
+					record.category === category &&
+					record.purpose === externalVisualAnalysisPurposeByCategory[category]
+			);
 		},
 	};
 }

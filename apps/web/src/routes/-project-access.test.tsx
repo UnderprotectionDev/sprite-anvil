@@ -6,6 +6,7 @@ import {
 	render,
 	screen,
 	waitFor,
+	within,
 } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -23,8 +24,18 @@ import { routeTree } from "../routeTree.gen";
 import { ProjectAccessScreen } from "./_auth/projects_.$projectId.access";
 
 const projectId = "7e7eb5e3-25e5-4661-aa3b-6805955c8d14";
+const revokedStatusMatcher = /Kapalı/;
 
 const fakeStore = vi.hoisted(() => ({
+	analysisGrantError: false,
+	analysisPermissions: [] as {
+		category: "identity" | "theme" | "style";
+		createdAt: string;
+		id: string;
+		projectId: string;
+		purpose: string;
+		revokedAt: string | null;
+	}[],
 	permissions: [] as {
 		createdAt: string;
 		id: string;
@@ -41,6 +52,29 @@ vi.mock("@/utils/orpc", () => ({
 	client: {
 		projects: {
 			access: {
+				grantExternalVisualAnalysis(input: {
+					category: "identity" | "theme" | "style";
+					projectId: string;
+				}) {
+					if (fakeStore.analysisGrantError) {
+						return Promise.reject(new Error("Permission service unavailable"));
+					}
+					const purposeByCategory = {
+						identity: "Görsel kimliğini analiz etme",
+						theme: "Görsel temasını analiz etme",
+						style: "Görsel stilini analiz etme",
+					};
+					const permission = {
+						category: input.category,
+						createdAt: new Date().toISOString(),
+						id: `analysis-permission-${fakeStore.analysisPermissions.length + 1}`,
+						projectId: input.projectId,
+						purpose: purposeByCategory[input.category],
+						revokedAt: null,
+					};
+					fakeStore.analysisPermissions.unshift(permission);
+					return Promise.resolve(permission);
+				},
 				grantContextAgent(input: {
 					projectId: string;
 					purpose: string;
@@ -67,6 +101,15 @@ vi.mock("@/utils/orpc", () => ({
 					}
 					return Promise.resolve({ revoked: true });
 				},
+				revokeExternalVisualAnalysis(input: { permissionId: string }) {
+					const permission = fakeStore.analysisPermissions.find(
+						(candidate) => candidate.id === input.permissionId
+					);
+					if (permission) {
+						permission.revokedAt = new Date().toISOString();
+					}
+					return Promise.resolve({ revoked: true });
+				},
 			},
 		},
 	},
@@ -85,6 +128,12 @@ vi.mock("@/utils/orpc", () => ({
 				}),
 			},
 			access: {
+				listExternalVisualAnalysis: {
+					queryOptions: () => ({
+						queryKey: ["analysis-permissions", projectId],
+						queryFn: async () => fakeStore.analysisPermissions,
+					}),
+				},
 				list: {
 					queryOptions: () => ({
 						queryKey: ["permissions", projectId],
@@ -139,7 +188,9 @@ afterEach(() => {
 });
 
 beforeEach(() => {
+	fakeStore.analysisGrantError = false;
 	fakeStore.permissions.length = 0;
+	fakeStore.analysisPermissions.length = 0;
 	vi.stubGlobal(
 		"matchMedia",
 		vi.fn().mockImplementation((media: string) => ({
@@ -186,7 +237,7 @@ test("a user can grant, refetch, and revoke purpose-scoped Context Agent access"
 		await screen.findByRole("heading", { name: "Forest Quest" })
 	).toBeVisible();
 	expect(screen.getByText("Sağlayıcı seçilmedi")).toBeVisible();
-	expect(screen.getByText("Kapalı")).toBeVisible();
+	expect(screen.getAllByText("Kapalı")).toHaveLength(3);
 
 	fireEvent.click(
 		screen.getByRole("button", { name: "Bağlam Ajanı izni ver" })
@@ -213,6 +264,48 @@ test("a user can grant, refetch, and revoke purpose-scoped Context Agent access"
 		)
 	);
 	expect(screen.getByText("Geri alındı")).toBeVisible();
+
+	const identityConsent = await screen.findByRole("group", { name: "Kimlik" });
+	expect(within(identityConsent).getByText("Kapalı")).toBeVisible();
+	expect(screen.getByText("Sağlayıcı: seçilmedi")).toBeVisible();
+	expect(screen.getByText("Saklama koşulları: bilinmiyor")).toBeVisible();
+
+	fakeStore.analysisGrantError = true;
+	fireEvent.click(
+		within(identityConsent).getByRole("button", {
+			name: "Kimlik analizi için izin ver",
+		})
+	);
+	expect(await screen.findByRole("alert")).toHaveTextContent(
+		"Permission service unavailable"
+	);
+	fakeStore.analysisGrantError = false;
+	fireEvent.click(
+		within(identityConsent).getByRole("button", {
+			name: "Kimlik analizi için izin ver",
+		})
+	);
+	await waitFor(() =>
+		expect(screen.getByText("Kimlik analizi izni kaydedildi.")).toBeVisible()
+	);
+	expect(fakeStore.analysisPermissions[0]).toMatchObject({
+		category: "identity",
+		purpose: "Görsel kimliğini analiz etme",
+		revokedAt: null,
+	});
+	expect(within(identityConsent).getByText("İzin etkin")).toBeVisible();
+	const themeConsent = screen.getByRole("group", { name: "Tema" });
+	expect(within(themeConsent).getByText("Kapalı")).toBeVisible();
+
+	fireEvent.click(
+		within(identityConsent).getByRole("button", {
+			name: "Kimlik analizi iznini geri al",
+		})
+	);
+	await waitFor(() =>
+		expect(screen.getByText("Kimlik analizi izni geri alındı.")).toBeVisible()
+	);
+	expect(within(identityConsent).getByText(revokedStatusMatcher)).toBeVisible();
 });
 
 test("the generated project route opens access from the authenticated project list", async () => {
@@ -248,5 +341,7 @@ test("the generated project route opens access from the authenticated project li
 	).toBeVisible();
 	expect(screen.getByRole("heading", { name: "Bağlam Ajanı" })).toBeVisible();
 	expect(screen.getByText("Sağlayıcı seçilmedi")).toBeVisible();
-	expect(screen.getByText("Kapalı")).toBeVisible();
+	expect(screen.getByRole("group", { name: "Kimlik" })).toBeVisible();
+	expect(screen.getByRole("group", { name: "Tema" })).toBeVisible();
+	expect(screen.getByRole("group", { name: "Stil" })).toBeVisible();
 });
