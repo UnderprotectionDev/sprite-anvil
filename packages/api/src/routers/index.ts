@@ -37,7 +37,7 @@ async function readContextProposalReview(
 	if (!proposal) {
 		throw new ORPCError("NOT_FOUND", { message: "Context Proposal not found" });
 	}
-	const [baseRevision, project] = await Promise.all([
+	const [baseRevision, project, activatedRevision] = await Promise.all([
 		context.projectContextStore.getRevision(
 			userId,
 			projectId,
@@ -46,6 +46,11 @@ async function readContextProposalReview(
 		context.projectContextStore
 			.listProjects(userId)
 			.then((projects) => projects.find((entry) => entry.id === projectId)),
+		context.projectContextStore.getRevisionByProposal(
+			userId,
+			projectId,
+			proposalId
+		),
 	]);
 	if (!(baseRevision && project)) {
 		throw new ORPCError("NOT_FOUND", { message: "Project Context not found" });
@@ -61,7 +66,8 @@ async function readContextProposalReview(
 			baseRevision,
 			project.currentContextRevision,
 			knownProposalIds,
-			new Date().toISOString()
+			new Date().toISOString(),
+			activatedRevision
 		)
 	);
 }

@@ -60,6 +60,12 @@ test("persists a structured Project Context proposal from the web flow", async (
 	await expect(
 		page.getByText("Bu öneri Etkin Bağlam Sürümü R1 olarak kaydedildi.")
 	).toBeVisible();
+	await expect(
+		page.getByRole("heading", { name: "Etkin sürüm · R1" })
+	).toBeVisible();
+	await expect(
+		page.getByRole("button", { name: "R1 sürümünü etkinleştir" })
+	).toHaveCount(0);
 
 	await page.reload();
 	await expect(savedProposal).toBeVisible();

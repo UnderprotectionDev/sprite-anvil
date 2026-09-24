@@ -184,6 +184,30 @@ export function createProjectContextStore(db: Database): ProjectContextStore {
 			return row ? mapContextRevision(row) : null;
 		},
 
+		async getRevisionByProposal(
+			userId: string,
+			projectId: string,
+			proposalId: string
+		) {
+			const rows = await db
+				.select({ revision: contextRevisions })
+				.from(contextRevisions)
+				.innerJoin(
+					projectTable,
+					eq(projectTable.id, contextRevisions.projectId)
+				)
+				.where(
+					and(
+						eq(contextRevisions.sourceProposalId, proposalId),
+						eq(contextRevisions.projectId, projectId),
+						eq(projectTable.ownerUserId, userId)
+					)
+				)
+				.limit(1);
+			const row = rows[0]?.revision;
+			return row ? mapContextRevision(row) : null;
+		},
+
 		async getProposal(userId: string, projectId: string, proposalId: string) {
 			const rows = await db
 				.select({ proposal: contextProposals.proposal })

@@ -64,6 +64,8 @@ describe("Project Context proposals", () => {
 		await $(
 			"p=Bu öneri Etkin Bağlam Sürümü R1 olarak kaydedildi."
 		).waitForDisplayed();
+		await $("h4=Etkin sürüm · R1").waitForDisplayed();
+		await expect(await $("button=R1 sürümünü etkinleştir")).not.toBeDisplayed();
 		await browser.refresh();
 		await $(`h3=${projectContextFixture.summary}`).waitForDisplayed();
 		await expect(await $("p=Önerilen değer: 1.5")).toBeDisplayed();

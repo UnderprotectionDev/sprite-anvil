@@ -66,6 +66,18 @@ class MemoryProjectContextStore implements ProjectContextStore {
 		return Promise.resolve(revision?.projectId === projectId ? revision : null);
 	}
 
+	getRevisionByProposal(userId: string, projectId: string, proposalId: string) {
+		const project = this.projects.get(projectId);
+		if (project?.ownerId !== userId) {
+			return Promise.resolve(null);
+		}
+		const revision = [...this.revisions.values()].find(
+			(record) =>
+				record.projectId === projectId && record.sourceProposalId === proposalId
+		);
+		return Promise.resolve(revision ?? null);
+	}
+
 	getProposal(userId: string, projectId: string, proposalId: string) {
 		const project = this.projects.get(projectId);
 		const proposal = this.proposals.get(proposalId);
@@ -347,6 +359,10 @@ test("activates a validated proposal as a new Context Revision for production", 
 		{ projectId: project.id, proposalId: proposal.id },
 		{ context }
 	);
+	expect(repeatedReview.activatedRevisionNumber).toBe(1);
+	expect(repeatedReview.activationAllowed).toBe(true);
+	expect(repeatedReview.targetRevisionNumber).toBe(1);
+	expect(repeatedReview.candidateRules).toEqual(activated.rules);
 	await expect(
 		call(
 			appRouter.contextProposals.activate,
@@ -493,7 +509,10 @@ test("does not report an inactive historical revision as a successful activation
 		{ context }
 	);
 
-	expect(originalReview.activationAllowed).toBe(true);
+	expect(originalReview.activationAllowed).toBe(false);
+	expect(originalReview.activatedRevisionNumber).toBe(1);
+	expect(originalReview.targetRevisionNumber).toBe(1);
+	expect(originalReview.candidateRules).toEqual(firstRevision.rules);
 	await expect(
 		call(
 			appRouter.contextProposals.activate,
@@ -504,7 +523,7 @@ test("does not report an inactive historical revision as a successful activation
 			},
 			{ context }
 		)
-	).rejects.toMatchObject({ code: "CONFLICT" });
+	).rejects.toMatchObject({ code: "BAD_REQUEST" });
 });
 
 test("blocks stale changes to the same rule and requires a fresh review", async () => {

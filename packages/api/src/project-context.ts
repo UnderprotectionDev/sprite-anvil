@@ -247,6 +247,7 @@ export const contextProposalReviewSchema = z
 		currentRevisionId: z.string().uuid(),
 		currentRevisionNumber: z.number().int().nonnegative(),
 		targetRevisionNumber: z.number().int().positive(),
+		activatedRevisionNumber: z.number().int().positive().nullable(),
 		isRebased: z.boolean(),
 		activationAllowed: z.boolean(),
 		checkedAt: z.string().datetime(),
@@ -352,6 +353,11 @@ export interface ProjectContextStore {
 		userId: string,
 		projectId: string,
 		revisionId: string
+	) => Promise<ContextRevision | null>;
+	getRevisionByProposal: (
+		userId: string,
+		projectId: string,
+		proposalId: string
 	) => Promise<ContextRevision | null>;
 	listProjects: (userId: string) => Promise<ProjectContext[]>;
 	listProposals: (
@@ -824,7 +830,8 @@ export function previewContextProposalActivation(
 	baseRevision: ContextRevision,
 	currentRevision: ContextRevision,
 	knownProposalIds: Set<string>,
-	checkedAt: string
+	checkedAt: string,
+	activatedRevision: ContextRevision | null = null
 ): ContextProposalReview {
 	const proposalValidation = validateContextProposal(
 		proposal.projectId,
@@ -853,22 +860,29 @@ export function previewContextProposalActivation(
 		...validateContextRules(proposal.projectId, candidateRules),
 		...validateProposalReferences(candidateRules, knownProposalIds),
 	]);
+	const isAlreadyActivated = activatedRevision !== null;
 	return contextProposalReviewSchema.parse({
 		proposalId: proposal.id,
 		baseContextRevisionId: proposal.baseContextRevisionId,
 		baseRevisionNumber: baseRevision.revisionNumber,
 		currentRevisionId: currentRevision.id,
 		currentRevisionNumber: currentRevision.revisionNumber,
-		targetRevisionNumber: currentRevision.revisionNumber + 1,
+		targetRevisionNumber:
+			activatedRevision?.revisionNumber ?? currentRevision.revisionNumber + 1,
+		activatedRevisionNumber: activatedRevision?.revisionNumber ?? null,
 		isRebased: baseRevision.id !== currentRevision.id,
-		activationAllowed: conflicts.length === 0,
+		activationAllowed:
+			conflicts.length === 0 &&
+			(!activatedRevision ||
+				(activatedRevision.isActive &&
+					activatedRevision.id === currentRevision.id)),
 		checkedAt,
-		conflicts,
-		candidateRules,
+		conflicts: isAlreadyActivated ? [] : conflicts,
+		candidateRules: activatedRevision?.rules ?? candidateRules,
 		contextCopy: renderContextCopy(
 			proposal.projectId,
-			currentRevision.revisionNumber + 1,
-			candidateRules
+			activatedRevision?.revisionNumber ?? currentRevision.revisionNumber + 1,
+			activatedRevision?.rules ?? candidateRules
 		),
 	});
 }

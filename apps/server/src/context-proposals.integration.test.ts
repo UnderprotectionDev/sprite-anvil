@@ -199,6 +199,11 @@ test.skipIf(!databaseUrl)(
 				{ projectId: project.id, proposalId: created.id },
 				{ context: rereadContext }
 			);
+			expect(oldProposalReview).toMatchObject({
+				activationAllowed: false,
+				activatedRevisionNumber: 2,
+				targetRevisionNumber: 2,
+			});
 			await expect(
 				call(
 					appRouter.contextProposals.activate,
@@ -209,7 +214,7 @@ test.skipIf(!databaseUrl)(
 					},
 					{ context: rereadContext }
 				)
-			).rejects.toMatchObject({ code: "CONFLICT" });
+			).rejects.toMatchObject({ code: "BAD_REQUEST" });
 
 			const currentProjects = await call(
 				appRouter.projectContexts.list,

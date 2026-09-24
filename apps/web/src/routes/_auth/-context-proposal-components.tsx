@@ -657,6 +657,12 @@ function ProposalRecord({
 					}),
 				}),
 			]);
+			setReview(
+				await client.contextProposals.review({
+					projectId: project.id,
+					proposalId: proposal.id,
+				})
+			);
 			toast.success("Etkin Bağlam Sürümü oluşturuldu.");
 		},
 	});
@@ -768,6 +774,9 @@ function ProposalReviewPanel({
 	review: ContextProposalReview;
 }) {
 	const isStale = !isCurrent && review.currentRevisionId !== currentRevisionId;
+	const wasActivated = review.activatedRevisionNumber !== null;
+	const activationRevisionNumber =
+		review.activatedRevisionNumber ?? review.targetRevisionNumber;
 	return (
 		<section
 			aria-labelledby={`review-${review.proposalId}`}
@@ -777,7 +786,7 @@ function ProposalReviewPanel({
 				<div>
 					<p className="panel-index">GÜNCEL İNCELEME</p>
 					<h4 id={`review-${review.proposalId}`}>
-						Etkinleştirme özeti · R{review.targetRevisionNumber}
+						{reviewHeadingLabel(isCurrent, review)}
 					</h4>
 				</div>
 				<span
@@ -800,11 +809,11 @@ function ProposalReviewPanel({
 					<dd>R{review.currentRevisionNumber}</dd>
 				</div>
 				<div>
-					<dt>Oluşacak</dt>
-					<dd>R{review.targetRevisionNumber}</dd>
+					<dt>{wasActivated ? "Etkinleşti" : "Oluşacak"}</dt>
+					<dd>R{activationRevisionNumber}</dd>
 				</div>
 			</dl>
-			{review.isRebased ? (
+			{!wasActivated && review.isRebased ? (
 				<p className="review-rebase" role="status">
 					Öneri R{review.baseRevisionNumber} sürümünden hazırlanmış. Çakışmayan
 					güncel kurallar yeni sürümde korunuyor.
@@ -831,14 +840,14 @@ function ProposalReviewPanel({
 					</ul>
 				</div>
 			) : null}
-			{!isStale && review.conflicts.length === 0 ? (
+			{!(wasActivated || isStale) && review.conflicts.length === 0 ? (
 				<p className="review-ready" role="status">
 					Kapsam önceliği, istisnalar ve çakışmalar denetlendi. Bu sürüm
 					yalnızca onayınızla etkinleşir.
 				</p>
 			) : null}
 			<div className="effective-rules">
-				<h5>Etkin kural zinciri · {review.candidateRules.length} kural</h5>
+				<h5>Sürümün kural zinciri · {review.candidateRules.length} kural</h5>
 				{review.candidateRules.length ? (
 					<ul>
 						{withOccurrenceKeys(review.candidateRules, contextRuleKey).map(
@@ -878,24 +887,75 @@ function ProposalReviewPanel({
 					tekrar deneyin.
 				</p>
 			) : null}
-			{isCurrent ? (
-				<p className="review-ready" role="status">
-					Bu öneri Etkin Bağlam Sürümü R{review.targetRevisionNumber} olarak
-					kaydedildi.
-				</p>
-			) : (
-				<Button
-					className="signal-button activate-proposal"
-					disabled={!review.activationAllowed || isActivating || isStale}
-					onClick={onActivate}
-					type="button"
-				>
-					{isActivating
-						? "Etkinleştiriliyor…"
-						: `R${review.targetRevisionNumber} sürümünü etkinleştir`}
-				</Button>
-			)}
+			<ProposalActivationOutcome
+				activationRevisionNumber={activationRevisionNumber}
+				currentRevisionNumber={review.currentRevisionNumber}
+				isActivating={isActivating}
+				isCurrent={isCurrent}
+				isStale={isStale}
+				onActivate={onActivate}
+				review={review}
+			/>
 		</section>
+	);
+}
+
+function reviewHeadingLabel(isCurrent: boolean, review: ContextProposalReview) {
+	if (isCurrent) {
+		const revisionNumber =
+			review.activatedRevisionNumber ?? review.currentRevisionNumber;
+		return `Etkin sürüm · R${revisionNumber}`;
+	}
+	if (review.activatedRevisionNumber !== null) {
+		return `Önceki etkinleştirme · R${review.activatedRevisionNumber}`;
+	}
+	return `Etkinleştirme özeti · R${review.targetRevisionNumber}`;
+}
+
+function ProposalActivationOutcome({
+	activationRevisionNumber,
+	currentRevisionNumber,
+	isActivating,
+	isCurrent,
+	isStale,
+	onActivate,
+	review,
+}: {
+	activationRevisionNumber: number;
+	currentRevisionNumber: number;
+	isActivating: boolean;
+	isCurrent: boolean;
+	isStale: boolean;
+	onActivate: () => void;
+	review: ContextProposalReview;
+}) {
+	if (isCurrent) {
+		return (
+			<p className="review-ready" role="status">
+				Bu öneri Etkin Bağlam Sürümü R{activationRevisionNumber} olarak
+				kaydedildi.
+			</p>
+		);
+	}
+	if (review.activatedRevisionNumber !== null) {
+		return (
+			<p className="review-rebase" role="status">
+				Bu öneri R{activationRevisionNumber} sürümünü oluşturdu. Güncel Etkin
+				Bağlam Sürümü R{currentRevisionNumber}.
+			</p>
+		);
+	}
+	return (
+		<Button
+			className="signal-button activate-proposal"
+			disabled={!review.activationAllowed || isActivating || isStale}
+			onClick={onActivate}
+			type="button"
+		>
+			{isActivating
+				? "Etkinleştiriliyor…"
+				: `R${review.targetRevisionNumber} sürümünü etkinleştir`}
+		</Button>
 	);
 }
 
@@ -906,6 +966,9 @@ function reviewStatusLabel(
 ) {
 	if (isCurrent) {
 		return "Etkin";
+	}
+	if (review.activatedRevisionNumber !== null) {
+		return "Daha önce etkinleştirildi";
 	}
 	if (isStale) {
 		return "Yeniden inceleme gerekli";
