@@ -64,6 +64,20 @@ test.skipIf(!databaseUrl)(
 				},
 				{ context }
 			);
+			const portraitWorld = await call(
+				appRouter.contextScopes.createVisualWorld,
+				{ projectId: project.id, name: "Portraits" },
+				{ context }
+			);
+			const sameNamedTheme = await call(
+				appRouter.contextScopes.createTheme,
+				{
+					projectId: project.id,
+					visualWorldId: portraitWorld.id,
+					name: "Lantern festival",
+				},
+				{ context }
+			);
 			const scopeCatalog = await call(
 				appRouter.contextScopes.list,
 				{ projectId: project.id },
@@ -71,8 +85,8 @@ test.skipIf(!databaseUrl)(
 			);
 
 			expect(scopeCatalog).toEqual({
-				visualWorlds: [visualWorld],
-				themes: [theme],
+				visualWorlds: [visualWorld, portraitWorld],
+				themes: [theme, sameNamedTheme],
 			});
 
 			const activeRevisionId = crypto.randomUUID();

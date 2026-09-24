@@ -67,9 +67,9 @@ export function ContextWorkspace({
 		<>
 			<div className="context-toolbar">
 				<label className="project-select">
-					<span>Çalışma alanı</span>
+					<span>Proje</span>
 					<select
-						aria-label="Çalışma alanı"
+						aria-label="Proje"
 						onChange={(event) => {
 							const selected = projects.find(
 								(candidate) => candidate.id === event.target.value

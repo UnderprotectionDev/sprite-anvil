@@ -37,9 +37,10 @@ Tamamlanma kanıtı: Bir projede birden fazla Görsel Dünya ve bunların Temala
 
 ## Testing Decisions
 
-- **Birincil test seam’i:** RAS-08 örneklerinde kesin girdiyi kullanıcı eyleminden kalıcı kayda ve yeniden okumaya taşıyan sunucu/API yolunu sınama; web ve masaüstü görünür sonuçlarını karşılaştırma.
-- Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.
-- Bugün repoda bu faza ait ürün sözleşmesi bulunmuyor. Mevcut sunucu ve yüzey test örnekleri: [`account-access.test.ts`](../../../apps/server/src/account-access.test.ts), [`app-shell.spec.ts` (web)](../../../apps/web/e2e/app-shell.spec.ts) ve [`app-shell.spec.ts` (desktop)](../../../apps/web/desktop-e2e/app-shell.spec.ts). Bunlar bu özelliğin test edildiği anlamına gelmez.
+- **Birincil test seam’i:** [`context-proposals.test.ts`](../../../apps/server/src/context-proposals.test.ts) üzerinden oRPC/API oluşturma ve listeleme yolunu çalıştır; aynı Proje içindeki birden fazla Visual World ve Theme kaydının kapsam ilişkilerini yeniden okumada doğrula.
+- Kalıcı veritabanı kanıtı için [`context-proposals.integration.test.ts`](../../../apps/server/src/context-proposals.integration.test.ts) Neon/Drizzle turunu `CONTEXT_TEST_DATABASE_URL` bulunduğunda çalıştırır. Görsel Dünya ve Tema kayıtları aynı API girdisinden oluşturulur ve katalog yeniden okunur.
+- Paylaşılan ekran kanıtı [`context-scope-registry.test.tsx`](../../../apps/web/src/features/visual-worlds/ui/components/context-scope-registry.test.tsx) içinde Theme adının iki Visual World altında ayrı görünmesini, Theme oluşturmanın seçili Visual World kimliğini göndermesini ve öneri kapsam zincirinin doğru üst kaydı göstermesini sınar. Web ve masaüstü aynı React ekranını kullanır; RAS-08'in daha geniş görsel ve dışa aktarım karşılaştırması bu dar kapsamlı testlerin yerine geçmez.
+- Başarısız/eksik yolları da sınama: aynı Visual World içinde yinelenen ad, kayıtlı olmayan veya kullanıcıya ait olmayan Project/Visual World ve başka Visual World'e bağlanan geçersiz precedence chain reddedilmelidir. İç yardımcıların çağrılma sırasını test etme.
 - Fazın özgül başarı ve red kanıtı: Bir projede birden fazla Görsel Dünya ve bunların Temaları tutulur; bir dünyaya ait kural başka dünyaya sessizce uygulanmaz. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Görsel Dünya bir Varlık Ailesi veya Ana Tasarım değildir; tema başka dünyaya kendiliğinden taşınmaz.
 - Kabul örnekleri: RAS-08. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
 
