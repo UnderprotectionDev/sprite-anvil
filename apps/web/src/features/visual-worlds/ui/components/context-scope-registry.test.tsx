@@ -176,7 +176,7 @@ test("shows repeated Theme names beneath their own Visual Worlds and saves to th
 		id: "theme-new",
 		projectId,
 		visualWorldId: portraitWorldId,
-		name: "Ruins",
+		name: "Winter orchard",
 		description: "",
 		createdAt: "2026-09-25T00:00:00.000Z",
 	});
@@ -192,7 +192,7 @@ test("shows repeated Theme names beneath their own Visual Worlds and saves to th
 		target: { value: portraitWorldId },
 	});
 	fireEvent.change(screen.getByLabelText("Tema adı"), {
-		target: { value: "Ruins" },
+		target: { value: "Winter orchard" },
 	});
 	fireEvent.click(screen.getByRole("button", { name: "Tema ekle" }));
 
@@ -200,7 +200,7 @@ test("shows repeated Theme names beneath their own Visual Worlds and saves to th
 		expect(mocked.createTheme).toHaveBeenCalledWith({
 			projectId,
 			visualWorldId: portraitWorldId,
-			name: "Ruins",
+			name: "Winter orchard",
 			description: "",
 		})
 	);
