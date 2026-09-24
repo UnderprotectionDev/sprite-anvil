@@ -140,20 +140,6 @@ test.skipIf(!databaseUrl)(
 				{ projectId: project.id },
 				{ context: rereadContext }
 			);
-			const currentProjects = await call(
-				appRouter.projectContexts.list,
-				{},
-				{ context: rereadContext }
-			);
-			const revisions = await db
-				.select({
-					id: contextRevisions.id,
-					revisionNumber: contextRevisions.revisionNumber,
-					state: contextRevisions.state,
-					sourceProposalId: contextRevisions.sourceProposalId,
-				})
-				.from(contextRevisions)
-				.where(eq(contextRevisions.projectId, project.id));
 
 			expect(created.baseContextRevisionId).toBe(activeRevisionId);
 			expect(created.changes[0]).toMatchObject({
@@ -169,7 +155,85 @@ test.skipIf(!databaseUrl)(
 				isActive: true,
 			});
 			expect(repeatedActivation).toEqual(activated);
-			expect(currentProjects[0]?.currentContextRevision).toEqual(activated);
+
+			const laterProposal = await call(
+				appRouter.contextProposals.create,
+				{
+					projectId: project.id,
+					baseContextRevisionId: activated.id,
+					summary: "Keep light direction consistent",
+					changes: [
+						{
+							operation: "add",
+							ruleId: "light.direction",
+							scope: { kind: "project", id: project.id },
+							value: { type: "text", value: "north east" },
+							rationale: "Keep the environment lighting consistent.",
+							evidence: [
+								{
+									kind: "user_decision",
+									statement: "Light comes from the north east.",
+								},
+							],
+						},
+					],
+				},
+				{ context: rereadContext }
+			);
+			const laterReview = await call(
+				appRouter.contextProposals.review,
+				{ projectId: project.id, proposalId: laterProposal.id },
+				{ context: rereadContext }
+			);
+			const laterActivation = await call(
+				appRouter.contextProposals.activate,
+				{
+					projectId: project.id,
+					proposalId: laterProposal.id,
+					expectedCurrentRevisionId: laterReview.currentRevisionId,
+				},
+				{ context: rereadContext }
+			);
+			const oldProposalReview = await call(
+				appRouter.contextProposals.review,
+				{ projectId: project.id, proposalId: created.id },
+				{ context: rereadContext }
+			);
+			await expect(
+				call(
+					appRouter.contextProposals.activate,
+					{
+						projectId: project.id,
+						proposalId: created.id,
+						expectedCurrentRevisionId: oldProposalReview.currentRevisionId,
+					},
+					{ context: rereadContext }
+				)
+			).rejects.toMatchObject({ code: "CONFLICT" });
+
+			const currentProjects = await call(
+				appRouter.projectContexts.list,
+				{},
+				{ context: rereadContext }
+			);
+			const revisions = await db
+				.select({
+					id: contextRevisions.id,
+					revisionNumber: contextRevisions.revisionNumber,
+					state: contextRevisions.state,
+					sourceProposalId: contextRevisions.sourceProposalId,
+				})
+				.from(contextRevisions)
+				.where(eq(contextRevisions.projectId, project.id));
+
+			expect(laterActivation).toMatchObject({
+				revisionNumber: 3,
+				sourceProposalId: laterProposal.id,
+				isActive: true,
+			});
+			expect(currentProjects[0]?.currentContextRevision).toEqual(
+				laterActivation
+			);
 			expect(revisions).toEqual(
 				expect.arrayContaining([
 					expect.objectContaining({
@@ -179,8 +243,13 @@ test.skipIf(!databaseUrl)(
 					}),
 					expect.objectContaining({
 						revisionNumber: 2,
-						state: "active",
+						state: "inactive",
 						sourceProposalId: created.id,
+					}),
+					expect.objectContaining({
+						revisionNumber: 3,
+						state: "active",
+						sourceProposalId: laterProposal.id,
 					}),
 				])
 			);

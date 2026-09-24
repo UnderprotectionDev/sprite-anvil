@@ -351,6 +351,7 @@ export function createProjectContextStore(db: Database): ProjectContextStore {
 					and(
 						eq(contextRevisions.projectId, input.projectId),
 						eq(contextRevisions.sourceProposalId, input.proposalId),
+						eq(contextRevisions.state, "active"),
 						eq(projectTable.ownerUserId, input.userId)
 					)
 				)

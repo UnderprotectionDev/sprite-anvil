@@ -413,6 +413,100 @@ test("rebases independent proposal changes onto the current revision", async () 
 	expect(review.contextCopy).toContain("1.5");
 });
 
+test("does not report an inactive historical revision as a successful activation", async () => {
+	const store = new MemoryProjectContextStore();
+	const context = makeContext(store, "user-1");
+	const project = await call(
+		appRouter.projectContexts.create,
+		{
+			name: "Silver Reed",
+			generalArtDirection: "Fine outlines with directional lighting",
+		},
+		{ context }
+	);
+	const originalProposal = await call(
+		appRouter.contextProposals.create,
+		proposalInput(project.id, project.currentContextRevision.id, [
+			{
+				operation: "add",
+				ruleId: "outline.width",
+				scope: { kind: "project", id: project.id },
+				value: { type: "number", value: 1.5 },
+				rationale: "Keep small silhouettes legible.",
+				evidence: [
+					{ kind: "user_decision", statement: "Use a 1.5 pixel outline." },
+				],
+			},
+		]),
+		{ context }
+	);
+	const firstReview = await call(
+		appRouter.contextProposals.review,
+		{ projectId: project.id, proposalId: originalProposal.id },
+		{ context }
+	);
+	const firstRevision = await call(
+		appRouter.contextProposals.activate,
+		{
+			projectId: project.id,
+			proposalId: originalProposal.id,
+			expectedCurrentRevisionId: firstReview.currentRevisionId,
+		},
+		{ context }
+	);
+	const laterProposal = await call(
+		appRouter.contextProposals.create,
+		proposalInput(project.id, firstRevision.id, [
+			{
+				operation: "add",
+				ruleId: "light.direction",
+				scope: { kind: "project", id: project.id },
+				value: { type: "text", value: "north east" },
+				rationale: "Keep environmental light consistent.",
+				evidence: [
+					{
+						kind: "user_decision",
+						statement: "Light comes from the north east.",
+					},
+				],
+			},
+		]),
+		{ context }
+	);
+	const laterReview = await call(
+		appRouter.contextProposals.review,
+		{ projectId: project.id, proposalId: laterProposal.id },
+		{ context }
+	);
+	await call(
+		appRouter.contextProposals.activate,
+		{
+			projectId: project.id,
+			proposalId: laterProposal.id,
+			expectedCurrentRevisionId: laterReview.currentRevisionId,
+		},
+		{ context }
+	);
+	const originalReview = await call(
+		appRouter.contextProposals.review,
+		{ projectId: project.id, proposalId: originalProposal.id },
+		{ context }
+	);
+
+	expect(originalReview.activationAllowed).toBe(true);
+	await expect(
+		call(
+			appRouter.contextProposals.activate,
+			{
+				projectId: project.id,
+				proposalId: originalProposal.id,
+				expectedCurrentRevisionId: originalReview.currentRevisionId,
+			},
+			{ context }
+		)
+	).rejects.toMatchObject({ code: "CONFLICT" });
+});
+
 test("blocks stale changes to the same rule and requires a fresh review", async () => {
 	const store = new MemoryProjectContextStore();
 	const context = makeContext(store, "user-1");
