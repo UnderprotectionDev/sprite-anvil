@@ -1,19 +1,24 @@
+import type { ProjectContextScopeCatalog } from "@sprite-anvil/api/context-scopes";
 import type {
 	ContextProposal,
 	ContextProposalInput,
+	ContextProposalReview,
 	ContextRevision,
+	ContextRule,
 	ContextRuleChange,
 	ContextRuleValue,
+	ContextScope,
 	ProjectContext,
 	ProjectContextCreateInput,
 	StructuredContextRuleId,
 } from "@sprite-anvil/api/project-context";
 import {
+	findNearestInheritedContextRule,
 	STRUCTURED_CONTEXT_RULE_IDS,
 	STRUCTURED_CONTEXT_RULES,
 } from "@sprite-anvil/api/project-context";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Send, Trash2 } from "lucide-react";
 import { type ReactNode, type SyntheticEvent, useState } from "react";
 import { toast } from "sonner";
@@ -22,7 +27,8 @@ import {
 	QueryRetryButton,
 } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client } from "@/utils/orpc";
+import { client, orpc } from "@/utils/orpc";
+import { ScopeRegistryPanel } from "./-context-scope-registry";
 
 type EvidenceKind = "user_decision" | "observed_change";
 type ValueType =
@@ -46,9 +52,12 @@ interface ChangeDraft {
 	evidence: string;
 	evidenceKind: EvidenceKind;
 	id: string;
+	isOverride: boolean;
 	operation: "add" | "replace" | "remove";
+	precedenceChain: ContextScope[];
 	rationale: string;
 	ruleId: string;
+	scope: ContextScope;
 	value: string;
 }
 
@@ -157,28 +166,40 @@ interface ContextWorkspaceProps {
 	isProposalsError: boolean;
 	isProposalsFetching: boolean;
 	isProposalsPending: boolean;
+	isScopeError: boolean;
+	isScopeFetching: boolean;
+	isScopePending: boolean;
 	onCheckProposalState: () => Promise<boolean>;
 	onNewProject: () => void;
 	onRefreshProposals: () => Promise<unknown>;
 	onRetryProposals: () => void;
+	onRetryScope: () => void;
 	onSelectProject: (project: ProjectContext) => void;
 	project: ProjectContext;
 	projects: ProjectContext[];
 	proposals: ContextProposal[];
 	proposalsError?: string;
+	scopeCatalog: ProjectContextScopeCatalog;
+	scopeError?: string;
 }
 
 export function ContextWorkspace({
 	isProposalsError,
 	isProposalsFetching,
 	isProposalsPending,
+	isScopeError,
+	isScopeFetching,
+	isScopePending,
 	onCheckProposalState,
 	onNewProject,
 	onRetryProposals,
+	onRetryScope,
 	onRefreshProposals,
 	onSelectProject,
 	project,
 	projects,
+	scopeCatalog,
+	scopeError,
 	proposals,
 	proposalsError,
 }: ContextWorkspaceProps) {
@@ -211,12 +232,22 @@ export function ContextWorkspace({
 					Yeni proje
 				</Button>
 			</div>
+			<ScopeRegistryPanel
+				isError={isScopeError}
+				isFetching={isScopeFetching}
+				isPending={isScopePending}
+				onRetry={onRetryScope}
+				project={project}
+				queryError={scopeError}
+				scopeCatalog={scopeCatalog}
+			/>
 			<div className="context-grid">
 				<ProposalForm
 					key={`${project.id}:${project.currentContextRevision.id}`}
 					onCheckCurrentState={onCheckProposalState}
 					onRefresh={onRefreshProposals}
 					project={project}
+					scopeCatalog={scopeCatalog}
 				/>
 				<ProposalLedger
 					isError={isProposalsError}
@@ -226,6 +257,7 @@ export function ContextWorkspace({
 					project={project}
 					proposals={proposals}
 					queryError={proposalsError}
+					scopeCatalog={scopeCatalog}
 				/>
 			</div>
 		</>
@@ -236,17 +268,29 @@ interface ProposalFormProps {
 	onCheckCurrentState: () => Promise<boolean>;
 	onRefresh: () => Promise<unknown>;
 	project: ProjectContext;
+	scopeCatalog: ProjectContextScopeCatalog;
 }
 
 function ProposalForm({
 	onCheckCurrentState,
 	onRefresh,
 	project,
+	scopeCatalog,
 }: ProposalFormProps) {
+	const [defaultScopeOption, ...otherScopeOptions] = createScopeOptions(
+		project,
+		scopeCatalog
+	);
+	const scopeOptions = [defaultScopeOption, ...otherScopeOptions];
 	const [summary, setSummary] = useState("");
 	const [changes, setChanges] = useState<ChangeDraft[]>(() => [
 		newChangeDraft(
-			availableRules(project.currentContextRevision, "add")[0]?.id ?? ""
+			availableRules(
+				project.currentContextRevision,
+				"add",
+				defaultScopeOption.scope
+			)[0]?.id ?? "",
+			defaultScopeOption
 		),
 	]);
 	const [formError, setFormError] = useState<string | null>(null);
@@ -264,7 +308,11 @@ function ProposalForm({
 		onSuccess: async () => {
 			setSummary("");
 			setChanges([
-				newChangeDraft(availableRules(currentRevision, "add")[0]?.id ?? ""),
+				newChangeDraft(
+					availableRules(currentRevision, "add", defaultScopeOption.scope)[0]
+						?.id ?? "",
+					defaultScopeOption
+				),
 			]);
 			setFormError(null);
 			await onRefresh();
@@ -320,7 +368,9 @@ function ProposalForm({
 			projectId: project.id,
 			baseContextRevisionId: currentRevision.id,
 			summary,
-			changes: changes.map((change) => toContextRuleChange(change, project.id)),
+			changes: changes.map((change) =>
+				toContextRuleChange(change, currentRevision.rules)
+			),
 		});
 	}
 
@@ -392,6 +442,7 @@ function ProposalForm({
 									current.filter((item) => item.id !== change.id)
 								)
 							}
+							scopeOptions={scopeOptions}
 						/>
 					))}
 				</div>
@@ -401,7 +452,12 @@ function ProposalForm({
 						setChanges((current) => [
 							...current,
 							newChangeDraft(
-								availableRules(currentRevision, "add")[0]?.id ?? ""
+								availableRules(
+									currentRevision,
+									"add",
+									defaultScopeOption.scope
+								)[0]?.id ?? "",
+								defaultScopeOption
 							),
 						])
 					}
@@ -447,6 +503,12 @@ function ProposalForm({
 	);
 }
 
+interface ScopeOption {
+	label: string;
+	precedenceChain: ContextScope[];
+	scope: ContextScope;
+}
+
 interface RuleDraftCardProps {
 	baseRevision: ContextRevision;
 	canRemove: boolean;
@@ -454,6 +516,7 @@ interface RuleDraftCardProps {
 	index: number;
 	onChange: (patch: Partial<ChangeDraft>) => void;
 	onRemove: () => void;
+	scopeOptions: ScopeOption[];
 }
 
 function RuleDraftCard({
@@ -461,20 +524,94 @@ function RuleDraftCard({
 	canRemove,
 	change,
 	index,
+	scopeOptions,
 	onChange,
 	onRemove,
 }: RuleDraftCardProps) {
-	const operationRules = availableRules(baseRevision, change.operation);
-	const addRules = availableRules(baseRevision, "add");
-	const existingRules = availableRules(baseRevision, "replace");
+	const operationRules = availableRules(
+		baseRevision,
+		change.operation,
+		change.scope
+	);
+	const addRules = availableRules(baseRevision, "add", change.scope);
+	const existingRules = availableRules(baseRevision, "replace", change.scope);
+	const selectedScopeOption = scopeOptions.find((option) =>
+		sameScope(option.scope, change.scope)
+	);
+	const inheritedRule = findNearestInheritedContextRule(
+		change.ruleId,
+		change.scope,
+		change.precedenceChain,
+		baseRevision.rules
+	);
 	const valueType = structuredValueType(change.ruleId);
 
 	function changeOperation(operation: ChangeDraft["operation"]) {
-		const rules = availableRules(baseRevision, operation);
+		const rules = availableRules(baseRevision, operation, change.scope);
 		const ruleId = rules.some((rule) => rule.id === change.ruleId)
 			? change.ruleId
 			: (rules[0]?.id ?? "");
-		onChange({ operation, ruleId, value: "" });
+		onChange({
+			operation,
+			ruleId,
+			value: "",
+			isOverride: operation === "add" ? false : currentRuleOverride(ruleId),
+		});
+	}
+
+	function currentRuleOverride(
+		ruleId: string,
+		scope: ContextScope = change.scope,
+		precedenceChain: ContextScope[] = change.precedenceChain
+	) {
+		const baseRule = baseRevision.rules.find(
+			(rule) => rule.id === ruleId && sameScope(rule.scope, scope)
+		);
+		const nearestInherited = findNearestInheritedContextRule(
+			ruleId,
+			scope,
+			precedenceChain,
+			baseRevision.rules
+		);
+		return Boolean(
+			nearestInherited && baseRule?.supersedesRuleId === nearestInherited.id
+		);
+	}
+
+	function changeScope(scopeKey: string) {
+		const option = scopeOptions.find(
+			(candidate) => scopeKeyFrom(candidate.scope) === scopeKey
+		);
+		if (!option) {
+			return;
+		}
+		const operation =
+			change.operation !== "add" &&
+			availableRules(baseRevision, change.operation, option.scope).length === 0
+				? "add"
+				: change.operation;
+		const rules = availableRules(baseRevision, operation, option.scope);
+		const ruleId = rules[0]?.id ?? "";
+		onChange({
+			operation,
+			scope: option.scope,
+			precedenceChain: option.precedenceChain,
+			ruleId,
+			value: "",
+			isOverride: currentRuleOverride(
+				ruleId,
+				option.scope,
+				option.precedenceChain
+			),
+		});
+	}
+
+	function changeRule(ruleId: string) {
+		onChange({
+			ruleId,
+			value: "",
+			isOverride: currentRuleOverride(ruleId),
+		});
 	}
 
 	return (
@@ -506,12 +643,35 @@ function RuleDraftCard({
 				</select>
 			</label>
 			<label className="context-field">
+				<span>Kapsam</span>
+				<select
+					aria-label={`Değişiklik ${index + 1} kapsamı`}
+					onChange={(event) => changeScope(event.target.value)}
+					value={scopeKeyFrom(change.scope)}
+				>
+					{scopeOptions.map((option) => (
+						<option
+							key={scopeKeyFrom(option.scope)}
+							value={scopeKeyFrom(option.scope)}
+						>
+							{option.label}
+						</option>
+					))}
+				</select>
+				{selectedScopeOption ? (
+					<span className="field-hint">
+						Öncelik:{" "}
+						{selectedScopeOption.precedenceChain
+							.map((scope) => scopeOptionLabel(scope, scopeOptions))
+							.join(" → ")}
+					</span>
+				) : null}
+			</label>
+			<label className="context-field">
 				<span>Kural</span>
 				<select
 					aria-label={`Değişiklik ${index + 1} kuralı`}
-					onChange={(event) =>
-						onChange({ ruleId: event.target.value, value: "" })
-					}
+					onChange={(event) => changeRule(event.target.value)}
 					required
 					value={change.ruleId}
 				>
@@ -526,8 +686,8 @@ function RuleDraftCard({
 				</select>
 				<span className="field-hint">
 					{change.operation === "add"
-						? "Yalnızca henüz bu sürümde bulunmayan yaygın kurallar eklenebilir."
-						: `Bağlam Sürümü ${baseRevision.revisionNumber} içindeki bir kural seçilir.`}
+						? "Yalnızca bu kapsamda henüz tanımlanmamış yaygın kurallar eklenebilir."
+						: `Bağlam Sürümü ${baseRevision.revisionNumber} içindeki bu kapsama ait bir kural seçilir.`}
 				</span>
 			</label>
 			{change.operation === "remove" ? (
@@ -541,6 +701,23 @@ function RuleDraftCard({
 					<RuleValueField change={change} index={index} onChange={onChange} />
 				</div>
 			)}
+			{inheritedRule && change.operation !== "remove" ? (
+				<label className="override-control">
+					<input
+						checked={change.isOverride}
+						onChange={(event) => onChange({ isOverride: event.target.checked })}
+						type="checkbox"
+					/>
+					<span>
+						<strong>Bağlam Kuralı İstisnası</strong>
+						<small>
+							{change.ruleId} ·{" "}
+							{scopeOptionLabel(inheritedRule.scope, scopeOptions)}
+							kuralını geçersiz kılar
+						</small>
+					</span>
+				</label>
+			) : null}
 			<label className="context-field">
 				<span>Bu değişikliğin gerekçesi</span>
 				<textarea
@@ -665,6 +842,7 @@ interface ProposalLedgerProps {
 	project: ProjectContext;
 	proposals: ContextProposal[];
 	queryError?: string;
+	scopeCatalog: ProjectContextScopeCatalog;
 }
 
 function ProposalLedger({
@@ -673,6 +851,7 @@ function ProposalLedger({
 	isPending,
 	onRetry,
 	project,
+	scopeCatalog,
 	proposals,
 	queryError,
 }: ProposalLedgerProps) {
@@ -700,7 +879,12 @@ function ProposalLedger({
 		content = (
 			<div className="proposal-list">
 				{proposals.map((proposal) => (
-					<ProposalRecord key={proposal.id} proposal={proposal} />
+					<ProposalRecord
+						key={proposal.id}
+						project={project}
+						proposal={proposal}
+						scopeCatalog={scopeCatalog}
+					/>
 				))}
 			</div>
 		);
@@ -726,26 +910,78 @@ function ProposalLedger({
 	);
 }
 
-function ProposalRecord({ proposal }: { proposal: ContextProposal }) {
+function ProposalRecord({
+	proposal,
+	project,
+	scopeCatalog,
+}: {
+	proposal: ContextProposal;
+	project: ProjectContext;
+	scopeCatalog: ProjectContextScopeCatalog;
+}) {
+	const queryClient = useQueryClient();
+	const [review, setReview] = useState<ContextProposalReview | null>(null);
+	const reviewProposal = useMutation({
+		mutationFn: () =>
+			client.contextProposals.review({
+				projectId: project.id,
+				proposalId: proposal.id,
+			}),
+		onSuccess: setReview,
+	});
+	const activateProposal = useMutation({
+		mutationFn: (currentReview: ContextProposalReview) =>
+			client.contextProposals.activate({
+				projectId: project.id,
+				proposalId: proposal.id,
+				expectedCurrentRevisionId: currentReview.currentRevisionId,
+			}),
+		onSuccess: async () => {
+			await Promise.all([
+				queryClient.invalidateQueries({
+					queryKey: orpc.projectContexts.list.queryKey(),
+				}),
+				queryClient.invalidateQueries({
+					queryKey: orpc.contextProposals.list.queryKey({
+						input: { projectId: project.id },
+					}),
+				}),
+			]);
+			setReview(
+				await client.contextProposals.review({
+					projectId: project.id,
+					proposalId: proposal.id,
+				})
+			);
+			toast.success("Etkin Bağlam Sürümü oluşturuldu.");
+		},
+	});
 	const source =
 		proposal.source.kind === "structured_control"
 			? `Yapılandırılmış kontrol · ${proposal.source.controlId}`
 			: `Bağlam ajanı · ${proposal.source.agentId} / ${proposal.source.modelId}`;
+	const isCurrent =
+		project.currentContextRevision.sourceProposalId === proposal.id;
 
 	return (
 		<article className="proposal-record">
 			<div className="proposal-record-top">
 				<span>{new Date(proposal.createdAt).toLocaleString("tr-TR")}</span>
 				<span
-					className={proposal.validation.isValid ? "valid-tag" : "conflict-tag"}
+					className={
+						isCurrent || proposal.validation.isValid
+							? "valid-tag"
+							: "conflict-tag"
+					}
 				>
-					{proposal.validation.isValid ? "Doğrulandı" : "Çakışma var"}
+					{proposalStatusLabel(isCurrent, proposal.validation.isValid)}
 				</span>
 			</div>
 			<h3>{proposal.summary}</h3>
 			<p className="proposal-source">Kaynak: {source}</p>
 			<p className="proposal-base">
-				Dayanak Bağlam Sürümü: {proposal.baseContextRevisionId}
+				Dayanak sürüm, incelemede güncel Etkin Bağlam Sürümü ile
+				karşılaştırılır.
 			</p>
 			<ul className="proposal-changes">
 				{withOccurrenceKeys(proposal.changes, ruleChangeKey).map(
@@ -754,6 +990,10 @@ function ProposalRecord({ proposal }: { proposal: ContextProposal }) {
 							<strong>
 								{operationLabel(change.operation)} · {change.ruleId}
 							</strong>
+							<small>
+								Kapsam:{" "}
+								{contextScopeLabel(change.scope, scopeCatalog, project.name)}
+							</small>
 							{"value" in change ? (
 								<p>Önerilen değer: {formatRuleValue(change.value)}</p>
 							) : null}
@@ -769,11 +1009,326 @@ function ProposalRecord({ proposal }: { proposal: ContextProposal }) {
 					)
 				)}
 			</ul>
-			<p className="proposal-gate">
-				Hazırlandı; etkinleştirme için kullanıcı incelemesi gerekir.
-			</p>
+			<div className="proposal-actions">
+				<Button
+					className="quiet-button"
+					disabled={reviewProposal.isPending}
+					onClick={() => reviewProposal.mutate()}
+					type="button"
+				>
+					{reviewButtonLabel(reviewProposal.isPending, Boolean(review))}
+				</Button>
+				{reviewProposal.error ? (
+					<p className="context-error" role="alert">
+						İnceleme alınamadı. {reviewProposal.error.message}
+					</p>
+				) : null}
+				{review ? (
+					<ProposalReviewPanel
+						activationError={activateProposal.error?.message}
+						currentRevisionId={project.currentContextRevision.id}
+						isActivating={activateProposal.isPending}
+						isCurrent={isCurrent}
+						onActivate={() => activateProposal.mutate(review)}
+						projectName={project.name}
+						review={review}
+						scopeCatalog={scopeCatalog}
+					/>
+				) : null}
+			</div>
 		</article>
 	);
+}
+
+function proposalStatusLabel(isCurrent: boolean, wasValid: boolean) {
+	if (isCurrent) {
+		return "Etkin";
+	}
+	return wasValid ? "İlk kontrolde temiz" : "İlk kontrolde çakışma";
+}
+
+function reviewButtonLabel(isPending: boolean, hasReview: boolean) {
+	if (isPending) {
+		return "Güncel sürüm denetleniyor…";
+	}
+	return hasReview ? "İncelemeyi yenile" : "Öneriyi incele";
+}
+
+function ProposalReviewPanel({
+	activationError,
+	currentRevisionId,
+	isActivating,
+	isCurrent,
+	onActivate,
+	projectName,
+	review,
+	scopeCatalog,
+}: {
+	activationError?: string;
+	currentRevisionId: string;
+	isActivating: boolean;
+	isCurrent: boolean;
+	onActivate: () => void;
+	projectName: string;
+	review: ContextProposalReview;
+	scopeCatalog: ProjectContextScopeCatalog;
+}) {
+	const isStale = !isCurrent && review.currentRevisionId !== currentRevisionId;
+	const wasActivated = review.activatedRevisionNumber !== null;
+	const activationRevisionNumber =
+		review.activatedRevisionNumber ?? review.targetRevisionNumber;
+	return (
+		<section
+			aria-labelledby={`review-${review.proposalId}`}
+			className="proposal-review"
+		>
+			<div className="review-heading">
+				<div>
+					<p className="panel-index">GÜNCEL İNCELEME</p>
+					<h4 id={`review-${review.proposalId}`}>
+						{reviewHeadingLabel(isCurrent, review)}
+					</h4>
+				</div>
+				<span
+					className={
+						(review.activationAllowed && !isStale) || isCurrent
+							? "valid-tag"
+							: "conflict-tag"
+					}
+				>
+					{reviewStatusLabel(isCurrent, isStale, review)}
+				</span>
+			</div>
+			<dl className="review-revisions">
+				<div>
+					<dt>Dayanak</dt>
+					<dd>R{review.baseRevisionNumber}</dd>
+				</div>
+				<div>
+					<dt>Güncel</dt>
+					<dd>R{review.currentRevisionNumber}</dd>
+				</div>
+				<div>
+					<dt>{wasActivated ? "Etkinleşti" : "Oluşacak"}</dt>
+					<dd>R{activationRevisionNumber}</dd>
+				</div>
+			</dl>
+			{!wasActivated && review.isRebased ? (
+				<p className="review-rebase" role="status">
+					Öneri R{review.baseRevisionNumber} sürümünden hazırlanmış. Çakışmayan
+					güncel kurallar yeni sürümde korunuyor.
+				</p>
+			) : null}
+			{isStale ? (
+				<p className="review-rebase" role="status">
+					Etkin Bağlam Sürümü değişti. Etkinleştirmeden önce incelemeyi
+					yenileyin.
+				</p>
+			) : null}
+			{!isStale && review.conflicts.length > 0 ? (
+				<div className="review-conflicts" role="alert">
+					<h5>Etkinleştirme engelleri</h5>
+					<ul>
+						{withOccurrenceKeys(review.conflicts, conflictKey).map(
+							({ item: conflict, key }) => (
+								<li key={key}>
+									<strong>{conflict.ruleId}</strong>
+									<span>{conflict.message}</span>
+								</li>
+							)
+						)}
+					</ul>
+				</div>
+			) : null}
+			{!(wasActivated || isStale) && review.conflicts.length === 0 ? (
+				<p className="review-ready" role="status">
+					Kapsam önceliği, istisnalar ve çakışmalar denetlendi. Bu sürüm
+					yalnızca onayınızla etkinleşir.
+				</p>
+			) : null}
+			<div className="effective-rules">
+				<h5>Sürümün kural zinciri · {review.candidateRules.length} kural</h5>
+				{review.candidateRules.length ? (
+					<ul>
+						{withOccurrenceKeys(review.candidateRules, contextRuleKey).map(
+							({ item: rule, key }) => (
+								<li key={key}>
+									<div>
+										<strong>{rule.id}</strong>
+										<span>
+											{contextScopeLabel(rule.scope, scopeCatalog, projectName)}
+										</span>
+									</div>
+									<p>{formatRuleValue(rule.value)}</p>
+									<small>
+										Öncelik:{" "}
+										{rule.precedenceChain
+											.map((scope) =>
+												contextScopeLabel(scope, scopeCatalog, projectName)
+											)
+											.join(" → ")}
+									</small>
+									{rule.supersedesRuleId ? (
+										<small>
+											İstisna: {rule.supersedesRuleId} kuralını geçersiz kılar
+										</small>
+									) : null}
+									<small>Kaynak: {contextRuleSourceLabel(rule.source)}</small>
+									<small>Gerekçe: {rule.rationale}</small>
+								</li>
+							)
+						)}
+					</ul>
+				) : (
+					<p className="field-hint">Etkin kural bulunmuyor.</p>
+				)}
+			</div>
+			<details className="context-copy-details">
+				<summary>Üretim Bağlamı Kopyası</summary>
+				<pre>{review.contextCopy}</pre>
+			</details>
+			{activationError ? (
+				<p className="context-error" role="alert">
+					Etkinleştirme tamamlanamadı. {activationError} İncelemeyi yenileyip
+					tekrar deneyin.
+				</p>
+			) : null}
+			<ProposalActivationOutcome
+				activationRevisionNumber={activationRevisionNumber}
+				currentRevisionNumber={review.currentRevisionNumber}
+				isActivating={isActivating}
+				isCurrent={isCurrent}
+				isStale={isStale}
+				onActivate={onActivate}
+				review={review}
+			/>
+		</section>
+	);
+}
+
+function reviewHeadingLabel(isCurrent: boolean, review: ContextProposalReview) {
+	if (isCurrent) {
+		const revisionNumber =
+			review.activatedRevisionNumber ?? review.currentRevisionNumber;
+		return `Etkin sürüm · R${revisionNumber}`;
+	}
+	if (review.activatedRevisionNumber !== null) {
+		return `Önceki etkinleştirme · R${review.activatedRevisionNumber}`;
+	}
+	return `Etkinleştirme özeti · R${review.targetRevisionNumber}`;
+}
+
+function ProposalActivationOutcome({
+	activationRevisionNumber,
+	currentRevisionNumber,
+	isActivating,
+	isCurrent,
+	isStale,
+	onActivate,
+	review,
+}: {
+	activationRevisionNumber: number;
+	currentRevisionNumber: number;
+	isActivating: boolean;
+	isCurrent: boolean;
+	isStale: boolean;
+	onActivate: () => void;
+	review: ContextProposalReview;
+}) {
+	if (isCurrent) {
+		return (
+			<p className="review-ready" role="status">
+				Bu öneri Etkin Bağlam Sürümü R{activationRevisionNumber} olarak
+				kaydedildi.
+			</p>
+		);
+	}
+	if (review.activatedRevisionNumber !== null) {
+		return (
+			<p className="review-rebase" role="status">
+				Bu öneri R{activationRevisionNumber} sürümünü oluşturdu. Güncel Etkin
+				Bağlam Sürümü R{currentRevisionNumber}.
+			</p>
+		);
+	}
+	return (
+		<Button
+			className="signal-button activate-proposal"
+			disabled={!review.activationAllowed || isActivating || isStale}
+			onClick={onActivate}
+			type="button"
+		>
+			{isActivating
+				? "Etkinleştiriliyor…"
+				: `R${review.targetRevisionNumber} sürümünü etkinleştir`}
+		</Button>
+	);
+}
+
+function reviewStatusLabel(
+	isCurrent: boolean,
+	isStale: boolean,
+	review: ContextProposalReview
+) {
+	if (isCurrent) {
+		return "Etkin";
+	}
+	if (review.activatedRevisionNumber !== null) {
+		return "Daha önce etkinleştirildi";
+	}
+	if (isStale) {
+		return "Yeniden inceleme gerekli";
+	}
+	return review.activationAllowed
+		? "Etkinleştirilebilir"
+		: `${review.conflicts.length} engel`;
+}
+
+function conflictKey(conflict: ContextProposalReview["conflicts"][number]) {
+	return `${conflict.code}:${conflict.ruleId}:${conflict.message}`;
+}
+
+function contextRuleKey(rule: ContextRule) {
+	return `${rule.id}:${rule.scope.kind}:${rule.scope.id}`;
+}
+
+function contextScopeLabel(
+	scope: ContextScope,
+	scopeCatalog: ProjectContextScopeCatalog,
+	projectName: string
+) {
+	if (scope.kind === "project") {
+		return `Proje · ${projectName}`;
+	}
+	if (scope.kind === "visual_world") {
+		const visualWorld = scopeCatalog.visualWorlds.find(
+			(record) => record.id === scope.id
+		);
+		return visualWorld
+			? `Görsel Dünya · ${visualWorld.name}`
+			: `Görsel Dünya · bulunamadı (${scope.id})`;
+	}
+	if (scope.kind === "theme") {
+		const theme = scopeCatalog.themes.find((record) => record.id === scope.id);
+		const visualWorld = scopeCatalog.visualWorlds.find(
+			(record) => record.id === theme?.visualWorldId
+		);
+		return theme && visualWorld
+			? `Tema · ${visualWorld.name} / ${theme.name}`
+			: `Tema · bulunamadı (${scope.id})`;
+	}
+	const labels = {
+		asset_family: "Varlık Ailesi",
+		asset: "Varlık",
+		operation: "İşlem",
+	};
+	return `${labels[scope.kind]} · ${scope.id}`;
+}
+
+function contextRuleSourceLabel(source: ContextRule["source"]) {
+	return source.kind === "project_setup"
+		? "Proje kurulumu"
+		: `Bağlam Önerisi ${source.proposalId}`;
 }
 
 function EmptyProposalLedger() {
@@ -792,9 +1347,14 @@ function EmptyProposalLedger() {
 
 function availableRules(
 	baseRevision: ContextRevision,
-	operation: ChangeDraft["operation"]
+	operation: ChangeDraft["operation"],
+	scope: ContextScope
 ) {
-	const existingRuleIds = new Set(baseRevision.rules.map((rule) => rule.id));
+	const existingRuleIds = new Set(
+		baseRevision.rules
+			.filter((rule) => sameScope(rule.scope, scope))
+			.map((rule) => rule.id)
+	);
 	return STRUCTURED_CONTEXT_RULE_IDS.filter((ruleId) =>
 		operation === "add"
 			? !existingRuleIds.has(ruleId)
@@ -821,11 +1381,14 @@ function valueTypeLabel(valueType: ValueType) {
 	}
 }
 
-function newChangeDraft(ruleId: string): ChangeDraft {
+function newChangeDraft(ruleId: string, scopeOption: ScopeOption): ChangeDraft {
 	return {
 		id: crypto.randomUUID(),
 		operation: "add",
 		ruleId,
+		scope: scopeOption.scope,
+		precedenceChain: scopeOption.precedenceChain,
+		isOverride: false,
 		value: "",
 		rationale: "",
 		evidenceKind: "user_decision",
@@ -835,11 +1398,12 @@ function newChangeDraft(ruleId: string): ChangeDraft {
 
 function toContextRuleChange(
 	change: ChangeDraft,
-	projectId: string
+	baseRules: ContextRule[]
 ): ContextRuleChange {
 	const shared = {
 		ruleId: change.ruleId,
-		scope: { kind: "project" as const, id: projectId },
+		scope: change.scope,
+		precedenceChain: change.precedenceChain,
 		rationale: change.rationale,
 		evidence: [
 			{ kind: change.evidenceKind, statement: change.evidence },
@@ -848,11 +1412,95 @@ function toContextRuleChange(
 	if (change.operation === "remove") {
 		return { operation: "remove", ...shared };
 	}
+	const inheritedRule = findNearestInheritedContextRule(
+		change.ruleId,
+		change.scope,
+		change.precedenceChain,
+		baseRules
+	);
 	return {
 		operation: change.operation,
 		...shared,
+		supersedesRuleId:
+			change.isOverride && inheritedRule ? inheritedRule.id : null,
 		value: parseRuleValue(change.value, structuredValueType(change.ruleId)),
 	};
+}
+
+function createScopeOptions(
+	project: ProjectContext,
+	scopeCatalog: ProjectContextScopeCatalog
+): [ScopeOption, ...ScopeOption[]] {
+	const projectScope: ContextScope = { kind: "project", id: project.id };
+	const projectOption: ScopeOption = {
+		label: `Proje · ${project.name}`,
+		scope: projectScope,
+		precedenceChain: [projectScope],
+	};
+	const visualWorldOptions = scopeCatalog.visualWorlds
+		.filter((visualWorld) => visualWorld.projectId === project.id)
+		.map((visualWorld) => {
+			const scope: ContextScope = {
+				kind: "visual_world",
+				id: visualWorld.id,
+			};
+			return {
+				label: `Görsel Dünya · ${visualWorld.name}`,
+				scope,
+				precedenceChain: [scope, projectScope],
+			};
+		});
+	const themeOptions = scopeCatalog.themes.flatMap((theme) => {
+		const visualWorld = scopeCatalog.visualWorlds.find(
+			(candidate) =>
+				candidate.id === theme.visualWorldId &&
+				candidate.projectId === project.id
+		);
+		if (theme.projectId !== project.id || !visualWorld) {
+			return [];
+		}
+		const scope: ContextScope = { kind: "theme", id: theme.id };
+		const visualWorldScope: ContextScope = {
+			kind: "visual_world",
+			id: visualWorld.id,
+		};
+		return [
+			{
+				label: `Tema · ${visualWorld.name} / ${theme.name}`,
+				scope,
+				precedenceChain: [scope, visualWorldScope, projectScope],
+			},
+		];
+	});
+	return [projectOption, ...visualWorldOptions, ...themeOptions];
+}
+
+function sameScope(left: ContextScope, right: ContextScope) {
+	return left.kind === right.kind && left.id === right.id;
+}
+
+function scopeKeyFrom(scope: ContextScope) {
+	return `${scope.kind}:${scope.id}`;
+}
+
+function scopeOptionLabel(scope: ContextScope, options: ScopeOption[]) {
+	const matchingOption = options.find((option) =>
+		sameScope(option.scope, scope)
+	);
+	if (matchingOption) {
+		return matchingOption.label;
+	}
+	const labels: Record<ContextScope["kind"], string> = {
+		project: "Proje",
+		visual_world: "Görsel Dünya",
+		theme: "Tema",
+		asset_family: "Varlık Ailesi",
+		asset: "Varlık",
+		operation: "İşlem",
+	};
+	return scope.kind === "project"
+		? labels.project
+		: `${labels[scope.kind]} · ${scope.id}`;
 }
 
 function parseRuleValue(value: string, valueType: ValueType): ContextRuleValue {

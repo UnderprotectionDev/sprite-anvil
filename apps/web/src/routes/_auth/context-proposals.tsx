@@ -1,3 +1,4 @@
+import type { ProjectContextScopeCatalog } from "@sprite-anvil/api/context-scopes";
 import type {
 	ProjectContext,
 	ProjectContextCreateInput,
@@ -35,6 +36,14 @@ function ContextProposalsPage() {
 		projectsQuery.data?.find((project) => project.id === selectedProjectId) ??
 		projectsQuery.data?.[0];
 	const projectId = selectedProject?.id;
+	const scopeQueryOptions = orpc.contextScopes.list.queryOptions({
+		input: { projectId: projectId ?? "00000000-0000-4000-8000-000000000000" },
+	});
+	const scopeQuery = useQuery({
+		...scopeQueryOptions,
+		enabled: Boolean(projectId),
+		meta: { errorPresentation: "inline" },
+	});
 	const proposalsQueryOptions = orpc.contextProposals.list.queryOptions({
 		input: { projectId: projectId ?? "00000000-0000-4000-8000-000000000000" },
 	});
@@ -192,6 +201,9 @@ function ContextProposalsPage() {
 				isProposalsError={proposalsQuery.isError}
 				isProposalsFetching={proposalsQuery.isFetching}
 				isProposalsPending={proposalsQuery.isPending}
+				isScopeError={scopeQuery.isError}
+				isScopeFetching={scopeQuery.isFetching}
+				isScopePending={scopeQuery.isPending}
 				onCheckProposalState={async () =>
 					(await proposalsQuery.refetch()).isError
 				}
@@ -201,19 +213,22 @@ function ContextProposalsPage() {
 				}}
 				onRefreshProposals={() => proposalsQuery.refetch()}
 				onRetryProposals={() => void proposalsQuery.refetch()}
+				onRetryScope={() => void scopeQuery.refetch()}
 				onSelectProject={selectProject}
 				project={selectedProject}
 				projects={projectsQuery.data ?? []}
 				proposals={proposalsQuery.data ?? []}
-				proposalsError={
-					proposalsQuery.isError
-						? getErrorMessage(
-								proposalsQuery.error,
-								"Öneriler yüklenemedi. Yeniden deneyin.",
-								"query"
-							)
-						: undefined
-				}
+				proposalsError={getErrorMessage(
+					proposalsQuery.error,
+					"Öneriler yüklenemedi. Yeniden deneyin.",
+					"query"
+				)}
+				scopeCatalog={scopeQuery.data ?? EMPTY_SCOPE_CATALOG}
+				scopeError={getErrorMessage(
+					scopeQuery.error,
+					"Kapsam kayıtları yüklenemedi. Yeniden deneyin.",
+					"query"
+				)}
 			/>
 		);
 	}
@@ -248,3 +263,8 @@ function ContextProposalsPage() {
 		</main>
 	);
 }
+
+const EMPTY_SCOPE_CATALOG: ProjectContextScopeCatalog = {
+	visualWorlds: [],
+	themes: [],
+};

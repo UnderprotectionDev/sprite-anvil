@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import { RPCHandler } from "@orpc/server/fetch";
+import type { ProjectContextScopeStore } from "@sprite-anvil/api/context-scopes";
 import type {
 	ContextAgentScope,
 	ExternalVisualAnalysisCategory,
@@ -33,9 +34,17 @@ const unusedProjectContextStore = {
 		throw new Error("Unexpected Context Proposal access in this test");
 	},
 	getRevision: () => Promise.resolve(null),
+	getRevisionByProposal: () => Promise.resolve(null),
+	getProposal: () => Promise.resolve(null),
+	activateProposal: () => Promise.resolve(null),
 	listProjects: () => Promise.resolve([]),
 	listProposals: () => Promise.resolve([]),
 } satisfies ProjectContextStore;
+const unusedProjectContextScopeStore = {
+	createTheme: () => Promise.resolve(null),
+	createVisualWorld: () => Promise.resolve(null),
+	list: () => Promise.resolve(null),
+} satisfies ProjectContextScopeStore;
 
 function createTestAuth() {
 	const database: MemoryDB = {};
@@ -269,6 +278,7 @@ function createRpcClient(
 				}),
 				projectAccess: store,
 				projectContextStore: unusedProjectContextStore,
+				projectContextScopeStore: unusedProjectContextScopeStore,
 				session: await getSession(c.req.raw.headers),
 			},
 			prefix: "/rpc",

@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { RPCHandler } from "@orpc/server/fetch";
+import type { ProjectContextScopeStore } from "@sprite-anvil/api/context-scopes";
 import {
 	privateDataResponseSchema,
 	serializePrivateDataResponse,
@@ -28,9 +29,17 @@ const unusedProjectContextStore = {
 		throw new Error("Unexpected Context Proposal access in this test");
 	},
 	getRevision: () => Promise.resolve(null),
+	getRevisionByProposal: () => Promise.resolve(null),
+	getProposal: () => Promise.resolve(null),
+	activateProposal: () => Promise.resolve(null),
 	listProjects: () => Promise.resolve([]),
 	listProposals: () => Promise.resolve([]),
 } satisfies ProjectContextStore;
+const unusedProjectContextScopeStore = {
+	createTheme: () => Promise.resolve(null),
+	createVisualWorld: () => Promise.resolve(null),
+	list: () => Promise.resolve(null),
+} satisfies ProjectContextScopeStore;
 
 test("RPC response serializers use strict allowlisted output contracts", () => {
 	const user = {
@@ -137,6 +146,7 @@ test("mounted RPC output does not return secret fields from the session user", a
 						"postgresql://user:password@localhost:5432/sprite-anvil-test",
 				}),
 				projectContextStore: unusedProjectContextStore,
+				projectContextScopeStore: unusedProjectContextScopeStore,
 				session: sessionWithSecretFields,
 			},
 		});

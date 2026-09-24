@@ -1,4 +1,4 @@
-import { defineRelationsPart } from "drizzle-orm";
+import { defineRelationsPart, sql } from "drizzle-orm";
 import {
 	foreignKey,
 	index,
@@ -21,7 +21,8 @@ export const contextRevisions = pgTable(
 			.notNull()
 			.references(() => project.id, { onDelete: "cascade" }),
 		revisionNumber: integer("revision_number").notNull(),
-		state: text("state").$type<"baseline" | "active">().notNull(),
+		state: text("state").$type<"baseline" | "active" | "inactive">().notNull(),
+		sourceProposalId: text("source_proposal_id"),
 		contractVersion: text("contract_version").notNull(),
 		rules: jsonb("rules").$type<unknown[]>().notNull(),
 		createdByUserId: text("created_by_user_id")
@@ -38,6 +39,12 @@ export const contextRevisions = pgTable(
 			table.projectId,
 			table.revisionNumber
 		),
+		uniqueIndex("context_revisions_source_proposal_id_idx").on(
+			table.sourceProposalId
+		),
+		uniqueIndex("context_revisions_project_active_idx")
+			.on(table.projectId)
+			.where(sql`${table.state} = 'active'`),
 	]
 );
 

@@ -8,12 +8,13 @@ import { user } from "@sprite-anvil/db/schema/auth";
 import { contextRevisions } from "@sprite-anvil/db/schema/project-context";
 import { eq } from "drizzle-orm";
 import { createProjectAccessStore } from "./features/projects/server/project-access-store";
+import { createProjectContextScopeStore } from "./project-context-scope-store";
 import { createProjectContextStore } from "./project-context-store";
 
 const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
 
 test.skipIf(!databaseUrl)(
-	"creates and rereads a structured proposal through Neon and Drizzle",
+	"creates, reviews, and activates a structured proposal through Neon and Drizzle",
 	async () => {
 		if (!databaseUrl) {
 			throw new Error("CONTEXT_TEST_DATABASE_URL is required for this test.");
@@ -33,9 +34,11 @@ test.skipIf(!databaseUrl)(
 			insertedUser = true;
 
 			const store = createProjectContextStore(db);
+			const scopeStore = createProjectContextScopeStore(db);
 			const context: Context = {
 				db,
 				projectAccess: createProjectAccessStore(db, store),
+				projectContextScopeStore: scopeStore,
 				projectContextStore: store,
 				session: { user: { id: userId } } as Context["session"],
 			};
@@ -47,6 +50,30 @@ test.skipIf(!databaseUrl)(
 				},
 				{ context }
 			);
+			const visualWorld = await call(
+				appRouter.contextScopes.createVisualWorld,
+				{ projectId: project.id, name: "Ridge villages" },
+				{ context }
+			);
+			const theme = await call(
+				appRouter.contextScopes.createTheme,
+				{
+					projectId: project.id,
+					visualWorldId: visualWorld.id,
+					name: "Lantern festival",
+				},
+				{ context }
+			);
+			const scopeCatalog = await call(
+				appRouter.contextScopes.list,
+				{ projectId: project.id },
+				{ context }
+			);
+
+			expect(scopeCatalog).toEqual({
+				visualWorlds: [visualWorld],
+				themes: [theme],
+			});
 
 			const activeRevisionId = crypto.randomUUID();
 			const activeRule: ContextRule = {
@@ -103,10 +130,41 @@ test.skipIf(!databaseUrl)(
 
 			const rereadContext: Context = {
 				...context,
+				projectContextScopeStore: createProjectContextScopeStore(
+					createDb({ DATABASE_URL: databaseUrl })
+				),
 				projectContextStore: createProjectContextStore(
 					createDb({ DATABASE_URL: databaseUrl })
 				),
 			};
+			const review = await call(
+				appRouter.contextProposals.review,
+				{ projectId: project.id, proposalId: created.id },
+				{ context: rereadContext }
+			);
+			const activated = await call(
+				appRouter.contextProposals.activate,
+				{
+					projectId: project.id,
+					proposalId: created.id,
+					expectedCurrentRevisionId: review.currentRevisionId,
+				},
+				{ context: rereadContext }
+			);
+			const repeatedReview = await call(
+				appRouter.contextProposals.review,
+				{ projectId: project.id, proposalId: created.id },
+				{ context: rereadContext }
+			);
+			const repeatedActivation = await call(
+				appRouter.contextProposals.activate,
+				{
+					projectId: project.id,
+					proposalId: created.id,
+					expectedCurrentRevisionId: repeatedReview.currentRevisionId,
+				},
+				{ context: rereadContext }
+			);
 			const reread = await call(
 				appRouter.contextProposals.list,
 				{ projectId: project.id },
@@ -119,6 +177,117 @@ test.skipIf(!databaseUrl)(
 				value: { type: "number", value: 1.5 },
 			});
 			expect(reread).toEqual([created]);
+			expect(review.activationAllowed).toBe(true);
+			expect(review.contextCopy).toContain("1.5");
+			expect(activated).toMatchObject({
+				revisionNumber: 2,
+				sourceProposalId: created.id,
+				isActive: true,
+			});
+			expect(repeatedActivation).toEqual(activated);
+
+			const laterProposal = await call(
+				appRouter.contextProposals.create,
+				{
+					projectId: project.id,
+					baseContextRevisionId: activated.id,
+					summary: "Keep light direction consistent",
+					changes: [
+						{
+							operation: "add",
+							ruleId: "light.direction",
+							scope: { kind: "project", id: project.id },
+							value: { type: "text", value: "north east" },
+							rationale: "Keep the environment lighting consistent.",
+							evidence: [
+								{
+									kind: "user_decision",
+									statement: "Light comes from the north east.",
+								},
+							],
+						},
+					],
+				},
+				{ context: rereadContext }
+			);
+			const laterReview = await call(
+				appRouter.contextProposals.review,
+				{ projectId: project.id, proposalId: laterProposal.id },
+				{ context: rereadContext }
+			);
+			const laterActivation = await call(
+				appRouter.contextProposals.activate,
+				{
+					projectId: project.id,
+					proposalId: laterProposal.id,
+					expectedCurrentRevisionId: laterReview.currentRevisionId,
+				},
+				{ context: rereadContext }
+			);
+			const oldProposalReview = await call(
+				appRouter.contextProposals.review,
+				{ projectId: project.id, proposalId: created.id },
+				{ context: rereadContext }
+			);
+			expect(oldProposalReview).toMatchObject({
+				activationAllowed: false,
+				activatedRevisionNumber: 2,
+				targetRevisionNumber: 2,
+			});
+			await expect(
+				call(
+					appRouter.contextProposals.activate,
+					{
+						projectId: project.id,
+						proposalId: created.id,
+						expectedCurrentRevisionId: oldProposalReview.currentRevisionId,
+					},
+					{ context: rereadContext }
+				)
+			).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+			const currentProjects = await call(
+				appRouter.projectContexts.list,
+				{},
+				{ context: rereadContext }
+			);
+			const revisions = await db
+				.select({
+					id: contextRevisions.id,
+					revisionNumber: contextRevisions.revisionNumber,
+					state: contextRevisions.state,
+					sourceProposalId: contextRevisions.sourceProposalId,
+				})
+				.from(contextRevisions)
+				.where(eq(contextRevisions.projectId, project.id));
+
+			expect(laterActivation).toMatchObject({
+				revisionNumber: 3,
+				sourceProposalId: laterProposal.id,
+				isActive: true,
+			});
+			expect(currentProjects[0]?.currentContextRevision).toEqual(
+				laterActivation
+			);
+			expect(revisions).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						id: activeRevisionId,
+						revisionNumber: 1,
+						state: "inactive",
+					}),
+					expect.objectContaining({
+						revisionNumber: 2,
+						state: "inactive",
+						sourceProposalId: created.id,
+					}),
+					expect.objectContaining({
+						revisionNumber: 3,
+						state: "active",
+						sourceProposalId: laterProposal.id,
+					}),
+				])
+			);
 		} finally {
 			if (insertedUser) {
 				await db.delete(user).where(eq(user.id, userId));
