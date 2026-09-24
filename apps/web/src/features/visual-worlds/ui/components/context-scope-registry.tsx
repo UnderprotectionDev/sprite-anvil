@@ -4,13 +4,13 @@ import type {
 	VisualWorldCreateInput,
 } from "@sprite-anvil/api/context-scopes";
 import type { ProjectContext } from "@sprite-anvil/api/project-context";
-import { Button } from "@sprite-anvil/ui/components/button";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type SyntheticEvent, useState } from "react";
 import { toast } from "sonner";
 import { QueryRetryButton } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
+import { ThemeForm, VisualWorldForm } from "../forms/scope-forms";
 
 export function ScopeRegistryPanel({
 	isError,
@@ -139,89 +139,27 @@ export function ScopeRegistryPanel({
 				</div>
 			) : null}
 			<div className="scope-registry-grid">
-				<form className="scope-create-form" onSubmit={submitVisualWorld}>
-					<h3>Görsel Dünya ekleyin</h3>
-					<label className="context-field">
-						<span>Görsel Dünya adı</span>
-						<input
-							maxLength={120}
-							onChange={(event) => setVisualWorldName(event.target.value)}
-							placeholder="Örn. Yüksek yaylalar"
-							required
-							value={visualWorldName}
-						/>
-					</label>
-					<label className="context-field">
-						<span>Açıklama</span>
-						<textarea
-							maxLength={1000}
-							onChange={(event) =>
-								setVisualWorldDescription(event.target.value)
-							}
-							placeholder="Bu dünyanın ayırt edici bağlamını açıklayın."
-							rows={2}
-							value={visualWorldDescription}
-						/>
-					</label>
-					<Button
-						className="quiet-button"
-						disabled={createVisualWorld.isPending || isError}
-						type="submit"
-					>
-						{createVisualWorld.isPending
-							? "Kaydediliyor…"
-							: "Görsel Dünya ekle"}
-					</Button>
-				</form>
-				<form className="scope-create-form" onSubmit={submitTheme}>
-					<h3>Tema ekleyin</h3>
-					<label className="context-field">
-						<span>Görsel Dünya</span>
-						<select
-							onChange={(event) => setThemeVisualWorldId(event.target.value)}
-							required
-							value={selectedVisualWorldId}
-						>
-							{scopeCatalog.visualWorlds.length ? null : (
-								<option value="">Önce bir Görsel Dünya ekleyin</option>
-							)}
-							{scopeCatalog.visualWorlds.map((visualWorld) => (
-								<option key={visualWorld.id} value={visualWorld.id}>
-									{visualWorld.name}
-								</option>
-							))}
-						</select>
-					</label>
-					<label className="context-field">
-						<span>Tema adı</span>
-						<input
-							maxLength={120}
-							onChange={(event) => setThemeName(event.target.value)}
-							placeholder="Örn. Kış pazarı"
-							required
-							value={themeName}
-						/>
-					</label>
-					<label className="context-field">
-						<span>Açıklama</span>
-						<textarea
-							maxLength={1000}
-							onChange={(event) => setThemeDescription(event.target.value)}
-							placeholder="Bu temanın ayırt edici bağlamını açıklayın."
-							rows={2}
-							value={themeDescription}
-						/>
-					</label>
-					<Button
-						className="quiet-button"
-						disabled={
-							createTheme.isPending || isError || !selectedVisualWorldId
-						}
-						type="submit"
-					>
-						{createTheme.isPending ? "Kaydediliyor…" : "Tema ekle"}
-					</Button>
-				</form>
+				<VisualWorldForm
+					description={visualWorldDescription}
+					isError={isError}
+					isPending={createVisualWorld.isPending}
+					name={visualWorldName}
+					onDescriptionChange={setVisualWorldDescription}
+					onNameChange={setVisualWorldName}
+					onSubmit={submitVisualWorld}
+				/>
+				<ThemeForm
+					description={themeDescription}
+					isError={isError}
+					isPending={createTheme.isPending}
+					name={themeName}
+					onDescriptionChange={setThemeDescription}
+					onNameChange={setThemeName}
+					onSubmit={submitTheme}
+					onVisualWorldChange={setThemeVisualWorldId}
+					selectedVisualWorldId={selectedVisualWorldId}
+					visualWorlds={scopeCatalog.visualWorlds}
+				/>
 			</div>
 			{formError ? (
 				<p className="context-error" role="alert">

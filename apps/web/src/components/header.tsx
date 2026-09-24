@@ -1,7 +1,6 @@
 import { Link } from "@tanstack/react-router";
-
+import UserMenu from "@/features/account-access/ui/components/user-menu";
 import { ModeToggle } from "./mode-toggle";
-import UserMenu from "./user-menu";
 
 export default function Header() {
 	const links = [
