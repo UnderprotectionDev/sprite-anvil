@@ -12,6 +12,8 @@ import { type SyntheticEvent, useState } from "react";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
 
+import { ExternalVisualAnalysisConsent } from "./-external-visual-analysis-consent";
+
 export const Route = createFileRoute("/_auth/projects_/$projectId/access")({
 	component: ProjectAccessRoute,
 });
@@ -236,23 +238,7 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 				</p>
 			</section>
 
-			<section
-				aria-labelledby="external-analysis-heading"
-				className="space-y-2 rounded-lg border p-5"
-			>
-				<div className="flex flex-wrap items-center justify-between gap-2">
-					<h2 className="font-semibold text-xl" id="external-analysis-heading">
-						Harici Görsel Analizi
-					</h2>
-					<span className="rounded-full border px-2.5 py-1 font-medium text-xs">
-						Kapalı
-					</span>
-				</div>
-				<p className="text-muted-foreground text-sm">
-					Bu ekrandan görsel gönderimi etkinleştirilemez. Harici analiz ayrı,
-					açık bir kullanıcı izni gerektirir.
-				</p>
-			</section>
+			<ExternalVisualAnalysisConsent projectId={projectId} />
 
 			<p className="text-muted-foreground text-sm">
 				Dış araç izinleri Bağlam Sürümü'nü etkinleştirme, İnceleme Kaydı
