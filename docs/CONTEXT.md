@@ -101,6 +101,7 @@ English terms are the canonical technical names used in code and contracts. Turk
 | Runtime Validation Record | Çalışma Zamanı Doğrulama Kaydı |
 | Gameplay Metadata | Oyun İçi Bilgiler |
 | Deletion Job | Silme İşlemi |
+| Support Reference | Destek Referansı |
 | Tool Access Permission | Dış Araç Erişim İzni |
 | External Tool Connection | Dış Araç Bağlantısı |
 | Operational Acceptance Profile | Operasyonel Kabul Profili |
@@ -534,6 +535,10 @@ _Avoid_: Visual bounds, automatic collision truth
 **Deletion Job**:
 A trackable erasure operation authorized against an exact Erasure Impact Report. The report identifies managed copies, immutable archives or bundles that embed the content, affected historical fulfilments, excluded copies, and the published backup-retention deadline. An immutable container is erased as a whole or left unchanged; it is never silently rewritten to remove one item. A content-free deletion receipt records completion, and an Erasure Tombstone remains only when content-free lineage is preserved.
 _Avoid_: Instant unverifiable deletion, archive action
+
+**Support Reference**:
+A non-secret identifier shown for an unexpected server failure and recorded with its server-side diagnostic log. It helps correlate a user's report with that failure without exposing the exception or establishing whether a write committed. It is distinct from an operation identity.
+_Avoid_: Request ID, operation ID, exception detail, trace ID
 
 ## Candidate feature vocabulary
 

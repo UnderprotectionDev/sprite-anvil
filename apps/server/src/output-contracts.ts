@@ -1,3 +1,5 @@
+import { ORPCError } from "@orpc/server";
+import { supportReferenceSchema } from "@sprite-anvil/api/error-contract";
 import z from "zod";
 
 /**
@@ -48,13 +50,31 @@ export const publicApiErrorSchema = z
 			"2D Visual Asset upload failed",
 			"Internal Server Error",
 		]),
+		supportReference: supportReferenceSchema.optional(),
 	})
 	.strict();
 
 export type PublicApiError = z.infer<typeof publicApiErrorSchema>["error"];
 
-export function serializePublicApiError(error: PublicApiError) {
-	return publicApiErrorSchema.parse({ error });
+export function serializePublicApiError(
+	error: PublicApiError,
+	supportReference?: string
+) {
+	return publicApiErrorSchema.parse({
+		error,
+		...(supportReference ? { supportReference } : {}),
+	});
+}
+
+export function serializeRpcInternalServerError(supportReference: string) {
+	return {
+		json: new ORPCError("INTERNAL_SERVER_ERROR", {
+			message: "Internal server error",
+			data: {
+				supportReference: supportReferenceSchema.parse(supportReference),
+			},
+		}).toJSON(),
+	};
 }
 
 export const healthResponseSchema = z
