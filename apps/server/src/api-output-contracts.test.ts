@@ -13,6 +13,10 @@ import { betterAuth } from "better-auth";
 import { type MemoryDB, memoryAdapter } from "better-auth/adapters/memory";
 import { testUtils } from "better-auth/plugins";
 import { Hono } from "hono";
+import {
+	publicApiErrorSchema,
+	serializePublicApiError,
+} from "./output-contracts";
 
 const createdAt = new Date("2026-09-23T10:00:00.000Z");
 const secretFieldPattern =
@@ -81,6 +85,24 @@ test("RPC response serializers use strict allowlisted output contracts", () => {
 		}).success
 	).toBe(false);
 	expect(serializeRpcHealthResponse()).toBe("OK");
+});
+
+test("public HTTP errors accept a valid support reference without requiring one", () => {
+	const supportReference = "SUP-7CFB1C3A-A7A3-4BC2-B748-B5065AA2314A";
+
+	expect(
+		serializePublicApiError("Internal Server Error", supportReference)
+	).toEqual({
+		error: "Internal Server Error",
+		supportReference,
+	});
+	expect(serializePublicApiError("Not found")).toEqual({ error: "Not found" });
+	expect(
+		publicApiErrorSchema.safeParse({
+			error: "Internal Server Error",
+			supportReference: "SUP-not-a-uuid",
+		}).success
+	).toBe(false);
 });
 
 test("mounted RPC output does not return secret fields from the session user", async () => {

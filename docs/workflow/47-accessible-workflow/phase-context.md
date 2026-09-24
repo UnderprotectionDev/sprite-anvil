@@ -8,7 +8,9 @@ Kullanıcı web ve masaüstünde temel üretim akışını klavye ve yardımcı 
 
 ### Karar ve Durumları Erişilebilir Sunma
 
-İnceleme, uygunluk, kalite, kayıt, hata ve uyarı anlamları ad, metin ve durum bildirimiyle anlaşılır.
+İnceleme, uygunluk, kalite, kayıt, hata ve uyarı anlamları ad, metin ve durum bildirimiyle anlaşılır. Beklenmeyen sunucu hatası genel açıklama ve Destek Referansı taşır; bağlantı hatası sunucu referansı uydurmaz.
+
+Okuma hatası güvenli bir yeniden deneme sunabilir. Yazma sonucu belirsizse sistem “kaydedilmedi” iddiasında bulunmaz ve işlemi tekrarlatmaz; kullanıcıya güncel durumu kontrol etmesini söyler. Bu ayrım yalnızca renkle aktarılmaz.
 
 Odak görünürdür; web WCAG 2.2 AA, masaüstü aynı akışta eşdeğer klavye ve ekran okuyucu sonucunu sağlar.
 

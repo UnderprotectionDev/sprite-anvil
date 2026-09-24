@@ -8,17 +8,23 @@ import { Button } from "@sprite-anvil/ui/components/button";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type SyntheticEvent, useState } from "react";
 import { toast } from "sonner";
+import { QueryRetryButton } from "@/utils/error-notification";
+import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
 
 export function ScopeRegistryPanel({
 	isError,
+	isFetching,
 	isPending,
+	onRetry,
 	project,
 	queryError,
 	scopeCatalog,
 }: {
 	isError: boolean;
+	isFetching: boolean;
 	isPending: boolean;
+	onRetry: () => void;
 	project: ProjectContext;
 	queryError?: string;
 	scopeCatalog: ProjectContextScopeCatalog;
@@ -50,7 +56,10 @@ export function ScopeRegistryPanel({
 			});
 			toast.success("Görsel Dünya kaydedildi.");
 		},
-		onError: (error) => setFormError(error.message),
+		onError: (error) =>
+			setFormError(
+				getErrorMessage(error, "Görsel Dünya kaydedilemedi. Yeniden deneyin.")
+			),
 	});
 	const createTheme = useMutation({
 		mutationFn: (input: ThemeCreateInput) =>
@@ -66,7 +75,10 @@ export function ScopeRegistryPanel({
 			});
 			toast.success("Tema kaydedildi.");
 		},
-		onError: (error) => setFormError(error.message),
+		onError: (error) =>
+			setFormError(
+				getErrorMessage(error, "Tema kaydedilemedi. Yeniden deneyin.")
+			),
 	});
 
 	function submitVisualWorld(event: SyntheticEvent<HTMLFormElement>) {
@@ -115,9 +127,16 @@ export function ScopeRegistryPanel({
 				</p>
 			) : null}
 			{isError ? (
-				<p className="context-error" role="alert">
-					Kapsam kayıtları yüklenemedi. {queryError}
-				</p>
+				<div className="space-y-2">
+					<p className="context-error" role="alert">
+						Kapsam kayıtları yüklenemedi. {queryError}
+					</p>
+					<QueryRetryButton
+						className="quiet-button"
+						disabled={isFetching}
+						onRetry={onRetry}
+					/>
+				</div>
 			) : null}
 			<div className="scope-registry-grid">
 				<form className="scope-create-form" onSubmit={submitVisualWorld}>

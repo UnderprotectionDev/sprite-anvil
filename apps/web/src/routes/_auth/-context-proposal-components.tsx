@@ -22,6 +22,11 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Send, Trash2 } from "lucide-react";
 import { type ReactNode, type SyntheticEvent, useState } from "react";
 import { toast } from "sonner";
+import {
+	isWriteOutcomeUncertain,
+	QueryRetryButton,
+} from "@/utils/error-notification";
+import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
 import { ScopeRegistryPanel } from "./-context-scope-registry";
 
@@ -58,15 +63,21 @@ interface ChangeDraft {
 
 interface ProjectSetupFormProps {
 	error: string | null;
+	isCheckingOutcome?: boolean;
+	isOutcomeUncertain?: boolean;
 	isPending: boolean;
 	onCancel?: () => void;
+	onCheckOutcome?: () => void;
 	onSubmit: (input: ProjectContextCreateInput) => void;
 }
 
 export function ProjectSetupForm({
 	error,
+	isCheckingOutcome = false,
+	isOutcomeUncertain = false,
 	isPending,
 	onCancel,
+	onCheckOutcome,
 	onSubmit,
 }: ProjectSetupFormProps) {
 	const [name, setName] = useState("");
@@ -74,6 +85,9 @@ export function ProjectSetupForm({
 
 	function submit(event: SyntheticEvent<HTMLFormElement>) {
 		event.preventDefault();
+		if (isOutcomeUncertain) {
+			return;
+		}
 		onSubmit({ name, generalArtDirection });
 	}
 
@@ -99,6 +113,7 @@ export function ProjectSetupForm({
 					<span>Proje adı</span>
 					<input
 						autoComplete="off"
+						disabled={isOutcomeUncertain}
 						maxLength={120}
 						onChange={(event) => setName(event.target.value)}
 						placeholder="Örn. Moonlit Vale"
@@ -109,6 +124,7 @@ export function ProjectSetupForm({
 				<label className="context-field">
 					<span>Genel sanat yaklaşımı</span>
 					<textarea
+						disabled={isOutcomeUncertain}
 						maxLength={1000}
 						onChange={(event) => setGeneralArtDirection(event.target.value)}
 						placeholder="Oyunun görsel dünyasını birkaç cümleyle tanımlayın."
@@ -122,7 +138,23 @@ export function ProjectSetupForm({
 						{error}
 					</p>
 				) : null}
-				<Button className="signal-button" disabled={isPending} type="submit">
+				{isOutcomeUncertain && onCheckOutcome ? (
+					<Button
+						className="quiet-button"
+						disabled={isCheckingOutcome}
+						onClick={onCheckOutcome}
+						type="button"
+					>
+						{isCheckingOutcome
+							? "Durum kontrol ediliyor…"
+							: "Durumu kontrol et"}
+					</Button>
+				) : null}
+				<Button
+					className="signal-button"
+					disabled={isPending || isOutcomeUncertain}
+					type="submit"
+				>
 					{isPending ? "Oluşturuluyor…" : "Projeyi oluştur"}
 				</Button>
 			</form>
@@ -132,11 +164,16 @@ export function ProjectSetupForm({
 
 interface ContextWorkspaceProps {
 	isProposalsError: boolean;
+	isProposalsFetching: boolean;
 	isProposalsPending: boolean;
 	isScopeError: boolean;
+	isScopeFetching: boolean;
 	isScopePending: boolean;
+	onCheckProposalState: () => Promise<boolean>;
 	onNewProject: () => void;
 	onRefreshProposals: () => Promise<unknown>;
+	onRetryProposals: () => void;
+	onRetryScope: () => void;
 	onSelectProject: (project: ProjectContext) => void;
 	project: ProjectContext;
 	projects: ProjectContext[];
@@ -148,10 +185,15 @@ interface ContextWorkspaceProps {
 
 export function ContextWorkspace({
 	isProposalsError,
+	isProposalsFetching,
 	isProposalsPending,
 	isScopeError,
+	isScopeFetching,
 	isScopePending,
+	onCheckProposalState,
 	onNewProject,
+	onRetryProposals,
+	onRetryScope,
 	onRefreshProposals,
 	onSelectProject,
 	project,
@@ -192,7 +234,9 @@ export function ContextWorkspace({
 			</div>
 			<ScopeRegistryPanel
 				isError={isScopeError}
+				isFetching={isScopeFetching}
 				isPending={isScopePending}
+				onRetry={onRetryScope}
 				project={project}
 				queryError={scopeError}
 				scopeCatalog={scopeCatalog}
@@ -200,13 +244,16 @@ export function ContextWorkspace({
 			<div className="context-grid">
 				<ProposalForm
 					key={`${project.id}:${project.currentContextRevision.id}`}
+					onCheckCurrentState={onCheckProposalState}
 					onRefresh={onRefreshProposals}
 					project={project}
 					scopeCatalog={scopeCatalog}
 				/>
 				<ProposalLedger
 					isError={isProposalsError}
+					isFetching={isProposalsFetching}
 					isPending={isProposalsPending}
+					onRetry={onRetryProposals}
 					project={project}
 					proposals={proposals}
 					queryError={proposalsError}
@@ -218,12 +265,18 @@ export function ContextWorkspace({
 }
 
 interface ProposalFormProps {
+	onCheckCurrentState: () => Promise<boolean>;
 	onRefresh: () => Promise<unknown>;
 	project: ProjectContext;
 	scopeCatalog: ProjectContextScopeCatalog;
 }
 
-function ProposalForm({ onRefresh, project, scopeCatalog }: ProposalFormProps) {
+function ProposalForm({
+	onCheckCurrentState,
+	onRefresh,
+	project,
+	scopeCatalog,
+}: ProposalFormProps) {
 	const [defaultScopeOption, ...otherScopeOptions] = createScopeOptions(
 		project,
 		scopeCatalog
@@ -241,11 +294,15 @@ function ProposalForm({ onRefresh, project, scopeCatalog }: ProposalFormProps) {
 		),
 	]);
 	const [formError, setFormError] = useState<string | null>(null);
+	const [formStatus, setFormStatus] = useState<string | null>(null);
+	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
+	const [isCheckingOutcome, setIsCheckingOutcome] = useState(false);
 	const currentRevision = project.currentContextRevision;
 	const supportedBaseRuleCount = STRUCTURED_CONTEXT_RULE_IDS.filter((ruleId) =>
 		currentRevision.rules.some((rule) => rule.id === ruleId)
 	).length;
 	const createProposal = useMutation({
+		meta: { errorPresentation: "inline" },
 		mutationFn: (input: ContextProposalInput) =>
 			client.contextProposals.create(input),
 		onSuccess: async () => {
@@ -261,8 +318,36 @@ function ProposalForm({ onRefresh, project, scopeCatalog }: ProposalFormProps) {
 			await onRefresh();
 			toast.success("Bağlam Önerisi kaydedildi.");
 		},
-		onError: (error) => setFormError(error.message),
+		onError: (error) => {
+			if (isWriteOutcomeUncertain(error)) {
+				setWriteOutcomeUncertain(true);
+			}
+			setFormError(
+				getErrorMessage(
+					error,
+					"Bağlam Önerisi işleminin sonucu doğrulanamadı. Öneri kaydını kontrol edin."
+				)
+			);
+		},
 	});
+
+	async function checkCurrentState() {
+		setIsCheckingOutcome(true);
+		try {
+			const failed = await onCheckCurrentState();
+			if (failed) {
+				setFormError(
+					"Öneri durumu doğrulanamadı. Yeniden göndermeden önce öneri listesini yenileyin."
+				);
+				return;
+			}
+			setWriteOutcomeUncertain(false);
+			setFormError(null);
+			setFormStatus("Öneri listesi yenilendi. Kaydı kontrol edin.");
+		} finally {
+			setIsCheckingOutcome(false);
+		}
+	}
 
 	function updateChange(id: string, patch: Partial<ChangeDraft>) {
 		setChanges((current) =>
@@ -274,7 +359,11 @@ function ProposalForm({ onRefresh, project, scopeCatalog }: ProposalFormProps) {
 
 	function submitProposal(event: SyntheticEvent<HTMLFormElement>) {
 		event.preventDefault();
+		if (writeOutcomeUncertain) {
+			return;
+		}
 		setFormError(null);
+		setFormStatus(null);
 		createProposal.mutate({
 			projectId: project.id,
 			baseContextRevisionId: currentRevision.id,
@@ -382,9 +471,26 @@ function ProposalForm({ onRefresh, project, scopeCatalog }: ProposalFormProps) {
 						{formError}
 					</p>
 				) : null}
+				{writeOutcomeUncertain ? (
+					<Button
+						className="quiet-button"
+						disabled={isCheckingOutcome}
+						onClick={() => void checkCurrentState()}
+						type="button"
+					>
+						{isCheckingOutcome
+							? "Durum kontrol ediliyor…"
+							: "Durumu kontrol et"}
+					</Button>
+				) : null}
+				{formStatus ? (
+					<p className="context-notice" role="status">
+						{formStatus}
+					</p>
+				) : null}
 				<Button
 					className="signal-button submit-proposal"
-					disabled={createProposal.isPending}
+					disabled={createProposal.isPending || writeOutcomeUncertain}
 					type="submit"
 				>
 					<Send aria-hidden="true" size={15} />
@@ -730,7 +836,9 @@ function RuleValueControl({
 
 interface ProposalLedgerProps {
 	isError: boolean;
+	isFetching: boolean;
 	isPending: boolean;
+	onRetry: () => void;
 	project: ProjectContext;
 	proposals: ContextProposal[];
 	queryError?: string;
@@ -739,7 +847,9 @@ interface ProposalLedgerProps {
 
 function ProposalLedger({
 	isError,
+	isFetching,
 	isPending,
+	onRetry,
 	project,
 	scopeCatalog,
 	proposals,
@@ -754,9 +864,16 @@ function ProposalLedger({
 		);
 	} else if (isError) {
 		content = (
-			<p className="context-error" role="alert">
-				Öneriler yüklenemedi. {queryError}
-			</p>
+			<div className="space-y-2">
+				<p className="context-error" role="alert">
+					Öneriler yüklenemedi. {queryError}
+				</p>
+				<QueryRetryButton
+					className="quiet-button"
+					disabled={isFetching}
+					onRetry={onRetry}
+				/>
+			</div>
 		);
 	} else if (proposals.length > 0) {
 		content = (
