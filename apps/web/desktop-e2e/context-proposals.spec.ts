@@ -32,10 +32,23 @@ describe("Project Context proposals", () => {
 		).setValue(projectContextFixture.generalArtDirection);
 		await (await $("button=Projeyi oluştur")).click();
 		await (await $("h2=Bağlam Önerisi hazırlayın")).waitForDisplayed();
+		await (await $('//label[span[text()="Görsel Dünya adı"]]/input')).setValue(
+			"Sunken coast"
+		);
+		await (await $("button=Görsel Dünya ekle")).click();
+		await (await $("strong=Sunken coast")).waitForDisplayed();
+		await (await $('//label[span[text()="Tema adı"]]/input')).setValue(
+			"Blue lanterns"
+		);
+		await (await $("button=Tema ekle")).click();
+		await (await $("strong=Blue lanterns")).waitForDisplayed();
 
 		const operation = await $('select[aria-label="Değişiklik 1 işlemi"]');
 		await expect(await operation.$('option[value="replace"]')).toBeDisabled();
 		await expect(await operation.$('option[value="remove"]')).toBeDisabled();
+		await (
+			await $('select[aria-label="Değişiklik 1 kapsamı"]')
+		).selectByVisibleText("Tema · Sunken coast / Blue lanterns");
 
 		await (await $('input[maxlength="240"]')).setValue(
 			projectContextFixture.summary
@@ -49,7 +62,7 @@ describe("Project Context proposals", () => {
 		await (await $('textarea[maxlength="2000"]')).setValue(
 			projectContextFixture.rationale
 		);
-		await (await $('textarea[maxlength="1000"]')).setValue(
+		await (await $('//label[span[text()="Kanıt"]]/textarea')).setValue(
 			projectContextFixture.evidence
 		);
 		await (await $("button=Bağlam Önerisini kaydet")).click();
@@ -59,6 +72,12 @@ describe("Project Context proposals", () => {
 		await expect(await $("p=Önerilen değer: 1.5")).toBeDisplayed();
 		await (await $("button=Öneriyi incele")).click();
 		await $("h4=Etkinleştirme özeti · R1").waitForDisplayed();
+		await expect(
+			await $(
+				"p=Öncelik: Tema · Sunken coast / Blue lanterns → Görsel Dünya · Sunken coast → Proje · " +
+					projectContextFixture.projectName
+			)
+		).toBeDisplayed();
 		await expect(await $("span=Etkinleştirilebilir")).toBeDisplayed();
 		await (await $("button=R1 sürümünü etkinleştir")).click();
 		await $(

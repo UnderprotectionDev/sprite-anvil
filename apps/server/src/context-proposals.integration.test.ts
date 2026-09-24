@@ -8,6 +8,7 @@ import { user } from "@sprite-anvil/db/schema/auth";
 import { contextRevisions } from "@sprite-anvil/db/schema/project-context";
 import { eq } from "drizzle-orm";
 import { createProjectAccessStore } from "./features/projects/server/project-access-store";
+import { createProjectContextScopeStore } from "./project-context-scope-store";
 import { createProjectContextStore } from "./project-context-store";
 
 const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
@@ -33,9 +34,11 @@ test.skipIf(!databaseUrl)(
 			insertedUser = true;
 
 			const store = createProjectContextStore(db);
+			const scopeStore = createProjectContextScopeStore(db);
 			const context: Context = {
 				db,
 				projectAccess: createProjectAccessStore(db, store),
+				projectContextScopeStore: scopeStore,
 				projectContextStore: store,
 				session: { user: { id: userId } } as Context["session"],
 			};
@@ -47,6 +50,30 @@ test.skipIf(!databaseUrl)(
 				},
 				{ context }
 			);
+			const visualWorld = await call(
+				appRouter.contextScopes.createVisualWorld,
+				{ projectId: project.id, name: "Ridge villages" },
+				{ context }
+			);
+			const theme = await call(
+				appRouter.contextScopes.createTheme,
+				{
+					projectId: project.id,
+					visualWorldId: visualWorld.id,
+					name: "Lantern festival",
+				},
+				{ context }
+			);
+			const scopeCatalog = await call(
+				appRouter.contextScopes.list,
+				{ projectId: project.id },
+				{ context }
+			);
+
+			expect(scopeCatalog).toEqual({
+				visualWorlds: [visualWorld],
+				themes: [theme],
+			});
 
 			const activeRevisionId = crypto.randomUUID();
 			const activeRule: ContextRule = {
@@ -103,6 +130,9 @@ test.skipIf(!databaseUrl)(
 
 			const rereadContext: Context = {
 				...context,
+				projectContextScopeStore: createProjectContextScopeStore(
+					createDb({ DATABASE_URL: databaseUrl })
+				),
 				projectContextStore: createProjectContextStore(
 					createDb({ DATABASE_URL: databaseUrl })
 				),

@@ -25,10 +25,27 @@ test("persists a structured Project Context proposal from the web flow", async (
 	await expect(
 		page.getByRole("heading", { name: "Bağlam Önerisi hazırlayın" })
 	).toBeVisible();
+	await page.getByLabel("Görsel Dünya adı").fill("Sunken coast");
+	await page.getByRole("button", { name: "Görsel Dünya ekle" }).click();
+	await expect(
+		page
+			.locator(".scope-record-list")
+			.getByText("Sunken coast", { exact: true })
+	).toBeVisible();
+	await page.getByLabel("Tema adı").fill("Blue lanterns");
+	await page.getByRole("button", { name: "Tema ekle" }).click();
+	await expect(
+		page
+			.locator(".scope-record-list")
+			.getByText("Blue lanterns", { exact: true })
+	).toBeVisible();
 
 	const operation = page.locator('select[aria-label="Değişiklik 1 işlemi"]');
 	await expect(operation.locator('option[value="replace"]')).toBeDisabled();
 	await expect(operation.locator('option[value="remove"]')).toBeDisabled();
+	await page
+		.getByLabel("Değişiklik 1 kapsamı")
+		.selectOption({ label: "Tema · Sunken coast / Blue lanterns" });
 
 	await page.getByLabel("Öneri özeti").fill(projectContextFixture.summary);
 	await page
@@ -56,6 +73,12 @@ test("persists a structured Project Context proposal from the web flow", async (
 		page.locator(".review-revisions").getByText("R0", { exact: true })
 	).toBeVisible();
 	await expect(page.getByText("Etkinleştirilebilir")).toBeVisible();
+	await expect(
+		page.getByText(
+			"Öncelik: Tema · Sunken coast / Blue lanterns → Görsel Dünya · Sunken coast → Proje · " +
+				projectContextFixture.projectName
+		)
+	).toBeVisible();
 	await page.getByRole("button", { name: "R1 sürümünü etkinleştir" }).click();
 	await expect(
 		page.getByText("Bu öneri Etkin Bağlam Sürümü R1 olarak kaydedildi.")

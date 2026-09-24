@@ -1,3 +1,4 @@
+import type { ProjectContextScopeCatalog } from "@sprite-anvil/api/context-scopes";
 import type {
 	ProjectContext,
 	ProjectContextCreateInput,
@@ -26,6 +27,12 @@ function ContextProposalsPage() {
 		projectsQuery.data?.find((project) => project.id === selectedProjectId) ??
 		projectsQuery.data?.[0];
 	const projectId = selectedProject?.id;
+	const scopeQuery = useQuery({
+		...orpc.contextScopes.list.queryOptions({
+			input: { projectId: projectId ?? "00000000-0000-4000-8000-000000000000" },
+		}),
+		enabled: Boolean(projectId),
+	});
 	const proposalsQuery = useQuery({
 		...orpc.contextProposals.list.queryOptions({
 			input: { projectId: projectId ?? "00000000-0000-4000-8000-000000000000" },
@@ -91,6 +98,8 @@ function ContextProposalsPage() {
 			<ContextWorkspace
 				isProposalsError={proposalsQuery.isError}
 				isProposalsPending={proposalsQuery.isPending}
+				isScopeError={scopeQuery.isError}
+				isScopePending={scopeQuery.isPending}
 				onNewProject={() => {
 					setProjectError(null);
 					setProjectFormOpen(true);
@@ -103,6 +112,8 @@ function ContextProposalsPage() {
 				proposalsError={
 					proposalsQuery.isError ? proposalsQuery.error.message : undefined
 				}
+				scopeCatalog={scopeQuery.data ?? EMPTY_SCOPE_CATALOG}
+				scopeError={scopeQuery.isError ? scopeQuery.error.message : undefined}
 			/>
 		);
 	}
@@ -137,3 +148,8 @@ function ContextProposalsPage() {
 		</main>
 	);
 }
+
+const EMPTY_SCOPE_CATALOG: ProjectContextScopeCatalog = {
+	visualWorlds: [],
+	themes: [],
+};

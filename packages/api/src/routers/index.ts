@@ -1,6 +1,14 @@
 import type { RouterClient } from "@orpc/server";
 import { ORPCError } from "@orpc/server";
 import type { Context } from "../context";
+import {
+	projectContextScopeCatalogSchema,
+	projectContextScopeListInputSchema,
+	themeCreateInputSchema,
+	themeRecordSchema,
+	visualWorldCreateInputSchema,
+	visualWorldRecordSchema,
+} from "../context-scopes";
 import { protectedProcedure, publicProcedure } from "../index";
 import {
 	serializePrivateDataResponse,
@@ -37,22 +45,24 @@ async function readContextProposalReview(
 	if (!proposal) {
 		throw new ORPCError("NOT_FOUND", { message: "Context Proposal not found" });
 	}
-	const [baseRevision, project, activatedRevision] = await Promise.all([
-		context.projectContextStore.getRevision(
-			userId,
-			projectId,
-			proposal.baseContextRevisionId
-		),
-		context.projectContextStore
-			.listProjects(userId)
-			.then((projects) => projects.find((entry) => entry.id === projectId)),
-		context.projectContextStore.getRevisionByProposal(
-			userId,
-			projectId,
-			proposalId
-		),
-	]);
-	if (!(baseRevision && project)) {
+	const [baseRevision, project, activatedRevision, scopeCatalog] =
+		await Promise.all([
+			context.projectContextStore.getRevision(
+				userId,
+				projectId,
+				proposal.baseContextRevisionId
+			),
+			context.projectContextStore
+				.listProjects(userId)
+				.then((projects) => projects.find((entry) => entry.id === projectId)),
+			context.projectContextStore.getRevisionByProposal(
+				userId,
+				projectId,
+				proposalId
+			),
+			context.projectContextScopeStore.list(userId, projectId),
+		]);
+	if (!(baseRevision && project && scopeCatalog)) {
 		throw new ORPCError("NOT_FOUND", { message: "Project Context not found" });
 	}
 	const knownProposalIds = new Set(
@@ -67,7 +77,8 @@ async function readContextProposalReview(
 			project.currentContextRevision,
 			knownProposalIds,
 			new Date().toISOString(),
-			activatedRevision
+			activatedRevision,
+			scopeCatalog
 		)
 	);
 }
@@ -78,6 +89,81 @@ export const appRouter = {
 		serializePrivateDataResponse(context.session?.user)
 	),
 	projects: projectsRouter,
+	contextScopes: {
+		list: protectedProcedure
+			.input(projectContextScopeListInputSchema)
+			.output(projectContextScopeCatalogSchema)
+			.handler(async ({ context, input }) => {
+				const catalog = await context.projectContextScopeStore.list(
+					context.session.user.id,
+					input.projectId
+				);
+				if (!catalog) {
+					throw new ORPCError("NOT_FOUND", {
+						message: "Project Context not found",
+					});
+				}
+				return projectContextScopeCatalogSchema.parse(catalog);
+			}),
+		createVisualWorld: protectedProcedure
+			.input(visualWorldCreateInputSchema)
+			.output(visualWorldRecordSchema)
+			.handler(async ({ context, input }) => {
+				const visualWorld =
+					await context.projectContextScopeStore.createVisualWorld(
+						context.session.user.id,
+						input
+					);
+				if (!visualWorld) {
+					const catalog = await context.projectContextScopeStore.list(
+						context.session.user.id,
+						input.projectId
+					);
+					if (!catalog) {
+						throw new ORPCError("NOT_FOUND", {
+							message: "Project Context not found",
+						});
+					}
+					throw new ORPCError("CONFLICT", {
+						message: "Bu Projede aynı adda bir Görsel Dünya zaten var.",
+					});
+				}
+				return visualWorldRecordSchema.parse(visualWorld);
+			}),
+		createTheme: protectedProcedure
+			.input(themeCreateInputSchema)
+			.output(themeRecordSchema)
+			.handler(async ({ context, input }) => {
+				const theme = await context.projectContextScopeStore.createTheme(
+					context.session.user.id,
+					input
+				);
+				if (!theme) {
+					const catalog = await context.projectContextScopeStore.list(
+						context.session.user.id,
+						input.projectId
+					);
+					if (!catalog) {
+						throw new ORPCError("NOT_FOUND", {
+							message: "Project Context not found",
+						});
+					}
+					if (
+						!catalog.visualWorlds.some(
+							(visualWorld) => visualWorld.id === input.visualWorldId
+						)
+					) {
+						throw new ORPCError("NOT_FOUND", {
+							message: "Bu Proje Bağlamı içinde Görsel Dünya bulunamadı.",
+						});
+					}
+					throw new ORPCError("CONFLICT", {
+						message: "Bu Görsel Dünya içinde aynı adda bir Tema zaten var.",
+					});
+				}
+				return themeRecordSchema.parse(theme);
+			}),
+	},
 	projectContexts: {
 		list: protectedProcedure.handler(async ({ context }) =>
 			Promise.all(
@@ -175,6 +261,15 @@ export const appRouter = {
 						message: "Base Context Revision not found",
 					});
 				}
+				const scopeCatalog = await context.projectContextScopeStore.list(
+					context.session.user.id,
+					input.projectId
+				);
+				if (!scopeCatalog) {
+					throw new ORPCError("NOT_FOUND", {
+						message: "Project Context not found",
+					});
+				}
 
 				const createdAt = new Date().toISOString();
 				const proposal = contextProposalSchema.parse({
@@ -194,7 +289,8 @@ export const appRouter = {
 						input.projectId,
 						baseRevision,
 						input.changes,
-						createdAt
+						createdAt,
+						scopeCatalog
 					),
 					activationAllowed: false,
 					createdAt,

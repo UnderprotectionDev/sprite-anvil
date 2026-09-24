@@ -2,6 +2,12 @@ import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
 import type { Context } from "@sprite-anvil/api/context";
 import type {
+	ProjectContextScopeCatalog,
+	ProjectContextScopeStore,
+	ThemeRecord,
+	VisualWorldRecord,
+} from "@sprite-anvil/api/context-scopes";
+import type {
 	ContextProposal,
 	ContextProposalInput,
 	ContextRevision,
@@ -169,13 +175,105 @@ class MemoryProjectContextStore implements ProjectContextStore {
 	}
 }
 
+class MemoryProjectContextScopeStore implements ProjectContextScopeStore {
+	private readonly visualWorlds: VisualWorldRecord[] = [];
+	private readonly themes: ThemeRecord[] = [];
+	private readonly projectStore: ProjectContextStore;
+
+	constructor(projectStore: ProjectContextStore) {
+		this.projectStore = projectStore;
+	}
+
+	async list(userId: string, projectId: string) {
+		const owned = (await this.projectStore.listProjects(userId)).some(
+			(project) => project.id === projectId
+		);
+		if (!owned) {
+			return null;
+		}
+		const catalog: ProjectContextScopeCatalog = {
+			visualWorlds: this.visualWorlds.filter(
+				(visualWorld) => visualWorld.projectId === projectId
+			),
+			themes: this.themes.filter((theme) => theme.projectId === projectId),
+		};
+		return catalog;
+	}
+
+	async createVisualWorld(
+		userId: string,
+		input: Parameters<ProjectContextScopeStore["createVisualWorld"]>[1]
+	) {
+		if (!(await this.list(userId, input.projectId))) {
+			return null;
+		}
+		if (
+			this.visualWorlds.some(
+				(existingWorld) =>
+					existingWorld.projectId === input.projectId &&
+					existingWorld.name.toLocaleLowerCase() ===
+						input.name.toLocaleLowerCase()
+			)
+		) {
+			return null;
+		}
+		const visualWorldRecord: VisualWorldRecord = {
+			id: crypto.randomUUID(),
+			projectId: input.projectId,
+			name: input.name,
+			description: input.description ?? "",
+			createdAt: new Date().toISOString(),
+		};
+		this.visualWorlds.push(visualWorldRecord);
+		return visualWorldRecord;
+	}
+
+	async createTheme(
+		userId: string,
+		input: Parameters<ProjectContextScopeStore["createTheme"]>[1]
+	) {
+		const catalog = await this.list(userId, input.projectId);
+		if (
+			!catalog?.visualWorlds.some(
+				(visualWorld) => visualWorld.id === input.visualWorldId
+			)
+		) {
+			return null;
+		}
+		if (
+			this.themes.some(
+				(existingTheme) =>
+					existingTheme.visualWorldId === input.visualWorldId &&
+					existingTheme.name.toLocaleLowerCase() ===
+						input.name.toLocaleLowerCase()
+			)
+		) {
+			return null;
+		}
+		const themeRecord: ThemeRecord = {
+			id: crypto.randomUUID(),
+			projectId: input.projectId,
+			visualWorldId: input.visualWorldId,
+			name: input.name,
+			description: input.description ?? "",
+			createdAt: new Date().toISOString(),
+		};
+		this.themes.push(themeRecord);
+		return themeRecord;
+	}
+}
+
 function makeContext(
 	store: ProjectContextStore,
-	userId: string | null
+	userId: string | null,
+	scopeStore: ProjectContextScopeStore = new MemoryProjectContextScopeStore(
+		store
+	)
 ): Context {
 	return {
 		db: {} as Database,
 		projectAccess: {} as Context["projectAccess"],
+		projectContextScopeStore: scopeStore,
 		projectContextStore: store,
 		session: userId ? ({ user: { id: userId } } as Context["session"]) : null,
 	};
@@ -295,6 +393,84 @@ test("creates a project context proposal and reads the persisted record back", a
 	await expect(
 		call(appRouter.projectContexts.list, {}, { context })
 	).resolves.toEqual([project]);
+});
+
+test("stores Visual Worlds and Themes under the owner's Project Context", async () => {
+	const store = new MemoryProjectContextStore();
+	const context = makeContext(store, "owner");
+	const project = await call(
+		appRouter.projectContexts.create,
+		{
+			name: "Lantern Vale",
+			generalArtDirection: "Soft light and clear silhouettes",
+		},
+		{ context }
+	);
+	const visualWorld = await call(
+		appRouter.contextScopes.createVisualWorld,
+		{
+			projectId: project.id,
+			name: "Mountain settlements",
+			description: "Terraced villages above the cloud line.",
+		},
+		{ context }
+	);
+	const theme = await call(
+		appRouter.contextScopes.createTheme,
+		{
+			projectId: project.id,
+			visualWorldId: visualWorld.id,
+			name: "Winter market",
+			description: "A seasonal market beneath blue lanterns.",
+		},
+		{ context }
+	);
+	const catalog = await call(
+		appRouter.contextScopes.list,
+		{ projectId: project.id },
+		{ context }
+	);
+
+	expect(catalog).toEqual({ visualWorlds: [visualWorld], themes: [theme] });
+	await expect(
+		call(
+			appRouter.contextScopes.createVisualWorld,
+			{
+				projectId: project.id,
+				name: "MOUNTAIN SETTLEMENTS",
+			},
+			{ context }
+		)
+	).rejects.toMatchObject({ code: "CONFLICT" });
+	await expect(
+		call(
+			appRouter.contextScopes.createTheme,
+			{
+				projectId: project.id,
+				visualWorldId: visualWorld.id,
+				name: "WINTER MARKET",
+			},
+			{ context }
+		)
+	).rejects.toMatchObject({ code: "CONFLICT" });
+	await expect(
+		call(
+			appRouter.contextScopes.createTheme,
+			{
+				projectId: project.id,
+				visualWorldId: crypto.randomUUID(),
+				name: "Orphan theme",
+			},
+			{ context }
+		)
+	).rejects.toMatchObject({ code: "NOT_FOUND" });
+	await expect(
+		call(
+			appRouter.contextScopes.list,
+			{ projectId: project.id },
+			{ context: makeContext(store, "other-user") }
+		)
+	).rejects.toMatchObject({ code: "NOT_FOUND" });
 });
 
 test("activates a validated proposal as a new Context Revision for production", async () => {
@@ -599,6 +775,20 @@ test("validates scope precedence and requires an explicit override", async () =>
 		},
 		{ context }
 	);
+	const visualWorld = await call(
+		appRouter.contextScopes.createVisualWorld,
+		{ projectId: project.id, name: "Underground coast" },
+		{ context }
+	);
+	const theme = await call(
+		appRouter.contextScopes.createTheme,
+		{
+			projectId: project.id,
+			visualWorldId: visualWorld.id,
+			name: "Flooded library",
+		},
+		{ context }
+	);
 	const baseRevision: ContextRevision = {
 		...project.currentContextRevision,
 		id: crypto.randomUUID(),
@@ -612,8 +802,12 @@ test("validates scope precedence and requires an explicit override", async () =>
 		revisionNumber: 2,
 		isActive: true,
 	});
-	const themeScope = { kind: "theme" as const, id: "cavern" };
-	const themeChain = [themeScope, { kind: "project" as const, id: project.id }];
+	const themeScope = { kind: "theme" as const, id: theme.id };
+	const themeChain = [
+		themeScope,
+		{ kind: "visual_world" as const, id: visualWorld.id },
+		{ kind: "project" as const, id: project.id },
+	];
 	const change = {
 		operation: "add" as const,
 		ruleId: "palette",
@@ -625,21 +819,36 @@ test("validates scope precedence and requires an explicit override", async () =>
 		],
 		precedenceChain: themeChain,
 	};
-	const missingOverride = agentProposal(project.id, baseRevision.id, [change]);
-	store.addProposalForTest(missingOverride);
+	const missingOverride = await call(
+		appRouter.contextProposals.create,
+		{
+			projectId: project.id,
+			baseContextRevisionId: baseRevision.id,
+			summary: "Use a separate palette for the flooded library",
+			changes: [change],
+		},
+		{ context }
+	);
 	const missingOverrideReview = await call(
 		appRouter.contextProposals.review,
 		{ projectId: project.id, proposalId: missingOverride.id },
 		{ context }
 	);
+	expect(missingOverride.validation.isValid).toBe(false);
 	expect(
 		missingOverrideReview.conflicts.map((conflict) => conflict.code)
 	).toContain("missing_context_override");
 
-	const explicitOverride = agentProposal(project.id, baseRevision.id, [
-		{ ...change, supersedesRuleId: "palette" },
-	]);
-	store.addProposalForTest(explicitOverride);
+	const explicitOverride = await call(
+		appRouter.contextProposals.create,
+		{
+			projectId: project.id,
+			baseContextRevisionId: baseRevision.id,
+			summary: "Declare the theme palette exception",
+			changes: [{ ...change, supersedesRuleId: "palette" }],
+		},
+		{ context }
+	);
 	const overrideReview = await call(
 		appRouter.contextProposals.review,
 		{ projectId: project.id, proposalId: explicitOverride.id },
@@ -647,13 +856,36 @@ test("validates scope precedence and requires an explicit override", async () =>
 	);
 	expect(overrideReview.activationAllowed).toBe(true);
 	expect(overrideReview.candidateRules).toHaveLength(2);
+	expect(overrideReview.candidateRules[1]?.precedenceChain).toEqual(themeChain);
+	const activatedScopeRevision = await call(
+		appRouter.contextProposals.activate,
+		{
+			projectId: project.id,
+			proposalId: explicitOverride.id,
+			expectedCurrentRevisionId: overrideReview.currentRevisionId,
+		},
+		{ context }
+	);
+	expect(activatedScopeRevision.rules).toContainEqual(
+		expect.objectContaining({
+			id: "palette",
+			scope: themeScope,
+			supersedesRuleId: "palette",
+			precedenceChain: themeChain,
+		})
+	);
 
+	const unrelatedVisualWorld = await call(
+		appRouter.contextScopes.createVisualWorld,
+		{ projectId: project.id, name: "Coastal ruins" },
+		{ context }
+	);
 	const invalidChain = agentProposal(project.id, baseRevision.id, [
 		{
 			...change,
 			precedenceChain: [
 				themeScope,
-				{ kind: "asset", id: "hero" },
+				{ kind: "visual_world", id: unrelatedVisualWorld.id },
 				{ kind: "project", id: project.id },
 			],
 			supersedesRuleId: "palette",
