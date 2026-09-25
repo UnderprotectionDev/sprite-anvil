@@ -14,7 +14,6 @@ import { Plus } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { ScopeRegistryPanel } from "@/features/visual-worlds/ui/components/context-scope-registry";
-import { QueryRetryButton } from "@/utils/error-notification";
 import { client, orpc } from "@/utils/orpc";
 import {
 	type EvidenceKind,
@@ -24,44 +23,32 @@ import {
 
 interface ContextWorkspaceProps {
 	isProposalsError: boolean;
-	isProposalsFetching: boolean;
 	isProposalsPending: boolean;
 	isScopeError: boolean;
-	isScopeFetching: boolean;
 	isScopePending: boolean;
 	onCheckProposalState: () => Promise<boolean>;
 	onNewProject: () => void;
 	onRefreshProposals: () => Promise<unknown>;
-	onRetryProposals: () => void;
-	onRetryScope: () => void;
 	onSelectProject: (project: ProjectContext) => void;
 	project: ProjectContext;
 	projects: ProjectContext[];
 	proposals: ContextProposal[];
-	proposalsError?: string;
 	scopeCatalog: ProjectContextScopeCatalog;
-	scopeError?: string;
 }
 
 export function ContextWorkspace({
 	isProposalsError,
-	isProposalsFetching,
 	isProposalsPending,
 	isScopeError,
-	isScopeFetching,
 	isScopePending,
 	onCheckProposalState,
 	onNewProject,
-	onRetryProposals,
-	onRetryScope,
 	onRefreshProposals,
 	onSelectProject,
 	project,
 	projects,
 	scopeCatalog,
-	scopeError,
 	proposals,
-	proposalsError,
 }: ContextWorkspaceProps) {
 	return (
 		<>
@@ -94,11 +81,8 @@ export function ContextWorkspace({
 			</div>
 			<ScopeRegistryPanel
 				isError={isScopeError}
-				isFetching={isScopeFetching}
 				isPending={isScopePending}
-				onRetry={onRetryScope}
 				project={project}
-				queryError={scopeError}
 				scopeCatalog={scopeCatalog}
 			/>
 			<div className="context-grid">
@@ -111,12 +95,9 @@ export function ContextWorkspace({
 				/>
 				<ProposalLedger
 					isError={isProposalsError}
-					isFetching={isProposalsFetching}
 					isPending={isProposalsPending}
-					onRetry={onRetryProposals}
 					project={project}
 					proposals={proposals}
-					queryError={proposalsError}
 					scopeCatalog={scopeCatalog}
 				/>
 			</div>
@@ -126,24 +107,18 @@ export function ContextWorkspace({
 
 interface ProposalLedgerProps {
 	isError: boolean;
-	isFetching: boolean;
 	isPending: boolean;
-	onRetry: () => void;
 	project: ProjectContext;
 	proposals: ContextProposal[];
-	queryError?: string;
 	scopeCatalog: ProjectContextScopeCatalog;
 }
 
 function ProposalLedger({
 	isError,
-	isFetching,
 	isPending,
-	onRetry,
 	project,
 	scopeCatalog,
 	proposals,
-	queryError,
 }: ProposalLedgerProps) {
 	let content: ReactNode;
 	if (isPending) {
@@ -153,18 +128,7 @@ function ProposalLedger({
 			</p>
 		);
 	} else if (isError) {
-		content = (
-			<div className="space-y-2">
-				<p className="context-error" role="alert">
-					Öneriler yüklenemedi. {queryError}
-				</p>
-				<QueryRetryButton
-					className="quiet-button"
-					disabled={isFetching}
-					onRetry={onRetry}
-				/>
-			</div>
-		);
+		content = null;
 	} else if (proposals.length > 0) {
 		content = (
 			<div className="proposal-list">

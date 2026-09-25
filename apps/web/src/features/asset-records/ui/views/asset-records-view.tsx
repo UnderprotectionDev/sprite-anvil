@@ -3,10 +3,8 @@ import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, type SyntheticEvent, useRef, useState } from "react";
-import {
-	isWriteOutcomeUncertain,
-	QueryRetryButton,
-} from "@/utils/error-notification";
+import { toast } from "sonner";
+import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
 import {
@@ -60,14 +58,12 @@ export function AssetRecordsView({
 	});
 	const projectQuery = useQuery({
 		...projectQueryOptions,
-		meta: { errorPresentation: "inline" },
 	});
 	const recordsQueryOptions = orpc.assetRecords.list.queryOptions({
 		input: { projectId },
 	});
 	const recordsQuery = useQuery({
 		...recordsQueryOptions,
-		meta: { errorPresentation: "inline" },
 	});
 	const pendingCreate = useRef<AssetRecordCreateInput | null>(null);
 	const [name, setName] = useState("");
@@ -77,7 +73,6 @@ export function AssetRecordsView({
 	const [isSaving, setIsSaving] = useState(false);
 	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
 	const [isCheckingWriteOutcome, setIsCheckingWriteOutcome] = useState(false);
-	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
 	function updateName(value: string) {
@@ -99,9 +94,6 @@ export function AssetRecordsView({
 		try {
 			const result = await recordsQuery.refetch();
 			if (result.isError) {
-				setErrorMessage(
-					"Kayıt işleminin durumu doğrulanamadı. Kayıt listesini yeniden deneyin."
-				);
 				return;
 			}
 
@@ -111,7 +103,6 @@ export function AssetRecordsView({
 			);
 			if (existingRecord) {
 				setWriteOutcomeUncertain(false);
-				setErrorMessage(null);
 				setStatusMessage("Varlık kaydı bulundu.");
 				pendingCreate.current = null;
 				onOpenRecord(existingRecord.id);
@@ -119,7 +110,6 @@ export function AssetRecordsView({
 			}
 
 			setWriteOutcomeUncertain(false);
-			setErrorMessage(null);
 			setStatusMessage(
 				"Kayıt listesi yenilendi. Aynı kimlikle yeniden deneyebilirsiniz."
 			);
@@ -148,7 +138,6 @@ export function AssetRecordsView({
 				projectId,
 			} satisfies AssetRecordCreateInput);
 		pendingCreate.current = input;
-		setErrorMessage(null);
 		setStatusMessage(null);
 		setIsSaving(true);
 		try {
@@ -162,7 +151,7 @@ export function AssetRecordsView({
 			} else {
 				pendingCreate.current = null;
 			}
-			setErrorMessage(
+			toast.error(
 				getErrorMessage(
 					error,
 					"Varlık kaydının sonucu doğrulanamadı. Mevcut durumu kontrol edin."
@@ -178,38 +167,14 @@ export function AssetRecordsView({
 	if (projectQuery.isPending) {
 		projectState = <p aria-live="polite">Proje yükleniyor…</p>;
 	} else if (projectQuery.isError) {
-		projectState = (
-			<div className="space-y-2">
-				<p role="alert">
-					{getErrorMessage(projectQuery.error, "Proje yüklenemedi.", "query")}
-				</p>
-				<QueryRetryButton
-					disabled={projectQuery.isFetching}
-					onRetry={() => void projectQuery.refetch()}
-				/>
-			</div>
-		);
+		projectState = null;
 	}
 
 	let recordsState: ReactNode = null;
 	if (recordsQuery.isPending) {
 		recordsState = <p aria-live="polite">Varlık kayıtları yükleniyor…</p>;
 	} else if (recordsQuery.isError) {
-		recordsState = (
-			<div className="space-y-2">
-				<p role="alert">
-					{getErrorMessage(
-						recordsQuery.error,
-						"Varlık kayıtları yüklenemedi.",
-						"query"
-					)}
-				</p>
-				<QueryRetryButton
-					disabled={recordsQuery.isFetching}
-					onRetry={() => void recordsQuery.refetch()}
-				/>
-			</div>
-		);
+		recordsState = null;
 	} else if (records.length === 0) {
 		recordsState = (
 			<p className="rounded-lg border border-dashed p-5 text-muted-foreground">
@@ -330,7 +295,6 @@ export function AssetRecordsView({
 							yeterli değildir.
 						</p>
 					</fieldset>
-					{errorMessage ? <p role="alert">{errorMessage}</p> : null}
 					{writeOutcomeUncertain ? (
 						<Button
 							disabled={isCheckingWriteOutcome}
@@ -387,43 +351,29 @@ export function AssetRecordDetailView({
 }) {
 	const projectQuery = useQuery({
 		...orpc.projects.get.queryOptions({ input: { projectId } }),
-		meta: { errorPresentation: "inline" },
 	});
 	const recordQuery = useQuery({
 		...orpc.assetRecords.get.queryOptions({
 			input: { assetRecordId, projectId },
 		}),
-		meta: { errorPresentation: "inline" },
+	});
+	const trackingQueryOptions = orpc.assetRecords.tracking.queryOptions({
+		input: { assetRecordId, projectId },
 	});
 	const trackingQuery = useQuery({
-		...orpc.assetRecords.tracking.queryOptions({
-			input: { assetRecordId, projectId },
-		}),
+		...trackingQueryOptions,
 		enabled: Boolean(recordQuery.data),
-		meta: { errorPresentation: "inline" },
 	});
 	const record = recordQuery.data;
 	let recordHeading: ReactNode;
+	let trackingPanel: ReactNode = null;
 	if (recordQuery.isPending) {
 		recordHeading = (
 			<h1 className="font-bold text-3xl">Varlık kaydı yükleniyor…</h1>
 		);
 	} else if (recordQuery.isError) {
 		recordHeading = (
-			<div>
-				<h1 className="font-bold text-3xl">Varlık kaydı açılamadı</h1>
-				<p role="alert">
-					{getErrorMessage(
-						recordQuery.error,
-						"Varlık kaydı yüklenemedi.",
-						"query"
-					)}
-				</p>
-				<QueryRetryButton
-					disabled={recordQuery.isFetching}
-					onRetry={() => void recordQuery.refetch()}
-				/>
-			</div>
+			<h1 className="font-bold text-3xl">Varlık kaydı açılamadı</h1>
 		);
 	} else if (record) {
 		recordHeading = (
@@ -436,6 +386,14 @@ export function AssetRecordDetailView({
 		);
 	} else {
 		recordHeading = null;
+	}
+	if (trackingQuery.data) {
+		trackingPanel = (
+			<AssetRecordTrackingPanel
+				detail={trackingQuery.data}
+				onRefresh={() => trackingQuery.refetch()}
+			/>
+		);
 	}
 
 	return (
@@ -450,13 +408,7 @@ export function AssetRecordDetailView({
 			{record ? (
 				<>
 					<AssetRecordAvailabilityControl
-						onRefresh={async () => {
-							const result = await recordQuery.refetch();
-							return {
-								data: result.data,
-								isError: result.isError,
-							};
-						}}
+						onRefresh={() => recordQuery.refetch()}
 						record={record}
 					/>
 					{record.availability === "erased" ? (
@@ -472,12 +424,7 @@ export function AssetRecordDetailView({
 							record={record}
 						/>
 					)}
-					{trackingQuery.data ? (
-						<AssetRecordTrackingPanel
-							detail={trackingQuery.data}
-							onRefresh={() => trackingQuery.refetch()}
-						/>
-					) : null}
+					{trackingPanel}
 				</>
 			) : null}
 		</main>

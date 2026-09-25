@@ -4,7 +4,7 @@ import { legacyAssetAttestations } from "./schema/asset-production-history";
 import { assetRecordDerivatives } from "./schema/asset-record-derivatives";
 import { assetRecordMeasurements } from "./schema/asset-record-measurements";
 import { assetRecordReferences } from "./schema/asset-record-references";
-import { assetRecords } from "./schema/asset-records";
+import { assetFamilies, assetRecords } from "./schema/asset-records";
 import {
 	assetVersionQualityEvidence,
 	assetVersionReviewEvents,
@@ -40,6 +40,19 @@ test("keeps Asset Record measurements project-scoped and out of implicit deletio
 	expect(measurements?.notNull).toBe(true);
 	expect(foreignKeys).toHaveLength(1);
 	expect(foreignKeys[0]?.onDelete).toBe("restrict");
+});
+
+test("keeps Subject Identity and Canonical Design optional for legacy families", () => {
+	const { columns } = getTableConfig(assetFamilies);
+	const subjectIdentityId = columns.find(
+		(column) => column.name === "subject_identity_id"
+	);
+	const canonicalVersionId = columns.find(
+		(column) => column.name === "canonical_version_id"
+	);
+
+	expect(subjectIdentityId?.notNull).toBe(false);
+	expect(canonicalVersionId?.notNull).toBe(false);
 });
 
 test("keeps version and tracking history linked with restrictive project-scoped references", () => {

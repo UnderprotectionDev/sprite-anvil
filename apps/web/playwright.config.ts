@@ -39,6 +39,7 @@ if (contextTestDatabaseUrl) {
 			BETTER_AUTH_URL: "http://127.0.0.1:3000",
 			CORS_ORIGIN: "http://127.0.0.1:3001",
 			NODE_ENV: "test",
+			CONTEXT_TEST_R2_MODE: "memory",
 		},
 	});
 }

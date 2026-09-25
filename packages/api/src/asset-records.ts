@@ -9,6 +9,9 @@ export const assetRecordIdentityCriteria = [
 export const assetRecordIdentityCriteriaSchema = z.enum(
 	assetRecordIdentityCriteria
 );
+export type AssetRecordIdentityCriterion = z.infer<
+	typeof assetRecordIdentityCriteriaSchema
+>;
 
 export const assetRecordSupportLevels = ["general"] as const;
 

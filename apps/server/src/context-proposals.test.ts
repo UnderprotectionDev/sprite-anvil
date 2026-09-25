@@ -271,6 +271,8 @@ function makeContext(
 	)
 ): Context {
 	return {
+		assetFamilyStore: {} as Context["assetFamilyStore"],
+		assetVersionStore: {} as Context["assetVersionStore"],
 		assetRecordStore: {} as Context["assetRecordStore"],
 		assetRecordTrackingStore: {} as Context["assetRecordTrackingStore"],
 		db: {} as Database,

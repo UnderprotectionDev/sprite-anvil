@@ -28,7 +28,7 @@ BEGIN
 	) THEN
 		ALTER TABLE "asset_records"
 			ADD CONSTRAINT "asset_records_identity_criteria_nonempty_check"
-			CHECK (cardinality("identity_criteria") >= 1);
+			CHECK ("identity_criteria" IS NULL OR cardinality("identity_criteria") >= 1);
 	END IF;
 
 	IF NOT EXISTS (

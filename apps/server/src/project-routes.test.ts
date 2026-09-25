@@ -497,7 +497,7 @@ test("does not read a legacy preview object outside the owner scope", async () =
 	expect(calls.getObject).toEqual([]);
 });
 
-const databaseUrl = process.env.DATABASE_URL;
+const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
 
 test.skipIf(!databaseUrl)(
 	"reads persisted projects only for their authenticated owner",

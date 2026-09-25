@@ -3,11 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { type SyntheticEvent, useState } from "react";
 
-import {
-	isWriteOutcomeUncertain,
-	QueryRetryButton,
-} from "@/utils/error-notification";
-import { getErrorMessage } from "@/utils/get-error-message";
+import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { client, orpc } from "@/utils/orpc";
 import { CreateProjectForm } from "../forms/create-project-form";
 
@@ -15,11 +11,9 @@ export function ProjectsView() {
 	const projectsQueryOptions = orpc.projects.list.queryOptions();
 	const projectsQuery = useQuery({
 		...projectsQueryOptions,
-		meta: { suppressGlobalErrorToast: true },
 	});
 	const [name, setName] = useState("");
 	const [generalArtDirection, setGeneralArtDirection] = useState("");
-	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
 	const [isCheckingProjectState, setIsCheckingProjectState] = useState(false);
@@ -44,17 +38,11 @@ export function ProjectsView() {
 		try {
 			const result = await projectsQuery.refetch();
 			if (result.isError) {
-				if (writeOutcomeUncertain) {
-					setErrorMessage(
-						"Proje işleminin durumu doğrulanamadı. Yeniden göndermeden önce proje listesini yenileyin."
-					);
-				}
 				return;
 			}
 
 			if (writeOutcomeUncertain) {
 				setWriteOutcomeUncertain(false);
-				setErrorMessage(null);
 				setStatusMessage(
 					"Proje listesi yenilendi. Kaydı yeniden göndermeden önce mevcut durumu kontrol edin."
 				);
@@ -74,7 +62,6 @@ export function ProjectsView() {
 		if (trimmedName.length === 0 || trimmedArtDirection.length === 0) {
 			return;
 		}
-		setErrorMessage(null);
 		setStatusMessage(null);
 		createProject.mutate({
 			name: trimmedName,
@@ -114,7 +101,6 @@ export function ProjectsView() {
 					onSubmit={handleCreateProject}
 					writeOutcomeUncertain={writeOutcomeUncertain}
 				/>
-				{errorMessage ? <p role="alert">{errorMessage}</p> : null}
 				{writeOutcomeUncertain ? (
 					<Button
 						disabled={isCheckingProjectState}
@@ -146,18 +132,8 @@ export function ProjectsView() {
 				</div>
 
 				<ProjectsList
-					errorMessage={
-						projectsQuery.isError
-							? getErrorMessage(
-									projectsQuery.error,
-									"Projeler yüklenemedi. Yeniden deneyin.",
-									"query"
-								)
-							: null
-					}
-					isFetching={projectsQuery.isFetching || isCheckingProjectState}
+					isError={projectsQuery.isError}
 					isPending={projectsQuery.isPending}
-					onRetry={() => void refreshProjects()}
 					projects={projectsQuery.data ?? []}
 				/>
 			</section>
@@ -166,28 +142,19 @@ export function ProjectsView() {
 }
 
 function ProjectsList({
-	errorMessage,
-	isFetching,
+	isError,
 	isPending,
-	onRetry,
 	projects,
 }: {
-	errorMessage: string | null;
-	isFetching: boolean;
+	isError: boolean;
 	isPending: boolean;
-	onRetry: () => void;
 	projects: { id: string; name: string }[];
 }) {
 	if (isPending) {
 		return <p aria-live="polite">Projeler yükleniyor…</p>;
 	}
-	if (errorMessage) {
-		return (
-			<div className="space-y-2">
-				<p role="alert">Projeler yüklenemedi: {errorMessage}</p>
-				<QueryRetryButton disabled={isFetching} onRetry={onRetry} />
-			</div>
-		);
+	if (isError) {
+		return null;
 	}
 	if (projects.length === 0) {
 		return (
@@ -208,22 +175,31 @@ function ProjectsList({
 						<h3 className="font-medium">{project.name}</h3>
 						<p className="text-muted-foreground text-sm">Oyun projesi</p>
 					</div>
-					<Link
-						aria-label={`${project.name} izinlerini yönet`}
-						className={buttonVariants({ variant: "outline" })}
-						params={{ projectId: project.id }}
-						to="/projects/$projectId/access"
-					>
-						İzinleri yönet
-					</Link>
-					<Link
-						aria-label={`${project.name} varlık kayıtlarını aç`}
-						className={buttonVariants({ variant: "outline" })}
-						params={{ projectId: project.id }}
-						to="/projects/$projectId/assets"
-					>
-						Varlık kayıtları
-					</Link>
+					<div className="flex flex-wrap gap-2">
+						<Link
+							className={buttonVariants({ variant: "outline" })}
+							params={{ projectId: project.id }}
+							to="/projects/$projectId/asset-families"
+						>
+							Varlık Aileleri
+						</Link>
+						<Link
+							aria-label={`${project.name} varlık kayıtlarını aç`}
+							className={buttonVariants({ variant: "outline" })}
+							params={{ projectId: project.id }}
+							to="/projects/$projectId/assets"
+						>
+							Varlık kayıtları
+						</Link>
+						<Link
+							aria-label={`${project.name} izinlerini yönet`}
+							className={buttonVariants({ variant: "outline" })}
+							params={{ projectId: project.id }}
+							to="/projects/$projectId/access"
+						>
+							İzinleri yönet
+						</Link>
+					</div>
 				</li>
 			))}
 		</ul>

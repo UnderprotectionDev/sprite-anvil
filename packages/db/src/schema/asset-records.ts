@@ -20,6 +20,34 @@ type AssetRecordIdentityCriteria =
 
 type AssetRecordAvailability = "active" | "archived" | "erased";
 
+export const subjectIdentities = pgTable(
+	"subject_identities",
+	{
+		id: text("id").primaryKey(),
+		projectId: text("project_id")
+			.notNull()
+			.references(() => project.id, { onDelete: "restrict" }),
+		name: text("name").notNull(),
+		createdByUserId: text("created_by_user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "restrict" }),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+	},
+	(table) => [
+		uniqueIndex("subject_identities_project_id_id_idx").on(
+			table.projectId,
+			table.id
+		),
+		uniqueIndex("subject_identities_project_name_idx").on(
+			table.projectId,
+			sql`lower(${table.name})`
+		),
+		index("subject_identities_created_by_user_id_idx").on(
+			table.createdByUserId
+		),
+	]
+);
+
 export const assetFamilies = pgTable(
 	"asset_families",
 	{
@@ -29,6 +57,7 @@ export const assetFamilies = pgTable(
 			.references(() => project.id, { onDelete: "restrict" }),
 		visualWorldId: text("visual_world_id").notNull(),
 		canonicalVersionId: text("canonical_version_id"),
+		subjectIdentityId: text("subject_identity_id"),
 		name: text("name").notNull(),
 		useContext: text("use_context").notNull(),
 		createdByUserId: text("created_by_user_id")
@@ -51,10 +80,15 @@ export const assetFamilies = pgTable(
 			columns: [table.projectId, table.visualWorldId],
 			foreignColumns: [visualWorlds.projectId, visualWorlds.id],
 		}).onDelete("restrict"),
-		uniqueIndex("asset_families_project_name_ci_idx").on(
-			table.projectId,
+		uniqueIndex("asset_families_identity_name_idx").on(
+			table.subjectIdentityId,
 			sql`lower(${table.name})`
 		),
+		foreignKey({
+			name: "asset_families_project_subject_identity_fk",
+			columns: [table.projectId, table.subjectIdentityId],
+			foreignColumns: [subjectIdentities.projectId, subjectIdentities.id],
+		}).onDelete("restrict"),
 	]
 );
 
@@ -98,6 +132,11 @@ export const assetRecords = pgTable(
 			table.projectId,
 			table.id,
 			table.assetFamilyId
+		),
+		uniqueIndex("asset_records_project_family_record_idx").on(
+			table.projectId,
+			table.assetFamilyId,
+			table.id
 		),
 		foreignKey({
 			name: "asset_records_project_asset_family_fk",
