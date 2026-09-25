@@ -512,6 +512,74 @@ test("saves proposed and confirmed dimensions independently on an Asset Record",
 	);
 });
 
+test("requires a Visible Content Bounds coordinate space and keeps bounds inside it", async () => {
+	fakeApi.updateMeasurements.mockImplementation((input) => {
+		fakeApi.measurements = input.measurements;
+		return { ...assetRecord, measurements: input.measurements };
+	});
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+	await screen.findByRole("heading", { name: "Ash Knight" });
+
+	for (const [label, value] of [
+		["Mantıksal Çözünürlük — Öneri — Genişlik (px)", "32"],
+		["Mantıksal Çözünürlük — Öneri — Yükseklik (px)", "32"],
+		["Görünür İçerik Sınırı — Öneri — X (px)", "3"],
+		["Görünür İçerik Sınırı — Öneri — Y (px)", "4"],
+		["Görünür İçerik Sınırı — Öneri — Genişlik (px)", "30"],
+		["Görünür İçerik Sınırı — Öneri — Yükseklik (px)", "10"],
+	] as const) {
+		fireEvent.change(screen.getByLabelText(label), { target: { value } });
+	}
+	const coordinateSpace = screen.getByLabelText(
+		"Görünür İçerik Sınırı — Öneri — Koordinat temeli"
+	);
+	fireEvent.change(coordinateSpace, {
+		target: { value: "logicalResolution" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Ölçüleri kaydet" }));
+
+	expect(await screen.findByRole("alert")).toHaveTextContent(
+		"Görünür İçerik Sınırı seçilen koordinat temelinin genişliğini aşamaz."
+	);
+	expect(fakeApi.updateMeasurements).not.toHaveBeenCalled();
+
+	fireEvent.change(
+		screen.getByLabelText("Görünür İçerik Sınırı — Öneri — X (px)"),
+		{ target: { value: "2" } }
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Ölçüleri kaydet" }));
+
+	expect(await screen.findByRole("status")).toHaveTextContent(
+		"Ölçüler kaydedildi."
+	);
+	expect(fakeApi.updateMeasurements).toHaveBeenCalledWith({
+		assetRecordId: assetRecord.id,
+		measurements: {
+			...emptyAssetRecordMeasurements,
+			logicalResolution: {
+				confirmed: null,
+				proposal: { width: 32, height: 32 },
+			},
+			visibleContentBounds: {
+				confirmed: null,
+				proposal: {
+					coordinateSpace: "logicalResolution",
+					x: 2,
+					y: 4,
+					width: 30,
+					height: 10,
+				},
+			},
+		},
+		projectId,
+	});
+});
+
 test("requires a complete pair when a dimension value is started", async () => {
 	renderWithQueryClient(
 		<AssetRecordDetailView

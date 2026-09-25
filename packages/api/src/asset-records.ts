@@ -18,6 +18,11 @@ export const assetRecordAvailabilityValues = [
 	"erased",
 ] as const;
 
+export const visibleContentBoundsCoordinateSpaces = [
+	"logicalResolution",
+	"cellDimensions",
+] as const;
+
 const pixelDimensionsSchema = z
 	.object({
 		height: z.number().int().positive(),
@@ -27,6 +32,7 @@ const pixelDimensionsSchema = z
 
 const visibleContentBoundsSchema = z
 	.object({
+		coordinateSpace: z.enum(visibleContentBoundsCoordinateSpaces),
 		height: z.number().int().positive(),
 		width: z.number().int().positive(),
 		x: z.number().int().nonnegative(),
@@ -52,7 +58,37 @@ export const assetRecordMeasurementsSchema = z
 		sourceImageDimensions: measurementValueSchema(pixelDimensionsSchema),
 		visibleContentBounds: measurementValueSchema(visibleContentBoundsSchema),
 	})
-	.strict();
+	.strict()
+	.superRefine((measurements, context) => {
+		for (const state of ["proposal", "confirmed"] as const) {
+			const bounds = measurements.visibleContentBounds[state];
+			if (!bounds) {
+				continue;
+			}
+
+			const dimensions = measurements[bounds.coordinateSpace][state];
+			if (!dimensions) {
+				continue;
+			}
+
+			if (bounds.x + bounds.width > dimensions.width) {
+				context.addIssue({
+					code: "custom",
+					path: ["visibleContentBounds", state, "width"],
+					message:
+						"Görünür İçerik Sınırı seçilen koordinat temelinin genişliğini aşamaz.",
+				});
+			}
+			if (bounds.y + bounds.height > dimensions.height) {
+				context.addIssue({
+					code: "custom",
+					path: ["visibleContentBounds", state, "height"],
+					message:
+						"Görünür İçerik Sınırı seçilen koordinat temelinin yüksekliğini aşamaz.",
+				});
+			}
+		}
+	});
 
 export type AssetRecordMeasurements = z.infer<
 	typeof assetRecordMeasurementsSchema

@@ -38,8 +38,20 @@ const measurements: MeasurementFixture = {
 		confirmed: { width: 24, height: 32 },
 	},
 	visibleContentBounds: {
-		proposal: { x: 3, y: 4, width: 66, height: 74 },
-		confirmed: { x: 3, y: 4, width: 66, height: 74 },
+		proposal: {
+			coordinateSpace: "logicalResolution",
+			x: 3,
+			y: 4,
+			width: 66,
+			height: 74,
+		},
+		confirmed: {
+			coordinateSpace: "logicalResolution",
+			x: 3,
+			y: 4,
+			width: 66,
+			height: 74,
+		},
 	},
 	displayScale: { proposal: 2.5, confirmed: 2 },
 	atlasDimensions: {
@@ -78,6 +90,7 @@ interface PixelDimensions {
 }
 
 interface ContentBounds {
+	coordinateSpace: "logicalResolution" | "cellDimensions";
 	height: number;
 	width: number;
 	x: number;
@@ -508,6 +521,79 @@ test("rejects invalid pixel geometry and non-positive display scales", () => {
 			},
 		}).success
 	).toBe(false);
+});
+
+test("requires a Visible Content Bounds coordinate space and checks its extent", () => {
+	const input = { assetRecordId: recordId, measurements, projectId };
+	const bounds = measurements.visibleContentBounds.proposal;
+	if (!bounds) {
+		throw new Error("The measurement fixture needs proposed bounds.");
+	}
+
+	expect(
+		assetRecordMeasurementsUpdateInputSchema.safeParse({
+			...input,
+			measurements: {
+				...measurements,
+				visibleContentBounds: {
+					...measurements.visibleContentBounds,
+					proposal: {
+						x: bounds.x,
+						y: bounds.y,
+						width: bounds.width,
+						height: bounds.height,
+					},
+				},
+			},
+		}).success
+	).toBe(false);
+	expect(
+		assetRecordMeasurementsUpdateInputSchema.safeParse({
+			...input,
+			measurements: {
+				...measurements,
+				visibleContentBounds: {
+					...measurements.visibleContentBounds,
+					proposal: { ...bounds, y: 8 },
+				},
+			},
+		}).success
+	).toBe(false);
+	expect(
+		assetRecordMeasurementsUpdateInputSchema.safeParse({
+			...input,
+			measurements: {
+				...measurements,
+				visibleContentBounds: {
+					...measurements.visibleContentBounds,
+					proposal: { ...bounds, x: 7 },
+				},
+			},
+		}).success
+	).toBe(false);
+	expect(
+		assetRecordMeasurementsUpdateInputSchema.safeParse({
+			...input,
+			measurements: {
+				...measurements,
+				cellDimensions: {
+					proposal: { width: 24, height: 32 },
+					confirmed: { width: 24, height: 32 },
+				},
+				visibleContentBounds: {
+					...measurements.visibleContentBounds,
+					proposal: {
+						...bounds,
+						coordinateSpace: "cellDimensions",
+						x: 2,
+						y: 4,
+						width: 20,
+						height: 24,
+					},
+				},
+			},
+		}).success
+	).toBe(true);
 });
 
 test("keeps measurement updates inside the owning project's access boundary", async () => {

@@ -299,7 +299,7 @@ The width and height of one addressable cell within a sheet or atlas source.
 _Avoid_: Visible content bounds, atlas dimensions
 
 **Visible Content Bounds**:
-The smallest declared rectangle containing the visible game artwork within its logical canvas or cell.
+The smallest declared rectangle containing the visible game artwork, with its coordinate space explicitly identified as the Logical Resolution of a canvas or the Cell Dimensions of a cell.
 _Avoid_: Collision bounds, cell dimensions
 
 **Display Scale**:

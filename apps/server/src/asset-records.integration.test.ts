@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
-import { createEmptyAssetRecordMeasurements } from "@sprite-anvil/api/asset-records";
+import {
+	type AssetRecordMeasurements,
+	createEmptyAssetRecordMeasurements,
+} from "@sprite-anvil/api/asset-records";
 import type { Context } from "@sprite-anvil/api/context";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { createDb } from "@sprite-anvil/db";
@@ -101,7 +104,7 @@ test.skipIf(!databaseUrl)(
 				},
 				{ context }
 			);
-			const measurements = {
+			const measurements: AssetRecordMeasurements = {
 				atlasDimensions: {
 					proposal: { width: 1024, height: 512 },
 					confirmed: null,
@@ -120,8 +123,20 @@ test.skipIf(!databaseUrl)(
 					confirmed: { width: 512, height: 256 },
 				},
 				visibleContentBounds: {
-					proposal: { x: 3, y: 4, width: 66, height: 74 },
-					confirmed: { x: 3, y: 4, width: 66, height: 74 },
+					proposal: {
+						coordinateSpace: "logicalResolution",
+						x: 3,
+						y: 4,
+						width: 66,
+						height: 74,
+					},
+					confirmed: {
+						coordinateSpace: "logicalResolution",
+						x: 3,
+						y: 4,
+						width: 66,
+						height: 74,
+					},
 				},
 			};
 			await call(

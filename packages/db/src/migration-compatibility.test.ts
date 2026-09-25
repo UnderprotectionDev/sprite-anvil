@@ -50,6 +50,13 @@ const assetTrackingRelationshipMigration = readFileSync(
 	),
 	"utf8"
 );
+const assetRecordForeignKeyRestoreMigration = readFileSync(
+	new URL(
+		"./migrations/20260925160000_asset_record_foreign_key_restore/migration.sql",
+		import.meta.url
+	),
+	"utf8"
+);
 
 test("normalizes legacy project ownership before current indexes and foreign keys", () => {
 	const renameOwnerColumn = migration.indexOf(
@@ -139,6 +146,31 @@ test("bridges legacy Asset Version metadata without inventing unavailable values
 	);
 	expect(legacyAssetSchemaBridgeMigration).toContain(
 		"refusing ambiguous migration"
+	);
+});
+
+test("restores project and creator foreign keys removed by the legacy bridge", () => {
+	for (const constraint of [
+		"asset_families_project_visual_world_fk",
+		"asset_families_created_by_user_id_user_id_fkey",
+		"asset_versions_created_by_user_id_user_id_fkey",
+		"asset_version_review_events_created_by_user_id_user_id_fkey",
+	]) {
+		expect(assetRecordForeignKeyRestoreMigration).toContain(
+			`ADD CONSTRAINT "${constraint}"`
+		);
+	}
+	expect(assetRecordForeignKeyRestoreMigration).toContain(
+		'FOREIGN KEY ("project_id","visual_world_id")'
+	);
+	expect(assetRecordForeignKeyRestoreMigration).toContain(
+		'REFERENCES "visual_worlds"("project_id","id") ON DELETE RESTRICT'
+	);
+	expect(assetRecordForeignKeyRestoreMigration).toContain(
+		'FOREIGN KEY ("created_by_user_id")'
+	);
+	expect(assetRecordForeignKeyRestoreMigration).toContain(
+		'REFERENCES "user"("id") ON DELETE RESTRICT'
 	);
 });
 

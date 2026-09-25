@@ -1,6 +1,7 @@
-import type {
-	AssetRecord,
-	AssetRecordMeasurements,
+import {
+	type AssetRecord,
+	type AssetRecordMeasurements,
+	assetRecordMeasurementsSchema,
 } from "@sprite-anvil/api/asset-records";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
@@ -199,7 +200,21 @@ function readVisibleContentBounds(
 			"Görünür İçerik Sınırı için X, Y, genişlik ve yükseklik birlikte girilmeli."
 		);
 	}
-	return { height, width, x, y };
+	const coordinateSpace =
+		draft[draftKey(measurement, state, "coordinateSpace")];
+	if (
+		coordinateSpace !== "logicalResolution" &&
+		coordinateSpace !== "cellDimensions"
+	) {
+		throw new Error("Görünür İçerik Sınırı için koordinat temeli seçilmeli.");
+	}
+	return {
+		coordinateSpace: coordinateSpace as "logicalResolution" | "cellDimensions",
+		height,
+		width,
+		x,
+		y,
+	};
 }
 
 function readDisplayScale(draft: MeasurementDraft, state: MeasurementState) {
@@ -338,6 +353,38 @@ function FieldGroup({
 					);
 				})}
 			</div>
+			{definition.key === "visibleContentBounds" ? (
+				<label
+					className="block space-y-1 text-sm"
+					htmlFor={`${definition.key}-${state.key}-coordinateSpace`}
+				>
+					<span>
+						Koordinat temeli
+						{hasValue ? " *" : ""}
+					</span>
+					<select
+						aria-describedby="asset-record-measurements-help"
+						aria-label={`${definition.label} — ${state.label} — Koordinat temeli`}
+						className="min-h-11 w-full rounded-md border bg-background px-3 py-2"
+						id={`${definition.key}-${state.key}-coordinateSpace`}
+						onChange={(event) =>
+							onChange(
+								draftKey(definition.key, state.key, "coordinateSpace"),
+								event.target.value
+							)
+						}
+						required={hasValue}
+						value={
+							draft[draftKey(definition.key, state.key, "coordinateSpace")] ??
+							""
+						}
+					>
+						<option value="">Seçin</option>
+						<option value="logicalResolution">Mantıksal Çözünürlük</option>
+						<option value="cellDimensions">Hücre Ölçüsü</option>
+					</select>
+				</label>
+			) : null}
 		</fieldset>
 	);
 }
@@ -382,9 +429,19 @@ export function AssetRecordMeasurementsForm({
 		setStatusMessage(null);
 		setIsSaving(true);
 		try {
+			const parsedMeasurements = assetRecordMeasurementsSchema.safeParse(
+				readMeasurements(draft)
+			);
+			if (!parsedMeasurements.success) {
+				setErrorMessage(
+					parsedMeasurements.error.issues[0]?.message ??
+						"Görsel ölçü değerlerini kontrol edip yeniden deneyin."
+				);
+				return;
+			}
 			const saved = await client.assetRecords.updateMeasurements({
 				assetRecordId: record.id,
-				measurements: readMeasurements(draft),
+				measurements: parsedMeasurements.data,
 				projectId: record.projectId,
 			});
 			setDraft(draftFromMeasurements(saved.measurements));

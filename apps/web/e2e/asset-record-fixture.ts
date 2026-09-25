@@ -102,6 +102,12 @@ export const assetRecordMeasurementInputs = [
 		value: "74",
 	},
 	{
+		accessibleName: "Görünür İçerik Sınırı — Öneri — Koordinat temeli",
+		id: "visibleContentBounds-proposal-coordinateSpace",
+		kind: "select",
+		value: "logicalResolution",
+	},
+	{
 		accessibleName: "Görünür İçerik Sınırı — Doğrulanmış değer — X (px)",
 		id: "visibleContentBounds-confirmed-x",
 		value: "2",
@@ -121,6 +127,13 @@ export const assetRecordMeasurementInputs = [
 			"Görünür İçerik Sınırı — Doğrulanmış değer — Yükseklik (px)",
 		id: "visibleContentBounds-confirmed-height",
 		value: "70",
+	},
+	{
+		accessibleName:
+			"Görünür İçerik Sınırı — Doğrulanmış değer — Koordinat temeli",
+		id: "visibleContentBounds-confirmed-coordinateSpace",
+		kind: "select",
+		value: "logicalResolution",
 	},
 	{
 		accessibleName: "Gösterim Ölçeği — Öneri — Ölçek",
@@ -153,6 +166,111 @@ export const assetRecordMeasurementInputs = [
 		value: "1024",
 	},
 ] as const;
+
+interface AssetRecordMeasurementInput {
+	accessibleName: string;
+	id: string;
+	kind?: "number" | "select";
+	value: string;
+}
+
+const measurementLabels = {
+	atlasDimensions: "Atlas Ölçüsü",
+	cellDimensions: "Hücre Ölçüsü",
+	displayScale: "Gösterim Ölçeği",
+	logicalResolution: "Mantıksal Çözünürlük",
+	sourceImageDimensions: "Kaynak Görsel Ölçüsü",
+	visibleContentBounds: "Görünür İçerik Sınırı",
+} as const;
+
+const fieldLabels = {
+	height: "Yükseklik (px)",
+	value: "Ölçek",
+	width: "Genişlik (px)",
+	x: "X (px)",
+	y: "Y (px)",
+} as const;
+
+function numberInput(
+	measurement: keyof typeof measurementLabels,
+	state: "proposal" | "confirmed",
+	field: keyof typeof fieldLabels,
+	value: string
+): AssetRecordMeasurementInput {
+	const stateLabel = state === "proposal" ? "Öneri" : "Doğrulanmış değer";
+	return {
+		accessibleName: `${measurementLabels[measurement]} — ${stateLabel} — ${fieldLabels[field]}`,
+		id: `${measurement}-${state}-${field}`,
+		kind: "number",
+		value,
+	};
+}
+
+function coordinateSpaceInput(
+	state: "proposal" | "confirmed",
+	value: "logicalResolution" | "cellDimensions"
+): AssetRecordMeasurementInput {
+	const stateLabel = state === "proposal" ? "Öneri" : "Doğrulanmış değer";
+	return {
+		accessibleName: `Görünür İçerik Sınırı — ${stateLabel} — Koordinat temeli`,
+		id: `visibleContentBounds-${state}-coordinateSpace`,
+		kind: "select",
+		value,
+	};
+}
+
+export const assetRecordMeasurementScenarios = [
+	{ name: assetRecordFixture.name, inputs: assetRecordMeasurementInputs },
+	{
+		name: "Health Potion Icon",
+		inputs: [
+			numberInput("sourceImageDimensions", "proposal", "width", "128"),
+			numberInput("sourceImageDimensions", "proposal", "height", "128"),
+			numberInput("logicalResolution", "proposal", "width", "64"),
+			numberInput("logicalResolution", "proposal", "height", "64"),
+			numberInput("visibleContentBounds", "proposal", "x", "4"),
+			numberInput("visibleContentBounds", "proposal", "y", "4"),
+			numberInput("visibleContentBounds", "proposal", "width", "56"),
+			numberInput("visibleContentBounds", "proposal", "height", "56"),
+			coordinateSpaceInput("proposal", "logicalResolution"),
+			numberInput("displayScale", "proposal", "value", "2"),
+		],
+	},
+	{
+		name: "Stone Path Tiles",
+		inputs: [
+			numberInput("sourceImageDimensions", "proposal", "width", "512"),
+			numberInput("sourceImageDimensions", "proposal", "height", "512"),
+			numberInput("cellDimensions", "proposal", "width", "32"),
+			numberInput("cellDimensions", "proposal", "height", "32"),
+			numberInput("visibleContentBounds", "proposal", "x", "1"),
+			numberInput("visibleContentBounds", "proposal", "y", "2"),
+			numberInput("visibleContentBounds", "proposal", "width", "29"),
+			numberInput("visibleContentBounds", "proposal", "height", "28"),
+			coordinateSpaceInput("proposal", "cellDimensions"),
+			numberInput("atlasDimensions", "proposal", "width", "512"),
+			numberInput("atlasDimensions", "proposal", "height", "512"),
+		],
+	},
+	{
+		name: "Frost Mage Portrait",
+		inputs: [
+			numberInput("sourceImageDimensions", "proposal", "width", "2400"),
+			numberInput("sourceImageDimensions", "proposal", "height", "3200"),
+			numberInput("logicalResolution", "proposal", "width", "1200"),
+			numberInput("logicalResolution", "proposal", "height", "1600"),
+			numberInput("visibleContentBounds", "proposal", "x", "90"),
+			numberInput("visibleContentBounds", "proposal", "y", "100"),
+			numberInput("visibleContentBounds", "proposal", "width", "1000"),
+			numberInput("visibleContentBounds", "proposal", "height", "1400"),
+			coordinateSpaceInput("proposal", "logicalResolution"),
+			numberInput("displayScale", "proposal", "value", "0.5"),
+		],
+	},
+] satisfies readonly {
+	name: string;
+	inputs: readonly AssetRecordMeasurementInput[];
+}[];
 
 export const assetVersionE2eEnabled = Boolean(
 	process.env.CONTEXT_TEST_DATABASE_URL &&
