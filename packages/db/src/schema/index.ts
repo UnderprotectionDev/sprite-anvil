@@ -1,5 +1,6 @@
 export * from "./asset-production-history";
 export * from "./asset-record-derivatives";
+export * from "./asset-record-measurements";
 export * from "./asset-record-references";
 export * from "./asset-records";
 export * from "./asset-versions";

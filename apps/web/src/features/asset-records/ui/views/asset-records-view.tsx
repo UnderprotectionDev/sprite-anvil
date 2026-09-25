@@ -10,6 +10,7 @@ import {
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
 import { AssetRecordTrackingPanel } from "../components/asset-record-tracking-panel";
+import { AssetRecordMeasurementsForm } from "../forms/asset-record-measurements-form";
 
 const identityOptions = [
 	{
@@ -462,6 +463,10 @@ export function AssetRecordDetailView({
 							</time>
 						</p>
 					</section>
+					<AssetRecordMeasurementsForm
+						onRefresh={() => trackingQuery.refetch()}
+						record={record}
+					/>
 					{trackingQuery.data ? (
 						<AssetRecordTrackingPanel
 							detail={trackingQuery.data}

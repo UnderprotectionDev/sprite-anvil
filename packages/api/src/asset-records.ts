@@ -18,6 +18,57 @@ export const assetRecordAvailabilityValues = [
 	"erased",
 ] as const;
 
+const pixelDimensionsSchema = z
+	.object({
+		height: z.number().int().positive(),
+		width: z.number().int().positive(),
+	})
+	.strict();
+
+const visibleContentBoundsSchema = z
+	.object({
+		height: z.number().int().positive(),
+		width: z.number().int().positive(),
+		x: z.number().int().nonnegative(),
+		y: z.number().int().nonnegative(),
+	})
+	.strict();
+
+function measurementValueSchema<T extends z.ZodType>(valueSchema: T) {
+	return z
+		.object({
+			confirmed: valueSchema.nullable(),
+			proposal: valueSchema.nullable(),
+		})
+		.strict();
+}
+
+export const assetRecordMeasurementsSchema = z
+	.object({
+		atlasDimensions: measurementValueSchema(pixelDimensionsSchema),
+		cellDimensions: measurementValueSchema(pixelDimensionsSchema),
+		displayScale: measurementValueSchema(z.number().positive()),
+		logicalResolution: measurementValueSchema(pixelDimensionsSchema),
+		sourceImageDimensions: measurementValueSchema(pixelDimensionsSchema),
+		visibleContentBounds: measurementValueSchema(visibleContentBoundsSchema),
+	})
+	.strict();
+
+export type AssetRecordMeasurements = z.infer<
+	typeof assetRecordMeasurementsSchema
+>;
+
+export function createEmptyAssetRecordMeasurements(): AssetRecordMeasurements {
+	return {
+		atlasDimensions: { confirmed: null, proposal: null },
+		cellDimensions: { confirmed: null, proposal: null },
+		displayScale: { confirmed: null, proposal: null },
+		logicalResolution: { confirmed: null, proposal: null },
+		sourceImageDimensions: { confirmed: null, proposal: null },
+		visibleContentBounds: { confirmed: null, proposal: null },
+	};
+}
+
 const projectIdSchema = z.uuid();
 
 export const assetRecordSchema = z
@@ -29,6 +80,9 @@ export const assetRecordSchema = z
 			.array(assetRecordIdentityCriteriaSchema)
 			.max(assetRecordIdentityCriteria.length)
 			.refine((criteria) => new Set(criteria).size === criteria.length),
+		measurements: assetRecordMeasurementsSchema.default(() =>
+			createEmptyAssetRecordMeasurements()
+		),
 		name: z.string().trim().min(1).max(120),
 		projectId: projectIdSchema,
 		supportLevel: z.enum(assetRecordSupportLevels),
@@ -59,9 +113,20 @@ export const assetRecordGetInputSchema = z
 	})
 	.strict();
 
+export const assetRecordMeasurementsUpdateInputSchema = z
+	.object({
+		assetRecordId: z.uuid(),
+		measurements: assetRecordMeasurementsSchema,
+		projectId: projectIdSchema,
+	})
+	.strict();
+
 export type AssetRecord = z.infer<typeof assetRecordSchema>;
 export type AssetRecordCreateInput = z.infer<
 	typeof assetRecordCreateInputSchema
+>;
+export type AssetRecordMeasurementsUpdateInput = z.infer<
+	typeof assetRecordMeasurementsUpdateInputSchema
 >;
 
 export interface AssetRecordStore {
@@ -75,4 +140,8 @@ export interface AssetRecordStore {
 		assetRecordId: string
 	) => Promise<AssetRecord | null>;
 	list: (userId: string, projectId: string) => Promise<AssetRecord[] | null>;
+	updateMeasurements: (
+		userId: string,
+		input: AssetRecordMeasurementsUpdateInput
+	) => Promise<AssetRecord | null>;
 }

@@ -47,10 +47,26 @@ describe("Asset Records", () => {
 
 		const recordHeading = await $(`h1=${assetRecordFixture.name}`);
 		await recordHeading.waitForDisplayed();
+		await (await $("input#sourceImageDimensions-proposal-width")).setValue(
+			"512"
+		);
+		await (await $("input#sourceImageDimensions-proposal-height")).setValue(
+			"256"
+		);
+		await (await $("input#logicalResolution-confirmed-width")).setValue("72");
+		await (await $("input#logicalResolution-confirmed-height")).setValue("80");
+		await (await $("button=Ölçüleri kaydet")).click();
+		await expect(await $("p=Ölçüler kaydedildi.")).toBeDisplayed();
 		await expect(await $("p*=Kayıt oluşturuldu")).toBeDisplayed();
 		await browser.refresh();
 		await (await $(`h1=${assetRecordFixture.name}`)).waitForDisplayed();
 		await expect(await $("p*=Kayıt oluşturuldu")).toBeDisplayed();
+		await expect(
+			await $("input#sourceImageDimensions-proposal-width")
+		).toHaveValue("512");
+		await expect(
+			await $("input#logicalResolution-confirmed-width")
+		).toHaveValue("72");
 	});
 
 	it("persists an Asset Version, review, quality result, and legacy history", async function () {

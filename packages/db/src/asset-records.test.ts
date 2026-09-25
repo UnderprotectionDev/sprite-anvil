@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { getTableConfig } from "drizzle-orm/pg-core";
 import { legacyAssetAttestations } from "./schema/asset-production-history";
 import { assetRecordDerivatives } from "./schema/asset-record-derivatives";
+import { assetRecordMeasurements } from "./schema/asset-record-measurements";
 import { assetRecordReferences } from "./schema/asset-record-references";
 import { assetRecords } from "./schema/asset-records";
 import {
@@ -30,6 +31,15 @@ test("allows Asset Records to exist without an Asset Family or legacy criteria",
 
 	expect(assetFamilyId?.notNull).toBe(false);
 	expect(identityCriteria?.notNull).toBe(false);
+});
+
+test("keeps Asset Record measurements project-scoped and out of implicit deletion", () => {
+	const { columns, foreignKeys } = getTableConfig(assetRecordMeasurements);
+	const measurements = columns.find((column) => column.name === "measurements");
+
+	expect(measurements?.notNull).toBe(true);
+	expect(foreignKeys).toHaveLength(1);
+	expect(foreignKeys[0]?.onDelete).toBe("restrict");
 });
 
 test("keeps version and tracking history linked with restrictive project-scoped references", () => {

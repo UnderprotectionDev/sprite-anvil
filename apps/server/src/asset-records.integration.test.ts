@@ -5,6 +5,7 @@ import { appRouter } from "@sprite-anvil/api/routers/index";
 import { createDb } from "@sprite-anvil/db";
 import { legacyAssetAttestations } from "@sprite-anvil/db/schema/asset-production-history";
 import { assetRecordDerivatives } from "@sprite-anvil/db/schema/asset-record-derivatives";
+import { assetRecordMeasurements } from "@sprite-anvil/db/schema/asset-record-measurements";
 import { assetRecordReferences } from "@sprite-anvil/db/schema/asset-record-references";
 import {
 	assetFamilies,
@@ -97,6 +98,34 @@ test.skipIf(!databaseUrl)(
 					name: "Ash Knight",
 					projectId,
 				},
+				{ context }
+			);
+			const measurements = {
+				atlasDimensions: {
+					proposal: { width: 1024, height: 512 },
+					confirmed: null,
+				},
+				cellDimensions: {
+					proposal: null,
+					confirmed: { width: 24, height: 32 },
+				},
+				displayScale: { proposal: 2.5, confirmed: 2 },
+				logicalResolution: {
+					proposal: { width: 72, height: 80 },
+					confirmed: { width: 72, height: 80 },
+				},
+				sourceImageDimensions: {
+					proposal: { width: 512, height: 256 },
+					confirmed: { width: 512, height: 256 },
+				},
+				visibleContentBounds: {
+					proposal: { x: 3, y: 4, width: 66, height: 74 },
+					confirmed: { x: 3, y: 4, width: 66, height: 74 },
+				},
+			};
+			await call(
+				appRouter.assetRecords.updateMeasurements,
+				{ assetRecordId: created.id, measurements, projectId },
 				{ context }
 			);
 			const versionId = crypto.randomUUID();
@@ -223,18 +252,21 @@ test.skipIf(!databaseUrl)(
 				{ context: rereadContext }
 			);
 
-			expect(reread).toEqual(created);
 			expect(reread).toMatchObject({
 				availability: "active",
 				identityCriteria: ["independent_product_meaning", "delivery_identity"],
+				id: created.id,
 				name: "Ash Knight",
+				projectId,
 				supportLevel: "general",
+				measurements,
 			});
 			const tracking = await call(
 				appRouter.assetRecords.tracking,
 				{ assetRecordId: created.id, projectId },
 				{ context: rereadContext }
 			);
+			expect(tracking.record.measurements).toEqual(measurements);
 			expect(createdVersion).toMatchObject({
 				fileName: "ash-knight.png",
 				id: versionId,
@@ -317,6 +349,9 @@ test.skipIf(!databaseUrl)(
 				await db
 					.delete(assetVersions)
 					.where(eq(assetVersions.projectId, projectId));
+				await db
+					.delete(assetRecordMeasurements)
+					.where(eq(assetRecordMeasurements.projectId, projectId));
 				await db
 					.delete(assetRecords)
 					.where(eq(assetRecords.projectId, projectId));

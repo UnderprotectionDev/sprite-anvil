@@ -44,6 +44,22 @@ test("persists an Asset Record created through the web flow", async ({
 	await expect(
 		page.getByRole("heading", { name: assetRecordFixture.name })
 	).toBeVisible();
+	await page
+		.getByLabel("Kaynak Görsel Ölçüsü — Öneri — Genişlik (px)")
+		.fill("512");
+	await page
+		.getByLabel("Kaynak Görsel Ölçüsü — Öneri — Yükseklik (px)")
+		.fill("256");
+	await page
+		.getByLabel("Mantıksal Çözünürlük — Doğrulanmış değer — Genişlik (px)")
+		.fill("72");
+	await page
+		.getByLabel("Mantıksal Çözünürlük — Doğrulanmış değer — Yükseklik (px)")
+		.fill("80");
+	await page.getByRole("button", { name: "Ölçüleri kaydet" }).click();
+	await expect(
+		page.getByText("Ölçüler kaydedildi.", { exact: true })
+	).toBeVisible();
 	await expect(
 		page.getByText("Bağımsız ürün anlamı", { exact: true })
 	).toBeVisible();
@@ -52,6 +68,12 @@ test("persists an Asset Record created through the web flow", async ({
 		page.getByRole("heading", { name: assetRecordFixture.name })
 	).toBeVisible();
 	await expect(page.getByText("Kayıt oluşturuldu")).toBeVisible();
+	await expect(
+		page.getByLabel("Kaynak Görsel Ölçüsü — Öneri — Genişlik (px)")
+	).toHaveValue("512");
+	await expect(
+		page.getByLabel("Mantıksal Çözünürlük — Doğrulanmış değer — Genişlik (px)")
+	).toHaveValue("72");
 });
 
 test("persists an Asset Version, review, quality result, and legacy history", async ({

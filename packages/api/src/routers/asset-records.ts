@@ -3,6 +3,7 @@ import {
 	assetRecordCreateInputSchema,
 	assetRecordGetInputSchema,
 	assetRecordListInputSchema,
+	assetRecordMeasurementsUpdateInputSchema,
 	assetRecordSchema,
 } from "../asset-records";
 import { protectedProcedure } from "../index";
@@ -38,6 +39,21 @@ export const assetRecordsRouter = {
 				});
 			}
 			return parsedRecord;
+		}),
+	updateMeasurements: protectedProcedure
+		.input(assetRecordMeasurementsUpdateInputSchema)
+		.output(assetRecordSchema)
+		.handler(async ({ context, input }) => {
+			const record = await context.assetRecordStore.updateMeasurements(
+				context.session.user.id,
+				input
+			);
+			if (!record) {
+				throw new ORPCError("NOT_FOUND", {
+					message: "Varlık kaydı bulunamadı.",
+				});
+			}
+			return assetRecordSchema.parse(record);
 		}),
 	get: protectedProcedure
 		.input(assetRecordGetInputSchema)

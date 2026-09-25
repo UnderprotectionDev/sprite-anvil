@@ -27,11 +27,24 @@ const productionSource = /Imported from the project archive/;
 const productionEvidence = /Archive manifest entry/;
 const userRelationshipLabel = /Ekipten alındı/;
 const unknownHistory = /Geçmiş bilinmiyor/;
+const emptyAssetRecordMeasurements = {
+	atlasDimensions: { confirmed: null, proposal: null },
+	cellDimensions: { confirmed: null, proposal: null },
+	displayScale: { confirmed: null, proposal: null },
+	logicalResolution: { confirmed: null, proposal: null },
+	sourceImageDimensions: { confirmed: null, proposal: null },
+	visibleContentBounds: { confirmed: null, proposal: null },
+};
+const fractionalScaleWarning =
+	/Piksel sanatında doğal sayı olmayan Gösterim Ölçeği/;
+const illustrationScaleHint =
+	/Yüksek çözünürlüklü illüstrasyonlar bu kurala zorlanmaz/;
 const assetRecord = {
 	availability: "active" as const,
 	createdAt: "2026-09-25T08:00:00.000Z",
 	id: "7ea123f0-2bd0-4b38-ab57-29477a1366e6",
 	identityCriteria: ["independent_product_meaning"] as const,
+	measurements: emptyAssetRecordMeasurements,
 	name: "Ash Knight",
 	projectId,
 	supportLevel: "general" as const,
@@ -47,14 +60,17 @@ type TestAssetRecord = Omit<
 const fakeApi = vi.hoisted(() => ({
 	create: vi.fn(),
 	detail: null as Record<string, unknown> | null,
+	measurements: null as Record<string, unknown> | null,
 	record: null as TestAssetRecord | null,
 	records: [] as TestAssetRecord[],
+	updateMeasurements: vi.fn(),
 }));
 
 vi.mock("@/utils/orpc", () => ({
 	client: {
 		assetRecords: {
 			create: (input: unknown) => fakeApi.create(input),
+			updateMeasurements: (input: unknown) => fakeApi.updateMeasurements(input),
 		},
 	},
 	orpc: {
@@ -64,7 +80,11 @@ vi.mock("@/utils/orpc", () => ({
 					queryKey: ["asset-record-detail", assetRecord.id],
 					queryFn: async () =>
 						fakeApi.detail ?? {
-							record: fakeApi.record ?? assetRecord,
+							record: fakeApi.record ?? {
+								...assetRecord,
+								measurements:
+									fakeApi.measurements ?? emptyAssetRecordMeasurements,
+							},
 							tracking: {
 								availableRecords: [],
 								availableVersions: [],
@@ -109,7 +129,9 @@ afterEach(() => {
 	fakeApi.records = [];
 	fakeApi.record = null;
 	fakeApi.detail = null;
+	fakeApi.measurements = null;
 	fakeApi.create.mockReset();
+	fakeApi.updateMeasurements.mockReset();
 });
 
 function renderWithQueryClient(node: React.ReactNode) {
@@ -274,6 +296,139 @@ test("shows persisted versions, derivatives, references, quality, and provenance
 	expect(screen.getByText(userRelationshipLabel)).toBeVisible();
 	expect(screen.getByText(unknownHistory)).toBeVisible();
 	expect(screen.getByText(recordCreatedCopy)).toBeVisible();
+});
+
+test("saves proposed and confirmed dimensions independently on an Asset Record", async () => {
+	fakeApi.updateMeasurements.mockImplementation((input) => {
+		fakeApi.measurements = input.measurements;
+		return { ...assetRecord, measurements: input.measurements };
+	});
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+
+	await screen.findByRole("heading", { name: "Ash Knight" });
+	for (const heading of [
+		"Kaynak Görsel Ölçüsü",
+		"Mantıksal Çözünürlük",
+		"Hücre Ölçüsü",
+		"Görünür İçerik Sınırı",
+		"Gösterim Ölçeği",
+		"Atlas Ölçüsü",
+	]) {
+		expect(screen.getByRole("heading", { name: heading })).toBeVisible();
+	}
+	fireEvent.change(
+		screen.getByLabelText("Kaynak Görsel Ölçüsü — Öneri — Genişlik (px)"),
+		{ target: { value: "512" } }
+	);
+	fireEvent.change(
+		screen.getByLabelText("Kaynak Görsel Ölçüsü — Öneri — Yükseklik (px)"),
+		{ target: { value: "256" } }
+	);
+	fireEvent.change(
+		screen.getByLabelText(
+			"Mantıksal Çözünürlük — Doğrulanmış değer — Genişlik (px)"
+		),
+		{ target: { value: "72" } }
+	);
+	fireEvent.change(
+		screen.getByLabelText(
+			"Mantıksal Çözünürlük — Doğrulanmış değer — Yükseklik (px)"
+		),
+		{ target: { value: "80" } }
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Ölçüleri kaydet" }));
+
+	expect(await screen.findByRole("status")).toHaveTextContent(
+		"Ölçüler kaydedildi."
+	);
+	expect(fakeApi.updateMeasurements).toHaveBeenCalledWith({
+		assetRecordId: assetRecord.id,
+		measurements: {
+			...emptyAssetRecordMeasurements,
+			sourceImageDimensions: {
+				confirmed: null,
+				proposal: { width: 512, height: 256 },
+			},
+			logicalResolution: {
+				confirmed: { width: 72, height: 80 },
+				proposal: null,
+			},
+		},
+		projectId,
+	});
+	await waitFor(() =>
+		expect(
+			screen.getByLabelText("Kaynak Görsel Ölçüsü — Öneri — Genişlik (px)")
+		).toHaveValue(512)
+	);
+});
+
+test("requires a complete pair when a dimension value is started", async () => {
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+	await screen.findByRole("heading", { name: "Ash Knight" });
+	const width = screen.getByLabelText(
+		"Kaynak Görsel Ölçüsü — Öneri — Genişlik (px)"
+	);
+	const height = screen.getByLabelText(
+		"Kaynak Görsel Ölçüsü — Öneri — Yükseklik (px)"
+	);
+
+	expect(width).not.toBeRequired();
+	expect(height).not.toBeRequired();
+	fireEvent.change(width, { target: { value: "512" } });
+	expect(width).toBeRequired();
+	expect(height).toBeRequired();
+	expect(fakeApi.updateMeasurements).not.toHaveBeenCalled();
+});
+
+test("retains dimension inputs and offers retry context when saving fails", async () => {
+	fakeApi.updateMeasurements.mockRejectedValue(new Error("write failed"));
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+	await screen.findByRole("heading", { name: "Ash Knight" });
+	const width = screen.getByLabelText(
+		"Kaynak Görsel Ölçüsü — Öneri — Genişlik (px)"
+	);
+	fireEvent.change(width, { target: { value: "512" } });
+	fireEvent.change(
+		screen.getByLabelText("Kaynak Görsel Ölçüsü — Öneri — Yükseklik (px)"),
+		{ target: { value: "256" } }
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Ölçüleri kaydet" }));
+
+	expect(await screen.findByRole("alert")).toBeVisible();
+	expect(width).toHaveValue(512);
+	expect(fakeApi.updateMeasurements).toHaveBeenCalledTimes(1);
+});
+
+test("shows a conditional crispness notice for fractional display scale", async () => {
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+	await screen.findByRole("heading", { name: "Ash Knight" });
+	fireEvent.change(screen.getByLabelText("Gösterim Ölçeği — Öneri — Ölçek"), {
+		target: { value: "2.5" },
+	});
+
+	expect(screen.getByText(fractionalScaleWarning)).toBeVisible();
+	expect(screen.getByText(illustrationScaleHint)).toBeVisible();
 });
 
 test("uses the canonical Erased availability value and Turkish label", async () => {
