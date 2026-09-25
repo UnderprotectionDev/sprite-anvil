@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
+import { createEmptyAssetRecordMeasurements } from "@sprite-anvil/api/asset-records";
 import type { Context } from "@sprite-anvil/api/context";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { createDb } from "@sprite-anvil/db";
@@ -325,6 +326,34 @@ test.skipIf(!databaseUrl)(
 					},
 				],
 			});
+
+			await db
+				.update(assetRecords)
+				.set({ availability: "erased" })
+				.where(eq(assetRecords.id, created.id));
+			await expect(
+				call(
+					appRouter.assetRecords.updateMeasurements,
+					{ assetRecordId: created.id, measurements, projectId },
+					{ context: rereadContext }
+				)
+			).rejects.toMatchObject({ code: "NOT_FOUND" });
+			const erasedRecord = await call(
+				appRouter.assetRecords.get,
+				{ assetRecordId: created.id, projectId },
+				{ context: rereadContext }
+			);
+			expect(erasedRecord.measurements).toEqual(
+				createEmptyAssetRecordMeasurements()
+			);
+			const erasedTracking = await call(
+				appRouter.assetRecords.tracking,
+				{ assetRecordId: created.id, projectId },
+				{ context: rereadContext }
+			);
+			expect(erasedTracking.record.measurements).toEqual(
+				createEmptyAssetRecordMeasurements()
+			);
 
 			await expect(
 				db.delete(project).where(eq(project.id, projectId))

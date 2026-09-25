@@ -13,7 +13,7 @@ const projectId = "44e8fa5d-61ad-43b1-9766-89788268a745";
 const recordId = "2a580d46-c4af-4d05-9b4a-461dc679f625";
 
 interface TestRecord {
-	availability: "active";
+	availability: "active" | "archived" | "erased";
 	createdAt: string;
 	id: string;
 	identityCriteria: string[];
@@ -139,7 +139,11 @@ function createContext(
 				return null;
 			}
 			const record = storedRecords.get(input.assetRecordId);
-			if (!record || record.projectId !== input.projectId) {
+			if (
+				!record ||
+				record.availability === "erased" ||
+				record.projectId !== input.projectId
+			) {
 				return null;
 			}
 			const updatedRecord = { ...record, measurements: input.measurements };
@@ -375,6 +379,32 @@ test("keeps measurement updates inside the owning project's access boundary", as
 			appRouter.assetRecords.updateMeasurements,
 			{ assetRecordId: recordId, measurements, projectId },
 			{ context: createContext("user-other", storedRecords) }
+		)
+	).rejects.toMatchObject({ code: "NOT_FOUND" });
+	expect(storedRecords.get(recordId)?.measurements).toBeUndefined();
+});
+
+test("does not add measurements to an Erased Asset Record", async () => {
+	const storedRecords = new Map<string, TestRecord>([
+		[
+			recordId,
+			{
+				availability: "erased",
+				createdAt: "2026-09-25T08:00:00.000Z",
+				id: recordId,
+				identityCriteria: ["independent_product_meaning"],
+				name: "Ash Knight",
+				projectId,
+				supportLevel: "general",
+			},
+		],
+	]);
+
+	await expect(
+		call(
+			appRouter.assetRecords.updateMeasurements,
+			{ assetRecordId: recordId, measurements, projectId },
+			{ context: createContext(ownerId, storedRecords) }
 		)
 	).rejects.toMatchObject({ code: "NOT_FOUND" });
 	expect(storedRecords.get(recordId)?.measurements).toBeUndefined();

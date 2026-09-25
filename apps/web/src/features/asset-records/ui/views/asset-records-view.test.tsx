@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import type { AssetRecord } from "@sprite-anvil/api/asset-records";
 import {
 	cleanup,
 	fireEvent,
@@ -49,11 +50,7 @@ const assetRecord = {
 	projectId,
 	supportLevel: "general" as const,
 };
-type TestAssetRecord = Omit<
-	typeof assetRecord,
-	"availability" | "identityCriteria"
-> & {
-	availability: "active" | "archived" | "erased";
+type TestAssetRecord = Omit<AssetRecord, "identityCriteria"> & {
 	identityCriteria: readonly string[];
 };
 
@@ -432,7 +429,17 @@ test("shows a conditional crispness notice for fractional display scale", async 
 });
 
 test("uses the canonical Erased availability value and Turkish label", async () => {
-	fakeApi.record = { ...assetRecord, availability: "erased" };
+	fakeApi.record = {
+		...assetRecord,
+		availability: "erased",
+		measurements: {
+			...emptyAssetRecordMeasurements,
+			sourceImageDimensions: {
+				confirmed: null,
+				proposal: { width: 512, height: 256 },
+			},
+		},
+	};
 	renderWithQueryClient(
 		<AssetRecordDetailView
 			assetRecordId={assetRecord.id}
@@ -441,6 +448,17 @@ test("uses the canonical Erased availability value and Turkish label", async () 
 	);
 
 	expect(await screen.findByText("Silinmiş")).toBeVisible();
+	expect(
+		screen.getByText(
+			"Silinmiş kaydın ölçüleri görüntülenemez veya değiştirilemez."
+		)
+	).toBeVisible();
+	expect(
+		screen.queryByRole("region", { name: "Görsel ölçüleri" })
+	).not.toBeInTheDocument();
+	expect(
+		screen.queryByLabelText("Kaynak Görsel Ölçüsü — Öneri — Genişlik (px)")
+	).not.toBeInTheDocument();
 });
 
 test("labels legacy Asset Records whose identity criteria were not recorded", async () => {

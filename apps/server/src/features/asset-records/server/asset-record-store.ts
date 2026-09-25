@@ -19,7 +19,8 @@ function toAssetRecord(
 		createdAt: row.createdAt.toISOString(),
 		id: row.id,
 		identityCriteria: row.identityCriteria ?? [],
-		measurements: measurements ?? undefined,
+		measurements:
+			row.availability === "erased" ? undefined : (measurements ?? undefined),
 		name: row.name,
 		projectId: row.projectId,
 		supportLevel: row.supportLevel,
@@ -116,7 +117,7 @@ export function createAssetRecordStore(db: Database): AssetRecordStore {
 				input.projectId,
 				input.assetRecordId
 			);
-			if (!record) {
+			if (!record || record.availability === "erased") {
 				return null;
 			}
 

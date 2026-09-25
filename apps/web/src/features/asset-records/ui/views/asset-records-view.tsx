@@ -463,10 +463,19 @@ export function AssetRecordDetailView({
 							</time>
 						</p>
 					</section>
-					<AssetRecordMeasurementsForm
-						onRefresh={() => trackingQuery.refetch()}
-						record={record}
-					/>
+					{record.availability === "erased" ? (
+						<section className="rounded-lg border p-5">
+							<h2 className="font-semibold text-xl">Görsel ölçüleri</h2>
+							<p className="mt-2 text-muted-foreground text-sm">
+								Silinmiş kaydın ölçüleri görüntülenemez veya değiştirilemez.
+							</p>
+						</section>
+					) : (
+						<AssetRecordMeasurementsForm
+							onRefresh={() => trackingQuery.refetch()}
+							record={record}
+						/>
+					)}
 					{trackingQuery.data ? (
 						<AssetRecordTrackingPanel
 							detail={trackingQuery.data}

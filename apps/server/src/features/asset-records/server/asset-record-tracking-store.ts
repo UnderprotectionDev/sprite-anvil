@@ -48,7 +48,10 @@ function toAssetRecord(
 		createdAt: toISOString(record.createdAt),
 		id: record.id,
 		identityCriteria: record.identityCriteria ?? [],
-		measurements: measurements ?? undefined,
+		measurements:
+			record.availability === "erased"
+				? undefined
+				: (measurements ?? undefined),
 		name: record.name,
 		projectId: record.projectId,
 		supportLevel: record.supportLevel,
