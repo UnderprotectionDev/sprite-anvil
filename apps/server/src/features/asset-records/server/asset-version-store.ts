@@ -220,6 +220,7 @@ async function insertVersionRows(
 	userId: string,
 	input: AssetVersionCreateInput,
 	upload: NonNullable<ReturnType<typeof prepareUpload>>,
+	assetFamilyId: string | null,
 	versionNumber: number,
 	createdAt: Date
 ) {
@@ -230,11 +231,14 @@ async function insertVersionRows(
 				id: input.id,
 				projectId: input.projectId,
 				assetRecordId: input.assetRecordId,
+				assetFamilyId,
 				versionNumber,
 				fileName: input.fileName,
 				contentType: input.contentType,
 				sha256: upload.sha256,
 				byteSize: upload.bytes.length,
+				contentDigest: upload.sha256,
+				integrityVerified: true,
 				objectKey: upload.objectKey,
 				createdByUserId: userId,
 				createdAt,
@@ -277,7 +281,8 @@ async function persistVersionWithRetries(
 	db: Database,
 	userId: string,
 	input: AssetVersionCreateInput,
-	upload: NonNullable<ReturnType<typeof prepareUpload>>
+	upload: NonNullable<ReturnType<typeof prepareUpload>>,
+	assetFamilyId: string | null
 ): Promise<AssetRecordTrackingStoreResult<AssetVersionSummary>> {
 	for (let attempt = 0; attempt < 3; attempt += 1) {
 		// biome-ignore lint/performance/noAwaitInLoops: Re-read the assigned number after each unique-index race before trying again.
@@ -292,6 +297,7 @@ async function persistVersionWithRetries(
 				userId,
 				input,
 				upload,
+				assetFamilyId,
 				versionNumber,
 				new Date()
 			);
@@ -324,7 +330,7 @@ async function createVersion(
 	if (!ownedProject) {
 		return { ok: false, reason: "not_found" };
 	}
-	const [record] = await db
+	const [recordRow] = await db
 		.select({ record: assetRecords })
 		.from(assetRecords)
 		.innerJoin(project, eq(project.id, assetRecords.projectId))
@@ -336,7 +342,8 @@ async function createVersion(
 			)
 		)
 		.limit(1);
-	if (record?.record.availability !== "active") {
+	const record = recordRow?.record;
+	if (record?.availability !== "active") {
 		return { ok: false, reason: "not_found" };
 	}
 	if (!storage) {
@@ -360,7 +367,13 @@ async function createVersion(
 		return { ok: true, value: existing.value };
 	}
 
-	const result = await persistVersionWithRetries(db, userId, input, upload);
+	const result = await persistVersionWithRetries(
+		db,
+		userId,
+		input,
+		upload,
+		record.assetFamilyId
+	);
 	if (!result.ok) {
 		await storage.delete(upload.objectKey);
 	}

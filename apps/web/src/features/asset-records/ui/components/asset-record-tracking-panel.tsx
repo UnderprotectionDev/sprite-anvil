@@ -56,6 +56,10 @@ const userRelationshipLabels = {
 	unknown: "Bilinmiyor",
 } as const;
 
+function displayFileName(fileName: string | null) {
+	return fileName ?? "Dosya adı bilinmiyor";
+}
+
 interface PendingWrite {
 	check: (detail: AssetRecordTrackingDetail) => boolean;
 	message: string;
@@ -240,7 +244,7 @@ function FamilyAndDerivativeSection({
 				</label>
 				<p className="text-muted-foreground text-xs">
 					Ana Tasarım olarak Onaylı Sürüm kullanılacak:{" "}
-					{tracking.approvedVersion.fileName}.
+					{displayFileName(tracking.approvedVersion.fileName)}.
 				</p>
 				<Button
 					disabled={
@@ -664,7 +668,7 @@ export function AssetRecordTrackingPanel({
 					{tracking.approvedVersion ? (
 						<div className="mt-2 space-y-2 text-sm">
 							<p>
-								{tracking.approvedVersion.fileName} · Sürüm{" "}
+								{displayFileName(tracking.approvedVersion.fileName)} · Sürüm{" "}
 								{tracking.approvedVersion.versionNumber}
 							</p>
 							{reviewActions(tracking.approvedVersion)}
@@ -688,7 +692,8 @@ export function AssetRecordTrackingPanel({
 							{tracking.alternatives.map((version) => (
 								<li className="space-y-1" key={version.id}>
 									<p>
-										{version.fileName} · Sürüm {version.versionNumber} ·{" "}
+										{displayFileName(version.fileName)} · Sürüm{" "}
+										{version.versionNumber} ·{" "}
 										{reviewDispositionLabel[version.reviewDisposition]}
 									</p>
 									{reviewActions(version)}
@@ -829,7 +834,8 @@ export function AssetRecordTrackingPanel({
 									.filter((version) => version.assetRecordId !== record.id)
 									.map((version) => (
 										<option key={version.id} value={version.id}>
-											{version.assetRecordName} · {version.fileName} · Sürüm{" "}
+											{version.assetRecordName} ·{" "}
+											{displayFileName(version.fileName)} · Sürüm{" "}
 											{version.versionNumber}
 										</option>
 									))}

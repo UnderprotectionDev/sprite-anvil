@@ -3,7 +3,7 @@ import { getTableConfig } from "drizzle-orm/pg-core";
 import { legacyAssetAttestations } from "./schema/asset-production-history";
 import { assetRecordDerivatives } from "./schema/asset-record-derivatives";
 import { assetRecordReferences } from "./schema/asset-record-references";
-import { assetRecords } from "./schema/asset-records";
+import { assetFamilies, assetRecords } from "./schema/asset-records";
 import {
 	assetVersionQualityEvidence,
 	assetVersionReviewEvents,
@@ -30,6 +30,19 @@ test("allows Asset Records to exist without an Asset Family or legacy criteria",
 
 	expect(assetFamilyId?.notNull).toBe(false);
 	expect(identityCriteria?.notNull).toBe(false);
+});
+
+test("keeps Subject Identity and Canonical Design optional for legacy families", () => {
+	const { columns } = getTableConfig(assetFamilies);
+	const subjectIdentityId = columns.find(
+		(column) => column.name === "subject_identity_id"
+	);
+	const canonicalVersionId = columns.find(
+		(column) => column.name === "canonical_version_id"
+	);
+
+	expect(subjectIdentityId?.notNull).toBe(false);
+	expect(canonicalVersionId?.notNull).toBe(false);
 });
 
 test("keeps version and tracking history linked with restrictive project-scoped references", () => {

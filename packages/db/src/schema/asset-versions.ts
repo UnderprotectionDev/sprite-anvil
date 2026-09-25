@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+	boolean,
 	check,
 	foreignKey,
 	index,
@@ -21,11 +22,17 @@ export const assetVersions = pgTable(
 			.notNull()
 			.references(() => project.id, { onDelete: "restrict" }),
 		assetRecordId: text("asset_record_id").notNull(),
+		assetFamilyId: text("asset_family_id"),
 		versionNumber: integer("version_number").notNull(),
-		fileName: text("file_name").notNull(),
+		fileName: text("file_name"),
 		contentType: text("content_type").notNull(),
-		sha256: text("sha256").notNull(),
+		sha256: text("sha256"),
 		byteSize: integer("byte_size").notNull(),
+		contentDigest: text("content_digest"),
+		integrityVerified: boolean("integrity_verified").default(false).notNull(),
+		idempotencyKey: text("idempotency_key")
+			.default(sql`'legacy:' || gen_random_uuid()::text`)
+			.notNull(),
 		objectKey: text("object_key").notNull(),
 		createdByUserId: text("created_by_user_id")
 			.notNull()
@@ -38,6 +45,15 @@ export const assetVersions = pgTable(
 			columns: [table.projectId, table.assetRecordId],
 			foreignColumns: [assetRecords.projectId, assetRecords.id],
 		}).onDelete("restrict"),
+		foreignKey({
+			name: "asset_versions_project_family_record_fk",
+			columns: [table.projectId, table.assetFamilyId, table.assetRecordId],
+			foreignColumns: [
+				assetRecords.projectId,
+				assetRecords.assetFamilyId,
+				assetRecords.id,
+			],
+		}).onDelete("restrict"),
 		uniqueIndex("asset_versions_project_id_id_idx").on(
 			table.projectId,
 			table.id
@@ -46,6 +62,12 @@ export const assetVersions = pgTable(
 			table.projectId,
 			table.id,
 			table.assetRecordId
+		),
+		uniqueIndex("asset_versions_project_family_record_id_idx").on(
+			table.projectId,
+			table.assetFamilyId,
+			table.assetRecordId,
+			table.id
 		),
 		uniqueIndex("asset_versions_record_number_idx").on(
 			table.projectId,
@@ -60,7 +82,20 @@ export const assetVersions = pgTable(
 			"asset_versions_sha256_check",
 			sql`${table.sha256} ~ '^[a-f0-9]{64}$'`
 		),
+		check(
+			"asset_versions_content_digest_check",
+			sql`${table.contentDigest} IS NULL OR ${table.contentDigest} ~ '^[a-f0-9]{64}$'`
+		),
+		check(
+			"asset_versions_integrity_digest_check",
+			sql`${table.integrityVerified} = false OR ${table.contentDigest} IS NOT NULL`
+		),
 		check("asset_versions_byte_size_check", sql`${table.byteSize} > 0`),
+		uniqueIndex("asset_versions_idempotency_key_idx").on(
+			table.projectId,
+			table.assetRecordId,
+			table.idempotencyKey
+		),
 		index("asset_versions_record_created_at_idx").on(
 			table.assetRecordId,
 			table.createdAt

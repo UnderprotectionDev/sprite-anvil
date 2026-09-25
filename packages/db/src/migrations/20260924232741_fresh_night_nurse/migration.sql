@@ -1,0 +1,1 @@
+-- Asset Family and Asset Version extensions are created by the merged model migration.

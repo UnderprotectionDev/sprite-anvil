@@ -62,13 +62,23 @@ function isSafeAssetVersionFileName(fileName: string) {
 	);
 }
 
+export const assetVersionFileNameSchema = z
+	.string()
+	.trim()
+	.min(1)
+	.max(255)
+	.refine(isSafeAssetVersionFileName);
+
 export const assetVersionSummarySchema = z
 	.object({
 		createdAt: z.iso.datetime(),
-		fileName: z.string().min(1).max(255),
+		fileName: z.string().min(1).max(255).nullable(),
 		id: z.uuid(),
 		reviewDisposition: assetVersionReviewDispositionSchema,
-		sha256: z.string().regex(/^[a-f0-9]{64}$/),
+		sha256: z
+			.string()
+			.regex(/^[a-f0-9]{64}$/)
+			.nullable(),
 		versionNumber: z.number().int().positive(),
 	})
 	.strict();
@@ -79,12 +89,7 @@ export const assetVersionCreateInputSchema = z
 		assetRecordId: z.uuid(),
 		contentBase64: z.string().min(4).max(7_000_000),
 		contentType: assetVersionContentTypeSchema,
-		fileName: z
-			.string()
-			.trim()
-			.min(1)
-			.max(255)
-			.refine(isSafeAssetVersionFileName),
+		fileName: assetVersionFileNameSchema,
 		id: z.uuid(),
 		knownSource: z.string().trim().max(500).nullable(),
 		projectId: z.uuid(),
@@ -126,7 +131,7 @@ export const assetVersionReviewInputSchema = z
 
 export const assetFamilySummarySchema = z
 	.object({
-		canonicalVersionId: z.uuid(),
+		canonicalVersionId: z.uuid().nullable(),
 		id: z.uuid(),
 		name: z.string().min(1).max(120),
 		useContext: z.string().min(1).max(300),

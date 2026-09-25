@@ -18,9 +18,11 @@ import {
 import { user } from "@sprite-anvil/db/schema/auth";
 import { project } from "@sprite-anvil/db/schema/project";
 import { eq } from "drizzle-orm";
+import { createAssetFamilyStore } from "./features/asset-families/server/asset-family-store";
 import { createAssetRecordStore } from "./features/asset-records/server/asset-record-store";
 import { createAssetRecordTrackingStore } from "./features/asset-records/server/asset-record-tracking-store";
 import type { AssetVersionObjectStorage } from "./features/asset-records/server/asset-version-store";
+import { createAssetVersionStore } from "./features/asset-versions/server/asset-version-store";
 import { createProjectContextStore } from "./features/project-context/server/project-context-store";
 import { createProjectAccessStore } from "./features/projects/server/project-access-store";
 import { createProjectContextScopeStore } from "./features/visual-worlds/server/project-context-scope-store";
@@ -67,6 +69,8 @@ test.skipIf(!databaseUrl)(
 
 			const projectContextStore = createProjectContextStore(db);
 			const context: Context = {
+				assetFamilyStore: createAssetFamilyStore(db),
+				assetVersionStore: createAssetVersionStore(db),
 				assetRecordStore: createAssetRecordStore(db),
 				assetRecordTrackingStore: createAssetRecordTrackingStore(db, storage),
 				db,
@@ -210,6 +214,8 @@ test.skipIf(!databaseUrl)(
 			const rereadDb = createDb({ DATABASE_URL: databaseUrl });
 			const rereadContext: Context = {
 				...context,
+				assetFamilyStore: createAssetFamilyStore(rereadDb),
+				assetVersionStore: createAssetVersionStore(rereadDb),
 				assetRecordStore: createAssetRecordStore(rereadDb),
 				assetRecordTrackingStore: createAssetRecordTrackingStore(
 					rereadDb,
