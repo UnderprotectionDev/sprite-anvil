@@ -25,6 +25,14 @@ export const twoDVisualAssetKeySchema = z
 		)
 	);
 
+export const assetVersionObjectKeySchema = z
+	.string()
+	.regex(
+		new RegExp(
+			`^projects/${projectKeySegmentPattern}/asset-versions/${uuidPattern}/[a-f0-9]{64}$`
+		)
+	);
+
 export const legacyAssetKeySchema = z
 	.string()
 	.regex(/^users\/[a-zA-Z0-9-]+\/[a-zA-Z0-9-]+\.(png|webp)$/);
@@ -36,6 +44,17 @@ export function createProjectTwoDVisualAssetKey(
 	const projectKeySegment = encodeURIComponent(projectId);
 	return twoDVisualAssetKeySchema.parse(
 		`projects/${projectKeySegment}/2d-visual-assets/${twoDVisualAssetId}`
+	);
+}
+
+export function createAssetVersionObjectKey(
+	projectId: string,
+	assetVersionId: string,
+	sha256: string
+) {
+	const projectKeySegment = encodeURIComponent(projectId);
+	return assetVersionObjectKeySchema.parse(
+		`projects/${projectKeySegment}/asset-versions/${assetVersionId}/${sha256}`
 	);
 }
 
@@ -77,6 +96,28 @@ export interface CloudflareConfig {
 	R2_SECRET_ACCESS_KEY: string;
 }
 
+export type R2StorageConfig = Pick<
+	CloudflareConfig,
+	| "CLOUDFLARE_ACCOUNT_ID"
+	| "R2_ACCESS_KEY_ID"
+	| "R2_BUCKET"
+	| "R2_SECRET_ACCESS_KEY"
+>;
+
+export function getR2StorageConfig(
+	config: Partial<CloudflareConfig>
+): R2StorageConfig | null {
+	const result = z
+		.object({
+			CLOUDFLARE_ACCOUNT_ID: z.string().min(1),
+			R2_ACCESS_KEY_ID: z.string().min(1),
+			R2_SECRET_ACCESS_KEY: z.string().min(1),
+			R2_BUCKET: z.string().min(1),
+		})
+		.safeParse(config);
+	return result.success ? result.data : null;
+}
+
 export function requireCloudflareConfig(
 	config: Partial<CloudflareConfig>
 ): CloudflareConfig {
@@ -93,7 +134,7 @@ export function requireCloudflareConfig(
 }
 
 export function createStorage(
-	config: CloudflareConfig,
+	config: R2StorageConfig,
 	endpoint = `https://${config.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`
 ) {
 	const client = new S3Client({

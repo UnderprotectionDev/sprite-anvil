@@ -1,6 +1,8 @@
 import type { Context as ApiContext } from "@sprite-anvil/api/context";
 import type { Context as HonoContext } from "hono";
 import {
+	assetRecordStore,
+	assetRecordTrackingStore,
 	auth,
 	db,
 	projectAccess,
@@ -19,6 +21,8 @@ export async function createContext({
 		headers: context.req.raw.headers,
 	});
 	return {
+		assetRecordStore,
+		assetRecordTrackingStore,
 		projectAccess,
 		projectContextScopeStore,
 		db,

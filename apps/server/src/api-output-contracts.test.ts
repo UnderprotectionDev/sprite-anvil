@@ -140,6 +140,8 @@ test("mounted RPC output does not return secret fields from the session user", a
 		const rpcResult = await rpcHandler.handle(c.req.raw, {
 			prefix: "/rpc",
 			context: {
+				assetRecordStore: {} as never,
+				assetRecordTrackingStore: {} as never,
 				projectAccess: {} as never,
 				db: createDb({
 					DATABASE_URL:
