@@ -138,9 +138,7 @@ function renderScopeRegistry() {
 		<QueryClientProvider client={createQueryClient()}>
 			<ScopeRegistryPanel
 				isError={false}
-				isFetching={false}
 				isPending={false}
-				onRetry={() => undefined}
 				project={project}
 				scopeCatalog={scopeCatalog}
 			/>
@@ -153,16 +151,12 @@ function renderWorkspace(proposals: ContextProposal[] = []) {
 		<QueryClientProvider client={createAppQueryClient()}>
 			<ContextWorkspace
 				isProposalsError={false}
-				isProposalsFetching={false}
 				isProposalsPending={false}
 				isScopeError={false}
-				isScopeFetching={false}
 				isScopePending={false}
 				onCheckProposalState={async () => false}
 				onNewProject={() => undefined}
 				onRefreshProposals={async () => undefined}
-				onRetryProposals={() => undefined}
-				onRetryScope={() => undefined}
 				onSelectProject={() => undefined}
 				project={project}
 				projects={[project]}
