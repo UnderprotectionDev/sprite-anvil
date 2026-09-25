@@ -388,33 +388,41 @@ export function AssetRecordDetailView({
 		...orpc.projects.get.queryOptions({ input: { projectId } }),
 		meta: { errorPresentation: "inline" },
 	});
+	const recordQuery = useQuery({
+		...orpc.assetRecords.get.queryOptions({
+			input: { assetRecordId, projectId },
+		}),
+		meta: { suppressGlobalErrorToast: true },
+	});
 	const trackingQueryOptions = orpc.assetRecords.tracking.queryOptions({
 		input: { assetRecordId, projectId },
 	});
 	const trackingQuery = useQuery({
 		...trackingQueryOptions,
-		meta: { errorPresentation: "inline" },
+		enabled: Boolean(recordQuery.data),
+		meta: { suppressGlobalErrorToast: true },
 	});
-	const record = trackingQuery.data?.record;
+	const record = recordQuery.data;
 	let recordHeading: ReactNode;
-	if (trackingQuery.isPending) {
+	let trackingPanel: ReactNode = null;
+	if (recordQuery.isPending) {
 		recordHeading = (
 			<h1 className="font-bold text-3xl">Varlık kaydı yükleniyor…</h1>
 		);
-	} else if (trackingQuery.isError) {
+	} else if (recordQuery.isError) {
 		recordHeading = (
 			<div>
 				<h1 className="font-bold text-3xl">Varlık kaydı açılamadı</h1>
 				<p role="alert">
 					{getErrorMessage(
-						trackingQuery.error,
+						recordQuery.error,
 						"Varlık kaydı yüklenemedi.",
 						"query"
 					)}
 				</p>
 				<QueryRetryButton
-					disabled={trackingQuery.isFetching}
-					onRetry={() => void trackingQuery.refetch()}
+					disabled={recordQuery.isFetching}
+					onRetry={() => void recordQuery.refetch()}
 				/>
 			</div>
 		);
@@ -430,6 +438,24 @@ export function AssetRecordDetailView({
 	} else {
 		recordHeading = null;
 	}
+	if (trackingQuery.data) {
+		trackingPanel = (
+			<AssetRecordTrackingPanel
+				detail={trackingQuery.data}
+				onRefresh={() => trackingQuery.refetch()}
+			/>
+		);
+	} else if (trackingQuery.isError) {
+		trackingPanel = (
+			<section aria-label="Varlık geçmişi" className="space-y-2">
+				<p role="alert">Varlık geçmişi şu anda yüklenemedi.</p>
+				<QueryRetryButton
+					disabled={trackingQuery.isFetching}
+					onRetry={() => void trackingQuery.refetch()}
+				/>
+			</section>
+		);
+	}
 
 	return (
 		<main className="mx-auto w-full max-w-3xl space-y-8 overflow-y-auto px-4 py-8">
@@ -443,15 +469,10 @@ export function AssetRecordDetailView({
 			{record ? (
 				<>
 					<AssetRecordAvailabilityControl
-						onRefresh={() => trackingQuery.refetch()}
+						onRefresh={() => recordQuery.refetch()}
 						record={record}
 					/>
-					{trackingQuery.data ? (
-						<AssetRecordTrackingPanel
-							detail={trackingQuery.data}
-							onRefresh={() => trackingQuery.refetch()}
-						/>
-					) : null}
+					{trackingPanel}
 				</>
 			) : null}
 		</main>

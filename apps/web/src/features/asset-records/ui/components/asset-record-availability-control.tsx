@@ -1,4 +1,7 @@
-import type { AssetRecord } from "@sprite-anvil/api/asset-records";
+import type {
+	AssetRecord,
+	MutableAssetRecordAvailability,
+} from "@sprite-anvil/api/asset-records";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -6,13 +9,8 @@ import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
 
-type MutableAvailability = Extract<
-	AssetRecord["availability"],
-	"active" | "archived"
->;
-
 interface AvailabilityRefreshResult {
-	data?: { record: AssetRecord };
+	data?: AssetRecord;
 	isError: boolean;
 }
 
@@ -30,7 +28,7 @@ export function getAvailabilityLabel(
 
 function getAvailabilityMessage(
 	currentAvailability: AssetRecord["availability"],
-	expectedAvailability: MutableAvailability
+	expectedAvailability: MutableAssetRecordAvailability
 ) {
 	if (currentAvailability !== expectedAvailability) {
 		return `Güncel kayıt durumu: ${getAvailabilityLabel(currentAvailability)}.`;
@@ -54,7 +52,7 @@ export function AssetRecordAvailabilityControl({
 	});
 	const [isUpdatingAvailability, setIsUpdatingAvailability] = useState(false);
 	const [pendingAvailability, setPendingAvailability] =
-		useState<MutableAvailability | null>(null);
+		useState<MutableAssetRecordAvailability | null>(null);
 	const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
 	const [availabilityError, setAvailabilityError] = useState<string | null>(
 		null
@@ -63,7 +61,9 @@ export function AssetRecordAvailabilityControl({
 		null
 	);
 
-	async function updateAvailability(availability: MutableAvailability) {
+	async function updateAvailability(
+		availability: MutableAssetRecordAvailability
+	) {
 		if (record.availability === "erased" || pendingAvailability) {
 			return;
 		}
@@ -82,7 +82,7 @@ export function AssetRecordAvailabilityControl({
 				queryKey: recordsQueryOptions.queryKey,
 			});
 			const result = await onRefresh();
-			if (result.isError || !result.data?.record) {
+			if (result.isError || !result.data) {
 				setPendingAvailability(availability);
 				setAvailabilityError(
 					"İşlem tamamlandı ancak güncel kayıt durumu doğrulanamadı. Mevcut durumu kontrol edin."
@@ -90,7 +90,7 @@ export function AssetRecordAvailabilityControl({
 				return;
 			}
 			setAvailabilityMessage(
-				getAvailabilityMessage(result.data.record.availability, availability)
+				getAvailabilityMessage(result.data.availability, availability)
 			);
 		} catch (error) {
 			if (isWriteOutcomeUncertain(error)) {
@@ -115,12 +115,12 @@ export function AssetRecordAvailabilityControl({
 		setIsCheckingAvailability(true);
 		try {
 			const result = await onRefresh();
-			if (result.isError || !result.data?.record) {
+			if (result.isError || !result.data) {
 				setAvailabilityError("Güncel kayıt durumu okunamadı. Yeniden deneyin.");
 				return;
 			}
 
-			const { availability } = result.data.record;
+			const { availability } = result.data;
 			setPendingAvailability(null);
 			setAvailabilityError(null);
 			setAvailabilityMessage(
