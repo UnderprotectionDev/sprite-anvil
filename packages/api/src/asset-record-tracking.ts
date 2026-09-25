@@ -296,7 +296,7 @@ export const trackingVersionOptionSchema = z
 	.object({
 		assetRecordId: z.uuid(),
 		assetRecordName: z.string().min(1).max(120),
-		fileName: z.string().min(1).max(255),
+		fileName: z.string().min(1).max(255).nullable(),
 		id: z.uuid(),
 		reviewDisposition: assetVersionReviewDispositionSchema,
 		versionNumber: z.number().int().positive(),

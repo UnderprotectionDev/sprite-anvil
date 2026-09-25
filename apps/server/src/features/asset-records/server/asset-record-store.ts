@@ -1,19 +1,26 @@
 import type {
 	AssetRecord,
+	AssetRecordMeasurementsUpdateInput,
 	AssetRecordStore,
 } from "@sprite-anvil/api/asset-records";
 import { assetRecordSchema } from "@sprite-anvil/api/asset-records";
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import { assetRecordMeasurements } from "@sprite-anvil/db/schema/asset-record-measurements";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
 import { project } from "@sprite-anvil/db/schema/project";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 
-function toAssetRecord(row: typeof assetRecords.$inferSelect): AssetRecord {
+function toAssetRecord(
+	row: typeof assetRecords.$inferSelect,
+	measurements?: unknown
+): AssetRecord {
 	return assetRecordSchema.parse({
 		availability: row.availability,
 		createdAt: row.createdAt.toISOString(),
 		id: row.id,
 		identityCriteria: row.identityCriteria ?? [],
+		measurements:
+			row.availability === "erased" ? undefined : (measurements ?? undefined),
 		name: row.name,
 		projectId: row.projectId,
 		supportLevel: row.supportLevel,
@@ -49,8 +56,18 @@ export function createAssetRecordStore(db: Database): AssetRecordStore {
 		},
 		async get(userId, projectId, assetRecordId) {
 			const [row] = await db
-				.select({ record: assetRecords })
+				.select({
+					measurements: assetRecordMeasurements.measurements,
+					record: assetRecords,
+				})
 				.from(assetRecords)
+				.leftJoin(
+					assetRecordMeasurements,
+					and(
+						eq(assetRecordMeasurements.projectId, assetRecords.projectId),
+						eq(assetRecordMeasurements.assetRecordId, assetRecords.id)
+					)
+				)
 				.innerJoin(project, eq(project.id, assetRecords.projectId))
 				.where(
 					and(
@@ -60,7 +77,7 @@ export function createAssetRecordStore(db: Database): AssetRecordStore {
 					)
 				)
 				.limit(1);
-			return row ? toAssetRecord(row.record) : null;
+			return row ? toAssetRecord(row.record, row.measurements) : null;
 		},
 		async list(userId, projectId) {
 			const ownedProject = await getProjectForUser(db, userId, projectId);
@@ -69,8 +86,18 @@ export function createAssetRecordStore(db: Database): AssetRecordStore {
 			}
 
 			const rows = await db
-				.select({ record: assetRecords })
+				.select({
+					measurements: assetRecordMeasurements.measurements,
+					record: assetRecords,
+				})
 				.from(assetRecords)
+				.leftJoin(
+					assetRecordMeasurements,
+					and(
+						eq(assetRecordMeasurements.projectId, assetRecords.projectId),
+						eq(assetRecordMeasurements.assetRecordId, assetRecords.id)
+					)
+				)
 				.innerJoin(project, eq(project.id, assetRecords.projectId))
 				.where(
 					and(
@@ -79,7 +106,7 @@ export function createAssetRecordStore(db: Database): AssetRecordStore {
 					)
 				)
 				.orderBy(desc(assetRecords.createdAt), asc(assetRecords.name));
-			return rows.map((row) => toAssetRecord(row.record));
+			return rows.map((row) => toAssetRecord(row.record, row.measurements));
 		},
 		async setAvailability(userId, projectId, assetRecordId, availability) {
 			const ownedProject = await getProjectForUser(db, userId, projectId);
@@ -98,7 +125,37 @@ export function createAssetRecordStore(db: Database): AssetRecordStore {
 					)
 				)
 				.returning();
-			return record ? toAssetRecord(record) : null;
+			return record ? this.get(userId, projectId, assetRecordId) : null;
+		},
+		async updateMeasurements(
+			userId,
+			input: AssetRecordMeasurementsUpdateInput
+		) {
+			const record = await this.get(
+				userId,
+				input.projectId,
+				input.assetRecordId
+			);
+			if (!record || record.availability === "erased") {
+				return null;
+			}
+
+			await db
+				.insert(assetRecordMeasurements)
+				.values({
+					assetRecordId: input.assetRecordId,
+					measurements: input.measurements,
+					projectId: input.projectId,
+				})
+				.onConflictDoUpdate({
+					target: [
+						assetRecordMeasurements.projectId,
+						assetRecordMeasurements.assetRecordId,
+					],
+					set: { measurements: input.measurements },
+				});
+
+			return this.get(userId, input.projectId, input.assetRecordId);
 		},
 	};
 }

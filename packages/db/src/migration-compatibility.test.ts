@@ -17,6 +17,9 @@ const assetVersionsMigration = readMigration(
 const assetVersionIntegrityMigration = readMigration(
 	"./migrations/20260925112723_asset-version-integrity-idempotency-review-rationale/migration.sql"
 );
+const legacyAssetSchemaBridgeMigration = readMigration(
+	"./migrations/20260925080000_legacy_asset_schema_bridge/migration.sql"
+);
 const assetRecordMigration = readMigration(
 	"./migrations/20260924212648_overrated_edwin_jarvis/migration.sql"
 );
@@ -34,6 +37,13 @@ const assetTrackingRelationshipMigration = readMigration(
 );
 const mergedAssetSchemaMigration = readMigration(
 	"./migrations/20260925135634_merge_asset_record_family_contract/migration.sql"
+);
+const assetRecordForeignKeyRestoreMigration = readFileSync(
+	new URL(
+		"./migrations/20260925160000_asset_record_foreign_key_restore/migration.sql",
+		import.meta.url
+	),
+	"utf8"
 );
 
 test("normalizes legacy project ownership before current indexes and foreign keys", () => {
@@ -159,13 +169,53 @@ test("preserves Asset Family history and unknown legacy version metadata during 
 
 test("keeps family names unique and derivative family membership project-scoped", () => {
 	expect(assetTrackingConstraintMigration).toContain(
-		'CREATE UNIQUE INDEX "asset_families_project_name_ci_idx" ON "asset_families" ("project_id",lower("name"))'
+		'CREATE UNIQUE INDEX IF NOT EXISTS "asset_families_project_name_ci_idx" ON "asset_families" ("project_id",lower("name"))'
 	);
 	expect(assetTrackingConstraintMigration).toContain(
 		'FOREIGN KEY ("project_id","derivative_asset_record_id","asset_family_id") REFERENCES "asset_records"("project_id","id","asset_family_id")'
 	);
 	expect(assetTrackingConstraintMigration).toContain(
-		'CREATE UNIQUE INDEX "asset_record_derivatives_source_target_idx"'
+		'CREATE UNIQUE INDEX IF NOT EXISTS "asset_record_derivatives_source_target_idx"'
+	);
+});
+
+test("bridges legacy Asset Version metadata without inventing unavailable values", () => {
+	expect(legacyAssetSchemaBridgeMigration).toContain(
+		'RENAME COLUMN "content_length" TO "byte_size"'
+	);
+	expect(legacyAssetSchemaBridgeMigration).toContain(
+		'ADD COLUMN IF NOT EXISTS "file_name" text'
+	);
+	expect(legacyAssetSchemaBridgeMigration).toContain(
+		'ADD COLUMN IF NOT EXISTS "sha256" text'
+	);
+	expect(legacyAssetSchemaBridgeMigration).toContain(
+		"refusing ambiguous migration"
+	);
+});
+
+test("restores project and creator foreign keys removed by the legacy bridge", () => {
+	for (const constraint of [
+		"asset_families_project_visual_world_fk",
+		"asset_families_created_by_user_id_user_id_fkey",
+		"asset_versions_created_by_user_id_user_id_fkey",
+		"asset_version_review_events_created_by_user_id_user_id_fkey",
+	]) {
+		expect(assetRecordForeignKeyRestoreMigration).toContain(
+			`ADD CONSTRAINT "${constraint}"`
+		);
+	}
+	expect(assetRecordForeignKeyRestoreMigration).toContain(
+		'FOREIGN KEY ("project_id","visual_world_id")'
+	);
+	expect(assetRecordForeignKeyRestoreMigration).toContain(
+		'REFERENCES "visual_worlds"("project_id","id") ON DELETE RESTRICT'
+	);
+	expect(assetRecordForeignKeyRestoreMigration).toContain(
+		'FOREIGN KEY ("created_by_user_id")'
+	);
+	expect(assetRecordForeignKeyRestoreMigration).toContain(
+		'REFERENCES "user"("id") ON DELETE RESTRICT'
 	);
 });
 

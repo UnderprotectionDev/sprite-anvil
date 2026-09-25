@@ -12,6 +12,7 @@ import {
 	getAvailabilityLabel,
 } from "../components/asset-record-availability-control";
 import { AssetRecordTrackingPanel } from "../components/asset-record-tracking-panel";
+import { AssetRecordMeasurementsForm } from "../forms/asset-record-measurements-form";
 
 const identityOptions = [
 	{
@@ -410,6 +411,19 @@ export function AssetRecordDetailView({
 						onRefresh={() => recordQuery.refetch()}
 						record={record}
 					/>
+					{record.availability === "erased" ? (
+						<section className="rounded-lg border p-5">
+							<h2 className="font-semibold text-xl">Görsel ölçüleri</h2>
+							<p className="mt-2 text-muted-foreground text-sm">
+								Silinmiş kaydın ölçüleri görüntülenemez veya değiştirilemez.
+							</p>
+						</section>
+					) : (
+						<AssetRecordMeasurementsForm
+							onRefresh={() => recordQuery.refetch()}
+							record={record}
+						/>
+					)}
 					{trackingPanel}
 				</>
 			) : null}

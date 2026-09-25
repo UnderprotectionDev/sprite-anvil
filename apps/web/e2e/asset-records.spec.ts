@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
 	assetRecordFixture,
+	assetRecordMeasurementScenarios,
 	assetVersionE2eEnabled,
 	createAssetRecordFixture,
 } from "./asset-record-fixture";
@@ -37,21 +38,44 @@ test("persists an Asset Record created through the web flow", async ({
 			name: `${assetRecordFixture.projectName} varlık kayıtlarını aç`,
 		})
 		.click();
-	await page.getByLabel("Varlık adı").fill(assetRecordFixture.name);
-	await page.getByRole("checkbox", { name: identityCheckboxName }).check();
-	await page.getByRole("button", { name: "Varlık kaydı oluştur" }).click();
-
-	await expect(
-		page.getByRole("heading", { name: assetRecordFixture.name })
-	).toBeVisible();
-	await expect(
-		page.getByText("Bağımsız ürün anlamı", { exact: true })
-	).toBeVisible();
-	await page.reload();
-	await expect(
-		page.getByRole("heading", { name: assetRecordFixture.name })
-	).toBeVisible();
-	await expect(page.getByText("Kayıt oluşturuldu")).toBeVisible();
+	await page.getByLabel("Varlık adı").waitFor();
+	const assetRecordsUrl = page.url();
+	for (const scenario of assetRecordMeasurementScenarios) {
+		// biome-ignore lint/performance/noAwaitInLoops: Each scenario reuses one page and must finish before navigating to the next record.
+		await page.goto(assetRecordsUrl);
+		await page.getByLabel("Varlık adı").fill(scenario.name);
+		await page.getByRole("checkbox", { name: identityCheckboxName }).check();
+		await page.getByRole("button", { name: "Varlık kaydı oluştur" }).click();
+		await expect(
+			page.getByRole("heading", { name: scenario.name })
+		).toBeVisible();
+		await Promise.all(
+			scenario.inputs.map(({ accessibleName, kind, value }) =>
+				kind === "select"
+					? page.getByLabel(accessibleName).selectOption(value)
+					: page.getByLabel(accessibleName).fill(value)
+			)
+		);
+		await page.getByRole("button", { name: "Ölçüleri kaydet" }).click();
+		await expect(
+			page.getByText("Ölçüler kaydedildi.", { exact: true })
+		).toBeVisible();
+		if (scenario.name === assetRecordFixture.name) {
+			await expect(
+				page.getByText("Bağımsız ürün anlamı", { exact: true })
+			).toBeVisible();
+		}
+		await page.reload();
+		await expect(
+			page.getByRole("heading", { name: scenario.name })
+		).toBeVisible();
+		await expect(page.getByText("Kayıt oluşturuldu")).toBeVisible();
+		await Promise.all(
+			scenario.inputs.map(({ accessibleName, value }) =>
+				expect(page.getByLabel(accessibleName)).toHaveValue(value)
+			)
+		);
+	}
 });
 
 test("persists an Asset Version, review, quality result, and legacy history", async ({

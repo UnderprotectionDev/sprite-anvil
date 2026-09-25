@@ -21,6 +21,93 @@ export const assetRecordAvailabilityValues = [
 	"erased",
 ] as const;
 
+export const visibleContentBoundsCoordinateSpaces = [
+	"logicalResolution",
+	"cellDimensions",
+] as const;
+
+const pixelDimensionsSchema = z
+	.object({
+		height: z.number().int().positive(),
+		width: z.number().int().positive(),
+	})
+	.strict();
+
+const visibleContentBoundsSchema = z
+	.object({
+		coordinateSpace: z.enum(visibleContentBoundsCoordinateSpaces),
+		height: z.number().int().positive(),
+		width: z.number().int().positive(),
+		x: z.number().int().nonnegative(),
+		y: z.number().int().nonnegative(),
+	})
+	.strict();
+
+function measurementValueSchema<T extends z.ZodType>(valueSchema: T) {
+	return z
+		.object({
+			confirmed: valueSchema.nullable(),
+			proposal: valueSchema.nullable(),
+		})
+		.strict();
+}
+
+export const assetRecordMeasurementsSchema = z
+	.object({
+		atlasDimensions: measurementValueSchema(pixelDimensionsSchema),
+		cellDimensions: measurementValueSchema(pixelDimensionsSchema),
+		displayScale: measurementValueSchema(z.number().positive()),
+		logicalResolution: measurementValueSchema(pixelDimensionsSchema),
+		sourceImageDimensions: measurementValueSchema(pixelDimensionsSchema),
+		visibleContentBounds: measurementValueSchema(visibleContentBoundsSchema),
+	})
+	.strict()
+	.superRefine((measurements, context) => {
+		for (const state of ["proposal", "confirmed"] as const) {
+			const bounds = measurements.visibleContentBounds[state];
+			if (!bounds) {
+				continue;
+			}
+
+			const dimensions = measurements[bounds.coordinateSpace][state];
+			if (!dimensions) {
+				continue;
+			}
+
+			if (bounds.x + bounds.width > dimensions.width) {
+				context.addIssue({
+					code: "custom",
+					path: ["visibleContentBounds", state, "width"],
+					message:
+						"Görünür İçerik Sınırı seçilen koordinat temelinin genişliğini aşamaz.",
+				});
+			}
+			if (bounds.y + bounds.height > dimensions.height) {
+				context.addIssue({
+					code: "custom",
+					path: ["visibleContentBounds", state, "height"],
+					message:
+						"Görünür İçerik Sınırı seçilen koordinat temelinin yüksekliğini aşamaz.",
+				});
+			}
+		}
+	});
+
+export type AssetRecordMeasurements = z.infer<
+	typeof assetRecordMeasurementsSchema
+>;
+
+export function createEmptyAssetRecordMeasurements(): AssetRecordMeasurements {
+	return {
+		atlasDimensions: { confirmed: null, proposal: null },
+		cellDimensions: { confirmed: null, proposal: null },
+		displayScale: { confirmed: null, proposal: null },
+		logicalResolution: { confirmed: null, proposal: null },
+		sourceImageDimensions: { confirmed: null, proposal: null },
+		visibleContentBounds: { confirmed: null, proposal: null },
+	};
+}
+
 const projectIdSchema = z.uuid();
 
 export const assetRecordSchema = z
@@ -32,6 +119,9 @@ export const assetRecordSchema = z
 			.array(assetRecordIdentityCriteriaSchema)
 			.max(assetRecordIdentityCriteria.length)
 			.refine((criteria) => new Set(criteria).size === criteria.length),
+		measurements: assetRecordMeasurementsSchema.default(() =>
+			createEmptyAssetRecordMeasurements()
+		),
 		name: z.string().trim().min(1).max(120),
 		projectId: projectIdSchema,
 		supportLevel: z.enum(assetRecordSupportLevels),
@@ -62,6 +152,14 @@ export const assetRecordGetInputSchema = z
 	})
 	.strict();
 
+export const assetRecordMeasurementsUpdateInputSchema = z
+	.object({
+		assetRecordId: z.uuid(),
+		measurements: assetRecordMeasurementsSchema,
+		projectId: projectIdSchema,
+	})
+	.strict();
+
 export type AssetRecord = z.infer<typeof assetRecordSchema>;
 export type MutableAssetRecordAvailability = Extract<
 	AssetRecord["availability"],
@@ -69,6 +167,9 @@ export type MutableAssetRecordAvailability = Extract<
 >;
 export type AssetRecordCreateInput = z.infer<
 	typeof assetRecordCreateInputSchema
+>;
+export type AssetRecordMeasurementsUpdateInput = z.infer<
+	typeof assetRecordMeasurementsUpdateInputSchema
 >;
 
 export interface AssetRecordStore {
@@ -87,5 +188,9 @@ export interface AssetRecordStore {
 		projectId: string,
 		assetRecordId: string,
 		availability: MutableAssetRecordAvailability
+	) => Promise<AssetRecord | null>;
+	updateMeasurements: (
+		userId: string,
+		input: AssetRecordMeasurementsUpdateInput
 	) => Promise<AssetRecord | null>;
 }

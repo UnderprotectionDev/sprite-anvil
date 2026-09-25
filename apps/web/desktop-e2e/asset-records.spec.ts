@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { $, browser, expect } from "@wdio/globals";
 import {
 	assetRecordFixture,
+	assetRecordMeasurementScenarios,
 	assetVersionE2eEnabled,
 	createAssetRecordFixture,
 } from "../e2e/asset-record-fixture";
@@ -39,18 +40,37 @@ describe("Asset Records", () => {
 		);
 		await projectLink.waitForClickable();
 		await projectLink.click();
-		await (await $("input#asset-record-name")).setValue(
-			assetRecordFixture.name
-		);
-		await (await $("input[type='checkbox']")).click();
-		await (await $("button=Varlık kaydı oluştur")).click();
-
-		const recordHeading = await $(`h1=${assetRecordFixture.name}`);
-		await recordHeading.waitForDisplayed();
-		await expect(await $("p*=Kayıt oluşturuldu")).toBeDisplayed();
-		await browser.refresh();
-		await (await $(`h1=${assetRecordFixture.name}`)).waitForDisplayed();
-		await expect(await $("p*=Kayıt oluşturuldu")).toBeDisplayed();
+		await (await $("input#asset-record-name")).waitForDisplayed();
+		const assetRecordsUrl = await browser.getUrl();
+		for (const scenario of assetRecordMeasurementScenarios) {
+			// biome-ignore lint/performance/noAwaitInLoops: Each scenario reuses one desktop window and must finish before navigating to the next record.
+			await browser.url(assetRecordsUrl);
+			await (await $("input#asset-record-name")).setValue(scenario.name);
+			await (await $("input[type='checkbox']")).click();
+			await (await $("button=Varlık kaydı oluştur")).click();
+			await (await $(`h1=${scenario.name}`)).waitForDisplayed();
+			await Promise.all(
+				scenario.inputs.map(async ({ id, kind, value }) => {
+					if (kind === "select") {
+						await (await $(`select#${id}`)).selectByAttribute("value", value);
+						return;
+					}
+					await (await $(`input#${id}`)).setValue(value);
+				})
+			);
+			await (await $("button=Ölçüleri kaydet")).click();
+			await expect(await $("p=Ölçüler kaydedildi.")).toBeDisplayed();
+			await expect(await $("p*=Kayıt oluşturuldu")).toBeDisplayed();
+			await browser.refresh();
+			await (await $(`h1=${scenario.name}`)).waitForDisplayed();
+			await expect(await $("p*=Kayıt oluşturuldu")).toBeDisplayed();
+			await Promise.all(
+				scenario.inputs.map(async ({ id, kind, value }) => {
+					const selector = kind === "select" ? `select#${id}` : `input#${id}`;
+					await expect(await $(selector)).toHaveValue(value);
+				})
+			);
+		}
 	});
 
 	it("persists an Asset Version, review, quality result, and legacy history", async function () {

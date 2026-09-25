@@ -144,7 +144,7 @@ function FamilyAndDerivativeSection({
 }: FamilyAndDerivativeSectionProps) {
 	const { record, tracking } = detail;
 	let familyControls: ReactNode = null;
-	if (tracking.family) {
+	if (tracking.family?.canonicalVersionId) {
 		familyControls = (
 			<form
 				className="mt-4 space-y-3 border-t pt-3"
@@ -197,6 +197,19 @@ function FamilyAndDerivativeSection({
 					Türevi bağla
 				</Button>
 			</form>
+		);
+	} else if (tracking.family) {
+		familyControls = (
+			<div className="mt-4 space-y-2 border-t pt-3 text-sm">
+				<p>
+					Varlık Ailesi: {tracking.family.name} ·{" "}
+					{tracking.family.visualWorldName}
+				</p>
+				<p className="text-muted-foreground text-xs">
+					Ana Tasarım seçilmedi. Türetilmiş varlıklar için bu seçim kullanıcı
+					tarafından yapılmalıdır.
+				</p>
+			</div>
 		);
 	} else if (tracking.approvedVersion && tracking.visualWorlds.length > 0) {
 		familyControls = (
@@ -532,11 +545,16 @@ export function AssetRecordTrackingPanel({
 
 	async function createDerivative(event: SyntheticEvent<HTMLFormElement>) {
 		event.preventDefault();
-		if (!(record && tracking.family) || selectedDependencyFacets.length === 0) {
+		const { family } = tracking;
+		const canonicalVersionId = family?.canonicalVersionId;
+		if (
+			!(record && family && canonicalVersionId) ||
+			selectedDependencyFacets.length === 0
+		) {
 			return;
 		}
 		const signature = JSON.stringify({
-			canonicalVersionId: tracking.family.canonicalVersionId,
+			canonicalVersionId,
 			dependencyFacets: selectedDependencyFacets,
 			derivedAssetRecordId: derivativeAssetRecordId,
 			sourceAssetRecordId: record.id,
@@ -551,7 +569,7 @@ export function AssetRecordTrackingPanel({
 				refreshed.tracking.derivatives.some((entry) => entry.id === request.id),
 			() =>
 				client.assetRecords.createDerivative({
-					canonicalVersionId: tracking.family?.canonicalVersionId as string,
+					canonicalVersionId,
 					dependencyFacets: selectedDependencyFacets,
 					derivedAssetRecordId: derivativeAssetRecordId,
 					id: request.id,

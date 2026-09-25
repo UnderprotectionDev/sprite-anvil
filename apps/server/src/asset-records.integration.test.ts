@@ -1,10 +1,15 @@
 import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
+import {
+	type AssetRecordMeasurements,
+	createEmptyAssetRecordMeasurements,
+} from "@sprite-anvil/api/asset-records";
 import type { Context } from "@sprite-anvil/api/context";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { createDb } from "@sprite-anvil/db";
 import { legacyAssetAttestations } from "@sprite-anvil/db/schema/asset-production-history";
 import { assetRecordDerivatives } from "@sprite-anvil/db/schema/asset-record-derivatives";
+import { assetRecordMeasurements } from "@sprite-anvil/db/schema/asset-record-measurements";
 import { assetRecordReferences } from "@sprite-anvil/db/schema/asset-record-references";
 import {
 	assetFamilies,
@@ -101,6 +106,46 @@ test.skipIf(!databaseUrl)(
 					name: "Ash Knight",
 					projectId,
 				},
+				{ context }
+			);
+			const measurements: AssetRecordMeasurements = {
+				atlasDimensions: {
+					proposal: { width: 1024, height: 512 },
+					confirmed: null,
+				},
+				cellDimensions: {
+					proposal: null,
+					confirmed: { width: 24, height: 32 },
+				},
+				displayScale: { proposal: 2.5, confirmed: 2 },
+				logicalResolution: {
+					proposal: { width: 72, height: 80 },
+					confirmed: { width: 72, height: 80 },
+				},
+				sourceImageDimensions: {
+					proposal: { width: 512, height: 256 },
+					confirmed: { width: 512, height: 256 },
+				},
+				visibleContentBounds: {
+					proposal: {
+						coordinateSpace: "logicalResolution",
+						x: 3,
+						y: 4,
+						width: 66,
+						height: 74,
+					},
+					confirmed: {
+						coordinateSpace: "logicalResolution",
+						x: 3,
+						y: 4,
+						width: 66,
+						height: 74,
+					},
+				},
+			};
+			await call(
+				appRouter.assetRecords.updateMeasurements,
+				{ assetRecordId: created.id, measurements, projectId },
 				{ context }
 			);
 			const versionId = crypto.randomUUID();
@@ -229,18 +274,21 @@ test.skipIf(!databaseUrl)(
 				{ context: rereadContext }
 			);
 
-			expect(reread).toEqual(created);
 			expect(reread).toMatchObject({
 				availability: "active",
 				identityCriteria: ["independent_product_meaning", "delivery_identity"],
+				id: created.id,
 				name: "Ash Knight",
+				projectId,
 				supportLevel: "general",
+				measurements,
 			});
 			const tracking = await call(
 				appRouter.assetRecords.tracking,
 				{ assetRecordId: created.id, projectId },
 				{ context: rereadContext }
 			);
+			expect(tracking.record.measurements).toEqual(measurements);
 			expect(createdVersion).toMatchObject({
 				fileName: "ash-knight.png",
 				id: versionId,
@@ -305,7 +353,10 @@ test.skipIf(!databaseUrl)(
 				{ assetRecordId: created.id, projectId },
 				{ context: rereadContext }
 			);
-			expect(archived).toEqual({ ...created, availability: "archived" });
+			expect(archived).toMatchObject({
+				availability: "archived",
+				measurements,
+			});
 			const archivedList = await call(
 				appRouter.assetRecords.list,
 				{ projectId },
@@ -317,6 +368,7 @@ test.skipIf(!databaseUrl)(
 				{ assetRecordId: created.id, projectId },
 				{ context: rereadContext }
 			);
+			expect(archivedTracking.record.measurements).toEqual(measurements);
 			expect(archivedTracking.tracking).toEqual(tracking.tracking);
 
 			const restored = await call(
@@ -324,13 +376,45 @@ test.skipIf(!databaseUrl)(
 				{ assetRecordId: created.id, projectId },
 				{ context: rereadContext }
 			);
-			expect(restored).toEqual(created);
+			expect(restored).toMatchObject({
+				availability: "active",
+				measurements,
+			});
 			const restoredTracking = await call(
 				appRouter.assetRecords.tracking,
 				{ assetRecordId: created.id, projectId },
 				{ context: rereadContext }
 			);
+			expect(restoredTracking.record.measurements).toEqual(measurements);
 			expect(restoredTracking.tracking).toEqual(tracking.tracking);
+
+			await db
+				.update(assetRecords)
+				.set({ availability: "erased" })
+				.where(eq(assetRecords.id, created.id));
+			await expect(
+				call(
+					appRouter.assetRecords.updateMeasurements,
+					{ assetRecordId: created.id, measurements, projectId },
+					{ context: rereadContext }
+				)
+			).rejects.toMatchObject({ code: "NOT_FOUND" });
+			const erasedRecord = await call(
+				appRouter.assetRecords.get,
+				{ assetRecordId: created.id, projectId },
+				{ context: rereadContext }
+			);
+			expect(erasedRecord.measurements).toEqual(
+				createEmptyAssetRecordMeasurements()
+			);
+			const erasedTracking = await call(
+				appRouter.assetRecords.tracking,
+				{ assetRecordId: created.id, projectId },
+				{ context: rereadContext }
+			);
+			expect(erasedTracking.record.measurements).toEqual(
+				createEmptyAssetRecordMeasurements()
+			);
 
 			await expect(
 				db.delete(project).where(eq(project.id, projectId))
@@ -355,6 +439,9 @@ test.skipIf(!databaseUrl)(
 				await db
 					.delete(assetVersions)
 					.where(eq(assetVersions.projectId, projectId));
+				await db
+					.delete(assetRecordMeasurements)
+					.where(eq(assetRecordMeasurements.projectId, projectId));
 				await db
 					.delete(assetRecords)
 					.where(eq(assetRecords.projectId, projectId));
