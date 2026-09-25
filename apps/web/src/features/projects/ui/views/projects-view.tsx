@@ -1,5 +1,5 @@
 import { Button, buttonVariants } from "@sprite-anvil/ui/components/button";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { type SyntheticEvent, useState } from "react";
 
@@ -15,15 +15,29 @@ export function ProjectsView() {
 	const projectsQueryOptions = orpc.projects.list.queryOptions();
 	const projectsQuery = useQuery({
 		...projectsQueryOptions,
-		meta: { errorPresentation: "inline" },
+		meta: { suppressGlobalErrorToast: true },
 	});
 	const [name, setName] = useState("");
 	const [generalArtDirection, setGeneralArtDirection] = useState("");
-	const [isSaving, setIsSaving] = useState(false);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
 	const [isCheckingProjectState, setIsCheckingProjectState] = useState(false);
+	const createProject = useMutation({
+		mutationFn: (input: { name: string; generalArtDirection: string }) =>
+			client.projects.create(input),
+		onSuccess: async () => {
+			setName("");
+			setGeneralArtDirection("");
+			setStatusMessage("Oyun projesi kaydedildi.");
+			await projectsQuery.refetch();
+		},
+		onError: (error) => {
+			if (isWriteOutcomeUncertain(error)) {
+				setWriteOutcomeUncertain(true);
+			}
+		},
+	});
 
 	async function refreshProjects() {
 		setIsCheckingProjectState(true);
@@ -50,9 +64,9 @@ export function ProjectsView() {
 		}
 	}
 
-	async function handleCreateProject(event: SyntheticEvent<HTMLFormElement>) {
+	function handleCreateProject(event: SyntheticEvent<HTMLFormElement>) {
 		event.preventDefault();
-		if (writeOutcomeUncertain) {
+		if (writeOutcomeUncertain || createProject.isPending) {
 			return;
 		}
 		const trimmedName = name.trim();
@@ -62,29 +76,10 @@ export function ProjectsView() {
 		}
 		setErrorMessage(null);
 		setStatusMessage(null);
-		setIsSaving(true);
-		try {
-			await client.projects.create({
-				name: trimmedName,
-				generalArtDirection: trimmedArtDirection,
-			});
-			setName("");
-			setGeneralArtDirection("");
-			setStatusMessage("Oyun projesi kaydedildi.");
-			await projectsQuery.refetch();
-		} catch (error) {
-			if (isWriteOutcomeUncertain(error)) {
-				setWriteOutcomeUncertain(true);
-			}
-			setErrorMessage(
-				getErrorMessage(
-					error,
-					"Oyun projesinin sonucu doğrulanamadı. Kaydı kontrol edin."
-				)
-			);
-		} finally {
-			setIsSaving(false);
-		}
+		createProject.mutate({
+			name: trimmedName,
+			generalArtDirection: trimmedArtDirection,
+		});
 	}
 
 	return (
@@ -112,7 +107,7 @@ export function ProjectsView() {
 				</div>
 				<CreateProjectForm
 					generalArtDirection={generalArtDirection}
-					isSaving={isSaving}
+					isSaving={createProject.isPending}
 					name={name}
 					onGeneralArtDirectionChange={setGeneralArtDirection}
 					onNameChange={setName}

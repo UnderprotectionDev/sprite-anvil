@@ -8,9 +8,10 @@ import {
 	externalVisualAnalysisPurposeByCategory,
 } from "@sprite-anvil/api/project-access-store";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { QueryRetryButton } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
 
@@ -50,65 +51,56 @@ export function ExternalVisualAnalysisConsent({
 }: {
 	projectId: string;
 }) {
-	const permissionsQuery = useQuery(
-		orpc.projects.access.listExternalVisualAnalysis.queryOptions({
+	const permissionsQuery = useQuery({
+		...orpc.projects.access.listExternalVisualAnalysis.queryOptions({
 			input: { projectId },
-		})
-	);
-	const [savingCategory, setSavingCategory] =
-		useState<ExternalVisualAnalysisCategory | null>(null);
-	const [revokingId, setRevokingId] = useState<string | null>(null);
-	const [errorMessage, setErrorMessage] = useState<string | null>(null);
+		}),
+		meta: { suppressGlobalErrorToast: true },
+	});
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 	const permissions = permissionsQuery.data ?? [];
-	const isSaving = savingCategory !== null || revokingId !== null;
 	const providerPolicyVerified =
 		isExternalVisualAnalysisProviderPolicyVerified();
-
-	async function grantPermission(category: ExternalVisualAnalysisCategory) {
-		setErrorMessage(null);
-		setStatusMessage(null);
-		setSavingCategory(category);
-		try {
-			await client.projects.access.grantExternalVisualAnalysis({
+	const grantPermissionMutation = useMutation({
+		mutationFn: (category: ExternalVisualAnalysisCategory) =>
+			client.projects.access.grantExternalVisualAnalysis({
 				projectId,
 				category,
-			});
-			await permissionsQuery.refetch();
+			}),
+		onSuccess: async (_permission, category) => {
 			setStatusMessage(
 				`${categoryDetails[category].label} analizi izni kaydedildi.`
 			);
-		} catch (error) {
-			setErrorMessage(
-				getErrorMessage(error, "İzin kaydedilemedi. Yeniden deneyin.")
-			);
-		} finally {
-			setSavingCategory(null);
-		}
-	}
-
-	async function revokePermission(
-		permission: ExternalVisualAnalysisPermission
-	) {
-		setErrorMessage(null);
-		setStatusMessage(null);
-		setRevokingId(permission.id);
-		try {
-			await client.projects.access.revokeExternalVisualAnalysis({
+			await permissionsQuery.refetch();
+		},
+	});
+	const revokePermissionMutation = useMutation({
+		mutationFn: (permission: ExternalVisualAnalysisPermission) =>
+			client.projects.access.revokeExternalVisualAnalysis({
 				projectId,
 				permissionId: permission.id,
-			});
-			await permissionsQuery.refetch();
+			}),
+		onSuccess: async (_result, permission) => {
 			setStatusMessage(
 				`${categoryDetails[permission.category].label} analizi izni geri alındı.`
 			);
-		} catch (error) {
-			setErrorMessage(
-				getErrorMessage(error, "İzin geri alınamadı. Yeniden deneyin.")
-			);
-		} finally {
-			setRevokingId(null);
-		}
+			await permissionsQuery.refetch();
+		},
+	});
+	const isSaving =
+		grantPermissionMutation.isPending || revokePermissionMutation.isPending;
+	const revokingId = revokePermissionMutation.isPending
+		? revokePermissionMutation.variables?.id
+		: null;
+
+	function grantPermission(category: ExternalVisualAnalysisCategory) {
+		setStatusMessage(null);
+		grantPermissionMutation.mutate(category);
+	}
+
+	function revokePermission(permission: ExternalVisualAnalysisPermission) {
+		setStatusMessage(null);
+		revokePermissionMutation.mutate(permission);
 	}
 
 	return (
@@ -144,16 +136,26 @@ export function ExternalVisualAnalysisConsent({
 				)}
 			</div>
 
-			{errorMessage ? <p role="alert">{errorMessage}</p> : null}
 			{statusMessage ? (
 				<p aria-live="polite" role="status">
 					{statusMessage}
 				</p>
 			) : null}
 			{permissionsQuery.isError ? (
-				<p role="alert">
-					İzinler yüklenemedi: {permissionsQuery.error.message}
-				</p>
+				<div className="space-y-2">
+					<p role="alert">
+						İzinler yüklenemedi:{" "}
+						{getErrorMessage(
+							permissionsQuery.error,
+							"Yeniden deneyin.",
+							"query"
+						)}
+					</p>
+					<QueryRetryButton
+						disabled={permissionsQuery.isFetching}
+						onRetry={() => void permissionsQuery.refetch()}
+					/>
+				</div>
 			) : null}
 
 			<div className="space-y-3">
@@ -166,7 +168,9 @@ export function ExternalVisualAnalysisConsent({
 					const activePermission = categoryPermissions.find(
 						(permission) => permission.revokedAt === null
 					);
-					const categoryIsSaving = savingCategory === category;
+					const categoryIsSaving =
+						grantPermissionMutation.isPending &&
+						grantPermissionMutation.variables === category;
 
 					return (
 						<fieldset

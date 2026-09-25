@@ -212,6 +212,7 @@ function ProposalRecord({
 	const queryClient = useQueryClient();
 	const [review, setReview] = useState<ContextProposalReview | null>(null);
 	const reviewProposal = useMutation({
+		meta: { errorOperationKind: "query" },
 		mutationFn: () =>
 			client.contextProposals.review({
 				projectId: project.id,
@@ -226,24 +227,17 @@ function ProposalRecord({
 				proposalId: proposal.id,
 				expectedCurrentRevisionId: currentReview.currentRevisionId,
 			}),
-		onSuccess: async () => {
-			await Promise.all([
-				queryClient.invalidateQueries({
-					queryKey: orpc.projectContexts.list.queryKey(),
-				}),
-				queryClient.invalidateQueries({
-					queryKey: orpc.contextProposals.list.queryKey({
-						input: { projectId: project.id },
-					}),
-				}),
-			]);
-			setReview(
-				await client.contextProposals.review({
-					projectId: project.id,
-					proposalId: proposal.id,
-				})
-			);
+		onSuccess: () => {
 			toast.success("Etkin Bağlam Sürümü oluşturuldu.");
+			void queryClient.invalidateQueries({
+				queryKey: orpc.projectContexts.list.queryKey(),
+			});
+			void queryClient.invalidateQueries({
+				queryKey: orpc.contextProposals.list.queryKey({
+					input: { projectId: project.id },
+				}),
+			});
+			reviewProposal.mutate();
 		},
 	});
 	const source =
@@ -308,14 +302,8 @@ function ProposalRecord({
 				>
 					{reviewButtonLabel(reviewProposal.isPending, Boolean(review))}
 				</Button>
-				{reviewProposal.error ? (
-					<p className="context-error" role="alert">
-						İnceleme alınamadı. {reviewProposal.error.message}
-					</p>
-				) : null}
 				{review ? (
 					<ProposalReviewPanel
-						activationError={activateProposal.error?.message}
 						currentRevisionId={project.currentContextRevision.id}
 						isActivating={activateProposal.isPending}
 						isCurrent={isCurrent}
@@ -345,7 +333,6 @@ function reviewButtonLabel(isPending: boolean, hasReview: boolean) {
 }
 
 function ProposalReviewPanel({
-	activationError,
 	currentRevisionId,
 	isActivating,
 	isCurrent,
@@ -354,7 +341,6 @@ function ProposalReviewPanel({
 	review,
 	scopeCatalog,
 }: {
-	activationError?: string;
 	currentRevisionId: string;
 	isActivating: boolean;
 	isCurrent: boolean;
@@ -477,12 +463,6 @@ function ProposalReviewPanel({
 				<summary>Üretim Bağlamı Kopyası</summary>
 				<pre>{review.contextCopy}</pre>
 			</details>
-			{activationError ? (
-				<p className="context-error" role="alert">
-					Etkinleştirme tamamlanamadı. {activationError} İncelemeyi yenileyip
-					tekrar deneyin.
-				</p>
-			) : null}
 			<ProposalActivationOutcome
 				activationRevisionNumber={activationRevisionNumber}
 				currentRevisionNumber={review.currentRevisionNumber}

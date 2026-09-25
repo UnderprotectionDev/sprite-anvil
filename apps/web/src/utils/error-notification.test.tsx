@@ -72,6 +72,22 @@ test("uncertain write failures explain the unknown result and never offer retry"
 	expect(options.action).toBeUndefined();
 });
 
+test("other server failures also keep the write outcome unknown", () => {
+	const error = Object.assign(new Error("private upstream failure"), {
+		status: 503,
+	});
+	showErrorToast(error, { kind: "mutation" });
+
+	const [, options] = errorToast.mock.calls[0] as [
+		string,
+		{ action?: unknown; description: ReactElement },
+	];
+	const description = renderToStaticMarkup(options.description);
+	expect(description).toContain("The result could not be confirmed.");
+	expect(description).not.toContain("private upstream failure");
+	expect(options.action).toBeUndefined();
+});
+
 test("connection errors do not fabricate a server support reference", () => {
 	showErrorToast(new TypeError("Failed to fetch"), {
 		kind: "query",

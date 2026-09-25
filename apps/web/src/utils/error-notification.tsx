@@ -96,6 +96,7 @@ export function buildErrorNotification(
 	kind: ErrorOperationKind
 ): ErrorNotification {
 	const code = getErrorCode(error);
+	const status = getErrorProperty(error, "status");
 	const supportReference = getSupportReference(error);
 	const title =
 		kind === "query"
@@ -103,7 +104,10 @@ export function buildErrorNotification(
 			: "This action could not be completed.";
 	const canRetry = kind === "query" && !nonRetryableQueryCodes.has(code ?? "");
 
-	if (code === "INTERNAL_SERVER_ERROR") {
+	if (
+		code === "INTERNAL_SERVER_ERROR" ||
+		(typeof status === "number" && status >= 500)
+	) {
 		return {
 			title,
 			description:

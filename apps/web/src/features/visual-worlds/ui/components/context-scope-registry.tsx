@@ -8,7 +8,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type SyntheticEvent, useState } from "react";
 import { toast } from "sonner";
 import { QueryRetryButton } from "@/utils/error-notification";
-import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
 import { ThemeForm, VisualWorldForm } from "../forms/scope-forms";
 
@@ -35,7 +34,6 @@ export function ScopeRegistryPanel({
 	const [themeVisualWorldId, setThemeVisualWorldId] = useState("");
 	const [themeName, setThemeName] = useState("");
 	const [themeDescription, setThemeDescription] = useState("");
-	const [formError, setFormError] = useState<string | null>(null);
 	const selectedVisualWorldId =
 		scopeCatalog.visualWorlds.find(
 			(visualWorld) => visualWorld.id === themeVisualWorldId
@@ -48,7 +46,6 @@ export function ScopeRegistryPanel({
 		onSuccess: async () => {
 			setVisualWorldName("");
 			setVisualWorldDescription("");
-			setFormError(null);
 			await queryClient.invalidateQueries({
 				queryKey: orpc.contextScopes.list.queryKey({
 					input: { projectId: project.id },
@@ -56,10 +53,6 @@ export function ScopeRegistryPanel({
 			});
 			toast.success("Görsel Dünya kaydedildi.");
 		},
-		onError: (error) =>
-			setFormError(
-				getErrorMessage(error, "Görsel Dünya kaydedilemedi. Yeniden deneyin.")
-			),
 	});
 	const createTheme = useMutation({
 		mutationFn: (input: ThemeCreateInput) =>
@@ -67,7 +60,6 @@ export function ScopeRegistryPanel({
 		onSuccess: async () => {
 			setThemeName("");
 			setThemeDescription("");
-			setFormError(null);
 			await queryClient.invalidateQueries({
 				queryKey: orpc.contextScopes.list.queryKey({
 					input: { projectId: project.id },
@@ -75,15 +67,10 @@ export function ScopeRegistryPanel({
 			});
 			toast.success("Tema kaydedildi.");
 		},
-		onError: (error) =>
-			setFormError(
-				getErrorMessage(error, "Tema kaydedilemedi. Yeniden deneyin.")
-			),
 	});
 
 	function submitVisualWorld(event: SyntheticEvent<HTMLFormElement>) {
 		event.preventDefault();
-		setFormError(null);
 		createVisualWorld.mutate({
 			projectId: project.id,
 			name: visualWorldName,
@@ -93,7 +80,6 @@ export function ScopeRegistryPanel({
 
 	function submitTheme(event: SyntheticEvent<HTMLFormElement>) {
 		event.preventDefault();
-		setFormError(null);
 		createTheme.mutate({
 			projectId: project.id,
 			visualWorldId: selectedVisualWorldId,
@@ -161,11 +147,6 @@ export function ScopeRegistryPanel({
 					visualWorlds={scopeCatalog.visualWorlds}
 				/>
 			</div>
-			{formError ? (
-				<p className="context-error" role="alert">
-					{formError}
-				</p>
-			) : null}
 			<div className="scope-record-list">
 				{scopeCatalog.visualWorlds.length ? (
 					<ul>

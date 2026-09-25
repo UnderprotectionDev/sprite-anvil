@@ -9,7 +9,8 @@ if (import.meta.env.VITE_WDIO === "true" && isTauri()) {
 
 import Loader from "./components/loader";
 import { routeTree } from "./routeTree.gen";
-import { orpc, queryClient } from "./utils/orpc";
+import { orpc } from "./utils/orpc";
+import { queryClient } from "./utils/query-client";
 
 const router = createRouter({
 	routeTree,
