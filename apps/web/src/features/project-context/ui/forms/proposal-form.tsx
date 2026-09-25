@@ -82,7 +82,6 @@ export function ProposalForm({
 			defaultScopeOption
 		),
 	]);
-	const [formError, setFormError] = useState<string | null>(null);
 	const [formStatus, setFormStatus] = useState<string | null>(null);
 	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
 	const [isCheckingOutcome, setIsCheckingOutcome] = useState(false);
@@ -102,7 +101,6 @@ export function ProposalForm({
 					defaultScopeOption
 				),
 			]);
-			setFormError(null);
 			await onRefresh();
 			toast.success("Bağlam Önerisi kaydedildi.");
 		},
@@ -110,7 +108,6 @@ export function ProposalForm({
 			if (isWriteOutcomeUncertain(error)) {
 				setWriteOutcomeUncertain(true);
 			}
-			setFormError(null);
 		},
 	});
 
@@ -119,13 +116,9 @@ export function ProposalForm({
 		try {
 			const failed = await onCheckCurrentState();
 			if (failed) {
-				setFormError(
-					"Öneri durumu doğrulanamadı. Yeniden göndermeden önce öneri listesini yenileyin."
-				);
 				return;
 			}
 			setWriteOutcomeUncertain(false);
-			setFormError(null);
 			setFormStatus("Öneri listesi yenilendi. Kaydı kontrol edin.");
 		} finally {
 			setIsCheckingOutcome(false);
@@ -145,7 +138,6 @@ export function ProposalForm({
 		if (writeOutcomeUncertain) {
 			return;
 		}
-		setFormError(null);
 		setFormStatus(null);
 		createProposal.mutate({
 			projectId: project.id,
@@ -249,11 +241,6 @@ export function ProposalForm({
 					<Plus aria-hidden="true" size={15} />
 					Başka kural değişikliği ekle
 				</Button>
-				{formError ? (
-					<p className="context-error" role="alert">
-						{formError}
-					</p>
-				) : null}
 				{writeOutcomeUncertain ? (
 					<Button
 						className="quiet-button"

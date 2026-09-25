@@ -28,7 +28,7 @@ const errorToast = vi.hoisted(() => vi.fn());
 
 vi.mock("sonner", () => ({
 	Toaster: () => null,
-	toast: { error: errorToast },
+	toast: { dismiss: vi.fn(), error: errorToast },
 }));
 
 const fakeStore = vi.hoisted(() => ({
@@ -387,11 +387,13 @@ test("keeps permission grants disabled after a failed refresh until Retry succee
 	fireEvent.click(grantButton);
 	await screen.findByText("Bağlam Ajanı izni kaydedildi.");
 	await heldReadStarted;
-	await screen.findByRole("alert");
+	await waitFor(() => expect(errorToast).toHaveBeenCalledOnce());
+	expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 	expect(grantButton).toBeDisabled();
 	expect(grantButton).toHaveTextContent("Bağlam Ajanı izni ver");
 
-	fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+	const retry = errorToast.mock.calls[0]?.[1]?.action?.onClick as () => void;
+	retry();
 	await screen.findByText("Proje Bağlamı için öneri hazırlama");
 	await waitFor(() => expect(grantButton).toBeEnabled());
 });
@@ -439,7 +441,7 @@ test("uncertain permission writes stay locked until the permission state is refr
 	);
 });
 
-test("inline permission query failures provide a working Retry action", async () => {
+test("permission query failures provide a Sonner Retry action", async () => {
 	const rootRoute = createRootRoute({ component: () => <Outlet /> });
 	const accessRoute = createRoute({
 		getParentRoute: () => rootRoute,
@@ -450,9 +452,8 @@ test("inline permission query failures provide a working Retry action", async ()
 		history: createMemoryHistory({ initialEntries: ["/access"] }),
 		routeTree: rootRoute.addChildren([accessRoute]),
 	});
-	const queryClient = new QueryClient({
-		defaultOptions: { queries: { retry: false } },
-	});
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
 	fakeStore.failedPermissionReads = 1;
 
 	render(
@@ -461,8 +462,10 @@ test("inline permission query failures provide a working Retry action", async ()
 		</QueryClientProvider>
 	);
 
-	await screen.findByRole("alert");
-	fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+	await waitFor(() => expect(errorToast).toHaveBeenCalledOnce());
+	expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+	const retry = errorToast.mock.calls[0]?.[1]?.action?.onClick as () => void;
+	retry();
 
 	expect(
 		await screen.findByText("Bu projede kayıtlı Bağlam Ajanı izni yok.")

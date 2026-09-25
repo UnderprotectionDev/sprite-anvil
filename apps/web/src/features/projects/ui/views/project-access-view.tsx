@@ -7,11 +7,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { type SyntheticEvent, useState } from "react";
 import { ExternalVisualAnalysisConsent } from "@/features/external-visual-analysis/ui/components/external-visual-analysis-consent";
-import {
-	isWriteOutcomeUncertain,
-	QueryRetryButton,
-} from "@/utils/error-notification";
-import { getErrorMessage } from "@/utils/get-error-message";
+import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { client, orpc } from "@/utils/orpc";
 import {
 	ContextAgentPermissionForm,
@@ -30,14 +26,12 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 	});
 	const projectQuery = useQuery({
 		...projectQueryOptions,
-		meta: { suppressGlobalErrorToast: true },
 	});
 	const permissionsQueryOptions = orpc.projects.access.list.queryOptions({
 		input: { projectId },
 	});
 	const permissionsQuery = useQuery({
 		...permissionsQueryOptions,
-		meta: { suppressGlobalErrorToast: true },
 	});
 	const [purpose, setPurpose] = useState("Proje Bağlamı için öneri hazırlama");
 	const [selectedScopes, setSelectedScopes] = useState<ContextAgentScope[]>([
@@ -45,7 +39,6 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 		"context_proposals:write",
 	]);
 	const [revokingId, setRevokingId] = useState<string | null>(null);
-	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
 	const [isCheckingWriteOutcome, setIsCheckingWriteOutcome] = useState(false);
@@ -86,17 +79,11 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 		try {
 			const result = await permissionsQuery.refetch();
 			if (result.isError) {
-				if (writeOutcomeUncertain) {
-					setErrorMessage(
-						"İzin işleminin durumu doğrulanamadı. Yeniden göndermeden önce izin listesini yenileyin."
-					);
-				}
 				return;
 			}
 
 			if (writeOutcomeUncertain) {
 				setWriteOutcomeUncertain(false);
-				setErrorMessage(null);
 				setStatusMessage(
 					"İzin listesi yenilendi. İşlemi yeniden göndermeden önce mevcut durumu kontrol edin."
 				);
@@ -123,7 +110,6 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 		if (trimmedPurpose.length < 3 || selectedScopes.length === 0) {
 			return;
 		}
-		setErrorMessage(null);
 		setStatusMessage(null);
 		grantPermission.mutate({ purpose: trimmedPurpose, scopes: selectedScopes });
 	}
@@ -132,7 +118,6 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 		if (writeOutcomeUncertain || revokePermission.isPending) {
 			return;
 		}
-		setErrorMessage(null);
 		setStatusMessage(null);
 		setRevokingId(permissionId);
 		revokePermission.mutate(permissionId);
@@ -150,23 +135,12 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 					Oyun projelerine dön
 				</Link>
 				<ProjectAccessHeader
-					errorMessage={
-						projectQuery.isError
-							? getErrorMessage(
-									projectQuery.error,
-									"Proje yüklenemedi. Yeniden deneyin.",
-									"query"
-								)
-							: null
-					}
-					isFetching={projectQuery.isFetching}
+					isError={projectQuery.isError}
 					isPending={projectQuery.isPending}
-					onRetry={() => void projectQuery.refetch()}
 					projectName={projectQuery.data?.name}
 				/>
 			</div>
 
-			{errorMessage ? <p role="alert">{errorMessage}</p> : null}
 			{statusMessage ? (
 				<p aria-live="polite" role="status">
 					{statusMessage}
@@ -216,18 +190,8 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 				/>
 
 				<ContextAgentPermissionHistory
-					errorMessage={
-						permissionsQuery.isError
-							? getErrorMessage(
-									permissionsQuery.error,
-									"İzinler yüklenemedi. Yeniden deneyin.",
-									"query"
-								)
-							: null
-					}
-					isFetching={permissionsQuery.isFetching || isCheckingWriteOutcome}
+					isError={permissionsQuery.isError}
 					isPending={permissionsQuery.isPending}
-					onRetry={() => void refreshPermissionState()}
 					onRevoke={handleRevokePermission}
 					permissions={permissions}
 					revokingId={revokingId}
@@ -277,28 +241,19 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 }
 
 function ProjectAccessHeader({
-	errorMessage,
-	isFetching,
+	isError,
 	isPending,
-	onRetry,
 	projectName,
 }: {
-	errorMessage: string | null;
-	isFetching: boolean;
+	isError: boolean;
 	isPending: boolean;
-	onRetry: () => void;
 	projectName?: string;
 }) {
 	if (isPending) {
 		return <p aria-live="polite">Proje yükleniyor…</p>;
 	}
-	if (errorMessage) {
-		return (
-			<div className="space-y-2">
-				<p role="alert">Proje açılamadı: {errorMessage}</p>
-				<QueryRetryButton disabled={isFetching} onRetry={onRetry} />
-			</div>
-		);
+	if (isError) {
+		return null;
 	}
 	return (
 		<header className="space-y-2">
@@ -312,19 +267,15 @@ function ProjectAccessHeader({
 }
 
 function ContextAgentPermissionHistory({
-	errorMessage,
-	isFetching,
+	isError,
 	isPending,
-	onRetry,
 	onRevoke,
 	permissions,
 	revokingId,
 	writeOutcomeUncertain,
 }: {
-	errorMessage: string | null;
-	isFetching: boolean;
+	isError: boolean;
 	isPending: boolean;
-	onRetry: () => void;
 	onRevoke: (permissionId: string) => void;
 	permissions: ToolAccessPermission[];
 	revokingId: string | null;
@@ -333,13 +284,8 @@ function ContextAgentPermissionHistory({
 	if (isPending) {
 		return <p aria-live="polite">İzinler yükleniyor…</p>;
 	}
-	if (errorMessage) {
-		return (
-			<div className="space-y-2">
-				<p role="alert">İzinler yüklenemedi: {errorMessage}</p>
-				<QueryRetryButton disabled={isFetching} onRetry={onRetry} />
-			</div>
-		);
+	if (isError) {
+		return null;
 	}
 	if (permissions.length === 0) {
 		return (

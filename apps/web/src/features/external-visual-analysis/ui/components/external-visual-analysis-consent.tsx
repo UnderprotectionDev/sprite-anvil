@@ -11,8 +11,6 @@ import { Button } from "@sprite-anvil/ui/components/button";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { QueryRetryButton } from "@/utils/error-notification";
-import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
 
 const categoryDetails: Record<
@@ -55,7 +53,6 @@ export function ExternalVisualAnalysisConsent({
 		...orpc.projects.access.listExternalVisualAnalysis.queryOptions({
 			input: { projectId },
 		}),
-		meta: { suppressGlobalErrorToast: true },
 	});
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 	const permissions = permissionsQuery.data ?? [];
@@ -141,23 +138,6 @@ export function ExternalVisualAnalysisConsent({
 					{statusMessage}
 				</p>
 			) : null}
-			{permissionsQuery.isError ? (
-				<div className="space-y-2">
-					<p role="alert">
-						İzinler yüklenemedi:{" "}
-						{getErrorMessage(
-							permissionsQuery.error,
-							"Yeniden deneyin.",
-							"query"
-						)}
-					</p>
-					<QueryRetryButton
-						disabled={permissionsQuery.isFetching}
-						onRetry={() => void permissionsQuery.refetch()}
-					/>
-				</div>
-			) : null}
-
 			<div className="space-y-3">
 				{externalVisualAnalysisCategories.map((category) => {
 					const details = categoryDetails[category];
