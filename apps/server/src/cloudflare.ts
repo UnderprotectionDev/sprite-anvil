@@ -114,7 +114,12 @@ export function getR2StorageConfig(
 			R2_SECRET_ACCESS_KEY: z.string().min(1),
 			R2_BUCKET: z.string().min(1),
 		})
-		.safeParse(config);
+		.safeParse({
+			CLOUDFLARE_ACCOUNT_ID: config.CLOUDFLARE_ACCOUNT_ID,
+			R2_ACCESS_KEY_ID: config.R2_ACCESS_KEY_ID,
+			R2_SECRET_ACCESS_KEY: config.R2_SECRET_ACCESS_KEY,
+			R2_BUCKET: config.R2_BUCKET,
+		});
 	return result.success ? result.data : null;
 }
 
@@ -130,7 +135,14 @@ export function requireCloudflareConfig(
 			R2_SECRET_ACCESS_KEY: z.string().min(1),
 			R2_BUCKET: z.string().min(1),
 		})
-		.parse(config);
+		.parse({
+			CLOUDFLARE_ACCOUNT_ID: config.CLOUDFLARE_ACCOUNT_ID,
+			CLOUDFLARE_QUEUE_ID: config.CLOUDFLARE_QUEUE_ID,
+			CLOUDFLARE_QUEUES_TOKEN: config.CLOUDFLARE_QUEUES_TOKEN,
+			R2_ACCESS_KEY_ID: config.R2_ACCESS_KEY_ID,
+			R2_SECRET_ACCESS_KEY: config.R2_SECRET_ACCESS_KEY,
+			R2_BUCKET: config.R2_BUCKET,
+		});
 }
 
 export function createStorage(

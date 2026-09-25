@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 
 const migration = readFileSync(
 	new URL(
@@ -212,6 +212,46 @@ test("adds Asset Record metadata and immutable source image measurements", () =>
 		'FOREIGN KEY ("project_id","visual_world_id","theme_id") REFERENCES "themes"'
 	);
 	expect(assetDiscoveryMigration).toContain(
+		'CREATE INDEX IF NOT EXISTS "asset_versions_project_source_image_dimensions_idx"'
+	);
+});
+
+test("reapplies Asset Record metadata and source measurements after newer legacy migrations", () => {
+	const migrationsDirectory = new URL("./migrations/", import.meta.url);
+	const forwardCompatibilityDirectory = readdirSync(migrationsDirectory).find(
+		(directory) =>
+			directory.endsWith("_asset_record_search_schema_compatibility")
+	);
+
+	expect(forwardCompatibilityDirectory).toBeDefined();
+	if (!forwardCompatibilityDirectory) {
+		return;
+	}
+
+	const forwardCompatibilityMigration = readFileSync(
+		new URL(
+			`./migrations/${forwardCompatibilityDirectory}/migration.sql`,
+			import.meta.url
+		),
+		"utf8"
+	);
+
+	for (const column of [
+		"asset_category",
+		"visual_world_id",
+		"theme_id",
+		"tags",
+	]) {
+		expect(forwardCompatibilityMigration).toContain(
+			`ADD COLUMN IF NOT EXISTS "${column}"`
+		);
+	}
+	for (const column of ["source_image_width", "source_image_height"]) {
+		expect(forwardCompatibilityMigration).toContain(
+			`ADD COLUMN IF NOT EXISTS "${column}" integer`
+		);
+	}
+	expect(forwardCompatibilityMigration).toContain(
 		'CREATE INDEX IF NOT EXISTS "asset_versions_project_source_image_dimensions_idx"'
 	);
 });
