@@ -43,6 +43,13 @@ const assetTrackingRelationshipMigration = readFileSync(
 	),
 	"utf8"
 );
+const assetDiscoveryMigration = readFileSync(
+	new URL(
+		"./migrations/20260925114002_romantic_unicorn/migration.sql",
+		import.meta.url
+	),
+	"utf8"
+);
 
 test("normalizes legacy project ownership before current indexes and foreign keys", () => {
 	const renameOwnerColumn = migration.indexOf(
@@ -127,5 +134,25 @@ test("pins canonical family versions and keeps review and quality evidence consi
 	);
 	expect(assetTrackingRelationshipMigration).toContain(
 		'CHECK (NOT ("transferred_features" && "forbidden_features"))'
+	);
+});
+
+test("adds Asset Record metadata and immutable source image measurements", () => {
+	for (const column of [
+		"asset_category",
+		"visual_world_id",
+		"theme_id",
+		"tags",
+	]) {
+		expect(assetDiscoveryMigration).toContain(`ADD COLUMN "${column}"`);
+	}
+	for (const column of ["source_image_width", "source_image_height"]) {
+		expect(assetDiscoveryMigration).toContain(`ADD COLUMN "${column}" integer`);
+	}
+	expect(assetDiscoveryMigration).toContain(
+		'FOREIGN KEY ("project_id","visual_world_id","theme_id") REFERENCES "themes"'
+	);
+	expect(assetDiscoveryMigration).toContain(
+		'CREATE INDEX "asset_versions_project_source_image_dimensions_idx"'
 	);
 });

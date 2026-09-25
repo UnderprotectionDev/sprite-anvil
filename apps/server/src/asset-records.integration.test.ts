@@ -137,6 +137,51 @@ test.skipIf(!databaseUrl)(
 				},
 				{ context }
 			);
+			const theme = await call(
+				appRouter.contextScopes.createTheme,
+				{
+					projectId,
+					visualWorldId: world.id,
+					name: "Ash Knight Theme",
+					description: "Metadata discovery integration fixture",
+				},
+				{ context }
+			);
+			const metadataRecord = await call(
+				appRouter.assetRecords.updateMetadata,
+				{
+					assetCategory: "icon",
+					assetRecordId: created.id,
+					projectId,
+					tags: ["Inventory"],
+					themeId: theme.id,
+					visualWorldId: world.id,
+				},
+				{ context }
+			);
+			expect(metadataRecord).toMatchObject({
+				assetCategory: "icon",
+				tags: ["inventory"],
+				themeId: theme.id,
+				visualWorldId: world.id,
+			});
+			await expect(
+				call(
+					appRouter.assetRecords.updateMetadata,
+					{
+						assetCategory: "icon",
+						assetRecordId: created.id,
+						projectId,
+						tags: [],
+						themeId: null,
+						visualWorldId: crypto.randomUUID(),
+					},
+					{ context }
+				)
+			).rejects.toMatchObject({
+				code: "BAD_REQUEST",
+				message: "Tema veya Görsel Dünya seçilen proje kapsamında olmalıdır.",
+			});
 			const familyId = crypto.randomUUID();
 			await call(
 				appRouter.assetRecords.createFamily,
@@ -223,18 +268,53 @@ test.skipIf(!databaseUrl)(
 				{ context: rereadContext }
 			);
 
-			expect(reread).toEqual(created);
+			expect(reread).toEqual(metadataRecord);
 			expect(reread).toMatchObject({
+				assetCategory: "icon",
 				availability: "active",
 				identityCriteria: ["independent_product_meaning", "delivery_identity"],
 				name: "Ash Knight",
 				supportLevel: "general",
+				tags: ["inventory"],
+				themeId: theme.id,
+				visualWorldId: world.id,
+			});
+			const search = await call(
+				appRouter.assetRecords.search,
+				{
+					assetCategory: "icon",
+					projectId,
+					sourceImageHeight: 1,
+					sourceImageWidth: 1,
+					tag: "inventory",
+					themeId: theme.id,
+					visualWorldId: world.id,
+				},
+				{ context: rereadContext }
+			);
+			expect(search).toMatchObject({
+				records: [
+					{
+						matchingVersions: [
+							{
+								fileName: "ash-knight.png",
+								id: versionId,
+								sourceImageHeight: 1,
+								sourceImageWidth: 1,
+								versionNumber: 1,
+							},
+						],
+						record: { id: created.id },
+					},
+				],
+				totalCount: 1,
 			});
 			const tracking = await call(
 				appRouter.assetRecords.tracking,
 				{ assetRecordId: created.id, projectId },
 				{ context: rereadContext }
 			);
+			expect(tracking.record).toEqual(metadataRecord);
 			expect(createdVersion).toMatchObject({
 				fileName: "ash-knight.png",
 				id: versionId,

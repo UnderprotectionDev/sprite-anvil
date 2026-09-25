@@ -69,6 +69,20 @@ export const assetVersionSummarySchema = z
 		id: z.uuid(),
 		reviewDisposition: assetVersionReviewDispositionSchema,
 		sha256: z.string().regex(/^[a-f0-9]{64}$/),
+		sourceImageHeight: z
+			.number()
+			.int()
+			.positive()
+			.max(100_000)
+			.nullable()
+			.optional(),
+		sourceImageWidth: z
+			.number()
+			.int()
+			.positive()
+			.max(100_000)
+			.nullable()
+			.optional(),
 		versionNumber: z.number().int().positive(),
 	})
 	.strict();

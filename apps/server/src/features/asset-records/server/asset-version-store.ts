@@ -50,6 +50,8 @@ function toVersionSummary(
 		id: version.id,
 		reviewDisposition: disposition,
 		sha256: version.sha256,
+		sourceImageHeight: version.sourceImageHeight,
+		sourceImageWidth: version.sourceImageWidth,
 		versionNumber: version.versionNumber,
 	});
 }
@@ -79,6 +81,97 @@ function isSupportedImage(
 	);
 }
 
+export interface SourceImageDimensions {
+	height: number;
+	width: number;
+}
+
+const maxSearchableImageDimension = 100_000;
+
+function validDimensions(
+	width: number,
+	height: number
+): SourceImageDimensions | null {
+	return Number.isSafeInteger(width) &&
+		Number.isSafeInteger(height) &&
+		width > 0 &&
+		height > 0 &&
+		width <= maxSearchableImageDimension &&
+		height <= maxSearchableImageDimension
+		? { height, width }
+		: null;
+}
+
+function readWebPDimensions(bytes: Buffer): SourceImageDimensions | null {
+	if (
+		bytes.length < 20 ||
+		bytes.toString("ascii", 0, 4) !== "RIFF" ||
+		bytes.toString("ascii", 8, 12) !== "WEBP"
+	) {
+		return null;
+	}
+
+	const riffLength = Math.min(bytes.length, bytes.readUInt32LE(4) + 8);
+	let offset = 12;
+	while (offset + 8 <= riffLength) {
+		const chunkName = bytes.toString("ascii", offset, offset + 4);
+		const chunkLength = bytes.readUInt32LE(offset + 4);
+		const dataOffset = offset + 8;
+		const dataEnd = dataOffset + chunkLength;
+		if (dataEnd > riffLength) {
+			return null;
+		}
+
+		if (chunkName === "VP8X" && chunkLength >= 10) {
+			const width = 1 + bytes.readUIntLE(dataOffset + 4, 3);
+			const height = 1 + bytes.readUIntLE(dataOffset + 7, 3);
+			return validDimensions(width, height);
+		}
+		if (
+			chunkName === "VP8L" &&
+			chunkLength >= 5 &&
+			bytes[dataOffset] === 0x2f
+		) {
+			const bits = bytes.readUInt32LE(dataOffset + 1);
+			const width = 1 + (bits % 16_384);
+			const height = 1 + (Math.floor(bits / 16_384) % 16_384);
+			return validDimensions(width, height);
+		}
+		if (
+			chunkName === "VP8 " &&
+			chunkLength >= 10 &&
+			bytes[dataOffset + 3] === 0x9d &&
+			bytes[dataOffset + 4] === 0x01 &&
+			bytes[dataOffset + 5] === 0x2a
+		) {
+			const width = bytes.readUInt16LE(dataOffset + 6) % 16_384;
+			const height = bytes.readUInt16LE(dataOffset + 8) % 16_384;
+			return validDimensions(width, height);
+		}
+		offset = dataEnd + (chunkLength % 2);
+	}
+	return null;
+}
+
+export function getSourceImageDimensions(
+	bytes: Uint8Array,
+	contentType: AssetVersionCreateInput["contentType"]
+): SourceImageDimensions | null {
+	const image = Buffer.from(bytes);
+	if (contentType === "image/png") {
+		if (
+			image.length < 24 ||
+			!image.subarray(0, 8).equals(pngSignature) ||
+			image.readUInt32BE(8) < 13 ||
+			image.toString("ascii", 12, 16) !== "IHDR"
+		) {
+			return null;
+		}
+		return validDimensions(image.readUInt32BE(16), image.readUInt32BE(20));
+	}
+	return readWebPDimensions(image);
+}
+
 function prepareUpload(input: AssetVersionCreateInput) {
 	const bytes = Buffer.from(input.contentBase64, "base64");
 	if (
@@ -90,10 +183,13 @@ function prepareUpload(input: AssetVersionCreateInput) {
 		return null;
 	}
 	const sha256 = createHash("sha256").update(bytes).digest("hex");
+	const dimensions = getSourceImageDimensions(bytes, input.contentType);
 	return {
 		bytes,
 		objectKey: createAssetVersionObjectKey(input.projectId, input.id, sha256),
 		sha256,
+		sourceImageHeight: dimensions?.height ?? null,
+		sourceImageWidth: dimensions?.width ?? null,
 	};
 }
 
@@ -126,18 +222,21 @@ function sameVersionPayload(
 	attestation: typeof legacyAssetAttestations.$inferSelect | undefined,
 	userId: string,
 	input: AssetVersionCreateInput,
-	sha256: string,
-	byteSize: number
+	upload: NonNullable<ReturnType<typeof prepareUpload>>
 ) {
 	return Boolean(
 		version.projectId === input.projectId &&
 			version.assetRecordId === input.assetRecordId &&
 			version.fileName === input.fileName &&
 			version.contentType === input.contentType &&
-			version.sha256 === sha256 &&
-			version.byteSize === byteSize &&
+			version.sha256 === upload.sha256 &&
+			version.byteSize === upload.bytes.length &&
+			((version.sourceImageWidth === upload.sourceImageWidth &&
+				version.sourceImageHeight === upload.sourceImageHeight) ||
+				(version.sourceImageWidth === null &&
+					version.sourceImageHeight === null)) &&
 			version.objectKey ===
-				createAssetVersionObjectKey(input.projectId, input.id, sha256) &&
+				createAssetVersionObjectKey(input.projectId, input.id, upload.sha256) &&
 			version.createdByUserId === userId &&
 			attestation?.projectId === input.projectId &&
 			attestation.versionId === input.id &&
@@ -177,16 +276,7 @@ async function findExistingVersion(
 			)
 		)
 		.limit(1);
-	if (
-		!sameVersionPayload(
-			version,
-			attestation,
-			userId,
-			input,
-			upload.sha256,
-			upload.bytes.length
-		)
-	) {
+	if (!sameVersionPayload(version, attestation, userId, input, upload)) {
 		return { kind: "conflict" };
 	}
 	return {
@@ -233,6 +323,8 @@ async function insertVersionRows(
 				versionNumber,
 				fileName: input.fileName,
 				contentType: input.contentType,
+				sourceImageWidth: upload.sourceImageWidth,
+				sourceImageHeight: upload.sourceImageHeight,
 				sha256: upload.sha256,
 				byteSize: upload.bytes.length,
 				objectKey: upload.objectKey,

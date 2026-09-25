@@ -3,6 +3,7 @@ import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, type SyntheticEvent, useRef, useState } from "react";
+import { AssetRecordSearchPanel } from "@/features/asset-discovery/ui/components/asset-record-search-panel";
 import {
 	isWriteOutcomeUncertain,
 	QueryRetryButton,
@@ -10,44 +11,18 @@ import {
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
 import { AssetRecordTrackingPanel } from "../components/asset-record-tracking-panel";
-
-const identityOptions = [
-	{
-		value: "independent_product_meaning",
-		label: "Bağımsız ürün anlamı",
-		description:
-			"Oyunda kendi kimliği ve amacı olan karakter, nesne veya görsel.",
-	},
-	{
-		value: "independent_lifecycle",
-		label: "Bağımsız yaşam döngüsü",
-		description: "Kendi kararlarıyla ayrı değişen veya gelişen varlık.",
-	},
-	{
-		value: "delivery_identity",
-		label: "Teslimat kimliği",
-		description: "Oyuna ayrı bir varlık olarak teslim edilen içerik.",
-	},
-] as const;
-type IdentityCriterion = (typeof identityOptions)[number]["value"];
-
-function getIdentityLabel(value: string) {
-	return (
-		identityOptions.find((option) => option.value === value)?.label ?? value
-	);
-}
-
-function getIdentitySummary(identityCriteria: readonly string[]) {
-	return identityCriteria.length > 0
-		? identityCriteria.map(getIdentityLabel).join(" · ")
-		: "Gerekçe kaydedilmemiş";
-}
+import { AssetRecordMetadataForm } from "../forms/asset-record-metadata-form";
+import {
+	getIdentitySummary,
+	type IdentityCriterion,
+	identityCriterionOptions,
+} from "../identity-criteria";
 
 export function AssetRecordsView({
 	onOpenRecord,
 	projectId,
 }: {
-	onOpenRecord: (assetRecordId: string) => void;
+	onOpenRecord: (assetRecordId: string, versionId?: string) => void;
 	projectId: string;
 }) {
 	const projectQueryOptions = orpc.projects.get.queryOptions({
@@ -168,7 +143,6 @@ export function AssetRecordsView({
 		}
 	}
 
-	const records = recordsQuery.data ?? [];
 	let projectState: ReactNode = null;
 	if (projectQuery.isPending) {
 		projectState = <p aria-live="polite">Proje yükleniyor…</p>;
@@ -183,58 +157,6 @@ export function AssetRecordsView({
 					onRetry={() => void projectQuery.refetch()}
 				/>
 			</div>
-		);
-	}
-
-	let recordsState: ReactNode = null;
-	if (recordsQuery.isPending) {
-		recordsState = <p aria-live="polite">Varlık kayıtları yükleniyor…</p>;
-	} else if (recordsQuery.isError) {
-		recordsState = (
-			<div className="space-y-2">
-				<p role="alert">
-					{getErrorMessage(
-						recordsQuery.error,
-						"Varlık kayıtları yüklenemedi.",
-						"query"
-					)}
-				</p>
-				<QueryRetryButton
-					disabled={recordsQuery.isFetching}
-					onRetry={() => void recordsQuery.refetch()}
-				/>
-			</div>
-		);
-	} else if (records.length === 0) {
-		recordsState = (
-			<p className="rounded-lg border border-dashed p-5 text-muted-foreground">
-				Bu projede henüz varlık kaydı yok.
-			</p>
-		);
-	} else {
-		recordsState = (
-			<ul className="space-y-3">
-				{records.map((record) => (
-					<li
-						className="flex flex-col justify-between gap-3 rounded-lg border p-4 sm:flex-row sm:items-center"
-						key={record.id}
-					>
-						<div>
-							<h3 className="font-medium">{record.name}</h3>
-							<p className="text-muted-foreground text-sm">
-								{getIdentitySummary(record.identityCriteria)}
-							</p>
-						</div>
-						<Button
-							aria-label={`${record.name} kaydını aç`}
-							onClick={() => onOpenRecord(record.id)}
-							variant="outline"
-						>
-							Kaydı aç
-						</Button>
-					</li>
-				))}
-			</ul>
 		);
 	}
 
@@ -291,7 +213,7 @@ export function AssetRecordsView({
 						<legend className="mb-2 font-medium text-sm">
 							Bu kaydın bağımsız kimliği
 						</legend>
-						{identityOptions.map((option) => (
+						{identityCriterionOptions.map((option) => (
 							<label
 								className="flex cursor-pointer items-start gap-3 rounded-md border p-3 has-checked:border-primary"
 								key={option.value}
@@ -354,27 +276,21 @@ export function AssetRecordsView({
 				</form>
 			</section>
 
-			<section aria-labelledby="asset-records-heading" className="space-y-4">
-				<div>
-					<h2 className="font-semibold text-xl" id="asset-records-heading">
-						Varlık kayıtları
-					</h2>
-					<p className="mt-1 text-muted-foreground text-sm">
-						Kayıt kimliği; dosyalardan, sürümlerden ve ayrı değiştirilebilir
-						birimlerden bağımsızdır.
-					</p>
-				</div>
-				{recordsState}
-			</section>
+			<AssetRecordSearchPanel
+				onOpenRecord={onOpenRecord}
+				projectId={projectId}
+			/>
 		</main>
 	);
 }
 
 export function AssetRecordDetailView({
 	assetRecordId,
+	focusVersionId,
 	projectId,
 }: {
 	assetRecordId: string;
+	focusVersionId?: string;
 	projectId: string;
 }) {
 	const projectQuery = useQuery({
@@ -462,9 +378,17 @@ export function AssetRecordDetailView({
 							</time>
 						</p>
 					</section>
+					<AssetRecordMetadataForm
+						familyWorldId={
+							trackingQuery.data?.tracking.family?.visualWorldId ?? null
+						}
+						projectId={projectId}
+						record={record}
+					/>
 					{trackingQuery.data ? (
 						<AssetRecordTrackingPanel
 							detail={trackingQuery.data}
+							focusVersionId={focusVersionId}
 							onRefresh={() => trackingQuery.refetch()}
 						/>
 					) : null}

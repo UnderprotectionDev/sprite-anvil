@@ -11,7 +11,7 @@ import {
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
 import type { ReactNode, SyntheticEvent } from "react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client } from "@/utils/orpc";
@@ -297,12 +297,30 @@ function FamilyAndDerivativeSection({
 
 export function AssetRecordTrackingPanel({
 	detail,
+	focusVersionId,
 	onRefresh,
 }: {
 	detail: AssetRecordTrackingDetail;
+	focusVersionId?: string;
 	onRefresh: () => Promise<unknown>;
 }) {
 	const { record, tracking } = detail;
+	const matchingVersionRef = useRef<HTMLDivElement>(null);
+	const matchingVersion = focusVersionId
+		? [tracking.approvedVersion, ...tracking.alternatives].find(
+				(version) => version?.id === focusVersionId
+			)
+		: null;
+	useEffect(() => {
+		if (!matchingVersion) {
+			return;
+		}
+		matchingVersionRef.current?.focus({ preventScroll: true });
+		matchingVersionRef.current?.scrollIntoView?.({
+			behavior: "smooth",
+			block: "center",
+		});
+	}, [matchingVersion]);
 	const pendingWrite = useRef<PendingWrite | null>(null);
 	const versionRequest = useRef<{ id: string; signature: string } | null>(null);
 	const reviewRequest = useRef<{ id: string; signature: string } | null>(null);
@@ -638,6 +656,26 @@ export function AssetRecordTrackingPanel({
 				<p aria-live="polite" role="status">
 					{statusMessage}
 				</p>
+			) : null}
+			{matchingVersion ? (
+				<div
+					aria-label={`Aradığınız sürüm: ${matchingVersion.fileName} · Sürüm ${matchingVersion.versionNumber}.`}
+					className="space-y-1 rounded-lg border border-primary p-4"
+					ref={matchingVersionRef}
+					role="status"
+					tabIndex={-1}
+				>
+					<p className="font-medium">Aradığınız sürüm</p>
+					<p className="text-sm">
+						{matchingVersion.fileName} · Sürüm {matchingVersion.versionNumber}
+					</p>
+					<a
+						className="text-sm underline underline-offset-4"
+						href="#production-history-heading"
+					>
+						Üretim geçmişine git
+					</a>
+				</div>
 			) : null}
 			{writeOutcomeUncertain ? (
 				<Button

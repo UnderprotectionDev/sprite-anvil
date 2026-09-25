@@ -10,10 +10,11 @@ function ProjectAssetRecordsRoute() {
 	const navigate = useNavigate();
 	return (
 		<AssetRecordsView
-			onOpenRecord={(assetRecordId) =>
+			onOpenRecord={(assetRecordId, versionId) =>
 				void navigate({
 					to: "/projects/$projectId/assets/$assetRecordId",
 					params: { assetRecordId, projectId },
+					search: versionId ? { versionId } : {},
 				})
 			}
 			projectId={projectId}

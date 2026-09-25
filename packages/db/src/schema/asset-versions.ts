@@ -24,6 +24,8 @@ export const assetVersions = pgTable(
 		versionNumber: integer("version_number").notNull(),
 		fileName: text("file_name").notNull(),
 		contentType: text("content_type").notNull(),
+		sourceImageWidth: integer("source_image_width"),
+		sourceImageHeight: integer("source_image_height"),
 		sha256: text("sha256").notNull(),
 		byteSize: integer("byte_size").notNull(),
 		objectKey: text("object_key").notNull(),
@@ -57,6 +59,10 @@ export const assetVersions = pgTable(
 			sql`${table.contentType} IN ('image/png', 'image/webp')`
 		),
 		check(
+			"asset_versions_source_image_dimensions_check",
+			sql`(${table.sourceImageWidth} IS NULL AND ${table.sourceImageHeight} IS NULL) OR (${table.sourceImageWidth} IS NOT NULL AND ${table.sourceImageHeight} IS NOT NULL AND ${table.sourceImageWidth} > 0 AND ${table.sourceImageHeight} > 0)`
+		),
+		check(
 			"asset_versions_sha256_check",
 			sql`${table.sha256} ~ '^[a-f0-9]{64}$'`
 		),
@@ -64,6 +70,12 @@ export const assetVersions = pgTable(
 		index("asset_versions_record_created_at_idx").on(
 			table.assetRecordId,
 			table.createdAt
+		),
+		index("asset_versions_project_source_image_dimensions_idx").on(
+			table.projectId,
+			table.sourceImageWidth,
+			table.sourceImageHeight,
+			table.assetRecordId
 		),
 	]
 );

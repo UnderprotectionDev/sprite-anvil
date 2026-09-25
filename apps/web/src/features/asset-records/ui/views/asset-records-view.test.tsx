@@ -9,7 +9,7 @@ import {
 } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { afterEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { AssetRecordDetailView, AssetRecordsView } from "./asset-records-view";
 
 const projectId = "c2edb5dc-a82f-42b2-84bb-a878ca20fabf";
@@ -46,20 +46,36 @@ type TestAssetRecord = Omit<
 
 const fakeApi = vi.hoisted(() => ({
 	create: vi.fn(),
+	updateMetadata: vi.fn(),
 	detail: null as Record<string, unknown> | null,
 	record: null as TestAssetRecord | null,
 	records: [] as TestAssetRecord[],
+	search: vi.fn(),
+	searchResults: { records: [] as Record<string, unknown>[], totalCount: 0 },
+	scopes: {
+		themes: [] as Record<string, unknown>[],
+		visualWorlds: [] as Record<string, unknown>[],
+	},
 }));
 
 vi.mock("@/utils/orpc", () => ({
 	client: {
 		assetRecords: {
 			create: (input: unknown) => fakeApi.create(input),
+			updateMetadata: (input: unknown) => fakeApi.updateMetadata(input),
 		},
 	},
 	orpc: {
 		assetRecords: {
+			search: {
+				queryKey: () => ["asset-record-search"],
+				queryOptions: ({ input }: { input: Record<string, unknown> }) => ({
+					queryKey: ["asset-record-search", input],
+					queryFn: () => fakeApi.search(input),
+				}),
+			},
 			tracking: {
+				queryKey: () => ["asset-record-detail"],
 				queryOptions: () => ({
 					queryKey: ["asset-record-detail", assetRecord.id],
 					queryFn: async () =>
@@ -92,6 +108,14 @@ vi.mock("@/utils/orpc", () => ({
 				}),
 			},
 		},
+		contextScopes: {
+			list: {
+				queryOptions: () => ({
+					queryKey: ["scope-catalog", projectId],
+					queryFn: async () => fakeApi.scopes,
+				}),
+			},
+		},
 		projects: {
 			get: {
 				queryOptions: () => ({
@@ -110,6 +134,186 @@ afterEach(() => {
 	fakeApi.record = null;
 	fakeApi.detail = null;
 	fakeApi.create.mockReset();
+	fakeApi.updateMetadata.mockReset();
+	fakeApi.search.mockReset();
+	fakeApi.searchResults = { records: [], totalCount: 0 };
+	fakeApi.search.mockResolvedValue(fakeApi.searchResults);
+	fakeApi.scopes = { themes: [], visualWorlds: [] };
+});
+
+beforeEach(() => {
+	fakeApi.search.mockReset().mockResolvedValue(fakeApi.searchResults);
+});
+
+test("filters Asset Records together and opens the matching version history", async () => {
+	const onOpenRecord = vi.fn();
+	const visualWorldId = "ca6d5c68-621e-493b-a01f-2c28d5c4f3ab";
+	const themeId = "6e04ac4f-b180-42e7-bcce-8a7a53643113";
+	const versionId = "4433a630-c542-4fc7-89a8-2874df8ddaaa";
+	fakeApi.scopes = {
+		visualWorlds: [{ id: visualWorldId, name: "Gameplay", projectId }],
+		themes: [
+			{
+				id: themeId,
+				name: "Dark Castle",
+				projectId,
+				visualWorldId,
+			},
+		],
+	};
+	fakeApi.searchResults = {
+		records: [
+			{
+				record: {
+					...assetRecord,
+					assetCategory: "icon",
+					availability: "archived",
+					tags: ["inventory"],
+					themeId,
+					visualWorldId,
+				},
+				matchingVersions: [
+					{
+						fileName: "ash-knight-icon.webp",
+						id: versionId,
+						sourceImageHeight: 48,
+						sourceImageWidth: 32,
+						versionNumber: 3,
+					},
+				],
+			},
+		],
+		totalCount: 1,
+	};
+	fakeApi.search.mockResolvedValue(fakeApi.searchResults);
+	renderWithQueryClient(
+		<AssetRecordsView onOpenRecord={onOpenRecord} projectId={projectId} />
+	);
+
+	await screen.findByRole("heading", { name: "Forest Quest" });
+	fireEvent.change(screen.getByLabelText("Ada göre ara"), {
+		target: { value: "Ash" },
+	});
+	fireEvent.change(screen.getByLabelText("Varlık kategorisi"), {
+		target: { value: "icon" },
+	});
+	fireEvent.change(screen.getByLabelText("Görsel Dünya"), {
+		target: { value: visualWorldId },
+	});
+	fireEvent.change(screen.getByLabelText("Tema"), {
+		target: { value: themeId },
+	});
+	fireEvent.change(screen.getByLabelText("Kaynak Görsel genişliği (px)"), {
+		target: { value: "32" },
+	});
+	fireEvent.change(screen.getByLabelText("Kaynak Görsel yüksekliği (px)"), {
+		target: { value: "48" },
+	});
+	fireEvent.change(screen.getByLabelText("Etiket"), {
+		target: { value: "inventory" },
+	});
+	fireEvent.change(screen.getByLabelText("Kayıt durumu"), {
+		target: { value: "archived" },
+	});
+	fireEvent.click(
+		screen.getByRole("button", { name: "Varlık kayıtlarını ara" })
+	);
+
+	await waitFor(() =>
+		expect(fakeApi.search).toHaveBeenLastCalledWith({
+			assetCategory: "icon",
+			availability: "archived",
+			name: "Ash",
+			projectId,
+			sourceImageHeight: 48,
+			sourceImageWidth: 32,
+			tag: "inventory",
+			themeId,
+			visualWorldId,
+		})
+	);
+	expect(
+		await screen.findByText("ash-knight-icon.webp · Sürüm 3 · 32 × 48 px")
+	).toBeVisible();
+	fireEvent.click(
+		screen.getByRole("button", {
+			name: "ash-knight-icon.webp sürüm 3 geçmişini aç",
+		})
+	);
+	expect(onOpenRecord).toHaveBeenCalledWith(assetRecord.id, versionId);
+	fireEvent.click(
+		screen.getByRole("button", { name: "Ash Knight kaydını aç" })
+	);
+	expect(onOpenRecord).toHaveBeenCalledWith(assetRecord.id);
+});
+
+test("edits record metadata and limits Theme choices to the selected Visual World", async () => {
+	const visualWorldId = "ca6d5c68-621e-493b-a01f-2c28d5c4f3ab";
+	const unrelatedWorldId = "da6d5c68-621e-493b-a01f-2c28d5c4f3ab";
+	const themeId = "6e04ac4f-b180-42e7-bcce-8a7a53643113";
+	fakeApi.scopes = {
+		visualWorlds: [
+			{ id: visualWorldId, name: "Gameplay", projectId },
+			{ id: unrelatedWorldId, name: "Marketing", projectId },
+		],
+		themes: [
+			{ id: themeId, name: "Dark Castle", projectId, visualWorldId },
+			{
+				id: "7e04ac4f-b180-42e7-bcce-8a7a53643113",
+				name: "Store Banner",
+				projectId,
+				visualWorldId: unrelatedWorldId,
+			},
+		],
+	};
+	fakeApi.updateMetadata.mockResolvedValue({
+		...assetRecord,
+		assetCategory: "icon",
+		tags: ["inventory"],
+		themeId,
+		visualWorldId,
+	});
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+
+	await screen.findByRole("heading", { name: "Ash Knight" });
+	fireEvent.change(screen.getByLabelText("Varlık kategorisi"), {
+		target: { value: "icon" },
+	});
+	fireEvent.change(screen.getByLabelText("Görsel Dünya"), {
+		target: { value: visualWorldId },
+	});
+	const themeSelect = screen.getByLabelText("Tema", { selector: "select" });
+	expect(themeSelect).toHaveDisplayValue("Tema seçilmedi");
+	expect(
+		screen.getByRole("option", { name: "Dark Castle" })
+	).toBeInTheDocument();
+	expect(
+		screen.queryByRole("option", { name: "Store Banner" })
+	).not.toBeInTheDocument();
+	fireEvent.change(themeSelect, { target: { value: themeId } });
+	fireEvent.change(screen.getByLabelText("Etiketler"), {
+		target: { value: "inventory" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Metadata’yı kaydet" }));
+
+	await waitFor(() =>
+		expect(fakeApi.updateMetadata).toHaveBeenCalledWith({
+			assetCategory: "icon",
+			assetRecordId: assetRecord.id,
+			projectId,
+			tags: ["inventory"],
+			themeId,
+			visualWorldId,
+		})
+	);
+	expect(await screen.findByRole("status")).toHaveTextContent(
+		"Varlık kaydı metadata’sı kaydedildi."
+	);
 });
 
 function renderWithQueryClient(node: React.ReactNode) {
@@ -253,6 +457,7 @@ test("shows persisted versions, derivatives, references, quality, and provenance
 	renderWithQueryClient(
 		<AssetRecordDetailView
 			assetRecordId={assetRecord.id}
+			focusVersionId="e14f4bcc-5e5d-4fb7-b976-c0980934fa21"
 			projectId={projectId}
 		/>
 	);
@@ -261,7 +466,12 @@ test("shows persisted versions, derivatives, references, quality, and provenance
 		await screen.findByRole("heading", { name: "Ash Knight" })
 	).toBeVisible();
 	expect(screen.getByText(versionFileName)).toBeVisible();
-	expect(screen.getByText(alternativeFileName)).toBeVisible();
+	expect(screen.getAllByText(alternativeFileName)).toHaveLength(2);
+	expect(
+		await screen.findByRole("status", {
+			name: "Aradığınız sürüm: ash-knight-alt.png · Sürüm 2.",
+		})
+	).toBeVisible();
 	expect(screen.getByText(derivativeName)).toBeVisible();
 	expect(screen.getByText(referenceName)).toBeVisible();
 	expect(screen.getByText(referenceNote)).toBeVisible();

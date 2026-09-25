@@ -34,7 +34,7 @@ Piksel sanatı için mantıksal 1× kaynak korunur. Önizleme ve dışa aktarım
 
 **AST-04 — Varlık Ailesi.** Aynı Ana Tasarım soyundaki karakter yönleri, animasyonları, varyantları ve ekipmanları aynı Varlık Ailesinde ilişkilendirilebilir. Farklı Görsel Dünya veya kullanım bağlamındaki portre ve ikon gibi temsiller ayrı ailelerde tutulur ve Varlık Kimliği üzerinden bağlanır. Objelerin durumları, arayüz ekranları ve bileşenleri, karo setleri, geçişler ve test haritaları da yalnız kendi aile sınırları içinde bir arada görülebilir.
 
-**AST-05 — Koleksiyon.** Kullanıcı varlıkları ada, türe, Temaya, Görsel Dünya’ya, ölçüye, etikete ve yaşam döngüsü durumuna göre arayıp filtreleyebilir. İlişkileri farklı olan Varlık Kayıtları isteğe bağlı Koleksiyonlarda bir araya getirilebilir. Koleksiyon üyeliği soy, kural aktarımı, tamamlanma koşulu, bağımlılık veya teslimat zorunluluğu oluşturmaz.
+**AST-05 — Koleksiyon.** Kullanıcı varlıkları ada, Varlık Kategorisine, Temaya, Görsel Dünya’ya, Kaynak Görsel Ölçüsüne, etikete ve Kayıt Durumuna göre arayıp filtreleyebilir. Varlık Kategorisi mevcut sekiz profil grubunu ve diğer kategorileri kapsar; kategori seçimi tek başına Özel Varlık Profili kanıtı değildir. Ölçü filtresi, eşleşen herhangi bir değişmez Varlık Sürümünün Kaynak Görsel Ölçüsünü bulur ve eşleşen sürümü gösterir. Varlık Kategorisi ve etiketler Varlık Kaydı metadata’sıdır; Tema ile Görsel Dünya proje kapsam kataloğundan seçilir. İlişkileri farklı olan Varlık Kayıtları isteğe bağlı Koleksiyonlarda bir araya getirilebilir. Koleksiyon üyeliği soy, kural aktarımı, tamamlanma koşulu, bağımlılık veya teslimat zorunluluğu oluşturmaz.
 
 Bir Varlık Sürümü’nün durumu tek bir alanda tutulmaz. İnceleme Kararı, Bağlama Uygunluk Durumu ve Kalite Kontrol Durumu sürümün değerlendirmesini; Kayıt Durumu ise Varlık Kaydı’nın etkin, arşivlenmiş veya silinmiş olmasını belirtir. Birindeki değişiklik diğerlerinin geçmişini değiştirmez.
 
@@ -78,5 +78,4 @@ Geniş varlık aileleri yan yana incelenebilir. Toplu onaydan önce ürün her �
 | Kalıcı silme | Başlatamaz. | Onaylanmış silme işlemini yürütür. | Silmeyi başlatabilen tek kişidir. |
 
 Bir araca verilen izin yalnızca belirli bir teknik işlemi kapsar; kullanıcı adına karar verme yetkisi vermez. Başarısız veya yarıda kalan işlem ürün verilerini kısmen değiştiremez. Kullanıcı işlemin durumunu ve yeniden denenip denenemeyeceğini görür.
-
 

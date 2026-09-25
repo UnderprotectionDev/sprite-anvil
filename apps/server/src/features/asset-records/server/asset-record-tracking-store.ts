@@ -10,7 +10,6 @@ import {
 	assetVersionSummarySchema,
 	derivativeSummarySchema,
 } from "@sprite-anvil/api/asset-record-tracking";
-import { assetRecordSchema } from "@sprite-anvil/api/asset-records";
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
 import { legacyAssetAttestations } from "@sprite-anvil/db/schema/asset-production-history";
 import { assetRecordDerivatives } from "@sprite-anvil/db/schema/asset-record-derivatives";
@@ -27,6 +26,7 @@ import {
 import { visualWorlds } from "@sprite-anvil/db/schema/context-scopes";
 import { project } from "@sprite-anvil/db/schema/project";
 import { and, asc, desc, eq, isNull, or, sql } from "drizzle-orm";
+import { toAssetRecord } from "./asset-record-mapper";
 import {
 	type AssetVersionObjectStorage,
 	createAssetVersionWriter,
@@ -36,18 +36,6 @@ function toISOString(value: Date | string) {
 	return value instanceof Date
 		? value.toISOString()
 		: new Date(value).toISOString();
-}
-
-function toAssetRecord(record: typeof assetRecords.$inferSelect) {
-	return assetRecordSchema.parse({
-		availability: record.availability,
-		createdAt: toISOString(record.createdAt),
-		id: record.id,
-		identityCriteria: record.identityCriteria ?? [],
-		name: record.name,
-		projectId: record.projectId,
-		supportLevel: record.supportLevel,
-	});
 }
 
 function hasDatabaseErrorCode(error: unknown, codes: readonly string[]) {
@@ -77,6 +65,8 @@ function toVersionSummary(
 		id: version.id,
 		reviewDisposition: disposition,
 		sha256: version.sha256,
+		sourceImageHeight: version.sourceImageHeight,
+		sourceImageWidth: version.sourceImageWidth,
 		versionNumber: version.versionNumber,
 	});
 }
@@ -106,6 +96,13 @@ async function getOwnedAssetRecord(
 	return record?.record ?? null;
 }
 
+function hasCompatibleVisualWorld(
+	record: typeof assetRecords.$inferSelect,
+	visualWorldId: string
+) {
+	return !record.visualWorldId || record.visualWorldId === visualWorldId;
+}
+
 async function getLatestDisposition(
 	db: Database,
 	projectId: string,
@@ -133,6 +130,22 @@ async function getLatestDisposition(
 type CreateDerivativeInput = Parameters<
 	AssetRecordTrackingStore["createDerivative"]
 >[1];
+type CreateFamilyInput = Parameters<
+	AssetRecordTrackingStore["createFamily"]
+>[1];
+
+function isSameFamily(
+	family: typeof assetFamilies.$inferSelect | undefined,
+	input: CreateFamilyInput
+): family is typeof assetFamilies.$inferSelect {
+	return Boolean(
+		family?.id === input.id &&
+			family.canonicalVersionId === input.canonicalVersionId &&
+			family.name === input.name &&
+			family.useContext === input.useContext &&
+			family.visualWorldId === input.visualWorldId
+	);
+}
 
 function toDerivativeSummary(
 	derivativeRecord: typeof assetRecords.$inferSelect,
@@ -551,7 +564,7 @@ export function createAssetRecordTrackingStore(
 			);
 
 			return assetRecordTrackingDetailSchema.parse({
-				record: toAssetRecord(record),
+				record: toAssetRecord(record, familyRow?.visualWorld.id ?? null),
 				tracking: {
 					approvedVersion,
 					alternatives: versionSummaries.filter(
@@ -757,6 +770,9 @@ export function createAssetRecordTrackingStore(
 			if (!(world && canonicalVersion)) {
 				return { ok: false, reason: "not_found" };
 			}
+			if (!hasCompatibleVisualWorld(record, input.visualWorldId)) {
+				return { ok: false, reason: "conflict" };
+			}
 			if (
 				(await getLatestDisposition(
 					db,
@@ -777,13 +793,7 @@ export function createAssetRecordTrackingStore(
 						)
 					)
 					.limit(1);
-				if (
-					existingFamily?.id === input.id &&
-					existingFamily.canonicalVersionId === input.canonicalVersionId &&
-					existingFamily.name === input.name &&
-					existingFamily.useContext === input.useContext &&
-					existingFamily.visualWorldId === input.visualWorldId
-				) {
+				if (isSameFamily(existingFamily, input)) {
 					return {
 						ok: true,
 						value: {
@@ -890,6 +900,14 @@ export function createAssetRecordTrackingStore(
 			);
 			if (!familyResult.ok) {
 				return familyResult;
+			}
+			if (
+				!hasCompatibleVisualWorld(
+					derivativeRecord,
+					familyResult.family.visualWorldId
+				)
+			) {
+				return { ok: false, reason: "conflict" };
 			}
 			const existing = await getExistingDerivative(
 				db,
