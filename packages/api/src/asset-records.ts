@@ -27,7 +27,6 @@ export const assetRecordSchema = z
 		id: z.uuid(),
 		identityCriteria: z
 			.array(assetRecordIdentityCriteriaSchema)
-			.min(1)
 			.max(assetRecordIdentityCriteria.length)
 			.refine((criteria) => new Set(criteria).size === criteria.length),
 		name: z.string().trim().min(1).max(120),

@@ -69,6 +69,7 @@ function createContext(
 
 	return {
 		assetRecordStore: store,
+		assetRecordTrackingStore: {} as never,
 		session: { user: { id: userId } },
 	} as unknown as Context;
 }
@@ -180,4 +181,18 @@ test("uses the canonical Erased availability value", () => {
 	expect(
 		assetRecordSchema.safeParse({ ...record, availability: "deleted" }).success
 	).toBe(false);
+});
+
+test("accepts legacy Asset Records whose identity criteria were not recorded", () => {
+	const record = {
+		availability: "active",
+		createdAt: "2026-09-25T08:00:00.000Z",
+		id: recordId,
+		identityCriteria: [],
+		name: "Ash Knight",
+		projectId,
+		supportLevel: "general",
+	};
+
+	expect(assetRecordSchema.safeParse(record).success).toBe(true);
 });

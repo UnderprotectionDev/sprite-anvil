@@ -6,8 +6,10 @@ import {
 	assetRecordSchema,
 } from "../asset-records";
 import { protectedProcedure } from "../index";
+import { assetRecordTrackingRouter } from "./asset-record-tracking";
 
 export const assetRecordsRouter = {
+	...assetRecordTrackingRouter,
 	create: protectedProcedure
 		.input(assetRecordCreateInputSchema)
 		.output(assetRecordSchema)

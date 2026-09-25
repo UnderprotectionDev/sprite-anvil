@@ -13,7 +13,7 @@ function toAssetRecord(row: typeof assetRecords.$inferSelect): AssetRecord {
 		availability: row.availability,
 		createdAt: row.createdAt.toISOString(),
 		id: row.id,
-		identityCriteria: row.identityCriteria,
+		identityCriteria: row.identityCriteria ?? [],
 		name: row.name,
 		projectId: row.projectId,
 		supportLevel: row.supportLevel,

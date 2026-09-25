@@ -9,6 +9,7 @@ import {
 } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
+import { AssetRecordTrackingPanel } from "../components/asset-record-tracking-panel";
 
 const identityOptions = [
 	{
@@ -34,6 +35,12 @@ function getIdentityLabel(value: string) {
 	return (
 		identityOptions.find((option) => option.value === value)?.label ?? value
 	);
+}
+
+function getIdentitySummary(identityCriteria: readonly string[]) {
+	return identityCriteria.length > 0
+		? identityCriteria.map(getIdentityLabel).join(" · ")
+		: "Gerekçe kaydedilmemiş";
 }
 
 export function AssetRecordsView({
@@ -215,7 +222,7 @@ export function AssetRecordsView({
 						<div>
 							<h3 className="font-medium">{record.name}</h3>
 							<p className="text-muted-foreground text-sm">
-								{record.identityCriteria.map(getIdentityLabel).join(" · ")}
+								{getIdentitySummary(record.identityCriteria)}
 							</p>
 						</div>
 						<Button
@@ -363,31 +370,6 @@ export function AssetRecordsView({
 	);
 }
 
-const trackingAreas = [
-	{
-		title: "Onaylı sürüm",
-		emptyState: "Henüz onaylı sürüm yok.",
-	},
-	{
-		title: "Alternatifler",
-		emptyState: "Henüz alternatif sürüm yok.",
-	},
-	{
-		title: "Türetilmiş varlıklar",
-		emptyState: "Bu kayda bağlı türetilmiş varlık yok.",
-	},
-	{
-		title: "Referanslar",
-		emptyState: "Kayıtlı referans yok.",
-	},
-	{
-		title: "Kalite",
-		emptyState:
-			"Değerlendirilmedi. Genel Varlık Desteği özel profil kanıtı üretmez.",
-	},
-	{ title: "Üretim geçmişi", emptyState: "Henüz üretim geçmişi yok." },
-] as const;
-
 export function AssetRecordDetailView({
 	assetRecordId,
 	projectId,
@@ -399,13 +381,13 @@ export function AssetRecordDetailView({
 		...orpc.projects.get.queryOptions({ input: { projectId } }),
 		meta: { errorPresentation: "inline" },
 	});
-	const recordQuery = useQuery({
-		...orpc.assetRecords.get.queryOptions({
+	const trackingQuery = useQuery({
+		...orpc.assetRecords.tracking.queryOptions({
 			input: { assetRecordId, projectId },
 		}),
 		meta: { errorPresentation: "inline" },
 	});
-	const record = recordQuery.data;
+	const record = trackingQuery.data?.record;
 	const availabilityLabel = record
 		? {
 				active: "Etkin",
@@ -414,24 +396,24 @@ export function AssetRecordDetailView({
 			}[record.availability]
 		: null;
 	let recordHeading: ReactNode;
-	if (recordQuery.isPending) {
+	if (trackingQuery.isPending) {
 		recordHeading = (
 			<h1 className="font-bold text-3xl">Varlık kaydı yükleniyor…</h1>
 		);
-	} else if (recordQuery.isError) {
+	} else if (trackingQuery.isError) {
 		recordHeading = (
 			<div>
 				<h1 className="font-bold text-3xl">Varlık kaydı açılamadı</h1>
 				<p role="alert">
 					{getErrorMessage(
-						recordQuery.error,
+						trackingQuery.error,
 						"Varlık kaydı yüklenemedi.",
 						"query"
 					)}
 				</p>
 				<QueryRetryButton
-					disabled={recordQuery.isFetching}
-					onRetry={() => void recordQuery.refetch()}
+					disabled={trackingQuery.isFetching}
+					onRetry={() => void trackingQuery.refetch()}
 				/>
 			</div>
 		);
@@ -440,7 +422,7 @@ export function AssetRecordDetailView({
 			<>
 				<h1 className="font-bold text-3xl">{record.name}</h1>
 				<p className="text-muted-foreground">
-					{record.identityCriteria.map(getIdentityLabel).join(" · ")}
+					{getIdentitySummary(record.identityCriteria)}
 				</p>
 			</>
 		);
@@ -480,33 +462,12 @@ export function AssetRecordDetailView({
 							</time>
 						</p>
 					</section>
-					<section
-						aria-labelledby="record-tracking-heading"
-						className="space-y-4"
-					>
-						<div>
-							<h2
-								className="font-semibold text-xl"
-								id="record-tracking-heading"
-							>
-								Kayıt izleme
-							</h2>
-							<p className="mt-1 text-muted-foreground text-sm">
-								Bu alanlar kayıt kimliğine aittir. Kanıt oluşmadan onay veya
-								kalite durumu gösterilmez.
-							</p>
-						</div>
-						<div className="grid gap-3 sm:grid-cols-2">
-							{trackingAreas.map((area) => (
-								<section className="rounded-lg border p-4" key={area.title}>
-									<h3 className="font-medium">{area.title}</h3>
-									<p className="mt-2 text-muted-foreground text-sm">
-										{area.emptyState}
-									</p>
-								</section>
-							))}
-						</div>
-					</section>
+					{trackingQuery.data ? (
+						<AssetRecordTrackingPanel
+							detail={trackingQuery.data}
+							onRefresh={() => trackingQuery.refetch()}
+						/>
+					) : null}
 				</>
 			) : null}
 		</main>

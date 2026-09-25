@@ -6,7 +6,6 @@ import {
 	render,
 	screen,
 	waitFor,
-	within,
 } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -18,8 +17,16 @@ const identityCheckboxName = /^Bağımsız ürün anlamı/;
 const fileBoundaryCopy =
 	/dosya veya düzenlenebilir kare olması tek başına yeni kayıt gerekçesi değildir/i;
 const generalSupportCopy = "Genel Varlık Desteği · Özel profil kanıtı yok";
-const productionHistoryCopy = "Henüz üretim geçmişi yok.";
 const recordCreatedCopy = /Kayıt oluşturuldu/;
+const versionFileName = /ash-knight\.png/;
+const alternativeFileName = /ash-knight-alt\.png/;
+const derivativeName = /Ash Knight idle/;
+const referenceName = /Skeleton Warrior/;
+const referenceNote = /Use the stance only\./;
+const productionSource = /Imported from the project archive/;
+const productionEvidence = /Archive manifest entry/;
+const userRelationshipLabel = /Ekipten alındı/;
+const unknownHistory = /Geçmiş bilinmiyor/;
 const assetRecord = {
 	availability: "active" as const,
 	createdAt: "2026-09-25T08:00:00.000Z",
@@ -29,15 +36,19 @@ const assetRecord = {
 	projectId,
 	supportLevel: "general" as const,
 };
+type TestAssetRecord = Omit<
+	typeof assetRecord,
+	"availability" | "identityCriteria"
+> & {
+	availability: "active" | "archived" | "erased";
+	identityCriteria: readonly string[];
+};
 
 const fakeApi = vi.hoisted(() => ({
 	create: vi.fn(),
-	record: null as
-		| (Omit<typeof assetRecord, "availability"> & {
-				availability: "active" | "archived" | "erased";
-		  })
-		| null,
-	records: [] as (typeof assetRecord)[],
+	detail: null as Record<string, unknown> | null,
+	record: null as TestAssetRecord | null,
+	records: [] as TestAssetRecord[],
 }));
 
 vi.mock("@/utils/orpc", () => ({
@@ -48,10 +59,30 @@ vi.mock("@/utils/orpc", () => ({
 	},
 	orpc: {
 		assetRecords: {
-			get: {
+			tracking: {
 				queryOptions: () => ({
-					queryKey: ["asset-record", assetRecord.id],
-					queryFn: async () => fakeApi.record ?? assetRecord,
+					queryKey: ["asset-record-detail", assetRecord.id],
+					queryFn: async () =>
+						fakeApi.detail ?? {
+							record: fakeApi.record ?? assetRecord,
+							tracking: {
+								availableRecords: [],
+								availableVersions: [],
+								approvedVersion: null,
+								alternatives: [],
+								derivatives: [],
+								family: null,
+								productionHistory: [],
+								quality: {
+									integrityStatus: "unavailable",
+									profileStatus: "general_support",
+									verifiedVersionCount: 0,
+								},
+								references: [],
+								reviewEvents: [],
+								visualWorlds: [],
+							},
+						},
 				}),
 			},
 			list: {
@@ -77,6 +108,7 @@ afterEach(() => {
 	vi.restoreAllMocks();
 	fakeApi.records = [];
 	fakeApi.record = null;
+	fakeApi.detail = null;
 	fakeApi.create.mockReset();
 });
 
@@ -150,7 +182,74 @@ test("uncertain creates require a confirmed list check and reuse the same identi
 	expect(fakeApi.create.mock.calls[1]?.[0].id).toBe(identity);
 });
 
-test("shows the tracking areas on the Asset Record without inventing evidence", async () => {
+test("shows persisted versions, derivatives, references, quality, and provenance", async () => {
+	fakeApi.detail = {
+		record: assetRecord,
+		tracking: {
+			availableRecords: [],
+			availableVersions: [],
+			approvedVersion: {
+				createdAt: "2026-09-25T08:01:00.000Z",
+				fileName: "ash-knight.png",
+				id: "f7b32d26-6b7c-4e16-a578-dac3e0dab68b",
+				reviewDisposition: "approved",
+				sha256: "a".repeat(64),
+				versionNumber: 1,
+			},
+			alternatives: [
+				{
+					createdAt: "2026-09-25T08:02:00.000Z",
+					fileName: "ash-knight-alt.png",
+					id: "e14f4bcc-5e5d-4fb7-b976-c0980934fa21",
+					reviewDisposition: "candidate",
+					sha256: "b".repeat(64),
+					versionNumber: 2,
+				},
+			],
+			derivatives: [
+				{
+					assetRecordId: "c9fcd87d-fec8-44ad-9fe1-96ef32648c87",
+					assetRecordName: "Ash Knight idle",
+					canonicalVersionId: "f7b32d26-6b7c-4e16-a578-dac3e0dab68b",
+					dependencyFacets: ["identity", "timing"],
+					familyStatus: "unassigned",
+					id: "cfd0e95b-88f8-4932-b69b-a91f780720ab",
+				},
+			],
+			references: [
+				{
+					assetRecordName: "Skeleton Warrior",
+					conflictFeatures: [],
+					forbiddenFeatures: ["identity"],
+					id: "ba27998f-bd24-4a72-a13e-498a39f4e17d",
+					notes: "Use the stance only.",
+					role: "pose",
+					transferredFeatures: ["pose"],
+					versionId: "e1245d53-fb9c-4dd1-9c2b-6c66c5d488a8",
+					versionNumber: 3,
+				},
+			],
+			quality: {
+				integrityStatus: "format_signature_matched",
+				profileStatus: "general_support",
+				verifiedVersionCount: 2,
+			},
+			productionHistory: [
+				{
+					createdAt: "2026-09-25T08:01:00.000Z",
+					historyUnknown: true,
+					id: "0f3c648b-0b67-4b05-9f94-7c2bcd940949",
+					kind: "legacy_asset_attestation",
+					knownSource: "Imported from the project archive",
+					supportingEvidence: "Archive manifest entry.",
+					userRelationship: "received_from_team",
+					versionNumber: 1,
+				},
+			],
+			reviewEvents: [],
+			visualWorlds: [],
+		},
+	};
 	renderWithQueryClient(
 		<AssetRecordDetailView
 			assetRecordId={assetRecord.id}
@@ -161,27 +260,19 @@ test("shows the tracking areas on the Asset Record without inventing evidence", 
 	expect(
 		await screen.findByRole("heading", { name: "Ash Knight" })
 	).toBeVisible();
-	for (const [title, emptyState] of [
-		["Onaylı sürüm", "Henüz onaylı sürüm yok."],
-		["Alternatifler", "Henüz alternatif sürüm yok."],
-		["Türetilmiş varlıklar", "Bu kayda bağlı türetilmiş varlık yok."],
-		["Referanslar", "Kayıtlı referans yok."],
-		[
-			"Kalite",
-			"Değerlendirilmedi. Genel Varlık Desteği özel profil kanıtı üretmez.",
-		],
-	] as const) {
-		const section = screen.getByRole("heading", { name: title }).parentElement;
-		expect(section).not.toBeNull();
-		expect(within(section as HTMLElement).getByText(emptyState)).toBeVisible();
-	}
-	expect(screen.getByText(generalSupportCopy)).toBeVisible();
-	const productionHistory = screen.getByRole("heading", {
-		name: "Üretim geçmişi",
-	}).parentElement;
+	expect(screen.getByText(versionFileName)).toBeVisible();
+	expect(screen.getByText(alternativeFileName)).toBeVisible();
+	expect(screen.getByText(derivativeName)).toBeVisible();
+	expect(screen.getByText(referenceName)).toBeVisible();
+	expect(screen.getByText(referenceNote)).toBeVisible();
 	expect(
-		within(productionHistory as HTMLElement).getByText(productionHistoryCopy)
+		screen.getByText("Dosya biçim imzası eşleşti (2 sürüm).")
 	).toBeVisible();
+	expect(screen.getByText(generalSupportCopy)).toBeVisible();
+	expect(screen.getByText(productionSource)).toBeVisible();
+	expect(screen.getByText(productionEvidence)).toBeVisible();
+	expect(screen.getByText(userRelationshipLabel)).toBeVisible();
+	expect(screen.getByText(unknownHistory)).toBeVisible();
 	expect(screen.getByText(recordCreatedCopy)).toBeVisible();
 });
 
@@ -195,4 +286,16 @@ test("uses the canonical Erased availability value and Turkish label", async () 
 	);
 
 	expect(await screen.findByText("Silinmiş")).toBeVisible();
+});
+
+test("labels legacy Asset Records whose identity criteria were not recorded", async () => {
+	fakeApi.record = { ...assetRecord, identityCriteria: [] };
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+
+	expect(await screen.findByText("Gerekçe kaydedilmemiş")).toBeVisible();
 });

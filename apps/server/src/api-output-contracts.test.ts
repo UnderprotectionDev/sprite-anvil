@@ -141,6 +141,7 @@ test("mounted RPC output does not return secret fields from the session user", a
 			prefix: "/rpc",
 			context: {
 				assetRecordStore: {} as never,
+				assetRecordTrackingStore: {} as never,
 				projectAccess: {} as never,
 				db: createDb({
 					DATABASE_URL:

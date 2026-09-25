@@ -38,6 +38,7 @@ test.skipIf(!databaseUrl)(
 			const scopeStore = createProjectContextScopeStore(db);
 			const context: Context = {
 				assetRecordStore: createAssetRecordStore(db),
+				assetRecordTrackingStore: {} as Context["assetRecordTrackingStore"],
 				db,
 				projectAccess: createProjectAccessStore(db, store),
 				projectContextScopeStore: scopeStore,
