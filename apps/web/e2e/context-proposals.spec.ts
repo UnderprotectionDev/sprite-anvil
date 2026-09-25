@@ -6,7 +6,7 @@ test("persists a structured Project Context proposal from the web flow", async (
 }) => {
 	test.skip(
 		!process.env.CONTEXT_TEST_DATABASE_URL,
-		"A disposable Neon test branch is required for the persistent flow."
+		"CONTEXT_TEST_DATABASE_URL is required for the persistent flow."
 	);
 
 	await page.goto("/login");

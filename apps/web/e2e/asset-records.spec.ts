@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
 	assetRecordFixture,
+	assetRecordMeasurementScenarios,
 	assetVersionE2eEnabled,
 	createAssetRecordFixture,
 } from "./asset-record-fixture";
@@ -37,21 +38,44 @@ test("persists an Asset Record created through the web flow", async ({
 			name: `${assetRecordFixture.projectName} varlık kayıtlarını aç`,
 		})
 		.click();
-	await page.getByLabel("Varlık adı").fill(assetRecordFixture.name);
-	await page.getByRole("checkbox", { name: identityCheckboxName }).check();
-	await page.getByRole("button", { name: "Varlık kaydı oluştur" }).click();
-
-	await expect(
-		page.getByRole("heading", { name: assetRecordFixture.name })
-	).toBeVisible();
-	await expect(
-		page.getByText("Bağımsız ürün anlamı", { exact: true })
-	).toBeVisible();
-	await page.reload();
-	await expect(
-		page.getByRole("heading", { name: assetRecordFixture.name })
-	).toBeVisible();
-	await expect(page.getByText("Kayıt oluşturuldu")).toBeVisible();
+	await page.getByLabel("Varlık adı").waitFor();
+	const assetRecordsUrl = page.url();
+	for (const scenario of assetRecordMeasurementScenarios) {
+		// biome-ignore lint/performance/noAwaitInLoops: Each scenario reuses one page and must finish before navigating to the next record.
+		await page.goto(assetRecordsUrl);
+		await page.getByLabel("Varlık adı").fill(scenario.name);
+		await page.getByRole("checkbox", { name: identityCheckboxName }).check();
+		await page.getByRole("button", { name: "Varlık kaydı oluştur" }).click();
+		await expect(
+			page.getByRole("heading", { name: scenario.name })
+		).toBeVisible();
+		await Promise.all(
+			scenario.inputs.map(({ accessibleName, kind, value }) =>
+				kind === "select"
+					? page.getByLabel(accessibleName).selectOption(value)
+					: page.getByLabel(accessibleName).fill(value)
+			)
+		);
+		await page.getByRole("button", { name: "Ölçüleri kaydet" }).click();
+		await expect(
+			page.getByText("Ölçüler kaydedildi.", { exact: true })
+		).toBeVisible();
+		if (scenario.name === assetRecordFixture.name) {
+			await expect(
+				page.getByText("Bağımsız ürün anlamı", { exact: true })
+			).toBeVisible();
+		}
+		await page.reload();
+		await expect(
+			page.getByRole("heading", { name: scenario.name })
+		).toBeVisible();
+		await expect(page.getByText("Kayıt oluşturuldu")).toBeVisible();
+		await Promise.all(
+			scenario.inputs.map(({ accessibleName, value }) =>
+				expect(page.getByLabel(accessibleName)).toHaveValue(value)
+			)
+		);
+	}
 });
 
 test("persists an Asset Version, review, quality result, and legacy history", async ({
@@ -154,4 +178,46 @@ test("persists an Asset Version, review, quality result, and legacy history", as
 	await expect(page.getByText("Kullanıcı oluşturdu")).toBeVisible();
 	await expect(page.getByText("Ekipten alındı")).toBeVisible();
 	await expect(page.getByText("Reviewed through the web flow.")).toBeVisible();
+});
+
+test("archives and restores an Asset Record through the web flow", async ({
+	page,
+}) => {
+	const fixture = createAssetRecordFixture();
+	test.skip(
+		!process.env.CONTEXT_TEST_DATABASE_URL,
+		"A disposable Neon test branch is required for the persistent flow."
+	);
+
+	await page.goto("/login");
+	await page.getByLabel("Name").fill(fixture.userName);
+	await page.getByLabel("Email").fill(fixture.email);
+	await page.getByLabel("Password").fill(fixture.password);
+	await page.getByRole("button", { name: "Sign Up" }).click();
+	await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+	await page.getByRole("link", { name: "Projects" }).click();
+	await page.getByLabel("Oyun projesi adı").fill(fixture.projectName);
+	await page
+		.getByLabel("Genel sanat yaklaşımı")
+		.fill(fixture.generalArtDirection);
+	await page.getByRole("button", { name: "Proje oluştur" }).click();
+	await page
+		.getByRole("link", {
+			name: `${fixture.projectName} varlık kayıtlarını aç`,
+		})
+		.click();
+	await page.getByLabel("Varlık adı").fill(fixture.name);
+	await page.getByRole("checkbox", { name: identityCheckboxName }).check();
+	await page.getByRole("button", { name: "Varlık kaydı oluştur" }).click();
+	await expect(page.getByRole("heading", { name: fixture.name })).toBeVisible();
+
+	await page.getByRole("button", { name: "Kaydı arşivle" }).click();
+	await expect(page.getByText("Arşivlenmiş", { exact: true })).toBeVisible();
+	await page.reload();
+	await expect(page.getByText("Arşivlenmiş", { exact: true })).toBeVisible();
+
+	await page.getByRole("button", { name: "Kaydı yeniden etkinleştir" }).click();
+	await expect(page.getByText("Etkin", { exact: true })).toBeVisible();
+	await page.reload();
+	await expect(page.getByText("Etkin", { exact: true })).toBeVisible();
 });

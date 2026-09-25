@@ -7,25 +7,18 @@ import type { ProjectContext } from "@sprite-anvil/api/project-context";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type SyntheticEvent, useState } from "react";
 import { toast } from "sonner";
-import { QueryRetryButton } from "@/utils/error-notification";
 import { client, orpc } from "@/utils/orpc";
 import { ThemeForm, VisualWorldForm } from "../forms/scope-forms";
 
 export function ScopeRegistryPanel({
 	isError,
-	isFetching,
 	isPending,
-	onRetry,
 	project,
-	queryError,
 	scopeCatalog,
 }: {
 	isError: boolean;
-	isFetching: boolean;
 	isPending: boolean;
-	onRetry: () => void;
 	project: ProjectContext;
-	queryError?: string;
 	scopeCatalog: ProjectContextScopeCatalog;
 }) {
 	const queryClient = useQueryClient();
@@ -111,18 +104,6 @@ export function ScopeRegistryPanel({
 				<p className="scope-query-message" role="status">
 					Kapsam kayıtları yükleniyor…
 				</p>
-			) : null}
-			{isError ? (
-				<div className="space-y-2">
-					<p className="context-error" role="alert">
-						Kapsam kayıtları yüklenemedi. {queryError}
-					</p>
-					<QueryRetryButton
-						className="quiet-button"
-						disabled={isFetching}
-						onRetry={onRetry}
-					/>
-				</div>
 			) : null}
 			<div className="scope-registry-grid">
 				<VisualWorldForm

@@ -6,11 +6,7 @@ import type {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
-import {
-	isWriteOutcomeUncertain,
-	QueryRetryButton,
-} from "@/utils/error-notification";
-import { getErrorMessage } from "@/utils/get-error-message";
+import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { client, orpc } from "@/utils/orpc";
 import { ContextWorkspace } from "../components/context-proposal-components";
 import { ProjectSetupForm } from "../forms/project-setup-form";
@@ -22,7 +18,6 @@ export function ContextProposalsView() {
 	const projectsQueryOptions = orpc.projectContexts.list.queryOptions();
 	const projectsQuery = useQuery({
 		...projectsQueryOptions,
-		meta: { suppressGlobalErrorToast: true },
 	});
 	const [selectedProjectId, setSelectedProjectId] = useState("");
 	const selectedProject =
@@ -35,7 +30,6 @@ export function ContextProposalsView() {
 	const scopeQuery = useQuery({
 		...scopeQueryOptions,
 		enabled: Boolean(projectId),
-		meta: { suppressGlobalErrorToast: true },
 	});
 	const proposalsQueryOptions = orpc.contextProposals.list.queryOptions({
 		input: { projectId: projectId ?? "00000000-0000-4000-8000-000000000000" },
@@ -43,10 +37,8 @@ export function ContextProposalsView() {
 	const proposalsQuery = useQuery({
 		...proposalsQueryOptions,
 		enabled: Boolean(projectId),
-		meta: { suppressGlobalErrorToast: true },
 	});
 	const [projectFormOpen, setProjectFormOpen] = useState(false);
-	const [projectError, setProjectError] = useState<string | null>(null);
 	const [projectCreateOutcomeUncertain, setProjectCreateOutcomeUncertain] =
 		useState(false);
 	const [uncertainProjectInput, setUncertainProjectInput] =
@@ -59,7 +51,6 @@ export function ContextProposalsView() {
 			client.projectContexts.create(input),
 		onSuccess: async (project) => {
 			setSelectedProjectId(project.id);
-			setProjectError(null);
 			setProjectFormOpen(false);
 			await queryClient.invalidateQueries({
 				queryKey: orpc.projectContexts.list.queryKey(),
@@ -71,7 +62,6 @@ export function ContextProposalsView() {
 				setProjectCreateOutcomeUncertain(true);
 				setUncertainProjectInput(input);
 			}
-			setProjectError(null);
 		},
 	});
 
@@ -80,15 +70,9 @@ export function ContextProposalsView() {
 		try {
 			const result = await projectsQuery.refetch();
 			if (result.isError || !result.data) {
-				setProjectError(
-					result.error
-						? getErrorMessage(
-								result.error,
-								"Proje listesi yenilenemedi. Yeniden deneyin.",
-								"query"
-							)
-						: "Proje listesi yenilenemedi. Yeniden deneyin."
-				);
+				if (!result.isError) {
+					toast.error("Proje listesi yenilenemedi. Yeniden deneyin.");
+				}
 				return;
 			}
 
@@ -100,13 +84,12 @@ export function ContextProposalsView() {
 			);
 			setProjectCreateOutcomeUncertain(false);
 			setUncertainProjectInput(null);
-			setProjectError(null);
 			if (matchingProject) {
 				setSelectedProjectId(matchingProject.id);
 				setProjectFormOpen(false);
 				return;
 			}
-			setProjectError(
+			toast.error(
 				"Proje listesi yenilendi; kayıt görünmüyor. Gerekirse işlemi yeniden gönderebilirsiniz."
 			);
 		} finally {
@@ -115,12 +98,10 @@ export function ContextProposalsView() {
 	}
 
 	function createProjectFromForm(input: ProjectContextCreateInput) {
-		setProjectError(null);
 		createProject.mutate(input);
 	}
 
 	function dismissProjectForm() {
-		setProjectError(null);
 		setProjectFormOpen(false);
 	}
 
@@ -136,86 +117,41 @@ export function ContextProposalsView() {
 			</div>
 		);
 	} else if (projectsQuery.isError && !projectFormOpen) {
-		content = (
-			<div className="context-message context-error">
-				<p role="alert">
-					Proje Bağlamı yüklenemedi.{" "}
-					{getErrorMessage(projectsQuery.error, "Yeniden deneyin.", "query")}
-				</p>
-				<QueryRetryButton
-					disabled={projectsQuery.isFetching}
-					onRetry={() => void projectsQuery.refetch()}
-				/>
-			</div>
-		);
+		content = null;
 	} else if (!selectedProject || projectFormOpen) {
 		content = (
-			<>
-				{projectsQuery.isError ? (
-					<div className="context-message context-error">
-						<p role="alert">
-							Proje listesi yenilenemedi.{" "}
-							{getErrorMessage(
-								projectsQuery.error,
-								"Yeniden deneyin.",
-								"query"
-							)}
-						</p>
-						<QueryRetryButton
-							disabled={projectsQuery.isFetching}
-							onRetry={() => void projectsQuery.refetch()}
-						/>
-					</div>
-				) : null}
-				<ProjectSetupForm
-					error={projectError}
-					isCheckingOutcome={isCheckingProjectOutcome}
-					isOutcomeUncertain={projectCreateOutcomeUncertain}
-					isPending={createProject.isPending}
-					onCancel={
-						selectedProject && !projectCreateOutcomeUncertain
-							? dismissProjectForm
-							: undefined
-					}
-					onCheckOutcome={() => void checkProjectCreateStatus()}
-					onSubmit={createProjectFromForm}
-				/>
-			</>
+			<ProjectSetupForm
+				isCheckingOutcome={isCheckingProjectOutcome}
+				isOutcomeUncertain={projectCreateOutcomeUncertain}
+				isPending={createProject.isPending}
+				onCancel={
+					selectedProject && !projectCreateOutcomeUncertain
+						? dismissProjectForm
+						: undefined
+				}
+				onCheckOutcome={() => void checkProjectCreateStatus()}
+				onSubmit={createProjectFromForm}
+			/>
 		);
 	} else {
 		content = (
 			<ContextWorkspace
 				isProposalsError={proposalsQuery.isError}
-				isProposalsFetching={proposalsQuery.isFetching}
 				isProposalsPending={proposalsQuery.isPending}
 				isScopeError={scopeQuery.isError}
-				isScopeFetching={scopeQuery.isFetching}
 				isScopePending={scopeQuery.isPending}
 				onCheckProposalState={async () =>
 					(await proposalsQuery.refetch()).isError
 				}
 				onNewProject={() => {
-					setProjectError(null);
 					setProjectFormOpen(true);
 				}}
 				onRefreshProposals={() => proposalsQuery.refetch()}
-				onRetryProposals={() => void proposalsQuery.refetch()}
-				onRetryScope={() => void scopeQuery.refetch()}
 				onSelectProject={selectProject}
 				project={selectedProject}
 				projects={projectsQuery.data ?? []}
 				proposals={proposalsQuery.data ?? []}
-				proposalsError={getErrorMessage(
-					proposalsQuery.error,
-					"Öneriler yüklenemedi. Yeniden deneyin.",
-					"query"
-				)}
 				scopeCatalog={scopeQuery.data ?? EMPTY_SCOPE_CATALOG}
-				scopeError={getErrorMessage(
-					scopeQuery.error,
-					"Kapsam kayıtları yüklenemedi. Yeniden deneyin.",
-					"query"
-				)}
 			/>
 		);
 	}

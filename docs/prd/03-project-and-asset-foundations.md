@@ -22,7 +22,7 @@ Palet, kontur ve benzeri kurallar sürümlü Stil Modülleri’nde gruplanabilir
 
 Proje Bağlamı, geçerli olduğu yerlerde perspektif, kamera yaklaşımı, palet, kontur, gölgelendirme, ışık yönü, ayrıntı yoğunluğu, malzeme dili ve kullanılabilecek ya da kaçınılacak motifleri tutar. Bu alanların her Varlık Kaydı için doldurulması gerekmez. Varlık, proje ve Görsel Dünya varsayımlarını devralır; kullanıcı gerektiğinde bunları açıkça değiştirebilir.
 
-**DIM-03 — Bağımsız ölçü değerleri.** Kaynak Görsel Ölçüsü, Mantıksal Çözünürlük, Hücre Ölçüsü, Görünür İçerik Sınırı, Gösterim Ölçeği ve Atlas Ölçüsü ayrı alanlardır. Sistem dosya veya metadata’dan değer önerebilir; doğrulanmamış tahmini yetkili değer yapamaz ve kaynak ölçüden sessizce mantıksal çözünürlük türetemez.
+**DIM-03 — Bağımsız ölçü değerleri.** Kaynak Görsel Ölçüsü, Mantıksal Çözünürlük, Hücre Ölçüsü, Görünür İçerik Sınırı, Gösterim Ölçeği ve Atlas Ölçüsü ayrı alanlardır. Görünür İçerik Sınırı hangi Mantıksal Çözünürlük ya da Hücre Ölçüsü alanında tanımlandığını bildirir; aynı öneri/doğrulanmış durumundaki ilgili ölçü girilmişse sınır o ölçünün içinde kalmalıdır. Sistem dosya veya metadata’dan değer önerebilir; doğrulanmamış tahmini yetkili değer yapamaz ve kaynak ölçüden sessizce mantıksal çözünürlük türetemez.
 
 Ölçüler yalnızca önceden belirlenmiş kare seçeneklerden oluşmaz. 16×16, 24×24, 32×32, 48×48, 64×64, 96×96, 128×128, 192×192 ve 256×256 gibi yaygın ölçüler hızlı seçim olarak sunulabilir. Özel kare ve dikdörtgen ölçüler de doğrudan desteklenir. Geçerli bir 72×80 varlık sessizce 64×64 veya 128×128 boyutuna dönüştürülmez.
 

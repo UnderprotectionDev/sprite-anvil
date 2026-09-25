@@ -1,10 +1,11 @@
 import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
-import type {
-	AssetRecord,
-	AssetRecordMetadataUpdateInput,
-	AssetRecordSearchInput,
-	AssetRecordSearchResponse,
+import {
+	type AssetRecord,
+	type AssetRecordMetadataUpdateInput,
+	type AssetRecordSearchInput,
+	type AssetRecordSearchResponse,
+	createEmptyAssetRecordMeasurements,
 } from "@sprite-anvil/api/asset-records";
 import type { Context } from "@sprite-anvil/api/context";
 import { appRouter } from "@sprite-anvil/api/routers/index";
@@ -34,6 +35,7 @@ const searchRecord: AssetRecord = {
 	createdAt: "2026-09-25T08:00:00.000Z",
 	id: assetRecordId,
 	identityCriteria: ["independent_product_meaning"],
+	measurements: createEmptyAssetRecordMeasurements(),
 	name: "Ash Knight Icon",
 	projectId,
 	supportLevel: "general",

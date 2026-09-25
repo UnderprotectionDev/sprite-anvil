@@ -4,7 +4,8 @@ import type { assetRecords } from "@sprite-anvil/db/schema/asset-records";
 
 export function toAssetRecord(
 	row: typeof assetRecords.$inferSelect,
-	familyVisualWorldId: string | null = null
+	familyVisualWorldId: string | null = null,
+	measurements?: unknown
 ): AssetRecord {
 	return assetRecordSchema.parse({
 		assetCategory: row.assetCategory ?? null,
@@ -12,6 +13,8 @@ export function toAssetRecord(
 		createdAt: row.createdAt.toISOString(),
 		id: row.id,
 		identityCriteria: row.identityCriteria ?? [],
+		measurements:
+			row.availability === "erased" ? undefined : (measurements ?? undefined),
 		name: row.name,
 		projectId: row.projectId,
 		supportLevel: row.supportLevel,

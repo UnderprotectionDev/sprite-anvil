@@ -19,6 +19,7 @@ import {
 } from "@sprite-anvil/db/schema/asset-versions";
 import { project } from "@sprite-anvil/db/schema/project";
 import { and, desc, eq, max } from "drizzle-orm";
+import sharp from "sharp";
 import { createAssetVersionObjectKey } from "../../../cloudflare";
 
 export interface AssetVersionObjectStorage {
@@ -81,6 +82,14 @@ function isSupportedImage(
 	);
 }
 
+interface PreparedAssetVersionUpload {
+	bytes: Buffer;
+	objectKey: string;
+	sha256: string;
+	sourceImageHeight: number;
+	sourceImageWidth: number;
+}
+
 export interface SourceImageDimensions {
 	height: number;
 	width: number;
@@ -102,77 +111,37 @@ function validDimensions(
 		: null;
 }
 
-function readWebPDimensions(bytes: Buffer): SourceImageDimensions | null {
-	if (
-		bytes.length < 20 ||
-		bytes.toString("ascii", 0, 4) !== "RIFF" ||
-		bytes.toString("ascii", 8, 12) !== "WEBP"
-	) {
-		return null;
-	}
-
-	const riffLength = Math.min(bytes.length, bytes.readUInt32LE(4) + 8);
-	let offset = 12;
-	while (offset + 8 <= riffLength) {
-		const chunkName = bytes.toString("ascii", offset, offset + 4);
-		const chunkLength = bytes.readUInt32LE(offset + 4);
-		const dataOffset = offset + 8;
-		const dataEnd = dataOffset + chunkLength;
-		if (dataEnd > riffLength) {
-			return null;
-		}
-
-		if (chunkName === "VP8X" && chunkLength >= 10) {
-			const width = 1 + bytes.readUIntLE(dataOffset + 4, 3);
-			const height = 1 + bytes.readUIntLE(dataOffset + 7, 3);
-			return validDimensions(width, height);
-		}
-		if (
-			chunkName === "VP8L" &&
-			chunkLength >= 5 &&
-			bytes[dataOffset] === 0x2f
-		) {
-			const bits = bytes.readUInt32LE(dataOffset + 1);
-			const width = 1 + (bits % 16_384);
-			const height = 1 + (Math.floor(bits / 16_384) % 16_384);
-			return validDimensions(width, height);
-		}
-		if (
-			chunkName === "VP8 " &&
-			chunkLength >= 10 &&
-			bytes[dataOffset + 3] === 0x9d &&
-			bytes[dataOffset + 4] === 0x01 &&
-			bytes[dataOffset + 5] === 0x2a
-		) {
-			const width = bytes.readUInt16LE(dataOffset + 6) % 16_384;
-			const height = bytes.readUInt16LE(dataOffset + 8) % 16_384;
-			return validDimensions(width, height);
-		}
-		offset = dataEnd + (chunkLength % 2);
-	}
-	return null;
-}
-
-export function getSourceImageDimensions(
+export async function getSourceImageDimensions(
 	bytes: Uint8Array,
 	contentType: AssetVersionCreateInput["contentType"]
-): SourceImageDimensions | null {
+): Promise<SourceImageDimensions | null> {
 	const image = Buffer.from(bytes);
-	if (contentType === "image/png") {
-		if (
-			image.length < 24 ||
-			!image.subarray(0, 8).equals(pngSignature) ||
-			image.readUInt32BE(8) < 13 ||
-			image.toString("ascii", 12, 16) !== "IHDR"
-		) {
+	if (!isSupportedImage(image, contentType)) {
+		return null;
+	}
+	try {
+		const decoder = sharp(image, { animated: true, failOn: "warning" });
+		const metadata = await decoder.metadata();
+		const dimensions = validDimensions(
+			metadata.width ?? 0,
+			metadata.height ?? 0
+		);
+		if (!dimensions) {
 			return null;
 		}
-		return validDimensions(image.readUInt32BE(16), image.readUInt32BE(20));
+		await decoder
+			.resize({ width: 1, height: 1, fit: "inside" })
+			.png()
+			.toBuffer();
+		return dimensions;
+	} catch {
+		return null;
 	}
-	return readWebPDimensions(image);
 }
 
-function prepareUpload(input: AssetVersionCreateInput) {
+async function prepareUpload(
+	input: AssetVersionCreateInput
+): Promise<PreparedAssetVersionUpload | null> {
 	const bytes = Buffer.from(input.contentBase64, "base64");
 	if (
 		bytes.length === 0 ||
@@ -182,14 +151,17 @@ function prepareUpload(input: AssetVersionCreateInput) {
 	) {
 		return null;
 	}
+	const dimensions = await getSourceImageDimensions(bytes, input.contentType);
+	if (!dimensions) {
+		return null;
+	}
 	const sha256 = createHash("sha256").update(bytes).digest("hex");
-	const dimensions = getSourceImageDimensions(bytes, input.contentType);
 	return {
 		bytes,
 		objectKey: createAssetVersionObjectKey(input.projectId, input.id, sha256),
 		sha256,
-		sourceImageHeight: dimensions?.height ?? null,
-		sourceImageWidth: dimensions?.width ?? null,
+		sourceImageHeight: dimensions.height,
+		sourceImageWidth: dimensions.width,
 	};
 }
 
@@ -222,7 +194,7 @@ function sameVersionPayload(
 	attestation: typeof legacyAssetAttestations.$inferSelect | undefined,
 	userId: string,
 	input: AssetVersionCreateInput,
-	upload: NonNullable<ReturnType<typeof prepareUpload>>
+	upload: PreparedAssetVersionUpload
 ) {
 	return Boolean(
 		version.projectId === input.projectId &&
@@ -252,7 +224,7 @@ async function findExistingVersion(
 	db: Database,
 	userId: string,
 	input: AssetVersionCreateInput,
-	upload: NonNullable<ReturnType<typeof prepareUpload>>
+	upload: PreparedAssetVersionUpload
 ): Promise<
 	| { kind: "absent" }
 	| { kind: "conflict" }
@@ -309,7 +281,8 @@ async function insertVersionRows(
 	db: Database,
 	userId: string,
 	input: AssetVersionCreateInput,
-	upload: NonNullable<ReturnType<typeof prepareUpload>>,
+	upload: PreparedAssetVersionUpload,
+	assetFamilyId: string | null,
 	versionNumber: number,
 	createdAt: Date
 ) {
@@ -320,6 +293,7 @@ async function insertVersionRows(
 				id: input.id,
 				projectId: input.projectId,
 				assetRecordId: input.assetRecordId,
+				assetFamilyId,
 				versionNumber,
 				fileName: input.fileName,
 				contentType: input.contentType,
@@ -327,6 +301,8 @@ async function insertVersionRows(
 				sourceImageHeight: upload.sourceImageHeight,
 				sha256: upload.sha256,
 				byteSize: upload.bytes.length,
+				contentDigest: upload.sha256,
+				integrityVerified: true,
 				objectKey: upload.objectKey,
 				createdByUserId: userId,
 				createdAt,
@@ -369,7 +345,8 @@ async function persistVersionWithRetries(
 	db: Database,
 	userId: string,
 	input: AssetVersionCreateInput,
-	upload: NonNullable<ReturnType<typeof prepareUpload>>
+	upload: PreparedAssetVersionUpload,
+	assetFamilyId: string | null
 ): Promise<AssetRecordTrackingStoreResult<AssetVersionSummary>> {
 	for (let attempt = 0; attempt < 3; attempt += 1) {
 		// biome-ignore lint/performance/noAwaitInLoops: Re-read the assigned number after each unique-index race before trying again.
@@ -384,6 +361,7 @@ async function persistVersionWithRetries(
 				userId,
 				input,
 				upload,
+				assetFamilyId,
 				versionNumber,
 				new Date()
 			);
@@ -416,7 +394,7 @@ async function createVersion(
 	if (!ownedProject) {
 		return { ok: false, reason: "not_found" };
 	}
-	const [record] = await db
+	const [recordRow] = await db
 		.select({ record: assetRecords })
 		.from(assetRecords)
 		.innerJoin(project, eq(project.id, assetRecords.projectId))
@@ -428,13 +406,14 @@ async function createVersion(
 			)
 		)
 		.limit(1);
-	if (record?.record.availability !== "active") {
+	const record = recordRow?.record;
+	if (record?.availability !== "active") {
 		return { ok: false, reason: "not_found" };
 	}
 	if (!storage) {
 		return { ok: false, reason: "storage_unavailable" };
 	}
-	const upload = prepareUpload(input);
+	const upload = await prepareUpload(input);
 	if (!upload) {
 		return { ok: false, reason: "conflict" };
 	}
@@ -452,7 +431,13 @@ async function createVersion(
 		return { ok: true, value: existing.value };
 	}
 
-	const result = await persistVersionWithRetries(db, userId, input, upload);
+	const result = await persistVersionWithRetries(
+		db,
+		userId,
+		input,
+		upload,
+		record.assetFamilyId
+	);
 	if (!result.ok) {
 		await storage.delete(upload.objectKey);
 	}

@@ -4,9 +4,9 @@ import type { Options } from "@wdio/types";
 
 let contextTestServer: ChildProcess | undefined;
 
-async function waitForContextTestServer(attempt = 0): Promise<void> {
+async function waitForTestServer(attempt = 0): Promise<void> {
 	if (!contextTestServer || contextTestServer.exitCode !== null) {
-		throw new Error("The Project Context test server exited before startup.");
+		throw new Error("The integration test server exited before startup.");
 	}
 	try {
 		const response = await fetch("http://127.0.0.1:3000/health");
@@ -18,13 +18,13 @@ async function waitForContextTestServer(attempt = 0): Promise<void> {
 	}
 	if (attempt >= 59) {
 		contextTestServer.kill();
-		throw new Error("The Project Context test server did not become healthy.");
+		throw new Error("The integration test server did not become healthy.");
 	}
 	await delay(500);
-	return waitForContextTestServer(attempt + 1);
+	return waitForTestServer(attempt + 1);
 }
 
-async function startContextTestServer() {
+async function startTestServer() {
 	const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
 	if (!databaseUrl) {
 		return;
@@ -62,9 +62,10 @@ async function startContextTestServer() {
 			BETTER_AUTH_URL: "http://127.0.0.1:3000",
 			CORS_ORIGIN: "http://127.0.0.1:3001",
 			NODE_ENV: "test",
+			CONTEXT_TEST_R2_MODE: "memory",
 		},
 	});
-	await waitForContextTestServer();
+	await waitForTestServer();
 }
 
 export const config: Options.Testrunner = {
@@ -85,7 +86,7 @@ export const config: Options.Testrunner = {
 	reporters: ["spec"],
 	framework: "mocha",
 	mochaOpts: { ui: "bdd", timeout: 60_000 },
-	onPrepare: startContextTestServer,
+	onPrepare: startTestServer,
 	onComplete: () => {
 		contextTestServer?.kill();
 	},

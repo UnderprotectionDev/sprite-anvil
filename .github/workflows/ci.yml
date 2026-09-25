@@ -40,16 +40,17 @@ jobs:
       - name: Apply schema and verify on the test branch
         env:
           DATABASE_URL: ${{ steps.branch.outputs.db_url }}
+          CONTEXT_TEST_DATABASE_URL: ${{ steps.branch.outputs.db_url }}
         run: |
           bun run --cwd packages/db db:migrate
           bun test packages/db/src/neon.test.ts apps/server/src/project-routes.test.ts apps/server/src/project-access.test.ts
       - name: Verify Project Context persistence through the API
         env:
           CONTEXT_TEST_DATABASE_URL: ${{ steps.branch.outputs.db_url }}
-        run: bun test apps/server/src/context-proposals.integration.test.ts
+        run: bun test apps/server/src/context-proposals.integration.test.ts apps/server/src/asset-versions.integration.test.ts
       - name: Install Playwright browser
         run: bunx playwright install --with-deps chromium
-      - name: Verify the web Project Context flow
+      - name: Verify the web Project Context and Asset Version flows
         env:
           CONTEXT_TEST_DATABASE_URL: ${{ steps.branch.outputs.db_url }}
           VITE_SERVER_URL: http://127.0.0.1:3000
@@ -85,7 +86,7 @@ jobs:
           DATABASE_URL: ${{ steps.branch.outputs.db_url }}
         run: bun run --cwd packages/db db:migrate
       - run: bun run --cwd apps/web desktop:test:build
-      - name: Verify the desktop Project Context flow
+      - name: Verify the desktop Project Context and Asset Version flows
         env:
           CONTEXT_TEST_DATABASE_URL: ${{ steps.branch.outputs.db_url }}
           VITE_SERVER_URL: http://127.0.0.1:3000

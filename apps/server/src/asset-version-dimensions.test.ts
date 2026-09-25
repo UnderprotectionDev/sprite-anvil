@@ -1,12 +1,8 @@
 import { expect, test } from "bun:test";
+import sharp from "sharp";
 import { getSourceImageDimensions } from "./features/asset-records/server/asset-version-store";
 
-const onePixelPng = Buffer.from(
-	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/ZpUAAAAASUVORK5CYII=",
-	"base64"
-);
-
-function createExtendedWebP(width: number, height: number) {
+function createHeaderOnlyWebP(width: number, height: number) {
 	const bytes = Buffer.alloc(30);
 	bytes.write("RIFF", 0, "ascii");
 	bytes.writeUInt32LE(22, 4);
@@ -18,21 +14,56 @@ function createExtendedWebP(width: number, height: number) {
 	return bytes;
 }
 
-test("reads Source Image Dimensions from PNG and extended WebP headers", () => {
-	expect(getSourceImageDimensions(onePixelPng, "image/png")).toEqual({
+function createPng(width: number, height: number) {
+	return sharp({
+		create: {
+			background: { alpha: 1, b: 200, g: 100, r: 40 },
+			channels: 4,
+			height,
+			width,
+		},
+	})
+		.png()
+		.toBuffer();
+}
+
+test("reads Source Image Dimensions from decodable PNG and WebP files", async () => {
+	const png = await createPng(1, 1);
+	const webp = await sharp({
+		create: {
+			background: { alpha: 1, b: 200, g: 100, r: 40 },
+			channels: 4,
+			height: 32,
+			width: 64,
+		},
+	})
+		.webp()
+		.toBuffer();
+
+	expect(await getSourceImageDimensions(png, "image/png")).toEqual({
 		height: 1,
 		width: 1,
 	});
-	expect(
-		getSourceImageDimensions(createExtendedWebP(64, 32), "image/webp")
-	).toEqual({ height: 32, width: 64 });
+	expect(await getSourceImageDimensions(webp, "image/webp")).toEqual({
+		height: 32,
+		width: 64,
+	});
 });
 
-test("leaves malformed or unrecognized image dimensions unknown", () => {
+test("leaves malformed or unrecognized image dimensions unknown", async () => {
 	expect(
-		getSourceImageDimensions(Buffer.from("not a PNG"), "image/png")
+		await getSourceImageDimensions(Buffer.from("not a PNG"), "image/png")
 	).toBeNull();
 	expect(
-		getSourceImageDimensions(Buffer.from("RIFFxxxxWEBP"), "image/webp")
+		await getSourceImageDimensions(Buffer.from("RIFFxxxxWEBP"), "image/webp")
 	).toBeNull();
+	expect(
+		await getSourceImageDimensions(createHeaderOnlyWebP(64, 32), "image/webp")
+	).toBeNull();
+});
+
+test("does not infer Source Image Dimensions from a truncated PNG", async () => {
+	const headerOnlyPng = (await createPng(1, 1)).subarray(0, 33);
+
+	expect(await getSourceImageDimensions(headerOnlyPng, "image/png")).toBeNull();
 });

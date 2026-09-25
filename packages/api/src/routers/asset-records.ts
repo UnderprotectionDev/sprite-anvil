@@ -1,18 +1,52 @@
 import { ORPCError } from "@orpc/server";
 import {
+	type AssetRecordStore,
 	assetRecordCreateInputSchema,
 	assetRecordGetInputSchema,
 	assetRecordListInputSchema,
+	assetRecordMeasurementsUpdateInputSchema,
 	assetRecordMetadataUpdateInputSchema,
 	assetRecordSchema,
 	assetRecordSearchInputSchema,
 	assetRecordSearchResponseSchema,
+	type MutableAssetRecordAvailability,
 } from "../asset-records";
 import { protectedProcedure } from "../index";
 import { assetRecordTrackingRouter } from "./asset-record-tracking";
 
+async function setRecordAvailability(
+	store: AssetRecordStore,
+	userId: string,
+	input: { assetRecordId: string; projectId: string },
+	availability: MutableAssetRecordAvailability
+) {
+	const record = await store.setAvailability(
+		userId,
+		input.projectId,
+		input.assetRecordId,
+		availability
+	);
+	if (!record) {
+		throw new ORPCError("NOT_FOUND", {
+			message: "Asset Record not found",
+		});
+	}
+	return assetRecordSchema.parse(record);
+}
+
 export const assetRecordsRouter = {
 	...assetRecordTrackingRouter,
+	archive: protectedProcedure
+		.input(assetRecordGetInputSchema)
+		.output(assetRecordSchema)
+		.handler(({ context, input }) =>
+			setRecordAvailability(
+				context.assetRecordStore,
+				context.session.user.id,
+				input,
+				"archived"
+			)
+		),
 	create: protectedProcedure
 		.input(assetRecordCreateInputSchema)
 		.output(assetRecordSchema)
@@ -41,6 +75,21 @@ export const assetRecordsRouter = {
 				});
 			}
 			return parsedRecord;
+		}),
+	updateMeasurements: protectedProcedure
+		.input(assetRecordMeasurementsUpdateInputSchema)
+		.output(assetRecordSchema)
+		.handler(async ({ context, input }) => {
+			const record = await context.assetRecordStore.updateMeasurements(
+				context.session.user.id,
+				input
+			);
+			if (!record) {
+				throw new ORPCError("NOT_FOUND", {
+					message: "Varlık kaydı bulunamadı.",
+				});
+			}
+			return assetRecordSchema.parse(record);
 		}),
 	get: protectedProcedure
 		.input(assetRecordGetInputSchema)
@@ -109,9 +158,25 @@ export const assetRecordsRouter = {
 					message: "Tema veya Görsel Dünya seçilen proje kapsamında olmalıdır.",
 				});
 			}
+			if (result.reason === "erased") {
+				throw new ORPCError("CONFLICT", {
+					message: "Silinmiş Varlık Kaydının metadata’sı değiştirilemez.",
+				});
+			}
 			throw new ORPCError("CONFLICT", {
 				message:
 					"Varlık Ailesine bağlı Varlık Kaydının Görsel Dünyası değiştirilemez.",
 			});
 		}),
+	restore: protectedProcedure
+		.input(assetRecordGetInputSchema)
+		.output(assetRecordSchema)
+		.handler(({ context, input }) =>
+			setRecordAvailability(
+				context.assetRecordStore,
+				context.session.user.id,
+				input,
+				"active"
+			)
+		),
 };

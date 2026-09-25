@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { $, browser, expect } from "@wdio/globals";
 import {
 	assetRecordFixture,
+	assetRecordMeasurementScenarios,
 	assetVersionE2eEnabled,
 	createAssetRecordFixture,
 } from "../e2e/asset-record-fixture";
@@ -39,18 +40,37 @@ describe("Asset Records", () => {
 		);
 		await projectLink.waitForClickable();
 		await projectLink.click();
-		await (await $("input#asset-record-name")).setValue(
-			assetRecordFixture.name
-		);
-		await (await $("input[type='checkbox']")).click();
-		await (await $("button=Varlık kaydı oluştur")).click();
-
-		const recordHeading = await $(`h1=${assetRecordFixture.name}`);
-		await recordHeading.waitForDisplayed();
-		await expect(await $("p*=Kayıt oluşturuldu")).toBeDisplayed();
-		await browser.refresh();
-		await (await $(`h1=${assetRecordFixture.name}`)).waitForDisplayed();
-		await expect(await $("p*=Kayıt oluşturuldu")).toBeDisplayed();
+		await (await $("input#asset-record-name")).waitForDisplayed();
+		const assetRecordsUrl = await browser.getUrl();
+		for (const scenario of assetRecordMeasurementScenarios) {
+			// biome-ignore lint/performance/noAwaitInLoops: Each scenario reuses one desktop window and must finish before navigating to the next record.
+			await browser.url(assetRecordsUrl);
+			await (await $("input#asset-record-name")).setValue(scenario.name);
+			await (await $("input[type='checkbox']")).click();
+			await (await $("button=Varlık kaydı oluştur")).click();
+			await (await $(`h1=${scenario.name}`)).waitForDisplayed();
+			await Promise.all(
+				scenario.inputs.map(async ({ id, kind, value }) => {
+					if (kind === "select") {
+						await (await $(`select#${id}`)).selectByAttribute("value", value);
+						return;
+					}
+					await (await $(`input#${id}`)).setValue(value);
+				})
+			);
+			await (await $("button=Ölçüleri kaydet")).click();
+			await expect(await $("p=Ölçüler kaydedildi.")).toBeDisplayed();
+			await expect(await $("p*=Kayıt oluşturuldu")).toBeDisplayed();
+			await browser.refresh();
+			await (await $(`h1=${scenario.name}`)).waitForDisplayed();
+			await expect(await $("p*=Kayıt oluşturuldu")).toBeDisplayed();
+			await Promise.all(
+				scenario.inputs.map(async ({ id, kind, value }) => {
+					const selector = kind === "select" ? `select#${id}` : `input#${id}`;
+					await expect(await $(selector)).toHaveValue(value);
+				})
+			);
+		}
 	});
 
 	it("persists an Asset Version, review, quality result, and legacy history", async function () {
@@ -177,5 +197,47 @@ describe("Asset Records", () => {
 		} finally {
 			rmSync(tempDirectory, { force: true, recursive: true });
 		}
+	});
+
+	it("archives and restores an Asset Record through the desktop flow", async function () {
+		const fixture = createAssetRecordFixture();
+		if (!process.env.CONTEXT_TEST_DATABASE_URL) {
+			this.skip();
+		}
+
+		const signInLink = await $("a=Sign In");
+		await signInLink.waitForClickable();
+		await signInLink.click();
+		await (await $("input[name='name']")).setValue(fixture.userName);
+		await (await $("input[name='email']")).setValue(fixture.email);
+		await (await $("input[name='password']")).setValue(fixture.password);
+		await (await $("button=Sign Up")).click();
+		await (await $("h1=Dashboard")).waitForDisplayed();
+		await (await $("a=Projects")).click();
+		await (await $("input#project-name")).setValue(fixture.projectName);
+		await (await $("textarea#project-art-direction")).setValue(
+			fixture.generalArtDirection
+		);
+		await (await $("button=Proje oluştur")).click();
+
+		const projectLink = await $(
+			`a[aria-label="${fixture.projectName} varlık kayıtlarını aç"]`
+		);
+		await projectLink.waitForClickable();
+		await projectLink.click();
+		await (await $("input#asset-record-name")).setValue(fixture.name);
+		await (await $("input[type='checkbox']")).click();
+		await (await $("button=Varlık kaydı oluştur")).click();
+		await (await $(`h1=${fixture.name}`)).waitForDisplayed();
+
+		await (await $("button=Kaydı arşivle")).click();
+		await (await $("p=Arşivlenmiş")).waitForDisplayed();
+		await browser.refresh();
+		await (await $("p=Arşivlenmiş")).waitForDisplayed();
+
+		await (await $("button=Kaydı yeniden etkinleştir")).click();
+		await (await $("p=Etkin")).waitForDisplayed();
+		await browser.refresh();
+		await (await $("p=Etkin")).waitForDisplayed();
 	});
 });

@@ -1,5 +1,6 @@
 import type {
 	AssetRecordCreateInput,
+	AssetRecordMeasurementsUpdateInput,
 	AssetRecordMetadataUpdateInput,
 	AssetRecordMetadataUpdateResult,
 	AssetRecordSearchInput,
@@ -7,6 +8,7 @@ import type {
 	AssetRecordStore,
 } from "@sprite-anvil/api/asset-records";
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import { assetRecordMeasurements } from "@sprite-anvil/db/schema/asset-record-measurements";
 import {
 	assetFamilies,
 	assetRecords,
@@ -23,6 +25,7 @@ import {
 	eq,
 	ilike,
 	inArray,
+	ne,
 	sql,
 } from "drizzle-orm";
 import { toAssetRecord } from "./asset-record-mapper";
@@ -93,10 +96,18 @@ export function createAssetRecordStore(db: Database): AssetRecordStore {
 		async get(userId, projectId, assetRecordId) {
 			const [row] = await db
 				.select({
+					measurements: assetRecordMeasurements.measurements,
 					record: assetRecords,
 					familyVisualWorldId: assetFamilies.visualWorldId,
 				})
 				.from(assetRecords)
+				.leftJoin(
+					assetRecordMeasurements,
+					and(
+						eq(assetRecordMeasurements.projectId, assetRecords.projectId),
+						eq(assetRecordMeasurements.assetRecordId, assetRecords.id)
+					)
+				)
 				.innerJoin(project, eq(project.id, assetRecords.projectId))
 				.leftJoin(
 					assetFamilies,
@@ -113,7 +124,9 @@ export function createAssetRecordStore(db: Database): AssetRecordStore {
 					)
 				)
 				.limit(1);
-			return row ? toAssetRecord(row.record, row.familyVisualWorldId) : null;
+			return row
+				? toAssetRecord(row.record, row.familyVisualWorldId, row.measurements)
+				: null;
 		},
 		async list(userId, projectId) {
 			const ownedProject = await getProjectForUser(db, userId, projectId);
@@ -123,10 +136,18 @@ export function createAssetRecordStore(db: Database): AssetRecordStore {
 
 			const rows = await db
 				.select({
+					measurements: assetRecordMeasurements.measurements,
 					record: assetRecords,
 					familyVisualWorldId: assetFamilies.visualWorldId,
 				})
 				.from(assetRecords)
+				.leftJoin(
+					assetRecordMeasurements,
+					and(
+						eq(assetRecordMeasurements.projectId, assetRecords.projectId),
+						eq(assetRecordMeasurements.assetRecordId, assetRecords.id)
+					)
+				)
 				.innerJoin(project, eq(project.id, assetRecords.projectId))
 				.leftJoin(
 					assetFamilies,
@@ -143,7 +164,7 @@ export function createAssetRecordStore(db: Database): AssetRecordStore {
 				)
 				.orderBy(desc(assetRecords.createdAt), asc(assetRecords.name));
 			return rows.map((row) =>
-				toAssetRecord(row.record, row.familyVisualWorldId)
+				toAssetRecord(row.record, row.familyVisualWorldId, row.measurements)
 			);
 		},
 		async search(
@@ -269,6 +290,9 @@ export function createAssetRecordStore(db: Database): AssetRecordStore {
 			if (!row) {
 				return { ok: false, reason: "not_found" };
 			}
+			if (row.record.availability === "erased") {
+				return { ok: false, reason: "erased" };
+			}
 			if (
 				row.familyVisualWorldId &&
 				input.visualWorldId !== row.familyVisualWorldId
@@ -318,7 +342,8 @@ export function createAssetRecordStore(db: Database): AssetRecordStore {
 				.where(
 					and(
 						eq(assetRecords.id, input.assetRecordId),
-						eq(assetRecords.projectId, input.projectId)
+						eq(assetRecords.projectId, input.projectId),
+						ne(assetRecords.availability, "erased")
 					)
 				)
 				.returning();
@@ -328,6 +353,55 @@ export function createAssetRecordStore(db: Database): AssetRecordStore {
 						record: toAssetRecord(updated, row.familyVisualWorldId),
 					}
 				: { ok: false, reason: "not_found" };
+		},
+		async setAvailability(userId, projectId, assetRecordId, availability) {
+			const ownedProject = await getProjectForUser(db, userId, projectId);
+			if (!ownedProject) {
+				return null;
+			}
+
+			const [record] = await db
+				.update(assetRecords)
+				.set({ availability })
+				.where(
+					and(
+						eq(assetRecords.id, assetRecordId),
+						eq(assetRecords.projectId, projectId),
+						inArray(assetRecords.availability, ["active", "archived"])
+					)
+				)
+				.returning();
+			return record ? this.get(userId, projectId, assetRecordId) : null;
+		},
+		async updateMeasurements(
+			userId,
+			input: AssetRecordMeasurementsUpdateInput
+		) {
+			const record = await this.get(
+				userId,
+				input.projectId,
+				input.assetRecordId
+			);
+			if (!record || record.availability === "erased") {
+				return null;
+			}
+
+			await db
+				.insert(assetRecordMeasurements)
+				.values({
+					assetRecordId: input.assetRecordId,
+					measurements: input.measurements,
+					projectId: input.projectId,
+				})
+				.onConflictDoUpdate({
+					target: [
+						assetRecordMeasurements.projectId,
+						assetRecordMeasurements.assetRecordId,
+					],
+					set: { measurements: input.measurements },
+				});
+
+			return this.get(userId, input.projectId, input.assetRecordId);
 		},
 	};
 }

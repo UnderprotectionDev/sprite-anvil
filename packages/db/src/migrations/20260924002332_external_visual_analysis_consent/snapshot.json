@@ -3,7 +3,7 @@
   "dialect": "postgres",
   "id": "c041bf0e-52a7-418e-b622-4cb5233ccdc9",
   "prevIds": [
-    "d1cac77b-8611-4e2e-b191-69b16200fd71"
+    "76b17b55-e623-4ba1-982b-7f6f23ee1d49"
   ],
   "ddl": [
     {
@@ -1619,6 +1619,61 @@
       "schema": "public",
       "table": "user",
       "entityType": "uniques"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "source_proposal_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "context_revisions"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "source_proposal_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "context_revisions_source_proposal_id_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "context_revisions"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "\"state\" = 'active'",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "context_revisions_project_active_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "context_revisions"
     }
   ],
   "renames": []

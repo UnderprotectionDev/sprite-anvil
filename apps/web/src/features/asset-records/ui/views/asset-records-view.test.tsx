@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import type { AssetRecord } from "@sprite-anvil/api/asset-records";
 import {
 	cleanup,
 	fireEvent,
@@ -8,12 +9,20 @@ import {
 	waitFor,
 } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { createQueryClient } from "@/utils/query-client";
 import { AssetRecordDetailView, AssetRecordsView } from "./asset-records-view";
+
+const errorToast = vi.hoisted(() => vi.fn());
+
+vi.mock("sonner", () => ({
+	toast: { dismiss: vi.fn(), error: errorToast },
+}));
 
 const projectId = "c2edb5dc-a82f-42b2-84bb-a878ca20fabf";
 const identityCheckboxName = /^Bağımsız ürün anlamı/;
+const archivedRecordStatus = /Kayıt durumu · Arşivlenmiş/;
 const fileBoundaryCopy =
 	/dosya veya düzenlenebilir kare olması tek başına yeni kayıt gerekçesi değildir/i;
 const generalSupportCopy = "Genel Varlık Desteği · Özel profil kanıtı yok";
@@ -27,96 +36,127 @@ const productionSource = /Imported from the project archive/;
 const productionEvidence = /Archive manifest entry/;
 const userRelationshipLabel = /Ekipten alındı/;
 const unknownHistory = /Geçmiş bilinmiyor/;
-const legacyFamilyName = /Legacy family/;
-const legacyWorldName = /Legacy world/;
 const unknownCanonicalVersion = /Ana Tasarım Sürümü kayıtlı değil/;
-const unexpectedNullValue = /null/;
+const emptyAssetRecordMeasurements = {
+	atlasDimensions: { confirmed: null, proposal: null },
+	cellDimensions: { confirmed: null, proposal: null },
+	displayScale: { confirmed: null, proposal: null },
+	logicalResolution: { confirmed: null, proposal: null },
+	sourceImageDimensions: { confirmed: null, proposal: null },
+	visibleContentBounds: { confirmed: null, proposal: null },
+};
+const fractionalScaleWarning =
+	/Piksel sanatında doğal sayı olmayan Gösterim Ölçeği/;
+const illustrationScaleHint =
+	/Yüksek çözünürlüklü illüstrasyonlar bu kurala zorlanmaz/;
 const assetRecord = {
 	availability: "active" as const,
 	createdAt: "2026-09-25T08:00:00.000Z",
 	id: "7ea123f0-2bd0-4b38-ab57-29477a1366e6",
 	identityCriteria: ["independent_product_meaning"] as const,
+	measurements: emptyAssetRecordMeasurements,
 	name: "Ash Knight",
 	projectId,
 	supportLevel: "general" as const,
 };
-type TestAssetRecord = Omit<
-	typeof assetRecord,
-	"availability" | "identityCriteria"
-> & {
-	availability: "active" | "archived" | "erased";
+type TestAssetRecord = Omit<AssetRecord, "identityCriteria"> & {
 	identityCriteria: readonly string[];
 };
 
 const fakeApi = vi.hoisted(() => ({
+	archive: vi.fn(),
 	create: vi.fn(),
-	updateMetadata: vi.fn(),
 	detail: null as Record<string, unknown> | null,
+	measurements: null as Record<string, unknown> | null,
+	recordsError: null as Error | null,
+	trackingError: null as Error | null,
 	record: null as TestAssetRecord | null,
 	records: [] as TestAssetRecord[],
 	search: vi.fn(),
 	searchResults: { records: [] as Record<string, unknown>[], totalCount: 0 },
+	updateMetadata: vi.fn(),
 	scopes: {
 		themes: [] as Record<string, unknown>[],
 		visualWorlds: [] as Record<string, unknown>[],
 	},
+	restore: vi.fn(),
+	updateMeasurements: vi.fn(),
 }));
 
 vi.mock("@/utils/orpc", () => ({
 	client: {
 		assetRecords: {
+			archive: (input: unknown) => fakeApi.archive(input),
 			create: (input: unknown) => fakeApi.create(input),
+			restore: (input: unknown) => fakeApi.restore(input),
 			updateMetadata: (input: unknown) => fakeApi.updateMetadata(input),
+			updateMeasurements: (input: unknown) => fakeApi.updateMeasurements(input),
 		},
 	},
 	orpc: {
 		assetRecords: {
 			search: {
-				queryKey: () => ["asset-record-search"],
 				queryOptions: ({ input }: { input: Record<string, unknown> }) => ({
 					queryKey: ["asset-record-search", input],
 					queryFn: () => fakeApi.search(input),
 				}),
 			},
+			get: {
+				queryOptions: () => ({
+					queryKey: ["asset-record", assetRecord.id],
+					queryFn: async () =>
+						fakeApi.record ?? {
+							...assetRecord,
+							measurements:
+								fakeApi.measurements ?? emptyAssetRecordMeasurements,
+						},
+				}),
+			},
 			tracking: {
-				queryKey: () => ["asset-record-detail"],
 				queryOptions: () => ({
 					queryKey: ["asset-record-detail", assetRecord.id],
-					queryFn: async () =>
-						fakeApi.detail ?? {
-							record: fakeApi.record ?? assetRecord,
-							tracking: {
-								availableRecords: [],
-								availableVersions: [],
-								approvedVersion: null,
-								alternatives: [],
-								derivatives: [],
-								family: null,
-								productionHistory: [],
-								quality: {
-									integrityStatus: "unavailable",
-									profileStatus: "general_support",
-									verifiedVersionCount: 0,
+					queryFn: () => {
+						if (fakeApi.trackingError) {
+							return Promise.reject(fakeApi.trackingError);
+						}
+						return Promise.resolve(
+							fakeApi.detail ?? {
+								record: fakeApi.record ?? {
+									...assetRecord,
+									measurements:
+										fakeApi.measurements ?? emptyAssetRecordMeasurements,
 								},
-								references: [],
-								reviewEvents: [],
-								visualWorlds: [],
-							},
-						},
+								tracking: {
+									availableRecords: [],
+									availableVersions: [],
+									approvedVersion: null,
+									alternatives: [],
+									derivatives: [],
+									family: null,
+									productionHistory: [],
+									quality: {
+										integrityStatus: "unavailable",
+										profileStatus: "general_support",
+										verifiedVersionCount: 0,
+									},
+									references: [],
+									reviewEvents: [],
+									visualWorlds: [],
+								},
+							}
+						);
+					},
 				}),
 			},
 			list: {
 				queryOptions: () => ({
 					queryKey: ["asset-records", projectId],
-					queryFn: async () => fakeApi.records,
-				}),
-			},
-		},
-		contextScopes: {
-			list: {
-				queryOptions: () => ({
-					queryKey: ["scope-catalog", projectId],
-					queryFn: async () => fakeApi.scopes,
+					queryFn: () => {
+						if (fakeApi.recordsError) {
+							return Promise.reject(fakeApi.recordsError);
+						}
+						return Promise.resolve(fakeApi.records);
+					},
 				}),
 			},
 		},
@@ -128,6 +168,14 @@ vi.mock("@/utils/orpc", () => ({
 				}),
 			},
 		},
+		contextScopes: {
+			list: {
+				queryOptions: () => ({
+					queryKey: ["scope-catalog", projectId],
+					queryFn: async () => fakeApi.scopes,
+				}),
+			},
+		},
 	},
 }));
 
@@ -135,19 +183,38 @@ afterEach(() => {
 	cleanup();
 	vi.restoreAllMocks();
 	fakeApi.records = [];
+	fakeApi.recordsError = null;
+	errorToast.mockClear();
 	fakeApi.record = null;
 	fakeApi.detail = null;
+	fakeApi.measurements = null;
+	fakeApi.trackingError = null;
+	fakeApi.archive.mockReset();
 	fakeApi.create.mockReset();
+	fakeApi.restore.mockReset();
+	fakeApi.updateMeasurements.mockReset();
 	fakeApi.updateMetadata.mockReset();
 	fakeApi.search.mockReset();
 	fakeApi.searchResults = { records: [], totalCount: 0 };
-	fakeApi.search.mockResolvedValue(fakeApi.searchResults);
 	fakeApi.scopes = { themes: [], visualWorlds: [] };
 });
 
 beforeEach(() => {
-	fakeApi.search.mockReset().mockResolvedValue(fakeApi.searchResults);
+	fakeApi.search
+		.mockReset()
+		.mockImplementation(() => Promise.resolve(fakeApi.searchResults));
 });
+
+function renderWithQueryClient(node: React.ReactNode) {
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	return {
+		...render(
+			<QueryClientProvider client={queryClient}>{node}</QueryClientProvider>
+		),
+		queryClient,
+	};
+}
 
 test("filters Asset Records together and opens the matching version history", async () => {
 	const onOpenRecord = vi.fn();
@@ -354,14 +421,34 @@ test("edits record metadata and limits Theme choices to the selected Visual Worl
 	);
 });
 
-function renderWithQueryClient(node: React.ReactNode) {
-	const queryClient = new QueryClient({
-		defaultOptions: { queries: { retry: false } },
+test("shows a failed Asset Record list load only in Sonner", async () => {
+	fakeApi.recordsError = Object.assign(new Error("Internal server error"), {
+		code: "INTERNAL_SERVER_ERROR",
+		data: { supportReference: "SUP-7CFB1C3A-A7A3-4BC2-B748-B5065AA2314A" },
 	});
-	return render(
-		<QueryClientProvider client={queryClient}>{node}</QueryClientProvider>
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	render(
+		<QueryClientProvider client={queryClient}>
+			<AssetRecordsView onOpenRecord={vi.fn()} projectId={projectId} />
+		</QueryClientProvider>
 	);
-}
+
+	await waitFor(() => expect(errorToast).toHaveBeenCalledTimes(1));
+	expect(errorToast.mock.calls[0]?.[0]).toBe("Data could not be loaded.");
+	expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+	expect(
+		screen.queryByRole("button", { name: "Retry" })
+	).not.toBeInTheDocument();
+	const options = errorToast.mock.calls[0]?.[1] as {
+		action: { label: string; onClick: () => void };
+	};
+	expect(options.action.label).toBe("Retry");
+	fakeApi.recordsError = null;
+	fakeApi.records = [assetRecord];
+	options.action.onClick();
+	expect(await screen.findByText("Ash Knight")).toBeVisible();
+});
 
 test("creates a durable Asset Record from its independent product identity", async () => {
 	const onOpenRecord = vi.fn();
@@ -406,7 +493,8 @@ test("uncertain creates require a confirmed list check and reuse the same identi
 	fireEvent.click(screen.getByRole("button", { name: "Varlık kaydı oluştur" }));
 
 	const identity = fakeApi.create.mock.calls[0]?.[0].id;
-	expect(await screen.findByRole("alert")).toBeVisible();
+	await waitFor(() => expect(errorToast).toHaveBeenCalledOnce());
+	expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 	expect(
 		screen.getByRole("button", { name: "Varlık kaydı oluştur" })
 	).toBeDisabled();
@@ -422,6 +510,20 @@ test("uncertain creates require a confirmed list check and reuse the same identi
 		expect(onOpenRecord).toHaveBeenCalledWith(assetRecord.id)
 	);
 	expect(fakeApi.create.mock.calls[1]?.[0].id).toBe(identity);
+});
+
+test("archived Asset Records remain findable in the project list", async () => {
+	const onOpenRecord = vi.fn();
+	fakeApi.records = [{ ...assetRecord, availability: "archived" }];
+	renderWithQueryClient(
+		<AssetRecordsView onOpenRecord={onOpenRecord} projectId={projectId} />
+	);
+
+	expect(await screen.findByText(archivedRecordStatus)).toBeVisible();
+	fireEvent.click(
+		screen.getByRole("button", { name: "Ash Knight kaydını aç" })
+	);
+	expect(onOpenRecord).toHaveBeenCalledWith(assetRecord.id);
 });
 
 test("shows persisted versions, derivatives, references, quality, and provenance", async () => {
@@ -495,7 +597,6 @@ test("shows persisted versions, derivatives, references, quality, and provenance
 	renderWithQueryClient(
 		<AssetRecordDetailView
 			assetRecordId={assetRecord.id}
-			focusVersionId="e14f4bcc-5e5d-4fb7-b976-c0980934fa21"
 			projectId={projectId}
 		/>
 	);
@@ -503,13 +604,8 @@ test("shows persisted versions, derivatives, references, quality, and provenance
 	expect(
 		await screen.findByRole("heading", { name: "Ash Knight" })
 	).toBeVisible();
-	expect(screen.getByText(versionFileName)).toBeVisible();
-	expect(screen.getAllByText(alternativeFileName)).toHaveLength(2);
-	expect(
-		await screen.findByRole("status", {
-			name: "Aradığınız sürüm: ash-knight-alt.png · Sürüm 2.",
-		})
-	).toBeVisible();
+	expect(await screen.findByText(versionFileName)).toBeVisible();
+	expect(screen.getByText(alternativeFileName)).toBeVisible();
 	expect(screen.getByText(derivativeName)).toBeVisible();
 	expect(screen.getByText(referenceName)).toBeVisible();
 	expect(screen.getByText(referenceNote)).toBeVisible();
@@ -524,8 +620,7 @@ test("shows persisted versions, derivatives, references, quality, and provenance
 	expect(screen.getByText(recordCreatedCopy)).toBeVisible();
 });
 
-test("shows unknown legacy version and family metadata without inventing values", async () => {
-	const versionId = "f7b32d26-6b7c-4e16-a578-dac3e0dab68b";
+test("keeps unrecorded legacy version details explicit without choosing a Canonical Design", async () => {
 	fakeApi.detail = {
 		record: assetRecord,
 		tracking: {
@@ -534,7 +629,7 @@ test("shows unknown legacy version and family metadata without inventing values"
 			approvedVersion: {
 				createdAt: "2026-09-25T08:01:00.000Z",
 				fileName: null,
-				id: versionId,
+				id: "f7b32d26-6b7c-4e16-a578-dac3e0dab68b",
 				reviewDisposition: "approved",
 				sha256: null,
 				versionNumber: 1,
@@ -543,11 +638,11 @@ test("shows unknown legacy version and family metadata without inventing values"
 			derivatives: [],
 			family: {
 				canonicalVersionId: null,
-				id: "d2e8850c-393a-4b62-b6ad-188488d90c15",
-				name: "Legacy family",
-				useContext: "Legacy usage",
-				visualWorldId: "02b966ed-b5a8-470a-84cb-74b44295cc3f",
-				visualWorldName: "Legacy world",
+				id: "2e289929-ad8b-4b76-b7c5-e18b001d8214",
+				name: "Ash Knight gameplay",
+				useContext: "Combat sprite",
+				visualWorldId: "742cbe57-ecb0-4616-8d1f-71723ad8cd62",
+				visualWorldName: "Gameplay",
 			},
 			productionHistory: [],
 			quality: {
@@ -563,24 +658,232 @@ test("shows unknown legacy version and family metadata without inventing values"
 	renderWithQueryClient(
 		<AssetRecordDetailView
 			assetRecordId={assetRecord.id}
-			focusVersionId={versionId}
 			projectId={projectId}
 		/>
 	);
 
 	expect(
-		await screen.findByRole("status", {
-			name: "Aradığınız sürüm: Sürüm 1.",
-		})
+		await screen.findByText("Dosya adı bilinmiyor · Sürüm 1")
 	).toBeVisible();
-	expect(screen.getByText(legacyFamilyName)).toBeVisible();
-	expect(screen.getByText(legacyWorldName)).toBeVisible();
 	expect(screen.getByText(unknownCanonicalVersion)).toBeVisible();
-	expect(screen.queryByText(unexpectedNullValue)).not.toBeInTheDocument();
+	expect(
+		screen.queryByLabelText("Türetilmiş Asset Record")
+	).not.toBeInTheDocument();
+});
+
+test("saves proposed and confirmed dimensions independently on an Asset Record", async () => {
+	fakeApi.updateMeasurements.mockImplementation((input) => {
+		fakeApi.measurements = input.measurements;
+		return { ...assetRecord, measurements: input.measurements };
+	});
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+
+	await screen.findByRole("heading", { name: "Ash Knight" });
+	for (const heading of [
+		"Kaynak Görsel Ölçüsü",
+		"Mantıksal Çözünürlük",
+		"Hücre Ölçüsü",
+		"Görünür İçerik Sınırı",
+		"Gösterim Ölçeği",
+		"Atlas Ölçüsü",
+	]) {
+		expect(screen.getByRole("heading", { name: heading })).toBeVisible();
+	}
+	fireEvent.change(
+		screen.getByLabelText("Kaynak Görsel Ölçüsü — Öneri — Genişlik (px)"),
+		{ target: { value: "512" } }
+	);
+	fireEvent.change(
+		screen.getByLabelText("Kaynak Görsel Ölçüsü — Öneri — Yükseklik (px)"),
+		{ target: { value: "256" } }
+	);
+	fireEvent.change(
+		screen.getByLabelText(
+			"Mantıksal Çözünürlük — Doğrulanmış değer — Genişlik (px)"
+		),
+		{ target: { value: "72" } }
+	);
+	fireEvent.change(
+		screen.getByLabelText(
+			"Mantıksal Çözünürlük — Doğrulanmış değer — Yükseklik (px)"
+		),
+		{ target: { value: "80" } }
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Ölçüleri kaydet" }));
+
+	expect(await screen.findByRole("status")).toHaveTextContent(
+		"Ölçüler kaydedildi."
+	);
+	expect(fakeApi.updateMeasurements).toHaveBeenCalledWith({
+		assetRecordId: assetRecord.id,
+		measurements: {
+			...emptyAssetRecordMeasurements,
+			sourceImageDimensions: {
+				confirmed: null,
+				proposal: { width: 512, height: 256 },
+			},
+			logicalResolution: {
+				confirmed: { width: 72, height: 80 },
+				proposal: null,
+			},
+		},
+		projectId,
+	});
+	await waitFor(() =>
+		expect(
+			screen.getByLabelText("Kaynak Görsel Ölçüsü — Öneri — Genişlik (px)")
+		).toHaveValue(512)
+	);
+});
+
+test("requires a Visible Content Bounds coordinate space and keeps bounds inside it", async () => {
+	fakeApi.updateMeasurements.mockImplementation((input) => {
+		fakeApi.measurements = input.measurements;
+		return { ...assetRecord, measurements: input.measurements };
+	});
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+	await screen.findByRole("heading", { name: "Ash Knight" });
+
+	for (const [label, value] of [
+		["Mantıksal Çözünürlük — Öneri — Genişlik (px)", "32"],
+		["Mantıksal Çözünürlük — Öneri — Yükseklik (px)", "32"],
+		["Görünür İçerik Sınırı — Öneri — X (px)", "3"],
+		["Görünür İçerik Sınırı — Öneri — Y (px)", "4"],
+		["Görünür İçerik Sınırı — Öneri — Genişlik (px)", "30"],
+		["Görünür İçerik Sınırı — Öneri — Yükseklik (px)", "10"],
+	] as const) {
+		fireEvent.change(screen.getByLabelText(label), { target: { value } });
+	}
+	const coordinateSpace = screen.getByLabelText(
+		"Görünür İçerik Sınırı — Öneri — Koordinat temeli"
+	);
+	fireEvent.change(coordinateSpace, {
+		target: { value: "logicalResolution" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Ölçüleri kaydet" }));
+
+	expect(await screen.findByRole("alert")).toHaveTextContent(
+		"Görünür İçerik Sınırı seçilen koordinat temelinin genişliğini aşamaz."
+	);
+	expect(fakeApi.updateMeasurements).not.toHaveBeenCalled();
+
+	fireEvent.change(
+		screen.getByLabelText("Görünür İçerik Sınırı — Öneri — X (px)"),
+		{ target: { value: "2" } }
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Ölçüleri kaydet" }));
+
+	expect(await screen.findByRole("status")).toHaveTextContent(
+		"Ölçüler kaydedildi."
+	);
+	expect(fakeApi.updateMeasurements).toHaveBeenCalledWith({
+		assetRecordId: assetRecord.id,
+		measurements: {
+			...emptyAssetRecordMeasurements,
+			logicalResolution: {
+				confirmed: null,
+				proposal: { width: 32, height: 32 },
+			},
+			visibleContentBounds: {
+				confirmed: null,
+				proposal: {
+					coordinateSpace: "logicalResolution",
+					x: 2,
+					y: 4,
+					width: 30,
+					height: 10,
+				},
+			},
+		},
+		projectId,
+	});
+});
+
+test("requires a complete pair when a dimension value is started", async () => {
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+	await screen.findByRole("heading", { name: "Ash Knight" });
+	const width = screen.getByLabelText(
+		"Kaynak Görsel Ölçüsü — Öneri — Genişlik (px)"
+	);
+	const height = screen.getByLabelText(
+		"Kaynak Görsel Ölçüsü — Öneri — Yükseklik (px)"
+	);
+
+	expect(width).not.toBeRequired();
+	expect(height).not.toBeRequired();
+	fireEvent.change(width, { target: { value: "512" } });
+	expect(width).toBeRequired();
+	expect(height).toBeRequired();
+	expect(fakeApi.updateMeasurements).not.toHaveBeenCalled();
+});
+
+test("retains dimension inputs and offers retry context when saving fails", async () => {
+	fakeApi.updateMeasurements.mockRejectedValue(new Error("write failed"));
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+	await screen.findByRole("heading", { name: "Ash Knight" });
+	const width = screen.getByLabelText(
+		"Kaynak Görsel Ölçüsü — Öneri — Genişlik (px)"
+	);
+	fireEvent.change(width, { target: { value: "512" } });
+	fireEvent.change(
+		screen.getByLabelText("Kaynak Görsel Ölçüsü — Öneri — Yükseklik (px)"),
+		{ target: { value: "256" } }
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Ölçüleri kaydet" }));
+
+	expect(await screen.findByRole("alert")).toBeVisible();
+	expect(width).toHaveValue(512);
+	expect(fakeApi.updateMeasurements).toHaveBeenCalledTimes(1);
+});
+
+test("shows a conditional crispness notice for fractional display scale", async () => {
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+	await screen.findByRole("heading", { name: "Ash Knight" });
+	fireEvent.change(screen.getByLabelText("Gösterim Ölçeği — Öneri — Ölçek"), {
+		target: { value: "2.5" },
+	});
+
+	expect(screen.getByText(fractionalScaleWarning)).toBeVisible();
+	expect(screen.getByText(illustrationScaleHint)).toBeVisible();
 });
 
 test("uses the canonical Erased availability value and Turkish label", async () => {
-	fakeApi.record = { ...assetRecord, availability: "erased" };
+	fakeApi.record = {
+		...assetRecord,
+		availability: "erased",
+		measurements: {
+			...emptyAssetRecordMeasurements,
+			sourceImageDimensions: {
+				confirmed: null,
+				proposal: { width: 512, height: 256 },
+			},
+		},
+	};
 	renderWithQueryClient(
 		<AssetRecordDetailView
 			assetRecordId={assetRecord.id}
@@ -589,6 +892,129 @@ test("uses the canonical Erased availability value and Turkish label", async () 
 	);
 
 	expect(await screen.findByText("Silinmiş")).toBeVisible();
+	expect(
+		screen.queryByRole("heading", { name: "Varlık kaydı metadata’sı" })
+	).not.toBeInTheDocument();
+	expect(
+		screen.getByText(
+			"Silinmiş kaydın ölçüleri görüntülenemez veya değiştirilemez."
+		)
+	).toBeVisible();
+	expect(
+		screen.queryByRole("region", { name: "Görsel ölçüleri" })
+	).not.toBeInTheDocument();
+	expect(
+		screen.queryByLabelText("Kaynak Görsel Ölçüsü — Öneri — Genişlik (px)")
+	).not.toBeInTheDocument();
+	expect(
+		screen.queryByRole("button", { name: "Kaydı arşivle" })
+	).not.toBeInTheDocument();
+	expect(
+		screen.queryByRole("button", { name: "Kaydı yeniden etkinleştir" })
+	).not.toBeInTheDocument();
+});
+
+test("archives and restores an Asset Record without losing its detail view", async () => {
+	const archivedRecord = { ...assetRecord, availability: "archived" as const };
+	fakeApi.archive.mockImplementation(() => {
+		fakeApi.record = archivedRecord;
+		return archivedRecord;
+	});
+	fakeApi.restore.mockImplementation(() => {
+		fakeApi.record = assetRecord;
+		return assetRecord;
+	});
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+
+	fireEvent.click(await screen.findByRole("button", { name: "Kaydı arşivle" }));
+	expect(fakeApi.archive).toHaveBeenCalledWith({
+		assetRecordId: assetRecord.id,
+		projectId,
+	});
+	expect(await screen.findByText("Arşivlenmiş")).toBeVisible();
+	expect(await screen.findByRole("status")).toHaveTextContent(
+		"Kayıt arşivlendi."
+	);
+
+	fireEvent.click(
+		screen.getByRole("button", { name: "Kaydı yeniden etkinleştir" })
+	);
+	expect(fakeApi.restore).toHaveBeenCalledWith({
+		assetRecordId: assetRecord.id,
+		projectId,
+	});
+	expect(await screen.findByText("Etkin")).toBeVisible();
+	expect(await screen.findByRole("status")).toHaveTextContent(
+		"Kayıt yeniden etkinleştirildi."
+	);
+});
+
+test("keeps Asset Record availability available when tracking details fail", async () => {
+	fakeApi.trackingError = new Error("tracking schema is unavailable");
+	const archivedRecord = { ...assetRecord, availability: "archived" as const };
+	fakeApi.archive.mockImplementation(() => {
+		fakeApi.record = archivedRecord;
+		return archivedRecord;
+	});
+	fakeApi.restore.mockImplementation(() => {
+		fakeApi.record = assetRecord;
+		return assetRecord;
+	});
+	const { queryClient } = renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+
+	expect(
+		await screen.findByRole("heading", { name: "Ash Knight" })
+	).toBeVisible();
+	expect(screen.getByRole("button", { name: "Kaydı arşivle" })).toBeEnabled();
+	await waitFor(() => expect(errorToast).toHaveBeenCalledOnce());
+	expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+	expect(
+		queryClient
+			.getQueryCache()
+			.find({ queryKey: ["asset-record-detail", assetRecord.id] })?.meta
+	).toBeUndefined();
+
+	fireEvent.click(screen.getByRole("button", { name: "Kaydı arşivle" }));
+	expect(await screen.findByText("Arşivlenmiş")).toBeVisible();
+	expect(await screen.findByRole("status")).toHaveTextContent(
+		"Kayıt arşivlendi."
+	);
+
+	fireEvent.click(
+		screen.getByRole("button", { name: "Kaydı yeniden etkinleştir" })
+	);
+	expect(await screen.findByText("Etkin")).toBeVisible();
+	expect(await screen.findByRole("status")).toHaveTextContent(
+		"Kayıt yeniden etkinleştirildi."
+	);
+});
+
+test("checks the current Availability before allowing an uncertain archive retry", async () => {
+	fakeApi.archive.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+
+	fireEvent.click(await screen.findByRole("button", { name: "Kaydı arşivle" }));
+	await waitFor(() => expect(errorToast).toHaveBeenCalledOnce());
+	expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+	fireEvent.click(screen.getByRole("button", { name: "Durumu kontrol et" }));
+
+	expect(await screen.findByText("Güncel kayıt durumu: Etkin.")).toBeVisible();
+	expect(screen.getByRole("button", { name: "Kaydı arşivle" })).toBeEnabled();
 });
 
 test("labels legacy Asset Records whose identity criteria were not recorded", async () => {

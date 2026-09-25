@@ -1,10 +1,16 @@
 import { expect, test } from "bun:test";
+import { Buffer } from "node:buffer";
 import { call } from "@orpc/server";
+import {
+	type AssetRecordMeasurements,
+	createEmptyAssetRecordMeasurements,
+} from "@sprite-anvil/api/asset-records";
 import type { Context } from "@sprite-anvil/api/context";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { createDb } from "@sprite-anvil/db";
 import { legacyAssetAttestations } from "@sprite-anvil/db/schema/asset-production-history";
 import { assetRecordDerivatives } from "@sprite-anvil/db/schema/asset-record-derivatives";
+import { assetRecordMeasurements } from "@sprite-anvil/db/schema/asset-record-measurements";
 import { assetRecordReferences } from "@sprite-anvil/db/schema/asset-record-references";
 import {
 	assetFamilies,
@@ -18,16 +24,29 @@ import {
 import { user } from "@sprite-anvil/db/schema/auth";
 import { project } from "@sprite-anvil/db/schema/project";
 import { eq } from "drizzle-orm";
+import sharp from "sharp";
+import { createAssetFamilyStore } from "./features/asset-families/server/asset-family-store";
 import { createAssetRecordStore } from "./features/asset-records/server/asset-record-store";
 import { createAssetRecordTrackingStore } from "./features/asset-records/server/asset-record-tracking-store";
 import type { AssetVersionObjectStorage } from "./features/asset-records/server/asset-version-store";
+import { createAssetVersionStore } from "./features/asset-versions/server/asset-version-store";
 import { createProjectContextStore } from "./features/project-context/server/project-context-store";
 import { createProjectAccessStore } from "./features/projects/server/project-access-store";
 import { createProjectContextScopeStore } from "./features/visual-worlds/server/project-context-scope-store";
 
 const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
-const imageBase64 =
-	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/ZpUAAAAASUVORK5CYII=";
+const imageBase64 = (
+	await sharp({
+		create: {
+			background: { alpha: 1, b: 200, g: 100, r: 40 },
+			channels: 4,
+			height: 1,
+			width: 1,
+		},
+	})
+		.png()
+		.toBuffer()
+).toString("base64");
 
 function createMemoryStorage() {
 	const objects = new Map<string, Uint8Array>();
@@ -40,7 +59,7 @@ function createMemoryStorage() {
 			return Promise.resolve();
 		},
 	};
-	return storage;
+	return { size: () => objects.size, storage };
 }
 
 test.skipIf(!databaseUrl)(
@@ -67,8 +86,13 @@ test.skipIf(!databaseUrl)(
 
 			const projectContextStore = createProjectContextStore(db);
 			const context: Context = {
+				assetFamilyStore: createAssetFamilyStore(db),
+				assetVersionStore: createAssetVersionStore(db),
 				assetRecordStore: createAssetRecordStore(db),
-				assetRecordTrackingStore: createAssetRecordTrackingStore(db, storage),
+				assetRecordTrackingStore: createAssetRecordTrackingStore(
+					db,
+					storage.storage
+				),
 				db,
 				projectAccess: createProjectAccessStore(db, projectContextStore),
 				projectContextScopeStore: createProjectContextScopeStore(db),
@@ -99,6 +123,76 @@ test.skipIf(!databaseUrl)(
 				},
 				{ context }
 			);
+			const measurements: AssetRecordMeasurements = {
+				atlasDimensions: {
+					proposal: { width: 1024, height: 512 },
+					confirmed: null,
+				},
+				cellDimensions: {
+					proposal: null,
+					confirmed: { width: 24, height: 32 },
+				},
+				displayScale: { proposal: 2.5, confirmed: 2 },
+				logicalResolution: {
+					proposal: { width: 72, height: 80 },
+					confirmed: { width: 72, height: 80 },
+				},
+				sourceImageDimensions: {
+					proposal: { width: 512, height: 256 },
+					confirmed: { width: 512, height: 256 },
+				},
+				visibleContentBounds: {
+					proposal: {
+						coordinateSpace: "logicalResolution",
+						x: 3,
+						y: 4,
+						width: 66,
+						height: 74,
+					},
+					confirmed: {
+						coordinateSpace: "logicalResolution",
+						x: 3,
+						y: 4,
+						width: 66,
+						height: 74,
+					},
+				},
+			};
+			await call(
+				appRouter.assetRecords.updateMeasurements,
+				{ assetRecordId: created.id, measurements, projectId },
+				{ context }
+			);
+			const invalidVersionId = crypto.randomUUID();
+			const truncatedPngBase64 = Buffer.from(imageBase64, "base64")
+				.subarray(0, 33)
+				.toString("base64");
+			await expect(
+				call(
+					appRouter.assetRecords.createVersion,
+					{
+						assetRecordId: created.id,
+						contentBase64: truncatedPngBase64,
+						contentType: "image/png",
+						fileName: "truncated.png",
+						historyUnknown: true,
+						id: invalidVersionId,
+						knownSource: null,
+						projectId,
+						supportingEvidence: null,
+						userRelationship: "unknown",
+					},
+					{ context }
+				)
+			).rejects.toMatchObject({ code: "CONFLICT" });
+			const [invalidVersion] = await db
+				.select()
+				.from(assetVersions)
+				.where(eq(assetVersions.id, invalidVersionId))
+				.limit(1);
+			expect(invalidVersion).toBeUndefined();
+			expect(storage.size()).toBe(0);
+
 			const versionId = crypto.randomUUID();
 			const createdVersion = await call(
 				appRouter.assetRecords.createVersion,
@@ -255,10 +349,12 @@ test.skipIf(!databaseUrl)(
 			const rereadDb = createDb({ DATABASE_URL: databaseUrl });
 			const rereadContext: Context = {
 				...context,
+				assetFamilyStore: createAssetFamilyStore(rereadDb),
+				assetVersionStore: createAssetVersionStore(rereadDb),
 				assetRecordStore: createAssetRecordStore(rereadDb),
 				assetRecordTrackingStore: createAssetRecordTrackingStore(
 					rereadDb,
-					storage
+					storage.storage
 				),
 				db: rereadDb,
 			};
@@ -268,12 +364,14 @@ test.skipIf(!databaseUrl)(
 				{ context: rereadContext }
 			);
 
-			expect(reread).toEqual(metadataRecord);
 			expect(reread).toMatchObject({
 				assetCategory: "icon",
 				availability: "active",
 				identityCriteria: ["independent_product_meaning", "delivery_identity"],
+				id: created.id,
+				measurements,
 				name: "Ash Knight",
+				projectId,
 				supportLevel: "general",
 				tags: ["inventory"],
 				themeId: theme.id,
@@ -314,16 +412,26 @@ test.skipIf(!databaseUrl)(
 				{ assetRecordId: created.id, projectId },
 				{ context: rereadContext }
 			);
-			expect(tracking.record).toEqual(metadataRecord);
+			expect(tracking.record).toMatchObject({
+				assetCategory: "icon",
+				measurements,
+				tags: ["inventory"],
+				themeId: theme.id,
+				visualWorldId: world.id,
+			});
 			expect(createdVersion).toMatchObject({
 				fileName: "ash-knight.png",
 				id: versionId,
+				sourceImageHeight: 1,
+				sourceImageWidth: 1,
 				versionNumber: 1,
 			});
 			expect(tracking.tracking).toMatchObject({
 				approvedVersion: {
 					id: versionId,
 					reviewDisposition: "approved",
+					sourceImageHeight: 1,
+					sourceImageWidth: 1,
 				},
 				productionHistory: [
 					{
@@ -374,6 +482,101 @@ test.skipIf(!databaseUrl)(
 				],
 			});
 
+			const archived = await call(
+				appRouter.assetRecords.archive,
+				{ assetRecordId: created.id, projectId },
+				{ context: rereadContext }
+			);
+			expect(archived).toMatchObject({
+				availability: "archived",
+				measurements,
+			});
+			const archivedList = await call(
+				appRouter.assetRecords.list,
+				{ projectId },
+				{ context: rereadContext }
+			);
+			expect(archivedList).toContainEqual(archived);
+			const archivedTracking = await call(
+				appRouter.assetRecords.tracking,
+				{ assetRecordId: created.id, projectId },
+				{ context: rereadContext }
+			);
+			expect(archivedTracking.record.measurements).toEqual(measurements);
+			expect(archivedTracking.tracking).toEqual(tracking.tracking);
+
+			const restored = await call(
+				appRouter.assetRecords.restore,
+				{ assetRecordId: created.id, projectId },
+				{ context: rereadContext }
+			);
+			expect(restored).toMatchObject({
+				availability: "active",
+				measurements,
+			});
+			const restoredTracking = await call(
+				appRouter.assetRecords.tracking,
+				{ assetRecordId: created.id, projectId },
+				{ context: rereadContext }
+			);
+			expect(restoredTracking.record.measurements).toEqual(measurements);
+			expect(restoredTracking.tracking).toEqual(tracking.tracking);
+
+			await db
+				.update(assetRecords)
+				.set({ availability: "erased" })
+				.where(eq(assetRecords.id, created.id));
+			await expect(
+				call(
+					appRouter.assetRecords.updateMetadata,
+					{
+						assetCategory: "other",
+						assetRecordId: created.id,
+						projectId,
+						tags: ["should-not-return"],
+						themeId: null,
+						visualWorldId: null,
+					},
+					{ context: rereadContext }
+				)
+			).rejects.toMatchObject({
+				code: "CONFLICT",
+				message: "Silinmiş Varlık Kaydının metadata’sı değiştirilemez.",
+			});
+			const erasedMetadataRecord = await call(
+				appRouter.assetRecords.get,
+				{ assetRecordId: created.id, projectId },
+				{ context: rereadContext }
+			);
+			expect(erasedMetadataRecord).toMatchObject({
+				assetCategory: "icon",
+				availability: "erased",
+				tags: ["inventory"],
+			});
+			await expect(
+				call(
+					appRouter.assetRecords.updateMeasurements,
+					{ assetRecordId: created.id, measurements, projectId },
+					{ context: rereadContext }
+				)
+			).rejects.toMatchObject({ code: "NOT_FOUND" });
+			const erasedRecord = await call(
+				appRouter.assetRecords.get,
+				{ assetRecordId: created.id, projectId },
+				{ context: rereadContext }
+			);
+			expect(erasedRecord.measurements).toEqual(
+				createEmptyAssetRecordMeasurements()
+			);
+			const erasedTracking = await call(
+				appRouter.assetRecords.tracking,
+				{ assetRecordId: created.id, projectId },
+				{ context: rereadContext }
+			);
+			expect(erasedTracking.record.measurements).toEqual(
+				createEmptyAssetRecordMeasurements()
+			);
+
 			await expect(
 				db.delete(project).where(eq(project.id, projectId))
 			).rejects.toThrow();
@@ -397,6 +600,9 @@ test.skipIf(!databaseUrl)(
 				await db
 					.delete(assetVersions)
 					.where(eq(assetVersions.projectId, projectId));
+				await db
+					.delete(assetRecordMeasurements)
+					.where(eq(assetRecordMeasurements.projectId, projectId));
 				await db
 					.delete(assetRecords)
 					.where(eq(assetRecords.projectId, projectId));

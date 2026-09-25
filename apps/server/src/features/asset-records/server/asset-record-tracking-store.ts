@@ -13,6 +13,7 @@ import {
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
 import { legacyAssetAttestations } from "@sprite-anvil/db/schema/asset-production-history";
 import { assetRecordDerivatives } from "@sprite-anvil/db/schema/asset-record-derivatives";
+import { assetRecordMeasurements } from "@sprite-anvil/db/schema/asset-record-measurements";
 import { assetRecordReferences } from "@sprite-anvil/db/schema/asset-record-references";
 import {
 	assetFamilies,
@@ -366,6 +367,7 @@ export function createAssetRecordTrackingStore(
 				availableReviewRows,
 				visualWorldRows,
 				familyRows,
+				measurementRows,
 			] = await Promise.all([
 				db
 					.select()
@@ -505,6 +507,16 @@ export function createAssetRecordTrackingStore(
 							)
 							.limit(1)
 					: Promise.resolve([]),
+				db
+					.select({ measurements: assetRecordMeasurements.measurements })
+					.from(assetRecordMeasurements)
+					.where(
+						and(
+							eq(assetRecordMeasurements.projectId, projectId),
+							eq(assetRecordMeasurements.assetRecordId, assetRecordId)
+						)
+					)
+					.limit(1),
 			]);
 
 			const { approvedVersionId, dispositions } = getCurrentDispositions(
@@ -564,7 +576,11 @@ export function createAssetRecordTrackingStore(
 			);
 
 			return assetRecordTrackingDetailSchema.parse({
-				record: toAssetRecord(record, familyRow?.visualWorld.id ?? null),
+				record: toAssetRecord(
+					record,
+					familyRow?.visualWorld.id ?? null,
+					measurementRows[0]?.measurements
+				),
 				tracking: {
 					approvedVersion,
 					alternatives: versionSummaries.filter(

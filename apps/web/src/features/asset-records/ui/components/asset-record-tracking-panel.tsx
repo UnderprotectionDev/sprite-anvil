@@ -12,6 +12,7 @@ import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
 import type { ReactNode, SyntheticEvent } from "react";
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client } from "@/utils/orpc";
@@ -55,13 +56,15 @@ const userRelationshipLabels = {
 	unknown: "Bilinmiyor",
 } as const;
 
+function displayFileName(fileName: string | null) {
+	return fileName ?? "Dosya adı bilinmiyor";
+}
+
 function getVersionLabel(version: {
 	fileName: string | null;
 	versionNumber: number;
 }) {
-	return version.fileName
-		? `${version.fileName} · Sürüm ${version.versionNumber}`
-		: `Sürüm ${version.versionNumber}`;
+	return `${displayFileName(version.fileName)} · Sürüm ${version.versionNumber}`;
 }
 
 interface PendingWrite {
@@ -204,14 +207,14 @@ function FamilyAndDerivativeSection({
 		);
 	} else if (tracking.family) {
 		familyControls = (
-			<div className="mt-3 space-y-1 text-muted-foreground text-xs">
+			<div className="mt-4 space-y-2 border-t pt-3 text-sm">
 				<p>
 					Varlık Ailesi: {tracking.family.name} ·{" "}
 					{tracking.family.visualWorldName}
 				</p>
-				<p role="status">
-					Bu eski Varlık Ailesinde Ana Tasarım Sürümü kayıtlı değil; bu nedenle
-					Türetilmiş Varlık bağlantısı kurulamaz.
+				<p className="text-muted-foreground text-xs" role="status">
+					Bu eski Varlık Ailesinde Ana Tasarım Sürümü kayıtlı değil. Türetilmiş
+					varlık bağlantısı için seçim kullanıcı tarafından yapılmalıdır.
 				</p>
 			</div>
 		);
@@ -261,7 +264,7 @@ function FamilyAndDerivativeSection({
 				</label>
 				<p className="text-muted-foreground text-xs">
 					Ana Tasarım olarak Onaylı Sürüm kullanılacak:{" "}
-					{tracking.approvedVersion.fileName ?? "dosya adı bilinmiyor"}.
+					{displayFileName(tracking.approvedVersion.fileName)}.
 				</p>
 				<Button
 					disabled={
@@ -354,7 +357,6 @@ export function AssetRecordTrackingPanel({
 		null
 	);
 	const [activeWrite, setActiveWrite] = useState<string | null>(null);
-	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
 	const [file, setFile] = useState<File | null>(null);
@@ -387,7 +389,6 @@ export function AssetRecordTrackingPanel({
 		write: () => Promise<unknown>
 	) {
 		setActiveWrite(label);
-		setErrorMessage(null);
 		setStatusMessage(null);
 		try {
 			await write();
@@ -399,11 +400,11 @@ export function AssetRecordTrackingPanel({
 			if (isWriteOutcomeUncertain(error)) {
 				pendingWrite.current = { check, message: label };
 				setWriteOutcomeUncertain(true);
-				setErrorMessage(
+				toast.error(
 					"İşlemin kaydedilip kaydedilmediği doğrulanamadı. Güncel durumu kontrol edin."
 				);
 			} else {
-				setErrorMessage(getErrorMessage(error, "Değişiklik kaydedilemedi."));
+				toast.error(getErrorMessage(error, "Değişiklik kaydedilemedi."));
 			}
 		} finally {
 			setActiveWrite(null);
@@ -414,6 +415,14 @@ export function AssetRecordTrackingPanel({
 		setActiveWrite("Durum kontrol ediliyor…");
 		try {
 			const result = await onRefresh();
+			if (
+				result &&
+				typeof result === "object" &&
+				"isError" in result &&
+				result.isError
+			) {
+				return;
+			}
 			const refreshedDetail =
 				result && typeof result === "object" && "data" in result
 					? result.data
@@ -424,20 +433,17 @@ export function AssetRecordTrackingPanel({
 					refreshedDetail as AssetRecordTrackingDetail
 				)
 			) {
-				setErrorMessage(null);
 				setStatusMessage(pendingWrite.current.message);
 				pendingWrite.current = null;
 				setWriteOutcomeUncertain(false);
 				return;
 			}
-			setErrorMessage(
+			toast.error(
 				"Kayıt henüz görünmüyor. Aynı bilgiyle yeniden deneyebilirsiniz."
 			);
 			setWriteOutcomeUncertain(false);
 		} catch (error) {
-			setErrorMessage(
-				getErrorMessage(error, "Güncel durum okunamadı.", "query")
-			);
+			toast.error(getErrorMessage(error, "Güncel durum okunamadı.", "query"));
 		} finally {
 			setActiveWrite(null);
 		}
@@ -564,14 +570,16 @@ export function AssetRecordTrackingPanel({
 
 	async function createDerivative(event: SyntheticEvent<HTMLFormElement>) {
 		event.preventDefault();
+		const { family } = tracking;
+		const canonicalVersionId = family?.canonicalVersionId;
 		if (
-			!(record && tracking.family?.canonicalVersionId) ||
+			!(record && family && canonicalVersionId) ||
 			selectedDependencyFacets.length === 0
 		) {
 			return;
 		}
 		const signature = JSON.stringify({
-			canonicalVersionId: tracking.family.canonicalVersionId,
+			canonicalVersionId,
 			dependencyFacets: selectedDependencyFacets,
 			derivedAssetRecordId: derivativeAssetRecordId,
 			sourceAssetRecordId: record.id,
@@ -586,7 +594,7 @@ export function AssetRecordTrackingPanel({
 				refreshed.tracking.derivatives.some((entry) => entry.id === request.id),
 			() =>
 				client.assetRecords.createDerivative({
-					canonicalVersionId: tracking.family?.canonicalVersionId as string,
+					canonicalVersionId,
 					dependencyFacets: selectedDependencyFacets,
 					derivedAssetRecordId: derivativeAssetRecordId,
 					id: request.id,
@@ -676,7 +684,6 @@ export function AssetRecordTrackingPanel({
 					Aktarıma Hazır sonucu değildir.
 				</p>
 			</div>
-			{errorMessage ? <p role="alert">{errorMessage}</p> : null}
 			{statusMessage ? (
 				<p aria-live="polite" role="status">
 					{statusMessage}
@@ -721,7 +728,10 @@ export function AssetRecordTrackingPanel({
 					</h3>
 					{tracking.approvedVersion ? (
 						<div className="mt-2 space-y-2 text-sm">
-							<p>{getVersionLabel(tracking.approvedVersion)}</p>
+							<p>
+								{displayFileName(tracking.approvedVersion.fileName)} · Sürüm{" "}
+								{tracking.approvedVersion.versionNumber}
+							</p>
 							{reviewActions(tracking.approvedVersion)}
 						</div>
 					) : (
@@ -743,7 +753,8 @@ export function AssetRecordTrackingPanel({
 							{tracking.alternatives.map((version) => (
 								<li className="space-y-1" key={version.id}>
 									<p>
-										{getVersionLabel(version)} ·{" "}
+										{displayFileName(version.fileName)} · Sürüm{" "}
+										{version.versionNumber} ·{" "}
 										{reviewDispositionLabel[version.reviewDisposition]}
 									</p>
 									{reviewActions(version)}
@@ -884,7 +895,9 @@ export function AssetRecordTrackingPanel({
 									.filter((version) => version.assetRecordId !== record.id)
 									.map((version) => (
 										<option key={version.id} value={version.id}>
-											{version.assetRecordName} · {getVersionLabel(version)}
+											{version.assetRecordName} ·{" "}
+											{displayFileName(version.fileName)} · Sürüm{" "}
+											{version.versionNumber}
 										</option>
 									))}
 							</select>

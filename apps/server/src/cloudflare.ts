@@ -27,10 +27,15 @@ export const twoDVisualAssetKeySchema = z
 
 export const assetVersionObjectKeySchema = z
 	.string()
-	.regex(
-		new RegExp(
-			`^projects/${projectKeySegmentPattern}/asset-versions/${uuidPattern}/[a-f0-9]{64}$`
-		)
+	.refine((key) =>
+		[
+			new RegExp(
+				`^projects/${projectKeySegmentPattern}/asset-records/${uuidPattern}/versions/${uuidPattern}$`
+			),
+			new RegExp(
+				`^projects/${projectKeySegmentPattern}/asset-versions/${uuidPattern}/[a-f0-9]{64}$`
+			),
+		].some((pattern) => pattern.test(key))
 	);
 
 export const legacyAssetKeySchema = z
@@ -44,6 +49,17 @@ export function createProjectTwoDVisualAssetKey(
 	const projectKeySegment = encodeURIComponent(projectId);
 	return twoDVisualAssetKeySchema.parse(
 		`projects/${projectKeySegment}/2d-visual-assets/${twoDVisualAssetId}`
+	);
+}
+
+export function createProjectAssetVersionObjectKey(
+	projectId: string,
+	assetRecordId: string,
+	assetVersionId: string
+) {
+	const projectKeySegment = encodeURIComponent(projectId);
+	return assetVersionObjectKeySchema.parse(
+		`projects/${projectKeySegment}/asset-records/${assetRecordId}/versions/${assetVersionId}`
 	);
 }
 
@@ -87,67 +103,91 @@ export const queueMessageSchema = z.discriminatedUnion("version", [
 	projectQueueMessageSchema,
 ]);
 
-export interface CloudflareConfig {
+export interface R2Config {
 	CLOUDFLARE_ACCOUNT_ID: string;
-	CLOUDFLARE_QUEUE_ID: string;
-	CLOUDFLARE_QUEUES_TOKEN: string;
 	R2_ACCESS_KEY_ID: string;
 	R2_BUCKET: string;
 	R2_SECRET_ACCESS_KEY: string;
+	S3_API?: string;
 }
 
-export type R2StorageConfig = Pick<
-	CloudflareConfig,
-	| "CLOUDFLARE_ACCOUNT_ID"
-	| "R2_ACCESS_KEY_ID"
-	| "R2_BUCKET"
-	| "R2_SECRET_ACCESS_KEY"
->;
+export interface CloudflareQueueConfig {
+	CLOUDFLARE_ACCOUNT_ID: string;
+	CLOUDFLARE_QUEUE_ID: string;
+	CLOUDFLARE_QUEUES_TOKEN: string;
+}
+
+export interface CloudflareConfig extends R2Config, CloudflareQueueConfig {}
+
+export type R2StorageConfig = R2Config;
 
 export function getR2StorageConfig(
-	config: Partial<CloudflareConfig>
+	config: Partial<CloudflareConfig> & { R2_ACCOUNT_ID?: string }
 ): R2StorageConfig | null {
-	const result = z
-		.object({
-			CLOUDFLARE_ACCOUNT_ID: z.string().min(1),
-			R2_ACCESS_KEY_ID: z.string().min(1),
-			R2_SECRET_ACCESS_KEY: z.string().min(1),
-			R2_BUCKET: z.string().min(1),
-		})
-		.safeParse({
-			CLOUDFLARE_ACCOUNT_ID: config.CLOUDFLARE_ACCOUNT_ID,
-			R2_ACCESS_KEY_ID: config.R2_ACCESS_KEY_ID,
-			R2_SECRET_ACCESS_KEY: config.R2_SECRET_ACCESS_KEY,
-			R2_BUCKET: config.R2_BUCKET,
-		});
-	return result.success ? result.data : null;
+	try {
+		return requireR2Config(config);
+	} catch {
+		return null;
+	}
 }
 
-export function requireCloudflareConfig(
-	config: Partial<CloudflareConfig>
-): CloudflareConfig {
-	return z
+type R2ConfigInput = Partial<R2Config> & { R2_ACCOUNT_ID?: string };
+
+export function requireR2Config(config: R2ConfigInput): R2Config {
+	const accountId = config.R2_ACCOUNT_ID ?? config.CLOUDFLARE_ACCOUNT_ID;
+	const parsed = z
 		.object({
 			CLOUDFLARE_ACCOUNT_ID: z.string().min(1),
-			CLOUDFLARE_QUEUE_ID: z.string().min(1),
-			CLOUDFLARE_QUEUES_TOKEN: z.string().min(1),
+			S3_API: z.url().optional(),
 			R2_ACCESS_KEY_ID: z.string().min(1),
 			R2_SECRET_ACCESS_KEY: z.string().min(1),
 			R2_BUCKET: z.string().min(1),
 		})
 		.parse({
-			CLOUDFLARE_ACCOUNT_ID: config.CLOUDFLARE_ACCOUNT_ID,
-			CLOUDFLARE_QUEUE_ID: config.CLOUDFLARE_QUEUE_ID,
-			CLOUDFLARE_QUEUES_TOKEN: config.CLOUDFLARE_QUEUES_TOKEN,
+			CLOUDFLARE_ACCOUNT_ID: accountId,
+			S3_API: config.S3_API,
 			R2_ACCESS_KEY_ID: config.R2_ACCESS_KEY_ID,
 			R2_SECRET_ACCESS_KEY: config.R2_SECRET_ACCESS_KEY,
 			R2_BUCKET: config.R2_BUCKET,
 		});
+	if (parsed.S3_API) {
+		const endpoint = new URL(parsed.S3_API);
+		if (
+			endpoint.protocol !== "https:" ||
+			endpoint.hostname !==
+				`${parsed.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com` ||
+			endpoint.username ||
+			endpoint.password ||
+			(endpoint.pathname !== "" && endpoint.pathname !== "/") ||
+			endpoint.search ||
+			endpoint.hash
+		) {
+			throw new Error("S3_API must be the HTTPS R2 endpoint for R2_ACCOUNT_ID");
+		}
+	}
+	return parsed;
+}
+
+export function requireCloudflareConfig(
+	config: Partial<CloudflareConfig> & { R2_ACCOUNT_ID?: string }
+): CloudflareConfig {
+	const r2 = requireR2Config(config);
+	const queues = z
+		.object({
+			CLOUDFLARE_QUEUE_ID: z.string().min(1),
+			CLOUDFLARE_QUEUES_TOKEN: z.string().min(1),
+		})
+		.parse({
+			CLOUDFLARE_QUEUE_ID: config.CLOUDFLARE_QUEUE_ID,
+			CLOUDFLARE_QUEUES_TOKEN: config.CLOUDFLARE_QUEUES_TOKEN,
+		});
+	return { ...r2, ...queues, CLOUDFLARE_ACCOUNT_ID: r2.CLOUDFLARE_ACCOUNT_ID };
 }
 
 export function createStorage(
-	config: R2StorageConfig,
-	endpoint = `https://${config.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`
+	config: R2Config,
+	endpoint = config.S3_API ??
+		`https://${config.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`
 ) {
 	const client = new S3Client({
 		region: "auto",
@@ -226,7 +266,7 @@ function isMissingObject(error: unknown) {
 }
 
 export function createQueue(
-	config: CloudflareConfig,
+	config: CloudflareQueueConfig,
 	fetcher: (input: string, init?: RequestInit) => Promise<Response> = fetch
 ) {
 	const baseUrl = `https://api.cloudflare.com/client/v4/accounts/${config.CLOUDFLARE_ACCOUNT_ID}/queues/${config.CLOUDFLARE_QUEUE_ID}/messages`;

@@ -16,13 +16,19 @@ import {
 } from "./cloudflare";
 import { createContext } from "./context";
 import { desktopOrigins, ENV } from "./env.server";
+import { mountAssetVersionRoutes } from "./features/asset-versions/server/asset-version-routes";
 import { mountProjectRoutes } from "./features/projects/server/project-routes";
 import {
 	serializeHealthResponse,
 	serializePublicApiError,
 	serializeRpcInternalServerError,
 } from "./output-contracts";
-import { auth, db } from "./services";
+import {
+	assetVersionStore,
+	auth,
+	createServerAssetVersionStorage,
+	db,
+} from "./services";
 
 const app = new Hono();
 const cloudflareConfig = () => requireCloudflareConfig(ENV);
@@ -52,7 +58,13 @@ app.use(
 	cors({
 		origin: [ENV.CORS_ORIGIN, ...desktopOrigins],
 		allowMethods: ["GET", "POST", "OPTIONS"],
-		allowHeaders: ["Content-Type", "Authorization"],
+		allowHeaders: [
+			"Content-Type",
+			"Authorization",
+			"X-Asset-Version-Size",
+			"X-Asset-Version-File-Name",
+			"Idempotency-Key",
+		],
 		credentials: true,
 	})
 );
@@ -68,6 +80,14 @@ mountProjectRoutes(app, {
 	cloudflareConfig,
 	createQueue,
 	createStorage,
+});
+
+mountAssetVersionRoutes(app, {
+	assetVersionStore,
+	getSession: (headers) => auth.api.getSession({ headers }),
+	getProjectForUser: async (userId, projectId) =>
+		getProjectForUser(db, userId, projectId),
+	createStorage: createServerAssetVersionStorage,
 });
 
 export const apiHandler = new OpenAPIHandler(appRouter, {

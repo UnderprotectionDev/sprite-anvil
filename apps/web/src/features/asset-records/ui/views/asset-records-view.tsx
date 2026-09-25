@@ -3,20 +3,50 @@ import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, type SyntheticEvent, useRef, useState } from "react";
+import { toast } from "sonner";
 import { AssetRecordSearchPanel } from "@/features/asset-discovery/ui/components/asset-record-search-panel";
-import {
-	isWriteOutcomeUncertain,
-	QueryRetryButton,
-} from "@/utils/error-notification";
+import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
-import { AssetRecordTrackingPanel } from "../components/asset-record-tracking-panel";
-import { AssetRecordMetadataForm } from "../forms/asset-record-metadata-form";
 import {
-	getIdentitySummary,
-	type IdentityCriterion,
-	identityCriterionOptions,
-} from "../identity-criteria";
+	AssetRecordAvailabilityControl,
+	getAvailabilityLabel,
+} from "../components/asset-record-availability-control";
+import { AssetRecordTrackingPanel } from "../components/asset-record-tracking-panel";
+import { AssetRecordMeasurementsForm } from "../forms/asset-record-measurements-form";
+import { AssetRecordMetadataForm } from "../forms/asset-record-metadata-form";
+
+const identityOptions = [
+	{
+		value: "independent_product_meaning",
+		label: "Bağımsız ürün anlamı",
+		description:
+			"Oyunda kendi kimliği ve amacı olan karakter, nesne veya görsel.",
+	},
+	{
+		value: "independent_lifecycle",
+		label: "Bağımsız yaşam döngüsü",
+		description: "Kendi kararlarıyla ayrı değişen veya gelişen varlık.",
+	},
+	{
+		value: "delivery_identity",
+		label: "Teslimat kimliği",
+		description: "Oyuna ayrı bir varlık olarak teslim edilen içerik.",
+	},
+] as const;
+type IdentityCriterion = (typeof identityOptions)[number]["value"];
+
+function getIdentityLabel(value: string) {
+	return (
+		identityOptions.find((option) => option.value === value)?.label ?? value
+	);
+}
+
+function getIdentitySummary(identityCriteria: readonly string[]) {
+	return identityCriteria.length > 0
+		? identityCriteria.map(getIdentityLabel).join(" · ")
+		: "Gerekçe kaydedilmemiş";
+}
 
 export function AssetRecordsView({
 	onOpenRecord,
@@ -30,14 +60,12 @@ export function AssetRecordsView({
 	});
 	const projectQuery = useQuery({
 		...projectQueryOptions,
-		meta: { errorPresentation: "inline" },
 	});
 	const recordsQueryOptions = orpc.assetRecords.list.queryOptions({
 		input: { projectId },
 	});
 	const recordsQuery = useQuery({
 		...recordsQueryOptions,
-		meta: { errorPresentation: "inline" },
 	});
 	const pendingCreate = useRef<AssetRecordCreateInput | null>(null);
 	const [name, setName] = useState("");
@@ -47,7 +75,6 @@ export function AssetRecordsView({
 	const [isSaving, setIsSaving] = useState(false);
 	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
 	const [isCheckingWriteOutcome, setIsCheckingWriteOutcome] = useState(false);
-	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
 	function updateName(value: string) {
@@ -69,9 +96,6 @@ export function AssetRecordsView({
 		try {
 			const result = await recordsQuery.refetch();
 			if (result.isError) {
-				setErrorMessage(
-					"Kayıt işleminin durumu doğrulanamadı. Kayıt listesini yeniden deneyin."
-				);
 				return;
 			}
 
@@ -81,7 +105,6 @@ export function AssetRecordsView({
 			);
 			if (existingRecord) {
 				setWriteOutcomeUncertain(false);
-				setErrorMessage(null);
 				setStatusMessage("Varlık kaydı bulundu.");
 				pendingCreate.current = null;
 				onOpenRecord(existingRecord.id);
@@ -89,7 +112,6 @@ export function AssetRecordsView({
 			}
 
 			setWriteOutcomeUncertain(false);
-			setErrorMessage(null);
 			setStatusMessage(
 				"Kayıt listesi yenilendi. Aynı kimlikle yeniden deneyebilirsiniz."
 			);
@@ -118,7 +140,6 @@ export function AssetRecordsView({
 				projectId,
 			} satisfies AssetRecordCreateInput);
 		pendingCreate.current = input;
-		setErrorMessage(null);
 		setStatusMessage(null);
 		setIsSaving(true);
 		try {
@@ -132,7 +153,7 @@ export function AssetRecordsView({
 			} else {
 				pendingCreate.current = null;
 			}
-			setErrorMessage(
+			toast.error(
 				getErrorMessage(
 					error,
 					"Varlık kaydının sonucu doğrulanamadı. Mevcut durumu kontrol edin."
@@ -143,20 +164,52 @@ export function AssetRecordsView({
 		}
 	}
 
+	const records = recordsQuery.data ?? [];
 	let projectState: ReactNode = null;
 	if (projectQuery.isPending) {
 		projectState = <p aria-live="polite">Proje yükleniyor…</p>;
 	} else if (projectQuery.isError) {
-		projectState = (
-			<div className="space-y-2">
-				<p role="alert">
-					{getErrorMessage(projectQuery.error, "Proje yüklenemedi.", "query")}
-				</p>
-				<QueryRetryButton
-					disabled={projectQuery.isFetching}
-					onRetry={() => void projectQuery.refetch()}
-				/>
-			</div>
+		projectState = null;
+	}
+
+	let recordsState: ReactNode = null;
+	if (recordsQuery.isPending) {
+		recordsState = <p aria-live="polite">Varlık kayıtları yükleniyor…</p>;
+	} else if (recordsQuery.isError) {
+		recordsState = null;
+	} else if (records.length === 0) {
+		recordsState = (
+			<p className="rounded-lg border border-dashed p-5 text-muted-foreground">
+				Bu projede henüz varlık kaydı yok.
+			</p>
+		);
+	} else {
+		recordsState = (
+			<ul className="space-y-3">
+				{records.map((record) => (
+					<li
+						className="flex flex-col justify-between gap-3 rounded-lg border p-4 sm:flex-row sm:items-center"
+						key={record.id}
+					>
+						<div>
+							<h3 className="font-medium">{record.name}</h3>
+							<p className="text-muted-foreground text-sm">
+								{getIdentitySummary(record.identityCriteria)}
+							</p>
+							<p className="text-muted-foreground text-sm">
+								Kayıt durumu · {getAvailabilityLabel(record.availability)}
+							</p>
+						</div>
+						<Button
+							aria-label={`${record.name} kaydını aç`}
+							onClick={() => onOpenRecord(record.id)}
+							variant="outline"
+						>
+							Kaydı aç
+						</Button>
+					</li>
+				))}
+			</ul>
 		);
 	}
 
@@ -213,7 +266,7 @@ export function AssetRecordsView({
 						<legend className="mb-2 font-medium text-sm">
 							Bu kaydın bağımsız kimliği
 						</legend>
-						{identityCriterionOptions.map((option) => (
+						{identityOptions.map((option) => (
 							<label
 								className="flex cursor-pointer items-start gap-3 rounded-md border p-3 has-checked:border-primary"
 								key={option.value}
@@ -244,7 +297,6 @@ export function AssetRecordsView({
 							yeterli değildir.
 						</p>
 					</fieldset>
-					{errorMessage ? <p role="alert">{errorMessage}</p> : null}
 					{writeOutcomeUncertain ? (
 						<Button
 							disabled={isCheckingWriteOutcome}
@@ -276,6 +328,18 @@ export function AssetRecordsView({
 				</form>
 			</section>
 
+			<section aria-labelledby="asset-records-heading" className="space-y-4">
+				<div>
+					<h2 className="font-semibold text-xl" id="asset-records-heading">
+						Varlık kayıtları
+					</h2>
+					<p className="mt-1 text-muted-foreground text-sm">
+						Kayıt kimliği; dosyalardan, sürümlerden ve ayrı değiştirilebilir
+						birimlerden bağımsızdır.
+					</p>
+				</div>
+				{recordsState}
+			</section>
 			<AssetRecordSearchPanel
 				onOpenRecord={onOpenRecord}
 				projectId={projectId}
@@ -295,43 +359,29 @@ export function AssetRecordDetailView({
 }) {
 	const projectQuery = useQuery({
 		...orpc.projects.get.queryOptions({ input: { projectId } }),
-		meta: { errorPresentation: "inline" },
 	});
-	const trackingQuery = useQuery({
-		...orpc.assetRecords.tracking.queryOptions({
+	const recordQuery = useQuery({
+		...orpc.assetRecords.get.queryOptions({
 			input: { assetRecordId, projectId },
 		}),
-		meta: { errorPresentation: "inline" },
 	});
-	const record = trackingQuery.data?.record;
-	const availabilityLabel = record
-		? {
-				active: "Etkin",
-				archived: "Arşivlenmiş",
-				erased: "Silinmiş",
-			}[record.availability]
-		: null;
+	const trackingQueryOptions = orpc.assetRecords.tracking.queryOptions({
+		input: { assetRecordId, projectId },
+	});
+	const trackingQuery = useQuery({
+		...trackingQueryOptions,
+		enabled: Boolean(recordQuery.data),
+	});
+	const record = recordQuery.data;
 	let recordHeading: ReactNode;
-	if (trackingQuery.isPending) {
+	let trackingPanel: ReactNode = null;
+	if (recordQuery.isPending) {
 		recordHeading = (
 			<h1 className="font-bold text-3xl">Varlık kaydı yükleniyor…</h1>
 		);
-	} else if (trackingQuery.isError) {
+	} else if (recordQuery.isError) {
 		recordHeading = (
-			<div>
-				<h1 className="font-bold text-3xl">Varlık kaydı açılamadı</h1>
-				<p role="alert">
-					{getErrorMessage(
-						trackingQuery.error,
-						"Varlık kaydı yüklenemedi.",
-						"query"
-					)}
-				</p>
-				<QueryRetryButton
-					disabled={trackingQuery.isFetching}
-					onRetry={() => void trackingQuery.refetch()}
-				/>
-			</div>
+			<h1 className="font-bold text-3xl">Varlık kaydı açılamadı</h1>
 		);
 	} else if (record) {
 		recordHeading = (
@@ -345,6 +395,15 @@ export function AssetRecordDetailView({
 	} else {
 		recordHeading = null;
 	}
+	if (trackingQuery.data) {
+		trackingPanel = (
+			<AssetRecordTrackingPanel
+				detail={trackingQuery.data}
+				focusVersionId={focusVersionId}
+				onRefresh={() => trackingQuery.refetch()}
+			/>
+		);
+	}
 
 	return (
 		<main className="mx-auto w-full max-w-3xl space-y-8 overflow-y-auto px-4 py-8">
@@ -357,41 +416,33 @@ export function AssetRecordDetailView({
 
 			{record ? (
 				<>
-					<section
-						aria-labelledby="record-availability"
-						className="rounded-lg border p-5"
-					>
-						<h2 className="font-semibold" id="record-availability">
-							Kayıt durumu
-						</h2>
-						<p className="mt-1">{availabilityLabel}</p>
-						<p className="mt-2 text-muted-foreground text-sm">
-							Genel Varlık Desteği · Özel profil kanıtı yok
-						</p>
-						<p className="mt-2 text-muted-foreground text-sm">
-							Kayıt oluşturuldu ·{" "}
-							<time dateTime={record.createdAt}>
-								{new Intl.DateTimeFormat("tr-TR", {
-									dateStyle: "medium",
-									timeStyle: "short",
-								}).format(new Date(record.createdAt))}
-							</time>
-						</p>
-					</section>
-					<AssetRecordMetadataForm
-						familyWorldId={
-							trackingQuery.data?.tracking.family?.visualWorldId ?? null
-						}
-						projectId={projectId}
+					<AssetRecordAvailabilityControl
+						onRefresh={() => recordQuery.refetch()}
 						record={record}
 					/>
-					{trackingQuery.data ? (
-						<AssetRecordTrackingPanel
-							detail={trackingQuery.data}
-							focusVersionId={focusVersionId}
-							onRefresh={() => trackingQuery.refetch()}
+					{record.availability === "erased" ? null : (
+						<AssetRecordMetadataForm
+							familyWorldId={
+								trackingQuery.data?.tracking.family?.visualWorldId ?? null
+							}
+							projectId={projectId}
+							record={record}
 						/>
-					) : null}
+					)}
+					{record.availability === "erased" ? (
+						<section className="rounded-lg border p-5">
+							<h2 className="font-semibold text-xl">Görsel ölçüleri</h2>
+							<p className="mt-2 text-muted-foreground text-sm">
+								Silinmiş kaydın ölçüleri görüntülenemez veya değiştirilemez.
+							</p>
+						</section>
+					) : (
+						<AssetRecordMeasurementsForm
+							onRefresh={() => recordQuery.refetch()}
+							record={record}
+						/>
+					)}
+					{trackingPanel}
 				</>
 			) : null}
 		</main>

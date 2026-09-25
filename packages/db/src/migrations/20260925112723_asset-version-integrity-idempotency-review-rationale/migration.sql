@@ -1,0 +1,1 @@
+-- Asset Version integrity fields are created by the merged model migration.

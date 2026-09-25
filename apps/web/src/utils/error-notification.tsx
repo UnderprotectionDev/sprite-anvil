@@ -19,6 +19,25 @@ export interface ErrorNotification {
 	title: string;
 }
 
+export function QueryRetryButton({
+	disabled,
+	onRetry,
+}: {
+	disabled: boolean;
+	onRetry: () => void;
+}) {
+	return (
+		<Button
+			disabled={disabled}
+			onClick={onRetry}
+			type="button"
+			variant="outline"
+		>
+			Retry
+		</Button>
+	);
+}
+
 function getErrorProperty(error: unknown, property: string): unknown {
 	if (typeof error !== "object" || error === null) {
 		return undefined;
@@ -54,27 +73,6 @@ export function isWriteOutcomeUncertain(error: unknown): boolean {
 		code === "INTERNAL_SERVER_ERROR" ||
 		(typeof status === "number" && status >= 500) ||
 		isConnectionError(error)
-	);
-}
-
-export function QueryRetryButton({
-	className,
-	disabled,
-	onRetry,
-}: {
-	className?: string;
-	disabled?: boolean;
-	onRetry: () => void;
-}) {
-	return (
-		<Button
-			className={className}
-			disabled={disabled}
-			onClick={onRetry}
-			type="button"
-		>
-			Retry
-		</Button>
 	);
 }
 
