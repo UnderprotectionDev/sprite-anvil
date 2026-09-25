@@ -48,6 +48,7 @@ export const assetFamilyRelationshipSchema = z
 		projectId: idSchema,
 		assetFamilyId: idSchema,
 		sourceAssetRecordId: idSchema,
+		sourceAssetVersionId: idSchema.nullable(),
 		targetAssetRecordId: idSchema,
 		type: assetFamilyRelationshipTypeSchema,
 		createdAt: z.string().datetime(),
@@ -94,10 +95,28 @@ export const assetFamilyRelationshipCreateInputSchema = z
 		projectId: idSchema,
 		assetFamilyId: idSchema,
 		sourceAssetRecordId: idSchema,
+		sourceAssetVersionId: idSchema.optional(),
 		targetAssetRecordId: idSchema,
 		type: assetFamilyRelationshipTypeSchema,
 	})
-	.strict();
+	.strict()
+	.superRefine((input, context) => {
+		if (input.type === "derivative" && !input.sourceAssetVersionId) {
+			context.addIssue({
+				code: "custom",
+				message: "Türetilmiş Varlık için Kaynak Varlık Sürümü seçilmelidir.",
+				path: ["sourceAssetVersionId"],
+			});
+		}
+		if (input.type !== "derivative" && input.sourceAssetVersionId) {
+			context.addIssue({
+				code: "custom",
+				message:
+					"Kaynak Varlık Sürümü yalnız Türetilmiş Varlık için seçilebilir.",
+				path: ["sourceAssetVersionId"],
+			});
+		}
+	});
 
 export type AssetFamilyRelationshipType = z.infer<
 	typeof assetFamilyRelationshipTypeSchema

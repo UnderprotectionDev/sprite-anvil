@@ -6,6 +6,7 @@ import {
 	createQueue,
 	createStorage,
 	queueMessageSchema,
+	requireR2Config,
 	serializeProjectQueueMessage,
 } from "./cloudflare";
 
@@ -130,6 +131,28 @@ describe("Cloudflare Queues HTTP transport", () => {
 });
 
 describe("Cloudflare R2 HTTP transport", () => {
+	it("accepts R2_ACCOUNT_ID and validates a matching S3_API endpoint", () => {
+		const r2 = requireR2Config({
+			R2_ACCOUNT_ID: "account",
+			S3_API: "https://account.r2.cloudflarestorage.com",
+			R2_ACCESS_KEY_ID: "access",
+			R2_SECRET_ACCESS_KEY: "secret",
+			R2_BUCKET: "assets",
+		});
+
+		expect(r2.CLOUDFLARE_ACCOUNT_ID).toBe("account");
+		expect(r2.S3_API).toBe("https://account.r2.cloudflarestorage.com");
+		expect(() =>
+			requireR2Config({
+				R2_ACCOUNT_ID: "account",
+				S3_API: "https://another-account.r2.cloudflarestorage.com",
+				R2_ACCESS_KEY_ID: "access",
+				R2_SECRET_ACCESS_KEY: "secret",
+				R2_BUCKET: "assets",
+			})
+		).toThrow("S3_API must be the HTTPS R2 endpoint for R2_ACCOUNT_ID");
+	});
+
 	it("uploads a Web ReadableStream through the S3 client", async () => {
 		let uploadedBody = "";
 		const server = createServer(async (request, response) => {

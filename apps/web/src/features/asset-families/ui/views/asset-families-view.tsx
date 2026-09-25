@@ -2,6 +2,8 @@ import { Button } from "@sprite-anvil/ui/components/button";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type { SyntheticEvent } from "react";
+import { AssetVersionControls } from "@/features/asset-versions/ui/components/asset-version-controls";
+import { useAssetVersionWrites } from "@/features/asset-versions/ui/hooks/use-asset-version-writes";
 import { QueryRetryButton } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
@@ -13,6 +15,8 @@ import {
 import { useAssetFamilyFormState } from "../hooks/use-asset-family-form-state";
 import { useAssetFamilyWrites } from "../hooks/use-asset-family-writes";
 
+const emptyAssetVersionCatalog = { assetVersions: [], canonicalDesigns: [] };
+
 export function AssetFamiliesView({ projectId }: { projectId: string }) {
 	const projectsQuery = useQuery({
 		...orpc.projectContexts.list.queryOptions(),
@@ -22,15 +26,34 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 		...orpc.assetFamilies.list.queryOptions({ input: { projectId } }),
 		meta: { errorPresentation: "inline" },
 	});
+	const assetVersionQuery = useQuery({
+		...orpc.assetVersions.list.queryOptions({ input: { projectId } }),
+		meta: { errorPresentation: "inline" },
+	});
 	const scopeQuery = useQuery({
 		...orpc.contextScopes.list.queryOptions({ input: { projectId } }),
 		meta: { errorPresentation: "inline" },
 	});
 	const project = projectsQuery.data?.find((item) => item.id === projectId);
 	const catalog = catalogQuery.data;
+	const assetVersionCatalog =
+		assetVersionQuery.data ?? emptyAssetVersionCatalog;
 	const visualWorlds = scopeQuery.data?.visualWorlds ?? [];
 	const form = useAssetFamilyFormState(catalog, visualWorlds);
 	const writes = useAssetFamilyWrites(catalogQuery.refetch);
+	const refreshAssetCatalogs = async () => {
+		const results = await Promise.all([
+			catalogQuery.refetch(),
+			assetVersionQuery.refetch(),
+		]);
+		return { isError: results.some((result) => result.isError) };
+	};
+	const assetVersionWrites = useAssetVersionWrites(
+		projectId,
+		refreshAssetCatalogs
+	);
+	const writesDisabled =
+		writes.writesDisabled || assetVersionWrites.writesDisabled;
 	const { state: formState } = form;
 
 	function submitSubjectIdentity(event: SyntheticEvent<HTMLFormElement>) {
@@ -80,6 +103,28 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 	}
 
 	function submitRelationship(event: SyntheticEvent<HTMLFormElement>) {
+		const canonicalDesign = assetVersionCatalog.canonicalDesigns
+			.filter(
+				(design) =>
+					design.assetFamilyId === formState.selectedRelationshipFamilyId
+			)
+			.at(-1);
+		const sourceAssetVersionId =
+			formState.relationshipType === "derivative"
+				? canonicalDesign?.assetVersionId
+				: undefined;
+		const sourceAssetRecordId =
+			formState.relationshipType === "derivative"
+				? (canonicalDesign?.assetRecordId ?? "")
+				: formState.selectedRelationshipSourceId;
+		const targetAssetRecordId =
+			formState.selectedRelationshipTargetId === sourceAssetRecordId
+				? (catalog?.assetRecords.find(
+						(record) =>
+							record.assetFamilyId === formState.selectedRelationshipFamilyId &&
+							record.id !== sourceAssetRecordId
+					)?.id ?? "")
+				: formState.selectedRelationshipTargetId;
 		void writes.save(
 			event,
 			"relationship",
@@ -87,9 +132,10 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 				client.assetFamilies.createRelationship({
 					projectId,
 					assetFamilyId: formState.selectedRelationshipFamilyId,
-					sourceAssetRecordId: formState.selectedRelationshipSourceId,
-					targetAssetRecordId: formState.selectedRelationshipTargetId,
+					sourceAssetRecordId,
+					targetAssetRecordId,
 					type: formState.relationshipType,
+					...(sourceAssetVersionId ? { sourceAssetVersionId } : {}),
 				}),
 			() => undefined,
 			"İlişki kaydedildi."
@@ -148,6 +194,15 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 				onRetry={() => void catalogQuery.refetch()}
 			/>
 			<QueryState
+				error={assetVersionQuery.error}
+				failureMessage="Varlık Sürümleri yüklenemedi."
+				isError={assetVersionQuery.isError}
+				isFetching={assetVersionQuery.isFetching}
+				isPending={assetVersionQuery.isPending}
+				loadingMessage="Varlık Sürümleri yükleniyor…"
+				onRetry={() => void assetVersionQuery.refetch()}
+			/>
+			<QueryState
 				error={scopeQuery.error}
 				failureMessage="Görsel Dünyalar yüklenemedi."
 				isError={scopeQuery.isError}
@@ -160,8 +215,9 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 			{catalog && !catalogQuery.isError ? (
 				<>
 					<AssetFamilyManagementForms
+						assetVersionCatalog={assetVersionCatalog}
 						catalog={catalog}
-						disabled={writes.writesDisabled}
+						disabled={writesDisabled}
 						formHandlers={formHandlers}
 						formState={formState}
 						isSaving={writes.savingOperation}
@@ -185,10 +241,18 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 							</p>
 						</div>
 						<AssetFamilyCatalogView
+							assetVersionCatalog={assetVersionCatalog}
 							catalog={catalog}
 							visualWorlds={visualWorlds}
 						/>
 					</section>
+					{assetVersionQuery.data ? (
+						<AssetVersionControls
+							assetVersionCatalog={assetVersionCatalog}
+							catalog={catalog}
+							writes={assetVersionWrites}
+						/>
+					) : null}
 				</>
 			) : null}
 		</main>

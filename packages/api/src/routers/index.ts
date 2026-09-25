@@ -27,6 +27,7 @@ import {
 	validateContextProposal,
 } from "../project-context";
 import { assetFamiliesRouter } from "./asset-families";
+import { assetVersionsRouter } from "./asset-versions";
 import { projectsRouter } from "./projects";
 
 async function readContextProposalReview(
@@ -91,6 +92,7 @@ export const appRouter = {
 	),
 	projects: projectsRouter,
 	assetFamilies: assetFamiliesRouter,
+	assetVersions: assetVersionsRouter,
 	contextScopes: {
 		list: protectedProcedure
 			.input(projectContextScopeListInputSchema)

@@ -1,8 +1,12 @@
 import type { Context as ApiContext } from "@sprite-anvil/api/context";
 import type { Context as HonoContext } from "hono";
+import { assetVersionObjectKeySchema } from "./cloudflare";
+import { verifyAssetVersionStream } from "./features/asset-versions/server/asset-version-integrity";
 import {
 	assetFamilyStore,
+	assetVersionStore,
 	auth,
+	createServerAssetVersionStorage,
 	db,
 	projectAccess,
 	projectContextScopeStore,
@@ -21,6 +25,51 @@ export async function createContext({
 	});
 	return {
 		assetFamilyStore,
+		assetVersionStore,
+		verifyAssetVersionContent: async (userId, projectId, assetVersionId) => {
+			const fileRecord = await assetVersionStore.getFileRecord(
+				userId,
+				projectId,
+				assetVersionId
+			);
+			if (
+				!(
+					fileRecord &&
+					fileRecord.integrityVerified &&
+					fileRecord.contentDigest
+				)
+			) {
+				return false;
+			}
+			const objectKey = assetVersionObjectKeySchema.parse(fileRecord.objectKey);
+			const object = await createServerAssetVersionStorage().get(objectKey);
+			if (
+				!object ||
+				object.contentType !== fileRecord.contentType ||
+				(object.contentLength !== undefined &&
+					object.contentLength !== fileRecord.contentLength)
+			) {
+				await object?.body.cancel();
+				return false;
+			}
+			const reader = verifyAssetVersionStream(
+				object.body,
+				fileRecord.contentType,
+				fileRecord.contentLength,
+				fileRecord.contentDigest
+			).body.getReader();
+			try {
+				let result = await reader.read();
+				while (!result.done) {
+					result = await reader.read();
+				}
+				return true;
+			} catch {
+				return false;
+			} finally {
+				reader.releaseLock();
+			}
+		},
 		projectAccess,
 		projectContextScopeStore,
 		db,

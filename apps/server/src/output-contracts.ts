@@ -1,4 +1,5 @@
 import { ORPCError } from "@orpc/server";
+import { assetVersionSchema } from "@sprite-anvil/api/asset-versions";
 import { supportReferenceSchema } from "@sprite-anvil/api/error-contract";
 import z from "zod";
 
@@ -39,6 +40,12 @@ export function serializeTwoDVisualAssetAcceptedResponse(
 	return twoDVisualAssetAcceptedResponseSchema.parse({ twoDVisualAssetId });
 }
 
+export const assetVersionUploadResponseSchema = assetVersionSchema;
+
+export function serializeAssetVersionUploadResponse(assetVersion: unknown) {
+	return assetVersionUploadResponseSchema.parse(assetVersion);
+}
+
 export const publicApiErrorSchema = z
 	.object({
 		error: z.enum([
@@ -48,6 +55,14 @@ export const publicApiErrorSchema = z
 			"Missing 2D Visual Asset content",
 			"Invalid 2D Visual Asset content length",
 			"2D Visual Asset upload failed",
+			"Unsupported Asset Version type",
+			"Missing Asset Version content",
+			"Invalid Asset Version content length",
+			"Missing Asset Version idempotency key",
+			"Invalid Asset Version image content",
+			"Asset Version idempotency conflict",
+			"Asset Version integrity check failed",
+			"Asset Version upload failed",
 			"Internal Server Error",
 		]),
 		supportReference: supportReferenceSchema.optional(),

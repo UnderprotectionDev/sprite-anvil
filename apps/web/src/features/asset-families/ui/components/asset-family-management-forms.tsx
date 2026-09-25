@@ -2,6 +2,7 @@ import type {
 	AssetFamilyCatalog,
 	AssetFamilyRelationshipType,
 } from "@sprite-anvil/api/asset-families";
+import type { AssetVersionCatalog } from "@sprite-anvil/api/asset-versions";
 import { Link } from "@tanstack/react-router";
 import type { SyntheticEvent } from "react";
 import {
@@ -45,6 +46,7 @@ export interface AssetFamilyFormHandlers {
 
 export function AssetFamilyManagementForms({
 	catalog,
+	assetVersionCatalog,
 	disabled,
 	formHandlers,
 	formState,
@@ -54,6 +56,7 @@ export function AssetFamilyManagementForms({
 	visualWorlds,
 }: {
 	catalog: AssetFamilyCatalog;
+	assetVersionCatalog: AssetVersionCatalog;
 	disabled: boolean;
 	formHandlers: AssetFamilyFormHandlers;
 	formState: AssetFamilyFormState;
@@ -62,6 +65,30 @@ export function AssetFamilyManagementForms({
 	isSaving: string | null;
 	visualWorlds: { id: string; name: string }[];
 }) {
+	const selectedCanonicalDesign = assetVersionCatalog.canonicalDesigns
+		.filter(
+			(design) =>
+				design.assetFamilyId === formState.selectedRelationshipFamilyId
+		)
+		.at(-1);
+	const selectedCanonicalVersion = selectedCanonicalDesign
+		? assetVersionCatalog.assetVersions.find(
+				(version) => version.id === selectedCanonicalDesign.assetVersionId
+			)
+		: undefined;
+	const canonicalDesign =
+		selectedCanonicalDesign && selectedCanonicalVersion
+			? {
+					assetRecordId: selectedCanonicalDesign.assetRecordId,
+					assetVersionId: selectedCanonicalDesign.assetVersionId,
+					recordName:
+						catalog.assetRecords.find(
+							(record) => record.id === selectedCanonicalDesign.assetRecordId
+						)?.name ?? "Varlık Kaydı",
+					versionNumber: selectedCanonicalVersion.versionNumber,
+				}
+			: null;
+
 	return (
 		<section aria-labelledby="asset-family-setup" className="space-y-4">
 			<div>
@@ -125,6 +152,7 @@ export function AssetFamilyManagementForms({
 					<AssetFamilyRelationshipForm
 						assetFamilies={catalog.assetFamilies}
 						assetRecords={catalog.assetRecords}
+						canonicalDesign={canonicalDesign}
 						disabled={disabled}
 						isSaving={isSaving === "relationship"}
 						onFamilyChange={formHandlers.onRelationshipFamilyChange}

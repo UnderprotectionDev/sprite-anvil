@@ -19,12 +19,15 @@ import {
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
 import {
 	assetFamilies,
+	assetFamilyCanonicalDesigns,
 	assetFamilyRelationships,
 	assetRecords,
+	assetVersionReviewEvents,
+	assetVersions,
 	subjectIdentities,
 } from "@sprite-anvil/db/schema/asset-families";
 import { visualWorlds } from "@sprite-anvil/db/schema/context-scopes";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull } from "drizzle-orm";
 
 function toISOString(value: Date | string) {
 	return value instanceof Date
@@ -57,7 +60,20 @@ function toAssetFamilyRecord(
 	});
 }
 
-function toAssetRecord(record: typeof assetRecords.$inferSelect): AssetRecord {
+type AssetRecordCatalogRow = Omit<
+	Pick<
+		typeof assetRecords.$inferSelect,
+		"id" | "projectId" | "assetFamilyId" | "name" | "createdAt"
+	>,
+	"assetFamilyId"
+> & { assetFamilyId: string | null };
+
+function toAssetRecord(
+	record: Pick<
+		typeof assetRecords.$inferSelect,
+		"id" | "projectId" | "assetFamilyId" | "name" | "createdAt"
+	>
+): AssetRecord {
 	return assetRecordSchema.parse({
 		id: record.id,
 		projectId: record.projectId,
@@ -65,6 +81,16 @@ function toAssetRecord(record: typeof assetRecords.$inferSelect): AssetRecord {
 		name: record.name,
 		createdAt: toISOString(record.createdAt),
 	});
+}
+
+export function toFamilyAssetRecords(records: AssetRecordCatalogRow[]) {
+	return records
+		.filter(
+			(record): record is AssetRecordCatalogRow & { assetFamilyId: string } =>
+				typeof record.assetFamilyId === "string" &&
+				record.assetFamilyId.length > 0
+		)
+		.map(toAssetRecord);
 }
 
 function toRelationship(
@@ -75,10 +101,74 @@ function toRelationship(
 		projectId: record.projectId,
 		assetFamilyId: record.assetFamilyId,
 		sourceAssetRecordId: record.sourceAssetRecordId,
+		sourceAssetVersionId: record.sourceAssetVersionId ?? null,
 		targetAssetRecordId: record.targetAssetRecordId,
 		type: record.type,
 		createdAt: toISOString(record.createdAt),
 	});
+}
+
+async function isApprovedCanonicalSource(
+	db: Database,
+	input: AssetFamilyRelationshipCreateInput
+) {
+	if (!input.sourceAssetVersionId) {
+		return false;
+	}
+	const [canonicalDesign] = await db
+		.select()
+		.from(assetFamilyCanonicalDesigns)
+		.where(
+			and(
+				eq(assetFamilyCanonicalDesigns.projectId, input.projectId),
+				eq(assetFamilyCanonicalDesigns.assetFamilyId, input.assetFamilyId)
+			)
+		)
+		.orderBy(
+			desc(assetFamilyCanonicalDesigns.createdAt),
+			desc(assetFamilyCanonicalDesigns.id)
+		)
+		.limit(1);
+	if (
+		!canonicalDesign ||
+		canonicalDesign.assetVersionId !== input.sourceAssetVersionId ||
+		canonicalDesign.assetRecordId !== input.sourceAssetRecordId
+	) {
+		return false;
+	}
+	const [latestReviewEvent] = await db
+		.select({ type: assetVersionReviewEvents.type })
+		.from(assetVersionReviewEvents)
+		.where(
+			eq(assetVersionReviewEvents.assetVersionId, input.sourceAssetVersionId)
+		)
+		.orderBy(
+			desc(assetVersionReviewEvents.createdAt),
+			desc(assetVersionReviewEvents.id)
+		)
+		.limit(1);
+	const [sourceVersion] = await db
+		.select({
+			id: assetVersions.id,
+			contentDigest: assetVersions.contentDigest,
+			integrityVerified: assetVersions.integrityVerified,
+		})
+		.from(assetVersions)
+		.where(
+			and(
+				eq(assetVersions.projectId, input.projectId),
+				eq(assetVersions.assetFamilyId, input.assetFamilyId),
+				eq(assetVersions.assetRecordId, input.sourceAssetRecordId),
+				eq(assetVersions.id, input.sourceAssetVersionId)
+			)
+		)
+		.limit(1);
+	return Boolean(
+		sourceVersion &&
+			sourceVersion.integrityVerified &&
+			sourceVersion.contentDigest &&
+			latestReviewEvent?.type === "approved"
+	);
 }
 
 export function createAssetFamilyStore(db: Database): AssetFamilyStore {
@@ -104,7 +194,12 @@ export function createAssetFamilyStore(db: Database): AssetFamilyStore {
 					db
 						.select()
 						.from(assetRecords)
-						.where(eq(assetRecords.projectId, projectId))
+						.where(
+							and(
+								eq(assetRecords.projectId, projectId),
+								isNotNull(assetRecords.assetFamilyId)
+							)
+						)
 						.orderBy(asc(assetRecords.name)),
 					db
 						.select()
@@ -116,7 +211,7 @@ export function createAssetFamilyStore(db: Database): AssetFamilyStore {
 			return assetFamilyCatalogSchema.parse({
 				subjectIdentities: identityRows.map(toSubjectIdentityRecord),
 				assetFamilies: familyRows.map(toAssetFamilyRecord),
-				assetRecords: assetRows.map(toAssetRecord),
+				assetRecords: toFamilyAssetRecords(assetRows),
 				relationships: relationshipRows.map(toRelationship),
 			});
 		},
@@ -257,6 +352,16 @@ export function createAssetFamilyStore(db: Database): AssetFamilyStore {
 				return null;
 			}
 
+			if (
+				input.type === "derivative" &&
+				!(await isApprovedCanonicalSource(db, input))
+			) {
+				return null;
+			}
+			if (input.type !== "derivative" && input.sourceAssetVersionId) {
+				return null;
+			}
+
 			const [record] = await db
 				.insert(assetFamilyRelationships)
 				.values({
@@ -264,6 +369,7 @@ export function createAssetFamilyStore(db: Database): AssetFamilyStore {
 					projectId: input.projectId,
 					assetFamilyId: input.assetFamilyId,
 					sourceAssetRecordId: input.sourceAssetRecordId,
+					sourceAssetVersionId: input.sourceAssetVersionId ?? null,
 					targetAssetRecordId: input.targetAssetRecordId,
 					type: input.type,
 					createdByUserId: userId,

@@ -272,6 +272,7 @@ function createRpcClient(
 		const result = await rpcHandler.handle(c.req.raw, {
 			context: {
 				assetFamilyStore: {} as never,
+				assetVersionStore: {} as never,
 				db: createDb({
 					DATABASE_URL:
 						"postgresql://user:password@localhost:5432/sprite-anvil-test",
@@ -475,7 +476,7 @@ test("existing opaque Project IDs can be read and authorized", async () => {
 	).rejects.toMatchObject({ code: "FORBIDDEN" });
 });
 
-const databaseUrl = process.env.DATABASE_URL;
+const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
 
 test.skipIf(!databaseUrl)(
 	"Context Agent permission grants persist and revocation stops new access",

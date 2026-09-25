@@ -146,6 +146,47 @@ export const assetFamiliesRouter = {
 						"İlişkinin iki Varlık Kaydı da aynı Varlık Ailesinde olmalı ve farklı kayıtlar seçilmelidir.",
 				});
 			}
+			if (input.type === "derivative") {
+				const versionCatalog = await context.assetVersionStore.list(
+					context.session.user.id,
+					input.projectId
+				);
+				if (!versionCatalog) {
+					throw new ORPCError("NOT_FOUND", { message: "Project not found" });
+				}
+				const sourceVersion = versionCatalog.assetVersions.find(
+					(item) => item.id === input.sourceAssetVersionId
+				);
+				const currentCanonicalDesign = versionCatalog.canonicalDesigns
+					.filter((item) => item.assetFamilyId === input.assetFamilyId)
+					.at(-1);
+				if (
+					!sourceVersion ||
+					sourceVersion.assetFamilyId !== input.assetFamilyId ||
+					sourceVersion.assetRecordId !== input.sourceAssetRecordId ||
+					!sourceVersion.integrityVerified ||
+					!sourceVersion.contentDigest ||
+					sourceVersion.reviewDisposition !== "approved" ||
+					currentCanonicalDesign?.assetVersionId !== sourceVersion.id
+				) {
+					throw new ORPCError("BAD_REQUEST", {
+						message:
+							"Türetilmiş Varlık için seçilen kaynak, aynı ailedeki onaylı Ana Tasarım Sürümü olmalıdır.",
+					});
+				}
+				if (
+					!(await context.verifyAssetVersionContent?.(
+						context.session.user.id,
+						input.projectId,
+						sourceVersion.id
+					))
+				) {
+					throw new ORPCError("BAD_REQUEST", {
+						message:
+							"Türetilmiş Varlık için Ana Tasarım Sürümünün bütünlüğü doğrulanmalıdır.",
+					});
+				}
+			}
 			const relationship = await context.assetFamilyStore.createRelationship(
 				context.session.user.id,
 				input

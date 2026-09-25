@@ -8,6 +8,13 @@ const migration = readFileSync(
 	),
 	"utf8"
 );
+const assetVersionsMigration = readFileSync(
+	new URL(
+		"./migrations/20260924232741_fresh_night_nurse/migration.sql",
+		import.meta.url
+	),
+	"utf8"
+);
 
 test("normalizes legacy project ownership before current indexes and foreign keys", () => {
 	const renameOwnerColumn = migration.indexOf(
@@ -31,4 +38,22 @@ test("normalizes legacy project ownership before current indexes and foreign key
 	expect(renameOwnerConstraint).toBeGreaterThan(renameOwnerIndex);
 	expect(createOwnerIndex).toBeGreaterThan(renameOwnerConstraint);
 	expect(createOwnerConstraint).toBeGreaterThan(createOwnerIndex);
+});
+
+test("preserves existing derivative relationships without invented Asset Versions", () => {
+	const addLegacyMarker = assetVersionsMigration.indexOf(
+		'ADD COLUMN "legacy_unversioned" boolean DEFAULT false NOT NULL;'
+	);
+	const markLegacyRelationships = assetVersionsMigration.indexOf(
+		'UPDATE "asset_family_relationships" SET "legacy_unversioned" = true WHERE "type" = \'derivative\' AND "source_asset_version_id" IS NULL;'
+	);
+	const requireVersionForNewDerivatives = assetVersionsMigration.indexOf(
+		'ADD CONSTRAINT "asset_family_relationships_derivative_version_check"'
+	);
+
+	expect(addLegacyMarker).toBeGreaterThanOrEqual(0);
+	expect(markLegacyRelationships).toBeGreaterThan(addLegacyMarker);
+	expect(requireVersionForNewDerivatives).toBeGreaterThan(
+		markLegacyRelationships
+	);
 });

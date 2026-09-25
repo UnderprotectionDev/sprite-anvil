@@ -79,6 +79,7 @@ class MemoryAssetFamilyStore {
 			projectId: input.projectId,
 			assetFamilyId: input.assetFamilyId,
 			sourceAssetRecordId: input.sourceAssetRecordId,
+			sourceAssetVersionId: input.sourceAssetVersionId ?? null,
 			targetAssetRecordId: input.targetAssetRecordId,
 			type: input.type,
 			createdAt: new Date().toISOString(),
@@ -200,9 +201,10 @@ test("groups representations by Subject Identity while keeping relationships ins
 		},
 		context
 	);
+	const canonicalVersionId = "version-gameplay-base-v1";
 
 	await Promise.all(
-		["direction", "animation", "state", "derivative"].map((type) =>
+		["direction", "animation", "state"].map((type) =>
 			invoke(
 				"createRelationship",
 				{
@@ -216,6 +218,68 @@ test("groups representations by Subject Identity while keeping relationships ins
 			)
 		)
 	);
+	await invoke(
+		"createRelationship",
+		{
+			projectId,
+			assetFamilyId: gameplayFamilyId,
+			sourceAssetRecordId: (firstAsset as { id: string }).id,
+			targetAssetRecordId: (secondAsset as { id: string }).id,
+			type: "derivative",
+			sourceAssetVersionId: canonicalVersionId,
+		},
+		{
+			...context,
+			verifyAssetVersionContent: () => Promise.resolve(true),
+			assetVersionStore: {
+				list: () =>
+					Promise.resolve({
+						assetVersions: [
+							{
+								id: canonicalVersionId,
+								projectId,
+								assetFamilyId: gameplayFamilyId,
+								assetRecordId: (firstAsset as { id: string }).id,
+								versionNumber: 1,
+								contentType: "image/png",
+								contentLength: 68,
+								contentDigest: "a".repeat(64),
+								integrityVerified: true,
+								previewUrl: `/api/projects/${projectId}/asset-versions/${canonicalVersionId}/preview`,
+								reviewDisposition: "approved",
+								reviewEvents: [
+									{
+										id: "event-candidate",
+										assetVersionId: canonicalVersionId,
+										type: "candidate",
+										rationale: null,
+										createdAt: "2026-09-25T12:00:00.000Z",
+									},
+									{
+										id: "event-approved",
+										assetVersionId: canonicalVersionId,
+										type: "approved",
+										rationale: null,
+										createdAt: "2026-09-25T12:00:01.000Z",
+									},
+								],
+								createdAt: "2026-09-25T12:00:00.000Z",
+							},
+						],
+						canonicalDesigns: [
+							{
+								id: "canonical-selection",
+								projectId,
+								assetFamilyId: gameplayFamilyId,
+								assetRecordId: (firstAsset as { id: string }).id,
+								assetVersionId: canonicalVersionId,
+								createdAt: "2026-09-25T12:00:02.000Z",
+							},
+						],
+					}),
+			},
+		}
+	);
 
 	await expect(
 		invoke(
@@ -226,6 +290,7 @@ test("groups representations by Subject Identity while keeping relationships ins
 				sourceAssetRecordId: (firstAsset as { id: string }).id,
 				targetAssetRecordId: (portraitAsset as { id: string }).id,
 				type: "derivative",
+				sourceAssetVersionId: canonicalVersionId,
 			},
 			context
 		)

@@ -277,6 +277,7 @@ export function AssetFamilyRelationshipForm({
 	onSubmit,
 	onTargetChange,
 	onTypeChange,
+	canonicalDesign,
 	selectedAssetFamilyId,
 	selectedSourceId,
 	selectedTargetId,
@@ -291,6 +292,12 @@ export function AssetFamilyRelationshipForm({
 	onSubmit: (event: SyntheticEvent<HTMLFormElement>) => void;
 	onTargetChange: (value: string) => void;
 	onTypeChange: (value: AssetFamilyRelationshipType) => void;
+	canonicalDesign: {
+		assetRecordId: string;
+		assetVersionId: string;
+		recordName: string;
+		versionNumber: number;
+	} | null;
 	selectedAssetFamilyId: string;
 	selectedSourceId: string;
 	selectedTargetId: string;
@@ -299,8 +306,21 @@ export function AssetFamilyRelationshipForm({
 	const familyRecords = assetRecords.filter(
 		(assetRecord) => assetRecord.assetFamilyId === selectedAssetFamilyId
 	);
+	const sourceAssetRecordId =
+		type === "derivative"
+			? (canonicalDesign?.assetRecordId ?? "")
+			: selectedSourceId;
+	const targetAssetRecordId =
+		selectedTargetId === sourceAssetRecordId
+			? (familyRecords.find(
+					(assetRecord) => assetRecord.id !== sourceAssetRecordId
+				)?.id ?? "")
+			: selectedTargetId;
 	const hasPair =
-		familyRecords.length >= 2 && selectedSourceId !== selectedTargetId;
+		familyRecords.length >= 2 &&
+		sourceAssetRecordId.length > 0 &&
+		targetAssetRecordId.length > 0 &&
+		sourceAssetRecordId !== targetAssetRecordId;
 
 	return (
 		<form
@@ -334,20 +354,28 @@ export function AssetFamilyRelationshipForm({
 			</div>
 			<div className="space-y-2">
 				<Label htmlFor="relationship-source">Kaynak Varlık Kaydı</Label>
-				<select
-					className="min-h-10 w-full rounded-md border bg-background px-3 py-2 text-sm"
-					disabled={disabled || familyRecords.length < 2}
-					id="relationship-source"
-					onChange={(event) => onSourceChange(event.target.value)}
-					required
-					value={selectedSourceId}
-				>
-					{familyRecords.map((assetRecord) => (
-						<option key={assetRecord.id} value={assetRecord.id}>
-							{assetRecord.name}
-						</option>
-					))}
-				</select>
+				{type === "derivative" ? (
+					<p className="min-h-10 rounded-md border bg-muted/40 px-3 py-2 text-sm">
+						{canonicalDesign
+							? `${canonicalDesign.recordName} · Ana Tasarım Sürüm ${canonicalDesign.versionNumber}`
+							: "Önce onaylı bir Ana Tasarım seçin."}
+					</p>
+				) : (
+					<select
+						className="min-h-10 w-full rounded-md border bg-background px-3 py-2 text-sm"
+						disabled={disabled || familyRecords.length < 2}
+						id="relationship-source"
+						onChange={(event) => onSourceChange(event.target.value)}
+						required
+						value={selectedSourceId}
+					>
+						{familyRecords.map((assetRecord) => (
+							<option key={assetRecord.id} value={assetRecord.id}>
+								{assetRecord.name}
+							</option>
+						))}
+					</select>
+				)}
 			</div>
 			<div className="space-y-2">
 				<Label htmlFor="relationship-type">İlişki türü</Label>
@@ -375,16 +403,25 @@ export function AssetFamilyRelationshipForm({
 					id="relationship-target"
 					onChange={(event) => onTargetChange(event.target.value)}
 					required
-					value={selectedTargetId}
+					value={targetAssetRecordId}
 				>
 					{familyRecords.map((assetRecord) => (
-						<option key={assetRecord.id} value={assetRecord.id}>
+						<option
+							disabled={assetRecord.id === sourceAssetRecordId}
+							key={assetRecord.id}
+							value={assetRecord.id}
+						>
 							{assetRecord.name}
 						</option>
 					))}
 				</select>
 			</div>
-			<Button disabled={disabled || !hasPair} type="submit">
+			<Button
+				disabled={
+					disabled || !hasPair || (type === "derivative" && !canonicalDesign)
+				}
+				type="submit"
+			>
 				{isSaving ? "Kaydediliyor…" : "İlişki ekle"}
 			</Button>
 		</form>
