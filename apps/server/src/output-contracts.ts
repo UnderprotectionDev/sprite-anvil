@@ -56,6 +56,7 @@ export const publicApiErrorSchema = z
 			"Invalid 2D Visual Asset content length",
 			"2D Visual Asset upload failed",
 			"Unsupported Asset Version type",
+			"Invalid Asset Version file name",
 			"Missing Asset Version content",
 			"Invalid Asset Version content length",
 			"Missing Asset Version idempotency key",

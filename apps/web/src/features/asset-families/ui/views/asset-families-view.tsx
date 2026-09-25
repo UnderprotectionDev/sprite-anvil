@@ -96,6 +96,7 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 					projectId,
 					assetFamilyId: formState.selectedAssetRecordFamilyId,
 					name: formState.assetRecordName,
+					identityCriteria: formState.assetRecordIdentityCriteria,
 				}),
 			(record) => form.created.assetRecord(record.id),
 			"Varlık Kaydı kaydedildi."

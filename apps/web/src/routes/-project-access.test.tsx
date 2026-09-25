@@ -20,9 +20,16 @@ import {
 } from "@tanstack/react-router";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { ProjectAccessScreen } from "@/features/projects/ui/views/project-access-view";
+import { createQueryClient } from "@/utils/query-client";
 import { routeTree } from "../routeTree.gen";
 
 const projectId = "7e7eb5e3-25e5-4661-aa3b-6805955c8d14";
+const errorToast = vi.hoisted(() => vi.fn());
+
+vi.mock("sonner", () => ({
+	Toaster: () => null,
+	toast: { error: errorToast },
+}));
 
 const fakeStore = vi.hoisted(() => ({
 	analysisPermissions: [] as {
@@ -44,6 +51,7 @@ const fakeStore = vi.hoisted(() => ({
 	}[],
 	failedPermissionReads: 0,
 	nextGrantError: null as Error | null,
+	nextPermissionRead: null as null | (() => Promise<unknown[]>),
 }));
 
 vi.mock("@/utils/orpc", () => ({
@@ -139,9 +147,14 @@ vi.mock("@/utils/orpc", () => ({
 					queryOptions: () => ({
 						queryKey: ["permissions", projectId],
 						queryFn: () => {
+							const { nextPermissionRead } = fakeStore;
 							if (fakeStore.failedPermissionReads > 0) {
 								fakeStore.failedPermissionReads -= 1;
 								throw new TypeError("Failed to fetch");
+							}
+							if (nextPermissionRead) {
+								fakeStore.nextPermissionRead = null;
+								return nextPermissionRead();
 							}
 							return fakeStore.permissions;
 						},
@@ -195,10 +208,12 @@ afterEach(() => {
 });
 
 beforeEach(() => {
+	errorToast.mockClear();
 	fakeStore.permissions.length = 0;
 	fakeStore.analysisPermissions.length = 0;
 	fakeStore.failedPermissionReads = 0;
 	fakeStore.nextGrantError = null;
+	fakeStore.nextPermissionRead = null;
 	vi.stubGlobal(
 		"matchMedia",
 		vi.fn().mockImplementation((media: string) => ({
@@ -288,6 +303,99 @@ test("a user can grant, refetch, and revoke purpose-scoped Context Agent access"
 	expect(fakeStore.analysisPermissions).toEqual([]);
 });
 
+test("keeps a granted permission form locked until the refreshed state arrives", async () => {
+	const rootRoute = createRootRoute({ component: () => <Outlet /> });
+	const accessRoute = createRoute({
+		getParentRoute: () => rootRoute,
+		path: "/access",
+		component: () => <ProjectAccessScreen projectId={projectId} />,
+	});
+	const router = createRouter({
+		history: createMemoryHistory({ initialEntries: ["/access"] }),
+		routeTree: rootRoute.addChildren([accessRoute]),
+	});
+	const queryClient = createQueryClient();
+	let startHeldRead: () => void = () => undefined;
+	let finishHeldRead: (permissions: typeof fakeStore.permissions) => void =
+		() => undefined;
+	const heldReadStarted = new Promise<void>((resolve) => {
+		startHeldRead = resolve;
+	});
+	const heldRead = new Promise<typeof fakeStore.permissions>((resolve) => {
+		finishHeldRead = resolve;
+	});
+
+	render(
+		<QueryClientProvider client={queryClient}>
+			<RouterProvider router={router} />
+		</QueryClientProvider>
+	);
+
+	await screen.findByRole("heading", { name: "Forest Quest" });
+	await screen.findByText("Bu projede kayıtlı Bağlam Ajanı izni yok.");
+	fakeStore.nextPermissionRead = () => {
+		startHeldRead();
+		return heldRead;
+	};
+
+	const grantButton = screen.getByRole("button", {
+		name: "Bağlam Ajanı izni ver",
+	});
+	fireEvent.click(grantButton);
+	await screen.findByText("Bağlam Ajanı izni kaydedildi.");
+	await heldReadStarted;
+	expect(grantButton).toBeDisabled();
+
+	finishHeldRead(fakeStore.permissions);
+	await waitFor(() => expect(grantButton).toBeEnabled());
+});
+
+test("keeps permission grants disabled after a failed refresh until Retry succeeds", async () => {
+	const rootRoute = createRootRoute({ component: () => <Outlet /> });
+	const accessRoute = createRoute({
+		getParentRoute: () => rootRoute,
+		path: "/access",
+		component: () => <ProjectAccessScreen projectId={projectId} />,
+	});
+	const router = createRouter({
+		history: createMemoryHistory({ initialEntries: ["/access"] }),
+		routeTree: rootRoute.addChildren([accessRoute]),
+	});
+	const queryClient = createQueryClient();
+	queryClient.setQueryDefaults(["permissions", projectId], { retry: false });
+	let startHeldRead: () => void = () => undefined;
+	const heldReadStarted = new Promise<void>((resolve) => {
+		startHeldRead = resolve;
+	});
+
+	render(
+		<QueryClientProvider client={queryClient}>
+			<RouterProvider router={router} />
+		</QueryClientProvider>
+	);
+
+	await screen.findByRole("heading", { name: "Forest Quest" });
+	await screen.findByText("Bu projede kayıtlı Bağlam Ajanı izni yok.");
+	fakeStore.nextPermissionRead = () => {
+		startHeldRead();
+		return Promise.reject(new TypeError("Failed to fetch"));
+	};
+
+	const grantButton = screen.getByRole("button", {
+		name: "Bağlam Ajanı izni ver",
+	});
+	fireEvent.click(grantButton);
+	await screen.findByText("Bağlam Ajanı izni kaydedildi.");
+	await heldReadStarted;
+	await screen.findByRole("alert");
+	expect(grantButton).toBeDisabled();
+	expect(grantButton).toHaveTextContent("Bağlam Ajanı izni ver");
+
+	fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+	await screen.findByText("Proje Bağlamı için öneri hazırlama");
+	await waitFor(() => expect(grantButton).toBeEnabled());
+});
+
 test("uncertain permission writes stay locked until the permission state is refreshed", async () => {
 	const rootRoute = createRootRoute({ component: () => <Outlet /> });
 	const accessRoute = createRoute({
@@ -299,9 +407,7 @@ test("uncertain permission writes stay locked until the permission state is refr
 		history: createMemoryHistory({ initialEntries: ["/access"] }),
 		routeTree: rootRoute.addChildren([accessRoute]),
 	});
-	const queryClient = new QueryClient({
-		defaultOptions: { queries: { retry: false } },
-	});
+	const queryClient = createQueryClient();
 	fakeStore.nextGrantError = new TypeError("Load failed");
 
 	render(
@@ -311,15 +417,18 @@ test("uncertain permission writes stay locked until the permission state is refr
 	);
 
 	await screen.findByRole("heading", { name: "Forest Quest" });
-	fireEvent.click(
-		screen.getByRole("button", { name: "Bağlam Ajanı izni ver" })
-	);
-
 	const grantButton = screen.getByRole("button", {
 		name: "Bağlam Ajanı izni ver",
 	});
+	fireEvent.click(grantButton);
 	await waitFor(() => expect(grantButton).toBeDisabled());
 	expect(fakeStore.permissions).toHaveLength(1);
+	expect(errorToast).toHaveBeenCalledOnce();
+	expect(
+		screen.queryByText(
+			"The result could not be confirmed. Check the current state before repeating this action."
+		)
+	).toBeNull();
 
 	fireEvent.click(screen.getByRole("button", { name: "Durumu kontrol et" }));
 

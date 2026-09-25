@@ -102,6 +102,7 @@ function upload(
 			method: "POST",
 			headers: {
 				"Content-Type": contentType,
+				"X-Asset-Version-File-Name": "upload.png",
 				"X-Asset-Version-Size": declaredLength.toString(),
 				"Idempotency-Key": "asset-version-route-test",
 			},

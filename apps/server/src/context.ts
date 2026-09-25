@@ -4,6 +4,8 @@ import { assetVersionObjectKeySchema } from "./cloudflare";
 import { verifyAssetVersionStream } from "./features/asset-versions/server/asset-version-integrity";
 import {
 	assetFamilyStore,
+	assetRecordStore,
+	assetRecordTrackingStore,
 	assetVersionStore,
 	auth,
 	createServerAssetVersionStorage,
@@ -25,6 +27,8 @@ export async function createContext({
 	});
 	return {
 		assetFamilyStore,
+		assetRecordStore,
+		assetRecordTrackingStore,
 		assetVersionStore,
 		verifyAssetVersionContent: async (userId, projectId, assetVersionId) => {
 			const fileRecord = await assetVersionStore.getFileRecord(
@@ -32,13 +36,7 @@ export async function createContext({
 				projectId,
 				assetVersionId
 			);
-			if (
-				!(
-					fileRecord &&
-					fileRecord.integrityVerified &&
-					fileRecord.contentDigest
-				)
-			) {
+			if (!(fileRecord?.integrityVerified && fileRecord.contentDigest)) {
 				return false;
 			}
 			const objectKey = assetVersionObjectKeySchema.parse(fileRecord.objectKey);
@@ -61,6 +59,7 @@ export async function createContext({
 			try {
 				let result = await reader.read();
 				while (!result.done) {
+					// biome-ignore lint/performance/noAwaitInLoops: A stream reader must consume chunks sequentially.
 					result = await reader.read();
 				}
 				return true;

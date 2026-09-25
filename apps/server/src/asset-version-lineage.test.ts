@@ -28,7 +28,7 @@ test("records a derivative against the approved Canonical Design version", async
 				id: "event-candidate",
 				assetVersionId,
 				type: "candidate",
-				rationale: null,
+				rationale: null as string | null,
 				createdAt,
 			},
 		],
@@ -212,7 +212,10 @@ test("records a derivative against the approved Canonical Design version", async
 		reviewDisposition: "approved",
 		reviewEvents: [
 			{ type: "candidate", rationale: null },
-			{ type: "approved", rationale: null },
+			{
+				type: "approved",
+				rationale: "Verified artwork is ready for the family.",
+			},
 		],
 	});
 	expect(rereadVersions.canonicalDesigns[0]).toMatchObject({

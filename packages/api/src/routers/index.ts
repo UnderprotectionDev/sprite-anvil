@@ -27,6 +27,8 @@ import {
 	validateContextProposal,
 } from "../project-context";
 import { assetFamiliesRouter } from "./asset-families";
+import { assetRecordTrackingRouter } from "./asset-record-tracking";
+import { assetRecordsRouter } from "./asset-records";
 import { assetVersionsRouter } from "./asset-versions";
 import { projectsRouter } from "./projects";
 
@@ -93,6 +95,8 @@ export const appRouter = {
 	projects: projectsRouter,
 	assetFamilies: assetFamiliesRouter,
 	assetVersions: assetVersionsRouter,
+	assetRecords: assetRecordsRouter,
+	assetRecordTracking: assetRecordTrackingRouter,
 	contextScopes: {
 		list: protectedProcedure
 			.input(projectContextScopeListInputSchema)

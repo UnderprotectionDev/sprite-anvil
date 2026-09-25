@@ -2,6 +2,7 @@ import type {
 	AssetFamilyCatalog,
 	AssetFamilyRelationshipType,
 } from "@sprite-anvil/api/asset-families";
+import type { AssetRecordIdentityCriterion } from "@sprite-anvil/api/asset-records";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
@@ -15,6 +16,15 @@ const relationshipOptions: {
 	{ label: "Animasyon", value: "animation" },
 	{ label: "Durum", value: "state" },
 	{ label: "Türetilmiş Varlık", value: "derivative" },
+];
+
+const identityCriterionOptions: {
+	label: string;
+	value: AssetRecordIdentityCriterion;
+}[] = [
+	{ label: "Bağımsız ürün anlamı", value: "independent_product_meaning" },
+	{ label: "Bağımsız yaşam döngüsü", value: "independent_lifecycle" },
+	{ label: "Teslimat kimliği", value: "delivery_identity" },
 ];
 
 export function SubjectIdentityForm({
@@ -191,9 +201,11 @@ export function AssetRecordForm({
 	assetFamilies,
 	assetRecords,
 	disabled,
+	identityCriteria,
 	isSaving,
 	name,
 	onAssetFamilyChange,
+	onIdentityCriterionToggle,
 	onNameChange,
 	onSubmit,
 	selectedAssetFamilyId,
@@ -201,9 +213,11 @@ export function AssetRecordForm({
 	assetFamilies: AssetFamilyCatalog["assetFamilies"];
 	assetRecords: AssetFamilyCatalog["assetRecords"];
 	disabled: boolean;
+	identityCriteria: AssetRecordIdentityCriterion[];
 	isSaving: boolean;
 	name: string;
 	onAssetFamilyChange: (value: string) => void;
+	onIdentityCriterionToggle: (value: AssetRecordIdentityCriterion) => void;
 	onNameChange: (value: string) => void;
 	onSubmit: (event: SyntheticEvent<HTMLFormElement>) => void;
 	selectedAssetFamilyId: string;
@@ -248,11 +262,29 @@ export function AssetRecordForm({
 					value={name}
 				/>
 			</div>
+			<fieldset className="space-y-2">
+				<legend className="font-medium text-sm">Kayıt gerekçesi</legend>
+				{identityCriterionOptions.map((criterion) => (
+					<label
+						className="flex items-center gap-2 text-sm"
+						key={criterion.value}
+					>
+						<input
+							checked={identityCriteria.includes(criterion.value)}
+							disabled={disabled}
+							onChange={() => onIdentityCriterionToggle(criterion.value)}
+							type="checkbox"
+						/>
+						{criterion.label}
+					</label>
+				))}
+			</fieldset>
 			<Button
 				disabled={
 					disabled ||
 					assetFamilies.length === 0 ||
 					name.trim().length === 0 ||
+					identityCriteria.length === 0 ||
 					assetRecords.some(
 						(assetRecord) =>
 							assetRecord.assetFamilyId === selectedAssetFamilyId &&

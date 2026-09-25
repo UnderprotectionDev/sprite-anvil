@@ -39,17 +39,19 @@ class DecodableImageValidator implements ImageValidator {
 		.png();
 	private readonly decoderFinished: Promise<void>;
 	private readonly signature: Uint8Array;
-	private signatureLength: number;
+	private readonly signatureLength: number;
 	private signatureVerified = false;
 	private decoderError: Error | undefined;
 	private didFinish = false;
-	private prefix = new Uint8Array(12);
+	private readonly prefix = new Uint8Array(12);
 	private prefixLength = 0;
 
 	constructor(contentType: AssetVersionContentType) {
 		this.signature = contentType === "image/png" ? pngSignature : webpSignature;
 		this.signatureLength = this.signature.length;
-		this.decoder.on("data", () => {});
+		this.decoder.on("data", () => {
+			// Consuming decoded chunks keeps the image decoder in flowing mode.
+		});
 		this.decoderFinished = new Promise((resolve) => {
 			this.decoder.once("end", () => {
 				this.didFinish = true;
@@ -209,7 +211,7 @@ export function verifyAssetVersionStream(
 	return {
 		body: checkedBody.pipeThrough(
 			new TransformStream<Uint8Array, Uint8Array>({
-				async flush() {
+				flush() {
 					if (integrityStream.getContentDigest() !== contentDigest) {
 						throw new AssetVersionIntegrityError();
 					}

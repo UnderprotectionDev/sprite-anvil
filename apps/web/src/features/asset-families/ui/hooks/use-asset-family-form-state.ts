@@ -2,6 +2,7 @@ import type {
 	AssetFamilyCatalog,
 	AssetFamilyRelationshipType,
 } from "@sprite-anvil/api/asset-families";
+import type { AssetRecordIdentityCriterion } from "@sprite-anvil/api/asset-records";
 import { useState } from "react";
 
 function selectId(
@@ -27,6 +28,8 @@ export function useAssetFamilyFormState(
 	const [familyName, setFamilyName] = useState("");
 	const [familyUseContext, setFamilyUseContext] = useState("");
 	const [assetRecordName, setAssetRecordName] = useState("");
+	const [assetRecordIdentityCriteria, setAssetRecordIdentityCriteria] =
+		useState<AssetRecordIdentityCriterion[]>([]);
 	const [selectedSubjectIdentityIdState, setSelectedSubjectIdentityId] =
 		useState("");
 	const [selectedVisualWorldIdState, setSelectedVisualWorldId] = useState("");
@@ -74,6 +77,15 @@ export function useAssetFamilyFormState(
 		changeHandlers: {
 			onAssetRecordFamilyChange: setSelectedAssetRecordFamilyId,
 			onAssetRecordNameChange: setAssetRecordName,
+			onAssetRecordIdentityCriterionToggle: (
+				criterion: AssetRecordIdentityCriterion
+			) => {
+				setAssetRecordIdentityCriteria((current) =>
+					current.includes(criterion)
+						? current.filter((value) => value !== criterion)
+						: [...current, criterion]
+				);
+			},
 			onFamilyNameChange: setFamilyName,
 			onFamilyUseContextChange: setFamilyUseContext,
 			onRelationshipFamilyChange: (familyId: string) => {
@@ -91,6 +103,7 @@ export function useAssetFamilyFormState(
 		created: {
 			assetRecord: (id: string) => {
 				setAssetRecordName("");
+				setAssetRecordIdentityCriteria([]);
 				setSelectedRelationshipFamilyId(selectedAssetRecordFamilyId);
 				setSelectedRelationshipSourceId(id);
 				setSelectedRelationshipTargetId("");
@@ -108,6 +121,7 @@ export function useAssetFamilyFormState(
 		},
 		state: {
 			assetRecordName,
+			assetRecordIdentityCriteria,
 			familyName,
 			familyUseContext,
 			relationshipType,

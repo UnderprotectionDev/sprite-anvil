@@ -61,7 +61,7 @@ class MemoryAssetFamilyStore {
 		return Promise.resolve(record);
 	}
 
-	createAssetRecord(_userId: string, input: Record<string, string>) {
+	createAssetRecord(_userId: string, input: Record<string, unknown>) {
 		const record = {
 			id: `asset-${this.assetRecords.length + 1}`,
 			projectId: input.projectId,
@@ -95,7 +95,7 @@ const routes = appRouter as unknown as {
 
 function invoke(
 	operation: string,
-	input: Record<string, string>,
+	input: Record<string, unknown>,
 	context: Record<string, unknown>
 ) {
 	return call(routes.assetFamilies[operation] as never, input as never, {
@@ -184,12 +184,22 @@ test("groups representations by Subject Identity while keeping relationships ins
 	const gameplayFamilyId = (gameplayFamily as { id: string }).id;
 	const firstAsset = await invoke(
 		"createAssetRecord",
-		{ projectId, assetFamilyId: gameplayFamilyId, name: "Ash Knight base" },
+		{
+			projectId,
+			assetFamilyId: gameplayFamilyId,
+			name: "Ash Knight base",
+			identityCriteria: ["independent_product_meaning"],
+		},
 		context
 	);
 	const secondAsset = await invoke(
 		"createAssetRecord",
-		{ projectId, assetFamilyId: gameplayFamilyId, name: "Ash Knight east" },
+		{
+			projectId,
+			assetFamilyId: gameplayFamilyId,
+			name: "Ash Knight east",
+			identityCriteria: ["independent_product_meaning"],
+		},
 		context
 	);
 	const portraitAsset = await invoke(
@@ -198,6 +208,7 @@ test("groups representations by Subject Identity while keeping relationships ins
 			projectId,
 			assetFamilyId: (portraitFamily as { id: string }).id,
 			name: "Ash Knight portrait",
+			identityCriteria: ["independent_product_meaning"],
 		},
 		context
 	);

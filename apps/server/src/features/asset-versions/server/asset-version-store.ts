@@ -1,3 +1,4 @@
+import { assetVersionContentTypeSchema } from "@sprite-anvil/api/asset-record-tracking";
 import type {
 	AssetFamilyCanonicalDesign,
 	AssetFamilyCanonicalDesignInput,
@@ -13,13 +14,19 @@ import {
 	assetVersionSchema,
 } from "@sprite-anvil/api/asset-versions";
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import { assetFamilyCanonicalDesigns } from "@sprite-anvil/db/schema/asset-families";
 import {
-	assetFamilyCanonicalDesigns,
+	assetFamilies,
 	assetRecords,
+} from "@sprite-anvil/db/schema/asset-records";
+import {
+	assetVersionQualityEvidence,
 	assetVersionReviewEvents,
 	assetVersions,
-} from "@sprite-anvil/db/schema/asset-families";
+} from "@sprite-anvil/db/schema/asset-versions";
 import { and, asc, desc, eq, isNotNull, sql } from "drizzle-orm";
+
+const contentDigestPattern = /^[0-9a-f]{64}$/;
 
 function toISOString(value: Date | string) {
 	return value instanceof Date
@@ -32,8 +39,8 @@ function toReviewEvent(
 ): AssetVersionReviewEvent {
 	return assetVersionReviewEventSchema.parse({
 		id: record.id,
-		assetVersionId: record.assetVersionId,
-		type: record.type,
+		assetVersionId: record.versionId,
+		type: record.decision,
 		rationale: record.rationale,
 		createdAt: toISOString(record.createdAt),
 	});
@@ -54,17 +61,18 @@ function toCanonicalDesign(
 
 function toAssetVersion(
 	record: typeof assetVersions.$inferSelect,
+	assetFamilyId: string,
 	reviewEvents: AssetVersionReviewEvent[]
 ): AssetVersion {
 	return assetVersionSchema.parse({
 		id: record.id,
 		projectId: record.projectId,
-		assetFamilyId: record.assetFamilyId,
+		assetFamilyId,
 		assetRecordId: record.assetRecordId,
 		versionNumber: record.versionNumber,
-		contentType: record.contentType,
-		contentLength: record.contentLength,
-		contentDigest: record.contentDigest,
+		contentType: assetVersionContentTypeSchema.parse(record.contentType),
+		contentLength: record.byteSize,
+		contentDigest: record.contentDigest ?? record.sha256,
 		integrityVerified: record.integrityVerified,
 		previewUrl: `/api/projects/${encodeURIComponent(record.projectId)}/asset-versions/${record.id}/preview`,
 		reviewDisposition: reviewEvents.at(-1)?.type ?? "candidate",
@@ -74,17 +82,19 @@ function toAssetVersion(
 }
 
 function toFileRecord(
-	record: typeof assetVersions.$inferSelect
+	record: typeof assetVersions.$inferSelect,
+	assetFamilyId: string
 ): AssetVersionFileRecord {
 	return {
 		id: record.id,
 		projectId: record.projectId,
-		assetFamilyId: record.assetFamilyId,
+		assetFamilyId,
 		assetRecordId: record.assetRecordId,
+		fileName: record.fileName,
 		objectKey: record.objectKey,
-		contentType: record.contentType,
-		contentLength: record.contentLength,
-		contentDigest: record.contentDigest,
+		contentType: assetVersionContentTypeSchema.parse(record.contentType),
+		contentLength: record.byteSize,
+		contentDigest: record.contentDigest ?? record.sha256,
 		idempotencyKey: record.idempotencyKey,
 		integrityVerified: record.integrityVerified,
 	};
@@ -100,9 +110,24 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 
 			const [versionRows, reviewRows, canonicalRows] = await Promise.all([
 				db
-					.select()
+					.select({
+						version: assetVersions,
+						assetFamilyId: assetRecords.assetFamilyId,
+					})
 					.from(assetVersions)
-					.where(eq(assetVersions.projectId, projectId))
+					.innerJoin(
+						assetRecords,
+						and(
+							eq(assetRecords.projectId, assetVersions.projectId),
+							eq(assetRecords.id, assetVersions.assetRecordId)
+						)
+					)
+					.where(
+						and(
+							eq(assetVersions.projectId, projectId),
+							isNotNull(assetRecords.assetFamilyId)
+						)
+					)
 					.orderBy(
 						asc(assetVersions.assetRecordId),
 						asc(assetVersions.versionNumber)
@@ -127,15 +152,23 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 
 			const reviewsByVersion = new Map<string, AssetVersionReviewEvent[]>();
 			for (const reviewRow of reviewRows) {
-				const events = reviewsByVersion.get(reviewRow.assetVersionId) ?? [];
+				const events = reviewsByVersion.get(reviewRow.versionId) ?? [];
 				events.push(toReviewEvent(reviewRow));
-				reviewsByVersion.set(reviewRow.assetVersionId, events);
+				reviewsByVersion.set(reviewRow.versionId, events);
 			}
 
 			return {
-				assetVersions: versionRows.map((versionRow) =>
-					toAssetVersion(versionRow, reviewsByVersion.get(versionRow.id) ?? [])
-				),
+				assetVersions: versionRows
+					.map(({ version, assetFamilyId }) =>
+						assetFamilyId
+							? toAssetVersion(
+									version,
+									assetFamilyId,
+									reviewsByVersion.get(version.id) ?? []
+								)
+							: null
+					)
+					.filter((version): version is AssetVersion => version !== null),
 				canonicalDesigns: canonicalRows.map(toCanonicalDesign),
 			};
 		},
@@ -160,7 +193,9 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 					)
 				)
 				.limit(1);
-			return record ?? null;
+			return record?.assetFamilyId
+				? { ...record, assetFamilyId: record.assetFamilyId }
+				: null;
 		},
 
 		async createCandidateVersion(userId, input) {
@@ -168,7 +203,7 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 				!(
 					input.integrityVerified &&
 					input.contentDigest &&
-					/^[0-9a-f]{64}$/.test(input.contentDigest)
+					contentDigestPattern.test(input.contentDigest)
 				)
 			) {
 				return null;
@@ -192,9 +227,10 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 					)
 				)
 				.limit(1);
-			if (!assetRecord) {
+			if (!assetRecord?.assetFamilyId) {
 				return null;
 			}
+			const { assetFamilyId } = assetRecord;
 
 			const readExistingVersion = async () => {
 				const [existing] = await db
@@ -213,7 +249,7 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 				}
 				if (
 					existing.contentDigest !== input.contentDigest ||
-					existing.contentLength !== input.contentLength ||
+					existing.byteSize !== input.contentLength ||
 					existing.contentType !== input.contentType
 				) {
 					return { kind: "idempotency-conflict" as const };
@@ -221,14 +257,18 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 				const reviewRows = await db
 					.select()
 					.from(assetVersionReviewEvents)
-					.where(eq(assetVersionReviewEvents.assetVersionId, existing.id))
+					.where(eq(assetVersionReviewEvents.versionId, existing.id))
 					.orderBy(
 						asc(assetVersionReviewEvents.createdAt),
 						asc(assetVersionReviewEvents.id)
 					);
 				return {
 					kind: "existing" as const,
-					version: toAssetVersion(existing, reviewRows.map(toReviewEvent)),
+					version: toAssetVersion(
+						existing,
+						assetFamilyId,
+						reviewRows.map(toReviewEvent)
+					),
 				};
 			};
 			const existingVersion = await readExistingVersion();
@@ -237,51 +277,69 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 			}
 
 			try {
-				const [, [version], [candidateEvent]] = await db.batch([
-					db.execute(sql`
+				const [, [version], [candidateEvent], [qualityEvidence]] =
+					await db.batch([
+						db.execute(sql`
 						select pg_advisory_xact_lock(
 							hashtextextended(${assetRecord.id}, 0)
 						)
 					`),
-					db
-						.insert(assetVersions)
-						.values({
-							id: input.id,
-							projectId: input.projectId,
-							assetFamilyId: assetRecord.assetFamilyId,
-							assetRecordId: assetRecord.id,
-							versionNumber: sql<number>`coalesce(
+						db
+							.insert(assetVersions)
+							.values({
+								id: input.id,
+								projectId: input.projectId,
+								assetFamilyId,
+								assetRecordId: assetRecord.id,
+								versionNumber: sql<number>`coalesce(
 								(select max(${assetVersions.versionNumber})
 								 from ${assetVersions}
 								 where ${assetVersions.assetRecordId} = ${assetRecord.id}),
 								0
 							) + 1`,
-							objectKey: input.objectKey,
-							contentType: input.contentType,
-							contentLength: input.contentLength,
-							contentDigest: input.contentDigest,
-							integrityVerified: input.integrityVerified,
-							idempotencyKey: input.idempotencyKey,
-							createdByUserId: userId,
-						})
-						.returning(),
-					db
-						.insert(assetVersionReviewEvents)
-						.values({
-							id: crypto.randomUUID(),
-							projectId: input.projectId,
-							assetFamilyId: assetRecord.assetFamilyId,
-							assetRecordId: assetRecord.id,
-							assetVersionId: input.id,
-							type: "candidate",
-							createdByUserId: userId,
-						})
-						.returning(),
-				]);
-				return version && candidateEvent
+								objectKey: input.objectKey,
+								fileName: input.fileName,
+								contentType: input.contentType,
+								sha256: input.contentDigest,
+								byteSize: input.contentLength,
+								contentDigest: input.contentDigest,
+								integrityVerified: input.integrityVerified,
+								idempotencyKey: input.idempotencyKey,
+								createdByUserId: userId,
+							})
+							.returning(),
+						db
+							.insert(assetVersionReviewEvents)
+							.values({
+								id: crypto.randomUUID(),
+								projectId: input.projectId,
+								assetRecordId: assetRecord.id,
+								versionId: input.id,
+								decision: "candidate",
+								rationale: null,
+								createdByUserId: userId,
+							})
+							.returning(),
+						db
+							.insert(assetVersionQualityEvidence)
+							.values({
+								id: crypto.randomUUID(),
+								projectId: input.projectId,
+								versionId: input.id,
+								gate: "format_signature",
+								result: "matched",
+								sha256: input.contentDigest,
+								byteSize: input.contentLength,
+								createdByUserId: userId,
+							})
+							.returning(),
+					]);
+				return version && candidateEvent && qualityEvidence
 					? {
 							kind: "created" as const,
-							version: toAssetVersion(version, [toReviewEvent(candidateEvent)]),
+							version: toAssetVersion(version, assetFamilyId, [
+								toReviewEvent(candidateEvent),
+							]),
 						}
 					: null;
 			} catch (error) {
@@ -298,9 +356,19 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 			if (!ownedProject) {
 				return null;
 			}
-			const [version] = await db
-				.select()
+			const [versionRow] = await db
+				.select({
+					version: assetVersions,
+					assetFamilyId: assetRecords.assetFamilyId,
+				})
 				.from(assetVersions)
+				.innerJoin(
+					assetRecords,
+					and(
+						eq(assetRecords.projectId, assetVersions.projectId),
+						eq(assetRecords.id, assetVersions.assetRecordId)
+					)
+				)
 				.where(
 					and(
 						eq(assetVersions.projectId, projectId),
@@ -308,7 +376,10 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 					)
 				)
 				.limit(1);
-			return version ? toFileRecord(version) : null;
+			if (!versionRow?.assetFamilyId) {
+				return null;
+			}
+			return toFileRecord(versionRow.version, versionRow.assetFamilyId);
 		},
 
 		async recordReviewEvent(userId, input: AssetVersionReviewInput) {
@@ -327,16 +398,16 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 					)
 				)
 				.limit(1);
-			if (!version) {
+			if (!version?.assetFamilyId) {
 				return null;
 			}
 			const [latestEvent] = await db
-				.select({ type: assetVersionReviewEvents.type })
+				.select({ type: assetVersionReviewEvents.decision })
 				.from(assetVersionReviewEvents)
 				.where(
 					and(
 						eq(assetVersionReviewEvents.projectId, input.projectId),
-						eq(assetVersionReviewEvents.assetVersionId, input.assetVersionId)
+						eq(assetVersionReviewEvents.versionId, input.assetVersionId)
 					)
 				)
 				.orderBy(
@@ -359,10 +430,9 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 				.values({
 					id: crypto.randomUUID(),
 					projectId: version.projectId,
-					assetFamilyId: version.assetFamilyId,
 					assetRecordId: version.assetRecordId,
-					assetVersionId: version.id,
-					type: input.decision,
+					versionId: version.id,
+					decision: input.decision,
 					rationale: input.rationale.trim(),
 					createdByUserId: userId,
 				})
@@ -390,14 +460,14 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 					)
 				)
 				.limit(1);
-			if (!version) {
+			if (!version?.assetFamilyId) {
 				return null;
 			}
 
 			const [latestReviewEvent] = await db
-				.select({ type: assetVersionReviewEvents.type })
+				.select({ type: assetVersionReviewEvents.decision })
 				.from(assetVersionReviewEvents)
-				.where(eq(assetVersionReviewEvents.assetVersionId, version.id))
+				.where(eq(assetVersionReviewEvents.versionId, version.id))
 				.orderBy(
 					desc(assetVersionReviewEvents.createdAt),
 					desc(assetVersionReviewEvents.id)
@@ -405,7 +475,10 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 				.limit(1);
 			if (
 				latestReviewEvent?.type !== "approved" ||
-				!(version.integrityVerified && version.contentDigest)
+				!(
+					version.integrityVerified &&
+					(version.contentDigest ?? version.sha256)
+				)
 			) {
 				return null;
 			}
@@ -428,17 +501,28 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 				return toCanonicalDesign(currentSelection);
 			}
 
-			const [selection] = await db
-				.insert(assetFamilyCanonicalDesigns)
-				.values({
-					id: crypto.randomUUID(),
-					projectId: version.projectId,
-					assetFamilyId: version.assetFamilyId,
-					assetRecordId: version.assetRecordId,
-					assetVersionId: version.id,
-					createdByUserId: userId,
-				})
-				.returning();
+			const [[selection]] = await db.batch([
+				db
+					.insert(assetFamilyCanonicalDesigns)
+					.values({
+						id: crypto.randomUUID(),
+						projectId: version.projectId,
+						assetFamilyId: version.assetFamilyId,
+						assetRecordId: version.assetRecordId,
+						assetVersionId: version.id,
+						createdByUserId: userId,
+					})
+					.returning(),
+				db
+					.update(assetFamilies)
+					.set({ canonicalVersionId: version.id })
+					.where(
+						and(
+							eq(assetFamilies.projectId, input.projectId),
+							eq(assetFamilies.id, input.assetFamilyId)
+						)
+					),
+			]);
 			return selection ? toCanonicalDesign(selection) : null;
 		},
 	};

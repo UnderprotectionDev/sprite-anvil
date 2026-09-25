@@ -17,6 +17,8 @@ test("unexpected RPC failures return a support reference without exposing the ex
 	const context = {
 		assetFamilyStore: {} as never,
 		assetVersionStore: {} as never,
+		assetRecordStore: {} as never,
+		assetRecordTrackingStore: {} as never,
 		db: {} as never,
 		projectAccess: {} as never,
 		projectContextStore: {

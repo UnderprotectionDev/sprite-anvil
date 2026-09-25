@@ -3,7 +3,7 @@ import type {
 	ToolAccessPermission,
 } from "@sprite-anvil/api/project-access-store";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { type SyntheticEvent, useState } from "react";
 import { ExternalVisualAnalysisConsent } from "@/features/external-visual-analysis/ui/components/external-visual-analysis-consent";
@@ -30,26 +30,56 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 	});
 	const projectQuery = useQuery({
 		...projectQueryOptions,
-		meta: { errorPresentation: "inline" },
+		meta: { suppressGlobalErrorToast: true },
 	});
 	const permissionsQueryOptions = orpc.projects.access.list.queryOptions({
 		input: { projectId },
 	});
 	const permissionsQuery = useQuery({
 		...permissionsQueryOptions,
-		meta: { errorPresentation: "inline" },
+		meta: { suppressGlobalErrorToast: true },
 	});
 	const [purpose, setPurpose] = useState("Proje Bağlamı için öneri hazırlama");
 	const [selectedScopes, setSelectedScopes] = useState<ContextAgentScope[]>([
 		"project_context:read",
 		"context_proposals:write",
 	]);
-	const [isSaving, setIsSaving] = useState(false);
 	const [revokingId, setRevokingId] = useState<string | null>(null);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
 	const [isCheckingWriteOutcome, setIsCheckingWriteOutcome] = useState(false);
+	const grantPermission = useMutation({
+		mutationFn: (input: { purpose: string; scopes: ContextAgentScope[] }) =>
+			client.projects.access.grantContextAgent({ projectId, ...input }),
+		onSuccess: async () => {
+			setStatusMessage("Bağlam Ajanı izni kaydedildi.");
+			await permissionsQuery.refetch();
+		},
+		onError: (error) => {
+			if (isWriteOutcomeUncertain(error)) {
+				setWriteOutcomeUncertain(true);
+			}
+		},
+	});
+	const revokePermission = useMutation({
+		mutationFn: (permissionId: string) =>
+			client.projects.access.revoke({ projectId, permissionId }),
+		onSuccess: async () => {
+			setStatusMessage("İzin geri alındı. Yeni erişim istekleri reddedilir.");
+			await permissionsQuery.refetch();
+		},
+		onError: (error) => {
+			if (isWriteOutcomeUncertain(error)) {
+				setWriteOutcomeUncertain(true);
+			}
+		},
+		onSettled: () => setRevokingId(null),
+	});
+	const isPermissionStateUnavailable =
+		permissionsQuery.isFetching || permissionsQuery.isError;
+	const isGrantingLocked =
+		grantPermission.isPending || isPermissionStateUnavailable;
 
 	async function refreshPermissionState() {
 		setIsCheckingWriteOutcome(true);
@@ -84,9 +114,9 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 		);
 	}
 
-	async function handleGrantPermission(event: SyntheticEvent<HTMLFormElement>) {
+	function handleGrantPermission(event: SyntheticEvent<HTMLFormElement>) {
 		event.preventDefault();
-		if (writeOutcomeUncertain) {
+		if (writeOutcomeUncertain || isGrantingLocked) {
 			return;
 		}
 		const trimmedPurpose = purpose.trim();
@@ -95,54 +125,17 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 		}
 		setErrorMessage(null);
 		setStatusMessage(null);
-		setIsSaving(true);
-		try {
-			await client.projects.access.grantContextAgent({
-				projectId,
-				purpose: trimmedPurpose,
-				scopes: selectedScopes,
-			});
-			await permissionsQuery.refetch();
-			setStatusMessage("Bağlam Ajanı izni kaydedildi.");
-		} catch (error) {
-			if (isWriteOutcomeUncertain(error)) {
-				setWriteOutcomeUncertain(true);
-			}
-			setErrorMessage(
-				getErrorMessage(
-					error,
-					"İzin işleminin sonucu doğrulanamadı. İzin durumunu kontrol edin."
-				)
-			);
-		} finally {
-			setIsSaving(false);
-		}
+		grantPermission.mutate({ purpose: trimmedPurpose, scopes: selectedScopes });
 	}
 
-	async function handleRevokePermission(permissionId: string) {
-		if (writeOutcomeUncertain) {
+	function handleRevokePermission(permissionId: string) {
+		if (writeOutcomeUncertain || revokePermission.isPending) {
 			return;
 		}
 		setErrorMessage(null);
 		setStatusMessage(null);
 		setRevokingId(permissionId);
-		try {
-			await client.projects.access.revoke({ projectId, permissionId });
-			await permissionsQuery.refetch();
-			setStatusMessage("İzin geri alındı. Yeni erişim istekleri reddedilir.");
-		} catch (error) {
-			if (isWriteOutcomeUncertain(error)) {
-				setWriteOutcomeUncertain(true);
-			}
-			setErrorMessage(
-				getErrorMessage(
-					error,
-					"İzin işleminin sonucu doğrulanamadı. İzin durumunu kontrol edin."
-				)
-			);
-		} finally {
-			setRevokingId(null);
-		}
+		revokePermission.mutate(permissionId);
 	}
 
 	const permissions = permissionsQuery.data ?? [];
@@ -212,7 +205,8 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 				</div>
 
 				<ContextAgentPermissionForm
-					isSaving={isSaving}
+					isDisabled={isPermissionStateUnavailable}
+					isSaving={grantPermission.isPending}
 					onPurposeChange={setPurpose}
 					onSubmit={handleGrantPermission}
 					onToggleScope={toggleScope}

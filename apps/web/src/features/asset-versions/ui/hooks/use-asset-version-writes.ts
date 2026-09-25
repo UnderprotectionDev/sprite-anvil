@@ -13,6 +13,12 @@ interface RefreshResult {
 
 type ReviewDecision = AssetVersionReviewInput["decision"];
 
+const reviewSuccessMessages: Record<ReviewDecision, string> = {
+	approved: "Varlık Sürümü onaylandı.",
+	candidate: "Varlık Sürümü yeniden Aday yapıldı.",
+	rejected: "Varlık Sürümü reddedildi.",
+};
+
 export function useAssetVersionWrites(
 	projectId: string,
 	refreshCatalogs: () => Promise<RefreshResult>
@@ -69,6 +75,7 @@ export function useAssetVersionWrites(
 		}
 	}
 
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Upload outcome recovery keeps uncertain writes and retries tied to one idempotency key.
 	async function upload(assetRecordId: string, file: File) {
 		if (writeOutcomeUncertain) {
 			return false;
@@ -104,6 +111,7 @@ export function useAssetVersionWrites(
 					credentials: "include",
 					headers: {
 						"Content-Type": file.type,
+						"X-Asset-Version-File-Name": encodeURIComponent(file.name),
 						"X-Asset-Version-Size": file.size.toString(),
 						"Idempotency-Key": idempotencyKey,
 					},
@@ -171,11 +179,7 @@ export function useAssetVersionWrites(
 					decision,
 					rationale: normalizedRationale,
 				}),
-			decision === "approved"
-				? "Varlık Sürümü onaylandı."
-				: decision === "rejected"
-					? "Varlık Sürümü reddedildi."
-					: "Varlık Sürümü yeniden Aday yapıldı."
+			reviewSuccessMessages[decision]
 		);
 	}
 

@@ -8,6 +8,8 @@ import { user } from "@sprite-anvil/db/schema/auth";
 import { contextRevisions } from "@sprite-anvil/db/schema/project-context";
 import { eq } from "drizzle-orm";
 import { createAssetFamilyStore } from "./features/asset-families/server/asset-family-store";
+import { createAssetRecordStore } from "./features/asset-records/server/asset-record-store";
+import { createAssetRecordTrackingStore } from "./features/asset-records/server/asset-record-tracking-store";
 import { createAssetVersionStore } from "./features/asset-versions/server/asset-version-store";
 import { createProjectContextStore } from "./features/project-context/server/project-context-store";
 import { createProjectAccessStore } from "./features/projects/server/project-access-store";
@@ -40,6 +42,8 @@ test.skipIf(!databaseUrl)(
 			const context: Context = {
 				assetFamilyStore: createAssetFamilyStore(db),
 				assetVersionStore: createAssetVersionStore(db),
+				assetRecordStore: createAssetRecordStore(db),
+				assetRecordTrackingStore: createAssetRecordTrackingStore(db, null),
 				db,
 				projectAccess: createProjectAccessStore(db, store),
 				projectContextScopeStore: scopeStore,
@@ -68,16 +72,43 @@ test.skipIf(!databaseUrl)(
 				},
 				{ context }
 			);
+			const secondGameplayTheme = await call(
+				appRouter.contextScopes.createTheme,
+				{
+					projectId: project.id,
+					visualWorldId: visualWorld.id,
+					name: "Moonlit path",
+				},
+				{ context }
+			);
+			const portraitWorld = await call(
+				appRouter.contextScopes.createVisualWorld,
+				{ projectId: project.id, name: "Portraits" },
+				{ context }
+			);
+			const sameNamedTheme = await call(
+				appRouter.contextScopes.createTheme,
+				{
+					projectId: project.id,
+					visualWorldId: portraitWorld.id,
+					name: "Lantern festival",
+				},
+				{ context }
+			);
 			const scopeCatalog = await call(
 				appRouter.contextScopes.list,
 				{ projectId: project.id },
 				{ context }
 			);
 
-			expect(scopeCatalog).toEqual({
-				visualWorlds: [visualWorld],
-				themes: [theme],
-			});
+			expect(scopeCatalog.visualWorlds).toEqual(
+				expect.arrayContaining([visualWorld, portraitWorld])
+			);
+			expect(scopeCatalog.visualWorlds).toHaveLength(2);
+			expect(scopeCatalog.themes).toEqual(
+				expect.arrayContaining([theme, secondGameplayTheme, sameNamedTheme])
+			);
+			expect(scopeCatalog.themes).toHaveLength(3);
 
 			const activeRevisionId = crypto.randomUUID();
 			const activeRule: ContextRule = {

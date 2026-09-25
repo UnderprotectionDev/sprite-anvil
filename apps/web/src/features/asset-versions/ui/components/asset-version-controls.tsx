@@ -307,15 +307,18 @@ function AssetVersionPreview({
 		);
 	}
 	return (
-		<img
-			alt={`${recordName}, Sürüm ${versionNumber} önizlemesi`}
-			className="aspect-square w-32 rounded border bg-muted object-contain"
-			crossOrigin="use-credentials"
-			height={128}
-			loading="lazy"
-			onError={() => setFailed(true)}
-			src={url}
-			width={128}
-		/>
+		<>
+			{/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: Image load failures switch to the accessible error message above. */}
+			<img
+				alt={`${recordName}, Sürüm ${versionNumber} önizlemesi`}
+				className="aspect-square w-32 rounded border bg-muted object-contain"
+				crossOrigin="use-credentials"
+				height={128}
+				loading="lazy"
+				onError={() => setFailed(true)}
+				src={url}
+				width={128}
+			/>
+		</>
 	);
 }

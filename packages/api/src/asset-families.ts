@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { assetRecordIdentityCriteriaSchema } from "./asset-records";
 
 const idSchema = z.string().trim().min(1).max(128);
 const nameSchema = z.string().trim().min(1).max(120);
@@ -87,6 +88,7 @@ export const assetRecordCreateInputSchema = z
 		projectId: idSchema,
 		assetFamilyId: idSchema,
 		name: nameSchema,
+		identityCriteria: assetRecordIdentityCriteriaSchema.array().min(1).max(3),
 	})
 	.strict();
 

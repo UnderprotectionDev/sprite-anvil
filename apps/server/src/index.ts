@@ -13,7 +13,6 @@ import {
 	createQueue,
 	createStorage,
 	requireCloudflareConfig,
-	requireR2Config,
 } from "./cloudflare";
 import { createContext } from "./context";
 import { desktopOrigins, ENV } from "./env.server";
@@ -33,7 +32,6 @@ import {
 
 const app = new Hono();
 const cloudflareConfig = () => requireCloudflareConfig(ENV);
-const r2Config = () => requireR2Config(ENV);
 
 app.onError((error, c) => {
 	const supportReference = createSupportReference();
@@ -64,6 +62,7 @@ app.use(
 			"Content-Type",
 			"Authorization",
 			"X-Asset-Version-Size",
+			"X-Asset-Version-File-Name",
 			"Idempotency-Key",
 		],
 		credentials: true,

@@ -273,6 +273,8 @@ function makeContext(
 	return {
 		assetFamilyStore: {} as Context["assetFamilyStore"],
 		assetVersionStore: {} as Context["assetVersionStore"],
+		assetRecordStore: {} as Context["assetRecordStore"],
+		assetRecordTrackingStore: {} as Context["assetRecordTrackingStore"],
 		db: {} as Database,
 		projectAccess: {} as Context["projectAccess"],
 		projectContextScopeStore: scopeStore,
@@ -427,13 +429,49 @@ test("stores Visual Worlds and Themes under the owner's Project Context", async 
 		},
 		{ context }
 	);
+	const secondGameplayTheme = await call(
+		appRouter.contextScopes.createTheme,
+		{
+			projectId: project.id,
+			visualWorldId: visualWorld.id,
+			name: "Cloud terraces",
+			description: "White stone structures above the mist.",
+		},
+		{ context }
+	);
+	const portraitWorld = await call(
+		appRouter.contextScopes.createVisualWorld,
+		{
+			projectId: project.id,
+			name: "Portraits",
+			description: "Painted character portraits.",
+		},
+		{ context }
+	);
+	const matchingThemeName = await call(
+		appRouter.contextScopes.createTheme,
+		{
+			projectId: project.id,
+			visualWorldId: portraitWorld.id,
+			name: "Winter market",
+			description: "A painterly winter market.",
+		},
+		{ context }
+	);
 	const catalog = await call(
 		appRouter.contextScopes.list,
 		{ projectId: project.id },
 		{ context }
 	);
 
-	expect(catalog).toEqual({ visualWorlds: [visualWorld], themes: [theme] });
+	expect(catalog.visualWorlds).toEqual(
+		expect.arrayContaining([visualWorld, portraitWorld])
+	);
+	expect(catalog.visualWorlds).toHaveLength(2);
+	expect(catalog.themes).toEqual(
+		expect.arrayContaining([theme, secondGameplayTheme, matchingThemeName])
+	);
+	expect(catalog.themes).toHaveLength(3);
 	await expect(
 		call(
 			appRouter.contextScopes.createVisualWorld,

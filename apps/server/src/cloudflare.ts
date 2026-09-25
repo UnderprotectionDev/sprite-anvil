@@ -27,10 +27,15 @@ export const twoDVisualAssetKeySchema = z
 
 export const assetVersionObjectKeySchema = z
 	.string()
-	.regex(
-		new RegExp(
-			`^projects/${projectKeySegmentPattern}/asset-records/${uuidPattern}/versions/${uuidPattern}$`
-		)
+	.refine((key) =>
+		[
+			new RegExp(
+				`^projects/${projectKeySegmentPattern}/asset-records/${uuidPattern}/versions/${uuidPattern}$`
+			),
+			new RegExp(
+				`^projects/${projectKeySegmentPattern}/asset-versions/${uuidPattern}/[a-f0-9]{64}$`
+			),
+		].some((pattern) => pattern.test(key))
 	);
 
 export const legacyAssetKeySchema = z
@@ -55,6 +60,17 @@ export function createProjectAssetVersionObjectKey(
 	const projectKeySegment = encodeURIComponent(projectId);
 	return assetVersionObjectKeySchema.parse(
 		`projects/${projectKeySegment}/asset-records/${assetRecordId}/versions/${assetVersionId}`
+	);
+}
+
+export function createAssetVersionObjectKey(
+	projectId: string,
+	assetVersionId: string,
+	sha256: string
+) {
+	const projectKeySegment = encodeURIComponent(projectId);
+	return assetVersionObjectKeySchema.parse(
+		`projects/${projectKeySegment}/asset-versions/${assetVersionId}/${sha256}`
 	);
 }
 
@@ -102,6 +118,18 @@ export interface CloudflareQueueConfig {
 }
 
 export interface CloudflareConfig extends R2Config, CloudflareQueueConfig {}
+
+export type R2StorageConfig = R2Config;
+
+export function getR2StorageConfig(
+	config: Partial<CloudflareConfig> & { R2_ACCOUNT_ID?: string }
+): R2StorageConfig | null {
+	try {
+		return requireR2Config(config);
+	} catch {
+		return null;
+	}
+}
 
 type R2ConfigInput = Partial<R2Config> & { R2_ACCOUNT_ID?: string };
 

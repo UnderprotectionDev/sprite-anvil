@@ -9,6 +9,8 @@ import { user } from "@sprite-anvil/db/schema/auth";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { createAssetFamilyStore } from "./features/asset-families/server/asset-family-store";
+import { createAssetRecordStore } from "./features/asset-records/server/asset-record-store";
+import { createAssetRecordTrackingStore } from "./features/asset-records/server/asset-record-tracking-store";
 import { verifyAssetVersionStream } from "./features/asset-versions/server/asset-version-integrity";
 import { mountAssetVersionRoutes } from "./features/asset-versions/server/asset-version-routes";
 import { createAssetVersionStore } from "./features/asset-versions/server/asset-version-store";
@@ -17,6 +19,7 @@ import { createProjectAccessStore } from "./features/projects/server/project-acc
 import { createProjectContextScopeStore } from "./features/visual-worlds/server/project-context-scope-store";
 
 const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
+const sha256Pattern = /^[0-9a-f]{64}$/;
 
 function pngChunk(type: string, data: Buffer) {
 	const typeBytes = Buffer.from(type, "ascii");
@@ -24,12 +27,15 @@ function pngChunk(type: string, data: Buffer) {
 	length.writeUInt32BE(data.length);
 	let crc = 0xff_ff_ff_ff;
 	for (const byte of Buffer.concat([typeBytes, data])) {
+		// biome-ignore lint/suspicious/noBitwiseOperators: CRC32 uses unsigned 32-bit integer operations.
 		crc ^= byte;
 		for (let bit = 0; bit < 8; bit += 1) {
+			// biome-ignore lint/suspicious/noBitwiseOperators: CRC32 uses unsigned 32-bit integer operations.
 			crc = (crc & 1) === 1 ? 0xed_b8_83_20 ^ (crc >>> 1) : crc >>> 1;
 		}
 	}
 	const checksum = Buffer.alloc(4);
+	// biome-ignore lint/suspicious/noBitwiseOperators: CRC32 uses unsigned 32-bit integer operations.
 	checksum.writeUInt32BE((crc ^ 0xff_ff_ff_ff) >>> 0);
 	return Buffer.concat([length, typeBytes, data, checksum]);
 }
@@ -115,6 +121,7 @@ test.skipIf(!databaseUrl)(
 				try {
 					let result = await reader.read();
 					while (!result.done) {
+						// biome-ignore lint/performance/noAwaitInLoops: A stream reader must consume chunks sequentially.
 						result = await reader.read();
 					}
 					return true;
@@ -127,6 +134,8 @@ test.skipIf(!databaseUrl)(
 			const context: Context = {
 				assetFamilyStore: createAssetFamilyStore(db),
 				assetVersionStore: createAssetVersionStore(db),
+				assetRecordStore: createAssetRecordStore(db),
+				assetRecordTrackingStore: createAssetRecordTrackingStore(db, null),
 				verifyAssetVersionContent,
 				db,
 				projectAccess: createProjectAccessStore(db, projectContextStore),
@@ -165,12 +174,22 @@ test.skipIf(!databaseUrl)(
 			);
 			const source = await call(
 				appRouter.assetFamilies.createAssetRecord,
-				{ projectId: project.id, assetFamilyId: family.id, name: "Base" },
+				{
+					projectId: project.id,
+					assetFamilyId: family.id,
+					name: "Base",
+					identityCriteria: ["independent_product_meaning"],
+				},
 				{ context }
 			);
 			const target = await call(
 				appRouter.assetFamilies.createAssetRecord,
-				{ projectId: project.id, assetFamilyId: family.id, name: "East" },
+				{
+					projectId: project.id,
+					assetFamilyId: family.id,
+					name: "East",
+					identityCriteria: ["delivery_identity"],
+				},
 				{ context }
 			);
 			const storage = {
@@ -222,6 +241,7 @@ test.skipIf(!databaseUrl)(
 					method: "POST",
 					headers: {
 						"Content-Type": "image/png",
+						"X-Asset-Version-File-Name": "ash-knight-base.png",
 						"X-Asset-Version-Size": fileBytes.byteLength.toString(),
 						"Idempotency-Key": idempotencyKey,
 					},
@@ -238,7 +258,7 @@ test.skipIf(!databaseUrl)(
 				versionNumber: 1,
 				reviewDisposition: "candidate",
 				integrityVerified: true,
-				contentDigest: expect.stringMatching(/^[0-9a-f]{64}$/),
+				contentDigest: expect.stringMatching(sha256Pattern),
 			});
 
 			const retryResponse = await uploadApp.request(
@@ -247,6 +267,7 @@ test.skipIf(!databaseUrl)(
 					method: "POST",
 					headers: {
 						"Content-Type": "image/png",
+						"X-Asset-Version-File-Name": "ash-knight-base.png",
 						"X-Asset-Version-Size": fileBytes.byteLength.toString(),
 						"Idempotency-Key": idempotencyKey,
 					},
@@ -267,7 +288,7 @@ test.skipIf(!databaseUrl)(
 			);
 			const replacementBytes = makePng("other");
 			expect(replacementBytes.byteLength).toBe(fileBytes.byteLength);
-			const objectKey = [...storedObjects.keys()][0];
+			const [objectKey] = [...storedObjects.keys()];
 			if (!objectKey) {
 				throw new Error("Expected the uploaded image in test storage.");
 			}
@@ -360,6 +381,11 @@ test.skipIf(!databaseUrl)(
 			const rereadContext: Context = {
 				assetFamilyStore: createAssetFamilyStore(rereadDb),
 				assetVersionStore: createAssetVersionStore(rereadDb),
+				assetRecordStore: createAssetRecordStore(rereadDb),
+				assetRecordTrackingStore: createAssetRecordTrackingStore(
+					rereadDb,
+					null
+				),
 				verifyAssetVersionContent,
 				db: rereadDb,
 				projectAccess: createProjectAccessStore(

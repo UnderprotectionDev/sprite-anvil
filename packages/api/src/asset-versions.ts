@@ -105,6 +105,7 @@ export interface AssetVersionFileRecord {
 	contentDigest: string | null;
 	contentLength: number;
 	contentType: "image/png" | "image/webp";
+	fileName: string | null;
 	id: string;
 	idempotencyKey: string;
 	integrityVerified: boolean;

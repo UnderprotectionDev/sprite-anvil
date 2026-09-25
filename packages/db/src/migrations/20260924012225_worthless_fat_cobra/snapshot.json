@@ -3,7 +3,7 @@
   "dialect": "postgres",
   "id": "be2004a4-b725-4f9f-9e01-8a30a28dcb27",
   "prevIds": [
-    "76b17b55-e623-4ba1-982b-7f6f23ee1d49"
+    "c041bf0e-52a7-418e-b622-4cb5233ccdc9"
   ],
   "ddl": [
     {
@@ -1871,6 +1871,128 @@
       "schema": "public",
       "table": "user",
       "entityType": "uniques"
+    },
+    {
+      "values": [
+        "identity",
+        "theme",
+        "style"
+      ],
+      "name": "external_visual_analysis_category",
+      "entityType": "enums",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "external_visual_analysis_permission",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "type": "external_visual_analysis_category",
+      "typeSchema": "public",
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "category",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "external_visual_analysis_permission"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "external_visual_analysis_permission_project_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "external_visual_analysis_permission"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "category",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "external_visual_analysis_permission_project_category_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "external_visual_analysis_permission"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "project_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "project",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "external_visual_analysis_permission_project_id_project_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "external_visual_analysis_permission"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "granted_by_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "user",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "external_visual_analysis_permission_DvhNARdGe0XL_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "external_visual_analysis_permission"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "external_visual_analysis_permission_pkey",
+      "schema": "public",
+      "table": "external_visual_analysis_permission",
+      "entityType": "pks"
     }
   ],
   "renames": []

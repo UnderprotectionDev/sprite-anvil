@@ -2,6 +2,7 @@ import type {
 	AssetFamilyCatalog,
 	AssetFamilyRelationshipType,
 } from "@sprite-anvil/api/asset-families";
+import type { AssetRecordIdentityCriterion } from "@sprite-anvil/api/asset-records";
 import type { AssetVersionCatalog } from "@sprite-anvil/api/asset-versions";
 import { Link } from "@tanstack/react-router";
 import type { SyntheticEvent } from "react";
@@ -13,6 +14,7 @@ import {
 } from "../forms/asset-family-forms";
 
 export interface AssetFamilyFormState {
+	assetRecordIdentityCriteria: AssetRecordIdentityCriterion[];
 	assetRecordName: string;
 	familyName: string;
 	familyUseContext: string;
@@ -28,6 +30,9 @@ export interface AssetFamilyFormState {
 
 export interface AssetFamilyFormHandlers {
 	onAssetRecordFamilyChange: (value: string) => void;
+	onAssetRecordIdentityCriterionToggle: (
+		value: AssetRecordIdentityCriterion
+	) => void;
 	onAssetRecordNameChange: (value: string) => void;
 	onFamilyNameChange: (value: string) => void;
 	onFamilyUseContextChange: (value: string) => void;
@@ -142,9 +147,13 @@ export function AssetFamilyManagementForms({
 						assetFamilies={catalog.assetFamilies}
 						assetRecords={catalog.assetRecords}
 						disabled={disabled}
+						identityCriteria={formState.assetRecordIdentityCriteria}
 						isSaving={isSaving === "asset-record"}
 						name={formState.assetRecordName}
 						onAssetFamilyChange={formHandlers.onAssetRecordFamilyChange}
+						onIdentityCriterionToggle={
+							formHandlers.onAssetRecordIdentityCriterionToggle
+						}
 						onNameChange={formHandlers.onAssetRecordNameChange}
 						onSubmit={formHandlers.submitAssetRecord}
 						selectedAssetFamilyId={formState.selectedAssetRecordFamilyId}

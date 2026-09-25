@@ -1,6 +1,8 @@
 import type { Session } from "@sprite-anvil/auth";
 import type { Database } from "@sprite-anvil/db";
 import type { AssetFamilyStore } from "./asset-families";
+import type { AssetRecordTrackingStore } from "./asset-record-tracking";
+import type { AssetRecordStore } from "./asset-records";
 import type { AssetVersionStore } from "./asset-versions";
 import type { ProjectContextScopeStore } from "./context-scopes";
 import type { ProjectAccessStore } from "./project-access-store";
@@ -8,6 +10,8 @@ import type { ProjectContextStore } from "./project-context";
 
 export interface Context {
 	assetFamilyStore: AssetFamilyStore;
+	assetRecordStore: AssetRecordStore;
+	assetRecordTrackingStore: AssetRecordTrackingStore;
 	assetVersionStore: AssetVersionStore;
 	db: Database;
 	projectAccess: ProjectAccessStore;

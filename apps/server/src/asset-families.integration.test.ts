@@ -6,6 +6,8 @@ import { createDb } from "@sprite-anvil/db";
 import { user } from "@sprite-anvil/db/schema/auth";
 import { eq } from "drizzle-orm";
 import { createAssetFamilyStore } from "./features/asset-families/server/asset-family-store";
+import { createAssetRecordStore } from "./features/asset-records/server/asset-record-store";
+import { createAssetRecordTrackingStore } from "./features/asset-records/server/asset-record-tracking-store";
 import { createAssetVersionStore } from "./features/asset-versions/server/asset-version-store";
 import { createProjectContextStore } from "./features/project-context/server/project-context-store";
 import { createProjectAccessStore } from "./features/projects/server/project-access-store";
@@ -36,6 +38,8 @@ test.skipIf(!databaseUrl)(
 			const context: Context = {
 				assetFamilyStore: createAssetFamilyStore(db),
 				assetVersionStore: createAssetVersionStore(db),
+				assetRecordStore: createAssetRecordStore(db),
+				assetRecordTrackingStore: createAssetRecordTrackingStore(db, null),
 				db,
 				projectAccess: createProjectAccessStore(db, projectContextStore),
 				projectContextScopeStore: createProjectContextScopeStore(db),
@@ -73,12 +77,22 @@ test.skipIf(!databaseUrl)(
 			);
 			const source = await call(
 				appRouter.assetFamilies.createAssetRecord,
-				{ projectId: project.id, assetFamilyId: family.id, name: "Base" },
+				{
+					projectId: project.id,
+					assetFamilyId: family.id,
+					name: "Base",
+					identityCriteria: ["independent_product_meaning"],
+				},
 				{ context }
 			);
 			const target = await call(
 				appRouter.assetFamilies.createAssetRecord,
-				{ projectId: project.id, assetFamilyId: family.id, name: "East" },
+				{
+					projectId: project.id,
+					assetFamilyId: family.id,
+					name: "East",
+					identityCriteria: ["delivery_identity"],
+				},
 				{ context }
 			);
 			const relationship = await call(
@@ -98,6 +112,11 @@ test.skipIf(!databaseUrl)(
 			const rereadContext: Context = {
 				assetFamilyStore: createAssetFamilyStore(rereadDb),
 				assetVersionStore: createAssetVersionStore(rereadDb),
+				assetRecordStore: createAssetRecordStore(rereadDb),
+				assetRecordTrackingStore: createAssetRecordTrackingStore(
+					rereadDb,
+					null
+				),
 				db: rereadDb,
 				projectAccess: createProjectAccessStore(
 					rereadDb,

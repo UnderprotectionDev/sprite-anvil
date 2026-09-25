@@ -1,3 +1,4 @@
+import { assetVersionFileNameSchema } from "@sprite-anvil/api/asset-record-tracking";
 import type { AssetVersionStore } from "@sprite-anvil/api/asset-versions";
 import type { Context, Hono } from "hono";
 import z from "zod";
@@ -22,6 +23,7 @@ const projectIdSchema = z.string().min(1).max(200);
 const assetRecordIdSchema = z.string().uuid();
 const assetVersionIdSchema = z.string().uuid();
 const uploadLengthHeader = "x-asset-version-size";
+const fileNameHeader = "x-asset-version-file-name";
 const idempotencyKeySchema = z.string().trim().min(1).max(128);
 const uploadLengthPattern = /^[1-9]\d*$/;
 
@@ -91,6 +93,7 @@ function parseUploadLength(value: string | undefined) {
 	return Number.isSafeInteger(contentLength) ? contentLength : null;
 }
 
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Upload validation, storage cleanup, and response mapping stay within one failure boundary.
 async function uploadAssetVersion(
 	c: Context,
 	projectId: string,
@@ -121,6 +124,25 @@ async function uploadAssetVersion(
 	if (contentLength === null) {
 		return c.json(
 			serializePublicApiError("Invalid Asset Version content length"),
+			400
+		);
+	}
+	const encodedFileName = c.req.header(fileNameHeader);
+	let decodedFileName: string | undefined;
+	try {
+		decodedFileName = encodedFileName
+			? decodeURIComponent(encodedFileName)
+			: undefined;
+	} catch {
+		return c.json(
+			serializePublicApiError("Invalid Asset Version file name"),
+			400
+		);
+	}
+	const fileName = assetVersionFileNameSchema.safeParse(decodedFileName);
+	if (!fileName.success) {
+		return c.json(
+			serializePublicApiError("Invalid Asset Version file name"),
 			400
 		);
 	}
@@ -179,6 +201,7 @@ async function uploadAssetVersion(
 				objectKey,
 				contentType: contentType.data,
 				contentLength,
+				fileName: fileName.data,
 				contentDigest,
 				idempotencyKey: idempotencyKey.data,
 				integrityVerified: true,

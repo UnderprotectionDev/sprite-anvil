@@ -18,14 +18,18 @@ import {
 } from "@sprite-anvil/api/asset-families";
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
 import {
-	assetFamilies,
 	assetFamilyCanonicalDesigns,
 	assetFamilyRelationships,
+} from "@sprite-anvil/db/schema/asset-families";
+import {
+	assetFamilies,
 	assetRecords,
+	subjectIdentities,
+} from "@sprite-anvil/db/schema/asset-records";
+import {
 	assetVersionReviewEvents,
 	assetVersions,
-	subjectIdentities,
-} from "@sprite-anvil/db/schema/asset-families";
+} from "@sprite-anvil/db/schema/asset-versions";
 import { visualWorlds } from "@sprite-anvil/db/schema/context-scopes";
 import { and, asc, desc, eq, inArray, isNotNull } from "drizzle-orm";
 
@@ -47,7 +51,9 @@ function toSubjectIdentityRecord(
 }
 
 function toAssetFamilyRecord(
-	record: typeof assetFamilies.$inferSelect
+	record: Omit<typeof assetFamilies.$inferSelect, "subjectIdentityId"> & {
+		subjectIdentityId: string;
+	}
 ): AssetFamilyRecord {
 	return assetFamilyRecordSchema.parse({
 		id: record.id,
@@ -137,11 +143,9 @@ async function isApprovedCanonicalSource(
 		return false;
 	}
 	const [latestReviewEvent] = await db
-		.select({ type: assetVersionReviewEvents.type })
+		.select({ type: assetVersionReviewEvents.decision })
 		.from(assetVersionReviewEvents)
-		.where(
-			eq(assetVersionReviewEvents.assetVersionId, input.sourceAssetVersionId)
-		)
+		.where(eq(assetVersionReviewEvents.versionId, input.sourceAssetVersionId))
 		.orderBy(
 			desc(assetVersionReviewEvents.createdAt),
 			desc(assetVersionReviewEvents.id)
@@ -164,8 +168,7 @@ async function isApprovedCanonicalSource(
 		)
 		.limit(1);
 	return Boolean(
-		sourceVersion &&
-			sourceVersion.integrityVerified &&
+		sourceVersion?.integrityVerified &&
 			sourceVersion.contentDigest &&
 			latestReviewEvent?.type === "approved"
 	);
@@ -210,7 +213,16 @@ export function createAssetFamilyStore(db: Database): AssetFamilyStore {
 
 			return assetFamilyCatalogSchema.parse({
 				subjectIdentities: identityRows.map(toSubjectIdentityRecord),
-				assetFamilies: familyRows.map(toAssetFamilyRecord),
+				assetFamilies: familyRows.flatMap((family) =>
+					family.subjectIdentityId
+						? [
+								toAssetFamilyRecord({
+									...family,
+									subjectIdentityId: family.subjectIdentityId,
+								}),
+							]
+						: []
+				),
 				assetRecords: toFamilyAssetRecords(assetRows),
 				relationships: relationshipRows.map(toRelationship),
 			});
@@ -274,11 +286,17 @@ export function createAssetFamilyStore(db: Database): AssetFamilyStore {
 					name: input.name,
 					visualWorldId: input.visualWorldId,
 					useContext: input.useContext,
+					canonicalVersionId: null,
 					createdByUserId: userId,
 				})
 				.onConflictDoNothing()
 				.returning();
-			return record ? toAssetFamilyRecord(record) : null;
+			return record?.subjectIdentityId
+				? toAssetFamilyRecord({
+						...record,
+						subjectIdentityId: record.subjectIdentityId,
+					})
+				: null;
 		},
 
 		async createAssetRecord(userId, input: AssetRecordCreateInput) {
@@ -308,6 +326,9 @@ export function createAssetFamilyStore(db: Database): AssetFamilyStore {
 					projectId: input.projectId,
 					assetFamilyId: input.assetFamilyId,
 					name: input.name,
+					identityCriteria: input.identityCriteria,
+					supportLevel: "general",
+					availability: "active",
 					createdByUserId: userId,
 				})
 				.onConflictDoNothing()

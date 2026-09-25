@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import type { Database } from "@sprite-anvil/db";
-import { assetRecords } from "@sprite-anvil/db/schema/asset-families";
+import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
 import { project } from "@sprite-anvil/db/schema/project";
 import { createAssetVersionStore } from "./asset-version-store";
 
@@ -18,9 +18,11 @@ function createDatabaseHarness() {
 		assetFamilyId,
 		assetRecordId,
 		versionNumber: 1,
+		fileName: "asset.png",
 		objectKey: `projects/${projectId}/asset-records/${assetRecordId}/versions/${versionId}`,
 		contentType: "image/png" as const,
-		contentLength: 4,
+		byteSize: 4,
+		sha256: "a".repeat(64),
 		contentDigest: "a".repeat(64),
 		integrityVerified: true,
 		idempotencyKey: "asset-version-store-key",
@@ -32,8 +34,8 @@ function createDatabaseHarness() {
 		projectId,
 		assetFamilyId,
 		assetRecordId,
-		assetVersionId: versionId,
-		type: "candidate" as const,
+		versionId,
+		decision: "candidate" as const,
 		rationale: null,
 		createdByUserId: userId,
 		createdAt,
@@ -91,7 +93,7 @@ function createDatabaseHarness() {
 		execute: () => ({ kind: "advisory-lock" }),
 		batch(queries: unknown[]) {
 			batchQueryCount = queries.length;
-			return [[], [versionRow], [reviewEventRow]];
+			return [[], [versionRow], [reviewEventRow], [{}]];
 		},
 		transaction() {
 			transactionCount += 1;
@@ -115,6 +117,7 @@ test("creates a candidate Asset Version with a Review Event using the Neon batch
 		projectId,
 		assetFamilyId,
 		assetRecordId,
+		fileName: "asset.png",
 		objectKey: `projects/${projectId}/asset-records/${assetRecordId}/versions/${versionId}`,
 		contentType: "image/png",
 		contentLength: 4,
@@ -132,6 +135,6 @@ test("creates a candidate Asset Version with a Review Event using the Neon batch
 			reviewEvents: [expect.objectContaining({ type: "candidate" })],
 		},
 	});
-	expect(database.getBatchQueryCount()).toBe(3);
+	expect(database.getBatchQueryCount()).toBe(4);
 	expect(database.getTransactionCount()).toBe(0);
 });
