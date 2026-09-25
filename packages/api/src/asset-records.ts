@@ -122,6 +122,10 @@ export const assetRecordMeasurementsUpdateInputSchema = z
 	.strict();
 
 export type AssetRecord = z.infer<typeof assetRecordSchema>;
+export type MutableAssetRecordAvailability = Extract<
+	AssetRecord["availability"],
+	"active" | "archived"
+>;
 export type AssetRecordCreateInput = z.infer<
 	typeof assetRecordCreateInputSchema
 >;
@@ -140,6 +144,12 @@ export interface AssetRecordStore {
 		assetRecordId: string
 	) => Promise<AssetRecord | null>;
 	list: (userId: string, projectId: string) => Promise<AssetRecord[] | null>;
+	setAvailability: (
+		userId: string,
+		projectId: string,
+		assetRecordId: string,
+		availability: MutableAssetRecordAvailability
+	) => Promise<AssetRecord | null>;
 	updateMeasurements: (
 		userId: string,
 		input: AssetRecordMeasurementsUpdateInput

@@ -9,6 +9,10 @@ import {
 } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
+import {
+	AssetRecordAvailabilityControl,
+	getAvailabilityLabel,
+} from "../components/asset-record-availability-control";
 import { AssetRecordTrackingPanel } from "../components/asset-record-tracking-panel";
 import { AssetRecordMeasurementsForm } from "../forms/asset-record-measurements-form";
 
@@ -225,6 +229,9 @@ export function AssetRecordsView({
 							<p className="text-muted-foreground text-sm">
 								{getIdentitySummary(record.identityCriteria)}
 							</p>
+							<p className="text-muted-foreground text-sm">
+								Kayıt durumu · {getAvailabilityLabel(record.availability)}
+							</p>
 						</div>
 						<Button
 							aria-label={`${record.name} kaydını aç`}
@@ -382,39 +389,39 @@ export function AssetRecordDetailView({
 		...orpc.projects.get.queryOptions({ input: { projectId } }),
 		meta: { errorPresentation: "inline" },
 	});
-	const trackingQuery = useQuery({
-		...orpc.assetRecords.tracking.queryOptions({
+	const recordQuery = useQuery({
+		...orpc.assetRecords.get.queryOptions({
 			input: { assetRecordId, projectId },
 		}),
 		meta: { errorPresentation: "inline" },
 	});
-	const record = trackingQuery.data?.record;
-	const availabilityLabel = record
-		? {
-				active: "Etkin",
-				archived: "Arşivlenmiş",
-				erased: "Silinmiş",
-			}[record.availability]
-		: null;
+	const trackingQuery = useQuery({
+		...orpc.assetRecords.tracking.queryOptions({
+			input: { assetRecordId, projectId },
+		}),
+		enabled: Boolean(recordQuery.data),
+		meta: { errorPresentation: "inline" },
+	});
+	const record = recordQuery.data;
 	let recordHeading: ReactNode;
-	if (trackingQuery.isPending) {
+	if (recordQuery.isPending) {
 		recordHeading = (
 			<h1 className="font-bold text-3xl">Varlık kaydı yükleniyor…</h1>
 		);
-	} else if (trackingQuery.isError) {
+	} else if (recordQuery.isError) {
 		recordHeading = (
 			<div>
 				<h1 className="font-bold text-3xl">Varlık kaydı açılamadı</h1>
 				<p role="alert">
 					{getErrorMessage(
-						trackingQuery.error,
+						recordQuery.error,
 						"Varlık kaydı yüklenemedi.",
 						"query"
 					)}
 				</p>
 				<QueryRetryButton
-					disabled={trackingQuery.isFetching}
-					onRetry={() => void trackingQuery.refetch()}
+					disabled={recordQuery.isFetching}
+					onRetry={() => void recordQuery.refetch()}
 				/>
 			</div>
 		);
@@ -442,27 +449,16 @@ export function AssetRecordDetailView({
 
 			{record ? (
 				<>
-					<section
-						aria-labelledby="record-availability"
-						className="rounded-lg border p-5"
-					>
-						<h2 className="font-semibold" id="record-availability">
-							Kayıt durumu
-						</h2>
-						<p className="mt-1">{availabilityLabel}</p>
-						<p className="mt-2 text-muted-foreground text-sm">
-							Genel Varlık Desteği · Özel profil kanıtı yok
-						</p>
-						<p className="mt-2 text-muted-foreground text-sm">
-							Kayıt oluşturuldu ·{" "}
-							<time dateTime={record.createdAt}>
-								{new Intl.DateTimeFormat("tr-TR", {
-									dateStyle: "medium",
-									timeStyle: "short",
-								}).format(new Date(record.createdAt))}
-							</time>
-						</p>
-					</section>
+					<AssetRecordAvailabilityControl
+						onRefresh={async () => {
+							const result = await recordQuery.refetch();
+							return {
+								data: result.data,
+								isError: result.isError,
+							};
+						}}
+						record={record}
+					/>
 					{record.availability === "erased" ? (
 						<section className="rounded-lg border p-5">
 							<h2 className="font-semibold text-xl">Görsel ölçüleri</h2>
@@ -472,7 +468,7 @@ export function AssetRecordDetailView({
 						</section>
 					) : (
 						<AssetRecordMeasurementsForm
-							onRefresh={() => trackingQuery.refetch()}
+							onRefresh={() => recordQuery.refetch()}
 							record={record}
 						/>
 					)}

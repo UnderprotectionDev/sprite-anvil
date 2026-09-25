@@ -55,51 +55,73 @@ type TestAssetRecord = Omit<AssetRecord, "identityCriteria"> & {
 };
 
 const fakeApi = vi.hoisted(() => ({
+	archive: vi.fn(),
 	create: vi.fn(),
 	detail: null as Record<string, unknown> | null,
 	measurements: null as Record<string, unknown> | null,
 	record: null as TestAssetRecord | null,
 	records: [] as TestAssetRecord[],
+	restore: vi.fn(),
+	trackingError: null as Error | null,
 	updateMeasurements: vi.fn(),
 }));
 
 vi.mock("@/utils/orpc", () => ({
 	client: {
 		assetRecords: {
+			archive: (input: unknown) => fakeApi.archive(input),
 			create: (input: unknown) => fakeApi.create(input),
+			restore: (input: unknown) => fakeApi.restore(input),
 			updateMeasurements: (input: unknown) => fakeApi.updateMeasurements(input),
 		},
 	},
 	orpc: {
 		assetRecords: {
+			get: {
+				queryOptions: () => ({
+					queryKey: ["asset-record", assetRecord.id],
+					queryFn: async () =>
+						fakeApi.record ?? {
+							...assetRecord,
+							measurements:
+								fakeApi.measurements ?? emptyAssetRecordMeasurements,
+						},
+				}),
+			},
 			tracking: {
 				queryOptions: () => ({
 					queryKey: ["asset-record-detail", assetRecord.id],
-					queryFn: async () =>
-						fakeApi.detail ?? {
-							record: fakeApi.record ?? {
-								...assetRecord,
-								measurements:
-									fakeApi.measurements ?? emptyAssetRecordMeasurements,
-							},
-							tracking: {
-								availableRecords: [],
-								availableVersions: [],
-								approvedVersion: null,
-								alternatives: [],
-								derivatives: [],
-								family: null,
-								productionHistory: [],
-								quality: {
-									integrityStatus: "unavailable",
-									profileStatus: "general_support",
-									verifiedVersionCount: 0,
+					queryFn: () => {
+						if (fakeApi.trackingError) {
+							return Promise.reject(fakeApi.trackingError);
+						}
+						return Promise.resolve(
+							fakeApi.detail ?? {
+								record: fakeApi.record ?? {
+									...assetRecord,
+									measurements:
+										fakeApi.measurements ?? emptyAssetRecordMeasurements,
 								},
-								references: [],
-								reviewEvents: [],
-								visualWorlds: [],
-							},
-						},
+								tracking: {
+									availableRecords: [],
+									availableVersions: [],
+									approvedVersion: null,
+									alternatives: [],
+									derivatives: [],
+									family: null,
+									productionHistory: [],
+									quality: {
+										integrityStatus: "unavailable",
+										profileStatus: "general_support",
+										verifiedVersionCount: 0,
+									},
+									references: [],
+									reviewEvents: [],
+									visualWorlds: [],
+								},
+							}
+						);
+					},
 				}),
 			},
 			list: {
@@ -127,7 +149,10 @@ afterEach(() => {
 	fakeApi.record = null;
 	fakeApi.detail = null;
 	fakeApi.measurements = null;
+	fakeApi.trackingError = null;
+	fakeApi.archive.mockReset();
 	fakeApi.create.mockReset();
+	fakeApi.restore.mockReset();
 	fakeApi.updateMeasurements.mockReset();
 });
 
@@ -199,6 +224,75 @@ test("uncertain creates require a confirmed list check and reuse the same identi
 		expect(onOpenRecord).toHaveBeenCalledWith(assetRecord.id)
 	);
 	expect(fakeApi.create.mock.calls[1]?.[0].id).toBe(identity);
+});
+
+test("archived Asset Records remain findable in the project list", async () => {
+	const onOpenRecord = vi.fn();
+	fakeApi.records = [{ ...assetRecord, availability: "archived" }];
+	renderWithQueryClient(
+		<AssetRecordsView onOpenRecord={onOpenRecord} projectId={projectId} />
+	);
+
+	expect(await screen.findByText("Kayıt durumu · Arşivlenmiş")).toBeVisible();
+	fireEvent.click(
+		screen.getByRole("button", { name: "Ash Knight kaydını aç" })
+	);
+	expect(onOpenRecord).toHaveBeenCalledWith(assetRecord.id);
+});
+
+test("archives and restores an Asset Record without losing its detail view", async () => {
+	const archivedRecord = { ...assetRecord, availability: "archived" as const };
+	fakeApi.archive.mockImplementation(() => {
+		fakeApi.record = archivedRecord;
+		return archivedRecord;
+	});
+	fakeApi.restore.mockImplementation(() => {
+		fakeApi.record = assetRecord;
+		return assetRecord;
+	});
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+
+	fireEvent.click(await screen.findByRole("button", { name: "Kaydı arşivle" }));
+	expect(fakeApi.archive).toHaveBeenCalledWith({
+		assetRecordId: assetRecord.id,
+		projectId,
+	});
+	expect(await screen.findByText("Arşivlenmiş")).toBeVisible();
+	expect(await screen.findByRole("status")).toHaveTextContent(
+		"Kayıt arşivlendi."
+	);
+
+	fireEvent.click(
+		screen.getByRole("button", { name: "Kaydı yeniden etkinleştir" })
+	);
+	expect(fakeApi.restore).toHaveBeenCalledWith({
+		assetRecordId: assetRecord.id,
+		projectId,
+	});
+	expect(await screen.findByText("Etkin")).toBeVisible();
+	expect(await screen.findByRole("status")).toHaveTextContent(
+		"Kayıt yeniden etkinleştirildi."
+	);
+});
+
+test("keeps Availability visible when tracking details fail", async () => {
+	fakeApi.trackingError = new Error("tracking schema is unavailable");
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+
+	expect(
+		await screen.findByRole("heading", { name: "Ash Knight" })
+	).toBeVisible();
+	expect(screen.getByRole("button", { name: "Kaydı arşivle" })).toBeEnabled();
 });
 
 test("shows persisted versions, derivatives, references, quality, and provenance", async () => {
@@ -279,7 +373,7 @@ test("shows persisted versions, derivatives, references, quality, and provenance
 	expect(
 		await screen.findByRole("heading", { name: "Ash Knight" })
 	).toBeVisible();
-	expect(screen.getByText(versionFileName)).toBeVisible();
+	expect(await screen.findByText(versionFileName)).toBeVisible();
 	expect(screen.getByText(alternativeFileName)).toBeVisible();
 	expect(screen.getByText(derivativeName)).toBeVisible();
 	expect(screen.getByText(referenceName)).toBeVisible();
@@ -293,6 +387,59 @@ test("shows persisted versions, derivatives, references, quality, and provenance
 	expect(screen.getByText(userRelationshipLabel)).toBeVisible();
 	expect(screen.getByText(unknownHistory)).toBeVisible();
 	expect(screen.getByText(recordCreatedCopy)).toBeVisible();
+});
+
+test("keeps unrecorded legacy version details explicit without choosing a Canonical Design", async () => {
+	fakeApi.detail = {
+		record: assetRecord,
+		tracking: {
+			availableRecords: [],
+			availableVersions: [],
+			approvedVersion: {
+				createdAt: "2026-09-25T08:01:00.000Z",
+				fileName: null,
+				id: "f7b32d26-6b7c-4e16-a578-dac3e0dab68b",
+				reviewDisposition: "approved",
+				sha256: null,
+				versionNumber: 1,
+			},
+			alternatives: [],
+			derivatives: [],
+			family: {
+				canonicalVersionId: null,
+				id: "2e289929-ad8b-4b76-b7c5-e18b001d8214",
+				name: "Ash Knight gameplay",
+				useContext: "Combat sprite",
+				visualWorldId: "742cbe57-ecb0-4616-8d1f-71723ad8cd62",
+				visualWorldName: "Gameplay",
+			},
+			productionHistory: [],
+			quality: {
+				integrityStatus: "unavailable",
+				profileStatus: "general_support",
+				verifiedVersionCount: 0,
+			},
+			references: [],
+			reviewEvents: [],
+			visualWorlds: [],
+		},
+	};
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+
+	expect(
+		await screen.findByText("Dosya adı kaydedilmemiş · Sürüm 1")
+	).toBeVisible();
+	expect(
+		screen.getByText("Ana Tasarım seçilmedi.", { exact: false })
+	).toBeVisible();
+	expect(
+		screen.queryByLabelText("Türetilmiş Asset Record")
+	).not.toBeInTheDocument();
 });
 
 test("saves proposed and confirmed dimensions independently on an Asset Record", async () => {

@@ -55,6 +55,8 @@ const userRelationshipLabels = {
 	unknown: "Bilinmiyor",
 } as const;
 
+const missingAssetVersionFileName = "Dosya adı kaydedilmemiş";
+
 interface PendingWrite {
 	check: (detail: AssetRecordTrackingDetail) => boolean;
 	message: string;
@@ -139,7 +141,7 @@ function FamilyAndDerivativeSection({
 }: FamilyAndDerivativeSectionProps) {
 	const { record, tracking } = detail;
 	let familyControls: ReactNode = null;
-	if (tracking.family) {
+	if (tracking.family?.canonicalVersionId) {
 		familyControls = (
 			<form
 				className="mt-4 space-y-3 border-t pt-3"
@@ -193,6 +195,19 @@ function FamilyAndDerivativeSection({
 				</Button>
 			</form>
 		);
+	} else if (tracking.family) {
+		familyControls = (
+			<div className="mt-4 space-y-2 border-t pt-3 text-sm">
+				<p>
+					Varlık Ailesi: {tracking.family.name} ·{" "}
+					{tracking.family.visualWorldName}
+				</p>
+				<p className="text-muted-foreground text-xs">
+					Ana Tasarım seçilmedi. Türetilmiş varlıklar için bu seçim kullanıcı
+					tarafından yapılmalıdır.
+				</p>
+			</div>
+		);
 	} else if (tracking.approvedVersion && tracking.visualWorlds.length > 0) {
 		familyControls = (
 			<form
@@ -239,7 +254,7 @@ function FamilyAndDerivativeSection({
 				</label>
 				<p className="text-muted-foreground text-xs">
 					Ana Tasarım olarak Onaylı Sürüm kullanılacak:{" "}
-					{tracking.approvedVersion.fileName}.
+					{tracking.approvedVersion.fileName ?? missingAssetVersionFileName}.
 				</p>
 				<Button
 					disabled={
@@ -524,11 +539,16 @@ export function AssetRecordTrackingPanel({
 
 	async function createDerivative(event: SyntheticEvent<HTMLFormElement>) {
 		event.preventDefault();
-		if (!(record && tracking.family) || selectedDependencyFacets.length === 0) {
+		const { family } = tracking;
+		const canonicalVersionId = family?.canonicalVersionId;
+		if (
+			!(record && family && canonicalVersionId) ||
+			selectedDependencyFacets.length === 0
+		) {
 			return;
 		}
 		const signature = JSON.stringify({
-			canonicalVersionId: tracking.family.canonicalVersionId,
+			canonicalVersionId,
 			dependencyFacets: selectedDependencyFacets,
 			derivedAssetRecordId: derivativeAssetRecordId,
 			sourceAssetRecordId: record.id,
@@ -543,7 +563,7 @@ export function AssetRecordTrackingPanel({
 				refreshed.tracking.derivatives.some((entry) => entry.id === request.id),
 			() =>
 				client.assetRecords.createDerivative({
-					canonicalVersionId: tracking.family?.canonicalVersionId as string,
+					canonicalVersionId,
 					dependencyFacets: selectedDependencyFacets,
 					derivedAssetRecordId: derivativeAssetRecordId,
 					id: request.id,
@@ -661,8 +681,9 @@ export function AssetRecordTrackingPanel({
 					{tracking.approvedVersion ? (
 						<div className="mt-2 space-y-2 text-sm">
 							<p>
-								{tracking.approvedVersion.fileName} · Sürüm{" "}
-								{tracking.approvedVersion.versionNumber}
+								{tracking.approvedVersion.fileName ??
+									missingAssetVersionFileName}{" "}
+								· Sürüm {tracking.approvedVersion.versionNumber}
 							</p>
 							{reviewActions(tracking.approvedVersion)}
 						</div>
@@ -685,7 +706,8 @@ export function AssetRecordTrackingPanel({
 							{tracking.alternatives.map((version) => (
 								<li className="space-y-1" key={version.id}>
 									<p>
-										{version.fileName} · Sürüm {version.versionNumber} ·{" "}
+										{version.fileName ?? missingAssetVersionFileName} · Sürüm{" "}
+										{version.versionNumber} ·{" "}
 										{reviewDispositionLabel[version.reviewDisposition]}
 									</p>
 									{reviewActions(version)}
@@ -826,7 +848,8 @@ export function AssetRecordTrackingPanel({
 									.filter((version) => version.assetRecordId !== record.id)
 									.map((version) => (
 										<option key={version.id} value={version.id}>
-											{version.assetRecordName} · {version.fileName} · Sürüm{" "}
+											{version.assetRecordName} ·{" "}
+											{version.fileName ?? missingAssetVersionFileName} · Sürüm{" "}
 											{version.versionNumber}
 										</option>
 									))}

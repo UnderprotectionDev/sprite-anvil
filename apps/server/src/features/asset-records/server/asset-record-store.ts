@@ -8,7 +8,7 @@ import { type Database, getProjectForUser } from "@sprite-anvil/db";
 import { assetRecordMeasurements } from "@sprite-anvil/db/schema/asset-record-measurements";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
 import { project } from "@sprite-anvil/db/schema/project";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 
 function toAssetRecord(
 	row: typeof assetRecords.$inferSelect,
@@ -107,6 +107,25 @@ export function createAssetRecordStore(db: Database): AssetRecordStore {
 				)
 				.orderBy(desc(assetRecords.createdAt), asc(assetRecords.name));
 			return rows.map((row) => toAssetRecord(row.record, row.measurements));
+		},
+		async setAvailability(userId, projectId, assetRecordId, availability) {
+			const ownedProject = await getProjectForUser(db, userId, projectId);
+			if (!ownedProject) {
+				return null;
+			}
+
+			const [record] = await db
+				.update(assetRecords)
+				.set({ availability })
+				.where(
+					and(
+						eq(assetRecords.id, assetRecordId),
+						eq(assetRecords.projectId, projectId),
+						inArray(assetRecords.availability, ["active", "archived"])
+					)
+				)
+				.returning();
+			return record ? this.get(userId, projectId, assetRecordId) : null;
 		},
 		async updateMeasurements(
 			userId,

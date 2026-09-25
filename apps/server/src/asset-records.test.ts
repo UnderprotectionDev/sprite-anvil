@@ -4,6 +4,7 @@ import {
 	type AssetRecordCreateInput,
 	assetRecordMeasurementsUpdateInputSchema,
 	assetRecordSchema,
+	type MutableAssetRecordAvailability,
 } from "@sprite-anvil/api/asset-records";
 import type { Context } from "@sprite-anvil/api/context";
 import { appRouter } from "@sprite-anvil/api/routers/index";
@@ -84,7 +85,7 @@ interface ContentBounds {
 }
 
 function createContext(
-	userId: string,
+	userId: string | null,
 	storedRecords: Map<string, TestRecord>
 ): Context {
 	const store = {
@@ -127,6 +128,26 @@ function createContext(
 				(record) => record.projectId === targetProjectId
 			);
 		},
+		setAvailability: (
+			requestingUserId: string,
+			targetProjectId: string,
+			targetRecordId: string,
+			availability: MutableAssetRecordAvailability
+		) => {
+			if (requestingUserId !== ownerId || targetProjectId !== projectId) {
+				return null;
+			}
+			const record = storedRecords.get(targetRecordId);
+			if (
+				!record ||
+				record.projectId !== targetProjectId ||
+				record.availability === "erased"
+			) {
+				return null;
+			}
+			record.availability = availability;
+			return record;
+		},
 		updateMeasurements: (
 			requestingUserId: string,
 			input: {
@@ -155,7 +176,7 @@ function createContext(
 	return {
 		assetRecordStore: store,
 		assetRecordTrackingStore: {} as never,
-		session: { user: { id: userId } },
+		session: userId ? { user: { id: userId } } : null,
 	} as unknown as Context;
 }
 
@@ -222,6 +243,137 @@ test("does not expose an Asset Record to another project's user", async () => {
 			{ context: createContext("user-other", storedRecords) }
 		)
 	).rejects.toMatchObject({ code: "NOT_FOUND" });
+});
+
+test("archives an Asset Record and keeps it available for rereading", async () => {
+	const storedRecords = new Map<string, TestRecord>([
+		[
+			recordId,
+			{
+				availability: "active",
+				createdAt: "2026-09-25T08:00:00.000Z",
+				id: recordId,
+				identityCriteria: ["independent_product_meaning"],
+				name: "Ash Knight",
+				measurements,
+				projectId,
+				supportLevel: "general",
+			},
+		],
+	]);
+	const context = createContext(ownerId, storedRecords);
+	const input = { assetRecordId: recordId, projectId };
+
+	const archived = await call(appRouter.assetRecords.archive, input, {
+		context,
+	});
+	const repeatedArchive = await call(appRouter.assetRecords.archive, input, {
+		context,
+	});
+	const reread = await call(appRouter.assetRecords.get, input, { context });
+	const records = await call(
+		appRouter.assetRecords.list,
+		{ projectId },
+		{ context }
+	);
+
+	expect(archived).toMatchObject({
+		availability: "archived",
+		identityCriteria: ["independent_product_meaning"],
+		measurements,
+		name: "Ash Knight",
+	});
+	expect(repeatedArchive).toEqual(archived);
+	expect(reread).toEqual(archived);
+	expect(records).toContainEqual(archived);
+});
+
+test("restores an archived Asset Record without changing its identity", async () => {
+	const storedRecords = new Map<string, TestRecord>([
+		[
+			recordId,
+			{
+				availability: "archived",
+				createdAt: "2026-09-25T08:00:00.000Z",
+				id: recordId,
+				identityCriteria: ["independent_product_meaning"],
+				measurements,
+				name: "Ash Knight",
+				projectId,
+				supportLevel: "general",
+			},
+		],
+	]);
+	const context = createContext(ownerId, storedRecords);
+	const input = { assetRecordId: recordId, projectId };
+
+	const restored = await call(appRouter.assetRecords.restore, input, {
+		context,
+	});
+	const repeatedRestore = await call(appRouter.assetRecords.restore, input, {
+		context,
+	});
+
+	expect(restored).toMatchObject({
+		availability: "active",
+		identityCriteria: ["independent_product_meaning"],
+		name: "Ash Knight",
+	});
+	expect(repeatedRestore).toEqual(restored);
+});
+
+test("does not let another user archive an Asset Record", async () => {
+	const activeRecord: TestRecord = {
+		availability: "active",
+		createdAt: "2026-09-25T08:00:00.000Z",
+		id: recordId,
+		identityCriteria: ["independent_product_meaning"],
+		name: "Ash Knight",
+		projectId,
+		supportLevel: "general",
+	};
+	const storedRecords = new Map([[recordId, activeRecord]]);
+
+	await expect(
+		call(
+			appRouter.assetRecords.archive,
+			{ assetRecordId: recordId, projectId },
+			{ context: createContext("user-other", storedRecords) }
+		)
+	).rejects.toMatchObject({ code: "NOT_FOUND" });
+	expect(activeRecord.availability).toBe("active");
+});
+
+test("does not restore an Erased Asset Record", async () => {
+	const erasedRecord: TestRecord = {
+		availability: "erased",
+		createdAt: "2026-09-25T08:00:00.000Z",
+		id: recordId,
+		identityCriteria: ["independent_product_meaning"],
+		name: "Ash Knight",
+		projectId,
+		supportLevel: "general",
+	};
+	const storedRecords = new Map([[recordId, erasedRecord]]);
+
+	await expect(
+		call(
+			appRouter.assetRecords.restore,
+			{ assetRecordId: recordId, projectId },
+			{ context: createContext(ownerId, storedRecords) }
+		)
+	).rejects.toMatchObject({ code: "NOT_FOUND" });
+	expect(erasedRecord.availability).toBe("erased");
+});
+
+test("rejects an unauthenticated Asset Record archive request", async () => {
+	await expect(
+		call(
+			appRouter.assetRecords.archive,
+			{ assetRecordId: recordId, projectId },
+			{ context: createContext(null, new Map()) }
+		)
+	).rejects.toMatchObject({ code: "UNAUTHORIZED" });
 });
 
 test("rejects reuse of an Asset Record id with different content", async () => {

@@ -29,6 +29,13 @@ const assetTrackingMigration = readFileSync(
 	),
 	"utf8"
 );
+const legacyAssetSchemaBridgeMigration = readFileSync(
+	new URL(
+		"./migrations/20260925080000_legacy_asset_schema_bridge/migration.sql",
+		import.meta.url
+	),
+	"utf8"
+);
 const assetTrackingConstraintMigration = readFileSync(
 	new URL(
 		"./migrations/20260925092506_wild_doctor_doom/migration.sql",
@@ -96,7 +103,9 @@ test("adds immutable Asset Version tracking and its project-scoped relations", (
 		"asset_record_references",
 		"asset_record_derivatives",
 	]) {
-		expect(assetTrackingMigration).toContain(`CREATE TABLE "${table}"`);
+		expect(assetTrackingMigration).toContain(
+			`CREATE TABLE IF NOT EXISTS "${table}"`
+		);
 	}
 	expect(assetTrackingMigration).toContain(
 		'FOREIGN KEY ("project_id","asset_record_id") REFERENCES "asset_records"'
@@ -108,13 +117,28 @@ test("adds immutable Asset Version tracking and its project-scoped relations", (
 
 test("keeps family names unique and derivative family membership project-scoped", () => {
 	expect(assetTrackingConstraintMigration).toContain(
-		'CREATE UNIQUE INDEX "asset_families_project_name_ci_idx" ON "asset_families" ("project_id",lower("name"))'
+		'CREATE UNIQUE INDEX IF NOT EXISTS "asset_families_project_name_ci_idx" ON "asset_families" ("project_id",lower("name"))'
 	);
 	expect(assetTrackingConstraintMigration).toContain(
 		'FOREIGN KEY ("project_id","derivative_asset_record_id","asset_family_id") REFERENCES "asset_records"("project_id","id","asset_family_id")'
 	);
 	expect(assetTrackingConstraintMigration).toContain(
-		'CREATE UNIQUE INDEX "asset_record_derivatives_source_target_idx"'
+		'CREATE UNIQUE INDEX IF NOT EXISTS "asset_record_derivatives_source_target_idx"'
+	);
+});
+
+test("bridges legacy Asset Version metadata without inventing unavailable values", () => {
+	expect(legacyAssetSchemaBridgeMigration).toContain(
+		'RENAME COLUMN "content_length" TO "byte_size"'
+	);
+	expect(legacyAssetSchemaBridgeMigration).toContain(
+		'ADD COLUMN IF NOT EXISTS "file_name" text'
+	);
+	expect(legacyAssetSchemaBridgeMigration).toContain(
+		'ADD COLUMN IF NOT EXISTS "sha256" text'
+	);
+	expect(legacyAssetSchemaBridgeMigration).toContain(
+		"refusing ambiguous migration"
 	);
 });
 

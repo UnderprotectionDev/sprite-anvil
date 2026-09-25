@@ -170,3 +170,45 @@ test("persists an Asset Version, review, quality result, and legacy history", as
 	await expect(page.getByText("Ekipten alındı")).toBeVisible();
 	await expect(page.getByText("Reviewed through the web flow.")).toBeVisible();
 });
+
+test("archives and restores an Asset Record through the web flow", async ({
+	page,
+}) => {
+	const fixture = createAssetRecordFixture();
+	test.skip(
+		!process.env.CONTEXT_TEST_DATABASE_URL,
+		"A disposable Neon test branch is required for the persistent flow."
+	);
+
+	await page.goto("/login");
+	await page.getByLabel("Name").fill(fixture.userName);
+	await page.getByLabel("Email").fill(fixture.email);
+	await page.getByLabel("Password").fill(fixture.password);
+	await page.getByRole("button", { name: "Sign Up" }).click();
+	await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+	await page.getByRole("link", { name: "Projects" }).click();
+	await page.getByLabel("Oyun projesi adı").fill(fixture.projectName);
+	await page
+		.getByLabel("Genel sanat yaklaşımı")
+		.fill(fixture.generalArtDirection);
+	await page.getByRole("button", { name: "Proje oluştur" }).click();
+	await page
+		.getByRole("link", {
+			name: `${fixture.projectName} varlık kayıtlarını aç`,
+		})
+		.click();
+	await page.getByLabel("Varlık adı").fill(fixture.name);
+	await page.getByRole("checkbox", { name: identityCheckboxName }).check();
+	await page.getByRole("button", { name: "Varlık kaydı oluştur" }).click();
+	await expect(page.getByRole("heading", { name: fixture.name })).toBeVisible();
+
+	await page.getByRole("button", { name: "Kaydı arşivle" }).click();
+	await expect(page.getByText("Arşivlenmiş", { exact: true })).toBeVisible();
+	await page.reload();
+	await expect(page.getByText("Arşivlenmiş", { exact: true })).toBeVisible();
+
+	await page.getByRole("button", { name: "Kaydı yeniden etkinleştir" }).click();
+	await expect(page.getByText("Etkin", { exact: true })).toBeVisible();
+	await page.reload();
+	await expect(page.getByText("Etkin", { exact: true })).toBeVisible();
+});

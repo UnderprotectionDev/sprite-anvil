@@ -327,6 +327,46 @@ test.skipIf(!databaseUrl)(
 				],
 			});
 
+			const archived = await call(
+				appRouter.assetRecords.archive,
+				{ assetRecordId: created.id, projectId },
+				{ context: rereadContext }
+			);
+			expect(archived).toMatchObject({
+				availability: "archived",
+				measurements,
+			});
+			const archivedList = await call(
+				appRouter.assetRecords.list,
+				{ projectId },
+				{ context: rereadContext }
+			);
+			expect(archivedList).toContainEqual(archived);
+			const archivedTracking = await call(
+				appRouter.assetRecords.tracking,
+				{ assetRecordId: created.id, projectId },
+				{ context: rereadContext }
+			);
+			expect(archivedTracking.record.measurements).toEqual(measurements);
+			expect(archivedTracking.tracking).toEqual(tracking.tracking);
+
+			const restored = await call(
+				appRouter.assetRecords.restore,
+				{ assetRecordId: created.id, projectId },
+				{ context: rereadContext }
+			);
+			expect(restored).toMatchObject({
+				availability: "active",
+				measurements,
+			});
+			const restoredTracking = await call(
+				appRouter.assetRecords.tracking,
+				{ assetRecordId: created.id, projectId },
+				{ context: rereadContext }
+			);
+			expect(restoredTracking.record.measurements).toEqual(measurements);
+			expect(restoredTracking.tracking).toEqual(tracking.tracking);
+
 			await db
 				.update(assetRecords)
 				.set({ availability: "erased" })

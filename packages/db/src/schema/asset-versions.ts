@@ -22,9 +22,9 @@ export const assetVersions = pgTable(
 			.references(() => project.id, { onDelete: "restrict" }),
 		assetRecordId: text("asset_record_id").notNull(),
 		versionNumber: integer("version_number").notNull(),
-		fileName: text("file_name").notNull(),
+		fileName: text("file_name"),
 		contentType: text("content_type").notNull(),
-		sha256: text("sha256").notNull(),
+		sha256: text("sha256"),
 		byteSize: integer("byte_size").notNull(),
 		objectKey: text("object_key").notNull(),
 		createdByUserId: text("created_by_user_id")

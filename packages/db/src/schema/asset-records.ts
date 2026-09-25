@@ -28,7 +28,7 @@ export const assetFamilies = pgTable(
 			.notNull()
 			.references(() => project.id, { onDelete: "restrict" }),
 		visualWorldId: text("visual_world_id").notNull(),
-		canonicalVersionId: text("canonical_version_id").notNull(),
+		canonicalVersionId: text("canonical_version_id"),
 		name: text("name").notNull(),
 		useContext: text("use_context").notNull(),
 		createdByUserId: text("created_by_user_id")
