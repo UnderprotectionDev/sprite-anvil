@@ -1,5 +1,6 @@
 import type { AssetVersionReviewInput } from "@sprite-anvil/api/asset-versions";
 import { type SyntheticEvent, useRef, useState } from "react";
+import { toast } from "sonner";
 import { ENV } from "@/env";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
@@ -31,17 +32,11 @@ export function useAssetVersionWrites(
 	const [activeAction, setActiveAction] = useState<string | null>(null);
 	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
 	const [isCheckingOutcome, setIsCheckingOutcome] = useState(false);
-	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
 	async function refreshAfterWrite(successMessage: string) {
-		const result = await refreshCatalogs();
+		await refreshCatalogs();
 		setStatusMessage(successMessage);
-		if (result.isError) {
-			setErrorMessage(
-				"Kayıt kaydedildi ancak liste yenilenemedi. Sayfayı yeniden yükleyip sonucu kontrol edin."
-			);
-		}
 	}
 
 	async function runAction(
@@ -53,7 +48,6 @@ export function useAssetVersionWrites(
 			return false;
 		}
 		setActiveAction(action);
-		setErrorMessage(null);
 		setStatusMessage(null);
 		try {
 			await write();
@@ -63,7 +57,7 @@ export function useAssetVersionWrites(
 			if (isWriteOutcomeUncertain(error)) {
 				setWriteOutcomeUncertain(true);
 			}
-			setErrorMessage(
+			toast.error(
 				getErrorMessage(
 					error,
 					"Varlık Sürümü işleminin sonucu doğrulanamadı. Listeyi kontrol edin."
@@ -81,7 +75,6 @@ export function useAssetVersionWrites(
 			return false;
 		}
 		setActiveAction(`upload:${assetRecordId}`);
-		setErrorMessage(null);
 		setStatusMessage(null);
 		let responseReceived = false;
 		let responseStatus: number | undefined;
@@ -137,7 +130,7 @@ export function useAssetVersionWrites(
 				pendingUploadRef.current = null;
 			}
 			if (writeConfirmed) {
-				setErrorMessage(
+				toast.error(
 					"Varlık Sürümü kaydedildi ancak liste yenilenemedi. Sayfayı yeniden yükleyip sonucu kontrol edin."
 				);
 				return false;
@@ -152,7 +145,7 @@ export function useAssetVersionWrites(
 			) {
 				setWriteOutcomeUncertain(true);
 			}
-			setErrorMessage(
+			toast.error(
 				getErrorMessage(
 					error,
 					"Yükleme sonucu doğrulanamadı. Varlık Sürümleri listesini kontrol edin."
@@ -205,13 +198,9 @@ export function useAssetVersionWrites(
 		try {
 			const result = await refreshCatalogs();
 			if (result.isError) {
-				setErrorMessage(
-					"Varlık Sürümleri listesi yenilenemedi. Yeniden deneyin."
-				);
 				return;
 			}
 			setWriteOutcomeUncertain(false);
-			setErrorMessage(null);
 			setStatusMessage(
 				"Varlık Sürümleri listesi yenilendi. İşlemin sonucunu kayıtlarda kontrol edin."
 			);
@@ -223,7 +212,6 @@ export function useAssetVersionWrites(
 	return {
 		activeAction,
 		checkWriteOutcome,
-		errorMessage,
 		isCheckingOutcome,
 		review,
 		selectCanonicalDesign,

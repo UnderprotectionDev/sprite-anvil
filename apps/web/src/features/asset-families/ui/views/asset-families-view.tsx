@@ -4,8 +4,6 @@ import { Link } from "@tanstack/react-router";
 import type { SyntheticEvent } from "react";
 import { AssetVersionControls } from "@/features/asset-versions/ui/components/asset-version-controls";
 import { useAssetVersionWrites } from "@/features/asset-versions/ui/hooks/use-asset-version-writes";
-import { QueryRetryButton } from "@/utils/error-notification";
-import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
 import { AssetFamilyCatalogView } from "../components/asset-family-catalog";
 import {
@@ -20,19 +18,15 @@ const emptyAssetVersionCatalog = { assetVersions: [], canonicalDesigns: [] };
 export function AssetFamiliesView({ projectId }: { projectId: string }) {
 	const projectsQuery = useQuery({
 		...orpc.projectContexts.list.queryOptions(),
-		meta: { errorPresentation: "inline" },
 	});
 	const catalogQuery = useQuery({
 		...orpc.assetFamilies.list.queryOptions({ input: { projectId } }),
-		meta: { errorPresentation: "inline" },
 	});
 	const assetVersionQuery = useQuery({
 		...orpc.assetVersions.list.queryOptions({ input: { projectId } }),
-		meta: { errorPresentation: "inline" },
 	});
 	const scopeQuery = useQuery({
 		...orpc.contextScopes.list.queryOptions({ input: { projectId } }),
-		meta: { errorPresentation: "inline" },
 	});
 	const project = projectsQuery.data?.find((item) => item.id === projectId);
 	const catalog = catalogQuery.data;
@@ -154,19 +148,13 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 	return (
 		<main className="mx-auto w-full max-w-5xl space-y-8 overflow-y-auto px-4 py-8">
 			<PageHeader projectName={project?.name} />
-			<QueryState
-				error={projectsQuery.error}
-				failureMessage="Proje yüklenemedi."
-				isError={projectsQuery.isError}
-				isFetching={projectsQuery.isFetching}
+			<QueryLoadingState
 				isPending={projectsQuery.isPending}
 				loadingMessage="Projeler yükleniyor…"
-				onRetry={() => void projectsQuery.refetch()}
 			/>
 			{projectsQuery.isSuccess && !project ? (
 				<p role="alert">Bu Proje bulunamadı.</p>
 			) : null}
-			{writes.errorMessage ? <p role="alert">{writes.errorMessage}</p> : null}
 			{writes.statusMessage ? (
 				<p aria-live="polite" role="status">
 					{writes.statusMessage}
@@ -185,32 +173,17 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 				</Button>
 			) : null}
 
-			<QueryState
-				error={catalogQuery.error}
-				failureMessage="Varlık Aileleri yüklenemedi."
-				isError={catalogQuery.isError}
-				isFetching={catalogQuery.isFetching}
+			<QueryLoadingState
 				isPending={catalogQuery.isPending}
 				loadingMessage="Varlık Aileleri yükleniyor…"
-				onRetry={() => void catalogQuery.refetch()}
 			/>
-			<QueryState
-				error={assetVersionQuery.error}
-				failureMessage="Varlık Sürümleri yüklenemedi."
-				isError={assetVersionQuery.isError}
-				isFetching={assetVersionQuery.isFetching}
+			<QueryLoadingState
 				isPending={assetVersionQuery.isPending}
 				loadingMessage="Varlık Sürümleri yükleniyor…"
-				onRetry={() => void assetVersionQuery.refetch()}
 			/>
-			<QueryState
-				error={scopeQuery.error}
-				failureMessage="Görsel Dünyalar yüklenemedi."
-				isError={scopeQuery.isError}
-				isFetching={scopeQuery.isFetching}
+			<QueryLoadingState
 				isPending={scopeQuery.isPending}
 				loadingMessage="Görsel Dünyalar yükleniyor…"
-				onRetry={() => void scopeQuery.refetch()}
 			/>
 
 			{catalog && !catalogQuery.isError ? (
@@ -285,22 +258,12 @@ function PageHeader({ projectName }: { projectName?: string }) {
 	);
 }
 
-function QueryState({
-	error,
-	failureMessage,
-	isError,
-	isFetching,
+function QueryLoadingState({
 	isPending,
 	loadingMessage,
-	onRetry,
 }: {
-	error: unknown;
-	failureMessage: string;
-	isError: boolean;
-	isFetching: boolean;
 	isPending: boolean;
 	loadingMessage: string;
-	onRetry: () => void;
 }) {
 	if (isPending) {
 		return (
@@ -309,15 +272,5 @@ function QueryState({
 			</p>
 		);
 	}
-	if (!isError) {
-		return null;
-	}
-	return (
-		<div className="space-y-2">
-			<p role="alert">
-				{failureMessage} {getErrorMessage(error, "Yeniden deneyin.", "query")}
-			</p>
-			<QueryRetryButton disabled={isFetching} onRetry={onRetry} />
-		</div>
-	);
+	return null;
 }

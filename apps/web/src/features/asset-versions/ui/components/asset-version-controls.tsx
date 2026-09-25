@@ -71,7 +71,6 @@ export function AssetVersionControls({
 					onaylanan sürümü Ana Tasarım olarak seçin.
 				</p>
 			</div>
-			{writes.errorMessage ? <p role="alert">{writes.errorMessage}</p> : null}
 			{writes.statusMessage ? (
 				<p aria-live="polite" role="status">
 					{writes.statusMessage}
