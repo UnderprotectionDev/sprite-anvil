@@ -55,6 +55,15 @@ const userRelationshipLabels = {
 	unknown: "Bilinmiyor",
 } as const;
 
+function getVersionLabel(version: {
+	fileName: string | null;
+	versionNumber: number;
+}) {
+	return version.fileName
+		? `${version.fileName} · Sürüm ${version.versionNumber}`
+		: `Sürüm ${version.versionNumber}`;
+}
+
 interface PendingWrite {
 	check: (detail: AssetRecordTrackingDetail) => boolean;
 	message: string;
@@ -139,7 +148,7 @@ function FamilyAndDerivativeSection({
 }: FamilyAndDerivativeSectionProps) {
 	const { record, tracking } = detail;
 	let familyControls: ReactNode = null;
-	if (tracking.family) {
+	if (tracking.family?.canonicalVersionId) {
 		familyControls = (
 			<form
 				className="mt-4 space-y-3 border-t pt-3"
@@ -193,6 +202,19 @@ function FamilyAndDerivativeSection({
 				</Button>
 			</form>
 		);
+	} else if (tracking.family) {
+		familyControls = (
+			<div className="mt-3 space-y-1 text-muted-foreground text-xs">
+				<p>
+					Varlık Ailesi: {tracking.family.name} ·{" "}
+					{tracking.family.visualWorldName}
+				</p>
+				<p role="status">
+					Bu eski Varlık Ailesinde Ana Tasarım Sürümü kayıtlı değil; bu nedenle
+					Türetilmiş Varlık bağlantısı kurulamaz.
+				</p>
+			</div>
+		);
 	} else if (tracking.approvedVersion && tracking.visualWorlds.length > 0) {
 		familyControls = (
 			<form
@@ -239,7 +261,7 @@ function FamilyAndDerivativeSection({
 				</label>
 				<p className="text-muted-foreground text-xs">
 					Ana Tasarım olarak Onaylı Sürüm kullanılacak:{" "}
-					{tracking.approvedVersion.fileName}.
+					{tracking.approvedVersion.fileName ?? "dosya adı bilinmiyor"}.
 				</p>
 				<Button
 					disabled={
@@ -542,7 +564,10 @@ export function AssetRecordTrackingPanel({
 
 	async function createDerivative(event: SyntheticEvent<HTMLFormElement>) {
 		event.preventDefault();
-		if (!(record && tracking.family) || selectedDependencyFacets.length === 0) {
+		if (
+			!(record && tracking.family?.canonicalVersionId) ||
+			selectedDependencyFacets.length === 0
+		) {
 			return;
 		}
 		const signature = JSON.stringify({
@@ -659,16 +684,14 @@ export function AssetRecordTrackingPanel({
 			) : null}
 			{matchingVersion ? (
 				<div
-					aria-label={`Aradığınız sürüm: ${matchingVersion.fileName} · Sürüm ${matchingVersion.versionNumber}.`}
+					aria-label={`Aradığınız sürüm: ${getVersionLabel(matchingVersion)}.`}
 					className="space-y-1 rounded-lg border border-primary p-4"
 					ref={matchingVersionRef}
 					role="status"
 					tabIndex={-1}
 				>
 					<p className="font-medium">Aradığınız sürüm</p>
-					<p className="text-sm">
-						{matchingVersion.fileName} · Sürüm {matchingVersion.versionNumber}
-					</p>
+					<p className="text-sm">{getVersionLabel(matchingVersion)}</p>
 					<a
 						className="text-sm underline underline-offset-4"
 						href="#production-history-heading"
@@ -698,10 +721,7 @@ export function AssetRecordTrackingPanel({
 					</h3>
 					{tracking.approvedVersion ? (
 						<div className="mt-2 space-y-2 text-sm">
-							<p>
-								{tracking.approvedVersion.fileName} · Sürüm{" "}
-								{tracking.approvedVersion.versionNumber}
-							</p>
+							<p>{getVersionLabel(tracking.approvedVersion)}</p>
 							{reviewActions(tracking.approvedVersion)}
 						</div>
 					) : (
@@ -723,7 +743,7 @@ export function AssetRecordTrackingPanel({
 							{tracking.alternatives.map((version) => (
 								<li className="space-y-1" key={version.id}>
 									<p>
-										{version.fileName} · Sürüm {version.versionNumber} ·{" "}
+										{getVersionLabel(version)} ·{" "}
 										{reviewDispositionLabel[version.reviewDisposition]}
 									</p>
 									{reviewActions(version)}
@@ -864,8 +884,7 @@ export function AssetRecordTrackingPanel({
 									.filter((version) => version.assetRecordId !== record.id)
 									.map((version) => (
 										<option key={version.id} value={version.id}>
-											{version.assetRecordName} · {version.fileName} · Sürüm{" "}
-											{version.versionNumber}
+											{version.assetRecordName} · {getVersionLabel(version)}
 										</option>
 									))}
 							</select>

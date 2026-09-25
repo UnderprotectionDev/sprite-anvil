@@ -27,6 +27,10 @@ const productionSource = /Imported from the project archive/;
 const productionEvidence = /Archive manifest entry/;
 const userRelationshipLabel = /Ekipten alındı/;
 const unknownHistory = /Geçmiş bilinmiyor/;
+const legacyFamilyName = /Legacy family/;
+const legacyWorldName = /Legacy world/;
+const unknownCanonicalVersion = /Ana Tasarım Sürümü kayıtlı değil/;
+const unexpectedNullValue = /null/;
 const assetRecord = {
 	availability: "active" as const,
 	createdAt: "2026-09-25T08:00:00.000Z",
@@ -245,6 +249,40 @@ test("filters Asset Records together and opens the matching version history", as
 		screen.getByRole("button", { name: "Ash Knight kaydını aç" })
 	);
 	expect(onOpenRecord).toHaveBeenCalledWith(assetRecord.id);
+});
+
+test("opens a measured legacy version when its file name is unknown", async () => {
+	const onOpenRecord = vi.fn();
+	const versionId = "4433a630-c542-4fc7-89a8-2874df8ddaaa";
+	fakeApi.searchResults = {
+		records: [
+			{
+				record: assetRecord,
+				matchingVersions: [
+					{
+						fileName: null,
+						id: versionId,
+						sourceImageHeight: 48,
+						sourceImageWidth: 32,
+						versionNumber: 3,
+					},
+				],
+			},
+		],
+		totalCount: 1,
+	};
+	fakeApi.search.mockResolvedValue(fakeApi.searchResults);
+	renderWithQueryClient(
+		<AssetRecordsView onOpenRecord={onOpenRecord} projectId={projectId} />
+	);
+
+	await screen.findByRole("heading", { name: "Forest Quest" });
+	fireEvent.click(
+		screen.getByRole("button", { name: "Varlık kayıtlarını ara" })
+	);
+	expect(await screen.findByText("Sürüm 3 · 32 × 48 px")).toBeVisible();
+	fireEvent.click(screen.getByRole("button", { name: "sürüm 3 geçmişini aç" }));
+	expect(onOpenRecord).toHaveBeenCalledWith(assetRecord.id, versionId);
 });
 
 test("edits record metadata and limits Theme choices to the selected Visual World", async () => {
@@ -484,6 +522,61 @@ test("shows persisted versions, derivatives, references, quality, and provenance
 	expect(screen.getByText(userRelationshipLabel)).toBeVisible();
 	expect(screen.getByText(unknownHistory)).toBeVisible();
 	expect(screen.getByText(recordCreatedCopy)).toBeVisible();
+});
+
+test("shows unknown legacy version and family metadata without inventing values", async () => {
+	const versionId = "f7b32d26-6b7c-4e16-a578-dac3e0dab68b";
+	fakeApi.detail = {
+		record: assetRecord,
+		tracking: {
+			availableRecords: [],
+			availableVersions: [],
+			approvedVersion: {
+				createdAt: "2026-09-25T08:01:00.000Z",
+				fileName: null,
+				id: versionId,
+				reviewDisposition: "approved",
+				sha256: null,
+				versionNumber: 1,
+			},
+			alternatives: [],
+			derivatives: [],
+			family: {
+				canonicalVersionId: null,
+				id: "d2e8850c-393a-4b62-b6ad-188488d90c15",
+				name: "Legacy family",
+				useContext: "Legacy usage",
+				visualWorldId: "02b966ed-b5a8-470a-84cb-74b44295cc3f",
+				visualWorldName: "Legacy world",
+			},
+			productionHistory: [],
+			quality: {
+				integrityStatus: "unavailable",
+				profileStatus: "general_support",
+				verifiedVersionCount: 0,
+			},
+			references: [],
+			reviewEvents: [],
+			visualWorlds: [],
+		},
+	};
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			focusVersionId={versionId}
+			projectId={projectId}
+		/>
+	);
+
+	expect(
+		await screen.findByRole("status", {
+			name: "Aradığınız sürüm: Sürüm 1.",
+		})
+	).toBeVisible();
+	expect(screen.getByText(legacyFamilyName)).toBeVisible();
+	expect(screen.getByText(legacyWorldName)).toBeVisible();
+	expect(screen.getByText(unknownCanonicalVersion)).toBeVisible();
+	expect(screen.queryByText(unexpectedNullValue)).not.toBeInTheDocument();
 });
 
 test("uses the canonical Erased availability value and Turkish label", async () => {

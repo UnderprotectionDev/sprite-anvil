@@ -50,6 +50,13 @@ const assetDiscoveryMigration = readFileSync(
 	),
 	"utf8"
 );
+const assetLegacyNullabilityMigration = readFileSync(
+	new URL(
+		"./migrations/20260925141913_legacy_asset_metadata_compatibility/migration.sql",
+		import.meta.url
+	),
+	"utf8"
+);
 
 test("normalizes legacy project ownership before current indexes and foreign keys", () => {
 	const renameOwnerColumn = migration.indexOf(
@@ -103,7 +110,9 @@ test("adds immutable Asset Version tracking and its project-scoped relations", (
 		"asset_record_references",
 		"asset_record_derivatives",
 	]) {
-		expect(assetTrackingMigration).toContain(`CREATE TABLE "${table}"`);
+		expect(assetTrackingMigration).toContain(
+			`CREATE TABLE IF NOT EXISTS "${table}"`
+		);
 	}
 	expect(assetTrackingMigration).toContain(
 		'FOREIGN KEY ("project_id","asset_record_id") REFERENCES "asset_records"'
@@ -113,15 +122,58 @@ test("adds immutable Asset Version tracking and its project-scoped relations", (
 	);
 });
 
+test("upgrades existing legacy Asset Family and Asset Version tables in place", () => {
+	expect(assetTrackingMigration).toContain(
+		'CREATE TABLE IF NOT EXISTS "asset_families"'
+	);
+	expect(assetTrackingMigration).toContain(
+		'ADD COLUMN IF NOT EXISTS "canonical_version_id" text'
+	);
+	expect(assetTrackingMigration).toContain(
+		'ADD COLUMN IF NOT EXISTS "file_name" text'
+	);
+	expect(assetTrackingMigration).toContain(
+		'ADD COLUMN IF NOT EXISTS "sha256" text'
+	);
+	expect(assetTrackingMigration).toContain(
+		'ADD COLUMN IF NOT EXISTS "byte_size" integer'
+	);
+	expect(assetTrackingMigration).toContain('"content_length"');
+	expect(assetTrackingMigration).toContain(
+		'ALTER COLUMN "content_length" DROP NOT NULL'
+	);
+	expect(assetTrackingMigration).toContain('"asset_version_id"');
+	expect(assetTrackingMigration).toContain('"decision"');
+	expect(assetTrackingMigration).toContain('"rationale"');
+	expect(assetTrackingMigration).toContain(
+		'ALTER COLUMN "subject_identity_id" DROP NOT NULL'
+	);
+	expect(assetTrackingMigration).toContain(
+		'ALTER COLUMN "asset_family_id" DROP NOT NULL'
+	);
+	expect(assetLegacyNullabilityMigration).toContain(
+		'ALTER COLUMN "canonical_version_id" DROP NOT NULL'
+	);
+	expect(assetLegacyNullabilityMigration).toContain(
+		'ALTER COLUMN "file_name" DROP NOT NULL'
+	);
+	expect(assetLegacyNullabilityMigration).toContain(
+		'ALTER COLUMN "sha256" DROP NOT NULL'
+	);
+});
+
 test("keeps family names unique and derivative family membership project-scoped", () => {
 	expect(assetTrackingConstraintMigration).toContain(
-		'CREATE UNIQUE INDEX "asset_families_project_name_ci_idx" ON "asset_families" ("project_id",lower("name"))'
+		'CREATE UNIQUE INDEX IF NOT EXISTS "asset_families_project_name_ci_idx" ON "asset_families" ("project_id",lower("name"))'
 	);
 	expect(assetTrackingConstraintMigration).toContain(
-		'FOREIGN KEY ("project_id","derivative_asset_record_id","asset_family_id") REFERENCES "asset_records"("project_id","id","asset_family_id")'
+		'FOREIGN KEY ("project_id","derivative_asset_record_id","asset_family_id")'
 	);
 	expect(assetTrackingConstraintMigration).toContain(
-		'CREATE UNIQUE INDEX "asset_record_derivatives_source_target_idx"'
+		'REFERENCES "asset_records"("project_id","id","asset_family_id")'
+	);
+	expect(assetTrackingConstraintMigration).toContain(
+		'CREATE UNIQUE INDEX IF NOT EXISTS "asset_record_derivatives_source_target_idx"'
 	);
 });
 
@@ -130,7 +182,10 @@ test("pins canonical family versions and keeps review and quality evidence consi
 		'FOREIGN KEY ("project_id","asset_family_id","canonical_version_id") REFERENCES "asset_families"("project_id","id","canonical_version_id")'
 	);
 	expect(assetTrackingRelationshipMigration).toContain(
-		'FOREIGN KEY ("project_id","version_id","asset_record_id") REFERENCES "asset_versions"("project_id","id","asset_record_id")'
+		'FOREIGN KEY ("project_id","version_id","asset_record_id")'
+	);
+	expect(assetTrackingRelationshipMigration).toContain(
+		'REFERENCES "asset_versions"("project_id","id","asset_record_id")'
 	);
 	expect(assetTrackingRelationshipMigration).toContain(
 		'CHECK (NOT ("transferred_features" && "forbidden_features"))'
@@ -144,15 +199,19 @@ test("adds Asset Record metadata and immutable source image measurements", () =>
 		"theme_id",
 		"tags",
 	]) {
-		expect(assetDiscoveryMigration).toContain(`ADD COLUMN "${column}"`);
+		expect(assetDiscoveryMigration).toContain(
+			`ADD COLUMN IF NOT EXISTS "${column}"`
+		);
 	}
 	for (const column of ["source_image_width", "source_image_height"]) {
-		expect(assetDiscoveryMigration).toContain(`ADD COLUMN "${column}" integer`);
+		expect(assetDiscoveryMigration).toContain(
+			`ADD COLUMN IF NOT EXISTS "${column}" integer`
+		);
 	}
 	expect(assetDiscoveryMigration).toContain(
 		'FOREIGN KEY ("project_id","visual_world_id","theme_id") REFERENCES "themes"'
 	);
 	expect(assetDiscoveryMigration).toContain(
-		'CREATE INDEX "asset_versions_project_source_image_dimensions_idx"'
+		'CREATE INDEX IF NOT EXISTS "asset_versions_project_source_image_dimensions_idx"'
 	);
 });

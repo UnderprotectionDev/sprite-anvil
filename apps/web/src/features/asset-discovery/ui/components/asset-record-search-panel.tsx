@@ -16,6 +16,22 @@ import { QueryRetryButton } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { orpc } from "@/utils/orpc";
 
+function getVersionLabel(version: {
+	fileName: string | null;
+	versionNumber: number;
+}) {
+	return version.fileName
+		? `${version.fileName} · Sürüm ${version.versionNumber}`
+		: `Sürüm ${version.versionNumber}`;
+}
+
+function getVersionHistoryLabel(version: {
+	fileName: string | null;
+	versionNumber: number;
+}) {
+	return `${version.fileName ? `${version.fileName} ` : ""}sürüm ${version.versionNumber} geçmişini aç`;
+}
+
 interface SearchDraft {
 	assetCategory: string;
 	availability: string;
@@ -177,12 +193,12 @@ export function AssetRecordSearchPanel({
 												<li key={version.id}>
 													<div className="flex flex-wrap items-center gap-x-3 gap-y-1">
 														<span>
-															{version.fileName} · Sürüm {version.versionNumber}{" "}
-															· {version.sourceImageWidth} ×{" "}
+															{getVersionLabel(version)} ·{" "}
+															{version.sourceImageWidth} ×{" "}
 															{version.sourceImageHeight} px
 														</span>
 														<Button
-															aria-label={`${version.fileName} sürüm ${version.versionNumber} geçmişini aç`}
+															aria-label={getVersionHistoryLabel(version)}
 															onClick={() =>
 																onOpenRecord(record.id, version.id)
 															}

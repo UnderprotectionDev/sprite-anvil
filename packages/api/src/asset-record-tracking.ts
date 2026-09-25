@@ -65,10 +65,13 @@ function isSafeAssetVersionFileName(fileName: string) {
 export const assetVersionSummarySchema = z
 	.object({
 		createdAt: z.iso.datetime(),
-		fileName: z.string().min(1).max(255),
+		fileName: z.string().min(1).max(255).nullable(),
 		id: z.uuid(),
 		reviewDisposition: assetVersionReviewDispositionSchema,
-		sha256: z.string().regex(/^[a-f0-9]{64}$/),
+		sha256: z
+			.string()
+			.regex(/^[a-f0-9]{64}$/)
+			.nullable(),
 		sourceImageHeight: z
 			.number()
 			.int()
@@ -140,7 +143,7 @@ export const assetVersionReviewInputSchema = z
 
 export const assetFamilySummarySchema = z
 	.object({
-		canonicalVersionId: z.uuid(),
+		canonicalVersionId: z.uuid().nullable(),
 		id: z.uuid(),
 		name: z.string().min(1).max(120),
 		useContext: z.string().min(1).max(300),
@@ -305,7 +308,7 @@ export const trackingVersionOptionSchema = z
 	.object({
 		assetRecordId: z.uuid(),
 		assetRecordName: z.string().min(1).max(120),
-		fileName: z.string().min(1).max(255),
+		fileName: z.string().min(1).max(255).nullable(),
 		id: z.uuid(),
 		reviewDisposition: assetVersionReviewDispositionSchema,
 		versionNumber: z.number().int().positive(),

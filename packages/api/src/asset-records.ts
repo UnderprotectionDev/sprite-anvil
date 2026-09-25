@@ -134,7 +134,7 @@ export const assetRecordMetadataUpdateInputSchema = z
 
 export const assetRecordSearchVersionSchema = z
 	.object({
-		fileName: z.string().min(1).max(255),
+		fileName: z.string().min(1).max(255).nullable(),
 		id: z.uuid(),
 		sourceImageHeight: z.number().int().positive().max(100_000),
 		sourceImageWidth: z.number().int().positive().max(100_000),
