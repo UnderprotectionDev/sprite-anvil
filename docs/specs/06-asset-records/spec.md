@@ -42,9 +42,9 @@ Tamamlanma kanıtı: Kayıt, geçmiş ve ayrı ölçü değerleri tekrar bulunur
 
 ## Testing Decisions
 
-- **Birincil test seam’i:** RAS-01, RAS-03, RAS-05, RAS-08 örneklerinde kesin girdiyi kullanıcı eyleminden kalıcı kayda ve yeniden okumaya taşıyan sunucu/API yolunu sınama; web ve masaüstü görünür sonuçlarını karşılaştırma.
+- **Birincil test seam’i:** RAS-01, RAS-03, RAS-05, RAS-08 örneklerinde kesin girdiyi kullanıcı eyleminden kalıcı kayda ve yeniden okumaya taşıyan sunucu/API yolunu sınama; web ve masaüstü görünür sonuçlarını karşılaştırma. Kayıt Durumu için Etkin → Arşivlenmiş → Etkin geçişini kalıcı kayıttan yeniden oku; arşivlenmiş kaydın listede kaldığını ve `tracking` yanıtındaki inceleme, kalite ve üretim geçmişinin değişmediğini doğrula.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.
-- Bugün repoda bu faza ait ürün sözleşmesi bulunmuyor. Mevcut sunucu ve yüzey test örnekleri: [`account-access.test.ts`](../../../apps/server/src/account-access.test.ts), [`app-shell.spec.ts` (web)](../../../apps/web/e2e/app-shell.spec.ts) ve [`app-shell.spec.ts` (desktop)](../../../apps/web/desktop-e2e/app-shell.spec.ts). Bunlar bu özelliğin test edildiği anlamına gelmez.
+- İlgili uygulama sözleşmesi ve test örnekleri: [`asset-records.test.ts`](../../../apps/server/src/asset-records.test.ts), [`asset-records.integration.test.ts`](../../../apps/server/src/asset-records.integration.test.ts), [`asset-records-view.test.tsx`](../../../apps/web/src/features/asset-records/ui/views/asset-records-view.test.tsx), [`asset-records.spec.ts` (web)](../../../apps/web/e2e/asset-records.spec.ts) ve [`asset-records.spec.ts` (desktop)](../../../apps/web/desktop-e2e/asset-records.spec.ts).
 - Fazın özgül başarı ve red kanıtı: Kayıt, geçmiş ve ayrı ölçü değerleri tekrar bulunur; arşivleme hiçbir sürümün onay veya kalite geçmişini değiştirmez. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Kalıcı silme kendi etki ve temizlik akışındadır; genel destek özel profil kanıtı üretmez.
 - Kabul örnekleri: RAS-01, RAS-03, RAS-05, RAS-08. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
 

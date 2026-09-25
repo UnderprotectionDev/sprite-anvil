@@ -1,15 +1,48 @@
 import { ORPCError } from "@orpc/server";
 import {
+	type AssetRecordStore,
 	assetRecordCreateInputSchema,
 	assetRecordGetInputSchema,
 	assetRecordListInputSchema,
 	assetRecordSchema,
+	type MutableAssetRecordAvailability,
 } from "../asset-records";
 import { protectedProcedure } from "../index";
 import { assetRecordTrackingRouter } from "./asset-record-tracking";
 
+async function setRecordAvailability(
+	store: AssetRecordStore,
+	userId: string,
+	input: { assetRecordId: string; projectId: string },
+	availability: MutableAssetRecordAvailability
+) {
+	const record = await store.setAvailability(
+		userId,
+		input.projectId,
+		input.assetRecordId,
+		availability
+	);
+	if (!record) {
+		throw new ORPCError("NOT_FOUND", {
+			message: "Asset Record not found",
+		});
+	}
+	return assetRecordSchema.parse(record);
+}
+
 export const assetRecordsRouter = {
 	...assetRecordTrackingRouter,
+	archive: protectedProcedure
+		.input(assetRecordGetInputSchema)
+		.output(assetRecordSchema)
+		.handler(({ context, input }) =>
+			setRecordAvailability(
+				context.assetRecordStore,
+				context.session.user.id,
+				input,
+				"archived"
+			)
+		),
 	create: protectedProcedure
 		.input(assetRecordCreateInputSchema)
 		.output(assetRecordSchema)
@@ -70,4 +103,15 @@ export const assetRecordsRouter = {
 			}
 			return records.map((record) => assetRecordSchema.parse(record));
 		}),
+	restore: protectedProcedure
+		.input(assetRecordGetInputSchema)
+		.output(assetRecordSchema)
+		.handler(({ context, input }) =>
+			setRecordAvailability(
+				context.assetRecordStore,
+				context.session.user.id,
+				input,
+				"active"
+			)
+		),
 };
