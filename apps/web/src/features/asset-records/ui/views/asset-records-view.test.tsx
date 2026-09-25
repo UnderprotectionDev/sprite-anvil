@@ -14,6 +14,7 @@ import { AssetRecordDetailView, AssetRecordsView } from "./asset-records-view";
 
 const projectId = "c2edb5dc-a82f-42b2-84bb-a878ca20fabf";
 const identityCheckboxName = /^Bağımsız ürün anlamı/;
+const archivedRecordStatus = /Kayıt durumu · Arşivlenmiş/;
 const fileBoundaryCopy =
 	/dosya veya düzenlenebilir kare olması tek başına yeni kayıt gerekçesi değildir/i;
 const generalSupportCopy = "Genel Varlık Desteği · Özel profil kanıtı yok";
@@ -45,16 +46,20 @@ type TestAssetRecord = Omit<
 };
 
 const fakeApi = vi.hoisted(() => ({
+	archive: vi.fn(),
 	create: vi.fn(),
 	detail: null as Record<string, unknown> | null,
 	record: null as TestAssetRecord | null,
 	records: [] as TestAssetRecord[],
+	restore: vi.fn(),
 }));
 
 vi.mock("@/utils/orpc", () => ({
 	client: {
 		assetRecords: {
+			archive: (input: unknown) => fakeApi.archive(input),
 			create: (input: unknown) => fakeApi.create(input),
+			restore: (input: unknown) => fakeApi.restore(input),
 		},
 	},
 	orpc: {
@@ -109,7 +114,9 @@ afterEach(() => {
 	fakeApi.records = [];
 	fakeApi.record = null;
 	fakeApi.detail = null;
+	fakeApi.archive.mockReset();
 	fakeApi.create.mockReset();
+	fakeApi.restore.mockReset();
 });
 
 function renderWithQueryClient(node: React.ReactNode) {
@@ -180,6 +187,20 @@ test("uncertain creates require a confirmed list check and reuse the same identi
 		expect(onOpenRecord).toHaveBeenCalledWith(assetRecord.id)
 	);
 	expect(fakeApi.create.mock.calls[1]?.[0].id).toBe(identity);
+});
+
+test("archived Asset Records remain findable in the project list", async () => {
+	const onOpenRecord = vi.fn();
+	fakeApi.records = [{ ...assetRecord, availability: "archived" }];
+	renderWithQueryClient(
+		<AssetRecordsView onOpenRecord={onOpenRecord} projectId={projectId} />
+	);
+
+	expect(await screen.findByText(archivedRecordStatus)).toBeVisible();
+	fireEvent.click(
+		screen.getByRole("button", { name: "Ash Knight kaydını aç" })
+	);
+	expect(onOpenRecord).toHaveBeenCalledWith(assetRecord.id);
 });
 
 test("shows persisted versions, derivatives, references, quality, and provenance", async () => {
@@ -286,6 +307,69 @@ test("uses the canonical Erased availability value and Turkish label", async () 
 	);
 
 	expect(await screen.findByText("Silinmiş")).toBeVisible();
+	expect(
+		screen.queryByRole("button", { name: "Kaydı arşivle" })
+	).not.toBeInTheDocument();
+	expect(
+		screen.queryByRole("button", { name: "Kaydı yeniden etkinleştir" })
+	).not.toBeInTheDocument();
+});
+
+test("archives and restores an Asset Record without losing its detail view", async () => {
+	const archivedRecord = { ...assetRecord, availability: "archived" as const };
+	fakeApi.archive.mockImplementation(() => {
+		fakeApi.record = archivedRecord;
+		return archivedRecord;
+	});
+	fakeApi.restore.mockImplementation(() => {
+		fakeApi.record = assetRecord;
+		return assetRecord;
+	});
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+
+	fireEvent.click(await screen.findByRole("button", { name: "Kaydı arşivle" }));
+	expect(fakeApi.archive).toHaveBeenCalledWith({
+		assetRecordId: assetRecord.id,
+		projectId,
+	});
+	expect(await screen.findByText("Arşivlenmiş")).toBeVisible();
+	expect(await screen.findByRole("status")).toHaveTextContent(
+		"Kayıt arşivlendi."
+	);
+
+	fireEvent.click(
+		screen.getByRole("button", { name: "Kaydı yeniden etkinleştir" })
+	);
+	expect(fakeApi.restore).toHaveBeenCalledWith({
+		assetRecordId: assetRecord.id,
+		projectId,
+	});
+	expect(await screen.findByText("Etkin")).toBeVisible();
+	expect(await screen.findByRole("status")).toHaveTextContent(
+		"Kayıt yeniden etkinleştirildi."
+	);
+});
+
+test("checks the current Availability before allowing an uncertain archive retry", async () => {
+	fakeApi.archive.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+
+	fireEvent.click(await screen.findByRole("button", { name: "Kaydı arşivle" }));
+	expect(await screen.findByRole("alert")).toBeVisible();
+	fireEvent.click(screen.getByRole("button", { name: "Durumu kontrol et" }));
+
+	expect(await screen.findByText("Güncel kayıt durumu: Etkin.")).toBeVisible();
+	expect(screen.getByRole("button", { name: "Kaydı arşivle" })).toBeEnabled();
 });
 
 test("labels legacy Asset Records whose identity criteria were not recorded", async () => {

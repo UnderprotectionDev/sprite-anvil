@@ -9,6 +9,10 @@ import {
 } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
+import {
+	AssetRecordAvailabilityControl,
+	getAvailabilityLabel,
+} from "../components/asset-record-availability-control";
 import { AssetRecordTrackingPanel } from "../components/asset-record-tracking-panel";
 
 const identityOptions = [
@@ -224,6 +228,9 @@ export function AssetRecordsView({
 							<p className="text-muted-foreground text-sm">
 								{getIdentitySummary(record.identityCriteria)}
 							</p>
+							<p className="text-muted-foreground text-sm">
+								Kayıt durumu · {getAvailabilityLabel(record.availability)}
+							</p>
 						</div>
 						<Button
 							aria-label={`${record.name} kaydını aç`}
@@ -381,20 +388,14 @@ export function AssetRecordDetailView({
 		...orpc.projects.get.queryOptions({ input: { projectId } }),
 		meta: { errorPresentation: "inline" },
 	});
+	const trackingQueryOptions = orpc.assetRecords.tracking.queryOptions({
+		input: { assetRecordId, projectId },
+	});
 	const trackingQuery = useQuery({
-		...orpc.assetRecords.tracking.queryOptions({
-			input: { assetRecordId, projectId },
-		}),
+		...trackingQueryOptions,
 		meta: { errorPresentation: "inline" },
 	});
 	const record = trackingQuery.data?.record;
-	const availabilityLabel = record
-		? {
-				active: "Etkin",
-				archived: "Arşivlenmiş",
-				erased: "Silinmiş",
-			}[record.availability]
-		: null;
 	let recordHeading: ReactNode;
 	if (trackingQuery.isPending) {
 		recordHeading = (
@@ -441,27 +442,10 @@ export function AssetRecordDetailView({
 
 			{record ? (
 				<>
-					<section
-						aria-labelledby="record-availability"
-						className="rounded-lg border p-5"
-					>
-						<h2 className="font-semibold" id="record-availability">
-							Kayıt durumu
-						</h2>
-						<p className="mt-1">{availabilityLabel}</p>
-						<p className="mt-2 text-muted-foreground text-sm">
-							Genel Varlık Desteği · Özel profil kanıtı yok
-						</p>
-						<p className="mt-2 text-muted-foreground text-sm">
-							Kayıt oluşturuldu ·{" "}
-							<time dateTime={record.createdAt}>
-								{new Intl.DateTimeFormat("tr-TR", {
-									dateStyle: "medium",
-									timeStyle: "short",
-								}).format(new Date(record.createdAt))}
-							</time>
-						</p>
-					</section>
+					<AssetRecordAvailabilityControl
+						onRefresh={() => trackingQuery.refetch()}
+						record={record}
+					/>
 					{trackingQuery.data ? (
 						<AssetRecordTrackingPanel
 							detail={trackingQuery.data}

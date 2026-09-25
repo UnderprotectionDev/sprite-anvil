@@ -294,6 +294,38 @@ test.skipIf(!databaseUrl)(
 				],
 			});
 
+			const archived = await call(
+				appRouter.assetRecords.archive,
+				{ assetRecordId: created.id, projectId },
+				{ context: rereadContext }
+			);
+			expect(archived).toEqual({ ...created, availability: "archived" });
+			const archivedList = await call(
+				appRouter.assetRecords.list,
+				{ projectId },
+				{ context: rereadContext }
+			);
+			expect(archivedList).toContainEqual(archived);
+			const archivedTracking = await call(
+				appRouter.assetRecords.tracking,
+				{ assetRecordId: created.id, projectId },
+				{ context: rereadContext }
+			);
+			expect(archivedTracking.tracking).toEqual(tracking.tracking);
+
+			const restored = await call(
+				appRouter.assetRecords.restore,
+				{ assetRecordId: created.id, projectId },
+				{ context: rereadContext }
+			);
+			expect(restored).toEqual(created);
+			const restoredTracking = await call(
+				appRouter.assetRecords.tracking,
+				{ assetRecordId: created.id, projectId },
+				{ context: rereadContext }
+			);
+			expect(restoredTracking.tracking).toEqual(tracking.tracking);
+
 			await expect(
 				db.delete(project).where(eq(project.id, projectId))
 			).rejects.toThrow();

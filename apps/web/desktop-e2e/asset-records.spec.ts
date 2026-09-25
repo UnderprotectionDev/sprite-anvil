@@ -178,4 +178,46 @@ describe("Asset Records", () => {
 			rmSync(tempDirectory, { force: true, recursive: true });
 		}
 	});
+
+	it("archives and restores an Asset Record through the desktop flow", async function () {
+		const fixture = createAssetRecordFixture();
+		if (!process.env.CONTEXT_TEST_DATABASE_URL) {
+			this.skip();
+		}
+
+		const signInLink = await $("a=Sign In");
+		await signInLink.waitForClickable();
+		await signInLink.click();
+		await (await $("input[name='name']")).setValue(fixture.userName);
+		await (await $("input[name='email']")).setValue(fixture.email);
+		await (await $("input[name='password']")).setValue(fixture.password);
+		await (await $("button=Sign Up")).click();
+		await (await $("h1=Dashboard")).waitForDisplayed();
+		await (await $("a=Projects")).click();
+		await (await $("input#project-name")).setValue(fixture.projectName);
+		await (await $("textarea#project-art-direction")).setValue(
+			fixture.generalArtDirection
+		);
+		await (await $("button=Proje oluştur")).click();
+
+		const projectLink = await $(
+			`a[aria-label="${fixture.projectName} varlık kayıtlarını aç"]`
+		);
+		await projectLink.waitForClickable();
+		await projectLink.click();
+		await (await $("input#asset-record-name")).setValue(fixture.name);
+		await (await $("input[type='checkbox']")).click();
+		await (await $("button=Varlık kaydı oluştur")).click();
+		await (await $(`h1=${fixture.name}`)).waitForDisplayed();
+
+		await (await $("button=Kaydı arşivle")).click();
+		await (await $("p=Arşivlenmiş")).waitForDisplayed();
+		await browser.refresh();
+		await (await $("p=Arşivlenmiş")).waitForDisplayed();
+
+		await (await $("button=Kaydı yeniden etkinleştir")).click();
+		await (await $("p=Etkin")).waitForDisplayed();
+		await browser.refresh();
+		await (await $("p=Etkin")).waitForDisplayed();
+	});
 });
