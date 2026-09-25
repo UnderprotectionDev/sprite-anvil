@@ -10,7 +10,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
-import { visualWorlds } from "./context-scopes";
+import { themes, visualWorlds } from "./context-scopes";
 import { project } from "./project";
 
 type AssetRecordIdentityCriteria =
@@ -106,6 +106,20 @@ export const assetRecords = pgTable(
 			.notNull()
 			.references(() => user.id, { onDelete: "restrict" }),
 		name: text("name").notNull(),
+		assetCategory: text("asset_category").$type<
+			| "character_creature_animation"
+			| "object_weapon_equipment_states"
+			| "icon"
+			| "visual_effect_projectile_shadow_mark"
+			| "tileset_terrain_texture"
+			| "background_parallax"
+			| "ui"
+			| "portrait_logo_marketing"
+			| "other"
+		>(),
+		visualWorldId: text("visual_world_id"),
+		themeId: text("theme_id"),
+		tags: text("tags").array().notNull().default([]),
 		identityCriteria: text("identity_criteria")
 			.array()
 			.$type<AssetRecordIdentityCriteria>(),
@@ -123,6 +137,14 @@ export const assetRecords = pgTable(
 		check(
 			"asset_records_availability_check",
 			sql`${table.availability} IN ('active', 'archived', 'erased')`
+		),
+		check(
+			"asset_records_category_check",
+			sql`${table.assetCategory} IS NULL OR ${table.assetCategory} IN ('character_creature_animation', 'object_weapon_equipment_states', 'icon', 'visual_effect_projectile_shadow_mark', 'tileset_terrain_texture', 'background_parallax', 'ui', 'portrait_logo_marketing', 'other')`
+		),
+		check(
+			"asset_records_theme_requires_visual_world_check",
+			sql`${table.themeId} IS NULL OR ${table.visualWorldId} IS NOT NULL`
 		),
 		uniqueIndex("asset_records_project_id_id_idx").on(
 			table.projectId,
@@ -143,9 +165,27 @@ export const assetRecords = pgTable(
 			columns: [table.projectId, table.assetFamilyId],
 			foreignColumns: [assetFamilies.projectId, assetFamilies.id],
 		}).onDelete("restrict"),
+		foreignKey({
+			name: "asset_records_project_visual_world_fk",
+			columns: [table.projectId, table.visualWorldId],
+			foreignColumns: [visualWorlds.projectId, visualWorlds.id],
+		}).onDelete("restrict"),
+		foreignKey({
+			name: "asset_records_project_visual_world_theme_fk",
+			columns: [table.projectId, table.visualWorldId, table.themeId],
+			foreignColumns: [themes.projectId, themes.visualWorldId, themes.id],
+		}).onDelete("restrict"),
 		index("asset_records_project_created_at_idx").on(
 			table.projectId,
 			table.createdAt
+		),
+		index("asset_records_project_category_idx").on(
+			table.projectId,
+			table.assetCategory
+		),
+		index("asset_records_project_availability_idx").on(
+			table.projectId,
+			table.availability
 		),
 		index("asset_records_created_by_user_id_idx").on(table.createdByUserId),
 	]

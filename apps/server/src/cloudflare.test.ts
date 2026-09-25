@@ -5,7 +5,9 @@ import {
 	createProjectTwoDVisualAssetKey,
 	createQueue,
 	createStorage,
+	getR2StorageConfig,
 	queueMessageSchema,
+	requireCloudflareConfig,
 	requireR2Config,
 	serializeProjectQueueMessage,
 } from "./cloudflare";
@@ -127,6 +129,23 @@ describe("Cloudflare Queues HTTP transport", () => {
 				"projects/00000000-0000-4000-8000-000000000001/2d-visual-assets/00000000-0000-4000-8000-000000000002"
 			)
 		).rejects.toThrow("Cloudflare Queues request failed: 403");
+	});
+});
+
+describe("Cloudflare environment configuration", () => {
+	it("reads values from proxy-backed environment objects", () => {
+		const environment = new Proxy(config, {
+			has: () => false,
+			ownKeys: () => [],
+		});
+
+		expect(getR2StorageConfig(environment)).toEqual({
+			CLOUDFLARE_ACCOUNT_ID: config.CLOUDFLARE_ACCOUNT_ID,
+			R2_ACCESS_KEY_ID: config.R2_ACCESS_KEY_ID,
+			R2_SECRET_ACCESS_KEY: config.R2_SECRET_ACCESS_KEY,
+			R2_BUCKET: config.R2_BUCKET,
+		});
+		expect(requireCloudflareConfig(environment)).toEqual(config);
 	});
 });
 

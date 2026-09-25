@@ -177,7 +177,10 @@ export function requireCloudflareConfig(
 			CLOUDFLARE_QUEUE_ID: z.string().min(1),
 			CLOUDFLARE_QUEUES_TOKEN: z.string().min(1),
 		})
-		.parse(config);
+		.parse({
+			CLOUDFLARE_QUEUE_ID: config.CLOUDFLARE_QUEUE_ID,
+			CLOUDFLARE_QUEUES_TOKEN: config.CLOUDFLARE_QUEUES_TOKEN,
+		});
 	return { ...r2, ...queues, CLOUDFLARE_ACCOUNT_ID: r2.CLOUDFLARE_ACCOUNT_ID };
 }
 

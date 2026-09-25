@@ -19,6 +19,7 @@ import {
 } from "@sprite-anvil/db/schema/asset-versions";
 import { project } from "@sprite-anvil/db/schema/project";
 import { and, desc, eq, max } from "drizzle-orm";
+import sharp from "sharp";
 import { createAssetVersionObjectKey } from "../../../cloudflare";
 
 export interface AssetVersionObjectStorage {
@@ -50,6 +51,8 @@ function toVersionSummary(
 		id: version.id,
 		reviewDisposition: disposition,
 		sha256: version.sha256,
+		sourceImageHeight: version.sourceImageHeight,
+		sourceImageWidth: version.sourceImageWidth,
 		versionNumber: version.versionNumber,
 	});
 }
@@ -79,7 +82,66 @@ function isSupportedImage(
 	);
 }
 
-function prepareUpload(input: AssetVersionCreateInput) {
+interface PreparedAssetVersionUpload {
+	bytes: Buffer;
+	objectKey: string;
+	sha256: string;
+	sourceImageHeight: number;
+	sourceImageWidth: number;
+}
+
+export interface SourceImageDimensions {
+	height: number;
+	width: number;
+}
+
+const maxSearchableImageDimension = 100_000;
+
+function validDimensions(
+	width: number,
+	height: number
+): SourceImageDimensions | null {
+	return Number.isSafeInteger(width) &&
+		Number.isSafeInteger(height) &&
+		width > 0 &&
+		height > 0 &&
+		width <= maxSearchableImageDimension &&
+		height <= maxSearchableImageDimension
+		? { height, width }
+		: null;
+}
+
+export async function getSourceImageDimensions(
+	bytes: Uint8Array,
+	contentType: AssetVersionCreateInput["contentType"]
+): Promise<SourceImageDimensions | null> {
+	const image = Buffer.from(bytes);
+	if (!isSupportedImage(image, contentType)) {
+		return null;
+	}
+	try {
+		const decoder = sharp(image, { animated: true, failOn: "warning" });
+		const metadata = await decoder.metadata();
+		const dimensions = validDimensions(
+			metadata.width ?? 0,
+			metadata.height ?? 0
+		);
+		if (!dimensions) {
+			return null;
+		}
+		await decoder
+			.resize({ width: 1, height: 1, fit: "inside" })
+			.png()
+			.toBuffer();
+		return dimensions;
+	} catch {
+		return null;
+	}
+}
+
+async function prepareUpload(
+	input: AssetVersionCreateInput
+): Promise<PreparedAssetVersionUpload | null> {
 	const bytes = Buffer.from(input.contentBase64, "base64");
 	if (
 		bytes.length === 0 ||
@@ -89,11 +151,17 @@ function prepareUpload(input: AssetVersionCreateInput) {
 	) {
 		return null;
 	}
+	const dimensions = await getSourceImageDimensions(bytes, input.contentType);
+	if (!dimensions) {
+		return null;
+	}
 	const sha256 = createHash("sha256").update(bytes).digest("hex");
 	return {
 		bytes,
 		objectKey: createAssetVersionObjectKey(input.projectId, input.id, sha256),
 		sha256,
+		sourceImageHeight: dimensions.height,
+		sourceImageWidth: dimensions.width,
 	};
 }
 
@@ -126,18 +194,21 @@ function sameVersionPayload(
 	attestation: typeof legacyAssetAttestations.$inferSelect | undefined,
 	userId: string,
 	input: AssetVersionCreateInput,
-	sha256: string,
-	byteSize: number
+	upload: PreparedAssetVersionUpload
 ) {
 	return Boolean(
 		version.projectId === input.projectId &&
 			version.assetRecordId === input.assetRecordId &&
 			version.fileName === input.fileName &&
 			version.contentType === input.contentType &&
-			version.sha256 === sha256 &&
-			version.byteSize === byteSize &&
+			version.sha256 === upload.sha256 &&
+			version.byteSize === upload.bytes.length &&
+			((version.sourceImageWidth === upload.sourceImageWidth &&
+				version.sourceImageHeight === upload.sourceImageHeight) ||
+				(version.sourceImageWidth === null &&
+					version.sourceImageHeight === null)) &&
 			version.objectKey ===
-				createAssetVersionObjectKey(input.projectId, input.id, sha256) &&
+				createAssetVersionObjectKey(input.projectId, input.id, upload.sha256) &&
 			version.createdByUserId === userId &&
 			attestation?.projectId === input.projectId &&
 			attestation.versionId === input.id &&
@@ -153,7 +224,7 @@ async function findExistingVersion(
 	db: Database,
 	userId: string,
 	input: AssetVersionCreateInput,
-	upload: NonNullable<ReturnType<typeof prepareUpload>>
+	upload: PreparedAssetVersionUpload
 ): Promise<
 	| { kind: "absent" }
 	| { kind: "conflict" }
@@ -177,16 +248,7 @@ async function findExistingVersion(
 			)
 		)
 		.limit(1);
-	if (
-		!sameVersionPayload(
-			version,
-			attestation,
-			userId,
-			input,
-			upload.sha256,
-			upload.bytes.length
-		)
-	) {
+	if (!sameVersionPayload(version, attestation, userId, input, upload)) {
 		return { kind: "conflict" };
 	}
 	return {
@@ -219,7 +281,7 @@ async function insertVersionRows(
 	db: Database,
 	userId: string,
 	input: AssetVersionCreateInput,
-	upload: NonNullable<ReturnType<typeof prepareUpload>>,
+	upload: PreparedAssetVersionUpload,
 	assetFamilyId: string | null,
 	versionNumber: number,
 	createdAt: Date
@@ -235,6 +297,8 @@ async function insertVersionRows(
 				versionNumber,
 				fileName: input.fileName,
 				contentType: input.contentType,
+				sourceImageWidth: upload.sourceImageWidth,
+				sourceImageHeight: upload.sourceImageHeight,
 				sha256: upload.sha256,
 				byteSize: upload.bytes.length,
 				contentDigest: upload.sha256,
@@ -281,7 +345,7 @@ async function persistVersionWithRetries(
 	db: Database,
 	userId: string,
 	input: AssetVersionCreateInput,
-	upload: NonNullable<ReturnType<typeof prepareUpload>>,
+	upload: PreparedAssetVersionUpload,
 	assetFamilyId: string | null
 ): Promise<AssetRecordTrackingStoreResult<AssetVersionSummary>> {
 	for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -349,7 +413,7 @@ async function createVersion(
 	if (!storage) {
 		return { ok: false, reason: "storage_unavailable" };
 	}
-	const upload = prepareUpload(input);
+	const upload = await prepareUpload(input);
 	if (!upload) {
 		return { ok: false, reason: "conflict" };
 	}

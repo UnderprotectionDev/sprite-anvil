@@ -56,6 +56,11 @@ export const themes = pgTable(
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 	},
 	(table) => [
+		uniqueIndex("themes_project_visual_world_id_idx").on(
+			table.projectId,
+			table.visualWorldId,
+			table.id
+		),
 		foreignKey({
 			name: "themes_project_visual_world_fk",
 			columns: [table.projectId, table.visualWorldId],

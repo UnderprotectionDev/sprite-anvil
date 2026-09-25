@@ -5,7 +5,10 @@ import {
 	assetRecordGetInputSchema,
 	assetRecordListInputSchema,
 	assetRecordMeasurementsUpdateInputSchema,
+	assetRecordMetadataUpdateInputSchema,
 	assetRecordSchema,
+	assetRecordSearchInputSchema,
+	assetRecordSearchResponseSchema,
 	type MutableAssetRecordAvailability,
 } from "../asset-records";
 import { protectedProcedure } from "../index";
@@ -118,6 +121,52 @@ export const assetRecordsRouter = {
 				});
 			}
 			return records.map((record) => assetRecordSchema.parse(record));
+		}),
+	search: protectedProcedure
+		.input(assetRecordSearchInputSchema)
+		.output(assetRecordSearchResponseSchema)
+		.handler(async ({ context, input }) => {
+			const results = await context.assetRecordStore.search(
+				context.session.user.id,
+				input
+			);
+			if (!results) {
+				throw new ORPCError("NOT_FOUND", {
+					message: "Project not found",
+				});
+			}
+			return assetRecordSearchResponseSchema.parse(results);
+		}),
+	updateMetadata: protectedProcedure
+		.input(assetRecordMetadataUpdateInputSchema)
+		.output(assetRecordSchema)
+		.handler(async ({ context, input }) => {
+			const result = await context.assetRecordStore.updateMetadata(
+				context.session.user.id,
+				input
+			);
+			if (result.ok) {
+				return assetRecordSchema.parse(result.record);
+			}
+			if (result.reason === "not_found") {
+				throw new ORPCError("NOT_FOUND", {
+					message: "Asset Record not found",
+				});
+			}
+			if (result.reason === "invalid_scope") {
+				throw new ORPCError("BAD_REQUEST", {
+					message: "Tema veya Görsel Dünya seçilen proje kapsamında olmalıdır.",
+				});
+			}
+			if (result.reason === "erased") {
+				throw new ORPCError("CONFLICT", {
+					message: "Silinmiş Varlık Kaydının metadata’sı değiştirilemez.",
+				});
+			}
+			throw new ORPCError("CONFLICT", {
+				message:
+					"Varlık Ailesine bağlı Varlık Kaydının Görsel Dünyası değiştirilemez.",
+			});
 		}),
 	restore: protectedProcedure
 		.input(assetRecordGetInputSchema)

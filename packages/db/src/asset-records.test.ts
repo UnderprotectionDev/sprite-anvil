@@ -11,10 +11,10 @@ import {
 	assetVersions,
 } from "./schema/asset-versions";
 
-test("does not cascade Asset Record deletion from its Project, creator, or family", () => {
+test("keeps Asset Record project, family, and context scope relations restrictive", () => {
 	const { foreignKeys } = getTableConfig(assetRecords);
 
-	expect(foreignKeys).toHaveLength(3);
+	expect(foreignKeys).toHaveLength(5);
 	for (const foreignKey of foreignKeys) {
 		expect(foreignKey.onDelete).toBe("restrict");
 	}

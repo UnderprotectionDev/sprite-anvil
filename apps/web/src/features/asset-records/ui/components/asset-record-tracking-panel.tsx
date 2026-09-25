@@ -11,7 +11,7 @@ import {
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
 import type { ReactNode, SyntheticEvent } from "react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
@@ -58,6 +58,13 @@ const userRelationshipLabels = {
 
 function displayFileName(fileName: string | null) {
 	return fileName ?? "Dosya adı bilinmiyor";
+}
+
+function getVersionLabel(version: {
+	fileName: string | null;
+	versionNumber: number;
+}) {
+	return `${displayFileName(version.fileName)} · Sürüm ${version.versionNumber}`;
 }
 
 interface PendingWrite {
@@ -205,9 +212,9 @@ function FamilyAndDerivativeSection({
 					Varlık Ailesi: {tracking.family.name} ·{" "}
 					{tracking.family.visualWorldName}
 				</p>
-				<p className="text-muted-foreground text-xs">
-					Ana Tasarım seçilmedi. Türetilmiş varlıklar için bu seçim kullanıcı
-					tarafından yapılmalıdır.
+				<p className="text-muted-foreground text-xs" role="status">
+					Bu eski Varlık Ailesinde Ana Tasarım Sürümü kayıtlı değil. Türetilmiş
+					varlık bağlantısı için seçim kullanıcı tarafından yapılmalıdır.
 				</p>
 			</div>
 		);
@@ -315,12 +322,30 @@ function FamilyAndDerivativeSection({
 
 export function AssetRecordTrackingPanel({
 	detail,
+	focusVersionId,
 	onRefresh,
 }: {
 	detail: AssetRecordTrackingDetail;
+	focusVersionId?: string;
 	onRefresh: () => Promise<unknown>;
 }) {
 	const { record, tracking } = detail;
+	const matchingVersionRef = useRef<HTMLDivElement>(null);
+	const matchingVersion = focusVersionId
+		? [tracking.approvedVersion, ...tracking.alternatives].find(
+				(version) => version?.id === focusVersionId
+			)
+		: null;
+	useEffect(() => {
+		if (!matchingVersion) {
+			return;
+		}
+		matchingVersionRef.current?.focus({ preventScroll: true });
+		matchingVersionRef.current?.scrollIntoView?.({
+			behavior: "smooth",
+			block: "center",
+		});
+	}, [matchingVersion]);
 	const pendingWrite = useRef<PendingWrite | null>(null);
 	const versionRequest = useRef<{ id: string; signature: string } | null>(null);
 	const reviewRequest = useRef<{ id: string; signature: string } | null>(null);
@@ -663,6 +688,24 @@ export function AssetRecordTrackingPanel({
 				<p aria-live="polite" role="status">
 					{statusMessage}
 				</p>
+			) : null}
+			{matchingVersion ? (
+				<div
+					aria-label={`Aradığınız sürüm: ${getVersionLabel(matchingVersion)}.`}
+					className="space-y-1 rounded-lg border border-primary p-4"
+					ref={matchingVersionRef}
+					role="status"
+					tabIndex={-1}
+				>
+					<p className="font-medium">Aradığınız sürüm</p>
+					<p className="text-sm">{getVersionLabel(matchingVersion)}</p>
+					<a
+						className="text-sm underline underline-offset-4"
+						href="#production-history-heading"
+					>
+						Üretim geçmişine git
+					</a>
+				</div>
 			) : null}
 			{writeOutcomeUncertain ? (
 				<Button

@@ -10,7 +10,7 @@ import {
 } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { afterEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { createQueryClient } from "@/utils/query-client";
 import { AssetRecordDetailView, AssetRecordsView } from "./asset-records-view";
 
@@ -36,6 +36,7 @@ const productionSource = /Imported from the project archive/;
 const productionEvidence = /Archive manifest entry/;
 const userRelationshipLabel = /Ekipten alındı/;
 const unknownHistory = /Geçmiş bilinmiyor/;
+const unknownCanonicalVersion = /Ana Tasarım Sürümü kayıtlı değil/;
 const emptyAssetRecordMeasurements = {
 	atlasDimensions: { confirmed: null, proposal: null },
 	cellDimensions: { confirmed: null, proposal: null },
@@ -71,6 +72,13 @@ const fakeApi = vi.hoisted(() => ({
 	trackingError: null as Error | null,
 	record: null as TestAssetRecord | null,
 	records: [] as TestAssetRecord[],
+	search: vi.fn(),
+	searchResults: { records: [] as Record<string, unknown>[], totalCount: 0 },
+	updateMetadata: vi.fn(),
+	scopes: {
+		themes: [] as Record<string, unknown>[],
+		visualWorlds: [] as Record<string, unknown>[],
+	},
 	restore: vi.fn(),
 	updateMeasurements: vi.fn(),
 }));
@@ -81,11 +89,18 @@ vi.mock("@/utils/orpc", () => ({
 			archive: (input: unknown) => fakeApi.archive(input),
 			create: (input: unknown) => fakeApi.create(input),
 			restore: (input: unknown) => fakeApi.restore(input),
+			updateMetadata: (input: unknown) => fakeApi.updateMetadata(input),
 			updateMeasurements: (input: unknown) => fakeApi.updateMeasurements(input),
 		},
 	},
 	orpc: {
 		assetRecords: {
+			search: {
+				queryOptions: ({ input }: { input: Record<string, unknown> }) => ({
+					queryKey: ["asset-record-search", input],
+					queryFn: () => fakeApi.search(input),
+				}),
+			},
 			get: {
 				queryOptions: () => ({
 					queryKey: ["asset-record", assetRecord.id],
@@ -153,6 +168,14 @@ vi.mock("@/utils/orpc", () => ({
 				}),
 			},
 		},
+		contextScopes: {
+			list: {
+				queryOptions: () => ({
+					queryKey: ["scope-catalog", projectId],
+					queryFn: async () => fakeApi.scopes,
+				}),
+			},
+		},
 	},
 }));
 
@@ -170,6 +193,16 @@ afterEach(() => {
 	fakeApi.create.mockReset();
 	fakeApi.restore.mockReset();
 	fakeApi.updateMeasurements.mockReset();
+	fakeApi.updateMetadata.mockReset();
+	fakeApi.search.mockReset();
+	fakeApi.searchResults = { records: [], totalCount: 0 };
+	fakeApi.scopes = { themes: [], visualWorlds: [] };
+});
+
+beforeEach(() => {
+	fakeApi.search
+		.mockReset()
+		.mockImplementation(() => Promise.resolve(fakeApi.searchResults));
 });
 
 function renderWithQueryClient(node: React.ReactNode) {
@@ -182,6 +215,211 @@ function renderWithQueryClient(node: React.ReactNode) {
 		queryClient,
 	};
 }
+
+test("filters Asset Records together and opens the matching version history", async () => {
+	const onOpenRecord = vi.fn();
+	const visualWorldId = "ca6d5c68-621e-493b-a01f-2c28d5c4f3ab";
+	const themeId = "6e04ac4f-b180-42e7-bcce-8a7a53643113";
+	const versionId = "4433a630-c542-4fc7-89a8-2874df8ddaaa";
+	fakeApi.scopes = {
+		visualWorlds: [{ id: visualWorldId, name: "Gameplay", projectId }],
+		themes: [
+			{
+				id: themeId,
+				name: "Dark Castle",
+				projectId,
+				visualWorldId,
+			},
+		],
+	};
+	fakeApi.searchResults = {
+		records: [
+			{
+				record: {
+					...assetRecord,
+					assetCategory: "icon",
+					availability: "archived",
+					tags: ["inventory"],
+					themeId,
+					visualWorldId,
+				},
+				matchingVersions: [
+					{
+						fileName: "ash-knight-icon.webp",
+						id: versionId,
+						sourceImageHeight: 48,
+						sourceImageWidth: 32,
+						versionNumber: 3,
+					},
+				],
+			},
+		],
+		totalCount: 1,
+	};
+	fakeApi.search.mockResolvedValue(fakeApi.searchResults);
+	renderWithQueryClient(
+		<AssetRecordsView onOpenRecord={onOpenRecord} projectId={projectId} />
+	);
+
+	await screen.findByRole("heading", { name: "Forest Quest" });
+	fireEvent.change(screen.getByLabelText("Ada göre ara"), {
+		target: { value: "Ash" },
+	});
+	fireEvent.change(screen.getByLabelText("Varlık kategorisi"), {
+		target: { value: "icon" },
+	});
+	fireEvent.change(screen.getByLabelText("Görsel Dünya"), {
+		target: { value: visualWorldId },
+	});
+	fireEvent.change(screen.getByLabelText("Tema"), {
+		target: { value: themeId },
+	});
+	fireEvent.change(screen.getByLabelText("Kaynak Görsel genişliği (px)"), {
+		target: { value: "32" },
+	});
+	fireEvent.change(screen.getByLabelText("Kaynak Görsel yüksekliği (px)"), {
+		target: { value: "48" },
+	});
+	fireEvent.change(screen.getByLabelText("Etiket"), {
+		target: { value: "inventory" },
+	});
+	fireEvent.change(screen.getByLabelText("Kayıt durumu"), {
+		target: { value: "archived" },
+	});
+	fireEvent.click(
+		screen.getByRole("button", { name: "Varlık kayıtlarını ara" })
+	);
+
+	await waitFor(() =>
+		expect(fakeApi.search).toHaveBeenLastCalledWith({
+			assetCategory: "icon",
+			availability: "archived",
+			name: "Ash",
+			projectId,
+			sourceImageHeight: 48,
+			sourceImageWidth: 32,
+			tag: "inventory",
+			themeId,
+			visualWorldId,
+		})
+	);
+	expect(
+		await screen.findByText("ash-knight-icon.webp · Sürüm 3 · 32 × 48 px")
+	).toBeVisible();
+	fireEvent.click(
+		screen.getByRole("button", {
+			name: "ash-knight-icon.webp sürüm 3 geçmişini aç",
+		})
+	);
+	expect(onOpenRecord).toHaveBeenCalledWith(assetRecord.id, versionId);
+	fireEvent.click(
+		screen.getByRole("button", { name: "Ash Knight kaydını aç" })
+	);
+	expect(onOpenRecord).toHaveBeenCalledWith(assetRecord.id);
+});
+
+test("opens a measured legacy version when its file name is unknown", async () => {
+	const onOpenRecord = vi.fn();
+	const versionId = "4433a630-c542-4fc7-89a8-2874df8ddaaa";
+	fakeApi.searchResults = {
+		records: [
+			{
+				record: assetRecord,
+				matchingVersions: [
+					{
+						fileName: null,
+						id: versionId,
+						sourceImageHeight: 48,
+						sourceImageWidth: 32,
+						versionNumber: 3,
+					},
+				],
+			},
+		],
+		totalCount: 1,
+	};
+	fakeApi.search.mockResolvedValue(fakeApi.searchResults);
+	renderWithQueryClient(
+		<AssetRecordsView onOpenRecord={onOpenRecord} projectId={projectId} />
+	);
+
+	await screen.findByRole("heading", { name: "Forest Quest" });
+	fireEvent.click(
+		screen.getByRole("button", { name: "Varlık kayıtlarını ara" })
+	);
+	expect(await screen.findByText("Sürüm 3 · 32 × 48 px")).toBeVisible();
+	fireEvent.click(screen.getByRole("button", { name: "sürüm 3 geçmişini aç" }));
+	expect(onOpenRecord).toHaveBeenCalledWith(assetRecord.id, versionId);
+});
+
+test("edits record metadata and limits Theme choices to the selected Visual World", async () => {
+	const visualWorldId = "ca6d5c68-621e-493b-a01f-2c28d5c4f3ab";
+	const unrelatedWorldId = "da6d5c68-621e-493b-a01f-2c28d5c4f3ab";
+	const themeId = "6e04ac4f-b180-42e7-bcce-8a7a53643113";
+	fakeApi.scopes = {
+		visualWorlds: [
+			{ id: visualWorldId, name: "Gameplay", projectId },
+			{ id: unrelatedWorldId, name: "Marketing", projectId },
+		],
+		themes: [
+			{ id: themeId, name: "Dark Castle", projectId, visualWorldId },
+			{
+				id: "7e04ac4f-b180-42e7-bcce-8a7a53643113",
+				name: "Store Banner",
+				projectId,
+				visualWorldId: unrelatedWorldId,
+			},
+		],
+	};
+	fakeApi.updateMetadata.mockResolvedValue({
+		...assetRecord,
+		assetCategory: "icon",
+		tags: ["inventory"],
+		themeId,
+		visualWorldId,
+	});
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+
+	await screen.findByRole("heading", { name: "Ash Knight" });
+	fireEvent.change(screen.getByLabelText("Varlık kategorisi"), {
+		target: { value: "icon" },
+	});
+	fireEvent.change(screen.getByLabelText("Görsel Dünya"), {
+		target: { value: visualWorldId },
+	});
+	const themeSelect = screen.getByLabelText("Tema", { selector: "select" });
+	expect(themeSelect).toHaveDisplayValue("Tema seçilmedi");
+	expect(
+		screen.getByRole("option", { name: "Dark Castle" })
+	).toBeInTheDocument();
+	expect(
+		screen.queryByRole("option", { name: "Store Banner" })
+	).not.toBeInTheDocument();
+	fireEvent.change(themeSelect, { target: { value: themeId } });
+	fireEvent.change(screen.getByLabelText("Etiketler"), {
+		target: { value: "inventory" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Metadata’yı kaydet" }));
+
+	await waitFor(() =>
+		expect(fakeApi.updateMetadata).toHaveBeenCalledWith({
+			assetCategory: "icon",
+			assetRecordId: assetRecord.id,
+			projectId,
+			tags: ["inventory"],
+			themeId,
+			visualWorldId,
+		})
+	);
+	expect(await screen.findByRole("status")).toHaveTextContent(
+		"Varlık kaydı metadata’sı kaydedildi."
+	);
+});
 
 test("shows a failed Asset Record list load only in Sonner", async () => {
 	fakeApi.recordsError = Object.assign(new Error("Internal server error"), {
@@ -427,9 +665,7 @@ test("keeps unrecorded legacy version details explicit without choosing a Canoni
 	expect(
 		await screen.findByText("Dosya adı bilinmiyor · Sürüm 1")
 	).toBeVisible();
-	expect(
-		screen.getByText("Ana Tasarım seçilmedi.", { exact: false })
-	).toBeVisible();
+	expect(screen.getByText(unknownCanonicalVersion)).toBeVisible();
 	expect(
 		screen.queryByLabelText("Türetilmiş Asset Record")
 	).not.toBeInTheDocument();
@@ -656,6 +892,9 @@ test("uses the canonical Erased availability value and Turkish label", async () 
 	);
 
 	expect(await screen.findByText("Silinmiş")).toBeVisible();
+	expect(
+		screen.queryByRole("heading", { name: "Varlık kaydı metadata’sı" })
+	).not.toBeInTheDocument();
 	expect(
 		screen.getByText(
 			"Silinmiş kaydın ölçüleri görüntülenemez veya değiştirilemez."

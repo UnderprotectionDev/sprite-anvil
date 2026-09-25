@@ -4,6 +4,7 @@ import { Input } from "@sprite-anvil/ui/components/input";
 import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, type SyntheticEvent, useRef, useState } from "react";
 import { toast } from "sonner";
+import { AssetRecordSearchPanel } from "@/features/asset-discovery/ui/components/asset-record-search-panel";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
@@ -13,6 +14,7 @@ import {
 } from "../components/asset-record-availability-control";
 import { AssetRecordTrackingPanel } from "../components/asset-record-tracking-panel";
 import { AssetRecordMeasurementsForm } from "../forms/asset-record-measurements-form";
+import { AssetRecordMetadataForm } from "../forms/asset-record-metadata-form";
 
 const identityOptions = [
 	{
@@ -50,7 +52,7 @@ export function AssetRecordsView({
 	onOpenRecord,
 	projectId,
 }: {
-	onOpenRecord: (assetRecordId: string) => void;
+	onOpenRecord: (assetRecordId: string, versionId?: string) => void;
 	projectId: string;
 }) {
 	const projectQueryOptions = orpc.projects.get.queryOptions({
@@ -338,15 +340,21 @@ export function AssetRecordsView({
 				</div>
 				{recordsState}
 			</section>
+			<AssetRecordSearchPanel
+				onOpenRecord={onOpenRecord}
+				projectId={projectId}
+			/>
 		</main>
 	);
 }
 
 export function AssetRecordDetailView({
 	assetRecordId,
+	focusVersionId,
 	projectId,
 }: {
 	assetRecordId: string;
+	focusVersionId?: string;
 	projectId: string;
 }) {
 	const projectQuery = useQuery({
@@ -391,6 +399,7 @@ export function AssetRecordDetailView({
 		trackingPanel = (
 			<AssetRecordTrackingPanel
 				detail={trackingQuery.data}
+				focusVersionId={focusVersionId}
 				onRefresh={() => trackingQuery.refetch()}
 			/>
 		);
@@ -411,6 +420,15 @@ export function AssetRecordDetailView({
 						onRefresh={() => recordQuery.refetch()}
 						record={record}
 					/>
+					{record.availability === "erased" ? null : (
+						<AssetRecordMetadataForm
+							familyWorldId={
+								trackingQuery.data?.tracking.family?.visualWorldId ?? null
+							}
+							projectId={projectId}
+							record={record}
+						/>
+					)}
 					{record.availability === "erased" ? (
 						<section className="rounded-lg border p-5">
 							<h2 className="font-semibold text-xl">Görsel ölçüleri</h2>

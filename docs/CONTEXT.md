@@ -25,6 +25,7 @@ English terms are the canonical technical names used in code and contracts. Turk
 | Context Override | Bağlam Kuralı İstisnası |
 | Production Context Snapshot | Üretim Bağlamı Kopyası |
 | Asset Record | Varlık Kaydı |
+| Asset Category | Varlık Kategorisi |
 | Asset Version | Varlık Sürümü |
 | Asset Family | Varlık Ailesi |
 | Collection | Koleksiyon |
@@ -177,6 +178,10 @@ _Avoid_: Full chat history, prompt alone
 **Asset Record**:
 The durable identity of one independently meaningful, lifecycle-managed, or deliverable game-art subject or set across all of its versions and production history. Technical replaceability alone does not make a production unit an Asset Record.
 _Avoid_: File, image, asset version
+
+**Asset Category**:
+A user-assigned grouping for an Asset Record, such as character and animation, object and equipment, icon, visual effect, tileset and texture, background and parallax, UI, or portrait and marketing art. A category classifies the record without claiming that a Specialized Asset Profile is available.
+_Avoid_: Asset type, file format, specialized profile
 
 **Asset Version**:
 An immutable visual or structural result belonging to an Asset Record. Replacements and edits create new versions instead of overwriting existing ones.

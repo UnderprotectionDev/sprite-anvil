@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 
 function readMigration(path: string) {
 	return readFileSync(new URL(path, import.meta.url), "utf8");
@@ -37,6 +37,9 @@ const assetTrackingRelationshipMigration = readMigration(
 );
 const mergedAssetSchemaMigration = readMigration(
 	"./migrations/20260925135634_merge_asset_record_family_contract/migration.sql"
+);
+const assetDiscoveryMigration = readMigration(
+	"./migrations/20260925114002_romantic_unicorn/migration.sql"
 );
 const assetRecordForeignKeyRestoreMigration = readFileSync(
 	new URL(
@@ -229,4 +232,140 @@ test("pins canonical family versions and keeps review and quality evidence consi
 	expect(assetTrackingRelationshipMigration).toContain(
 		'CHECK (NOT ("transferred_features" && "forbidden_features"))'
 	);
+});
+
+test("adds Asset Record metadata and immutable source image measurements", () => {
+	for (const column of [
+		"asset_category",
+		"visual_world_id",
+		"theme_id",
+		"tags",
+	]) {
+		expect(assetDiscoveryMigration).toContain(
+			`ADD COLUMN IF NOT EXISTS "${column}"`
+		);
+	}
+	for (const column of ["source_image_width", "source_image_height"]) {
+		expect(assetDiscoveryMigration).toContain(
+			`ADD COLUMN IF NOT EXISTS "${column}" integer`
+		);
+	}
+	expect(assetDiscoveryMigration).toContain(
+		'FOREIGN KEY ("project_id","visual_world_id","theme_id") REFERENCES "themes"'
+	);
+	expect(assetDiscoveryMigration).toContain(
+		'CREATE INDEX IF NOT EXISTS "asset_versions_project_source_image_dimensions_idx"'
+	);
+});
+
+test("reapplies Asset Record metadata and source measurements after newer legacy migrations", () => {
+	const migrationsDirectory = new URL("./migrations/", import.meta.url);
+	const forwardCompatibilityDirectory = readdirSync(migrationsDirectory).find(
+		(directory) =>
+			directory.endsWith("_asset_record_search_schema_compatibility")
+	);
+
+	expect(forwardCompatibilityDirectory).toBeDefined();
+	if (!forwardCompatibilityDirectory) {
+		return;
+	}
+
+	const forwardCompatibilityMigration = readFileSync(
+		new URL(
+			`./migrations/${forwardCompatibilityDirectory}/migration.sql`,
+			import.meta.url
+		),
+		"utf8"
+	);
+
+	for (const column of [
+		"asset_category",
+		"visual_world_id",
+		"theme_id",
+		"tags",
+	]) {
+		expect(forwardCompatibilityMigration).toContain(
+			`ADD COLUMN IF NOT EXISTS "${column}"`
+		);
+	}
+	for (const column of ["source_image_width", "source_image_height"]) {
+		expect(forwardCompatibilityMigration).toContain(
+			`ADD COLUMN IF NOT EXISTS "${column}" integer`
+		);
+	}
+	expect(forwardCompatibilityMigration).toContain(
+		'CREATE INDEX IF NOT EXISTS "asset_versions_project_source_image_dimensions_idx"'
+	);
+});
+
+test("reconciles Drizzle snapshot parents and preserves both asset schema branches", () => {
+	const migrationsDirectory = new URL("./migrations/", import.meta.url);
+	const reconciliationDirectory =
+		"20260925211335_asset_record_search_history_reconciliation";
+	const reconciliationSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				`./migrations/${reconciliationDirectory}/snapshot.json`,
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as {
+		ddl: Record<string, unknown>[];
+		prevIds: string[];
+	};
+	const snapshotsById = new Map<string, string>();
+	for (const directory of readdirSync(migrationsDirectory, {
+		withFileTypes: true,
+	})) {
+		if (!directory.isDirectory()) {
+			continue;
+		}
+		const path = new URL(
+			`./migrations/${directory.name}/snapshot.json`,
+			import.meta.url
+		);
+		if (!existsSync(path)) {
+			continue;
+		}
+		const snapshot = JSON.parse(readFileSync(path, "utf8")) as { id: string };
+		snapshotsById.set(snapshot.id, directory.name);
+	}
+
+	expect(reconciliationSnapshot.prevIds).toEqual([
+		"6cab86ff-760d-4fe6-8794-f61c7f39a039",
+		"3a716c06-aa45-4c0b-a7f2-b004f3ecf0fb",
+		"32f864e4-e70c-4a1b-ba17-abfa1f86699f",
+	]);
+	for (const parentId of reconciliationSnapshot.prevIds) {
+		expect(snapshotsById.has(parentId)).toBe(true);
+	}
+	for (const table of [
+		"asset_records",
+		"asset_record_measurements",
+		"asset_versions",
+	]) {
+		expect(reconciliationSnapshot.ddl).toContainEqual(
+			expect.objectContaining({
+				entityType: "tables",
+				name: table,
+				schema: "public",
+			})
+		);
+	}
+	for (const [table, name] of [
+		["asset_records", "asset_category"],
+		["asset_records", "tags"],
+		["asset_versions", "source_image_width"],
+		["asset_versions", "source_image_height"],
+	] as const) {
+		expect(reconciliationSnapshot.ddl).toContainEqual(
+			expect.objectContaining({
+				entityType: "columns",
+				name,
+				schema: "public",
+				table,
+			})
+		);
+	}
 });

@@ -1,4 +1,5 @@
 import { internalServerErrorDataSchema } from "@sprite-anvil/api/error-contract";
+import { Button } from "@sprite-anvil/ui/components/button";
 import type { ReactElement } from "react";
 import { toast } from "sonner";
 
@@ -16,6 +17,25 @@ export interface ErrorNotification {
 	description: string;
 	supportReference?: string;
 	title: string;
+}
+
+export function QueryRetryButton({
+	disabled,
+	onRetry,
+}: {
+	disabled: boolean;
+	onRetry: () => void;
+}) {
+	return (
+		<Button
+			disabled={disabled}
+			onClick={onRetry}
+			type="button"
+			variant="outline"
+		>
+			Retry
+		</Button>
+	);
 }
 
 function getErrorProperty(error: unknown, property: string): unknown {

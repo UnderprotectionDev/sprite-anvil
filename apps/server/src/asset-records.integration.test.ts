@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { Buffer } from "node:buffer";
 import { call } from "@orpc/server";
 import {
 	type AssetRecordMeasurements,
@@ -23,6 +24,7 @@ import {
 import { user } from "@sprite-anvil/db/schema/auth";
 import { project } from "@sprite-anvil/db/schema/project";
 import { eq } from "drizzle-orm";
+import sharp from "sharp";
 import { createAssetFamilyStore } from "./features/asset-families/server/asset-family-store";
 import { createAssetRecordStore } from "./features/asset-records/server/asset-record-store";
 import { createAssetRecordTrackingStore } from "./features/asset-records/server/asset-record-tracking-store";
@@ -33,8 +35,18 @@ import { createProjectAccessStore } from "./features/projects/server/project-acc
 import { createProjectContextScopeStore } from "./features/visual-worlds/server/project-context-scope-store";
 
 const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
-const imageBase64 =
-	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/ZpUAAAAASUVORK5CYII=";
+const imageBase64 = (
+	await sharp({
+		create: {
+			background: { alpha: 1, b: 200, g: 100, r: 40 },
+			channels: 4,
+			height: 1,
+			width: 1,
+		},
+	})
+		.png()
+		.toBuffer()
+).toString("base64");
 
 function createMemoryStorage() {
 	const objects = new Map<string, Uint8Array>();
@@ -47,7 +59,7 @@ function createMemoryStorage() {
 			return Promise.resolve();
 		},
 	};
-	return storage;
+	return { size: () => objects.size, storage };
 }
 
 test.skipIf(!databaseUrl)(
@@ -77,7 +89,10 @@ test.skipIf(!databaseUrl)(
 				assetFamilyStore: createAssetFamilyStore(db),
 				assetVersionStore: createAssetVersionStore(db),
 				assetRecordStore: createAssetRecordStore(db),
-				assetRecordTrackingStore: createAssetRecordTrackingStore(db, storage),
+				assetRecordTrackingStore: createAssetRecordTrackingStore(
+					db,
+					storage.storage
+				),
 				db,
 				projectAccess: createProjectAccessStore(db, projectContextStore),
 				projectContextScopeStore: createProjectContextScopeStore(db),
@@ -148,6 +163,36 @@ test.skipIf(!databaseUrl)(
 				{ assetRecordId: created.id, measurements, projectId },
 				{ context }
 			);
+			const invalidVersionId = crypto.randomUUID();
+			const truncatedPngBase64 = Buffer.from(imageBase64, "base64")
+				.subarray(0, 33)
+				.toString("base64");
+			await expect(
+				call(
+					appRouter.assetRecords.createVersion,
+					{
+						assetRecordId: created.id,
+						contentBase64: truncatedPngBase64,
+						contentType: "image/png",
+						fileName: "truncated.png",
+						historyUnknown: true,
+						id: invalidVersionId,
+						knownSource: null,
+						projectId,
+						supportingEvidence: null,
+						userRelationship: "unknown",
+					},
+					{ context }
+				)
+			).rejects.toMatchObject({ code: "CONFLICT" });
+			const [invalidVersion] = await db
+				.select()
+				.from(assetVersions)
+				.where(eq(assetVersions.id, invalidVersionId))
+				.limit(1);
+			expect(invalidVersion).toBeUndefined();
+			expect(storage.size()).toBe(0);
+
 			const versionId = crypto.randomUUID();
 			const createdVersion = await call(
 				appRouter.assetRecords.createVersion,
@@ -186,6 +231,51 @@ test.skipIf(!databaseUrl)(
 				},
 				{ context }
 			);
+			const theme = await call(
+				appRouter.contextScopes.createTheme,
+				{
+					projectId,
+					visualWorldId: world.id,
+					name: "Ash Knight Theme",
+					description: "Metadata discovery integration fixture",
+				},
+				{ context }
+			);
+			const metadataRecord = await call(
+				appRouter.assetRecords.updateMetadata,
+				{
+					assetCategory: "icon",
+					assetRecordId: created.id,
+					projectId,
+					tags: ["Inventory"],
+					themeId: theme.id,
+					visualWorldId: world.id,
+				},
+				{ context }
+			);
+			expect(metadataRecord).toMatchObject({
+				assetCategory: "icon",
+				tags: ["inventory"],
+				themeId: theme.id,
+				visualWorldId: world.id,
+			});
+			await expect(
+				call(
+					appRouter.assetRecords.updateMetadata,
+					{
+						assetCategory: "icon",
+						assetRecordId: created.id,
+						projectId,
+						tags: [],
+						themeId: null,
+						visualWorldId: crypto.randomUUID(),
+					},
+					{ context }
+				)
+			).rejects.toMatchObject({
+				code: "BAD_REQUEST",
+				message: "Tema veya Görsel Dünya seçilen proje kapsamında olmalıdır.",
+			});
 			const familyId = crypto.randomUUID();
 			await call(
 				appRouter.assetRecords.createFamily,
@@ -264,7 +354,7 @@ test.skipIf(!databaseUrl)(
 				assetRecordStore: createAssetRecordStore(rereadDb),
 				assetRecordTrackingStore: createAssetRecordTrackingStore(
 					rereadDb,
-					storage
+					storage.storage
 				),
 				db: rereadDb,
 			};
@@ -275,29 +365,73 @@ test.skipIf(!databaseUrl)(
 			);
 
 			expect(reread).toMatchObject({
+				assetCategory: "icon",
 				availability: "active",
 				identityCriteria: ["independent_product_meaning", "delivery_identity"],
 				id: created.id,
+				measurements,
 				name: "Ash Knight",
 				projectId,
 				supportLevel: "general",
-				measurements,
+				tags: ["inventory"],
+				themeId: theme.id,
+				visualWorldId: world.id,
+			});
+			const search = await call(
+				appRouter.assetRecords.search,
+				{
+					assetCategory: "icon",
+					projectId,
+					sourceImageHeight: 1,
+					sourceImageWidth: 1,
+					tag: "inventory",
+					themeId: theme.id,
+					visualWorldId: world.id,
+				},
+				{ context: rereadContext }
+			);
+			expect(search).toMatchObject({
+				records: [
+					{
+						matchingVersions: [
+							{
+								fileName: "ash-knight.png",
+								id: versionId,
+								sourceImageHeight: 1,
+								sourceImageWidth: 1,
+								versionNumber: 1,
+							},
+						],
+						record: { id: created.id },
+					},
+				],
+				totalCount: 1,
 			});
 			const tracking = await call(
 				appRouter.assetRecords.tracking,
 				{ assetRecordId: created.id, projectId },
 				{ context: rereadContext }
 			);
-			expect(tracking.record.measurements).toEqual(measurements);
+			expect(tracking.record).toMatchObject({
+				assetCategory: "icon",
+				measurements,
+				tags: ["inventory"],
+				themeId: theme.id,
+				visualWorldId: world.id,
+			});
 			expect(createdVersion).toMatchObject({
 				fileName: "ash-knight.png",
 				id: versionId,
+				sourceImageHeight: 1,
+				sourceImageWidth: 1,
 				versionNumber: 1,
 			});
 			expect(tracking.tracking).toMatchObject({
 				approvedVersion: {
 					id: versionId,
 					reviewDisposition: "approved",
+					sourceImageHeight: 1,
+					sourceImageWidth: 1,
 				},
 				productionHistory: [
 					{
@@ -392,6 +526,33 @@ test.skipIf(!databaseUrl)(
 				.update(assetRecords)
 				.set({ availability: "erased" })
 				.where(eq(assetRecords.id, created.id));
+			await expect(
+				call(
+					appRouter.assetRecords.updateMetadata,
+					{
+						assetCategory: "other",
+						assetRecordId: created.id,
+						projectId,
+						tags: ["should-not-return"],
+						themeId: null,
+						visualWorldId: null,
+					},
+					{ context: rereadContext }
+				)
+			).rejects.toMatchObject({
+				code: "CONFLICT",
+				message: "Silinmiş Varlık Kaydının metadata’sı değiştirilemez.",
+			});
+			const erasedMetadataRecord = await call(
+				appRouter.assetRecords.get,
+				{ assetRecordId: created.id, projectId },
+				{ context: rereadContext }
+			);
+			expect(erasedMetadataRecord).toMatchObject({
+				assetCategory: "icon",
+				availability: "erased",
+				tags: ["inventory"],
+			});
 			await expect(
 				call(
 					appRouter.assetRecords.updateMeasurements,
