@@ -8,9 +8,16 @@ import {
 	waitFor,
 } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, expect, test, vi } from "vitest";
+import { createQueryClient } from "@/utils/query-client";
 import { AssetRecordDetailView, AssetRecordsView } from "./asset-records-view";
+
+const errorToast = vi.hoisted(() => vi.fn());
+
+vi.mock("sonner", () => ({
+	toast: { dismiss: vi.fn(), error: errorToast },
+}));
 
 const projectId = "c2edb5dc-a82f-42b2-84bb-a878ca20fabf";
 const identityCheckboxName = /^Bağımsız ürün anlamı/;
@@ -49,6 +56,7 @@ const fakeApi = vi.hoisted(() => ({
 	archive: vi.fn(),
 	create: vi.fn(),
 	detail: null as Record<string, unknown> | null,
+	recordsError: null as Error | null,
 	trackingError: null as Error | null,
 	record: null as TestAssetRecord | null,
 	records: [] as TestAssetRecord[],
@@ -106,7 +114,12 @@ vi.mock("@/utils/orpc", () => ({
 			list: {
 				queryOptions: () => ({
 					queryKey: ["asset-records", projectId],
-					queryFn: async () => fakeApi.records,
+					queryFn: () => {
+						if (fakeApi.recordsError) {
+							return Promise.reject(fakeApi.recordsError);
+						}
+						return Promise.resolve(fakeApi.records);
+					},
 				}),
 			},
 		},
@@ -125,6 +138,8 @@ afterEach(() => {
 	cleanup();
 	vi.restoreAllMocks();
 	fakeApi.records = [];
+	fakeApi.recordsError = null;
+	errorToast.mockClear();
 	fakeApi.record = null;
 	fakeApi.detail = null;
 	fakeApi.trackingError = null;
@@ -134,9 +149,8 @@ afterEach(() => {
 });
 
 function renderWithQueryClient(node: React.ReactNode) {
-	const queryClient = new QueryClient({
-		defaultOptions: { queries: { retry: false } },
-	});
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
 	return {
 		...render(
 			<QueryClientProvider client={queryClient}>{node}</QueryClientProvider>
@@ -144,6 +158,35 @@ function renderWithQueryClient(node: React.ReactNode) {
 		queryClient,
 	};
 }
+
+test("shows a failed Asset Record list load only in Sonner", async () => {
+	fakeApi.recordsError = Object.assign(new Error("Internal server error"), {
+		code: "INTERNAL_SERVER_ERROR",
+		data: { supportReference: "SUP-7CFB1C3A-A7A3-4BC2-B748-B5065AA2314A" },
+	});
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	render(
+		<QueryClientProvider client={queryClient}>
+			<AssetRecordsView onOpenRecord={vi.fn()} projectId={projectId} />
+		</QueryClientProvider>
+	);
+
+	await waitFor(() => expect(errorToast).toHaveBeenCalledTimes(1));
+	expect(errorToast.mock.calls[0]?.[0]).toBe("Data could not be loaded.");
+	expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+	expect(
+		screen.queryByRole("button", { name: "Retry" })
+	).not.toBeInTheDocument();
+	const options = errorToast.mock.calls[0]?.[1] as {
+		action: { label: string; onClick: () => void };
+	};
+	expect(options.action.label).toBe("Retry");
+	fakeApi.recordsError = null;
+	fakeApi.records = [assetRecord];
+	options.action.onClick();
+	expect(await screen.findByText("Ash Knight")).toBeVisible();
+});
 
 test("creates a durable Asset Record from its independent product identity", async () => {
 	const onOpenRecord = vi.fn();
@@ -188,7 +231,8 @@ test("uncertain creates require a confirmed list check and reuse the same identi
 	fireEvent.click(screen.getByRole("button", { name: "Varlık kaydı oluştur" }));
 
 	const identity = fakeApi.create.mock.calls[0]?.[0].id;
-	expect(await screen.findByRole("alert")).toBeVisible();
+	await waitFor(() => expect(errorToast).toHaveBeenCalledOnce());
+	expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 	expect(
 		screen.getByRole("button", { name: "Varlık kaydı oluştur" })
 	).toBeDisabled();
@@ -394,14 +438,13 @@ test("keeps Asset Record availability available when tracking details fail", asy
 		await screen.findByRole("heading", { name: "Ash Knight" })
 	).toBeVisible();
 	expect(screen.getByRole("button", { name: "Kaydı arşivle" })).toBeEnabled();
-	expect(
-		await screen.findByText("Varlık geçmişi şu anda yüklenemedi.")
-	).toBeVisible();
+	await waitFor(() => expect(errorToast).toHaveBeenCalledOnce());
+	expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 	expect(
 		queryClient
 			.getQueryCache()
 			.find({ queryKey: ["asset-record-detail", assetRecord.id] })?.meta
-	).toMatchObject({ suppressGlobalErrorToast: true });
+	).toBeUndefined();
 
 	fireEvent.click(screen.getByRole("button", { name: "Kaydı arşivle" }));
 	expect(await screen.findByText("Arşivlenmiş")).toBeVisible();
@@ -428,7 +471,8 @@ test("checks the current Availability before allowing an uncertain archive retry
 	);
 
 	fireEvent.click(await screen.findByRole("button", { name: "Kaydı arşivle" }));
-	expect(await screen.findByRole("alert")).toBeVisible();
+	await waitFor(() => expect(errorToast).toHaveBeenCalledOnce());
+	expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 	fireEvent.click(screen.getByRole("button", { name: "Durumu kontrol et" }));
 
 	expect(await screen.findByText("Güncel kayıt durumu: Etkin.")).toBeVisible();

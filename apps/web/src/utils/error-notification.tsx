@@ -1,5 +1,4 @@
 import { internalServerErrorDataSchema } from "@sprite-anvil/api/error-contract";
-import { Button } from "@sprite-anvil/ui/components/button";
 import type { ReactElement } from "react";
 import { toast } from "sonner";
 
@@ -54,27 +53,6 @@ export function isWriteOutcomeUncertain(error: unknown): boolean {
 		code === "INTERNAL_SERVER_ERROR" ||
 		(typeof status === "number" && status >= 500) ||
 		isConnectionError(error)
-	);
-}
-
-export function QueryRetryButton({
-	className,
-	disabled,
-	onRetry,
-}: {
-	className?: string;
-	disabled?: boolean;
-	onRetry: () => void;
-}) {
-	return (
-		<Button
-			className={className}
-			disabled={disabled}
-			onClick={onRetry}
-			type="button"
-		>
-			Retry
-		</Button>
 	);
 }
 

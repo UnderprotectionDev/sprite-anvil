@@ -3,7 +3,6 @@ import { Button } from "@sprite-anvil/ui/components/button";
 import { type SyntheticEvent, useState } from "react";
 
 interface ProjectSetupFormProps {
-	error: string | null;
 	isCheckingOutcome?: boolean;
 	isOutcomeUncertain?: boolean;
 	isPending: boolean;
@@ -13,7 +12,6 @@ interface ProjectSetupFormProps {
 }
 
 export function ProjectSetupForm({
-	error,
 	isCheckingOutcome = false,
 	isOutcomeUncertain = false,
 	isPending,
@@ -74,11 +72,6 @@ export function ProjectSetupForm({
 						value={generalArtDirection}
 					/>
 				</label>
-				{error ? (
-					<p className="context-error" role="alert">
-						{error}
-					</p>
-				) : null}
 				{isOutcomeUncertain && onCheckOutcome ? (
 					<Button
 						className="quiet-button"

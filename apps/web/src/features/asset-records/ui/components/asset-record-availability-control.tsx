@@ -5,6 +5,7 @@ import type {
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { toast } from "sonner";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
@@ -54,9 +55,6 @@ export function AssetRecordAvailabilityControl({
 	const [pendingAvailability, setPendingAvailability] =
 		useState<MutableAssetRecordAvailability | null>(null);
 	const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
-	const [availabilityError, setAvailabilityError] = useState<string | null>(
-		null
-	);
 	const [availabilityMessage, setAvailabilityMessage] = useState<string | null>(
 		null
 	);
@@ -69,7 +67,6 @@ export function AssetRecordAvailabilityControl({
 		}
 
 		setIsUpdatingAvailability(true);
-		setAvailabilityError(null);
 		setAvailabilityMessage(null);
 		try {
 			const input = { assetRecordId: record.id, projectId: record.projectId };
@@ -84,9 +81,11 @@ export function AssetRecordAvailabilityControl({
 			const result = await onRefresh();
 			if (result.isError || !result.data) {
 				setPendingAvailability(availability);
-				setAvailabilityError(
-					"İşlem tamamlandı ancak güncel kayıt durumu doğrulanamadı. Mevcut durumu kontrol edin."
-				);
+				if (!result.isError) {
+					toast.error(
+						"İşlem tamamlandı ancak güncel kayıt durumu doğrulanamadı. Mevcut durumu kontrol edin."
+					);
+				}
 				return;
 			}
 			setAvailabilityMessage(
@@ -96,7 +95,7 @@ export function AssetRecordAvailabilityControl({
 			if (isWriteOutcomeUncertain(error)) {
 				setPendingAvailability(availability);
 			}
-			setAvailabilityError(
+			toast.error(
 				getErrorMessage(
 					error,
 					"Kayıt durumu doğrulanamadı. Mevcut durumu kontrol edin."
@@ -116,13 +115,14 @@ export function AssetRecordAvailabilityControl({
 		try {
 			const result = await onRefresh();
 			if (result.isError || !result.data) {
-				setAvailabilityError("Güncel kayıt durumu okunamadı. Yeniden deneyin.");
+				if (!result.isError) {
+					toast.error("Güncel kayıt durumu okunamadı. Yeniden deneyin.");
+				}
 				return;
 			}
 
 			const { availability } = result.data;
 			setPendingAvailability(null);
-			setAvailabilityError(null);
 			setAvailabilityMessage(
 				getAvailabilityMessage(availability, pendingAvailability)
 			);
@@ -166,11 +166,6 @@ export function AssetRecordAvailabilityControl({
 						? "Güncelleniyor…"
 						: "Kaydı yeniden etkinleştir"}
 				</Button>
-			) : null}
-			{availabilityError ? (
-				<p className="mt-3" role="alert">
-					{availabilityError}
-				</p>
 			) : null}
 			{pendingAvailability ? (
 				<Button
