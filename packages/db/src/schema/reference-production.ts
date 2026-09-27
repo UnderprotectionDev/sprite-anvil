@@ -10,8 +10,18 @@ import {
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { assetRecords } from "./asset-records";
-import { assetVersions } from "./asset-versions";
 import { user } from "./auth";
+
+type ReferenceRole =
+	| "identity"
+	| "pose"
+	| "style"
+	| "palette"
+	| "equipment"
+	| "composition"
+	| "theme"
+	| "avoid"
+	| "custom";
 
 type ReferenceFeature =
 	| "identity"
@@ -22,26 +32,21 @@ type ReferenceFeature =
 	| "composition"
 	| "theme";
 
-export const assetRecordReferences = pgTable(
-	"asset_record_references",
+export const referenceBoardImages = pgTable(
+	"reference_board_images",
 	{
 		id: text("id").primaryKey(),
 		projectId: text("project_id").notNull(),
 		assetRecordId: text("asset_record_id").notNull(),
-		targetVersionId: text("target_version_id").notNull(),
-		role: text("role")
-			.$type<
-				| "identity"
-				| "pose"
-				| "style"
-				| "palette"
-				| "equipment"
-				| "composition"
-				| "theme"
-				| "avoid"
-				| "custom"
-			>()
+		objectKey: text("object_key").notNull(),
+		fileName: text("file_name").notNull(),
+		contentType: text("content_type")
+			.$type<"image/png" | "image/webp">()
 			.notNull(),
+		contentLength: integer("content_length").notNull(),
+		sha256: text("sha256").notNull(),
+		role: text("role").$type<ReferenceRole>().notNull(),
+		customPurpose: text("custom_purpose"),
 		transferredFeatures: text("transferred_features")
 			.array()
 			.$type<ReferenceFeature>()
@@ -50,77 +55,69 @@ export const assetRecordReferences = pgTable(
 			.array()
 			.$type<ReferenceFeature>()
 			.notNull(),
-		customPurpose: text("custom_purpose"),
 		contextOverrideRationale: text("context_override_rationale"),
 		notes: text("notes"),
+		sortOrder: integer("sort_order").notNull().default(0),
 		revision: integer("revision").notNull().default(1),
 		createdByUserId: text("created_by_user_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "restrict" }),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
-		updatedAt: timestamp("updated_at").defaultNow().notNull(),
+		updatedAt: timestamp("updated_at")
+			.defaultNow()
+			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.notNull(),
 	},
 	(table) => [
 		foreignKey({
-			name: "asset_record_references_record_fk",
+			name: "reference_board_images_record_fk",
 			columns: [table.projectId, table.assetRecordId],
 			foreignColumns: [assetRecords.projectId, assetRecords.id],
 		}).onDelete("restrict"),
-		foreignKey({
-			name: "asset_record_references_version_fk",
-			columns: [table.projectId, table.targetVersionId],
-			foreignColumns: [assetVersions.projectId, assetVersions.id],
-		}).onDelete("restrict"),
-		uniqueIndex("asset_record_references_project_asset_id_idx").on(
+		uniqueIndex("reference_board_images_project_asset_id_idx").on(
 			table.projectId,
 			table.assetRecordId,
 			table.id
 		),
+		index("reference_board_images_record_created_idx").on(
+			table.projectId,
+			table.assetRecordId,
+			table.sortOrder,
+			table.createdAt
+		),
 		check(
-			"asset_record_references_role_check",
+			"reference_board_images_role_check",
 			sql`${table.role} IN ('identity', 'pose', 'style', 'palette', 'equipment', 'composition', 'theme', 'avoid', 'custom')`
 		),
 		check(
-			"asset_record_references_feature_check",
-			sql`cardinality(${table.transferredFeatures}) + cardinality(${table.forbiddenFeatures}) >= 1`
-		),
-		check("asset_record_references_revision_check", sql`${table.revision} > 0`),
-		check(
-			"asset_record_references_custom_purpose_check",
+			"reference_board_images_custom_purpose_check",
 			sql`(${table.role} = 'custom' AND ${table.customPurpose} IS NOT NULL AND length(trim(${table.customPurpose})) > 0) OR (${table.role} <> 'custom' AND ${table.customPurpose} IS NULL)`
 		),
 		check(
-			"asset_record_references_identity_override_check",
-			sql`${table.contextOverrideRationale} IS NULL OR ('identity' = ANY(${table.transferredFeatures}) AND NOT ('identity' = ANY(${table.forbiddenFeatures})) AND length(trim(${table.contextOverrideRationale})) > 0)`
+			"reference_board_images_features_nonempty_check",
+			sql`cardinality(${table.transferredFeatures}) + cardinality(${table.forbiddenFeatures}) >= 1`
 		),
-		index("asset_record_references_asset_record_created_idx").on(
-			table.assetRecordId,
-			table.createdAt
+		check("reference_board_images_revision_check", sql`${table.revision} > 0`),
+		check(
+			"reference_board_images_content_check",
+			sql`${table.contentType} IN ('image/png', 'image/webp') AND ${table.contentLength} > 0 AND ${table.contentLength} <= 5242880 AND ${table.sha256} ~ '^[a-f0-9]{64}$'`
+		),
+		check(
+			"reference_board_images_identity_override_check",
+			sql`${table.contextOverrideRationale} IS NULL OR ('identity' = ANY(${table.transferredFeatures}) AND NOT ('identity' = ANY(${table.forbiddenFeatures})) AND length(trim(${table.contextOverrideRationale})) > 0)`
 		),
 	]
 );
 
-export const assetRecordReferenceHistory = pgTable(
-	"asset_record_reference_history",
+export const referenceBoardImageHistory = pgTable(
+	"reference_board_image_history",
 	{
 		id: text("id").primaryKey(),
 		projectId: text("project_id").notNull(),
 		assetRecordId: text("asset_record_id").notNull(),
 		referenceId: text("reference_id").notNull(),
 		revision: integer("revision").notNull(),
-		role: text("role")
-			.$type<
-				| "identity"
-				| "pose"
-				| "style"
-				| "palette"
-				| "equipment"
-				| "composition"
-				| "theme"
-				| "avoid"
-				| "custom"
-			>()
-			.notNull(),
+		role: text("role").$type<ReferenceRole>().notNull(),
 		customPurpose: text("custom_purpose"),
 		transferredFeatures: text("transferred_features")
 			.array()
@@ -139,47 +136,40 @@ export const assetRecordReferenceHistory = pgTable(
 	},
 	(table) => [
 		foreignKey({
-			name: "asset_record_reference_history_record_fk",
-			columns: [table.projectId, table.assetRecordId],
-			foreignColumns: [assetRecords.projectId, assetRecords.id],
-		}).onDelete("restrict"),
-		foreignKey({
-			name: "asset_record_reference_history_reference_fk",
+			name: "reference_board_image_history_reference_fk",
 			columns: [table.projectId, table.assetRecordId, table.referenceId],
 			foreignColumns: [
-				assetRecordReferences.projectId,
-				assetRecordReferences.assetRecordId,
-				assetRecordReferences.id,
+				referenceBoardImages.projectId,
+				referenceBoardImages.assetRecordId,
+				referenceBoardImages.id,
 			],
 		}).onDelete("restrict"),
-		uniqueIndex("asset_record_reference_history_revision_idx").on(
+		uniqueIndex("reference_board_image_history_revision_idx").on(
 			table.referenceId,
 			table.revision
 		),
-		index("asset_record_reference_history_record_idx").on(
-			table.projectId,
-			table.assetRecordId,
+		index("reference_board_image_history_recorded_idx").on(
 			table.referenceId,
-			table.revision
+			table.recordedAt
 		),
 		check(
-			"asset_record_reference_history_revision_check",
-			sql`${table.revision} > 0`
-		),
-		check(
-			"asset_record_reference_history_role_check",
-			sql`${table.role} IN ('identity', 'pose', 'style', 'palette', 'equipment', 'composition', 'theme', 'avoid', 'custom')`
-		),
-		check(
-			"asset_record_reference_history_custom_purpose_check",
+			"reference_board_image_history_custom_purpose_check",
 			sql`(${table.role} = 'custom' AND ${table.customPurpose} IS NOT NULL AND length(trim(${table.customPurpose})) > 0) OR (${table.role} <> 'custom' AND ${table.customPurpose} IS NULL)`
 		),
 		check(
-			"asset_record_reference_history_features_check",
+			"reference_board_image_history_role_check",
+			sql`${table.role} IN ('identity', 'pose', 'style', 'palette', 'equipment', 'composition', 'theme', 'avoid', 'custom')`
+		),
+		check(
+			"reference_board_image_history_revision_check",
+			sql`${table.revision} > 0`
+		),
+		check(
+			"reference_board_image_history_features_check",
 			sql`cardinality(${table.transferredFeatures}) + cardinality(${table.forbiddenFeatures}) >= 1`
 		),
 		check(
-			"asset_record_reference_history_identity_override_check",
+			"reference_board_image_history_identity_override_check",
 			sql`${table.contextOverrideRationale} IS NULL OR ('identity' = ANY(${table.transferredFeatures}) AND NOT ('identity' = ANY(${table.forbiddenFeatures})) AND length(trim(${table.contextOverrideRationale})) > 0)`
 		),
 	]

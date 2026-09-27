@@ -3,13 +3,20 @@ import { getTableConfig } from "drizzle-orm/pg-core";
 import { legacyAssetAttestations } from "./schema/asset-production-history";
 import { assetRecordDerivatives } from "./schema/asset-record-derivatives";
 import { assetRecordMeasurements } from "./schema/asset-record-measurements";
-import { assetRecordReferences } from "./schema/asset-record-references";
+import {
+	assetRecordReferenceHistory,
+	assetRecordReferences,
+} from "./schema/asset-record-references";
 import { assetFamilies, assetRecords } from "./schema/asset-records";
 import {
 	assetVersionQualityEvidence,
 	assetVersionReviewEvents,
 	assetVersions,
 } from "./schema/asset-versions";
+import {
+	referenceBoardImageHistory,
+	referenceBoardImages,
+} from "./schema/reference-production";
 
 test("keeps Asset Record project, family, and context scope relations restrictive", () => {
 	const { foreignKeys } = getTableConfig(assetRecords);
@@ -69,5 +76,34 @@ test("keeps version and tracking history linked with restrictive project-scoped 
 		for (const foreignKey of foreignKeys) {
 			expect(foreignKey.onDelete).toBe("restrict");
 		}
+	}
+});
+
+test("persists reference constraints and revisions under restrictive references", () => {
+	for (const table of [
+		assetRecordReferences,
+		assetRecordReferenceHistory,
+		referenceBoardImages,
+		referenceBoardImageHistory,
+	]) {
+		const { checks, foreignKeys } = getTableConfig(table);
+		expect(checks.some((entry) => entry.name.endsWith("revision_check"))).toBe(
+			true
+		);
+		expect(foreignKeys.length).toBeGreaterThan(0);
+		for (const foreignKey of foreignKeys) {
+			expect(foreignKey.onDelete).toBe("restrict");
+		}
+	}
+	for (const table of [
+		assetRecordReferences,
+		assetRecordReferenceHistory,
+		referenceBoardImages,
+		referenceBoardImageHistory,
+	]) {
+		const { checks } = getTableConfig(table);
+		expect(
+			checks.some((entry) => entry.name.endsWith("custom_purpose_check"))
+		).toBe(true);
 	}
 });

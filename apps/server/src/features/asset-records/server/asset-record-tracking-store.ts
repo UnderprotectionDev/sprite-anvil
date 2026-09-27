@@ -6,15 +6,21 @@ import type {
 import {
 	assetFamilySummarySchema,
 	assetRecordTrackingDetailSchema,
+	assetReferenceUpdateInputSchema,
 	assetVersionReviewDispositionSchema,
 	assetVersionSummarySchema,
 	derivativeSummarySchema,
+	referenceSummarySchema,
 } from "@sprite-anvil/api/asset-record-tracking";
+import { analyzeReferenceTransferConstraints } from "@sprite-anvil/api/reference-production";
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
 import { legacyAssetAttestations } from "@sprite-anvil/db/schema/asset-production-history";
 import { assetRecordDerivatives } from "@sprite-anvil/db/schema/asset-record-derivatives";
 import { assetRecordMeasurements } from "@sprite-anvil/db/schema/asset-record-measurements";
-import { assetRecordReferences } from "@sprite-anvil/db/schema/asset-record-references";
+import {
+	assetRecordReferenceHistory,
+	assetRecordReferences,
+} from "@sprite-anvil/db/schema/asset-record-references";
 import {
 	assetFamilies,
 	assetRecords,
@@ -26,7 +32,7 @@ import {
 } from "@sprite-anvil/db/schema/asset-versions";
 import { visualWorlds } from "@sprite-anvil/db/schema/context-scopes";
 import { project } from "@sprite-anvil/db/schema/project";
-import { and, asc, desc, eq, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { toAssetRecord } from "./asset-record-mapper";
 import {
 	type AssetVersionObjectStorage,
@@ -54,6 +60,279 @@ function sameStringSet(left: readonly string[], right: readonly string[]) {
 		sortedLeft.length === sortedRight.length &&
 		sortedLeft.every((value, index) => value === sortedRight[index])
 	);
+}
+
+function mapReferenceHistory(
+	rows: (typeof assetRecordReferenceHistory.$inferSelect)[]
+) {
+	return rows.map((row) => ({
+		contextOverrideRationale: row.contextOverrideRationale,
+		customPurpose: row.customPurpose,
+		forbiddenFeatures: row.forbiddenFeatures,
+		notes: row.notes,
+		recordedAt: toISOString(row.recordedAt),
+		revision: row.revision,
+		role: row.role,
+		transferredFeatures: row.transferredFeatures,
+	}));
+}
+
+async function getReferenceHistory(
+	db: Database,
+	projectId: string,
+	assetRecordId: string,
+	referenceId: string
+) {
+	const rows = await db
+		.select()
+		.from(assetRecordReferenceHistory)
+		.where(
+			and(
+				eq(assetRecordReferenceHistory.projectId, projectId),
+				eq(assetRecordReferenceHistory.assetRecordId, assetRecordId),
+				eq(assetRecordReferenceHistory.referenceId, referenceId)
+			)
+		)
+		.orderBy(asc(assetRecordReferenceHistory.revision));
+	return mapReferenceHistory(rows);
+}
+
+async function recordReferenceRevision(
+	db: Database,
+	userId: string,
+	reference: typeof assetRecordReferences.$inferSelect,
+	recordedAt: Date = reference.updatedAt
+) {
+	await db
+		.insert(assetRecordReferenceHistory)
+		.values({
+			id: crypto.randomUUID(),
+			projectId: reference.projectId,
+			assetRecordId: reference.assetRecordId,
+			referenceId: reference.id,
+			revision: reference.revision,
+			role: reference.role,
+			customPurpose: reference.customPurpose,
+			transferredFeatures: reference.transferredFeatures,
+			forbiddenFeatures: reference.forbiddenFeatures,
+			contextOverrideRationale: reference.contextOverrideRationale,
+			notes: reference.notes,
+			recordedByUserId: userId,
+			recordedAt,
+		})
+		.onConflictDoNothing();
+	return getReferenceHistory(
+		db,
+		reference.projectId,
+		reference.assetRecordId,
+		reference.id
+	);
+}
+
+function toReferenceSummary(
+	row: {
+		reference: typeof assetRecordReferences.$inferSelect;
+		version: typeof assetVersions.$inferSelect;
+		referencedRecord: typeof assetRecords.$inferSelect;
+	},
+	history: ReturnType<typeof mapReferenceHistory>,
+	conflictFeatures: string[] = []
+) {
+	return referenceSummarySchema.parse({
+		assetRecordName: row.referencedRecord.name,
+		conflictFeatures,
+		contextOverrideRationale: row.reference.contextOverrideRationale,
+		customPurpose: row.reference.customPurpose,
+		forbiddenFeatures: row.reference.forbiddenFeatures,
+		history,
+		id: row.reference.id,
+		notes: row.reference.notes,
+		revision: row.reference.revision,
+		role: row.reference.role,
+		transferredFeatures: row.reference.transferredFeatures,
+		versionId: row.version.id,
+		versionNumber: row.version.versionNumber,
+	});
+}
+
+interface TrackingReferenceRow {
+	reference: typeof assetRecordReferences.$inferSelect;
+	referencedRecord: typeof assetRecords.$inferSelect;
+	version: typeof assetVersions.$inferSelect;
+}
+
+async function getReferenceSummaries(
+	db: Database,
+	projectId: string,
+	assetRecordId: string,
+	referenceRows: TrackingReferenceRow[]
+) {
+	const historyRows = referenceRows.length
+		? await db
+				.select()
+				.from(assetRecordReferenceHistory)
+				.where(
+					and(
+						eq(assetRecordReferenceHistory.projectId, projectId),
+						eq(assetRecordReferenceHistory.assetRecordId, assetRecordId),
+						inArray(
+							assetRecordReferenceHistory.referenceId,
+							referenceRows.map(({ reference }) => reference.id)
+						)
+					)
+				)
+				.orderBy(asc(assetRecordReferenceHistory.revision))
+		: [];
+	const historyById = new Map<
+		string,
+		(typeof assetRecordReferenceHistory.$inferSelect)[]
+	>();
+	for (const historyRow of historyRows) {
+		const rows = historyById.get(historyRow.referenceId) ?? [];
+		rows.push(historyRow);
+		historyById.set(historyRow.referenceId, rows);
+	}
+
+	const analysis = analyzeReferenceTransferConstraints(
+		referenceRows.map(({ reference }) => ({
+			forbiddenFeatures: reference.forbiddenFeatures,
+			id: reference.id,
+			transferredFeatures: reference.transferredFeatures,
+		}))
+	);
+	const conflictFeaturesById = new Map<string, Set<string>>();
+	for (const conflict of analysis.conflicts) {
+		for (const id of [
+			...conflict.allowingReferenceIds,
+			...conflict.forbiddingReferenceIds,
+		]) {
+			const features = conflictFeaturesById.get(id) ?? new Set<string>();
+			features.add(conflict.feature);
+			conflictFeaturesById.set(id, features);
+		}
+	}
+	return referenceRows.map((row) =>
+		toReferenceSummary(
+			row,
+			mapReferenceHistory(historyById.get(row.reference.id) ?? []),
+			[...(conflictFeaturesById.get(row.reference.id) ?? [])]
+		)
+	);
+}
+
+async function requiresIdentityContextOverride(
+	db: Database,
+	record: typeof assetRecords.$inferSelect,
+	projectId: string,
+	input: {
+		contextOverrideRationale?: string | null;
+		forbiddenFeatures: readonly string[];
+		transferredFeatures: readonly string[];
+	}
+) {
+	if (
+		!(record.assetFamilyId && input.transferredFeatures.includes("identity")) ||
+		input.forbiddenFeatures.includes("identity")
+	) {
+		return false;
+	}
+	const [family] = await db
+		.select({ canonicalVersionId: assetFamilies.canonicalVersionId })
+		.from(assetFamilies)
+		.where(
+			and(
+				eq(assetFamilies.projectId, projectId),
+				eq(assetFamilies.id, record.assetFamilyId)
+			)
+		)
+		.limit(1);
+	return Boolean(family?.canonicalVersionId && !input.contextOverrideRationale);
+}
+
+type ReferenceUpdateInput = Parameters<
+	AssetRecordTrackingStore["updateReference"]
+>[1];
+
+function referenceRulesMatch(
+	reference: typeof assetRecordReferences.$inferSelect,
+	input: ReferenceUpdateInput
+) {
+	return (
+		reference.role === input.role &&
+		reference.customPurpose === input.customPurpose &&
+		reference.contextOverrideRationale === input.contextOverrideRationale &&
+		reference.notes === input.notes &&
+		sameStringSet(reference.transferredFeatures, input.transferredFeatures) &&
+		sameStringSet(reference.forbiddenFeatures, input.forbiddenFeatures)
+	);
+}
+
+async function persistReferenceUpdate(
+	db: Database,
+	userId: string,
+	input: ReferenceUpdateInput
+) {
+	const revision = input.expectedRevision + 1;
+	const recordedAt = new Date();
+	const update = db
+		.update(assetRecordReferences)
+		.set({
+			role: input.role,
+			customPurpose: input.customPurpose,
+			contextOverrideRationale: input.contextOverrideRationale,
+			transferredFeatures: input.transferredFeatures,
+			forbiddenFeatures: input.forbiddenFeatures,
+			notes: input.notes,
+			revision,
+			updatedAt: recordedAt,
+		})
+		.where(
+			and(
+				eq(assetRecordReferences.projectId, input.projectId),
+				eq(assetRecordReferences.assetRecordId, input.assetRecordId),
+				eq(assetRecordReferences.id, input.id),
+				eq(assetRecordReferences.revision, input.expectedRevision)
+			)
+		)
+		.returning();
+	const insertHistory = db
+		.insert(assetRecordReferenceHistory)
+		.values({
+			id: crypto.randomUUID(),
+			projectId: input.projectId,
+			assetRecordId: input.assetRecordId,
+			referenceId: input.id,
+			revision,
+			role: input.role,
+			customPurpose: input.customPurpose,
+			contextOverrideRationale: input.contextOverrideRationale,
+			transferredFeatures: input.transferredFeatures,
+			forbiddenFeatures: input.forbiddenFeatures,
+			notes: input.notes,
+			recordedByUserId: userId,
+			recordedAt,
+		})
+		.onConflictDoNothing();
+	const [updatedRows] = await db.batch([update, insertHistory]);
+	if (updatedRows.length > 0) {
+		return {
+			ok: true as const,
+			reference: updatedRows[0] as typeof assetRecordReferences.$inferSelect,
+		};
+	}
+	const [latest] = await db
+		.select()
+		.from(assetRecordReferences)
+		.where(eq(assetRecordReferences.id, input.id))
+		.limit(1);
+	if (
+		!latest ||
+		latest.revision !== revision ||
+		!referenceRulesMatch(latest, input)
+	) {
+		return { ok: false as const, reason: "conflict" as const };
+	}
+	return { ok: true as const, reference: latest };
 }
 
 function toVersionSummary(
@@ -518,6 +797,12 @@ export function createAssetRecordTrackingStore(
 					)
 					.limit(1),
 			]);
+			const references = await getReferenceSummaries(
+				db,
+				projectId,
+				assetRecordId,
+				referenceRows
+			);
 
 			const { approvedVersionId, dispositions } = getCurrentDispositions(
 				versions,
@@ -536,44 +821,7 @@ export function createAssetRecordTrackingStore(
 			const qualityVersionIds = new Set(
 				qualityRows.map((row) => row.versionId)
 			);
-			const referenceConflictFeatures = new Set<string>();
-			for (const feature of [
-				"identity",
-				"pose",
-				"style",
-				"palette",
-				"equipment",
-				"composition",
-				"theme",
-			] as const) {
-				const allowed = referenceRows.some((row) =>
-					row.reference.transferredFeatures.includes(feature)
-				);
-				const forbidden = referenceRows.some((row) =>
-					row.reference.forbiddenFeatures.includes(feature)
-				);
-				if (allowed && forbidden) {
-					referenceConflictFeatures.add(feature);
-				}
-			}
 			const [familyRow] = familyRows;
-			const conflictIds = referenceRows.map(
-				({ reference, version, referencedRecord }) => ({
-					assetRecordName: referencedRecord.name,
-					conflictFeatures: [...referenceConflictFeatures].filter(
-						(feature) =>
-							reference.transferredFeatures.includes(feature) ||
-							reference.forbiddenFeatures.includes(feature)
-					),
-					forbiddenFeatures: reference.forbiddenFeatures,
-					id: reference.id,
-					notes: reference.notes,
-					role: reference.role,
-					transferredFeatures: reference.transferredFeatures,
-					versionId: version.id,
-					versionNumber: version.versionNumber,
-				})
-			);
 
 			return assetRecordTrackingDetailSchema.parse({
 				record: toAssetRecord(
@@ -640,7 +888,7 @@ export function createAssetRecordTrackingStore(
 							qualityVersionIds.has(version.id)
 						).length,
 					},
-					references: conflictIds,
+					references,
 					reviewEvents: reviewEvents.map((review) => ({
 						createdAt: toISOString(review.createdAt),
 						decision: review.decision,
@@ -953,6 +1201,16 @@ export function createAssetRecordTrackingStore(
 			if (record?.availability !== "active") {
 				return { ok: false, reason: "not_found" };
 			}
+			if (
+				await requiresIdentityContextOverride(
+					db,
+					record,
+					input.projectId,
+					input
+				)
+			) {
+				return { ok: false, reason: "context_override_required" };
+			}
 			const [target] = await db
 				.select({ version: assetVersions, record: assetRecords })
 				.from(assetVersions)
@@ -984,6 +1242,9 @@ export function createAssetRecordTrackingStore(
 					existing.assetRecordId !== input.assetRecordId ||
 					existing.targetVersionId !== input.targetVersionId ||
 					existing.role !== input.role ||
+					existing.customPurpose !== (input.customPurpose ?? null) ||
+					existing.contextOverrideRationale !==
+						(input.contextOverrideRationale ?? null) ||
 					existing.notes !== input.notes ||
 					existing.createdByUserId !== userId ||
 					!sameStringSet(
@@ -994,23 +1255,24 @@ export function createAssetRecordTrackingStore(
 				) {
 					return { ok: false, reason: "conflict" };
 				}
+				const history = await recordReferenceRevision(
+					db,
+					existing.createdByUserId,
+					existing
+				);
 				return {
 					ok: true,
-					value: {
-						assetRecordName: target.record.name,
-						conflictFeatures: [],
-						forbiddenFeatures:
-							existing.forbiddenFeatures as (typeof input.forbiddenFeatures)[number][],
-						id: existing.id,
-						notes: existing.notes,
-						role: existing.role as typeof input.role,
-						transferredFeatures:
-							existing.transferredFeatures as (typeof input.transferredFeatures)[number][],
-						versionId: target.version.id,
-						versionNumber: target.version.versionNumber,
-					},
+					value: toReferenceSummary(
+						{
+							reference: existing,
+							version: target.version,
+							referencedRecord: target.record,
+						},
+						history
+					),
 				};
 			}
+			const createdAt = new Date();
 			const [reference] = await db
 				.insert(assetRecordReferences)
 				.values({
@@ -1019,31 +1281,124 @@ export function createAssetRecordTrackingStore(
 					assetRecordId: input.assetRecordId,
 					targetVersionId: input.targetVersionId,
 					role: input.role,
+					customPurpose: input.customPurpose ?? null,
+					contextOverrideRationale: input.contextOverrideRationale ?? null,
 					transferredFeatures: input.transferredFeatures,
 					forbiddenFeatures: input.forbiddenFeatures,
 					notes: input.notes,
+					revision: 1,
 					createdByUserId: userId,
+					createdAt,
+					updatedAt: createdAt,
 				})
 				.onConflictDoNothing()
 				.returning();
 			if (!reference) {
 				return { ok: false, reason: "conflict" };
 			}
+			const history = await recordReferenceRevision(
+				db,
+				userId,
+				reference,
+				createdAt
+			);
 			return {
 				ok: true,
-				value: {
-					assetRecordName: target.record.name,
-					conflictFeatures: [],
-					forbiddenFeatures:
-						reference.forbiddenFeatures as (typeof input.forbiddenFeatures)[number][],
-					id: reference.id,
-					notes: reference.notes,
-					role: reference.role as typeof input.role,
-					transferredFeatures:
-						reference.transferredFeatures as (typeof input.transferredFeatures)[number][],
-					versionId: target.version.id,
-					versionNumber: target.version.versionNumber,
-				},
+				value: toReferenceSummary(
+					{
+						reference,
+						version: target.version,
+						referencedRecord: target.record,
+					},
+					history
+				),
+			};
+		},
+		async updateReference(userId, rawInput) {
+			const input = assetReferenceUpdateInputSchema.parse(rawInput);
+			const record = await getOwnedAssetRecord(
+				db,
+				userId,
+				input.projectId,
+				input.assetRecordId
+			);
+			if (record?.availability !== "active") {
+				return { ok: false, reason: "not_found" };
+			}
+			if (
+				await requiresIdentityContextOverride(
+					db,
+					record,
+					input.projectId,
+					input
+				)
+			) {
+				return { ok: false, reason: "context_override_required" };
+			}
+			const [current] = await db
+				.select()
+				.from(assetRecordReferences)
+				.where(
+					and(
+						eq(assetRecordReferences.projectId, input.projectId),
+						eq(assetRecordReferences.assetRecordId, input.assetRecordId),
+						eq(assetRecordReferences.id, input.id)
+					)
+				)
+				.limit(1);
+			if (!current) {
+				return { ok: false, reason: "not_found" };
+			}
+			const matchesInput = referenceRulesMatch(current, input);
+			if (
+				current.revision !== input.expectedRevision &&
+				!(current.revision === input.expectedRevision + 1 && matchesInput)
+			) {
+				return { ok: false, reason: "conflict" };
+			}
+			const [target] = await db
+				.select({ version: assetVersions, referencedRecord: assetRecords })
+				.from(assetVersions)
+				.innerJoin(
+					assetRecords,
+					eq(assetRecords.id, assetVersions.assetRecordId)
+				)
+				.where(
+					and(
+						eq(assetVersions.projectId, input.projectId),
+						eq(assetVersions.id, current.targetVersionId)
+					)
+				)
+				.limit(1);
+			if (!target) {
+				return { ok: false, reason: "not_found" };
+			}
+
+			let reference = current;
+			if (current.revision === input.expectedRevision && !matchesInput) {
+				const updateResult = await persistReferenceUpdate(db, userId, input);
+				if (!updateResult.ok) {
+					return updateResult;
+				}
+				({ reference } = updateResult);
+			}
+
+			const history = await recordReferenceRevision(
+				db,
+				userId,
+				reference,
+				reference.updatedAt
+			);
+			return {
+				ok: true,
+				value: toReferenceSummary(
+					{
+						reference,
+						version: target.version,
+						referencedRecord: target.referencedRecord,
+					},
+					history
+				),
 			};
 		},
 	};

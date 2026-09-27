@@ -13,6 +13,7 @@ import { createAssetVersionStore } from "./features/asset-versions/server/asset-
 import { createTestAssetVersionStorage } from "./features/asset-versions/server/test-asset-version-storage";
 import { createProjectContextStore } from "./features/project-context/server/project-context-store";
 import { createProjectAccessStore } from "./features/projects/server/project-access-store";
+import { createReferenceProductionStore } from "./features/reference-production/server/reference-production-store";
 import { createProjectContextScopeStore } from "./features/visual-worlds/server/project-context-scope-store";
 
 export const db = createDb(ENV);
@@ -30,6 +31,7 @@ export function createServerAssetVersionStorage() {
 		: createStorage(requireR2Config(ENV));
 }
 export const projectContextStore = createProjectContextStore(db);
+export const referenceProductionStore = createReferenceProductionStore(db);
 export const projectContextScopeStore = createProjectContextScopeStore(db);
 export const projectAccess = createProjectAccessStore(db, projectContextStore);
 export const auth = createAuth(ENV, db, desktopOrigins);

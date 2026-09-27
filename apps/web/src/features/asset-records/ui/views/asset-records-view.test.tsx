@@ -7,6 +7,7 @@ import {
 	render,
 	screen,
 	waitFor,
+	within,
 } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -32,6 +33,7 @@ const alternativeFileName = /ash-knight-alt\.png/;
 const derivativeName = /Ash Knight idle/;
 const referenceName = /Skeleton Warrior/;
 const referenceNote = /Use the stance only\./;
+const referenceHistoryRevision = /Revizyon 1/;
 const productionSource = /Imported from the project archive/;
 const productionEvidence = /Archive manifest entry/;
 const userRelationshipLabel = /Ekipten alındı/;
@@ -66,6 +68,7 @@ type TestAssetRecord = Omit<AssetRecord, "identityCriteria"> & {
 const fakeApi = vi.hoisted(() => ({
 	archive: vi.fn(),
 	create: vi.fn(),
+	createReference: vi.fn(),
 	detail: null as Record<string, unknown> | null,
 	measurements: null as Record<string, unknown> | null,
 	recordsError: null as Error | null,
@@ -81,6 +84,17 @@ const fakeApi = vi.hoisted(() => ({
 	},
 	restore: vi.fn(),
 	updateMeasurements: vi.fn(),
+	referenceBoard: {
+		assetVersionReferences: [],
+		conflicts: [],
+		effectiveForbiddenFeatures: [],
+		effectiveTransferredFeatures: [],
+		imageReferences: [],
+	},
+}));
+
+vi.mock("@/env", () => ({
+	ENV: { VITE_SERVER_URL: "https://app.example.test" },
 }));
 
 vi.mock("@/utils/orpc", () => ({
@@ -91,6 +105,7 @@ vi.mock("@/utils/orpc", () => ({
 			restore: (input: unknown) => fakeApi.restore(input),
 			updateMetadata: (input: unknown) => fakeApi.updateMetadata(input),
 			updateMeasurements: (input: unknown) => fakeApi.updateMeasurements(input),
+			createReference: (input: unknown) => fakeApi.createReference(input),
 		},
 	},
 	orpc: {
@@ -160,6 +175,14 @@ vi.mock("@/utils/orpc", () => ({
 				}),
 			},
 		},
+		referenceProduction: {
+			list: {
+				queryOptions: ({ input }: { input: Record<string, unknown> }) => ({
+					queryKey: ["reference-board", input],
+					queryFn: async () => fakeApi.referenceBoard,
+				}),
+			},
+		},
 		projects: {
 			get: {
 				queryOptions: () => ({
@@ -191,6 +214,7 @@ afterEach(() => {
 	fakeApi.trackingError = null;
 	fakeApi.archive.mockReset();
 	fakeApi.create.mockReset();
+	fakeApi.createReference.mockReset();
 	fakeApi.restore.mockReset();
 	fakeApi.updateMeasurements.mockReset();
 	fakeApi.updateMetadata.mockReset();
@@ -564,9 +588,24 @@ test("shows persisted versions, derivatives, references, quality, and provenance
 				{
 					assetRecordName: "Skeleton Warrior",
 					conflictFeatures: [],
+					contextOverrideRationale: null,
+					customPurpose: null,
 					forbiddenFeatures: ["identity"],
+					history: [
+						{
+							contextOverrideRationale: null,
+							customPurpose: null,
+							forbiddenFeatures: ["identity"],
+							notes: "Use the stance only.",
+							recordedAt: "2026-09-25T08:03:00.000Z",
+							revision: 1,
+							role: "pose",
+							transferredFeatures: ["pose"],
+						},
+					],
 					id: "ba27998f-bd24-4a72-a13e-498a39f4e17d",
 					notes: "Use the stance only.",
+					revision: 1,
 					role: "pose",
 					transferredFeatures: ["pose"],
 					versionId: "e1245d53-fb9c-4dd1-9c2b-6c66c5d488a8",
@@ -608,7 +647,21 @@ test("shows persisted versions, derivatives, references, quality, and provenance
 	expect(screen.getByText(alternativeFileName)).toBeVisible();
 	expect(screen.getByText(derivativeName)).toBeVisible();
 	expect(screen.getByText(referenceName)).toBeVisible();
-	expect(screen.getByText(referenceNote)).toBeVisible();
+	expect(
+		screen
+			.getAllByText(referenceNote)
+			.some((element) => element.tagName === "P")
+	).toBe(true);
+	fireEvent.click(screen.getByText("Kural geçmişi"));
+	const historyDisclosure = screen
+		.getByText("Kural geçmişi")
+		.closest("details");
+	if (!historyDisclosure) {
+		throw new Error("Reference history disclosure was not rendered");
+	}
+	expect(
+		within(historyDisclosure).getByText(referenceHistoryRevision)
+	).toBeVisible();
 	expect(
 		screen.getByText("Dosya biçim imzası eşleşti (2 sürüm).")
 	).toBeVisible();

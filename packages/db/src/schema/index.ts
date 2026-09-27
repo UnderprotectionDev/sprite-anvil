@@ -11,3 +11,4 @@ export * from "./external-visual-analysis";
 export * from "./project";
 export * from "./project-access";
 export * from "./project-context";
+export * from "./reference-production";

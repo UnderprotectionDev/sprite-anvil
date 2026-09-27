@@ -6,6 +6,7 @@ import {
 	assetRecordTrackingDetailSchema,
 	assetRecordTrackingInputSchema,
 	assetReferenceCreateInputSchema,
+	assetReferenceUpdateInputSchema,
 	assetVersionCreateInputSchema,
 	assetVersionReviewInputSchema,
 	assetVersionSummarySchema,
@@ -22,6 +23,7 @@ function unwrapTrackingResult<T>(
 				ok: false;
 				reason:
 					| "conflict"
+					| "context_override_required"
 					| "not_found"
 					| "review_blocked"
 					| "storage_unavailable";
@@ -38,6 +40,12 @@ function unwrapTrackingResult<T>(
 	}
 	if (result.reason === "conflict") {
 		throw new ORPCError("CONFLICT", { message: conflictMessage });
+	}
+	if (result.reason === "context_override_required") {
+		throw new ORPCError("PRECONDITION_FAILED", {
+			message:
+				"Ana Tasarım kimliğini aşmak için Bağlam Kuralı İstisnası gerekçesi kaydedin.",
+		});
 	}
 	if (result.reason === "storage_unavailable") {
 		throw new ORPCError("PRECONDITION_FAILED", {
@@ -132,6 +140,20 @@ export const assetRecordTrackingRouter = {
 				"Varlık kaydı veya Referans Sürümü bulunamadı.",
 				"Referans kimliği farklı içerik için kullanılmış.",
 				"Referans kaydedilemedi."
+			)
+		),
+	updateReference: protectedProcedure
+		.input(assetReferenceUpdateInputSchema)
+		.output(referenceSummarySchema)
+		.handler(async ({ context, input }) =>
+			unwrapTrackingResult(
+				await context.assetRecordTrackingStore.updateReference(
+					context.session.user.id,
+					input
+				),
+				"Varlık kaydı veya Referans Sürümü bulunamadı.",
+				"Referans değişti. Güncel durumu yeniden yükleyip tekrar deneyin.",
+				"Referans kuralları kaydedilemedi."
 			)
 		),
 };

@@ -38,6 +38,14 @@ export const assetVersionObjectKeySchema = z
 		].some((pattern) => pattern.test(key))
 	);
 
+export const referenceBoardObjectKeySchema = z
+	.string()
+	.regex(
+		new RegExp(
+			`^projects/${projectKeySegmentPattern}/asset-records/${uuidPattern}/reference-board/${uuidPattern}/${uuidPattern}$`
+		)
+	);
+
 export const legacyAssetKeySchema = z
 	.string()
 	.regex(/^users\/[a-zA-Z0-9-]+\/[a-zA-Z0-9-]+\.(png|webp)$/);
@@ -60,6 +68,18 @@ export function createProjectAssetVersionObjectKey(
 	const projectKeySegment = encodeURIComponent(projectId);
 	return assetVersionObjectKeySchema.parse(
 		`projects/${projectKeySegment}/asset-records/${assetRecordId}/versions/${assetVersionId}`
+	);
+}
+
+export function createProjectReferenceBoardObjectKey(
+	projectId: string,
+	assetRecordId: string,
+	referenceId: string,
+	uploadAttemptId: string
+) {
+	const projectKeySegment = encodeURIComponent(projectId);
+	return referenceBoardObjectKeySchema.parse(
+		`projects/${projectKeySegment}/asset-records/${assetRecordId}/reference-board/${referenceId}/${uploadAttemptId}`
 	);
 }
 

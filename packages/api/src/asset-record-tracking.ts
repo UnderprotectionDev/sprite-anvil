@@ -12,9 +12,11 @@ export const referenceRoles = [
 	"equipment",
 	"composition",
 	"theme",
+	"avoid",
 	"custom",
 ] as const;
 export const referenceRoleSchema = z.enum(referenceRoles);
+export type ReferenceRole = z.infer<typeof referenceRoleSchema>;
 
 export const referenceFeatures = [
 	"identity",
@@ -26,6 +28,7 @@ export const referenceFeatures = [
 	"theme",
 ] as const;
 export const referenceFeatureSchema = z.enum(referenceFeatures);
+export type ReferenceFeature = z.infer<typeof referenceFeatureSchema>;
 
 export const dependencyFacets = [
 	"identity",
@@ -205,9 +208,28 @@ export const referenceSummarySchema = z
 	.object({
 		assetRecordName: z.string().min(1).max(120),
 		conflictFeatures: z.array(referenceFeatureSchema),
+		contextOverrideRationale: z.string().nullable().optional(),
+		customPurpose: z.string().nullable().optional(),
 		forbiddenFeatures: z.array(referenceFeatureSchema),
+		history: z
+			.array(
+				z
+					.object({
+						contextOverrideRationale: z.string().nullable(),
+						customPurpose: z.string().nullable(),
+						forbiddenFeatures: z.array(referenceFeatureSchema),
+						notes: z.string().nullable(),
+						recordedAt: z.iso.datetime(),
+						revision: z.number().int().positive(),
+						role: referenceRoleSchema,
+						transferredFeatures: z.array(referenceFeatureSchema),
+					})
+					.strict()
+			)
+			.optional(),
 		id: z.uuid(),
 		notes: z.string().nullable(),
+		revision: z.number().int().positive().optional(),
 		role: referenceRoleSchema,
 		transferredFeatures: z.array(referenceFeatureSchema),
 		versionId: z.uuid(),
@@ -216,9 +238,79 @@ export const referenceSummarySchema = z
 	.strict();
 export type ReferenceSummary = z.infer<typeof referenceSummarySchema>;
 
+interface ReferenceRoleRules {
+	contextOverrideRationale?: string | null;
+	customPurpose?: string | null;
+	forbiddenFeatures: ReferenceFeature[];
+	role: ReferenceRole;
+	transferredFeatures: ReferenceFeature[];
+}
+
+export function refineReferenceRoleRules(
+	input: ReferenceRoleRules,
+	context: z.RefinementCtx
+) {
+	if (
+		new Set(input.transferredFeatures).size !== input.transferredFeatures.length
+	) {
+		context.addIssue({
+			code: "custom",
+			path: ["transferredFeatures"],
+			message: "A transferred feature may only be recorded once.",
+		});
+	}
+	if (
+		new Set(input.forbiddenFeatures).size !== input.forbiddenFeatures.length
+	) {
+		context.addIssue({
+			code: "custom",
+			path: ["forbiddenFeatures"],
+			message: "A forbidden feature may only be recorded once.",
+		});
+	}
+	if (
+		input.transferredFeatures.length === 0 &&
+		input.forbiddenFeatures.length === 0
+	) {
+		context.addIssue({
+			code: "custom",
+			path: ["transferredFeatures"],
+			message: "Record at least one allowed or forbidden feature.",
+		});
+	}
+	if (input.role === "custom" && !input.customPurpose) {
+		context.addIssue({
+			code: "custom",
+			path: ["customPurpose"],
+			message: "A custom reference purpose is required.",
+		});
+	}
+	if (input.role !== "custom" && input.customPurpose) {
+		context.addIssue({
+			code: "custom",
+			path: ["customPurpose"],
+			message: "Only custom reference roles can include a custom purpose.",
+		});
+	}
+	if (
+		input.contextOverrideRationale &&
+		(!input.transferredFeatures.includes("identity") ||
+			input.forbiddenFeatures.includes("identity"))
+	) {
+		context.addIssue({
+			code: "custom",
+			path: ["contextOverrideRationale"],
+			message:
+				"A Context Override rationale requires identity to be transferable.",
+		});
+	}
+}
+
 export const assetReferenceCreateInputSchema = z
 	.object({
 		assetRecordId: z.uuid(),
+		contextOverrideRationale: z.string().trim().max(1000).nullable().optional(),
+		customPurpose: z.string().trim().max(240).nullable().optional(),
 		forbiddenFeatures: z.array(referenceFeatureSchema).max(7),
 		id: z.uuid(),
 		notes: z.string().trim().max(1000).nullable(),
@@ -228,45 +320,23 @@ export const assetReferenceCreateInputSchema = z
 		transferredFeatures: z.array(referenceFeatureSchema).max(7),
 	})
 	.strict()
-	.superRefine((input, context) => {
-		if (
-			new Set(input.transferredFeatures).size !==
-			input.transferredFeatures.length
-		) {
-			context.addIssue({
-				code: "custom",
-				path: ["transferredFeatures"],
-				message: "A transferred feature may only be recorded once.",
-			});
-		}
-		if (
-			new Set(input.forbiddenFeatures).size !== input.forbiddenFeatures.length
-		) {
-			context.addIssue({
-				code: "custom",
-				path: ["forbiddenFeatures"],
-				message: "A forbidden feature may only be recorded once.",
-			});
-		}
-		const forbidden = new Set(input.forbiddenFeatures);
-		if (input.transferredFeatures.some((feature) => forbidden.has(feature))) {
-			context.addIssue({
-				code: "custom",
-				path: ["forbiddenFeatures"],
-				message: "A reference cannot allow and forbid the same feature.",
-			});
-		}
-		if (
-			input.transferredFeatures.length === 0 &&
-			input.forbiddenFeatures.length === 0
-		) {
-			context.addIssue({
-				code: "custom",
-				path: ["transferredFeatures"],
-				message: "Record at least one allowed or forbidden feature.",
-			});
-		}
-	});
+	.superRefine(refineReferenceRoleRules);
+
+export const assetReferenceUpdateInputSchema = z
+	.object({
+		assetRecordId: z.uuid(),
+		contextOverrideRationale: z.string().trim().max(1000).nullable(),
+		customPurpose: z.string().trim().max(240).nullable(),
+		expectedRevision: z.number().int().positive(),
+		forbiddenFeatures: z.array(referenceFeatureSchema).max(7),
+		id: z.uuid(),
+		notes: z.string().trim().max(1000).nullable(),
+		projectId: z.uuid(),
+		role: referenceRoleSchema,
+		transferredFeatures: z.array(referenceFeatureSchema).max(7),
+	})
+	.strict()
+	.superRefine(refineReferenceRoleRules);
 
 export const qualitySummarySchema = z
 	.object({
@@ -361,6 +431,7 @@ export type AssetRecordTrackingStoreResult<T> =
 			ok: false;
 			reason:
 				| "conflict"
+				| "context_override_required"
 				| "not_found"
 				| "review_blocked"
 				| "storage_unavailable";
@@ -392,4 +463,8 @@ export interface AssetRecordTrackingStore {
 		userId: string,
 		input: z.infer<typeof assetVersionReviewInputSchema>
 	) => Promise<AssetRecordTrackingStoreResult<ReviewEventSummary>>;
+	updateReference: (
+		userId: string,
+		input: z.infer<typeof assetReferenceUpdateInputSchema>
+	) => Promise<AssetRecordTrackingStoreResult<ReferenceSummary>>;
 }
