@@ -160,6 +160,11 @@ test.skipIf(!databaseUrl)(
 				{ projectId: project.id, name: "Combat and inventory notes" },
 				{ context }
 			);
+			const secondCollection = await call(
+				appRouter.collections.create,
+				{ projectId: project.id, name: "Character references" },
+				{ context }
+			);
 			await call(
 				appRouter.collections.addAssetRecord,
 				{
@@ -178,6 +183,15 @@ test.skipIf(!databaseUrl)(
 				},
 				{ context }
 			);
+			await call(
+				appRouter.collections.addAssetRecord,
+				{
+					projectId: project.id,
+					collectionId: secondCollection.id,
+					assetRecordId: firstRecord.id,
+				},
+				{ context }
+			);
 
 			const rereadDb = createDb({ DATABASE_URL: databaseUrl });
 			const rereadContext = createContext(rereadDb, userId);
@@ -187,6 +201,8 @@ test.skipIf(!databaseUrl)(
 				{ context: rereadContext }
 			);
 			expect(reread.collections).toContainEqual(collection);
+			expect(reread.collections).toContainEqual(secondCollection);
+			expect(reread.memberships).toHaveLength(3);
 			expect(
 				new Set(reread.memberships.map(({ assetRecordId }) => assetRecordId))
 			).toEqual(new Set([firstRecord.id, secondRecord.id]));
@@ -221,7 +237,19 @@ test.skipIf(!databaseUrl)(
 				}
 			);
 			expect(afterRemoval.collections).toContainEqual(collection);
-			expect(afterRemoval.memberships).toHaveLength(1);
+			expect(afterRemoval.memberships).toHaveLength(2);
+			expect(afterRemoval.memberships).toContainEqual(
+				expect.objectContaining({
+					assetRecordId: firstRecord.id,
+					collectionId: secondCollection.id,
+				})
+			);
+			expect(afterRemoval.memberships).not.toContainEqual(
+				expect.objectContaining({
+					assetRecordId: firstRecord.id,
+					collectionId: collection.id,
+				})
+			);
 			const familyCatalogAfter = await call(
 				appRouter.assetFamilies.list,
 				{ projectId: project.id },

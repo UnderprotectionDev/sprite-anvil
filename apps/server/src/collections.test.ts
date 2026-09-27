@@ -54,7 +54,7 @@ function createContext(userId: string | null = ownerId) {
 			}
 			const collection = {
 				createdAt: "2026-09-27T08:00:00.000Z",
-				id: "collection-field-notes",
+				id: `collection-${state.collections.length + 1}`,
 				name: input.name,
 				projectId: input.projectId,
 			};
@@ -211,4 +211,54 @@ test("does not expose Collections outside the owned Project", async () => {
 			{ context }
 		)
 	).rejects.toMatchObject({ code: "NOT_FOUND" });
+});
+
+test("allows one Asset Record in multiple Collections without duplicate membership", async () => {
+	const { context } = createContext();
+	const firstCollection = await call(
+		appRouter.collections.create,
+		{ name: "Character Notes", projectId },
+		{ context }
+	);
+	const secondCollection = await call(
+		appRouter.collections.create,
+		{ name: "UI References", projectId },
+		{ context }
+	);
+
+	await Promise.all(
+		[firstCollection, secondCollection].map((collection) =>
+			call(
+				appRouter.collections.addAssetRecord,
+				{
+					assetRecordId: characterRecord.id,
+					collectionId: collection.id,
+					projectId,
+				},
+				{ context }
+			)
+		)
+	);
+	await call(
+		appRouter.collections.addAssetRecord,
+		{
+			assetRecordId: characterRecord.id,
+			collectionId: secondCollection.id,
+			projectId,
+		},
+		{ context }
+	);
+
+	const catalog = await call(
+		appRouter.collections.list,
+		{ projectId },
+		{ context }
+	);
+	expect(catalog.memberships).toHaveLength(2);
+	expect(
+		new Set(catalog.memberships.map((membership) => membership.collectionId))
+	).toEqual(new Set([firstCollection.id, secondCollection.id]));
+	for (const membership of catalog.memberships) {
+		expect(membership.assetRecordId).toBe(characterRecord.id);
+	}
 });

@@ -18,6 +18,9 @@ test("keeps Collection membership project-scoped and independent of Asset Famili
 	expect(membershipColumns).toContain("asset_record_id");
 	expect(membershipColumns).not.toContain("asset_family_id");
 	expect(
+		membershipConfig.primaryKeys[0]?.columns.map((column) => column.name)
+	).toEqual(["project_id", "collection_id", "asset_record_id"]);
+	expect(
 		membershipConfig.foreignKeys.filter(
 			(foreignKey) => foreignKey.onDelete === "cascade"
 		)

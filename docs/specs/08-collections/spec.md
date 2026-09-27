@@ -29,6 +29,7 @@ Tamamlanma kanıtı: Kullanıcı ilişkileri farklı kayıtları aynı Koleksiyo
 ## Implementation Decisions
 
 - **Koleksiyonları Düzenleme:** Kullanıcı farklı ailelere ait Varlık Kayıtlarını isteğe bağlı Koleksiyonlarda bir araya getirir ve üyeliği yeniden düzenler. Koleksiyon kullanıcı düzenidir. Üye ekleme veya çıkarma kaynak kayıtları, Ana Tasarım soyunu ve mevcut kalite ya da onay geçmişini değiştirmez.
+- **Üyelik kardinalitesi:** Aynı Varlık Kaydı birden fazla Koleksiyonda bulunabilir. Bir Koleksiyondaki yinelenen üyelik tek kayıt olarak kalır.
 
 - **Yetki ve sürüm sınırı:** Aşağıdaki PRD hükümleri normatiftir. Fazın iş kırılımı, başka bir özelliğin kararını bu kapsama eklemez. Kesin kullanıcı kararları ajan veya otomasyon tarafından verilmez.
 - **Kapsam sınırı:** Koleksiyon Gerekli Öğeler Listesi veya Teslimat Hedefi değildir; üyelik kural devri, bağımlılık, tamamlanma ya da teslimat zorunluluğu oluşturmaz.
@@ -39,6 +40,7 @@ Tamamlanma kanıtı: Kullanıcı ilişkileri farklı kayıtları aynı Koleksiyo
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.
 - Bugün repoda bu faza ait ürün sözleşmesi bulunmuyor. Mevcut sunucu ve yüzey test örnekleri: [`account-access.test.ts`](../../../apps/server/src/account-access.test.ts), [`app-shell.spec.ts` (web)](../../../apps/web/e2e/app-shell.spec.ts) ve [`app-shell.spec.ts` (desktop)](../../../apps/web/desktop-e2e/app-shell.spec.ts). Bunlar bu özelliğin test edildiği anlamına gelmez.
 - Fazın özgül başarı ve red kanıtı: Kullanıcı ilişkileri farklı kayıtları aynı Koleksiyonda toplar ve üyeliği kaldırır; kaynak kayıtların geçmişi korunur. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Koleksiyon Gerekli Öğeler Listesi veya Teslimat Hedefi değildir; üyelik kural devri, bağımlılık, tamamlanma ya da teslimat zorunluluğu oluşturmaz.
+- Aynı Varlık Kaydının iki Koleksiyona eklenebildiğini, aynı Koleksiyona yinelenen eklemenin ikinci üyelik oluşturmadığını ve bir Koleksiyondan kaldırmanın diğer üyeliği koruduğunu doğrula.
 - Kabul örnekleri: YAS-01. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
 
 ## Out of Scope
