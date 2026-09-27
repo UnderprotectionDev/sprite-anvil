@@ -9,15 +9,10 @@ import { type SyntheticEvent, useState } from "react";
 import { ENV } from "@/env";
 import type { useAssetVersionWrites } from "../hooks/use-asset-version-writes";
 import { AssetVersionPreview } from "./asset-version-preview";
+import { reviewDispositionLabels } from "./review-disposition-labels";
 import { unitTypeLabels } from "./unit-version-correction-form";
 
 const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
-
-const reviewLabels = {
-	candidate: "Aday",
-	approved: "Onaylandı",
-	rejected: "Reddedildi",
-} as const;
 
 function getSlotKey(unitType: UnitVersionType, unitKey: string) {
 	return `${unitType}\u0000${unitKey}`;
@@ -156,7 +151,7 @@ export function CompositeVersionControls({
 							{compositeVersions.map((compositeVersion) => (
 								<option key={compositeVersion.id} value={compositeVersion.id}>
 									Birleşik Sürüm {compositeVersion.versionNumber} ·{" "}
-									{reviewLabels[compositeVersion.reviewDisposition]}
+									{reviewDispositionLabels[compositeVersion.reviewDisposition]}
 								</option>
 							))}
 						</select>
@@ -204,7 +199,7 @@ export function CompositeVersionControls({
 													<option key={unitVersion.id} value={unitVersion.id}>
 														Birim Sürümü {unitVersion.versionNumber}
 														{assetVersion
-															? ` · Varlık Sürümü ${assetVersion.versionNumber} · ${reviewLabels[assetVersion.reviewDisposition]}`
+															? ` · Varlık Sürümü ${assetVersion.versionNumber} · ${reviewDispositionLabels[assetVersion.reviewDisposition]}`
 															: ""}
 													</option>
 												);
@@ -269,7 +264,7 @@ function CompositeVersionHistoryItem({
 			<div>
 				<h6 className="font-medium">
 					Birleşik Sürüm {compositeVersion.versionNumber} ·{" "}
-					{reviewLabels[compositeVersion.reviewDisposition]}
+					{reviewDispositionLabels[compositeVersion.reviewDisposition]}
 				</h6>
 				<p className="text-muted-foreground text-sm">
 					Bu sürüm kendi inceleme kararını taşır.
@@ -306,7 +301,7 @@ function CompositeVersionHistoryItem({
 									{assetVersion ? (
 										<p className="text-muted-foreground">
 											Varlık Sürümü {assetVersion.versionNumber} ·{" "}
-											{reviewLabels[assetVersion.reviewDisposition]}
+											{reviewDispositionLabels[assetVersion.reviewDisposition]}
 										</p>
 									) : null}
 								</div>
@@ -320,7 +315,7 @@ function CompositeVersionHistoryItem({
 					<li key={reviewEvent.id}>
 						{reviewEvent.type === "candidate"
 							? "Aday olarak kaydedildi"
-							: `İnceleme ile ${reviewLabels[reviewEvent.type].toLowerCase()}`}{" "}
+							: `İnceleme ile ${reviewDispositionLabels[reviewEvent.type].toLowerCase()}`}{" "}
 						<time dateTime={reviewEvent.createdAt}>
 							{new Date(reviewEvent.createdAt).toLocaleString("tr-TR")}
 						</time>

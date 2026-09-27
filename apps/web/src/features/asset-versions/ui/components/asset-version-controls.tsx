@@ -9,18 +9,13 @@ import { ENV } from "@/env";
 import type { useAssetVersionWrites } from "../hooks/use-asset-version-writes";
 import { AssetVersionPreview } from "./asset-version-preview";
 import { CompositeVersionControls } from "./composite-version-controls";
+import { reviewDispositionLabels } from "./review-disposition-labels";
 import {
 	UnitVersionCorrectionForm,
 	UnitVersionHistory,
 } from "./unit-version-correction-form";
 
 const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
-
-const reviewLabels = {
-	candidate: "Aday",
-	approved: "Onaylandı",
-	rejected: "Reddedildi",
-} as const;
 
 const reviewEventLabels = {
 	candidate: "Aday olarak kaydedildi",
@@ -167,7 +162,11 @@ export function AssetVersionControls({
 															<div className="space-y-2">
 																<p className="font-medium">
 																	Sürüm {version.versionNumber} ·{" "}
-																	{reviewLabels[version.reviewDisposition]}
+																	{
+																		reviewDispositionLabels[
+																			version.reviewDisposition
+																		]
+																	}
 																</p>
 																<ol className="list-inside list-disc text-muted-foreground text-sm">
 																	{version.reviewEvents.map((reviewEvent) => (
