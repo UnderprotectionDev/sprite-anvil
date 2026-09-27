@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
 import { deflateSync } from "node:zlib";
 import { call } from "@orpc/server";
-import { assetVersionSchema } from "@sprite-anvil/api/asset-versions";
+import {
+	assetVersionSchema,
+	type UnitVersionType,
+	unitVersionCorrectionUploadResponseSchema,
+} from "@sprite-anvil/api/asset-versions";
 import type { Context } from "@sprite-anvil/api/context";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { createDb, getProjectForUser } from "@sprite-anvil/db";
@@ -58,7 +62,7 @@ function makePng(note: string) {
 }
 
 test.skipIf(!databaseUrl)(
-	"persists uploaded Asset Versions, Review Events, Canonical Design, and exact derivative lineage",
+	"persists Asset Versions, selective Unit Version corrections, reviews, and exact derivative lineage",
 	async () => {
 		if (!databaseUrl) {
 			throw new Error("CONTEXT_TEST_DATABASE_URL is required for this test.");
@@ -280,6 +284,78 @@ test.skipIf(!databaseUrl)(
 			});
 			expect(storedObjects.size).toBe(1);
 
+			const uploadUnitCorrection = async ({
+				sourceAssetVersionId,
+				unitType,
+				unitKey,
+				fileName,
+			}: {
+				sourceAssetVersionId: string;
+				unitType: UnitVersionType;
+				unitKey: string;
+				fileName: string;
+			}) => {
+				const correctionBytes = makePng(fileName);
+				const correctionResponse = await uploadApp.request(
+					`/api/projects/${project.id}/asset-records/${source.id}/unit-versions`,
+					{
+						method: "POST",
+						headers: {
+							"Content-Type": "image/png",
+							"X-Asset-Version-File-Name": fileName,
+							"X-Asset-Version-Size": correctionBytes.byteLength.toString(),
+							"Idempotency-Key": crypto.randomUUID(),
+							"X-Source-Asset-Version-Id": sourceAssetVersionId,
+							"X-Unit-Version-Type": unitType,
+							"X-Unit-Version-Key": unitKey,
+						},
+						body: correctionBytes,
+					}
+				);
+				expect(correctionResponse.status).toBe(201);
+				return unitVersionCorrectionUploadResponseSchema.parse(
+					await correctionResponse.json()
+				);
+			};
+			const firstFrameCorrection = await uploadUnitCorrection({
+				sourceAssetVersionId: uploadedVersion.id,
+				unitType: "frame",
+				unitKey: "attack/frame-3",
+				fileName: "attack-frame-3.png",
+			});
+			const unrelatedDirection = await uploadUnitCorrection({
+				sourceAssetVersionId: uploadedVersion.id,
+				unitType: "direction",
+				unitKey: "east",
+				fileName: "east-direction.png",
+			});
+			const secondFrameCorrection = await uploadUnitCorrection({
+				sourceAssetVersionId: firstFrameCorrection.unitVersion.assetVersionId,
+				unitType: "frame",
+				unitKey: "attack/frame-3",
+				fileName: "attack-frame-3-revision-2.png",
+			});
+			expect(firstFrameCorrection.unitVersion.versionNumber).toBe(1);
+			expect(firstFrameCorrection.assetVersion.reviewDisposition).toBe(
+				"candidate"
+			);
+			expect(unrelatedDirection.unitVersion.versionNumber).toBe(1);
+			expect(unrelatedDirection.assetVersion.reviewDisposition).toBe(
+				"candidate"
+			);
+			expect(secondFrameCorrection.unitVersion).toMatchObject({
+				sourceAssetVersionId: firstFrameCorrection.unitVersion.assetVersionId,
+				unitType: "frame",
+				unitKey: "attack/frame-3",
+				versionNumber: 2,
+			});
+			expect(secondFrameCorrection.assetVersion.id).not.toBe(
+				firstFrameCorrection.assetVersion.id
+			);
+			expect(secondFrameCorrection.assetVersion.reviewDisposition).toBe(
+				"candidate"
+			);
+
 			const previewPath = `/api/projects/${project.id}/asset-versions/${uploadedVersion.id}/preview`;
 			const previewResponse = await uploadApp.request(previewPath);
 			expect(previewResponse.status).toBe(200);
@@ -412,6 +488,8 @@ test.skipIf(!databaseUrl)(
 			expect(versions.assetVersions).toContainEqual(
 				expect.objectContaining({
 					id: uploadedVersion.id,
+					versionNumber: uploadedVersion.versionNumber,
+					contentDigest: uploadedVersion.contentDigest,
 					reviewDisposition: "approved",
 					reviewEvents: [
 						expect.objectContaining({ type: "candidate", rationale: null }),
@@ -421,6 +499,35 @@ test.skipIf(!databaseUrl)(
 						reapprovalEvent,
 					],
 				})
+			);
+			expect(versions.unitVersions).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						id: firstFrameCorrection.unitVersion.id,
+						assetVersionId: firstFrameCorrection.unitVersion.assetVersionId,
+						sourceAssetVersionId: uploadedVersion.id,
+						unitType: "frame",
+						unitKey: "attack/frame-3",
+						versionNumber: 1,
+					}),
+					expect.objectContaining({
+						id: secondFrameCorrection.unitVersion.id,
+						assetVersionId: secondFrameCorrection.unitVersion.assetVersionId,
+						sourceAssetVersionId:
+							firstFrameCorrection.unitVersion.assetVersionId,
+						unitType: "frame",
+						unitKey: "attack/frame-3",
+						versionNumber: 2,
+					}),
+					expect.objectContaining({
+						id: unrelatedDirection.unitVersion.id,
+						assetVersionId: unrelatedDirection.unitVersion.assetVersionId,
+						sourceAssetVersionId: uploadedVersion.id,
+						unitType: "direction",
+						unitKey: "east",
+						versionNumber: 1,
+					}),
+				])
 			);
 			expect(versions.canonicalDesigns).toContainEqual(canonicalDesign);
 			expect(families.relationships).toContainEqual(relationship);
