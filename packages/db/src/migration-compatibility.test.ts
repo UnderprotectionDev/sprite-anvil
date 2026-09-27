@@ -15,7 +15,7 @@ const assetVersionsMigration = readMigration(
 	"./migrations/20260924232741_fresh_night_nurse/migration.sql"
 );
 const assetVersionIntegrityMigration = readMigration(
-	"./migrations/20260925112723_asset-version-integrity-idempotency-review-rationale/migration.sql"
+	"./migrations/20260925203210_asset-version-integrity-idempotency-review-rationale/migration.sql"
 );
 const legacyAssetSchemaBridgeMigration = readMigration(
 	"./migrations/20260925080000_legacy_asset_schema_bridge/migration.sql"
@@ -36,14 +36,14 @@ const assetTrackingRelationshipMigration = readMigration(
 	"./migrations/20260925092755_pale_demogoblin/migration.sql"
 );
 const mergedAssetSchemaMigration = readMigration(
-	"./migrations/20260925135634_merge_asset_record_family_contract/migration.sql"
+	"./migrations/20260925203211_merge_asset_record_family_contract/migration.sql"
 );
 const assetDiscoveryMigration = readMigration(
 	"./migrations/20260925114002_romantic_unicorn/migration.sql"
 );
 const assetRecordForeignKeyRestoreMigration = readFileSync(
 	new URL(
-		"./migrations/20260925160000_asset_record_foreign_key_restore/migration.sql",
+		"./migrations/20260925203212_asset_record_foreign_key_restore/migration.sql",
 		import.meta.url
 	),
 	"utf8"
@@ -73,11 +73,18 @@ test("normalizes legacy project ownership before current indexes and foreign key
 	expect(createOwnerConstraint).toBeGreaterThan(createOwnerIndex);
 });
 
-test("extends an existing Asset Family table without recreating its records", () => {
+test("creates the initial Asset Family and Asset Record tables", () => {
+	for (const table of [
+		"asset_families",
+		"asset_family_relationships",
+		"asset_records",
+		"subject_identities",
+	]) {
+		expect(assetFamilyMigration).toContain(`CREATE TABLE "${table}"`);
+	}
 	expect(assetFamilyMigration).toContain(
-		'CREATE TABLE IF NOT EXISTS "subject_identities"'
+		'FOREIGN KEY ("project_id","subject_identity_id") REFERENCES "subject_identities"'
 	);
-	expect(assetFamilyMigration).not.toContain('CREATE TABLE "asset_families"');
 	expect(assetRecordMigration).toContain(
 		'CREATE TABLE IF NOT EXISTS "asset_records"'
 	);
@@ -96,8 +103,9 @@ test("extends an existing Asset Family table without recreating its records", ()
 });
 
 test("keeps immutable Asset Version migrations linked to family and record lineage", () => {
+	expect(assetVersionsMigration).toContain('CREATE TABLE "asset_versions"');
 	expect(assetVersionsMigration).toContain(
-		"created by the merged model migration"
+		'CREATE TABLE "asset_version_review_events"'
 	);
 	expect(assetVersionIntegrityMigration).toContain(
 		"created by the merged model migration"
@@ -301,7 +309,7 @@ test("reapplies Asset Record metadata and source measurements after newer legacy
 test("reconciles Drizzle snapshot parents and preserves both asset schema branches", () => {
 	const migrationsDirectory = new URL("./migrations/", import.meta.url);
 	const reconciliationDirectory =
-		"20260925211335_asset_record_search_history_reconciliation";
+		"20260925203213_asset_record_search_history_reconciliation";
 	const reconciliationSnapshot = JSON.parse(
 		readFileSync(
 			new URL(
