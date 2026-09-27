@@ -13,6 +13,7 @@ import {
 	projectAccess,
 	projectContextScopeStore,
 	projectContextStore,
+	referenceProductionStore,
 } from "./services";
 
 export interface CreateContextOptions {
@@ -73,6 +74,7 @@ export async function createContext({
 		projectContextScopeStore,
 		db,
 		projectContextStore,
+		referenceProductionStore,
 		session,
 	};
 }

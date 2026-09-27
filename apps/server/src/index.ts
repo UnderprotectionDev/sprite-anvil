@@ -18,6 +18,7 @@ import { createContext } from "./context";
 import { desktopOrigins, ENV } from "./env.server";
 import { mountAssetVersionRoutes } from "./features/asset-versions/server/asset-version-routes";
 import { mountProjectRoutes } from "./features/projects/server/project-routes";
+import { mountReferenceProductionRoutes } from "./features/reference-production/server/reference-production-routes";
 import {
 	serializeHealthResponse,
 	serializePublicApiError,
@@ -28,6 +29,7 @@ import {
 	auth,
 	createServerAssetVersionStorage,
 	db,
+	referenceProductionStore,
 } from "./services";
 
 const app = new Hono();
@@ -63,6 +65,9 @@ app.use(
 			"Authorization",
 			"X-Asset-Version-Size",
 			"X-Asset-Version-File-Name",
+			"X-Reference-Board-Size",
+			"X-Reference-Board-File-Name",
+			"X-Reference-Board-Metadata",
 			"X-Source-Asset-Version-Id",
 			"X-Unit-Version-Type",
 			"X-Unit-Version-Key",
@@ -87,6 +92,14 @@ mountProjectRoutes(app, {
 
 mountAssetVersionRoutes(app, {
 	assetVersionStore,
+	getSession: (headers) => auth.api.getSession({ headers }),
+	getProjectForUser: async (userId, projectId) =>
+		getProjectForUser(db, userId, projectId),
+	createStorage: createServerAssetVersionStorage,
+});
+
+mountReferenceProductionRoutes(app, {
+	referenceProductionStore,
 	getSession: (headers) => auth.api.getSession({ headers }),
 	getProjectForUser: async (userId, projectId) =>
 		getProjectForUser(db, userId, projectId),

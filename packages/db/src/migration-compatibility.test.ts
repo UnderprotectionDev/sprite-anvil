@@ -48,6 +48,10 @@ const assetRecordForeignKeyRestoreMigration = readFileSync(
 	),
 	"utf8"
 );
+const referenceTransferMigration = readMigration(
+	"./migrations/20260927143958_reference_transfer_constraints/migration.sql"
+);
+const unvalidatedCustomPurposeCheck = `CHECK (("role" = 'custom' AND "custom_purpose" IS NOT NULL AND length(trim("custom_purpose")) > 0) OR ("role" <> 'custom' AND "custom_purpose" IS NULL)) NOT VALID;`;
 const unitVersionMigration = readMigration(
 	"./migrations/20260927131039_unit-versions-selective-correction/migration.sql"
 );
@@ -239,6 +243,28 @@ test("restores project and creator foreign keys removed by the legacy bridge", (
 	expect(assetRecordForeignKeyRestoreMigration).toContain(
 		'REFERENCES "user"("id") ON DELETE RESTRICT'
 	);
+});
+
+test("adds custom-purpose checks as not valid after the legacy backfill", () => {
+	const historyBackfill = referenceTransferMigration.indexOf(
+		'FROM "asset_record_references"'
+	);
+	const historyPurposeConstraint = referenceTransferMigration.indexOf(
+		'ALTER TABLE "asset_record_reference_history" ADD CONSTRAINT "asset_record_reference_history_custom_purpose_check"'
+	);
+	const referencePurposeConstraint = referenceTransferMigration.indexOf(
+		'ALTER TABLE "asset_record_references" ADD CONSTRAINT "asset_record_references_custom_purpose_check"'
+	);
+
+	expect(historyBackfill).toBeGreaterThanOrEqual(0);
+	expect(historyPurposeConstraint).toBeGreaterThan(historyBackfill);
+	expect(referencePurposeConstraint).toBeGreaterThan(historyBackfill);
+	expect(referenceTransferMigration.slice(historyPurposeConstraint)).toContain(
+		unvalidatedCustomPurposeCheck
+	);
+	expect(
+		referenceTransferMigration.slice(referencePurposeConstraint)
+	).toContain(unvalidatedCustomPurposeCheck);
 });
 
 test("pins canonical family versions and keeps review and quality evidence consistent", () => {

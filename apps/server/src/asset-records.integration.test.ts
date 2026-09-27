@@ -6,12 +6,16 @@ import {
 	createEmptyAssetRecordMeasurements,
 } from "@sprite-anvil/api/asset-records";
 import type { Context } from "@sprite-anvil/api/context";
+import { referenceBoardUploadInputSchema } from "@sprite-anvil/api/reference-production";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { createDb } from "@sprite-anvil/db";
 import { legacyAssetAttestations } from "@sprite-anvil/db/schema/asset-production-history";
 import { assetRecordDerivatives } from "@sprite-anvil/db/schema/asset-record-derivatives";
 import { assetRecordMeasurements } from "@sprite-anvil/db/schema/asset-record-measurements";
-import { assetRecordReferences } from "@sprite-anvil/db/schema/asset-record-references";
+import {
+	assetRecordReferenceHistory,
+	assetRecordReferences,
+} from "@sprite-anvil/db/schema/asset-record-references";
 import {
 	assetFamilies,
 	assetRecords,
@@ -23,6 +27,10 @@ import {
 } from "@sprite-anvil/db/schema/asset-versions";
 import { user } from "@sprite-anvil/db/schema/auth";
 import { project } from "@sprite-anvil/db/schema/project";
+import {
+	referenceBoardImageHistory,
+	referenceBoardImages,
+} from "@sprite-anvil/db/schema/reference-production";
 import { eq } from "drizzle-orm";
 import sharp from "sharp";
 import { createAssetFamilyStore } from "./features/asset-families/server/asset-family-store";
@@ -32,6 +40,7 @@ import type { AssetVersionObjectStorage } from "./features/asset-records/server/
 import { createAssetVersionStore } from "./features/asset-versions/server/asset-version-store";
 import { createProjectContextStore } from "./features/project-context/server/project-context-store";
 import { createProjectAccessStore } from "./features/projects/server/project-access-store";
+import { createReferenceProductionStore } from "./features/reference-production/server/reference-production-store";
 import { createProjectContextScopeStore } from "./features/visual-worlds/server/project-context-scope-store";
 
 const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
@@ -74,6 +83,7 @@ test.skipIf(!databaseUrl)(
 		const userId = crypto.randomUUID();
 		let projectId: string | null = null;
 		let assetRecordId: string | null = null;
+		let referenceBoardImageId: string | null = null;
 		let insertedUser = false;
 
 		try {
@@ -345,6 +355,128 @@ test.skipIf(!databaseUrl)(
 				},
 				{ context }
 			);
+			const revisedReference = await call(
+				appRouter.assetRecords.updateReference,
+				{
+					assetRecordId: created.id,
+					contextOverrideRationale: null,
+					customPurpose: null,
+					expectedRevision: 1,
+					forbiddenFeatures: ["identity"],
+					id: referenceId,
+					notes: "Transfer pose and style only.",
+					projectId,
+					role: "pose",
+					transferredFeatures: ["pose", "style"],
+				},
+				{ context }
+			);
+			expect(revisedReference).toMatchObject({
+				notes: "Transfer pose and style only.",
+				revision: 2,
+				history: [{ revision: 1 }, { revision: 2 }],
+			});
+			await expect(
+				call(
+					appRouter.assetRecords.updateReference,
+					{
+						assetRecordId: created.id,
+						contextOverrideRationale: null,
+						customPurpose: null,
+						expectedRevision: 2,
+						forbiddenFeatures: [],
+						id: referenceId,
+						notes: "Identity may carry across families.",
+						projectId,
+						role: "identity",
+						transferredFeatures: ["identity"],
+					},
+					{ context }
+				)
+			).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+			await call(
+				appRouter.assetRecords.updateReference,
+				{
+					assetRecordId: created.id,
+					contextOverrideRationale:
+						"Identity matches this project's design intent.",
+					customPurpose: null,
+					expectedRevision: 2,
+					forbiddenFeatures: [],
+					id: referenceId,
+					notes: "Identity may carry across families.",
+					projectId,
+					role: "identity",
+					transferredFeatures: ["identity"],
+				},
+				{ context }
+			);
+			referenceBoardImageId = crypto.randomUUID();
+			const referenceProductionStore = createReferenceProductionStore(db);
+			const uploadedImage = await referenceProductionStore.createImage(
+				userId,
+				referenceBoardUploadInputSchema.parse({
+					assetRecordId: created.id,
+					contentDigest: "a".repeat(64),
+					contentLength: 128,
+					contentType: "image/png",
+					contextOverrideRationale: null,
+					customPurpose: null,
+					fileName: "reference-pose.png",
+					forbiddenFeatures: ["identity"],
+					id: referenceBoardImageId,
+					notes: "Use the pose only.",
+					objectKey: `projects/${projectId}/assets/${created.id}/references/${referenceBoardImageId}`,
+					projectId,
+					role: "pose",
+					transferredFeatures: ["pose"],
+				})
+			);
+			if (!uploadedImage.ok) {
+				throw new Error("The Reference Board image was not persisted.");
+			}
+			expect(uploadedImage.kind).toBe("created");
+			const blockedImageUpdate = await referenceProductionStore.updateImage(
+				userId,
+				{
+					assetRecordId: created.id,
+					contextOverrideRationale: null,
+					customPurpose: "Animation timing cue",
+					expectedRevision: 1,
+					forbiddenFeatures: [],
+					id: referenceBoardImageId,
+					notes: "Identity matches this project's design intent.",
+					projectId,
+					role: "custom",
+					transferredFeatures: ["identity"],
+				}
+			);
+			expect(blockedImageUpdate).toEqual({
+				ok: false,
+				reason: "context_override_required",
+			});
+			const revisedImage = await referenceProductionStore.updateImage(userId, {
+				assetRecordId: created.id,
+				contextOverrideRationale:
+					"Identity matches this project's design intent.",
+				customPurpose: "Animation timing cue",
+				expectedRevision: 1,
+				forbiddenFeatures: [],
+				id: referenceBoardImageId,
+				notes: "Identity matches this project's design intent.",
+				projectId,
+				role: "custom",
+				transferredFeatures: ["identity"],
+			});
+			expect(revisedImage).toMatchObject({
+				ok: true,
+				value: {
+					customPurpose: "Animation timing cue",
+					history: [{ revision: 1 }, { revision: 2 }],
+					notes: "Identity matches this project's design intent.",
+					revision: 2,
+				},
+			});
 
 			const rereadDb = createDb({ DATABASE_URL: databaseUrl });
 			const rereadContext: Context = {
@@ -363,6 +495,17 @@ test.skipIf(!databaseUrl)(
 				{ assetRecordId: created.id, projectId },
 				{ context: rereadContext }
 			);
+			const rereadImages = await createReferenceProductionStore(
+				rereadDb
+			).listImages(userId, projectId, created.id);
+			expect(rereadImages).toMatchObject([
+				{
+					customPurpose: "Animation timing cue",
+					history: [{ revision: 1 }, { revision: 2 }],
+					id: referenceBoardImageId,
+					revision: 2,
+				},
+			]);
 
 			expect(reread).toMatchObject({
 				assetCategory: "icon",
@@ -472,10 +615,15 @@ test.skipIf(!databaseUrl)(
 					{
 						assetRecordName: "Ash Knight Idle",
 						conflictFeatures: [],
-						forbiddenFeatures: ["identity"],
+						contextOverrideRationale:
+							"Identity matches this project's design intent.",
+						forbiddenFeatures: [],
+						history: [{ revision: 1 }, { revision: 2 }, { revision: 3 }],
 						id: referenceId,
-						role: "pose",
-						transferredFeatures: ["pose"],
+						notes: "Identity may carry across families.",
+						revision: 3,
+						role: "identity",
+						transferredFeatures: ["identity"],
 						versionId: derivativeVersionId,
 						versionNumber: 1,
 					},
@@ -582,6 +730,15 @@ test.skipIf(!databaseUrl)(
 			).rejects.toThrow();
 		} finally {
 			if (projectId) {
+				await db
+					.delete(referenceBoardImageHistory)
+					.where(eq(referenceBoardImageHistory.projectId, projectId));
+				await db
+					.delete(referenceBoardImages)
+					.where(eq(referenceBoardImages.projectId, projectId));
+				await db
+					.delete(assetRecordReferenceHistory)
+					.where(eq(assetRecordReferenceHistory.projectId, projectId));
 				await db
 					.delete(assetRecordReferences)
 					.where(eq(assetRecordReferences.projectId, projectId));

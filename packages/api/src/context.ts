@@ -7,6 +7,7 @@ import type { AssetVersionStore } from "./asset-versions";
 import type { ProjectContextScopeStore } from "./context-scopes";
 import type { ProjectAccessStore } from "./project-access-store";
 import type { ProjectContextStore } from "./project-context";
+import type { ReferenceProductionStore } from "./reference-production";
 
 export interface Context {
 	assetFamilyStore: AssetFamilyStore;
@@ -17,6 +18,7 @@ export interface Context {
 	projectAccess: ProjectAccessStore;
 	projectContextScopeStore: ProjectContextScopeStore;
 	projectContextStore: ProjectContextStore;
+	referenceProductionStore?: ReferenceProductionStore;
 	session: Session | null;
 	verifyAssetVersionContent?: (
 		userId: string,

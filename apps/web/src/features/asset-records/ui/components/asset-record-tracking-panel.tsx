@@ -3,40 +3,16 @@ import type {
 	AssetVersionCreateInput,
 	AssetVersionSummary,
 } from "@sprite-anvil/api/asset-record-tracking";
-import {
-	dependencyFacets,
-	referenceFeatures,
-	referenceRoles,
-} from "@sprite-anvil/api/asset-record-tracking";
+import { dependencyFacets } from "@sprite-anvil/api/asset-record-tracking";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
 import type { ReactNode, SyntheticEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { ReferenceBoardView } from "@/features/reference-production/ui/views/reference-board-view";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client } from "@/utils/orpc";
-
-const referenceRoleLabels = {
-	identity: "Kimlik",
-	pose: "Poz",
-	style: "Stil",
-	palette: "Palet",
-	equipment: "Ekipman",
-	composition: "Kompozisyon",
-	theme: "Tema",
-	custom: "Özel amaç",
-} as const;
-
-const featureLabels = {
-	identity: "Kimlik",
-	pose: "Poz",
-	style: "Stil",
-	palette: "Palet",
-	equipment: "Ekipman",
-	composition: "Kompozisyon",
-	theme: "Tema",
-} as const;
 
 const dependencyFacetLabels = {
 	identity: "Kimlik",
@@ -124,7 +100,6 @@ function fieldsetCheckboxes<T extends string>({
 			<div className="grid gap-2 sm:grid-cols-2">
 				{options.map((value) => {
 					const label =
-						featureLabels[value as keyof typeof featureLabels] ??
 						dependencyFacetLabels[value as keyof typeof dependencyFacetLabels];
 					return (
 						<label className="flex items-center gap-2 text-sm" key={value}>
@@ -353,9 +328,6 @@ export function AssetRecordTrackingPanel({
 	const derivativeRequest = useRef<{ id: string; signature: string } | null>(
 		null
 	);
-	const referenceRequest = useRef<{ id: string; signature: string } | null>(
-		null
-	);
 	const [activeWrite, setActiveWrite] = useState<string | null>(null);
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
@@ -372,16 +344,6 @@ export function AssetRecordTrackingPanel({
 	const [selectedDependencyFacets, setSelectedDependencyFacets] = useState<
 		(typeof dependencyFacets)[number][]
 	>([]);
-	const [targetVersionId, setTargetVersionId] = useState("");
-	const [referenceRole, setReferenceRole] =
-		useState<(typeof referenceRoles)[number]>("pose");
-	const [transferredFeatures, setTransferredFeatures] = useState<
-		(typeof referenceFeatures)[number][]
-	>([]);
-	const [forbiddenFeatures, setForbiddenFeatures] = useState<
-		(typeof referenceFeatures)[number][]
-	>([]);
-	const [referenceNotes, setReferenceNotes] = useState("");
 
 	async function runWrite(
 		label: string,
@@ -604,41 +566,6 @@ export function AssetRecordTrackingPanel({
 		);
 	}
 
-	async function createReference(event: SyntheticEvent<HTMLFormElement>) {
-		event.preventDefault();
-		if (!(record && targetVersionId)) {
-			return;
-		}
-		const signature = JSON.stringify({
-			assetRecordId: record.id,
-			forbiddenFeatures,
-			notes: referenceNotes.trim(),
-			role: referenceRole,
-			targetVersionId,
-			transferredFeatures,
-		});
-		if (referenceRequest.current?.signature !== signature) {
-			referenceRequest.current = { id: crypto.randomUUID(), signature };
-		}
-		const request = referenceRequest.current;
-		await runWrite(
-			"Referans kaydedildi.",
-			(refreshed) =>
-				refreshed.tracking.references.some((entry) => entry.id === request.id),
-			() =>
-				client.assetRecords.createReference({
-					assetRecordId: record.id,
-					forbiddenFeatures,
-					id: request.id,
-					notes: referenceNotes.trim() || null,
-					projectId: record.projectId,
-					role: referenceRole,
-					targetVersionId,
-					transferredFeatures,
-				})
-		);
-	}
-
 	const reviewDispositionLabel = {
 		candidate: "Aday",
 		approved: "Onaylı",
@@ -831,142 +758,15 @@ export function AssetRecordTrackingPanel({
 							),
 					}}
 				/>
-				<section
-					aria-labelledby="references-heading"
-					className="rounded-lg border p-4"
-				>
-					<h3 className="font-medium" id="references-heading">
-						Referanslar
-					</h3>
-					{tracking.references.length > 0 ? (
-						<ul className="mt-2 space-y-2 text-sm">
-							{tracking.references.map((reference) => (
-								<li className="space-y-1" key={reference.id}>
-									<p>
-										{reference.assetRecordName} ·{" "}
-										{referenceRoleLabels[reference.role]} · Sürüm{" "}
-										{reference.versionNumber}
-									</p>
-									<p className="text-muted-foreground">
-										Aktar:{" "}
-										{reference.transferredFeatures
-											.map((feature) => featureLabels[feature])
-											.join(", ") || "yok"}{" "}
-										· Kaçın:{" "}
-										{reference.forbiddenFeatures
-											.map((feature) => featureLabels[feature])
-											.join(", ") || "yok"}
-									</p>
-									{reference.notes ? <p>{reference.notes}</p> : null}
-									{reference.conflictFeatures.length > 0 ? (
-										<p className="text-destructive">
-											Çözülmemiş aktarım çelişkisi:{" "}
-											{reference.conflictFeatures
-												.map((feature) => featureLabels[feature])
-												.join(", ")}
-										</p>
-									) : null}
-								</li>
-							))}
-						</ul>
-					) : (
-						<p className="mt-2 text-muted-foreground text-sm">
-							Kayıtlı referans yok.
-						</p>
-					)}
-					<form
-						className="mt-4 space-y-3 border-t pt-3"
-						onSubmit={(event) => void createReference(event)}
-					>
-						<label
-							className="block space-y-1 text-sm"
-							htmlFor="reference-version"
-						>
-							<span>Referans sürümü</span>
-							<select
-								className="w-full rounded-md border bg-background px-3 py-2"
-								id="reference-version"
-								onChange={(event) => setTargetVersionId(event.target.value)}
-								required
-								value={targetVersionId}
-							>
-								<option value="">Sürüm seçin</option>
-								{tracking.availableVersions
-									.filter((version) => version.assetRecordId !== record.id)
-									.map((version) => (
-										<option key={version.id} value={version.id}>
-											{version.assetRecordName} ·{" "}
-											{displayFileName(version.fileName)} · Sürüm{" "}
-											{version.versionNumber}
-										</option>
-									))}
-							</select>
-						</label>
-						<label className="block space-y-1 text-sm" htmlFor="reference-role">
-							<span>Referans Kullanım Amacı</span>
-							<select
-								className="w-full rounded-md border bg-background px-3 py-2"
-								id="reference-role"
-								onChange={(event) =>
-									setReferenceRole(event.target.value as typeof referenceRole)
-								}
-								value={referenceRole}
-							>
-								{referenceRoles.map((role) => (
-									<option key={role} value={role}>
-										{referenceRoleLabels[role]}
-									</option>
-								))}
-							</select>
-						</label>
-						{fieldsetCheckboxes({
-							legend: "Aktarılabilir özellikler",
-							options: referenceFeatures,
-							selected: transferredFeatures,
-							onToggle: (value, checked) =>
-								toggle(
-									transferredFeatures,
-									value,
-									checked,
-									setTransferredFeatures
-								),
-						})}
-						{fieldsetCheckboxes({
-							legend: "Kaçınılacak özellikler",
-							options: referenceFeatures,
-							selected: forbiddenFeatures,
-							onToggle: (value, checked) =>
-								toggle(forbiddenFeatures, value, checked, setForbiddenFeatures),
-						})}
-						<label
-							className="block space-y-1 text-sm"
-							htmlFor="reference-notes"
-						>
-							<span>Not</span>
-							<textarea
-								className="min-h-20 w-full rounded-md border bg-background px-3 py-2"
-								id="reference-notes"
-								onChange={(event) => setReferenceNotes(event.target.value)}
-								value={referenceNotes}
-							/>
-						</label>
-						<Button
-							disabled={
-								activeWrite !== null ||
-								writeOutcomeUncertain ||
-								!targetVersionId ||
-								(transferredFeatures.length === 0 &&
-									forbiddenFeatures.length === 0) ||
-								transferredFeatures.some((feature) =>
-									forbiddenFeatures.includes(feature)
-								)
-							}
-							type="submit"
-						>
-							Referansı ekle
-						</Button>
-					</form>
-				</section>
+				<ReferenceBoardView
+					assetRecordId={record.id}
+					assetRecordName={record.name}
+					availableVersions={tracking.availableVersions}
+					hasCanonicalDesign={Boolean(tracking.family?.canonicalVersionId)}
+					onRefresh={onRefresh}
+					projectId={record.projectId}
+					references={tracking.references}
+				/>
 
 				<section
 					aria-labelledby="quality-heading"
