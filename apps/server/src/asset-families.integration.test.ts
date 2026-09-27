@@ -9,6 +9,7 @@ import { createAssetFamilyStore } from "./features/asset-families/server/asset-f
 import { createAssetRecordStore } from "./features/asset-records/server/asset-record-store";
 import { createAssetRecordTrackingStore } from "./features/asset-records/server/asset-record-tracking-store";
 import { createAssetVersionStore } from "./features/asset-versions/server/asset-version-store";
+import { createCollectionStore } from "./features/collections/server/collection-store";
 import { createProjectContextStore } from "./features/project-context/server/project-context-store";
 import { createProjectAccessStore } from "./features/projects/server/project-access-store";
 import { createProjectContextScopeStore } from "./features/visual-worlds/server/project-context-scope-store";
@@ -40,6 +41,7 @@ test.skipIf(!databaseUrl)(
 				assetVersionStore: createAssetVersionStore(db),
 				assetRecordStore: createAssetRecordStore(db),
 				assetRecordTrackingStore: createAssetRecordTrackingStore(db, null),
+				collectionStore: createCollectionStore(db),
 				db,
 				projectAccess: createProjectAccessStore(db, projectContextStore),
 				projectContextScopeStore: createProjectContextScopeStore(db),
@@ -117,6 +119,7 @@ test.skipIf(!databaseUrl)(
 					rereadDb,
 					null
 				),
+				collectionStore: createCollectionStore(rereadDb),
 				db: rereadDb,
 				projectAccess: createProjectAccessStore(
 					rereadDb,

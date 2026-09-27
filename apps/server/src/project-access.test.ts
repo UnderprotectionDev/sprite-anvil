@@ -275,6 +275,7 @@ function createRpcClient(
 				assetVersionStore: {} as never,
 				assetRecordStore: {} as never,
 				assetRecordTrackingStore: {} as never,
+				collectionStore: {} as never,
 				db: createDb({
 					DATABASE_URL:
 						"postgresql://user:password@localhost:5432/sprite-anvil-test",

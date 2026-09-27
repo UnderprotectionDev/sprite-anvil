@@ -275,6 +275,7 @@ function makeContext(
 		assetVersionStore: {} as Context["assetVersionStore"],
 		assetRecordStore: {} as Context["assetRecordStore"],
 		assetRecordTrackingStore: {} as Context["assetRecordTrackingStore"],
+		collectionStore: {} as Context["collectionStore"],
 		db: {} as Database,
 		projectAccess: {} as Context["projectAccess"],
 		projectContextScopeStore: scopeStore,

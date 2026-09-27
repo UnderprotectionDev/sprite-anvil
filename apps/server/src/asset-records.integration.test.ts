@@ -30,6 +30,7 @@ import { createAssetRecordStore } from "./features/asset-records/server/asset-re
 import { createAssetRecordTrackingStore } from "./features/asset-records/server/asset-record-tracking-store";
 import type { AssetVersionObjectStorage } from "./features/asset-records/server/asset-version-store";
 import { createAssetVersionStore } from "./features/asset-versions/server/asset-version-store";
+import { createCollectionStore } from "./features/collections/server/collection-store";
 import { createProjectContextStore } from "./features/project-context/server/project-context-store";
 import { createProjectAccessStore } from "./features/projects/server/project-access-store";
 import { createProjectContextScopeStore } from "./features/visual-worlds/server/project-context-scope-store";
@@ -93,6 +94,7 @@ test.skipIf(!databaseUrl)(
 					db,
 					storage.storage
 				),
+				collectionStore: createCollectionStore(db),
 				db,
 				projectAccess: createProjectAccessStore(db, projectContextStore),
 				projectContextScopeStore: createProjectContextScopeStore(db),
@@ -356,6 +358,7 @@ test.skipIf(!databaseUrl)(
 					rereadDb,
 					storage.storage
 				),
+				collectionStore: createCollectionStore(rereadDb),
 				db: rereadDb,
 			};
 			const reread = await call(

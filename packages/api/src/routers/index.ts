@@ -30,6 +30,7 @@ import { assetFamiliesRouter } from "./asset-families";
 import { assetRecordTrackingRouter } from "./asset-record-tracking";
 import { assetRecordsRouter } from "./asset-records";
 import { assetVersionsRouter } from "./asset-versions";
+import { collectionsRouter } from "./collections";
 import { projectsRouter } from "./projects";
 
 async function readContextProposalReview(
@@ -96,6 +97,7 @@ export const appRouter = {
 	assetFamilies: assetFamiliesRouter,
 	assetVersions: assetVersionsRouter,
 	assetRecords: assetRecordsRouter,
+	collections: collectionsRouter,
 	assetRecordTracking: assetRecordTrackingRouter,
 	contextScopes: {
 		list: protectedProcedure
