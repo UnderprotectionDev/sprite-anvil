@@ -3,6 +3,13 @@ import { call } from "@orpc/server";
 import type { Context } from "@sprite-anvil/api/context";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { createDb } from "@sprite-anvil/db";
+import { legacyAssetAttestations } from "@sprite-anvil/db/schema/asset-production-history";
+import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
+import {
+	assetVersionQualityEvidence,
+	assetVersionReviewEvents,
+	assetVersions,
+} from "@sprite-anvil/db/schema/asset-versions";
 import { user } from "@sprite-anvil/db/schema/auth";
 import { eq } from "drizzle-orm";
 import { createAssetFamilyStore } from "./features/asset-families/server/asset-family-store";
@@ -33,7 +40,7 @@ function createContext(database: ReturnType<typeof createDb>, userId: string) {
 }
 
 test.skipIf(!databaseUrl)(
-	"persists and rereads cross-family Collection membership without changing Asset Record history",
+	"persists cross-family Collection membership, rejects erased records, and preserves Asset Record history",
 	async () => {
 		if (!databaseUrl) {
 			throw new Error("CONTEXT_TEST_DATABASE_URL is required for this test.");
@@ -144,6 +151,60 @@ test.skipIf(!databaseUrl)(
 				},
 				{ context }
 			);
+			const historyVersionId = crypto.randomUUID();
+			const historyReviewId = crypto.randomUUID();
+			const historyAttestationId = crypto.randomUUID();
+			const historyDigest = "a".repeat(64);
+			await db.insert(assetVersions).values({
+				id: historyVersionId,
+				projectId: project.id,
+				assetRecordId: firstRecord.id,
+				assetFamilyId: firstFamily.id,
+				versionNumber: 1,
+				fileName: "historical-sprite.png",
+				contentType: "image/png",
+				sourceImageWidth: 1,
+				sourceImageHeight: 1,
+				sha256: historyDigest,
+				byteSize: 1,
+				contentDigest: historyDigest,
+				integrityVerified: true,
+				objectKey: `collections/${historyVersionId}.png`,
+				createdByUserId: userId,
+			});
+			await db.insert(assetVersionReviewEvents).values({
+				id: historyReviewId,
+				projectId: project.id,
+				assetRecordId: firstRecord.id,
+				versionId: historyVersionId,
+				decision: "approved",
+				rationale: "Approved before Collection membership changed.",
+				createdByUserId: userId,
+			});
+			await db.insert(assetVersionQualityEvidence).values({
+				id: crypto.randomUUID(),
+				projectId: project.id,
+				versionId: historyVersionId,
+				gate: "format_signature",
+				result: "matched",
+				sha256: historyDigest,
+				byteSize: 1,
+				createdByUserId: userId,
+			});
+			await db.insert(legacyAssetAttestations).values({
+				id: historyAttestationId,
+				projectId: project.id,
+				versionId: historyVersionId,
+				knownSource: "Original sprite",
+				userRelationship: "created_by_user",
+				supportingEvidence: "Previously recorded artist note.",
+				historyUnknown: true,
+				attestedByUserId: userId,
+			});
+			await db
+				.update(assetRecords)
+				.set({ availability: "erased" })
+				.where(eq(assetRecords.id, relatedRecord.id));
 
 			const familyCatalogBefore = await call(
 				appRouter.assetFamilies.list,
@@ -155,10 +216,61 @@ test.skipIf(!databaseUrl)(
 				{ projectId: project.id, assetRecordId: firstRecord.id },
 				{ context }
 			);
+			expect(trackingBefore.tracking.approvedVersion).toEqual(
+				expect.objectContaining({
+					id: historyVersionId,
+					reviewDisposition: "approved",
+				})
+			);
+			expect(trackingBefore.tracking.reviewEvents).toContainEqual(
+				expect.objectContaining({
+					id: historyReviewId,
+					rationale: "Approved before Collection membership changed.",
+				})
+			);
+			expect(trackingBefore.tracking.quality).toEqual(
+				expect.objectContaining({
+					integrityStatus: "format_signature_matched",
+					verifiedVersionCount: 1,
+				})
+			);
+			expect(trackingBefore.tracking.productionHistory).toContainEqual(
+				expect.objectContaining({
+					id: historyAttestationId,
+					knownSource: "Original sprite",
+				})
+			);
 			const collection = await call(
 				appRouter.collections.create,
 				{ projectId: project.id, name: "Combat and inventory notes" },
 				{ context }
+			);
+			await expect(
+				call(
+					appRouter.collections.addAssetRecord,
+					{
+						projectId: project.id,
+						collectionId: collection.id,
+						assetRecordId: relatedRecord.id,
+					},
+					{ context }
+				)
+			).rejects.toMatchObject({ code: "BAD_REQUEST" });
+			const afterRejectedAdd = await call(
+				appRouter.collections.list,
+				{ projectId: project.id },
+				{
+					context: createContext(
+						createDb({ DATABASE_URL: databaseUrl }),
+						userId
+					),
+				}
+			);
+			expect(afterRejectedAdd.memberships).not.toContainEqual(
+				expect.objectContaining({
+					collectionId: collection.id,
+					assetRecordId: relatedRecord.id,
+				})
 			);
 			const secondCollection = await call(
 				appRouter.collections.create,
