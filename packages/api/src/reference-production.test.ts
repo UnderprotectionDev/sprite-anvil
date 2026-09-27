@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
 	analyzeReferenceTransferConstraints,
+	indexReferenceConflictFeaturesById,
 	referenceBoardMetadataSchema,
 } from "./reference-production";
 
@@ -71,4 +72,30 @@ test("equal-specificity references expose an unresolved transfer conflict", () =
 		},
 	]);
 	expect(result.effectiveTransferredFeatures).toEqual([]);
+});
+
+test("indexes each conflict feature under its allowing and forbidding references", () => {
+	const featuresByReference = indexReferenceConflictFeaturesById([
+		{
+			allowingReferenceIds: ["reference-one"],
+			feature: "palette",
+			forbiddingReferenceIds: ["reference-two"],
+		},
+		{
+			allowingReferenceIds: ["reference-three"],
+			feature: "identity",
+			forbiddingReferenceIds: ["reference-one"],
+		},
+	]);
+
+	expect([...(featuresByReference.get("reference-one") ?? [])]).toEqual([
+		"palette",
+		"identity",
+	]);
+	expect([...(featuresByReference.get("reference-two") ?? [])]).toEqual([
+		"palette",
+	]);
+	expect([...(featuresByReference.get("reference-three") ?? [])]).toEqual([
+		"identity",
+	]);
 });

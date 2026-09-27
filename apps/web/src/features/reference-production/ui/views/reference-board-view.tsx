@@ -345,7 +345,10 @@ function ReferenceCard({
 	}
 
 	return (
-		<article className="min-w-0 space-y-3 rounded-lg border p-3 sm:p-4">
+		<article
+			className="min-w-0 space-y-3 rounded-lg border p-3 sm:p-4"
+			role="listitem"
+		>
 			<img
 				alt={`${image.fileName} adlı referans görseli`}
 				className="aspect-[4/3] w-full rounded-md border bg-muted object-contain"

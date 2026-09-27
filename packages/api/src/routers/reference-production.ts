@@ -3,6 +3,7 @@ import { protectedProcedure } from "../index";
 import type { ReferenceBoardWriteResult } from "../reference-production";
 import {
 	analyzeReferenceTransferConstraints,
+	indexReferenceConflictFeaturesById,
 	referenceBoardListInputSchema,
 	referenceBoardSchema,
 	referenceBoardUpdateInputSchema,
@@ -70,17 +71,9 @@ export const referenceProductionRouter = {
 					forbiddenFeatures: reference.forbiddenFeatures,
 				})),
 			]);
-			const conflictFeatures = new Map<string, Set<string>>();
-			for (const conflict of analysis.conflicts) {
-				for (const id of [
-					...conflict.allowingReferenceIds,
-					...conflict.forbiddingReferenceIds,
-				]) {
-					const features = conflictFeatures.get(id) ?? new Set<string>();
-					features.add(conflict.feature);
-					conflictFeatures.set(id, features);
-				}
-			}
+			const conflictFeatures = indexReferenceConflictFeaturesById(
+				analysis.conflicts
+			);
 
 			return referenceBoardSchema.parse({
 				assetVersionReferences: assetVersionReferences.map((reference) => ({

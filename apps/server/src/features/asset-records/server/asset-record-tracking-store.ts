@@ -12,7 +12,10 @@ import {
 	derivativeSummarySchema,
 	referenceSummarySchema,
 } from "@sprite-anvil/api/asset-record-tracking";
-import { analyzeReferenceTransferConstraints } from "@sprite-anvil/api/reference-production";
+import {
+	analyzeReferenceTransferConstraints,
+	indexReferenceConflictFeaturesById,
+} from "@sprite-anvil/api/reference-production";
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
 import { legacyAssetAttestations } from "@sprite-anvil/db/schema/asset-production-history";
 import { assetRecordDerivatives } from "@sprite-anvil/db/schema/asset-record-derivatives";
@@ -200,17 +203,9 @@ async function getReferenceSummaries(
 			transferredFeatures: reference.transferredFeatures,
 		}))
 	);
-	const conflictFeaturesById = new Map<string, Set<string>>();
-	for (const conflict of analysis.conflicts) {
-		for (const id of [
-			...conflict.allowingReferenceIds,
-			...conflict.forbiddingReferenceIds,
-		]) {
-			const features = conflictFeaturesById.get(id) ?? new Set<string>();
-			features.add(conflict.feature);
-			conflictFeaturesById.set(id, features);
-		}
-	}
+	const conflictFeaturesById = indexReferenceConflictFeaturesById(
+		analysis.conflicts
+	);
 	return referenceRows.map((row) =>
 		toReferenceSummary(
 			row,

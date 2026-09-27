@@ -161,3 +161,38 @@ test("pastes a reference image into the focused drop area", async () => {
 
 	expect(await screen.findByText("palette.webp")).toBeVisible();
 });
+
+test("exposes uploaded reference images as list items", async () => {
+	const timestamp = new Date().toISOString();
+	fakeApi.board = {
+		assetVersionReferences: [],
+		conflicts: [],
+		effectiveForbiddenFeatures: [],
+		effectiveTransferredFeatures: [],
+		imageReferences: [
+			{
+				assetRecordId,
+				conflictFeatures: [],
+				contentLength: 4,
+				contentType: "image/png",
+				contextOverrideRationale: null,
+				createdAt: timestamp,
+				fileName: "stance.png",
+				forbiddenFeatures: [],
+				history: [],
+				id: crypto.randomUUID(),
+				notes: null,
+				revision: 1,
+				role: "pose",
+				sha256: "a".repeat(64),
+				sortOrder: 0,
+				transferredFeatures: ["pose"],
+				updatedAt: timestamp,
+				customPurpose: null,
+			},
+		],
+	};
+	renderBoard();
+
+	expect(await screen.findAllByRole("listitem")).toHaveLength(1);
+});

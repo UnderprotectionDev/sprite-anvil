@@ -184,6 +184,24 @@ export interface ReferenceTransferConflict {
 	forbiddingReferenceIds: string[];
 }
 
+export function indexReferenceConflictFeaturesById(
+	conflicts: readonly ReferenceTransferConflict[]
+): Map<string, Set<ReferenceFeature>> {
+	const featuresByReferenceId = new Map<string, Set<ReferenceFeature>>();
+	for (const conflict of conflicts) {
+		for (const referenceId of [
+			...conflict.allowingReferenceIds,
+			...conflict.forbiddingReferenceIds,
+		]) {
+			const features =
+				featuresByReferenceId.get(referenceId) ?? new Set<ReferenceFeature>();
+			features.add(conflict.feature);
+			featuresByReferenceId.set(referenceId, features);
+		}
+	}
+	return featuresByReferenceId;
+}
+
 export interface ReferenceTransferAnalysis {
 	conflicts: ReferenceTransferConflict[];
 	effectiveForbiddenFeatures: ReferenceFeature[];
