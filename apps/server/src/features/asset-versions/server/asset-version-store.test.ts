@@ -1,6 +1,12 @@
 import { expect, test } from "bun:test";
 import type { Database } from "@sprite-anvil/db";
+import { assetFamilyCanonicalDesigns } from "@sprite-anvil/db/schema/asset-families";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
+import {
+	assetVersionReviewEvents,
+	assetVersions,
+	unitVersions,
+} from "@sprite-anvil/db/schema/asset-versions";
 import { project } from "@sprite-anvil/db/schema/project";
 import { createAssetVersionStore } from "./asset-version-store";
 
@@ -10,7 +16,10 @@ const assetRecordId = "f48ae2c1-d802-4134-923d-80c8a47e60f9";
 const versionId = "6c520683-c7c7-4903-9858-0b4340a22e19";
 const userId = "asset-version-store-user";
 
-function createDatabaseHarness() {
+function createDatabaseHarness(
+	includeSourceVersion = false,
+	sourceUnitType?: "frame" | "direction" | "tile" | "state"
+) {
 	const createdAt = new Date("2026-09-25T09:00:00.000Z");
 	const versionRow = {
 		id: versionId,
@@ -41,36 +50,106 @@ function createDatabaseHarness() {
 		createdAt,
 	};
 	let selectedTable: unknown;
+	let assetVersionLimitCount = 0;
 	let batchQueryCount = 0;
 	let transactionCount = 0;
+	let insertedUnitVersionValues: unknown;
+	const sourceVersionRow = {
+		...versionRow,
+		id: "8c520683-c7c7-4903-9858-0b4340a22e19",
+		versionNumber: 1,
+		idempotencyKey: "source-asset-version",
+	};
+	const unitVersionRow = {
+		id: "9c520683-c7c7-4903-9858-0b4340a22e19",
+		projectId,
+		assetRecordId,
+		assetVersionId: versionId,
+		sourceAssetVersionId: sourceVersionRow.id,
+		unitType: "frame" as const,
+		unitKey: "attack/frame-3",
+		versionNumber: 1,
+		createdByUserId: userId,
+		createdAt,
+	};
+	const sourceUnitVersionRow = sourceUnitType
+		? {
+				...unitVersionRow,
+				id: "source-unit-version",
+				assetVersionId: sourceVersionRow.id,
+				unitType: sourceUnitType,
+				unitKey: "north",
+				versionNumber: 1,
+			}
+		: null;
+	const assetVersionRows = includeSourceVersion ? [sourceVersionRow] : [];
+	const reviewRows: (typeof reviewEventRow)[] = [];
+	const unitVersionRows: (typeof unitVersionRow)[] = [];
 
 	const database = {
-		select: () => ({
-			from(table: unknown) {
-				selectedTable = table;
-				return this;
-			},
-			where() {
-				return this;
-			},
-			limit() {
-				if (selectedTable === project) {
-					return Promise.resolve([
-						{
-							id: projectId,
-							name: "Project X",
-							ownerUserId: userId,
-							previewKey: null,
-							createdAt,
-						},
-					]);
-				}
-				if (selectedTable === assetRecords) {
-					return Promise.resolve([{ id: assetRecordId, assetFamilyId }]);
-				}
-				return Promise.resolve([]);
-			},
-		}),
+		select: () => {
+			let isJoinedAssetVersionQuery = false;
+			return {
+				from(table: unknown) {
+					selectedTable = table;
+					return this;
+				},
+				innerJoin() {
+					isJoinedAssetVersionQuery = true;
+					return this;
+				},
+				where() {
+					return this;
+				},
+				orderBy() {
+					if (selectedTable === assetVersions && isJoinedAssetVersionQuery) {
+						return Promise.resolve(
+							assetVersionRows.map((version) => ({ version, assetFamilyId }))
+						);
+					}
+					if (selectedTable === assetVersionReviewEvents) {
+						return Promise.resolve(reviewRows);
+					}
+					if (selectedTable === assetFamilyCanonicalDesigns) {
+						return Promise.resolve([]);
+					}
+					if (selectedTable === unitVersions) {
+						return Promise.resolve(unitVersionRows);
+					}
+					return Promise.resolve([]);
+				},
+				limit() {
+					if (selectedTable === project) {
+						return Promise.resolve([
+							{
+								id: projectId,
+								name: "Project X",
+								ownerUserId: userId,
+								previewKey: null,
+								createdAt,
+							},
+						]);
+					}
+					if (selectedTable === assetRecords) {
+						return Promise.resolve([{ id: assetRecordId, assetFamilyId }]);
+					}
+					if (selectedTable === assetVersions) {
+						assetVersionLimitCount += 1;
+						return Promise.resolve(
+							includeSourceVersion && assetVersionLimitCount === 1
+								? [sourceVersionRow]
+								: []
+						);
+					}
+					if (selectedTable === unitVersions) {
+						return Promise.resolve(
+							sourceUnitVersionRow ? [sourceUnitVersionRow] : []
+						);
+					}
+					return Promise.resolve([]);
+				},
+			};
+		},
 		insert: (table: unknown) => {
 			let insertValues: unknown;
 			const query = {
@@ -93,6 +172,19 @@ function createDatabaseHarness() {
 		execute: () => ({ kind: "advisory-lock" }),
 		batch(queries: unknown[]) {
 			batchQueryCount = queries.length;
+			assetVersionRows.push(versionRow);
+			reviewRows.push(reviewEventRow);
+			const unitVersionInsert = queries.find(
+				(query) =>
+					query !== null &&
+					typeof query === "object" &&
+					Reflect.get(query, "table") === unitVersions
+			);
+			if (unitVersionInsert) {
+				insertedUnitVersionValues = Reflect.get(unitVersionInsert, "values");
+				unitVersionRows.push(unitVersionRow);
+				return [[], [versionRow], [reviewEventRow], [{}], [unitVersionRow]];
+			}
 			return [[], [versionRow], [reviewEventRow], [{}]];
 		},
 		transaction() {
@@ -105,6 +197,7 @@ function createDatabaseHarness() {
 		database,
 		getBatchQueryCount: () => batchQueryCount,
 		getTransactionCount: () => transactionCount,
+		getInsertedUnitVersionValues: () => insertedUnitVersionValues,
 	};
 }
 
@@ -137,4 +230,91 @@ test("creates a candidate Asset Version with a Review Event using the Neon batch
 	});
 	expect(database.getBatchQueryCount()).toBe(4);
 	expect(database.getTransactionCount()).toBe(0);
+});
+
+test("creates a corrected Unit Version atomically with its new Candidate Version", async () => {
+	const database = createDatabaseHarness(true);
+	const store = createAssetVersionStore(database.database);
+
+	const result = await store.createCandidateVersion(userId, {
+		id: versionId,
+		projectId,
+		assetFamilyId,
+		assetRecordId,
+		fileName: "attack-frame-3.png",
+		objectKey: `projects/${projectId}/asset-records/${assetRecordId}/versions/${versionId}`,
+		contentType: "image/png",
+		contentLength: 4,
+		contentDigest: "a".repeat(64),
+		integrityVerified: true,
+		idempotencyKey: "unit-version-store-key",
+		unitCorrection: {
+			sourceAssetVersionId: "8c520683-c7c7-4903-9858-0b4340a22e19",
+			unitType: "frame",
+			unitKey: "attack/frame-3",
+		},
+	});
+
+	expect(result).toMatchObject({
+		kind: "created",
+		version: { id: versionId, reviewDisposition: "candidate" },
+		unitVersion: {
+			assetRecordId,
+			assetVersionId: versionId,
+			sourceAssetVersionId: "8c520683-c7c7-4903-9858-0b4340a22e19",
+			unitType: "frame",
+			unitKey: "attack/frame-3",
+			versionNumber: 1,
+		},
+	});
+	expect(database.getBatchQueryCount()).toBe(5);
+	expect(database.getTransactionCount()).toBe(0);
+	expect(database.getInsertedUnitVersionValues()).toMatchObject({
+		projectId,
+		assetRecordId,
+		assetVersionId: versionId,
+		sourceAssetVersionId: "8c520683-c7c7-4903-9858-0b4340a22e19",
+		unitType: "frame",
+		unitKey: "attack/frame-3",
+	});
+	const catalog = await store.list(userId, projectId);
+	expect(catalog?.assetVersions.map((version) => version.id)).toContain(
+		versionId
+	);
+	expect(catalog?.unitVersions).toEqual([
+		expect.objectContaining({
+			assetVersionId: versionId,
+			sourceAssetVersionId: "8c520683-c7c7-4903-9858-0b4340a22e19",
+			unitType: "frame",
+			unitKey: "attack/frame-3",
+			versionNumber: 1,
+		}),
+	]);
+});
+
+test("refuses to correct a different Unit Version from the selected source", async () => {
+	const database = createDatabaseHarness(true, "direction");
+	const store = createAssetVersionStore(database.database);
+
+	const result = await store.createCandidateVersion(userId, {
+		id: versionId,
+		projectId,
+		assetFamilyId,
+		assetRecordId,
+		fileName: "attack-frame-3.png",
+		objectKey: `projects/${projectId}/asset-records/${assetRecordId}/versions/${versionId}`,
+		contentType: "image/png",
+		contentLength: 4,
+		contentDigest: "a".repeat(64),
+		integrityVerified: true,
+		idempotencyKey: "unit-version-source-mismatch",
+		unitCorrection: {
+			sourceAssetVersionId: "8c520683-c7c7-4903-9858-0b4340a22e19",
+			unitType: "frame",
+			unitKey: "attack/frame-3",
+		},
+	});
+
+	expect(result).toEqual({ kind: "invalid-unit-source" });
+	expect(database.getBatchQueryCount()).toBe(0);
 });

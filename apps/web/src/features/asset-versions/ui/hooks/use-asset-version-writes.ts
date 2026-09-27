@@ -1,4 +1,7 @@
-import type { AssetVersionReviewInput } from "@sprite-anvil/api/asset-versions";
+import type {
+	AssetVersionReviewInput,
+	UnitVersionCorrectionInput,
+} from "@sprite-anvil/api/asset-versions";
 import { type SyntheticEvent, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ENV } from "@/env";
@@ -70,7 +73,11 @@ export function useAssetVersionWrites(
 	}
 
 	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Upload outcome recovery keeps uncertain writes and retries tied to one idempotency key.
-	async function upload(assetRecordId: string, file: File) {
+	async function upload(
+		assetRecordId: string,
+		file: File,
+		unitCorrection?: UnitVersionCorrectionInput
+	) {
 		if (writeOutcomeUncertain) {
 			return false;
 		}
@@ -84,6 +91,9 @@ export function useAssetVersionWrites(
 			file.type,
 			file.size.toString(),
 			file.lastModified.toString(),
+			unitCorrection?.sourceAssetVersionId ?? "",
+			unitCorrection?.unitType ?? "",
+			unitCorrection?.unitKey ?? "",
 		].join("\u0000");
 		const pendingUpload = pendingUploadRef.current;
 		const idempotencyKey =
@@ -97,17 +107,25 @@ export function useAssetVersionWrites(
 			idempotencyKey,
 		};
 		try {
+			const endpoint = unitCorrection ? "unit-versions" : "versions";
+			const headers: Record<string, string> = {
+				"Content-Type": file.type,
+				"X-Asset-Version-File-Name": encodeURIComponent(file.name),
+				"X-Asset-Version-Size": file.size.toString(),
+				"Idempotency-Key": idempotencyKey,
+			};
+			if (unitCorrection) {
+				headers["X-Source-Asset-Version-Id"] =
+					unitCorrection.sourceAssetVersionId;
+				headers["X-Unit-Version-Type"] = unitCorrection.unitType;
+				headers["X-Unit-Version-Key"] = unitCorrection.unitKey;
+			}
 			const response = await fetch(
-				`${serverUrl}/api/projects/${encodeURIComponent(projectId)}/asset-records/${encodeURIComponent(assetRecordId)}/versions`,
+				`${serverUrl}/api/projects/${encodeURIComponent(projectId)}/asset-records/${encodeURIComponent(assetRecordId)}/${endpoint}`,
 				{
 					method: "POST",
 					credentials: "include",
-					headers: {
-						"Content-Type": file.type,
-						"X-Asset-Version-File-Name": encodeURIComponent(file.name),
-						"X-Asset-Version-Size": file.size.toString(),
-						"Idempotency-Key": idempotencyKey,
-					},
+					headers,
 					body: file,
 				}
 			);
@@ -123,7 +141,11 @@ export function useAssetVersionWrites(
 			}
 			writeConfirmed = true;
 			pendingUploadRef.current = null;
-			await refreshAfterWrite("Aday Varlık Sürümü kaydedildi.");
+			await refreshAfterWrite(
+				unitCorrection
+					? "Yeni Birim Sürümü ve Aday Sürüm kaydedildi."
+					: "Aday Varlık Sürümü kaydedildi."
+			);
 			return true;
 		} catch (error) {
 			if ([400, 409, 415, 422].includes(responseStatus ?? 0)) {
