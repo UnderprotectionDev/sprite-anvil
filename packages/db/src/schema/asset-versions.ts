@@ -115,6 +115,86 @@ export const assetVersions = pgTable(
 	]
 );
 
+export const unitVersions = pgTable(
+	"unit_versions",
+	{
+		id: text("id").primaryKey(),
+		projectId: text("project_id")
+			.notNull()
+			.references(() => project.id, { onDelete: "restrict" }),
+		assetRecordId: text("asset_record_id").notNull(),
+		assetVersionId: text("asset_version_id").notNull(),
+		sourceAssetVersionId: text("source_asset_version_id").notNull(),
+		unitType: text("unit_type")
+			.$type<"frame" | "direction" | "tile" | "state">()
+			.notNull(),
+		unitKey: text("unit_key").notNull(),
+		versionNumber: integer("version_number").notNull(),
+		createdByUserId: text("created_by_user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "restrict" }),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+	},
+	(table) => [
+		foreignKey({
+			name: "unit_versions_candidate_asset_version_fk",
+			columns: [table.projectId, table.assetVersionId, table.assetRecordId],
+			foreignColumns: [
+				assetVersions.projectId,
+				assetVersions.id,
+				assetVersions.assetRecordId,
+			],
+		}).onDelete("restrict"),
+		foreignKey({
+			name: "unit_versions_source_asset_version_fk",
+			columns: [
+				table.projectId,
+				table.sourceAssetVersionId,
+				table.assetRecordId,
+			],
+			foreignColumns: [
+				assetVersions.projectId,
+				assetVersions.id,
+				assetVersions.assetRecordId,
+			],
+		}).onDelete("restrict"),
+		check(
+			"unit_versions_type_check",
+			sql`${table.unitType} IN ('frame', 'direction', 'tile', 'state')`
+		),
+		check(
+			"unit_versions_key_check",
+			sql`${table.unitKey} = btrim(${table.unitKey}) AND char_length(${table.unitKey}) BETWEEN 1 AND 120`
+		),
+		check(
+			"unit_versions_version_number_check",
+			sql`${table.versionNumber} > 0`
+		),
+		check(
+			"unit_versions_source_distinct_check",
+			sql`${table.assetVersionId} <> ${table.sourceAssetVersionId}`
+		),
+		uniqueIndex("unit_versions_project_asset_version_idx").on(
+			table.projectId,
+			table.assetVersionId
+		),
+		uniqueIndex("unit_versions_identity_version_idx").on(
+			table.projectId,
+			table.assetRecordId,
+			table.unitType,
+			table.unitKey,
+			table.versionNumber
+		),
+		index("unit_versions_identity_created_at_idx").on(
+			table.projectId,
+			table.assetRecordId,
+			table.unitType,
+			table.unitKey,
+			table.createdAt
+		),
+	]
+);
+
 export const assetVersionReviewEvents = pgTable(
 	"asset_version_review_events",
 	{

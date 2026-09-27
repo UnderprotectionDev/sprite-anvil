@@ -125,6 +125,7 @@ const assetVersionCatalog: AssetVersionCatalog = {
 			createdAt: "2026-09-25T12:00:09.000Z",
 		},
 	],
+	unitVersions: [],
 };
 
 afterEach(cleanup);

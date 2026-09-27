@@ -2,6 +2,37 @@ import { z } from "zod";
 
 const idSchema = z.string().trim().min(1).max(128);
 
+export const unitVersionTypeSchema = z.enum([
+	"frame",
+	"direction",
+	"tile",
+	"state",
+]);
+
+export const unitVersionKeySchema = z.string().trim().min(1).max(120);
+
+export const unitVersionCorrectionInputSchema = z
+	.object({
+		sourceAssetVersionId: z.string().uuid(),
+		unitType: unitVersionTypeSchema,
+		unitKey: unitVersionKeySchema,
+	})
+	.strict();
+
+export const unitVersionSchema = z
+	.object({
+		id: idSchema,
+		projectId: idSchema,
+		assetRecordId: idSchema,
+		assetVersionId: idSchema,
+		sourceAssetVersionId: idSchema,
+		unitType: unitVersionTypeSchema,
+		unitKey: unitVersionKeySchema,
+		versionNumber: z.number().int().positive(),
+		createdAt: z.string().datetime(),
+	})
+	.strict();
+
 export const assetVersionReviewEventTypeSchema = z.enum([
 	"candidate",
 	"approved",
@@ -60,6 +91,14 @@ export const assetVersionCatalogSchema = z
 	.object({
 		assetVersions: z.array(assetVersionSchema),
 		canonicalDesigns: z.array(assetFamilyCanonicalDesignSchema),
+		unitVersions: z.array(unitVersionSchema),
+	})
+	.strict();
+
+export const unitVersionCorrectionUploadResponseSchema = z
+	.object({
+		assetVersion: assetVersionSchema,
+		unitVersion: unitVersionSchema,
 	})
 	.strict();
 
@@ -88,6 +127,11 @@ export type AssetVersionReviewEvent = z.infer<
 	typeof assetVersionReviewEventSchema
 >;
 export type AssetVersion = z.infer<typeof assetVersionSchema>;
+export type UnitVersionType = z.infer<typeof unitVersionTypeSchema>;
+export type UnitVersionCorrectionInput = z.infer<
+	typeof unitVersionCorrectionInputSchema
+>;
+export type UnitVersion = z.infer<typeof unitVersionSchema>;
 export type AssetFamilyCanonicalDesign = z.infer<
 	typeof assetFamilyCanonicalDesignSchema
 >;
@@ -111,11 +155,17 @@ export interface AssetVersionFileRecord {
 	integrityVerified: boolean;
 	objectKey: string;
 	projectId: string;
+	unitCorrection?: UnitVersionCorrectionInput;
 }
 
 export type CreateCandidateVersionResult =
-	| { kind: "created" | "existing"; version: AssetVersion }
-	| { kind: "idempotency-conflict" };
+	| {
+			kind: "created" | "existing";
+			version: AssetVersion;
+			unitVersion?: UnitVersion;
+	  }
+	| { kind: "idempotency-conflict" }
+	| { kind: "invalid-unit-source" };
 
 export interface AssetVersionStore {
 	createCandidateVersion: (

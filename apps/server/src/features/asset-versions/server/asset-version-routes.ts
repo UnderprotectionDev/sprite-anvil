@@ -1,5 +1,9 @@
 import { assetVersionFileNameSchema } from "@sprite-anvil/api/asset-record-tracking";
 import type { AssetVersionStore } from "@sprite-anvil/api/asset-versions";
+import {
+	type UnitVersionCorrectionInput,
+	unitVersionCorrectionInputSchema,
+} from "@sprite-anvil/api/asset-versions";
 import type { Context, Hono } from "hono";
 import z from "zod";
 import type { createStorage } from "../../../cloudflare";
@@ -11,6 +15,7 @@ import {
 import {
 	serializeAssetVersionUploadResponse,
 	serializePublicApiError,
+	serializeUnitVersionCorrectionUploadResponse,
 } from "../../../output-contracts";
 import {
 	AssetVersionContentLengthError,
@@ -25,6 +30,9 @@ const assetVersionIdSchema = z.string().uuid();
 const uploadLengthHeader = "x-asset-version-size";
 const fileNameHeader = "x-asset-version-file-name";
 const idempotencyKeySchema = z.string().trim().min(1).max(128);
+const sourceAssetVersionHeader = "x-source-asset-version-id";
+const unitVersionTypeHeader = "x-unit-version-type";
+const unitVersionKeyHeader = "x-unit-version-key";
 const uploadLengthPattern = /^[1-9]\d*$/;
 
 type StoredObject = NonNullable<
@@ -99,7 +107,8 @@ async function uploadAssetVersion(
 	projectId: string,
 	assetRecordId: string,
 	ownerUserId: string,
-	dependencies: AssetVersionRouteDependencies
+	dependencies: AssetVersionRouteDependencies,
+	unitCorrection?: UnitVersionCorrectionInput
 ) {
 	const assetRecord =
 		await dependencies.assetVersionStore.getAssetRecordForUpload(
@@ -180,6 +189,7 @@ async function uploadAssetVersion(
 	let storage:
 		| ReturnType<AssetVersionRouteDependencies["createStorage"]>
 		| undefined;
+	let persistenceAttempted = false;
 	try {
 		storage = dependencies.createStorage();
 		await storage.put(
@@ -193,6 +203,7 @@ async function uploadAssetVersion(
 			throw new AssetVersionIntegrityError();
 		}
 
+		persistenceAttempted = true;
 		const result = await dependencies.assetVersionStore.createCandidateVersion(
 			ownerUserId,
 			{
@@ -205,6 +216,7 @@ async function uploadAssetVersion(
 				contentDigest,
 				idempotencyKey: idempotencyKey.data,
 				integrityVerified: true,
+				...(unitCorrection ? { unitCorrection } : {}),
 			}
 		);
 		if (!result) {
@@ -218,20 +230,38 @@ async function uploadAssetVersion(
 				409
 			);
 		}
+		if (result.kind === "invalid-unit-source") {
+			await storage.delete(objectKey);
+			return c.json(
+				serializePublicApiError("Unit Version source does not match"),
+				400
+			);
+		}
 		if (result.kind === "existing") {
 			await storage.delete(objectKey);
+		}
+		if (unitCorrection) {
+			return c.json(
+				serializeUnitVersionCorrectionUploadResponse(
+					result.version,
+					result.unitVersion
+				),
+				result.kind === "created" ? 201 : 200
+			);
 		}
 		return c.json(
 			serializeAssetVersionUploadResponse(result.version),
 			result.kind === "created" ? 201 : 200
 		);
 	} catch (error) {
-		try {
-			if (storage) {
-				await storage.delete(objectKey);
+		if (!persistenceAttempted) {
+			try {
+				if (storage) {
+					await storage.delete(objectKey);
+				}
+			} catch {
+				// The upload remains failed closed when storage cleanup is unavailable.
 			}
-		} catch {
-			// The upload remains failed closed when storage cleanup is unavailable.
 		}
 		if (error instanceof AssetVersionContentLengthError) {
 			return c.json(
@@ -247,6 +277,56 @@ async function uploadAssetVersion(
 		}
 		return c.json(serializePublicApiError("Asset Version upload failed"), 503);
 	}
+}
+
+async function handleAssetVersionUploadRequest(
+	c: Context,
+	dependencies: AssetVersionRouteDependencies,
+	unitCorrectionRequired: boolean
+) {
+	c.header("Cache-Control", "private, no-store");
+	const projectIdInput = c.req.param("projectId") ?? "";
+	const access = await resolveProjectAccess(
+		c.req.raw.headers,
+		projectIdInput,
+		dependencies
+	);
+	if (!access.ok) {
+		return errorResponse(c, access);
+	}
+	const projectId = projectIdSchema.parse(projectIdInput);
+
+	const parsedAssetRecordId = assetRecordIdSchema.safeParse(
+		c.req.param("assetRecordId")
+	);
+	if (!parsedAssetRecordId.success) {
+		return c.json(serializePublicApiError("Not found"), 404);
+	}
+
+	let unitCorrection: UnitVersionCorrectionInput | undefined;
+	if (unitCorrectionRequired) {
+		const parsedCorrection = unitVersionCorrectionInputSchema.safeParse({
+			sourceAssetVersionId: c.req.header(sourceAssetVersionHeader),
+			unitType: c.req.header(unitVersionTypeHeader),
+			unitKey: c.req.header(unitVersionKeyHeader),
+		});
+		if (!parsedCorrection.success) {
+			return c.json(
+				serializePublicApiError("Invalid Unit Version correction"),
+				400
+			);
+		}
+		unitCorrection = parsedCorrection.data;
+	}
+
+	return uploadAssetVersion(
+		c,
+		projectId,
+		parsedAssetRecordId.data,
+		access.ownerUserId,
+		dependencies,
+		unitCorrection
+	);
 }
 
 async function assetVersionPreviewResponse(
@@ -294,31 +374,12 @@ export function mountAssetVersionRoutes(
 ) {
 	app.post(
 		"/api/projects/:projectId/asset-records/:assetRecordId/versions",
-		async (c) => {
-			c.header("Cache-Control", "private, no-store");
-			const access = await resolveProjectAccess(
-				c.req.raw.headers,
-				c.req.param("projectId"),
-				dependencies
-			);
-			if (!access.ok) {
-				return errorResponse(c, access);
-			}
+		(c) => handleAssetVersionUploadRequest(c, dependencies, false)
+	);
 
-			const parsedAssetRecordId = assetRecordIdSchema.safeParse(
-				c.req.param("assetRecordId")
-			);
-			if (!parsedAssetRecordId.success) {
-				return c.json(serializePublicApiError("Not found"), 404);
-			}
-			return uploadAssetVersion(
-				c,
-				c.req.param("projectId"),
-				parsedAssetRecordId.data,
-				access.ownerUserId,
-				dependencies
-			);
-		}
+	app.post(
+		"/api/projects/:projectId/asset-records/:assetRecordId/unit-versions",
+		(c) => handleAssetVersionUploadRequest(c, dependencies, true)
 	);
 
 	app.get(
