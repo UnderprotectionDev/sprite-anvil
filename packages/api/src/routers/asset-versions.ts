@@ -6,6 +6,10 @@ import {
 	assetVersionListInputSchema,
 	assetVersionReviewEventSchema,
 	assetVersionReviewInputSchema,
+	compositeVersionCreateInputSchema,
+	compositeVersionReviewEventSchema,
+	compositeVersionReviewInputSchema,
+	compositeVersionSchema,
 } from "../asset-versions";
 import type { Context } from "../context";
 import { protectedProcedure } from "../index";
@@ -28,6 +32,64 @@ export const assetVersionsRouter = {
 		.handler(async ({ context, input }) =>
 			readVersionCatalog(context, input.projectId)
 		),
+	createCompositeVersion: protectedProcedure
+		.input(compositeVersionCreateInputSchema)
+		.output(compositeVersionSchema)
+		.handler(async ({ context, input }) => {
+			const result = await context.assetVersionStore.createCompositeVersion(
+				context.session.user.id,
+				input
+			);
+			if (!result) {
+				throw new ORPCError("NOT_FOUND", {
+					message: "Proje veya Varlık Kaydı bulunamadı.",
+				});
+			}
+			if (result.kind === "invalid-unit-versions") {
+				throw new ORPCError("BAD_REQUEST", {
+					message:
+						"Seçilen Birim Sürümleri bu Varlık Kaydına ait değil veya aynı bileşim yuvasını birden fazla kez seçiyor.",
+				});
+			}
+			if (result.kind === "idempotency-conflict") {
+				throw new ORPCError("CONFLICT", {
+					message:
+						"Bu Birleşik Sürüm oluşturma anahtarı farklı bir üyelik kümesiyle kullanılmış.",
+				});
+			}
+			return compositeVersionSchema.parse(result.compositeVersion);
+		}),
+	reviewCompositeVersion: protectedProcedure
+		.input(compositeVersionReviewInputSchema)
+		.output(compositeVersionReviewEventSchema)
+		.handler(async ({ context, input }) => {
+			const catalog = await readVersionCatalog(context, input.projectId);
+			const compositeVersion = catalog.compositeVersions.find(
+				(item) => item.id === input.compositeVersionId
+			);
+			if (!compositeVersion) {
+				throw new ORPCError("NOT_FOUND", {
+					message: "Birleşik Sürüm bulunamadı.",
+				});
+			}
+			if (compositeVersion.reviewDisposition === input.decision) {
+				throw new ORPCError("BAD_REQUEST", {
+					message: "Birleşik Sürümün güncel inceleme kararı zaten bu.",
+				});
+			}
+			const event =
+				await context.assetVersionStore.recordCompositeVersionReviewEvent(
+					context.session.user.id,
+					input
+				);
+			if (!event) {
+				throw new ORPCError("CONFLICT", {
+					message:
+						"Birleşik Sürüm bu sırada incelenmiş. Güncel durumu yeniden yükleyin.",
+				});
+			}
+			return compositeVersionReviewEventSchema.parse(event);
+		}),
 	review: protectedProcedure
 		.input(assetVersionReviewInputSchema)
 		.output(assetVersionReviewEventSchema)

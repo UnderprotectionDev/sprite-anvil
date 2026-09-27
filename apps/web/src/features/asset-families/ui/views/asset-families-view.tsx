@@ -17,6 +17,7 @@ const emptyAssetVersionCatalog = {
 	assetVersions: [],
 	canonicalDesigns: [],
 	unitVersions: [],
+	compositeVersions: [],
 };
 
 export function AssetFamiliesView({ projectId }: { projectId: string }) {

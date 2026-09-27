@@ -6,8 +6,9 @@ import type {
 import { Button } from "@sprite-anvil/ui/components/button";
 import { type SyntheticEvent, useState } from "react";
 import type { useAssetVersionWrites } from "../hooks/use-asset-version-writes";
+import { reviewDispositionLabels } from "./review-disposition-labels";
 
-const unitTypeLabels: Record<UnitVersionType, string> = {
+export const unitTypeLabels: Record<UnitVersionType, string> = {
 	frame: "Kare",
 	direction: "Yön",
 	tile: "Karo",
@@ -15,12 +16,6 @@ const unitTypeLabels: Record<UnitVersionType, string> = {
 };
 
 const unitTypes = Object.keys(unitTypeLabels) as UnitVersionType[];
-
-const reviewLabels = {
-	candidate: "Aday",
-	approved: "Onaylandı",
-	rejected: "Reddedildi",
-} as const;
 
 export function UnitVersionCorrectionForm({
 	assetRecordId,
@@ -129,7 +124,7 @@ export function UnitVersionCorrectionForm({
 						{sourceVersions.map((version) => (
 							<option key={version.id} value={version.id}>
 								Sürüm {version.versionNumber} ·{" "}
-								{reviewLabels[version.reviewDisposition]}
+								{reviewDispositionLabels[version.reviewDisposition]}
 							</option>
 						))}
 					</select>

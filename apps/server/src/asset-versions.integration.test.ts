@@ -357,6 +357,21 @@ test.skipIf(!databaseUrl)(
 			expect(secondFrameCorrection.assetVersion.reviewDisposition).toBe(
 				"candidate"
 			);
+			await expect(
+				call(
+					appRouter.assetVersions.createCompositeVersion,
+					{
+						projectId: project.id,
+						assetRecordId: source.id,
+						unitVersionIds: [
+							firstFrameCorrection.unitVersion.id,
+							secondFrameCorrection.unitVersion.id,
+						],
+						idempotencyKey: crypto.randomUUID(),
+					},
+					{ context }
+				)
+			).rejects.toThrow();
 
 			const previewPath = `/api/projects/${project.id}/asset-versions/${uploadedVersion.id}/preview`;
 			const previewResponse = await uploadApp.request(previewPath);
@@ -453,6 +468,78 @@ test.skipIf(!databaseUrl)(
 				},
 				{ context }
 			);
+			await call(
+				appRouter.assetVersions.review,
+				{
+					projectId: project.id,
+					assetVersionId: secondFrameCorrection.assetVersion.id,
+					decision: "approved",
+					rationale: "The corrected frame is ready for composition.",
+				},
+				{ context }
+			);
+			const firstCompositeVersionKey = crypto.randomUUID();
+			const firstCompositeVersionInput = {
+				projectId: project.id,
+				assetRecordId: source.id,
+				unitVersionIds: [
+					firstFrameCorrection.unitVersion.id,
+					unrelatedDirection.unitVersion.id,
+				],
+				idempotencyKey: firstCompositeVersionKey,
+			};
+			const firstCompositeVersion = await call(
+				appRouter.assetVersions.createCompositeVersion,
+				firstCompositeVersionInput,
+				{ context }
+			);
+			expect(
+				await call(
+					appRouter.assetVersions.createCompositeVersion,
+					firstCompositeVersionInput,
+					{ context }
+				)
+			).toEqual(firstCompositeVersion);
+			await expect(
+				call(
+					appRouter.assetVersions.createCompositeVersion,
+					{
+						...firstCompositeVersionInput,
+						unitVersionIds: [
+							secondFrameCorrection.unitVersion.id,
+							unrelatedDirection.unitVersion.id,
+						],
+					},
+					{ context }
+				)
+			).rejects.toThrow();
+			await call(
+				appRouter.assetVersions.reviewCompositeVersion,
+				{
+					projectId: project.id,
+					compositeVersionId: firstCompositeVersion.id,
+					decision: "approved",
+					rationale: "The earlier frame and direction work together.",
+				},
+				{ context }
+			);
+			const secondCompositeVersion = await call(
+				appRouter.assetVersions.createCompositeVersion,
+				{
+					projectId: project.id,
+					assetRecordId: source.id,
+					unitVersionIds: [
+						secondFrameCorrection.unitVersion.id,
+						unrelatedDirection.unitVersion.id,
+					],
+					idempotencyKey: crypto.randomUUID(),
+				},
+				{ context }
+			);
+			expect(secondCompositeVersion).toMatchObject({
+				versionNumber: firstCompositeVersion.versionNumber + 1,
+				reviewDisposition: "candidate",
+			});
 
 			const rereadDb = createDb({ DATABASE_URL: databaseUrl });
 			const rereadProjectContextStore = createProjectContextStore(rereadDb);
@@ -531,6 +618,41 @@ test.skipIf(!databaseUrl)(
 						versionNumber: 1,
 					}),
 				])
+			);
+			expect(versions.compositeVersions).toContainEqual(
+				expect.objectContaining({
+					id: firstCompositeVersion.id,
+					reviewDisposition: "approved",
+					compositionMemberships: expect.arrayContaining([
+						expect.objectContaining({
+							unitVersionId: firstFrameCorrection.unitVersion.id,
+							unitType: "frame",
+						}),
+						expect.objectContaining({
+							unitVersionId: unrelatedDirection.unitVersion.id,
+							unitType: "direction",
+						}),
+					]),
+				})
+			);
+			expect(versions.compositeVersions).toContainEqual(
+				expect.objectContaining({
+					id: secondCompositeVersion.id,
+					reviewDisposition: "candidate",
+					reviewEvents: [
+						expect.objectContaining({ type: "candidate", rationale: null }),
+					],
+					compositionMemberships: expect.arrayContaining([
+						expect.objectContaining({
+							unitVersionId: secondFrameCorrection.unitVersion.id,
+							unitType: "frame",
+						}),
+						expect.objectContaining({
+							unitVersionId: unrelatedDirection.unitVersion.id,
+							unitType: "direction",
+						}),
+					]),
+				})
 			);
 			expect(versions.canonicalDesigns).toContainEqual(canonicalDesign);
 			expect(families.relationships).toContainEqual(relationship);

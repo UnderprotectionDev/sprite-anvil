@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { $, browser } from "@wdio/globals";
 import { assetVersionFixture as fixture } from "../e2e/asset-version-fixture";
 
-describe("Asset Version lineage", () => {
-	it("persists the same reviewed lineage in the desktop flow", async function () {
+describe("Asset and Composite Version lineage", () => {
+	it("persists the same exact composition in the desktop flow", async function () {
 		if (!process.env.CONTEXT_TEST_DATABASE_URL) {
 			this.skip();
 		}
@@ -14,9 +14,53 @@ describe("Asset Version lineage", () => {
 			join(tmpdir(), "sprite-anvil-asset-version-")
 		);
 		const pngPath = join(directory, "ash-knight.png");
-		await writeFile(pngPath, fixture.png);
+		const frameV1Path = join(directory, "attack-frame-v1.png");
+		const directionPath = join(directory, "north-direction-v1.png");
+		const frameV2Path = join(directory, "attack-frame-v2.png");
+		await Promise.all(
+			[pngPath, frameV1Path, directionPath, frameV2Path].map((path) =>
+				writeFile(path, fixture.png)
+			)
+		);
 
 		try {
+			function getSourceRecord() {
+				return $(`h4=${fixture.sourceName}`).$("xpath=ancestor::li[1]");
+			}
+
+			async function uploadUnitCorrection({
+				filePath,
+				key,
+				sourceVersion,
+				type,
+			}: {
+				filePath: string;
+				key: string;
+				sourceVersion: string;
+				type: "direction" | "frame";
+			}) {
+				const sourceRecord = await getSourceRecord();
+				await (
+					await sourceRecord.$(
+						'xpath=.//label[span[text()="Birim türü"]]/select'
+					)
+				).selectByAttribute("value", type);
+				await (
+					await sourceRecord.$('xpath=.//label[span[text()="Birim adı"]]/input')
+				).setValue(key);
+				await (
+					await sourceRecord.$(
+						'xpath=.//label[span[text()="Kaynak Varlık Sürümü"]]/select'
+					)
+				).selectByVisibleText(sourceVersion);
+				await (
+					await sourceRecord.$(
+						'xpath=.//label[span[text()="Düzeltilmiş PNG veya WebP"]]/input'
+					)
+				).setValue(filePath);
+				await (await $("button=Birim düzeltmesini kaydet")).click();
+			}
+
 			await (await $("a=Sign In")).waitForClickable();
 			await (await $("a=Sign In")).click();
 			await (await $("input[name='name']")).setValue(fixture.userName);
@@ -97,11 +141,135 @@ describe("Asset Version lineage", () => {
 			await (await $("button=İlişki ekle")).click();
 			const lineage = await $(`li*=${fixture.visibleLineage}`);
 			await lineage.waitForDisplayed();
+
+			await uploadUnitCorrection({
+				filePath: frameV1Path,
+				key: "attack/frame-3",
+				sourceVersion: "Sürüm 1 · Onaylandı",
+				type: "frame",
+			});
+			await (
+				await $("li*=Kare · attack/frame-3 · Birim Sürümü 1")
+			).waitForDisplayed();
+
+			await uploadUnitCorrection({
+				filePath: directionPath,
+				key: "north",
+				sourceVersion: "Sürüm 1 · Onaylandı",
+				type: "direction",
+			});
+			await (await $("li*=Yön · north · Birim Sürümü 1")).waitForDisplayed();
+
+			const sourceRecord = await getSourceRecord();
+			await (
+				await sourceRecord.$(
+					'xpath=.//label[span[text()="Kare · attack/frame-3"]]/select'
+				)
+			).selectByVisibleText("Birim Sürümü 1 · Varlık Sürümü 2 · Aday");
+			await (
+				await sourceRecord.$(
+					'xpath=.//label[span[text()="Yön · north"]]/select'
+				)
+			).selectByVisibleText("Birim Sürümü 1 · Varlık Sürümü 3 · Aday");
+			await (await $("button=Yeni Birleşik Sürüm kaydet")).click();
+			await (await $("h6=Birleşik Sürüm 1 · Aday")).waitForDisplayed();
+
+			const firstComposite = await $("h6=Birleşik Sürüm 1 · Aday").$(
+				"xpath=ancestor::article[1]"
+			);
+			await (
+				await firstComposite.$(
+					'xpath=.//label[span[text()="Birleşik Sürüm 1 inceleme gerekçesi"]]/textarea'
+				)
+			).setValue("The initial frame and direction were reviewed together.");
+			await (await firstComposite.$("button=Onayla")).click();
+			await (await $("h6=Birleşik Sürüm 1 · Onaylandı")).waitForDisplayed();
+
+			await uploadUnitCorrection({
+				filePath: frameV2Path,
+				key: "attack/frame-3",
+				sourceVersion: "Sürüm 2 · Aday",
+				type: "frame",
+			});
+			await (
+				await $("li*=Kare · attack/frame-3 · Birim Sürümü 2")
+			).waitForDisplayed();
+
+			const correctedAssetVersion = await sourceRecord.$(
+				"xpath=.//p[normalize-space(.)='Sürüm 4 · Aday']/ancestor::li[1]"
+			);
+			await (
+				await correctedAssetVersion.$(
+					'xpath=.//label[span[text()="İnceleme gerekçesi"]]/textarea'
+				)
+			).setValue("The corrected frame is ready for composition.");
+			await (await correctedAssetVersion.$("button=Onayla")).click();
+			await (await $("p=Sürüm 4 · Onaylandı")).waitForDisplayed();
+
+			const latestSourceRecord = await getSourceRecord();
+			await (
+				await latestSourceRecord.$(
+					'xpath=.//label[span[text()="Başlangıç Birleşik Sürümü"]]/select'
+				)
+			).selectByVisibleText("Birleşik Sürüm 1 · Onaylandı");
+			await (
+				await latestSourceRecord.$(
+					'xpath=.//label[span[text()="Kare · attack/frame-3"]]/select'
+				)
+			).selectByVisibleText("Birim Sürümü 2 · Varlık Sürümü 4 · Onaylandı");
+			await (await $("button=Yeni Birleşik Sürüm kaydet")).click();
+			await (await $("h6=Birleşik Sürüm 2 · Aday")).waitForDisplayed();
+			const secondComposite = await $("h6=Birleşik Sürüm 2 · Aday").$(
+				"xpath=ancestor::article[1]"
+			);
+			await (
+				await secondComposite.$("p=Kare · attack/frame-3 · Birim Sürümü 2")
+			).waitForDisplayed();
+			await (
+				await secondComposite.$("p=Yön · north · Birim Sürümü 1")
+			).waitForDisplayed();
+			await (
+				await secondComposite.$("p=Varlık Sürümü 4 · Onaylandı")
+			).waitForDisplayed();
+			const firstCompositeAfterEdit = await $(
+				"h6=Birleşik Sürüm 1 · Onaylandı"
+			).$("xpath=ancestor::article[1]");
+			await (
+				await firstCompositeAfterEdit.$(
+					"p=Kare · attack/frame-3 · Birim Sürümü 1"
+				)
+			).waitForDisplayed();
+
 			await browser.refresh();
 			await (await $("p=Sürüm 1 · Onaylandı")).waitForDisplayed();
 			await $(`li*=— Gerekçe: ${reviewRationale}`).waitForDisplayed();
 			await (await $("time[datetime]")).waitForDisplayed();
 			await (await $(`li*=${fixture.visibleLineage}`)).waitForDisplayed();
+			await (await $("h6=Birleşik Sürüm 1 · Onaylandı")).waitForDisplayed();
+			await (await $("h6=Birleşik Sürüm 2 · Aday")).waitForDisplayed();
+			const persistedFirstComposite = await $(
+				"h6=Birleşik Sürüm 1 · Onaylandı"
+			).$("xpath=ancestor::article[1]");
+			await (
+				await persistedFirstComposite.$(
+					"p=Kare · attack/frame-3 · Birim Sürümü 1"
+				)
+			).waitForDisplayed();
+			await (
+				await persistedFirstComposite.$("p=Yön · north · Birim Sürümü 1")
+			).waitForDisplayed();
+			const persistedComposite = await $("h6=Birleşik Sürüm 2 · Aday").$(
+				"xpath=ancestor::article[1]"
+			);
+			await (
+				await persistedComposite.$("p=Kare · attack/frame-3 · Birim Sürümü 2")
+			).waitForDisplayed();
+			await (
+				await persistedComposite.$("p=Yön · north · Birim Sürümü 1")
+			).waitForDisplayed();
+			await (
+				await persistedComposite.$("p=Varlık Sürümü 4 · Onaylandı")
+			).waitForDisplayed();
 		} finally {
 			await rm(directory, { recursive: true, force: true });
 		}

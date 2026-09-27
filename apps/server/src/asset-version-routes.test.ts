@@ -71,6 +71,7 @@ function createRouteHarness(
 	};
 	const dependencies: AssetVersionRouteDependencies = {
 		assetVersionStore: {
+			createCompositeVersion: () => Promise.resolve(null),
 			createCandidateVersion(_requestedUserId, input) {
 				calls.candidateVersion += 1;
 				if (createCandidateVersionError) {
@@ -154,9 +155,13 @@ function createRouteHarness(
 					assetVersions: savedAssetVersions,
 					canonicalDesigns: [],
 					unitVersions: savedUnitVersions,
+					compositeVersions: [],
 				} as never);
 			},
 			recordReviewEvent() {
+				return Promise.resolve(null);
+			},
+			recordCompositeVersionReviewEvent() {
 				return Promise.resolve(null);
 			},
 			selectCanonicalDesign() {
