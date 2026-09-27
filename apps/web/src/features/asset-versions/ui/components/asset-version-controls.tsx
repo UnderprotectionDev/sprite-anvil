@@ -7,6 +7,10 @@ import { Button } from "@sprite-anvil/ui/components/button";
 import { useState } from "react";
 import { ENV } from "@/env";
 import type { useAssetVersionWrites } from "../hooks/use-asset-version-writes";
+import {
+	UnitVersionCorrectionForm,
+	UnitVersionHistory,
+} from "./unit-version-correction-form";
 
 const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
 
@@ -109,6 +113,9 @@ export function AssetVersionControls({
 							<ul className="space-y-4">
 								{familyRecords.map((record) => {
 									const versions = versionsByRecord.get(record.id) ?? [];
+									const unitVersions = assetVersionCatalog.unitVersions.filter(
+										(unitVersion) => unitVersion.assetRecordId === record.id
+									);
 									return (
 										<li className="space-y-3 border-t pt-3" key={record.id}>
 											<div className="flex flex-wrap items-center justify-between gap-3">
@@ -209,6 +216,16 @@ export function AssetVersionControls({
 													))}
 												</ol>
 											)}
+											<UnitVersionHistory
+												assetVersions={versions}
+												unitVersions={unitVersions}
+											/>
+											<UnitVersionCorrectionForm
+												assetRecordId={record.id}
+												assetVersions={versions}
+												unitVersions={unitVersions}
+												writes={writes}
+											/>
 										</li>
 									);
 								})}

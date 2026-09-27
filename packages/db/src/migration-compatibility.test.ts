@@ -52,6 +52,9 @@ const referenceTransferMigration = readMigration(
 	"./migrations/20260927143958_reference_transfer_constraints/migration.sql"
 );
 const unvalidatedCustomPurposeCheck = `CHECK (("role" = 'custom' AND "custom_purpose" IS NOT NULL AND length(trim("custom_purpose")) > 0) OR ("role" <> 'custom' AND "custom_purpose" IS NULL)) NOT VALID;`;
+const unitVersionMigration = readMigration(
+	"./migrations/20260927131039_unit-versions-selective-correction/migration.sql"
+);
 
 test("normalizes legacy project ownership before current indexes and foreign keys", () => {
 	const renameOwnerColumn = migration.indexOf(
@@ -147,6 +150,22 @@ test("adds immutable Asset Version tracking and its project-scoped relations", (
 	);
 	expect(assetTrackingMigration).toContain(
 		'FOREIGN KEY ("project_id","target_version_id") REFERENCES "asset_versions"'
+	);
+});
+
+test("stores each Unit Version against its candidate and exact source Asset Version", () => {
+	expect(unitVersionMigration).toContain('CREATE TABLE "unit_versions"');
+	expect(unitVersionMigration).toContain(
+		'FOREIGN KEY ("project_id","asset_version_id","asset_record_id") REFERENCES "asset_versions"("project_id","id","asset_record_id")'
+	);
+	expect(unitVersionMigration).toContain(
+		'FOREIGN KEY ("project_id","source_asset_version_id","asset_record_id") REFERENCES "asset_versions"("project_id","id","asset_record_id")'
+	);
+	expect(unitVersionMigration).toContain(
+		"\"unit_type\" IN ('frame', 'direction', 'tile', 'state')"
+	);
+	expect(unitVersionMigration).not.toContain(
+		'DROP INDEX "asset_families_project_name_ci_idx"'
 	);
 });
 

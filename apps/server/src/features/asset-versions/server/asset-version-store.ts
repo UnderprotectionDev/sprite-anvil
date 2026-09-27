@@ -7,11 +7,16 @@ import type {
 	AssetVersionReviewEvent,
 	AssetVersionReviewInput,
 	AssetVersionStore,
+	CreateCandidateVersionResult,
+	UnitVersion,
+	UnitVersionCorrectionInput,
 } from "@sprite-anvil/api/asset-versions";
 import {
 	assetFamilyCanonicalDesignSchema,
 	assetVersionReviewEventSchema,
 	assetVersionSchema,
+	unitVersionCorrectionInputSchema,
+	unitVersionSchema,
 } from "@sprite-anvil/api/asset-versions";
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
 import { assetFamilyCanonicalDesigns } from "@sprite-anvil/db/schema/asset-families";
@@ -23,6 +28,7 @@ import {
 	assetVersionQualityEvidence,
 	assetVersionReviewEvents,
 	assetVersions,
+	unitVersions,
 } from "@sprite-anvil/db/schema/asset-versions";
 import { and, asc, desc, eq, isNotNull, sql } from "drizzle-orm";
 
@@ -55,6 +61,20 @@ function toCanonicalDesign(
 		assetFamilyId: record.assetFamilyId,
 		assetRecordId: record.assetRecordId,
 		assetVersionId: record.assetVersionId,
+		createdAt: toISOString(record.createdAt),
+	});
+}
+
+function toUnitVersion(record: typeof unitVersions.$inferSelect): UnitVersion {
+	return unitVersionSchema.parse({
+		id: record.id,
+		projectId: record.projectId,
+		assetRecordId: record.assetRecordId,
+		assetVersionId: record.assetVersionId,
+		sourceAssetVersionId: record.sourceAssetVersionId,
+		unitType: record.unitType,
+		unitKey: record.unitKey,
+		versionNumber: record.versionNumber,
 		createdAt: toISOString(record.createdAt),
 	});
 }
@@ -100,6 +120,275 @@ function toFileRecord(
 	};
 }
 
+type UnitCorrectionResolution =
+	| { kind: "valid"; value?: UnitVersionCorrectionInput }
+	| { kind: "invalid" }
+	| { kind: "invalid-unit-source" };
+
+async function resolveUnitCorrection(
+	db: Database,
+	input: AssetVersionFileRecord,
+	assetRecordId: string
+): Promise<UnitCorrectionResolution> {
+	if (!input.unitCorrection) {
+		return { kind: "valid" };
+	}
+
+	const parsedCorrection = unitVersionCorrectionInputSchema.safeParse(
+		input.unitCorrection
+	);
+	if (!parsedCorrection.success) {
+		return { kind: "invalid" };
+	}
+
+	const unitCorrection = parsedCorrection.data;
+	const [sourceVersion] = await db
+		.select({ id: assetVersions.id })
+		.from(assetVersions)
+		.where(
+			and(
+				eq(assetVersions.projectId, input.projectId),
+				eq(assetVersions.assetRecordId, assetRecordId),
+				eq(assetVersions.id, unitCorrection.sourceAssetVersionId)
+			)
+		)
+		.limit(1);
+	if (!sourceVersion) {
+		return { kind: "invalid" };
+	}
+
+	const [sourceUnitVersion] = await db
+		.select()
+		.from(unitVersions)
+		.where(
+			and(
+				eq(unitVersions.projectId, input.projectId),
+				eq(unitVersions.assetVersionId, unitCorrection.sourceAssetVersionId)
+			)
+		)
+		.limit(1);
+	if (
+		sourceUnitVersion &&
+		(sourceUnitVersion.unitType !== unitCorrection.unitType ||
+			sourceUnitVersion.unitKey !== unitCorrection.unitKey)
+	) {
+		return { kind: "invalid-unit-source" };
+	}
+
+	return { kind: "valid", value: unitCorrection };
+}
+
+async function readExistingVersion(
+	db: Database,
+	input: AssetVersionFileRecord,
+	assetRecordId: string,
+	assetFamilyId: string,
+	unitCorrection: UnitVersionCorrectionInput | undefined
+): Promise<CreateCandidateVersionResult | null> {
+	const [existing] = await db
+		.select()
+		.from(assetVersions)
+		.where(
+			and(
+				eq(assetVersions.projectId, input.projectId),
+				eq(assetVersions.assetRecordId, assetRecordId),
+				eq(assetVersions.idempotencyKey, input.idempotencyKey)
+			)
+		)
+		.limit(1);
+	if (!existing) {
+		return null;
+	}
+	if (
+		existing.contentDigest !== input.contentDigest ||
+		existing.byteSize !== input.contentLength ||
+		existing.contentType !== input.contentType
+	) {
+		return { kind: "idempotency-conflict" };
+	}
+
+	const [existingUnitVersion] = await db
+		.select()
+		.from(unitVersions)
+		.where(
+			and(
+				eq(unitVersions.projectId, input.projectId),
+				eq(unitVersions.assetVersionId, existing.id)
+			)
+		)
+		.limit(1);
+	const correctionMismatch = unitCorrection
+		? !existingUnitVersion ||
+			existingUnitVersion.sourceAssetVersionId !==
+				unitCorrection.sourceAssetVersionId ||
+			existingUnitVersion.unitType !== unitCorrection.unitType ||
+			existingUnitVersion.unitKey !== unitCorrection.unitKey
+		: Boolean(existingUnitVersion);
+	if (correctionMismatch) {
+		return { kind: "idempotency-conflict" };
+	}
+
+	const reviewRows = await db
+		.select()
+		.from(assetVersionReviewEvents)
+		.where(eq(assetVersionReviewEvents.versionId, existing.id))
+		.orderBy(
+			asc(assetVersionReviewEvents.createdAt),
+			asc(assetVersionReviewEvents.id)
+		);
+	return {
+		kind: "existing",
+		version: toAssetVersion(
+			existing,
+			assetFamilyId,
+			reviewRows.map(toReviewEvent)
+		),
+		...(existingUnitVersion
+			? { unitVersion: toUnitVersion(existingUnitVersion) }
+			: {}),
+	};
+}
+
+async function insertCandidateVersion(
+	db: Database,
+	userId: string,
+	input: AssetVersionFileRecord,
+	assetRecordId: string,
+	assetFamilyId: string,
+	unitCorrection: UnitVersionCorrectionInput | undefined
+): Promise<CreateCandidateVersionResult | null> {
+	if (
+		!(input.contentDigest && contentDigestPattern.test(input.contentDigest))
+	) {
+		return null;
+	}
+	const advisoryLock = db.execute(sql`
+		select pg_advisory_xact_lock(
+			hashtextextended(${assetRecordId}, 0)
+		)
+	`);
+	const versionInsert = db
+		.insert(assetVersions)
+		.values({
+			id: input.id,
+			projectId: input.projectId,
+			assetFamilyId,
+			assetRecordId,
+			versionNumber: sql<number>`coalesce(
+				(select max(${assetVersions.versionNumber})
+				 from ${assetVersions}
+				 where ${assetVersions.assetRecordId} = ${assetRecordId}),
+				0
+			) + 1`,
+			objectKey: input.objectKey,
+			fileName: input.fileName,
+			contentType: input.contentType,
+			sha256: input.contentDigest,
+			byteSize: input.contentLength,
+			contentDigest: input.contentDigest,
+			integrityVerified: input.integrityVerified,
+			idempotencyKey: input.idempotencyKey,
+			createdByUserId: userId,
+		})
+		.returning();
+	const candidateEventInsert = db
+		.insert(assetVersionReviewEvents)
+		.values({
+			id: crypto.randomUUID(),
+			projectId: input.projectId,
+			assetRecordId,
+			versionId: input.id,
+			decision: "candidate",
+			rationale: null,
+			createdByUserId: userId,
+		})
+		.returning();
+	const qualityEvidenceInsert = db
+		.insert(assetVersionQualityEvidence)
+		.values({
+			id: crypto.randomUUID(),
+			projectId: input.projectId,
+			versionId: input.id,
+			gate: "format_signature",
+			result: "matched",
+			sha256: input.contentDigest,
+			byteSize: input.contentLength,
+			createdByUserId: userId,
+		})
+		.returning();
+
+	try {
+		if (unitCorrection) {
+			const unitVersionInsert = db
+				.insert(unitVersions)
+				.values({
+					id: crypto.randomUUID(),
+					projectId: input.projectId,
+					assetRecordId,
+					assetVersionId: input.id,
+					sourceAssetVersionId: unitCorrection.sourceAssetVersionId,
+					unitType: unitCorrection.unitType,
+					unitKey: unitCorrection.unitKey,
+					versionNumber: sql<number>`coalesce(
+						(select max(${unitVersions.versionNumber})
+						 from ${unitVersions}
+						 where ${unitVersions.projectId} = ${input.projectId}
+							and ${unitVersions.assetRecordId} = ${assetRecordId}
+							and ${unitVersions.unitType} = ${unitCorrection.unitType}
+							and ${unitVersions.unitKey} = ${unitCorrection.unitKey}),
+						0
+					) + 1`,
+					createdByUserId: userId,
+				})
+				.returning();
+			const [, [version], [candidateEvent], [qualityEvidence], [unitVersion]] =
+				await db.batch([
+					advisoryLock,
+					versionInsert,
+					candidateEventInsert,
+					qualityEvidenceInsert,
+					unitVersionInsert,
+				]);
+			return version && candidateEvent && qualityEvidence && unitVersion
+				? {
+						kind: "created",
+						version: toAssetVersion(version, assetFamilyId, [
+							toReviewEvent(candidateEvent),
+						]),
+						unitVersion: toUnitVersion(unitVersion),
+					}
+				: null;
+		}
+
+		const [, [version], [candidateEvent], [qualityEvidence]] = await db.batch([
+			advisoryLock,
+			versionInsert,
+			candidateEventInsert,
+			qualityEvidenceInsert,
+		]);
+		return version && candidateEvent && qualityEvidence
+			? {
+					kind: "created",
+					version: toAssetVersion(version, assetFamilyId, [
+						toReviewEvent(candidateEvent),
+					]),
+				}
+			: null;
+	} catch (error) {
+		const racedVersion = await readExistingVersion(
+			db,
+			input,
+			assetRecordId,
+			assetFamilyId,
+			unitCorrection
+		);
+		if (racedVersion) {
+			return racedVersion;
+		}
+		throw error;
+	}
+}
+
 export function createAssetVersionStore(db: Database): AssetVersionStore {
 	return {
 		async list(userId, projectId) {
@@ -108,47 +397,58 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 				return null;
 			}
 
-			const [versionRows, reviewRows, canonicalRows] = await Promise.all([
-				db
-					.select({
-						version: assetVersions,
-						assetFamilyId: assetRecords.assetFamilyId,
-					})
-					.from(assetVersions)
-					.innerJoin(
-						assetRecords,
-						and(
-							eq(assetRecords.projectId, assetVersions.projectId),
-							eq(assetRecords.id, assetVersions.assetRecordId)
+			const [versionRows, reviewRows, canonicalRows, unitRows] =
+				await Promise.all([
+					db
+						.select({
+							version: assetVersions,
+							assetFamilyId: assetRecords.assetFamilyId,
+						})
+						.from(assetVersions)
+						.innerJoin(
+							assetRecords,
+							and(
+								eq(assetRecords.projectId, assetVersions.projectId),
+								eq(assetRecords.id, assetVersions.assetRecordId)
+							)
 						)
-					)
-					.where(
-						and(
-							eq(assetVersions.projectId, projectId),
-							isNotNull(assetRecords.assetFamilyId)
+						.where(
+							and(
+								eq(assetVersions.projectId, projectId),
+								isNotNull(assetRecords.assetFamilyId)
+							)
 						)
-					)
-					.orderBy(
-						asc(assetVersions.assetRecordId),
-						asc(assetVersions.versionNumber)
-					),
-				db
-					.select()
-					.from(assetVersionReviewEvents)
-					.where(eq(assetVersionReviewEvents.projectId, projectId))
-					.orderBy(
-						asc(assetVersionReviewEvents.createdAt),
-						asc(assetVersionReviewEvents.id)
-					),
-				db
-					.select()
-					.from(assetFamilyCanonicalDesigns)
-					.where(eq(assetFamilyCanonicalDesigns.projectId, projectId))
-					.orderBy(
-						asc(assetFamilyCanonicalDesigns.createdAt),
-						asc(assetFamilyCanonicalDesigns.id)
-					),
-			]);
+						.orderBy(
+							asc(assetVersions.assetRecordId),
+							asc(assetVersions.versionNumber)
+						),
+					db
+						.select()
+						.from(assetVersionReviewEvents)
+						.where(eq(assetVersionReviewEvents.projectId, projectId))
+						.orderBy(
+							asc(assetVersionReviewEvents.createdAt),
+							asc(assetVersionReviewEvents.id)
+						),
+					db
+						.select()
+						.from(assetFamilyCanonicalDesigns)
+						.where(eq(assetFamilyCanonicalDesigns.projectId, projectId))
+						.orderBy(
+							asc(assetFamilyCanonicalDesigns.createdAt),
+							asc(assetFamilyCanonicalDesigns.id)
+						),
+					db
+						.select()
+						.from(unitVersions)
+						.where(eq(unitVersions.projectId, projectId))
+						.orderBy(
+							asc(unitVersions.assetRecordId),
+							asc(unitVersions.unitType),
+							asc(unitVersions.unitKey),
+							asc(unitVersions.versionNumber)
+						),
+				]);
 
 			const reviewsByVersion = new Map<string, AssetVersionReviewEvent[]>();
 			for (const reviewRow of reviewRows) {
@@ -170,6 +470,7 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 					)
 					.filter((version): version is AssetVersion => version !== null),
 				canonicalDesigns: canonicalRows.map(toCanonicalDesign),
+				unitVersions: unitRows.map(toUnitVersion),
 			};
 		},
 
@@ -230,125 +531,39 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 			if (!assetRecord?.assetFamilyId) {
 				return null;
 			}
-			const { assetFamilyId } = assetRecord;
 
-			const readExistingVersion = async () => {
-				const [existing] = await db
-					.select()
-					.from(assetVersions)
-					.where(
-						and(
-							eq(assetVersions.projectId, input.projectId),
-							eq(assetVersions.assetRecordId, assetRecord.id),
-							eq(assetVersions.idempotencyKey, input.idempotencyKey)
-						)
-					)
-					.limit(1);
-				if (!existing) {
-					return null;
-				}
-				if (
-					existing.contentDigest !== input.contentDigest ||
-					existing.byteSize !== input.contentLength ||
-					existing.contentType !== input.contentType
-				) {
-					return { kind: "idempotency-conflict" as const };
-				}
-				const reviewRows = await db
-					.select()
-					.from(assetVersionReviewEvents)
-					.where(eq(assetVersionReviewEvents.versionId, existing.id))
-					.orderBy(
-						asc(assetVersionReviewEvents.createdAt),
-						asc(assetVersionReviewEvents.id)
-					);
-				return {
-					kind: "existing" as const,
-					version: toAssetVersion(
-						existing,
-						assetFamilyId,
-						reviewRows.map(toReviewEvent)
-					),
-				};
-			};
-			const existingVersion = await readExistingVersion();
+			const correctionResolution = await resolveUnitCorrection(
+				db,
+				input,
+				assetRecord.id
+			);
+			if (correctionResolution.kind === "invalid") {
+				return null;
+			}
+			if (correctionResolution.kind === "invalid-unit-source") {
+				return correctionResolution;
+			}
+
+			const unitCorrection = correctionResolution.value;
+			const existingVersion = await readExistingVersion(
+				db,
+				input,
+				assetRecord.id,
+				assetRecord.assetFamilyId,
+				unitCorrection
+			);
 			if (existingVersion) {
 				return existingVersion;
 			}
 
-			try {
-				const [, [version], [candidateEvent], [qualityEvidence]] =
-					await db.batch([
-						db.execute(sql`
-						select pg_advisory_xact_lock(
-							hashtextextended(${assetRecord.id}, 0)
-						)
-					`),
-						db
-							.insert(assetVersions)
-							.values({
-								id: input.id,
-								projectId: input.projectId,
-								assetFamilyId,
-								assetRecordId: assetRecord.id,
-								versionNumber: sql<number>`coalesce(
-								(select max(${assetVersions.versionNumber})
-								 from ${assetVersions}
-								 where ${assetVersions.assetRecordId} = ${assetRecord.id}),
-								0
-							) + 1`,
-								objectKey: input.objectKey,
-								fileName: input.fileName,
-								contentType: input.contentType,
-								sha256: input.contentDigest,
-								byteSize: input.contentLength,
-								contentDigest: input.contentDigest,
-								integrityVerified: input.integrityVerified,
-								idempotencyKey: input.idempotencyKey,
-								createdByUserId: userId,
-							})
-							.returning(),
-						db
-							.insert(assetVersionReviewEvents)
-							.values({
-								id: crypto.randomUUID(),
-								projectId: input.projectId,
-								assetRecordId: assetRecord.id,
-								versionId: input.id,
-								decision: "candidate",
-								rationale: null,
-								createdByUserId: userId,
-							})
-							.returning(),
-						db
-							.insert(assetVersionQualityEvidence)
-							.values({
-								id: crypto.randomUUID(),
-								projectId: input.projectId,
-								versionId: input.id,
-								gate: "format_signature",
-								result: "matched",
-								sha256: input.contentDigest,
-								byteSize: input.contentLength,
-								createdByUserId: userId,
-							})
-							.returning(),
-					]);
-				return version && candidateEvent && qualityEvidence
-					? {
-							kind: "created" as const,
-							version: toAssetVersion(version, assetFamilyId, [
-								toReviewEvent(candidateEvent),
-							]),
-						}
-					: null;
-			} catch (error) {
-				const racedVersion = await readExistingVersion();
-				if (racedVersion) {
-					return racedVersion;
-				}
-				throw error;
-			}
+			return insertCandidateVersion(
+				db,
+				userId,
+				input,
+				assetRecord.id,
+				assetRecord.assetFamilyId,
+				unitCorrection
+			);
 		},
 
 		async getFileRecord(userId, projectId, assetVersionId) {

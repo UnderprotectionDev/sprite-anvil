@@ -49,7 +49,11 @@ vi.mock("@/utils/orpc", () => ({
 			list: {
 				queryOptions: () => ({
 					queryKey: ["asset-versions"],
-					queryFn: async () => ({ assetVersions: [], canonicalDesigns: [] }),
+					queryFn: async () => ({
+						assetVersions: [],
+						canonicalDesigns: [],
+						unitVersions: [],
+					}),
 				}),
 			},
 		},

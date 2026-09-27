@@ -1,5 +1,8 @@
 import { ORPCError } from "@orpc/server";
-import { assetVersionSchema } from "@sprite-anvil/api/asset-versions";
+import {
+	assetVersionSchema,
+	unitVersionCorrectionUploadResponseSchema,
+} from "@sprite-anvil/api/asset-versions";
 import { supportReferenceSchema } from "@sprite-anvil/api/error-contract";
 import z from "zod";
 
@@ -46,6 +49,16 @@ export function serializeAssetVersionUploadResponse(assetVersion: unknown) {
 	return assetVersionUploadResponseSchema.parse(assetVersion);
 }
 
+export function serializeUnitVersionCorrectionUploadResponse(
+	assetVersion: unknown,
+	unitVersion: unknown
+) {
+	return unitVersionCorrectionUploadResponseSchema.parse({
+		assetVersion,
+		unitVersion,
+	});
+}
+
 export const publicApiErrorSchema = z
 	.object({
 		error: z.enum([
@@ -75,6 +88,8 @@ export const publicApiErrorSchema = z
 			"Invalid Reference image content",
 			"Reference image upload failed",
 			"Reference image unavailable",
+			"Invalid Unit Version correction",
+			"Unit Version source does not match",
 			"Internal Server Error",
 		]),
 		supportReference: supportReferenceSchema.optional(),

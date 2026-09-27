@@ -277,6 +277,7 @@ test("groups representations by Subject Identity while keeping relationships ins
 								createdAt: "2026-09-25T12:00:00.000Z",
 							},
 						],
+						unitVersions: [],
 						canonicalDesigns: [
 							{
 								id: "canonical-selection",

@@ -37,6 +37,7 @@ test("records a derivative against the approved Canonical Design version", async
 	const versionCatalog = {
 		assetVersions: [version],
 		canonicalDesigns: [] as Record<string, unknown>[],
+		unitVersions: [] as Record<string, unknown>[],
 	};
 	const assetFamilyCatalog = {
 		subjectIdentities: [],

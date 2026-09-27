@@ -13,7 +13,11 @@ import {
 import { useAssetFamilyFormState } from "../hooks/use-asset-family-form-state";
 import { useAssetFamilyWrites } from "../hooks/use-asset-family-writes";
 
-const emptyAssetVersionCatalog = { assetVersions: [], canonicalDesigns: [] };
+const emptyAssetVersionCatalog = {
+	assetVersions: [],
+	canonicalDesigns: [],
+	unitVersions: [],
+};
 
 export function AssetFamiliesView({ projectId }: { projectId: string }) {
 	const projectsQuery = useQuery({
