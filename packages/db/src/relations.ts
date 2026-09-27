@@ -8,4 +8,5 @@ export const relations = {
 	// This relation part includes Project ownership plus Context Revision and Proposal relations.
 	...schema.projectContextRelations,
 	...schema.assetRecordRelations,
+	...schema.collectionRelations,
 };

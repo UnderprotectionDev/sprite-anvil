@@ -18,6 +18,7 @@ import { createAssetRecordTrackingStore } from "./features/asset-records/server/
 import { verifyAssetVersionStream } from "./features/asset-versions/server/asset-version-integrity";
 import { mountAssetVersionRoutes } from "./features/asset-versions/server/asset-version-routes";
 import { createAssetVersionStore } from "./features/asset-versions/server/asset-version-store";
+import { createCollectionStore } from "./features/collections/server/collection-store";
 import { createProjectContextStore } from "./features/project-context/server/project-context-store";
 import { createProjectAccessStore } from "./features/projects/server/project-access-store";
 import { createProjectContextScopeStore } from "./features/visual-worlds/server/project-context-scope-store";
@@ -140,6 +141,7 @@ test.skipIf(!databaseUrl)(
 				assetVersionStore: createAssetVersionStore(db),
 				assetRecordStore: createAssetRecordStore(db),
 				assetRecordTrackingStore: createAssetRecordTrackingStore(db, null),
+				collectionStore: createCollectionStore(db),
 				verifyAssetVersionContent,
 				db,
 				projectAccess: createProjectAccessStore(db, projectContextStore),
@@ -462,6 +464,7 @@ test.skipIf(!databaseUrl)(
 					rereadDb,
 					null
 				),
+				collectionStore: createCollectionStore(rereadDb),
 				verifyAssetVersionContent,
 				db: rereadDb,
 				projectAccess: createProjectAccessStore(

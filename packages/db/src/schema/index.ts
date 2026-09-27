@@ -6,6 +6,7 @@ export * from "./asset-record-references";
 export * from "./asset-records";
 export * from "./asset-versions";
 export * from "./auth";
+export * from "./collections";
 export * from "./context-scopes";
 export * from "./external-visual-analysis";
 export * from "./project";

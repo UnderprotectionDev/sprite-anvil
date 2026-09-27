@@ -192,6 +192,14 @@ function ProjectsList({
 							Varlık kayıtları
 						</Link>
 						<Link
+							aria-label={`${project.name} koleksiyonlarını düzenle`}
+							className={`${buttonVariants({ variant: "outline" })} min-h-11`}
+							params={{ projectId: project.id }}
+							to="/projects/$projectId/collections"
+						>
+							Koleksiyonlar
+						</Link>
+						<Link
 							aria-label={`${project.name} izinlerini yönet`}
 							className={buttonVariants({ variant: "outline" })}
 							params={{ projectId: project.id }}

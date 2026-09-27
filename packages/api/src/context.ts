@@ -4,6 +4,7 @@ import type { AssetFamilyStore } from "./asset-families";
 import type { AssetRecordTrackingStore } from "./asset-record-tracking";
 import type { AssetRecordStore } from "./asset-records";
 import type { AssetVersionStore } from "./asset-versions";
+import type { CollectionStore } from "./collections";
 import type { ProjectContextScopeStore } from "./context-scopes";
 import type { ProjectAccessStore } from "./project-access-store";
 import type { ProjectContextStore } from "./project-context";
@@ -14,6 +15,7 @@ export interface Context {
 	assetRecordStore: AssetRecordStore;
 	assetRecordTrackingStore: AssetRecordTrackingStore;
 	assetVersionStore: AssetVersionStore;
+	collectionStore: CollectionStore;
 	db: Database;
 	projectAccess: ProjectAccessStore;
 	projectContextScopeStore: ProjectContextScopeStore;
