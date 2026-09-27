@@ -55,6 +55,16 @@ export const assetVersionReviewEventSchema = z
 	})
 	.strict();
 
+export const compositeVersionReviewEventSchema = z
+	.object({
+		id: idSchema,
+		compositeVersionId: idSchema,
+		type: assetVersionReviewEventTypeSchema,
+		rationale: z.string().nullable(),
+		createdAt: z.string().datetime(),
+	})
+	.strict();
+
 export const assetVersionSchema = z
 	.object({
 		id: idSchema,
@@ -87,11 +97,38 @@ export const assetFamilyCanonicalDesignSchema = z
 	})
 	.strict();
 
+export const compositionMembershipSchema = z
+	.object({
+		id: idSchema,
+		projectId: idSchema,
+		assetRecordId: idSchema,
+		compositeVersionId: idSchema,
+		unitVersionId: idSchema,
+		unitType: unitVersionTypeSchema,
+		unitKey: unitVersionKeySchema,
+		createdAt: z.string().datetime(),
+	})
+	.strict();
+
+export const compositeVersionSchema = z
+	.object({
+		id: idSchema,
+		projectId: idSchema,
+		assetRecordId: idSchema,
+		versionNumber: z.number().int().positive(),
+		reviewDisposition: assetVersionReviewDispositionSchema,
+		reviewEvents: z.array(compositeVersionReviewEventSchema),
+		compositionMemberships: z.array(compositionMembershipSchema),
+		createdAt: z.string().datetime(),
+	})
+	.strict();
+
 export const assetVersionCatalogSchema = z
 	.object({
 		assetVersions: z.array(assetVersionSchema),
 		canonicalDesigns: z.array(assetFamilyCanonicalDesignSchema),
 		unitVersions: z.array(unitVersionSchema),
+		compositeVersions: z.array(compositeVersionSchema),
 	})
 	.strict();
 
@@ -115,6 +152,30 @@ export const assetVersionReviewInputSchema = z
 	})
 	.strict();
 
+export const compositeVersionCreateInputSchema = z
+	.object({
+		projectId: idSchema,
+		assetRecordId: idSchema,
+		unitVersionIds: z
+			.array(idSchema)
+			.min(1)
+			.refine(
+				(ids) => new Set(ids).size === ids.length,
+				"A Unit Version can appear only once in a Composite Version"
+			),
+		idempotencyKey: z.string().trim().min(1).max(128),
+	})
+	.strict();
+
+export const compositeVersionReviewInputSchema = z
+	.object({
+		projectId: idSchema,
+		compositeVersionId: idSchema,
+		decision: assetVersionReviewDispositionSchema,
+		rationale: z.string().trim().min(1).max(2000),
+	})
+	.strict();
+
 export const assetFamilyCanonicalDesignInputSchema = z
 	.object({
 		projectId: idSchema,
@@ -126,18 +187,29 @@ export const assetFamilyCanonicalDesignInputSchema = z
 export type AssetVersionReviewEvent = z.infer<
 	typeof assetVersionReviewEventSchema
 >;
+export type CompositeVersionReviewEvent = z.infer<
+	typeof compositeVersionReviewEventSchema
+>;
 export type AssetVersion = z.infer<typeof assetVersionSchema>;
 export type UnitVersionType = z.infer<typeof unitVersionTypeSchema>;
 export type UnitVersionCorrectionInput = z.infer<
 	typeof unitVersionCorrectionInputSchema
 >;
 export type UnitVersion = z.infer<typeof unitVersionSchema>;
+export type CompositionMembership = z.infer<typeof compositionMembershipSchema>;
+export type CompositeVersion = z.infer<typeof compositeVersionSchema>;
 export type AssetFamilyCanonicalDesign = z.infer<
 	typeof assetFamilyCanonicalDesignSchema
 >;
 export type AssetVersionCatalog = z.infer<typeof assetVersionCatalogSchema>;
 export type AssetVersionReviewInput = z.infer<
 	typeof assetVersionReviewInputSchema
+>;
+export type CompositeVersionCreateInput = z.infer<
+	typeof compositeVersionCreateInputSchema
+>;
+export type CompositeVersionReviewInput = z.infer<
+	typeof compositeVersionReviewInputSchema
 >;
 export type AssetFamilyCanonicalDesignInput = z.infer<
 	typeof assetFamilyCanonicalDesignInputSchema
@@ -167,11 +239,20 @@ export type CreateCandidateVersionResult =
 	| { kind: "idempotency-conflict" }
 	| { kind: "invalid-unit-source" };
 
+export type CreateCompositeVersionResult =
+	| { kind: "created" | "existing"; compositeVersion: CompositeVersion }
+	| { kind: "idempotency-conflict" }
+	| { kind: "invalid-unit-versions" };
+
 export interface AssetVersionStore {
 	createCandidateVersion: (
 		userId: string,
 		input: AssetVersionFileRecord
 	) => Promise<CreateCandidateVersionResult | null>;
+	createCompositeVersion: (
+		userId: string,
+		input: CompositeVersionCreateInput
+	) => Promise<CreateCompositeVersionResult | null>;
 	getAssetRecordForUpload: (
 		userId: string,
 		projectId: string,
@@ -189,6 +270,10 @@ export interface AssetVersionStore {
 		userId: string,
 		projectId: string
 	) => Promise<AssetVersionCatalog | null>;
+	recordCompositeVersionReviewEvent: (
+		userId: string,
+		input: CompositeVersionReviewInput
+	) => Promise<CompositeVersionReviewEvent | null>;
 	recordReviewEvent: (
 		userId: string,
 		input: AssetVersionReviewInput

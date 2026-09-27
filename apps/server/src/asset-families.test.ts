@@ -278,6 +278,7 @@ test("groups representations by Subject Identity while keeping relationships ins
 							},
 						],
 						unitVersions: [],
+						compositeVersions: [],
 						canonicalDesigns: [
 							{
 								id: "canonical-selection",

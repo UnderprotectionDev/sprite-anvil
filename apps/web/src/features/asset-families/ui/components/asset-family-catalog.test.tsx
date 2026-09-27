@@ -126,6 +126,7 @@ const assetVersionCatalog: AssetVersionCatalog = {
 		},
 	],
 	unitVersions: [],
+	compositeVersions: [],
 };
 
 afterEach(cleanup);

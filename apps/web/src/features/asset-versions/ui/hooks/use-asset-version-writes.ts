@@ -1,5 +1,6 @@
 import type {
 	AssetVersionReviewInput,
+	CompositeVersionReviewInput,
 	UnitVersionCorrectionInput,
 } from "@sprite-anvil/api/asset-versions";
 import { type SyntheticEvent, useRef, useState } from "react";
@@ -16,12 +17,20 @@ interface RefreshResult {
 }
 
 type ReviewDecision = AssetVersionReviewInput["decision"];
+type CompositeReviewDecision = CompositeVersionReviewInput["decision"];
 
 const reviewSuccessMessages: Record<ReviewDecision, string> = {
 	approved: "Varlık Sürümü onaylandı.",
 	candidate: "Varlık Sürümü yeniden Aday yapıldı.",
 	rejected: "Varlık Sürümü reddedildi.",
 };
+
+const compositeReviewSuccessMessages: Record<CompositeReviewDecision, string> =
+	{
+		approved: "Birleşik Sürüm onaylandı.",
+		candidate: "Birleşik Sürüm yeniden Aday yapıldı.",
+		rejected: "Birleşik Sürüm reddedildi.",
+	};
 
 export function useAssetVersionWrites(
 	projectId: string,
@@ -30,6 +39,10 @@ export function useAssetVersionWrites(
 	const pendingUploadRef = useRef<{
 		assetRecordId: string;
 		fileFingerprint: string;
+		idempotencyKey: string;
+	} | null>(null);
+	const pendingCompositeCreateRef = useRef<{
+		fingerprint: string;
 		idempotencyKey: string;
 	} | null>(null);
 	const [activeAction, setActiveAction] = useState<string | null>(null);
@@ -198,6 +211,55 @@ export function useAssetVersionWrites(
 		);
 	}
 
+	async function createCompositeVersion(
+		assetRecordId: string,
+		unitVersionIds: string[]
+	) {
+		const normalizedUnitVersionIds = [...unitVersionIds].sort();
+		const fingerprint = [assetRecordId, ...normalizedUnitVersionIds].join(
+			"\u0000"
+		);
+		const pendingCreate = pendingCompositeCreateRef.current;
+		const idempotencyKey =
+			pendingCreate?.fingerprint === fingerprint
+				? pendingCreate.idempotencyKey
+				: crypto.randomUUID();
+		pendingCompositeCreateRef.current = { fingerprint, idempotencyKey };
+		const created = await runAction(
+			`composite:${assetRecordId}`,
+			() =>
+				client.assetVersions.createCompositeVersion({
+					projectId,
+					assetRecordId,
+					unitVersionIds: normalizedUnitVersionIds,
+					idempotencyKey,
+				}),
+			"Yeni Birleşik Sürüm Aday olarak kaydedildi."
+		);
+		if (created) {
+			pendingCompositeCreateRef.current = null;
+		}
+		return created;
+	}
+
+	function reviewCompositeVersion(
+		compositeVersionId: string,
+		decision: CompositeReviewDecision,
+		rationale: string
+	) {
+		return runAction(
+			`composite-review:${compositeVersionId}`,
+			() =>
+				client.assetVersions.reviewCompositeVersion({
+					projectId,
+					compositeVersionId,
+					decision,
+					rationale: rationale.trim(),
+				}),
+			compositeReviewSuccessMessages[decision]
+		);
+	}
+
 	function selectCanonicalDesign(
 		assetFamilyId: string,
 		assetVersionId: string
@@ -234,8 +296,10 @@ export function useAssetVersionWrites(
 	return {
 		activeAction,
 		checkWriteOutcome,
+		createCompositeVersion,
 		isCheckingOutcome,
 		review,
+		reviewCompositeVersion,
 		selectCanonicalDesign,
 		statusMessage,
 		upload,

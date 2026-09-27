@@ -7,6 +7,8 @@ import { Button } from "@sprite-anvil/ui/components/button";
 import { useState } from "react";
 import { ENV } from "@/env";
 import type { useAssetVersionWrites } from "../hooks/use-asset-version-writes";
+import { AssetVersionPreview } from "./asset-version-preview";
+import { CompositeVersionControls } from "./composite-version-controls";
 import {
 	UnitVersionCorrectionForm,
 	UnitVersionHistory,
@@ -25,6 +27,16 @@ const reviewEventLabels = {
 	approved: "İnceleme ile onaylandı",
 	rejected: "İnceleme ile reddedildi",
 } as const;
+
+function activeActionMessage(activeAction: string) {
+	if (activeAction.startsWith("upload:")) {
+		return "Varlık Sürümü yükleniyor…";
+	}
+	if (activeAction.startsWith("composite")) {
+		return "Birleşik Sürüm işlemi kaydediliyor…";
+	}
+	return "Varlık Sürümü işlemi kaydediliyor…";
+}
 
 export function AssetVersionControls({
 	assetVersionCatalog,
@@ -82,9 +94,7 @@ export function AssetVersionControls({
 			) : null}
 			{writes.activeAction ? (
 				<p aria-live="polite" role="status">
-					{writes.activeAction.startsWith("upload:")
-						? "Varlık Sürümü yükleniyor…"
-						: "Varlık Sürümü işlemi kaydediliyor…"}
+					{activeActionMessage(writes.activeAction)}
 				</p>
 			) : null}
 			{writes.writeOutcomeUncertain ? (
@@ -226,6 +236,17 @@ export function AssetVersionControls({
 												unitVersions={unitVersions}
 												writes={writes}
 											/>
+											<CompositeVersionControls
+												assetRecordId={record.id}
+												assetRecordName={record.name}
+												assetVersions={versions}
+												compositeVersions={assetVersionCatalog.compositeVersions.filter(
+													(compositeVersion) =>
+														compositeVersion.assetRecordId === record.id
+												)}
+												unitVersions={unitVersions}
+												writes={writes}
+											/>
 										</li>
 									);
 								})}
@@ -302,39 +323,5 @@ function AssetVersionReviewControls({
 				)}
 			</div>
 		</div>
-	);
-}
-
-function AssetVersionPreview({
-	recordName,
-	url,
-	versionNumber,
-}: {
-	recordName: string;
-	url: string;
-	versionNumber: number;
-}) {
-	const [failed, setFailed] = useState(false);
-	if (failed) {
-		return (
-			<p className="w-32 self-center text-destructive text-sm" role="alert">
-				Sürüm {versionNumber} önizlemesi bütünlük doğrulamasından geçemedi.
-			</p>
-		);
-	}
-	return (
-		<>
-			{/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: Image load failures switch to the accessible error message above. */}
-			<img
-				alt={`${recordName}, Sürüm ${versionNumber} önizlemesi`}
-				className="aspect-square w-32 rounded border bg-muted object-contain"
-				crossOrigin="use-credentials"
-				height={128}
-				loading="lazy"
-				onError={() => setFailed(true)}
-				src={url}
-				width={128}
-			/>
-		</>
 	);
 }

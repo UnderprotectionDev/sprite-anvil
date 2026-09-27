@@ -178,6 +178,13 @@ export const unitVersions = pgTable(
 			table.projectId,
 			table.assetVersionId
 		),
+		uniqueIndex("unit_versions_project_id_record_type_key_idx").on(
+			table.projectId,
+			table.id,
+			table.assetRecordId,
+			table.unitType,
+			table.unitKey
+		),
 		uniqueIndex("unit_versions_identity_version_idx").on(
 			table.projectId,
 			table.assetRecordId,
@@ -190,6 +197,167 @@ export const unitVersions = pgTable(
 			table.assetRecordId,
 			table.unitType,
 			table.unitKey,
+			table.createdAt
+		),
+	]
+);
+
+export const compositeVersions = pgTable(
+	"composite_versions",
+	{
+		id: text("id").primaryKey(),
+		projectId: text("project_id")
+			.notNull()
+			.references(() => project.id, { onDelete: "restrict" }),
+		assetRecordId: text("asset_record_id").notNull(),
+		versionNumber: integer("version_number").notNull(),
+		idempotencyKey: text("idempotency_key").notNull(),
+		createdByUserId: text("created_by_user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "restrict" }),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+	},
+	(table) => [
+		foreignKey({
+			name: "composite_versions_project_record_fk",
+			columns: [table.projectId, table.assetRecordId],
+			foreignColumns: [assetRecords.projectId, assetRecords.id],
+		}).onDelete("restrict"),
+		uniqueIndex("composite_versions_project_id_record_id_idx").on(
+			table.projectId,
+			table.id,
+			table.assetRecordId
+		),
+		uniqueIndex("composite_versions_record_number_idx").on(
+			table.projectId,
+			table.assetRecordId,
+			table.versionNumber
+		),
+		uniqueIndex("composite_versions_idempotency_key_idx").on(
+			table.projectId,
+			table.assetRecordId,
+			table.idempotencyKey
+		),
+		check(
+			"composite_versions_version_number_check",
+			sql`${table.versionNumber} > 0`
+		),
+		check(
+			"composite_versions_idempotency_key_check",
+			sql`${table.idempotencyKey} = btrim(${table.idempotencyKey}) AND char_length(${table.idempotencyKey}) BETWEEN 1 AND 128`
+		),
+		index("composite_versions_record_created_at_idx").on(
+			table.projectId,
+			table.assetRecordId,
+			table.createdAt
+		),
+	]
+);
+
+export const compositionMemberships = pgTable(
+	"composition_memberships",
+	{
+		id: text("id").primaryKey(),
+		projectId: text("project_id").notNull(),
+		assetRecordId: text("asset_record_id").notNull(),
+		compositeVersionId: text("composite_version_id").notNull(),
+		unitVersionId: text("unit_version_id").notNull(),
+		unitType: text("unit_type")
+			.$type<"frame" | "direction" | "tile" | "state">()
+			.notNull(),
+		unitKey: text("unit_key").notNull(),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+	},
+	(table) => [
+		foreignKey({
+			name: "composition_memberships_project_composite_fk",
+			columns: [table.projectId, table.compositeVersionId, table.assetRecordId],
+			foreignColumns: [
+				compositeVersions.projectId,
+				compositeVersions.id,
+				compositeVersions.assetRecordId,
+			],
+		}).onDelete("restrict"),
+		foreignKey({
+			name: "composition_memberships_project_unit_fk",
+			columns: [
+				table.projectId,
+				table.unitVersionId,
+				table.assetRecordId,
+				table.unitType,
+				table.unitKey,
+			],
+			foreignColumns: [
+				unitVersions.projectId,
+				unitVersions.id,
+				unitVersions.assetRecordId,
+				unitVersions.unitType,
+				unitVersions.unitKey,
+			],
+		}).onDelete("restrict"),
+		check(
+			"composition_memberships_type_check",
+			sql`${table.unitType} IN ('frame', 'direction', 'tile', 'state')`
+		),
+		check(
+			"composition_memberships_key_check",
+			sql`${table.unitKey} = btrim(${table.unitKey}) AND char_length(${table.unitKey}) BETWEEN 1 AND 120`
+		),
+		uniqueIndex("composition_memberships_slot_idx").on(
+			table.projectId,
+			table.compositeVersionId,
+			table.unitType,
+			table.unitKey
+		),
+		uniqueIndex("composition_memberships_unit_idx").on(
+			table.projectId,
+			table.compositeVersionId,
+			table.unitVersionId
+		),
+		index("composition_memberships_unit_version_idx").on(
+			table.projectId,
+			table.unitVersionId
+		),
+	]
+);
+
+export const compositeVersionReviewEvents = pgTable(
+	"composite_version_review_events",
+	{
+		id: text("id").primaryKey(),
+		projectId: text("project_id").notNull(),
+		assetRecordId: text("asset_record_id").notNull(),
+		compositeVersionId: text("composite_version_id").notNull(),
+		decision: text("decision")
+			.$type<"candidate" | "approved" | "rejected">()
+			.notNull(),
+		rationale: text("rationale"),
+		createdByUserId: text("created_by_user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "restrict" }),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+	},
+	(table) => [
+		foreignKey({
+			name: "composite_version_reviews_project_composite_fk",
+			columns: [table.projectId, table.compositeVersionId, table.assetRecordId],
+			foreignColumns: [
+				compositeVersions.projectId,
+				compositeVersions.id,
+				compositeVersions.assetRecordId,
+			],
+		}).onDelete("restrict"),
+		check(
+			"composite_version_reviews_decision_check",
+			sql`${table.decision} IN ('candidate', 'approved', 'rejected')`
+		),
+		index("composite_version_reviews_record_created_idx").on(
+			table.assetRecordId,
+			table.createdAt
+		),
+		index("composite_version_reviews_composite_created_idx").on(
+			table.projectId,
+			table.compositeVersionId,
 			table.createdAt
 		),
 	]

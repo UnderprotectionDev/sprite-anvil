@@ -7,7 +7,7 @@ import { Button } from "@sprite-anvil/ui/components/button";
 import { type SyntheticEvent, useState } from "react";
 import type { useAssetVersionWrites } from "../hooks/use-asset-version-writes";
 
-const unitTypeLabels: Record<UnitVersionType, string> = {
+export const unitTypeLabels: Record<UnitVersionType, string> = {
 	frame: "Kare",
 	direction: "Yön",
 	tile: "Karo",

@@ -55,6 +55,9 @@ const unvalidatedCustomPurposeCheck = `CHECK (("role" = 'custom' AND "custom_pur
 const unitVersionMigration = readMigration(
 	"./migrations/20260927131039_unit-versions-selective-correction/migration.sql"
 );
+const compositeVersionMigration = readMigration(
+	"./migrations/20260927194354_composite-versions/migration.sql"
+);
 
 test("normalizes legacy project ownership before current indexes and foreign keys", () => {
 	const renameOwnerColumn = migration.indexOf(
@@ -174,6 +177,47 @@ test("stores each Unit Version against its candidate and exact source Asset Vers
 	);
 	expect(unitVersionMigration).not.toContain(
 		'DROP INDEX "asset_families_project_name_ci_idx"'
+	);
+});
+
+test("stores immutable Composite Versions with exact project-scoped Unit Version membership", () => {
+	for (const table of [
+		"composite_versions",
+		"composition_memberships",
+		"composite_version_review_events",
+	]) {
+		expect(compositeVersionMigration).toContain(`CREATE TABLE "${table}"`);
+	}
+	expect(compositeVersionMigration).toContain(
+		'FOREIGN KEY ("project_id", "composite_version_id", "asset_record_id") REFERENCES "composite_versions"'
+	);
+	expect(compositeVersionMigration).toContain(
+		'FOREIGN KEY ("project_id", "unit_version_id", "asset_record_id", "unit_type", "unit_key") REFERENCES "unit_versions"'
+	);
+	expect(compositeVersionMigration).toContain(
+		'CREATE UNIQUE INDEX "unit_versions_project_id_record_type_key_idx"'
+	);
+	for (const preexistingTable of [
+		"unit_versions",
+		"collection_asset_records",
+		"collections",
+	]) {
+		expect(compositeVersionMigration).not.toContain(
+			`CREATE TABLE "${preexistingTable}"`
+		);
+	}
+
+	const snapshot = JSON.parse(
+		readMigration(
+			"./migrations/20260927194354_composite-versions/snapshot.json"
+		)
+	) as { prevIds: string[] };
+	expect(snapshot.prevIds).toEqual(
+		expect.arrayContaining([
+			"405bf2de-0a07-4efc-820a-1e991b7a8cb4",
+			"0e50547b-9762-4d1a-a535-aba0ba247859",
+			"45fa5433-1b0f-49d8-85d1-f0affa2e73b0",
+		])
 	);
 });
 

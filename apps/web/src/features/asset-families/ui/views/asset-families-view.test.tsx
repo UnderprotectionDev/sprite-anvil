@@ -53,6 +53,7 @@ vi.mock("@/utils/orpc", () => ({
 						assetVersions: [],
 						canonicalDesigns: [],
 						unitVersions: [],
+						compositeVersions: [],
 					}),
 				}),
 			},
