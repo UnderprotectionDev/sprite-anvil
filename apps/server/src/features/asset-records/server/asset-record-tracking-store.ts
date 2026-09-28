@@ -47,8 +47,8 @@ import {
 	createAssetVersionWriter,
 } from "./asset-version-store";
 import {
+	hasManualImportEvidence,
 	isManualImportEvidenceRequired,
-	requiresManualImportEvidence,
 } from "./manual-import-evidence-gate";
 
 function toISOString(value: Date | string) {
@@ -109,42 +109,14 @@ async function getReferenceHistory(
 	return mapReferenceHistory(rows);
 }
 
-async function hasManualImportEvidence(
-	db: Database,
-	projectId: string,
-	assetRecordId: string,
-	versionId: string
-) {
-	const [evidence] = await db
-		.select({ id: manualImportEvidence.id })
-		.from(manualImportEvidence)
-		.where(
-			and(
-				eq(manualImportEvidence.projectId, projectId),
-				eq(manualImportEvidence.assetRecordId, assetRecordId),
-				eq(manualImportEvidence.versionId, versionId)
-			)
-		)
-		.limit(1);
-	return Boolean(evidence);
-}
-
 async function hasRequiredApprovalEvidence(
 	db: Database,
 	input: { projectId: string; assetRecordId: string; versionId: string },
-	version: Pick<
-		typeof assetVersions.$inferSelect,
-		"assetRecordId" | "createdAt" | "projectId" | "sourceKind"
-	>
+	version: Pick<typeof assetVersions.$inferSelect, "sourceKind">
 ) {
 	if (
-		(await requiresManualImportEvidence(db, version)) &&
-		!(await hasManualImportEvidence(
-			db,
-			input.projectId,
-			input.assetRecordId,
-			input.versionId
-		))
+		isManualImportEvidenceRequired(version.sourceKind) &&
+		!(await hasManualImportEvidence(db, input))
 	) {
 		return false;
 	}
@@ -701,7 +673,6 @@ export function createAssetRecordTrackingStore(
 				qualityRows,
 				historyRows,
 				manualEvidenceRows,
-				generationPackageRows,
 				availableRecords,
 				availableVersionRows,
 				availableReviewRows,
@@ -815,15 +786,6 @@ export function createAssetRecordTrackingStore(
 						desc(manualImportEvidence.id)
 					),
 				db
-					.select({ createdAt: generationPackages.createdAt })
-					.from(generationPackages)
-					.where(
-						and(
-							eq(generationPackages.projectId, projectId),
-							eq(generationPackages.assetRecordId, assetRecordId)
-						)
-					),
-				db
 					.select({
 						id: assetRecords.id,
 						name: assetRecords.name,
@@ -915,17 +877,8 @@ export function createAssetRecordTrackingStore(
 			const qualityVersionIds = new Set(
 				qualityRows.map((row) => row.versionId)
 			);
-			const generationPackageCreatedAt = generationPackageRows.map(
-				({ createdAt }) => createdAt
-			);
 			const manualImportEvidenceRequiredVersionIds = versions
-				.filter((version) =>
-					isManualImportEvidenceRequired(
-						version.sourceKind,
-						version.createdAt,
-						generationPackageCreatedAt
-					)
-				)
+				.filter((version) => isManualImportEvidenceRequired(version.sourceKind))
 				.map((version) => version.id);
 			const [familyRow] = familyRows;
 

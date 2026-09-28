@@ -1,58 +1,28 @@
 import type { AssetVersionSourceKind } from "@sprite-anvil/api/asset-versions";
 import type { Database } from "@sprite-anvil/db";
-import { generationPackages } from "@sprite-anvil/db/schema/generation-packages";
-import { and, eq, lte } from "drizzle-orm";
-
-function asTimestamp(value: Date | string) {
-	return value instanceof Date ? value.getTime() : new Date(value).getTime();
-}
-
-function asDate(value: Date | string) {
-	return value instanceof Date ? value : new Date(value);
-}
+import { manualImportEvidence } from "@sprite-anvil/db/schema/asset-production-history";
+import { and, eq } from "drizzle-orm";
 
 export function isManualImportEvidenceRequired(
-	sourceKind: AssetVersionSourceKind,
-	versionCreatedAt: Date | string,
-	generationPackageCreatedAt: readonly (Date | string)[]
+	sourceKind: AssetVersionSourceKind
 ) {
-	if (sourceKind === "manual_import") {
-		return true;
-	}
-	return (
-		sourceKind === "legacy_asset" &&
-		generationPackageCreatedAt.some(
-			(packageCreatedAt) =>
-				asTimestamp(packageCreatedAt) <= asTimestamp(versionCreatedAt)
-		)
-	);
+	return sourceKind === "manual_import";
 }
 
-export async function requiresManualImportEvidence(
+export async function hasManualImportEvidence(
 	db: Database,
-	version: {
-		assetRecordId: string;
-		createdAt: Date | string;
-		projectId: string;
-		sourceKind: AssetVersionSourceKind;
-	}
+	input: { assetRecordId: string; projectId: string; versionId: string }
 ) {
-	if (version.sourceKind === "manual_import") {
-		return true;
-	}
-	if (version.sourceKind !== "legacy_asset") {
-		return false;
-	}
-	const [generationPackage] = await db
-		.select({ id: generationPackages.id })
-		.from(generationPackages)
+	const [evidence] = await db
+		.select({ id: manualImportEvidence.id })
+		.from(manualImportEvidence)
 		.where(
 			and(
-				eq(generationPackages.projectId, version.projectId),
-				eq(generationPackages.assetRecordId, version.assetRecordId),
-				lte(generationPackages.createdAt, asDate(version.createdAt))
+				eq(manualImportEvidence.projectId, input.projectId),
+				eq(manualImportEvidence.assetRecordId, input.assetRecordId),
+				eq(manualImportEvidence.versionId, input.versionId)
 			)
 		)
 		.limit(1);
-	return Boolean(generationPackage);
+	return Boolean(evidence);
 }

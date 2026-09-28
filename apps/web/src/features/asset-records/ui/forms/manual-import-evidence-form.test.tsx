@@ -220,3 +220,40 @@ test("accepts a dropped image in the result file area", async () => {
 		"dropped-result.webp"
 	);
 });
+
+test("reports a result file that cannot be read", async () => {
+	const user = userEvent.setup();
+	fakeApi.packages = [generationPackage];
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	render(
+		<QueryClientProvider client={queryClient}>
+			<ManualImportEvidenceForm
+				onRefresh={vi.fn().mockResolvedValue(undefined)}
+				record={record}
+			/>
+		</QueryClientProvider>
+	);
+	const file = new File([new Uint8Array([1, 2, 3])], "unreadable-result.png", {
+		type: "image/png",
+	});
+	Object.defineProperty(file, "arrayBuffer", {
+		value: () => Promise.reject(new Error("File read failed")),
+	});
+	await user.upload(await screen.findByLabelText("Sonuç dosyası"), file);
+	await user.selectOptions(
+		screen.getByLabelText("Üretim Paketi"),
+		generationPackageId
+	);
+	const form = screen
+		.getByRole("button", {
+			name: "Kanıtla birlikte aday sürümü kaydet",
+		})
+		.closest("form") as HTMLFormElement;
+	fireEvent.submit(form);
+
+	expect(await screen.findByRole("alert")).toHaveTextContent(
+		"Sonuç dosyası okunamadı"
+	);
+	expect(fakeApi.createManualImportVersion).not.toHaveBeenCalled();
+});

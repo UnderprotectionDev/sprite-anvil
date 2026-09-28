@@ -84,7 +84,7 @@ test.skipIf(!databaseUrl)(
 		const assetRecordId = crypto.randomUUID();
 		const generationPackageId = crypto.randomUUID();
 		const historicalLegacyVersionId = crypto.randomUUID();
-		const postPackageLegacyVersionId = crypto.randomUUID();
+		const lateImportedLegacyVersionId = crypto.randomUUID();
 		const incompleteVersionId = crypto.randomUUID();
 		let insertedUser = false;
 		let insertedProject = false;
@@ -171,12 +171,12 @@ test.skipIf(!databaseUrl)(
 				snapshot,
 			});
 			insertedGenerationPackage = true;
-			const postPackageLegacyVersion = await call(
+			const lateImportedLegacyVersion = await call(
 				appRouter.assetRecords.createVersion,
 				legacyVersionInput({
 					assetRecordId,
-					fileName: "new-workbench-result.png",
-					id: postPackageLegacyVersionId,
+					fileName: "historic-project-file.png",
+					id: lateImportedLegacyVersionId,
 					projectId,
 				}),
 				{ context }
@@ -223,12 +223,15 @@ test.skipIf(!databaseUrl)(
 				},
 			]);
 			expect(reread.tracking.productionHistory).toHaveLength(2);
-			expect(reread.tracking.manualImportEvidenceRequiredVersionIds).toEqual(
-				expect.arrayContaining([version.id, postPackageLegacyVersion.id])
-			);
+			expect(reread.tracking.manualImportEvidenceRequiredVersionIds).toEqual([
+				version.id,
+			]);
 			expect(
 				reread.tracking.manualImportEvidenceRequiredVersionIds
 			).not.toContain(historicalLegacyVersion.id);
+			expect(
+				reread.tracking.manualImportEvidenceRequiredVersionIds
+			).not.toContain(lateImportedLegacyVersion.id);
 
 			await call(
 				appRouter.assetRecords.recordReview,
@@ -237,26 +240,24 @@ test.skipIf(!databaseUrl)(
 					decision: "approved",
 					id: crypto.randomUUID(),
 					projectId,
-					rationale: "This legacy version predates every Generation Package.",
+					rationale: "The file's original production history is unknown.",
 					versionId: historicalLegacyVersion.id,
 				},
 				{ context }
 			);
-			await expect(
-				call(
-					appRouter.assetRecords.recordReview,
-					{
-						assetRecordId,
-						decision: "approved",
-						id: crypto.randomUUID(),
-						projectId,
-						rationale:
-							"This legacy upload was added after a Generation Package.",
-						versionId: postPackageLegacyVersion.id,
-					},
-					{ context }
-				)
-			).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+			await call(
+				appRouter.assetRecords.recordReview,
+				{
+					assetRecordId,
+					decision: "approved",
+					id: crypto.randomUUID(),
+					projectId,
+					rationale:
+						"The file's original history stays unknown regardless of import time.",
+					versionId: lateImportedLegacyVersion.id,
+				},
+				{ context }
+			);
 
 			await db.insert(assetVersions).values({
 				id: incompleteVersionId,

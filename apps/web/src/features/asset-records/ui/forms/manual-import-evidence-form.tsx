@@ -312,9 +312,20 @@ export function ManualImportEvidenceForm({
 			return;
 		}
 
-		const contentBase64 = bytesToBase64(
-			new Uint8Array(await file.arrayBuffer())
-		);
+		setErrorMessage(null);
+		setStatusMessage(null);
+		let contentBase64: string;
+		try {
+			contentBase64 = bytesToBase64(new Uint8Array(await file.arrayBuffer()));
+		} catch (error) {
+			setErrorMessage(
+				getErrorMessage(
+					error,
+					"Sonuç dosyası okunamadı. Dosyayı yeniden seçip deneyin."
+				)
+			);
+			return;
+		}
 		const signature = JSON.stringify({
 			assetRecordId: record.id,
 			contentBase64,
@@ -341,8 +352,6 @@ export function ManualImportEvidenceForm({
 		};
 
 		setIsSaving(true);
-		setErrorMessage(null);
-		setStatusMessage(null);
 		try {
 			await client.assetRecords.createManualImportVersion(input);
 			await onRefresh();

@@ -29,7 +29,6 @@ import {
 } from "@sprite-anvil/api/asset-versions";
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
 import { assetFamilyCanonicalDesigns } from "@sprite-anvil/db/schema/asset-families";
-import { manualImportEvidence } from "@sprite-anvil/db/schema/asset-production-history";
 import {
 	assetFamilies,
 	assetRecords,
@@ -44,7 +43,10 @@ import {
 	unitVersions,
 } from "@sprite-anvil/db/schema/asset-versions";
 import { and, asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
-import { requiresManualImportEvidence } from "../../asset-records/server/manual-import-evidence-gate";
+import {
+	hasManualImportEvidence,
+	isManualImportEvidenceRequired,
+} from "../../asset-records/server/manual-import-evidence-gate";
 
 const contentDigestPattern = /^[0-9a-f]{64}$/;
 
@@ -987,22 +989,14 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 			}
 			if (
 				input.decision === "approved" &&
-				(await requiresManualImportEvidence(db, version))
+				isManualImportEvidenceRequired(version.sourceKind) &&
+				!(await hasManualImportEvidence(db, {
+					assetRecordId: version.assetRecordId,
+					projectId: input.projectId,
+					versionId: version.id,
+				}))
 			) {
-				const [evidence] = await db
-					.select({ id: manualImportEvidence.id })
-					.from(manualImportEvidence)
-					.where(
-						and(
-							eq(manualImportEvidence.projectId, input.projectId),
-							eq(manualImportEvidence.assetRecordId, version.assetRecordId),
-							eq(manualImportEvidence.versionId, version.id)
-						)
-					)
-					.limit(1);
-				if (!evidence) {
-					return null;
-				}
+				return null;
 			}
 
 			const [event] = await db
