@@ -230,3 +230,62 @@ test("records a derivative against the approved Canonical Design version", async
 		sourceAssetVersionId: assetVersionId,
 	});
 });
+
+test("blocks direct approval of a legacy upload that needs Manual Import Evidence", async () => {
+	let reviewEventCreated = false;
+	const context = {
+		assetRecordTrackingStore: {
+			getTracking: async () => ({
+				tracking: {
+					manualImportEvidence: [],
+					manualImportEvidenceRequiredVersionIds: [assetVersionId],
+				},
+			}),
+		},
+		assetVersionStore: {
+			list: async () => ({
+				assetVersions: [
+					{
+						assetFamilyId: familyId,
+						assetRecordId: sourceAssetRecordId,
+						contentDigest: "a".repeat(64),
+						contentLength: 68,
+						contentType: "image/png" as const,
+						createdAt,
+						id: assetVersionId,
+						integrityVerified: true,
+						projectId,
+						previewUrl: `/api/projects/${projectId}/asset-versions/${assetVersionId}/preview`,
+						reviewDisposition: "candidate" as const,
+						reviewEvents: [],
+						sourceKind: "legacy_asset" as const,
+						versionNumber: 1,
+					},
+				],
+				canonicalDesigns: [],
+				unitVersions: [],
+				compositeVersions: [],
+			}),
+			recordReviewEvent: () => {
+				reviewEventCreated = true;
+				return null;
+			},
+		},
+		session: { user: { id: userId } },
+		verifyAssetVersionContent: async () => true,
+	};
+
+	await expect(
+		call(
+			appRouter.assetVersions.review,
+			{
+				projectId,
+				assetVersionId,
+				decision: "approved",
+				rationale: "Approval without the required import evidence.",
+			},
+			{ context: context as never }
+		)
+	).rejects.toMatchObject({ code: "BAD_REQUEST" });
+	expect(reviewEventCreated).toBe(false);
+});

@@ -46,6 +46,10 @@ import {
 	type AssetVersionObjectStorage,
 	createAssetVersionWriter,
 } from "./asset-version-store";
+import {
+	isManualImportEvidenceRequired,
+	requiresManualImportEvidence,
+} from "./manual-import-evidence-gate";
 
 function toISOString(value: Date | string) {
 	return value instanceof Date
@@ -128,10 +132,13 @@ async function hasManualImportEvidence(
 async function hasRequiredApprovalEvidence(
 	db: Database,
 	input: { projectId: string; assetRecordId: string; versionId: string },
-	version: Pick<typeof assetVersions.$inferSelect, "sourceKind">
+	version: Pick<
+		typeof assetVersions.$inferSelect,
+		"assetRecordId" | "createdAt" | "projectId" | "sourceKind"
+	>
 ) {
 	if (
-		version.sourceKind === "manual_import" &&
+		(await requiresManualImportEvidence(db, version)) &&
 		!(await hasManualImportEvidence(
 			db,
 			input.projectId,
@@ -694,6 +701,7 @@ export function createAssetRecordTrackingStore(
 				qualityRows,
 				historyRows,
 				manualEvidenceRows,
+				generationPackageRows,
 				availableRecords,
 				availableVersionRows,
 				availableReviewRows,
@@ -807,6 +815,15 @@ export function createAssetRecordTrackingStore(
 						desc(manualImportEvidence.id)
 					),
 				db
+					.select({ createdAt: generationPackages.createdAt })
+					.from(generationPackages)
+					.where(
+						and(
+							eq(generationPackages.projectId, projectId),
+							eq(generationPackages.assetRecordId, assetRecordId)
+						)
+					),
+				db
 					.select({
 						id: assetRecords.id,
 						name: assetRecords.name,
@@ -898,6 +915,18 @@ export function createAssetRecordTrackingStore(
 			const qualityVersionIds = new Set(
 				qualityRows.map((row) => row.versionId)
 			);
+			const generationPackageCreatedAt = generationPackageRows.map(
+				({ createdAt }) => createdAt
+			);
+			const manualImportEvidenceRequiredVersionIds = versions
+				.filter((version) =>
+					isManualImportEvidenceRequired(
+						version.sourceKind,
+						version.createdAt,
+						generationPackageCreatedAt
+					)
+				)
+				.map((version) => version.id);
 			const [familyRow] = familyRows;
 
 			return assetRecordTrackingDetailSchema.parse({
@@ -967,6 +996,7 @@ export function createAssetRecordTrackingStore(
 							versionNumber: version.versionNumber,
 						})
 					),
+					manualImportEvidenceRequiredVersionIds,
 					quality: {
 						integrityStatus:
 							versions.length > 0 &&

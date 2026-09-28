@@ -78,6 +78,28 @@ const generationPackage = {
 	targetTask: "Create a four-frame attack animation.",
 } as GenerationPackage;
 
+function fireFileTransfer(
+	element: HTMLElement,
+	type: "drop" | "paste",
+	file: File
+) {
+	const event = new Event(type, { bubbles: true, cancelable: true });
+	const transfer = {
+		files: {
+			item: (index: number) => (index === 0 ? file : null),
+		},
+		items: [],
+	} as unknown as DataTransfer;
+	Object.defineProperty(
+		event,
+		type === "drop" ? "dataTransfer" : "clipboardData",
+		{
+			value: transfer,
+		}
+	);
+	fireEvent(element, event);
+}
+
 test("saves the exact manual result and evidence against its Generation Package", async () => {
 	const user = userEvent.setup();
 	const onRefresh = vi.fn().mockResolvedValue(undefined);
@@ -146,5 +168,55 @@ test("saves the exact manual result and evidence against its Generation Package"
 	expect(onRefresh).toHaveBeenCalledOnce();
 	expect(screen.getByRole("status")).toHaveTextContent(
 		"Elle İçe Aktarma Kanıtı kaydedildi"
+	);
+});
+
+test("accepts a pasted image in the result file area", async () => {
+	fakeApi.packages = [generationPackage];
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	render(
+		<QueryClientProvider client={queryClient}>
+			<ManualImportEvidenceForm
+				onRefresh={vi.fn().mockResolvedValue(undefined)}
+				record={record}
+			/>
+		</QueryClientProvider>
+	);
+	const file = new File([new Uint8Array([1, 2, 3])], "pasted-result.png", {
+		type: "image/png",
+	});
+	const area = await screen.findByRole("button", {
+		name: "Sonuç dosyasını seçin, yapıştırın veya bırakın",
+	});
+	fireFileTransfer(area, "paste", file);
+
+	expect(await screen.findByRole("status")).toHaveTextContent(
+		"pasted-result.png"
+	);
+});
+
+test("accepts a dropped image in the result file area", async () => {
+	fakeApi.packages = [generationPackage];
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	render(
+		<QueryClientProvider client={queryClient}>
+			<ManualImportEvidenceForm
+				onRefresh={vi.fn().mockResolvedValue(undefined)}
+				record={record}
+			/>
+		</QueryClientProvider>
+	);
+	const file = new File([new Uint8Array([1, 2, 3])], "dropped-result.webp", {
+		type: "image/webp",
+	});
+	const area = await screen.findByRole("button", {
+		name: "Sonuç dosyasını seçin, yapıştırın veya bırakın",
+	});
+	fireFileTransfer(area, "drop", file);
+
+	expect(await screen.findByRole("status")).toHaveTextContent(
+		"dropped-result.webp"
 	);
 });

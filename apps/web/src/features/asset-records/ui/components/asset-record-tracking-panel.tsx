@@ -577,7 +577,8 @@ export function AssetRecordTrackingPanel({
 			(evidence) => evidence.assetVersionId === version.id
 		);
 		const manualImportEvidenceMissing =
-			version.sourceKind === "manual_import" && !hasManualImportEvidence;
+			tracking.manualImportEvidenceRequiredVersionIds.includes(version.id) &&
+			!hasManualImportEvidence;
 		const decisions = [
 			{ decision: "approved", label: "Onayla" },
 			{ decision: "rejected", label: "Reddet" },

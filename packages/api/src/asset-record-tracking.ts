@@ -448,6 +448,7 @@ export const assetRecordTrackingSchema = z
 		visualWorlds: trackingVisualWorldOptionSchema.array(),
 		productionHistory: legacyAssetAttestationSummarySchema.array(),
 		manualImportEvidence: manualImportEvidenceSummarySchema.array().optional(),
+		manualImportEvidenceRequiredVersionIds: z.array(z.uuid()),
 		quality: qualitySummarySchema,
 		references: referenceSummarySchema.array(),
 		reviewEvents: reviewEventSummarySchema.array(),

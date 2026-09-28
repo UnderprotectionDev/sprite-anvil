@@ -4,7 +4,10 @@ import type { Context } from "@sprite-anvil/api/context";
 import { generationPackageSnapshotSchema } from "@sprite-anvil/api/generation-packages";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { createDb } from "@sprite-anvil/db";
-import { manualImportEvidence } from "@sprite-anvil/db/schema/asset-production-history";
+import {
+	legacyAssetAttestations,
+	manualImportEvidence,
+} from "@sprite-anvil/db/schema/asset-production-history";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
 import {
 	assetVersionQualityEvidence,
@@ -30,6 +33,23 @@ const imageBytes = await sharp({
 	.png()
 	.toBuffer();
 const imageBase64 = imageBytes.toString("base64");
+
+function legacyVersionInput(input: {
+	assetRecordId: string;
+	fileName: string;
+	id: string;
+	projectId: string;
+}) {
+	return {
+		...input,
+		contentBase64: imageBase64,
+		contentType: "image/png" as const,
+		historyUnknown: true as const,
+		knownSource: "Project archive",
+		supportingEvidence: null,
+		userRelationship: "received_from_team" as const,
+	};
+}
 
 function createMemoryStorage() {
 	const objects = new Map<string, Uint8Array>();
@@ -63,6 +83,8 @@ test.skipIf(!databaseUrl)(
 		const projectId = crypto.randomUUID();
 		const assetRecordId = crypto.randomUUID();
 		const generationPackageId = crypto.randomUUID();
+		const historicalLegacyVersionId = crypto.randomUUID();
+		const postPackageLegacyVersionId = crypto.randomUUID();
 		const incompleteVersionId = crypto.randomUUID();
 		let insertedUser = false;
 		let insertedProject = false;
@@ -92,6 +114,25 @@ test.skipIf(!databaseUrl)(
 				availability: "active",
 			});
 			insertedAssetRecord = true;
+
+			const assetRecordTrackingStore = createAssetRecordTrackingStore(
+				db,
+				storage.storage
+			);
+			const context = {
+				assetRecordTrackingStore,
+				session: { user: { id: userId } },
+			} as unknown as Context;
+			const historicalLegacyVersion = await call(
+				appRouter.assetRecords.createVersion,
+				legacyVersionInput({
+					assetRecordId,
+					fileName: "historical-project-art.png",
+					id: historicalLegacyVersionId,
+					projectId,
+				}),
+				{ context }
+			);
 
 			const snapshot = generationPackageSnapshotSchema.parse({
 				assetRecord: {
@@ -130,15 +171,16 @@ test.skipIf(!databaseUrl)(
 				snapshot,
 			});
 			insertedGenerationPackage = true;
-
-			const assetRecordTrackingStore = createAssetRecordTrackingStore(
-				db,
-				storage.storage
+			const postPackageLegacyVersion = await call(
+				appRouter.assetRecords.createVersion,
+				legacyVersionInput({
+					assetRecordId,
+					fileName: "new-workbench-result.png",
+					id: postPackageLegacyVersionId,
+					projectId,
+				}),
+				{ context }
 			);
-			const context = {
-				assetRecordTrackingStore,
-				session: { user: { id: userId } },
-			} as unknown as Context;
 			const generationInstruction =
 				"\nKeep the armor silhouette.\nAdd one attack frame.\n";
 			const version = await call(
@@ -162,7 +204,7 @@ test.skipIf(!databaseUrl)(
 				sourceKind: "manual_import",
 				reviewDisposition: "candidate",
 			});
-			expect(storage.storedFileCount()).toBe(1);
+			expect(storage.storedFileCount()).toBe(3);
 
 			const reread = await call(
 				appRouter.assetRecords.tracking,
@@ -180,7 +222,41 @@ test.skipIf(!databaseUrl)(
 					versionNumber: version.versionNumber,
 				},
 			]);
-			expect(reread.tracking.productionHistory).toEqual([]);
+			expect(reread.tracking.productionHistory).toHaveLength(2);
+			expect(reread.tracking.manualImportEvidenceRequiredVersionIds).toEqual(
+				expect.arrayContaining([version.id, postPackageLegacyVersion.id])
+			);
+			expect(
+				reread.tracking.manualImportEvidenceRequiredVersionIds
+			).not.toContain(historicalLegacyVersion.id);
+
+			await call(
+				appRouter.assetRecords.recordReview,
+				{
+					assetRecordId,
+					decision: "approved",
+					id: crypto.randomUUID(),
+					projectId,
+					rationale: "This legacy version predates every Generation Package.",
+					versionId: historicalLegacyVersion.id,
+				},
+				{ context }
+			);
+			await expect(
+				call(
+					appRouter.assetRecords.recordReview,
+					{
+						assetRecordId,
+						decision: "approved",
+						id: crypto.randomUUID(),
+						projectId,
+						rationale:
+							"This legacy upload was added after a Generation Package.",
+						versionId: postPackageLegacyVersion.id,
+					},
+					{ context }
+				)
+			).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
 
 			await db.insert(assetVersions).values({
 				id: incompleteVersionId,
@@ -249,6 +325,9 @@ test.skipIf(!databaseUrl)(
 				await db
 					.delete(assetVersionReviewEvents)
 					.where(eq(assetVersionReviewEvents.assetRecordId, assetRecordId));
+				await db
+					.delete(legacyAssetAttestations)
+					.where(eq(legacyAssetAttestations.projectId, projectId));
 				await db
 					.delete(manualImportEvidence)
 					.where(eq(manualImportEvidence.assetRecordId, assetRecordId));

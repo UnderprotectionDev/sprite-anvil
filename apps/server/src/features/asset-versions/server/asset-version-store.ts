@@ -44,6 +44,7 @@ import {
 	unitVersions,
 } from "@sprite-anvil/db/schema/asset-versions";
 import { and, asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { requiresManualImportEvidence } from "../../asset-records/server/manual-import-evidence-gate";
 
 const contentDigestPattern = /^[0-9a-f]{64}$/;
 
@@ -986,7 +987,7 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 			}
 			if (
 				input.decision === "approved" &&
-				version.sourceKind === "manual_import"
+				(await requiresManualImportEvidence(db, version))
 			) {
 				const [evidence] = await db
 					.select({ id: manualImportEvidence.id })

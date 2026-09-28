@@ -29,6 +29,16 @@ function getPackageDateLabel(value: string) {
 	}).format(new Date(value));
 }
 
+function getTransferredFile(transfer: DataTransfer) {
+	return (
+		transfer.files.item(0) ??
+		Array.from(transfer.items)
+			.find((item) => item.kind === "file")
+			?.getAsFile() ??
+		null
+	);
+}
+
 function refreshedHasEvidence(result: unknown, assetVersionId: string) {
 	if (typeof result !== "object" || result === null || !("data" in result)) {
 		return false;
@@ -129,18 +139,49 @@ function ManualImportPackageForm({
 
 	return (
 		<form className="mt-4 space-y-3" onSubmit={onSubmit}>
-			<label className="block space-y-1 text-sm" htmlFor="manual-import-file">
-				<span>Sonuç dosyası</span>
-				<Input
-					accept="image/png,image/webp"
+			<div className="space-y-2 rounded-md border border-dashed p-3">
+				<label className="block space-y-1 text-sm" htmlFor="manual-import-file">
+					<span>Sonuç dosyası</span>
+					<Input
+						accept="image/png,image/webp"
+						disabled={isSaving || writeOutcomeUncertain}
+						id="manual-import-file"
+						onChange={(event) => onFileChange(event.target.files?.[0] ?? null)}
+						ref={fileInputRef}
+						type="file"
+					/>
+				</label>
+				<button
+					aria-label="Sonuç dosyasını seçin, yapıştırın veya bırakın"
+					className="w-full rounded-sm p-2 text-left text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
 					disabled={isSaving || writeOutcomeUncertain}
-					id="manual-import-file"
-					onChange={(event) => onFileChange(event.target.files?.[0] ?? null)}
-					ref={fileInputRef}
-					required
-					type="file"
-				/>
-			</label>
+					onClick={() => fileInputRef.current?.click()}
+					onDragOver={(event) => event.preventDefault()}
+					onDrop={(event) => {
+						event.preventDefault();
+						const droppedFile = getTransferredFile(event.dataTransfer);
+						if (droppedFile) {
+							onFileChange(droppedFile);
+						}
+					}}
+					onPaste={(event) => {
+						const pastedFile = getTransferredFile(event.clipboardData);
+						if (pastedFile) {
+							event.preventDefault();
+							onFileChange(pastedFile);
+						}
+					}}
+					type="button"
+				>
+					PNG veya WebP dosyasını buraya sürükleyin ya da yapıştırın; dosya
+					seçmek için tıklayın.
+				</button>
+				{file ? (
+					<p className="text-sm" role="status">
+						Seçilen dosya: {file.name}
+					</p>
+				) : null}
+			</div>
 			{file && !fileIsSupported ? (
 				<p className="text-sm" role="alert">
 					5 MB’a kadar PNG veya WebP dosyası seçin.
@@ -253,6 +294,18 @@ export function ManualImportEvidenceForm({
 			["image/png", "image/webp"].includes(file.type)
 	);
 
+	function resetForm() {
+		request.current = null;
+		setWriteOutcomeUncertain(false);
+		setFile(null);
+		setGenerationPackageId("");
+		setSourceSurface("");
+		setGenerationInstruction("");
+		if (fileInputRef.current) {
+			fileInputRef.current.value = "";
+		}
+	}
+
 	async function submit(event: SyntheticEvent<HTMLFormElement>) {
 		event.preventDefault();
 		if (!(file && selectedPackageExists && fileIsSupported)) {
@@ -293,15 +346,7 @@ export function ManualImportEvidenceForm({
 		try {
 			await client.assetRecords.createManualImportVersion(input);
 			await onRefresh();
-			request.current = null;
-			setWriteOutcomeUncertain(false);
-			setFile(null);
-			setGenerationPackageId("");
-			setSourceSurface("");
-			setGenerationInstruction("");
-			if (fileInputRef.current) {
-				fileInputRef.current.value = "";
-			}
+			resetForm();
 			setStatusMessage(
 				"Elle İçe Aktarma Kanıtı kaydedildi; dosya Aday Sürüm olarak oluşturuldu."
 			);
@@ -330,15 +375,7 @@ export function ManualImportEvidenceForm({
 		try {
 			const result = await onRefresh();
 			if (refreshedHasEvidence(result, request.current.id)) {
-				request.current = null;
-				setWriteOutcomeUncertain(false);
-				setFile(null);
-				setGenerationPackageId("");
-				setSourceSurface("");
-				setGenerationInstruction("");
-				if (fileInputRef.current) {
-					fileInputRef.current.value = "";
-				}
+				resetForm();
 				setErrorMessage(null);
 				setStatusMessage(
 					"Elle İçe Aktarma Kanıtı kaydedildi; dosya Aday Sürüm olarak oluşturuldu."

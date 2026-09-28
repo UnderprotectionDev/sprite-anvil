@@ -34,6 +34,7 @@ const tracking = {
 			versionNumber: 1,
 		},
 	],
+	manualImportEvidenceRequiredVersionIds: [],
 	quality: {
 		integrityStatus: "format_signature_matched" as const,
 		profileStatus: "general_support" as const,
