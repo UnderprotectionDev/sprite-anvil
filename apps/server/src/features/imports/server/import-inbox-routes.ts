@@ -190,10 +190,7 @@ function uploadFailureResponse(c: Context, error: unknown) {
 			400
 		);
 	}
-	return c.json(
-		serializePublicApiError("Import Inbox file upload failed"),
-		503
-	);
+	throw error;
 }
 
 function encodeDownloadFileName(fileName: string) {
@@ -237,6 +234,8 @@ async function uploadImportInboxEntry(
 	);
 	let storage: Storage | undefined;
 	let objectStored = false;
+	let entryWritePending = false;
+	let entryCreated = false;
 	try {
 		storage = dependencies.createStorage();
 		await storage.put(
@@ -251,6 +250,7 @@ async function uploadImportInboxEntry(
 			throw new ImportInboxIntegrityError();
 		}
 
+		entryWritePending = true;
 		const result = await dependencies.importInboxStore.createEntry(userId, {
 			contentLength: uploadHeaders.contentLength,
 			fileName: uploadHeaders.fileName,
@@ -260,6 +260,7 @@ async function uploadImportInboxEntry(
 			sha256,
 			sourceContentType: uploadHeaders.sourceContentType,
 		});
+		entryWritePending = false;
 		if (!result.ok) {
 			await storage.delete(objectKey);
 			objectStored = false;
@@ -272,6 +273,7 @@ async function uploadImportInboxEntry(
 				result.reason === "not_found" ? 404 : 409
 			);
 		}
+		entryCreated = result.kind === "created";
 		if (result.kind === "existing") {
 			await storage.delete(objectKey);
 			objectStored = false;
@@ -279,7 +281,7 @@ async function uploadImportInboxEntry(
 		c.header("Cache-Control", "private, no-store");
 		return c.json(result.value, result.kind === "created" ? 201 : 200);
 	} catch (error) {
-		if (storage && objectStored) {
+		if (storage && objectStored && !entryWritePending && !entryCreated) {
 			try {
 				await storage.delete(objectKey);
 			} catch {
@@ -356,20 +358,9 @@ export function mountImportInboxRoutes(
 		}
 		const objectKey = importInboxObjectKeySchema.safeParse(file.objectKey);
 		if (!objectKey.success) {
-			return c.json(
-				serializePublicApiError("Import Inbox file unavailable"),
-				503
-			);
+			throw new Error("Import Inbox file unavailable");
 		}
-		let object: Awaited<ReturnType<Storage["get"]>>;
-		try {
-			object = await dependencies.createStorage().get(objectKey.data);
-		} catch {
-			return c.json(
-				serializePublicApiError("Import Inbox file unavailable"),
-				503
-			);
-		}
+		const object = await dependencies.createStorage().get(objectKey.data);
 		if (
 			!object ||
 			object.contentType !== opaqueStorageContentType ||
@@ -377,10 +368,7 @@ export function mountImportInboxRoutes(
 				object.contentLength !== file.contentLength)
 		) {
 			await object?.body.cancel();
-			return c.json(
-				serializePublicApiError("Import Inbox file unavailable"),
-				503
-			);
+			throw new Error("Import Inbox file unavailable");
 		}
 		c.header(
 			"Content-Disposition",

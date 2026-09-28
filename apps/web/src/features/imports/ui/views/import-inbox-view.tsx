@@ -1,3 +1,4 @@
+import { supportReferenceSchema } from "@sprite-anvil/api/error-contract";
 import type { ImportInboxEntry } from "@sprite-anvil/api/import-inbox";
 import {
 	importInboxEntriesSchema,
@@ -14,10 +15,48 @@ const trailingSlashPattern = /\/$/;
 interface UploadFailure {
 	file: File;
 	message: string;
+	supportReference?: string;
 }
 type UploadResult =
 	| { file: File; ok: true }
-	| { file: File; message: string; ok: false };
+	| {
+			file: File;
+			message: string;
+			ok: false;
+			outcome: "rejected" | "unknown";
+			retryable: boolean;
+			supportReference?: string;
+	  };
+
+class ImportInboxUploadError extends Error {
+	readonly outcome: "rejected" | "unknown";
+	readonly retryable: boolean;
+	readonly supportReference?: string;
+
+	constructor(
+		message: string,
+		outcome: "rejected" | "unknown",
+		retryable: boolean,
+		supportReference?: string
+	) {
+		super(message);
+		this.outcome = outcome;
+		this.retryable = retryable;
+		this.supportReference = supportReference;
+	}
+}
+
+class ImportInboxReadError extends Error {
+	readonly supportReference?: string;
+
+	constructor(message: string, supportReference?: string) {
+		super(message);
+		this.supportReference = supportReference;
+	}
+}
+
+const uncertainUploadMessage =
+	"Yükleme sonucu doğrulanamadı. Gelen Kutusunu yenileyip güncel durumu kontrol edin.";
 
 function importInboxUrl(projectId: string) {
 	const serverUrl = ENV.VITE_SERVER_URL.replace(trailingSlashPattern, "");
@@ -33,7 +72,11 @@ async function readEntries(projectId: string) {
 		credentials: "include",
 	});
 	if (!response.ok) {
-		throw new Error("İçe Aktarma Gelen Kutusu açılamadı.");
+		const errorBody: unknown = await response.json().catch(() => null);
+		throw new ImportInboxReadError(
+			"İçe Aktarma Gelen Kutusu açılamadı.",
+			readSupportReference(errorBody)
+		);
 	}
 	return importInboxEntriesSchema.parse(await response.json());
 }
@@ -78,9 +121,18 @@ function uploadErrorMessage(status: number) {
 		return "Bu yükleme başka bir dosya için kullanılmış. Dosyayı yeniden seçin.";
 	}
 	if (status === 415) {
-		return "Bu dosya yüklenemedi. Dosyayı yeniden seçip tekrar deneyin.";
+		return "Bu dosya yüklenemedi. Dosyayı yeniden seçin.";
 	}
-	return "Dosya saklanamadı. Bağlantınızı kontrol edip yeniden deneyin.";
+	return null;
+}
+
+function readSupportReference(value: unknown) {
+	if (typeof value !== "object" || value === null) {
+		return;
+	}
+	const { supportReference } = value as { supportReference?: unknown };
+	const result = supportReferenceSchema.safeParse(supportReference);
+	return result.success ? result.data : undefined;
 }
 
 export function ImportInboxView({ projectId }: { projectId: string }) {
@@ -101,6 +153,9 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 
 	function selectFiles(event: ChangeEvent<HTMLInputElement>) {
 		const files = Array.from(event.currentTarget.files ?? []);
+		for (const failure of uploadErrors) {
+			pendingEntryIds.current.delete(failure.file);
+		}
 		for (const file of files) {
 			pendingEntryIds.current.set(file, crypto.randomUUID());
 		}
@@ -124,7 +179,21 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 			body: file,
 		});
 		if (!response.ok) {
-			throw new Error(uploadErrorMessage(response.status));
+			const message = uploadErrorMessage(response.status);
+			if (message !== null) {
+				throw new ImportInboxUploadError(
+					message,
+					"rejected",
+					response.status !== 409
+				);
+			}
+			const errorBody: unknown = await response.json().catch(() => null);
+			throw new ImportInboxUploadError(
+				uncertainUploadMessage,
+				"unknown",
+				false,
+				readSupportReference(errorBody)
+			);
 		}
 		return importInboxEntrySchema.parse(await response.json());
 	}
@@ -138,13 +207,24 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 			pendingEntryIds.current.delete(file);
 			return { file, ok: true };
 		} catch (error) {
+			if (error instanceof ImportInboxUploadError) {
+				return {
+					file,
+					message: error.message,
+					ok: false,
+					outcome: error.outcome,
+					retryable: error.retryable,
+					...(error.supportReference
+						? { supportReference: error.supportReference }
+						: {}),
+				};
+			}
 			return {
 				file,
-				message:
-					error instanceof Error
-						? error.message
-						: "Dosya yüklenemedi. Yeniden deneyin.",
+				message: uncertainUploadMessage,
 				ok: false,
+				outcome: "unknown",
+				retryable: false,
 			};
 		}
 	}
@@ -167,15 +247,29 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 		setStatusMessage(null);
 		try {
 			const results = await uploadSelectedFiles(selectedFiles);
-			const failures = results.flatMap((result) =>
-				result.ok ? [] : [{ file: result.file, message: result.message }]
+			const uploadFailures = results.flatMap((result) =>
+				result.ok ? [] : [result]
 			);
-			const failedFiles = failures.map((failure) => failure.file);
-			const savedCount = results.length - failures.length;
-			setSelectedFiles(failedFiles);
+			const failures = uploadFailures.map(
+				({ file, message, supportReference }) => ({
+					file,
+					message,
+					...(supportReference ? { supportReference } : {}),
+				})
+			);
+			const retryableFiles = uploadFailures
+				.filter((failure) => failure.retryable)
+				.map((failure) => failure.file);
+			const hasUnknownOutcome = uploadFailures.some(
+				(failure) => failure.outcome === "unknown"
+			);
+			const savedCount = results.filter((result) => result.ok).length;
+			setSelectedFiles(retryableFiles);
 			setUploadErrors(failures);
-			if (savedCount > 0) {
+			if (savedCount > 0 || hasUnknownOutcome) {
 				await queryClient.invalidateQueries({ queryKey });
+			}
+			if (savedCount > 0) {
 				setStatusMessage(
 					savedCount === 1
 						? "Dosya İçe Aktarma Gelen Kutusuna alındı."
@@ -243,7 +337,7 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 						id="import-inbox-file-help"
 					>
 						Bir veya daha fazla dosya seçebilirsiniz. Dosyalar ayrı ayrı
-						yüklenir; başarısız olanları yeniden deneyebilirsiniz.
+						yüklenir; güvenle yeniden denenebilenler seçili kalır.
 					</p>
 				</div>
 				{selectedFiles.length > 0 ? (
@@ -265,6 +359,11 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 						{uploadErrors.map((failure) => (
 							<li key={pendingEntryIds.current.get(failure.file)}>
 								{failure.file.name}: {failure.message}
+								{failure.supportReference ? (
+									<span className="block">
+										Destek Referansı: {failure.supportReference}
+									</span>
+								) : null}
 							</li>
 						))}
 					</ul>
@@ -308,6 +407,10 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 				{entriesQuery.isError ? (
 					<div className="space-y-2" role="alert">
 						<p>Gelen kutusu yüklenemedi.</p>
+						{entriesQuery.error instanceof ImportInboxReadError &&
+						entriesQuery.error.supportReference ? (
+							<p>Destek Referansı: {entriesQuery.error.supportReference}</p>
+						) : null}
 						<Button
 							className="min-h-11"
 							onClick={() => void entriesQuery.refetch()}

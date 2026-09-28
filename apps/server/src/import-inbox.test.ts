@@ -9,6 +9,7 @@ import type {
 import { importInboxEntrySchema } from "@sprite-anvil/api/import-inbox";
 import { Hono } from "hono";
 import { mountImportInboxRoutes } from "./features/imports/server/import-inbox-routes";
+import { serializePublicApiError } from "./output-contracts";
 
 const userId = crypto.randomUUID();
 const projectId = crypto.randomUUID();
@@ -30,6 +31,7 @@ class MemoryImportInboxStore implements ImportInboxStore {
 			ownerUserId: string;
 		}
 	>();
+	failAfterPersistOnce = false;
 
 	// biome-ignore lint/suspicious/useAwait: The test store mirrors the asynchronous production contract.
 	async createEntry(requestedUserId: string, input: ImportInboxUploadInput) {
@@ -71,6 +73,10 @@ class MemoryImportInboxStore implements ImportInboxStore {
 			sha256: input.sha256,
 		};
 		this.records.set(input.id, { entry, file, ownerUserId: requestedUserId });
+		if (this.failAfterPersistOnce) {
+			this.failAfterPersistOnce = false;
+			throw new Error("Database acknowledgement was lost after commit");
+		}
 		return { ok: true as const, kind: "created" as const, value: entry };
 	}
 
@@ -106,8 +112,18 @@ function mountTestApp() {
 	const store = new MemoryImportInboxStore();
 	const objects = new Map<string, Uint8Array>();
 	const deletedKeys: string[] = [];
+	const storageState = { failGet: false };
 	let uploadAttempt = 0;
 	const app = new Hono();
+	app.onError((_error, c) =>
+		c.json(
+			serializePublicApiError(
+				"Internal Server Error",
+				"SUP-00000000-0000-4000-8000-000000000000"
+			),
+			500
+		)
+	);
 	mountImportInboxRoutes(app, {
 		importInboxStore: store,
 		createId: () => {
@@ -125,6 +141,9 @@ function mountTestApp() {
 			},
 			// biome-ignore lint/suspicious/useAwait: Storage methods mirror asynchronous network calls.
 			get: async (key) => {
+				if (storageState.failGet) {
+					throw new Error("R2 read failed");
+				}
 				const bytes = objects.get(key);
 				return bytes
 					? {
@@ -156,7 +175,7 @@ function mountTestApp() {
 				: null,
 	});
 
-	return { app, deletedKeys, objects, store };
+	return { app, deletedKeys, objects, storageState, store };
 }
 
 function uploadRequest(
@@ -326,4 +345,58 @@ test("reuses an idempotent upload and rejects changed bytes for the same key", a
 	expect(store.records.size).toBe(1);
 	expect(objects.size).toBe(1);
 	expect(deletedKeys).toHaveLength(2);
+});
+
+test("preserves retrievable file bytes when the persistent write acknowledgement is lost", async () => {
+	const { app, objects, store } = mountTestApp();
+	const idempotencyKey = crypto.randomUUID();
+	store.failAfterPersistOnce = true;
+
+	const first = await app.request(
+		`/api/projects/${projectId}/import-inbox`,
+		uploadRequest("hero source.aseprite", opaqueAsepriteFile, idempotencyKey)
+	);
+	expect(first.status).toBe(500);
+	expect(await first.json()).toEqual({
+		error: "Internal Server Error",
+		supportReference: "SUP-00000000-0000-4000-8000-000000000000",
+	});
+
+	const retry = await app.request(
+		`/api/projects/${projectId}/import-inbox`,
+		uploadRequest("hero source.aseprite", opaqueAsepriteFile, idempotencyKey)
+	);
+	expect(retry.status).toBe(200);
+	const entry = importInboxEntrySchema.parse(await retry.json());
+	expect(objects.size).toBe(1);
+
+	const download = await app.request(
+		`/api/projects/${projectId}/import-inbox/${entry.id}/file`,
+		{ headers: { authorization: `Bearer ${userId}` } }
+	);
+	expect(download.status).toBe(200);
+	expect(Array.from(new Uint8Array(await download.arrayBuffer()))).toEqual(
+		Array.from(opaqueAsepriteFile)
+	);
+});
+
+test("reports managed-file storage failures with a support reference", async () => {
+	const { app, storageState } = mountTestApp();
+	const upload = await app.request(
+		`/api/projects/${projectId}/import-inbox`,
+		uploadRequest("hero source.aseprite", opaqueAsepriteFile)
+	);
+	expect(upload.status).toBe(201);
+	const entry = importInboxEntrySchema.parse(await upload.json());
+	storageState.failGet = true;
+
+	const download = await app.request(
+		`/api/projects/${projectId}/import-inbox/${entry.id}/file`,
+		{ headers: { authorization: `Bearer ${userId}` } }
+	);
+	expect(download.status).toBe(500);
+	expect(await download.json()).toEqual({
+		error: "Internal Server Error",
+		supportReference: "SUP-00000000-0000-4000-8000-000000000000",
+	});
 });
