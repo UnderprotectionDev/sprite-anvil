@@ -19,6 +19,9 @@ test("keeps provider parameters while removing credentials and temporary URLs", 
 			"X-Api-Key": "header-secret",
 		},
 		requestHeaders: "Authorization: Bearer inline-secret",
+		rawRequest: JSON.stringify({
+			Authorization: "Bearer serialized-header-secret",
+		}),
 		resource:
 			"https://provider.example/result.png?sv=2026-01-01&sig=temporary-secret",
 		output: {
