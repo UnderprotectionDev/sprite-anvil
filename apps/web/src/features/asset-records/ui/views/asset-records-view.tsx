@@ -17,6 +17,7 @@ import {
 import { AssetRecordTrackingPanel } from "../components/asset-record-tracking-panel";
 import { AssetRecordMeasurementsForm } from "../forms/asset-record-measurements-form";
 import { AssetRecordMetadataForm } from "../forms/asset-record-metadata-form";
+import { ManualImportEvidenceForm } from "../forms/manual-import-evidence-form";
 
 const identityOptions = [
 	{
@@ -465,6 +466,13 @@ export function AssetRecordDetailView({
 							record={record}
 						/>
 					)}
+					{record.availability === "active" ? (
+						<ManualImportEvidenceForm
+							key={record.id}
+							onRefresh={() => trackingQuery.refetch()}
+							record={record}
+						/>
+					) : null}
 				</>
 			) : null}
 		</main>

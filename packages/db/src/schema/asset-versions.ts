@@ -32,6 +32,10 @@ export const assetVersions = pgTable(
 		byteSize: integer("byte_size").notNull(),
 		contentDigest: text("content_digest"),
 		integrityVerified: boolean("integrity_verified").default(false).notNull(),
+		sourceKind: text("source_kind")
+			.$type<"unknown" | "legacy_asset" | "manual_import" | "derived">()
+			.default("unknown")
+			.notNull(),
 		idempotencyKey: text("idempotency_key")
 			.default(sql`'legacy:' || gen_random_uuid()::text`)
 			.notNull(),
@@ -95,6 +99,10 @@ export const assetVersions = pgTable(
 		check(
 			"asset_versions_integrity_digest_check",
 			sql`${table.integrityVerified} = false OR ${table.contentDigest} IS NOT NULL`
+		),
+		check(
+			"asset_versions_source_kind_check",
+			sql`${table.sourceKind} IN ('unknown', 'legacy_asset', 'manual_import', 'derived')`
 		),
 		check("asset_versions_byte_size_check", sql`${table.byteSize} > 0`),
 		uniqueIndex("asset_versions_idempotency_key_idx").on(

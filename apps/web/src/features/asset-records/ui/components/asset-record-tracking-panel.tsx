@@ -593,29 +593,43 @@ export function AssetRecordTrackingPanel({
 	} as const;
 
 	function reviewActions(version: AssetVersionSummary) {
+		const hasManualImportEvidence = tracking.manualImportEvidence?.some(
+			(evidence) => evidence.assetVersionId === version.id
+		);
+		const manualImportEvidenceMissing =
+			tracking.manualImportEvidenceRequiredVersionIds.includes(version.id) &&
+			!hasManualImportEvidence;
 		const decisions = [
 			{ decision: "approved", label: "Onayla" },
 			{ decision: "rejected", label: "Reddet" },
 			{ decision: "candidate", label: "Aday yap" },
 		] as const;
 		return (
-			<div className="flex flex-wrap gap-2">
-				{decisions.map(({ decision, label }) => (
-					<Button
-						disabled={
-							activeWrite !== null ||
-							writeOutcomeUncertain ||
-							version.reviewDisposition === decision
-						}
-						key={decision}
-						onClick={() => void recordReview(version.id, decision)}
-						size="sm"
-						type="button"
-						variant={decision === "approved" ? "default" : "outline"}
-					>
-						{label}
-					</Button>
-				))}
+			<div className="space-y-2">
+				<div className="flex flex-wrap gap-2">
+					{decisions.map(({ decision, label }) => (
+						<Button
+							disabled={
+								activeWrite !== null ||
+								writeOutcomeUncertain ||
+								version.reviewDisposition === decision ||
+								(decision === "approved" && manualImportEvidenceMissing)
+							}
+							key={decision}
+							onClick={() => void recordReview(version.id, decision)}
+							size="sm"
+							type="button"
+							variant={decision === "approved" ? "default" : "outline"}
+						>
+							{label}
+						</Button>
+					))}
+				</div>
+				{manualImportEvidenceMissing ? (
+					<p className="text-muted-foreground text-xs" role="status">
+						Onay için Elle İçe Aktarma Kanıtı gerekir.
+					</p>
+				) : null}
 			</div>
 		);
 	}
@@ -855,6 +869,37 @@ export function AssetRecordTrackingPanel({
 							Henüz üretim geçmişi yok.
 						</p>
 					)}
+					<div className="mt-4 border-t pt-3">
+						<h4 className="font-medium text-sm">Elle İçe Aktarma Kanıtı</h4>
+						{tracking.manualImportEvidence?.length ? (
+							<ul className="mt-2 space-y-3 text-sm">
+								{tracking.manualImportEvidence.map((entry) => (
+									<li className="space-y-1" key={entry.id}>
+										<p>
+											{entry.fileName} · Sürüm {entry.versionNumber} ·{" "}
+											{entry.sourceSurface}
+										</p>
+										<p className="text-muted-foreground text-xs">
+											Üretim Paketi {entry.generationPackageId} · SHA-256{" "}
+											{entry.sha256}
+										</p>
+										<details>
+											<summary className="cursor-pointer text-xs underline underline-offset-4">
+												Gerçek üretim talimatını görüntüle
+											</summary>
+											<p className="mt-2 whitespace-pre-wrap text-sm">
+												{entry.generationInstruction}
+											</p>
+										</details>
+									</li>
+								))}
+							</ul>
+						) : (
+							<p className="mt-2 text-muted-foreground text-sm">
+								Henüz Elle İçe Aktarma Kanıtı yok.
+							</p>
+						)}
+					</div>
 				</section>
 			</div>
 

@@ -11,6 +11,7 @@ import {
 	assetVersionReviewInputSchema,
 	assetVersionSummarySchema,
 	derivativeSummarySchema,
+	manualImportVersionCreateInputSchema,
 	referenceSummarySchema,
 	reviewEventSummarySchema,
 } from "../asset-record-tracking";
@@ -86,6 +87,20 @@ export const assetRecordTrackingRouter = {
 				"Aday Sürüm oluşturulamadı."
 			)
 		),
+	createManualImportVersion: protectedProcedure
+		.input(manualImportVersionCreateInputSchema)
+		.output(assetVersionSummarySchema)
+		.handler(async ({ context, input }) =>
+			unwrapTrackingResult(
+				await context.assetRecordTrackingStore.createManualImportVersion(
+					context.session.user.id,
+					input
+				),
+				"Varlık kaydı veya Üretim Paketi bulunamadı.",
+				"Bu kimlik farklı içerik için kullanılmış.",
+				"Aday Sürüm oluşturulamadı."
+			)
+		),
 	recordReview: protectedProcedure
 		.input(assetVersionReviewInputSchema)
 		.output(reviewEventSummarySchema)
@@ -97,7 +112,7 @@ export const assetRecordTrackingRouter = {
 				),
 				"Varlık Sürümü bulunamadı.",
 				"Bu karar kimliği farklı bir inceleme için kullanılmış.",
-				"Onay için bütünlük kanıtı gerekir."
+				"Onay için dosya bütünlüğü ve gerekli üretim kanıtı gerekir."
 			)
 		),
 	createFamily: protectedProcedure

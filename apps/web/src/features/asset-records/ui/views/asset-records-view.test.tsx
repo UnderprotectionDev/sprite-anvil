@@ -193,6 +193,7 @@ vi.mock("@/utils/orpc", () => ({
 									alternatives: [],
 									derivatives: [],
 									family: null,
+									manualImportEvidenceRequiredVersionIds: [],
 									productionHistory: [],
 									quality: {
 										integrityStatus: "unavailable",
@@ -751,6 +752,7 @@ test("shows persisted versions, derivatives, references, quality, and provenance
 					versionNumber: 1,
 				},
 			],
+			manualImportEvidenceRequiredVersionIds: [],
 			reviewEvents: [],
 			visualWorlds: [],
 		},
@@ -981,6 +983,7 @@ test("keeps unrecorded legacy version details explicit without choosing a Canoni
 				visualWorldId: "742cbe57-ecb0-4616-8d1f-71723ad8cd62",
 				visualWorldName: "Gameplay",
 			},
+			manualImportEvidenceRequiredVersionIds: [],
 			productionHistory: [],
 			quality: {
 				integrityStatus: "unavailable",

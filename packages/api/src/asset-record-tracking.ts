@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { assetRecordSchema } from "./asset-records";
+import { assetVersionSourceKindSchema } from "./asset-versions";
 
 export const assetVersionContentTypes = ["image/png", "image/webp"] as const;
 export const assetVersionContentTypeSchema = z.enum(assetVersionContentTypes);
@@ -83,6 +84,7 @@ export const assetVersionSummarySchema = z
 		createdAt: z.iso.datetime(),
 		fileName: z.string().min(1).max(255).nullable(),
 		id: z.uuid(),
+		sourceKind: assetVersionSourceKindSchema.optional(),
 		reviewDisposition: assetVersionReviewDispositionSchema,
 		sha256: z
 			.string()
@@ -107,15 +109,20 @@ export const assetVersionSummarySchema = z
 	.strict();
 export type AssetVersionSummary = z.infer<typeof assetVersionSummarySchema>;
 
-export const assetVersionCreateInputSchema = z
+const assetVersionUploadInputSchema = z
 	.object({
 		assetRecordId: z.uuid(),
 		contentBase64: z.string().min(4).max(7_000_000),
 		contentType: assetVersionContentTypeSchema,
 		fileName: assetVersionFileNameSchema,
 		id: z.uuid(),
-		knownSource: z.string().trim().max(500).nullable(),
 		projectId: z.uuid(),
+	})
+	.strict();
+
+export const assetVersionCreateInputSchema = assetVersionUploadInputSchema
+	.extend({
+		knownSource: z.string().trim().max(500).nullable(),
 		supportingEvidence: z.string().trim().max(1000).nullable(),
 		unknownHistoryDetails: z.string().trim().min(1).max(1000),
 		userRelationship: z.enum([
@@ -129,6 +136,39 @@ export const assetVersionCreateInputSchema = z
 	.strict();
 export type AssetVersionCreateInput = z.infer<
 	typeof assetVersionCreateInputSchema
+>;
+
+export const manualImportVersionCreateInputSchema =
+	assetVersionUploadInputSchema
+		.extend({
+			generationInstruction: z
+				.string()
+				.min(1)
+				.max(100_000)
+				.refine((value) => value.trim().length > 0),
+			generationPackageId: z.uuid(),
+			sourceSurface: z.string().trim().min(1).max(255),
+		})
+		.strict();
+export type ManualImportVersionCreateInput = z.infer<
+	typeof manualImportVersionCreateInputSchema
+>;
+
+export const manualImportEvidenceSummarySchema = z
+	.object({
+		assetVersionId: z.uuid(),
+		createdAt: z.iso.datetime(),
+		fileName: z.string().min(1).max(255),
+		generationInstruction: z.string().min(1).max(100_000),
+		generationPackageId: z.uuid(),
+		id: z.uuid(),
+		sha256: z.string().regex(/^[a-f0-9]{64}$/),
+		sourceSurface: z.string().min(1).max(255),
+		versionNumber: z.number().int().positive(),
+	})
+	.strict();
+export type ManualImportEvidenceSummary = z.infer<
+	typeof manualImportEvidenceSummarySchema
 >;
 
 export const reviewEventSummarySchema = z
@@ -409,6 +449,8 @@ export const assetRecordTrackingSchema = z
 		availableVersions: trackingVersionOptionSchema.array(),
 		visualWorlds: trackingVisualWorldOptionSchema.array(),
 		productionHistory: legacyAssetAttestationSummarySchema.array(),
+		manualImportEvidence: manualImportEvidenceSummarySchema.array().optional(),
+		manualImportEvidenceRequiredVersionIds: z.array(z.uuid()),
 		quality: qualitySummarySchema,
 		references: referenceSummarySchema.array(),
 		reviewEvents: reviewEventSummarySchema.array(),
@@ -454,6 +496,10 @@ export interface AssetRecordTrackingStore {
 		userId: string,
 		input: z.infer<typeof assetFamilyCreateInputSchema>
 	) => Promise<AssetRecordTrackingStoreResult<AssetFamilySummary>>;
+	createManualImportVersion: (
+		userId: string,
+		input: ManualImportVersionCreateInput
+	) => Promise<AssetRecordTrackingStoreResult<AssetVersionSummary>>;
 	createReference: (
 		userId: string,
 		input: z.infer<typeof assetReferenceCreateInputSchema>

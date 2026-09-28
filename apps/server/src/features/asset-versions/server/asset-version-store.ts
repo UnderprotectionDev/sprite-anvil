@@ -43,6 +43,10 @@ import {
 	unitVersions,
 } from "@sprite-anvil/db/schema/asset-versions";
 import { and, asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import {
+	hasManualImportEvidence,
+	isManualImportEvidenceRequired,
+} from "../../asset-records/server/manual-import-evidence-gate";
 
 const contentDigestPattern = /^[0-9a-f]{64}$/;
 
@@ -150,6 +154,7 @@ function toAssetVersion(
 		contentLength: record.byteSize,
 		contentDigest: record.contentDigest ?? record.sha256,
 		integrityVerified: record.integrityVerified,
+		sourceKind: record.sourceKind,
 		previewUrl: `/api/projects/${encodeURIComponent(record.projectId)}/asset-versions/${record.id}/preview`,
 		reviewDisposition: reviewEvents.at(-1)?.type ?? "candidate",
 		reviewEvents,
@@ -258,7 +263,8 @@ async function readExistingVersion(
 	if (
 		existing.contentDigest !== input.contentDigest ||
 		existing.byteSize !== input.contentLength ||
-		existing.contentType !== input.contentType
+		existing.contentType !== input.contentType ||
+		existing.sourceKind !== (unitCorrection ? "derived" : "manual_import")
 	) {
 		return { kind: "idempotency-conflict" };
 	}
@@ -343,6 +349,7 @@ async function insertCandidateVersion(
 			byteSize: input.contentLength,
 			contentDigest: input.contentDigest,
 			integrityVerified: input.integrityVerified,
+			sourceKind: unitCorrection ? "derived" : "manual_import",
 			idempotencyKey: input.idempotencyKey,
 			createdByUserId: userId,
 		})
@@ -977,6 +984,17 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 			if (
 				input.decision === "approved" &&
 				!(version.integrityVerified && version.contentDigest)
+			) {
+				return null;
+			}
+			if (
+				input.decision === "approved" &&
+				isManualImportEvidenceRequired(version.sourceKind) &&
+				!(await hasManualImportEvidence(db, {
+					assetRecordId: version.assetRecordId,
+					projectId: input.projectId,
+					versionId: version.id,
+				}))
 			) {
 				return null;
 			}
