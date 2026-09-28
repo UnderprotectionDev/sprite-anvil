@@ -326,7 +326,7 @@ test("creates and rereads a source metadata proposal from explicitly selected si
 		sourceContentType: "application/json",
 	};
 	const proposal = {
-		contractVersion: "source-metadata-mapping/1.0.0",
+		contractVersion: "source-metadata-mapping/1.1.0",
 		conflicts: [
 			{
 				candidates: [
@@ -373,6 +373,15 @@ test("creates and rereads a source metadata proposal from explicitly selected si
 				sourceFormat: "texture-packer",
 				sourcePath: "frames.walk.png.pivot",
 				value: { x: 0.25, y: 0.875 },
+			},
+			{
+				field: "duration",
+				key: "walk.png",
+				sourceEntryId: sidecarEntryId,
+				sourceFileName: sidecarEntry.fileName,
+				sourceFormat: "aseprite",
+				sourcePath: "frames[0].duration",
+				value: 100,
 			},
 		],
 		id: "4b4a3a9d-fac0-40c7-8b72-3277308d01c4",
@@ -451,6 +460,11 @@ test("creates and rereads a source metadata proposal from explicitly selected si
 			name: "sheet.png için Kaynak Metadata Eşleme Önerisi",
 		})
 	);
+	expect(
+		sourcePanel.getByText(
+			"En fazla 10 sidecar seçin. Her dosya 5 MiB, toplam boyut 8 MiB ile sınırlıdır."
+		)
+	).toBeInTheDocument();
 	fireEvent.click(
 		sourcePanel.getByRole("checkbox", { name: opaqueSidecarPattern })
 	);
@@ -466,7 +480,7 @@ test("creates and rereads a source metadata proposal from explicitly selected si
 		sidecarEntryIds: [sidecarEntryId, secondSidecarEntryId],
 	});
 	await waitFor(() => expect(fakeApi.fetch).toHaveBeenCalledTimes(4));
-	expect(screen.getByText("source-metadata-mapping/1.0.0")).toBeInTheDocument();
+	expect(screen.getByText("source-metadata-mapping/1.1.0")).toBeInTheDocument();
 	expect(
 		screen.getByText(
 			"Varlık Ailesi bağlantısı: Bilinmiyor · kaynak kanıtı yok."
@@ -481,6 +495,7 @@ test("creates and rereads a source metadata proposal from explicitly selected si
 		screen.getByText("Oyun İçi Bilgiler: Bilinmiyor · proje bağlamı gerekli.")
 	).toBeInTheDocument();
 	expect(screen.getAllByText("Pivot · walk.png")).toHaveLength(2);
+	expect(screen.getByText("Süre · walk.png")).toBeInTheDocument();
 	expect(screen.getAllByText(pivotProposalPattern)).toHaveLength(2);
 	expect(screen.getAllByText(halfPivotPattern)).toHaveLength(1);
 	expect(screen.getAllByText(quarterPivotPattern)).toHaveLength(1);

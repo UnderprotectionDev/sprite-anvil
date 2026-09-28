@@ -1,16 +1,34 @@
 import { z } from "zod";
 import { assetSourceFileNameSchema } from "./asset-record-tracking";
 
-export const sourceMetadataMappingContractVersion =
+export const sourceMetadataMappingLegacyContractVersion =
 	"source-metadata-mapping/1.0.0" as const;
+export const sourceMetadataMappingContractVersion =
+	"source-metadata-mapping/1.1.0" as const;
+
+export const sourceMetadataMappingSidecarLimits = {
+	count: 10,
+	fileBytes: 5 * 1024 * 1024,
+	totalBytes: 8 * 1024 * 1024,
+	requestBytes: 8 * 1024,
+} as const;
 
 export const sourceMetadataFormatSchema = z.enum([
 	"aseprite",
 	"texture-packer",
 ]);
 export const sourceMetadataJsonLayoutSchema = z.enum(["array", "hash"]);
+const sourceMetadataFieldNameV1Schema = z.enum([
+	"frame",
+	"tag",
+	"slice",
+	"pivot",
+	"nine-slice",
+	"palette",
+]);
 export const sourceMetadataFieldNameSchema = z.enum([
 	"frame",
+	"duration",
 	"tag",
 	"slice",
 	"pivot",
@@ -40,15 +58,24 @@ export const sourceMetadataMappingSourceSchema = z
 	})
 	.strict();
 
+const sourceMetadataFieldProposalShape = {
+	key: z.string().min(1).max(512),
+	sourceEntryId: z.uuid(),
+	sourceFileName: assetSourceFileNameSchema,
+	sourceFormat: sourceMetadataFormatSchema,
+	sourcePath: z.string().min(1).max(2048),
+	value: z.unknown(),
+};
+const sourceMetadataFieldProposalV1Schema = z
+	.object({
+		field: sourceMetadataFieldNameV1Schema,
+		...sourceMetadataFieldProposalShape,
+	})
+	.strict();
 export const sourceMetadataFieldProposalSchema = z
 	.object({
 		field: sourceMetadataFieldNameSchema,
-		key: z.string().min(1).max(512),
-		sourceEntryId: z.uuid(),
-		sourceFileName: assetSourceFileNameSchema,
-		sourceFormat: sourceMetadataFormatSchema,
-		sourcePath: z.string().min(1).max(2048),
-		value: z.unknown(),
+		...sourceMetadataFieldProposalShape,
 	})
 	.strict();
 export type SourceMetadataFieldProposal = z.infer<
@@ -80,6 +107,13 @@ export type SourceMetadataMappingSuggestions = z.infer<
 	typeof sourceMetadataMappingSuggestionsSchema
 >;
 
+const sourceMetadataMappingConflictV1Schema = z
+	.object({
+		candidates: z.array(sourceMetadataFieldProposalV1Schema).min(2),
+		field: sourceMetadataFieldNameV1Schema,
+		key: z.string().min(1).max(512),
+	})
+	.strict();
 export const sourceMetadataMappingConflictSchema = z
 	.object({
 		candidates: z.array(sourceMetadataFieldProposalSchema).min(2),
@@ -100,27 +134,48 @@ export type SourceMetadataMappingDiagnostic = z.infer<
 	typeof sourceMetadataMappingDiagnosticSchema
 >;
 
-export const sourceMetadataMappingProposalSchema = z
+const sourceMetadataMappingProposalShape = {
+	createdAt: z.iso.datetime(),
+	diagnostics: z.array(sourceMetadataMappingDiagnosticSchema),
+	id: z.uuid(),
+	projectId: z.uuid(),
+	sidecars: z.array(sourceMetadataMappingSidecarSchema).min(1),
+	source: sourceMetadataMappingSourceSchema,
+	suggestions: sourceMetadataMappingSuggestionsSchema,
+};
+const sourceMetadataMappingProposalV1Schema = z
 	.object({
-		contractVersion: z.literal(sourceMetadataMappingContractVersion),
-		conflicts: z.array(sourceMetadataMappingConflictSchema),
-		createdAt: z.iso.datetime(),
-		diagnostics: z.array(sourceMetadataMappingDiagnosticSchema),
-		fields: z.array(sourceMetadataFieldProposalSchema),
-		id: z.uuid(),
-		projectId: z.uuid(),
-		sidecars: z.array(sourceMetadataMappingSidecarSchema).min(1),
-		source: sourceMetadataMappingSourceSchema,
-		suggestions: sourceMetadataMappingSuggestionsSchema,
+		...sourceMetadataMappingProposalShape,
+		contractVersion: z.literal(sourceMetadataMappingLegacyContractVersion),
+		conflicts: z.array(sourceMetadataMappingConflictV1Schema),
+		fields: z.array(sourceMetadataFieldProposalV1Schema),
 	})
 	.strict();
+const sourceMetadataMappingProposalV1_1Schema = z
+	.object({
+		...sourceMetadataMappingProposalShape,
+		contractVersion: z.literal(sourceMetadataMappingContractVersion),
+		conflicts: z.array(sourceMetadataMappingConflictSchema),
+		fields: z.array(sourceMetadataFieldProposalSchema),
+	})
+	.strict();
+export const sourceMetadataMappingProposalSchema = z.discriminatedUnion(
+	"contractVersion",
+	[
+		sourceMetadataMappingProposalV1Schema,
+		sourceMetadataMappingProposalV1_1Schema,
+	]
+);
 export type SourceMetadataMappingProposal = z.infer<
 	typeof sourceMetadataMappingProposalSchema
 >;
 
 export const sourceMetadataMappingProposalCreateInputSchema = z
 	.object({
-		sidecarEntryIds: z.array(z.uuid()).min(1),
+		sidecarEntryIds: z
+			.array(z.uuid())
+			.min(1)
+			.max(sourceMetadataMappingSidecarLimits.count),
 	})
 	.strict()
 	.superRefine((input, context) => {

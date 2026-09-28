@@ -93,7 +93,7 @@ describe("Source Metadata Mapping Proposals", () => {
 			await $(
 				"p*=alan çakışması var; öneri henüz kesinleşmedi."
 			).waitForDisplayed();
-			await $("dd=source-metadata-mapping/1.0.0").waitForDisplayed();
+			await $("dd=source-metadata-mapping/1.1.0").waitForDisplayed();
 			await $(
 				`dd=${sourceMetadataMappingFixtureHash(sourceMetadataMappingFixture.source.bytes)}`
 			).waitForDisplayed();
@@ -114,6 +114,7 @@ describe("Source Metadata Mapping Proposals", () => {
 			).waitForDisplayed();
 			await $("p=Pivot · walk-0").waitForDisplayed();
 			await $("p=Tag · walk").waitForDisplayed();
+			await $("p=Süre · walk-0").waitForDisplayed();
 
 			await browser.refresh();
 			const rereadProposal = await $("summary*=Kaynak Metadata Eşleme Önerisi");
@@ -126,6 +127,7 @@ describe("Source Metadata Mapping Proposals", () => {
 				"p=Oyun İçi Bilgiler: Bilinmiyor · proje bağlamı gerekli."
 			).waitForDisplayed();
 			await $("p=Pivot · walk-0").waitForDisplayed();
+			await $("p=Süre · walk-0").waitForDisplayed();
 		} finally {
 			rmSync(directory, { force: true, recursive: true });
 		}

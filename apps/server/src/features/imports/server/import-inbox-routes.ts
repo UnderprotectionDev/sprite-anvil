@@ -1,5 +1,8 @@
 import { assetSourceFileNameSchema } from "@sprite-anvil/api/asset-record-tracking";
-import type { ImportInboxStore } from "@sprite-anvil/api/import-inbox";
+import type {
+	ImportInboxFileRecord,
+	ImportInboxStore,
+} from "@sprite-anvil/api/import-inbox";
 import { importInboxSourceContentTypeSchema } from "@sprite-anvil/api/import-inbox";
 import type {
 	SourceMetadataFieldProposal,
@@ -11,6 +14,7 @@ import {
 	sourceMetadataMappingContractVersion,
 	sourceMetadataMappingProposalCreateInputSchema,
 	sourceMetadataMappingProposalSchema,
+	sourceMetadataMappingSidecarLimits,
 } from "@sprite-anvil/api/source-metadata-mapping";
 import type { Context, Hono } from "hono";
 import z from "zod";
@@ -350,8 +354,10 @@ function proposalErrorResponse(
 	error:
 		| "Invalid source metadata proposal"
 		| "Invalid source metadata JSON"
-		| "Unsupported source metadata format",
-	status: 400 | 422
+		| "Unsupported source metadata format"
+		| "Source metadata sidecars exceed the maximum size"
+		| "Source metadata proposal request exceeds the maximum size",
+	status: 400 | 413 | 422
 ) {
 	c.header("Cache-Control", "private, no-store");
 	return c.json(serializePublicApiError(error), status);
@@ -366,8 +372,74 @@ type ParsedSidecarsResult =
 	  }
 	| {
 			ok: false;
-			reason: "not_found" | "invalid_json" | "unsupported_format";
+			reason: "not_found" | "invalid_json" | "unsupported_format" | "too_large";
 	  };
+
+type BoundedJsonRequestResult =
+	| { ok: true; value: unknown }
+	| { ok: false; reason: "invalid_json" | "too_large" };
+
+async function readBoundedJsonRequest(
+	request: Request
+): Promise<BoundedJsonRequestResult> {
+	const contentLengthHeader = request.headers.get("content-length");
+	if (contentLengthHeader !== null) {
+		if (!uploadLengthPattern.test(contentLengthHeader)) {
+			return { ok: false, reason: "invalid_json" };
+		}
+		const contentLength = Number(contentLengthHeader);
+		if (!Number.isSafeInteger(contentLength)) {
+			return { ok: false, reason: "invalid_json" };
+		}
+		if (contentLength > sourceMetadataMappingSidecarLimits.requestBytes) {
+			await request.body?.cancel().catch(() => undefined);
+			return { ok: false, reason: "too_large" };
+		}
+	}
+
+	if (!request.body) {
+		return { ok: false, reason: "invalid_json" };
+	}
+	const reader = request.body.getReader();
+	const chunks: Uint8Array[] = [];
+	let byteLength = 0;
+	try {
+		while (true) {
+			// biome-ignore lint/performance/noAwaitInLoops: Streaming reads stay sequential to enforce the byte cap before retaining more chunks.
+			const { done, value } = await reader.read();
+			if (done) {
+				break;
+			}
+			byteLength += value.byteLength;
+			if (byteLength > sourceMetadataMappingSidecarLimits.requestBytes) {
+				await reader.cancel().catch(() => undefined);
+				return { ok: false, reason: "too_large" };
+			}
+			chunks.push(value);
+		}
+	} catch {
+		return { ok: false, reason: "invalid_json" };
+	} finally {
+		reader.releaseLock();
+	}
+
+	const bytes = new Uint8Array(byteLength);
+	let offset = 0;
+	for (const chunk of chunks) {
+		bytes.set(chunk, offset);
+		offset += chunk.byteLength;
+	}
+	try {
+		return {
+			ok: true,
+			value: JSON.parse(
+				new TextDecoder("utf-8", { fatal: true }).decode(bytes)
+			),
+		};
+	} catch {
+		return { ok: false, reason: "invalid_json" };
+	}
+}
 
 async function parseSidecarEntries(
 	userId: string,
@@ -375,12 +447,10 @@ async function parseSidecarEntries(
 	sidecarEntryIds: string[],
 	dependencies: ImportInboxRouteDependencies
 ): Promise<ParsedSidecarsResult> {
-	const storage = dependencies.createStorage();
-	const sidecars: SourceMetadataMappingSidecar[] = [];
-	const fields: SourceMetadataFieldProposal[] = [];
-	const diagnostics: SourceMetadataMappingDiagnostic[] = [];
+	const files: Array<{ entryId: string; file: ImportInboxFileRecord }> = [];
+	let totalBytes = 0;
 	for (const sidecarEntryId of sidecarEntryIds) {
-		// biome-ignore lint/performance/noAwaitInLoops: Sidecars are read sequentially to bound memory while validating each managed stream.
+		// biome-ignore lint/performance/noAwaitInLoops: File records are preflighted sequentially before any sidecar bytes are read.
 		const file = await dependencies.importInboxStore.getFileRecord(
 			userId,
 			projectId,
@@ -389,7 +459,25 @@ async function parseSidecarEntries(
 		if (!file) {
 			return { ok: false, reason: "not_found" };
 		}
+		if (
+			!Number.isSafeInteger(file.contentLength) ||
+			file.contentLength < 0 ||
+			file.contentLength > sourceMetadataMappingSidecarLimits.fileBytes ||
+			totalBytes + file.contentLength >
+				sourceMetadataMappingSidecarLimits.totalBytes
+		) {
+			return { ok: false, reason: "too_large" };
+		}
+		totalBytes += file.contentLength;
+		files.push({ entryId: sidecarEntryId, file });
+	}
 
+	const storage = dependencies.createStorage();
+	const sidecars: SourceMetadataMappingSidecar[] = [];
+	const fields: SourceMetadataFieldProposal[] = [];
+	const diagnostics: SourceMetadataMappingDiagnostic[] = [];
+	for (const { entryId: sidecarEntryId, file } of files) {
+		// biome-ignore lint/performance/noAwaitInLoops: Sidecars are read sequentially to bound memory while validating each managed stream.
 		const decoded = await readImportInboxTextFile(storage, file);
 		if (!decoded.ok) {
 			return { ok: false, reason: "invalid_json" };
@@ -417,7 +505,15 @@ async function createSourceMetadataMappingProposal(
 	sourceEntryId: string,
 	dependencies: ImportInboxRouteDependencies
 ) {
-	const rawInput: unknown = await c.req.json().catch(() => null);
+	const requestBody = await readBoundedJsonRequest(c.req.raw);
+	if (!requestBody.ok && requestBody.reason === "too_large") {
+		return proposalErrorResponse(
+			c,
+			"Source metadata proposal request exceeds the maximum size",
+			413
+		);
+	}
+	const rawInput: unknown = requestBody.ok ? requestBody.value : null;
 	const input =
 		sourceMetadataMappingProposalCreateInputSchema.safeParse(rawInput);
 	if (!input.success) {
@@ -441,6 +537,13 @@ async function createSourceMetadataMappingProposal(
 	if (!parsedSidecars.ok) {
 		if (parsedSidecars.reason === "not_found") {
 			return c.json(serializePublicApiError("Not found"), 404);
+		}
+		if (parsedSidecars.reason === "too_large") {
+			return proposalErrorResponse(
+				c,
+				"Source metadata sidecars exceed the maximum size",
+				413
+			);
 		}
 		return proposalErrorResponse(
 			c,

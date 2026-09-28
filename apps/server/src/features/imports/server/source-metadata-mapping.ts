@@ -16,6 +16,7 @@ type SourceMetadataFormat = SourceMetadataMappingSidecar["format"];
 type FrameLayout = "array" | "hash";
 
 const wwwPrefixPattern = /^www\./;
+const separatedFrameProperties = new Set(["duration", "filename", "pivot"]);
 
 export type SourceMetadataSidecarFailure =
 	| "invalid_json"
@@ -277,9 +278,26 @@ function frameFields(
 		const path = Array.isArray(parsed.frames)
 			? `frames[${index}]`
 			: `frames.${key}`;
-		fields.push(
-			createField(input, parsed.sidecar, "frame", id, path, rawFrame)
+		const frameValue = Object.fromEntries(
+			Object.entries(rawFrame).filter(
+				([property]) => !separatedFrameProperties.has(property)
+			)
 		);
+		fields.push(
+			createField(input, parsed.sidecar, "frame", id, path, frameValue)
+		);
+		if (Object.hasOwn(rawFrame, "duration")) {
+			fields.push(
+				createField(
+					input,
+					parsed.sidecar,
+					"duration",
+					id,
+					`${path}.duration`,
+					rawFrame.duration
+				)
+			);
+		}
 		fields.push(
 			...frameDetailFields(input, parsed.sidecar, rawFrame, id, path)
 		);

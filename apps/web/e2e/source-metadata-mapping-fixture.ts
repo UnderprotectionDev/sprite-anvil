@@ -3,8 +3,9 @@ import { createHash } from "node:crypto";
 const sourceFileName = "walking-sheet.png";
 const frameRectangle = { h: 16, w: 16, x: 0, y: 0 };
 
-function frameWithPivot(pivot: { x: number; y: number }) {
+function frameWithPivot(pivot: { x: number; y: number }, duration?: number) {
 	return {
+		...(duration === undefined ? {} : { duration }),
 		filename: "walk-0",
 		frame: frameRectangle,
 		pivot,
@@ -23,7 +24,7 @@ export const sourceMetadataMappingFixture = {
 		jsonLayout: "array",
 		version: "1.3.10",
 		bytes: jsonBytes({
-			frames: [frameWithPivot({ x: 1, y: 0 })],
+			frames: [frameWithPivot({ x: 1, y: 0 }, 100)],
 			meta: {
 				app: "http://www.aseprite.org/",
 				frameTags: [{ direction: "forward", from: 0, name: "walk", to: 0 }],

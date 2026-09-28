@@ -11,6 +11,10 @@ import type {
 	SourceMetadataMappingProposal,
 	SourceMetadataMappingProposalStore,
 } from "@sprite-anvil/api/source-metadata-mapping";
+import {
+	sourceMetadataMappingLegacyContractVersion,
+	sourceMetadataMappingProposalSchema,
+} from "@sprite-anvil/api/source-metadata-mapping";
 import { Hono } from "hono";
 import { mountImportInboxRoutes } from "./features/imports/server/import-inbox-routes";
 import { serializePublicApiError } from "./output-contracts";
@@ -554,7 +558,7 @@ test("creates and rereads a source metadata proposal from Aseprite and TexturePa
 		source: { entryId: string; fileName: string; sha256: string };
 	};
 
-	expect(created.contractVersion).toBe("source-metadata-mapping/1.0.0");
+	expect(created.contractVersion).toBe("source-metadata-mapping/1.1.0");
 	expect(created.suggestions.assetFamilyLinks).toEqual({
 		reason: "no-source-evidence",
 		status: "unknown",
@@ -593,11 +597,23 @@ test("creates and rereads a source metadata proposal from Aseprite and TexturePa
 			expect.objectContaining({ field: "nine-slice", key: "button" }),
 		])
 	);
-	expect(created.conflicts).toEqual(
-		expect.arrayContaining([
-			expect.objectContaining({ field: "pivot", key: "button" }),
-		])
+	const frameField = created.fields.find(
+		(field) => field.field === "frame" && field.key === "button"
 	);
+	expect(frameField?.value).toEqual({
+		frame: { h: 20, w: 30, x: 0, y: 0 },
+	});
+	expect(created.fields).toContainEqual(
+		expect.objectContaining({
+			field: "duration",
+			key: "button",
+			sourcePath: "frames.button.duration",
+			value: 100,
+		})
+	);
+	expect(created.conflicts.map(({ field, key }) => [field, key])).toEqual([
+		["pivot", "button"],
+	]);
 
 	const rereadResponse = await app.request(proposalPath, {
 		headers: { authorization: `Bearer ${userId}` },
@@ -847,4 +863,170 @@ test("protects source metadata proposals with project access and inbox membershi
 		}
 	);
 	expect(inaccessibleProject.status).toBe(404);
+});
+
+test("continues to parse persisted source metadata mapping contract version 1.0", () => {
+	const legacyProposal: SourceMetadataMappingProposal = {
+		contractVersion: sourceMetadataMappingLegacyContractVersion,
+		conflicts: [],
+		createdAt: new Date().toISOString(),
+		diagnostics: [],
+		fields: [
+			{
+				field: "frame",
+				key: "button",
+				sourceEntryId: crypto.randomUUID(),
+				sourceFileName: "metadata.json",
+				sourceFormat: "aseprite",
+				sourcePath: "frames.button",
+				value: {
+					duration: 100,
+					frame: { h: 20, w: 30, x: 0, y: 0 },
+					pivot: { x: 0.5, y: 0.5 },
+				},
+			},
+		],
+		id: crypto.randomUUID(),
+		projectId,
+		sidecars: [
+			{
+				entryId: crypto.randomUUID(),
+				fileName: "metadata.json",
+				format: "aseprite",
+				jsonLayout: "hash",
+				sha256: "a".repeat(64),
+				version: "1.3.10",
+			},
+		],
+		source: {
+			entryId: crypto.randomUUID(),
+			fileName: "source.png",
+			sha256: "b".repeat(64),
+		},
+		suggestions: {
+			assetFamilyLinks: {
+				reason: "no-source-evidence",
+				status: "unknown",
+			},
+			gameplayMetadata: {
+				reason: "project-context-required",
+				status: "unknown",
+			},
+			requiredSetLinks: {
+				reason: "no-source-evidence",
+				status: "unknown",
+			},
+		},
+	};
+
+	expect(sourceMetadataMappingProposalSchema.parse(legacyProposal)).toEqual(
+		legacyProposal
+	);
+});
+
+test("rejects source metadata sidecars that exceed the parsing size limit", async () => {
+	const { app } = mountTestApp();
+	const sourceId = crypto.randomUUID();
+	const sidecarId = crypto.randomUUID();
+	const sourceBytes = Uint8Array.from([137, 80, 78, 71]);
+	const oversizedBytes = new Uint8Array(5 * 1024 * 1024 + 1).fill(32);
+	const uploads = await Promise.all([
+		app.request(
+			`/api/projects/${projectId}/import-inbox`,
+			uploadRequest("source.png", sourceBytes, sourceId)
+		),
+		app.request(
+			`/api/projects/${projectId}/import-inbox`,
+			uploadRequest("sidecar.json", oversizedBytes, sidecarId)
+		),
+	]);
+	expect(uploads.map((upload) => upload.status)).toEqual([201, 201]);
+
+	const response = await app.request(
+		`/api/projects/${projectId}/import-inbox/${sourceId}/source-metadata-mapping-proposals`,
+		{
+			method: "POST",
+			headers: {
+				authorization: `Bearer ${userId}`,
+				"content-type": "application/json",
+			},
+			body: JSON.stringify({ sidecarEntryIds: [sidecarId] }),
+		}
+	);
+	expect(response.status).toBe(413);
+	expect(await response.json()).toEqual({
+		error: "Source metadata sidecars exceed the maximum size",
+	});
+});
+
+test("rejects source metadata sidecars whose aggregate size exceeds the parsing limit", async () => {
+	const { app } = mountTestApp();
+	const sourceId = crypto.randomUUID();
+	const sidecarIds = [crypto.randomUUID(), crypto.randomUUID()];
+	const sourceBytes = Uint8Array.from([137, 80, 78, 71]);
+	const aggregateOversizeBytes = new Uint8Array(4 * 1024 * 1024 + 1).fill(32);
+	const uploads = await Promise.all([
+		app.request(
+			`/api/projects/${projectId}/import-inbox`,
+			uploadRequest("source.png", sourceBytes, sourceId)
+		),
+		...sidecarIds.map((sidecarId, index) =>
+			app.request(
+				`/api/projects/${projectId}/import-inbox`,
+				uploadRequest(
+					`sidecar-${index}.json`,
+					aggregateOversizeBytes,
+					sidecarId
+				)
+			)
+		),
+	]);
+	expect(uploads.map((upload) => upload.status)).toEqual([201, 201, 201]);
+
+	const response = await app.request(
+		`/api/projects/${projectId}/import-inbox/${sourceId}/source-metadata-mapping-proposals`,
+		{
+			method: "POST",
+			headers: {
+				authorization: `Bearer ${userId}`,
+				"content-type": "application/json",
+			},
+			body: JSON.stringify({ sidecarEntryIds: sidecarIds }),
+		}
+	);
+	expect(response.status).toBe(413);
+	expect(await response.json()).toEqual({
+		error: "Source metadata sidecars exceed the maximum size",
+	});
+});
+
+test("bounds source metadata proposal input size and sidecar count", async () => {
+	const { app } = mountTestApp();
+	const sourceId = crypto.randomUUID();
+	const proposalPath = `/api/projects/${projectId}/import-inbox/${sourceId}/source-metadata-mapping-proposals`;
+	const headers = {
+		authorization: `Bearer ${userId}`,
+		"content-type": "application/json",
+	};
+	const excessiveSidecarCount = await app.request(proposalPath, {
+		method: "POST",
+		headers,
+		body: JSON.stringify({
+			sidecarEntryIds: Array.from({ length: 11 }, () => crypto.randomUUID()),
+		}),
+	});
+	expect(excessiveSidecarCount.status).toBe(400);
+	expect(await excessiveSidecarCount.json()).toEqual({
+		error: "Invalid source metadata proposal",
+	});
+
+	const oversizedRequestBody = await app.request(proposalPath, {
+		method: "POST",
+		headers,
+		body: `${JSON.stringify({ sidecarEntryIds: [crypto.randomUUID()] })}${" ".repeat(8192)}`,
+	});
+	expect(oversizedRequestBody.status).toBe(413);
+	expect(await oversizedRequestBody.json()).toEqual({
+		error: "Source metadata proposal request exceeds the maximum size",
+	});
 });

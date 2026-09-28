@@ -84,12 +84,12 @@ test("creates and rereads the shared source metadata mapping proposal through th
 	await proposalSummary.click();
 	const proposalDetails = page
 		.locator("details")
-		.filter({ hasText: "source-metadata-mapping/1.0.0" });
+		.filter({ hasText: "source-metadata-mapping/1.1.0" });
 	await expect(proposalDetails.getByRole("status")).toContainText(
 		unresolvedConflictStatusPattern
 	);
 	await expect(
-		proposalDetails.getByText("source-metadata-mapping/1.0.0")
+		proposalDetails.getByText("source-metadata-mapping/1.1.0")
 	).toBeVisible();
 	await expect(
 		proposalDetails.getByText(
@@ -131,6 +131,9 @@ test("creates and rereads the shared source metadata mapping proposal through th
 		proposalDetails.getByText("Tag · walk", { exact: true })
 	).toBeVisible();
 	await expect(
+		proposalDetails.getByText("Süre · walk-0", { exact: true })
+	).toBeVisible();
+	await expect(
 		proposalDetails.getByText(
 			"Oyun İçi Bilgiler: Bilinmiyor · proje bağlamı gerekli.",
 			{ exact: true }
@@ -150,11 +153,14 @@ test("creates and rereads the shared source metadata mapping proposal through th
 	await rereadProposalSummary.click();
 	const rereadProposalDetails = page
 		.locator("details")
-		.filter({ hasText: "source-metadata-mapping/1.0.0" });
+		.filter({ hasText: "source-metadata-mapping/1.1.0" });
 	await expect(rereadProposalDetails.getByRole("status")).toContainText(
 		unresolvedConflictStatusPattern
 	);
 	await expect(
 		rereadProposalDetails.getByText("Tag · walk", { exact: true })
+	).toBeVisible();
+	await expect(
+		rereadProposalDetails.getByText("Süre · walk-0", { exact: true })
 	).toBeVisible();
 });

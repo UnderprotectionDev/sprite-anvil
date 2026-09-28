@@ -103,6 +103,8 @@ export const publicApiErrorSchema = z
 			"Invalid source metadata proposal",
 			"Invalid source metadata JSON",
 			"Unsupported source metadata format",
+			"Source metadata sidecars exceed the maximum size",
+			"Source metadata proposal request exceeds the maximum size",
 			"Internal Server Error",
 		]),
 		supportReference: supportReferenceSchema.optional(),

@@ -3,6 +3,7 @@ import {
 	type SourceMetadataMappingProposal,
 	sourceMetadataMappingProposalSchema,
 	sourceMetadataMappingProposalsSchema,
+	sourceMetadataMappingSidecarLimits,
 } from "@sprite-anvil/api/source-metadata-mapping";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -58,6 +59,12 @@ function createErrorMessage(status: number, body: unknown) {
 	if (status === 400) {
 		return "Sidecar seçimini kontrol edip yeniden deneyin.";
 	}
+	if (status === 413) {
+		return errorName(body) ===
+			"Source metadata sidecars exceed the maximum size"
+			? "Sidecar dosyaları dosya başına 5 MiB ve toplam 8 MiB sınırını aşıyor."
+			: "Öneri isteği 8 KiB boyut sınırını aşıyor.";
+	}
 	return "Öneri oluşturma sonucu doğrulanamadı. Kayıtlı önerileri kontrol edin.";
 }
 
@@ -70,6 +77,7 @@ function fieldLabel(
 ) {
 	const labels = {
 		frame: "Kare",
+		duration: "Süre",
 		tag: "Tag",
 		slice: "Slice",
 		pivot: "Pivot",
@@ -221,11 +229,15 @@ export function SourceMetadataMappingPanel({
 	);
 
 	function toggleSidecar(entryId: string) {
-		setSelectedSidecarEntryIds((selected) =>
-			selected.includes(entryId)
-				? selected.filter((selectedId) => selectedId !== entryId)
-				: [...selected, entryId]
-		);
+		setSelectedSidecarEntryIds((selected) => {
+			if (selected.includes(entryId)) {
+				return selected.filter((selectedId) => selectedId !== entryId);
+			}
+			if (selected.length >= sourceMetadataMappingSidecarLimits.count) {
+				return selected;
+			}
+			return [...selected, entryId];
+		});
 		setCreateError(null);
 	}
 
@@ -281,6 +293,10 @@ export function SourceMetadataMappingPanel({
 			</div>
 			<fieldset className="space-y-2" disabled={isCreating}>
 				<legend className="font-medium text-sm">JSON sidecar girdileri</legend>
+				<p className="text-muted-foreground text-sm">
+					En fazla {sourceMetadataMappingSidecarLimits.count} sidecar seçin. Her
+					dosya 5 MiB, toplam boyut 8 MiB ile sınırlıdır.
+				</p>
 				{sidecarEntries.length === 0 ? (
 					<p className="text-muted-foreground text-sm">
 						Önce JSON sidecar dosyasını Gelen Kutusuna ekleyin.
@@ -292,6 +308,11 @@ export function SourceMetadataMappingPanel({
 								<label className="flex min-h-11 items-center gap-2 text-sm">
 									<input
 										checked={selectedSidecarEntryIds.includes(sidecar.id)}
+										disabled={
+											!selectedSidecarEntryIds.includes(sidecar.id) &&
+											selectedSidecarEntryIds.length >=
+												sourceMetadataMappingSidecarLimits.count
+										}
 										onChange={() => toggleSidecar(sidecar.id)}
 										type="checkbox"
 									/>
