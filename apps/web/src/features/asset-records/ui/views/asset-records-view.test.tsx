@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import type { AssetRecord } from "@sprite-anvil/api/asset-records";
+import type { GenerationPackage } from "@sprite-anvil/api/generation-packages";
 import {
 	cleanup,
 	fireEvent,
@@ -69,6 +70,8 @@ const fakeApi = vi.hoisted(() => ({
 	archive: vi.fn(),
 	create: vi.fn(),
 	createReference: vi.fn(),
+	createGenerationPackage: vi.fn(),
+	generationPackages: [] as GenerationPackage[],
 	detail: null as Record<string, unknown> | null,
 	measurements: null as Record<string, unknown> | null,
 	recordsError: null as Error | null,
@@ -107,8 +110,32 @@ vi.mock("@/utils/orpc", () => ({
 			updateMeasurements: (input: unknown) => fakeApi.updateMeasurements(input),
 			createReference: (input: unknown) => fakeApi.createReference(input),
 		},
+		generationPackages: {
+			create: (input: unknown) => fakeApi.createGenerationPackage(input),
+		},
 	},
 	orpc: {
+		assetVersions: {
+			list: {
+				queryOptions: ({ input }: { input: Record<string, unknown> }) => ({
+					queryKey: ["asset-versions", input],
+					queryFn: async () => ({
+						assetVersions: [],
+						canonicalDesigns: [],
+						compositeVersions: [],
+						unitVersions: [],
+					}),
+				}),
+			},
+		},
+		generationPackages: {
+			list: {
+				queryOptions: ({ input }: { input: Record<string, unknown> }) => ({
+					queryKey: ["generation-packages", input],
+					queryFn: async () => fakeApi.generationPackages,
+				}),
+			},
+		},
 		assetRecords: {
 			search: {
 				queryOptions: ({ input }: { input: Record<string, unknown> }) => ({
@@ -215,6 +242,8 @@ afterEach(() => {
 	fakeApi.archive.mockReset();
 	fakeApi.create.mockReset();
 	fakeApi.createReference.mockReset();
+	fakeApi.createGenerationPackage.mockReset();
+	fakeApi.generationPackages = [];
 	fakeApi.restore.mockReset();
 	fakeApi.updateMeasurements.mockReset();
 	fakeApi.updateMetadata.mockReset();
@@ -374,6 +403,24 @@ test("opens a measured legacy version when its file name is unknown", async () =
 	expect(await screen.findByText("Sürüm 3 · 32 × 48 px")).toBeVisible();
 	fireEvent.click(screen.getByRole("button", { name: "sürüm 3 geçmişini aç" }));
 	expect(onOpenRecord).toHaveBeenCalledWith(assetRecord.id, versionId);
+});
+
+test("shows the Generation Package workflow on an active Asset Record", async () => {
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+
+	expect(
+		await screen.findByRole("heading", { name: "Üretim Paketleri" })
+	).toBeVisible();
+	await waitFor(() =>
+		expect(
+			screen.getByRole("button", { name: "Üretim Paketini sabitle" })
+		).toBeEnabled()
+	);
 });
 
 test("edits record metadata and limits Theme choices to the selected Visual World", async () => {

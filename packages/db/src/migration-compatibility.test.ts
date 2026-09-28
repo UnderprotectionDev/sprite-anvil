@@ -58,6 +58,9 @@ const unitVersionMigration = readMigration(
 const compositeVersionMigration = readMigration(
 	"./migrations/20260927194354_composite-versions/migration.sql"
 );
+const generationPackageMigration = readMigration(
+	"./migrations/20260927224924_safe_vance_astro/migration.sql"
+);
 
 test("normalizes legacy project ownership before current indexes and foreign keys", () => {
 	const renameOwnerColumn = migration.indexOf(
@@ -465,4 +468,17 @@ test("reconciles Drizzle snapshot parents and preserves both asset schema branch
 			})
 		);
 	}
+});
+
+test("stores Production Context Snapshots with project and Asset Record ownership", () => {
+	expect(generationPackageMigration).toContain(
+		'CREATE TABLE "generation_packages"'
+	);
+	expect(generationPackageMigration).toContain('"snapshot" jsonb NOT NULL');
+	expect(generationPackageMigration).toContain(
+		'FOREIGN KEY ("project_id","asset_record_id") REFERENCES "asset_records"("project_id","id") ON DELETE RESTRICT'
+	);
+	expect(generationPackageMigration).toContain(
+		'FOREIGN KEY ("created_by_user_id") REFERENCES "user"("id") ON DELETE RESTRICT'
+	);
 });
