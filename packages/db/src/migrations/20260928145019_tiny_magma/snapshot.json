@@ -1,10 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "811ced61-3add-467c-bac7-b5b7892fec34",
+  "id": "6e601757-7f11-4b25-982d-f2feac6542ce",
   "prevIds": [
-    "bcd4bf35-f0c5-4f14-80e4-ac867c008382",
-    "f3893156-3986-4fac-8fa2-a737fb7a99dc"
+    "fcd0d62c-308e-47a0-bfc1-a472ea37fd87"
   ],
   "ddl": [
     {
@@ -531,6 +530,19 @@
       "generated": null,
       "identity": null,
       "name": "supporting_evidence",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "legacy_asset_attestations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "unknown_history_details",
       "entityType": "columns",
       "schema": "public",
       "table": "legacy_asset_attestations"
@@ -8692,6 +8704,13 @@
     {
       "value": "\"history_unknown\" = true",
       "name": "legacy_asset_attestations_unknown_history_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "legacy_asset_attestations"
+    },
+    {
+      "value": "\"unknown_history_details\" IS NULL OR length(trim(\"unknown_history_details\")) > 0",
+      "name": "legacy_asset_attestations_unknown_history_details_check",
       "entityType": "checks",
       "schema": "public",
       "table": "legacy_asset_attestations"

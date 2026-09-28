@@ -68,7 +68,7 @@ const preserveImportInboxSourceFileNamesMigration = readMigration(
 	"./migrations/20260928080506_preserve-import-inbox-source-filenames/migration.sql"
 );
 const sourceMetadataMappingProposalMigration = readMigration(
-	"./migrations/20260928114429_source-metadata-mapping-proposals/migration.sql"
+	"./migrations/20260928145019_tiny_magma/migration.sql"
 );
 const legacyAttestationDetailsMigration = readMigration(
 	"./migrations/20260928113737_hot_the_professor/migration.sql"
@@ -573,7 +573,7 @@ test("preserves exact Import Inbox source file names in the database", () => {
 			),
 			"utf8"
 		)
-	) as { prevIds: string[] };
+	) as { id: string; prevIds: string[] };
 
 	expect(preserveImportInboxSourceFileNamesMigration).toContain(
 		'CHECK (char_length("file_name") BETWEEN 1 AND 255)'
@@ -588,7 +588,7 @@ test("persists source metadata proposals with managed-file provenance", () => {
 	const mappingSnapshot = JSON.parse(
 		readFileSync(
 			new URL(
-				"./migrations/20260928114429_source-metadata-mapping-proposals/snapshot.json",
+				"./migrations/20260928145019_tiny_magma/snapshot.json",
 				import.meta.url
 			),
 			"utf8"
@@ -597,10 +597,10 @@ test("persists source metadata proposals with managed-file provenance", () => {
 		ddl: Record<string, unknown>[];
 		prevIds: string[];
 	};
-	const preserveNamesSnapshot = JSON.parse(
+	const attestationDetailsSnapshot = JSON.parse(
 		readFileSync(
 			new URL(
-				"./migrations/20260928080506_preserve-import-inbox-source-filenames/snapshot.json",
+				"./migrations/20260928113737_hot_the_professor/snapshot.json",
 				import.meta.url
 			),
 			"utf8"
@@ -616,7 +616,7 @@ test("persists source metadata proposals with managed-file provenance", () => {
 	expect(sourceMetadataMappingProposalMigration).toContain(
 		'FOREIGN KEY ("source_entry_id") REFERENCES "import_inbox_entries"("id") ON DELETE RESTRICT'
 	);
-	expect(mappingSnapshot.prevIds).toContain(preserveNamesSnapshot.id);
+	expect(mappingSnapshot.prevIds).toContain(attestationDetailsSnapshot.id);
 	expect(mappingSnapshot.ddl).toContainEqual(
 		expect.objectContaining({
 			entityType: "tables",
