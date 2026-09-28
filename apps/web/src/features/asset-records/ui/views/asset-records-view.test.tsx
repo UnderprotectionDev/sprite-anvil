@@ -11,6 +11,7 @@ import {
 } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { QueryClientProvider } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { createQueryClient } from "@/utils/query-client";
 import { AssetRecordDetailView, AssetRecordsView } from "./asset-records-view";
@@ -20,6 +21,17 @@ const errorToast = vi.hoisted(() => vi.fn());
 vi.mock("sonner", () => ({
 	toast: { dismiss: vi.fn(), error: errorToast },
 }));
+
+vi.mock("@tanstack/react-router", async (importOriginal) => {
+	const actual =
+		await importOriginal<typeof import("@tanstack/react-router")>();
+	return {
+		...actual,
+		Link: ({ children, to }: { children: ReactNode; to: string }) => (
+			<a href={to}>{children}</a>
+		),
+	};
+});
 
 const projectId = "c2edb5dc-a82f-42b2-84bb-a878ca20fabf";
 const identityCheckboxName = /^Bağımsız ürün anlamı/;

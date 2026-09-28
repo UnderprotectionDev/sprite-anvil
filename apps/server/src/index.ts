@@ -17,6 +17,7 @@ import {
 import { createContext } from "./context";
 import { desktopOrigins, ENV } from "./env.server";
 import { mountAssetVersionRoutes } from "./features/asset-versions/server/asset-version-routes";
+import { mountImportInboxRoutes } from "./features/imports/server/import-inbox-routes";
 import { mountProjectRoutes } from "./features/projects/server/project-routes";
 import { mountReferenceProductionRoutes } from "./features/reference-production/server/reference-production-routes";
 import {
@@ -29,6 +30,7 @@ import {
 	auth,
 	createServerAssetVersionStorage,
 	db,
+	importInboxStore,
 	referenceProductionStore,
 } from "./services";
 
@@ -68,6 +70,9 @@ app.use(
 			"X-Reference-Board-Size",
 			"X-Reference-Board-File-Name",
 			"X-Reference-Board-Metadata",
+			"X-Import-Inbox-Size",
+			"X-Import-Inbox-File-Name",
+			"X-Import-Inbox-Source-Type",
 			"X-Source-Asset-Version-Id",
 			"X-Unit-Version-Type",
 			"X-Unit-Version-Key",
@@ -100,6 +105,14 @@ mountAssetVersionRoutes(app, {
 
 mountReferenceProductionRoutes(app, {
 	referenceProductionStore,
+	getSession: (headers) => auth.api.getSession({ headers }),
+	getProjectForUser: async (userId, projectId) =>
+		getProjectForUser(db, userId, projectId),
+	createStorage: createServerAssetVersionStorage,
+});
+
+mountImportInboxRoutes(app, {
+	importInboxStore,
 	getSession: (headers) => auth.api.getSession({ headers }),
 	getProjectForUser: async (userId, projectId) =>
 		getProjectForUser(db, userId, projectId),

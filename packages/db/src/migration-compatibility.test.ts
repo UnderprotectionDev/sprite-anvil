@@ -58,6 +58,15 @@ const unitVersionMigration = readMigration(
 const compositeVersionMigration = readMigration(
 	"./migrations/20260927194354_composite-versions/migration.sql"
 );
+const importInboxMigration = readMigration(
+	"./migrations/20260927223623_import-inbox-entry/migration.sql"
+);
+const allowEmptyImportInboxMigration = readMigration(
+	"./migrations/20260928075437_allow-empty-import-inbox-files/migration.sql"
+);
+const preserveImportInboxSourceFileNamesMigration = readMigration(
+	"./migrations/20260928080506_preserve-import-inbox-source-filenames/migration.sql"
+);
 
 test("normalizes legacy project ownership before current indexes and foreign keys", () => {
 	const renameOwnerColumn = migration.indexOf(
@@ -465,4 +474,103 @@ test("reconciles Drizzle snapshot parents and preserves both asset schema branch
 			})
 		);
 	}
+});
+
+test("persists Import Inbox source facts in a project-owned managed record", () => {
+	const importInboxSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260927223623_import-inbox-entry/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as {
+		ddl: Record<string, unknown>[];
+		prevIds: string[];
+	};
+	const previousSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260927194354_composite-versions/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { id: string };
+
+	expect(importInboxMigration).toContain('CREATE TABLE "import_inbox_entries"');
+	expect(importInboxMigration).toContain('"content_length" bigint NOT NULL');
+	expect(importInboxMigration).toContain(
+		'FOREIGN KEY ("project_id") REFERENCES "project"("id") ON DELETE RESTRICT'
+	);
+	expect(importInboxMigration).toContain(
+		'FOREIGN KEY ("created_by_user_id") REFERENCES "user"("id") ON DELETE RESTRICT'
+	);
+	expect(importInboxMigration).toContain(
+		'CONSTRAINT "import_inbox_entries_sha256_check"'
+	);
+	expect(importInboxSnapshot.prevIds).toContain(previousSnapshot.id);
+	expect(importInboxSnapshot.ddl).toContainEqual(
+		expect.objectContaining({
+			entityType: "tables",
+			name: "import_inbox_entries",
+			schema: "public",
+		})
+	);
+});
+
+test("allows zero-byte Import Inbox files while preserving migration lineage", () => {
+	const importInboxSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260927223623_import-inbox-entry/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { id: string };
+	const allowEmptySnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260928075437_allow-empty-import-inbox-files/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { prevIds: string[] };
+
+	expect(allowEmptyImportInboxMigration).toContain(
+		'CHECK ("content_length" >= 0)'
+	);
+	expect(allowEmptySnapshot.prevIds).toContain(importInboxSnapshot.id);
+});
+
+test("preserves exact Import Inbox source file names in the database", () => {
+	const allowEmptySnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260928075437_allow-empty-import-inbox-files/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { id: string };
+	const preserveNamesSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260928080506_preserve-import-inbox-source-filenames/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { prevIds: string[] };
+
+	expect(preserveImportInboxSourceFileNamesMigration).toContain(
+		'CHECK (char_length("file_name") BETWEEN 1 AND 255)'
+	);
+	expect(preserveImportInboxSourceFileNamesMigration).not.toContain(
+		'btrim("file_name")'
+	);
+	expect(preserveNamesSnapshot.prevIds).toContain(allowEmptySnapshot.id);
 });
