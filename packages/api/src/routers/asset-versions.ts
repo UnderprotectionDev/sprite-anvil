@@ -119,6 +119,26 @@ export const assetVersionsRouter = {
 			}
 			if (
 				input.decision === "approved" &&
+				version.sourceKind === "manual_import"
+			) {
+				const tracking = await context.assetRecordTrackingStore.getTracking(
+					context.session.user.id,
+					input.projectId,
+					version.assetRecordId
+				);
+				if (
+					!tracking?.tracking.manualImportEvidence?.some(
+						(evidence) => evidence.assetVersionId === version.id
+					)
+				) {
+					throw new ORPCError("BAD_REQUEST", {
+						message:
+							"Elle İçe Aktarma Kanıtı tamamlanmadan Aday Sürüm onaylanamaz.",
+					});
+				}
+			}
+			if (
+				input.decision === "approved" &&
 				!(await context.verifyAssetVersionContent?.(
 					context.session.user.id,
 					input.projectId,

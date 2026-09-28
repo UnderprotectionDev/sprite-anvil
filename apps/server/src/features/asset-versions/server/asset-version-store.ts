@@ -29,6 +29,7 @@ import {
 } from "@sprite-anvil/api/asset-versions";
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
 import { assetFamilyCanonicalDesigns } from "@sprite-anvil/db/schema/asset-families";
+import { manualImportEvidence } from "@sprite-anvil/db/schema/asset-production-history";
 import {
 	assetFamilies,
 	assetRecords,
@@ -150,6 +151,7 @@ function toAssetVersion(
 		contentLength: record.byteSize,
 		contentDigest: record.contentDigest ?? record.sha256,
 		integrityVerified: record.integrityVerified,
+		sourceKind: record.sourceKind,
 		previewUrl: `/api/projects/${encodeURIComponent(record.projectId)}/asset-versions/${record.id}/preview`,
 		reviewDisposition: reviewEvents.at(-1)?.type ?? "candidate",
 		reviewEvents,
@@ -258,7 +260,8 @@ async function readExistingVersion(
 	if (
 		existing.contentDigest !== input.contentDigest ||
 		existing.byteSize !== input.contentLength ||
-		existing.contentType !== input.contentType
+		existing.contentType !== input.contentType ||
+		existing.sourceKind !== (unitCorrection ? "derived" : "manual_import")
 	) {
 		return { kind: "idempotency-conflict" };
 	}
@@ -343,6 +346,7 @@ async function insertCandidateVersion(
 			byteSize: input.contentLength,
 			contentDigest: input.contentDigest,
 			integrityVerified: input.integrityVerified,
+			sourceKind: unitCorrection ? "derived" : "manual_import",
 			idempotencyKey: input.idempotencyKey,
 			createdByUserId: userId,
 		})
@@ -979,6 +983,25 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 				!(version.integrityVerified && version.contentDigest)
 			) {
 				return null;
+			}
+			if (
+				input.decision === "approved" &&
+				version.sourceKind === "manual_import"
+			) {
+				const [evidence] = await db
+					.select({ id: manualImportEvidence.id })
+					.from(manualImportEvidence)
+					.where(
+						and(
+							eq(manualImportEvidence.projectId, input.projectId),
+							eq(manualImportEvidence.assetRecordId, version.assetRecordId),
+							eq(manualImportEvidence.versionId, version.id)
+						)
+					)
+					.limit(1);
+				if (!evidence) {
+					return null;
+				}
 			}
 
 			const [event] = await db

@@ -2,6 +2,7 @@ import type {
 	AssetRecordTrackingStore,
 	AssetVersionSummary,
 	DerivativeSummary,
+	ManualImportVersionCreateInput,
 } from "@sprite-anvil/api/asset-record-tracking";
 import {
 	assetFamilySummarySchema,
@@ -17,7 +18,10 @@ import {
 	indexReferenceConflictFeaturesById,
 } from "@sprite-anvil/api/reference-production";
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
-import { legacyAssetAttestations } from "@sprite-anvil/db/schema/asset-production-history";
+import {
+	legacyAssetAttestations,
+	manualImportEvidence,
+} from "@sprite-anvil/db/schema/asset-production-history";
 import { assetRecordDerivatives } from "@sprite-anvil/db/schema/asset-record-derivatives";
 import { assetRecordMeasurements } from "@sprite-anvil/db/schema/asset-record-measurements";
 import {
@@ -34,6 +38,7 @@ import {
 	assetVersions,
 } from "@sprite-anvil/db/schema/asset-versions";
 import { visualWorlds } from "@sprite-anvil/db/schema/context-scopes";
+import { generationPackages } from "@sprite-anvil/db/schema/generation-packages";
 import { project } from "@sprite-anvil/db/schema/project";
 import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { toAssetRecord } from "./asset-record-mapper";
@@ -98,6 +103,57 @@ async function getReferenceHistory(
 		)
 		.orderBy(asc(assetRecordReferenceHistory.revision));
 	return mapReferenceHistory(rows);
+}
+
+async function hasManualImportEvidence(
+	db: Database,
+	projectId: string,
+	assetRecordId: string,
+	versionId: string
+) {
+	const [evidence] = await db
+		.select({ id: manualImportEvidence.id })
+		.from(manualImportEvidence)
+		.where(
+			and(
+				eq(manualImportEvidence.projectId, projectId),
+				eq(manualImportEvidence.assetRecordId, assetRecordId),
+				eq(manualImportEvidence.versionId, versionId)
+			)
+		)
+		.limit(1);
+	return Boolean(evidence);
+}
+
+async function hasRequiredApprovalEvidence(
+	db: Database,
+	input: { projectId: string; assetRecordId: string; versionId: string },
+	version: Pick<typeof assetVersions.$inferSelect, "sourceKind">
+) {
+	if (
+		version.sourceKind === "manual_import" &&
+		!(await hasManualImportEvidence(
+			db,
+			input.projectId,
+			input.assetRecordId,
+			input.versionId
+		))
+	) {
+		return false;
+	}
+	const [quality] = await db
+		.select({ id: assetVersionQualityEvidence.id })
+		.from(assetVersionQualityEvidence)
+		.where(
+			and(
+				eq(assetVersionQualityEvidence.projectId, input.projectId),
+				eq(assetVersionQualityEvidence.versionId, input.versionId),
+				eq(assetVersionQualityEvidence.gate, "format_signature"),
+				eq(assetVersionQualityEvidence.result, "matched")
+			)
+		)
+		.limit(1);
+	return Boolean(quality);
 }
 
 async function recordReferenceRevision(
@@ -338,6 +394,7 @@ function toVersionSummary(
 		createdAt: toISOString(version.createdAt),
 		fileName: version.fileName,
 		id: version.id,
+		sourceKind: version.sourceKind,
 		reviewDisposition: disposition,
 		sha256: version.sha256,
 		sourceImageHeight: version.sourceImageHeight,
@@ -636,6 +693,7 @@ export function createAssetRecordTrackingStore(
 				referenceRows,
 				qualityRows,
 				historyRows,
+				manualEvidenceRows,
 				availableRecords,
 				availableVersionRows,
 				availableReviewRows,
@@ -724,6 +782,30 @@ export function createAssetRecordTrackingStore(
 						)
 					)
 					.orderBy(desc(legacyAssetAttestations.createdAt)),
+				db
+					.select({ evidence: manualImportEvidence, version: assetVersions })
+					.from(manualImportEvidence)
+					.innerJoin(
+						assetVersions,
+						and(
+							eq(assetVersions.projectId, manualImportEvidence.projectId),
+							eq(
+								assetVersions.assetRecordId,
+								manualImportEvidence.assetRecordId
+							),
+							eq(assetVersions.id, manualImportEvidence.versionId)
+						)
+					)
+					.where(
+						and(
+							eq(manualImportEvidence.projectId, projectId),
+							eq(manualImportEvidence.assetRecordId, assetRecordId)
+						)
+					)
+					.orderBy(
+						desc(manualImportEvidence.createdAt),
+						desc(manualImportEvidence.id)
+					),
 				db
 					.select({
 						id: assetRecords.id,
@@ -872,6 +954,19 @@ export function createAssetRecordTrackingStore(
 						userRelationship: attestation.userRelationship,
 						versionNumber: version.versionNumber,
 					})),
+					manualImportEvidence: manualEvidenceRows.map(
+						({ evidence, version }) => ({
+							assetVersionId: version.id,
+							createdAt: toISOString(evidence.createdAt),
+							fileName: version.fileName ?? "",
+							generationInstruction: evidence.generationInstruction,
+							generationPackageId: evidence.generationPackageId,
+							id: evidence.id,
+							sha256: version.sha256 ?? "",
+							sourceSurface: evidence.sourceSurface,
+							versionNumber: version.versionNumber,
+						})
+					),
 					quality: {
 						integrityStatus:
 							versions.length > 0 &&
@@ -899,6 +994,35 @@ export function createAssetRecordTrackingStore(
 		createVersion(userId, input) {
 			return versionWriter.create(userId, input);
 		},
+		async createManualImportVersion(
+			userId: string,
+			input: ManualImportVersionCreateInput
+		) {
+			const record = await getOwnedAssetRecord(
+				db,
+				userId,
+				input.projectId,
+				input.assetRecordId
+			);
+			if (record?.availability !== "active") {
+				return { ok: false, reason: "not_found" };
+			}
+			const [generationPackage] = await db
+				.select({ id: generationPackages.id })
+				.from(generationPackages)
+				.where(
+					and(
+						eq(generationPackages.projectId, input.projectId),
+						eq(generationPackages.assetRecordId, input.assetRecordId),
+						eq(generationPackages.id, input.generationPackageId)
+					)
+				)
+				.limit(1);
+			if (!generationPackage) {
+				return { ok: false, reason: "not_found" };
+			}
+			return versionWriter.createManualImport(userId, input);
+		},
 		async recordReview(userId, input) {
 			const record = await getOwnedAssetRecord(
 				db,
@@ -923,22 +1047,11 @@ export function createAssetRecordTrackingStore(
 			if (!version) {
 				return { ok: false, reason: "not_found" };
 			}
-			if (input.decision === "approved") {
-				const [quality] = await db
-					.select({ id: assetVersionQualityEvidence.id })
-					.from(assetVersionQualityEvidence)
-					.where(
-						and(
-							eq(assetVersionQualityEvidence.projectId, input.projectId),
-							eq(assetVersionQualityEvidence.versionId, input.versionId),
-							eq(assetVersionQualityEvidence.gate, "format_signature"),
-							eq(assetVersionQualityEvidence.result, "matched")
-						)
-					)
-					.limit(1);
-				if (!quality) {
-					return { ok: false, reason: "review_blocked" };
-				}
+			if (
+				input.decision === "approved" &&
+				!(await hasRequiredApprovalEvidence(db, input, version))
+			) {
+				return { ok: false, reason: "review_blocked" };
 			}
 			const [existing] = await db
 				.select()

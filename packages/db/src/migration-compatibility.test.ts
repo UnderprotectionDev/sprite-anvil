@@ -70,6 +70,9 @@ const preserveImportInboxSourceFileNamesMigration = readMigration(
 const generationPackageMigration = readMigration(
 	"./migrations/20260927224924_safe_vance_astro/migration.sql"
 );
+const manualImportEvidenceMigration = readMigration(
+	"./migrations/20260928120120_manual-import-evidence/migration.sql"
+);
 
 test("normalizes legacy project ownership before current indexes and foreign keys", () => {
 	const renameOwnerColumn = migration.indexOf(
@@ -588,5 +591,26 @@ test("stores Production Context Snapshots with project and Asset Record ownershi
 	);
 	expect(generationPackageMigration).toContain(
 		'FOREIGN KEY ("created_by_user_id") REFERENCES "user"("id") ON DELETE RESTRICT'
+	);
+});
+
+test("links Manual Import Evidence to its exact Generation Package and Asset Version", () => {
+	expect(manualImportEvidenceMigration).toContain(
+		'CREATE TABLE "manual_import_evidence"'
+	);
+	expect(manualImportEvidenceMigration).toContain(
+		'ALTER TABLE "asset_versions" ADD COLUMN "source_kind" text DEFAULT \'unknown\' NOT NULL'
+	);
+	expect(manualImportEvidenceMigration).toContain(
+		"\"source_kind\" IN ('unknown', 'legacy_asset', 'manual_import', 'derived')"
+	);
+	expect(manualImportEvidenceMigration).toContain(
+		'FOREIGN KEY ("project_id","version_id","asset_record_id") REFERENCES "asset_versions"("project_id","id","asset_record_id") ON DELETE RESTRICT'
+	);
+	expect(manualImportEvidenceMigration).toContain(
+		'FOREIGN KEY ("project_id","asset_record_id","generation_package_id") REFERENCES "generation_packages"("project_id","asset_record_id","id") ON DELETE RESTRICT'
+	);
+	expect(manualImportEvidenceMigration).toContain(
+		'char_length("generation_instruction") BETWEEN 1 AND 100000'
 	);
 });

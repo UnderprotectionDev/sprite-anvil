@@ -128,3 +128,46 @@ test("records a Review Event as the authenticated user", async () => {
 		versionId,
 	});
 });
+
+test("creates a manual import result with its exact production evidence", async () => {
+	const input = {
+		assetRecordId,
+		contentBase64: "aGk=",
+		contentType: "image/png" as const,
+		fileName: "ash-knight.png",
+		generationInstruction:
+			"Keep the armor silhouette and add one attack frame.",
+		generationPackageId: "c36a3e66-1650-480d-a8df-4019b3305a5c",
+		id: "0e3b5194-b0ac-4600-947c-2cf4a606d3ef",
+		projectId,
+		sourceSurface: "ChatGPT web",
+	};
+	const savedVersion = {
+		createdAt: "2026-09-25T08:10:00.000Z",
+		fileName: input.fileName,
+		id: input.id,
+		sourceKind: "manual_import" as const,
+		reviewDisposition: "candidate" as const,
+		sha256: "a".repeat(64),
+		versionNumber: 2,
+	};
+	let receivedArgs: unknown[] = [];
+	const context = createContext({
+		assetRecordTrackingStore: {
+			createManualImportVersion: (...args: unknown[]) => {
+				receivedArgs = args;
+				return Promise.resolve({ ok: true as const, value: savedVersion });
+			},
+		},
+	});
+
+	const result = await call(
+		appRouter.assetRecords.createManualImportVersion,
+		input,
+		{ context }
+	);
+
+	expect(result).toEqual(savedVersion);
+	expect(receivedArgs[0]).toBe(userId);
+	expect(receivedArgs[1]).toEqual(input);
+});
