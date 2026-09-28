@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { $, browser } from "@wdio/globals";
+import { $, browser, expect } from "@wdio/globals";
 import { createAssetRecordFixture } from "../e2e/asset-record-fixture";
 import {
 	sourceMetadataMappingFixture,
@@ -46,12 +46,41 @@ describe("Source Metadata Mapping Proposals", () => {
 			await (await $("button=Sign Up")).click();
 			await (await $("h1=Dashboard")).waitForDisplayed();
 
-			await (await $("a=Projects")).click();
-			await (await $("input#project-name")).setValue(fixture.projectName);
-			await (await $("textarea#project-art-direction")).setValue(
-				fixture.generalArtDirection
+			const visualWorldName = `${fixture.name} world`;
+			const identityName = `${fixture.name} identity`;
+			const familyName = `${fixture.name} family`;
+			await (await $("a=Proje Bağlamı")).click();
+			await (await $('//label[span[text()="Proje adı"]]/input')).setValue(
+				fixture.projectName
 			);
-			await (await $("button=Proje oluştur")).click();
+			await (
+				await $('//label[span[text()="Genel sanat yaklaşımı"]]/textarea')
+			).setValue(fixture.generalArtDirection);
+			await (await $("button=Projeyi oluştur")).click();
+			await (await $("input[placeholder='Örn. Yüksek yaylalar']")).setValue(
+				visualWorldName
+			);
+			await (await $("button=Görsel Dünya ekle")).click();
+			await (await $(`strong=${visualWorldName}`)).waitForDisplayed();
+			await (await $("a=Projects")).click();
+			await (await $("a=Varlık Aileleri")).click();
+			await (await $("input[id='subject-identity-name']")).setValue(
+				identityName
+			);
+			await (await $("button=Varlık Kimliği oluştur")).click();
+			await (await $(`h2=${identityName}`)).waitForDisplayed();
+			await (await $("input[id='asset-family-name']")).setValue(familyName);
+			await (await $("#asset-family-visual-world")).selectByVisibleText(
+				visualWorldName
+			);
+			await (await $("input[id='asset-family-use-context']")).setValue(
+				"Walking animation"
+			);
+			await (await $("button=Varlık Ailesi oluştur")).click();
+			await (await $(`h3=${familyName}`)).waitForDisplayed();
+			await (await $("input[id='asset-record-name']")).setValue(fixture.name);
+			await (await $("button=Varlık Kaydı ekle")).click();
+			await (await $("a=Projects")).click();
 			const projectLink = await $(
 				`a[aria-label="${fixture.projectName} varlık kayıtlarını aç"]`
 			);
@@ -115,19 +144,35 @@ describe("Source Metadata Mapping Proposals", () => {
 			await $("p=Pivot · walk-0").waitForDisplayed();
 			await $("p=Tag · walk").waitForDisplayed();
 			await $("p=Süre · walk-0").waitForDisplayed();
+			const finalization = await $(
+				'section[aria-label="Eşlemeyi kesinleştir"]'
+			);
+			await finalization.waitForDisplayed();
+			const selects = await finalization.$$("label select");
+			await selects[0]?.selectByVisibleText(fixture.name);
+			const finalizeButton = await finalization.$(
+				"button*=Eşlemeyi kesinleştir ve Aday Sürüm oluştur"
+			);
+			expect(await finalizeButton.isEnabled()).toBe(false);
+			await selects[1]?.selectByIndex(1);
+			await finalizeButton.click();
+			await $("p=Kesin ilişki · Aday Sürüm oluşturuldu").waitForDisplayed();
+			await $("li=Pivot · walk-0: Bilinmiyor").waitForDisplayed();
 
 			await browser.refresh();
 			const rereadProposal = await $("summary*=Kaynak Metadata Eşleme Önerisi");
 			await rereadProposal.waitForDisplayed();
 			await rereadProposal.click();
-			await $(
-				"p*=alan çakışması var; öneri henüz kesinleşmedi."
-			).waitForDisplayed();
+			await $("p=Kesin ilişki · Aday Sürüm oluşturuldu").waitForDisplayed();
 			await $(
 				"p=Oyun İçi Bilgiler: Bilinmiyor · proje bağlamı gerekli."
 			).waitForDisplayed();
 			await $("p=Pivot · walk-0").waitForDisplayed();
 			await $("p=Süre · walk-0").waitForDisplayed();
+			await (await $("a=Aday Sürümü aç")).click();
+			await $(
+				`p=${sourceMetadataMappingFixture.source.fileName} · Sürüm 1 · Aday`
+			).waitForDisplayed();
 		} finally {
 			rmSync(directory, { force: true, recursive: true });
 		}

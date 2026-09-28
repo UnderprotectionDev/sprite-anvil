@@ -16,7 +16,14 @@ type SourceMetadataFormat = SourceMetadataMappingSidecar["format"];
 type FrameLayout = "array" | "hash";
 
 const wwwPrefixPattern = /^www\./;
-const separatedFrameProperties = new Set(["duration", "filename", "pivot"]);
+const separatedFrameProperties = new Set([
+	"duration",
+	"filename",
+	"ninePatch",
+	"nineSlice",
+	"pivot",
+	"scale9",
+]);
 
 export type SourceMetadataSidecarFailure =
 	| "invalid_json"

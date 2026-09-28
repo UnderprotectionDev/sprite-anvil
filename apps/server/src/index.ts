@@ -128,6 +128,7 @@ mountReferenceProductionRoutes(app, {
 mountImportInboxRoutes(app, {
 	importInboxStore,
 	sourceMetadataMappingProposalStore,
+	assetVersionStore,
 	getSession: (headers) => auth.api.getSession({ headers }),
 	getProjectForUser: async (userId, projectId) =>
 		getProjectForUser(db, userId, projectId),

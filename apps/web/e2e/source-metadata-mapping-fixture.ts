@@ -38,7 +38,7 @@ export const sourceMetadataMappingFixture = {
 		contentType: "image/png",
 		fileName: sourceFileName,
 		bytes: Buffer.from(
-			"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/ZpUAAAAASUVORK5CYII=",
+			"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWP4////fwAJ+wP9CNHoHgAAAABJRU5ErkJggg==",
 			"base64"
 		),
 	},
@@ -49,7 +49,12 @@ export const sourceMetadataMappingFixture = {
 		jsonLayout: "array",
 		version: "1.0",
 		bytes: jsonBytes({
-			frames: [frameWithPivot({ x: 0.5, y: 1 })],
+			frames: [
+				{
+					...frameWithPivot({ x: 0.5, y: 1 }),
+					frame: { ...frameRectangle, x: 1 },
+				},
+			],
 			meta: {
 				app: "http://www.codeandweb.com/texturepacker",
 				image: sourceFileName,
