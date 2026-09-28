@@ -1,4 +1,11 @@
-import { index, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import {
+	foreignKey,
+	index,
+	jsonb,
+	pgTable,
+	text,
+	timestamp,
+} from "drizzle-orm/pg-core";
 import { user } from "./auth";
 import { importInboxEntries } from "./import-inbox";
 import { project } from "./project";
@@ -10,9 +17,7 @@ export const sourceMetadataMappingProposals = pgTable(
 		projectId: text("project_id")
 			.notNull()
 			.references(() => project.id, { onDelete: "restrict" }),
-		sourceEntryId: text("source_entry_id")
-			.notNull()
-			.references(() => importInboxEntries.id, { onDelete: "restrict" }),
+		sourceEntryId: text("source_entry_id").notNull(),
 		proposal: jsonb("proposal").notNull(),
 		createdByUserId: text("created_by_user_id")
 			.notNull()
@@ -20,6 +25,11 @@ export const sourceMetadataMappingProposals = pgTable(
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 	},
 	(table) => [
+		foreignKey({
+			name: "source_metadata_mapping_proposals_project_source_entry_fk",
+			columns: [table.projectId, table.sourceEntryId],
+			foreignColumns: [importInboxEntries.projectId, importInboxEntries.id],
+		}).onDelete("restrict"),
 		index("source_metadata_mapping_proposals_source_created_at_idx").on(
 			table.projectId,
 			table.sourceEntryId,

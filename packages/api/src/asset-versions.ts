@@ -50,6 +50,17 @@ export const assetVersionReviewDispositionSchema = z.enum([
 	"rejected",
 ]);
 
+export const assetVersionSourceKinds = [
+	"unknown",
+	"legacy_asset",
+	"manual_import",
+	"derived",
+] as const;
+export const assetVersionSourceKindSchema = z.enum(assetVersionSourceKinds);
+export type AssetVersionSourceKind = z.infer<
+	typeof assetVersionSourceKindSchema
+>;
+
 export const assetVersionReviewEventSchema = z
 	.object({
 		id: idSchema,
@@ -84,6 +95,7 @@ export const assetVersionSchema = z
 			.regex(/^[0-9a-f]{64}$/)
 			.nullable(),
 		integrityVerified: z.boolean(),
+		sourceKind: assetVersionSourceKindSchema.optional(),
 		previewUrl: z.string().min(1),
 		productionSource: assetVersionProductionSourceSchema.optional(),
 		providerGenerationRecord: providerGenerationRecordSchema

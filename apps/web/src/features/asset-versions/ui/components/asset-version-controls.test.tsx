@@ -5,10 +5,32 @@ import type { AssetVersionCatalog } from "@sprite-anvil/api/asset-versions";
 import { cleanup, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
 import { afterEach, expect, test, vi } from "vitest";
 import { AssetVersionControls } from "./asset-version-controls";
 
 afterEach(cleanup);
+
+vi.mock("@tanstack/react-router", async (importOriginal) => {
+	const actual =
+		await importOriginal<typeof import("@tanstack/react-router")>();
+	return {
+		...actual,
+		Link: ({
+			children,
+			params,
+			to,
+		}: {
+			children: ReactNode;
+			params?: Record<string, string>;
+			to: string;
+		}) => (
+			<a data-params={JSON.stringify(params)} href={to}>
+				{children}
+			</a>
+		),
+	};
+});
 
 const assetRecordId = "asset-record-id";
 const assetVersionId = "provider-version-id";

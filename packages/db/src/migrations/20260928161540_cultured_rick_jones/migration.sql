@@ -1,0 +1,3 @@
+ALTER TABLE "source_metadata_mapping_proposals" DROP CONSTRAINT "source_metadata_mapping_proposals_3O8JdfMGKV6f_fkey";--> statement-breakpoint
+CREATE UNIQUE INDEX "import_inbox_entries_project_id_id_idx" ON "import_inbox_entries" ("project_id","id");--> statement-breakpoint
+ALTER TABLE "source_metadata_mapping_proposals" ADD CONSTRAINT "source_metadata_mapping_proposals_project_source_entry_fk" FOREIGN KEY ("project_id","source_entry_id") REFERENCES "import_inbox_entries"("project_id","id") ON DELETE RESTRICT;

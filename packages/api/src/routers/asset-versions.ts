@@ -173,6 +173,32 @@ export const assetVersionsRouter = {
 			}
 			if (
 				input.decision === "approved" &&
+				(version.sourceKind === "manual_import" ||
+					version.sourceKind === "legacy_asset")
+			) {
+				const tracking = await context.assetRecordTrackingStore.getTracking(
+					context.session.user.id,
+					input.projectId,
+					version.assetRecordId
+				);
+				const evidenceRequired =
+					version.sourceKind === "manual_import" ||
+					!tracking ||
+					tracking.tracking.manualImportEvidenceRequiredVersionIds.includes(
+						version.id
+					);
+				const hasEvidence = tracking?.tracking.manualImportEvidence?.some(
+					(evidence) => evidence.assetVersionId === version.id
+				);
+				if (evidenceRequired && !hasEvidence) {
+					throw new ORPCError("BAD_REQUEST", {
+						message:
+							"Elle İçe Aktarma Kanıtı tamamlanmadan Aday Sürüm onaylanamaz.",
+					});
+				}
+			}
+			if (
+				input.decision === "approved" &&
 				!(await context.verifyAssetVersionContent?.(
 					context.session.user.id,
 					input.projectId,

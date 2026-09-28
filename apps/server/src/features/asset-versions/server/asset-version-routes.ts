@@ -4,10 +4,6 @@ import {
 	type UnitVersionCorrectionInput,
 	unitVersionCorrectionInputSchema,
 } from "@sprite-anvil/api/asset-versions";
-import {
-	assetVersionProductionSourceHeader,
-	assetVersionProductionSourceSchema,
-} from "@sprite-anvil/api/provider-generation-records";
 import type { Context, Hono } from "hono";
 import z from "zod";
 import type {
@@ -20,7 +16,6 @@ import {
 	twoDVisualAssetUploadContentTypeSchema,
 } from "../../../cloudflare";
 import {
-	serializeAssetVersionUploadResponse,
 	serializePublicApiError,
 	serializeUnitVersionCorrectionUploadResponse,
 } from "../../../output-contracts";
@@ -106,13 +101,13 @@ function parseUploadLength(value: string | undefined) {
 }
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Upload validation, storage cleanup, and response mapping stay within one failure boundary.
-async function uploadAssetVersion(
+async function uploadUnitVersion(
 	c: Context,
 	projectId: string,
 	assetRecordId: string,
 	ownerUserId: string,
 	dependencies: AssetVersionRouteDependencies,
-	unitCorrection?: UnitVersionCorrectionInput
+	unitCorrection: UnitVersionCorrectionInput
 ) {
 	const assetRecord =
 		await dependencies.assetVersionStore.getAssetRecordForUpload(
@@ -137,21 +132,6 @@ async function uploadAssetVersion(
 	if (contentLength === null) {
 		return c.json(
 			serializePublicApiError("Invalid Asset Version content length"),
-			400
-		);
-	}
-	const productionSource = assetVersionProductionSourceSchema.safeParse(
-		c.req.header(assetVersionProductionSourceHeader) ?? "unknown"
-	);
-	if (!productionSource.success) {
-		return c.json(
-			serializePublicApiError("Invalid Asset Version production source"),
-			400
-		);
-	}
-	if (productionSource.data === "connected_provider") {
-		return c.json(
-			serializePublicApiError("Invalid Asset Version production source"),
 			400
 		);
 	}
@@ -235,8 +215,7 @@ async function uploadAssetVersion(
 				contentDigest,
 				idempotencyKey: idempotencyKey.data,
 				integrityVerified: true,
-				productionSource: productionSource.data,
-				...(unitCorrection ? { unitCorrection } : {}),
+				unitCorrection,
 			}
 		);
 		if (!result) {
@@ -260,17 +239,14 @@ async function uploadAssetVersion(
 		if (result.kind === "existing") {
 			await storage.delete(objectKey);
 		}
-		if (unitCorrection) {
-			return c.json(
-				serializeUnitVersionCorrectionUploadResponse(
-					result.version,
-					result.unitVersion
-				),
-				result.kind === "created" ? 201 : 200
-			);
+		if (!result.unitVersion) {
+			throw new Error("Unit Version upload did not persist a Unit Version");
 		}
 		return c.json(
-			serializeAssetVersionUploadResponse(result.version),
+			serializeUnitVersionCorrectionUploadResponse(
+				result.version,
+				result.unitVersion
+			),
 			result.kind === "created" ? 201 : 200
 		);
 	} catch (error) {
@@ -322,30 +298,43 @@ async function handleAssetVersionUploadRequest(
 	if (!parsedAssetRecordId.success) {
 		return c.json(serializePublicApiError("Not found"), 404);
 	}
-
-	let unitCorrection: UnitVersionCorrectionInput | undefined;
-	if (unitCorrectionRequired) {
-		const parsedCorrection = unitVersionCorrectionInputSchema.safeParse({
-			sourceAssetVersionId: c.req.header(sourceAssetVersionHeader),
-			unitType: c.req.header(unitVersionTypeHeader),
-			unitKey: c.req.header(unitVersionKeyHeader),
-		});
-		if (!parsedCorrection.success) {
-			return c.json(
-				serializePublicApiError("Invalid Unit Version correction"),
-				400
+	if (!unitCorrectionRequired) {
+		const assetRecord =
+			await dependencies.assetVersionStore.getAssetRecordForUpload(
+				access.ownerUserId,
+				projectId,
+				parsedAssetRecordId.data
 			);
+		if (!assetRecord) {
+			return c.json(serializePublicApiError("Not found"), 404);
 		}
-		unitCorrection = parsedCorrection.data;
+		return c.json(
+			serializePublicApiError(
+				"Manual Import Evidence is required for Asset Version uploads"
+			),
+			400
+		);
 	}
 
-	return uploadAssetVersion(
+	const parsedCorrection = unitVersionCorrectionInputSchema.safeParse({
+		sourceAssetVersionId: c.req.header(sourceAssetVersionHeader),
+		unitType: c.req.header(unitVersionTypeHeader),
+		unitKey: c.req.header(unitVersionKeyHeader),
+	});
+	if (!parsedCorrection.success) {
+		return c.json(
+			serializePublicApiError("Invalid Unit Version correction"),
+			400
+		);
+	}
+
+	return uploadUnitVersion(
 		c,
 		projectId,
 		parsedAssetRecordId.data,
 		access.ownerUserId,
 		dependencies,
-		unitCorrection
+		parsedCorrection.data
 	);
 }
 

@@ -78,6 +78,7 @@ export const publicApiErrorSchema = z
 			"Asset Version idempotency conflict",
 			"Asset Version integrity check failed",
 			"Asset Version upload failed",
+			"Manual Import Evidence is required for Asset Version uploads",
 			"Unsupported Reference image type",
 			"Invalid Reference image file name",
 			"Missing Reference upload idempotency key",

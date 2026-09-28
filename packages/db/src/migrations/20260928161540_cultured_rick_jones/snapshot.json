@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "9349181a-3843-4fa7-992f-8c7eb43e4e89",
+  "id": "1d389508-a56c-43d0-a891-b1ad8723c674",
   "prevIds": [
-    "6e601757-7f11-4b25-982d-f2feac6542ce"
+    "129472ee-24a1-43b8-b7e4-6d311dc8d3d0"
   ],
   "ddl": [
     {
@@ -40,6 +40,12 @@
     {
       "isRlsEnabled": false,
       "name": "legacy_asset_attestations",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "manual_import_evidence",
       "entityType": "tables",
       "schema": "public"
     },
@@ -214,12 +220,6 @@
     {
       "isRlsEnabled": false,
       "name": "context_revisions",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "provider_generation_records",
       "entityType": "tables",
       "schema": "public"
     },
@@ -591,6 +591,123 @@
       "entityType": "columns",
       "schema": "public",
       "table": "legacy_asset_attestations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "manual_import_evidence"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "project_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "manual_import_evidence"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "asset_record_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "manual_import_evidence"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "version_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "manual_import_evidence"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "generation_package_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "manual_import_evidence"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "source_surface",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "manual_import_evidence"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "generation_instruction",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "manual_import_evidence"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "created_by_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "manual_import_evidence"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "manual_import_evidence"
     },
     {
       "type": "text",
@@ -1848,7 +1965,7 @@
       "default": "'unknown'",
       "generated": null,
       "identity": null,
-      "name": "production_source",
+      "name": "source_kind",
       "entityType": "columns",
       "schema": "public",
       "table": "asset_versions"
@@ -3788,240 +3905,6 @@
       "name": "id",
       "entityType": "columns",
       "schema": "public",
-      "table": "provider_generation_records"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "project_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "provider_generation_records"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "asset_record_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "provider_generation_records"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "asset_version_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "provider_generation_records"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "created_by_user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "provider_generation_records"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "provider",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "provider_generation_records"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "interface",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "provider_generation_records"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "model",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "provider_generation_records"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "model_version",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "provider_generation_records"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "requested_width",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "provider_generation_records"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "requested_height",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "provider_generation_records"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "actual_width",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "provider_generation_records"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "actual_height",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "provider_generation_records"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "reference_ids",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "provider_generation_records"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "palette",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "provider_generation_records"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "seed",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "provider_generation_records"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "parameter_snapshot",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "provider_generation_records"
-    },
-    {
-      "type": "timestamp",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "provider_generation_records"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
       "table": "reference_board_image_history"
     },
     {
@@ -4651,6 +4534,69 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "legacy_asset_attestations"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "version_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "manual_import_evidence_project_version_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "manual_import_evidence"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "asset_record_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "manual_import_evidence_project_record_created_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "manual_import_evidence"
     },
     {
       "nameExplicit": true,
@@ -6504,6 +6450,41 @@
           "opclass": null
         },
         {
+          "value": "id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "generation_packages_project_record_id_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "generation_packages"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "asset_record_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
           "value": "created_at",
           "isExpression": false,
           "asc": true,
@@ -6566,6 +6547,34 @@
       "method": "btree",
       "concurrently": false,
       "name": "import_inbox_entries_project_created_at_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "import_inbox_entries"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "import_inbox_entries_project_id_id_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "import_inbox_entries"
@@ -6786,62 +6795,6 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "context_revisions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "project_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "asset_version_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "provider_generation_records_version_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "provider_generation_records"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "project_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "created_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "provider_generation_records_project_created_at_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "provider_generation_records"
     },
     {
       "nameExplicit": true,
@@ -7208,6 +7161,65 @@
       "entityType": "fks",
       "schema": "public",
       "table": "legacy_asset_attestations"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "created_by_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "user",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "manual_import_evidence_created_by_user_id_user_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "manual_import_evidence"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "project_id",
+        "version_id",
+        "asset_record_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "asset_versions",
+      "columnsTo": [
+        "project_id",
+        "id",
+        "asset_record_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "manual_import_evidence_version_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "manual_import_evidence"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "project_id",
+        "asset_record_id",
+        "generation_package_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "generation_packages",
+      "columnsTo": [
+        "project_id",
+        "asset_record_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "manual_import_evidence_generation_package_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "manual_import_evidence"
     },
     {
       "nameExplicit": false,
@@ -8492,61 +8504,6 @@
     {
       "nameExplicit": false,
       "columns": [
-        "project_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "project",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "provider_generation_records_project_id_project_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "provider_generation_records"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "created_by_user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "user",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "provider_generation_records_created_by_user_id_user_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "provider_generation_records"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "project_id",
-        "asset_version_id",
-        "asset_record_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "asset_versions",
-      "columnsTo": [
-        "project_id",
-        "id",
-        "asset_record_id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "provider_generation_records_asset_version_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "provider_generation_records"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
         "recorded_by_user_id"
       ],
       "schemaTo": "public",
@@ -8638,23 +8595,6 @@
     {
       "nameExplicit": false,
       "columns": [
-        "source_entry_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "import_inbox_entries",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "source_metadata_mapping_proposals_3O8JdfMGKV6f_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "source_metadata_mapping_proposals"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
         "created_by_user_id"
       ],
       "schemaTo": "public",
@@ -8665,6 +8605,25 @@
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "name": "source_metadata_mapping_proposals_ck9pkd0cooe9_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "source_metadata_mapping_proposals"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "project_id",
+        "source_entry_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "import_inbox_entries",
+      "columnsTo": [
+        "project_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "source_metadata_mapping_proposals_project_source_entry_fk",
       "entityType": "fks",
       "schema": "public",
       "table": "source_metadata_mapping_proposals"
@@ -8720,6 +8679,16 @@
       "name": "legacy_asset_attestations_pkey",
       "schema": "public",
       "table": "legacy_asset_attestations",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "manual_import_evidence_pkey",
+      "schema": "public",
+      "table": "manual_import_evidence",
       "entityType": "pks"
     },
     {
@@ -8997,16 +8966,6 @@
         "id"
       ],
       "nameExplicit": false,
-      "name": "provider_generation_records_pkey",
-      "schema": "public",
-      "table": "provider_generation_records",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
       "name": "reference_board_image_history_pkey",
       "schema": "public",
       "table": "reference_board_image_history",
@@ -9088,6 +9047,20 @@
       "entityType": "checks",
       "schema": "public",
       "table": "legacy_asset_attestations"
+    },
+    {
+      "value": "\"source_surface\" = btrim(\"source_surface\") AND char_length(\"source_surface\") BETWEEN 1 AND 255",
+      "name": "manual_import_evidence_source_surface_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "manual_import_evidence"
+    },
+    {
+      "value": "char_length(\"generation_instruction\") BETWEEN 1 AND 100000 AND char_length(btrim(\"generation_instruction\")) > 0",
+      "name": "manual_import_evidence_generation_instruction_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "manual_import_evidence"
     },
     {
       "value": "\"source_asset_record_id\" <> \"derivative_asset_record_id\"",
@@ -9272,15 +9245,15 @@
       "table": "asset_versions"
     },
     {
-      "value": "\"byte_size\" > 0",
-      "name": "asset_versions_byte_size_check",
+      "value": "\"source_kind\" IN ('unknown', 'legacy_asset', 'manual_import', 'derived')",
+      "name": "asset_versions_source_kind_check",
       "entityType": "checks",
       "schema": "public",
       "table": "asset_versions"
     },
     {
-      "value": "\"production_source\" IN ('unknown', 'user_reported_provider', 'connected_provider')",
-      "name": "asset_versions_production_source_check",
+      "value": "\"byte_size\" > 0",
+      "name": "asset_versions_byte_size_check",
       "entityType": "checks",
       "schema": "public",
       "table": "asset_versions"
@@ -9375,20 +9348,6 @@
       "entityType": "checks",
       "schema": "public",
       "table": "import_inbox_entries"
-    },
-    {
-      "value": "(\"requested_width\" IS NULL AND \"requested_height\" IS NULL) OR (\"requested_width\" IS NOT NULL AND \"requested_height\" IS NOT NULL AND \"requested_width\" > 0 AND \"requested_height\" > 0)",
-      "name": "provider_generation_records_requested_dimensions_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "provider_generation_records"
-    },
-    {
-      "value": "(\"actual_width\" IS NULL AND \"actual_height\" IS NULL) OR (\"actual_width\" IS NOT NULL AND \"actual_height\" IS NOT NULL AND \"actual_width\" > 0 AND \"actual_height\" > 0)",
-      "name": "provider_generation_records_actual_dimensions_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "provider_generation_records"
     },
     {
       "value": "(\"role\" = 'custom' AND \"custom_purpose\" IS NOT NULL AND length(trim(\"custom_purpose\")) > 0) OR (\"role\" <> 'custom' AND \"custom_purpose\" IS NULL)",

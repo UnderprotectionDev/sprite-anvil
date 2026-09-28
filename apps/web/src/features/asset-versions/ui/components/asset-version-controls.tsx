@@ -4,6 +4,7 @@ import type {
 	AssetVersionReviewInput,
 } from "@sprite-anvil/api/asset-versions";
 import { Button } from "@sprite-anvil/ui/components/button";
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { ENV } from "@/env";
 import type { useAssetVersionWrites } from "../hooks/use-asset-version-writes";
@@ -134,44 +135,16 @@ export function AssetVersionControls({
 										<li className="space-y-3 border-t pt-3" key={record.id}>
 											<div className="flex flex-wrap items-center justify-between gap-3">
 												<h4 className="font-medium">{record.name}</h4>
-												<div className="flex flex-wrap gap-2">
-													<label className="inline-flex min-h-11 cursor-pointer items-center rounded-md border px-3 py-2 text-sm focus-within:outline-hidden focus-within:ring-2 focus-within:ring-ring">
-														<span>Varlık Sürümü yükle</span>
-														<input
-															accept="image/png,image/webp"
-															aria-label={`${record.name} için Varlık Sürümü dosyası`}
-															className="sr-only"
-															disabled={writes.writesDisabled}
-															onChange={(event) => {
-																const file = event.currentTarget.files?.[0];
-																event.currentTarget.value = "";
-																if (file) {
-																	void writes.upload(record.id, file);
-																}
-															}}
-															type="file"
-														/>
-													</label>
-													<label className="inline-flex min-h-11 cursor-pointer items-center rounded-md border px-3 py-2 text-sm focus-within:outline-hidden focus-within:ring-2 focus-within:ring-ring">
-														<span>Sağlayıcı ekranı sonucu yükle</span>
-														<input
-															accept="image/png,image/webp"
-															aria-label={`${record.name} için sağlayıcı ekranı sonucu dosyası`}
-															className="sr-only"
-															disabled={writes.writesDisabled}
-															onChange={(event) => {
-																const file = event.currentTarget.files?.[0];
-																event.currentTarget.value = "";
-																if (file) {
-																	void writes.upload(record.id, file, {
-																		productionSource: "user_reported_provider",
-																	});
-																}
-															}}
-															type="file"
-														/>
-													</label>
-												</div>
+												<Link
+													className="inline-flex min-h-11 items-center rounded-md border px-3 py-2 text-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+													params={{
+														assetRecordId: record.id,
+														projectId: family.projectId,
+													}}
+													to="/projects/$projectId/assets/$assetRecordId"
+												>
+													Varlık Sürümü yükle
+												</Link>
 											</div>
 											{versions.length === 0 ? (
 												<p className="text-muted-foreground text-sm">

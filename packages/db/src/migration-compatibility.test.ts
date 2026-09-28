@@ -67,18 +67,35 @@ const allowEmptyImportInboxMigration = readMigration(
 const preserveImportInboxSourceFileNamesMigration = readMigration(
 	"./migrations/20260928080506_preserve-import-inbox-source-filenames/migration.sql"
 );
-const sourceMetadataMappingProposalMigration = readMigration(
-	"./migrations/20260928145019_tiny_magma/migration.sql"
-);
 const legacyAttestationDetailsMigration = readMigration(
 	"./migrations/20260928113737_hot_the_professor/migration.sql"
+);
+const sourceMetadataMappingProposalMigration = readMigration(
+	"./migrations/20260928145019_tiny_magma/migration.sql"
 );
 const generationPackageMigration = readMigration(
 	"./migrations/20260927224924_safe_vance_astro/migration.sql"
 );
 const providerGenerationSanitizationMigration = readMigration(
-	"./migrations/20260928170750_dazzling_wendell_rand/migration.sql"
+	"./migrations/20260928173709_cheerful_morlun/migration.sql"
 );
+const manualImportEvidenceMigration = readMigration(
+	"./migrations/20260928151800_manual-import-evidence/migration.sql"
+);
+const sourceMetadataProjectScopeMigration =
+	readdirSync(new URL("./migrations/", import.meta.url))
+		.map((directory) => {
+			const path = new URL(
+				`./migrations/${directory}/migration.sql`,
+				import.meta.url
+			);
+			return existsSync(path) ? readFileSync(path, "utf8") : "";
+		})
+		.find((contents) =>
+			contents.includes(
+				"source_metadata_mapping_proposals_project_source_entry_fk"
+			)
+		) ?? "";
 
 test("normalizes legacy project ownership before current indexes and foreign keys", () => {
 	const renameOwnerColumn = migration.indexOf(
@@ -725,4 +742,88 @@ test("adds user-reported provider provenance and scrubs persisted provider secre
 	expect(sanitizerCreation).toBeGreaterThanOrEqual(0);
 	expect(snapshotBackfill).toBeGreaterThan(sanitizerCreation);
 	expect(sanitizerRemoval).toBeGreaterThan(snapshotBackfill);
+});
+
+test("continues Provider Generation Records after the applied source metadata migration", () => {
+	const sourceMetadataSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260928161540_cultured_rick_jones/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { id: string };
+	const providerGenerationSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260928173709_cheerful_morlun/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { prevIds: string[] };
+
+	expect(providerGenerationSnapshot.prevIds).toContain(
+		sourceMetadataSnapshot.id
+	);
+});
+
+test("links Manual Import Evidence to its exact Generation Package and Asset Version", () => {
+	expect(manualImportEvidenceMigration).toContain(
+		'CREATE TABLE "manual_import_evidence"'
+	);
+	expect(manualImportEvidenceMigration).toContain(
+		'ALTER TABLE "asset_versions" ADD COLUMN "source_kind" text DEFAULT \'unknown\' NOT NULL'
+	);
+	expect(manualImportEvidenceMigration).toContain(
+		"\"source_kind\" IN ('unknown', 'legacy_asset', 'manual_import', 'derived')"
+	);
+	expect(manualImportEvidenceMigration).toContain(
+		'FOREIGN KEY ("project_id","version_id","asset_record_id") REFERENCES "asset_versions"("project_id","id","asset_record_id") ON DELETE RESTRICT'
+	);
+	expect(manualImportEvidenceMigration).toContain(
+		'FOREIGN KEY ("project_id","asset_record_id","generation_package_id") REFERENCES "generation_packages"("project_id","asset_record_id","id") ON DELETE RESTRICT'
+	);
+	expect(manualImportEvidenceMigration).toContain(
+		'char_length("generation_instruction") BETWEEN 1 AND 100000'
+	);
+});
+
+test("continues Manual Import Evidence after the applied source metadata migration", () => {
+	const sourceMetadataSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260928145019_tiny_magma/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { id: string };
+	const manualImportEvidenceSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260928151800_manual-import-evidence/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { prevIds: string[] };
+
+	expect(sourceMetadataMappingProposalMigration).toContain(
+		'CREATE TABLE "source_metadata_mapping_proposals"'
+	);
+	expect(manualImportEvidenceSnapshot.prevIds).toContain(
+		sourceMetadataSnapshot.id
+	);
+});
+
+test("scopes source metadata proposals to an Import Inbox entry in the same project", () => {
+	expect(sourceMetadataProjectScopeMigration).toContain(
+		'CREATE UNIQUE INDEX "import_inbox_entries_project_id_id_idx" ON "import_inbox_entries" ("project_id","id")'
+	);
+	expect(sourceMetadataProjectScopeMigration).toContain(
+		'FOREIGN KEY ("project_id","source_entry_id") REFERENCES "import_inbox_entries"("project_id","id") ON DELETE RESTRICT'
+	);
+	expect(sourceMetadataProjectScopeMigration).toContain("DROP CONSTRAINT");
 });

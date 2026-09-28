@@ -2,7 +2,6 @@ import { expect, test } from "bun:test";
 import { deflateSync } from "node:zlib";
 import { call } from "@orpc/server";
 import {
-	assetVersionSchema,
 	type UnitVersionType,
 	unitVersionCorrectionUploadResponseSchema,
 } from "@sprite-anvil/api/asset-versions";
@@ -10,6 +9,7 @@ import type { Context } from "@sprite-anvil/api/context";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { createDb, getProjectForUser } from "@sprite-anvil/db";
 import { user } from "@sprite-anvil/db/schema/auth";
+import { generationPackages } from "@sprite-anvil/db/schema/generation-packages";
 import { providerGenerationRecords } from "@sprite-anvil/db/schema/provider-generation-records";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
@@ -78,6 +78,38 @@ test.skipIf(!databaseUrl)(
 			string,
 			{ bytes: Uint8Array; contentType: "image/png" | "image/webp" }
 		>();
+		const storage = {
+			async put(
+				key: string,
+				body: ReadableStream<Uint8Array>,
+				contentType: "image/png" | "image/webp"
+			) {
+				const bytes = new Uint8Array(await new Response(body).arrayBuffer());
+				storedObjects.set(key, { bytes, contentType });
+			},
+			get(key: string) {
+				const object = storedObjects.get(key);
+				return Promise.resolve(
+					object
+						? {
+								body: new ReadableStream<Uint8Array>({
+									start(controller) {
+										controller.enqueue(object.bytes.slice());
+										controller.close();
+									},
+								}),
+								contentLength: object.bytes.byteLength,
+								contentType: object.contentType,
+							}
+						: null
+				);
+			},
+			delete(key: string) {
+				return Promise.resolve().then(() => {
+					storedObjects.delete(key);
+				});
+			},
+		};
 
 		try {
 			await db.insert(user).values({
@@ -142,7 +174,7 @@ test.skipIf(!databaseUrl)(
 				assetFamilyStore: createAssetFamilyStore(db),
 				assetVersionStore: createAssetVersionStore(db),
 				assetRecordStore: createAssetRecordStore(db),
-				assetRecordTrackingStore: createAssetRecordTrackingStore(db, null),
+				assetRecordTrackingStore: createAssetRecordTrackingStore(db, storage),
 				collectionStore: createCollectionStore(db),
 				verifyAssetVersionContent,
 				db,
@@ -201,38 +233,6 @@ test.skipIf(!databaseUrl)(
 				},
 				{ context }
 			);
-			const storage = {
-				async put(
-					key: string,
-					body: ReadableStream<Uint8Array>,
-					contentType: "image/png" | "image/webp"
-				) {
-					const bytes = new Uint8Array(await new Response(body).arrayBuffer());
-					storedObjects.set(key, { bytes, contentType });
-				},
-				get(key: string) {
-					const object = storedObjects.get(key);
-					return Promise.resolve(
-						object
-							? {
-									body: new ReadableStream<Uint8Array>({
-										start(controller) {
-											controller.enqueue(object.bytes.slice());
-											controller.close();
-										},
-									}),
-									contentLength: object.bytes.byteLength,
-									contentType: object.contentType,
-								}
-							: null
-					);
-				},
-				delete(key: string) {
-					return Promise.resolve().then(() => {
-						storedObjects.delete(key);
-					});
-				},
-			};
 			const uploadApp = new Hono();
 			mountAssetVersionRoutes(uploadApp, {
 				assetVersionStore: createAssetVersionStore(db),
@@ -243,24 +243,35 @@ test.skipIf(!databaseUrl)(
 			});
 
 			const fileBytes = makePng("first");
-			const idempotencyKey = crypto.randomUUID();
-			const uploadResponse = await uploadApp.request(
-				`/api/projects/${project.id}/asset-records/${source.id}/versions`,
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "image/png",
-						"X-Asset-Version-File-Name": "ash-knight-base.png",
-						"X-Asset-Version-Size": fileBytes.byteLength.toString(),
-						"Idempotency-Key": idempotencyKey,
-					},
-					body: fileBytes.slice(),
-				}
+			const legacyVersionInput = {
+				assetRecordId: source.id,
+				contentBase64: fileBytes.toString("base64"),
+				contentType: "image/png" as const,
+				fileName: "ash-knight-base.png",
+				id: crypto.randomUUID(),
+				projectId: project.id,
+				knownSource: "Imported from the project's source files",
+				supportingEvidence: null,
+				unknownHistoryDetails: "The original generation history is unknown.",
+				userRelationship: "received_from_team" as const,
+				historyUnknown: true as const,
+			};
+			const createdVersion = await call(
+				appRouter.assetRecords.createVersion,
+				legacyVersionInput,
+				{ context }
 			);
-			expect(uploadResponse.status).toBe(201);
-			const uploadedVersion = assetVersionSchema.parse(
-				await uploadResponse.json()
+			const versionCatalog = await call(
+				appRouter.assetVersions.list,
+				{ projectId: project.id },
+				{ context }
 			);
+			const uploadedVersion = versionCatalog.assetVersions.find(
+				(version) => version.id === createdVersion.id
+			);
+			if (!uploadedVersion) {
+				throw new Error("Expected the imported Asset Version in the catalog.");
+			}
 			expect(uploadedVersion).toMatchObject({
 				assetRecordId: source.id,
 				assetFamilyId: family.id,
@@ -268,46 +279,59 @@ test.skipIf(!databaseUrl)(
 				reviewDisposition: "candidate",
 				integrityVerified: true,
 				contentDigest: expect.stringMatching(sha256Pattern),
+				sourceKind: "legacy_asset",
 			});
 
-			const retryResponse = await uploadApp.request(
-				`/api/projects/${project.id}/asset-records/${source.id}/versions`,
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "image/png",
-						"X-Asset-Version-File-Name": "ash-knight-base.png",
-						"X-Asset-Version-Size": fileBytes.byteLength.toString(),
-						"Idempotency-Key": idempotencyKey,
-					},
-					body: fileBytes.slice(),
-				}
+			const retryVersion = await call(
+				appRouter.assetRecords.createVersion,
+				legacyVersionInput,
+				{ context }
 			);
-			expect(retryResponse.status).toBe(200);
-			expect(await retryResponse.json()).toMatchObject({
-				id: uploadedVersion.id,
-			});
+			expect(retryVersion.id).toBe(uploadedVersion.id);
 			expect(storedObjects.size).toBe(1);
 
+			const generationPackageId = crypto.randomUUID();
+			await db.insert(generationPackages).values({
+				id: generationPackageId,
+				projectId: project.id,
+				assetRecordId: source.id,
+				createdByUserId: userId,
+				snapshot: {},
+			});
 			const providerBytes = makePng("connected-provider-output");
-			const providerUploadResponse = await uploadApp.request(
-				`/api/projects/${project.id}/asset-records/${source.id}/versions`,
+			const providerImport = await call(
+				appRouter.assetRecords.createManualImportVersion,
 				{
-					method: "POST",
-					headers: {
-						"Content-Type": "image/png",
-						"X-Asset-Version-File-Name": "provider-output.png",
-						"X-Asset-Version-Size": providerBytes.byteLength.toString(),
-						"X-Asset-Version-Production-Source": "user_reported_provider",
-						"Idempotency-Key": crypto.randomUUID(),
-					},
-					body: providerBytes,
-				}
+					assetRecordId: source.id,
+					contentBase64: providerBytes.toString("base64"),
+					contentType: "image/png",
+					fileName: "provider-output.png",
+					generationInstruction: "Generate a pixel-art knight.",
+					generationPackageId,
+					id: crypto.randomUUID(),
+					productionSource: "user_reported_provider",
+					projectId: project.id,
+					sourceSurface: "Example Provider",
+				},
+				{ context }
 			);
-			expect(providerUploadResponse.status).toBe(201);
-			const providerVersion = assetVersionSchema.parse(
-				await providerUploadResponse.json()
-			);
+			expect(providerImport.sourceKind).toBe("manual_import");
+			const providerVersion = (
+				await call(
+					appRouter.assetVersions.list,
+					{ projectId: project.id },
+					{ context }
+				)
+			).assetVersions.find((version) => version.id === providerImport.id);
+			if (!providerVersion) {
+				throw new Error(
+					"Expected the provider result in the Asset Version catalog."
+				);
+			}
+			expect(providerVersion).toMatchObject({
+				productionSource: "user_reported_provider",
+				sourceKind: "manual_import",
+			});
 			const providerGenerationInput = {
 				actualDimensions: { height: 96, width: 128 },
 				assetVersionId: providerVersion.id,
@@ -344,7 +368,10 @@ test.skipIf(!databaseUrl)(
 					},
 					{ context }
 				)
-			).rejects.toThrow("needs its Provider Generation Record");
+			).resolves.toMatchObject({
+				assetVersionId: providerVersion.id,
+				type: "approved",
+			});
 
 			const providerGenerationRecord = await call(
 				appRouter.assetVersions.recordProviderGeneration,
@@ -373,17 +400,6 @@ test.skipIf(!databaseUrl)(
 					{ context }
 				)
 			).rejects.toThrow("different Provider Generation Record");
-			await call(
-				appRouter.assetVersions.review,
-				{
-					projectId: project.id,
-					assetVersionId: providerVersion.id,
-					decision: "approved",
-					rationale: "Provider details are recorded.",
-				},
-				{ context }
-			);
-
 			const uploadUnitCorrection = async ({
 				sourceAssetVersionId,
 				unitType,
