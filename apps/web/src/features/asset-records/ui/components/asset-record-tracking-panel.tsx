@@ -951,7 +951,7 @@ export function AssetRecordTrackingPanel({
 				hasAssetFamily={tracking.family !== null}
 				onCheckWriteOutcome={() => void versionWrites.checkWriteOutcome()}
 				onImport={(candidateFile, sourceFile) =>
-					versionWrites.upload(record.id, candidateFile, undefined, {
+					versionWrites.upload(record.id, candidateFile, {
 						managedSnapshot: sourceFile,
 						sourceKind: "external_working_file_edit",
 					})

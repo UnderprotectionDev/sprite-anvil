@@ -133,6 +133,7 @@ export const manualImportVersionCreateInputSchema =
 				.max(100_000)
 				.refine((value) => value.trim().length > 0),
 			generationPackageId: z.uuid(),
+			productionSource: z.literal("user_reported_provider").optional(),
 			sourceSurface: z.string().trim().min(1).max(255),
 		})
 		.strict();

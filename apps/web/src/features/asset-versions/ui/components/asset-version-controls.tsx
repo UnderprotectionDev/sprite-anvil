@@ -12,6 +12,8 @@ import { VersionProductionEvidencePanel } from "@/features/production-provenance
 import type { useAssetVersionWrites } from "../hooks/use-asset-version-writes";
 import { AssetVersionPreview } from "./asset-version-preview";
 import { CompositeVersionControls } from "./composite-version-controls";
+import { ProviderGenerationRecordDetails } from "./provider-generation-record-details";
+import { ProviderGenerationRecordForm } from "./provider-generation-record-form";
 import { reviewDispositionLabels } from "./review-disposition-labels";
 import {
 	UnitVersionCorrectionForm,
@@ -29,6 +31,9 @@ const reviewEventLabels = {
 function activeActionMessage(activeAction: string) {
 	if (activeAction.startsWith("upload:")) {
 		return "Varlık Sürümü yükleniyor…";
+	}
+	if (activeAction.startsWith("provider-record:")) {
+		return "Sağlayıcı Üretim Kaydı kaydediliyor…";
 	}
 	if (activeAction.startsWith("composite")) {
 		return "Birleşik Sürüm işlemi kaydediliyor…";
@@ -83,6 +88,10 @@ export function AssetVersionControls({
 				<p className="mt-1 text-muted-foreground text-sm">
 					PNG veya WebP dosyalarını yükleyin, Aday Sürümleri inceleyin ve
 					onaylanan sürümü Ana Tasarım olarak seçin.
+				</p>
+				<p className="mt-1 text-muted-foreground text-sm">
+					Sağlayıcı ekranında oluşturduğunuz sonucu yükledikten sonra, görünen
+					alanları Sağlayıcı Üretim Kaydı formuna elle girebilirsiniz.
 				</p>
 			</div>
 			{writes.statusMessage ? (
@@ -142,7 +151,7 @@ export function AssetVersionControls({
 											<ExternalWorkingFileEditUpload
 												disabled={writes.writesDisabled}
 												onImport={(candidateFile, sourceFile) =>
-													writes.upload(record.id, candidateFile, undefined, {
+													writes.upload(record.id, candidateFile, {
 														managedSnapshot: sourceFile,
 														sourceKind: "external_working_file_edit",
 													})
@@ -155,86 +164,14 @@ export function AssetVersionControls({
 											) : (
 												<ol className="space-y-3">
 													{versions.map((version) => (
-														<li
-															className="grid gap-3 rounded-md border p-3 sm:grid-cols-[8rem_1fr]"
+														<AssetVersionEntry
+															canonicalDesign={canonicalDesign}
+															familyId={family.id}
 															key={version.id}
-														>
-															<AssetVersionPreview
-																recordName={record.name}
-																url={`${serverUrl}${version.previewUrl}`}
-																versionNumber={version.versionNumber}
-															/>
-															<div className="space-y-2">
-																<p className="font-medium">
-																	Sürüm {version.versionNumber} ·{" "}
-																	{
-																		reviewDispositionLabels[
-																			version.reviewDisposition
-																		]
-																	}
-																</p>
-																<ol className="list-inside list-disc text-muted-foreground text-sm">
-																	{version.reviewEvents.map((reviewEvent) => (
-																		<li key={reviewEvent.id}>
-																			<span>
-																				{reviewEventLabels[reviewEvent.type]}
-																			</span>{" "}
-																			<time dateTime={reviewEvent.createdAt}>
-																				{new Date(
-																					reviewEvent.createdAt
-																				).toLocaleString("tr-TR")}
-																			</time>
-																			{reviewEvent.rationale ? (
-																				<span>
-																					{" "}
-																					— Gerekçe: {reviewEvent.rationale}
-																				</span>
-																			) : null}
-																		</li>
-																	))}
-																</ol>
-																<p className="text-muted-foreground text-sm">
-																	Dosya bütünlüğü:{" "}
-																	{version.integrityVerified
-																		? "Doğrulandı"
-																		: "Doğrulanmadı"}
-																</p>
-																<VersionProductionEvidencePanel
-																	assetRecordId={version.assetRecordId}
-																	evidence={version.productionEvidence}
-																	onRefresh={writes.refreshCatalogs}
-																	projectId={version.projectId}
-																	reviewDisposition={version.reviewDisposition}
-																	versionId={version.id}
-																/>
-																<AssetVersionReviewControls
-																	version={version}
-																	writes={writes}
-																/>
-																{version.reviewDisposition === "approved" ? (
-																	<Button
-																		disabled={
-																			writes.writesDisabled ||
-																			canonicalDesign?.assetVersionId ===
-																				version.id
-																		}
-																		onClick={() =>
-																			void writes.selectCanonicalDesign(
-																				family.id,
-																				version.id
-																			)
-																		}
-																		type="button"
-																		variant="outline"
-																	>
-																		{canonicalDesign?.assetVersionId ===
-																		version.id
-																			? "Seçili Ana Tasarım"
-																			: "Ana Tasarım olarak seç"}
-																	</Button>
-																) : null}
-															</div>
-														</li>
+															recordName={record.name}
+															version={version}
+															writes={writes}
+														/>
 													))}
 												</ol>
 											)}
@@ -271,6 +208,99 @@ export function AssetVersionControls({
 	);
 }
 
+function AssetVersionEntry({
+	canonicalDesign,
+	familyId,
+	recordName,
+	version,
+	writes,
+}: {
+	canonicalDesign: AssetVersionCatalog["canonicalDesigns"][number] | undefined;
+	familyId: string;
+	recordName: string;
+	version: AssetVersionCatalog["assetVersions"][number];
+	writes: ReturnType<typeof useAssetVersionWrites>;
+}) {
+	const isCanonical = canonicalDesign?.assetVersionId === version.id;
+
+	return (
+		<li className="grid gap-3 rounded-md border p-3 sm:grid-cols-[8rem_1fr]">
+			<AssetVersionPreview
+				recordName={recordName}
+				url={`${serverUrl}${version.previewUrl}`}
+				versionNumber={version.versionNumber}
+			/>
+			<div className="space-y-2">
+				<p className="font-medium">
+					Sürüm {version.versionNumber} ·{" "}
+					{reviewDispositionLabels[version.reviewDisposition]}
+				</p>
+				<AssetVersionReviewHistory reviewEvents={version.reviewEvents} />
+				<p className="text-muted-foreground text-sm">
+					Dosya bütünlüğü:{" "}
+					{version.integrityVerified ? "Doğrulandı" : "Doğrulanmadı"}
+				</p>
+				<VersionProductionEvidencePanel
+					assetRecordId={version.assetRecordId}
+					evidence={version.productionEvidence}
+					onRefresh={writes.refreshCatalogs}
+					projectId={version.projectId}
+					reviewDisposition={version.reviewDisposition}
+					versionId={version.id}
+				/>
+				<ProviderGenerationRecordDetails
+					productionSource={version.productionSource ?? "unknown"}
+					providerGenerationRecord={version.providerGenerationRecord ?? null}
+				/>
+				{version.productionSource === "user_reported_provider" &&
+				!version.providerGenerationRecord ? (
+					<ProviderGenerationRecordForm
+						onSave={(input) =>
+							writes.recordProviderGeneration(version.id, input)
+						}
+						writesDisabled={writes.writesDisabled}
+					/>
+				) : null}
+				<AssetVersionReviewControls version={version} writes={writes} />
+				{version.reviewDisposition === "approved" ? (
+					<Button
+						disabled={writes.writesDisabled || isCanonical}
+						onClick={() =>
+							void writes.selectCanonicalDesign(familyId, version.id)
+						}
+						type="button"
+						variant="outline"
+					>
+						{isCanonical ? "Seçili Ana Tasarım" : "Ana Tasarım olarak seç"}
+					</Button>
+				) : null}
+			</div>
+		</li>
+	);
+}
+
+function AssetVersionReviewHistory({
+	reviewEvents,
+}: {
+	reviewEvents: AssetVersionCatalog["assetVersions"][number]["reviewEvents"];
+}) {
+	return (
+		<ol className="list-inside list-disc text-muted-foreground text-sm">
+			{reviewEvents.map((reviewEvent) => (
+				<li key={reviewEvent.id}>
+					<span>{reviewEventLabels[reviewEvent.type]}</span>{" "}
+					<time dateTime={reviewEvent.createdAt}>
+						{new Date(reviewEvent.createdAt).toLocaleString("tr-TR")}
+					</time>
+					{reviewEvent.rationale ? (
+						<span> — Gerekçe: {reviewEvent.rationale}</span>
+					) : null}
+				</li>
+			))}
+		</ol>
+	);
+}
+
 function AssetVersionReviewControls({
 	version,
 	writes,
@@ -279,11 +309,19 @@ function AssetVersionReviewControls({
 	writes: ReturnType<typeof useAssetVersionWrites>;
 }) {
 	const [rationale, setRationale] = useState("");
+	const providerGenerationRecordMissing =
+		version.productionSource === "connected_provider" &&
+		!version.providerGenerationRecord;
 	const review = (decision: AssetVersionReviewInput["decision"]) =>
 		void writes.review(version.id, decision, rationale);
+	const productionEvidenceIncomplete =
+		version.productionEvidence.evidenceLevel === "incomplete";
 	const manualEvidenceIncomplete =
 		version.productionEvidence.sourceKind === "manual_import" &&
-		version.productionEvidence.evidenceLevel === "incomplete";
+		productionEvidenceIncomplete;
+	const managedSnapshotIncomplete =
+		version.productionEvidence.sourceKind === "external_working_file_edit" &&
+		productionEvidenceIncomplete;
 
 	return (
 		<div className="space-y-2">
@@ -307,7 +345,8 @@ function AssetVersionReviewControls({
 						disabled={
 							writes.writesDisabled ||
 							rationale.trim().length === 0 ||
-							manualEvidenceIncomplete ||
+							productionEvidenceIncomplete ||
+							providerGenerationRecordMissing ||
 							!version.integrityVerified ||
 							!version.contentDigest
 						}
@@ -321,6 +360,11 @@ function AssetVersionReviewControls({
 					<p className="text-muted-foreground text-xs" role="status">
 						Onaydan önce Üretim Paketi, kaynak yüzeyi ve gerçek üretim
 						talimatını kaydedin.
+					</p>
+				) : null}
+				{managedSnapshotIncomplete ? (
+					<p className="text-muted-foreground text-xs" role="status">
+						Onaydan önce çalışma dosyasının Yönetilen Kopyasını kaydedin.
 					</p>
 				) : null}
 				{version.reviewDisposition === "rejected" ? null : (

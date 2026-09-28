@@ -177,6 +177,7 @@ function toAssetVersion(
 		integrityVerified: record.integrityVerified,
 		sourceKind: record.sourceKind,
 		previewUrl: `/api/projects/${encodeURIComponent(record.projectId)}/asset-versions/${record.id}/preview`,
+		productionSource: record.productionSource ?? "unknown",
 		reviewDisposition: reviewEvents.at(-1)?.type ?? "candidate",
 		reviewEvents,
 		createdAt: toISOString(record.createdAt),
@@ -243,6 +244,7 @@ function toFileRecord(
 		contentDigest: record.contentDigest ?? record.sha256,
 		idempotencyKey: record.idempotencyKey,
 		integrityVerified: record.integrityVerified,
+		productionSource: record.productionSource ?? "unknown",
 	};
 }
 
@@ -329,6 +331,7 @@ async function readExistingVersion(
 		existing.contentDigest !== input.contentDigest ||
 		existing.byteSize !== input.contentLength ||
 		existing.contentType !== input.contentType ||
+		existing.productionSource !== (input.productionSource ?? "unknown") ||
 		existing.sourceKind !==
 			(unitCorrection ? "derived" : (input.sourceKind ?? "manual_import"))
 	) {
@@ -417,6 +420,7 @@ async function insertCandidateVersion(
 			byteSize: input.contentLength,
 			contentDigest: input.contentDigest,
 			integrityVerified: input.integrityVerified,
+			productionSource: input.productionSource ?? "unknown",
 			sourceKind: unitCorrection
 				? "derived"
 				: (input.sourceKind ?? "manual_import"),

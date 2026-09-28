@@ -4,6 +4,11 @@ import type {
 	ManualImportEvidenceInput,
 } from "./production-provenance";
 import { versionProductionEvidenceSchema } from "./production-provenance";
+import type { AssetVersionProductionSource } from "./provider-generation-records";
+import {
+	assetVersionProductionSourceSchema,
+	providerGenerationRecordSchema,
+} from "./provider-generation-records";
 
 const idSchema = z.string().trim().min(1).max(128);
 
@@ -99,6 +104,10 @@ export const assetVersionSchema = z
 		integrityVerified: z.boolean(),
 		sourceKind: assetVersionSourceKindSchema.optional(),
 		previewUrl: z.string().min(1),
+		productionSource: assetVersionProductionSourceSchema.optional(),
+		providerGenerationRecord: providerGenerationRecordSchema
+			.nullable()
+			.optional(),
 		reviewDisposition: assetVersionReviewDispositionSchema,
 		reviewEvents: z.array(assetVersionReviewEventSchema),
 		createdAt: z.string().datetime(),
@@ -245,6 +254,7 @@ export interface AssetVersionFileRecord {
 	idempotencyKey: string;
 	integrityVerified: boolean;
 	objectKey: string;
+	productionSource?: AssetVersionProductionSource;
 	projectId: string;
 	sourceKind?: "manual_import" | "external_working_file_edit";
 	unitCorrection?: UnitVersionCorrectionInput;

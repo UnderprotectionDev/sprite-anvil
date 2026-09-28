@@ -21,6 +21,7 @@ const assetRecordId = "7ea123f0-2bd0-4b38-ab57-29477a1366e6";
 const generationPackageId = "7b73a4c6-835a-49ed-a84d-f63440351d07";
 const fakeApi = vi.hoisted(() => ({
 	createManualImportVersion: vi.fn(),
+	recordProviderGeneration: vi.fn(),
 	packages: [] as GenerationPackage[],
 }));
 
@@ -29,6 +30,10 @@ vi.mock("@/utils/orpc", () => ({
 		assetRecords: {
 			createManualImportVersion: (input: unknown) =>
 				fakeApi.createManualImportVersion(input),
+		},
+		assetVersions: {
+			recordProviderGeneration: (input: unknown) =>
+				fakeApi.recordProviderGeneration(input),
 		},
 	},
 	orpc: {
@@ -47,6 +52,7 @@ afterEach(() => {
 	cleanup();
 	vi.restoreAllMocks();
 	fakeApi.createManualImportVersion.mockReset();
+	fakeApi.recordProviderGeneration.mockReset();
 	fakeApi.packages = [];
 });
 
@@ -168,6 +174,79 @@ test("saves the exact manual result and evidence against its Generation Package"
 	expect(onRefresh).toHaveBeenCalledOnce();
 	expect(screen.getByRole("status")).toHaveTextContent(
 		"Elle İçe Aktarma Kanıtı kaydedildi"
+	);
+});
+
+test("records provider details after saving the manual result and its required evidence", async () => {
+	const user = userEvent.setup();
+	const onRefresh = vi.fn().mockResolvedValue(undefined);
+	fakeApi.packages = [generationPackage];
+	fakeApi.createManualImportVersion.mockResolvedValue({
+		id: "ad800472-d38e-4076-835a-ae4f51cd7db6",
+	});
+	fakeApi.recordProviderGeneration.mockResolvedValue({
+		assetVersionId: "ad800472-d38e-4076-835a-ae4f51cd7db6",
+	});
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	render(
+		<QueryClientProvider client={queryClient}>
+			<ManualImportEvidenceForm onRefresh={onRefresh} record={record} />
+		</QueryClientProvider>
+	);
+
+	const file = new File([new Uint8Array([1, 2, 3])], "provider-result.png", {
+		type: "image/png",
+	});
+	Object.defineProperty(file, "arrayBuffer", {
+		value: async () => new Uint8Array([1, 2, 3]).buffer,
+	});
+	await screen.findByLabelText("Sonuç dosyası");
+	await user.upload(screen.getByLabelText("Sonuç dosyası"), file);
+	await user.click(
+		screen.getByLabelText("Başka bir sağlayıcının arayüzünden alındı")
+	);
+	await user.selectOptions(
+		screen.getByLabelText("Üretim Paketi"),
+		generationPackageId
+	);
+	await user.type(screen.getByLabelText("Üretim yüzeyi"), "Example Provider");
+	await user.type(
+		screen.getByLabelText("Gerçek üretim talimatı"),
+		"Generate a pixel-art knight."
+	);
+	fireEvent.submit(
+		screen
+			.getByRole("button", { name: "Kanıtla birlikte aday sürümü kaydet" })
+			.closest("form") as HTMLFormElement
+	);
+
+	await waitFor(() =>
+		expect(fakeApi.createManualImportVersion).toHaveBeenCalledWith(
+			expect.objectContaining({ productionSource: "user_reported_provider" })
+		)
+	);
+	await user.type(
+		await screen.findByLabelText("Sağlayıcı"),
+		"Example Provider"
+	);
+	await user.click(
+		screen.getByRole("button", {
+			name: "Sağlayıcı üretim kaydını kaydet",
+		})
+	);
+	await waitFor(() =>
+		expect(fakeApi.recordProviderGeneration).toHaveBeenCalledWith(
+			expect.objectContaining({
+				assetVersionId: "ad800472-d38e-4076-835a-ae4f51cd7db6",
+				projectId,
+				provider: "Example Provider",
+			})
+		)
+	);
+	expect(onRefresh).toHaveBeenCalledTimes(2);
+	expect(screen.getByRole("status")).toHaveTextContent(
+		"Sağlayıcı Üretim Kaydı kullanıcı bildirimi olarak kaydedildi"
 	);
 });
 

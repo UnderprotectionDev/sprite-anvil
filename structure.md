@@ -76,7 +76,9 @@
 │   │   │   │   │   └── server/
 │   │   │   │   │       ├── project-access-store.ts
 │   │   │   │   │       └── project-routes.ts
-│   │   │   │   ├── quality-evidence/
+│   │   │   │   ├── provider-generation-records/
+│   │   │   │   │   └── server/
+│   │   │   ├── quality-evidence/
 │   │   │   │   │   └── server/
 │   │   │   │   ├── reference-production/
 │   │   │   │   │   └── server/
@@ -325,6 +327,7 @@
 │   ├── api/
 │   │   ├── src/
 │   │   │   ├── routers/
+│   │   │   ├── provider-generation-records.ts
 │   │   │   ├── context.ts
 │   │   │   ├── project-access-policy.ts
 │   │   │   ├── project-access-store.ts
@@ -342,6 +345,7 @@
 │   │   ├── src/
 │   │   │   ├── migrations/
 │   │   │   ├── schema/
+│   │   │   │   └── provider-generation-records.ts
 │   │   │   ├── project-access.ts
 │   │   │   ├── project-context.ts
 │   │   │   ├── config.ts

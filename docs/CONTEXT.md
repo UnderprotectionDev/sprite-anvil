@@ -74,6 +74,7 @@ English terms are the canonical technical names used in code and contracts. Turk
 | Generation Package | Üretim Paketi |
 | Manual Import Evidence | Elle İçe Aktarma Kanıtı |
 | Provider Generation Record | Sağlayıcı Üretim Kaydı |
+| User-Reported Provider Details | Kullanıcının Bildirdiği Sağlayıcı Ayrıntıları |
 | Legacy Asset Attestation | Geçmiş Varlık Beyanı |
 | Production Source Kind | Üretim Kaynağı Türü |
 | Production Evidence Level | Üretim Kanıtı Düzeyi |
@@ -373,10 +374,14 @@ The minimum provenance required before a manually imported result can be approve
 _Avoid_: Full chat archive, source note alone
 
 **Provider Generation Record**:
-An immutable record of the generation details exposed by a connected provider or production surface for one external attempt. It stores normalized common fields and a schema-versioned, sanitized snapshot of provider-specific parameters while excluding credentials, authorization data, and temporary access URLs.
+An immutable record of generation details for one external attempt. A connected provider supplies its fields through a trusted integration; a user may instead enter details visible in a provider interface as User-Reported Provider Details. The record stores normalized common fields and a schema-versioned, sanitized snapshot of provider-specific parameters while excluding credentials, authorization data, and temporary access URLs.
 _Avoid_: Generation package, context rule, reproducibility guarantee
 
 Provider-exposed fields must be retained for connected generation. Details unavailable through a manual surface or legacy import are recorded as Unknown and do not by themselves block approval; the separate minimum requirements of Manual Import Evidence still apply.
+
+**User-Reported Provider Details**:
+Provider and generation fields entered by a user from a provider interface they used. These values remain an unverified user report, are stored with the `user_reported_provider` source, and do not substitute for a trusted provider integration payload. Blank fields remain Unknown.
+_Avoid_: Connected provider facts, provider-verified details, provider payload
 
 **Legacy Asset Attestation**:
 A user-authored statement of the known source, relationship, missing history, and supporting evidence for a pre-existing asset whose original Generation Package or instruction cannot be recovered. It makes missing provenance explicit rather than reconstructing it.
