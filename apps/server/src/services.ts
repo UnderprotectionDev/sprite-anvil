@@ -12,6 +12,7 @@ import { createAssetRecordTrackingStore } from "./features/asset-records/server/
 import { createAssetVersionStore } from "./features/asset-versions/server/asset-version-store";
 import { createTestAssetVersionStorage } from "./features/asset-versions/server/test-asset-version-storage";
 import { createCollectionStore } from "./features/collections/server/collection-store";
+import { createGenerationPackageStore } from "./features/generation-packages/server/generation-package-store";
 import { createImportInboxStore } from "./features/imports/server/import-inbox-store";
 import { createProjectContextStore } from "./features/project-context/server/project-context-store";
 import { createProjectAccessStore } from "./features/projects/server/project-access-store";
@@ -21,6 +22,7 @@ import { createProjectContextScopeStore } from "./features/visual-worlds/server/
 export const db = createDb(ENV);
 export const assetFamilyStore = createAssetFamilyStore(db);
 export const collectionStore = createCollectionStore(db);
+export const generationPackageStore = createGenerationPackageStore(db);
 export const importInboxStore = createImportInboxStore(db);
 export const assetVersionStore = createAssetVersionStore(db);
 export const assetRecordStore = createAssetRecordStore(db);

@@ -211,40 +211,29 @@ export interface ReferenceTransferAnalysis {
 export function analyzeReferenceTransferConstraints(
 	references: readonly ReferenceTransferConstraintSet[]
 ): ReferenceTransferAnalysis {
-	const conflicts: ReferenceTransferConflict[] = [];
 	const effectiveForbiddenFeatures: ReferenceFeature[] = [];
 	const effectiveTransferredFeatures: ReferenceFeature[] = [];
 
 	for (const feature of referenceFeatures) {
-		const allowingReferenceIds: string[] = [];
-		const forbiddingReferenceIds: string[] = [];
-
-		for (const reference of references) {
-			const isForbidden = reference.forbiddenFeatures.includes(feature);
-			if (isForbidden) {
-				forbiddingReferenceIds.push(reference.id);
-				continue;
-			}
-			if (reference.transferredFeatures.includes(feature)) {
-				allowingReferenceIds.push(reference.id);
-			}
+		// A prohibition on one role overrides allowances from every other role.
+		const isForbidden = references.some((reference) =>
+			reference.forbiddenFeatures.includes(feature)
+		);
+		if (isForbidden) {
+			effectiveForbiddenFeatures.push(feature);
+			continue;
 		}
 
-		if (allowingReferenceIds.length > 0 && forbiddingReferenceIds.length > 0) {
-			conflicts.push({
-				allowingReferenceIds,
-				feature,
-				forbiddingReferenceIds,
-			});
-		} else if (forbiddingReferenceIds.length > 0) {
-			effectiveForbiddenFeatures.push(feature);
-		} else if (allowingReferenceIds.length > 0) {
+		const isTransferred = references.some((reference) =>
+			reference.transferredFeatures.includes(feature)
+		);
+		if (isTransferred) {
 			effectiveTransferredFeatures.push(feature);
 		}
 	}
 
 	return {
-		conflicts,
+		conflicts: [],
 		effectiveForbiddenFeatures,
 		effectiveTransferredFeatures,
 	};

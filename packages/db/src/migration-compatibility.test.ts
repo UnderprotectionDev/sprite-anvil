@@ -67,6 +67,9 @@ const allowEmptyImportInboxMigration = readMigration(
 const preserveImportInboxSourceFileNamesMigration = readMigration(
 	"./migrations/20260928080506_preserve-import-inbox-source-filenames/migration.sql"
 );
+const generationPackageMigration = readMigration(
+	"./migrations/20260927224924_safe_vance_astro/migration.sql"
+);
 
 test("normalizes legacy project ownership before current indexes and foreign keys", () => {
 	const renameOwnerColumn = migration.indexOf(
@@ -573,4 +576,17 @@ test("preserves exact Import Inbox source file names in the database", () => {
 		'btrim("file_name")'
 	);
 	expect(preserveNamesSnapshot.prevIds).toContain(allowEmptySnapshot.id);
+});
+
+test("stores Production Context Snapshots with project and Asset Record ownership", () => {
+	expect(generationPackageMigration).toContain(
+		'CREATE TABLE "generation_packages"'
+	);
+	expect(generationPackageMigration).toContain('"snapshot" jsonb NOT NULL');
+	expect(generationPackageMigration).toContain(
+		'FOREIGN KEY ("project_id","asset_record_id") REFERENCES "asset_records"("project_id","id") ON DELETE RESTRICT'
+	);
+	expect(generationPackageMigration).toContain(
+		'FOREIGN KEY ("created_by_user_id") REFERENCES "user"("id") ON DELETE RESTRICT'
+	);
 });

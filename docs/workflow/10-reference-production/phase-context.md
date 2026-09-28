@@ -6,7 +6,7 @@ Referans panosu yapıştırma, sürükleyip bırakma, yan yana düzenleme ve not
 
 ## Tamamlanma Ölçütleri
 
-- Her referansın amacı ve izinli veya yasak aktarımı üretim geçmişinde izlenir; eş ayrıntı düzeyindeki çözülmemiş çatışma kullanıcıya gösterilir.
+- Her referansın amacı ve izinli veya yasak aktarımı üretim geçmişinde izlenir; bir Referans Kullanım Amacındaki açık yasak başka birindeki izne üstün gelir.
 
 ## Kapsam Sınırları
 

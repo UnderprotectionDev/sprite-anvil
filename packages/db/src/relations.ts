@@ -9,4 +9,5 @@ export const relations = {
 	...schema.projectContextRelations,
 	...schema.assetRecordRelations,
 	...schema.collectionRelations,
+	...schema.generationPackageRelations,
 };

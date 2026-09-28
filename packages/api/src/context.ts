@@ -6,6 +6,7 @@ import type { AssetRecordStore } from "./asset-records";
 import type { AssetVersionStore } from "./asset-versions";
 import type { CollectionStore } from "./collections";
 import type { ProjectContextScopeStore } from "./context-scopes";
+import type { GenerationPackageStore } from "./generation-packages";
 import type { ProjectAccessStore } from "./project-access-store";
 import type { ProjectContextStore } from "./project-context";
 import type { ReferenceProductionStore } from "./reference-production";
@@ -17,6 +18,7 @@ export interface Context {
 	assetVersionStore: AssetVersionStore;
 	collectionStore: CollectionStore;
 	db: Database;
+	generationPackageStore?: GenerationPackageStore;
 	projectAccess: ProjectAccessStore;
 	projectContextScopeStore: ProjectContextScopeStore;
 	projectContextStore: ProjectContextStore;

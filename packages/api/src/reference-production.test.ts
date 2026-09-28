@@ -50,7 +50,7 @@ test("an explicit prohibition wins over an allowance on the same reference", () 
 	});
 });
 
-test("equal-specificity references expose an unresolved transfer conflict", () => {
+test("a prohibition overrides another Reference Role's allowance", () => {
 	const result = analyzeReferenceTransferConstraints([
 		{
 			forbiddenFeatures: [],
@@ -64,13 +64,8 @@ test("equal-specificity references expose an unresolved transfer conflict", () =
 		},
 	]);
 
-	expect(result.conflicts).toEqual([
-		{
-			allowingReferenceIds: ["pose-reference"],
-			feature: "palette",
-			forbiddingReferenceIds: ["avoid-palette-reference"],
-		},
-	]);
+	expect(result.conflicts).toEqual([]);
+	expect(result.effectiveForbiddenFeatures).toEqual(["palette"]);
 	expect(result.effectiveTransferredFeatures).toEqual([]);
 });
 
