@@ -192,6 +192,8 @@ test.skipIf(!databaseUrl)(
 						knownSource: null,
 						projectId,
 						supportingEvidence: null,
+						unknownHistoryDetails:
+							"The original generation instruction is unavailable.",
 						userRelationship: "unknown",
 					},
 					{ context }
@@ -218,6 +220,8 @@ test.skipIf(!databaseUrl)(
 					knownSource: "Imported from the project archive",
 					projectId,
 					supportingEvidence: "Owner provided an archive note.",
+					unknownHistoryDetails:
+						"The original generation instruction is unavailable.",
 					userRelationship: "received_from_team",
 				},
 				{ context }
@@ -325,6 +329,8 @@ test.skipIf(!databaseUrl)(
 					knownSource: "Created from the canonical design",
 					projectId,
 					supportingEvidence: "Versioned for the derivative relation.",
+					unknownHistoryDetails:
+						"The original generation instruction is unavailable.",
 					userRelationship: "created_by_user",
 				},
 				{ context }
@@ -584,6 +590,8 @@ test.skipIf(!databaseUrl)(
 						knownSource: "Imported from the project archive",
 						historyUnknown: true,
 						supportingEvidence: "Owner provided an archive note.",
+						unknownHistoryDetails:
+							"The original generation instruction is unavailable.",
 						userRelationship: "received_from_team",
 						versionNumber: 1,
 					},

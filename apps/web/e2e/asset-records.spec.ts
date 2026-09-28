@@ -116,6 +116,9 @@ test("persists an Asset Version, review, quality result, and legacy history", as
 		mimeType: "image/png",
 		buffer: Buffer.from(versionFixture.assetVersionPngBase64, "base64"),
 	});
+	await page
+		.getByLabel("Bilinmeyen üretim geçmişi")
+		.fill("The original generation instruction is unavailable.");
 	await page.getByLabel("Bilinen kaynak").fill("Created for version tracking");
 	await page.getByLabel("Varlıkla ilişkiniz").selectOption("created_by_user");
 	await page
@@ -139,6 +142,11 @@ test("persists an Asset Version, review, quality result, and legacy history", as
 	await expect(page.getByText("ash-knight.png · Sürüm 1")).toBeVisible();
 	await expect(page.getByText("Created for version tracking")).toBeVisible();
 	await expect(
+		page.getByText(
+			"Bilinmeyen üretim geçmişi: The original generation instruction is unavailable."
+		)
+	).toBeVisible();
+	await expect(
 		page.getByText("Owner attested to the source and relationship.")
 	).toBeVisible();
 	await expect(page.getByText("Kullanıcı oluşturdu")).toBeVisible();
@@ -149,6 +157,9 @@ test("persists an Asset Version, review, quality result, and legacy history", as
 		mimeType: "image/png",
 		buffer: Buffer.from(versionFixture.assetVersionPngBase64, "base64"),
 	});
+	await page
+		.getByLabel("Bilinmeyen üretim geçmişi")
+		.fill("The alternative sketch instructions are unavailable.");
 	await page.getByLabel("Bilinen kaynak").fill("Alternative sketch");
 	await page
 		.getByLabel("Varlıkla ilişkiniz")
@@ -170,7 +181,17 @@ test("persists an Asset Version, review, quality result, and legacy history", as
 		page.getByText("Dosya biçim imzası eşleşti (2 sürüm).")
 	).toBeVisible();
 	await expect(page.getByText("Created for version tracking")).toBeVisible();
+	await expect(
+		page.getByText(
+			"Bilinmeyen üretim geçmişi: The original generation instruction is unavailable."
+		)
+	).toBeVisible();
 	await expect(page.getByText("Alternative sketch")).toBeVisible();
+	await expect(
+		page.getByText(
+			"Bilinmeyen üretim geçmişi: The alternative sketch instructions are unavailable."
+		)
+	).toBeVisible();
 	await expect(page.getByText("Team handoff note.")).toBeVisible();
 	await expect(
 		page.getByText("Owner attested to the source and relationship.")
