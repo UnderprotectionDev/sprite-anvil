@@ -74,7 +74,7 @@ test("records provider details through the authenticated API", async () => {
 });
 
 function createReviewContext(
-	productionSource: "unknown" | "connected_provider"
+	productionSource: "unknown" | "connected_provider" | "user_reported_provider"
 ): Context {
 	return {
 		assetVersionStore: {
@@ -149,6 +149,22 @@ test("allows approval when unavailable provider details remain unknown", async (
 				assetVersionId,
 				projectId,
 				rationale: "Verified output.",
+			},
+			{ context }
+		)
+	).resolves.toMatchObject({ assetVersionId, type: "approved" });
+});
+
+test("allows approval of user-reported provider details without treating them as verified", async () => {
+	const context = createReviewContext("user_reported_provider");
+	await expect(
+		call(
+			appRouter.assetVersions.review,
+			{
+				decision: "approved",
+				assetVersionId,
+				projectId,
+				rationale: "Reviewed the uploaded image.",
 			},
 			{ context }
 		)

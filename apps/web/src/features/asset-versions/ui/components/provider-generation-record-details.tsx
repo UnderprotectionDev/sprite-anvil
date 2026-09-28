@@ -48,6 +48,14 @@ export function ProviderGenerationRecordDetails({
 				</p>
 			);
 		}
+		if (productionSource === "user_reported_provider") {
+			return (
+				<p className="rounded-md border p-3 text-sm" role="status">
+					Sağlayıcı ekranında görülen ayrıntıları kullanıcı bildirimli olarak
+					kaydedebilirsiniz; bu bilgiler sağlayıcı bağlantısıyla doğrulanmaz.
+				</p>
+			);
+		}
 
 		return (
 			<section
@@ -81,6 +89,11 @@ export function ProviderGenerationRecordDetails({
 			>
 				Sağlayıcı Üretim Kaydı
 			</h5>
+			<p className="text-muted-foreground text-sm">
+				{productionSource === "user_reported_provider"
+					? "Kullanıcı tarafından bildirildi; sağlayıcı bağlantısıyla doğrulanmadı."
+					: "Sağlayıcı bağlantısından kaydedildi."}
+			</p>
 			<dl className="grid gap-2 text-sm sm:grid-cols-2">
 				<div>
 					<dt className="text-muted-foreground">Sağlayıcı</dt>
@@ -146,7 +159,14 @@ export function ProviderGenerationRecordDetails({
 					Sağlayıcıya özgü parametreler
 				</summary>
 				<pre className="mt-2 max-h-80 overflow-auto rounded-md bg-muted p-3 text-xs">
-					{JSON.stringify(providerGenerationRecord.parameterSnapshot, null, 2)}
+					{Object.keys(providerGenerationRecord.parameterSnapshot.parameters)
+						.length > 0
+						? JSON.stringify(
+								providerGenerationRecord.parameterSnapshot,
+								null,
+								2
+							)
+						: "Bilinmiyor"}
 				</pre>
 			</details>
 			<p className="text-muted-foreground text-xs">

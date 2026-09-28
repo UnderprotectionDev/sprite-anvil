@@ -62,10 +62,10 @@ export const assetVersionsRouter = {
 					message: "Provider result not found",
 				});
 			}
-			if (result.kind === "not-connected-provider") {
+			if (result.kind === "not-provider-result") {
 				throw new ORPCError("BAD_REQUEST", {
 					message:
-						"Provider Generation Record only applies to a connected-provider result.",
+						"Provider Generation Record only applies to provider-sourced results.",
 				});
 			}
 			if (result.kind === "conflict") {

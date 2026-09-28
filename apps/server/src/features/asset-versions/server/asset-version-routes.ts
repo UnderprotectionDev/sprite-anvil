@@ -149,6 +149,12 @@ async function uploadAssetVersion(
 			400
 		);
 	}
+	if (productionSource.data === "connected_provider") {
+		return c.json(
+			serializePublicApiError("Invalid Asset Version production source"),
+			400
+		);
+	}
 	const encodedFileName = c.req.header(fileNameHeader);
 	let decodedFileName: string | undefined;
 	try {

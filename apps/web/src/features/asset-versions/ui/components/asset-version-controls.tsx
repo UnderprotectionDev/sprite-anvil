@@ -10,6 +10,7 @@ import type { useAssetVersionWrites } from "../hooks/use-asset-version-writes";
 import { AssetVersionPreview } from "./asset-version-preview";
 import { CompositeVersionControls } from "./composite-version-controls";
 import { ProviderGenerationRecordDetails } from "./provider-generation-record-details";
+import { ProviderGenerationRecordForm } from "./provider-generation-record-form";
 import { reviewDispositionLabels } from "./review-disposition-labels";
 import {
 	UnitVersionCorrectionForm,
@@ -27,6 +28,9 @@ const reviewEventLabels = {
 function activeActionMessage(activeAction: string) {
 	if (activeAction.startsWith("upload:")) {
 		return "Varlık Sürümü yükleniyor…";
+	}
+	if (activeAction.startsWith("provider-record:")) {
+		return "Sağlayıcı Üretim Kaydı kaydediliyor…";
 	}
 	if (activeAction.startsWith("composite")) {
 		return "Birleşik Sürüm işlemi kaydediliyor…";
@@ -82,6 +86,10 @@ export function AssetVersionControls({
 					PNG veya WebP dosyalarını yükleyin, Aday Sürümleri inceleyin ve
 					onaylanan sürümü Ana Tasarım olarak seçin.
 				</p>
+				<p className="mt-1 text-muted-foreground text-sm">
+					Sağlayıcı ekranında oluşturduğunuz sonucu yükledikten sonra, görünen
+					alanları Sağlayıcı Üretim Kaydı formuna elle girebilirsiniz.
+				</p>
 			</div>
 			{writes.statusMessage ? (
 				<p aria-live="polite" role="status">
@@ -126,23 +134,44 @@ export function AssetVersionControls({
 										<li className="space-y-3 border-t pt-3" key={record.id}>
 											<div className="flex flex-wrap items-center justify-between gap-3">
 												<h4 className="font-medium">{record.name}</h4>
-												<label className="inline-flex min-h-11 cursor-pointer items-center rounded-md border px-3 py-2 text-sm focus-within:outline-hidden focus-within:ring-2 focus-within:ring-ring">
-													<span>Varlık Sürümü yükle</span>
-													<input
-														accept="image/png,image/webp"
-														aria-label={`${record.name} için Varlık Sürümü dosyası`}
-														className="sr-only"
-														disabled={writes.writesDisabled}
-														onChange={(event) => {
-															const file = event.currentTarget.files?.[0];
-															event.currentTarget.value = "";
-															if (file) {
-																void writes.upload(record.id, file);
-															}
-														}}
-														type="file"
-													/>
-												</label>
+												<div className="flex flex-wrap gap-2">
+													<label className="inline-flex min-h-11 cursor-pointer items-center rounded-md border px-3 py-2 text-sm focus-within:outline-hidden focus-within:ring-2 focus-within:ring-ring">
+														<span>Varlık Sürümü yükle</span>
+														<input
+															accept="image/png,image/webp"
+															aria-label={`${record.name} için Varlık Sürümü dosyası`}
+															className="sr-only"
+															disabled={writes.writesDisabled}
+															onChange={(event) => {
+																const file = event.currentTarget.files?.[0];
+																event.currentTarget.value = "";
+																if (file) {
+																	void writes.upload(record.id, file);
+																}
+															}}
+															type="file"
+														/>
+													</label>
+													<label className="inline-flex min-h-11 cursor-pointer items-center rounded-md border px-3 py-2 text-sm focus-within:outline-hidden focus-within:ring-2 focus-within:ring-ring">
+														<span>Sağlayıcı ekranı sonucu yükle</span>
+														<input
+															accept="image/png,image/webp"
+															aria-label={`${record.name} için sağlayıcı ekranı sonucu dosyası`}
+															className="sr-only"
+															disabled={writes.writesDisabled}
+															onChange={(event) => {
+																const file = event.currentTarget.files?.[0];
+																event.currentTarget.value = "";
+																if (file) {
+																	void writes.upload(record.id, file, {
+																		productionSource: "user_reported_provider",
+																	});
+																}
+															}}
+															type="file"
+														/>
+													</label>
+												</div>
 											</div>
 											{versions.length === 0 ? (
 												<p className="text-muted-foreground text-sm">
@@ -231,6 +260,15 @@ function AssetVersionEntry({
 					productionSource={version.productionSource ?? "unknown"}
 					providerGenerationRecord={version.providerGenerationRecord ?? null}
 				/>
+				{version.productionSource === "user_reported_provider" &&
+				!version.providerGenerationRecord ? (
+					<ProviderGenerationRecordForm
+						onSave={(input) =>
+							writes.recordProviderGeneration(version.id, input)
+						}
+						writesDisabled={writes.writesDisabled}
+					/>
+				) : null}
 				<AssetVersionReviewControls version={version} writes={writes} />
 				{version.reviewDisposition === "approved" ? (
 					<Button

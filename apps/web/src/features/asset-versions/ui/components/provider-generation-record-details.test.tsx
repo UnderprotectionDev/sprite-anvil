@@ -47,6 +47,9 @@ test("shows reread provider facts and the versioned parameter snapshot", () => {
 	expect(
 		screen.getByRole("heading", { name: "Sağlayıcı Üretim Kaydı" })
 	).toBeInTheDocument();
+	expect(
+		screen.getByText("Sağlayıcı bağlantısından kaydedildi.")
+	).toBeInTheDocument();
 	expect(screen.getByText("Example Provider")).toBeInTheDocument();
 	expect(screen.getByText("Images API v2")).toBeInTheDocument();
 	expect(screen.getByText("pixel-art-v4")).toBeInTheDocument();
@@ -64,6 +67,21 @@ test("shows reread provider facts and the versioned parameter snapshot", () => {
 	).toBeInTheDocument();
 });
 
+test("labels manually entered provider facts as user-reported", () => {
+	render(
+		<ProviderGenerationRecordDetails
+			productionSource="user_reported_provider"
+			providerGenerationRecord={record}
+		/>
+	);
+
+	expect(
+		screen.getByText(
+			"Kullanıcı tarafından bildirildi; sağlayıcı bağlantısıyla doğrulanmadı."
+		)
+	).toBeInTheDocument();
+});
+
 test("explains when a connected-provider result is waiting for its record", () => {
 	render(
 		<ProviderGenerationRecordDetails
@@ -75,6 +93,25 @@ test("explains when a connected-provider result is waiting for its record", () =
 	expect(screen.getByRole("status")).toHaveTextContent(
 		"Sağlayıcı Üretim Kaydı bekleniyor"
 	);
+});
+
+test("shows provider parameters as unknown when the user leaves them blank", () => {
+	render(
+		<ProviderGenerationRecordDetails
+			productionSource="connected_provider"
+			providerGenerationRecord={{
+				...record,
+				parameterSnapshot: {
+					...record.parameterSnapshot,
+					parameters: {},
+				},
+			}}
+		/>
+	);
+
+	expect(
+		screen.getByText("Bilinmiyor", { selector: "pre" })
+	).toBeInTheDocument();
 });
 
 test("shows unavailable provider facts as unknown without implying a record exists", () => {

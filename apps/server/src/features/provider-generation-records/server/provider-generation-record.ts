@@ -21,13 +21,14 @@ const sensitiveKeyNames = new Set([
 	"secretkey",
 	"session",
 	"sessionid",
+	"securitytoken",
 	"token",
 ]);
 const temporaryUrlKeyPattern =
 	/(?:access|asset|download|file|image|output|preview|result|signed|temporary)(?:[a-z0-9]*)(?:url|uri)$/;
 const standaloneAuthValuePattern = /^(?:bearer|basic)\s+\S+$/i;
 const inlineSensitiveHeaderPattern =
-	/(?:^|[\r\n,;{])\s*["']?(?:authorization|proxy-authorization|cookie|set-cookie|(?:x-)?[a-z0-9-]*(?:api-key|access-token|auth-token))["']?\s*:\s*["']?\S+/i;
+	/(?:^|[\r\n,;{])\s*["']?(?:authorization|proxy-authorization|cookie|set-cookie|[a-z0-9-]*(?:api-key|access-token|auth-token|security-token|session-token))["']?\s*:\s*["']?\S+/i;
 
 function isSensitiveKey(key: string) {
 	const normalized = key.toLowerCase().replaceAll(/[^a-z0-9]/g, "");
@@ -43,6 +44,7 @@ function isSensitiveKey(key: string) {
 		normalized.includes("clientsecret") ||
 		normalized.includes("session") ||
 		normalized.includes("signature") ||
+		normalized.endsWith("token") ||
 		normalized.includes("secret") ||
 		normalized.includes("credential") ||
 		normalized.includes("password") ||
@@ -92,8 +94,49 @@ function isTemporaryAccessUrl(value: string) {
 	}
 }
 
+function sanitizeSerializedJson(value: string): string | null | undefined {
+	const trimmed = value.trimStart();
+	if (
+		!(
+			trimmed.startsWith("[") ||
+			trimmed.startsWith("{") ||
+			trimmed.startsWith('"')
+		)
+	) {
+		return undefined;
+	}
+	try {
+		const parsed: unknown = JSON.parse(value);
+		const sanitized = sanitizeValue(parsed);
+		const serializedOriginal = JSON.stringify(parsed);
+		const serializedSanitized = JSON.stringify(sanitized);
+		if (serializedOriginal === serializedSanitized) {
+			return value === serializedSanitized ? undefined : serializedSanitized;
+		}
+		if (sanitized === undefined) {
+			return null;
+		}
+		let sanitizedIsEmpty = false;
+		if (Array.isArray(sanitized)) {
+			sanitizedIsEmpty = sanitized.length === 0;
+		} else if (sanitized && typeof sanitized === "object") {
+			sanitizedIsEmpty = Object.keys(sanitized).length === 0;
+		}
+		if (sanitizedIsEmpty) {
+			return null;
+		}
+		return serializedSanitized;
+	} catch {
+		return undefined;
+	}
+}
+
 function sanitizeValue(value: unknown): unknown {
 	if (typeof value === "string") {
+		const sanitizedJson = sanitizeSerializedJson(value);
+		if (sanitizedJson !== undefined) {
+			return sanitizedJson ?? undefined;
+		}
 		return isTemporaryAccessUrl(value) ||
 			standaloneAuthValuePattern.test(value) ||
 			inlineSensitiveHeaderPattern.test(value)

@@ -28,6 +28,9 @@ function mapDimensions(width: number | null, height: number | null) {
 function toProviderGenerationRecord(
 	row: typeof providerGenerationRecords.$inferSelect
 ): ProviderGenerationRecord {
+	const parameterSnapshot = providerGenerationParameterSnapshotSchema.parse(
+		row.parameterSnapshot
+	);
 	return providerGenerationRecordSchema.parse({
 		actualDimensions: mapDimensions(row.actualWidth, row.actualHeight),
 		assetRecordId: row.assetRecordId,
@@ -38,7 +41,12 @@ function toProviderGenerationRecord(
 		model: row.model,
 		modelVersion: row.modelVersion,
 		palette: row.palette,
-		parameterSnapshot: row.parameterSnapshot,
+		parameterSnapshot: {
+			...parameterSnapshot,
+			parameters: sanitizeProviderGenerationParameters(
+				parameterSnapshot.parameters
+			),
+		},
 		projectId: row.projectId,
 		provider: row.provider,
 		referenceIds: row.referenceIds,
@@ -154,13 +162,13 @@ function toCreateValues(
 	};
 }
 
-async function getConnectedProviderTarget(
+async function getProviderGenerationRecordTarget(
 	db: Database,
 	userId: string,
 	input: ProviderGenerationRecordCreateInput
 ): Promise<
-	| { kind: "connected-provider"; assetRecordId: string }
-	| { kind: "not-connected-provider" }
+	| { kind: "provider-result"; assetRecordId: string }
+	| { kind: "not-provider-result" }
 	| null
 > {
 	const ownedProject = await getProjectForUser(db, userId, input.projectId);
@@ -184,11 +192,14 @@ async function getConnectedProviderTarget(
 	if (!assetVersion) {
 		return null;
 	}
-	if (assetVersion.productionSource !== "connected_provider") {
-		return { kind: "not-connected-provider" };
+	if (
+		assetVersion.productionSource !== "connected_provider" &&
+		assetVersion.productionSource !== "user_reported_provider"
+	) {
+		return { kind: "not-provider-result" };
 	}
 	return {
-		kind: "connected-provider",
+		kind: "provider-result",
 		assetRecordId: assetVersion.assetRecordId,
 	};
 }
@@ -234,11 +245,11 @@ export function createProviderGenerationRecordStore(
 			userId,
 			input
 		): Promise<ProviderGenerationRecordCreateResult | null> {
-			const target = await getConnectedProviderTarget(db, userId, input);
+			const target = await getProviderGenerationRecordTarget(db, userId, input);
 			if (!target) {
 				return null;
 			}
-			if (target.kind === "not-connected-provider") {
+			if (target.kind === "not-provider-result") {
 				return target;
 			}
 			return createOrReadProviderGenerationRecord(

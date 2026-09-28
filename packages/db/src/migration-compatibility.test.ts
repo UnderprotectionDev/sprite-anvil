@@ -70,6 +70,9 @@ const preserveImportInboxSourceFileNamesMigration = readMigration(
 const generationPackageMigration = readMigration(
 	"./migrations/20260927224924_safe_vance_astro/migration.sql"
 );
+const providerGenerationSanitizationMigration = readMigration(
+	"./migrations/20260928162359_dashing_colonel_america/migration.sql"
+);
 
 test("normalizes legacy project ownership before current indexes and foreign keys", () => {
 	const renameOwnerColumn = migration.indexOf(
@@ -589,4 +592,27 @@ test("stores Production Context Snapshots with project and Asset Record ownershi
 	expect(generationPackageMigration).toContain(
 		'FOREIGN KEY ("created_by_user_id") REFERENCES "user"("id") ON DELETE RESTRICT'
 	);
+});
+
+test("adds user-reported provider provenance and scrubs persisted provider secrets", () => {
+	const sanitizerCreation = providerGenerationSanitizationMigration.indexOf(
+		"CREATE FUNCTION public.sanitize_provider_generation_parameter_value"
+	);
+	const snapshotBackfill = providerGenerationSanitizationMigration.indexOf(
+		"UPDATE provider_generation_records"
+	);
+	const sanitizerRemoval = providerGenerationSanitizationMigration.indexOf(
+		"DROP FUNCTION public.sanitize_provider_generation_parameter_value"
+	);
+
+	expect(providerGenerationSanitizationMigration).toContain(
+		"'user_reported_provider'"
+	);
+	expect(providerGenerationSanitizationMigration).toContain("LIKE '%token'");
+	expect(providerGenerationSanitizationMigration).toContain(
+		"text_value::jsonb"
+	);
+	expect(sanitizerCreation).toBeGreaterThanOrEqual(0);
+	expect(snapshotBackfill).toBeGreaterThan(sanitizerCreation);
+	expect(sanitizerRemoval).toBeGreaterThan(snapshotBackfill);
 });
