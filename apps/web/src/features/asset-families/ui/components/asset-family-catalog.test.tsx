@@ -93,6 +93,12 @@ const assetVersionCatalog: AssetVersionCatalog = {
 			contentType: "image/png",
 			contentLength: 68,
 			contentDigest: "a".repeat(64),
+			productionEvidence: {
+				evidenceLevel: "unknown",
+				managedSnapshots: [],
+				manualImportEvidence: null,
+				sourceKind: "unknown",
+			},
 			integrityVerified: true,
 			previewUrl: `/api/projects/${projectId}/asset-versions/version-base-v1/preview`,
 			reviewDisposition: "approved",

@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
+import { createVersionProductionEvidence } from "@sprite-anvil/api/production-provenance";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 
 const projectId = "project-lineage";
@@ -45,6 +46,9 @@ function createAssetVersionReviewContext(input: {
 						integrityVerified: true,
 						projectId,
 						previewUrl: `/api/projects/${projectId}/asset-versions/${assetVersionId}/preview`,
+						productionEvidence: createVersionProductionEvidence(
+							input.sourceKind
+						),
 						reviewDisposition: "candidate" as const,
 						reviewEvents: [],
 						sourceKind: input.sourceKind,
@@ -73,6 +77,7 @@ test("records a derivative against the approved Canonical Design version", async
 		contentType: "image/png",
 		contentLength: 68,
 		contentDigest: "a".repeat(64),
+		productionEvidence: createVersionProductionEvidence("unknown"),
 		integrityVerified: true,
 		previewUrl: `/api/projects/${projectId}/asset-versions/${assetVersionId}/preview`,
 		reviewDisposition: "candidate",

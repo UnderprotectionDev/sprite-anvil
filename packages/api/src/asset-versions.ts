@@ -1,4 +1,9 @@
 import { z } from "zod";
+import type {
+	ManualImportEvidence,
+	ManualImportEvidenceInput,
+} from "./production-provenance";
+import { versionProductionEvidenceSchema } from "./production-provenance";
 import type { AssetVersionProductionSource } from "./provider-generation-records";
 import {
 	assetVersionProductionSourceSchema,
@@ -54,6 +59,7 @@ export const assetVersionSourceKinds = [
 	"unknown",
 	"legacy_asset",
 	"manual_import",
+	"external_working_file_edit",
 	"derived",
 ] as const;
 export const assetVersionSourceKindSchema = z.enum(assetVersionSourceKinds);
@@ -94,6 +100,7 @@ export const assetVersionSchema = z
 			.string()
 			.regex(/^[0-9a-f]{64}$/)
 			.nullable(),
+		productionEvidence: versionProductionEvidenceSchema,
 		integrityVerified: z.boolean(),
 		sourceKind: assetVersionSourceKindSchema.optional(),
 		previewUrl: z.string().min(1),
@@ -249,6 +256,7 @@ export interface AssetVersionFileRecord {
 	objectKey: string;
 	productionSource?: AssetVersionProductionSource;
 	projectId: string;
+	sourceKind?: "manual_import" | "external_working_file_edit";
 	unitCorrection?: UnitVersionCorrectionInput;
 }
 
@@ -300,6 +308,17 @@ export interface AssetVersionStore {
 		userId: string,
 		input: AssetVersionReviewInput
 	) => Promise<AssetVersionReviewEvent | null>;
+	saveManualImportEvidence: (
+		userId: string,
+		input: ManualImportEvidenceInput
+	) => Promise<
+		| { kind: "created" | "existing"; evidence: ManualImportEvidence }
+		| { kind: "conflict" }
+		| { kind: "not-found" }
+		| { kind: "not-manual-import" }
+		| { kind: "not-candidate" }
+		| { kind: "package-not-found" }
+	>;
 	selectCanonicalDesign: (
 		userId: string,
 		input: AssetFamilyCanonicalDesignInput

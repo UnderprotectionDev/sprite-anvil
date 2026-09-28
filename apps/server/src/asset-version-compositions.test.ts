@@ -61,6 +61,12 @@ test("creates a Candidate Composite Version from exact Unit Versions and reviews
 		contentType: "image/png" as const,
 		contentLength: 128,
 		contentDigest: "a".repeat(64),
+		productionEvidence: {
+			evidenceLevel: "unknown" as const,
+			managedSnapshots: [],
+			manualImportEvidence: null,
+			sourceKind: "unknown" as const,
+		},
 		integrityVerified: true,
 		previewUrl: `/api/projects/${projectId}/asset-versions/${id}/preview`,
 		productionSource: "unknown",

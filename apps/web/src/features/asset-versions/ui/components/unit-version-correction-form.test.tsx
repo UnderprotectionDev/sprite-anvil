@@ -24,6 +24,12 @@ const assetVersions: AssetVersion[] = [
 		contentType: "image/png",
 		contentLength: 128,
 		contentDigest: "a".repeat(64),
+		productionEvidence: {
+			evidenceLevel: "unknown",
+			managedSnapshots: [],
+			manualImportEvidence: null,
+			sourceKind: "unknown",
+		},
 		integrityVerified: true,
 		previewUrl:
 			"/api/projects/project-knight/asset-versions/version-source/preview",
@@ -40,6 +46,12 @@ const assetVersions: AssetVersion[] = [
 		contentType: "image/png",
 		contentLength: 128,
 		contentDigest: "b".repeat(64),
+		productionEvidence: {
+			evidenceLevel: "unknown",
+			managedSnapshots: [],
+			manualImportEvidence: null,
+			sourceKind: "unknown",
+		},
 		integrityVerified: true,
 		previewUrl:
 			"/api/projects/project-knight/asset-versions/version-frame-1/preview",
@@ -56,6 +68,12 @@ const assetVersions: AssetVersion[] = [
 		contentType: "image/png",
 		contentLength: 128,
 		contentDigest: "c".repeat(64),
+		productionEvidence: {
+			evidenceLevel: "unknown",
+			managedSnapshots: [],
+			manualImportEvidence: null,
+			sourceKind: "unknown",
+		},
 		integrityVerified: true,
 		previewUrl:
 			"/api/projects/project-knight/asset-versions/version-unrelated-tile/preview",

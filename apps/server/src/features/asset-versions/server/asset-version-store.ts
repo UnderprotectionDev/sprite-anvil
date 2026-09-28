@@ -27,8 +27,20 @@ import {
 	unitVersionCorrectionInputSchema,
 	unitVersionSchema,
 } from "@sprite-anvil/api/asset-versions";
+import {
+	createVersionProductionEvidence,
+	type ManagedSnapshot,
+	type ManualImportEvidence,
+	type ManualImportEvidenceInput,
+	type VersionProductionEvidence,
+} from "@sprite-anvil/api/production-provenance";
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
 import { assetFamilyCanonicalDesigns } from "@sprite-anvil/db/schema/asset-families";
+import {
+	legacyAssetAttestations,
+	managedSnapshots,
+	manualImportEvidence,
+} from "@sprite-anvil/db/schema/asset-production-history";
 import {
 	assetFamilies,
 	assetRecords,
@@ -42,11 +54,16 @@ import {
 	compositionMemberships,
 	unitVersions,
 } from "@sprite-anvil/db/schema/asset-versions";
+import { generationPackages } from "@sprite-anvil/db/schema/generation-packages";
 import { and, asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import {
 	hasManualImportEvidence,
 	isManualImportEvidenceRequired,
 } from "../../asset-records/server/manual-import-evidence-gate";
+import {
+	toManagedSnapshot,
+	toManualImportEvidence,
+} from "../../production-provenance/server/production-provenance-mapper";
 
 const contentDigestPattern = /^[0-9a-f]{64}$/;
 
@@ -142,7 +159,10 @@ function toCompositeVersion(
 function toAssetVersion(
 	record: typeof assetVersions.$inferSelect,
 	assetFamilyId: string,
-	reviewEvents: AssetVersionReviewEvent[]
+	reviewEvents: AssetVersionReviewEvent[],
+	productionEvidence: VersionProductionEvidence = createVersionProductionEvidence(
+		record.sourceKind
+	)
 ): AssetVersion {
 	return assetVersionSchema.parse({
 		id: record.id,
@@ -153,6 +173,7 @@ function toAssetVersion(
 		contentType: assetVersionContentTypeSchema.parse(record.contentType),
 		contentLength: record.byteSize,
 		contentDigest: record.contentDigest ?? record.sha256,
+		productionEvidence,
 		integrityVerified: record.integrityVerified,
 		sourceKind: record.sourceKind,
 		previewUrl: `/api/projects/${encodeURIComponent(record.projectId)}/asset-versions/${record.id}/preview`,
@@ -161,6 +182,50 @@ function toAssetVersion(
 		reviewEvents,
 		createdAt: toISOString(record.createdAt),
 	});
+}
+
+async function readVersionProductionEvidence(
+	db: Database,
+	record: typeof assetVersions.$inferSelect
+) {
+	const [manualRows, legacyRows, snapshotRows] = await Promise.all([
+		db
+			.select()
+			.from(manualImportEvidence)
+			.where(
+				and(
+					eq(manualImportEvidence.projectId, record.projectId),
+					eq(manualImportEvidence.versionId, record.id)
+				)
+			)
+			.orderBy(asc(manualImportEvidence.revision)),
+		db
+			.select({ id: legacyAssetAttestations.id })
+			.from(legacyAssetAttestations)
+			.where(
+				and(
+					eq(legacyAssetAttestations.projectId, record.projectId),
+					eq(legacyAssetAttestations.versionId, record.id)
+				)
+			)
+			.limit(1),
+		db
+			.select()
+			.from(managedSnapshots)
+			.where(
+				and(
+					eq(managedSnapshots.projectId, record.projectId),
+					eq(managedSnapshots.assetVersionId, record.id)
+				)
+			)
+			.orderBy(asc(managedSnapshots.createdAt), asc(managedSnapshots.id)),
+	]);
+	const latestManualEvidence = manualRows.at(-1);
+	return createVersionProductionEvidence(
+		legacyRows.length > 0 ? "legacy_asset" : record.sourceKind,
+		latestManualEvidence ? toManualImportEvidence(latestManualEvidence) : null,
+		snapshotRows.map(toManagedSnapshot)
+	);
 }
 
 function toFileRecord(
@@ -267,7 +332,8 @@ async function readExistingVersion(
 		existing.byteSize !== input.contentLength ||
 		existing.contentType !== input.contentType ||
 		existing.productionSource !== (input.productionSource ?? "unknown") ||
-		existing.sourceKind !== (unitCorrection ? "derived" : "manual_import")
+		existing.sourceKind !==
+			(unitCorrection ? "derived" : (input.sourceKind ?? "manual_import"))
 	) {
 		return { kind: "idempotency-conflict" };
 	}
@@ -301,12 +367,14 @@ async function readExistingVersion(
 			asc(assetVersionReviewEvents.createdAt),
 			asc(assetVersionReviewEvents.id)
 		);
+	const productionEvidence = await readVersionProductionEvidence(db, existing);
 	return {
 		kind: "existing",
 		version: toAssetVersion(
 			existing,
 			assetFamilyId,
-			reviewRows.map(toReviewEvent)
+			reviewRows.map(toReviewEvent),
+			productionEvidence
 		),
 		...(existingUnitVersion
 			? { unitVersion: toUnitVersion(existingUnitVersion) }
@@ -353,7 +421,9 @@ async function insertCandidateVersion(
 			contentDigest: input.contentDigest,
 			integrityVerified: input.integrityVerified,
 			productionSource: input.productionSource ?? "unknown",
-			sourceKind: unitCorrection ? "derived" : "manual_import",
+			sourceKind: unitCorrection
+				? "derived"
+				: (input.sourceKind ?? "manual_import"),
 			idempotencyKey: input.idempotencyKey,
 			createdByUserId: userId,
 		})
@@ -454,6 +524,102 @@ async function insertCandidateVersion(
 		}
 		throw error;
 	}
+}
+
+async function persistManualImportEvidence(
+	db: Database,
+	userId: string,
+	input: ManualImportEvidenceInput
+): Promise<Awaited<ReturnType<AssetVersionStore["saveManualImportEvidence"]>>> {
+	const [latestReview] = await db
+		.select({ decision: assetVersionReviewEvents.decision })
+		.from(assetVersionReviewEvents)
+		.where(
+			and(
+				eq(assetVersionReviewEvents.projectId, input.projectId),
+				eq(assetVersionReviewEvents.versionId, input.versionId)
+			)
+		)
+		.orderBy(
+			desc(assetVersionReviewEvents.createdAt),
+			desc(assetVersionReviewEvents.id)
+		)
+		.limit(1);
+	if ((latestReview?.decision ?? "candidate") !== "candidate") {
+		return { kind: "not-candidate" };
+	}
+
+	const [latestEvidence] = await db
+		.select()
+		.from(manualImportEvidence)
+		.where(
+			and(
+				eq(manualImportEvidence.projectId, input.projectId),
+				eq(manualImportEvidence.versionId, input.versionId)
+			)
+		)
+		.orderBy(desc(manualImportEvidence.revision))
+		.limit(1);
+	if (latestEvidence && isSameManualImportEvidence(latestEvidence, input)) {
+		return {
+			kind: "existing",
+			evidence: toManualImportEvidence(latestEvidence),
+		};
+	}
+
+	const revision = (latestEvidence?.revision ?? 0) + 1;
+	const [savedEvidence] = await db
+		.insert(manualImportEvidence)
+		.values({
+			id: crypto.randomUUID(),
+			projectId: input.projectId,
+			assetRecordId: input.assetRecordId,
+			versionId: input.versionId,
+			generationPackageId: input.generationPackageId,
+			revision,
+			sourceSurface: input.sourceSurface,
+			generationInstruction: input.actualInstruction,
+			createdByUserId: userId,
+		})
+		.onConflictDoNothing()
+		.returning();
+	if (savedEvidence) {
+		return {
+			kind: "created",
+			evidence: toManualImportEvidence(savedEvidence),
+		};
+	}
+
+	const [concurrentEvidence] = await db
+		.select()
+		.from(manualImportEvidence)
+		.where(
+			and(
+				eq(manualImportEvidence.projectId, input.projectId),
+				eq(manualImportEvidence.versionId, input.versionId)
+			)
+		)
+		.orderBy(desc(manualImportEvidence.revision))
+		.limit(1);
+	return concurrentEvidence &&
+		isSameManualImportEvidence(concurrentEvidence, input)
+		? {
+				kind: "existing",
+				evidence: toManualImportEvidence(concurrentEvidence),
+			}
+		: { kind: "conflict" };
+}
+
+function isSameManualImportEvidence(
+	row: typeof manualImportEvidence.$inferSelect | undefined,
+	input: ManualImportEvidenceInput
+): boolean {
+	return Boolean(
+		row &&
+			row.generationPackageId === input.generationPackageId &&
+			row.sourceSurface === input.sourceSurface &&
+			row.generationInstruction === input.actualInstruction
+	);
 }
 
 async function readCompositeVersion(
@@ -636,6 +802,9 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 				compositeRows,
 				compositeReviewRows,
 				membershipRows,
+				manualEvidenceRows,
+				legacyAttestationRows,
+				managedSnapshotRows,
 			] = await Promise.all([
 				db
 					.select({
@@ -711,6 +880,28 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 						asc(compositionMemberships.unitType),
 						asc(compositionMemberships.unitKey)
 					),
+				db
+					.select()
+					.from(manualImportEvidence)
+					.where(eq(manualImportEvidence.projectId, projectId))
+					.orderBy(
+						asc(manualImportEvidence.versionId),
+						asc(manualImportEvidence.revision)
+					),
+				db
+					.select({ versionId: legacyAssetAttestations.versionId })
+					.from(legacyAssetAttestations)
+					.where(eq(legacyAssetAttestations.projectId, projectId))
+					.orderBy(asc(legacyAssetAttestations.versionId)),
+				db
+					.select()
+					.from(managedSnapshots)
+					.where(eq(managedSnapshots.projectId, projectId))
+					.orderBy(
+						asc(managedSnapshots.assetVersionId),
+						asc(managedSnapshots.createdAt),
+						asc(managedSnapshots.id)
+					),
 			]);
 
 			const reviewsByVersion = new Map<string, AssetVersionReviewEvent[]>();
@@ -743,6 +934,23 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 					memberships
 				);
 			}
+			const manualEvidenceByVersion = new Map<string, ManualImportEvidence>();
+			for (const evidenceRow of manualEvidenceRows) {
+				manualEvidenceByVersion.set(
+					evidenceRow.versionId,
+					toManualImportEvidence(evidenceRow)
+				);
+			}
+			const legacyVersionIds = new Set(
+				legacyAttestationRows.map((row) => row.versionId)
+			);
+			const snapshotsByVersion = new Map<string, ManagedSnapshot[]>();
+			for (const snapshotRow of managedSnapshotRows) {
+				const snapshots =
+					snapshotsByVersion.get(snapshotRow.assetVersionId) ?? [];
+				snapshots.push(toManagedSnapshot(snapshotRow));
+				snapshotsByVersion.set(snapshotRow.assetVersionId, snapshots);
+			}
 
 			return {
 				assetVersions: versionRows
@@ -751,7 +959,14 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 							? toAssetVersion(
 									version,
 									assetFamilyId,
-									reviewsByVersion.get(version.id) ?? []
+									reviewsByVersion.get(version.id) ?? [],
+									createVersionProductionEvidence(
+										legacyVersionIds.has(version.id)
+											? "legacy_asset"
+											: version.sourceKind,
+										manualEvidenceByVersion.get(version.id) ?? null,
+										snapshotsByVersion.get(version.id) ?? []
+									)
 								)
 							: null
 					)
@@ -766,6 +981,46 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 					)
 				),
 			};
+		},
+
+		async saveManualImportEvidence(userId, input) {
+			const ownedProject = await getProjectForUser(db, userId, input.projectId);
+			if (!ownedProject) {
+				return { kind: "not-found" };
+			}
+			const [version] = await db
+				.select()
+				.from(assetVersions)
+				.where(
+					and(
+						eq(assetVersions.projectId, input.projectId),
+						eq(assetVersions.assetRecordId, input.assetRecordId),
+						eq(assetVersions.id, input.versionId)
+					)
+				)
+				.limit(1);
+			if (!version) {
+				return { kind: "not-found" };
+			}
+			if (version.sourceKind !== "manual_import") {
+				return { kind: "not-manual-import" };
+			}
+			const [generationPackage] = await db
+				.select({ id: generationPackages.id })
+				.from(generationPackages)
+				.where(
+					and(
+						eq(generationPackages.projectId, input.projectId),
+						eq(generationPackages.assetRecordId, input.assetRecordId),
+						eq(generationPackages.id, input.generationPackageId)
+					)
+				)
+				.limit(1);
+			if (!generationPackage) {
+				return { kind: "package-not-found" };
+			}
+
+			return persistManualImportEvidence(db, userId, input);
 		},
 
 		async createCompositeVersion(userId, input) {
@@ -984,6 +1239,15 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 				.limit(1);
 			if (latestEvent?.type === input.decision) {
 				return null;
+			}
+			if (input.decision === "approved") {
+				const productionEvidence = await readVersionProductionEvidence(
+					db,
+					version
+				);
+				if (productionEvidence.evidenceLevel === "incomplete") {
+					return null;
+				}
 			}
 			if (
 				input.decision === "approved" &&

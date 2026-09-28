@@ -2,6 +2,7 @@
 
 import type { AssetRecord } from "@sprite-anvil/api/asset-records";
 import type { GenerationPackage } from "@sprite-anvil/api/generation-packages";
+import { createVersionProductionEvidence } from "@sprite-anvil/api/production-provenance";
 import {
 	cleanup,
 	fireEvent,
@@ -50,6 +51,8 @@ const referenceNote = /Use the stance only\./;
 const referenceHistoryRevision = /Revizyon 1/;
 const productionSource = /Imported from the project archive/;
 const productionEvidence = /Archive manifest entry/;
+const unknownVersionProductionEvidence =
+	createVersionProductionEvidence("unknown");
 const userRelationshipLabel = /Ekipten alındı/;
 const unknownHistory = /Geçmiş bilinmiyor/;
 const attestationDateLabel = /Beyan tarihi:/;
@@ -681,6 +684,7 @@ test("shows persisted versions, derivatives, references, quality, and provenance
 				createdAt: "2026-09-25T08:01:00.000Z",
 				fileName: "ash-knight.png",
 				id: "f7b32d26-6b7c-4e16-a578-dac3e0dab68b",
+				productionEvidence: unknownVersionProductionEvidence,
 				reviewDisposition: "approved",
 				sha256: "a".repeat(64),
 				versionNumber: 1,
@@ -690,6 +694,7 @@ test("shows persisted versions, derivatives, references, quality, and provenance
 					createdAt: "2026-09-25T08:02:00.000Z",
 					fileName: "ash-knight-alt.png",
 					id: "e14f4bcc-5e5d-4fb7-b976-c0980934fa21",
+					productionEvidence: unknownVersionProductionEvidence,
 					reviewDisposition: "candidate",
 					sha256: "b".repeat(64),
 					versionNumber: 2,
@@ -969,6 +974,7 @@ test("keeps unrecorded legacy version details explicit without choosing a Canoni
 				createdAt: "2026-09-25T08:01:00.000Z",
 				fileName: null,
 				id: "f7b32d26-6b7c-4e16-a578-dac3e0dab68b",
+				productionEvidence: unknownVersionProductionEvidence,
 				reviewDisposition: "approved",
 				sha256: null,
 				versionNumber: 1,

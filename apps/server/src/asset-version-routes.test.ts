@@ -17,11 +17,13 @@ function createRouteHarness(
 ) {
 	const calls = {
 		candidateVersion: 0,
+		candidateSourceKinds: [] as string[],
 		delete: 0,
 		put: 0,
 		storage: 0,
 	};
 	const objects = new Map<string, Uint8Array>();
+	const objectContentTypes = new Map<string, "image/png" | "image/webp">();
 	const sourceAssetVersionId = "a17f5ff0-a50d-438f-8bf2-a0152b42c301";
 	const previousFrameAssetVersionId = "a17f5ff0-a50d-438f-8bf2-a0152b42c302";
 	const unrelatedDirectionAssetVersionId =
@@ -31,6 +33,7 @@ function createRouteHarness(
 		{ id: previousFrameAssetVersionId, reviewDisposition: "approved" },
 		{ id: unrelatedDirectionAssetVersionId, reviewDisposition: "approved" },
 	];
+	const savedAssetVersionFiles = new Map<string, unknown>();
 	const savedUnitVersions: unknown[] = [
 		{
 			id: "unit-version-old-frame",
@@ -56,31 +59,48 @@ function createRouteHarness(
 		async put(
 			key: string,
 			body: ReadableStream<Uint8Array>,
-			_contentType: "image/png" | "image/webp"
+			contentType: "image/png" | "image/webp"
 		) {
 			calls.put += 1;
 			objects.set(key, new Uint8Array(await new Response(body).arrayBuffer()));
+			objectContentTypes.set(key, contentType);
 		},
-		get: () => Promise.resolve(null),
+		get(key: string) {
+			const object = objects.get(key);
+			return Promise.resolve(
+				object
+					? {
+							body: new ReadableStream<Uint8Array>({
+								start(controller) {
+									controller.enqueue(object.slice());
+									controller.close();
+								},
+							}),
+							contentLength: object.byteLength,
+							contentType: objectContentTypes.get(key) ?? "image/png",
+						}
+					: null
+			);
+		},
 		delete(key: string) {
 			return Promise.resolve().then(() => {
 				calls.delete += 1;
 				objects.delete(key);
+				objectContentTypes.delete(key);
 			});
 		},
 	};
 	const dependencies: AssetVersionRouteDependencies = {
 		assetVersionStore: {
 			createCompositeVersion: () => Promise.resolve(null),
+			saveManualImportEvidence: () => Promise.resolve({ kind: "not-found" }),
 			createCandidateVersion(_requestedUserId, input) {
 				calls.candidateVersion += 1;
+				calls.candidateSourceKinds.push(input.sourceKind ?? "manual_import");
 				if (createCandidateVersionError) {
 					throw createCandidateVersionError;
 				}
 				const unitCorrection = Reflect.get(input, "unitCorrection");
-				if (!unitCorrection || typeof unitCorrection !== "object") {
-					return Promise.resolve(null);
-				}
 				const { id } = input;
 				const createdAt = "2026-09-27T12:00:00.000Z";
 				const versionNumber = savedAssetVersions.length + 1;
@@ -93,12 +113,30 @@ function createRouteHarness(
 					contentType: input.contentType,
 					contentLength: input.contentLength,
 					contentDigest: input.contentDigest,
+					productionEvidence: {
+						evidenceLevel: "incomplete",
+						managedSnapshots: [],
+						manualImportEvidence: null,
+						sourceKind: input.sourceKind ?? "manual_import",
+					},
 					integrityVerified: true,
 					previewUrl: `/api/projects/${projectId}/asset-versions/${id}/preview`,
 					reviewDisposition: "candidate",
 					reviewEvents: [],
 					createdAt,
 				};
+				savedAssetVersionFiles.set(id, {
+					...version,
+					fileName: input.fileName,
+					objectKey: input.objectKey,
+				});
+				if (!unitCorrection || typeof unitCorrection !== "object") {
+					savedAssetVersions.push(version);
+					return Promise.resolve({
+						kind: "created",
+						version,
+					} as never);
+				}
 				const unitVersion = {
 					id: `unit-${id}`,
 					projectId,
@@ -147,8 +185,10 @@ function createRouteHarness(
 						: null
 				);
 			},
-			getFileRecord() {
-				return Promise.resolve(null);
+			getFileRecord(_requestedUserId, _requestedProjectId, versionId) {
+				return Promise.resolve(
+					(savedAssetVersionFiles.get(versionId) as never) ?? null
+				);
 			},
 			list() {
 				return Promise.resolve({
@@ -200,8 +240,9 @@ function upload(
 	app: Hono,
 	bytes: Uint8Array,
 	declaredLength: number,
-	route: "versions" | "unit-versions" = "unit-versions",
-	contentType = "image/png"
+	route: "versions" | "unit-versions" = "versions",
+	contentType = "image/png",
+	sourceKind?: string
 ) {
 	return app.request(
 		`/api/projects/${projectId}/asset-records/${assetRecordId}/${route}`,
@@ -212,14 +253,75 @@ function upload(
 				"X-Asset-Version-File-Name": "upload.png",
 				"X-Asset-Version-Size": declaredLength.toString(),
 				"Idempotency-Key": "asset-version-route-test",
-				"X-Source-Asset-Version-Id": "a17f5ff0-a50d-438f-8bf2-a0152b42c301",
-				"X-Unit-Version-Type": "frame",
-				"X-Unit-Version-Key": "attack/frame-3",
+				...(sourceKind ? { "X-Asset-Version-Source-Kind": sourceKind } : {}),
+				...(route === "unit-versions"
+					? {
+							"X-Source-Asset-Version-Id":
+								"a17f5ff0-a50d-438f-8bf2-a0152b42c301",
+							"X-Unit-Version-Type": "frame",
+							"X-Unit-Version-Key": "attack/frame-3",
+						}
+					: {}),
 			},
 			body: bytes,
 		}
 	);
 }
+
+test("creates an external working-file Candidate Version only with the explicit source kind", async () => {
+	const { app, calls } = createRouteHarness();
+	const png = await sharp({
+		create: {
+			width: 1,
+			height: 1,
+			channels: 4,
+			background: { r: 255, g: 64, b: 128, alpha: 1 },
+		},
+	})
+		.png()
+		.toBuffer();
+
+	const response = await upload(
+		app,
+		png,
+		png.byteLength,
+		"versions",
+		"image/png",
+		"external_working_file_edit"
+	);
+	const body = (await response.json()) as { id: string };
+
+	expect(response.status).toBe(201);
+	expect(body).toMatchObject({
+		reviewDisposition: "candidate",
+		productionEvidence: {
+			evidenceLevel: "incomplete",
+			sourceKind: "external_working_file_edit",
+		},
+	});
+	expect(calls.candidateSourceKinds).toEqual(["external_working_file_edit"]);
+	const previewResponse = await app.request(
+		`/api/projects/${projectId}/asset-versions/${body.id}/preview`
+	);
+	expect(previewResponse.status).toBe(200);
+	expect(new Uint8Array(await previewResponse.arrayBuffer())).toEqual(png);
+});
+
+test("rejects unsupported source kind claims before reading the upload", async () => {
+	const { app, calls } = createRouteHarness();
+	const response = await upload(
+		app,
+		new Uint8Array([1]),
+		1,
+		"versions",
+		"image/png",
+		"legacy_asset"
+	);
+
+	expect(response.status).toBe(400);
+	expect(calls.storage).toBe(0);
+	expect(calls.candidateVersion).toBe(0);
+});
 
 test("denies Asset Version uploads before reading project or storage without a session", async () => {
 	const { app, calls } = createRouteHarness(null);
@@ -311,7 +413,14 @@ test("rejects invalid Unit Version metadata before storing the uploaded object",
 test("rejects a declared upload length that is larger than the streamed content and removes the object", async () => {
 	const { app, calls, objects } = createRouteHarness();
 
-	const response = await upload(app, new Uint8Array([1]), 2);
+	const response = await upload(
+		app,
+		new Uint8Array([1]),
+		2,
+		"versions",
+		"image/png",
+		"external_working_file_edit"
+	);
 	const error = await response.json();
 
 	expect(response.status).toBe(400);
@@ -327,7 +436,14 @@ test("rejects a declared upload length that is larger than the streamed content 
 test("rejects streamed content that exceeds the declared length and removes the object", async () => {
 	const { app, calls, objects } = createRouteHarness();
 
-	const response = await upload(app, new Uint8Array([1, 2]), 1);
+	const response = await upload(
+		app,
+		new Uint8Array([1, 2]),
+		1,
+		"versions",
+		"image/png",
+		"external_working_file_edit"
+	);
 	const error = await response.json();
 
 	expect(response.status).toBe(400);
@@ -342,7 +458,14 @@ test("rejects streamed content that exceeds the declared length and removes the 
 test("rejects a PNG signature without a complete valid image", async () => {
 	const { app, calls, objects } = createRouteHarness();
 
-	const response = await upload(app, new Uint8Array([137, 80, 78, 71]), 4);
+	const response = await upload(
+		app,
+		new Uint8Array([137, 80, 78, 71]),
+		4,
+		"versions",
+		"image/png",
+		"external_working_file_edit"
+	);
 	const error = await response.json();
 
 	expect(response.status).toBe(422);
@@ -368,7 +491,14 @@ test("retains an uploaded object when candidate persistence has an uncertain out
 		.png()
 		.toBuffer();
 
-	const response = await upload(app, png, png.byteLength);
+	const response = await upload(
+		app,
+		png,
+		png.byteLength,
+		"versions",
+		"image/png",
+		"external_working_file_edit"
+	);
 
 	expect(response.status).toBe(503);
 	expect(calls.candidateVersion).toBe(1);
