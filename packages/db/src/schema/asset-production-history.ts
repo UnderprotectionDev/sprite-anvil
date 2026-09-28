@@ -29,6 +29,7 @@ export const legacyAssetAttestations = pgTable(
 			>()
 			.notNull(),
 		supportingEvidence: text("supporting_evidence"),
+		unknownHistoryDetails: text("unknown_history_details"),
 		historyUnknown: boolean("history_unknown").notNull(),
 		attestedByUserId: text("attested_by_user_id")
 			.notNull()
@@ -48,6 +49,10 @@ export const legacyAssetAttestations = pgTable(
 		check(
 			"legacy_asset_attestations_unknown_history_check",
 			sql`${table.historyUnknown} = true`
+		),
+		check(
+			"legacy_asset_attestations_unknown_history_details_check",
+			sql`${table.unknownHistoryDetails} IS NULL OR length(trim(${table.unknownHistoryDetails})) > 0`
 		),
 		index("legacy_asset_attestations_version_created_idx").on(
 			table.versionId,

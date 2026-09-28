@@ -333,6 +333,7 @@ export function AssetRecordTrackingPanel({
 	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
 	const [file, setFile] = useState<File | null>(null);
 	const [knownSource, setKnownSource] = useState("");
+	const [unknownHistoryDetails, setUnknownHistoryDetails] = useState("");
 	const [userRelationship, setUserRelationship] =
 		useState<AssetVersionCreateInput["userRelationship"]>("unknown");
 	const [supportingEvidence, setSupportingEvidence] = useState("");
@@ -429,6 +430,10 @@ export function AssetRecordTrackingPanel({
 		if (!(file && record)) {
 			return;
 		}
+		const missingHistoryDetails = unknownHistoryDetails.trim();
+		if (!missingHistoryDetails) {
+			return;
+		}
 		const contentBase64 = bytesToBase64(
 			new Uint8Array(await file.arrayBuffer())
 		);
@@ -438,6 +443,7 @@ export function AssetRecordTrackingPanel({
 			fileName: file.name,
 			knownSource,
 			supportingEvidence,
+			unknownHistoryDetails,
 			userRelationship,
 		});
 		if (versionRequest.current?.signature !== signature) {
@@ -453,14 +459,28 @@ export function AssetRecordTrackingPanel({
 			knownSource: knownSource.trim() || null,
 			projectId: record.projectId,
 			supportingEvidence: supportingEvidence.trim() || null,
+			unknownHistoryDetails: missingHistoryDetails,
 			userRelationship,
 		};
 		await runWrite(
 			"Aday Sürüm kaydedildi.",
-			(refreshed) =>
-				refreshed.tracking.availableVersions.some(
-					(version) => version.id === input.id
-				),
+			(refreshed) => {
+				const version = refreshed.tracking.availableVersions.find(
+					(availableVersion) => availableVersion.id === input.id
+				);
+				return Boolean(
+					version &&
+						refreshed.tracking.productionHistory.some(
+							(attestation) =>
+								attestation.versionNumber === version.versionNumber &&
+								attestation.knownSource === input.knownSource &&
+								attestation.supportingEvidence === input.supportingEvidence &&
+								attestation.unknownHistoryDetails ===
+									input.unknownHistoryDetails &&
+								attestation.userRelationship === input.userRelationship
+						)
+				);
+			},
 			() => client.assetRecords.createVersion(input)
 		);
 	}
@@ -819,6 +839,25 @@ export function AssetRecordTrackingPanel({
 										Geçmiş bilinmiyor ·{" "}
 										{userRelationshipLabels[entry.userRelationship]}
 									</p>
+									{entry.unknownHistoryDetails ? (
+										<p>
+											Bilinmeyen üretim geçmişi: {entry.unknownHistoryDetails}
+										</p>
+									) : (
+										<p className="text-muted-foreground">
+											Bu kayıtta hangi üretim bilgilerinin bilinmediği
+											belirtilmemiş.
+										</p>
+									)}
+									<p className="text-muted-foreground">
+										Beyan tarihi:{" "}
+										<time dateTime={entry.createdAt}>
+											{new Intl.DateTimeFormat("tr-TR", {
+												dateStyle: "medium",
+												timeStyle: "short",
+											}).format(new Date(entry.createdAt))}
+										</time>
+									</p>
 									{entry.supportingEvidence ? (
 										<p>Destekleyici kanıt: {entry.supportingEvidence}</p>
 									) : null}
@@ -894,6 +933,21 @@ export function AssetRecordTrackingPanel({
 					</label>
 					<label
 						className="block space-y-1 text-sm"
+						htmlFor="asset-version-missing-history"
+					>
+						<span>Bilinmeyen üretim geçmişi</span>
+						<textarea
+							className="min-h-20 w-full rounded-md border bg-background px-3 py-2"
+							id="asset-version-missing-history"
+							maxLength={1000}
+							onChange={(event) => setUnknownHistoryDetails(event.target.value)}
+							placeholder="Bilinmeyen üretim bilgilerini belirtin."
+							required
+							value={unknownHistoryDetails}
+						/>
+					</label>
+					<label
+						className="block space-y-1 text-sm"
 						htmlFor="asset-version-source"
 					>
 						<span>Bilinen kaynak</span>
@@ -946,6 +1000,7 @@ export function AssetRecordTrackingPanel({
 						disabled={
 							activeWrite !== null ||
 							writeOutcomeUncertain ||
+							!unknownHistoryDetails.trim() ||
 							!file ||
 							file.size > 5 * 1024 * 1024 ||
 							!["image/png", "image/webp"].includes(file.type)

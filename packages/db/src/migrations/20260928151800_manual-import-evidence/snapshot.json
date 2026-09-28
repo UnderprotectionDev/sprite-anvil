@@ -1,10 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "17d92aad-7d34-47a7-ab5b-b94eb1cd60f4",
+  "id": "129472ee-24a1-43b8-b7e4-6d311dc8d3d0",
   "prevIds": [
-    "bcd4bf35-f0c5-4f14-80e4-ac867c008382",
-    "f3893156-3986-4fac-8fa2-a737fb7a99dc"
+    "6e601757-7f11-4b25-982d-f2feac6542ce"
   ],
   "ddl": [
     {
@@ -233,6 +232,12 @@
     {
       "isRlsEnabled": false,
       "name": "reference_board_images",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "source_metadata_mapping_proposals",
       "entityType": "tables",
       "schema": "public"
     },
@@ -531,6 +536,19 @@
       "generated": null,
       "identity": null,
       "name": "supporting_evidence",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "legacy_asset_attestations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "unknown_history_details",
       "entityType": "columns",
       "schema": "public",
       "table": "legacy_asset_attestations"
@@ -4293,6 +4311,84 @@
       "table": "reference_board_images"
     },
     {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "source_metadata_mapping_proposals"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "project_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "source_metadata_mapping_proposals"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "source_entry_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "source_metadata_mapping_proposals"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "proposal",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "source_metadata_mapping_proposals"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "created_by_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "source_metadata_mapping_proposals"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "source_metadata_mapping_proposals"
+    },
+    {
       "nameExplicit": true,
       "columns": [
         {
@@ -6806,6 +6902,41 @@
       "table": "reference_board_images"
     },
     {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "source_entry_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "source_metadata_mapping_proposals_source_created_at_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "source_metadata_mapping_proposals"
+    },
+    {
       "nameExplicit": false,
       "columns": [
         "created_by_user_id"
@@ -8417,6 +8548,57 @@
       "table": "reference_board_images"
     },
     {
+      "nameExplicit": false,
+      "columns": [
+        "project_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "project",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "source_metadata_mapping_proposals_project_id_project_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "source_metadata_mapping_proposals"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "source_entry_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "import_inbox_entries",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "source_metadata_mapping_proposals_3O8JdfMGKV6f_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "source_metadata_mapping_proposals"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "created_by_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "user",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "source_metadata_mapping_proposals_ck9pkd0cooe9_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "source_metadata_mapping_proposals"
+    },
+    {
       "columns": [
         "project_id",
         "asset_record_id"
@@ -8770,6 +8952,16 @@
       "entityType": "pks"
     },
     {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "source_metadata_mapping_proposals_pkey",
+      "schema": "public",
+      "table": "source_metadata_mapping_proposals",
+      "entityType": "pks"
+    },
+    {
       "nameExplicit": false,
       "columns": [
         "token"
@@ -8815,6 +9007,13 @@
     {
       "value": "\"history_unknown\" = true",
       "name": "legacy_asset_attestations_unknown_history_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "legacy_asset_attestations"
+    },
+    {
+      "value": "\"unknown_history_details\" IS NULL OR length(trim(\"unknown_history_details\")) > 0",
+      "name": "legacy_asset_attestations_unknown_history_details_check",
       "entityType": "checks",
       "schema": "public",
       "table": "legacy_asset_attestations"

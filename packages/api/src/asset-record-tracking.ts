@@ -124,6 +124,7 @@ export const assetVersionCreateInputSchema = assetVersionUploadInputSchema
 	.extend({
 		knownSource: z.string().trim().max(500).nullable(),
 		supportingEvidence: z.string().trim().max(1000).nullable(),
+		unknownHistoryDetails: z.string().trim().min(1).max(1000),
 		userRelationship: z.enum([
 			"created_by_user",
 			"received_from_team",
@@ -401,6 +402,7 @@ export const legacyAssetAttestationSummarySchema = z
 		kind: z.literal("legacy_asset_attestation"),
 		knownSource: z.string().nullable(),
 		supportingEvidence: z.string().nullable(),
+		unknownHistoryDetails: z.string().nullable(),
 		userRelationship: z.enum([
 			"created_by_user",
 			"received_from_team",

@@ -933,6 +933,7 @@ export function createAssetRecordTrackingStore(
 						kind: "legacy_asset_attestation",
 						knownSource: attestation.knownSource,
 						supportingEvidence: attestation.supportingEvidence,
+						unknownHistoryDetails: attestation.unknownHistoryDetails,
 						userRelationship: attestation.userRelationship,
 						versionNumber: version.versionNumber,
 					})),

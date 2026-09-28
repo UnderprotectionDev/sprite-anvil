@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
+import { assetVersionCreateInputSchema } from "@sprite-anvil/api/asset-record-tracking";
 import type { Context } from "@sprite-anvil/api/context";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 
@@ -7,6 +8,49 @@ const projectId = "44e8fa5d-61ad-43b1-9766-89788268a745";
 const assetRecordId = "2a580d46-c4af-4d05-9b4a-461dc679f625";
 const versionId = "f7b32d26-6b7c-4e16-a578-dac3e0dab68b";
 const userId = "user-asset-record-owner";
+
+test("requires user-declared details for unknown legacy production history", () => {
+	const input = {
+		assetRecordId,
+		contentBase64: "aGVsbG8=",
+		contentType: "image/png",
+		fileName: "ash-knight.png",
+		historyUnknown: true,
+		id: versionId,
+		knownSource: null,
+		projectId,
+		supportingEvidence: null,
+		unknownHistoryDetails:
+			"The original generation instruction is unavailable.",
+		userRelationship: "unknown",
+	};
+
+	expect(assetVersionCreateInputSchema.safeParse(input).success).toBe(true);
+	expect(
+		assetVersionCreateInputSchema.safeParse({
+			...input,
+			unknownHistoryDetails: "  ",
+		}).success
+	).toBe(false);
+	expect(
+		assetVersionCreateInputSchema.safeParse({
+			...input,
+			unknownHistoryDetails: undefined,
+		}).success
+	).toBe(false);
+	expect(
+		assetVersionCreateInputSchema.safeParse({
+			...input,
+			attestedAt: "2020-01-01T00:00:00.000Z",
+		}).success
+	).toBe(false);
+	expect(
+		assetVersionCreateInputSchema.safeParse({
+			...input,
+			providerApiKey: "secret",
+		}).success
+	).toBe(false);
+});
 
 const tracking = {
 	availableRecords: [],
@@ -30,6 +74,8 @@ const tracking = {
 			kind: "legacy_asset_attestation" as const,
 			knownSource: "Imported from the project archive",
 			supportingEvidence: "Owner-provided archive note.",
+			unknownHistoryDetails:
+				"The original generation instruction is unavailable.",
 			userRelationship: "received_from_team" as const,
 			versionNumber: 1,
 		},
