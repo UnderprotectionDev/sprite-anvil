@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import type { SourceMetadataMappingProposalStore } from "@sprite-anvil/api/source-metadata-mapping";
 import {
 	sourceMetadataMappingFinalizationSchema,
@@ -78,7 +79,7 @@ export function createSourceMetadataMappingProposalStore(
 			return row?.projectId === projectId &&
 				row.createdByUserId === userId &&
 				row.assetRecordId === input.assetRecordId &&
-				JSON.stringify(row.decisions) === JSON.stringify(input.decisions)
+				isDeepStrictEqual(row.decisions, input.decisions)
 				? "reserved"
 				: "conflict";
 		},
