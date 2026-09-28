@@ -18,7 +18,7 @@
 - TanStack Virtual
 - Tailwind CSS 4
 - Base UI
-- Lucide
+- Lucide and Pixelarticons
 - dnd-kit
 - Fumadocs
 
