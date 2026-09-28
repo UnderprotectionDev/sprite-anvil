@@ -7,6 +7,14 @@ import type {
 	ImportInboxUploadInput,
 } from "@sprite-anvil/api/import-inbox";
 import { importInboxEntrySchema } from "@sprite-anvil/api/import-inbox";
+import type {
+	SourceMetadataMappingProposal,
+	SourceMetadataMappingProposalStore,
+} from "@sprite-anvil/api/source-metadata-mapping";
+import {
+	sourceMetadataMappingLegacyContractVersion,
+	sourceMetadataMappingProposalSchema,
+} from "@sprite-anvil/api/source-metadata-mapping";
 import { Hono } from "hono";
 import { mountImportInboxRoutes } from "./features/imports/server/import-inbox-routes";
 import { serializePublicApiError } from "./output-contracts";
@@ -108,8 +116,49 @@ class MemoryImportInboxStore implements ImportInboxStore {
 	}
 }
 
+class MemorySourceMetadataMappingProposalStore
+	implements SourceMetadataMappingProposalStore
+{
+	readonly proposals = new Map<string, SourceMetadataMappingProposal[]>();
+
+	// biome-ignore lint/suspicious/useAwait: The test store mirrors the asynchronous production contract.
+	async createProposal(
+		requestedUserId: string,
+		requestedProjectId: string,
+		sourceEntryId: string,
+		proposal: SourceMetadataMappingProposal
+	) {
+		if (
+			requestedUserId !== userId ||
+			requestedProjectId !== projectId ||
+			proposal.projectId !== requestedProjectId ||
+			proposal.source.entryId !== sourceEntryId
+		) {
+			return null;
+		}
+		const proposals = this.proposals.get(sourceEntryId) ?? [];
+		proposals.unshift(proposal);
+		this.proposals.set(sourceEntryId, proposals);
+		return proposal;
+	}
+
+	// biome-ignore lint/suspicious/useAwait: The test store mirrors the asynchronous production contract.
+	async listProposals(
+		requestedUserId: string,
+		requestedProjectId: string,
+		sourceEntryId: string
+	) {
+		if (requestedUserId !== userId || requestedProjectId !== projectId) {
+			return null;
+		}
+		return this.proposals.get(sourceEntryId) ?? [];
+	}
+}
+
 function mountTestApp() {
 	const store = new MemoryImportInboxStore();
+	const sourceMetadataMappingProposalStore =
+		new MemorySourceMetadataMappingProposalStore();
 	const objects = new Map<string, Uint8Array>();
 	const deletedKeys: string[] = [];
 	const storageState = { failGet: false };
@@ -126,6 +175,7 @@ function mountTestApp() {
 	);
 	mountImportInboxRoutes(app, {
 		importInboxStore: store,
+		sourceMetadataMappingProposalStore,
 		createId: () => {
 			uploadAttempt += 1;
 			return (
@@ -175,7 +225,14 @@ function mountTestApp() {
 				: null,
 	});
 
-	return { app, deletedKeys, objects, storageState, store };
+	return {
+		app,
+		deletedKeys,
+		objects,
+		sourceMetadataMappingProposalStore,
+		storageState,
+		store,
+	};
 }
 
 function uploadRequest(
@@ -398,5 +455,578 @@ test("reports managed-file storage failures with a support reference", async () 
 	expect(await download.json()).toEqual({
 		error: "Internal Server Error",
 		supportReference: "SUP-00000000-0000-4000-8000-000000000000",
+	});
+});
+
+test("creates and rereads a source metadata proposal from Aseprite and TexturePacker sidecars", async () => {
+	const { app } = mountTestApp();
+	const sourceBytes = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]);
+	const asepriteBytes = new TextEncoder().encode(
+		JSON.stringify({
+			frames: {
+				button: {
+					duration: 100,
+					frame: { h: 20, w: 30, x: 0, y: 0 },
+				},
+			},
+			meta: {
+				app: "http://www.aseprite.org/",
+				frameTags: [{ direction: "forward", from: 0, name: "idle", to: 0 }],
+				image: "hero.png",
+				size: { h: 32, w: 32 },
+				slices: [
+					{
+						keys: [
+							{
+								bounds: { h: 20, w: 30, x: 0, y: 0 },
+								center: { h: 10, w: 12, x: 8, y: 5 },
+								frame: 0,
+								pivot: { x: 4, y: 5 },
+							},
+						],
+						name: "button",
+					},
+				],
+				version: "1.3.10",
+			},
+		})
+	);
+	const texturePackerBytes = new TextEncoder().encode(
+		JSON.stringify({
+			frames: [
+				{
+					filename: "button",
+					frame: { h: 20, w: 30, x: 0, y: 0 },
+					pivot: { x: 0.5, y: 0.5 },
+				},
+			],
+			meta: {
+				app: "http://www.codeandweb.com/texturepacker",
+				image: "hero.png",
+				size: { h: 32, w: 32 },
+				version: "1.0",
+			},
+		})
+	);
+	const sourceId = crypto.randomUUID();
+	const asepriteId = crypto.randomUUID();
+	const texturePackerId = crypto.randomUUID();
+	const uploadedEntries = await Promise.all([
+		app.request(
+			`/api/projects/${projectId}/import-inbox`,
+			uploadRequest("hero.png", sourceBytes, sourceId)
+		),
+		app.request(
+			`/api/projects/${projectId}/import-inbox`,
+			uploadRequest("sidecar-one.bin", asepriteBytes, asepriteId)
+		),
+		app.request(
+			`/api/projects/${projectId}/import-inbox`,
+			uploadRequest("sidecar-two.bin", texturePackerBytes, texturePackerId)
+		),
+	]);
+	expect(uploadedEntries.map((response) => response.status)).toEqual([
+		201, 201, 201,
+	]);
+
+	const proposalPath = `/api/projects/${projectId}/import-inbox/${sourceId}/source-metadata-mapping-proposals`;
+	const createdResponse = await app.request(proposalPath, {
+		method: "POST",
+		headers: {
+			authorization: `Bearer ${userId}`,
+			"content-type": "application/json",
+		},
+		body: JSON.stringify({ sidecarEntryIds: [asepriteId, texturePackerId] }),
+	});
+	expect(createdResponse.status).toBe(201);
+	const created = (await createdResponse.json()) as {
+		contractVersion: string;
+		conflicts: Array<{ field: string; key: string }>;
+		fields: Array<{ field: string; key: string; value: unknown }>;
+		suggestions: {
+			assetFamilyLinks: { reason: string; status: string };
+			requiredSetLinks: { reason: string; status: string };
+			gameplayMetadata: { reason: string; status: "unknown" };
+		};
+		sidecars: Array<{
+			entryId: string;
+			format: string;
+			jsonLayout: string;
+			sha256: string;
+			version: string;
+		}>;
+		source: { entryId: string; fileName: string; sha256: string };
+	};
+
+	expect(created.contractVersion).toBe("source-metadata-mapping/1.1.0");
+	expect(created.suggestions.assetFamilyLinks).toEqual({
+		reason: "no-source-evidence",
+		status: "unknown",
+	});
+	expect(created.suggestions.requiredSetLinks).toEqual({
+		reason: "no-source-evidence",
+		status: "unknown",
+	});
+	expect(created.suggestions.gameplayMetadata).toEqual({
+		reason: "project-context-required",
+		status: "unknown",
+	});
+	expect(created.source).toEqual({
+		entryId: sourceId,
+		fileName: "hero.png",
+		sha256: digest(sourceBytes),
+	});
+	expect(
+		created.sidecars.map(({ entryId, format, jsonLayout }) => [
+			entryId,
+			format,
+			jsonLayout,
+		])
+	).toEqual([
+		[asepriteId, "aseprite", "hash"],
+		[texturePackerId, "texture-packer", "array"],
+	]);
+	expect(created.sidecars.map(({ sha256 }) => sha256)).toEqual([
+		digest(asepriteBytes),
+		digest(texturePackerBytes),
+	]);
+	expect(created.fields).toEqual(
+		expect.arrayContaining([
+			expect.objectContaining({ field: "frame", key: "button" }),
+			expect.objectContaining({ field: "tag", key: "idle" }),
+			expect.objectContaining({ field: "nine-slice", key: "button" }),
+		])
+	);
+	const frameField = created.fields.find(
+		(field) => field.field === "frame" && field.key === "button"
+	);
+	expect(frameField?.value).toEqual({
+		frame: { h: 20, w: 30, x: 0, y: 0 },
+	});
+	expect(created.fields).toContainEqual(
+		expect.objectContaining({
+			field: "duration",
+			key: "button",
+			sourcePath: "frames.button.duration",
+			value: 100,
+		})
+	);
+	expect(created.conflicts.map(({ field, key }) => [field, key])).toEqual([
+		["pivot", "button"],
+	]);
+
+	const rereadResponse = await app.request(proposalPath, {
+		headers: { authorization: `Bearer ${userId}` },
+	});
+	expect(rereadResponse.status).toBe(200);
+	expect(await rereadResponse.json()).toEqual([created]);
+});
+
+test("rejects malformed and unsupported sidecars without saving proposals", async () => {
+	const { app } = mountTestApp();
+	const sourceId = crypto.randomUUID();
+	const invalidJsonId = crypto.randomUUID();
+	const unsupportedId = crypto.randomUUID();
+	const sourceBytes = Uint8Array.from([137, 80, 78, 71]);
+	const invalidJsonBytes = new TextEncoder().encode("{not json");
+	const unsupportedBytes = new TextEncoder().encode(
+		JSON.stringify({
+			frames: {
+				button: { frame: { h: 20, w: 30, x: 0, y: 0 } },
+			},
+			meta: {
+				app: "https://example.com/sprite-editor",
+				version: "1.0",
+			},
+		})
+	);
+	const uploads = await Promise.all([
+		app.request(
+			`/api/projects/${projectId}/import-inbox`,
+			uploadRequest("source.png", sourceBytes, sourceId)
+		),
+		app.request(
+			`/api/projects/${projectId}/import-inbox`,
+			uploadRequest("bad-sidecar.json", invalidJsonBytes, invalidJsonId)
+		),
+		app.request(
+			`/api/projects/${projectId}/import-inbox`,
+			uploadRequest("unknown-format.json", unsupportedBytes, unsupportedId)
+		),
+	]);
+	expect(uploads.map((uploaded) => uploaded.status)).toEqual([201, 201, 201]);
+	const proposalPath = `/api/projects/${projectId}/import-inbox/${sourceId}/source-metadata-mapping-proposals`;
+	const invalidJsonResponse = await app.request(proposalPath, {
+		method: "POST",
+		headers: {
+			authorization: `Bearer ${userId}`,
+			"content-type": "application/json",
+		},
+		body: JSON.stringify({ sidecarEntryIds: [invalidJsonId] }),
+	});
+	expect(invalidJsonResponse.status).toBe(422);
+	expect(await invalidJsonResponse.json()).toEqual({
+		error: "Invalid source metadata JSON",
+	});
+
+	const unsupportedResponse = await app.request(proposalPath, {
+		method: "POST",
+		headers: {
+			authorization: `Bearer ${userId}`,
+			"content-type": "application/json",
+		},
+		body: JSON.stringify({ sidecarEntryIds: [unsupportedId] }),
+	});
+	expect(unsupportedResponse.status).toBe(422);
+	expect(await unsupportedResponse.json()).toEqual({
+		error: "Unsupported source metadata format",
+	});
+
+	const reread = await app.request(proposalPath, {
+		headers: { authorization: `Bearer ${userId}` },
+	});
+	expect(reread.status).toBe(200);
+	expect(await reread.json()).toEqual([]);
+});
+
+test("reads Aseprite array and TexturePacker hash layouts from JSON structure", async () => {
+	const { app } = mountTestApp();
+	const sourceId = crypto.randomUUID();
+	const asepriteId = crypto.randomUUID();
+	const texturePackerId = crypto.randomUUID();
+	const sourceBytes = Uint8Array.from([137, 80, 78, 71]);
+	const asepriteBytes = new TextEncoder().encode(
+		JSON.stringify({
+			frames: [
+				{
+					duration: 80,
+					filename: "walk-0",
+					frame: { h: 16, w: 16, x: 0, y: 0 },
+				},
+			],
+			meta: {
+				app: "https://aseprite.org/",
+				image: "walk.png",
+				palette: [{ a: 255, b: 0, g: 0, r: 0 }],
+				version: "1.3.10",
+			},
+		})
+	);
+	const texturePackerBytes = new TextEncoder().encode(
+		JSON.stringify({
+			frames: {
+				"walk-0": {
+					frame: { h: 16, w: 16, x: 0, y: 0 },
+					pivot: { x: 0.5, y: 1 },
+				},
+			},
+			meta: {
+				app: "https://www.codeandweb.com/texturepacker",
+				image: "walk.png",
+				version: "1.0",
+			},
+		})
+	);
+	const uploads = await Promise.all([
+		app.request(
+			`/api/projects/${projectId}/import-inbox`,
+			uploadRequest("walk.png", sourceBytes, sourceId)
+		),
+		app.request(
+			`/api/projects/${projectId}/import-inbox`,
+			uploadRequest("opaque-a", asepriteBytes, asepriteId)
+		),
+		app.request(
+			`/api/projects/${projectId}/import-inbox`,
+			uploadRequest("opaque-b", texturePackerBytes, texturePackerId)
+		),
+	]);
+	expect(uploads.map((uploaded) => uploaded.status)).toEqual([201, 201, 201]);
+
+	const response = await app.request(
+		`/api/projects/${projectId}/import-inbox/${sourceId}/source-metadata-mapping-proposals`,
+		{
+			method: "POST",
+			headers: {
+				authorization: `Bearer ${userId}`,
+				"content-type": "application/json",
+			},
+			body: JSON.stringify({ sidecarEntryIds: [asepriteId, texturePackerId] }),
+		}
+	);
+	expect(response.status).toBe(201);
+	const proposal = (await response.json()) as {
+		fields: Array<{ field: string; key: string }>;
+		sidecars: Array<{ format: string; jsonLayout: string }>;
+	};
+	expect(
+		proposal.sidecars.map(({ format, jsonLayout }) => [format, jsonLayout])
+	).toEqual([
+		["aseprite", "array"],
+		["texture-packer", "hash"],
+	]);
+	expect(proposal.fields).toEqual(
+		expect.arrayContaining([
+			expect.objectContaining({ field: "frame", key: "walk-0" }),
+			expect.objectContaining({ field: "pivot", key: "walk-0" }),
+			expect.objectContaining({ field: "palette", key: "palette" }),
+		])
+	);
+});
+
+test("marks gameplay metadata unknown when the sidecar has no direct pivot source", async () => {
+	const { app } = mountTestApp();
+	const sourceId = crypto.randomUUID();
+	const sidecarId = crypto.randomUUID();
+	const sourceBytes = Uint8Array.from([137, 80, 78, 71]);
+	const sidecarBytes = new TextEncoder().encode(
+		JSON.stringify({
+			frames: [
+				{
+					filename: "walk-0",
+					frame: { h: 16, w: 16, x: 0, y: 0 },
+				},
+			],
+			meta: {
+				app: "https://aseprite.org/",
+				version: "1.3.10",
+			},
+		})
+	);
+	const uploads = await Promise.all([
+		app.request(
+			`/api/projects/${projectId}/import-inbox`,
+			uploadRequest("walk.png", sourceBytes, sourceId)
+		),
+		app.request(
+			`/api/projects/${projectId}/import-inbox`,
+			uploadRequest("metadata.json", sidecarBytes, sidecarId)
+		),
+	]);
+	expect(uploads.map((upload) => upload.status)).toEqual([201, 201]);
+
+	const response = await app.request(
+		`/api/projects/${projectId}/import-inbox/${sourceId}/source-metadata-mapping-proposals`,
+		{
+			method: "POST",
+			headers: {
+				authorization: `Bearer ${userId}`,
+				"content-type": "application/json",
+			},
+			body: JSON.stringify({ sidecarEntryIds: [sidecarId] }),
+		}
+	);
+	expect(response.status).toBe(201);
+	const proposal = (await response.json()) as {
+		suggestions: { gameplayMetadata: { reason: string; status: string } };
+	};
+	expect(proposal.suggestions.gameplayMetadata).toEqual({
+		reason: "project-context-required",
+		status: "unknown",
+	});
+});
+
+test("protects source metadata proposals with project access and inbox membership", async () => {
+	const { app } = mountTestApp();
+	const sourceId = crypto.randomUUID();
+	const sourceUpload = await app.request(
+		`/api/projects/${projectId}/import-inbox`,
+		uploadRequest("source.png", Uint8Array.from([137, 80, 78, 71]), sourceId)
+	);
+	expect(sourceUpload.status).toBe(201);
+	const proposalPath = `/api/projects/${projectId}/import-inbox/${sourceId}/source-metadata-mapping-proposals`;
+	const request = {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify({ sidecarEntryIds: [crypto.randomUUID()] }),
+	};
+	const unauthenticated = await app.request(proposalPath, request);
+	expect(unauthenticated.status).toBe(401);
+
+	const missingSidecar = await app.request(proposalPath, {
+		...request,
+		headers: {
+			...request.headers,
+			authorization: `Bearer ${userId}`,
+		},
+	});
+	expect(missingSidecar.status).toBe(404);
+
+	const inaccessibleProject = await app.request(
+		`/api/projects/${otherProjectId}/import-inbox/${sourceId}/source-metadata-mapping-proposals`,
+		{
+			...request,
+			headers: {
+				...request.headers,
+				authorization: `Bearer ${userId}`,
+			},
+		}
+	);
+	expect(inaccessibleProject.status).toBe(404);
+});
+
+test("continues to parse persisted source metadata mapping contract version 1.0", () => {
+	const legacyProposal: SourceMetadataMappingProposal = {
+		contractVersion: sourceMetadataMappingLegacyContractVersion,
+		conflicts: [],
+		createdAt: new Date().toISOString(),
+		diagnostics: [],
+		fields: [
+			{
+				field: "frame",
+				key: "button",
+				sourceEntryId: crypto.randomUUID(),
+				sourceFileName: "metadata.json",
+				sourceFormat: "aseprite",
+				sourcePath: "frames.button",
+				value: {
+					duration: 100,
+					frame: { h: 20, w: 30, x: 0, y: 0 },
+					pivot: { x: 0.5, y: 0.5 },
+				},
+			},
+		],
+		id: crypto.randomUUID(),
+		projectId,
+		sidecars: [
+			{
+				entryId: crypto.randomUUID(),
+				fileName: "metadata.json",
+				format: "aseprite",
+				jsonLayout: "hash",
+				sha256: "a".repeat(64),
+				version: "1.3.10",
+			},
+		],
+		source: {
+			entryId: crypto.randomUUID(),
+			fileName: "source.png",
+			sha256: "b".repeat(64),
+		},
+		suggestions: {
+			assetFamilyLinks: {
+				reason: "no-source-evidence",
+				status: "unknown",
+			},
+			gameplayMetadata: {
+				reason: "project-context-required",
+				status: "unknown",
+			},
+			requiredSetLinks: {
+				reason: "no-source-evidence",
+				status: "unknown",
+			},
+		},
+	};
+
+	expect(sourceMetadataMappingProposalSchema.parse(legacyProposal)).toEqual(
+		legacyProposal
+	);
+});
+
+test("rejects source metadata sidecars that exceed the parsing size limit", async () => {
+	const { app } = mountTestApp();
+	const sourceId = crypto.randomUUID();
+	const sidecarId = crypto.randomUUID();
+	const sourceBytes = Uint8Array.from([137, 80, 78, 71]);
+	const oversizedBytes = new Uint8Array(5 * 1024 * 1024 + 1).fill(32);
+	const uploads = await Promise.all([
+		app.request(
+			`/api/projects/${projectId}/import-inbox`,
+			uploadRequest("source.png", sourceBytes, sourceId)
+		),
+		app.request(
+			`/api/projects/${projectId}/import-inbox`,
+			uploadRequest("sidecar.json", oversizedBytes, sidecarId)
+		),
+	]);
+	expect(uploads.map((upload) => upload.status)).toEqual([201, 201]);
+
+	const response = await app.request(
+		`/api/projects/${projectId}/import-inbox/${sourceId}/source-metadata-mapping-proposals`,
+		{
+			method: "POST",
+			headers: {
+				authorization: `Bearer ${userId}`,
+				"content-type": "application/json",
+			},
+			body: JSON.stringify({ sidecarEntryIds: [sidecarId] }),
+		}
+	);
+	expect(response.status).toBe(413);
+	expect(await response.json()).toEqual({
+		error: "Source metadata sidecars exceed the maximum size",
+	});
+});
+
+test("rejects source metadata sidecars whose aggregate size exceeds the parsing limit", async () => {
+	const { app } = mountTestApp();
+	const sourceId = crypto.randomUUID();
+	const sidecarIds = [crypto.randomUUID(), crypto.randomUUID()];
+	const sourceBytes = Uint8Array.from([137, 80, 78, 71]);
+	const aggregateOversizeBytes = new Uint8Array(4 * 1024 * 1024 + 1).fill(32);
+	const uploads = await Promise.all([
+		app.request(
+			`/api/projects/${projectId}/import-inbox`,
+			uploadRequest("source.png", sourceBytes, sourceId)
+		),
+		...sidecarIds.map((sidecarId, index) =>
+			app.request(
+				`/api/projects/${projectId}/import-inbox`,
+				uploadRequest(
+					`sidecar-${index}.json`,
+					aggregateOversizeBytes,
+					sidecarId
+				)
+			)
+		),
+	]);
+	expect(uploads.map((upload) => upload.status)).toEqual([201, 201, 201]);
+
+	const response = await app.request(
+		`/api/projects/${projectId}/import-inbox/${sourceId}/source-metadata-mapping-proposals`,
+		{
+			method: "POST",
+			headers: {
+				authorization: `Bearer ${userId}`,
+				"content-type": "application/json",
+			},
+			body: JSON.stringify({ sidecarEntryIds: sidecarIds }),
+		}
+	);
+	expect(response.status).toBe(413);
+	expect(await response.json()).toEqual({
+		error: "Source metadata sidecars exceed the maximum size",
+	});
+});
+
+test("bounds source metadata proposal input size and sidecar count", async () => {
+	const { app } = mountTestApp();
+	const sourceId = crypto.randomUUID();
+	const proposalPath = `/api/projects/${projectId}/import-inbox/${sourceId}/source-metadata-mapping-proposals`;
+	const headers = {
+		authorization: `Bearer ${userId}`,
+		"content-type": "application/json",
+	};
+	const excessiveSidecarCount = await app.request(proposalPath, {
+		method: "POST",
+		headers,
+		body: JSON.stringify({
+			sidecarEntryIds: Array.from({ length: 11 }, () => crypto.randomUUID()),
+		}),
+	});
+	expect(excessiveSidecarCount.status).toBe(400);
+	expect(await excessiveSidecarCount.json()).toEqual({
+		error: "Invalid source metadata proposal",
+	});
+
+	const oversizedRequestBody = await app.request(proposalPath, {
+		method: "POST",
+		headers,
+		body: `${JSON.stringify({ sidecarEntryIds: [crypto.randomUUID()] })}${" ".repeat(8192)}`,
+	});
+	expect(oversizedRequestBody.status).toBe(413);
+	expect(await oversizedRequestBody.json()).toEqual({
+		error: "Source metadata proposal request exceeds the maximum size",
 	});
 });

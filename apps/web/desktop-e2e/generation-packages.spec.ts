@@ -1,9 +1,12 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { $, browser, expect } from "@wdio/globals";
 import { createAssetRecordFixture } from "../e2e/asset-record-fixture";
 import { projectContextFixture } from "../e2e/project-context-fixture";
 
 describe("Generation Packages", () => {
-	it("pins and rereads a Production Context Snapshot through the desktop flow", async function () {
+	it("blocks conflicting reference rules before pinning and rereading a resolved package in the desktop flow", async function () {
 		if (!process.env.CONTEXT_TEST_DATABASE_URL) {
 			this.skip();
 		}
@@ -77,6 +80,37 @@ describe("Generation Packages", () => {
 		await (await $("button=Varlık kaydı oluştur")).click();
 		await (await $(`h1=${fixture.name}`)).waitForDisplayed();
 
+		const directory = mkdtempSync(
+			join(tmpdir(), "generation-package-reference-e2e-")
+		);
+		const imagePath = join(directory, "conflicting-pose.png");
+		writeFileSync(
+			imagePath,
+			Buffer.from(fixture.assetVersionPngBase64, "base64")
+		);
+		let uploadedPath = "";
+		try {
+			uploadedPath = await browser.uploadFile(imagePath);
+		} finally {
+			rmSync(directory, { force: true, recursive: true });
+		}
+		await $("input#reference-upload-file").setValue(uploadedPath);
+		const forbiddenFeatures = await $(
+			'//fieldset[legend[normalize-space()="Kaçınılacak özellikler"]]'
+		);
+		await (
+			await forbiddenFeatures.$('.//label[span[normalize-space()="Poz"]]/input')
+		).click();
+		await (await $("button=Görseli yükle")).click();
+		await $("p*=Referans görseli panoya eklendi.").waitForDisplayed();
+
+		const conflictAlert = await $(
+			'//div[@role="alert" and .//h4[normalize-space()="Çözülmemiş aktarım çelişkileri"]]'
+		);
+		await conflictAlert.waitForDisplayed();
+		await expect(conflictAlert).toHaveTextContaining("Poz");
+		await expect(conflictAlert).toHaveTextContaining("conflicting-pose.png");
+
 		await (await $("h2=Üretim Paketleri")).waitForDisplayed();
 		await expect(await $("input#generation-target-width")).toHaveValue("");
 		await expect(await $("input#generation-target-height")).toHaveValue("");
@@ -91,6 +125,30 @@ describe("Generation Packages", () => {
 		const pinPackageButton = await $("button=Üretim Paketini sabitle");
 		await pinPackageButton.waitForClickable();
 		await pinPackageButton.click();
+		await $(
+			"p*=Referans aktarım kurallarındaki izin-yasak çelişkileri çözülmeden Üretim Paketi oluşturulamaz."
+		).waitForDisplayed();
+		await $("p=Bu Varlık Kaydında henüz Üretim Paketi yok.").waitForDisplayed();
+
+		const referenceCard = await $(
+			'//article[.//img[@alt="conflicting-pose.png adlı referans görseli"]]'
+		);
+		await (await referenceCard.$("summary=Kuralları düzenle")).click();
+		const forbiddenReferenceFeatures = await referenceCard.$(
+			'.//fieldset[legend[normalize-space()="Kaçınılacak özellikler"]]'
+		);
+		await (
+			await forbiddenReferenceFeatures.$(
+				'.//label[span[normalize-space()="Poz"]]/input'
+			)
+		).click();
+		await (await referenceCard.$("button=Kuralları kaydet")).click();
+		await referenceCard
+			.$("p=Referans kuralları ve notu kaydedildi.")
+			.waitForDisplayed();
+		await conflictAlert.waitForDisplayed({ reverse: true });
+
+		await pinPackageButton.click();
 		await $("p=Üretim Paketi oluşturuldu ve kaydedildi.").waitForDisplayed();
 
 		const savedPackage = await $(
@@ -104,6 +162,13 @@ describe("Generation Packages", () => {
 		).waitForDisplayed();
 		await $("p*=72 × 80 px").waitForDisplayed();
 		await $("p=A four-frame PNG sprite sheet.").waitForDisplayed();
+		const savedReferenceRule = await $("li*=conflicting-pose.png");
+		await expect(await savedReferenceRule.getText()).toContain(
+			"Aktarılabilir: Poz"
+		);
+		await expect(await savedReferenceRule.getText()).not.toContain(
+			"Kaçınılacak: Poz"
+		);
 
 		await browser.refresh();
 		const reloadedPackage = await $(
@@ -117,5 +182,12 @@ describe("Generation Packages", () => {
 		).waitForDisplayed();
 		await $("p*=72 × 80 px").waitForDisplayed();
 		await $("p=A four-frame PNG sprite sheet.").waitForDisplayed();
+		const reloadedReferenceRule = await $("li*=conflicting-pose.png");
+		await expect(await reloadedReferenceRule.getText()).toContain(
+			"Aktarılabilir: Poz"
+		);
+		await expect(await reloadedReferenceRule.getText()).not.toContain(
+			"Kaçınılacak: Poz"
+		);
 	});
 });

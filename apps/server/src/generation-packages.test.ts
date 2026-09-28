@@ -330,7 +330,7 @@ test("requires the selected Canonical Design version to be available", async () 
 	expect(storedPackages).toHaveLength(0);
 });
 
-test("persists a Generation Package when one Reference Role forbids another's allowance", async () => {
+test("blocks a Generation Package when one Reference Role forbids another's allowance", async () => {
 	const { context, state, storedPackages } = createTestContext();
 	const avoidReferenceId = "4bf099d8-0b98-4287-abd0-3e1bbf787e90";
 	state.referenceImages.push({
@@ -338,32 +338,62 @@ test("persists a Generation Package when one Reference Role forbids another's al
 		forbiddenFeatures: ["pose"],
 		id: avoidReferenceId,
 		role: "avoid",
-		transferredFeatures: ["identity"],
+		transferredFeatures: [],
 	});
 
+	await expect(
+		call(appRouter.generationPackages.create, createInput(), { context })
+	).rejects.toMatchObject({ code: "CONFLICT" });
+	expect(storedPackages).toHaveLength(0);
+});
+
+test("creates a new immutable Generation Package after opposing rules are resolved", async () => {
+	const { context, state, storedPackages } = createTestContext();
+	const avoidReferenceId = "4bf099d8-0b98-4287-abd0-3e1bbf787e90";
+	state.referenceImages.push({
+		...referenceImage,
+		forbiddenFeatures: ["pose"],
+		id: avoidReferenceId,
+		role: "avoid",
+		transferredFeatures: [],
+	});
+
+	await expect(
+		call(appRouter.generationPackages.create, createInput(), { context })
+	).rejects.toMatchObject({ code: "CONFLICT" });
+	expect(storedPackages).toHaveLength(0);
+
+	state.referenceImages[0] = {
+		...referenceImage,
+		transferredFeatures: [],
+	};
 	const created = await call(
 		appRouter.generationPackages.create,
 		createInput(),
 		{ context }
 	);
-
 	expect(created.referenceRoles).toEqual(
 		expect.arrayContaining([
 			expect.objectContaining({
 				forbiddenFeatures: ["identity"],
 				id: referenceId,
-				transferredFeatures: ["pose"],
+				transferredFeatures: [],
 			}),
 			expect.objectContaining({
 				forbiddenFeatures: ["pose"],
 				id: avoidReferenceId,
 				role: "avoid",
-				transferredFeatures: ["identity"],
+				transferredFeatures: [],
 			}),
 		])
 	);
 	expect(storedPackages).toHaveLength(1);
 
+	const [, forbiddingReference] = state.referenceImages;
+	if (!forbiddingReference) {
+		throw new Error("Expected a forbidding reference");
+	}
+	forbiddingReference.forbiddenFeatures = [];
 	const reread = await call(
 		appRouter.generationPackages.list,
 		{ assetRecordId, projectId },

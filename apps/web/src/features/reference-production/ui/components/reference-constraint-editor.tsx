@@ -164,8 +164,8 @@ export function ReferenceConstraintEditor({
 				selected: draft.forbiddenFeatures,
 			})}
 			<p className="text-muted-foreground text-xs">
-				Bir referanstaki açık yasak, diğer referanslardaki aynı özellik iznini
-				geçersiz kılar.
+				Aynı özellik için izin ve yasak çakışırsa Üretim Paketi oluşturulamaz;
+				kurallardan birini düzenleyerek çelişkiyi giderin.
 			</p>
 			{needsOverride ? (
 				<label

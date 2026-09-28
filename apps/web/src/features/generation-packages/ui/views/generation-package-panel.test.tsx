@@ -265,6 +265,43 @@ test("creates a Generation Package from the task form and shows the saved copy",
 	expect(screen.getByText(contextOverrideRationaleLabel)).toBeVisible();
 });
 
+test("shows the unresolved reference conflict when package creation is rejected", async () => {
+	fakeApi.create.mockRejectedValue(
+		Object.assign(
+			new Error(
+				"Referans aktarım kurallarındaki izin-yasak çelişkileri çözülmeden Üretim Paketi oluşturulamaz."
+			),
+			{ code: "CONFLICT" }
+		)
+	);
+	renderPanel();
+	await waitFor(() =>
+		expect(
+			screen.getByRole("button", { name: "Üretim Paketini sabitle" })
+		).toBeEnabled()
+	);
+	fireEvent.change(screen.getByLabelText("Üretim hedefi"), {
+		target: { value: "Create a four-frame attack animation." },
+	});
+	fireEvent.change(screen.getByLabelText("Beklenen çıktı yapısı"), {
+		target: { value: "A four-frame PNG sprite sheet." },
+	});
+	fireEvent.click(
+		screen.getByRole("button", { name: "Üretim Paketini sabitle" })
+	);
+
+	const conflictMessage = await screen.findByRole("alert");
+	expect(conflictMessage).toHaveTextContent(
+		"Referans aktarım kurallarındaki izin-yasak çelişkileri"
+	);
+	expect(
+		screen.getByText("Bu Varlık Kaydında henüz Üretim Paketi yok.")
+	).toBeVisible();
+	expect(
+		screen.getByRole("button", { name: "Üretim Paketini sabitle" })
+	).toBeEnabled();
+});
+
 test("blocks a second create after an uncertain write until package history is refreshed", async () => {
 	fakeApi.create.mockRejectedValue(new TypeError("Network connection failed"));
 	fakeApi.listPackages
