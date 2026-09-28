@@ -175,6 +175,9 @@ function ConflictSummary({
 					</li>
 				))}
 			</ul>
+			<p className="mt-2 text-sm">
+				Bu çelişkiler giderilene kadar Üretim Paketi oluşturulamaz.
+			</p>
 		</div>
 	);
 }

@@ -34,7 +34,7 @@ test("requires a purpose for custom reference rules and valid override evidence"
 	expect(validRules.success).toBe(true);
 });
 
-test("an explicit prohibition wins over an allowance on the same reference", () => {
+test("reports a conflict when one Reference Role both allows and forbids a feature", () => {
 	const result = analyzeReferenceTransferConstraints([
 		{
 			forbiddenFeatures: ["palette"],
@@ -44,13 +44,19 @@ test("an explicit prohibition wins over an allowance on the same reference", () 
 	]);
 
 	expect(result).toEqual({
-		conflicts: [],
-		effectiveForbiddenFeatures: ["palette"],
+		conflicts: [
+			{
+				allowingReferenceIds: ["reference-one"],
+				feature: "palette",
+				forbiddingReferenceIds: ["reference-one"],
+			},
+		],
+		effectiveForbiddenFeatures: [],
 		effectiveTransferredFeatures: [],
 	});
 });
 
-test("a prohibition overrides another Reference Role's allowance", () => {
+test("reports a conflict when different Reference Roles have opposing rules", () => {
 	const result = analyzeReferenceTransferConstraints([
 		{
 			forbiddenFeatures: [],
@@ -64,8 +70,14 @@ test("a prohibition overrides another Reference Role's allowance", () => {
 		},
 	]);
 
-	expect(result.conflicts).toEqual([]);
-	expect(result.effectiveForbiddenFeatures).toEqual(["palette"]);
+	expect(result.conflicts).toEqual([
+		{
+			allowingReferenceIds: ["pose-reference"],
+			feature: "palette",
+			forbiddingReferenceIds: ["avoid-palette-reference"],
+		},
+	]);
+	expect(result.effectiveForbiddenFeatures).toEqual([]);
 	expect(result.effectiveTransferredFeatures).toEqual([]);
 });
 
