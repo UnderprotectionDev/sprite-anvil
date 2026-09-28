@@ -115,6 +115,9 @@ describe("Asset Records", () => {
 			);
 			const uploadedPath = await browser.uploadFile(imagePath);
 			await (await $("input#asset-version-file")).setValue(uploadedPath);
+			await (await $("textarea#asset-version-missing-history")).setValue(
+				"The original generation instruction is unavailable."
+			);
 			await (await $("input#asset-version-source")).setValue(
 				"Created for version tracking"
 			);
@@ -139,6 +142,11 @@ describe("Asset Records", () => {
 			await (await $("p*=ash-knight.png · Sürüm 1")).waitForDisplayed();
 			await (await $("p*=Created for version tracking")).waitForDisplayed();
 			await (
+				await $(
+					"p*=Bilinmeyen üretim geçmişi: The original generation instruction is unavailable."
+				)
+			).waitForDisplayed();
+			await (
 				await $("p*=Owner attested to the source and relationship.")
 			).waitForDisplayed();
 			await (await $("p*=Kullanıcı oluşturdu")).waitForDisplayed();
@@ -156,6 +164,9 @@ describe("Asset Records", () => {
 			await (await $("input#asset-version-file")).setValue(
 				uploadedAlternativePath
 			);
+			await (await $("textarea#asset-version-missing-history")).setValue(
+				"The alternative sketch instructions are unavailable."
+			);
 			await (await $("input#asset-version-source")).setValue(
 				"Alternative sketch"
 			);
@@ -172,6 +183,11 @@ describe("Asset Records", () => {
 				await $("p*=ash-knight-alt.png · Sürüm 2 · Aday")
 			).waitForDisplayed();
 			await (
+				await $(
+					"p*=Bilinmeyen üretim geçmişi: The alternative sketch instructions are unavailable."
+				)
+			).waitForDisplayed();
+			await (
 				await $("p*=Dosya biçim imzası eşleşti (2 sürüm).")
 			).waitForDisplayed();
 
@@ -179,6 +195,16 @@ describe("Asset Records", () => {
 			await (await $("p*=ash-knight.png · Sürüm 1")).waitForDisplayed();
 			await (
 				await $("p*=ash-knight-alt.png · Sürüm 2 · Aday")
+			).waitForDisplayed();
+			await (
+				await $(
+					"p*=Bilinmeyen üretim geçmişi: The original generation instruction is unavailable."
+				)
+			).waitForDisplayed();
+			await (
+				await $(
+					"p*=Bilinmeyen üretim geçmişi: The alternative sketch instructions are unavailable."
+				)
 			).waitForDisplayed();
 			await (
 				await $("p*=Dosya biçim imzası eşleşti (2 sürüm).")

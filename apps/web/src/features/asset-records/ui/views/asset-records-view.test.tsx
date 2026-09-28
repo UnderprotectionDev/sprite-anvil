@@ -53,6 +53,8 @@ const productionEvidence = /Archive manifest entry/;
 const userRelationshipLabel = /Ekipten alındı/;
 const unknownHistory = /Geçmiş bilinmiyor/;
 const attestationDateLabel = /Beyan tarihi:/;
+const legacyAttestationCreatedAt = "2026-09-25T08:01:00.000Z";
+const localizedLegacyAttestationDate = /^(?:24|25) Eyl 2026 \d{2}:\d{2}$/;
 const unknownCanonicalVersion = /Ana Tasarım Sürümü kayıtlı değil/;
 const emptyAssetRecordMeasurements = {
 	atlasDimensions: { confirmed: null, proposal: null },
@@ -737,7 +739,7 @@ test("shows persisted versions, derivatives, references, quality, and provenance
 			},
 			productionHistory: [
 				{
-					createdAt: "2026-09-25T08:01:00.000Z",
+					createdAt: legacyAttestationCreatedAt,
 					historyUnknown: true,
 					id: "0f3c648b-0b67-4b05-9f94-7c2bcd940949",
 					kind: "legacy_asset_attestation",
@@ -793,16 +795,20 @@ test("shows persisted versions, derivatives, references, quality, and provenance
 			"Bilinmeyen üretim geçmişi: The original generation instruction is unavailable."
 		)
 	).toBeVisible();
-	expect(screen.getByText(attestationDateLabel)).toHaveTextContent(
-		"25 Eyl 2026 11:01"
+	const attestationTime = screen
+		.getByText(attestationDateLabel)
+		.querySelector("time");
+	expect(attestationTime).toHaveAttribute(
+		"dateTime",
+		legacyAttestationCreatedAt
 	);
+	expect(attestationTime).toHaveTextContent(localizedLegacyAttestationDate);
 	expect(screen.getByText(userRelationshipLabel)).toBeVisible();
 	expect(screen.getByText(unknownHistory)).toBeVisible();
 	expect(screen.getByText(recordCreatedCopy)).toBeVisible();
 });
 
 test("records the user's missing legacy history details with the asset version", async () => {
-	const attestedAt = "2026-09-25T08:01:00.000Z";
 	fakeApi.detail = {
 		record: assetRecord,
 		tracking: {
@@ -857,7 +863,7 @@ test("records the user's missing legacy history details with the asset version",
 				],
 				productionHistory: [
 					{
-						createdAt: attestedAt,
+						createdAt: legacyAttestationCreatedAt,
 						historyUnknown: input.historyUnknown,
 						id: "b1b9ae6d-c2c0-41d5-b9b9-c4acbfb83f90",
 						kind: "legacy_asset_attestation",
@@ -871,7 +877,7 @@ test("records the user's missing legacy history details with the asset version",
 			},
 		};
 		return {
-			createdAt: attestedAt,
+			createdAt: legacyAttestationCreatedAt,
 			fileName: input.fileName,
 			id: input.id,
 			reviewDisposition: "candidate",
@@ -941,9 +947,14 @@ test("records the user's missing legacy history details with the asset version",
 			"Bilinmeyen üretim geçmişi: The original generation instruction is unavailable."
 		)
 	).toBeVisible();
-	expect(screen.getByText(attestationDateLabel)).toHaveTextContent(
-		"25 Eyl 2026 11:01"
+	const attestationTime = screen
+		.getByText(attestationDateLabel)
+		.querySelector("time");
+	expect(attestationTime).toHaveAttribute(
+		"dateTime",
+		legacyAttestationCreatedAt
 	);
+	expect(attestationTime).toHaveTextContent(localizedLegacyAttestationDate);
 });
 
 test("keeps unrecorded legacy version details explicit without choosing a Canonical Design", async () => {
