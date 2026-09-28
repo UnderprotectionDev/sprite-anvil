@@ -29,6 +29,7 @@ const supportReferencePattern = /Destek Referansı:/;
 const opaqueSidecarPattern = /opaque-sidecar/;
 const textureMetadataPattern = /texture-metadata/;
 const pivotProposalPattern = /Pivot · walk\.png/;
+const pivotDecisionPattern = /Pivot · walk.png/;
 const halfPivotPattern = /0\.5/;
 const quarterPivotPattern = /0\.25/;
 
@@ -496,14 +497,34 @@ test("creates and rereads a source metadata proposal from explicitly selected si
 	).toBeInTheDocument();
 	expect(screen.getAllByText("Pivot · walk.png")).toHaveLength(2);
 	expect(screen.getByText("Süre · walk.png")).toBeInTheDocument();
-	expect(screen.getAllByText(pivotProposalPattern)).toHaveLength(2);
-	expect(screen.getAllByText(halfPivotPattern)).toHaveLength(1);
-	expect(screen.getAllByText(quarterPivotPattern)).toHaveLength(1);
+	expect(
+		within(
+			screen.getByRole("list", { name: "Önerilen kaynak alanları" })
+		).getAllByText(pivotProposalPattern)
+	).toHaveLength(2);
+	expect(
+		within(
+			screen.getByRole("list", { name: "Önerilen kaynak alanları" })
+		).getAllByText(halfPivotPattern)
+	).toHaveLength(1);
+	expect(
+		within(
+			screen.getByRole("list", { name: "Önerilen kaynak alanları" })
+		).getAllByText(quarterPivotPattern)
+	).toHaveLength(1);
 	expect(screen.getByText("c".repeat(64))).toBeInTheDocument();
 	expect(
 		screen.getByText("1 alan çakışması var; öneri henüz kesinleşmedi.")
 	).toBeInTheDocument();
 	expect(screen.getAllByText("Çakışma")).toHaveLength(2);
+	expect(
+		screen.getByRole("combobox", { name: pivotDecisionPattern })
+	).toHaveValue("");
+	expect(
+		screen.getByRole("button", {
+			name: "Eşlemeyi kesinleştir ve Aday Sürüm oluştur",
+		})
+	).toBeDisabled();
 	expect(fakeApi.fetch).toHaveBeenCalledWith(
 		`http://localhost:3000/api/projects/${projectId}/import-inbox/${entryId}/source-metadata-mapping-proposals`,
 		expect.objectContaining({ method: "POST" })

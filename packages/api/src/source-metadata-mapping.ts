@@ -170,6 +170,37 @@ export type SourceMetadataMappingProposal = z.infer<
 	typeof sourceMetadataMappingProposalSchema
 >;
 
+export const sourceMetadataMappingDecisionSchema = z
+	.object({
+		field: sourceMetadataFieldNameSchema,
+		key: z.string().min(1).max(512),
+		sourceEntryId: z.uuid().nullable(),
+		sourcePath: z.string().min(1).max(2048).nullable(),
+	})
+	.strict();
+export const sourceMetadataMappingFinalizeInputSchema = z
+	.object({
+		assetRecordId: z.uuid(),
+		decisions: z.array(sourceMetadataMappingDecisionSchema).max(5000),
+	})
+	.strict();
+export type SourceMetadataMappingFinalizeInput = z.infer<
+	typeof sourceMetadataMappingFinalizeInputSchema
+>;
+
+export const sourceMetadataMappingFinalizationSchema = z
+	.object({
+		proposalId: z.uuid(),
+		assetRecordId: z.uuid(),
+		assetVersionId: z.uuid(),
+		decisions: z.array(sourceMetadataMappingDecisionSchema),
+		createdAt: z.iso.datetime(),
+	})
+	.strict();
+export type SourceMetadataMappingFinalization = z.infer<
+	typeof sourceMetadataMappingFinalizationSchema
+>;
+
 export const sourceMetadataMappingProposalCreateInputSchema = z
 	.object({
 		sidecarEntryIds: z
@@ -196,15 +227,31 @@ export const sourceMetadataMappingProposalsSchema = z.array(
 );
 
 export interface SourceMetadataMappingProposalStore {
+	completeFinalization: (
+		userId: string,
+		projectId: string,
+		proposalId: string
+	) => Promise<SourceMetadataMappingFinalization | null>;
 	createProposal: (
 		userId: string,
 		projectId: string,
 		sourceEntryId: string,
 		proposal: SourceMetadataMappingProposal
 	) => Promise<SourceMetadataMappingProposal | null>;
+	getFinalization: (
+		userId: string,
+		projectId: string,
+		proposalId: string
+	) => Promise<SourceMetadataMappingFinalization | null>;
 	listProposals: (
 		userId: string,
 		projectId: string,
 		sourceEntryId: string
 	) => Promise<SourceMetadataMappingProposal[] | null>;
+	reserveFinalization: (
+		userId: string,
+		projectId: string,
+		proposalId: string,
+		input: SourceMetadataMappingFinalizeInput
+	) => Promise<"reserved" | "conflict" | "not_found">;
 }

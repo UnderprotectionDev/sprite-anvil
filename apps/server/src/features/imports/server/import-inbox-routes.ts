@@ -1,4 +1,5 @@
 import { assetSourceFileNameSchema } from "@sprite-anvil/api/asset-record-tracking";
+import type { AssetVersionStore } from "@sprite-anvil/api/asset-versions";
 import type {
 	ImportInboxFileRecord,
 	ImportInboxStore,
@@ -12,6 +13,7 @@ import type {
 } from "@sprite-anvil/api/source-metadata-mapping";
 import {
 	sourceMetadataMappingContractVersion,
+	sourceMetadataMappingFinalizeInputSchema,
 	sourceMetadataMappingProposalCreateInputSchema,
 	sourceMetadataMappingProposalSchema,
 	sourceMetadataMappingSidecarLimits,
@@ -20,10 +22,16 @@ import type { Context, Hono } from "hono";
 import z from "zod";
 import type { createStorage } from "../../../cloudflare";
 import {
+	createProjectAssetVersionObjectKey,
 	createProjectImportInboxObjectKey,
 	importInboxObjectKeySchema,
 } from "../../../cloudflare";
 import { serializePublicApiError } from "../../../output-contracts";
+import {
+	AssetVersionContentLengthError,
+	AssetVersionIntegrityError,
+	createAssetVersionIntegrityTransform,
+} from "../../asset-versions/server/asset-version-integrity";
 import {
 	createImportInboxIntegrityTransform,
 	ImportInboxContentLengthError,
@@ -35,6 +43,7 @@ import {
 	buildSourceMetadataMappingSuggestions,
 	parseSourceMetadataSidecar,
 } from "./source-metadata-mapping";
+import { resolveSourceMetadataMappingDecisions } from "./source-metadata-mapping-finalization";
 
 const projectIdSchema = z.uuid();
 const entryIdSchema = z.uuid();
@@ -52,6 +61,10 @@ export interface ImportInboxSession {
 }
 
 export interface ImportInboxRouteDependencies {
+	assetVersionStore?: Pick<
+		AssetVersionStore,
+		"createCandidateVersion" | "getAssetRecordForUpload"
+	>;
 	createId?: () => string;
 	createStorage: () => Storage;
 	getProjectForUser: (
@@ -61,6 +74,203 @@ export interface ImportInboxRouteDependencies {
 	getSession: (headers: Headers) => Promise<ImportInboxSession | null>;
 	importInboxStore: ImportInboxStore;
 	sourceMetadataMappingProposalStore: SourceMetadataMappingProposalStore;
+}
+
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: One request boundary validates access, immutable source, target, and idempotent persistence.
+async function finalizeSourceMetadataMapping(
+	c: Context,
+	dependencies: ImportInboxRouteDependencies
+) {
+	c.header("Cache-Control", "private, no-store");
+	const projectId = c.req.param("projectId") ?? "";
+	const access = await resolveProjectAccess(
+		c.req.raw.headers,
+		projectId,
+		dependencies
+	);
+	if (!access.ok) {
+		return accessError(c, access);
+	}
+	const entryId = entryIdSchema.safeParse(c.req.param("entryId"));
+	const proposalId = entryIdSchema.safeParse(c.req.param("proposalId"));
+	if (!(entryId.success && proposalId.success)) {
+		return c.json(serializePublicApiError("Not found"), 404);
+	}
+	const proposals =
+		await dependencies.sourceMetadataMappingProposalStore.listProposals(
+			access.userId,
+			projectId,
+			entryId.data
+		);
+	const proposal = proposals?.find(
+		(candidate) => candidate.id === proposalId.data
+	);
+	if (!proposal) {
+		return c.json(serializePublicApiError("Not found"), 404);
+	}
+	if (c.req.method === "GET") {
+		const result =
+			await dependencies.sourceMetadataMappingProposalStore.getFinalization(
+				access.userId,
+				projectId,
+				proposal.id
+			);
+		return result
+			? c.json(result)
+			: c.json(serializePublicApiError("Not found"), 404);
+	}
+	const body = await readBoundedJsonRequest(c.req.raw);
+	if (!body.ok && body.reason === "too_large") {
+		return c.json(
+			serializePublicApiError(
+				"Source metadata proposal request exceeds the maximum size"
+			),
+			413
+		);
+	}
+	const input = sourceMetadataMappingFinalizeInputSchema.safeParse(
+		body.ok ? body.value : null
+	);
+	const resolvedDecisions = input.success
+		? resolveSourceMetadataMappingDecisions(proposal, input.data.decisions)
+		: null;
+	if (!(input.success && resolvedDecisions)) {
+		return c.json(
+			serializePublicApiError("Invalid source metadata mapping decisions"),
+			422
+		);
+	}
+	const versionStore = dependencies.assetVersionStore;
+	const mappingStore = dependencies.sourceMetadataMappingProposalStore;
+	if (!versionStore) {
+		throw new Error("Source metadata mapping finalization unavailable");
+	}
+	const target = await versionStore.getAssetRecordForUpload(
+		access.userId,
+		projectId,
+		input.data.assetRecordId
+	);
+	const source = await dependencies.importInboxStore.getFileRecord(
+		access.userId,
+		projectId,
+		entryId.data
+	);
+	if (!(target && source) || source.sha256 !== proposal.source.sha256) {
+		return c.json(serializePublicApiError("Not found"), 404);
+	}
+	let contentType: "image/png" | "image/webp" | null = null;
+	if (source.fileName.toLowerCase().endsWith(".png")) {
+		contentType = "image/png";
+	} else if (source.fileName.toLowerCase().endsWith(".webp")) {
+		contentType = "image/webp";
+	}
+	if (!contentType || source.contentLength === 0) {
+		return c.json(serializePublicApiError("Unsupported source image"), 422);
+	}
+	const reserved = await mappingStore.reserveFinalization(
+		access.userId,
+		projectId,
+		proposal.id,
+		{ ...input.data, decisions: resolvedDecisions }
+	);
+	if (reserved === "not_found") {
+		return c.json(serializePublicApiError("Not found"), 404);
+	}
+	if (reserved === "conflict") {
+		return c.json(
+			serializePublicApiError(
+				"Source metadata mapping already finalized differently"
+			),
+			409
+		);
+	}
+	const existing = await mappingStore.getFinalization(
+		access.userId,
+		projectId,
+		proposal.id
+	);
+	if (existing) {
+		return c.json(existing);
+	}
+	const sourceKey = importInboxObjectKeySchema.safeParse(source.objectKey);
+	if (!sourceKey.success) {
+		throw new Error("Import Inbox file unavailable");
+	}
+	const storage = dependencies.createStorage();
+	const object = await storage.get(sourceKey.data);
+	if (
+		!object ||
+		object.contentType !== opaqueStorageContentType ||
+		(object.contentLength !== undefined &&
+			object.contentLength !== source.contentLength)
+	) {
+		await object?.body.cancel();
+		throw new Error("Import Inbox file unavailable");
+	}
+	const objectKey = createProjectAssetVersionObjectKey(
+		projectId,
+		target.assetRecordId,
+		proposal.id
+	);
+	const integrity = createAssetVersionIntegrityTransform(
+		contentType,
+		source.contentLength
+	);
+	try {
+		await storage.put(
+			objectKey,
+			verifyImportInboxStream(
+				object.body,
+				source.contentLength,
+				source.sha256
+			).pipeThrough(integrity.body),
+			contentType,
+			source.contentLength
+		);
+		const digest = integrity.getContentDigest();
+		if (digest !== source.sha256) {
+			throw new AssetVersionIntegrityError();
+		}
+		const version = await versionStore.createCandidateVersion(access.userId, {
+			...target,
+			id: proposal.id,
+			objectKey,
+			contentType,
+			contentLength: source.contentLength,
+			fileName: source.fileName,
+			contentDigest: digest,
+			idempotencyKey: proposal.id,
+			integrityVerified: true,
+		});
+		if (!version) {
+			return c.json(serializePublicApiError("Not found"), 404);
+		}
+		if (version.kind !== "created" && version.kind !== "existing") {
+			return c.json(
+				serializePublicApiError("Source metadata mapping conflict"),
+				409
+			);
+		}
+		const result = await mappingStore.completeFinalization(
+			access.userId,
+			projectId,
+			proposal.id
+		);
+		if (!result) {
+			throw new Error("Source metadata mapping finalization unavailable");
+		}
+		return c.json(result, 201);
+	} catch (error) {
+		if (
+			error instanceof AssetVersionIntegrityError ||
+			error instanceof AssetVersionContentLengthError ||
+			error instanceof ImportInboxIntegrityError ||
+			error instanceof ImportInboxContentLengthError
+		) {
+			return c.json(serializePublicApiError("Invalid source image"), 422);
+		}
+		throw error;
+	}
 }
 
 type ProjectAccess =
@@ -616,6 +826,14 @@ export function mountImportInboxRoutes(
 	app: Hono,
 	dependencies: ImportInboxRouteDependencies
 ) {
+	const finalizationPath =
+		"/api/projects/:projectId/import-inbox/:entryId/source-metadata-mapping-proposals/:proposalId/finalization";
+	app.get(finalizationPath, (c) =>
+		finalizeSourceMetadataMapping(c, dependencies)
+	);
+	app.post(finalizationPath, (c) =>
+		finalizeSourceMetadataMapping(c, dependencies)
+	);
 	app.get("/api/projects/:projectId/import-inbox", async (c) => {
 		c.header("Cache-Control", "private, no-store");
 		const access = await resolveProjectAccess(

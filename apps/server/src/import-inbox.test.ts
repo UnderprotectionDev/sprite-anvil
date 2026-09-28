@@ -8,6 +8,8 @@ import type {
 } from "@sprite-anvil/api/import-inbox";
 import { importInboxEntrySchema } from "@sprite-anvil/api/import-inbox";
 import type {
+	SourceMetadataMappingFinalization,
+	SourceMetadataMappingFinalizeInput,
 	SourceMetadataMappingProposal,
 	SourceMetadataMappingProposalStore,
 } from "@sprite-anvil/api/source-metadata-mapping";
@@ -16,6 +18,7 @@ import {
 	sourceMetadataMappingProposalSchema,
 } from "@sprite-anvil/api/source-metadata-mapping";
 import { Hono } from "hono";
+import sharp from "sharp";
 import { mountImportInboxRoutes } from "./features/imports/server/import-inbox-routes";
 import { serializePublicApiError } from "./output-contracts";
 
@@ -120,6 +123,50 @@ class MemorySourceMetadataMappingProposalStore
 	implements SourceMetadataMappingProposalStore
 {
 	readonly proposals = new Map<string, SourceMetadataMappingProposal[]>();
+	readonly finalizations = new Map<string, SourceMetadataMappingFinalization>();
+	readonly reservations = new Map<string, SourceMetadataMappingFinalizeInput>();
+	// biome-ignore lint/suspicious/useAwait: The test store mirrors the asynchronous production contract.
+	async getFinalization(
+		_userId: string,
+		_projectId: string,
+		proposalId: string
+	) {
+		return this.finalizations.get(proposalId) ?? null;
+	}
+	// biome-ignore lint/suspicious/useAwait: The test store mirrors the asynchronous production contract.
+	async reserveFinalization(
+		_userId: string,
+		_projectId: string,
+		proposalId: string,
+		input: SourceMetadataMappingFinalizeInput
+	) {
+		const previous = this.reservations.get(proposalId);
+		if (previous && JSON.stringify(previous) !== JSON.stringify(input)) {
+			return "conflict" as const;
+		}
+		this.reservations.set(proposalId, input);
+		return "reserved" as const;
+	}
+	// biome-ignore lint/suspicious/useAwait: The test store mirrors the asynchronous production contract.
+	async completeFinalization(
+		_userId: string,
+		_projectId: string,
+		proposalId: string
+	) {
+		const reservation = this.reservations.get(proposalId);
+		if (!reservation) {
+			return null;
+		}
+		const result = {
+			proposalId,
+			assetRecordId: reservation.assetRecordId,
+			assetVersionId: proposalId,
+			decisions: reservation.decisions,
+			createdAt: new Date().toISOString(),
+		};
+		this.finalizations.set(proposalId, result);
+		return result;
+	}
 
 	// biome-ignore lint/suspicious/useAwait: The test store mirrors the asynchronous production contract.
 	async createProposal(
@@ -163,6 +210,8 @@ function mountTestApp() {
 	const deletedKeys: string[] = [];
 	const storageState = { failGet: false };
 	let uploadAttempt = 0;
+	const targetAssetRecordId = crypto.randomUUID();
+	const createdVersions: string[] = [];
 	const app = new Hono();
 	app.onError((_error, c) =>
 		c.json(
@@ -174,6 +223,28 @@ function mountTestApp() {
 		)
 	);
 	mountImportInboxRoutes(app, {
+		assetVersionStore: {
+			getAssetRecordForUpload: async (
+				_userId,
+				requestedProjectId,
+				assetRecordId
+			) =>
+				requestedProjectId === projectId &&
+				assetRecordId === targetAssetRecordId
+					? { projectId, assetRecordId, assetFamilyId: crypto.randomUUID() }
+					: null,
+			// biome-ignore lint/suspicious/useAwait: The test store mirrors the asynchronous production contract.
+			createCandidateVersion: async (_userId, input) => {
+				const existed = createdVersions.includes(input.id);
+				if (!existed) {
+					createdVersions.push(input.id);
+				}
+				return {
+					kind: existed ? ("existing" as const) : ("created" as const),
+					version: {} as never,
+				};
+			},
+		},
 		importInboxStore: store,
 		sourceMetadataMappingProposalStore,
 		createId: () => {
@@ -227,6 +298,8 @@ function mountTestApp() {
 
 	return {
 		app,
+		targetAssetRecordId,
+		createdVersions,
 		deletedKeys,
 		objects,
 		sourceMetadataMappingProposalStore,
@@ -863,6 +936,165 @@ test("protects source metadata proposals with project access and inbox membershi
 		}
 	);
 	expect(inaccessibleProject.status).toBe(404);
+});
+
+test("finalizes a source metadata mapping into one rereadable Candidate Version", async () => {
+	const {
+		app,
+		sourceMetadataMappingProposalStore,
+		targetAssetRecordId,
+		createdVersions,
+	} = mountTestApp();
+	const bytes = await sharp({
+		create: { width: 1, height: 1, channels: 4, background: "white" },
+	})
+		.png()
+		.toBuffer();
+	const sourceId = crypto.randomUUID();
+	const sourceUpload = await app.request(
+		`/api/projects/${projectId}/import-inbox`,
+		uploadRequest("hero.png", bytes, sourceId)
+	);
+	expect(sourceUpload.status).toBe(201);
+	const sidecarId = crypto.randomUUID();
+	const otherSidecarId = crypto.randomUUID();
+	const frame = (sourceEntryId: string, x: number) => ({
+		field: "frame" as const,
+		key: "walk",
+		sourceEntryId,
+		sourceFileName: `${x}.json`,
+		sourceFormat: "aseprite" as const,
+		sourcePath: "frames.walk",
+		value: { frame: { x, y: 0, w: 1, h: 1 } },
+	});
+	const pivot = (sourceEntryId: string, x: number) => ({
+		field: "pivot" as const,
+		key: "walk",
+		sourceEntryId,
+		sourceFileName: `${x}.json`,
+		sourceFormat: "aseprite" as const,
+		sourcePath: "frames.walk.pivot",
+		value: { x, y: 0 },
+	});
+	const proposal: SourceMetadataMappingProposal = {
+		id: crypto.randomUUID(),
+		projectId,
+		createdAt: new Date().toISOString(),
+		contractVersion: "source-metadata-mapping/1.1.0",
+		diagnostics: [],
+		source: { entryId: sourceId, fileName: "hero.png", sha256: digest(bytes) },
+		sidecars: [
+			{
+				entryId: sidecarId,
+				fileName: "one.json",
+				format: "aseprite",
+				jsonLayout: "hash",
+				sha256: "b".repeat(64),
+				version: "1",
+			},
+		],
+		suggestions: {
+			assetFamilyLinks: { status: "unknown", reason: "no-source-evidence" },
+			requiredSetLinks: { status: "unknown", reason: "no-source-evidence" },
+			gameplayMetadata: {
+				status: "unknown",
+				reason: "project-context-required",
+			},
+		},
+		fields: [
+			frame(sidecarId, 0),
+			frame(otherSidecarId, 1),
+			pivot(sidecarId, 0),
+			pivot(otherSidecarId, 1),
+		],
+		conflicts: [
+			{
+				field: "frame",
+				key: "walk",
+				candidates: [frame(sidecarId, 0), frame(otherSidecarId, 1)],
+			},
+			{
+				field: "pivot",
+				key: "walk",
+				candidates: [pivot(sidecarId, 0), pivot(otherSidecarId, 1)],
+			},
+		],
+	};
+	sourceMetadataMappingProposalStore.proposals.set(sourceId, [proposal]);
+	const path = `/api/projects/${projectId}/import-inbox/${sourceId}/source-metadata-mapping-proposals/${proposal.id}/finalization`;
+	const request = {
+		method: "POST",
+		headers: {
+			authorization: `Bearer ${userId}`,
+			"content-type": "application/json",
+		},
+		body: JSON.stringify({
+			assetRecordId: targetAssetRecordId,
+			decisions: [
+				{
+					field: "frame",
+					key: "walk",
+					sourceEntryId: sidecarId,
+					sourcePath: "frames.walk",
+				},
+			],
+		}),
+	};
+	expect(
+		(
+			await app.request(path, {
+				...request,
+				body: JSON.stringify({
+					assetRecordId: targetAssetRecordId,
+					decisions: [],
+				}),
+			})
+		).status
+	).toBe(422);
+	expect(createdVersions).toHaveLength(0);
+	const created = await app.request(path, request);
+	expect(created.status).toBe(201);
+	const result = await created.json();
+	expect(result).toMatchObject({
+		proposalId: proposal.id,
+		assetRecordId: targetAssetRecordId,
+		assetVersionId: proposal.id,
+		decisions: [
+			{
+				field: "frame",
+				key: "walk",
+				sourceEntryId: sidecarId,
+				sourcePath: "frames.walk",
+			},
+			{ field: "pivot", key: "walk", sourceEntryId: null, sourcePath: null },
+		],
+	});
+	expect(createdVersions).toEqual([proposal.id]);
+	expect((await app.request(path, request)).status).toBe(200);
+	expect(createdVersions).toEqual([proposal.id]);
+	const reread = await app.request(path, {
+		headers: { authorization: `Bearer ${userId}` },
+	});
+	expect(await reread.json()).toEqual(result);
+	expect(
+		(
+			await app.request(path, {
+				...request,
+				body: JSON.stringify({
+					assetRecordId: crypto.randomUUID(),
+					decisions: [
+						{
+							field: "frame",
+							key: "walk",
+							sourceEntryId: sidecarId,
+							sourcePath: "frames.walk",
+						},
+					],
+				}),
+			})
+		).status
+	).toBe(404);
+	expect((await app.request(path, { method: "GET" })).status).toBe(401);
 });
 
 test("continues to parse persisted source metadata mapping contract version 1.0", () => {

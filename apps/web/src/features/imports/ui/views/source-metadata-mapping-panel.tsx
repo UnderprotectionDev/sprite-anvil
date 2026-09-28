@@ -1,15 +1,19 @@
 import type { ImportInboxEntry } from "@sprite-anvil/api/import-inbox";
 import {
 	type SourceMetadataMappingProposal,
+	sourceMetadataMappingFinalizationSchema,
 	sourceMetadataMappingProposalSchema,
 	sourceMetadataMappingProposalsSchema,
 	sourceMetadataMappingSidecarLimits,
 } from "@sprite-anvil/api/source-metadata-mapping";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { orpc } from "@/utils/orpc";
 import {
 	readSupportReference,
+	sourceMetadataMappingFinalizationUrl,
 	sourceMetadataMappingUrl,
 } from "./import-inbox-api";
 
@@ -97,12 +101,110 @@ function proposalConflictKeys(proposal: SourceMetadataMappingProposal) {
 
 function ProposalDetails({
 	proposal,
+	projectId,
+	entryId,
 }: {
 	proposal: SourceMetadataMappingProposal;
+	projectId: string;
+	entryId: string;
 }) {
 	const conflictKeys = proposalConflictKeys(proposal);
+	const queryClient = useQueryClient();
+	const [isOpen, setIsOpen] = useState(false);
+	const recordsQuery = useQuery({
+		...orpc.assetFamilies.list.queryOptions({ input: { projectId } }),
+		enabled: isOpen,
+	});
+	const [assetRecordId, setAssetRecordId] = useState("");
+	const [decisions, setDecisions] = useState<Record<string, string>>({});
+	const [isFinalizing, setIsFinalizing] = useState(false);
+	const [finalizeError, setFinalizeError] = useState<string | null>(null);
+	const finalizationUrl = sourceMetadataMappingFinalizationUrl(
+		projectId,
+		entryId,
+		proposal.id
+	);
+	const finalizationQuery = useQuery({
+		queryKey: ["source-metadata-mapping-finalization", proposal.id],
+		enabled: isOpen,
+		queryFn: async () => {
+			const response = await fetch(finalizationUrl, { credentials: "include" });
+			if (response.status === 404) {
+				return null;
+			}
+			if (!response.ok) {
+				throw new Error("Kesin ilişki okunamadı.");
+			}
+			return sourceMetadataMappingFinalizationSchema.parse(
+				await response.json()
+			);
+		},
+	});
+	const finalization = finalizationQuery.data;
+	async function finalize() {
+		if (!assetRecordId || isFinalizing) {
+			return;
+		}
+		setIsFinalizing(true);
+		setFinalizeError(null);
+		try {
+			const response = await fetch(finalizationUrl, {
+				method: "POST",
+				credentials: "include",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					assetRecordId,
+					decisions: proposal.conflicts.map((conflict) => {
+						const selected = conflict.candidates.find(
+							(candidate) =>
+								JSON.stringify([
+									candidate.sourceEntryId,
+									candidate.sourcePath,
+								]) === decisions[`${conflict.field}\u0000${conflict.key}`]
+						);
+						return {
+							field: conflict.field,
+							key: conflict.key,
+							sourceEntryId: selected?.sourceEntryId ?? null,
+							sourcePath: selected?.sourcePath ?? null,
+						};
+					}),
+				}),
+			});
+			if (!response.ok) {
+				if (response.status === 422) {
+					setFinalizeError(
+						"Zorunlu kare çakışmalarını çözün ve kaynak dosyayı kontrol edin."
+					);
+				} else if (response.status === 409) {
+					setFinalizeError("Bu öneri başka bir kararla kesinleştirilmiş.");
+				} else {
+					setFinalizeError(
+						"Eşleme kesinleştirilemedi. Kayıtlı sonucu kontrol edin."
+					);
+				}
+				return;
+			}
+			sourceMetadataMappingFinalizationSchema.parse(await response.json());
+			await queryClient.invalidateQueries({
+				queryKey: ["source-metadata-mapping-finalization", proposal.id],
+			});
+		} catch {
+			setFinalizeError(
+				"Kesinleştirme sonucu doğrulanamadı. Kayıtlı sonucu kontrol edin."
+			);
+			await queryClient.invalidateQueries({
+				queryKey: ["source-metadata-mapping-finalization", proposal.id],
+			});
+		} finally {
+			setIsFinalizing(false);
+		}
+	}
 	return (
-		<details className="rounded-md border p-3 text-sm">
+		<details
+			className="rounded-md border p-3 text-sm"
+			onToggle={(event) => setIsOpen(event.currentTarget.open)}
+		>
 			<summary className="min-h-11 cursor-pointer py-2 font-medium">
 				Kaynak Metadata Eşleme Önerisi ·{" "}
 				{new Date(proposal.createdAt).toLocaleString("tr-TR")}
@@ -148,12 +250,157 @@ function ProposalDetails({
 						Oyun İçi Bilgiler: Bilinmiyor · proje bağlamı gerekli.
 					</p>
 				</section>
-				{proposal.conflicts.length > 0 ? (
+				{proposal.conflicts.length > 0 && !finalization ? (
 					<p className="font-medium" role="status">
 						{proposal.conflicts.length} alan çakışması var; öneri henüz
 						kesinleşmedi.
 					</p>
 				) : null}
+				{isOpen && finalizationQuery.isPending ? (
+					<p role="status">Kesin ilişki okunuyor…</p>
+				) : null}
+				{finalizationQuery.isError ? (
+					<div role="alert">
+						Kesin ilişki okunamadı.{" "}
+						<Button
+							onClick={() => void finalizationQuery.refetch()}
+							type="button"
+							variant="outline"
+						>
+							Yeniden dene
+						</Button>
+					</div>
+				) : null}
+				{finalization ? (
+					<section
+						aria-label="Kesin ilişki"
+						className="space-y-2 rounded-md border p-3"
+					>
+						<p className="font-medium">Kesin ilişki · Aday Sürüm oluşturuldu</p>
+						<p>
+							Hedef kayıt:{" "}
+							{recordsQuery.data?.assetRecords.find(
+								(record) => record.id === finalization.assetRecordId
+							)?.name ?? finalization.assetRecordId}
+						</p>
+						<ul>
+							{finalization.decisions.map((decision) => (
+								<li key={`${decision.field}-${decision.key}`}>
+									{fieldLabel(decision.field)} · {decision.key}:{" "}
+									{decision.sourceEntryId
+										? (proposal.fields.find(
+												(field) =>
+													field.field === decision.field &&
+													field.key === decision.key &&
+													field.sourceEntryId === decision.sourceEntryId &&
+													field.sourcePath === decision.sourcePath
+											)?.sourceFileName ?? decision.sourceEntryId)
+										: "Bilinmiyor"}
+								</li>
+							))}
+						</ul>
+						<Link
+							params={{ projectId, assetRecordId: finalization.assetRecordId }}
+							to="/projects/$projectId/assets/$assetRecordId"
+						>
+							Aday Sürümü aç
+						</Link>
+					</section>
+				) : null}
+				{finalization ||
+				finalizationQuery.isError ||
+				(isOpen && finalizationQuery.isPending) ? null : (
+					<section
+						aria-label="Eşlemeyi kesinleştir"
+						className="space-y-3 rounded-md border p-3"
+					>
+						<label className="block">
+							Hedef Varlık Kaydı
+							<select
+								className="mt-1 w-full rounded-md border bg-background p-2"
+								onChange={(event) => setAssetRecordId(event.target.value)}
+								value={assetRecordId}
+							>
+								<option value="">Kayıt seçin</option>
+								{recordsQuery.data?.assetRecords.map((record) => (
+									<option key={record.id} value={record.id}>
+										{record.name}
+									</option>
+								))}
+							</select>
+						</label>
+						{recordsQuery.data?.assetRecords.length === 0 ? (
+							<p>
+								Önce{" "}
+								<Link
+									params={{ projectId }}
+									to="/projects/$projectId/asset-families"
+								>
+									Varlık Aileleri
+								</Link>{" "}
+								ekranında hedef Varlık Kaydı oluşturun.
+							</p>
+						) : null}
+						{recordsQuery.isError ? (
+							<p role="alert">Hedef Varlık Kayıtları okunamadı.</p>
+						) : null}
+						{proposal.conflicts.map((conflict) => {
+							const key = `${conflict.field}\u0000${conflict.key}`;
+							return (
+								<label className="block" key={key}>
+									{fieldLabel(conflict.field)} · {conflict.key}{" "}
+									{conflict.field === "frame" ? "(zorunlu)" : "(isteğe bağlı)"}
+									<select
+										className="mt-1 w-full rounded-md border bg-background p-2"
+										onChange={(event) =>
+											setDecisions((current) => ({
+												...current,
+												[key]: event.target.value,
+											}))
+										}
+										value={decisions[key] ?? ""}
+									>
+										<option value="">
+											{conflict.field === "frame"
+												? "Kaynak seçin"
+												: "Bilinmiyor"}
+										</option>
+										{conflict.candidates.map((candidate) => (
+											<option
+												key={`${candidate.sourceEntryId}-${candidate.sourcePath}`}
+												value={JSON.stringify([
+													candidate.sourceEntryId,
+													candidate.sourcePath,
+												])}
+											>
+												{candidate.sourceFileName} ·{" "}
+												{formatFieldValue(candidate.value)}
+											</option>
+										))}
+									</select>
+								</label>
+							);
+						})}
+						<Button
+							disabled={
+								!assetRecordId ||
+								isFinalizing ||
+								proposal.conflicts.some(
+									(conflict) =>
+										conflict.field === "frame" &&
+										!decisions[`${conflict.field}\u0000${conflict.key}`]
+								)
+							}
+							onClick={() => void finalize()}
+							type="button"
+						>
+							{isFinalizing
+								? "Kesinleştiriliyor…"
+								: "Eşlemeyi kesinleştir ve Aday Sürüm oluştur"}
+						</Button>
+						{finalizeError ? <p role="alert">{finalizeError}</p> : null}
+					</section>
+				)}
 				<ul aria-label="Önerilen kaynak alanları" className="space-y-3">
 					{proposal.fields.map((field) => {
 						const conflict = conflictKeys.has(
@@ -367,7 +614,12 @@ export function SourceMetadataMappingPanel({
 				</div>
 			) : null}
 			{proposalsQuery.data?.map((proposal) => (
-				<ProposalDetails key={proposal.id} proposal={proposal} />
+				<ProposalDetails
+					entryId={entry.id}
+					key={proposal.id}
+					projectId={projectId}
+					proposal={proposal}
+				/>
 			))}
 		</section>
 	);
