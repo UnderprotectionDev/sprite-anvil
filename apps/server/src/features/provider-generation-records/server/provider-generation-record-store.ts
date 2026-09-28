@@ -6,6 +6,7 @@ import type {
 } from "@sprite-anvil/api/provider-generation-records";
 import {
 	providerGenerationParameterSnapshotSchema,
+	providerGenerationParameterSnapshotSchemaVersion,
 	providerGenerationRecordSchema,
 } from "@sprite-anvil/api/provider-generation-records";
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
@@ -13,8 +14,6 @@ import { assetVersions } from "@sprite-anvil/db/schema/asset-versions";
 import { providerGenerationRecords } from "@sprite-anvil/db/schema/provider-generation-records";
 import { and, asc, eq } from "drizzle-orm";
 import { sanitizeProviderGenerationParameters } from "./provider-generation-record";
-
-const parameterSnapshotSchemaVersion = "provider-generation-parameters/1.0.0";
 
 function toISOString(value: Date | string) {
 	return value instanceof Date
@@ -64,7 +63,7 @@ function stableJson(value: unknown): string {
 function createParameterSnapshot(input: ProviderGenerationRecordCreateInput) {
 	return providerGenerationParameterSnapshotSchema.parse({
 		parameters: sanitizeProviderGenerationParameters(input.providerParameters),
-		schemaVersion: parameterSnapshotSchemaVersion,
+		schemaVersion: providerGenerationParameterSnapshotSchemaVersion,
 	});
 }
 

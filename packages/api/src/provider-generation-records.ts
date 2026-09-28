@@ -13,6 +13,9 @@ const nullableDimensionsSchema = dimensionsSchema.nullable();
 const nullableTextSchema = z.string().trim().min(1).max(500).nullable();
 const providerParametersSchema = z.record(z.string(), z.json());
 
+export const providerGenerationParameterSnapshotSchemaVersion =
+	"provider-generation-parameters/1.0.0";
+
 export const assetVersionProductionSourceHeader =
 	"x-asset-version-production-source";
 
@@ -24,7 +27,7 @@ export const assetVersionProductionSourceSchema = z.enum([
 export const providerGenerationParameterSnapshotSchema = z
 	.object({
 		parameters: providerParametersSchema,
-		schemaVersion: z.literal("provider-generation-parameters/1.0.0"),
+		schemaVersion: z.literal(providerGenerationParameterSnapshotSchemaVersion),
 	})
 	.strict();
 
