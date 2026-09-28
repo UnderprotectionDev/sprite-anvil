@@ -211,29 +211,39 @@ export interface ReferenceTransferAnalysis {
 export function analyzeReferenceTransferConstraints(
 	references: readonly ReferenceTransferConstraintSet[]
 ): ReferenceTransferAnalysis {
+	const conflicts: ReferenceTransferConflict[] = [];
 	const effectiveForbiddenFeatures: ReferenceFeature[] = [];
 	const effectiveTransferredFeatures: ReferenceFeature[] = [];
 
 	for (const feature of referenceFeatures) {
-		// A prohibition on one role overrides allowances from every other role.
-		const isForbidden = references.some((reference) =>
-			reference.forbiddenFeatures.includes(feature)
-		);
-		if (isForbidden) {
+		const allowingReferenceIds = references
+			.filter((reference) => reference.transferredFeatures.includes(feature))
+			.map((reference) => reference.id);
+		const forbiddingReferenceIds = references
+			.filter((reference) => reference.forbiddenFeatures.includes(feature))
+			.map((reference) => reference.id);
+
+		if (allowingReferenceIds.length > 0 && forbiddingReferenceIds.length > 0) {
+			conflicts.push({
+				allowingReferenceIds,
+				feature,
+				forbiddingReferenceIds,
+			});
+			continue;
+		}
+
+		if (forbiddingReferenceIds.length > 0) {
 			effectiveForbiddenFeatures.push(feature);
 			continue;
 		}
 
-		const isTransferred = references.some((reference) =>
-			reference.transferredFeatures.includes(feature)
-		);
-		if (isTransferred) {
+		if (allowingReferenceIds.length > 0) {
 			effectiveTransferredFeatures.push(feature);
 		}
 	}
 
 	return {
-		conflicts: [],
+		conflicts,
 		effectiveForbiddenFeatures,
 		effectiveTransferredFeatures,
 	};

@@ -240,8 +240,10 @@ test("uploads a reference image and reads its persisted preview through the serv
 	expect(new Uint8Array(await preview.arrayBuffer())).toEqual(bytes);
 });
 
-test("a prohibition overrides another Reference Role's allowance on the reference board", async () => {
+test("shows unresolved conflicts between opposing Reference Role rules on the reference board", async () => {
 	const store = new MemoryReferenceProductionStore();
+	const forbiddingReferenceId = crypto.randomUUID();
+	const allowingReferenceId = crypto.randomUUID();
 	const image = referenceBoardImageSchema.parse({
 		assetRecordId,
 		conflictFeatures: [],
@@ -253,7 +255,7 @@ test("a prohibition overrides another Reference Role's allowance on the referenc
 		fileName: "avoid-palette.png",
 		forbiddenFeatures: ["palette"],
 		history: [],
-		id: crypto.randomUUID(),
+		id: forbiddingReferenceId,
 		notes: null,
 		revision: 1,
 		role: "avoid",
@@ -270,7 +272,7 @@ test("a prohibition overrides another Reference Role's allowance on the referenc
 		contextOverrideRationale: null,
 		customPurpose: null,
 		forbiddenFeatures: [],
-		id: crypto.randomUUID(),
+		id: allowingReferenceId,
 		notes: null,
 		role: "palette" as const,
 		transferredFeatures: ["palette" as const],
@@ -294,8 +296,17 @@ test("a prohibition overrides another Reference Role's allowance on the referenc
 		{ context }
 	);
 
-	expect(board.conflicts).toEqual([]);
+	expect(board.conflicts).toEqual([
+		{
+			allowingReferenceIds: [allowingReferenceId],
+			feature: "palette",
+			forbiddingReferenceIds: [forbiddingReferenceId],
+		},
+	]);
 	expect(board.effectiveTransferredFeatures).toEqual([]);
-	expect(board.effectiveForbiddenFeatures).toEqual(["palette"]);
-	expect(board.imageReferences[0]?.conflictFeatures).toEqual([]);
+	expect(board.effectiveForbiddenFeatures).toEqual([]);
+	expect(board.imageReferences[0]?.conflictFeatures).toEqual(["palette"]);
+	expect(board.assetVersionReferences[0]?.conflictFeatures).toEqual([
+		"palette",
+	]);
 });
