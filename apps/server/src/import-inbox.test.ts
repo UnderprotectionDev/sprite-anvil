@@ -938,6 +938,116 @@ test("protects source metadata proposals with project access and inbox membershi
 	expect(inaccessibleProject.status).toBe(404);
 });
 
+test("allows an optional nine-slice conflict to remain unknown when the frame is unchanged", async () => {
+	const { app, targetAssetRecordId, createdVersions } = mountTestApp();
+	const imageBytes = await sharp({
+		create: { width: 1, height: 1, channels: 4, background: "white" },
+	})
+		.png()
+		.toBuffer();
+	const sourceId = crypto.randomUUID();
+	const firstSidecarId = crypto.randomUUID();
+	const secondSidecarId = crypto.randomUUID();
+	const sidecar = (insets: number) =>
+		new TextEncoder().encode(
+			JSON.stringify({
+				frames: [
+					{
+						filename: "walk-0",
+						frame: {
+							h: 1,
+							w: 1,
+							x: 0,
+							y: 0,
+						},
+						nineSlice: {
+							bottom: insets,
+							left: insets,
+							right: insets,
+							top: insets,
+						},
+					},
+				],
+				meta: {
+					app: "https://aseprite.org/",
+					image: "source.png",
+					version: "1.3.10",
+				},
+			})
+		);
+	const uploads = await Promise.all([
+		app.request(
+			`/api/projects/${projectId}/import-inbox`,
+			uploadRequest("source.png", imageBytes, sourceId)
+		),
+		app.request(
+			`/api/projects/${projectId}/import-inbox`,
+			uploadRequest("first.json", sidecar(1), firstSidecarId)
+		),
+		app.request(
+			`/api/projects/${projectId}/import-inbox`,
+			uploadRequest("second.json", sidecar(2), secondSidecarId)
+		),
+	]);
+	expect(uploads.map((response) => response.status)).toEqual([201, 201, 201]);
+
+	const proposalResponse = await app.request(
+		`/api/projects/${projectId}/import-inbox/${sourceId}/source-metadata-mapping-proposals`,
+		{
+			method: "POST",
+			headers: {
+				authorization: `Bearer ${userId}`,
+				"content-type": "application/json",
+			},
+			body: JSON.stringify({
+				sidecarEntryIds: [firstSidecarId, secondSidecarId],
+			}),
+		}
+	);
+	expect(proposalResponse.status).toBe(201);
+	const proposal = sourceMetadataMappingProposalSchema.parse(
+		await proposalResponse.json()
+	);
+	expect(proposal.conflicts.map(({ field, key }) => [field, key])).toEqual([
+		["nine-slice", "walk-0"],
+	]);
+
+	const finalizationResponse = await app.request(
+		`/api/projects/${projectId}/import-inbox/${sourceId}/source-metadata-mapping-proposals/${proposal.id}/finalization`,
+		{
+			method: "POST",
+			headers: {
+				authorization: `Bearer ${userId}`,
+				"content-type": "application/json",
+			},
+			body: JSON.stringify({
+				assetRecordId: targetAssetRecordId,
+				decisions: [
+					{
+						field: "nine-slice",
+						key: "walk-0",
+						sourceEntryId: null,
+						sourcePath: null,
+					},
+				],
+			}),
+		}
+	);
+	expect(finalizationResponse.status).toBe(201);
+	expect(await finalizationResponse.json()).toMatchObject({
+		assetRecordId: targetAssetRecordId,
+		decisions: [
+			{
+				field: "nine-slice",
+				key: "walk-0",
+				sourceEntryId: null,
+				sourcePath: null,
+			},
+		],
+	});
+	expect(createdVersions).toHaveLength(1);
+});
+
 test("finalizes a source metadata mapping into one rereadable Candidate Version", async () => {
 	const {
 		app,

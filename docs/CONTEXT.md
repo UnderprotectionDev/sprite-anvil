@@ -38,6 +38,7 @@ English terms are the canonical technical names used in code and contracts. Turk
 | Live File Link | Canlı Dosya Bağlantısı |
 | External Working File Edit | Harici Çalışma Dosyası Düzenlemesi |
 | Source Metadata Mapping Proposal | Kaynak Metadata Eşleme Önerisi |
+| Source Metadata Mapping Finalization | Kaynak Metadata Eşleme Kesinleştirmesi |
 | Approved Version | Onaylı Sürüm |
 | Review Event | İnceleme Kaydı |
 | Human-Gated Action | Kullanıcı Kesinleştirmeli İşlem |
@@ -236,6 +237,10 @@ _Avoid_: Workbench edit, Live File Link, manual import
 **Source Metadata Mapping Proposal**:
 A reviewable draft that maps documented metadata from an imported PNG or sprite sheet and its supported JSON sidecar to proposed Asset Family, Required Set, Gameplay Metadata, and QA fields. Required conflicts remain unresolved until the user decides them; optional fields may remain explicitly unknown. The proposal never establishes production lineage, approval, or authoritative gameplay meaning by itself.
 _Avoid_: Imported truth, automatic family inference, legacy asset attestation
+
+**Source Metadata Mapping Finalization**:
+A record of a user's field-level decisions that resolves required conflicts in a Source Metadata Mapping Proposal, may leave optional values explicitly unknown, and links that proposal to a target Asset Record and resulting Candidate Version. It does not approve the Candidate Version, establish production lineage, or assign authoritative Gameplay Metadata.
+_Avoid_: Approved mapping, imported truth, automatic family inference
 
 **Import Inbox Entry**:
 A Managed Snapshot imported without an authoritative target relationship. It may carry source facts and mapping proposals, but it is not an Asset Record or Candidate Version and cannot be approved or exported; resolving it against a target creates the Candidate Version.
