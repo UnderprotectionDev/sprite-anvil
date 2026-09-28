@@ -1,7 +1,8 @@
 import type { AssetRecordCreateInput } from "@sprite-anvil/api/asset-records";
-import { Button } from "@sprite-anvil/ui/components/button";
+import { Button, buttonVariants } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { type ReactNode, type SyntheticEvent, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AssetRecordSearchPanel } from "@/features/asset-discovery/ui/components/asset-record-search-panel";
@@ -216,11 +217,24 @@ export function AssetRecordsView({
 
 	return (
 		<main className="mx-auto w-full max-w-3xl space-y-8 overflow-y-auto px-4 py-8">
-			<header className="space-y-2">
-				<p className="text-muted-foreground text-sm">Varlık çalışma alanı</p>
-				<h1 className="font-bold text-3xl">
-					{projectQuery.data?.name ?? "Oyun projesi"}
-				</h1>
+			<header className="space-y-3">
+				<div className="flex flex-wrap items-start justify-between gap-3">
+					<div className="space-y-2">
+						<p className="text-muted-foreground text-sm">
+							Varlık çalışma alanı
+						</p>
+						<h1 className="font-bold text-3xl">
+							{projectQuery.data?.name ?? "Oyun projesi"}
+						</h1>
+					</div>
+					<Link
+						className={`${buttonVariants({ variant: "outline" })} min-h-11`}
+						params={{ projectId }}
+						to="/projects/$projectId/import-inbox"
+					>
+						İçe Aktarma Gelen Kutusu
+					</Link>
+				</div>
 				<p className="text-muted-foreground">
 					Bağımsız ürün anlamı, yaşam döngüsü veya teslimat kimliği olan
 					görselleri aynı Varlık Kaydı altında izleyin.

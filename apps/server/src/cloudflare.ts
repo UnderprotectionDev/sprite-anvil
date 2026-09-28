@@ -46,6 +46,20 @@ export const referenceBoardObjectKeySchema = z
 		)
 	);
 
+export const importInboxObjectKeySchema = z
+	.string()
+	.regex(
+		new RegExp(
+			"^projects/" +
+				projectKeySegmentPattern +
+				"/import-inbox/" +
+				uuidPattern +
+				"/" +
+				uuidPattern +
+				"$"
+		)
+	);
+
 export const legacyAssetKeySchema = z
 	.string()
 	.regex(/^users\/[a-zA-Z0-9-]+\/[a-zA-Z0-9-]+\.(png|webp)$/);
@@ -68,6 +82,22 @@ export function createProjectAssetVersionObjectKey(
 	const projectKeySegment = encodeURIComponent(projectId);
 	return assetVersionObjectKeySchema.parse(
 		`projects/${projectKeySegment}/asset-records/${assetRecordId}/versions/${assetVersionId}`
+	);
+}
+
+export function createProjectImportInboxObjectKey(
+	projectId: string,
+	entryId: string,
+	uploadAttemptId: string
+) {
+	const projectKeySegment = encodeURIComponent(projectId);
+	return importInboxObjectKeySchema.parse(
+		"projects/" +
+			projectKeySegment +
+			"/import-inbox/" +
+			entryId +
+			"/" +
+			uploadAttemptId
 	);
 }
 
@@ -227,7 +257,7 @@ export function createStorage(
 		async put(
 			key: string,
 			body: ReadableStream<Uint8Array>,
-			contentType: "image/png" | "image/webp",
+			contentType: "image/png" | "image/webp" | "application/octet-stream",
 			contentLength?: number
 		) {
 			await client.send(
@@ -269,6 +299,18 @@ export function createStorage(
 		},
 	};
 }
+
+export type TwoDVisualAssetStorage = Pick<
+	ReturnType<typeof createStorage>,
+	"delete" | "get"
+> & {
+	put: (
+		key: string,
+		body: ReadableStream<Uint8Array>,
+		contentType: (typeof twoDVisualAssetUploadContentTypeSchema)["_output"],
+		contentLength: number
+	) => Promise<void>;
+};
 
 function isMissingObject(error: unknown) {
 	if (!error || typeof error !== "object") {

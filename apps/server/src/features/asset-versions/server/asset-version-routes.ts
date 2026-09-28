@@ -6,7 +6,10 @@ import {
 } from "@sprite-anvil/api/asset-versions";
 import type { Context, Hono } from "hono";
 import z from "zod";
-import type { createStorage } from "../../../cloudflare";
+import type {
+	createStorage,
+	TwoDVisualAssetStorage,
+} from "../../../cloudflare";
 import {
 	assetVersionObjectKeySchema,
 	createProjectAssetVersionObjectKey,
@@ -46,10 +49,7 @@ export interface AssetVersionSession {
 export interface AssetVersionRouteDependencies {
 	assetVersionStore: AssetVersionStore;
 	createId?: () => string;
-	createStorage: () => Pick<
-		ReturnType<typeof createStorage>,
-		"delete" | "get" | "put"
-	>;
+	createStorage: () => TwoDVisualAssetStorage;
 	getProjectForUser: (
 		userId: string,
 		projectId: string

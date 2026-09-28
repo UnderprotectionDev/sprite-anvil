@@ -1,0 +1,1 @@
+ALTER TABLE "import_inbox_entries" DROP CONSTRAINT "import_inbox_entries_content_length_check", ADD CONSTRAINT "import_inbox_entries_content_length_check" CHECK ("content_length" >= 0);

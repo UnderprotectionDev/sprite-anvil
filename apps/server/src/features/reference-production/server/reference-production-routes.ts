@@ -13,7 +13,7 @@ import {
 } from "@sprite-anvil/api/reference-production";
 import type { Context, Hono } from "hono";
 import z from "zod";
-import type { createStorage } from "../../../cloudflare";
+import type { TwoDVisualAssetStorage } from "../../../cloudflare";
 import { createProjectReferenceBoardObjectKey } from "../../../cloudflare";
 import { serializePublicApiError } from "../../../output-contracts";
 import {
@@ -32,15 +32,13 @@ const uploadLengthPattern = /^[1-9]\d*$/;
 const metadataEncodingPattern = /^[A-Za-z0-9_-]+$/;
 const maxUploadBytes = 5 * 1024 * 1024;
 
-type Storage = Pick<ReturnType<typeof createStorage>, "delete" | "get" | "put">;
-
 export interface ReferenceBoardSession {
 	user: { id: string };
 }
 
 export interface ReferenceProductionRouteDependencies {
 	createId?: () => string;
-	createStorage: () => Storage;
+	createStorage: () => TwoDVisualAssetStorage;
 	getProjectForUser: (
 		userId: string,
 		projectId: string
@@ -262,7 +260,7 @@ async function uploadReferenceImage(
 		uploadHeaders.contentType,
 		uploadHeaders.contentLength
 	);
-	let storage: Storage | undefined;
+	let storage: TwoDVisualAssetStorage | undefined;
 	let objectStored = false;
 	try {
 		storage = dependencies.createStorage();

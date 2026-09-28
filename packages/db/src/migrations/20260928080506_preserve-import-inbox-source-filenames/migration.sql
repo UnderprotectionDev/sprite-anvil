@@ -1,0 +1,1 @@
+ALTER TABLE "import_inbox_entries" DROP CONSTRAINT "import_inbox_entries_file_name_check", ADD CONSTRAINT "import_inbox_entries_file_name_check" CHECK (char_length("file_name") BETWEEN 1 AND 255);
