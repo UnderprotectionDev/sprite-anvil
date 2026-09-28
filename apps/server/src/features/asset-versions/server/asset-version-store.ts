@@ -57,6 +57,10 @@ import {
 import { generationPackages } from "@sprite-anvil/db/schema/generation-packages";
 import { and, asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import {
+	hasManualImportEvidence,
+	isManualImportEvidenceRequired,
+} from "../../asset-records/server/manual-import-evidence-gate";
+import {
 	toManagedSnapshot,
 	toManualImportEvidence,
 } from "../../production-provenance/server/production-provenance-mapper";
@@ -171,6 +175,7 @@ function toAssetVersion(
 		contentDigest: record.contentDigest ?? record.sha256,
 		productionEvidence,
 		integrityVerified: record.integrityVerified,
+		sourceKind: record.sourceKind,
 		previewUrl: `/api/projects/${encodeURIComponent(record.projectId)}/asset-versions/${record.id}/preview`,
 		reviewDisposition: reviewEvents.at(-1)?.type ?? "candidate",
 		reviewEvents,
@@ -189,7 +194,7 @@ async function readVersionProductionEvidence(
 			.where(
 				and(
 					eq(manualImportEvidence.projectId, record.projectId),
-					eq(manualImportEvidence.assetVersionId, record.id)
+					eq(manualImportEvidence.versionId, record.id)
 				)
 			)
 			.orderBy(asc(manualImportEvidence.revision)),
@@ -324,7 +329,8 @@ async function readExistingVersion(
 		existing.contentDigest !== input.contentDigest ||
 		existing.byteSize !== input.contentLength ||
 		existing.contentType !== input.contentType ||
-		existing.sourceKind !== (input.sourceKind ?? "manual_import")
+		existing.sourceKind !==
+			(unitCorrection ? "derived" : (input.sourceKind ?? "manual_import"))
 	) {
 		return { kind: "idempotency-conflict" };
 	}
@@ -407,11 +413,13 @@ async function insertCandidateVersion(
 			objectKey: input.objectKey,
 			fileName: input.fileName,
 			contentType: input.contentType,
-			sourceKind: input.sourceKind ?? "manual_import",
 			sha256: input.contentDigest,
 			byteSize: input.contentLength,
 			contentDigest: input.contentDigest,
 			integrityVerified: input.integrityVerified,
+			sourceKind: unitCorrection
+				? "derived"
+				: (input.sourceKind ?? "manual_import"),
 			idempotencyKey: input.idempotencyKey,
 			createdByUserId: userId,
 		})
@@ -543,7 +551,7 @@ async function persistManualImportEvidence(
 		.where(
 			and(
 				eq(manualImportEvidence.projectId, input.projectId),
-				eq(manualImportEvidence.assetVersionId, input.versionId)
+				eq(manualImportEvidence.versionId, input.versionId)
 			)
 		)
 		.orderBy(desc(manualImportEvidence.revision))
@@ -562,12 +570,12 @@ async function persistManualImportEvidence(
 			id: crypto.randomUUID(),
 			projectId: input.projectId,
 			assetRecordId: input.assetRecordId,
-			assetVersionId: input.versionId,
+			versionId: input.versionId,
 			generationPackageId: input.generationPackageId,
 			revision,
 			sourceSurface: input.sourceSurface,
-			actualInstruction: input.actualInstruction,
-			recordedByUserId: userId,
+			generationInstruction: input.actualInstruction,
+			createdByUserId: userId,
 		})
 		.onConflictDoNothing()
 		.returning();
@@ -584,7 +592,7 @@ async function persistManualImportEvidence(
 		.where(
 			and(
 				eq(manualImportEvidence.projectId, input.projectId),
-				eq(manualImportEvidence.assetVersionId, input.versionId)
+				eq(manualImportEvidence.versionId, input.versionId)
 			)
 		)
 		.orderBy(desc(manualImportEvidence.revision))
@@ -606,7 +614,7 @@ function isSameManualImportEvidence(
 		row &&
 			row.generationPackageId === input.generationPackageId &&
 			row.sourceSurface === input.sourceSurface &&
-			row.actualInstruction === input.actualInstruction
+			row.generationInstruction === input.actualInstruction
 	);
 }
 
@@ -873,7 +881,7 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 					.from(manualImportEvidence)
 					.where(eq(manualImportEvidence.projectId, projectId))
 					.orderBy(
-						asc(manualImportEvidence.assetVersionId),
+						asc(manualImportEvidence.versionId),
 						asc(manualImportEvidence.revision)
 					),
 				db
@@ -925,7 +933,7 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 			const manualEvidenceByVersion = new Map<string, ManualImportEvidence>();
 			for (const evidenceRow of manualEvidenceRows) {
 				manualEvidenceByVersion.set(
-					evidenceRow.assetVersionId,
+					evidenceRow.versionId,
 					toManualImportEvidence(evidenceRow)
 				);
 			}
@@ -1240,6 +1248,17 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 			if (
 				input.decision === "approved" &&
 				!(version.integrityVerified && version.contentDigest)
+			) {
+				return null;
+			}
+			if (
+				input.decision === "approved" &&
+				isManualImportEvidenceRequired(version.sourceKind) &&
+				!(await hasManualImportEvidence(db, {
+					assetRecordId: version.assetRecordId,
+					projectId: input.projectId,
+					versionId: version.id,
+				}))
 			) {
 				return null;
 			}

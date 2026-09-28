@@ -4,12 +4,19 @@ import type { AssetFamilyCatalog } from "@sprite-anvil/api/asset-families";
 import type { AssetVersionCatalog } from "@sprite-anvil/api/asset-versions";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
 import { afterEach, expect, test, vi } from "vitest";
 import type { useAssetVersionWrites } from "../hooks/use-asset-version-writes";
 import { AssetVersionControls } from "./asset-version-controls";
 
 vi.mock("./composite-version-controls", () => ({
 	CompositeVersionControls: () => null,
+}));
+
+vi.mock("@tanstack/react-router", () => ({
+	Link: ({ children }: { children: ReactNode }) => (
+		<a href="/projects">{children}</a>
+	),
 }));
 
 vi.mock("./unit-version-correction-form", () => ({

@@ -278,8 +278,8 @@ test("creates a corrected Unit Version atomically with its new Candidate Version
 		version: {
 			id: versionId,
 			productionEvidence: {
-				evidenceLevel: "incomplete",
-				sourceKind: "manual_import",
+				evidenceLevel: "unknown",
+				sourceKind: "derived",
 			},
 			reviewDisposition: "candidate",
 		},
@@ -310,8 +310,8 @@ test("creates a corrected Unit Version atomically with its new Candidate Version
 		catalog?.assetVersions.find((version) => version.id === versionId)
 			?.productionEvidence
 	).toMatchObject({
-		evidenceLevel: "incomplete",
-		sourceKind: "manual_import",
+		evidenceLevel: "unknown",
+		sourceKind: "derived",
 	});
 	expect(catalog?.unitVersions).toEqual([
 		expect.objectContaining({

@@ -23,6 +23,7 @@ const sourceKindLabels: Record<
 > = {
 	manual_import: "Elle içe aktarım",
 	external_working_file_edit: "Harici çalışma dosyası düzenlemesi",
+	derived: "Türetilmiş sürüm",
 	legacy_asset: "Geçmiş varlık",
 	unknown: "Bilinmiyor",
 };

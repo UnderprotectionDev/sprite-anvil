@@ -70,12 +70,46 @@ const preserveImportInboxSourceFileNamesMigration = readMigration(
 const legacyAttestationDetailsMigration = readMigration(
 	"./migrations/20260928113737_hot_the_professor/migration.sql"
 );
+const sourceMetadataMappingProposalMigration = readMigration(
+	"./migrations/20260928145019_tiny_magma/migration.sql"
+);
 const generationPackageMigration = readMigration(
 	"./migrations/20260927224924_safe_vance_astro/migration.sql"
 );
-const productionProvenanceMigration = readMigration(
-	"./migrations/20260928150408_organic_beyonder/migration.sql"
+const manualImportEvidenceMigration = readMigration(
+	"./migrations/20260928151800_manual-import-evidence/migration.sql"
 );
+const sourceMetadataProjectScopeMigration =
+	readdirSync(new URL("./migrations/", import.meta.url))
+		.map((directory) => {
+			const path = new URL(
+				`./migrations/${directory}/migration.sql`,
+				import.meta.url
+			);
+			return existsSync(path) ? readFileSync(path, "utf8") : "";
+		})
+		.find((contents) =>
+			contents.includes(
+				"source_metadata_mapping_proposals_project_source_entry_fk"
+			)
+		) ?? "";
+const productionProvenanceMigrationDirectory = readdirSync(
+	new URL("./migrations/", import.meta.url)
+).find((directory) => {
+	const path = new URL(
+		`./migrations/${directory}/migration.sql`,
+		import.meta.url
+	);
+	return (
+		existsSync(path) &&
+		readFileSync(path, "utf8").includes('CREATE TABLE "managed_snapshots"')
+	);
+});
+const productionProvenanceMigration = productionProvenanceMigrationDirectory
+	? readMigration(
+			`./migrations/${productionProvenanceMigrationDirectory}/migration.sql`
+		)
+	: "";
 
 test("normalizes legacy project ownership before current indexes and foreign keys", () => {
 	const renameOwnerColumn = migration.indexOf(
@@ -533,16 +567,17 @@ test("adds portable production evidence while preserving unknown legacy sources"
 	expect(productionProvenanceMigration).toContain(
 		'CREATE TABLE "managed_snapshots"'
 	);
-	expect(productionProvenanceMigration).toContain(
+	expect(productionProvenanceMigration).not.toContain(
 		'CREATE TABLE "manual_import_evidence"'
 	);
 	expect(productionProvenanceMigration).toContain(
-		"ADD COLUMN \"source_kind\" text DEFAULT 'unknown' NOT NULL"
+		"manual_import_evidence_revision_idx"
 	);
 	expect(productionProvenanceMigration).not.toContain(
 		'UPDATE "asset_versions" SET "source_kind"'
 	);
 	expect(productionProvenanceMigration).toContain("external_working_file_edit");
+	expect(productionProvenanceMigration).toContain("revision");
 	expect(productionProvenanceMigration).toContain(
 		'CONSTRAINT "managed_snapshots_sha256_check"'
 	);
@@ -550,12 +585,20 @@ test("adds portable production evidence while preserving unknown legacy sources"
 		'FOREIGN KEY ("project_id","asset_version_id","asset_record_id") REFERENCES "asset_versions"'
 	);
 
+	if (!productionProvenanceMigrationDirectory) {
+		throw new Error("The production provenance migration was not generated.");
+	}
 	const snapshot = JSON.parse(
-		readMigration("./migrations/20260928150408_organic_beyonder/snapshot.json")
+		readMigration(
+			`./migrations/${productionProvenanceMigrationDirectory}/snapshot.json`
+		)
 	) as { ddl: Record<string, unknown>[]; prevIds: string[] };
-	expect(snapshot.prevIds).toEqual(
-		expect.arrayContaining(["fcd0d62c-308e-47a0-bfc1-a472ea37fd87"])
-	);
+	const previousSnapshot = JSON.parse(
+		readMigration(
+			"./migrations/20260928161540_cultured_rick_jones/snapshot.json"
+		)
+	) as { id: string };
+	expect(snapshot.prevIds).toContain(previousSnapshot.id);
 	for (const table of ["managed_snapshots", "manual_import_evidence"]) {
 		expect(snapshot.ddl).toContainEqual(
 			expect.objectContaining({
@@ -611,7 +654,7 @@ test("preserves exact Import Inbox source file names in the database", () => {
 			),
 			"utf8"
 		)
-	) as { prevIds: string[] };
+	) as { id: string; prevIds: string[] };
 
 	expect(preserveImportInboxSourceFileNamesMigration).toContain(
 		'CHECK (char_length("file_name") BETWEEN 1 AND 255)'
@@ -620,6 +663,56 @@ test("preserves exact Import Inbox source file names in the database", () => {
 		'btrim("file_name")'
 	);
 	expect(preserveNamesSnapshot.prevIds).toContain(allowEmptySnapshot.id);
+});
+
+test("persists source metadata proposals with managed-file provenance", () => {
+	const mappingSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260928145019_tiny_magma/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as {
+		ddl: Record<string, unknown>[];
+		prevIds: string[];
+	};
+	const attestationDetailsSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260928113737_hot_the_professor/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { id: string };
+
+	expect(sourceMetadataMappingProposalMigration).toContain(
+		'CREATE TABLE "source_metadata_mapping_proposals"'
+	);
+	expect(sourceMetadataMappingProposalMigration).toContain(
+		'"proposal" jsonb NOT NULL'
+	);
+	expect(sourceMetadataMappingProposalMigration).toContain(
+		'FOREIGN KEY ("source_entry_id") REFERENCES "import_inbox_entries"("id") ON DELETE RESTRICT'
+	);
+	expect(mappingSnapshot.prevIds).toContain(attestationDetailsSnapshot.id);
+	expect(mappingSnapshot.ddl).toContainEqual(
+		expect.objectContaining({
+			entityType: "tables",
+			name: "source_metadata_mapping_proposals",
+			schema: "public",
+		})
+	);
+	expect(mappingSnapshot.ddl).toContainEqual(
+		expect.objectContaining({
+			entityType: "columns",
+			name: "proposal",
+			schema: "public",
+			table: "source_metadata_mapping_proposals",
+		})
+	);
 });
 
 test("stores missing legacy history details without filling earlier user statements", () => {
@@ -687,4 +780,63 @@ test("stores Production Context Snapshots with project and Asset Record ownershi
 	expect(generationPackageMigration).toContain(
 		'FOREIGN KEY ("created_by_user_id") REFERENCES "user"("id") ON DELETE RESTRICT'
 	);
+});
+
+test("links Manual Import Evidence to its exact Generation Package and Asset Version", () => {
+	expect(manualImportEvidenceMigration).toContain(
+		'CREATE TABLE "manual_import_evidence"'
+	);
+	expect(manualImportEvidenceMigration).toContain(
+		'ALTER TABLE "asset_versions" ADD COLUMN "source_kind" text DEFAULT \'unknown\' NOT NULL'
+	);
+	expect(manualImportEvidenceMigration).toContain(
+		"\"source_kind\" IN ('unknown', 'legacy_asset', 'manual_import', 'derived')"
+	);
+	expect(manualImportEvidenceMigration).toContain(
+		'FOREIGN KEY ("project_id","version_id","asset_record_id") REFERENCES "asset_versions"("project_id","id","asset_record_id") ON DELETE RESTRICT'
+	);
+	expect(manualImportEvidenceMigration).toContain(
+		'FOREIGN KEY ("project_id","asset_record_id","generation_package_id") REFERENCES "generation_packages"("project_id","asset_record_id","id") ON DELETE RESTRICT'
+	);
+	expect(manualImportEvidenceMigration).toContain(
+		'char_length("generation_instruction") BETWEEN 1 AND 100000'
+	);
+});
+
+test("continues Manual Import Evidence after the applied source metadata migration", () => {
+	const sourceMetadataSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260928145019_tiny_magma/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { id: string };
+	const manualImportEvidenceSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260928151800_manual-import-evidence/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { prevIds: string[] };
+
+	expect(sourceMetadataMappingProposalMigration).toContain(
+		'CREATE TABLE "source_metadata_mapping_proposals"'
+	);
+	expect(manualImportEvidenceSnapshot.prevIds).toContain(
+		sourceMetadataSnapshot.id
+	);
+});
+
+test("scopes source metadata proposals to an Import Inbox entry in the same project", () => {
+	expect(sourceMetadataProjectScopeMigration).toContain(
+		'CREATE UNIQUE INDEX "import_inbox_entries_project_id_id_idx" ON "import_inbox_entries" ("project_id","id")'
+	);
+	expect(sourceMetadataProjectScopeMigration).toContain(
+		'FOREIGN KEY ("project_id","source_entry_id") REFERENCES "import_inbox_entries"("project_id","id") ON DELETE RESTRICT'
+	);
+	expect(sourceMetadataProjectScopeMigration).toContain("DROP CONSTRAINT");
 });

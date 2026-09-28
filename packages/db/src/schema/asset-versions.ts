@@ -31,6 +31,7 @@ export const assetVersions = pgTable(
 				| "manual_import"
 				| "external_working_file_edit"
 				| "legacy_asset"
+				| "derived"
 				| "unknown"
 			>()
 			.default("unknown")
@@ -91,7 +92,7 @@ export const assetVersions = pgTable(
 		),
 		check(
 			"asset_versions_source_kind_check",
-			sql`${table.sourceKind} IN ('manual_import', 'external_working_file_edit', 'legacy_asset', 'unknown')`
+			sql`${table.sourceKind} IN ('manual_import', 'external_working_file_edit', 'legacy_asset', 'derived', 'unknown')`
 		),
 		check(
 			"asset_versions_source_image_dimensions_check",

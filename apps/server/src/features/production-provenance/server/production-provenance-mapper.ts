@@ -35,10 +35,10 @@ export function toManualImportEvidence(
 	record: typeof manualImportEvidence.$inferSelect
 ): ManualImportEvidence {
 	return manualImportEvidenceSummarySchema.parse({
-		actualInstruction: record.actualInstruction,
+		actualInstruction: record.generationInstruction,
 		generationPackageId: record.generationPackageId,
 		id: record.id,
-		recordedAt: toISOString(record.recordedAt),
+		recordedAt: toISOString(record.createdAt),
 		revision: record.revision,
 		sourceSurface: record.sourceSurface,
 	});

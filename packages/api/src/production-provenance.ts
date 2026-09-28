@@ -18,6 +18,7 @@ export const productionSourceKindSchema = z.enum([
 	"manual_import",
 	"external_working_file_edit",
 	"legacy_asset",
+	"derived",
 	"unknown",
 ]);
 
@@ -29,12 +30,12 @@ export const productionEvidenceLevelSchema = z.enum([
 
 export const manualImportEvidenceSummarySchema = z
 	.object({
-		actualInstruction: z.string().min(1).max(20_000),
+		actualInstruction: z.string().min(1).max(100_000),
 		generationPackageId: z.uuid(),
 		id: z.uuid(),
 		recordedAt: z.iso.datetime(),
 		revision: z.number().int().positive(),
-		sourceSurface: z.string().min(1).max(120),
+		sourceSurface: z.string().min(1).max(255),
 	})
 	.strict();
 export type ManualImportEvidence = z.infer<
@@ -46,12 +47,12 @@ export const manualImportEvidenceInputSchema = z
 		actualInstruction: z
 			.string()
 			.min(1)
-			.max(20_000)
+			.max(100_000)
 			.refine((value) => value.trim().length > 0),
 		assetRecordId: z.uuid(),
 		generationPackageId: z.uuid(),
 		projectId: z.uuid(),
-		sourceSurface: z.string().trim().min(1).max(120),
+		sourceSurface: z.string().trim().min(1).max(255),
 		versionId: z.uuid(),
 	})
 	.strict();

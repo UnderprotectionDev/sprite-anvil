@@ -4,6 +4,7 @@ import type {
 	AssetRecordTrackingStoreResult,
 	AssetVersionCreateInput,
 	AssetVersionSummary,
+	ManualImportVersionCreateInput,
 } from "@sprite-anvil/api/asset-record-tracking";
 import {
 	assetVersionReviewDispositionSchema,
@@ -11,7 +12,10 @@ import {
 } from "@sprite-anvil/api/asset-record-tracking";
 import { createVersionProductionEvidence } from "@sprite-anvil/api/production-provenance";
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
-import { legacyAssetAttestations } from "@sprite-anvil/db/schema/asset-production-history";
+import {
+	legacyAssetAttestations,
+	manualImportEvidence,
+} from "@sprite-anvil/db/schema/asset-production-history";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
 import {
 	assetVersionQualityEvidence,
@@ -51,6 +55,7 @@ function toVersionSummary(
 		fileName: version.fileName,
 		id: version.id,
 		productionEvidence: createVersionProductionEvidence(version.sourceKind),
+		sourceKind: version.sourceKind,
 		reviewDisposition: disposition,
 		sha256: version.sha256,
 		sourceImageHeight: version.sourceImageHeight,
@@ -142,7 +147,7 @@ export async function getSourceImageDimensions(
 }
 
 async function prepareUpload(
-	input: AssetVersionCreateInput
+	input: AssetVersionCreateInput | ManualImportVersionCreateInput
 ): Promise<PreparedAssetVersionUpload | null> {
 	const bytes = Buffer.from(input.contentBase64, "base64");
 	if (
@@ -193,10 +198,10 @@ async function getCurrentDisposition(
 
 function sameVersionPayload(
 	version: typeof assetVersions.$inferSelect,
-	attestation: typeof legacyAssetAttestations.$inferSelect | undefined,
 	userId: string,
-	input: AssetVersionCreateInput,
-	upload: PreparedAssetVersionUpload
+	input: AssetVersionCreateInput | ManualImportVersionCreateInput,
+	upload: PreparedAssetVersionUpload,
+	provenanceMatches: boolean
 ) {
 	return Boolean(
 		version.projectId === input.projectId &&
@@ -212,21 +217,16 @@ function sameVersionPayload(
 			version.objectKey ===
 				createAssetVersionObjectKey(input.projectId, input.id, upload.sha256) &&
 			version.createdByUserId === userId &&
-			attestation?.projectId === input.projectId &&
-			attestation.versionId === input.id &&
-			attestation.attestedByUserId === userId &&
-			attestation.knownSource === input.knownSource &&
-			attestation.supportingEvidence === input.supportingEvidence &&
-			attestation.unknownHistoryDetails === input.unknownHistoryDetails &&
-			attestation.userRelationship === input.userRelationship &&
-			attestation.historyUnknown === input.historyUnknown
+			version.sourceKind ===
+				("generationPackageId" in input ? "manual_import" : "legacy_asset") &&
+			provenanceMatches
 	);
 }
 
 async function findExistingVersion(
 	db: Database,
 	userId: string,
-	input: AssetVersionCreateInput,
+	input: AssetVersionCreateInput | ManualImportVersionCreateInput,
 	upload: PreparedAssetVersionUpload
 ): Promise<
 	| { kind: "absent" }
@@ -241,17 +241,47 @@ async function findExistingVersion(
 	if (!version) {
 		return { kind: "absent" };
 	}
-	const [attestation] = await db
-		.select()
-		.from(legacyAssetAttestations)
-		.where(
-			and(
-				eq(legacyAssetAttestations.projectId, input.projectId),
-				eq(legacyAssetAttestations.versionId, input.id)
+	let provenanceMatches = false;
+	if ("generationPackageId" in input) {
+		const [evidence] = await db
+			.select()
+			.from(manualImportEvidence)
+			.where(
+				and(
+					eq(manualImportEvidence.projectId, input.projectId),
+					eq(manualImportEvidence.versionId, input.id)
+				)
 			)
-		)
-		.limit(1);
-	if (!sameVersionPayload(version, attestation, userId, input, upload)) {
+			.limit(1);
+		provenanceMatches = Boolean(
+			evidence?.assetRecordId === input.assetRecordId &&
+				evidence.generationPackageId === input.generationPackageId &&
+				evidence.sourceSurface === input.sourceSurface &&
+				evidence.generationInstruction === input.generationInstruction &&
+				evidence.createdByUserId === userId
+		);
+	} else {
+		const [attestation] = await db
+			.select()
+			.from(legacyAssetAttestations)
+			.where(
+				and(
+					eq(legacyAssetAttestations.projectId, input.projectId),
+					eq(legacyAssetAttestations.versionId, input.id)
+				)
+			)
+			.limit(1);
+		provenanceMatches = Boolean(
+			attestation?.versionId === input.id &&
+				attestation.attestedByUserId === userId &&
+				attestation.knownSource === input.knownSource &&
+				attestation.supportingEvidence === input.supportingEvidence &&
+				attestation.unknownHistoryDetails === input.unknownHistoryDetails &&
+				attestation.userRelationship === input.userRelationship &&
+				attestation.historyUnknown === input.historyUnknown
+		);
+	}
+	if (!sameVersionPayload(version, userId, input, upload, provenanceMatches)) {
 		return { kind: "conflict" };
 	}
 	return {
@@ -283,65 +313,90 @@ async function getNextVersionNumber(
 async function insertVersionRows(
 	db: Database,
 	userId: string,
-	input: AssetVersionCreateInput,
+	input: AssetVersionCreateInput | ManualImportVersionCreateInput,
 	upload: PreparedAssetVersionUpload,
 	assetFamilyId: string | null,
 	versionNumber: number,
 	createdAt: Date
 ) {
-	const [versionRows] = await db.batch([
-		db
-			.insert(assetVersions)
-			.values({
-				id: input.id,
-				projectId: input.projectId,
-				assetRecordId: input.assetRecordId,
-				assetFamilyId,
-				versionNumber,
-				fileName: input.fileName,
-				contentType: input.contentType,
-				sourceKind: "legacy_asset",
-				sourceImageWidth: upload.sourceImageWidth,
-				sourceImageHeight: upload.sourceImageHeight,
-				sha256: upload.sha256,
-				byteSize: upload.bytes.length,
-				contentDigest: upload.sha256,
-				integrityVerified: true,
-				objectKey: upload.objectKey,
-				createdByUserId: userId,
-				createdAt,
-			})
-			.returning(),
-		db
-			.insert(assetVersionQualityEvidence)
-			.values({
-				id: crypto.randomUUID(),
-				projectId: input.projectId,
-				versionId: input.id,
-				gate: "format_signature",
-				result: "matched",
-				sha256: upload.sha256,
-				byteSize: upload.bytes.length,
-				createdByUserId: userId,
-				createdAt,
-			})
-			.returning(),
-		db
-			.insert(legacyAssetAttestations)
-			.values({
-				id: crypto.randomUUID(),
-				projectId: input.projectId,
-				versionId: input.id,
-				knownSource: input.knownSource,
-				userRelationship: input.userRelationship,
-				supportingEvidence: input.supportingEvidence,
-				unknownHistoryDetails: input.unknownHistoryDetails,
-				historyUnknown: input.historyUnknown,
-				attestedByUserId: userId,
-				createdAt,
-			})
-			.returning(),
-	]);
+	const versionInsert = db
+		.insert(assetVersions)
+		.values({
+			id: input.id,
+			projectId: input.projectId,
+			assetRecordId: input.assetRecordId,
+			assetFamilyId,
+			versionNumber,
+			fileName: input.fileName,
+			contentType: input.contentType,
+			sourceImageWidth: upload.sourceImageWidth,
+			sourceImageHeight: upload.sourceImageHeight,
+			sha256: upload.sha256,
+			byteSize: upload.bytes.length,
+			contentDigest: upload.sha256,
+			integrityVerified: true,
+			sourceKind:
+				"generationPackageId" in input ? "manual_import" : "legacy_asset",
+			objectKey: upload.objectKey,
+			createdByUserId: userId,
+			createdAt,
+		})
+		.returning();
+	const qualityInsert = db
+		.insert(assetVersionQualityEvidence)
+		.values({
+			id: crypto.randomUUID(),
+			projectId: input.projectId,
+			versionId: input.id,
+			gate: "format_signature",
+			result: "matched",
+			sha256: upload.sha256,
+			byteSize: upload.bytes.length,
+			createdByUserId: userId,
+			createdAt,
+		})
+		.returning();
+	let versionRows: (typeof assetVersions.$inferSelect)[] | undefined;
+	if ("generationPackageId" in input) {
+		[versionRows] = await db.batch([
+			versionInsert,
+			qualityInsert,
+			db
+				.insert(manualImportEvidence)
+				.values({
+					id: crypto.randomUUID(),
+					projectId: input.projectId,
+					assetRecordId: input.assetRecordId,
+					versionId: input.id,
+					generationPackageId: input.generationPackageId,
+					sourceSurface: input.sourceSurface,
+					generationInstruction: input.generationInstruction,
+					createdByUserId: userId,
+					createdAt,
+				})
+				.returning(),
+		]);
+	} else {
+		[versionRows] = await db.batch([
+			versionInsert,
+			qualityInsert,
+			db
+				.insert(legacyAssetAttestations)
+				.values({
+					id: crypto.randomUUID(),
+					projectId: input.projectId,
+					versionId: input.id,
+					knownSource: input.knownSource,
+					userRelationship: input.userRelationship,
+					supportingEvidence: input.supportingEvidence,
+					unknownHistoryDetails: input.unknownHistoryDetails,
+					historyUnknown: input.historyUnknown,
+					attestedByUserId: userId,
+					createdAt,
+				})
+				.returning(),
+		]);
+	}
 	const [version] = versionRows as (typeof assetVersions.$inferSelect)[];
 	return version ?? null;
 }
@@ -349,7 +404,7 @@ async function insertVersionRows(
 async function persistVersionWithRetries(
 	db: Database,
 	userId: string,
-	input: AssetVersionCreateInput,
+	input: AssetVersionCreateInput | ManualImportVersionCreateInput,
 	upload: PreparedAssetVersionUpload,
 	assetFamilyId: string | null
 ): Promise<AssetRecordTrackingStoreResult<AssetVersionSummary>> {
@@ -393,7 +448,7 @@ async function createVersion(
 	db: Database,
 	storage: AssetVersionObjectStorage | null,
 	userId: string,
-	input: AssetVersionCreateInput
+	input: AssetVersionCreateInput | ManualImportVersionCreateInput
 ): Promise<AssetRecordTrackingStoreResult<AssetVersionSummary>> {
 	const ownedProject = await getProjectForUser(db, userId, input.projectId);
 	if (!ownedProject) {
@@ -456,5 +511,9 @@ export function createAssetVersionWriter(
 	return {
 		create: (userId: string, input: AssetVersionCreateInput) =>
 			createVersion(db, storage, userId, input),
+		createManualImport: (
+			userId: string,
+			input: ManualImportVersionCreateInput
+		) => createVersion(db, storage, userId, input),
 	};
 }

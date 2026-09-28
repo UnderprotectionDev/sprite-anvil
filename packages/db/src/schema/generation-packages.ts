@@ -39,6 +39,11 @@ export const generationPackages = pgTable(
 			table.projectId,
 			table.id
 		),
+		uniqueIndex("generation_packages_project_record_id_idx").on(
+			table.projectId,
+			table.assetRecordId,
+			table.id
+		),
 		index("generation_packages_project_record_created_at_idx").on(
 			table.projectId,
 			table.assetRecordId,

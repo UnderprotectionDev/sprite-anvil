@@ -343,6 +343,23 @@ async function handleAssetVersionUploadRequest(
 			);
 		}
 		sourceKind = parsedSourceKind.data;
+		if (sourceKind !== "external_working_file_edit") {
+			const assetRecord =
+				await dependencies.assetVersionStore.getAssetRecordForUpload(
+					access.ownerUserId,
+					projectId,
+					parsedAssetRecordId.data
+				);
+			if (!assetRecord) {
+				return c.json(serializePublicApiError("Not found"), 404);
+			}
+			return c.json(
+				serializePublicApiError(
+					"Manual Import Evidence is required for Asset Version uploads"
+				),
+				400
+			);
+		}
 	}
 
 	return uploadAssetVersion(

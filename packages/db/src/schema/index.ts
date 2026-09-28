@@ -15,3 +15,4 @@ export * from "./project";
 export * from "./project-access";
 export * from "./project-context";
 export * from "./reference-production";
+export * from "./source-metadata-mapping";

@@ -92,7 +92,7 @@ export const generationPackagesRouter = {
 			if (referenceAnalysis.conflicts.length > 0) {
 				throw new ORPCError("CONFLICT", {
 					message:
-						"Eş kapsamlı referans aktarım çelişkileri çözülmeden Üretim Paketi oluşturulamaz.",
+						"Referans aktarım kurallarındaki izin-yasak çelişkileri çözülmeden Üretim Paketi oluşturulamaz.",
 				});
 			}
 

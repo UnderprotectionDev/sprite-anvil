@@ -240,11 +240,12 @@ function upload(
 	app: Hono,
 	bytes: Uint8Array,
 	declaredLength: number,
+	route: "versions" | "unit-versions" = "versions",
 	contentType = "image/png",
 	sourceKind?: string
 ) {
 	return app.request(
-		`/api/projects/${projectId}/asset-records/${assetRecordId}/versions`,
+		`/api/projects/${projectId}/asset-records/${assetRecordId}/${route}`,
 		{
 			method: "POST",
 			headers: {
@@ -253,6 +254,14 @@ function upload(
 				"X-Asset-Version-Size": declaredLength.toString(),
 				"Idempotency-Key": "asset-version-route-test",
 				...(sourceKind ? { "X-Asset-Version-Source-Kind": sourceKind } : {}),
+				...(route === "unit-versions"
+					? {
+							"X-Source-Asset-Version-Id":
+								"a17f5ff0-a50d-438f-8bf2-a0152b42c301",
+							"X-Unit-Version-Type": "frame",
+							"X-Unit-Version-Key": "attack/frame-3",
+						}
+					: {}),
 			},
 			body: bytes,
 		}
@@ -276,6 +285,7 @@ test("creates an external working-file Candidate Version only with the explicit 
 		app,
 		png,
 		png.byteLength,
+		"versions",
 		"image/png",
 		"external_working_file_edit"
 	);
@@ -303,6 +313,7 @@ test("rejects unsupported source kind claims before reading the upload", async (
 		app,
 		new Uint8Array([1]),
 		1,
+		"versions",
 		"image/png",
 		"legacy_asset"
 	);
@@ -315,11 +326,37 @@ test("rejects unsupported source kind claims before reading the upload", async (
 test("denies Asset Version uploads before reading project or storage without a session", async () => {
 	const { app, calls } = createRouteHarness(null);
 
-	const response = await upload(app, new Uint8Array([1]), 1);
+	const response = await upload(app, new Uint8Array([1]), 1, "versions");
 
 	expect(response.status).toBe(401);
 	expect(calls.storage).toBe(0);
 	expect(calls.candidateVersion).toBe(0);
+});
+
+test("requires Manual Import Evidence before accepting a direct Asset Version upload", async () => {
+	const { app, calls, objects } = createRouteHarness();
+	const png = await sharp({
+		create: {
+			width: 1,
+			height: 1,
+			channels: 4,
+			background: { r: 255, g: 64, b: 128, alpha: 1 },
+		},
+	})
+		.png()
+		.toBuffer();
+
+	const response = await upload(app, png, png.byteLength, "versions");
+	const error = await response.json();
+
+	expect(response.status).toBe(400);
+	expect(error).toMatchObject({
+		error: "Manual Import Evidence is required for Asset Version uploads",
+	});
+	expect(calls.storage).toBe(0);
+	expect(calls.put).toBe(0);
+	expect(calls.candidateVersion).toBe(0);
+	expect(objects.size).toBe(0);
 });
 
 test("denies Unit Version uploads before reading storage without a session", async () => {
@@ -376,7 +413,14 @@ test("rejects invalid Unit Version metadata before storing the uploaded object",
 test("rejects a declared upload length that is larger than the streamed content and removes the object", async () => {
 	const { app, calls, objects } = createRouteHarness();
 
-	const response = await upload(app, new Uint8Array([1]), 2);
+	const response = await upload(
+		app,
+		new Uint8Array([1]),
+		2,
+		"versions",
+		"image/png",
+		"external_working_file_edit"
+	);
 	const error = await response.json();
 
 	expect(response.status).toBe(400);
@@ -392,7 +436,14 @@ test("rejects a declared upload length that is larger than the streamed content 
 test("rejects streamed content that exceeds the declared length and removes the object", async () => {
 	const { app, calls, objects } = createRouteHarness();
 
-	const response = await upload(app, new Uint8Array([1, 2]), 1);
+	const response = await upload(
+		app,
+		new Uint8Array([1, 2]),
+		1,
+		"versions",
+		"image/png",
+		"external_working_file_edit"
+	);
 	const error = await response.json();
 
 	expect(response.status).toBe(400);
@@ -407,7 +458,14 @@ test("rejects streamed content that exceeds the declared length and removes the 
 test("rejects a PNG signature without a complete valid image", async () => {
 	const { app, calls, objects } = createRouteHarness();
 
-	const response = await upload(app, new Uint8Array([137, 80, 78, 71]), 4);
+	const response = await upload(
+		app,
+		new Uint8Array([137, 80, 78, 71]),
+		4,
+		"versions",
+		"image/png",
+		"external_working_file_edit"
+	);
 	const error = await response.json();
 
 	expect(response.status).toBe(422);
@@ -433,7 +491,14 @@ test("retains an uploaded object when candidate persistence has an uncertain out
 		.png()
 		.toBuffer();
 
-	const response = await upload(app, png, png.byteLength);
+	const response = await upload(
+		app,
+		png,
+		png.byteLength,
+		"versions",
+		"image/png",
+		"external_working_file_edit"
+	);
 
 	expect(response.status).toBe(503);
 	expect(calls.candidateVersion).toBe(1);

@@ -607,34 +607,53 @@ export function AssetRecordTrackingPanel({
 		const manualEvidenceIncomplete =
 			version.productionEvidence.sourceKind === "manual_import" &&
 			version.productionEvidence.evidenceLevel === "incomplete";
+		const hasManualImportEvidence = tracking.manualImportEvidence?.some(
+			(evidence) => evidence.assetVersionId === version.id
+		);
+		const manualImportEvidenceMissing =
+			tracking.manualImportEvidenceRequiredVersionIds.includes(version.id) &&
+			!hasManualImportEvidence;
+		const managedSnapshotIncomplete =
+			version.productionEvidence.sourceKind === "external_working_file_edit" &&
+			version.productionEvidence.evidenceLevel === "incomplete";
+		const approvalEvidenceMissing =
+			manualEvidenceIncomplete ||
+			manualImportEvidenceMissing ||
+			managedSnapshotIncomplete;
 		const decisions = [
 			{ decision: "approved", label: "Onayla" },
 			{ decision: "rejected", label: "Reddet" },
 			{ decision: "candidate", label: "Aday yap" },
 		] as const;
 		return (
-			<div className="flex flex-wrap gap-2">
-				{decisions.map(({ decision, label }) => (
-					<Button
-						disabled={
-							activeWrite !== null ||
-							writeOutcomeUncertain ||
-							version.reviewDisposition === decision ||
-							(decision === "approved" && manualEvidenceIncomplete)
-						}
-						key={decision}
-						onClick={() => void recordReview(version.id, decision)}
-						size="sm"
-						type="button"
-						variant={decision === "approved" ? "default" : "outline"}
-					>
-						{label}
-					</Button>
-				))}
-				{manualEvidenceIncomplete ? (
-					<p className="w-full text-muted-foreground text-xs" role="status">
-						Onaydan önce Üretim Paketi, kaynak yüzeyi ve gerçek üretim
-						talimatını kaydedin.
+			<div className="space-y-2">
+				<div className="flex flex-wrap gap-2">
+					{decisions.map(({ decision, label }) => (
+						<Button
+							disabled={
+								activeWrite !== null ||
+								writeOutcomeUncertain ||
+								version.reviewDisposition === decision ||
+								(decision === "approved" && approvalEvidenceMissing)
+							}
+							key={decision}
+							onClick={() => void recordReview(version.id, decision)}
+							size="sm"
+							type="button"
+							variant={decision === "approved" ? "default" : "outline"}
+						>
+							{label}
+						</Button>
+					))}
+				</div>
+				{manualEvidenceIncomplete || manualImportEvidenceMissing ? (
+					<p className="text-muted-foreground text-xs" role="status">
+						Onay için Elle İçe Aktarma Kanıtı gerekir.
+					</p>
+				) : null}
+				{managedSnapshotIncomplete ? (
+					<p className="text-muted-foreground text-xs" role="status">
+						Onaydan önce çalışma dosyasının Yönetilen Kopyasını kaydedin.
 					</p>
 				) : null}
 			</div>
@@ -892,6 +911,37 @@ export function AssetRecordTrackingPanel({
 							Henüz üretim geçmişi yok.
 						</p>
 					)}
+					<div className="mt-4 border-t pt-3">
+						<h4 className="font-medium text-sm">Elle İçe Aktarma Kanıtı</h4>
+						{tracking.manualImportEvidence?.length ? (
+							<ul className="mt-2 space-y-3 text-sm">
+								{tracking.manualImportEvidence.map((entry) => (
+									<li className="space-y-1" key={entry.id}>
+										<p>
+											{entry.fileName} · Sürüm {entry.versionNumber} ·{" "}
+											{entry.sourceSurface}
+										</p>
+										<p className="text-muted-foreground text-xs">
+											Üretim Paketi {entry.generationPackageId} · SHA-256{" "}
+											{entry.sha256}
+										</p>
+										<details>
+											<summary className="cursor-pointer text-xs underline underline-offset-4">
+												Gerçek üretim talimatını görüntüle
+											</summary>
+											<p className="mt-2 whitespace-pre-wrap text-sm">
+												{entry.generationInstruction}
+											</p>
+										</details>
+									</li>
+								))}
+							</ul>
+						) : (
+							<p className="mt-2 text-muted-foreground text-sm">
+								Henüz Elle İçe Aktarma Kanıtı yok.
+							</p>
+						)}
+					</div>
 				</section>
 			</div>
 

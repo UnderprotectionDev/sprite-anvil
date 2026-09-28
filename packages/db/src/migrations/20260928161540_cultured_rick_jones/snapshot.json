@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "6b4f245c-a191-4cd4-a1f8-2808ec051300",
+  "id": "1d389508-a56c-43d0-a891-b1ad8723c674",
   "prevIds": [
-    "fcd0d62c-308e-47a0-bfc1-a472ea37fd87"
+    "129472ee-24a1-43b8-b7e4-6d311dc8d3d0"
   ],
   "ddl": [
     {
@@ -40,12 +40,6 @@
     {
       "isRlsEnabled": false,
       "name": "legacy_asset_attestations",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "managed_snapshots",
       "entityType": "tables",
       "schema": "public"
     },
@@ -238,6 +232,12 @@
     {
       "isRlsEnabled": false,
       "name": "reference_board_images",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "source_metadata_mapping_proposals",
       "entityType": "tables",
       "schema": "public"
     },
@@ -603,149 +603,6 @@
       "name": "id",
       "entityType": "columns",
       "schema": "public",
-      "table": "managed_snapshots"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "project_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "managed_snapshots"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "asset_record_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "managed_snapshots"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "asset_version_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "managed_snapshots"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "file_name",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "managed_snapshots"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "byte_size",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "managed_snapshots"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "sha256",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "managed_snapshots"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "object_key",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "managed_snapshots"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "idempotency_key",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "managed_snapshots"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "created_by_user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "managed_snapshots"
-    },
-    {
-      "type": "timestamp",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "managed_snapshots"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
       "table": "manual_import_evidence"
     },
     {
@@ -782,7 +639,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "asset_version_id",
+      "name": "version_id",
       "entityType": "columns",
       "schema": "public",
       "table": "manual_import_evidence"
@@ -796,19 +653,6 @@
       "generated": null,
       "identity": null,
       "name": "generation_package_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "manual_import_evidence"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "revision",
       "entityType": "columns",
       "schema": "public",
       "table": "manual_import_evidence"
@@ -834,7 +678,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "actual_instruction",
+      "name": "generation_instruction",
       "entityType": "columns",
       "schema": "public",
       "table": "manual_import_evidence"
@@ -847,7 +691,7 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "recorded_by_user_id",
+      "name": "created_by_user_id",
       "entityType": "columns",
       "schema": "public",
       "table": "manual_import_evidence"
@@ -860,7 +704,7 @@
       "default": "now()",
       "generated": null,
       "identity": null,
-      "name": "recorded_at",
+      "name": "created_at",
       "entityType": "columns",
       "schema": "public",
       "table": "manual_import_evidence"
@@ -2036,19 +1880,6 @@
       "table": "asset_versions"
     },
     {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "'unknown'",
-      "generated": null,
-      "identity": null,
-      "name": "source_kind",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "asset_versions"
-    },
-    {
       "type": "integer",
       "typeSchema": null,
       "notNull": false,
@@ -2122,6 +1953,19 @@
       "generated": null,
       "identity": null,
       "name": "integrity_verified",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "asset_versions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'unknown'",
+      "generated": null,
+      "identity": null,
+      "name": "source_kind",
       "entityType": "columns",
       "schema": "public",
       "table": "asset_versions"
@@ -4467,6 +4311,84 @@
       "table": "reference_board_images"
     },
     {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "source_metadata_mapping_proposals"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "project_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "source_metadata_mapping_proposals"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "source_entry_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "source_metadata_mapping_proposals"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "proposal",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "source_metadata_mapping_proposals"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "created_by_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "source_metadata_mapping_proposals"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "source_metadata_mapping_proposals"
+    },
+    {
       "nameExplicit": true,
       "columns": [
         {
@@ -4624,14 +4546,7 @@
           "opclass": null
         },
         {
-          "value": "asset_version_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "idempotency_key",
+          "value": "version_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -4643,10 +4558,10 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "managed_snapshots_idempotency_idx",
+      "name": "manual_import_evidence_project_version_idx",
       "entityType": "indexes",
       "schema": "public",
-      "table": "managed_snapshots"
+      "table": "manual_import_evidence"
     },
     {
       "nameExplicit": true,
@@ -4659,7 +4574,7 @@
           "opclass": null
         },
         {
-          "value": "asset_version_id",
+          "value": "asset_record_id",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -4678,70 +4593,7 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "managed_snapshots_version_created_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "managed_snapshots"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "project_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "asset_version_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "revision",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "manual_import_evidence_revision_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "manual_import_evidence"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "project_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "generation_package_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "manual_import_evidence_generation_package_idx",
+      "name": "manual_import_evidence_project_record_created_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "manual_import_evidence"
@@ -6598,6 +6450,41 @@
           "opclass": null
         },
         {
+          "value": "id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "generation_packages_project_record_id_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "generation_packages"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "asset_record_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
           "value": "created_at",
           "isExpression": false,
           "asc": true,
@@ -6660,6 +6547,34 @@
       "method": "btree",
       "concurrently": false,
       "name": "import_inbox_entries_project_created_at_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "import_inbox_entries"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "import_inbox_entries_project_id_id_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "import_inbox_entries"
@@ -7015,6 +6930,41 @@
       "table": "reference_board_images"
     },
     {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "source_entry_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "source_metadata_mapping_proposals_source_created_at_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "source_metadata_mapping_proposals"
+    },
+    {
       "nameExplicit": false,
       "columns": [
         "created_by_user_id"
@@ -7224,45 +7174,7 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
-      "name": "managed_snapshots_created_by_user_id_user_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "managed_snapshots"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "project_id",
-        "asset_version_id",
-        "asset_record_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "asset_versions",
-      "columnsTo": [
-        "project_id",
-        "id",
-        "asset_record_id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "managed_snapshots_version_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "managed_snapshots"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "recorded_by_user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "user",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "manual_import_evidence_recorded_by_user_id_user_id_fkey",
+      "name": "manual_import_evidence_created_by_user_id_user_id_fkey",
       "entityType": "fks",
       "schema": "public",
       "table": "manual_import_evidence"
@@ -7271,7 +7183,7 @@
       "nameExplicit": true,
       "columns": [
         "project_id",
-        "asset_version_id",
+        "version_id",
         "asset_record_id"
       ],
       "schemaTo": "public",
@@ -7292,12 +7204,14 @@
       "nameExplicit": true,
       "columns": [
         "project_id",
+        "asset_record_id",
         "generation_package_id"
       ],
       "schemaTo": "public",
       "tableTo": "generation_packages",
       "columnsTo": [
         "project_id",
+        "asset_record_id",
         "id"
       ],
       "onUpdate": "NO ACTION",
@@ -8662,6 +8576,59 @@
       "table": "reference_board_images"
     },
     {
+      "nameExplicit": false,
+      "columns": [
+        "project_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "project",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "source_metadata_mapping_proposals_project_id_project_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "source_metadata_mapping_proposals"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "created_by_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "user",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "source_metadata_mapping_proposals_ck9pkd0cooe9_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "source_metadata_mapping_proposals"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "project_id",
+        "source_entry_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "import_inbox_entries",
+      "columnsTo": [
+        "project_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "source_metadata_mapping_proposals_project_source_entry_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "source_metadata_mapping_proposals"
+    },
+    {
       "columns": [
         "project_id",
         "asset_record_id"
@@ -8712,16 +8679,6 @@
       "name": "legacy_asset_attestations_pkey",
       "schema": "public",
       "table": "legacy_asset_attestations",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "managed_snapshots_pkey",
-      "schema": "public",
-      "table": "managed_snapshots",
       "entityType": "pks"
     },
     {
@@ -9025,6 +8982,16 @@
       "entityType": "pks"
     },
     {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "source_metadata_mapping_proposals_pkey",
+      "schema": "public",
+      "table": "source_metadata_mapping_proposals",
+      "entityType": "pks"
+    },
+    {
       "nameExplicit": false,
       "columns": [
         "token"
@@ -9082,43 +9049,15 @@
       "table": "legacy_asset_attestations"
     },
     {
-      "value": "\"file_name\" = btrim(\"file_name\") AND char_length(\"file_name\") BETWEEN 1 AND 255 AND position('/' in \"file_name\") = 0 AND position(chr(92) in \"file_name\") = 0",
-      "name": "managed_snapshots_file_name_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "managed_snapshots"
-    },
-    {
-      "value": "\"byte_size\" > 0",
-      "name": "managed_snapshots_byte_size_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "managed_snapshots"
-    },
-    {
-      "value": "\"sha256\" ~ '^[a-f0-9]{64}$'",
-      "name": "managed_snapshots_sha256_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "managed_snapshots"
-    },
-    {
-      "value": "\"source_surface\" = btrim(\"source_surface\") AND char_length(\"source_surface\") BETWEEN 1 AND 120",
+      "value": "\"source_surface\" = btrim(\"source_surface\") AND char_length(\"source_surface\") BETWEEN 1 AND 255",
       "name": "manual_import_evidence_source_surface_check",
       "entityType": "checks",
       "schema": "public",
       "table": "manual_import_evidence"
     },
     {
-      "value": "char_length(btrim(\"actual_instruction\")) > 0 AND char_length(\"actual_instruction\") <= 20000",
-      "name": "manual_import_evidence_instruction_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "manual_import_evidence"
-    },
-    {
-      "value": "\"revision\" > 0",
-      "name": "manual_import_evidence_revision_check",
+      "value": "char_length(\"generation_instruction\") BETWEEN 1 AND 100000 AND char_length(btrim(\"generation_instruction\")) > 0",
+      "name": "manual_import_evidence_generation_instruction_check",
       "entityType": "checks",
       "schema": "public",
       "table": "manual_import_evidence"
@@ -9278,13 +9217,6 @@
       "table": "asset_versions"
     },
     {
-      "value": "\"source_kind\" IN ('manual_import', 'external_working_file_edit', 'legacy_asset', 'unknown')",
-      "name": "asset_versions_source_kind_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "asset_versions"
-    },
-    {
       "value": "(\"source_image_width\" IS NULL AND \"source_image_height\" IS NULL) OR (\"source_image_width\" IS NOT NULL AND \"source_image_height\" IS NOT NULL AND \"source_image_width\" > 0 AND \"source_image_height\" > 0)",
       "name": "asset_versions_source_image_dimensions_check",
       "entityType": "checks",
@@ -9308,6 +9240,13 @@
     {
       "value": "\"integrity_verified\" = false OR \"content_digest\" IS NOT NULL",
       "name": "asset_versions_integrity_digest_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "asset_versions"
+    },
+    {
+      "value": "\"source_kind\" IN ('unknown', 'legacy_asset', 'manual_import', 'derived')",
+      "name": "asset_versions_source_kind_check",
       "entityType": "checks",
       "schema": "public",
       "table": "asset_versions"

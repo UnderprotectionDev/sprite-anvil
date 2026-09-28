@@ -197,12 +197,81 @@ test("exposes uploaded reference images as list items", async () => {
 	expect(await screen.findAllByRole("listitem")).toHaveLength(1);
 });
 
-test("explains that explicit prohibitions override allowances across references", () => {
+test("explains that opposing reference rules block package creation", () => {
 	renderBoard();
 
 	expect(
 		screen.getByText(
-			"Bir referanstaki açık yasak, diğer referanslardaki aynı özellik iznini geçersiz kılar."
+			"Aynı özellik için izin ve yasak çakışırsa Üretim Paketi oluşturulamaz; kurallardan birini düzenleyerek çelişkiyi giderin."
 		)
 	).toBeVisible();
+});
+
+test("shows opposing transfer rules and explains that package creation is blocked", async () => {
+	const timestamp = new Date().toISOString();
+	const allowingReferenceId = crypto.randomUUID();
+	const forbiddingReferenceId = crypto.randomUUID();
+	fakeApi.board = {
+		assetVersionReferences: [],
+		conflicts: [
+			{
+				allowingReferenceIds: [allowingReferenceId],
+				feature: "palette",
+				forbiddingReferenceIds: [forbiddingReferenceId],
+			},
+		],
+		effectiveForbiddenFeatures: [],
+		effectiveTransferredFeatures: [],
+		imageReferences: [
+			{
+				assetRecordId,
+				conflictFeatures: ["palette"],
+				contentLength: 4,
+				contentType: "image/png",
+				contextOverrideRationale: null,
+				createdAt: timestamp,
+				customPurpose: null,
+				fileName: "palette-reference.png",
+				forbiddenFeatures: [],
+				history: [],
+				id: allowingReferenceId,
+				notes: null,
+				revision: 1,
+				role: "palette",
+				sha256: "a".repeat(64),
+				sortOrder: 0,
+				transferredFeatures: ["palette"],
+				updatedAt: timestamp,
+			},
+			{
+				assetRecordId,
+				conflictFeatures: ["palette"],
+				contentLength: 4,
+				contentType: "image/png",
+				contextOverrideRationale: null,
+				createdAt: timestamp,
+				customPurpose: null,
+				fileName: "avoid-palette.png",
+				forbiddenFeatures: ["palette"],
+				history: [],
+				id: forbiddingReferenceId,
+				notes: null,
+				revision: 1,
+				role: "avoid",
+				sha256: "b".repeat(64),
+				sortOrder: 1,
+				transferredFeatures: [],
+				updatedAt: timestamp,
+			},
+		],
+	};
+	renderBoard();
+
+	const conflictAlert = await screen.findByRole("alert", {
+		name: "Çözülmemiş aktarım çelişkileri",
+	});
+	expect(conflictAlert).toHaveTextContent("Palet");
+	expect(conflictAlert).toHaveTextContent("palette-reference.png");
+	expect(conflictAlert).toHaveTextContent("avoid-palette.png");
+	expect(conflictAlert).toHaveTextContent("Üretim Paketi oluşturulamaz");
 });

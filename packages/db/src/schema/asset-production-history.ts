@@ -117,20 +117,20 @@ export const manualImportEvidence = pgTable(
 		id: text("id").primaryKey(),
 		projectId: text("project_id").notNull(),
 		assetRecordId: text("asset_record_id").notNull(),
-		assetVersionId: text("asset_version_id").notNull(),
+		versionId: text("version_id").notNull(),
 		generationPackageId: text("generation_package_id").notNull(),
-		revision: integer("revision").notNull(),
+		revision: integer("revision").default(1).notNull(),
 		sourceSurface: text("source_surface").notNull(),
-		actualInstruction: text("actual_instruction").notNull(),
-		recordedByUserId: text("recorded_by_user_id")
+		generationInstruction: text("generation_instruction").notNull(),
+		createdByUserId: text("created_by_user_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "restrict" }),
-		recordedAt: timestamp("recorded_at").defaultNow().notNull(),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
 	},
 	(table) => [
 		foreignKey({
 			name: "manual_import_evidence_version_fk",
-			columns: [table.projectId, table.assetVersionId, table.assetRecordId],
+			columns: [table.projectId, table.versionId, table.assetRecordId],
 			foreignColumns: [
 				assetVersions.projectId,
 				assetVersions.id,
@@ -139,26 +139,35 @@ export const manualImportEvidence = pgTable(
 		}).onDelete("restrict"),
 		foreignKey({
 			name: "manual_import_evidence_generation_package_fk",
-			columns: [table.projectId, table.generationPackageId],
-			foreignColumns: [generationPackages.projectId, generationPackages.id],
+			columns: [
+				table.projectId,
+				table.assetRecordId,
+				table.generationPackageId,
+			],
+			foreignColumns: [
+				generationPackages.projectId,
+				generationPackages.assetRecordId,
+				generationPackages.id,
+			],
 		}).onDelete("restrict"),
 		check(
 			"manual_import_evidence_source_surface_check",
-			sql`${table.sourceSurface} = btrim(${table.sourceSurface}) AND char_length(${table.sourceSurface}) BETWEEN 1 AND 120`
+			sql`${table.sourceSurface} = btrim(${table.sourceSurface}) AND char_length(${table.sourceSurface}) BETWEEN 1 AND 255`
 		),
 		check(
-			"manual_import_evidence_instruction_check",
-			sql`char_length(btrim(${table.actualInstruction})) > 0 AND char_length(${table.actualInstruction}) <= 20000`
+			"manual_import_evidence_generation_instruction_check",
+			sql`char_length(${table.generationInstruction}) BETWEEN 1 AND 100000 AND char_length(btrim(${table.generationInstruction})) > 0`
 		),
 		check("manual_import_evidence_revision_check", sql`${table.revision} > 0`),
 		uniqueIndex("manual_import_evidence_revision_idx").on(
 			table.projectId,
-			table.assetVersionId,
+			table.versionId,
 			table.revision
 		),
-		index("manual_import_evidence_generation_package_idx").on(
+		index("manual_import_evidence_project_record_created_idx").on(
 			table.projectId,
-			table.generationPackageId
+			table.assetRecordId,
+			table.createdAt
 		),
 	]
 );

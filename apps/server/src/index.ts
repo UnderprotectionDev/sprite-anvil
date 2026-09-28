@@ -34,6 +34,7 @@ import {
 	importInboxStore,
 	managedSnapshotStore,
 	referenceProductionStore,
+	sourceMetadataMappingProposalStore,
 } from "./services";
 
 const app = new Hono();
@@ -126,6 +127,7 @@ mountReferenceProductionRoutes(app, {
 
 mountImportInboxRoutes(app, {
 	importInboxStore,
+	sourceMetadataMappingProposalStore,
 	getSession: (headers) => auth.api.getSession({ headers }),
 	getProjectForUser: async (userId, projectId) =>
 		getProjectForUser(db, userId, projectId),

@@ -2,11 +2,11 @@
 
 Kullanıcı tek bir dış üretim denemesi için etkin proje kurallarını, hedefi ve korunacak özellikleri değişmez ve incelenebilir Üretim Paketinde bir araya getirir. Açık Varlık Kaydında bağlam, Görsel Dünya, Tema, ölçüler, Ana Tasarım ve iş hedefi birlikte görülebilir.
 
-Paket etkin Üretim Bağlamı Kopyasını, hedef görev ve ölçüleri, kesin Ana Tasarımı, referans amaçlarını, korunacak ve değişecek özellikleri, dokunulmayacak birimleri ve beklenen çıktı yapısını sabitler. Bir Referans Kullanım Amacındaki açık yasak, başka bir amaçtaki aynı özellik iznine üstün gelir; yasaklı özellik aktarılmaz ve paket oluşturulabilir.
+Paket etkin Üretim Bağlamı Kopyasını, hedef görev ve ölçüleri, kesin Ana Tasarımı, referans amaçlarını, korunacak ve değişecek özellikleri, dokunulmayacak birimleri ve beklenen çıktı yapısını sabitler. Aynı Varlık Kaydının referans kurallarında aynı özellik için izin ve yasak varsa paket oluşmaz; kullanıcı çelişkiyi giderdikten sonra yeni değişmez bir paket oluşturabilir.
 
 ## Tamamlanma Ölçütleri
 
-- Kullanıcı çelişkisiz, tek denemeye bağlı paketi inceleyip dış üretimde kullanır; paket ve bağlam kopyası sonradan değişmez.
+- Çözümlenmemiş izin-yasak çelişkisi görünür olur ve paket oluşturmaz. Kullanıcı çelişkiyi giderdikten sonra tek denemeye bağlı paketi inceler ve dış üretimde kullanır; paket ve bağlam kopyası sonradan değişmez.
 
 ## Kapsam Sınırları
 
