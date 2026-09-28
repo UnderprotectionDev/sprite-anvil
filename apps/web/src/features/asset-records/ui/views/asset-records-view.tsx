@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, type SyntheticEvent, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AssetRecordSearchPanel } from "@/features/asset-discovery/ui/components/asset-record-search-panel";
+import { GenerationPackagePanel } from "@/features/generation-packages/ui/views/generation-package-panel";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
@@ -443,6 +444,13 @@ export function AssetRecordDetailView({
 						/>
 					)}
 					{trackingPanel}
+					{record.availability === "erased" ? null : (
+						<GenerationPackagePanel
+							key={record.id}
+							projectId={projectId}
+							record={record}
+						/>
+					)}
 				</>
 			) : null}
 		</main>

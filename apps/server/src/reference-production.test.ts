@@ -240,7 +240,7 @@ test("uploads a reference image and reads its persisted preview through the serv
 	expect(new Uint8Array(await preview.arrayBuffer())).toEqual(bytes);
 });
 
-test("lists equal-specificity conflict between existing and uploaded references", async () => {
+test("a prohibition overrides another Reference Role's allowance on the reference board", async () => {
 	const store = new MemoryReferenceProductionStore();
 	const image = referenceBoardImageSchema.parse({
 		assetRecordId,
@@ -294,12 +294,8 @@ test("lists equal-specificity conflict between existing and uploaded references"
 		{ context }
 	);
 
-	expect(board.conflicts).toEqual([
-		{
-			allowingReferenceIds: [assetVersionReference.id],
-			feature: "palette",
-			forbiddingReferenceIds: [image.id],
-		},
-	]);
-	expect(board.imageReferences[0]?.conflictFeatures).toEqual(["palette"]);
+	expect(board.conflicts).toEqual([]);
+	expect(board.effectiveTransferredFeatures).toEqual([]);
+	expect(board.effectiveForbiddenFeatures).toEqual(["palette"]);
+	expect(board.imageReferences[0]?.conflictFeatures).toEqual([]);
 });

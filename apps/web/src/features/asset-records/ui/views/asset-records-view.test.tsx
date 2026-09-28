@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import type { AssetRecord } from "@sprite-anvil/api/asset-records";
+import type { GenerationPackage } from "@sprite-anvil/api/generation-packages";
 import {
 	cleanup,
 	fireEvent,
@@ -24,6 +25,7 @@ vi.mock("sonner", () => ({
 const projectId = "c2edb5dc-a82f-42b2-84bb-a878ca20fabf";
 const identityCheckboxName = /^Bağımsız ürün anlamı/;
 const archivedRecordStatus = /Kayıt durumu · Arşivlenmiş/;
+const archivedPackageSummary = /Archived attack package/;
 const fileBoundaryCopy =
 	/dosya veya düzenlenebilir kare olması tek başına yeni kayıt gerekçesi değildir/i;
 const generalSupportCopy = "Genel Varlık Desteği · Özel profil kanıtı yok";
@@ -69,6 +71,8 @@ const fakeApi = vi.hoisted(() => ({
 	archive: vi.fn(),
 	create: vi.fn(),
 	createReference: vi.fn(),
+	createGenerationPackage: vi.fn(),
+	generationPackages: [] as GenerationPackage[],
 	detail: null as Record<string, unknown> | null,
 	measurements: null as Record<string, unknown> | null,
 	recordsError: null as Error | null,
@@ -107,8 +111,32 @@ vi.mock("@/utils/orpc", () => ({
 			updateMeasurements: (input: unknown) => fakeApi.updateMeasurements(input),
 			createReference: (input: unknown) => fakeApi.createReference(input),
 		},
+		generationPackages: {
+			create: (input: unknown) => fakeApi.createGenerationPackage(input),
+		},
 	},
 	orpc: {
+		assetVersions: {
+			list: {
+				queryOptions: ({ input }: { input: Record<string, unknown> }) => ({
+					queryKey: ["asset-versions", input],
+					queryFn: async () => ({
+						assetVersions: [],
+						canonicalDesigns: [],
+						compositeVersions: [],
+						unitVersions: [],
+					}),
+				}),
+			},
+		},
+		generationPackages: {
+			list: {
+				queryOptions: ({ input }: { input: Record<string, unknown> }) => ({
+					queryKey: ["generation-packages", input],
+					queryFn: async () => fakeApi.generationPackages,
+				}),
+			},
+		},
 		assetRecords: {
 			search: {
 				queryOptions: ({ input }: { input: Record<string, unknown> }) => ({
@@ -215,6 +243,8 @@ afterEach(() => {
 	fakeApi.archive.mockReset();
 	fakeApi.create.mockReset();
 	fakeApi.createReference.mockReset();
+	fakeApi.createGenerationPackage.mockReset();
+	fakeApi.generationPackages = [];
 	fakeApi.restore.mockReset();
 	fakeApi.updateMeasurements.mockReset();
 	fakeApi.updateMetadata.mockReset();
@@ -374,6 +404,78 @@ test("opens a measured legacy version when its file name is unknown", async () =
 	expect(await screen.findByText("Sürüm 3 · 32 × 48 px")).toBeVisible();
 	fireEvent.click(screen.getByRole("button", { name: "sürüm 3 geçmişini aç" }));
 	expect(onOpenRecord).toHaveBeenCalledWith(assetRecord.id, versionId);
+});
+
+test("shows the Generation Package workflow on an active Asset Record", async () => {
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+
+	expect(
+		await screen.findByRole("heading", { name: "Üretim Paketleri" })
+	).toBeVisible();
+	await waitFor(() =>
+		expect(
+			screen.getByRole("button", { name: "Üretim Paketini sabitle" })
+		).toBeEnabled()
+	);
+});
+
+test("shows saved Generation Packages on archived Asset Records without enabling creation", async () => {
+	fakeApi.record = { ...assetRecord, availability: "archived" };
+	fakeApi.generationPackages = [
+		{
+			assetRecord: {
+				...assetRecord,
+				availability: "archived",
+				identityCriteria: [...assetRecord.identityCriteria],
+			} as AssetRecord,
+			assetRecordId: assetRecord.id,
+			avoidConstraints: [],
+			canonicalDesign: null,
+			changeConstraints: [],
+			createdAt: "2026-09-28T09:00:00.000Z",
+			expectedOutputStructure: "A four-frame PNG sprite sheet.",
+			id: "7b73a4c6-835a-49ed-a84d-f63440351d07",
+			lockedUnits: [],
+			preserveConstraints: [],
+			productionContextSnapshot: {
+				contextRevisionId: "60d3bf8c-1940-4c25-924f-b98122d5787f",
+				generalArtDirection: "Readable silhouettes.",
+				ruleContractVersion: "context-rule/1.0.0",
+				rules: [],
+				revisionNumber: 2,
+				theme: null,
+				visualWorld: null,
+			},
+			referenceRoles: [],
+			projectId,
+			targetDimensions: { height: 80, width: 72 },
+			targetTask: "Archived attack package",
+		} as GenerationPackage,
+	];
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+
+	expect(
+		await screen.findByRole("heading", { name: "Üretim Paketleri" })
+	).toBeVisible();
+	expect(await screen.findByText(archivedPackageSummary)).toBeVisible();
+	expect(
+		screen.getByText(
+			"Arşivlenmiş Varlık Kaydında yeni Üretim Paketi oluşturulamaz."
+		)
+	).toBeVisible();
+	expect(
+		screen.queryByRole("button", { name: "Üretim Paketini sabitle" })
+	).not.toBeInTheDocument();
 });
 
 test("edits record metadata and limits Theme choices to the selected Visual World", async () => {

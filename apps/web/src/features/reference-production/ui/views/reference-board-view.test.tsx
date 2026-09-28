@@ -196,3 +196,13 @@ test("exposes uploaded reference images as list items", async () => {
 
 	expect(await screen.findAllByRole("listitem")).toHaveLength(1);
 });
+
+test("explains that explicit prohibitions override allowances across references", () => {
+	renderBoard();
+
+	expect(
+		screen.getByText(
+			"Bir referanstaki açık yasak, diğer referanslardaki aynı özellik iznini geçersiz kılar."
+		)
+	).toBeVisible();
+});

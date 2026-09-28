@@ -13,9 +13,9 @@
 - Tema ve çevre dilini aktarmak
 - Belirli özelliklerden kaçınmak
 
-Kullanıcı hazır seçeneklerle sınırlı değildir. Özel bir kullanım amacı ve açık aktarım ya da yasak sınırları tanımlayabilir. Bu sınırlar referans aktarım kuralı olarak kaydedilir. Açık yasak, genel aktarma izninden önceliklidir. Ana tasarımın kimlik sınırını aşmak için Bağlam Kuralı İstisnası açıkça kaydedilmelidir.
+Kullanıcı hazır seçeneklerle sınırlı değildir. Özel bir kullanım amacı ve açık aktarım ya da yasak sınırları tanımlayabilir. Bu sınırlar referans aktarım kuralı olarak kaydedilir. Bir Referans Kullanım Amacındaki açık yasak, aynı özellik için başka bir Referans Kullanım Amacındaki izinden önceliklidir; özellik Üretim Paketinde yasaklı kalır ve bu örtüşme paket oluşumunu engellemez. Ana tasarımın kimlik sınırını aşmak için Bağlam Kuralı İstisnası açıkça kaydedilmelidir.
 
-Aynı ayrıntı düzeyindeki referanslar arasında çözülememiş bir çelişki varsa üretim paketi oluşturulamaz. Referansların eklenme sırası veya modelin yorumu bu çelişkiye kendiliğinden öncelik vermez.
+Referansların eklenme sırası veya üretim modelinin yorumu aktarım sonucuna öncelik vermez; açık yasaklar yukarıdaki kurala göre uygulanır.
 
 Örneğin Frost Warrior görseli Ash Knight için poz referansıysa omuz hareketi, gövde dönüşü ve kılıcın hareket yolu aktarılabilir. Mavi palet, buz kristalleri, kıyafet ve karakter kimliği aktarılamaz. Bu sınırlar yalnızca üretim talimatında değil, üretim geçmişinde de saklanır.
 
@@ -156,5 +156,4 @@ Kalite Profili hangi kuralların, insan incelemelerinin ve kullanım testlerinin
 Harici Görsel Analizi, üçüncü taraf yapay zekâ hizmetiyle yapılan kimlik, Tema veya stil analizidir. Varsayılan olarak kapalıdır. Kullanıcı izin vermeden önce projeyi ve analiz kategorisini seçer; gönderilecek veriyi, amacı, sağlayıcıyı ve bilinen saklama koşullarını görür. Bir kategori için verilen izin başka kategorileri kapsamaz.
 
 İzin yokken kullanıcı görselleri elle yan yana karşılaştırabilir ve kesin kurallı kontrolleri kullanabilir.
-
 
