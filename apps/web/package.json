@@ -41,6 +41,7 @@
     "dexie": "^4.4.6",
     "lucide-react": "catalog:",
     "next-themes": "catalog:",
+    "pixelarticons": "^2.4.1",
     "pixi.js": "^8.21.0",
     "react": "catalog:",
     "react-dom": "catalog:",
