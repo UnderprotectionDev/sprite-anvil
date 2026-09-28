@@ -67,6 +67,9 @@ const allowEmptyImportInboxMigration = readMigration(
 const preserveImportInboxSourceFileNamesMigration = readMigration(
 	"./migrations/20260928080506_preserve-import-inbox-source-filenames/migration.sql"
 );
+const sourceMetadataMappingProposalMigration = readMigration(
+	"./migrations/20260928145019_tiny_magma/migration.sql"
+);
 const legacyAttestationDetailsMigration = readMigration(
 	"./migrations/20260928113737_hot_the_professor/migration.sql"
 );
@@ -570,7 +573,7 @@ test("preserves exact Import Inbox source file names in the database", () => {
 			),
 			"utf8"
 		)
-	) as { prevIds: string[] };
+	) as { id: string; prevIds: string[] };
 
 	expect(preserveImportInboxSourceFileNamesMigration).toContain(
 		'CHECK (char_length("file_name") BETWEEN 1 AND 255)'
@@ -579,6 +582,56 @@ test("preserves exact Import Inbox source file names in the database", () => {
 		'btrim("file_name")'
 	);
 	expect(preserveNamesSnapshot.prevIds).toContain(allowEmptySnapshot.id);
+});
+
+test("persists source metadata proposals with managed-file provenance", () => {
+	const mappingSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260928145019_tiny_magma/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as {
+		ddl: Record<string, unknown>[];
+		prevIds: string[];
+	};
+	const attestationDetailsSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260928113737_hot_the_professor/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { id: string };
+
+	expect(sourceMetadataMappingProposalMigration).toContain(
+		'CREATE TABLE "source_metadata_mapping_proposals"'
+	);
+	expect(sourceMetadataMappingProposalMigration).toContain(
+		'"proposal" jsonb NOT NULL'
+	);
+	expect(sourceMetadataMappingProposalMigration).toContain(
+		'FOREIGN KEY ("source_entry_id") REFERENCES "import_inbox_entries"("id") ON DELETE RESTRICT'
+	);
+	expect(mappingSnapshot.prevIds).toContain(attestationDetailsSnapshot.id);
+	expect(mappingSnapshot.ddl).toContainEqual(
+		expect.objectContaining({
+			entityType: "tables",
+			name: "source_metadata_mapping_proposals",
+			schema: "public",
+		})
+	);
+	expect(mappingSnapshot.ddl).toContainEqual(
+		expect.objectContaining({
+			entityType: "columns",
+			name: "proposal",
+			schema: "public",
+			table: "source_metadata_mapping_proposals",
+		})
+	);
 });
 
 test("stores missing legacy history details without filling earlier user statements", () => {

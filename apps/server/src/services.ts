@@ -14,6 +14,7 @@ import { createTestAssetVersionStorage } from "./features/asset-versions/server/
 import { createCollectionStore } from "./features/collections/server/collection-store";
 import { createGenerationPackageStore } from "./features/generation-packages/server/generation-package-store";
 import { createImportInboxStore } from "./features/imports/server/import-inbox-store";
+import { createSourceMetadataMappingProposalStore } from "./features/imports/server/source-metadata-mapping-store";
 import { createProjectContextStore } from "./features/project-context/server/project-context-store";
 import { createProjectAccessStore } from "./features/projects/server/project-access-store";
 import { createReferenceProductionStore } from "./features/reference-production/server/reference-production-store";
@@ -24,6 +25,8 @@ export const assetFamilyStore = createAssetFamilyStore(db);
 export const collectionStore = createCollectionStore(db);
 export const generationPackageStore = createGenerationPackageStore(db);
 export const importInboxStore = createImportInboxStore(db);
+export const sourceMetadataMappingProposalStore =
+	createSourceMetadataMappingProposalStore(db);
 export const assetVersionStore = createAssetVersionStore(db);
 export const assetRecordStore = createAssetRecordStore(db);
 const r2Config = getR2StorageConfig(ENV);
