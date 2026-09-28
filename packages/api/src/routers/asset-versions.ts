@@ -14,6 +14,10 @@ import {
 import type { Context } from "../context";
 import { protectedProcedure } from "../index";
 import {
+	manualImportEvidenceInputSchema,
+	manualImportEvidenceSummarySchema,
+} from "../production-provenance";
+import {
 	providerGenerationRecordCreateInputSchema,
 	providerGenerationRecordSchema,
 } from "../provider-generation-records";
@@ -37,6 +41,35 @@ async function readVersionCatalog(context: Context, projectId: string) {
 			providerGenerationRecord: recordsByAssetVersionId.get(version.id) ?? null,
 		})),
 	});
+}
+
+function assertApprovalEvidenceComplete(
+	decision: "approved" | "candidate" | "rejected",
+	version: Awaited<
+		ReturnType<typeof readVersionCatalog>
+	>["assetVersions"][number]
+) {
+	if (
+		decision === "approved" &&
+		version.productionEvidence.evidenceLevel === "incomplete"
+	) {
+		throw new ORPCError("BAD_REQUEST", {
+			message:
+				version.productionEvidence.sourceKind === "external_working_file_edit"
+					? "Onaydan önce düzenlenebilir çalışma dosyasının Yönetilen Kopyasını kaydedin."
+					: "Onaydan önce Elle İçe Aktarma Kanıtı için Üretim Paketi, gerçek talimat ve kaynak yüzeyini kaydedin.",
+		});
+	}
+	if (
+		decision === "approved" &&
+		version.productionSource === "connected_provider" &&
+		!version.providerGenerationRecord
+	) {
+		throw new ORPCError("BAD_REQUEST", {
+			message:
+				"A connected-provider result needs its Provider Generation Record before approval.",
+		});
+	}
 }
 
 export const assetVersionsRouter = {
@@ -152,6 +185,7 @@ export const assetVersionsRouter = {
 					message: "Varlık Sürümünün güncel inceleme kararı zaten bu.",
 				});
 			}
+			assertApprovalEvidenceComplete(input.decision, version);
 			if (
 				input.decision === "approved" &&
 				!(version.integrityVerified && version.contentDigest)
@@ -159,16 +193,6 @@ export const assetVersionsRouter = {
 				throw new ORPCError("BAD_REQUEST", {
 					message:
 						"Bütünlük doğrulaması tamamlanmamış bir Varlık Sürümü onaylanamaz.",
-				});
-			}
-			if (
-				input.decision === "approved" &&
-				version.productionSource === "connected_provider" &&
-				!version.providerGenerationRecord
-			) {
-				throw new ORPCError("BAD_REQUEST", {
-					message:
-						"A connected-provider result needs its Provider Generation Record before approval.",
 				});
 			}
 			if (
@@ -221,6 +245,44 @@ export const assetVersionsRouter = {
 				});
 			}
 			return assetVersionReviewEventSchema.parse(event);
+		}),
+	saveManualImportEvidence: protectedProcedure
+		.input(manualImportEvidenceInputSchema)
+		.output(manualImportEvidenceSummarySchema)
+		.handler(async ({ context, input }) => {
+			const result = await context.assetVersionStore.saveManualImportEvidence(
+				context.session.user.id,
+				input
+			);
+			if (result.kind === "not-found") {
+				throw new ORPCError("NOT_FOUND", {
+					message: "Aday Varlık Sürümü veya Proje bulunamadı.",
+				});
+			}
+			if (result.kind === "not-manual-import") {
+				throw new ORPCError("BAD_REQUEST", {
+					message:
+						"Elle İçe Aktarma Kanıtı yalnız elle içe aktarılan sürüme eklenebilir.",
+				});
+			}
+			if (result.kind === "not-candidate") {
+				throw new ORPCError("PRECONDITION_FAILED", {
+					message:
+						"Elle İçe Aktarma Kanıtı yalnız Aday Sürüm için güncellenebilir.",
+				});
+			}
+			if (result.kind === "package-not-found") {
+				throw new ORPCError("BAD_REQUEST", {
+					message: "Seçilen Üretim Paketi bu Varlık Kaydına ait değil.",
+				});
+			}
+			if (result.kind === "conflict") {
+				throw new ORPCError("CONFLICT", {
+					message:
+						"Kanıt aynı anda değişti. Sürüm durumunu yenileyip tekrar deneyin.",
+				});
+			}
+			return manualImportEvidenceSummarySchema.parse(result.evidence);
 		}),
 	selectCanonicalDesign: protectedProcedure
 		.input(assetFamilyCanonicalDesignInputSchema)

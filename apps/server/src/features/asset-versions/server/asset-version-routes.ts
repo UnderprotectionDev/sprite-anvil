@@ -16,6 +16,7 @@ import {
 	twoDVisualAssetUploadContentTypeSchema,
 } from "../../../cloudflare";
 import {
+	serializeAssetVersionUploadResponse,
 	serializePublicApiError,
 	serializeUnitVersionCorrectionUploadResponse,
 } from "../../../output-contracts";
@@ -35,6 +36,11 @@ const idempotencyKeySchema = z.string().trim().min(1).max(128);
 const sourceAssetVersionHeader = "x-source-asset-version-id";
 const unitVersionTypeHeader = "x-unit-version-type";
 const unitVersionKeyHeader = "x-unit-version-key";
+const sourceKindHeader = "x-asset-version-source-kind";
+const candidateSourceKindSchema = z.enum([
+	"manual_import",
+	"external_working_file_edit",
+]);
 const uploadLengthPattern = /^[1-9]\d*$/;
 
 type StoredObject = NonNullable<
@@ -101,13 +107,14 @@ function parseUploadLength(value: string | undefined) {
 }
 
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Upload validation, storage cleanup, and response mapping stay within one failure boundary.
-async function uploadUnitVersion(
+async function uploadAssetVersion(
 	c: Context,
 	projectId: string,
 	assetRecordId: string,
 	ownerUserId: string,
 	dependencies: AssetVersionRouteDependencies,
-	unitCorrection: UnitVersionCorrectionInput
+	unitCorrection?: UnitVersionCorrectionInput,
+	sourceKind: "manual_import" | "external_working_file_edit" = "manual_import"
 ) {
 	const assetRecord =
 		await dependencies.assetVersionStore.getAssetRecordForUpload(
@@ -215,7 +222,8 @@ async function uploadUnitVersion(
 				contentDigest,
 				idempotencyKey: idempotencyKey.data,
 				integrityVerified: true,
-				unitCorrection,
+				...(unitCorrection ? { unitCorrection } : {}),
+				...(unitCorrection ? {} : { sourceKind }),
 			}
 		);
 		if (!result) {
@@ -239,14 +247,17 @@ async function uploadUnitVersion(
 		if (result.kind === "existing") {
 			await storage.delete(objectKey);
 		}
-		if (!result.unitVersion) {
-			throw new Error("Unit Version upload did not persist a Unit Version");
+		if (unitCorrection) {
+			return c.json(
+				serializeUnitVersionCorrectionUploadResponse(
+					result.version,
+					result.unitVersion
+				),
+				result.kind === "created" ? 201 : 200
+			);
 		}
 		return c.json(
-			serializeUnitVersionCorrectionUploadResponse(
-				result.version,
-				result.unitVersion
-			),
+			serializeAssetVersionUploadResponse(result.version),
 			result.kind === "created" ? 201 : 200
 		);
 	} catch (error) {
@@ -298,43 +309,67 @@ async function handleAssetVersionUploadRequest(
 	if (!parsedAssetRecordId.success) {
 		return c.json(serializePublicApiError("Not found"), 404);
 	}
-	if (!unitCorrectionRequired) {
-		const assetRecord =
-			await dependencies.assetVersionStore.getAssetRecordForUpload(
-				access.ownerUserId,
-				projectId,
-				parsedAssetRecordId.data
+
+	let unitCorrection: UnitVersionCorrectionInput | undefined;
+	let sourceKind: "manual_import" | "external_working_file_edit" =
+		"manual_import";
+	if (unitCorrectionRequired) {
+		if (c.req.header(sourceKindHeader) !== undefined) {
+			return c.json(
+				serializePublicApiError("Invalid Asset Version source kind"),
+				400
 			);
-		if (!assetRecord) {
-			return c.json(serializePublicApiError("Not found"), 404);
 		}
-		return c.json(
-			serializePublicApiError(
-				"Manual Import Evidence is required for Asset Version uploads"
-			),
-			400
+		const parsedCorrection = unitVersionCorrectionInputSchema.safeParse({
+			sourceAssetVersionId: c.req.header(sourceAssetVersionHeader),
+			unitType: c.req.header(unitVersionTypeHeader),
+			unitKey: c.req.header(unitVersionKeyHeader),
+		});
+		if (!parsedCorrection.success) {
+			return c.json(
+				serializePublicApiError("Invalid Unit Version correction"),
+				400
+			);
+		}
+		unitCorrection = parsedCorrection.data;
+	} else {
+		const parsedSourceKind = candidateSourceKindSchema.safeParse(
+			c.req.header(sourceKindHeader) ?? "manual_import"
 		);
+		if (!parsedSourceKind.success) {
+			return c.json(
+				serializePublicApiError("Invalid Asset Version source kind"),
+				400
+			);
+		}
+		sourceKind = parsedSourceKind.data;
+		if (sourceKind !== "external_working_file_edit") {
+			const assetRecord =
+				await dependencies.assetVersionStore.getAssetRecordForUpload(
+					access.ownerUserId,
+					projectId,
+					parsedAssetRecordId.data
+				);
+			if (!assetRecord) {
+				return c.json(serializePublicApiError("Not found"), 404);
+			}
+			return c.json(
+				serializePublicApiError(
+					"Manual Import Evidence is required for Asset Version uploads"
+				),
+				400
+			);
+		}
 	}
 
-	const parsedCorrection = unitVersionCorrectionInputSchema.safeParse({
-		sourceAssetVersionId: c.req.header(sourceAssetVersionHeader),
-		unitType: c.req.header(unitVersionTypeHeader),
-		unitKey: c.req.header(unitVersionKeyHeader),
-	});
-	if (!parsedCorrection.success) {
-		return c.json(
-			serializePublicApiError("Invalid Unit Version correction"),
-			400
-		);
-	}
-
-	return uploadUnitVersion(
+	return uploadAssetVersion(
 		c,
 		projectId,
 		parsedAssetRecordId.data,
 		access.ownerUserId,
 		dependencies,
-		parsedCorrection.data
+		unitCorrection,
+		sourceKind
 	);
 }
 

@@ -21,16 +21,23 @@ test("accepts legacy Asset Version fields whose values were never recorded", () 
 		}).success
 	).toBe(true);
 
-	expect(
-		assetVersionSummarySchema.safeParse({
-			createdAt: "2026-09-25T00:00:00.000Z",
-			fileName: null,
-			id: versionId,
-			reviewDisposition: "approved",
-			sha256: null,
-			versionNumber: 1,
-		}).success
-	).toBe(true);
+	const legacyVersion = assetVersionSummarySchema.safeParse({
+		createdAt: "2026-09-25T00:00:00.000Z",
+		fileName: null,
+		id: versionId,
+		reviewDisposition: "approved",
+		sha256: null,
+		versionNumber: 1,
+	});
+	expect(legacyVersion.success).toBe(true);
+	if (legacyVersion.success) {
+		expect(legacyVersion.data.productionEvidence).toEqual({
+			evidenceLevel: "unknown",
+			managedSnapshots: [],
+			manualImportEvidence: null,
+			sourceKind: "unknown",
+		});
+	}
 
 	expect(
 		trackingVersionOptionSchema.safeParse({

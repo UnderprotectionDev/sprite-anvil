@@ -10,6 +10,7 @@ import {
 	assetVersionReviewDispositionSchema,
 	assetVersionSummarySchema,
 } from "@sprite-anvil/api/asset-record-tracking";
+import { createVersionProductionEvidence } from "@sprite-anvil/api/production-provenance";
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
 import {
 	legacyAssetAttestations,
@@ -53,6 +54,7 @@ function toVersionSummary(
 		createdAt: toISOString(version.createdAt),
 		fileName: version.fileName,
 		id: version.id,
+		productionEvidence: createVersionProductionEvidence(version.sourceKind),
 		sourceKind: version.sourceKind,
 		reviewDisposition: disposition,
 		sha256: version.sha256,

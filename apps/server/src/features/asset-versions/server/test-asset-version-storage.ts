@@ -1,7 +1,7 @@
 interface StoredAssetVersionObject {
 	bytes: Uint8Array;
 	contentLength: number;
-	contentType: "image/png" | "image/webp";
+	contentType: "application/octet-stream" | "image/png" | "image/webp";
 }
 
 const objects = new Map<string, StoredAssetVersionObject>();
@@ -11,7 +11,7 @@ export function createTestAssetVersionStorage() {
 		async put(
 			key: string,
 			body: ReadableStream<Uint8Array>,
-			contentType: "image/png" | "image/webp",
+			contentType: "application/octet-stream" | "image/png" | "image/webp",
 			contentLength: number
 		) {
 			const bytes = new Uint8Array(await new Response(body).arrayBuffer());

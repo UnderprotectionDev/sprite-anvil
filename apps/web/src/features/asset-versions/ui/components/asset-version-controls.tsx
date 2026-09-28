@@ -7,6 +7,8 @@ import { Button } from "@sprite-anvil/ui/components/button";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { ENV } from "@/env";
+import { ExternalWorkingFileEditUpload } from "@/features/production-provenance/ui/components/external-working-file-edit-upload";
+import { VersionProductionEvidencePanel } from "@/features/production-provenance/ui/components/version-production-evidence-panel";
 import type { useAssetVersionWrites } from "../hooks/use-asset-version-writes";
 import { AssetVersionPreview } from "./asset-version-preview";
 import { CompositeVersionControls } from "./composite-version-controls";
@@ -146,6 +148,15 @@ export function AssetVersionControls({
 													Varlık Sürümü yükle
 												</Link>
 											</div>
+											<ExternalWorkingFileEditUpload
+												disabled={writes.writesDisabled}
+												onImport={(candidateFile, sourceFile) =>
+													writes.upload(record.id, candidateFile, {
+														managedSnapshot: sourceFile,
+														sourceKind: "external_working_file_edit",
+													})
+												}
+											/>
 											{versions.length === 0 ? (
 												<p className="text-muted-foreground text-sm">
 													Henüz sürüm kaydedilmedi.
@@ -229,6 +240,14 @@ function AssetVersionEntry({
 					Dosya bütünlüğü:{" "}
 					{version.integrityVerified ? "Doğrulandı" : "Doğrulanmadı"}
 				</p>
+				<VersionProductionEvidencePanel
+					assetRecordId={version.assetRecordId}
+					evidence={version.productionEvidence}
+					onRefresh={writes.refreshCatalogs}
+					projectId={version.projectId}
+					reviewDisposition={version.reviewDisposition}
+					versionId={version.id}
+				/>
 				<ProviderGenerationRecordDetails
 					productionSource={version.productionSource ?? "unknown"}
 					providerGenerationRecord={version.providerGenerationRecord ?? null}
@@ -295,6 +314,14 @@ function AssetVersionReviewControls({
 		!version.providerGenerationRecord;
 	const review = (decision: AssetVersionReviewInput["decision"]) =>
 		void writes.review(version.id, decision, rationale);
+	const productionEvidenceIncomplete =
+		version.productionEvidence.evidenceLevel === "incomplete";
+	const manualEvidenceIncomplete =
+		version.productionEvidence.sourceKind === "manual_import" &&
+		productionEvidenceIncomplete;
+	const managedSnapshotIncomplete =
+		version.productionEvidence.sourceKind === "external_working_file_edit" &&
+		productionEvidenceIncomplete;
 
 	return (
 		<div className="space-y-2">
@@ -318,6 +345,7 @@ function AssetVersionReviewControls({
 						disabled={
 							writes.writesDisabled ||
 							rationale.trim().length === 0 ||
+							productionEvidenceIncomplete ||
 							providerGenerationRecordMissing ||
 							!version.integrityVerified ||
 							!version.contentDigest
@@ -328,6 +356,17 @@ function AssetVersionReviewControls({
 						Onayla
 					</Button>
 				)}
+				{manualEvidenceIncomplete ? (
+					<p className="text-muted-foreground text-xs" role="status">
+						Onaydan önce Üretim Paketi, kaynak yüzeyi ve gerçek üretim
+						talimatını kaydedin.
+					</p>
+				) : null}
+				{managedSnapshotIncomplete ? (
+					<p className="text-muted-foreground text-xs" role="status">
+						Onaydan önce çalışma dosyasının Yönetilen Kopyasını kaydedin.
+					</p>
+				) : null}
 				{version.reviewDisposition === "rejected" ? null : (
 					<Button
 						disabled={writes.writesDisabled || rationale.trim().length === 0}

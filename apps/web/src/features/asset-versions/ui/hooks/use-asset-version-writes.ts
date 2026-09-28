@@ -21,7 +21,9 @@ interface RefreshResult {
 type ReviewDecision = AssetVersionReviewInput["decision"];
 type CompositeReviewDecision = CompositeVersionReviewInput["decision"];
 interface UploadOptions {
+	managedSnapshot?: File;
 	productionSource?: "user_reported_provider";
+	sourceKind?: "external_working_file_edit";
 	unitCorrection?: UnitVersionCorrectionInput;
 }
 type ProviderGenerationRecordFields = Omit<
@@ -50,6 +52,7 @@ export function useAssetVersionWrites(
 		assetRecordId: string;
 		fileFingerprint: string;
 		idempotencyKey: string;
+		managedSnapshotIdempotencyKey?: string;
 	} | null>(null);
 	const pendingCompositeCreateRef = useRef<{
 		fingerprint: string;
@@ -104,8 +107,12 @@ export function useAssetVersionWrites(
 		if (writeOutcomeUncertain) {
 			return false;
 		}
-		const { unitCorrection, productionSource: requestedProductionSource } =
-			options;
+		const {
+			managedSnapshot,
+			productionSource: requestedProductionSource,
+			sourceKind: requestedSourceKind,
+			unitCorrection,
+		} = options;
 		const productionSource = requestedProductionSource ?? "unknown";
 		if (unitCorrection && productionSource !== "unknown") {
 			return false;
@@ -115,11 +122,18 @@ export function useAssetVersionWrites(
 		let responseReceived = false;
 		let responseStatus: number | undefined;
 		let writeConfirmed = false;
+		let candidateConfirmed = false;
+		const sourceKind = requestedSourceKind ?? "manual_import";
 		const fileFingerprint = [
 			file.name,
 			file.type,
 			file.size.toString(),
 			file.lastModified.toString(),
+			sourceKind,
+			managedSnapshot?.name ?? "",
+			managedSnapshot?.type ?? "",
+			managedSnapshot?.size.toString() ?? "",
+			managedSnapshot?.lastModified.toString() ?? "",
 			unitCorrection?.sourceAssetVersionId ?? "",
 			unitCorrection?.unitType ?? "",
 			unitCorrection?.unitKey ?? "",
@@ -131,10 +145,17 @@ export function useAssetVersionWrites(
 			pendingUpload.fileFingerprint === fileFingerprint
 				? pendingUpload.idempotencyKey
 				: crypto.randomUUID();
+		const managedSnapshotIdempotencyKey =
+			pendingUpload?.assetRecordId === assetRecordId &&
+			pendingUpload.fileFingerprint === fileFingerprint
+				? (pendingUpload.managedSnapshotIdempotencyKey ??
+					`${idempotencyKey}-snapshot`)
+				: `${idempotencyKey}-snapshot`;
 		pendingUploadRef.current = {
 			assetRecordId,
 			fileFingerprint,
 			idempotencyKey,
+			...(managedSnapshot ? { managedSnapshotIdempotencyKey } : {}),
 		};
 		try {
 			const endpoint = unitCorrection ? "unit-versions" : "versions";
@@ -144,6 +165,9 @@ export function useAssetVersionWrites(
 				"X-Asset-Version-Size": file.size.toString(),
 				"Idempotency-Key": idempotencyKey,
 			};
+			if (sourceKind === "external_working_file_edit") {
+				headers["X-Asset-Version-Source-Kind"] = sourceKind;
+			}
 			if (productionSource === "user_reported_provider") {
 				headers[assetVersionProductionSourceHeader] = productionSource;
 			}
@@ -172,10 +196,52 @@ export function useAssetVersionWrites(
 						: "Varlık Sürümü yüklenemedi.";
 				throw new Error(message);
 			}
+			candidateConfirmed = true;
+			if (managedSnapshot) {
+				const assetVersionId =
+					result && typeof result === "object" && "id" in result
+						? String(result.id)
+						: "";
+				if (!assetVersionId) {
+					throw new Error(
+						"Aday Sürüm kaydedildi ancak Yönetilen Kopya hedefi alınamadı."
+					);
+				}
+				const snapshotResponse = await fetch(
+					`${serverUrl}/api/projects/${encodeURIComponent(projectId)}/asset-versions/${encodeURIComponent(assetVersionId)}/managed-snapshots`,
+					{
+						method: "POST",
+						credentials: "include",
+						headers: {
+							"Content-Type": "application/octet-stream",
+							"X-Managed-Snapshot-File-Name": encodeURIComponent(
+								managedSnapshot.name
+							),
+							"X-Managed-Snapshot-Size": managedSnapshot.size.toString(),
+							"Idempotency-Key": managedSnapshotIdempotencyKey,
+						},
+						body: managedSnapshot,
+					}
+				);
+				responseReceived = true;
+				responseStatus = snapshotResponse.status;
+				const snapshotResult: unknown = await snapshotResponse.json();
+				if (!snapshotResponse.ok) {
+					const message =
+						snapshotResult &&
+						typeof snapshotResult === "object" &&
+						"error" in snapshotResult
+							? String(snapshotResult.error)
+							: "Yönetilen Kopya kaydedilemedi.";
+					throw new Error(message);
+				}
+			}
 			writeConfirmed = true;
 			pendingUploadRef.current = null;
 			let successMessage = "Aday Varlık Sürümü kaydedildi.";
-			if (unitCorrection) {
+			if (managedSnapshot) {
+				successMessage = "Yeni Aday Sürüm ve Yönetilen Kopya kaydedildi.";
+			} else if (unitCorrection) {
 				successMessage = "Yeni Birim Sürümü ve Aday Sürüm kaydedildi.";
 			} else if (productionSource === "user_reported_provider") {
 				successMessage = "Kullanıcı bildirimli sağlayıcı sonucu kaydedildi.";
@@ -183,14 +249,37 @@ export function useAssetVersionWrites(
 			await refreshAfterWrite(successMessage);
 			return true;
 		} catch (error) {
-			if ([400, 409, 415, 422].includes(responseStatus ?? 0)) {
+			if (
+				[400, 409, 415, 422].includes(responseStatus ?? 0) &&
+				!managedSnapshot
+			) {
 				pendingUploadRef.current = null;
+			}
+			if (candidateConfirmed && managedSnapshot && !writeConfirmed) {
+				if (
+					!responseReceived ||
+					(responseStatus !== undefined && responseStatus >= 500) ||
+					(responseStatus !== undefined &&
+						responseStatus >= 200 &&
+						responseStatus < 300)
+				) {
+					setWriteOutcomeUncertain(true);
+				}
+				try {
+					await refreshCatalogs();
+				} catch {
+					// Keep the original upload error visible; the candidate remains retryable.
+				}
+				toast.error(
+					"Aday Sürüm kaydedildi ancak Yönetilen Kopya tamamlanamadı. Aynı dışa aktarımı yeniden deneyin."
+				);
+				return false;
 			}
 			if (writeConfirmed) {
 				toast.error(
 					"Varlık Sürümü kaydedildi ancak liste yenilenemedi. Sayfayı yeniden yükleyip sonucu kontrol edin."
 				);
-				return false;
+				return true;
 			}
 			if (
 				!responseReceived ||
@@ -339,6 +428,7 @@ export function useAssetVersionWrites(
 		recordProviderGeneration,
 		review,
 		reviewCompositeVersion,
+		refreshCatalogs,
 		selectCanonicalDesign,
 		statusMessage,
 		upload,

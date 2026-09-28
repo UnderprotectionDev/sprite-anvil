@@ -60,6 +60,14 @@ export const importInboxObjectKeySchema = z
 		)
 	);
 
+export const managedSnapshotObjectKeySchema = z
+	.string()
+	.regex(
+		new RegExp(
+			`^projects/${projectKeySegmentPattern}/asset-records/${uuidPattern}/versions/${uuidPattern}/managed-snapshots/${uuidPattern}$`
+		)
+	);
+
 export const legacyAssetKeySchema = z
 	.string()
 	.regex(/^users\/[a-zA-Z0-9-]+\/[a-zA-Z0-9-]+\.(png|webp)$/);
@@ -98,6 +106,18 @@ export function createProjectImportInboxObjectKey(
 			entryId +
 			"/" +
 			uploadAttemptId
+	);
+}
+
+export function createProjectManagedSnapshotObjectKey(
+	projectId: string,
+	assetRecordId: string,
+	assetVersionId: string,
+	snapshotId: string
+) {
+	const projectKeySegment = encodeURIComponent(projectId);
+	return managedSnapshotObjectKeySchema.parse(
+		`projects/${projectKeySegment}/asset-records/${assetRecordId}/versions/${assetVersionId}/managed-snapshots/${snapshotId}`
 	);
 }
 

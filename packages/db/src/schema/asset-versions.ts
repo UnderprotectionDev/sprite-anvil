@@ -26,16 +26,22 @@ export const assetVersions = pgTable(
 		versionNumber: integer("version_number").notNull(),
 		fileName: text("file_name"),
 		contentType: text("content_type").notNull(),
+		sourceKind: text("source_kind")
+			.$type<
+				| "manual_import"
+				| "external_working_file_edit"
+				| "legacy_asset"
+				| "derived"
+				| "unknown"
+			>()
+			.default("unknown")
+			.notNull(),
 		sourceImageWidth: integer("source_image_width"),
 		sourceImageHeight: integer("source_image_height"),
 		sha256: text("sha256"),
 		byteSize: integer("byte_size").notNull(),
 		contentDigest: text("content_digest"),
 		integrityVerified: boolean("integrity_verified").default(false).notNull(),
-		sourceKind: text("source_kind")
-			.$type<"unknown" | "legacy_asset" | "manual_import" | "derived">()
-			.default("unknown")
-			.notNull(),
 		productionSource: text("production_source")
 			.$type<"unknown" | "user_reported_provider" | "connected_provider">()
 			.default("unknown")
@@ -89,6 +95,10 @@ export const assetVersions = pgTable(
 			sql`${table.contentType} IN ('image/png', 'image/webp')`
 		),
 		check(
+			"asset_versions_source_kind_check",
+			sql`${table.sourceKind} IN ('manual_import', 'external_working_file_edit', 'legacy_asset', 'derived', 'unknown')`
+		),
+		check(
 			"asset_versions_source_image_dimensions_check",
 			sql`(${table.sourceImageWidth} IS NULL AND ${table.sourceImageHeight} IS NULL) OR (${table.sourceImageWidth} IS NOT NULL AND ${table.sourceImageHeight} IS NOT NULL AND ${table.sourceImageWidth} > 0 AND ${table.sourceImageHeight} > 0)`
 		),
@@ -103,10 +113,6 @@ export const assetVersions = pgTable(
 		check(
 			"asset_versions_integrity_digest_check",
 			sql`${table.integrityVerified} = false OR ${table.contentDigest} IS NOT NULL`
-		),
-		check(
-			"asset_versions_source_kind_check",
-			sql`${table.sourceKind} IN ('unknown', 'legacy_asset', 'manual_import', 'derived')`
 		),
 		check("asset_versions_byte_size_check", sql`${table.byteSize} > 0`),
 		check(

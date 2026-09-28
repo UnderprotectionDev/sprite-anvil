@@ -90,6 +90,12 @@ function createReviewContext(
 						id: assetVersionId,
 						integrityVerified: true,
 						previewUrl: `/api/projects/${projectId}/asset-versions/${assetVersionId}/preview`,
+						productionEvidence: {
+							evidenceLevel: "unknown",
+							managedSnapshots: [],
+							manualImportEvidence: null,
+							sourceKind: "unknown",
+						},
 						productionSource,
 						projectId,
 						reviewDisposition: "candidate",

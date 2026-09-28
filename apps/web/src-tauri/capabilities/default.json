@@ -3,5 +3,16 @@
   "identifier": "default",
   "description": "enables the default permissions",
   "windows": ["main"],
-  "permissions": ["core:default", "fs:default", "fs:allow-appdata-write-recursive", "fs:scope-appdata-recursive"]
+  "permissions": [
+    "core:default",
+    "dialog:allow-open",
+    "fs:default",
+    "fs:allow-appdata-write-recursive",
+    "fs:scope-appdata-recursive",
+    "fs:allow-read-file",
+    "fs:allow-stat",
+    "fs:allow-watch",
+    "fs:allow-unwatch",
+    "opener:allow-open-path"
+  ]
 }

@@ -96,6 +96,23 @@ const sourceMetadataProjectScopeMigration =
 				"source_metadata_mapping_proposals_project_source_entry_fk"
 			)
 		) ?? "";
+const productionProvenanceMigrationDirectory = readdirSync(
+	new URL("./migrations/", import.meta.url)
+).find((directory) => {
+	const path = new URL(
+		`./migrations/${directory}/migration.sql`,
+		import.meta.url
+	);
+	return (
+		existsSync(path) &&
+		readFileSync(path, "utf8").includes('CREATE TABLE "managed_snapshots"')
+	);
+});
+const productionProvenanceMigration = productionProvenanceMigrationDirectory
+	? readMigration(
+			`./migrations/${productionProvenanceMigrationDirectory}/migration.sql`
+		)
+	: "";
 
 test("normalizes legacy project ownership before current indexes and foreign keys", () => {
 	const renameOwnerColumn = migration.indexOf(
@@ -547,6 +564,51 @@ test("persists Import Inbox source facts in a project-owned managed record", () 
 			schema: "public",
 		})
 	);
+});
+
+test("adds portable production evidence after Provider Generation Records while preserving unknown legacy sources", () => {
+	expect(productionProvenanceMigration).toContain(
+		'CREATE TABLE "managed_snapshots"'
+	);
+	expect(productionProvenanceMigration).not.toContain(
+		'CREATE TABLE "manual_import_evidence"'
+	);
+	expect(productionProvenanceMigration).toContain(
+		"manual_import_evidence_revision_idx"
+	);
+	expect(productionProvenanceMigration).not.toContain(
+		'UPDATE "asset_versions" SET "source_kind"'
+	);
+	expect(productionProvenanceMigration).toContain("external_working_file_edit");
+	expect(productionProvenanceMigration).toContain("revision");
+	expect(productionProvenanceMigration).toContain(
+		'CONSTRAINT "managed_snapshots_sha256_check"'
+	);
+	expect(productionProvenanceMigration).toContain(
+		'FOREIGN KEY ("project_id","asset_version_id","asset_record_id") REFERENCES "asset_versions"'
+	);
+
+	if (!productionProvenanceMigrationDirectory) {
+		throw new Error("The production provenance migration was not generated.");
+	}
+	const snapshot = JSON.parse(
+		readMigration(
+			`./migrations/${productionProvenanceMigrationDirectory}/snapshot.json`
+		)
+	) as { ddl: Record<string, unknown>[]; prevIds: string[] };
+	const providerGenerationSnapshot = JSON.parse(
+		readMigration("./migrations/20260928173709_cheerful_morlun/snapshot.json")
+	) as { id: string };
+	expect(snapshot.prevIds).toContain(providerGenerationSnapshot.id);
+	for (const table of ["managed_snapshots", "manual_import_evidence"]) {
+		expect(snapshot.ddl).toContainEqual(
+			expect.objectContaining({
+				entityType: "tables",
+				name: table,
+				schema: "public",
+			})
+		);
+	}
 });
 
 test("allows zero-byte Import Inbox files while preserving migration lineage", () => {
