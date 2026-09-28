@@ -73,8 +73,10 @@ test("records provider details through the authenticated API", async () => {
 	expect(created).toEqual(record);
 });
 
-test("blocks approval until a connected-provider result has its record", async () => {
-	const context = {
+function createReviewContext(
+	productionSource: "unknown" | "connected_provider"
+): Context {
+	return {
 		assetVersionStore: {
 			list: async () => ({
 				assetVersions: [
@@ -88,7 +90,7 @@ test("blocks approval until a connected-provider result has its record", async (
 						id: assetVersionId,
 						integrityVerified: true,
 						previewUrl: `/api/projects/${projectId}/asset-versions/${assetVersionId}/preview`,
-						productionSource: "connected_provider",
+						productionSource,
 						projectId,
 						reviewDisposition: "candidate",
 						reviewEvents: [
@@ -119,7 +121,10 @@ test("blocks approval until a connected-provider result has its record", async (
 		session: { user: { id: userId } },
 		verifyAssetVersionContent: async () => true,
 	} as unknown as Context;
+}
 
+test("blocks approval until a connected-provider result has its record", async () => {
+	const context = createReviewContext("connected_provider");
 	await expect(
 		call(
 			appRouter.assetVersions.review,
@@ -132,4 +137,20 @@ test("blocks approval until a connected-provider result has its record", async (
 			{ context }
 		)
 	).rejects.toThrow("needs its Provider Generation Record");
+});
+
+test("allows approval when unavailable provider details remain unknown", async () => {
+	const context = createReviewContext("unknown");
+	await expect(
+		call(
+			appRouter.assetVersions.review,
+			{
+				decision: "approved",
+				assetVersionId,
+				projectId,
+				rationale: "Verified output.",
+			},
+			{ context }
+		)
+	).resolves.toMatchObject({ assetVersionId, type: "approved" });
 });

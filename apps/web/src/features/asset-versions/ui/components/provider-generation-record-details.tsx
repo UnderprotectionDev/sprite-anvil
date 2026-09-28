@@ -3,6 +3,20 @@ import type {
 	ProviderGenerationRecord,
 } from "@sprite-anvil/api/provider-generation-records";
 
+const unknownProviderFields = [
+	"Üretim kaynağı",
+	"Sağlayıcı",
+	"Arayüz / API",
+	"Model",
+	"Model sürümü",
+	"İstenen ölçü",
+	"Gerçekleşen ölçü",
+	"Referans kimlikleri",
+	"Palet",
+	"Tohum",
+	"Sağlayıcıya özgü parametreler",
+];
+
 function displayUnknown(value: string | number | null) {
 	return value === null ? "Bilinmiyor" : String(value);
 }
@@ -23,15 +37,37 @@ export function ProviderGenerationRecordDetails({
 	providerGenerationRecord: ProviderGenerationRecord | null;
 }) {
 	if (!providerGenerationRecord) {
-		return productionSource === "connected_provider" ? (
-			<p
-				className="rounded-md border border-warning/50 bg-warning/10 p-3 text-sm"
-				role="status"
+		if (productionSource === "connected_provider") {
+			return (
+				<p
+					className="rounded-md border border-warning/50 bg-warning/10 p-3 text-sm"
+					role="status"
+				>
+					Sağlayıcı Üretim Kaydı bekleniyor. Bu sürüm, kayıt tamamlanmadan
+					onaylanamaz.
+				</p>
+			);
+		}
+
+		return (
+			<section
+				aria-label="Üretim ayrıntıları"
+				className="space-y-3 rounded-md border p-3"
 			>
-				Sağlayıcı Üretim Kaydı bekleniyor. Bu sürüm, kayıt tamamlanmadan
-				onaylanamaz.
-			</p>
-		) : null;
+				<h5 className="font-medium">Üretim ayrıntıları</h5>
+				<dl className="grid gap-2 text-sm sm:grid-cols-2">
+					{unknownProviderFields.map((label) => (
+						<div key={label}>
+							<dt className="text-muted-foreground">{label}</dt>
+							<dd>Bilinmiyor</dd>
+						</div>
+					))}
+				</dl>
+				<p className="text-muted-foreground text-xs">
+					Bu sürümün üretim kaynağı ve sağlayıcı bilgileri kaydedilmemiştir.
+				</p>
+			</section>
+		);
 	}
 
 	return (

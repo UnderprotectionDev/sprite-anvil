@@ -26,6 +26,8 @@ const sensitiveKeyNames = new Set([
 const temporaryUrlKeyPattern =
 	/(?:access|asset|download|file|image|output|preview|result|signed|temporary)(?:[a-z0-9]*)(?:url|uri)$/;
 const standaloneAuthValuePattern = /^(?:bearer|basic)\s+\S+$/i;
+const inlineSensitiveHeaderPattern =
+	/(?:^|[\r\n,;])\s*(?:authorization|proxy-authorization|cookie|set-cookie|(?:x-)?[a-z0-9-]*(?:api-key|access-token|auth-token))\s*:\s*\S+/i;
 
 function isSensitiveKey(key: string) {
 	const normalized = key.toLowerCase().replaceAll(/[^a-z0-9]/g, "");
@@ -92,7 +94,9 @@ function isTemporaryAccessUrl(value: string) {
 
 function sanitizeValue(value: unknown): unknown {
 	if (typeof value === "string") {
-		return isTemporaryAccessUrl(value) || standaloneAuthValuePattern.test(value)
+		return isTemporaryAccessUrl(value) ||
+			standaloneAuthValuePattern.test(value) ||
+			inlineSensitiveHeaderPattern.test(value)
 			? undefined
 			: value;
 	}

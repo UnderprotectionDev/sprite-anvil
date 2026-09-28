@@ -76,3 +76,18 @@ test("explains when a connected-provider result is waiting for its record", () =
 		"Sağlayıcı Üretim Kaydı bekleniyor"
 	);
 });
+
+test("shows unavailable provider facts as unknown without implying a record exists", () => {
+	render(
+		<ProviderGenerationRecordDetails
+			productionSource="unknown"
+			providerGenerationRecord={null}
+		/>
+	);
+
+	expect(
+		screen.getByRole("heading", { name: "Üretim ayrıntıları" })
+	).toBeInTheDocument();
+	expect(screen.getAllByText("Bilinmiyor").length).toBeGreaterThan(1);
+	expect(screen.queryByRole("status")).not.toBeInTheDocument();
+});

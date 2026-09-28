@@ -18,6 +18,7 @@ test("keeps provider parameters while removing credentials and temporary URLs", 
 			Cookie: "session=secret-session",
 			"X-Api-Key": "header-secret",
 		},
+		requestHeaders: "Authorization: Bearer inline-secret",
 		resource:
 			"https://provider.example/result.png?sv=2026-01-01&sig=temporary-secret",
 		output: {
