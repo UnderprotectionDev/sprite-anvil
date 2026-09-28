@@ -59,6 +59,12 @@ const tracking = {
 		createdAt: "2026-09-25T08:01:00.000Z",
 		fileName: "ash-knight.png",
 		id: versionId,
+		productionEvidence: {
+			evidenceLevel: "unknown" as const,
+			managedSnapshots: [],
+			manualImportEvidence: null,
+			sourceKind: "unknown" as const,
+		},
 		reviewDisposition: "approved" as const,
 		sha256: "a".repeat(64),
 		versionNumber: 1,

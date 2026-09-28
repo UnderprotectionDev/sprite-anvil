@@ -18,6 +18,7 @@ import { createContext } from "./context";
 import { desktopOrigins, ENV } from "./env.server";
 import { mountAssetVersionRoutes } from "./features/asset-versions/server/asset-version-routes";
 import { mountImportInboxRoutes } from "./features/imports/server/import-inbox-routes";
+import { mountManagedSnapshotRoutes } from "./features/production-provenance/server/managed-snapshot-routes";
 import { mountProjectRoutes } from "./features/projects/server/project-routes";
 import { mountReferenceProductionRoutes } from "./features/reference-production/server/reference-production-routes";
 import {
@@ -31,6 +32,7 @@ import {
 	createServerAssetVersionStorage,
 	db,
 	importInboxStore,
+	managedSnapshotStore,
 	referenceProductionStore,
 } from "./services";
 
@@ -67,6 +69,9 @@ app.use(
 			"Authorization",
 			"X-Asset-Version-Size",
 			"X-Asset-Version-File-Name",
+			"X-Asset-Version-Source-Kind",
+			"X-Managed-Snapshot-Size",
+			"X-Managed-Snapshot-File-Name",
 			"X-Reference-Board-Size",
 			"X-Reference-Board-File-Name",
 			"X-Reference-Board-Metadata",
@@ -97,6 +102,14 @@ mountProjectRoutes(app, {
 
 mountAssetVersionRoutes(app, {
 	assetVersionStore,
+	getSession: (headers) => auth.api.getSession({ headers }),
+	getProjectForUser: async (userId, projectId) =>
+		getProjectForUser(db, userId, projectId),
+	createStorage: createServerAssetVersionStorage,
+});
+
+mountManagedSnapshotRoutes(app, {
+	managedSnapshotStore,
 	getSession: (headers) => auth.api.getSession({ headers }),
 	getProjectForUser: async (userId, projectId) =>
 		getProjectForUser(db, userId, projectId),

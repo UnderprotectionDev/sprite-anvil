@@ -26,6 +26,15 @@ export const assetVersions = pgTable(
 		versionNumber: integer("version_number").notNull(),
 		fileName: text("file_name"),
 		contentType: text("content_type").notNull(),
+		sourceKind: text("source_kind")
+			.$type<
+				| "manual_import"
+				| "external_working_file_edit"
+				| "legacy_asset"
+				| "unknown"
+			>()
+			.default("unknown")
+			.notNull(),
 		sourceImageWidth: integer("source_image_width"),
 		sourceImageHeight: integer("source_image_height"),
 		sha256: text("sha256"),
@@ -79,6 +88,10 @@ export const assetVersions = pgTable(
 		check(
 			"asset_versions_content_type_check",
 			sql`${table.contentType} IN ('image/png', 'image/webp')`
+		),
+		check(
+			"asset_versions_source_kind_check",
+			sql`${table.sourceKind} IN ('manual_import', 'external_working_file_edit', 'legacy_asset', 'unknown')`
 		),
 		check(
 			"asset_versions_source_image_dimensions_check",

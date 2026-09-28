@@ -13,6 +13,10 @@ import {
 } from "../asset-versions";
 import type { Context } from "../context";
 import { protectedProcedure } from "../index";
+import {
+	manualImportEvidenceInputSchema,
+	manualImportEvidenceSummarySchema,
+} from "../production-provenance";
 
 async function readVersionCatalog(context: Context, projectId: string) {
 	const catalog = await context.assetVersionStore.list(
@@ -110,6 +114,18 @@ export const assetVersionsRouter = {
 			}
 			if (
 				input.decision === "approved" &&
+				version.productionEvidence.evidenceLevel === "incomplete"
+			) {
+				throw new ORPCError("BAD_REQUEST", {
+					message:
+						version.productionEvidence.sourceKind ===
+						"external_working_file_edit"
+							? "Onaydan önce düzenlenebilir çalışma dosyasının Yönetilen Kopyasını kaydedin."
+							: "Onaydan önce Elle İçe Aktarma Kanıtı için Üretim Paketi, gerçek talimat ve kaynak yüzeyini kaydedin.",
+				});
+			}
+			if (
+				input.decision === "approved" &&
 				!(version.integrityVerified && version.contentDigest)
 			) {
 				throw new ORPCError("BAD_REQUEST", {
@@ -141,6 +157,44 @@ export const assetVersionsRouter = {
 				});
 			}
 			return assetVersionReviewEventSchema.parse(event);
+		}),
+	saveManualImportEvidence: protectedProcedure
+		.input(manualImportEvidenceInputSchema)
+		.output(manualImportEvidenceSummarySchema)
+		.handler(async ({ context, input }) => {
+			const result = await context.assetVersionStore.saveManualImportEvidence(
+				context.session.user.id,
+				input
+			);
+			if (result.kind === "not-found") {
+				throw new ORPCError("NOT_FOUND", {
+					message: "Aday Varlık Sürümü veya Proje bulunamadı.",
+				});
+			}
+			if (result.kind === "not-manual-import") {
+				throw new ORPCError("BAD_REQUEST", {
+					message:
+						"Elle İçe Aktarma Kanıtı yalnız elle içe aktarılan sürüme eklenebilir.",
+				});
+			}
+			if (result.kind === "not-candidate") {
+				throw new ORPCError("PRECONDITION_FAILED", {
+					message:
+						"Elle İçe Aktarma Kanıtı yalnız Aday Sürüm için güncellenebilir.",
+				});
+			}
+			if (result.kind === "package-not-found") {
+				throw new ORPCError("BAD_REQUEST", {
+					message: "Seçilen Üretim Paketi bu Varlık Kaydına ait değil.",
+				});
+			}
+			if (result.kind === "conflict") {
+				throw new ORPCError("CONFLICT", {
+					message:
+						"Kanıt aynı anda değişti. Sürüm durumunu yenileyip tekrar deneyin.",
+				});
+			}
+			return manualImportEvidenceSummarySchema.parse(result.evidence);
 		}),
 	selectCanonicalDesign: protectedProcedure
 		.input(assetFamilyCanonicalDesignInputSchema)

@@ -14,6 +14,7 @@ import { createTestAssetVersionStorage } from "./features/asset-versions/server/
 import { createCollectionStore } from "./features/collections/server/collection-store";
 import { createGenerationPackageStore } from "./features/generation-packages/server/generation-package-store";
 import { createImportInboxStore } from "./features/imports/server/import-inbox-store";
+import { createManagedSnapshotStore } from "./features/production-provenance/server/managed-snapshot-store";
 import { createProjectContextStore } from "./features/project-context/server/project-context-store";
 import { createProjectAccessStore } from "./features/projects/server/project-access-store";
 import { createReferenceProductionStore } from "./features/reference-production/server/reference-production-store";
@@ -38,6 +39,7 @@ export function createServerAssetVersionStorage() {
 }
 export const projectContextStore = createProjectContextStore(db);
 export const referenceProductionStore = createReferenceProductionStore(db);
+export const managedSnapshotStore = createManagedSnapshotStore(db);
 export const projectContextScopeStore = createProjectContextScopeStore(db);
 export const projectAccess = createProjectAccessStore(db, projectContextStore);
 export const auth = createAuth(ENV, db, desktopOrigins);

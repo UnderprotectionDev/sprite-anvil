@@ -10,6 +10,7 @@ import type { Context } from "@sprite-anvil/api/context";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { createDb, getProjectForUser } from "@sprite-anvil/db";
 import { user } from "@sprite-anvil/db/schema/auth";
+import { generationPackages } from "@sprite-anvil/db/schema/generation-packages";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { createAssetFamilyStore } from "./features/asset-families/server/asset-family-store";
@@ -407,6 +408,78 @@ test.skipIf(!databaseUrl)(
 					{ context }
 				)
 			).rejects.toThrow();
+			const incompleteCatalog = await createAssetVersionStore(db).list(
+				userId,
+				project.id
+			);
+			expect(
+				incompleteCatalog?.assetVersions.find(
+					(version) => version.id === uploadedVersion.id
+				)?.productionEvidence
+			).toMatchObject({
+				evidenceLevel: "incomplete",
+				sourceKind: "manual_import",
+			});
+			await expect(
+				call(
+					appRouter.assetVersions.review,
+					{
+						projectId: project.id,
+						assetVersionId: uploadedVersion.id,
+						decision: "approved",
+						rationale: "The silhouette matches the family design.",
+					},
+					{ context }
+				)
+			).rejects.toMatchObject({ code: "BAD_REQUEST" });
+			await expect(
+				call(
+					appRouter.assetRecords.recordReview,
+					{
+						assetRecordId: source.id,
+						decision: "approved",
+						id: crypto.randomUUID(),
+						projectId: project.id,
+						rationale: "The silhouette matches the family design.",
+						versionId: uploadedVersion.id,
+					},
+					{ context }
+				)
+			).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+			const generationPackageId = crypto.randomUUID();
+			await db.insert(generationPackages).values({
+				id: generationPackageId,
+				projectId: project.id,
+				assetRecordId: source.id,
+				createdByUserId: userId,
+				snapshot: {},
+			});
+			const importEvidence = await call(
+				appRouter.assetVersions.saveManualImportEvidence,
+				{
+					actualInstruction: "Create a readable ash knight idle sprite.",
+					assetRecordId: source.id,
+					generationPackageId,
+					projectId: project.id,
+					sourceSurface: "ChatGPT web",
+					versionId: uploadedVersion.id,
+				},
+				{ context }
+			);
+			expect(importEvidence.revision).toBe(1);
+			const completeCatalog = await createAssetVersionStore(db).list(
+				userId,
+				project.id
+			);
+			expect(
+				completeCatalog?.assetVersions.find(
+					(version) => version.id === uploadedVersion.id
+				)?.productionEvidence
+			).toMatchObject({
+				evidenceLevel: "complete",
+				sourceKind: "manual_import",
+				manualImportEvidence: { generationPackageId, revision: 1 },
+			});
 			const reviewEvent = await call(
 				appRouter.assetVersions.review,
 				{
@@ -468,6 +541,46 @@ test.skipIf(!databaseUrl)(
 				},
 				{ context }
 			);
+			await expect(
+				call(
+					appRouter.assetVersions.review,
+					{
+						projectId: project.id,
+						assetVersionId: secondFrameCorrection.assetVersion.id,
+						decision: "approved",
+						rationale: "The corrected frame is ready for composition.",
+					},
+					{ context }
+				)
+			).rejects.toMatchObject({ code: "BAD_REQUEST" });
+			await expect(
+				call(
+					appRouter.assetRecords.recordReview,
+					{
+						assetRecordId: source.id,
+						decision: "approved",
+						id: crypto.randomUUID(),
+						projectId: project.id,
+						rationale: "The corrected frame is ready for composition.",
+						versionId: secondFrameCorrection.assetVersion.id,
+					},
+					{ context }
+				)
+			).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+			const correctionEvidence = await call(
+				appRouter.assetVersions.saveManualImportEvidence,
+				{
+					actualInstruction:
+						"Refine the attack frame outline and preserve the silhouette.",
+					assetRecordId: source.id,
+					generationPackageId,
+					projectId: project.id,
+					sourceSurface: "Aseprite 1.3.15",
+					versionId: secondFrameCorrection.assetVersion.id,
+				},
+				{ context }
+			);
+			expect(correctionEvidence.revision).toBe(1);
 			await call(
 				appRouter.assetVersions.review,
 				{

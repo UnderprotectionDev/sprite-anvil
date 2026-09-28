@@ -97,7 +97,7 @@ export const assetRecordTrackingRouter = {
 				),
 				"Varlık Sürümü bulunamadı.",
 				"Bu karar kimliği farklı bir inceleme için kullanılmış.",
-				"Onay için bütünlük kanıtı gerekir."
+				"Onay için dosya bütünlüğü ve gerekli üretim kanıtı gerekir."
 			)
 		),
 	createFamily: protectedProcedure

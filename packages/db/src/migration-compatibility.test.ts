@@ -73,6 +73,9 @@ const legacyAttestationDetailsMigration = readMigration(
 const generationPackageMigration = readMigration(
 	"./migrations/20260927224924_safe_vance_astro/migration.sql"
 );
+const productionProvenanceMigration = readMigration(
+	"./migrations/20260928150408_organic_beyonder/migration.sql"
+);
 
 test("normalizes legacy project ownership before current indexes and foreign keys", () => {
 	const renameOwnerColumn = migration.indexOf(
@@ -524,6 +527,44 @@ test("persists Import Inbox source facts in a project-owned managed record", () 
 			schema: "public",
 		})
 	);
+});
+
+test("adds portable production evidence while preserving unknown legacy sources", () => {
+	expect(productionProvenanceMigration).toContain(
+		'CREATE TABLE "managed_snapshots"'
+	);
+	expect(productionProvenanceMigration).toContain(
+		'CREATE TABLE "manual_import_evidence"'
+	);
+	expect(productionProvenanceMigration).toContain(
+		"ADD COLUMN \"source_kind\" text DEFAULT 'unknown' NOT NULL"
+	);
+	expect(productionProvenanceMigration).not.toContain(
+		'UPDATE "asset_versions" SET "source_kind"'
+	);
+	expect(productionProvenanceMigration).toContain("external_working_file_edit");
+	expect(productionProvenanceMigration).toContain(
+		'CONSTRAINT "managed_snapshots_sha256_check"'
+	);
+	expect(productionProvenanceMigration).toContain(
+		'FOREIGN KEY ("project_id","asset_version_id","asset_record_id") REFERENCES "asset_versions"'
+	);
+
+	const snapshot = JSON.parse(
+		readMigration("./migrations/20260928150408_organic_beyonder/snapshot.json")
+	) as { ddl: Record<string, unknown>[]; prevIds: string[] };
+	expect(snapshot.prevIds).toEqual(
+		expect.arrayContaining(["fcd0d62c-308e-47a0-bfc1-a472ea37fd87"])
+	);
+	for (const table of ["managed_snapshots", "manual_import_evidence"]) {
+		expect(snapshot.ddl).toContainEqual(
+			expect.objectContaining({
+				entityType: "tables",
+				name: table,
+				schema: "public",
+			})
+		);
+	}
 });
 
 test("allows zero-byte Import Inbox files while preserving migration lineage", () => {

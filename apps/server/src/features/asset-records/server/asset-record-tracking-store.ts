@@ -13,11 +13,20 @@ import {
 	referenceSummarySchema,
 } from "@sprite-anvil/api/asset-record-tracking";
 import {
+	createVersionProductionEvidence,
+	type ManagedSnapshot,
+	type ManualImportEvidence,
+} from "@sprite-anvil/api/production-provenance";
+import {
 	analyzeReferenceTransferConstraints,
 	indexReferenceConflictFeaturesById,
 } from "@sprite-anvil/api/reference-production";
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
-import { legacyAssetAttestations } from "@sprite-anvil/db/schema/asset-production-history";
+import {
+	legacyAssetAttestations,
+	managedSnapshots,
+	manualImportEvidence,
+} from "@sprite-anvil/db/schema/asset-production-history";
 import { assetRecordDerivatives } from "@sprite-anvil/db/schema/asset-record-derivatives";
 import { assetRecordMeasurements } from "@sprite-anvil/db/schema/asset-record-measurements";
 import {
@@ -36,6 +45,10 @@ import {
 import { visualWorlds } from "@sprite-anvil/db/schema/context-scopes";
 import { project } from "@sprite-anvil/db/schema/project";
 import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import {
+	toManagedSnapshot,
+	toManualImportEvidence,
+} from "../../production-provenance/server/production-provenance-mapper";
 import { toAssetRecord } from "./asset-record-mapper";
 import {
 	type AssetVersionObjectStorage,
@@ -332,18 +345,73 @@ async function persistReferenceUpdate(
 
 function toVersionSummary(
 	version: typeof assetVersions.$inferSelect,
-	disposition: "candidate" | "approved" | "rejected"
+	disposition: "candidate" | "approved" | "rejected",
+	productionEvidence = createVersionProductionEvidence(version.sourceKind)
 ): AssetVersionSummary {
 	return assetVersionSummarySchema.parse({
 		createdAt: toISOString(version.createdAt),
 		fileName: version.fileName,
 		id: version.id,
+		productionEvidence,
 		reviewDisposition: disposition,
 		sha256: version.sha256,
 		sourceImageHeight: version.sourceImageHeight,
 		sourceImageWidth: version.sourceImageWidth,
 		versionNumber: version.versionNumber,
 	});
+}
+
+async function hasApprovalEvidence(
+	db: Database,
+	input: { projectId: string; assetRecordId: string; versionId: string },
+	sourceKind: typeof assetVersions.$inferSelect.sourceKind
+) {
+	const [manualEvidenceRows, managedSnapshotRows, qualityRows] =
+		await Promise.all([
+			sourceKind === "manual_import"
+				? db
+						.select({ id: manualImportEvidence.id })
+						.from(manualImportEvidence)
+						.where(
+							and(
+								eq(manualImportEvidence.projectId, input.projectId),
+								eq(manualImportEvidence.assetRecordId, input.assetRecordId),
+								eq(manualImportEvidence.assetVersionId, input.versionId)
+							)
+						)
+						.limit(1)
+				: Promise.resolve([{ id: "not-required" }]),
+			sourceKind === "external_working_file_edit"
+				? db
+						.select({ id: managedSnapshots.id })
+						.from(managedSnapshots)
+						.where(
+							and(
+								eq(managedSnapshots.projectId, input.projectId),
+								eq(managedSnapshots.assetRecordId, input.assetRecordId),
+								eq(managedSnapshots.assetVersionId, input.versionId)
+							)
+						)
+						.limit(1)
+				: Promise.resolve([{ id: "not-required" }]),
+			db
+				.select({ id: assetVersionQualityEvidence.id })
+				.from(assetVersionQualityEvidence)
+				.where(
+					and(
+						eq(assetVersionQualityEvidence.projectId, input.projectId),
+						eq(assetVersionQualityEvidence.versionId, input.versionId),
+						eq(assetVersionQualityEvidence.gate, "format_signature"),
+						eq(assetVersionQualityEvidence.result, "matched")
+					)
+				)
+				.limit(1),
+		]);
+	return (
+		manualEvidenceRows.length > 0 &&
+		managedSnapshotRows.length > 0 &&
+		qualityRows.length > 0
+	);
 }
 
 async function getOwnedAssetRecord(
@@ -636,6 +704,8 @@ export function createAssetRecordTrackingStore(
 				referenceRows,
 				qualityRows,
 				historyRows,
+				manualEvidenceRows,
+				managedSnapshotRows,
 				availableRecords,
 				availableVersionRows,
 				availableReviewRows,
@@ -725,6 +795,33 @@ export function createAssetRecordTrackingStore(
 					)
 					.orderBy(desc(legacyAssetAttestations.createdAt)),
 				db
+					.select()
+					.from(manualImportEvidence)
+					.where(
+						and(
+							eq(manualImportEvidence.projectId, projectId),
+							eq(manualImportEvidence.assetRecordId, assetRecordId)
+						)
+					)
+					.orderBy(
+						asc(manualImportEvidence.assetVersionId),
+						asc(manualImportEvidence.revision)
+					),
+				db
+					.select()
+					.from(managedSnapshots)
+					.where(
+						and(
+							eq(managedSnapshots.projectId, projectId),
+							eq(managedSnapshots.assetRecordId, assetRecordId)
+						)
+					)
+					.orderBy(
+						asc(managedSnapshots.assetVersionId),
+						asc(managedSnapshots.createdAt),
+						asc(managedSnapshots.id)
+					),
+				db
 					.select({
 						id: assetRecords.id,
 						name: assetRecords.name,
@@ -807,8 +904,38 @@ export function createAssetRecordTrackingStore(
 				availableVersionRows.map(({ version }) => version),
 				availableReviewRows
 			);
+			const latestManualEvidenceByVersion = new Map<
+				string,
+				ManualImportEvidence
+			>();
+			for (const evidenceRow of manualEvidenceRows) {
+				latestManualEvidenceByVersion.set(
+					evidenceRow.assetVersionId,
+					toManualImportEvidence(evidenceRow)
+				);
+			}
+			const snapshotsByVersion = new Map<string, ManagedSnapshot[]>();
+			for (const snapshotRow of managedSnapshotRows) {
+				const snapshots =
+					snapshotsByVersion.get(snapshotRow.assetVersionId) ?? [];
+				snapshots.push(toManagedSnapshot(snapshotRow));
+				snapshotsByVersion.set(snapshotRow.assetVersionId, snapshots);
+			}
+			const legacyVersionIds = new Set(
+				historyRows.map(({ attestation }) => attestation.versionId)
+			);
 			const versionSummaries = versions.map((version) =>
-				toVersionSummary(version, dispositions.get(version.id) ?? "candidate")
+				toVersionSummary(
+					version,
+					dispositions.get(version.id) ?? "candidate",
+					createVersionProductionEvidence(
+						legacyVersionIds.has(version.id)
+							? "legacy_asset"
+							: version.sourceKind,
+						latestManualEvidenceByVersion.get(version.id) ?? null,
+						snapshotsByVersion.get(version.id) ?? []
+					)
+				)
 			);
 			const approvedVersion =
 				versionSummaries.find((version) => version.id === approvedVersionId) ??
@@ -924,22 +1051,11 @@ export function createAssetRecordTrackingStore(
 			if (!version) {
 				return { ok: false, reason: "not_found" };
 			}
-			if (input.decision === "approved") {
-				const [quality] = await db
-					.select({ id: assetVersionQualityEvidence.id })
-					.from(assetVersionQualityEvidence)
-					.where(
-						and(
-							eq(assetVersionQualityEvidence.projectId, input.projectId),
-							eq(assetVersionQualityEvidence.versionId, input.versionId),
-							eq(assetVersionQualityEvidence.gate, "format_signature"),
-							eq(assetVersionQualityEvidence.result, "matched")
-						)
-					)
-					.limit(1);
-				if (!quality) {
-					return { ok: false, reason: "review_blocked" };
-				}
+			if (
+				input.decision === "approved" &&
+				!(await hasApprovalEvidence(db, input, version.sourceKind))
+			) {
+				return { ok: false, reason: "review_blocked" };
 			}
 			const [existing] = await db
 				.select()

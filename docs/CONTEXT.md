@@ -36,6 +36,7 @@ English terms are the canonical technical names used in code and contracts. Turk
 | Working Draft | Çalışma Taslağı |
 | Managed Snapshot | Yönetilen Kopya |
 | Live File Link | Canlı Dosya Bağlantısı |
+| External Working File Edit | Harici Çalışma Dosyası Düzenlemesi |
 | Source Metadata Mapping Proposal | Kaynak Metadata Eşleme Önerisi |
 | Approved Version | Onaylı Sürüm |
 | Review Event | İnceleme Kaydı |
@@ -74,6 +75,8 @@ English terms are the canonical technical names used in code and contracts. Turk
 | Manual Import Evidence | Elle İçe Aktarma Kanıtı |
 | Provider Generation Record | Sağlayıcı Üretim Kaydı |
 | Legacy Asset Attestation | Geçmiş Varlık Beyanı |
+| Production Source Kind | Üretim Kaynağı Türü |
+| Production Evidence Level | Üretim Kanıtı Düzeyi |
 | Production Experiment | Üretim Deneyi |
 | Production Recipe | Üretim Tarifi |
 | Rights Record | Hak Kaydı |
@@ -225,6 +228,10 @@ _Avoid_: Live file link, local path
 A desktop convenience that points to an external working file for opening and change detection. It is never the sole provenance record for an Asset Version.
 _Avoid_: Managed snapshot, asset version
 
+**External Working File Edit**:
+A source pathway where a user selects a PNG or WebP export created after editing a linked external working file, while the editable file is retained as an immutable Managed Snapshot.
+_Avoid_: Workbench edit, Live File Link, manual import
+
 **Source Metadata Mapping Proposal**:
 A reviewable draft that maps documented metadata from an imported PNG or sprite sheet and its supported JSON sidecar to proposed Asset Family, Required Set, Gameplay Metadata, and QA fields. Required conflicts remain unresolved until the user decides them; optional fields may remain explicitly unknown. The proposal never establishes production lineage, approval, or authoritative gameplay meaning by itself.
 _Avoid_: Imported truth, automatic family inference, legacy asset attestation
@@ -374,6 +381,14 @@ Provider-exposed fields must be retained for connected generation. Details unava
 **Legacy Asset Attestation**:
 A user-authored statement of the known source, relationship, missing history, and supporting evidence for a pre-existing asset whose original Generation Package or instruction cannot be recovered. It makes missing provenance explicit rather than reconstructing it.
 _Avoid_: Manual import evidence, estimated prompt, complete provenance
+
+**Production Source Kind**:
+A classification for the source pathway that produced an Asset Version and determines which provenance evidence is expected. It does not determine approval or quality.
+_Avoid_: Asset Category, Review Disposition, Production Evidence Level
+
+**Production Evidence Level**:
+The classification of an Asset Version's available production-source evidence as complete, incomplete, or unknown. It describes provenance evidence only; it does not indicate approval, quality, or export readiness.
+_Avoid_: QA Readiness, Review Disposition, production completeness
 
 **Production Experiment**:
 A comparison group for alternative attempts toward one production goal, preserving each attempt's Generation Package and Candidate Version while recording changed inputs and the user's observed outcome.

@@ -30,6 +30,7 @@ function createDatabaseHarness(
 		fileName: "asset.png",
 		objectKey: `projects/${projectId}/asset-records/${assetRecordId}/versions/${versionId}`,
 		contentType: "image/png" as const,
+		sourceKind: "unknown" as const,
 		byteSize: 4,
 		sha256: "a".repeat(64),
 		contentDigest: "a".repeat(64),
@@ -49,7 +50,6 @@ function createDatabaseHarness(
 		createdByUserId: userId,
 		createdAt,
 	};
-	let selectedTable: unknown;
 	let assetVersionLimitCount = 0;
 	let batchQueryCount = 0;
 	let transactionCount = 0;
@@ -88,6 +88,7 @@ function createDatabaseHarness(
 
 	const database = {
 		select: () => {
+			let selectedTable: unknown;
 			let isJoinedAssetVersionQuery = false;
 			return {
 				from(table: unknown) {
@@ -172,7 +173,18 @@ function createDatabaseHarness(
 		execute: () => ({ kind: "advisory-lock" }),
 		batch(queries: unknown[]) {
 			batchQueryCount = queries.length;
-			assetVersionRows.push(versionRow);
+			const versionInsert = queries.find(
+				(query) =>
+					query !== null &&
+					typeof query === "object" &&
+					Reflect.get(query, "table") === assetVersions
+			);
+			const savedVersionRow = {
+				...versionRow,
+				...(versionInsert ? Reflect.get(versionInsert, "values") : {}),
+				versionNumber: 1,
+			};
+			assetVersionRows.push(savedVersionRow);
 			reviewRows.push(reviewEventRow);
 			const unitVersionInsert = queries.find(
 				(query) =>
@@ -183,9 +195,15 @@ function createDatabaseHarness(
 			if (unitVersionInsert) {
 				insertedUnitVersionValues = Reflect.get(unitVersionInsert, "values");
 				unitVersionRows.push(unitVersionRow);
-				return [[], [versionRow], [reviewEventRow], [{}], [unitVersionRow]];
+				return [
+					[],
+					[savedVersionRow],
+					[reviewEventRow],
+					[{}],
+					[unitVersionRow],
+				];
 			}
-			return [[], [versionRow], [reviewEventRow], [{}]];
+			return [[], [savedVersionRow], [reviewEventRow], [{}]];
 		},
 		transaction() {
 			transactionCount += 1;
@@ -257,7 +275,14 @@ test("creates a corrected Unit Version atomically with its new Candidate Version
 
 	expect(result).toMatchObject({
 		kind: "created",
-		version: { id: versionId, reviewDisposition: "candidate" },
+		version: {
+			id: versionId,
+			productionEvidence: {
+				evidenceLevel: "incomplete",
+				sourceKind: "manual_import",
+			},
+			reviewDisposition: "candidate",
+		},
 		unitVersion: {
 			assetRecordId,
 			assetVersionId: versionId,
@@ -281,6 +306,13 @@ test("creates a corrected Unit Version atomically with its new Candidate Version
 	expect(catalog?.assetVersions.map((version) => version.id)).toContain(
 		versionId
 	);
+	expect(
+		catalog?.assetVersions.find((version) => version.id === versionId)
+			?.productionEvidence
+	).toMatchObject({
+		evidenceLevel: "incomplete",
+		sourceKind: "manual_import",
+	});
 	expect(catalog?.unitVersions).toEqual([
 		expect.objectContaining({
 			assetVersionId: versionId,

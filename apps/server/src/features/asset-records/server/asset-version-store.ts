@@ -9,6 +9,7 @@ import {
 	assetVersionReviewDispositionSchema,
 	assetVersionSummarySchema,
 } from "@sprite-anvil/api/asset-record-tracking";
+import { createVersionProductionEvidence } from "@sprite-anvil/api/production-provenance";
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
 import { legacyAssetAttestations } from "@sprite-anvil/db/schema/asset-production-history";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
@@ -49,6 +50,7 @@ function toVersionSummary(
 		createdAt: toISOString(version.createdAt),
 		fileName: version.fileName,
 		id: version.id,
+		productionEvidence: createVersionProductionEvidence(version.sourceKind),
 		reviewDisposition: disposition,
 		sha256: version.sha256,
 		sourceImageHeight: version.sourceImageHeight,
@@ -298,6 +300,7 @@ async function insertVersionRows(
 				versionNumber,
 				fileName: input.fileName,
 				contentType: input.contentType,
+				sourceKind: "legacy_asset",
 				sourceImageWidth: upload.sourceImageWidth,
 				sourceImageHeight: upload.sourceImageHeight,
 				sha256: upload.sha256,

@@ -9,6 +9,9 @@ import { Input } from "@sprite-anvil/ui/components/input";
 import type { ReactNode, SyntheticEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useAssetVersionWrites } from "@/features/asset-versions/ui/hooks/use-asset-version-writes";
+import { LiveFileLinkPanel } from "@/features/production-provenance/ui/components/live-file-link-panel";
+import { VersionProductionEvidencePanel } from "@/features/production-provenance/ui/components/version-production-evidence-panel";
 import { ReferenceBoardView } from "@/features/reference-production/ui/views/reference-board-view";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
@@ -305,6 +308,14 @@ export function AssetRecordTrackingPanel({
 	onRefresh: () => Promise<unknown>;
 }) {
 	const { record, tracking } = detail;
+	const versionWrites = useAssetVersionWrites(record.projectId, async () => {
+		const result: unknown = await onRefresh();
+		const isError =
+			result && typeof result === "object" && "isError" in result
+				? Boolean(result.isError)
+				: false;
+		return { isError };
+	});
 	const matchingVersionRef = useRef<HTMLDivElement>(null);
 	const matchingVersion = focusVersionId
 		? [tracking.approvedVersion, ...tracking.alternatives].find(
@@ -593,6 +604,9 @@ export function AssetRecordTrackingPanel({
 	} as const;
 
 	function reviewActions(version: AssetVersionSummary) {
+		const manualEvidenceIncomplete =
+			version.productionEvidence.sourceKind === "manual_import" &&
+			version.productionEvidence.evidenceLevel === "incomplete";
 		const decisions = [
 			{ decision: "approved", label: "Onayla" },
 			{ decision: "rejected", label: "Reddet" },
@@ -605,7 +619,8 @@ export function AssetRecordTrackingPanel({
 						disabled={
 							activeWrite !== null ||
 							writeOutcomeUncertain ||
-							version.reviewDisposition === decision
+							version.reviewDisposition === decision ||
+							(decision === "approved" && manualEvidenceIncomplete)
 						}
 						key={decision}
 						onClick={() => void recordReview(version.id, decision)}
@@ -616,6 +631,12 @@ export function AssetRecordTrackingPanel({
 						{label}
 					</Button>
 				))}
+				{manualEvidenceIncomplete ? (
+					<p className="w-full text-muted-foreground text-xs" role="status">
+						Onaydan önce Üretim Paketi, kaynak yüzeyi ve gerçek üretim
+						talimatını kaydedin.
+					</p>
+				) : null}
 			</div>
 		);
 	}
@@ -679,6 +700,14 @@ export function AssetRecordTrackingPanel({
 								{displayFileName(tracking.approvedVersion.fileName)} · Sürüm{" "}
 								{tracking.approvedVersion.versionNumber}
 							</p>
+							<VersionProductionEvidencePanel
+								assetRecordId={record.id}
+								evidence={tracking.approvedVersion.productionEvidence}
+								onRefresh={onRefresh}
+								projectId={record.projectId}
+								reviewDisposition={tracking.approvedVersion.reviewDisposition}
+								versionId={tracking.approvedVersion.id}
+							/>
 							{reviewActions(tracking.approvedVersion)}
 						</div>
 					) : (
@@ -704,6 +733,14 @@ export function AssetRecordTrackingPanel({
 										{version.versionNumber} ·{" "}
 										{reviewDispositionLabel[version.reviewDisposition]}
 									</p>
+									<VersionProductionEvidencePanel
+										assetRecordId={record.id}
+										evidence={version.productionEvidence}
+										onRefresh={onRefresh}
+										projectId={record.projectId}
+										reviewDisposition={version.reviewDisposition}
+										versionId={version.id}
+									/>
 									{reviewActions(version)}
 								</li>
 							))}
@@ -857,6 +894,21 @@ export function AssetRecordTrackingPanel({
 					)}
 				</section>
 			</div>
+
+			<LiveFileLinkPanel
+				assetRecordId={record.id}
+				disabled={versionWrites.writesDisabled}
+				hasAssetFamily={tracking.family !== null}
+				onCheckWriteOutcome={() => void versionWrites.checkWriteOutcome()}
+				onImport={(candidateFile, sourceFile) =>
+					versionWrites.upload(record.id, candidateFile, undefined, {
+						managedSnapshot: sourceFile,
+						sourceKind: "external_working_file_edit",
+					})
+				}
+				projectId={record.projectId}
+				writeOutcomeUncertain={versionWrites.writeOutcomeUncertain}
+			/>
 
 			<section
 				aria-labelledby="asset-version-create-heading"

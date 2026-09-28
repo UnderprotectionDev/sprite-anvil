@@ -36,6 +36,11 @@ const idempotencyKeySchema = z.string().trim().min(1).max(128);
 const sourceAssetVersionHeader = "x-source-asset-version-id";
 const unitVersionTypeHeader = "x-unit-version-type";
 const unitVersionKeyHeader = "x-unit-version-key";
+const sourceKindHeader = "x-asset-version-source-kind";
+const candidateSourceKindSchema = z.enum([
+	"manual_import",
+	"external_working_file_edit",
+]);
 const uploadLengthPattern = /^[1-9]\d*$/;
 
 type StoredObject = NonNullable<
@@ -108,7 +113,8 @@ async function uploadAssetVersion(
 	assetRecordId: string,
 	ownerUserId: string,
 	dependencies: AssetVersionRouteDependencies,
-	unitCorrection?: UnitVersionCorrectionInput
+	unitCorrection?: UnitVersionCorrectionInput,
+	sourceKind: "manual_import" | "external_working_file_edit" = "manual_import"
 ) {
 	const assetRecord =
 		await dependencies.assetVersionStore.getAssetRecordForUpload(
@@ -217,6 +223,7 @@ async function uploadAssetVersion(
 				idempotencyKey: idempotencyKey.data,
 				integrityVerified: true,
 				...(unitCorrection ? { unitCorrection } : {}),
+				...(unitCorrection ? {} : { sourceKind }),
 			}
 		);
 		if (!result) {
@@ -304,7 +311,15 @@ async function handleAssetVersionUploadRequest(
 	}
 
 	let unitCorrection: UnitVersionCorrectionInput | undefined;
+	let sourceKind: "manual_import" | "external_working_file_edit" =
+		"manual_import";
 	if (unitCorrectionRequired) {
+		if (c.req.header(sourceKindHeader) !== undefined) {
+			return c.json(
+				serializePublicApiError("Invalid Asset Version source kind"),
+				400
+			);
+		}
 		const parsedCorrection = unitVersionCorrectionInputSchema.safeParse({
 			sourceAssetVersionId: c.req.header(sourceAssetVersionHeader),
 			unitType: c.req.header(unitVersionTypeHeader),
@@ -317,6 +332,17 @@ async function handleAssetVersionUploadRequest(
 			);
 		}
 		unitCorrection = parsedCorrection.data;
+	} else {
+		const parsedSourceKind = candidateSourceKindSchema.safeParse(
+			c.req.header(sourceKindHeader) ?? "manual_import"
+		);
+		if (!parsedSourceKind.success) {
+			return c.json(
+				serializePublicApiError("Invalid Asset Version source kind"),
+				400
+			);
+		}
+		sourceKind = parsedSourceKind.data;
 	}
 
 	return uploadAssetVersion(
@@ -325,7 +351,8 @@ async function handleAssetVersionUploadRequest(
 		parsedAssetRecordId.data,
 		access.ownerUserId,
 		dependencies,
-		unitCorrection
+		unitCorrection,
+		sourceKind
 	);
 }
 

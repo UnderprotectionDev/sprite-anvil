@@ -6,6 +6,7 @@ import type {
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useState } from "react";
 import { ENV } from "@/env";
+import { VersionProductionEvidencePanel } from "@/features/production-provenance/ui/components/version-production-evidence-panel";
 import type { useAssetVersionWrites } from "../hooks/use-asset-version-writes";
 import { AssetVersionPreview } from "./asset-version-preview";
 import { CompositeVersionControls } from "./composite-version-controls";
@@ -194,6 +195,14 @@ export function AssetVersionControls({
 																		? "Doğrulandı"
 																		: "Doğrulanmadı"}
 																</p>
+																<VersionProductionEvidencePanel
+																	assetRecordId={version.assetRecordId}
+																	evidence={version.productionEvidence}
+																	onRefresh={writes.refreshCatalogs}
+																	projectId={version.projectId}
+																	reviewDisposition={version.reviewDisposition}
+																	versionId={version.id}
+																/>
 																<AssetVersionReviewControls
 																	version={version}
 																	writes={writes}
@@ -268,6 +277,9 @@ function AssetVersionReviewControls({
 	const [rationale, setRationale] = useState("");
 	const review = (decision: AssetVersionReviewInput["decision"]) =>
 		void writes.review(version.id, decision, rationale);
+	const manualEvidenceIncomplete =
+		version.productionEvidence.sourceKind === "manual_import" &&
+		version.productionEvidence.evidenceLevel === "incomplete";
 
 	return (
 		<div className="space-y-2">
@@ -291,6 +303,7 @@ function AssetVersionReviewControls({
 						disabled={
 							writes.writesDisabled ||
 							rationale.trim().length === 0 ||
+							manualEvidenceIncomplete ||
 							!version.integrityVerified ||
 							!version.contentDigest
 						}
@@ -300,6 +313,12 @@ function AssetVersionReviewControls({
 						Onayla
 					</Button>
 				)}
+				{manualEvidenceIncomplete ? (
+					<p className="text-muted-foreground text-xs" role="status">
+						Onaydan önce Üretim Paketi, kaynak yüzeyi ve gerçek üretim
+						talimatını kaydedin.
+					</p>
+				) : null}
 				{version.reviewDisposition === "rejected" ? null : (
 					<Button
 						disabled={writes.writesDisabled || rationale.trim().length === 0}

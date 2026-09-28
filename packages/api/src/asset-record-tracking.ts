@@ -1,5 +1,15 @@
 import { z } from "zod";
+import { assetVersionFileNameSchema } from "./asset-file-contracts";
 import { assetRecordSchema } from "./asset-records";
+import {
+	createVersionProductionEvidence,
+	versionProductionEvidenceSchema,
+} from "./production-provenance";
+
+export {
+	assetSourceFileNameSchema,
+	assetVersionFileNameSchema,
+} from "./asset-file-contracts";
 
 export const assetVersionContentTypes = ["image/png", "image/webp"] as const;
 export const assetVersionContentTypeSchema = z.enum(assetVersionContentTypes);
@@ -51,38 +61,14 @@ export const assetVersionReviewDispositionSchema = z.enum(
 	assetVersionReviewDispositions
 );
 
-function isSafeAssetFileName(fileName: string) {
-	return (
-		!(fileName.includes("/") || fileName.includes("\\")) &&
-		Array.from(fileName).every((character) => {
-			const codePoint = character.codePointAt(0);
-			return (
-				codePoint !== undefined &&
-				codePoint >= 0x20 &&
-				!(codePoint >= 0x7f && codePoint <= 0x9f)
-			);
-		})
-	);
-}
-
-const safeAssetFileNameSchema = z
-	.string()
-	.min(1)
-	.max(255)
-	.refine(isSafeAssetFileName);
-
-export const assetSourceFileNameSchema = safeAssetFileNameSchema;
-
-export const assetVersionFileNameSchema = z
-	.string()
-	.trim()
-	.pipe(safeAssetFileNameSchema);
-
 export const assetVersionSummarySchema = z
 	.object({
 		createdAt: z.iso.datetime(),
 		fileName: z.string().min(1).max(255).nullable(),
 		id: z.uuid(),
+		productionEvidence: versionProductionEvidenceSchema.default(() =>
+			createVersionProductionEvidence("unknown")
+		),
 		reviewDisposition: assetVersionReviewDispositionSchema,
 		sha256: z
 			.string()
