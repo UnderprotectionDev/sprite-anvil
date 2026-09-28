@@ -67,6 +67,9 @@ const allowEmptyImportInboxMigration = readMigration(
 const preserveImportInboxSourceFileNamesMigration = readMigration(
 	"./migrations/20260928080506_preserve-import-inbox-source-filenames/migration.sql"
 );
+const legacyAttestationDetailsMigration = readMigration(
+	"./migrations/20260928113737_hot_the_professor/migration.sql"
+);
 const generationPackageMigration = readMigration(
 	"./migrations/20260927224924_safe_vance_astro/migration.sql"
 );
@@ -576,6 +579,60 @@ test("preserves exact Import Inbox source file names in the database", () => {
 		'btrim("file_name")'
 	);
 	expect(preserveNamesSnapshot.prevIds).toContain(allowEmptySnapshot.id);
+});
+
+test("stores missing legacy history details without filling earlier user statements", () => {
+	const generationPackageSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260927224924_safe_vance_astro/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { id: string };
+	const preserveNamesSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260928080506_preserve-import-inbox-source-filenames/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { id: string };
+	const attestationDetailsSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260928113737_hot_the_professor/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { ddl: Record<string, unknown>[]; prevIds: string[] };
+
+	expect(legacyAttestationDetailsMigration).toContain(
+		'ADD COLUMN "unknown_history_details" text'
+	);
+	expect(legacyAttestationDetailsMigration).toContain(
+		'CHECK ("unknown_history_details" IS NULL OR length(trim("unknown_history_details")) > 0)'
+	);
+	expect(legacyAttestationDetailsMigration).not.toContain(
+		'UPDATE "legacy_asset_attestations"'
+	);
+	expect(attestationDetailsSnapshot.prevIds).toContain(
+		generationPackageSnapshot.id
+	);
+	expect(attestationDetailsSnapshot.prevIds).toContain(
+		preserveNamesSnapshot.id
+	);
+	expect(attestationDetailsSnapshot.ddl).toContainEqual(
+		expect.objectContaining({
+			entityType: "columns",
+			name: "unknown_history_details",
+			schema: "public",
+			table: "legacy_asset_attestations",
+		})
+	);
 });
 
 test("stores Production Context Snapshots with project and Asset Record ownership", () => {

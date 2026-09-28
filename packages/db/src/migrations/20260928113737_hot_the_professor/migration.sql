@@ -1,0 +1,2 @@
+ALTER TABLE "legacy_asset_attestations" ADD COLUMN "unknown_history_details" text;--> statement-breakpoint
+ALTER TABLE "legacy_asset_attestations" ADD CONSTRAINT "legacy_asset_attestations_unknown_history_details_check" CHECK ("unknown_history_details" IS NULL OR length(trim("unknown_history_details")) > 0);
