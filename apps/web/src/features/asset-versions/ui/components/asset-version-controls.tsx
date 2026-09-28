@@ -6,6 +6,7 @@ import type {
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useState } from "react";
 import { ENV } from "@/env";
+import { ExternalWorkingFileEditUpload } from "@/features/production-provenance/ui/components/external-working-file-edit-upload";
 import { VersionProductionEvidencePanel } from "@/features/production-provenance/ui/components/version-production-evidence-panel";
 import type { useAssetVersionWrites } from "../hooks/use-asset-version-writes";
 import { AssetVersionPreview } from "./asset-version-preview";
@@ -144,6 +145,15 @@ export function AssetVersionControls({
 													/>
 												</label>
 											</div>
+											<ExternalWorkingFileEditUpload
+												disabled={writes.writesDisabled}
+												onImport={(candidateFile, sourceFile) =>
+													writes.upload(record.id, candidateFile, undefined, {
+														managedSnapshot: sourceFile,
+														sourceKind: "external_working_file_edit",
+													})
+												}
+											/>
 											{versions.length === 0 ? (
 												<p className="text-muted-foreground text-sm">
 													Henüz sürüm kaydedilmedi.

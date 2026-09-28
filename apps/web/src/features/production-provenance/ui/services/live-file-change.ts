@@ -19,7 +19,12 @@ export type PreparedLiveFileCandidate =
 	| { kind: "source-unavailable" }
 	| { kind: "source-too-large" }
 	| { kind: "unsupported-export" }
-	| { kind: "ready"; candidateFile: File; sourceFile: File };
+	| {
+			kind: "ready";
+			candidateFile: File;
+			sourceFile: File;
+			sourceModifiedAt: number | null;
+	  };
 
 function fileName(path: string) {
 	return path.split(pathSeparatorPattern).filter(Boolean).at(-1) ?? "untitled";
@@ -88,6 +93,7 @@ export async function prepareLiveFileCandidate(
 
 	return {
 		kind: "ready",
+		sourceModifiedAt: initialSourceInfo.mtime?.getTime() ?? null,
 		sourceFile: new File([toArrayBuffer(sourceBytes)], fileName(sourcePath), {
 			lastModified: initialSourceInfo.mtime?.getTime() ?? 0,
 			type: "application/octet-stream",

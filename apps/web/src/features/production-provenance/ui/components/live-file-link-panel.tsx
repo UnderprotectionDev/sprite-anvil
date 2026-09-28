@@ -273,7 +273,7 @@ export function LiveFileLinkPanel({
 				const baseline = {
 					...linkedFile,
 					size: prepared.sourceFile.size,
-					modifiedAt: prepared.sourceFile.lastModified ?? null,
+					modifiedAt: prepared.sourceModifiedAt,
 				};
 				window.localStorage.setItem(storageKey, JSON.stringify(baseline));
 				setLinkedFile(baseline);

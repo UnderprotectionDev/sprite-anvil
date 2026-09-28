@@ -21,21 +21,27 @@ afterEach(() => {
 	window.localStorage.clear();
 });
 
-function createAdapter(chooseExport: () => Promise<string | null>) {
+function createAdapter(
+	chooseExport: () => Promise<string | null>,
+	mtime: Date | null = new Date(1000)
+) {
 	let notifyChange: (() => void) | undefined;
+	let currentSourceSize = sourceBytes.length;
 	const adapter: LiveFileLinkAdapter = {
 		isAvailable: true,
 		chooseWorkingFile: () => Promise.resolve(sourcePath),
 		chooseExport,
 		readFile: (path) =>
 			Promise.resolve(
-				(path === sourcePath ? sourceBytes : exportBytes).slice()
+				path === sourcePath
+					? new Uint8Array(currentSourceSize).fill(1)
+					: exportBytes.slice()
 			),
-		stat: () =>
+		stat: (path) =>
 			Promise.resolve({
 				isFile: true,
-				size: sourceBytes.length,
-				mtime: new Date(1000),
+				size: path === sourcePath ? currentSourceSize : exportBytes.length,
+				mtime,
 			}),
 		watch: (_path, callback) => {
 			notifyChange = callback;
@@ -43,7 +49,15 @@ function createAdapter(chooseExport: () => Promise<string | null>) {
 		},
 		openPath: () => Promise.resolve(),
 	};
-	return { adapter, notifyChange: () => notifyChange?.() };
+	return {
+		adapter,
+		notifyChange: (nextSourceSize?: number) => {
+			if (nextSourceSize !== undefined) {
+				currentSourceSize = nextSourceSize;
+			}
+			notifyChange?.();
+		},
+	};
 }
 
 test("a watched file change creates a Candidate Version from a selected WebP and its source snapshot", async () => {
@@ -127,4 +141,50 @@ test("cancelling the export picker leaves the file change pending", async () => 
 			name: "Değişikliği PNG/WebP olarak içe aktar",
 		})
 	).toBeTruthy();
+});
+
+test("a successful import preserves a null source mtime as the unchanged baseline", async () => {
+	const user = userEvent.setup();
+	const { adapter, notifyChange } = createAdapter(
+		() => Promise.resolve(exportPath),
+		null
+	);
+	const onImport = vi.fn().mockResolvedValue(true);
+	render(
+		<LiveFileLinkPanel
+			adapter={adapter}
+			assetRecordId={assetRecordId}
+			hasAssetFamily
+			onImport={onImport}
+			projectId={projectId}
+		/>
+	);
+
+	await user.click(
+		screen.getByRole("button", { name: "Çalışma dosyasını bağla" })
+	);
+	await waitFor(() => expect(notifyChange).toBeDefined());
+	notifyChange(5);
+	await screen.findByText(changedStatusPattern);
+	await user.click(
+		screen.getByRole("button", {
+			name: "Değişikliği PNG/WebP olarak içe aktar",
+		})
+	);
+
+	await waitFor(() => expect(onImport).toHaveBeenCalledTimes(1));
+	expect(
+		JSON.parse(
+			window.localStorage.getItem(
+				`sprite-anvil.live-file-link:${projectId}:${assetRecordId}`
+			) ?? "null"
+		)
+	).toMatchObject({ modifiedAt: null, size: 5 });
+	await waitFor(() =>
+		expect(
+			screen.queryByRole("button", {
+				name: "Değişikliği PNG/WebP olarak içe aktar",
+			})
+		).toBeNull()
+	);
 });
