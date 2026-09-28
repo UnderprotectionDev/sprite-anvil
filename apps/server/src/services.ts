@@ -16,6 +16,7 @@ import { createGenerationPackageStore } from "./features/generation-packages/ser
 import { createImportInboxStore } from "./features/imports/server/import-inbox-store";
 import { createProjectContextStore } from "./features/project-context/server/project-context-store";
 import { createProjectAccessStore } from "./features/projects/server/project-access-store";
+import { createProviderGenerationRecordStore } from "./features/provider-generation-records/server/provider-generation-record-store";
 import { createReferenceProductionStore } from "./features/reference-production/server/reference-production-store";
 import { createProjectContextScopeStore } from "./features/visual-worlds/server/project-context-scope-store";
 
@@ -25,6 +26,8 @@ export const collectionStore = createCollectionStore(db);
 export const generationPackageStore = createGenerationPackageStore(db);
 export const importInboxStore = createImportInboxStore(db);
 export const assetVersionStore = createAssetVersionStore(db);
+export const providerGenerationRecordStore =
+	createProviderGenerationRecordStore(db);
 export const assetRecordStore = createAssetRecordStore(db);
 const r2Config = getR2StorageConfig(ENV);
 export const assetRecordTrackingStore = createAssetRecordTrackingStore(

@@ -151,6 +151,7 @@ function toAssetVersion(
 		contentDigest: record.contentDigest ?? record.sha256,
 		integrityVerified: record.integrityVerified,
 		previewUrl: `/api/projects/${encodeURIComponent(record.projectId)}/asset-versions/${record.id}/preview`,
+		productionSource: record.productionSource ?? "unknown",
 		reviewDisposition: reviewEvents.at(-1)?.type ?? "candidate",
 		reviewEvents,
 		createdAt: toISOString(record.createdAt),
@@ -173,6 +174,7 @@ function toFileRecord(
 		contentDigest: record.contentDigest ?? record.sha256,
 		idempotencyKey: record.idempotencyKey,
 		integrityVerified: record.integrityVerified,
+		productionSource: record.productionSource ?? "unknown",
 	};
 }
 
@@ -258,7 +260,8 @@ async function readExistingVersion(
 	if (
 		existing.contentDigest !== input.contentDigest ||
 		existing.byteSize !== input.contentLength ||
-		existing.contentType !== input.contentType
+		existing.contentType !== input.contentType ||
+		existing.productionSource !== (input.productionSource ?? "unknown")
 	) {
 		return { kind: "idempotency-conflict" };
 	}
@@ -343,6 +346,7 @@ async function insertCandidateVersion(
 			byteSize: input.contentLength,
 			contentDigest: input.contentDigest,
 			integrityVerified: input.integrityVerified,
+			productionSource: input.productionSource ?? "unknown",
 			idempotencyKey: input.idempotencyKey,
 			createdByUserId: userId,
 		})

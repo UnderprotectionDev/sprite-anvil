@@ -72,6 +72,7 @@ export const publicApiErrorSchema = z
 			"Invalid Asset Version file name",
 			"Missing Asset Version content",
 			"Invalid Asset Version content length",
+			"Invalid Asset Version production source",
 			"Missing Asset Version idempotency key",
 			"Invalid Asset Version image content",
 			"Asset Version idempotency conflict",

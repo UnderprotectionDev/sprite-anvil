@@ -21,6 +21,7 @@ import { createAssetVersionStore } from "./features/asset-versions/server/asset-
 import { createCollectionStore } from "./features/collections/server/collection-store";
 import { createProjectContextStore } from "./features/project-context/server/project-context-store";
 import { createProjectAccessStore } from "./features/projects/server/project-access-store";
+import { createProviderGenerationRecordStore } from "./features/provider-generation-records/server/provider-generation-record-store";
 import { createProjectContextScopeStore } from "./features/visual-worlds/server/project-context-scope-store";
 
 const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
@@ -147,6 +148,7 @@ test.skipIf(!databaseUrl)(
 				projectAccess: createProjectAccessStore(db, projectContextStore),
 				projectContextScopeStore: createProjectContextScopeStore(db),
 				projectContextStore,
+				providerGenerationRecordStore: createProviderGenerationRecordStore(db),
 				session: { user: { id: userId } } as Context["session"],
 			};
 			const project = await call(
@@ -285,6 +287,101 @@ test.skipIf(!databaseUrl)(
 				id: uploadedVersion.id,
 			});
 			expect(storedObjects.size).toBe(1);
+
+			const providerBytes = makePng("connected-provider-output");
+			const providerUploadResponse = await uploadApp.request(
+				`/api/projects/${project.id}/asset-records/${source.id}/versions`,
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "image/png",
+						"X-Asset-Version-File-Name": "provider-output.png",
+						"X-Asset-Version-Size": providerBytes.byteLength.toString(),
+						"X-Asset-Version-Production-Source": "connected_provider",
+						"Idempotency-Key": crypto.randomUUID(),
+					},
+					body: providerBytes,
+				}
+			);
+			expect(providerUploadResponse.status).toBe(201);
+			const providerVersion = assetVersionSchema.parse(
+				await providerUploadResponse.json()
+			);
+			const providerGenerationInput = {
+				actualDimensions: { height: 96, width: 128 },
+				assetVersionId: providerVersion.id,
+				interface: "Images API v2",
+				model: "pixel-art-v4",
+				modelVersion: "2026-08-15",
+				palette: ["#202030", "#f4c95d"],
+				projectId: project.id,
+				provider: "Example Provider",
+				providerParameters: {
+					steps: 28,
+					api_key: "secret-api-key",
+					authorization: "Bearer secret-token",
+					output: {
+						image_url:
+							"https://provider.example/result.png?X-Amz-Signature=temporary-secret",
+						format: "png",
+					},
+					advanced: { guidanceScale: 6.5, sampler: "euler" },
+				},
+				referenceIds: ["reference-42"],
+				requestedDimensions: { height: 96, width: 96 },
+				seed: 7231,
+			};
+
+			await expect(
+				call(
+					appRouter.assetVersions.review,
+					{
+						projectId: project.id,
+						assetVersionId: providerVersion.id,
+						decision: "approved",
+						rationale: "Provider details have not been recorded yet.",
+					},
+					{ context }
+				)
+			).rejects.toThrow("needs its Provider Generation Record");
+
+			const providerGenerationRecord = await call(
+				appRouter.assetVersions.recordProviderGeneration,
+				providerGenerationInput,
+				{ context }
+			);
+			expect(providerGenerationRecord.parameterSnapshot).toEqual({
+				parameters: {
+					steps: 28,
+					output: { format: "png" },
+					advanced: { guidanceScale: 6.5, sampler: "euler" },
+				},
+				schemaVersion: "provider-generation-parameters/1.0.0",
+			});
+			expect(
+				await call(
+					appRouter.assetVersions.recordProviderGeneration,
+					providerGenerationInput,
+					{ context }
+				)
+			).toEqual(providerGenerationRecord);
+			await expect(
+				call(
+					appRouter.assetVersions.recordProviderGeneration,
+					{ ...providerGenerationInput, model: "pixel-art-v5" },
+					{ context }
+				)
+			).rejects.toThrow("different Provider Generation Record");
+			await call(
+				appRouter.assetVersions.review,
+				{
+					projectId: project.id,
+					assetVersionId: providerVersion.id,
+					decision: "approved",
+					rationale: "Provider details are recorded.",
+				},
+				{ context }
+			);
 
 			const uploadUnitCorrection = async ({
 				sourceAssetVersionId,
@@ -560,6 +657,8 @@ test.skipIf(!databaseUrl)(
 				),
 				projectContextScopeStore: createProjectContextScopeStore(rereadDb),
 				projectContextStore: rereadProjectContextStore,
+				providerGenerationRecordStore:
+					createProviderGenerationRecordStore(rereadDb),
 				session: { user: { id: userId } } as Context["session"],
 			};
 			const [versions, families] = await Promise.all([
@@ -588,6 +687,26 @@ test.skipIf(!databaseUrl)(
 						candidateEvent,
 						reapprovalEvent,
 					],
+				})
+			);
+			expect(versions.assetVersions).toContainEqual(
+				expect.objectContaining({
+					id: providerVersion.id,
+					productionSource: "connected_provider",
+					providerGenerationRecord: expect.objectContaining({
+						id: providerGenerationRecord.id,
+						provider: "Example Provider",
+						model: "pixel-art-v4",
+						seed: 7231,
+						parameterSnapshot: {
+							parameters: {
+								steps: 28,
+								output: { format: "png" },
+								advanced: { guidanceScale: 6.5, sampler: "euler" },
+							},
+							schemaVersion: "provider-generation-parameters/1.0.0",
+						},
+					}),
 				})
 			);
 			expect(versions.unitVersions).toEqual(

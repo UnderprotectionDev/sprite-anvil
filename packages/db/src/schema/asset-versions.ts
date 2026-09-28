@@ -32,6 +32,10 @@ export const assetVersions = pgTable(
 		byteSize: integer("byte_size").notNull(),
 		contentDigest: text("content_digest"),
 		integrityVerified: boolean("integrity_verified").default(false).notNull(),
+		productionSource: text("production_source")
+			.$type<"unknown" | "connected_provider">()
+			.default("unknown")
+			.notNull(),
 		idempotencyKey: text("idempotency_key")
 			.default(sql`'legacy:' || gen_random_uuid()::text`)
 			.notNull(),
@@ -97,6 +101,10 @@ export const assetVersions = pgTable(
 			sql`${table.integrityVerified} = false OR ${table.contentDigest} IS NOT NULL`
 		),
 		check("asset_versions_byte_size_check", sql`${table.byteSize} > 0`),
+		check(
+			"asset_versions_production_source_check",
+			sql`${table.productionSource} IN ('unknown', 'connected_provider')`
+		),
 		uniqueIndex("asset_versions_idempotency_key_idx").on(
 			table.projectId,
 			table.assetRecordId,

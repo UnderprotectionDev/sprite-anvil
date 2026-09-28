@@ -4,6 +4,10 @@ import {
 	type UnitVersionCorrectionInput,
 	unitVersionCorrectionInputSchema,
 } from "@sprite-anvil/api/asset-versions";
+import {
+	assetVersionProductionSourceHeader,
+	assetVersionProductionSourceSchema,
+} from "@sprite-anvil/api/provider-generation-records";
 import type { Context, Hono } from "hono";
 import z from "zod";
 import type {
@@ -136,6 +140,15 @@ async function uploadAssetVersion(
 			400
 		);
 	}
+	const productionSource = assetVersionProductionSourceSchema.safeParse(
+		c.req.header(assetVersionProductionSourceHeader) ?? "unknown"
+	);
+	if (!productionSource.success) {
+		return c.json(
+			serializePublicApiError("Invalid Asset Version production source"),
+			400
+		);
+	}
 	const encodedFileName = c.req.header(fileNameHeader);
 	let decodedFileName: string | undefined;
 	try {
@@ -216,6 +229,7 @@ async function uploadAssetVersion(
 				contentDigest,
 				idempotencyKey: idempotencyKey.data,
 				integrityVerified: true,
+				productionSource: productionSource.data,
 				...(unitCorrection ? { unitCorrection } : {}),
 			}
 		);

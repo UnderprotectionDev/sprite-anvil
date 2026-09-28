@@ -9,6 +9,7 @@ import { ENV } from "@/env";
 import type { useAssetVersionWrites } from "../hooks/use-asset-version-writes";
 import { AssetVersionPreview } from "./asset-version-preview";
 import { CompositeVersionControls } from "./composite-version-controls";
+import { ProviderGenerationRecordDetails } from "./provider-generation-record-details";
 import { reviewDispositionLabels } from "./review-disposition-labels";
 import {
 	UnitVersionCorrectionForm,
@@ -150,78 +151,14 @@ export function AssetVersionControls({
 											) : (
 												<ol className="space-y-3">
 													{versions.map((version) => (
-														<li
-															className="grid gap-3 rounded-md border p-3 sm:grid-cols-[8rem_1fr]"
+														<AssetVersionEntry
+															canonicalDesign={canonicalDesign}
+															familyId={family.id}
 															key={version.id}
-														>
-															<AssetVersionPreview
-																recordName={record.name}
-																url={`${serverUrl}${version.previewUrl}`}
-																versionNumber={version.versionNumber}
-															/>
-															<div className="space-y-2">
-																<p className="font-medium">
-																	Sürüm {version.versionNumber} ·{" "}
-																	{
-																		reviewDispositionLabels[
-																			version.reviewDisposition
-																		]
-																	}
-																</p>
-																<ol className="list-inside list-disc text-muted-foreground text-sm">
-																	{version.reviewEvents.map((reviewEvent) => (
-																		<li key={reviewEvent.id}>
-																			<span>
-																				{reviewEventLabels[reviewEvent.type]}
-																			</span>{" "}
-																			<time dateTime={reviewEvent.createdAt}>
-																				{new Date(
-																					reviewEvent.createdAt
-																				).toLocaleString("tr-TR")}
-																			</time>
-																			{reviewEvent.rationale ? (
-																				<span>
-																					{" "}
-																					— Gerekçe: {reviewEvent.rationale}
-																				</span>
-																			) : null}
-																		</li>
-																	))}
-																</ol>
-																<p className="text-muted-foreground text-sm">
-																	Dosya bütünlüğü:{" "}
-																	{version.integrityVerified
-																		? "Doğrulandı"
-																		: "Doğrulanmadı"}
-																</p>
-																<AssetVersionReviewControls
-																	version={version}
-																	writes={writes}
-																/>
-																{version.reviewDisposition === "approved" ? (
-																	<Button
-																		disabled={
-																			writes.writesDisabled ||
-																			canonicalDesign?.assetVersionId ===
-																				version.id
-																		}
-																		onClick={() =>
-																			void writes.selectCanonicalDesign(
-																				family.id,
-																				version.id
-																			)
-																		}
-																		type="button"
-																		variant="outline"
-																	>
-																		{canonicalDesign?.assetVersionId ===
-																		version.id
-																			? "Seçili Ana Tasarım"
-																			: "Ana Tasarım olarak seç"}
-																	</Button>
-																) : null}
-															</div>
-														</li>
+															recordName={record.name}
+															version={version}
+															writes={writes}
+														/>
 													))}
 												</ol>
 											)}
@@ -258,6 +195,82 @@ export function AssetVersionControls({
 	);
 }
 
+function AssetVersionEntry({
+	canonicalDesign,
+	familyId,
+	recordName,
+	version,
+	writes,
+}: {
+	canonicalDesign: AssetVersionCatalog["canonicalDesigns"][number] | undefined;
+	familyId: string;
+	recordName: string;
+	version: AssetVersionCatalog["assetVersions"][number];
+	writes: ReturnType<typeof useAssetVersionWrites>;
+}) {
+	const isCanonical = canonicalDesign?.assetVersionId === version.id;
+
+	return (
+		<li className="grid gap-3 rounded-md border p-3 sm:grid-cols-[8rem_1fr]">
+			<AssetVersionPreview
+				recordName={recordName}
+				url={`${serverUrl}${version.previewUrl}`}
+				versionNumber={version.versionNumber}
+			/>
+			<div className="space-y-2">
+				<p className="font-medium">
+					Sürüm {version.versionNumber} ·{" "}
+					{reviewDispositionLabels[version.reviewDisposition]}
+				</p>
+				<AssetVersionReviewHistory reviewEvents={version.reviewEvents} />
+				<p className="text-muted-foreground text-sm">
+					Dosya bütünlüğü:{" "}
+					{version.integrityVerified ? "Doğrulandı" : "Doğrulanmadı"}
+				</p>
+				<ProviderGenerationRecordDetails
+					productionSource={version.productionSource ?? "unknown"}
+					providerGenerationRecord={version.providerGenerationRecord ?? null}
+				/>
+				<AssetVersionReviewControls version={version} writes={writes} />
+				{version.reviewDisposition === "approved" ? (
+					<Button
+						disabled={writes.writesDisabled || isCanonical}
+						onClick={() =>
+							void writes.selectCanonicalDesign(familyId, version.id)
+						}
+						type="button"
+						variant="outline"
+					>
+						{isCanonical ? "Seçili Ana Tasarım" : "Ana Tasarım olarak seç"}
+					</Button>
+				) : null}
+			</div>
+		</li>
+	);
+}
+
+function AssetVersionReviewHistory({
+	reviewEvents,
+}: {
+	reviewEvents: AssetVersionCatalog["assetVersions"][number]["reviewEvents"];
+}) {
+	return (
+		<ol className="list-inside list-disc text-muted-foreground text-sm">
+			{reviewEvents.map((reviewEvent) => (
+				<li key={reviewEvent.id}>
+					<span>{reviewEventLabels[reviewEvent.type]}</span>{" "}
+					<time dateTime={reviewEvent.createdAt}>
+						{new Date(reviewEvent.createdAt).toLocaleString("tr-TR")}
+					</time>
+					{reviewEvent.rationale ? (
+						<span> — Gerekçe: {reviewEvent.rationale}</span>
+					) : null}
+				</li>
+			))}
+		</ol>
+	);
+}
+
 function AssetVersionReviewControls({
 	version,
 	writes,
@@ -266,6 +279,9 @@ function AssetVersionReviewControls({
 	writes: ReturnType<typeof useAssetVersionWrites>;
 }) {
 	const [rationale, setRationale] = useState("");
+	const providerGenerationRecordMissing =
+		version.productionSource === "connected_provider" &&
+		!version.providerGenerationRecord;
 	const review = (decision: AssetVersionReviewInput["decision"]) =>
 		void writes.review(version.id, decision, rationale);
 
@@ -291,6 +307,7 @@ function AssetVersionReviewControls({
 						disabled={
 							writes.writesDisabled ||
 							rationale.trim().length === 0 ||
+							providerGenerationRecordMissing ||
 							!version.integrityVerified ||
 							!version.contentDigest
 						}
