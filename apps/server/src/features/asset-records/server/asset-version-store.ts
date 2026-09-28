@@ -217,6 +217,10 @@ function sameVersionPayload(
 			version.createdByUserId === userId &&
 			version.sourceKind ===
 				("generationPackageId" in input ? "manual_import" : "legacy_asset") &&
+			version.productionSource ===
+				("productionSource" in input
+					? (input.productionSource ?? "unknown")
+					: "unknown") &&
 			provenanceMatches
 	);
 }
@@ -335,6 +339,10 @@ async function insertVersionRows(
 			integrityVerified: true,
 			sourceKind:
 				"generationPackageId" in input ? "manual_import" : "legacy_asset",
+			productionSource:
+				"productionSource" in input
+					? (input.productionSource ?? "unknown")
+					: "unknown",
 			objectKey: upload.objectKey,
 			createdByUserId: userId,
 			createdAt,

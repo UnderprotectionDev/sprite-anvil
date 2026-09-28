@@ -9,6 +9,8 @@ import type { Context } from "@sprite-anvil/api/context";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { createDb, getProjectForUser } from "@sprite-anvil/db";
 import { user } from "@sprite-anvil/db/schema/auth";
+import { generationPackages } from "@sprite-anvil/db/schema/generation-packages";
+import { providerGenerationRecords } from "@sprite-anvil/db/schema/provider-generation-records";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { createAssetFamilyStore } from "./features/asset-families/server/asset-family-store";
@@ -20,6 +22,7 @@ import { createAssetVersionStore } from "./features/asset-versions/server/asset-
 import { createCollectionStore } from "./features/collections/server/collection-store";
 import { createProjectContextStore } from "./features/project-context/server/project-context-store";
 import { createProjectAccessStore } from "./features/projects/server/project-access-store";
+import { createProviderGenerationRecordStore } from "./features/provider-generation-records/server/provider-generation-record-store";
 import { createProjectContextScopeStore } from "./features/visual-worlds/server/project-context-scope-store";
 
 const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
@@ -178,6 +181,7 @@ test.skipIf(!databaseUrl)(
 				projectAccess: createProjectAccessStore(db, projectContextStore),
 				projectContextScopeStore: createProjectContextScopeStore(db),
 				projectContextStore,
+				providerGenerationRecordStore: createProviderGenerationRecordStore(db),
 				session: { user: { id: userId } } as Context["session"],
 			};
 			const project = await call(
@@ -286,6 +290,116 @@ test.skipIf(!databaseUrl)(
 			expect(retryVersion.id).toBe(uploadedVersion.id);
 			expect(storedObjects.size).toBe(1);
 
+			const generationPackageId = crypto.randomUUID();
+			await db.insert(generationPackages).values({
+				id: generationPackageId,
+				projectId: project.id,
+				assetRecordId: source.id,
+				createdByUserId: userId,
+				snapshot: {},
+			});
+			const providerBytes = makePng("connected-provider-output");
+			const providerImport = await call(
+				appRouter.assetRecords.createManualImportVersion,
+				{
+					assetRecordId: source.id,
+					contentBase64: providerBytes.toString("base64"),
+					contentType: "image/png",
+					fileName: "provider-output.png",
+					generationInstruction: "Generate a pixel-art knight.",
+					generationPackageId,
+					id: crypto.randomUUID(),
+					productionSource: "user_reported_provider",
+					projectId: project.id,
+					sourceSurface: "Example Provider",
+				},
+				{ context }
+			);
+			expect(providerImport.sourceKind).toBe("manual_import");
+			const providerVersion = (
+				await call(
+					appRouter.assetVersions.list,
+					{ projectId: project.id },
+					{ context }
+				)
+			).assetVersions.find((version) => version.id === providerImport.id);
+			if (!providerVersion) {
+				throw new Error(
+					"Expected the provider result in the Asset Version catalog."
+				);
+			}
+			expect(providerVersion).toMatchObject({
+				productionSource: "user_reported_provider",
+				sourceKind: "manual_import",
+			});
+			const providerGenerationInput = {
+				actualDimensions: { height: 96, width: 128 },
+				assetVersionId: providerVersion.id,
+				interface: "Images API v2",
+				model: "pixel-art-v4",
+				modelVersion: "2026-08-15",
+				palette: ["#202030", "#f4c95d"],
+				projectId: project.id,
+				provider: "Example Provider",
+				providerParameters: {
+					steps: 28,
+					api_key: "secret-api-key",
+					authorization: "Bearer secret-token",
+					output: {
+						image_url:
+							"https://provider.example/result.png?X-Amz-Signature=temporary-secret",
+						format: "png",
+					},
+					advanced: { guidanceScale: 6.5, sampler: "euler" },
+				},
+				referenceIds: ["reference-42"],
+				requestedDimensions: { height: 96, width: 96 },
+				seed: 7231,
+			};
+
+			await expect(
+				call(
+					appRouter.assetVersions.review,
+					{
+						projectId: project.id,
+						assetVersionId: providerVersion.id,
+						decision: "approved",
+						rationale: "Provider details have not been recorded yet.",
+					},
+					{ context }
+				)
+			).resolves.toMatchObject({
+				assetVersionId: providerVersion.id,
+				type: "approved",
+			});
+
+			const providerGenerationRecord = await call(
+				appRouter.assetVersions.recordProviderGeneration,
+				providerGenerationInput,
+				{ context }
+			);
+			expect(providerGenerationRecord.parameterSnapshot).toEqual({
+				parameters: {
+					steps: 28,
+					output: { format: "png" },
+					advanced: { guidanceScale: 6.5, sampler: "euler" },
+				},
+				schemaVersion: "provider-generation-parameters/1.0.0",
+			});
+			expect(
+				await call(
+					appRouter.assetVersions.recordProviderGeneration,
+					providerGenerationInput,
+					{ context }
+				)
+			).toEqual(providerGenerationRecord);
+			await expect(
+				call(
+					appRouter.assetVersions.recordProviderGeneration,
+					{ ...providerGenerationInput, model: "pixel-art-v5" },
+					{ context }
+				)
+			).rejects.toThrow("different Provider Generation Record");
 			const uploadUnitCorrection = async ({
 				sourceAssetVersionId,
 				unitType,
@@ -541,6 +655,26 @@ test.skipIf(!databaseUrl)(
 				reviewDisposition: "candidate",
 			});
 
+			await db
+				.update(providerGenerationRecords)
+				.set({
+					parameterSnapshot: {
+						parameters: {
+							"x-amz-security-token": "persisted-session-secret",
+							token_count: 28,
+							stable_api_url: "https://provider.example/v2",
+							rawRequest: JSON.stringify({
+								api_key: "persisted-api-secret",
+								steps: 28,
+								output_url:
+									"https://provider.example/output.png?X-Amz-Signature=old-secret",
+							}),
+						},
+						schemaVersion: "provider-generation-parameters/1.0.0",
+					},
+				})
+				.where(eq(providerGenerationRecords.id, providerGenerationRecord.id));
+
 			const rereadDb = createDb({ DATABASE_URL: databaseUrl });
 			const rereadProjectContextStore = createProjectContextStore(rereadDb);
 			const rereadContext: Context = {
@@ -560,6 +694,8 @@ test.skipIf(!databaseUrl)(
 				),
 				projectContextScopeStore: createProjectContextScopeStore(rereadDb),
 				projectContextStore: rereadProjectContextStore,
+				providerGenerationRecordStore:
+					createProviderGenerationRecordStore(rereadDb),
 				session: { user: { id: userId } } as Context["session"],
 			};
 			const [versions, families] = await Promise.all([
@@ -588,6 +724,26 @@ test.skipIf(!databaseUrl)(
 						candidateEvent,
 						reapprovalEvent,
 					],
+				})
+			);
+			expect(versions.assetVersions).toContainEqual(
+				expect.objectContaining({
+					id: providerVersion.id,
+					productionSource: "user_reported_provider",
+					providerGenerationRecord: expect.objectContaining({
+						id: providerGenerationRecord.id,
+						provider: "Example Provider",
+						model: "pixel-art-v4",
+						seed: 7231,
+						parameterSnapshot: {
+							parameters: {
+								token_count: 28,
+								stable_api_url: "https://provider.example/v2",
+								rawRequest: JSON.stringify({ steps: 28 }),
+							},
+							schemaVersion: "provider-generation-parameters/1.0.0",
+						},
+					}),
 				})
 			);
 			expect(versions.unitVersions).toEqual(

@@ -54,9 +54,11 @@ export function UnitVersionCorrectionForm({
 			return;
 		}
 		const created = await writes.upload(assetRecordId, file, {
-			sourceAssetVersionId: selectedSource.id,
-			unitType,
-			unitKey: normalizedUnitKey,
+			unitCorrection: {
+				sourceAssetVersionId: selectedSource.id,
+				unitType,
+				unitKey: normalizedUnitKey,
+			},
 		});
 		if (created) {
 			setFile(null);

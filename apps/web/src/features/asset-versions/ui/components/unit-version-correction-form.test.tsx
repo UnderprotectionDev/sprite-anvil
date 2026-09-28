@@ -130,9 +130,11 @@ test("uploads one corrected unit from an exact source while retaining the previo
 	await user.click(submit);
 
 	expect(upload).toHaveBeenCalledWith(assetRecordId, correctedFile, {
-		sourceAssetVersionId: "version-frame-1",
-		unitType: "frame",
-		unitKey: "attack/frame-3",
+		unitCorrection: {
+			sourceAssetVersionId: "version-frame-1",
+			unitType: "frame",
+			unitKey: "attack/frame-3",
+		},
 	});
 	expect(
 		screen.getByText("Kare · attack/frame-3 · Birim Sürümü 1")

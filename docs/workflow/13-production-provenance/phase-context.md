@@ -18,6 +18,8 @@ Bağlantının sunduğu model ve üretim parametreleri sırlar hariç kayıpsız
 
 Bağlantının gerçekten sunduğu model, sürüm, istenen ve gerçekleşen ölçü, tohum ve diğer parametreler ortak alanlar ile sürümlü temizlenmiş anlık kayda ayrılır. Sır, yetkilendirme başlığı ve geçici erişim adresi dışlanır; bağlantı üzerinden gelen sonucun mevcut alanları kaybolamaz.
 
+Kullanıcı, sağlayıcı ekranında gördüğü alanları web formunda elle kaydedebilir. Bu kayıt `user_reported_provider` kaynağı taşır ve arayüzde doğrulanmamış kullanıcı bildirimi olarak gösterilir; güvenilir entegrasyon payload’u yerine geçmez ve tek başına onayı durdurmaz. Tarayıcı yüklemesi `connected_provider` kaynağını seçemez.
+
 ### Geçmiş Varlık Beyanı
 
 Eski bir varlığın bilinen kaynağı ve bilinmeyen geçmişi kullanıcı beyanıyla ayrıca kaydedilir; kayıp tarih uydurulmaz.

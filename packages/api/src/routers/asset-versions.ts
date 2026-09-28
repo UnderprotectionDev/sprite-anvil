@@ -13,16 +13,30 @@ import {
 } from "../asset-versions";
 import type { Context } from "../context";
 import { protectedProcedure } from "../index";
+import {
+	providerGenerationRecordCreateInputSchema,
+	providerGenerationRecordSchema,
+} from "../provider-generation-records";
 
 async function readVersionCatalog(context: Context, projectId: string) {
-	const catalog = await context.assetVersionStore.list(
-		context.session?.user.id ?? "",
-		projectId
-	);
-	if (!catalog) {
+	const userId = context.session?.user.id ?? "";
+	const [catalog, providerGenerationRecords] = await Promise.all([
+		context.assetVersionStore.list(userId, projectId),
+		context.providerGenerationRecordStore?.list(userId, projectId) ?? [],
+	]);
+	if (!(catalog && providerGenerationRecords)) {
 		throw new ORPCError("NOT_FOUND", { message: "Project not found" });
 	}
-	return assetVersionCatalogSchema.parse(catalog);
+	const recordsByAssetVersionId = new Map(
+		providerGenerationRecords.map((record) => [record.assetVersionId, record])
+	);
+	return assetVersionCatalogSchema.parse({
+		...catalog,
+		assetVersions: catalog.assetVersions.map((version) => ({
+			...version,
+			providerGenerationRecord: recordsByAssetVersionId.get(version.id) ?? null,
+		})),
+	});
 }
 
 export const assetVersionsRouter = {
@@ -32,6 +46,36 @@ export const assetVersionsRouter = {
 		.handler(async ({ context, input }) =>
 			readVersionCatalog(context, input.projectId)
 		),
+	recordProviderGeneration: protectedProcedure
+		.input(providerGenerationRecordCreateInputSchema)
+		.output(providerGenerationRecordSchema)
+		.handler(async ({ context, input }) => {
+			const store = context.providerGenerationRecordStore;
+			if (!store) {
+				throw new ORPCError("INTERNAL_SERVER_ERROR", {
+					message: "Provider Generation Record storage is unavailable.",
+				});
+			}
+			const result = await store.create(context.session.user.id, input);
+			if (!result) {
+				throw new ORPCError("NOT_FOUND", {
+					message: "Provider result not found",
+				});
+			}
+			if (result.kind === "not-provider-result") {
+				throw new ORPCError("BAD_REQUEST", {
+					message:
+						"Provider Generation Record only applies to provider-sourced results.",
+				});
+			}
+			if (result.kind === "conflict") {
+				throw new ORPCError("CONFLICT", {
+					message:
+						"This provider result already has a different Provider Generation Record.",
+				});
+			}
+			return providerGenerationRecordSchema.parse(result.record);
+		}),
 	createCompositeVersion: protectedProcedure
 		.input(compositeVersionCreateInputSchema)
 		.output(compositeVersionSchema)
@@ -115,6 +159,16 @@ export const assetVersionsRouter = {
 				throw new ORPCError("BAD_REQUEST", {
 					message:
 						"Bütünlük doğrulaması tamamlanmamış bir Varlık Sürümü onaylanamaz.",
+				});
+			}
+			if (
+				input.decision === "approved" &&
+				version.productionSource === "connected_provider" &&
+				!version.providerGenerationRecord
+			) {
+				throw new ORPCError("BAD_REQUEST", {
+					message:
+						"A connected-provider result needs its Provider Generation Record before approval.",
 				});
 			}
 			if (

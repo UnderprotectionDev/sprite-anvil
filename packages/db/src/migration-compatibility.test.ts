@@ -76,6 +76,9 @@ const sourceMetadataMappingProposalMigration = readMigration(
 const generationPackageMigration = readMigration(
 	"./migrations/20260927224924_safe_vance_astro/migration.sql"
 );
+const providerGenerationSanitizationMigration = readMigration(
+	"./migrations/20260928173709_cheerful_morlun/migration.sql"
+);
 const manualImportEvidenceMigration = readMigration(
 	"./migrations/20260928151800_manual-import-evidence/migration.sql"
 );
@@ -715,6 +718,54 @@ test("stores Production Context Snapshots with project and Asset Record ownershi
 	);
 	expect(generationPackageMigration).toContain(
 		'FOREIGN KEY ("created_by_user_id") REFERENCES "user"("id") ON DELETE RESTRICT'
+	);
+});
+
+test("adds user-reported provider provenance and scrubs persisted provider secrets", () => {
+	const sanitizerCreation = providerGenerationSanitizationMigration.indexOf(
+		"CREATE FUNCTION public.sanitize_provider_generation_parameter_value"
+	);
+	const snapshotBackfill = providerGenerationSanitizationMigration.indexOf(
+		"UPDATE provider_generation_records"
+	);
+	const sanitizerRemoval = providerGenerationSanitizationMigration.indexOf(
+		"DROP FUNCTION public.sanitize_provider_generation_parameter_value"
+	);
+
+	expect(providerGenerationSanitizationMigration).toContain(
+		"'user_reported_provider'"
+	);
+	expect(providerGenerationSanitizationMigration).toContain("LIKE '%token'");
+	expect(providerGenerationSanitizationMigration).toContain(
+		"text_value::jsonb"
+	);
+	expect(sanitizerCreation).toBeGreaterThanOrEqual(0);
+	expect(snapshotBackfill).toBeGreaterThan(sanitizerCreation);
+	expect(sanitizerRemoval).toBeGreaterThan(snapshotBackfill);
+});
+
+test("continues Provider Generation Records after the applied source metadata migration", () => {
+	const sourceMetadataSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260928161540_cultured_rick_jones/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { id: string };
+	const providerGenerationSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260928173709_cheerful_morlun/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { prevIds: string[] };
+
+	expect(providerGenerationSnapshot.prevIds).toContain(
+		sourceMetadataSnapshot.id
 	);
 });
 

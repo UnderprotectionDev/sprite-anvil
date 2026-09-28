@@ -3,6 +3,8 @@ import type {
 	CompositeVersionReviewInput,
 	UnitVersionCorrectionInput,
 } from "@sprite-anvil/api/asset-versions";
+import type { ProviderGenerationRecordCreateInput } from "@sprite-anvil/api/provider-generation-records";
+import { assetVersionProductionSourceHeader } from "@sprite-anvil/api/provider-generation-records";
 import { type SyntheticEvent, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ENV } from "@/env";
@@ -18,6 +20,14 @@ interface RefreshResult {
 
 type ReviewDecision = AssetVersionReviewInput["decision"];
 type CompositeReviewDecision = CompositeVersionReviewInput["decision"];
+interface UploadOptions {
+	productionSource?: "user_reported_provider";
+	unitCorrection?: UnitVersionCorrectionInput;
+}
+type ProviderGenerationRecordFields = Omit<
+	ProviderGenerationRecordCreateInput,
+	"assetVersionId" | "projectId"
+>;
 
 const reviewSuccessMessages: Record<ReviewDecision, string> = {
 	approved: "Varlık Sürümü onaylandı.",
@@ -89,9 +99,15 @@ export function useAssetVersionWrites(
 	async function upload(
 		assetRecordId: string,
 		file: File,
-		unitCorrection?: UnitVersionCorrectionInput
+		options: UploadOptions = {}
 	) {
 		if (writeOutcomeUncertain) {
+			return false;
+		}
+		const { unitCorrection, productionSource: requestedProductionSource } =
+			options;
+		const productionSource = requestedProductionSource ?? "unknown";
+		if (unitCorrection && productionSource !== "unknown") {
 			return false;
 		}
 		setActiveAction(`upload:${assetRecordId}`);
@@ -107,6 +123,7 @@ export function useAssetVersionWrites(
 			unitCorrection?.sourceAssetVersionId ?? "",
 			unitCorrection?.unitType ?? "",
 			unitCorrection?.unitKey ?? "",
+			productionSource,
 		].join("\u0000");
 		const pendingUpload = pendingUploadRef.current;
 		const idempotencyKey =
@@ -127,6 +144,9 @@ export function useAssetVersionWrites(
 				"X-Asset-Version-Size": file.size.toString(),
 				"Idempotency-Key": idempotencyKey,
 			};
+			if (productionSource === "user_reported_provider") {
+				headers[assetVersionProductionSourceHeader] = productionSource;
+			}
 			if (unitCorrection) {
 				headers["X-Source-Asset-Version-Id"] =
 					unitCorrection.sourceAssetVersionId;
@@ -154,11 +174,13 @@ export function useAssetVersionWrites(
 			}
 			writeConfirmed = true;
 			pendingUploadRef.current = null;
-			await refreshAfterWrite(
-				unitCorrection
-					? "Yeni Birim Sürümü ve Aday Sürüm kaydedildi."
-					: "Aday Varlık Sürümü kaydedildi."
-			);
+			let successMessage = "Aday Varlık Sürümü kaydedildi.";
+			if (unitCorrection) {
+				successMessage = "Yeni Birim Sürümü ve Aday Sürüm kaydedildi.";
+			} else if (productionSource === "user_reported_provider") {
+				successMessage = "Kullanıcı bildirimli sağlayıcı sonucu kaydedildi.";
+			}
+			await refreshAfterWrite(successMessage);
 			return true;
 		} catch (error) {
 			if ([400, 409, 415, 422].includes(responseStatus ?? 0)) {
@@ -190,6 +212,22 @@ export function useAssetVersionWrites(
 		} finally {
 			setActiveAction(null);
 		}
+	}
+
+	function recordProviderGeneration(
+		assetVersionId: string,
+		input: ProviderGenerationRecordFields
+	) {
+		return runAction(
+			`provider-record:${assetVersionId}`,
+			() =>
+				client.assetVersions.recordProviderGeneration({
+					...input,
+					assetVersionId,
+					projectId,
+				}),
+			"Sağlayıcı Üretim Kaydı kaydedildi."
+		);
 	}
 
 	function review(
@@ -298,6 +336,7 @@ export function useAssetVersionWrites(
 		checkWriteOutcome,
 		createCompositeVersion,
 		isCheckingOutcome,
+		recordProviderGeneration,
 		review,
 		reviewCompositeVersion,
 		selectCanonicalDesign,

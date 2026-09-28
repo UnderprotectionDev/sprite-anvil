@@ -14,5 +14,6 @@ export * from "./import-inbox";
 export * from "./project";
 export * from "./project-access";
 export * from "./project-context";
+export * from "./provider-generation-records";
 export * from "./reference-production";
 export * from "./source-metadata-mapping";

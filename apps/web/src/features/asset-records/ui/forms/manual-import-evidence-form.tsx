@@ -1,15 +1,21 @@
 import type { ManualImportVersionCreateInput } from "@sprite-anvil/api/asset-record-tracking";
 import type { AssetRecord } from "@sprite-anvil/api/asset-records";
 import type { GenerationPackage } from "@sprite-anvil/api/generation-packages";
+import type { ProviderGenerationRecordCreateInput } from "@sprite-anvil/api/provider-generation-records";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { useQuery } from "@tanstack/react-query";
 import { type RefObject, type SyntheticEvent, useRef, useState } from "react";
+import { ProviderGenerationRecordForm } from "@/features/asset-versions/ui/components/provider-generation-record-form";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
 
 const maxAssetVersionBytes = 5 * 1024 * 1024;
+type ProviderGenerationRecordFields = Omit<
+	ProviderGenerationRecordCreateInput,
+	"assetVersionId" | "projectId"
+>;
 
 function bytesToBase64(bytes: Uint8Array) {
 	const chunkSize = 0x80_00;
@@ -71,10 +77,12 @@ interface ManualImportPackageFormProps {
 	generationPackageId: string;
 	isError: boolean;
 	isLoading: boolean;
+	isProviderResult: boolean;
 	isSaving: boolean;
 	onFileChange: (file: File | null) => void;
 	onGenerationInstructionChange: (value: string) => void;
 	onGenerationPackageChange: (value: string) => void;
+	onProviderResultChange: (value: boolean) => void;
 	onRetry: () => void;
 	onSourceSurfaceChange: (value: string) => void;
 	onSubmit: (event: SyntheticEvent<HTMLFormElement>) => void;
@@ -90,12 +98,14 @@ function ManualImportPackageForm({
 	fileIsSupported,
 	generationInstruction,
 	generationPackageId,
+	isProviderResult,
 	isError,
 	isLoading,
 	isSaving,
 	onFileChange,
 	onGenerationInstructionChange,
 	onGenerationPackageChange,
+	onProviderResultChange,
 	onRetry,
 	onSourceSurfaceChange,
 	onSubmit,
@@ -139,6 +149,24 @@ function ManualImportPackageForm({
 
 	return (
 		<form className="mt-4 space-y-3" onSubmit={onSubmit}>
+			<label className="flex items-start gap-2 text-sm">
+				<input
+					checked={isProviderResult}
+					disabled={isSaving || writeOutcomeUncertain}
+					onChange={(event) =>
+						onProviderResultChange(event.currentTarget.checked)
+					}
+					type="checkbox"
+				/>
+				<span>Başka bir sağlayıcının arayüzünden alındı</span>
+			</label>
+			{isProviderResult ? (
+				<p className="text-muted-foreground text-sm">
+					Dosya ve Elle İçe Aktarma Kanıtı kaydedildikten sonra, sağlayıcı
+					ekranında gördüğünüz ayrıntıları kullanıcı bildirimi olarak
+					girebilirsiniz.
+				</p>
+			) : null}
 			<div className="space-y-2 rounded-md border border-dashed p-3">
 				<label className="block space-y-1 text-sm" htmlFor="manual-import-file">
 					<span>Sonuç dosyası</span>
@@ -278,6 +306,10 @@ export function ManualImportEvidenceForm({
 	const [generationPackageId, setGenerationPackageId] = useState("");
 	const [sourceSurface, setSourceSurface] = useState("");
 	const [generationInstruction, setGenerationInstruction] = useState("");
+	const [isProviderResult, setIsProviderResult] = useState(false);
+	const [providerRecordVersionId, setProviderRecordVersionId] = useState<
+		string | null
+	>(null);
 	const [isSaving, setIsSaving] = useState(false);
 	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -301,6 +333,7 @@ export function ManualImportEvidenceForm({
 		setGenerationPackageId("");
 		setSourceSurface("");
 		setGenerationInstruction("");
+		setIsProviderResult(false);
 		if (fileInputRef.current) {
 			fileInputRef.current.value = "";
 		}
@@ -333,6 +366,7 @@ export function ManualImportEvidenceForm({
 			fileName: file.name,
 			generationInstruction,
 			generationPackageId,
+			productionSource: isProviderResult ? "user_reported_provider" : "unknown",
 			projectId: record.projectId,
 			sourceSurface,
 		});
@@ -348,12 +382,19 @@ export function ManualImportEvidenceForm({
 			generationPackageId,
 			id: request.current.id,
 			projectId: record.projectId,
+			...(isProviderResult
+				? { productionSource: "user_reported_provider" as const }
+				: {}),
 			sourceSurface,
 		};
 
 		setIsSaving(true);
 		try {
-			await client.assetRecords.createManualImportVersion(input);
+			const version =
+				await client.assetRecords.createManualImportVersion(input);
+			if (isProviderResult) {
+				setProviderRecordVersionId(version.id);
+			}
 			await onRefresh();
 			resetForm();
 			setStatusMessage(
@@ -384,6 +425,9 @@ export function ManualImportEvidenceForm({
 		try {
 			const result = await onRefresh();
 			if (refreshedHasEvidence(result, request.current.id)) {
+				if (isProviderResult) {
+					setProviderRecordVersionId(request.current.id);
+				}
 				resetForm();
 				setErrorMessage(null);
 				setStatusMessage(
@@ -397,6 +441,37 @@ export function ManualImportEvidenceForm({
 			);
 		} catch (error) {
 			setErrorMessage(getErrorMessage(error, "Güncel durum okunamadı."));
+		} finally {
+			setIsSaving(false);
+		}
+	}
+
+	async function saveProviderGenerationRecord(
+		input: ProviderGenerationRecordFields
+	) {
+		if (!providerRecordVersionId) {
+			return false;
+		}
+		setIsSaving(true);
+		setErrorMessage(null);
+		setStatusMessage(null);
+		try {
+			await client.assetVersions.recordProviderGeneration({
+				...input,
+				assetVersionId: providerRecordVersionId,
+				projectId: record.projectId,
+			});
+			await onRefresh();
+			setProviderRecordVersionId(null);
+			setStatusMessage(
+				"Sağlayıcı Üretim Kaydı kullanıcı bildirimi olarak kaydedildi."
+			);
+			return true;
+		} catch (error) {
+			setErrorMessage(
+				getErrorMessage(error, "Sağlayıcı Üretim Kaydı kaydedilemedi.")
+			);
+			return false;
 		} finally {
 			setIsSaving(false);
 		}
@@ -444,10 +519,12 @@ export function ManualImportEvidenceForm({
 				generationPackageId={generationPackageId}
 				isError={packagesQuery.isError}
 				isLoading={packagesQuery.isPending}
+				isProviderResult={isProviderResult}
 				isSaving={isSaving}
 				onFileChange={setFile}
 				onGenerationInstructionChange={setGenerationInstruction}
 				onGenerationPackageChange={setGenerationPackageId}
+				onProviderResultChange={setIsProviderResult}
 				onRetry={() => void packagesQuery.refetch()}
 				onSourceSurfaceChange={setSourceSurface}
 				onSubmit={(event) => void submit(event)}
@@ -456,6 +533,12 @@ export function ManualImportEvidenceForm({
 				sourceSurface={sourceSurface}
 				writeOutcomeUncertain={writeOutcomeUncertain}
 			/>
+			{providerRecordVersionId ? (
+				<ProviderGenerationRecordForm
+					onSave={saveProviderGenerationRecord}
+					writesDisabled={isSaving || writeOutcomeUncertain}
+				/>
+			) : null}
 		</section>
 	);
 }

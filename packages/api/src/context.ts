@@ -9,6 +9,7 @@ import type { ProjectContextScopeStore } from "./context-scopes";
 import type { GenerationPackageStore } from "./generation-packages";
 import type { ProjectAccessStore } from "./project-access-store";
 import type { ProjectContextStore } from "./project-context";
+import type { ProviderGenerationRecordStore } from "./provider-generation-records";
 import type { ReferenceProductionStore } from "./reference-production";
 
 export interface Context {
@@ -22,6 +23,7 @@ export interface Context {
 	projectAccess: ProjectAccessStore;
 	projectContextScopeStore: ProjectContextScopeStore;
 	projectContextStore: ProjectContextStore;
+	providerGenerationRecordStore?: ProviderGenerationRecordStore;
 	referenceProductionStore?: ReferenceProductionStore;
 	session: Session | null;
 	verifyAssetVersionContent?: (

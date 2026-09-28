@@ -63,6 +63,8 @@ test("creates a Candidate Composite Version from exact Unit Versions and reviews
 		contentDigest: "a".repeat(64),
 		integrityVerified: true,
 		previewUrl: `/api/projects/${projectId}/asset-versions/${id}/preview`,
+		productionSource: "unknown",
+		providerGenerationRecord: null,
 		reviewDisposition: "approved" as const,
 		reviewEvents: [],
 		createdAt,
