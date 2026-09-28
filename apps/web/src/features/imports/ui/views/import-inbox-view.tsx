@@ -1,4 +1,3 @@
-import { supportReferenceSchema } from "@sprite-anvil/api/error-contract";
 import type { ImportInboxEntry } from "@sprite-anvil/api/import-inbox";
 import {
 	importInboxEntriesSchema,
@@ -8,9 +7,12 @@ import { Button } from "@sprite-anvil/ui/components/button";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { type ChangeEvent, useRef, useState } from "react";
-import { ENV } from "@/env";
-
-const trailingSlashPattern = /\/$/;
+import {
+	importInboxFileUrl,
+	importInboxUrl,
+	readSupportReference,
+} from "./import-inbox-api";
+import { SourceMetadataMappingPanel } from "./source-metadata-mapping-panel";
 
 interface UploadFailure {
 	file: File;
@@ -57,15 +59,6 @@ class ImportInboxReadError extends Error {
 
 const uncertainUploadMessage =
 	"Yükleme sonucu doğrulanamadı. Gelen Kutusunu yenileyip güncel durumu kontrol edin.";
-
-function importInboxUrl(projectId: string) {
-	const serverUrl = ENV.VITE_SERVER_URL.replace(trailingSlashPattern, "");
-	return `${serverUrl}/api/projects/${encodeURIComponent(projectId)}/import-inbox`;
-}
-
-function importInboxFileUrl(projectId: string, entryId: string) {
-	return `${importInboxUrl(projectId)}/${encodeURIComponent(entryId)}/file`;
-}
 
 async function readEntries(projectId: string) {
 	const response = await fetch(importInboxUrl(projectId), {
@@ -124,15 +117,6 @@ function uploadErrorMessage(status: number) {
 		return "Bu dosya yüklenemedi. Dosyayı yeniden seçin.";
 	}
 	return null;
-}
-
-function readSupportReference(value: unknown) {
-	if (typeof value !== "object" || value === null) {
-		return;
-	}
-	const { supportReference } = value as { supportReference?: unknown };
-	const result = supportReferenceSchema.safeParse(supportReference);
-	return result.success ? result.data : undefined;
 }
 
 export function ImportInboxView({ projectId }: { projectId: string }) {
@@ -433,6 +417,7 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 					>
 						{entriesQuery.data.map((entry) => (
 							<ImportInboxEntryCard
+								entries={entriesQuery.data}
 								entry={entry}
 								key={entry.id}
 								projectId={projectId}
@@ -447,9 +432,11 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 
 function ImportInboxEntryCard({
 	entry,
+	entries,
 	projectId,
 }: {
 	entry: ImportInboxEntry;
+	entries: ImportInboxEntry[];
 	projectId: string;
 }) {
 	return (
@@ -484,6 +471,13 @@ function ImportInboxEntryCard({
 					<dd className="break-all font-mono text-xs">{entry.sha256}</dd>
 				</dl>
 			</details>
+			{entry.sourceContentType.startsWith("image/") ? (
+				<SourceMetadataMappingPanel
+					entries={entries}
+					entry={entry}
+					projectId={projectId}
+				/>
+			) : null}
 		</li>
 	);
 }

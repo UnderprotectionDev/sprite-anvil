@@ -1,6 +1,21 @@
 import { assetSourceFileNameSchema } from "@sprite-anvil/api/asset-record-tracking";
-import type { ImportInboxStore } from "@sprite-anvil/api/import-inbox";
+import type {
+	ImportInboxFileRecord,
+	ImportInboxStore,
+} from "@sprite-anvil/api/import-inbox";
 import { importInboxSourceContentTypeSchema } from "@sprite-anvil/api/import-inbox";
+import type {
+	SourceMetadataFieldProposal,
+	SourceMetadataMappingDiagnostic,
+	SourceMetadataMappingProposalStore,
+	SourceMetadataMappingSidecar,
+} from "@sprite-anvil/api/source-metadata-mapping";
+import {
+	sourceMetadataMappingContractVersion,
+	sourceMetadataMappingProposalCreateInputSchema,
+	sourceMetadataMappingProposalSchema,
+	sourceMetadataMappingSidecarLimits,
+} from "@sprite-anvil/api/source-metadata-mapping";
 import type { Context, Hono } from "hono";
 import z from "zod";
 import type { createStorage } from "../../../cloudflare";
@@ -15,6 +30,11 @@ import {
 	ImportInboxIntegrityError,
 	verifyImportInboxStream,
 } from "./import-inbox-integrity";
+import {
+	buildSourceMetadataConflicts,
+	buildSourceMetadataMappingSuggestions,
+	parseSourceMetadataSidecar,
+} from "./source-metadata-mapping";
 
 const projectIdSchema = z.uuid();
 const entryIdSchema = z.uuid();
@@ -40,6 +60,7 @@ export interface ImportInboxRouteDependencies {
 	) => Promise<{ id: string } | null>;
 	getSession: (headers: Headers) => Promise<ImportInboxSession | null>;
 	importInboxStore: ImportInboxStore;
+	sourceMetadataMappingProposalStore: SourceMetadataMappingProposalStore;
 }
 
 type ProjectAccess =
@@ -292,6 +313,305 @@ async function uploadImportInboxEntry(
 	}
 }
 
+async function readImportInboxTextFile(
+	storage: Storage,
+	file: {
+		contentLength: number;
+		fileName: string;
+		objectKey: string;
+		sha256: string;
+	}
+): Promise<{ ok: true; text: string } | { ok: false }> {
+	const objectKey = importInboxObjectKeySchema.safeParse(file.objectKey);
+	if (!objectKey.success) {
+		throw new Error("Import Inbox file unavailable");
+	}
+	const object = await storage.get(objectKey.data);
+	if (
+		!object ||
+		object.contentType !== opaqueStorageContentType ||
+		(object.contentLength !== undefined &&
+			object.contentLength !== file.contentLength)
+	) {
+		await object?.body.cancel();
+		throw new Error("Import Inbox file unavailable");
+	}
+	const verifiedBytes = await new Response(
+		verifyImportInboxStream(object.body, file.contentLength, file.sha256)
+	).arrayBuffer();
+	try {
+		return {
+			ok: true,
+			text: new TextDecoder("utf-8", { fatal: true }).decode(verifiedBytes),
+		};
+	} catch {
+		return { ok: false };
+	}
+}
+
+function proposalErrorResponse(
+	c: Context,
+	error:
+		| "Invalid source metadata proposal"
+		| "Invalid source metadata JSON"
+		| "Unsupported source metadata format"
+		| "Source metadata sidecars exceed the maximum size"
+		| "Source metadata proposal request exceeds the maximum size",
+	status: 400 | 413 | 422
+) {
+	c.header("Cache-Control", "private, no-store");
+	return c.json(serializePublicApiError(error), status);
+}
+
+type ParsedSidecarsResult =
+	| {
+			ok: true;
+			diagnostics: SourceMetadataMappingDiagnostic[];
+			fields: SourceMetadataFieldProposal[];
+			sidecars: SourceMetadataMappingSidecar[];
+	  }
+	| {
+			ok: false;
+			reason: "not_found" | "invalid_json" | "unsupported_format" | "too_large";
+	  };
+
+type BoundedJsonRequestResult =
+	| { ok: true; value: unknown }
+	| { ok: false; reason: "invalid_json" | "too_large" };
+
+async function readBoundedJsonRequest(
+	request: Request
+): Promise<BoundedJsonRequestResult> {
+	const contentLengthHeader = request.headers.get("content-length");
+	if (contentLengthHeader !== null) {
+		if (!uploadLengthPattern.test(contentLengthHeader)) {
+			return { ok: false, reason: "invalid_json" };
+		}
+		const contentLength = Number(contentLengthHeader);
+		if (!Number.isSafeInteger(contentLength)) {
+			return { ok: false, reason: "invalid_json" };
+		}
+		if (contentLength > sourceMetadataMappingSidecarLimits.requestBytes) {
+			await request.body?.cancel().catch(() => undefined);
+			return { ok: false, reason: "too_large" };
+		}
+	}
+
+	if (!request.body) {
+		return { ok: false, reason: "invalid_json" };
+	}
+	const reader = request.body.getReader();
+	const chunks: Uint8Array[] = [];
+	let byteLength = 0;
+	try {
+		while (true) {
+			// biome-ignore lint/performance/noAwaitInLoops: Streaming reads stay sequential to enforce the byte cap before retaining more chunks.
+			const { done, value } = await reader.read();
+			if (done) {
+				break;
+			}
+			byteLength += value.byteLength;
+			if (byteLength > sourceMetadataMappingSidecarLimits.requestBytes) {
+				await reader.cancel().catch(() => undefined);
+				return { ok: false, reason: "too_large" };
+			}
+			chunks.push(value);
+		}
+	} catch {
+		return { ok: false, reason: "invalid_json" };
+	} finally {
+		reader.releaseLock();
+	}
+
+	const bytes = new Uint8Array(byteLength);
+	let offset = 0;
+	for (const chunk of chunks) {
+		bytes.set(chunk, offset);
+		offset += chunk.byteLength;
+	}
+	try {
+		return {
+			ok: true,
+			value: JSON.parse(
+				new TextDecoder("utf-8", { fatal: true }).decode(bytes)
+			),
+		};
+	} catch {
+		return { ok: false, reason: "invalid_json" };
+	}
+}
+
+async function parseSidecarEntries(
+	userId: string,
+	projectId: string,
+	sidecarEntryIds: string[],
+	dependencies: ImportInboxRouteDependencies
+): Promise<ParsedSidecarsResult> {
+	const files: Array<{ entryId: string; file: ImportInboxFileRecord }> = [];
+	let totalBytes = 0;
+	for (const sidecarEntryId of sidecarEntryIds) {
+		// biome-ignore lint/performance/noAwaitInLoops: File records are preflighted sequentially before any sidecar bytes are read.
+		const file = await dependencies.importInboxStore.getFileRecord(
+			userId,
+			projectId,
+			sidecarEntryId
+		);
+		if (!file) {
+			return { ok: false, reason: "not_found" };
+		}
+		if (
+			!Number.isSafeInteger(file.contentLength) ||
+			file.contentLength < 0 ||
+			file.contentLength > sourceMetadataMappingSidecarLimits.fileBytes ||
+			totalBytes + file.contentLength >
+				sourceMetadataMappingSidecarLimits.totalBytes
+		) {
+			return { ok: false, reason: "too_large" };
+		}
+		totalBytes += file.contentLength;
+		files.push({ entryId: sidecarEntryId, file });
+	}
+
+	const storage = dependencies.createStorage();
+	const sidecars: SourceMetadataMappingSidecar[] = [];
+	const fields: SourceMetadataFieldProposal[] = [];
+	const diagnostics: SourceMetadataMappingDiagnostic[] = [];
+	for (const { entryId: sidecarEntryId, file } of files) {
+		// biome-ignore lint/performance/noAwaitInLoops: Sidecars are read sequentially to bound memory while validating each managed stream.
+		const decoded = await readImportInboxTextFile(storage, file);
+		if (!decoded.ok) {
+			return { ok: false, reason: "invalid_json" };
+		}
+		const parsed = parseSourceMetadataSidecar({
+			entryId: sidecarEntryId,
+			fileName: file.fileName,
+			sha256: file.sha256,
+			text: decoded.text,
+		});
+		if (!parsed.ok) {
+			return { ok: false, reason: parsed.reason };
+		}
+		sidecars.push(parsed.sidecar);
+		fields.push(...parsed.fields);
+		diagnostics.push(...parsed.diagnostics);
+	}
+	return { ok: true, diagnostics, fields, sidecars };
+}
+
+async function createSourceMetadataMappingProposal(
+	c: Context,
+	userId: string,
+	projectId: string,
+	sourceEntryId: string,
+	dependencies: ImportInboxRouteDependencies
+) {
+	const requestBody = await readBoundedJsonRequest(c.req.raw);
+	if (!requestBody.ok && requestBody.reason === "too_large") {
+		return proposalErrorResponse(
+			c,
+			"Source metadata proposal request exceeds the maximum size",
+			413
+		);
+	}
+	const rawInput: unknown = requestBody.ok ? requestBody.value : null;
+	const input =
+		sourceMetadataMappingProposalCreateInputSchema.safeParse(rawInput);
+	if (!input.success) {
+		return proposalErrorResponse(c, "Invalid source metadata proposal", 400);
+	}
+
+	const source = await dependencies.importInboxStore.getFileRecord(
+		userId,
+		projectId,
+		sourceEntryId
+	);
+	if (!source) {
+		return c.json(serializePublicApiError("Not found"), 404);
+	}
+	const parsedSidecars = await parseSidecarEntries(
+		userId,
+		projectId,
+		input.data.sidecarEntryIds,
+		dependencies
+	);
+	if (!parsedSidecars.ok) {
+		if (parsedSidecars.reason === "not_found") {
+			return c.json(serializePublicApiError("Not found"), 404);
+		}
+		if (parsedSidecars.reason === "too_large") {
+			return proposalErrorResponse(
+				c,
+				"Source metadata sidecars exceed the maximum size",
+				413
+			);
+		}
+		return proposalErrorResponse(
+			c,
+			parsedSidecars.reason === "unsupported_format"
+				? "Unsupported source metadata format"
+				: "Invalid source metadata JSON",
+			422
+		);
+	}
+
+	const proposal = sourceMetadataMappingProposalSchema.parse({
+		contractVersion: sourceMetadataMappingContractVersion,
+		conflicts: buildSourceMetadataConflicts(parsedSidecars.fields),
+		createdAt: new Date().toISOString(),
+		diagnostics: parsedSidecars.diagnostics,
+		fields: parsedSidecars.fields,
+		id: dependencies.createId?.() ?? crypto.randomUUID(),
+		projectId,
+		sidecars: parsedSidecars.sidecars,
+		source: {
+			entryId: sourceEntryId,
+			fileName: source.fileName,
+			sha256: source.sha256,
+		},
+		suggestions: buildSourceMetadataMappingSuggestions(),
+	});
+	const created =
+		await dependencies.sourceMetadataMappingProposalStore.createProposal(
+			userId,
+			projectId,
+			sourceEntryId,
+			proposal
+		);
+	if (!created) {
+		return c.json(serializePublicApiError("Not found"), 404);
+	}
+	return c.json(created, 201);
+}
+
+async function prepareSourceMetadataProposalRequest(
+	c: Context,
+	dependencies: ImportInboxRouteDependencies
+) {
+	c.header("Cache-Control", "private, no-store");
+	const projectId = c.req.param("projectId") ?? "";
+	const access = await resolveProjectAccess(
+		c.req.raw.headers,
+		projectId,
+		dependencies
+	);
+	if (!access.ok) {
+		return { ok: false as const, response: accessError(c, access) };
+	}
+	const entryId = entryIdSchema.safeParse(c.req.param("entryId"));
+	if (!entryId.success) {
+		return {
+			ok: false as const,
+			response: c.json(serializePublicApiError("Not found"), 404),
+		};
+	}
+	return {
+		entryId: entryId.data,
+		ok: true as const,
+		projectId,
+		userId: access.userId,
+	};
+}
+
 export function mountImportInboxRoutes(
 	app: Hono,
 	dependencies: ImportInboxRouteDependencies
@@ -333,6 +653,57 @@ export function mountImportInboxRoutes(
 			dependencies
 		);
 	});
+
+	app.get(
+		"/api/projects/:projectId/import-inbox/:entryId/source-metadata-mapping-proposals",
+		async (c) => {
+			const request = await prepareSourceMetadataProposalRequest(
+				c,
+				dependencies
+			);
+			if (!request.ok) {
+				return request.response;
+			}
+			const source = await dependencies.importInboxStore.getFileRecord(
+				request.userId,
+				request.projectId,
+				request.entryId
+			);
+			if (!source) {
+				return c.json(serializePublicApiError("Not found"), 404);
+			}
+			const proposals =
+				await dependencies.sourceMetadataMappingProposalStore.listProposals(
+					request.userId,
+					request.projectId,
+					request.entryId
+				);
+			if (!proposals) {
+				return c.json(serializePublicApiError("Not found"), 404);
+			}
+			return c.json(proposals);
+		}
+	);
+
+	app.post(
+		"/api/projects/:projectId/import-inbox/:entryId/source-metadata-mapping-proposals",
+		async (c) => {
+			const request = await prepareSourceMetadataProposalRequest(
+				c,
+				dependencies
+			);
+			if (!request.ok) {
+				return request.response;
+			}
+			return createSourceMetadataMappingProposal(
+				c,
+				request.userId,
+				request.projectId,
+				request.entryId,
+				dependencies
+			);
+		}
+	);
 
 	app.get("/api/projects/:projectId/import-inbox/:entryId/file", async (c) => {
 		c.header("Cache-Control", "private, no-store");
