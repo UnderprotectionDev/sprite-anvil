@@ -28,7 +28,7 @@ Her senaryo web ve masaüstünde ayrı ayrı yürütülür. Ekran adımları de�
 Her profilin ortak senaryosu şu kanıtları üretir:
 
 1. Kullanıcı uygun Bağlam Sürümü’nü ve Gerekli Öğeler Listesi’ni etkinleştirir; varsa Ana Tasarım’ı seçer.
-2. Referans amaçlarını ve aktarım kurallarını içeren Üretim Paketi hazırlanır. Çözülmemiş çelişki varsa paket oluşturulamaz.
+2. Referans amaçlarını ve aktarım kurallarını içeren Üretim Paketi hazırlanır. Bir özellik bir referansta yasak, başka birinde izinli olsa da açık yasak geçerli kalır ve paket oluşturulur.
 3. Manuel ChatGPT yolunda sonuç içe alınır ve Elle İçe Aktarma Kanıtı tamamlanır. Resmî entegrasyon varsa ayrıca sınanabilir, ancak manuel yolun yerini almaz.
 4. Aday Sürüm, sabitlenmiş Özel Profil Sözleşmesi sürümündeki Bütünlük Denetimlerini, İstisna Verilebilir Gereksinimleri, zorunlu insan incelemesini ve profile özgü kullanım testlerini tamamlar. Kural kimliği, sınıfı, kanıtı ve dışa aktarım etkisi görünürdür. İnceleme Kaydı’nı kullanıcı oluşturur.
 5. Test örneğindeki sorunlu tek Birim Sürümü değiştirilir. Eski Birleşik Sürüm değişmeden kalır. Yeni Birleşik Sürüm yalnızca değiştirilen birimi sabitler; bağımlılık etkileri görünür olur. Değiştirilen Birim Sürümü ile yeni Birleşik Sürüm ayrı ayrı incelenip onaylanır. Birimin onaylanması bileşiği onaylamaz.

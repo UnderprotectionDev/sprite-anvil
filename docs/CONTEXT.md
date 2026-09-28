@@ -324,7 +324,7 @@ The declared purpose and transfer boundary of a reference, including what may be
 _Avoid_: Reference tag, prompt hint
 
 **Reference Transfer Constraint**:
-An explicit allowed or forbidden feature transfer attached to a Reference Role. A prohibition overrides a general allowance, a Canonical Design identity lock requires an explicit Context Override to cross, and unresolved equal-specificity conflicts block Generation Package creation.
+An explicit allowed or forbidden feature transfer attached to a Reference Role. A prohibition on a feature from any role overrides allowances for that feature from other roles, so the feature remains forbidden in the Generation Package. A Canonical Design identity lock requires an explicit Context Override to cross.
 _Avoid_: Reference order, model interpretation
 
 **Quality Profile**:

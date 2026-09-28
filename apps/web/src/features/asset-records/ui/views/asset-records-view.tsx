@@ -444,13 +444,13 @@ export function AssetRecordDetailView({
 						/>
 					)}
 					{trackingPanel}
-					{record.availability === "active" ? (
+					{record.availability === "erased" ? null : (
 						<GenerationPackagePanel
 							key={record.id}
 							projectId={projectId}
 							record={record}
 						/>
-					) : null}
+					)}
 				</>
 			) : null}
 		</main>

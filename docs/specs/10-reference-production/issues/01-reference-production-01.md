@@ -7,7 +7,7 @@
 **Status:** ready-for-agent
 
 - [ ] Kullanıcı bir referansın kimlik, poz, stil, palet, ekipman, kompozisyon veya Tema için neyi aktarabileceğini ve hangi özelliklerden kaçınacağını açıkça belirler. Referans panosu yapıştırma, sürükleyip bırakma, yan yana düzenleme ve not eklemeyi destekler.
-- [ ] Her referansın amacı ve izinli veya yasak aktarımı üretim geçmişinde izlenir; eş ayrıntı düzeyindeki çözülmemiş çatışma kullanıcıya gösterilir.
-- [ ] Kapsam sınırları korunur: Referansın eklenme sırası veya üretim modelinin yorumu çatışmaya kendiliğinden öncelik vermez; aktarım kurallarını kaydetmek tek başına Üretim Paketi oluşturmaz.
+- [ ] Her referansın amacı ve izinli veya yasak aktarımı üretim geçmişinde izlenir; bir referanstaki açık yasak başka bir referanstaki izne üstün gelir.
+- [ ] Kapsam sınırları korunur: Referansların eklenme sırası veya üretim modelinin yorumu sonucu değiştirmez; aktarım kurallarını kaydetmek tek başına Üretim Paketi oluşturmaz.
 
 Kaynak spec: [spec.md](../spec.md).

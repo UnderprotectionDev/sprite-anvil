@@ -2,11 +2,15 @@ import type { ReferenceFeature } from "@sprite-anvil/api/asset-record-tracking";
 import type { AssetRecord } from "@sprite-anvil/api/asset-records";
 import type { UnitVersion } from "@sprite-anvil/api/asset-versions";
 import type { GenerationPackage } from "@sprite-anvil/api/generation-packages";
-import type { ContextRule } from "@sprite-anvil/api/project-context";
+import type {
+	ContextRule,
+	ContextScope,
+} from "@sprite-anvil/api/project-context";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useQuery } from "@tanstack/react-query";
 import type { SyntheticEvent } from "react";
 import { useState } from "react";
+import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
 
@@ -39,6 +43,15 @@ const unitTypeLabels = {
 	tile: "Döşeme",
 } as const;
 
+const contextScopeLabels: Record<ContextScope["kind"], string> = {
+	asset: "Varlık",
+	asset_family: "Varlık Ailesi",
+	operation: "İşlem",
+	project: "Proje",
+	theme: "Tema",
+	visual_world: "Görsel Dünya",
+};
+
 const newlinePattern = /\r?\n/;
 
 function formatContextRuleValue(rule: ContextRule) {
@@ -56,6 +69,10 @@ function formatContextRuleValue(rule: ContextRule) {
 			return exhaustiveCheck;
 		}
 	}
+}
+
+function formatContextScope(scope: ContextScope) {
+	return `${contextScopeLabels[scope.kind]} · ${scope.id}`;
 }
 
 function getUnitVersionLabel(
@@ -103,7 +120,10 @@ function GenerationPackageDetails({
 						<ul className="list-inside list-disc space-y-1">
 							{context.rules.map((rule) => (
 								<li key={`${rule.id}:${rule.scope.kind}:${rule.scope.id}`}>
-									{rule.id}: {formatContextRuleValue(rule)}
+									{rule.id} · Kapsam: {formatContextScope(rule.scope)} · Öncelik
+									zinciri:{" "}
+									{rule.precedenceChain.map(formatContextScope).join(" → ")} ·
+									Değer: {formatContextRuleValue(rule)}
 								</li>
 							))}
 						</ul>
@@ -133,8 +153,13 @@ function GenerationPackageDetails({
 									{referenceRoleLabels[reference.role]} ·{" "}
 									{reference.assetRecordName ??
 										reference.fileName ??
-										reference.customPurpose ??
 										"Referans"}
+									{reference.customPurpose
+										? ` · Kullanım amacı: ${reference.customPurpose}`
+										: ""}
+									{reference.contextOverrideRationale
+										? ` · Bağlam istisnası gerekçesi: ${reference.contextOverrideRationale}`
+										: ""}
 									{reference.transferredFeatures.length > 0
 										? ` · Aktarılabilir: ${reference.transferredFeatures.map((feature) => referenceFeatureLabels[feature]).join(", ")}`
 										: ""}
@@ -213,6 +238,8 @@ export function GenerationPackagePanel({
 		[]
 	);
 	const [isSaving, setIsSaving] = useState(false);
+	const [isCheckingOutcome, setIsCheckingOutcome] = useState(false);
+	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 	const packagesQuery = useQuery(
@@ -338,6 +365,9 @@ export function GenerationPackagePanel({
 
 	async function handleCreate(event: SyntheticEvent<HTMLFormElement>) {
 		event.preventDefault();
+		if (writeOutcomeUncertain) {
+			return;
+		}
 		setErrorMessage(null);
 		setStatusMessage(null);
 		setIsSaving(true);
@@ -376,20 +406,52 @@ export function GenerationPackagePanel({
 				);
 			}
 		} catch (error) {
-			setErrorMessage(
-				getErrorMessage(
-					error,
-					"Üretim Paketi oluşturulamadı. Gerekli bilgileri kontrol edip tekrar deneyin."
-				)
-			);
+			if (isWriteOutcomeUncertain(error)) {
+				setWriteOutcomeUncertain(true);
+				setErrorMessage(
+					"İşlemin sonucu doğrulanamadı. Aynı isteği tekrar göndermeden önce kayıtlı Üretim Paketlerini kontrol edin."
+				);
+			} else {
+				setErrorMessage(
+					getErrorMessage(
+						error,
+						"Üretim Paketi oluşturulamadı. Gerekli bilgileri kontrol edip tekrar deneyin."
+					)
+				);
+			}
 		} finally {
 			setIsSaving(false);
+		}
+	}
+
+	async function checkWriteOutcome() {
+		setIsCheckingOutcome(true);
+		try {
+			const result = await packagesQuery.refetch();
+			if (result.isError) {
+				setErrorMessage(
+					"Kaydedilmiş Üretim Paketleri yenilenemedi. Aynı isteği yeniden göndermeden önce tekrar kontrol edin."
+				);
+				return;
+			}
+			setWriteOutcomeUncertain(false);
+			setErrorMessage(null);
+			setStatusMessage(
+				"Kaydedilmiş Üretim Paketleri güncellendi. Sonucu inceleyip gerekirse yeni bir paket oluşturabilirsiniz."
+			);
+		} catch {
+			setErrorMessage(
+				"Kaydedilmiş Üretim Paketleri yenilenemedi. Aynı isteği yeniden göndermeden önce tekrar kontrol edin."
+			);
+		} finally {
+			setIsCheckingOutcome(false);
 		}
 	}
 
 	const canCreate =
 		record.availability === "active" &&
 		!isSaving &&
+		!writeOutcomeUncertain &&
 		!assetVersionsQuery.isPending &&
 		!assetVersionsQuery.isError;
 
@@ -410,132 +472,140 @@ export function GenerationPackagePanel({
 			</header>
 
 			<form className="space-y-4" onSubmit={handleCreate}>
-				<div className="space-y-2">
-					<label
-						className="font-medium text-sm"
-						htmlFor="generation-target-task"
-					>
-						Üretim hedefi
-					</label>
-					<textarea
-						className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm"
-						id="generation-target-task"
-						maxLength={2000}
-						onChange={(event) => setTargetTask(event.target.value)}
-						required
-						value={targetTask}
-					/>
-				</div>
-
-				<fieldset className="space-y-2">
-					<legend className="font-medium text-sm">Hedef ölçüleri</legend>
-					<p className="text-muted-foreground text-sm">
-						Kaydın onaylı mantıksal ölçüleri başlangıç değeri olarak kullanılır;
-						bu deneme için değiştirebilirsiniz.
-					</p>
-					<div className="grid gap-3 sm:grid-cols-2">
-						<div className="space-y-2">
-							<label
-								className="font-medium text-sm"
-								htmlFor="generation-target-width"
-							>
-								Hedef genişlik (px)
-							</label>
-							<input
-								className="h-9 w-full rounded-md border bg-background px-3 text-sm"
-								id="generation-target-width"
-								max={100_000}
-								min={1}
-								onChange={(event) => setTargetWidth(event.target.value)}
-								required
-								step={1}
-								type="number"
-								value={targetWidth}
-							/>
-						</div>
-						<div className="space-y-2">
-							<label
-								className="font-medium text-sm"
-								htmlFor="generation-target-height"
-							>
-								Hedef yükseklik (px)
-							</label>
-							<input
-								className="h-9 w-full rounded-md border bg-background px-3 text-sm"
-								id="generation-target-height"
-								max={100_000}
-								min={1}
-								onChange={(event) => setTargetHeight(event.target.value)}
-								required
-								step={1}
-								type="number"
-								value={targetHeight}
-							/>
-						</div>
-					</div>
-				</fieldset>
-
-				{(
-					[
-						{
-							id: "generation-preserve-constraints",
-							label: "Korunacak özellikler",
-							value: preserveConstraints,
-							setValue: setPreserveConstraints,
-						},
-						{
-							id: "generation-change-constraints",
-							label: "Değiştirilecek özellikler",
-							value: changeConstraints,
-							setValue: setChangeConstraints,
-						},
-						{
-							id: "generation-avoid-constraints",
-							label: "Kaçınılacak özellikler",
-							value: avoidConstraints,
-							setValue: setAvoidConstraints,
-						},
-					] as const
-				).map(({ id, label, value, setValue }) => (
-					<div className="space-y-2" key={label}>
-						<label className="font-medium text-sm" htmlFor={id}>
-							{label}
+				<fieldset
+					className="space-y-4"
+					disabled={isSaving || writeOutcomeUncertain}
+				>
+					<legend className="sr-only">Üretim paketi bilgileri</legend>
+					<div className="space-y-2">
+						<label
+							className="font-medium text-sm"
+							htmlFor="generation-target-task"
+						>
+							Üretim hedefi
 						</label>
 						<textarea
-							className="min-h-16 w-full rounded-md border bg-background px-3 py-2 text-sm"
-							id={id}
-							maxLength={15_000}
-							onChange={(event) => setValue(event.target.value)}
-							value={value}
+							className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm"
+							id="generation-target-task"
+							maxLength={2000}
+							onChange={(event) => setTargetTask(event.target.value)}
+							required
+							value={targetTask}
 						/>
-						<p className="text-muted-foreground text-xs">
-							Her satıra bir özellik yazın.
-						</p>
 					</div>
-				))}
 
-				<div className="space-y-2">
-					<label
-						className="font-medium text-sm"
-						htmlFor="generation-expected-output"
-					>
-						Beklenen çıktı yapısı
-					</label>
-					<textarea
-						className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm"
-						id="generation-expected-output"
-						maxLength={2000}
-						onChange={(event) => setExpectedOutputStructure(event.target.value)}
-						required
-						value={expectedOutputStructure}
-					/>
-				</div>
+					<fieldset className="space-y-2">
+						<legend className="font-medium text-sm">Hedef ölçüleri</legend>
+						<p className="text-muted-foreground text-sm">
+							Kaydın onaylı mantıksal ölçüleri başlangıç değeri olarak
+							kullanılır; bu deneme için değiştirebilirsiniz.
+						</p>
+						<div className="grid gap-3 sm:grid-cols-2">
+							<div className="space-y-2">
+								<label
+									className="font-medium text-sm"
+									htmlFor="generation-target-width"
+								>
+									Hedef genişlik (px)
+								</label>
+								<input
+									className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+									id="generation-target-width"
+									max={100_000}
+									min={1}
+									onChange={(event) => setTargetWidth(event.target.value)}
+									required
+									step={1}
+									type="number"
+									value={targetWidth}
+								/>
+							</div>
+							<div className="space-y-2">
+								<label
+									className="font-medium text-sm"
+									htmlFor="generation-target-height"
+								>
+									Hedef yükseklik (px)
+								</label>
+								<input
+									className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+									id="generation-target-height"
+									max={100_000}
+									min={1}
+									onChange={(event) => setTargetHeight(event.target.value)}
+									required
+									step={1}
+									type="number"
+									value={targetHeight}
+								/>
+							</div>
+						</div>
+					</fieldset>
 
-				<fieldset className="space-y-3" disabled={!canCreate}>
-					<legend className="font-medium text-sm">
-						Değiştirilmeyecek Birim Sürümleri
-					</legend>
-					{renderUnitVersionOptions()}
+					{(
+						[
+							{
+								id: "generation-preserve-constraints",
+								label: "Korunacak özellikler",
+								value: preserveConstraints,
+								setValue: setPreserveConstraints,
+							},
+							{
+								id: "generation-change-constraints",
+								label: "Değiştirilecek özellikler",
+								value: changeConstraints,
+								setValue: setChangeConstraints,
+							},
+							{
+								id: "generation-avoid-constraints",
+								label: "Kaçınılacak özellikler",
+								value: avoidConstraints,
+								setValue: setAvoidConstraints,
+							},
+						] as const
+					).map(({ id, label, value, setValue }) => (
+						<div className="space-y-2" key={label}>
+							<label className="font-medium text-sm" htmlFor={id}>
+								{label}
+							</label>
+							<textarea
+								className="min-h-16 w-full rounded-md border bg-background px-3 py-2 text-sm"
+								id={id}
+								maxLength={15_000}
+								onChange={(event) => setValue(event.target.value)}
+								value={value}
+							/>
+							<p className="text-muted-foreground text-xs">
+								Her satıra bir özellik yazın.
+							</p>
+						</div>
+					))}
+
+					<div className="space-y-2">
+						<label
+							className="font-medium text-sm"
+							htmlFor="generation-expected-output"
+						>
+							Beklenen çıktı yapısı
+						</label>
+						<textarea
+							className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm"
+							id="generation-expected-output"
+							maxLength={2000}
+							onChange={(event) =>
+								setExpectedOutputStructure(event.target.value)
+							}
+							required
+							value={expectedOutputStructure}
+						/>
+					</div>
+
+					<fieldset className="space-y-3" disabled={!canCreate}>
+						<legend className="font-medium text-sm">
+							Değiştirilmeyecek Birim Sürümleri
+						</legend>
+						{renderUnitVersionOptions()}
+					</fieldset>
 				</fieldset>
 
 				{errorMessage ? (
@@ -545,6 +615,18 @@ export function GenerationPackagePanel({
 					>
 						{errorMessage}
 					</p>
+				) : null}
+				{writeOutcomeUncertain ? (
+					<Button
+						disabled={isCheckingOutcome}
+						onClick={() => void checkWriteOutcome()}
+						type="button"
+						variant="outline"
+					>
+						{isCheckingOutcome
+							? "Durum kontrol ediliyor…"
+							: "Durumu kontrol et"}
+					</Button>
 				) : null}
 				{statusMessage ? (
 					<p aria-live="polite" className="text-sm" role="status">

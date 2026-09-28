@@ -330,20 +330,46 @@ test("requires the selected Canonical Design version to be available", async () 
 	expect(storedPackages).toHaveLength(0);
 });
 
-test("blocks a Generation Package when Reference Roles conflict at equal scope", async () => {
+test("persists a Generation Package when one Reference Role forbids another's allowance", async () => {
 	const { context, state, storedPackages } = createTestContext();
+	const avoidReferenceId = "4bf099d8-0b98-4287-abd0-3e1bbf787e90";
 	state.referenceImages.push({
 		...referenceImage,
 		forbiddenFeatures: ["pose"],
-		id: "4bf099d8-0b98-4287-abd0-3e1bbf787e90",
+		id: avoidReferenceId,
 		role: "avoid",
 		transferredFeatures: ["identity"],
 	});
 
-	await expect(
-		call(appRouter.generationPackages.create, createInput(), { context })
-	).rejects.toMatchObject({ code: "CONFLICT" });
-	expect(storedPackages).toHaveLength(0);
+	const created = await call(
+		appRouter.generationPackages.create,
+		createInput(),
+		{ context }
+	);
+
+	expect(created.referenceRoles).toEqual(
+		expect.arrayContaining([
+			expect.objectContaining({
+				forbiddenFeatures: ["identity"],
+				id: referenceId,
+				transferredFeatures: ["pose"],
+			}),
+			expect.objectContaining({
+				forbiddenFeatures: ["pose"],
+				id: avoidReferenceId,
+				role: "avoid",
+				transferredFeatures: ["identity"],
+			}),
+		])
+	);
+	expect(storedPackages).toHaveLength(1);
+
+	const reread = await call(
+		appRouter.generationPackages.list,
+		{ assetRecordId, projectId },
+		{ context }
+	);
+	expect(reread).toEqual([created]);
 });
 
 test("rejects unauthenticated Generation Package access before reading or writing", async () => {

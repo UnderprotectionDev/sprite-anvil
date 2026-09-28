@@ -25,6 +25,7 @@ vi.mock("sonner", () => ({
 const projectId = "c2edb5dc-a82f-42b2-84bb-a878ca20fabf";
 const identityCheckboxName = /^Bağımsız ürün anlamı/;
 const archivedRecordStatus = /Kayıt durumu · Arşivlenmiş/;
+const archivedPackageSummary = /Archived attack package/;
 const fileBoundaryCopy =
 	/dosya veya düzenlenebilir kare olması tek başına yeni kayıt gerekçesi değildir/i;
 const generalSupportCopy = "Genel Varlık Desteği · Özel profil kanıtı yok";
@@ -421,6 +422,60 @@ test("shows the Generation Package workflow on an active Asset Record", async ()
 			screen.getByRole("button", { name: "Üretim Paketini sabitle" })
 		).toBeEnabled()
 	);
+});
+
+test("shows saved Generation Packages on archived Asset Records without enabling creation", async () => {
+	fakeApi.record = { ...assetRecord, availability: "archived" };
+	fakeApi.generationPackages = [
+		{
+			assetRecord: {
+				...assetRecord,
+				availability: "archived",
+				identityCriteria: [...assetRecord.identityCriteria],
+			} as AssetRecord,
+			assetRecordId: assetRecord.id,
+			avoidConstraints: [],
+			canonicalDesign: null,
+			changeConstraints: [],
+			createdAt: "2026-09-28T09:00:00.000Z",
+			expectedOutputStructure: "A four-frame PNG sprite sheet.",
+			id: "7b73a4c6-835a-49ed-a84d-f63440351d07",
+			lockedUnits: [],
+			preserveConstraints: [],
+			productionContextSnapshot: {
+				contextRevisionId: "60d3bf8c-1940-4c25-924f-b98122d5787f",
+				generalArtDirection: "Readable silhouettes.",
+				ruleContractVersion: "context-rule/1.0.0",
+				rules: [],
+				revisionNumber: 2,
+				theme: null,
+				visualWorld: null,
+			},
+			referenceRoles: [],
+			projectId,
+			targetDimensions: { height: 80, width: 72 },
+			targetTask: "Archived attack package",
+		} as GenerationPackage,
+	];
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+
+	expect(
+		await screen.findByRole("heading", { name: "Üretim Paketleri" })
+	).toBeVisible();
+	expect(await screen.findByText(archivedPackageSummary)).toBeVisible();
+	expect(
+		screen.getByText(
+			"Arşivlenmiş Varlık Kaydında yeni Üretim Paketi oluşturulamaz."
+		)
+	).toBeVisible();
+	expect(
+		screen.queryByRole("button", { name: "Üretim Paketini sabitle" })
+	).not.toBeInTheDocument();
 });
 
 test("edits record metadata and limits Theme choices to the selected Visual World", async () => {

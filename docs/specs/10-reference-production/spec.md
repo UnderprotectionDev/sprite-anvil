@@ -10,7 +10,7 @@ Kullanıcı bir referansın kimlik, poz, stil, palet, ekipman, kompozisyon veya 
 
 Referans panosu yapıştırma, sürükleyip bırakma, yan yana düzenleme ve not eklemeyi destekler. Hazır amaçlar yanında özel amaç ve aktarım sınırı tanımlanabilir. Açık yasak genel izni geçer; Ana Tasarımın kimlik sınırı ancak açık Bağlam Kuralı İstisnasıyla aşılır.
 
-Tamamlanma kanıtı: Her referansın amacı ve izinli veya yasak aktarımı üretim geçmişinde izlenir; eş ayrıntı düzeyindeki çözülmemiş çatışma kullanıcıya gösterilir.
+Tamamlanma kanıtı: Her referansın amacı ve izinli veya yasak aktarımı üretim geçmişinde izlenir; bir referanstaki açık yasak başka bir referanstaki izne üstün gelir ve özellik yasaklı kalır.
 
 ## User Stories
 
@@ -20,7 +20,7 @@ Tamamlanma kanıtı: Her referansın amacı ve izinli veya yasak aktarımı üre
 4. Bir kullanıcı olarak hazır amaçların dışında özel amaç ve açık aktarım ya da yasak sınırı tanımlamak istiyorum; böylece referansın gerçek kullanımını tarif edebilirim.
 5. Bir kullanıcı olarak açık yasağın genel izinden üstün olmasını istiyorum; böylece yasakladığım özellik üretim girdisinden aktarılmaz.
 6. Bir kullanıcı olarak Ana Tasarımın kimlik sınırını aşmayı ancak açık Bağlam Kuralı İstisnasıyla kaydetmek istiyorum; böylece kimlik aktarımı örtük kalmaz.
-7. Bir kullanıcı olarak eş ayrıntı düzeyindeki referanslar arasındaki çözülmemiş çelişkiyi görüp çözmek istiyorum; böylece ekleme sırası çatışmaya kendiliğinden öncelik vermez.
+7. Bir kullanıcı olarak bir Referans Kullanım Amacındaki açık yasağın başka birindeki izne üstün gelmesini istiyorum; böylece yasaklı özellik Üretim Paketinde aktarılmaz.
 8. Bir kullanıcı olarak referans amaç ve aktarım kurallarının üretim geçmişinde korunmasını istiyorum; böylece sonradan hangi sınırların verildiğini inceleyebilirim.
 
 ## Normatif gereksinimler
@@ -33,14 +33,14 @@ Tamamlanma kanıtı: Her referansın amacı ve izinli veya yasak aktarımı üre
 - **Referans Aktarım Kurallarını Yönetme:** Kullanıcı bir referansın kimlik, poz, stil, palet, ekipman, kompozisyon veya Tema için neyi aktarabileceğini ve hangi özelliklerden kaçınacağını açıkça belirler. Referans panosu yapıştırma, sürükleyip bırakma, yan yana düzenleme ve not eklemeyi destekler. Hazır amaçlar yanında özel amaç ve aktarım sınırı tanımlanabilir. Açık yasak genel izni geçer; Ana Tasarımın kimlik sınırı ancak açık Bağlam Kuralı İstisnasıyla aşılır.
 
 - **Yetki ve sürüm sınırı:** Aşağıdaki PRD hükümleri normatiftir. Fazın iş kırılımı, başka bir özelliğin kararını bu kapsama eklemez. Kesin kullanıcı kararları ajan veya otomasyon tarafından verilmez.
-- **Kapsam sınırı:** Referansın eklenme sırası veya üretim modelinin yorumu çatışmaya kendiliğinden öncelik vermez; aktarım kurallarını kaydetmek tek başına Üretim Paketi oluşturmaz.
+- **Kapsam sınırı:** Referansların eklenme sırası veya üretim modelinin yorumu aktarım önceliğini belirlemez; açık yasak izinli aktarımın üstündedir. Aktarım kurallarını kaydetmek tek başına Üretim Paketi oluşturmaz.
 
 ## Testing Decisions
 
 - **Birincil test seam’i:** 8.1 örneklerinde kesin girdiyi kullanıcı eyleminden kalıcı kayda ve yeniden okumaya taşıyan sunucu/API yolunu sınama; web ve masaüstü görünür sonuçlarını karşılaştırma.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.
 - Bugün repoda bu faza ait ürün sözleşmesi bulunmuyor. Mevcut sunucu ve yüzey test örnekleri: [`account-access.test.ts`](../../../apps/server/src/account-access.test.ts), [`app-shell.spec.ts` (web)](../../../apps/web/e2e/app-shell.spec.ts) ve [`app-shell.spec.ts` (desktop)](../../../apps/web/desktop-e2e/app-shell.spec.ts). Bunlar bu özelliğin test edildiği anlamına gelmez.
-- Fazın özgül başarı ve red kanıtı: Her referansın amacı ve izinli veya yasak aktarımı üretim geçmişinde izlenir; eş ayrıntı düzeyindeki çözülmemiş çatışma kullanıcıya gösterilir. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Referansın eklenme sırası veya üretim modelinin yorumu çatışmaya kendiliğinden öncelik vermez; aktarım kurallarını kaydetmek tek başına Üretim Paketi oluşturmaz.
+- Fazın özgül başarı ve red kanıtı: Sunucu/API yolunda bir Referans Kullanım Amacı özelliğe izin verirken diğeri açıkça yasaklar; Üretim Paketi oluşur, yeniden okunduğunda her iki rolün sınırlarını taşır ve yasak özelliğin aktarılmadığını gösterir. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Referansın eklenme sırası veya üretim modelinin yorumu sonucu değiştirmez; aktarım kurallarını kaydetmek tek başına Üretim Paketi oluşturmaz.
 - Kabul örnekleri: 8.1. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
 
 ## Out of Scope

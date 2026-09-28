@@ -11,7 +11,7 @@ import {
 } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { afterEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { createQueryClient } from "@/utils/query-client";
 import { GenerationPackagePanel } from "./generation-package-panel";
 
@@ -22,8 +22,15 @@ const unitVersionLabel = /idle-01.*Sürüm 2/;
 const targetTaskLabel = /Create a four-frame attack animation\./;
 const referenceFeatureLabels =
 	/Aktarılabilir: Poz veya hareket · Kaçınılacak: Kimlik/;
+const projectScopeRuleLabel = /Kapsam: Proje/;
+const themeScopeRuleLabel = /Kapsam: Tema/;
+const themePrecedenceRuleLabel = /Öncelik zinciri: Tema/;
+const customPurposeLabel = /Kullanım amacı: Yalnızca gölge desenini kullanın\./;
+const contextOverrideRationaleLabel =
+	/Bağlam istisnası gerekçesi: Kimlik özellikleri/;
 const fakeApi = vi.hoisted(() => ({
 	create: vi.fn(),
+	listPackages: vi.fn(),
 	packages: [] as GenerationPackage[],
 }));
 
@@ -63,7 +70,7 @@ vi.mock("@/utils/orpc", () => ({
 			list: {
 				queryOptions: ({ input }: { input: Record<string, unknown> }) => ({
 					queryKey: ["generation-packages", input],
-					queryFn: async () => fakeApi.packages,
+					queryFn: () => fakeApi.listPackages(),
 				}),
 			},
 		},
@@ -75,6 +82,13 @@ afterEach(() => {
 	vi.restoreAllMocks();
 	fakeApi.create.mockReset();
 	fakeApi.packages = [];
+	fakeApi.listPackages.mockReset();
+});
+
+beforeEach(() => {
+	fakeApi.listPackages.mockImplementation(() =>
+		Promise.resolve(fakeApi.packages)
+	);
 });
 
 const record: AssetRecord = {
@@ -154,7 +168,32 @@ test("creates a Generation Package from the task form and shows the saved copy",
 				contextRevisionId: "60d3bf8c-1940-4c25-924f-b98122d5787f",
 				generalArtDirection: "Readable silhouettes.",
 				ruleContractVersion: "context-rule/1.0.0",
-				rules: [],
+				rules: [
+					{
+						contractVersion: "context-rule/1.0.0",
+						createdAt: "2026-09-28T08:00:00.000Z",
+						id: "lighting",
+						precedenceChain: [{ kind: "project", id: projectId }],
+						rationale: "Set by the project.",
+						scope: { kind: "project", id: projectId },
+						source: { kind: "project_setup" },
+						value: { type: "text", value: "Warm" },
+					},
+					{
+						contractVersion: "context-rule/1.0.0",
+						createdAt: "2026-09-28T08:00:00.000Z",
+						id: "lighting",
+						precedenceChain: [
+							{ kind: "theme", id: "theme-dark-castle" },
+							{ kind: "visual_world", id: "world-gameplay" },
+							{ kind: "project", id: projectId },
+						],
+						rationale: "Set for the theme.",
+						scope: { kind: "theme", id: "theme-dark-castle" },
+						source: { kind: "project_setup" },
+						value: { type: "text", value: "Cool" },
+					},
+				],
 				revisionNumber: 2,
 				theme: null,
 				visualWorld: null,
@@ -167,14 +206,15 @@ test("creates a Generation Package from the task form and shows the saved copy",
 					assetVersionId: null,
 					contentDigest: "b".repeat(64),
 					contentType: "image/png",
-					contextOverrideRationale: null,
-					customPurpose: null,
+					contextOverrideRationale:
+						"Kimlik özellikleri bu referanstan aktarılmamalı.",
+					customPurpose: "Yalnızca gölge desenini kullanın.",
 					fileName: "pose-reference.png",
 					forbiddenFeatures: ["identity"],
 					id: "8de89a35-70c1-4ca2-9a18-4d467ed1a817",
 					kind: "reference_image",
 					notes: null,
-					role: "pose",
+					role: "custom",
 					transferredFeatures: ["pose"],
 					versionNumber: null,
 				},
@@ -218,4 +258,59 @@ test("creates a Generation Package from the task form and shows the saved copy",
 		await screen.findByText("A four-frame PNG sprite sheet.")
 	).toBeVisible();
 	expect(screen.getByText(referenceFeatureLabels)).toBeVisible();
+	expect(screen.getByText(projectScopeRuleLabel)).toBeVisible();
+	expect(screen.getByText(themeScopeRuleLabel)).toBeVisible();
+	expect(screen.getByText(themePrecedenceRuleLabel)).toBeVisible();
+	expect(screen.getByText(customPurposeLabel)).toBeVisible();
+	expect(screen.getByText(contextOverrideRationaleLabel)).toBeVisible();
+});
+
+test("blocks a second create after an uncertain write until package history is refreshed", async () => {
+	fakeApi.create.mockRejectedValue(new TypeError("Network connection failed"));
+	fakeApi.listPackages
+		.mockImplementationOnce(() => Promise.resolve(fakeApi.packages))
+		.mockRejectedValueOnce(new Error("Network connection failed"));
+	renderPanel();
+	await waitFor(() =>
+		expect(
+			screen.getByRole("button", { name: "Üretim Paketini sabitle" })
+		).toBeEnabled()
+	);
+	fireEvent.change(screen.getByLabelText("Üretim hedefi"), {
+		target: { value: "Create a four-frame attack animation." },
+	});
+	fireEvent.change(screen.getByLabelText("Beklenen çıktı yapısı"), {
+		target: { value: "A four-frame PNG sprite sheet." },
+	});
+	fireEvent.click(
+		screen.getByRole("button", { name: "Üretim Paketini sabitle" })
+	);
+
+	const checkStatusButton = await screen.findByRole("button", {
+		name: "Durumu kontrol et",
+	});
+	expect(fakeApi.create).toHaveBeenCalledOnce();
+	expect(screen.getByLabelText("Üretim hedefi")).toBeDisabled();
+	expect(
+		screen.getByRole("button", { name: "Üretim Paketini sabitle" })
+	).toBeDisabled();
+
+	fireEvent.click(checkStatusButton);
+	await waitFor(() =>
+		expect(
+			screen.getByRole("button", { name: "Durumu kontrol et" })
+		).toBeEnabled()
+	);
+	expect(
+		screen.getByRole("button", { name: "Üretim Paketini sabitle" })
+	).toBeDisabled();
+	expect(fakeApi.create).toHaveBeenCalledOnce();
+
+	fireEvent.click(screen.getByRole("button", { name: "Durumu kontrol et" }));
+	await waitFor(() =>
+		expect(
+			screen.getByRole("button", { name: "Üretim Paketini sabitle" })
+		).toBeEnabled()
+	);
+	expect(fakeApi.create).toHaveBeenCalledOnce();
 });
