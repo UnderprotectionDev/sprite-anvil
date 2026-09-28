@@ -47,6 +47,7 @@ function legacyVersionInput(input: {
 		historyUnknown: true as const,
 		knownSource: "Project archive",
 		supportingEvidence: null,
+		unknownHistoryDetails: "The original production history is unknown.",
 		userRelationship: "received_from_team" as const,
 	};
 }

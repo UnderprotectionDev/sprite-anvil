@@ -79,6 +79,20 @@ const generationPackageMigration = readMigration(
 const manualImportEvidenceMigration = readMigration(
 	"./migrations/20260928151800_manual-import-evidence/migration.sql"
 );
+const sourceMetadataProjectScopeMigration =
+	readdirSync(new URL("./migrations/", import.meta.url))
+		.map((directory) => {
+			const path = new URL(
+				`./migrations/${directory}/migration.sql`,
+				import.meta.url
+			);
+			return existsSync(path) ? readFileSync(path, "utf8") : "";
+		})
+		.find((contents) =>
+			contents.includes(
+				"source_metadata_mapping_proposals_project_source_entry_fk"
+			)
+		) ?? "";
 
 test("normalizes legacy project ownership before current indexes and foreign keys", () => {
 	const renameOwnerColumn = migration.indexOf(
@@ -701,4 +715,14 @@ test("continues Manual Import Evidence after the applied source metadata migrati
 	expect(manualImportEvidenceSnapshot.prevIds).toContain(
 		sourceMetadataSnapshot.id
 	);
+});
+
+test("scopes source metadata proposals to an Import Inbox entry in the same project", () => {
+	expect(sourceMetadataProjectScopeMigration).toContain(
+		'CREATE UNIQUE INDEX "import_inbox_entries_project_id_id_idx" ON "import_inbox_entries" ("project_id","id")'
+	);
+	expect(sourceMetadataProjectScopeMigration).toContain(
+		'FOREIGN KEY ("project_id","source_entry_id") REFERENCES "import_inbox_entries"("project_id","id") ON DELETE RESTRICT'
+	);
+	expect(sourceMetadataProjectScopeMigration).toContain("DROP CONSTRAINT");
 });

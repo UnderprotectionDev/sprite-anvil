@@ -6,6 +6,7 @@ import {
 	pgTable,
 	text,
 	timestamp,
+	uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
 import { project } from "./project";
@@ -47,6 +48,10 @@ export const importInboxEntries = pgTable(
 		index("import_inbox_entries_project_created_at_idx").on(
 			table.projectId,
 			table.createdAt
+		),
+		uniqueIndex("import_inbox_entries_project_id_id_idx").on(
+			table.projectId,
+			table.id
 		),
 	]
 );
