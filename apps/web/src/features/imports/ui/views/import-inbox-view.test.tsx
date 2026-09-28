@@ -6,6 +6,7 @@ import {
 	render,
 	screen,
 	waitFor,
+	within,
 } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -16,6 +17,8 @@ import { ImportInboxView } from "./import-inbox-view";
 
 const projectId = "2f467c8e-bd77-4aec-855f-52f10cb2d60b";
 const entryId = "d09499d0-90f5-4b16-9177-ec86c424c68e";
+const sidecarEntryId = "7f66826f-e349-4c22-a281-fbf3fd1d27a8";
+const secondSidecarEntryId = "4ea102e6-77db-453b-ab97-a8bc50f64c0d";
 const fakeApi = vi.hoisted(() => ({
 	entries: [] as Record<string, unknown>[],
 	fetch: vi.fn(),
@@ -23,6 +26,11 @@ const fakeApi = vi.hoisted(() => ({
 const unresolvedStatusPattern = /İlişkilendirme bekliyor/;
 const uncertainUploadPattern = /Yükleme sonucu doğrulanamadı/;
 const supportReferencePattern = /Destek Referansı:/;
+const opaqueSidecarPattern = /opaque-sidecar/;
+const textureMetadataPattern = /texture-metadata/;
+const pivotProposalPattern = /Pivot · walk\.png/;
+const halfPivotPattern = /0\.5/;
+const quarterPivotPattern = /0\.25/;
 
 vi.mock("@/env", () => ({
 	ENV: { VITE_SERVER_URL: "http://localhost:3000" },
@@ -287,4 +295,202 @@ test("shows the support reference for a failed inbox read and retries the query"
 		await screen.findByText("Henüz ilişkilendirme bekleyen dosya yok.")
 	).toBeInTheDocument();
 	expect(readCount).toBe(2);
+});
+
+test("creates and rereads a source metadata proposal from explicitly selected sidecars", async () => {
+	const sourceEntry = {
+		createdAt: "2026-09-28T09:00:00.000Z",
+		contentLength: 512,
+		fileName: "sheet.png",
+		id: entryId,
+		projectId,
+		sha256: "a".repeat(64),
+		sourceContentType: "image/png",
+	};
+	const sidecarEntry = {
+		createdAt: "2026-09-28T09:01:00.000Z",
+		contentLength: 256,
+		fileName: "opaque-sidecar",
+		id: sidecarEntryId,
+		projectId,
+		sha256: "b".repeat(64),
+		sourceContentType: "application/octet-stream",
+	};
+	const secondSidecarEntry = {
+		createdAt: "2026-09-28T09:01:30.000Z",
+		contentLength: 320,
+		fileName: "texture-metadata",
+		id: secondSidecarEntryId,
+		projectId,
+		sha256: "c".repeat(64),
+		sourceContentType: "application/json",
+	};
+	const proposal = {
+		contractVersion: "source-metadata-mapping/1.0.0",
+		conflicts: [
+			{
+				candidates: [
+					{
+						field: "pivot",
+						key: "walk.png",
+						sourceEntryId: sidecarEntryId,
+						sourceFileName: sidecarEntry.fileName,
+						sourceFormat: "aseprite",
+						sourcePath: "frames[0].pivot",
+						value: { x: 0.5, y: 0.875 },
+					},
+					{
+						field: "pivot",
+						key: "walk.png",
+						sourceEntryId: secondSidecarEntryId,
+						sourceFileName: secondSidecarEntry.fileName,
+						sourceFormat: "texture-packer",
+						sourcePath: "frames.walk.png.pivot",
+						value: { x: 0.25, y: 0.875 },
+					},
+				],
+				field: "pivot",
+				key: "walk.png",
+			},
+		],
+		createdAt: "2026-09-28T09:02:00.000Z",
+		diagnostics: [],
+		fields: [
+			{
+				field: "pivot",
+				key: "walk.png",
+				sourceEntryId: sidecarEntryId,
+				sourceFileName: sidecarEntry.fileName,
+				sourceFormat: "aseprite",
+				sourcePath: "frames[0].pivot",
+				value: { x: 0.5, y: 0.875 },
+			},
+			{
+				field: "pivot",
+				key: "walk.png",
+				sourceEntryId: secondSidecarEntryId,
+				sourceFileName: secondSidecarEntry.fileName,
+				sourceFormat: "texture-packer",
+				sourcePath: "frames.walk.png.pivot",
+				value: { x: 0.25, y: 0.875 },
+			},
+		],
+		id: "4b4a3a9d-fac0-40c7-8b72-3277308d01c4",
+		projectId,
+		suggestions: {
+			assetFamilyLinks: {
+				reason: "no-source-evidence",
+				status: "unknown",
+			},
+			requiredSetLinks: {
+				reason: "no-source-evidence",
+				status: "unknown",
+			},
+			gameplayMetadata: {
+				reason: "project-context-required",
+				status: "unknown",
+			},
+		},
+		sidecars: [
+			{
+				entryId: sidecarEntryId,
+				fileName: sidecarEntry.fileName,
+				format: "aseprite",
+				jsonLayout: "array",
+				sha256: sidecarEntry.sha256,
+				version: "1.3",
+			},
+			{
+				entryId: secondSidecarEntryId,
+				fileName: secondSidecarEntry.fileName,
+				format: "texture-packer",
+				jsonLayout: "hash",
+				sha256: secondSidecarEntry.sha256,
+				version: "7.0",
+			},
+		],
+		source: {
+			entryId,
+			fileName: sourceEntry.fileName,
+			sha256: sourceEntry.sha256,
+		},
+	};
+	let savedProposals: Record<string, unknown>[] = [];
+	let createInput: unknown;
+	fakeApi.entries = [sourceEntry, sidecarEntry, secondSidecarEntry];
+	fakeApi.fetch.mockImplementation(
+		(input: RequestInfo | URL, init?: RequestInit) => {
+			const url = String(input);
+			if (url.endsWith("/source-metadata-mapping-proposals")) {
+				if (init?.method === "POST") {
+					createInput = JSON.parse(String(init.body));
+					savedProposals = [proposal];
+					return new Response(JSON.stringify(proposal), { status: 201 });
+				}
+				return new Response(
+					JSON.stringify(url.includes(`/${entryId}/`) ? savedProposals : []),
+					{ status: 200 }
+				);
+			}
+			return new Response(JSON.stringify(fakeApi.entries), { status: 200 });
+		}
+	);
+	vi.stubGlobal("fetch", fakeApi.fetch);
+
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	render(
+		<QueryClientProvider client={queryClient}>
+			<ImportInboxView projectId={projectId} />
+		</QueryClientProvider>
+	);
+
+	await screen.findByText("opaque-sidecar");
+	const sourcePanel = within(
+		screen.getByRole("region", {
+			name: "sheet.png için Kaynak Metadata Eşleme Önerisi",
+		})
+	);
+	fireEvent.click(
+		sourcePanel.getByRole("checkbox", { name: opaqueSidecarPattern })
+	);
+	fireEvent.click(
+		sourcePanel.getByRole("checkbox", { name: textureMetadataPattern })
+	);
+	fireEvent.click(
+		screen.getByRole("button", {
+			name: "Kaynak Metadata Eşleme Önerisi oluştur: sheet.png",
+		})
+	);
+	expect(createInput).toEqual({
+		sidecarEntryIds: [sidecarEntryId, secondSidecarEntryId],
+	});
+	await waitFor(() => expect(fakeApi.fetch).toHaveBeenCalledTimes(4));
+	expect(screen.getByText("source-metadata-mapping/1.0.0")).toBeInTheDocument();
+	expect(
+		screen.getByText(
+			"Varlık Ailesi bağlantısı: Bilinmiyor · kaynak kanıtı yok."
+		)
+	).toBeInTheDocument();
+	expect(
+		screen.getByText(
+			"Gerekli Öğeler Listesi bağlantısı: Bilinmiyor · kaynak kanıtı yok."
+		)
+	).toBeInTheDocument();
+	expect(
+		screen.getByText("Oyun İçi Bilgiler: Bilinmiyor · proje bağlamı gerekli.")
+	).toBeInTheDocument();
+	expect(screen.getAllByText("Pivot · walk.png")).toHaveLength(2);
+	expect(screen.getAllByText(pivotProposalPattern)).toHaveLength(2);
+	expect(screen.getAllByText(halfPivotPattern)).toHaveLength(1);
+	expect(screen.getAllByText(quarterPivotPattern)).toHaveLength(1);
+	expect(screen.getByText("c".repeat(64))).toBeInTheDocument();
+	expect(
+		screen.getByText("1 alan çakışması var; öneri henüz kesinleşmedi.")
+	).toBeInTheDocument();
+	expect(screen.getAllByText("Çakışma")).toHaveLength(2);
+	expect(fakeApi.fetch).toHaveBeenCalledWith(
+		`http://localhost:3000/api/projects/${projectId}/import-inbox/${entryId}/source-metadata-mapping-proposals`,
+		expect.objectContaining({ method: "POST" })
+	);
 });

@@ -67,6 +67,9 @@ const allowEmptyImportInboxMigration = readMigration(
 const preserveImportInboxSourceFileNamesMigration = readMigration(
 	"./migrations/20260928080506_preserve-import-inbox-source-filenames/migration.sql"
 );
+const sourceMetadataMappingProposalMigration = readMigration(
+	"./migrations/20260928114429_source-metadata-mapping-proposals/migration.sql"
+);
 const generationPackageMigration = readMigration(
 	"./migrations/20260927224924_safe_vance_astro/migration.sql"
 );
@@ -576,6 +579,56 @@ test("preserves exact Import Inbox source file names in the database", () => {
 		'btrim("file_name")'
 	);
 	expect(preserveNamesSnapshot.prevIds).toContain(allowEmptySnapshot.id);
+});
+
+test("persists source metadata proposals with managed-file provenance", () => {
+	const mappingSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260928114429_source-metadata-mapping-proposals/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as {
+		ddl: Record<string, unknown>[];
+		prevIds: string[];
+	};
+	const preserveNamesSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260928080506_preserve-import-inbox-source-filenames/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { id: string };
+
+	expect(sourceMetadataMappingProposalMigration).toContain(
+		'CREATE TABLE "source_metadata_mapping_proposals"'
+	);
+	expect(sourceMetadataMappingProposalMigration).toContain(
+		'"proposal" jsonb NOT NULL'
+	);
+	expect(sourceMetadataMappingProposalMigration).toContain(
+		'FOREIGN KEY ("source_entry_id") REFERENCES "import_inbox_entries"("id") ON DELETE RESTRICT'
+	);
+	expect(mappingSnapshot.prevIds).toContain(preserveNamesSnapshot.id);
+	expect(mappingSnapshot.ddl).toContainEqual(
+		expect.objectContaining({
+			entityType: "tables",
+			name: "source_metadata_mapping_proposals",
+			schema: "public",
+		})
+	);
+	expect(mappingSnapshot.ddl).toContainEqual(
+		expect.objectContaining({
+			entityType: "columns",
+			name: "proposal",
+			schema: "public",
+			table: "source_metadata_mapping_proposals",
+		})
+	);
 });
 
 test("stores Production Context Snapshots with project and Asset Record ownership", () => {

@@ -1,6 +1,17 @@
 import { assetSourceFileNameSchema } from "@sprite-anvil/api/asset-record-tracking";
 import type { ImportInboxStore } from "@sprite-anvil/api/import-inbox";
 import { importInboxSourceContentTypeSchema } from "@sprite-anvil/api/import-inbox";
+import type {
+	SourceMetadataFieldProposal,
+	SourceMetadataMappingDiagnostic,
+	SourceMetadataMappingProposalStore,
+	SourceMetadataMappingSidecar,
+} from "@sprite-anvil/api/source-metadata-mapping";
+import {
+	sourceMetadataMappingContractVersion,
+	sourceMetadataMappingProposalCreateInputSchema,
+	sourceMetadataMappingProposalSchema,
+} from "@sprite-anvil/api/source-metadata-mapping";
 import type { Context, Hono } from "hono";
 import z from "zod";
 import type { createStorage } from "../../../cloudflare";
@@ -15,6 +26,11 @@ import {
 	ImportInboxIntegrityError,
 	verifyImportInboxStream,
 } from "./import-inbox-integrity";
+import {
+	buildSourceMetadataConflicts,
+	buildSourceMetadataMappingSuggestions,
+	parseSourceMetadataSidecar,
+} from "./source-metadata-mapping";
 
 const projectIdSchema = z.uuid();
 const entryIdSchema = z.uuid();
@@ -40,6 +56,7 @@ export interface ImportInboxRouteDependencies {
 	) => Promise<{ id: string } | null>;
 	getSession: (headers: Headers) => Promise<ImportInboxSession | null>;
 	importInboxStore: ImportInboxStore;
+	sourceMetadataMappingProposalStore: SourceMetadataMappingProposalStore;
 }
 
 type ProjectAccess =
@@ -292,6 +309,206 @@ async function uploadImportInboxEntry(
 	}
 }
 
+async function readImportInboxTextFile(
+	storage: Storage,
+	file: {
+		contentLength: number;
+		fileName: string;
+		objectKey: string;
+		sha256: string;
+	}
+): Promise<{ ok: true; text: string } | { ok: false }> {
+	const objectKey = importInboxObjectKeySchema.safeParse(file.objectKey);
+	if (!objectKey.success) {
+		throw new Error("Import Inbox file unavailable");
+	}
+	const object = await storage.get(objectKey.data);
+	if (
+		!object ||
+		object.contentType !== opaqueStorageContentType ||
+		(object.contentLength !== undefined &&
+			object.contentLength !== file.contentLength)
+	) {
+		await object?.body.cancel();
+		throw new Error("Import Inbox file unavailable");
+	}
+	const verifiedBytes = await new Response(
+		verifyImportInboxStream(object.body, file.contentLength, file.sha256)
+	).arrayBuffer();
+	try {
+		return {
+			ok: true,
+			text: new TextDecoder("utf-8", { fatal: true }).decode(verifiedBytes),
+		};
+	} catch {
+		return { ok: false };
+	}
+}
+
+function proposalErrorResponse(
+	c: Context,
+	error:
+		| "Invalid source metadata proposal"
+		| "Invalid source metadata JSON"
+		| "Unsupported source metadata format",
+	status: 400 | 422
+) {
+	c.header("Cache-Control", "private, no-store");
+	return c.json(serializePublicApiError(error), status);
+}
+
+type ParsedSidecarsResult =
+	| {
+			ok: true;
+			diagnostics: SourceMetadataMappingDiagnostic[];
+			fields: SourceMetadataFieldProposal[];
+			sidecars: SourceMetadataMappingSidecar[];
+	  }
+	| {
+			ok: false;
+			reason: "not_found" | "invalid_json" | "unsupported_format";
+	  };
+
+async function parseSidecarEntries(
+	userId: string,
+	projectId: string,
+	sidecarEntryIds: string[],
+	dependencies: ImportInboxRouteDependencies
+): Promise<ParsedSidecarsResult> {
+	const storage = dependencies.createStorage();
+	const sidecars: SourceMetadataMappingSidecar[] = [];
+	const fields: SourceMetadataFieldProposal[] = [];
+	const diagnostics: SourceMetadataMappingDiagnostic[] = [];
+	for (const sidecarEntryId of sidecarEntryIds) {
+		// biome-ignore lint/performance/noAwaitInLoops: Sidecars are read sequentially to bound memory while validating each managed stream.
+		const file = await dependencies.importInboxStore.getFileRecord(
+			userId,
+			projectId,
+			sidecarEntryId
+		);
+		if (!file) {
+			return { ok: false, reason: "not_found" };
+		}
+
+		const decoded = await readImportInboxTextFile(storage, file);
+		if (!decoded.ok) {
+			return { ok: false, reason: "invalid_json" };
+		}
+		const parsed = parseSourceMetadataSidecar({
+			entryId: sidecarEntryId,
+			fileName: file.fileName,
+			sha256: file.sha256,
+			text: decoded.text,
+		});
+		if (!parsed.ok) {
+			return { ok: false, reason: parsed.reason };
+		}
+		sidecars.push(parsed.sidecar);
+		fields.push(...parsed.fields);
+		diagnostics.push(...parsed.diagnostics);
+	}
+	return { ok: true, diagnostics, fields, sidecars };
+}
+
+async function createSourceMetadataMappingProposal(
+	c: Context,
+	userId: string,
+	projectId: string,
+	sourceEntryId: string,
+	dependencies: ImportInboxRouteDependencies
+) {
+	const rawInput: unknown = await c.req.json().catch(() => null);
+	const input =
+		sourceMetadataMappingProposalCreateInputSchema.safeParse(rawInput);
+	if (!input.success) {
+		return proposalErrorResponse(c, "Invalid source metadata proposal", 400);
+	}
+
+	const source = await dependencies.importInboxStore.getFileRecord(
+		userId,
+		projectId,
+		sourceEntryId
+	);
+	if (!source) {
+		return c.json(serializePublicApiError("Not found"), 404);
+	}
+	const parsedSidecars = await parseSidecarEntries(
+		userId,
+		projectId,
+		input.data.sidecarEntryIds,
+		dependencies
+	);
+	if (!parsedSidecars.ok) {
+		if (parsedSidecars.reason === "not_found") {
+			return c.json(serializePublicApiError("Not found"), 404);
+		}
+		return proposalErrorResponse(
+			c,
+			parsedSidecars.reason === "unsupported_format"
+				? "Unsupported source metadata format"
+				: "Invalid source metadata JSON",
+			422
+		);
+	}
+
+	const proposal = sourceMetadataMappingProposalSchema.parse({
+		contractVersion: sourceMetadataMappingContractVersion,
+		conflicts: buildSourceMetadataConflicts(parsedSidecars.fields),
+		createdAt: new Date().toISOString(),
+		diagnostics: parsedSidecars.diagnostics,
+		fields: parsedSidecars.fields,
+		id: dependencies.createId?.() ?? crypto.randomUUID(),
+		projectId,
+		sidecars: parsedSidecars.sidecars,
+		source: {
+			entryId: sourceEntryId,
+			fileName: source.fileName,
+			sha256: source.sha256,
+		},
+		suggestions: buildSourceMetadataMappingSuggestions(),
+	});
+	const created =
+		await dependencies.sourceMetadataMappingProposalStore.createProposal(
+			userId,
+			projectId,
+			sourceEntryId,
+			proposal
+		);
+	if (!created) {
+		return c.json(serializePublicApiError("Not found"), 404);
+	}
+	return c.json(created, 201);
+}
+
+async function prepareSourceMetadataProposalRequest(
+	c: Context,
+	dependencies: ImportInboxRouteDependencies
+) {
+	c.header("Cache-Control", "private, no-store");
+	const projectId = c.req.param("projectId") ?? "";
+	const access = await resolveProjectAccess(
+		c.req.raw.headers,
+		projectId,
+		dependencies
+	);
+	if (!access.ok) {
+		return { ok: false as const, response: accessError(c, access) };
+	}
+	const entryId = entryIdSchema.safeParse(c.req.param("entryId"));
+	if (!entryId.success) {
+		return {
+			ok: false as const,
+			response: c.json(serializePublicApiError("Not found"), 404),
+		};
+	}
+	return {
+		entryId: entryId.data,
+		ok: true as const,
+		projectId,
+		userId: access.userId,
+	};
+}
+
 export function mountImportInboxRoutes(
 	app: Hono,
 	dependencies: ImportInboxRouteDependencies
@@ -333,6 +550,57 @@ export function mountImportInboxRoutes(
 			dependencies
 		);
 	});
+
+	app.get(
+		"/api/projects/:projectId/import-inbox/:entryId/source-metadata-mapping-proposals",
+		async (c) => {
+			const request = await prepareSourceMetadataProposalRequest(
+				c,
+				dependencies
+			);
+			if (!request.ok) {
+				return request.response;
+			}
+			const source = await dependencies.importInboxStore.getFileRecord(
+				request.userId,
+				request.projectId,
+				request.entryId
+			);
+			if (!source) {
+				return c.json(serializePublicApiError("Not found"), 404);
+			}
+			const proposals =
+				await dependencies.sourceMetadataMappingProposalStore.listProposals(
+					request.userId,
+					request.projectId,
+					request.entryId
+				);
+			if (!proposals) {
+				return c.json(serializePublicApiError("Not found"), 404);
+			}
+			return c.json(proposals);
+		}
+	);
+
+	app.post(
+		"/api/projects/:projectId/import-inbox/:entryId/source-metadata-mapping-proposals",
+		async (c) => {
+			const request = await prepareSourceMetadataProposalRequest(
+				c,
+				dependencies
+			);
+			if (!request.ok) {
+				return request.response;
+			}
+			return createSourceMetadataMappingProposal(
+				c,
+				request.userId,
+				request.projectId,
+				request.entryId,
+				dependencies
+			);
+		}
+	);
 
 	app.get("/api/projects/:projectId/import-inbox/:entryId/file", async (c) => {
 		c.header("Cache-Control", "private, no-store");
