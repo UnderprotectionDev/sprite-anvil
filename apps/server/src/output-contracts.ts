@@ -107,6 +107,7 @@ export const publicApiErrorSchema = z
 			"Unsupported source metadata format",
 			"Source metadata sidecars exceed the maximum size",
 			"Source metadata proposal request exceeds the maximum size",
+			"Source metadata finalization request exceeds the maximum size",
 			"Invalid source metadata mapping decisions",
 			"Unsupported source image",
 			"Invalid source image",

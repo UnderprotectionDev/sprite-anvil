@@ -1,6 +1,8 @@
+import type { AssetFamilyCatalog } from "@sprite-anvil/api/asset-families";
 import type { ImportInboxEntry } from "@sprite-anvil/api/import-inbox";
 import {
 	type SourceMetadataMappingProposal,
+	sourceMetadataMappingContractVersion,
 	sourceMetadataMappingFinalizationSchema,
 	sourceMetadataMappingProposalSchema,
 	sourceMetadataMappingProposalsSchema,
@@ -9,7 +11,7 @@ import {
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { type Dispatch, type SetStateAction, useState } from "react";
 import { orpc } from "@/utils/orpc";
 import {
 	readSupportReference,
@@ -99,14 +101,186 @@ function proposalConflictKeys(proposal: SourceMetadataMappingProposal) {
 	);
 }
 
+function stableValue(value: unknown): string {
+	if (Array.isArray(value)) {
+		return `[${value.map(stableValue).join(",")}]`;
+	}
+	if (value !== null && typeof value === "object") {
+		const record = value as Record<string, unknown>;
+		return `{${Object.keys(record)
+			.sort()
+			.map((key) => `${JSON.stringify(key)}:${stableValue(record[key])}`)
+			.join(",")}}`;
+	}
+	return JSON.stringify(value) ?? "null";
+}
+
+function proposalFieldValues(proposal: SourceMetadataMappingProposal) {
+	const grouped = new Map<string, string[]>();
+	for (const field of proposal.fields) {
+		const key = `${field.field}\u0000${field.key}`;
+		grouped.set(key, [...(grouped.get(key) ?? []), stableValue(field.value)]);
+	}
+	return new Map(
+		[...grouped].map(([key, values]) => [
+			key,
+			[...new Set(values)].sort().join("\u0000"),
+		])
+	);
+}
+
+function proposalFieldChanges(
+	current: SourceMetadataMappingProposal,
+	previous: SourceMetadataMappingProposal
+) {
+	const before = proposalFieldValues(previous);
+	const after = proposalFieldValues(current);
+	return [...new Set([...before.keys(), ...after.keys()])]
+		.sort()
+		.flatMap((key) => {
+			if (before.get(key) === after.get(key)) {
+				return [];
+			}
+			const [field, name] = key.split("\u0000");
+			const label = `${fieldLabel(field as SourceMetadataMappingProposal["fields"][number]["field"])} · ${name}`;
+			let change = "Değişti";
+			if (!before.has(key)) {
+				change = "Eklendi";
+			} else if (!after.has(key)) {
+				change = "Kaldırıldı";
+			}
+			return [`${change}: ${label}`];
+		});
+}
+
+function ProposalFinalizationForm({
+	proposal,
+	projectId,
+	records,
+	recordsError,
+	assetRecordId,
+	setAssetRecordId,
+	decisions,
+	setDecisions,
+	isFinalizing,
+	finalizeError,
+	onFinalize,
+}: {
+	proposal: SourceMetadataMappingProposal;
+	projectId: string;
+	records: AssetFamilyCatalog["assetRecords"] | undefined;
+	recordsError: boolean;
+	assetRecordId: string;
+	setAssetRecordId: Dispatch<SetStateAction<string>>;
+	decisions: Record<string, string>;
+	setDecisions: Dispatch<SetStateAction<Record<string, string>>>;
+	isFinalizing: boolean;
+	finalizeError: string | null;
+	onFinalize: () => void;
+}) {
+	return (
+		<section
+			aria-label="Eşlemeyi kesinleştir"
+			className="space-y-3 rounded-md border p-3"
+		>
+			<label className="block">
+				Hedef Varlık Kaydı
+				<select
+					className="mt-1 w-full rounded-md border bg-background p-2"
+					onChange={(event) => setAssetRecordId(event.target.value)}
+					value={assetRecordId}
+				>
+					<option value="">Kayıt seçin</option>
+					{records?.map((record) => (
+						<option key={record.id} value={record.id}>
+							{record.name}
+						</option>
+					))}
+				</select>
+			</label>
+			{records?.length === 0 ? (
+				<p>
+					Önce{" "}
+					<Link params={{ projectId }} to="/projects/$projectId/asset-families">
+						Varlık Aileleri
+					</Link>{" "}
+					ekranında hedef Varlık Kaydı oluşturun.
+				</p>
+			) : null}
+			{recordsError ? (
+				<p role="alert">Hedef Varlık Kayıtları okunamadı.</p>
+			) : null}
+			{proposal.conflicts.map((conflict) => {
+				const key = `${conflict.field}\u0000${conflict.key}`;
+				return (
+					<label className="block" key={key}>
+						{fieldLabel(conflict.field)} · {conflict.key}{" "}
+						{conflict.field === "frame" ? "(zorunlu)" : "(isteğe bağlı)"}
+						<select
+							className="mt-1 w-full rounded-md border bg-background p-2"
+							onChange={(event) =>
+								setDecisions((current) => ({
+									...current,
+									[key]: event.target.value,
+								}))
+							}
+							value={decisions[key] ?? ""}
+						>
+							<option value="">
+								{conflict.field === "frame" ? "Kaynak seçin" : "Bilinmiyor"}
+							</option>
+							{conflict.candidates.map((candidate) => (
+								<option
+									key={`${candidate.sourceEntryId}-${candidate.sourcePath}`}
+									value={JSON.stringify([
+										candidate.sourceEntryId,
+										candidate.sourcePath,
+									])}
+								>
+									{candidate.sourceFileName} ·{" "}
+									{formatFieldValue(candidate.value)}
+								</option>
+							))}
+						</select>
+					</label>
+				);
+			})}
+			<Button
+				disabled={
+					!assetRecordId ||
+					isFinalizing ||
+					proposal.conflicts.some(
+						(conflict) =>
+							conflict.field === "frame" &&
+							!decisions[`${conflict.field}\u0000${conflict.key}`]
+					)
+				}
+				onClick={onFinalize}
+				type="button"
+			>
+				{isFinalizing
+					? "Kesinleştiriliyor…"
+					: "Eşlemeyi kesinleştir ve Aday Sürüm oluştur"}
+			</Button>
+			{finalizeError ? <p role="alert">{finalizeError}</p> : null}
+		</section>
+	);
+}
+
 function ProposalDetails({
 	proposal,
 	projectId,
 	entryId,
+	previousProposal,
+	onRecreate,
+	isCreating,
 }: {
 	proposal: SourceMetadataMappingProposal;
 	projectId: string;
 	entryId: string;
+	previousProposal?: SourceMetadataMappingProposal;
+	onRecreate: () => void;
+	isCreating: boolean;
 }) {
 	const conflictKeys = proposalConflictKeys(proposal);
 	const queryClient = useQueryClient();
@@ -141,6 +315,21 @@ function ProposalDetails({
 		},
 	});
 	const finalization = finalizationQuery.data;
+	const fieldChanges = previousProposal
+		? proposalFieldChanges(proposal, previousProposal)
+		: [];
+	const sidecarsChanged = previousProposal
+		? stableValue(
+				proposal.sidecars
+					.map(({ fileName, sha256 }) => ({ fileName, sha256 }))
+					.sort((a, b) => a.fileName.localeCompare(b.fileName))
+			) !==
+			stableValue(
+				previousProposal.sidecars
+					.map(({ fileName, sha256 }) => ({ fileName, sha256 }))
+					.sort((a, b) => a.fileName.localeCompare(b.fileName))
+			)
+		: false;
 	async function finalize() {
 		if (!assetRecordId || isFinalizing) {
 			return;
@@ -210,6 +399,24 @@ function ProposalDetails({
 				{new Date(proposal.createdAt).toLocaleString("tr-TR")}
 			</summary>
 			<div className="space-y-4 pt-2">
+				{previousProposal ? (
+					<section
+						aria-label="Önceki öneriye göre fark"
+						className="rounded-md border p-3"
+					>
+						<h3 className="font-medium">Önceki öneriye göre fark</h3>
+						{sidecarsChanged ? <p>JSON sidecar kaynakları değişti.</p> : null}
+						{fieldChanges.length > 0 ? (
+							<ul>
+								{fieldChanges.map((change) => (
+									<li key={change}>{change}</li>
+								))}
+							</ul>
+						) : (
+							<p>Tanınan alanlarda fark yok.</p>
+						)}
+					</section>
+				) : null}
 				<dl className="grid gap-x-3 gap-y-2 sm:grid-cols-[auto_1fr]">
 					<dt className="text-muted-foreground">
 						Kaynak Metadata Eşleme sözleşmesi
@@ -256,6 +463,19 @@ function ProposalDetails({
 						kesinleşmedi.
 					</p>
 				) : null}
+				{proposal.contractVersion ===
+				sourceMetadataMappingContractVersion ? null : (
+					<section className="space-y-2 rounded-md border p-3">
+						<p>
+							Bu öneri eski bir Kaynak Metadata Eşleme sözleşmesini kullanıyor.
+							Kaynak dosyaları korunarak güncel sözleşmeyle yeni öneri
+							oluşturun.
+						</p>
+						<Button disabled={isCreating} onClick={onRecreate} type="button">
+							Güncel sözleşmeyle yeni öneri oluştur
+						</Button>
+					</section>
+				)}
 				{isOpen && finalizationQuery.isPending ? (
 					<p role="status">Kesin ilişki okunuyor…</p>
 				) : null}
@@ -307,99 +527,23 @@ function ProposalDetails({
 						</Link>
 					</section>
 				) : null}
-				{finalization ||
+				{proposal.contractVersion !== sourceMetadataMappingContractVersion ||
+				finalization ||
 				finalizationQuery.isError ||
 				(isOpen && finalizationQuery.isPending) ? null : (
-					<section
-						aria-label="Eşlemeyi kesinleştir"
-						className="space-y-3 rounded-md border p-3"
-					>
-						<label className="block">
-							Hedef Varlık Kaydı
-							<select
-								className="mt-1 w-full rounded-md border bg-background p-2"
-								onChange={(event) => setAssetRecordId(event.target.value)}
-								value={assetRecordId}
-							>
-								<option value="">Kayıt seçin</option>
-								{recordsQuery.data?.assetRecords.map((record) => (
-									<option key={record.id} value={record.id}>
-										{record.name}
-									</option>
-								))}
-							</select>
-						</label>
-						{recordsQuery.data?.assetRecords.length === 0 ? (
-							<p>
-								Önce{" "}
-								<Link
-									params={{ projectId }}
-									to="/projects/$projectId/asset-families"
-								>
-									Varlık Aileleri
-								</Link>{" "}
-								ekranında hedef Varlık Kaydı oluşturun.
-							</p>
-						) : null}
-						{recordsQuery.isError ? (
-							<p role="alert">Hedef Varlık Kayıtları okunamadı.</p>
-						) : null}
-						{proposal.conflicts.map((conflict) => {
-							const key = `${conflict.field}\u0000${conflict.key}`;
-							return (
-								<label className="block" key={key}>
-									{fieldLabel(conflict.field)} · {conflict.key}{" "}
-									{conflict.field === "frame" ? "(zorunlu)" : "(isteğe bağlı)"}
-									<select
-										className="mt-1 w-full rounded-md border bg-background p-2"
-										onChange={(event) =>
-											setDecisions((current) => ({
-												...current,
-												[key]: event.target.value,
-											}))
-										}
-										value={decisions[key] ?? ""}
-									>
-										<option value="">
-											{conflict.field === "frame"
-												? "Kaynak seçin"
-												: "Bilinmiyor"}
-										</option>
-										{conflict.candidates.map((candidate) => (
-											<option
-												key={`${candidate.sourceEntryId}-${candidate.sourcePath}`}
-												value={JSON.stringify([
-													candidate.sourceEntryId,
-													candidate.sourcePath,
-												])}
-											>
-												{candidate.sourceFileName} ·{" "}
-												{formatFieldValue(candidate.value)}
-											</option>
-										))}
-									</select>
-								</label>
-							);
-						})}
-						<Button
-							disabled={
-								!assetRecordId ||
-								isFinalizing ||
-								proposal.conflicts.some(
-									(conflict) =>
-										conflict.field === "frame" &&
-										!decisions[`${conflict.field}\u0000${conflict.key}`]
-								)
-							}
-							onClick={() => void finalize()}
-							type="button"
-						>
-							{isFinalizing
-								? "Kesinleştiriliyor…"
-								: "Eşlemeyi kesinleştir ve Aday Sürüm oluştur"}
-						</Button>
-						{finalizeError ? <p role="alert">{finalizeError}</p> : null}
-					</section>
+					<ProposalFinalizationForm
+						assetRecordId={assetRecordId}
+						decisions={decisions}
+						finalizeError={finalizeError}
+						isFinalizing={isFinalizing}
+						onFinalize={() => void finalize()}
+						projectId={projectId}
+						proposal={proposal}
+						records={recordsQuery.data?.assetRecords}
+						recordsError={recordsQuery.isError}
+						setAssetRecordId={setAssetRecordId}
+						setDecisions={setDecisions}
+					/>
 				)}
 				<ul aria-label="Önerilen kaynak alanları" className="space-y-3">
 					{proposal.fields.map((field) => {
@@ -488,8 +632,8 @@ export function SourceMetadataMappingPanel({
 		setCreateError(null);
 	}
 
-	async function createProposal() {
-		if (isCreating || selectedSidecarEntryIds.length === 0) {
+	async function createProposal(sidecarEntryIds = selectedSidecarEntryIds) {
+		if (isCreating || sidecarEntryIds.length === 0) {
 			return;
 		}
 		setIsCreating(true);
@@ -501,7 +645,7 @@ export function SourceMetadataMappingPanel({
 					method: "POST",
 					credentials: "include",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ sidecarEntryIds: selectedSidecarEntryIds }),
+					body: JSON.stringify({ sidecarEntryIds }),
 				}
 			);
 			if (!response.ok) {
@@ -613,10 +757,17 @@ export function SourceMetadataMappingPanel({
 					</Button>
 				</div>
 			) : null}
-			{proposalsQuery.data?.map((proposal) => (
+			{proposalsQuery.data?.map((proposal, index) => (
 				<ProposalDetails
 					entryId={entry.id}
+					isCreating={isCreating}
 					key={proposal.id}
+					onRecreate={() =>
+						void createProposal(
+							proposal.sidecars.map((sidecar) => sidecar.entryId)
+						)
+					}
+					previousProposal={proposalsQuery.data[index + 1]}
 					projectId={projectId}
 					proposal={proposal}
 				/>

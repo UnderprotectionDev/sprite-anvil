@@ -426,6 +426,7 @@ test("creates and rereads a source metadata proposal from explicitly selected si
 		},
 	};
 	let savedProposals: Record<string, unknown>[] = [];
+	let nextProposal: Record<string, unknown> = proposal;
 	let createInput: unknown;
 	fakeApi.entries = [sourceEntry, sidecarEntry, secondSidecarEntry];
 	fakeApi.fetch.mockImplementation(
@@ -434,8 +435,8 @@ test("creates and rereads a source metadata proposal from explicitly selected si
 			if (url.endsWith("/source-metadata-mapping-proposals")) {
 				if (init?.method === "POST") {
 					createInput = JSON.parse(String(init.body));
-					savedProposals = [proposal];
-					return new Response(JSON.stringify(proposal), { status: 201 });
+					savedProposals = [nextProposal, ...savedProposals];
+					return new Response(JSON.stringify(nextProposal), { status: 201 });
 				}
 				return new Response(
 					JSON.stringify(url.includes(`/${entryId}/`) ? savedProposals : []),
@@ -529,4 +530,58 @@ test("creates and rereads a source metadata proposal from explicitly selected si
 		`http://localhost:3000/api/projects/${projectId}/import-inbox/${entryId}/source-metadata-mapping-proposals`,
 		expect.objectContaining({ method: "POST" })
 	);
+	nextProposal = {
+		...proposal,
+		id: crypto.randomUUID(),
+		createdAt: "2026-09-28T09:03:00.000Z",
+		sidecars: proposal.sidecars.map((sidecar, index) =>
+			index === 0 ? { ...sidecar, sha256: "d".repeat(64) } : sidecar
+		),
+		fields: proposal.fields.map((field, index) =>
+			index === 0 ? { ...field, value: { x: 0.75, y: 0.875 } } : field
+		),
+	};
+	fireEvent.click(
+		screen.getByRole("button", {
+			name: "Kaynak Metadata Eşleme Önerisi oluştur: sheet.png",
+		})
+	);
+	expect(
+		await screen.findByText("Önceki öneriye göre fark")
+	).toBeInTheDocument();
+	expect(
+		screen.getByText("JSON sidecar kaynakları değişti.")
+	).toBeInTheDocument();
+	expect(screen.getByText("Değişti: Pivot · walk.png")).toBeInTheDocument();
+	const legacyProposal = {
+		...proposal,
+		id: crypto.randomUUID(),
+		contractVersion: "source-metadata-mapping/1.0.0",
+		createdAt: "2026-09-28T09:04:00.000Z",
+		fields: proposal.fields.filter((field) => field.field !== "duration"),
+	};
+	nextProposal = legacyProposal;
+	fireEvent.click(
+		screen.getByRole("button", {
+			name: "Kaynak Metadata Eşleme Önerisi oluştur: sheet.png",
+		})
+	);
+	expect(
+		await screen.findByText("source-metadata-mapping/1.0.0")
+	).toBeInTheDocument();
+	nextProposal = {
+		...proposal,
+		id: crypto.randomUUID(),
+		createdAt: "2026-09-28T09:05:00.000Z",
+	};
+	fireEvent.click(
+		screen.getByRole("button", {
+			name: "Güncel sözleşmeyle yeni öneri oluştur",
+		})
+	);
+	await waitFor(() => expect(savedProposals).toHaveLength(4));
+	expect(createInput).toEqual({
+		sidecarEntryIds: [sidecarEntryId, secondSidecarEntryId],
+	});
+	expect(screen.getByText("source-metadata-mapping/1.0.0")).toBeInTheDocument();
 });

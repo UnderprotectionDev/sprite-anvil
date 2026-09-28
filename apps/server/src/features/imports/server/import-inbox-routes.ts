@@ -22,7 +22,6 @@ import type { Context, Hono } from "hono";
 import z from "zod";
 import type { createStorage } from "../../../cloudflare";
 import {
-	createProjectAssetVersionObjectKey,
 	createProjectImportInboxObjectKey,
 	importInboxObjectKeySchema,
 } from "../../../cloudflare";
@@ -30,7 +29,6 @@ import { serializePublicApiError } from "../../../output-contracts";
 import {
 	AssetVersionContentLengthError,
 	AssetVersionIntegrityError,
-	createAssetVersionIntegrityTransform,
 } from "../../asset-versions/server/asset-version-integrity";
 import {
 	createImportInboxIntegrityTransform,
@@ -43,6 +41,7 @@ import {
 	buildSourceMetadataMappingSuggestions,
 	parseSourceMetadataSidecar,
 } from "./source-metadata-mapping";
+import { createCandidateFromInbox } from "./source-metadata-mapping-candidate";
 import { resolveSourceMetadataMappingDecisions } from "./source-metadata-mapping-finalization";
 
 const projectIdSchema = z.uuid();
@@ -53,6 +52,7 @@ const uploadLengthHeader = "x-import-inbox-size";
 const fileNameHeader = "x-import-inbox-file-name";
 const sourceContentTypeHeader = "x-import-inbox-source-type";
 const opaqueStorageContentType = "application/octet-stream";
+const finalizationRequestBytes = 1024 * 1024;
 
 type Storage = Pick<ReturnType<typeof createStorage>, "delete" | "get" | "put">;
 
@@ -119,11 +119,14 @@ async function finalizeSourceMetadataMapping(
 			? c.json(result)
 			: c.json(serializePublicApiError("Not found"), 404);
 	}
-	const body = await readBoundedJsonRequest(c.req.raw);
+	const body = await readBoundedJsonRequest(
+		c.req.raw,
+		finalizationRequestBytes
+	);
 	if (!body.ok && body.reason === "too_large") {
 		return c.json(
 			serializePublicApiError(
-				"Source metadata proposal request exceeds the maximum size"
+				"Source metadata finalization request exceeds the maximum size"
 			),
 			413
 		);
@@ -192,74 +195,18 @@ async function finalizeSourceMetadataMapping(
 	if (existing) {
 		return c.json(existing);
 	}
-	const sourceKey = importInboxObjectKeySchema.safeParse(source.objectKey);
-	if (!sourceKey.success) {
-		throw new Error("Import Inbox file unavailable");
-	}
-	const storage = dependencies.createStorage();
-	const object = await storage.get(sourceKey.data);
-	if (
-		!object ||
-		object.contentType !== opaqueStorageContentType ||
-		(object.contentLength !== undefined &&
-			object.contentLength !== source.contentLength)
-	) {
-		await object?.body.cancel();
-		throw new Error("Import Inbox file unavailable");
-	}
-	const objectKey = createProjectAssetVersionObjectKey(
-		projectId,
-		target.assetRecordId,
-		proposal.id
-	);
-	const integrity = createAssetVersionIntegrityTransform(
-		contentType,
-		source.contentLength
-	);
+	let candidateResult: Awaited<ReturnType<typeof createCandidateFromInbox>>;
 	try {
-		await storage.put(
-			objectKey,
-			verifyImportInboxStream(
-				object.body,
-				source.contentLength,
-				source.sha256
-			).pipeThrough(integrity.body),
-			contentType,
-			source.contentLength
-		);
-		const digest = integrity.getContentDigest();
-		if (digest !== source.sha256) {
-			throw new AssetVersionIntegrityError();
-		}
-		const version = await versionStore.createCandidateVersion(access.userId, {
-			...target,
-			id: proposal.id,
-			objectKey,
-			contentType,
-			contentLength: source.contentLength,
-			fileName: source.fileName,
-			contentDigest: digest,
-			idempotencyKey: proposal.id,
-			integrityVerified: true,
-		});
-		if (!version) {
-			return c.json(serializePublicApiError("Not found"), 404);
-		}
-		if (version.kind !== "created" && version.kind !== "existing") {
-			return c.json(
-				serializePublicApiError("Source metadata mapping conflict"),
-				409
-			);
-		}
-		const result = await mappingStore.completeFinalization(
-			access.userId,
+		candidateResult = await createCandidateFromInbox({
+			userId: access.userId,
 			projectId,
-			proposal.id
-		);
-		if (!result) {
-			throw new Error("Source metadata mapping finalization unavailable");
-		}
-		return c.json(result, 201);
+			proposalId: proposal.id,
+			target,
+			source,
+			contentType,
+			storage: dependencies.createStorage(),
+			versionStore,
+		});
 	} catch (error) {
 		if (
 			error instanceof AssetVersionIntegrityError ||
@@ -271,6 +218,24 @@ async function finalizeSourceMetadataMapping(
 		}
 		throw error;
 	}
+	if (candidateResult === "not_found") {
+		return c.json(serializePublicApiError("Not found"), 404);
+	}
+	if (candidateResult === "conflict") {
+		return c.json(
+			serializePublicApiError("Source metadata mapping conflict"),
+			409
+		);
+	}
+	const result = await mappingStore.completeFinalization(
+		access.userId,
+		projectId,
+		proposal.id
+	);
+	if (!result) {
+		throw new Error("Source metadata mapping finalization unavailable");
+	}
+	return c.json(result, 201);
 }
 
 type ProjectAccess =
@@ -590,7 +555,8 @@ type BoundedJsonRequestResult =
 	| { ok: false; reason: "invalid_json" | "too_large" };
 
 async function readBoundedJsonRequest(
-	request: Request
+	request: Request,
+	maxBytes = sourceMetadataMappingSidecarLimits.requestBytes
 ): Promise<BoundedJsonRequestResult> {
 	const contentLengthHeader = request.headers.get("content-length");
 	if (contentLengthHeader !== null) {
@@ -601,7 +567,7 @@ async function readBoundedJsonRequest(
 		if (!Number.isSafeInteger(contentLength)) {
 			return { ok: false, reason: "invalid_json" };
 		}
-		if (contentLength > sourceMetadataMappingSidecarLimits.requestBytes) {
+		if (contentLength > maxBytes) {
 			await request.body?.cancel().catch(() => undefined);
 			return { ok: false, reason: "too_large" };
 		}
@@ -621,7 +587,7 @@ async function readBoundedJsonRequest(
 				break;
 			}
 			byteLength += value.byteLength;
-			if (byteLength > sourceMetadataMappingSidecarLimits.requestBytes) {
+			if (byteLength > maxBytes) {
 				await reader.cancel().catch(() => undefined);
 				return { ok: false, reason: "too_large" };
 			}

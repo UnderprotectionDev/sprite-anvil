@@ -1052,6 +1052,10 @@ test("finalizes a source metadata mapping into one rereadable Candidate Version"
 		).status
 	).toBe(422);
 	expect(createdVersions).toHaveLength(0);
+	expect(
+		(await app.request(path, { ...request, body: "x".repeat(1024 * 1024 + 1) }))
+			.status
+	).toBe(413);
 	const created = await app.request(path, request);
 	expect(created.status).toBe(201);
 	const result = await created.json();

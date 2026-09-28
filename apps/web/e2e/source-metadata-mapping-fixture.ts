@@ -49,7 +49,12 @@ export const sourceMetadataMappingFixture = {
 		jsonLayout: "array",
 		version: "1.0",
 		bytes: jsonBytes({
-			frames: [frameWithPivot({ x: 0.5, y: 1 })],
+			frames: [
+				{
+					...frameWithPivot({ x: 0.5, y: 1 }),
+					frame: { ...frameRectangle, x: 1 },
+				},
+			],
 			meta: {
 				app: "http://www.codeandweb.com/texturepacker",
 				image: sourceFileName,
