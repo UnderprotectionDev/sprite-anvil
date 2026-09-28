@@ -67,11 +67,17 @@ const allowEmptyImportInboxMigration = readMigration(
 const preserveImportInboxSourceFileNamesMigration = readMigration(
 	"./migrations/20260928080506_preserve-import-inbox-source-filenames/migration.sql"
 );
+const sourceMetadataMappingProposalMigration = readMigration(
+	"./migrations/20260928145019_tiny_magma/migration.sql"
+);
+const legacyAttestationDetailsMigration = readMigration(
+	"./migrations/20260928113737_hot_the_professor/migration.sql"
+);
 const generationPackageMigration = readMigration(
 	"./migrations/20260927224924_safe_vance_astro/migration.sql"
 );
 const providerGenerationSanitizationMigration = readMigration(
-	"./migrations/20260928162359_dashing_colonel_america/migration.sql"
+	"./migrations/20260928170750_dazzling_wendell_rand/migration.sql"
 );
 
 test("normalizes legacy project ownership before current indexes and foreign keys", () => {
@@ -570,7 +576,7 @@ test("preserves exact Import Inbox source file names in the database", () => {
 			),
 			"utf8"
 		)
-	) as { prevIds: string[] };
+	) as { id: string; prevIds: string[] };
 
 	expect(preserveImportInboxSourceFileNamesMigration).toContain(
 		'CHECK (char_length("file_name") BETWEEN 1 AND 255)'
@@ -579,6 +585,110 @@ test("preserves exact Import Inbox source file names in the database", () => {
 		'btrim("file_name")'
 	);
 	expect(preserveNamesSnapshot.prevIds).toContain(allowEmptySnapshot.id);
+});
+
+test("persists source metadata proposals with managed-file provenance", () => {
+	const mappingSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260928145019_tiny_magma/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as {
+		ddl: Record<string, unknown>[];
+		prevIds: string[];
+	};
+	const attestationDetailsSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260928113737_hot_the_professor/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { id: string };
+
+	expect(sourceMetadataMappingProposalMigration).toContain(
+		'CREATE TABLE "source_metadata_mapping_proposals"'
+	);
+	expect(sourceMetadataMappingProposalMigration).toContain(
+		'"proposal" jsonb NOT NULL'
+	);
+	expect(sourceMetadataMappingProposalMigration).toContain(
+		'FOREIGN KEY ("source_entry_id") REFERENCES "import_inbox_entries"("id") ON DELETE RESTRICT'
+	);
+	expect(mappingSnapshot.prevIds).toContain(attestationDetailsSnapshot.id);
+	expect(mappingSnapshot.ddl).toContainEqual(
+		expect.objectContaining({
+			entityType: "tables",
+			name: "source_metadata_mapping_proposals",
+			schema: "public",
+		})
+	);
+	expect(mappingSnapshot.ddl).toContainEqual(
+		expect.objectContaining({
+			entityType: "columns",
+			name: "proposal",
+			schema: "public",
+			table: "source_metadata_mapping_proposals",
+		})
+	);
+});
+
+test("stores missing legacy history details without filling earlier user statements", () => {
+	const generationPackageSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260927224924_safe_vance_astro/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { id: string };
+	const preserveNamesSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260928080506_preserve-import-inbox-source-filenames/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { id: string };
+	const attestationDetailsSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260928113737_hot_the_professor/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { ddl: Record<string, unknown>[]; prevIds: string[] };
+
+	expect(legacyAttestationDetailsMigration).toContain(
+		'ADD COLUMN "unknown_history_details" text'
+	);
+	expect(legacyAttestationDetailsMigration).toContain(
+		'CHECK ("unknown_history_details" IS NULL OR length(trim("unknown_history_details")) > 0)'
+	);
+	expect(legacyAttestationDetailsMigration).not.toContain(
+		'UPDATE "legacy_asset_attestations"'
+	);
+	expect(attestationDetailsSnapshot.prevIds).toContain(
+		generationPackageSnapshot.id
+	);
+	expect(attestationDetailsSnapshot.prevIds).toContain(
+		preserveNamesSnapshot.id
+	);
+	expect(attestationDetailsSnapshot.ddl).toContainEqual(
+		expect.objectContaining({
+			entityType: "columns",
+			name: "unknown_history_details",
+			schema: "public",
+			table: "legacy_asset_attestations",
+		})
+	);
 });
 
 test("stores Production Context Snapshots with project and Asset Record ownership", () => {

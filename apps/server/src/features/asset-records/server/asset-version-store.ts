@@ -215,6 +215,7 @@ function sameVersionPayload(
 			attestation.attestedByUserId === userId &&
 			attestation.knownSource === input.knownSource &&
 			attestation.supportingEvidence === input.supportingEvidence &&
+			attestation.unknownHistoryDetails === input.unknownHistoryDetails &&
 			attestation.userRelationship === input.userRelationship &&
 			attestation.historyUnknown === input.historyUnknown
 	);
@@ -331,6 +332,7 @@ async function insertVersionRows(
 				knownSource: input.knownSource,
 				userRelationship: input.userRelationship,
 				supportingEvidence: input.supportingEvidence,
+				unknownHistoryDetails: input.unknownHistoryDetails,
 				historyUnknown: input.historyUnknown,
 				attestedByUserId: userId,
 				createdAt,

@@ -13,9 +13,9 @@
 - Tema ve çevre dilini aktarmak
 - Belirli özelliklerden kaçınmak
 
-Kullanıcı hazır seçeneklerle sınırlı değildir. Özel bir kullanım amacı ve açık aktarım ya da yasak sınırları tanımlayabilir. Bu sınırlar referans aktarım kuralı olarak kaydedilir. Bir Referans Kullanım Amacındaki açık yasak, aynı özellik için başka bir Referans Kullanım Amacındaki izinden önceliklidir; özellik Üretim Paketinde yasaklı kalır ve bu örtüşme paket oluşumunu engellemez. Ana tasarımın kimlik sınırını aşmak için Bağlam Kuralı İstisnası açıkça kaydedilmelidir.
+Kullanıcı hazır seçeneklerle sınırlı değildir. Özel bir kullanım amacı ve açık aktarım ya da yasak sınırları tanımlayabilir. Bu sınırlar Referans Aktarım Kuralı olarak kaydedilir. Aynı Varlık Kaydının referans kurallarında bir özellik hem izinli hem yasaklıysa eş kapsamlı ve çözümlenmemiş bir çelişki oluşur. Referans panosu çelişen kuralları ve ilgili referansları gösterir; çelişki giderilene kadar Üretim Paketi oluşturulamaz. Kullanıcı kurallardan birini düzenleyerek izin-yasak örtüşmesini kaldırır. Ana Tasarımın kimlik sınırını aşmak için Bağlam Kuralı İstisnası açıkça kaydedilmelidir.
 
-Referansların eklenme sırası veya üretim modelinin yorumu aktarım sonucuna öncelik vermez; açık yasaklar yukarıdaki kurala göre uygulanır.
+Referansların eklenme sırası veya üretim modelinin yorumu aktarım sonucuna öncelik vermez. Çelişkisiz kurallar pakette ayrı ayrı korunur ve dış üretim talimatında kullanıcı tarafından yorumlanır.
 
 Örneğin Frost Warrior görseli Ash Knight için poz referansıysa omuz hareketi, gövde dönüşü ve kılıcın hareket yolu aktarılabilir. Mavi palet, buz kristalleri, kıyafet ve karakter kimliği aktarılamaz. Bu sınırlar yalnızca üretim talimatında değil, üretim geçmişinde de saklanır.
 
@@ -30,6 +30,8 @@ Kullanıcı ChatGPT’ye geçmeden önce ayrı bir üretim talimatı sihirbazı 
 - Korunacak, değiştirilecek ve kaçınılacak özellikler
 - Değiştirilmeyecek birimler
 - Beklenen çıktı yapısı
+
+Üretim Paketi yalnızca ilgili referans kurallarında çözümlenmemiş izin-yasak çelişkisi kalmadığında oluşturulur. Kullanıcı bir kuralı düzelttikten sonra yeni ve değişmez bir paket oluşturabilir.
 
 Kullanıcı, o üretime ait doğal dil talimatını ChatGPT’de yazar.
 

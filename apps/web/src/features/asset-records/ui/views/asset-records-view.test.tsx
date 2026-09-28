@@ -52,6 +52,9 @@ const productionSource = /Imported from the project archive/;
 const productionEvidence = /Archive manifest entry/;
 const userRelationshipLabel = /Ekipten alındı/;
 const unknownHistory = /Geçmiş bilinmiyor/;
+const attestationDateLabel = /Beyan tarihi:/;
+const legacyAttestationCreatedAt = "2026-09-25T08:01:00.000Z";
+const localizedLegacyAttestationDate = /^(?:24|25) Eyl 2026 \d{2}:\d{2}$/;
 const unknownCanonicalVersion = /Ana Tasarım Sürümü kayıtlı değil/;
 const emptyAssetRecordMeasurements = {
 	atlasDimensions: { confirmed: null, proposal: null },
@@ -82,6 +85,7 @@ type TestAssetRecord = Omit<AssetRecord, "identityCriteria"> & {
 const fakeApi = vi.hoisted(() => ({
 	archive: vi.fn(),
 	create: vi.fn(),
+	createVersion: vi.fn(),
 	createReference: vi.fn(),
 	createGenerationPackage: vi.fn(),
 	generationPackages: [] as GenerationPackage[],
@@ -118,6 +122,7 @@ vi.mock("@/utils/orpc", () => ({
 		assetRecords: {
 			archive: (input: unknown) => fakeApi.archive(input),
 			create: (input: unknown) => fakeApi.create(input),
+			createVersion: (input: unknown) => fakeApi.createVersion(input),
 			restore: (input: unknown) => fakeApi.restore(input),
 			updateMetadata: (input: unknown) => fakeApi.updateMetadata(input),
 			updateMeasurements: (input: unknown) => fakeApi.updateMeasurements(input),
@@ -254,6 +259,7 @@ afterEach(() => {
 	fakeApi.trackingError = null;
 	fakeApi.archive.mockReset();
 	fakeApi.create.mockReset();
+	fakeApi.createVersion.mockReset();
 	fakeApi.createReference.mockReset();
 	fakeApi.createGenerationPackage.mockReset();
 	fakeApi.generationPackages = [];
@@ -733,12 +739,14 @@ test("shows persisted versions, derivatives, references, quality, and provenance
 			},
 			productionHistory: [
 				{
-					createdAt: "2026-09-25T08:01:00.000Z",
+					createdAt: legacyAttestationCreatedAt,
 					historyUnknown: true,
 					id: "0f3c648b-0b67-4b05-9f94-7c2bcd940949",
 					kind: "legacy_asset_attestation",
 					knownSource: "Imported from the project archive",
 					supportingEvidence: "Archive manifest entry.",
+					unknownHistoryDetails:
+						"The original generation instruction is unavailable.",
 					userRelationship: "received_from_team",
 					versionNumber: 1,
 				},
@@ -782,9 +790,171 @@ test("shows persisted versions, derivatives, references, quality, and provenance
 	expect(screen.getByText(generalSupportCopy)).toBeVisible();
 	expect(screen.getByText(productionSource)).toBeVisible();
 	expect(screen.getByText(productionEvidence)).toBeVisible();
+	expect(
+		screen.getByText(
+			"Bilinmeyen üretim geçmişi: The original generation instruction is unavailable."
+		)
+	).toBeVisible();
+	const attestationTime = screen
+		.getByText(attestationDateLabel)
+		.querySelector("time");
+	expect(attestationTime).toHaveAttribute(
+		"dateTime",
+		legacyAttestationCreatedAt
+	);
+	expect(attestationTime).toHaveTextContent(localizedLegacyAttestationDate);
 	expect(screen.getByText(userRelationshipLabel)).toBeVisible();
 	expect(screen.getByText(unknownHistory)).toBeVisible();
 	expect(screen.getByText(recordCreatedCopy)).toBeVisible();
+});
+
+test("records the user's missing legacy history details with the asset version", async () => {
+	fakeApi.detail = {
+		record: assetRecord,
+		tracking: {
+			availableRecords: [],
+			availableVersions: [],
+			approvedVersion: null,
+			alternatives: [],
+			derivatives: [],
+			family: null,
+			productionHistory: [],
+			quality: {
+				integrityStatus: "unavailable",
+				profileStatus: "general_support",
+				verifiedVersionCount: 0,
+			},
+			references: [],
+			reviewEvents: [],
+			visualWorlds: [],
+		},
+	};
+	fakeApi.createVersion.mockImplementation((value) => {
+		const input = value as {
+			assetRecordId: string;
+			fileName: string;
+			historyUnknown: true;
+			id: string;
+			knownSource: string | null;
+			supportingEvidence: string | null;
+			unknownHistoryDetails: string;
+			userRelationship: string;
+		};
+		const detail = fakeApi.detail as {
+			record: typeof assetRecord;
+			tracking: Record<string, unknown> & {
+				availableVersions: Record<string, unknown>[];
+				productionHistory: Record<string, unknown>[];
+			};
+		};
+		fakeApi.detail = {
+			...detail,
+			tracking: {
+				...detail.tracking,
+				availableVersions: [
+					{
+						assetRecordId: input.assetRecordId,
+						assetRecordName: assetRecord.name,
+						fileName: input.fileName,
+						id: input.id,
+						reviewDisposition: "candidate",
+						versionNumber: 1,
+					},
+				],
+				productionHistory: [
+					{
+						createdAt: legacyAttestationCreatedAt,
+						historyUnknown: input.historyUnknown,
+						id: "b1b9ae6d-c2c0-41d5-b9b9-c4acbfb83f90",
+						kind: "legacy_asset_attestation",
+						knownSource: input.knownSource,
+						supportingEvidence: input.supportingEvidence,
+						unknownHistoryDetails: input.unknownHistoryDetails,
+						userRelationship: input.userRelationship,
+						versionNumber: 1,
+					},
+				],
+			},
+		};
+		return {
+			createdAt: legacyAttestationCreatedAt,
+			fileName: input.fileName,
+			id: input.id,
+			reviewDisposition: "candidate",
+			sha256: "a".repeat(64),
+			sourceImageHeight: 1,
+			sourceImageWidth: 1,
+			versionNumber: 1,
+		};
+	});
+
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+	await screen.findByRole("heading", { name: "Ash Knight" });
+	await screen.findByRole("heading", { name: "Aday sürüm oluştur" });
+	const uploadedFile = new File([new Uint8Array([1, 2, 3])], "legacy.png", {
+		type: "image/png",
+	});
+	Object.defineProperty(uploadedFile, "arrayBuffer", {
+		value: async () => new Uint8Array([1, 2, 3]).buffer,
+	});
+
+	fireEvent.change(screen.getByLabelText("PNG veya WebP dosyası"), {
+		target: { files: [uploadedFile] },
+	});
+	fireEvent.change(screen.getByLabelText("Bilinen kaynak"), {
+		target: { value: "Project archive" },
+	});
+	fireEvent.change(screen.getByLabelText("Varlıkla ilişkiniz"), {
+		target: { value: "received_from_team" },
+	});
+	const unknownHistoryInput = screen.getByLabelText(
+		"Bilinmeyen üretim geçmişi"
+	);
+	expect(unknownHistoryInput).toBeRequired();
+	fireEvent.change(unknownHistoryInput, {
+		target: { value: "The original generation instruction is unavailable." },
+	});
+	fireEvent.change(screen.getByLabelText("Destekleyici kanıt"), {
+		target: { value: "The team archive manifest lists this image." },
+	});
+	const submitButton = screen.getByRole("button", {
+		name: "Aday sürümü kaydet",
+	});
+	expect(submitButton).toBeEnabled();
+	fireEvent.submit(submitButton.closest("form") as HTMLFormElement);
+	await waitFor(() => expect(fakeApi.createVersion).toHaveBeenCalled());
+
+	expect(await screen.findByRole("status")).toHaveTextContent(
+		"Aday Sürüm kaydedildi."
+	);
+	expect(fakeApi.createVersion).toHaveBeenCalledWith(
+		expect.objectContaining({
+			historyUnknown: true,
+			knownSource: "Project archive",
+			supportingEvidence: "The team archive manifest lists this image.",
+			unknownHistoryDetails:
+				"The original generation instruction is unavailable.",
+			userRelationship: "received_from_team",
+		})
+	);
+	expect(
+		screen.getByText(
+			"Bilinmeyen üretim geçmişi: The original generation instruction is unavailable."
+		)
+	).toBeVisible();
+	const attestationTime = screen
+		.getByText(attestationDateLabel)
+		.querySelector("time");
+	expect(attestationTime).toHaveAttribute(
+		"dateTime",
+		legacyAttestationCreatedAt
+	);
+	expect(attestationTime).toHaveTextContent(localizedLegacyAttestationDate);
 });
 
 test("keeps unrecorded legacy version details explicit without choosing a Canonical Design", async () => {
