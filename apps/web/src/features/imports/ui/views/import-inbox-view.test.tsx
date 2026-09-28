@@ -32,6 +32,8 @@ const pivotProposalPattern = /Pivot · walk\.png/;
 const pivotDecisionPattern = /Pivot · walk.png/;
 const halfPivotPattern = /0\.5/;
 const quarterPivotPattern = /0\.25/;
+const changedPivotValuesPattern =
+	/Değişti: Pivot · walk\.png · .*"x":0\.5.* → .*"x":0\.75/;
 
 vi.mock("@/env", () => ({
 	ENV: { VITE_SERVER_URL: "http://localhost:3000" },
@@ -552,7 +554,7 @@ test("creates and rereads a source metadata proposal from explicitly selected si
 	expect(
 		screen.getByText("JSON sidecar kaynakları değişti.")
 	).toBeInTheDocument();
-	expect(screen.getByText("Değişti: Pivot · walk.png")).toBeInTheDocument();
+	expect(screen.getByText(changedPivotValuesPattern)).toBeInTheDocument();
 	const legacyProposal = {
 		...proposal,
 		id: crypto.randomUUID(),
