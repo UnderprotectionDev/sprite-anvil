@@ -19,6 +19,7 @@ import { FamilyReadinessManager } from "./family-readiness-manager";
 
 const fakeApi = vi.hoisted(() => ({
 	recordEvidence: vi.fn(),
+	saveDraft: vi.fn(),
 	readiness: null as unknown,
 }));
 
@@ -26,6 +27,7 @@ vi.mock("@/utils/orpc", () => ({
 	client: {
 		familyReadiness: {
 			recordEvidence: fakeApi.recordEvidence,
+			saveDraft: fakeApi.saveDraft,
 		},
 	},
 	orpc: {
@@ -102,6 +104,7 @@ afterEach(() => {
 	cleanup();
 	vi.restoreAllMocks();
 	fakeApi.recordEvidence.mockReset();
+	fakeApi.saveDraft.mockReset();
 	fakeApi.readiness = null;
 });
 
@@ -161,6 +164,64 @@ test("records quality evidence for the active Required Set item through labeled 
 		ruleId: "general.asset_support",
 		method: "Measured the submitted version at native scale.",
 		rationale: "The observed dimensions match the rule.",
+	});
+});
+
+test("clears a usage test id when changing the Required Set item kind", async () => {
+	const { activeRevision } = readiness;
+	if (!activeRevision) {
+		return;
+	}
+	const usageTestItem = {
+		id: "target-size-backgrounds",
+		kind: "usage_test",
+		name: "Target sizes and backgrounds",
+		disposition: "required",
+		assetRecordIds: ["asset-record-1"],
+		testId: "target_size_backgrounds",
+	} satisfies FamilyReadiness["items"][number]["item"];
+	fakeApi.readiness = {
+		...readiness,
+		activeRevision: { ...activeRevision, items: [usageTestItem] },
+	} satisfies FamilyReadiness;
+	fakeApi.saveDraft.mockResolvedValue({});
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	render(
+		<QueryClientProvider client={queryClient}>
+			<FamilyReadinessManager
+				assetFamilyId="family-1"
+				assetRecords={[
+					{
+						assetCategory: "icon",
+						id: "asset-record-1",
+						name: "Icon",
+					},
+				]}
+				familyName="Combat sprite"
+				profileContracts={null}
+				projectId="project-1"
+			/>
+		</QueryClientProvider>
+	);
+
+	const kindSelect = await screen.findByRole("combobox", { name: "Öğe türü" });
+	fireEvent.change(kindSelect, { target: { value: "direction" } });
+	fireEvent.submit(kindSelect.closest("form") as HTMLFormElement);
+
+	await waitFor(() => expect(fakeApi.saveDraft).toHaveBeenCalledOnce());
+	expect(fakeApi.saveDraft).toHaveBeenCalledWith({
+		projectId: "project-1",
+		assetFamilyId: "family-1",
+		items: [
+			{
+				id: "target-size-backgrounds",
+				kind: "direction",
+				name: "Target sizes and backgrounds",
+				disposition: "required",
+				assetRecordIds: [],
+			},
+		],
 	});
 });
 

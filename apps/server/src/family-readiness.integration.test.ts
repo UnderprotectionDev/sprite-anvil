@@ -8,6 +8,7 @@ import {
 	assetRecords,
 	subjectIdentities,
 } from "@sprite-anvil/db/schema/asset-records";
+import { assetVersions } from "@sprite-anvil/db/schema/asset-versions";
 import { user } from "@sprite-anvil/db/schema/auth";
 import { visualWorlds } from "@sprite-anvil/db/schema/context-scopes";
 import {
@@ -57,7 +58,7 @@ function createContext(database: ReturnType<typeof createDb>, userId: string) {
 }
 
 test.skipIf(!databaseUrl)(
-	"persists an active Required Set and keeps a saved draft from changing its completion",
+	"persists an active Required Set and its pinned failure evidence through a fresh connection",
 	async () => {
 		if (!databaseUrl) {
 			throw new Error("CONTEXT_TEST_DATABASE_URL is required for this test.");
@@ -67,6 +68,7 @@ test.skipIf(!databaseUrl)(
 		let insertedUser = false;
 		let projectId: string | undefined;
 		let familyId: string | undefined;
+		let assetVersionId: string | undefined;
 
 		try {
 			await db.insert(user).values({
@@ -106,6 +108,12 @@ test.skipIf(!databaseUrl)(
 					(profile) => profile.profileId === "icon"
 				)?.activeRevision?.revisionNumber
 			).toBe(1);
+			const activeIconContractRevision = activatedContracts.profiles.find(
+				(profile) => profile.profileId === "icon"
+			)?.activeRevision;
+			if (!activeIconContractRevision) {
+				throw new Error("The active icon contract revision is required.");
+			}
 			const contractRereadContext = createContext(
 				createDb({ DATABASE_URL: databaseUrl }),
 				userId
@@ -167,11 +175,12 @@ test.skipIf(!databaseUrl)(
 					assetFamilyId: family.id,
 					items: [
 						{
-							id: "east-facing",
-							kind: "direction",
-							name: "East-facing sprite",
+							id: "target-size-backgrounds",
+							kind: "usage_test",
+							name: "Target sizes and backgrounds",
 							disposition: "required",
 							assetRecordIds: [assetRecord.id],
+							testId: "target_size_backgrounds",
 						},
 					],
 				},
@@ -215,6 +224,53 @@ test.skipIf(!databaseUrl)(
 			expect(afterDraft.revisions.at(-1)?.id).toBe(secondRevision.id);
 			expect(afterDraft.status).toBe("incomplete");
 
+			await db
+				.update(assetRecords)
+				.set({ assetCategory: "icon" })
+				.where(
+					and(
+						eq(assetRecords.projectId, projectId),
+						eq(assetRecords.id, assetRecord.id)
+					)
+				);
+			assetVersionId = crypto.randomUUID();
+			await db.insert(assetVersions).values({
+				id: assetVersionId,
+				projectId,
+				assetRecordId: assetRecord.id,
+				assetFamilyId: family.id,
+				versionNumber: 1,
+				fileName: "east-facing-icon.png",
+				contentType: "image/png",
+				sourceImageWidth: 1,
+				sourceImageHeight: 1,
+				sha256: "b".repeat(64),
+				byteSize: 1,
+				contentDigest: "b".repeat(64),
+				integrityVerified: true,
+				sourceKind: "manual_import",
+				idempotencyKey: crypto.randomUUID(),
+				objectKey: `family-readiness/${assetVersionId}.png`,
+				createdByUserId: userId,
+			});
+			const afterFailedEvidence = await call(
+				appRouter.familyReadiness.recordEvidence,
+				{
+					projectId,
+					assetFamilyId: family.id,
+					revisionId: firstRevision.id,
+					itemId: "target-size-backgrounds",
+					kind: "usage_test",
+					result: "failed",
+					testId: "target_size_backgrounds",
+					method: "Reviewed the icon on light and dark backgrounds.",
+					rationale: "The icon is not readable at the smallest target size.",
+				},
+				{ context }
+			);
+			expect(afterFailedEvidence.status).toBe("incomplete");
+			expect(afterFailedEvidence.items[0]?.blockers).toContain("usage_test");
+
 			const rereadDb = createDb({ DATABASE_URL: databaseUrl });
 			const rereadContext = createContext(rereadDb, userId);
 			const reread = await call(
@@ -223,8 +279,20 @@ test.skipIf(!databaseUrl)(
 				{ context: rereadContext }
 			);
 			expect(reread.activeRevision?.id).toBe(firstRevision.id);
-			expect(reread.items[0]?.item.id).toBe("east-facing");
-			expect(reread.items[0]?.blockers).toContain("quality_contract");
+			expect(reread.items[0]?.item.id).toBe("target-size-backgrounds");
+			expect(reread.items[0]?.blockers).toContain("usage_test");
+			const persistedUsageEvidence = reread.items[0]?.latestEvidence.find(
+				(evidence) => evidence.kind === "usage_test"
+			);
+			expect(persistedUsageEvidence).toMatchObject({
+				result: "failed",
+				testId: "target_size_backgrounds",
+				assetVersionIds: [assetVersionId],
+				profileContractRevisionIds: [activeIconContractRevision.id],
+				contextRevisionId: createdProject.currentContextRevision.id,
+				isCurrent: true,
+			});
+			expect(reread.status).toBe("incomplete");
 		} finally {
 			if (insertedUser && projectId) {
 				if (familyId) {
@@ -255,6 +323,11 @@ test.skipIf(!databaseUrl)(
 								eq(familyRequiredSetRevisions.assetFamilyId, familyId)
 							)
 						);
+					if (assetVersionId) {
+						await db
+							.delete(assetVersions)
+							.where(eq(assetVersions.id, assetVersionId));
+					}
 					await db
 						.delete(assetRecords)
 						.where(

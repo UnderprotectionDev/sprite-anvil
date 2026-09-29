@@ -197,9 +197,17 @@ export function FamilyReadinessManager({
 
 	function updateItem(localId: string, change: Partial<DraftItem>) {
 		setDraftItems((items) =>
-			items.map((item) =>
-				item.localId === localId ? { ...item, ...change } : item
-			)
+			items.map((item) => {
+				if (item.localId !== localId) {
+					return item;
+				}
+				const updatedItem = { ...item, ...change };
+				if (change.kind && change.kind !== "usage_test") {
+					const { testId: _testId, ...itemWithoutTestId } = updatedItem;
+					return itemWithoutTestId;
+				}
+				return updatedItem;
+			})
 		);
 	}
 
