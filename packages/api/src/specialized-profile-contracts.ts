@@ -235,6 +235,79 @@ export type SpecializedProfileContract = z.infer<
 	typeof specializedProfileContractSchema
 >;
 
+export function isProfileQualityEvidenceValid(input: {
+	rule: SpecializedProfileContract["rules"][number];
+	result: "passed" | "failed" | "inconclusive" | "waived";
+	observedValue?: string;
+}) {
+	if (
+		input.result === "waived" &&
+		(input.rule.class !== "waivable_requirement" ||
+			!input.rule.waiverEligibility)
+	) {
+		return false;
+	}
+	if (input.rule.waiverEligibility && !input.observedValue?.trim()) {
+		return false;
+	}
+	return true;
+}
+
+export function assessProfileQualityReadiness(
+	contract: SpecializedProfileContract,
+	results: ReadonlyMap<string, "passed" | "failed" | "inconclusive" | "waived">,
+	usageTestResults: ReadonlyMap<
+		string,
+		"passed" | "failed" | "inconclusive" | "waived"
+	> = new Map()
+) {
+	const requiredRules = contract.rules.filter(
+		(rule) => rule.class !== "quality_advisory"
+	);
+	const waivedRuleIds = requiredRules
+		.filter(
+			(rule) =>
+				results.get(rule.id) === "waived" &&
+				rule.class === "waivable_requirement" &&
+				rule.waiverEligibility
+		)
+		.map((rule) => rule.id);
+	const outstandingRuleIds = requiredRules
+		.filter(
+			(rule) =>
+				results.get(rule.id) !== "passed" && !waivedRuleIds.includes(rule.id)
+		)
+		.map((rule) => rule.id);
+	const requiredUsageTests = contract.usageTests;
+	const outstandingUsageTestIds = requiredUsageTests
+		.filter((test) => usageTestResults.get(test.id) !== "passed")
+		.map((test) => test.id);
+	const failedAdvisoryRuleIds = contract.rules
+		.filter(
+			(rule) =>
+				rule.class === "quality_advisory" &&
+				["failed", "inconclusive"].includes(results.get(rule.id) ?? "")
+		)
+		.map((rule) => rule.id);
+	const isBlocked =
+		outstandingRuleIds.length > 0 || outstandingUsageTestIds.length > 0;
+	let status: "blocked" | "exceptions_ready" | "export_ready";
+	if (isBlocked) {
+		status = "blocked";
+	} else if (waivedRuleIds.length > 0) {
+		status = "exceptions_ready";
+	} else {
+		status = "export_ready";
+	}
+	return {
+		status,
+		outstandingRuleIds,
+		outstandingUsageTestIds,
+		waivedRuleIds,
+		failedAdvisoryRuleIds,
+	};
+}
+
 export const projectProfileContractActivationSchema = z
 	.object({
 		activatedAt: z.iso.datetime(),
@@ -283,6 +356,9 @@ export const specializedProfileContractsListOutputSchema = z.object({
 		})
 	),
 });
+export type SpecializedProfileContractsListOutput = z.infer<
+	typeof specializedProfileContractsListOutputSchema
+>;
 
 const metadataField = (
 	id: string,

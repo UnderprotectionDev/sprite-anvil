@@ -1,6 +1,11 @@
 import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
 import { appRouter } from "@sprite-anvil/api/routers/index";
+import {
+	assessProfileQualityReadiness,
+	isProfileQualityEvidenceValid,
+	specializedProfileContractCatalog,
+} from "@sprite-anvil/api/specialized-profile-contracts";
 
 const ownerId = "user-specialized-profile-contracts";
 const projectId = "project-specialized-profile-contracts";
@@ -293,4 +298,93 @@ test("maps exact background layer version ids in a new contract revision", async
 		"layer_version_id",
 		"background.layers.asset_version_id"
 	);
+});
+
+test("only required Specialized Profile Contract rules and usage tests determine readiness", () => {
+	const [contract] = specializedProfileContractCatalog;
+	expect(contract).toBeDefined();
+	if (!contract) {
+		return;
+	}
+	const requiredRules = contract.rules.filter(
+		(rule) => rule.class !== "quality_advisory"
+	);
+	const results = new Map<
+		string,
+		"passed" | "failed" | "inconclusive" | "waived"
+	>(requiredRules.map((rule) => [rule.id, "passed"]));
+	const usageTests = new Map(
+		contract.usageTests.map((usageTest) => [usageTest.id, "passed" as const])
+	);
+
+	expect(
+		assessProfileQualityReadiness(contract, results, usageTests).status
+	).toBe("export_ready");
+	const integrityRule = requiredRules.find(
+		(rule) => rule.class === "integrity_gate"
+	);
+	if (!integrityRule) {
+		return;
+	}
+	results.delete(integrityRule.id);
+	expect(
+		assessProfileQualityReadiness(contract, results, usageTests).status
+	).toBe("blocked");
+	results.set(integrityRule.id, "failed");
+	expect(
+		assessProfileQualityReadiness(contract, results, usageTests).status
+	).toBe("blocked");
+});
+
+test("quality advisories are non-blocking and only eligible measurements can be waived", () => {
+	const [contract] = specializedProfileContractCatalog;
+	expect(contract).toBeDefined();
+	if (!contract) {
+		return;
+	}
+	const advisory = contract.rules.find(
+		(rule) => rule.class === "quality_advisory"
+	);
+	const waivable = contract.rules.find(
+		(rule) => rule.class === "waivable_requirement"
+	);
+	const integrity = contract.rules.find(
+		(rule) => rule.class === "integrity_gate"
+	);
+	if (!(advisory && waivable && integrity)) {
+		return;
+	}
+	const results = new Map<
+		string,
+		"passed" | "failed" | "inconclusive" | "waived"
+	>(
+		contract.rules
+			.filter((rule) => rule.class !== "quality_advisory")
+			.map((rule) => [rule.id, "passed" as const])
+	);
+	results.set(waivable.id, "waived");
+	results.set(advisory.id, "failed");
+	const usageTests = new Map(
+		contract.usageTests.map((usageTest) => [usageTest.id, "passed" as const])
+	);
+	expect(
+		assessProfileQualityReadiness(contract, results, usageTests).status
+	).toBe("exceptions_ready");
+	usageTests.delete(contract.usageTests[0]?.id ?? "");
+	expect(
+		assessProfileQualityReadiness(contract, results, usageTests).status
+	).toBe("blocked");
+	expect(
+		isProfileQualityEvidenceValid({ rule: waivable, result: "passed" })
+	).toBe(false);
+	expect(
+		isProfileQualityEvidenceValid({
+			rule: waivable,
+			result: "passed",
+			observedValue: "96%",
+		})
+	).toBe(true);
+	expect(
+		isProfileQualityEvidenceValid({ rule: integrity, result: "waived" })
+	).toBe(false);
 });

@@ -82,6 +82,12 @@ const providerGenerationSanitizationMigration = readMigration(
 const manualImportEvidenceMigration = readMigration(
 	"./migrations/20260928151800_manual-import-evidence/migration.sql"
 );
+const familyReadinessMigration = readMigration(
+	"./migrations/20260929135717_black_gateway/migration.sql"
+);
+const profileContractsMigration = readMigration(
+	"./migrations/20260929082626_white_thor_girl/migration.sql"
+);
 const sourceMetadataProjectScopeMigration =
 	readdirSync(new URL("./migrations/", import.meta.url))
 		.map((directory) => {
@@ -888,4 +894,86 @@ test("scopes source metadata proposals to an Import Inbox entry in the same proj
 		'FOREIGN KEY ("project_id","source_entry_id") REFERENCES "import_inbox_entries"("project_id","id") ON DELETE RESTRICT'
 	);
 	expect(sourceMetadataProjectScopeMigration).toContain("DROP CONSTRAINT");
+});
+
+test("stores immutable Required Set revisions and evidence pinned to exact family scope", () => {
+	const mainSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260929104736_careful_nehzno/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { id: string };
+	const familyReadinessSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260929135717_black_gateway/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { prevIds: string[] };
+	const profileContractsSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260929082626_white_thor_girl/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { id: string };
+
+	expect(familyReadinessSnapshot.prevIds).toContain(mainSnapshot.id);
+	expect(familyReadinessSnapshot.prevIds).toContain(
+		profileContractsSnapshot.id
+	);
+	expect(familyReadinessMigration).toContain(
+		'CREATE TABLE "family_required_set_revisions"'
+	);
+	expect(familyReadinessMigration).toContain(
+		'CREATE TABLE "family_required_set_heads"'
+	);
+	expect(familyReadinessMigration).toContain(
+		'CREATE TABLE "family_required_set_activations"'
+	);
+	expect(familyReadinessMigration).toContain(
+		'CREATE TABLE "family_readiness_evidence"'
+	);
+	expect(familyReadinessMigration).toContain(
+		'FOREIGN KEY ("project_id","asset_family_id","revision_id") REFERENCES "family_required_set_revisions"("project_id","asset_family_id","id") ON DELETE RESTRICT'
+	);
+	expect(familyReadinessMigration).toContain(
+		'FOREIGN KEY ("project_id","context_revision_id") REFERENCES "context_revisions"("project_id","id") ON DELETE RESTRICT'
+	);
+	expect(familyReadinessMigration).toContain(
+		"\"kind\" = 'applicability' AND \"result\" IN ('applicable', 'inapplicable')"
+	);
+	for (const table of [
+		"specialized_profile_contract_revisions",
+		"project_specialized_profile_contracts",
+	]) {
+		expect(profileContractsMigration).toContain(`CREATE TABLE "${table}"`);
+	}
+	expect(familyReadinessMigration).toContain(
+		"\"profile_contract_revision_ids\" jsonb DEFAULT '[]' NOT NULL"
+	);
+	expect(familyReadinessMigration).toContain('"rule_class" text');
+	expect(familyReadinessMigration).toContain('"test_id" text');
+	expect(familyReadinessMigration).toContain('"observed_value" text');
+	for (const obsoleteTable of [
+		"specialized_profile_contract_heads",
+		"specialized_profile_contract_activations",
+	]) {
+		expect(familyReadinessMigration).not.toContain(
+			`CREATE TABLE "${obsoleteTable}"`
+		);
+	}
+	expect(familyReadinessMigration).not.toContain(
+		'CREATE TABLE "specialized_profile_contract_revisions"'
+	);
+	expect(familyReadinessMigration).toContain(
+		'"result" <> \'waived\' OR "observed_value" IS NOT NULL'
+	);
 });
