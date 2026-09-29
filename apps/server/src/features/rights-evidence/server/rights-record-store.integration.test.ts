@@ -6,6 +6,7 @@ import { createDb } from "@sprite-anvil/db";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
 import { user } from "@sprite-anvil/db/schema/auth";
 import { project } from "@sprite-anvil/db/schema/project";
+import { referenceBoardImages } from "@sprite-anvil/db/schema/reference-production";
 import { rightsRecords } from "@sprite-anvil/db/schema/rights-records";
 import { eq } from "drizzle-orm";
 import { createRightsRecordStore } from "./rights-record-store";
@@ -23,9 +24,11 @@ test.skipIf(!databaseUrl)(
 		const userId = crypto.randomUUID();
 		const projectId = crypto.randomUUID();
 		const assetRecordId = crypto.randomUUID();
+		const referenceId = crypto.randomUUID();
 		let insertedUser = false;
 		let insertedProject = false;
 		let insertedAssetRecord = false;
+		let insertedReferenceImage = false;
 
 		try {
 			await db.insert(user).values({
@@ -50,6 +53,21 @@ test.skipIf(!databaseUrl)(
 				availability: "active",
 			});
 			insertedAssetRecord = true;
+			await db.insert(referenceBoardImages).values({
+				id: referenceId,
+				projectId,
+				assetRecordId,
+				objectKey: `projects/${projectId}/assets/${assetRecordId}/references/${referenceId}`,
+				fileName: "integration-reference.png",
+				contentType: "image/png",
+				contentLength: 1,
+				sha256: "b".repeat(64),
+				role: "pose",
+				transferredFeatures: ["pose"],
+				forbiddenFeatures: [],
+				createdByUserId: userId,
+			});
+			insertedReferenceImage = true;
 
 			const rightsRecordStore = createRightsRecordStore(db);
 			const context = {
@@ -87,11 +105,22 @@ test.skipIf(!databaseUrl)(
 				},
 				{ context }
 			);
+			const firstReferenceRevision = await call(
+				appRouter.rightsRecords.create,
+				{
+					...firstInput,
+					evidence: "Reference license URL",
+					id: crypto.randomUUID(),
+					referenceId,
+				},
+				{ context }
+			);
 			const fileBackedResult =
 				await rightsRecordStore.createRevisionWithEvidenceFile(userId, {
 					...firstInput,
-					evidence: null,
+					evidence: "Reference license URL and attached terms",
 					id: crypto.randomUUID(),
+					referenceId,
 					evidenceFile: {
 						contentLength: 12,
 						fileName: "license.pdf",
@@ -117,21 +146,37 @@ test.skipIf(!databaseUrl)(
 				{ assetRecordId, projectId },
 				{ context: rereadContext }
 			);
+			const referenceHistory = await call(
+				appRouter.rightsRecords.list,
+				{ assetRecordId, projectId, referenceId },
+				{ context: rereadContext }
+			);
 
 			expect(first.versionNumber).toBe(1);
 			expect(retriedFirst).toEqual(first);
 			expect(second.versionNumber).toBe(2);
-			expect(history).toEqual([fileBacked, second, first]);
+			expect(history).toEqual([second, first]);
+			expect(referenceHistory).toEqual([fileBacked, firstReferenceRevision]);
 			expect(fileBacked).toMatchObject({
-				evidence: null,
+				evidence: "Reference license URL and attached terms",
 				evidenceFile: {
 					contentLength: 12,
 					fileName: "license.pdf",
 					sourceContentType: "application/pdf",
 				},
-				versionNumber: 3,
+				referenceId,
+				versionNumber: 2,
 			});
 			expect(JSON.stringify(fileBacked)).not.toContain("objectKey");
+			expect(
+				await rereadRightsRecordStore.getEvidenceFile(
+					userId,
+					projectId,
+					assetRecordId,
+					referenceId,
+					fileBacked.id
+				)
+			).toMatchObject({ fileName: "license.pdf" });
 
 			await db
 				.update(assetRecords)
@@ -142,7 +187,7 @@ test.skipIf(!databaseUrl)(
 					userId,
 					projectId,
 					assetRecordId,
-					null,
+					referenceId,
 					fileBacked.id
 				)
 			).toMatchObject({ fileName: "license.pdf" });
@@ -151,6 +196,11 @@ test.skipIf(!databaseUrl)(
 				await db
 					.delete(rightsRecords)
 					.where(eq(rightsRecords.projectId, projectId));
+				if (insertedReferenceImage) {
+					await db
+						.delete(referenceBoardImages)
+						.where(eq(referenceBoardImages.projectId, projectId));
+				}
 				await db.delete(assetRecords).where(eq(assetRecords.id, assetRecordId));
 			}
 			if (insertedProject) {
