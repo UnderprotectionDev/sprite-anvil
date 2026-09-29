@@ -82,6 +82,9 @@ const providerGenerationSanitizationMigration = readMigration(
 const manualImportEvidenceMigration = readMigration(
 	"./migrations/20260928151800_manual-import-evidence/migration.sql"
 );
+const familyReadinessMigration = readMigration(
+	"./migrations/20260929083914_superb_tana_nile/migration.sql"
+);
 const sourceMetadataProjectScopeMigration =
 	readdirSync(new URL("./migrations/", import.meta.url))
 		.map((directory) => {
@@ -888,4 +891,48 @@ test("scopes source metadata proposals to an Import Inbox entry in the same proj
 		'FOREIGN KEY ("project_id","source_entry_id") REFERENCES "import_inbox_entries"("project_id","id") ON DELETE RESTRICT'
 	);
 	expect(sourceMetadataProjectScopeMigration).toContain("DROP CONSTRAINT");
+});
+
+test("stores immutable Required Set revisions and evidence pinned to exact family scope", () => {
+	const priorSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260928221209_source-metadata-mapping-finalization/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { id: string };
+	const familyReadinessSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260929083914_superb_tana_nile/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { prevIds: string[] };
+
+	expect(familyReadinessSnapshot.prevIds).toContain(priorSnapshot.id);
+	expect(familyReadinessMigration).toContain(
+		'CREATE TABLE "family_required_set_revisions"'
+	);
+	expect(familyReadinessMigration).toContain(
+		'CREATE TABLE "family_required_set_heads"'
+	);
+	expect(familyReadinessMigration).toContain(
+		'CREATE TABLE "family_required_set_activations"'
+	);
+	expect(familyReadinessMigration).toContain(
+		'CREATE TABLE "family_readiness_evidence"'
+	);
+	expect(familyReadinessMigration).toContain(
+		'FOREIGN KEY ("project_id","asset_family_id","revision_id") REFERENCES "family_required_set_revisions"("project_id","asset_family_id","id") ON DELETE RESTRICT'
+	);
+	expect(familyReadinessMigration).toContain(
+		'FOREIGN KEY ("project_id","context_revision_id") REFERENCES "context_revisions"("project_id","id") ON DELETE RESTRICT'
+	);
+	expect(familyReadinessMigration).toContain(
+		"\"kind\" = 'applicability' AND \"result\" IN ('applicable', 'inapplicable')"
+	);
 });

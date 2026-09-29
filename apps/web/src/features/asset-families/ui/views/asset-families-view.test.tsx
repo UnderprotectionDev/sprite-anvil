@@ -78,6 +78,25 @@ vi.mock("@/utils/orpc", () => ({
 				}),
 			},
 		},
+		familyReadiness: {
+			list: {
+				queryOptions: ({
+					input,
+				}: {
+					input: { projectId: string; assetFamilyId: string };
+				}) => ({
+					queryKey: ["family-readiness", input.assetFamilyId],
+					queryFn: async () => ({
+						projectId: input.projectId,
+						assetFamilyId: input.assetFamilyId,
+						status: "not_configured",
+						activeRevision: null,
+						revisions: [],
+						items: [],
+					}),
+				}),
+			},
+		},
 		contextScopes: {
 			list: {
 				queryOptions: () => ({

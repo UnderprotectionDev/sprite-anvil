@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import type { SyntheticEvent } from "react";
 import { AssetVersionControls } from "@/features/asset-versions/ui/components/asset-version-controls";
 import { useAssetVersionWrites } from "@/features/asset-versions/ui/hooks/use-asset-version-writes";
+import { FamilyReadinessManager } from "@/features/family-readiness/ui/components/family-readiness-manager";
 import { client, orpc } from "@/utils/orpc";
 import { AssetFamilyCatalogView } from "../components/asset-family-catalog";
 import {
@@ -224,6 +225,35 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 							catalog={catalog}
 							visualWorlds={visualWorlds}
 						/>
+					</section>
+					<section
+						aria-labelledby="family-readiness-heading"
+						className="space-y-4"
+					>
+						<div>
+							<h2
+								className="font-semibold text-2xl"
+								id="family-readiness-heading"
+							>
+								Aile Tamamlanması ve Kanıtlar
+							</h2>
+							<p className="mt-1 text-muted-foreground text-sm">
+								Her aile için sürümlü bir Gerekli Öğeler Listesi hazırlayın;
+								kanıtlar güncel Varlık Sürümlerine ve etkin Bağlam Sürümüne
+								sabitlenir.
+							</p>
+						</div>
+						{catalog.assetFamilies.map((family) => (
+							<FamilyReadinessManager
+								assetFamilyId={family.id}
+								assetRecords={catalog.assetRecords
+									.filter((record) => record.assetFamilyId === family.id)
+									.map(({ id, name }) => ({ id, name }))}
+								familyName={family.name}
+								key={family.id}
+								projectId={projectId}
+							/>
+						))}
 					</section>
 					{assetVersionQuery.data ? (
 						<AssetVersionControls

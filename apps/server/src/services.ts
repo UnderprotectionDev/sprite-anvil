@@ -12,6 +12,7 @@ import { createAssetRecordTrackingStore } from "./features/asset-records/server/
 import { createAssetVersionStore } from "./features/asset-versions/server/asset-version-store";
 import { createTestAssetVersionStorage } from "./features/asset-versions/server/test-asset-version-storage";
 import { createCollectionStore } from "./features/collections/server/collection-store";
+import { createFamilyReadinessStore } from "./features/family-readiness/server/family-readiness-store";
 import { createGenerationPackageStore } from "./features/generation-packages/server/generation-package-store";
 import { createImportInboxStore } from "./features/imports/server/import-inbox-store";
 import { createSourceMetadataMappingProposalStore } from "./features/imports/server/source-metadata-mapping-store";
@@ -24,6 +25,7 @@ import { createProjectContextScopeStore } from "./features/visual-worlds/server/
 
 export const db = createDb(ENV);
 export const assetFamilyStore = createAssetFamilyStore(db);
+export const familyReadinessStore = createFamilyReadinessStore(db);
 export const collectionStore = createCollectionStore(db);
 export const generationPackageStore = createGenerationPackageStore(db);
 export const importInboxStore = createImportInboxStore(db);

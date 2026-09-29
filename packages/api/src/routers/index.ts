@@ -31,6 +31,7 @@ import { assetRecordTrackingRouter } from "./asset-record-tracking";
 import { assetRecordsRouter } from "./asset-records";
 import { assetVersionsRouter } from "./asset-versions";
 import { collectionsRouter } from "./collections";
+import { familyReadinessRouter } from "./family-readiness";
 import { generationPackagesRouter } from "./generation-packages";
 import { projectsRouter } from "./projects";
 import { referenceProductionRouter } from "./reference-production";
@@ -97,6 +98,7 @@ export const appRouter = {
 	),
 	projects: projectsRouter,
 	assetFamilies: assetFamiliesRouter,
+	familyReadiness: familyReadinessRouter,
 	assetVersions: assetVersionsRouter,
 	assetRecords: assetRecordsRouter,
 	collections: collectionsRouter,
