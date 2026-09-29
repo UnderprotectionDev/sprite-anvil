@@ -25,6 +25,7 @@ test.skipIf(!databaseUrl)(
 		const projectId = crypto.randomUUID();
 		const assetRecordId = crypto.randomUUID();
 		const referenceId = crypto.randomUUID();
+		const otherReferenceId = crypto.randomUUID();
 		let insertedUser = false;
 		let insertedProject = false;
 		let insertedAssetRecord = false;
@@ -53,20 +54,36 @@ test.skipIf(!databaseUrl)(
 				availability: "active",
 			});
 			insertedAssetRecord = true;
-			await db.insert(referenceBoardImages).values({
-				id: referenceId,
-				projectId,
-				assetRecordId,
-				objectKey: `projects/${projectId}/assets/${assetRecordId}/references/${referenceId}`,
-				fileName: "integration-reference.png",
-				contentType: "image/png",
-				contentLength: 1,
-				sha256: "b".repeat(64),
-				role: "pose",
-				transferredFeatures: ["pose"],
-				forbiddenFeatures: [],
-				createdByUserId: userId,
-			});
+			await db.insert(referenceBoardImages).values([
+				{
+					id: referenceId,
+					projectId,
+					assetRecordId,
+					objectKey: `projects/${projectId}/assets/${assetRecordId}/references/${referenceId}`,
+					fileName: "integration-reference.png",
+					contentType: "image/png",
+					contentLength: 1,
+					sha256: "b".repeat(64),
+					role: "pose",
+					transferredFeatures: ["pose"],
+					forbiddenFeatures: [],
+					createdByUserId: userId,
+				},
+				{
+					id: otherReferenceId,
+					projectId,
+					assetRecordId,
+					objectKey: `projects/${projectId}/assets/${assetRecordId}/references/${otherReferenceId}`,
+					fileName: "other-integration-reference.png",
+					contentType: "image/png",
+					contentLength: 1,
+					sha256: "c".repeat(64),
+					role: "pose",
+					transferredFeatures: ["pose"],
+					forbiddenFeatures: [],
+					createdByUserId: userId,
+				},
+			]);
 			insertedReferenceImage = true;
 
 			const rightsRecordStore = createRightsRecordStore(db);
@@ -115,6 +132,16 @@ test.skipIf(!databaseUrl)(
 				},
 				{ context }
 			);
+			const otherReferenceRevision = await call(
+				appRouter.rightsRecords.create,
+				{
+					...firstInput,
+					evidence: "Other reference license URL",
+					id: crypto.randomUUID(),
+					referenceId: otherReferenceId,
+				},
+				{ context }
+			);
 			const fileBackedResult =
 				await rightsRecordStore.createRevisionWithEvidenceFile(userId, {
 					...firstInput,
@@ -133,6 +160,16 @@ test.skipIf(!databaseUrl)(
 				throw new Error("File-backed Rights Record revision was not created.");
 			}
 			const fileBacked = fileBackedResult.record;
+			const crossReferenceFileCarry = await rightsRecordStore.createRevision(
+				userId,
+				{
+					...firstInput,
+					evidence: null,
+					evidenceFileSourceRecordId: fileBacked.id,
+					id: crypto.randomUUID(),
+					referenceId: otherReferenceId,
+				}
+			);
 
 			const rereadRightsRecordStore = createRightsRecordStore(
 				createDb({ DATABASE_URL: databaseUrl })
@@ -151,12 +188,22 @@ test.skipIf(!databaseUrl)(
 				{ assetRecordId, projectId, referenceId },
 				{ context: rereadContext }
 			);
+			const otherReferenceHistory = await call(
+				appRouter.rightsRecords.list,
+				{ assetRecordId, projectId, referenceId: otherReferenceId },
+				{ context: rereadContext }
+			);
 
 			expect(first.versionNumber).toBe(1);
 			expect(retriedFirst).toEqual(first);
 			expect(second.versionNumber).toBe(2);
 			expect(history).toEqual([second, first]);
 			expect(referenceHistory).toEqual([fileBacked, firstReferenceRevision]);
+			expect(otherReferenceHistory).toEqual([otherReferenceRevision]);
+			expect(crossReferenceFileCarry).toEqual({
+				ok: false,
+				reason: "not_found",
+			});
 			expect(fileBacked).toMatchObject({
 				evidence: "Reference license URL and attached terms",
 				evidenceFile: {
