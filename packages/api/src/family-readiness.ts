@@ -420,14 +420,36 @@ export interface ReadinessEvaluationItem {
 	usageTestStatus?: "passed" | "failed" | "inconclusive" | "not_assessed";
 }
 
+function requiredAssetBlockers(
+	asset: ReadinessAssetStatus | null | undefined
+): ReadinessBlocker[] {
+	if (!asset) {
+		return ["asset_version", "applicability", "quality"];
+	}
+	const blockers: ReadinessBlocker[] = [];
+	if (asset.reviewDisposition !== "approved") {
+		blockers.push("approval");
+	}
+	if (!asset.integrityVerified) {
+		blockers.push("integrity");
+	}
+	if (asset.applicability !== "applicable") {
+		blockers.push("applicability");
+	}
+	if (asset.qualityReadiness !== "export_ready") {
+		blockers.push("quality");
+	}
+	return blockers;
+}
+
 function readinessItemBlockers(
 	item: ReadinessEvaluationItem
 ): ReadinessBlocker[] {
 	if (item.disposition !== "required") {
 		return [];
 	}
+	const blockers = requiredAssetBlockers(item.asset);
 	if (item.kind === "usage_test") {
-		const blockers: ReadinessBlocker[] = [];
 		if (item.usageTestStatus !== "passed") {
 			blockers.push("usage_test");
 		}
@@ -437,23 +459,17 @@ function readinessItemBlockers(
 		if (item.profileContractUsageTest === false) {
 			blockers.push("profile_contract_usage_test");
 		}
+		if (
+			item.profileContractActive &&
+			item.profileUsageTestsComplete === false &&
+			!blockers.includes("profile_contract_usage_test")
+		) {
+			blockers.push("profile_contract_usage_test");
+		}
 		return blockers;
 	}
 	if (!item.asset) {
-		return ["asset_version", "applicability", "quality"];
-	}
-	const blockers: ReadinessBlocker[] = [];
-	if (item.asset.reviewDisposition !== "approved") {
-		blockers.push("approval");
-	}
-	if (!item.asset.integrityVerified) {
-		blockers.push("integrity");
-	}
-	if (item.asset.applicability !== "applicable") {
-		blockers.push("applicability");
-	}
-	if (item.asset.qualityReadiness !== "export_ready") {
-		blockers.push("quality");
+		return blockers;
 	}
 	if (!item.profileContractActive) {
 		blockers.push("quality_contract");

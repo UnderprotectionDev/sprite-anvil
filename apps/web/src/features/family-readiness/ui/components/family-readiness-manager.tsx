@@ -484,9 +484,6 @@ function QualityEvaluationSummary({
 }: {
 	itemResult: FamilyReadiness["items"][number];
 }) {
-	if (itemResult.item.kind === "usage_test") {
-		return null;
-	}
 	return (
 		<section aria-label="Kalite değerlendirmesi" className="mt-3 space-y-2">
 			<p className="text-sm">
@@ -800,22 +797,6 @@ function ReadinessEvidenceForms({
 	projectId: string;
 	revisionId: string;
 }) {
-	if (item.kind === "usage_test") {
-		return (
-			<EvidenceForm
-				assetFamilyId={assetFamilyId}
-				description="Kullanım testi sonucu"
-				initialResult="passed"
-				isSaving={isSaving}
-				item={item}
-				kind="usage_test"
-				onRecord={onRecord}
-				projectId={projectId}
-				revisionId={revisionId}
-				testId={item.testId}
-			/>
-		);
-	}
 	const assetProfileOptions = item.assetRecordIds.flatMap((recordId) => {
 		const category = assetRecords.find(
 			(record) => record.id === recordId
@@ -840,6 +821,20 @@ function ReadinessEvidenceForms({
 				projectId={projectId}
 				revisionId={revisionId}
 			/>
+			{item.kind === "usage_test" ? (
+				<EvidenceForm
+					assetFamilyId={assetFamilyId}
+					description="Kullanım testi sonucu"
+					initialResult="passed"
+					isSaving={isSaving}
+					item={item}
+					kind="usage_test"
+					onRecord={onRecord}
+					projectId={projectId}
+					revisionId={revisionId}
+					testId={item.testId}
+				/>
+			) : null}
 			{hasSpecializedProfile && qualityRequirements.length === 0 ? (
 				<p className="rounded-md border border-dashed p-3 text-sm">
 					Kalite kanıtı kaydetmek için bu Varlık Kaydının kategorisine ait Özel

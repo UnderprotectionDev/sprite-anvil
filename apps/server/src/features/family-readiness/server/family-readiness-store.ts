@@ -280,7 +280,7 @@ function assessGeneralAssetSupportEvidence(evidence: CurrentEvidence[]) {
 
 function assessSpecializedProfile(
 	contract: ProfileContractSnapshot,
-	version: typeof assetVersions.$inferSelect,
+	versionIds: string[],
 	currentEvidence: CurrentEvidence[],
 	familyUsageEvidence: CurrentEvidence[]
 ): {
@@ -320,14 +320,25 @@ function assessSpecializedProfile(
 	>();
 	const usageRequirements: UsageRequirement[] =
 		contract.contract.usageTests.map((usageTest) => {
-			const evidenceEntry = latestUsageEvidence(
-				familyUsageEvidence,
-				usageTest.id,
-				version.id
+			const evidenceEntries = versionIds.map((versionId) =>
+				latestUsageEvidence(familyUsageEvidence, usageTest.id, versionId)
 			);
-			const result = evidenceEntry?.isCurrent
-				? usageEvidenceResult(evidenceEntry)
-				: "not_assessed";
+			const versionResults = evidenceEntries.map((evidenceEntry) =>
+				evidenceEntry?.isCurrent
+					? usageEvidenceResult(evidenceEntry)
+					: "not_assessed"
+			);
+			const result =
+				versionResults.length > 0 &&
+				versionResults.every((versionResult) => versionResult === "passed")
+					? "passed"
+					: (versionResults.find(
+							(versionResult) => versionResult === "failed"
+						) ??
+						versionResults.find(
+							(versionResult) => versionResult === "inconclusive"
+						) ??
+						"not_assessed");
 			if (result !== "not_assessed") {
 				usageTestResults.set(usageTest.id, result);
 			}
@@ -339,7 +350,9 @@ function assessSpecializedProfile(
 				name: usageTest.name,
 				required: usageTest.required,
 				result,
-				isCurrent: Boolean(evidenceEntry?.isCurrent),
+				isCurrent:
+					evidenceEntries.length > 0 &&
+					evidenceEntries.every((evidenceEntry) => evidenceEntry?.isCurrent),
 			};
 		});
 	return {
@@ -356,21 +369,195 @@ function assessSpecializedProfile(
 
 function getProfileContractUsageTestStatus(
 	item: RequiredSetItem,
-	profileIds: (SpecializedProfileId | null)[],
-	activeContracts: (ProfileContractSnapshot | null)[]
+	linkedAssets: LinkedReadinessAsset[]
 ) {
 	if (item.kind !== "usage_test") {
 		return;
 	}
-	return activeContracts.every((contract, index) => {
-		const profileId = profileIds[index];
+	return linkedAssets.every(({ profileId, profileContract }) => {
 		if (!profileId) {
 			return true;
 		}
 		return Boolean(
-			contract?.contract.usageTests.some((test) => test.id === item.testId)
+			profileContract?.contract.usageTests.some(
+				(test) => test.id === item.testId
+			)
 		);
 	});
+}
+
+interface LinkedReadinessAsset {
+	profileContract: ProfileContractSnapshot | null;
+	profileId: SpecializedProfileId | null;
+	version: typeof assetVersions.$inferSelect | null;
+}
+
+function groupProfileAssets(linkedAssets: LinkedReadinessAsset[]) {
+	const profileGroups = new Map<
+		SpecializedProfileId,
+		{ contract: ProfileContractSnapshot; versionIds: string[] }
+	>();
+	for (const linkedAsset of linkedAssets) {
+		if (!(linkedAsset.profileId && linkedAsset.profileContract)) {
+			continue;
+		}
+		const group = profileGroups.get(linkedAsset.profileId);
+		if (group) {
+			if (linkedAsset.version) {
+				group.versionIds.push(linkedAsset.version.id);
+			}
+			continue;
+		}
+		profileGroups.set(linkedAsset.profileId, {
+			contract: linkedAsset.profileContract,
+			versionIds: linkedAsset.version ? [linkedAsset.version.id] : [],
+		});
+	}
+	return profileGroups;
+}
+
+function combineQualityReadiness(
+	linkedAssets: LinkedReadinessAsset[],
+	profileContractActive: boolean,
+	profileAssessments: ReturnType<typeof assessSpecializedProfile>[]
+): ReadinessAssetStatus["qualityReadiness"] {
+	const profileIds = new Set(
+		linkedAssets.flatMap((linkedAsset) =>
+			linkedAsset.profileId ? [linkedAsset.profileId] : []
+		)
+	);
+	if (
+		linkedAssets.length === 0 ||
+		linkedAssets.some((linkedAsset) => !linkedAsset.profileId) ||
+		!profileContractActive ||
+		profileAssessments.length !== profileIds.size
+	) {
+		return "not_assessed";
+	}
+	const statuses = profileAssessments.map(
+		(profileAssessment) => profileAssessment.qualityReadiness
+	);
+	if (statuses.some((status) => status === "blocked")) {
+		return "blocked";
+	}
+	if (statuses.some((status) => status === "exceptions_ready")) {
+		return "exceptions_ready";
+	}
+	return statuses.every((status) => status === "export_ready")
+		? "export_ready"
+		: "not_assessed";
+}
+
+function combineReviewDisposition(
+	versions: (typeof assetVersions.$inferSelect)[],
+	latestReviews: Map<string, typeof assetVersionReviewEvents.$inferSelect>
+): ReadinessAssetStatus["reviewDisposition"] {
+	const decisions = versions.map(
+		(version) => latestReviews.get(version.id)?.decision ?? "candidate"
+	);
+	if (decisions.includes("rejected")) {
+		return "rejected";
+	}
+	return decisions.every((decision) => decision === "approved")
+		? "approved"
+		: "candidate";
+}
+
+function assessLinkedReadinessAssets(input: {
+	currentEvidence: CurrentEvidence[];
+	familyUsageEvidence: CurrentEvidence[];
+	latestReviews: Map<string, typeof assetVersionReviewEvents.$inferSelect>;
+	linkedAssets: LinkedReadinessAsset[];
+	applicabilityIsCurrent: boolean;
+}): {
+	assetStatus: ReadinessAssetStatus | null;
+	profileContractActive: boolean;
+	profileUsageTestsComplete: boolean | undefined;
+	qualityReadiness: ReadinessAssetStatus["qualityReadiness"];
+	qualityRequirements: QualityRequirement[];
+	usageRequirements: UsageRequirement[];
+} {
+	const { currentEvidence, familyUsageEvidence, latestReviews, linkedAssets } =
+		input;
+	const profileGroups = groupProfileAssets(linkedAssets);
+	const profileAssessments = [...profileGroups.values()].map((profileGroup) =>
+		assessSpecializedProfile(
+			profileGroup.contract,
+			profileGroup.versionIds,
+			currentEvidence,
+			familyUsageEvidence
+		)
+	);
+	const profileContractActive = linkedAssets.every(
+		({ profileId, profileContract }) => !profileId || Boolean(profileContract)
+	);
+	const hasSpecializedAsset = linkedAssets.some(({ profileId }) => profileId);
+	const hasOnlyGeneralAssets = linkedAssets.length > 0 && !hasSpecializedAsset;
+	const generalAssessment = hasOnlyGeneralAssets
+		? assessGeneralAssetSupportEvidence(currentEvidence)
+		: null;
+	const qualityRequirements = hasOnlyGeneralAssets
+		? (generalAssessment?.qualityRequirements ?? [])
+		: [
+				...new Map(
+					profileAssessments
+						.flatMap(
+							(profileAssessment) => profileAssessment.qualityRequirements
+						)
+						.map((requirement) => [requirement.id, requirement])
+				).values(),
+			];
+	const usageRequirements = [
+		...new Map(
+			profileAssessments
+				.flatMap((profileAssessment) => profileAssessment.usageRequirements)
+				.map((requirement) => [requirement.id, requirement])
+		).values(),
+	];
+	const qualityReadiness =
+		generalAssessment?.qualityReadiness ??
+		combineQualityReadiness(
+			linkedAssets,
+			profileContractActive,
+			profileAssessments
+		);
+	const uniqueProfileCount = new Set(
+		linkedAssets.flatMap((linkedAsset) =>
+			linkedAsset.profileId ? [linkedAsset.profileId] : []
+		)
+	).size;
+	const profileUsageTestsComplete = hasSpecializedAsset
+		? profileContractActive &&
+			linkedAssets.every((linkedAsset) => Boolean(linkedAsset.version)) &&
+			profileAssessments.length === uniqueProfileCount &&
+			profileAssessments.every(
+				(profileAssessment) => profileAssessment.profileUsageTestsComplete
+			)
+		: undefined;
+	const versions = linkedAssets.flatMap((linkedAsset) =>
+		linkedAsset.version ? [linkedAsset.version] : []
+	);
+	const allVersionsPresent =
+		linkedAssets.length > 0 && versions.length === linkedAssets.length;
+	return {
+		assetStatus: allVersionsPresent
+			? {
+					applicability: input.applicabilityIsCurrent
+						? "applicable"
+						: "not_assessed",
+					integrityVerified: versions.every(
+						(version) => version.integrityVerified && version.contentDigest
+					),
+					qualityReadiness,
+					reviewDisposition: combineReviewDisposition(versions, latestReviews),
+				}
+			: null,
+		profileContractActive,
+		profileUsageTestsComplete,
+		qualityReadiness,
+		qualityRequirements,
+		usageRequirements,
+	};
 }
 
 function evaluateRequiredSetItem(
@@ -384,10 +571,6 @@ function evaluateRequiredSetItem(
 	assetRecordsById: Map<string, typeof assetRecords.$inferSelect>,
 	contracts: ProjectProfileContracts
 ): EvaluatedItem {
-	const itemVersions = item.assetRecordIds.flatMap((recordId) => {
-		const version = currentVersions.get(recordId);
-		return version ? [version] : [];
-	});
 	const currentEvidence = evidence.filter((entry) => entry.isCurrent);
 	const applicabilityEvidence = currentEvidence.find(
 		(entry) => entry.row.kind === "applicability"
@@ -395,73 +578,32 @@ function evaluateRequiredSetItem(
 	const applicabilityIsCurrent = Boolean(
 		applicabilityEvidence?.row.result === "applicable"
 	);
-	const [version] = itemVersions;
-	const profileIds = item.assetRecordIds.map((assetRecordId) => {
+	const linkedAssets = item.assetRecordIds.map((assetRecordId) => {
 		const category = assetRecordsById.get(assetRecordId)?.assetCategory;
 		const parsedProfileId = specializedProfileIdSchema.safeParse(category);
-		return parsedProfileId.success ? parsedProfileId.data : null;
+		const profileId = parsedProfileId.success ? parsedProfileId.data : null;
+		return {
+			profileId,
+			profileContract: profileId
+				? (contracts.activeByProfile.get(profileId) ?? null)
+				: null,
+			version: currentVersions.get(assetRecordId) ?? null,
+		};
 	});
-	const [profileId] = profileIds;
-	const profileContract = profileId
-		? contracts.activeByProfile.get(profileId)
-		: null;
-	const activeContracts = profileIds.map((linkedProfileId) =>
-		linkedProfileId
-			? (contracts.activeByProfile.get(linkedProfileId) ?? null)
-			: null
-	);
-	const profileContractActive = activeContracts.every(
-		(contract, index) => !profileIds[index] || Boolean(contract)
-	);
 	const familyUsageEvidence = collectFamilyUsageEvidence(
 		allEvidenceByItem,
 		activeItems
 	);
-	const qualityRequirements: FamilyReadiness["items"][number]["qualityRequirements"] =
-		[];
-	const usageRequirements: FamilyReadiness["items"][number]["usageRequirements"] =
-		[];
-	let qualityReadiness: ReadinessAssetStatus["qualityReadiness"] =
-		"not_assessed";
-	let profileUsageTestsComplete = true;
-	if (item.kind !== "usage_test" && version) {
-		if (!profileId) {
-			const {
-				qualityReadiness: generalQualityReadiness,
-				qualityRequirements: generalQualityRequirements,
-			} = assessGeneralAssetSupportEvidence(currentEvidence);
-			qualityReadiness = generalQualityReadiness;
-			qualityRequirements.push(...generalQualityRequirements);
-		} else if (profileContract) {
-			const {
-				profileUsageTestsComplete: allProfileUsageTestsComplete,
-				qualityReadiness: specializedQualityReadiness,
-				qualityRequirements: specializedQualityRequirements,
-				usageRequirements: specializedUsageRequirements,
-			} = assessSpecializedProfile(
-				profileContract,
-				version,
-				currentEvidence,
-				familyUsageEvidence
-			);
-			qualityReadiness = specializedQualityReadiness;
-			qualityRequirements.push(...specializedQualityRequirements);
-			usageRequirements.push(...specializedUsageRequirements);
-			profileUsageTestsComplete = allProfileUsageTestsComplete;
-		}
-	}
-	const assetStatus: ReadinessAssetStatus | null =
-		item.kind !== "usage_test" && version
-			? {
-					applicability: applicabilityIsCurrent ? "applicable" : "not_assessed",
-					integrityVerified: Boolean(
-						version.integrityVerified && version.contentDigest
-					),
-					qualityReadiness,
-					reviewDisposition:
-						latestReviews.get(version.id)?.decision ?? "candidate",
-				}
-			: null;
+	const itemVersions = linkedAssets.flatMap((linkedAsset) =>
+		linkedAsset.version ? [linkedAsset.version] : []
+	);
+	const linkedAssetAssessment = assessLinkedReadinessAssets({
+		currentEvidence,
+		familyUsageEvidence,
+		latestReviews,
+		linkedAssets,
+		applicabilityIsCurrent,
+	});
 	const usageEvidence = currentEvidence.find(
 		(entry) =>
 			entry.row.kind === "usage_test" && entry.row.testId === item.testId
@@ -471,31 +613,27 @@ function evaluateRequiredSetItem(
 		id: item.id,
 		kind: item.kind,
 		disposition: item.disposition,
-		asset: assetStatus,
-		profileContractActive,
+		asset: linkedAssetAssessment.assetStatus,
+		profileContractActive: linkedAssetAssessment.profileContractActive,
 		profileContractUsageTest: getProfileContractUsageTestStatus(
 			item,
-			profileIds,
-			activeContracts
+			linkedAssets
 		),
-		profileUsageTestsComplete:
-			item.kind !== "usage_test" && profileId && profileContract
-				? profileUsageTestsComplete
-				: undefined,
+		profileUsageTestsComplete: linkedAssetAssessment.profileUsageTestsComplete,
 		usageTestStatus,
 	};
-	const [assessment] = evaluateFamilyReadiness({
+	const [readinessResult] = evaluateFamilyReadiness({
 		activeRequiredSetRevisionId: activeRevisionId,
 		items: [evaluation],
 	}).items;
 	return {
 		item,
-		status: assessment?.status ?? "incomplete",
-		blockers: assessment?.blockers ?? [],
+		status: readinessResult?.status ?? "incomplete",
+		blockers: readinessResult?.blockers ?? [],
 		currentAssetVersionIds: itemVersions.map((current) => current.id),
-		qualityReadiness,
-		qualityRequirements,
-		usageRequirements,
+		qualityReadiness: linkedAssetAssessment.qualityReadiness,
+		qualityRequirements: linkedAssetAssessment.qualityRequirements,
+		usageRequirements: linkedAssetAssessment.usageRequirements,
 		latestEvidence: evidence.map((entry) =>
 			toEvidence(entry.row, entry.isCurrent)
 		),
@@ -769,19 +907,17 @@ function resolveQualityRuleClass(
 	if (input.kind !== "quality") {
 		return { isValid: true, ruleClass: null };
 	}
-	if (item.assetRecordIds.length !== 1) {
+	if (item.assetRecordIds.length === 0) {
 		return { isValid: false, ruleClass: null };
 	}
-	const [profileId] = profileIds;
-	const [contract] = activeContracts;
-	if (!profileId) {
+	if (profileIds.every((profileId) => profileId === null)) {
 		const isValid =
 			input.ruleId === "general.asset_support" && input.result !== "waived";
 		return { isValid, ruleClass: null };
 	}
-	const rule = contract?.contract.rules.find(
-		(candidate) => candidate.id === input.ruleId
-	);
+	const rule = activeContracts
+		.flatMap((contract) => contract?.contract.rules ?? [])
+		.find((candidate) => candidate.id === input.ruleId);
 	const isValid = Boolean(
 		rule &&
 			isProfileQualityEvidenceValid({
@@ -855,10 +991,7 @@ async function readEvidenceItem(
 	if (!item || item.assetRecordIds.length === 0) {
 		return null;
 	}
-	if (
-		(input.kind === "usage_test" && item.kind !== "usage_test") ||
-		(input.kind !== "usage_test" && item.kind === "usage_test")
-	) {
+	if (input.kind === "usage_test" && item.kind !== "usage_test") {
 		return null;
 	}
 	if (

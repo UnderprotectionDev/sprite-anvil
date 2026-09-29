@@ -28,6 +28,7 @@ test("a family is complete only when active required items have current evidence
 				kind: "usage_test",
 				disposition: "required",
 				profileContractActive: true,
+				asset: readyAsset,
 				usageTestStatus: "passed",
 			},
 		],
@@ -162,6 +163,106 @@ test("a required usage test blocks Specialized Profile readiness until it passes
 	expect(result.items[0]?.blockers).toEqual(
 		expect.arrayContaining(["quality", "profile_contract_usage_test"])
 	);
+});
+
+test("a passing required usage test still needs its asset to be current and export-ready", () => {
+	const result = evaluateFamilyReadiness({
+		activeRequiredSetRevisionId: "required-set-7",
+		items: [
+			{
+				id: "scene-transition",
+				kind: "usage_test",
+				disposition: "required",
+				profileContractActive: true,
+				profileContractUsageTest: true,
+				profileUsageTestsComplete: true,
+				usageTestStatus: "passed",
+				asset: {
+					applicability: "not_assessed",
+					integrityVerified: false,
+					qualityReadiness: "blocked",
+					reviewDisposition: "candidate",
+				},
+			},
+		],
+	});
+
+	expect(result.status).toBe("incomplete");
+	expect(result.items[0]?.blockers).toEqual(
+		expect.arrayContaining([
+			"approval",
+			"integrity",
+			"applicability",
+			"quality",
+		])
+	);
+});
+
+test("a passing required usage test cannot stand in for its missing asset version", () => {
+	const result = evaluateFamilyReadiness({
+		activeRequiredSetRevisionId: "required-set-8",
+		items: [
+			{
+				id: "scene-transition",
+				kind: "usage_test",
+				disposition: "required",
+				profileContractActive: true,
+				profileContractUsageTest: true,
+				profileUsageTestsComplete: true,
+				usageTestStatus: "passed",
+				asset: null,
+			},
+		],
+	});
+
+	expect(result.status).toBe("incomplete");
+	expect(result.items[0]?.blockers).toEqual(
+		expect.arrayContaining(["asset_version", "applicability", "quality"])
+	);
+});
+
+test("a passing general usage test cannot create export-ready quality", () => {
+	const result = evaluateFamilyReadiness({
+		activeRequiredSetRevisionId: "required-set-9",
+		items: [
+			{
+				id: "general-usage",
+				kind: "usage_test",
+				disposition: "required",
+				profileContractActive: true,
+				profileContractUsageTest: true,
+				usageTestStatus: "passed",
+				asset: {
+					...readyAsset,
+					qualityReadiness: "not_assessed",
+				},
+			},
+		],
+	});
+
+	expect(result.status).toBe("incomplete");
+	expect(result.items[0]?.blockers).toContain("quality");
+});
+
+test("required profile usage tests still block a passing Required Set usage test", () => {
+	const result = evaluateFamilyReadiness({
+		activeRequiredSetRevisionId: "required-set-10",
+		items: [
+			{
+				id: "scene-transition",
+				kind: "usage_test",
+				disposition: "required",
+				profileContractActive: true,
+				profileContractUsageTest: true,
+				profileUsageTestsComplete: false,
+				usageTestStatus: "passed",
+				asset: readyAsset,
+			},
+		],
+	});
+
+	expect(result.status).toBe("incomplete");
+	expect(result.items[0]?.blockers).toContain("profile_contract_usage_test");
 });
 
 test("an eligible waiver preserves exception status without completing a family", () => {

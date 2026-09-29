@@ -316,3 +316,63 @@ test("uses unique DOM ids when different families share Required Set item ids", 
 	);
 	expect(new Set(ids).size).toBe(ids.length);
 });
+
+test("offers applicability and quality evidence on a required usage test item", async () => {
+	const [sourceItemResult] = readiness.items;
+	if (!sourceItemResult) {
+		return;
+	}
+	const usageTestItem: FamilyReadiness["items"][number]["item"] = {
+		id: "scene-transition",
+		kind: "usage_test",
+		name: "Scene transition",
+		disposition: "required",
+		assetRecordIds: ["asset-record-1"],
+		testId: "scene_transition",
+	};
+	fakeApi.readiness = {
+		...readiness,
+		activeRevision: readiness.activeRevision
+			? { ...readiness.activeRevision, items: [usageTestItem] }
+			: null,
+		items: [
+			{
+				...sourceItemResult,
+				item: usageTestItem,
+			},
+		],
+	} satisfies FamilyReadiness;
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	render(
+		<QueryClientProvider client={queryClient}>
+			<FamilyReadinessManager
+				assetFamilyId="family-1"
+				assetRecords={[
+					{
+						assetCategory: null,
+						id: "asset-record-1",
+						name: "East-facing sprite",
+					},
+				]}
+				familyName="Combat sprite"
+				profileContracts={null}
+				projectId="project-1"
+			/>
+		</QueryClientProvider>
+	);
+
+	expect(
+		await screen.findByRole("heading", {
+			name: "Bağlama Uygunluk değerlendirmesi",
+		})
+	).toBeInTheDocument();
+	expect(
+		screen.getByRole("heading", {
+			name: "General Asset Support · Genel Varlık Desteği",
+		})
+	).toBeInTheDocument();
+	expect(
+		screen.getByRole("heading", { name: "Kullanım testi sonucu" })
+	).toBeInTheDocument();
+});
