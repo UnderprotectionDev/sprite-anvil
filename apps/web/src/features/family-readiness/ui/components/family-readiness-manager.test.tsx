@@ -10,8 +10,8 @@ import {
 } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import type { FamilyReadiness } from "@sprite-anvil/api/family-readiness";
-import type { ProfileContractsCatalog } from "@sprite-anvil/api/specialized-profile-contracts";
-import { specializedProfileContractTemplates } from "@sprite-anvil/api/specialized-profile-contracts";
+import type { SpecializedProfileContractsListOutput } from "@sprite-anvil/api/specialized-profile-contracts";
+import { specializedProfileContractCatalog } from "@sprite-anvil/api/specialized-profile-contracts";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, expect, test, vi } from "vitest";
 import { createQueryClient } from "@/utils/query-client";
@@ -226,39 +226,28 @@ test("clears a usage test id when changing the Required Set item kind", async ()
 });
 
 test("records a measured value for a Specialized Profile Contract measurement", async () => {
-	const template = specializedProfileContractTemplates.find(
+	const template = specializedProfileContractCatalog.find(
 		(contract) => contract.profileId === "icon"
 	);
 	const [itemResult] = readiness.items;
 	if (!(template && itemResult)) {
 		return;
 	}
-	const activeRevision = {
-		id: "profile-contract-revision-1",
-		projectId: "project-1",
-		profileId: template.profileId,
-		revisionNumber: 1,
-		contract: template,
-		createdAt: "2026-09-29T10:00:00.000Z",
-		createdByUserId: "user-1",
-		isActive: true,
-		wasActivated: true,
-	};
 	const profileContracts = {
-		projectId: "project-1",
-		profiles: specializedProfileContractTemplates.map((profileTemplate) => ({
-			profileId: profileTemplate.profileId,
-			template: profileTemplate,
-			activeRevision:
-				profileTemplate.profileId === template.profileId
-					? activeRevision
+		profiles: specializedProfileContractCatalog.map((definition) => ({
+			definition,
+			activeContract:
+				definition.profileId === template.profileId
+					? {
+							activatedAt: "2026-09-29T10:00:00.000Z",
+							activatedByUserId: "user-1",
+							contract: definition,
+							contractRevisionId: `${definition.profileId}@${definition.version}`,
+							projectId: "project-1",
+						}
 					: null,
-			revisions:
-				profileTemplate.profileId === template.profileId
-					? [activeRevision]
-					: [],
 		})),
-	} satisfies ProfileContractsCatalog;
+	} satisfies SpecializedProfileContractsListOutput;
 	fakeApi.readiness = {
 		...readiness,
 		items: [
@@ -266,10 +255,10 @@ test("records a measured value for a Specialized Profile Contract measurement", 
 				...itemResult,
 				qualityRequirements: template.rules.map((rule) => ({
 					id: rule.id,
-					name: rule.name,
+					name: rule.input,
 					class: rule.class,
-					required: rule.required,
-					waiverEligible: rule.waiverEligible,
+					required: rule.class !== "quality_advisory",
+					waiverEligible: rule.waiverEligibility,
 					result: "not_assessed" as const,
 					isCurrent: false,
 				})),
@@ -306,7 +295,7 @@ test("records a measured value for a Specialized Profile Contract measurement", 
 	const qualityForm = within(
 		(
 			await screen.findByRole("heading", {
-				name: `${measuredRule.name} · İstisna Verilebilir Gereksinim`,
+				name: `${measuredRule.input} · İstisna Verilebilir Gereksinim`,
 			})
 		).closest("form") as HTMLFormElement
 	);

@@ -7,17 +7,21 @@ CREATE TABLE "family_readiness_evidence" (
 	"kind" text NOT NULL,
 	"result" text NOT NULL,
 	"asset_version_ids" jsonb NOT NULL,
+	"profile_contract_revision_ids" jsonb DEFAULT '[]' NOT NULL,
 	"context_revision_id" text,
 	"visual_world_id" text NOT NULL,
 	"use_context" text NOT NULL,
 	"canonical_design_version_id" text,
 	"rule_id" text,
+	"rule_class" text,
+	"test_id" text,
+	"observed_value" text,
 	"method" text,
 	"rationale" text NOT NULL,
 	"created_by_user_id" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
-	CONSTRAINT "family_readiness_evidence_kind_result_check" CHECK (("kind" = 'applicability' AND "result" IN ('applicable', 'inapplicable')) OR ("kind" IN ('quality', 'usage_test') AND "result" IN ('passed', 'failed', 'inconclusive'))),
-	CONSTRAINT "family_readiness_evidence_payload_check" CHECK (("kind" = 'quality' AND "rule_id" IS NOT NULL AND "method" IS NOT NULL) OR ("kind" <> 'quality' AND "rule_id" IS NULL))
+	CONSTRAINT "family_readiness_evidence_kind_result_check" CHECK (("kind" = 'applicability' AND "result" IN ('applicable', 'inapplicable')) OR ("kind" = 'quality' AND "result" IN ('passed', 'failed', 'inconclusive', 'waived')) OR ("kind" = 'usage_test' AND "result" IN ('passed', 'failed', 'inconclusive'))),
+	CONSTRAINT "family_readiness_evidence_payload_check" CHECK (("kind" = 'quality' AND "rule_id" IS NOT NULL AND "test_id" IS NULL AND "method" IS NOT NULL AND ("result" <> 'waived' OR "observed_value" IS NOT NULL)) OR ("kind" = 'usage_test' AND "rule_id" IS NULL AND "rule_class" IS NULL AND "test_id" IS NOT NULL AND "observed_value" IS NULL AND "method" IS NOT NULL) OR ("kind" = 'applicability' AND "rule_id" IS NULL AND "rule_class" IS NULL AND "test_id" IS NULL AND "observed_value" IS NULL AND "method" IS NULL))
 );
 --> statement-breakpoint
 CREATE TABLE "family_required_set_activations" (

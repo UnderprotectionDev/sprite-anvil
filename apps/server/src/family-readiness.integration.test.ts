@@ -19,11 +19,7 @@ import {
 } from "@sprite-anvil/db/schema/family-readiness";
 import { project } from "@sprite-anvil/db/schema/project";
 import { contextRevisions } from "@sprite-anvil/db/schema/project-context";
-import {
-	specializedProfileContractActivations,
-	specializedProfileContractHeads,
-	specializedProfileContractRevisions,
-} from "@sprite-anvil/db/schema/specialized-profile-contracts";
+import { projectSpecializedProfileContracts } from "@sprite-anvil/db/schema/specialized-profile-contracts";
 import { and, eq } from "drizzle-orm";
 import { createAssetFamilyStore } from "./features/asset-families/server/asset-family-store";
 import { createAssetRecordStore } from "./features/asset-records/server/asset-record-store";
@@ -95,22 +91,22 @@ test.skipIf(!databaseUrl)(
 			);
 			expect(
 				initialContracts.profiles.find(
-					(profile) => profile.profileId === "icon"
-				)?.activeRevision
+					(profile) => profile.definition.profileId === "icon"
+				)?.activeContract
 			).toBeNull();
-			const activatedContracts = await call(
+			await call(
 				appRouter.specializedProfileContracts.activate,
-				{ projectId, profileId: "icon", templateRevisionNumber: 1 },
+				{ projectId, profileId: "icon" },
 				{ context }
 			);
-			expect(
-				activatedContracts.profiles.find(
-					(profile) => profile.profileId === "icon"
-				)?.activeRevision?.revisionNumber
-			).toBe(1);
+			const activatedContracts = await call(
+				appRouter.specializedProfileContracts.list,
+				{ projectId },
+				{ context }
+			);
 			const activeIconContractRevision = activatedContracts.profiles.find(
-				(profile) => profile.profileId === "icon"
-			)?.activeRevision;
+				(profile) => profile.definition.profileId === "icon"
+			)?.activeContract;
 			if (!activeIconContractRevision) {
 				throw new Error("The active icon contract revision is required.");
 			}
@@ -125,12 +121,12 @@ test.skipIf(!databaseUrl)(
 			);
 			expect(
 				persistedContracts.profiles.find(
-					(profile) => profile.profileId === "icon"
-				)?.activeRevision?.id
+					(profile) => profile.definition.profileId === "icon"
+				)?.activeContract?.contractRevisionId
 			).toBe(
 				activatedContracts.profiles.find(
-					(profile) => profile.profileId === "icon"
-				)?.activeRevision?.id
+					(profile) => profile.definition.profileId === "icon"
+				)?.activeContract?.contractRevisionId
 			);
 			const visualWorld = await call(
 				appRouter.contextScopes.createVisualWorld,
@@ -288,7 +284,9 @@ test.skipIf(!databaseUrl)(
 				result: "failed",
 				testId: "target_size_backgrounds",
 				assetVersionIds: [assetVersionId],
-				profileContractRevisionIds: [activeIconContractRevision.id],
+				profileContractRevisionIds: [
+					activeIconContractRevision.contractRevisionId,
+				],
 				contextRevisionId: createdProject.currentContextRevision.id,
 				isCurrent: true,
 			});
@@ -346,16 +344,8 @@ test.skipIf(!databaseUrl)(
 						);
 				}
 				await db
-					.delete(specializedProfileContractActivations)
-					.where(
-						eq(specializedProfileContractActivations.projectId, projectId)
-					);
-				await db
-					.delete(specializedProfileContractHeads)
-					.where(eq(specializedProfileContractHeads.projectId, projectId));
-				await db
-					.delete(specializedProfileContractRevisions)
-					.where(eq(specializedProfileContractRevisions.projectId, projectId));
+					.delete(projectSpecializedProfileContracts)
+					.where(eq(projectSpecializedProfileContracts.projectId, projectId));
 				await db
 					.delete(subjectIdentities)
 					.where(eq(subjectIdentities.projectId, projectId));

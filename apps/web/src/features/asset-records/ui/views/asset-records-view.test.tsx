@@ -3,6 +3,7 @@
 import type { AssetRecord } from "@sprite-anvil/api/asset-records";
 import type { GenerationPackage } from "@sprite-anvil/api/generation-packages";
 import { createVersionProductionEvidence } from "@sprite-anvil/api/production-provenance";
+import type { RightsRecord } from "@sprite-anvil/api/rights-records";
 import {
 	cleanup,
 	fireEvent,
@@ -92,6 +93,8 @@ const fakeApi = vi.hoisted(() => ({
 	createReference: vi.fn(),
 	createGenerationPackage: vi.fn(),
 	generationPackages: [] as GenerationPackage[],
+	rightsRecordCreate: vi.fn(),
+	rightsRecords: [] as RightsRecord[],
 	detail: null as Record<string, unknown> | null,
 	measurements: null as Record<string, unknown> | null,
 	recordsError: null as Error | null,
@@ -134,6 +137,9 @@ vi.mock("@/utils/orpc", () => ({
 		generationPackages: {
 			create: (input: unknown) => fakeApi.createGenerationPackage(input),
 		},
+		rightsRecords: {
+			create: (input: unknown) => fakeApi.rightsRecordCreate(input),
+		},
 	},
 	orpc: {
 		assetVersions: {
@@ -155,6 +161,23 @@ vi.mock("@/utils/orpc", () => ({
 					queryKey: ["generation-packages", input],
 					queryFn: async () => fakeApi.generationPackages,
 				}),
+			},
+		},
+		rightsRecords: {
+			list: {
+				queryOptions: ({ input }: { input: Record<string, unknown> }) => ({
+					queryKey: ["rights-records", input],
+					queryFn: async () =>
+						fakeApi.rightsRecords.filter(
+							(record) =>
+								record.assetRecordId === input.assetRecordId &&
+								record.projectId === input.projectId
+						),
+				}),
+				queryKey: ({ input }: { input: Record<string, unknown> }) => [
+					"rights-records",
+					input,
+				],
 			},
 		},
 		assetRecords: {
@@ -266,7 +289,9 @@ afterEach(() => {
 	fakeApi.createVersion.mockReset();
 	fakeApi.createReference.mockReset();
 	fakeApi.createGenerationPackage.mockReset();
+	fakeApi.rightsRecordCreate.mockReset();
 	fakeApi.generationPackages = [];
+	fakeApi.rightsRecords = [];
 	fakeApi.restore.mockReset();
 	fakeApi.updateMeasurements.mockReset();
 	fakeApi.updateMetadata.mockReset();
@@ -444,6 +469,64 @@ test("shows the Generation Package workflow on an active Asset Record", async ()
 			screen.getByRole("button", { name: "Üretim Paketini sabitle" })
 		).toBeEnabled()
 	);
+});
+
+test("shows Rights Record versioning on an active Asset Record", async () => {
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+
+	expect(
+		await screen.findByRole("heading", { name: "Hak Kaydı" })
+	).toBeVisible();
+	expect(
+		await screen.findByText("Bu Varlık Kaydı için henüz Hak Kaydı yok.")
+	).toBeVisible();
+});
+
+test("starts a clean Rights Record draft when the detail view switches records", async () => {
+	const secondAssetRecordId = "8b4b2f70-4cc4-42bc-a13f-45ec5751c2d4";
+	fakeApi.rightsRecords = [
+		{
+			assetRecordId: assetRecord.id,
+			assertedScope: "Paid game releases",
+			createdAt: "2026-09-29T10:00:00.000Z",
+			evidence: "License reference",
+			evidenceFile: null,
+			id: "1a88feeb-c978-4f3f-a321-f5a120651ec7",
+			projectId,
+			restrictions: null,
+			rightsHolderOrProvider: "Example Studio",
+			source: "https://example.test/source",
+			state: "documented",
+			uncertainty: null,
+			versionNumber: 1,
+		},
+	];
+	const { queryClient } = renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+	await waitFor(() =>
+		expect(screen.getByLabelText("Kaynak")).toHaveValue(
+			"https://example.test/source"
+		)
+	);
+
+	const secondAssetRecord = {
+		...assetRecord,
+		id: secondAssetRecordId,
+		name: "Skeleton Warrior",
+	};
+	fakeApi.record = secondAssetRecord;
+	queryClient.setQueryData(["asset-record", assetRecord.id], secondAssetRecord);
+
+	await waitFor(() => expect(screen.getByLabelText("Kaynak")).toHaveValue(""));
 });
 
 test("shows saved Generation Packages on archived Asset Records without enabling creation", async () => {

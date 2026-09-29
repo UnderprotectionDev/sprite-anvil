@@ -1,17 +1,20 @@
-import type { SpecializedProfileId } from "@sprite-anvil/api/specialized-profile-contracts";
+import { isDeepStrictEqual } from "node:util";
+import type {
+	SpecializedProfileContract,
+	SpecializedProfileId,
+} from "@sprite-anvil/api/specialized-profile-contracts";
 import { specializedProfileContractSchema } from "@sprite-anvil/api/specialized-profile-contracts";
 import type { Database } from "@sprite-anvil/db";
 import {
-	specializedProfileContractHeads,
+	projectSpecializedProfileContracts,
 	specializedProfileContractRevisions,
 } from "@sprite-anvil/db/schema/specialized-profile-contracts";
 import { eq } from "drizzle-orm";
 
 export interface ProfileContractSnapshot {
-	contract: ReturnType<typeof specializedProfileContractSchema.parse>;
+	contract: SpecializedProfileContract;
 	profileId: SpecializedProfileId;
 	revisionId: string;
-	revisionNumber: number;
 }
 
 export interface ProjectProfileContracts {
@@ -19,39 +22,51 @@ export interface ProjectProfileContracts {
 	byRevisionId: Map<string, ProfileContractSnapshot>;
 }
 
+function toSnapshot(
+	row: typeof specializedProfileContractRevisions.$inferSelect
+) {
+	const contract = specializedProfileContractSchema.parse(row.definition);
+	const revisionId = `${contract.profileId}@${contract.version}`;
+	if (
+		row.profileId !== contract.profileId ||
+		row.contractSchemaVersion !== contract.contractSchemaVersion ||
+		row.contractVersion !== contract.version ||
+		row.id !== revisionId
+	) {
+		throw new Error("Stored Specialized Profile Contract revision is invalid");
+	}
+	return { contract, profileId: contract.profileId, revisionId };
+}
+
 export async function readProjectProfileContracts(
 	db: Database,
 	projectId: string
 ): Promise<ProjectProfileContracts> {
-	const [revisionRows, headRows] = await Promise.all([
+	const [revisionRows, activeRows] = await Promise.all([
+		db.select().from(specializedProfileContractRevisions),
 		db
-			.select()
-			.from(specializedProfileContractRevisions)
-			.where(eq(specializedProfileContractRevisions.projectId, projectId)),
-		db
-			.select()
-			.from(specializedProfileContractHeads)
-			.where(eq(specializedProfileContractHeads.projectId, projectId)),
+			.select({
+				profileId: projectSpecializedProfileContracts.profileId,
+				contractRevisionId:
+					projectSpecializedProfileContracts.contractRevisionId,
+			})
+			.from(projectSpecializedProfileContracts)
+			.where(eq(projectSpecializedProfileContracts.projectId, projectId)),
 	]);
 	const byRevisionId = new Map(
-		revisionRows.map((row) => [
-			row.id,
-			{
-				revisionId: row.id,
-				profileId: row.profileId,
-				revisionNumber: row.revisionNumber,
-				contract: specializedProfileContractSchema.parse(row.contract),
-			},
-		])
+		revisionRows.map((row) => {
+			const snapshot = toSnapshot(row);
+			return [snapshot.revisionId, snapshot];
+		})
 	);
 	const activeByProfile = new Map<
 		SpecializedProfileId,
 		ProfileContractSnapshot
 	>();
-	for (const head of headRows) {
-		const activeRevision = byRevisionId.get(head.activeRevisionId ?? "");
-		if (activeRevision?.profileId === head.profileId) {
-			activeByProfile.set(head.profileId, activeRevision);
+	for (const active of activeRows) {
+		const snapshot = byRevisionId.get(active.contractRevisionId);
+		if (snapshot?.profileId === active.profileId) {
+			activeByProfile.set(active.profileId, snapshot);
 		}
 	}
 	return { activeByProfile, byRevisionId };
@@ -78,9 +93,7 @@ function sameContractEntry(
 			? active.contract.rules.find((rule) => rule.id === entryId)
 			: active.contract.usageTests.find((test) => test.id === entryId);
 	return Boolean(
-		pinnedEntry &&
-			activeEntry &&
-			JSON.stringify(pinnedEntry) === JSON.stringify(activeEntry)
+		pinnedEntry && activeEntry && isDeepStrictEqual(pinnedEntry, activeEntry)
 	);
 }
 

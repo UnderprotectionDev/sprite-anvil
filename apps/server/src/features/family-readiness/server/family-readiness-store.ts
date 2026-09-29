@@ -304,10 +304,10 @@ function assessSpecializedProfile(
 			}
 			return {
 				id: rule.id,
-				name: rule.name,
+				name: rule.input,
 				class: rule.class,
-				required: rule.required,
-				waiverEligible: rule.waiverEligible,
+				required: rule.class !== "quality_advisory",
+				waiverEligible: rule.waiverEligibility,
 				result,
 				isCurrent: Boolean(row?.isCurrent),
 			};
@@ -347,8 +347,8 @@ function assessSpecializedProfile(
 			}
 			return {
 				id: usageTest.id,
-				name: usageTest.name,
-				required: usageTest.required,
+				name: usageTest.label,
+				required: true,
 				result,
 				isCurrent:
 					evidenceEntries.length > 0 &&

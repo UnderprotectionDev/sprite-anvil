@@ -1,123 +1,91 @@
+import { sql } from "drizzle-orm";
 import {
+	check,
 	foreignKey,
 	index,
-	integer,
 	jsonb,
 	pgTable,
+	primaryKey,
 	text,
 	timestamp,
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
+
+import { specializedProfileIds } from "../specialized-profile-ids";
 import { user } from "./auth";
 import { project } from "./project";
-
-type SpecializedProfileId =
-	| "character_creature_animation"
-	| "object_weapon_equipment_states"
-	| "icon"
-	| "visual_effect_projectile_shadow_mark"
-	| "tileset_terrain_texture"
-	| "background_parallax"
-	| "ui"
-	| "portrait_logo_marketing";
 
 export const specializedProfileContractRevisions = pgTable(
 	"specialized_profile_contract_revisions",
 	{
 		id: text("id").primaryKey(),
-		projectId: text("project_id").notNull(),
-		profileId: text("profile_id").$type<SpecializedProfileId>().notNull(),
-		revisionNumber: integer("revision_number").notNull(),
-		templateRevisionNumber: integer("template_revision_number").notNull(),
-		contract: jsonb("contract").$type<Record<string, unknown>>().notNull(),
-		createdByUserId: text("created_by_user_id")
-			.notNull()
-			.references(() => user.id, { onDelete: "restrict" }),
+		profileId: text("profile_id").notNull(),
+		contractSchemaVersion: text("contract_schema_version").notNull(),
+		contractVersion: text("contract_version").notNull(),
+		definition: jsonb("definition").$type<Record<string, unknown>>().notNull(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 	},
 	(table) => [
-		foreignKey({
-			name: "specialized_profile_contract_revisions_project_fk",
-			columns: [table.projectId],
-			foreignColumns: [project.id],
-		}).onDelete("restrict"),
 		uniqueIndex(
-			"specialized_profile_contract_revisions_project_profile_id_idx"
-		).on(table.projectId, table.profileId, table.id),
-		uniqueIndex("specialized_profile_contract_revisions_number_idx").on(
-			table.projectId,
+			"specialized_profile_contract_revisions_profile_version_idx"
+		).on(table.profileId, table.contractVersion),
+		uniqueIndex("specialized_profile_contract_revisions_profile_id_id_idx").on(
 			table.profileId,
-			table.revisionNumber
+			table.id
 		),
-		uniqueIndex("specialized_profile_contract_revisions_template_idx").on(
-			table.projectId,
-			table.profileId,
-			table.templateRevisionNumber
+		check(
+			"specialized_profile_contract_revisions_profile_id_check",
+			sql`${table.profileId} in (${sql.join(
+				specializedProfileIds.map((profileId) => sql`${profileId}`),
+				sql`, `
+			)})`
 		),
-		index("specialized_profile_contract_revisions_created_idx").on(
-			table.projectId,
-			table.profileId,
-			table.createdAt
+		check(
+			"specialized_profile_contract_revisions_schema_version_check",
+			sql`${table.contractSchemaVersion} = 'asset-profile/1.0.0'`
+		),
+		check(
+			"specialized_profile_contract_revisions_version_check",
+			sql`${table.contractVersion} ~ '^[0-9]+\\.[0-9]+\\.[0-9]+$'`
 		),
 	]
 );
 
-export const specializedProfileContractHeads = pgTable(
-	"specialized_profile_contract_heads",
+export const projectSpecializedProfileContracts = pgTable(
+	"project_specialized_profile_contracts",
 	{
-		projectId: text("project_id").notNull(),
-		profileId: text("profile_id").$type<SpecializedProfileId>().notNull(),
-		activeRevisionId: text("active_revision_id"),
-		updatedAt: timestamp("updated_at").defaultNow().notNull(),
-	},
-	(table) => [
-		foreignKey({
-			name: "specialized_profile_contract_heads_project_fk",
-			columns: [table.projectId],
-			foreignColumns: [project.id],
-		}).onDelete("restrict"),
-		foreignKey({
-			name: "specialized_profile_contract_heads_revision_fk",
-			columns: [table.projectId, table.profileId, table.activeRevisionId],
-			foreignColumns: [
-				specializedProfileContractRevisions.projectId,
-				specializedProfileContractRevisions.profileId,
-				specializedProfileContractRevisions.id,
-			],
-		}).onDelete("restrict"),
-		uniqueIndex("specialized_profile_contract_heads_project_profile_idx").on(
-			table.projectId,
-			table.profileId
-		),
-	]
-);
-
-export const specializedProfileContractActivations = pgTable(
-	"specialized_profile_contract_activations",
-	{
-		id: text("id").primaryKey(),
-		projectId: text("project_id").notNull(),
-		profileId: text("profile_id").$type<SpecializedProfileId>().notNull(),
-		revisionId: text("revision_id").notNull(),
+		projectId: text("project_id")
+			.notNull()
+			.references(() => project.id, { onDelete: "cascade" }),
+		profileId: text("profile_id").notNull(),
+		contractRevisionId: text("contract_revision_id").notNull(),
 		activatedByUserId: text("activated_by_user_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "restrict" }),
 		activatedAt: timestamp("activated_at").defaultNow().notNull(),
 	},
 	(table) => [
+		primaryKey({
+			name: "project_specialized_profile_contracts_pk",
+			columns: [table.projectId, table.profileId],
+		}),
 		foreignKey({
-			name: "specialized_profile_contract_activations_revision_fk",
-			columns: [table.projectId, table.profileId, table.revisionId],
+			name: "project_specialized_profile_contracts_revision_fk",
+			columns: [table.profileId, table.contractRevisionId],
 			foreignColumns: [
-				specializedProfileContractRevisions.projectId,
 				specializedProfileContractRevisions.profileId,
 				specializedProfileContractRevisions.id,
 			],
 		}).onDelete("restrict"),
-		index("specialized_profile_contract_activations_history_idx").on(
-			table.projectId,
-			table.profileId,
-			table.activatedAt
+		check(
+			"project_specialized_profile_contracts_profile_id_check",
+			sql`${table.profileId} in (${sql.join(
+				specializedProfileIds.map((profileId) => sql`${profileId}`),
+				sql`, `
+			)})`
+		),
+		index("project_specialized_profile_contracts_activated_by_idx").on(
+			table.activatedByUserId
 		),
 	]
 );

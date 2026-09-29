@@ -12,6 +12,7 @@ import type { ProjectAccessStore } from "./project-access-store";
 import type { ProjectContextStore } from "./project-context";
 import type { ProviderGenerationRecordStore } from "./provider-generation-records";
 import type { ReferenceProductionStore } from "./reference-production";
+import type { RightsRecordStore } from "./rights-records";
 import type { SpecializedProfileContractStore } from "./specialized-profile-contracts";
 
 export interface Context {
@@ -28,6 +29,7 @@ export interface Context {
 	projectContextStore: ProjectContextStore;
 	providerGenerationRecordStore?: ProviderGenerationRecordStore;
 	referenceProductionStore?: ReferenceProductionStore;
+	rightsRecordStore?: RightsRecordStore;
 	session: Session | null;
 	specializedProfileContractStore?: SpecializedProfileContractStore;
 	verifyAssetVersionContent?: (

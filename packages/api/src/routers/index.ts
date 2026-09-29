@@ -35,6 +35,7 @@ import { familyReadinessRouter } from "./family-readiness";
 import { generationPackagesRouter } from "./generation-packages";
 import { projectsRouter } from "./projects";
 import { referenceProductionRouter } from "./reference-production";
+import { rightsRecordsRouter } from "./rights-records";
 import { specializedProfileContractsRouter } from "./specialized-profile-contracts";
 
 async function readContextProposalReview(
@@ -100,13 +101,14 @@ export const appRouter = {
 	projects: projectsRouter,
 	assetFamilies: assetFamiliesRouter,
 	familyReadiness: familyReadinessRouter,
-	specializedProfileContracts: specializedProfileContractsRouter,
 	assetVersions: assetVersionsRouter,
 	assetRecords: assetRecordsRouter,
 	collections: collectionsRouter,
 	generationPackages: generationPackagesRouter,
 	assetRecordTracking: assetRecordTrackingRouter,
 	referenceProduction: referenceProductionRouter,
+	rightsRecords: rightsRecordsRouter,
+	specializedProfileContracts: specializedProfileContractsRouter,
 	contextScopes: {
 		list: protectedProcedure
 			.input(projectContextScopeListInputSchema)

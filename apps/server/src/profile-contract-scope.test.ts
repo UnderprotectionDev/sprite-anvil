@@ -1,41 +1,43 @@
 import { expect, test } from "bun:test";
-import { specializedProfileContractTemplates } from "@sprite-anvil/api/specialized-profile-contracts";
+import { specializedProfileContractCatalog } from "@sprite-anvil/api/specialized-profile-contracts";
 import {
 	areContractPinsCompatible,
 	type ProjectProfileContracts,
 } from "./features/quality-evidence/server/profile-contract-scope";
 
 test("a contract revision change preserves unchanged rule evidence and stales changed rules", () => {
-	const [template] = specializedProfileContractTemplates;
-	expect(template).toBeDefined();
-	if (!template) {
+	const definition = specializedProfileContractCatalog.find(
+		(contract) => contract.profileId === "icon"
+	);
+	expect(definition).toBeDefined();
+	if (!definition) {
 		return;
 	}
-	const priorContract = structuredClone(template);
-	const activeContract = structuredClone(template);
-	activeContract.revisionNumber = 2;
+	const priorContract = structuredClone(definition);
+	const activeContract = structuredClone(definition);
+	activeContract.version = "1.0.1";
 	const changedRule = activeContract.rules.find(
 		(rule) => rule.class === "waivable_requirement"
 	);
 	if (!changedRule) {
 		return;
 	}
-	changedRule.successCondition =
-		"A changed threshold is measured for this version.";
+	changedRule.successResult =
+		"A revised threshold is measured for this version.";
+	const priorRevisionId = `${priorContract.profileId}@${priorContract.version}`;
+	const activeRevisionId = `${activeContract.profileId}@${activeContract.version}`;
 	const priorRevision = {
 		contract: priorContract,
-		profileId: template.profileId,
-		revisionId: "profile-revision-1",
-		revisionNumber: 1,
+		profileId: priorContract.profileId,
+		revisionId: priorRevisionId,
 	};
 	const activeRevision = {
 		contract: activeContract,
-		profileId: template.profileId,
-		revisionId: "profile-revision-2",
-		revisionNumber: 2,
+		profileId: activeContract.profileId,
+		revisionId: activeRevisionId,
 	};
 	const contracts: ProjectProfileContracts = {
-		activeByProfile: new Map([[template.profileId, activeRevision]]),
+		activeByProfile: new Map([[definition.profileId, activeRevision]]),
 		byRevisionId: new Map([
 			[priorRevision.revisionId, priorRevision],
 			[activeRevision.revisionId, activeRevision],
@@ -44,14 +46,14 @@ test("a contract revision change preserves unchanged rule evidence and stales ch
 	const sharedInput = {
 		activeRevisionIds: [activeRevision.revisionId],
 		contracts,
-		profileIds: [template.profileId],
+		profileIds: [definition.profileId],
 		pinnedRevisionIds: [priorRevision.revisionId],
 	};
 
 	expect(
 		areContractPinsCompatible({
 			...sharedInput,
-			entryId: template.rules[0]?.id ?? "",
+			entryId: definition.rules[0]?.id ?? "",
 			kind: "quality",
 		})
 	).toBe(true);
@@ -65,7 +67,7 @@ test("a contract revision change preserves unchanged rule evidence and stales ch
 	expect(
 		areContractPinsCompatible({
 			...sharedInput,
-			entryId: template.usageTests[0]?.id ?? "",
+			entryId: definition.usageTests[0]?.id ?? "",
 			kind: "usage_test",
 		})
 	).toBe(true);

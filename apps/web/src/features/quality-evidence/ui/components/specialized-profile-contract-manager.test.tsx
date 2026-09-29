@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import type { ProfileContractsCatalog } from "@sprite-anvil/api/specialized-profile-contracts";
-import { specializedProfileContractTemplates } from "@sprite-anvil/api/specialized-profile-contracts";
+import type { SpecializedProfileContractsListOutput } from "@sprite-anvil/api/specialized-profile-contracts";
+import { specializedProfileContractCatalog } from "@sprite-anvil/api/specialized-profile-contracts";
 import {
 	cleanup,
 	fireEvent,
@@ -18,7 +18,7 @@ import { SpecializedProfileContractManager } from "./specialized-profile-contrac
 
 const fakeApi = vi.hoisted(() => ({
 	activate: vi.fn(),
-	catalog: null as ProfileContractsCatalog | null,
+	catalog: null as SpecializedProfileContractsListOutput | null,
 }));
 
 vi.mock("@/utils/orpc", () => ({
@@ -37,14 +37,11 @@ vi.mock("@/utils/orpc", () => ({
 	},
 }));
 
-function createCatalog(projectId: string): ProfileContractsCatalog {
+function createCatalog(): SpecializedProfileContractsListOutput {
 	return {
-		projectId,
-		profiles: specializedProfileContractTemplates.map((template) => ({
-			profileId: template.profileId,
-			template,
-			activeRevision: null,
-			revisions: [],
+		profiles: specializedProfileContractCatalog.map((definition) => ({
+			definition,
+			activeContract: null,
 		})),
 	};
 }
@@ -56,50 +53,35 @@ afterEach(() => {
 	fakeApi.catalog = null;
 });
 
-test("activates a profile contract and reloads the immutable revision", async () => {
-	fakeApi.catalog = createCatalog("project-1");
-	fakeApi.activate.mockImplementation(
-		({ projectId, profileId, templateRevisionNumber }) => {
-			const { catalog } = fakeApi;
-			if (!catalog) {
-				return Promise.resolve(null);
-			}
-			const profile = catalog.profiles.find(
-				(candidate) => candidate.profileId === profileId
-			);
-			if (!profile) {
-				return Promise.resolve(null);
-			}
-			const activeRevision = {
-				id: "profile-contract-revision-1",
-				projectId,
-				profileId,
-				revisionNumber: 1,
-				contract: profile.template,
-				createdAt: "2026-09-29T10:00:00.000Z",
-				createdByUserId: "user-1",
-				isActive: true,
-				wasActivated: true,
-			};
-			fakeApi.catalog = {
-				...catalog,
-				profiles: catalog.profiles.map((entry) =>
-					entry.profileId === profileId
-						? {
-								...entry,
-								activeRevision:
-									templateRevisionNumber === profile.template.revisionNumber
-										? activeRevision
-										: null,
-								revisions: [activeRevision],
-							}
-						: entry
-				),
-			};
-			const { catalog: updatedCatalog } = fakeApi;
-			return Promise.resolve(updatedCatalog);
+test("activates a project's current immutable profile contract and reads it back", async () => {
+	fakeApi.catalog = createCatalog();
+	fakeApi.activate.mockImplementation(({ projectId, profileId }) => {
+		const { catalog } = fakeApi;
+		if (!catalog) {
+			return Promise.resolve(null);
 		}
-	);
+		const profile = catalog.profiles.find(
+			(candidate) => candidate.definition.profileId === profileId
+		);
+		if (!profile) {
+			return Promise.resolve(null);
+		}
+		const activeContract = {
+			activatedAt: "2026-09-29T10:00:00.000Z",
+			activatedByUserId: "user-1",
+			contract: profile.definition,
+			contractRevisionId: `${profileId}@${profile.definition.version}`,
+			projectId,
+		};
+		fakeApi.catalog = {
+			profiles: catalog.profiles.map((entry) =>
+				entry.definition.profileId === profileId
+					? { ...entry, activeContract }
+					: entry
+			),
+		};
+		return Promise.resolve(activeContract);
+	});
 	const queryClient = createQueryClient();
 	queryClient.setDefaultOptions({ queries: { retry: false } });
 	render(
@@ -114,11 +96,13 @@ test("activates a profile contract and reloads the immutable revision", async ()
 		) as HTMLLIElement
 	);
 	fireEvent.click(
-		iconCard.getByRole("button", { name: "Sözleşme v1’i etkinleştir" })
+		iconCard.getByRole("button", {
+			name: "Sözleşme v1.0.0’i etkinleştir",
+		})
 	);
 
 	await waitFor(() => expect(fakeApi.activate).toHaveBeenCalledOnce());
-	expect(await iconCard.findByText("Etkin revizyon 1")).toBeVisible();
+	expect(await iconCard.findByText("Etkin sözleşme v1.0.0")).toBeVisible();
 	expect(
 		await screen.findByText(
 			"Özel Profil Sözleşmesi etkinleştirildi ve kayıttan yeniden okundu."

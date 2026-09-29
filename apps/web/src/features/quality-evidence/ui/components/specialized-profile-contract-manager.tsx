@@ -1,4 +1,4 @@
-import type { ProfileContractsCatalog } from "@sprite-anvil/api/specialized-profile-contracts";
+import type { SpecializedProfileContractsListOutput } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -18,7 +18,7 @@ const profileLabels = {
 	ui: assetCategoryLabels.ui,
 	portrait_logo_marketing: assetCategoryLabels.portrait_logo_marketing,
 } satisfies Record<
-	ProfileContractsCatalog["profiles"][number]["profileId"],
+	SpecializedProfileContractsListOutput["profiles"][number]["definition"]["profileId"],
 	string
 >;
 
@@ -26,14 +26,16 @@ const ruleClassLabels = {
 	integrity_gate: "Bütünlük Denetimi",
 	waivable_requirement: "İstisna Verilebilir Gereksinim",
 	quality_advisory: "Kalite Uyarısı",
-	human_review: "Zorunlu insan incelemesi",
 } as const;
 
 const metadataTypeLabels = {
-	string: "metin",
+	identifier: "tanımlayıcı",
+	text: "metin",
+	text_list: "metin listesi",
+	integer: "tam sayı",
 	number: "sayı",
 	boolean: "doğru/yanlış",
-	string_array: "metin listesi",
+	json: "JSON",
 } as const;
 
 export function SpecializedProfileContractManager({
@@ -51,8 +53,7 @@ export function SpecializedProfileContractManager({
 	const [message, setMessage] = useState("");
 
 	async function activate(
-		profileId: ProfileContractsCatalog["profiles"][number]["profileId"],
-		templateRevisionNumber: number
+		profileId: SpecializedProfileContractsListOutput["profiles"][number]["definition"]["profileId"]
 	) {
 		setIsSaving(true);
 		setMessage("");
@@ -60,7 +61,6 @@ export function SpecializedProfileContractManager({
 			await client.specializedProfileContracts.activate({
 				projectId,
 				profileId,
-				templateRevisionNumber,
 			});
 			const result = await query.refetch();
 			await queryClient.invalidateQueries();
@@ -104,40 +104,33 @@ export function SpecializedProfileContractManager({
 			{query.data ? (
 				<ul className="grid gap-3 md:grid-cols-2">
 					{query.data.profiles.map((profile) => {
-						const displayedContract =
-							profile.activeRevision?.contract ?? profile.template;
-						const needsTemplateActivation =
-							profile.activeRevision?.contract.revisionNumber !==
-							profile.template.revisionNumber;
+						const {
+							definition,
+							activeContract,
+							definition: { profileId },
+						} = profile;
+						const displayedContract = activeContract?.contract ?? definition;
+						const needsActivation =
+							activeContract?.contract.version !== definition.version;
 						return (
-							<li
-								className="space-y-3 rounded-lg border p-4"
-								key={profile.profileId}
-							>
+							<li className="space-y-3 rounded-lg border p-4" key={profileId}>
 								<div className="flex flex-wrap items-start justify-between gap-3">
 									<div>
-										<h4 className="font-medium">
-											{profileLabels[profile.profileId]}
-										</h4>
+										<h4 className="font-medium">{profileLabels[profileId]}</h4>
 										<p className="text-muted-foreground text-sm">
-											{profile.activeRevision
-												? `Etkin revizyon ${profile.activeRevision.revisionNumber}`
+											{activeContract
+												? `Etkin sözleşme v${activeContract.contract.version}`
 												: "Etkin sözleşme yok"}
 										</p>
 									</div>
-									{needsTemplateActivation ? (
+									{needsActivation ? (
 										<Button
 											disabled={isSaving}
-											onClick={() =>
-												void activate(
-													profile.profileId,
-													profile.template.revisionNumber
-												)
-											}
+											onClick={() => void activate(profileId)}
 											type="button"
 											variant="outline"
 										>
-											Sözleşme v{profile.template.revisionNumber}’i etkinleştir
+											Sözleşme v{definition.version}’i etkinleştir
 										</Button>
 									) : null}
 								</div>
@@ -158,10 +151,12 @@ export function SpecializedProfileContractManager({
 											<ul className="list-inside list-disc text-muted-foreground">
 												{displayedContract.metadataFields.map((field) => (
 													<li key={field.id}>
-														{field.name} · {field.id} ·{" "}
-														{metadataTypeLabels[field.dataType]}
+														{field.label} · {field.id} ·{" "}
+														{metadataTypeLabels[field.type]}
 														{field.required ? " · Gerekli" : " · İsteğe bağlı"}
-														<p className="ml-5 text-xs">{field.description}</p>
+														<p className="ml-5 text-xs">
+															{field.description} · {field.scope}
+														</p>
 													</li>
 												))}
 											</ul>
@@ -171,25 +166,29 @@ export function SpecializedProfileContractManager({
 											<ul className="list-inside list-disc text-muted-foreground">
 												{displayedContract.rules.map((rule) => (
 													<li key={rule.id}>
-														{rule.name} · {ruleClassLabels[rule.class]}
+														{rule.id} · {ruleClassLabels[rule.class]}
 														<dl className="ml-5 grid gap-x-2 text-xs sm:grid-cols-[max-content_1fr]">
 															<dt>Kimlik</dt>
 															<dd>{rule.id}</dd>
 															<dt>Girdi</dt>
 															<dd>{rule.input}</dd>
 															<dt>Başarı koşulu</dt>
-															<dd>{rule.successCondition}</dd>
+															<dd>{rule.successResult}</dd>
 															<dt>Başarısızlık koşulu</dt>
-															<dd>{rule.failureCondition}</dd>
+															<dd>{rule.failureResult}</dd>
 															<dt>Gerekli kanıt</dt>
-															<dd>{rule.evidenceRequirement}</dd>
+															<dd>{rule.evidence}</dd>
 															<dt>Varlık kapsamı</dt>
-															<dd>{rule.assetScope}</dd>
+															<dd>{rule.scope}</dd>
 															<dt>Dışa aktarım etkisi</dt>
 															<dd>{rule.exportEffect}</dd>
 															<dt>Durum</dt>
-															<dd>{rule.required ? "Gerekli" : "Uyarı"}</dd>
-															{rule.waiverEligible ? (
+															<dd>
+																{rule.class === "quality_advisory"
+																	? "Uyarı"
+																	: "Gerekli"}
+															</dd>
+															{rule.waiverEligibility ? (
 																<>
 																	<dt>İstisna</dt>
 																	<dd>Gerekçeli istisnaya izin verilir</dd>
@@ -205,20 +204,16 @@ export function SpecializedProfileContractManager({
 											<ul className="list-inside list-disc text-muted-foreground">
 												{displayedContract.usageTests.map((usageTest) => (
 													<li key={usageTest.id}>
-														{usageTest.name} · {usageTest.id}
+														{usageTest.label} · {usageTest.id}
 														<dl className="ml-5 grid gap-x-2 text-xs sm:grid-cols-[max-content_1fr]">
 															<dt>Ortam</dt>
-															<dd>{usageTest.environment}</dd>
+															<dd>{usageTest.input}</dd>
 															<dt>Geçme ölçütü</dt>
-															<dd>{usageTest.passCriteria}</dd>
+															<dd>{usageTest.successResult}</dd>
 															<dt>Gerekli kanıt</dt>
-															<dd>{usageTest.evidenceRequirement}</dd>
+															<dd>{usageTest.evidence}</dd>
 															<dt>Durum</dt>
-															<dd>
-																{usageTest.required
-																	? "Gerekli"
-																	: "İsteğe bağlı"}
-															</dd>
+															<dd>Gerekli</dd>
 														</dl>
 													</li>
 												))}
@@ -229,20 +224,16 @@ export function SpecializedProfileContractManager({
 											<ul className="list-inside list-disc text-muted-foreground">
 												{displayedContract.exportMappings.map((mapping) => (
 													<li key={mapping.id}>
-														{mapping.sourceFieldId} → {mapping.targetFieldId}
+														{mapping.fieldId} → {mapping.targetPath}
 														<dl className="ml-5 grid gap-x-2 text-xs sm:grid-cols-[max-content_1fr]">
 															<dt>Birim</dt>
 															<dd>{mapping.unit ?? "Yok"}</dd>
 															<dt>Koordinat sistemi</dt>
 															<dd>{mapping.coordinateSystem ?? "Yok"}</dd>
 															<dt>Varsayılan davranış</dt>
-															<dd>{mapping.defaultBehavior}</dd>
+															<dd>{mapping.absentBehavior}</dd>
 															<dt>Geri okuma denetimi</dt>
 															<dd>{mapping.readbackCheck}</dd>
-															<dt>Durum</dt>
-															<dd>
-																{mapping.required ? "Gerekli" : "İsteğe bağlı"}
-															</dd>
 														</dl>
 													</li>
 												))}

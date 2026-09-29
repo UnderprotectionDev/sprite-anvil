@@ -3,7 +3,7 @@ import type {
 	ReadinessEvidenceInput,
 	RequiredSetItem,
 } from "@sprite-anvil/api/family-readiness";
-import type { ProfileContractsCatalog } from "@sprite-anvil/api/specialized-profile-contracts";
+import type { SpecializedProfileContractsListOutput } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
@@ -115,28 +115,31 @@ function revisionStatusLabel(revision: FamilyReadiness["revisions"][number]) {
 function getUsageTestOptions(
 	item: DraftItem,
 	assetRecords: { assetCategory: string | null; id: string; name: string }[],
-	profileContracts: ProfileContractsCatalog | null
+	profileContracts: SpecializedProfileContractsListOutput | null
 ) {
 	const linkedRecords = assetRecords.filter((record) =>
 		item.assetRecordIds.includes(record.id)
 	);
 	const specializedRecords = linkedRecords.filter((record) =>
 		profileContracts?.profiles.some(
-			(profile) => profile.profileId === record.assetCategory
+			(profile) => profile.definition.profileId === record.assetCategory
 		)
 	);
 	if (specializedRecords.length === 0) {
 		return [];
 	}
 	const firstProfile = profileContracts?.profiles.find(
-		(profile) => profile.profileId === specializedRecords[0]?.assetCategory
+		(profile) =>
+			profile.definition.profileId === specializedRecords[0]?.assetCategory
 	);
-	const firstTests = firstProfile?.activeRevision?.contract.usageTests ?? [];
+	const firstTests = firstProfile?.activeContract?.contract.usageTests ?? [];
 	return firstTests.filter((test) =>
 		specializedRecords.every((record) =>
 			profileContracts?.profiles
-				.find((profile) => profile.profileId === record.assetCategory)
-				?.activeRevision?.contract.usageTests.some(
+				.find(
+					(profile) => profile.definition.profileId === record.assetCategory
+				)
+				?.activeContract?.contract.usageTests.some(
 					(candidate) => candidate.id === test.id
 				)
 		)
@@ -171,7 +174,7 @@ export function FamilyReadinessManager({
 		id: string;
 		name: string;
 	}[];
-	profileContracts: ProfileContractsCatalog | null;
+	profileContracts: SpecializedProfileContractsListOutput | null;
 }) {
 	const query = useQuery({
 		...orpc.familyReadiness.list.queryOptions({
@@ -442,7 +445,7 @@ function FamilyReadinessItemCard({
 	isSaving: boolean;
 	itemResult: FamilyReadiness["items"][number];
 	onRecord: (input: ReadinessEvidenceInput) => Promise<boolean>;
-	profileContracts: ProfileContractsCatalog | null;
+	profileContracts: SpecializedProfileContractsListOutput | null;
 	projectId: string;
 }) {
 	return (
@@ -610,7 +613,7 @@ function RequiredSetItemEditor({
 	item: DraftItem;
 	onChange: (change: Partial<DraftItem>) => void;
 	onRemove: () => void;
-	profileContracts: ProfileContractsCatalog | null;
+	profileContracts: SpecializedProfileContractsListOutput | null;
 }) {
 	const idPrefix = `required-set-${assetFamilyId}-${item.id}`;
 	const usageTestOptions = getUsageTestOptions(
@@ -622,7 +625,7 @@ function RequiredSetItemEditor({
 		(record) =>
 			item.assetRecordIds.includes(record.id) &&
 			profileContracts?.profiles.some(
-				(profile) => profile.profileId === record.assetCategory
+				(profile) => profile.definition.profileId === record.assetCategory
 			)
 	);
 	return (
@@ -713,7 +716,7 @@ function RequiredSetItemEditor({
 						<datalist id={`${idPrefix}-test-options`}>
 							{usageTestOptions.map((test) => (
 								<option key={test.id} value={test.id}>
-									{test.name}
+									{test.label}
 								</option>
 							))}
 						</datalist>
@@ -800,7 +803,7 @@ function ReadinessEvidenceForms({
 	item: RequiredSetItem;
 	isSaving: boolean;
 	onRecord: (input: ReadinessEvidenceInput) => Promise<boolean>;
-	profileContracts: ProfileContractsCatalog | null;
+	profileContracts: SpecializedProfileContractsListOutput | null;
 	qualityRequirements: FamilyReadiness["items"][number]["qualityRequirements"];
 	projectId: string;
 	revisionId: string;
@@ -810,7 +813,7 @@ function ReadinessEvidenceForms({
 			(record) => record.id === recordId
 		)?.assetCategory;
 		return profileContracts?.profiles.some(
-			(profile) => profile.profileId === category
+			(profile) => profile.definition.profileId === category
 		)
 			? [category]
 			: [];

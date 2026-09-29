@@ -1,9 +1,10 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "5bc90f86-e0bb-4f3d-8eaf-84c13d5f49ed",
+  "id": "a3d86ed2-4f03-4dd6-b257-05755102c5f9",
   "prevIds": [
-    "c70b4e68-385c-490e-a403-9df0cf9b4c30"
+    "9e8a76f2-f104-469d-a9a5-92c0ab6029ac",
+    "e2355e39-336b-409a-a997-74a50320f147"
   ],
   "ddl": [
     {
@@ -219,24 +220,6 @@
     },
     {
       "isRlsEnabled": false,
-      "name": "specialized_profile_contract_activations",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "specialized_profile_contract_heads",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "specialized_profile_contract_revisions",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
       "name": "generation_packages",
       "entityType": "tables",
       "schema": "public"
@@ -291,6 +274,12 @@
     },
     {
       "isRlsEnabled": false,
+      "name": "rights_records",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
       "name": "source_metadata_mapping_finalizations",
       "entityType": "tables",
       "schema": "public"
@@ -298,6 +287,18 @@
     {
       "isRlsEnabled": false,
       "name": "source_metadata_mapping_proposals",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "project_specialized_profile_contracts",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "specialized_profile_contract_revisions",
       "entityType": "tables",
       "schema": "public"
     },
@@ -4017,240 +4018,6 @@
       "name": "id",
       "entityType": "columns",
       "schema": "public",
-      "table": "specialized_profile_contract_activations"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "project_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "specialized_profile_contract_activations"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "profile_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "specialized_profile_contract_activations"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "revision_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "specialized_profile_contract_activations"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "activated_by_user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "specialized_profile_contract_activations"
-    },
-    {
-      "type": "timestamp",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "activated_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "specialized_profile_contract_activations"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "project_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "specialized_profile_contract_heads"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "profile_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "specialized_profile_contract_heads"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "active_revision_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "specialized_profile_contract_heads"
-    },
-    {
-      "type": "timestamp",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "updated_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "specialized_profile_contract_heads"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "specialized_profile_contract_revisions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "project_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "specialized_profile_contract_revisions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "profile_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "specialized_profile_contract_revisions"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "revision_number",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "specialized_profile_contract_revisions"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "template_revision_number",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "specialized_profile_contract_revisions"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "contract",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "specialized_profile_contract_revisions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "created_by_user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "specialized_profile_contract_revisions"
-    },
-    {
-      "type": "timestamp",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "specialized_profile_contract_revisions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
       "table": "generation_packages"
     },
     {
@@ -5509,6 +5276,201 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rights_records"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "project_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rights_records"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "asset_record_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rights_records"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "reference_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rights_records"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "version_number",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rights_records"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "source",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rights_records"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "rights_holder_or_provider",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rights_records"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "asserted_scope",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rights_records"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "evidence",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rights_records"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "evidence_file",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rights_records"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "restrictions",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rights_records"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "uncertainty",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rights_records"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "state",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rights_records"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "created_by_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rights_records"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rights_records"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "proposal_id",
       "entityType": "columns",
       "schema": "public",
@@ -5682,6 +5644,149 @@
       "entityType": "columns",
       "schema": "public",
       "table": "source_metadata_mapping_proposals"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "project_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "project_specialized_profile_contracts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "profile_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "project_specialized_profile_contracts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "contract_revision_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "project_specialized_profile_contracts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "activated_by_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "project_specialized_profile_contracts"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "activated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "project_specialized_profile_contracts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "specialized_profile_contract_revisions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "profile_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "specialized_profile_contract_revisions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "contract_schema_version",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "specialized_profile_contract_revisions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "contract_version",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "specialized_profile_contract_revisions"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "definition",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "specialized_profile_contract_revisions"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "specialized_profile_contract_revisions"
     },
     {
       "nameExplicit": true,
@@ -8011,209 +8116,6 @@
           "opclass": null
         },
         {
-          "value": "profile_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "activated_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "specialized_profile_contract_activations_history_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "specialized_profile_contract_activations"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "project_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "profile_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "specialized_profile_contract_heads_project_profile_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "specialized_profile_contract_heads"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "project_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "profile_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "specialized_profile_contract_revisions_project_profile_id_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "specialized_profile_contract_revisions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "project_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "profile_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "revision_number",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "specialized_profile_contract_revisions_number_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "specialized_profile_contract_revisions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "project_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "profile_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "template_revision_number",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "specialized_profile_contract_revisions_template_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "specialized_profile_contract_revisions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "project_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "profile_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "created_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "specialized_profile_contract_revisions_created_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "specialized_profile_contract_revisions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "project_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
           "value": "id",
           "isExpression": false,
           "asc": true,
@@ -8795,6 +8697,125 @@
           "opclass": null
         },
         {
+          "value": "asset_record_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "version_number",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "\"reference_id\" IS NULL",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "rights_records_asset_version_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "rights_records"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "asset_record_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "reference_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "version_number",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "\"reference_id\" IS NOT NULL",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "rights_records_reference_version_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "rights_records"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "asset_record_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "reference_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "rights_records_project_asset_created_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "rights_records"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
           "value": "source_entry_id",
           "isExpression": false,
           "asc": true,
@@ -8818,6 +8839,83 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "source_metadata_mapping_proposals"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "activated_by_user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "project_specialized_profile_contracts_activated_by_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "project_specialized_profile_contracts"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "profile_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "contract_version",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "specialized_profile_contract_revisions_profile_version_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "specialized_profile_contract_revisions"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "profile_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "specialized_profile_contract_revisions_profile_id_id_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "specialized_profile_contract_revisions"
     },
     {
       "nameExplicit": false,
@@ -10364,116 +10462,6 @@
     {
       "nameExplicit": false,
       "columns": [
-        "activated_by_user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "user",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "specialized_profile_contract_activations_KNdUk0xX0FeG_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "specialized_profile_contract_activations"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "project_id",
-        "profile_id",
-        "revision_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "specialized_profile_contract_revisions",
-      "columnsTo": [
-        "project_id",
-        "profile_id",
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "specialized_profile_contract_activations_revision_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "specialized_profile_contract_activations"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "project_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "project",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "specialized_profile_contract_heads_project_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "specialized_profile_contract_heads"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "project_id",
-        "profile_id",
-        "active_revision_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "specialized_profile_contract_revisions",
-      "columnsTo": [
-        "project_id",
-        "profile_id",
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "specialized_profile_contract_heads_revision_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "specialized_profile_contract_heads"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "created_by_user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "user",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "specialized_profile_contract_revisions_TF9m2Xxllvc2_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "specialized_profile_contract_revisions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "project_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "project",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "specialized_profile_contract_revisions_project_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "specialized_profile_contract_revisions"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
         "project_id"
       ],
       "schemaTo": "public",
@@ -10828,6 +10816,63 @@
     {
       "nameExplicit": false,
       "columns": [
+        "created_by_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "user",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "rights_records_created_by_user_id_user_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "rights_records"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "project_id",
+        "asset_record_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "asset_records",
+      "columnsTo": [
+        "project_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "rights_records_project_asset_record_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "rights_records"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "project_id",
+        "asset_record_id",
+        "reference_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "reference_board_images",
+      "columnsTo": [
+        "project_id",
+        "asset_record_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "rights_records_project_asset_reference_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "rights_records"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "proposal_id"
       ],
       "schemaTo": "public",
@@ -10970,6 +11015,59 @@
       "table": "source_metadata_mapping_proposals"
     },
     {
+      "nameExplicit": false,
+      "columns": [
+        "project_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "project",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "project_specialized_profile_contracts_040tM5byXzZn_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "project_specialized_profile_contracts"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "activated_by_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "user",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "project_specialized_profile_contracts_627SMnvskF0L_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "project_specialized_profile_contracts"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "profile_id",
+        "contract_revision_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "specialized_profile_contract_revisions",
+      "columnsTo": [
+        "profile_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "project_specialized_profile_contracts_revision_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "project_specialized_profile_contracts"
+    },
+    {
       "columns": [
         "project_id",
         "asset_record_id"
@@ -10991,6 +11089,17 @@
       "entityType": "pks",
       "schema": "public",
       "table": "collection_asset_records"
+    },
+    {
+      "columns": [
+        "project_id",
+        "profile_id"
+      ],
+      "nameExplicit": true,
+      "name": "project_specialized_profile_contracts_pk",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "project_specialized_profile_contracts"
     },
     {
       "columns": [
@@ -11287,26 +11396,6 @@
         "id"
       ],
       "nameExplicit": false,
-      "name": "specialized_profile_contract_activations_pkey",
-      "schema": "public",
-      "table": "specialized_profile_contract_activations",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "specialized_profile_contract_revisions_pkey",
-      "schema": "public",
-      "table": "specialized_profile_contract_revisions",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
       "name": "generation_packages_pkey",
       "schema": "public",
       "table": "generation_packages",
@@ -11394,6 +11483,16 @@
     },
     {
       "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "rights_records_pkey",
+      "schema": "public",
+      "table": "rights_records",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
         "proposal_id"
       ],
       "nameExplicit": false,
@@ -11410,6 +11509,16 @@
       "name": "source_metadata_mapping_proposals_pkey",
       "schema": "public",
       "table": "source_metadata_mapping_proposals",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "specialized_profile_contract_revisions_pkey",
+      "schema": "public",
+      "table": "specialized_profile_contract_revisions",
       "entityType": "pks"
     },
     {
@@ -11909,6 +12018,55 @@
       "entityType": "checks",
       "schema": "public",
       "table": "reference_board_images"
+    },
+    {
+      "value": "\"version_number\" > 0",
+      "name": "rights_records_version_number_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "rights_records"
+    },
+    {
+      "value": "\"state\" IN ('documented', 'assertion_only', 'unknown', 'restricted')",
+      "name": "rights_records_state_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "rights_records"
+    },
+    {
+      "value": "(\"state\" <> 'documented' OR (\"evidence\" IS NOT NULL AND length(trim(\"evidence\")) > 0) OR \"evidence_file\" IS NOT NULL) AND (\"state\" <> 'restricted' OR (\"restrictions\" IS NOT NULL AND length(trim(\"restrictions\")) > 0))",
+      "name": "rights_records_state_fields_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "rights_records"
+    },
+    {
+      "value": "\"profile_id\" in ('character_creature_animation', 'object_weapon_equipment_states', 'icon', 'visual_effect_projectile_shadow_mark', 'tileset_terrain_texture', 'background_parallax', 'ui', 'portrait_logo_marketing')",
+      "name": "project_specialized_profile_contracts_profile_id_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "project_specialized_profile_contracts"
+    },
+    {
+      "value": "\"profile_id\" in ('character_creature_animation', 'object_weapon_equipment_states', 'icon', 'visual_effect_projectile_shadow_mark', 'tileset_terrain_texture', 'background_parallax', 'ui', 'portrait_logo_marketing')",
+      "name": "specialized_profile_contract_revisions_profile_id_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "specialized_profile_contract_revisions"
+    },
+    {
+      "value": "\"contract_schema_version\" = 'asset-profile/1.0.0'",
+      "name": "specialized_profile_contract_revisions_schema_version_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "specialized_profile_contract_revisions"
+    },
+    {
+      "value": "\"contract_version\" ~ '^[0-9]+\\.[0-9]+\\.[0-9]+$'",
+      "name": "specialized_profile_contract_revisions_version_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "specialized_profile_contract_revisions"
     }
   ],
   "renames": []

@@ -1,0 +1,261 @@
+import { expect, test } from "bun:test";
+import { call } from "@orpc/server";
+import type { Context } from "@sprite-anvil/api/context";
+import { appRouter } from "@sprite-anvil/api/routers/index";
+import { createDb } from "@sprite-anvil/db";
+import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
+import { user } from "@sprite-anvil/db/schema/auth";
+import { project } from "@sprite-anvil/db/schema/project";
+import { referenceBoardImages } from "@sprite-anvil/db/schema/reference-production";
+import { rightsRecords } from "@sprite-anvil/db/schema/rights-records";
+import { eq } from "drizzle-orm";
+import { createRightsRecordStore } from "./rights-record-store";
+
+const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
+
+test.skipIf(!databaseUrl)(
+	"persists and rereads immutable text and file Rights Record revisions through the protected API",
+	async () => {
+		if (!databaseUrl) {
+			throw new Error("CONTEXT_TEST_DATABASE_URL is required for this test.");
+		}
+
+		const db = createDb({ DATABASE_URL: databaseUrl });
+		const userId = crypto.randomUUID();
+		const projectId = crypto.randomUUID();
+		const assetRecordId = crypto.randomUUID();
+		const referenceId = crypto.randomUUID();
+		const otherReferenceId = crypto.randomUUID();
+		let insertedUser = false;
+		let insertedProject = false;
+		let insertedAssetRecord = false;
+		let insertedReferenceImage = false;
+
+		try {
+			await db.insert(user).values({
+				id: userId,
+				name: "Rights Record Integration Test",
+				email: `rights-record-${userId}@example.test`,
+			});
+			insertedUser = true;
+			await db.insert(project).values({
+				id: projectId,
+				name: "Rights Record Integration Project",
+				ownerUserId: userId,
+			});
+			insertedProject = true;
+			await db.insert(assetRecords).values({
+				id: assetRecordId,
+				projectId,
+				createdByUserId: userId,
+				name: "Integration Asset Record",
+				identityCriteria: ["independent_product_meaning"],
+				supportLevel: "general",
+				availability: "active",
+			});
+			insertedAssetRecord = true;
+			await db.insert(referenceBoardImages).values([
+				{
+					id: referenceId,
+					projectId,
+					assetRecordId,
+					objectKey: `projects/${projectId}/assets/${assetRecordId}/references/${referenceId}`,
+					fileName: "integration-reference.png",
+					contentType: "image/png",
+					contentLength: 1,
+					sha256: "b".repeat(64),
+					role: "pose",
+					transferredFeatures: ["pose"],
+					forbiddenFeatures: [],
+					createdByUserId: userId,
+				},
+				{
+					id: otherReferenceId,
+					projectId,
+					assetRecordId,
+					objectKey: `projects/${projectId}/assets/${assetRecordId}/references/${otherReferenceId}`,
+					fileName: "other-integration-reference.png",
+					contentType: "image/png",
+					contentLength: 1,
+					sha256: "c".repeat(64),
+					role: "pose",
+					transferredFeatures: ["pose"],
+					forbiddenFeatures: [],
+					createdByUserId: userId,
+				},
+			]);
+			insertedReferenceImage = true;
+
+			const rightsRecordStore = createRightsRecordStore(db);
+			const context = {
+				rightsRecordStore,
+				session: { user: { id: userId } },
+			} as unknown as Context;
+			const firstInput = {
+				assetRecordId,
+				assertedScope: "Paid game releases",
+				evidence: "License reference: https://example.test/license",
+				id: crypto.randomUUID(),
+				projectId,
+				restrictions: null,
+				rightsHolderOrProvider: "Example Studio",
+				source: "https://example.test/source",
+				state: "documented" as const,
+				uncertainty: "Merchandising is not covered.",
+			};
+			const first = await call(appRouter.rightsRecords.create, firstInput, {
+				context,
+			});
+			const retriedFirst = await call(
+				appRouter.rightsRecords.create,
+				firstInput,
+				{ context }
+			);
+			const second = await call(
+				appRouter.rightsRecords.create,
+				{
+					...firstInput,
+					evidence: "Updated license reference",
+					id: crypto.randomUUID(),
+					state: "assertion_only",
+					uncertainty: "The merchandising limit is still unclear.",
+				},
+				{ context }
+			);
+			const firstReferenceRevision = await call(
+				appRouter.rightsRecords.create,
+				{
+					...firstInput,
+					evidence: "Reference license URL",
+					id: crypto.randomUUID(),
+					referenceId,
+				},
+				{ context }
+			);
+			const otherReferenceRevision = await call(
+				appRouter.rightsRecords.create,
+				{
+					...firstInput,
+					evidence: "Other reference license URL",
+					id: crypto.randomUUID(),
+					referenceId: otherReferenceId,
+				},
+				{ context }
+			);
+			const fileBackedResult =
+				await rightsRecordStore.createRevisionWithEvidenceFile(userId, {
+					...firstInput,
+					evidence: "Reference license URL and attached terms",
+					id: crypto.randomUUID(),
+					referenceId,
+					evidenceFile: {
+						contentLength: 12,
+						fileName: "license.pdf",
+						objectKey: `projects/${projectId}/rights-record-evidence/${assetRecordId}/test-object`,
+						sha256: "a".repeat(64),
+						sourceContentType: "application/pdf",
+					},
+				});
+			if (!fileBackedResult.ok) {
+				throw new Error("File-backed Rights Record revision was not created.");
+			}
+			const fileBacked = fileBackedResult.record;
+			const crossReferenceFileCarry = await rightsRecordStore.createRevision(
+				userId,
+				{
+					...firstInput,
+					evidence: null,
+					evidenceFileSourceRecordId: fileBacked.id,
+					id: crypto.randomUUID(),
+					referenceId: otherReferenceId,
+				}
+			);
+
+			const rereadRightsRecordStore = createRightsRecordStore(
+				createDb({ DATABASE_URL: databaseUrl })
+			);
+			const rereadContext = {
+				rightsRecordStore: rereadRightsRecordStore,
+				session: { user: { id: userId } },
+			} as unknown as Context;
+			const history = await call(
+				appRouter.rightsRecords.list,
+				{ assetRecordId, projectId },
+				{ context: rereadContext }
+			);
+			const referenceHistory = await call(
+				appRouter.rightsRecords.list,
+				{ assetRecordId, projectId, referenceId },
+				{ context: rereadContext }
+			);
+			const otherReferenceHistory = await call(
+				appRouter.rightsRecords.list,
+				{ assetRecordId, projectId, referenceId: otherReferenceId },
+				{ context: rereadContext }
+			);
+
+			expect(first.versionNumber).toBe(1);
+			expect(retriedFirst).toEqual(first);
+			expect(second.versionNumber).toBe(2);
+			expect(history).toEqual([second, first]);
+			expect(referenceHistory).toEqual([fileBacked, firstReferenceRevision]);
+			expect(otherReferenceHistory).toEqual([otherReferenceRevision]);
+			expect(crossReferenceFileCarry).toEqual({
+				ok: false,
+				reason: "not_found",
+			});
+			expect(fileBacked).toMatchObject({
+				evidence: "Reference license URL and attached terms",
+				evidenceFile: {
+					contentLength: 12,
+					fileName: "license.pdf",
+					sourceContentType: "application/pdf",
+				},
+				referenceId,
+				versionNumber: 2,
+			});
+			expect(JSON.stringify(fileBacked)).not.toContain("objectKey");
+			expect(
+				await rereadRightsRecordStore.getEvidenceFile(
+					userId,
+					projectId,
+					assetRecordId,
+					referenceId,
+					fileBacked.id
+				)
+			).toMatchObject({ fileName: "license.pdf" });
+
+			await db
+				.update(assetRecords)
+				.set({ availability: "archived" })
+				.where(eq(assetRecords.id, assetRecordId));
+			expect(
+				await rereadRightsRecordStore.getEvidenceFile(
+					userId,
+					projectId,
+					assetRecordId,
+					referenceId,
+					fileBacked.id
+				)
+			).toMatchObject({ fileName: "license.pdf" });
+		} finally {
+			if (insertedAssetRecord) {
+				await db
+					.delete(rightsRecords)
+					.where(eq(rightsRecords.projectId, projectId));
+				if (insertedReferenceImage) {
+					await db
+						.delete(referenceBoardImages)
+						.where(eq(referenceBoardImages.projectId, projectId));
+				}
+				await db.delete(assetRecords).where(eq(assetRecords.id, assetRecordId));
+			}
+			if (insertedProject) {
+				await db.delete(project).where(eq(project.id, projectId));
+			}
+			if (insertedUser) {
+				await db.delete(user).where(eq(user.id, userId));
+			}
+		}
+	}
+);
