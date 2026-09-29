@@ -60,6 +60,10 @@ vi.mock("@/utils/orpc", () => ({
 	},
 }));
 
+vi.mock("@/env", () => ({
+	ENV: { VITE_SERVER_URL: "https://api.example.test" },
+}));
+
 afterEach(() => {
 	cleanup();
 	vi.restoreAllMocks();
@@ -83,6 +87,7 @@ test("creates a Rights Record and rereads its persisted declaration and evidence
 		const record: RightsRecord = {
 			...input,
 			createdAt: "2026-09-29T10:00:00.000Z",
+			evidenceFile: null,
 			versionNumber: 1,
 		};
 		fakeApi.records = [record];
@@ -187,6 +192,104 @@ test("requires a restriction before the user can declare a Rights Record Restric
 	expect(fakeApi.create).not.toHaveBeenCalled();
 });
 
+test("creates a Documented Rights Record with an uploaded evidence file", async () => {
+	const user = userEvent.setup();
+	const uploadedRecord: RightsRecord = {
+		assetRecordId,
+		assertedScope: "Paid game releases",
+		createdAt: "2026-09-29T10:00:00.000Z",
+		evidence: null,
+		evidenceFile: {
+			contentLength: 12,
+			fileName: "license.pdf",
+			sha256: "a".repeat(64),
+			sourceContentType: "application/pdf",
+		},
+		id: "3d9d07a4-37af-43d6-8583-e2256baf0a58",
+		projectId,
+		restrictions: null,
+		rightsHolderOrProvider: null,
+		source: null,
+		state: "documented",
+		uncertainty: null,
+		versionNumber: 1,
+	};
+	const fetchMock = vi.fn().mockResolvedValue(
+		new Response(JSON.stringify(uploadedRecord), {
+			headers: { "Content-Type": "application/json" },
+			status: 201,
+		})
+	);
+	fakeApi.records = [uploadedRecord];
+	vi.stubGlobal("fetch", fetchMock);
+
+	renderPanel();
+	await user.upload(
+		screen.getByLabelText("Kanıt dosyası ekle"),
+		new File(["license text"], "license.pdf", { type: "application/pdf" })
+	);
+	await screen.findByText("Seçilen dosya: license.pdf");
+	await user.type(
+		screen.getByLabelText("Beyan edilen izin kapsamı"),
+		"Paid game releases"
+	);
+	await user.type(
+		screen.getByLabelText("Hak kaydını destekleyen kanıt"),
+		"License reference: https://example.test/license"
+	);
+	await user.selectOptions(
+		screen.getByLabelText("Beyan edilen hak durumu"),
+		"documented"
+	);
+	await user.click(
+		screen.getByRole("button", { name: "Yeni Hak Kaydı sürümü oluştur" })
+	);
+
+	await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+	await screen.findByRole("link", { name: "license.pdf" });
+	expect(fakeApi.create).not.toHaveBeenCalled();
+	const uploadedForm = fetchMock.mock.calls[0]?.[1]?.body;
+	expect(uploadedForm).toBeInstanceOf(FormData);
+	expect(
+		JSON.parse((uploadedForm as FormData).get("rightsRecord") as string)
+	).toMatchObject({
+		evidence: "License reference: https://example.test/license",
+		state: "documented",
+	});
+});
+
+test("blocks submission while an oversized evidence file is selected", async () => {
+	const user = userEvent.setup();
+	const fetchMock = vi.fn();
+	vi.stubGlobal("fetch", fetchMock);
+	fakeApi.create.mockResolvedValue({});
+
+	renderPanel();
+	await user.type(
+		screen.getByLabelText("Hak kaydını destekleyen kanıt"),
+		"License reference"
+	);
+	await user.selectOptions(
+		screen.getByLabelText("Beyan edilen hak durumu"),
+		"documented"
+	);
+	await user.upload(
+		screen.getByLabelText("Kanıt dosyası ekle"),
+		new File([new Uint8Array(5 * 1024 * 1024 + 1)], "oversized.pdf", {
+			type: "application/pdf",
+		})
+	);
+	await user.click(
+		screen.getByRole("button", { name: "Yeni Hak Kaydı sürümü oluştur" })
+	);
+
+	expect(await screen.findByRole("alert")).toHaveTextContent(
+		"Kanıt dosyası 5 MiB sınırını aşıyor."
+	);
+	expect(fakeApi.create).not.toHaveBeenCalled();
+	expect(fetchMock).not.toHaveBeenCalled();
+});
+
 test("starts a new revision from the latest Rights Record without changing history", async () => {
 	const user = userEvent.setup();
 	const previousRevision: RightsRecord = {
@@ -194,6 +297,7 @@ test("starts a new revision from the latest Rights Record without changing histo
 		assertedScope: "Paid game releases",
 		createdAt: "2026-09-29T09:00:00.000Z",
 		evidence: "License reference",
+		evidenceFile: null,
 		id: "3d9d07a4-37af-43d6-8583-e2256baf0a58",
 		projectId,
 		restrictions: "Do not resell the source file.",
@@ -208,6 +312,7 @@ test("starts a new revision from the latest Rights Record without changing histo
 		const nextRevision: RightsRecord = {
 			...input,
 			createdAt: "2026-09-29T10:00:00.000Z",
+			evidenceFile: null,
 			versionNumber: 2,
 		};
 		fakeApi.records = [nextRevision, previousRevision];

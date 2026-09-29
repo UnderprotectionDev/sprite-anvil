@@ -2,18 +2,27 @@ import {
 	type RightsRecord,
 	type RightsRecordCreateInput,
 	type RightsRecordState,
+	rightsRecordEvidenceFileLimitBytes,
+	rightsRecordSchema,
 	rightsRecordStates,
 } from "@sprite-anvil/api/rights-records";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type SyntheticEvent, useEffect, useRef, useState } from "react";
+import {
+	type ChangeEvent,
+	type SyntheticEvent,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import {
 	isWriteOutcomeUncertain,
 	QueryRetryButton,
 } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
+import { rightsRecordEvidenceFileUrl } from "./rights-record-api";
 
 const stateLabels: Record<RightsRecordState, string> = {
 	assertion_only: "Yalnız Beyan",
@@ -26,6 +35,10 @@ const documentedEvidenceError =
 const restrictedRestrictionsError =
 	"Kısıtlı durumunda bilinen en az bir kısıt gerekir.";
 type RightsRecordValidationField = "evidence" | "restrictions";
+interface RightsRecordSubmission {
+	evidenceFile: File | null;
+	input: RightsRecordCreateInput;
+}
 
 interface RightsRecordDraft {
 	assertedScope: string;
@@ -35,6 +48,30 @@ interface RightsRecordDraft {
 	source: string;
 	state: RightsRecordState;
 	uncertainty: string;
+}
+
+function getEvidenceFileError(file: File | null) {
+	if (!file) {
+		return null;
+	}
+	if (file.size === 0) {
+		return "Kanıt dosyası boş olamaz.";
+	}
+	if (file.size > rightsRecordEvidenceFileLimitBytes) {
+		return "Kanıt dosyası 5 MiB sınırını aşıyor.";
+	}
+	return null;
+}
+
+function isRightsRecordFieldRequired(
+	key: Exclude<keyof RightsRecordDraft, "state">,
+	state: RightsRecordState,
+	hasEvidenceFile: boolean
+) {
+	if (key === "evidence") {
+		return state === "documented" && !hasEvidenceFile;
+	}
+	return key === "restrictions" && state === "restricted";
 }
 
 const emptyDraft: RightsRecordDraft = {
@@ -100,15 +137,115 @@ function normalizeInputText(value: string) {
 	return value.trim() || null;
 }
 
-function getDraftValidationErrors(draft: RightsRecordDraft) {
+function getDraftValidationErrors(
+	draft: RightsRecordDraft,
+	hasEvidenceFile = false
+) {
 	const errors: Partial<Record<RightsRecordValidationField, string>> = {};
-	if (draft.state === "documented" && !draft.evidence.trim()) {
+	if (
+		draft.state === "documented" &&
+		!draft.evidence.trim() &&
+		!hasEvidenceFile
+	) {
 		errors.evidence = documentedEvidenceError;
 	}
 	if (draft.state === "restricted" && !draft.restrictions.trim()) {
 		errors.restrictions = restrictedRestrictionsError;
 	}
 	return errors;
+}
+
+function removeRightsRecordValidationError(
+	errors: Partial<Record<RightsRecordValidationField, string>> | null,
+	field: RightsRecordValidationField
+) {
+	if (!errors) {
+		return null;
+	}
+	if (field === "evidence") {
+		return errors.restrictions ? { restrictions: errors.restrictions } : null;
+	}
+	return errors.evidence ? { evidence: errors.evidence } : null;
+}
+
+function updateRightsRecordValidationErrors(
+	errors: Partial<Record<RightsRecordValidationField, string>> | null,
+	key: keyof RightsRecordDraft
+) {
+	if (key === "state") {
+		return null;
+	}
+	if (key === "evidence" || key === "restrictions") {
+		return removeRightsRecordValidationError(errors, key);
+	}
+	return errors;
+}
+
+class RightsRecordEvidenceUploadError extends Error {
+	readonly outcomeUncertain: boolean;
+
+	constructor(
+		message: string,
+		options: ErrorOptions & { outcomeUncertain: boolean }
+	) {
+		super(message, options);
+		this.outcomeUncertain = options.outcomeUncertain;
+	}
+}
+
+function evidenceUploadErrorMessage(status: number) {
+	if (status === 400) {
+		return "Kanıt dosyası veya Hak Kaydı bilgileri geçersiz.";
+	}
+	if (status === 401) {
+		return "Oturumunuz sona erdi. Yeniden giriş yapın.";
+	}
+	if (status === 404) {
+		return "Bu Varlık Kaydı bulunamadı.";
+	}
+	if (status === 409) {
+		return "Bu Hak Kaydı sürüm kimliği farklı bilgilerle kullanılmış.";
+	}
+	if (status === 413) {
+		return "Kanıt dosyası 5 MiB sınırını aşıyor.";
+	}
+	return "Kanıt dosyasıyla Hak Kaydı oluşturulamadı.";
+}
+
+async function createRightsRecordRevision(
+	projectId: string,
+	assetRecordId: string,
+	{ input, evidenceFile }: RightsRecordSubmission
+) {
+	if (!evidenceFile) {
+		return client.rightsRecords.create(input);
+	}
+	const formData = new FormData();
+	formData.set("rightsRecord", JSON.stringify(input));
+	formData.set("evidenceFile", evidenceFile, evidenceFile.name);
+	let response: Response;
+	try {
+		response = await fetch(
+			rightsRecordEvidenceFileUrl(projectId, assetRecordId, input.id),
+			{
+				body: formData,
+				credentials: "include",
+				method: "POST",
+			}
+		);
+	} catch (error) {
+		throw new RightsRecordEvidenceUploadError(
+			"Yükleme sonucu doğrulanamadı. Hak Kaydı geçmişini yenileyip sonucu kontrol edin.",
+			{ cause: error, outcomeUncertain: true }
+		);
+	}
+	if (!response.ok) {
+		throw new RightsRecordEvidenceUploadError(
+			evidenceUploadErrorMessage(response.status),
+			{ outcomeUncertain: response.status >= 500 }
+		);
+	}
+	return rightsRecordSchema.parse(await response.json());
 }
 
 function getCreatedAtLabel(value: string) {
@@ -135,7 +272,13 @@ function HistoryField({
 	);
 }
 
-function RightsRecordHistoryItem({ record }: { record: RightsRecord }) {
+function RightsRecordHistoryItem({
+	projectId,
+	record,
+}: {
+	projectId: string;
+	record: RightsRecord;
+}) {
 	return (
 		<li className="space-y-3 rounded-md border p-4">
 			<div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -159,10 +302,145 @@ function RightsRecordHistoryItem({ record }: { record: RightsRecord }) {
 					label="Hak kaydını destekleyen kanıt"
 					value={record.evidence}
 				/>
+				{record.evidenceFile ? (
+					<div>
+						<dt className="font-medium text-sm">Kanıt dosyası</dt>
+						<dd className="mt-1 text-sm">
+							<a
+								download={record.evidenceFile.fileName}
+								href={rightsRecordEvidenceFileUrl(
+									projectId,
+									record.assetRecordId,
+									record.id
+								)}
+							>
+								{record.evidenceFile.fileName}
+							</a>
+						</dd>
+					</div>
+				) : null}
 				<HistoryField label="Bilinen kısıtlar" value={record.restrictions} />
 				<HistoryField label="Belirsizlik" value={record.uncertainty} />
 			</dl>
 		</li>
+	);
+}
+
+function RightsRecordSaveFeedback({
+	error,
+	isCheckingWriteOutcome,
+	isError,
+	isPending,
+	onCheckWriteOutcome,
+	statusMessage,
+	writeOutcomeUncertain,
+}: {
+	error: unknown;
+	isCheckingWriteOutcome: boolean;
+	isError: boolean;
+	isPending: boolean;
+	onCheckWriteOutcome: () => void;
+	statusMessage: string | null;
+	writeOutcomeUncertain: boolean;
+}) {
+	return (
+		<>
+			{isError ? (
+				<p role="alert">
+					{writeOutcomeUncertain
+						? "Kaydetme sonucu doğrulanamadı. Geçmişi yenileyerek kaydın oluşup oluşmadığını denetleyin."
+						: getErrorMessage(
+								error,
+								"Hak Kaydı oluşturulamadı. Girdi bilgilerini kontrol edip yeniden deneyin."
+							)}
+				</p>
+			) : null}
+			{statusMessage ? (
+				<p aria-live="polite" className="text-sm">
+					{statusMessage}
+				</p>
+			) : null}
+			{writeOutcomeUncertain ? (
+				<Button
+					className="min-h-11"
+					disabled={isCheckingWriteOutcome}
+					onClick={onCheckWriteOutcome}
+					type="button"
+					variant="outline"
+				>
+					{isCheckingWriteOutcome
+						? "Kaydetme sonucu denetleniyor…"
+						: "Kaydetme sonucunu denetle"}
+				</Button>
+			) : (
+				<Button className="min-h-11" disabled={isPending} type="submit">
+					{isPending
+						? "Hak Kaydı oluşturuluyor…"
+						: "Yeni Hak Kaydı sürümü oluştur"}
+				</Button>
+			)}
+		</>
+	);
+}
+
+function RightsRecordHistory({
+	error,
+	history,
+	isError,
+	isFetching,
+	isPending,
+	onRetry,
+	projectId,
+}: {
+	error: unknown;
+	history: RightsRecord[];
+	isError: boolean;
+	isFetching: boolean;
+	isPending: boolean;
+	onRetry: () => void;
+	projectId: string;
+}) {
+	return (
+		<section
+			aria-labelledby="rights-record-history-heading"
+			className="space-y-3"
+		>
+			<div>
+				<h3 className="font-medium" id="rights-record-history-heading">
+					Sürüm geçmişi
+				</h3>
+			</div>
+			{isPending ? (
+				<p aria-live="polite" className="text-muted-foreground text-sm">
+					Hak Kaydı geçmişi yükleniyor…
+				</p>
+			) : null}
+			{isError ? (
+				<div className="space-y-2">
+					<p role="alert">
+						{getErrorMessage(error, "Hak Kaydı geçmişi yüklenemedi.", "query")}
+					</p>
+					<QueryRetryButton disabled={isFetching} onRetry={onRetry} />
+				</div>
+			) : null}
+			{isPending || isError ? null : (
+				<ul className="space-y-3">
+					{history.length > 0 ? (
+						history.map((record) => (
+							<RightsRecordHistoryItem
+								key={record.id}
+								projectId={projectId}
+								record={record}
+							/>
+						))
+					) : (
+						<li className="rounded-lg border border-dashed p-4 text-muted-foreground text-sm">
+							Bu Varlık Kaydı için henüz Hak Kaydı yok.
+						</li>
+					)}
+				</ul>
+			)}
+		</section>
 	);
 }
 
@@ -174,10 +452,15 @@ export function RightsRecordPanel({
 	projectId: string;
 }) {
 	const queryClient = useQueryClient();
-	const pendingCreate = useRef<RightsRecordCreateInput | null>(null);
+	const pendingCreate = useRef<RightsRecordSubmission | null>(null);
+	const evidenceFileInput = useRef<HTMLInputElement>(null);
 	const hasEditedDraft = useRef(false);
 	const initializedFromHistory = useRef(false);
 	const [draft, setDraft] = useState<RightsRecordDraft>(emptyDraft);
+	const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
+	const [evidenceFileError, setEvidenceFileError] = useState<string | null>(
+		null
+	);
 	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
 	const [isCheckingWriteOutcome, setIsCheckingWriteOutcome] = useState(false);
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -201,10 +484,14 @@ export function RightsRecordPanel({
 	}, [historyQuery.data, historyQuery.isSuccess]);
 
 	const createRevision = useMutation({
-		mutationFn: (input: RightsRecordCreateInput) =>
-			client.rightsRecords.create(input),
+		mutationFn: (submission: RightsRecordSubmission) =>
+			createRightsRecordRevision(projectId, assetRecordId, submission),
 		onError(error) {
-			if (isWriteOutcomeUncertain(error)) {
+			if (
+				isWriteOutcomeUncertain(error) ||
+				(error instanceof RightsRecordEvidenceUploadError &&
+					error.outcomeUncertain)
+			) {
 				setWriteOutcomeUncertain(true);
 			} else {
 				pendingCreate.current = null;
@@ -212,6 +499,11 @@ export function RightsRecordPanel({
 		},
 		async onSuccess(record) {
 			pendingCreate.current = null;
+			setEvidenceFile(null);
+			setEvidenceFileError(null);
+			if (evidenceFileInput.current) {
+				evidenceFileInput.current.value = "";
+			}
 			setWriteOutcomeUncertain(false);
 			setValidationErrors(null);
 			setStatusMessage(
@@ -234,21 +526,34 @@ export function RightsRecordPanel({
 		if (createRevision.isError) {
 			createRevision.reset();
 		}
-		setValidationErrors((current) => {
-			if (!current || key === "state") {
-				return null;
-			}
-			if (key === "evidence" || key === "restrictions") {
-				const next = { ...current };
-				delete next[key as RightsRecordValidationField];
-				return Object.keys(next).length > 0 ? next : null;
-			}
-			return current;
-		});
+		setValidationErrors((current) =>
+			updateRightsRecordValidationErrors(current, key)
+		);
+	}
+
+	function updateEvidenceFile(event: ChangeEvent<HTMLInputElement>) {
+		const selectedFile = event.currentTarget.files?.[0] ?? null;
+		setEvidenceFileError(getEvidenceFileError(selectedFile));
+		setEvidenceFile(
+			selectedFile &&
+				selectedFile.size > 0 &&
+				selectedFile.size <= rightsRecordEvidenceFileLimitBytes
+				? selectedFile
+				: null
+		);
+		hasEditedDraft.current = true;
+		pendingCreate.current = null;
+		setStatusMessage(null);
+		if (createRevision.isError) {
+			createRevision.reset();
+		}
+		setValidationErrors((current) =>
+			removeRightsRecordValidationError(current, "evidence")
+		);
 	}
 
 	function validateField(key: RightsRecordValidationField) {
-		const error = getDraftValidationErrors(draft)[key];
+		const error = getDraftValidationErrors(draft, Boolean(evidenceFile))[key];
 		if (error) {
 			setValidationErrors((current) => ({
 				...current,
@@ -259,10 +564,14 @@ export function RightsRecordPanel({
 
 	function submit(event: SyntheticEvent<HTMLFormElement>) {
 		event.preventDefault();
-		if (createRevision.isPending || writeOutcomeUncertain) {
+		if (
+			createRevision.isPending ||
+			writeOutcomeUncertain ||
+			evidenceFileError
+		) {
 			return;
 		}
-		const errors = getDraftValidationErrors(draft);
+		const errors = getDraftValidationErrors(draft, Boolean(evidenceFile));
 		if (Object.keys(errors).length > 0) {
 			setValidationErrors(errors);
 			return;
@@ -270,7 +579,7 @@ export function RightsRecordPanel({
 		setValidationErrors(null);
 
 		const input =
-			pendingCreate.current ??
+			pendingCreate.current?.input ??
 			({
 				assetRecordId,
 				assertedScope: normalizeInputText(draft.assertedScope),
@@ -285,9 +594,26 @@ export function RightsRecordPanel({
 				state: draft.state,
 				uncertainty: normalizeInputText(draft.uncertainty),
 			} satisfies RightsRecordCreateInput);
-		pendingCreate.current = input;
+		const submission = {
+			evidenceFile: pendingCreate.current?.evidenceFile ?? evidenceFile,
+			input,
+		};
+		pendingCreate.current = submission;
 		setStatusMessage(null);
-		createRevision.mutate(input);
+		createRevision.mutate(submission);
+	}
+
+	function removeEvidenceFile() {
+		setEvidenceFile(null);
+		setEvidenceFileError(null);
+		if (evidenceFileInput.current) {
+			evidenceFileInput.current.value = "";
+		}
+		pendingCreate.current = null;
+		setStatusMessage(null);
+		if (createRevision.isError) {
+			createRevision.reset();
+		}
 	}
 
 	async function checkWriteOutcome() {
@@ -298,13 +624,17 @@ export function RightsRecordPanel({
 				return;
 			}
 
-			const expectedId = pendingCreate.current?.id;
+			const expectedId = pendingCreate.current?.input.id;
 			const savedRecord = result.data?.find(
 				(record) => record.id === expectedId
 			);
 			if (savedRecord) {
 				pendingCreate.current = null;
 				setWriteOutcomeUncertain(false);
+				setEvidenceFile(null);
+				if (evidenceFileInput.current) {
+					evidenceFileInput.current.value = "";
+				}
 				setValidationErrors(null);
 				setStatusMessage(
 					`Hak Kaydı Revizyon ${savedRecord.versionNumber} oluşturuldu.`
@@ -324,6 +654,9 @@ export function RightsRecordPanel({
 
 	const history = historyQuery.data ?? [];
 	const formDisabled = createRevision.isPending || writeOutcomeUncertain;
+	const evidenceFileInputId = `rights-record-${assetRecordId}-evidence-file`;
+	const evidenceFileHelpId = `${evidenceFileInputId}-help`;
+	const evidenceFileErrorId = `${evidenceFileInputId}-error`;
 
 	return (
 		<section
@@ -353,9 +686,11 @@ export function RightsRecordPanel({
 					const fieldError = validationKey
 						? validationErrors?.[validationKey]
 						: undefined;
-					const isRequired =
-						(key === "evidence" && draft.state === "documented") ||
-						(key === "restrictions" && draft.state === "restricted");
+					const isRequired = isRightsRecordFieldRequired(
+						key,
+						draft.state,
+						Boolean(evidenceFile)
+					);
 					return (
 						<div className="space-y-1" key={key}>
 							<label className="block space-y-1 text-sm" htmlFor={fieldId}>
@@ -416,6 +751,52 @@ export function RightsRecordPanel({
 					);
 				})}
 
+				<div className="space-y-1">
+					<label
+						className="block space-y-1 text-sm"
+						htmlFor={evidenceFileInputId}
+					>
+						<span>Kanıt dosyası ekle</span>
+						<input
+							aria-describedby={
+								evidenceFileError
+									? `${evidenceFileHelpId} ${evidenceFileErrorId}`
+									: evidenceFileHelpId
+							}
+							aria-invalid={Boolean(evidenceFileError)}
+							className="min-h-11 w-full rounded-md border bg-background px-3 py-2 text-sm file:mr-3 file:rounded-sm file:border-0 file:bg-muted file:px-3 file:py-1"
+							disabled={formDisabled}
+							id={evidenceFileInputId}
+							onChange={updateEvidenceFile}
+							ref={evidenceFileInput}
+							type="file"
+						/>
+					</label>
+					<p className="text-muted-foreground text-sm" id={evidenceFileHelpId}>
+						Tek dosya, en fazla 5 MiB. Metin veya URL alanıyla birlikte
+						kullanabilirsiniz.
+					</p>
+					{evidenceFile ? (
+						<p className="text-sm">Seçilen dosya: {evidenceFile.name}</p>
+					) : null}
+					{evidenceFileError ? (
+						<p className="text-sm" id={evidenceFileErrorId} role="alert">
+							{evidenceFileError}
+						</p>
+					) : null}
+					{evidenceFile || evidenceFileError ? (
+						<Button
+							className="min-h-11"
+							disabled={formDisabled}
+							onClick={removeEvidenceFile}
+							type="button"
+							variant="outline"
+						>
+							Kanıt dosyasını kaldır
+						</Button>
+					) : null}
+				</div>
+
 				<label
 					className="block space-y-1 text-sm"
 					htmlFor={`rights-record-${assetRecordId}-state`}
@@ -441,85 +822,26 @@ export function RightsRecordPanel({
 					</select>
 				</label>
 
-				{createRevision.isError ? (
-					<p role="alert">
-						{writeOutcomeUncertain
-							? "Kaydetme sonucu doğrulanamadı. Geçmişi yenileyerek kaydın oluşup oluşmadığını denetleyin."
-							: getErrorMessage(
-									createRevision.error,
-									"Hak Kaydı oluşturulamadı. Girdi bilgilerini kontrol edip yeniden deneyin."
-								)}
-					</p>
-				) : null}
-				{statusMessage ? (
-					<p aria-live="polite" className="text-sm">
-						{statusMessage}
-					</p>
-				) : null}
-				{writeOutcomeUncertain ? (
-					<Button
-						className="min-h-11"
-						disabled={isCheckingWriteOutcome}
-						onClick={() => void checkWriteOutcome()}
-						type="button"
-						variant="outline"
-					>
-						{isCheckingWriteOutcome
-							? "Kaydetme sonucu denetleniyor…"
-							: "Kaydetme sonucunu denetle"}
-					</Button>
-				) : (
-					<Button className="min-h-11" disabled={formDisabled} type="submit">
-						{createRevision.isPending
-							? "Hak Kaydı oluşturuluyor…"
-							: "Yeni Hak Kaydı sürümü oluştur"}
-					</Button>
-				)}
+				<RightsRecordSaveFeedback
+					error={createRevision.error}
+					isCheckingWriteOutcome={isCheckingWriteOutcome}
+					isError={createRevision.isError}
+					isPending={formDisabled}
+					onCheckWriteOutcome={() => void checkWriteOutcome()}
+					statusMessage={statusMessage}
+					writeOutcomeUncertain={writeOutcomeUncertain}
+				/>
 			</form>
 
-			<section
-				aria-labelledby="rights-record-history-heading"
-				className="space-y-3"
-			>
-				<div>
-					<h3 className="font-medium" id="rights-record-history-heading">
-						Sürüm geçmişi
-					</h3>
-				</div>
-				{historyQuery.isPending ? (
-					<p aria-live="polite" className="text-muted-foreground text-sm">
-						Hak Kaydı geçmişi yükleniyor…
-					</p>
-				) : null}
-				{historyQuery.isError ? (
-					<div className="space-y-2">
-						<p role="alert">
-							{getErrorMessage(
-								historyQuery.error,
-								"Hak Kaydı geçmişi yüklenemedi.",
-								"query"
-							)}
-						</p>
-						<QueryRetryButton
-							disabled={historyQuery.isFetching}
-							onRetry={() => void historyQuery.refetch()}
-						/>
-					</div>
-				) : null}
-				{historyQuery.isPending || historyQuery.isError ? null : (
-					<ul className="space-y-3">
-						{history.length > 0 ? (
-							history.map((record) => (
-								<RightsRecordHistoryItem key={record.id} record={record} />
-							))
-						) : (
-							<li className="rounded-lg border border-dashed p-4 text-muted-foreground text-sm">
-								Bu Varlık Kaydı için henüz Hak Kaydı yok.
-							</li>
-						)}
-					</ul>
-				)}
-			</section>
+			<RightsRecordHistory
+				error={historyQuery.error}
+				history={history}
+				isError={historyQuery.isError}
+				isFetching={historyQuery.isFetching}
+				isPending={historyQuery.isPending}
+				onRetry={() => void historyQuery.refetch()}
+				projectId={projectId}
+			/>
 		</section>
 	);
 }

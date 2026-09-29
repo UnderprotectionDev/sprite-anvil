@@ -3,22 +3,48 @@ import type {
 	RightsRecordCreateInput,
 	RightsRecordCreateResult,
 	RightsRecordStore,
+	RightsRecordStoredEvidenceFile,
 } from "@sprite-anvil/api/rights-records";
-import { rightsRecordSchema } from "@sprite-anvil/api/rights-records";
+import {
+	rightsRecordCreateInputSchema,
+	rightsRecordEvidenceFileCreateInputSchema,
+	rightsRecordSchema,
+	rightsRecordStoredEvidenceFileSchema,
+} from "@sprite-anvil/api/rights-records";
 import type { Database } from "@sprite-anvil/db";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
 import { project } from "@sprite-anvil/db/schema/project";
 import { rightsRecords } from "@sprite-anvil/db/schema/rights-records";
 import { and, desc, eq } from "drizzle-orm";
 
+type RightsRecordRevisionInput = RightsRecordCreateInput & {
+	evidenceFile: RightsRecordStoredEvidenceFile | null;
+};
+
+function publicEvidenceFile(file: RightsRecordStoredEvidenceFile | null) {
+	if (!file) {
+		return null;
+	}
+	return {
+		contentLength: file.contentLength,
+		fileName: file.fileName,
+		sha256: file.sha256,
+		sourceContentType: file.sourceContentType,
+	};
+}
+
 function toRightsRecord(
 	record: typeof rightsRecords.$inferSelect
 ): RightsRecord {
+	const evidenceFile = record.evidenceFile
+		? rightsRecordStoredEvidenceFileSchema.parse(record.evidenceFile)
+		: null;
 	return rightsRecordSchema.parse({
 		assetRecordId: record.assetRecordId,
 		assertedScope: record.assertedScope,
 		createdAt: record.createdAt.toISOString(),
 		evidence: record.evidence,
+		evidenceFile: publicEvidenceFile(evidenceFile),
 		id: record.id,
 		projectId: record.projectId,
 		restrictions: record.restrictions,
@@ -30,10 +56,29 @@ function toRightsRecord(
 	});
 }
 
+function sameEvidenceFile(
+	left: RightsRecordStoredEvidenceFile | null,
+	right: RightsRecordStoredEvidenceFile | null
+) {
+	if (!(left && right)) {
+		return left === right;
+	}
+	return (
+		left.contentLength === right.contentLength &&
+		left.fileName === right.fileName &&
+		left.objectKey === right.objectKey &&
+		left.sha256 === right.sha256 &&
+		left.sourceContentType === right.sourceContentType
+	);
+}
+
 function matchesInput(
 	record: typeof rightsRecords.$inferSelect,
-	input: RightsRecordCreateInput
+	input: RightsRecordRevisionInput
 ) {
+	const evidenceFile = record.evidenceFile
+		? rightsRecordStoredEvidenceFileSchema.parse(record.evidenceFile)
+		: null;
 	return (
 		record.projectId === input.projectId &&
 		record.assetRecordId === input.assetRecordId &&
@@ -43,14 +88,39 @@ function matchesInput(
 		record.evidence === input.evidence &&
 		record.restrictions === input.restrictions &&
 		record.uncertainty === input.uncertainty &&
-		record.state === input.state
+		record.state === input.state &&
+		sameEvidenceFile(evidenceFile, input.evidenceFile)
 	);
+}
+
+async function canAccessAssetRecord(
+	db: Database,
+	userId: string,
+	projectId: string,
+	assetRecordId: string
+) {
+	const [assetRecord] = await db
+		.select({
+			availability: assetRecords.availability,
+			id: assetRecords.id,
+		})
+		.from(assetRecords)
+		.innerJoin(project, eq(project.id, assetRecords.projectId))
+		.where(
+			and(
+				eq(assetRecords.projectId, projectId),
+				eq(assetRecords.id, assetRecordId),
+				eq(project.ownerUserId, userId)
+			)
+		)
+		.limit(1);
+	return Boolean(assetRecord && assetRecord.availability !== "erased");
 }
 
 async function createNextRevision(
 	db: Database,
 	userId: string,
-	input: RightsRecordCreateInput,
+	input: RightsRecordRevisionInput,
 	attempt = 0
 ): Promise<RightsRecordCreateResult> {
 	const [existing] = await db
@@ -96,45 +166,82 @@ async function createNextRevision(
 
 export function createRightsRecordStore(db: Database): RightsRecordStore {
 	return {
-		async createRevision(userId, input) {
-			const [ownedAssetRecord] = await db
-				.select({
-					availability: assetRecords.availability,
-					id: assetRecords.id,
-				})
-				.from(assetRecords)
-				.innerJoin(project, eq(project.id, assetRecords.projectId))
-				.where(
-					and(
-						eq(assetRecords.projectId, input.projectId),
-						eq(assetRecords.id, input.assetRecordId),
-						eq(project.ownerUserId, userId)
-					)
-				)
-				.limit(1);
-			if (!ownedAssetRecord || ownedAssetRecord.availability === "erased") {
+		canAccessAssetRecord(userId, projectId, assetRecordId) {
+			return canAccessAssetRecord(db, userId, projectId, assetRecordId);
+		},
+		async createRevision(userId, rawInput) {
+			const input = rightsRecordCreateInputSchema.parse(rawInput);
+			if (
+				!(await canAccessAssetRecord(
+					db,
+					userId,
+					input.projectId,
+					input.assetRecordId
+				))
+			) {
 				return { ok: false, reason: "not_found" };
 			}
-
-			return createNextRevision(db, userId, input);
+			return createNextRevision(db, userId, {
+				...input,
+				evidenceFile: null,
+			});
 		},
-		async list(userId, projectId, assetRecordId) {
-			const [ownedAssetRecord] = await db
+		async createRevisionWithEvidenceFile(userId, rawInput) {
+			const input = rawInput;
+			const evidenceFile = rightsRecordStoredEvidenceFileSchema.parse(
+				input.evidenceFile
+			);
+			const { objectKey: _objectKey, ...publicFile } = evidenceFile;
+			const normalized = rightsRecordEvidenceFileCreateInputSchema.parse({
+				...input,
+				evidenceFile: publicFile,
+			});
+			if (
+				!(await canAccessAssetRecord(
+					db,
+					userId,
+					normalized.projectId,
+					normalized.assetRecordId
+				))
+			) {
+				return { ok: false, reason: "not_found" };
+			}
+			return createNextRevision(db, userId, {
+				...normalized,
+				evidenceFile,
+			});
+		},
+		async getEvidenceFile(userId, projectId, assetRecordId, rightsRecordId) {
+			const [record] = await db
 				.select({
-					availability: assetRecords.availability,
-					id: assetRecords.id,
+					evidenceFile: rightsRecords.evidenceFile,
 				})
-				.from(assetRecords)
+				.from(rightsRecords)
+				.innerJoin(
+					assetRecords,
+					and(
+						eq(assetRecords.projectId, rightsRecords.projectId),
+						eq(assetRecords.id, rightsRecords.assetRecordId)
+					)
+				)
 				.innerJoin(project, eq(project.id, assetRecords.projectId))
 				.where(
 					and(
-						eq(assetRecords.projectId, projectId),
-						eq(assetRecords.id, assetRecordId),
-						eq(project.ownerUserId, userId)
+						eq(rightsRecords.id, rightsRecordId),
+						eq(rightsRecords.projectId, projectId),
+						eq(rightsRecords.assetRecordId, assetRecordId),
+						eq(project.ownerUserId, userId),
+						eq(assetRecords.availability, "active")
 					)
 				)
 				.limit(1);
-			if (!ownedAssetRecord || ownedAssetRecord.availability === "erased") {
+			if (!record?.evidenceFile) {
+				return null;
+			}
+			return rightsRecordStoredEvidenceFileSchema.parse(record.evidenceFile);
+		},
+		async list(userId, projectId, assetRecordId) {
+			if (!(await canAccessAssetRecord(db, userId, projectId, assetRecordId))) {
 				return null;
 			}
 

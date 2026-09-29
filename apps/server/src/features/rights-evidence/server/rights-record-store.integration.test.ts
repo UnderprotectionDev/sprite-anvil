@@ -13,7 +13,7 @@ import { createRightsRecordStore } from "./rights-record-store";
 const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
 
 test.skipIf(!databaseUrl)(
-	"persists and rereads immutable Rights Record revisions through the protected API",
+	"persists and rereads immutable text and file Rights Record revisions through the protected API",
 	async () => {
 		if (!databaseUrl) {
 			throw new Error("CONTEXT_TEST_DATABASE_URL is required for this test.");
@@ -51,8 +51,9 @@ test.skipIf(!databaseUrl)(
 			});
 			insertedAssetRecord = true;
 
+			const rightsRecordStore = createRightsRecordStore(db);
 			const context = {
-				rightsRecordStore: createRightsRecordStore(db),
+				rightsRecordStore,
 				session: { user: { id: userId } },
 			} as unknown as Context;
 			const firstInput = {
@@ -86,6 +87,23 @@ test.skipIf(!databaseUrl)(
 				},
 				{ context }
 			);
+			const fileBackedResult =
+				await rightsRecordStore.createRevisionWithEvidenceFile(userId, {
+					...firstInput,
+					evidence: null,
+					id: crypto.randomUUID(),
+					evidenceFile: {
+						contentLength: 12,
+						fileName: "license.pdf",
+						objectKey: `projects/${projectId}/rights-record-evidence/${assetRecordId}/test-object`,
+						sha256: "a".repeat(64),
+						sourceContentType: "application/pdf",
+					},
+				});
+			if (!fileBackedResult.ok) {
+				throw new Error("File-backed Rights Record revision was not created.");
+			}
+			const fileBacked = fileBackedResult.record;
 
 			const rereadContext = {
 				rightsRecordStore: createRightsRecordStore(
@@ -102,7 +120,17 @@ test.skipIf(!databaseUrl)(
 			expect(first.versionNumber).toBe(1);
 			expect(retriedFirst).toEqual(first);
 			expect(second.versionNumber).toBe(2);
-			expect(history).toEqual([second, first]);
+			expect(history).toEqual([fileBacked, second, first]);
+			expect(fileBacked).toMatchObject({
+				evidence: null,
+				evidenceFile: {
+					contentLength: 12,
+					fileName: "license.pdf",
+					sourceContentType: "application/pdf",
+				},
+				versionNumber: 3,
+			});
+			expect(JSON.stringify(fileBacked)).not.toContain("objectKey");
 		} finally {
 			if (insertedAssetRecord) {
 				await db

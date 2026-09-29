@@ -60,6 +60,14 @@ export const importInboxObjectKeySchema = z
 		)
 	);
 
+export const rightsRecordEvidenceObjectKeySchema = z
+	.string()
+	.regex(
+		new RegExp(
+			`^projects/${projectKeySegmentPattern}/asset-records/${uuidPattern}/rights-records/${uuidPattern}/evidence/[a-f0-9]{64}$`
+		)
+	);
+
 export const managedSnapshotObjectKeySchema = z
 	.string()
 	.regex(
@@ -106,6 +114,18 @@ export function createProjectImportInboxObjectKey(
 			entryId +
 			"/" +
 			uploadAttemptId
+	);
+}
+
+export function createProjectRightsRecordEvidenceObjectKey(
+	projectId: string,
+	assetRecordId: string,
+	rightsRecordId: string,
+	objectFingerprint: string
+) {
+	const projectKeySegment = encodeURIComponent(projectId);
+	return rightsRecordEvidenceObjectKeySchema.parse(
+		`projects/${projectKeySegment}/asset-records/${assetRecordId}/rights-records/${rightsRecordId}/evidence/${objectFingerprint}`
 	);
 }
 

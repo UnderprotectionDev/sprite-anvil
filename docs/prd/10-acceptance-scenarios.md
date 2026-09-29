@@ -93,7 +93,7 @@ Her profilin ortak senaryosu şu kanıtları üretir:
 
 **Kanıt:**
 
-1. Toplu içe aktarma dosyalardan kendiliğinden Varlık Ailesi veya üretim geçmişi kurmaz. Kullanıcı Geçmiş Varlık Beyanı ile ayrı Hak Kaydı oluşturur; iki kayıt birbirinin yerine geçmez.
+1. Toplu içe aktarma dosyalardan kendiliğinden Varlık Ailesi veya üretim geçmişi kurmaz. Kullanıcı Geçmiş Varlık Beyanı ile ayrı Hak Kaydı oluşturur; iki kayıt birbirinin yerine geçmez. Hak Kaydı metin/URL açıklaması ile 5 MiB’a kadar bir dosyayı aynı sürümde saklayabilir; geçmiş yenilendiğinde dosya aynı özetle yeniden okunur ve yalnız proje sahibi indirebilir.
 2. Bir Üretim Deneyi içindeki değişmez Üretim Paketleri karşılaştırılır. Birden fazla girdinin değiştiği deneme nedenin ayrıştırılamadığını gösterir. Kullanıcı deneyi sonuçlandırır; seçilen deneme kendiliğinden onaylanmaz. Kullanıcı bu denemeden Üretim Tarifi oluşturur ve tarifin bağımsız kopyasını başka proje bağlamında kullanırken proje değerlerini yeniden çözer.
 3. Ajan veya kurallı sistem Teslimat Hedefi taslağı hazırlayabilir; yalnız kullanıcı hedef sürümünü etkinleştirir. Etkin hedef Bağlam Sürümü’nü, Gerekli Öğeler Listesi sürümlerini, Üretim Kanıtı Politikası’nı ve Hak Kanıtı Politikası’nı sabitler. Yeni tabana geçiş yeni hedef sürümü ve görünür fark oluşturur.
 4. Hazırlık Planı bir engelin açacağı bağımlı işleri, hedef zorunluluğunu, kullanıcı önceliğini ve yeniden doğrulama etkisini ayrı gerekçelerle gösterir. Öneri kendiliğinden işlem başlatmaz.

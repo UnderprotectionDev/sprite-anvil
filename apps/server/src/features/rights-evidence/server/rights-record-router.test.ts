@@ -30,6 +30,7 @@ function createTestClient(
 				createdAt: new Date(
 					`2026-09-29T10:0${versionNumber}:00.000Z`
 				).toISOString(),
+				evidenceFile: null,
 				versionNumber,
 			};
 			records.push(savedRecord);

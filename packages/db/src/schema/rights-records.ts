@@ -4,6 +4,7 @@ import {
 	foreignKey,
 	index,
 	integer,
+	jsonb,
 	pgTable,
 	text,
 	timestamp,
@@ -18,6 +19,14 @@ type RightsRecordState =
 	| "unknown"
 	| "restricted";
 
+export interface StoredRightsRecordEvidenceFile {
+	contentLength: number;
+	fileName: string;
+	objectKey: string;
+	sha256: string;
+	sourceContentType: string;
+}
+
 export const rightsRecords = pgTable(
 	"rights_records",
 	{
@@ -29,6 +38,9 @@ export const rightsRecords = pgTable(
 		rightsHolderOrProvider: text("rights_holder_or_provider"),
 		assertedScope: text("asserted_scope"),
 		evidence: text("evidence"),
+		evidenceFile: jsonb(
+			"evidence_file"
+		).$type<StoredRightsRecordEvidenceFile | null>(),
 		restrictions: text("restrictions"),
 		uncertainty: text("uncertainty"),
 		state: text("state").$type<RightsRecordState>().notNull(),
@@ -63,7 +75,7 @@ export const rightsRecords = pgTable(
 		),
 		check(
 			"rights_records_state_fields_check",
-			sql`(${table.state} <> 'documented' OR (${table.evidence} IS NOT NULL AND length(trim(${table.evidence})) > 0)) AND (${table.state} <> 'restricted' OR (${table.restrictions} IS NOT NULL AND length(trim(${table.restrictions})) > 0))`
+			sql`(${table.state} <> 'documented' OR (${table.evidence} IS NOT NULL AND length(trim(${table.evidence})) > 0) OR ${table.evidenceFile} IS NOT NULL) AND (${table.state} <> 'restricted' OR (${table.restrictions} IS NOT NULL AND length(trim(${table.restrictions})) > 0))`
 		),
 	]
 );
