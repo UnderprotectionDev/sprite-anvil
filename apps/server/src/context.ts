@@ -18,6 +18,7 @@ import {
 	providerGenerationRecordStore,
 	referenceProductionStore,
 	rightsRecordStore,
+	specializedProfileContractStore,
 } from "./services";
 
 export interface CreateContextOptions {
@@ -83,6 +84,7 @@ export async function createContext({
 		providerGenerationRecordStore,
 		referenceProductionStore,
 		rightsRecordStore,
+		specializedProfileContractStore,
 		session,
 	};
 }
