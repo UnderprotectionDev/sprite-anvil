@@ -34,6 +34,7 @@ import { collectionsRouter } from "./collections";
 import { generationPackagesRouter } from "./generation-packages";
 import { projectsRouter } from "./projects";
 import { referenceProductionRouter } from "./reference-production";
+import { rightsRecordsRouter } from "./rights-records";
 import { specializedProfileContractsRouter } from "./specialized-profile-contracts";
 
 async function readContextProposalReview(
@@ -104,6 +105,7 @@ export const appRouter = {
 	generationPackages: generationPackagesRouter,
 	assetRecordTracking: assetRecordTrackingRouter,
 	referenceProduction: referenceProductionRouter,
+	rightsRecords: rightsRecordsRouter,
 	specializedProfileContracts: specializedProfileContractsRouter,
 	contextScopes: {
 		list: protectedProcedure

@@ -21,6 +21,7 @@ import { mountImportInboxRoutes } from "./features/imports/server/import-inbox-r
 import { mountManagedSnapshotRoutes } from "./features/production-provenance/server/managed-snapshot-routes";
 import { mountProjectRoutes } from "./features/projects/server/project-routes";
 import { mountReferenceProductionRoutes } from "./features/reference-production/server/reference-production-routes";
+import { mountRightsRecordEvidenceRoutes } from "./features/rights-evidence/server/rights-record-evidence-routes";
 import {
 	serializeHealthResponse,
 	serializePublicApiError,
@@ -34,6 +35,7 @@ import {
 	importInboxStore,
 	managedSnapshotStore,
 	referenceProductionStore,
+	rightsRecordStore,
 	sourceMetadataMappingProposalStore,
 } from "./services";
 
@@ -132,6 +134,12 @@ mountImportInboxRoutes(app, {
 	getSession: (headers) => auth.api.getSession({ headers }),
 	getProjectForUser: async (userId, projectId) =>
 		getProjectForUser(db, userId, projectId),
+	createStorage: createServerAssetVersionStorage,
+});
+
+mountRightsRecordEvidenceRoutes(app, {
+	rightsRecordStore,
+	getSession: (headers) => auth.api.getSession({ headers }),
 	createStorage: createServerAssetVersionStorage,
 });
 

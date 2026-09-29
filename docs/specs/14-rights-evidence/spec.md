@@ -15,7 +15,7 @@ Tamamlanma kanıtı: Kullanıcı her kaynağın sürümlü beyanını ve bir son
 ## User Stories
 
 1. Bir kullanıcı olarak her kaynağın kaynak, hak sahibi veya sağlayıcı, beyan edilen izin kapsamı, kısıt ve belirsizliğini Hak Kaydında tutmak istiyorum; böylece hak bilgisi sonuçla izlenebilir olur.
-2. Bir kullanıcı olarak Hak Kaydına destekleyici kanıt bağlamak istiyorum; böylece beyan ile belgeye dayalı bilgi ayrılır.
+2. Bir kullanıcı olarak Hak Kaydına metin/URL kanıtı ve bir destekleyici dosyayı birlikte eklemek istiyorum; böylece açıklama ile belge aynı değişmez sürümde kalır.
 3. Bir kullanıcı olarak kaydı Belgelendi, Yalnız Beyan, Bilinmiyor veya Kısıtlı olarak sınıflandırmak istiyorum; böylece mevcut bilgi düzeyi ve kullanım sınırı açık kalır.
 4. Bir kullanıcı olarak Hak Geçmişinde sonuçla birlikte kullanılan referansların, Ana Tasarımın ve bağlı kaynakların kayıtlarını ayrı görmek istiyorum; böylece kaynağın beyanı Türetilmiş Varlığa otomatik hak aktarmaz.
 5. Bir kullanıcı olarak Teslimat Hedefinin kabul ettiği hak kanıtı düzeyini hedef politikasında belirlemek istiyorum; böylece değerlendirme kullanım amacına göre yapılır.
@@ -30,7 +30,7 @@ Tamamlanma kanıtı: Kullanıcı her kaynağın sürümlü beyanını ve bir son
 
 ## Implementation Decisions
 
-- **Hak Kayıtlarını Sürümleme:** Kaynak, beyan, kanıt, kısıt ve belirsizlik her değişiklikte yeni, değişmez Hak Kaydı olarak korunur. Referans veya sonuca bağlı kaynak, beyan edilen hak durumu, kısıt ve belirsizlik değiştiğinde yeni Hak Kaydı sürümü oluşur. Geçmiş paket ve teslimatlar kullandıkları kesin sürümü korur; kayıt hukuki yeterlilik hükmü vermez.
+- **Hak Kayıtlarını Sürümleme:** Kaynak, beyan, metin/URL kanıtı, dosya kanıtı, kısıt ve belirsizlik her değişiklikte yeni, değişmez Hak Kaydı olarak korunur. Bir sürüm metin/URL kanıtı ile bir dosyayı birlikte taşıyabilir; dosya içeriği 5 MiB ile sınırlıdır ve gizli proje deposunda özet doğrulamasıyla saklanır. Sonraki sürüm oluşturulurken mevcut dosya kanıtı kullanıcı tarafından değiştirilmediği veya kaldırılmadığı sürece aynı gizli nesneye bağlı kalır; önceki sürüm değişmez. Ana Varlık Kaydı ve her referans görseli ayrı Hak Kaydı geçmişi taşır; kayıt ve kanıt dosyası yalnız o hedefe bağlanır. Beyan edilen hak durumu, kısıt ve belirsizlik değiştiğinde yeni Hak Kaydı sürümü oluşur. Geçmiş paket ve teslimatlar kullandıkları kesin sürümü korur; kayıt hukuki yeterlilik hükmü vermez.
 - **Hak Geçmişini İzleme:** Sonucun kendi kaydı ile Ana Tasarım, referans ve bağımlı kaynak kayıtları ayrı gösterilir; haklar otomatik aktarılmaz. Sonucun kendi Hak Kaydı, Ana Tasarımın, referansların ve bağımlı kaynakların ayrı kayıtlarıyla birlikte izlenir. Bir kaynaktaki beyan Türetilmiş Varlığa otomatik hak aktarmadığı için eksik ya da Kısıtlı durum hedef politikasında görünür olur.
 
 - **Yetki ve sürüm sınırı:** Aşağıdaki PRD hükümleri normatiftir. Fazın iş kırılımı, başka bir özelliğin kararını bu kapsama eklemez. Kesin kullanıcı kararları ajan veya otomasyon tarafından verilmez.
@@ -38,10 +38,11 @@ Tamamlanma kanıtı: Kullanıcı her kaynağın sürümlü beyanını ve bir son
 
 ## Testing Decisions
 
-- **Birincil test seam’i:** YAS-01 örneklerinde kesin girdiyi kullanıcı eyleminden kalıcı kayda ve yeniden okumaya taşıyan sunucu/API yolunu sınama; web ve masaüstü görünür sonuçlarını karşılaştırma.
+- **Birincil test seam’i:** YAS-01 örneklerinde metin/URL ve dosya kanıtını aynı kullanıcı eyleminden kalıcı Hak Kaydı sürümüne taşıyan sunucu/API yolunu, sürümü yeniden okumayı ve kanıt dosyasını yalnız yetkili proje sahibine indirmeyi sınama. Ana Varlık Kaydı ile her referans görselinin sürüm geçmişleri birbirinden ayrılmalı; yükleme ve indirme aynı hedefi doğrulamalıdır. Dosya içeren kayıttan yeni sürüm oluşturulduğunda dosya özeti ve özel nesne bağlantısı korunmalı; kaynak kayıt kimliği yalnız aynı proje, Varlık Kaydı ve hedef içindeki dosyayı seçebilmelidir. Web ve masaüstü görünür sonuçlarını karşılaştır.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.
+- Kimliği doğrulanmamış ve proje sahibi olmayan indirme/yükleme istekleri içerik döndürmemeli veya depolamaya yazmamalı; 5 MiB üzerindeki ve bozuk dosya girdileri de depolamaya ulaşmadan reddedilmelidir.
 - Bugün repoda bu faza ait ürün sözleşmesi bulunmuyor. Mevcut sunucu ve yüzey test örnekleri: [`account-access.test.ts`](../../../apps/server/src/account-access.test.ts), [`app-shell.spec.ts` (web)](../../../apps/web/e2e/app-shell.spec.ts) ve [`app-shell.spec.ts` (desktop)](../../../apps/web/desktop-e2e/app-shell.spec.ts). Bunlar bu özelliğin test edildiği anlamına gelmez.
-- Fazın özgül başarı ve red kanıtı: Kullanıcı her kaynağın sürümlü beyanını ve bir sonuçla ilişkisini görebilir; değişen risk geçmiş paketi yazmadan yeni değerlendirmeye taşınır. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Uygulama lisans geçerliliği hakkında hukuki karar vermez ve kaynağın beyanını Türetilmiş Varlığa otomatik aktarmaz.
+- Fazın özgül başarı ve red kanıtı: Kullanıcı her kaynağın sürümlü beyanını ve bir sonuçla ilişkisini görebilir; metin/URL ile dosya aynı sürümde kalıcıdır ve yeniden okunur; kimliği doğrulanmamış veya proje sahibi olmayan kullanıcı dosyayı indiremez; değişen risk geçmiş paketi yazmadan yeni değerlendirmeye taşınır. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Uygulama lisans geçerliliği hakkında hukuki karar vermez ve kaynağın beyanını Türetilmiş Varlığa otomatik aktarmaz.
 - Kabul örnekleri: YAS-01. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
 
 ## Out of Scope

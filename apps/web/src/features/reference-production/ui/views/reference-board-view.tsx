@@ -9,6 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { ClipboardEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { ENV } from "@/env";
+import { RightsRecordPanel } from "@/features/rights-evidence/ui/components/rights-record-panel";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
 import {
@@ -416,6 +417,12 @@ function ReferenceCard({
 				</summary>
 				<HistoryList history={image.history} />
 			</details>
+			<RightsRecordPanel
+				assetRecordId={assetRecordId}
+				projectId={projectId}
+				referenceId={image.id}
+				referenceName={image.fileName}
+			/>
 		</article>
 	);
 }

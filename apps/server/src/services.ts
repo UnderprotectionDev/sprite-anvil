@@ -21,6 +21,7 @@ import { createProjectAccessStore } from "./features/projects/server/project-acc
 import { createProviderGenerationRecordStore } from "./features/provider-generation-records/server/provider-generation-record-store";
 import { createSpecializedProfileContractStore } from "./features/quality-evidence/server/specialized-profile-contract-store";
 import { createReferenceProductionStore } from "./features/reference-production/server/reference-production-store";
+import { createRightsRecordStore } from "./features/rights-evidence/server/rights-record-store";
 import { createProjectContextScopeStore } from "./features/visual-worlds/server/project-context-scope-store";
 
 export const db = createDb(ENV);
@@ -46,6 +47,7 @@ export function createServerAssetVersionStorage() {
 }
 export const projectContextStore = createProjectContextStore(db);
 export const referenceProductionStore = createReferenceProductionStore(db);
+export const rightsRecordStore = createRightsRecordStore(db);
 export const managedSnapshotStore = createManagedSnapshotStore(db);
 export const projectContextScopeStore = createProjectContextScopeStore(db);
 export const specializedProfileContractStore =

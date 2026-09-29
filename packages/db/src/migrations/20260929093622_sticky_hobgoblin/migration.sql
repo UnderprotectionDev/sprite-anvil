@@ -1,0 +1,2 @@
+ALTER TABLE "rights_records" ADD COLUMN "evidence_file" jsonb;--> statement-breakpoint
+ALTER TABLE "rights_records" DROP CONSTRAINT "rights_records_state_fields_check", ADD CONSTRAINT "rights_records_state_fields_check" CHECK (("state" <> 'documented' OR ("evidence" IS NOT NULL AND length(trim("evidence")) > 0) OR "evidence_file" IS NOT NULL) AND ("state" <> 'restricted' OR ("restrictions" IS NOT NULL AND length(trim("restrictions")) > 0)));
