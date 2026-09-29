@@ -1,15 +1,7 @@
+import { specializedProfileIds } from "@sprite-anvil/db/specialized-profile-ids";
 import { z } from "zod";
 
-export const specializedProfileIds = [
-	"character_creature_animation",
-	"object_weapon_equipment_states",
-	"icon",
-	"visual_effect_projectile_shadow_mark",
-	"tileset_terrain_texture",
-	"background_parallax",
-	"ui",
-	"portrait_logo_marketing",
-] as const;
+export { specializedProfileIds } from "@sprite-anvil/db/specialized-profile-ids";
 
 export const specializedProfileIdSchema = z.enum(specializedProfileIds);
 export type SpecializedProfileId = z.infer<typeof specializedProfileIdSchema>;
@@ -317,10 +309,10 @@ const metadataField = (
 type ContractSeed = Omit<
 	SpecializedProfileContract,
 	"exportMappings" | "contractSchemaVersion" | "version"
->;
+> & { version?: string };
 
 function defineContract(seed: ContractSeed): SpecializedProfileContract {
-	const version = "1.0.0";
+	const version = seed.version ?? "1.0.0";
 	const exportMappings: SpecializedProfileContract["exportMappings"] =
 		seed.metadataFields.map((field) => ({
 			absentBehavior: field.required ? "stop_export" : "preserve_unknown",
@@ -341,6 +333,7 @@ function defineContract(seed: ContractSeed): SpecializedProfileContract {
 
 export const specializedProfileContractCatalog = [
 	defineContract({
+		version: "1.0.1",
 		profileId: "character_creature_animation",
 		name: "Karakter, yaratık ve animasyon",
 		supportedAssetCategories: ["character_creature_animation"],
@@ -353,6 +346,26 @@ export const specializedProfileContractCatalog = [
 				"Her animasyon karesi",
 				"Kare kimliği içe aktarma ve yeniden okumada aynı kalır.",
 				"animation.frames.id"
+			),
+			metadataField(
+				"frame_region",
+				"Kare alanı",
+				"json",
+				true,
+				"Her animasyon karesi",
+				"Kare bölgesi kaynak görsel koordinatlarında korunur.",
+				"animation.frames.region",
+				"px",
+				"source_image_top_left"
+			),
+			metadataField(
+				"frame_order",
+				"Kare sırası",
+				"integer",
+				true,
+				"Her animasyon karesi",
+				"Karelerin animasyon içindeki sırası korunur.",
+				"animation.frames.order"
 			),
 			metadataField(
 				"direction_id",
@@ -372,6 +385,15 @@ export const specializedProfileContractCatalog = [
 				"Kare süresi pozitif milisaniye olarak korunur.",
 				"animation.frames.duration_ms",
 				"ms"
+			),
+			metadataField(
+				"loop_mode",
+				"Döngü biçimi",
+				"text",
+				true,
+				"Her animasyon",
+				"Döngü biçimi dışa aktarım ve yeniden okumada korunur.",
+				"animation.loop_mode"
 			),
 			metadataField(
 				"pivot",
@@ -818,6 +840,7 @@ export const specializedProfileContractCatalog = [
 		],
 	}),
 	defineContract({
+		version: "1.0.1",
 		profileId: "visual_effect_projectile_shadow_mark",
 		name: "Görsel efekt, fırlatılan nesne, gölge ve yüzey işareti",
 		supportedAssetCategories: ["visual_effect_projectile_shadow_mark"],
@@ -830,6 +853,26 @@ export const specializedProfileContractCatalog = [
 				"Her efekt karesi",
 				"Kare kimliği ve sırası roundtrip boyunca korunur.",
 				"effect.frames.id"
+			),
+			metadataField(
+				"frame_region",
+				"Kare alanı",
+				"json",
+				true,
+				"Her efekt karesi",
+				"Kare bölgesi kaynak görsel koordinatlarında korunur.",
+				"effect.frames.region",
+				"px",
+				"source_image_top_left"
+			),
+			metadataField(
+				"frame_order",
+				"Kare sırası",
+				"integer",
+				true,
+				"Her efekt karesi",
+				"Efekt karelerinin sırası roundtrip boyunca korunur.",
+				"effect.frames.order"
 			),
 			metadataField(
 				"duration_ms",
@@ -887,6 +930,15 @@ export const specializedProfileContractCatalog = [
 				"Efekt karesi",
 				"Şeffaflık alanı kayıpsız korunur.",
 				"effect.frames.alpha_data"
+			),
+			metadataField(
+				"loop_mode",
+				"Döngü biçimi",
+				"text",
+				true,
+				"Her efekt animasyonu",
+				"Döngü biçimi dışa aktarım ve yeniden okumada korunur.",
+				"effect.loop_mode"
 			),
 		],
 		rules: [
@@ -1128,10 +1180,20 @@ export const specializedProfileContractCatalog = [
 		],
 	}),
 	defineContract({
+		version: "1.0.1",
 		profileId: "background_parallax",
 		name: "Arka plan ve katmanlı kaydırma",
 		supportedAssetCategories: ["background_parallax"],
 		metadataFields: [
+			metadataField(
+				"layer_version_id",
+				"Katman Asset Version kimliği",
+				"identifier",
+				true,
+				"Her arka plan katmanı",
+				"Katmanın tam Asset Version kimliği dışa aktarımda ve yeniden okumada korunur.",
+				"background.layers.asset_version_id"
+			),
 			metadataField(
 				"layer_id",
 				"Katman kimliği",

@@ -11,19 +11,9 @@ import {
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
 
+import { specializedProfileIds } from "../specialized-profile-ids";
 import { user } from "./auth";
 import { project } from "./project";
-
-const profileIds = [
-	"character_creature_animation",
-	"object_weapon_equipment_states",
-	"icon",
-	"visual_effect_projectile_shadow_mark",
-	"tileset_terrain_texture",
-	"background_parallax",
-	"ui",
-	"portrait_logo_marketing",
-] as const;
 
 export const specializedProfileContractRevisions = pgTable(
 	"specialized_profile_contract_revisions",
@@ -46,7 +36,7 @@ export const specializedProfileContractRevisions = pgTable(
 		check(
 			"specialized_profile_contract_revisions_profile_id_check",
 			sql`${table.profileId} in (${sql.join(
-				profileIds.map((profileId) => sql`${profileId}`),
+				specializedProfileIds.map((profileId) => sql`${profileId}`),
 				sql`, `
 			)})`
 		),
@@ -90,7 +80,7 @@ export const projectSpecializedProfileContracts = pgTable(
 		check(
 			"project_specialized_profile_contracts_profile_id_check",
 			sql`${table.profileId} in (${sql.join(
-				profileIds.map((profileId) => sql`${profileId}`),
+				specializedProfileIds.map((profileId) => sql`${profileId}`),
 				sql`, `
 			)})`
 		),

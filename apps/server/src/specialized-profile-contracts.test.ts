@@ -68,7 +68,7 @@ class MemorySpecializedProfileContractStore {
 			activatedAt: "2026-09-29T12:00:00.000Z",
 			activatedByUserId: requestedUserId,
 			contract,
-			contractRevisionId: `${profileId}@1.0.0`,
+			contractRevisionId: `${profileId}@${String(contract.version)}`,
 			projectId: requestedProjectId,
 		};
 		this.activations.set(`${requestedProjectId}:${profileId}`, activation);
@@ -132,12 +132,12 @@ test("activates a Specialized Profile Contract and reads the immutable revision 
 	expect(rereadActivation).toEqual(activation);
 	expect(rereadActivation.projectId).toBe(projectId);
 	expect(rereadActivation.contractRevisionId).toBe(
-		"character_creature_animation@1.0.0"
+		"character_creature_animation@1.0.1"
 	);
 	expect(rereadActivation.contract).toMatchObject({
 		contractSchemaVersion: "asset-profile/1.0.0",
 		profileId: "character_creature_animation",
-		version: "1.0.0",
+		version: "1.0.1",
 	});
 
 	const contract = rereadActivation.contract as {
@@ -211,4 +211,86 @@ test("fails activation when the persisted profile contract cannot be read back",
 	).rejects.toMatchObject({
 		code: "INTERNAL_SERVER_ERROR",
 	});
+});
+
+interface CatalogContract {
+	exportMappings: { fieldId: string; targetPath: string }[];
+	metadataFields: { id: string; exportPath: string }[];
+	profileId: string;
+	version: string;
+}
+
+async function listContractDefinitions(
+	context: ReturnType<typeof createContext>
+) {
+	const response = (await invoke("list", { projectId }, context)) as {
+		profiles: { definition: CatalogContract }[];
+	};
+	return response.profiles.map(({ definition }) => definition);
+}
+
+function expectMappedField(
+	contract: CatalogContract,
+	fieldId: string,
+	exportPath: string
+) {
+	expect(
+		contract.metadataFields.some(
+			(field) => field.id === fieldId && field.exportPath === exportPath
+		)
+	).toBe(true);
+	expect(
+		contract.exportMappings.some(
+			(mapping) =>
+				mapping.fieldId === fieldId && mapping.targetPath === exportPath
+		)
+	).toBe(true);
+}
+
+test("maps character frame regions, order, and loop metadata in a new contract revision", async () => {
+	const definitions = await listContractDefinitions(createContext());
+	const contract = definitions.find(
+		(definition) => definition.profileId === "character_creature_animation"
+	);
+
+	expect(contract?.version).toBe("1.0.1");
+	if (!contract) {
+		throw new Error("Character Specialized Profile Contract is missing");
+	}
+	expectMappedField(contract, "frame_region", "animation.frames.region");
+	expectMappedField(contract, "frame_order", "animation.frames.order");
+	expectMappedField(contract, "loop_mode", "animation.loop_mode");
+});
+
+test("maps visual-effect frame regions, order, and loop metadata in a new contract revision", async () => {
+	const definitions = await listContractDefinitions(createContext());
+	const contract = definitions.find(
+		(definition) =>
+			definition.profileId === "visual_effect_projectile_shadow_mark"
+	);
+
+	expect(contract?.version).toBe("1.0.1");
+	if (!contract) {
+		throw new Error("Visual Effect Specialized Profile Contract is missing");
+	}
+	expectMappedField(contract, "frame_region", "effect.frames.region");
+	expectMappedField(contract, "frame_order", "effect.frames.order");
+	expectMappedField(contract, "loop_mode", "effect.loop_mode");
+});
+
+test("maps exact background layer version ids in a new contract revision", async () => {
+	const definitions = await listContractDefinitions(createContext());
+	const contract = definitions.find(
+		(definition) => definition.profileId === "background_parallax"
+	);
+
+	expect(contract?.version).toBe("1.0.1");
+	if (!contract) {
+		throw new Error("Background Specialized Profile Contract is missing");
+	}
+	expectMappedField(
+		contract,
+		"layer_version_id",
+		"background.layers.asset_version_id"
+	);
 });
