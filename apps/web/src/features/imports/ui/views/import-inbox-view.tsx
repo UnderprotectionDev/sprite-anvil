@@ -277,9 +277,13 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 					Varlık kayıtlarına dön
 				</Link>
 				<div className="space-y-2">
-					<p className="text-muted-foreground text-sm">İçe aktarma</p>
-					<h1 className="font-bold text-3xl">İçe Aktarma Gelen Kutusu</h1>
-					<p className="text-muted-foreground">
+					<p className="font-mono text-primary text-xs uppercase tracking-[0.16em]">
+						İçe aktarma
+					</p>
+					<h1 className="font-medium font-serif text-4xl tracking-tight">
+						İçe Aktarma Gelen Kutusu
+					</h1>
+					<p className="max-w-2xl text-muted-foreground">
 						Hedefi henüz belli olmayan dosyaları Yönetilen Kopya olarak
 						saklayın. Bu dosyalar Varlık Kaydı veya Aday Sürüm değildir;
 						ilişkilendirilene kadar onaylanamaz ve dışa aktarılamaz.

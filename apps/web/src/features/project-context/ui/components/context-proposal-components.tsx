@@ -29,6 +29,7 @@ interface ContextWorkspaceProps {
 	onCheckProposalState: () => Promise<boolean>;
 	onNewProject: () => void;
 	onRefreshProposals: () => Promise<unknown>;
+	onRetryProposals: () => void;
 	onSelectProject: (project: ProjectContext) => void;
 	project: ProjectContext;
 	projects: ProjectContext[];
@@ -43,6 +44,7 @@ export function ContextWorkspace({
 	isScopePending,
 	onCheckProposalState,
 	onNewProject,
+	onRetryProposals,
 	onRefreshProposals,
 	onSelectProject,
 	project,
@@ -96,6 +98,7 @@ export function ContextWorkspace({
 				<ProposalLedger
 					isError={isProposalsError}
 					isPending={isProposalsPending}
+					onRetry={onRetryProposals}
 					project={project}
 					proposals={proposals}
 					scopeCatalog={scopeCatalog}
@@ -108,6 +111,7 @@ export function ContextWorkspace({
 interface ProposalLedgerProps {
 	isError: boolean;
 	isPending: boolean;
+	onRetry: () => void;
 	project: ProjectContext;
 	proposals: ContextProposal[];
 	scopeCatalog: ProjectContextScopeCatalog;
@@ -116,6 +120,7 @@ interface ProposalLedgerProps {
 function ProposalLedger({
 	isError,
 	isPending,
+	onRetry,
 	project,
 	scopeCatalog,
 	proposals,
@@ -128,7 +133,14 @@ function ProposalLedger({
 			</p>
 		);
 	} else if (isError) {
-		content = null;
+		content = (
+			<div className="ledger-empty" role="alert">
+				<p>Öneriler yüklenemedi.</p>
+				<Button className="quiet-button" onClick={onRetry} type="button">
+					Yeniden dene
+				</Button>
+			</div>
+		);
 	} else if (proposals.length > 0) {
 		content = (
 			<div className="proposal-list">

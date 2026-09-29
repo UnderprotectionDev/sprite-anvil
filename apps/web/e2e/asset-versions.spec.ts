@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { assetVersionFixture as fixture } from "./asset-version-fixture";
+import { signUpWithFixture } from "./project-workflow";
 
 test("uploads and rereads exact Asset and Composite Version lineage", async ({
 	page,
@@ -9,12 +10,7 @@ test("uploads and rereads exact Asset and Composite Version lineage", async ({
 		"CONTEXT_TEST_DATABASE_URL is required for the persistent flow."
 	);
 
-	await page.goto("/login");
-	await page.getByLabel("Name").fill(fixture.userName);
-	await page.getByLabel("Email").fill(fixture.email);
-	await page.getByLabel("Password").fill(fixture.password);
-	await page.getByRole("button", { name: "Sign Up" }).click();
-	await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+	await signUpWithFixture(page, fixture);
 
 	await page.goto("/context-proposals");
 	await page.getByLabel("Proje adı").fill(fixture.projectName);

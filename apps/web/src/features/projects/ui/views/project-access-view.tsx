@@ -257,9 +257,13 @@ function ProjectAccessHeader({
 	}
 	return (
 		<header className="space-y-2">
-			<p className="text-muted-foreground text-sm">Dış araç erişimi</p>
-			<h1 className="font-bold text-3xl">{projectName}</h1>
-			<p className="text-muted-foreground">
+			<p className="font-mono text-primary text-xs uppercase tracking-[0.16em]">
+				İzinleri yönet / Dış araç erişimi
+			</p>
+			<h1 className="font-medium font-serif text-4xl tracking-tight">
+				{projectName}
+			</h1>
+			<p className="max-w-2xl text-muted-foreground">
 				Her araç için amacı ve erişebileceği proje bilgilerini ayrı belirleyin.
 			</p>
 		</header>

@@ -52,7 +52,7 @@ export function ProjectSetupForm({
 					<span>Proje adı</span>
 					<input
 						autoComplete="off"
-						disabled={isOutcomeUncertain}
+						disabled={isPending || isOutcomeUncertain}
 						maxLength={120}
 						onChange={(event) => setName(event.target.value)}
 						placeholder="Örn. Moonlit Vale"
@@ -63,7 +63,7 @@ export function ProjectSetupForm({
 				<label className="context-field">
 					<span>Genel sanat yaklaşımı</span>
 					<textarea
-						disabled={isOutcomeUncertain}
+						disabled={isPending || isOutcomeUncertain}
 						maxLength={1000}
 						onChange={(event) => setGeneralArtDirection(event.target.value)}
 						placeholder="Oyunun görsel dünyasını birkaç cümleyle tanımlayın."

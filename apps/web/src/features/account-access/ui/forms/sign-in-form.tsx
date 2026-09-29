@@ -32,7 +32,7 @@ export default function SignInForm({
 				{
 					onSuccess: () => {
 						navigate({
-							to: "/dashboard",
+							to: "/projects",
 						});
 						toast.success("Sign in successful");
 					},
@@ -55,11 +55,16 @@ export default function SignInForm({
 	}
 
 	return (
-		<div className="mx-auto mt-10 w-full max-w-md p-6">
-			<h1 className="mb-6 text-center font-bold text-3xl">Welcome Back</h1>
+		<div className="w-full space-y-6">
+			<div className="space-y-2">
+				<h2 className="font-semibold text-3xl">Welcome Back</h2>
+				<p className="text-muted-foreground text-sm">
+					Sign in to continue working on your projects.
+				</p>
+			</div>
 
 			<form
-				className="space-y-4"
+				className="space-y-5"
 				onSubmit={(e) => {
 					e.preventDefault();
 					e.stopPropagation();
@@ -70,8 +75,12 @@ export default function SignInForm({
 					<form.Field name="email">
 						{(field) => (
 							<div className="space-y-2">
-								<Label htmlFor={field.name}>Email</Label>
+								<Label className="text-sm" htmlFor={field.name}>
+									Email
+								</Label>
 								<Input
+									autoComplete="email"
+									className="min-h-11 text-sm md:text-sm"
 									id={field.name}
 									name={field.name}
 									onBlur={field.handleBlur}
@@ -80,7 +89,11 @@ export default function SignInForm({
 									value={field.state.value}
 								/>
 								{field.state.meta.errors.map((error) => (
-									<p className="text-red-500" key={error?.message}>
+									<p
+										className="text-destructive text-sm"
+										key={error?.message}
+										role="alert"
+									>
 										{error?.message}
 									</p>
 								))}
@@ -93,8 +106,12 @@ export default function SignInForm({
 					<form.Field name="password">
 						{(field) => (
 							<div className="space-y-2">
-								<Label htmlFor={field.name}>Password</Label>
+								<Label className="text-sm" htmlFor={field.name}>
+									Password
+								</Label>
 								<Input
+									autoComplete="current-password"
+									className="min-h-11 text-sm md:text-sm"
 									id={field.name}
 									name={field.name}
 									onBlur={field.handleBlur}
@@ -103,7 +120,11 @@ export default function SignInForm({
 									value={field.state.value}
 								/>
 								{field.state.meta.errors.map((error) => (
-									<p className="text-red-500" key={error?.message}>
+									<p
+										className="text-destructive text-sm"
+										key={error?.message}
+										role="alert"
+									>
 										{error?.message}
 									</p>
 								))}
@@ -120,7 +141,7 @@ export default function SignInForm({
 				>
 					{({ canSubmit, isSubmitting }) => (
 						<Button
-							className="w-full"
+							className="min-h-11 w-full text-sm"
 							disabled={!canSubmit || isSubmitting}
 							type="submit"
 						>
@@ -130,9 +151,9 @@ export default function SignInForm({
 				</form.Subscribe>
 			</form>
 
-			<div className="mt-4 text-center">
+			<div className="text-center">
 				<Button
-					className="text-indigo-600 hover:text-indigo-800"
+					className="min-h-11 text-primary text-sm"
 					onClick={onSwitchToSignUp}
 					variant="link"
 				>

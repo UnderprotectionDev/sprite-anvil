@@ -5,6 +5,10 @@ import {
 	assetVersionE2eEnabled,
 	createAssetRecordFixture,
 } from "./asset-record-fixture";
+import {
+	createProjectFromProjectsView,
+	signUpWithFixture,
+} from "./project-workflow";
 
 const identityCheckboxName = /Bağımsız ürün anlamı/;
 const secondVersionCandidate = /ash-knight-alt\.png.*Sürüm 2.*Aday/;
@@ -17,21 +21,8 @@ test("persists an Asset Record created through the web flow", async ({
 		"A disposable Neon test branch is required for the persistent flow."
 	);
 
-	await page.goto("/login");
-	await page.getByLabel("Name").fill(assetRecordFixture.userName);
-	await page.getByLabel("Email").fill(assetRecordFixture.email);
-	await page.getByLabel("Password").fill(assetRecordFixture.password);
-	await page.getByRole("button", { name: "Sign Up" }).click();
-	await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-
-	await page.getByRole("link", { name: "Projects" }).click();
-	await page
-		.getByLabel("Oyun projesi adı")
-		.fill(assetRecordFixture.projectName);
-	await page
-		.getByLabel("Genel sanat yaklaşımı")
-		.fill(assetRecordFixture.generalArtDirection);
-	await page.getByRole("button", { name: "Proje oluştur" }).click();
+	await signUpWithFixture(page, assetRecordFixture);
+	await createProjectFromProjectsView(page, assetRecordFixture);
 
 	await page
 		.getByRole("link", {
@@ -87,18 +78,8 @@ test("persists an Asset Version, review, quality result, and legacy history", as
 		"A disposable Neon branch and explicitly selected test R2 bucket are required for version persistence."
 	);
 
-	await page.goto("/login");
-	await page.getByLabel("Name").fill(versionFixture.userName);
-	await page.getByLabel("Email").fill(versionFixture.email);
-	await page.getByLabel("Password").fill(versionFixture.password);
-	await page.getByRole("button", { name: "Sign Up" }).click();
-	await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-	await page.getByRole("link", { name: "Projects" }).click();
-	await page.getByLabel("Oyun projesi adı").fill(versionFixture.projectName);
-	await page
-		.getByLabel("Genel sanat yaklaşımı")
-		.fill(versionFixture.generalArtDirection);
-	await page.getByRole("button", { name: "Proje oluştur" }).click();
+	await signUpWithFixture(page, versionFixture);
+	await createProjectFromProjectsView(page, versionFixture);
 	await page
 		.getByRole("link", {
 			name: `${versionFixture.projectName} varlık kayıtlarını aç`,
@@ -210,18 +191,8 @@ test("archives and restores an Asset Record through the web flow", async ({
 		"A disposable Neon test branch is required for the persistent flow."
 	);
 
-	await page.goto("/login");
-	await page.getByLabel("Name").fill(fixture.userName);
-	await page.getByLabel("Email").fill(fixture.email);
-	await page.getByLabel("Password").fill(fixture.password);
-	await page.getByRole("button", { name: "Sign Up" }).click();
-	await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-	await page.getByRole("link", { name: "Projects" }).click();
-	await page.getByLabel("Oyun projesi adı").fill(fixture.projectName);
-	await page
-		.getByLabel("Genel sanat yaklaşımı")
-		.fill(fixture.generalArtDirection);
-	await page.getByRole("button", { name: "Proje oluştur" }).click();
+	await signUpWithFixture(page, fixture);
+	await createProjectFromProjectsView(page, fixture);
 	await page
 		.getByRole("link", {
 			name: `${fixture.projectName} varlık kayıtlarını aç`,
