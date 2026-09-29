@@ -11,6 +11,7 @@ import type { ProjectAccessStore } from "./project-access-store";
 import type { ProjectContextStore } from "./project-context";
 import type { ProviderGenerationRecordStore } from "./provider-generation-records";
 import type { ReferenceProductionStore } from "./reference-production";
+import type { SpecializedProfileContractStore } from "./specialized-profile-contracts";
 
 export interface Context {
 	assetFamilyStore: AssetFamilyStore;
@@ -26,6 +27,7 @@ export interface Context {
 	providerGenerationRecordStore?: ProviderGenerationRecordStore;
 	referenceProductionStore?: ReferenceProductionStore;
 	session: Session | null;
+	specializedProfileContractStore?: SpecializedProfileContractStore;
 	verifyAssetVersionContent?: (
 		userId: string,
 		projectId: string,

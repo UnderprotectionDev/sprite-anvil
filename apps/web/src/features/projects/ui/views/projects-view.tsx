@@ -292,7 +292,7 @@ function ProjectsList({
 								Varlık kayıtlarını aç
 							</Link>
 						</div>
-						<div className="mt-5 grid gap-2 border-t pt-4 sm:grid-cols-2 lg:grid-cols-4">
+						<div className="mt-5 grid gap-2 border-t pt-4 sm:grid-cols-2 lg:grid-cols-5">
 							<Link
 								aria-label={`${project.name} proje bağlamını aç`}
 								className={`${buttonVariants({ variant: "outline" })} !text-sm min-h-11`}
@@ -324,6 +324,14 @@ function ProjectsList({
 								to="/projects/$projectId/access"
 							>
 								İzinleri yönet
+							</Link>
+							<Link
+								aria-label={`${project.name} özel profil sözleşmelerini yönet`}
+								className={`${buttonVariants({ variant: "outline" })} !text-sm min-h-11`}
+								params={{ projectId: project.id }}
+								to="/projects/$projectId/profile-contracts"
+							>
+								Özel profil sözleşmeleri
 							</Link>
 						</div>
 					</li>
