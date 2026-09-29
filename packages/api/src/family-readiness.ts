@@ -13,6 +13,18 @@ const qualityRuleIdSchema = z
 	.min(1)
 	.max(120)
 	.regex(/^[a-z][a-z0-9._-]*$/);
+const evidenceResultSchema = z.enum([
+	"passed",
+	"failed",
+	"inconclusive",
+	"waived",
+]);
+const profileRuleClassSchema = z.enum([
+	"integrity_gate",
+	"waivable_requirement",
+	"quality_advisory",
+	"human_review",
+]);
 
 export const requiredSetItemKindSchema = z.enum([
 	"direction",
@@ -35,6 +47,7 @@ export const requiredSetItemSchema = z
 		name: z.string().trim().min(1).max(120),
 		disposition: requiredSetItemDispositionSchema,
 		assetRecordIds: z.array(idSchema).max(20),
+		testId: qualityRuleIdSchema.optional(),
 	})
 	.strict()
 	.superRefine((item, context) => {
@@ -58,6 +71,25 @@ export const requiredSetItemSchema = z
 					item.kind === "usage_test"
 						? "Gerekli kullanım testi en az bir Varlık Kaydına bağlanmalıdır."
 						: "Gerekli öğe tam olarak bir Varlık Kaydına bağlanmalıdır.",
+			});
+		}
+		if (
+			item.disposition === "required" &&
+			item.kind === "usage_test" &&
+			!item.testId
+		) {
+			context.addIssue({
+				code: "custom",
+				path: ["testId"],
+				message:
+					"Gerekli kullanım testi etkin sözleşmedeki bir test kimliğini belirtmelidir.",
+			});
+		}
+		if (item.kind !== "usage_test" && item.testId) {
+			context.addIssue({
+				code: "custom",
+				path: ["testId"],
+				message: "Yalnız kullanım testi öğeleri test kimliği taşıyabilir.",
 			});
 		}
 	});
@@ -126,12 +158,22 @@ export const readinessEvidenceInputSchema = z.discriminatedUnion("kind", [
 			assetFamilyId: idSchema,
 			revisionId: idSchema,
 			itemId: itemKeySchema,
-			result: z.enum(["passed", "failed", "inconclusive"]),
+			result: evidenceResultSchema,
 			ruleId: qualityRuleIdSchema,
 			method: z.string().trim().min(1).max(1000),
 			rationale: z.string().trim().min(1).max(2000),
+			observedValue: z.string().trim().min(1).max(500).optional(),
 		})
-		.strict(),
+		.strict()
+		.superRefine((input, context) => {
+			if (input.result === "waived" && !input.observedValue) {
+				context.addIssue({
+					code: "custom",
+					path: ["observedValue"],
+					message: "Kalite İstisnası için gözlenen değer gereklidir.",
+				});
+			}
+		}),
 	z
 		.object({
 			kind: z.literal("usage_test"),
@@ -140,6 +182,7 @@ export const readinessEvidenceInputSchema = z.discriminatedUnion("kind", [
 			revisionId: idSchema,
 			itemId: itemKeySchema,
 			result: z.enum(["passed", "failed", "inconclusive"]),
+			testId: qualityRuleIdSchema,
 			method: z.string().trim().min(1).max(1000),
 			rationale: z.string().trim().min(1).max(2000),
 		})
@@ -160,13 +203,18 @@ export const readinessEvidenceSchema = z
 			"passed",
 			"failed",
 			"inconclusive",
+			"waived",
 		]),
 		assetVersionIds: z.array(idSchema),
+		profileContractRevisionIds: z.array(idSchema.nullable()),
 		contextRevisionId: idSchema.nullable(),
 		visualWorldId: idSchema,
 		useContext: z.string(),
 		canonicalDesignVersionId: idSchema.nullable(),
 		ruleId: qualityRuleIdSchema.nullable(),
+		ruleClass: profileRuleClassSchema.nullable(),
+		testId: qualityRuleIdSchema.nullable(),
+		observedValue: z.string().nullable(),
 		method: z.string().nullable(),
 		rationale: z.string(),
 		createdAt: z.string().datetime(),
@@ -188,9 +236,46 @@ export const familyReadinessItemSchema = z
 				"quality",
 				"quality_contract",
 				"usage_test",
+				"profile_contract_usage_test",
 			])
 		),
 		currentAssetVersionIds: z.array(idSchema),
+		qualityReadiness: z.enum([
+			"export_ready",
+			"exceptions_ready",
+			"not_assessed",
+			"blocked",
+		]),
+		qualityRequirements: z.array(
+			z
+				.object({
+					id: qualityRuleIdSchema,
+					name: z.string(),
+					class: profileRuleClassSchema.or(z.literal("general_asset_support")),
+					required: z.boolean(),
+					waiverEligible: z.boolean(),
+					result: z.enum([
+						"passed",
+						"failed",
+						"inconclusive",
+						"waived",
+						"not_assessed",
+					]),
+					isCurrent: z.boolean(),
+				})
+				.strict()
+		),
+		usageRequirements: z.array(
+			z
+				.object({
+					id: qualityRuleIdSchema,
+					name: z.string(),
+					required: z.boolean(),
+					result: z.enum(["passed", "failed", "inconclusive", "not_assessed"]),
+					isCurrent: z.boolean(),
+				})
+				.strict()
+		),
 		latestEvidence: z.array(readinessEvidenceSchema),
 	})
 	.strict();
@@ -221,7 +306,8 @@ export type ReadinessBlocker =
 	| "applicability"
 	| "quality"
 	| "quality_contract"
-	| "usage_test";
+	| "usage_test"
+	| "profile_contract_usage_test";
 
 export interface FamilyReadinessStore {
 	activate: (
@@ -247,6 +333,7 @@ export interface CurrentReadinessScope {
 	assetVersionIds: string[];
 	canonicalDesignVersionId: string | null;
 	contextRevisionId: string | null;
+	profileContractRevisionIds?: (string | null)[];
 	useContext: string;
 	visualWorldId: string;
 }
@@ -259,9 +346,22 @@ export function isReadinessEvidenceCurrent(
 		| "visualWorldId"
 		| "useContext"
 		| "canonicalDesignVersionId"
-	>,
-	current: CurrentReadinessScope
+	> & { profileContractRevisionIds?: (string | null)[] },
+	current: CurrentReadinessScope,
+	options: { profileContractsMatter?: boolean } = {
+		profileContractsMatter: true,
+	}
 ) {
+	const evidenceProfileContractRevisionIds =
+		evidence.profileContractRevisionIds ?? [];
+	const profileContractsMatch =
+		options.profileContractsMatter === false ||
+		(evidenceProfileContractRevisionIds.length ===
+			(current.profileContractRevisionIds?.length ?? 0) &&
+			evidenceProfileContractRevisionIds.every(
+				(revisionId, index) =>
+					revisionId === current.profileContractRevisionIds?.[index]
+			));
 	return (
 		current.contextRevisionId !== null &&
 		evidence.assetVersionIds.length === current.assetVersionIds.length &&
@@ -271,14 +371,19 @@ export function isReadinessEvidenceCurrent(
 		evidence.contextRevisionId === current.contextRevisionId &&
 		evidence.visualWorldId === current.visualWorldId &&
 		evidence.useContext === current.useContext &&
-		evidence.canonicalDesignVersionId === current.canonicalDesignVersionId
+		evidence.canonicalDesignVersionId === current.canonicalDesignVersionId &&
+		profileContractsMatch
 	);
 }
 
 export interface ReadinessAssetStatus {
 	applicability: "applicable" | "not_assessed" | "revalidation_required";
 	integrityVerified: boolean;
-	qualityReadiness: "export_ready" | "not_assessed" | "blocked";
+	qualityReadiness:
+		| "export_ready"
+		| "exceptions_ready"
+		| "not_assessed"
+		| "blocked";
 	reviewDisposition: "approved" | "candidate" | "rejected";
 }
 
@@ -288,6 +393,8 @@ export interface ReadinessEvaluationItem {
 	id: string;
 	kind: z.infer<typeof requiredSetItemKindSchema>;
 	profileContractActive?: boolean;
+	profileContractUsageTest?: boolean;
+	profileUsageTestsComplete?: boolean;
 	usageTestStatus?: "passed" | "failed" | "inconclusive" | "not_assessed";
 }
 
@@ -305,6 +412,9 @@ function readinessItemBlockers(
 		if (!item.profileContractActive) {
 			blockers.push("quality_contract");
 		}
+		if (item.profileContractUsageTest === false) {
+			blockers.push("profile_contract_usage_test");
+		}
 		return blockers;
 	}
 	if (!item.asset) {
@@ -320,11 +430,17 @@ function readinessItemBlockers(
 	if (item.asset.applicability !== "applicable") {
 		blockers.push("applicability");
 	}
-	if (item.asset.qualityReadiness !== "export_ready") {
+	if (
+		item.asset.qualityReadiness !== "export_ready" &&
+		item.asset.qualityReadiness !== "exceptions_ready"
+	) {
 		blockers.push("quality");
-		if (item.asset.qualityReadiness === "not_assessed") {
-			blockers.push("quality_contract");
-		}
+	}
+	if (!item.profileContractActive) {
+		blockers.push("quality_contract");
+	}
+	if (item.profileContractActive && item.profileUsageTestsComplete === false) {
+		blockers.push("profile_contract_usage_test");
 	}
 	return blockers;
 }

@@ -5,6 +5,7 @@ import type { SyntheticEvent } from "react";
 import { AssetVersionControls } from "@/features/asset-versions/ui/components/asset-version-controls";
 import { useAssetVersionWrites } from "@/features/asset-versions/ui/hooks/use-asset-version-writes";
 import { FamilyReadinessManager } from "@/features/family-readiness/ui/components/family-readiness-manager";
+import { SpecializedProfileContractManager } from "@/features/quality-evidence/ui/components/specialized-profile-contract-manager";
 import { client, orpc } from "@/utils/orpc";
 import { AssetFamilyCatalogView } from "../components/asset-family-catalog";
 import {
@@ -31,13 +32,27 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 	const assetVersionQuery = useQuery({
 		...orpc.assetVersions.list.queryOptions({ input: { projectId } }),
 	});
+	const assetRecordQuery = useQuery({
+		...orpc.assetRecords.list.queryOptions({ input: { projectId } }),
+	});
 	const scopeQuery = useQuery({
 		...orpc.contextScopes.list.queryOptions({ input: { projectId } }),
+	});
+	const profileContractsQuery = useQuery({
+		...orpc.specializedProfileContracts.list.queryOptions({
+			input: { projectId },
+		}),
 	});
 	const project = projectsQuery.data?.find((item) => item.id === projectId);
 	const catalog = catalogQuery.data;
 	const assetVersionCatalog =
 		assetVersionQuery.data ?? emptyAssetVersionCatalog;
+	const assetCategoriesById = new Map(
+		(assetRecordQuery.data ?? []).map((record) => [
+			record.id,
+			record.assetCategory ?? null,
+		])
+	);
 	const visualWorlds = scopeQuery.data?.visualWorlds ?? [];
 	const form = useAssetFamilyFormState(catalog, visualWorlds);
 	const writes = useAssetFamilyWrites(catalogQuery.refetch);
@@ -243,14 +258,20 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 								sabitlenir.
 							</p>
 						</div>
+						<SpecializedProfileContractManager projectId={projectId} />
 						{catalog.assetFamilies.map((family) => (
 							<FamilyReadinessManager
 								assetFamilyId={family.id}
 								assetRecords={catalog.assetRecords
 									.filter((record) => record.assetFamilyId === family.id)
-									.map(({ id, name }) => ({ id, name }))}
+									.map(({ id, name }) => ({
+										assetCategory: assetCategoriesById.get(id) ?? null,
+										id,
+										name,
+									}))}
 								familyName={family.name}
 								key={family.id}
+								profileContracts={profileContractsQuery.data ?? null}
 								projectId={projectId}
 							/>
 						))}

@@ -3,6 +3,7 @@ import type {
 	ReadinessEvidenceInput,
 	RequiredSetItem,
 } from "@sprite-anvil/api/family-readiness";
+import type { ProfileContractsCatalog } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
@@ -15,6 +16,7 @@ interface DraftItem {
 	kind: RequiredSetItem["kind"];
 	localId: string;
 	name: string;
+	testId?: string;
 }
 
 const itemKindLabels: Record<DraftItem["kind"], string> = {
@@ -33,7 +35,50 @@ const blockerLabels: Record<string, string> = {
 	quality: "Dışa Aktarıma Hazır kalite kanıtı yok",
 	quality_contract: "Etkin Özel Profil Sözleşmesi yok",
 	usage_test: "Güncel kullanım testi geçmedi",
+	profile_contract_usage_test:
+		"Sözleşmenin zorunlu kullanım testleri tamamlanmadı",
 };
+
+const qualityReadinessLabels = {
+	export_ready: "Dışa Aktarıma Hazır",
+	exceptions_ready: "İstisnalarla Hazır",
+	not_assessed: "Kalite henüz değerlendirilmedi",
+	blocked: "Kalite koşulları karşılanmadı",
+} satisfies Record<
+	FamilyReadiness["items"][number]["qualityReadiness"],
+	string
+>;
+
+const requirementResultLabels = {
+	passed: "Geçti",
+	failed: "Başarısız",
+	inconclusive: "Sonuçsuz",
+	waived: "Kalite İstisnası verildi",
+	not_assessed: "Değerlendirilmedi",
+} as const;
+
+const ruleClassLabels = {
+	integrity_gate: "Bütünlük Denetimi",
+	waivable_requirement: "İstisna Verilebilir Gereksinim",
+	quality_advisory: "Kalite Uyarısı",
+	human_review: "Zorunlu insan incelemesi",
+	general_asset_support: "Genel Varlık Desteği",
+} as const;
+
+const evidenceKindLabels = {
+	applicability: "Bağlama Uygunluk",
+	quality: "Kalite kanıtı",
+	usage_test: "Kullanım testi",
+} as const;
+
+const evidenceResultLabels = {
+	applicable: "Bağlama uygun",
+	inapplicable: "Bağlama uygun değil",
+	passed: "Geçti",
+	failed: "Başarısız",
+	inconclusive: "Sonuçsuz",
+	waived: "Kalite İstisnası verildi",
+} as const;
 
 function toDraftItem(item: RequiredSetItem): DraftItem {
 	return {
@@ -43,6 +88,7 @@ function toDraftItem(item: RequiredSetItem): DraftItem {
 		name: item.name,
 		disposition: item.disposition,
 		assetRecordIds: item.assetRecordIds,
+		...(item.testId ? { testId: item.testId } : {}),
 	};
 }
 
@@ -66,16 +112,66 @@ function revisionStatusLabel(revision: FamilyReadiness["revisions"][number]) {
 	return "Taslak";
 }
 
+function getUsageTestOptions(
+	item: DraftItem,
+	assetRecords: { assetCategory: string | null; id: string; name: string }[],
+	profileContracts: ProfileContractsCatalog | null
+) {
+	const linkedRecords = assetRecords.filter((record) =>
+		item.assetRecordIds.includes(record.id)
+	);
+	const specializedRecords = linkedRecords.filter((record) =>
+		profileContracts?.profiles.some(
+			(profile) => profile.profileId === record.assetCategory
+		)
+	);
+	if (specializedRecords.length === 0) {
+		return [];
+	}
+	const firstProfile = profileContracts?.profiles.find(
+		(profile) => profile.profileId === specializedRecords[0]?.assetCategory
+	);
+	const firstTests = firstProfile?.activeRevision?.contract.usageTests ?? [];
+	return firstTests.filter((test) =>
+		specializedRecords.every((record) =>
+			profileContracts?.profiles
+				.find((profile) => profile.profileId === record.assetCategory)
+				?.activeRevision?.contract.usageTests.some(
+					(candidate) => candidate.id === test.id
+				)
+		)
+	);
+}
+
+function usageTestGuidance(
+	usageTestCount: number,
+	selectedSpecializedRecord: boolean
+) {
+	if (usageTestCount > 0) {
+		return "Etkin sözleşmedeki test kimliklerinden birini kullanın.";
+	}
+	if (selectedSpecializedRecord) {
+		return "Özel profil test kimliklerini kullanmadan önce sözleşmeyi etkinleştirin.";
+	}
+	return "Genel Varlık Desteği için kararlı bir test kimliği yazın.";
+}
+
 export function FamilyReadinessManager({
 	assetFamilyId,
 	familyName,
 	projectId,
 	assetRecords,
+	profileContracts,
 }: {
 	assetFamilyId: string;
 	familyName: string;
 	projectId: string;
-	assetRecords: { id: string; name: string }[];
+	assetRecords: {
+		assetCategory: string | null;
+		id: string;
+		name: string;
+	}[];
+	profileContracts: ProfileContractsCatalog | null;
 }) {
 	const query = useQuery({
 		...orpc.familyReadiness.list.queryOptions({
@@ -214,50 +310,17 @@ export function FamilyReadinessManager({
 					) : (
 						<ul className="space-y-4">
 							{query.data.items.map((itemResult) => (
-								<li className="rounded-md border p-4" key={itemResult.item.id}>
-									<div className="flex flex-wrap items-start justify-between gap-2">
-										<div>
-											<h5 className="font-medium">{itemResult.item.name}</h5>
-											<p className="text-muted-foreground text-sm">
-												{itemKindLabels[itemResult.item.kind]} ·{" "}
-												{itemResult.item.disposition}
-											</p>
-										</div>
-										<strong className="text-sm">
-											{itemResult.status === "complete"
-												? "Tamamlandı"
-												: "Eksik"}
-										</strong>
-									</div>
-									{itemResult.blockers.length > 0 ? (
-										<ul className="mt-2 list-inside list-disc text-muted-foreground text-sm">
-											{itemResult.blockers.map((blocker) => (
-												<li key={blocker}>
-													{blockerLabels[blocker] ?? blocker}
-												</li>
-											))}
-										</ul>
-									) : null}
-									{itemResult.latestEvidence.map((evidence) => (
-										<p
-											className="mt-2 text-muted-foreground text-xs"
-											key={evidence.id}
-										>
-											{evidence.kind}: {evidence.result} ·{" "}
-											{evidence.isCurrent ? "Güncel" : "Eski kanıt"}
-										</p>
-									))}
-									{itemResult.item.disposition === "required" ? (
-										<ReadinessEvidenceForms
-											assetFamilyId={assetFamilyId}
-											isSaving={isSaving}
-											item={itemResult.item}
-											onRecord={recordEvidence}
-											projectId={projectId}
-											revisionId={activeRevisionId ?? ""}
-										/>
-									) : null}
-								</li>
+								<FamilyReadinessItemCard
+									activeRevisionId={activeRevisionId ?? ""}
+									assetFamilyId={assetFamilyId}
+									assetRecords={assetRecords}
+									isSaving={isSaving}
+									itemResult={itemResult}
+									key={itemResult.item.id}
+									onRecord={recordEvidence}
+									profileContracts={profileContracts}
+									projectId={projectId}
+								/>
 							))}
 						</ul>
 					)}
@@ -287,6 +350,7 @@ export function FamilyReadinessManager({
 								items.filter((entry) => entry.localId !== item.localId)
 							)
 						}
+						profileContracts={profileContracts}
 					/>
 				))}
 				<div className="flex flex-wrap gap-2">
@@ -353,18 +417,206 @@ export function FamilyReadinessManager({
 	);
 }
 
+function FamilyReadinessItemCard({
+	activeRevisionId,
+	assetFamilyId,
+	assetRecords,
+	isSaving,
+	itemResult,
+	onRecord,
+	profileContracts,
+	projectId,
+}: {
+	activeRevisionId: string;
+	assetFamilyId: string;
+	assetRecords: { assetCategory: string | null; id: string; name: string }[];
+	isSaving: boolean;
+	itemResult: FamilyReadiness["items"][number];
+	onRecord: (input: ReadinessEvidenceInput) => Promise<boolean>;
+	profileContracts: ProfileContractsCatalog | null;
+	projectId: string;
+}) {
+	return (
+		<li className="rounded-md border p-4">
+			<div className="flex flex-wrap items-start justify-between gap-2">
+				<div>
+					<h5 className="font-medium">{itemResult.item.name}</h5>
+					<p className="text-muted-foreground text-sm">
+						{itemKindLabels[itemResult.item.kind]} ·{" "}
+						{itemResult.item.disposition}
+					</p>
+				</div>
+				<strong className="text-sm">
+					{itemResult.status === "complete" ? "Tamamlandı" : "Eksik"}
+				</strong>
+			</div>
+			{itemResult.blockers.length > 0 ? (
+				<ul className="mt-2 list-inside list-disc text-muted-foreground text-sm">
+					{itemResult.blockers.map((blocker) => (
+						<li key={blocker}>{blockerLabels[blocker] ?? blocker}</li>
+					))}
+				</ul>
+			) : null}
+			<QualityEvaluationSummary itemResult={itemResult} />
+			{itemResult.latestEvidence.map((evidence) => (
+				<ReadinessEvidenceDetails evidence={evidence} key={evidence.id} />
+			))}
+			{itemResult.item.disposition === "required" ? (
+				<ReadinessEvidenceForms
+					assetFamilyId={assetFamilyId}
+					assetRecords={assetRecords}
+					isSaving={isSaving}
+					item={itemResult.item}
+					onRecord={onRecord}
+					profileContracts={profileContracts}
+					projectId={projectId}
+					qualityRequirements={itemResult.qualityRequirements}
+					revisionId={activeRevisionId}
+				/>
+			) : null}
+		</li>
+	);
+}
+
+function QualityEvaluationSummary({
+	itemResult,
+}: {
+	itemResult: FamilyReadiness["items"][number];
+}) {
+	if (itemResult.item.kind === "usage_test") {
+		return null;
+	}
+	return (
+		<section aria-label="Kalite değerlendirmesi" className="mt-3 space-y-2">
+			<p className="text-sm">
+				Kalite durumu:{" "}
+				<strong>{qualityReadinessLabels[itemResult.qualityReadiness]}</strong>
+			</p>
+			{itemResult.qualityRequirements.length > 0 ? (
+				<ul className="space-y-1 text-muted-foreground text-sm">
+					{itemResult.qualityRequirements.map((requirement) => (
+						<li key={requirement.id}>
+							{requirement.name} · {requirement.id} ·{" "}
+							{ruleClassLabels[requirement.class]} ·{" "}
+							{requirementResultLabels[requirement.result]}
+							{requirement.required ? " · Gerekli" : " · Uyarı"}
+						</li>
+					))}
+				</ul>
+			) : null}
+			{itemResult.usageRequirements.length > 0 ? (
+				<ul className="space-y-1 text-muted-foreground text-sm">
+					{itemResult.usageRequirements.map((requirement) => (
+						<li key={requirement.id}>
+							Kullanım testi {requirement.name} · {requirement.id} ·{" "}
+							{requirementResultLabels[requirement.result]}
+							{requirement.required ? " · Gerekli" : " · İsteğe bağlı"}
+						</li>
+					))}
+				</ul>
+			) : null}
+		</section>
+	);
+}
+
+function ReadinessEvidenceDetails({
+	evidence,
+}: {
+	evidence: FamilyReadiness["items"][number]["latestEvidence"][number];
+}) {
+	return (
+		<details className="mt-2 text-xs">
+			<summary className="cursor-pointer text-muted-foreground">
+				{evidence.ruleId ??
+					evidence.testId ??
+					evidenceKindLabels[evidence.kind]}{" "}
+				· {evidenceResultLabels[evidence.result]} ·{" "}
+				{evidence.isCurrent ? "Güncel kanıt" : "Eski kanıt"}
+			</summary>
+			<dl className="mt-2 grid gap-x-2 gap-y-1 sm:grid-cols-[max-content_1fr]">
+				<dt>Kanıt kimliği</dt>
+				<dd>{evidence.id}</dd>
+				<dt>Tür</dt>
+				<dd>{evidenceKindLabels[evidence.kind]}</dd>
+				{evidence.ruleId ? (
+					<>
+						<dt>Kural sınıfı</dt>
+						<dd>
+							{evidence.ruleClass
+								? ruleClassLabels[evidence.ruleClass]
+								: "Genel Varlık Desteği"}
+						</dd>
+					</>
+				) : null}
+				<dt>Varlık Sürümleri</dt>
+				<dd>{evidence.assetVersionIds.join(", ")}</dd>
+				{evidence.profileContractRevisionIds.length > 0 ? (
+					<>
+						<dt>Özel Profil Sözleşmesi</dt>
+						<dd>
+							{evidence.profileContractRevisionIds
+								.map((id) => id ?? "Genel Varlık Desteği")
+								.join(", ")}
+						</dd>
+					</>
+				) : null}
+				<dt>Bağlam Sürümü</dt>
+				<dd>{evidence.contextRevisionId ?? "Yok"}</dd>
+				<dt>Görsel Dünya</dt>
+				<dd>{evidence.visualWorldId}</dd>
+				<dt>Kullanım bağlamı</dt>
+				<dd>{evidence.useContext}</dd>
+				<dt>Ana Tasarım Sürümü</dt>
+				<dd>{evidence.canonicalDesignVersionId ?? "Seçilmedi"}</dd>
+				{evidence.observedValue ? (
+					<>
+						<dt>Gözlenen değer</dt>
+						<dd>{evidence.observedValue}</dd>
+					</>
+				) : null}
+				{evidence.method ? (
+					<>
+						<dt>Yöntem</dt>
+						<dd>{evidence.method}</dd>
+					</>
+				) : null}
+				<dt>Gerekçe veya gözlem</dt>
+				<dd>{evidence.rationale}</dd>
+			</dl>
+		</details>
+	);
+}
+
 function RequiredSetItemEditor({
 	assetRecords,
 	item,
 	onChange,
 	onRemove,
+	profileContracts,
 }: {
-	assetRecords: { id: string; name: string }[];
+	assetRecords: {
+		assetCategory: string | null;
+		id: string;
+		name: string;
+	}[];
 	item: DraftItem;
 	onChange: (change: Partial<DraftItem>) => void;
 	onRemove: () => void;
+	profileContracts: ProfileContractsCatalog | null;
 }) {
 	const idPrefix = `required-set-${item.id}`;
+	const usageTestOptions = getUsageTestOptions(
+		item,
+		assetRecords,
+		profileContracts
+	);
+	const selectedSpecializedRecord = assetRecords.some(
+		(record) =>
+			item.assetRecordIds.includes(record.id) &&
+			profileContracts?.profiles.some(
+				(profile) => profile.profileId === record.assetCategory
+			)
+	);
 	return (
 		<fieldset className="space-y-3 rounded-md border p-4">
 			<legend className="px-1 font-medium">Gerekli öğe</legend>
@@ -432,25 +684,67 @@ function RequiredSetItemEditor({
 				</label>
 			</div>
 			{item.kind === "usage_test" ? (
-				<fieldset className="space-y-2">
-					<legend className="text-sm">Teste katılacak Varlık Kayıtları</legend>
-					{assetRecords.map((record) => (
-						<label className="flex items-center gap-2 text-sm" key={record.id}>
-							<input
-								checked={item.assetRecordIds.includes(record.id)}
-								onChange={(event) =>
-									onChange({
-										assetRecordIds: event.currentTarget.checked
-											? [...item.assetRecordIds, record.id]
-											: item.assetRecordIds.filter((id) => id !== record.id),
-									})
-								}
-								type="checkbox"
-							/>
-							{record.name}
-						</label>
-					))}
-				</fieldset>
+				<div className="space-y-3">
+					<label
+						className="block space-y-1 text-sm"
+						htmlFor={`${idPrefix}-test-id`}
+					>
+						<span>Kullanım testi kimliği</span>
+						<input
+							className="w-full rounded-md border bg-background px-3 py-2"
+							id={`${idPrefix}-test-id`}
+							list={`${idPrefix}-test-options`}
+							maxLength={120}
+							onChange={(event) =>
+								onChange({ testId: event.currentTarget.value })
+							}
+							pattern="[a-z][a-z0-9._-]*"
+							required={item.disposition === "required"}
+							value={item.testId ?? ""}
+						/>
+						<datalist id={`${idPrefix}-test-options`}>
+							{usageTestOptions.map((test) => (
+								<option key={test.id} value={test.id}>
+									{test.name}
+								</option>
+							))}
+						</datalist>
+						<p className="text-muted-foreground text-xs">
+							{usageTestGuidance(
+								usageTestOptions.length,
+								selectedSpecializedRecord
+							)}
+						</p>
+					</label>
+					<fieldset className="space-y-2">
+						<legend className="text-sm">
+							Teste katılacak Varlık Kayıtları
+						</legend>
+						<p className="text-muted-foreground text-xs">
+							Özel profil testini aynı Özel Varlık Profilindeki kayıtlarla
+							tanımlayın.
+						</p>
+						{assetRecords.map((record) => (
+							<label
+								className="flex items-center gap-2 text-sm"
+								key={record.id}
+							>
+								<input
+									checked={item.assetRecordIds.includes(record.id)}
+									onChange={(event) =>
+										onChange({
+											assetRecordIds: event.currentTarget.checked
+												? [...item.assetRecordIds, record.id]
+												: item.assetRecordIds.filter((id) => id !== record.id),
+										})
+									}
+									type="checkbox"
+								/>
+								{record.name}
+							</label>
+						))}
+					</fieldset>
+				</div>
 			) : (
 				<label className="block space-y-1 text-sm">
 					<span>Varlık Kaydı</span>
@@ -484,16 +778,22 @@ function RequiredSetItemEditor({
 
 function ReadinessEvidenceForms({
 	assetFamilyId,
+	assetRecords,
 	item,
 	isSaving,
 	onRecord,
+	profileContracts,
+	qualityRequirements,
 	projectId,
 	revisionId,
 }: {
 	assetFamilyId: string;
+	assetRecords: { assetCategory: string | null; id: string; name: string }[];
 	item: RequiredSetItem;
 	isSaving: boolean;
 	onRecord: (input: ReadinessEvidenceInput) => Promise<boolean>;
+	profileContracts: ProfileContractsCatalog | null;
+	qualityRequirements: FamilyReadiness["items"][number]["qualityRequirements"];
 	projectId: string;
 	revisionId: string;
 }) {
@@ -509,9 +809,21 @@ function ReadinessEvidenceForms({
 				onRecord={onRecord}
 				projectId={projectId}
 				revisionId={revisionId}
+				testId={item.testId}
 			/>
 		);
 	}
+	const assetProfileOptions = item.assetRecordIds.flatMap((recordId) => {
+		const category = assetRecords.find(
+			(record) => record.id === recordId
+		)?.assetCategory;
+		return profileContracts?.profiles.some(
+			(profile) => profile.profileId === category
+		)
+			? [category]
+			: [];
+	});
+	const hasSpecializedProfile = assetProfileOptions.length > 0;
 	return (
 		<div className="mt-4 grid gap-4 lg:grid-cols-2">
 			<EvidenceForm
@@ -525,17 +837,29 @@ function ReadinessEvidenceForms({
 				projectId={projectId}
 				revisionId={revisionId}
 			/>
-			<EvidenceForm
-				assetFamilyId={assetFamilyId}
-				description="Kalite kuralı kanıtı"
-				initialResult="passed"
-				isSaving={isSaving}
-				item={item}
-				kind="quality"
-				onRecord={onRecord}
-				projectId={projectId}
-				revisionId={revisionId}
-			/>
+			{hasSpecializedProfile && qualityRequirements.length === 0 ? (
+				<p className="rounded-md border border-dashed p-3 text-sm">
+					Kalite kanıtı kaydetmek için bu Varlık Kaydının kategorisine ait Özel
+					Profil Sözleşmesini etkinleştirin.
+				</p>
+			) : null}
+			{qualityRequirements
+				.filter((requirement) => requirement.class !== "integrity_gate")
+				.map((requirement) => (
+					<EvidenceForm
+						assetFamilyId={assetFamilyId}
+						description={`${requirement.name} · ${ruleClassLabels[requirement.class]}`}
+						initialResult="passed"
+						isSaving={isSaving}
+						item={item}
+						key={requirement.id}
+						kind="quality"
+						onRecord={onRecord}
+						projectId={projectId}
+						qualityRequirement={requirement}
+						revisionId={revisionId}
+					/>
+				))}
 		</div>
 	);
 }
@@ -549,7 +873,9 @@ function EvidenceForm({
 	kind,
 	onRecord,
 	projectId,
+	qualityRequirement,
 	revisionId,
+	testId,
 }: {
 	assetFamilyId: string;
 	description: string;
@@ -559,15 +885,22 @@ function EvidenceForm({
 	kind: "applicability" | "quality" | "usage_test";
 	onRecord: (input: ReadinessEvidenceInput) => Promise<boolean>;
 	projectId: string;
+	qualityRequirement?: FamilyReadiness["items"][number]["qualityRequirements"][number];
 	revisionId: string;
+	testId?: string;
 }) {
 	const [result, setResult] = useState<
-		"applicable" | "inapplicable" | "passed" | "failed" | "inconclusive"
+		| "applicable"
+		| "inapplicable"
+		| "passed"
+		| "failed"
+		| "inconclusive"
+		| "waived"
 	>(initialResult);
-	const [ruleId, setRuleId] = useState("");
 	const [method, setMethod] = useState("");
 	const [rationale, setRationale] = useState("");
-	const formId = `${kind}-${item.id}`;
+	const [observedValue, setObservedValue] = useState("");
+	const formId = `${kind}-${item.id}-${qualityRequirement?.id ?? testId ?? ""}`;
 
 	function submit(event: React.FormEvent<HTMLFormElement>) {
 		event.preventDefault();
@@ -576,8 +909,6 @@ function EvidenceForm({
 			assetFamilyId,
 			revisionId,
 			itemId: item.id,
-			kind,
-			result,
 			rationale,
 		};
 		if (kind === "applicability") {
@@ -587,18 +918,26 @@ function EvidenceForm({
 				result: result as "applicable" | "inapplicable",
 			});
 		} else if (kind === "quality") {
+			if (!qualityRequirement) {
+				return;
+			}
 			void onRecord({
 				...shared,
 				kind,
-				result: result as "passed" | "failed" | "inconclusive",
-				ruleId,
+				result: result as "passed" | "failed" | "inconclusive" | "waived",
+				ruleId: qualityRequirement.id,
 				method,
+				...(qualityRequirement.waiverEligible ? { observedValue } : {}),
 			});
 		} else {
+			if (!testId) {
+				return;
+			}
 			void onRecord({
 				...shared,
 				kind,
 				result: result as "passed" | "failed" | "inconclusive",
+				testId,
 				method,
 			});
 		}
@@ -627,6 +966,9 @@ function EvidenceForm({
 							<option value="passed">Geçti</option>
 							<option value="failed">Başarısız</option>
 							<option value="inconclusive">Sonuçsuz</option>
+							{kind === "quality" && qualityRequirement?.waiverEligible ? (
+								<option value="waived">Kalite İstisnası ver</option>
+							) : null}
 						</>
 					)}
 				</select>
@@ -637,11 +979,35 @@ function EvidenceForm({
 					<input
 						className="w-full rounded-md border bg-background px-3 py-2"
 						id={`${formId}-rule`}
-						maxLength={120}
-						onChange={(event) => setRuleId(event.currentTarget.value)}
-						pattern="[a-z][a-z0-9._-]*"
+						readOnly
+						value={qualityRequirement?.id ?? ""}
+					/>
+				</label>
+			) : null}
+			{kind === "usage_test" ? (
+				<label className="block space-y-1 text-sm" htmlFor={`${formId}-test`}>
+					<span>Kullanım testi kimliği</span>
+					<input
+						className="w-full rounded-md border bg-background px-3 py-2"
+						id={`${formId}-test`}
+						readOnly
+						value={testId ?? ""}
+					/>
+				</label>
+			) : null}
+			{kind === "quality" && qualityRequirement?.waiverEligible ? (
+				<label
+					className="block space-y-1 text-sm"
+					htmlFor={`${formId}-observed-value`}
+				>
+					<span>Gözlenen değer</span>
+					<input
+						className="w-full rounded-md border bg-background px-3 py-2"
+						id={`${formId}-observed-value`}
+						maxLength={500}
+						onChange={(event) => setObservedValue(event.currentTarget.value)}
 						required
-						value={ruleId}
+						value={observedValue}
 					/>
 				</label>
 			) : null}

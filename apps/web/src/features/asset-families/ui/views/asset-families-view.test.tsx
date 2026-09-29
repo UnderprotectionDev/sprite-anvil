@@ -78,6 +78,22 @@ vi.mock("@/utils/orpc", () => ({
 				}),
 			},
 		},
+		assetRecords: {
+			list: {
+				queryOptions: () => ({
+					queryKey: ["asset-record-details"],
+					queryFn: async () => [],
+				}),
+			},
+		},
+		specializedProfileContracts: {
+			list: {
+				queryOptions: ({ input }: { input: { projectId: string } }) => ({
+					queryKey: ["specialized-profile-contracts", input.projectId],
+					queryFn: async () => ({ projectId: input.projectId, profiles: [] }),
+				}),
+			},
+		},
 		familyReadiness: {
 			list: {
 				queryOptions: ({

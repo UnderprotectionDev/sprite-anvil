@@ -85,6 +85,9 @@ const manualImportEvidenceMigration = readMigration(
 const familyReadinessMigration = readMigration(
 	"./migrations/20260929083914_superb_tana_nile/migration.sql"
 );
+const specializedProfileContractMigration = readMigration(
+	"./migrations/20260929102156_nice_bloodstrike/migration.sql"
+);
 const sourceMetadataProjectScopeMigration =
 	readdirSync(new URL("./migrations/", import.meta.url))
 		.map((directory) => {
@@ -934,5 +937,57 @@ test("stores immutable Required Set revisions and evidence pinned to exact famil
 	);
 	expect(familyReadinessMigration).toContain(
 		"\"kind\" = 'applicability' AND \"result\" IN ('applicable', 'inapplicable')"
+	);
+});
+
+test("stores immutable Specialized Profile Contracts and classed readiness evidence", () => {
+	const familyReadinessSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260929083914_superb_tana_nile/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { id: string };
+	const specializedProfileContractSnapshot = JSON.parse(
+		readFileSync(
+			new URL(
+				"./migrations/20260929102156_nice_bloodstrike/snapshot.json",
+				import.meta.url
+			),
+			"utf8"
+		)
+	) as { prevIds: string[] };
+
+	expect(specializedProfileContractSnapshot.prevIds).toContain(
+		familyReadinessSnapshot.id
+	);
+	for (const table of [
+		"specialized_profile_contract_revisions",
+		"specialized_profile_contract_heads",
+		"specialized_profile_contract_activations",
+	]) {
+		expect(specializedProfileContractMigration).toContain(
+			`CREATE TABLE "${table}"`
+		);
+	}
+	expect(specializedProfileContractMigration).toContain(
+		"\"profile_contract_revision_ids\" jsonb DEFAULT '[]' NOT NULL"
+	);
+	expect(specializedProfileContractMigration).toContain(
+		'ADD COLUMN "rule_class" text'
+	);
+	expect(specializedProfileContractMigration).toContain(
+		'ADD COLUMN "test_id" text'
+	);
+	expect(specializedProfileContractMigration).toContain(
+		'ADD COLUMN "observed_value" text'
+	);
+	expect(specializedProfileContractMigration).toContain(
+		'FOREIGN KEY ("project_id","profile_id","active_revision_id") REFERENCES "specialized_profile_contract_revisions"("project_id","profile_id","id") ON DELETE RESTRICT'
+	);
+	expect(specializedProfileContractMigration).toContain(
+		'"result" <> \'waived\' OR "observed_value" IS NOT NULL'
 	);
 });

@@ -18,6 +18,11 @@ import {
 } from "@sprite-anvil/db/schema/family-readiness";
 import { project } from "@sprite-anvil/db/schema/project";
 import { contextRevisions } from "@sprite-anvil/db/schema/project-context";
+import {
+	specializedProfileContractActivations,
+	specializedProfileContractHeads,
+	specializedProfileContractRevisions,
+} from "@sprite-anvil/db/schema/specialized-profile-contracts";
 import { and, eq } from "drizzle-orm";
 import { createAssetFamilyStore } from "./features/asset-families/server/asset-family-store";
 import { createAssetRecordStore } from "./features/asset-records/server/asset-record-store";
@@ -27,6 +32,7 @@ import { createCollectionStore } from "./features/collections/server/collection-
 import { createFamilyReadinessStore } from "./features/family-readiness/server/family-readiness-store";
 import { createProjectContextStore } from "./features/project-context/server/project-context-store";
 import { createProjectAccessStore } from "./features/projects/server/project-access-store";
+import { createSpecializedProfileContractStore } from "./features/quality-evidence/server/specialized-profile-contract-store";
 import { createProjectContextScopeStore } from "./features/visual-worlds/server/project-context-scope-store";
 
 const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
@@ -44,6 +50,8 @@ function createContext(database: ReturnType<typeof createDb>, userId: string) {
 		projectAccess: createProjectAccessStore(database, projectContextStore),
 		projectContextScopeStore: createProjectContextScopeStore(database),
 		projectContextStore,
+		specializedProfileContractStore:
+			createSpecializedProfileContractStore(database),
 		session: { user: { id: userId } } as Context["session"],
 	} satisfies Context;
 }
@@ -78,6 +86,44 @@ test.skipIf(!databaseUrl)(
 				{ context }
 			);
 			projectId = createdProject.id;
+			const initialContracts = await call(
+				appRouter.specializedProfileContracts.list,
+				{ projectId },
+				{ context }
+			);
+			expect(
+				initialContracts.profiles.find(
+					(profile) => profile.profileId === "icon"
+				)?.activeRevision
+			).toBeNull();
+			const activatedContracts = await call(
+				appRouter.specializedProfileContracts.activate,
+				{ projectId, profileId: "icon", templateRevisionNumber: 1 },
+				{ context }
+			);
+			expect(
+				activatedContracts.profiles.find(
+					(profile) => profile.profileId === "icon"
+				)?.activeRevision?.revisionNumber
+			).toBe(1);
+			const contractRereadContext = createContext(
+				createDb({ DATABASE_URL: databaseUrl }),
+				userId
+			);
+			const persistedContracts = await call(
+				appRouter.specializedProfileContracts.list,
+				{ projectId },
+				{ context: contractRereadContext }
+			);
+			expect(
+				persistedContracts.profiles.find(
+					(profile) => profile.profileId === "icon"
+				)?.activeRevision?.id
+			).toBe(
+				activatedContracts.profiles.find(
+					(profile) => profile.profileId === "icon"
+				)?.activeRevision?.id
+			);
 			const visualWorld = await call(
 				appRouter.contextScopes.createVisualWorld,
 				{
@@ -226,6 +272,17 @@ test.skipIf(!databaseUrl)(
 							)
 						);
 				}
+				await db
+					.delete(specializedProfileContractActivations)
+					.where(
+						eq(specializedProfileContractActivations.projectId, projectId)
+					);
+				await db
+					.delete(specializedProfileContractHeads)
+					.where(eq(specializedProfileContractHeads.projectId, projectId));
+				await db
+					.delete(specializedProfileContractRevisions)
+					.where(eq(specializedProfileContractRevisions.projectId, projectId));
 				await db
 					.delete(subjectIdentities)
 					.where(eq(subjectIdentities.projectId, projectId));

@@ -16,6 +16,12 @@ import {
 	requiredSetItemSchema,
 	requiredSetRevisionSchema,
 } from "@sprite-anvil/api/family-readiness";
+import type { SpecializedProfileId } from "@sprite-anvil/api/specialized-profile-contracts";
+import {
+	assessProfileQualityReadiness,
+	isProfileQualityEvidenceValid,
+	specializedProfileIdSchema,
+} from "@sprite-anvil/api/specialized-profile-contracts";
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
 import { assetFamilyCanonicalDesigns } from "@sprite-anvil/db/schema/asset-families";
 import {
@@ -34,6 +40,12 @@ import {
 } from "@sprite-anvil/db/schema/family-readiness";
 import { contextRevisions } from "@sprite-anvil/db/schema/project-context";
 import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
+import {
+	areContractPinsCompatible,
+	type ProfileContractSnapshot,
+	type ProjectProfileContracts,
+	readProjectProfileContracts,
+} from "../../quality-evidence/server/profile-contract-scope";
 
 const requiredSetItemsSchema = requiredSetItemSchema.array().max(100);
 
@@ -74,11 +86,15 @@ function toEvidence(
 		kind: row.kind,
 		result: row.result,
 		assetVersionIds: row.assetVersionIds,
+		profileContractRevisionIds: row.profileContractRevisionIds,
 		contextRevisionId: row.contextRevisionId,
 		visualWorldId: row.visualWorldId,
 		useContext: row.useContext,
 		canonicalDesignVersionId: row.canonicalDesignVersionId,
 		ruleId: row.ruleId,
+		ruleClass: row.ruleClass,
+		testId: row.testId,
+		observedValue: row.observedValue,
 		method: row.method,
 		rationale: row.rationale,
 		createdByUserId: row.createdByUserId,
@@ -91,13 +107,34 @@ function evidenceMatchesCurrentScope(
 	evidence: typeof familyReadinessEvidence.$inferSelect,
 	input: {
 		assetVersionIds: string[];
+		profileContractRevisionIds: (string | null)[];
+		profileIds: (SpecializedProfileId | null)[];
 		contextRevisionId: string | null;
 		visualWorldId: string;
 		useContext: string;
 		canonicalDesignVersionId: string | null;
+		contracts: ProjectProfileContracts;
 	}
 ) {
-	return isReadinessEvidenceCurrent(evidence, input);
+	const scopeMatches = isReadinessEvidenceCurrent(evidence, input, {
+		profileContractsMatter: false,
+	});
+	if (!scopeMatches || evidence.kind === "applicability") {
+		return scopeMatches;
+	}
+	const entryId =
+		evidence.kind === "quality" ? evidence.ruleId : evidence.testId;
+	return (
+		entryId !== null &&
+		areContractPinsCompatible({
+			activeRevisionIds: input.profileContractRevisionIds,
+			contracts: input.contracts,
+			entryId,
+			kind: evidence.kind,
+			pinnedRevisionIds: evidence.profileContractRevisionIds,
+			profileIds: input.profileIds,
+		})
+	);
 }
 
 type EvidenceRow = typeof familyReadinessEvidence.$inferSelect;
@@ -105,9 +142,37 @@ interface CurrentEvidence {
 	isCurrent: boolean;
 	row: EvidenceRow;
 }
+type AssessedRuleResult = "passed" | "failed" | "inconclusive" | "waived";
+
+function qualityEvidenceResult(
+	entry: CurrentEvidence | undefined
+): AssessedRuleResult | "not_assessed" {
+	const result = entry?.row.result;
+	return result === "passed" ||
+		result === "failed" ||
+		result === "inconclusive" ||
+		result === "waived"
+		? result
+		: "not_assessed";
+}
+
+function usageEvidenceResult(
+	entry: CurrentEvidence | undefined
+): "passed" | "failed" | "inconclusive" | "not_assessed" {
+	const result = entry?.row.result;
+	return result === "passed" || result === "failed" || result === "inconclusive"
+		? result
+		: "not_assessed";
+}
+
 type EvaluatedItem = FamilyReadiness["items"][number] & {
 	evaluation: ReadinessEvaluationItem;
 };
+
+type QualityRequirement =
+	FamilyReadiness["items"][number]["qualityRequirements"][number];
+type UsageRequirement =
+	FamilyReadiness["items"][number]["usageRequirements"][number];
 
 function latestEvidenceByItem(
 	items: RequiredSetItem[],
@@ -115,7 +180,9 @@ function latestEvidenceByItem(
 	currentVersions: Map<string, typeof assetVersions.$inferSelect>,
 	contextRevisionId: string | null,
 	family: typeof assetFamilies.$inferSelect,
-	canonicalDesignVersionId: string | null
+	canonicalDesignVersionId: string | null,
+	assetRecordsById: Map<string, typeof assetRecords.$inferSelect>,
+	contracts: ProjectProfileContracts
 ) {
 	const result = new Map<string, CurrentEvidence[]>();
 	for (const item of items) {
@@ -123,12 +190,24 @@ function latestEvidenceByItem(
 			const version = currentVersions.get(recordId);
 			return version ? [version.id] : [];
 		});
+		const profiles = item.assetRecordIds.map((recordId) => {
+			const category = assetRecordsById.get(recordId)?.assetCategory;
+			const parsed = specializedProfileIdSchema.safeParse(category);
+			return parsed.success ? parsed.data : null;
+		});
+		const expectedProfileContractRevisionIds = profiles.map((profileId) =>
+			profileId
+				? (contracts.activeByProfile.get(profileId)?.revisionId ?? null)
+				: null
+		);
 		const latestByKind = new Map<string, EvidenceRow>();
 		for (const evidence of evidenceRows) {
-			const evidenceKey =
-				evidence.kind === "quality"
-					? `quality:${evidence.ruleId ?? ""}`
-					: evidence.kind;
+			let evidenceKey: string = evidence.kind;
+			if (evidence.kind === "quality") {
+				evidenceKey = `quality:${evidence.ruleId ?? ""}`;
+			} else if (evidence.kind === "usage_test") {
+				evidenceKey = `usage_test:${evidence.testId ?? ""}`;
+			}
 			if (evidence.itemId === item.id && !latestByKind.has(evidenceKey)) {
 				latestByKind.set(evidenceKey, evidence);
 			}
@@ -139,10 +218,13 @@ function latestEvidenceByItem(
 				row,
 				isCurrent: evidenceMatchesCurrentScope(row, {
 					assetVersionIds: expectedVersionIds,
+					profileContractRevisionIds: expectedProfileContractRevisionIds,
+					profileIds: profiles,
 					contextRevisionId,
 					visualWorldId: family.visualWorldId,
 					useContext: family.useContext,
 					canonicalDesignVersionId,
+					contracts,
 				}),
 			}))
 		);
@@ -150,12 +232,194 @@ function latestEvidenceByItem(
 	return result;
 }
 
+function collectFamilyUsageEvidence(
+	allEvidenceByItem: Map<string, CurrentEvidence[]>,
+	activeItems: RequiredSetItem[]
+) {
+	const usageItemIds = new Set(
+		activeItems
+			.filter((item) => item.kind === "usage_test")
+			.map((item) => item.id)
+	);
+	return [...usageItemIds].flatMap(
+		(itemId) => allEvidenceByItem.get(itemId) ?? []
+	);
+}
+
+function latestUsageEvidence(
+	evidence: CurrentEvidence[],
+	testId: string,
+	targetVersionId: string
+) {
+	return evidence
+		.filter(
+			(entry) =>
+				entry.row.kind === "usage_test" &&
+				entry.row.testId === testId &&
+				entry.row.assetVersionIds.includes(targetVersionId)
+		)
+		.sort(
+			(left, right) =>
+				new Date(right.row.createdAt).getTime() -
+				new Date(left.row.createdAt).getTime()
+		)[0];
+}
+
+function assessGeneralAssetSupport(evidence: CurrentEvidence[]): {
+	qualityReadiness: ReadinessAssetStatus["qualityReadiness"];
+	qualityRequirements: QualityRequirement[];
+} {
+	const row = evidence.find(
+		(entry) =>
+			entry.row.kind === "quality" &&
+			entry.row.ruleId === "general.asset_support"
+	);
+	const result = qualityEvidenceResult(row);
+	let qualityReadiness: ReadinessAssetStatus["qualityReadiness"] = "blocked";
+	if (result === "passed") {
+		qualityReadiness = "export_ready";
+	} else if (result === "not_assessed") {
+		qualityReadiness = "not_assessed";
+	}
+	return {
+		qualityReadiness,
+		qualityRequirements: [
+			{
+				id: "general.asset_support",
+				name: "General Asset Support",
+				class: "general_asset_support",
+				required: true,
+				waiverEligible: false,
+				result,
+				isCurrent: Boolean(row?.isCurrent),
+			},
+		],
+	};
+}
+
+function assessSpecializedProfile(
+	contract: ProfileContractSnapshot,
+	version: typeof assetVersions.$inferSelect,
+	currentEvidence: CurrentEvidence[],
+	familyUsageEvidence: CurrentEvidence[]
+): {
+	profileUsageTestsComplete: boolean;
+	qualityReadiness: ReadinessAssetStatus["qualityReadiness"];
+	qualityRequirements: QualityRequirement[];
+	usageRequirements: UsageRequirement[];
+} {
+	const versionIntegrityPassed = Boolean(
+		version.integrityVerified && version.contentDigest
+	);
+	const ruleResults = new Map<
+		string,
+		"passed" | "failed" | "inconclusive" | "waived"
+	>();
+	const qualityRequirements: QualityRequirement[] = contract.contract.rules.map(
+		(rule) => {
+			if (rule.class === "integrity_gate") {
+				const result: AssessedRuleResult = versionIntegrityPassed
+					? "passed"
+					: "failed";
+				ruleResults.set(rule.id, result);
+				return {
+					id: rule.id,
+					name: rule.name,
+					class: rule.class,
+					required: rule.required,
+					waiverEligible: false,
+					result,
+					isCurrent: true,
+				};
+			}
+			const row = currentEvidence.find(
+				(entry) => entry.row.kind === "quality" && entry.row.ruleId === rule.id
+			);
+			const result = qualityEvidenceResult(row);
+			if (result !== "not_assessed") {
+				ruleResults.set(rule.id, result);
+			}
+			return {
+				id: rule.id,
+				name: rule.name,
+				class: rule.class,
+				required: rule.required,
+				waiverEligible: rule.waiverEligible,
+				result,
+				isCurrent: Boolean(row?.isCurrent),
+			};
+		}
+	);
+	let profileUsageTestsComplete = true;
+	const usageTestResults = new Map<
+		string,
+		"passed" | "failed" | "inconclusive" | "waived"
+	>();
+	const usageRequirements: UsageRequirement[] =
+		contract.contract.usageTests.map((usageTest) => {
+			const evidenceEntry = latestUsageEvidence(
+				familyUsageEvidence,
+				usageTest.id,
+				version.id
+			);
+			const result = evidenceEntry?.isCurrent
+				? usageEvidenceResult(evidenceEntry)
+				: "not_assessed";
+			if (result !== "not_assessed") {
+				usageTestResults.set(usageTest.id, result);
+			}
+			if (usageTest.required && result !== "passed") {
+				profileUsageTestsComplete = false;
+			}
+			return {
+				id: usageTest.id,
+				name: usageTest.name,
+				required: usageTest.required,
+				result,
+				isCurrent: Boolean(evidenceEntry?.isCurrent),
+			};
+		});
+	return {
+		profileUsageTestsComplete,
+		qualityReadiness: assessProfileQualityReadiness(
+			contract.contract,
+			ruleResults,
+			usageTestResults
+		).status,
+		qualityRequirements,
+		usageRequirements,
+	};
+}
+
+function getProfileContractUsageTestStatus(
+	item: RequiredSetItem,
+	profileIds: (SpecializedProfileId | null)[],
+	activeContracts: (ProfileContractSnapshot | null)[]
+) {
+	if (item.kind !== "usage_test") {
+		return;
+	}
+	return activeContracts.every((contract, index) => {
+		const profileId = profileIds[index];
+		if (!profileId) {
+			return true;
+		}
+		return Boolean(
+			contract?.contract.usageTests.some((test) => test.id === item.testId)
+		);
+	});
+}
+
 function evaluateRequiredSetItem(
 	item: RequiredSetItem,
 	activeRevisionId: string,
 	currentVersions: Map<string, typeof assetVersions.$inferSelect>,
 	latestReviews: Map<string, typeof assetVersionReviewEvents.$inferSelect>,
-	evidence: CurrentEvidence[]
+	evidence: CurrentEvidence[],
+	allEvidenceByItem: Map<string, CurrentEvidence[]>,
+	activeItems: RequiredSetItem[],
+	assetRecordsById: Map<string, typeof assetRecords.$inferSelect>,
+	contracts: ProjectProfileContracts
 ): EvaluatedItem {
 	const itemVersions = item.assetRecordIds.flatMap((recordId) => {
 		const version = currentVersions.get(recordId);
@@ -169,6 +433,60 @@ function evaluateRequiredSetItem(
 		applicabilityEvidence?.row.result === "applicable"
 	);
 	const [version] = itemVersions;
+	const profileIds = item.assetRecordIds.map((assetRecordId) => {
+		const category = assetRecordsById.get(assetRecordId)?.assetCategory;
+		const parsedProfileId = specializedProfileIdSchema.safeParse(category);
+		return parsedProfileId.success ? parsedProfileId.data : null;
+	});
+	const [profileId] = profileIds;
+	const profileContract = profileId
+		? contracts.activeByProfile.get(profileId)
+		: null;
+	const activeContracts = profileIds.map((linkedProfileId) =>
+		linkedProfileId
+			? (contracts.activeByProfile.get(linkedProfileId) ?? null)
+			: null
+	);
+	const profileContractActive = activeContracts.every(
+		(contract, index) => !profileIds[index] || Boolean(contract)
+	);
+	const familyUsageEvidence = collectFamilyUsageEvidence(
+		allEvidenceByItem,
+		activeItems
+	);
+	const qualityRequirements: FamilyReadiness["items"][number]["qualityRequirements"] =
+		[];
+	const usageRequirements: FamilyReadiness["items"][number]["usageRequirements"] =
+		[];
+	let qualityReadiness: ReadinessAssetStatus["qualityReadiness"] =
+		"not_assessed";
+	let profileUsageTestsComplete = true;
+	if (item.kind !== "usage_test" && version) {
+		if (!profileId) {
+			const {
+				qualityReadiness: generalQualityReadiness,
+				qualityRequirements: generalQualityRequirements,
+			} = assessGeneralAssetSupport(currentEvidence);
+			qualityReadiness = generalQualityReadiness;
+			qualityRequirements.push(...generalQualityRequirements);
+		} else if (profileContract) {
+			const {
+				profileUsageTestsComplete: allProfileUsageTestsComplete,
+				qualityReadiness: specializedQualityReadiness,
+				qualityRequirements: specializedQualityRequirements,
+				usageRequirements: specializedUsageRequirements,
+			} = assessSpecializedProfile(
+				profileContract,
+				version,
+				currentEvidence,
+				familyUsageEvidence
+			);
+			qualityReadiness = specializedQualityReadiness;
+			qualityRequirements.push(...specializedQualityRequirements);
+			usageRequirements.push(...specializedUsageRequirements);
+			profileUsageTestsComplete = allProfileUsageTestsComplete;
+		}
+	}
 	const assetStatus: ReadinessAssetStatus | null =
 		item.kind !== "usage_test" && version
 			? {
@@ -176,28 +494,31 @@ function evaluateRequiredSetItem(
 					integrityVerified: Boolean(
 						version.integrityVerified && version.contentDigest
 					),
-					// Captured observations do not prove an active Specialized Profile Contract.
-					qualityReadiness: "not_assessed",
+					qualityReadiness,
 					reviewDisposition:
 						latestReviews.get(version.id)?.decision ?? "candidate",
 				}
 			: null;
 	const usageEvidence = currentEvidence.find(
-		(entry) => entry.row.kind === "usage_test"
+		(entry) =>
+			entry.row.kind === "usage_test" && entry.row.testId === item.testId
 	);
-	const usageResult = usageEvidence?.row.result;
-	const usageTestStatus =
-		usageResult === "passed" ||
-		usageResult === "failed" ||
-		usageResult === "inconclusive"
-			? usageResult
-			: "not_assessed";
+	const usageTestStatus = usageEvidenceResult(usageEvidence);
 	const evaluation: ReadinessEvaluationItem = {
 		id: item.id,
 		kind: item.kind,
 		disposition: item.disposition,
 		asset: assetStatus,
-		profileContractActive: false,
+		profileContractActive,
+		profileContractUsageTest: getProfileContractUsageTestStatus(
+			item,
+			profileIds,
+			activeContracts
+		),
+		profileUsageTestsComplete:
+			item.kind !== "usage_test" && profileId && profileContract
+				? profileUsageTestsComplete
+				: undefined,
 		usageTestStatus,
 	};
 	const [assessment] = evaluateFamilyReadiness({
@@ -209,6 +530,9 @@ function evaluateRequiredSetItem(
 		status: assessment?.status ?? "incomplete",
 		blockers: assessment?.blockers ?? [],
 		currentAssetVersionIds: itemVersions.map((current) => current.id),
+		qualityReadiness,
+		qualityRequirements,
+		usageRequirements,
 		latestEvidence: evidence.map((entry) =>
 			toEvidence(entry.row, entry.isCurrent)
 		),
@@ -225,52 +549,69 @@ async function readActiveRevisionReadiness(
 	const assetRecordIds = [
 		...new Set(activeRevision.items.flatMap((item) => item.assetRecordIds)),
 	];
-	const [versionRows, contextRows, canonicalRows] = await Promise.all([
-		assetRecordIds.length > 0
-			? db
-					.select()
-					.from(assetVersions)
-					.where(
-						and(
-							eq(assetVersions.projectId, projectId),
-							eq(assetVersions.assetFamilyId, family.id),
-							inArray(assetVersions.assetRecordId, assetRecordIds)
+	const [versionRows, contextRows, canonicalRows, assetRecordRows, contracts] =
+		await Promise.all([
+			assetRecordIds.length > 0
+				? db
+						.select()
+						.from(assetVersions)
+						.where(
+							and(
+								eq(assetVersions.projectId, projectId),
+								eq(assetVersions.assetFamilyId, family.id),
+								inArray(assetVersions.assetRecordId, assetRecordIds)
+							)
+						)
+						.orderBy(
+							desc(assetVersions.versionNumber),
+							desc(assetVersions.createdAt)
+						)
+				: Promise.resolve([]),
+			db
+				.select()
+				.from(contextRevisions)
+				.where(
+					and(
+						eq(contextRevisions.projectId, projectId),
+						or(
+							eq(contextRevisions.state, "active"),
+							eq(contextRevisions.revisionNumber, 0)
 						)
 					)
-					.orderBy(
-						desc(assetVersions.versionNumber),
-						desc(assetVersions.createdAt)
-					)
-			: Promise.resolve([]),
-		db
-			.select()
-			.from(contextRevisions)
-			.where(
-				and(
-					eq(contextRevisions.projectId, projectId),
-					or(
-						eq(contextRevisions.state, "active"),
-						eq(contextRevisions.revisionNumber, 0)
+				)
+				.orderBy(desc(contextRevisions.revisionNumber))
+				.limit(1),
+			db
+				.select()
+				.from(assetFamilyCanonicalDesigns)
+				.where(
+					and(
+						eq(assetFamilyCanonicalDesigns.projectId, projectId),
+						eq(assetFamilyCanonicalDesigns.assetFamilyId, family.id)
 					)
 				)
-			)
-			.orderBy(desc(contextRevisions.revisionNumber))
-			.limit(1),
-		db
-			.select()
-			.from(assetFamilyCanonicalDesigns)
-			.where(
-				and(
-					eq(assetFamilyCanonicalDesigns.projectId, projectId),
-					eq(assetFamilyCanonicalDesigns.assetFamilyId, family.id)
+				.orderBy(
+					desc(assetFamilyCanonicalDesigns.createdAt),
+					desc(assetFamilyCanonicalDesigns.id)
 				)
-			)
-			.orderBy(
-				desc(assetFamilyCanonicalDesigns.createdAt),
-				desc(assetFamilyCanonicalDesigns.id)
-			)
-			.limit(1),
-	]);
+				.limit(1),
+			assetRecordIds.length > 0
+				? db
+						.select()
+						.from(assetRecords)
+						.where(
+							and(
+								eq(assetRecords.projectId, projectId),
+								eq(assetRecords.assetFamilyId, family.id),
+								inArray(assetRecords.id, assetRecordIds)
+							)
+						)
+				: Promise.resolve([]),
+			readProjectProfileContracts(db, projectId),
+		]);
+	const assetRecordsById = new Map(
+		assetRecordRows.map((record) => [record.id, record])
+	);
 	const currentVersions = new Map<string, (typeof versionRows)[number]>();
 	for (const version of versionRows) {
 		if (!currentVersions.has(version.assetRecordId)) {
@@ -318,7 +659,9 @@ async function readActiveRevisionReadiness(
 		currentVersions,
 		contextRows[0]?.id ?? null,
 		family,
-		canonicalRows[0]?.assetVersionId ?? null
+		canonicalRows[0]?.assetVersionId ?? null,
+		assetRecordsById,
+		contracts
 	);
 	const items = activeRevision.items.map((item) =>
 		evaluateRequiredSetItem(
@@ -326,7 +669,11 @@ async function readActiveRevisionReadiness(
 			activeRevision.id,
 			currentVersions,
 			latestReviews,
-			currentEvidence.get(item.id) ?? []
+			currentEvidence.get(item.id) ?? [],
+			currentEvidence,
+			activeRevision.items,
+			assetRecordsById,
+			contracts
 		)
 	);
 	return {
@@ -342,6 +689,167 @@ interface EvidenceScope {
 	canonicalDesignVersionId: string | null;
 	contextRevisionId: string | null;
 	family: typeof assetFamilies.$inferSelect;
+	profileContractRevisionIds: (string | null)[];
+	profileIds: (SpecializedProfileId | null)[];
+	ruleClass:
+		| "integrity_gate"
+		| "waivable_requirement"
+		| "quality_advisory"
+		| "human_review"
+		| null;
+}
+
+async function readEvidenceScopeContext(
+	db: Database,
+	input: ReadinessEvidenceInput,
+	item: RequiredSetItem
+) {
+	const [
+		familyRows,
+		contextRows,
+		canonicalRows,
+		versionRows,
+		assetRecordRows,
+		contracts,
+	] = await Promise.all([
+		db
+			.select()
+			.from(assetFamilies)
+			.where(
+				and(
+					eq(assetFamilies.projectId, input.projectId),
+					eq(assetFamilies.id, input.assetFamilyId)
+				)
+			)
+			.limit(1),
+		db
+			.select({ id: contextRevisions.id })
+			.from(contextRevisions)
+			.where(
+				and(
+					eq(contextRevisions.projectId, input.projectId),
+					or(
+						eq(contextRevisions.state, "active"),
+						eq(contextRevisions.revisionNumber, 0)
+					)
+				)
+			)
+			.orderBy(desc(contextRevisions.revisionNumber))
+			.limit(1),
+		db
+			.select()
+			.from(assetFamilyCanonicalDesigns)
+			.where(
+				and(
+					eq(assetFamilyCanonicalDesigns.projectId, input.projectId),
+					eq(assetFamilyCanonicalDesigns.assetFamilyId, input.assetFamilyId)
+				)
+			)
+			.orderBy(
+				desc(assetFamilyCanonicalDesigns.createdAt),
+				desc(assetFamilyCanonicalDesigns.id)
+			)
+			.limit(1),
+		db
+			.select()
+			.from(assetVersions)
+			.where(
+				and(
+					eq(assetVersions.projectId, input.projectId),
+					eq(assetVersions.assetFamilyId, input.assetFamilyId),
+					inArray(assetVersions.assetRecordId, item.assetRecordIds)
+				)
+			)
+			.orderBy(
+				desc(assetVersions.versionNumber),
+				desc(assetVersions.createdAt)
+			),
+		db
+			.select()
+			.from(assetRecords)
+			.where(
+				and(
+					eq(assetRecords.projectId, input.projectId),
+					eq(assetRecords.assetFamilyId, input.assetFamilyId),
+					inArray(assetRecords.id, item.assetRecordIds)
+				)
+			),
+		readProjectProfileContracts(db, input.projectId),
+	]);
+	const [family] = familyRows;
+	return {
+		family: family ?? null,
+		contextRevisionId: contextRows[0]?.id ?? null,
+		canonicalDesignVersionId: canonicalRows[0]?.assetVersionId ?? null,
+		versionRows,
+		assetRecordRows,
+		contracts,
+	};
+}
+
+function indexCurrentVersions(versions: (typeof assetVersions.$inferSelect)[]) {
+	const currentVersions = new Map<string, typeof assetVersions.$inferSelect>();
+	for (const version of versions) {
+		if (!currentVersions.has(version.assetRecordId)) {
+			currentVersions.set(version.assetRecordId, version);
+		}
+	}
+	return currentVersions;
+}
+
+function resolveQualityRuleClass(
+	input: ReadinessEvidenceInput,
+	item: RequiredSetItem,
+	profileIds: (SpecializedProfileId | null)[],
+	activeContracts: (ProfileContractSnapshot | null)[]
+): { isValid: boolean; ruleClass: EvidenceScope["ruleClass"] } {
+	if (input.kind !== "quality") {
+		return { isValid: true, ruleClass: null };
+	}
+	if (item.assetRecordIds.length !== 1) {
+		return { isValid: false, ruleClass: null };
+	}
+	const [profileId] = profileIds;
+	const [contract] = activeContracts;
+	if (!profileId) {
+		const isValid =
+			input.ruleId === "general.asset_support" && input.result !== "waived";
+		return { isValid, ruleClass: null };
+	}
+	const rule = contract?.contract.rules.find(
+		(candidate) => candidate.id === input.ruleId
+	);
+	const isValid = Boolean(
+		rule &&
+			isProfileQualityEvidenceValid({
+				rule,
+				result: input.result,
+				observedValue: input.observedValue,
+			})
+	);
+	return {
+		isValid,
+		ruleClass: isValid ? (rule?.class ?? null) : null,
+	};
+}
+
+function isUsageTestSupported(
+	input: ReadinessEvidenceInput,
+	profileIds: (SpecializedProfileId | null)[],
+	activeContracts: (ProfileContractSnapshot | null)[]
+) {
+	if (input.kind !== "usage_test") {
+		return true;
+	}
+	return activeContracts.every((contract, index) => {
+		const profileId = profileIds[index];
+		return (
+			!profileId ||
+			Boolean(
+				contract?.contract.usageTests.some((test) => test.id === input.testId)
+			)
+		);
+	});
 }
 
 async function readEvidenceItem(
@@ -390,6 +898,12 @@ async function readEvidenceItem(
 	) {
 		return null;
 	}
+	if (
+		input.kind === "usage_test" &&
+		(input.testId !== item.testId || item.assetRecordIds.length === 0)
+	) {
+		return null;
+	}
 	return item;
 }
 
@@ -398,73 +912,11 @@ async function readEvidenceScope(
 	input: ReadinessEvidenceInput,
 	item: RequiredSetItem
 ): Promise<EvidenceScope | null> {
-	const [familyRows, contextRows, canonicalRows, versionRows] =
-		await Promise.all([
-			db
-				.select()
-				.from(assetFamilies)
-				.where(
-					and(
-						eq(assetFamilies.projectId, input.projectId),
-						eq(assetFamilies.id, input.assetFamilyId)
-					)
-				)
-				.limit(1),
-			db
-				.select({ id: contextRevisions.id })
-				.from(contextRevisions)
-				.where(
-					and(
-						eq(contextRevisions.projectId, input.projectId),
-						or(
-							eq(contextRevisions.state, "active"),
-							eq(contextRevisions.revisionNumber, 0)
-						)
-					)
-				)
-				.orderBy(desc(contextRevisions.revisionNumber))
-				.limit(1),
-			db
-				.select()
-				.from(assetFamilyCanonicalDesigns)
-				.where(
-					and(
-						eq(assetFamilyCanonicalDesigns.projectId, input.projectId),
-						eq(assetFamilyCanonicalDesigns.assetFamilyId, input.assetFamilyId)
-					)
-				)
-				.orderBy(
-					desc(assetFamilyCanonicalDesigns.createdAt),
-					desc(assetFamilyCanonicalDesigns.id)
-				)
-				.limit(1),
-			db
-				.select()
-				.from(assetVersions)
-				.where(
-					and(
-						eq(assetVersions.projectId, input.projectId),
-						eq(assetVersions.assetFamilyId, input.assetFamilyId),
-						inArray(assetVersions.assetRecordId, item.assetRecordIds)
-					)
-				)
-				.orderBy(
-					desc(assetVersions.versionNumber),
-					desc(assetVersions.createdAt)
-				),
-		]);
-	const [family] = familyRows;
-	const contextRevisionId = contextRows[0]?.id ?? null;
-	const canonicalDesignVersionId = canonicalRows[0]?.assetVersionId ?? null;
-	if (!(family && contextRevisionId)) {
+	const context = await readEvidenceScopeContext(db, input, item);
+	if (!(context.family && context.contextRevisionId)) {
 		return null;
 	}
-	const currentVersions = new Map<string, (typeof versionRows)[number]>();
-	for (const version of versionRows) {
-		if (!currentVersions.has(version.assetRecordId)) {
-			currentVersions.set(version.assetRecordId, version);
-		}
-	}
+	const currentVersions = indexCurrentVersions(context.versionRows);
 	const versions = item.assetRecordIds.flatMap((recordId) => {
 		const version = currentVersions.get(recordId);
 		return version ? [version.id] : [];
@@ -472,11 +924,47 @@ async function readEvidenceScope(
 	if (versions.length !== item.assetRecordIds.length) {
 		return null;
 	}
+	const recordsById = new Map(
+		context.assetRecordRows.map((record) => [record.id, record])
+	);
+	if (recordsById.size !== item.assetRecordIds.length) {
+		return null;
+	}
+	const profileIds = item.assetRecordIds.map((recordId) => {
+		const parsed = specializedProfileIdSchema.safeParse(
+			recordsById.get(recordId)?.assetCategory
+		);
+		return parsed.success ? parsed.data : null;
+	});
+	const activeContracts = profileIds.map((profileId) =>
+		profileId
+			? (context.contracts.activeByProfile.get(profileId) ?? null)
+			: null
+	);
+	const qualityRule = resolveQualityRuleClass(
+		input,
+		item,
+		profileIds,
+		activeContracts
+	);
+	if (
+		!(
+			qualityRule.isValid &&
+			isUsageTestSupported(input, profileIds, activeContracts)
+		)
+	) {
+		return null;
+	}
 	return {
-		family,
-		contextRevisionId,
-		canonicalDesignVersionId,
+		family: context.family,
+		contextRevisionId: context.contextRevisionId,
+		canonicalDesignVersionId: context.canonicalDesignVersionId,
 		assetVersionIds: versions,
+		profileContractRevisionIds: profileIds.map((profileId, index) =>
+			profileId ? (activeContracts[index]?.revisionId ?? null) : null
+		),
+		profileIds,
+		ruleClass: qualityRule.ruleClass,
 	};
 }
 
@@ -725,11 +1213,19 @@ export function createFamilyReadinessStore(db: Database): FamilyReadinessStore {
 				kind: input.kind,
 				result: input.result,
 				assetVersionIds: scope.assetVersionIds,
+				profileContractRevisionIds:
+					input.kind === "applicability"
+						? []
+						: scope.profileContractRevisionIds,
 				contextRevisionId: scope.contextRevisionId,
 				visualWorldId: scope.family.visualWorldId,
 				useContext: scope.family.useContext,
 				canonicalDesignVersionId: scope.canonicalDesignVersionId,
 				ruleId: input.kind === "quality" ? input.ruleId : null,
+				ruleClass: input.kind === "quality" ? scope.ruleClass : null,
+				testId: input.kind === "usage_test" ? input.testId : null,
+				observedValue:
+					input.kind === "quality" ? (input.observedValue ?? null) : null,
 				method: "method" in input ? input.method : null,
 				rationale: input.rationale,
 				createdByUserId: userId,

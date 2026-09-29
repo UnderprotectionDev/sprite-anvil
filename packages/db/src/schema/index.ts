@@ -18,3 +18,4 @@ export * from "./project-context";
 export * from "./provider-generation-records";
 export * from "./reference-production";
 export * from "./source-metadata-mapping";
+export * from "./specialized-profile-contracts";

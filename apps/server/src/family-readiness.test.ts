@@ -19,6 +19,7 @@ test("a family is complete only when active required items have current evidence
 				id: "east-facing",
 				kind: "direction",
 				disposition: "required",
+				profileContractActive: true,
 				asset: readyAsset,
 			},
 			{
@@ -120,6 +121,70 @@ test("approval and integrity alone cannot complete a required item or usage test
 	expect(result.items[2]?.blockers).toContain("quality_contract");
 });
 
+test("a Specialized Profile Contract is required even when quality evidence passed", () => {
+	const result = evaluateFamilyReadiness({
+		activeRequiredSetRevisionId: "required-set-4",
+		items: [
+			{
+				id: "east-facing",
+				kind: "direction",
+				disposition: "required",
+				profileContractActive: false,
+				asset: readyAsset,
+			},
+		],
+	});
+
+	expect(result.status).toBe("incomplete");
+	expect(result.items[0]?.blockers).toContain("quality_contract");
+});
+
+test("a required usage test blocks Specialized Profile readiness until it passes", () => {
+	const result = evaluateFamilyReadiness({
+		activeRequiredSetRevisionId: "required-set-5",
+		items: [
+			{
+				id: "east-facing",
+				kind: "direction",
+				disposition: "required",
+				profileContractActive: true,
+				profileUsageTestsComplete: false,
+				asset: {
+					...readyAsset,
+					qualityReadiness: "blocked",
+				},
+			},
+		],
+	});
+
+	expect(result.status).toBe("incomplete");
+	expect(result.items[0]?.blockers).toEqual(
+		expect.arrayContaining(["quality", "profile_contract_usage_test"])
+	);
+});
+
+test("an eligible waiver can complete readiness while preserving the exception status", () => {
+	const result = evaluateFamilyReadiness({
+		activeRequiredSetRevisionId: "required-set-6",
+		items: [
+			{
+				id: "east-facing",
+				kind: "direction",
+				disposition: "required",
+				profileContractActive: true,
+				profileUsageTestsComplete: true,
+				asset: {
+					...readyAsset,
+					qualityReadiness: "exceptions_ready",
+				},
+			},
+		],
+	});
+
+	expect(result.status).toBe("complete");
+	expect(result.items[0]?.blockers).toEqual([]);
+});
+
 test("readiness evidence becomes stale when its version, context, or canonical design changes", () => {
 	const pinnedScope = {
 		assetVersionIds: ["asset-version-1"],
@@ -165,4 +230,23 @@ test("readiness evidence remains current when no canonical design is selected", 
 			scopeWithoutCanonicalDesign
 		)
 	).toBe(true);
+});
+
+test("profile-bound evidence becomes stale when its contract revision changes", () => {
+	const pinnedScope = {
+		assetVersionIds: ["asset-version-1"],
+		profileContractRevisionIds: ["profile-contract-1"],
+		contextRevisionId: "context-revision-1",
+		visualWorldId: "visual-world-1",
+		useContext: "combat",
+		canonicalDesignVersionId: null,
+	};
+
+	expect(isReadinessEvidenceCurrent(pinnedScope, pinnedScope)).toBe(true);
+	expect(
+		isReadinessEvidenceCurrent(pinnedScope, {
+			...pinnedScope,
+			profileContractRevisionIds: ["profile-contract-2"],
+		})
+	).toBe(false);
 });

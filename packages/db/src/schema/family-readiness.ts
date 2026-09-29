@@ -126,15 +126,32 @@ export const familyReadinessEvidence = pgTable(
 			.notNull(),
 		result: text("result")
 			.$type<
-				"applicable" | "inapplicable" | "passed" | "failed" | "inconclusive"
+				| "applicable"
+				| "inapplicable"
+				| "passed"
+				| "failed"
+				| "inconclusive"
+				| "waived"
 			>()
 			.notNull(),
 		assetVersionIds: jsonb("asset_version_ids").$type<string[]>().notNull(),
+		profileContractRevisionIds: jsonb("profile_contract_revision_ids")
+			.$type<(string | null)[]>()
+			.notNull()
+			.default([]),
 		contextRevisionId: text("context_revision_id"),
 		visualWorldId: text("visual_world_id").notNull(),
 		useContext: text("use_context").notNull(),
 		canonicalDesignVersionId: text("canonical_design_version_id"),
 		ruleId: text("rule_id"),
+		ruleClass: text("rule_class").$type<
+			| "integrity_gate"
+			| "waivable_requirement"
+			| "quality_advisory"
+			| "human_review"
+		>(),
+		testId: text("test_id"),
+		observedValue: text("observed_value"),
 		method: text("method"),
 		rationale: text("rationale").notNull(),
 		createdByUserId: text("created_by_user_id")
@@ -172,11 +189,11 @@ export const familyReadinessEvidence = pgTable(
 		}).onDelete("restrict"),
 		check(
 			"family_readiness_evidence_kind_result_check",
-			sql`(${table.kind} = 'applicability' AND ${table.result} IN ('applicable', 'inapplicable')) OR (${table.kind} IN ('quality', 'usage_test') AND ${table.result} IN ('passed', 'failed', 'inconclusive'))`
+			sql`(${table.kind} = 'applicability' AND ${table.result} IN ('applicable', 'inapplicable')) OR (${table.kind} = 'quality' AND ${table.result} IN ('passed', 'failed', 'inconclusive', 'waived')) OR (${table.kind} = 'usage_test' AND ${table.result} IN ('passed', 'failed', 'inconclusive'))`
 		),
 		check(
 			"family_readiness_evidence_payload_check",
-			sql`(${table.kind} = 'quality' AND ${table.ruleId} IS NOT NULL AND ${table.method} IS NOT NULL) OR (${table.kind} <> 'quality' AND ${table.ruleId} IS NULL)`
+			sql`(${table.kind} = 'quality' AND ${table.ruleId} IS NOT NULL AND ${table.testId} IS NULL AND ${table.method} IS NOT NULL AND (${table.result} <> 'waived' OR ${table.observedValue} IS NOT NULL)) OR (${table.kind} = 'usage_test' AND ${table.ruleId} IS NULL AND ${table.ruleClass} IS NULL AND ${table.testId} IS NOT NULL AND ${table.observedValue} IS NULL AND ${table.method} IS NOT NULL) OR (${table.kind} = 'applicability' AND ${table.ruleId} IS NULL AND ${table.ruleClass} IS NULL AND ${table.testId} IS NULL AND ${table.observedValue} IS NULL AND ${table.method} IS NULL)`
 		),
 		index("family_readiness_evidence_item_created_idx").on(
 			table.projectId,
