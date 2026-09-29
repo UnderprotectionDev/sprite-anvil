@@ -1,10 +1,10 @@
 import { $, expect } from "@wdio/globals";
 
 describe("Tauri application shell", () => {
-	it("opens the home screen", async () => {
-		const homeLink = await $("a=Home");
-		await homeLink.waitForDisplayed();
-		await expect(homeLink).toBeDisplayed();
+	it("opens the application shell", async () => {
+		const brandLink = await $("a=Sprite Anvil");
+		await brandLink.waitForDisplayed();
+		await expect(brandLink).toBeDisplayed();
 
 		const apiStatusHeading = await $("h2=API Status");
 		await apiStatusHeading.waitForDisplayed();

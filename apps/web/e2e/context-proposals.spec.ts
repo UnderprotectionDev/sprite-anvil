@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { projectContextFixture } from "./project-context-fixture";
+import { signUpWithFixture } from "./project-workflow";
 
 test("persists a structured Project Context proposal from the web flow", async ({
 	page,
@@ -9,12 +10,7 @@ test("persists a structured Project Context proposal from the web flow", async (
 		"CONTEXT_TEST_DATABASE_URL is required for the persistent flow."
 	);
 
-	await page.goto("/login");
-	await page.getByLabel("Name").fill(projectContextFixture.userName);
-	await page.getByLabel("Email").fill(projectContextFixture.email);
-	await page.getByLabel("Password").fill(projectContextFixture.password);
-	await page.getByRole("button", { name: "Sign Up" }).click();
-	await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+	await signUpWithFixture(page, projectContextFixture);
 
 	await page.goto("/context-proposals");
 	await page.getByLabel("Proje adı").fill(projectContextFixture.projectName);

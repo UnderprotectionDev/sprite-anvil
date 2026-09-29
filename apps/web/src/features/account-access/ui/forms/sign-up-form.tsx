@@ -34,7 +34,7 @@ export default function SignUpForm({
 				{
 					onSuccess: () => {
 						navigate({
-							to: "/dashboard",
+							to: "/projects",
 						});
 						toast.success("Sign up successful");
 					},
@@ -58,11 +58,16 @@ export default function SignUpForm({
 	}
 
 	return (
-		<div className="mx-auto mt-10 w-full max-w-md p-6">
-			<h1 className="mb-6 text-center font-bold text-3xl">Create Account</h1>
+		<div className="w-full space-y-6">
+			<div className="space-y-2">
+				<h2 className="font-semibold text-3xl">Create Account</h2>
+				<p className="text-muted-foreground text-sm">
+					Set up your private project workspace.
+				</p>
+			</div>
 
 			<form
-				className="space-y-4"
+				className="space-y-5"
 				onSubmit={(e) => {
 					e.preventDefault();
 					e.stopPropagation();
@@ -73,8 +78,12 @@ export default function SignUpForm({
 					<form.Field name="name">
 						{(field) => (
 							<div className="space-y-2">
-								<Label htmlFor={field.name}>Name</Label>
+								<Label className="text-sm" htmlFor={field.name}>
+									Name
+								</Label>
 								<Input
+									autoComplete="name"
+									className="min-h-11 text-sm md:text-sm"
 									id={field.name}
 									name={field.name}
 									onBlur={field.handleBlur}
@@ -82,7 +91,11 @@ export default function SignUpForm({
 									value={field.state.value}
 								/>
 								{field.state.meta.errors.map((error) => (
-									<p className="text-red-500" key={error?.message}>
+									<p
+										className="text-destructive text-sm"
+										key={error?.message}
+										role="alert"
+									>
 										{error?.message}
 									</p>
 								))}
@@ -95,8 +108,12 @@ export default function SignUpForm({
 					<form.Field name="email">
 						{(field) => (
 							<div className="space-y-2">
-								<Label htmlFor={field.name}>Email</Label>
+								<Label className="text-sm" htmlFor={field.name}>
+									Email
+								</Label>
 								<Input
+									autoComplete="email"
+									className="min-h-11 text-sm md:text-sm"
 									id={field.name}
 									name={field.name}
 									onBlur={field.handleBlur}
@@ -105,7 +122,11 @@ export default function SignUpForm({
 									value={field.state.value}
 								/>
 								{field.state.meta.errors.map((error) => (
-									<p className="text-red-500" key={error?.message}>
+									<p
+										className="text-destructive text-sm"
+										key={error?.message}
+										role="alert"
+									>
 										{error?.message}
 									</p>
 								))}
@@ -118,8 +139,12 @@ export default function SignUpForm({
 					<form.Field name="password">
 						{(field) => (
 							<div className="space-y-2">
-								<Label htmlFor={field.name}>Password</Label>
+								<Label className="text-sm" htmlFor={field.name}>
+									Password
+								</Label>
 								<Input
+									autoComplete="new-password"
+									className="min-h-11 text-sm md:text-sm"
 									id={field.name}
 									name={field.name}
 									onBlur={field.handleBlur}
@@ -128,7 +153,11 @@ export default function SignUpForm({
 									value={field.state.value}
 								/>
 								{field.state.meta.errors.map((error) => (
-									<p className="text-red-500" key={error?.message}>
+									<p
+										className="text-destructive text-sm"
+										key={error?.message}
+										role="alert"
+									>
 										{error?.message}
 									</p>
 								))}
@@ -145,7 +174,7 @@ export default function SignUpForm({
 				>
 					{({ canSubmit, isSubmitting }) => (
 						<Button
-							className="w-full"
+							className="min-h-11 w-full text-sm"
 							disabled={!canSubmit || isSubmitting}
 							type="submit"
 						>
@@ -155,9 +184,9 @@ export default function SignUpForm({
 				</form.Subscribe>
 			</form>
 
-			<div className="mt-4 text-center">
+			<div className="text-center">
 				<Button
-					className="text-indigo-600 hover:text-indigo-800"
+					className="min-h-11 text-primary text-sm"
 					onClick={onSwitchToSignIn}
 					variant="link"
 				>

@@ -37,6 +37,30 @@
 	--context-patina: #9bd4c2;
 }
 
+.context-dialog-body {
+	min-height: 0;
+	padding: 1.5rem;
+}
+
+.context-back-link {
+	display: inline-flex;
+	align-items: center;
+	min-height: 2.75rem;
+	font-size: 0.875rem;
+	font-weight: 650;
+	color: var(--context-patina);
+	text-underline-offset: 0.2rem;
+}
+
+.context-back-link:hover {
+	text-decoration: underline;
+}
+
+.context-back-link:focus-visible {
+	outline: 2px solid var(--context-signal);
+	outline-offset: 2px;
+}
+
 .context-shell {
 	width: min(100%, 1440px);
 	margin-inline: auto;
@@ -873,6 +897,13 @@
 .project-setup {
 	max-width: 52rem;
 	margin: 2rem auto;
+}
+
+.context-dialog-body .project-setup {
+	padding: 0;
+	margin: 0;
+	background: transparent;
+	border: 0;
 }
 
 @media (max-width: 1020px) {

@@ -219,12 +219,18 @@ export function AssetRecordsView({
 	return (
 		<main className="mx-auto w-full max-w-3xl space-y-8 overflow-y-auto px-4 py-8">
 			<header className="space-y-3">
+				<Link
+					className="inline-flex min-h-11 items-center text-muted-foreground text-sm underline underline-offset-4"
+					to="/projects"
+				>
+					Oyun projelerine dön
+				</Link>
 				<div className="flex flex-wrap items-start justify-between gap-3">
 					<div className="space-y-2">
-						<p className="text-muted-foreground text-sm">
-							Varlık çalışma alanı
+						<p className="font-mono text-primary text-xs uppercase tracking-[0.16em]">
+							Varlık kayıtları
 						</p>
-						<h1 className="font-bold text-3xl">
+						<h1 className="font-medium font-serif text-4xl tracking-tight">
 							{projectQuery.data?.name ?? "Oyun projesi"}
 						</h1>
 					</div>
@@ -236,7 +242,7 @@ export function AssetRecordsView({
 						İçe Aktarma Gelen Kutusu
 					</Link>
 				</div>
-				<p className="text-muted-foreground">
+				<p className="max-w-2xl text-muted-foreground">
 					Bağımsız ürün anlamı, yaşam döngüsü veya teslimat kimliği olan
 					görselleri aynı Varlık Kaydı altında izleyin.
 				</p>
@@ -393,16 +399,22 @@ export function AssetRecordDetailView({
 	let trackingPanel: ReactNode = null;
 	if (recordQuery.isPending) {
 		recordHeading = (
-			<h1 className="font-bold text-3xl">Varlık kaydı yükleniyor…</h1>
+			<h1 className="font-medium font-serif text-4xl tracking-tight">
+				Varlık kaydı yükleniyor…
+			</h1>
 		);
 	} else if (recordQuery.isError) {
 		recordHeading = (
-			<h1 className="font-bold text-3xl">Varlık kaydı açılamadı</h1>
+			<h1 className="font-medium font-serif text-4xl tracking-tight">
+				Varlık kaydı açılamadı
+			</h1>
 		);
 	} else if (record) {
 		recordHeading = (
 			<>
-				<h1 className="font-bold text-3xl">{record.name}</h1>
+				<h1 className="font-medium font-serif text-4xl tracking-tight">
+					{record.name}
+				</h1>
 				<p className="text-muted-foreground">
 					{getIdentitySummary(record.identityCriteria)}
 				</p>
@@ -424,8 +436,8 @@ export function AssetRecordDetailView({
 	return (
 		<main className="mx-auto w-full max-w-3xl space-y-8 overflow-y-auto px-4 py-8">
 			<header className="space-y-2">
-				<p className="text-muted-foreground text-sm">
-					{projectQuery.data?.name ?? "Oyun projesi"} · Varlık kaydı
+				<p className="font-mono text-primary text-xs uppercase tracking-[0.16em]">
+					Varlık kütüphanesi / {projectQuery.data?.name ?? "Oyun projesi"}
 				</p>
 				{recordHeading}
 			</header>

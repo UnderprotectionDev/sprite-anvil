@@ -157,6 +157,7 @@ function renderWorkspace(proposals: ContextProposal[] = []) {
 				onCheckProposalState={async () => false}
 				onNewProject={() => undefined}
 				onRefreshProposals={async () => undefined}
+				onRetryProposals={() => undefined}
 				onSelectProject={() => undefined}
 				project={project}
 				projects={[project]}

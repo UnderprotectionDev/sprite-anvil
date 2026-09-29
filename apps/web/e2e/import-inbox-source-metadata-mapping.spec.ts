@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { createAssetRecordFixture } from "./asset-record-fixture";
+import { signUpWithFixture } from "./project-workflow";
 import {
 	sourceMetadataMappingFixture,
 	sourceMetadataMappingFixtureHash,
@@ -17,12 +18,7 @@ test("creates and rereads the shared source metadata mapping proposal through th
 	);
 
 	const fixture = createAssetRecordFixture();
-	await page.goto("/login");
-	await page.getByLabel("Name").fill(fixture.userName);
-	await page.getByLabel("Email").fill(fixture.email);
-	await page.getByLabel("Password").fill(fixture.password);
-	await page.getByRole("button", { name: "Sign Up" }).click();
-	await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+	await signUpWithFixture(page, fixture);
 
 	const visualWorldName = `${fixture.name} world`;
 	const identityName = `${fixture.name} identity`;
