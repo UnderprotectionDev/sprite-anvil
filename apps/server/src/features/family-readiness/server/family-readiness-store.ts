@@ -9,6 +9,7 @@ import type {
 	RequiredSetRevision,
 } from "@sprite-anvil/api/family-readiness";
 import {
+	assessGeneralAssetSupport,
 	evaluateFamilyReadiness,
 	familyReadinessSchema,
 	isReadinessEvidenceCurrent,
@@ -265,36 +266,16 @@ function latestUsageEvidence(
 		)[0];
 }
 
-function assessGeneralAssetSupport(evidence: CurrentEvidence[]): {
-	qualityReadiness: ReadinessAssetStatus["qualityReadiness"];
-	qualityRequirements: QualityRequirement[];
-} {
+function assessGeneralAssetSupportEvidence(evidence: CurrentEvidence[]) {
 	const row = evidence.find(
 		(entry) =>
 			entry.row.kind === "quality" &&
 			entry.row.ruleId === "general.asset_support"
 	);
-	const result = qualityEvidenceResult(row);
-	let qualityReadiness: ReadinessAssetStatus["qualityReadiness"] = "blocked";
-	if (result === "passed") {
-		qualityReadiness = "export_ready";
-	} else if (result === "not_assessed") {
-		qualityReadiness = "not_assessed";
-	}
-	return {
-		qualityReadiness,
-		qualityRequirements: [
-			{
-				id: "general.asset_support",
-				name: "General Asset Support",
-				class: "general_asset_support",
-				required: true,
-				waiverEligible: false,
-				result,
-				isCurrent: Boolean(row?.isCurrent),
-			},
-		],
-	};
+	return assessGeneralAssetSupport({
+		isCurrent: Boolean(row?.isCurrent),
+		result: qualityEvidenceResult(row),
+	});
 }
 
 function assessSpecializedProfile(
@@ -308,30 +289,12 @@ function assessSpecializedProfile(
 	qualityRequirements: QualityRequirement[];
 	usageRequirements: UsageRequirement[];
 } {
-	const versionIntegrityPassed = Boolean(
-		version.integrityVerified && version.contentDigest
-	);
 	const ruleResults = new Map<
 		string,
 		"passed" | "failed" | "inconclusive" | "waived"
 	>();
 	const qualityRequirements: QualityRequirement[] = contract.contract.rules.map(
 		(rule) => {
-			if (rule.class === "integrity_gate") {
-				const result: AssessedRuleResult = versionIntegrityPassed
-					? "passed"
-					: "failed";
-				ruleResults.set(rule.id, result);
-				return {
-					id: rule.id,
-					name: rule.name,
-					class: rule.class,
-					required: rule.required,
-					waiverEligible: false,
-					result,
-					isCurrent: true,
-				};
-			}
 			const row = currentEvidence.find(
 				(entry) => entry.row.kind === "quality" && entry.row.ruleId === rule.id
 			);
@@ -466,7 +429,7 @@ function evaluateRequiredSetItem(
 			const {
 				qualityReadiness: generalQualityReadiness,
 				qualityRequirements: generalQualityRequirements,
-			} = assessGeneralAssetSupport(currentEvidence);
+			} = assessGeneralAssetSupportEvidence(currentEvidence);
 			qualityReadiness = generalQualityReadiness;
 			qualityRequirements.push(...generalQualityRequirements);
 		} else if (profileContract) {

@@ -277,3 +277,42 @@ test("records a measured value for a Specialized Profile Contract measurement", 
 		})
 	);
 });
+
+test("uses unique DOM ids when different families share Required Set item ids", async () => {
+	fakeApi.readiness = readiness;
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	const assetRecords = [
+		{
+			assetCategory: null,
+			id: "asset-record-1",
+			name: "East-facing sprite",
+		},
+	];
+	render(
+		<QueryClientProvider client={queryClient}>
+			<div>
+				<FamilyReadinessManager
+					assetFamilyId="family-1"
+					assetRecords={assetRecords}
+					familyName="Combat sprite"
+					profileContracts={null}
+					projectId="project-1"
+				/>
+				<FamilyReadinessManager
+					assetFamilyId="family-2"
+					assetRecords={assetRecords}
+					familyName="Magic sprite"
+					profileContracts={null}
+					projectId="project-1"
+				/>
+			</div>
+		</QueryClientProvider>
+	);
+
+	await screen.findAllByRole("heading", { name: "Etkin Sürüm 1" });
+	const ids = [...document.querySelectorAll("[id]")].map(
+		(element) => element.id
+	);
+	expect(new Set(ids).size).toBe(ids.length);
+});

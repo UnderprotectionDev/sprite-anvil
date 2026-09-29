@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import {
+	assessGeneralAssetSupport,
 	evaluateFamilyReadiness,
 	isReadinessEvidenceCurrent,
 } from "@sprite-anvil/api/family-readiness";
@@ -163,7 +164,7 @@ test("a required usage test blocks Specialized Profile readiness until it passes
 	);
 });
 
-test("an eligible waiver can complete readiness while preserving the exception status", () => {
+test("an eligible waiver preserves exception status without completing a family", () => {
 	const result = evaluateFamilyReadiness({
 		activeRequiredSetRevisionId: "required-set-6",
 		items: [
@@ -181,8 +182,25 @@ test("an eligible waiver can complete readiness while preserving the exception s
 		],
 	});
 
-	expect(result.status).toBe("complete");
-	expect(result.items[0]?.blockers).toEqual([]);
+	expect(result.status).toBe("incomplete");
+	expect(result.items[0]?.blockers).toContain("quality");
+	expect(result.items[0]?.status).toBe("incomplete");
+});
+
+test("General Asset Support evidence never creates export readiness", () => {
+	const assessment = assessGeneralAssetSupport({
+		isCurrent: true,
+		result: "passed",
+	});
+	expect(assessment.qualityReadiness).toBe("not_assessed");
+	expect(assessment.qualityRequirements).toEqual([
+		expect.objectContaining({
+			class: "general_asset_support",
+			isCurrent: true,
+			required: false,
+			result: "passed",
+		}),
+	]);
 });
 
 test("readiness evidence becomes stale when its version, context, or canonical design changes", () => {

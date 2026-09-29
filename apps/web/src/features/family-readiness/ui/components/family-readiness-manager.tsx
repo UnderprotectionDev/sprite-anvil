@@ -341,6 +341,7 @@ export function FamilyReadinessManager({
 				</div>
 				{draftItems.map((item) => (
 					<RequiredSetItemEditor
+						assetFamilyId={assetFamilyId}
 						assetRecords={assetRecords}
 						item={item}
 						key={item.localId}
@@ -588,12 +589,14 @@ function ReadinessEvidenceDetails({
 }
 
 function RequiredSetItemEditor({
+	assetFamilyId,
 	assetRecords,
 	item,
 	onChange,
 	onRemove,
 	profileContracts,
 }: {
+	assetFamilyId: string;
 	assetRecords: {
 		assetCategory: string | null;
 		id: string;
@@ -604,7 +607,7 @@ function RequiredSetItemEditor({
 	onRemove: () => void;
 	profileContracts: ProfileContractsCatalog | null;
 }) {
-	const idPrefix = `required-set-${item.id}`;
+	const idPrefix = `required-set-${assetFamilyId}-${item.id}`;
 	const usageTestOptions = getUsageTestOptions(
 		item,
 		assetRecords,
@@ -843,23 +846,21 @@ function ReadinessEvidenceForms({
 					Profil Sözleşmesini etkinleştirin.
 				</p>
 			) : null}
-			{qualityRequirements
-				.filter((requirement) => requirement.class !== "integrity_gate")
-				.map((requirement) => (
-					<EvidenceForm
-						assetFamilyId={assetFamilyId}
-						description={`${requirement.name} · ${ruleClassLabels[requirement.class]}`}
-						initialResult="passed"
-						isSaving={isSaving}
-						item={item}
-						key={requirement.id}
-						kind="quality"
-						onRecord={onRecord}
-						projectId={projectId}
-						qualityRequirement={requirement}
-						revisionId={revisionId}
-					/>
-				))}
+			{qualityRequirements.map((requirement) => (
+				<EvidenceForm
+					assetFamilyId={assetFamilyId}
+					description={`${requirement.name} · ${ruleClassLabels[requirement.class]}`}
+					initialResult="passed"
+					isSaving={isSaving}
+					item={item}
+					key={requirement.id}
+					kind="quality"
+					onRecord={onRecord}
+					projectId={projectId}
+					qualityRequirement={requirement}
+					revisionId={revisionId}
+				/>
+			))}
 		</div>
 	);
 }
@@ -900,7 +901,7 @@ function EvidenceForm({
 	const [method, setMethod] = useState("");
 	const [rationale, setRationale] = useState("");
 	const [observedValue, setObservedValue] = useState("");
-	const formId = `${kind}-${item.id}-${qualityRequirement?.id ?? testId ?? ""}`;
+	const formId = `${assetFamilyId}-${kind}-${item.id}-${qualityRequirement?.id ?? testId ?? ""}`;
 
 	function submit(event: React.FormEvent<HTMLFormElement>) {
 		event.preventDefault();

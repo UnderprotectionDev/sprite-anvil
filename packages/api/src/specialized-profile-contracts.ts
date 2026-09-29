@@ -694,9 +694,6 @@ export function isProfileQualityEvidenceValid(input: {
 	result: "passed" | "failed" | "inconclusive" | "waived";
 	observedValue?: string;
 }) {
-	if (input.rule.class === "integrity_gate") {
-		return false;
-	}
 	if (input.result === "waived" && !input.rule.waiverEligible) {
 		return false;
 	}

@@ -387,6 +387,28 @@ export interface ReadinessAssetStatus {
 	reviewDisposition: "approved" | "candidate" | "rejected";
 }
 
+export function assessGeneralAssetSupport(input: {
+	isCurrent: boolean;
+	result: z.infer<
+		typeof familyReadinessItemSchema
+	>["qualityRequirements"][number]["result"];
+}) {
+	return {
+		qualityReadiness: "not_assessed" as const,
+		qualityRequirements: [
+			{
+				id: "general.asset_support",
+				name: "General Asset Support",
+				class: "general_asset_support" as const,
+				required: false,
+				waiverEligible: false,
+				result: input.result,
+				isCurrent: input.isCurrent,
+			},
+		],
+	};
+}
+
 export interface ReadinessEvaluationItem {
 	asset?: ReadinessAssetStatus | null;
 	disposition: z.infer<typeof requiredSetItemDispositionSchema>;
@@ -430,10 +452,7 @@ function readinessItemBlockers(
 	if (item.asset.applicability !== "applicable") {
 		blockers.push("applicability");
 	}
-	if (
-		item.asset.qualityReadiness !== "export_ready" &&
-		item.asset.qualityReadiness !== "exceptions_ready"
-	) {
+	if (item.asset.qualityReadiness !== "export_ready") {
 		blockers.push("quality");
 	}
 	if (!item.profileContractActive) {

@@ -48,15 +48,21 @@ test("only current passing evidence for every required contract rule yields Expo
 	expect(
 		assessProfileQualityReadiness(contract, results, usageTests).status
 	).toBe("export_ready");
-	const [requiredRule] = requiredRules;
-	if (!requiredRule) {
+	const integrityRule = requiredRules.find(
+		(rule) => rule.class === "integrity_gate"
+	);
+	if (!integrityRule) {
 		return;
 	}
-	results.delete(requiredRule.id);
+	results.delete(integrityRule.id);
 	expect(
 		assessProfileQualityReadiness(contract, results, usageTests).status
 	).toBe("blocked");
-	results.set(requiredRule.id, "failed");
+	expect(
+		assessProfileQualityReadiness(contract, results, usageTests)
+			.outstandingRuleIds
+	).toContain(integrityRule.id);
+	results.set(integrityRule.id, "failed");
 	expect(
 		assessProfileQualityReadiness(contract, results, usageTests).status
 	).toBe("blocked");
@@ -107,10 +113,16 @@ test("measurable rule evidence requires an observed value for every result", () 
 	expect(
 		isProfileQualityEvidenceValid({
 			rule: integrityRule,
+			result: "waived",
+		})
+	).toBe(false);
+	expect(
+		isProfileQualityEvidenceValid({
+			rule: integrityRule,
 			result: "passed",
 			observedValue: "verified",
 		})
-	).toBe(false);
+	).toBe(true);
 	expect(
 		isProfileQualityEvidenceValid({
 			rule: reviewRule,
