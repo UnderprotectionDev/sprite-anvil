@@ -15,7 +15,7 @@ import type { Database } from "@sprite-anvil/db";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
 import { project } from "@sprite-anvil/db/schema/project";
 import { rightsRecords } from "@sprite-anvil/db/schema/rights-records";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, ne } from "drizzle-orm";
 
 type RightsRecordRevisionInput = RightsRecordCreateInput & {
 	evidenceFile: RightsRecordStoredEvidenceFile | null;
@@ -231,7 +231,7 @@ export function createRightsRecordStore(db: Database): RightsRecordStore {
 						eq(rightsRecords.projectId, projectId),
 						eq(rightsRecords.assetRecordId, assetRecordId),
 						eq(project.ownerUserId, userId),
-						eq(assetRecords.availability, "active")
+						ne(assetRecords.availability, "erased")
 					)
 				)
 				.limit(1);

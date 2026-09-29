@@ -105,10 +105,11 @@ test.skipIf(!databaseUrl)(
 			}
 			const fileBacked = fileBackedResult.record;
 
+			const rereadRightsRecordStore = createRightsRecordStore(
+				createDb({ DATABASE_URL: databaseUrl })
+			);
 			const rereadContext = {
-				rightsRecordStore: createRightsRecordStore(
-					createDb({ DATABASE_URL: databaseUrl })
-				),
+				rightsRecordStore: rereadRightsRecordStore,
 				session: { user: { id: userId } },
 			} as unknown as Context;
 			const history = await call(
@@ -131,6 +132,19 @@ test.skipIf(!databaseUrl)(
 				versionNumber: 3,
 			});
 			expect(JSON.stringify(fileBacked)).not.toContain("objectKey");
+
+			await db
+				.update(assetRecords)
+				.set({ availability: "archived" })
+				.where(eq(assetRecords.id, assetRecordId));
+			expect(
+				await rereadRightsRecordStore.getEvidenceFile(
+					userId,
+					projectId,
+					assetRecordId,
+					fileBacked.id
+				)
+			).toMatchObject({ fileName: "license.pdf" });
 		} finally {
 			if (insertedAssetRecord) {
 				await db
