@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import type { Database } from "@sprite-anvil/db";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
+import { referenceBoardImages } from "@sprite-anvil/db/schema/reference-production";
 import { rightsRecords } from "@sprite-anvil/db/schema/rights-records";
 import { createRightsRecordStore } from "./rights-record-store";
 
@@ -9,7 +10,8 @@ const testAssetRecordId = "a7301990-3d79-49c8-887a-c1fa9a468f85";
 const userId = "rights-record-store-user";
 
 function createDatabaseHarness(
-	availability: "available" | "erased" = "available"
+	availability: "available" | "erased" = "available",
+	referenceIds: string[] = []
 ) {
 	const records: Record<string, unknown>[] = [];
 	function queryParameterValues(value: unknown): unknown[] {
@@ -48,26 +50,50 @@ function createDatabaseHarness(
 				orderBy() {
 					if (selectedTable === rightsRecords && !selection) {
 						return Promise.resolve(
-							[...records].sort(
-								(left, right) =>
-									Number(right.versionNumber) - Number(left.versionNumber)
-							)
+							records
+								.filter((record) =>
+									matchesRightsRecordTarget(record, selectedParameters)
+								)
+								.sort(
+									(left, right) =>
+										Number(right.versionNumber) - Number(left.versionNumber)
+								)
 						);
 					}
 					return this;
 				},
 				limit(count: number) {
 					if (selectedTable === assetRecords) {
-						return Promise.resolve([{ id: testAssetRecordId, availability }]);
+						const [
+							requestedProjectId,
+							requestedAssetRecordId,
+							requestedUserId,
+						] = selectedParameters;
+						return Promise.resolve(
+							requestedProjectId === testProjectId &&
+								requestedAssetRecordId === testAssetRecordId &&
+								requestedUserId === userId
+								? [{ id: testAssetRecordId, availability }]
+								: []
+						);
+					}
+					if (selectedTable === referenceBoardImages) {
+						const [requestedProjectId, requestedAssetRecordId, referenceId] =
+							selectedParameters;
+						return Promise.resolve(
+							requestedProjectId === testProjectId &&
+								requestedAssetRecordId === testAssetRecordId &&
+								referenceIds.includes(String(referenceId))
+								? [{ id: referenceId }]
+								: []
+						);
 					}
 					if (selectedTable === rightsRecords && selection?.evidenceFile) {
-						const [sourceId, sourceProjectId, sourceAssetRecordId] =
-							selectedParameters;
+						const [sourceId, ...targetParameters] = selectedParameters;
 						const sourceRecord = records.find(
 							(record) =>
 								record.id === sourceId &&
-								record.projectId === sourceProjectId &&
-								record.assetRecordId === sourceAssetRecordId &&
+								matchesRightsRecordTarget(record, targetParameters) &&
 								record.evidenceFile
 						);
 						return Promise.resolve(
@@ -76,7 +102,10 @@ function createDatabaseHarness(
 					}
 					if (selectedTable === rightsRecords && selection?.versionNumber) {
 						return Promise.resolve(
-							[...records]
+							records
+								.filter((record) =>
+									matchesRightsRecordTarget(record, selectedParameters)
+								)
 								.sort(
 									(left, right) =>
 										Number(right.versionNumber) - Number(left.versionNumber)
@@ -109,6 +138,8 @@ function createDatabaseHarness(
 							candidateRecord.id === values.id ||
 							(candidateRecord.projectId === values.projectId &&
 								candidateRecord.assetRecordId === values.assetRecordId &&
+								(candidateRecord.referenceId ?? null) ===
+									(values.referenceId ?? null) &&
 								candidateRecord.versionNumber === values.versionNumber)
 					);
 					if (duplicate) {
@@ -124,6 +155,19 @@ function createDatabaseHarness(
 	} as unknown as Database;
 
 	return { database, records };
+}
+
+function matchesRightsRecordTarget(
+	record: Record<string, unknown>,
+	parameters: unknown[]
+) {
+	const [projectId, assetRecordId, referenceId] = parameters;
+	return (
+		record.projectId === projectId &&
+		record.assetRecordId === assetRecordId &&
+		(record.referenceId ?? null) ===
+			(parameters.length > 2 ? referenceId : null)
+	);
 }
 
 const baseInput = {
@@ -150,7 +194,12 @@ test("creates and rereads immutable Rights Record revisions", async () => {
 		state: "restricted",
 		uncertainty: "Commercial use is limited to games",
 	});
-	const history = await store.list(userId, testProjectId, testAssetRecordId);
+	const history = await store.list(
+		userId,
+		testProjectId,
+		testAssetRecordId,
+		null
+	);
 
 	expect(first).toMatchObject({ ok: true, record: { versionNumber: 1 } });
 	expect(second).toMatchObject({ ok: true, record: { versionNumber: 2 } });
@@ -233,6 +282,133 @@ test("does not carry an evidence file from another Asset Record", async () => {
 	expect(records).toHaveLength(1);
 });
 
+test("carries evidence only between revisions of the same reference image", async () => {
+	const referenceId = "fcd2bb54-60fd-4555-bc6f-a30a1c2e4dd4";
+	const otherReferenceId = "f0a9b454-2053-4588-922f-524453f36c9b";
+	const { database, records } = createDatabaseHarness("available", [
+		referenceId,
+		otherReferenceId,
+	]);
+	const store = createRightsRecordStore(database);
+	const evidenceFile = {
+		contentLength: 12,
+		fileName: "reference-license.pdf",
+		objectKey: `projects/${testProjectId}/asset-records/${testAssetRecordId}/rights-records/${baseInput.id}/evidence/${"c".repeat(64)}`,
+		sha256: "c".repeat(64),
+		sourceContentType: "application/pdf",
+	};
+	const first = await store.createRevisionWithEvidenceFile(userId, {
+		...baseInput,
+		evidence: null,
+		id: baseInput.id,
+		referenceId,
+		evidenceFile,
+	});
+	const next = await store.createRevision(userId, {
+		...baseInput,
+		evidence: null,
+		evidenceFileSourceRecordId: baseInput.id,
+		id: "5240db4d-6cb5-4962-b013-cadfffb6da02",
+		referenceId,
+		uncertainty: "Reference license details updated",
+	});
+	const crossReference = await store.createRevision(userId, {
+		...baseInput,
+		evidence: null,
+		evidenceFileSourceRecordId: baseInput.id,
+		id: "699e7fa9-9e8f-4530-b446-e9ab2766d39e",
+		referenceId: otherReferenceId,
+	});
+
+	expect(first).toMatchObject({
+		ok: true,
+		record: { referenceId, versionNumber: 1 },
+	});
+	expect(next).toMatchObject({
+		ok: true,
+		record: {
+			evidenceFile: expect.objectContaining({
+				fileName: "reference-license.pdf",
+			}),
+			referenceId,
+			versionNumber: 2,
+		},
+	});
+	expect(crossReference).toEqual({ ok: false, reason: "not_found" });
+	expect(records).toHaveLength(2);
+	expect(records[0]?.evidenceFile).toEqual(evidenceFile);
+	expect(records[1]?.evidenceFile).toEqual(evidenceFile);
+});
+
+test("creates separate immutable Rights Record history for a reference image", async () => {
+	const referenceId = "fcd2bb54-60fd-4555-bc6f-a30a1c2e4dd4";
+	const secondReferenceId = "f0a9b454-2053-4588-922f-524453f36c9b";
+	const { database } = createDatabaseHarness("available", [
+		referenceId,
+		secondReferenceId,
+	]);
+	const store = createRightsRecordStore(database);
+	const assetRecord = await store.createRevision(userId, baseInput);
+	const record = await store.createRevision(userId, {
+		...baseInput,
+		id: "fc9bba08-b426-4b51-a4cf-2fd314d825da",
+		referenceId,
+	});
+	const nextReferenceRevision = await store.createRevision(userId, {
+		...baseInput,
+		id: "699e7fa9-9e8f-4530-b446-e9ab2766d39e",
+		referenceId,
+		uncertainty: "Reference source details updated",
+	});
+	const otherReferenceRevision = await store.createRevision(userId, {
+		...baseInput,
+		id: "3924d92d-29e9-458d-87c0-15e5d3c5c63d",
+		referenceId: secondReferenceId,
+	});
+
+	expect(assetRecord).toMatchObject({ ok: true, record: { versionNumber: 1 } });
+	expect(record).toMatchObject({
+		ok: true,
+		record: {
+			assetRecordId: testAssetRecordId,
+			referenceId,
+			versionNumber: 1,
+		},
+	});
+	expect(nextReferenceRevision).toMatchObject({
+		ok: true,
+		record: { referenceId, versionNumber: 2 },
+	});
+	expect(otherReferenceRevision).toMatchObject({
+		ok: true,
+		record: { referenceId: secondReferenceId, versionNumber: 1 },
+	});
+	const history = await store.list(
+		userId,
+		testProjectId,
+		testAssetRecordId,
+		referenceId
+	);
+	expect(history?.map((item) => item.referenceId)).toEqual([
+		referenceId,
+		referenceId,
+	]);
+	expect(history?.map((item) => item.versionNumber)).toEqual([2, 1]);
+	expect(
+		(await store.list(userId, testProjectId, testAssetRecordId, null))?.map(
+			(item) => item.referenceId
+		)
+	).toEqual([null]);
+	expect(
+		await store.list(
+			userId,
+			testProjectId,
+			testAssetRecordId,
+			"not-a-reference"
+		)
+	).toBeNull();
+});
+
 test("does not create or return Rights Record history for an erased Asset Record", async () => {
 	const { database } = createDatabaseHarness("erased");
 	const store = createRightsRecordStore(database);
@@ -241,5 +417,7 @@ test("does not create or return Rights Record history for an erased Asset Record
 		ok: false,
 		reason: "not_found",
 	});
-	expect(await store.list(userId, testProjectId, testAssetRecordId)).toBeNull();
+	expect(
+		await store.list(userId, testProjectId, testAssetRecordId, null)
+	).toBeNull();
 });

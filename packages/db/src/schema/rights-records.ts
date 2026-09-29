@@ -12,6 +12,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { assetRecords } from "./asset-records";
 import { user } from "./auth";
+import { referenceBoardImages } from "./reference-production";
 
 type RightsRecordState =
 	| "documented"
@@ -33,6 +34,7 @@ export const rightsRecords = pgTable(
 		id: text("id").primaryKey(),
 		projectId: text("project_id").notNull(),
 		assetRecordId: text("asset_record_id").notNull(),
+		referenceId: text("reference_id"),
 		versionNumber: integer("version_number").notNull(),
 		source: text("source"),
 		rightsHolderOrProvider: text("rights_holder_or_provider"),
@@ -55,14 +57,30 @@ export const rightsRecords = pgTable(
 			columns: [table.projectId, table.assetRecordId],
 			foreignColumns: [assetRecords.projectId, assetRecords.id],
 		}).onDelete("restrict"),
-		uniqueIndex("rights_records_asset_version_idx").on(
-			table.projectId,
-			table.assetRecordId,
-			table.versionNumber
-		),
+		foreignKey({
+			name: "rights_records_project_asset_reference_fk",
+			columns: [table.projectId, table.assetRecordId, table.referenceId],
+			foreignColumns: [
+				referenceBoardImages.projectId,
+				referenceBoardImages.assetRecordId,
+				referenceBoardImages.id,
+			],
+		}).onDelete("restrict"),
+		uniqueIndex("rights_records_asset_version_idx")
+			.on(table.projectId, table.assetRecordId, table.versionNumber)
+			.where(sql`${table.referenceId} IS NULL`),
+		uniqueIndex("rights_records_reference_version_idx")
+			.on(
+				table.projectId,
+				table.assetRecordId,
+				table.referenceId,
+				table.versionNumber
+			)
+			.where(sql`${table.referenceId} IS NOT NULL`),
 		index("rights_records_project_asset_created_idx").on(
 			table.projectId,
 			table.assetRecordId,
+			table.referenceId,
 			table.createdAt
 		),
 		check(

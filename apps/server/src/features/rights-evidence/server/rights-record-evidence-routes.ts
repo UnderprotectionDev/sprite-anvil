@@ -23,8 +23,10 @@ import { serializePublicApiError } from "../../../output-contracts";
 const idSchema = z.uuid();
 const opaqueStorageContentType = "application/octet-stream";
 const multipartOverheadBytes = 64 * 1024;
-const rightsRecordEvidencePath =
-	"/api/projects/:projectId/asset-records/:assetRecordId/rights-records/:rightsRecordId/evidence-file";
+const rightsRecordEvidencePaths = [
+	"/api/projects/:projectId/asset-records/:assetRecordId/rights-records/:rightsRecordId/evidence-file",
+	"/api/projects/:projectId/asset-records/:assetRecordId/references/:referenceId/rights-records/:rightsRecordId/evidence-file",
+];
 
 type Storage = Pick<ReturnType<typeof createStorage>, "delete" | "get" | "put">;
 
@@ -38,13 +40,20 @@ export interface RightsRecordEvidenceRouteDependencies {
 	rightsRecordStore: Pick<
 		RightsRecordStore,
 		| "canAccessAssetRecord"
+		| "canAccessReference"
 		| "createRevisionWithEvidenceFile"
 		| "getEvidenceFile"
 	>;
 }
 
 type RightsRecordEvidenceAccess =
-	| { ok: true; assetRecordId: string; projectId: string; userId: string }
+	| {
+			ok: true;
+			assetRecordId: string;
+			projectId: string;
+			referenceId: string | null;
+			userId: string;
+	  }
 	| { ok: false; response: Response };
 
 async function resolveEvidenceAccess(
@@ -61,17 +70,31 @@ async function resolveEvidenceAccess(
 	}
 	const projectId = idSchema.safeParse(c.req.param("projectId"));
 	const assetRecordId = idSchema.safeParse(c.req.param("assetRecordId"));
-	if (!(projectId.success && assetRecordId.success)) {
+	const rawReferenceId = c.req.param("referenceId");
+	const parsedReferenceId =
+		rawReferenceId === undefined ? null : idSchema.safeParse(rawReferenceId);
+	if (
+		!(projectId.success && assetRecordId.success) ||
+		(parsedReferenceId !== null && !parsedReferenceId.success)
+	) {
 		return {
 			ok: false,
 			response: c.json(serializePublicApiError("Not found"), 404),
 		};
 	}
-	const canAccess = await dependencies.rightsRecordStore.canAccessAssetRecord(
-		session.user.id,
-		projectId.data,
-		assetRecordId.data
-	);
+	const referenceId = parsedReferenceId?.data ?? null;
+	const canAccess = referenceId
+		? await dependencies.rightsRecordStore.canAccessReference(
+				session.user.id,
+				projectId.data,
+				assetRecordId.data,
+				referenceId
+			)
+		: await dependencies.rightsRecordStore.canAccessAssetRecord(
+				session.user.id,
+				projectId.data,
+				assetRecordId.data
+			);
 	if (!canAccess) {
 		return {
 			ok: false,
@@ -82,6 +105,7 @@ async function resolveEvidenceAccess(
 		assetRecordId: assetRecordId.data,
 		ok: true,
 		projectId: projectId.data,
+		referenceId,
 		userId: session.user.id,
 	};
 }
@@ -186,7 +210,8 @@ async function parseEvidenceUpload(
 		!fields.success ||
 		fields.data.id !== rightsRecordId ||
 		fields.data.projectId !== access.projectId ||
-		fields.data.assetRecordId !== access.assetRecordId
+		fields.data.assetRecordId !== access.assetRecordId ||
+		(fields.data.referenceId ?? null) !== access.referenceId
 	) {
 		return uploadParseError(400, "Invalid Rights Record evidence file");
 	}
@@ -285,6 +310,7 @@ async function uploadEvidenceFile(
 			access.userId,
 			access.projectId,
 			access.assetRecordId,
+			access.referenceId,
 			rightsRecordId.data
 		);
 		if (existingFile?.objectKey !== objectKey) {
@@ -306,65 +332,68 @@ export function mountRightsRecordEvidenceRoutes(
 	app: Hono,
 	dependencies: RightsRecordEvidenceRouteDependencies
 ) {
-	app.post(
-		rightsRecordEvidencePath,
-		bodyLimit({
-			maxSize: rightsRecordEvidenceFileLimitBytes + multipartOverheadBytes,
-			onError: (c) =>
-				c.json(
-					serializePublicApiError(
-						"Rights Record evidence file exceeds the 5 MiB limit"
+	for (const path of rightsRecordEvidencePaths) {
+		app.post(
+			path,
+			bodyLimit({
+				maxSize: rightsRecordEvidenceFileLimitBytes + multipartOverheadBytes,
+				onError: (c) =>
+					c.json(
+						serializePublicApiError(
+							"Rights Record evidence file exceeds the 5 MiB limit"
+						),
+						413
 					),
-					413
-				),
-		}),
-		(c) => uploadEvidenceFile(c, dependencies)
-	);
+			}),
+			(c) => uploadEvidenceFile(c, dependencies)
+		);
 
-	app.get(rightsRecordEvidencePath, async (c) => {
-		const access = await resolveEvidenceAccess(c, dependencies);
-		if (!access.ok) {
-			return access.response;
-		}
-		const rightsRecordId = idSchema.safeParse(c.req.param("rightsRecordId"));
-		if (!rightsRecordId.success) {
-			return c.json(serializePublicApiError("Not found"), 404);
-		}
-		const file = await dependencies.rightsRecordStore.getEvidenceFile(
-			access.userId,
-			access.projectId,
-			access.assetRecordId,
-			rightsRecordId.data
-		);
-		if (!file) {
-			return c.json(serializePublicApiError("Not found"), 404);
-		}
-		const objectKey = rightsRecordEvidenceObjectKeySchema.safeParse(
-			file.objectKey
-		);
-		if (!objectKey.success) {
-			throw new Error("Rights Record evidence file unavailable");
-		}
-		const object = await dependencies.createStorage().get(objectKey.data);
-		if (
-			!object ||
-			object.contentType !== opaqueStorageContentType ||
-			(object.contentLength !== undefined &&
-				object.contentLength !== file.contentLength)
-		) {
-			await object?.body.cancel();
-			throw new Error("Rights Record evidence file unavailable");
-		}
-		c.header(
-			"Content-Disposition",
-			`attachment; filename*=UTF-8''${encodeDownloadFileName(file.fileName)}`
-		);
-		c.header("Content-Length", String(file.contentLength));
-		c.header("Content-Type", opaqueStorageContentType);
-		c.header("X-Content-Type-Options", "nosniff");
-		return c.body(
-			verifyEvidenceFileStream(object.body, file.contentLength, file.sha256),
-			200
-		);
-	});
+		app.get(path, async (c) => {
+			const access = await resolveEvidenceAccess(c, dependencies);
+			if (!access.ok) {
+				return access.response;
+			}
+			const rightsRecordId = idSchema.safeParse(c.req.param("rightsRecordId"));
+			if (!rightsRecordId.success) {
+				return c.json(serializePublicApiError("Not found"), 404);
+			}
+			const file = await dependencies.rightsRecordStore.getEvidenceFile(
+				access.userId,
+				access.projectId,
+				access.assetRecordId,
+				access.referenceId,
+				rightsRecordId.data
+			);
+			if (!file) {
+				return c.json(serializePublicApiError("Not found"), 404);
+			}
+			const objectKey = rightsRecordEvidenceObjectKeySchema.safeParse(
+				file.objectKey
+			);
+			if (!objectKey.success) {
+				throw new Error("Rights Record evidence file unavailable");
+			}
+			const object = await dependencies.createStorage().get(objectKey.data);
+			if (
+				!object ||
+				object.contentType !== opaqueStorageContentType ||
+				(object.contentLength !== undefined &&
+					object.contentLength !== file.contentLength)
+			) {
+				await object?.body.cancel();
+				throw new Error("Rights Record evidence file unavailable");
+			}
+			c.header(
+				"Content-Disposition",
+				`attachment; filename*=UTF-8''${encodeDownloadFileName(file.fileName)}`
+			);
+			c.header("Content-Length", String(file.contentLength));
+			c.header("Content-Type", opaqueStorageContentType);
+			c.header("X-Content-Type-Options", "nosniff");
+			return c.body(
+				verifyEvidenceFileStream(object.body, file.contentLength, file.sha256),
+				200
+			);
+		});
+	}
 }

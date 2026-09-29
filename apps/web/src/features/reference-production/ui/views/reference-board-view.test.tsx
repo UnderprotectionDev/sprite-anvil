@@ -34,6 +34,15 @@ vi.mock("@/env", () => ({
 	ENV: { VITE_SERVER_URL: "https://app.example.test" },
 }));
 
+vi.mock("@/features/rights-evidence/ui/components/rights-record-panel", () => ({
+	RightsRecordPanel: ({ referenceId }: { referenceId: string }) => (
+		<div
+			data-reference-id={referenceId}
+			data-testid="reference-rights-record"
+		/>
+	),
+}));
+
 vi.mock("@/utils/orpc", () => ({
 	client: {
 		assetRecords: {
@@ -195,6 +204,45 @@ test("exposes uploaded reference images as list items", async () => {
 	renderBoard();
 
 	expect(await screen.findAllByRole("listitem")).toHaveLength(1);
+});
+
+test("exposes a versioned Rights Record panel on each reference image", async () => {
+	const timestamp = new Date().toISOString();
+	const referenceId = "fcd2bb54-60fd-4555-bc6f-a30a1c2e4dd4";
+	fakeApi.board = {
+		assetVersionReferences: [],
+		conflicts: [],
+		effectiveForbiddenFeatures: [],
+		effectiveTransferredFeatures: [],
+		imageReferences: [
+			{
+				assetRecordId,
+				conflictFeatures: [],
+				contentLength: 4,
+				contentType: "image/png",
+				contextOverrideRationale: null,
+				createdAt: timestamp,
+				customPurpose: null,
+				fileName: "stance.png",
+				forbiddenFeatures: [],
+				history: [],
+				id: referenceId,
+				notes: null,
+				revision: 1,
+				role: "pose",
+				sha256: "a".repeat(64),
+				sortOrder: 0,
+				transferredFeatures: ["pose"],
+				updatedAt: timestamp,
+			},
+		],
+	};
+	renderBoard();
+
+	expect(await screen.findByTestId("reference-rights-record")).toHaveAttribute(
+		"data-reference-id",
+		referenceId
+	);
 });
 
 test("explains that opposing reference rules block package creation", () => {

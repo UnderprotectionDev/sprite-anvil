@@ -23,10 +23,13 @@ function createTestClient(
 				records.filter(
 					(candidateRecord) =>
 						candidateRecord.projectId === input.projectId &&
-						candidateRecord.assetRecordId === input.assetRecordId
+						candidateRecord.assetRecordId === input.assetRecordId &&
+						(candidateRecord.referenceId ?? null) ===
+							(input.referenceId ?? null)
 				).length + 1;
 			const savedRecord = {
 				...input,
+				referenceId: input.referenceId ?? null,
 				createdAt: new Date(
 					`2026-09-29T10:0${versionNumber}:00.000Z`
 				).toISOString(),
@@ -39,13 +42,15 @@ function createTestClient(
 		list(
 			_userId: string,
 			requestedProjectId: string,
-			requestedAssetRecordId: string
+			requestedAssetRecordId: string,
+			requestedReferenceId: string | null
 		) {
 			return records
 				.filter(
 					(candidateRecord) =>
 						candidateRecord.projectId === requestedProjectId &&
-						candidateRecord.assetRecordId === requestedAssetRecordId
+						candidateRecord.assetRecordId === requestedAssetRecordId &&
+						(candidateRecord.referenceId ?? null) === requestedReferenceId
 				)
 				.sort(
 					(left, right) =>
@@ -120,6 +125,38 @@ test("does not return a Rights Record history without an authenticated session",
 			projectId: testProjectId,
 		})
 	).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+});
+
+test("keeps reference image Rights Record history separate from Asset Record history", async () => {
+	const client = createTestClient();
+	const referenceId = "fcd2bb54-60fd-4555-bc6f-a30a1c2e4dd4";
+	const referenceInput = {
+		assetRecordId: testAssetRecordId,
+		assertedScope: "Paid game releases",
+		evidence: "License reference",
+		id: "fc9bba08-b426-4b51-a4cf-2fd314d825da",
+		projectId: testProjectId,
+		referenceId,
+		restrictions: null,
+		rightsHolderOrProvider: "Example Studio",
+		source: "https://example.test/source",
+		state: "documented",
+		uncertainty: null,
+	};
+	const referenceRevision = await client.rightsRecords.create(referenceInput);
+	const referenceHistory = await client.rightsRecords.list({
+		assetRecordId: testAssetRecordId,
+		projectId: testProjectId,
+		referenceId,
+	});
+	const assetHistory = await client.rightsRecords.list({
+		assetRecordId: testAssetRecordId,
+		projectId: testProjectId,
+	});
+
+	expect(referenceRevision).toMatchObject({ referenceId, versionNumber: 1 });
+	expect(referenceHistory).toEqual([referenceRevision]);
+	expect(assetHistory).toEqual([]);
 });
 
 test("rejects declared Rights Record states without their required evidence", async () => {

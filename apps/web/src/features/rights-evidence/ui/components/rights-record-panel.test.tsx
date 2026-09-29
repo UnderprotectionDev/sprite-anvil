@@ -14,6 +14,7 @@ import { RightsRecordPanel } from "./rights-record-panel";
 
 const projectId = "00c1bc3a-8c39-436a-892e-0c3a6d37aed2";
 const assetRecordId = "a7301990-3d79-49c8-887a-c1fa9a468f85";
+const referenceId = "fcd2bb54-60fd-4555-bc6f-a30a1c2e4dd4";
 const restrictionsFieldName = /Bilinen kısıtlar/;
 
 const fakeApi = vi.hoisted(() => ({
@@ -24,8 +25,14 @@ const fakeApi = vi.hoisted(() => ({
 function rightsRecordQueryKey(input: {
 	assetRecordId: string;
 	projectId: string;
+	referenceId?: string | null;
 }) {
-	return ["rights-records", input.projectId, input.assetRecordId];
+	return [
+		"rights-records",
+		input.projectId,
+		input.assetRecordId,
+		input.referenceId ?? null,
+	];
 }
 
 vi.mock("@/utils/orpc", () => ({
@@ -40,19 +47,28 @@ vi.mock("@/utils/orpc", () => ({
 				queryKey: ({
 					input,
 				}: {
-					input: { assetRecordId: string; projectId: string };
+					input: {
+						assetRecordId: string;
+						projectId: string;
+						referenceId?: string | null;
+					};
 				}) => rightsRecordQueryKey(input),
 				queryOptions: ({
 					input,
 				}: {
-					input: { assetRecordId: string; projectId: string };
+					input: {
+						assetRecordId: string;
+						projectId: string;
+						referenceId?: string | null;
+					};
 				}) => ({
 					queryKey: rightsRecordQueryKey(input),
 					queryFn: async () =>
 						fakeApi.records.filter(
 							(record) =>
 								record.assetRecordId === input.assetRecordId &&
-								record.projectId === input.projectId
+								record.projectId === input.projectId &&
+								(record.referenceId ?? null) === (input.referenceId ?? null)
 						),
 				}),
 			},
@@ -71,12 +87,17 @@ afterEach(() => {
 	fakeApi.records = [];
 });
 
-function renderPanel() {
+function renderPanel(selectedReferenceId?: string, referenceName?: string) {
 	const queryClient = createQueryClient();
 	queryClient.setDefaultOptions({ queries: { retry: false } });
 	return render(
 		<QueryClientProvider client={queryClient}>
-			<RightsRecordPanel assetRecordId={assetRecordId} projectId={projectId} />
+			<RightsRecordPanel
+				assetRecordId={assetRecordId}
+				projectId={projectId}
+				referenceId={selectedReferenceId}
+				referenceName={referenceName}
+			/>
 		</QueryClientProvider>
 	);
 }
@@ -156,6 +177,32 @@ test("creates a Rights Record and rereads its persisted declaration and evidence
 	);
 });
 
+test("creates a Rights Record scoped to the selected reference image", async () => {
+	const user = userEvent.setup();
+	fakeApi.create.mockImplementation((input: RightsRecordCreateInput) => {
+		const record: RightsRecord = {
+			...input,
+			createdAt: "2026-09-29T10:00:00.000Z",
+			evidenceFile: null,
+			versionNumber: 1,
+		};
+		fakeApi.records = [record];
+		return Promise.resolve(record);
+	});
+	renderPanel(referenceId, "stance.png");
+
+	await screen.findByRole("heading", { name: "Hak Kaydı · stance.png" });
+	await user.click(
+		screen.getByRole("button", { name: "Yeni Hak Kaydı sürümü oluştur" })
+	);
+
+	await waitFor(() => expect(fakeApi.create).toHaveBeenCalledTimes(1));
+	expect(fakeApi.create).toHaveBeenCalledWith(
+		expect.objectContaining({ assetRecordId, projectId, referenceId })
+	);
+	await screen.findByText("Revizyon 1");
+});
+
 test("requires evidence before the user can declare a Rights Record Documented", async () => {
 	const user = userEvent.setup();
 	renderPanel();
@@ -207,6 +254,7 @@ test("creates a Documented Rights Record with an uploaded evidence file", async 
 		},
 		id: "3d9d07a4-37af-43d6-8583-e2256baf0a58",
 		projectId,
+		referenceId,
 		restrictions: null,
 		rightsHolderOrProvider: null,
 		source: null,
@@ -223,7 +271,7 @@ test("creates a Documented Rights Record with an uploaded evidence file", async 
 	fakeApi.records = [uploadedRecord];
 	vi.stubGlobal("fetch", fetchMock);
 
-	renderPanel();
+	renderPanel(referenceId, "stance.png");
 	await user.upload(
 		screen.getByLabelText("Kanıt dosyası ekle"),
 		new File(["license text"], "license.pdf", { type: "application/pdf" })
@@ -246,6 +294,9 @@ test("creates a Documented Rights Record with an uploaded evidence file", async 
 	);
 
 	await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+	expect(fetchMock.mock.calls[0]?.[0]).toContain(
+		`/references/${referenceId}/rights-records/`
+	);
 	await screen.findByRole("link", { name: "license.pdf" });
 	expect(fakeApi.create).not.toHaveBeenCalled();
 	const uploadedForm = fetchMock.mock.calls[0]?.[1]?.body;
@@ -254,6 +305,7 @@ test("creates a Documented Rights Record with an uploaded evidence file", async 
 		JSON.parse((uploadedForm as FormData).get("rightsRecord") as string)
 	).toMatchObject({
 		evidence: "License reference: https://example.test/license",
+		referenceId,
 		state: "documented",
 	});
 });

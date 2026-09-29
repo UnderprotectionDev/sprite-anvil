@@ -11,8 +11,14 @@ const projectId = "00c1bc3a-8c39-436a-892e-0c3a6d37aed2";
 const assetRecordId = "a7301990-3d79-49c8-887a-c1fa9a468f85";
 const rightsRecordId = "3d9d07a4-37af-43d6-8583-e2256baf0a58";
 const route = `/api/projects/${projectId}/asset-records/${assetRecordId}/rights-records/${rightsRecordId}/evidence-file`;
+const referenceId = "fcd2bb54-60fd-4555-bc6f-a30a1c2e4dd4";
+const referenceRoute = `/api/projects/${projectId}/asset-records/${assetRecordId}/references/${referenceId}/rights-records/${rightsRecordId}/evidence-file`;
 
-function createTestServer(owner = true, simulateDatabaseError = false) {
+function createTestServer(
+	owner = true,
+	simulateDatabaseError = false,
+	allowedReferenceId: string | null = null
+) {
 	let savedRecord: RightsRecord | null = null;
 	let storedObject: {
 		body: Uint8Array;
@@ -55,11 +61,24 @@ function createTestServer(owner = true, simulateDatabaseError = false) {
 	const rightsRecordStore: Pick<
 		RightsRecordStore,
 		| "canAccessAssetRecord"
+		| "canAccessReference"
 		| "createRevisionWithEvidenceFile"
 		| "getEvidenceFile"
 	> = {
 		canAccessAssetRecord(userId) {
 			return Promise.resolve(owner && userId === "owner-user");
+		},
+		canAccessReference(
+			userId,
+			_projectId,
+			_assetRecordId,
+			requestedReferenceId
+		) {
+			return Promise.resolve(
+				owner &&
+					userId === "owner-user" &&
+					requestedReferenceId === allowedReferenceId
+			);
 		},
 		createRevisionWithEvidenceFile(_userId, input) {
 			if (simulateDatabaseError) {
@@ -67,6 +86,7 @@ function createTestServer(owner = true, simulateDatabaseError = false) {
 			}
 			savedRecord = {
 				...input,
+				referenceId: input.referenceId ?? null,
 				createdAt: "2026-09-29T10:00:00.000Z",
 				evidenceFile: {
 					contentLength: input.evidenceFile.contentLength,
@@ -78,7 +98,13 @@ function createTestServer(owner = true, simulateDatabaseError = false) {
 			};
 			return Promise.resolve({ ok: true as const, record: savedRecord });
 		},
-		getEvidenceFile(userId, _projectId, _assetRecordId, id) {
+		getEvidenceFile(
+			userId,
+			_projectId,
+			_assetRecordId,
+			requestedReferenceId,
+			id
+		) {
 			if (simulateDatabaseError) {
 				throw new Error("Database is temporarily unavailable");
 			}
@@ -86,6 +112,7 @@ function createTestServer(owner = true, simulateDatabaseError = false) {
 				userId !== "owner-user" ||
 				!savedRecord ||
 				savedRecord.id !== id ||
+				(savedRecord.referenceId ?? null) !== requestedReferenceId ||
 				!savedRecord.evidenceFile ||
 				!storedObject
 			) {
@@ -114,23 +141,24 @@ function createTestServer(owner = true, simulateDatabaseError = false) {
 	};
 }
 
-function createUploadForm() {
+function createUploadForm(targetReferenceId: string | null = null) {
 	const formData = new FormData();
-	formData.set(
-		"rightsRecord",
-		JSON.stringify({
-			assetRecordId,
-			assertedScope: "Paid game releases",
-			evidence: null,
-			id: rightsRecordId,
-			projectId,
-			restrictions: null,
-			rightsHolderOrProvider: "Example Studio",
-			source: "https://example.test/source",
-			state: "documented",
-			uncertainty: null,
-		})
-	);
+	const rightsRecord: Record<string, unknown> = {
+		assetRecordId,
+		assertedScope: "Paid game releases",
+		evidence: null,
+		id: rightsRecordId,
+		projectId,
+		restrictions: null,
+		rightsHolderOrProvider: "Example Studio",
+		source: "https://example.test/source",
+		state: "documented",
+		uncertainty: null,
+	};
+	if (targetReferenceId) {
+		rightsRecord.referenceId = targetReferenceId;
+	}
+	formData.set("rightsRecord", JSON.stringify(rightsRecord));
 	formData.set(
 		"evidenceFile",
 		new File(["license evidence"], "license.pdf", {
@@ -181,6 +209,52 @@ test("stores and privately rereads a file as immutable Rights Record evidence", 
 		"license.pdf"
 	);
 	expect(await downloadResponse.text()).toBe("license evidence");
+});
+
+test("stores and downloads evidence through a reference image Rights Record route", async () => {
+	const server = createTestServer(true, false, referenceId);
+	const uploadResponse = await server.app.request(referenceRoute, {
+		body: createUploadForm(referenceId),
+		headers: { Authorization: "Bearer owner" },
+		method: "POST",
+	});
+
+	expect(uploadResponse.status).toBe(201);
+	expect(server.getSavedRecord()).toMatchObject({ referenceId });
+
+	const downloadResponse = await server.app.request(referenceRoute, {
+		headers: { Authorization: "Bearer owner" },
+	});
+	expect(downloadResponse.status).toBe(200);
+	expect(await downloadResponse.text()).toBe("license evidence");
+});
+
+test("rejects a reference evidence upload whose body names another target", async () => {
+	const server = createTestServer(true, false, referenceId);
+	const uploadResponse = await server.app.request(referenceRoute, {
+		body: createUploadForm(),
+		headers: { Authorization: "Bearer owner" },
+		method: "POST",
+	});
+
+	expect(uploadResponse.status).toBe(400);
+	expect(server.getStoredObject()).toBeNull();
+});
+
+test("hides reference Rights Record files when the reference is outside the Asset Record", async () => {
+	const server = createTestServer();
+	const uploadResponse = await server.app.request(referenceRoute, {
+		body: createUploadForm(referenceId),
+		headers: { Authorization: "Bearer owner" },
+		method: "POST",
+	});
+	const downloadResponse = await server.app.request(referenceRoute, {
+		headers: { Authorization: "Bearer owner" },
+	});
+
+	expect(uploadResponse.status).toBe(404);
+	expect(downloadResponse.status).toBe(404);
+	expect(server.getStoredObject()).toBeNull();
 });
 
 test("requires project-owner authentication before uploading or downloading evidence", async () => {

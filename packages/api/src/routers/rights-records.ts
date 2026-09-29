@@ -48,7 +48,8 @@ export const rightsRecordsRouter = {
 			const records = await getRightsRecordStore(context).list(
 				context.session.user.id,
 				input.projectId,
-				input.assetRecordId
+				input.assetRecordId,
+				input.referenceId ?? null
 			);
 			if (!records) {
 				throw new ORPCError("NOT_FOUND", {

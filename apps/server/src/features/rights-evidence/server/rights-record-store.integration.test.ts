@@ -142,6 +142,7 @@ test.skipIf(!databaseUrl)(
 					userId,
 					projectId,
 					assetRecordId,
+					null,
 					fileBacked.id
 				)
 			).toMatchObject({ fileName: "license.pdf" });

@@ -230,7 +230,12 @@ async function createRightsRecordRevision(
 	let response: Response;
 	try {
 		response = await fetch(
-			rightsRecordEvidenceFileUrl(projectId, assetRecordId, input.id),
+			rightsRecordEvidenceFileUrl(
+				projectId,
+				assetRecordId,
+				input.id,
+				input.referenceId ?? null
+			),
 			{
 				body: formData,
 				credentials: "include",
@@ -315,7 +320,8 @@ function RightsRecordHistoryItem({
 								href={rightsRecordEvidenceFileUrl(
 									projectId,
 									record.assetRecordId,
-									record.id
+									record.id,
+									record.referenceId ?? null
 								)}
 							>
 								{record.evidenceFile.fileName}
@@ -451,9 +457,13 @@ function RightsRecordHistory({
 export function RightsRecordPanel({
 	assetRecordId,
 	projectId,
+	referenceId = null,
+	referenceName,
 }: {
 	assetRecordId: string;
 	projectId: string;
+	referenceId?: string | null;
+	referenceName?: string;
 }) {
 	const queryClient = useQueryClient();
 	const pendingCreate = useRef<RightsRecordSubmission | null>(null);
@@ -476,7 +486,7 @@ export function RightsRecordPanel({
 	const [validationErrors, setValidationErrors] = useState<Partial<
 		Record<RightsRecordValidationField, string>
 	> | null>(null);
-	const queryInput = { assetRecordId, projectId };
+	const queryInput = { assetRecordId, projectId, referenceId };
 	const historyQuery = useQuery({
 		...orpc.rightsRecords.list.queryOptions({ input: queryInput }),
 		meta: { errorPresentation: "inline" },
@@ -613,6 +623,7 @@ export function RightsRecordPanel({
 					: evidenceFileSourceRecordId,
 				id: crypto.randomUUID(),
 				projectId,
+				referenceId,
 				restrictions: normalizeInputText(draft.restrictions),
 				rightsHolderOrProvider: normalizeInputText(
 					draft.rightsHolderOrProvider
@@ -688,24 +699,31 @@ export function RightsRecordPanel({
 
 	const history = historyQuery.data ?? [];
 	const formDisabled = createRevision.isPending || writeOutcomeUncertain;
-	const evidenceFileInputId = `rights-record-${assetRecordId}-evidence-file`;
+	const targetId = referenceId
+		? `reference-${referenceId}`
+		: `asset-record-${assetRecordId}`;
+	const evidenceFileInputId = `rights-record-${targetId}-evidence-file`;
 	const evidenceFileHelpId = `${evidenceFileInputId}-help`;
 	const evidenceFileErrorId = `${evidenceFileInputId}-error`;
+	const headingId = `rights-record-heading-${targetId}`;
+	let targetDescription = "seçili Varlık Kaydı";
+	if (referenceId) {
+		targetDescription = referenceName
+			? `${referenceName} referans görseli`
+			: "seçili referans görseli";
+	}
 
 	return (
 		<section
-			aria-labelledby={`rights-record-heading-${assetRecordId}`}
+			aria-labelledby={headingId}
 			className="space-y-5 rounded-lg border p-5"
 		>
 			<header className="space-y-2">
-				<h2
-					className="font-semibold text-xl"
-					id={`rights-record-heading-${assetRecordId}`}
-				>
-					Hak Kaydı
+				<h2 className="font-semibold text-xl" id={headingId}>
+					Hak Kaydı{referenceName ? ` · ${referenceName}` : ""}
 				</h2>
 				<p className="text-muted-foreground text-sm">
-					Bu, seçili Varlık Kaydı için kullanıcı beyanıdır. Lisansın hukuki
+					Bu, {targetDescription} için kullanıcı beyanıdır. Lisansın hukuki
 					geçerliliği hakkında karar vermez ve başka bir varlığa otomatik
 					aktarılmaz. Her kaydetme yeni, değişmez bir sürüm oluşturur.
 				</p>
@@ -713,7 +731,7 @@ export function RightsRecordPanel({
 
 			<form className="space-y-4" noValidate onSubmit={submit}>
 				{textFields.map(({ key, label, multiline }) => {
-					const fieldId = `rights-record-${assetRecordId}-${key}`;
+					const fieldId = `rights-record-${targetId}-${key}`;
 					const errorId = `${fieldId}-error`;
 					const validationKey =
 						key === "evidence" || key === "restrictions" ? key : null;
@@ -840,13 +858,13 @@ export function RightsRecordPanel({
 
 				<label
 					className="block space-y-1 text-sm"
-					htmlFor={`rights-record-${assetRecordId}-state`}
+					htmlFor={`rights-record-${targetId}-state`}
 				>
 					<span>Beyan edilen hak durumu</span>
 					<select
 						className="h-11 w-full rounded-md border bg-background px-3 text-sm"
 						disabled={formDisabled}
-						id={`rights-record-${assetRecordId}-state`}
+						id={`rights-record-${targetId}-state`}
 						onChange={(event) =>
 							updateDraft(
 								"state",

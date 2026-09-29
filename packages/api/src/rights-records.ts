@@ -59,6 +59,7 @@ export const rightsRecordFieldsSchema = z
 		evidence: rightsRecordTextSchema,
 		id: rightsRecordIdSchema,
 		projectId: projectIdSchema,
+		referenceId: rightsRecordIdSchema.nullable().optional(),
 		restrictions: rightsRecordTextSchema,
 		rightsHolderOrProvider: rightsRecordTextSchema,
 		source: rightsRecordTextSchema,
@@ -107,6 +108,7 @@ export const rightsRecordSchema = z
 		evidenceFile: rightsRecordEvidenceFileSchema.nullable(),
 		id: rightsRecordIdSchema,
 		projectId: projectIdSchema,
+		referenceId: rightsRecordIdSchema.nullable().optional(),
 		restrictions: rightsRecordTextSchema,
 		rightsHolderOrProvider: rightsRecordTextSchema,
 		source: rightsRecordTextSchema,
@@ -148,6 +150,7 @@ export const rightsRecordListInputSchema = z
 	.object({
 		assetRecordId: assetRecordIdSchema,
 		projectId: projectIdSchema,
+		referenceId: rightsRecordIdSchema.nullable().optional(),
 	})
 	.strict();
 
@@ -156,6 +159,12 @@ export interface RightsRecordStore {
 		userId: string,
 		projectId: string,
 		assetRecordId: string
+	) => Promise<boolean>;
+	canAccessReference: (
+		userId: string,
+		projectId: string,
+		assetRecordId: string,
+		referenceId: string
 	) => Promise<boolean>;
 	createRevision: (
 		userId: string,
@@ -171,11 +180,13 @@ export interface RightsRecordStore {
 		userId: string,
 		projectId: string,
 		assetRecordId: string,
+		referenceId: string | null,
 		rightsRecordId: string
 	) => Promise<RightsRecordStoredEvidenceFile | null>;
 	list: (
 		userId: string,
 		projectId: string,
-		assetRecordId: string
+		assetRecordId: string,
+		referenceId: string | null
 	) => Promise<RightsRecord[] | null>;
 }

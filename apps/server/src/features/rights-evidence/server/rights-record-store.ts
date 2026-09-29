@@ -14,12 +14,31 @@ import {
 import type { Database } from "@sprite-anvil/db";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
 import { project } from "@sprite-anvil/db/schema/project";
+import { referenceBoardImages } from "@sprite-anvil/db/schema/reference-production";
 import { rightsRecords } from "@sprite-anvil/db/schema/rights-records";
-import { and, desc, eq, ne } from "drizzle-orm";
+import { and, desc, eq, isNull, ne } from "drizzle-orm";
 
-type RightsRecordRevisionInput = RightsRecordCreateInput & {
+type RightsRecordRevisionInput = Omit<
+	RightsRecordCreateInput,
+	"referenceId"
+> & {
 	evidenceFile: RightsRecordStoredEvidenceFile | null;
+	referenceId: string | null;
 };
+
+function rightsRecordTargetFilter(
+	projectId: string,
+	assetRecordId: string,
+	referenceId: string | null
+) {
+	return and(
+		eq(rightsRecords.projectId, projectId),
+		eq(rightsRecords.assetRecordId, assetRecordId),
+		referenceId === null
+			? isNull(rightsRecords.referenceId)
+			: eq(rightsRecords.referenceId, referenceId)
+	);
+}
 
 function publicEvidenceFile(file: RightsRecordStoredEvidenceFile | null) {
 	if (!file) {
@@ -47,6 +66,7 @@ function toRightsRecord(
 		evidenceFile: publicEvidenceFile(evidenceFile),
 		id: record.id,
 		projectId: record.projectId,
+		referenceId: record.referenceId,
 		restrictions: record.restrictions,
 		rightsHolderOrProvider: record.rightsHolderOrProvider,
 		source: record.source,
@@ -82,6 +102,7 @@ function matchesInput(
 	return (
 		record.projectId === input.projectId &&
 		record.assetRecordId === input.assetRecordId &&
+		(record.referenceId ?? null) === input.referenceId &&
 		record.source === input.source &&
 		record.rightsHolderOrProvider === input.rightsHolderOrProvider &&
 		record.assertedScope === input.assertedScope &&
@@ -117,6 +138,30 @@ async function canAccessAssetRecord(
 	return Boolean(assetRecord && assetRecord.availability !== "erased");
 }
 
+async function canAccessReference(
+	db: Database,
+	userId: string,
+	projectId: string,
+	assetRecordId: string,
+	referenceId: string
+) {
+	if (!(await canAccessAssetRecord(db, userId, projectId, assetRecordId))) {
+		return false;
+	}
+	const [reference] = await db
+		.select({ id: referenceBoardImages.id })
+		.from(referenceBoardImages)
+		.where(
+			and(
+				eq(referenceBoardImages.projectId, projectId),
+				eq(referenceBoardImages.assetRecordId, assetRecordId),
+				eq(referenceBoardImages.id, referenceId)
+			)
+		)
+		.limit(1);
+	return Boolean(reference);
+}
+
 async function createNextRevision(
 	db: Database,
 	userId: string,
@@ -138,9 +183,10 @@ async function createNextRevision(
 		.select({ versionNumber: rightsRecords.versionNumber })
 		.from(rightsRecords)
 		.where(
-			and(
-				eq(rightsRecords.projectId, input.projectId),
-				eq(rightsRecords.assetRecordId, input.assetRecordId)
+			rightsRecordTargetFilter(
+				input.projectId,
+				input.assetRecordId,
+				input.referenceId
 			)
 		)
 		.orderBy(desc(rightsRecords.versionNumber))
@@ -169,17 +215,34 @@ export function createRightsRecordStore(db: Database): RightsRecordStore {
 		canAccessAssetRecord(userId, projectId, assetRecordId) {
 			return canAccessAssetRecord(db, userId, projectId, assetRecordId);
 		},
+		canAccessReference(userId, projectId, assetRecordId, referenceId) {
+			return canAccessReference(
+				db,
+				userId,
+				projectId,
+				assetRecordId,
+				referenceId
+			);
+		},
 		async createRevision(userId, rawInput) {
 			const input = rightsRecordCreateInputSchema.parse(rawInput);
 			const { evidenceFileSourceRecordId, ...recordInput } = input;
-			if (
-				!(await canAccessAssetRecord(
-					db,
-					userId,
-					input.projectId,
-					input.assetRecordId
-				))
-			) {
+			const referenceId = input.referenceId ?? null;
+			const canAccessTarget = referenceId
+				? await canAccessReference(
+						db,
+						userId,
+						input.projectId,
+						input.assetRecordId,
+						referenceId
+					)
+				: await canAccessAssetRecord(
+						db,
+						userId,
+						input.projectId,
+						input.assetRecordId
+					);
+			if (!canAccessTarget) {
 				return { ok: false, reason: "not_found" };
 			}
 			let evidenceFile: RightsRecordStoredEvidenceFile | null = null;
@@ -190,8 +253,11 @@ export function createRightsRecordStore(db: Database): RightsRecordStore {
 					.where(
 						and(
 							eq(rightsRecords.id, evidenceFileSourceRecordId),
-							eq(rightsRecords.projectId, input.projectId),
-							eq(rightsRecords.assetRecordId, input.assetRecordId)
+							rightsRecordTargetFilter(
+								input.projectId,
+								input.assetRecordId,
+								referenceId
+							)
 						)
 					)
 					.limit(1);
@@ -205,6 +271,7 @@ export function createRightsRecordStore(db: Database): RightsRecordStore {
 			return createNextRevision(db, userId, {
 				...recordInput,
 				evidenceFile,
+				referenceId,
 			});
 		},
 		async createRevisionWithEvidenceFile(userId, rawInput) {
@@ -217,22 +284,37 @@ export function createRightsRecordStore(db: Database): RightsRecordStore {
 				...input,
 				evidenceFile: publicFile,
 			});
-			if (
-				!(await canAccessAssetRecord(
-					db,
-					userId,
-					normalized.projectId,
-					normalized.assetRecordId
-				))
-			) {
+			const referenceId = normalized.referenceId ?? null;
+			const canAccessTarget = referenceId
+				? await canAccessReference(
+						db,
+						userId,
+						normalized.projectId,
+						normalized.assetRecordId,
+						referenceId
+					)
+				: await canAccessAssetRecord(
+						db,
+						userId,
+						normalized.projectId,
+						normalized.assetRecordId
+					);
+			if (!canAccessTarget) {
 				return { ok: false, reason: "not_found" };
 			}
 			return createNextRevision(db, userId, {
 				...normalized,
 				evidenceFile,
+				referenceId,
 			});
 		},
-		async getEvidenceFile(userId, projectId, assetRecordId, rightsRecordId) {
+		async getEvidenceFile(
+			userId,
+			projectId,
+			assetRecordId,
+			referenceId,
+			rightsRecordId
+		) {
 			const [record] = await db
 				.select({
 					evidenceFile: rightsRecords.evidenceFile,
@@ -249,8 +331,7 @@ export function createRightsRecordStore(db: Database): RightsRecordStore {
 				.where(
 					and(
 						eq(rightsRecords.id, rightsRecordId),
-						eq(rightsRecords.projectId, projectId),
-						eq(rightsRecords.assetRecordId, assetRecordId),
+						rightsRecordTargetFilter(projectId, assetRecordId, referenceId),
 						eq(project.ownerUserId, userId),
 						ne(assetRecords.availability, "erased")
 					)
@@ -261,8 +342,18 @@ export function createRightsRecordStore(db: Database): RightsRecordStore {
 			}
 			return rightsRecordStoredEvidenceFileSchema.parse(record.evidenceFile);
 		},
-		async list(userId, projectId, assetRecordId) {
-			if (!(await canAccessAssetRecord(db, userId, projectId, assetRecordId))) {
+		async list(userId, projectId, assetRecordId, rawReferenceId) {
+			const referenceId = rawReferenceId ?? null;
+			const canAccessTarget = referenceId
+				? await canAccessReference(
+						db,
+						userId,
+						projectId,
+						assetRecordId,
+						referenceId
+					)
+				: await canAccessAssetRecord(db, userId, projectId, assetRecordId);
+			if (!canAccessTarget) {
 				return null;
 			}
 
@@ -270,10 +361,7 @@ export function createRightsRecordStore(db: Database): RightsRecordStore {
 				.select()
 				.from(rightsRecords)
 				.where(
-					and(
-						eq(rightsRecords.projectId, projectId),
-						eq(rightsRecords.assetRecordId, assetRecordId)
-					)
+					and(rightsRecordTargetFilter(projectId, assetRecordId, referenceId))
 				)
 				.orderBy(desc(rightsRecords.versionNumber));
 			return records.map(toRightsRecord);
