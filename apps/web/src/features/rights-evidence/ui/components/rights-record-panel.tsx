@@ -395,6 +395,8 @@ function RightsRecordSaveFeedback({
 
 function RightsRecordHistory({
 	error,
+	emptyMessage,
+	headingId,
 	history,
 	isError,
 	isFetching,
@@ -403,6 +405,8 @@ function RightsRecordHistory({
 	projectId,
 }: {
 	error: unknown;
+	emptyMessage: string;
+	headingId: string;
 	history: RightsRecord[];
 	isError: boolean;
 	isFetching: boolean;
@@ -411,12 +415,9 @@ function RightsRecordHistory({
 	projectId: string;
 }) {
 	return (
-		<section
-			aria-labelledby="rights-record-history-heading"
-			className="space-y-3"
-		>
+		<section aria-labelledby={headingId} className="space-y-3">
 			<div>
-				<h3 className="font-medium" id="rights-record-history-heading">
+				<h3 className="font-medium" id={headingId}>
 					Sürüm geçmişi
 				</h3>
 			</div>
@@ -445,7 +446,7 @@ function RightsRecordHistory({
 						))
 					) : (
 						<li className="rounded-lg border border-dashed p-4 text-muted-foreground text-sm">
-							Bu Varlık Kaydı için henüz Hak Kaydı yok.
+							{emptyMessage}
 						</li>
 					)}
 				</ul>
@@ -584,7 +585,10 @@ export function RightsRecordPanel({
 	}
 
 	function validateField(key: RightsRecordValidationField) {
-		const error = getDraftValidationErrors(draft, Boolean(evidenceFile))[key];
+		const error = getDraftValidationErrors(
+			draft,
+			Boolean(evidenceFile || evidenceFileSourceRecordId)
+		)[key];
 		if (error) {
 			setValidationErrors((current) => ({
 				...current,
@@ -706,6 +710,10 @@ export function RightsRecordPanel({
 	const evidenceFileHelpId = `${evidenceFileInputId}-help`;
 	const evidenceFileErrorId = `${evidenceFileInputId}-error`;
 	const headingId = `rights-record-heading-${targetId}`;
+	const historyHeadingId = `rights-record-history-heading-${targetId}`;
+	const historyEmptyMessage = referenceId
+		? `Bu ${referenceName ? `${referenceName} referans görseli` : "referans görseli"} için henüz Hak Kaydı yok.`
+		: "Bu Varlık Kaydı için henüz Hak Kaydı yok.";
 	let targetDescription = "seçili Varlık Kaydı";
 	if (referenceId) {
 		targetDescription = referenceName
@@ -893,7 +901,9 @@ export function RightsRecordPanel({
 			</form>
 
 			<RightsRecordHistory
+				emptyMessage={historyEmptyMessage}
 				error={historyQuery.error}
+				headingId={historyHeadingId}
 				history={history}
 				isError={historyQuery.isError}
 				isFetching={historyQuery.isFetching}

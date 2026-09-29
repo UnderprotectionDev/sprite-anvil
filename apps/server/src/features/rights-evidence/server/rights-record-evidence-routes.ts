@@ -22,7 +22,9 @@ import { serializePublicApiError } from "../../../output-contracts";
 
 const idSchema = z.uuid();
 const opaqueStorageContentType = "application/octet-stream";
-const multipartOverheadBytes = 64 * 1024;
+// Covers six 5,000-character fields encoded as three-byte UTF-8 code points,
+// along with the multipart framing and JSON syntax.
+const multipartMetadataLimitBytes = 128 * 1024;
 const rightsRecordEvidencePaths = [
 	"/api/projects/:projectId/asset-records/:assetRecordId/rights-records/:rightsRecordId/evidence-file",
 	"/api/projects/:projectId/asset-records/:assetRecordId/references/:referenceId/rights-records/:rightsRecordId/evidence-file",
@@ -137,7 +139,7 @@ function verifyEvidenceFileStream(
 	body: ReadableStream<Uint8Array>,
 	contentLength: number,
 	expectedSha256: string
-) {
+): ReadableStream<Uint8Array> {
 	const hash = createHash("sha256");
 	let actualLength = 0;
 	return body.pipeThrough(
@@ -145,7 +147,7 @@ function verifyEvidenceFileStream(
 			transform(chunk, controller) {
 				actualLength += chunk.byteLength;
 				if (actualLength > contentLength) {
-					throw new Error("Rights Record evidence file integrity check failed");
+					throw new Error("Rights Record evidence integrity check failed");
 				}
 				hash.update(chunk);
 				controller.enqueue(chunk);
@@ -155,11 +157,25 @@ function verifyEvidenceFileStream(
 					actualLength !== contentLength ||
 					hash.digest("hex") !== expectedSha256
 				) {
-					throw new Error("Rights Record evidence file integrity check failed");
+					throw new Error("Rights Record evidence integrity check failed");
 				}
 			},
 		})
 	);
+}
+
+async function readVerifiedEvidenceFile(
+	body: ReadableStream<Uint8Array>,
+	contentLength: number,
+	expectedSha256: string
+): Promise<ArrayBuffer | null> {
+	try {
+		return await new Response(
+			verifyEvidenceFileStream(body, contentLength, expectedSha256)
+		).arrayBuffer();
+	} catch {
+		return null;
+	}
 }
 
 interface EvidenceUploadParseFailure {
@@ -328,6 +344,87 @@ async function uploadEvidenceFile(
 	return c.json(result.record, 201);
 }
 
+async function respondWithEvidenceFile(
+	c: Context,
+	dependencies: RightsRecordEvidenceRouteDependencies,
+	access: Extract<RightsRecordEvidenceAccess, { ok: true }>,
+	rightsRecordId: string
+) {
+	const file = await dependencies.rightsRecordStore.getEvidenceFile(
+		access.userId,
+		access.projectId,
+		access.assetRecordId,
+		access.referenceId,
+		rightsRecordId
+	);
+	if (!file) {
+		return c.json(serializePublicApiError("Not found"), 404);
+	}
+	const storedFile = rightsRecordStoredEvidenceFileSchema.safeParse(file);
+	if (!storedFile.success) {
+		return c.json(
+			serializePublicApiError("Rights Record evidence integrity check failed"),
+			502
+		);
+	}
+	const objectKey = rightsRecordEvidenceObjectKeySchema.safeParse(
+		storedFile.data.objectKey
+	);
+	if (!objectKey.success) {
+		return c.json(
+			serializePublicApiError("Rights Record evidence integrity check failed"),
+			502
+		);
+	}
+	const object = await dependencies.createStorage().get(objectKey.data);
+	if (
+		!object ||
+		object.contentType !== opaqueStorageContentType ||
+		(object.contentLength !== undefined &&
+			object.contentLength !== storedFile.data.contentLength)
+	) {
+		await object?.body.cancel();
+		return c.json(
+			serializePublicApiError("Rights Record evidence integrity check failed"),
+			502
+		);
+	}
+	const verifiedBytes = await readVerifiedEvidenceFile(
+		object.body,
+		storedFile.data.contentLength,
+		storedFile.data.sha256
+	);
+	if (!verifiedBytes) {
+		return c.json(
+			serializePublicApiError("Rights Record evidence integrity check failed"),
+			502
+		);
+	}
+	c.header(
+		"Content-Disposition",
+		`attachment; filename*=UTF-8''${encodeDownloadFileName(storedFile.data.fileName)}`
+	);
+	c.header("Content-Length", String(storedFile.data.contentLength));
+	c.header("Content-Type", opaqueStorageContentType);
+	c.header("X-Content-Type-Options", "nosniff");
+	return c.body(verifiedBytes, 200);
+}
+
+async function downloadEvidenceFile(
+	c: Context,
+	dependencies: RightsRecordEvidenceRouteDependencies
+) {
+	const access = await resolveEvidenceAccess(c, dependencies);
+	if (!access.ok) {
+		return access.response;
+	}
+	const rightsRecordId = idSchema.safeParse(c.req.param("rightsRecordId"));
+	if (!rightsRecordId.success) {
+		return c.json(serializePublicApiError("Not found"), 404);
+	}
+	return respondWithEvidenceFile(c, dependencies, access, rightsRecordId.data);
+}
+
 export function mountRightsRecordEvidenceRoutes(
 	app: Hono,
 	dependencies: RightsRecordEvidenceRouteDependencies
@@ -336,7 +433,8 @@ export function mountRightsRecordEvidenceRoutes(
 		app.post(
 			path,
 			bodyLimit({
-				maxSize: rightsRecordEvidenceFileLimitBytes + multipartOverheadBytes,
+				maxSize:
+					rightsRecordEvidenceFileLimitBytes + multipartMetadataLimitBytes,
 				onError: (c) =>
 					c.json(
 						serializePublicApiError(
@@ -348,52 +446,6 @@ export function mountRightsRecordEvidenceRoutes(
 			(c) => uploadEvidenceFile(c, dependencies)
 		);
 
-		app.get(path, async (c) => {
-			const access = await resolveEvidenceAccess(c, dependencies);
-			if (!access.ok) {
-				return access.response;
-			}
-			const rightsRecordId = idSchema.safeParse(c.req.param("rightsRecordId"));
-			if (!rightsRecordId.success) {
-				return c.json(serializePublicApiError("Not found"), 404);
-			}
-			const file = await dependencies.rightsRecordStore.getEvidenceFile(
-				access.userId,
-				access.projectId,
-				access.assetRecordId,
-				access.referenceId,
-				rightsRecordId.data
-			);
-			if (!file) {
-				return c.json(serializePublicApiError("Not found"), 404);
-			}
-			const objectKey = rightsRecordEvidenceObjectKeySchema.safeParse(
-				file.objectKey
-			);
-			if (!objectKey.success) {
-				throw new Error("Rights Record evidence file unavailable");
-			}
-			const object = await dependencies.createStorage().get(objectKey.data);
-			if (
-				!object ||
-				object.contentType !== opaqueStorageContentType ||
-				(object.contentLength !== undefined &&
-					object.contentLength !== file.contentLength)
-			) {
-				await object?.body.cancel();
-				throw new Error("Rights Record evidence file unavailable");
-			}
-			c.header(
-				"Content-Disposition",
-				`attachment; filename*=UTF-8''${encodeDownloadFileName(file.fileName)}`
-			);
-			c.header("Content-Length", String(file.contentLength));
-			c.header("Content-Type", opaqueStorageContentType);
-			c.header("X-Content-Type-Options", "nosniff");
-			return c.body(
-				verifyEvidenceFileStream(object.body, file.contentLength, file.sha256),
-				200
-			);
-		});
+		app.get(path, (c) => downloadEvidenceFile(c, dependencies));
 	}
 }

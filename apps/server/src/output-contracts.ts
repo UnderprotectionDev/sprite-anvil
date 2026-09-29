@@ -114,6 +114,7 @@ export const publicApiErrorSchema = z
 			"Import Inbox file unavailable",
 			"Invalid Rights Record evidence file",
 			"Rights Record evidence file exceeds the 5 MiB limit",
+			"Rights Record evidence integrity check failed",
 			"Rights Record evidence idempotency conflict",
 			"Invalid source metadata proposal",
 			"Invalid source metadata JSON",

@@ -136,6 +136,11 @@ function createTestServer(
 	});
 	return {
 		app,
+		corruptStoredObject() {
+			if (storedObject) {
+				storedObject.body[0] = (storedObject.body[0] ?? 0) === 0 ? 1 : 0;
+			}
+		},
 		getSavedRecord: () => savedRecord,
 		getStoredObject: () => storedObject,
 	};
@@ -209,6 +214,26 @@ test("stores and privately rereads a file as immutable Rights Record evidence", 
 		"license.pdf"
 	);
 	expect(await downloadResponse.text()).toBe("license evidence");
+});
+
+test("rejects corrupted evidence before starting the download response", async () => {
+	const server = createTestServer();
+	const uploadResponse = await server.app.request(route, {
+		body: createUploadForm(),
+		headers: { Authorization: "Bearer owner" },
+		method: "POST",
+	});
+	expect(uploadResponse.status).toBe(201);
+	server.corruptStoredObject();
+
+	const downloadResponse = await server.app.request(route, {
+		headers: { Authorization: "Bearer owner" },
+	});
+
+	expect(downloadResponse.status).toBe(502);
+	expect(await downloadResponse.json()).toEqual({
+		error: "Rights Record evidence integrity check failed",
+	});
 });
 
 test("stores and downloads evidence through a reference image Rights Record route", async () => {
@@ -298,6 +323,45 @@ test("rejects oversized evidence files before storage", async () => {
 
 	expect(uploadResponse.status).toBe(413);
 	expect(server.getStoredObject()).toBeNull();
+});
+
+test("accepts a maximum-size evidence file with maximum-length Unicode fields", async () => {
+	const server = createTestServer();
+	const formData = createUploadForm();
+	const maximumField = "界".repeat(5000);
+	const rightsRecord = JSON.parse(
+		formData.get("rightsRecord") as string
+	) as Record<string, unknown>;
+	for (const field of [
+		"assertedScope",
+		"evidence",
+		"restrictions",
+		"rightsHolderOrProvider",
+		"source",
+		"uncertainty",
+	]) {
+		rightsRecord[field] = maximumField;
+	}
+	formData.set("rightsRecord", JSON.stringify(rightsRecord));
+	formData.set(
+		"evidenceFile",
+		new File(
+			[new Uint8Array(rightsRecordEvidenceFileLimitBytes)],
+			"maximum.pdf",
+			{ type: "application/pdf" }
+		)
+	);
+
+	const uploadResponse = await server.app.request(route, {
+		body: formData,
+		headers: { Authorization: "Bearer owner" },
+		method: "POST",
+	});
+
+	expect(uploadResponse.status).toBe(201);
+	expect(server.getStoredObject()?.contentLength).toBe(
+		rightsRecordEvidenceFileLimitBytes
+	);
 });
 
 test("keeps an uploaded object when the database write outcome is unknown", async () => {

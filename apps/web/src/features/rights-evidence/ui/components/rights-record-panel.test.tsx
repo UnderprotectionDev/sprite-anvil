@@ -203,6 +203,53 @@ test("creates a Rights Record scoped to the selected reference image", async () 
 	await screen.findByText("Revizyon 1");
 });
 
+test("uses a unique accessible history heading for each reference image", async () => {
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	const otherReferenceId = "0bd26556-4860-4bad-b404-17f45005ee9c";
+	render(
+		<QueryClientProvider client={queryClient}>
+			<div>
+				<RightsRecordPanel
+					assetRecordId={assetRecordId}
+					projectId={projectId}
+					referenceId={referenceId}
+					referenceName="stance.png"
+				/>
+				<RightsRecordPanel
+					assetRecordId={assetRecordId}
+					projectId={projectId}
+					referenceId={otherReferenceId}
+					referenceName="idle.png"
+				/>
+			</div>
+		</QueryClientProvider>
+	);
+
+	const headings = await screen.findAllByRole("heading", {
+		name: "Sürüm geçmişi",
+	});
+	const headingIds = headings.map((heading) => heading.id);
+
+	expect(new Set(headingIds).size).toBe(2);
+	for (const heading of headings) {
+		expect(heading.closest("section")).toHaveAttribute(
+			"aria-labelledby",
+			heading.id
+		);
+	}
+});
+
+test("describes an empty history for its selected reference image", async () => {
+	renderPanel(referenceId, "stance.png");
+
+	expect(
+		await screen.findByText(
+			"Bu stance.png referans görseli için henüz Hak Kaydı yok."
+		)
+	).toBeInTheDocument();
+});
+
 test("requires evidence before the user can declare a Rights Record Documented", async () => {
 	const user = userEvent.setup();
 	renderPanel();
@@ -450,9 +497,14 @@ test("carries the latest evidence file into a new Rights Record revision", async
 	expect(
 		screen.getByText("Mevcut kanıt dosyası: license.pdf")
 	).toBeInTheDocument();
+	const evidenceField = screen.getByLabelText("Hak kaydını destekleyen kanıt");
+	expect(evidenceField).not.toBeRequired();
+	await user.click(evidenceField);
+	await user.tab();
+	expect(evidenceField).toHaveAttribute("aria-invalid", "false");
 	expect(
-		screen.getByLabelText("Hak kaydını destekleyen kanıt")
-	).not.toBeRequired();
+		screen.queryByText("Belgelendi durumunda destekleyici kanıt gerekir.")
+	).not.toBeInTheDocument();
 	await user.type(
 		screen.getByLabelText("Belirsizlik"),
 		" New information is pending."
