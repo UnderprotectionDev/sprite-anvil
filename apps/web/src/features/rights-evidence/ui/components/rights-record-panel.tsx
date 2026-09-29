@@ -143,13 +143,15 @@ function getDraftValidationErrors(
 ) {
 	const errors: Partial<Record<RightsRecordValidationField, string>> = {};
 	if (
-		draft.state === "documented" &&
-		!draft.evidence.trim() &&
-		!hasEvidenceFile
+		isRightsRecordFieldRequired("evidence", draft.state, hasEvidenceFile) &&
+		!draft.evidence.trim()
 	) {
 		errors.evidence = documentedEvidenceError;
 	}
-	if (draft.state === "restricted" && !draft.restrictions.trim()) {
+	if (
+		isRightsRecordFieldRequired("restrictions", draft.state, hasEvidenceFile) &&
+		!draft.restrictions.trim()
+	) {
 		errors.restrictions = restrictedRestrictionsError;
 	}
 	return errors;
