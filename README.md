@@ -34,15 +34,15 @@ bun install
 
 Environment variable definitions are maintained in the owning `.env.schema` files: `apps/web/.env.schema`, `apps/server/.env.schema`, and `packages/db/.env.schema`. Put local values in ignored `.env.local` files under the owning app or package, and never commit secrets. The server requires `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, and `CORS_ORIGIN`; the web app requires `VITE_SERVER_URL`. Optional Cloudflare and R2 settings are needed for upload and queue workflows. Run `bun run env:generate` after changing a schema; installation also generates the Varlock TypeScript accessors.
 
-For a database schema change or a new database, generate and review a versioned migration before applying it:
+For a database schema change, update `packages/db/src/schema/`, generate a versioned migration, and review its SQL and snapshot before applying it:
 
 ```bash
 bun run db:generate
 # Review SQL in packages/db/src/migrations/
-bun run db:migrate
+DB_MIGRATE_TARGET=development bun run db:migrate
 ```
 
-Use `bun run db:push` only with a disposable local database. See [`docs/deployment.md`](docs/deployment.md) for Railway, Cloudflare Queues, and R2 deployment configuration.
+Migration files use the current Drizzle Kit directory format: one `migration.sql` and usually one `snapshot.json` per timestamped directory under `packages/db/src/migrations/`. This Drizzle version has no `meta/_journal.json`; its migrator rejects that older layout. Every schema change belongs with its own migration. The runner checks the target, snapshot lineage, applied SQL hashes, and migration order, then holds a PostgreSQL advisory lock while Drizzle Kit applies pending files. For remote development migrations, configure `NEON_DEVELOPMENT_ENDPOINT_HOST` with the development branch's direct endpoint host in `packages/db/.env.local`; a target label alone cannot authorize an endpoint. Use `NEON_LOCAL=true DB_MIGRATE_TARGET=development` for a loopback PostgreSQL target. Use `NEON_LOCAL=true DB_PUSH_DISPOSABLE=true bun run db:push` only for a disposable loopback database. See [`docs/deployment.md`](docs/deployment.md) for target selection and deployment steps.
 
 ## Development
 

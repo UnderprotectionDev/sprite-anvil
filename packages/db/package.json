@@ -9,21 +9,22 @@
     "build": "tsc -b",
     "check-types": "tsc -b",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
-    "db:migrate:deploy": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push",
+    "db:migrate": "bun scripts/migration-runner.ts migrate",
+    "db:migrate:deploy": "bun scripts/migration-runner.ts deploy",
+    "db:push": "bun scripts/migration-runner.ts push",
     "db:studio": "drizzle-kit studio",
-    "test": "bun test src/asset-records.test.ts src/collections.test.ts src/rights-records.test.ts src/migration-compatibility.test.ts"
+    "test": "bun test src/asset-records.test.ts src/collections.test.ts src/rights-records.test.ts src/migration-compatibility.test.ts scripts/migration-policy.test.ts scripts/migration-files.test.ts scripts/migration-runner.integration.test.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
+    "drizzle-kit": "1.0.0-rc.4",
     "drizzle-orm": "catalog:",
+    "pg": "^8.23.0",
+    "varlock": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@sprite-anvil/config": "workspace:*",
-    "drizzle-kit": "1.0.0-rc.4",
-    "typescript": "catalog:",
-    "varlock": "catalog:"
+    "typescript": "catalog:"
   }
 }

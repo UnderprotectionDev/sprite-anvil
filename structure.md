@@ -342,6 +342,7 @@
 │   │   ├── package.json
 │   │   └── tsconfig.base.json
 │   ├── db/
+│   │   ├── scripts/             # Migration target and history guards
 │   │   ├── src/
 │   │   │   ├── migrations/
 │   │   │   ├── schema/

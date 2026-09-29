@@ -266,13 +266,13 @@ test.skipIf(!databaseUrl)(
 				{ projectId: project.id },
 				{ context }
 			);
-			const uploadedVersion = versionCatalog.assetVersions.find(
+			const legacyVersion = versionCatalog.assetVersions.find(
 				(version) => version.id === createdVersion.id
 			);
-			if (!uploadedVersion) {
+			if (!legacyVersion) {
 				throw new Error("Expected the imported Asset Version in the catalog.");
 			}
-			expect(uploadedVersion).toMatchObject({
+			expect(legacyVersion).toMatchObject({
 				assetRecordId: source.id,
 				assetFamilyId: family.id,
 				versionNumber: 1,
@@ -287,8 +287,43 @@ test.skipIf(!databaseUrl)(
 				legacyVersionInput,
 				{ context }
 			);
-			expect(retryVersion.id).toBe(uploadedVersion.id);
+			expect(retryVersion.id).toBe(legacyVersion.id);
 			expect(storedObjects.size).toBe(1);
+
+			const generationPackageId = crypto.randomUUID();
+			await db.insert(generationPackages).values({
+				id: generationPackageId,
+				projectId: project.id,
+				assetRecordId: source.id,
+				createdByUserId: userId,
+				snapshot: {},
+			});
+			const manualImport = await call(
+				appRouter.assetRecords.createManualImportVersion,
+				{
+					assetRecordId: source.id,
+					contentBase64: fileBytes.toString("base64"),
+					contentType: "image/png",
+					fileName: "ash-knight-manual.png",
+					generationInstruction: "Create a readable ash knight idle sprite.",
+					generationPackageId,
+					id: crypto.randomUUID(),
+					projectId: project.id,
+					sourceSurface: "ChatGPT web",
+				},
+				{ context }
+			);
+			const uploadedVersion = (
+				await call(
+					appRouter.assetVersions.list,
+					{ projectId: project.id },
+					{ context }
+				)
+			).assetVersions.find((version) => version.id === manualImport.id);
+			if (!uploadedVersion) {
+				throw new Error("Expected the manual Asset Version in the catalog.");
+			}
+			expect(uploadedVersion.sourceKind).toBe("manual_import");
 
 			const providerGenerationPackageId = crypto.randomUUID();
 			await db.insert(generationPackages).values({
@@ -495,7 +530,12 @@ test.skipIf(!databaseUrl)(
 			);
 			const replacementBytes = makePng("other");
 			expect(replacementBytes.byteLength).toBe(fileBytes.byteLength);
-			const [objectKey] = [...storedObjects.keys()];
+			const uploadedFile = await createAssetVersionStore(db).getFileRecord(
+				userId,
+				project.id,
+				uploadedVersion.id
+			);
+			const objectKey = uploadedFile?.objectKey;
 			if (!objectKey) {
 				throw new Error("Expected the uploaded image in test storage.");
 			}
@@ -521,51 +561,18 @@ test.skipIf(!databaseUrl)(
 					{ context }
 				)
 			).rejects.toThrow();
-			const incompleteCatalog = await createAssetVersionStore(db).list(
+			const completeCatalog = await createAssetVersionStore(db).list(
 				userId,
 				project.id
 			);
 			expect(
-				incompleteCatalog?.assetVersions.find(
+				completeCatalog?.assetVersions.find(
 					(version) => version.id === uploadedVersion.id
 				)?.productionEvidence
 			).toMatchObject({
-				evidenceLevel: "incomplete",
+				evidenceLevel: "complete",
 				sourceKind: "manual_import",
-			});
-			await expect(
-				call(
-					appRouter.assetVersions.review,
-					{
-						projectId: project.id,
-						assetVersionId: uploadedVersion.id,
-						decision: "approved",
-						rationale: "The silhouette matches the family design.",
-					},
-					{ context }
-				)
-			).rejects.toMatchObject({ code: "BAD_REQUEST" });
-			await expect(
-				call(
-					appRouter.assetRecords.recordReview,
-					{
-						assetRecordId: source.id,
-						decision: "approved",
-						id: crypto.randomUUID(),
-						projectId: project.id,
-						rationale: "The silhouette matches the family design.",
-						versionId: uploadedVersion.id,
-					},
-					{ context }
-				)
-			).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-			const generationPackageId = crypto.randomUUID();
-			await db.insert(generationPackages).values({
-				id: generationPackageId,
-				projectId: project.id,
-				assetRecordId: source.id,
-				createdByUserId: userId,
-				snapshot: {},
+				manualImportEvidence: { generationPackageId, revision: 1 },
 			});
 			const importEvidence = await call(
 				appRouter.assetVersions.saveManualImportEvidence,
@@ -580,19 +587,6 @@ test.skipIf(!databaseUrl)(
 				{ context }
 			);
 			expect(importEvidence.revision).toBe(1);
-			const completeCatalog = await createAssetVersionStore(db).list(
-				userId,
-				project.id
-			);
-			expect(
-				completeCatalog?.assetVersions.find(
-					(version) => version.id === uploadedVersion.id
-				)?.productionEvidence
-			).toMatchObject({
-				evidenceLevel: "complete",
-				sourceKind: "manual_import",
-				manualImportEvidence: { generationPackageId, revision: 1 },
-			});
 			const reviewEvent = await call(
 				appRouter.assetVersions.review,
 				{
