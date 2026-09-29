@@ -171,6 +171,7 @@ export function createRightsRecordStore(db: Database): RightsRecordStore {
 		},
 		async createRevision(userId, rawInput) {
 			const input = rightsRecordCreateInputSchema.parse(rawInput);
+			const { evidenceFileSourceRecordId, ...recordInput } = input;
 			if (
 				!(await canAccessAssetRecord(
 					db,
@@ -181,9 +182,29 @@ export function createRightsRecordStore(db: Database): RightsRecordStore {
 			) {
 				return { ok: false, reason: "not_found" };
 			}
+			let evidenceFile: RightsRecordStoredEvidenceFile | null = null;
+			if (evidenceFileSourceRecordId) {
+				const [sourceRecord] = await db
+					.select({ evidenceFile: rightsRecords.evidenceFile })
+					.from(rightsRecords)
+					.where(
+						and(
+							eq(rightsRecords.id, evidenceFileSourceRecordId),
+							eq(rightsRecords.projectId, input.projectId),
+							eq(rightsRecords.assetRecordId, input.assetRecordId)
+						)
+					)
+					.limit(1);
+				if (!sourceRecord?.evidenceFile) {
+					return { ok: false, reason: "not_found" };
+				}
+				evidenceFile = rightsRecordStoredEvidenceFileSchema.parse(
+					sourceRecord.evidenceFile
+				);
+			}
 			return createNextRevision(db, userId, {
-				...input,
-				evidenceFile: null,
+				...recordInput,
+				evidenceFile,
 			});
 		},
 		async createRevisionWithEvidenceFile(userId, rawInput) {

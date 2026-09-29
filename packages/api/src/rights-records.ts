@@ -71,6 +71,7 @@ function validateRightsRecordState(
 	record: {
 		evidence: string | null;
 		evidenceFile?: RightsRecordEvidenceFile | null;
+		evidenceFileSourceRecordId?: string | null;
 		restrictions: string | null;
 		state: RightsRecordState;
 	},
@@ -79,7 +80,8 @@ function validateRightsRecordState(
 	if (
 		record.state === "documented" &&
 		!record.evidence &&
-		!record.evidenceFile
+		!record.evidenceFile &&
+		!record.evidenceFileSourceRecordId
 	) {
 		context.addIssue({
 			code: "custom",
@@ -117,8 +119,12 @@ export const rightsRecordSchema = z
 
 export type RightsRecord = z.infer<typeof rightsRecordSchema>;
 
-export const rightsRecordCreateInputSchema =
-	rightsRecordFieldsSchema.superRefine(validateRightsRecordState);
+export const rightsRecordCreateInputSchema = rightsRecordFieldsSchema
+	.extend({
+		evidenceFileSourceRecordId: rightsRecordIdSchema.nullable().optional(),
+	})
+	.strict()
+	.superRefine(validateRightsRecordState);
 
 export type RightsRecordCreateInput = z.input<
 	typeof rightsRecordCreateInputSchema

@@ -12,9 +12,27 @@ function createDatabaseHarness(
 	availability: "available" | "erased" = "available"
 ) {
 	const records: Record<string, unknown>[] = [];
+	function queryParameterValues(value: unknown): unknown[] {
+		if (Array.isArray(value)) {
+			return value.flatMap(queryParameterValues);
+		}
+		if (!value || typeof value !== "object") {
+			return [];
+		}
+		const chunk = value as {
+			constructor?: { name?: string };
+			queryChunks?: unknown[];
+			value?: unknown;
+		};
+		if (chunk.constructor?.name === "Param") {
+			return [chunk.value];
+		}
+		return chunk.queryChunks?.flatMap(queryParameterValues) ?? [];
+	}
 	const database = {
 		select(selection?: Record<string, unknown>) {
 			let selectedTable: unknown;
+			let selectedParameters: unknown[] = [];
 			const query = {
 				from(table: unknown) {
 					selectedTable = table;
@@ -23,7 +41,8 @@ function createDatabaseHarness(
 				innerJoin() {
 					return this;
 				},
-				where() {
+				where(condition: unknown) {
+					selectedParameters = queryParameterValues(condition);
 					return this;
 				},
 				orderBy() {
@@ -40,6 +59,20 @@ function createDatabaseHarness(
 				limit(count: number) {
 					if (selectedTable === assetRecords) {
 						return Promise.resolve([{ id: testAssetRecordId, availability }]);
+					}
+					if (selectedTable === rightsRecords && selection?.evidenceFile) {
+						const [sourceId, sourceProjectId, sourceAssetRecordId] =
+							selectedParameters;
+						const sourceRecord = records.find(
+							(record) =>
+								record.id === sourceId &&
+								record.projectId === sourceProjectId &&
+								record.assetRecordId === sourceAssetRecordId &&
+								record.evidenceFile
+						);
+						return Promise.resolve(
+							sourceRecord ? [{ evidenceFile: sourceRecord.evidenceFile }] : []
+						);
 					}
 					if (selectedTable === rightsRecords && selection?.versionNumber) {
 						return Promise.resolve(
@@ -127,6 +160,77 @@ test("creates and rereads immutable Rights Record revisions", async () => {
 		state: "documented",
 		uncertainty: "Merchandising is not covered",
 	});
+});
+
+test("carries a prior evidence file into a new revision by source record id", async () => {
+	const { database, records } = createDatabaseHarness();
+	const store = createRightsRecordStore(database);
+	const evidenceFile = {
+		contentLength: 12,
+		fileName: "license.pdf",
+		objectKey: `projects/${testProjectId}/asset-records/${testAssetRecordId}/rights-records/${baseInput.id}/evidence/${"a".repeat(64)}`,
+		sha256: "a".repeat(64),
+		sourceContentType: "application/pdf",
+	};
+
+	const first = await store.createRevisionWithEvidenceFile(userId, {
+		...baseInput,
+		evidenceFile,
+	});
+	const second = await store.createRevision(userId, {
+		...baseInput,
+		evidence: null,
+		evidenceFileSourceRecordId: baseInput.id,
+		id: "5240db4d-6cb5-4962-b013-cadfffb6da02",
+		uncertainty: "Updated uncertainty",
+	});
+
+	expect(first).toMatchObject({
+		ok: true,
+		record: {
+			evidenceFile: expect.objectContaining({ fileName: "license.pdf" }),
+		},
+	});
+	expect(second).toMatchObject({
+		ok: true,
+		record: {
+			evidence: null,
+			evidenceFile: {
+				contentLength: 12,
+				fileName: "license.pdf",
+				sha256: "a".repeat(64),
+				sourceContentType: "application/pdf",
+			},
+			versionNumber: 2,
+		},
+	});
+	expect(records[1]?.evidenceFile).toEqual(evidenceFile);
+});
+
+test("does not carry an evidence file from another Asset Record", async () => {
+	const { database, records } = createDatabaseHarness();
+	records.push({
+		assetRecordId: "77dbb102-ea94-4d86-9c9f-04595b1475dc",
+		evidenceFile: {
+			contentLength: 12,
+			fileName: "other-license.pdf",
+			objectKey: "projects/other/evidence",
+			sha256: "b".repeat(64),
+			sourceContentType: "application/pdf",
+		},
+		id: "6d1d8eb0-cc77-49ba-8edf-e877a319767e",
+		projectId: "b3f41ba9-09bc-41d2-bfb5-335d4a82c9ce",
+	});
+	const store = createRightsRecordStore(database);
+
+	expect(
+		await store.createRevision(userId, {
+			...baseInput,
+			evidence: null,
+			evidenceFileSourceRecordId: "6d1d8eb0-cc77-49ba-8edf-e877a319767e",
+		})
+	).toEqual({ ok: false, reason: "not_found" });
+	expect(records).toHaveLength(1);
 });
 
 test("does not create or return Rights Record history for an erased Asset Record", async () => {

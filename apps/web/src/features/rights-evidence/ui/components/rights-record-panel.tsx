@@ -1,6 +1,7 @@
 import {
 	type RightsRecord,
 	type RightsRecordCreateInput,
+	type RightsRecordEvidenceFile,
 	type RightsRecordState,
 	rightsRecordEvidenceFileLimitBytes,
 	rightsRecordSchema,
@@ -223,7 +224,8 @@ async function createRightsRecordRevision(
 		return client.rightsRecords.create(input);
 	}
 	const formData = new FormData();
-	formData.set("rightsRecord", JSON.stringify(input));
+	const { evidenceFileSourceRecordId: _sourceRecordId, ...uploadInput } = input;
+	formData.set("rightsRecord", JSON.stringify(uploadInput));
 	formData.set("evidenceFile", evidenceFile, evidenceFile.name);
 	let response: Response;
 	try {
@@ -460,6 +462,11 @@ export function RightsRecordPanel({
 	const initializedFromHistory = useRef(false);
 	const [draft, setDraft] = useState<RightsRecordDraft>(emptyDraft);
 	const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
+	const [evidenceFileSourceRecordId, setEvidenceFileSourceRecordId] = useState<
+		string | null
+	>(null);
+	const [retainedEvidenceFile, setRetainedEvidenceFile] =
+		useState<RightsRecordEvidenceFile | null>(null);
 	const [evidenceFileError, setEvidenceFileError] = useState<string | null>(
 		null
 	);
@@ -482,6 +489,8 @@ export function RightsRecordPanel({
 		const [latest] = historyQuery.data;
 		if (latest && !hasEditedDraft.current) {
 			setDraft(draftFromRightsRecord(latest));
+			setEvidenceFileSourceRecordId(latest.evidenceFile ? latest.id : null);
+			setRetainedEvidenceFile(latest.evidenceFile);
 		}
 	}, [historyQuery.data, historyQuery.isSuccess]);
 
@@ -502,6 +511,8 @@ export function RightsRecordPanel({
 		async onSuccess(record) {
 			pendingCreate.current = null;
 			setEvidenceFile(null);
+			setEvidenceFileSourceRecordId(record.evidenceFile ? record.id : null);
+			setRetainedEvidenceFile(record.evidenceFile);
 			setEvidenceFileError(null);
 			if (evidenceFileInput.current) {
 				evidenceFileInput.current.value = "";
@@ -543,6 +554,14 @@ export function RightsRecordPanel({
 				? selectedFile
 				: null
 		);
+		if (
+			selectedFile &&
+			selectedFile.size > 0 &&
+			selectedFile.size <= rightsRecordEvidenceFileLimitBytes
+		) {
+			setEvidenceFileSourceRecordId(null);
+			setRetainedEvidenceFile(null);
+		}
 		hasEditedDraft.current = true;
 		pendingCreate.current = null;
 		setStatusMessage(null);
@@ -573,7 +592,10 @@ export function RightsRecordPanel({
 		) {
 			return;
 		}
-		const errors = getDraftValidationErrors(draft, Boolean(evidenceFile));
+		const errors = getDraftValidationErrors(
+			draft,
+			Boolean(evidenceFile || evidenceFileSourceRecordId)
+		);
 		if (Object.keys(errors).length > 0) {
 			setValidationErrors(errors);
 			return;
@@ -586,6 +608,9 @@ export function RightsRecordPanel({
 				assetRecordId,
 				assertedScope: normalizeInputText(draft.assertedScope),
 				evidence: normalizeInputText(draft.evidence),
+				evidenceFileSourceRecordId: evidenceFile
+					? null
+					: evidenceFileSourceRecordId,
 				id: crypto.randomUUID(),
 				projectId,
 				restrictions: normalizeInputText(draft.restrictions),
@@ -607,6 +632,8 @@ export function RightsRecordPanel({
 
 	function removeEvidenceFile() {
 		setEvidenceFile(null);
+		setEvidenceFileSourceRecordId(null);
+		setRetainedEvidenceFile(null);
 		setEvidenceFileError(null);
 		if (evidenceFileInput.current) {
 			evidenceFileInput.current.value = "";
@@ -634,6 +661,11 @@ export function RightsRecordPanel({
 				pendingCreate.current = null;
 				setWriteOutcomeUncertain(false);
 				setEvidenceFile(null);
+				setEvidenceFileSourceRecordId(
+					savedRecord.evidenceFile ? savedRecord.id : null
+				);
+				setRetainedEvidenceFile(savedRecord.evidenceFile);
+				setEvidenceFileError(null);
 				if (evidenceFileInput.current) {
 					evidenceFileInput.current.value = "";
 				}
@@ -691,7 +723,7 @@ export function RightsRecordPanel({
 					const isRequired = isRightsRecordFieldRequired(
 						key,
 						draft.state,
-						Boolean(evidenceFile)
+						Boolean(evidenceFile || evidenceFileSourceRecordId)
 					);
 					return (
 						<div className="space-y-1" key={key}>
@@ -781,12 +813,17 @@ export function RightsRecordPanel({
 					{evidenceFile ? (
 						<p className="text-sm">Seçilen dosya: {evidenceFile.name}</p>
 					) : null}
+					{retainedEvidenceFile && evidenceFileSourceRecordId ? (
+						<p className="text-sm">
+							Mevcut kanıt dosyası: {retainedEvidenceFile.fileName}
+						</p>
+					) : null}
 					{evidenceFileError ? (
 						<p className="text-sm" id={evidenceFileErrorId} role="alert">
 							{evidenceFileError}
 						</p>
 					) : null}
-					{evidenceFile || evidenceFileError ? (
+					{evidenceFile || evidenceFileError || retainedEvidenceFile ? (
 						<Button
 							className="min-h-11"
 							disabled={formDisabled}
@@ -794,7 +831,9 @@ export function RightsRecordPanel({
 							type="button"
 							variant="outline"
 						>
-							Kanıt dosyasını kaldır
+							{retainedEvidenceFile && !evidenceFile
+								? "Mevcut kanıt dosyasını kaldır"
+								: "Kanıt dosyasını kaldır"}
 						</Button>
 					) : null}
 				</div>

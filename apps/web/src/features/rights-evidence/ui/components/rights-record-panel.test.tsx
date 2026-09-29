@@ -358,3 +358,117 @@ test("starts a new revision from the latest Rights Record without changing histo
 		"Do not resell the source file."
 	);
 });
+
+test("carries the latest evidence file into a new Rights Record revision", async () => {
+	const user = userEvent.setup();
+	const previousRevision: RightsRecord = {
+		assetRecordId,
+		assertedScope: "Paid game releases",
+		createdAt: "2026-09-29T09:00:00.000Z",
+		evidence: null,
+		evidenceFile: {
+			contentLength: 12,
+			fileName: "license.pdf",
+			sha256: "a".repeat(64),
+			sourceContentType: "application/pdf",
+		},
+		id: "3d9d07a4-37af-43d6-8583-e2256baf0a58",
+		projectId,
+		restrictions: null,
+		rightsHolderOrProvider: "Example Studio",
+		source: "https://example.test/source",
+		state: "documented",
+		uncertainty: "Merchandising is not covered.",
+		versionNumber: 1,
+	};
+	fakeApi.records = [previousRevision];
+	fakeApi.create.mockImplementation((input: RightsRecordCreateInput) => {
+		const nextRevision: RightsRecord = {
+			...input,
+			createdAt: "2026-09-29T10:00:00.000Z",
+			evidenceFile: previousRevision.evidenceFile,
+			versionNumber: 2,
+		};
+		fakeApi.records = [nextRevision, previousRevision];
+		return Promise.resolve(nextRevision);
+	});
+
+	renderPanel();
+	await screen.findByRole("link", { name: "license.pdf" });
+	expect(
+		screen.getByText("Mevcut kanıt dosyası: license.pdf")
+	).toBeInTheDocument();
+	expect(
+		screen.getByLabelText("Hak kaydını destekleyen kanıt")
+	).not.toBeRequired();
+	await user.type(
+		screen.getByLabelText("Belirsizlik"),
+		" New information is pending."
+	);
+	await user.click(
+		screen.getByRole("button", { name: "Yeni Hak Kaydı sürümü oluştur" })
+	);
+
+	expect(fakeApi.create).toHaveBeenCalledWith(
+		expect.objectContaining({
+			evidenceFileSourceRecordId: previousRevision.id,
+			uncertainty: "Merchandising is not covered. New information is pending.",
+		})
+	);
+	await screen.findByText("Revizyon 2");
+	expect(screen.getAllByRole("link", { name: "license.pdf" })).toHaveLength(2);
+});
+
+test("removing a carried evidence file only changes the new revision", async () => {
+	const user = userEvent.setup();
+	const previousRevision: RightsRecord = {
+		assetRecordId,
+		assertedScope: "Paid game releases",
+		createdAt: "2026-09-29T09:00:00.000Z",
+		evidence: "License reference",
+		evidenceFile: {
+			contentLength: 12,
+			fileName: "license.pdf",
+			sha256: "a".repeat(64),
+			sourceContentType: "application/pdf",
+		},
+		id: "3d9d07a4-37af-43d6-8583-e2256baf0a58",
+		projectId,
+		restrictions: null,
+		rightsHolderOrProvider: "Example Studio",
+		source: "https://example.test/source",
+		state: "documented",
+		uncertainty: null,
+		versionNumber: 1,
+	};
+	fakeApi.records = [previousRevision];
+	fakeApi.create.mockImplementation((input: RightsRecordCreateInput) => {
+		const nextRevision: RightsRecord = {
+			...input,
+			createdAt: "2026-09-29T10:00:00.000Z",
+			evidenceFile: null,
+			versionNumber: 2,
+		};
+		fakeApi.records = [nextRevision, previousRevision];
+		return Promise.resolve(nextRevision);
+	});
+
+	renderPanel();
+	await user.click(
+		await screen.findByRole("button", {
+			name: "Mevcut kanıt dosyasını kaldır",
+		})
+	);
+	expect(
+		screen.queryByText("Mevcut kanıt dosyası: license.pdf")
+	).not.toBeInTheDocument();
+	await user.click(
+		screen.getByRole("button", { name: "Yeni Hak Kaydı sürümü oluştur" })
+	);
+
+	expect(fakeApi.create).toHaveBeenCalledWith(
+		expect.objectContaining({ evidenceFileSourceRecordId: null })
+	);
+	await screen.findByText("Revizyon 2");
+	expect(screen.getAllByRole("link", { name: "license.pdf" })).toHaveLength(1);
+});
