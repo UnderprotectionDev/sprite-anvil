@@ -8,6 +8,6 @@
     "outDir": "dist",
     "strictNullChecks": true
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "scripts/**/*.ts"],
   "references": []
 }

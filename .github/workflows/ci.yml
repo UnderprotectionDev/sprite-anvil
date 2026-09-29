@@ -22,40 +22,75 @@ jobs:
       - run: bunx playwright install --with-deps chromium
       - run: bun run test:e2e
 
+  neon-credentials:
+    runs-on: ubuntu-latest
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - name: Check Neon test credentials
+        id: check
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: |
+          if [[ -n "$NEON_PROJECT_ID" && -n "$NEON_API_KEY" ]]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Neon-backed database checks were skipped because NEON_PROJECT_ID or NEON_API_KEY is not configured."
+            {
+              echo "### Neon-backed database checks skipped"
+              echo
+              echo "Migration, web, and desktop database integration checks require the NEON_PROJECT_ID repository variable and NEON_API_KEY secret."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   neon-branch:
-    if: ${{ github.event_name == 'pull_request' && vars.NEON_PROJECT_ID != '' }}
+    if: ${{ github.event_name == 'pull_request' }}
+    needs: neon-credentials
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - if: needs.neon-credentials.outputs.configured == 'true'
+        uses: actions/checkout@v4
+      - if: needs.neon-credentials.outputs.configured == 'true'
+        uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.13
-      - run: bun install --frozen-lockfile
+      - if: needs.neon-credentials.outputs.configured == 'true'
+        run: bun install --frozen-lockfile
       - id: branch
+        if: needs.neon-credentials.outputs.configured == 'true'
         uses: neondatabase/create-branch-action@v6
         with:
           project_id: ${{ vars.NEON_PROJECT_ID }}
           branch_name: ci-${{ github.run_id }}-${{ github.run_attempt }}
           api_key: ${{ secrets.NEON_API_KEY }}
       - name: Apply schema and verify on the test branch
+        if: needs.neon-credentials.outputs.configured == 'true'
         env:
           DATABASE_URL: ${{ steps.branch.outputs.db_url }}
           CONTEXT_TEST_DATABASE_URL: ${{ steps.branch.outputs.db_url }}
+          DB_MIGRATE_TARGET: test
+          NEON_TEST_ENDPOINT_HOST: ${{ steps.branch.outputs.db_host }}
         run: |
           bun run --cwd packages/db db:migrate
-          bun test packages/db/src/neon.test.ts apps/server/src/project-routes.test.ts apps/server/src/project-access.test.ts
+          bun test packages/db/src/neon.test.ts packages/db/scripts/migration-runner.integration.test.ts apps/server/src/project-routes.test.ts apps/server/src/project-access.test.ts
       - name: Verify Project Context persistence through the API
+        if: needs.neon-credentials.outputs.configured == 'true'
         env:
           CONTEXT_TEST_DATABASE_URL: ${{ steps.branch.outputs.db_url }}
         run: bun test apps/server/src/context-proposals.integration.test.ts apps/server/src/asset-versions.integration.test.ts
-      - name: Install Playwright browser
+      - if: needs.neon-credentials.outputs.configured == 'true'
+        name: Install Playwright browser
         run: bunx playwright install --with-deps chromium
       - name: Verify the web Project Context and Asset Version flows
+        if: needs.neon-credentials.outputs.configured == 'true'
         env:
           CONTEXT_TEST_DATABASE_URL: ${{ steps.branch.outputs.db_url }}
           VITE_SERVER_URL: http://127.0.0.1:3000
         run: bun run --cwd apps/web test:e2e
-      - if: always() && steps.branch.outputs.branch_id != ''
+      - if: always() && needs.neon-credentials.outputs.configured == 'true' && steps.branch.outputs.branch_id != ''
         uses: neondatabase/delete-branch-action@v3
         with:
           project_id: ${{ vars.NEON_PROJECT_ID }}
@@ -63,6 +98,7 @@ jobs:
           api_key: ${{ secrets.NEON_API_KEY }}
 
   desktop-webdriver:
+    needs: neon-credentials
     runs-on: ubuntu-latest
     env:
       VITE_SERVER_URL: http://127.0.0.1:3000
@@ -73,7 +109,7 @@ jobs:
           bun-version: 1.3.13
       - run: bun install --frozen-lockfile
       - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf xvfb
-      - if: ${{ github.event_name == 'pull_request' && vars.NEON_PROJECT_ID != '' }}
+      - if: ${{ github.event_name == 'pull_request' && needs.neon-credentials.outputs.configured == 'true' }}
         id: branch
         uses: neondatabase/create-branch-action@v6
         with:
@@ -84,6 +120,8 @@ jobs:
         name: Apply schema on the desktop test branch
         env:
           DATABASE_URL: ${{ steps.branch.outputs.db_url }}
+          DB_MIGRATE_TARGET: test
+          NEON_TEST_ENDPOINT_HOST: ${{ steps.branch.outputs.db_host }}
         run: bun run --cwd packages/db db:migrate
       - run: bun run --cwd apps/web desktop:test:build
       - name: Verify the desktop Project Context and Asset Version flows
