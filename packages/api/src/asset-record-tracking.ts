@@ -241,6 +241,7 @@ export const assetDerivativeCreateInputSchema = z
 
 export const referenceSummarySchema = z
 	.object({
+		assetRecordId: z.uuid(),
 		assetRecordName: z.string().min(1).max(120),
 		conflictFeatures: z.array(referenceFeatureSchema),
 		contextOverrideRationale: z.string().nullable().optional(),

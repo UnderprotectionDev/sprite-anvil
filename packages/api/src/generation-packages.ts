@@ -240,7 +240,7 @@ export function createGenerationPackageSnapshot(data: {
 
 	const referenceRoles: GenerationPackage["referenceRoles"] = [
 		...data.tracking.references.map((reference) => ({
-			assetRecordId: null,
+			assetRecordId: reference.assetRecordId,
 			assetRecordName: reference.assetRecordName,
 			assetVersionId: reference.versionId,
 			contentDigest: null,

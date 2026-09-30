@@ -187,6 +187,7 @@ function toReferenceSummary(
 	conflictFeatures: string[] = []
 ) {
 	return referenceSummarySchema.parse({
+		assetRecordId: row.referencedRecord.id,
 		assetRecordName: row.referencedRecord.name,
 		conflictFeatures,
 		contextOverrideRationale: row.reference.contextOverrideRationale,
