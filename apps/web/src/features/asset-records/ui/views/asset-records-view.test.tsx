@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 
+import type { AssetFamilyCatalog } from "@sprite-anvil/api/asset-families";
 import type { AssetRecord } from "@sprite-anvil/api/asset-records";
+import type { AssetVersionCatalog } from "@sprite-anvil/api/asset-versions";
 import type { GenerationPackage } from "@sprite-anvil/api/generation-packages";
 import { createVersionProductionEvidence } from "@sprite-anvil/api/production-provenance";
 import type { RightsRecord } from "@sprite-anvil/api/rights-records";
@@ -60,6 +62,8 @@ const attestationDateLabel = /Beyan tarihi:/;
 const legacyAttestationCreatedAt = "2026-09-25T08:01:00.000Z";
 const localizedLegacyAttestationDate = /^(?:24|25) Eyl 2026 \d{2}:\d{2}$/;
 const unknownCanonicalVersion = /Ana Tasarım Sürümü kayıtlı değil/;
+const unresolvedSourceAssetVersion =
+	/Kaynak Varlık Sürümü kataloğunda bulunamadı\./;
 const emptyAssetRecordMeasurements = {
 	atlasDimensions: { confirmed: null, proposal: null },
 	cellDimensions: { confirmed: null, proposal: null },
@@ -93,6 +97,19 @@ const fakeApi = vi.hoisted(() => ({
 	createReference: vi.fn(),
 	createGenerationPackage: vi.fn(),
 	generationPackages: [] as GenerationPackage[],
+	generationPackagesError: null as Error | null,
+	assetFamilyCatalog: {
+		assetFamilies: [],
+		assetRecords: [],
+		relationships: [],
+		subjectIdentities: [],
+	} as AssetFamilyCatalog,
+	assetVersionCatalog: {
+		assetVersions: [],
+		canonicalDesigns: [],
+		compositeVersions: [],
+		unitVersions: [],
+	} as AssetVersionCatalog,
 	rightsRecordCreate: vi.fn(),
 	rightsRecords: [] as RightsRecord[],
 	detail: null as Record<string, unknown> | null,
@@ -146,12 +163,15 @@ vi.mock("@/utils/orpc", () => ({
 			list: {
 				queryOptions: ({ input }: { input: Record<string, unknown> }) => ({
 					queryKey: ["asset-versions", input],
-					queryFn: async () => ({
-						assetVersions: [],
-						canonicalDesigns: [],
-						compositeVersions: [],
-						unitVersions: [],
-					}),
+					queryFn: async () => fakeApi.assetVersionCatalog,
+				}),
+			},
+		},
+		assetFamilies: {
+			list: {
+				queryOptions: ({ input }: { input: Record<string, unknown> }) => ({
+					queryKey: ["asset-families", input],
+					queryFn: async () => fakeApi.assetFamilyCatalog,
 				}),
 			},
 		},
@@ -159,7 +179,12 @@ vi.mock("@/utils/orpc", () => ({
 			list: {
 				queryOptions: ({ input }: { input: Record<string, unknown> }) => ({
 					queryKey: ["generation-packages", input],
-					queryFn: async () => fakeApi.generationPackages,
+					queryFn: () => {
+						if (fakeApi.generationPackagesError) {
+							return Promise.reject(fakeApi.generationPackagesError);
+						}
+						return Promise.resolve(fakeApi.generationPackages);
+					},
 				}),
 			},
 		},
@@ -171,7 +196,8 @@ vi.mock("@/utils/orpc", () => ({
 						fakeApi.rightsRecords.filter(
 							(record) =>
 								record.assetRecordId === input.assetRecordId &&
-								record.projectId === input.projectId
+								record.projectId === input.projectId &&
+								(record.referenceId ?? null) === (input.referenceId ?? null)
 						),
 				}),
 				queryKey: ({ input }: { input: Record<string, unknown> }) => [
@@ -291,6 +317,19 @@ afterEach(() => {
 	fakeApi.createGenerationPackage.mockReset();
 	fakeApi.rightsRecordCreate.mockReset();
 	fakeApi.generationPackages = [];
+	fakeApi.generationPackagesError = null;
+	fakeApi.assetFamilyCatalog = {
+		assetFamilies: [],
+		assetRecords: [],
+		relationships: [],
+		subjectIdentities: [],
+	};
+	fakeApi.assetVersionCatalog = {
+		assetVersions: [],
+		canonicalDesigns: [],
+		compositeVersions: [],
+		unitVersions: [],
+	};
 	fakeApi.rightsRecords = [];
 	fakeApi.restore.mockReset();
 	fakeApi.updateMeasurements.mockReset();
@@ -484,6 +523,549 @@ test("shows Rights Record versioning on an active Asset Record", async () => {
 	).toBeVisible();
 	expect(
 		await screen.findByText("Bu Varlık Kaydı için henüz Hak Kaydı yok.")
+	).toBeVisible();
+});
+
+test("keeps dependent source rights visible when a linked package cannot load", async () => {
+	const sourceAssetFamilyId = "ea366304-98c1-4712-8d0e-c24c42facaa3";
+	const sourceAssetRecordId = "3e1b904a-5349-41b6-961a-981f3b456e2c";
+	const sourceAssetVersionId = "642f2953-a177-4136-82a5-4fdd90c70ff4";
+	const generationPackageId = "6b1bfa47-a40a-4aa9-95fd-340ac733820a";
+	fakeApi.generationPackagesError = new Error("Paket kayıtları okunamadı.");
+	fakeApi.assetFamilyCatalog = {
+		assetFamilies: [],
+		assetRecords: [
+			{
+				assetFamilyId: sourceAssetFamilyId,
+				createdAt: "2026-09-25T08:00:00.000Z",
+				id: sourceAssetRecordId,
+				name: "Base Body",
+				projectId,
+			},
+		],
+		relationships: [
+			{
+				assetFamilyId: sourceAssetFamilyId,
+				createdAt: "2026-09-25T08:00:00.000Z",
+				id: "ae960e61-f5a5-4b4b-b5d9-6422fc8b2bfa",
+				projectId,
+				sourceAssetRecordId,
+				sourceAssetVersionId,
+				targetAssetRecordId: assetRecord.id,
+				type: "derivative",
+			},
+		],
+		subjectIdentities: [],
+	};
+	fakeApi.assetVersionCatalog = {
+		assetVersions: [
+			{
+				assetFamilyId: sourceAssetFamilyId,
+				assetRecordId: sourceAssetRecordId,
+				contentDigest: null,
+				contentLength: 1,
+				contentType: "image/png",
+				createdAt: "2026-09-25T08:00:00.000Z",
+				id: sourceAssetVersionId,
+				integrityVerified: false,
+				previewUrl: "https://example.test/base-body.png",
+				productionEvidence: unknownVersionProductionEvidence,
+				projectId,
+				reviewDisposition: "candidate",
+				reviewEvents: [],
+				versionNumber: 2,
+			},
+		],
+		canonicalDesigns: [],
+		compositeVersions: [],
+		unitVersions: [],
+	};
+	fakeApi.detail = {
+		record: assetRecord,
+		tracking: {
+			availableRecords: [],
+			availableVersions: [],
+			approvedVersion: null,
+			alternatives: [],
+			derivatives: [],
+			family: null,
+			manualImportEvidence: [
+				{
+					assetVersionId: "66f50fb8-d25b-47aa-a78f-5c70cbaf0474",
+					createdAt: "2026-09-25T08:00:00.000Z",
+					fileName: "ash-knight.png",
+					generationInstruction: "Use the package.",
+					generationPackageId,
+					id: "a87de4c8-a72d-4d8c-b3e8-8845758cc1e9",
+					revision: 1,
+					sha256: "a".repeat(64),
+					sourceSurface: "ChatGPT",
+					versionNumber: 1,
+				},
+			],
+			manualImportEvidenceRequiredVersionIds: [],
+			productionHistory: [],
+			quality: {
+				integrityStatus: "unavailable",
+				profileStatus: "general_support",
+				verifiedVersionCount: 0,
+			},
+			references: [],
+			reviewEvents: [],
+			visualWorlds: [],
+		},
+	};
+	fakeApi.rightsRecords = [
+		{
+			assetRecordId: sourceAssetRecordId,
+			assertedScope: "Base body declaration",
+			createdAt: "2026-09-25T08:00:00.000Z",
+			evidence: null,
+			evidenceFile: null,
+			id: "f4172194-3588-459f-9c06-0357f2e40e16",
+			projectId,
+			restrictions: null,
+			rightsHolderOrProvider: null,
+			source: "Base body source",
+			state: "unknown",
+			uncertainty: null,
+			versionNumber: 1,
+		},
+	];
+
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+
+	const lineage = await screen.findByRole("region", { name: "Hak Geçmişi" });
+	expect(
+		await within(lineage).findByRole("heading", {
+			name: "Bağımlı kaynak · Base Body · Türetilmiş",
+		})
+	).toBeVisible();
+	expect(within(lineage).getByText("Base body declaration")).toBeVisible();
+	expect(within(lineage).getByRole("alert")).toHaveTextContent(
+		"Üretim Paketi kaynakları yüklenemedi."
+	);
+});
+
+test("shows a result's separate Rights Lineage and each source's versioned declarations", async () => {
+	const canonicalAssetRecordId = "8b4b2f70-4cc4-42bc-a13f-45ec5751c2d4";
+	const skeletonWarriorAssetRecordId = "c225bd21-8197-48bd-bbbf-4fe73ddc304f";
+	const referenceAssetRecordId = "5c934b79-1c92-4e08-941a-3b7ae3639e21";
+	const snapshotOnlyAssetRecordId = "bc73080c-aa91-47aa-b0bd-90b6771d4247";
+	const dependentAssetRecordId = "3e1b904a-5349-41b6-961a-981f3b456e2c";
+	const canonicalVersionId = "5fb91347-21d7-46e8-8a2d-4d3e7e2b3210";
+	const referenceVersionId = "f98f3012-f74c-4ef9-b810-70c74146eb98";
+	const dependentVersionId = "642f2953-a177-4136-82a5-4fdd90c70ff4";
+	const referenceId = "b9f6f4a0-550d-4744-a533-cd9a34f1ec62";
+	const otherReferenceId = "f32a55e6-5999-42f5-b579-d26ce0749aa9";
+	const generationPackageId = "6b1bfa47-a40a-4aa9-95fd-340ac733820a";
+	const unlinkedGenerationPackageId = "2c9c916b-49f2-41c7-b0c5-8adf0277db20";
+	const unresolvedReferenceId = "d95726dd-1772-49fd-b113-2b93f44036e4";
+	const unresolvedAssetVersionId = "64537111-438f-4a3f-8f78-cea158d5b80a";
+	const rightsRecord = (
+		id: string,
+		assetRecordId: string,
+		input: Partial<RightsRecord> = {}
+	): RightsRecord => ({
+		assetRecordId,
+		assertedScope: null,
+		createdAt: "2026-09-25T08:00:00.000Z",
+		evidence: null,
+		evidenceFile: null,
+		id,
+		projectId,
+		restrictions: null,
+		rightsHolderOrProvider: null,
+		source: null,
+		state: "unknown",
+		uncertainty: null,
+		versionNumber: 1,
+		...input,
+	});
+	const assetVersion = (
+		id: string,
+		assetRecordId: string,
+		versionNumber: number
+	): AssetVersionCatalog["assetVersions"][number] => ({
+		assetFamilyId: "ea366304-98c1-4712-8d0e-c24c42facaa3",
+		assetRecordId,
+		contentDigest: null,
+		contentLength: 1,
+		contentType: "image/png",
+		createdAt: "2026-09-25T08:00:00.000Z",
+		id,
+		integrityVerified: false,
+		previewUrl: "https://example.test/asset-version.png",
+		productionEvidence: unknownVersionProductionEvidence,
+		projectId,
+		reviewDisposition: "candidate",
+		reviewEvents: [],
+		versionNumber,
+	});
+	const resultVersionId = "66f50fb8-d25b-47aa-a78f-5c70cbaf0474";
+	const packageRecord = {
+		assetRecord: {
+			...assetRecord,
+			identityCriteria: [...assetRecord.identityCriteria],
+		} as AssetRecord,
+		assetRecordId: assetRecord.id,
+		avoidConstraints: [],
+		canonicalDesign: {
+			assetFamilyId: "ea366304-98c1-4712-8d0e-c24c42facaa3",
+			assetRecordId: canonicalAssetRecordId,
+			assetVersionId: canonicalVersionId,
+			canonicalDesignId: "506377d8-28ee-4692-8d26-51e65a87b6a1",
+			contentDigest: null,
+			contentType: "image/png" as const,
+			versionNumber: 4,
+		},
+		changeConstraints: [],
+		createdAt: "2026-09-25T08:00:00.000Z",
+		expectedOutputStructure: "One image.",
+		id: generationPackageId,
+		lockedUnits: [],
+		preserveConstraints: [],
+		productionContextSnapshot: {
+			contextRevisionId: "bca64acb-49a5-4440-a243-46c81d486d0d",
+			generalArtDirection: "",
+			ruleContractVersion: "context-rule/1.0.0" as const,
+			rules: [],
+			revisionNumber: 1,
+			theme: null,
+			visualWorld: null,
+		},
+		referenceRoles: [
+			{
+				assetRecordId: null,
+				assetRecordName: "Skeleton Warrior",
+				assetVersionId: referenceVersionId,
+				contentDigest: null,
+				contentType: null,
+				contextOverrideRationale: null,
+				customPurpose: null,
+				fileName: null,
+				forbiddenFeatures: [],
+				id: "b2c810ec-7c45-4e4e-94b2-dd4ccbe0aa25",
+				kind: "asset_version" as const,
+				notes: "Use the stance only.",
+				role: "pose" as const,
+				transferredFeatures: ["pose" as const],
+				versionNumber: 3,
+			},
+			{
+				assetRecordId: referenceAssetRecordId,
+				assetRecordName: null,
+				assetVersionId: null,
+				contentDigest: null,
+				contentType: "image/png" as const,
+				contextOverrideRationale: null,
+				customPurpose: null,
+				fileName: "palette-reference.png",
+				forbiddenFeatures: [],
+				id: referenceId,
+				kind: "reference_image" as const,
+				notes: null,
+				role: "palette" as const,
+				transferredFeatures: ["palette" as const],
+				versionNumber: null,
+			},
+			{
+				assetRecordId: snapshotOnlyAssetRecordId,
+				assetRecordName: "Unresolved Source",
+				assetVersionId: unresolvedAssetVersionId,
+				contentDigest: null,
+				contentType: null,
+				contextOverrideRationale: null,
+				customPurpose: null,
+				fileName: null,
+				forbiddenFeatures: [],
+				id: unresolvedReferenceId,
+				kind: "asset_version" as const,
+				notes: null,
+				role: "style" as const,
+				transferredFeatures: ["style" as const],
+				versionNumber: 9,
+			},
+		],
+		projectId,
+		targetDimensions: { height: 64, width: 64 },
+		targetTask: "Forest Quest portrait",
+	} as GenerationPackage;
+	fakeApi.generationPackages = [
+		packageRecord,
+		{
+			...packageRecord,
+			id: unlinkedGenerationPackageId,
+			targetTask: "Unlinked package must not appear in this lineage",
+		},
+	];
+	fakeApi.assetVersionCatalog = {
+		assetVersions: [
+			assetVersion(canonicalVersionId, canonicalAssetRecordId, 4),
+			assetVersion(referenceVersionId, skeletonWarriorAssetRecordId, 3),
+			assetVersion(dependentVersionId, dependentAssetRecordId, 2),
+		],
+		canonicalDesigns: [],
+		compositeVersions: [],
+		unitVersions: [],
+	};
+	fakeApi.assetFamilyCatalog = {
+		assetFamilies: [],
+		assetRecords: [
+			{
+				assetFamilyId: "ea366304-98c1-4712-8d0e-c24c42facaa3",
+				createdAt: "2026-09-25T08:00:00.000Z",
+				id: canonicalAssetRecordId,
+				name: "Primary Design",
+				projectId,
+			},
+			{
+				assetFamilyId: "ea366304-98c1-4712-8d0e-c24c42facaa3",
+				createdAt: "2026-09-25T08:00:00.000Z",
+				id: skeletonWarriorAssetRecordId,
+				name: "Skeleton Warrior",
+				projectId,
+			},
+			{
+				assetFamilyId: "ea366304-98c1-4712-8d0e-c24c42facaa3",
+				createdAt: "2026-09-25T08:00:00.000Z",
+				id: referenceAssetRecordId,
+				name: "Palette Reference",
+				projectId,
+			},
+			{
+				assetFamilyId: "ea366304-98c1-4712-8d0e-c24c42facaa3",
+				createdAt: "2026-09-25T08:00:00.000Z",
+				id: dependentAssetRecordId,
+				name: "Base Body",
+				projectId,
+			},
+		],
+		relationships: [
+			{
+				assetFamilyId: "ea366304-98c1-4712-8d0e-c24c42facaa3",
+				createdAt: "2026-09-25T08:00:00.000Z",
+				id: "ae960e61-f5a5-4b4b-b5d9-6422fc8b2bfa",
+				projectId,
+				sourceAssetRecordId: dependentAssetRecordId,
+				sourceAssetVersionId: dependentVersionId,
+				targetAssetRecordId: assetRecord.id,
+				type: "derivative" as const,
+			},
+			{
+				assetFamilyId: "ea366304-98c1-4712-8d0e-c24c42facaa3",
+				createdAt: "2026-09-25T08:00:00.000Z",
+				id: "f009943f-71f2-4b54-a59f-b84ad19285c4",
+				projectId,
+				sourceAssetRecordId: assetRecord.id,
+				sourceAssetVersionId: null,
+				targetAssetRecordId: "7784675c-091b-46b2-a709-61a45ffc215c",
+				type: "derivative" as const,
+			},
+		],
+		subjectIdentities: [],
+	} as AssetFamilyCatalog;
+	fakeApi.detail = {
+		record: assetRecord,
+		tracking: {
+			availableRecords: [],
+			availableVersions: [],
+			approvedVersion: null,
+			alternatives: [],
+			derivatives: [],
+			family: null,
+			manualImportEvidence: [
+				{
+					assetVersionId: resultVersionId,
+					createdAt: "2026-09-25T08:00:00.000Z",
+					fileName: "ash-knight.png",
+					generationInstruction: "Use the package.",
+					generationPackageId,
+					id: "a87de4c8-a72d-4d8c-b3e8-8845758cc1e9",
+					revision: 1,
+					sha256: "a".repeat(64),
+					sourceSurface: "ChatGPT",
+					versionNumber: 1,
+				},
+			],
+			manualImportEvidenceRequiredVersionIds: [],
+			productionHistory: [],
+			quality: {
+				integrityStatus: "unavailable",
+				profileStatus: "general_support",
+				verifiedVersionCount: 0,
+			},
+			references: [],
+			reviewEvents: [],
+			visualWorlds: [],
+		},
+	};
+	fakeApi.rightsRecords = [
+		rightsRecord("8d070973-ad31-4e0e-a88d-a8df6c947a4e", assetRecord.id, {
+			assertedScope: "Prototype use only",
+			id: "8d070973-ad31-4e0e-a88d-a8df6c947a4e",
+			source: "Result declaration",
+			state: "unknown",
+		}),
+		rightsRecord(
+			"b406d1d9-5621-4d99-99cb-5cc86ae52326",
+			canonicalAssetRecordId,
+			{
+				assertedScope: "Earlier primary design statement",
+				id: "b406d1d9-5621-4d99-99cb-5cc86ae52326",
+				source: "Earlier design source",
+				state: "assertion_only",
+				versionNumber: 1,
+			}
+		),
+		rightsRecord(
+			"6c5203e8-a563-4f01-81ea-73b13c015351",
+			canonicalAssetRecordId,
+			{
+				assertedScope: "Primary design statement",
+				id: "6c5203e8-a563-4f01-81ea-73b13c015351",
+				source: "Design source",
+				state: "documented",
+				versionNumber: 2,
+			}
+		),
+		rightsRecord(
+			"0257e45a-8a21-4d64-8862-9a03d30f5f07",
+			skeletonWarriorAssetRecordId,
+			{
+				assertedScope: "Pose reference declaration",
+				id: "0257e45a-8a21-4d64-8862-9a03d30f5f07",
+				source: "Pose artist",
+				state: "assertion_only",
+				versionNumber: 1,
+			}
+		),
+		rightsRecord(
+			"fdc31ccd-ed3a-41e9-a5be-5501747eb3bd",
+			referenceAssetRecordId,
+			{
+				assertedScope: "Commercial use declared",
+				id: "fdc31ccd-ed3a-41e9-a5be-5501747eb3bd",
+				referenceId,
+				restrictions: "Do not redistribute the reference image.",
+				source: "Reference image source",
+				state: "restricted",
+				versionNumber: 2,
+			}
+		),
+		rightsRecord(
+			"cc2fc0bd-5f10-4da0-9bef-d6b6c41675b5",
+			referenceAssetRecordId,
+			{
+				assertedScope: "Other reference declaration must stay separate",
+				id: "cc2fc0bd-5f10-4da0-9bef-d6b6c41675b5",
+				referenceId: otherReferenceId,
+				source: "Other reference source",
+				state: "documented",
+				versionNumber: 1,
+			}
+		),
+		rightsRecord(
+			"8a62c266-e5ba-4d78-9e8e-6878b51f806a",
+			snapshotOnlyAssetRecordId,
+			{
+				assertedScope: "Snapshot-only source declaration",
+				id: "8a62c266-e5ba-4d78-9e8e-6878b51f806a",
+				source: "Archived source record",
+				state: "documented",
+			}
+		),
+		rightsRecord(
+			"f4172194-3588-459f-9c06-0357f2e40e16",
+			dependentAssetRecordId,
+			{
+				assertedScope: "Base body declaration",
+				id: "f4172194-3588-459f-9c06-0357f2e40e16",
+				source: "Base body source",
+				state: "unknown",
+			}
+		),
+	];
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+
+	const lineage = await screen.findByRole("region", { name: "Hak Geçmişi" });
+	const resultRightsRecord = screen.getByRole("region", { name: "Hak Kaydı" });
+	await waitFor(() => {
+		expect(
+			within(resultRightsRecord).getByLabelText("Beyan edilen izin kapsamı")
+		).toHaveValue("Prototype use only");
+	});
+	await waitFor(() => {
+		expect(
+			within(lineage).queryByText("Hak Geçmişi kaynakları yükleniyor…")
+		).not.toBeInTheDocument();
+		expect(
+			within(lineage).queryAllByText("Hak Kaydı geçmişi yükleniyor…")
+		).toHaveLength(0);
+	});
+	expect(
+		within(lineage).getByRole("heading", {
+			name: "Ana Tasarım · Primary Design · Sürüm 4",
+		})
+	).toBeVisible();
+	expect(
+		within(lineage).getByRole("heading", {
+			name: "Referans · Yalnızca poz veya hareket aktarmak · Skeleton Warrior · Sürüm 3",
+		})
+	).toBeVisible();
+	expect(
+		within(lineage).getByRole("heading", {
+			name: "Referans · Palette Reference",
+		})
+	).toBeVisible();
+	expect(
+		within(lineage).getByRole("heading", {
+			name: "Referans · Yalnızca çizim veya görüntüleme stilini aktarmak · Unresolved Source · Sürüm 9",
+		})
+	).toBeVisible();
+	expect(
+		within(lineage).getByRole("heading", {
+			name: "Bağımlı kaynak · Base Body · Türetilmiş",
+		})
+	).toBeVisible();
+	expect(within(lineage).getByText("Primary design statement")).toBeVisible();
+	expect(
+		within(lineage).getByText("Earlier primary design statement")
+	).toBeVisible();
+	expect(within(lineage).getByText("Pose reference declaration")).toBeVisible();
+	expect(within(lineage).getByText("Commercial use declared")).toBeVisible();
+	expect(
+		within(lineage).getByText("Do not redistribute the reference image.")
+	).toBeVisible();
+	expect(within(lineage).getByText("Base body declaration")).toBeVisible();
+	expect(
+		within(lineage).getByText("Snapshot-only source declaration")
+	).toBeVisible();
+	expect(
+		within(lineage).queryByText(
+			"Other reference declaration must stay separate"
+		)
+	).not.toBeInTheDocument();
+	expect(
+		within(lineage).queryByText(
+			"Unlinked package must not appear in this lineage"
+		)
+	).not.toBeInTheDocument();
+	expect(within(lineage).getByText(unresolvedSourceAssetVersion)).toBeVisible();
+	expect(
+		within(lineage).getByText(
+			"Sonucun kendi Hak Kaydı yukarıda ayrı gösterilir. Kaynaklardaki beyanlar Türetilmiş Varlığa otomatik aktarılmaz; bu görünüm lisansın hukuki geçerliliği hakkında karar vermez."
+		)
 	).toBeVisible();
 });
 
@@ -1406,7 +1988,11 @@ test("keeps Asset Record availability available when tracking details fail", asy
 	).toBeVisible();
 	expect(screen.getByRole("button", { name: "Kaydı arşivle" })).toBeEnabled();
 	await waitFor(() => expect(errorToast).toHaveBeenCalledOnce());
-	expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+	expect(
+		within(screen.getByRole("region", { name: "Hak Geçmişi" })).getByRole(
+			"alert"
+		)
+	).toHaveTextContent("Varlık Kaydı kaynak geçmişi yüklenemedi.");
 	expect(
 		queryClient
 			.getQueryCache()

@@ -1,4 +1,8 @@
-import type { AssetRecordCreateInput } from "@sprite-anvil/api/asset-records";
+import type { AssetRecordTracking } from "@sprite-anvil/api/asset-record-tracking";
+import type {
+	AssetRecord,
+	AssetRecordCreateInput,
+} from "@sprite-anvil/api/asset-records";
 import { Button, buttonVariants } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { useQuery } from "@tanstack/react-query";
@@ -7,6 +11,7 @@ import { type ReactNode, type SyntheticEvent, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AssetRecordSearchPanel } from "@/features/asset-discovery/ui/components/asset-record-search-panel";
 import { GenerationPackagePanel } from "@/features/generation-packages/ui/views/generation-package-panel";
+import { RightsLineagePanel } from "@/features/rights-evidence/ui/components/rights-lineage-panel";
 import { RightsRecordPanel } from "@/features/rights-evidence/ui/components/rights-record-panel";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
@@ -433,7 +438,6 @@ export function AssetRecordDetailView({
 			/>
 		);
 	}
-
 	return (
 		<main className="mx-auto w-full max-w-3xl space-y-8 overflow-y-auto px-4 py-8">
 			<header className="space-y-2">
@@ -479,16 +483,26 @@ export function AssetRecordDetailView({
 							projectId={projectId}
 						/>
 					)}
+					<AssetRecordLineageSection
+						isTrackingError={trackingQuery.isError}
+						key={`rights-lineage-${record.id}`}
+						onRetryTracking={() => {
+							void trackingQuery.refetch();
+						}}
+						projectId={projectId}
+						record={record}
+						tracking={trackingQuery.data?.tracking}
+					/>
 					{record.availability === "erased" ? null : (
 						<GenerationPackagePanel
-							key={record.id}
+							key={`generation-package-${record.id}`}
 							projectId={projectId}
 							record={record}
 						/>
 					)}
 					{record.availability === "active" ? (
 						<ManualImportEvidenceForm
-							key={record.id}
+							key={`manual-import-evidence-${record.id}`}
 							onRefresh={() => trackingQuery.refetch()}
 							record={record}
 						/>
@@ -496,5 +510,46 @@ export function AssetRecordDetailView({
 				</>
 			) : null}
 		</main>
+	);
+}
+
+function getTrackingStatus(
+	isError: boolean,
+	hasTracking: boolean
+): "error" | "loading" | "success" {
+	if (isError) {
+		return "error";
+	}
+	if (hasTracking) {
+		return "success";
+	}
+	return "loading";
+}
+
+function AssetRecordLineageSection({
+	isTrackingError,
+	onRetryTracking,
+	projectId,
+	record,
+	tracking,
+}: {
+	isTrackingError: boolean;
+	onRetryTracking: () => void;
+	projectId: string;
+	record: AssetRecord;
+	tracking?: AssetRecordTracking;
+}) {
+	if (record.availability === "erased") {
+		return null;
+	}
+
+	return (
+		<RightsLineagePanel
+			onRetryTracking={onRetryTracking}
+			projectId={projectId}
+			record={record}
+			tracking={tracking}
+			trackingStatus={getTrackingStatus(isTrackingError, Boolean(tracking))}
+		/>
 	);
 }

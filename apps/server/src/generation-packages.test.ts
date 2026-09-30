@@ -296,6 +296,47 @@ test("pins the current production inputs and rereads the immutable Generation Pa
 	expect(reread[0]?.referenceRoles).toHaveLength(1);
 });
 
+test("snapshots the source Asset Record ID for version references", async () => {
+	const { context, state } = createTestContext();
+	const sourceAssetRecordId = "b699155a-8616-4ef6-a5c9-4f48d2d9160f";
+	const sourceAssetVersionId = "d9a83d1a-b6ca-4fa7-9ae5-b70bf57b6d0a";
+	const sourceReferenceId = "a05446af-8757-4ce8-aae6-49c95c19f108";
+	state.assetVersions.push({
+		...canonicalVersion,
+		assetRecordId: sourceAssetRecordId,
+		id: sourceAssetVersionId,
+		versionNumber: 2,
+	});
+	state.trackingReferences.push({
+		assetRecordName: "Iron Sentinel",
+		contextOverrideRationale: null,
+		customPurpose: null,
+		forbiddenFeatures: [],
+		id: sourceReferenceId,
+		notes: "Use the shoulder pose only.",
+		role: "pose",
+		transferredFeatures: ["pose"],
+		versionId: sourceAssetVersionId,
+		versionNumber: 2,
+	});
+
+	const created = await call(
+		appRouter.generationPackages.create,
+		createInput(),
+		{ context }
+	);
+
+	expect(created.referenceRoles).toContainEqual(
+		expect.objectContaining({
+			assetRecordId: sourceAssetRecordId,
+			assetRecordName: "Iron Sentinel",
+			assetVersionId: sourceAssetVersionId,
+			id: sourceReferenceId,
+			kind: "asset_version",
+		})
+	);
+});
+
 test("requires an active Context Revision before creating a Generation Package", async () => {
 	const { context, state, storedPackages } = createTestContext();
 	state.projectContext = {
