@@ -470,6 +470,7 @@ function FamilyReadinessItemCard({
 				</ul>
 			) : null}
 			<QualityEvaluationSummary itemResult={itemResult} />
+			<HumanReviewSummary requirements={itemResult.humanReviewRequirements} />
 			{itemResult.latestEvidence.map((evidence) => (
 				<ReadinessEvidenceDetails evidence={evidence} key={evidence.id} />
 			))}
@@ -477,6 +478,7 @@ function FamilyReadinessItemCard({
 				<ReadinessEvidenceForms
 					assetFamilyId={assetFamilyId}
 					assetRecords={assetRecords}
+					humanReviewRequirements={itemResult.humanReviewRequirements}
 					isSaving={isSaving}
 					item={itemResult.item}
 					onRecord={onRecord}
@@ -528,6 +530,30 @@ function QualityEvaluationSummary({
 	);
 }
 
+function HumanReviewSummary({
+	requirements,
+}: {
+	requirements: FamilyReadiness["items"][number]["humanReviewRequirements"];
+}) {
+	if (requirements.length === 0) {
+		return null;
+	}
+	return (
+		<section aria-label="Zorunlu insan incelemeleri" className="mt-3 space-y-2">
+			<h5 className="font-medium text-sm">Zorunlu insan incelemeleri</h5>
+			<ul className="space-y-1 text-muted-foreground text-sm">
+				{requirements.map((requirement) => (
+					<li key={requirement.id}>
+						{requirement.name} · {requirement.id} ·{" "}
+						{requirementResultLabels[requirement.result]} ·{" "}
+						{requirement.isCurrent ? "Güncel kanıt" : "Güncel kanıt yok"}
+					</li>
+				))}
+			</ul>
+		</section>
+	);
+}
+
 function ReadinessEvidenceDetails({
 	evidence,
 }: {
@@ -546,7 +572,11 @@ function ReadinessEvidenceDetails({
 				<dt>Kanıt kimliği</dt>
 				<dd>{evidence.id}</dd>
 				<dt>Tür</dt>
-				<dd>{evidenceKindLabels[evidence.kind]}</dd>
+				<dd>
+					{evidence.ruleClass === "human_review"
+						? ruleClassLabels.human_review
+						: evidenceKindLabels[evidence.kind]}
+				</dd>
 				{evidence.ruleId ? (
 					<>
 						<dt>Kural sınıfı</dt>
@@ -795,6 +825,7 @@ function ReadinessEvidenceForms({
 	onRecord,
 	profileContracts,
 	qualityRequirements,
+	humanReviewRequirements,
 	projectId,
 	revisionId,
 }: {
@@ -805,6 +836,7 @@ function ReadinessEvidenceForms({
 	onRecord: (input: ReadinessEvidenceInput) => Promise<boolean>;
 	profileContracts: SpecializedProfileContractsListOutput | null;
 	qualityRequirements: FamilyReadiness["items"][number]["qualityRequirements"];
+	humanReviewRequirements: FamilyReadiness["items"][number]["humanReviewRequirements"];
 	projectId: string;
 	revisionId: string;
 }) {
@@ -867,6 +899,21 @@ function ReadinessEvidenceForms({
 					revisionId={revisionId}
 				/>
 			))}
+			{humanReviewRequirements.map((requirement) => (
+				<EvidenceForm
+					assetFamilyId={assetFamilyId}
+					description={`${requirement.name} · Zorunlu insan incelemesi`}
+					humanReviewRequirement={requirement}
+					initialResult="inconclusive"
+					isSaving={isSaving}
+					item={item}
+					key={requirement.id}
+					kind="quality"
+					onRecord={onRecord}
+					projectId={projectId}
+					revisionId={revisionId}
+				/>
+			))}
 		</div>
 	);
 }
@@ -881,18 +928,20 @@ function EvidenceForm({
 	onRecord,
 	projectId,
 	qualityRequirement,
+	humanReviewRequirement,
 	revisionId,
 	testId,
 }: {
 	assetFamilyId: string;
 	description: string;
-	initialResult: "applicable" | "passed";
+	initialResult: "applicable" | "passed" | "inconclusive";
 	isSaving: boolean;
 	item: RequiredSetItem;
 	kind: "applicability" | "quality" | "usage_test";
 	onRecord: (input: ReadinessEvidenceInput) => Promise<boolean>;
 	projectId: string;
 	qualityRequirement?: FamilyReadiness["items"][number]["qualityRequirements"][number];
+	humanReviewRequirement?: FamilyReadiness["items"][number]["humanReviewRequirements"][number];
 	revisionId: string;
 	testId?: string;
 }) {
@@ -907,7 +956,7 @@ function EvidenceForm({
 	const [method, setMethod] = useState("");
 	const [rationale, setRationale] = useState("");
 	const [observedValue, setObservedValue] = useState("");
-	const formId = `${assetFamilyId}-${kind}-${item.id}-${qualityRequirement?.id ?? testId ?? ""}`;
+	const formId = `${assetFamilyId}-${kind}-${item.id}-${qualityRequirement?.id ?? humanReviewRequirement?.id ?? testId ?? ""}`;
 
 	function submit(event: React.FormEvent<HTMLFormElement>) {
 		event.preventDefault();
@@ -925,6 +974,16 @@ function EvidenceForm({
 				result: result as "applicable" | "inapplicable",
 			});
 		} else if (kind === "quality") {
+			if (humanReviewRequirement) {
+				void onRecord({
+					...shared,
+					kind,
+					result: result as "passed" | "failed" | "inconclusive",
+					ruleId: humanReviewRequirement.id,
+					method,
+				});
+				return;
+			}
 			if (!qualityRequirement) {
 				return;
 			}
@@ -980,7 +1039,7 @@ function EvidenceForm({
 					)}
 				</select>
 			</label>
-			{kind === "quality" ? (
+			{kind === "quality" && qualityRequirement ? (
 				<label className="block space-y-1 text-sm" htmlFor={`${formId}-rule`}>
 					<span>Kural kimliği</span>
 					<input
@@ -988,6 +1047,17 @@ function EvidenceForm({
 						id={`${formId}-rule`}
 						readOnly
 						value={qualityRequirement?.id ?? ""}
+					/>
+				</label>
+			) : null}
+			{humanReviewRequirement ? (
+				<label className="block space-y-1 text-sm" htmlFor={`${formId}-review`}>
+					<span>İnsan incelemesi kimliği</span>
+					<input
+						className="w-full rounded-md border bg-background px-3 py-2"
+						id={`${formId}-review`}
+						readOnly
+						value={humanReviewRequirement.id}
 					/>
 				</label>
 			) : null}

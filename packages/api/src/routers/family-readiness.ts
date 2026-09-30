@@ -98,7 +98,7 @@ export const familyReadinessRouter = {
 			if (!readiness) {
 				throw new ORPCError("BAD_REQUEST", {
 					message:
-						"Kanıt için etkin Gerekli Öğeler Listesi, güncel Varlık Sürümleri ve Bağlam Sürümü gerekir; kalite kuralı veya kullanım testi etkin Özel Profil Sözleşmesiyle eşleşmelidir.",
+						"Kanıt için etkin Gerekli Öğeler Listesi, güncel Varlık Sürümleri ve Bağlam Sürümü gerekir; kalite kuralı, zorunlu insan incelemesi veya kullanım testi etkin Özel Profil Sözleşmesiyle eşleşmelidir.",
 				});
 			}
 			return familyReadinessSchema.parse(readiness);

@@ -134,6 +134,7 @@ function evidenceMatchesCurrentScope(
 			kind: evidence.kind,
 			pinnedRevisionIds: evidence.profileContractRevisionIds,
 			profileIds: input.profileIds,
+			ruleClass: evidence.ruleClass,
 		})
 	);
 }
@@ -157,7 +158,7 @@ function qualityEvidenceResult(
 		: "not_assessed";
 }
 
-function usageEvidenceResult(
+function nonWaivableEvidenceResult(
 	entry: CurrentEvidence | undefined
 ): "passed" | "failed" | "inconclusive" | "not_assessed" {
 	const result = entry?.row.result;
@@ -172,6 +173,8 @@ type EvaluatedItem = FamilyReadiness["items"][number] & {
 
 type QualityRequirement =
 	FamilyReadiness["items"][number]["qualityRequirements"][number];
+type HumanReviewRequirement =
+	FamilyReadiness["items"][number]["humanReviewRequirements"][number];
 type UsageRequirement =
 	FamilyReadiness["items"][number]["usageRequirements"][number];
 
@@ -287,6 +290,7 @@ function assessSpecializedProfile(
 	profileUsageTestsComplete: boolean;
 	qualityReadiness: ReadinessAssetStatus["qualityReadiness"];
 	qualityRequirements: QualityRequirement[];
+	humanReviewRequirements: HumanReviewRequirement[];
 	usageRequirements: UsageRequirement[];
 } {
 	const ruleResults = new Map<
@@ -313,6 +317,30 @@ function assessSpecializedProfile(
 			};
 		}
 	);
+	const humanReviewResults = new Map<
+		string,
+		"passed" | "failed" | "inconclusive"
+	>();
+	const humanReviewRequirements: HumanReviewRequirement[] =
+		contract.contract.humanReviews.map((review) => {
+			const row = currentEvidence.find(
+				(entry) =>
+					entry.row.kind === "quality" &&
+					entry.row.ruleId === review.id &&
+					entry.row.ruleClass === "human_review"
+			);
+			const result = nonWaivableEvidenceResult(row);
+			if (result !== "not_assessed") {
+				humanReviewResults.set(review.id, result);
+			}
+			return {
+				id: review.id,
+				name: review.label,
+				required: review.required,
+				result,
+				isCurrent: Boolean(row?.isCurrent),
+			};
+		});
 	let profileUsageTestsComplete = true;
 	const usageTestResults = new Map<
 		string,
@@ -325,7 +353,7 @@ function assessSpecializedProfile(
 			);
 			const versionResults = evidenceEntries.map((evidenceEntry) =>
 				evidenceEntry?.isCurrent
-					? usageEvidenceResult(evidenceEntry)
+					? nonWaivableEvidenceResult(evidenceEntry)
 					: "not_assessed"
 			);
 			const result =
@@ -360,9 +388,11 @@ function assessSpecializedProfile(
 		qualityReadiness: assessProfileQualityReadiness(
 			contract.contract,
 			ruleResults,
-			usageTestResults
+			usageTestResults,
+			humanReviewResults
 		).status,
 		qualityRequirements,
+		humanReviewRequirements,
 		usageRequirements,
 	};
 }
@@ -475,6 +505,7 @@ function assessLinkedReadinessAssets(input: {
 	profileUsageTestsComplete: boolean | undefined;
 	qualityReadiness: ReadinessAssetStatus["qualityReadiness"];
 	qualityRequirements: QualityRequirement[];
+	humanReviewRequirements: HumanReviewRequirement[];
 	usageRequirements: UsageRequirement[];
 } {
 	const { currentEvidence, familyUsageEvidence, latestReviews, linkedAssets } =
@@ -503,6 +534,17 @@ function assessLinkedReadinessAssets(input: {
 					profileAssessments
 						.flatMap(
 							(profileAssessment) => profileAssessment.qualityRequirements
+						)
+						.map((requirement) => [requirement.id, requirement])
+				).values(),
+			];
+	const humanReviewRequirements = hasOnlyGeneralAssets
+		? []
+		: [
+				...new Map(
+					profileAssessments
+						.flatMap(
+							(profileAssessment) => profileAssessment.humanReviewRequirements
 						)
 						.map((requirement) => [requirement.id, requirement])
 				).values(),
@@ -556,6 +598,7 @@ function assessLinkedReadinessAssets(input: {
 		profileUsageTestsComplete,
 		qualityReadiness,
 		qualityRequirements,
+		humanReviewRequirements,
 		usageRequirements,
 	};
 }
@@ -608,7 +651,7 @@ function evaluateRequiredSetItem(
 		(entry) =>
 			entry.row.kind === "usage_test" && entry.row.testId === item.testId
 	);
-	const usageTestStatus = usageEvidenceResult(usageEvidence);
+	const usageTestStatus = nonWaivableEvidenceResult(usageEvidence);
 	const evaluation: ReadinessEvaluationItem = {
 		id: item.id,
 		kind: item.kind,
@@ -633,6 +676,7 @@ function evaluateRequiredSetItem(
 		currentAssetVersionIds: itemVersions.map((current) => current.id),
 		qualityReadiness: linkedAssetAssessment.qualityReadiness,
 		qualityRequirements: linkedAssetAssessment.qualityRequirements,
+		humanReviewRequirements: linkedAssetAssessment.humanReviewRequirements,
 		usageRequirements: linkedAssetAssessment.usageRequirements,
 		latestEvidence: evidence.map((entry) =>
 			toEvidence(entry.row, entry.isCurrent)
@@ -918,18 +962,26 @@ function resolveQualityRuleClass(
 	const rule = activeContracts
 		.flatMap((contract) => contract?.contract.rules ?? [])
 		.find((candidate) => candidate.id === input.ruleId);
+	if (rule) {
+		const isValid = isProfileQualityEvidenceValid({
+			rule,
+			result: input.result,
+			observedValue: input.observedValue,
+		});
+		return {
+			isValid,
+			ruleClass: isValid ? rule.class : null,
+		};
+	}
+	const humanReview = activeContracts
+		.flatMap((contract) => contract?.contract.humanReviews ?? [])
+		.find((candidate) => candidate.id === input.ruleId);
 	const isValid = Boolean(
-		rule &&
-			isProfileQualityEvidenceValid({
-				rule,
-				result: input.result,
-				observedValue: input.observedValue,
-			})
+		humanReview &&
+			input.result !== "waived" &&
+			input.observedValue === undefined
 	);
-	return {
-		isValid,
-		ruleClass: isValid ? (rule?.class ?? null) : null,
-	};
+	return { isValid, ruleClass: isValid ? "human_review" : null };
 }
 
 function isUsageTestSupported(

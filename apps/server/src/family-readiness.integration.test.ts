@@ -110,6 +110,10 @@ test.skipIf(!databaseUrl)(
 			if (!activeIconContractRevision) {
 				throw new Error("The active icon contract revision is required.");
 			}
+			const [humanReview] = activeIconContractRevision.contract.humanReviews;
+			if (!humanReview) {
+				throw new Error("The active icon human review is required.");
+			}
 			const contractRereadContext = createContext(
 				createDb({ DATABASE_URL: databaseUrl }),
 				userId
@@ -266,6 +270,39 @@ test.skipIf(!databaseUrl)(
 			);
 			expect(afterFailedEvidence.status).toBe("incomplete");
 			expect(afterFailedEvidence.items[0]?.blockers).toContain("usage_test");
+			await call(
+				appRouter.familyReadiness.recordEvidence,
+				{
+					projectId,
+					assetFamilyId: family.id,
+					revisionId: firstRevision.id,
+					itemId: "target-size-backgrounds",
+					kind: "quality",
+					result: "passed",
+					ruleId: humanReview.id,
+					method: "Inspected the icon at its target dimensions.",
+					rationale: "The silhouette remains distinct at the smallest size.",
+				},
+				{ context }
+			);
+			await expect(
+				call(
+					appRouter.familyReadiness.recordEvidence,
+					{
+						projectId,
+						assetFamilyId: family.id,
+						revisionId: firstRevision.id,
+						itemId: "target-size-backgrounds",
+						kind: "quality",
+						result: "waived",
+						ruleId: humanReview.id,
+						method: "Tried to waive the required human review.",
+						rationale: "Human reviews cannot be waived.",
+						observedValue: "waive",
+					},
+					{ context }
+				)
+			).rejects.toMatchObject({ code: "BAD_REQUEST" });
 
 			const rereadDb = createDb({ DATABASE_URL: databaseUrl });
 			const rereadContext = createContext(rereadDb, userId);
@@ -283,6 +320,27 @@ test.skipIf(!databaseUrl)(
 			expect(persistedUsageEvidence).toMatchObject({
 				result: "failed",
 				testId: "target_size_backgrounds",
+				assetVersionIds: [assetVersionId],
+				profileContractRevisionIds: [
+					activeIconContractRevision.contractRevisionId,
+				],
+				contextRevisionId: createdProject.currentContextRevision.id,
+				isCurrent: true,
+			});
+			expect(reread.items[0]?.humanReviewRequirements).toContainEqual({
+				id: humanReview.id,
+				name: humanReview.label,
+				required: true,
+				result: "passed",
+				isCurrent: true,
+			});
+			const persistedHumanReview = reread.items[0]?.latestEvidence.find(
+				(evidence) => evidence.ruleId === humanReview.id
+			);
+			expect(persistedHumanReview).toMatchObject({
+				kind: "quality",
+				result: "passed",
+				ruleClass: "human_review",
 				assetVersionIds: [assetVersionId],
 				profileContractRevisionIds: [
 					activeIconContractRevision.contractRevisionId,

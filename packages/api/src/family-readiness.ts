@@ -25,6 +25,12 @@ const profileRuleClassSchema = z.enum([
 	"quality_advisory",
 	"human_review",
 ]);
+const qualityRequirementClassSchema = z.enum([
+	"integrity_gate",
+	"waivable_requirement",
+	"quality_advisory",
+	"general_asset_support",
+]);
 
 export const requiredSetItemKindSchema = z.enum([
 	"direction",
@@ -251,7 +257,7 @@ export const familyReadinessItemSchema = z
 				.object({
 					id: qualityRuleIdSchema,
 					name: z.string(),
-					class: profileRuleClassSchema.or(z.literal("general_asset_support")),
+					class: qualityRequirementClassSchema,
 					required: z.boolean(),
 					waiverEligible: z.boolean(),
 					result: z.enum([
@@ -261,6 +267,17 @@ export const familyReadinessItemSchema = z
 						"waived",
 						"not_assessed",
 					]),
+					isCurrent: z.boolean(),
+				})
+				.strict()
+		),
+		humanReviewRequirements: z.array(
+			z
+				.object({
+					id: qualityRuleIdSchema,
+					name: z.string(),
+					required: z.boolean(),
+					result: z.enum(["passed", "failed", "inconclusive", "not_assessed"]),
 					isCurrent: z.boolean(),
 				})
 				.strict()
@@ -406,6 +423,7 @@ export function assessGeneralAssetSupport(input: {
 				isCurrent: input.isCurrent,
 			},
 		],
+		humanReviewRequirements: [],
 	};
 }
 

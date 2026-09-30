@@ -221,6 +221,16 @@ function validateRequiredEvidenceIds(
 			});
 		}
 	}
+	const qualityEvidenceIds = new Set(contract.rules.map((rule) => rule.id));
+	for (const review of contract.humanReviews) {
+		if (qualityEvidenceIds.has(review.id)) {
+			context.addIssue({
+				code: "custom",
+				path: ["humanReviews"],
+				message: `Human review id ${review.id} cannot reuse a quality rule id.`,
+			});
+		}
+	}
 }
 
 export const specializedProfileContractSchema =
@@ -259,6 +269,10 @@ export function assessProfileQualityReadiness(
 	usageTestResults: ReadonlyMap<
 		string,
 		"passed" | "failed" | "inconclusive" | "waived"
+	> = new Map(),
+	humanReviewResults: ReadonlyMap<
+		string,
+		"passed" | "failed" | "inconclusive"
 	> = new Map()
 ) {
 	const requiredRules = contract.rules.filter(
@@ -282,6 +296,12 @@ export function assessProfileQualityReadiness(
 	const outstandingUsageTestIds = requiredUsageTests
 		.filter((test) => usageTestResults.get(test.id) !== "passed")
 		.map((test) => test.id);
+	const outstandingHumanReviewIds = contract.humanReviews
+		.filter(
+			(review) =>
+				review.required && humanReviewResults.get(review.id) !== "passed"
+		)
+		.map((review) => review.id);
 	const failedAdvisoryRuleIds = contract.rules
 		.filter(
 			(rule) =>
@@ -290,7 +310,9 @@ export function assessProfileQualityReadiness(
 		)
 		.map((rule) => rule.id);
 	const isBlocked =
-		outstandingRuleIds.length > 0 || outstandingUsageTestIds.length > 0;
+		outstandingRuleIds.length > 0 ||
+		outstandingUsageTestIds.length > 0 ||
+		outstandingHumanReviewIds.length > 0;
 	let status: "blocked" | "exceptions_ready" | "export_ready";
 	if (isBlocked) {
 		status = "blocked";
@@ -303,6 +325,7 @@ export function assessProfileQualityReadiness(
 		status,
 		outstandingRuleIds,
 		outstandingUsageTestIds,
+		outstandingHumanReviewIds,
 		waivedRuleIds,
 		failedAdvisoryRuleIds,
 	};
