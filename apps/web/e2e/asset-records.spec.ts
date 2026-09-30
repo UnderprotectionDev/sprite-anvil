@@ -18,7 +18,7 @@ test("persists an Asset Record created through the web flow", async ({
 }) => {
 	test.skip(
 		!process.env.CONTEXT_TEST_DATABASE_URL,
-		"A disposable Neon test branch is required for the persistent flow."
+		"A dedicated test database is required for the persistent flow."
 	);
 
 	await signUpWithFixture(page, assetRecordFixture);
@@ -75,7 +75,7 @@ test("persists an Asset Version, review, quality result, and legacy history", as
 	const versionFixture = createAssetRecordFixture();
 	test.skip(
 		!assetVersionE2eEnabled,
-		"A disposable Neon branch and explicitly selected test R2 bucket are required for version persistence."
+		"A dedicated test database and explicitly selected test R2 bucket are required for version persistence."
 	);
 
 	await signUpWithFixture(page, versionFixture);
@@ -188,7 +188,7 @@ test("archives and restores an Asset Record through the web flow", async ({
 	const fixture = createAssetRecordFixture();
 	test.skip(
 		!process.env.CONTEXT_TEST_DATABASE_URL,
-		"A disposable Neon test branch is required for the persistent flow."
+		"A dedicated test database is required for the persistent flow."
 	);
 
 	await signUpWithFixture(page, fixture);

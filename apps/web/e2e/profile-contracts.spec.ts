@@ -10,7 +10,7 @@ test("persists a Specialized Profile Contract activation through the web flow", 
 }) => {
 	test.skip(
 		!process.env.CONTEXT_TEST_DATABASE_URL,
-		"A disposable Neon test branch is required for the persistent flow."
+		"A dedicated test database is required for the persistent flow."
 	);
 	const fixture = createAssetRecordFixture();
 	await signUpWithFixture(page, fixture);
