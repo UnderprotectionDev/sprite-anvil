@@ -66,7 +66,7 @@ PWA kullanılmayacak; web uygulaması için service worker ve kurulum manifesti 
 - Vitest
 - Testing Library
 - Playwright
-- Neon test branch
+- Opt-in database integration tests
 - Tauri WebDriver
 
 ## Tooling and CI

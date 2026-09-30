@@ -16,7 +16,7 @@ test("persists reference transfer constraints through the web flow", async ({
 	const fixture = createAssetRecordFixture();
 	test.skip(
 		!assetVersionE2eEnabled,
-		"A disposable Neon branch and explicitly selected test R2 bucket are required for reference persistence."
+		"A dedicated test database and explicitly selected test R2 bucket are required for reference persistence."
 	);
 
 	await signUpWithFixture(page, fixture);

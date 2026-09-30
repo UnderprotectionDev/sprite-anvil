@@ -13,7 +13,7 @@ test("persists Collection membership changes through the web flow", async ({
 	const fixture = createAssetRecordFixture();
 	test.skip(
 		!process.env.CONTEXT_TEST_DATABASE_URL,
-		"A disposable Neon test branch is required for the persistent flow."
+		"A dedicated test database is required for the persistent flow."
 	);
 
 	await signUpWithFixture(page, fixture);
