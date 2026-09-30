@@ -5,11 +5,36 @@ import {
 	assessProfileQualityReadiness,
 	isProfileQualityEvidenceValid,
 	specializedProfileContractCatalog,
+	specializedProfileContractSchema,
 } from "@sprite-anvil/api/specialized-profile-contracts";
 
 const ownerId = "user-specialized-profile-contracts";
 const projectId = "project-specialized-profile-contracts";
 const otherProjectId = "other-project-specialized-profile-contracts";
+
+test("a human review and a quality rule cannot share an evidence id", () => {
+	const [contract] = specializedProfileContractCatalog;
+	expect(contract).toBeDefined();
+	if (!contract) {
+		return;
+	}
+	const [firstReview] = contract.humanReviews;
+	expect(firstReview).toBeDefined();
+	if (!firstReview) {
+		return;
+	}
+
+	const invalidContract = {
+		...contract,
+		rules: contract.rules.map((rule, index) =>
+			index === 0 ? { ...rule, id: firstReview.id } : rule
+		),
+	};
+
+	expect(
+		specializedProfileContractSchema.safeParse(invalidContract).success
+	).toBe(false);
+});
 
 interface StoredActivation {
 	activatedAt: string;
@@ -300,7 +325,7 @@ test("maps exact background layer version ids in a new contract revision", async
 	);
 });
 
-test("only required Specialized Profile Contract rules and usage tests determine readiness", () => {
+test("required Specialized Profile Contract evidence determines readiness", () => {
 	const [contract] = specializedProfileContractCatalog;
 	expect(contract).toBeDefined();
 	if (!contract) {
@@ -316,9 +341,13 @@ test("only required Specialized Profile Contract rules and usage tests determine
 	const usageTests = new Map(
 		contract.usageTests.map((usageTest) => [usageTest.id, "passed" as const])
 	);
+	const humanReviews = new Map(
+		contract.humanReviews.map((review) => [review.id, "passed" as const])
+	);
 
 	expect(
-		assessProfileQualityReadiness(contract, results, usageTests).status
+		assessProfileQualityReadiness(contract, results, usageTests, humanReviews)
+			.status
 	).toBe("export_ready");
 	const integrityRule = requiredRules.find(
 		(rule) => rule.class === "integrity_gate"
@@ -328,12 +357,60 @@ test("only required Specialized Profile Contract rules and usage tests determine
 	}
 	results.delete(integrityRule.id);
 	expect(
-		assessProfileQualityReadiness(contract, results, usageTests).status
+		assessProfileQualityReadiness(contract, results, usageTests, humanReviews)
+			.status
 	).toBe("blocked");
 	results.set(integrityRule.id, "failed");
 	expect(
-		assessProfileQualityReadiness(contract, results, usageTests).status
+		assessProfileQualityReadiness(contract, results, usageTests, humanReviews)
+			.status
 	).toBe("blocked");
+});
+
+test("required human reviews block Specialized Profile readiness until passed", () => {
+	const [contract] = specializedProfileContractCatalog;
+	expect(contract).toBeDefined();
+	if (!contract) {
+		return;
+	}
+	const ruleResults = new Map(
+		contract.rules
+			.filter((rule) => rule.class !== "quality_advisory")
+			.map((rule) => [rule.id, "passed" as const])
+	);
+	const usageTestResults = new Map(
+		contract.usageTests.map((usageTest) => [usageTest.id, "passed" as const])
+	);
+	const humanReviewResults = new Map<
+		string,
+		"passed" | "failed" | "inconclusive"
+	>();
+	const incomplete = assessProfileQualityReadiness(
+		contract,
+		ruleResults,
+		usageTestResults,
+		humanReviewResults
+	);
+
+	expect(incomplete.status).toBe("blocked");
+	const firstReviewId = contract.humanReviews[0]?.id;
+	expect(firstReviewId).toBeDefined();
+	if (!firstReviewId) {
+		return;
+	}
+	expect(incomplete.outstandingHumanReviewIds).toContain(firstReviewId);
+
+	const passedHumanReviews = new Map(
+		contract.humanReviews.map((review) => [review.id, "passed" as const])
+	);
+	const complete = assessProfileQualityReadiness(
+		contract,
+		ruleResults,
+		usageTestResults,
+		passedHumanReviews
+	);
+	expect(complete.status).toBe("export_ready");
+	expect(complete.outstandingHumanReviewIds).toEqual([]);
 });
 
 test("quality advisories are non-blocking and only eligible measurements can be waived", () => {
@@ -367,12 +444,17 @@ test("quality advisories are non-blocking and only eligible measurements can be 
 	const usageTests = new Map(
 		contract.usageTests.map((usageTest) => [usageTest.id, "passed" as const])
 	);
+	const humanReviews = new Map(
+		contract.humanReviews.map((review) => [review.id, "passed" as const])
+	);
 	expect(
-		assessProfileQualityReadiness(contract, results, usageTests).status
+		assessProfileQualityReadiness(contract, results, usageTests, humanReviews)
+			.status
 	).toBe("exceptions_ready");
 	usageTests.delete(contract.usageTests[0]?.id ?? "");
 	expect(
-		assessProfileQualityReadiness(contract, results, usageTests).status
+		assessProfileQualityReadiness(contract, results, usageTests, humanReviews)
+			.status
 	).toBe("blocked");
 	expect(
 		isProfileQualityEvidenceValid({ rule: waivable, result: "passed" })

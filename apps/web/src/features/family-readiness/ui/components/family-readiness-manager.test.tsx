@@ -94,6 +94,7 @@ const readiness = {
 					isCurrent: false,
 				},
 			],
+			humanReviewRequirements: [],
 			usageRequirements: [],
 			latestEvidence: [],
 		},
@@ -326,6 +327,122 @@ test("records a measured value for a Specialized Profile Contract measurement", 
 			observedValue: "96%",
 		})
 	);
+});
+
+test("records a human review separately without offering a quality waiver", async () => {
+	const template = specializedProfileContractCatalog.find(
+		(contract) => contract.profileId === "icon"
+	);
+	const [itemResult] = readiness.items;
+	const humanReview = template?.humanReviews[0];
+	if (!(template && itemResult && humanReview)) {
+		throw new Error(
+			"Missing required icon profile human review test fixtures."
+		);
+	}
+	const profileContracts = {
+		profiles: specializedProfileContractCatalog.map((definition) => ({
+			definition,
+			activeContract:
+				definition.profileId === template.profileId
+					? {
+							activatedAt: "2026-09-29T10:00:00.000Z",
+							activatedByUserId: "user-1",
+							contract: definition,
+							contractRevisionId: `${definition.profileId}@${definition.version}`,
+							projectId: "project-1",
+						}
+					: null,
+		})),
+	} satisfies SpecializedProfileContractsListOutput;
+	fakeApi.readiness = {
+		...readiness,
+		items: [
+			{
+				...itemResult,
+				qualityRequirements: template.rules.map((rule) => ({
+					id: rule.id,
+					name: rule.input,
+					class: rule.class,
+					required: rule.class !== "quality_advisory",
+					waiverEligible: rule.waiverEligibility,
+					result: "not_assessed",
+					isCurrent: false,
+				})),
+				humanReviewRequirements: [
+					{
+						id: humanReview.id,
+						name: humanReview.label,
+						required: true,
+						result: "not_assessed",
+						isCurrent: false,
+					},
+				],
+			},
+		],
+	};
+	fakeApi.recordEvidence.mockResolvedValue(readiness);
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	render(
+		<QueryClientProvider client={queryClient}>
+			<FamilyReadinessManager
+				assetFamilyId="family-1"
+				assetRecords={[
+					{
+						assetCategory: "icon",
+						id: "asset-record-1",
+						name: "East-facing sprite",
+					},
+				]}
+				familyName="Combat sprite"
+				profileContracts={profileContracts}
+				projectId="project-1"
+			/>
+		</QueryClientProvider>
+	);
+
+	const humanReviewForm = within(
+		(
+			await screen.findByRole("heading", {
+				name: `${humanReview.label} · Zorunlu insan incelemesi`,
+			})
+		).closest("form") as HTMLFormElement
+	);
+	expect(
+		humanReviewForm.queryByRole("option", { name: "Kalite İstisnası ver" })
+	).not.toBeInTheDocument();
+	expect(
+		humanReviewForm.queryByRole("textbox", { name: "Gözlenen değer" })
+	).not.toBeInTheDocument();
+	fireEvent.change(humanReviewForm.getByRole("combobox", { name: "Sonuç" }), {
+		target: { value: "failed" },
+	});
+	fireEvent.change(humanReviewForm.getByRole("textbox", { name: "Yöntem" }), {
+		target: { value: "Compared the icon at target size on both backgrounds." },
+	});
+	fireEvent.change(
+		humanReviewForm.getByRole("textbox", { name: "Gerekçe veya gözlem" }),
+		{ target: { value: "The silhouette is not clear at the smallest size." } }
+	);
+	fireEvent.submit(
+		humanReviewForm
+			.getByRole("button", { name: "Kanıtı kaydet" })
+			.closest("form") as HTMLFormElement
+	);
+
+	await waitFor(() => expect(fakeApi.recordEvidence).toHaveBeenCalledOnce());
+	expect(fakeApi.recordEvidence).toHaveBeenCalledWith({
+		projectId: "project-1",
+		assetFamilyId: "family-1",
+		revisionId: "revision-1",
+		itemId: "east-facing",
+		kind: "quality",
+		result: "failed",
+		ruleId: humanReview.id,
+		method: "Compared the icon at target size on both backgrounds.",
+		rationale: "The silhouette is not clear at the smallest size.",
+	});
 });
 
 test("uses unique DOM ids when different families share Required Set item ids", async () => {

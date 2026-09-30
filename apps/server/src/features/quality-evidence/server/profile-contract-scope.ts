@@ -22,6 +22,10 @@ export interface ProjectProfileContracts {
 	byRevisionId: Map<string, ProfileContractSnapshot>;
 }
 
+type QualityEvidenceRuleClass =
+	| SpecializedProfileContract["rules"][number]["class"]
+	| "human_review";
+
 function toSnapshot(
 	row: typeof specializedProfileContractRevisions.$inferSelect
 ) {
@@ -74,6 +78,7 @@ export async function readProjectProfileContracts(
 
 function sameContractEntry(
 	kind: "quality" | "usage_test",
+	ruleClass: QualityEvidenceRuleClass | null | undefined,
 	pinnedRevisionId: string,
 	activeRevisionId: string,
 	entryId: string,
@@ -84,14 +89,17 @@ function sameContractEntry(
 	if (!(pinned && active) || pinned.profileId !== active.profileId) {
 		return false;
 	}
-	const pinnedEntry =
-		kind === "quality"
-			? pinned.contract.rules.find((rule) => rule.id === entryId)
-			: pinned.contract.usageTests.find((test) => test.id === entryId);
-	const activeEntry =
-		kind === "quality"
-			? active.contract.rules.find((rule) => rule.id === entryId)
-			: active.contract.usageTests.find((test) => test.id === entryId);
+	const findEntry = (contract: SpecializedProfileContract) => {
+		if (kind === "usage_test") {
+			return contract.usageTests.find((test) => test.id === entryId);
+		}
+		if (ruleClass === "human_review") {
+			return contract.humanReviews.find((review) => review.id === entryId);
+		}
+		return contract.rules.find((rule) => rule.id === entryId);
+	};
+	const pinnedEntry = findEntry(pinned.contract);
+	const activeEntry = findEntry(active.contract);
 	return Boolean(
 		pinnedEntry && activeEntry && isDeepStrictEqual(pinnedEntry, activeEntry)
 	);
@@ -104,6 +112,7 @@ export function areContractPinsCompatible(input: {
 	kind: "quality" | "usage_test";
 	pinnedRevisionIds: (string | null)[];
 	profileIds: (SpecializedProfileId | null)[];
+	ruleClass?: QualityEvidenceRuleClass | null;
 }) {
 	if (
 		input.activeRevisionIds.length !== input.pinnedRevisionIds.length ||
@@ -121,6 +130,7 @@ export function areContractPinsCompatible(input: {
 		}
 		return sameContractEntry(
 			input.kind,
+			input.ruleClass,
 			pinnedRevisionId,
 			activeRevisionId,
 			input.entryId,

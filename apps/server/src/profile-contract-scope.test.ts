@@ -72,3 +72,69 @@ test("a contract revision change preserves unchanged rule evidence and stales ch
 		})
 	).toBe(true);
 });
+
+test("a contract revision change preserves unchanged human review evidence and stales changed reviews", () => {
+	const definition = specializedProfileContractCatalog.find(
+		(contract) => contract.profileId === "icon"
+	);
+	expect(definition).toBeDefined();
+	if (!definition) {
+		return;
+	}
+	const priorContract = structuredClone(definition);
+	const activeContract = structuredClone(definition);
+	activeContract.version = "1.0.1";
+	const [changedReview] = activeContract.humanReviews;
+	const [templateReview] = definition.humanReviews;
+	expect(changedReview).toBeDefined();
+	expect(templateReview).toBeDefined();
+	if (!(changedReview && templateReview)) {
+		return;
+	}
+	const unchangedReview = { ...templateReview, id: "icon.additional_review" };
+	priorContract.humanReviews.push(unchangedReview);
+	activeContract.humanReviews.push(unchangedReview);
+	changedReview.successResult = "A revised review criterion is recorded.";
+	const priorRevisionId = `${priorContract.profileId}@${priorContract.version}`;
+	const activeRevisionId = `${activeContract.profileId}@${activeContract.version}`;
+	const priorRevision = {
+		contract: priorContract,
+		profileId: priorContract.profileId,
+		revisionId: priorRevisionId,
+	};
+	const activeRevision = {
+		contract: activeContract,
+		profileId: activeContract.profileId,
+		revisionId: activeRevisionId,
+	};
+	const contracts: ProjectProfileContracts = {
+		activeByProfile: new Map([[definition.profileId, activeRevision]]),
+		byRevisionId: new Map([
+			[priorRevision.revisionId, priorRevision],
+			[activeRevision.revisionId, activeRevision],
+		]),
+	};
+
+	expect(
+		areContractPinsCompatible({
+			activeRevisionIds: [activeRevision.revisionId],
+			contracts,
+			entryId: unchangedReview.id,
+			kind: "quality",
+			pinnedRevisionIds: [priorRevision.revisionId],
+			profileIds: [definition.profileId],
+			ruleClass: "human_review",
+		})
+	).toBe(true);
+	expect(
+		areContractPinsCompatible({
+			activeRevisionIds: [activeRevision.revisionId],
+			contracts,
+			entryId: changedReview.id,
+			kind: "quality",
+			pinnedRevisionIds: [priorRevision.revisionId],
+			profileIds: [definition.profileId],
+			ruleClass: "human_review",
+		})
+	).toBe(false);
+});
