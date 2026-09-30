@@ -336,7 +336,9 @@ test("records a human review separately without offering a quality waiver", asyn
 	const [itemResult] = readiness.items;
 	const humanReview = template?.humanReviews[0];
 	if (!(template && itemResult && humanReview)) {
-		return;
+		throw new Error(
+			"Missing required icon profile human review test fixtures."
+		);
 	}
 	const profileContracts = {
 		profiles: specializedProfileContractCatalog.map((definition) => ({
