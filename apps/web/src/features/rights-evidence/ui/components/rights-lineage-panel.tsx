@@ -50,7 +50,7 @@ interface RightsHistoryTarget {
 }
 
 interface SourceCatalogIndex {
-	assetRecordsById: Map<string, AssetFamilyCatalog["assetRecords"][number]>;
+	assetRecordsById: Map<string, Pick<AssetRecord, "id" | "name">>;
 	assetVersionsById: Map<string, AssetVersionCatalog["assetVersions"][number]>;
 }
 
@@ -66,12 +66,17 @@ function getHistoryTargetKey(target: RightsHistoryTarget) {
 
 function createSourceCatalogIndex(
 	assetFamilyCatalog: AssetFamilyCatalog,
-	assetVersionCatalog: AssetVersionCatalog
+	assetVersionCatalog: AssetVersionCatalog,
+	currentRecord: AssetRecord
 ): SourceCatalogIndex {
+	const assetRecordsById = new Map<string, Pick<AssetRecord, "id" | "name">>();
+	for (const record of assetFamilyCatalog.assetRecords) {
+		assetRecordsById.set(record.id, record);
+	}
+	assetRecordsById.set(currentRecord.id, currentRecord);
+
 	return {
-		assetRecordsById: new Map(
-			assetFamilyCatalog.assetRecords.map((record) => [record.id, record])
-		),
+		assetRecordsById,
 		assetVersionsById: new Map(
 			assetVersionCatalog.assetVersions.map((version) => [version.id, version])
 		),
@@ -199,7 +204,7 @@ function buildReferenceImageSource(
 		? catalogIndex.assetRecordsById.get(assetRecordId)
 		: undefined;
 	const displayName =
-		assetRecord?.name ?? reference.fileName ?? "Referans görseli";
+		reference.fileName ?? assetRecord?.name ?? "Referans görseli";
 	const unresolvedReasons: string[] = [];
 
 	if (!assetRecordId) {
@@ -553,8 +558,12 @@ export function RightsLineagePanel({
 		if (!(assetFamilyCatalog && assetVersionCatalog)) {
 			return null;
 		}
-		return createSourceCatalogIndex(assetFamilyCatalog, assetVersionCatalog);
-	}, [assetFamilyCatalogQuery.data, assetVersionCatalogQuery.data]);
+		return createSourceCatalogIndex(
+			assetFamilyCatalog,
+			assetVersionCatalog,
+			record
+		);
+	}, [assetFamilyCatalogQuery.data, assetVersionCatalogQuery.data, record]);
 	const packageGroups = useMemo(() => {
 		if (!sourceCatalogIndex) {
 			return [];

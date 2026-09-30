@@ -301,13 +301,8 @@ test("snapshots the source Asset Record ID for version references", async () => 
 	const sourceAssetRecordId = "b699155a-8616-4ef6-a5c9-4f48d2d9160f";
 	const sourceAssetVersionId = "d9a83d1a-b6ca-4fa7-9ae5-b70bf57b6d0a";
 	const sourceReferenceId = "a05446af-8757-4ce8-aae6-49c95c19f108";
-	state.assetVersions.push({
-		...canonicalVersion,
-		assetRecordId: sourceAssetRecordId,
-		id: sourceAssetVersionId,
-		versionNumber: 2,
-	});
 	state.trackingReferences.push({
+		assetRecordId: sourceAssetRecordId,
 		assetRecordName: "Iron Sentinel",
 		contextOverrideRationale: null,
 		customPurpose: null,

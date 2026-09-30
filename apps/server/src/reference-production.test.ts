@@ -267,6 +267,7 @@ test("shows unresolved conflicts between opposing Reference Role rules on the re
 	store.images.set(image.id, image);
 
 	const assetVersionReference = {
+		assetRecordId,
 		assetRecordName: "Frost Warrior",
 		conflictFeatures: [],
 		contextOverrideRationale: null,

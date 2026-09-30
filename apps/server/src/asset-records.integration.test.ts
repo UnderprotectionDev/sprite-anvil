@@ -624,6 +624,7 @@ test.skipIf(!databaseUrl)(
 				],
 				references: [
 					{
+						assetRecordId: derivativeRecord.id,
 						assetRecordName: "Ash Knight Idle",
 						conflictFeatures: [],
 						contextOverrideRationale:

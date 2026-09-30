@@ -238,16 +238,9 @@ export function createGenerationPackageSnapshot(data: {
 		};
 	});
 
-	const sourceAssetRecordIdsByVersionId = new Map(
-		assetVersionCatalog.assetVersions.map((version) => [
-			version.id,
-			version.assetRecordId,
-		])
-	);
 	const referenceRoles: GenerationPackage["referenceRoles"] = [
 		...data.tracking.references.map((reference) => ({
-			assetRecordId:
-				sourceAssetRecordIdsByVersionId.get(reference.versionId) ?? null,
+			assetRecordId: reference.assetRecordId,
 			assetRecordName: reference.assetRecordName,
 			assetVersionId: reference.versionId,
 			contentDigest: null,

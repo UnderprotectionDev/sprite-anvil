@@ -667,6 +667,8 @@ test("shows a result's separate Rights Lineage and each source's versioned decla
 	const unlinkedGenerationPackageId = "2c9c916b-49f2-41c7-b0c5-8adf0277db20";
 	const unresolvedReferenceId = "d95726dd-1772-49fd-b113-2b93f44036e4";
 	const unresolvedAssetVersionId = "64537111-438f-4a3f-8f78-cea158d5b80a";
+	const secondReferenceImageId = "c07f8537-a86f-4602-8c37-e6f0586a3de0";
+	const unassignedReferenceImageId = "9a14c286-78fc-4e73-89bd-a57a53364e25";
 	const rightsRecord = (
 		id: string,
 		assetRecordId: string,
@@ -768,6 +770,40 @@ test("shows a result's separate Rights Lineage and each source's versioned decla
 				fileName: "palette-reference.png",
 				forbiddenFeatures: [],
 				id: referenceId,
+				kind: "reference_image" as const,
+				notes: null,
+				role: "palette" as const,
+				transferredFeatures: ["palette" as const],
+				versionNumber: null,
+			},
+			{
+				assetRecordId: referenceAssetRecordId,
+				assetRecordName: null,
+				assetVersionId: null,
+				contentDigest: null,
+				contentType: "image/png" as const,
+				contextOverrideRationale: null,
+				customPurpose: null,
+				fileName: "palette-reference-detail.png",
+				forbiddenFeatures: [],
+				id: secondReferenceImageId,
+				kind: "reference_image" as const,
+				notes: null,
+				role: "palette" as const,
+				transferredFeatures: ["palette" as const],
+				versionNumber: null,
+			},
+			{
+				assetRecordId: assetRecord.id,
+				assetRecordName: null,
+				assetVersionId: null,
+				contentDigest: null,
+				contentType: "image/png" as const,
+				contextOverrideRationale: null,
+				customPurpose: null,
+				fileName: "ash-knight-reference.png",
+				forbiddenFeatures: [],
+				id: unassignedReferenceImageId,
 				kind: "reference_image" as const,
 				notes: null,
 				role: "palette" as const,
@@ -958,6 +994,13 @@ test("shows a result's separate Rights Lineage and each source's versioned decla
 				versionNumber: 2,
 			}
 		),
+		rightsRecord("fb13c433-1fd8-433d-9762-8f36078c7d62", assetRecord.id, {
+			assertedScope: "Current record reference declaration",
+			id: "fb13c433-1fd8-433d-9762-8f36078c7d62",
+			referenceId: unassignedReferenceImageId,
+			source: "Current record reference source",
+			state: "documented",
+		}),
 		rightsRecord(
 			"cc2fc0bd-5f10-4da0-9bef-d6b6c41675b5",
 			referenceAssetRecordId,
@@ -1025,7 +1068,17 @@ test("shows a result's separate Rights Lineage and each source's versioned decla
 	).toBeVisible();
 	expect(
 		within(lineage).getByRole("heading", {
-			name: "Referans · Palette Reference",
+			name: "Referans · palette-reference.png",
+		})
+	).toBeVisible();
+	expect(
+		within(lineage).getByRole("heading", {
+			name: "Referans · palette-reference-detail.png",
+		})
+	).toBeVisible();
+	expect(
+		within(lineage).getByRole("heading", {
+			name: "Referans · ash-knight-reference.png",
 		})
 	).toBeVisible();
 	expect(
@@ -1044,6 +1097,14 @@ test("shows a result's separate Rights Lineage and each source's versioned decla
 	).toBeVisible();
 	expect(within(lineage).getByText("Pose reference declaration")).toBeVisible();
 	expect(within(lineage).getByText("Commercial use declared")).toBeVisible();
+	expect(
+		within(lineage).getByText("Current record reference declaration")
+	).toBeVisible();
+	expect(
+		within(lineage).queryByText(
+			"Referans görselinin Varlık Kaydı kataloğunda bulunamadı."
+		)
+	).not.toBeInTheDocument();
 	expect(
 		within(lineage).getByText("Do not redistribute the reference image.")
 	).toBeVisible();
