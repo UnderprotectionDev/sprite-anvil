@@ -15,16 +15,18 @@ export function DependencyFacets({
 	onChange,
 	other,
 	onOtherChange,
+	legend,
 }: {
 	value: string[];
 	onChange: (value: string[]) => void;
 	other: string;
 	onOtherChange: (value: string) => void;
+	legend: string;
 }) {
 	const otherId = useId();
 	return (
 		<fieldset className="space-y-3">
-			<legend className="font-medium">Bağımlı / değişen özellikler</legend>
+			<legend className="font-medium">{legend}</legend>
 			<div className="flex flex-wrap gap-4">
 				{facetLabels.map(([facet, label]) => (
 					<label className="flex items-center gap-2" key={facet}>

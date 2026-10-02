@@ -107,7 +107,7 @@ test.skipIf(!databaseUrl)(
 				assetFamilyId: familyId,
 				assetRecordId: fixtureId(recordIds, index),
 				versionNumber: 1,
-				sourceKind: index === 0 || index === 4 ? "manual_import" : "derived",
+				sourceKind: index === 0 ? "manual_import" : "derived",
 				contentType: "image/png",
 				byteSize: 1,
 				objectKey: `${projectId}/${id}`,
@@ -471,6 +471,52 @@ test.skipIf(!databaseUrl)(
 					fixtureId(versionIds, 4),
 					orphanVersionId,
 				].sort()
+			);
+			await expect(
+				call(
+					appRouter.dependencyRevalidation.createLink,
+					{
+						projectId,
+						source: { kind: "asset_version", id: fixtureId(versionIds, 3) },
+						targetAssetVersionId: fixtureId(versionIds, 0),
+						facets: ["identity"],
+					},
+					{ context }
+				)
+			).rejects.toMatchObject({ code: "BAD_REQUEST" });
+			await database.insert(assetFamilyCanonicalDesigns).values({
+				id: crypto.randomUUID(),
+				projectId,
+				assetFamilyId: familyId,
+				assetRecordId: fixtureId(recordIds, 3),
+				assetVersionId: fixtureId(versionIds, 3),
+				createdByUserId: userId,
+			});
+			await expect(
+				call(
+					appRouter.dependencyRevalidation.determine,
+					{
+						projectId,
+						source: { kind: "canonical_design", id: fixtureId(versionIds, 0) },
+						facets: ["palette"],
+					},
+					{ context }
+				)
+			).rejects.toMatchObject({ code: "BAD_REQUEST" });
+			const latestImpact = await call(
+				appRouter.dependencyRevalidation.determine,
+				{
+					projectId,
+					source: { kind: "canonical_design", id: fixtureId(versionIds, 3) },
+					facets: ["palette"],
+				},
+				{ context }
+			);
+			expect(
+				latestImpact.affectedVersions.map((version) => version.assetVersionId)
+			).toEqual([orphanVersionId]);
+			expect(latestImpact.affectedVersions[0]?.reason).toBe(
+				"incomplete_dependency"
 			);
 		} finally {
 			await pool`DELETE FROM change_impacts WHERE project_id = ${projectId}`;

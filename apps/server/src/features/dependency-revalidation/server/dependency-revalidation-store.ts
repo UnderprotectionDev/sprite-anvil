@@ -17,7 +17,7 @@ import {
 	dependencyLinks,
 } from "@sprite-anvil/db/schema/dependency-revalidation";
 import { contextRevisions } from "@sprite-anvil/db/schema/project-context";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 
 function toDependencyLink(
 	row: typeof dependencyLinks.$inferSelect
@@ -241,6 +241,45 @@ export async function readRevalidationRequiredVersionIds(
 	);
 }
 
+async function isCurrentCanonicalDesignSelection(
+	database: Database,
+	projectId: string,
+	assetVersionId: string
+) {
+	const [selection] = await database
+		.select({ assetFamilyId: assetFamilyCanonicalDesigns.assetFamilyId })
+		.from(assetFamilyCanonicalDesigns)
+		.where(
+			and(
+				eq(assetFamilyCanonicalDesigns.projectId, projectId),
+				eq(assetFamilyCanonicalDesigns.assetVersionId, assetVersionId)
+			)
+		)
+		.orderBy(
+			desc(assetFamilyCanonicalDesigns.createdAt),
+			desc(assetFamilyCanonicalDesigns.id)
+		)
+		.limit(1);
+	if (!selection) {
+		return false;
+	}
+	const [latest] = await database
+		.select({ assetVersionId: assetFamilyCanonicalDesigns.assetVersionId })
+		.from(assetFamilyCanonicalDesigns)
+		.where(
+			and(
+				eq(assetFamilyCanonicalDesigns.projectId, projectId),
+				eq(assetFamilyCanonicalDesigns.assetFamilyId, selection.assetFamilyId)
+			)
+		)
+		.orderBy(
+			desc(assetFamilyCanonicalDesigns.createdAt),
+			desc(assetFamilyCanonicalDesigns.id)
+		)
+		.limit(1);
+	return latest?.assetVersionId === assetVersionId;
+}
+
 export function createDependencyRevalidationStore(
 	database: Database
 ): DependencyRevalidationStore {
@@ -313,6 +352,7 @@ export function createDependencyRevalidationStore(
 				.limit(1);
 			if (
 				!(target && source) ||
+				target.sourceKind !== "derived" ||
 				(input.source.kind === "asset_version" && source.id === target.id)
 			) {
 				return null;
@@ -357,6 +397,16 @@ export function createDependencyRevalidationStore(
 				)
 				.limit(1);
 			if (!source) {
+				return null;
+			}
+			if (
+				input.source.kind === "canonical_design" &&
+				!(await isCurrentCanonicalDesignSelection(
+					database,
+					input.projectId,
+					input.source.id
+				))
+			) {
 				return null;
 			}
 			const affectedVersions = await determineAffectedVersions(database, input);

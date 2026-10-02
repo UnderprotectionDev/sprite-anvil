@@ -48,7 +48,7 @@ export const dependencyRevalidationRouter = {
 			if (!link) {
 				throw new ORPCError("BAD_REQUEST", {
 					message:
-						"Bağımlılık Bağlantısı aynı Projedeki farklı sürümleri bağlamalı ve daha önce kaydedilmemiş olmalıdır.",
+						"Bağımlılık Bağlantısı aynı Projedeki farklı sürümleri bağlamalı, hedefi bir Türetilmiş Varlık Sürümü olmalı ve daha önce kaydedilmemiş olmalıdır.",
 				});
 			}
 			return link;

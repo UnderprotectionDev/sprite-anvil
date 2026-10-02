@@ -49,6 +49,15 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 	const catalog = catalogQuery.data;
 	const assetVersionCatalog =
 		assetVersionQuery.data ?? emptyAssetVersionCatalog;
+	// The catalog lists canonical designs ascending by creation, so the last
+	// entry per family is the current selection.
+	const latestCanonicalVersionIdsByFamily = new Map<string, string>();
+	for (const design of assetVersionCatalog.canonicalDesigns) {
+		latestCanonicalVersionIdsByFamily.set(
+			design.assetFamilyId,
+			design.assetVersionId
+		);
+	}
 	const assetCategoriesById = new Map(
 		(assetRecordQuery.data ?? []).map((record) => [
 			record.id,
@@ -281,9 +290,9 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 					{assetVersionQuery.data ? (
 						<>
 							<DependencyRevalidationManager
-								canonicalVersionIds={assetVersionCatalog.canonicalDesigns.map(
-									(design) => design.assetVersionId
-								)}
+								canonicalVersionIds={[
+									...latestCanonicalVersionIdsByFamily.values(),
+								]}
 								onImpactSaved={async () => {
 									await Promise.all(
 										catalog.assetFamilies.map((family) =>

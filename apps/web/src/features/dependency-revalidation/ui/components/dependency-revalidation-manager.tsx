@@ -1,3 +1,4 @@
+import type { AssetVersionSourceKind } from "@sprite-anvil/api/asset-versions";
 import type {
 	ChangeFacetInput,
 	DependencyLinkInput,
@@ -17,7 +18,12 @@ interface Props {
 	onImpactSaved?: () => Promise<void>;
 	projectId: string;
 	records: { id: string; name: string }[];
-	versions: { id: string; assetRecordId: string; versionNumber: number }[];
+	versions: {
+		id: string;
+		assetRecordId: string;
+		versionNumber: number;
+		sourceKind?: AssetVersionSourceKind;
+	}[];
 }
 
 export function DependencyRevalidationManager({
@@ -58,6 +64,15 @@ export function DependencyRevalidationManager({
 		id: revision.id,
 		label: `Bağlam Sürümü ${revision.revisionNumber}${revision.isActive ? " (etkin)" : ""}`,
 	}));
+	function dependencySourceLabel(source: DependencyLinkInput["source"]) {
+		if (source.kind === "context_revision") {
+			return (
+				contextOptions.find((option) => option.id === source.id)?.label ??
+				source.id
+			);
+		}
+		return versionLabels.get(source.id) ?? source.id;
+	}
 	const linkOptions =
 		linkKind === "context_revision"
 			? contextOptions
@@ -225,7 +240,8 @@ export function DependencyRevalidationManager({
 						{versions
 							.filter(
 								(version) =>
-									linkKind !== "asset_version" || version.id !== linkSourceId
+									version.sourceKind === "derived" &&
+									(linkKind !== "asset_version" || version.id !== linkSourceId)
 							)
 							.map((version) => (
 								<option key={version.id} value={version.id}>
@@ -234,6 +250,7 @@ export function DependencyRevalidationManager({
 							))}
 					</select>
 					<DependencyFacets
+						legend="Bağımlı özellikler"
 						onChange={setLinkFacets}
 						onOtherChange={setLinkOther}
 						other={linkOther}
@@ -309,6 +326,7 @@ export function DependencyRevalidationManager({
 						))}
 					</select>
 					<DependencyFacets
+						legend="Değişen özellikler"
 						onChange={setChangeFacets}
 						onOtherChange={setChangeOther}
 						other={changeOther}
@@ -332,6 +350,7 @@ export function DependencyRevalidationManager({
 					<ul className="space-y-2">
 						{query.data.dependencyLinks.map((link) => (
 							<li key={link.id}>
+								{dependencySourceLabel(link.source)} →{" "}
 								{versionLabels.get(link.targetAssetVersionId) ??
 									link.targetAssetVersionId}
 								:{" "}

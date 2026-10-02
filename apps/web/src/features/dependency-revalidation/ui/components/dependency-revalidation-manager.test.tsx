@@ -9,6 +9,7 @@ import {
 	render,
 	screen,
 	waitFor,
+	within,
 } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { DependencyRevalidationManager } from "./dependency-revalidation-manager";
@@ -100,8 +101,18 @@ function openManager() {
 					{ id: "east", name: "Ash Knight east" },
 				]}
 				versions={[
-					{ id: "base-version", assetRecordId: "base", versionNumber: 1 },
-					{ id: "east-version", assetRecordId: "east", versionNumber: 1 },
+					{
+						id: "base-version",
+						assetRecordId: "base",
+						versionNumber: 1,
+						sourceKind: "manual_import",
+					},
+					{
+						id: "east-version",
+						assetRecordId: "east",
+						versionNumber: 1,
+						sourceKind: "derived",
+					},
 				]}
 			/>
 		</QueryClientProvider>
@@ -114,11 +125,8 @@ test("user confirms a palette Change Facet and sees persisted Revalidation Requi
 	fireEvent.change(screen.getByLabelText("Değişen kaynak"), {
 		target: { value: "base-version" },
 	});
-	const [, paletteCheckbox] = screen.getAllByLabelText("Palet");
-	if (!paletteCheckbox) {
-		throw new Error("The Change Facet palette control is missing.");
-	}
-	fireEvent.click(paletteCheckbox);
+	const changeGroup = screen.getByRole("group", { name: "Değişen özellikler" });
+	fireEvent.click(within(changeGroup).getByLabelText("Palet"));
 	fireEvent.click(
 		screen.getByRole("button", { name: "Değişiklik Etkisini Belirle" })
 	);
@@ -154,11 +162,8 @@ test("a failed write requires a persisted status check before another mutation",
 	fireEvent.change(screen.getByLabelText("Değişen kaynak"), {
 		target: { value: "base-version" },
 	});
-	const [, paletteCheckbox] = screen.getAllByLabelText("Palet");
-	if (!paletteCheckbox) {
-		throw new Error("The Change Facet palette control is missing.");
-	}
-	fireEvent.click(paletteCheckbox);
+	const changeGroup = screen.getByRole("group", { name: "Değişen özellikler" });
+	fireEvent.click(within(changeGroup).getByLabelText("Palet"));
 	fireEvent.click(
 		screen.getByRole("button", { name: "Değişiklik Etkisini Belirle" })
 	);
@@ -183,5 +188,36 @@ test("a failed write requires a persisted status check before another mutation",
 	);
 	expect(
 		await screen.findByText("Ash Knight east · v1: Yeniden Doğrulama Gerekli")
+	).toBeInTheDocument();
+});
+
+test("the Dependency Link target only offers Derivative versions", async () => {
+	openManager();
+	const targetSelect = await screen.findByLabelText("Türetilmiş Varlık Sürümü");
+	const values = within(targetSelect)
+		.getAllByRole("option")
+		.map((option) => option.getAttribute("value"));
+	expect(values).toEqual(["", "east-version"]);
+});
+
+test("persisted Dependency Links show their source and target versions", async () => {
+	transport.catalog = {
+		...transport.catalog,
+		dependencyLinks: [
+			{
+				id: "link-1",
+				projectId: "project-1",
+				source: { kind: "asset_version", id: "base-version" },
+				targetAssetVersionId: "east-version",
+				facets: ["palette"],
+				createdAt: "2026-10-02T11:00:00.000Z",
+			},
+		],
+	};
+	openManager();
+	expect(
+		await screen.findByText(
+			"Ash Knight base · v1 → Ash Knight east · v1: Palet"
+		)
 	).toBeInTheDocument();
 });
