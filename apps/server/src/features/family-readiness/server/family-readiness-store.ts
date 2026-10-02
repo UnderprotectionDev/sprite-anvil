@@ -49,7 +49,9 @@ import {
 	readProjectProfileContracts,
 } from "../../quality-evidence/server/profile-contract-scope";
 import {
+	isAvailableQualityVersionTarget,
 	qualityVersionTargetFromEvidence,
+	readAssessmentQualityVersionTarget,
 	readQualityVersionTargets,
 } from "../../quality-evidence/server/quality-version-targets";
 
@@ -217,10 +219,7 @@ function isQualityVersionTargetCurrent(
 	return (
 		target.kind === assessmentTarget?.kind &&
 		target.id === assessmentTarget.id &&
-		availableTargets.some(
-			(available) =>
-				available.kind === target.kind && available.id === target.id
-		)
+		isAvailableQualityVersionTarget(target, availableTargets)
 	);
 }
 
@@ -237,17 +236,13 @@ function latestEvidenceByItem(
 ) {
 	const result = new Map<string, CurrentEvidence[]>();
 	for (const item of items) {
-		const latestTargetedEvidence = evidenceRows.find(
-			(evidence) =>
-				evidence.itemId === item.id &&
-				evidence.kind === "quality" &&
-				qualityVersionTargetFromEvidence(evidence)
-		);
-		const assessmentTarget = latestTargetedEvidence
-			? qualityVersionTargetFromEvidence(latestTargetedEvidence)
-			: null;
 		const availableTargets = item.assetRecordIds.flatMap(
 			(recordId) => versionTargets.get(recordId) ?? []
+		);
+		const assessmentTarget = readAssessmentQualityVersionTarget(
+			evidenceRows,
+			item.id,
+			availableTargets
 		);
 		const expectedVersionIds = item.assetRecordIds.flatMap((recordId) => {
 			const version = currentVersions.get(recordId);
@@ -754,7 +749,8 @@ async function readActiveRevisionReadiness(
 	db: Database,
 	projectId: string,
 	family: typeof assetFamilies.$inferSelect,
-	activeRevision: RequiredSetRevision
+	activeRevision: RequiredSetRevision,
+	assetVersionId?: string
 ) {
 	const assetRecordIds = [
 		...new Set(activeRevision.items.flatMap((item) => item.assetRecordIds)),
@@ -824,7 +820,10 @@ async function readActiveRevisionReadiness(
 	);
 	const currentVersions = new Map<string, (typeof versionRows)[number]>();
 	for (const version of versionRows) {
-		if (!currentVersions.has(version.assetRecordId)) {
+		if (
+			!currentVersions.has(version.assetRecordId) ||
+			version.id === assetVersionId
+		) {
 			currentVersions.set(version.assetRecordId, version);
 		}
 	}
@@ -863,10 +862,19 @@ async function readActiveRevisionReadiness(
 			latestReviews.set(review.versionId, review);
 		}
 	}
+	const exactVersion = versionRows.find(
+		(version) => version.id === assetVersionId
+	);
 	const versionTargets = await readQualityVersionTargets(
 		db,
 		projectId,
-		activeRevision.items.flatMap((item) => item.assetRecordIds)
+		activeRevision.items.flatMap((item) => item.assetRecordIds),
+		exactVersion
+			? {
+					assetRecordId: exactVersion.assetRecordId,
+					assetVersionId: exactVersion.id,
+				}
+			: undefined
 	);
 	const currentEvidence = latestEvidenceByItem(
 		activeRevision.items,
@@ -1208,7 +1216,7 @@ async function readEvidenceScope(
 	};
 }
 
-export function createFamilyReadinessStore(db: Database): FamilyReadinessStore {
+export function createFamilyReadinessStore(db: Database) {
 	async function readQualityWaiverSource(
 		input: ReadinessEvidenceInput,
 		scope: EvidenceScope
@@ -1263,7 +1271,8 @@ export function createFamilyReadinessStore(db: Database): FamilyReadinessStore {
 	async function list(
 		userId: string,
 		projectId: string,
-		assetFamilyId: string
+		assetFamilyId: string,
+		assetVersionId?: string
 	) {
 		if (!(await getProjectForUser(db, userId, projectId))) {
 			return null;
@@ -1337,7 +1346,8 @@ export function createFamilyReadinessStore(db: Database): FamilyReadinessStore {
 			db,
 			projectId,
 			family,
-			activeRevision
+			activeRevision,
+			assetVersionId
 		);
 		return familyReadinessSchema.parse({
 			projectId,
@@ -1534,5 +1544,10 @@ export function createFamilyReadinessStore(db: Database): FamilyReadinessStore {
 		return list(userId, input.projectId, input.assetFamilyId);
 	}
 
-	return { list, saveDraft, activate, recordEvidence };
+	return {
+		list,
+		saveDraft,
+		activate,
+		recordEvidence,
+	} satisfies FamilyReadinessStore;
 }

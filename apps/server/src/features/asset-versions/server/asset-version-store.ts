@@ -3,6 +3,7 @@ import type {
 	AssetFamilyCanonicalDesign,
 	AssetFamilyCanonicalDesignInput,
 	AssetVersion,
+	AssetVersionApprovalBlocked,
 	AssetVersionFileRecord,
 	AssetVersionReviewEvent,
 	AssetVersionReviewInput,
@@ -64,6 +65,7 @@ import {
 	toManagedSnapshot,
 	toManualImportEvidence,
 } from "../../production-provenance/server/production-provenance-mapper";
+import { readAssetVersionApprovalBlockers } from "../../reviews/server/asset-version-approval";
 
 const contentDigestPattern = /^[0-9a-f]{64}$/;
 
@@ -226,6 +228,32 @@ async function readVersionProductionEvidence(
 		latestManualEvidence ? toManualImportEvidence(latestManualEvidence) : null,
 		snapshotRows.map(toManagedSnapshot)
 	);
+}
+
+async function checkReviewApproval(
+	db: Database,
+	userId: string,
+	version: typeof assetVersions.$inferSelect
+): Promise<true | AssetVersionApprovalBlocked | null> {
+	if (!(version.integrityVerified && version.contentDigest)) {
+		return null;
+	}
+	const productionEvidence = await readVersionProductionEvidence(db, version);
+	if (productionEvidence.evidenceLevel === "incomplete") {
+		return null;
+	}
+	if (
+		isManualImportEvidenceRequired(version.sourceKind) &&
+		!(await hasManualImportEvidence(db, {
+			assetRecordId: version.assetRecordId,
+			projectId: version.projectId,
+			versionId: version.id,
+		}))
+	) {
+		return null;
+	}
+	const blockers = await readAssetVersionApprovalBlockers(db, userId, version);
+	return blockers.length > 0 ? { kind: "approval-blocked", blockers } : true;
 }
 
 function toFileRecord(
@@ -1241,30 +1269,10 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 				return null;
 			}
 			if (input.decision === "approved") {
-				const productionEvidence = await readVersionProductionEvidence(
-					db,
-					version
-				);
-				if (productionEvidence.evidenceLevel === "incomplete") {
-					return null;
+				const approval = await checkReviewApproval(db, userId, version);
+				if (approval !== true) {
+					return approval;
 				}
-			}
-			if (
-				input.decision === "approved" &&
-				!(version.integrityVerified && version.contentDigest)
-			) {
-				return null;
-			}
-			if (
-				input.decision === "approved" &&
-				isManualImportEvidenceRequired(version.sourceKind) &&
-				!(await hasManualImportEvidence(db, {
-					assetRecordId: version.assetRecordId,
-					projectId: input.projectId,
-					versionId: version.id,
-				}))
-			) {
-				return null;
 			}
 
 			const [event] = await db

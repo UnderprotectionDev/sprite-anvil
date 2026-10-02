@@ -244,6 +244,11 @@ export const assetVersionsRouter = {
 						"Varlık Sürümü bu sırada incelenmiş. Güncel durumu yeniden yükleyin.",
 				});
 			}
+			if ("kind" in event && event.kind === "approval-blocked") {
+				throw new ORPCError("BAD_REQUEST", {
+					message: `Onay için zorunlu kalite kanıtını tamamlayın: ${event.blockers.join(", ")}`,
+				});
+			}
 			return assetVersionReviewEventSchema.parse(event);
 		}),
 	saveManualImportEvidence: protectedProcedure
