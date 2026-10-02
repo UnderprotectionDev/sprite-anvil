@@ -346,3 +346,29 @@ test("allows a legacy asset to be approved without inferred Manual Import Eviden
 	expect(event.type).toBe("approved");
 	expect(reviewEventCreated).toBe(true);
 });
+
+test("reports missing mandatory quality evidence without writing a Review Event", async () => {
+	const context = createAssetVersionReviewContext({
+		manualImportEvidenceRequiredVersionIds: [],
+		recordReviewEvent: () => ({
+			kind: "approval-blocked",
+			blockers: ["Required human review: icon.small_size_readability"],
+		}),
+		sourceKind: "legacy_asset",
+	});
+	await expect(
+		call(
+			appRouter.assetVersions.review,
+			{
+				projectId,
+				assetVersionId,
+				decision: "approved",
+				rationale: "Accept the exact version.",
+			},
+			{ context: context as never }
+		)
+	).rejects.toMatchObject({
+		code: "BAD_REQUEST",
+		message: expect.stringContaining("icon.small_size_readability"),
+	});
+});

@@ -4,7 +4,7 @@ import {
 	compositeVersions,
 	unitVersions,
 } from "@sprite-anvil/db/schema/asset-versions";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, or } from "drizzle-orm";
 
 export function qualityVersionTargetFromEvidence(evidence: {
 	unitVersionId: string | null;
@@ -21,7 +21,8 @@ export function qualityVersionTargetFromEvidence(evidence: {
 export async function readQualityVersionTargets(
 	db: Database,
 	projectId: string,
-	assetRecordIds: string[]
+	assetRecordIds: string[],
+	exactVersion?: { assetRecordId: string; assetVersionId: string }
 ) {
 	if (assetRecordIds.length === 0) {
 		return new Map<string, QualityVersionTarget[]>();
@@ -33,7 +34,13 @@ export async function readQualityVersionTargets(
 			.where(
 				and(
 					eq(unitVersions.projectId, projectId),
-					inArray(unitVersions.assetRecordId, assetRecordIds)
+					inArray(unitVersions.assetRecordId, assetRecordIds),
+					exactVersion
+						? or(
+								ne(unitVersions.assetRecordId, exactVersion.assetRecordId),
+								eq(unitVersions.assetVersionId, exactVersion.assetVersionId)
+							)
+						: undefined
 				)
 			)
 			.orderBy(desc(unitVersions.versionNumber)),

@@ -233,6 +233,11 @@ export type AssetVersionCatalog = z.infer<typeof assetVersionCatalogSchema>;
 export type AssetVersionReviewInput = z.infer<
 	typeof assetVersionReviewInputSchema
 >;
+
+export interface AssetVersionApprovalBlocked {
+	blockers: string[];
+	kind: "approval-blocked";
+}
 export type CompositeVersionCreateInput = z.infer<
 	typeof compositeVersionCreateInputSchema
 >;
@@ -307,7 +312,7 @@ export interface AssetVersionStore {
 	recordReviewEvent: (
 		userId: string,
 		input: AssetVersionReviewInput
-	) => Promise<AssetVersionReviewEvent | null>;
+	) => Promise<AssetVersionReviewEvent | AssetVersionApprovalBlocked | null>;
 	saveManualImportEvidence: (
 		userId: string,
 		input: ManualImportEvidenceInput

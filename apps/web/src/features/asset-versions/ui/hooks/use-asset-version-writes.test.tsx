@@ -5,16 +5,20 @@ import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { useAssetVersionWrites } from "./use-asset-version-writes";
 
-const { recordProviderGenerationMock, toastErrorMock } = vi.hoisted(() => ({
-	recordProviderGenerationMock: vi.fn(),
-	toastErrorMock: vi.fn(),
-}));
+const { recordProviderGenerationMock, reviewMock, toastErrorMock } = vi.hoisted(
+	() => ({
+		recordProviderGenerationMock: vi.fn(),
+		reviewMock: vi.fn(),
+		toastErrorMock: vi.fn(),
+	})
+);
 
 vi.mock("@/env", () => ({ ENV: { VITE_SERVER_URL: "" } }));
 vi.mock("@/utils/orpc", () => ({
 	client: {
 		assetVersions: {
 			recordProviderGeneration: recordProviderGenerationMock,
+			review: reviewMock,
 		},
 	},
 }));
@@ -28,6 +32,30 @@ afterEach(() => {
 const projectId = "project-ash-knight";
 const assetRecordId = "record-ash-knight";
 const assetVersionId = "a17f5ff0-a50d-438f-8bf2-a0152b42c301";
+
+test("shows missing mandatory evidence without claiming the Asset Version was approved", async () => {
+	const message =
+		"Onay için zorunlu kalite kanıtını tamamlayın: icon.small_size_readability";
+	reviewMock.mockRejectedValueOnce(
+		Object.assign(new Error(message), { code: "BAD_REQUEST", status: 400 })
+	);
+	toastErrorMock.mockClear();
+	const refreshCatalogs = vi.fn().mockResolvedValue({ isError: false });
+	const { result } = renderHook(() =>
+		useAssetVersionWrites(projectId, refreshCatalogs)
+	);
+	await act(async () => {
+		await result.current.review(
+			assetVersionId,
+			"approved",
+			"Reviewed this result."
+		);
+	});
+	expect(toastErrorMock).toHaveBeenCalledWith(message);
+	expect(result.current.statusMessage).not.toBe("Varlık Sürümü onaylandı.");
+	expect(result.current.writeOutcomeUncertain).toBe(false);
+	expect(refreshCatalogs).not.toHaveBeenCalled();
+});
 
 test("retries an external working-file Candidate Version and its Managed Snapshot with the same idempotency keys", async () => {
 	const fetchMock = vi
