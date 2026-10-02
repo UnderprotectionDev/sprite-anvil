@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import "@testing-library/jest-dom/vitest";
+import type { GameplayMetadataRecord } from "@sprite-anvil/api/gameplay-metadata";
 import { specializedProfileContractCatalog } from "@sprite-anvil/api/specialized-profile-contracts";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -12,6 +13,74 @@ const contract = {
 	...specializedProfileContractCatalog[0],
 	contractRevisionId: "character@1",
 };
+
+test("editing keeps the exact frame and untouched optional fields while changing a pivot", async () => {
+	const user = userEvent.setup();
+	const onSave = vi.fn().mockResolvedValue(true);
+	const initialRecord: GameplayMetadataRecord = {
+		id: "64869356-a595-4a3a-995f-87dad6c77d04",
+		projectId: "project",
+		assetRecordId: "record",
+		assetVersionId: "version-1",
+		frameKey: "walk-0",
+		profileId: contract.profileId,
+		contractRevisionId: contract.contractRevisionId,
+		useContext: "walk east",
+		createdAt: "2026-10-02T00:00:00.000Z",
+		fields: [
+			{
+				fieldId: "pivot",
+				value: { x: 12, y: 24 },
+				unit: "px",
+				coordinateSystem: "source_image_top_left",
+				source: { kind: "authored" },
+			},
+			{
+				fieldId: "event_links",
+				value: [{ id: "strike", time: 90, extension: { damage: 7 } }],
+				unit: null,
+				coordinateSystem: null,
+				source: { kind: "authored" },
+			},
+		],
+	};
+	render(
+		<GameplayMetadataForm
+			contracts={[contract]}
+			disabled={false}
+			frames={frames}
+			initialRecord={initialRecord}
+			onSave={onSave}
+		/>
+	);
+	expect(screen.getByLabelText("Kare ve kesin sürüm")).toBeDisabled();
+	await user.clear(screen.getByLabelText("Dönüş noktası (JSON)"));
+	await user.click(screen.getByLabelText("Dönüş noktası (JSON)"));
+	await user.paste('{"x":13,"y":24}');
+	await user.click(
+		screen.getByRole("button", { name: "Oyun içi bilgileri kaydet" })
+	);
+	expect(onSave).toHaveBeenCalledWith(
+		expect.objectContaining({
+			assetVersionId: "version-1",
+			frameKey: "walk-0",
+			useContext: "walk east",
+			fields: expect.arrayContaining([
+				{
+					fieldId: "pivot",
+					source: { kind: "authored", value: { x: 13, y: 24 } },
+				},
+				{
+					fieldId: "event_links",
+					source: {
+						kind: "authored",
+						value: [{ id: "strike", time: 90, extension: { damage: 7 } }],
+					},
+				},
+			]),
+		})
+	);
+});
 
 test("shows the field export contract and submits the revision the user saw", async () => {
 	const user = userEvent.setup();

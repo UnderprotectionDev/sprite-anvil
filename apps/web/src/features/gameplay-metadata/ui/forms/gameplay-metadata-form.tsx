@@ -1,5 +1,6 @@
 import {
 	type GameplayMetadataFrame,
+	type GameplayMetadataRecord,
 	type GameplayMetadataWriteInput,
 	gameplayMetadataFieldIds,
 	getGameplayMetadataFields,
@@ -30,22 +31,43 @@ export function GameplayMetadataForm({
 	contracts,
 	onSave,
 	disabled,
+	initialRecord,
 }: {
 	frames: GameplayMetadataFrame[];
 	contracts: (SpecializedProfileContract & { contractRevisionId: string })[];
 	onSave: (draft: Draft) => Promise<boolean>;
 	disabled: boolean;
+	initialRecord?: GameplayMetadataRecord;
 }) {
 	const formId = useId();
 	const [selectedFrame, setSelectedFrame] = useState(() =>
-		frameIdentity(frames[0])
+		frameIdentity(
+			initialRecord ? { ...initialRecord, sourcePivots: [] } : frames[0]
+		)
 	);
 	const [selectedContractRevision, setSelectedContractRevision] = useState(
-		() => contracts[0]?.contractRevisionId ?? ""
+		() =>
+			initialRecord?.contractRevisionId ??
+			contracts[0]?.contractRevisionId ??
+			""
 	);
-	const [useContext, setUseContext] = useState("");
-	const [values, setValues] = useState<Record<string, string>>({});
-	const [selectedSourcePivot, setSelectedSourcePivot] = useState("");
+	const [useContext, setUseContext] = useState(initialRecord?.useContext ?? "");
+	const [values, setValues] = useState<Record<string, string>>(() =>
+		Object.fromEntries(
+			initialRecord?.fields.map((field) => [
+				field.fieldId,
+				field.value === null ? "" : JSON.stringify(field.value),
+			]) ?? []
+		)
+	);
+	const [selectedSourcePivot, setSelectedSourcePivot] = useState(() => {
+		const pivot = initialRecord?.fields.find(
+			(field) => field.fieldId === "pivot"
+		);
+		return pivot?.source.kind === "finalized_source"
+			? pivotIdentity({ ...pivot.source, value: pivot.value })
+			: "";
+	});
 	const [error, setError] = useState<string | null>(null);
 	const frame = frames.find(
 		(candidate) => frameIdentity(candidate) === selectedFrame
@@ -127,6 +149,7 @@ export function GameplayMetadataForm({
 					<span>Kare ve kesin sürüm</span>
 					<select
 						className="w-full rounded border p-2"
+						disabled={Boolean(initialRecord)}
 						id={`${formId}-frame`}
 						onChange={(event) => {
 							setSelectedFrame(event.target.value);
@@ -150,6 +173,7 @@ export function GameplayMetadataForm({
 					<span>Etkin özel profil</span>
 					<select
 						className="w-full rounded border p-2"
+						disabled={Boolean(initialRecord)}
 						id={`${formId}-profile`}
 						onChange={(event) => {
 							setSelectedContractRevision(event.target.value);
@@ -254,6 +278,12 @@ export function GameplayMetadataForm({
 				</Button>
 			</fieldset>
 			{Boolean(error) && <p role="alert">{error}</p>}
+			{Boolean(initialRecord) && !frame && (
+				<p role="alert">
+					Bütünlük hatası: düzenlenen kaydın kare veya kesin sürüm bağlantısı
+					kayboldu.
+				</p>
+			)}
 		</form>
 	);
 }

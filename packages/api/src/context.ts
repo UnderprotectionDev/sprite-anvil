@@ -8,7 +8,11 @@ import type { CollectionStore } from "./collections";
 import type { ProjectContextScopeStore } from "./context-scopes";
 import type { DependencyRevalidationStore } from "./dependency-revalidation";
 import type { FamilyReadinessStore } from "./family-readiness";
-import type { GameplayMetadataStore } from "./gameplay-metadata";
+import type {
+	GameplayMetadataReviewHandler,
+	GameplayMetadataStore,
+} from "./gameplay-metadata";
+import type { GameplayMetadataPackageTargetReader } from "./gameplay-metadata-package";
 import type { GenerationPackageStore } from "./generation-packages";
 import type { ProjectAccessStore } from "./project-access-store";
 import type { ProjectContextStore } from "./project-context";
@@ -32,7 +36,9 @@ export interface Context {
 	projectContextScopeStore: ProjectContextScopeStore;
 	projectContextStore: ProjectContextStore;
 	providerGenerationRecordStore?: ProviderGenerationRecordStore;
+	readGameplayMetadataPackageTarget?: GameplayMetadataPackageTargetReader;
 	referenceProductionStore?: ReferenceProductionStore;
+	reviewGameplayMetadata?: GameplayMetadataReviewHandler;
 	rightsRecordStore?: RightsRecordStore;
 	session: Session | null;
 	specializedProfileContractStore?: SpecializedProfileContractStore;
