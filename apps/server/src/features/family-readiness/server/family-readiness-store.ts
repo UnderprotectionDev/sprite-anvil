@@ -42,6 +42,7 @@ import {
 } from "@sprite-anvil/db/schema/family-readiness";
 import { contextRevisions } from "@sprite-anvil/db/schema/project-context";
 import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { readRevalidationRequiredVersionIds } from "../../dependency-revalidation/server/dependency-revalidation-store";
 import {
 	areContractPinsCompatible,
 	type ProfileContractSnapshot,
@@ -887,13 +888,22 @@ async function readActiveRevisionReadiness(
 		contracts,
 		versionTargets
 	);
+	const revalidationRequiredVersionIds =
+		await readRevalidationRequiredVersionIds(db, projectId);
 	const items = activeRevision.items.map((item) => ({
 		...evaluateRequiredSetItem(
 			item,
 			activeRevision.id,
 			currentVersions,
 			latestReviews,
-			currentEvidence.get(item.id) ?? [],
+			(currentEvidence.get(item.id) ?? []).filter(
+				(entry) =>
+					entry.row.kind !== "applicability" ||
+					!item.assetRecordIds.some((recordId) => {
+						const version = currentVersions.get(recordId);
+						return version && revalidationRequiredVersionIds.has(version.id);
+					})
+			),
 			currentEvidence,
 			activeRevision.items,
 			assetRecordsById,

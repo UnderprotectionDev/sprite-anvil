@@ -1,9 +1,10 @@
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type { SyntheticEvent } from "react";
 import { AssetVersionControls } from "@/features/asset-versions/ui/components/asset-version-controls";
 import { useAssetVersionWrites } from "@/features/asset-versions/ui/hooks/use-asset-version-writes";
+import { DependencyRevalidationManager } from "@/features/dependency-revalidation/ui/components/dependency-revalidation-manager";
 import { FamilyReadinessManager } from "@/features/family-readiness/ui/components/family-readiness-manager";
 import { SpecializedProfileContractManager } from "@/features/quality-evidence/ui/components/specialized-profile-contract-manager";
 import { client, orpc } from "@/utils/orpc";
@@ -23,6 +24,7 @@ const emptyAssetVersionCatalog = {
 };
 
 export function AssetFamiliesView({ projectId }: { projectId: string }) {
+	const queryClient = useQueryClient();
 	const projectsQuery = useQuery({
 		...orpc.projectContexts.list.queryOptions(),
 	});
@@ -47,6 +49,15 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 	const catalog = catalogQuery.data;
 	const assetVersionCatalog =
 		assetVersionQuery.data ?? emptyAssetVersionCatalog;
+	// The catalog lists canonical designs ascending by creation, so the last
+	// entry per family is the current selection.
+	const latestCanonicalVersionIdsByFamily = new Map<string, string>();
+	for (const design of assetVersionCatalog.canonicalDesigns) {
+		latestCanonicalVersionIdsByFamily.set(
+			design.assetFamilyId,
+			design.assetVersionId
+		);
+	}
 	const assetCategoriesById = new Map(
 		(assetRecordQuery.data ?? []).map((record) => [
 			record.id,
@@ -277,11 +288,32 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 						))}
 					</section>
 					{assetVersionQuery.data ? (
-						<AssetVersionControls
-							assetVersionCatalog={assetVersionCatalog}
-							catalog={catalog}
-							writes={assetVersionWrites}
-						/>
+						<>
+							<DependencyRevalidationManager
+								canonicalVersionIds={[
+									...latestCanonicalVersionIdsByFamily.values(),
+								]}
+								onImpactSaved={async () => {
+									await Promise.all(
+										catalog.assetFamilies.map((family) =>
+											queryClient.invalidateQueries({
+												queryKey: orpc.familyReadiness.list.queryOptions({
+													input: { projectId, assetFamilyId: family.id },
+												}).queryKey,
+											})
+										)
+									);
+								}}
+								projectId={projectId}
+								records={catalog.assetRecords}
+								versions={assetVersionCatalog.assetVersions}
+							/>
+							<AssetVersionControls
+								assetVersionCatalog={assetVersionCatalog}
+								catalog={catalog}
+								writes={assetVersionWrites}
+							/>
+						</>
 					) : null}
 				</>
 			) : null}

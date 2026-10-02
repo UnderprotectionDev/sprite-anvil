@@ -44,6 +44,8 @@
 │   │   │   │   │   └── server/
 │   │   │   │   ├── delivery-targets/
 │   │   │   │   │   └── server/
+│   │   │   │   ├── dependency-revalidation/
+│   │   │   │   │   └── server/
 │   │   │   │   ├── external-visual-analysis/
 │   │   │   │   │   └── server/
 │   │   │   │   ├── export-bundles/
@@ -167,6 +169,9 @@
 │       │   │   │   └── ui/
 │       │   │   │       ├── forms/
 │       │   │   │       └── views/
+│       │   │   ├── dependency-revalidation/
+│       │   │   │   └── ui/
+│       │   │   │       └── components/
 │       │   │   ├── external-visual-analysis/
 │       │   │   │   └── ui/
 │       │   │   │       ├── forms/

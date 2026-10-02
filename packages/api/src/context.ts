@@ -6,6 +6,7 @@ import type { AssetRecordStore } from "./asset-records";
 import type { AssetVersionStore } from "./asset-versions";
 import type { CollectionStore } from "./collections";
 import type { ProjectContextScopeStore } from "./context-scopes";
+import type { DependencyRevalidationStore } from "./dependency-revalidation";
 import type { FamilyReadinessStore } from "./family-readiness";
 import type { GameplayMetadataStore } from "./gameplay-metadata";
 import type { GenerationPackageStore } from "./generation-packages";
@@ -23,6 +24,7 @@ export interface Context {
 	assetVersionStore: AssetVersionStore;
 	collectionStore: CollectionStore;
 	db: Database;
+	dependencyRevalidationStore?: DependencyRevalidationStore;
 	familyReadinessStore?: FamilyReadinessStore;
 	gameplayMetadataStore?: GameplayMetadataStore;
 	generationPackageStore?: GenerationPackageStore;
