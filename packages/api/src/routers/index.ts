@@ -32,6 +32,7 @@ import { assetRecordsRouter } from "./asset-records";
 import { assetVersionsRouter } from "./asset-versions";
 import { collectionsRouter } from "./collections";
 import { familyReadinessRouter } from "./family-readiness";
+import { gameplayMetadataRouter } from "./gameplay-metadata";
 import { generationPackagesRouter } from "./generation-packages";
 import { projectsRouter } from "./projects";
 import { referenceProductionRouter } from "./reference-production";
@@ -105,6 +106,7 @@ export const appRouter = {
 	assetRecords: assetRecordsRouter,
 	collections: collectionsRouter,
 	generationPackages: generationPackagesRouter,
+	gameplayMetadata: gameplayMetadataRouter,
 	assetRecordTracking: assetRecordTrackingRouter,
 	referenceProduction: referenceProductionRouter,
 	rightsRecords: rightsRecordsRouter,

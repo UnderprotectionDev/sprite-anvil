@@ -10,6 +10,7 @@ import { Link } from "@tanstack/react-router";
 import { type ReactNode, type SyntheticEvent, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AssetRecordSearchPanel } from "@/features/asset-discovery/ui/components/asset-record-search-panel";
+import { GameplayMetadataPanel } from "@/features/gameplay-metadata/ui/views/gameplay-metadata-panel";
 import { GenerationPackagePanel } from "@/features/generation-packages/ui/views/generation-package-panel";
 import { RightsLineagePanel } from "@/features/rights-evidence/ui/components/rights-lineage-panel";
 import { RightsRecordPanel } from "@/features/rights-evidence/ui/components/rights-record-panel";
@@ -476,6 +477,12 @@ export function AssetRecordDetailView({
 						/>
 					)}
 					{trackingPanel}
+					{record.availability === "erased" ? null : (
+						<GameplayMetadataPanel
+							assetRecordId={record.id}
+							projectId={projectId}
+						/>
+					)}
 					{record.availability === "erased" ? null : (
 						<RightsRecordPanel
 							assetRecordId={record.id}
