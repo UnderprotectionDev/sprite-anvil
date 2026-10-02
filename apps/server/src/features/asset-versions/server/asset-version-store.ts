@@ -66,6 +66,10 @@ import {
 	toManualImportEvidence,
 } from "../../production-provenance/server/production-provenance-mapper";
 import { readAssetVersionApprovalBlockers } from "../../reviews/server/asset-version-approval";
+import {
+	readBatchReviewEvents,
+	recordBatchReviewEvents,
+} from "../../reviews/server/batch-review-events";
 
 const contentDigestPattern = /^[0-9a-f]{64}$/;
 
@@ -1232,6 +1236,53 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 			return toFileRecord(versionRow.version, versionRow.assetFamilyId);
 		},
 
+		async readReviewBlockers(userId, projectId, assetVersionId) {
+			if (!(await getProjectForUser(db, userId, projectId))) {
+				return null;
+			}
+			const [version] = await db
+				.select()
+				.from(assetVersions)
+				.where(
+					and(
+						eq(assetVersions.projectId, projectId),
+						eq(assetVersions.id, assetVersionId)
+					)
+				)
+				.limit(1);
+			if (!version) {
+				return null;
+			}
+			const approval = await checkReviewApproval(db, userId, version);
+			if (approval === true) {
+				return [];
+			}
+			return approval
+				? approval.blockers
+				: ["Bütünlük veya zorunlu üretim kanıtı eksik."];
+		},
+		readBatchReviewEvents: (userId, input) =>
+			readBatchReviewEvents(db, userId, input),
+		async recordBatchReviewEvents(userId, input) {
+			if (!(await getProjectForUser(db, userId, input.projectId))) {
+				return null;
+			}
+			if (input.decision === "approved") {
+				const results = await Promise.all(
+					input.targets.map((target) =>
+						this.readReviewBlockers(
+							userId,
+							input.projectId,
+							target.assetVersionId
+						)
+					)
+				);
+				if (results.some((blockers) => !blockers || blockers.length > 0)) {
+					return null;
+				}
+			}
+			return recordBatchReviewEvents(db, userId, input);
+		},
 		async recordReviewEvent(userId, input: AssetVersionReviewInput) {
 			const ownedProject = await getProjectForUser(db, userId, input.projectId);
 			if (!ownedProject) {

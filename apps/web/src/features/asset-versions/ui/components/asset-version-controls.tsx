@@ -11,6 +11,7 @@ import { ExternalWorkingFileEditUpload } from "@/features/production-provenance/
 import { VersionProductionEvidencePanel } from "@/features/production-provenance/ui/components/version-production-evidence-panel";
 import type { useAssetVersionWrites } from "../hooks/use-asset-version-writes";
 import { AssetVersionPreview } from "./asset-version-preview";
+import { BatchReviewControls } from "./batch-review-controls";
 import { CompositeVersionControls } from "./composite-version-controls";
 import { ProviderGenerationRecordDetails } from "./provider-generation-record-details";
 import { ProviderGenerationRecordForm } from "./provider-generation-record-form";
@@ -115,6 +116,17 @@ export function AssetVersionControls({
 						? "Durum kontrol ediliyor…"
 						: "Sürüm işleminin durumunu kontrol et"}
 				</Button>
+			) : null}
+			{assetVersionCatalog.assetVersions[0] ? (
+				<BatchReviewControls
+					onReview={writes.reviewBatch}
+					projectId={assetVersionCatalog.assetVersions[0].projectId}
+					versions={assetVersionCatalog.assetVersions.map((version) => ({
+						id: version.id,
+						name: `${catalog.assetRecords.find((record) => record.id === version.assetRecordId)?.name ?? version.assetRecordId} · Sürüm ${version.versionNumber}`,
+					}))}
+					writesDisabled={writes.writesDisabled}
+				/>
 			) : null}
 			{catalog.assetFamilies.map((family) => {
 				const familyRecords = recordsByFamily.get(family.id) ?? [];

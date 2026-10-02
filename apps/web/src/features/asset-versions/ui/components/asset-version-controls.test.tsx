@@ -10,6 +10,10 @@ import { afterEach, expect, test, vi } from "vitest";
 import type { useAssetVersionWrites } from "../hooks/use-asset-version-writes";
 import { AssetVersionControls } from "./asset-version-controls";
 
+vi.mock("@/utils/orpc", () => ({
+	client: { assetVersions: { previewBatchReview: vi.fn() } },
+}));
+
 vi.mock("./composite-version-controls", () => ({
 	CompositeVersionControls: () => null,
 }));
@@ -91,6 +95,7 @@ const writes = (
 		recordProviderGeneration: vi.fn().mockResolvedValue(true),
 		refreshCatalogs: vi.fn().mockResolvedValue({ isError: false }),
 		review: vi.fn().mockResolvedValue(true),
+		reviewBatch: vi.fn().mockResolvedValue(true),
 		reviewCompositeVersion: vi.fn().mockResolvedValue(true),
 		selectCanonicalDesign: vi.fn().mockResolvedValue(true),
 		statusMessage: null,

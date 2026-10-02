@@ -2,6 +2,10 @@ import { ORPCError } from "@orpc/server";
 import {
 	assetFamilyCanonicalDesignInputSchema,
 	assetFamilyCanonicalDesignSchema,
+	assetVersionBatchReviewInputSchema,
+	assetVersionBatchReviewPreviewInputSchema,
+	assetVersionBatchReviewPreviewSchema,
+	assetVersionBatchReviewResultSchema,
 	assetVersionCatalogSchema,
 	assetVersionListInputSchema,
 	assetVersionReviewEventSchema,
@@ -11,6 +15,7 @@ import {
 	compositeVersionReviewInputSchema,
 	compositeVersionSchema,
 } from "../asset-versions";
+import { previewBatchReview } from "../batch-version-review";
 import type { Context } from "../context";
 import { protectedProcedure } from "../index";
 import {
@@ -73,6 +78,69 @@ function assertApprovalEvidenceComplete(
 }
 
 export const assetVersionsRouter = {
+	previewBatchReview: protectedProcedure
+		.input(assetVersionBatchReviewPreviewInputSchema)
+		.output(assetVersionBatchReviewPreviewSchema)
+		.handler(async ({ context, input }) =>
+			previewBatchReview(
+				context,
+				input,
+				await readVersionCatalog(context, input.projectId)
+			)
+		),
+	reviewBatch: protectedProcedure
+		.input(assetVersionBatchReviewInputSchema)
+		.output(assetVersionBatchReviewResultSchema)
+		.handler(async ({ context, input }) => {
+			const catalog = await readVersionCatalog(context, input.projectId);
+			const existing = await context.assetVersionStore.readBatchReviewEvents(
+				context.session.user.id,
+				input
+			);
+			if (existing === "conflict") {
+				throw new ORPCError("CONFLICT", {
+					message: "Bu toplu inceleme isteği farklı kararlar için kullanılmış.",
+				});
+			}
+			if (existing) {
+				return { reviewEvents: existing };
+			}
+			const preview = await previewBatchReview(
+				context,
+				{
+					...input,
+					assetVersionIds: input.targets.map((target) => target.assetVersionId),
+				},
+				catalog
+			);
+			if (
+				preview.items.some(
+					(item, index) =>
+						item.expectedReviewEventId !==
+						input.targets[index]?.expectedReviewEventId
+				)
+			) {
+				throw new ORPCError("CONFLICT", {
+					message: "İnceleme kararları değişti. Önizlemeyi yeniden yükleyin.",
+				});
+			}
+			const blocked = preview.items.filter((item) => item.blockers.length > 0);
+			if (blocked.length > 0) {
+				throw new ORPCError("BAD_REQUEST", {
+					message: `Hiçbir İnceleme Kaydı yazılmadı: ${blocked.map((item) => `${item.assetVersionId}: ${item.blockers.join(", ")}`).join("; ")}`,
+				});
+			}
+			const events = await context.assetVersionStore.recordBatchReviewEvents(
+				context.session.user.id,
+				input
+			);
+			if (!events) {
+				throw new ORPCError("CONFLICT", {
+					message: "Toplu inceleme tamamlanamadı. Önizlemeyi yeniden yükleyin.",
+				});
+			}
+			return { reviewEvents: events };
+		}),
 	list: protectedProcedure
 		.input(assetVersionListInputSchema)
 		.output(assetVersionCatalogSchema)
