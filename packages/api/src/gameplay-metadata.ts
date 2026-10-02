@@ -1,6 +1,8 @@
 import { z } from "zod";
 import {
 	type SpecializedProfileContract,
+	type SpecializedProfileContractStore,
+	specializedProfileContractSchema,
 	specializedProfileIdSchema,
 } from "./specialized-profile-contracts";
 
@@ -79,6 +81,15 @@ export const gameplayMetadataRecordSchema = gameplayMetadataWriteInputSchema
 	.extend({
 		contractRevisionId: identifier,
 		createdAt: z.iso.datetime(),
+		contractSnapshot: specializedProfileContractSchema.optional(),
+		review: z
+			.object({
+				sourceRecordId: z.uuid(),
+				reviewedByUserId: identifier,
+				reviewedAt: z.iso.datetime(),
+			})
+			.strict()
+			.optional(),
 		fields: z
 			.array(
 				z
@@ -120,6 +131,12 @@ export type GameplayMetadataRecord = z.infer<
 	typeof gameplayMetadataRecordSchema
 >;
 export type GameplayMetadataFrame = z.infer<typeof gameplayMetadataFrameSchema>;
+export const gameplayMetadataReviewInputSchema = gameplayMetadataListInputSchema
+	.extend({
+		id: z.uuid(),
+		recordId: z.uuid(),
+	})
+	.strict();
 export interface GameplayMetadataStore {
 	append: (
 		userId: string,
@@ -131,3 +148,9 @@ export interface GameplayMetadataStore {
 		assetRecordId: string
 	) => Promise<z.infer<typeof gameplayMetadataCatalogSchema> | null>;
 }
+export type GameplayMetadataReviewHandler = (request: {
+	userId: string;
+	input: z.infer<typeof gameplayMetadataReviewInputSchema>;
+	store: GameplayMetadataStore;
+	contractStore?: SpecializedProfileContractStore;
+}) => Promise<GameplayMetadataRecord>;

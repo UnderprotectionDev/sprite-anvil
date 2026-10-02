@@ -1,4 +1,5 @@
 import {
+	type GameplayMetadataRecord,
 	type GameplayMetadataWriteInput,
 	getGameplayMetadataFields,
 } from "@sprite-anvil/api/gameplay-metadata";
@@ -9,6 +10,7 @@ import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
 import { GameplayMetadataForm } from "../forms/gameplay-metadata-form";
+import { GameplayMetadataReview } from "./gameplay-metadata-review";
 
 const sourceLabels = {
 	finalized_source: "Kesinleştirilmiş kaynak",
@@ -30,6 +32,20 @@ export function GameplayMetadataPanel({
 	);
 	const contractsQuery = useQuery(
 		orpc.specializedProfileContracts.list.queryOptions({ input: { projectId } })
+	);
+	const versionsQuery = useQuery(
+		orpc.assetVersions.list.queryOptions({ input: { projectId } })
+	);
+	const [editing, setEditing] = useState<GameplayMetadataRecord | undefined>();
+	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const selected = catalogQuery.data?.records.find(
+		(record) => record.id === selectedId
+	);
+	const selectedVersion = versionsQuery.data?.assetVersions.find(
+		(version) =>
+			version.id === selected?.assetVersionId &&
+			version.assetRecordId === assetRecordId &&
+			version.integrityVerified
 	);
 	const [pending, setPending] = useState(false);
 	const [uncertain, setUncertain] = useState<GameplayMetadataWriteInput | null>(
@@ -133,24 +149,81 @@ export function GameplayMetadataPanel({
 							</p>
 						)}
 						<GameplayMetadataForm
-							contracts={contracts}
+							contracts={
+								editing?.contractSnapshot
+									? [
+											{
+												...editing.contractSnapshot,
+												contractRevisionId: editing.contractRevisionId,
+											},
+										]
+									: contracts
+							}
 							disabled={pending || Boolean(uncertain)}
 							frames={catalogQuery.data.frames}
-							onSave={(draft) =>
-								save({
+							initialRecord={editing}
+							key={`form-${editing?.id ?? "new"}`}
+							onSave={async (draft) => {
+								const saved = await save({
 									...draft,
 									projectId,
 									assetRecordId,
 									id: crypto.randomUUID(),
-								})
-							}
+								});
+								if (saved) {
+									setEditing(undefined);
+								}
+								return saved;
+							}}
 						/>
+						{Boolean(editing) && (
+							<p className="space-x-2">
+								<span>
+									Düzenleme yeni, incelenmemiş kayıt oluşturur; eski inceleme
+									değişmez.
+								</span>
+								<Button
+									disabled={pending || Boolean(uncertain)}
+									onClick={() => setEditing(undefined)}
+									type="button"
+								>
+									Düzenlemeyi iptal et
+								</Button>
+							</p>
+						)}
+						{selected && (
+							<GameplayMetadataReview
+								contract={
+									selected.contractSnapshot ??
+									contracts.find(
+										(contract) =>
+											contract.contractRevisionId ===
+											selected.contractRevisionId
+									)
+								}
+								frames={catalogQuery.data.frames}
+								key={`review-${selected.id}`}
+								onReviewed={async (reviewed) => {
+									const result = await catalogQuery.refetch();
+									if (result.isError) {
+										throw new Error(
+											"İnceleme kaydedildi; liste yeniden okunamadı. Aynı incelemeyi yeniden deneyin."
+										);
+									}
+									setSelectedId(reviewed.id);
+								}}
+								previewUrl={selectedVersion?.previewUrl}
+								record={selected}
+								records={catalogQuery.data.records}
+							/>
+						)}
 						<h3 className="font-medium">Kaydedilen oyun içi bilgiler</h3>
 						{!catalogQuery.data.records.length && (
 							<p>Henüz oyun içi bilgi kaydı yok.</p>
 						)}
 						{catalogQuery.data.records.map((record) => (
 							<article className="space-y-2 rounded border p-3" key={record.id}>
+								<p>{record.review ? "İncelendi" : "Henüz incelenmedi"}</p>
 								<p>
 									{record.frameKey} — {record.useContext}
 								</p>
@@ -171,6 +244,22 @@ export function GameplayMetadataPanel({
 										</div>
 									))}
 								</dl>
+								<div className="flex gap-2">
+									<Button
+										disabled={pending || Boolean(uncertain)}
+										onClick={() => setSelectedId(record.id)}
+										type="button"
+									>
+										Bilgileri incele
+									</Button>
+									<Button
+										disabled={pending || Boolean(uncertain)}
+										onClick={() => setEditing(record)}
+										type="button"
+									>
+										Bilgileri düzenle
+									</Button>
+								</div>
 							</article>
 						))}
 					</>

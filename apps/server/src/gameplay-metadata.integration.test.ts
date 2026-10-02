@@ -25,6 +25,8 @@ import { projectSpecializedProfileContracts } from "@sprite-anvil/db/schema/spec
 import { SQL } from "bun";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sql";
+import { readGameplayMetadataPackageTarget } from "./features/gameplay-metadata/server/gameplay-metadata-package-target";
+import { reviewGameplayMetadata } from "./features/gameplay-metadata/server/gameplay-metadata-review";
 import { createGameplayMetadataStore } from "./features/gameplay-metadata/server/gameplay-metadata-store";
 import { createSpecializedProfileContractStore } from "./features/quality-evidence/server/specialized-profile-contract-store";
 
@@ -55,6 +57,8 @@ test.skipIf(!databaseUrl)(
 			throw new Error("Character contract is required.");
 		}
 		const context = {
+			reviewGameplayMetadata,
+			readGameplayMetadataPackageTarget,
 			session: { user: { id: userId } },
 			gameplayMetadataStore: createGameplayMetadataStore(db),
 			specializedProfileContractStore:
@@ -147,6 +151,33 @@ test.skipIf(!databaseUrl)(
 				{ context: rereadContext }
 			);
 			expect(reread.records).toEqual([saved]);
+			const decision = {
+				projectId,
+				assetRecordId,
+				recordId: saved.id,
+				id: crypto.randomUUID(),
+			};
+			const reviewed = await call(appRouter.gameplayMetadata.review, decision, {
+				context,
+			});
+			const target = { projectId, assetRecordId, recordId: reviewed.id };
+			const metadataPackage = await call(
+				appRouter.gameplayMetadata.createPackage,
+				target,
+				{ context }
+			);
+			expect(
+				await call(appRouter.gameplayMetadata.review, decision, {
+					context: rereadContext,
+				})
+			).toEqual(reviewed);
+			expect(
+				await call(
+					appRouter.gameplayMetadata.readPackage,
+					{ ...target, package: metadataPackage },
+					{ context: rereadContext }
+				)
+			).toEqual(metadataPackage);
 			expect(
 				await call(appRouter.gameplayMetadata.write, request, { context })
 			).toEqual(saved);

@@ -2,6 +2,8 @@ import type { Context as ApiContext } from "@sprite-anvil/api/context";
 import type { Context as HonoContext } from "hono";
 import { assetVersionObjectKeySchema } from "./cloudflare";
 import { verifyAssetVersionStream } from "./features/asset-versions/server/asset-version-integrity";
+import { readGameplayMetadataPackageTarget } from "./features/gameplay-metadata/server/gameplay-metadata-package-target";
+import { reviewGameplayMetadata } from "./features/gameplay-metadata/server/gameplay-metadata-review";
 import {
 	assetFamilyStore,
 	assetRecordStore,
@@ -44,6 +46,8 @@ export async function createContext({
 		collectionStore,
 		generationPackageStore,
 		gameplayMetadataStore,
+		reviewGameplayMetadata,
+		readGameplayMetadataPackageTarget,
 		verifyAssetVersionContent: async (userId, projectId, assetVersionId) => {
 			const fileRecord = await assetVersionStore.getFileRecord(
 				userId,

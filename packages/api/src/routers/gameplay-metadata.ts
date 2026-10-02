@@ -1,6 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
 import { ORPCError } from "@orpc/server";
-import { z } from "zod";
 import type { Context } from "../context";
 import {
 	type GameplayMetadataRecord,
@@ -8,11 +7,36 @@ import {
 	gameplayMetadataCatalogSchema,
 	gameplayMetadataListInputSchema,
 	gameplayMetadataRecordSchema,
+	gameplayMetadataReviewInputSchema,
 	gameplayMetadataWriteInputSchema,
 	getGameplayMetadataFields,
 } from "../gameplay-metadata";
+import { isGameplayMetadataValueValid } from "../gameplay-metadata-integrity";
+import {
+	createGameplayMetadataPackage,
+	type GameplayMetadataPackage,
+	gameplayMetadataPackageInputSchema,
+	gameplayMetadataPackageReadInputSchema,
+	gameplayMetadataPackageSchema,
+	readGameplayMetadataPackage,
+} from "../gameplay-metadata-package";
 import { protectedProcedure } from "../index";
-import type { SpecializedProfileContract } from "../specialized-profile-contracts";
+
+async function readPackageTarget(
+	context: Context,
+	input: { projectId: string; assetRecordId: string; recordId: string }
+) {
+	if (!context.readGameplayMetadataPackageTarget) {
+		throw new ORPCError("INTERNAL_SERVER_ERROR", {
+			message: "Gameplay Metadata package service is unavailable.",
+		});
+	}
+	return await context.readGameplayMetadataPackageTarget({
+		userId: context.session?.user.id ?? "",
+		input,
+		store: getStore(context),
+	});
+}
 
 function getStore(context: Context) {
 	if (!context.gameplayMetadataStore) {
@@ -23,23 +47,20 @@ function getStore(context: Context) {
 	return context.gameplayMetadataStore;
 }
 
-function validValue(
-	field: SpecializedProfileContract["metadataFields"][number],
-	value: unknown
+async function withGameplayMetadataPackageErrors(
+	operation: () => Promise<GameplayMetadataPackage>
 ) {
-	if (value === null) {
-		return !field.required;
+	try {
+		return await operation();
+	} catch (failure) {
+		throw new ORPCError("BAD_REQUEST", {
+			cause: failure,
+			message:
+				failure instanceof Error
+					? failure.message
+					: "Gameplay Metadata package is invalid.",
+		});
 	}
-	const validators = {
-		identifier: z.string().min(1).max(512),
-		text: z.string().min(1).max(4096),
-		text_list: z.array(z.string().min(1).max(512)).max(256),
-		integer: z.number().int(),
-		number: z.number(),
-		boolean: z.boolean(),
-		json: z.json(),
-	};
-	return validators[field.type].safeParse(value).success;
 }
 
 /**
@@ -52,9 +73,16 @@ function matchesSavedOperation(
 	record: GameplayMetadataRecord,
 	input: GameplayMetadataWriteInput
 ) {
-	const { fields, createdAt: _createdAt, ...target } = record;
+	const {
+		fields,
+		createdAt: _createdAt,
+		contractSnapshot: _snapshot,
+		review,
+		...target
+	} = record;
 	const { fields: submittedFields, ...submittedTarget } = input;
 	if (
+		review ||
 		!isDeepStrictEqual(target, submittedTarget) ||
 		new Set(submittedFields.map((field) => field.fieldId)).size !==
 			submittedFields.length ||
@@ -81,6 +109,40 @@ function matchesSavedOperation(
 }
 
 export const gameplayMetadataRouter = {
+	createPackage: protectedProcedure
+		.input(gameplayMetadataPackageInputSchema)
+		.output(gameplayMetadataPackageSchema)
+		.handler(async ({ context, input }) => {
+			const { record, frames } = await readPackageTarget(context, input);
+			return await withGameplayMetadataPackageErrors(() =>
+				createGameplayMetadataPackage(record, frames)
+			);
+		}),
+	readPackage: protectedProcedure
+		.input(gameplayMetadataPackageReadInputSchema)
+		.output(gameplayMetadataPackageSchema)
+		.handler(async ({ context, input }) => {
+			const { record, frames } = await readPackageTarget(context, input);
+			return await withGameplayMetadataPackageErrors(() =>
+				readGameplayMetadataPackage(input.package, record, frames)
+			);
+		}),
+	review: protectedProcedure
+		.input(gameplayMetadataReviewInputSchema)
+		.output(gameplayMetadataRecordSchema)
+		.handler(async ({ context, input }) => {
+			if (!context.reviewGameplayMetadata) {
+				throw new ORPCError("INTERNAL_SERVER_ERROR", {
+					message: "Gameplay Metadata review service is unavailable.",
+				});
+			}
+			return await context.reviewGameplayMetadata({
+				userId: context.session.user.id,
+				input,
+				store: getStore(context),
+				contractStore: context.specializedProfileContractStore,
+			});
+		}),
 	list: protectedProcedure
 		.input(gameplayMetadataListInputSchema)
 		.output(gameplayMetadataCatalogSchema)
@@ -187,7 +249,7 @@ export const gameplayMetadataRouter = {
 					}
 					({ value } = pivot);
 				}
-				if (!validValue(definition, value)) {
+				if (!isGameplayMetadataValueValid(definition, value)) {
 					throw new ORPCError("BAD_REQUEST", {
 						message: `Invalid or missing Gameplay Metadata field: ${definition.id}.`,
 					});
@@ -213,6 +275,7 @@ export const gameplayMetadataRouter = {
 				fields,
 				contractRevisionId: activation.contractRevisionId,
 				createdAt: new Date().toISOString(),
+				contractSnapshot: activation.contract,
 			});
 			const saved = await store.append(context.session.user.id, record);
 			if (!saved) {
@@ -229,10 +292,10 @@ export const gameplayMetadataRouter = {
 			const persisted = readback?.records.find(
 				(candidate) => candidate.id === saved.id
 			);
-			if (!persisted) {
+			if (!(persisted && isDeepStrictEqual(record, persisted))) {
 				throw new ORPCError("INTERNAL_SERVER_ERROR", {
 					message:
-						"Gameplay Metadata could not be read back. Check the saved records before retrying.",
+						"Gameplay Metadata integrity failed during readback. Check the saved records before retrying.",
 				});
 			}
 			return persisted;
