@@ -32,6 +32,12 @@ const qualityRequirementClassSchema = z.enum([
 	"general_asset_support",
 ]);
 
+export const qualityVersionTargetSchema = z.discriminatedUnion("kind", [
+	z.object({ kind: z.literal("unit"), id: idSchema }).strict(),
+	z.object({ kind: z.literal("composite"), id: idSchema }).strict(),
+]);
+export type QualityVersionTarget = z.infer<typeof qualityVersionTargetSchema>;
+
 export const requiredSetItemKindSchema = z.enum([
 	"direction",
 	"animation",
@@ -169,9 +175,27 @@ export const readinessEvidenceInputSchema = z.discriminatedUnion("kind", [
 			method: z.string().trim().min(1).max(1000),
 			rationale: z.string().trim().min(1).max(2000),
 			observedValue: z.string().trim().min(1).max(500).optional(),
+			waiverEvidenceId: idSchema.optional(),
+			versionTarget: qualityVersionTargetSchema.optional(),
 		})
 		.strict()
 		.superRefine((input, context) => {
+			if (input.result === "waived" && !input.versionTarget) {
+				context.addIssue({
+					code: "custom",
+					path: ["versionTarget"],
+					message:
+						"Kalite İstisnası için kesin Birim Sürümü veya Birleşik Sürüm gerekir.",
+				});
+			}
+			if ((input.result === "waived") !== Boolean(input.waiverEvidenceId)) {
+				context.addIssue({
+					code: "custom",
+					path: ["waiverEvidenceId"],
+					message:
+						"Kalite İstisnası yalnız incelenen ölçüm kanıtına bağlanabilir.",
+				});
+			}
 			if (input.result === "waived" && !input.observedValue) {
 				context.addIssue({
 					code: "custom",
@@ -221,6 +245,7 @@ export const readinessEvidenceSchema = z
 		ruleClass: profileRuleClassSchema.nullable(),
 		testId: qualityRuleIdSchema.nullable(),
 		observedValue: z.string().nullable(),
+		versionTarget: qualityVersionTargetSchema.nullish(),
 		method: z.string().nullable(),
 		rationale: z.string(),
 		createdAt: z.string().datetime(),
@@ -246,6 +271,7 @@ export const familyReadinessItemSchema = z
 			])
 		),
 		currentAssetVersionIds: z.array(idSchema),
+		qualityVersionTargets: z.array(qualityVersionTargetSchema).optional(),
 		qualityReadiness: z.enum([
 			"export_ready",
 			"exceptions_ready",

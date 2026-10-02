@@ -20,6 +20,26 @@ interface RefreshResult {
 
 type ReviewDecision = AssetVersionReviewInput["decision"];
 type CompositeReviewDecision = CompositeVersionReviewInput["decision"];
+
+function getUploadErrorMessage(result: unknown, fallback: string) {
+	if (
+		typeof result === "object" &&
+		result !== null &&
+		"error" in result &&
+		typeof result.error === "string"
+	) {
+		return result.error;
+	}
+	return fallback;
+}
+
+function createUploadResponseError(message: string, status: number) {
+	return Object.assign(new Error(message), {
+		code: "HTTP_RESPONSE_ERROR",
+		status,
+	});
+}
+
 interface UploadOptions {
 	managedSnapshot?: File;
 	productionSource?: "user_reported_provider";
@@ -190,11 +210,10 @@ export function useAssetVersionWrites(
 			responseStatus = response.status;
 			const result: unknown = await response.json();
 			if (!response.ok) {
-				const message =
-					result && typeof result === "object" && "error" in result
-						? String(result.error)
-						: "Varlık Sürümü yüklenemedi.";
-				throw new Error(message);
+				throw createUploadResponseError(
+					getUploadErrorMessage(result, "Varlık Sürümü yüklenemedi."),
+					response.status
+				);
 			}
 			candidateConfirmed = true;
 			if (managedSnapshot) {
@@ -227,13 +246,13 @@ export function useAssetVersionWrites(
 				responseStatus = snapshotResponse.status;
 				const snapshotResult: unknown = await snapshotResponse.json();
 				if (!snapshotResponse.ok) {
-					const message =
-						snapshotResult &&
-						typeof snapshotResult === "object" &&
-						"error" in snapshotResult
-							? String(snapshotResult.error)
-							: "Yönetilen Kopya kaydedilemedi.";
-					throw new Error(message);
+					throw createUploadResponseError(
+						getUploadErrorMessage(
+							snapshotResult,
+							"Yönetilen Kopya kaydedilemedi."
+						),
+						snapshotResponse.status
+					);
 				}
 			}
 			writeConfirmed = true;

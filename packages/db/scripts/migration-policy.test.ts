@@ -22,7 +22,50 @@ test("accepts an exact applied prefix and a clean empty database", () => {
 	expect(() => assertMigrationHistory(local, [], false)).not.toThrow();
 });
 
-test("rejects untracked tables, ahead history, changed SQL, order and gaps", () => {
+test("accepts matching migration identities after sequence offsets and gaps", () => {
+	const history = local.map((migration, index) => ({
+		...migration,
+		id: 45 + index * 2,
+	}));
+	expect(() => assertMigrationHistory(local, history, true)).not.toThrow();
+	expect(() =>
+		assertMigrationHistory(local, [{ ...applied[0], id: 45 }], true)
+	).not.toThrow();
+});
+
+test("rejects invalid, duplicate and reversed migration record IDs", () => {
+	for (const id of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+		expect(() =>
+			assertMigrationHistory(local, [{ ...applied[0], id }], true)
+		).toThrow();
+	}
+	for (const id of [44, 45]) {
+		expect(() =>
+			assertMigrationHistory(
+				local,
+				[
+					{ ...local[0], id: 45 },
+					{ ...local[1], id },
+				],
+				true
+			)
+		).toThrow();
+	}
+});
+
+test("sequence offsets do not hide changed or missing migration identities", () => {
+	for (const migration of [
+		{ ...local[0], hash: "changed" },
+		{ ...local[0], createdAt: 2 },
+		local[1],
+	]) {
+		expect(() =>
+			assertMigrationHistory(local, [{ ...migration, id: 45 }], true)
+		).toThrow();
+	}
+});
+
+test("rejects untracked tables, ahead history, changed SQL and missing identities", () => {
 	expect(() => assertMigrationHistory(local, [], true)).toThrow();
 	expect(() =>
 		assertMigrationHistory(local, [...applied, ...applied], true)
@@ -38,7 +81,7 @@ test("rejects untracked tables, ahead history, changed SQL, order and gaps", () 
 		)
 	).toThrow();
 	expect(() =>
-		assertMigrationHistory(local, [{ ...applied[0], id: 2 }], true)
+		assertMigrationHistory(local, [{ ...applied[0], id: 0 }], true)
 	).toThrow();
 	expect(() =>
 		assertMigrationHistory(local, [{ ...applied[0], createdAt: 2 }], true)

@@ -8,7 +8,13 @@ import {
 	assetRecords,
 	subjectIdentities,
 } from "@sprite-anvil/db/schema/asset-records";
-import { assetVersions } from "@sprite-anvil/db/schema/asset-versions";
+import {
+	assetVersions,
+	compositeVersionReviewEvents,
+	compositeVersions,
+	compositionMemberships,
+	unitVersions,
+} from "@sprite-anvil/db/schema/asset-versions";
 import { user } from "@sprite-anvil/db/schema/auth";
 import { visualWorlds } from "@sprite-anvil/db/schema/context-scopes";
 import {
@@ -180,7 +186,7 @@ test.skipIf(!databaseUrl)(
 							name: "Target sizes and backgrounds",
 							disposition: "required",
 							assetRecordIds: [assetRecord.id],
-							testId: "target_size_backgrounds",
+							testId: "icon.light_dark_target_size",
 						},
 					],
 				},
@@ -239,7 +245,7 @@ test.skipIf(!databaseUrl)(
 				projectId,
 				assetRecordId: assetRecord.id,
 				assetFamilyId: family.id,
-				versionNumber: 1,
+				versionNumber: 2,
 				fileName: "east-facing-icon.png",
 				contentType: "image/png",
 				sourceImageWidth: 1,
@@ -253,6 +259,43 @@ test.skipIf(!databaseUrl)(
 				objectKey: `family-readiness/${assetVersionId}.png`,
 				createdByUserId: userId,
 			});
+			const [versionFile] = await db
+				.select()
+				.from(assetVersions)
+				.where(eq(assetVersions.id, assetVersionId));
+			if (!versionFile) {
+				throw new Error("The measured version file is required.");
+			}
+			const sourceAssetVersionId = crypto.randomUUID();
+			await db.insert(assetVersions).values({
+				...versionFile,
+				id: sourceAssetVersionId,
+				versionNumber: 1,
+				idempotencyKey: crypto.randomUUID(),
+				objectKey: `family-readiness/${sourceAssetVersionId}.png`,
+			});
+			const unitVersionId = crypto.randomUUID();
+			await db.insert(unitVersions).values({
+				id: unitVersionId,
+				projectId,
+				assetRecordId: assetRecord.id,
+				assetVersionId,
+				sourceAssetVersionId,
+				unitType: "state",
+				unitKey: "combat",
+				versionNumber: 1,
+				createdByUserId: userId,
+			});
+			const composite = await call(
+				appRouter.assetVersions.createCompositeVersion,
+				{
+					projectId,
+					assetRecordId: assetRecord.id,
+					unitVersionIds: [unitVersionId],
+					idempotencyKey: crypto.randomUUID(),
+				},
+				{ context }
+			);
 			const afterFailedEvidence = await call(
 				appRouter.familyReadiness.recordEvidence,
 				{
@@ -262,7 +305,7 @@ test.skipIf(!databaseUrl)(
 					itemId: "target-size-backgrounds",
 					kind: "usage_test",
 					result: "failed",
-					testId: "target_size_backgrounds",
+					testId: "icon.light_dark_target_size",
 					method: "Reviewed the icon on light and dark backgrounds.",
 					rationale: "The icon is not readable at the smallest target size.",
 				},
@@ -319,7 +362,7 @@ test.skipIf(!databaseUrl)(
 			);
 			expect(persistedUsageEvidence).toMatchObject({
 				result: "failed",
-				testId: "target_size_backgrounds",
+				testId: "icon.light_dark_target_size",
 				assetVersionIds: [assetVersionId],
 				profileContractRevisionIds: [
 					activeIconContractRevision.contractRevisionId,
@@ -349,6 +392,263 @@ test.skipIf(!databaseUrl)(
 				isCurrent: true,
 			});
 			expect(reread.status).toBe("incomplete");
+			const measuredRule = activeIconContractRevision.contract.rules.find(
+				(rule) => rule.class === "waivable_requirement"
+			);
+			if (!measuredRule) {
+				throw new Error("The icon contract must contain a measurable rule.");
+			}
+			const measurementInput = {
+				projectId,
+				assetFamilyId: family.id,
+				revisionId: firstRevision.id,
+				itemId: "target-size-backgrounds",
+				kind: "quality" as const,
+				result: "failed" as const,
+				ruleId: measuredRule.id,
+				method: "Measured at native scale.",
+				rationale: "The measured dimensions exceed the profile tolerance.",
+				observedValue: "96%",
+				versionTarget: { kind: "unit" as const, id: unitVersionId },
+			};
+			const measured = await call(
+				appRouter.familyReadiness.recordEvidence,
+				measurementInput,
+				{ context }
+			);
+			const source = measured.items[0]?.latestEvidence.find(
+				(evidence) => evidence.ruleId === measuredRule.id
+			);
+			if (!source) {
+				throw new Error("The failed measurement must be readable.");
+			}
+			const waiverInput = {
+				...measurementInput,
+				result: "waived" as const,
+				waiverEvidenceId: source.id,
+				rationale: "The intentional overflow is accepted for this exact use.",
+			};
+			await Promise.all(
+				[
+					{ ...waiverInput, waiverEvidenceId: "unrelated-evidence" },
+					{ ...waiverInput, observedValue: "97%" },
+					{ ...waiverInput, method: "A different measurement method." },
+					{ ...waiverInput, ruleId: humanReview.id },
+					{ ...waiverInput, ruleId: "icon.metadata_roundtrip" },
+					{ ...waiverInput, ruleId: "icon.readability_advisory" },
+					{
+						...waiverInput,
+						versionTarget: { kind: "unit" as const, id: "foreign-unit" },
+					},
+					{
+						...waiverInput,
+						versionTarget: { kind: "composite" as const, id: composite.id },
+					},
+				].map((invalidInput) =>
+					expect(
+						call(appRouter.familyReadiness.recordEvidence, invalidInput, {
+							context,
+						})
+					).rejects.toMatchObject({ code: "BAD_REQUEST" })
+				)
+			);
+			await call(appRouter.familyReadiness.recordEvidence, waiverInput, {
+				context,
+			});
+			const waiverReadback = await call(
+				appRouter.familyReadiness.list,
+				{ projectId, assetFamilyId: family.id },
+				{ context: rereadContext }
+			);
+			expect(waiverReadback.items[0]?.latestEvidence).toContainEqual(
+				expect.objectContaining({
+					ruleId: source.ruleId,
+					ruleClass: "waivable_requirement",
+					result: "waived",
+					observedValue: source.observedValue,
+					method: source.method,
+					versionTarget: source.versionTarget,
+					assetVersionIds: source.assetVersionIds,
+					profileContractRevisionIds: source.profileContractRevisionIds,
+					contextRevisionId: source.contextRevisionId,
+					canonicalDesignVersionId: source.canonicalDesignVersionId,
+					visualWorldId: source.visualWorldId,
+					useContext: source.useContext,
+					createdByUserId: userId,
+					rationale: waiverInput.rationale,
+					isCurrent: true,
+				})
+			);
+			expect(waiverReadback.items[0]?.qualityReadiness).toBe("blocked");
+			await expect(
+				call(appRouter.familyReadiness.recordEvidence, waiverInput, { context })
+			).rejects.toMatchObject({ code: "BAD_REQUEST" });
+			await Promise.all(
+				activeIconContractRevision.contract.rules
+					.filter((rule) => rule.id !== measuredRule.id)
+					.map((rule) =>
+						call(
+							appRouter.familyReadiness.recordEvidence,
+							{
+								...measurementInput,
+								ruleId: rule.id,
+								result: rule.class === "quality_advisory" ? "failed" : "passed",
+							},
+							{ context }
+						)
+					)
+			);
+			const exceptionsReady = await call(
+				appRouter.familyReadiness.recordEvidence,
+				{
+					projectId,
+					assetFamilyId: family.id,
+					revisionId: firstRevision.id,
+					itemId: "target-size-backgrounds",
+					kind: "usage_test",
+					result: "passed",
+					testId: "icon.light_dark_target_size",
+					method: "Inspected on all required backgrounds and target sizes.",
+					rationale: "All required usage tests now pass.",
+				},
+				{ context }
+			);
+			expect(exceptionsReady.items[0]?.qualityReadiness).toBe(
+				"exceptions_ready"
+			);
+			await db
+				.update(familyReadinessEvidence)
+				.set({ unitVersionId: null })
+				.where(
+					and(
+						eq(familyReadinessEvidence.assetFamilyId, family.id),
+						eq(familyReadinessEvidence.ruleId, measuredRule.id),
+						eq(familyReadinessEvidence.result, "waived")
+					)
+				);
+			const legacyWaiver = await call(
+				appRouter.familyReadiness.list,
+				{ projectId, assetFamilyId: family.id },
+				{ context: rereadContext }
+			);
+			expect(legacyWaiver.items[0]?.qualityReadiness).toBe("blocked");
+			expect(legacyWaiver.items[0]?.latestEvidence).toContainEqual(
+				expect.objectContaining({
+					result: "waived",
+					versionTarget: null,
+					isCurrent: false,
+				})
+			);
+			const exportReady = await call(
+				appRouter.familyReadiness.recordEvidence,
+				{
+					...measurementInput,
+					result: "passed",
+				},
+				{ context }
+			);
+			expect(exportReady.items[0]?.qualityReadiness).toBe("export_ready");
+			await expect(
+				call(appRouter.familyReadiness.recordEvidence, waiverInput, { context })
+			).rejects.toMatchObject({ code: "BAD_REQUEST" });
+			await Promise.all(
+				[{ ...context, session: null }, createContext(db, "foreign-user")].map(
+					(deniedContext) =>
+						expect(
+							call(appRouter.familyReadiness.recordEvidence, waiverInput, {
+								context: deniedContext,
+							})
+						).rejects.toMatchObject({
+							code: deniedContext.session ? "BAD_REQUEST" : "UNAUTHORIZED",
+						})
+				)
+			);
+			const compositeMeasurement = await call(
+				appRouter.familyReadiness.recordEvidence,
+				{
+					...measurementInput,
+					versionTarget: { kind: "composite", id: composite.id },
+				},
+				{ context }
+			);
+			const compositeSource =
+				compositeMeasurement.items[0]?.latestEvidence.find(
+					(evidence) => evidence.ruleId === measuredRule.id
+				);
+			if (!compositeSource) {
+				throw new Error("The composite measurement is required.");
+			}
+			const compositeWaiver = {
+				...waiverInput,
+				waiverEvidenceId: compositeSource.id,
+				versionTarget: { kind: "composite" as const, id: composite.id },
+			};
+			await db
+				.update(assetFamilies)
+				.set({ useContext: "inventory" })
+				.where(eq(assetFamilies.id, family.id));
+			await expect(
+				call(appRouter.familyReadiness.recordEvidence, compositeWaiver, {
+					context,
+				})
+			).rejects.toMatchObject({ code: "BAD_REQUEST" });
+			await db
+				.update(assetFamilies)
+				.set({ useContext: "combat" })
+				.where(eq(assetFamilies.id, family.id));
+			const compositeResult = await call(
+				appRouter.familyReadiness.recordEvidence,
+				compositeWaiver,
+				{ context }
+			);
+			expect(compositeResult.items[0]?.qualityReadiness).toBe("blocked");
+			await Promise.all(
+				activeIconContractRevision.contract.rules
+					.filter((rule) => rule.id !== measuredRule.id)
+					.map((rule) =>
+						call(
+							appRouter.familyReadiness.recordEvidence,
+							{
+								...measurementInput,
+								versionTarget: compositeWaiver.versionTarget,
+								ruleId: rule.id,
+								result: rule.class === "quality_advisory" ? "failed" : "passed",
+							},
+							{ context }
+						)
+					)
+			);
+			const compositeReady = await call(
+				appRouter.familyReadiness.list,
+				{ projectId, assetFamilyId: family.id },
+				{ context: rereadContext }
+			);
+			expect(compositeReady.items[0]?.qualityReadiness).toBe(
+				"exceptions_ready"
+			);
+			await call(
+				appRouter.assetVersions.createCompositeVersion,
+				{
+					projectId,
+					assetRecordId: assetRecord.id,
+					unitVersionIds: [unitVersionId],
+					idempotencyKey: crypto.randomUUID(),
+				},
+				{ context }
+			);
+			const replacedComposite = await call(
+				appRouter.familyReadiness.list,
+				{ projectId, assetFamilyId: family.id },
+				{ context: rereadContext }
+			);
+			expect(replacedComposite.items[0]?.qualityReadiness).toBe("blocked");
+			expect(replacedComposite.items[0]?.latestEvidence).toContainEqual(
+				expect.objectContaining({
+					result: "waived",
+					versionTarget: { kind: "composite", id: composite.id },
+					isCurrent: false,
+				})
+			);
 		} finally {
 			if (insertedUser && projectId) {
 				if (familyId) {
@@ -381,8 +681,20 @@ test.skipIf(!databaseUrl)(
 						);
 					if (assetVersionId) {
 						await db
+							.delete(compositeVersionReviewEvents)
+							.where(eq(compositeVersionReviewEvents.projectId, projectId));
+						await db
+							.delete(compositionMemberships)
+							.where(eq(compositionMemberships.projectId, projectId));
+						await db
+							.delete(compositeVersions)
+							.where(eq(compositeVersions.projectId, projectId));
+						await db
+							.delete(unitVersions)
+							.where(eq(unitVersions.projectId, projectId));
+						await db
 							.delete(assetVersions)
-							.where(eq(assetVersions.id, assetVersionId));
+							.where(eq(assetVersions.projectId, projectId));
 					}
 					await db
 						.delete(assetRecords)

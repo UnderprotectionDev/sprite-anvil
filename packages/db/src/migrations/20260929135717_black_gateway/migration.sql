@@ -56,6 +56,7 @@ CREATE UNIQUE INDEX "family_required_set_heads_family_idx" ON "family_required_s
 CREATE UNIQUE INDEX "family_required_set_revisions_project_family_id_idx" ON "family_required_set_revisions" ("project_id","asset_family_id","id");--> statement-breakpoint
 CREATE UNIQUE INDEX "family_required_set_revisions_family_number_idx" ON "family_required_set_revisions" ("project_id","asset_family_id","revision_number");--> statement-breakpoint
 CREATE INDEX "family_required_set_revisions_family_created_idx" ON "family_required_set_revisions" ("asset_family_id","created_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "asset_versions_project_family_id_idx" ON "asset_versions" ("project_id","asset_family_id","id");--> statement-breakpoint
 ALTER TABLE "family_readiness_evidence" ADD CONSTRAINT "family_readiness_evidence_created_by_user_id_user_id_fkey" FOREIGN KEY ("created_by_user_id") REFERENCES "user"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "family_readiness_evidence" ADD CONSTRAINT "family_readiness_evidence_revision_fk" FOREIGN KEY ("project_id","asset_family_id","revision_id") REFERENCES "family_required_set_revisions"("project_id","asset_family_id","id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "family_readiness_evidence" ADD CONSTRAINT "family_readiness_evidence_context_revision_fk" FOREIGN KEY ("project_id","context_revision_id") REFERENCES "context_revisions"("project_id","id") ON DELETE RESTRICT;--> statement-breakpoint

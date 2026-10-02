@@ -304,6 +304,9 @@ test("records a measured value for a Specialized Profile Contract measurement", 
 		name: "Gözlenen değer",
 	});
 	expect(observedValue).toBeRequired();
+	expect(
+		qualityForm.queryByRole("option", { name: "Kalite İstisnası ver" })
+	).not.toBeInTheDocument();
 	fireEvent.change(observedValue, { target: { value: "96%" } });
 	fireEvent.change(qualityForm.getByRole("textbox", { name: "Yöntem" }), {
 		target: { value: "Compared against the declared tolerance." },
@@ -327,6 +330,312 @@ test("records a measured value for a Specialized Profile Contract measurement", 
 			observedValue: "96%",
 		})
 	);
+});
+
+function renderQualityWaiverMeasurement(isCurrent = true) {
+	const template = specializedProfileContractCatalog.find(
+		(contract) => contract.profileId === "icon"
+	);
+	const measuredRule = template?.rules.find(
+		(rule) => rule.class === "waivable_requirement"
+	);
+	const [itemResult] = readiness.items;
+	if (!(template && measuredRule && itemResult)) {
+		throw new Error("The icon measurement fixtures are required.");
+	}
+	const measurement = {
+		id: "measurement-1",
+		projectId: "project-1",
+		assetFamilyId: "family-1",
+		revisionId: "revision-1",
+		itemId: "east-facing",
+		kind: "quality" as const,
+		result: "failed" as const,
+		assetVersionIds: ["asset-version-1"],
+		profileContractRevisionIds: [`icon@${template.version}`],
+		contextRevisionId: "context-1",
+		visualWorldId: "world-1",
+		useContext: "combat",
+		canonicalDesignVersionId: "canonical-version-1",
+		ruleId: measuredRule.id,
+		ruleClass: "waivable_requirement" as const,
+		testId: null,
+		observedValue: "96%",
+		versionTarget: { kind: "unit" as const, id: "unit-version-1" },
+		method: "Measured at native scale.",
+		rationale: "The observed padding exceeds the declared limit.",
+		createdAt: "2026-09-29T10:00:00.000Z",
+		createdByUserId: "user-1",
+		isCurrent,
+	};
+	const measuredReadiness = {
+		...readiness,
+		items: [
+			{
+				...itemResult,
+				qualityReadiness: "blocked" as const,
+				qualityRequirements: [
+					{
+						id: measuredRule.id,
+						name: measuredRule.input,
+						class: measuredRule.class,
+						required: true,
+						waiverEligible: true,
+						result: "failed" as const,
+						isCurrent,
+					},
+				],
+				latestEvidence: [measurement],
+				qualityVersionTargets: [{ kind: "unit", id: "unit-version-1" }],
+			},
+		],
+	} satisfies FamilyReadiness;
+	fakeApi.readiness = measuredReadiness;
+	const profileContracts = {
+		profiles: specializedProfileContractCatalog.map((definition) => ({
+			definition,
+			activeContract:
+				definition.profileId === "icon"
+					? {
+							activatedAt: "2026-09-29T10:00:00.000Z",
+							activatedByUserId: "user-1",
+							contract: definition,
+							contractRevisionId: `icon@${definition.version}`,
+							projectId: "project-1",
+						}
+					: null,
+		})),
+	} satisfies SpecializedProfileContractsListOutput;
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	render(
+		<QueryClientProvider client={queryClient}>
+			<FamilyReadinessManager
+				assetFamilyId="family-1"
+				assetRecords={[
+					{
+						assetCategory: "icon",
+						id: "asset-record-1",
+						name: "East-facing sprite",
+					},
+				]}
+				familyName="Combat sprite"
+				profileContracts={profileContracts}
+				projectId="project-1"
+			/>
+		</QueryClientProvider>
+	);
+	return { measuredRule, measurement, measuredReadiness };
+}
+
+test("grants a reasoned Quality Waiver for the displayed immutable measurement and reads it back", async () => {
+	const { measuredRule, measurement, measuredReadiness } =
+		renderQualityWaiverMeasurement();
+	const rationale = "The intentional overflow is accepted only for combat.";
+	fakeApi.recordEvidence.mockImplementation(() => {
+		const persisted = {
+			...measuredReadiness,
+			items: measuredReadiness.items.map((itemResult) => ({
+				...itemResult,
+				qualityReadiness: "exceptions_ready" as const,
+				qualityRequirements: itemResult.qualityRequirements.map(
+					(requirement) => ({ ...requirement, result: "waived" as const })
+				),
+				latestEvidence: [
+					{
+						...measurement,
+						id: "waiver-1",
+						result: "waived" as const,
+						rationale,
+					},
+				],
+			})),
+		};
+		fakeApi.readiness = persisted;
+		return Promise.resolve(persisted);
+	});
+	const form = (
+		await screen.findByRole("heading", {
+			name: `${measuredRule.input} · İstisna Verilebilir Gereksinim`,
+		})
+	).closest("form") as HTMLFormElement;
+	const controls = within(form);
+	fireEvent.change(controls.getByRole("combobox", { name: "Sonuç" }), {
+		target: { value: "waived" },
+	});
+	const scope = controls.getByRole("group", {
+		name: "Kalite İstisnası kapsamı",
+	});
+	for (const value of [
+		"measurement-1",
+		"asset-version-1",
+		"context-1",
+		"world-1",
+		"combat",
+		"canonical-version-1",
+		measurement.profileContractRevisionIds[0],
+	]) {
+		expect(within(scope).getByText(value)).toBeVisible();
+	}
+	expect(
+		controls.getByRole("textbox", { name: "Gözlenen değer" })
+	).toHaveAttribute("readonly");
+	expect(controls.getByRole("textbox", { name: "Gözlenen değer" })).toHaveValue(
+		"96%"
+	);
+	expect(controls.getByRole("textbox", { name: "Yöntem" })).toHaveAttribute(
+		"readonly"
+	);
+	expect(
+		controls.getByRole("textbox", { name: "Gerekçe veya gözlem" })
+	).toBeRequired();
+	fireEvent.change(
+		controls.getByRole("textbox", { name: "Gerekçe veya gözlem" }),
+		{ target: { value: rationale } }
+	);
+	fireEvent.submit(form);
+	await waitFor(() =>
+		expect(fakeApi.recordEvidence).toHaveBeenCalledWith({
+			projectId: "project-1",
+			assetFamilyId: "family-1",
+			revisionId: "revision-1",
+			itemId: "east-facing",
+			kind: "quality",
+			result: "waived",
+			ruleId: measuredRule.id,
+			method: measurement.method,
+			observedValue: measurement.observedValue,
+			waiverEvidenceId: measurement.id,
+			versionTarget: measurement.versionTarget,
+			rationale,
+		})
+	);
+	expect(await screen.findByText("İstisnalarla Hazır")).toBeVisible();
+	expect(screen.getByText(rationale, { selector: "dd" })).toBeInTheDocument();
+	expect(
+		screen.getByText("unit-version-1", { selector: "dd" })
+	).toBeInTheDocument();
+	expect(screen.getByText("user-1", { selector: "dd" })).toBeInTheDocument();
+	expect(
+		screen.getByText(measurement.createdAt, { selector: "dd" })
+	).toBeInTheDocument();
+});
+
+test("does not offer a Quality Waiver for a stale measurement", async () => {
+	const { measuredRule } = renderQualityWaiverMeasurement(false);
+	const form = (
+		await screen.findByRole("heading", {
+			name: `${measuredRule.input} · İstisna Verilebilir Gereksinim`,
+		})
+	).closest("form") as HTMLFormElement;
+	expect(
+		within(form).queryByRole("option", { name: "Kalite İstisnası ver" })
+	).not.toBeInTheDocument();
+	expect(fakeApi.recordEvidence).not.toHaveBeenCalled();
+});
+
+test("pins a selected Unit Version when recording a measurable rule", async () => {
+	const { measuredRule, measurement, measuredReadiness } =
+		renderQualityWaiverMeasurement();
+	fakeApi.recordEvidence.mockResolvedValue(measuredReadiness);
+	const form = (
+		await screen.findByRole("heading", {
+			name: `${measuredRule.input} · İstisna Verilebilir Gereksinim`,
+		})
+	).closest("form") as HTMLFormElement;
+	const controls = within(form);
+	fireEvent.change(
+		controls.getByRole("combobox", {
+			name: "Birim Sürümü veya Birleşik Sürüm",
+		}),
+		{ target: { value: JSON.stringify(measurement.versionTarget) } }
+	);
+	fireEvent.change(controls.getByRole("textbox", { name: "Gözlenen değer" }), {
+		target: { value: "96%" },
+	});
+	fireEvent.change(controls.getByRole("textbox", { name: "Yöntem" }), {
+		target: { value: "Measured at native scale." },
+	});
+	fireEvent.change(
+		controls.getByRole("textbox", { name: "Gerekçe veya gözlem" }),
+		{
+			target: { value: "The rule was measured for the selected Unit Version." },
+		}
+	);
+	fireEvent.submit(form);
+	await waitFor(() =>
+		expect(fakeApi.recordEvidence).toHaveBeenCalledWith(
+			expect.objectContaining({
+				kind: "quality",
+				result: "passed",
+				ruleId: measuredRule.id,
+				versionTarget: measurement.versionTarget,
+			})
+		)
+	);
+});
+
+test("requires a pinned version target when recording a waivable requirement", async () => {
+	const { measuredRule, measuredReadiness } = renderQualityWaiverMeasurement();
+	fakeApi.recordEvidence.mockResolvedValue(measuredReadiness);
+	const form = (
+		await screen.findByRole("heading", {
+			name: `${measuredRule.input} · İstisna Verilebilir Gereksinim`,
+		})
+	).closest("form") as HTMLFormElement;
+	const controls = within(form);
+	const versionTargetSelect = controls.getByRole("combobox", {
+		name: "Birim Sürümü veya Birleşik Sürüm",
+	});
+	expect(versionTargetSelect).toBeRequired();
+	fireEvent.change(controls.getByRole("textbox", { name: "Gözlenen değer" }), {
+		target: { value: "96%" },
+	});
+	fireEvent.change(controls.getByRole("textbox", { name: "Yöntem" }), {
+		target: { value: "Measured at native scale." },
+	});
+	fireEvent.change(
+		controls.getByRole("textbox", { name: "Gerekçe veya gözlem" }),
+		{ target: { value: "Measured without pinning a version." } }
+	);
+	fireEvent.submit(form);
+	await waitFor(() => expect(fakeApi.recordEvidence).not.toHaveBeenCalled());
+});
+
+test("preserves the waiver rationale and blocked readiness when the API rejects the decision", async () => {
+	const { measuredRule } = renderQualityWaiverMeasurement();
+	fakeApi.recordEvidence.mockRejectedValue(
+		new Error(
+			"The measurement scope changed. Refresh before granting a waiver."
+		)
+	);
+	const form = (
+		await screen.findByRole("heading", {
+			name: `${measuredRule.input} · İstisna Verilebilir Gereksinim`,
+		})
+	).closest("form") as HTMLFormElement;
+	const controls = within(form);
+	fireEvent.change(controls.getByRole("combobox", { name: "Sonuç" }), {
+		target: { value: "waived" },
+	});
+	const rationale = "This exception is needed only for combat.";
+	fireEvent.change(
+		controls.getByRole("textbox", { name: "Gerekçe veya gözlem" }),
+		{ target: { value: rationale } }
+	);
+	fireEvent.submit(form);
+	expect(
+		await screen.findByText(
+			"The measurement scope changed. Refresh before granting a waiver."
+		)
+	).toBeVisible();
+	expect(
+		controls.getByRole("textbox", { name: "Gerekçe veya gözlem" })
+	).toHaveValue(rationale);
+	expect(screen.queryByText("İstisnalarla Hazır")).not.toBeInTheDocument();
+	expect(
+		controls.getByRole("button", { name: "Kalite İstisnası ver" })
+	).toBeEnabled();
 });
 
 test("records a human review separately without offering a quality waiver", async () => {

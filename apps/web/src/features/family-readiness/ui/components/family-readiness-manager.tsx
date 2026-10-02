@@ -1,5 +1,7 @@
 import type {
 	FamilyReadiness,
+	QualityVersionTarget,
+	ReadinessEvidence,
 	ReadinessEvidenceInput,
 	RequiredSetItem,
 } from "@sprite-anvil/api/family-readiness";
@@ -481,11 +483,13 @@ function FamilyReadinessItemCard({
 					humanReviewRequirements={itemResult.humanReviewRequirements}
 					isSaving={isSaving}
 					item={itemResult.item}
+					latestEvidence={itemResult.latestEvidence}
 					onRecord={onRecord}
 					profileContracts={profileContracts}
 					projectId={projectId}
 					qualityRequirements={itemResult.qualityRequirements}
 					revisionId={activeRevisionId}
+					versionTargets={itemResult.qualityVersionTargets ?? []}
 				/>
 			) : null}
 		</li>
@@ -499,6 +503,11 @@ function QualityEvaluationSummary({
 }) {
 	return (
 		<section aria-label="Kalite değerlendirmesi" className="mt-3 space-y-2">
+			<p className="text-muted-foreground text-sm">
+				Yerel denetimler ve insan incelemesi harici analiz izni olmadan sürer.
+				Bu değerlendirme sanatsal kabul kararı veya tek kalite puanı değildir;
+				harici görsel analiz için proje ve kategori izni ayrıca gerekir.
+			</p>
 			<p className="text-sm">
 				Kalite durumu:{" "}
 				<strong>{qualityReadinessLabels[itemResult.qualityReadiness]}</strong>
@@ -589,6 +598,16 @@ function ReadinessEvidenceDetails({
 				) : null}
 				<dt>Varlık Sürümleri</dt>
 				<dd>{evidence.assetVersionIds.join(", ")}</dd>
+				{evidence.versionTarget ? (
+					<>
+						<dt>
+							{evidence.versionTarget.kind === "unit"
+								? "Birim Sürümü"
+								: "Birleşik Sürüm"}
+						</dt>
+						<dd>{evidence.versionTarget.id}</dd>
+					</>
+				) : null}
 				{evidence.profileContractRevisionIds.length > 0 ? (
 					<>
 						<dt>Özel Profil Sözleşmesi</dt>
@@ -621,6 +640,10 @@ function ReadinessEvidenceDetails({
 				) : null}
 				<dt>Gerekçe veya gözlem</dt>
 				<dd>{evidence.rationale}</dd>
+				<dt>Kaydeden kullanıcı</dt>
+				<dd>{evidence.createdByUserId}</dd>
+				<dt>Kayıt zamanı</dt>
+				<dd>{evidence.createdAt}</dd>
 			</dl>
 		</details>
 	);
@@ -826,6 +849,8 @@ function ReadinessEvidenceForms({
 	profileContracts,
 	qualityRequirements,
 	humanReviewRequirements,
+	latestEvidence,
+	versionTargets,
 	projectId,
 	revisionId,
 }: {
@@ -837,6 +862,8 @@ function ReadinessEvidenceForms({
 	profileContracts: SpecializedProfileContractsListOutput | null;
 	qualityRequirements: FamilyReadiness["items"][number]["qualityRequirements"];
 	humanReviewRequirements: FamilyReadiness["items"][number]["humanReviewRequirements"];
+	latestEvidence: ReadinessEvidence[];
+	versionTargets: QualityVersionTarget[];
 	projectId: string;
 	revisionId: string;
 }) {
@@ -897,6 +924,23 @@ function ReadinessEvidenceForms({
 					projectId={projectId}
 					qualityRequirement={requirement}
 					revisionId={revisionId}
+					versionTargets={versionTargets}
+					waiverEvidence={
+						requirement.class === "waivable_requirement" &&
+						requirement.waiverEligible
+							? latestEvidence.find(
+									(evidence) =>
+										evidence.kind === "quality" &&
+										evidence.ruleId === requirement.id &&
+										evidence.ruleClass === "waivable_requirement" &&
+										evidence.isCurrent &&
+										Boolean(evidence.versionTarget) &&
+										(evidence.result === "failed" ||
+											evidence.result === "inconclusive") &&
+										Boolean(evidence.observedValue && evidence.method)
+								)
+							: undefined
+					}
 				/>
 			))}
 			{humanReviewRequirements.map((requirement) => (
@@ -918,6 +962,188 @@ function ReadinessEvidenceForms({
 	);
 }
 
+interface QualityEvidenceFormInput {
+	humanReviewRequirement?: FamilyReadiness["items"][number]["humanReviewRequirements"][number];
+	method: string;
+	observedValue: string;
+	qualityRequirement?: FamilyReadiness["items"][number]["qualityRequirements"][number];
+	result: "passed" | "failed" | "inconclusive" | "waived";
+	shared: Pick<
+		ReadinessEvidenceInput,
+		"projectId" | "assetFamilyId" | "revisionId" | "itemId" | "rationale"
+	>;
+	versionTarget?: QualityVersionTarget;
+	waiverEvidence?: ReadinessEvidence;
+}
+
+function qualityEvidenceFormInput(
+	input: QualityEvidenceFormInput
+): ReadinessEvidenceInput | null {
+	const {
+		shared,
+		humanReviewRequirement,
+		qualityRequirement,
+		result,
+		method,
+		observedValue,
+		versionTarget,
+		waiverEvidence,
+	} = input;
+	if (humanReviewRequirement) {
+		return {
+			...shared,
+			kind: "quality",
+			result,
+			ruleId: humanReviewRequirement.id,
+			method,
+		};
+	}
+	if (!qualityRequirement) {
+		return null;
+	}
+	if (result === "waived") {
+		if (!waiverEvidence) {
+			return null;
+		}
+		return {
+			...shared,
+			kind: "quality",
+			result,
+			ruleId: qualityRequirement.id,
+			method: waiverEvidence.method ?? "",
+			observedValue: waiverEvidence.observedValue ?? "",
+			waiverEvidenceId: waiverEvidence.id,
+			versionTarget: waiverEvidence.versionTarget ?? undefined,
+		};
+	}
+	return {
+		...shared,
+		kind: "quality",
+		result,
+		ruleId: qualityRequirement.id,
+		method,
+		...(qualityRequirement.waiverEligible ? { observedValue } : {}),
+		...(versionTarget ? { versionTarget } : {}),
+	};
+}
+
+function qualityMeasurementValues(
+	isWaiver: boolean,
+	waiverEvidence: ReadinessEvidence | undefined,
+	method: string,
+	observedValue: string,
+	versionTarget: QualityVersionTarget | undefined
+) {
+	if (isWaiver) {
+		return {
+			method: waiverEvidence?.method ?? "",
+			observedValue: waiverEvidence?.observedValue ?? "",
+			versionTarget: JSON.stringify(waiverEvidence?.versionTarget) ?? "",
+		};
+	}
+	return {
+		method,
+		observedValue,
+		versionTarget: JSON.stringify(versionTarget) ?? "",
+	};
+}
+
+function QualityVersionTargetSelect({
+	formId,
+	isWaiver,
+	versionTargets,
+	value,
+	onSelect,
+	required,
+}: {
+	formId: string;
+	isWaiver: boolean;
+	versionTargets: QualityVersionTarget[];
+	value: string;
+	onSelect: (target: QualityVersionTarget | undefined) => void;
+	required: boolean;
+}) {
+	return (
+		<label
+			className="block space-y-1 text-sm"
+			htmlFor={`${formId}-version-target`}
+		>
+			<span>Birim Sürümü veya Birleşik Sürüm</span>
+			<select
+				className="w-full rounded-md border bg-background px-3 py-2"
+				disabled={isWaiver}
+				id={`${formId}-version-target`}
+				onChange={(event) =>
+					onSelect(
+						versionTargets.find(
+							(target) => JSON.stringify(target) === event.currentTarget.value
+						)
+					)
+				}
+				required={required}
+				value={value}
+			>
+				<option value="">Kesin sürüm seçin</option>
+				{versionTargets.map((target) => (
+					<option
+						key={`${target.kind}:${target.id}`}
+						value={JSON.stringify(target)}
+					>
+						{target.kind === "unit" ? "Birim Sürümü" : "Birleşik Sürüm"} ·{" "}
+						{target.id}
+					</option>
+				))}
+			</select>
+		</label>
+	);
+}
+
+function evidenceRequirementId(
+	qualityRequirement: QualityEvidenceFormInput["qualityRequirement"],
+	humanReviewRequirement: QualityEvidenceFormInput["humanReviewRequirement"],
+	testId: string | undefined
+) {
+	return qualityRequirement?.id ?? humanReviewRequirement?.id ?? testId ?? "";
+}
+
+function QualityWaiverScope({ evidence }: { evidence: ReadinessEvidence }) {
+	return (
+		<fieldset
+			aria-label="Kalite İstisnası kapsamı"
+			className="space-y-2 rounded-md border p-3 text-sm"
+		>
+			<legend>Kalite İstisnası kapsamı</legend>
+			<p>
+				Bu karar yalnız gösterilen ölçüm ve kesin sürümler içindir. Yeni sürüme
+				aktarılmaz; bütünlük, zorunlu insan incelemesi ve kullanım testi
+				engellerini kaldırmaz.
+			</p>
+			<dl className="space-y-1 break-all">
+				<dt>Ölçüm kanıtı</dt>
+				<dd>{evidence.id}</dd>
+				<dt>
+					{evidence.versionTarget?.kind === "unit"
+						? "Birim Sürümü"
+						: "Birleşik Sürüm"}
+				</dt>
+				<dd>{evidence.versionTarget?.id}</dd>
+				<dt>Varlık Sürümleri</dt>
+				<dd>{evidence.assetVersionIds.join(", ")}</dd>
+				<dt>Özel Profil Sözleşmesi</dt>
+				<dd>{evidence.profileContractRevisionIds.join(", ")}</dd>
+				<dt>Bağlam Sürümü</dt>
+				<dd>{evidence.contextRevisionId}</dd>
+				<dt>Görsel Dünya</dt>
+				<dd>{evidence.visualWorldId}</dd>
+				<dt>Kullanım bağlamı</dt>
+				<dd>{evidence.useContext}</dd>
+				<dt>Ana Tasarım Sürümü</dt>
+				<dd>{evidence.canonicalDesignVersionId ?? "Seçilmedi"}</dd>
+			</dl>
+		</fieldset>
+	);
+}
+
 function EvidenceForm({
 	assetFamilyId,
 	description,
@@ -931,6 +1157,8 @@ function EvidenceForm({
 	humanReviewRequirement,
 	revisionId,
 	testId,
+	waiverEvidence,
+	versionTargets = [],
 }: {
 	assetFamilyId: string;
 	description: string;
@@ -944,6 +1172,8 @@ function EvidenceForm({
 	humanReviewRequirement?: FamilyReadiness["items"][number]["humanReviewRequirements"][number];
 	revisionId: string;
 	testId?: string;
+	waiverEvidence?: ReadinessEvidence;
+	versionTargets?: QualityVersionTarget[];
 }) {
 	const [result, setResult] = useState<
 		| "applicable"
@@ -956,7 +1186,21 @@ function EvidenceForm({
 	const [method, setMethod] = useState("");
 	const [rationale, setRationale] = useState("");
 	const [observedValue, setObservedValue] = useState("");
-	const formId = `${assetFamilyId}-${kind}-${item.id}-${qualityRequirement?.id ?? humanReviewRequirement?.id ?? testId ?? ""}`;
+	const [versionTarget, setVersionTarget] = useState<QualityVersionTarget>();
+	const formId = `${assetFamilyId}-${kind}-${item.id}-${evidenceRequirementId(qualityRequirement, humanReviewRequirement, testId)}`;
+	const isWaiver = result === "waived";
+	const requiresVersionTarget =
+		kind === "quality" &&
+		!isWaiver &&
+		qualityRequirement?.class === "waivable_requirement" &&
+		versionTargets.length > 0;
+	const measurementValues = qualityMeasurementValues(
+		isWaiver,
+		waiverEvidence,
+		method,
+		observedValue,
+		versionTarget
+	);
 
 	function submit(event: React.FormEvent<HTMLFormElement>) {
 		event.preventDefault();
@@ -974,27 +1218,22 @@ function EvidenceForm({
 				result: result as "applicable" | "inapplicable",
 			});
 		} else if (kind === "quality") {
-			if (humanReviewRequirement) {
-				void onRecord({
-					...shared,
-					kind,
-					result: result as "passed" | "failed" | "inconclusive",
-					ruleId: humanReviewRequirement.id,
-					method,
-				});
+			if (requiresVersionTarget && !versionTarget) {
 				return;
 			}
-			if (!qualityRequirement) {
-				return;
-			}
-			void onRecord({
-				...shared,
-				kind,
+			const qualityInput = qualityEvidenceFormInput({
+				shared,
+				qualityRequirement,
+				humanReviewRequirement,
 				result: result as "passed" | "failed" | "inconclusive" | "waived",
-				ruleId: qualityRequirement.id,
 				method,
-				...(qualityRequirement.waiverEligible ? { observedValue } : {}),
+				observedValue,
+				versionTarget,
+				waiverEvidence,
 			});
+			if (qualityInput) {
+				void onRecord(qualityInput);
+			}
 		} else {
 			if (!testId) {
 				return;
@@ -1017,9 +1256,13 @@ function EvidenceForm({
 				<select
 					className="w-full rounded-md border bg-background px-3 py-2"
 					id={`${formId}-result`}
-					onChange={(event) =>
-						setResult(event.currentTarget.value as typeof result)
-					}
+					onChange={(event) => {
+						const nextResult = event.currentTarget.value as typeof result;
+						setResult(nextResult);
+						if (nextResult === "waived") {
+							setRationale("");
+						}
+					}}
 					value={result}
 				>
 					{kind === "applicability" ? (
@@ -1032,13 +1275,26 @@ function EvidenceForm({
 							<option value="passed">Geçti</option>
 							<option value="failed">Başarısız</option>
 							<option value="inconclusive">Sonuçsuz</option>
-							{kind === "quality" && qualityRequirement?.waiverEligible ? (
+							{kind === "quality" && waiverEvidence ? (
 								<option value="waived">Kalite İstisnası ver</option>
 							) : null}
 						</>
 					)}
 				</select>
 			</label>
+			{isWaiver && waiverEvidence ? (
+				<QualityWaiverScope evidence={waiverEvidence} />
+			) : null}
+			{kind === "quality" && qualityRequirement && versionTargets.length > 0 ? (
+				<QualityVersionTargetSelect
+					formId={formId}
+					isWaiver={isWaiver}
+					onSelect={setVersionTarget}
+					required={requiresVersionTarget}
+					value={measurementValues.versionTarget}
+					versionTargets={versionTargets}
+				/>
+			) : null}
 			{kind === "quality" && qualityRequirement ? (
 				<label className="block space-y-1 text-sm" htmlFor={`${formId}-rule`}>
 					<span>Kural kimliği</span>
@@ -1046,7 +1302,7 @@ function EvidenceForm({
 						className="w-full rounded-md border bg-background px-3 py-2"
 						id={`${formId}-rule`}
 						readOnly
-						value={qualityRequirement?.id ?? ""}
+						value={qualityRequirement.id}
 					/>
 				</label>
 			) : null}
@@ -1083,8 +1339,9 @@ function EvidenceForm({
 						id={`${formId}-observed-value`}
 						maxLength={500}
 						onChange={(event) => setObservedValue(event.currentTarget.value)}
+						readOnly={isWaiver}
 						required
-						value={observedValue}
+						value={measurementValues.observedValue}
 					/>
 				</label>
 			) : null}
@@ -1096,8 +1353,9 @@ function EvidenceForm({
 						id={`${formId}-method`}
 						maxLength={1000}
 						onChange={(event) => setMethod(event.currentTarget.value)}
+						readOnly={isWaiver}
 						required
-						value={method}
+						value={measurementValues.method}
 					/>
 				</label>
 			)}
@@ -1115,8 +1373,12 @@ function EvidenceForm({
 					value={rationale}
 				/>
 			</label>
-			<Button disabled={isSaving} type="submit" variant="outline">
-				Kanıtı kaydet
+			<Button
+				disabled={isSaving || (isWaiver && !waiverEvidence)}
+				type="submit"
+				variant="outline"
+			>
+				{isWaiver ? "Kalite İstisnası ver" : "Kanıtı kaydet"}
 			</Button>
 		</form>
 	);
