@@ -92,6 +92,9 @@ function createRouteHarness(
 	};
 	const dependencies: AssetVersionRouteDependencies = {
 		assetVersionStore: {
+			readReviewBlockers: async () => [],
+			readBatchReviewEvents: async () => null,
+			recordBatchReviewEvents: async () => null,
 			createCompositeVersion: () => Promise.resolve(null),
 			saveManualImportEvidence: () => Promise.resolve({ kind: "not-found" }),
 			createCandidateVersion(_requestedUserId, input) {

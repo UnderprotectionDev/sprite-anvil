@@ -1,4 +1,5 @@
 import type {
+	AssetVersionBatchReviewInput,
 	AssetVersionReviewInput,
 	CompositeVersionReviewInput,
 	UnitVersionCorrectionInput,
@@ -338,6 +339,14 @@ export function useAssetVersionWrites(
 		);
 	}
 
+	function reviewBatch(input: AssetVersionBatchReviewInput) {
+		return runAction(
+			"batch-review",
+			() => client.assetVersions.reviewBatch(input),
+			"Toplu inceleme tamamlandı. Her sürümün İnceleme Kaydı ayrı kaydedildi."
+		);
+	}
+
 	function review(
 		assetVersionId: string,
 		decision: ReviewDecision,
@@ -446,6 +455,7 @@ export function useAssetVersionWrites(
 		isCheckingOutcome,
 		recordProviderGeneration,
 		review,
+		reviewBatch,
 		reviewCompositeVersion,
 		refreshCatalogs,
 		selectCanonicalDesign,

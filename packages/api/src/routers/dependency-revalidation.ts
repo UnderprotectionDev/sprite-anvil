@@ -7,6 +7,8 @@ import {
 	dependencyCatalogSchema,
 	dependencyLinkInputSchema,
 	dependencyLinkSchema,
+	derivativeReReviewInputSchema,
+	derivativeReReviewSchema,
 } from "../dependency-revalidation";
 import {
 	historicalCompositionInputSchema,
@@ -94,6 +96,23 @@ export const dependencyRevalidationRouter = {
 				});
 			}
 			return result.pin;
+		}),
+	reReview: protectedProcedure
+		.input(derivativeReReviewInputSchema)
+		.output(derivativeReReviewSchema)
+		.handler(async ({ context, input }) => {
+			await readCatalog(context, context.session.user.id, input.projectId);
+			const review = await getStore(context).reReview(
+				context.session.user.id,
+				input
+			);
+			if (!review) {
+				throw new ORPCError("BAD_REQUEST", {
+					message:
+						"Yeniden inceleme için etkilenen Türetilmiş Varlık, etkin Bağlam Sürümü, ailenin güncel Ana Tasarımı ve tüm değişiklik etkileri güncel olmalıdır. Olumlu yeniden inceleme mevcut onayı yeniler; onaysız sürümler normal onay denetimlerinden geçmelidir.",
+				});
+			}
+			return review;
 		}),
 	list: protectedProcedure
 		.input(dependencyCatalogInputSchema)

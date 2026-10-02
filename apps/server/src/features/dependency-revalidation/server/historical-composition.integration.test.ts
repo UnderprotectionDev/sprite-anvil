@@ -307,7 +307,7 @@ test.skipIf(!databaseUrl)(
 					profileId: contract.profileId,
 					contractSchemaVersion: contract.contractSchemaVersion,
 					contractVersion: "0.0.1",
-					definition: contract,
+					definition: { ...contract, version: "0.0.1" },
 				})
 				.onConflictDoNothing();
 			const revisionId = crypto.randomUUID();
@@ -854,6 +854,39 @@ test.skipIf(!databaseUrl)(
 			);
 			expect(missingLinkBlockers).toHaveLength(1);
 			expect(missingLinkBlockers[0]?.message).toContain("Ash Knight idle · v2");
+			await call(
+				appRouter.dependencyRevalidation.reReview,
+				{
+					projectId,
+					assetVersionId: versionId,
+					contextRevisionId: contextId,
+					canonicalDesignVersionId: canonicalId,
+					changeImpactIds: [impact.id],
+					decision: "approved",
+					rationale:
+						"Confirm current applicability while preserving historical pins.",
+				},
+				{ context: verifiedContext }
+			);
+			const reviewedCatalog = await call(
+				appRouter.dependencyRevalidation.list,
+				{ projectId },
+				{ context: verifiedContext }
+			);
+			expect(reviewedCatalog.revalidationRequiredVersionIds).not.toContain(
+				versionId
+			);
+			const historyAfterReview = await call(
+				appRouter.dependencyRevalidation.listHistoricalCompositions,
+				{ projectId },
+				{ context: verifiedContext }
+			);
+			expect(
+				historyAfterReview.pins.find((entry) => entry.id === ready.id)
+			).toEqual(ready);
+			expect(
+				historyAfterReview.pins.find((entry) => entry.id === pin.id)
+			).toEqual(pin);
 			await expect(
 				call(
 					appRouter.dependencyRevalidation.historicalCompositionOptions,

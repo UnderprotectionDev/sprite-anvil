@@ -1,10 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "d219f4cc-f859-4401-8612-30e4b6fc2f7e",
+  "id": "db6f479f-147d-41d3-8b39-c9fc76821620",
   "prevIds": [
-    "61dbccd2-5d0b-4b22-bd09-c36d44e7b471",
-    "ffc4240c-8424-4889-8bca-d7394d476102"
+    "d6fcd462-7716-46dd-a03f-c145ddfeb36e"
   ],
   "ddl": [
     {
@@ -202,6 +201,12 @@
     },
     {
       "isRlsEnabled": false,
+      "name": "derivative_revalidation_reviews",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
       "name": "external_visual_analysis_permission",
       "entityType": "tables",
       "schema": "public"
@@ -245,12 +250,6 @@
     {
       "isRlsEnabled": false,
       "name": "import_inbox_entries",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "historical_composition_pins",
       "entityType": "tables",
       "schema": "public"
     },
@@ -3665,6 +3664,84 @@
       "name": "id",
       "entityType": "columns",
       "schema": "public",
+      "table": "derivative_revalidation_reviews"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "project_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "derivative_revalidation_reviews"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "asset_version_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "derivative_revalidation_reviews"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "context_revision_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "derivative_revalidation_reviews"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "canonical_design_version_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "derivative_revalidation_reviews"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "change_impact_ids",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "derivative_revalidation_reviews"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
       "table": "external_visual_analysis_permission"
     },
     {
@@ -4563,136 +4640,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "import_inbox_entries"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "historical_composition_pins"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "project_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "historical_composition_pins"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "idempotency_key",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "historical_composition_pins"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "composite_version_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "historical_composition_pins"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "asset_record_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "historical_composition_pins"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "context_revision_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "historical_composition_pins"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "canonical_design_version_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "historical_composition_pins"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "snapshot",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "historical_composition_pins"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "created_by_user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "historical_composition_pins"
-    },
-    {
-      "type": "timestamp",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "historical_composition_pins"
     },
     {
       "type": "text",
@@ -8487,6 +8434,34 @@
           "asc": true,
           "nullsFirst": false,
           "opclass": null
+        },
+        {
+          "value": "asset_version_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "derivative_reviews_project_version_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "derivative_revalidation_reviews"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
         }
       ],
       "isUnique": false,
@@ -8960,62 +8935,6 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "import_inbox_entries"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "project_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "idempotency_key",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "historical_pins_idempotency_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "historical_composition_pins"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "project_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "created_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "historical_pins_project_created_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "historical_composition_pins"
     },
     {
       "nameExplicit": true,
@@ -11136,6 +11055,97 @@
     {
       "nameExplicit": false,
       "columns": [
+        "id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "asset_version_review_events",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "derivative_revalidation_reviews_Eka18Txqz2QH_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "derivative_revalidation_reviews"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "project_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "project",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "derivative_reviews_project_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "derivative_revalidation_reviews"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "project_id",
+        "asset_version_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "asset_versions",
+      "columnsTo": [
+        "project_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "derivative_reviews_version_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "derivative_revalidation_reviews"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "project_id",
+        "context_revision_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "context_revisions",
+      "columnsTo": [
+        "project_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "derivative_reviews_context_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "derivative_revalidation_reviews"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "project_id",
+        "canonical_design_version_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "asset_versions",
+      "columnsTo": [
+        "project_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "derivative_reviews_canonical_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "derivative_revalidation_reviews"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "project_id"
       ],
       "schemaTo": "public",
@@ -11534,99 +11544,6 @@
       "entityType": "fks",
       "schema": "public",
       "table": "import_inbox_entries"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "project_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "project",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "historical_composition_pins_project_id_project_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "historical_composition_pins"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "created_by_user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "user",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "historical_composition_pins_created_by_user_id_user_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "historical_composition_pins"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "project_id",
-        "composite_version_id",
-        "asset_record_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "composite_versions",
-      "columnsTo": [
-        "project_id",
-        "id",
-        "asset_record_id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "historical_pins_composite_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "historical_composition_pins"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "project_id",
-        "context_revision_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "context_revisions",
-      "columnsTo": [
-        "project_id",
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "historical_pins_context_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "historical_composition_pins"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "project_id",
-        "canonical_design_version_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "asset_versions",
-      "columnsTo": [
-        "project_id",
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "historical_pins_canonical_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "historical_composition_pins"
     },
     {
       "nameExplicit": false,
@@ -12458,6 +12375,16 @@
         "id"
       ],
       "nameExplicit": false,
+      "name": "derivative_revalidation_reviews_pkey",
+      "schema": "public",
+      "table": "derivative_revalidation_reviews",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
       "name": "external_visual_analysis_permission_pkey",
       "schema": "public",
       "table": "external_visual_analysis_permission",
@@ -12521,16 +12448,6 @@
       "name": "import_inbox_entries_pkey",
       "schema": "public",
       "table": "import_inbox_entries",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "historical_composition_pins_pkey",
-      "schema": "public",
-      "table": "historical_composition_pins",
       "entityType": "pks"
     },
     {
@@ -13030,6 +12947,13 @@
       "table": "dependency_links"
     },
     {
+      "value": "jsonb_typeof(\"change_impact_ids\") = 'array' AND jsonb_array_length(\"change_impact_ids\") > 0",
+      "name": "derivative_reviews_impacts_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "derivative_revalidation_reviews"
+    },
+    {
       "value": "NOT (\"unit_version_id\" IS NOT NULL AND \"composite_version_id\" IS NOT NULL) AND ((\"unit_version_id\" IS NULL AND \"composite_version_id\" IS NULL) OR \"kind\" = 'quality')",
       "name": "family_readiness_evidence_version_target_check",
       "entityType": "checks",
@@ -13077,13 +13001,6 @@
       "entityType": "checks",
       "schema": "public",
       "table": "import_inbox_entries"
-    },
-    {
-      "value": "jsonb_typeof(\"snapshot\") = 'object'",
-      "name": "historical_pins_snapshot_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "historical_composition_pins"
     },
     {
       "value": "(\"requested_width\" IS NULL AND \"requested_height\" IS NULL) OR (\"requested_width\" IS NOT NULL AND \"requested_height\" IS NOT NULL AND \"requested_width\" > 0 AND \"requested_height\" > 0)",

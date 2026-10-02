@@ -302,15 +302,20 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 									...latestCanonicalVersionIdsByFamily.values(),
 								]}
 								onImpactSaved={async () => {
-									await Promise.all(
-										catalog.assetFamilies.map((family) =>
+									await Promise.all([
+										queryClient.invalidateQueries({
+											queryKey: orpc.assetVersions.list.queryOptions({
+												input: { projectId },
+											}).queryKey,
+										}),
+										...catalog.assetFamilies.map((family) =>
 											queryClient.invalidateQueries({
 												queryKey: orpc.familyReadiness.list.queryOptions({
 													input: { projectId, assetFamilyId: family.id },
 												}).queryKey,
 											})
-										)
-									);
+										),
+									]);
 								}}
 								projectId={projectId}
 								records={catalog.assetRecords}
