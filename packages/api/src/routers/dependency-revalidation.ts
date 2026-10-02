@@ -10,6 +10,12 @@ import {
 	derivativeReReviewInputSchema,
 	derivativeReReviewSchema,
 } from "../dependency-revalidation";
+import {
+	historicalCompositionInputSchema,
+	historicalCompositionListSchema,
+	historicalCompositionOptionsSchema,
+	historicalCompositionSchema,
+} from "../historical-compositions";
 import { protectedProcedure } from "../index";
 
 function getStore(context: Context) {
@@ -32,6 +38,65 @@ async function readCatalog(
 	return catalog;
 }
 export const dependencyRevalidationRouter = {
+	historicalCompositionOptions: protectedProcedure
+		.input(dependencyCatalogInputSchema)
+		.output(historicalCompositionOptionsSchema)
+		.handler(async ({ context, input }) => {
+			const options = await getStore(context).historicalCompositionOptions(
+				context.session.user.id,
+				input.projectId
+			);
+			if (!options) {
+				throw new ORPCError("NOT_FOUND", { message: "Proje bulunamadı." });
+			}
+			return options;
+		}),
+	listHistoricalCompositions: protectedProcedure
+		.input(dependencyCatalogInputSchema)
+		.output(historicalCompositionListSchema)
+		.handler(async ({ context, input }) => {
+			const pins = await getStore(context).listHistoricalCompositions(
+				context.session.user.id,
+				input.projectId
+			);
+			if (!pins) {
+				throw new ORPCError("NOT_FOUND", { message: "Proje bulunamadı." });
+			}
+			return { pins };
+		}),
+	pinHistoricalComposition: protectedProcedure
+		.input(historicalCompositionInputSchema)
+		.output(historicalCompositionSchema)
+		.handler(async ({ context, input }) => {
+			const result = await getStore(context).pinHistoricalComposition(
+				context.session.user.id,
+				input,
+				async (versionId) =>
+					Boolean(
+						await context.verifyAssetVersionContent?.(
+							context.session.user.id,
+							input.projectId,
+							versionId
+						)
+					)
+			);
+			if (!result) {
+				throw new ORPCError("NOT_FOUND", { message: "Proje bulunamadı." });
+			}
+			if (result.kind === "idempotency-conflict") {
+				throw new ORPCError("CONFLICT", {
+					message:
+						"Bu işlem kimliği farklı bir tarihsel seçim için kullanılmış.",
+				});
+			}
+			if (result.kind === "invalid-selection") {
+				throw new ORPCError("BAD_REQUEST", {
+					message:
+						"Tarihsel seçimdeki kayıtlar bu Projedeki kesin bileşime ait olmalıdır.",
+				});
+			}
+			return result.pin;
+		}),
 	reReview: protectedProcedure
 		.input(derivativeReReviewInputSchema)
 		.output(derivativeReReviewSchema)

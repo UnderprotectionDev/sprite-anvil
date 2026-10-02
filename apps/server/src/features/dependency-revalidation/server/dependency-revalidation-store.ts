@@ -25,6 +25,11 @@ import {
 	toChangeImpact,
 	toDependencyLink,
 } from "./dependency-revalidation-catalog";
+import {
+	historicalCompositionOptions,
+	listHistoricalCompositions,
+	pinHistoricalComposition,
+} from "./historical-composition-store";
 
 async function readDependencyGraph(database: Database, projectId: string) {
 	const [versions, links, relationships] = await Promise.all([
@@ -249,6 +254,12 @@ export function createDependencyRevalidationStore(
 	database: Database
 ): DependencyRevalidationStore {
 	return {
+		historicalCompositionOptions: (userId, projectId) =>
+			historicalCompositionOptions(database, userId, projectId),
+		listHistoricalCompositions: (userId, projectId) =>
+			listHistoricalCompositions(database, userId, projectId),
+		pinHistoricalComposition: (userId, input, verifyContent) =>
+			pinHistoricalComposition(database, userId, input, verifyContent),
 		async reReview(userId, input) {
 			if (!(await getProjectForUser(database, userId, input.projectId))) {
 				return null;

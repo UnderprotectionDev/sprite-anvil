@@ -5,6 +5,7 @@ import type { SyntheticEvent } from "react";
 import { AssetVersionControls } from "@/features/asset-versions/ui/components/asset-version-controls";
 import { useAssetVersionWrites } from "@/features/asset-versions/ui/hooks/use-asset-version-writes";
 import { DependencyRevalidationManager } from "@/features/dependency-revalidation/ui/components/dependency-revalidation-manager";
+import { HistoricalCompositionManager } from "@/features/dependency-revalidation/ui/components/historical-composition-manager";
 import { FamilyReadinessManager } from "@/features/family-readiness/ui/components/family-readiness-manager";
 import { SpecializedProfileContractManager } from "@/features/quality-evidence/ui/components/specialized-profile-contract-manager";
 import { client, orpc } from "@/utils/orpc";
@@ -289,6 +290,13 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 					</section>
 					{assetVersionQuery.data ? (
 						<>
+							<HistoricalCompositionManager
+								canonicalDesigns={assetVersionQuery.data.canonicalDesigns}
+								composites={assetVersionQuery.data.compositeVersions}
+								projectId={projectId}
+								records={catalog.assetRecords}
+								versions={assetVersionQuery.data.assetVersions}
+							/>
 							<DependencyRevalidationManager
 								canonicalVersionIds={[
 									...latestCanonicalVersionIdsByFamily.values(),
