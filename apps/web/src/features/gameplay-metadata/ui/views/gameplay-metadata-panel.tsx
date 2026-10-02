@@ -68,6 +68,10 @@ export function GameplayMetadataPanel({
 			setError(getErrorMessage(failure, "Oyun içi bilgiler kaydedilemedi."));
 			if (isWriteOutcomeUncertain(failure)) {
 				setUncertain(input);
+			} else {
+				// A definitive failure can never commit; release the lock so the
+				// user can correct the draft instead of staying stuck behind retry.
+				setUncertain(null);
 			}
 			return false;
 		} finally {

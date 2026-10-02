@@ -315,6 +315,23 @@ test.skipIf(!databaseUrl)(
 				unit: "px",
 				coordinateSystem: "source_image_top_left",
 			});
+
+			// Erasure turns the record into a tombstone; gameplay metadata access
+			// closes for both read and write (ADR 0008, rights-record-store gate).
+			await db
+				.update(assetRecords)
+				.set({ availability: "erased" })
+				.where(eq(assetRecords.id, assetRecordId));
+			await expect(
+				call(
+					appRouter.gameplayMetadata.list,
+					{ projectId, assetRecordId },
+					{ context }
+				)
+			).rejects.toMatchObject({ code: "NOT_FOUND" });
+			await expect(
+				call(appRouter.gameplayMetadata.write, request, { context })
+			).rejects.toMatchObject({ code: "NOT_FOUND" });
 		} finally {
 			await db
 				.delete(gameplayMetadataRecords)

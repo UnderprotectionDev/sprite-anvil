@@ -56,7 +56,10 @@ export function createGameplayMetadataStore(
 				return null;
 			}
 			const [record] = await db
-				.select({ id: assetRecords.id })
+				.select({
+					id: assetRecords.id,
+					availability: assetRecords.availability,
+				})
 				.from(assetRecords)
 				.where(
 					and(
@@ -65,7 +68,9 @@ export function createGameplayMetadataStore(
 					)
 				)
 				.limit(1);
-			if (!record) {
+			// Erased records are tombstones: their Gameplay Metadata stays
+			// inaccessible, matching the rights-record and generation-package gates.
+			if (!record || record.availability === "erased") {
 				return null;
 			}
 			const units = await db

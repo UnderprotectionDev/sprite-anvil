@@ -42,6 +42,12 @@ function validValue(
 	return validators[field.type].safeParse(value).success;
 }
 
+/**
+ * Compares a saved record with a resubmitted operation for idempotent replay.
+ * The routing fields must match exactly, and every saved field needs a
+ * submitted counterpart: authored or absent sources resolve to a value with
+ * authored/unknown provenance, while finalized_source must match verbatim.
+ */
 function matchesSavedOperation(
 	record: GameplayMetadataRecord,
 	input: GameplayMetadataWriteInput

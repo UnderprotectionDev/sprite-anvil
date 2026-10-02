@@ -12,12 +12,13 @@ const assetVersionId = "00000000-0000-4000-8000-000000000003";
 const [contract] = specializedProfileContractCatalog;
 const contractRevisionId = `${contract.profileId}@${contract.version}`;
 
-for (const outcome of ["confirmed", "uncertain"] as const) {
-	test(`authors exact-frame Gameplay Metadata with ${outcome} write and rereads after reload`, async ({
+for (const outcome of ["confirmed", "uncertain", "conflicted"] as const) {
+	test(`authors exact-frame Gameplay Metadata with ${outcome} write and verifies the visible outcome`, async ({
 		page,
 	}) => {
 		let records: GameplayMetadataRecord[] = [];
 		let request: GameplayMetadataWriteInput | null = null;
+		let writeAttempts = 0;
 		await page.route("**/api/auth/get-session", (route) =>
 			route.fulfill({
 				json: {
@@ -89,6 +90,11 @@ for (const outcome of ["confirmed", "uncertain"] as const) {
 				if (!request) {
 					throw new Error("Gameplay Metadata request was not received.");
 				}
+				writeAttempts += 1;
+				if (outcome === "conflicted" && writeAttempts === 1) {
+					await route.abort("failed");
+					return;
+				}
 				const saved: GameplayMetadataRecord = {
 					id: request.id,
 					projectId,
@@ -116,6 +122,21 @@ for (const outcome of ["confirmed", "uncertain"] as const) {
 						},
 					],
 				};
+				if (outcome === "conflicted") {
+					await route.fulfill({
+						status: 409,
+						json: {
+							json: {
+								defined: true,
+								code: "CONFLICT",
+								status: 409,
+								message:
+									"The selected Specialized Profile Contract revision changed. Reload and select the active contract.",
+							},
+						},
+					});
+					return;
+				}
 				records = [saved];
 				result = saved;
 				if (outcome === "uncertain") {
@@ -150,6 +171,21 @@ for (const outcome of ["confirmed", "uncertain"] as const) {
 				"Oyun içi bilgiler kalıcı kayıttan yeniden okundu."
 			);
 			await expect(panel.getByLabel("Kullanım bağlamı")).toBeEnabled();
+		} else if (outcome === "conflicted") {
+			await expect(panel.getByLabel("Kullanım bağlamı")).toBeDisabled();
+			await panel.getByRole("button", { name: "Kaydı kontrol et" }).click();
+			await expect(panel.getByRole("alert")).toHaveText(
+				"Kayıt henüz görünmüyor. Aynı işlemi yeniden deneyin; yeni kayıt oluşturulmaz."
+			);
+			await expect(panel.getByLabel("Kullanım bağlamı")).toBeDisabled();
+			await panel
+				.getByRole("button", { name: "Aynı işlemi yeniden dene" })
+				.click();
+			await expect(panel.getByRole("alert")).toHaveText(
+				"The selected Specialized Profile Contract revision changed. Reload and select the active contract."
+			);
+			await expect(panel.getByLabel("Kullanım bağlamı")).toBeEnabled();
+			return;
 		} else {
 			await expect(panel.getByRole("status")).toHaveText(
 				"Oyun içi bilgiler kaydedildi ve yeniden okundu."
