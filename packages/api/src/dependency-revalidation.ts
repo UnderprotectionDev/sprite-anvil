@@ -56,11 +56,38 @@ export const changeImpactSchema = changeFacetInputSchema.extend({
 export const dependencyCatalogInputSchema = z
 	.object({ projectId: idSchema })
 	.strict();
+export const derivativeReReviewInputSchema = z
+	.object({
+		projectId: idSchema,
+		assetVersionId: idSchema,
+		contextRevisionId: idSchema,
+		canonicalDesignVersionId: idSchema,
+		changeImpactIds: idSchema
+			.array()
+			.min(1)
+			.max(1000)
+			.refine(
+				(ids) => new Set(ids).size === ids.length,
+				"Change Impacts must be distinct."
+			),
+		decision: z.enum(["approved", "candidate"]),
+		rationale: z.string().trim().min(1).max(2000),
+	})
+	.strict();
+export const derivativeReReviewSchema = derivativeReReviewInputSchema.extend({
+	id: idSchema,
+	createdAt: z.string().datetime(),
+});
 export const dependencyCatalogSchema = z
 	.object({
 		dependencyLinks: dependencyLinkSchema.array(),
 		changeImpacts: changeImpactSchema.array(),
 		revalidationRequiredVersionIds: idSchema.array(),
+		reviews: derivativeReReviewSchema.array(),
+		canonicalDesigns: z
+			.object({ assetFamilyId: idSchema, assetVersionId: idSchema })
+			.strict()
+			.array(),
 		contextRevisions: z
 			.object({
 				id: idSchema,
@@ -78,6 +105,10 @@ export type ChangeFacetInput = z.infer<typeof changeFacetInputSchema>;
 export type ChangeImpact = z.infer<typeof changeImpactSchema>;
 export type AffectedVersion = z.infer<typeof affectedVersionSchema>;
 export type DependencyCatalog = z.infer<typeof dependencyCatalogSchema>;
+export type DerivativeReReviewInput = z.infer<
+	typeof derivativeReReviewInputSchema
+>;
+export type DerivativeReReview = z.infer<typeof derivativeReReviewSchema>;
 export interface DependencyRevalidationStore {
 	createLink: (
 		userId: string,
@@ -91,4 +122,8 @@ export interface DependencyRevalidationStore {
 		userId: string,
 		projectId: string
 	) => Promise<DependencyCatalog | null>;
+	reReview: (
+		userId: string,
+		input: DerivativeReReviewInput
+	) => Promise<DerivativeReReview | null>;
 }

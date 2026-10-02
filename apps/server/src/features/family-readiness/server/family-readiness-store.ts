@@ -42,7 +42,7 @@ import {
 } from "@sprite-anvil/db/schema/family-readiness";
 import { contextRevisions } from "@sprite-anvil/db/schema/project-context";
 import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
-import { readRevalidationRequiredVersionIds } from "../../dependency-revalidation/server/dependency-revalidation-store";
+import { readDerivativeRevalidationState } from "../../dependency-revalidation/server/dependency-revalidation-catalog";
 import {
 	areContractPinsCompatible,
 	type ProfileContractSnapshot,
@@ -673,14 +673,16 @@ function evaluateRequiredSetItem(
 	allEvidenceByItem: Map<string, CurrentEvidence[]>,
 	activeItems: RequiredSetItem[],
 	assetRecordsById: Map<string, typeof assetRecords.$inferSelect>,
-	contracts: ProjectProfileContracts
+	contracts: ProjectProfileContracts,
+	applicabilityIsRevalidated: boolean
 ): EvaluatedItem {
 	const currentEvidence = evidence.filter((entry) => entry.isCurrent);
 	const applicabilityEvidence = currentEvidence.find(
 		(entry) => entry.row.kind === "applicability"
 	);
 	const applicabilityIsCurrent = Boolean(
-		applicabilityEvidence?.row.result === "applicable"
+		applicabilityEvidence?.row.result === "applicable" ||
+			applicabilityIsRevalidated
 	);
 	const linkedAssets = item.assetRecordIds.map((assetRecordId) => {
 		const category = assetRecordsById.get(assetRecordId)?.assetCategory;
@@ -888,8 +890,7 @@ async function readActiveRevisionReadiness(
 		contracts,
 		versionTargets
 	);
-	const revalidationRequiredVersionIds =
-		await readRevalidationRequiredVersionIds(db, projectId);
+	const revalidation = await readDerivativeRevalidationState(db, projectId);
 	const items = activeRevision.items.map((item) => ({
 		...evaluateRequiredSetItem(
 			item,
@@ -901,13 +902,18 @@ async function readActiveRevisionReadiness(
 					entry.row.kind !== "applicability" ||
 					!item.assetRecordIds.some((recordId) => {
 						const version = currentVersions.get(recordId);
-						return version && revalidationRequiredVersionIds.has(version.id);
+						return version && revalidation.requiredVersionIds.has(version.id);
 					})
 			),
 			currentEvidence,
 			activeRevision.items,
 			assetRecordsById,
-			contracts
+			contracts,
+			item.assetRecordIds.length > 0 &&
+				item.assetRecordIds.every((recordId) => {
+					const version = currentVersions.get(recordId);
+					return version && revalidation.reviewedVersionIds.has(version.id);
+				})
 		),
 		qualityVersionTargets: item.assetRecordIds.flatMap(
 			(recordId) => versionTargets.get(recordId) ?? []
