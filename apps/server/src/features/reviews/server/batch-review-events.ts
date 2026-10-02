@@ -8,6 +8,10 @@ import { assetVersionReviewEvents } from "@sprite-anvil/db/schema/asset-versions
 import { and, asc, eq, like, sql } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 
+function batchEventIdPrefix(input: AssetVersionBatchReviewInput) {
+	return `batch:${input.projectId}:${input.idempotencyKey}`;
+}
+
 export async function readBatchReviewEvents(
 	db: Database,
 	userId: string,
@@ -22,7 +26,7 @@ export async function readBatchReviewEvents(
 		.where(
 			and(
 				eq(assetVersionReviewEvents.projectId, input.projectId),
-				like(assetVersionReviewEvents.id, `batch:${input.idempotencyKey}:%`)
+				like(assetVersionReviewEvents.id, `${batchEventIdPrefix(input)}:%`)
 			)
 		)
 		.orderBy(asc(assetVersionReviewEvents.id));
@@ -60,7 +64,7 @@ export async function recordBatchReviewEvents(
 	const targets = input.targets.map((target, index) => ({
 		version_id: target.assetVersionId,
 		expected_event_id: target.expectedReviewEventId,
-		id: `batch:${input.idempotencyKey}:${String(index).padStart(3, "0")}`,
+		id: `${batchEventIdPrefix(input)}:${String(index).padStart(3, "0")}`,
 	}));
 	try {
 		const query = new PgDialect().sqlToQuery(sql`

@@ -92,7 +92,6 @@ export const assetVersionsRouter = {
 		.input(assetVersionBatchReviewInputSchema)
 		.output(assetVersionBatchReviewResultSchema)
 		.handler(async ({ context, input }) => {
-			const catalog = await readVersionCatalog(context, input.projectId);
 			const existing = await context.assetVersionStore.readBatchReviewEvents(
 				context.session.user.id,
 				input
@@ -105,6 +104,7 @@ export const assetVersionsRouter = {
 			if (existing) {
 				return { reviewEvents: existing };
 			}
+			const catalog = await readVersionCatalog(context, input.projectId);
 			const preview = await previewBatchReview(
 				context,
 				{

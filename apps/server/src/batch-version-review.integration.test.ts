@@ -396,3 +396,180 @@ test.skipIf(!databaseUrl)(
 		}
 	}
 );
+
+test.skipIf(!databaseUrl)(
+	"scopes the batch request key per project so the same key serves independent decisions",
+	async () => {
+		if (!databaseUrl) {
+			throw new Error("CONTEXT_TEST_DATABASE_URL is required.");
+		}
+		const db = createDb({ DATABASE_URL: databaseUrl });
+		const userId = crypto.randomUUID();
+		const projectIds: string[] = [];
+		await db.insert(user).values({
+			id: userId,
+			name: "Batch Key Reuser",
+			email: `${userId}@example.test`,
+		});
+		try {
+			const context = reviewContext(db, userId);
+			const options = { context: context as never };
+			const createBatchProjectStack = async (name: string) => {
+				const project = await call(
+					appRouter.projectContexts.create,
+					{ name, generalArtDirection: "Clear silhouettes" },
+					options
+				);
+				projectIds.push(project.id);
+				const world = await call(
+					appRouter.contextScopes.createVisualWorld,
+					{
+						projectId: project.id,
+						name: `${name} World`,
+						description: "In-game art",
+					},
+					options
+				);
+				const identity = await call(
+					appRouter.assetFamilies.createSubjectIdentity,
+					{ projectId: project.id, name: `${name} Character` },
+					options
+				);
+				const family = await call(
+					appRouter.assetFamilies.createAssetFamily,
+					{
+						projectId: project.id,
+						subjectIdentityId: identity.id,
+						name: `${name} Family`,
+						visualWorldId: world.id,
+						useContext: "combat",
+					},
+					options
+				);
+				const record = await call(
+					appRouter.assetFamilies.createAssetRecord,
+					{
+						projectId: project.id,
+						assetFamilyId: family.id,
+						name: `${name} Result`,
+						identityCriteria: ["delivery_identity"],
+					},
+					options
+				);
+				return {
+					projectId: project.id,
+					recordId: record.id,
+					familyId: family.id,
+				};
+			};
+			const insertVersion = (
+				versionId: string,
+				project: { projectId: string; recordId: string; familyId: string }
+			) =>
+				db.insert(assetVersions).values({
+					id: versionId,
+					projectId: project.projectId,
+					assetRecordId: project.recordId,
+					assetFamilyId: project.familyId,
+					versionNumber: 1,
+					contentType: "image/png" as const,
+					byteSize: 68,
+					sha256: "a".repeat(64),
+					contentDigest: "a".repeat(64),
+					integrityVerified: true,
+					idempotencyKey: crypto.randomUUID(),
+					objectKey: `review/${versionId}.png`,
+					createdByUserId: userId,
+				});
+			const first = await createBatchProjectStack("Batch Key One");
+			const second = await createBatchProjectStack("Batch Key Two");
+			const firstVersionId = crypto.randomUUID();
+			const secondVersionId = crypto.randomUUID();
+			const secondAlternativeId = crypto.randomUUID();
+			await insertVersion(firstVersionId, first);
+			await insertVersion(secondVersionId, second);
+			await insertVersion(secondAlternativeId, second);
+			const sharedKey = crypto.randomUUID();
+			const firstInput = {
+				projectId: first.projectId,
+				idempotencyKey: sharedKey,
+				decision: "rejected" as const,
+				rationale: "The user rejected this version.",
+				targets: [
+					{ assetVersionId: firstVersionId, expectedReviewEventId: null },
+				],
+			};
+			const firstBatch = await call(
+				appRouter.assetVersions.reviewBatch,
+				firstInput,
+				options
+			);
+			expect(firstBatch.reviewEvents).toHaveLength(1);
+			const secondInput = {
+				projectId: second.projectId,
+				idempotencyKey: sharedKey,
+				decision: "rejected" as const,
+				rationale: "The user rejected this other version.",
+				targets: [
+					{ assetVersionId: secondVersionId, expectedReviewEventId: null },
+				],
+			};
+			const secondBatch = await call(
+				appRouter.assetVersions.reviewBatch,
+				secondInput,
+				options
+			);
+			expect(
+				secondBatch.reviewEvents.map((event) => event.assetVersionId)
+			).toEqual([secondVersionId]);
+			expect(
+				await call(appRouter.assetVersions.reviewBatch, firstInput, options)
+			).toEqual(firstBatch);
+			expect(
+				await call(appRouter.assetVersions.reviewBatch, secondInput, options)
+			).toEqual(secondBatch);
+			await expect(
+				call(
+					appRouter.assetVersions.reviewBatch,
+					{
+						...secondInput,
+						targets: [
+							{
+								assetVersionId: secondAlternativeId,
+								expectedReviewEventId: null,
+							},
+						],
+					},
+					options
+				)
+			).rejects.toMatchObject({ code: "CONFLICT" });
+		} finally {
+			if (projectIds.length > 0) {
+				await [
+					"asset_version_review_events",
+					"asset_versions",
+					"asset_records",
+					"asset_families",
+					"subject_identities",
+					"visual_worlds",
+					"context_proposals",
+					"context_revisions",
+				].reduce(async (previous, table) => {
+					await previous;
+					await db.execute(
+						sql`DELETE FROM ${sql.identifier(table)} WHERE project_id IN (${sql.join(
+							projectIds.map((projectId) => sql`${projectId}`),
+							sql`, `
+						)})`
+					);
+				}, Promise.resolve());
+				await Promise.all(
+					projectIds.map((projectId) =>
+						db.execute(sql`DELETE FROM project WHERE id = ${projectId}`)
+					)
+				);
+			}
+			await db.execute(sql`DELETE FROM "user" WHERE id = ${userId}`);
+		}
+	}
+);

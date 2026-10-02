@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
+import type { AssetVersionReviewEvent } from "@sprite-anvil/api/asset-versions";
 import { createVersionProductionEvidence } from "@sprite-anvil/api/production-provenance";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 
@@ -31,7 +32,9 @@ function reviewContext() {
 				compositeVersions: [],
 			}),
 			readReviewBlockers: async (): Promise<string[]> => [],
-			readBatchReviewEvents: async () => null,
+			readBatchReviewEvents: async (): Promise<
+				AssetVersionReviewEvent[] | "conflict" | null
+			> => null,
 			recordBatchReviewEvents: () =>
 				Promise.reject(new Error("Blocked batches must not write.")),
 		},
@@ -100,6 +103,38 @@ test("reports a blocked item and refuses the entire batch", async () => {
 			{ context: context as never }
 		)
 	).rejects.toMatchObject({ code: "BAD_REQUEST" });
+});
+
+test("serves an idempotent replay without re-reading the version catalog", async () => {
+	const context = reviewContext();
+	const replayedEvent: AssetVersionReviewEvent = {
+		id: `batch:project-review:${crypto.randomUUID()}:000`,
+		assetVersionId: "version-one",
+		type: "approved",
+		rationale: "Replayed batch decision",
+		createdAt,
+	};
+	context.assetVersionStore.list = () => {
+		throw new Error("Replayed batch requests must not re-read the catalog.");
+	};
+	context.assetVersionStore.readBatchReviewEvents = async () => [replayedEvent];
+	const result = await call(
+		appRouter.assetVersions.reviewBatch,
+		{
+			projectId: "project-review",
+			idempotencyKey: crypto.randomUUID(),
+			decision: "approved",
+			rationale: "Replayed batch decision",
+			targets: [
+				{
+					assetVersionId: "version-one",
+					expectedReviewEventId: replayedEvent.id,
+				},
+			],
+		},
+		{ context: context as never }
+	);
+	expect(result.reviewEvents).toEqual([replayedEvent]);
 });
 
 test("rejects duplicate versions, empty rationales, unknown versions, and unauthenticated previews", async () => {
