@@ -1,0 +1,5 @@
+ALTER TABLE "family_readiness_evidence" ADD COLUMN "unit_version_id" text;--> statement-breakpoint
+ALTER TABLE "family_readiness_evidence" ADD COLUMN "composite_version_id" text;--> statement-breakpoint
+ALTER TABLE "family_readiness_evidence" ADD CONSTRAINT "family_readiness_evidence_unit_version_id_unit_versions_id_fkey" FOREIGN KEY ("unit_version_id") REFERENCES "unit_versions"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "family_readiness_evidence" ADD CONSTRAINT "family_readiness_evidence_2XniZBfUdFdi_fkey" FOREIGN KEY ("composite_version_id") REFERENCES "composite_versions"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "family_readiness_evidence" ADD CONSTRAINT "family_readiness_evidence_version_target_check" CHECK (NOT ("unit_version_id" IS NOT NULL AND "composite_version_id" IS NOT NULL) AND (("unit_version_id" IS NULL AND "composite_version_id" IS NULL) OR "kind" = 'quality'));

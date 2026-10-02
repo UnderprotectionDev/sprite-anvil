@@ -3,6 +3,7 @@ import {
 	assessGeneralAssetSupport,
 	evaluateFamilyReadiness,
 	isReadinessEvidenceCurrent,
+	readinessEvidenceInputSchema,
 } from "@sprite-anvil/api/family-readiness";
 
 const readyAsset = {
@@ -11,6 +12,50 @@ const readyAsset = {
 	qualityReadiness: "export_ready",
 	reviewDisposition: "approved",
 } as const;
+
+test("a Quality Waiver must identify the measured evidence the user reviewed", () => {
+	const input = {
+		projectId: "project-1",
+		assetFamilyId: "family-1",
+		revisionId: "required-set-1",
+		itemId: "east-facing",
+		kind: "quality",
+		result: "waived",
+		ruleId: "icon.boundary",
+		method: "Measured at native scale.",
+		observedValue: "96%",
+		versionTarget: { kind: "unit", id: "unit-version-1" },
+		rationale: "The intentional overflow is needed for this use.",
+	};
+	expect(readinessEvidenceInputSchema.safeParse(input).success).toBe(false);
+	expect(
+		readinessEvidenceInputSchema.safeParse({
+			...input,
+			waiverEvidenceId: "measurement-1",
+		}).success
+	).toBe(true);
+	expect(
+		readinessEvidenceInputSchema.safeParse({
+			...input,
+			result: "passed",
+			waiverEvidenceId: "measurement-1",
+		}).success
+	).toBe(false);
+	expect(
+		readinessEvidenceInputSchema.safeParse({
+			...input,
+			waiverEvidenceId: "measurement-1",
+			versionTarget: undefined,
+		}).success
+	).toBe(false);
+	expect(
+		readinessEvidenceInputSchema.safeParse({
+			...input,
+			waiverEvidenceId: "measurement-1",
+			rationale: "   ",
+		}).success
+	).toBe(false);
+});
 
 test("a family is complete only when active required items have current evidence", () => {
 	const result = evaluateFamilyReadiness({

@@ -79,6 +79,11 @@ export const assetVersions = pgTable(
 			table.id,
 			table.assetRecordId
 		),
+		uniqueIndex("asset_versions_project_family_id_idx").on(
+			table.projectId,
+			table.assetFamilyId,
+			table.id
+		),
 		uniqueIndex("asset_versions_project_family_record_id_idx").on(
 			table.projectId,
 			table.assetFamilyId,

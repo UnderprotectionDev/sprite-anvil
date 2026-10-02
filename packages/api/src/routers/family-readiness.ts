@@ -98,7 +98,9 @@ export const familyReadinessRouter = {
 			if (!readiness) {
 				throw new ORPCError("BAD_REQUEST", {
 					message:
-						"Kanıt için etkin Gerekli Öğeler Listesi, güncel Varlık Sürümleri ve Bağlam Sürümü gerekir; kalite kuralı, zorunlu insan incelemesi veya kullanım testi etkin Özel Profil Sözleşmesiyle eşleşmelidir.",
+						input.kind === "quality" && input.result === "waived"
+							? "Kalite İstisnası için aynı kural, gözlenen değer, yöntem ve kesin kapsama ait güncel ölçüm kanıtı gerekir. Değerlendirmeyi yenileyin; bütünlük, zorunlu insan incelemesi ve kullanım testi istisna alamaz."
+							: "Kanıt için etkin Gerekli Öğeler Listesi, güncel Varlık Sürümleri ve Bağlam Sürümü gerekir; kalite kuralı, zorunlu insan incelemesi veya kullanım testi etkin Özel Profil Sözleşmesiyle eşleşmelidir.",
 				});
 			}
 			return familyReadinessSchema.parse(readiness);

@@ -941,6 +941,14 @@ test("stores immutable Required Set revisions and evidence pinned to exact famil
 	expect(familyReadinessMigration).toContain(
 		'CREATE TABLE "family_readiness_evidence"'
 	);
+	const canonicalIndex = familyReadinessMigration.indexOf(
+		'CREATE UNIQUE INDEX "asset_versions_project_family_id_idx"'
+	);
+	const canonicalForeignKey = familyReadinessMigration.indexOf(
+		'ADD CONSTRAINT "family_readiness_evidence_canonical_version_fk"'
+	);
+	expect(canonicalIndex).toBeGreaterThanOrEqual(0);
+	expect(canonicalForeignKey).toBeGreaterThan(canonicalIndex);
 	expect(familyReadinessMigration).toContain(
 		'FOREIGN KEY ("project_id","asset_family_id","revision_id") REFERENCES "family_required_set_revisions"("project_id","asset_family_id","id") ON DELETE RESTRICT'
 	);

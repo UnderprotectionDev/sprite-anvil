@@ -12,7 +12,11 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { assetFamilies } from "./asset-records";
-import { assetVersions } from "./asset-versions";
+import {
+	assetVersions,
+	compositeVersions,
+	unitVersions,
+} from "./asset-versions";
 import { user } from "./auth";
 import { contextRevisions } from "./project-context";
 
@@ -152,6 +156,13 @@ export const familyReadinessEvidence = pgTable(
 		>(),
 		testId: text("test_id"),
 		observedValue: text("observed_value"),
+		unitVersionId: text("unit_version_id").references(() => unitVersions.id, {
+			onDelete: "restrict",
+		}),
+		compositeVersionId: text("composite_version_id").references(
+			() => compositeVersions.id,
+			{ onDelete: "restrict" }
+		),
 		method: text("method"),
 		rationale: text("rationale").notNull(),
 		createdByUserId: text("created_by_user_id")
@@ -160,6 +171,10 @@ export const familyReadinessEvidence = pgTable(
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 	},
 	(table) => [
+		check(
+			"family_readiness_evidence_version_target_check",
+			sql`NOT (${table.unitVersionId} IS NOT NULL AND ${table.compositeVersionId} IS NOT NULL) AND ((${table.unitVersionId} IS NULL AND ${table.compositeVersionId} IS NULL) OR ${table.kind} = 'quality')`
+		),
 		foreignKey({
 			name: "family_readiness_evidence_revision_fk",
 			columns: [table.projectId, table.assetFamilyId, table.revisionId],

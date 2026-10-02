@@ -1,6 +1,7 @@
 import type {
 	FamilyReadiness,
 	FamilyReadinessStore,
+	QualityVersionTarget,
 	ReadinessAssetStatus,
 	ReadinessEvaluationItem,
 	ReadinessEvidence,
@@ -47,6 +48,10 @@ import {
 	type ProjectProfileContracts,
 	readProjectProfileContracts,
 } from "../../quality-evidence/server/profile-contract-scope";
+import {
+	qualityVersionTargetFromEvidence,
+	readQualityVersionTargets,
+} from "../../quality-evidence/server/quality-version-targets";
 
 const requiredSetItemsSchema = requiredSetItemSchema.array().max(100);
 
@@ -96,6 +101,7 @@ function toEvidence(
 		ruleClass: row.ruleClass,
 		testId: row.testId,
 		observedValue: row.observedValue,
+		versionTarget: qualityVersionTargetFromEvidence(row),
 		method: row.method,
 		rationale: row.rationale,
 		createdByUserId: row.createdByUserId,
@@ -178,6 +184,46 @@ type HumanReviewRequirement =
 type UsageRequirement =
 	FamilyReadiness["items"][number]["usageRequirements"][number];
 
+function qualityEvidenceFields(input: ReadinessEvidenceInput) {
+	if (input.kind !== "quality") {
+		return {
+			ruleId: null,
+			method: "method" in input ? input.method : null,
+			observedValue: null,
+			unitVersionId: null,
+			compositeVersionId: null,
+		};
+	}
+	return {
+		ruleId: input.ruleId,
+		method: input.method,
+		observedValue: input.observedValue ?? null,
+		unitVersionId:
+			input.versionTarget?.kind === "unit" ? input.versionTarget.id : null,
+		compositeVersionId:
+			input.versionTarget?.kind === "composite" ? input.versionTarget.id : null,
+	};
+}
+
+function isQualityVersionTargetCurrent(
+	evidence: EvidenceRow,
+	assessmentTarget: QualityVersionTarget | null,
+	availableTargets: QualityVersionTarget[]
+) {
+	const target = qualityVersionTargetFromEvidence(evidence);
+	if (!target) {
+		return evidence.result !== "waived";
+	}
+	return (
+		target.kind === assessmentTarget?.kind &&
+		target.id === assessmentTarget.id &&
+		availableTargets.some(
+			(available) =>
+				available.kind === target.kind && available.id === target.id
+		)
+	);
+}
+
 function latestEvidenceByItem(
 	items: RequiredSetItem[],
 	evidenceRows: EvidenceRow[],
@@ -186,10 +232,23 @@ function latestEvidenceByItem(
 	family: typeof assetFamilies.$inferSelect,
 	canonicalDesignVersionId: string | null,
 	assetRecordsById: Map<string, typeof assetRecords.$inferSelect>,
-	contracts: ProjectProfileContracts
+	contracts: ProjectProfileContracts,
+	versionTargets: Map<string, QualityVersionTarget[]>
 ) {
 	const result = new Map<string, CurrentEvidence[]>();
 	for (const item of items) {
+		const latestTargetedEvidence = evidenceRows.find(
+			(evidence) =>
+				evidence.itemId === item.id &&
+				evidence.kind === "quality" &&
+				qualityVersionTargetFromEvidence(evidence)
+		);
+		const assessmentTarget = latestTargetedEvidence
+			? qualityVersionTargetFromEvidence(latestTargetedEvidence)
+			: null;
+		const availableTargets = item.assetRecordIds.flatMap(
+			(recordId) => versionTargets.get(recordId) ?? []
+		);
 		const expectedVersionIds = item.assetRecordIds.flatMap((recordId) => {
 			const version = currentVersions.get(recordId);
 			return version ? [version.id] : [];
@@ -220,16 +279,22 @@ function latestEvidenceByItem(
 			item.id,
 			[...latestByKind.values()].map((row) => ({
 				row,
-				isCurrent: evidenceMatchesCurrentScope(row, {
-					assetVersionIds: expectedVersionIds,
-					profileContractRevisionIds: expectedProfileContractRevisionIds,
-					profileIds: profiles,
-					contextRevisionId,
-					visualWorldId: family.visualWorldId,
-					useContext: family.useContext,
-					canonicalDesignVersionId,
-					contracts,
-				}),
+				isCurrent:
+					isQualityVersionTargetCurrent(
+						row,
+						assessmentTarget,
+						availableTargets
+					) &&
+					evidenceMatchesCurrentScope(row, {
+						assetVersionIds: expectedVersionIds,
+						profileContractRevisionIds: expectedProfileContractRevisionIds,
+						profileIds: profiles,
+						contextRevisionId,
+						visualWorldId: family.visualWorldId,
+						useContext: family.useContext,
+						canonicalDesignVersionId,
+						contracts,
+					}),
 			}))
 		);
 	}
@@ -303,7 +368,7 @@ function assessSpecializedProfile(
 				(entry) => entry.row.kind === "quality" && entry.row.ruleId === rule.id
 			);
 			const result = qualityEvidenceResult(row);
-			if (result !== "not_assessed") {
+			if (row?.isCurrent && result !== "not_assessed") {
 				ruleResults.set(rule.id, result);
 			}
 			return {
@@ -330,7 +395,7 @@ function assessSpecializedProfile(
 					entry.row.ruleClass === "human_review"
 			);
 			const result = nonWaivableEvidenceResult(row);
-			if (result !== "not_assessed") {
+			if (row?.isCurrent && result !== "not_assessed") {
 				humanReviewResults.set(review.id, result);
 			}
 			return {
@@ -798,6 +863,11 @@ async function readActiveRevisionReadiness(
 			latestReviews.set(review.versionId, review);
 		}
 	}
+	const versionTargets = await readQualityVersionTargets(
+		db,
+		projectId,
+		activeRevision.items.flatMap((item) => item.assetRecordIds)
+	);
 	const currentEvidence = latestEvidenceByItem(
 		activeRevision.items,
 		evidenceRows,
@@ -806,10 +876,11 @@ async function readActiveRevisionReadiness(
 		family,
 		canonicalRows[0]?.assetVersionId ?? null,
 		assetRecordsById,
-		contracts
+		contracts,
+		versionTargets
 	);
-	const items = activeRevision.items.map((item) =>
-		evaluateRequiredSetItem(
+	const items = activeRevision.items.map((item) => ({
+		...evaluateRequiredSetItem(
 			item,
 			activeRevision.id,
 			currentVersions,
@@ -819,8 +890,11 @@ async function readActiveRevisionReadiness(
 			activeRevision.items,
 			assetRecordsById,
 			contracts
-		)
-	);
+		),
+		qualityVersionTargets: item.assetRecordIds.flatMap(
+			(recordId) => versionTargets.get(recordId) ?? []
+		),
+	}));
 	return {
 		status: items.every((item) => item.status === "complete")
 			? ("complete" as const)
@@ -1078,6 +1152,24 @@ async function readEvidenceScope(
 	if (recordsById.size !== item.assetRecordIds.length) {
 		return null;
 	}
+	if (input.kind === "quality" && input.versionTarget) {
+		const targets = await readQualityVersionTargets(
+			db,
+			input.projectId,
+			item.assetRecordIds
+		);
+		if (
+			![...targets.values()]
+				.flat()
+				.some(
+					(target) =>
+						target.kind === input.versionTarget?.kind &&
+						target.id === input.versionTarget?.id
+				)
+		) {
+			return null;
+		}
+	}
 	const profileIds = item.assetRecordIds.map((recordId) => {
 		const parsed = specializedProfileIdSchema.safeParse(
 			recordsById.get(recordId)?.assetCategory
@@ -1117,6 +1209,57 @@ async function readEvidenceScope(
 }
 
 export function createFamilyReadinessStore(db: Database): FamilyReadinessStore {
+	async function readQualityWaiverSource(
+		input: ReadinessEvidenceInput,
+		scope: EvidenceScope
+	) {
+		if (input.kind !== "quality" || input.result !== "waived") {
+			return null;
+		}
+		const [source] = await db
+			.select()
+			.from(familyReadinessEvidence)
+			.where(
+				and(
+					eq(familyReadinessEvidence.projectId, input.projectId),
+					eq(familyReadinessEvidence.assetFamilyId, input.assetFamilyId),
+					eq(familyReadinessEvidence.revisionId, input.revisionId),
+					eq(familyReadinessEvidence.itemId, input.itemId),
+					eq(familyReadinessEvidence.kind, "quality"),
+					eq(familyReadinessEvidence.ruleId, input.ruleId)
+				)
+			)
+			.orderBy(
+				desc(familyReadinessEvidence.createdAt),
+				desc(familyReadinessEvidence.id)
+			)
+			.limit(1);
+		const contracts = await readProjectProfileContracts(db, input.projectId);
+		const isValid = Boolean(
+			source &&
+				input.waiverEvidenceId === source.id &&
+				(source.result === "failed" || source.result === "inconclusive") &&
+				source.ruleClass === "waivable_requirement" &&
+				source.observedValue === input.observedValue &&
+				source.method === input.method &&
+				qualityVersionTargetFromEvidence(source)?.kind ===
+					input.versionTarget?.kind &&
+				qualityVersionTargetFromEvidence(source)?.id ===
+					input.versionTarget?.id &&
+				evidenceMatchesCurrentScope(source, {
+					assetVersionIds: scope.assetVersionIds,
+					profileContractRevisionIds: scope.profileContractRevisionIds,
+					contextRevisionId: scope.contextRevisionId,
+					canonicalDesignVersionId: scope.canonicalDesignVersionId,
+					visualWorldId: scope.family.visualWorldId,
+					useContext: scope.family.useContext,
+					profileIds: scope.profileIds,
+					contracts,
+				})
+		);
+		return isValid ? source : null;
+	}
+
 	async function list(
 		userId: string,
 		projectId: string,
@@ -1349,6 +1492,13 @@ export function createFamilyReadinessStore(db: Database): FamilyReadinessStore {
 		if (!scope) {
 			return null;
 		}
+		const isWaiver = input.kind === "quality" && input.result === "waived";
+		const waiverSource = isWaiver
+			? await readQualityWaiverSource(input, scope)
+			: null;
+		if (isWaiver && !waiverSource) {
+			return null;
+		}
 		const now = new Date();
 		const [inserted] = await db
 			.insert(familyReadinessEvidence)
@@ -1364,17 +1514,15 @@ export function createFamilyReadinessStore(db: Database): FamilyReadinessStore {
 				profileContractRevisionIds:
 					input.kind === "applicability"
 						? []
-						: scope.profileContractRevisionIds,
+						: (waiverSource?.profileContractRevisionIds ??
+							scope.profileContractRevisionIds),
 				contextRevisionId: scope.contextRevisionId,
 				visualWorldId: scope.family.visualWorldId,
 				useContext: scope.family.useContext,
 				canonicalDesignVersionId: scope.canonicalDesignVersionId,
-				ruleId: input.kind === "quality" ? input.ruleId : null,
+				...qualityEvidenceFields(input),
 				ruleClass: input.kind === "quality" ? scope.ruleClass : null,
 				testId: input.kind === "usage_test" ? input.testId : null,
-				observedValue:
-					input.kind === "quality" ? (input.observedValue ?? null) : null,
-				method: "method" in input ? input.method : null,
 				rationale: input.rationale,
 				createdByUserId: userId,
 				createdAt: now,

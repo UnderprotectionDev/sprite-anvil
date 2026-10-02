@@ -5,8 +5,9 @@ import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { useAssetVersionWrites } from "./use-asset-version-writes";
 
-const { recordProviderGenerationMock } = vi.hoisted(() => ({
+const { recordProviderGenerationMock, toastErrorMock } = vi.hoisted(() => ({
 	recordProviderGenerationMock: vi.fn(),
+	toastErrorMock: vi.fn(),
 }));
 
 vi.mock("@/env", () => ({ ENV: { VITE_SERVER_URL: "" } }));
@@ -17,6 +18,7 @@ vi.mock("@/utils/orpc", () => ({
 		},
 	},
 }));
+vi.mock("sonner", () => ({ toast: { error: toastErrorMock } }));
 
 afterEach(() => {
 	cleanup();
@@ -190,6 +192,38 @@ test("marks a user-reported provider-result upload as user-reported", async () =
 			}),
 		})
 	);
+});
+
+test("shows the server validation message when a Unit Version correction is rejected", async () => {
+	toastErrorMock.mockClear();
+	const serverError = "Invalid Asset Version image content";
+	const fetchMock = vi
+		.fn()
+		.mockResolvedValue(
+			new Response(JSON.stringify({ error: serverError }), { status: 422 })
+		);
+	vi.stubGlobal("fetch", fetchMock);
+	const refreshCatalogs = vi.fn().mockResolvedValue({ isError: false });
+	const { result } = renderHook(() =>
+		useAssetVersionWrites(projectId, refreshCatalogs)
+	);
+	const file = new File([new Uint8Array([1, 2, 3])], "corrected-frame.png", {
+		type: "image/png",
+	});
+
+	await act(async () => {
+		await result.current.upload(assetRecordId, file, {
+			unitCorrection: {
+				sourceAssetVersionId: assetVersionId,
+				unitType: "frame",
+				unitKey: "attack/frame-3",
+			},
+		});
+	});
+
+	expect(toastErrorMock).toHaveBeenCalledWith(serverError);
+	expect(result.current.writeOutcomeUncertain).toBe(false);
+	expect(refreshCatalogs).not.toHaveBeenCalled();
 });
 
 test("submits the user-entered record to the provider-generation API", async () => {

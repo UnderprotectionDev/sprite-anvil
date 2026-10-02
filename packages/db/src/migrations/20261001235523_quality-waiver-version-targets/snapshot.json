@@ -1,10 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "a3d86ed2-4f03-4dd6-b257-05755102c5f9",
+  "id": "51822dd9-b77b-4f94-bd7b-b20bf39bb08e",
   "prevIds": [
-    "9e8a76f2-f104-469d-a9a5-92c0ab6029ac",
-    "e2355e39-336b-409a-a997-74a50320f147"
+    "a3d86ed2-4f03-4dd6-b257-05755102c5f9"
   ],
   "ddl": [
     {
@@ -3742,6 +3741,32 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "unit_version_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "family_readiness_evidence"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "composite_version_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "family_readiness_evidence"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "method",
       "entityType": "columns",
       "schema": "public",
@@ -6793,41 +6818,6 @@
           "opclass": null
         },
         {
-          "value": "asset_family_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "asset_versions_project_family_id_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "asset_versions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "project_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
           "value": "id",
           "isExpression": false,
           "asc": true,
@@ -6848,6 +6838,41 @@
       "method": "btree",
       "concurrently": false,
       "name": "asset_versions_project_record_id_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "asset_versions"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "asset_family_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "asset_versions_project_family_id_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "asset_versions"
@@ -10305,6 +10330,40 @@
     {
       "nameExplicit": false,
       "columns": [
+        "unit_version_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "unit_versions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "family_readiness_evidence_unit_version_id_unit_versions_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "family_readiness_evidence"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "composite_version_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "composite_versions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "family_readiness_evidence_2XniZBfUdFdi_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "family_readiness_evidence"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "created_by_user_id"
       ],
       "schemaTo": "public",
@@ -11920,6 +11979,13 @@
       "entityType": "checks",
       "schema": "public",
       "table": "unit_versions"
+    },
+    {
+      "value": "NOT (\"unit_version_id\" IS NOT NULL AND \"composite_version_id\" IS NOT NULL) AND ((\"unit_version_id\" IS NULL AND \"composite_version_id\" IS NULL) OR \"kind\" = 'quality')",
+      "name": "family_readiness_evidence_version_target_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "family_readiness_evidence"
     },
     {
       "value": "(\"kind\" = 'applicability' AND \"result\" IN ('applicable', 'inapplicable')) OR (\"kind\" = 'quality' AND \"result\" IN ('passed', 'failed', 'inconclusive', 'waived')) OR (\"kind\" = 'usage_test' AND \"result\" IN ('passed', 'failed', 'inconclusive'))",

@@ -238,7 +238,9 @@ export function assertMigrationHistory(
 			throw new MigrationSafetyError("Migration history position is missing.");
 		}
 		if (
-			row.id !== index + 1 ||
+			!Number.isSafeInteger(row.id) ||
+			row.id <= 0 ||
+			(index > 0 && row.id <= (applied[index - 1]?.id ?? 0)) ||
 			(row.name !== null && row.name !== expected.name) ||
 			row.createdAt !== expected.createdAt ||
 			row.hash !== expected.hash
