@@ -1,50 +1,30 @@
-import {
-	type AffectedVersion,
-	type ChangeFacetInput,
-	changeImpactSchema,
-	type DependencyLink,
-	type DependencyRevalidationStore,
-	dependencyLinkSchema,
+import type {
+	AffectedVersion,
+	ChangeFacetInput,
+	DependencyLink,
+	DependencyRevalidationStore,
 } from "@sprite-anvil/api/dependency-revalidation";
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
 import {
 	assetFamilyCanonicalDesigns,
 	assetFamilyRelationships,
 } from "@sprite-anvil/db/schema/asset-families";
-import { assetVersions } from "@sprite-anvil/db/schema/asset-versions";
+import {
+	assetVersionReviewEvents,
+	assetVersions,
+} from "@sprite-anvil/db/schema/asset-versions";
 import {
 	changeImpacts,
 	dependencyLinks,
 } from "@sprite-anvil/db/schema/dependency-revalidation";
 import { contextRevisions } from "@sprite-anvil/db/schema/project-context";
-import { and, asc, desc, eq } from "drizzle-orm";
-
-function toDependencyLink(
-	row: typeof dependencyLinks.$inferSelect
-): DependencyLink {
-	return dependencyLinkSchema.parse({
-		id: row.id,
-		projectId: row.projectId,
-		source: row.sourceAssetVersionId
-			? { kind: "asset_version", id: row.sourceAssetVersionId }
-			: { kind: "context_revision", id: row.sourceContextRevisionId },
-		targetAssetVersionId: row.targetAssetVersionId,
-		facets: row.facets,
-		createdAt: row.createdAt.toISOString(),
-	});
-}
-function toChangeImpact(row: typeof changeImpacts.$inferSelect) {
-	return changeImpactSchema.parse({
-		id: row.id,
-		projectId: row.projectId,
-		source: row.sourceAssetVersionId
-			? { kind: "canonical_design", id: row.sourceAssetVersionId }
-			: { kind: "context_revision", id: row.sourceContextRevisionId },
-		facets: row.facets,
-		affectedVersions: row.affectedVersions,
-		createdAt: row.createdAt.toISOString(),
-	});
-}
+import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { checkReviewApproval } from "../../asset-versions/server/asset-version-store";
+import {
+	readDependencyCatalog,
+	toChangeImpact,
+	toDependencyLink,
+} from "./dependency-revalidation-catalog";
 
 async function readDependencyGraph(database: Database, projectId: string) {
 	const [versions, links, relationships] = await Promise.all([
@@ -226,21 +206,6 @@ function matchesChangeFacet(
 	);
 }
 
-export async function readRevalidationRequiredVersionIds(
-	database: Database,
-	projectId: string
-) {
-	const rows = await database
-		.select({ affectedVersions: changeImpacts.affectedVersions })
-		.from(changeImpacts)
-		.where(eq(changeImpacts.projectId, projectId));
-	return new Set(
-		rows.flatMap((row) =>
-			row.affectedVersions.map((version) => version.assetVersionId)
-		)
-	);
-}
-
 async function isCurrentCanonicalDesignSelection(
 	database: Database,
 	projectId: string,
@@ -284,43 +249,75 @@ export function createDependencyRevalidationStore(
 	database: Database
 ): DependencyRevalidationStore {
 	return {
+		async reReview(userId, input) {
+			if (!(await getProjectForUser(database, userId, input.projectId))) {
+				return null;
+			}
+			const catalog = await readDependencyCatalog(database, input.projectId);
+			if (
+				!catalog.revalidationRequiredVersionIds.includes(input.assetVersionId)
+			) {
+				return null;
+			}
+			const [version] = await database
+				.select()
+				.from(assetVersions)
+				.where(
+					and(
+						eq(assetVersions.projectId, input.projectId),
+						eq(assetVersions.id, input.assetVersionId)
+					)
+				)
+				.limit(1);
+			const [latestEvent] = await database
+				.select()
+				.from(assetVersionReviewEvents)
+				.where(
+					and(
+						eq(assetVersionReviewEvents.projectId, input.projectId),
+						eq(assetVersionReviewEvents.versionId, input.assetVersionId)
+					)
+				)
+				.orderBy(
+					desc(assetVersionReviewEvents.createdAt),
+					desc(assetVersionReviewEvents.id)
+				)
+				.limit(1);
+			if (
+				!version ||
+				(input.decision === "approved" &&
+					latestEvent?.decision !== "approved" &&
+					(await checkReviewApproval(database, userId, version)) !== true)
+			) {
+				return null;
+			}
+			const reviewId = crypto.randomUUID();
+			const impactIds = JSON.stringify(input.changeImpactIds);
+			await database.execute(sql`
+				WITH eligible_version AS (
+					SELECT version.* FROM asset_versions AS version
+					WHERE version.project_id = ${input.projectId} AND version.id = ${input.assetVersionId}
+						AND version.source_kind = 'derived'
+						AND EXISTS (SELECT 1 FROM context_revisions WHERE project_id = version.project_id AND id = ${input.contextRevisionId} AND state = 'active')
+						AND ${input.canonicalDesignVersionId} = (SELECT asset_version_id FROM asset_family_canonical_designs WHERE project_id = version.project_id AND asset_family_id = version.asset_family_id ORDER BY created_at DESC, id DESC LIMIT 1)
+						AND (SELECT id FROM asset_version_review_events WHERE project_id = version.project_id AND version_id = version.id ORDER BY created_at DESC, id DESC LIMIT 1) IS NOT DISTINCT FROM ${latestEvent?.id ?? null}::text
+						AND NOT EXISTS (SELECT 1 FROM change_impacts AS impact WHERE impact.project_id = version.project_id AND impact.affected_versions @> jsonb_build_array(jsonb_build_object('assetVersionId', version.id)) AND NOT ${impactIds}::text::jsonb ? impact.id)
+						AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements_text(${impactIds}::text::jsonb) AS selected(id) WHERE NOT EXISTS (SELECT 1 FROM change_impacts AS impact WHERE impact.project_id = version.project_id AND impact.id = selected.id AND impact.affected_versions @> jsonb_build_array(jsonb_build_object('assetVersionId', version.id))))
+				), new_event AS (
+					INSERT INTO asset_version_review_events (id, project_id, asset_record_id, version_id, decision, rationale, created_by_user_id)
+					SELECT ${reviewId}, project_id, asset_record_id, id, ${input.decision}, ${input.rationale}, ${userId} FROM eligible_version RETURNING id, project_id, version_id
+				)
+				INSERT INTO derivative_revalidation_reviews (id, project_id, asset_version_id, context_revision_id, canonical_design_version_id, change_impact_ids)
+				SELECT id, project_id, version_id, ${input.contextRevisionId}, ${input.canonicalDesignVersionId}, ${impactIds}::text::jsonb FROM new_event
+			`);
+			const saved = await readDependencyCatalog(database, input.projectId);
+			return saved.reviews.find((review) => review.id === reviewId) ?? null;
+		},
 		async list(userId, projectId) {
 			if (!(await getProjectForUser(database, userId, projectId))) {
 				return null;
 			}
-			const [links, impacts, contexts] = await Promise.all([
-				database
-					.select()
-					.from(dependencyLinks)
-					.where(eq(dependencyLinks.projectId, projectId))
-					.orderBy(asc(dependencyLinks.createdAt), asc(dependencyLinks.id)),
-				database
-					.select()
-					.from(changeImpacts)
-					.where(eq(changeImpacts.projectId, projectId))
-					.orderBy(asc(changeImpacts.createdAt), asc(changeImpacts.id)),
-				database
-					.select()
-					.from(contextRevisions)
-					.where(eq(contextRevisions.projectId, projectId))
-					.orderBy(asc(contextRevisions.revisionNumber)),
-			]);
-			return {
-				dependencyLinks: links.map(toDependencyLink),
-				changeImpacts: impacts.map(toChangeImpact),
-				revalidationRequiredVersionIds: [
-					...new Set(
-						impacts.flatMap((impact) =>
-							impact.affectedVersions.map((version) => version.assetVersionId)
-						)
-					),
-				],
-				contextRevisions: contexts.map((revision) => ({
-					id: revision.id,
-					revisionNumber: revision.revisionNumber,
-					isActive: revision.state === "active",
-				})),
-			};
+			return readDependencyCatalog(database, projectId);
 		},
 		async createLink(userId, input) {
 			if (!(await getProjectForUser(database, userId, input.projectId))) {

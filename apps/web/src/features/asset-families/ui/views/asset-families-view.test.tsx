@@ -60,6 +60,8 @@ vi.mock("@/utils/orpc", () => ({
 						changeImpacts: [],
 						revalidationRequiredVersionIds: [],
 						contextRevisions: [],
+						canonicalDesigns: [],
+						reviews: [],
 					}),
 				}),
 			},

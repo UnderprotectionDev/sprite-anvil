@@ -234,7 +234,7 @@ async function readVersionProductionEvidence(
 	);
 }
 
-async function checkReviewApproval(
+export async function checkReviewApproval(
 	db: Database,
 	userId: string,
 	version: typeof assetVersions.$inferSelect

@@ -24,6 +24,7 @@ import {
 import { project } from "@sprite-anvil/db/schema/project";
 import { contextRevisions } from "@sprite-anvil/db/schema/project-context";
 import { SQL } from "bun";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sql";
 import { createAssetVersionStore } from "../../asset-versions/server/asset-version-store";
 import { createFamilyReadinessStore } from "../../family-readiness/server/family-readiness-store";
@@ -182,6 +183,7 @@ test.skipIf(!databaseUrl)(
 			createdByUserId: userId,
 		});
 		const context = {
+			assetVersionStore: createAssetVersionStore(database),
 			dependencyRevalidationStore: createDependencyRevalidationStore(database),
 			familyReadinessStore: createFamilyReadinessStore(database),
 			session: { user: { id: userId } },
@@ -518,7 +520,247 @@ test.skipIf(!databaseUrl)(
 			expect(latestImpact.affectedVersions[0]?.reason).toBe(
 				"incomplete_dependency"
 			);
+			const beforeReview = await call(
+				appRouter.dependencyRevalidation.list,
+				{ projectId },
+				{ context }
+			);
+			const reviewInput = {
+				projectId,
+				assetVersionId: fixtureId(versionIds, 1),
+				contextRevisionId,
+				canonicalDesignVersionId: fixtureId(versionIds, 3),
+				changeImpactIds: beforeReview.changeImpacts
+					.filter((recordedImpact) =>
+						recordedImpact.affectedVersions.some(
+							(affectedVersion) =>
+								affectedVersion.assetVersionId === fixtureId(versionIds, 1)
+						)
+					)
+					.map((recordedImpact) => recordedImpact.id),
+				decision: "approved" as const,
+				rationale:
+					"Palette matches the selected current context and Canonical Design.",
+			};
+			const review = await call(
+				appRouter.dependencyRevalidation.reReview,
+				reviewInput,
+				{ context }
+			);
+			expect(review).toMatchObject(reviewInput);
+			const reviewPool = new SQL(databaseUrl);
+			try {
+				const reviewDatabase = drizzle({
+					client: reviewPool,
+					relations,
+				}) as unknown as Database;
+				const reviewContext = {
+					...context,
+					dependencyRevalidationStore:
+						createDependencyRevalidationStore(reviewDatabase),
+				};
+				const reread = await call(
+					appRouter.dependencyRevalidation.list,
+					{ projectId },
+					{ context: reviewContext }
+				);
+				expect(reread.reviews).toEqual([review]);
+				expect(reread.revalidationRequiredVersionIds).not.toContain(
+					reviewInput.assetVersionId
+				);
+				expect(reread.revalidationRequiredVersionIds).toContain(
+					fixtureId(versionIds, 2)
+				);
+				const versionCatalog = await call(
+					appRouter.assetVersions.list,
+					{ projectId },
+					{ context }
+				);
+				const reviewedVersion = versionCatalog.assetVersions.find(
+					(affectedVersion) => affectedVersion.id === reviewInput.assetVersionId
+				);
+				expect(reviewedVersion?.reviewEvents).toHaveLength(2);
+				expect(
+					reviewedVersion?.reviewEvents.map((event) => event.type)
+				).toEqual(["approved", "approved"]);
+				const reviewedReadiness = await call(
+					appRouter.familyReadiness.list,
+					{ projectId, assetFamilyId: familyId },
+					{ context }
+				);
+				expect(reviewedReadiness.items[0]?.blockers).not.toContain(
+					"applicability"
+				);
+				expect(reviewedReadiness.items[0]?.qualityReadiness).toBe(
+					readinessBefore.items[0]?.qualityReadiness
+				);
+			} finally {
+				await reviewPool.close();
+			}
+			await expect(
+				call(appRouter.dependencyRevalidation.reReview, reviewInput, {
+					context,
+				})
+			).rejects.toMatchObject({ code: "BAD_REQUEST" });
+			const laterImpact = await call(
+				appRouter.dependencyRevalidation.determine,
+				{
+					projectId,
+					source: { kind: "context_revision", id: contextRevisionId },
+					facets: ["palette"],
+				},
+				{ context }
+			);
+			const pendingAgain = await call(
+				appRouter.dependencyRevalidation.list,
+				{ projectId },
+				{ context }
+			);
+			expect(pendingAgain.revalidationRequiredVersionIds).toContain(
+				reviewInput.assetVersionId
+			);
+			const pendingReviewInput = {
+				...reviewInput,
+				changeImpactIds: [...reviewInput.changeImpactIds, laterImpact.id],
+			};
+			await Promise.all(
+				[
+					reviewInput,
+					{ ...pendingReviewInput, contextRevisionId: otherContextRevisionId },
+					{
+						...pendingReviewInput,
+						canonicalDesignVersionId: fixtureId(versionIds, 0),
+					},
+					{ ...pendingReviewInput, assetVersionId: fixtureId(versionIds, 3) },
+					{
+						...pendingReviewInput,
+						changeImpactIds: [
+							...pendingReviewInput.changeImpactIds,
+							crypto.randomUUID(),
+						],
+					},
+					{ ...pendingReviewInput, rationale: " " },
+					{
+						...pendingReviewInput,
+						changeImpactIds: [laterImpact.id, laterImpact.id],
+					},
+				].map((invalidInput) =>
+					expect(
+						call(appRouter.dependencyRevalidation.reReview, invalidInput, {
+							context,
+						})
+					).rejects.toMatchObject({ code: "BAD_REQUEST" })
+				)
+			);
+			await expect(
+				call(appRouter.dependencyRevalidation.reReview, pendingReviewInput, {
+					context: { ...context, session: null },
+				})
+			).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+			await expect(
+				call(appRouter.dependencyRevalidation.reReview, pendingReviewInput, {
+					context: {
+						...context,
+						session: { user: { id: "outsider" } },
+					} as unknown as Context,
+				})
+			).rejects.toMatchObject({ code: "NOT_FOUND" });
+			const correction = await call(
+				appRouter.dependencyRevalidation.reReview,
+				{
+					...pendingReviewInput,
+					decision: "candidate",
+					rationale: "Palette content needs a new Unit Version.",
+				},
+				{ context }
+			);
+			expect(correction.decision).toBe("candidate");
+			const afterCorrection = await call(
+				appRouter.dependencyRevalidation.list,
+				{ projectId },
+				{ context }
+			);
+			expect(afterCorrection.reviews).toEqual([review, correction]);
+			expect(afterCorrection.revalidationRequiredVersionIds).toContain(
+				reviewInput.assetVersionId
+			);
+			await expect(
+				call(appRouter.dependencyRevalidation.reReview, pendingReviewInput, {
+					context,
+				})
+			).rejects.toMatchObject({ code: "BAD_REQUEST" });
+			const afterBlockedApproval = await call(
+				appRouter.dependencyRevalidation.list,
+				{ projectId },
+				{ context }
+			);
+			expect(afterBlockedApproval.reviews).toEqual(afterCorrection.reviews);
+			const blockedVersionCatalog = await call(
+				appRouter.assetVersions.list,
+				{ projectId },
+				{ context }
+			);
+			const blockedVersion = blockedVersionCatalog.assetVersions.find(
+				(version) => version.id === reviewInput.assetVersionId
+			);
+			expect(blockedVersion?.reviewDisposition).toBe("candidate");
+			expect(blockedVersion?.reviewEvents).toHaveLength(3);
+			const siblingReviewInput = {
+				...reviewInput,
+				assetVersionId: fixtureId(versionIds, 2),
+				changeImpactIds: afterCorrection.changeImpacts
+					.filter((recordedImpact) =>
+						recordedImpact.affectedVersions.some(
+							(affectedVersion) =>
+								affectedVersion.assetVersionId === fixtureId(versionIds, 2)
+						)
+					)
+					.map((recordedImpact) => recordedImpact.id),
+			};
+			await call(
+				appRouter.dependencyRevalidation.reReview,
+				siblingReviewInput,
+				{ context }
+			);
+			await database
+				.update(contextRevisions)
+				.set({ state: "inactive" })
+				.where(eq(contextRevisions.id, contextRevisionId));
+			await database
+				.update(contextRevisions)
+				.set({ state: "active" })
+				.where(eq(contextRevisions.id, otherContextRevisionId));
+			const contextChanged = await call(
+				appRouter.dependencyRevalidation.list,
+				{ projectId },
+				{ context }
+			);
+			expect(contextChanged.revalidationRequiredVersionIds).toContain(
+				siblingReviewInput.assetVersionId
+			);
+			await call(
+				appRouter.dependencyRevalidation.reReview,
+				{ ...siblingReviewInput, contextRevisionId: otherContextRevisionId },
+				{ context }
+			);
+			await database.insert(assetFamilyCanonicalDesigns).values({
+				id: crypto.randomUUID(),
+				projectId,
+				assetFamilyId: familyId,
+				assetRecordId: fixtureId(recordIds, 0),
+				assetVersionId: fixtureId(versionIds, 0),
+				createdByUserId: userId,
+			});
+			const canonicalChanged = await call(
+				appRouter.dependencyRevalidation.list,
+				{ projectId },
+				{ context }
+			);
+			expect(canonicalChanged.revalidationRequiredVersionIds).toContain(
+				siblingReviewInput.assetVersionId
+			);
 		} finally {
+			await pool`DELETE FROM derivative_revalidation_reviews WHERE project_id = ${projectId}`;
 			await pool`DELETE FROM change_impacts WHERE project_id = ${projectId}`;
 			await pool`DELETE FROM dependency_links WHERE project_id = ${projectId}`;
 			await pool`DELETE FROM family_readiness_evidence WHERE project_id = ${projectId}`;

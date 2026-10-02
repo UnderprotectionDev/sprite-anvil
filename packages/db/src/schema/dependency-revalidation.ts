@@ -9,7 +9,7 @@ import {
 	timestamp,
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { assetVersions } from "./asset-versions";
+import { assetVersionReviewEvents, assetVersions } from "./asset-versions";
 import { user } from "./auth";
 import { project } from "./project";
 import { contextRevisions } from "./project-context";
@@ -112,6 +112,50 @@ export const changeImpacts = pgTable(
 		index("change_impacts_project_created_idx").on(
 			table.projectId,
 			table.createdAt
+		),
+	]
+);
+
+export const derivativeRevalidationReviews = pgTable(
+	"derivative_revalidation_reviews",
+	{
+		id: text("id")
+			.primaryKey()
+			.references(() => assetVersionReviewEvents.id, { onDelete: "restrict" }),
+		projectId: text("project_id").notNull(),
+		assetVersionId: text("asset_version_id").notNull(),
+		contextRevisionId: text("context_revision_id").notNull(),
+		canonicalDesignVersionId: text("canonical_design_version_id").notNull(),
+		changeImpactIds: jsonb("change_impact_ids").$type<string[]>().notNull(),
+	},
+	(table) => [
+		foreignKey({
+			name: "derivative_reviews_project_fk",
+			columns: [table.projectId],
+			foreignColumns: [project.id],
+		}).onDelete("restrict"),
+		foreignKey({
+			name: "derivative_reviews_version_fk",
+			columns: [table.projectId, table.assetVersionId],
+			foreignColumns: [assetVersions.projectId, assetVersions.id],
+		}).onDelete("restrict"),
+		foreignKey({
+			name: "derivative_reviews_context_fk",
+			columns: [table.projectId, table.contextRevisionId],
+			foreignColumns: [contextRevisions.projectId, contextRevisions.id],
+		}).onDelete("restrict"),
+		foreignKey({
+			name: "derivative_reviews_canonical_fk",
+			columns: [table.projectId, table.canonicalDesignVersionId],
+			foreignColumns: [assetVersions.projectId, assetVersions.id],
+		}).onDelete("restrict"),
+		check(
+			"derivative_reviews_impacts_check",
+			sql`jsonb_typeof(${table.changeImpactIds}) = 'array' AND jsonb_array_length(${table.changeImpactIds}) > 0`
+		),
+		index("derivative_reviews_project_version_idx").on(
+			table.projectId,
+			table.assetVersionId
 		),
 	]
 );

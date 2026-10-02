@@ -1,4 +1,7 @@
-import type { AssetVersionSourceKind } from "@sprite-anvil/api/asset-versions";
+import type {
+	AssetVersionReviewInput,
+	AssetVersionSourceKind,
+} from "@sprite-anvil/api/asset-versions";
 import type {
 	ChangeFacetInput,
 	DependencyLinkInput,
@@ -12,6 +15,7 @@ import {
 	dependencyFacetLabel,
 	selectedDependencyFacets,
 } from "./dependency-facets";
+import { DerivativeReReviewForm } from "./derivative-re-review-form";
 
 interface Props {
 	canonicalVersionIds: string[];
@@ -21,6 +25,9 @@ interface Props {
 	versions: {
 		id: string;
 		assetRecordId: string;
+		assetFamilyId?: string;
+		reviewDisposition?: AssetVersionReviewInput["decision"];
+		previewUrl?: string;
 		versionNumber: number;
 		sourceKind?: AssetVersionSourceKind;
 	}[];
@@ -374,6 +381,73 @@ export function DependencyRevalidationManager({
 						</ul>
 					)}
 					<h3 className="font-semibold">Kaydedilmiş Değişiklik Etkileri</h3>
+					{query.data.revalidationRequiredVersionIds.map((versionId) => {
+						const version = versions.find((entry) => entry.id === versionId);
+						if (!version) {
+							return null;
+						}
+						const activeContext = contexts.find((entry) => entry.isActive);
+						const canonicalId = query.data.canonicalDesigns.find(
+							(entry) => entry.assetFamilyId === version.assetFamilyId
+						)?.assetVersionId;
+						const canonical = versions.find(
+							(entry) => entry.id === canonicalId
+						);
+						return (
+							<DerivativeReReviewForm
+								assetVersionId={versionId}
+								canonicalDesignVersionId={canonicalId}
+								canonicalLabel={
+									versionLabels.get(canonicalId ?? "") ?? "Ana Tasarım"
+								}
+								canonicalPreviewUrl={canonical?.previewUrl}
+								canonicalVersionNumber={canonical?.versionNumber}
+								changeImpactIds={query.data.changeImpacts
+									.filter((impact) =>
+										impact.affectedVersions.some(
+											(entry) => entry.assetVersionId === versionId
+										)
+									)
+									.map((impact) => impact.id)}
+								contextRevisionId={activeContext?.id}
+								contextRevisionNumber={activeContext?.revisionNumber}
+								disabled={disabled}
+								key={versionId}
+								label={versionLabels.get(versionId) ?? versionId}
+								onReview={(input) =>
+									void save(
+										() => client.dependencyRevalidation.reReview(input),
+										input.decision === "approved"
+											? "Güncel uygunluk için yeni İnceleme Kaydı kaydedildi."
+											: "İçerik düzeltmesi için Aday inceleme kaydı kaydedildi. Yeni Birim veya Birleşik Sürüm hazırlayın; Yeniden Doğrulama Gerekli korunur."
+									)
+								}
+								previewUrl={version.previewUrl}
+								projectId={projectId}
+								versionNumber={version.versionNumber}
+							/>
+						);
+					})}
+					<h3 className="font-semibold">Yeniden İnceleme Kayıtları</h3>
+					<ul className="space-y-2">
+						{query.data.reviews.map((review) => (
+							<li key={review.id}>
+								{versionLabels.get(review.assetVersionId) ??
+									review.assetVersionId}{" "}
+								—{" "}
+								{review.decision === "approved"
+									? "Güncel uygunluk onaylandı"
+									: "İçerik düzeltmesi gerekli"}{" "}
+								— Bağlam Sürümü{" "}
+								{contexts.find((entry) => entry.id === review.contextRevisionId)
+									?.revisionNumber ?? review.contextRevisionId}{" "}
+								— Ana Tasarım:{" "}
+								{versionLabels.get(review.canonicalDesignVersionId) ??
+									review.canonicalDesignVersionId}{" "}
+								— {review.rationale}
+							</li>
+						))}
+					</ul>
 					<ul className="space-y-3">
 						{query.data.changeImpacts.map((impact) => (
 							<li key={impact.id}>
