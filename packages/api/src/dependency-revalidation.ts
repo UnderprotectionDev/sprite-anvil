@@ -1,4 +1,10 @@
 import { z } from "zod";
+import type {
+	HistoricalComposition,
+	HistoricalCompositionInput,
+	HistoricalCompositionOptions,
+	HistoricalCompositionPinResult,
+} from "./historical-compositions";
 
 const idSchema = z.string().trim().min(1).max(128);
 export const dependencyFacetSchema = z.string().trim().min(1).max(80);
@@ -87,8 +93,21 @@ export interface DependencyRevalidationStore {
 		userId: string,
 		input: ChangeFacetInput
 	) => Promise<ChangeImpact | null>;
+	historicalCompositionOptions: (
+		userId: string,
+		projectId: string
+	) => Promise<HistoricalCompositionOptions | null>;
 	list: (
 		userId: string,
 		projectId: string
 	) => Promise<DependencyCatalog | null>;
+	listHistoricalCompositions: (
+		userId: string,
+		projectId: string
+	) => Promise<HistoricalComposition[] | null>;
+	pinHistoricalComposition: (
+		userId: string,
+		input: HistoricalCompositionInput,
+		verifyContent: (versionId: string) => Promise<boolean>
+	) => Promise<HistoricalCompositionPinResult | null>;
 }

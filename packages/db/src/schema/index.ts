@@ -13,6 +13,7 @@ export * from "./external-visual-analysis";
 export * from "./family-readiness";
 export * from "./gameplay-metadata";
 export * from "./generation-packages";
+export * from "./historical-compositions";
 export * from "./import-inbox";
 export * from "./project";
 export * from "./project-access";

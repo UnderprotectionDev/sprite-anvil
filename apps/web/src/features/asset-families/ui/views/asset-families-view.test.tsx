@@ -52,6 +52,18 @@ vi.mock("@/utils/orpc", () => ({
 	client: {},
 	orpc: {
 		dependencyRevalidation: {
+			listHistoricalCompositions: {
+				queryOptions: () => ({
+					queryKey: ["historical-compositions"],
+					queryFn: async () => ({ pins: [] }),
+				}),
+			},
+			historicalCompositionOptions: {
+				queryOptions: () => ({
+					queryKey: ["historical-composition-options"],
+					queryFn: async () => ({ evidence: [], contracts: [] }),
+				}),
+			},
 			list: {
 				queryOptions: () => ({
 					queryKey: ["dependency-revalidation"],

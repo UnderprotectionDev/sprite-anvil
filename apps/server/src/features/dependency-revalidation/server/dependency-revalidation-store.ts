@@ -18,6 +18,11 @@ import {
 } from "@sprite-anvil/db/schema/dependency-revalidation";
 import { contextRevisions } from "@sprite-anvil/db/schema/project-context";
 import { and, asc, desc, eq } from "drizzle-orm";
+import {
+	historicalCompositionOptions,
+	listHistoricalCompositions,
+	pinHistoricalComposition,
+} from "./historical-composition-store";
 
 function toDependencyLink(
 	row: typeof dependencyLinks.$inferSelect
@@ -284,6 +289,12 @@ export function createDependencyRevalidationStore(
 	database: Database
 ): DependencyRevalidationStore {
 	return {
+		historicalCompositionOptions: (userId, projectId) =>
+			historicalCompositionOptions(database, userId, projectId),
+		listHistoricalCompositions: (userId, projectId) =>
+			listHistoricalCompositions(database, userId, projectId),
+		pinHistoricalComposition: (userId, input, verifyContent) =>
+			pinHistoricalComposition(database, userId, input, verifyContent),
 		async list(userId, projectId) {
 			if (!(await getProjectForUser(database, userId, projectId))) {
 				return null;
