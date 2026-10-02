@@ -130,6 +130,11 @@ export const derivativeRevalidationReviews = pgTable(
 	},
 	(table) => [
 		foreignKey({
+			name: "derivative_reviews_project_fk",
+			columns: [table.projectId],
+			foreignColumns: [project.id],
+		}).onDelete("restrict"),
+		foreignKey({
 			name: "derivative_reviews_version_fk",
 			columns: [table.projectId, table.assetVersionId],
 			foreignColumns: [assetVersions.projectId, assetVersions.id],

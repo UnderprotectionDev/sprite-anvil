@@ -46,33 +46,27 @@ export function toChangeImpact(row: typeof changeImpacts.$inferSelect) {
 	});
 }
 
-export async function readDerivativeRevalidationState(
-	database: Database,
-	projectId: string
-) {
-	const catalog = await readDependencyCatalog(database, projectId);
-	const requiredVersionIds = new Set(catalog.revalidationRequiredVersionIds);
-	return {
-		requiredVersionIds,
-		reviewedVersionIds: new Set(
-			catalog.reviews
-				.filter((review) => !requiredVersionIds.has(review.assetVersionId))
-				.map((review) => review.assetVersionId)
-		),
-	};
+interface DerivativeRevalidationFacts {
+	canonicalRows: (typeof assetFamilyCanonicalDesigns.$inferSelect)[];
+	contexts: (typeof contextRevisions.$inferSelect)[];
+	impacts: (typeof changeImpacts.$inferSelect)[];
+	reviewRows: {
+		event: typeof assetVersionReviewEvents.$inferSelect;
+		review: typeof derivativeRevalidationReviews.$inferSelect;
+	}[];
+	versions: { assetFamilyId: string | null; id: string }[];
 }
 
-export async function readDependencyCatalog(
+// Shared read for every consumer that derives revalidation state. It skips
+// Dependency Links and API schema parsing because only the raw pins matter
+// here; family readiness calls this once per family on the asset-families
+// page, so the read stays limited to the columns the state needs.
+async function readDerivativeRevalidationFacts(
 	database: Database,
 	projectId: string
-): Promise<DependencyCatalog> {
-	const [links, impacts, contexts, canonicalRows, versions, reviewRows] =
+): Promise<DerivativeRevalidationFacts> {
+	const [impacts, contexts, canonicalRows, versions, reviewRows] =
 		await Promise.all([
-			database
-				.select()
-				.from(dependencyLinks)
-				.where(eq(dependencyLinks.projectId, projectId))
-				.orderBy(asc(dependencyLinks.createdAt), asc(dependencyLinks.id)),
 			database
 				.select()
 				.from(changeImpacts)
@@ -124,28 +118,34 @@ export async function readDependencyCatalog(
 					asc(assetVersionReviewEvents.id)
 				),
 		]);
+	return { canonicalRows, contexts, impacts, reviewRows, versions };
+}
+
+function computeRevalidationRequiredVersionIds(
+	facts: DerivativeRevalidationFacts
+) {
 	const canonicalByFamily = new Map(
-		canonicalRows.map((row) => [row.assetFamilyId, row.assetVersionId])
+		facts.canonicalRows.map((row) => [row.assetFamilyId, row.assetVersionId])
 	);
 	const familyByVersion = new Map(
-		versions.map((row) => [row.id, row.assetFamilyId])
+		facts.versions.map((row) => [row.id, row.assetFamilyId])
 	);
-	const activeContextId = contexts.find(
+	const activeContextId = facts.contexts.find(
 		(revision) => revision.state === "active"
 	)?.id;
-	const reviews = reviewRows.map(({ review, event }) =>
-		derivativeReReviewSchema.parse({
-			...review,
-			decision: event.decision,
-			rationale: event.rationale,
-			createdAt: event.createdAt.toISOString(),
-		})
-	);
 	const latestByVersion = new Map(
-		reviews.map((review) => [review.assetVersionId, review])
+		facts.reviewRows.map(({ review, event }) => [
+			review.assetVersionId,
+			{
+				canonicalDesignVersionId: review.canonicalDesignVersionId,
+				changeImpactIds: review.changeImpactIds,
+				contextRevisionId: review.contextRevisionId,
+				decision: event.decision,
+			},
+		])
 	);
 	const required = new Set<string>();
-	for (const impact of impacts) {
+	for (const impact of facts.impacts) {
 		for (const version of impact.affectedVersions) {
 			const review = latestByVersion.get(version.assetVersionId);
 			const familyId = familyByVersion.get(version.assetVersionId);
@@ -162,15 +162,59 @@ export async function readDependencyCatalog(
 			}
 		}
 	}
+	return required;
+}
+
+export async function readDerivativeRevalidationState(
+	database: Database,
+	projectId: string
+) {
+	const facts = await readDerivativeRevalidationFacts(database, projectId);
+	const requiredVersionIds = computeRevalidationRequiredVersionIds(facts);
+	return {
+		requiredVersionIds,
+		reviewedVersionIds: new Set(
+			facts.reviewRows
+				.map(({ review }) => review.assetVersionId)
+				.filter((versionId) => !requiredVersionIds.has(versionId))
+		),
+	};
+}
+
+export async function readDependencyCatalog(
+	database: Database,
+	projectId: string
+): Promise<DependencyCatalog> {
+	const [links, facts] = await Promise.all([
+		database
+			.select()
+			.from(dependencyLinks)
+			.where(eq(dependencyLinks.projectId, projectId))
+			.orderBy(asc(dependencyLinks.createdAt), asc(dependencyLinks.id)),
+		readDerivativeRevalidationFacts(database, projectId),
+	]);
+	const canonicalByFamily = new Map(
+		facts.canonicalRows.map((row) => [row.assetFamilyId, row.assetVersionId])
+	);
+	const reviews = facts.reviewRows.map(({ review, event }) =>
+		derivativeReReviewSchema.parse({
+			...review,
+			decision: event.decision,
+			rationale: event.rationale,
+			createdAt: event.createdAt.toISOString(),
+		})
+	);
 	return {
 		dependencyLinks: links.map(toDependencyLink),
-		changeImpacts: impacts.map(toChangeImpact),
-		revalidationRequiredVersionIds: [...required],
+		changeImpacts: facts.impacts.map(toChangeImpact),
+		revalidationRequiredVersionIds: [
+			...computeRevalidationRequiredVersionIds(facts),
+		],
 		reviews,
 		canonicalDesigns: [...canonicalByFamily].map(
 			([assetFamilyId, assetVersionId]) => ({ assetFamilyId, assetVersionId })
 		),
-		contextRevisions: contexts.map((revision) => ({
+		contextRevisions: facts.contexts.map((revision) => ({
 			id: revision.id,
 			revisionNumber: revision.revisionNumber,
 			isActive: revision.state === "active",

@@ -1,0 +1,1 @@
+ALTER TABLE "derivative_revalidation_reviews" ADD CONSTRAINT "derivative_reviews_project_fk" FOREIGN KEY ("project_id") REFERENCES "project"("id") ON DELETE RESTRICT;
