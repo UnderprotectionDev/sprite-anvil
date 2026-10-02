@@ -40,8 +40,9 @@ function drawLayers(
 			continue;
 		}
 		const color = [0xff_dd_00, 0x00_ff_ff, 0xff_66_ff, 0x66_ff_66][index % 4];
-		if (field.fieldId === "collision_areas" && Array.isArray(field.value)) {
-			for (const raw of field.value) {
+		if (field.fieldId === "collision_areas") {
+			const areas = Array.isArray(field.value) ? field.value : [field.value];
+			for (const raw of areas) {
 				const area = areaSchema.safeParse(raw);
 				if (area.success) {
 					layer
