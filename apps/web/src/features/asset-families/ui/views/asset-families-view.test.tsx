@@ -51,6 +51,19 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
 vi.mock("@/utils/orpc", () => ({
 	client: {},
 	orpc: {
+		dependencyRevalidation: {
+			list: {
+				queryOptions: () => ({
+					queryKey: ["dependency-revalidation"],
+					queryFn: async () => ({
+						dependencyLinks: [],
+						changeImpacts: [],
+						revalidationRequiredVersionIds: [],
+						contextRevisions: [],
+					}),
+				}),
+			},
+		},
 		assetFamilies: {
 			list: {
 				queryOptions: () => ({

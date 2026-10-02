@@ -11,6 +11,7 @@ import {
 	collectionStore,
 	createServerAssetVersionStorage,
 	db,
+	dependencyRevalidationStore,
 	familyReadinessStore,
 	generationPackageStore,
 	projectAccess,
@@ -35,6 +36,7 @@ export async function createContext({
 	return {
 		assetFamilyStore,
 		familyReadinessStore,
+		dependencyRevalidationStore,
 		assetRecordStore,
 		assetRecordTrackingStore,
 		assetVersionStore,

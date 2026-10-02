@@ -31,6 +31,7 @@ import { assetRecordTrackingRouter } from "./asset-record-tracking";
 import { assetRecordsRouter } from "./asset-records";
 import { assetVersionsRouter } from "./asset-versions";
 import { collectionsRouter } from "./collections";
+import { dependencyRevalidationRouter } from "./dependency-revalidation";
 import { familyReadinessRouter } from "./family-readiness";
 import { generationPackagesRouter } from "./generation-packages";
 import { projectsRouter } from "./projects";
@@ -100,6 +101,7 @@ export const appRouter = {
 	),
 	projects: projectsRouter,
 	assetFamilies: assetFamiliesRouter,
+	dependencyRevalidation: dependencyRevalidationRouter,
 	familyReadiness: familyReadinessRouter,
 	assetVersions: assetVersionsRouter,
 	assetRecords: assetRecordsRouter,
