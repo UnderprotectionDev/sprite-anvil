@@ -12,6 +12,7 @@ import {
 	createServerAssetVersionStorage,
 	db,
 	familyReadinessStore,
+	gameplayMetadataStore,
 	generationPackageStore,
 	projectAccess,
 	projectContextScopeStore,
@@ -40,6 +41,7 @@ export async function createContext({
 		assetVersionStore,
 		collectionStore,
 		generationPackageStore,
+		gameplayMetadataStore,
 		verifyAssetVersionContent: async (userId, projectId, assetVersionId) => {
 			const fileRecord = await assetVersionStore.getFileRecord(
 				userId,

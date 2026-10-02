@@ -159,6 +159,22 @@ vi.mock("@/utils/orpc", () => ({
 		},
 	},
 	orpc: {
+		gameplayMetadata: {
+			list: {
+				queryOptions: ({ input }: { input: Record<string, unknown> }) => ({
+					queryKey: ["gameplay-metadata", input],
+					queryFn: async () => ({ frames: [], records: [] }),
+				}),
+			},
+		},
+		specializedProfileContracts: {
+			list: {
+				queryOptions: ({ input }: { input: Record<string, unknown> }) => ({
+					queryKey: ["specialized-profile-contracts", input],
+					queryFn: async () => ({ profiles: [] }),
+				}),
+			},
+		},
 		assetVersions: {
 			list: {
 				queryOptions: ({ input }: { input: Record<string, unknown> }) => ({
