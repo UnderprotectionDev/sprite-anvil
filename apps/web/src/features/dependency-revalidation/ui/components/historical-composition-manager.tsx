@@ -126,7 +126,7 @@ export function HistoricalCompositionManager({
 	const compositeLabels = new Map(
 		composites.map((composite) => [
 			composite.id,
-			`${names.get(composite.assetRecordId) ?? composite.assetRecordId} · Composite v${composite.versionNumber}`,
+			`${names.get(composite.assetRecordId) ?? composite.assetRecordId} · Birleşik Sürüm v${composite.versionNumber}`,
 		])
 	);
 	const contexts = new Map(
@@ -138,7 +138,7 @@ export function HistoricalCompositionManager({
 	const selects = [
 		{
 			field: "compositeVersionId" as const,
-			label: "Historical Composite Version",
+			label: "Tarihsel Birleşik Sürüm",
 			choices: composites.map((composite) => ({
 				id: composite.id,
 				label: compositeLabels.get(composite.id) ?? composite.id,
@@ -146,12 +146,12 @@ export function HistoricalCompositionManager({
 		},
 		{
 			field: "contextRevisionId" as const,
-			label: "Historical Context Revision",
+			label: "Tarihsel Bağlam Sürümü",
 			choices: [...contexts].map(([id, label]) => ({ id, label })),
 		},
 		{
 			field: "canonicalDesignVersionId" as const,
-			label: "Historical Canonical Design",
+			label: "Tarihsel Ana Tasarım",
 			choices: [
 				...new Set(canonicalDesigns.map((design) => design.assetVersionId)),
 			].map((id) => ({ id, label: labels.get(id) ?? id })),
@@ -160,7 +160,7 @@ export function HistoricalCompositionManager({
 	const lists = [
 		{
 			field: "dependencyVersionIds" as const,
-			title: "Historical dependency versions",
+			title: "Tarihsel bağımlılık Varlık Sürümleri",
 			choices: versions.map((version) => ({
 				id: version.id,
 				label: labels.get(version.id) ?? version.id,
@@ -168,7 +168,7 @@ export function HistoricalCompositionManager({
 		},
 		{
 			field: "dependencyLinkIds" as const,
-			title: "Historical Dependency Links",
+			title: "Tarihsel Bağımlılık Bağlantıları",
 			choices:
 				catalog.data?.dependencyLinks.map((link) => ({
 					id: link.id,
@@ -177,7 +177,7 @@ export function HistoricalCompositionManager({
 		},
 		{
 			field: "profileContractRevisionIds" as const,
-			title: "Historical Specialized Profile Contracts",
+			title: "Tarihsel Özel Profil Sözleşmeleri",
 			choices:
 				options.data?.contracts.map((contract) => ({
 					id: contract.id,
@@ -186,7 +186,7 @@ export function HistoricalCompositionManager({
 		},
 		{
 			field: "readinessEvidenceIds" as const,
-			title: "Historical quality and applicability evidence",
+			title: "Tarihsel kalite ve uygunluk kanıtları",
 			choices:
 				options.data?.evidence.map((evidence) => ({
 					id: evidence.id,
@@ -195,7 +195,7 @@ export function HistoricalCompositionManager({
 		},
 		{
 			field: "reviewEventIds" as const,
-			title: "Historical Review Events",
+			title: "Tarihsel İnceleme Kayıtları",
 			choices: [
 				...versions.flatMap(
 					(version) =>
@@ -307,7 +307,7 @@ export function HistoricalCompositionManager({
 							required
 							value={selection[select.field]}
 						>
-							<option value="">Select an exact revision</option>
+							<option value="">Kesin sürüm seçin</option>
 							{select.choices.map((choice) => (
 								<option key={choice.id} value={choice.id}>
 									{choice.label}
@@ -338,7 +338,9 @@ export function HistoricalCompositionManager({
 					}
 					type="submit"
 				>
-					{pending ? "Retry historical pin" : "Pin historical composition"}
+					{pending
+						? "Tarihsel sabitlemeyi yeniden dene"
+						: "Tarihsel bileşimi sabitle"}
 				</Button>
 			</form>
 			{message ? <p role="status">{message}</p> : null}
@@ -350,7 +352,7 @@ export function HistoricalCompositionManager({
 				type="button"
 				variant="outline"
 			>
-				Refresh historical selections
+				Tarihsel seçimleri yenile
 			</Button>
 			{history.data?.pins.map((pin) => (
 				<article className="space-y-2 rounded border p-3" key={pin.id}>

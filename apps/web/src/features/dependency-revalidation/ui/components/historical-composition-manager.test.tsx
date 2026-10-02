@@ -131,13 +131,13 @@ function openManager() {
 
 async function selectHistory() {
 	await screen.findByRole("option", { name: "Bağlam Sürümü 1" });
-	fireEvent.change(screen.getByLabelText("Historical Composite Version"), {
+	fireEvent.change(screen.getByLabelText("Tarihsel Birleşik Sürüm"), {
 		target: { value: "old-composite" },
 	});
-	fireEvent.change(screen.getByLabelText("Historical Context Revision"), {
+	fireEvent.change(screen.getByLabelText("Tarihsel Bağlam Sürümü"), {
 		target: { value: "old-context" },
 	});
-	fireEvent.change(screen.getByLabelText("Historical Canonical Design"), {
+	fireEvent.change(screen.getByLabelText("Tarihsel Ana Tasarım"), {
 		target: { value: "old-canonical" },
 	});
 }
@@ -146,7 +146,7 @@ test("explicitly saves old selections, shows unresolved blockers and rereads the
 	const view = openManager();
 	await selectHistory();
 	fireEvent.click(
-		screen.getByRole("button", { name: "Pin historical composition" })
+		screen.getByRole("button", { name: "Tarihsel bileşimi sabitle" })
 	);
 	await screen.findByText(
 		"Tarihsel seçim kaydedildi; güncel Yeniden Doğrulama Gerekli durumu değişmedi."
@@ -173,14 +173,16 @@ test("does not claim success after an uncertain write and retains a safe retry w
 	await selectHistory();
 	transport.fail = true;
 	fireEvent.click(
-		screen.getByRole("button", { name: "Pin historical composition" })
+		screen.getByRole("button", { name: "Tarihsel bileşimi sabitle" })
 	);
 	await screen.findByText(
 		"Kaydetme sonucu doğrulanamadı. Seçimi değiştirmeden yeniden deneyebilirsiniz."
 	);
 	expect(transport.pins).toHaveLength(0);
 	transport.fail = false;
-	fireEvent.click(screen.getByRole("button", { name: "Retry historical pin" }));
+	fireEvent.click(
+		screen.getByRole("button", { name: "Tarihsel sabitlemeyi yeniden dene" })
+	);
 	await waitFor(() => expect(transport.pins).toHaveLength(1));
 });
 
@@ -195,12 +197,12 @@ test("releases selection controls after a confirmed validation rejection", async
 		}
 	);
 	fireEvent.click(
-		screen.getByRole("button", { name: "Pin historical composition" })
+		screen.getByRole("button", { name: "Tarihsel bileşimi sabitle" })
 	);
 	await screen.findByText("Invalid historical selection");
-	expect(screen.getByLabelText("Historical Context Revision")).toBeEnabled();
+	expect(screen.getByLabelText("Tarihsel Bağlam Sürümü")).toBeEnabled();
 	expect(
-		screen.getByRole("button", { name: "Pin historical composition" })
+		screen.getByRole("button", { name: "Tarihsel bileşimi sabitle" })
 	).toBeEnabled();
 });
 
@@ -209,7 +211,7 @@ test("distinguishes a saved pin from a failed report reread", async () => {
 	await selectHistory();
 	transport.failHistory = true;
 	fireEvent.click(
-		screen.getByRole("button", { name: "Pin historical composition" })
+		screen.getByRole("button", { name: "Tarihsel bileşimi sabitle" })
 	);
 	await screen.findByText(
 		"Tarihsel seçim kaydedildi, ancak rapor yeniden okunamadı. Refresh historical selections ile tekrar okuyun."

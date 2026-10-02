@@ -28,7 +28,10 @@ import {
 } from "@sprite-anvil/db/schema/family-readiness";
 import { project } from "@sprite-anvil/db/schema/project";
 import { contextRevisions } from "@sprite-anvil/db/schema/project-context";
-import { specializedProfileContractRevisions } from "@sprite-anvil/db/schema/specialized-profile-contracts";
+import {
+	projectSpecializedProfileContracts,
+	specializedProfileContractRevisions,
+} from "@sprite-anvil/db/schema/specialized-profile-contracts";
 import { SQL } from "bun";
 import { inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sql";
@@ -290,6 +293,23 @@ test.skipIf(!databaseUrl)(
 					definition: contract,
 				})
 				.onConflictDoNothing();
+			await database.insert(projectSpecializedProfileContracts).values({
+				projectId,
+				profileId: contract.profileId,
+				contractRevisionId: contractId,
+				activatedByUserId: userId,
+			});
+			const unactivatedContractId = `${contract.profileId}@0.0.1`;
+			await database
+				.insert(specializedProfileContractRevisions)
+				.values({
+					id: unactivatedContractId,
+					profileId: contract.profileId,
+					contractSchemaVersion: contract.contractSchemaVersion,
+					contractVersion: "0.0.1",
+					definition: contract,
+				})
+				.onConflictDoNothing();
 			const revisionId = crypto.randomUUID();
 			await database.insert(familyRequiredSetRevisions).values({
 				id: revisionId,
@@ -418,6 +438,25 @@ test.skipIf(!databaseUrl)(
 				exportEligible: true,
 				blockers: [],
 			});
+			const options = await call(
+				appRouter.dependencyRevalidation.historicalCompositionOptions,
+				{ projectId },
+				{ context: verifiedContext }
+			);
+			expect(options.contracts).toEqual([
+				{ id: contractId, name: contract.name },
+			]);
+			await expect(
+				call(
+					appRouter.dependencyRevalidation.pinHistoricalComposition,
+					{
+						...completeInput,
+						idempotencyKey: crypto.randomUUID(),
+						profileContractRevisionIds: [unactivatedContractId],
+					},
+					{ context: verifiedContext }
+				)
+			).rejects.toMatchObject({ code: "BAD_REQUEST" });
 			const additionalVersions = Array.from({ length: 255 }, (_, index) => ({
 				id: crypto.randomUUID(),
 				projectId,
@@ -625,6 +664,18 @@ test.skipIf(!databaseUrl)(
 				{ context }
 			);
 			expect(failedContent.report.exportEligible).toBe(false);
+			expect(failedContent.report.blockers).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						code: "integrity",
+						message: expect.stringContaining("Ash Knight idle · v2"),
+					}),
+					expect.objectContaining({
+						code: "integrity",
+						message: expect.stringContaining("Ash Knight idle · v1"),
+					}),
+				])
+			);
 			const noCompositeReview = await call(
 				appRouter.dependencyRevalidation.pinHistoricalComposition,
 				{
@@ -785,6 +836,24 @@ test.skipIf(!databaseUrl)(
 					}),
 				])
 			);
+			const duplicatedTargets = await call(
+				appRouter.dependencyRevalidation.pinHistoricalComposition,
+				{
+					...chainInput,
+					idempotencyKey: crypto.randomUUID(),
+					dependencyVersionIds: [intermediateVersion.id, upstreamVersion.id],
+					dependencyLinkIds: [],
+				},
+				{ context: verifiedContext }
+			);
+			const missingLinkBlockers = duplicatedTargets.report.blockers.filter(
+				(entry) =>
+					entry.code === "dependency" &&
+					entry.targetId === versionId &&
+					entry.message.startsWith("Bağımlılık Bağlantısı eksik")
+			);
+			expect(missingLinkBlockers).toHaveLength(1);
+			expect(missingLinkBlockers[0]?.message).toContain("Ash Knight idle · v2");
 			await expect(
 				call(
 					appRouter.dependencyRevalidation.historicalCompositionOptions,

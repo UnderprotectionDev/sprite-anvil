@@ -27,7 +27,10 @@ import {
 } from "@sprite-anvil/db/schema/family-readiness";
 import { historicalCompositionPins } from "@sprite-anvil/db/schema/historical-compositions";
 import { contextRevisions } from "@sprite-anvil/db/schema/project-context";
-import { specializedProfileContractRevisions } from "@sprite-anvil/db/schema/specialized-profile-contracts";
+import {
+	projectSpecializedProfileContracts,
+	specializedProfileContractRevisions,
+} from "@sprite-anvil/db/schema/specialized-profile-contracts";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { assessHistoricalComposition } from "./historical-composition-report";
 
@@ -48,8 +51,25 @@ export async function historicalCompositionOptions(
 			asc(familyReadinessEvidence.id)
 		);
 	const contracts = await database
-		.select()
-		.from(specializedProfileContractRevisions)
+		.select({
+			definition: specializedProfileContractRevisions.definition,
+			id: specializedProfileContractRevisions.id,
+		})
+		.from(projectSpecializedProfileContracts)
+		.innerJoin(
+			specializedProfileContractRevisions,
+			and(
+				eq(
+					projectSpecializedProfileContracts.profileId,
+					specializedProfileContractRevisions.profileId
+				),
+				eq(
+					projectSpecializedProfileContracts.contractRevisionId,
+					specializedProfileContractRevisions.id
+				)
+			)
+		)
+		.where(eq(projectSpecializedProfileContracts.projectId, projectId))
 		.orderBy(asc(specializedProfileContractRevisions.id));
 	return {
 		evidence: evidence.map((row) => ({
@@ -96,6 +116,63 @@ export async function listHistoricalCompositions(
 			asc(historicalCompositionPins.id)
 		);
 	return rows.map(readPin);
+}
+
+async function readActivatedContractIds(
+	database: Database,
+	projectId: string,
+	contractRevisionIds: string[]
+) {
+	if (!contractRevisionIds.length) {
+		return new Set<string>();
+	}
+	const rows = await database
+		.select({
+			contractRevisionId: projectSpecializedProfileContracts.contractRevisionId,
+			profileId: projectSpecializedProfileContracts.profileId,
+		})
+		.from(projectSpecializedProfileContracts)
+		.where(
+			and(
+				eq(projectSpecializedProfileContracts.projectId, projectId),
+				inArray(
+					projectSpecializedProfileContracts.contractRevisionId,
+					contractRevisionIds
+				)
+			)
+		);
+	return new Set(
+		rows.map((row) => `${row.profileId}:${row.contractRevisionId}`)
+	);
+}
+
+function buildTargetLabels(
+	records: (typeof assetRecords.$inferSelect)[],
+	versions: (typeof assetVersions.$inferSelect)[],
+	memberships: {
+		unit_versions: typeof unitVersions.$inferSelect;
+	}[],
+	composite: typeof compositeVersions.$inferSelect
+) {
+	const recordNames = new Map(records.map((row) => [row.id, row.name]));
+	const versionLabels = new Map(
+		versions.map((row) => [
+			row.id,
+			`${recordNames.get(row.assetRecordId) ?? row.assetRecordId} · v${row.versionNumber}`,
+		])
+	);
+	const targetLabels = new Map<string, string>(versionLabels);
+	targetLabels.set(
+		composite.id,
+		`${recordNames.get(composite.assetRecordId) ?? composite.assetRecordId} · Birleşik Sürüm v${composite.versionNumber}`
+	);
+	for (const row of memberships) {
+		targetLabels.set(
+			row.unit_versions.id,
+			`${versionLabels.get(row.unit_versions.assetVersionId) ?? row.unit_versions.assetVersionId} · Birim ${row.unit_versions.unitKey}`
+		);
+	}
+	return targetLabels;
 }
 
 export async function pinHistoricalComposition(
@@ -229,11 +306,20 @@ export async function pinHistoricalComposition(
 					)
 				)
 		: [];
+	const activatedContractIds = await readActivatedContractIds(
+		database,
+		input.projectId,
+		input.profileContractRevisionIds
+	);
 	if (
 		versions.length !== versionIds.length ||
 		links.length !== input.dependencyLinkIds.length ||
 		evidence.length !== input.readinessEvidenceIds.length ||
 		contracts.length !== input.profileContractRevisionIds.length ||
+		contracts.some(
+			(contract) =>
+				!activatedContractIds.has(`${contract.profileId}:${contract.id}`)
+		) ||
 		versions.some(
 			(version) => version.assetFamilyId !== canonical.assetFamilyId
 		)
@@ -339,6 +425,12 @@ export async function pinHistoricalComposition(
 	const integrityFailures = integrityResults
 		.filter((result) => !result.verified)
 		.map((result) => result.id);
+	const targetLabels = buildTargetLabels(
+		records,
+		versions,
+		memberships,
+		composite
+	);
 	const report = assessHistoricalComposition(input, {
 		family,
 		records,
@@ -351,6 +443,7 @@ export async function pinHistoricalComposition(
 		assetReviews,
 		compositeReviews,
 		integrityFailures,
+		targetLabels,
 		targets: [
 			...versions
 				.filter(

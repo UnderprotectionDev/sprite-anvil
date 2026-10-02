@@ -41,6 +41,7 @@ export interface HistoricalCompositionFacts {
 	records: (typeof assetRecords.$inferSelect)[];
 	revisions: (typeof familyRequiredSetRevisions.$inferSelect)[];
 	selectedLinks: (typeof dependencyLinks.$inferSelect)[];
+	targetLabels: ReadonlyMap<string, string>;
 	targets: Target[];
 	versions: (typeof assetVersions.$inferSelect)[];
 }
@@ -337,9 +338,22 @@ export function assessHistoricalComposition(
 		...dependencyBlockers(input, facts),
 		...facts.targets.flatMap((target) => targetBlockers(input, facts, target)),
 	];
+	const uniqueBlockers = [
+		...new Map(
+			blockers.map(
+				(entry) =>
+					[`${entry.code}:${entry.targetId}:${entry.message}`, entry] as const
+			)
+		).values(),
+	];
 	return {
 		mode: "historical",
-		exportEligible: blockers.length === 0,
-		blockers,
+		exportEligible: uniqueBlockers.length === 0,
+		blockers: uniqueBlockers.map((entry) => {
+			const label = facts.targetLabels.get(entry.targetId);
+			return label
+				? { ...entry, message: `${entry.message} (Hedef: ${label})` }
+				: entry;
+		}),
 	};
 }
