@@ -49,7 +49,9 @@ import {
 	readProjectProfileContracts,
 } from "../../quality-evidence/server/profile-contract-scope";
 import {
+	isAvailableQualityVersionTarget,
 	qualityVersionTargetFromEvidence,
+	readAssessmentQualityVersionTarget,
 	readQualityVersionTargets,
 } from "../../quality-evidence/server/quality-version-targets";
 
@@ -217,10 +219,7 @@ function isQualityVersionTargetCurrent(
 	return (
 		target.kind === assessmentTarget?.kind &&
 		target.id === assessmentTarget.id &&
-		availableTargets.some(
-			(available) =>
-				available.kind === target.kind && available.id === target.id
-		)
+		isAvailableQualityVersionTarget(target, availableTargets)
 	);
 }
 
@@ -237,17 +236,13 @@ function latestEvidenceByItem(
 ) {
 	const result = new Map<string, CurrentEvidence[]>();
 	for (const item of items) {
-		const latestTargetedEvidence = evidenceRows.find(
-			(evidence) =>
-				evidence.itemId === item.id &&
-				evidence.kind === "quality" &&
-				qualityVersionTargetFromEvidence(evidence)
-		);
-		const assessmentTarget = latestTargetedEvidence
-			? qualityVersionTargetFromEvidence(latestTargetedEvidence)
-			: null;
 		const availableTargets = item.assetRecordIds.flatMap(
 			(recordId) => versionTargets.get(recordId) ?? []
+		);
+		const assessmentTarget = readAssessmentQualityVersionTarget(
+			evidenceRows,
+			item.id,
+			availableTargets
 		);
 		const expectedVersionIds = item.assetRecordIds.flatMap((recordId) => {
 			const version = currentVersions.get(recordId);

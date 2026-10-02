@@ -409,9 +409,10 @@ test.skipIf(!databaseUrl)(
 				idempotencyKey: crypto.randomUUID(),
 				objectKey: `review/${replacementId}.png`,
 			});
+			const replacementUnitId = crypto.randomUUID();
 			await db.insert(unitVersions).values({
 				...unitInput,
-				id: crypto.randomUUID(),
+				id: replacementUnitId,
 				assetVersionId: replacementId,
 				sourceAssetVersionId: assetVersionId,
 				versionNumber: 2,
@@ -423,6 +424,17 @@ test.skipIf(!databaseUrl)(
 					options
 				)
 			).rejects.toMatchObject({ code: "BAD_REQUEST" });
+			await call(
+				appRouter.familyReadiness.recordEvidence,
+				{
+					...evidenceScope,
+					kind: "quality",
+					ruleId: integrityGate.id,
+					result: "passed",
+					versionTarget: { kind: "unit", id: replacementUnitId },
+				},
+				options
+			);
 			await call(
 				appRouter.assetVersions.review,
 				{ ...reviewInput, decision: "rejected" },

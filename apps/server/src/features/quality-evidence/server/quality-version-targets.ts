@@ -18,6 +18,45 @@ export function qualityVersionTargetFromEvidence(evidence: {
 		: null;
 }
 
+export function isAvailableQualityVersionTarget(
+	target: QualityVersionTarget | null,
+	availableTargets: QualityVersionTarget[]
+) {
+	return (
+		target !== null &&
+		availableTargets.some(
+			(available) =>
+				available.kind === target.kind && available.id === target.id
+		)
+	);
+}
+
+export interface QualityTargetedEvidenceRow {
+	compositeVersionId: string | null;
+	itemId: string;
+	kind: string;
+	unitVersionId: string | null;
+}
+
+export function readAssessmentQualityVersionTarget(
+	evidenceRows: QualityTargetedEvidenceRow[],
+	itemId: string,
+	availableTargets: QualityVersionTarget[]
+): QualityVersionTarget | null {
+	const latestAssessableEvidence = evidenceRows.find(
+		(evidence) =>
+			evidence.itemId === itemId &&
+			evidence.kind === "quality" &&
+			isAvailableQualityVersionTarget(
+				qualityVersionTargetFromEvidence(evidence),
+				availableTargets
+			)
+	);
+	return latestAssessableEvidence
+		? qualityVersionTargetFromEvidence(latestAssessableEvidence)
+		: null;
+}
+
 export async function readQualityVersionTargets(
 	db: Database,
 	projectId: string,
