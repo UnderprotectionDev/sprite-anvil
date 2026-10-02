@@ -5,13 +5,17 @@ import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { useAssetVersionWrites } from "./use-asset-version-writes";
 
-const { recordProviderGenerationMock, reviewMock, toastErrorMock } = vi.hoisted(
-	() => ({
-		recordProviderGenerationMock: vi.fn(),
-		reviewMock: vi.fn(),
-		toastErrorMock: vi.fn(),
-	})
-);
+const {
+	recordProviderGenerationMock,
+	reviewMock,
+	reviewBatchMock,
+	toastErrorMock,
+} = vi.hoisted(() => ({
+	recordProviderGenerationMock: vi.fn(),
+	reviewMock: vi.fn(),
+	reviewBatchMock: vi.fn(),
+	toastErrorMock: vi.fn(),
+}));
 
 vi.mock("@/env", () => ({ ENV: { VITE_SERVER_URL: "" } }));
 vi.mock("@/utils/orpc", () => ({
@@ -19,6 +23,7 @@ vi.mock("@/utils/orpc", () => ({
 		assetVersions: {
 			recordProviderGeneration: recordProviderGenerationMock,
 			review: reviewMock,
+			reviewBatch: reviewBatchMock,
 		},
 	},
 }));
@@ -27,6 +32,30 @@ vi.mock("sonner", () => ({ toast: { error: toastErrorMock } }));
 afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
+});
+
+test("does not claim batch success when the server refuses a blocked selection", async () => {
+	const message = "Hiçbir İnceleme Kaydı yazılmadı: Required evidence missing";
+	reviewBatchMock.mockRejectedValueOnce(
+		Object.assign(new Error(message), { code: "BAD_REQUEST", status: 400 })
+	);
+	toastErrorMock.mockClear();
+	const refreshCatalogs = vi.fn();
+	const { result } = renderHook(() =>
+		useAssetVersionWrites("project", refreshCatalogs)
+	);
+	await act(async () => {
+		await result.current.reviewBatch({
+			projectId: "project",
+			decision: "approved",
+			rationale: "Reviewed",
+			idempotencyKey: crypto.randomUUID(),
+			targets: [{ assetVersionId: "one", expectedReviewEventId: null }],
+		});
+	});
+	expect(toastErrorMock).toHaveBeenCalledWith(message);
+	expect(result.current.statusMessage).toBeNull();
+	expect(refreshCatalogs).not.toHaveBeenCalled();
 });
 
 const projectId = "project-ash-knight";

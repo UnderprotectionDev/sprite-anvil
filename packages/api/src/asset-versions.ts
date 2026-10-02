@@ -180,6 +180,74 @@ export const assetVersionReviewInputSchema = z
 	})
 	.strict();
 
+export const assetVersionBatchReviewPreviewInputSchema = z
+	.object({
+		projectId: idSchema,
+		assetVersionIds: z
+			.array(idSchema)
+			.min(1)
+			.max(100)
+			.refine(
+				(ids) => new Set(ids).size === ids.length,
+				"Duplicate Asset Versions are not allowed."
+			),
+		decision: assetVersionReviewDispositionSchema,
+	})
+	.strict();
+
+export const assetVersionBatchReviewPreviewSchema = z
+	.object({
+		items: z.array(
+			z
+				.object({
+					assetVersionId: idSchema,
+					expectedReviewEventId: idSchema.nullable(),
+					blockers: z.array(z.string()),
+				})
+				.strict()
+		),
+	})
+	.strict();
+
+export const assetVersionBatchReviewInputSchema = z
+	.object({
+		projectId: idSchema,
+		idempotencyKey: z.uuid(),
+		decision: assetVersionReviewDispositionSchema,
+		rationale: z.string().trim().min(1).max(2000),
+		targets: z
+			.array(
+				z
+					.object({
+						assetVersionId: idSchema,
+						expectedReviewEventId: idSchema.nullable(),
+					})
+					.strict()
+			)
+			.min(1)
+			.max(100)
+			.refine(
+				(targets) =>
+					new Set(targets.map((target) => target.assetVersionId)).size ===
+					targets.length,
+				"Duplicate Asset Versions are not allowed."
+			),
+	})
+	.strict();
+
+export const assetVersionBatchReviewResultSchema = z
+	.object({
+		reviewEvents: z.array(assetVersionReviewEventSchema),
+	})
+	.strict();
+
+export type AssetVersionBatchReviewInput = z.infer<
+	typeof assetVersionBatchReviewInputSchema
+>;
+export type AssetVersionBatchReviewPreview = z.infer<
+	typeof assetVersionBatchReviewPreviewSchema
+>;
+
 export const compositeVersionCreateInputSchema = z
 	.object({
 		projectId: idSchema,
@@ -305,6 +373,19 @@ export interface AssetVersionStore {
 		userId: string,
 		projectId: string
 	) => Promise<AssetVersionCatalog | null>;
+	readBatchReviewEvents: (
+		userId: string,
+		input: AssetVersionBatchReviewInput
+	) => Promise<AssetVersionReviewEvent[] | "conflict" | null>;
+	readReviewBlockers: (
+		userId: string,
+		projectId: string,
+		assetVersionId: string
+	) => Promise<string[] | null>;
+	recordBatchReviewEvents: (
+		userId: string,
+		input: AssetVersionBatchReviewInput
+	) => Promise<AssetVersionReviewEvent[] | null>;
 	recordCompositeVersionReviewEvent: (
 		userId: string,
 		input: CompositeVersionReviewInput
