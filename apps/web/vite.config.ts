@@ -6,7 +6,8 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
 	server: {
-		port: 3001,
+		port: Number(process.env.WEB_PORT ?? 3001),
+		strictPort: true,
 	},
 	resolve: {
 		tsconfigPaths: true,

@@ -83,12 +83,9 @@ function selectRemoteTarget(
 				"Deployment requires DB_MIGRATE_TARGET=production and DB_MIGRATE_DEPLOY_CONFIRM=production."
 			);
 		}
-	} else if (
-		env.DB_MIGRATE_TARGET !== "development" &&
-		env.DB_MIGRATE_TARGET !== "test"
-	) {
+	} else if (env.DB_MIGRATE_TARGET !== "development") {
 		throw new MigrationSafetyError(
-			"Set DB_MIGRATE_TARGET=development or test for migration."
+			"Set DB_MIGRATE_TARGET=development for migration."
 		);
 	}
 	const derived = directNeonUrl(applicationUrl);
@@ -163,8 +160,6 @@ function expectedEndpointHost(env: Environment, mode: TargetMode): string {
 	let key = "NEON_DEVELOPMENT_ENDPOINT_HOST";
 	if (mode === "deploy") {
 		key = "NEON_PRODUCTION_ENDPOINT_HOST";
-	} else if (env.DB_MIGRATE_TARGET === "test") {
-		key = "NEON_TEST_ENDPOINT_HOST";
 	}
 	const host = env[key];
 	if (
@@ -193,6 +188,28 @@ export function selectVerifiedDatabaseTarget(
 	if (hostname !== expectedEndpointHost(env, mode)) {
 		throw new MigrationSafetyError(
 			"The database endpoint does not match the allowed Neon target."
+		);
+	}
+	let databaseKey = "NEON_DEVELOPMENT_DATABASE_NAME";
+	if (mode === "deploy") {
+		databaseKey = "NEON_PRODUCTION_DATABASE_NAME";
+	}
+	if (
+		!env[databaseKey] ||
+		decodeURIComponent(new URL(target).pathname.slice(1)) !== env[databaseKey]
+	) {
+		throw new MigrationSafetyError(
+			`${databaseKey} must match the explicitly authorized database name.`
+		);
+	}
+	if (
+		mode === "deploy" &&
+		hostname === env.NEON_DEVELOPMENT_ENDPOINT_HOST &&
+		(!env.NEON_DEVELOPMENT_DATABASE_NAME ||
+			env[databaseKey] === env.NEON_DEVELOPMENT_DATABASE_NAME)
+	) {
+		throw new MigrationSafetyError(
+			"Production and development targets must be distinct."
 		);
 	}
 	return target;

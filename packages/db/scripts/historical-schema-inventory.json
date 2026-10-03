@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "reason": "Immutable applied legacy schema additions and explicit NOT VALID constraints; no applied SQL or snapshot is rewritten.",
+  "sourceMigrationHashes": {
+    "20260924211159_asset-families": "de825ede8c7acb5e3cdeb12ecca73814f0209629136815199e71a4c5e344cddc",
+    "20260924232741_fresh_night_nurse": "677d9c066a01cc0ce081c2fbcdb007dee07b146bdde8f24dde2dad74b802fad2",
+    "20260925080000_legacy_asset_schema_bridge": "15d914f9fd6a30b3573018892ba1ac8dfeec6c25c68dafa8d8fbd04476ac98d7",
+    "20260925203211_merge_asset_record_family_contract": "eb843a4bd812c93fafee1d8b7425460c78d6d45b80f978197dafff750a029f66",
+    "20260927143958_reference_transfer_constraints": "f9a1162ffdfdfe536d2433e1910e89270aae129810a98dbe7eacc6ac5cc9f4d6"
+  },
+  "expectedOnly": [
+    "[\"constraint\", \"public\", \"asset_record_reference_history\", \"asset_record_reference_history_custom_purpose_check\", \"CHECK ((((role = 'custom'::text) AND (custom_purpose IS NOT NULL) AND (length(TRIM(BOTH FROM custom_purpose)) > 0)) OR ((role <> 'custom'::text) AND (custom_purpose IS NULL))))\", true]",
+    "[\"constraint\", \"public\", \"asset_record_references\", \"asset_record_references_custom_purpose_check\", \"CHECK ((((role = 'custom'::text) AND (custom_purpose IS NOT NULL) AND (length(TRIM(BOTH FROM custom_purpose)) > 0)) OR ((role <> 'custom'::text) AND (custom_purpose IS NULL))))\", true]"
+  ],
+  "replayedOnly": [
+    "[\"column\", \"public\", \"asset_version_review_events\", \"asset_family_id\", \"text\", false, \"\", \"\", null, \"default\"]",
+    "[\"constraint\", \"public\", \"asset_record_reference_history\", \"asset_record_reference_history_custom_purpose_check\", \"CHECK ((((role = 'custom'::text) AND (custom_purpose IS NOT NULL) AND (length(TRIM(BOTH FROM custom_purpose)) > 0)) OR ((role <> 'custom'::text) AND (custom_purpose IS NULL)))) NOT VALID\", false]",
+    "[\"constraint\", \"public\", \"asset_record_references\", \"asset_record_references_custom_purpose_check\", \"CHECK ((((role = 'custom'::text) AND (custom_purpose IS NOT NULL) AND (length(TRIM(BOTH FROM custom_purpose)) > 0)) OR ((role <> 'custom'::text) AND (custom_purpose IS NULL)))) NOT VALID\", false]",
+    "[\"constraint\", \"public\", \"asset_version_review_events\", \"asset_version_review_events_type_check\", \"CHECK ((decision = ANY (ARRAY['candidate'::text, 'approved'::text, 'rejected'::text])))\", true]",
+    "[\"constraint\", \"public\", \"asset_versions\", \"asset_versions_content_length_positive\", \"CHECK ((byte_size > 0))\", true]",
+    "[\"constraint\", \"public\", \"asset_versions\", \"asset_versions_object_key_key\", \"UNIQUE (object_key)\", true]",
+    "[\"constraint\", \"public\", \"asset_versions\", \"asset_versions_version_number_positive\", \"CHECK ((version_number > 0))\", true]",
+    "[\"index\", \"public\", \"asset_families\", \"CREATE INDEX asset_families_created_by_user_id_idx ON public.asset_families USING btree (created_by_user_id)\", true, true]",
+    "[\"index\", \"public\", \"asset_families\", \"CREATE INDEX asset_families_project_visual_world_idx ON public.asset_families USING btree (project_id, visual_world_id)\", true, true]",
+    "[\"index\", \"public\", \"asset_records\", \"CREATE UNIQUE INDEX asset_records_family_name_idx ON public.asset_records USING btree (asset_family_id, lower(name))\", true, true]",
+    "[\"index\", \"public\", \"asset_records\", \"CREATE UNIQUE INDEX asset_records_project_family_id_idx ON public.asset_records USING btree (project_id, asset_family_id, id)\", true, true]",
+    "[\"index\", \"public\", \"asset_version_review_events\", \"CREATE INDEX asset_version_review_events_project_idx ON public.asset_version_review_events USING btree (project_id, asset_family_id)\", true, true]",
+    "[\"index\", \"public\", \"asset_version_review_events\", \"CREATE INDEX asset_version_review_events_version_created_idx ON public.asset_version_review_events USING btree (version_id, created_at)\", true, true]",
+    "[\"index\", \"public\", \"asset_versions\", \"CREATE INDEX asset_versions_created_by_user_id_idx ON public.asset_versions USING btree (created_by_user_id)\", true, true]",
+    "[\"index\", \"public\", \"asset_versions\", \"CREATE INDEX asset_versions_project_record_idx ON public.asset_versions USING btree (project_id, asset_record_id)\", true, true]",
+    "[\"index\", \"public\", \"asset_versions\", \"CREATE UNIQUE INDEX asset_versions_object_key_key ON public.asset_versions USING btree (object_key)\", true, true]",
+    "[\"index\", \"public\", \"asset_versions\", \"CREATE UNIQUE INDEX asset_versions_record_version_number_idx ON public.asset_versions USING btree (asset_record_id, version_number)\", true, true]"
+  ]
+}

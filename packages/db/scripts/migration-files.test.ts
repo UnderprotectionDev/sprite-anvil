@@ -50,3 +50,20 @@ test("rejects a timestamp that normalizes to another calendar date", () => {
 		rmSync(directory, { recursive: true, force: true });
 	}
 });
+
+test("a new migration cannot silently omit its snapshot", () => {
+	const directory = mkdtempSync(
+		join(tmpdir(), "sprite-anvil-missing-snapshot-")
+	);
+	try {
+		const migrationDirectory = join(
+			directory,
+			"20261002000000_missing_snapshot"
+		);
+		mkdirSync(migrationDirectory);
+		writeFileSync(join(migrationDirectory, "migration.sql"), "SELECT 1;");
+		expect(() => loadMigrations(directory)).toThrow("snapshot");
+	} finally {
+		rmSync(directory, { recursive: true, force: true });
+	}
+});

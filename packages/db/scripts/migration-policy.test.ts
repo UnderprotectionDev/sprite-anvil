@@ -94,6 +94,8 @@ const productionUrl = neonUrl.replace("ep-example-123", "ep-production-123");
 const trustedEnvironment = {
 	NEON_DEVELOPMENT_ENDPOINT_HOST: "ep-example-123.us-east-2.aws.neon.tech",
 	NEON_PRODUCTION_ENDPOINT_HOST: "ep-production-123.us-east-2.aws.neon.tech",
+	NEON_DEVELOPMENT_DATABASE_NAME: "app",
+	NEON_PRODUCTION_DATABASE_NAME: "app",
 };
 
 test("rejects a production URL under the development label", () => {
@@ -164,17 +166,16 @@ test("accepts a trusted endpoint and matching pooled and direct URLs", () => {
 	expect(target).toBe(neonUrl);
 });
 
-test("accepts the endpoint supplied for the created CI test branch", () => {
-	expect(
+test("rejects the removed remote test target selector", () => {
+	expect(() =>
 		selectVerifiedDatabaseTarget(
 			{
 				DATABASE_URL: neonUrl,
 				DB_MIGRATE_TARGET: "test",
-				NEON_TEST_ENDPOINT_HOST: "ep-example-123.us-east-2.aws.neon.tech",
 			},
 			"migrate"
 		)
-	).toBe(neonUrl);
+	).toThrow("development");
 });
 
 test("missing endpoint configuration fails closed", () => {

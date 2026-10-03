@@ -6,6 +6,8 @@ Final user message after implementation — Turkish, three sections in order.
 
 Run after the work and relevant tests are complete. Finish a commit or separate code review before close-out when the task calls for one.
 
+For DB-dependent features, complete the [parallel migration workflow](issue-tracker.md#schema-migrations-across-parallel-issues) before reporting ready delivery: review the issue's migration, prepare compatible pending history yourself, run affected tests, prepare safe reproducible manual test records on the authorized development target, then recheck `bun run db:ready`. Use existing application APIs/UI or an issue-owned fixture at the normal domain boundary; avoid bypassing permissions or inventing records that were not created. Preserve other issues' data. Include the actual record name/account and expected UI result. A missing target authorization, active lease, drift or divergent history is a delivery blocker, not a reason to stop independent implementation. Distinguish live verification from disposable-local tests and explicitly name unperformed checks. Run/dev does not apply migrations or seed data for the user.
+
 ## 1. Ne eklendi
 
 Görevden veya ilgili PRD gereksiniminden ne çıktı — yapılan işin özeti:
