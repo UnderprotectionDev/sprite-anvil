@@ -1,7 +1,7 @@
 "$schema" = "https://conductor.build/schemas/settings.repo.schema.json"
 
 [scripts]
-setup = "bun install --frozen-lockfile"
+setup = 'bun install --frozen-lockfile && if [ "${CONDUCTOR_IS_LOCAL:-0}" = "1" ]; then bun run db:validate; fi'
 run_mode = "nonconcurrent"
 
 [scripts.run.dev]
