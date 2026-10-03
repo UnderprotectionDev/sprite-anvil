@@ -33,6 +33,8 @@ bun run db:ready
 
 Local `initdb` and `postgres` must be available (or set `DB_POSTGRES_BIN` to their bin directory), running as a non-root user. The verifier owns a temporary cluster on a random loopback port and cleans up only its own process/directory. It never uses a managed target as scratch. No PostgreSQL binaries are needed for readiness after a current proof exists. `bun run db:validate` validates source without any shared DB access, so independent implementation can continue while a target is blocked.
 
+Conductor's local workspace setup runs `bun run db:validate` after installing dependencies, generating this proof for each new local worktree. Cloud setup skips the local PostgreSQL replay. Existing workspaces do not rerun setup when this setting changes; run `bun run db:validate` once in an existing workspace that has no current proof.
+
 The atomic `.context/db-source-validation.json` proof binds SQL, snapshots, generated schema, dependency manifest/lockfile and verifier/inventory versions to prefix catalog hashes. It is local validation evidence, **not** a DB migration record or baseline. It expires on those changes; Run does not refresh it or replay SQL. Never author a proof manually. `db:ready`/Run inspect current source and read target history/catalog under a shared lease; missing/stale proof, pending migrations, unclassified target, ahead/divergent history or drift fails closed with a preparation/reconciliation message. No migration, push, reset, seed or automatic repair runs at startup.
 
 ## Coordination and Run
