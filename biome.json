@@ -8,6 +8,7 @@
   "files": {
     "ignoreUnknown": false,
     "includes": [
+      "!**/.context",
       "!**/.next",
       "!**/dist",
       "!**/.turbo",
@@ -94,6 +95,16 @@
       "quoteStyle": "double"
     }
   },
+  "overrides": [
+    {
+      "includes": ["packages/db/scripts/**"],
+      "linter": {
+        "rules": {
+          "performance": { "noAwaitInLoops": "off" }
+        }
+      }
+    }
+  ],
   "css": {
     "parser": {
       "tailwindDirectives": true

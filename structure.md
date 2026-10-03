@@ -326,6 +326,7 @@
 │   ├── workflow/
 │   ├── CONTEXT.md
 │   ├── deployment.md
+│   ├── development-database.md
 │   ├── prd.md
 │   └── tech-stack.md
 ├── packages/
@@ -347,7 +348,7 @@
 │   │   ├── package.json
 │   │   └── tsconfig.base.json
 │   ├── db/
-│   │   ├── scripts/             # Migration target and history guards
+│   │   ├── scripts/             # Source validation, shared-target preparation and read-only dev leases
 │   │   ├── src/
 │   │   │   ├── migrations/
 │   │   │   ├── schema/
@@ -357,8 +358,7 @@
 │   │   │   ├── config.ts
 │   │   │   ├── env.ts
 │   │   │   ├── index.ts
-│   │   │   ├── relations.ts
-│   │   │   └── neon.test.ts
+│   │   │   └── relations.ts
 │   │   ├── .env.schema
 │   │   ├── drizzle.config.ts
 │   │   └── package.json
