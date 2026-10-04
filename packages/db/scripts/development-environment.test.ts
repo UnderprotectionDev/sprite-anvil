@@ -98,8 +98,11 @@ test("PostgreSQL executable paths remain usable through Varlock's output guard",
 		{
 			cwd: join(import.meta.dir, ".."),
 			env: {
-				...process.env,
+				PATH: process.env.PATH,
 				__VARLOCK_ENV: undefined,
+				NODE_ENV: "test",
+				// Satisfy the imported schema without relying on local credentials.
+				DATABASE_URL: "postgresql://fixture:fixture@127.0.0.1:1/fixture",
 				DB_POSTGRES_BIN: "/fixture/postgres/bin",
 			},
 			stdout: "pipe",
