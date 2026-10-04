@@ -9,6 +9,7 @@ export * from "./auth";
 export * from "./collections";
 export * from "./context-scopes";
 export * from "./dependency-revalidation";
+export * from "./directional-reviews";
 export * from "./external-visual-analysis";
 export * from "./family-readiness";
 export * from "./gameplay-metadata";

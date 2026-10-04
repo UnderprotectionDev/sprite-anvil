@@ -41,6 +41,7 @@ English terms are the canonical technical names used in code and contracts. Turk
 | Source Metadata Mapping Finalization | Kaynak Metadata Eşleme Kesinleştirmesi |
 | Approved Version | Onaylı Sürüm |
 | Review Event | İnceleme Kaydı |
+| Directional Review | Kimlik ve Yön Tutarlılığı İncelemesi |
 | Human-Gated Action | Kullanıcı Kesinleştirmeli İşlem |
 | Export-Ready Version | Dışa Aktarıma Hazır Sürüm |
 | Review Disposition | İnceleme Kararı |
@@ -253,6 +254,10 @@ _Avoid_: Export-ready version, latest version
 **Review Event**:
 An immutable record of a user changing a version's Review Disposition, including the decision, time, and rationale when supplied. The current disposition is derived from the latest applicable Review Event.
 _Avoid_: Mutable status field, file edit
+
+**Directional Review**:
+An immutable user-authored comparison of four or eight directions from exact Asset Versions in one Asset Family against its Canonical Design, under a pinned Specialized Profile Contract. It retains the playback setup and human observations about silhouette, proportions, equipment side, palette, perspective, scale, and ground contact. Its outcome does not change Review Disposition or automatically establish QA Readiness; ground and loop differences remain subject to the profile rules.
+_Avoid_: Review Event, automatic artistic verdict, approval
 
 **Human-Gated Action**:
 A consequential decision reserved for the user: activating a Context Revision or Required Set, selecting a Canonical Design, recording a Review Event or Quality Waiver, starting an Export Bundle, resolving a divergent delivery target, and authorizing permanent erasure. Agents may prepare evidence and proposals but cannot perform these actions.

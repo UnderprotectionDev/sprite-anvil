@@ -7,6 +7,7 @@ import type { AssetVersionStore } from "./asset-versions";
 import type { CollectionStore } from "./collections";
 import type { ProjectContextScopeStore } from "./context-scopes";
 import type { DependencyRevalidationStore } from "./dependency-revalidation";
+import type { DirectionalReviewStore } from "./directional-reviews";
 import type { FamilyReadinessStore } from "./family-readiness";
 import type {
 	GameplayMetadataReviewHandler,
@@ -29,6 +30,7 @@ export interface Context {
 	collectionStore: CollectionStore;
 	db: Database;
 	dependencyRevalidationStore?: DependencyRevalidationStore;
+	directionalReviewStore?: DirectionalReviewStore;
 	familyReadinessStore?: FamilyReadinessStore;
 	gameplayMetadataStore?: GameplayMetadataStore;
 	generationPackageStore?: GenerationPackageStore;

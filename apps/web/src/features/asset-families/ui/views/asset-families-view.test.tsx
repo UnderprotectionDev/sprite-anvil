@@ -51,6 +51,14 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
 vi.mock("@/utils/orpc", () => ({
 	client: {},
 	orpc: {
+		directionalReviews: {
+			list: {
+				queryOptions: ({ input }: { input: { assetFamilyId: string } }) => ({
+					queryKey: ["directional-reviews", input.assetFamilyId],
+					queryFn: async () => [],
+				}),
+			},
+		},
 		dependencyRevalidation: {
 			listHistoricalCompositions: {
 				queryOptions: () => ({

@@ -14,6 +14,7 @@ import {
 	createServerAssetVersionStorage,
 	db,
 	dependencyRevalidationStore,
+	directionalReviewStore,
 	familyReadinessStore,
 	gameplayMetadataStore,
 	generationPackageStore,
@@ -46,6 +47,7 @@ export async function createContext({
 		collectionStore,
 		generationPackageStore,
 		gameplayMetadataStore,
+		directionalReviewStore,
 		reviewGameplayMetadata,
 		readGameplayMetadataPackageTarget,
 		verifyAssetVersionContent: async (userId, projectId, assetVersionId) => {
