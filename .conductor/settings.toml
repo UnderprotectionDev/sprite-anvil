@@ -1,7 +1,7 @@
 "$schema" = "https://conductor.build/schemas/settings.repo.schema.json"
 
 [scripts]
-setup = 'bun install --frozen-lockfile && if [ "${CONDUCTOR_IS_LOCAL:-0}" = "1" ]; then bun run db:validate; fi'
+setup = 'bun install --frozen-lockfile && if [ "${CONDUCTOR_IS_LOCAL:-0}" = "1" ]; then bun run db:validate && bun run --cwd apps/web e2e:install; fi'
 run_mode = "nonconcurrent"
 
 [scripts.run.dev]
@@ -9,3 +9,8 @@ available_in = ["local"]
 command = "test -f packages/db/scripts/development-runner.ts || { printf '\\nRun blocked: integrate the shared migration workflow.\\n'; exit 1; }; bun run db:ready && { if test -f \"$HOME/.conductor/scripts/switch-local-dev.zsh\"; then zsh \"$HOME/.conductor/scripts/switch-local-dev.zsh\" --stop-only; fi; } && bun run dev"
 default = true
 icon = "play"
+
+[scripts.run.directional-e2e]
+available_in = ["local"]
+command = "bun run test:e2e:directional"
+icon = "test-tube"

@@ -19,11 +19,13 @@ describe("Directional Review", () => {
 		try {
 			await (await $("a=Sign In")).waitForClickable();
 			await (await $("a=Sign In")).click();
+			await (await $("button=Need an account? Sign Up")).click();
+			await (await $("h2=Create Account")).waitForDisplayed();
 			await (await $("input[name='name']")).setValue(fixture.userName);
 			await (await $("input[name='email']")).setValue(fixture.email);
 			await (await $("input[name='password']")).setValue(fixture.password);
 			await (await $("button=Sign Up")).click();
-			await (await $("h1=Dashboard")).waitForDisplayed();
+			await (await $("h1=Oyun projeleri")).waitForDisplayed();
 
 			await (await $("a=Proje Bağlamı")).click();
 			await (await $('//label[span[text()="Proje adı"]]/input')).setValue(

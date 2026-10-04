@@ -12,14 +12,14 @@ export function createTestAssetVersionStorage() {
 			key: string,
 			body: ReadableStream<Uint8Array>,
 			contentType: "application/octet-stream" | "image/png" | "image/webp",
-			contentLength: number
+			contentLength?: number
 		) {
 			const bytes = new Uint8Array(await new Response(body).arrayBuffer());
 			const length = bytes.byteLength;
-			if (length !== contentLength) {
+			if (contentLength !== undefined && length !== contentLength) {
 				throw new Error("Asset Version content length mismatch");
 			}
-			objects.set(key, { bytes, contentLength, contentType });
+			objects.set(key, { bytes, contentLength: length, contentType });
 		},
 		get(key: string) {
 			const object = objects.get(key);

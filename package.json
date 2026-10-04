@@ -50,7 +50,8 @@
     "postinstall": "varlock codegen --path ./apps/web/ && varlock codegen --path ./apps/server/ && varlock codegen --path ./packages/db/",
     "prepare": "lefthook install",
     "test": "bun run --cwd packages/db test && bun run --cwd apps/web test && bun run --cwd apps/server test",
-    "test:e2e": "bun run --cwd apps/web test:e2e"
+    "test:e2e": "bun run --cwd apps/web test:e2e",
+    "test:e2e:directional": "bun run --cwd packages/db test:e2e:directional"
   },
   "dependencies": {
     "zod": "catalog:"

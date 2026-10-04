@@ -8,6 +8,7 @@
     "check-types": "tsc -b ../../packages/api && tsc --noEmit",
     "compile": "bun build --compile --no-compile-autoload-dotenv --minify --sourcemap --bytecode ./src/index.ts --outfile server",
     "dev": "bun run --cwd ../../packages/db db:dev server",
+    "e2e:directional:server": "bun scripts/directional-review-e2e-server.ts",
     "env:generate": "varlock codegen",
     "start": "bun run dist/index.mjs",
     "test": "bun test src",
