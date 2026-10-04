@@ -39,13 +39,15 @@ export interface SourceOptions {
 }
 
 const proofSchema = z.object({
-	version: z.literal(1),
+	version: z.literal(2),
+	catalog: z.array(z.string()),
 	fingerprint: z.string().regex(/^[a-f0-9]{64}$/),
 	prefixCatalogHashes: z.array(z.string().regex(/^[a-f0-9]{64}$/)).min(1),
 });
 
 export interface ValidatedSource {
 	assertUnchanged: (directory?: string) => Promise<void>;
+	catalog: string[];
 	fingerprint: string;
 	migrationDirectory: string;
 	migrations: LocalMigration[];
@@ -55,12 +57,14 @@ export interface ValidatedSource {
 function validatedSource(
 	options: SourceOptions,
 	inspected: { migrations: LocalMigration[]; fingerprint: string },
-	prefixCatalogHashes: string[]
+	prefixCatalogHashes: string[],
+	catalog: string[]
 ): ValidatedSource {
 	return {
 		migrations: inspected.migrations,
 		fingerprint: inspected.fingerprint,
 		prefixCatalogHashes,
+		catalog,
 		migrationDirectory: options.migrationDirectory,
 		assertUnchanged: async (directory = options.migrationDirectory) => {
 			if (
@@ -112,7 +116,7 @@ async function inspectSource(options: SourceOptions) {
 		);
 	}
 	const hash = createHash("sha256")
-		.update("source-validation/1")
+		.update("source-validation/2")
 		.update(sortedJson(generated.ddl));
 	hash.update(readFileSync(join(import.meta.dir, "..", "package.json")));
 	hash.update(
@@ -127,6 +131,7 @@ async function inspectSource(options: SourceOptions) {
 		"historical-schema.ts",
 		"drizzle-command.ts",
 		"migration-files.ts",
+		"migration-policy.ts",
 	]) {
 		hash.update(readFileSync(join(import.meta.dir, verifier)));
 	}
@@ -164,10 +169,20 @@ export async function readValidatedSource(
 		proof.prefixCatalogHashes.length !== inspected.migrations.length + 1
 	) {
 		throw new MigrationSafetyError(
-			"Source validation is stale. Run bun run db:prepare before Run/dev; Run does not apply migrations."
+			"Source validation is stale. Run bun run db:validate before Run/dev; pending target migrations separately require db:prepare."
 		);
 	}
-	return validatedSource(options, inspected, proof.prefixCatalogHashes);
+	if (catalogHash(proof.catalog) !== proof.prefixCatalogHashes.at(-1)) {
+		throw new MigrationSafetyError(
+			"Source catalog proof is invalid. Run bun run db:validate."
+		);
+	}
+	return validatedSource(
+		options,
+		inspected,
+		proof.prefixCatalogHashes,
+		proof.catalog
+	);
 }
 
 async function replaySqlPrefixes(
@@ -202,109 +217,113 @@ export async function validateMigrationSource(
 	options: SourceOptions
 ): Promise<ValidatedSource> {
 	const inspected = await inspectSource(options);
-	const prefixCatalogHashes = await withDisposablePostgres(
-		async ({ url, directory }) => {
-			const database = new SQL(url, { max: 1 });
-			const connection = await database.reserve();
-			try {
-				const migrationDirectory = join(directory, "migrations");
-				mkdirSync(migrationDirectory);
-				const configPath = join(directory, "drizzle.config.ts");
-				writeFileSync(
-					configPath,
-					`export default { dialect: "postgresql", out: ${JSON.stringify(migrationDirectory)}, dbCredentials: { url: process.env.DATABASE_URL } };`
+	const validated = await withDisposablePostgres(async ({ url, directory }) => {
+		const database = new SQL(url, { max: 1 });
+		const connection = await database.reserve();
+		try {
+			const migrationDirectory = join(directory, "migrations");
+			mkdirSync(migrationDirectory);
+			const configPath = join(directory, "drizzle.config.ts");
+			writeFileSync(
+				configPath,
+				`export default { dialect: "postgresql", out: ${JSON.stringify(migrationDirectory)}, dbCredentials: { url: process.env.DATABASE_URL } };`
+			);
+			let hashes: string[];
+			for (const migration of inspected.migrations) {
+				cpSync(
+					join(options.migrationDirectory, migration.name),
+					join(migrationDirectory, migration.name),
+					{ recursive: true }
 				);
-				let hashes: string[];
-				for (const migration of inspected.migrations) {
-					cpSync(
-						join(options.migrationDirectory, migration.name),
-						join(migrationDirectory, migration.name),
-						{ recursive: true }
-					);
-				}
-				try {
-					await runDrizzle("migrate", url, configPath);
-				} catch (error) {
-					throw new MigrationSafetyError(
-						"Canonical source migration replay failed. Preserve applied history; inspect SQL and snapshot merge lineage before preparation.",
-						{ cause: error }
-					);
-				}
-				const history = await readDatabaseHistory(connection);
-				assertMigrationHistory(
-					inspected.migrations,
-					history.applied,
-					history.hasApplicationTables
-				);
-				if (history.applied.length !== inspected.migrations.length) {
-					throw new MigrationSafetyError(
-						"Canonical source replay did not record the full migration history."
-					);
-				}
-				await connection`CREATE DATABASE sql_replay`;
-				const replayUrl = new URL(url);
-				replayUrl.pathname = "/sql_replay";
-				const replayDatabase = new SQL(replayUrl.toString(), { max: 1 });
-				const replayConnection = await replayDatabase.reserve();
-				try {
-					hashes = await replaySqlPrefixes(
-						replayConnection,
-						inspected.migrations,
-						migrationDirectory
-					);
-					if (
-						catalogHash(await readSchemaCatalog(connection)) !== hashes.at(-1)
-					) {
-						throw new MigrationSafetyError(
-							"Canonical replay and disposable SQL verification produced different schemas."
-						);
-					}
-				} finally {
-					replayConnection.release();
-					await replayDatabase.close();
-				}
-				await connection`CREATE DATABASE schema_expected`;
-				const expectedUrl = new URL(url);
-				expectedUrl.pathname = "/schema_expected";
-				const expectedDatabase = new SQL(expectedUrl.toString(), { max: 1 });
-				const expectedConnection = await expectedDatabase.reserve();
-				try {
-					const statements = await generateMigration(
-						{ ...inspected.generated, ddl: [] },
-						inspected.generated
-					);
-					for (const statement of statements) {
-						await expectedConnection.unsafe(statement);
-					}
-					const expectedCatalog = await readSchemaCatalog(expectedConnection);
-					const replayedCatalog = await readSchemaCatalog(connection);
-					assertSourceCatalogMatches(
-						expectedCatalog,
-						replayedCatalog,
-						inspected.migrations,
-						options.historicalInventoryPath
-					);
-				} finally {
-					expectedConnection.release();
-					await expectedDatabase.close();
-				}
-				return hashes;
-			} finally {
-				connection.release();
-				await database.close();
 			}
+			try {
+				await runDrizzle("migrate", url, configPath);
+			} catch (error) {
+				throw new MigrationSafetyError(
+					"Canonical source migration replay failed. Preserve applied history; inspect SQL and snapshot merge lineage before preparation.",
+					{ cause: error }
+				);
+			}
+			const history = await readDatabaseHistory(connection);
+			assertMigrationHistory(
+				inspected.migrations,
+				history.applied,
+				history.hasApplicationTables
+			);
+			if (history.applied.length !== inspected.migrations.length) {
+				throw new MigrationSafetyError(
+					"Canonical source replay did not record the full migration history."
+				);
+			}
+			await connection`CREATE DATABASE sql_replay`;
+			const replayUrl = new URL(url);
+			replayUrl.pathname = "/sql_replay";
+			const replayDatabase = new SQL(replayUrl.toString(), { max: 1 });
+			const replayConnection = await replayDatabase.reserve();
+			try {
+				hashes = await replaySqlPrefixes(
+					replayConnection,
+					inspected.migrations,
+					migrationDirectory
+				);
+				if (
+					catalogHash(await readSchemaCatalog(connection)) !== hashes.at(-1)
+				) {
+					throw new MigrationSafetyError(
+						"Canonical replay and disposable SQL verification produced different schemas."
+					);
+				}
+			} finally {
+				replayConnection.release();
+				await replayDatabase.close();
+			}
+			await connection`CREATE DATABASE schema_expected`;
+			const expectedUrl = new URL(url);
+			expectedUrl.pathname = "/schema_expected";
+			const expectedDatabase = new SQL(expectedUrl.toString(), { max: 1 });
+			const expectedConnection = await expectedDatabase.reserve();
+			try {
+				const statements = await generateMigration(
+					{ ...inspected.generated, ddl: [] },
+					inspected.generated
+				);
+				for (const statement of statements) {
+					await expectedConnection.unsafe(statement);
+				}
+				const expectedCatalog = await readSchemaCatalog(expectedConnection);
+				const replayedCatalog = await readSchemaCatalog(connection);
+				assertSourceCatalogMatches(
+					expectedCatalog,
+					replayedCatalog,
+					inspected.migrations,
+					options.historicalInventoryPath
+				);
+			} finally {
+				expectedConnection.release();
+				await expectedDatabase.close();
+			}
+			return { hashes, catalog: await readSchemaCatalog(connection) };
+		} finally {
+			connection.release();
+			await database.close();
 		}
-	);
+	});
 	const proof = {
-		version: 1 as const,
+		version: 2 as const,
+		catalog: validated.catalog,
 		fingerprint: inspected.fingerprint,
-		prefixCatalogHashes,
+		prefixCatalogHashes: validated.hashes,
 	};
 	mkdirSync(dirname(options.proofPath), { recursive: true });
 	const temporaryPath = `${options.proofPath}.${crypto.randomUUID()}.tmp`;
 	writeFileSync(temporaryPath, JSON.stringify(proof, null, 2));
 	renameSync(temporaryPath, options.proofPath);
-	const source = validatedSource(options, inspected, prefixCatalogHashes);
+	const source = validatedSource(
+		options,
+		inspected,
+		validated.hashes,
+		validated.catalog
+	);
 	await source.assertUnchanged();
 	return source;
 }

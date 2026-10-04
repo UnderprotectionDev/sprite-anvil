@@ -90,6 +90,11 @@ export function selectDevelopmentTargets(
 			"Declare shared development targets with DB_DEVELOPMENT_TARGETS, or NEON_DEVELOPMENT_ENDPOINT_HOST and NEON_DEVELOPMENT_DATABASE_NAME. Never infer the environment from a URL."
 		);
 	}
+	if (parsed.data.length !== 1) {
+		throw new MigrationSafetyError(
+			"Development requires exactly one shared database declaration, including DATABASE_URL. Workspace-specific databases are unsupported."
+		);
+	}
 	const names = new Set<string>();
 	const identities = new Set<string>();
 	let includesApplication = false;

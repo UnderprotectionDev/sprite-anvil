@@ -1,10 +1,35 @@
 import { spawn } from "bun";
 
-import { withDevelopmentReadiness } from "./database-preparation";
-import { verifyDatabaseLease } from "./database-state";
+import {
+	inspectDevelopmentCompatibility,
+	withDevelopmentCompatibility,
+} from "./database-preparation";
+import { type Connection, verifyDatabaseLease } from "./database-state";
 import type { DevelopmentTarget } from "./development-targets";
 import { MigrationSafetyError } from "./migration-safety-error";
 import type { ValidatedSource } from "./migration-source";
+
+async function verifyRuntimeTarget(
+	source: ValidatedSource,
+	connection: Connection,
+	pid: number,
+	name: string
+): Promise<void> {
+	try {
+		if (!(await verifyDatabaseLease(connection, pid, true))) {
+			throw new MigrationSafetyError(
+				"The development database lease was lost."
+			);
+		}
+		await inspectDevelopmentCompatibility(source, connection);
+	} catch (error) {
+		const reason =
+			error instanceof MigrationSafetyError
+				? error.message
+				: "Runtime compatibility could not be reverified; inspect connectivity securely.";
+		throw new MigrationSafetyError(`${name}: ${reason}`, { cause: error });
+	}
+}
 
 export async function runReadyDevelopment(
 	source: ValidatedSource,
@@ -13,9 +38,10 @@ export async function runReadyDevelopment(
 		command: string[];
 		cwd: string;
 		env: Record<string, string | undefined>;
+		revalidateSource?: () => Promise<ValidatedSource>;
 	}
 ): Promise<number> {
-	return await withDevelopmentReadiness(
+	return await withDevelopmentCompatibility(
 		source,
 		targets,
 		async (connections) => {
@@ -26,7 +52,7 @@ export async function runReadyDevelopment(
 				})
 			);
 			console.info(
-				"Readiness verified; starting only this workspace's development processes."
+				"Runtime compatibility verified; starting only this workspace's development processes."
 			);
 			const child = spawn(launch.command, {
 				cwd: launch.cwd,
@@ -35,43 +61,52 @@ export async function runReadyDevelopment(
 				stdout: "inherit",
 				stderr: "inherit",
 			});
-			let lostLease = false;
+			let compatibilityFailed = false;
+			let failureReason = "";
 			let check: Promise<void> | undefined;
+			const verifyRuntime = async () => {
+				const currentSource = launch.revalidateSource
+					? await launch.revalidateSource()
+					: source;
+				if (!launch.revalidateSource) {
+					await currentSource.assertUnchanged();
+				}
+				for (const [index, connection] of connections.entries()) {
+					await verifyRuntimeTarget(
+						currentSource,
+						connection,
+						identities[index] ?? 0,
+						targets[index]?.name ?? "development"
+					);
+				}
+			};
 			const keepLease = setInterval(() => {
 				if (check) {
 					return;
 				}
-				check = (async () => {
-					try {
-						for (const [index, connection] of connections.entries()) {
-							if (
-								!(await verifyDatabaseLease(
-									connection,
-									identities[index] ?? 0,
-									true
-								))
-							) {
-								throw new MigrationSafetyError(
-									"The development database lease was lost."
-								);
-							}
-						}
-					} catch {
-						lostLease = true;
+				check = verifyRuntime()
+					.catch((error: unknown) => {
+						failureReason =
+							error instanceof MigrationSafetyError
+								? error.message
+								: "Runtime source inspection failed.";
+						compatibilityFailed = true;
 						child.kill("SIGTERM");
-					} finally {
+					})
+					.finally(() => {
 						check = undefined;
-					}
-				})();
+					});
 			}, 1000);
 			const stop = () => child.kill("SIGTERM");
 			process.on("SIGINT", stop);
 			process.on("SIGTERM", stop);
 			try {
 				const exitCode = await child.exited;
-				if (lostLease) {
+				clearInterval(keepLease);
+				await check;
+				if (compatibilityFailed) {
 					throw new MigrationSafetyError(
-						"Database lease lost; this development process was stopped. Other workspaces were not terminated. Recheck bun run db:ready."
+						`Database lease lost or runtime compatibility failed; this development process was stopped. ${failureReason} Other workspaces were not terminated; independent implementation and DB-free tests can continue.`
 					);
 				}
 				return exitCode;

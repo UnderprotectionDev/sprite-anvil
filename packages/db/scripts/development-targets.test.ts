@@ -20,30 +20,27 @@ test("development readiness requires an explicit endpoint and database identity"
 	).toThrow();
 });
 
-test("each configured database is independently authorized and named", () => {
-	const targets = selectDevelopmentTargets({
-		DATABASE_URL: databaseUrl,
-		SECOND_DATABASE_URL: databaseUrl.replace("/app", "/secondary"),
-		DB_DEVELOPMENT_TARGETS: JSON.stringify([
-			{
-				name: "application",
-				connectionEnv: "DATABASE_URL",
-				host: new URL(databaseUrl).hostname,
-				database: "app",
-			},
-			{
-				name: "secondary",
-				connectionEnv: "SECOND_DATABASE_URL",
-				host: new URL(databaseUrl).hostname,
-				database: "secondary",
-			},
-		]),
-	});
-	expect(targets.map((target) => target.name)).toEqual([
-		"application",
-		"secondary",
-	]);
-	expect(new URL(targets[1]?.url ?? "").pathname).toBe("/secondary");
+test("development uses exactly one shared database declaration", () => {
+	expect(() =>
+		selectDevelopmentTargets({
+			DATABASE_URL: databaseUrl,
+			SECOND_DATABASE_URL: databaseUrl.replace("/app", "/secondary"),
+			DB_DEVELOPMENT_TARGETS: JSON.stringify([
+				{
+					name: "application",
+					connectionEnv: "DATABASE_URL",
+					host: new URL(databaseUrl).hostname,
+					database: "app",
+				},
+				{
+					name: "secondary",
+					connectionEnv: "SECOND_DATABASE_URL",
+					host: new URL(databaseUrl).hostname,
+					database: "secondary",
+				},
+			]),
+		})
+	).toThrow("exactly one");
 });
 
 test("a development declaration cannot reuse the production database", () => {

@@ -3,9 +3,9 @@ import "varlock/auto-load";
 import { runReadyDevelopment } from "./development-command";
 import { developmentEnvironment } from "./development-environment";
 import { selectDevelopmentTargets } from "./development-targets";
-import { repositoryDirectory, sourceOptions } from "./migration-options";
+import { repositoryDirectory } from "./migration-options";
 import { MigrationSafetyError } from "./migration-safety-error";
-import { readValidatedSource } from "./migration-source";
+import { readFreshRuntimeSource } from "./runtime-source";
 
 if (import.meta.main) {
 	try {
@@ -15,7 +15,7 @@ if (import.meta.main) {
 				"Choose all or server for development startup."
 			);
 		}
-		const source = await readValidatedSource(sourceOptions);
+		const source = await readFreshRuntimeSource();
 		const targets = selectDevelopmentTargets(process.env);
 		const environment = developmentEnvironment(process.env);
 		console.info(
@@ -34,6 +34,7 @@ if (import.meta.main) {
 		process.exitCode = await runReadyDevelopment(source, targets, {
 			...launch,
 			env: environment,
+			revalidateSource: readFreshRuntimeSource,
 		});
 	} catch (error) {
 		console.error(
@@ -42,7 +43,7 @@ if (import.meta.main) {
 				: "Development readiness failed; check the configured targets securely."
 		);
 		console.error(
-			"Run/dev did not apply migrations or repair the database. Resolve the reason and run bun run db:prepare, then retry Run."
+			"Run/dev did not change the database. Backend startup is blocked; independent implementation and DB-free tests can continue. Pending migrations require db:prepare; stale proof requires db:validate; ahead/drift requires trusted Git reconciliation; connection or port failures require their own fix."
 		);
 		process.exitCode = 1;
 	}

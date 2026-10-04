@@ -6,7 +6,7 @@ run_mode = "nonconcurrent"
 
 [scripts.run.dev]
 available_in = ["local"]
-command = "test -f packages/db/scripts/development-runner.ts || { printf '\\nRun blocked: integrate the shared migration workflow.\\n'; exit 1; }; bun run db:ready && { if test -f \"$HOME/.conductor/scripts/switch-local-dev.zsh\"; then zsh \"$HOME/.conductor/scripts/switch-local-dev.zsh\" --stop-only; fi; } && bun run dev"
+command = "test -f packages/db/scripts/development-runner.ts || { printf '\\nRun blocked: integrate the shared migration workflow.\\n'; exit 1; }; bun run dev"
 default = true
 icon = "play"
 
