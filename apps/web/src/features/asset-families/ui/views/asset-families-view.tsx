@@ -67,6 +67,12 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 		])
 	);
 	const visualWorlds = scopeQuery.data?.visualWorlds ?? [];
+	// Directional Review records character-profile identity checks, so the
+	// section stays hidden until the character Specialized Profile Contract is
+	// active; unrelated asset groups never see character-review guidance.
+	const characterProfileActivation = profileContractsQuery.data?.profiles.find(
+		(profile) => profile.definition.profileId === "character_creature_animation"
+	)?.activeContract;
 	const form = useAssetFamilyFormState(catalog, visualWorlds);
 	const writes = useAssetFamilyWrites(catalogQuery.refetch);
 	const refreshAssetCatalogs = async () => {
@@ -291,28 +297,24 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 					</section>
 					{assetVersionQuery.data ? (
 						<>
-							{catalog.assetFamilies.map((family) => (
-								<DirectionalReviewManager
-									activation={
-										profileContractsQuery.data?.profiles.find(
-											(profile) =>
-												profile.definition.profileId ===
-												"character_creature_animation"
-										)?.activeContract ?? undefined
-									}
-									assetFamilyId={family.id}
-									catalog={assetVersionQuery.data}
-									familyName={family.name}
-									key={family.id}
-									projectId={projectId}
-									recordNames={Object.fromEntries(
-										catalog.assetRecords.map((record) => [
-											record.id,
-											record.name,
-										])
-									)}
-								/>
-							))}
+							{characterProfileActivation
+								? catalog.assetFamilies.map((family) => (
+										<DirectionalReviewManager
+											activation={characterProfileActivation}
+											assetFamilyId={family.id}
+											catalog={assetVersionQuery.data}
+											familyName={family.name}
+											key={family.id}
+											projectId={projectId}
+											recordNames={Object.fromEntries(
+												catalog.assetRecords.map((record) => [
+													record.id,
+													record.name,
+												])
+											)}
+										/>
+									))
+								: null}
 							<HistoricalCompositionManager
 								canonicalDesigns={assetVersionQuery.data.canonicalDesigns}
 								composites={assetVersionQuery.data.compositeVersions}

@@ -102,4 +102,10 @@ export interface DirectionalReviewStore {
 		projectId: string,
 		assetFamilyId: string
 	) => Promise<DirectionalReviewRecord[] | null>;
+	/** Ids of this family's Asset Versions whose record is not erased. */
+	listAccessibleVersionIds: (
+		userId: string,
+		projectId: string,
+		assetFamilyId: string
+	) => Promise<Set<string> | null>;
 }

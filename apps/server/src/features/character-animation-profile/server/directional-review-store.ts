@@ -16,7 +16,7 @@ export function createDirectionalReviewStore(
 	db: Database
 ): DirectionalReviewStore {
 	const store: DirectionalReviewStore = {
-		async list(userId, projectId, assetFamilyId) {
+		async listAccessibleVersionIds(userId, projectId, assetFamilyId) {
 			if (!(await getProjectForUser(db, userId, projectId))) {
 				return null;
 			}
@@ -47,7 +47,17 @@ export function createDirectionalReviewStore(
 						ne(assetRecords.availability, "erased")
 					)
 				);
-			const accessibleVersions = new Set(versions.map((version) => version.id));
+			return new Set(versions.map((version) => version.id));
+		},
+		async list(userId, projectId, assetFamilyId) {
+			const accessibleVersions = await store.listAccessibleVersionIds(
+				userId,
+				projectId,
+				assetFamilyId
+			);
+			if (!accessibleVersions) {
+				return null;
+			}
 			const rows = await db
 				.select()
 				.from(directionalReviews)

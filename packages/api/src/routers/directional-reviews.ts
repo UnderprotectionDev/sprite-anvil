@@ -99,6 +99,14 @@ export const directionalReviewsRouter = {
 					),
 				]),
 			];
+			// The accessible set excludes versions of erased records, so a frame
+			// referencing erased content fails here instead of at the write gate.
+			const accessibleVersionIds =
+				(await store.listAccessibleVersionIds(
+					userId,
+					input.projectId,
+					input.assetFamilyId
+				)) ?? new Set<string>();
 			const versionPins = await Promise.all(
 				versionIds.map(async (assetVersionId) => {
 					const version = catalog?.assetVersions.find(
@@ -108,7 +116,9 @@ export const directionalReviewsRouter = {
 					);
 					if (
 						!(
-							version?.integrityVerified &&
+							version &&
+							accessibleVersionIds.has(version.id) &&
+							version.integrityVerified &&
 							version.contentDigest &&
 							(await context.verifyAssetVersionContent?.(
 								userId,

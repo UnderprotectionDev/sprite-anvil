@@ -36,6 +36,10 @@ function setup() {
 				records.push(structuredClone(record));
 				return record;
 			},
+			listAccessibleVersionIds: (userId: string, projectId: string) =>
+				userId === "owner" && projectId === "project"
+					? new Set(["version"])
+					: null,
 		},
 		assetVersionStore: {
 			list: () => ({
@@ -45,6 +49,12 @@ function setup() {
 						assetFamilyId: "family",
 						integrityVerified: true,
 						contentDigest: "a".repeat(64),
+					},
+					{
+						id: "erased-record-version",
+						assetFamilyId: "family",
+						integrityVerified: true,
+						contentDigest: "b".repeat(64),
 					},
 				],
 				canonicalDesigns: [
@@ -127,6 +137,22 @@ test("rejects unauthorized, missing profile, stale canonical, broken versions an
 		invoke("save", { ...input, rationale: "Different judgment" }, context)
 	).rejects.toMatchObject({ code: "CONFLICT" });
 	expect(records).toHaveLength(1);
+});
+test("rejects versions of erased records with the intact-version error", async () => {
+	const { context, records } = setup();
+	const erased = {
+		...input,
+		directions: input.directions.map((direction) => ({
+			...direction,
+			frames: [
+				{ ...direction.frames[0], assetVersionId: "erased-record-version" },
+			],
+		})),
+	};
+	await expect(invoke("save", erased, context)).rejects.toMatchObject({
+		code: "BAD_REQUEST",
+	});
+	expect(records).toHaveLength(0);
 });
 test("rejects missing observations and duplicate or incomplete direction sets", async () => {
 	const { context } = setup();
