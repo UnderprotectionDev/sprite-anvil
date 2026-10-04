@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import type { SyntheticEvent } from "react";
 import { AssetVersionControls } from "@/features/asset-versions/ui/components/asset-version-controls";
 import { useAssetVersionWrites } from "@/features/asset-versions/ui/hooks/use-asset-version-writes";
+import { DirectionalReviewManager } from "@/features/character-animation-profile/ui/components/directional-review-manager";
 import { DependencyRevalidationManager } from "@/features/dependency-revalidation/ui/components/dependency-revalidation-manager";
 import { HistoricalCompositionManager } from "@/features/dependency-revalidation/ui/components/historical-composition-manager";
 import { FamilyReadinessManager } from "@/features/family-readiness/ui/components/family-readiness-manager";
@@ -66,6 +67,12 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 		])
 	);
 	const visualWorlds = scopeQuery.data?.visualWorlds ?? [];
+	// Directional Review records character-profile identity checks, so the
+	// section stays hidden until the character Specialized Profile Contract is
+	// active; unrelated asset groups never see character-review guidance.
+	const characterProfileActivation = profileContractsQuery.data?.profiles.find(
+		(profile) => profile.definition.profileId === "character_creature_animation"
+	)?.activeContract;
 	const form = useAssetFamilyFormState(catalog, visualWorlds);
 	const writes = useAssetFamilyWrites(catalogQuery.refetch);
 	const refreshAssetCatalogs = async () => {
@@ -290,6 +297,24 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 					</section>
 					{assetVersionQuery.data ? (
 						<>
+							{characterProfileActivation
+								? catalog.assetFamilies.map((family) => (
+										<DirectionalReviewManager
+											activation={characterProfileActivation}
+											assetFamilyId={family.id}
+											catalog={assetVersionQuery.data}
+											familyName={family.name}
+											key={family.id}
+											projectId={projectId}
+											recordNames={Object.fromEntries(
+												catalog.assetRecords.map((record) => [
+													record.id,
+													record.name,
+												])
+											)}
+										/>
+									))
+								: null}
 							<HistoricalCompositionManager
 								canonicalDesigns={assetVersionQuery.data.canonicalDesigns}
 								composites={assetVersionQuery.data.compositeVersions}

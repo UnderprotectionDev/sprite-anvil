@@ -3,6 +3,7 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import type { AssetFamilyCatalog } from "@sprite-anvil/api/asset-families";
+import { specializedProfileContractCatalog } from "@sprite-anvil/api/specialized-profile-contracts";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, expect, test, vi } from "vitest";
 import { createQueryClient } from "@/utils/query-client";
@@ -13,6 +14,10 @@ const fakeApi = vi.hoisted(() => ({
 	catalog: null as AssetFamilyCatalog | null,
 	projectError: null as Error | null,
 	projects: [] as { id: string; name: string }[],
+	profiles: [] as {
+		activeContract: unknown;
+		definition: { profileId: string };
+	}[],
 }));
 const projectNamePattern = /Forest Quest/;
 
@@ -51,6 +56,14 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
 vi.mock("@/utils/orpc", () => ({
 	client: {},
 	orpc: {
+		directionalReviews: {
+			list: {
+				queryOptions: ({ input }: { input: { assetFamilyId: string } }) => ({
+					queryKey: ["directional-reviews", input.assetFamilyId],
+					queryFn: async () => [],
+				}),
+			},
+		},
 		dependencyRevalidation: {
 			listHistoricalCompositions: {
 				queryOptions: () => ({
@@ -117,7 +130,10 @@ vi.mock("@/utils/orpc", () => ({
 			list: {
 				queryOptions: ({ input }: { input: { projectId: string } }) => ({
 					queryKey: ["specialized-profile-contracts", input.projectId],
-					queryFn: async () => ({ projectId: input.projectId, profiles: [] }),
+					queryFn: async () => ({
+						projectId: input.projectId,
+						profiles: fakeApi.profiles,
+					}),
 				}),
 			},
 		},
@@ -170,7 +186,88 @@ afterEach(() => {
 	fakeApi.projectError = null;
 	fakeApi.catalog = null;
 	fakeApi.projects = [];
+	fakeApi.profiles = [];
 	errorToast.mockClear();
+});
+
+const reviewSection = "Gameplay kimlik ve yön incelemesi";
+const characterActivationPrompt =
+	"Ana Tasarım seçin ve karakter Özel Profil Sözleşmesini etkinleştirin.";
+
+function renderFamiliesView() {
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	render(
+		<QueryClientProvider client={queryClient}>
+			<AssetFamiliesView projectId="project-1" />
+		</QueryClientProvider>
+	);
+}
+
+function stageGameplayFamily() {
+	fakeApi.projects = [{ id: "project-1", name: "Forest Quest" }];
+	fakeApi.catalog = {
+		assetFamilies: [
+			{
+				createdAt: "2026-09-28T12:00:00.000Z",
+				id: "family-1",
+				name: "Gameplay",
+				projectId: "project-1",
+				subjectIdentityId: "subject-1",
+				useContext: "Gameplay sprite",
+				visualWorldId: "world-1",
+			},
+		],
+		assetRecords: [
+			{
+				assetFamilyId: "family-1",
+				createdAt: "2026-09-28T12:00:00.000Z",
+				id: "asset-record-1",
+				name: "Ash Knight",
+				projectId: "project-1",
+			},
+		],
+		relationships: [],
+		subjectIdentities: [
+			{
+				createdAt: "2026-09-28T12:00:00.000Z",
+				id: "subject-1",
+				name: "Ash Knight",
+				projectId: "project-1",
+			},
+		],
+	};
+}
+
+test("hides the character directional review until the character contract is active", async () => {
+	stageGameplayFamily();
+	renderFamiliesView();
+	expect(
+		await screen.findByRole("heading", {
+			name: "Varlık Sürümleri ve inceleme",
+		})
+	).toBeVisible();
+	expect(
+		screen.queryByRole("region", { name: reviewSection })
+	).not.toBeInTheDocument();
+	expect(screen.queryByText(characterActivationPrompt)).not.toBeInTheDocument();
+});
+
+test("shows the character directional review once the character contract is active", async () => {
+	stageGameplayFamily();
+	fakeApi.profiles = [
+		{
+			activeContract: {
+				contract: specializedProfileContractCatalog[0],
+				contractRevisionId: "character_creature_animation@1.0.1",
+			},
+			definition: specializedProfileContractCatalog[0],
+		},
+	];
+	renderFamiliesView();
+	expect(
+		await screen.findByRole("region", { name: reviewSection })
+	).toBeVisible();
 });
 
 test("shows a failed Asset Family query only in Sonner with a working Retry", async () => {

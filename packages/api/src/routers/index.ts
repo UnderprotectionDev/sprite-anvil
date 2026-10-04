@@ -32,6 +32,7 @@ import { assetRecordsRouter } from "./asset-records";
 import { assetVersionsRouter } from "./asset-versions";
 import { collectionsRouter } from "./collections";
 import { dependencyRevalidationRouter } from "./dependency-revalidation";
+import { directionalReviewsRouter } from "./directional-reviews";
 import { familyReadinessRouter } from "./family-readiness";
 import { gameplayMetadataRouter } from "./gameplay-metadata";
 import { generationPackagesRouter } from "./generation-packages";
@@ -104,6 +105,7 @@ export const appRouter = {
 	assetFamilies: assetFamiliesRouter,
 	dependencyRevalidation: dependencyRevalidationRouter,
 	familyReadiness: familyReadinessRouter,
+	directionalReviews: directionalReviewsRouter,
 	assetVersions: assetVersionsRouter,
 	assetRecords: assetRecordsRouter,
 	collections: collectionsRouter,

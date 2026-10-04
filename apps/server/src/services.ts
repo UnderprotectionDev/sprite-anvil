@@ -11,6 +11,7 @@ import { createAssetRecordStore } from "./features/asset-records/server/asset-re
 import { createAssetRecordTrackingStore } from "./features/asset-records/server/asset-record-tracking-store";
 import { createAssetVersionStore } from "./features/asset-versions/server/asset-version-store";
 import { createTestAssetVersionStorage } from "./features/asset-versions/server/test-asset-version-storage";
+import { createDirectionalReviewStore } from "./features/character-animation-profile/server/directional-review-store";
 import { createCollectionStore } from "./features/collections/server/collection-store";
 import { createDependencyRevalidationStore } from "./features/dependency-revalidation/server/dependency-revalidation-store";
 import { createFamilyReadinessStore } from "./features/family-readiness/server/family-readiness-store";
@@ -28,6 +29,7 @@ import { createRightsRecordStore } from "./features/rights-evidence/server/right
 import { createProjectContextScopeStore } from "./features/visual-worlds/server/project-context-scope-store";
 
 export const db = createDb(ENV);
+export const directionalReviewStore = createDirectionalReviewStore(db);
 export const gameplayMetadataStore = createGameplayMetadataStore(db);
 export const assetFamilyStore = createAssetFamilyStore(db);
 export const familyReadinessStore = createFamilyReadinessStore(db);
