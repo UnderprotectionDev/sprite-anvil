@@ -295,3 +295,45 @@ test("deployment migration requires explicit deployment selection", () => {
 		)
 	).toBe(neonUrl);
 });
+
+test("runtime ahead history requires a valid timestamped identity and unchanged local prefix", () => {
+	const known: [LocalMigration] = [
+		{
+			name: "20261002000001_records",
+			createdAt: Date.UTC(2026, 9, 2, 0, 0, 1),
+			hash: "a".repeat(64),
+		},
+	];
+	const prefix = { ...known[0], id: 1 };
+	const future = {
+		name: "20261002000002_labels",
+		createdAt: Date.UTC(2026, 9, 2, 0, 0, 2),
+		hash: "b".repeat(64),
+		id: 2,
+	};
+	expect(() =>
+		assertMigrationHistory(known, [prefix, future], true, true)
+	).not.toThrow();
+	expect(() => assertMigrationHistory(known, [prefix, future], true)).toThrow(
+		"ahead"
+	);
+	for (const invalid of [
+		{ ...future, name: "future" },
+		{ ...future, createdAt: future.createdAt + 1 },
+		{ ...future, id: 1 },
+		{ ...future, hash: "unknown" },
+		{ ...future, name: null },
+	]) {
+		expect(() =>
+			assertMigrationHistory(known, [prefix, invalid], true, true)
+		).toThrow();
+	}
+	expect(() =>
+		assertMigrationHistory(
+			known,
+			[{ ...prefix, hash: "changed" }, future],
+			true,
+			true
+		)
+	).toThrow("history differs");
+});

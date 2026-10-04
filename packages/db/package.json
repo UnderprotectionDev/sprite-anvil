@@ -15,6 +15,7 @@
     "db:prepare": "bun scripts/migration-runner.ts prepare",
     "db:push": "bun scripts/migration-runner.ts push",
     "db:ready": "bun scripts/migration-runner.ts ready",
+    "db:runtime": "bun scripts/migration-runner.ts runtime",
     "db:studio": "drizzle-kit studio",
     "db:validate": "bun scripts/migration-runner.ts validate",
     "test": "bun test src/asset-records.test.ts src/collections.test.ts src/rights-records.test.ts src/migration-compatibility.test.ts scripts"

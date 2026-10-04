@@ -87,3 +87,25 @@ console.log(server.exitCode, server.stdout.toString().trim());`,
 	expect(parent.exitCode).toBe(0);
 	expect(parent.stdout.toString().trim()).toBe("0 true");
 });
+
+test("PostgreSQL executable paths remain usable through Varlock's output guard", () => {
+	const inspection = spawnSync(
+		[
+			process.execPath,
+			"-e",
+			'await import("varlock/auto-load"); const output = Bun.spawn(["printf", "%s", process.env.DB_POSTGRES_BIN], { stdout: "pipe" }); console.log(await new Response(output.stdout).text());',
+		],
+		{
+			cwd: join(import.meta.dir, ".."),
+			env: {
+				...process.env,
+				__VARLOCK_ENV: undefined,
+				DB_POSTGRES_BIN: "/fixture/postgres/bin",
+			},
+			stdout: "pipe",
+			stderr: "pipe",
+		}
+	);
+	expect(inspection.exitCode).toBe(0);
+	expect(inspection.stdout.toString().trim()).toBe("/fixture/postgres/bin");
+});

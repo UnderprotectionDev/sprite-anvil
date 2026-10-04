@@ -43,7 +43,7 @@ bun run db:prepare
 bun run db:ready
 ```
 
-Workspaces share explicitly authorized development databases; no workspace DB branches are provisioned or promoted. Set both `NEON_DEVELOPMENT_ENDPOINT_HOST` and `NEON_DEVELOPMENT_DATABASE_NAME` (or `DB_DEVELOPMENT_TARGETS` for multiple targets), independently from production. `db:prepare` validates source SQL/snapshots/schema in disposable local PostgreSQL, verifies each target's history and real schema, applies compatible pending migrations with canonical Drizzle Kit under an exclusive lease, then verifies again. Local `initdb`/`postgres` are required for preparation (or set `DB_POSTGRES_BIN`). `db:migrate` uses the same path. Timestamped migration directories are canonical; this version has no legacy journal. Applied and unknown-status SQL/snapshots are preserved, including narrowly pinned historical repairs. See [`docs/development-database.md`](docs/development-database.md) for target configuration, coordination, historical inventory and parallel issue delivery, and [`docs/deployment.md`](docs/deployment.md) for production.
+Workspaces share one explicitly authorized development database; no workspace DB branches are provisioned or promoted. Set both `NEON_DEVELOPMENT_ENDPOINT_HOST` and `NEON_DEVELOPMENT_DATABASE_NAME` (or a single named `DB_DEVELOPMENT_TARGETS` declaration), independently from production. `db:prepare` validates source SQL/snapshots/schema in disposable local PostgreSQL, verifies each target's history and real schema, applies compatible pending migrations with canonical Drizzle Kit under an exclusive lease, then verifies again. Local `initdb`/`postgres` are required for preparation (or set `DB_POSTGRES_BIN`). `db:migrate` uses the same path. Timestamped migration directories are canonical; this version has no legacy journal. Applied and unknown-status SQL/snapshots are preserved, including narrowly pinned historical repairs. See [`docs/development-database.md`](docs/development-database.md) for target configuration, coordination, historical inventory and parallel issue delivery, and [`docs/deployment.md`](docs/deployment.md) for production.
 
 ## Development
 
@@ -53,7 +53,7 @@ Start the workspace:
 bun run dev
 ```
 
-Run/dev performs read-only readiness before starting dependent processes; it never migrates, pushes, repairs or seeds. Agents prepare pending migrations and manual data before handoff. Missing authorization, stale source evidence, pending/ahead/divergent history, drift or a held migration lease blocks startup. APIs keep shared DB leases while running; request an owner-controlled `Stop` window before preparing migrations. No other workspace is terminated.
+Run/dev performs read-only runtime compatibility before starting dependent processes; it never migrates, pushes, repairs or seeds. Agents prepare pending migrations and manual data before handoff. Missing authorization, stale source evidence, pending required migrations, divergent history, unsupported schema changes or a held migration lease block startup. Compatible ahead history may Run with an unchanged local prefix and the narrow additive-column policy; migration writing and `db:ready` still require full reconciliation. APIs keep shared DB leases while running; request an owner-controlled `Stop` window before preparing migrations. No other workspace is terminated.
 
 Conductor's local `Run` uses `.conductor/settings.toml` and the same fixed localhost defaults as `bun run dev`: web `http://localhost:3001`, API `http://localhost:3000`, docs `http://localhost:4000`. Its `nonconcurrent` mode stops the previous Conductor-managed Run for this repository before starting another workspace. The launcher does not kill unrelated port owners. `bun run dev:parallel` opts into Conductor's allocated ports (API `CONDUCTOR_PORT`, web +1, docs +2) for simultaneous terminal-launched workspaces. Repository-local overrides take precedence; replace any legacy switch command or `concurrent` override. `bun run dev:server` is also guarded; `bun run dev:web` is DB-independent UI-only. Start the documentation site alone with `bun run --cwd apps/fumadocs dev`.
 
@@ -78,6 +78,7 @@ bun run --cwd apps/web desktop:dev
 | `bun run db:generate` | Generate versioned SQL from the Drizzle schema |
 | `bun run db:migrate` | Apply reviewed versioned migrations |
 | `bun run db:prepare` | Validate source, prepare each authorized development DB and verify readiness |
+| `bun run db:runtime` | Read-only Run compatibility check; not delivery readiness |
 | `bun run db:ready` | Read-only source/history/schema readiness check |
 | `bun run db:validate` | Validate source SQL/snapshots/schema in disposable local PostgreSQL |
 | `bun run db:push` | Push schema to a disposable database |

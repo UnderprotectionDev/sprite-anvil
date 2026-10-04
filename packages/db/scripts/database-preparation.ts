@@ -14,6 +14,7 @@ import { runDrizzle } from "./drizzle-command";
 import { assertMigrationHistory } from "./migration-policy";
 import { MigrationSafetyError } from "./migration-safety-error";
 import type { ValidatedSource } from "./migration-source";
+import { assertRuntimeCatalog } from "./runtime-compatibility";
 
 interface DatabaseLease {
 	assertHeld: () => Promise<void>;
@@ -81,7 +82,8 @@ async function acquireLease(
 async function inspectTarget(
 	source: ValidatedSource,
 	connection: Connection,
-	ready: boolean
+	ready: boolean,
+	compatible = false
 ): Promise<number> {
 	await connection`BEGIN READ ONLY`;
 	try {
@@ -89,11 +91,16 @@ async function inspectTarget(
 		assertMigrationHistory(
 			source.migrations,
 			state.applied,
-			state.hasApplicationTables
+			state.hasApplicationTables,
+			compatible
 		);
+		const catalog = await readSchemaCatalog(connection);
+		if (compatible && state.applied.length > source.migrations.length) {
+			assertRuntimeCatalog(source.catalog, catalog);
+			return 0;
+		}
 		if (
-			catalogHash(await readSchemaCatalog(connection)) !==
-			source.prefixCatalogHashes[state.applied.length]
+			catalogHash(catalog) !== source.prefixCatalogHashes[state.applied.length]
 		) {
 			throw new MigrationSafetyError(
 				"The real database schema differs from its verified migration history. Inspect drift; preparation will not repair or db:push this target."
@@ -173,7 +180,8 @@ export async function prepareTargets(
 export async function withDevelopmentReadiness<Result>(
 	source: ValidatedSource,
 	targets: DevelopmentTarget[],
-	action: (connections: Connection[]) => Result | Promise<Result>
+	action: (connections: Connection[]) => Result | Promise<Result>,
+	compatible = false
 ): Promise<Result> {
 	const leases: DatabaseLease[] = [];
 	try {
@@ -181,11 +189,15 @@ export async function withDevelopmentReadiness<Result>(
 			const lease = await acquireLease(target, true);
 			leases.push(lease);
 			try {
-				await inspectTarget(source, lease.connection, true);
+				await inspectTarget(source, lease.connection, true, compatible);
 			} catch (error) {
-				throw error instanceof MigrationSafetyError
-					? new MigrationSafetyError(`${target.name}: ${error.message}`)
-					: error;
+				const reason =
+					error instanceof MigrationSafetyError
+						? error.message
+						: "History/schema inspection failed. Check database connectivity and catalog permissions securely.";
+				throw new MigrationSafetyError(`${target.name}: ${reason}`, {
+					cause: error,
+				});
 			}
 		}
 		await Promise.all(leases.map((lease) => lease.assertHeld()));
@@ -193,4 +205,19 @@ export async function withDevelopmentReadiness<Result>(
 	} finally {
 		await Promise.allSettled(leases.map((lease) => lease.release()));
 	}
+}
+
+export async function inspectDevelopmentCompatibility(
+	source: ValidatedSource,
+	connection: Connection
+): Promise<void> {
+	await inspectTarget(source, connection, true, true);
+}
+
+export async function withDevelopmentCompatibility<Result>(
+	source: ValidatedSource,
+	targets: DevelopmentTarget[],
+	action: (connections: Connection[]) => Result | Promise<Result>
+): Promise<Result> {
+	return await withDevelopmentReadiness(source, targets, action, true);
 }

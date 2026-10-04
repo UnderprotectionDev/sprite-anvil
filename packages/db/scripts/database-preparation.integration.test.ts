@@ -15,6 +15,7 @@ import { pgTable, text } from "drizzle-orm/pg-core";
 
 import {
 	prepareTargets,
+	withDevelopmentCompatibility,
 	withDevelopmentReadiness,
 } from "./database-preparation";
 import { runReadyDevelopment } from "./development-command";
@@ -23,6 +24,7 @@ import {
 	readValidatedSource,
 	validateMigrationSource,
 } from "./migration-source";
+import { readFreshRuntimeSource } from "./runtime-source";
 
 test.skipIf(process.env.DB_TEST_POSTGRES !== "true")(
 	"preparation, readiness, history divergence and API leases use disposable PostgreSQL",
@@ -61,6 +63,19 @@ test.skipIf(process.env.DB_TEST_POSTGRES !== "true")(
 			await expect(
 				readValidatedSource({ migrationDirectory, proofPath, schema })
 			).rejects.toThrow("not been validated");
+			const oldDirectory = join(directory, "old-migrations");
+			const oldPath = join(oldDirectory, "20261002000001_records");
+			mkdirSync(oldPath, { recursive: true });
+			writeFileSync(
+				join(oldPath, "migration.sql"),
+				'CREATE TABLE "records" ("id" text PRIMARY KEY);'
+			);
+			writeFileSync(join(oldPath, "snapshot.json"), JSON.stringify(first));
+			const olderSource = await validateMigrationSource({
+				migrationDirectory: oldDirectory,
+				proofPath: join(directory, "old-proof.json"),
+				schema: firstSchema,
+			});
 			const source = await validateMigrationSource({
 				migrationDirectory,
 				proofPath,
@@ -87,10 +102,74 @@ test.skipIf(process.env.DB_TEST_POSTGRES !== "true")(
 					await expect(
 						withDevelopmentReadiness(source, [target], () => undefined)
 					).rejects.toThrow("pending");
+					expect(await prepareTargets(olderSource, [target])).toEqual([
+						{ name: "application", status: "ready", applied: 1 },
+					]);
+					await database`INSERT INTO records (id) VALUES ('preserved')`;
 					const prepared = await prepareTargets(source, [target]);
 					expect(prepared).toEqual([
-						{ name: "application", status: "ready", applied: 2 },
+						{ name: "application", status: "ready", applied: 1 },
 					]);
+					await expect(
+						withDevelopmentReadiness(olderSource, [target], () => undefined)
+					).rejects.toThrow("ahead");
+					const refused = await prepareTargets(olderSource, [target]);
+					expect(refused[0]?.status).toBe("failed");
+					await withDevelopmentCompatibility(
+						olderSource,
+						[target],
+						async () => {
+							await withDevelopmentCompatibility(
+								olderSource,
+								[target],
+								() => undefined
+							);
+						}
+					);
+					expect(await runReadyDevelopment(olderSource, [target], launch)).toBe(
+						0
+					);
+					expect(
+						(
+							await database`SELECT id, label FROM records WHERE id = 'preserved'`
+						)[0]
+					).toMatchObject({ id: "preserved", label: null });
+					await database`UPDATE records SET label = 'before' WHERE id = 'preserved'`;
+					expect(await prepareTargets(source, [target])).toEqual([
+						{ name: "application", status: "ready", applied: 0 },
+					]);
+					expect(
+						(
+							await database`SELECT label FROM records WHERE id = 'preserved'`
+						)[0]?.label
+					).toBe("before");
+					await database`ALTER TABLE records ALTER COLUMN label SET DEFAULT 'unsafe'`;
+					await expect(
+						withDevelopmentCompatibility(olderSource, [target], () => undefined)
+					).rejects.toThrow("Unsupported");
+					await database`ALTER TABLE records ALTER COLUMN label DROP DEFAULT`;
+					await database`ALTER TABLE records ALTER COLUMN label SET NOT NULL`;
+					await expect(
+						runReadyDevelopment(olderSource, [target], launch)
+					).rejects.toThrow("Unsupported");
+					await database`ALTER TABLE records ALTER COLUMN label DROP NOT NULL`;
+					await database`ALTER TABLE records ADD CONSTRAINT reject_old_writes CHECK (label IS NOT NULL)`;
+					await expect(
+						withDevelopmentCompatibility(olderSource, [target], () => undefined)
+					).rejects.toThrow("Unsupported");
+					await database`ALTER TABLE records DROP CONSTRAINT reject_old_writes`;
+					await database`ALTER TABLE records DROP COLUMN id CASCADE`;
+					await expect(
+						withDevelopmentCompatibility(olderSource, [target], () => undefined)
+					).rejects.toThrow("schema");
+					await database`ALTER TABLE records ADD COLUMN id text`;
+					await database`UPDATE records SET id = 'preserved'`;
+					await database`ALTER TABLE records ADD PRIMARY KEY (id)`;
+					await database`UPDATE drizzle.__drizzle_migrations SET hash = 'changed' WHERE id = 1`;
+					await expect(
+						withDevelopmentCompatibility(olderSource, [target], () => undefined)
+					).rejects.toThrow("history differs");
+					await database`UPDATE drizzle.__drizzle_migrations SET hash = ${source.migrations[0]?.hash} WHERE id = 1`;
 					expect(await runReadyDevelopment(source, [target], launch)).toBe(0);
 					expect(readFileSync(marker, "utf8")).toBe("started");
 					const leaseMarker = join(directory, "leased-dev-started");
@@ -215,4 +294,98 @@ test.skipIf(process.env.DB_TEST_POSTGRES !== "true")(
 		}
 	},
 	120_000
+);
+
+test.skipIf(process.env.DB_TEST_POSTGRES !== "true")(
+	"running API survives compatible edits and stops on a changed imported schema",
+	async () => {
+		const directory = mkdtempSync(join(import.meta.dir, "runtime-fixture-"));
+		const migrationDirectory = join(directory, "migrations");
+		const proofPath = join(directory, "proof.json");
+		const dependency = join(directory, "dependency.ts");
+		const optionsModule = join(directory, "options.ts");
+		const model =
+			'import { pgTable, text } from "drizzle-orm/pg-core"; export const records = pgTable("records", { id: text().primaryKey() });';
+		writeFileSync(dependency, model);
+		writeFileSync(
+			optionsModule,
+			`import * as schema from "./dependency"; export const sourceOptions = { schema, migrationDirectory: ${JSON.stringify(migrationDirectory)}, proofPath: ${JSON.stringify(proofPath)} };`
+		);
+		const schema = { records: pgTable("records", { id: text().primaryKey() }) };
+		const snapshot = await generateDrizzleJson(schema);
+		const path = join(migrationDirectory, "20261002000001_records");
+		mkdirSync(path, { recursive: true });
+		writeFileSync(
+			join(path, "migration.sql"),
+			'CREATE TABLE "records" ("id" text PRIMARY KEY);'
+		);
+		writeFileSync(join(path, "snapshot.json"), JSON.stringify(snapshot));
+		try {
+			await validateMigrationSource({ schema, migrationDirectory, proofPath });
+			await withDisposablePostgres(async ({ url }) => {
+				const source = await readFreshRuntimeSource(optionsModule);
+				const target = { name: "application", url };
+				expect((await prepareTargets(source, [target]))[0]?.status).toBe(
+					"ready"
+				);
+				const marker = join(directory, "alive");
+				let finished = false;
+				let inspections = 0;
+				const running = runReadyDevelopment(source, [target], {
+					command: [
+						process.execPath,
+						"-e",
+						`setInterval(() => Bun.write(${JSON.stringify(marker)}, String(Date.now())), 100);`,
+					],
+					cwd: directory,
+					env: process.env,
+					revalidateSource: async () => {
+						const current = await readFreshRuntimeSource(optionsModule);
+						inspections += 1;
+						return current;
+					},
+				}).then(
+					() => {
+						finished = true;
+						return "unexpected exit";
+					},
+					(error: unknown) => {
+						finished = true;
+						return String(error);
+					}
+				);
+				try {
+					writeFileSync(
+						dependency,
+						`${model}\n// Compatible implementation edit`
+					);
+					for (
+						let attempt = 0;
+						attempt < 200 && inspections < 2 && !finished;
+						attempt += 1
+					) {
+						await sleep(25);
+					}
+					expect(inspections).toBeGreaterThanOrEqual(2);
+					expect(finished).toBe(false);
+					expect(existsSync(marker)).toBe(true);
+					writeFileSync(
+						dependency,
+						model.replace(
+							"id: text().primaryKey()",
+							"id: text().primaryKey(), required: text().notNull()"
+						)
+					);
+					expect(await running).toContain("snapshot differs");
+				} finally {
+					// Force this fixture's supervisor to stop even when an assertion fails.
+					writeFileSync(dependency, "invalid schema source");
+					await running;
+				}
+			});
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	},
+	30_000
 );

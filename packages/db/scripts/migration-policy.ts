@@ -215,16 +215,48 @@ export function selectVerifiedDatabaseTarget(
 	return target;
 }
 
-export function assertMigrationHistory(
-	local: LocalMigration[],
-	applied: AppliedMigration[],
-	hasApplicationTables: boolean
+const migrationHashPattern = /^[a-f0-9]{64}$/;
+
+const aheadNamePattern = /^(\d{14})_[a-z0-9][a-z0-9_-]*$/;
+
+function hasTimestampedIdentity(row: AppliedMigration): boolean {
+	const stamp = row.name ? aheadNamePattern.exec(row.name)?.[1] : undefined;
+	const date = new Date(row.createdAt);
+	return (
+		Boolean(stamp) &&
+		Number.isFinite(date.getTime()) &&
+		date
+			.toISOString()
+			.slice(0, 19)
+			.replaceAll("-", "")
+			.replaceAll(":", "")
+			.replace("T", "") === stamp &&
+		row.createdAt % 1000 === 0
+	);
+}
+
+function assertAheadIdentity(
+	row: AppliedMigration,
+	previous: AppliedMigration | undefined,
+	lastLocalName: string
 ): void {
-	if (applied.length === 0 && hasApplicationTables) {
+	if (
+		!(previous && Number.isSafeInteger(row.id)) ||
+		row.id <= previous.id ||
+		!Number.isSafeInteger(row.createdAt) ||
+		row.createdAt <= previous.createdAt ||
+		!migrationHashPattern.test(row.hash) ||
+		!hasTimestampedIdentity(row) ||
+		!row.name ||
+		row.name <= (previous.name ?? lastLocalName)
+	) {
 		throw new MigrationSafetyError(
-			"Application tables exist without migration history; inspect and reconcile the database first."
+			"Ahead migration history has invalid order or identity; reconcile from trusted Git."
 		);
 	}
+}
+
+function assertLocalIdentities(local: LocalMigration[]): void {
 	const names = new Set<string>();
 	let previousName = "";
 	let previousTime = Number.NEGATIVE_INFINITY;
@@ -243,7 +275,21 @@ export function assertMigrationHistory(
 		previousName = migration.name;
 		previousTime = migration.createdAt;
 	}
-	if (applied.length > local.length) {
+}
+
+export function assertMigrationHistory(
+	local: LocalMigration[],
+	applied: AppliedMigration[],
+	hasApplicationTables: boolean,
+	allowAhead = false
+): void {
+	if (applied.length === 0 && hasApplicationTables) {
+		throw new MigrationSafetyError(
+			"Application tables exist without migration history; inspect and reconcile the database first."
+		);
+	}
+	assertLocalIdentities(local);
+	if (!allowAhead && applied.length > local.length) {
 		throw new MigrationSafetyError(
 			"Database migration history is ahead of this branch."
 		);
@@ -251,6 +297,10 @@ export function assertMigrationHistory(
 	for (let index = 0; index < applied.length; index += 1) {
 		const row = applied[index];
 		const expected = local[index];
+		if (allowAhead && row && index >= local.length) {
+			assertAheadIdentity(row, applied[index - 1], local.at(-1)?.name ?? "");
+			continue;
+		}
 		if (!(row && expected)) {
 			throw new MigrationSafetyError("Migration history position is missing.");
 		}
