@@ -1,5 +1,6 @@
 import { createAuth } from "@sprite-anvil/auth";
 import { createDb } from "@sprite-anvil/db";
+import { createLocalTestDb } from "@sprite-anvil/db/testing";
 import {
 	createStorage,
 	getR2StorageConfig,
@@ -28,7 +29,24 @@ import { createReferenceProductionStore } from "./features/reference-production/
 import { createRightsRecordStore } from "./features/rights-evidence/server/rights-record-store";
 import { createProjectContextScopeStore } from "./features/visual-worlds/server/project-context-scope-store";
 
-export const db = createDb(ENV);
+function usesLoopbackTestDatabase(databaseUrl: string): boolean {
+	if (ENV.NODE_ENV !== "test") {
+		return false;
+	}
+	try {
+		const target = new URL(databaseUrl);
+		return (
+			(target.protocol === "postgres:" || target.protocol === "postgresql:") &&
+			target.hostname === "127.0.0.1"
+		);
+	} catch {
+		return false;
+	}
+}
+
+export const db = usesLoopbackTestDatabase(ENV.DATABASE_URL)
+	? createLocalTestDb(ENV)
+	: createDb(ENV);
 export const directionalReviewStore = createDirectionalReviewStore(db);
 export const gameplayMetadataStore = createGameplayMetadataStore(db);
 export const assetFamilyStore = createAssetFamilyStore(db);
@@ -45,14 +63,16 @@ export const providerGenerationRecordStore =
 	createProviderGenerationRecordStore(db);
 export const assetRecordStore = createAssetRecordStore(db);
 const r2Config = getR2StorageConfig(ENV);
+const testAssetVersionStorage =
+	ENV.NODE_ENV === "test" && ENV.CONTEXT_TEST_R2_MODE === "memory"
+		? createTestAssetVersionStorage()
+		: null;
 export const assetRecordTrackingStore = createAssetRecordTrackingStore(
 	db,
-	r2Config ? createStorage(r2Config) : null
+	testAssetVersionStorage ?? (r2Config ? createStorage(r2Config) : null)
 );
 export function createServerAssetVersionStorage() {
-	return ENV.NODE_ENV === "test" && ENV.CONTEXT_TEST_R2_MODE === "memory"
-		? createTestAssetVersionStorage()
-		: createStorage(requireR2Config(ENV));
+	return testAssetVersionStorage ?? createStorage(requireR2Config(ENV));
 }
 export const projectContextStore = createProjectContextStore(db);
 export const referenceProductionStore = createReferenceProductionStore(db);

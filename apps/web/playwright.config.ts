@@ -1,6 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const contextTestDatabaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
+const apiPort = Number(process.env.DIRECTIONAL_E2E_API_PORT ?? 3000);
+const webPort = Number(process.env.DIRECTIONAL_E2E_WEB_PORT ?? 3001);
+const apiUrl = `http://127.0.0.1:${apiPort}`;
+const webUrl = `http://127.0.0.1:${webPort}`;
 const assetVersionStorageEnv: Record<string, string> = {};
 const contextTestR2Bucket = process.env.CONTEXT_TEST_R2_BUCKET;
 const cloudflareAccountId = process.env.CLOUDFLARE_ACCOUNT_ID;
@@ -29,15 +33,16 @@ const webServer: Array<{
 
 if (contextTestDatabaseUrl) {
 	webServer.push({
-		command: "bun run --cwd ../server dev",
-		url: "http://127.0.0.1:3000/health",
+		command: "bun run --cwd ../server e2e:directional:server",
+		url: `${apiUrl}/health`,
 		reuseExistingServer: false,
 		env: {
 			...assetVersionStorageEnv,
 			DATABASE_URL: contextTestDatabaseUrl,
 			BETTER_AUTH_SECRET: "project-context-e2e-secret-at-least-32-characters",
-			BETTER_AUTH_URL: "http://127.0.0.1:3000",
-			CORS_ORIGIN: "http://127.0.0.1:3001",
+			BETTER_AUTH_URL: apiUrl,
+			CORS_ORIGIN: webUrl,
+			PORT: String(apiPort),
 			NODE_ENV: "test",
 			CONTEXT_TEST_R2_MODE: "memory",
 		},
@@ -45,14 +50,16 @@ if (contextTestDatabaseUrl) {
 }
 
 webServer.push({
-	command: "bun x vite --host 127.0.0.1",
-	url: "http://127.0.0.1:3001",
-	reuseExistingServer: !process.env.CI,
-	env: { VITE_SERVER_URL: "http://127.0.0.1:3000" },
+	command: `bun x vite --host 127.0.0.1 --port ${webPort}`,
+	url: webUrl,
+	reuseExistingServer: !(
+		process.env.CI || process.env.DIRECTIONAL_E2E_API_PORT
+	),
+	env: { VITE_SERVER_URL: apiUrl, WEB_PORT: String(webPort) },
 });
 
 export default defineConfig({
 	testDir: "./e2e",
-	use: { baseURL: "http://127.0.0.1:3001", ...devices["Desktop Chrome"] },
+	use: { baseURL: webUrl, ...devices["Desktop Chrome"] },
 	webServer,
 });

@@ -3,13 +3,17 @@ import { setTimeout as delay } from "node:timers/promises";
 import type { Options } from "@wdio/types";
 
 let contextTestServer: ChildProcess | undefined;
+const apiPort = Number(process.env.DIRECTIONAL_E2E_API_PORT ?? 3000);
+const webPort = Number(process.env.DIRECTIONAL_E2E_WEB_PORT ?? 3001);
+const apiUrl = `http://127.0.0.1:${apiPort}`;
+const webUrl = `http://127.0.0.1:${webPort}`;
 
 async function waitForTestServer(attempt = 0): Promise<void> {
 	if (!contextTestServer || contextTestServer.exitCode !== null) {
 		throw new Error("The integration test server exited before startup.");
 	}
 	try {
-		const response = await fetch("http://127.0.0.1:3000/health");
+		const response = await fetch(`${apiUrl}/health`);
 		if (response.ok) {
 			return;
 		}
@@ -30,41 +34,46 @@ async function startTestServer() {
 		return;
 	}
 
-	contextTestServer = spawn("bun", ["run", "--cwd", "../server", "dev"], {
-		cwd: process.cwd(),
-		stdio: "ignore",
-		env: {
-			...Object.fromEntries(
-				Object.entries(process.env).filter(
-					([name]) =>
-						![
-							"CLOUDFLARE_ACCOUNT_ID",
-							"R2_ACCESS_KEY_ID",
-							"R2_SECRET_ACCESS_KEY",
-							"R2_BUCKET",
-						].includes(name)
-				)
-			),
-			...(process.env.ASSET_RECORDS_E2E_VERSION_STORAGE === "1" &&
-			process.env.CONTEXT_TEST_R2_BUCKET &&
-			process.env.CLOUDFLARE_ACCOUNT_ID &&
-			process.env.R2_ACCESS_KEY_ID &&
-			process.env.R2_SECRET_ACCESS_KEY
-				? {
-						CLOUDFLARE_ACCOUNT_ID: process.env.CLOUDFLARE_ACCOUNT_ID,
-						R2_ACCESS_KEY_ID: process.env.R2_ACCESS_KEY_ID,
-						R2_SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY,
-						R2_BUCKET: process.env.CONTEXT_TEST_R2_BUCKET,
-					}
-				: {}),
-			DATABASE_URL: databaseUrl,
-			BETTER_AUTH_SECRET: "project-context-e2e-secret-at-least-32-characters",
-			BETTER_AUTH_URL: "http://127.0.0.1:3000",
-			CORS_ORIGIN: "http://127.0.0.1:3001",
-			NODE_ENV: "test",
-			CONTEXT_TEST_R2_MODE: "memory",
-		},
-	});
+	contextTestServer = spawn(
+		"bun",
+		["run", "--cwd", "../server", "e2e:directional:server"],
+		{
+			cwd: process.cwd(),
+			stdio: "ignore",
+			env: {
+				...Object.fromEntries(
+					Object.entries(process.env).filter(
+						([name]) =>
+							![
+								"CLOUDFLARE_ACCOUNT_ID",
+								"R2_ACCESS_KEY_ID",
+								"R2_SECRET_ACCESS_KEY",
+								"R2_BUCKET",
+							].includes(name)
+					)
+				),
+				...(process.env.ASSET_RECORDS_E2E_VERSION_STORAGE === "1" &&
+				process.env.CONTEXT_TEST_R2_BUCKET &&
+				process.env.CLOUDFLARE_ACCOUNT_ID &&
+				process.env.R2_ACCESS_KEY_ID &&
+				process.env.R2_SECRET_ACCESS_KEY
+					? {
+							CLOUDFLARE_ACCOUNT_ID: process.env.CLOUDFLARE_ACCOUNT_ID,
+							R2_ACCESS_KEY_ID: process.env.R2_ACCESS_KEY_ID,
+							R2_SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY,
+							R2_BUCKET: process.env.CONTEXT_TEST_R2_BUCKET,
+						}
+					: {}),
+				DATABASE_URL: databaseUrl,
+				BETTER_AUTH_SECRET: "project-context-e2e-secret-at-least-32-characters",
+				BETTER_AUTH_URL: apiUrl,
+				CORS_ORIGIN: webUrl,
+				PORT: String(apiPort),
+				NODE_ENV: "test",
+				CONTEXT_TEST_R2_MODE: "memory",
+			},
+		}
+	);
 	await waitForTestServer();
 }
 
