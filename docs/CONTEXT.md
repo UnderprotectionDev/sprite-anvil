@@ -42,6 +42,7 @@ English terms are the canonical technical names used in code and contracts. Turk
 | Approved Version | Onaylı Sürüm |
 | Review Event | İnceleme Kaydı |
 | Directional Review | Kimlik ve Yön Tutarlılığı İncelemesi |
+| Animation Timing and Transition Review | Animasyon Zamanlamasını ve Geçişlerini İnceleme |
 | Icon Family Review | İkon Ailesi İncelemesi |
 | Human-Gated Action | Kullanıcı Kesinleştirmeli İşlem |
 | Export-Ready Version | Dışa Aktarıma Hazır Sürüm |
@@ -262,6 +263,10 @@ _Avoid_: Mutable status field, file edit
 **Directional Review**:
 An immutable user-authored comparison of four or eight directions from exact Asset Versions in one Asset Family against its Canonical Design, under a pinned Specialized Profile Contract. It retains the playback setup and human observations about silhouette, proportions, equipment side, palette, perspective, scale, and ground contact. Its outcome does not change Review Disposition or automatically establish QA Readiness; ground and loop differences remain subject to the profile rules.
 _Avoid_: Review Event, automatic artistic verdict, approval
+
+**Animation Timing and Transition Review**:
+An immutable user-authored comparison of ordered animation frames from exact Asset Versions in one Asset Family, under a pinned Specialized Profile Contract. It retains each frame's independent duration and optional movement phase, the playback speed and loop setting, and the user's outcome and rationale. It does not make an automatic judgment about motion or identity; ground and loop differences remain subject to profile rules.
+_Avoid_: fixed frame rate, mandatory phase template, automatic motion verdict, approval
 
 **Icon Family Review**:
 An immutable user-authored assessment of exact icon Asset Versions in one Asset Family under a pinned icon Specialized Profile Contract. It records usage variants, logical sizes, light and dark background checks, grayscale comparison, and observations about object scale, lighting direction, outline, detail density, and whether a state or rarity color preserves identity. Its outcome does not change Review Disposition or create a project-wide art rule.

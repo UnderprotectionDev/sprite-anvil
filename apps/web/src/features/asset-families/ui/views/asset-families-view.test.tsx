@@ -64,6 +64,14 @@ vi.mock("@/utils/orpc", () => ({
 				}),
 			},
 		},
+		animationTimingReviews: {
+			list: {
+				queryOptions: ({ input }: { input: { assetFamilyId: string } }) => ({
+					queryKey: ["animation-timing-reviews", input.assetFamilyId],
+					queryFn: async () => [],
+				}),
+			},
+		},
 		dependencyRevalidation: {
 			listHistoricalCompositions: {
 				queryOptions: () => ({
@@ -191,6 +199,8 @@ afterEach(() => {
 });
 
 const reviewSection = "Gameplay kimlik ve yön incelemesi";
+const animationTimingReviewSection =
+	"Gameplay animasyon zamanlaması incelemesi";
 const characterActivationPrompt =
 	"Ana Tasarım seçin ve karakter Özel Profil Sözleşmesini etkinleştirin.";
 
@@ -250,6 +260,9 @@ test("hides the character directional review until the character contract is act
 	expect(
 		screen.queryByRole("region", { name: reviewSection })
 	).not.toBeInTheDocument();
+	expect(
+		screen.queryByRole("region", { name: animationTimingReviewSection })
+	).not.toBeInTheDocument();
 	expect(screen.queryByText(characterActivationPrompt)).not.toBeInTheDocument();
 });
 
@@ -267,6 +280,9 @@ test("shows the character directional review once the character contract is acti
 	renderFamiliesView();
 	expect(
 		await screen.findByRole("region", { name: reviewSection })
+	).toBeVisible();
+	expect(
+		await screen.findByRole("region", { name: animationTimingReviewSection })
 	).toBeVisible();
 });
 

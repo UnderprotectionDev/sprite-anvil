@@ -1,9 +1,10 @@
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import type { SyntheticEvent } from "react";
+import { Fragment, type SyntheticEvent } from "react";
 import { AssetVersionControls } from "@/features/asset-versions/ui/components/asset-version-controls";
 import { useAssetVersionWrites } from "@/features/asset-versions/ui/hooks/use-asset-version-writes";
+import { AnimationTimingReviewManager } from "@/features/character-animation-profile/ui/components/animation-timing-review-manager";
 import { DirectionalReviewManager } from "@/features/character-animation-profile/ui/components/directional-review-manager";
 import { DependencyRevalidationManager } from "@/features/dependency-revalidation/ui/components/dependency-revalidation-manager";
 import { HistoricalCompositionManager } from "@/features/dependency-revalidation/ui/components/historical-composition-manager";
@@ -317,20 +318,34 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 						<>
 							{characterProfileActivation
 								? catalog.assetFamilies.map((family) => (
-										<DirectionalReviewManager
-											activation={characterProfileActivation}
-											assetFamilyId={family.id}
-											catalog={assetVersionQuery.data}
-											familyName={family.name}
-											key={family.id}
-											projectId={projectId}
-											recordNames={Object.fromEntries(
-												catalog.assetRecords.map((record) => [
-													record.id,
-													record.name,
-												])
-											)}
-										/>
+										<Fragment key={family.id}>
+											<AnimationTimingReviewManager
+												activation={characterProfileActivation}
+												assetFamilyId={family.id}
+												catalog={assetVersionQuery.data}
+												familyName={family.name}
+												projectId={projectId}
+												recordNames={Object.fromEntries(
+													catalog.assetRecords.map((record) => [
+														record.id,
+														record.name,
+													])
+												)}
+											/>
+											<DirectionalReviewManager
+												activation={characterProfileActivation}
+												assetFamilyId={family.id}
+												catalog={assetVersionQuery.data}
+												familyName={family.name}
+												projectId={projectId}
+												recordNames={Object.fromEntries(
+													catalog.assetRecords.map((record) => [
+														record.id,
+														record.name,
+													])
+												)}
+											/>
+										</Fragment>
 									))
 								: null}
 							<IconFamilyReviewSections

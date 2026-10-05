@@ -6,6 +6,7 @@ import { readAnimationMetadataPackageTarget } from "./features/character-animati
 import { readGameplayMetadataPackageTarget } from "./features/gameplay-metadata/server/gameplay-metadata-package-target";
 import { reviewGameplayMetadata } from "./features/gameplay-metadata/server/gameplay-metadata-review";
 import {
+	animationTimingReviewStore,
 	assetFamilyStore,
 	assetRecordStore,
 	assetRecordTrackingStore,
@@ -46,6 +47,7 @@ export async function createContext({
 		assetRecordStore,
 		assetRecordTrackingStore,
 		assetVersionStore,
+		animationTimingReviewStore,
 		collectionStore,
 		generationPackageStore,
 		gameplayMetadataStore,

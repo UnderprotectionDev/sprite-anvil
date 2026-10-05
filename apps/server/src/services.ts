@@ -12,6 +12,7 @@ import { createAssetRecordStore } from "./features/asset-records/server/asset-re
 import { createAssetRecordTrackingStore } from "./features/asset-records/server/asset-record-tracking-store";
 import { createAssetVersionStore } from "./features/asset-versions/server/asset-version-store";
 import { createTestAssetVersionStorage } from "./features/asset-versions/server/test-asset-version-storage";
+import { createAnimationTimingReviewStore } from "./features/character-animation-profile/server/animation-timing-review-store";
 import { createDirectionalReviewStore } from "./features/character-animation-profile/server/directional-review-store";
 import { createCollectionStore } from "./features/collections/server/collection-store";
 import { createDependencyRevalidationStore } from "./features/dependency-revalidation/server/dependency-revalidation-store";
@@ -48,6 +49,7 @@ function usesLoopbackTestDatabase(databaseUrl: string): boolean {
 export const db = usesLoopbackTestDatabase(ENV.DATABASE_URL)
 	? createLocalTestDb(ENV)
 	: createDb(ENV);
+export const animationTimingReviewStore = createAnimationTimingReviewStore(db);
 export const directionalReviewStore = createDirectionalReviewStore(db);
 export const iconFamilyReviewStore = createIconFamilyReviewStore(db);
 export const gameplayMetadataStore = createGameplayMetadataStore(db);
