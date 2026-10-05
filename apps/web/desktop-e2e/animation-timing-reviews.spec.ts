@@ -182,6 +182,9 @@ describe("Animation Timing and Transition Review", () => {
 
 			await (await review.$("button=Başa dön")).click();
 			await expect(await playhead.getValue()).toBe("0");
+			await review
+				.$("input[aria-label='Animasyon adı']")
+				.setValue("Walk cycle");
 			await (
 				await review.$("input[aria-label='İnceleme sonucu']")
 			).selectByAttribute("value", "needs_follow_up");

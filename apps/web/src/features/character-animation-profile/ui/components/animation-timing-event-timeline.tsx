@@ -1,7 +1,7 @@
 import type { AnimationTimingReviewInput } from "@sprite-anvil/api/animation-timing-reviews";
 import type { GameplayMetadataRecord } from "@sprite-anvil/api/gameplay-metadata";
 import { Button } from "@sprite-anvil/ui/components/button";
-import type { ReactNode } from "react";
+import { type ReactNode, useMemo } from "react";
 
 export type AnimationTimingMetadataStatus = "loading" | "ready" | "error";
 
@@ -233,11 +233,16 @@ export function AnimationTimingEventTimeline({
 	onRetryGameplayMetadata: () => void;
 	projectId: string;
 }) {
-	const timeline = getDirectionTracks(
-		directions,
-		gameplayMetadataRecords,
-		projectId,
-		contractRevisionId
+	// Playback re-renders this component at frame rate; metadata parsing must not repeat per frame.
+	const timeline = useMemo(
+		() =>
+			getDirectionTracks(
+				directions,
+				gameplayMetadataRecords,
+				projectId,
+				contractRevisionId
+			),
+		[contractRevisionId, directions, gameplayMetadataRecords, projectId]
 	);
 	const maxDurationMs = Math.max(
 		1,
