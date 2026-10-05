@@ -1,3 +1,4 @@
+import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
 import type {
 	FamilyReadiness,
 	QualityVersionTarget,
@@ -6,9 +7,18 @@ import type {
 	RequiredSetItem,
 } from "@sprite-anvil/api/family-readiness";
 import type { SpecializedProfileContractsListOutput } from "@sprite-anvil/api/specialized-profile-contracts";
+import { iconLightDarkTargetSizeTestId } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import type {
+	IconPixelDimensions,
+	IconUsagePreviewContext,
+} from "@/features/icon-profile/ui/components/icon-usage-evidence-fields";
+import {
+	formatIconPixelDimensions as formatPixelDimensions,
+	IconUsageEvidenceFields,
+} from "@/features/icon-profile/ui/components/icon-usage-evidence-fields";
 import { client, orpc } from "@/utils/orpc";
 
 interface DraftItem {
@@ -19,6 +29,24 @@ interface DraftItem {
 	localId: string;
 	name: string;
 	testId?: string;
+}
+
+type PixelDimensions = IconPixelDimensions;
+
+interface FamilyReadinessAssetRecord {
+	assetCategory: string | null;
+	id: string;
+	logicalResolution?: PixelDimensions | null;
+	name: string;
+}
+
+function parsePositivePixelDimension(value: string) {
+	const dimension = Number(value);
+	return Number.isSafeInteger(dimension) &&
+		dimension > 0 &&
+		dimension <= 2_147_483_647
+		? dimension
+		: null;
 }
 
 const itemKindLabels: Record<DraftItem["kind"], string> = {
@@ -166,16 +194,14 @@ export function FamilyReadinessManager({
 	familyName,
 	projectId,
 	assetRecords,
+	assetVersions = [],
 	profileContracts,
 }: {
 	assetFamilyId: string;
 	familyName: string;
 	projectId: string;
-	assetRecords: {
-		assetCategory: string | null;
-		id: string;
-		name: string;
-	}[];
+	assetRecords: FamilyReadinessAssetRecord[];
+	assetVersions?: AssetVersion[];
 	profileContracts: SpecializedProfileContractsListOutput | null;
 }) {
 	const query = useQuery({
@@ -327,6 +353,7 @@ export function FamilyReadinessManager({
 									activeRevisionId={activeRevisionId ?? ""}
 									assetFamilyId={assetFamilyId}
 									assetRecords={assetRecords}
+									assetVersions={assetVersions}
 									isSaving={isSaving}
 									itemResult={itemResult}
 									key={itemResult.item.id}
@@ -435,6 +462,7 @@ function FamilyReadinessItemCard({
 	activeRevisionId,
 	assetFamilyId,
 	assetRecords,
+	assetVersions,
 	isSaving,
 	itemResult,
 	onRecord,
@@ -443,7 +471,8 @@ function FamilyReadinessItemCard({
 }: {
 	activeRevisionId: string;
 	assetFamilyId: string;
-	assetRecords: { assetCategory: string | null; id: string; name: string }[];
+	assetRecords: FamilyReadinessAssetRecord[];
+	assetVersions: AssetVersion[];
 	isSaving: boolean;
 	itemResult: FamilyReadiness["items"][number];
 	onRecord: (input: ReadinessEvidenceInput) => Promise<boolean>;
@@ -480,6 +509,8 @@ function FamilyReadinessItemCard({
 				<ReadinessEvidenceForms
 					assetFamilyId={assetFamilyId}
 					assetRecords={assetRecords}
+					assetVersions={assetVersions}
+					currentAssetVersionIds={itemResult.currentAssetVersionIds}
 					humanReviewRequirements={itemResult.humanReviewRequirements}
 					isSaving={isSaving}
 					item={itemResult.item}
@@ -620,6 +651,24 @@ function ReadinessEvidenceDetails({
 				) : null}
 				<dt>Bağlam Sürümü</dt>
 				<dd>{evidence.contextRevisionId ?? "Yok"}</dd>
+				{evidence.usageVariant === null ? null : (
+					<>
+						<dt>Kullanım çeşidi</dt>
+						<dd>{evidence.usageVariant}</dd>
+					</>
+				)}
+				{evidence.targetDimensions ? (
+					<>
+						<dt>Hedef ölçü</dt>
+						<dd>{formatPixelDimensions(evidence.targetDimensions)}</dd>
+					</>
+				) : null}
+				{evidence.grayscaleReviewed === null ? null : (
+					<>
+						<dt>Gri tonlama incelemesi</dt>
+						<dd>{evidence.grayscaleReviewed ? "İncelendi" : "İncelenmedi"}</dd>
+					</>
+				)}
 				<dt>Görsel Dünya</dt>
 				<dd>{evidence.visualWorldId}</dd>
 				<dt>Kullanım bağlamı</dt>
@@ -843,6 +892,8 @@ function RequiredSetItemEditor({
 function ReadinessEvidenceForms({
 	assetFamilyId,
 	assetRecords,
+	assetVersions,
+	currentAssetVersionIds,
 	item,
 	isSaving,
 	onRecord,
@@ -855,7 +906,9 @@ function ReadinessEvidenceForms({
 	revisionId,
 }: {
 	assetFamilyId: string;
-	assetRecords: { assetCategory: string | null; id: string; name: string }[];
+	assetRecords: FamilyReadinessAssetRecord[];
+	assetVersions: AssetVersion[];
+	currentAssetVersionIds: string[];
 	item: RequiredSetItem;
 	isSaving: boolean;
 	onRecord: (input: ReadinessEvidenceInput) => Promise<boolean>;
@@ -895,6 +948,12 @@ function ReadinessEvidenceForms({
 				<EvidenceForm
 					assetFamilyId={assetFamilyId}
 					description="Kullanım testi sonucu"
+					iconUsagePreview={{
+						assetRecordIds: item.assetRecordIds,
+						assetRecords,
+						assetVersions,
+						currentAssetVersionIds,
+					}}
 					initialResult="passed"
 					isSaving={isSaving}
 					item={item}
@@ -1027,6 +1086,100 @@ function qualityEvidenceFormInput(
 	};
 }
 
+interface IconUsageEvidenceFormInput {
+	grayscaleReviewed: boolean;
+	method: string;
+	result: "passed" | "failed" | "inconclusive";
+	shared: QualityEvidenceFormInput["shared"];
+	targetDimensions: PixelDimensions | null;
+	testId?: string;
+	usageVariant: string;
+}
+
+function iconUsageEvidenceFormInput(
+	input: IconUsageEvidenceFormInput
+): ReadinessEvidenceInput | null {
+	const {
+		grayscaleReviewed,
+		method,
+		result,
+		shared,
+		targetDimensions,
+		testId,
+	} = input;
+	if (!testId) {
+		return null;
+	}
+	if (testId !== iconLightDarkTargetSizeTestId) {
+		return { ...shared, kind: "usage_test", result, testId, method };
+	}
+	const usageVariant = input.usageVariant.trim();
+	if (!usageVariant || targetDimensions === null || !grayscaleReviewed) {
+		return null;
+	}
+	return {
+		...shared,
+		kind: "usage_test",
+		result,
+		testId,
+		method,
+		usageVariant,
+		targetDimensions,
+		grayscaleReviewed: true,
+	};
+}
+
+function iconUsageGrayscaleReviewKey(
+	preview: IconUsagePreviewContext | undefined,
+	targetDimensions: PixelDimensions | null,
+	usageVariant: string
+) {
+	const assetRecordIds = new Set(preview?.assetRecordIds ?? []);
+	const currentAssetVersionIds = [
+		...(preview?.currentAssetVersionIds ?? []),
+	].sort();
+	const currentAssetVersionIdSet = new Set(currentAssetVersionIds);
+	const assetRecords = (preview?.assetRecords ?? [])
+		.filter((record) => assetRecordIds.has(record.id))
+		.map((record) => ({
+			id: record.id,
+			assetCategory: record.assetCategory,
+			logicalResolution: record.logicalResolution
+				? {
+						width: record.logicalResolution.width,
+						height: record.logicalResolution.height,
+					}
+				: null,
+		}))
+		.sort((left, right) => left.id.localeCompare(right.id));
+	const sourceImageDimensions = (preview?.assetVersions ?? [])
+		.filter(
+			(version) =>
+				assetRecordIds.has(version.assetRecordId) &&
+				currentAssetVersionIdSet.has(version.id)
+		)
+		.map((version) => ({
+			assetRecordId: version.assetRecordId,
+			assetVersionId: version.id,
+			dimensions: version.sourceImageDimensions
+				? {
+						width: version.sourceImageDimensions.width,
+						height: version.sourceImageDimensions.height,
+					}
+				: null,
+		}))
+		.sort((left, right) =>
+			left.assetRecordId.localeCompare(right.assetRecordId)
+		);
+	return JSON.stringify({
+		assetRecords,
+		currentAssetVersionIds,
+		sourceImageDimensions,
+		targetDimensions,
+		usageVariant: usageVariant.trim(),
+	});
+}
+
 function qualityMeasurementValues(
 	isWaiver: boolean,
 	waiverEvidence: ReadinessEvidence | undefined,
@@ -1144,9 +1297,239 @@ function QualityWaiverScope({ evidence }: { evidence: ReadinessEvidence }) {
 	);
 }
 
+type EvidenceFormResult =
+	| "applicable"
+	| "inapplicable"
+	| "passed"
+	| "failed"
+	| "inconclusive"
+	| "waived";
+
+function EvidenceResultField({
+	canWaive,
+	formId,
+	kind,
+	onChange,
+	result,
+}: {
+	canWaive: boolean;
+	formId: string;
+	kind: "applicability" | "quality" | "usage_test";
+	onChange: (result: EvidenceFormResult) => void;
+	result: EvidenceFormResult;
+}) {
+	return (
+		<label className="block space-y-1 text-sm" htmlFor={`${formId}-result`}>
+			<span>Sonuç</span>
+			<select
+				className="w-full rounded-md border bg-background px-3 py-2"
+				id={`${formId}-result`}
+				onChange={(event) =>
+					onChange(event.currentTarget.value as EvidenceFormResult)
+				}
+				value={result}
+			>
+				{kind === "applicability" ? (
+					<>
+						<option value="applicable">Bağlama uygun</option>
+						<option value="inapplicable">Bağlama uygun değil</option>
+					</>
+				) : (
+					<>
+						<option value="passed">Geçti</option>
+						<option value="failed">Başarısız</option>
+						<option value="inconclusive">Sonuçsuz</option>
+						{kind === "quality" && canWaive ? (
+							<option value="waived">Kalite İstisnası ver</option>
+						) : null}
+					</>
+				)}
+			</select>
+		</label>
+	);
+}
+
+function QualityEvidenceFields({
+	formId,
+	humanReviewRequirement,
+	isWaiver,
+	measurementValues,
+	onObservedValueChange,
+	onVersionTargetChange,
+	qualityRequirement,
+	requiresVersionTarget,
+	versionTargets,
+}: {
+	formId: string;
+	humanReviewRequirement?: FamilyReadiness["items"][number]["humanReviewRequirements"][number];
+	isWaiver: boolean;
+	measurementValues: ReturnType<typeof qualityMeasurementValues>;
+	onObservedValueChange: (value: string) => void;
+	onVersionTargetChange: (target: QualityVersionTarget | undefined) => void;
+	qualityRequirement?: FamilyReadiness["items"][number]["qualityRequirements"][number];
+	requiresVersionTarget: boolean;
+	versionTargets: QualityVersionTarget[];
+}) {
+	return (
+		<>
+			{qualityRequirement && versionTargets.length > 0 ? (
+				<QualityVersionTargetSelect
+					formId={formId}
+					isWaiver={isWaiver}
+					onSelect={onVersionTargetChange}
+					required={requiresVersionTarget}
+					value={measurementValues.versionTarget}
+					versionTargets={versionTargets}
+				/>
+			) : null}
+			{qualityRequirement ? (
+				<label className="block space-y-1 text-sm" htmlFor={`${formId}-rule`}>
+					<span>Kural kimliği</span>
+					<input
+						className="w-full rounded-md border bg-background px-3 py-2"
+						id={`${formId}-rule`}
+						readOnly
+						value={qualityRequirement.id}
+					/>
+				</label>
+			) : null}
+			{humanReviewRequirement ? (
+				<label className="block space-y-1 text-sm" htmlFor={`${formId}-review`}>
+					<span>İnsan incelemesi kimliği</span>
+					<input
+						className="w-full rounded-md border bg-background px-3 py-2"
+						id={`${formId}-review`}
+						readOnly
+						value={humanReviewRequirement.id}
+					/>
+				</label>
+			) : null}
+			{qualityRequirement?.waiverEligible ? (
+				<label
+					className="block space-y-1 text-sm"
+					htmlFor={`${formId}-observed-value`}
+				>
+					<span>Gözlenen değer</span>
+					<input
+						className="w-full rounded-md border bg-background px-3 py-2"
+						id={`${formId}-observed-value`}
+						maxLength={500}
+						onChange={(event) =>
+							onObservedValueChange(event.currentTarget.value)
+						}
+						readOnly={isWaiver}
+						required
+						value={measurementValues.observedValue}
+					/>
+				</label>
+			) : null}
+		</>
+	);
+}
+
+function UsageTestEvidenceFields({
+	data,
+	formId,
+	grayscaleReviewed,
+	isIconTargetSizeTest,
+	kind,
+	onGrayscaleReviewedChange,
+	onTargetHeightChange,
+	onTargetWidthChange,
+	onUsageVariantChange,
+	targetDimensions,
+	targetHeight,
+	targetWidth,
+	usageVariantError,
+	testId,
+	usageVariant,
+}: {
+	data?: IconUsagePreviewContext;
+	formId: string;
+	grayscaleReviewed: boolean;
+	isIconTargetSizeTest: boolean;
+	kind: "applicability" | "quality" | "usage_test";
+	onGrayscaleReviewedChange: (reviewed: boolean) => void;
+	onTargetHeightChange: (height: string) => void;
+	onTargetWidthChange: (width: string) => void;
+	onUsageVariantChange: (variant: string) => void;
+	targetDimensions: PixelDimensions | null;
+	targetHeight: string;
+	targetWidth: string;
+	usageVariantError: string;
+	testId?: string;
+	usageVariant: string;
+}) {
+	if (kind !== "usage_test") {
+		return null;
+	}
+	return (
+		<>
+			<label className="block space-y-1 text-sm" htmlFor={`${formId}-test`}>
+				<span>Kullanım testi kimliği</span>
+				<input
+					className="w-full rounded-md border bg-background px-3 py-2"
+					id={`${formId}-test`}
+					readOnly
+					value={testId ?? ""}
+				/>
+			</label>
+			{isIconTargetSizeTest ? (
+				<IconUsageEvidenceFields
+					data={data}
+					formId={formId}
+					grayscaleReviewed={grayscaleReviewed}
+					onGrayscaleReviewedChange={onGrayscaleReviewedChange}
+					onTargetHeightChange={onTargetHeightChange}
+					onTargetWidthChange={onTargetWidthChange}
+					onUsageVariantChange={onUsageVariantChange}
+					targetDimensions={targetDimensions}
+					targetHeight={targetHeight}
+					targetWidth={targetWidth}
+					usageVariant={usageVariant}
+					usageVariantError={usageVariantError}
+				/>
+			) : null}
+		</>
+	);
+}
+
+function EvidenceMethodField({
+	formId,
+	kind,
+	isWaiver,
+	measurementValue,
+	onChange,
+}: {
+	formId: string;
+	kind: "applicability" | "quality" | "usage_test";
+	isWaiver: boolean;
+	measurementValue: string;
+	onChange: (value: string) => void;
+}) {
+	if (kind === "applicability") {
+		return null;
+	}
+	return (
+		<label className="block space-y-1 text-sm" htmlFor={`${formId}-method`}>
+			<span>Yöntem</span>
+			<textarea
+				className="min-h-16 w-full rounded-md border bg-background px-3 py-2"
+				id={`${formId}-method`}
+				maxLength={1000}
+				onChange={(event) => onChange(event.currentTarget.value)}
+				readOnly={isWaiver}
+				required
+				value={measurementValue}
+			/>
+		</label>
+	);
+}
+
 function EvidenceForm({
 	assetFamilyId,
 	description,
+	iconUsagePreview,
 	initialResult,
 	isSaving,
 	item,
@@ -1162,6 +1545,7 @@ function EvidenceForm({
 }: {
 	assetFamilyId: string;
 	description: string;
+	iconUsagePreview?: IconUsagePreviewContext;
 	initialResult: "applicable" | "passed" | "inconclusive";
 	isSaving: boolean;
 	item: RequiredSetItem;
@@ -1175,20 +1559,41 @@ function EvidenceForm({
 	waiverEvidence?: ReadinessEvidence;
 	versionTargets?: QualityVersionTarget[];
 }) {
-	const [result, setResult] = useState<
-		| "applicable"
-		| "inapplicable"
-		| "passed"
-		| "failed"
-		| "inconclusive"
-		| "waived"
-	>(initialResult);
+	const [result, setResult] = useState<EvidenceFormResult>(initialResult);
 	const [method, setMethod] = useState("");
 	const [rationale, setRationale] = useState("");
 	const [observedValue, setObservedValue] = useState("");
 	const [versionTarget, setVersionTarget] = useState<QualityVersionTarget>();
+	const [usageVariant, setUsageVariant] = useState("");
+	const [usageVariantError, setUsageVariantError] = useState("");
+	const [targetWidth, setTargetWidth] = useState("");
+	const [targetHeight, setTargetHeight] = useState("");
+	const [grayscaleReviewedScopeKey, setGrayscaleReviewedScopeKey] = useState<
+		string | null
+	>(null);
 	const formId = `${assetFamilyId}-${kind}-${item.id}-${evidenceRequirementId(qualityRequirement, humanReviewRequirement, testId)}`;
 	const isWaiver = result === "waived";
+	const isIconTargetSizeTest =
+		kind === "usage_test" && testId === iconLightDarkTargetSizeTestId;
+	const targetDimensions = isIconTargetSizeTest
+		? (() => {
+				const width = parsePositivePixelDimension(targetWidth);
+				const height = parsePositivePixelDimension(targetHeight);
+				return width !== null && height !== null ? { width, height } : null;
+			})()
+		: null;
+	const currentGrayscaleReviewScopeKey = iconUsageGrayscaleReviewKey(
+		iconUsagePreview,
+		targetDimensions,
+		usageVariant
+	);
+	const grayscaleReviewed =
+		grayscaleReviewedScopeKey === currentGrayscaleReviewScopeKey;
+	useEffect(() => {
+		setGrayscaleReviewedScopeKey((scopeKey) =>
+			scopeKey === currentGrayscaleReviewScopeKey ? scopeKey : null
+		);
+	}, [currentGrayscaleReviewScopeKey]);
 	const requiresVersionTarget =
 		kind === "quality" &&
 		!isWaiver &&
@@ -1204,6 +1609,11 @@ function EvidenceForm({
 
 	function submit(event: React.FormEvent<HTMLFormElement>) {
 		event.preventDefault();
+		if (isIconTargetSizeTest && !usageVariant.trim()) {
+			setUsageVariantError("Kullanım çeşidi boşluklardan oluşamaz.");
+			return;
+		}
+		setUsageVariantError("");
 		const shared = {
 			projectId,
 			assetFamilyId,
@@ -1235,130 +1645,92 @@ function EvidenceForm({
 				void onRecord(qualityInput);
 			}
 		} else {
-			if (!testId) {
-				return;
-			}
-			void onRecord({
-				...shared,
-				kind,
+			const usageInput = iconUsageEvidenceFormInput({
+				shared,
 				result: result as "passed" | "failed" | "inconclusive",
 				testId,
 				method,
+				usageVariant,
+				targetDimensions,
+				grayscaleReviewed,
 			});
+			if (usageInput) {
+				void onRecord(usageInput);
+			}
 		}
 	}
 
 	return (
 		<form className="space-y-2 rounded-md bg-muted/30 p-3" onSubmit={submit}>
 			<h6 className="font-medium text-sm">{description}</h6>
-			<label className="block space-y-1 text-sm" htmlFor={`${formId}-result`}>
-				<span>Sonuç</span>
-				<select
-					className="w-full rounded-md border bg-background px-3 py-2"
-					id={`${formId}-result`}
-					onChange={(event) => {
-						const nextResult = event.currentTarget.value as typeof result;
-						setResult(nextResult);
-						if (nextResult === "waived") {
-							setRationale("");
-						}
-					}}
-					value={result}
-				>
-					{kind === "applicability" ? (
-						<>
-							<option value="applicable">Bağlama uygun</option>
-							<option value="inapplicable">Bağlama uygun değil</option>
-						</>
-					) : (
-						<>
-							<option value="passed">Geçti</option>
-							<option value="failed">Başarısız</option>
-							<option value="inconclusive">Sonuçsuz</option>
-							{kind === "quality" && waiverEvidence ? (
-								<option value="waived">Kalite İstisnası ver</option>
-							) : null}
-						</>
-					)}
-				</select>
-			</label>
+			<EvidenceResultField
+				canWaive={Boolean(waiverEvidence)}
+				formId={formId}
+				kind={kind}
+				onChange={(nextResult) => {
+					setResult(nextResult);
+					if (nextResult === "waived") {
+						setRationale("");
+					}
+				}}
+				result={result}
+			/>
 			{isWaiver && waiverEvidence ? (
 				<QualityWaiverScope evidence={waiverEvidence} />
 			) : null}
-			{kind === "quality" && qualityRequirement && versionTargets.length > 0 ? (
-				<QualityVersionTargetSelect
-					formId={formId}
-					isWaiver={isWaiver}
-					onSelect={setVersionTarget}
-					required={requiresVersionTarget}
-					value={measurementValues.versionTarget}
-					versionTargets={versionTargets}
-				/>
-			) : null}
-			{kind === "quality" && qualityRequirement ? (
-				<label className="block space-y-1 text-sm" htmlFor={`${formId}-rule`}>
-					<span>Kural kimliği</span>
-					<input
-						className="w-full rounded-md border bg-background px-3 py-2"
-						id={`${formId}-rule`}
-						readOnly
-						value={qualityRequirement.id}
-					/>
-				</label>
-			) : null}
-			{humanReviewRequirement ? (
-				<label className="block space-y-1 text-sm" htmlFor={`${formId}-review`}>
-					<span>İnsan incelemesi kimliği</span>
-					<input
-						className="w-full rounded-md border bg-background px-3 py-2"
-						id={`${formId}-review`}
-						readOnly
-						value={humanReviewRequirement.id}
-					/>
-				</label>
-			) : null}
-			{kind === "usage_test" ? (
-				<label className="block space-y-1 text-sm" htmlFor={`${formId}-test`}>
-					<span>Kullanım testi kimliği</span>
-					<input
-						className="w-full rounded-md border bg-background px-3 py-2"
-						id={`${formId}-test`}
-						readOnly
-						value={testId ?? ""}
-					/>
-				</label>
-			) : null}
-			{kind === "quality" && qualityRequirement?.waiverEligible ? (
-				<label
-					className="block space-y-1 text-sm"
-					htmlFor={`${formId}-observed-value`}
-				>
-					<span>Gözlenen değer</span>
-					<input
-						className="w-full rounded-md border bg-background px-3 py-2"
-						id={`${formId}-observed-value`}
-						maxLength={500}
-						onChange={(event) => setObservedValue(event.currentTarget.value)}
-						readOnly={isWaiver}
-						required
-						value={measurementValues.observedValue}
-					/>
-				</label>
-			) : null}
-			{kind === "applicability" ? null : (
-				<label className="block space-y-1 text-sm" htmlFor={`${formId}-method`}>
-					<span>Yöntem</span>
-					<textarea
-						className="min-h-16 w-full rounded-md border bg-background px-3 py-2"
-						id={`${formId}-method`}
-						maxLength={1000}
-						onChange={(event) => setMethod(event.currentTarget.value)}
-						readOnly={isWaiver}
-						required
-						value={measurementValues.method}
-					/>
-				</label>
-			)}
+			<QualityEvidenceFields
+				formId={formId}
+				humanReviewRequirement={humanReviewRequirement}
+				isWaiver={isWaiver}
+				measurementValues={measurementValues}
+				onObservedValueChange={setObservedValue}
+				onVersionTargetChange={setVersionTarget}
+				qualityRequirement={qualityRequirement}
+				requiresVersionTarget={requiresVersionTarget}
+				versionTargets={versionTargets}
+			/>
+			<UsageTestEvidenceFields
+				data={iconUsagePreview}
+				formId={formId}
+				grayscaleReviewed={grayscaleReviewed}
+				isIconTargetSizeTest={isIconTargetSizeTest}
+				kind={kind}
+				onGrayscaleReviewedChange={(reviewed) =>
+					setGrayscaleReviewedScopeKey(
+						reviewed ? currentGrayscaleReviewScopeKey : null
+					)
+				}
+				onTargetHeightChange={(height) => {
+					setTargetHeight(height);
+					setGrayscaleReviewedScopeKey(null);
+				}}
+				onTargetWidthChange={(width) => {
+					setTargetWidth(width);
+					setGrayscaleReviewedScopeKey(null);
+				}}
+				onUsageVariantChange={(variant) => {
+					if (variant.trim() !== usageVariant.trim()) {
+						setGrayscaleReviewedScopeKey(null);
+					}
+					setUsageVariant(variant);
+					if (variant.trim()) {
+						setUsageVariantError("");
+					}
+				}}
+				targetDimensions={targetDimensions}
+				targetHeight={targetHeight}
+				targetWidth={targetWidth}
+				testId={testId}
+				usageVariant={usageVariant}
+				usageVariantError={usageVariantError}
+			/>
+			<EvidenceMethodField
+				formId={formId}
+				isWaiver={isWaiver}
+				kind={kind}
+				measurementValue={measurementValues.method}
+				onChange={setMethod}
+			/>
 			<label
 				className="block space-y-1 text-sm"
 				htmlFor={`${formId}-rationale`}

@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+	boolean,
 	check,
 	foreignKey,
 	index,
@@ -155,6 +156,10 @@ export const familyReadinessEvidence = pgTable(
 			| "human_review"
 		>(),
 		testId: text("test_id"),
+		usageVariant: text("usage_variant"),
+		targetWidth: integer("target_width"),
+		targetHeight: integer("target_height"),
+		grayscaleReviewed: boolean("grayscale_reviewed"),
 		observedValue: text("observed_value"),
 		unitVersionId: text("unit_version_id").references(() => unitVersions.id, {
 			onDelete: "restrict",
@@ -205,6 +210,18 @@ export const familyReadinessEvidence = pgTable(
 		check(
 			"family_readiness_evidence_kind_result_check",
 			sql`(${table.kind} = 'applicability' AND ${table.result} IN ('applicable', 'inapplicable')) OR (${table.kind} = 'quality' AND ${table.result} IN ('passed', 'failed', 'inconclusive', 'waived')) OR (${table.kind} = 'usage_test' AND ${table.result} IN ('passed', 'failed', 'inconclusive'))`
+		),
+		check(
+			"family_readiness_evidence_target_dimensions_check",
+			sql`(${table.targetWidth} IS NULL AND ${table.targetHeight} IS NULL) OR (${table.targetWidth} IS NOT NULL AND ${table.targetHeight} IS NOT NULL AND ${table.targetWidth} > 0 AND ${table.targetHeight} > 0)`
+		),
+		check(
+			"family_readiness_evidence_usage_variant_check",
+			sql`${table.usageVariant} IS NULL OR (${table.usageVariant} = btrim(${table.usageVariant}) AND char_length(${table.usageVariant}) BETWEEN 1 AND 120)`
+		),
+		check(
+			"family_readiness_evidence_icon_usage_fields_check",
+			sql`(${table.usageVariant} IS NULL AND ${table.targetWidth} IS NULL AND ${table.targetHeight} IS NULL AND ${table.grayscaleReviewed} IS NULL) OR (${table.testId} IS NOT NULL AND ${table.testId} = 'icon.light_dark_target_size' AND ${table.usageVariant} IS NOT NULL AND ${table.targetWidth} IS NOT NULL AND ${table.targetHeight} IS NOT NULL AND ${table.grayscaleReviewed} IS TRUE)`
 		),
 		check(
 			"family_readiness_evidence_payload_check",

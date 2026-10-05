@@ -269,6 +269,13 @@ test.skipIf(!databaseUrl)(
 							kind: "usage_test",
 							testId: usageTest.id,
 							result: "failed",
+							...(usageTest.id === "icon.light_dark_target_size"
+								? {
+										usageVariant: "Inventory item",
+										targetDimensions: { width: 16, height: 16 },
+										grayscaleReviewed: true,
+									}
+								: {}),
 						},
 						options
 					)

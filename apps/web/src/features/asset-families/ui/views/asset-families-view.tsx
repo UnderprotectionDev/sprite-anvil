@@ -68,6 +68,12 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 			record.assetCategory ?? null,
 		])
 	);
+	const logicalResolutionsByRecordId = new Map(
+		(assetRecordQuery.data ?? []).map(
+			(record) =>
+				[record.id, record.measurements.logicalResolution.confirmed] as const
+		)
+	);
 	const assetRecordsById = new Map(
 		(assetRecordQuery.data ?? []).map((record) => [record.id, record])
 	);
@@ -294,8 +300,13 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 									.map(({ id, name }) => ({
 										assetCategory: assetCategoriesById.get(id) ?? null,
 										id,
+										logicalResolution:
+											logicalResolutionsByRecordId.get(id) ?? null,
 										name,
 									}))}
+								assetVersions={assetVersionCatalog.assetVersions.filter(
+									(version) => version.assetFamilyId === family.id
+								)}
 								familyName={family.name}
 								key={family.id}
 								profileContracts={profileContractsQuery.data ?? null}

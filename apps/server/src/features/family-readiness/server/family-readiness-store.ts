@@ -21,6 +21,7 @@ import {
 import type { SpecializedProfileId } from "@sprite-anvil/api/specialized-profile-contracts";
 import {
 	assessProfileQualityReadiness,
+	iconLightDarkTargetSizeTestId,
 	isProfileQualityEvidenceValid,
 	specializedProfileIdSchema,
 } from "@sprite-anvil/api/specialized-profile-contracts";
@@ -103,6 +104,12 @@ function toEvidence(
 		ruleId: row.ruleId,
 		ruleClass: row.ruleClass,
 		testId: row.testId,
+		usageVariant: row.usageVariant,
+		targetDimensions:
+			row.targetWidth !== null && row.targetHeight !== null
+				? { width: row.targetWidth, height: row.targetHeight }
+				: null,
+		grayscaleReviewed: row.grayscaleReviewed,
 		observedValue: row.observedValue,
 		versionTarget: qualityVersionTargetFromEvidence(row),
 		method: row.method,
@@ -205,6 +212,25 @@ function qualityEvidenceFields(input: ReadinessEvidenceInput) {
 			input.versionTarget?.kind === "unit" ? input.versionTarget.id : null,
 		compositeVersionId:
 			input.versionTarget?.kind === "composite" ? input.versionTarget.id : null,
+	};
+}
+
+function usageTestEvidenceFields(input: ReadinessEvidenceInput) {
+	if (input.kind !== "usage_test") {
+		return {
+			testId: null,
+			usageVariant: null,
+			targetWidth: null,
+			targetHeight: null,
+			grayscaleReviewed: null,
+		};
+	}
+	return {
+		testId: input.testId,
+		usageVariant: input.usageVariant ?? null,
+		targetWidth: input.targetDimensions?.width ?? null,
+		targetHeight: input.targetDimensions?.height ?? null,
+		grayscaleReviewed: input.grayscaleReviewed ?? null,
 	};
 }
 
@@ -1090,6 +1116,20 @@ function isUsageTestSupported(
 	if (input.kind !== "usage_test") {
 		return true;
 	}
+	if (input.testId === iconLightDarkTargetSizeTestId) {
+		return (
+			profileIds.length > 0 &&
+			profileIds.every(
+				(profileId, index) =>
+					profileId === "icon" &&
+					Boolean(
+						activeContracts[index]?.contract.usageTests.some(
+							(test) => test.id === input.testId
+						)
+					)
+			)
+		);
+	}
 	return activeContracts.every((contract, index) => {
 		const profileId = profileIds[index];
 		return (
@@ -1548,7 +1588,7 @@ export function createFamilyReadinessStore(db: Database) {
 				canonicalDesignVersionId: scope.canonicalDesignVersionId,
 				...qualityEvidenceFields(input),
 				ruleClass: input.kind === "quality" ? scope.ruleClass : null,
-				testId: input.kind === "usage_test" ? input.testId : null,
+				...usageTestEvidenceFields(input),
 				rationale: input.rationale,
 				createdByUserId: userId,
 				createdAt: now,

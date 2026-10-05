@@ -43,11 +43,13 @@ Bu teslimat, RAS-03'ün aile incelemesi ve inceleme kaydı bölümünü kanıtla
 
 ## Testing Decisions
 
-- **Onaylanmış test seam'leri:** (1) Korumalı oRPC `save` ve `list` işlemleriyle gerçek PostgreSQL kaydı ve farklı bir bağlantıdan yeniden okuma; (2) web `IconFamilyReviewManager` görünümünde incelemeyi kaydetme, kaydedilmiş kaydı görme ve JSON arşivini indirme.
-- Kalıcı test, aynı ailedeki en az iki kesin ikon sürümünü, birden fazla mantıksal ölçüyü, kullanım çeşidini, etkin sözleşme kopyasını ve özetlenmiş sürüm kimliklerini doğrular. Geçersiz veya aileye ait olmayan bir sürümün reddedilip kayda dönüşmediğini de sınar. Web testi arşiv şemasını, kimlikleri/özetleri ve görsel baytları ya da önizleme URL'lerinin dışarıda kalmasını doğrular.
-- Testler kullanıcı eyleminden kalıcı sonucu yeniden okumaya kadar gider; iç yardımcıların çağrılma sırasını test etmez. Veritabanı entegrasyonu yalnız geçici loopback PostgreSQL kullanır.
-- Bu issue'ın kalıcılık ve web görünümü kanıtları [`icon-family-review.integration.test.ts`](../../../apps/server/src/icon-family-review.integration.test.ts) ile [`icon-family-review-manager.test.tsx`](../../../apps/web/src/features/icon-profile/ui/components/icon-family-review-manager.test.tsx) içindedir.
-- Fazın bu issue için başarı kanıtı: Hedef boyut, okunurluk, renk ve aile ölçeği kesin ikon sürümünde değerlendirilir; kullanım çeşidi, mantıksal ölçü ve tam sürüm özeti arşivlenir. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Tek bir ışık veya nadirlik rengi bütün proje için yeni evrensel sanat kuralı oluşturmaz; JSON arşivi tam RAS-03 dışa aktarım kanıtı veya görsel dosya paketi sayılmaz.
+- **#99 — İkonu Kullanım Boyutunda Önizleme test seam’i:** API entegrasyon testi ve görünür web sonucu. API testi kullanıcı eylemiyle kanıtı kaydeder, ardından yeni DB bağlantısından kesin `Asset Version` üzerindeki `sourceImageDimensions` alanını, `Asset Record` üzerindeki doğrulanmış `measurements.logicalResolution.confirmed` alanını ve `Readiness Evidence` üzerindeki `usageVariant`, `targetDimensions` ve `grayscaleReviewed` alanlarını ayrı ayrı okur; kanıtın kesin sürüm bağlantısını da doğrular. Web testi kaynak, mantıksal ve hedef boyut önizlemelerini açık/koyu zeminlerde, hedef gri tonlamasını ve form gönderimini görünür biçimde doğrular.
+- `Icon Usage Variant` kullanıcı tarafından girilen serbest metindir; API ve kalıcılık sınırında trim ve 1–120 karakter sınırı uygulanır. Mantıksal ölçü kaynak ölçüden türetilmez.
+- #99 için masaüstü otomasyon testi onaylı seam’e dahil değildir. RAS-03’ün tam kabul senaryosu ve ADR 0002/0003’ün web ile masaüstü yüzeyi şartı daha geniş ürün kabul kapsamı olarak kalır. En yüksek kullanıcı yolunu sınamak için aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu da sınama; iç yardımcıların çağrılma sırasını test etme.
+- #99 kanıtları [`family-readiness.integration.test.ts`](../../../apps/server/src/family-readiness.integration.test.ts) ve [`family-readiness-manager.test.tsx`](../../../apps/web/src/features/family-readiness/ui/components/family-readiness-manager.test.tsx) içindedir. Hedef boyut, okunurluk, renk ve aile ölçeği kesin ikon sürümünde değerlendirilir. Tek bir ışık veya nadirlik rengi bütün proje için yeni evrensel sanat kuralı oluşturmaz; bu kapsam sınırı Out of Scope bölümünde durur ve #99 kanıtlarında ayrıca test edilmez.
+- **#100 — İkon Ailesi Tutarlılığını İnceleme test seam’i:** Korumalı oRPC `save` ve `list` işlemleriyle gerçek PostgreSQL kaydı ve farklı bir bağlantıdan yeniden okuma; web `IconFamilyReviewManager` görünümünde incelemeyi kaydetme, kayıtlı sonucu görme ve JSON arşivini indirme.
+- #100 kalıcılık testi aynı ailedeki en az iki kesin ikon sürümünü, birden fazla mantıksal ölçüyü, kullanım çeşidini, etkin sözleşme kopyasını ve özetlenmiş sürüm kimliklerini doğrular. Geçersiz veya aileye ait olmayan bir sürümün reddedilip kayda dönüşmediğini de sınar. Web testi arşiv şemasını, kimlikleri/özetleri ve görsel baytları ya da önizleme URL’lerinin dışarıda kalmasını doğrular. Bu entegrasyon yalnız geçici loopback PostgreSQL kullanır.
+- #100 kanıtları [`icon-family-review.integration.test.ts`](../../../apps/server/src/icon-family-review.integration.test.ts) ve [`icon-family-review-manager.test.tsx`](../../../apps/web/src/features/icon-profile/ui/components/icon-family-review-manager.test.tsx) içindedir. JSON arşivi tam RAS-03 dışa aktarım kanıtı veya görsel dosya paketi sayılmaz.
 - Kabul örnekleri: RAS-03. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
 
 ## Out of Scope
@@ -68,6 +70,7 @@ Icon Family Review Archive dışında genel Engine-Neutral Bundle, görsel baytl
 **İlgili mimari sınırlar**
 
 - [ADR 0002](../../adr/0002-use-extensible-asset-support-levels.md)
+- [ADR 0003](../../adr/0003-require-web-and-desktop-product-surfaces.md)
 - [ADR 0006](../../adr/0006-version-replaceable-units-and-compositions.md)
 
 **Kabul izlenebilirliği**

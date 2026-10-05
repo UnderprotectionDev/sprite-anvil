@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
+import { createEmptyAssetRecordMeasurements } from "@sprite-anvil/api/asset-records";
 import type { Context } from "@sprite-anvil/api/context";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { createDb } from "@sprite-anvil/db";
@@ -239,6 +240,17 @@ test.skipIf(!databaseUrl)(
 						eq(assetRecords.id, assetRecord.id)
 					)
 				);
+			const measurements = createEmptyAssetRecordMeasurements();
+			measurements.logicalResolution.confirmed = { width: 24, height: 24 };
+			await call(
+				appRouter.assetRecords.updateMeasurements,
+				{
+					projectId,
+					assetRecordId: assetRecord.id,
+					measurements,
+				},
+				{ context }
+			);
 			assetVersionId = crypto.randomUUID();
 			await db.insert(assetVersions).values({
 				id: assetVersionId,
@@ -248,8 +260,8 @@ test.skipIf(!databaseUrl)(
 				versionNumber: 2,
 				fileName: "east-facing-icon.png",
 				contentType: "image/png",
-				sourceImageWidth: 1,
-				sourceImageHeight: 1,
+				sourceImageWidth: 64,
+				sourceImageHeight: 64,
 				sha256: "b".repeat(64),
 				byteSize: 1,
 				contentDigest: "b".repeat(64),
@@ -296,6 +308,43 @@ test.skipIf(!databaseUrl)(
 				},
 				{ context }
 			);
+			await db
+				.update(assetRecords)
+				.set({ assetCategory: null })
+				.where(
+					and(
+						eq(assetRecords.projectId, projectId),
+						eq(assetRecords.id, assetRecord.id)
+					)
+				);
+			const unsupportedIconEvidence = await call(
+				appRouter.familyReadiness.recordEvidence,
+				{
+					projectId,
+					assetFamilyId: family.id,
+					revisionId: firstRevision.id,
+					itemId: "target-size-backgrounds",
+					kind: "usage_test",
+					result: "failed",
+					testId: "icon.light_dark_target_size",
+					method: "Reviewed an icon-specific test without an icon profile.",
+					rationale: "A general asset cannot record an icon profile test.",
+					usageVariant: "Inventory item",
+					targetDimensions: { width: 16, height: 16 },
+					grayscaleReviewed: true,
+				},
+				{ context }
+			);
+			expect(unsupportedIconEvidence).toBeNull();
+			await db
+				.update(assetRecords)
+				.set({ assetCategory: "icon" })
+				.where(
+					and(
+						eq(assetRecords.projectId, projectId),
+						eq(assetRecords.id, assetRecord.id)
+					)
+				);
 			const afterFailedEvidence = await call(
 				appRouter.familyReadiness.recordEvidence,
 				{
@@ -308,6 +357,9 @@ test.skipIf(!databaseUrl)(
 					testId: "icon.light_dark_target_size",
 					method: "Reviewed the icon on light and dark backgrounds.",
 					rationale: "The icon is not readable at the smallest target size.",
+					usageVariant: "Inventory item",
+					targetDimensions: { width: 16, height: 16 },
+					grayscaleReviewed: true,
 				},
 				{ context }
 			);
@@ -354,6 +406,25 @@ test.skipIf(!databaseUrl)(
 				{ projectId, assetFamilyId: family.id },
 				{ context: rereadContext }
 			);
+			const persistedAssetVersions = await call(
+				appRouter.assetVersions.list,
+				{ projectId },
+				{ context: rereadContext }
+			);
+			const persistedAssetRecords = await call(
+				appRouter.assetRecords.list,
+				{ projectId },
+				{ context: rereadContext }
+			);
+			expect(
+				persistedAssetVersions.assetVersions.find(
+					(version) => version.id === assetVersionId
+				)?.sourceImageDimensions
+			).toEqual({ width: 64, height: 64 });
+			expect(
+				persistedAssetRecords.find((record) => record.id === assetRecord.id)
+					?.measurements.logicalResolution.confirmed
+			).toEqual({ width: 24, height: 24 });
 			expect(reread.activeRevision?.id).toBe(firstRevision.id);
 			expect(reread.items[0]?.item.id).toBe("target-size-backgrounds");
 			expect(reread.items[0]?.blockers).toContain("usage_test");
@@ -364,6 +435,9 @@ test.skipIf(!databaseUrl)(
 				result: "failed",
 				testId: "icon.light_dark_target_size",
 				assetVersionIds: [assetVersionId],
+				usageVariant: "Inventory item",
+				targetDimensions: { width: 16, height: 16 },
+				grayscaleReviewed: true,
 				profileContractRevisionIds: [
 					activeIconContractRevision.contractRevisionId,
 				],
@@ -380,6 +454,9 @@ test.skipIf(!databaseUrl)(
 			const persistedHumanReview = reread.items[0]?.latestEvidence.find(
 				(evidence) => evidence.ruleId === humanReview.id
 			);
+			if (!persistedHumanReview) {
+				throw new Error("The persisted human review is required.");
+			}
 			expect(persistedHumanReview).toMatchObject({
 				kind: "quality",
 				result: "passed",
@@ -391,7 +468,87 @@ test.skipIf(!databaseUrl)(
 				contextRevisionId: createdProject.currentContextRevision.id,
 				isCurrent: true,
 			});
+			await expect(
+				db
+					.update(familyReadinessEvidence)
+					.set({
+						usageVariant: "Inventory item",
+						targetWidth: 16,
+						targetHeight: 16,
+						grayscaleReviewed: true,
+					})
+					.where(eq(familyReadinessEvidence.id, persistedHumanReview.id))
+			).rejects.toThrow();
 			expect(reread.status).toBe("incomplete");
+			const afterPassedUsageEvidence = await call(
+				appRouter.familyReadiness.recordEvidence,
+				{
+					projectId,
+					assetFamilyId: family.id,
+					revisionId: firstRevision.id,
+					itemId: "target-size-backgrounds",
+					kind: "usage_test",
+					result: "passed",
+					testId: "icon.light_dark_target_size",
+					method: "Reviewed the current icon on light and dark backgrounds.",
+					rationale: "The current icon remains readable at its target size.",
+					usageVariant: "Inventory item",
+					targetDimensions: { width: 16, height: 16 },
+					grayscaleReviewed: true,
+				},
+				{ context }
+			);
+			expect(
+				afterPassedUsageEvidence.items[0]?.latestEvidence.find(
+					(evidence) =>
+						evidence.kind === "usage_test" && evidence.result === "passed"
+				)?.result
+			).toBe("passed");
+			const passedReadbackContext = createContext(
+				createDb({ DATABASE_URL: databaseUrl }),
+				userId
+			);
+			const passedReadback = await call(
+				appRouter.familyReadiness.list,
+				{ projectId, assetFamilyId: family.id },
+				{ context: passedReadbackContext }
+			);
+			const passedAssetVersions = await call(
+				appRouter.assetVersions.list,
+				{ projectId },
+				{ context: passedReadbackContext }
+			);
+			const passedAssetRecords = await call(
+				appRouter.assetRecords.list,
+				{ projectId },
+				{ context: passedReadbackContext }
+			);
+			expect(
+				passedAssetVersions.assetVersions.find(
+					(version) => version.id === assetVersionId
+				)?.sourceImageDimensions
+			).toEqual({ width: 64, height: 64 });
+			expect(
+				passedAssetRecords.find((record) => record.id === assetRecord.id)
+					?.measurements.logicalResolution.confirmed
+			).toEqual({ width: 24, height: 24 });
+			const passedUsageEvidence = passedReadback.items[0]?.latestEvidence.find(
+				(evidence) =>
+					evidence.kind === "usage_test" && evidence.result === "passed"
+			);
+			expect(passedUsageEvidence).toMatchObject({
+				result: "passed",
+				testId: "icon.light_dark_target_size",
+				assetVersionIds: [assetVersionId],
+				usageVariant: "Inventory item",
+				targetDimensions: { width: 16, height: 16 },
+				grayscaleReviewed: true,
+				profileContractRevisionIds: [
+					activeIconContractRevision.contractRevisionId,
+				],
+				contextRevisionId: createdProject.currentContextRevision.id,
+				isCurrent: true,
+			});
 			const measuredRule = activeIconContractRevision.contract.rules.find(
 				(rule) => rule.class === "waivable_requirement"
 			);
@@ -510,6 +667,9 @@ test.skipIf(!databaseUrl)(
 					testId: "icon.light_dark_target_size",
 					method: "Inspected on all required backgrounds and target sizes.",
 					rationale: "All required usage tests now pass.",
+					usageVariant: "Inventory item",
+					targetDimensions: { width: 16, height: 16 },
+					grayscaleReviewed: true,
 				},
 				{ context }
 			);

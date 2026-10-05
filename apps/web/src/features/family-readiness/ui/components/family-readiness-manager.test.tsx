@@ -360,6 +360,9 @@ function renderQualityWaiverMeasurement(isCurrent = true) {
 		ruleId: measuredRule.id,
 		ruleClass: "waivable_requirement" as const,
 		testId: null,
+		usageVariant: null,
+		targetDimensions: null,
+		grayscaleReviewed: null,
 		observedValue: "96%",
 		versionTarget: { kind: "unit" as const, id: "unit-version-1" },
 		method: "Measured at native scale.",
@@ -851,4 +854,343 @@ test("offers applicability and quality evidence on a required usage test item", 
 	expect(
 		screen.getByRole("heading", { name: "Kullanım testi sonucu" })
 	).toBeInTheDocument();
+});
+
+test("previews the current icon version and requires a fresh grayscale review after it changes", async () => {
+	const iconItem: FamilyReadiness["items"][number]["item"] = {
+		id: "target-size-backgrounds",
+		kind: "usage_test",
+		name: "Target sizes and backgrounds",
+		disposition: "required",
+		assetRecordIds: ["asset-record-1"],
+		testId: "icon.light_dark_target_size",
+	};
+	const iconReadiness = {
+		...readiness,
+		activeRevision: readiness.activeRevision
+			? { ...readiness.activeRevision, items: [iconItem] }
+			: null,
+		items: [
+			{
+				item: iconItem,
+				status: "incomplete",
+				blockers: ["usage_test", "profile_contract_usage_test"],
+				currentAssetVersionIds: ["asset-version-1"],
+				qualityReadiness: "not_assessed",
+				qualityRequirements: [],
+				humanReviewRequirements: [],
+				usageRequirements: [
+					{
+						id: "icon.light_dark_target_size",
+						name: "Target size and backgrounds",
+						required: true,
+						result: "not_assessed",
+						isCurrent: false,
+					},
+				],
+				latestEvidence: [],
+			},
+		],
+	} satisfies FamilyReadiness;
+	fakeApi.readiness = iconReadiness;
+	fakeApi.recordEvidence.mockResolvedValue(fakeApi.readiness);
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	const assetRecords = [
+		{
+			assetCategory: "icon",
+			id: "asset-record-1",
+			name: "Inventory icon",
+			logicalResolution: { width: 24, height: 24 },
+		},
+	];
+	const firstAssetVersion = {
+		assetRecordId: "asset-record-1",
+		assetFamilyId: "family-1",
+		contentDigest: "a".repeat(64),
+		contentLength: 1024,
+		contentType: "image/png" as const,
+		createdAt: "2026-09-29T10:00:00.000Z",
+		id: "asset-version-1",
+		integrityVerified: true,
+		productionEvidence: {
+			evidenceLevel: "unknown" as const,
+			managedSnapshots: [],
+			manualImportEvidence: null,
+			sourceKind: "unknown" as const,
+		},
+		projectId: "project-1",
+		reviewDisposition: "candidate" as const,
+		reviewEvents: [],
+		sourceKind: "unknown" as const,
+		versionNumber: 1,
+		sourceImageDimensions: { width: 64, height: 64 },
+		previewUrl:
+			"/api/projects/project-1/asset-versions/asset-version-1/preview",
+	};
+	const secondAssetVersion = {
+		...firstAssetVersion,
+		id: "asset-version-2",
+		versionNumber: 2,
+		sourceImageDimensions: { width: 96, height: 48 },
+		previewUrl:
+			"/api/projects/project-1/asset-versions/asset-version-2/preview",
+	};
+	function managerView(
+		assetVersions: (typeof firstAssetVersion)[],
+		records = assetRecords
+	) {
+		return (
+			<QueryClientProvider client={queryClient}>
+				<FamilyReadinessManager
+					assetFamilyId="family-1"
+					assetRecords={records}
+					assetVersions={assetVersions}
+					familyName="Icons"
+					profileContracts={null}
+					projectId="project-1"
+				/>
+			</QueryClientProvider>
+		);
+	}
+	const { rerender } = render(managerView([firstAssetVersion]));
+
+	const usageForm = within(
+		(
+			await screen.findByRole("heading", { name: "Kullanım testi sonucu" })
+		).closest("form") as HTMLFormElement
+	);
+	expect(
+		usageForm.getByRole("region", { name: "İkon kullanım boyutu önizlemesi" })
+	).toBeInTheDocument();
+	expect(
+		usageForm.getByText(
+			"Her ölçüde siluetin ayırt edilebilirliğini, küçük boyutta okunurluğu ve iç boşlukların kapanıp kapanmadığını açık ve koyu zeminde inceleyin."
+		)
+	).toBeInTheDocument();
+	const previews = [
+		{
+			label: "Inventory icon · kaynak 64 × 64 · açık zemin",
+			width: 64,
+			height: 64,
+			background: "#fafafa",
+		},
+		{
+			label: "Inventory icon · kaynak 64 × 64 · koyu zemin",
+			width: 64,
+			height: 64,
+			background: "#18181b",
+		},
+		{
+			label: "Inventory icon · mantıksal 24 × 24 · açık zemin",
+			width: 24,
+			height: 24,
+			background: "#fafafa",
+		},
+		{
+			label: "Inventory icon · mantıksal 24 × 24 · koyu zemin",
+			width: 24,
+			height: 24,
+			background: "#18181b",
+		},
+	];
+	for (const preview of previews) {
+		const image = usageForm.getByRole("img", { name: preview.label });
+		expect(image).toHaveAttribute(
+			"src",
+			"/api/projects/project-1/asset-versions/asset-version-1/preview"
+		);
+		expect(image).toHaveAttribute("width", String(preview.width));
+		expect(image).toHaveAttribute("height", String(preview.height));
+		expect(image).toHaveStyle({
+			width: `${preview.width}px`,
+			height: `${preview.height}px`,
+		});
+		expect(image.parentElement).toHaveStyle({
+			backgroundColor: preview.background,
+		});
+	}
+
+	const usageVariant = usageForm.getByRole("textbox", {
+		name: "Kullanım Çeşidi",
+	});
+	fireEvent.change(usageVariant, { target: { value: "   " } });
+	fireEvent.change(
+		usageForm.getByRole("spinbutton", { name: "Hedef genişlik" }),
+		{
+			target: { value: "16" },
+		}
+	);
+	fireEvent.change(
+		usageForm.getByRole("spinbutton", { name: "Hedef yükseklik" }),
+		{
+			target: { value: "24" },
+		}
+	);
+	for (const preview of [
+		{
+			label: "Inventory icon · hedef 16 × 24 · açık zemin",
+			background: "#fafafa",
+		},
+		{
+			label: "Inventory icon · hedef 16 × 24 · koyu zemin",
+			background: "#18181b",
+		},
+		{
+			label: "Inventory icon · hedef gri tonlama 16 × 24 · açık zemin",
+			background: "#fafafa",
+		},
+		{
+			label: "Inventory icon · hedef gri tonlama 16 × 24 · koyu zemin",
+			background: "#18181b",
+		},
+	]) {
+		const image = usageForm.getByRole("img", { name: preview.label });
+		expect(image).toHaveAttribute(
+			"src",
+			"/api/projects/project-1/asset-versions/asset-version-1/preview"
+		);
+		expect(image).toHaveAttribute("width", "16");
+		expect(image).toHaveAttribute("height", "24");
+		expect(image).toHaveStyle({
+			width: "16px",
+			height: "24px",
+			objectFit: "contain",
+		});
+		expect(image.parentElement).toHaveStyle({
+			backgroundColor: preview.background,
+		});
+	}
+	expect(
+		usageForm.getByRole("img", {
+			name: "Inventory icon · hedef gri tonlama 16 × 24 · koyu zemin",
+		})
+	).toHaveStyle({ filter: "grayscale(1)" });
+	const grayscaleReviewed = usageForm.getByRole("checkbox", {
+		name: "Gri tonlamayı inceledim",
+	});
+	fireEvent.click(grayscaleReviewed);
+	fireEvent.change(
+		usageForm.getByRole("spinbutton", { name: "Hedef genişlik" }),
+		{ target: { value: "32" } }
+	);
+	expect(grayscaleReviewed).not.toBeChecked();
+	fireEvent.change(
+		usageForm.getByRole("spinbutton", { name: "Hedef genişlik" }),
+		{ target: { value: "16" } }
+	);
+	fireEvent.click(grayscaleReviewed);
+	fireEvent.change(
+		usageForm.getByRole("spinbutton", { name: "Hedef yükseklik" }),
+		{ target: { value: "32" } }
+	);
+	expect(grayscaleReviewed).not.toBeChecked();
+	fireEvent.change(
+		usageForm.getByRole("spinbutton", { name: "Hedef yükseklik" }),
+		{ target: { value: "24" } }
+	);
+	fireEvent.click(grayscaleReviewed);
+	expect(grayscaleReviewed).toBeChecked();
+	fireEvent.change(usageVariant, { target: { value: "Inventory item" } });
+	expect(grayscaleReviewed).not.toBeChecked();
+	fireEvent.click(grayscaleReviewed);
+	expect(grayscaleReviewed).toBeChecked();
+	const changedLogicalResolution = assetRecords.map((record) => ({
+		...record,
+		logicalResolution: { width: 32, height: 24 },
+	}));
+	rerender(managerView([firstAssetVersion], changedLogicalResolution));
+	expect(
+		usageForm.getByRole("img", {
+			name: "Inventory icon · mantıksal 32 × 24 · açık zemin",
+		})
+	).toHaveAttribute(
+		"src",
+		"/api/projects/project-1/asset-versions/asset-version-1/preview"
+	);
+	expect(grayscaleReviewed).not.toBeChecked();
+	rerender(managerView([firstAssetVersion]));
+	expect(grayscaleReviewed).not.toBeChecked();
+	fireEvent.click(grayscaleReviewed);
+	expect(grayscaleReviewed).toBeChecked();
+	fireEvent.change(usageVariant, { target: { value: "Hotbar slot" } });
+	expect(grayscaleReviewed).not.toBeChecked();
+	fireEvent.change(usageVariant, { target: { value: "Inventory item" } });
+	expect(grayscaleReviewed).not.toBeChecked();
+	fireEvent.click(grayscaleReviewed);
+	expect(grayscaleReviewed).toBeChecked();
+	queryClient.setQueryData(["family-readiness", "family-1"], {
+		...iconReadiness,
+		items: iconReadiness.items.map((itemResult) =>
+			itemResult.item.id === iconItem.id
+				? {
+						...itemResult,
+						currentAssetVersionIds: ["asset-version-2"],
+					}
+				: itemResult
+		),
+	});
+	rerender(managerView([firstAssetVersion, secondAssetVersion]));
+	expect(
+		usageForm.getByRole("img", {
+			name: "Inventory icon · hedef gri tonlama 16 × 24 · koyu zemin",
+		})
+	).toHaveAttribute(
+		"src",
+		"/api/projects/project-1/asset-versions/asset-version-2/preview"
+	);
+	expect(
+		usageForm.getByRole("img", {
+			name: "Inventory icon · kaynak 96 × 48 · koyu zemin",
+		})
+	).toHaveAttribute(
+		"src",
+		"/api/projects/project-1/asset-versions/asset-version-2/preview"
+	);
+	expect(grayscaleReviewed).not.toBeChecked();
+	fireEvent.click(grayscaleReviewed);
+	fireEvent.change(usageVariant, { target: { value: "   " } });
+	expect(grayscaleReviewed).not.toBeChecked();
+	fireEvent.change(usageForm.getByRole("textbox", { name: "Yöntem" }), {
+		target: { value: "Compared the icon on light and dark backgrounds." },
+	});
+	fireEvent.change(
+		usageForm.getByRole("textbox", { name: "Gerekçe veya gözlem" }),
+		{ target: { value: "The silhouette remains readable at target size." } }
+	);
+	fireEvent.submit(
+		usageForm
+			.getByRole("button", { name: "Kanıtı kaydet" })
+			.closest("form") as HTMLFormElement
+	);
+	expect(await usageForm.findByRole("alert")).toHaveTextContent(
+		"Kullanım çeşidi boşluklardan oluşamaz."
+	);
+	expect(fakeApi.recordEvidence).not.toHaveBeenCalled();
+
+	fireEvent.change(usageVariant, { target: { value: "Inventory item" } });
+	expect(grayscaleReviewed).not.toBeChecked();
+	fireEvent.click(grayscaleReviewed);
+	expect(grayscaleReviewed).toBeChecked();
+	fireEvent.submit(
+		usageForm
+			.getByRole("button", { name: "Kanıtı kaydet" })
+			.closest("form") as HTMLFormElement
+	);
+
+	await waitFor(() => expect(fakeApi.recordEvidence).toHaveBeenCalledOnce());
+	expect(fakeApi.recordEvidence).toHaveBeenCalledWith({
+		projectId: "project-1",
+		assetFamilyId: "family-1",
+		revisionId: "revision-1",
+		itemId: "target-size-backgrounds",
+		kind: "usage_test",
+		result: "passed",
+		testId: "icon.light_dark_target_size",
+		method: "Compared the icon on light and dark backgrounds.",
+		rationale: "The silhouette remains readable at target size.",
+		usageVariant: "Inventory item",
+		targetDimensions: { width: 16, height: 24 },
+		grayscaleReviewed: true,
+	});
 });

@@ -192,6 +192,7 @@
 │       │   │   │       └── views/
 │       │   │   ├── icon-profile/
 │       │   │   │   └── ui/
+│       │   │   │       ├── components/
 │       │   │   │       ├── forms/
 │       │   │   │       └── views/
 │       │   │   ├── imports/
