@@ -19,6 +19,13 @@ const evidenceResultSchema = z.enum([
 	"inconclusive",
 	"waived",
 ]);
+const targetDimensionsSchema = z
+	.object({
+		height: z.number().int().positive().max(2_147_483_647),
+		width: z.number().int().positive().max(2_147_483_647),
+	})
+	.strict();
+const iconTargetSizeTestId = "icon.light_dark_target_size";
 const profileRuleClassSchema = z.enum([
 	"integrity_gate",
 	"waivable_requirement",
@@ -215,8 +222,52 @@ export const readinessEvidenceInputSchema = z.discriminatedUnion("kind", [
 			testId: qualityRuleIdSchema,
 			method: z.string().trim().min(1).max(1000),
 			rationale: z.string().trim().min(1).max(2000),
+			usageVariant: z.string().trim().min(1).max(120).optional(),
+			targetDimensions: targetDimensionsSchema.optional(),
+			grayscaleReviewed: z.literal(true).optional(),
 		})
-		.strict(),
+		.strict()
+		.superRefine((input, context) => {
+			if (input.testId === iconTargetSizeTestId) {
+				if (!input.usageVariant) {
+					context.addIssue({
+						code: "custom",
+						path: ["usageVariant"],
+						message: "İkon kullanım çeşidi gereklidir.",
+					});
+				}
+				if (!input.targetDimensions) {
+					context.addIssue({
+						code: "custom",
+						path: ["targetDimensions"],
+						message: "İkon hedef ölçüsü gereklidir.",
+					});
+				}
+				if (input.grayscaleReviewed !== true) {
+					context.addIssue({
+						code: "custom",
+						path: ["grayscaleReviewed"],
+						message: "İkon gri tonlamada incelenmelidir.",
+					});
+				}
+				return;
+			}
+
+			for (const field of [
+				"usageVariant",
+				"targetDimensions",
+				"grayscaleReviewed",
+			] as const) {
+				if (input[field] !== undefined) {
+					context.addIssue({
+						code: "custom",
+						path: [field],
+						message:
+							"Bu kanıt alanı yalnız ikon hedef boyutu testinde kullanılabilir.",
+					});
+				}
+			}
+		}),
 ]);
 
 export const readinessEvidenceSchema = z
@@ -244,6 +295,9 @@ export const readinessEvidenceSchema = z
 		ruleId: qualityRuleIdSchema.nullable(),
 		ruleClass: profileRuleClassSchema.nullable(),
 		testId: qualityRuleIdSchema.nullable(),
+		usageVariant: z.string().nullable(),
+		targetDimensions: targetDimensionsSchema.nullable(),
+		grayscaleReviewed: z.boolean().nullable(),
 		observedValue: z.string().nullable(),
 		versionTarget: qualityVersionTargetSchema.nullish(),
 		method: z.string().nullable(),

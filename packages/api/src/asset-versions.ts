@@ -11,6 +11,12 @@ import {
 } from "./provider-generation-records";
 
 const idSchema = z.string().trim().min(1).max(128);
+const pixelDimensionsSchema = z
+	.object({
+		height: z.number().int().positive(),
+		width: z.number().int().positive(),
+	})
+	.strict();
 
 export const unitVersionTypeSchema = z.enum([
 	"frame",
@@ -100,6 +106,7 @@ export const assetVersionSchema = z
 			.string()
 			.regex(/^[0-9a-f]{64}$/)
 			.nullable(),
+		sourceImageDimensions: pixelDimensionsSchema.nullable().optional(),
 		productionEvidence: versionProductionEvidenceSchema,
 		integrityVerified: z.boolean(),
 		sourceKind: assetVersionSourceKindSchema.optional(),

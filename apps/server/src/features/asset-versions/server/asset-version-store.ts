@@ -179,6 +179,13 @@ function toAssetVersion(
 		contentType: assetVersionContentTypeSchema.parse(record.contentType),
 		contentLength: record.byteSize,
 		contentDigest: record.contentDigest ?? record.sha256,
+		sourceImageDimensions:
+			record.sourceImageWidth !== null && record.sourceImageHeight !== null
+				? {
+						width: record.sourceImageWidth,
+						height: record.sourceImageHeight,
+					}
+				: null,
 		productionEvidence,
 		integrityVerified: record.integrityVerified,
 		sourceKind: record.sourceKind,

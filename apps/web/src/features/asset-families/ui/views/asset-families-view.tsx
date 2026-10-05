@@ -66,6 +66,12 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 			record.assetCategory ?? null,
 		])
 	);
+	const logicalResolutionsByRecordId = new Map(
+		(assetRecordQuery.data ?? []).map(
+			(record) =>
+				[record.id, record.measurements.logicalResolution.confirmed] as const
+		)
+	);
 	const visualWorlds = scopeQuery.data?.visualWorlds ?? [];
 	// Directional Review records character-profile identity checks, so the
 	// section stays hidden until the character Specialized Profile Contract is
@@ -286,8 +292,13 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 									.map(({ id, name }) => ({
 										assetCategory: assetCategoriesById.get(id) ?? null,
 										id,
+										logicalResolution:
+											logicalResolutionsByRecordId.get(id) ?? null,
 										name,
 									}))}
+								assetVersions={assetVersionCatalog.assetVersions.filter(
+									(version) => version.assetFamilyId === family.id
+								)}
 								familyName={family.name}
 								key={family.id}
 								profileContracts={profileContractsQuery.data ?? null}

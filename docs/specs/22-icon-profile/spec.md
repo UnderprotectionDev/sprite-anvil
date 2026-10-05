@@ -38,9 +38,11 @@ Tamamlanma kanıtı: Hedef boyut, okunurluk, renk ve aile ölçeği kesin ikon s
 
 ## Testing Decisions
 
-- **Birincil test seam’i:** RAS-03 örneklerinde kesin girdiyi kullanıcı eyleminden kalıcı kayda ve yeniden okumaya taşıyan sunucu/API yolunu sınama; web ve masaüstü görünür sonuçlarını karşılaştırma.
+- **Bu issue için onaylı test seam’i:** API entegrasyon testi ve görünür web sonucu. API testi yeni DB bağlantısından kesin `Asset Version` üzerindeki `sourceImageDimensions` alanını, `Asset Record` üzerindeki doğrulanmış `measurements.logicalResolution.confirmed` alanını ve `Readiness Evidence` üzerindeki `usageVariant`, `targetDimensions` ve `grayscaleReviewed` alanlarını ayrı ayrı okur; kanıtın kesin sürüm bağlantısını da doğrular. Web testi kaynak, mantıksal ve hedef boyut önizlemelerini açık/koyu zeminlerde, hedef gri tonlamasını da görünür biçimde ve form gönderiminde doğrular.
+- Bu issue seam’i masaüstü otomasyon testi değildir. RAS-03’ün tam Referans Kabul Senaryosu ve ADR 0002/0003’ün web ile masaüstü yüzeyleri şartı daha geniş ürün kabul kapsamı olarak kalır.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.
-- Bugün repoda bu faza ait ürün sözleşmesi bulunmuyor. Mevcut sunucu ve yüzey test örnekleri: [`account-access.test.ts`](../../../apps/server/src/account-access.test.ts), [`app-shell.spec.ts` (web)](../../../apps/web/e2e/app-shell.spec.ts) ve [`app-shell.spec.ts` (desktop)](../../../apps/web/desktop-e2e/app-shell.spec.ts). Bunlar bu özelliğin test edildiği anlamına gelmez.
+- API entegrasyon testi [`family-readiness.integration.test.ts`](../../../apps/server/src/family-readiness.integration.test.ts), görünür web testi [`family-readiness-manager.test.tsx`](../../../apps/web/src/features/family-readiness/ui/components/family-readiness-manager.test.tsx) içindedir. Bu issue için masaüstü otomasyon testi onaylı seam'e dahil değildir.
+- `Icon Usage Variant` serbest metindir; API ve kalıcılık sınırında trim ve 1–120 karakter sınırı uygulanır. Mantıksal ölçü, kaynak ölçüden türetilmez.
 - Fazın özgül başarı ve red kanıtı: Hedef boyut, okunurluk, renk ve aile ölçeği kesin ikon sürümünde değerlendirilir; kullanım çeşidi ile mantıksal ölçü paketlenir. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Tek bir ışık veya nadirlik rengi bütün proje için yeni evrensel sanat kuralı oluşturmaz.
 - Kabul örnekleri: RAS-03. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
 
@@ -60,6 +62,7 @@ Tek bir ışık veya nadirlik rengi bütün proje için yeni evrensel sanat kura
 **İlgili mimari sınırlar**
 
 - [ADR 0002](../../adr/0002-use-extensible-asset-support-levels.md)
+- [ADR 0003](../../adr/0003-require-web-and-desktop-product-surfaces.md)
 - [ADR 0006](../../adr/0006-version-replaceable-units-and-compositions.md)
 
 **Kabul izlenebilirliği**
