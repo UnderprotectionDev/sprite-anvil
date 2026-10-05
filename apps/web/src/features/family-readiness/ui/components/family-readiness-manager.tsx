@@ -7,6 +7,7 @@ import type {
 	RequiredSetItem,
 } from "@sprite-anvil/api/family-readiness";
 import type { SpecializedProfileContractsListOutput } from "@sprite-anvil/api/specialized-profile-contracts";
+import { iconLightDarkTargetSizeTestId } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
@@ -38,8 +39,6 @@ interface FamilyReadinessAssetRecord {
 	logicalResolution?: PixelDimensions | null;
 	name: string;
 }
-
-const iconTargetSizeTestId = "icon.light_dark_target_size";
 
 function parsePositivePixelDimension(value: string) {
 	const dimension = Number(value);
@@ -1111,7 +1110,7 @@ function iconUsageEvidenceFormInput(
 	if (!testId) {
 		return null;
 	}
-	if (testId !== iconTargetSizeTestId) {
+	if (testId !== iconLightDarkTargetSizeTestId) {
 		return { ...shared, kind: "usage_test", result, testId, method };
 	}
 	const usageVariant = input.usageVariant.trim();
@@ -1575,7 +1574,7 @@ function EvidenceForm({
 	const formId = `${assetFamilyId}-${kind}-${item.id}-${evidenceRequirementId(qualityRequirement, humanReviewRequirement, testId)}`;
 	const isWaiver = result === "waived";
 	const isIconTargetSizeTest =
-		kind === "usage_test" && testId === iconTargetSizeTestId;
+		kind === "usage_test" && testId === iconLightDarkTargetSizeTestId;
 	const targetDimensions = isIconTargetSizeTest
 		? (() => {
 				const width = parsePositivePixelDimension(targetWidth);

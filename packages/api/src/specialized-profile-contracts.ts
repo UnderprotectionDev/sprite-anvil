@@ -430,6 +430,8 @@ function defineContract(seed: ContractSeed): SpecializedProfileContract {
 	});
 }
 
+export const iconLightDarkTargetSizeTestId = "icon.light_dark_target_size";
+
 export const specializedProfileContractCatalog = [
 	defineContract({
 		version: "1.0.1",
@@ -922,7 +924,7 @@ export const specializedProfileContractCatalog = [
 		],
 		usageTests: [
 			{
-				id: "icon.light_dark_target_size",
+				id: iconLightDarkTargetSizeTestId,
 				label: "Açık ve koyu zeminde hedef boyut testi",
 				input:
 					"Pinned icon version, logical sizes, scale rule, and light/dark interface backgrounds.",

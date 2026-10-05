@@ -21,6 +21,7 @@ import {
 import type { SpecializedProfileId } from "@sprite-anvil/api/specialized-profile-contracts";
 import {
 	assessProfileQualityReadiness,
+	iconLightDarkTargetSizeTestId,
 	isProfileQualityEvidenceValid,
 	specializedProfileIdSchema,
 } from "@sprite-anvil/api/specialized-profile-contracts";
@@ -1115,7 +1116,7 @@ function isUsageTestSupported(
 	if (input.kind !== "usage_test") {
 		return true;
 	}
-	if (input.testId === "icon.light_dark_target_size") {
+	if (input.testId === iconLightDarkTargetSizeTestId) {
 		return (
 			profileIds.length > 0 &&
 			profileIds.every(

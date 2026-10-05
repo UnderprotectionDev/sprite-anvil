@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { iconLightDarkTargetSizeTestId } from "./specialized-profile-contracts";
+
 const idSchema = z.string().trim().min(1).max(128);
 const itemKeySchema = z
 	.string()
@@ -25,7 +27,6 @@ const targetDimensionsSchema = z
 		width: z.number().int().positive().max(2_147_483_647),
 	})
 	.strict();
-const iconTargetSizeTestId = "icon.light_dark_target_size";
 const profileRuleClassSchema = z.enum([
 	"integrity_gate",
 	"waivable_requirement",
@@ -228,7 +229,7 @@ export const readinessEvidenceInputSchema = z.discriminatedUnion("kind", [
 		})
 		.strict()
 		.superRefine((input, context) => {
-			if (input.testId === iconTargetSizeTestId) {
+			if (input.testId === iconLightDarkTargetSizeTestId) {
 				if (!input.usageVariant) {
 					context.addIssue({
 						code: "custom",
