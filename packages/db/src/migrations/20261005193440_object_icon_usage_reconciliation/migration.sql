@@ -1,0 +1,2 @@
+-- Reconcile object scene context and icon usage evidence snapshot branches.
+-- Both parent migrations already apply their additive columns; no SQL changes are required.

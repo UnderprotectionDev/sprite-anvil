@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { iconLightDarkTargetSizeTestId } from "./specialized-profile-contracts";
+
 const idSchema = z.string().trim().min(1).max(128);
 const itemKeySchema = z
 	.string()
@@ -19,6 +21,12 @@ const evidenceResultSchema = z.enum([
 	"inconclusive",
 	"waived",
 ]);
+const targetDimensionsSchema = z
+	.object({
+		height: z.number().int().positive().max(2_147_483_647),
+		width: z.number().int().positive().max(2_147_483_647),
+	})
+	.strict();
 const profileRuleClassSchema = z.enum([
 	"integrity_gate",
 	"waivable_requirement",
@@ -245,6 +253,9 @@ export const readinessEvidenceInputSchema = z.discriminatedUnion("kind", [
 			testId: qualityRuleIdSchema,
 			method: z.string().trim().min(1).max(1000),
 			rationale: z.string().trim().min(1).max(2000),
+			usageVariant: z.string().trim().min(1).max(120).optional(),
+			targetDimensions: targetDimensionsSchema.optional(),
+			grayscaleReviewed: z.literal(true).optional(),
 		})
 		.extend({ usageTestContext: usageTestContextSchema })
 		.strict()
@@ -267,6 +278,45 @@ export const readinessEvidenceInputSchema = z.discriminatedUnion("kind", [
 						? "Obje sahne testi hücre ölçüsünü, onaylı karakter sürümünü ve en az iki zemin sürümünü sabitlemelidir."
 						: "Onaylı karakter ve zemin sürümleri yalnız obje sahne testinde sabitlenebilir.",
 				});
+			}
+			if (input.testId === iconLightDarkTargetSizeTestId) {
+				if (!input.usageVariant) {
+					context.addIssue({
+						code: "custom",
+						path: ["usageVariant"],
+						message: "İkon kullanım çeşidi gereklidir.",
+					});
+				}
+				if (!input.targetDimensions) {
+					context.addIssue({
+						code: "custom",
+						path: ["targetDimensions"],
+						message: "İkon hedef ölçüsü gereklidir.",
+					});
+				}
+				if (input.grayscaleReviewed !== true) {
+					context.addIssue({
+						code: "custom",
+						path: ["grayscaleReviewed"],
+						message: "İkon gri tonlamada incelenmelidir.",
+					});
+				}
+				return;
+			}
+
+			for (const field of [
+				"usageVariant",
+				"targetDimensions",
+				"grayscaleReviewed",
+			] as const) {
+				if (input[field] !== undefined) {
+					context.addIssue({
+						code: "custom",
+						path: [field],
+						message:
+							"Bu kanıt alanı yalnız ikon hedef boyutu testinde kullanılabilir.",
+					});
+				}
 			}
 		}),
 ]);
@@ -297,6 +347,9 @@ export const readinessEvidenceSchema = z
 		ruleClass: profileRuleClassSchema.nullable(),
 		testId: qualityRuleIdSchema.nullable(),
 		usageTestContext: usageTestContextSchema.nullable().default(null),
+		usageVariant: z.string().nullable(),
+		targetDimensions: targetDimensionsSchema.nullable(),
+		grayscaleReviewed: z.boolean().nullable(),
 		observedValue: z.string().nullable(),
 		versionTarget: qualityVersionTargetSchema.nullish(),
 		method: z.string().nullable(),

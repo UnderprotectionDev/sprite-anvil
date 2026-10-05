@@ -30,6 +30,8 @@ function createDatabaseHarness(
 		fileName: "asset.png",
 		objectKey: `projects/${projectId}/asset-records/${assetRecordId}/versions/${versionId}`,
 		contentType: "image/png" as const,
+		sourceImageWidth: null,
+		sourceImageHeight: null,
 		sourceKind: "unknown" as const,
 		byteSize: 4,
 		sha256: "a".repeat(64),

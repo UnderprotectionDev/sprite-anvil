@@ -282,6 +282,13 @@ test.skipIf(!databaseUrl)(
 							usageTestContext: {
 								cellDimensions: { width: 32, height: 32 },
 							},
+							...(usageTest.id === "icon.light_dark_target_size"
+								? {
+										usageVariant: "Inventory item",
+										targetDimensions: { width: 16, height: 16 },
+										grayscaleReviewed: true,
+									}
+								: {}),
 						},
 						options
 					)

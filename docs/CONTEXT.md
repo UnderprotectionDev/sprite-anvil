@@ -57,6 +57,7 @@ English terms are the canonical technical names used in code and contracts. Turk
 | Composite Version | Birleşik Sürüm |
 | Source Image Dimensions | Kaynak Görsel Ölçüsü |
 | Logical Resolution | Mantıksal Çözünürlük |
+| Icon Usage Variant | İkon Kullanım Çeşidi |
 | Cell Dimensions | Hücre Ölçüsü |
 | Visible Content Bounds | Görünür İçerik Sınırı |
 | Display Scale | Gösterim Ölçeği |
@@ -328,6 +329,10 @@ _Avoid_: Logical resolution, cell dimensions
 **Logical Resolution**:
 The intended game-space pixel dimensions at the asset's logical 1× representation.
 _Avoid_: Source image dimensions, display scale
+
+**Icon Usage Variant**:
+A user-entered free-text label for a specific recorded use of an icon, such as “Inventory item”. It is stored beside the target dimensions for that icon usage test; it does not create a new Asset Record, Asset Category, or project-wide usage rule.
+_Avoid_: Asset variant, closed usage taxonomy, global icon rule
 
 **Cell Dimensions**:
 The width and height of one addressable cell within a sheet or atlas source.

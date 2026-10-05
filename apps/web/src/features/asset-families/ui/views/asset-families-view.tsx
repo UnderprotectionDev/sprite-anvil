@@ -62,17 +62,21 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 			design.assetVersionId
 		);
 	}
+	const assetRecords = assetRecordQuery.data ?? [];
 	const assetCategoriesById = new Map(
-		(assetRecordQuery.data ?? []).map((record) => [
-			record.id,
-			record.assetCategory ?? null,
-		])
+		assetRecords.map((record) => [record.id, record.assetCategory ?? null])
+	);
+	const logicalResolutionsByRecordId = new Map(
+		assetRecords.map(
+			(record) =>
+				[record.id, record.measurements.logicalResolution.confirmed] as const
+		)
 	);
 	const assetRecordsById = new Map(
-		(assetRecordQuery.data ?? []).map((record) => [record.id, record])
+		assetRecords.map((record) => [record.id, record])
 	);
 	const visualWorlds = scopeQuery.data?.visualWorlds ?? [];
-	const usageTestAssetRecords = (assetRecordQuery.data ?? []).map(
+	const usageTestAssetRecords = assetRecords.map(
 		({ assetCategory, id, name }) => ({
 			assetCategory: assetCategory ?? null,
 			id,
@@ -309,8 +313,13 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 									.map(({ id, name }) => ({
 										assetCategory: assetCategoriesById.get(id) ?? null,
 										id,
+										logicalResolution:
+											logicalResolutionsByRecordId.get(id) ?? null,
 										name,
 									}))}
+								assetVersions={assetVersionCatalog.assetVersions.filter(
+									(version) => version.assetFamilyId === family.id
+								)}
 								familyName={family.name}
 								key={family.id}
 								profileContracts={profileContractsQuery.data ?? null}

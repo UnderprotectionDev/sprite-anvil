@@ -57,6 +57,87 @@ test("a Quality Waiver must identify the measured evidence the user reviewed", (
 	).toBe(false);
 });
 
+test("icon target-size usage evidence keeps review inputs separate from server measurements", () => {
+	const input = {
+		projectId: "project-1",
+		assetFamilyId: "family-1",
+		revisionId: "required-set-1",
+		itemId: "icon-target-size",
+		kind: "usage_test",
+		result: "failed",
+		testId: "icon.light_dark_target_size",
+		usageTestContext: { cellDimensions: { width: 32, height: 32 } },
+		method:
+			"Compared the source and target previews on light, dark, and grayscale views.",
+		rationale: "The interior spacing remains visible at the inventory size.",
+	};
+	const iconUsage = {
+		usageVariant: "Inventory item",
+		targetDimensions: { width: 16, height: 16 },
+		grayscaleReviewed: true,
+	};
+
+	expect(readinessEvidenceInputSchema.safeParse(input).success).toBe(false);
+	expect(
+		readinessEvidenceInputSchema.safeParse({ ...input, iconUsage }).success
+	).toBe(false);
+	expect(
+		readinessEvidenceInputSchema.safeParse({ ...input, ...iconUsage }).success
+	).toBe(true);
+	expect(
+		readinessEvidenceInputSchema.safeParse({
+			...input,
+			...iconUsage,
+			sourceImageDimensions: [
+				{ assetVersionId: "asset-version-1", width: 64, height: 64 },
+			],
+		}).success
+	).toBe(false);
+	expect(
+		readinessEvidenceInputSchema.safeParse({
+			...input,
+			...iconUsage,
+			logicalResolution: [
+				{ assetRecordId: "asset-record-1", width: 24, height: 24 },
+			],
+		}).success
+	).toBe(false);
+	expect(
+		readinessEvidenceInputSchema.safeParse({
+			...input,
+			...iconUsage,
+			usageVariant: "  ",
+		}).success
+	).toBe(false);
+	expect(
+		readinessEvidenceInputSchema.safeParse({
+			...input,
+			...iconUsage,
+			targetDimensions: { width: 0, height: 16 },
+		}).success
+	).toBe(false);
+	expect(
+		readinessEvidenceInputSchema.safeParse({
+			...input,
+			...iconUsage,
+			grayscaleReviewed: false,
+		}).success
+	).toBe(false);
+	expect(
+		readinessEvidenceInputSchema.safeParse({
+			...input,
+			testId: "other.profile_test",
+		}).success
+	).toBe(true);
+	expect(
+		readinessEvidenceInputSchema.safeParse({
+			...input,
+			testId: "other.profile_test",
+			...iconUsage,
+		}).success
+	).toBe(false);
+});
+
 test("a family is complete only when active required items have current evidence", () => {
 	const result = evaluateFamilyReadiness({
 		activeRequiredSetRevisionId: "required-set-2",
