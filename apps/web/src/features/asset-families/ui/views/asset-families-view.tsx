@@ -8,6 +8,7 @@ import { DirectionalReviewManager } from "@/features/character-animation-profile
 import { DependencyRevalidationManager } from "@/features/dependency-revalidation/ui/components/dependency-revalidation-manager";
 import { HistoricalCompositionManager } from "@/features/dependency-revalidation/ui/components/historical-composition-manager";
 import { FamilyReadinessManager } from "@/features/family-readiness/ui/components/family-readiness-manager";
+import { IconFamilyReviewSections } from "@/features/icon-profile/ui/components/icon-family-review-sections";
 import { SpecializedProfileContractManager } from "@/features/quality-evidence/ui/components/specialized-profile-contract-manager";
 import { client, orpc } from "@/utils/orpc";
 import { AssetFamilyCatalogView } from "../components/asset-family-catalog";
@@ -72,12 +73,18 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 				[record.id, record.measurements.logicalResolution.confirmed] as const
 		)
 	);
+	const assetRecordsById = new Map(
+		(assetRecordQuery.data ?? []).map((record) => [record.id, record])
+	);
 	const visualWorlds = scopeQuery.data?.visualWorlds ?? [];
 	// Directional Review records character-profile identity checks, so the
 	// section stays hidden until the character Specialized Profile Contract is
 	// active; unrelated asset groups never see character-review guidance.
 	const characterProfileActivation = profileContractsQuery.data?.profiles.find(
 		(profile) => profile.definition.profileId === "character_creature_animation"
+	)?.activeContract;
+	const iconProfileActivation = profileContractsQuery.data?.profiles.find(
+		(profile) => profile.definition.profileId === "icon"
 	)?.activeContract;
 	const form = useAssetFamilyFormState(catalog, visualWorlds);
 	const writes = useAssetFamilyWrites(catalogQuery.refetch);
@@ -326,6 +333,14 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 										/>
 									))
 								: null}
+							<IconFamilyReviewSections
+								activation={iconProfileActivation}
+								assetFamilies={catalog.assetFamilies}
+								assetFamilyRecords={catalog.assetRecords}
+								assetRecordsById={assetRecordsById}
+								projectId={projectId}
+								versions={assetVersionQuery.data.assetVersions}
+							/>
 							<HistoricalCompositionManager
 								canonicalDesigns={assetVersionQuery.data.canonicalDesigns}
 								composites={assetVersionQuery.data.compositeVersions}
