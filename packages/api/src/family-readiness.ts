@@ -46,6 +46,36 @@ export const qualityVersionTargetSchema = z.discriminatedUnion("kind", [
 ]);
 export type QualityVersionTarget = z.infer<typeof qualityVersionTargetSchema>;
 
+export const objectSceneUsageTestId = "object.approved_character_ground_scene";
+
+export const usageTestContextSchema = z
+	.object({
+		cellDimensions: z
+			.object({
+				width: z.number().int().positive().max(4096),
+				height: z.number().int().positive().max(4096),
+			})
+			.strict(),
+		approvedCharacterVersionId: idSchema.optional(),
+		targetGroundVersionIds: z.array(idSchema).min(2).max(20).optional(),
+	})
+	.strict()
+	.superRefine((context, refinement) => {
+		if (
+			context.targetGroundVersionIds &&
+			new Set(context.targetGroundVersionIds).size !==
+				context.targetGroundVersionIds.length
+		) {
+			refinement.addIssue({
+				code: "custom",
+				path: ["targetGroundVersionIds"],
+				message:
+					"Her zemin sürümü kullanım testi içinde yalnızca bir kez seçilebilir.",
+			});
+		}
+	});
+export type UsageTestContext = z.infer<typeof usageTestContextSchema>;
+
 export const requiredSetItemKindSchema = z.enum([
 	"direction",
 	"animation",
@@ -227,8 +257,28 @@ export const readinessEvidenceInputSchema = z.discriminatedUnion("kind", [
 			targetDimensions: targetDimensionsSchema.optional(),
 			grayscaleReviewed: z.literal(true).optional(),
 		})
+		.extend({ usageTestContext: usageTestContextSchema })
 		.strict()
 		.superRefine((input, context) => {
+			const requiresSceneContext = input.testId === objectSceneUsageTestId;
+			const hasApprovedCharacter = Boolean(
+				input.usageTestContext.approvedCharacterVersionId
+			);
+			const hasTargetGrounds = Boolean(
+				input.usageTestContext.targetGroundVersionIds
+			);
+			if (
+				(requiresSceneContext && !(hasApprovedCharacter && hasTargetGrounds)) ||
+				(!requiresSceneContext && (hasApprovedCharacter || hasTargetGrounds))
+			) {
+				context.addIssue({
+					code: "custom",
+					path: ["usageTestContext"],
+					message: requiresSceneContext
+						? "Obje sahne testi hücre ölçüsünü, onaylı karakter sürümünü ve en az iki zemin sürümünü sabitlemelidir."
+						: "Onaylı karakter ve zemin sürümleri yalnız obje sahne testinde sabitlenebilir.",
+				});
+			}
 			if (input.testId === iconLightDarkTargetSizeTestId) {
 				if (!input.usageVariant) {
 					context.addIssue({
@@ -296,6 +346,7 @@ export const readinessEvidenceSchema = z
 		ruleId: qualityRuleIdSchema.nullable(),
 		ruleClass: profileRuleClassSchema.nullable(),
 		testId: qualityRuleIdSchema.nullable(),
+		usageTestContext: usageTestContextSchema.nullable().default(null),
 		usageVariant: z.string().nullable(),
 		targetDimensions: targetDimensionsSchema.nullable(),
 		grayscaleReviewed: z.boolean().nullable(),
@@ -407,6 +458,14 @@ export type ReadinessBlocker =
 	| "usage_test"
 	| "profile_contract_usage_test";
 
+export type RecordEvidenceFailureReason =
+	| "invalid_usage_test_context"
+	| "out_of_scope";
+
+export type FamilyReadinessRecordResult =
+	| { status: "recorded"; readiness: FamilyReadiness }
+	| { status: "rejected"; reason: RecordEvidenceFailureReason };
+
 export interface FamilyReadinessStore {
 	activate: (
 		userId: string,
@@ -420,7 +479,7 @@ export interface FamilyReadinessStore {
 	recordEvidence: (
 		userId: string,
 		input: ReadinessEvidenceInput
-	) => Promise<FamilyReadiness | null>;
+	) => Promise<FamilyReadinessRecordResult>;
 	saveDraft: (
 		userId: string,
 		input: z.infer<typeof requiredSetSaveInputSchema>

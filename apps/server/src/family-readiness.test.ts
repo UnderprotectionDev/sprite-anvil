@@ -66,6 +66,7 @@ test("icon target-size usage evidence keeps review inputs separate from server m
 		kind: "usage_test",
 		result: "failed",
 		testId: "icon.light_dark_target_size",
+		usageTestContext: { cellDimensions: { width: 32, height: 32 } },
 		method:
 			"Compared the source and target previews on light, dark, and grayscale views.",
 		rationale: "The interior spacing remains visible at the inventory size.",

@@ -74,22 +74,35 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 			design.assetVersionId
 		);
 	}
+	const assetRecords = assetRecordQuery.data ?? [];
 	const assetCategoriesById = new Map(
-		(assetRecordQuery.data ?? []).map((record) => [
-			record.id,
-			record.assetCategory ?? null,
-		])
+		assetRecords.map((record) => [record.id, record.assetCategory ?? null])
 	);
 	const logicalResolutionsByRecordId = new Map(
-		(assetRecordQuery.data ?? []).map(
+		assetRecords.map(
 			(record) =>
 				[record.id, record.measurements.logicalResolution.confirmed] as const
 		)
 	);
 	const assetRecordsById = new Map(
-		(assetRecordQuery.data ?? []).map((record) => [record.id, record])
+		assetRecords.map((record) => [record.id, record])
 	);
 	const visualWorlds = scopeQuery.data?.visualWorlds ?? [];
+	const usageTestAssetRecords = assetRecords.map(
+		({ assetCategory, id, name }) => ({
+			assetCategory: assetCategory ?? null,
+			id,
+			name,
+		})
+	);
+	const usageTestAssetVersions = assetVersionCatalog.assetVersions.map(
+		({ assetRecordId, id, reviewDisposition, versionNumber }) => ({
+			assetRecordId,
+			id,
+			reviewDisposition,
+			versionNumber,
+		})
+	);
 	// Directional Review records character-profile identity checks, so the
 	// section stays hidden until the character Specialized Profile Contract is
 	// active; unrelated asset groups never see character-review guidance.
@@ -329,6 +342,8 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 								key={family.id}
 								profileContracts={profileContractsQuery.data ?? null}
 								projectId={projectId}
+								usageTestAssetRecords={usageTestAssetRecords}
+								usageTestAssetVersions={usageTestAssetVersions}
 							/>
 						))}
 					</section>

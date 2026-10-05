@@ -6,6 +6,7 @@ import type {
 	ReadinessEvidenceInput,
 	RequiredSetItem,
 } from "@sprite-anvil/api/family-readiness";
+import { objectSceneUsageTestId } from "@sprite-anvil/api/family-readiness";
 import type { SpecializedProfileContractsListOutput } from "@sprite-anvil/api/specialized-profile-contracts";
 import { iconLightDarkTargetSizeTestId } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
@@ -29,6 +30,19 @@ interface DraftItem {
 	localId: string;
 	name: string;
 	testId?: string;
+}
+
+interface UsageTestAssetRecord {
+	assetCategory: string | null;
+	id: string;
+	name: string;
+}
+
+interface UsageTestAssetVersion {
+	assetRecordId: string;
+	id: string;
+	reviewDisposition: "candidate" | "approved" | "rejected";
+	versionNumber: number;
 }
 
 type PixelDimensions = IconPixelDimensions;
@@ -196,6 +210,8 @@ export function FamilyReadinessManager({
 	assetRecords,
 	assetVersions = [],
 	profileContracts,
+	usageTestAssetRecords = [],
+	usageTestAssetVersions = [],
 }: {
 	assetFamilyId: string;
 	familyName: string;
@@ -203,6 +219,8 @@ export function FamilyReadinessManager({
 	assetRecords: FamilyReadinessAssetRecord[];
 	assetVersions?: AssetVersion[];
 	profileContracts: SpecializedProfileContractsListOutput | null;
+	usageTestAssetRecords?: UsageTestAssetRecord[];
+	usageTestAssetVersions?: UsageTestAssetVersion[];
 }) {
 	const query = useQuery({
 		...orpc.familyReadiness.list.queryOptions({
@@ -360,6 +378,8 @@ export function FamilyReadinessManager({
 									onRecord={recordEvidence}
 									profileContracts={profileContracts}
 									projectId={projectId}
+									usageTestAssetRecords={usageTestAssetRecords}
+									usageTestAssetVersions={usageTestAssetVersions}
 								/>
 							))}
 						</ul>
@@ -462,6 +482,8 @@ function FamilyReadinessItemCard({
 	activeRevisionId,
 	assetFamilyId,
 	assetRecords,
+	usageTestAssetRecords,
+	usageTestAssetVersions,
 	assetVersions,
 	isSaving,
 	itemResult,
@@ -473,6 +495,8 @@ function FamilyReadinessItemCard({
 	assetFamilyId: string;
 	assetRecords: FamilyReadinessAssetRecord[];
 	assetVersions: AssetVersion[];
+	usageTestAssetRecords: UsageTestAssetRecord[];
+	usageTestAssetVersions: UsageTestAssetVersion[];
 	isSaving: boolean;
 	itemResult: FamilyReadiness["items"][number];
 	onRecord: (input: ReadinessEvidenceInput) => Promise<boolean>;
@@ -503,7 +527,12 @@ function FamilyReadinessItemCard({
 			<QualityEvaluationSummary itemResult={itemResult} />
 			<HumanReviewSummary requirements={itemResult.humanReviewRequirements} />
 			{itemResult.latestEvidence.map((evidence) => (
-				<ReadinessEvidenceDetails evidence={evidence} key={evidence.id} />
+				<ReadinessEvidenceDetails
+					evidence={evidence}
+					key={evidence.id}
+					usageTestAssetRecords={usageTestAssetRecords}
+					usageTestAssetVersions={usageTestAssetVersions}
+				/>
 			))}
 			{itemResult.item.disposition === "required" ? (
 				<ReadinessEvidenceForms
@@ -520,6 +549,8 @@ function FamilyReadinessItemCard({
 					projectId={projectId}
 					qualityRequirements={itemResult.qualityRequirements}
 					revisionId={activeRevisionId}
+					usageTestAssetRecords={usageTestAssetRecords}
+					usageTestAssetVersions={usageTestAssetVersions}
 					versionTargets={itemResult.qualityVersionTargets ?? []}
 				/>
 			) : null}
@@ -594,10 +625,64 @@ function HumanReviewSummary({
 	);
 }
 
+function ReadinessUsageContextDetails({
+	usageTestContext,
+	usageTestAssetRecords,
+	usageTestAssetVersions,
+}: {
+	usageTestContext: ReadinessEvidence["usageTestContext"];
+	usageTestAssetRecords: UsageTestAssetRecord[];
+	usageTestAssetVersions: UsageTestAssetVersion[];
+}) {
+	function versionLabel(versionId: string) {
+		const version = usageTestAssetVersions.find(
+			(entry) => entry.id === versionId
+		);
+		const record = usageTestAssetRecords.find(
+			(entry) => entry.id === version?.assetRecordId
+		);
+		return version && record
+			? `${record.name} · v${version.versionNumber}`
+			: versionId;
+	}
+	if (!usageTestContext) {
+		return null;
+	}
+	return (
+		<>
+			<dt>Hücre Ölçüsü</dt>
+			<dd>
+				{usageTestContext.cellDimensions.width} ×{" "}
+				{usageTestContext.cellDimensions.height} px
+			</dd>
+			{usageTestContext.approvedCharacterVersionId ? (
+				<>
+					<dt>Onaylı karakter</dt>
+					<dd>{versionLabel(usageTestContext.approvedCharacterVersionId)}</dd>
+				</>
+			) : null}
+			{usageTestContext.targetGroundVersionIds ? (
+				<>
+					<dt>Zemin Sürümleri</dt>
+					<dd>
+						{usageTestContext.targetGroundVersionIds
+							.map(versionLabel)
+							.join(", ")}
+					</dd>
+				</>
+			) : null}
+		</>
+	);
+}
+
 function ReadinessEvidenceDetails({
 	evidence,
+	usageTestAssetRecords,
+	usageTestAssetVersions,
 }: {
 	evidence: FamilyReadiness["items"][number]["latestEvidence"][number];
+	usageTestAssetRecords: UsageTestAssetRecord[];
+	usageTestAssetVersions: UsageTestAssetVersion[];
 }) {
 	return (
 		<details className="mt-2 text-xs">
@@ -649,6 +734,11 @@ function ReadinessEvidenceDetails({
 						</dd>
 					</>
 				) : null}
+				<ReadinessUsageContextDetails
+					usageTestAssetRecords={usageTestAssetRecords}
+					usageTestAssetVersions={usageTestAssetVersions}
+					usageTestContext={evidence.usageTestContext}
+				/>
 				<dt>Bağlam Sürümü</dt>
 				<dd>{evidence.contextRevisionId ?? "Yok"}</dd>
 				{evidence.usageVariant === null ? null : (
@@ -892,6 +982,8 @@ function RequiredSetItemEditor({
 function ReadinessEvidenceForms({
 	assetFamilyId,
 	assetRecords,
+	usageTestAssetRecords,
+	usageTestAssetVersions,
 	assetVersions,
 	currentAssetVersionIds,
 	item,
@@ -909,6 +1001,8 @@ function ReadinessEvidenceForms({
 	assetRecords: FamilyReadinessAssetRecord[];
 	assetVersions: AssetVersion[];
 	currentAssetVersionIds: string[];
+	usageTestAssetRecords: UsageTestAssetRecord[];
+	usageTestAssetVersions: UsageTestAssetVersion[];
 	item: RequiredSetItem;
 	isSaving: boolean;
 	onRecord: (input: ReadinessEvidenceInput) => Promise<boolean>;
@@ -962,6 +1056,8 @@ function ReadinessEvidenceForms({
 					projectId={projectId}
 					revisionId={revisionId}
 					testId={item.testId}
+					usageTestAssetRecords={usageTestAssetRecords}
+					usageTestAssetVersions={usageTestAssetVersions}
 				/>
 			) : null}
 			{hasSpecializedProfile && qualityRequirements.length === 0 ? (
@@ -1093,6 +1189,7 @@ interface IconUsageEvidenceFormInput {
 	shared: QualityEvidenceFormInput["shared"];
 	targetDimensions: PixelDimensions | null;
 	testId?: string;
+	usageTestContext: UsageTestEvidenceInput["usageTestContext"];
 	usageVariant: string;
 }
 
@@ -1106,12 +1203,20 @@ function iconUsageEvidenceFormInput(
 		shared,
 		targetDimensions,
 		testId,
+		usageTestContext,
 	} = input;
 	if (!testId) {
 		return null;
 	}
 	if (testId !== iconLightDarkTargetSizeTestId) {
-		return { ...shared, kind: "usage_test", result, testId, method };
+		return {
+			...shared,
+			kind: "usage_test",
+			result,
+			testId,
+			method,
+			usageTestContext,
+		};
 	}
 	const usageVariant = input.usageVariant.trim();
 	if (!usageVariant || targetDimensions === null || !grayscaleReviewed) {
@@ -1126,6 +1231,7 @@ function iconUsageEvidenceFormInput(
 		usageVariant,
 		targetDimensions,
 		grayscaleReviewed: true,
+		usageTestContext,
 	};
 }
 
@@ -1251,6 +1357,50 @@ function QualityVersionTargetSelect({
 	);
 }
 
+function UsageTestVersionSelect({
+	id,
+	label,
+	onChange,
+	recordsById,
+	versions,
+	value,
+}: {
+	id: string;
+	label: string;
+	onChange: (versionId: string) => void;
+	recordsById: Map<string, UsageTestAssetRecord>;
+	versions: UsageTestAssetVersion[];
+	value: string;
+}) {
+	return (
+		<label className="block space-y-1 text-sm" htmlFor={id}>
+			<span>{label}</span>
+			<select
+				className="w-full rounded-md border bg-background px-3 py-2"
+				id={id}
+				onChange={(event) => onChange(event.currentTarget.value)}
+				required
+				value={value}
+			>
+				<option value="">Sürüm seçin</option>
+				{versions.map((version) => {
+					const record = recordsById.get(version.assetRecordId);
+					return record ? (
+						<option key={version.id} value={version.id}>
+							{record.name} · v{version.versionNumber}
+						</option>
+					) : null;
+				})}
+			</select>
+			{versions.length === 0 ? (
+				<span className="text-muted-foreground">
+					Bu ölçütlere uyan sürüm bulunamadı.
+				</span>
+			) : null}
+		</label>
+	);
+}
+
 function evidenceRequirementId(
 	qualityRequirement: QualityEvidenceFormInput["qualityRequirement"],
 	humanReviewRequirement: QualityEvidenceFormInput["humanReviewRequirement"],
@@ -1294,6 +1444,188 @@ function QualityWaiverScope({ evidence }: { evidence: ReadinessEvidence }) {
 				<dd>{evidence.canonicalDesignVersionId ?? "Seçilmedi"}</dd>
 			</dl>
 		</fieldset>
+	);
+}
+
+type UsageTestEvidenceInput = Extract<
+	ReadinessEvidenceInput,
+	{ kind: "usage_test" }
+>;
+
+function buildUsageTestEvidenceInput({
+	approvedCharacterVersionId,
+	approvedCharacterVersions,
+	cellHeight,
+	cellWidth,
+	firstGroundVersionId,
+	groundVersions,
+	isObjectSceneTest,
+	method,
+	result,
+	secondGroundVersionId,
+	secondGroundVersions,
+	shared,
+	testId,
+}: {
+	approvedCharacterVersionId: string;
+	approvedCharacterVersions: UsageTestAssetVersion[];
+	cellHeight: string;
+	cellWidth: string;
+	firstGroundVersionId: string;
+	groundVersions: UsageTestAssetVersion[];
+	isObjectSceneTest: boolean;
+	method: string;
+	result: UsageTestEvidenceInput["result"];
+	secondGroundVersionId: string;
+	secondGroundVersions: UsageTestAssetVersion[];
+	shared: Pick<
+		UsageTestEvidenceInput,
+		"projectId" | "assetFamilyId" | "revisionId" | "itemId" | "rationale"
+	>;
+	testId?: string;
+}): UsageTestEvidenceInput | null {
+	const width = Number(cellWidth);
+	const height = Number(cellHeight);
+	if (
+		!(testId && Number.isInteger(width) && Number.isInteger(height)) ||
+		width < 1 ||
+		height < 1
+	) {
+		return null;
+	}
+	const usageTestContext: NonNullable<
+		UsageTestEvidenceInput["usageTestContext"]
+	> = { cellDimensions: { width, height } };
+	if (isObjectSceneTest) {
+		const selectedCharacter = approvedCharacterVersions.find(
+			(version) => version.id === approvedCharacterVersionId
+		);
+		const selectedFirstGround = groundVersions.find(
+			(version) => version.id === firstGroundVersionId
+		);
+		const selectedSecondGround = secondGroundVersions.find(
+			(version) => version.id === secondGroundVersionId
+		);
+		if (!(selectedCharacter && selectedFirstGround && selectedSecondGround)) {
+			return null;
+		}
+		usageTestContext.approvedCharacterVersionId = selectedCharacter.id;
+		usageTestContext.targetGroundVersionIds = [
+			selectedFirstGround.id,
+			selectedSecondGround.id,
+		];
+	}
+	return {
+		...shared,
+		kind: "usage_test",
+		result,
+		testId,
+		method,
+		usageTestContext,
+	};
+}
+
+function UsageTestContextFields({
+	approvedCharacterVersionId,
+	approvedCharacterVersions,
+	cellHeight,
+	cellWidth,
+	firstGroundVersionId,
+	formId,
+	groundVersions,
+	isObjectSceneTest,
+	onApprovedCharacterVersionChange,
+	onCellHeightChange,
+	onCellWidthChange,
+	onFirstGroundVersionChange,
+	onSecondGroundVersionChange,
+	recordsById,
+	secondGroundVersionId,
+	secondGroundVersions,
+}: {
+	approvedCharacterVersionId: string;
+	approvedCharacterVersions: UsageTestAssetVersion[];
+	cellHeight: string;
+	cellWidth: string;
+	firstGroundVersionId: string;
+	formId: string;
+	groundVersions: UsageTestAssetVersion[];
+	isObjectSceneTest: boolean;
+	onApprovedCharacterVersionChange: (versionId: string) => void;
+	onCellHeightChange: (value: string) => void;
+	onCellWidthChange: (value: string) => void;
+	onFirstGroundVersionChange: (versionId: string) => void;
+	onSecondGroundVersionChange: (versionId: string) => void;
+	recordsById: Map<string, UsageTestAssetRecord>;
+	secondGroundVersionId: string;
+	secondGroundVersions: UsageTestAssetVersion[];
+}) {
+	return (
+		<>
+			<div className="grid grid-cols-2 gap-2">
+				<label
+					className="block space-y-1 text-sm"
+					htmlFor={`${formId}-cell-width`}
+				>
+					<span>Hücre genişliği (px)</span>
+					<input
+						className="w-full rounded-md border bg-background px-3 py-2"
+						id={`${formId}-cell-width`}
+						max={4096}
+						min={1}
+						onChange={(event) => onCellWidthChange(event.currentTarget.value)}
+						required
+						type="number"
+						value={cellWidth}
+					/>
+				</label>
+				<label
+					className="block space-y-1 text-sm"
+					htmlFor={`${formId}-cell-height`}
+				>
+					<span>Hücre yüksekliği (px)</span>
+					<input
+						className="w-full rounded-md border bg-background px-3 py-2"
+						id={`${formId}-cell-height`}
+						max={4096}
+						min={1}
+						onChange={(event) => onCellHeightChange(event.currentTarget.value)}
+						required
+						step={1}
+						type="number"
+						value={cellHeight}
+					/>
+				</label>
+			</div>
+			{isObjectSceneTest ? (
+				<>
+					<UsageTestVersionSelect
+						id={`${formId}-approved-character-version`}
+						label="Onaylı karakter sürümü"
+						onChange={onApprovedCharacterVersionChange}
+						recordsById={recordsById}
+						value={approvedCharacterVersionId}
+						versions={approvedCharacterVersions}
+					/>
+					<UsageTestVersionSelect
+						id={`${formId}-first-ground-version`}
+						label="Birinci zemin sürümü"
+						onChange={onFirstGroundVersionChange}
+						recordsById={recordsById}
+						value={firstGroundVersionId}
+						versions={groundVersions}
+					/>
+					<UsageTestVersionSelect
+						id={`${formId}-second-ground-version`}
+						label="İkinci zemin sürümü"
+						onChange={onSecondGroundVersionChange}
+						recordsById={recordsById}
+						value={secondGroundVersionId}
+						versions={secondGroundVersions}
+					/>
+				</>
+			) : null}
+		</>
 	);
 }
 
@@ -1542,6 +1874,8 @@ function EvidenceForm({
 	testId,
 	waiverEvidence,
 	versionTargets = [],
+	usageTestAssetRecords = [],
+	usageTestAssetVersions = [],
 }: {
 	assetFamilyId: string;
 	description: string;
@@ -1558,12 +1892,20 @@ function EvidenceForm({
 	testId?: string;
 	waiverEvidence?: ReadinessEvidence;
 	versionTargets?: QualityVersionTarget[];
+	usageTestAssetRecords?: UsageTestAssetRecord[];
+	usageTestAssetVersions?: UsageTestAssetVersion[];
 }) {
 	const [result, setResult] = useState<EvidenceFormResult>(initialResult);
 	const [method, setMethod] = useState("");
 	const [rationale, setRationale] = useState("");
 	const [observedValue, setObservedValue] = useState("");
 	const [versionTarget, setVersionTarget] = useState<QualityVersionTarget>();
+	const [cellWidth, setCellWidth] = useState("");
+	const [cellHeight, setCellHeight] = useState("");
+	const [approvedCharacterVersionId, setApprovedCharacterVersionId] =
+		useState("");
+	const [firstGroundVersionId, setFirstGroundVersionId] = useState("");
+	const [secondGroundVersionId, setSecondGroundVersionId] = useState("");
 	const [usageVariant, setUsageVariant] = useState("");
 	const [usageVariantError, setUsageVariantError] = useState("");
 	const [targetWidth, setTargetWidth] = useState("");
@@ -1572,6 +1914,28 @@ function EvidenceForm({
 		string | null
 	>(null);
 	const formId = `${assetFamilyId}-${kind}-${item.id}-${evidenceRequirementId(qualityRequirement, humanReviewRequirement, testId)}`;
+	const isObjectSceneTest =
+		kind === "usage_test" && testId === objectSceneUsageTestId;
+	const recordsById = new Map(
+		usageTestAssetRecords.map((record) => [record.id, record])
+	);
+	const approvedCharacterVersions = usageTestAssetVersions.filter(
+		(version) =>
+			version.reviewDisposition === "approved" &&
+			recordsById.get(version.assetRecordId)?.assetCategory ===
+				"character_creature_animation"
+	);
+	const groundVersions = usageTestAssetVersions.filter(
+		(version) =>
+			recordsById.get(version.assetRecordId)?.assetCategory ===
+			"tileset_terrain_texture"
+	);
+	const firstGroundRecordId = usageTestAssetVersions.find(
+		(version) => version.id === firstGroundVersionId
+	)?.assetRecordId;
+	const secondGroundVersions = groundVersions.filter(
+		(version) => version.assetRecordId !== firstGroundRecordId
+	);
 	const isWaiver = result === "waived";
 	const isIconTargetSizeTest =
 		kind === "usage_test" && testId === iconLightDarkTargetSizeTestId;
@@ -1627,7 +1991,9 @@ function EvidenceForm({
 				kind,
 				result: result as "applicable" | "inapplicable",
 			});
-		} else if (kind === "quality") {
+			return;
+		}
+		if (kind === "quality") {
 			if (requiresVersionTarget && !versionTarget) {
 				return;
 			}
@@ -1644,15 +2010,33 @@ function EvidenceForm({
 			if (qualityInput) {
 				void onRecord(qualityInput);
 			}
-		} else {
+			return;
+		}
+		const usageTestInput = buildUsageTestEvidenceInput({
+			approvedCharacterVersionId,
+			approvedCharacterVersions,
+			cellHeight,
+			cellWidth,
+			firstGroundVersionId,
+			groundVersions,
+			isObjectSceneTest,
+			method,
+			result: result as UsageTestEvidenceInput["result"],
+			secondGroundVersionId,
+			secondGroundVersions,
+			shared,
+			testId,
+		});
+		if (usageTestInput) {
 			const usageInput = iconUsageEvidenceFormInput({
 				shared,
-				result: result as "passed" | "failed" | "inconclusive",
+				result: usageTestInput.result,
 				testId,
 				method,
 				usageVariant,
 				targetDimensions,
 				grayscaleReviewed,
+				usageTestContext: usageTestInput.usageTestContext,
 			});
 			if (usageInput) {
 				void onRecord(usageInput);
@@ -1731,6 +2115,26 @@ function EvidenceForm({
 				measurementValue={measurementValues.method}
 				onChange={setMethod}
 			/>
+			{kind === "usage_test" ? (
+				<UsageTestContextFields
+					approvedCharacterVersionId={approvedCharacterVersionId}
+					approvedCharacterVersions={approvedCharacterVersions}
+					cellHeight={cellHeight}
+					cellWidth={cellWidth}
+					firstGroundVersionId={firstGroundVersionId}
+					formId={formId}
+					groundVersions={groundVersions}
+					isObjectSceneTest={isObjectSceneTest}
+					onApprovedCharacterVersionChange={setApprovedCharacterVersionId}
+					onCellHeightChange={setCellHeight}
+					onCellWidthChange={setCellWidth}
+					onFirstGroundVersionChange={setFirstGroundVersionId}
+					onSecondGroundVersionChange={setSecondGroundVersionId}
+					recordsById={recordsById}
+					secondGroundVersionId={secondGroundVersionId}
+					secondGroundVersions={secondGroundVersions}
+				/>
+			) : null}
 			<label
 				className="block space-y-1 text-sm"
 				htmlFor={`${formId}-rationale`}

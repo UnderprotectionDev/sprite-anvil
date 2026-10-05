@@ -9,6 +9,7 @@ import {
 	unitVersions,
 } from "@sprite-anvil/db/schema/asset-versions";
 import { user } from "@sprite-anvil/db/schema/auth";
+import { createLocalTestDb } from "@sprite-anvil/db/testing";
 import { eq, sql } from "drizzle-orm";
 import { createAssetFamilyStore } from "./features/asset-families/server/asset-family-store";
 import { createAssetVersionStore } from "./features/asset-versions/server/asset-version-store";
@@ -18,6 +19,15 @@ import { createSpecializedProfileContractStore } from "./features/quality-eviden
 import { createProjectContextScopeStore } from "./features/visual-worlds/server/project-context-scope-store";
 
 const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
+
+// Neon HTTP cannot address a loopback PostgreSQL, so test runs against a
+// disposable local database use the repository's TCP test adapter instead.
+function createTestDb(targetUrl: string) {
+	const target = new URL(targetUrl);
+	return target.hostname === "127.0.0.1"
+		? createLocalTestDb({ DATABASE_URL: targetUrl })
+		: createDb({ DATABASE_URL: targetUrl });
+}
 
 function reviewContext(db: ReturnType<typeof createDb>, userId: string) {
 	return {
@@ -38,7 +48,7 @@ test.skipIf(!databaseUrl)(
 		if (!databaseUrl) {
 			throw new Error("CONTEXT_TEST_DATABASE_URL is required for this test.");
 		}
-		const db = createDb({ DATABASE_URL: databaseUrl });
+		const db = createTestDb(databaseUrl);
 		const userId = crypto.randomUUID();
 		let projectId: string | undefined;
 		await db.insert(user).values({
@@ -269,6 +279,9 @@ test.skipIf(!databaseUrl)(
 							kind: "usage_test",
 							testId: usageTest.id,
 							result: "failed",
+							usageTestContext: {
+								cellDimensions: { width: 32, height: 32 },
+							},
 							...(usageTest.id === "icon.light_dark_target_size"
 								? {
 										usageVariant: "Inventory item",
@@ -381,10 +394,7 @@ test.skipIf(!databaseUrl)(
 				},
 				Promise.resolve()
 			);
-			const freshContext = reviewContext(
-				createDb({ DATABASE_URL: databaseUrl }),
-				userId
-			);
+			const freshContext = reviewContext(createTestDb(databaseUrl), userId);
 			const reread = await call(
 				appRouter.assetVersions.list,
 				{ projectId },

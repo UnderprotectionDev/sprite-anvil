@@ -2,6 +2,8 @@ import { ORPCError } from "@orpc/server";
 import type { Context } from "../context";
 import {
 	familyReadinessSchema,
+	type ReadinessEvidenceInput,
+	type RecordEvidenceFailureReason,
 	readinessEvidenceInputSchema,
 	requiredSetActivateInputSchema,
 	requiredSetListInputSchema,
@@ -33,6 +35,19 @@ async function readFamilyReadiness(
 		throw new ORPCError("NOT_FOUND", { message: "Varlık Ailesi bulunamadı." });
 	}
 	return familyReadinessSchema.parse(readiness);
+}
+
+function evidenceRejectionMessage(
+	reason: RecordEvidenceFailureReason,
+	input: ReadinessEvidenceInput
+) {
+	if (reason === "invalid_usage_test_context") {
+		return "Obje sahne kanıtı, aynı projedeki en son inceleme kararı onaylı bir karakter sürümünü ve farklı Varlık Kayıtlarına bağlı en az iki zemin sürümünü sabitlemelidir. Kanıtı güncel sürümlerle yeniden kaydedin.";
+	}
+	if (input.kind === "quality" && input.result === "waived") {
+		return "Kalite İstisnası için aynı kural, gözlenen değer, yöntem ve kesin kapsama ait güncel ölçüm kanıtı gerekir. Değerlendirmeyi yenileyin; bütünlük, zorunlu insan incelemesi ve kullanım testi istisna alamaz.";
+	}
+	return "Kanıt için etkin Gerekli Öğeler Listesi, güncel Varlık Sürümleri ve Bağlam Sürümü gerekir; kalite kuralı, zorunlu insan incelemesi veya kullanım testi etkin Özel Profil Sözleşmesiyle eşleşmelidir.";
 }
 
 export const familyReadinessRouter = {
@@ -91,18 +106,15 @@ export const familyReadinessRouter = {
 		.input(readinessEvidenceInputSchema)
 		.output(familyReadinessSchema)
 		.handler(async ({ context, input }) => {
-			const readiness = await getFamilyReadinessStore(context).recordEvidence(
+			const result = await getFamilyReadinessStore(context).recordEvidence(
 				context.session.user.id,
 				input
 			);
-			if (!readiness) {
+			if (result.status === "rejected") {
 				throw new ORPCError("BAD_REQUEST", {
-					message:
-						input.kind === "quality" && input.result === "waived"
-							? "Kalite İstisnası için aynı kural, gözlenen değer, yöntem ve kesin kapsama ait güncel ölçüm kanıtı gerekir. Değerlendirmeyi yenileyin; bütünlük, zorunlu insan incelemesi ve kullanım testi istisna alamaz."
-							: "Kanıt için etkin Gerekli Öğeler Listesi, güncel Varlık Sürümleri ve Bağlam Sürümü gerekir; kalite kuralı, zorunlu insan incelemesi veya kullanım testi etkin Özel Profil Sözleşmesiyle eşleşmelidir.",
+					message: evidenceRejectionMessage(result.reason, input),
 				});
 			}
-			return familyReadinessSchema.parse(readiness);
+			return familyReadinessSchema.parse(result.readiness);
 		}),
 };

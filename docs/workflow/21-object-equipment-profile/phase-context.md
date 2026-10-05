@@ -2,6 +2,8 @@
 
 Objeler, silahlar ve ekipmanlar durum ve yön aileleri olarak ortak ölçek, perspektif, malzeme, pivot ve sıralama davranışlarıyla incelenir.
 
+Kullanım testi kanıtı proje ızgarası için Hücre Ölçüsü’nü kendi içinde sabitler. Obje sahne kanıtı ayrıca aynı projedeki en son inceleme kararı onaylı karakter sürümünü ve farklı Varlık Kayıtlarına bağlı en az iki zemin sürümünü taşır.
+
 Bu profil obje ve ekipmanı bağımsız resimler yerine durum ve yön aileleri olarak ele alır. Kesin sözleşme yerleşim alanlarını ve kullanımdaki testi tanımlar.
 
 ## Alt Fazlar

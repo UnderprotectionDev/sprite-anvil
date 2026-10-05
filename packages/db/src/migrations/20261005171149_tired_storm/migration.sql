@@ -1,0 +1,1 @@
+ALTER TABLE "family_readiness_evidence" ADD COLUMN "usage_test_context" jsonb;

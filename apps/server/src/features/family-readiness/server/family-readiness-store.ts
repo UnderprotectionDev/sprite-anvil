@@ -1,11 +1,13 @@
 import type {
 	FamilyReadiness,
+	FamilyReadinessRecordResult,
 	FamilyReadinessStore,
 	QualityVersionTarget,
 	ReadinessAssetStatus,
 	ReadinessEvaluationItem,
 	ReadinessEvidence,
 	ReadinessEvidenceInput,
+	RecordEvidenceFailureReason,
 	RequiredSetItem,
 	RequiredSetRevision,
 } from "@sprite-anvil/api/family-readiness";
@@ -14,6 +16,7 @@ import {
 	evaluateFamilyReadiness,
 	familyReadinessSchema,
 	isReadinessEvidenceCurrent,
+	objectSceneUsageTestId,
 	readinessEvidenceSchema,
 	requiredSetItemSchema,
 	requiredSetRevisionSchema,
@@ -104,6 +107,7 @@ function toEvidence(
 		ruleId: row.ruleId,
 		ruleClass: row.ruleClass,
 		testId: row.testId,
+		usageTestContext: row.usageTestContext,
 		usageVariant: row.usageVariant,
 		targetDimensions:
 			row.targetWidth !== null && row.targetHeight !== null
@@ -138,6 +142,9 @@ function evidenceMatchesCurrentScope(
 	});
 	if (!scopeMatches || evidence.kind === "applicability") {
 		return scopeMatches;
+	}
+	if (evidence.kind === "usage_test" && !evidence.usageTestContext) {
+		return false;
 	}
 	const entryId =
 		evidence.kind === "quality" ? evidence.ruleId : evidence.testId;
@@ -1141,6 +1148,88 @@ function isUsageTestSupported(
 	});
 }
 
+function usageTestContextForInput(input: ReadinessEvidenceInput) {
+	if (input.kind !== "usage_test") {
+		return null;
+	}
+	return input.usageTestContext;
+}
+
+async function isUsageTestContextValid(
+	db: Database,
+	input: ReadinessEvidenceInput
+) {
+	if (input.kind !== "usage_test" || input.testId !== objectSceneUsageTestId) {
+		return true;
+	}
+	const characterVersionId = input.usageTestContext.approvedCharacterVersionId;
+	const groundVersionIds = input.usageTestContext.targetGroundVersionIds;
+	if (
+		!(characterVersionId && groundVersionIds) ||
+		groundVersionIds.length < 2
+	) {
+		return false;
+	}
+	const selectedVersionIds = [characterVersionId, ...groundVersionIds];
+	if (new Set(selectedVersionIds).size !== selectedVersionIds.length) {
+		return false;
+	}
+	const selectedVersions = await db
+		.select({
+			id: assetVersions.id,
+			assetRecordId: assetVersions.assetRecordId,
+			assetCategory: assetRecords.assetCategory,
+		})
+		.from(assetVersions)
+		.innerJoin(
+			assetRecords,
+			and(
+				eq(assetRecords.projectId, assetVersions.projectId),
+				eq(assetRecords.id, assetVersions.assetRecordId)
+			)
+		)
+		.where(
+			and(
+				eq(assetVersions.projectId, input.projectId),
+				inArray(assetVersions.id, selectedVersionIds)
+			)
+		);
+	if (selectedVersions.length !== selectedVersionIds.length) {
+		return false;
+	}
+	const versionsById = new Map(
+		selectedVersions.map((version) => [version.id, version])
+	);
+	const characterVersion = versionsById.get(characterVersionId);
+	const groundVersions = groundVersionIds.map((id) => versionsById.get(id));
+	if (
+		characterVersion?.assetCategory !== "character_creature_animation" ||
+		groundVersions.some(
+			(version) =>
+				version?.assetCategory !== "tileset_terrain_texture" || !version
+		) ||
+		new Set(groundVersions.map((version) => version?.assetRecordId)).size !==
+			groundVersions.length
+	) {
+		return false;
+	}
+	const [latestCharacterReview] = await db
+		.select({ decision: assetVersionReviewEvents.decision })
+		.from(assetVersionReviewEvents)
+		.where(
+			and(
+				eq(assetVersionReviewEvents.projectId, input.projectId),
+				eq(assetVersionReviewEvents.versionId, characterVersionId)
+			)
+		)
+		.orderBy(
+			desc(assetVersionReviewEvents.createdAt),
+			desc(assetVersionReviewEvents.id)
+		)
+		.limit(1);
+	return latestCharacterReview?.decision === "approved";
+}
+
 async function readEvidenceItem(
 	db: Database,
 	userId: string,
@@ -1200,6 +1289,9 @@ async function readEvidenceScope(
 ): Promise<EvidenceScope | null> {
 	const context = await readEvidenceScopeContext(db, input, item);
 	if (!(context.family && context.contextRevisionId)) {
+		return null;
+	}
+	if (!(await isUsageTestContextValid(db, input))) {
 		return null;
 	}
 	const currentVersions = indexCurrentVersions(context.versionRows);
@@ -1270,6 +1362,15 @@ async function readEvidenceScope(
 		profileIds,
 		ruleClass: qualityRule.ruleClass,
 	};
+}
+
+async function readScopeRejection(
+	db: Database,
+	input: ReadinessEvidenceInput
+): Promise<RecordEvidenceFailureReason> {
+	return (await isUsageTestContextValid(db, input))
+		? "out_of_scope"
+		: "invalid_usage_test_context";
 }
 
 export function createFamilyReadinessStore(db: Database) {
@@ -1549,21 +1650,38 @@ export function createFamilyReadinessStore(db: Database) {
 		return list(userId, input.projectId, input.assetFamilyId);
 	}
 
-	async function recordEvidence(userId: string, input: ReadinessEvidenceInput) {
+	async function readEvidenceWaiverSource(
+		input: ReadinessEvidenceInput,
+		scope: EvidenceScope
+	) {
+		if (input.kind !== "quality" || input.result !== "waived") {
+			return null;
+		}
+		return await readQualityWaiverSource(input, scope);
+	}
+
+	async function recordEvidence(
+		userId: string,
+		input: ReadinessEvidenceInput
+	): Promise<FamilyReadinessRecordResult> {
 		const item = await readEvidenceItem(db, userId, input);
 		if (!item) {
-			return null;
+			return { status: "rejected", reason: "out_of_scope" };
 		}
 		const scope = await readEvidenceScope(db, input, item);
 		if (!scope) {
-			return null;
+			return {
+				status: "rejected",
+				reason: await readScopeRejection(db, input),
+			};
 		}
-		const isWaiver = input.kind === "quality" && input.result === "waived";
-		const waiverSource = isWaiver
-			? await readQualityWaiverSource(input, scope)
-			: null;
-		if (isWaiver && !waiverSource) {
-			return null;
+		const waiverSource = await readEvidenceWaiverSource(input, scope);
+		if (
+			input.kind === "quality" &&
+			input.result === "waived" &&
+			!waiverSource
+		) {
+			return { status: "rejected", reason: "out_of_scope" };
 		}
 		const now = new Date();
 		const [inserted] = await db
@@ -1589,15 +1707,20 @@ export function createFamilyReadinessStore(db: Database) {
 				...qualityEvidenceFields(input),
 				ruleClass: input.kind === "quality" ? scope.ruleClass : null,
 				...usageTestEvidenceFields(input),
+				usageTestContext: usageTestContextForInput(input),
 				rationale: input.rationale,
 				createdByUserId: userId,
 				createdAt: now,
 			})
 			.returning();
 		if (!inserted) {
-			return null;
+			return { status: "rejected", reason: "out_of_scope" };
 		}
-		return list(userId, input.projectId, input.assetFamilyId);
+		const readiness = await list(userId, input.projectId, input.assetFamilyId);
+		if (!readiness) {
+			return { status: "rejected", reason: "out_of_scope" };
+		}
+		return { status: "recorded", readiness };
 	}
 
 	return {

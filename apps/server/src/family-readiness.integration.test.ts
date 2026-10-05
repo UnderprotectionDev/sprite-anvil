@@ -4,12 +4,14 @@ import { createEmptyAssetRecordMeasurements } from "@sprite-anvil/api/asset-reco
 import type { Context } from "@sprite-anvil/api/context";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { createDb } from "@sprite-anvil/db";
+import { assetRecordMeasurements } from "@sprite-anvil/db/schema/asset-record-measurements";
 import {
 	assetFamilies,
 	assetRecords,
 	subjectIdentities,
 } from "@sprite-anvil/db/schema/asset-records";
 import {
+	assetVersionReviewEvents,
 	assetVersions,
 	compositeVersionReviewEvents,
 	compositeVersions,
@@ -27,6 +29,7 @@ import {
 import { project } from "@sprite-anvil/db/schema/project";
 import { contextRevisions } from "@sprite-anvil/db/schema/project-context";
 import { projectSpecializedProfileContracts } from "@sprite-anvil/db/schema/specialized-profile-contracts";
+import { createLocalTestDb } from "@sprite-anvil/db/testing";
 import { and, eq } from "drizzle-orm";
 import { createAssetFamilyStore } from "./features/asset-families/server/asset-family-store";
 import { createAssetRecordStore } from "./features/asset-records/server/asset-record-store";
@@ -40,6 +43,15 @@ import { createSpecializedProfileContractStore } from "./features/quality-eviden
 import { createProjectContextScopeStore } from "./features/visual-worlds/server/project-context-scope-store";
 
 const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
+
+// Neon HTTP cannot address a loopback PostgreSQL, so test runs against a
+// disposable local database use the repository's TCP test adapter instead.
+function createTestDb(targetUrl: string) {
+	const target = new URL(targetUrl);
+	return target.hostname === "127.0.0.1"
+		? createLocalTestDb({ DATABASE_URL: targetUrl })
+		: createDb({ DATABASE_URL: targetUrl });
+}
 
 function createContext(database: ReturnType<typeof createDb>, userId: string) {
 	const projectContextStore = createProjectContextStore(database);
@@ -66,7 +78,7 @@ test.skipIf(!databaseUrl)(
 		if (!databaseUrl) {
 			throw new Error("CONTEXT_TEST_DATABASE_URL is required for this test.");
 		}
-		const db = createDb({ DATABASE_URL: databaseUrl });
+		const db = createTestDb(databaseUrl);
 		const userId = crypto.randomUUID();
 		let insertedUser = false;
 		let projectId: string | undefined;
@@ -122,7 +134,7 @@ test.skipIf(!databaseUrl)(
 				throw new Error("The active icon human review is required.");
 			}
 			const contractRereadContext = createContext(
-				createDb({ DATABASE_URL: databaseUrl }),
+				createTestDb(databaseUrl),
 				userId
 			);
 			const persistedContracts = await call(
@@ -317,25 +329,28 @@ test.skipIf(!databaseUrl)(
 						eq(assetRecords.id, assetRecord.id)
 					)
 				);
-			const unsupportedIconEvidence = await call(
-				appRouter.familyReadiness.recordEvidence,
-				{
-					projectId,
-					assetFamilyId: family.id,
-					revisionId: firstRevision.id,
-					itemId: "target-size-backgrounds",
-					kind: "usage_test",
-					result: "failed",
-					testId: "icon.light_dark_target_size",
-					method: "Reviewed an icon-specific test without an icon profile.",
-					rationale: "A general asset cannot record an icon profile test.",
-					usageVariant: "Inventory item",
-					targetDimensions: { width: 16, height: 16 },
-					grayscaleReviewed: true,
-				},
-				{ context }
-			);
-			expect(unsupportedIconEvidence).toBeNull();
+			await expect(
+				call(
+					appRouter.familyReadiness.recordEvidence,
+					{
+						projectId,
+						assetFamilyId: family.id,
+						revisionId: firstRevision.id,
+						itemId: "target-size-backgrounds",
+						kind: "usage_test",
+						result: "failed",
+						testId: "icon.light_dark_target_size",
+						method: "Reviewed an icon-specific test without an icon profile.",
+						rationale: "A general asset cannot record an icon profile test.",
+						usageVariant: "Inventory item",
+						usageTestContext: { cellDimensions: { width: 32, height: 32 } },
+						targetDimensions: { width: 16, height: 16 },
+						grayscaleReviewed: true,
+					},
+					{ context }
+				)
+			).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
 			await db
 				.update(assetRecords)
 				.set({ assetCategory: "icon" })
@@ -355,6 +370,9 @@ test.skipIf(!databaseUrl)(
 					kind: "usage_test",
 					result: "failed",
 					testId: "icon.light_dark_target_size",
+					usageTestContext: {
+						cellDimensions: { width: 32, height: 32 },
+					},
 					method: "Reviewed the icon on light and dark backgrounds.",
 					rationale: "The icon is not readable at the smallest target size.",
 					usageVariant: "Inventory item",
@@ -399,7 +417,7 @@ test.skipIf(!databaseUrl)(
 				)
 			).rejects.toMatchObject({ code: "BAD_REQUEST" });
 
-			const rereadDb = createDb({ DATABASE_URL: databaseUrl });
+			const rereadDb = createTestDb(databaseUrl);
 			const rereadContext = createContext(rereadDb, userId);
 			const reread = await call(
 				appRouter.familyReadiness.list,
@@ -434,6 +452,9 @@ test.skipIf(!databaseUrl)(
 			expect(persistedUsageEvidence).toMatchObject({
 				result: "failed",
 				testId: "icon.light_dark_target_size",
+				usageTestContext: {
+					cellDimensions: { width: 32, height: 32 },
+				},
 				assetVersionIds: [assetVersionId],
 				usageVariant: "Inventory item",
 				targetDimensions: { width: 16, height: 16 },
@@ -478,6 +499,7 @@ test.skipIf(!databaseUrl)(
 						grayscaleReviewed: true,
 					})
 					.where(eq(familyReadinessEvidence.id, persistedHumanReview.id))
+					.execute()
 			).rejects.toThrow();
 			expect(reread.status).toBe("incomplete");
 			const afterPassedUsageEvidence = await call(
@@ -493,6 +515,7 @@ test.skipIf(!databaseUrl)(
 					method: "Reviewed the current icon on light and dark backgrounds.",
 					rationale: "The current icon remains readable at its target size.",
 					usageVariant: "Inventory item",
+					usageTestContext: { cellDimensions: { width: 32, height: 32 } },
 					targetDimensions: { width: 16, height: 16 },
 					grayscaleReviewed: true,
 				},
@@ -505,7 +528,7 @@ test.skipIf(!databaseUrl)(
 				)?.result
 			).toBe("passed");
 			const passedReadbackContext = createContext(
-				createDb({ DATABASE_URL: databaseUrl }),
+				createTestDb(databaseUrl),
 				userId
 			);
 			const passedReadback = await call(
@@ -665,6 +688,9 @@ test.skipIf(!databaseUrl)(
 					kind: "usage_test",
 					result: "passed",
 					testId: "icon.light_dark_target_size",
+					usageTestContext: {
+						cellDimensions: { width: 32, height: 32 },
+					},
 					method: "Inspected on all required backgrounds and target sizes.",
 					rationale: "All required usage tests now pass.",
 					usageVariant: "Inventory item",
@@ -856,6 +882,395 @@ test.skipIf(!databaseUrl)(
 							.delete(assetVersions)
 							.where(eq(assetVersions.projectId, projectId));
 					}
+					await db
+						.delete(assetRecordMeasurements)
+						.where(eq(assetRecordMeasurements.projectId, projectId));
+					await db
+						.delete(assetRecords)
+						.where(
+							and(
+								eq(assetRecords.projectId, projectId),
+								eq(assetRecords.assetFamilyId, familyId)
+							)
+						);
+					await db
+						.delete(assetFamilies)
+						.where(
+							and(
+								eq(assetFamilies.projectId, projectId),
+								eq(assetFamilies.id, familyId)
+							)
+						);
+				}
+				await db
+					.delete(projectSpecializedProfileContracts)
+					.where(eq(projectSpecializedProfileContracts.projectId, projectId));
+				await db
+					.delete(subjectIdentities)
+					.where(eq(subjectIdentities.projectId, projectId));
+				await db
+					.delete(visualWorlds)
+					.where(eq(visualWorlds.projectId, projectId));
+				await db
+					.delete(contextRevisions)
+					.where(eq(contextRevisions.projectId, projectId));
+				await db.delete(project).where(eq(project.id, projectId));
+				await db.delete(user).where(eq(user.id, userId));
+			} else if (insertedUser) {
+				await db.delete(user).where(eq(user.id, userId));
+			}
+		}
+	}
+);
+
+test.skipIf(!databaseUrl)(
+	"pins the object scene context to usage evidence and rejects invalid scene inputs",
+	async () => {
+		if (!databaseUrl) {
+			throw new Error("CONTEXT_TEST_DATABASE_URL is required for this test.");
+		}
+		const db = createTestDb(databaseUrl);
+		const userId = crypto.randomUUID();
+		let insertedUser = false;
+		let projectId: string | undefined;
+		let familyId: string | undefined;
+
+		try {
+			await db.insert(user).values({
+				id: userId,
+				name: "Object Scene Integration Test",
+				email: `object-scene-${userId}@example.test`,
+			});
+			insertedUser = true;
+
+			const context = createContext(db, userId);
+			const createdProject = await call(
+				appRouter.projectContexts.create,
+				{
+					name: "Object Scene Integration Project",
+					generalArtDirection: "Consistent scale and ground contact",
+				},
+				{ context }
+			);
+			const projectRecordId = createdProject.id;
+			projectId = projectRecordId;
+			await call(
+				appRouter.specializedProfileContracts.activate,
+				{
+					projectId: projectRecordId,
+					profileId: "object_weapon_equipment_states",
+				},
+				{ context }
+			);
+			const visualWorld = await call(
+				appRouter.contextScopes.createVisualWorld,
+				{
+					projectId: projectRecordId,
+					name: "Gameplay",
+					description: "In-game assets",
+				},
+				{ context }
+			);
+			const identity = await call(
+				appRouter.assetFamilies.createSubjectIdentity,
+				{ projectId: projectRecordId, name: "Bronze Chest" },
+				{ context }
+			);
+			const family = await call(
+				appRouter.assetFamilies.createAssetFamily,
+				{
+					projectId: projectRecordId,
+					subjectIdentityId: identity.id,
+					name: "Bronze Chest States",
+					visualWorldId: visualWorld.id,
+					useContext: "combat",
+				},
+				{ context }
+			);
+			const familyRecordId = family.id;
+			familyId = familyRecordId;
+			const createRecord = (name: string) =>
+				call(
+					appRouter.assetFamilies.createAssetRecord,
+					{
+						projectId: projectRecordId,
+						assetFamilyId: familyRecordId,
+						name,
+						identityCriteria: ["delivery_identity"],
+					},
+					{ context }
+				);
+			const objectRecord = await createRecord("Chest closed");
+			const characterRecord = await createRecord("Hero walk");
+			const grassRecord = await createRecord("Grass ground");
+			const stoneRecord = await createRecord("Stone ground");
+			const setCategory = (
+				recordId: string,
+				assetCategory:
+					| "character_creature_animation"
+					| "object_weapon_equipment_states"
+					| "tileset_terrain_texture"
+			) =>
+				db
+					.update(assetRecords)
+					.set({ assetCategory })
+					.where(
+						and(
+							eq(assetRecords.projectId, projectRecordId),
+							eq(assetRecords.id, recordId)
+						)
+					);
+			await setCategory(objectRecord.id, "object_weapon_equipment_states");
+			await setCategory(characterRecord.id, "character_creature_animation");
+			await setCategory(grassRecord.id, "tileset_terrain_texture");
+			await setCategory(stoneRecord.id, "tileset_terrain_texture");
+
+			const insertVersion = (input: {
+				id: string;
+				assetRecordId: string;
+				versionNumber: number;
+			}) =>
+				db.insert(assetVersions).values({
+					id: input.id,
+					projectId: projectRecordId,
+					assetRecordId: input.assetRecordId,
+					assetFamilyId: familyRecordId,
+					versionNumber: input.versionNumber,
+					fileName: `${input.id}.png`,
+					contentType: "image/png",
+					sourceImageWidth: 32,
+					sourceImageHeight: 32,
+					sha256: "c".repeat(64),
+					byteSize: 1,
+					contentDigest: "c".repeat(64),
+					integrityVerified: true,
+					sourceKind: "manual_import",
+					idempotencyKey: crypto.randomUUID(),
+					objectKey: `family-readiness/${input.id}.png`,
+					createdByUserId: userId,
+				});
+
+			const objectVersionId = crypto.randomUUID();
+			const characterVersionId = crypto.randomUUID();
+			const rejectedCharacterVersionId = crypto.randomUUID();
+			const grassVersion1Id = crypto.randomUUID();
+			const grassVersion2Id = crypto.randomUUID();
+			const stoneVersion1Id = crypto.randomUUID();
+			await insertVersion({
+				id: objectVersionId,
+				assetRecordId: objectRecord.id,
+				versionNumber: 1,
+			});
+			await insertVersion({
+				id: characterVersionId,
+				assetRecordId: characterRecord.id,
+				versionNumber: 1,
+			});
+			await insertVersion({
+				id: rejectedCharacterVersionId,
+				assetRecordId: characterRecord.id,
+				versionNumber: 2,
+			});
+			await insertVersion({
+				id: grassVersion1Id,
+				assetRecordId: grassRecord.id,
+				versionNumber: 1,
+			});
+			await insertVersion({
+				id: grassVersion2Id,
+				assetRecordId: grassRecord.id,
+				versionNumber: 2,
+			});
+			await insertVersion({
+				id: stoneVersion1Id,
+				assetRecordId: stoneRecord.id,
+				versionNumber: 1,
+			});
+			await db.insert(assetVersionReviewEvents).values({
+				id: crypto.randomUUID(),
+				projectId: projectRecordId,
+				assetRecordId: characterRecord.id,
+				versionId: characterVersionId,
+				decision: "approved",
+				createdByUserId: userId,
+			});
+
+			const firstRevision = await call(
+				appRouter.familyReadiness.saveDraft,
+				{
+					projectId: projectRecordId,
+					assetFamilyId: familyRecordId,
+					items: [
+						{
+							id: "approved-character-ground-scene",
+							kind: "usage_test",
+							name: "Approved character and ground scene",
+							disposition: "required",
+							assetRecordIds: [objectRecord.id],
+							testId: "object.approved_character_ground_scene",
+						},
+					],
+				},
+				{ context }
+			);
+			await call(
+				appRouter.familyReadiness.activate,
+				{
+					projectId: projectRecordId,
+					assetFamilyId: familyRecordId,
+					revisionId: firstRevision.id,
+				},
+				{ context }
+			);
+
+			const sceneInput = {
+				projectId: projectRecordId,
+				assetFamilyId: familyRecordId,
+				revisionId: firstRevision.id,
+				itemId: "approved-character-ground-scene",
+				kind: "usage_test" as const,
+				result: "passed" as const,
+				testId: "object.approved_character_ground_scene",
+				method:
+					"Placed the object beside the approved character on both grounds.",
+				rationale: "Declared scale and ground contact hold on both grounds.",
+			};
+			const recordScene = (usageTestContext: {
+				cellDimensions: { width: number; height: number };
+				approvedCharacterVersionId: string;
+				targetGroundVersionIds: string[];
+			}) =>
+				call(
+					appRouter.familyReadiness.recordEvidence,
+					{ ...sceneInput, usageTestContext },
+					{ context }
+				);
+
+			// A character version whose latest review decision is not approved is
+			// rejected with a scene-specific error.
+			const unapprovedCharacter = await recordScene({
+				cellDimensions: { width: 32, height: 48 },
+				approvedCharacterVersionId: rejectedCharacterVersionId,
+				targetGroundVersionIds: [grassVersion1Id, stoneVersion1Id],
+			}).then(
+				() => null,
+				(error: unknown) => error
+			);
+			expect(unapprovedCharacter).toMatchObject({ code: "BAD_REQUEST" });
+			expect((unapprovedCharacter as { message: string }).message).toContain(
+				"Obje sahne kanıtı"
+			);
+
+			// Two grounds from one Asset Record are rejected.
+			await expect(
+				recordScene({
+					cellDimensions: { width: 32, height: 48 },
+					approvedCharacterVersionId: characterVersionId,
+					targetGroundVersionIds: [grassVersion1Id, grassVersion2Id],
+				})
+			).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+			// Pinned ground versions must be tileset and terrain versions.
+			await expect(
+				recordScene({
+					cellDimensions: { width: 32, height: 48 },
+					approvedCharacterVersionId: characterVersionId,
+					targetGroundVersionIds: [characterVersionId, stoneVersion1Id],
+				})
+			).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+			// Pinned versions must exist inside the same project.
+			await expect(
+				recordScene({
+					cellDimensions: { width: 32, height: 48 },
+					approvedCharacterVersionId: characterVersionId,
+					targetGroundVersionIds: [grassVersion1Id, "missing-ground-version"],
+				})
+			).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+			await recordScene({
+				cellDimensions: { width: 32, height: 48 },
+				approvedCharacterVersionId: characterVersionId,
+				targetGroundVersionIds: [grassVersion1Id, stoneVersion1Id],
+			});
+
+			const rereadContext = createContext(createTestDb(databaseUrl), userId);
+			const persistedContext = {
+				cellDimensions: { width: 32, height: 48 },
+				approvedCharacterVersionId: characterVersionId,
+				targetGroundVersionIds: [grassVersion1Id, stoneVersion1Id],
+			};
+			const reread = await call(
+				appRouter.familyReadiness.list,
+				{ projectId: projectRecordId, assetFamilyId: familyRecordId },
+				{ context: rereadContext }
+			);
+			expect(reread.items[0]?.latestEvidence).toContainEqual(
+				expect.objectContaining({
+					kind: "usage_test",
+					testId: "object.approved_character_ground_scene",
+					usageTestContext: persistedContext,
+					isCurrent: true,
+				})
+			);
+
+			// A legacy usage test row without a pinned context reads as out of date.
+			await db
+				.update(familyReadinessEvidence)
+				.set({ usageTestContext: null })
+				.where(
+					and(
+						eq(familyReadinessEvidence.projectId, projectRecordId),
+						eq(
+							familyReadinessEvidence.testId,
+							"object.approved_character_ground_scene"
+						)
+					)
+				);
+			const legacyReread = await call(
+				appRouter.familyReadiness.list,
+				{ projectId: projectRecordId, assetFamilyId: familyRecordId },
+				{ context: rereadContext }
+			);
+			expect(legacyReread.items[0]?.latestEvidence).toContainEqual(
+				expect.objectContaining({
+					kind: "usage_test",
+					usageTestContext: null,
+					isCurrent: false,
+				})
+			);
+			expect(legacyReread.items[0]?.blockers).toContain("usage_test");
+		} finally {
+			if (insertedUser && projectId) {
+				if (familyId) {
+					await db
+						.delete(familyReadinessEvidence)
+						.where(eq(familyReadinessEvidence.projectId, projectId));
+					await db
+						.delete(familyRequiredSetActivations)
+						.where(
+							and(
+								eq(familyRequiredSetActivations.projectId, projectId),
+								eq(familyRequiredSetActivations.assetFamilyId, familyId)
+							)
+						);
+					await db
+						.delete(familyRequiredSetHeads)
+						.where(eq(familyRequiredSetHeads.projectId, projectId));
+					await db
+						.delete(familyRequiredSetRevisions)
+						.where(
+							and(
+								eq(familyRequiredSetRevisions.projectId, projectId),
+								eq(familyRequiredSetRevisions.assetFamilyId, familyId)
+							)
+						);
+					await db
+						.delete(assetVersionReviewEvents)
+						.where(eq(assetVersionReviewEvents.projectId, projectId));
+					await db
+						.delete(assetVersions)
+						.where(eq(assetVersions.projectId, projectId));
 					await db
 						.delete(assetRecords)
 						.where(

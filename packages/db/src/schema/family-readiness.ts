@@ -156,6 +156,11 @@ export const familyReadinessEvidence = pgTable(
 			| "human_review"
 		>(),
 		testId: text("test_id"),
+		usageTestContext: jsonb("usage_test_context").$type<{
+			cellDimensions: { width: number; height: number };
+			approvedCharacterVersionId?: string;
+			targetGroundVersionIds?: string[];
+		} | null>(),
 		usageVariant: text("usage_variant"),
 		targetWidth: integer("target_width"),
 		targetHeight: integer("target_height"),
