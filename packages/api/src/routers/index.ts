@@ -38,6 +38,7 @@ import { directionalReviewsRouter } from "./directional-reviews";
 import { familyReadinessRouter } from "./family-readiness";
 import { gameplayMetadataRouter } from "./gameplay-metadata";
 import { generationPackagesRouter } from "./generation-packages";
+import { iconFamilyReviewsRouter } from "./icon-family-reviews";
 import { projectsRouter } from "./projects";
 import { referenceProductionRouter } from "./reference-production";
 import { rightsRecordsRouter } from "./rights-records";
@@ -109,6 +110,7 @@ export const appRouter = {
 	familyReadiness: familyReadinessRouter,
 	directionalReviews: directionalReviewsRouter,
 	animationTimingReviews: animationTimingReviewsRouter,
+	iconFamilyReviews: iconFamilyReviewsRouter,
 	assetVersions: assetVersionsRouter,
 	assetRecords: assetRecordsRouter,
 	collections: collectionsRouter,

@@ -19,6 +19,7 @@ import { createDependencyRevalidationStore } from "./features/dependency-revalid
 import { createFamilyReadinessStore } from "./features/family-readiness/server/family-readiness-store";
 import { createGameplayMetadataStore } from "./features/gameplay-metadata/server/gameplay-metadata-store";
 import { createGenerationPackageStore } from "./features/generation-packages/server/generation-package-store";
+import { createIconFamilyReviewStore } from "./features/icon-profile/server/icon-family-review-store";
 import { createImportInboxStore } from "./features/imports/server/import-inbox-store";
 import { createSourceMetadataMappingProposalStore } from "./features/imports/server/source-metadata-mapping-store";
 import { createManagedSnapshotStore } from "./features/production-provenance/server/managed-snapshot-store";
@@ -50,6 +51,7 @@ export const db = usesLoopbackTestDatabase(ENV.DATABASE_URL)
 	: createDb(ENV);
 export const animationTimingReviewStore = createAnimationTimingReviewStore(db);
 export const directionalReviewStore = createDirectionalReviewStore(db);
+export const iconFamilyReviewStore = createIconFamilyReviewStore(db);
 export const gameplayMetadataStore = createGameplayMetadataStore(db);
 export const assetFamilyStore = createAssetFamilyStore(db);
 export const familyReadinessStore = createFamilyReadinessStore(db);

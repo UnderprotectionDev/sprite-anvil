@@ -43,6 +43,7 @@ English terms are the canonical technical names used in code and contracts. Turk
 | Review Event | İnceleme Kaydı |
 | Directional Review | Kimlik ve Yön Tutarlılığı İncelemesi |
 | Animation Timing and Transition Review | Animasyon Zamanlamasını ve Geçişlerini İnceleme |
+| Icon Family Review | İkon Ailesi İncelemesi |
 | Human-Gated Action | Kullanıcı Kesinleştirmeli İşlem |
 | Export-Ready Version | Dışa Aktarıma Hazır Sürüm |
 | Review Disposition | İnceleme Kararı |
@@ -103,6 +104,7 @@ English terms are the canonical technical names used in code and contracts. Turk
 | Offline Conflict Record | Çakışma Kaydı |
 | Measurement Definition | Ölçüm Tanımı |
 | Project Archive | Proje Arşivi |
+| Icon Family Review Archive | İkon Ailesi İnceleme Arşivi |
 | Erasure Tombstone | Silme Kaydı |
 | External Visual Analysis | Harici Görsel Analizi |
 | Scene QA Playground | Sahne Kalite Kontrol Alanı |
@@ -264,6 +266,10 @@ _Avoid_: Review Event, automatic artistic verdict, approval
 **Animation Timing and Transition Review**:
 An immutable user-authored comparison of ordered animation frames from exact Asset Versions in one Asset Family, under a pinned Specialized Profile Contract. It retains each frame's independent duration and optional movement phase, the playback speed and loop setting, and the user's outcome and rationale. It does not make an automatic judgment about motion or identity; ground and loop differences remain subject to profile rules.
 _Avoid_: fixed frame rate, mandatory phase template, automatic motion verdict, approval
+
+**Icon Family Review**:
+An immutable user-authored assessment of exact icon Asset Versions in one Asset Family under a pinned icon Specialized Profile Contract. It records usage variants, logical sizes, light and dark background checks, grayscale comparison, and observations about object scale, lighting direction, outline, detail density, and whether a state or rarity color preserves identity. Its outcome does not change Review Disposition or create a project-wide art rule.
+_Avoid_: Review Event, similarity score, automatic artistic verdict, global style rule
 
 **Human-Gated Action**:
 A consequential decision reserved for the user: activating a Context Revision or Required Set, selecting a Canonical Design, recording a Review Event or Quality Waiver, starting an Export Bundle, resolving a divergent delivery target, and authorizing permanent erasure. Agents may prepare evidence and proposals but cannot perform these actions.
@@ -544,6 +550,10 @@ A portable, restorable package of Project Context revisions, asset relationships
 _Avoid_: Export bundle, backup of final PNGs
 
 Restoring a Project Archive creates an independent project by default and remaps its cloud identity while preserving relationships inside the archive. It never overwrites or automatically merges into an existing project.
+
+**Icon Family Review Archive**:
+A schema-versioned JSON file containing one Icon Family Review record, its pinned Specialized Profile Contract, exact Asset Version identities, and version summaries such as version number, content type, byte length, and digest. It contains no image bytes and supports portability of review evidence only; it is not a restorable Project Archive or a delivery-oriented Export Bundle.
+_Avoid_: Project Archive, Export Bundle, engine-neutral bundle, image backup
 
 **Erasure Tombstone**:
 A content-free historical marker indicating that a managed item was deliberately erased. It may preserve identity and broken-lineage facts but never the erased binary or sensitive content.
