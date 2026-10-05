@@ -10,6 +10,7 @@
     "desktop:dev": "tauri dev",
     "desktop:test": "wdio run wdio.conf.ts",
     "desktop:test:animation-timing": "wdio run wdio.conf.ts --spec desktop-e2e/animation-timing-reviews.spec.ts",
+    "desktop:test:asset-family-comparison": "wdio run wdio.conf.ts --spec desktop-e2e/asset-family-comparisons.spec.ts",
     "desktop:test:build": "VITE_WDIO=true tauri build --debug --no-bundle --config src-tauri/tauri.test.conf.json --features webdriver",
     "desktop:test:directional": "wdio run wdio.conf.ts --spec desktop-e2e/directional-reviews.spec.ts",
     "dev": "vite dev",

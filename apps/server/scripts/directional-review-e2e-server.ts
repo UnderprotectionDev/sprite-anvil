@@ -8,6 +8,8 @@ const allowedDatabases = new Set([
 	"directional_desktop_test",
 	"animation_timing_web_test",
 	"animation_timing_desktop_test",
+	"asset_family_comparison_web_test",
+	"asset_family_comparison_desktop_test",
 ]);
 
 if (!databaseUrl || process.env.NODE_ENV !== "test") {

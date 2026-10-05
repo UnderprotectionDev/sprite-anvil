@@ -5,32 +5,71 @@ import { withDisposablePostgres } from "./disposable-postgres";
 const repositoryDirectory = fileURLToPath(new URL("../../..", import.meta.url));
 const webDirectory = `${repositoryDirectory}/apps/web`;
 const serverDirectory = `${repositoryDirectory}/apps/server`;
-const animationTimingRun = process.argv[2] === "--animation-timing";
-if (process.argv[2] && !animationTimingRun) {
-	throw new Error("Unknown character-animation-profile E2E mode.");
+const modes = [
+	"--animation-timing",
+	"--asset-family-comparison",
+	"--directional",
+] as const;
+type E2EMode = (typeof modes)[number];
+function isE2EMode(value: string | undefined): value is E2EMode {
+	return modes.includes(value as E2EMode);
 }
-const reviewLabel = animationTimingRun
-	? "Animation timing review"
-	: "Directional review";
-const databaseNames: readonly [string, string, string] = animationTimingRun
-	? [
+const [requestedMode] = process.argv.slice(2);
+if (requestedMode && !isE2EMode(requestedMode)) {
+	throw new Error(`Unknown E2E mode. Expected one of: ${modes.join(", ")}.`);
+}
+const mode: E2EMode = isE2EMode(requestedMode)
+	? requestedMode
+	: "--directional";
+const {
+	reviewLabel,
+	databaseNames,
+	integrationTest,
+	integrationDatabaseEnvironmentVariable,
+	webE2ESpec,
+	desktopE2EScript,
+} = {
+	"--animation-timing": {
+		reviewLabel: "Animation timing review",
+		databaseNames: [
 			"animation_timing_test",
 			"animation_timing_web_test",
 			"animation_timing_desktop_test",
-		]
-	: ["directional_test", "directional_web_test", "directional_desktop_test"];
-const integrationTest = animationTimingRun
-	? "src/animation-timing-review.integration.test.ts"
-	: "src/directional-review.integration.test.ts";
-const integrationDatabaseEnvironmentVariable = animationTimingRun
-	? "ANIMATION_TIMING_REVIEW_TEST_DATABASE_URL"
-	: "DIRECTIONAL_REVIEW_TEST_DATABASE_URL";
-const webE2ESpec = animationTimingRun
-	? "e2e/animation-timing-reviews.spec.ts"
-	: "e2e/directional-reviews.spec.ts";
-const desktopE2EScript = animationTimingRun
-	? "desktop:test:animation-timing"
-	: "desktop:test:directional";
+		] as readonly [string, string, string],
+		integrationTest: "src/animation-timing-review.integration.test.ts",
+		integrationDatabaseEnvironmentVariable:
+			"ANIMATION_TIMING_REVIEW_TEST_DATABASE_URL",
+		webE2ESpec: "e2e/animation-timing-reviews.spec.ts",
+		desktopE2EScript: "desktop:test:animation-timing",
+	},
+	"--asset-family-comparison": {
+		reviewLabel: "Asset family comparison",
+		databaseNames: [
+			"asset_family_comparison_test",
+			"asset_family_comparison_web_test",
+			"asset_family_comparison_desktop_test",
+		] as readonly [string, string, string],
+		integrationTest:
+			"src/features/object-equipment-profile/server/asset-family-comparison.integration.test.ts",
+		integrationDatabaseEnvironmentVariable:
+			"ASSET_FAMILY_COMPARISON_TEST_DATABASE_URL",
+		webE2ESpec: "e2e/asset-family-comparisons.spec.ts",
+		desktopE2EScript: "desktop:test:asset-family-comparison",
+	},
+	"--directional": {
+		reviewLabel: "Directional review",
+		databaseNames: [
+			"directional_test",
+			"directional_web_test",
+			"directional_desktop_test",
+		] as readonly [string, string, string],
+		integrationTest: "src/directional-review.integration.test.ts",
+		integrationDatabaseEnvironmentVariable:
+			"DIRECTIONAL_REVIEW_TEST_DATABASE_URL",
+		webE2ESpec: "e2e/directional-reviews.spec.ts",
+		desktopE2EScript: "desktop:test:directional",
+	},
+}[mode];
 
 function databaseUrl(baseUrl: string, databaseName: string): string {
 	const url = new URL(baseUrl);

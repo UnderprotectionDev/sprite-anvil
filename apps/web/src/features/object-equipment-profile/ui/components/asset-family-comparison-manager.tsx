@@ -64,6 +64,9 @@ export function AssetFamilyComparisonManager({
 	const [pendingId, setPendingId] = useState<string | null>(null);
 	const [uncertain, setUncertain] = useState(false);
 	const [message, setMessage] = useState("");
+	// An uncertain write outcome must be resolved through the recorded
+	// operation id; opening older records must never clear the lock.
+	const controlsLocked = saving || uncertain;
 
 	const currentVersionByRecord = new Map<
 		string,
@@ -147,6 +150,9 @@ export function AssetFamilyComparisonManager({
 	}
 
 	async function checkCurrentRecords() {
+		if (saving || query.isFetching) {
+			return;
+		}
 		const result = await query.refetch();
 		if (result.isError) {
 			return;
@@ -203,7 +209,11 @@ export function AssetFamilyComparisonManager({
 				{query.data?.map((record) => (
 					<li key={record.id}>
 						<Button
+							disabled={controlsLocked}
 							onClick={() => {
+								if (controlsLocked) {
+									return;
+								}
 								setSelected(record);
 								setUncertain(false);
 							}}
@@ -236,9 +246,16 @@ export function AssetFamilyComparisonManager({
 					</div>
 					<ObservationSummary observations={selected.observations} />
 					<Button
+						disabled={controlsLocked}
 						onClick={() => {
+							if (controlsLocked) {
+								return;
+							}
 							setSelected(null);
+							setUncertain(false);
 							setMessage("");
+							setSelectedRecordIds([]);
+							setObservations(emptyObservations);
 						}}
 						type="button"
 					>
