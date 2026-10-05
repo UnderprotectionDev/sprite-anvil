@@ -26,6 +26,7 @@ import {
 	projectContextSchema,
 	validateContextProposal,
 } from "../project-context";
+import { animationMetadataPackageRouter } from "./animation-metadata-package";
 import { assetFamiliesRouter } from "./asset-families";
 import { assetRecordTrackingRouter } from "./asset-record-tracking";
 import { assetRecordsRouter } from "./asset-records";
@@ -109,6 +110,7 @@ export const appRouter = {
 	assetVersions: assetVersionsRouter,
 	assetRecords: assetRecordsRouter,
 	collections: collectionsRouter,
+	animationMetadataPackage: animationMetadataPackageRouter,
 	generationPackages: generationPackagesRouter,
 	gameplayMetadata: gameplayMetadataRouter,
 	assetRecordTracking: assetRecordTrackingRouter,

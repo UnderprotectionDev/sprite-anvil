@@ -2,6 +2,7 @@ import type { Context as ApiContext } from "@sprite-anvil/api/context";
 import type { Context as HonoContext } from "hono";
 import { assetVersionObjectKeySchema } from "./cloudflare";
 import { verifyAssetVersionStream } from "./features/asset-versions/server/asset-version-integrity";
+import { readAnimationMetadataPackageTarget } from "./features/character-animation-profile/server/animation-metadata-package-target";
 import { readGameplayMetadataPackageTarget } from "./features/gameplay-metadata/server/gameplay-metadata-package-target";
 import { reviewGameplayMetadata } from "./features/gameplay-metadata/server/gameplay-metadata-review";
 import {
@@ -48,6 +49,7 @@ export async function createContext({
 		generationPackageStore,
 		gameplayMetadataStore,
 		directionalReviewStore,
+		readAnimationMetadataPackageTarget,
 		reviewGameplayMetadata,
 		readGameplayMetadataPackageTarget,
 		verifyAssetVersionContent: async (userId, projectId, assetVersionId) => {
