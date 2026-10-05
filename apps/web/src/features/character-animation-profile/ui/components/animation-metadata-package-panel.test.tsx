@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import type { AnimationMetadataPackage } from "@sprite-anvil/api/animation-metadata-package";
+import { animationMetadataPackageSizeLimit } from "@sprite-anvil/api/animation-metadata-package";
 import type { AssetRecord } from "@sprite-anvil/api/asset-records";
 import {
 	cleanup,
@@ -196,4 +197,45 @@ test("does not render the Animation Metadata Package for another asset category"
 	expect(
 		screen.queryByRole("region", { name: "Animasyon Metadata Paketi" })
 	).not.toBeInTheDocument();
+});
+
+test("surfaces local package read errors instead of the generic failure message", async () => {
+	renderPanel();
+
+	const compositeSelect = await screen.findByRole("combobox", {
+		name: "Birleşik Sürüm",
+	});
+	fireEvent.change(compositeSelect, { target: { value: "composite-v1" } });
+	const fileInput = await screen.findByLabelText(
+		"Animasyon metadata paketini yeniden oku"
+	);
+
+	fireEvent.change(fileInput, {
+		target: {
+			files: [
+				new File(
+					["x".repeat(animationMetadataPackageSizeLimit + 1)],
+					"big.json",
+					{
+						type: "application/json",
+					}
+				),
+			],
+		},
+	});
+	expect(await screen.findByRole("alert")).toHaveTextContent(
+		"Animasyon metadata paketi 512 KiB sınırını aşıyor."
+	);
+
+	fireEvent.change(fileInput, {
+		target: {
+			files: [
+				new File(["not json"], "broken.json", { type: "application/json" }),
+			],
+		},
+	});
+	expect(await screen.findByRole("alert")).toHaveTextContent(
+		"Animasyon metadata paketi geçerli JSON değil."
+	);
+	expect(fakeApi.readPackage).not.toHaveBeenCalled();
 });

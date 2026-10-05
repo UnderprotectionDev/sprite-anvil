@@ -1,4 +1,5 @@
 import { ORPCError } from "@orpc/server";
+import { ZodError } from "zod";
 import {
 	type AnimationMetadataPackage,
 	animationMetadataPackageInputSchema,
@@ -9,6 +10,24 @@ import {
 } from "../animation-metadata-package";
 import type { Context } from "../context";
 import { protectedProcedure } from "../index";
+
+function getPackageErrorMessage(failure: unknown) {
+	if (failure instanceof ZodError) {
+		const messages = [
+			...new Set(
+				failure.issues
+					.map((issue) => issue.message)
+					.filter((message) => message.length > 0)
+			),
+		];
+		if (messages.length) {
+			return messages.join(" ");
+		}
+	}
+	return failure instanceof Error
+		? failure.message
+		: "Animation Metadata Package is invalid.";
+}
 
 async function readPackageTarget(
 	context: Context,
@@ -45,10 +64,7 @@ async function withPackageErrors(
 	} catch (failure) {
 		throw new ORPCError("BAD_REQUEST", {
 			cause: failure,
-			message:
-				failure instanceof Error
-					? failure.message
-					: "Animation Metadata Package is invalid.",
+			message: getPackageErrorMessage(failure),
 		});
 	}
 }

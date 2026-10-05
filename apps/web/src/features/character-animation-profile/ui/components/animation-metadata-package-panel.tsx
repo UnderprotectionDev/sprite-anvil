@@ -17,6 +17,12 @@ function getCompositeVersionLabel(compositeVersion: CompositeVersion) {
 	).format(new Date(compositeVersion.createdAt))}`;
 }
 
+function createPackageInputError(message: string, options?: ErrorOptions) {
+	return Object.assign(new Error(message, options), {
+		code: "PACKAGE_INPUT_ERROR",
+	});
+}
+
 export function AnimationMetadataPackagePanel({
 	projectId,
 	record,
@@ -111,18 +117,21 @@ function AnimationMetadataPackagePanelContent({
 		setMessage(null);
 		try {
 			if (file.size > animationMetadataPackageSizeLimit) {
-				throw new Error("Animasyon metadata paketi 512 KiB sınırını aşıyor.");
+				throw createPackageInputError(
+					"Animasyon metadata paketi 512 KiB sınırını aşıyor."
+				);
 			}
 			if (!selectedCompositeVersion) {
-				throw new Error("Önce Birleşik Sürüm seçin.");
+				throw createPackageInputError("Önce Birleşik Sürüm seçin.");
 			}
 			let packageContents: unknown;
 			try {
 				packageContents = JSON.parse(await file.text());
 			} catch (cause) {
-				throw new Error("Animasyon metadata paketi geçerli JSON değil.", {
-					cause,
-				});
+				throw createPackageInputError(
+					"Animasyon metadata paketi geçerli JSON değil.",
+					{ cause }
+				);
 			}
 			const input = animationMetadataPackageReadInputSchema.parse({
 				projectId,

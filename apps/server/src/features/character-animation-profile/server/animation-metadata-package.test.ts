@@ -385,7 +385,10 @@ test("rejects an Animation Metadata Package larger than 512 KiB", async () => {
 			{ projectId, assetRecordId, compositeVersionId },
 			fixture.context
 		)
-	).rejects.toMatchObject({ code: "BAD_REQUEST" });
+	).rejects.toMatchObject({
+		code: "BAD_REQUEST",
+		message: "Animasyon Metadata Paketi 512 KiB sınırını aşıyor.",
+	});
 });
 
 test("rereads an older package after Directional Review changes and one frame is corrected in a newer composition", async () => {
