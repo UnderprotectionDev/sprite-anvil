@@ -43,6 +43,8 @@ Her profilin ortak senaryosu şu kanıtları üretir:
 
 **Kanıt:** Yönler eşzamanlı karşılaştırılır. Kimlik, dönüş noktası, zemine temas, ekipmanın hangi tarafta olduğu, zamanlama, isabet olayı, mount point ve çarpışma alanı incelenir. Eksik veya yanlış kareye bağlanan metadata Bütünlük Denetimi’nde dışa aktarımı engeller ve kaynak → düzenleme → paket → yeniden okuma turunda tam kimliğiyle korunur. Zemin ve loop sapması profil toleransına göre gereksinim veya insan incelemesi olur; evrensel otomatik engel sayılmaz. Sahne kalite kontrol alanı bekleme → saldırı geçişini ve olay zamanlamasını doğrular. Onarım yalnızca hatalı kareyi kapsar; ilgisiz yönler yeniden üretilmez.
 
+**Animasyon Metadata Paketi (#96) kapsamı:** Paket yalnız seçili Composite Version'ın bileşim üyeliklerini, kesin birim ve asset sürümlerini, ayrıca paketleme anında o bileşimdeki karelere bağlı Gameplay Metadata'yı taşır. Aynı tarihsel Composite Version'a göre yeniden okuma, paket özetini, kesin sürüm pinlerini ve paketteki metadata kayıtlarını doğrular; daha sonra aynı kareye eklenen metadata eski paketi geçersiz kılmaz. Directional Review kaydına bağlı kare süreleri ve atlas bölgeleri o review kaydında kalır; görsel dosyalar ve tam Export Bundle bu paketin parçası değildir.
+
 #### RAS-02 — Objeler, silahlar, ekipmanlar ve durum aileleri
 
 **Test örneği:** Ortak perspektif, ızgara, malzeme ve sıralama noktası kuralları olan, birden fazla durum içeren obje ailesi. Durumlardan birinde perspektif veya sabitleme noktası uyumsuzluğu vardır.

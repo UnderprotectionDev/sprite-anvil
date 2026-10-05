@@ -107,6 +107,7 @@ English terms are the canonical technical names used in code and contracts. Turk
 | Scene QA Playground | Sahne Kalite Kontrol Alanı |
 | Runtime Validation Record | Çalışma Zamanı Doğrulama Kaydı |
 | Gameplay Metadata | Oyun İçi Bilgiler |
+| Animation Metadata Package | Animasyon Metadata Paketi |
 | Deletion Job | Silme İşlemi |
 | Support Reference | Destek Referansı |
 | Tool Access Permission | Dış Araç Erişim İzni |
@@ -566,6 +567,10 @@ _Avoid_: Engine synchronization, scene QA result, export bundle
 **Gameplay Metadata**:
 User-authored or imported, reviewed hitbox, hurtbox, collision, event, and related information that may be previewed and exported. It is never inferred as authoritative from visual alpha and does not imply full physics simulation.
 _Avoid_: Visual bounds, automatic collision truth
+
+**Animation Metadata Package**:
+A schema-versioned JSON snapshot for one immutable Composite Version. It carries that composition's exact Composition Memberships, Unit Versions, Asset Version pins, and the Gameplay Metadata attached to its selected frames when packaged. It can be reread against the same Composite Version without later appended metadata invalidating the snapshot, and is limited to 512 KiB. It excludes image bytes, full Export Bundle contents, and Directional Review-owned values such as per-frame durations and atlas regions.
+_Avoid_: Export Bundle, Directional Review record, asset archive
 
 **Deletion Job**:
 A trackable erasure operation authorized against an exact Erasure Impact Report. The report identifies managed copies, immutable archives or bundles that embed the content, affected historical fulfilments, excluded copies, and the published backup-retention deadline. An immutable container is erased as a whole or left unchanged; it is never silently rewritten to remove one item. A content-free deletion receipt records completion, and an Erasure Tombstone remains only when content-free lineage is preserved.

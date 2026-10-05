@@ -1,5 +1,6 @@
 import type { Session } from "@sprite-anvil/auth";
 import type { Database } from "@sprite-anvil/db";
+import type { AnimationMetadataPackageTargetReader } from "./animation-metadata-package";
 import type { AssetFamilyStore } from "./asset-families";
 import type { AssetRecordTrackingStore } from "./asset-record-tracking";
 import type { AssetRecordStore } from "./asset-records";
@@ -38,6 +39,7 @@ export interface Context {
 	projectContextScopeStore: ProjectContextScopeStore;
 	projectContextStore: ProjectContextStore;
 	providerGenerationRecordStore?: ProviderGenerationRecordStore;
+	readAnimationMetadataPackageTarget?: AnimationMetadataPackageTargetReader;
 	readGameplayMetadataPackageTarget?: GameplayMetadataPackageTargetReader;
 	referenceProductionStore?: ReferenceProductionStore;
 	reviewGameplayMetadata?: GameplayMetadataReviewHandler;

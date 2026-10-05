@@ -24,6 +24,10 @@ Pivot, zemin noktası, mount point, çarpışma alanı ve olay bağlantıları k
 
 Kareye bağlı pivot, zemin çizgisi, mount point, çarpışma alanı ve olay bilgisi içe aktarma, düzenleme, paketleme ve yeniden okumada aynı kimliği korur. Kopuk kare bağlantısı bütünlük engelidir; zemin veya loop sapması sözleşmedeki tolerans ve inceleme sınıfına göre ele alınır.
 
+#### Animasyon Metadata Paketi (#96)
+
+Paket seçili Composite Version'ın bileşim üyeliklerini, kesin Unit Version ve Asset Version pinlerini ve paketleme anında bileşimde seçili karelere bağlı Gameplay Metadata'yı taşır. Kare süreleri ve atlas bölgeleri ayrı Directional Review kaydına bağlıdır ve pakete girmez. Paket görsel dosyaları veya tam Export Bundle'ı içermez. Tarihsel paketi yeniden okuma, aynı Composite Version'ın kesin pinleri ve paketteki metadata kayıtları üzerinden doğrulanır; sonradan eklenen metadata eski anlık görüntüyü geçersiz kılmaz. JSON paket 512 KiB'ı aşamaz.
+
 ## Tamamlanma Ölçütleri
 
 - Farklı süreli yön ve kareler, olay ve bağlantı bilgileriyle incelenir; sorunlu tek kare düzeltilip eski bileşim korunarak paketlenebilir.
