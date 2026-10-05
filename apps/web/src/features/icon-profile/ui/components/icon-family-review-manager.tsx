@@ -296,6 +296,8 @@ export function IconFamilyReviewManager({
 	const [rationale, setRationale] = useState("");
 	const [saving, setSaving] = useState(false);
 	const [pendingId, setPendingId] = useState<string | null>(null);
+	const [pendingInput, setPendingInput] =
+		useState<IconFamilyReviewInput | null>(null);
 	const [uncertain, setUncertain] = useState(false);
 	const [message, setMessage] = useState("");
 	const reviewQuery = useQuery({
@@ -356,22 +358,25 @@ export function IconFamilyReviewManager({
 		if (persisted && !result.isError) {
 			setPendingId(null);
 			setUncertain(false);
+			setPendingInput(null);
 			setMessage("İnceleme kalıcı kayıttan doğrulandı.");
 			return;
 		}
 		setMessage(
 			result.isError
 				? "Kayıtlar yeniden okunamadı. Aynı incelemeyi göndermeden önce tekrar kontrol edin."
-				: "İnceleme henüz kalıcı listede görünmüyor. Aynı incelemeyi yeniden göndermeyin; kayıtları tekrar kontrol edin."
+				: "İnceleme kalıcı listede görünmüyor. Sonuç belirsiz kaldı; aynı incelemeyi yeniden gönderebilir veya kayıtları tekrar kontrol edebilirsiniz."
 		);
 	}
 
 	async function save(input: IconFamilyReviewInput) {
 		setSaving(true);
 		setPendingId(input.id);
+		setPendingInput(input);
 		setMessage("");
 		try {
 			await client.iconFamilyReviews.save(input);
+			setPendingInput(null);
 			const result = await reviewQuery.refetch();
 			const persisted = result.data?.find((record) => record.id === input.id);
 			if (result.isError || !persisted) {
@@ -382,19 +387,28 @@ export function IconFamilyReviewManager({
 				return;
 			}
 			setPendingId(null);
+			setUncertain(false);
 			setMessage("İnceleme kalıcı kayıttan doğrulandı.");
 		} catch (error) {
 			if (!isWriteOutcomeUncertain(error)) {
 				setPendingId(null);
+				setUncertain(false);
+				setPendingInput(null);
 				setMessage(getErrorMessage(error, "İnceleme kaydedilemedi."));
 				return;
 			}
 			setUncertain(true);
 			setMessage(
-				"Kaydetme sonucu doğrulanamadı. Güncel kayıtları kontrol edin; aynı incelemeyi yeniden göndermeyin."
+				"Kaydetme sonucu doğrulanamadı. Güncel kayıtları kontrol edin; kayıt yoksa aynı incelemeyi yeniden gönderebilirsiniz."
 			);
 		} finally {
 			setSaving(false);
+		}
+	}
+
+	function resendPendingReview() {
+		if (pendingInput) {
+			void save(pendingInput);
 		}
 	}
 
@@ -480,13 +494,25 @@ export function IconFamilyReviewManager({
 				</p>
 			) : null}
 			{uncertain ? (
-				<Button
-					disabled={reviewQuery.isFetching}
-					onClick={() => void checkCurrentRecords()}
-					type="button"
-				>
-					Güncel kayıtları kontrol et
-				</Button>
+				<div className="flex flex-wrap gap-2">
+					<Button
+						disabled={reviewQuery.isFetching || saving}
+						onClick={() => void checkCurrentRecords()}
+						type="button"
+					>
+						Güncel kayıtları kontrol et
+					</Button>
+					{pendingInput ? (
+						<Button
+							disabled={reviewQuery.isFetching || saving}
+							onClick={resendPendingReview}
+							type="button"
+							variant="outline"
+						>
+							Aynı incelemeyi yeniden gönder
+						</Button>
+					) : null}
+				</div>
 			) : null}
 			{reviewQuery.data?.length ? (
 				<section aria-label="Kaydedilmiş ikon ailesi incelemeleri">
@@ -872,17 +898,26 @@ function IconPreview({
 			stageClass: "bg-white",
 		},
 	}[background];
-	const imageSize = (size: number) => `${Math.min(Math.max(size, 1), 80)}px`;
+	const renderBound = 80;
+	const scaledNote =
+		width > renderBound || height > renderBound
+			? ` · ${renderBound} px'e ölçeklendi`
+			: "";
+	const imageSize = (size: number) =>
+		`${Math.min(Math.max(size, 1), renderBound)}px`;
 	return (
 		<figure className="space-y-1 text-center">
-			<figcaption className="text-muted-foreground text-xs">{label}</figcaption>
+			<figcaption className="text-muted-foreground text-xs">
+				{label}
+				{scaledNote}
+			</figcaption>
 			<div
 				className={`flex min-h-24 items-center justify-center overflow-hidden rounded border p-2 ${stageClass}`}
 			>
 				<img
-					alt={`${name} · ${label}`}
+					alt={`${name} · ${label}${scaledNote}`}
 					className={imageClass}
-					height={Math.min(Math.max(height, 1), 80)}
+					height={Math.min(Math.max(height, 1), renderBound)}
 					src={`${serverUrl}${version.previewUrl}`}
 					style={{
 						height: imageSize(height),
@@ -891,7 +926,7 @@ function IconPreview({
 						objectFit: "contain",
 						width: imageSize(width),
 					}}
-					width={Math.min(Math.max(width, 1), 80)}
+					width={Math.min(Math.max(width, 1), renderBound)}
 				/>
 			</div>
 		</figure>

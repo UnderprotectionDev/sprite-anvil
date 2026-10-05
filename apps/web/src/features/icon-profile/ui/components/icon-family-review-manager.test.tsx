@@ -408,6 +408,213 @@ test("offers a fresh read when saving succeeds but the persisted list cannot be 
 	expect(mocks.save).toHaveBeenCalledOnce();
 });
 
+test("offers an identical-id resend when an uncertain save never persisted", async () => {
+	mocks.list
+		.mockResolvedValueOnce([])
+		.mockResolvedValueOnce([])
+		.mockImplementation(async () => persistedReviews);
+	let saveCalls = 0;
+	mocks.save.mockImplementation((input: IconFamilyReviewInput) => {
+		saveCalls += 1;
+		if (saveCalls === 1) {
+			return Promise.reject(new TypeError("Failed to fetch"));
+		}
+		const record = makeReview(input);
+		persistedReviews = [record];
+		return Promise.resolve(record);
+	});
+
+	mount();
+	await waitFor(() =>
+		expect(
+			screen.getByRole("button", { name: "İncelemeyi kaydet" })
+		).toBeEnabled()
+	);
+
+	for (const [index, variant] of [
+		"inventory-slot",
+		"ability-wheel",
+	].entries()) {
+		fireEvent.change(
+			within(
+				screen.getByRole("group", {
+					name: `Karşılaştırma öğesi ${index + 1}`,
+				})
+			).getByLabelText("Kullanım çeşidi"),
+			{ target: { value: variant } }
+		);
+	}
+	for (const label of [
+		"Nesne ölçeği notu",
+		"Işık yönü notu",
+		"Kontur notu",
+		"Ayrıntı yoğunluğu notu",
+		"Durum veya nadirlik rengi notu",
+	]) {
+		fireEvent.change(screen.getByLabelText(label), {
+			target: { value: `${label} gözlemi` },
+		});
+	}
+	fireEvent.change(screen.getByLabelText("İnceleme gerekçesi"), {
+		target: { value: "Belirsiz kaydetme sonrası yeniden gönderim." },
+	});
+
+	fireEvent.click(screen.getByRole("button", { name: "İncelemeyi kaydet" }));
+	await screen.findByText(
+		"Kaydetme sonucu doğrulanamadı. Güncel kayıtları kontrol edin; kayıt yoksa aynı incelemeyi yeniden gönderebilirsiniz."
+	);
+
+	fireEvent.click(
+		screen.getByRole("button", { name: "Güncel kayıtları kontrol et" })
+	);
+	await screen.findByText(
+		"İnceleme kalıcı listede görünmüyor. Sonuç belirsiz kaldı; aynı incelemeyi yeniden gönderebilir veya kayıtları tekrar kontrol edebilirsiniz."
+	);
+
+	const resendButton = screen.getByRole("button", {
+		name: "Aynı incelemeyi yeniden gönder",
+	});
+	expect(resendButton).toBeEnabled();
+	expect(
+		screen.getByRole("button", { name: "İncelemeyi kaydet" })
+	).toBeDisabled();
+	fireEvent.click(resendButton);
+	await screen.findByText("İnceleme kalıcı kayıttan doğrulandı.");
+
+	expect(mocks.save).toHaveBeenCalledTimes(2);
+	const first = mocks.save.mock.calls[0]?.[0] as IconFamilyReviewInput;
+	const second = mocks.save.mock.calls[1]?.[0] as IconFamilyReviewInput;
+	expect(second.id).toBe(first.id);
+	expect(second).toEqual(first);
+});
+
+test("re-enables the form when the resent review fails with a definitive error", async () => {
+	mocks.list.mockResolvedValue([]);
+	let saveCalls = 0;
+	mocks.save.mockImplementation(() => {
+		saveCalls += 1;
+		if (saveCalls === 1) {
+			return Promise.reject(new TypeError("Failed to fetch"));
+		}
+		const conflict = new Error(
+			"Specialized Profile Contract changed. Reload before reviewing."
+		);
+		(conflict as Error & { code: string }).code = "CONFLICT";
+		return Promise.reject(conflict);
+	});
+
+	mount();
+	await waitFor(() =>
+		expect(
+			screen.getByRole("button", { name: "İncelemeyi kaydet" })
+		).toBeEnabled()
+	);
+
+	for (const [index, variant] of [
+		"inventory-slot",
+		"ability-wheel",
+	].entries()) {
+		fireEvent.change(
+			within(
+				screen.getByRole("group", {
+					name: `Karşılaştırma öğesi ${index + 1}`,
+				})
+			).getByLabelText("Kullanım çeşidi"),
+			{ target: { value: variant } }
+		);
+	}
+	for (const label of [
+		"Nesne ölçeği notu",
+		"Işık yönü notu",
+		"Kontur notu",
+		"Ayrıntı yoğunluğu notu",
+		"Durum veya nadirlik rengi notu",
+	]) {
+		fireEvent.change(screen.getByLabelText(label), {
+			target: { value: `${label} gözlemi` },
+		});
+	}
+	fireEvent.change(screen.getByLabelText("İnceleme gerekçesi"), {
+		target: { value: "Kesin sürüm karşılaştırması." },
+	});
+
+	fireEvent.click(screen.getByRole("button", { name: "İncelemeyi kaydet" }));
+	await screen.findByText(
+		"Kaydetme sonucu doğrulanamadı. Güncel kayıtları kontrol edin; kayıt yoksa aynı incelemeyi yeniden gönderebilirsiniz."
+	);
+	fireEvent.click(
+		screen.getByRole("button", { name: "Güncel kayıtları kontrol et" })
+	);
+	await screen.findByText(
+		"İnceleme kalıcı listede görünmüyor. Sonuç belirsiz kaldı; aynı incelemeyi yeniden gönderebilir veya kayıtları tekrar kontrol edebilirsiniz."
+	);
+
+	fireEvent.click(
+		screen.getByRole("button", { name: "Aynı incelemeyi yeniden gönder" })
+	);
+	await screen.findByText(
+		"Specialized Profile Contract changed. Reload before reviewing."
+	);
+	expect(
+		screen.getByRole("button", { name: "İncelemeyi kaydet" })
+	).toBeEnabled();
+	expect(
+		screen.queryByRole("button", { name: "Aynı incelemeyi yeniden gönder" })
+	).toBeNull();
+});
+
+test("marks previews that are scaled down from the requested logical size", async () => {
+	mocks.list.mockResolvedValue([]);
+
+	mount();
+	await waitFor(() =>
+		expect(
+			screen.getByRole("button", { name: "İncelemeyi kaydet" })
+		).toBeEnabled()
+	);
+
+	const firstItem = screen.getByRole("group", {
+		name: "Karşılaştırma öğesi 1",
+	});
+	fireEvent.change(
+		within(firstItem).getByLabelText("Mantıksal genişlik (px)"),
+		{
+			target: { value: "512" },
+		}
+	);
+	fireEvent.change(
+		within(firstItem).getByLabelText("Mantıksal yükseklik (px)"),
+		{ target: { value: "512" } }
+	);
+
+	const familyComparison = screen.getByRole("region", {
+		name: "İkon ailesini yan yana karşılaştırma",
+	});
+	const comparisonGrid = within(familyComparison).getByRole("group", {
+		name: "İkon ailesi karşılaştırma ızgarası",
+	});
+	const healthComparison = within(comparisonGrid).getByRole("article", {
+		name: "Health potion · Kullanım çeşidi belirtilmedi · 512 × 512 px",
+	});
+	const manaComparison = within(comparisonGrid).getByRole("article", {
+		name: "Mana potion · Kullanım çeşidi belirtilmedi · 64 × 64 px",
+	});
+
+	expect(
+		within(healthComparison).getByRole("img", {
+			name: "Health potion · Açık arka plan · 80 px'e ölçeklendi",
+		})
+	).toBeInTheDocument();
+	expect(
+		within(healthComparison).getByText("Gri tonlama · 80 px'e ölçeklendi")
+	).toBeInTheDocument();
+	expect(
+		within(manaComparison).getByRole("img", {
+			name: "Mana potion · Koyu arka plan",
+		})
+	).toBeInTheDocument();
+});
+
 test("loads comparison defaults when asset records arrive after the profile activation", async () => {
 	mocks.list.mockResolvedValue([]);
 	const { rerender, renderManager } = mount([], []);
