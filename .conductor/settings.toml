@@ -14,3 +14,31 @@ icon = "play"
 available_in = ["local"]
 command = "bun run test:e2e:directional"
 icon = "test-tube"
+
+[prompts]
+rename_branch = """
+Generate the complete branch name in this format:
+
+<type>/<short-description>
+
+Use exactly one of these types:
+- feat: new user-facing behavior or capability
+- fix: bug fix
+- docs: documentation-only change
+- refactor: internal restructuring without intended behavior change
+- test: test-only change
+- perf: performance improvement
+- build: build system or dependency change
+- ci: CI or GitHub Actions change
+- chore: maintenance that does not fit another type
+
+Use the same type that should appear in the Conventional Commits pull request title.
+
+Write the description in English lowercase kebab-case using 3–6 meaningful words. Name the intended outcome using terminology from the owning spec or product domain, not arbitrary file or folder names.
+
+Do not include a username, issue number, date, workspace name, generated suffix, or version marker such as v1 or v2. Do not use Conventional Commits parentheses or a colon in the branch name. Always replace the entire existing branch name; never preserve or prepend a Conductor-generated workspace prefix.
+
+Choose the type from the primary intended outcome. Do not label bug fixes as feat or behavior changes as refactor.
+
+Return only the branch name without explanation, Markdown, or code fences.
+"""
