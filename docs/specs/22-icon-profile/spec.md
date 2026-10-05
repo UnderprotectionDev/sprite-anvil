@@ -8,9 +8,11 @@
 
 İkonlar gerçek kullanım boyutlarında, açık ve koyu arka planlarda siluet, okunurluk, iç boşluk, renk ve aile içi nesne ölçeğiyle sınanır.
 
-İkonun kaynağı ile oyunda veya arayüzde görüleceği gerçek boyut farklı olabilir. Aile incelemesi bu boyut ve arka plan koşullarını birlikte tutar.
+İkonun kaynağı ile oyunda veya arayüzde görüleceği gerçek boyut farklı olabilir. Aile incelemesi bu boyut ve arka plan koşullarını birlikte tutar; nesne ölçeği, ışık yönü, kontur, ayrıntı yoğunluğu ve durum veya nadirlik renginin kimliği koruyup korumadığına dair kullanıcı değerlendirmesini kaydeder.
 
-Tamamlanma kanıtı: Hedef boyut, okunurluk, renk ve aile ölçeği kesin ikon sürümünde değerlendirilir; kullanım çeşidi ile mantıksal ölçü paketlenir.
+Bu issue'ın teslim kapsamı, kalıcı `Icon Family Review` kaydı ve indirilebilir `Icon Family Review Archive` JSON dosyasıdır. Arşiv; `schemaVersion`, kayıt verisi, etkin Özel Profil Sözleşmesi kopyası, kesin Varlık Sürümü kimlikleri ve sürüm özetlerini taşır. Görsel baytlarını taşımaz; genel Oyun Motorundan Bağımsız Paket, Dışa Aktarım Paketi veya Proje Arşivi değildir.
+
+Bu teslimat, RAS-03'ün aile incelemesi ve inceleme kaydı bölümünü kanıtlar. PRD'deki tam Dışa Aktarım Paketi ve web/masaüstü kabul kapsamının yerine geçmez.
 
 ## User Stories
 
@@ -21,6 +23,7 @@ Tamamlanma kanıtı: Hedef boyut, okunurluk, renk ve aile ölçeği kesin ikon s
 5. Bir kullanıcı olarak nadirlik veya durum renginin nesne kimliğini sessizce değiştirmemesini istiyorum; böylece renk çeşidi yeni varlık kimliği sanılmaz.
 6. Bir kullanıcı olarak mantıksal boyutu, kullanım çeşidini ve kesin ikon sürümünü pakette taşımak istiyorum; böylece oyunda hangi temsilin kullanıldığı korunur.
 7. Bir kullanıcı olarak ikon kullanım testini etkin Özel Profil Sözleşmesi altında kaydetmek istiyorum; böylece ölçüm ve inceleme kesin profil sürümüne bağlanır.
+8. Bir kullanıcı olarak aile incelemesini şema sürümü, kesin Varlık Sürümü kimlikleri ve sürüm özetleriyle JSON olarak indirmek istiyorum; böylece değerlendirme kaydı görsel dosyaları taşımadan incelenebilir.
 
 ## Normatif gereksinimler
 
@@ -32,21 +35,26 @@ Tamamlanma kanıtı: Hedef boyut, okunurluk, renk ve aile ölçeği kesin ikon s
 
 - **İkonu Kullanım Boyutunda Önizleme:** İkon kaynak ve mantıksal ölçülerinde, açık ve koyu arka planlarda siluet, okunurluk ve iç boşlukla gösterilir. Kaynak ve mantıksal ölçü ile gerçek kullanım çeşidi ayrı kayıtlanır; ikon hedef ölçüde ve gri tonlamada da görülebilir. Açık veya koyu arka planda siluet ve iç boşluk kaybı insan incelemesine sunulur.
 - **İkon Ailesi Tutarlılığını İnceleme:** Nesne ölçeği, ışık, kontur, ayrıntı yoğunluğu ve durum ya da nadirlik renginin kimliği bozup bozmadığı karşılaştırılır. Aynı ailede nesne ölçeği, ışık yönü, kontur ve ayrıntı yoğunluğu yan yana izlenir. Nadirlik veya durum rengi nesne kimliğini sessizce değiştiremez; seçilen ikonun kesin sürümü dışa aktarım eşlemesine girer.
+- **Icon Family Review kaydı:** Kullanıcının karşılaştırma sonuçları, gerekçesi, kullanım çeşidi, mantıksal ölçü, açık/koyu arka plan ve gri tonlama denetimleri; etkin ikon sözleşmesi kopyasıyla ve karşılaştırılan kesin Varlık Sürümleriyle değişmez bir kayda bağlanır.
+- **Icon Family Review Archive:** İndirilen JSON, `archiveType`, `schemaVersion`, dışa aktarım zamanı ve tam `Icon Family Review` kaydını içerir. Her kesin Varlık Sürümü için kayıt kimliği ve adı, sürüm kimliği ve numarası, içerik türü, bayt uzunluğu ve SHA-256 özeti bulunur. Önizleme URL'leri, kimlik bilgileri ve görsel baytları arşive girmez. Bu dosya, genel dışa aktarım veya geri yükleme paketi değildir.
 
 - **Yetki ve sürüm sınırı:** Aşağıdaki PRD hükümleri normatiftir. Fazın iş kırılımı, başka bir özelliğin kararını bu kapsama eklemez. Kesin kullanıcı kararları ajan veya otomasyon tarafından verilmez.
 - **Kapsam sınırı:** Tek bir ışık veya nadirlik rengi bütün proje için yeni evrensel sanat kuralı oluşturmaz.
 
 ## Testing Decisions
 
-- **Birincil test seam’i:** RAS-03 örneklerinde kesin girdiyi kullanıcı eyleminden kalıcı kayda ve yeniden okumaya taşıyan sunucu/API yolunu sınama; web ve masaüstü görünür sonuçlarını karşılaştırma.
-- Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.
-- Bugün repoda bu faza ait ürün sözleşmesi bulunmuyor. Mevcut sunucu ve yüzey test örnekleri: [`account-access.test.ts`](../../../apps/server/src/account-access.test.ts), [`app-shell.spec.ts` (web)](../../../apps/web/e2e/app-shell.spec.ts) ve [`app-shell.spec.ts` (desktop)](../../../apps/web/desktop-e2e/app-shell.spec.ts). Bunlar bu özelliğin test edildiği anlamına gelmez.
-- Fazın özgül başarı ve red kanıtı: Hedef boyut, okunurluk, renk ve aile ölçeği kesin ikon sürümünde değerlendirilir; kullanım çeşidi ile mantıksal ölçü paketlenir. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Tek bir ışık veya nadirlik rengi bütün proje için yeni evrensel sanat kuralı oluşturmaz.
+- **Onaylanmış test seam'leri:** (1) Korumalı oRPC `save` ve `list` işlemleriyle gerçek PostgreSQL kaydı ve farklı bir bağlantıdan yeniden okuma; (2) web `IconFamilyReviewManager` görünümünde incelemeyi kaydetme, kaydedilmiş kaydı görme ve JSON arşivini indirme.
+- Kalıcı test, aynı ailedeki en az iki kesin ikon sürümünü, birden fazla mantıksal ölçüyü, kullanım çeşidini, etkin sözleşme kopyasını ve özetlenmiş sürüm kimliklerini doğrular. Geçersiz veya aileye ait olmayan bir sürümün reddedilip kayda dönüşmediğini de sınar. Web testi arşiv şemasını, kimlikleri/özetleri ve görsel baytları ya da önizleme URL'lerinin dışarıda kalmasını doğrular.
+- Testler kullanıcı eyleminden kalıcı sonucu yeniden okumaya kadar gider; iç yardımcıların çağrılma sırasını test etmez. Veritabanı entegrasyonu yalnız geçici loopback PostgreSQL kullanır.
+- Bu issue'ın kalıcılık ve web görünümü kanıtları [`icon-family-review.integration.test.ts`](../../../apps/server/src/icon-family-review.integration.test.ts) ile [`icon-family-review-manager.test.tsx`](../../../apps/web/src/features/icon-profile/ui/components/icon-family-review-manager.test.tsx) içindedir.
+- Fazın bu issue için başarı kanıtı: Hedef boyut, okunurluk, renk ve aile ölçeği kesin ikon sürümünde değerlendirilir; kullanım çeşidi, mantıksal ölçü ve tam sürüm özeti arşivlenir. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Tek bir ışık veya nadirlik rengi bütün proje için yeni evrensel sanat kuralı oluşturmaz; JSON arşivi tam RAS-03 dışa aktarım kanıtı veya görsel dosya paketi sayılmaz.
 - Kabul örnekleri: RAS-03. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
 
 ## Out of Scope
 
 Tek bir ışık veya nadirlik rengi bütün proje için yeni evrensel sanat kuralı oluşturmaz.
+
+Icon Family Review Archive dışında genel Engine-Neutral Bundle, görsel baytlarını içeren paket, Project Archive round-trip ve bu issue için ayrı masaüstü kabul testi.
 
 ## Further Notes
 
@@ -65,4 +73,4 @@ Tek bir ışık veya nadirlik rengi bütün proje için yeni evrensel sanat kura
 **Kabul izlenebilirliği**
 
 - [RAS-03](../../prd/10-acceptance-scenarios.md)
-- Mevcut uygulama yalnız temel web/masaüstü kabuğu ve sınırlı sunucu yükleme yolunu içeriyor; bu spec teslim edilmiş ürün iddiası değildir. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.
+- Bu issue kapsamında kayıt, mevcut sunucu/API/PostgreSQL yığınıyla kalıcılaştırılır; web görünümü mevcut Varlık Aileleri ekranına bağlanır. Yeni bağımlılık veya platform sınırı eklenmez. Arşiv kapsamı Icon Family Review kaydıyla sınırlıdır.
