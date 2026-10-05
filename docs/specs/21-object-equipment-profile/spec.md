@@ -31,17 +31,17 @@ Tamamlanma kanıtı: Durum kimlikleri ve sıralama noktaları roundtrip korunur;
 ## Implementation Decisions
 
 - **Durum ve Yön Ailesini Karşılaştırma:** Durumlar ve yönler ortak ölçek, perspektif, malzeme dili ve ayrışma açısından aile olarak incelenir. Kapalı, açık veya hasarlı gibi durumlar ve yönler tek aile içinde karşılaştırılır; gerekli durumlar ayrı Gerekli Öğeler Listesinde izlenir. Durum kimliği, yön ve sıralama bağlantısı paketlenip yeniden okunduğunda kaybolamaz.
-- **Yerleşim ve Kullanım Noktalarını Sınama:** Doğal ölçü, pivot, zemin ve sıralama noktaları onaylı karakter, proje ızgarası ve farklı zeminlerle sınanır. Obje proje ızgarasında, onaylı karakterin yanında ve farklı zeminlerde denenir. Görsel merkez ile pivot, zemine oturma ve Y sıralama noktası ayrı tutulur; yerleşim kusuru kesin sürümde kullanıcıya gösterilir.
+- **Yerleşim ve Kullanım Noktalarını Sınama:** Doğal ölçü, pivot, zemin ve sıralama noktaları onaylı karakter, proje ızgarası ve farklı zeminlerle sınanır. Obje proje ızgarasında, onaylı karakterin yanında ve farklı zeminlerde denenir. Proje ızgarası ayarı bulunmadığından her kullanım testi kanıtı kendi `Cell Dimensions` / **Hücre Ölçüsü** değerini saklar; obje sahne kanıtı ayrıca onaylı karakter sürümünü ve farklı Varlık Kayıtlarına ait en az iki zemin sürümünü sabitler. Görsel merkez ile pivot, zemine oturma ve Y sıralama noktası ayrı tutulur; yerleşim kusuru kesin sürümde kullanıcıya gösterilir.
 
 - **Yetki ve sürüm sınırı:** Aşağıdaki PRD hükümleri normatiftir. Fazın iş kırılımı, başka bir özelliğin kararını bu kapsama eklemez. Kesin kullanıcı kararları ajan veya otomasyon tarafından verilmez.
 - **Kapsam sınırı:** Her olası karakter ve ekipman birleşimi için otomatik uyumluluk hükmü üretilmez; bu ayrı bir özellik adayıdır.
 
 ## Testing Decisions
 
-- **Birincil test seam’i:** RAS-02 örneklerinde kesin girdiyi kullanıcı eyleminden kalıcı kayda ve yeniden okumaya taşıyan sunucu/API yolunu sınama; web ve masaüstü görünür sonuçlarını karşılaştırma.
+- **Birincil test seam’i:** RAS-02 örneklerinde Hücre Ölçüsü ve sahne sürüm kimliklerini kullanıcı eyleminden kalıcı kayda ve yeni bağlantıdan yeniden okumaya taşıyan sunucu/API yolunu sınama; ölçüsüz tarihsel kullanım testlerinin eski kaldığını doğrulama; web ve masaüstü görünür sonuçlarını karşılaştırma.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.
 - Bugün repoda bu faza ait ürün sözleşmesi bulunmuyor. Mevcut sunucu ve yüzey test örnekleri: [`account-access.test.ts`](../../../apps/server/src/account-access.test.ts), [`app-shell.spec.ts` (web)](../../../apps/web/e2e/app-shell.spec.ts) ve [`app-shell.spec.ts` (desktop)](../../../apps/web/desktop-e2e/app-shell.spec.ts). Bunlar bu özelliğin test edildiği anlamına gelmez.
-- Fazın özgül başarı ve red kanıtı: Durum kimlikleri ve sıralama noktaları roundtrip korunur; aile içi ölçek ile gerçek sahne yerleşimi kullanıcı kanıtına bağlanır. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Her olası karakter ve ekipman birleşimi için otomatik uyumluluk hükmü üretilmez; bu ayrı bir özellik adayıdır.
+- Fazın özgül başarı ve red kanıtı: Durum kimlikleri ve sıralama noktaları roundtrip korunur; aile içi ölçek ile gerçek sahne yerleşimi kullanıcı kanıtına bağlanır; obje sahne kanıtı aynı projedeki onaylı karakteri ve farklı Varlık Kayıtlarından zemin sürümlerini sabitler. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Her olası karakter ve ekipman birleşimi için otomatik uyumluluk hükmü üretilmez; bu ayrı bir özellik adayıdır.
 - Kabul örnekleri: RAS-02. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
 
 ## Out of Scope

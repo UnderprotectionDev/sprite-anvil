@@ -269,6 +269,9 @@ test.skipIf(!databaseUrl)(
 							kind: "usage_test",
 							testId: usageTest.id,
 							result: "failed",
+							usageTestContext: {
+								cellDimensions: { width: 32, height: 32 },
+							},
 						},
 						options
 					)

@@ -306,6 +306,9 @@ test.skipIf(!databaseUrl)(
 					kind: "usage_test",
 					result: "failed",
 					testId: "icon.light_dark_target_size",
+					usageTestContext: {
+						cellDimensions: { width: 32, height: 32 },
+					},
 					method: "Reviewed the icon on light and dark backgrounds.",
 					rationale: "The icon is not readable at the smallest target size.",
 				},
@@ -363,6 +366,9 @@ test.skipIf(!databaseUrl)(
 			expect(persistedUsageEvidence).toMatchObject({
 				result: "failed",
 				testId: "icon.light_dark_target_size",
+				usageTestContext: {
+					cellDimensions: { width: 32, height: 32 },
+				},
 				assetVersionIds: [assetVersionId],
 				profileContractRevisionIds: [
 					activeIconContractRevision.contractRevisionId,
@@ -508,6 +514,9 @@ test.skipIf(!databaseUrl)(
 					kind: "usage_test",
 					result: "passed",
 					testId: "icon.light_dark_target_size",
+					usageTestContext: {
+						cellDimensions: { width: 32, height: 32 },
+					},
 					method: "Inspected on all required backgrounds and target sizes.",
 					rationale: "All required usage tests now pass.",
 				},

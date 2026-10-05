@@ -38,6 +38,34 @@ export const qualityVersionTargetSchema = z.discriminatedUnion("kind", [
 ]);
 export type QualityVersionTarget = z.infer<typeof qualityVersionTargetSchema>;
 
+export const usageTestContextSchema = z
+	.object({
+		cellDimensions: z
+			.object({
+				width: z.number().int().positive().max(4096),
+				height: z.number().int().positive().max(4096),
+			})
+			.strict(),
+		approvedCharacterVersionId: idSchema.optional(),
+		targetGroundVersionIds: z.array(idSchema).min(2).max(20).optional(),
+	})
+	.strict()
+	.superRefine((context, refinement) => {
+		if (
+			context.targetGroundVersionIds &&
+			new Set(context.targetGroundVersionIds).size !==
+				context.targetGroundVersionIds.length
+		) {
+			refinement.addIssue({
+				code: "custom",
+				path: ["targetGroundVersionIds"],
+				message:
+					"Her zemin sürümü kullanım testi içinde yalnızca bir kez seçilebilir.",
+			});
+		}
+	});
+export type UsageTestContext = z.infer<typeof usageTestContextSchema>;
+
 export const requiredSetItemKindSchema = z.enum([
 	"direction",
 	"animation",
@@ -216,7 +244,30 @@ export const readinessEvidenceInputSchema = z.discriminatedUnion("kind", [
 			method: z.string().trim().min(1).max(1000),
 			rationale: z.string().trim().min(1).max(2000),
 		})
-		.strict(),
+		.extend({ usageTestContext: usageTestContextSchema })
+		.strict()
+		.superRefine((input, context) => {
+			const requiresSceneContext =
+				input.testId === "object.approved_character_ground_scene";
+			const hasApprovedCharacter = Boolean(
+				input.usageTestContext.approvedCharacterVersionId
+			);
+			const hasTargetGrounds = Boolean(
+				input.usageTestContext.targetGroundVersionIds
+			);
+			if (
+				(requiresSceneContext && !(hasApprovedCharacter && hasTargetGrounds)) ||
+				(!requiresSceneContext && (hasApprovedCharacter || hasTargetGrounds))
+			) {
+				context.addIssue({
+					code: "custom",
+					path: ["usageTestContext"],
+					message: requiresSceneContext
+						? "Obje sahne testi hücre ölçüsünü, onaylı karakter sürümünü ve en az iki zemin sürümünü sabitlemelidir."
+						: "Onaylı karakter ve zemin sürümleri yalnız obje sahne testinde sabitlenebilir.",
+				});
+			}
+		}),
 ]);
 
 export const readinessEvidenceSchema = z
@@ -244,6 +295,7 @@ export const readinessEvidenceSchema = z
 		ruleId: qualityRuleIdSchema.nullable(),
 		ruleClass: profileRuleClassSchema.nullable(),
 		testId: qualityRuleIdSchema.nullable(),
+		usageTestContext: usageTestContextSchema.nullable().default(null),
 		observedValue: z.string().nullable(),
 		versionTarget: qualityVersionTargetSchema.nullish(),
 		method: z.string().nullable(),

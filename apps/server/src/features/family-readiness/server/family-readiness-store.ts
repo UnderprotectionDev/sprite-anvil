@@ -103,6 +103,7 @@ function toEvidence(
 		ruleId: row.ruleId,
 		ruleClass: row.ruleClass,
 		testId: row.testId,
+		usageTestContext: row.usageTestContext,
 		observedValue: row.observedValue,
 		versionTarget: qualityVersionTargetFromEvidence(row),
 		method: row.method,
@@ -131,6 +132,9 @@ function evidenceMatchesCurrentScope(
 	});
 	if (!scopeMatches || evidence.kind === "applicability") {
 		return scopeMatches;
+	}
+	if (evidence.kind === "usage_test" && !evidence.usageTestContext) {
+		return false;
 	}
 	const entryId =
 		evidence.kind === "quality" ? evidence.ruleId : evidence.testId;
@@ -1101,6 +1105,90 @@ function isUsageTestSupported(
 	});
 }
 
+const objectSceneUsageTestId = "object.approved_character_ground_scene";
+
+function usageTestContextForInput(input: ReadinessEvidenceInput) {
+	if (input.kind !== "usage_test") {
+		return null;
+	}
+	return input.usageTestContext;
+}
+
+async function isUsageTestContextValid(
+	db: Database,
+	input: ReadinessEvidenceInput
+) {
+	if (input.kind !== "usage_test" || input.testId !== objectSceneUsageTestId) {
+		return true;
+	}
+	const characterVersionId = input.usageTestContext.approvedCharacterVersionId;
+	const groundVersionIds = input.usageTestContext.targetGroundVersionIds;
+	if (
+		!(characterVersionId && groundVersionIds) ||
+		groundVersionIds.length < 2
+	) {
+		return false;
+	}
+	const selectedVersionIds = [characterVersionId, ...groundVersionIds];
+	if (new Set(selectedVersionIds).size !== selectedVersionIds.length) {
+		return false;
+	}
+	const selectedVersions = await db
+		.select({
+			id: assetVersions.id,
+			assetRecordId: assetVersions.assetRecordId,
+			assetCategory: assetRecords.assetCategory,
+		})
+		.from(assetVersions)
+		.innerJoin(
+			assetRecords,
+			and(
+				eq(assetRecords.projectId, assetVersions.projectId),
+				eq(assetRecords.id, assetVersions.assetRecordId)
+			)
+		)
+		.where(
+			and(
+				eq(assetVersions.projectId, input.projectId),
+				inArray(assetVersions.id, selectedVersionIds)
+			)
+		);
+	if (selectedVersions.length !== selectedVersionIds.length) {
+		return false;
+	}
+	const versionsById = new Map(
+		selectedVersions.map((version) => [version.id, version])
+	);
+	const characterVersion = versionsById.get(characterVersionId);
+	const groundVersions = groundVersionIds.map((id) => versionsById.get(id));
+	if (
+		characterVersion?.assetCategory !== "character_creature_animation" ||
+		groundVersions.some(
+			(version) =>
+				version?.assetCategory !== "tileset_terrain_texture" || !version
+		) ||
+		new Set(groundVersions.map((version) => version?.assetRecordId)).size !==
+			groundVersions.length
+	) {
+		return false;
+	}
+	const [latestCharacterReview] = await db
+		.select({ decision: assetVersionReviewEvents.decision })
+		.from(assetVersionReviewEvents)
+		.where(
+			and(
+				eq(assetVersionReviewEvents.projectId, input.projectId),
+				eq(assetVersionReviewEvents.versionId, characterVersionId)
+			)
+		)
+		.orderBy(
+			desc(assetVersionReviewEvents.createdAt),
+			desc(assetVersionReviewEvents.id)
+		)
+		.limit(1);
+	return latestCharacterReview?.decision === "approved";
+}
+
 async function readEvidenceItem(
 	db: Database,
 	userId: string,
@@ -1160,6 +1248,9 @@ async function readEvidenceScope(
 ): Promise<EvidenceScope | null> {
 	const context = await readEvidenceScopeContext(db, input, item);
 	if (!(context.family && context.contextRevisionId)) {
+		return null;
+	}
+	if (!(await isUsageTestContextValid(db, input))) {
 		return null;
 	}
 	const currentVersions = indexCurrentVersions(context.versionRows);
@@ -1549,6 +1640,7 @@ export function createFamilyReadinessStore(db: Database) {
 				...qualityEvidenceFields(input),
 				ruleClass: input.kind === "quality" ? scope.ruleClass : null,
 				testId: input.kind === "usage_test" ? input.testId : null,
+				usageTestContext: usageTestContextForInput(input),
 				rationale: input.rationale,
 				createdByUserId: userId,
 				createdAt: now,

@@ -72,6 +72,21 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 		(assetRecordQuery.data ?? []).map((record) => [record.id, record])
 	);
 	const visualWorlds = scopeQuery.data?.visualWorlds ?? [];
+	const usageTestAssetRecords = (assetRecordQuery.data ?? []).map(
+		({ assetCategory, id, name }) => ({
+			assetCategory: assetCategory ?? null,
+			id,
+			name,
+		})
+	);
+	const usageTestAssetVersions = assetVersionCatalog.assetVersions.map(
+		({ assetRecordId, id, reviewDisposition, versionNumber }) => ({
+			assetRecordId,
+			id,
+			reviewDisposition,
+			versionNumber,
+		})
+	);
 	// Directional Review records character-profile identity checks, so the
 	// section stays hidden until the character Specialized Profile Contract is
 	// active; unrelated asset groups never see character-review guidance.
@@ -300,6 +315,8 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 								key={family.id}
 								profileContracts={profileContractsQuery.data ?? null}
 								projectId={projectId}
+								usageTestAssetRecords={usageTestAssetRecords}
+								usageTestAssetVersions={usageTestAssetVersions}
 							/>
 						))}
 					</section>

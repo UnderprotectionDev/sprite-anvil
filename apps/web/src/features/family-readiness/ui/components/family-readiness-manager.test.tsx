@@ -360,6 +360,7 @@ function renderQualityWaiverMeasurement(isCurrent = true) {
 		ruleId: measuredRule.id,
 		ruleClass: "waivable_requirement" as const,
 		testId: null,
+		usageTestContext: null,
 		observedValue: "96%",
 		versionTarget: { kind: "unit" as const, id: "unit-version-1" },
 		method: "Measured at native scale.",
@@ -851,4 +852,217 @@ test("offers applicability and quality evidence on a required usage test item", 
 	expect(
 		screen.getByRole("heading", { name: "Kullanım testi sonucu" })
 	).toBeInTheDocument();
+});
+
+test("pins scene dimensions, an approved character, and two grounds to usage evidence", async () => {
+	const [sourceItemResult] = readiness.items;
+	const objectProfile = specializedProfileContractCatalog.find(
+		(contract) => contract.profileId === "object_weapon_equipment_states"
+	);
+	const sceneTestId = "object.approved_character_ground_scene";
+	if (!(sourceItemResult && objectProfile)) {
+		throw new Error("Missing object scene test fixtures.");
+	}
+	const sceneItem: FamilyReadiness["items"][number]["item"] = {
+		id: "placement-test",
+		kind: "usage_test",
+		name: "Approved character and ground scene",
+		disposition: "required",
+		assetRecordIds: ["object-record"],
+		testId: sceneTestId,
+	};
+	const sceneReadiness: FamilyReadiness = {
+		...readiness,
+		activeRevision: readiness.activeRevision
+			? { ...readiness.activeRevision, items: [sceneItem] }
+			: null,
+		items: [{ ...sourceItemResult, item: sceneItem, latestEvidence: [] }],
+	};
+	const context = {
+		cellDimensions: { width: 32, height: 48 },
+		approvedCharacterVersionId: "hero-version-3",
+		targetGroundVersionIds: ["grass-version-1", "stone-version-4"],
+	};
+	const persistedEvidence = {
+		id: "scene-evidence-1",
+		projectId: "project-1",
+		assetFamilyId: "family-1",
+		revisionId: "revision-1",
+		itemId: sceneItem.id,
+		kind: "usage_test",
+		result: "passed",
+		assetVersionIds: ["object-version-1"],
+		profileContractRevisionIds: ["object@1"],
+		contextRevisionId: "context-1",
+		visualWorldId: "world-1",
+		useContext: "combat",
+		canonicalDesignVersionId: null,
+		ruleId: null,
+		ruleClass: null,
+		testId: sceneTestId,
+		usageTestContext: context,
+		observedValue: null,
+		versionTarget: null,
+		method: "Placed the object next to the approved character on both grounds.",
+		rationale: "Scale and ground contact remain clear.",
+		createdAt: "2026-10-05T09:00:00.000Z",
+		createdByUserId: "user-1",
+		isCurrent: true,
+	} satisfies FamilyReadiness["items"][number]["latestEvidence"][number];
+	const [sceneItemResult] = sceneReadiness.items;
+	if (!sceneItemResult) {
+		throw new Error("Missing object scene item result.");
+	}
+	const persistedReadiness: FamilyReadiness = {
+		...sceneReadiness,
+		items: [{ ...sceneItemResult, latestEvidence: [persistedEvidence] }],
+	};
+	const profileContracts = {
+		profiles: specializedProfileContractCatalog.map((definition) => ({
+			definition,
+			activeContract:
+				definition.profileId === objectProfile.profileId
+					? {
+							activatedAt: "2026-10-05T09:00:00.000Z",
+							activatedByUserId: "user-1",
+							contract: definition,
+							contractRevisionId: "object@1",
+							projectId: "project-1",
+						}
+					: null,
+		})),
+	} satisfies SpecializedProfileContractsListOutput;
+	fakeApi.readiness = sceneReadiness;
+	fakeApi.recordEvidence.mockImplementation(() => {
+		fakeApi.readiness = persistedReadiness;
+		return Promise.resolve(persistedReadiness);
+	});
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	render(
+		<QueryClientProvider client={queryClient}>
+			<FamilyReadinessManager
+				assetFamilyId="family-1"
+				assetRecords={[
+					{
+						assetCategory: "object_weapon_equipment_states",
+						id: "object-record",
+						name: "Bronze chest",
+					},
+				]}
+				familyName="Bronze chest"
+				profileContracts={profileContracts}
+				projectId="project-1"
+				usageTestAssetRecords={[
+					{
+						assetCategory: "object_weapon_equipment_states",
+						id: "object-record",
+						name: "Bronze chest",
+					},
+					{
+						assetCategory: "character_creature_animation",
+						id: "hero-record",
+						name: "Approved Hero",
+					},
+					{
+						assetCategory: "tileset_terrain_texture",
+						id: "grass-record",
+						name: "Grass",
+					},
+					{
+						assetCategory: "tileset_terrain_texture",
+						id: "stone-record",
+						name: "Stone",
+					},
+				]}
+				usageTestAssetVersions={[
+					{
+						assetRecordId: "hero-record",
+						id: "hero-version-3",
+						reviewDisposition: "approved",
+						versionNumber: 3,
+					},
+					{
+						assetRecordId: "grass-record",
+						id: "grass-version-1",
+						reviewDisposition: "candidate",
+						versionNumber: 1,
+					},
+					{
+						assetRecordId: "stone-record",
+						id: "stone-version-4",
+						reviewDisposition: "candidate",
+						versionNumber: 4,
+					},
+				]}
+			/>
+		</QueryClientProvider>
+	);
+
+	const form = (
+		await screen.findByRole("heading", { name: "Kullanım testi sonucu" })
+	).closest("form") as HTMLFormElement;
+	const controls = within(form);
+	fireEvent.change(
+		controls.getByRole("spinbutton", { name: "Hücre genişliği (px)" }),
+		{
+			target: { value: "32" },
+		}
+	);
+	fireEvent.change(
+		controls.getByRole("spinbutton", { name: "Hücre yüksekliği (px)" }),
+		{
+			target: { value: "48" },
+		}
+	);
+	fireEvent.change(
+		controls.getByRole("combobox", { name: "Onaylı karakter sürümü" }),
+		{
+			target: { value: "hero-version-3" },
+		}
+	);
+	fireEvent.change(
+		controls.getByRole("combobox", { name: "Birinci zemin sürümü" }),
+		{
+			target: { value: "grass-version-1" },
+		}
+	);
+	fireEvent.change(
+		controls.getByRole("combobox", { name: "İkinci zemin sürümü" }),
+		{
+			target: { value: "stone-version-4" },
+		}
+	);
+	fireEvent.change(controls.getByRole("textbox", { name: "Yöntem" }), {
+		target: { value: persistedEvidence.method },
+	});
+	fireEvent.change(
+		controls.getByRole("textbox", { name: "Gerekçe veya gözlem" }),
+		{
+			target: { value: persistedEvidence.rationale },
+		}
+	);
+	fireEvent.submit(form);
+
+	await waitFor(() =>
+		expect(fakeApi.recordEvidence).toHaveBeenCalledWith(
+			expect.objectContaining({
+				kind: "usage_test",
+				testId: sceneTestId,
+				usageTestContext: context,
+			})
+		)
+	);
+	const evidenceSummary = await screen.findByText(
+		`${sceneTestId} · Geçti · Güncel kanıt`
+	);
+	fireEvent.click(evidenceSummary);
+	const evidenceDetails = evidenceSummary.closest("details");
+	if (!evidenceDetails) {
+		throw new Error("Persisted usage test evidence details are missing.");
+	}
+	const evidence = within(evidenceDetails);
+	expect(evidence.getByText("32 × 48 px")).toBeVisible();
+	expect(evidence.getByText("Approved Hero · v3")).toBeVisible();
+	expect(evidence.getByText("Grass · v1, Stone · v4")).toBeVisible();
 });

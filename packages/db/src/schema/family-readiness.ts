@@ -155,6 +155,11 @@ export const familyReadinessEvidence = pgTable(
 			| "human_review"
 		>(),
 		testId: text("test_id"),
+		usageTestContext: jsonb("usage_test_context").$type<{
+			cellDimensions: { width: number; height: number };
+			approvedCharacterVersionId?: string;
+			targetGroundVersionIds?: string[];
+		} | null>(),
 		observedValue: text("observed_value"),
 		unitVersionId: text("unit_version_id").references(() => unitVersions.id, {
 			onDelete: "restrict",
