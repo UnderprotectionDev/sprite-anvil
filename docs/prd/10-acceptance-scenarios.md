@@ -47,9 +47,9 @@ Her profilin ortak senaryosu şu kanıtları üretir:
 
 #### RAS-02 — Objeler, silahlar, ekipmanlar ve durum aileleri
 
-**Test örneği:** Ortak perspektif, ızgara, malzeme ve sıralama noktası kuralları olan, birden fazla durum içeren obje ailesi. Durumlardan birinde perspektif veya sabitleme noktası uyumsuzluğu vardır.
+**Test örneği:** Ortak perspektif, ızgara, malzeme ve sıralama noktası kuralları olan, birden fazla durum ve yön içeren obje ailesi. En az iki ayrı Varlık Kaydının her birinde güncel Varlık Sürümü vardır. Durumlardan birinde perspektif veya sabitleme noktası uyumsuzluğu bulunur.
 
-**Kanıt:** Durumlar aile olarak karşılaştırılır. Gerekli ve isteğe bağlı durumlar Gerekli Öğeler Listesi’nde görünür. Sahne kalite kontrol alanında ölçek, sıralama ve durum geçişi onaylı karakter ve zeminle denenir. Dışa Aktarım Paketi her durumun kimliğini ve sabitleme noktası bilgilerini taşır.
+**Kanıt:** Karşılaştırma yalnız en az iki farklı Varlık Kaydının güncel Varlık Sürümleriyle kaydedilir; tek sürüm içindeki birden fazla Birim Sürümü bu eşiği karşılamaz. Kesin sözleşme ve tüm seçili Birim Sürümleri sabitlenir; ölçek, perspektif, malzeme dili ve durum/yön ayrışması hakkındaki kullanıcı gözlemleri kalıcı kayıttan yeniden okunduğunda korunur. Karşılaştırma otomatik uyumluluk hükmü üretmez. Gerekli ve isteğe bağlı durumlar Gerekli Öğeler Listesi’nde görünür. Sahne kalite kontrol alanında ölçek, sıralama ve durum geçişi onaylı karakter ve zeminle denenir. Dışa Aktarım Paketi her durumun kimliğini ve sabitleme noktası bilgilerini taşır.
 
 #### RAS-03 — İkon ailesi
 

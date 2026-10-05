@@ -1,5 +1,6 @@
 export * from "./animation-timing-reviews";
 export * from "./asset-families";
+export * from "./asset-family-comparisons";
 export * from "./asset-production-history";
 export * from "./asset-record-derivatives";
 export * from "./asset-record-measurements";

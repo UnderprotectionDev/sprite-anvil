@@ -1,15 +1,17 @@
+import type { SpecializedProfileContractsListOutput } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Fragment, type SyntheticEvent } from "react";
+import type { SyntheticEvent } from "react";
 import { AssetVersionControls } from "@/features/asset-versions/ui/components/asset-version-controls";
 import { useAssetVersionWrites } from "@/features/asset-versions/ui/hooks/use-asset-version-writes";
 import { AnimationTimingReviewManager } from "@/features/character-animation-profile/ui/components/animation-timing-review-manager";
-import { DirectionalReviewManager } from "@/features/character-animation-profile/ui/components/directional-review-manager";
+import { DirectionalReviewSections } from "@/features/character-animation-profile/ui/components/directional-review-sections";
 import { DependencyRevalidationManager } from "@/features/dependency-revalidation/ui/components/dependency-revalidation-manager";
 import { HistoricalCompositionManager } from "@/features/dependency-revalidation/ui/components/historical-composition-manager";
 import { FamilyReadinessManager } from "@/features/family-readiness/ui/components/family-readiness-manager";
 import { IconFamilyReviewSections } from "@/features/icon-profile/ui/components/icon-family-review-sections";
+import { AssetFamilyComparisonSections } from "@/features/object-equipment-profile/ui/components/asset-family-comparison-sections";
 import { SpecializedProfileContractManager } from "@/features/quality-evidence/ui/components/specialized-profile-contract-manager";
 import { client, orpc } from "@/utils/orpc";
 import { AssetFamilyCatalogView } from "../components/asset-family-catalog";
@@ -26,6 +28,16 @@ const emptyAssetVersionCatalog = {
 	unitVersions: [],
 	compositeVersions: [],
 };
+
+function getActiveProfileContract(
+	data: SpecializedProfileContractsListOutput | undefined,
+	profileId: string
+) {
+	return (
+		data?.profiles.find((profile) => profile.definition.profileId === profileId)
+			?.activeContract ?? undefined
+	);
+}
 
 export function AssetFamiliesView({ projectId }: { projectId: string }) {
 	const queryClient = useQueryClient();
@@ -94,12 +106,18 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 	// Directional Review records character-profile identity checks, so the
 	// section stays hidden until the character Specialized Profile Contract is
 	// active; unrelated asset groups never see character-review guidance.
-	const characterProfileActivation = profileContractsQuery.data?.profiles.find(
-		(profile) => profile.definition.profileId === "character_creature_animation"
-	)?.activeContract;
-	const iconProfileActivation = profileContractsQuery.data?.profiles.find(
-		(profile) => profile.definition.profileId === "icon"
-	)?.activeContract;
+	const characterProfileActivation = getActiveProfileContract(
+		profileContractsQuery.data,
+		"character_creature_animation"
+	);
+	const iconProfileActivation = getActiveProfileContract(
+		profileContractsQuery.data,
+		"icon"
+	);
+	const objectEquipmentProfileActivation = getActiveProfileContract(
+		profileContractsQuery.data,
+		"object_weapon_equipment_states"
+	);
 	const form = useAssetFamilyFormState(catalog, visualWorlds);
 	const writes = useAssetFamilyWrites(catalogQuery.refetch);
 	const refreshAssetCatalogs = async () => {
@@ -333,36 +351,29 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 						<>
 							{characterProfileActivation
 								? catalog.assetFamilies.map((family) => (
-										<Fragment key={family.id}>
-											<AnimationTimingReviewManager
-												activation={characterProfileActivation}
-												assetFamilyId={family.id}
-												catalog={assetVersionQuery.data}
-												familyName={family.name}
-												projectId={projectId}
-												recordNames={Object.fromEntries(
-													catalog.assetRecords.map((record) => [
-														record.id,
-														record.name,
-													])
-												)}
-											/>
-											<DirectionalReviewManager
-												activation={characterProfileActivation}
-												assetFamilyId={family.id}
-												catalog={assetVersionQuery.data}
-												familyName={family.name}
-												projectId={projectId}
-												recordNames={Object.fromEntries(
-													catalog.assetRecords.map((record) => [
-														record.id,
-														record.name,
-													])
-												)}
-											/>
-										</Fragment>
+										<AnimationTimingReviewManager
+											activation={characterProfileActivation}
+											assetFamilyId={family.id}
+											catalog={assetVersionQuery.data}
+											familyName={family.name}
+											key={family.id}
+											projectId={projectId}
+											recordNames={Object.fromEntries(
+												catalog.assetRecords.map((record) => [
+													record.id,
+													record.name,
+												])
+											)}
+										/>
 									))
 								: null}
+							<DirectionalReviewSections
+								activation={characterProfileActivation}
+								assetFamilies={catalog.assetFamilies}
+								assetRecords={catalog.assetRecords}
+								catalog={assetVersionQuery.data}
+								projectId={projectId}
+							/>
 							<IconFamilyReviewSections
 								activation={iconProfileActivation}
 								assetFamilies={catalog.assetFamilies}
@@ -370,6 +381,13 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 								assetRecordsById={assetRecordsById}
 								projectId={projectId}
 								versions={assetVersionQuery.data.assetVersions}
+							/>
+							<AssetFamilyComparisonSections
+								activation={objectEquipmentProfileActivation}
+								assetRecordDetails={assetRecordQuery.data}
+								catalog={catalog}
+								projectId={projectId}
+								versionCatalog={assetVersionQuery.data}
 							/>
 							<HistoricalCompositionManager
 								canonicalDesigns={assetVersionQuery.data.canonicalDesigns}

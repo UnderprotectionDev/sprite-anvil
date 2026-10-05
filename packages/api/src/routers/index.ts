@@ -29,6 +29,7 @@ import {
 import { animationMetadataPackageRouter } from "./animation-metadata-package";
 import { animationTimingReviewsRouter } from "./animation-timing-reviews";
 import { assetFamiliesRouter } from "./asset-families";
+import { assetFamilyComparisonsRouter } from "./asset-family-comparisons";
 import { assetRecordTrackingRouter } from "./asset-record-tracking";
 import { assetRecordsRouter } from "./asset-records";
 import { assetVersionsRouter } from "./asset-versions";
@@ -106,6 +107,7 @@ export const appRouter = {
 	),
 	projects: projectsRouter,
 	assetFamilies: assetFamiliesRouter,
+	assetFamilyComparisons: assetFamilyComparisonsRouter,
 	dependencyRevalidation: dependencyRevalidationRouter,
 	familyReadiness: familyReadinessRouter,
 	directionalReviews: directionalReviewsRouter,

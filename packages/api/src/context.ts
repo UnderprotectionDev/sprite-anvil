@@ -3,6 +3,7 @@ import type { Database } from "@sprite-anvil/db";
 import type { AnimationMetadataPackageTargetReader } from "./animation-metadata-package";
 import type { AnimationTimingReviewStore } from "./animation-timing-reviews";
 import type { AssetFamilyStore } from "./asset-families";
+import type { AssetFamilyComparisonStore } from "./asset-family-comparisons";
 import type { AssetRecordTrackingStore } from "./asset-record-tracking";
 import type { AssetRecordStore } from "./asset-records";
 import type { AssetVersionStore } from "./asset-versions";
@@ -27,6 +28,7 @@ import type { SpecializedProfileContractStore } from "./specialized-profile-cont
 
 export interface Context {
 	animationTimingReviewStore?: AnimationTimingReviewStore;
+	assetFamilyComparisonStore?: AssetFamilyComparisonStore;
 	assetFamilyStore: AssetFamilyStore;
 	assetRecordStore: AssetRecordStore;
 	assetRecordTrackingStore: AssetRecordTrackingStore;

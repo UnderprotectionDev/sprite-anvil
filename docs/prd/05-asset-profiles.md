@@ -70,6 +70,8 @@ Animasyon profili, yönler ve kareler için zemin çizgisi sapmasını, loop ba�
 
 Objeler tek tek resimler olarak değil, durum ve yön aileleri olarak yönetilir. Kapalı/açık/yağmalanmış veya sağlam/hasarlı/kırık gibi durumlar ortak ölçek, perspektif, malzeme dili ve yerleşim noktalarına göre karşılaştırılır.
 
+Durum ve Yön Ailesi Karşılaştırması, aynı ailedeki en az iki farklı Varlık Kaydının güncel Varlık Sürümlerini gerektirir; tek bir Varlık Sürümüne bağlı birden çok Birim Sürümü bu koşulu karşılamaz. Karşılaştırma tüm seçili Birim Sürümlerini ve kullanılan Özel Profil Sözleşmesi revizyonunu sabitleyerek kullanıcının ölçek, perspektif, malzeme dili ve durum/yön ayrışması gözlemlerini saklar. Otomatik uyumluluk hükmü üretmez; gerekli durum ve yönler Gerekli Öğeler Listesi’nde ayrıca izlenir.
+
 Objeler proje ızgarasında, onaylı karakterlerin yanında ve farklı zeminlerde denenebilir. Görsel merkez ile zemine oturma veya sıralama noktası ayrı ayrı değerlendirilebilir.
 
 #### İkonlar
@@ -107,5 +109,4 @@ Normal, imleç üzerindeyken, basılı, devre dışı, seçili, açık ve kapal�
 Portre, oyunda kullanılan karakter görseliyle aynı Varlık Kimliği’ne bağlanabilir; ancak farklı Görsel Dünya ve çözünürlük kurallarına sahip olabilir. İfade çeşitleri, kırpma tutarlılığı ve diyalog ya da arayüz içindeki görünümü birlikte incelenir.
 
 Logo ve açılış görselleri şeffaf veya opak kullanımda; güvenli alan, küçük boyutta okunurluk ve açık ya da koyu arka planlarda denenir. Mağaza ve tanıtım görselleri aynı proje kimliğinde tutulur, ancak oyun içi piksel sanatı kurallarına zorlanmaz.
-
 

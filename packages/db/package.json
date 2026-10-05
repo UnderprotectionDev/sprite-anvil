@@ -20,6 +20,7 @@
     "db:validate": "bun scripts/migration-runner.ts validate",
     "test": "bun test src/asset-records.test.ts src/collections.test.ts src/rights-records.test.ts src/migration-compatibility.test.ts scripts",
     "test:e2e:animation-timing": "bun scripts/directional-review-e2e.ts --animation-timing",
+    "test:e2e:asset-family-comparison": "bun scripts/directional-review-e2e.ts --asset-family-comparison",
     "test:e2e:directional": "bun scripts/directional-review-e2e.ts"
   },
   "dependencies": {

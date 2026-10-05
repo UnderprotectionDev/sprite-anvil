@@ -1,0 +1,2 @@
+-- Reconcile object scene context and asset family comparison snapshot branches.
+-- Earlier migrations already apply usage_test_context and asset_family_comparisons; no schema changes are required.

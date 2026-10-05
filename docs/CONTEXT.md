@@ -28,6 +28,7 @@ English terms are the canonical technical names used in code and contracts. Turk
 | Asset Category | Varlık Kategorisi |
 | Asset Version | Varlık Sürümü |
 | Asset Family | Varlık Ailesi |
+| Asset Family Comparison | Durum ve Yön Ailesi Karşılaştırması |
 | Collection | Koleksiyon |
 | Subject Identity | Varlık Kimliği |
 | Canonical Design | Ana Tasarım |
@@ -201,6 +202,10 @@ _Avoid_: Asset, file revision
 **Asset Family**:
 A group of related assets and derivatives within one Visual World and use context, governed by one Canonical Design lineage. Representations of the same subject that require different Canonical Designs belong to separate Asset Families linked by Subject Identity.
 _Avoid_: Collection, folder, asset type
+
+**Asset Family Comparison**:
+An immutable user-authored comparison of current Asset Versions from at least two distinct Asset Records in one Asset Family, under a pinned Specialized Profile Contract. It pins every Unit Version attached to each selected Asset Version and records observations about scale, perspective, material language, and state/direction distinction. It does not issue an automatic compatibility verdict or replace the Required Set.
+_Avoid_: Asset Family approval, automatic compatibility verdict, comparison of units in one Asset Version
 
 **Collection**:
 A user-defined organizational grouping that may contain otherwise unrelated Asset Records or Asset Families. Membership creates no lineage, inherited rules, completion requirement, or delivery obligation.
