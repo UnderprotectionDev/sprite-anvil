@@ -18,10 +18,15 @@ Nesne ölçeği, ışık, kontur, ayrıntı yoğunluğu ve durum ya da nadirlik 
 
 Aynı ailede nesne ölçeği, ışık yönü, kontur ve ayrıntı yoğunluğu yan yana izlenir. Nadirlik veya durum rengi nesne kimliğini sessizce değiştiremez; seçilen ikonun kesin sürümü dışa aktarım eşlemesine girer.
 
+Bu issue'ın inceleme arşivi JSON'u, yapılandırılmış `Icon Family Review` kaydını, şema sürümünü, etkin sözleşme kopyasını, kesin Varlık Sürümü kimliklerini ve sürüm özetlerini taşır; görsel baytlarını taşımaz. Bu kapsam genel Dışa Aktarım Paketi veya Proje Arşivi değildir.
+
 ## Tamamlanma Ölçütleri
 
 - Hedef boyut, okunurluk, renk ve aile ölçeği kesin ikon sürümünde değerlendirilir; kullanım çeşidi ile mantıksal ölçü paketlenir.
+- Kalıcı inceleme kaydı farklı bir bağlantıdan okunur ve web görünümünden JSON arşivi indirilebilir; arşivde şema sürümü, kesin sürüm kimlikleri ve özetleri bulunur.
+- Bu issue'ın arşiv kanıtı tek başına PRD'deki RAS-03'ün tam Dışa Aktarım Paketi ve web/masaüstü kabul ölçütlerini kapatmaz.
 
 ## Kapsam Sınırları
 
 - Tek bir ışık veya nadirlik rengi bütün proje için yeni evrensel sanat kuralı oluşturmaz.
+- Arşiv görsel dosyalarını içermez, projeyi geri yüklemez ve genel oyun motoru paketi yerine kullanılamaz.
