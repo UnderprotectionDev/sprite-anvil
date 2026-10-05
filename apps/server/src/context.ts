@@ -7,6 +7,7 @@ import { readGameplayMetadataPackageTarget } from "./features/gameplay-metadata/
 import { reviewGameplayMetadata } from "./features/gameplay-metadata/server/gameplay-metadata-review";
 import {
 	animationTimingReviewStore,
+	assetFamilyComparisonStore,
 	assetFamilyStore,
 	assetRecordStore,
 	assetRecordTrackingStore,
@@ -42,6 +43,7 @@ export async function createContext({
 	});
 	return {
 		assetFamilyStore,
+		assetFamilyComparisonStore,
 		familyReadinessStore,
 		dependencyRevalidationStore,
 		assetRecordStore,

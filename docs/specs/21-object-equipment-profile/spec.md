@@ -30,7 +30,7 @@ Tamamlanma kanıtı: Durum kimlikleri ve sıralama noktaları roundtrip korunur;
 
 ## Implementation Decisions
 
-- **Durum ve Yön Ailesini Karşılaştırma:** Durumlar ve yönler ortak ölçek, perspektif, malzeme dili ve ayrışma açısından aile olarak incelenir. Kapalı, açık veya hasarlı gibi durumlar ve yönler tek aile içinde karşılaştırılır; gerekli durumlar ayrı Gerekli Öğeler Listesinde izlenir. Durum kimliği, yön ve sıralama bağlantısı paketlenip yeniden okunduğunda kaybolamaz.
+- **Durum ve Yön Ailesini Karşılaştırma:** Aynı ailedeki en az iki farklı Varlık Kaydının güncel Varlık Sürümleri ortak ölçek, perspektif, malzeme dili ve ayrışma açısından aile olarak incelenir. Tek Varlık Sürümündeki birden fazla Birim Sürümü bu eşiği karşılamaz. Kapalı, açık veya hasarlı gibi durumlar ve yönler tek aile içinde karşılaştırılır; gerekli durumlar ayrı Gerekli Öğeler Listesinde izlenir. Kullanıcı gözlemleri, kesin sözleşme revizyonu ve seçili sürümlere bağlı tüm Birim Sürümleri kalıcı kayda sabitlenir; otomatik uyumluluk hükmü üretilmez.
 - **Yerleşim ve Kullanım Noktalarını Sınama:** Doğal ölçü, pivot, zemin ve sıralama noktaları onaylı karakter, proje ızgarası ve farklı zeminlerle sınanır. Obje proje ızgarasında, onaylı karakterin yanında ve farklı zeminlerde denenir. Görsel merkez ile pivot, zemine oturma ve Y sıralama noktası ayrı tutulur; yerleşim kusuru kesin sürümde kullanıcıya gösterilir.
 
 - **Yetki ve sürüm sınırı:** Aşağıdaki PRD hükümleri normatiftir. Fazın iş kırılımı, başka bir özelliğin kararını bu kapsama eklemez. Kesin kullanıcı kararları ajan veya otomasyon tarafından verilmez.
@@ -38,9 +38,10 @@ Tamamlanma kanıtı: Durum kimlikleri ve sıralama noktaları roundtrip korunur;
 
 ## Testing Decisions
 
-- **Birincil test seam’i:** RAS-02 örneklerinde kesin girdiyi kullanıcı eyleminden kalıcı kayda ve yeniden okumaya taşıyan sunucu/API yolunu sınama; web ve masaüstü görünür sonuçlarını karşılaştırma.
-- Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.
-- Bugün repoda bu faza ait ürün sözleşmesi bulunmuyor. Mevcut sunucu ve yüzey test örnekleri: [`account-access.test.ts`](../../../apps/server/src/account-access.test.ts), [`app-shell.spec.ts` (web)](../../../apps/web/e2e/app-shell.spec.ts) ve [`app-shell.spec.ts` (desktop)](../../../apps/web/desktop-e2e/app-shell.spec.ts). Bunlar bu özelliğin test edildiği anlamına gelmez.
+- **Birincil test seam’i:** RAS-02 girdisini korumalı API `save` çağrısıyla kalıcı kayda yaz; API `list` çağrısını ikinci PostgreSQL bağlantısı üzerinden yapıp dönen kaydı tam pin ve gözlemleriyle karşılaştır.
+- En az iki ayrı Asset Record'ın güncel Asset Version'ları gereksin; tek Asset Version içindeki çoklu Unit Version'ların eşiği karşılamadığını sınama. Aynı API kalıcılık seam'inde eski sürüm, tekrarlanan Asset Record ve eksik ya da yabancı Unit Version yollarını reddet.
+- Web ve masaüstünde karşılaştırma alanı ve görünür kayıt sonucunu doğrula: [`asset-family-comparison-manager.test.tsx`](../../../apps/web/src/features/object-equipment-profile/ui/components/asset-family-comparison-manager.test.tsx) belirsiz yazma sonrasında kilidin eski karşılaştırma açılarak aşılamayacağını ve yeni karşılaştırmanın boş seçim ve gözlemlerle başladığını sınar. [`asset-family-comparisons.spec.ts`](../../../apps/web/e2e/asset-family-comparisons.spec.ts) web arayüzünde iki Varlık Kaydıyla karşılaştırmayı kaydedip yenileyerek yeniden açar. [`asset-family-comparisons.spec.ts` (desktop)](../../../apps/web/desktop-e2e/asset-family-comparisons.spec.ts) masaüstü yüzeyinde aynı kaydetme ve yeniden açma yolunu ayrıca sınar; web testi bunun yerine geçmez. İç yardımcıların çağrılma sırasını test etme.
+- Kalıcılık akışını çalışır ortamda uçtan uca yürüten komut: `bun run test:e2e:asset-family-comparison`; disposable PostgreSQL üzerinde integration, web ve masaüstü adımlarını sırayla çalıştırır.
 - Fazın özgül başarı ve red kanıtı: Durum kimlikleri ve sıralama noktaları roundtrip korunur; aile içi ölçek ile gerçek sahne yerleşimi kullanıcı kanıtına bağlanır. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Her olası karakter ve ekipman birleşimi için otomatik uyumluluk hükmü üretilmez; bu ayrı bir özellik adayıdır.
 - Kabul örnekleri: RAS-02. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
 
