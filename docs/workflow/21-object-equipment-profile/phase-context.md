@@ -8,7 +8,7 @@ Bu profil obje ve ekipmanı bağımsız resimler yerine durum ve yön aileleri o
 
 ### Durum ve Yön Ailesini Karşılaştırma
 
-Durumlar ve yönler ortak ölçek, perspektif, malzeme dili ve ayrışma açısından aile olarak incelenir.
+En az iki farklı Varlık Kaydının güncel Varlık Sürümleri, ortak ölçek, perspektif, malzeme dili ve ayrışma açısından aile olarak incelenir. Tek sürüm içindeki çoklu Birim Sürümleri ayrı Varlık Sürümü sayılmaz.
 
 Kapalı, açık veya hasarlı gibi durumlar ve yönler tek aile içinde karşılaştırılır; gerekli durumlar ayrı Gerekli Öğeler Listesinde izlenir. Durum kimliği, yön ve sıralama bağlantısı paketlenip yeniden okunduğunda kaybolamaz.
 
