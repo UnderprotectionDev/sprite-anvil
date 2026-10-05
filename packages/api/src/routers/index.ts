@@ -27,6 +27,7 @@ import {
 	validateContextProposal,
 } from "../project-context";
 import { animationMetadataPackageRouter } from "./animation-metadata-package";
+import { animationTimingReviewsRouter } from "./animation-timing-reviews";
 import { assetFamiliesRouter } from "./asset-families";
 import { assetRecordTrackingRouter } from "./asset-record-tracking";
 import { assetRecordsRouter } from "./asset-records";
@@ -107,6 +108,7 @@ export const appRouter = {
 	dependencyRevalidation: dependencyRevalidationRouter,
 	familyReadiness: familyReadinessRouter,
 	directionalReviews: directionalReviewsRouter,
+	animationTimingReviews: animationTimingReviewsRouter,
 	assetVersions: assetVersionsRouter,
 	assetRecords: assetRecordsRouter,
 	collections: collectionsRouter,

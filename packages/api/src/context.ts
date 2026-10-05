@@ -1,6 +1,7 @@
 import type { Session } from "@sprite-anvil/auth";
 import type { Database } from "@sprite-anvil/db";
 import type { AnimationMetadataPackageTargetReader } from "./animation-metadata-package";
+import type { AnimationTimingReviewStore } from "./animation-timing-reviews";
 import type { AssetFamilyStore } from "./asset-families";
 import type { AssetRecordTrackingStore } from "./asset-record-tracking";
 import type { AssetRecordStore } from "./asset-records";
@@ -24,6 +25,7 @@ import type { RightsRecordStore } from "./rights-records";
 import type { SpecializedProfileContractStore } from "./specialized-profile-contracts";
 
 export interface Context {
+	animationTimingReviewStore?: AnimationTimingReviewStore;
 	assetFamilyStore: AssetFamilyStore;
 	assetRecordStore: AssetRecordStore;
 	assetRecordTrackingStore: AssetRecordTrackingStore;
