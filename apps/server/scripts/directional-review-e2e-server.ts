@@ -6,6 +6,8 @@ const port = Number(process.env.PORT);
 const allowedDatabases = new Set([
 	"directional_web_test",
 	"directional_desktop_test",
+	"animation_timing_web_test",
+	"animation_timing_desktop_test",
 ]);
 
 if (!databaseUrl || process.env.NODE_ENV !== "test") {

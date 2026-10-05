@@ -62,6 +62,8 @@ Yürüme, koşma ve saldırı animasyonları tek bir sabit kare hızına zorlanm
 
 Birden fazla yönün oynatma konumu eşzamanlanabilir. İsabet, nesne fırlatma, ayak sesi ve büyü bırakma gibi olayların zamanlaması karşılaştırılabilir.
 
+`event_links.time`, klip başlangıcından geçen milisaniyeyi belirtir. Önceki kare süreleri bu değere eklenmez; aynı zaman değerindeki olaylar yönler arasında ortak zaman çizgisinde hizalanır.
+
 Animasyon profili, yönler ve kareler için zemin çizgisi sapmasını, loop başlangıç/bitiş karşılaştırmasını ve kareye bağlı dönüş noktası, mount point, çarpışma alanı ile olay eşlemelerini aynı inceleme yüzeyinde gösterir. Yapısal metadata roundtrip kaybı engeldir; görsel geçiş ve zemin değerlendirmesi [Bölüm 4.8](04-ingestion-lifecycle-and-quality.md#48-kalite-modeli-ve-harici-analiz)’deki profil sınıfına göre ele alınır.
 
 #### Objeler, silahlar, ekipmanlar ve durum aileleri

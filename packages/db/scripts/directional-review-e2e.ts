@@ -5,17 +5,40 @@ import { withDisposablePostgres } from "./disposable-postgres";
 const repositoryDirectory = fileURLToPath(new URL("../../..", import.meta.url));
 const webDirectory = `${repositoryDirectory}/apps/web`;
 const serverDirectory = `${repositoryDirectory}/apps/server`;
-const databaseNames = [
-	"directional_test",
-	"directional_web_test",
-	"directional_desktop_test",
-] as const;
+const animationTimingRun = process.argv[2] === "--animation-timing";
+if (process.argv[2] && !animationTimingRun) {
+	throw new Error("Unknown character-animation-profile E2E mode.");
+}
+const reviewLabel = animationTimingRun
+	? "Animation timing review"
+	: "Directional review";
+const databaseNames: readonly [string, string, string] = animationTimingRun
+	? [
+			"animation_timing_test",
+			"animation_timing_web_test",
+			"animation_timing_desktop_test",
+		]
+	: ["directional_test", "directional_web_test", "directional_desktop_test"];
+const integrationTest = animationTimingRun
+	? "src/animation-timing-review.integration.test.ts"
+	: "src/directional-review.integration.test.ts";
+const integrationDatabaseEnvironmentVariable = animationTimingRun
+	? "ANIMATION_TIMING_REVIEW_TEST_DATABASE_URL"
+	: "DIRECTIONAL_REVIEW_TEST_DATABASE_URL";
+const webE2ESpec = animationTimingRun
+	? "e2e/animation-timing-reviews.spec.ts"
+	: "e2e/directional-reviews.spec.ts";
+const desktopE2EScript = animationTimingRun
+	? "desktop:test:animation-timing"
+	: "desktop:test:directional";
 
 function databaseUrl(baseUrl: string, databaseName: string): string {
 	const url = new URL(baseUrl);
 	url.pathname = `/${databaseName}`;
 	if (url.hostname !== "127.0.0.1") {
-		throw new Error("Directional E2E only permits a loopback database.");
+		throw new Error(
+			"Character animation profile E2E only permits a loopback database."
+		);
 	}
 	return url.toString();
 }
@@ -26,6 +49,7 @@ function isolatedEnvironment(): NodeJS.ProcessEnv {
 		"DATABASE_URL_UNPOOLED",
 		"MIGRATION_DATABASE_URL",
 		"DIRECTIONAL_REVIEW_TEST_DATABASE_URL",
+		"ANIMATION_TIMING_REVIEW_TEST_DATABASE_URL",
 		"CONTEXT_TEST_DATABASE_URL",
 		"DB_PUSH_DISPOSABLE",
 		"NEON_LOCAL",
@@ -120,22 +144,22 @@ async function runCommand(
 	}
 }
 
-async function runDirectionalE2E(): Promise<void> {
+async function runCharacterAnimationProfileE2E(): Promise<void> {
 	await withDisposablePostgres(async ({ url: postgresUrl }) => {
 		await createTestDatabases(postgresUrl);
 
 		const integrationEnvironment = {
 			...isolatedEnvironment(),
 			DATABASE_URL: databaseUrl(postgresUrl, databaseNames[0]),
-			DIRECTIONAL_REVIEW_TEST_DATABASE_URL: databaseUrl(
+			[integrationDatabaseEnvironmentVariable]: databaseUrl(
 				postgresUrl,
 				databaseNames[0]
 			),
 			NODE_ENV: "test",
 		};
 		await runCommand(
-			"Directional review PostgreSQL integration",
-			["test", "src/directional-review.integration.test.ts"],
+			`${reviewLabel} PostgreSQL integration`,
+			["test", integrationTest],
 			serverDirectory,
 			integrationEnvironment
 		);
@@ -152,8 +176,8 @@ async function runDirectionalE2E(): Promise<void> {
 			NODE_ENV: "test",
 		};
 		await runCommand(
-			"Directional review Playwright web E2E",
-			["run", "test:e2e", "e2e/directional-reviews.spec.ts"],
+			`${reviewLabel} Playwright web E2E`,
+			["run", "test:e2e", webE2ESpec],
 			webDirectory,
 			webEnvironment
 		);
@@ -168,14 +192,14 @@ async function runDirectionalE2E(): Promise<void> {
 			VITE_SERVER_URL: apiUrl,
 		};
 		await runCommand(
-			"Build directional review desktop E2E app",
+			`Build ${reviewLabel.toLowerCase()} desktop E2E app`,
 			["run", "desktop:test:build"],
 			webDirectory,
 			desktopEnvironment
 		);
 		await runCommand(
-			"Directional review Tauri desktop E2E",
-			["run", "desktop:test:directional"],
+			`${reviewLabel} Tauri desktop E2E`,
+			["run", desktopE2EScript],
 			webDirectory,
 			desktopEnvironment
 		);
@@ -183,13 +207,13 @@ async function runDirectionalE2E(): Promise<void> {
 }
 
 try {
-	await runDirectionalE2E();
+	await runCharacterAnimationProfileE2E();
 	console.info(
-		"\nDirectional review PostgreSQL, web, and desktop E2E checks passed."
+		`\n${reviewLabel} PostgreSQL, web, and desktop E2E checks passed.`
 	);
 } catch (error) {
 	console.error(
-		error instanceof Error ? error.message : "Directional review E2E failed."
+		error instanceof Error ? error.message : `${reviewLabel} E2E failed.`
 	);
 	process.exitCode = 1;
 }
