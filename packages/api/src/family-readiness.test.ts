@@ -1,9 +1,22 @@
 import { expect, test } from "bun:test";
 import type { ReadinessEvidenceInput } from "./family-readiness";
 import {
+	objectSceneUsageTestId,
 	readinessEvidenceInputSchema,
 	readinessEvidenceSchema,
 } from "./family-readiness";
+import { specializedProfileContractCatalog } from "./specialized-profile-contracts";
+
+test("shares the object scene usage test id with the object profile contract", () => {
+	const objectProfile = specializedProfileContractCatalog.find(
+		(contract) => contract.profileId === "object_weapon_equipment_states"
+	);
+	expect(
+		objectProfile?.usageTests.some(
+			(usage) => usage.id === objectSceneUsageTestId
+		)
+	).toBe(true);
+});
 
 test("requires project grid cell dimensions for every usage test evidence input", () => {
 	const input = {

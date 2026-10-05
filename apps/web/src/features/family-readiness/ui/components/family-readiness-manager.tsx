@@ -5,6 +5,7 @@ import type {
 	ReadinessEvidenceInput,
 	RequiredSetItem,
 } from "@sprite-anvil/api/family-readiness";
+import { objectSceneUsageTestId } from "@sprite-anvil/api/family-readiness";
 import type { SpecializedProfileContractsListOutput } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useQuery } from "@tanstack/react-query";
@@ -33,8 +34,6 @@ interface UsageTestAssetVersion {
 	reviewDisposition: "candidate" | "approved" | "rejected";
 	versionNumber: number;
 }
-
-const objectSceneUsageTestId = "object.approved_character_ground_scene";
 
 const itemKindLabels: Record<DraftItem["kind"], string> = {
 	direction: "Yön",

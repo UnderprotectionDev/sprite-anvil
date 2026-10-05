@@ -38,6 +38,8 @@ export const qualityVersionTargetSchema = z.discriminatedUnion("kind", [
 ]);
 export type QualityVersionTarget = z.infer<typeof qualityVersionTargetSchema>;
 
+export const objectSceneUsageTestId = "object.approved_character_ground_scene";
+
 export const usageTestContextSchema = z
 	.object({
 		cellDimensions: z
@@ -247,8 +249,7 @@ export const readinessEvidenceInputSchema = z.discriminatedUnion("kind", [
 		.extend({ usageTestContext: usageTestContextSchema })
 		.strict()
 		.superRefine((input, context) => {
-			const requiresSceneContext =
-				input.testId === "object.approved_character_ground_scene";
+			const requiresSceneContext = input.testId === objectSceneUsageTestId;
 			const hasApprovedCharacter = Boolean(
 				input.usageTestContext.approvedCharacterVersionId
 			);
@@ -404,6 +405,14 @@ export type ReadinessBlocker =
 	| "usage_test"
 	| "profile_contract_usage_test";
 
+export type RecordEvidenceFailureReason =
+	| "invalid_usage_test_context"
+	| "out_of_scope";
+
+export type FamilyReadinessRecordResult =
+	| { status: "recorded"; readiness: FamilyReadiness }
+	| { status: "rejected"; reason: RecordEvidenceFailureReason };
+
 export interface FamilyReadinessStore {
 	activate: (
 		userId: string,
@@ -417,7 +426,7 @@ export interface FamilyReadinessStore {
 	recordEvidence: (
 		userId: string,
 		input: ReadinessEvidenceInput
-	) => Promise<FamilyReadiness | null>;
+	) => Promise<FamilyReadinessRecordResult>;
 	saveDraft: (
 		userId: string,
 		input: z.infer<typeof requiredSetSaveInputSchema>
