@@ -4,6 +4,37 @@ Tablolar ana arayüzleri ve bunlara bağlı alt alanları gösterir.
 
 **Alt numaralar bağlılığı gösterir:** 03.4 “Varlık ayrıntısı”, 03.4.1 ise onun içindeki “Oyun İçi Bilgiler” alanıdır. Bunlar kullanıcı için zorunlu işlem sırası değildir. Alt alanlar ayrı ekran, sekme veya panel olarak tasarlanabilir.
 
+## Paper dosyası ve tasarım sahipliği
+
+Aktif tasarım kaynağı, Paper'daki `Sprite Anvil` klasöründe bulunan [Sprite Anvil · Product](https://app.paper.design/file/01M4ASVM4ATF4HHXQSJ96CWVFY) dosyasıdır. Aşağıdaki adlar bu dosyanın **Paper sayfalarıdır**; ayrı dosyalar veya uygulama route'ları değildir.
+
+| Paper sayfası | Sahip olduğu tasarım |
+| --- | --- |
+| Start Here | Sayfa dizini, kaynak önceliği ve ortak tasarımları kullanma kuralları. |
+| Design Language | Ortak tokenlar, tipografi, kontrol hiyerarşisi ve bileşen örnekleri. |
+| 00 · Shared Shell | 00.1–00.5 ortak çerçevesi ve içerik yuvası. |
+| 01 · Accounts & Projects | 01 hesap, proje ve Proje Arşivi alanları. |
+| 02 · Project Context & Management | 02 Proje Bağlamı ve yönetim alanları. |
+| 03 · Asset Library | 03 kütüphane, koleksiyon, aile ve varlık ayrıntısı alanları. |
+| 04 · Production & Import | 04 üretim ve içe aktarma alanları. |
+| 05 · Review & Quality Control | 05 inceleme, profil testleri, düzenleyici ve kalite kontrol alanları. |
+| 06 · Delivery | 06 hedef, paket, doğrulama ve teslimat alanları. |
+| 07 · Shared Operations | 07 çevrimdışı çalışma, çakışma, işlem kurtarma ve kalıcı silme akışları. |
+| 08 · Shared Pages & States | 08 ortak uygulama sayfaları, ekran durumları ve onay pencereleri. |
+
+Alan kimlikleri korunur: `00.1–00.5` ayrı Paper sayfalarına bölünmez; ilgili artboard ve katmanlar `00 · Shared Shell` içinde adlandırılır. `00.0 · Master Screen Template`, ortak çerçevenin tasarım örneğidir; yeni bir ürün gereksinimi değildir. Varlık ayrıntısı ve alt görünümlerinin sahibi `03.4–03.4.6` olduğundan bu tasarımlar `03 · Asset Library` içinde tutulur. `00.3` işlem durumuna giriş kontrolünü, `07.2` işlem ayrıntısını ve kurtarma akışını tanımlar; `08.2.15` bunların ortak durum bildirimidir.
+
+### Ortak örnekleri kullanma ve kod aktarımı
+
+- Davranışın kaynağı [PRD](prd/README.md), arayüz kapsamının kaynağı bu plandır. Görsel kararlar için aynı Product dosyasındaki `Design Language` ve ilgili ortak çerçeve örneği kullanılır. Bir çelişki, uygulama öncesinde ilgili kaynaklarla birlikte açıklanır.
+- Her artboard adı ilgili alan kimliğiyle başlar. Alt görünümler ve durum örnekleri sahip oldukları alanın Paper sayfasında gruplanır; her durum için ayrı dosya veya Paper sayfası açılmaz.
+- Ortak tokenlar dosya genelinde kullanılır. Çoğaltılmış artboard veya katman geometrisi canlı bileşen bağlantısı değildir. Ortak bir kontrol değiştiğinde önce kaynak örnek, sonra etkilenen ekran örnekleri güncellenip karşılaştırılır.
+- Tam ekran örneği çerçeve ve içerik ilişkisini gösterir. Aynı çerçeveyi tekrar eden hata, odak ve bekleme durumları, gerekli bağlam korunarak kompakt bileşen örnekleriyle gösterilebilir.
+- Kod aktarımında ilgili alanın artboard'u ve kullandığı ortak örnekler birlikte okunur. Yinelenen çerçeve ve kontroller kodda ortak bileşenlere ayrılır; Paper'daki kopyaların her biri ayrı uygulama bileşeni sayılmaz.
+- Eski bağımsız dosyalar arşiv/yedek kaynağıdır; yeni tasarımlar ve kod aktarımı Product dosyasından yürütülür. `Archive · Before Consolidation` tasarım dosyalarının arşividir; üründeki `01.4 Proje Arşivi` ile ilişkili değildir.
+
+**Kapsam ile tamamlanma ayrımı:** Bu belgedeki tablolar planlanan kapsamı gösterir. Paper'da bir sayfanın veya alan haritasının bulunması, o alanın bütün ekranlarının tasarlandığı, onaylandığı veya kodlandığı anlamına gelmez. Alan haritaları kapsam dizinidir; mevcut artboard'lar ve durum örnekleri ilgili görevde ayrıca kontrol edilir.
+
 ## Ana arayüzler
 
 | Alan | Ana arayüz | Kullanıcı burada ne yapar? |
