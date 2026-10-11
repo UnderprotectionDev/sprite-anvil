@@ -31,6 +31,8 @@ import type {
 	VfxAppearanceReviewStore,
 } from "./vfx-appearance-reviews";
 
+import type { VfxSynchronizationStore } from "./vfx-synchronization";
+
 export interface Context {
 	animationTimingReviewStore?: AnimationTimingReviewStore;
 	assetFamilyComparisonStore?: AssetFamilyComparisonStore;
@@ -53,6 +55,11 @@ export interface Context {
 	providerGenerationRecordStore?: ProviderGenerationRecordStore;
 	readAnimationMetadataPackageTarget?: AnimationMetadataPackageTargetReader;
 	readGameplayMetadataPackageTarget?: GameplayMetadataPackageTargetReader;
+	readVfxImageDimensions?: (
+		userId: string,
+		projectId: string,
+		assetVersionId: string
+	) => Promise<{ width: number; height: number; hasAlpha: boolean } | null>;
 	referenceProductionStore?: ReferenceProductionStore;
 	reviewGameplayMetadata?: GameplayMetadataReviewHandler;
 	rightsRecordStore?: RightsRecordStore;
@@ -69,4 +76,5 @@ export interface Context {
 		frame: VfxAppearanceFrame
 	) => Promise<boolean>;
 	vfxAppearanceReviewStore?: VfxAppearanceReviewStore;
+	vfxSynchronizationStore?: VfxSynchronizationStore;
 }

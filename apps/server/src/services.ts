@@ -32,6 +32,7 @@ import { createSpecializedProfileContractStore } from "./features/quality-eviden
 import { createReferenceProductionStore } from "./features/reference-production/server/reference-production-store";
 import { createRightsRecordStore } from "./features/rights-evidence/server/rights-record-store";
 import { createVfxAppearanceReviewStore } from "./features/vfx-profile/server/vfx-appearance-review-store";
+import { createVfxSynchronizationStore } from "./features/vfx-profile/server/vfx-synchronization-store";
 import { createProjectContextScopeStore } from "./features/visual-worlds/server/project-context-scope-store";
 
 function usesLoopbackTestDatabase(databaseUrl: string): boolean {
@@ -52,6 +53,7 @@ function usesLoopbackTestDatabase(databaseUrl: string): boolean {
 export const db = usesLoopbackTestDatabase(ENV.DATABASE_URL)
 	? createLocalTestDb(ENV)
 	: createDb(ENV);
+export const vfxSynchronizationStore = createVfxSynchronizationStore(db);
 export const vfxAppearanceReviewStore = createVfxAppearanceReviewStore(db);
 export const animationTimingReviewStore = createAnimationTimingReviewStore(db);
 export const directionalReviewStore = createDirectionalReviewStore(db);

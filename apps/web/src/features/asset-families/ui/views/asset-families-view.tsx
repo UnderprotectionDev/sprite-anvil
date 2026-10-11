@@ -15,6 +15,7 @@ import { IconFamilyReviewSections } from "@/features/icon-profile/ui/components/
 import { AssetFamilyComparisonSections } from "@/features/object-equipment-profile/ui/components/asset-family-comparison-sections";
 import { SpecializedProfileContractManager } from "@/features/quality-evidence/ui/components/specialized-profile-contract-manager";
 import { VfxAppearanceSections } from "@/features/vfx-profile/ui/components/vfx-appearance-sections";
+import { VfxSynchronizationSections } from "@/features/vfx-profile/ui/components/vfx-synchronization-sections";
 import { client, orpc } from "@/utils/orpc";
 import { AssetFamilyCatalogView } from "../components/asset-family-catalog";
 import {
@@ -377,6 +378,16 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 										/>
 									))
 								: null}
+							<VfxSynchronizationSections
+								activation={effectProfileActivation}
+								assetFamilies={catalog.assetFamilies}
+								catalog={assetVersionCatalog}
+								categories={Object.fromEntries(assetCategoriesById)}
+								projectId={projectId}
+								recordNames={Object.fromEntries(
+									catalog.assetRecords.map((record) => [record.id, record.name])
+								)}
+							/>
 							<VfxAppearanceSections
 								activation={effectProfileActivation}
 								assetRecords={assetRecordQuery.data ?? []}

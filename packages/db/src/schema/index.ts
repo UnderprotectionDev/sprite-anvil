@@ -29,3 +29,4 @@ export * from "./rights-records";
 export * from "./source-metadata-mapping";
 export * from "./specialized-profile-contracts";
 export * from "./vfx-appearance-reviews";
+export * from "./vfx-synchronization";

@@ -6,6 +6,7 @@ import { readAnimationMetadataPackageTarget } from "./features/character-animati
 import { readGameplayMetadataPackageTarget } from "./features/gameplay-metadata/server/gameplay-metadata-package-target";
 import { reviewGameplayMetadata } from "./features/gameplay-metadata/server/gameplay-metadata-review";
 import { decodeVfxFrame } from "./features/vfx-profile/server/vfx-frame-decoder";
+import { readVfxImageDimensions } from "./features/vfx-profile/server/vfx-image-dimensions";
 import {
 	animationTimingReviewStore,
 	assetFamilyComparisonStore,
@@ -32,6 +33,7 @@ import {
 	rightsRecordStore,
 	specializedProfileContractStore,
 	vfxAppearanceReviewStore,
+	vfxSynchronizationStore,
 } from "./services";
 
 export interface CreateContextOptions {
@@ -45,6 +47,8 @@ export async function createContext({
 		headers: context.req.raw.headers,
 	});
 	return {
+		vfxSynchronizationStore,
+		readVfxImageDimensions,
 		assetFamilyStore,
 		assetFamilyComparisonStore,
 		familyReadinessStore,
