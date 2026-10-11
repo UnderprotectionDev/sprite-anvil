@@ -1,6 +1,10 @@
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
 import { signUpWithFixture } from "./project-workflow";
+import {
+	textureRepetitionFixture as fixture,
+	readTexturePreviewPresentation,
+} from "./texture-repetition-review-fixture";
 
 const profileActivationButtonName = /Sözleşme v.*etkinleştir/;
 const profileLabel = "Karo setleri, arazi ve kesintisiz dokular";
@@ -9,11 +13,7 @@ test("reviews exact texture edges and all three arrangements, then rereads metad
 	page,
 }) => {
 	test.setTimeout(240_000);
-	await signUpWithFixture(page, {
-		userName: "Texture review owner",
-		email: `texture-review-${crypto.randomUUID()}@example.test`,
-		password: "TextureReview-Password-1",
-	});
+	await signUpWithFixture(page, fixture);
 	await page.goto("/context-proposals");
 	await page.getByLabel("Proje adı").fill("Texture review project");
 	await page
@@ -48,6 +48,13 @@ test("reviews exact texture edges and all three arrangements, then rereads metad
 	await page.getByLabel("Varlık Kaydı adı").fill("Grass texture");
 	await page.getByRole("button", { name: "Varlık Kaydı ekle" }).click();
 	await page.getByRole("link", { name: "Varlık Sürümü yükle" }).click();
+	const metadataForm = page.getByRole("region", {
+		name: "Varlık kaydı metadata’sı",
+	});
+	await expect(
+		metadataForm.getByLabel("Görsel Dünya").locator("option:checked")
+	).toHaveText("Texture world");
+	await expect(metadataForm.getByLabel("Görsel Dünya")).toBeDisabled();
 	await page
 		.getByLabel("Varlık kategorisi")
 		.selectOption({ label: profileLabel });
@@ -55,6 +62,12 @@ test("reviews exact texture edges and all three arrangements, then rereads metad
 	await expect(
 		page.getByText("Varlık kaydı metadata’sı kaydedildi.")
 	).toBeVisible();
+	await expect(
+		page.getByRole("button", { name: "Metadata’yı kaydet" })
+	).toBeEnabled();
+	await expect(page.getByLabel("Varlık kategorisi")).toHaveValue(
+		"tileset_terrain_texture"
+	);
 	const file = {
 		name: "grass.png",
 		mimeType: "image/png",
@@ -101,20 +114,28 @@ test("reviews exact texture edges and all three arrangements, then rereads metad
 	await expect(
 		review.getByRole("button", { name: "Save texture review" })
 	).toBeEnabled();
-	// Crop a uniform 4×4 tile from an 8×8 atlas; default shift is two pixels.
-	await review.getByLabel("Atlas width").fill("4");
-	await review.getByLabel("Atlas height").fill("4");
-	await review.getByLabel("Terrain ID").fill("grass-terrain");
+	// Use the same exact region, axes and shift on both product surfaces.
+	await review
+		.getByLabel("Atlas width")
+		.fill(String(fixture.atlasRegion.width));
+	await review
+		.getByLabel("Atlas height")
+		.fill(String(fixture.atlasRegion.height));
+	await review.getByLabel("Repeat axes").selectOption("xy");
+	await review.getByLabel("Shift X").fill(String(fixture.shiftedOffset.x));
+	await review.getByLabel("Shift Y").fill(String(fixture.shiftedOffset.y));
+	await review.getByLabel("Terrain ID").fill(fixture.terrainId);
 	await review.getByLabel("Preview zoom").selectOption("8");
 	await review.getByRole("button", { name: "Check exact edges" }).click();
 	await expect(review.getByText("X edge: 0 mismatched pixels")).toBeVisible();
 	for (const arrangement of ["2x2", "3x3", "shifted"]) {
 		// biome-ignore lint/performance/noAwaitInLoops: Browser observations must be entered in order.
 		await review.getByLabel(`${arrangement} outcome`).selectOption("passed");
-		await review
-			.getByLabel(`${arrangement} notes`)
-			.fill("Uniform color repeats without a visible motif.");
+		await review.getByLabel(`${arrangement} notes`).fill(fixture.notes);
 	}
+	const previews = await page.evaluate(readTexturePreviewPresentation);
+	expect(previews).toHaveLength(3);
+	expect(previews.every((preview) => preview.imageReady)).toBe(true);
 	await review.getByRole("button", { name: "Save texture review" }).click();
 	await expect(review.getByText("Texture review saved.")).toBeVisible();
 	await review.getByRole("img").first().locator("xpath=../../..").screenshot({
@@ -134,12 +155,18 @@ test("reviews exact texture edges and all three arrangements, then rereads metad
 	const path = await download.path();
 	expect(path).toBeTruthy();
 	const metadata = JSON.parse(await readFile(path ?? "", "utf8"));
-	expect(metadata.tileset.terrain_id).toBe("grass-terrain");
-	expect(metadata.tileset.tiles[0].atlas_region).toEqual({
-		x: 0,
-		y: 0,
-		width: 4,
-		height: 4,
-	});
-	expect(metadata.texture.repeat_axes).toEqual(["x", "y"]);
+	expect(metadata.tileset.terrain_id).toBe(fixture.terrainId);
+	expect(metadata.tileset.tiles[0].atlas_region).toEqual(fixture.atlasRegion);
+	expect(metadata.texture.repeat_axes).toEqual(fixture.repeatAxes);
+	expect(metadata.record.shiftedOffset).toEqual(fixture.shiftedOffset);
+	if (process.env.TEXTURE_REPETITION_WEB_RESULT) {
+		await writeFile(
+			process.env.TEXTURE_REPETITION_WEB_RESULT,
+			JSON.stringify({
+				familyPath: new URL(familyUrl).pathname,
+				metadata,
+				previews,
+			})
+		);
+	}
 });

@@ -31,7 +31,7 @@ const webServer: Array<{
 	url: string;
 }> = [];
 
-if (contextTestDatabaseUrl) {
+if (contextTestDatabaseUrl && process.env.E2E_EXTERNAL_API_SERVER !== "true") {
 	webServer.push({
 		command: "bun run --cwd ../server e2e:directional:server",
 		url: `${apiUrl}/health`,
