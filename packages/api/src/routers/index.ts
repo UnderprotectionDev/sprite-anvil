@@ -45,6 +45,7 @@ import { projectsRouter } from "./projects";
 import { referenceProductionRouter } from "./reference-production";
 import { rightsRecordsRouter } from "./rights-records";
 import { specializedProfileContractsRouter } from "./specialized-profile-contracts";
+import { tilesetAdjacencyReviewsRouter } from "./tileset-adjacency-reviews";
 import { vfxAppearanceReviewsRouter } from "./vfx-appearance-reviews";
 import { vfxSynchronizationRouter } from "./vfx-synchronization";
 
@@ -104,6 +105,7 @@ async function readContextProposalReview(
 }
 
 export const appRouter = {
+	tilesetAdjacencyReviews: tilesetAdjacencyReviewsRouter,
 	healthCheck: publicProcedure.handler(() => serializeRpcHealthResponse()),
 	privateData: protectedProcedure.handler(({ context }) =>
 		serializePrivateDataResponse(context.session?.user)

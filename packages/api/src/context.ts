@@ -26,11 +26,11 @@ import type { ProviderGenerationRecordStore } from "./provider-generation-record
 import type { ReferenceProductionStore } from "./reference-production";
 import type { RightsRecordStore } from "./rights-records";
 import type { SpecializedProfileContractStore } from "./specialized-profile-contracts";
+import type { TilesetAdjacencyReviewStore } from "./tileset-adjacency-reviews";
 import type {
 	VfxAppearanceFrame,
 	VfxAppearanceReviewStore,
 } from "./vfx-appearance-reviews";
-
 import type { VfxSynchronizationStore } from "./vfx-synchronization";
 
 export interface Context {
@@ -65,6 +65,7 @@ export interface Context {
 	rightsRecordStore?: RightsRecordStore;
 	session: Session | null;
 	specializedProfileContractStore?: SpecializedProfileContractStore;
+	tilesetAdjacencyReviewStore?: TilesetAdjacencyReviewStore;
 	verifyAssetVersionContent?: (
 		userId: string,
 		projectId: string,

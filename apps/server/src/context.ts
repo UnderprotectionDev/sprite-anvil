@@ -32,6 +32,7 @@ import {
 	referenceProductionStore,
 	rightsRecordStore,
 	specializedProfileContractStore,
+	tilesetAdjacencyReviewStore,
 	vfxAppearanceReviewStore,
 	vfxSynchronizationStore,
 } from "./services";
@@ -63,6 +64,7 @@ export async function createContext({
 		gameplayMetadataStore,
 		backgroundLayerLayoutStore,
 		iconFamilyReviewStore,
+		tilesetAdjacencyReviewStore,
 		directionalReviewStore,
 		readAnimationMetadataPackageTarget,
 		reviewGameplayMetadata,

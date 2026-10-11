@@ -24,10 +24,10 @@ jobs:
           sudo apt-get update && sudo apt-get install -y postgresql
           export DB_POSTGRES_BIN="$(dirname "$(find /usr/lib/postgresql -path '*/bin/initdb' -print -quit)")"
           bun test packages/db/scripts/database-preparation.integration.test.ts packages/db/scripts/migration-source.integration.test.ts
-      - run: bun run test
-      - run: bun run build
       # Install the browser revision required by the web workspace's locked Playwright.
       - run: bun run --cwd apps/web e2e:install --with-deps
+      - run: bun run test
+      - run: bun run build
       - run: bun run test:e2e
 
   desktop-webdriver:
