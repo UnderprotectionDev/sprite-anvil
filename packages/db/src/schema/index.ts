@@ -8,6 +8,7 @@ export * from "./asset-record-references";
 export * from "./asset-records";
 export * from "./asset-versions";
 export * from "./auth";
+export * from "./background-layer-layouts";
 export * from "./collections";
 export * from "./context-scopes";
 export * from "./dependency-revalidation";
@@ -27,5 +28,5 @@ export * from "./reference-production";
 export * from "./rights-records";
 export * from "./source-metadata-mapping";
 export * from "./specialized-profile-contracts";
-
+export * from "./vfx-appearance-reviews";
 export * from "./vfx-synchronization";

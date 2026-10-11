@@ -5,6 +5,7 @@ import { Link } from "@tanstack/react-router";
 import type { SyntheticEvent } from "react";
 import { AssetVersionControls } from "@/features/asset-versions/ui/components/asset-version-controls";
 import { useAssetVersionWrites } from "@/features/asset-versions/ui/hooks/use-asset-version-writes";
+import { BackgroundLayerLayoutSections } from "@/features/background-parallax-profile/ui/components/background-layer-layout-sections";
 import { AnimationTimingReviewManager } from "@/features/character-animation-profile/ui/components/animation-timing-review-manager";
 import { DirectionalReviewSections } from "@/features/character-animation-profile/ui/components/directional-review-sections";
 import { DependencyRevalidationManager } from "@/features/dependency-revalidation/ui/components/dependency-revalidation-manager";
@@ -13,6 +14,7 @@ import { FamilyReadinessManager } from "@/features/family-readiness/ui/component
 import { IconFamilyReviewSections } from "@/features/icon-profile/ui/components/icon-family-review-sections";
 import { AssetFamilyComparisonSections } from "@/features/object-equipment-profile/ui/components/asset-family-comparison-sections";
 import { SpecializedProfileContractManager } from "@/features/quality-evidence/ui/components/specialized-profile-contract-manager";
+import { VfxAppearanceSections } from "@/features/vfx-profile/ui/components/vfx-appearance-sections";
 import { VfxSynchronizationSections } from "@/features/vfx-profile/ui/components/vfx-synchronization-sections";
 import { client, orpc } from "@/utils/orpc";
 import { AssetFamilyCatalogView } from "../components/asset-family-catalog";
@@ -107,13 +109,17 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 	// Directional Review records character-profile identity checks, so the
 	// section stays hidden until the character Specialized Profile Contract is
 	// active; unrelated asset groups never see character-review guidance.
+	const effectProfileActivation = getActiveProfileContract(
+		profileContractsQuery.data,
+		"visual_effect_projectile_shadow_mark"
+	);
 	const characterProfileActivation = getActiveProfileContract(
 		profileContractsQuery.data,
 		"character_creature_animation"
 	);
-	const vfxProfileActivation = getActiveProfileContract(
+	const backgroundProfileActivation = getActiveProfileContract(
 		profileContractsQuery.data,
-		"visual_effect_projectile_shadow_mark"
+		"background_parallax"
 	);
 	const iconProfileActivation = getActiveProfileContract(
 		profileContractsQuery.data,
@@ -373,7 +379,7 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 									))
 								: null}
 							<VfxSynchronizationSections
-								activation={vfxProfileActivation}
+								activation={effectProfileActivation}
 								assetFamilies={catalog.assetFamilies}
 								catalog={assetVersionCatalog}
 								categories={Object.fromEntries(assetCategoriesById)}
@@ -382,12 +388,27 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 									catalog.assetRecords.map((record) => [record.id, record.name])
 								)}
 							/>
+							<VfxAppearanceSections
+								activation={effectProfileActivation}
+								assetRecords={assetRecordQuery.data ?? []}
+								catalog={catalog}
+								projectId={projectId}
+								versionCatalog={assetVersionCatalog}
+							/>
 							<DirectionalReviewSections
 								activation={characterProfileActivation}
 								assetFamilies={catalog.assetFamilies}
 								assetRecords={catalog.assetRecords}
 								catalog={assetVersionQuery.data}
 								projectId={projectId}
+							/>
+							<BackgroundLayerLayoutSections
+								activation={backgroundProfileActivation}
+								assetRecords={assetRecords}
+								families={catalog.assetFamilies}
+								familyRecords={catalog.assetRecords}
+								projectId={projectId}
+								versions={assetVersionQuery.data.assetVersions}
 							/>
 							<IconFamilyReviewSections
 								activation={iconProfileActivation}

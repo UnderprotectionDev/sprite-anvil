@@ -1,0 +1,2 @@
+-- Reconcile background layer layout and VFX appearance review snapshot branches.
+-- Earlier migrations already create both tables; no schema changes are required.

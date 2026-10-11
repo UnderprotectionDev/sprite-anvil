@@ -7,6 +7,7 @@ import type { AssetFamilyComparisonStore } from "./asset-family-comparisons";
 import type { AssetRecordTrackingStore } from "./asset-record-tracking";
 import type { AssetRecordStore } from "./asset-records";
 import type { AssetVersionStore } from "./asset-versions";
+import type { BackgroundLayerLayoutStore } from "./background-layer-layouts";
 import type { CollectionStore } from "./collections";
 import type { ProjectContextScopeStore } from "./context-scopes";
 import type { DependencyRevalidationStore } from "./dependency-revalidation";
@@ -25,6 +26,10 @@ import type { ProviderGenerationRecordStore } from "./provider-generation-record
 import type { ReferenceProductionStore } from "./reference-production";
 import type { RightsRecordStore } from "./rights-records";
 import type { SpecializedProfileContractStore } from "./specialized-profile-contracts";
+import type {
+	VfxAppearanceFrame,
+	VfxAppearanceReviewStore,
+} from "./vfx-appearance-reviews";
 
 import type { VfxSynchronizationStore } from "./vfx-synchronization";
 
@@ -35,6 +40,7 @@ export interface Context {
 	assetRecordStore: AssetRecordStore;
 	assetRecordTrackingStore: AssetRecordTrackingStore;
 	assetVersionStore: AssetVersionStore;
+	backgroundLayerLayoutStore?: BackgroundLayerLayoutStore;
 	collectionStore: CollectionStore;
 	db: Database;
 	dependencyRevalidationStore?: DependencyRevalidationStore;
@@ -64,5 +70,11 @@ export interface Context {
 		projectId: string,
 		assetVersionId: string
 	) => Promise<boolean>;
+	verifyVfxFrameContent?: (
+		userId: string,
+		projectId: string,
+		frame: VfxAppearanceFrame
+	) => Promise<boolean>;
+	vfxAppearanceReviewStore?: VfxAppearanceReviewStore;
 	vfxSynchronizationStore?: VfxSynchronizationStore;
 }
