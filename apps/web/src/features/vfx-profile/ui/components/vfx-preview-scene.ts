@@ -4,6 +4,7 @@ import {
 	type VfxSynchronizationInput,
 } from "@sprite-anvil/api/vfx-synchronization";
 import { type Application, Rectangle, Sprite, Texture } from "pixi.js";
+import { getVfxPreviewLayout } from "./vfx-preview-layout";
 export interface VfxPreviewState {
 	alone: boolean;
 	background: string;
@@ -18,6 +19,7 @@ export function createVfxPreviewScene(
 	>
 ) {
 	const textures: Texture[] = [];
+	const layout = getVfxPreviewLayout(config);
 
 	const sources = new Map(
 		[...images].map(([id, image]) => {
@@ -53,9 +55,10 @@ export function createVfxPreviewScene(
 			const sprite = new Sprite(texture);
 			sprite.visible = false;
 			sprite.position.set(
-				128 - frame.origin.x + frame.region.x,
-				96 - frame.origin.y + frame.region.y
+				layout.originX + (frame.region.x - frame.origin.x) * layout.scale,
+				layout.originY + (frame.region.y - frame.origin.y) * layout.scale
 			);
+			sprite.scale.set(layout.scale);
 			instance.stage.addChild(sprite);
 			return sprite;
 		});
@@ -64,8 +67,8 @@ export function createVfxPreviewScene(
 		throw new Error("Scene version is missing.");
 	}
 	const scene = new Sprite(Texture.from(sceneImage));
-	scene.width = 256;
-	scene.height = 192;
+	scene.width = layout.width;
+	scene.height = layout.height;
 	instance.stage.addChild(scene);
 	const ownerSprites = makeFrames(config.owner);
 	const effectSprites = makeFrames(config.effect);

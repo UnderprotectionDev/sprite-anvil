@@ -47,28 +47,33 @@ export function VfxSynchronizationManager({
 	);
 	const [repair, setRepair] = useState<VfxSynchronizationInput | undefined>();
 	const [pending, setPending] = useState(false);
-	const [uncertainId, setUncertainId] = useState<string | null>(null);
+	const [uncertainInput, setUncertainInput] =
+		useState<VfxSynchronizationInput | null>(null);
+	const [canRetry, setCanRetry] = useState(false);
 	const [message, setMessage] = useState("");
-	const locked = pending || !!uncertainId;
-	async function save(input: VfxSynchronizationInput) {
-		if (locked) {
+	const locked = pending || !!uncertainInput;
+	async function save(input: VfxSynchronizationInput, retry = false) {
+		if (pending || (uncertainInput && !(retry && canRetry))) {
 			return;
 		}
 		setPending(true);
+		setCanRetry(false);
 		setMessage("");
 		try {
 			const saved = await client.vfxSynchronization.save(input);
 			setSelected(saved);
+			setUncertainInput(null);
 			setRepair(undefined);
 			setMessage("Synchronization review verified from persistent storage.");
 			await query.refetch();
 		} catch (error) {
 			if (isWriteOutcomeUncertain(error)) {
-				setUncertainId(input.id);
+				setUncertainInput(structuredClone(input));
 				setMessage(
 					"Save outcome is uncertain. Check current records before continuing."
 				);
 			} else {
+				setUncertainInput(null);
 				setMessage(getErrorMessage(error, "Review could not be saved."));
 			}
 		} finally {
@@ -76,13 +81,22 @@ export function VfxSynchronizationManager({
 		}
 	}
 	async function checkRecords() {
+		if (pending || query.isFetching) {
+			return;
+		}
+		setCanRetry(false);
 		const result = await query.refetch();
-		const record = result.data?.find((r) => r.id === uncertainId);
+		const record = result.data?.find((r) => r.id === uncertainInput?.id);
 		if (!result.isError && record) {
 			setSelected(record);
 			setRepair(undefined);
-			setUncertainId(null);
+			setUncertainInput(null);
 			setMessage("Synchronization review verified from persistent storage.");
+		} else if (!result.isError && uncertainInput && result.data) {
+			setCanRetry(true);
+			setMessage(
+				"No saved review was found. Retry the same review without changing its values."
+			);
 		}
 	}
 	async function exportEvidence() {
@@ -150,6 +164,15 @@ export function VfxSynchronizationManager({
 			>
 				Check current records
 			</Button>
+			{canRetry && uncertainInput ? (
+				<Button
+					disabled={pending || query.isFetching || query.isError}
+					onClick={() => void save(uncertainInput, true)}
+					type="button"
+				>
+					Retry synchronization save
+				</Button>
+			) : null}
 			<ul>
 				{query.data?.map((record) => (
 					<li key={record.id}>

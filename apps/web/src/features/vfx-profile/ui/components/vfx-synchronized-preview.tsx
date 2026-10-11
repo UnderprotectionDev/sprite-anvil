@@ -5,8 +5,10 @@ import {
 } from "@sprite-anvil/api/vfx-synchronization";
 import { Button } from "@sprite-anvil/ui/components/button";
 import type { Application as PixiApplication } from "pixi.js";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ENV } from "@/env";
+
+import { getVfxPreviewLayout } from "./vfx-preview-layout";
 
 const trailingSlash = /\/$/;
 const backgroundColors = {
@@ -78,6 +80,10 @@ export function VfxSynchronizedPreview({
 	const controls = useRef({ elapsedMs, background, alone });
 	controls.current = { elapsedMs, background, alone };
 	const renderer = useRef<(() => void) | null>(null);
+	const layout = useMemo(
+		() => getVfxPreviewLayout({ effect: input.effect, owner: input.owner }),
+		[input.effect, input.owner]
+	);
 	const configuration = JSON.stringify({
 		effect: input.effect,
 		owner: input.owner,
@@ -118,10 +124,11 @@ export function VfxSynchronizedPreview({
 				if (disposed) {
 					return;
 				}
+				const viewport = getVfxPreviewLayout(config);
 				app = new Application();
 				await app.init({
-					width: 256,
-					height: 192,
+					width: viewport.width,
+					height: viewport.height,
 					backgroundAlpha: 0,
 					autoStart: false,
 				});
@@ -174,11 +181,19 @@ export function VfxSynchronizedPreview({
 		controls.current = { elapsedMs, background, alone };
 		renderer.current?.();
 	}, [elapsedMs, background, alone]);
-	const duration = Math.max(
-		input.owner.frames.reduce((s, f) => s + f.durationMs, 0),
-		input.event.timeMs +
-			input.effect.frames.reduce((s, f) => s + f.durationMs, 0)
+	const effectDuration = input.effect.frames.reduce(
+		(s, f) => s + f.durationMs,
+		0
 	);
+	const looping = alone
+		? input.effect.looping
+		: input.owner.looping || input.effect.looping;
+	const duration = alone
+		? effectDuration
+		: Math.max(
+				input.owner.frames.reduce((s, f) => s + f.durationMs, 0),
+				input.event.timeMs + effectDuration
+			);
 	useEffect(() => {
 		if (!(playing && ready)) {
 			return;
@@ -188,24 +203,26 @@ export function VfxSynchronizedPreview({
 		const tick = (now: number) => {
 			const delta = now - previous;
 			previous = now;
-			setElapsedMs((time) => Math.min(time + delta, duration));
+			setElapsedMs((time) =>
+				looping ? time + delta : Math.min(time + delta, duration)
+			);
 			handle = requestAnimationFrame(tick);
 		};
 		handle = requestAnimationFrame(tick);
 		return () => cancelAnimationFrame(handle);
-	}, [playing, ready, duration]);
+	}, [playing, ready, duration, looping]);
 	useEffect(() => {
-		if (elapsedMs >= duration) {
+		if (!looping && elapsedMs >= duration) {
 			setPlaying(false);
 		}
-	}, [elapsedMs, duration]);
+	}, [elapsedMs, duration, looping]);
 	return (
 		<section aria-label="VFX playback" className="space-y-3">
 			<div className="flex flex-wrap gap-3">
 				<Button
 					disabled={!ready}
 					onClick={() => {
-						if (elapsedMs >= duration) {
+						if (!looping && elapsedMs >= duration) {
 							setElapsedMs(0);
 						}
 						setPlaying(!playing);
@@ -273,7 +290,7 @@ export function VfxSynchronizedPreview({
 				Timeline (ms)
 				<input
 					className="block w-full"
-					max={duration}
+					max={Math.max(duration, Math.ceil(elapsedMs))}
 					min={0}
 					onChange={(e) => {
 						setPlaying(false);
@@ -292,8 +309,8 @@ export function VfxSynchronizedPreview({
 				<div
 					ref={host}
 					style={{
-						width: 256 * zoom,
-						aspectRatio: "4/3",
+						width: layout.width * zoom,
+						aspectRatio: `${layout.width}/${layout.height}`,
 						backgroundColor: backgroundColors[background],
 						backgroundImage:
 							background === "transparent"
