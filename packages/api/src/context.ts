@@ -26,6 +26,8 @@ import type { ReferenceProductionStore } from "./reference-production";
 import type { RightsRecordStore } from "./rights-records";
 import type { SpecializedProfileContractStore } from "./specialized-profile-contracts";
 
+import type { TilesetAdjacencyReviewStore } from "./tileset-adjacency-reviews";
+
 export interface Context {
 	animationTimingReviewStore?: AnimationTimingReviewStore;
 	assetFamilyComparisonStore?: AssetFamilyComparisonStore;
@@ -52,6 +54,7 @@ export interface Context {
 	rightsRecordStore?: RightsRecordStore;
 	session: Session | null;
 	specializedProfileContractStore?: SpecializedProfileContractStore;
+	tilesetAdjacencyReviewStore?: TilesetAdjacencyReviewStore;
 	verifyAssetVersionContent?: (
 		userId: string,
 		projectId: string,

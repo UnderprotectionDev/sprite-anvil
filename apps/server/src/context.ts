@@ -29,6 +29,7 @@ import {
 	referenceProductionStore,
 	rightsRecordStore,
 	specializedProfileContractStore,
+	tilesetAdjacencyReviewStore,
 } from "./services";
 
 export interface CreateContextOptions {
@@ -54,6 +55,7 @@ export async function createContext({
 		generationPackageStore,
 		gameplayMetadataStore,
 		iconFamilyReviewStore,
+		tilesetAdjacencyReviewStore,
 		directionalReviewStore,
 		readAnimationMetadataPackageTarget,
 		reviewGameplayMetadata,

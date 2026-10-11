@@ -30,6 +30,7 @@ import { createProviderGenerationRecordStore } from "./features/provider-generat
 import { createSpecializedProfileContractStore } from "./features/quality-evidence/server/specialized-profile-contract-store";
 import { createReferenceProductionStore } from "./features/reference-production/server/reference-production-store";
 import { createRightsRecordStore } from "./features/rights-evidence/server/rights-record-store";
+import { createTilesetAdjacencyReviewStore } from "./features/tileset-texture-profile/server/tileset-adjacency-review-store";
 import { createProjectContextScopeStore } from "./features/visual-worlds/server/project-context-scope-store";
 
 function usesLoopbackTestDatabase(databaseUrl: string): boolean {
@@ -52,6 +53,8 @@ export const db = usesLoopbackTestDatabase(ENV.DATABASE_URL)
 	: createDb(ENV);
 export const animationTimingReviewStore = createAnimationTimingReviewStore(db);
 export const directionalReviewStore = createDirectionalReviewStore(db);
+export const tilesetAdjacencyReviewStore =
+	createTilesetAdjacencyReviewStore(db);
 export const iconFamilyReviewStore = createIconFamilyReviewStore(db);
 export const gameplayMetadataStore = createGameplayMetadataStore(db);
 export const assetFamilyStore = createAssetFamilyStore(db);
