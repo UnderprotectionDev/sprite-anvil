@@ -5,6 +5,7 @@ import { verifyAssetVersionStream } from "./features/asset-versions/server/asset
 import { readAnimationMetadataPackageTarget } from "./features/character-animation-profile/server/animation-metadata-package-target";
 import { readGameplayMetadataPackageTarget } from "./features/gameplay-metadata/server/gameplay-metadata-package-target";
 import { reviewGameplayMetadata } from "./features/gameplay-metadata/server/gameplay-metadata-review";
+import { checkTextureEdges } from "./features/tileset-texture-profile/server/texture-image-reader";
 import {
 	animationTimingReviewStore,
 	assetFamilyComparisonStore,
@@ -29,6 +30,7 @@ import {
 	referenceProductionStore,
 	rightsRecordStore,
 	specializedProfileContractStore,
+	textureRepetitionReviewStore,
 } from "./services";
 
 export interface CreateContextOptions {
@@ -54,6 +56,8 @@ export async function createContext({
 		generationPackageStore,
 		gameplayMetadataStore,
 		iconFamilyReviewStore,
+		textureRepetitionReviewStore,
+		checkTextureEdges,
 		directionalReviewStore,
 		readAnimationMetadataPackageTarget,
 		reviewGameplayMetadata,

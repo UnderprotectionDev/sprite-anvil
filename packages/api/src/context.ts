@@ -26,6 +26,12 @@ import type { ReferenceProductionStore } from "./reference-production";
 import type { RightsRecordStore } from "./rights-records";
 import type { SpecializedProfileContractStore } from "./specialized-profile-contracts";
 
+import type {
+	TextureAtlasRegion,
+	TextureEdgeCheck,
+	TextureRepetitionReviewStore,
+} from "./texture-repetition-reviews";
+
 export interface Context {
 	animationTimingReviewStore?: AnimationTimingReviewStore;
 	assetFamilyComparisonStore?: AssetFamilyComparisonStore;
@@ -33,6 +39,13 @@ export interface Context {
 	assetRecordStore: AssetRecordStore;
 	assetRecordTrackingStore: AssetRecordTrackingStore;
 	assetVersionStore: AssetVersionStore;
+	checkTextureEdges?: (
+		userId: string,
+		projectId: string,
+		assetVersionId: string,
+		region: TextureAtlasRegion,
+		axes: ("x" | "y")[]
+	) => Promise<TextureEdgeCheck | null>;
 	collectionStore: CollectionStore;
 	db: Database;
 	dependencyRevalidationStore?: DependencyRevalidationStore;
@@ -52,6 +65,7 @@ export interface Context {
 	rightsRecordStore?: RightsRecordStore;
 	session: Session | null;
 	specializedProfileContractStore?: SpecializedProfileContractStore;
+	textureRepetitionReviewStore?: TextureRepetitionReviewStore;
 	verifyAssetVersionContent?: (
 		userId: string,
 		projectId: string,
