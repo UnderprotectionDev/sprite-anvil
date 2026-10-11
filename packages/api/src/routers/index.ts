@@ -33,6 +33,7 @@ import { assetFamilyComparisonsRouter } from "./asset-family-comparisons";
 import { assetRecordTrackingRouter } from "./asset-record-tracking";
 import { assetRecordsRouter } from "./asset-records";
 import { assetVersionsRouter } from "./asset-versions";
+import { backgroundLayerLayoutsRouter } from "./background-layer-layouts";
 import { collectionsRouter } from "./collections";
 import { dependencyRevalidationRouter } from "./dependency-revalidation";
 import { directionalReviewsRouter } from "./directional-reviews";
@@ -115,6 +116,7 @@ export const appRouter = {
 	vfxAppearanceReviews: vfxAppearanceReviewsRouter,
 	animationTimingReviews: animationTimingReviewsRouter,
 	iconFamilyReviews: iconFamilyReviewsRouter,
+	backgroundLayerLayouts: backgroundLayerLayoutsRouter,
 	assetVersions: assetVersionsRouter,
 	assetRecords: assetRecordsRouter,
 	collections: collectionsRouter,

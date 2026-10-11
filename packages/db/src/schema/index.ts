@@ -8,6 +8,7 @@ export * from "./asset-record-references";
 export * from "./asset-records";
 export * from "./asset-versions";
 export * from "./auth";
+export * from "./background-layer-layouts";
 export * from "./collections";
 export * from "./context-scopes";
 export * from "./dependency-revalidation";

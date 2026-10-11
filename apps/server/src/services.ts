@@ -12,6 +12,7 @@ import { createAssetRecordStore } from "./features/asset-records/server/asset-re
 import { createAssetRecordTrackingStore } from "./features/asset-records/server/asset-record-tracking-store";
 import { createAssetVersionStore } from "./features/asset-versions/server/asset-version-store";
 import { createTestAssetVersionStorage } from "./features/asset-versions/server/test-asset-version-storage";
+import { createBackgroundLayerLayoutStore } from "./features/background-parallax-profile/server/background-layer-layout-store";
 import { createAnimationTimingReviewStore } from "./features/character-animation-profile/server/animation-timing-review-store";
 import { createDirectionalReviewStore } from "./features/character-animation-profile/server/directional-review-store";
 import { createCollectionStore } from "./features/collections/server/collection-store";
@@ -54,6 +55,7 @@ export const db = usesLoopbackTestDatabase(ENV.DATABASE_URL)
 export const vfxAppearanceReviewStore = createVfxAppearanceReviewStore(db);
 export const animationTimingReviewStore = createAnimationTimingReviewStore(db);
 export const directionalReviewStore = createDirectionalReviewStore(db);
+export const backgroundLayerLayoutStore = createBackgroundLayerLayoutStore(db);
 export const iconFamilyReviewStore = createIconFamilyReviewStore(db);
 export const gameplayMetadataStore = createGameplayMetadataStore(db);
 export const assetFamilyStore = createAssetFamilyStore(db);
