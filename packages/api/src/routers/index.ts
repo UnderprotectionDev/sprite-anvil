@@ -44,6 +44,7 @@ import { projectsRouter } from "./projects";
 import { referenceProductionRouter } from "./reference-production";
 import { rightsRecordsRouter } from "./rights-records";
 import { specializedProfileContractsRouter } from "./specialized-profile-contracts";
+import { vfxAppearanceReviewsRouter } from "./vfx-appearance-reviews";
 
 async function readContextProposalReview(
 	context: Context,
@@ -111,6 +112,7 @@ export const appRouter = {
 	dependencyRevalidation: dependencyRevalidationRouter,
 	familyReadiness: familyReadinessRouter,
 	directionalReviews: directionalReviewsRouter,
+	vfxAppearanceReviews: vfxAppearanceReviewsRouter,
 	animationTimingReviews: animationTimingReviewsRouter,
 	iconFamilyReviews: iconFamilyReviewsRouter,
 	assetVersions: assetVersionsRouter,
