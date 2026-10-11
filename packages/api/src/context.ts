@@ -26,6 +26,10 @@ import type { ProviderGenerationRecordStore } from "./provider-generation-record
 import type { ReferenceProductionStore } from "./reference-production";
 import type { RightsRecordStore } from "./rights-records";
 import type { SpecializedProfileContractStore } from "./specialized-profile-contracts";
+import type {
+	VfxAppearanceFrame,
+	VfxAppearanceReviewStore,
+} from "./vfx-appearance-reviews";
 
 export interface Context {
 	animationTimingReviewStore?: AnimationTimingReviewStore;
@@ -59,4 +63,10 @@ export interface Context {
 		projectId: string,
 		assetVersionId: string
 	) => Promise<boolean>;
+	verifyVfxFrameContent?: (
+		userId: string,
+		projectId: string,
+		frame: VfxAppearanceFrame
+	) => Promise<boolean>;
+	vfxAppearanceReviewStore?: VfxAppearanceReviewStore;
 }

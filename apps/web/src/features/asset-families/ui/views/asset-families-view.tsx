@@ -14,6 +14,7 @@ import { FamilyReadinessManager } from "@/features/family-readiness/ui/component
 import { IconFamilyReviewSections } from "@/features/icon-profile/ui/components/icon-family-review-sections";
 import { AssetFamilyComparisonSections } from "@/features/object-equipment-profile/ui/components/asset-family-comparison-sections";
 import { SpecializedProfileContractManager } from "@/features/quality-evidence/ui/components/specialized-profile-contract-manager";
+import { VfxAppearanceSections } from "@/features/vfx-profile/ui/components/vfx-appearance-sections";
 import { client, orpc } from "@/utils/orpc";
 import { AssetFamilyCatalogView } from "../components/asset-family-catalog";
 import {
@@ -107,6 +108,10 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 	// Directional Review records character-profile identity checks, so the
 	// section stays hidden until the character Specialized Profile Contract is
 	// active; unrelated asset groups never see character-review guidance.
+	const effectProfileActivation = getActiveProfileContract(
+		profileContractsQuery.data,
+		"visual_effect_projectile_shadow_mark"
+	);
 	const characterProfileActivation = getActiveProfileContract(
 		profileContractsQuery.data,
 		"character_creature_animation"
@@ -372,6 +377,13 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 										/>
 									))
 								: null}
+							<VfxAppearanceSections
+								activation={effectProfileActivation}
+								assetRecords={assetRecordQuery.data ?? []}
+								catalog={catalog}
+								projectId={projectId}
+								versionCatalog={assetVersionCatalog}
+							/>
 							<DirectionalReviewSections
 								activation={characterProfileActivation}
 								assetFamilies={catalog.assetFamilies}
