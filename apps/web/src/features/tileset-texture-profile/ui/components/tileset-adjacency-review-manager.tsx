@@ -12,6 +12,7 @@ import {
 	tilesetAdjacencyReviewInputSchema,
 	tilesetMapScenarioLabels,
 } from "@sprite-anvil/api/tileset-adjacency-reviews";
+import { getTilesetReviewEvidenceError } from "@sprite-anvil/api/tileset-scenario-evidence";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
@@ -110,7 +111,7 @@ export function TilesetAdjacencyReviewManager({
 				unitVersionId: unit.id,
 				tileId: unit.unitKey,
 				assetVersionId: version.id,
-				terrainId: "",
+				terrainId: null,
 				region: { x: 0, y: 0, ...version.sourceImageDimensions },
 				edges: { north: null, east: null, south: null, west: null },
 			});
@@ -154,30 +155,37 @@ export function TilesetAdjacencyReviewManager({
 		resetEditor(record.tiles[0]?.unitVersionId ?? null, true);
 		setStatus("Saved review loaded.");
 	}
+	function createReviewRequest(): TilesetAdjacencyReviewInput | null {
+		const parsed = tilesetAdjacencyReviewInputSchema.safeParse({
+			id: crypto.randomUUID(),
+			projectId,
+			assetFamilyId,
+			compositeVersionId: compositeId,
+			contractRevisionId: activation.contractRevisionId,
+			tiles: tiles.map(
+				({ tileId: _tileId, assetVersionId: _assetVersionId, ...tile }) => tile
+			),
+			maps,
+		});
+		if (!parsed.success) {
+			setStatus(parsed.error.issues[0]?.message ?? "Complete the review.");
+			return null;
+		}
+		const evidenceError = getTilesetReviewEvidenceError(parsed.data);
+		if (evidenceError) {
+			setStatus(evidenceError);
+			return null;
+		}
+		if (tiles.some((tile) => !previewReady[tile.unitVersionId])) {
+			setStatus("Load every tile preview before saving.");
+			return null;
+		}
+		return parsed.data;
+	}
 	async function saveReview() {
-		let request = pending;
+		const request = pending ?? createReviewRequest();
 		if (!request) {
-			const parsed = tilesetAdjacencyReviewInputSchema.safeParse({
-				id: crypto.randomUUID(),
-				projectId,
-				assetFamilyId,
-				compositeVersionId: compositeId,
-				contractRevisionId: activation.contractRevisionId,
-				tiles: tiles.map(
-					({ tileId: _tileId, assetVersionId: _assetVersionId, ...tile }) =>
-						tile
-				),
-				maps,
-			});
-			if (!parsed.success) {
-				setStatus(parsed.error.issues[0]?.message ?? "Complete the review.");
-				return;
-			}
-			if (tiles.some((tile) => !previewReady[tile.unitVersionId])) {
-				setStatus("Load every tile preview before saving.");
-				return;
-			}
-			request = parsed.data;
+			return;
 		}
 		setPending(request);
 		setSaving(true);

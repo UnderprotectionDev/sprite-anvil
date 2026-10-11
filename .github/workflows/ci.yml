@@ -24,9 +24,9 @@ jobs:
           sudo apt-get update && sudo apt-get install -y postgresql
           export DB_POSTGRES_BIN="$(dirname "$(find /usr/lib/postgresql -path '*/bin/initdb' -print -quit)")"
           bun test packages/db/scripts/database-preparation.integration.test.ts packages/db/scripts/migration-source.integration.test.ts
+      - run: bunx playwright install --with-deps chromium
       - run: bun run test
       - run: bun run build
-      - run: bunx playwright install --with-deps chromium
       - run: bun run test:e2e
 
   desktop-webdriver:

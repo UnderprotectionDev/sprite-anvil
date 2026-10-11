@@ -32,7 +32,7 @@ const regionSchema = z
 export const tilesetTileSchema = z
 	.object({
 		unitVersionId: id,
-		terrainId: id,
+		terrainId: id.nullable(),
 		region: regionSchema,
 		edges: z
 			.object({
@@ -207,7 +207,10 @@ const adjacencyIssueSchema = z
 	.strict();
 export const tilesetAdjacencyReviewRecordSchema =
 	tilesetAdjacencyReviewInputSchema.safeExtend({
-		contractVersion: z.literal("tileset-adjacency-review/1.0.0"),
+		contractVersion: z.enum([
+			"tileset-adjacency-review/1.0.0",
+			"tileset-adjacency-review/1.1.0",
+		]),
 		versionPins: z.array(pinSchema).min(1),
 		adjacencyIssues: z.array(adjacencyIssueSchema),
 		contractSnapshot: specializedProfileContractSchema,

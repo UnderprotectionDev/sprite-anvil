@@ -37,9 +37,10 @@ export function TilesetAtlasTileEditor({
 					id={`${prefix}-terrain`}
 					maxLength={200}
 					onChange={(event) =>
-						onChange({ ...tile, terrainId: event.target.value })
+						onChange({ ...tile, terrainId: event.target.value || null })
 					}
-					value={tile.terrainId}
+					placeholder="Optional for independent tiles"
+					value={tile.terrainId ?? ""}
 				/>
 			</label>
 			<div className="grid grid-cols-2 gap-2">

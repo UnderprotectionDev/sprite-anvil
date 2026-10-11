@@ -9,6 +9,7 @@ import {
 	tilesetAdjacencyReviewListInputSchema,
 	tilesetAdjacencyReviewRecordSchema,
 } from "../tileset-adjacency-reviews";
+import { getTilesetReviewEvidenceError } from "../tileset-scenario-evidence";
 
 function getStore(context: Context) {
 	if (!context.tilesetAdjacencyReviewStore) {
@@ -63,6 +64,10 @@ export const tilesetAdjacencyReviewsRouter = {
 					});
 				}
 				return existing;
+			}
+			const evidenceError = getTilesetReviewEvidenceError(input);
+			if (evidenceError) {
+				throw new ORPCError("BAD_REQUEST", { message: evidenceError });
 			}
 			const activation =
 				await context.specializedProfileContractStore?.getActive(
@@ -189,7 +194,7 @@ export const tilesetAdjacencyReviewsRouter = {
 				});
 			}
 			const record = tilesetAdjacencyReviewRecordSchema.parse({
-				contractVersion: "tileset-adjacency-review/1.0.0",
+				contractVersion: "tileset-adjacency-review/1.1.0",
 				...input,
 				versionPins,
 				adjacencyIssues,

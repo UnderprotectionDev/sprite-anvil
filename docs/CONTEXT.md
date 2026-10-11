@@ -45,6 +45,7 @@ English terms are the canonical technical names used in code and contracts. Turk
 | Directional Review | Kimlik ve Yön Tutarlılığı İncelemesi |
 | Animation Timing and Transition Review | Animasyon Zamanlamasını ve Geçişlerini İnceleme |
 | Icon Family Review | İkon Ailesi İncelemesi |
+| Tileset Adjacency Review | Karo Komşuluğu İncelemesi |
 | Human-Gated Action | Kullanıcı Kesinleştirmeli İşlem |
 | Export-Ready Version | Dışa Aktarıma Hazır Sürüm |
 | Review Disposition | İnceleme Kararı |
@@ -276,6 +277,10 @@ _Avoid_: fixed frame rate, mandatory phase template, automatic motion verdict, a
 **Icon Family Review**:
 An immutable user-authored assessment of exact icon Asset Versions in one Asset Family under a pinned icon Specialized Profile Contract. It records usage variants, logical sizes, light and dark background checks, grayscale comparison, and observations about object scale, lighting direction, outline, detail density, and whether a state or rarity color preserves identity. Its outcome does not change Review Disposition or create a project-wide art rule.
 _Avoid_: Review Event, similarity score, automatic artistic verdict, global style rule
+
+**Tileset Adjacency Review**:
+An immutable user-authored assessment of seven paintable tile-placement scenarios from exact Unit Versions in one Composite Version and Asset Family under a pinned Specialized Profile Contract. It retains atlas regions, optional terrain identities, declared edge connectors, map arrangements, observations, localized tile or connection issues, and separate deterministic connector results. New passing evidence must represent the named scenario; a failed result identifies an affected tile or connection. Historical records retain their original evidence contract version and outcome. The record neither changes Review Disposition nor establishes QA Readiness or Export Ready status; connector-label checks do not prove exact pixel-edge matching or visual quality. It excludes seamless-texture repetition tests and full Export Bundle contents.
+_Avoid_: Review Event, automatic artistic verdict, level editor, exact pixel-edge proof
 
 **Human-Gated Action**:
 A consequential decision reserved for the user: activating a Context Revision or Required Set, selecting a Canonical Design, recording a Review Event or Quality Waiver, starting an Export Bundle, resolving a divergent delivery target, and authorizing permanent erasure. Agents may prepare evidence and proposals but cannot perform these actions.

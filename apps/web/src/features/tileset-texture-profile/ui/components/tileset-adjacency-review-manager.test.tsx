@@ -247,3 +247,81 @@ test("keeps a failed validation editable and retries an uncertain save with the 
 	await waitFor(() => expect(api.save).toHaveBeenCalledTimes(3));
 	expect(api.save.mock.calls[2]?.[0]).toEqual(pending);
 }, 20_000);
+
+test("keeps unrepresented corner evidence editable instead of submitting a passed result", async () => {
+	await openEditor();
+	fireEvent.click(
+		screen.getByRole("button", { name: "Fill with selected tile" })
+	);
+	fireEvent.change(screen.getByLabelText("Scenario result"), {
+		target: { value: "passed" },
+	});
+	fireEvent.click(
+		screen.getByRole("button", { name: "Save adjacency review" })
+	);
+	await waitFor(() =>
+		expect(screen.getByRole("status")).toHaveTextContent("Paint a corner")
+	);
+	expect(api.save).not.toHaveBeenCalled();
+	expect(screen.getByLabelText("Scenario result")).toBeEnabled();
+});
+
+test("submits independent tiles with an empty optional Terrain ID", async () => {
+	await openEditor();
+	fireEvent.change(screen.getByLabelText("Terrain ID"), {
+		target: { value: "" },
+	});
+	api.save.mockRejectedValueOnce({
+		code: "BAD_REQUEST",
+		message: "Test rejection",
+	});
+	fireEvent.click(
+		screen.getByRole("button", { name: "Save adjacency review" })
+	);
+	await waitFor(() => expect(api.save).toHaveBeenCalledOnce());
+	expect(api.save.mock.calls[0]?.[0]).toMatchObject({
+		tiles: [{ terrainId: null }],
+	});
+});
+
+test("requires a targeted issue before submitting a failed visual judgment", async () => {
+	await openEditor();
+	fireEvent.change(screen.getByLabelText("Scenario result"), {
+		target: { value: "failed" },
+	});
+	fireEvent.click(
+		screen.getByRole("button", { name: "Save adjacency review" })
+	);
+	await waitFor(() =>
+		expect(screen.getByRole("status")).toHaveTextContent(
+			"Record a tile or connection issue"
+		)
+	);
+	expect(api.save).not.toHaveBeenCalled();
+	fireEvent.change(screen.getByLabelText("Tile or connection issue"), {
+		target: { value: "Visible seam on this tile" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Record issue" }));
+	api.save.mockRejectedValueOnce({
+		code: "BAD_REQUEST",
+		message: "Test rejection",
+	});
+	fireEvent.click(
+		screen.getByRole("button", { name: "Save adjacency review" })
+	);
+	await waitFor(() => expect(api.save).toHaveBeenCalledOnce());
+	expect(api.save.mock.calls[0]?.[0]).toMatchObject({
+		maps: expect.arrayContaining([
+			expect.objectContaining({
+				scenario: "inner_corner",
+				issues: [
+					{
+						cellIndex: 0,
+						neighborIndex: null,
+						notes: "Visible seam on this tile",
+					},
+				],
+			}),
+		]),
+	});
+});
