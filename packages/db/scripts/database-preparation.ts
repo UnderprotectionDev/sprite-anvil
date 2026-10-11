@@ -15,6 +15,7 @@ import { assertMigrationHistory } from "./migration-policy";
 import { MigrationSafetyError } from "./migration-safety-error";
 import type { ValidatedSource } from "./migration-source";
 import { assertRuntimeCatalog } from "./runtime-compatibility";
+import { assertRuntimeHistory } from "./runtime-history";
 
 interface DatabaseLease {
 	assertHeld: () => Promise<void>;
@@ -88,12 +89,49 @@ async function inspectTarget(
 	await connection`BEGIN READ ONLY`;
 	try {
 		const state = await readDatabaseHistory(connection);
-		assertMigrationHistory(
-			source.migrations,
-			state.applied,
-			state.hasApplicationTables,
-			compatible
-		);
+		if (compatible) {
+			assertRuntimeHistory(
+				source.migrations,
+				state.applied,
+				state.hasApplicationTables
+			);
+		} else {
+			assertMigrationHistory(
+				source.migrations,
+				state.applied,
+				state.hasApplicationTables
+			);
+		}
+		if (source.verification === "shared") {
+			await source.verifyCatalog?.(connection, state.applied, compatible);
+			const catalog = await readSchemaCatalog(connection);
+			if (compatible) {
+				assertRuntimeCatalog(source.catalog, catalog);
+				const otherIssue = state.applied.some(
+					(row) =>
+						!source.migrations.some((migration) => migration.name === row.name)
+				);
+				if (
+					!otherIssue &&
+					catalogHash(source.catalog) !== catalogHash(catalog)
+				) {
+					throw new MigrationSafetyError(
+						"Shared schema contains untracked changes without another applied migration; run bun run db:doctor."
+					);
+				}
+			} else if (source.verifyCatalog === undefined) {
+				throw new MigrationSafetyError(
+					"Shared schema verification is unavailable; run bun run db:doctor."
+				);
+			}
+			const pending = source.migrations.length - state.applied.length;
+			if (ready && pending > 0) {
+				throw new MigrationSafetyError(
+					`${pending} pending migration(s). Run bun run db:prepare.`
+				);
+			}
+			return Math.max(0, pending);
+		}
 		const catalog = await readSchemaCatalog(connection);
 		if (compatible && state.applied.length > source.migrations.length) {
 			assertRuntimeCatalog(source.catalog, catalog);
@@ -220,4 +258,27 @@ export async function withDevelopmentCompatibility<Result>(
 	action: (connections: Connection[]) => Result | Promise<Result>
 ): Promise<Result> {
 	return await withDevelopmentReadiness(source, targets, action, true);
+}
+
+export async function validateSharedTargets(
+	source: ValidatedSource,
+	targets: DevelopmentTarget[]
+): Promise<void> {
+	for (const target of targets) {
+		const lease = await acquireLease(target, true);
+		try {
+			const history = await readDatabaseHistory(lease.connection);
+			const runtime =
+				history.applied.some(
+					(row) =>
+						!source.migrations.some((migration) => migration.name === row.name)
+				) &&
+				source.migrations.every((migration) =>
+					history.applied.some((row) => row.name === migration.name)
+				);
+			await inspectTarget(source, lease.connection, false, runtime);
+		} finally {
+			await lease.release();
+		}
+	}
 }

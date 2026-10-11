@@ -21,8 +21,8 @@ import {
 import { runReadyDevelopment } from "./development-command";
 import { withDisposablePostgres } from "./disposable-postgres";
 import {
-	readValidatedSource,
-	validateMigrationSource,
+	readReplayedSource as readValidatedSource,
+	replayMigrationSource as validateMigrationSource,
 } from "./migration-source";
 import { readFreshRuntimeSource } from "./runtime-source";
 

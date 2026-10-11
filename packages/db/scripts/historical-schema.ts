@@ -14,6 +14,8 @@ const inventorySchema = z
 		),
 		expectedOnly: z.array(z.string()),
 		replayedOnly: z.array(z.string()),
+		introspectionStatements: z.array(z.string()).optional(),
+		introspectionCatalog: z.array(z.string()).optional(),
 	})
 	.strict();
 
