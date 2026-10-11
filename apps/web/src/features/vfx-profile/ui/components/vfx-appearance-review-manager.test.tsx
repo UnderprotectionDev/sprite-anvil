@@ -66,9 +66,7 @@ const existing = {
 	createdAt: "2026-10-11T10:00:00.000Z",
 	rationale: "Earlier result.",
 };
-test("locks an uncertain save until its exact review is recovered from current records", async () => {
-	mocks.list.mockResolvedValue([existing]);
-	mocks.save.mockRejectedValue(new TypeError("Failed to fetch"));
+function mount() {
 	render(
 		<QueryClientProvider
 			client={
@@ -85,6 +83,11 @@ test("locks an uncertain save until its exact review is recovered from current r
 			/>
 		</QueryClientProvider>
 	);
+}
+test("locks an uncertain save until its exact review is recovered from current records", async () => {
+	mocks.list.mockResolvedValue([existing]);
+	mocks.save.mockRejectedValue(new TypeError("Failed to fetch"));
+	mount();
 	await waitFor(() =>
 		expect(
 			screen.getByRole("button", { name: "Save test review" })
@@ -121,4 +124,87 @@ test("locks an uncertain save until its exact review is recovered from current r
 	expect(
 		screen.getByRole("button", { name: "Save test review" })
 	).toBeEnabled();
+});
+
+const supportReference = "SUP-00000000-0000-4000-8000-000000000000";
+const serverError = Object.assign(new Error("Private server details"), {
+	code: "INTERNAL_SERVER_ERROR",
+	status: 500,
+	data: { supportReference },
+});
+
+test("shows the server support reference on an uncertain save and clears it after readback", async () => {
+	mocks.list.mockResolvedValue([existing]);
+	mocks.save.mockRejectedValue(serverError);
+	mount();
+	await waitFor(() =>
+		expect(
+			screen.getByRole("button", { name: "Save test review" })
+		).toBeEnabled()
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Save test review" }));
+	await screen.findByText(uncertainMessage);
+	expect(screen.getByRole("status")).toHaveTextContent(supportReference);
+	expect(screen.queryByText("Private server details")).not.toBeInTheDocument();
+	expect(
+		screen.getByRole("button", { name: "Save test review" })
+	).toBeDisabled();
+	mocks.list.mockResolvedValue([{ ...existing, id: "pending" }]);
+	fireEvent.click(
+		screen.getByRole("button", { name: "Güncel kayıtları kontrol et" })
+	);
+	await screen.findByText("İnceleme kalıcı kayıttan doğrulandı.");
+	expect(screen.queryByText(supportReference)).not.toBeInTheDocument();
+	expect(mocks.save).toHaveBeenCalledTimes(1);
+});
+
+test("shows the read error support reference and safely retries the query", async () => {
+	mocks.list.mockRejectedValueOnce(serverError).mockResolvedValue([existing]);
+	mount();
+	expect(await screen.findByRole("alert")).toHaveTextContent(supportReference);
+	expect(screen.queryByText("Private server details")).not.toBeInTheDocument();
+	fireEvent.click(
+		screen.getByRole("button", { name: "Kayıtları yeniden oku" })
+	);
+	await screen.findByRole("button", { name: oldBurst });
+	expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+	expect(mocks.list).toHaveBeenCalledTimes(2);
+});
+
+test("does not invent a support reference for a connection failure", async () => {
+	mocks.list.mockResolvedValue([existing]);
+	mocks.save.mockRejectedValue(new TypeError("Failed to fetch"));
+	mount();
+	await waitFor(() =>
+		expect(
+			screen.getByRole("button", { name: "Save test review" })
+		).toBeEnabled()
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Save test review" }));
+	await screen.findByText(uncertainMessage);
+	expect(screen.getByRole("status")).not.toHaveTextContent(
+		"Support reference:"
+	);
+});
+
+test("announces a pending save and replaces progress with its confirmed result", async () => {
+	const pending = Promise.withResolvers<typeof existing>();
+	mocks.list.mockResolvedValue([existing]);
+	mocks.save.mockReturnValue(pending.promise);
+	mount();
+	await waitFor(() =>
+		expect(
+			screen.getByRole("button", { name: "Save test review" })
+		).toBeEnabled()
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Save test review" }));
+	expect(screen.getByRole("status")).toHaveTextContent(
+		"İnceleme kaydediliyor…"
+	);
+	expect(
+		screen.getByRole("button", { name: "Save test review" })
+	).toBeDisabled();
+	pending.resolve({ ...existing, id: "pending" });
+	await screen.findByText("İnceleme kalıcı kayıttan doğrulandı.");
+	expect(screen.queryByText("İnceleme kaydediliyor…")).not.toBeInTheDocument();
 });

@@ -45,6 +45,7 @@ Tamamlanma kanıtı: Görünüm ve sahibine bağlı oynatma farklı zeminlerde �
 - Fazın özgül başarı ve red kanıtı: Görünüm ve sahibine bağlı oynatma farklı zeminlerde çalışır; başlangıç, katman, olay ve istisna kanıtı kesin sürümle dışa aktarılır. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Bilinçli taşma bozuk bileşim veya okunamayan şeffaflık için genel af yaratmaz.
 - Kabul örnekleri: RAS-04. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
 - PNG/alpha çözümleme sınırı `apps/server/src/vfx-frame-decoder.test.ts`; belirsiz kaydetmenin kilitlenmesi ve aynı kaydın geri okunması `apps/web/src/features/vfx-profile/ui/components/vfx-appearance-review-manager.test.tsx` ile doğrulanır. Gerçek sahnenin görüntü verisi de sunucuda çözülür; yalnız okunabilir efekt kareleri yeterli değildir.
+- OPS-05/OPS-06 görünür geri bildirimi aynı manager test seam’inde sınanır: bekleyen kaydetme erişilebilir ilerleme durumunu gösterir; beklenmeyen okuma/yazma hataları sunucunun doğrulanmış Destek Referansını korur, ham istisnayı göstermez ve bağlantı hatasında referans üretmez. Kalıcı kayıt geri okunduğunda belirsizlik ve önceki hata referansı temizlenir; belirsiz yazım yeniden gönderilemez.
 
 ## Out of Scope
 

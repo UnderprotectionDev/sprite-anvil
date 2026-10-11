@@ -8,7 +8,10 @@ import type {
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { isWriteOutcomeUncertain } from "@/utils/error-notification";
+import {
+	buildErrorNotification,
+	isWriteOutcomeUncertain,
+} from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
 
@@ -39,6 +42,10 @@ export function VfxAppearanceReviewManager({
 	const [pendingId, setPendingId] = useState<string | null>(null);
 	const [uncertain, setUncertain] = useState(false);
 	const [message, setMessage] = useState("");
+	const [supportReference, setSupportReference] = useState("");
+	const querySupportReference = query.isError
+		? buildErrorNotification(query.error, "query").supportReference
+		: undefined;
 	const versions = useMemo(
 		() =>
 			catalog.assetVersions.filter(
@@ -85,6 +92,7 @@ export function VfxAppearanceReviewManager({
 		}
 		setSaving(true);
 		setMessage("");
+		setSupportReference("");
 		setPendingId(input.id);
 		try {
 			const record = await client.vfxAppearanceReviews.save(input);
@@ -93,6 +101,9 @@ export function VfxAppearanceReviewManager({
 			setMessage("İnceleme kalıcı kayıttan doğrulandı.");
 			await query.refetch();
 		} catch (error) {
+			setSupportReference(
+				buildErrorNotification(error, "mutation").supportReference ?? ""
+			);
 			if (!isWriteOutcomeUncertain(error)) {
 				setPendingId(null);
 				setMessage(getErrorMessage(error, "Efekt incelemesi kaydedilemedi."));
@@ -116,9 +127,11 @@ export function VfxAppearanceReviewManager({
 			setSelected(saved);
 			setPendingId(null);
 			setUncertain(false);
+			setSupportReference("");
 			setMessage("İnceleme kalıcı kayıttan doğrulandı.");
 		}
 	};
+	const statusMessage = saving ? "İnceleme kaydediliyor…" : message;
 	return (
 		<section
 			aria-label={`${familyName} VFX appearance review`}
@@ -130,12 +143,24 @@ export function VfxAppearanceReviewManager({
 			{query.isError ? (
 				<div role="alert">
 					İncelemeler okunamadı.{" "}
+					{querySupportReference ? (
+						<p className="break-all font-mono text-xs">
+							Support reference: <code>{querySupportReference}</code>
+						</p>
+					) : null}
 					<Button onClick={() => query.refetch()} type="button">
 						Kayıtları yeniden oku
 					</Button>
 				</div>
 			) : null}
-			{message ? <p role="status">{message}</p> : null}
+			<div aria-atomic="true" role="status">
+				{statusMessage ? <p>{statusMessage}</p> : null}
+				{supportReference ? (
+					<p className="break-all font-mono text-xs">
+						Support reference: <code>{supportReference}</code>
+					</p>
+				) : null}
+			</div>
 			<Button
 				disabled={saving || query.isFetching}
 				onClick={checkCurrentRecords}
@@ -154,6 +179,7 @@ export function VfxAppearanceReviewManager({
 								}
 								setSelected(record);
 								setUncertain(false);
+								setSupportReference("");
 							}}
 							type="button"
 						>
@@ -175,6 +201,7 @@ export function VfxAppearanceReviewManager({
 							setSelected(null);
 							setUncertain(false);
 							setMessage("");
+							setSupportReference("");
 						}}
 						type="button"
 					>
