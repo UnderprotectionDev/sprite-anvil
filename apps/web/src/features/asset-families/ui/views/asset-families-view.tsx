@@ -5,6 +5,7 @@ import { Link } from "@tanstack/react-router";
 import type { SyntheticEvent } from "react";
 import { AssetVersionControls } from "@/features/asset-versions/ui/components/asset-version-controls";
 import { useAssetVersionWrites } from "@/features/asset-versions/ui/hooks/use-asset-version-writes";
+import { BackgroundLayerLayoutSections } from "@/features/background-parallax-profile/ui/components/background-layer-layout-sections";
 import { AnimationTimingReviewManager } from "@/features/character-animation-profile/ui/components/animation-timing-review-manager";
 import { DirectionalReviewSections } from "@/features/character-animation-profile/ui/components/directional-review-sections";
 import { DependencyRevalidationManager } from "@/features/dependency-revalidation/ui/components/dependency-revalidation-manager";
@@ -109,6 +110,10 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 	const characterProfileActivation = getActiveProfileContract(
 		profileContractsQuery.data,
 		"character_creature_animation"
+	);
+	const backgroundProfileActivation = getActiveProfileContract(
+		profileContractsQuery.data,
+		"background_parallax"
 	);
 	const iconProfileActivation = getActiveProfileContract(
 		profileContractsQuery.data,
@@ -373,6 +378,14 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 								assetRecords={catalog.assetRecords}
 								catalog={assetVersionQuery.data}
 								projectId={projectId}
+							/>
+							<BackgroundLayerLayoutSections
+								activation={backgroundProfileActivation}
+								assetRecords={assetRecords}
+								families={catalog.assetFamilies}
+								familyRecords={catalog.assetRecords}
+								projectId={projectId}
+								versions={assetVersionQuery.data.assetVersions}
 							/>
 							<IconFamilyReviewSections
 								activation={iconProfileActivation}

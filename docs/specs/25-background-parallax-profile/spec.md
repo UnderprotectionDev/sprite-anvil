@@ -36,11 +36,21 @@ Tamamlanma kanıtı: Katman sırası, hız, kırpma ve döngü ayarlarıyla kull
 - **Yetki ve sürüm sınırı:** Aşağıdaki PRD hükümleri normatiftir. Fazın iş kırılımı, başka bir özelliğin kararını bu kapsama eklemez. Kesin kullanıcı kararları ajan veya otomasyon tarafından verilmez.
 - **Kapsam sınırı:** Arka plan, yalnız durağan temas sayfasına bakılarak tamamlanmış sayılmaz.
 
+### Katman düzeni kaydı (#118)
+
+- Arka Plan Katman Düzeni aynı Varlık Ailesi ve Görsel Dünya içindeki kesin arka plan Varlık Sürümlerini ve etkin Özel Profil Sözleşmesi revizyonunu sabitler. Her kaydetme yeni, değişmez bir kayıt oluşturur; aynı işlem kimliği aynı girdi için tek kayıt döndürür, farklı girdiyle yeniden kullanım reddedilir.
+- Katman kimlikleri ve negatif olmayan sıralama değerleri tekildir; düşük sıra arkadadır. Doğal ölçü doğrulanmış kaynak görsel ölçüsünden alınır, kullanıcı tarafından değiştirilemez. Eksik ölçü veya okunamayan/bozuk içerik kaydetmeyi engeller.
+- Hedef oran pozitif tam sayı genişlik/yükseklik çifti olarak saklanır. Kırpma bu oranı karşılayan, kaynak görselin içinde kalan pozitif bir dikdörtgendir. Oyuncu güvenli alanı kırpmanın içinde kalır. Her iki dikdörtgen kaynak görselin sol üstünden piksel koordinatlarını kullanır.
+- Aile ekranı katman ekleme/kaldırma, kesin sürüm seçimi, sıra, hedef oran, kırpma ve güvenli alan girişlerini, kaynak üstünde ayırt edilebilir sınır önizlemelerini ve kaydedilmiş düzenleri sunar. Kaydetme sonrası yeniden okuma, yenileme ve geçmiş kayıtlar aynı değerleri korur.
+- Görünürlük diğer özel profil kayıtlarının gizlilik sınırını izler: silinmiş veya erişilemeyen kaynak sürümü kullanan düzenin içerik taşıyan geçmiş kaydı API listesinde sunulmaz. Yeniden okuma kanıtı erişilebilir kaynaklar içindir; bu iş silme makbuzu veya içeriksiz soy işareti üretmez.
+- Bu kurulum gerçek kaydırma kullanım testi, insan incelemesi, onay veya tamamlanma kanıtı oluşturmaz; hız/döngü ve kaydırma değerlendirmesi sonraki issue kapsamındadır.
+
 ## Testing Decisions
 
 - **Birincil test seam’i:** RAS-06 örneklerinde kesin girdiyi kullanıcı eyleminden kalıcı kayda ve yeniden okumaya taşıyan sunucu/API yolunu sınama; web ve masaüstü görünür sonuçlarını karşılaştırma.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.
-- Bugün repoda bu faza ait ürün sözleşmesi bulunmuyor. Mevcut sunucu ve yüzey test örnekleri: [`account-access.test.ts`](../../../apps/server/src/account-access.test.ts), [`app-shell.spec.ts` (web)](../../../apps/web/e2e/app-shell.spec.ts) ve [`app-shell.spec.ts` (desktop)](../../../apps/web/desktop-e2e/app-shell.spec.ts). Bunlar bu özelliğin test edildiği anlamına gelmez.
+- #118 için API seam'i `backgroundLayerLayouts.save/list`; gerçek PostgreSQL'e kaydetme ve ayrı bağlantıdan yeniden okuma `apps/server/src/background-layer-layout.integration.test.ts` ile sınanır. Geçersiz geometri, yinelenen kimlik/sıra, yanlış aile/Görsel Dünya, eksik ölçü/içerik, değişmiş sözleşme, yetkisiz erişim, silinmiş kaynakların geçmiş kayıt üzerinden sızmaması ve idempotency red yolları ayrıca kapsanır. `bun run test:e2e:background-layout` migration geçmişini geçici PostgreSQL üzerinde uygular ve aynı API testiyle `apps/web/e2e/background-layer-layout.spec.ts` tarayıcı akışını çalıştırır. Web ve masaüstünün paylaştığı React yüzeyi `background-layer-layout-manager.test.tsx` ile kullanıcı girişi, kayıt sonrası yeniden açma ve hata yollarında sınanır; `apps/web/desktop-e2e/background-layer-layouts.spec.ts` aynı güvenli alan red ve kalıcı yeniden okuma senaryosunu masaüstünde tanımlar; gerçek tarayıcı/masaüstü kanıtı ayrıca bildirilir.
+- Mevcut sunucu ve yüzey test örnekleri: [`account-access.test.ts`](../../../apps/server/src/account-access.test.ts), [`app-shell.spec.ts` (web)](../../../apps/web/e2e/app-shell.spec.ts) ve [`app-shell.spec.ts` (desktop)](../../../apps/web/desktop-e2e/app-shell.spec.ts). Bunlar bu özelliğin test edildiği anlamına gelmez.
 - Fazın özgül başarı ve red kanıtı: Katman sırası, hız, kırpma ve döngü ayarlarıyla kullanıcıya gerçek kaydırma sunulur; kontrast ve oyuncu görünürlüğü kayda bağlanır. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Arka plan, yalnız durağan temas sayfasına bakılarak tamamlanmış sayılmaz.
 - Kabul örnekleri: RAS-06. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
 

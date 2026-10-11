@@ -7,6 +7,7 @@ import type { AssetFamilyComparisonStore } from "./asset-family-comparisons";
 import type { AssetRecordTrackingStore } from "./asset-record-tracking";
 import type { AssetRecordStore } from "./asset-records";
 import type { AssetVersionStore } from "./asset-versions";
+import type { BackgroundLayerLayoutStore } from "./background-layer-layouts";
 import type { CollectionStore } from "./collections";
 import type { ProjectContextScopeStore } from "./context-scopes";
 import type { DependencyRevalidationStore } from "./dependency-revalidation";
@@ -33,6 +34,7 @@ export interface Context {
 	assetRecordStore: AssetRecordStore;
 	assetRecordTrackingStore: AssetRecordTrackingStore;
 	assetVersionStore: AssetVersionStore;
+	backgroundLayerLayoutStore?: BackgroundLayerLayoutStore;
 	collectionStore: CollectionStore;
 	db: Database;
 	dependencyRevalidationStore?: DependencyRevalidationStore;

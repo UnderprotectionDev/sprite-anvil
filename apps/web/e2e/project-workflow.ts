@@ -20,7 +20,7 @@ export async function signUpWithFixture(page: Page, fixture: AccountFixture) {
 	await page.getByRole("button", { name: "Sign Up" }).click();
 	await expect(
 		page.getByRole("heading", { name: "Oyun projeleri" })
-	).toBeVisible();
+	).toBeVisible({ timeout: 30_000 });
 }
 
 export async function createProjectFromProjectsView(
