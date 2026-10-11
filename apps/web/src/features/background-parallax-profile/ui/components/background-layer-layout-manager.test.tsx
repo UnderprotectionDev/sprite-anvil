@@ -25,8 +25,151 @@ vi.mock("@/utils/orpc", () => ({
 }));
 afterEach(() => {
 	cleanup();
-	vi.clearAllMocks();
+	vi.resetAllMocks();
 });
+
+async function fillValidLayout() {
+	await waitFor(() =>
+		expect(screen.getByLabelText("Exact version")).toBeEnabled()
+	);
+	for (const [label, value] of [
+		["Layer identity", "sky"],
+		["Exact version", "sky-v1"],
+		["Safe area X", "80"],
+		["Safe area Y", "30"],
+		["Safe area width", "160"],
+		["Safe area height", "120"],
+	]) {
+		fireEvent.change(screen.getByLabelText(label), { target: { value } });
+	}
+}
+
+test("keeps an uncertain layout locked after an empty read and retries the exact operation", async () => {
+	let records: unknown[] = [];
+	mocks.list.mockImplementation(() => Promise.resolve(records));
+	mocks.save
+		.mockRejectedValueOnce(new TypeError("Failed to fetch"))
+		.mockImplementationOnce((input) => {
+			records = [
+				{
+					...input,
+					createdAt: "2026-10-11T00:00:00Z",
+					versionPins: [
+						{
+							assetVersionId: "sky-v1",
+							assetRecordName: "Sky",
+							versionNumber: 1,
+						},
+					],
+				},
+			];
+			return Promise.resolve(records[0]);
+		});
+	mount();
+	await fillValidLayout();
+	fireEvent.click(screen.getByRole("button", { name: "Save layer layout" }));
+	fireEvent.click(
+		await screen.findByRole("button", { name: "Check current layouts" })
+	);
+	await waitFor(() => expect(mocks.list).toHaveBeenCalledTimes(2));
+	expect(screen.getByLabelText("Layer identity")).toBeDisabled();
+	expect(
+		screen.getByRole("button", { name: "Save layer layout" })
+	).toBeDisabled();
+	fireEvent.click(screen.getByRole("button", { name: "Retry same layout" }));
+	await screen.findByText("Layer layout saved.");
+	expect(mocks.save).toHaveBeenCalledTimes(2);
+	expect(mocks.save.mock.calls[1][0]).toEqual(mocks.save.mock.calls[0][0]);
+	expect(screen.getByLabelText("Layer identity")).toBeEnabled();
+});
+
+test("only unlocks an uncertain layout when its own operation is read back", async () => {
+	let records: unknown[] = [];
+	mocks.list.mockImplementation(() => Promise.resolve(records));
+	mocks.save.mockRejectedValue(new TypeError("Failed to fetch"));
+	mount();
+	await fillValidLayout();
+	fireEvent.click(screen.getByRole("button", { name: "Save layer layout" }));
+	const check = await screen.findByRole("button", {
+		name: "Check current layouts",
+	});
+	const [[pending]] = mocks.save.mock.calls;
+	const saved = {
+		...pending,
+		createdAt: "2026-10-11T00:00:00Z",
+		versionPins: [
+			{ assetVersionId: "sky-v1", assetRecordName: "Sky", versionNumber: 1 },
+		],
+	};
+	records = [{ ...saved, id: crypto.randomUUID() }];
+	fireEvent.click(check);
+	await screen.findByText("sky · Sky · v1");
+	expect(screen.getByLabelText("Layer identity")).toBeDisabled();
+	mocks.list.mockRejectedValueOnce(new Error("Read failed"));
+	fireEvent.click(check);
+	await waitFor(() => expect(mocks.list).toHaveBeenCalledTimes(3));
+	expect(screen.getByLabelText("Layer identity")).toBeDisabled();
+	records = [saved];
+	fireEvent.click(check);
+	await screen.findByText("Layer layout saved.");
+	expect(screen.getByLabelText("Layer identity")).toBeEnabled();
+	expect(mocks.save).toHaveBeenCalledTimes(1);
+});
+
+test("does not announce success or unlock when the post-save read fails", async () => {
+	mocks.list
+		.mockResolvedValueOnce([])
+		.mockRejectedValueOnce(new Error("Read failed"));
+	mocks.save.mockResolvedValue({});
+	mount();
+	await fillValidLayout();
+	fireEvent.click(screen.getByRole("button", { name: "Save layer layout" }));
+	await screen.findByRole("button", { name: "Check current layouts" });
+	expect(screen.queryByText("Layer layout saved.")).not.toBeInTheDocument();
+	expect(screen.getByLabelText("Layer identity")).toBeDisabled();
+});
+test("allows correcting a definitively rejected first save", async () => {
+	mocks.list.mockResolvedValue([]);
+	mocks.save.mockRejectedValue(
+		Object.assign(new Error("Invalid layout."), {
+			code: "BAD_REQUEST",
+			status: 400,
+		})
+	);
+	mount();
+	await fillValidLayout();
+	fireEvent.click(screen.getByRole("button", { name: "Save layer layout" }));
+	await screen.findByText("Invalid layout.");
+	expect(screen.getByLabelText("Layer identity")).toBeEnabled();
+	expect(
+		screen.queryByRole("button", { name: "Check current layouts" })
+	).not.toBeInTheDocument();
+});
+
+test("a rejected retry does not resolve the original uncertain write", async () => {
+	mocks.list.mockResolvedValue([]);
+	mocks.save
+		.mockRejectedValueOnce(new TypeError("Failed to fetch"))
+		.mockRejectedValueOnce(
+			Object.assign(new Error("Contract changed."), {
+				code: "CONFLICT",
+				status: 409,
+			})
+		);
+	mount();
+	await fillValidLayout();
+	fireEvent.click(screen.getByRole("button", { name: "Save layer layout" }));
+	fireEvent.click(
+		await screen.findByRole("button", { name: "Retry same layout" })
+	);
+	await screen.findByText("Contract changed.");
+	expect(screen.getByLabelText("Layer identity")).toBeDisabled();
+	expect(
+		screen.getByRole("button", { name: "Check current layouts" })
+	).toBeEnabled();
+	expect(mocks.save.mock.calls[1][0]).toEqual(mocks.save.mock.calls[0][0]);
+});
+
 function getBackgroundContract() {
 	const definition = specializedProfileContractCatalog.find(
 		(entry) => entry.profileId === "background_parallax"
