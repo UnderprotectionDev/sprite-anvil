@@ -10,7 +10,6 @@ import type {
 import {
 	inspectTilesetAdjacency,
 	tilesetAdjacencyReviewInputSchema,
-	tilesetEdges,
 	tilesetMapScenarioLabels,
 } from "@sprite-anvil/api/tileset-adjacency-reviews";
 import { Button } from "@sprite-anvil/ui/components/button";
@@ -19,7 +18,8 @@ import { useId, useState } from "react";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
-import { TileImage, TilesetMap } from "./tileset-map";
+import { TilesetAtlasTileEditor } from "./tileset-atlas-tile-editor";
+import { TilesetMap } from "./tileset-map";
 import { createTilesetTestMaps } from "./tileset-map-presets";
 
 type Tile = TilesetTile & { tileId: string; assetVersionId: string };
@@ -81,6 +81,16 @@ export function TilesetAdjacencyReviewManager({
 	const map = maps[scenarioIndex];
 	const automaticIssues = inspectTilesetAdjacency({ tiles, maps });
 	const locked = saving || pending !== null;
+	function resetEditor(nextBrush: string | null, inspection: boolean) {
+		setBrush(nextBrush);
+		setInspectOnly(inspection);
+		setPreviewReady({});
+		setPreviewGeneration((current) => current + 1);
+		setCellIndex(0);
+		setScenarioIndex(0);
+		setNeighborIndex("");
+		setIssueNotes("");
+	}
 	function chooseComposite(id: string) {
 		const composite = composites.find((item) => item.id === id);
 		const selected: Tile[] = [];
@@ -115,12 +125,8 @@ export function TilesetAdjacencyReviewManager({
 					)
 				: []
 		);
-		setBrush(selected[0]?.unitVersionId ?? null);
-		setPreviewReady({});
-		setPreviewGeneration((current) => current + 1);
+		resetEditor(selected[0]?.unitVersionId ?? null, false);
 		setStatus("");
-		setCellIndex(0);
-		setScenarioIndex(0);
 	}
 	function updateMap(changes: Partial<TilesetTestMap>) {
 		setMaps((current) =>
@@ -145,11 +151,7 @@ export function TilesetAdjacencyReviewManager({
 			}))
 		);
 		setMaps(structuredClone(record.maps));
-		setPreviewReady({});
-		setPreviewGeneration((current) => current + 1);
-		setScenarioIndex(0);
-		setCellIndex(0);
-		setInspectOnly(true);
+		resetEditor(record.tiles[0]?.unitVersionId ?? null, true);
 		setStatus("Saved review loaded.");
 	}
 	async function saveReview() {
@@ -214,7 +216,7 @@ export function TilesetAdjacencyReviewManager({
 	return (
 		<section className="space-y-4 rounded-lg border p-4">
 			<h3 className="font-semibold text-lg">
-				Tileset adjacency · {familyName}
+				Karo Komşuluklarını Test Haritasında Sınama · {familyName}
 			</h3>
 			<p className="text-muted-foreground text-sm">
 				Paint small usage examples and inspect tile connections. Visual
@@ -247,7 +249,7 @@ export function TilesetAdjacencyReviewManager({
 					className="flex flex-col gap-1"
 					htmlFor={`${prefix}-composition`}
 				>
-					Composite Version
+					Birleşik Sürüm
 					<select
 						className={fieldClass}
 						id={`${prefix}-composition`}
@@ -269,126 +271,39 @@ export function TilesetAdjacencyReviewManager({
 				</label>
 				{composites.length === 0 ? (
 					<p>
-						Create tile Unit Versions and a Composite Version in this family
-						first.
+						Bu ailede önce karo Birim Sürümlerini ve bir Birleşik Sürüm
+						oluşturun.
 					</p>
 				) : null}
 				<div className="grid gap-4 xl:grid-cols-2">
 					<div className="space-y-3">
 						<h4 className="font-semibold">Atlas tiles</h4>
 						{tiles.map((tile, index) => (
-							<fieldset
-								className="space-y-2 rounded border p-3"
-								key={tile.unitVersionId}
-							>
-								<legend>{tile.tileId}</legend>
-								<TileImage
-									key={`${previewGeneration}:${tile.assetVersionId}:${JSON.stringify(tile.region)}`}
-									onReady={(ready) =>
-										setPreviewReady((current) =>
-											current[tile.unitVersionId] === ready
-												? current
-												: { ...current, [tile.unitVersionId]: ready }
+							<TilesetAtlasTileEditor
+								key={`${previewGeneration}:${tile.unitVersionId}`}
+								onChange={(updated) =>
+									setTiles((current) =>
+										current.map((item) =>
+											item.unitVersionId === tile.unitVersionId
+												? { ...item, ...updated }
+												: item
 										)
-									}
-									tile={tile}
-									version={catalog.assetVersions.find(
-										(version) => version.id === tile.assetVersionId
-									)}
-								/>
-								<label
-									className="flex flex-col"
-									htmlFor={`${prefix}-terrain-${index}`}
-								>
-									Terrain ID
-									<input
-										className={fieldClass}
-										id={`${prefix}-terrain-${index}`}
-										maxLength={200}
-										onChange={(event) =>
-											setTiles((current) =>
-												current.map((item, i) =>
-													i === index
-														? { ...item, terrainId: event.target.value }
-														: item
-												)
-											)
-										}
-										value={tile.terrainId}
-									/>
-								</label>
-								<div className="grid grid-cols-2 gap-2">
-									{(["x", "y", "width", "height"] as const).map((key) => (
-										<label
-											className="flex flex-col"
-											htmlFor={`${prefix}-region-${index}-${key}`}
-											key={key}
-										>
-											Atlas {key}
-											<input
-												className={fieldClass}
-												id={`${prefix}-region-${index}-${key}`}
-												max={16_384}
-												min={key === "x" || key === "y" ? 0 : 1}
-												onChange={(event) => {
-													setPreviewReady((current) => ({
-														...current,
-														[tile.unitVersionId]: false,
-													}));
-													setTiles((current) =>
-														current.map((item, i) =>
-															i === index
-																? {
-																		...item,
-																		region: {
-																			...item.region,
-																			[key]: Number(event.target.value),
-																		},
-																	}
-																: item
-														)
-													);
-												}}
-												type="number"
-												value={tile.region[key]}
-											/>
-										</label>
-									))}
-								</div>
-								<div className="grid grid-cols-2 gap-2">
-									{tilesetEdges.map((edge) => (
-										<label
-											className="flex flex-col"
-											htmlFor={`${prefix}-edge-${index}-${edge}`}
-											key={edge}
-										>
-											{edge} connector
-											<input
-												className={fieldClass}
-												id={`${prefix}-edge-${index}-${edge}`}
-												maxLength={200}
-												onChange={(event) =>
-													setTiles((current) =>
-														current.map((item, i) =>
-															i === index
-																? {
-																		...item,
-																		edges: {
-																			...item.edges,
-																			[edge]: event.target.value || null,
-																		},
-																	}
-																: item
-														)
-													)
-												}
-												placeholder="Unknown"
-												value={tile.edges[edge] ?? ""}
-											/>
-										</label>
-									))}
-								</div>
-							</fieldset>
+									)
+								}
+								onReady={(ready) =>
+									setPreviewReady((current) =>
+										current[tile.unitVersionId] === ready
+											? current
+											: { ...current, [tile.unitVersionId]: ready }
+									)
+								}
+								prefix={`${prefix}-tile-${index}`}
+								tile={tile}
+								tileId={tile.tileId}
+								version={catalog.assetVersions.find(
+									(version) => version.id === tile.assetVersionId
+								)}
+							/>
 						))}
 					</div>
 					<div className="space-y-3">

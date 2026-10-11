@@ -96,7 +96,7 @@ async function openEditor() {
 			<TilesetAdjacencyReviewManager {...props} />
 		</QueryClientProvider>
 	);
-	fireEvent.change(screen.getByLabelText("Composite Version"), {
+	fireEvent.change(screen.getByLabelText("Birleşik Sürüm"), {
 		target: { value: "composite" },
 	});
 	fireEvent.change(screen.getByLabelText("Terrain ID"), {
@@ -196,9 +196,13 @@ test("paints and inspects a tile, persists exact map cells and restores the save
 			screen.getByText("Tileset adjacency review saved.")
 		).toBeInTheDocument()
 	);
+	fireEvent.change(screen.getByLabelText("Paint tile"), {
+		target: { value: "" },
+	});
 	const previousAtlasImage = document.querySelector("img");
 	fireEvent.click(screen.getByRole("button", { name: openReviewPattern }));
 	expect(screen.getByText(seamPattern)).toBeInTheDocument();
+	expect(screen.getByLabelText("Paint tile")).toHaveValue("unit");
 	const atlasImage = document.querySelector("img");
 	expect(atlasImage).not.toBe(previousAtlasImage);
 	if (!atlasImage) {

@@ -3,8 +3,8 @@ import { tilesetMapScenarios } from "@sprite-anvil/api/tileset-adjacency-reviews
 
 /** Small usage examples, not an autotiler or a level editor. */
 export function createTilesetTestMaps(
-	primary: string,
-	secondary: string | null
+	primaryUnitVersionId: string,
+	secondaryUnitVersionId: string | null
 ): TilesetTestMap[] {
 	const patterns = {
 		inner_corner: ["AAAAA", "AAAAA", "AABBB", "AABBB", "AABBB"],
@@ -24,8 +24,8 @@ export function createTilesetTestMaps(
 			.split("")
 			.map((cell) =>
 				(scenario === "random" ? Math.random() < 0.5 : cell === "A")
-					? primary
-					: secondary
+					? primaryUnitVersionId
+					: secondaryUnitVersionId
 			),
 		outcome: "inconclusive",
 		notes: "",

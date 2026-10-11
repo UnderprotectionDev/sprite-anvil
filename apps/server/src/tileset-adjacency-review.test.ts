@@ -301,3 +301,39 @@ test("allows a user-declared pass with known matching connectors and keeps unkno
 		]),
 	});
 });
+
+test("rejects passed maps without painted adjacency and incomplete single-terrain fills", async () => {
+	const { context, records } = setup();
+	await Promise.all(
+		[
+			["unit", null, null, null],
+			["unit", "unit", null, null],
+		].map((cells) =>
+			expect(
+				invoke(
+					"save",
+					{
+						...input,
+						tiles: input.tiles.map((tile) => ({
+							...tile,
+							edges: {
+								north: "grass",
+								east: "grass",
+								south: "grass",
+								west: "grass",
+							},
+						})),
+						maps: input.maps.map((map) => ({
+							...map,
+							cells: map.scenario === "terrain_fill" ? cells : map.cells,
+							outcome: "passed",
+							issues: [],
+						})),
+					},
+					context
+				)
+			).rejects.toMatchObject({ code: "BAD_REQUEST" })
+		)
+	);
+	expect(records).toHaveLength(0);
+});

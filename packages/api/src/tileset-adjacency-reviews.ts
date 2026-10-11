@@ -65,6 +65,45 @@ const mapSchema = z
 			.max(256),
 	})
 	.strict();
+function validatePassedMap(
+	map: z.infer<typeof mapSchema>,
+	tiles: z.infer<typeof tilesetTileSchema>[],
+	index: number,
+	ctx: z.RefinementCtx
+) {
+	if (map.outcome !== "passed") {
+		return;
+	}
+	const hasPaintedAdjacency = map.cells.some(
+		(cell, cellIndex) =>
+			Boolean(cell) &&
+			((cellIndex % map.width < map.width - 1 &&
+				Boolean(map.cells[cellIndex + 1])) ||
+				Boolean(map.cells[cellIndex + map.width]))
+	);
+	if (!hasPaintedAdjacency) {
+		ctx.addIssue({
+			code: "custom",
+			path: ["maps", index],
+			message: "A passed adjacency map must contain neighboring painted tiles.",
+		});
+	}
+	if (map.scenario === "terrain_fill") {
+		const terrainIds = new Set(
+			map.cells.map(
+				(cell) => tiles.find((tile) => tile.unitVersionId === cell)?.terrainId
+			)
+		);
+		if (map.cells.includes(null) || terrainIds.size !== 1) {
+			ctx.addIssue({
+				code: "custom",
+				path: ["maps", index],
+				message: "A passed terrain fill must fill every cell with one terrain.",
+			});
+		}
+	}
+}
+
 export const tilesetAdjacencyReviewListInputSchema = z
 	.object({ projectId: id, assetFamilyId: id })
 	.strict();
@@ -108,6 +147,7 @@ export const tilesetAdjacencyReviewInputSchema =
 							"A test map must contain known tiles and match its dimensions.",
 					});
 				}
+				validatePassedMap(map, input.tiles, index, ctx);
 				for (const issue of map.issues) {
 					const neighbor = issue.neighborIndex;
 					if (
