@@ -26,6 +26,8 @@ import type { ReferenceProductionStore } from "./reference-production";
 import type { RightsRecordStore } from "./rights-records";
 import type { SpecializedProfileContractStore } from "./specialized-profile-contracts";
 
+import type { VfxSynchronizationStore } from "./vfx-synchronization";
+
 export interface Context {
 	animationTimingReviewStore?: AnimationTimingReviewStore;
 	assetFamilyComparisonStore?: AssetFamilyComparisonStore;
@@ -47,6 +49,11 @@ export interface Context {
 	providerGenerationRecordStore?: ProviderGenerationRecordStore;
 	readAnimationMetadataPackageTarget?: AnimationMetadataPackageTargetReader;
 	readGameplayMetadataPackageTarget?: GameplayMetadataPackageTargetReader;
+	readVfxImageDimensions?: (
+		userId: string,
+		projectId: string,
+		assetVersionId: string
+	) => Promise<{ width: number; height: number; hasAlpha: boolean } | null>;
 	referenceProductionStore?: ReferenceProductionStore;
 	reviewGameplayMetadata?: GameplayMetadataReviewHandler;
 	rightsRecordStore?: RightsRecordStore;
@@ -57,4 +64,5 @@ export interface Context {
 		projectId: string,
 		assetVersionId: string
 	) => Promise<boolean>;
+	vfxSynchronizationStore?: VfxSynchronizationStore;
 }

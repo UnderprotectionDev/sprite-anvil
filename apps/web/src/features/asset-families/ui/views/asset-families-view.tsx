@@ -13,6 +13,7 @@ import { FamilyReadinessManager } from "@/features/family-readiness/ui/component
 import { IconFamilyReviewSections } from "@/features/icon-profile/ui/components/icon-family-review-sections";
 import { AssetFamilyComparisonSections } from "@/features/object-equipment-profile/ui/components/asset-family-comparison-sections";
 import { SpecializedProfileContractManager } from "@/features/quality-evidence/ui/components/specialized-profile-contract-manager";
+import { VfxSynchronizationSections } from "@/features/vfx-profile/ui/components/vfx-synchronization-sections";
 import { client, orpc } from "@/utils/orpc";
 import { AssetFamilyCatalogView } from "../components/asset-family-catalog";
 import {
@@ -109,6 +110,10 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 	const characterProfileActivation = getActiveProfileContract(
 		profileContractsQuery.data,
 		"character_creature_animation"
+	);
+	const vfxProfileActivation = getActiveProfileContract(
+		profileContractsQuery.data,
+		"visual_effect_projectile_shadow_mark"
 	);
 	const iconProfileActivation = getActiveProfileContract(
 		profileContractsQuery.data,
@@ -367,6 +372,16 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 										/>
 									))
 								: null}
+							<VfxSynchronizationSections
+								activation={vfxProfileActivation}
+								assetFamilies={catalog.assetFamilies}
+								catalog={assetVersionCatalog}
+								categories={Object.fromEntries(assetCategoriesById)}
+								projectId={projectId}
+								recordNames={Object.fromEntries(
+									catalog.assetRecords.map((record) => [record.id, record.name])
+								)}
+							/>
 							<DirectionalReviewSections
 								activation={characterProfileActivation}
 								assetFamilies={catalog.assetFamilies}
