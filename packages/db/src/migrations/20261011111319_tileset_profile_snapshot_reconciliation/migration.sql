@@ -1,0 +1,2 @@
+-- Reconcile tileset adjacency with background layout and VFX profile snapshot branches.
+-- Original migrations already create these tables; no schema changes are required.

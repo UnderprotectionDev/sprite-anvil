@@ -5,6 +5,8 @@ import { verifyAssetVersionStream } from "./features/asset-versions/server/asset
 import { readAnimationMetadataPackageTarget } from "./features/character-animation-profile/server/animation-metadata-package-target";
 import { readGameplayMetadataPackageTarget } from "./features/gameplay-metadata/server/gameplay-metadata-package-target";
 import { reviewGameplayMetadata } from "./features/gameplay-metadata/server/gameplay-metadata-review";
+import { decodeVfxFrame } from "./features/vfx-profile/server/vfx-frame-decoder";
+import { readVfxImageDimensions } from "./features/vfx-profile/server/vfx-image-dimensions";
 import {
 	animationTimingReviewStore,
 	assetFamilyComparisonStore,
@@ -13,6 +15,7 @@ import {
 	assetRecordTrackingStore,
 	assetVersionStore,
 	auth,
+	backgroundLayerLayoutStore,
 	collectionStore,
 	createServerAssetVersionStorage,
 	db,
@@ -30,6 +33,8 @@ import {
 	rightsRecordStore,
 	specializedProfileContractStore,
 	tilesetAdjacencyReviewStore,
+	vfxAppearanceReviewStore,
+	vfxSynchronizationStore,
 } from "./services";
 
 export interface CreateContextOptions {
@@ -43,6 +48,8 @@ export async function createContext({
 		headers: context.req.raw.headers,
 	});
 	return {
+		vfxSynchronizationStore,
+		readVfxImageDimensions,
 		assetFamilyStore,
 		assetFamilyComparisonStore,
 		familyReadinessStore,
@@ -51,15 +58,47 @@ export async function createContext({
 		assetRecordTrackingStore,
 		assetVersionStore,
 		animationTimingReviewStore,
+		vfxAppearanceReviewStore,
 		collectionStore,
 		generationPackageStore,
 		gameplayMetadataStore,
+		backgroundLayerLayoutStore,
 		iconFamilyReviewStore,
 		tilesetAdjacencyReviewStore,
 		directionalReviewStore,
 		readAnimationMetadataPackageTarget,
 		reviewGameplayMetadata,
 		readGameplayMetadataPackageTarget,
+		verifyVfxFrameContent: async (userId, projectId, frame) => {
+			const file = await assetVersionStore.getFileRecord(
+				userId,
+				projectId,
+				frame.assetVersionId
+			);
+			if (!(file?.integrityVerified && file.contentDigest)) {
+				return false;
+			}
+			const object = await createServerAssetVersionStorage().get(
+				assetVersionObjectKeySchema.parse(file.objectKey)
+			);
+			if (!object) {
+				return false;
+			}
+			try {
+				const bytes = await new Response(
+					verifyAssetVersionStream(
+						object.body,
+						file.contentType,
+						file.contentLength,
+						file.contentDigest
+					).body
+				).arrayBuffer();
+				await decodeVfxFrame(bytes, frame);
+				return true;
+			} catch {
+				return false;
+			}
+		},
 		verifyAssetVersionContent: async (userId, projectId, assetVersionId) => {
 			const fileRecord = await assetVersionStore.getFileRecord(
 				userId,
