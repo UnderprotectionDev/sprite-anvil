@@ -56,6 +56,9 @@ describe("Texture repetition surface equivalence", () => {
 		await $("form button[type='submit']").click();
 		await $("h1=Oyun projeleri").waitForDisplayed();
 		await browser.url(`${origin}${result.familyPath}`);
+		await $("h3=Texture repetition · Grass textures").waitForDisplayed({
+			timeout: 20_000,
+		});
 		let review = await $("h3=Texture repetition · Grass textures").$("..");
 		await review.waitForDisplayed({ timeout: 20_000 });
 		await expect(review.$("select[id$='-unit']")).toHaveValue(
@@ -95,6 +98,9 @@ describe("Texture repetition surface equivalence", () => {
 		await review.$("button=Save texture review").click();
 		await review.$("p=Texture review saved.").waitForDisplayed();
 		await browser.refresh();
+		await $("h3=Texture repetition · Grass textures").waitForDisplayed({
+			timeout: 20_000,
+		});
 		review = await $("h3=Texture repetition · Grass textures").$("..");
 		await browser.waitUntil(
 			async () => (await review.$$("article").length) === 2,
