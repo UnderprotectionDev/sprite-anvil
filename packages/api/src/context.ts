@@ -7,6 +7,7 @@ import type { AssetFamilyComparisonStore } from "./asset-family-comparisons";
 import type { AssetRecordTrackingStore } from "./asset-record-tracking";
 import type { AssetRecordStore } from "./asset-records";
 import type { AssetVersionStore } from "./asset-versions";
+import type { BackgroundLayerLayoutStore } from "./background-layer-layouts";
 import type { CollectionStore } from "./collections";
 import type { ProjectContextScopeStore } from "./context-scopes";
 import type { DependencyRevalidationStore } from "./dependency-revalidation";
@@ -25,12 +26,17 @@ import type { ProviderGenerationRecordStore } from "./provider-generation-record
 import type { ReferenceProductionStore } from "./reference-production";
 import type { RightsRecordStore } from "./rights-records";
 import type { SpecializedProfileContractStore } from "./specialized-profile-contracts";
-
 import type {
 	TextureAtlasRegion,
 	TextureEdgeCheck,
 	TextureRepetitionReviewStore,
 } from "./texture-repetition-reviews";
+import type { TilesetAdjacencyReviewStore } from "./tileset-adjacency-reviews";
+import type {
+	VfxAppearanceFrame,
+	VfxAppearanceReviewStore,
+} from "./vfx-appearance-reviews";
+import type { VfxSynchronizationStore } from "./vfx-synchronization";
 
 export interface Context {
 	animationTimingReviewStore?: AnimationTimingReviewStore;
@@ -39,6 +45,7 @@ export interface Context {
 	assetRecordStore: AssetRecordStore;
 	assetRecordTrackingStore: AssetRecordTrackingStore;
 	assetVersionStore: AssetVersionStore;
+	backgroundLayerLayoutStore?: BackgroundLayerLayoutStore;
 	checkTextureEdges?: (
 		userId: string,
 		projectId: string,
@@ -60,15 +67,28 @@ export interface Context {
 	providerGenerationRecordStore?: ProviderGenerationRecordStore;
 	readAnimationMetadataPackageTarget?: AnimationMetadataPackageTargetReader;
 	readGameplayMetadataPackageTarget?: GameplayMetadataPackageTargetReader;
+	readVfxImageDimensions?: (
+		userId: string,
+		projectId: string,
+		assetVersionId: string
+	) => Promise<{ width: number; height: number; hasAlpha: boolean } | null>;
 	referenceProductionStore?: ReferenceProductionStore;
 	reviewGameplayMetadata?: GameplayMetadataReviewHandler;
 	rightsRecordStore?: RightsRecordStore;
 	session: Session | null;
 	specializedProfileContractStore?: SpecializedProfileContractStore;
 	textureRepetitionReviewStore?: TextureRepetitionReviewStore;
+	tilesetAdjacencyReviewStore?: TilesetAdjacencyReviewStore;
 	verifyAssetVersionContent?: (
 		userId: string,
 		projectId: string,
 		assetVersionId: string
 	) => Promise<boolean>;
+	verifyVfxFrameContent?: (
+		userId: string,
+		projectId: string,
+		frame: VfxAppearanceFrame
+	) => Promise<boolean>;
+	vfxAppearanceReviewStore?: VfxAppearanceReviewStore;
+	vfxSynchronizationStore?: VfxSynchronizationStore;
 }

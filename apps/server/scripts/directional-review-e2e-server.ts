@@ -4,6 +4,7 @@ import { serve } from "bun";
 const databaseUrl = process.env.DATABASE_URL;
 const port = Number(process.env.PORT);
 const allowedDatabases = new Set([
+	"background_layer_layout_test",
 	"directional_web_test",
 	"texture_repetition_web_test",
 	"directional_desktop_test",

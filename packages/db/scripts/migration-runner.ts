@@ -2,6 +2,7 @@ import "varlock/auto-load";
 
 import {
 	prepareTargets,
+	validateSharedTargets,
 	withDevelopmentCompatibility,
 	withDevelopmentReadiness,
 } from "./database-preparation";
@@ -54,9 +55,13 @@ async function run(): Promise<void> {
 	}
 	const source = await validateMigrationSource(sourceOptions);
 	console.info(
-		`Source SQL, snapshots, schema and historical inventory verified in disposable PostgreSQL: ${source.migrations.length} migrations.`
+		`Source migration identities and schema snapshot verified: ${source.migrations.length} migrations. No temporary PostgreSQL was created.`
 	);
 	if (mode === "validate") {
+		await validateSharedTargets(source, selectDevelopmentTargets(process.env));
+		console.info(
+			"Shared database history and schema inspected read-only against source and pending SQL. No migration was applied."
+		);
 		return;
 	}
 	const targets =

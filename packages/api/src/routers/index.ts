@@ -33,6 +33,7 @@ import { assetFamilyComparisonsRouter } from "./asset-family-comparisons";
 import { assetRecordTrackingRouter } from "./asset-record-tracking";
 import { assetRecordsRouter } from "./asset-records";
 import { assetVersionsRouter } from "./asset-versions";
+import { backgroundLayerLayoutsRouter } from "./background-layer-layouts";
 import { collectionsRouter } from "./collections";
 import { dependencyRevalidationRouter } from "./dependency-revalidation";
 import { directionalReviewsRouter } from "./directional-reviews";
@@ -44,6 +45,9 @@ import { projectsRouter } from "./projects";
 import { referenceProductionRouter } from "./reference-production";
 import { rightsRecordsRouter } from "./rights-records";
 import { specializedProfileContractsRouter } from "./specialized-profile-contracts";
+import { tilesetAdjacencyReviewsRouter } from "./tileset-adjacency-reviews";
+import { vfxAppearanceReviewsRouter } from "./vfx-appearance-reviews";
+import { vfxSynchronizationRouter } from "./vfx-synchronization";
 
 async function readContextProposalReview(
 	context: Context,
@@ -104,6 +108,7 @@ import { textureRepetitionReviewsRouter } from "./texture-repetition-reviews";
 
 export const appRouter = {
 	textureRepetitionReviews: textureRepetitionReviewsRouter,
+	tilesetAdjacencyReviews: tilesetAdjacencyReviewsRouter,
 	healthCheck: publicProcedure.handler(() => serializeRpcHealthResponse()),
 	privateData: protectedProcedure.handler(({ context }) =>
 		serializePrivateDataResponse(context.session?.user)
@@ -114,8 +119,11 @@ export const appRouter = {
 	dependencyRevalidation: dependencyRevalidationRouter,
 	familyReadiness: familyReadinessRouter,
 	directionalReviews: directionalReviewsRouter,
+	vfxAppearanceReviews: vfxAppearanceReviewsRouter,
 	animationTimingReviews: animationTimingReviewsRouter,
+	vfxSynchronization: vfxSynchronizationRouter,
 	iconFamilyReviews: iconFamilyReviewsRouter,
+	backgroundLayerLayouts: backgroundLayerLayoutsRouter,
 	assetVersions: assetVersionsRouter,
 	assetRecords: assetRecordsRouter,
 	collections: collectionsRouter,

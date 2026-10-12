@@ -219,7 +219,7 @@ const migrationHashPattern = /^[a-f0-9]{64}$/;
 
 const aheadNamePattern = /^(\d{14})_[a-z0-9][a-z0-9_-]*$/;
 
-function hasTimestampedIdentity(row: AppliedMigration): boolean {
+export function hasTimestampedIdentity(row: AppliedMigration): boolean {
 	const stamp = row.name ? aheadNamePattern.exec(row.name)?.[1] : undefined;
 	const date = new Date(row.createdAt);
 	return (
@@ -291,7 +291,14 @@ export function assertMigrationHistory(
 	assertLocalIdentities(local);
 	if (!allowAhead && applied.length > local.length) {
 		throw new MigrationSafetyError(
-			"Database migration history is ahead of this branch."
+			`Database migration history is ahead of this branch. Missing applied migrations: ${applied
+				.filter(
+					(row) => !local.some((migration) => migration.name === row.name)
+				)
+				.map((row) => row.name ?? "unnamed")
+				.join(
+					", "
+				)}. Run bun run db:doctor, then bun run db:sync before preparing migrations.`
 		);
 	}
 	for (let index = 0; index < applied.length; index += 1) {
@@ -313,7 +320,7 @@ export function assertMigrationHistory(
 			row.hash !== expected.hash
 		) {
 			throw new MigrationSafetyError(
-				`Migration history differs at position ${index + 1}; reconcile the branch before migrating.`
+				`Migration history differs at position ${index + 1}: database ${row.name ?? "unnamed"} (${row.hash}), workspace ${expected.name} (${expected.hash}). Run bun run db:doctor, then bun run db:sync; preserve applied SQL and records.`
 			);
 		}
 	}

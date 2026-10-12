@@ -1,0 +1,2 @@
+-- Reconcile texture repetition with tileset adjacency, background layout and VFX snapshot branches.
+-- Original migrations create all tables; no executable schema changes are required.

@@ -337,3 +337,37 @@ test("runtime ahead history requires a valid timestamped identity and unchanged 
 		)
 	).toThrow("history differs");
 });
+
+test("history conflicts identify both migration identities and the reconciliation command", () => {
+	const other = {
+		id: 2,
+		name: "20261011090000_other_issue",
+		createdAt: 3,
+		hash: "c".repeat(64),
+	};
+	expect(() =>
+		assertMigrationHistory(local, [applied[0], other], true)
+	).toThrow(other.name);
+	expect(() =>
+		assertMigrationHistory(local, [applied[0], other], true)
+	).toThrow(local[1].name);
+	expect(() =>
+		assertMigrationHistory(local, [applied[0], other], true)
+	).toThrow("db:sync");
+});
+
+test("ahead diagnosis identifies a missing interleaved migration instead of the known tail", () => {
+	const other = {
+		id: 2,
+		name: "20261011090000_other_issue",
+		createdAt: 2,
+		hash: "c".repeat(64),
+	};
+	expect(() =>
+		assertMigrationHistory(
+			local,
+			[applied[0], other, { ...local[1], id: 3, createdAt: 3 }],
+			true
+		)
+	).toThrow(`Missing applied migrations: ${other.name}`);
+});

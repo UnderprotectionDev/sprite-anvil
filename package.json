@@ -34,6 +34,7 @@
     "build:app": "bun run --cwd apps/web build && bun run --cwd apps/server build",
     "check": "ultracite check",
     "check-types": "turbo run check-types",
+    "db:doctor": "bun run --cwd packages/db db:doctor",
     "db:generate": "turbo run db:generate -F @sprite-anvil/db --",
     "db:migrate": "bun run --cwd packages/db db:migrate",
     "db:prepare": "bun run --cwd packages/db db:prepare",
@@ -41,6 +42,7 @@
     "db:ready": "bun run --cwd packages/db db:ready",
     "db:runtime": "bun run --cwd packages/db db:runtime",
     "db:studio": "turbo run db:studio -F @sprite-anvil/db --",
+    "db:sync": "bun run --cwd packages/db db:sync",
     "db:validate": "bun run --cwd packages/db db:validate",
     "dev": "bun run --cwd packages/db db:dev all",
     "dev:parallel": "DEV_USE_CONDUCTOR_PORTS=true bun run dev",
@@ -54,6 +56,7 @@
     "test:e2e": "bun run --cwd apps/web test:e2e",
     "test:e2e:animation-timing": "bun run --cwd packages/db test:e2e:animation-timing",
     "test:e2e:asset-family-comparison": "bun run --cwd packages/db test:e2e:asset-family-comparison",
+    "test:e2e:background-layout": "bun run --cwd packages/db test:e2e:background-layout",
     "test:e2e:directional": "bun run --cwd packages/db test:e2e:directional",
     "test:e2e:texture-repetition": "bun run --cwd packages/db test:e2e:texture-repetition"
   },
