@@ -104,7 +104,10 @@ async function readContextProposalReview(
 	);
 }
 
+import { textureRepetitionReviewsRouter } from "./texture-repetition-reviews";
+
 export const appRouter = {
+	textureRepetitionReviews: textureRepetitionReviewsRouter,
 	tilesetAdjacencyReviews: tilesetAdjacencyReviewsRouter,
 	healthCheck: publicProcedure.handler(() => serializeRpcHealthResponse()),
 	privateData: protectedProcedure.handler(({ context }) =>

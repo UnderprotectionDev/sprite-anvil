@@ -14,6 +14,7 @@ import { FamilyReadinessManager } from "@/features/family-readiness/ui/component
 import { IconFamilyReviewSections } from "@/features/icon-profile/ui/components/icon-family-review-sections";
 import { AssetFamilyComparisonSections } from "@/features/object-equipment-profile/ui/components/asset-family-comparison-sections";
 import { SpecializedProfileContractManager } from "@/features/quality-evidence/ui/components/specialized-profile-contract-manager";
+import { TextureRepetitionReviewSections } from "@/features/tileset-texture-profile/ui/components/texture-repetition-review-sections";
 import { TilesetAdjacencyReviewSections } from "@/features/tileset-texture-profile/ui/components/tileset-adjacency-review-sections";
 import { VfxAppearanceSections } from "@/features/vfx-profile/ui/components/vfx-appearance-sections";
 import { VfxSynchronizationSections } from "@/features/vfx-profile/ui/components/vfx-synchronization-sections";
@@ -129,6 +130,10 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 	const objectEquipmentProfileActivation = getActiveProfileContract(
 		profileContractsQuery.data,
 		"object_weapon_equipment_states"
+	);
+	const textureProfileActivation = getActiveProfileContract(
+		profileContractsQuery.data,
+		"tileset_terrain_texture"
 	);
 	const form = useAssetFamilyFormState(catalog, visualWorlds);
 	const writes = useAssetFamilyWrites(catalogQuery.refetch);
@@ -402,6 +407,14 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 								assetRecords={catalog.assetRecords}
 								catalog={assetVersionQuery.data}
 								projectId={projectId}
+							/>
+							<TextureRepetitionReviewSections
+								activation={textureProfileActivation}
+								families={catalog.assetFamilies}
+								projectId={projectId}
+								records={assetRecords}
+								units={assetVersionQuery.data.unitVersions}
+								versions={assetVersionQuery.data.assetVersions}
 							/>
 							<TilesetAdjacencyReviewSections
 								activation={getActiveProfileContract(

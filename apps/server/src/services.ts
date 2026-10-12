@@ -31,6 +31,7 @@ import { createProviderGenerationRecordStore } from "./features/provider-generat
 import { createSpecializedProfileContractStore } from "./features/quality-evidence/server/specialized-profile-contract-store";
 import { createReferenceProductionStore } from "./features/reference-production/server/reference-production-store";
 import { createRightsRecordStore } from "./features/rights-evidence/server/rights-record-store";
+import { createTextureRepetitionReviewStore } from "./features/tileset-texture-profile/server/texture-repetition-review-store";
 import { createTilesetAdjacencyReviewStore } from "./features/tileset-texture-profile/server/tileset-adjacency-review-store";
 import { createVfxAppearanceReviewStore } from "./features/vfx-profile/server/vfx-appearance-review-store";
 import { createVfxSynchronizationStore } from "./features/vfx-profile/server/vfx-synchronization-store";
@@ -58,6 +59,8 @@ export const vfxSynchronizationStore = createVfxSynchronizationStore(db);
 export const vfxAppearanceReviewStore = createVfxAppearanceReviewStore(db);
 export const animationTimingReviewStore = createAnimationTimingReviewStore(db);
 export const directionalReviewStore = createDirectionalReviewStore(db);
+export const textureRepetitionReviewStore =
+	createTextureRepetitionReviewStore(db);
 export const tilesetAdjacencyReviewStore =
 	createTilesetAdjacencyReviewStore(db);
 export const backgroundLayerLayoutStore = createBackgroundLayerLayoutStore(db);

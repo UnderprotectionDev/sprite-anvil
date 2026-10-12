@@ -30,7 +30,7 @@ async function waitForTestServer(attempt = 0): Promise<void> {
 
 async function startTestServer() {
 	const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
-	if (!databaseUrl) {
+	if (!databaseUrl || process.env.E2E_EXTERNAL_API_SERVER === "true") {
 		return;
 	}
 

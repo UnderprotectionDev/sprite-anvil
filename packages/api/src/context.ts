@@ -26,6 +26,11 @@ import type { ProviderGenerationRecordStore } from "./provider-generation-record
 import type { ReferenceProductionStore } from "./reference-production";
 import type { RightsRecordStore } from "./rights-records";
 import type { SpecializedProfileContractStore } from "./specialized-profile-contracts";
+import type {
+	TextureAtlasRegion,
+	TextureEdgeCheck,
+	TextureRepetitionReviewStore,
+} from "./texture-repetition-reviews";
 import type { TilesetAdjacencyReviewStore } from "./tileset-adjacency-reviews";
 import type {
 	VfxAppearanceFrame,
@@ -41,6 +46,13 @@ export interface Context {
 	assetRecordTrackingStore: AssetRecordTrackingStore;
 	assetVersionStore: AssetVersionStore;
 	backgroundLayerLayoutStore?: BackgroundLayerLayoutStore;
+	checkTextureEdges?: (
+		userId: string,
+		projectId: string,
+		assetVersionId: string,
+		region: TextureAtlasRegion,
+		axes: ("x" | "y")[]
+	) => Promise<TextureEdgeCheck | null>;
 	collectionStore: CollectionStore;
 	db: Database;
 	dependencyRevalidationStore?: DependencyRevalidationStore;
@@ -65,6 +77,7 @@ export interface Context {
 	rightsRecordStore?: RightsRecordStore;
 	session: Session | null;
 	specializedProfileContractStore?: SpecializedProfileContractStore;
+	textureRepetitionReviewStore?: TextureRepetitionReviewStore;
 	tilesetAdjacencyReviewStore?: TilesetAdjacencyReviewStore;
 	verifyAssetVersionContent?: (
 		userId: string,

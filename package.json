@@ -57,7 +57,8 @@
     "test:e2e:animation-timing": "bun run --cwd packages/db test:e2e:animation-timing",
     "test:e2e:asset-family-comparison": "bun run --cwd packages/db test:e2e:asset-family-comparison",
     "test:e2e:background-layout": "bun run --cwd packages/db test:e2e:background-layout",
-    "test:e2e:directional": "bun run --cwd packages/db test:e2e:directional"
+    "test:e2e:directional": "bun run --cwd packages/db test:e2e:directional",
+    "test:e2e:texture-repetition": "bun run --cwd packages/db test:e2e:texture-repetition"
   },
   "dependencies": {
     "zod": "catalog:"

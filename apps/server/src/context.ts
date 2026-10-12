@@ -5,6 +5,7 @@ import { verifyAssetVersionStream } from "./features/asset-versions/server/asset
 import { readAnimationMetadataPackageTarget } from "./features/character-animation-profile/server/animation-metadata-package-target";
 import { readGameplayMetadataPackageTarget } from "./features/gameplay-metadata/server/gameplay-metadata-package-target";
 import { reviewGameplayMetadata } from "./features/gameplay-metadata/server/gameplay-metadata-review";
+import { checkTextureEdges } from "./features/tileset-texture-profile/server/texture-image-reader";
 import { decodeVfxFrame } from "./features/vfx-profile/server/vfx-frame-decoder";
 import { readVfxImageDimensions } from "./features/vfx-profile/server/vfx-image-dimensions";
 import {
@@ -32,6 +33,7 @@ import {
 	referenceProductionStore,
 	rightsRecordStore,
 	specializedProfileContractStore,
+	textureRepetitionReviewStore,
 	tilesetAdjacencyReviewStore,
 	vfxAppearanceReviewStore,
 	vfxSynchronizationStore,
@@ -64,6 +66,8 @@ export async function createContext({
 		gameplayMetadataStore,
 		backgroundLayerLayoutStore,
 		iconFamilyReviewStore,
+		textureRepetitionReviewStore,
+		checkTextureEdges,
 		tilesetAdjacencyReviewStore,
 		directionalReviewStore,
 		readAnimationMetadataPackageTarget,
