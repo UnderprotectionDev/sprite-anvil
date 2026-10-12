@@ -34,6 +34,7 @@ import { assetRecordTrackingRouter } from "./asset-record-tracking";
 import { assetRecordsRouter } from "./asset-records";
 import { assetVersionsRouter } from "./asset-versions";
 import { backgroundLayerLayoutsRouter } from "./background-layer-layouts";
+import { backgroundScrollingTestsRouter } from "./background-scrolling-tests";
 import { collectionsRouter } from "./collections";
 import { dependencyRevalidationRouter } from "./dependency-revalidation";
 import { directionalReviewsRouter } from "./directional-reviews";
@@ -124,6 +125,7 @@ export const appRouter = {
 	vfxSynchronization: vfxSynchronizationRouter,
 	iconFamilyReviews: iconFamilyReviewsRouter,
 	backgroundLayerLayouts: backgroundLayerLayoutsRouter,
+	backgroundScrollingTests: backgroundScrollingTestsRouter,
 	assetVersions: assetVersionsRouter,
 	assetRecords: assetRecordsRouter,
 	collections: collectionsRouter,

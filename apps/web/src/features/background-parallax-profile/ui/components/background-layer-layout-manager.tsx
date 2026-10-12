@@ -2,6 +2,7 @@ import type { AssetRecord } from "@sprite-anvil/api/asset-records";
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
 import {
 	type BackgroundLayerLayoutInput,
+	type BackgroundLayerLayoutRecord,
 	backgroundLayerLayoutInputSchema,
 } from "@sprite-anvil/api/background-layer-layouts";
 import type { ProjectProfileContractActivation } from "@sprite-anvil/api/specialized-profile-contracts";
@@ -12,6 +13,8 @@ import { ENV } from "@/env";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
+
+import { BackgroundScrollingSetup } from "./background-scrolling-setup";
 
 type LayoutVersion = Pick<
 	AssetVersion,
@@ -162,6 +165,8 @@ export function BackgroundLayerLayoutManager({
 			input: { projectId, assetFamilyId },
 		}),
 	});
+	const [scrollingLayout, setScrollingLayout] =
+		useState<BackgroundLayerLayoutRecord | null>(null);
 	const [layers, setLayers] = useState<LayerDraft[]>(() => [newLayer(0)]);
 	const [message, setMessage] = useState("");
 	const [error, setError] = useState("");
@@ -476,6 +481,14 @@ export function BackgroundLayerLayoutManager({
 					) : null}
 				</div>
 			) : null}
+			{scrollingLayout ? (
+				<BackgroundScrollingSetup
+					assetRecords={assetRecords}
+					key={scrollingLayout.id}
+					layout={scrollingLayout}
+					versions={versions}
+				/>
+			) : null}
 			<h4 className="font-medium">Saved layer layouts</h4>
 			<ul className="space-y-3">
 				{query.data?.map((record) => (
@@ -484,6 +497,9 @@ export function BackgroundLayerLayoutManager({
 							{new Date(record.createdAt).toLocaleString()} · Visual World:{" "}
 							{record.visualWorldId}
 						</p>
+						<Button onClick={() => setScrollingLayout(record)} type="button">
+							Test scrolling
+						</Button>
 						<ol>
 							{[...record.layers]
 								.sort((a, b) => a.order - b.order)

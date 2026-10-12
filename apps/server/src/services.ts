@@ -13,6 +13,7 @@ import { createAssetRecordTrackingStore } from "./features/asset-records/server/
 import { createAssetVersionStore } from "./features/asset-versions/server/asset-version-store";
 import { createTestAssetVersionStorage } from "./features/asset-versions/server/test-asset-version-storage";
 import { createBackgroundLayerLayoutStore } from "./features/background-parallax-profile/server/background-layer-layout-store";
+import { createBackgroundScrollingTestStore } from "./features/background-parallax-profile/server/background-scrolling-test-store";
 import { createAnimationTimingReviewStore } from "./features/character-animation-profile/server/animation-timing-review-store";
 import { createDirectionalReviewStore } from "./features/character-animation-profile/server/directional-review-store";
 import { createCollectionStore } from "./features/collections/server/collection-store";
@@ -101,3 +102,6 @@ export const specializedProfileContractStore =
 	createSpecializedProfileContractStore(db);
 export const projectAccess = createProjectAccessStore(db, projectContextStore);
 export const auth = createAuth(ENV, db, desktopOrigins);
+
+export const backgroundScrollingTestStore =
+	createBackgroundScrollingTestStore(db);

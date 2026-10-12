@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import {
 	assetFamilyWorkspaceFixture,
@@ -27,6 +28,14 @@ test("configures background layers, rejects unsafe cropping, and rereads exact s
 			records: [
 				{ name: "Sky", uploadNote: "Sky background fixture." },
 				{ name: "Trees", uploadNote: "Trees background fixture." },
+				{
+					name: "Player",
+					uploadNote: "Exact player silhouette.",
+					categoryLabel: "Karakterler, yaratıklar ve animasyonlar",
+					png: readFileSync(
+						new URL("./fixtures/background-player.png", import.meta.url)
+					),
+				},
 			],
 		},
 		"1.0.1"
@@ -61,6 +70,61 @@ test("configures background layers, rejects unsafe cropping, and rereads exact s
 	await expect(
 		layout.getByText("Layer layout saved.", { exact: true })
 	).toBeVisible();
+	await layout.getByRole("button", { name: "Test scrolling" }).click();
+	await layout.getByLabel("Exact player version").selectOption({ index: 1 });
+	const playback = layout.getByRole("region", {
+		name: "Background scrolling playback",
+	});
+	await expect(
+		playback.getByRole("button", { name: "Play scrolling" })
+	).toBeEnabled();
+	const initialPixels = await playback
+		.getByRole("img", { name: "Actual background scrolling preview" })
+		.screenshot();
+	await playback.getByLabel("Timeline (ms)").fill("9000");
+	await expect(
+		playback.getByText("sky: 20 px · loop 5", { exact: true })
+	).toBeVisible();
+	await expect(
+		playback.getByText("trees: 8 px · loop 11", { exact: true })
+	).toBeVisible();
+	const shiftedPixels = await playback
+		.getByRole("img", { name: "Actual background scrolling preview" })
+		.screenshot();
+	expect(shiftedPixels.equals(initialPixels)).toBe(false);
+	await expect(
+		layout.getByRole("button", { name: "Save scrolling test" })
+	).toBeDisabled();
+	await layout.getByLabel("Test duration (ms)").fill("1000");
+	await expect(
+		playback.getByRole("button", { name: "Play scrolling" })
+	).toBeEnabled();
+	await playback.getByRole("button", { name: "Play scrolling" }).click();
+	await expect(
+		layout.getByText("Actual playback: 1000 / 1000 ms", { exact: true })
+	).toBeVisible();
+	for (const label of [
+		"Loop",
+		"Seam",
+		"Crop",
+		"Contrast",
+		"Player visibility",
+	]) {
+		// biome-ignore lint/performance/noAwaitInLoops: Browser fields must be filled sequentially.
+		await layout
+			.getByLabel(`${label} notes`)
+			.fill(`${label} inspected with moving layers and exact Player.`);
+		await layout
+			.getByLabel(`${label} outcome`)
+			.selectOption(label === "Seam" ? "failed" : "passed");
+	}
+	await layout.getByRole("button", { name: "Save scrolling test" }).click();
+	await expect(
+		layout.getByText("Scrolling test saved.", { exact: true })
+	).toBeVisible();
+	await layout
+		.getByRole("region", { name: "Scrolling setup" })
+		.screenshot({ path: "../../.context/background-scrolling-test.png" });
 	await layout.screenshot({
 		path: "../../.context/background-layer-layout.png",
 	});
@@ -76,6 +140,18 @@ test("configures background layers, rejects unsafe cropping, and rereads exact s
 			exact: true,
 		})
 	).toHaveCount(2);
+	await layout.getByRole("button", { name: "Test scrolling" }).click();
+	await expect(
+		layout.getByText(
+			"Seam: failed · Seam inspected with moving layers and exact Player.",
+			{ exact: true }
+		)
+	).toBeVisible();
+	await layout.getByRole("button", { name: "Replay test" }).click();
+	await expect(
+		playback.getByRole("button", { name: "Play scrolling" })
+	).toBeEnabled();
+	await expect(layout.getByLabel("Player width")).toHaveValue("16");
 	await expect(
 		layout.getByText("Actual scrolling test is still required.")
 	).toBeVisible();
