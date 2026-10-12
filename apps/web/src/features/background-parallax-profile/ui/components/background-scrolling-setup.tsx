@@ -151,8 +151,29 @@ export function BackgroundScrollingSetup({
 			setMessage("Scrolling test saved.");
 		} else {
 			setError(
-				"Could not confirm the scrolling test. Check current tests again."
+				"Could not confirm the scrolling test. Check current tests again or retry the same test."
 			);
+		}
+	}
+	async function persist(input: BackgroundScrollingTestInput) {
+		if (busy) {
+			return;
+		}
+		const recoveringPending = pending !== null;
+		setBusy(true);
+		setPending(input);
+		setMessage("");
+		setError("");
+		try {
+			await client.backgroundScrollingTests.save(input);
+			await confirm(input);
+		} catch (failure) {
+			setError(getErrorMessage(failure, "Could not save the scrolling test."));
+			if (!(recoveringPending || isWriteOutcomeUncertain(failure))) {
+				setPending(null);
+			}
+		} finally {
+			setBusy(false);
 		}
 	}
 	async function save() {
@@ -171,21 +192,7 @@ export function BackgroundScrollingSetup({
 			setError(parsed.error.issues.map((issue) => issue.message).join(" "));
 			return;
 		}
-		setBusy(true);
-		setPending(parsed.data);
-		setMessage("");
-		setError("");
-		try {
-			await client.backgroundScrollingTests.save(parsed.data);
-			await confirm(parsed.data);
-		} catch (failure) {
-			setError(getErrorMessage(failure, "Could not save the scrolling test."));
-			if (!isWriteOutcomeUncertain(failure)) {
-				setPending(null);
-			}
-		} finally {
-			setBusy(false);
-		}
+		await persist(parsed.data);
 	}
 	return (
 		<section
@@ -423,20 +430,29 @@ export function BackgroundScrollingSetup({
 			{error ? <p role="alert">{error}</p> : null}
 			{message ? <p role="status">{message}</p> : null}
 			{pending ? (
-				<Button
-					disabled={busy}
-					onClick={async () => {
-						setBusy(true);
-						try {
-							await confirm(pending);
-						} finally {
-							setBusy(false);
-						}
-					}}
-					type="button"
-				>
-					Check current tests
-				</Button>
+				<div className="flex flex-wrap gap-3">
+					<Button
+						disabled={busy}
+						onClick={async () => {
+							setBusy(true);
+							try {
+								await confirm(pending);
+							} finally {
+								setBusy(false);
+							}
+						}}
+						type="button"
+					>
+						Check current tests
+					</Button>
+					<Button
+						disabled={busy}
+						onClick={() => persist(pending)}
+						type="button"
+					>
+						Retry same scrolling test
+					</Button>
+				</div>
 			) : null}
 			{query.isError ? (
 				<p role="alert">
