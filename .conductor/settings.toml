@@ -1,12 +1,12 @@
 "$schema" = "https://conductor.build/schemas/settings.repo.schema.json"
 
 [scripts]
-setup = 'bun install --frozen-lockfile && if [ "${CONDUCTOR_IS_LOCAL:-0}" = "1" ]; then bun run db:validate && bun run --cwd apps/web e2e:install; fi'
+setup = 'bun install --frozen-lockfile && if [ "${CONDUCTOR_IS_LOCAL:-0}" = "1" ]; then bun run --cwd apps/web e2e:install; fi'
 run_mode = "nonconcurrent"
 
 [scripts.run.dev]
 available_in = ["local"]
-command = "test -f packages/db/scripts/development-runner.ts || { printf '\\nRun blocked: integrate the shared migration workflow.\\n'; exit 1; }; DEV_USE_CONDUCTOR_PORTS=false bun run dev"
+command = "test -f packages/db/scripts/development-runner.ts || { printf '\\nRun blocked: integrate the shared migration workflow.\\n'; exit 1; }; bun run db:runtime && { if [ -f \"$HOME/.conductor/scripts/switch-local-dev.zsh\" ]; then zsh \"$HOME/.conductor/scripts/switch-local-dev.zsh\" --stop-only; fi; } && DEV_USE_CONDUCTOR_PORTS=false bun run dev"
 default = true
 icon = "play"
 

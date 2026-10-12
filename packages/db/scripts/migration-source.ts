@@ -421,12 +421,21 @@ export async function readValidatedSource(
 		cached.data.catalogHash === catalogHash(cached.data.catalog)
 	) {
 		source.catalog = cached.data.catalog;
-		return source;
+	} else {
+		await withDevelopmentCompatibility(
+			source,
+			selectDevelopmentTargets(process.env),
+			() => undefined
+		);
 	}
-	await withDevelopmentCompatibility(
-		source,
-		selectDevelopmentTargets(process.env),
-		() => undefined
-	);
+	const { verifyCatalog } = source;
+	source.verifyCatalog = async (connection, applied, compatible) => {
+		// A current or freshly verified receipt binds the required catalog to source.
+		// Runtime still checks live history/catalog under its shared lease.
+		// Preparation and delivery readiness retain full source introspection.
+		if (!compatible) {
+			await verifyCatalog?.(connection, applied, compatible);
+		}
+	};
 	return source;
 }

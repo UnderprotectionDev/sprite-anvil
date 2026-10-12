@@ -29,6 +29,11 @@ async function run(): Promise<void> {
 		return;
 	}
 	if (mode === "ready" || mode === "runtime") {
+		console.info(
+			mode === "runtime"
+				? "Checking development runtime compatibility (read-only); no migrations will be applied."
+				: "Checking development database readiness (read-only); no migrations will be applied."
+		);
 		const source = await readValidatedSource(sourceOptions);
 		const inspect =
 			mode === "ready"
