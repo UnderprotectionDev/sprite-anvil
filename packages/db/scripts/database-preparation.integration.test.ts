@@ -17,6 +17,7 @@ import {
 import { pgTable, text } from "drizzle-orm/pg-core";
 
 import {
+	inspectDevelopmentCompatibility,
 	prepareTargets,
 	withDevelopmentCompatibility,
 	withDevelopmentReadiness,
@@ -24,11 +25,112 @@ import {
 import { runReadyDevelopment } from "./development-command";
 import { withDisposablePostgres } from "./disposable-postgres";
 import {
+	readValidatedSource as readSharedRuntimeSource,
 	readReplayedSource as readValidatedSource,
 	replayMigrationSource as validateMigrationSource,
 	validateMigrationSource as validateSharedMigrationSource,
 } from "./migration-source";
 import { readFreshRuntimeSource } from "./runtime-source";
+
+test.skipIf(process.env.DB_TEST_POSTGRES !== "true")(
+	"a current shared receipt avoids repeated introspection while runtime rejects drift and changed history",
+	async () => {
+		const directory = mkdtempSync(
+			join(tmpdir(), "sprite-anvil-runtime-receipt-")
+		);
+		const schema = {
+			records: pgTable("records", { id: text().primaryKey(), label: text() }),
+		};
+		const snapshot = await generateDrizzleJson(schema);
+		const migrationDirectory = join(directory, "migrations");
+		const path = join(migrationDirectory, "20261002000001_records");
+		mkdirSync(path, { recursive: true });
+		writeFileSync(join(path, "snapshot.json"), JSON.stringify(snapshot));
+		writeFileSync(
+			join(path, "migration.sql"),
+			(await generateMigration(await generateDrizzleJson({}), snapshot)).join(
+				"\n--> statement-breakpoint\n"
+			)
+		);
+		const options = {
+			schema,
+			migrationDirectory,
+			proofPath: join(directory, "proof.json"),
+		};
+		try {
+			const preparedSource = await validateSharedMigrationSource(options);
+			await withDisposablePostgres(async ({ url }) => {
+				const target = { name: "application", url };
+				expect(await prepareTargets(preparedSource, [target])).toEqual([
+					{ name: "application", status: "ready", applied: 1 },
+				]);
+				const cached = await readSharedRuntimeSource(options);
+				const database = new SQL(url, { max: 2 });
+				const connection = await database.reserve();
+				const queries: string[] = [];
+				const measured = new Proxy(connection, {
+					apply: (method, receiver, args) => {
+						queries.push(String(args[0]));
+						return Reflect.apply(method, receiver, args);
+					},
+					get: (method, key) => {
+						const value = Reflect.get(method, key);
+						if (key === "unsafe") {
+							return (...args: unknown[]) => {
+								queries.push(String(args[0]));
+								return Reflect.apply(value, method, args);
+							};
+						}
+						return value;
+					},
+				});
+				try {
+					await inspectDevelopmentCompatibility(cached, measured);
+					// BEGIN, four history queries, one current catalog query, ROLLBACK.
+					expect(queries.length).toBeLessThanOrEqual(8);
+					queries.length = 0;
+					await connection`BEGIN READ ONLY`;
+					try {
+						await cached.verifyCatalog?.(
+							measured,
+							cached.migrations.map((migration, index) => ({
+								...migration,
+								id: index + 1,
+							})),
+							false
+						);
+					} finally {
+						await connection`ROLLBACK`;
+					}
+					// Delivery/preparation still runs the complete schema introspection.
+					expect(queries.length).toBeGreaterThan(8);
+					await connection`ALTER TABLE records ALTER COLUMN label SET DEFAULT 'drift'`;
+					await expect(
+						inspectDevelopmentCompatibility(cached, connection)
+					).rejects.toThrow();
+					await connection`ALTER TABLE records ALTER COLUMN label DROP DEFAULT`;
+					await connection`UPDATE drizzle.__drizzle_migrations SET hash = 'changed' WHERE id = 1`;
+					await expect(
+						inspectDevelopmentCompatibility(cached, connection)
+					).rejects.toThrow("history differs");
+					await connection`UPDATE drizzle.__drizzle_migrations SET hash = ${cached.migrations[0]?.hash} WHERE id = 1`;
+					await connection`SELECT pg_advisory_lock(187733697, 129934395)`;
+					await expect(
+						withDevelopmentCompatibility(cached, [target], () => undefined)
+					).rejects.toThrow("preparation is running");
+					await connection`SELECT pg_advisory_unlock(187733697, 129934395)`;
+					await withDevelopmentCompatibility(cached, [target], () => undefined);
+				} finally {
+					connection.release();
+					await database.close();
+				}
+			});
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	},
+	30_000
+);
 
 test.skipIf(process.env.DB_TEST_POSTGRES !== "true")(
 	"preparation, readiness, history divergence and API leases use disposable PostgreSQL",

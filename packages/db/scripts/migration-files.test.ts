@@ -13,6 +13,28 @@ test("keeps the committed Drizzle migration chain readable", () => {
 	expect(migrations[0]?.name).toStartWith("20260923172332_");
 });
 
+test("merged review migrations follow the already applied background and VFX prefix", () => {
+	const migrations = loadMigrations(
+		join(import.meta.dir, "..", "src", "migrations")
+	);
+	const appliedBoundary = migrations.findIndex(
+		(migration) =>
+			migration.name === "20261011103808_background_vfx_snapshot_reconciliation"
+	);
+	expect(appliedBoundary).toBe(63);
+	for (const hash of [
+		"e2358b76e08f01a31c3b480f4f598f69b60e78cf50c2409a45e733e13a12fe17",
+		"7fb371355c4100a45e40bba88b6ab33a75ab1838fa9cdc4c2bc0718a61a4662a",
+		"d83ef7d667226fcb141ff89013330d7b8fb90f24cae414f7290ebd41c8598291",
+	]) {
+		// Pin the reviewed SQL bytes while allowing unapplied directory timestamps
+		// to be reconciled behind the immutable shared prefix.
+		expect(
+			migrations.findIndex((migration) => migration.hash === hash)
+		).toBeGreaterThan(appliedBoundary);
+	}
+});
+
 test("rejects missing, duplicated and reordered snapshot parents", () => {
 	expect(() =>
 		validateSnapshotLineage([

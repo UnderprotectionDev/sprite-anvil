@@ -17,6 +17,7 @@ export async function readFreshRuntimeSource(
 			...(migrationDirectory ? [migrationDirectory] : []),
 		],
 		{
+			env: { ...process.env },
 			stdout: "pipe",
 			stderr: "pipe",
 		}

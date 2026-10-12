@@ -15,8 +15,11 @@ if (import.meta.main) {
 				"Choose all or server for development startup."
 			);
 		}
-		const source = await readFreshRuntimeSource();
+		console.info(
+			"Checking development runtime compatibility (read-only); no migrations will be applied."
+		);
 		const targets = selectDevelopmentTargets(process.env);
+		const source = await readFreshRuntimeSource();
 		const environment = developmentEnvironment(process.env);
 		console.info(
 			`Configured development URLs: API ${environment.VITE_SERVER_URL}; Web ${environment.CORS_ORIGIN}; Docs port ${environment.DOCS_PORT ?? "4000"}.`
