@@ -9,6 +9,20 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VITE_SERVER_URL: http://127.0.0.1:3000
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: e2e
+          POSTGRES_PASSWORD: e2e
+          POSTGRES_DB: texture_repetition_web_test
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd "pg_isready -U e2e -d texture_repetition_web_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -28,7 +42,26 @@ jobs:
       - run: bun run --cwd apps/web e2e:install --with-deps
       - run: bun run test
       - run: bun run build
-      - run: bun run test:e2e
+      # Both selections together cover the entire browser suite. Only the texture
+      # flow receives this database fixture; other flows retain their own opt-ins.
+      - run: bun run test:e2e --grep-invert texture-repetition-reviews
+      - name: Run texture browser checks with disposable PostgreSQL
+        working-directory: packages/db
+        env:
+          CONTEXT_TEST_DATABASE_URL: postgresql://e2e:e2e@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/texture_repetition_web_test
+        run: |
+          bun --eval '
+            import { SQL } from "bun";
+            import { drizzle } from "drizzle-orm/bun-sql";
+            import { migrate } from "drizzle-orm/bun-sql/migrator";
+            const client = new SQL(process.env.CONTEXT_TEST_DATABASE_URL);
+            try {
+              await migrate(drizzle({ client }), { migrationsFolder: "./src/migrations" });
+            } finally {
+              await client.close();
+            }
+          '
+          bun run --cwd ../.. test:e2e e2e/texture-repetition-reviews.spec.ts
 
   desktop-webdriver:
     runs-on: ubuntu-latest
