@@ -1,0 +1,2 @@
+-- Reconcile VFX synchronization with background layout and VFX appearance snapshots.
+-- Original migrations already create all three tables; no schema changes are required.

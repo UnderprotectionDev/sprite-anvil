@@ -113,6 +113,14 @@ export function checkSharedSchemaDiff(
 		}
 		const normalized = (values: string[]) =>
 			values
+				// Snapshot reconciliation migrations may contain only line comments.
+				// Keep any executable line, including quoted comment-like literals.
+				.filter((value) =>
+					value.split("\n").some((line) => {
+						const trimmed = line.trim();
+						return trimmed.length > 0 && !trimmed.startsWith("--");
+					})
+				)
 				.map(normalizeMigrationSql)
 				.sort((left, right) => left.localeCompare(right));
 		if (

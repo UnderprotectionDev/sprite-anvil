@@ -1,6 +1,9 @@
 import type { AssetRecord } from "@sprite-anvil/api/asset-records";
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
-import { backgroundLayerLayoutInputSchema } from "@sprite-anvil/api/background-layer-layouts";
+import {
+	type BackgroundLayerLayoutInput,
+	backgroundLayerLayoutInputSchema,
+} from "@sprite-anvil/api/background-layer-layouts";
 import type { ProjectProfileContractActivation } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useQuery } from "@tanstack/react-query";
@@ -164,6 +167,9 @@ export function BackgroundLayerLayoutManager({
 	const [error, setError] = useState("");
 	const [saving, setSaving] = useState(false);
 	const [uncertain, setUncertain] = useState(false);
+	const [pendingInput, setPendingInput] =
+		useState<BackgroundLayerLayoutInput | null>(null);
+	const [checking, setChecking] = useState(false);
 	const errorRef = useRef<HTMLParagraphElement>(null);
 	const available = versions.filter(
 		(v) =>
@@ -213,8 +219,63 @@ export function BackgroundLayerLayoutManager({
 		setMessage("");
 		setError("");
 	}
+	async function confirmLayout(input: BackgroundLayerLayoutInput) {
+		const result = await query.refetch();
+		if (
+			!result.isError &&
+			result.data?.some((record) => record.id === input.id)
+		) {
+			setPendingInput(null);
+			setUncertain(false);
+			setError("");
+			setMessage("Layer layout saved.");
+			return;
+		}
+		setUncertain(true);
+		setError(
+			result.isError
+				? "Could not confirm the saved layout. Check current layouts again."
+				: "The pending layout is not visible yet. Check current layouts again or retry the same layout."
+		);
+	}
+	async function persistLayout(input: BackgroundLayerLayoutInput) {
+		if (saving || checking) {
+			return;
+		}
+		setSaving(true);
+		setPendingInput(input);
+		setMessage("");
+		setError("");
+		try {
+			await client.backgroundLayerLayouts.save(input);
+			await confirmLayout(input);
+		} catch (failure) {
+			setError(getErrorMessage(failure, "Could not save the layer layout."));
+			const outcomeUncertain = uncertain || isWriteOutcomeUncertain(failure);
+			setUncertain(outcomeUncertain);
+			if (!outcomeUncertain) {
+				setPendingInput(null);
+			}
+		} finally {
+			setSaving(false);
+		}
+	}
+	async function checkCurrentLayouts() {
+		if (!pendingInput || saving || checking) {
+			return;
+		}
+		setChecking(true);
+		try {
+			await confirmLayout(pendingInput);
+		} finally {
+			setChecking(false);
+		}
+	}
 	async function save(event: SyntheticEvent<HTMLFormElement>) {
 		event.preventDefault();
+		if (saving || uncertain || checking) {
+			return;
+		}
 		setMessage("");
 		setError("");
 		const parsed = backgroundLayerLayoutInputSchema.safeParse({
@@ -235,17 +296,7 @@ export function BackgroundLayerLayoutManager({
 			requestAnimationFrame(() => errorRef.current?.focus());
 			return;
 		}
-		setSaving(true);
-		try {
-			await client.backgroundLayerLayouts.save(parsed.data);
-			setMessage("Layer layout saved.");
-			await query.refetch();
-		} catch (failure) {
-			setError(getErrorMessage(failure, "Could not save the layer layout."));
-			setUncertain(isWriteOutcomeUncertain(failure));
-		} finally {
-			setSaving(false);
-		}
+		await persistLayout(parsed.data);
 	}
 	return (
 		<section className="space-y-4 rounded-lg border p-4">
@@ -406,18 +457,24 @@ export function BackgroundLayerLayoutManager({
 			</form>
 			{message ? <p role="status">{message}</p> : null}
 			{uncertain ? (
-				<Button
-					onClick={async () => {
-						const result = await query.refetch();
-						if (!result.isError) {
-							setUncertain(false);
-							setError("");
-						}
-					}}
-					type="button"
-				>
-					Check current layouts
-				</Button>
+				<div className="flex flex-wrap gap-2">
+					<Button
+						disabled={saving || checking}
+						onClick={checkCurrentLayouts}
+						type="button"
+					>
+						Check current layouts
+					</Button>
+					{pendingInput ? (
+						<Button
+							disabled={saving || checking}
+							onClick={() => persistLayout(pendingInput)}
+							type="button"
+						>
+							{saving ? "Saving…" : "Retry same layout"}
+						</Button>
+					) : null}
+				</div>
 			) : null}
 			<h4 className="font-medium">Saved layer layouts</h4>
 			<ul className="space-y-3">

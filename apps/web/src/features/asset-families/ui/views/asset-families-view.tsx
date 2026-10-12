@@ -14,6 +14,9 @@ import { FamilyReadinessManager } from "@/features/family-readiness/ui/component
 import { IconFamilyReviewSections } from "@/features/icon-profile/ui/components/icon-family-review-sections";
 import { AssetFamilyComparisonSections } from "@/features/object-equipment-profile/ui/components/asset-family-comparison-sections";
 import { SpecializedProfileContractManager } from "@/features/quality-evidence/ui/components/specialized-profile-contract-manager";
+import { TilesetAdjacencyReviewSections } from "@/features/tileset-texture-profile/ui/components/tileset-adjacency-review-sections";
+import { VfxAppearanceSections } from "@/features/vfx-profile/ui/components/vfx-appearance-sections";
+import { VfxSynchronizationSections } from "@/features/vfx-profile/ui/components/vfx-synchronization-sections";
 import { client, orpc } from "@/utils/orpc";
 import { AssetFamilyCatalogView } from "../components/asset-family-catalog";
 import {
@@ -107,6 +110,10 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 	// Directional Review records character-profile identity checks, so the
 	// section stays hidden until the character Specialized Profile Contract is
 	// active; unrelated asset groups never see character-review guidance.
+	const effectProfileActivation = getActiveProfileContract(
+		profileContractsQuery.data,
+		"visual_effect_projectile_shadow_mark"
+	);
 	const characterProfileActivation = getActiveProfileContract(
 		profileContractsQuery.data,
 		"character_creature_animation"
@@ -372,11 +379,39 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 										/>
 									))
 								: null}
+							<VfxSynchronizationSections
+								activation={effectProfileActivation}
+								assetFamilies={catalog.assetFamilies}
+								catalog={assetVersionCatalog}
+								categories={Object.fromEntries(assetCategoriesById)}
+								projectId={projectId}
+								recordNames={Object.fromEntries(
+									catalog.assetRecords.map((record) => [record.id, record.name])
+								)}
+							/>
+							<VfxAppearanceSections
+								activation={effectProfileActivation}
+								assetRecords={assetRecordQuery.data ?? []}
+								catalog={catalog}
+								projectId={projectId}
+								versionCatalog={assetVersionCatalog}
+							/>
 							<DirectionalReviewSections
 								activation={characterProfileActivation}
 								assetFamilies={catalog.assetFamilies}
 								assetRecords={catalog.assetRecords}
 								catalog={assetVersionQuery.data}
+								projectId={projectId}
+							/>
+							<TilesetAdjacencyReviewSections
+								activation={getActiveProfileContract(
+									profileContractsQuery.data,
+									"tileset_terrain_texture"
+								)}
+								assetFamilies={catalog.assetFamilies}
+								assetFamilyRecords={catalog.assetRecords}
+								assetRecords={assetRecords}
+								catalog={assetVersionCatalog}
 								projectId={projectId}
 							/>
 							<BackgroundLayerLayoutSections

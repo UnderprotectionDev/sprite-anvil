@@ -138,3 +138,26 @@ test("SQL normalization preserves quoted literal changes", () => {
 		normalizeMigrationSql("SELECT 'a  b';")
 	);
 });
+
+test("snapshot reconciliation comments are inert but cannot hide executable pending SQL", () => {
+	expect(() =>
+		checkSharedSchemaDiff(
+			[],
+			[
+				"-- Reconcile snapshots.\n-- Original migrations already create the tables.\n",
+			],
+			[],
+			required,
+			required,
+			false
+		)
+	).not.toThrow();
+	for (const pending of [
+		"-- Reconcile snapshots.\nUPDATE records SET id = 'changed';",
+		"SELECT '-- not a comment';",
+	]) {
+		expect(() =>
+			checkSharedSchemaDiff([], [pending], [], required, required, false)
+		).toThrow("reviewed pending SQL");
+	}
+});
