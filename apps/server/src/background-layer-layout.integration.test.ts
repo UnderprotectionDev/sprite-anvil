@@ -13,6 +13,7 @@ import {
 import { assetVersions } from "@sprite-anvil/db/schema/asset-versions";
 import { user } from "@sprite-anvil/db/schema/auth";
 import { backgroundLayerLayouts } from "@sprite-anvil/db/schema/background-layer-layouts";
+import { backgroundScrollingTests } from "@sprite-anvil/db/schema/background-scrolling-tests";
 import { visualWorlds } from "@sprite-anvil/db/schema/context-scopes";
 import { project } from "@sprite-anvil/db/schema/project";
 import { SQL } from "bun";
@@ -22,6 +23,7 @@ import { createAssetFamilyStore } from "./features/asset-families/server/asset-f
 import { createAssetRecordStore } from "./features/asset-records/server/asset-record-store";
 import { createAssetVersionStore } from "./features/asset-versions/server/asset-version-store";
 import { createBackgroundLayerLayoutStore } from "./features/background-parallax-profile/server/background-layer-layout-store";
+import { createBackgroundScrollingTestStore } from "./features/background-parallax-profile/server/background-scrolling-test-store";
 import { createSpecializedProfileContractStore } from "./features/quality-evidence/server/specialized-profile-contract-store";
 
 const databaseUrl = process.env.BACKGROUND_LAYER_LAYOUT_TEST_DATABASE_URL;
@@ -78,6 +80,7 @@ test.skipIf(!databaseUrl)(
 			assetRecordStore: createAssetRecordStore(db),
 			assetVersionStore: createAssetVersionStore(db),
 			backgroundLayerLayoutStore: layoutStore,
+			backgroundScrollingTestStore: createBackgroundScrollingTestStore(db),
 			specializedProfileContractStore: contractStore,
 			verifyAssetVersionContent: async () => true,
 		} as unknown as Context;
@@ -257,6 +260,229 @@ test.skipIf(!databaseUrl)(
 			expect(
 				await call(appRouter.backgroundLayerLayouts.save, input, { context })
 			).toEqual(saved);
+			const playerRecordId = crypto.randomUUID();
+			const playerVersionId = crypto.randomUUID();
+			await db.insert(assetRecords).values({
+				id: playerRecordId,
+				projectId,
+				assetFamilyId: familyId,
+				name: "Player",
+				assetCategory: "character_creature_animation",
+				supportLevel: "general",
+				availability: "active",
+				createdByUserId: userId,
+			});
+			await db.insert(assetVersions).values({
+				id: playerVersionId,
+				projectId,
+				assetFamilyId: familyId,
+				assetRecordId: playerRecordId,
+				versionNumber: 1,
+				contentType: "image/png",
+				byteSize: 91,
+				objectKey: `test/${playerVersionId}`,
+				contentDigest: "d".repeat(64),
+				integrityVerified: true,
+				sourceImageWidth: 16,
+				sourceImageHeight: 32,
+				createdByUserId: userId,
+			});
+			const scrolling = {
+				id: crypto.randomUUID(),
+				projectId,
+				assetFamilyId: familyId,
+				setup: {
+					layoutId: saved.id,
+					durationMs: 20_000,
+					motions: [
+						{ layerId: "sky", speed: 20, loop: true, startOffset: 0 },
+						{ layerId: "trees", speed: 40, loop: false, startOffset: 10 },
+					],
+					player: {
+						assetVersionId: playerVersionId,
+						x: 100,
+						y: 50,
+						width: 16,
+						height: 32,
+						afterLayerId: "sky",
+					},
+				},
+				playbackMs: 20_000,
+				observations: {
+					loop: {
+						outcome: "passed" as const,
+						notes: "Loop wraps during playback.",
+					},
+					seam: { outcome: "failed" as const, notes: "Sky seam is visible." },
+					crop: { outcome: "passed" as const, notes: "Crop stays in frame." },
+					contrast: {
+						outcome: "inconclusive" as const,
+						notes: "Needs gameplay lighting.",
+					},
+					playerVisibility: {
+						outcome: "passed" as const,
+						notes: "Player remains readable.",
+					},
+				},
+			};
+			const scrollingSaved = await call(
+				appRouter.backgroundScrollingTests.save,
+				scrolling,
+				{ context }
+			);
+			expect(scrollingSaved).toMatchObject({
+				...scrolling,
+				outcome: "failed",
+				layoutSnapshot: saved,
+				playerPin: {
+					assetVersionId: playerVersionId,
+					contentDigest: "d".repeat(64),
+				},
+			});
+			expect(
+				await call(
+					appRouter.backgroundScrollingTests.list,
+					{ projectId, assetFamilyId: familyId },
+					{
+						context: {
+							...context,
+							backgroundScrollingTestStore:
+								createBackgroundScrollingTestStore(rereadDb),
+						},
+					}
+				)
+			).toEqual([scrollingSaved]);
+			expect(
+				await call(appRouter.backgroundScrollingTests.save, scrolling, {
+					context,
+				})
+			).toEqual(scrollingSaved);
+			for (const setup of [
+				{
+					...scrolling.setup,
+					player: { ...scrolling.setup.player, width: 17 },
+				},
+				{
+					...scrolling.setup,
+					player: { ...scrolling.setup.player, afterLayerId: "missing" },
+				},
+				{
+					...scrolling.setup,
+					player: { ...scrolling.setup.player, assetVersionId: versions[0] },
+				},
+				{ ...scrolling.setup, motions: scrolling.setup.motions.slice(0, 1) },
+				{
+					...scrolling.setup,
+					motions: scrolling.setup.motions.flatMap((motion, index) =>
+						index === 0 ? [motion, motion] : []
+					),
+				},
+			]) {
+				// biome-ignore lint/performance/noAwaitInLoops: Each invalid API input is checked independently against the fixture.
+				await expect(
+					call(
+						appRouter.backgroundScrollingTests.save,
+						{ ...scrolling, id: crypto.randomUUID(), setup },
+						{ context }
+					)
+				).rejects.toMatchObject({ code: "BAD_REQUEST" });
+			}
+			await expect(
+				call(
+					appRouter.backgroundScrollingTests.save,
+					{ ...scrolling, playbackMs: 0 },
+					{ context }
+				)
+			).rejects.toMatchObject({ code: "BAD_REQUEST" });
+			await expect(
+				call(
+					appRouter.backgroundScrollingTests.save,
+					{
+						...scrolling,
+						id: crypto.randomUUID(),
+						setup: {
+							...scrolling.setup,
+							motions: scrolling.setup.motions.map((motion) => ({
+								...motion,
+								speed: 0,
+							})),
+						},
+					},
+					{ context }
+				)
+			).rejects.toMatchObject({ code: "BAD_REQUEST" });
+			await expect(
+				call(
+					appRouter.backgroundScrollingTests.save,
+					{
+						...scrolling,
+						id: crypto.randomUUID(),
+						setup: {
+							...scrolling.setup,
+							player: { ...scrolling.setup.player, x: 0 },
+						},
+					},
+					{ context }
+				)
+			).rejects.toMatchObject({ code: "BAD_REQUEST" });
+			await expect(
+				call(
+					appRouter.backgroundScrollingTests.save,
+					{
+						...scrolling,
+						setup: { ...scrolling.setup, durationMs: 19_000 },
+						playbackMs: 19_000,
+					},
+					{ context }
+				)
+			).rejects.toMatchObject({ code: "CONFLICT" });
+			await expect(
+				call(
+					appRouter.backgroundScrollingTests.list,
+					{ projectId, assetFamilyId: familyId },
+					{ context: { ...context, session: null } }
+				)
+			).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+			await expect(
+				call(
+					appRouter.backgroundScrollingTests.list,
+					{ projectId, assetFamilyId: familyId },
+					{
+						context: {
+							...context,
+							session: { user: { id: outsiderUserId } } as Context["session"],
+						},
+					}
+				)
+			).rejects.toMatchObject({ code: "NOT_FOUND" });
+			await expect(
+				call(
+					appRouter.backgroundScrollingTests.save,
+					{ ...scrolling, id: crypto.randomUUID() },
+					{
+						context: {
+							...context,
+							verifyAssetVersionContent: async () => false,
+						},
+					}
+				)
+			).rejects.toMatchObject({ code: "BAD_REQUEST" });
+			await db
+				.update(assetRecords)
+				.set({ availability: "erased" })
+				.where(eq(assetRecords.id, playerRecordId));
+			expect(
+				await call(
+					appRouter.backgroundScrollingTests.list,
+					{ projectId, assetFamilyId: familyId },
+					{ context }
+				)
+			).toEqual([]);
+			await db
+				.update(assetRecords)
+				.set({ availability: "active" })
+				.where(eq(assetRecords.id, playerRecordId));
+
 			const outsideFamilyInput: BackgroundLayerLayoutInput = {
 				...input,
 				id: crypto.randomUUID(),
@@ -434,6 +660,13 @@ test.skipIf(!databaseUrl)(
 					{ context }
 				)
 			).toEqual([]);
+			expect(
+				await call(
+					appRouter.backgroundScrollingTests.list,
+					{ projectId, assetFamilyId: familyId },
+					{ context }
+				)
+			).toEqual([]);
 			await expect(
 				call(
 					appRouter.backgroundLayerLayouts.save,
@@ -446,6 +679,9 @@ test.skipIf(!databaseUrl)(
 				.set({ availability: "active" })
 				.where(eq(assetRecords.id, records[0]));
 		} finally {
+			await db
+				.delete(backgroundScrollingTests)
+				.where(eq(backgroundScrollingTests.projectId, projectId));
 			await db
 				.delete(backgroundLayerLayouts)
 				.where(eq(backgroundLayerLayouts.projectId, projectId));

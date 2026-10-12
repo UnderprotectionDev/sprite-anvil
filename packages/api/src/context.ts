@@ -8,6 +8,7 @@ import type { AssetRecordTrackingStore } from "./asset-record-tracking";
 import type { AssetRecordStore } from "./asset-records";
 import type { AssetVersionStore } from "./asset-versions";
 import type { BackgroundLayerLayoutStore } from "./background-layer-layouts";
+import type { BackgroundScrollingTestStore } from "./background-scrolling-tests";
 import type { CollectionStore } from "./collections";
 import type { ProjectContextScopeStore } from "./context-scopes";
 import type { DependencyRevalidationStore } from "./dependency-revalidation";
@@ -46,6 +47,7 @@ export interface Context {
 	assetRecordTrackingStore: AssetRecordTrackingStore;
 	assetVersionStore: AssetVersionStore;
 	backgroundLayerLayoutStore?: BackgroundLayerLayoutStore;
+	backgroundScrollingTestStore?: BackgroundScrollingTestStore;
 	checkTextureEdges?: (
 		userId: string,
 		projectId: string,

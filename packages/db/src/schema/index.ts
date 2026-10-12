@@ -9,6 +9,7 @@ export * from "./asset-records";
 export * from "./asset-versions";
 export * from "./auth";
 export * from "./background-layer-layouts";
+export * from "./background-scrolling-tests";
 export * from "./collections";
 export * from "./context-scopes";
 export * from "./dependency-revalidation";
@@ -28,7 +29,6 @@ export * from "./reference-production";
 export * from "./rights-records";
 export * from "./source-metadata-mapping";
 export * from "./specialized-profile-contracts";
-
 export * from "./texture-repetition-reviews";
 export * from "./tileset-adjacency-reviews";
 export * from "./vfx-appearance-reviews";

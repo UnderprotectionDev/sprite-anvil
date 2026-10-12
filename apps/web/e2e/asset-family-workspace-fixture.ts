@@ -30,7 +30,14 @@ export const assetFamilyWorkspaceFixture = {
 
 export async function prepareAssetFamilyWorkspace(
 	page: Page,
-	fixture = assetFamilyWorkspaceFixture,
+	fixture: Omit<typeof assetFamilyWorkspaceFixture, "records"> & {
+		records: {
+			name: string;
+			uploadNote: string;
+			categoryLabel?: string;
+			png?: Buffer;
+		}[];
+	} = assetFamilyWorkspaceFixture,
 	contractVersion = "1.0.0"
 ) {
 	await signUpWithFixture(page, fixture);
@@ -88,9 +95,18 @@ export async function prepareAssetFamilyWorkspace(
 			.getByRole("link", { name: "Varlık Sürümü yükle" })
 			.click();
 
+		// Scope hydration can reset the form's initial metadata. Select only once
+		// the record and its family world have finished loading.
+		await expect(
+			page.getByRole("heading", { name: "Kayıt izleme", exact: true })
+		).toBeVisible();
+		await expect(page.locator("#asset-record-metadata-world")).toBeDisabled();
+		await expect(
+			page.getByRole("button", { name: "Metadata’yı kaydet" })
+		).toBeEnabled();
 		await page
 			.getByLabel("Varlık kategorisi")
-			.selectOption({ label: fixture.categoryLabel });
+			.selectOption({ label: record.categoryLabel ?? fixture.categoryLabel });
 		await page.getByRole("button", { name: "Metadata’yı kaydet" }).click();
 		await expect(
 			page.getByText("Varlık kaydı metadata’sı kaydedildi.")
@@ -99,7 +115,7 @@ export async function prepareAssetFamilyWorkspace(
 		await page.getByLabel("PNG veya WebP dosyası").setInputFiles({
 			name: `${record.name}.png`,
 			mimeType: "image/png",
-			buffer: fixture.png,
+			buffer: record.png ?? fixture.png,
 		});
 		await page.getByLabel("Bilinmeyen üretim geçmişi").fill(record.uploadNote);
 		await page
