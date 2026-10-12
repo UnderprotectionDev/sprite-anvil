@@ -14,13 +14,14 @@ import {
 	generateMigration,
 } from "drizzle-kit/api-postgres";
 import { z } from "zod";
-
+import { withDevelopmentCompatibility } from "./database-preparation";
 import {
 	type Connection,
 	catalogHash,
 	readDatabaseHistory,
 	readSchemaCatalog,
 } from "./database-state";
+import { selectDevelopmentTargets } from "./development-targets";
 import { withDisposablePostgres } from "./disposable-postgres";
 import { runDrizzle } from "./drizzle-command";
 import { assertSourceCatalogMatches } from "./historical-schema";
@@ -30,6 +31,7 @@ import {
 	type LocalMigration,
 } from "./migration-policy";
 import { MigrationSafetyError } from "./migration-safety-error";
+import { verifySharedCatalog } from "./shared-catalog";
 
 export interface SourceOptions {
 	historicalInventoryPath?: string;
@@ -52,6 +54,12 @@ export interface ValidatedSource {
 	migrationDirectory: string;
 	migrations: LocalMigration[];
 	prefixCatalogHashes: string[];
+	verification?: "shared";
+	verifyCatalog?: (
+		connection: Connection,
+		applied: import("./migration-policy").AppliedMigration[],
+		compatible: boolean
+	) => Promise<void>;
 }
 
 function validatedSource(
@@ -132,6 +140,11 @@ async function inspectSource(options: SourceOptions) {
 		"drizzle-command.ts",
 		"migration-files.ts",
 		"migration-policy.ts",
+		"runtime-history.ts",
+		"runtime-compatibility.ts",
+		"shared-catalog.ts",
+		"shared-constraints.ts",
+		"shared-schema-policy.ts",
 	]) {
 		hash.update(readFileSync(join(import.meta.dir, verifier)));
 	}
@@ -149,7 +162,7 @@ async function inspectSource(options: SourceOptions) {
 	return { migrations, generated, fingerprint: hash.digest("hex") };
 }
 
-export async function readValidatedSource(
+export async function readReplayedSource(
 	options: SourceOptions
 ): Promise<ValidatedSource> {
 	const inspected = await inspectSource(options);
@@ -213,7 +226,7 @@ async function replaySqlPrefixes(
 	return hashes;
 }
 
-export async function validateMigrationSource(
+export async function replayMigrationSource(
 	options: SourceOptions
 ): Promise<ValidatedSource> {
 	const inspected = await inspectSource(options);
@@ -325,5 +338,95 @@ export async function validateMigrationSource(
 		validated.catalog
 	);
 	await source.assertUnchanged();
+	return source;
+}
+
+// Development uses the authorized shared database. Replay is an explicit optional audit.
+export async function validateMigrationSource(
+	options: SourceOptions
+): Promise<ValidatedSource> {
+	const inspected = await inspectSource(options);
+	const source: ValidatedSource = {
+		verification: "shared",
+		migrations: inspected.migrations,
+		fingerprint: inspected.fingerprint,
+		migrationDirectory: options.migrationDirectory,
+		catalog: [],
+		prefixCatalogHashes: [],
+		assertUnchanged: async (directory = options.migrationDirectory) => {
+			if (
+				(await inspectSource({ ...options, migrationDirectory: directory }))
+					.fingerprint !== inspected.fingerprint
+			) {
+				throw new MigrationSafetyError(
+					"Migration source changed during preparation. Retry after reviewing the source."
+				);
+			}
+		},
+		verifyCatalog: async (connection, applied, compatible) => {
+			source.catalog = await verifySharedCatalog(
+				connection,
+				options,
+				inspected.generated,
+				inspected.migrations,
+				applied,
+				compatible
+			);
+			if (compatible || applied.length === inspected.migrations.length) {
+				mkdirSync(dirname(options.proofPath), { recursive: true });
+				const temporaryPath = `${options.proofPath}.${crypto.randomUUID()}.tmp`;
+				writeFileSync(
+					temporaryPath,
+					JSON.stringify(
+						{
+							version: 3,
+							fingerprint: source.fingerprint,
+							catalog: source.catalog,
+							catalogHash: catalogHash(source.catalog),
+						},
+						null,
+						2
+					)
+				);
+				renameSync(temporaryPath, options.proofPath);
+			}
+		},
+	};
+	return source;
+}
+
+function readReceipt(path: string): unknown {
+	try {
+		return JSON.parse(readFileSync(path, "utf8"));
+	} catch {
+		return undefined;
+	}
+}
+
+export async function readValidatedSource(
+	options: SourceOptions
+): Promise<ValidatedSource> {
+	const source = await validateMigrationSource(options);
+	const cached = z
+		.object({
+			version: z.literal(3),
+			fingerprint: z.string(),
+			catalog: z.array(z.string()),
+			catalogHash: z.string(),
+		})
+		.safeParse(readReceipt(options.proofPath));
+	if (
+		cached.success &&
+		cached.data.fingerprint === source.fingerprint &&
+		cached.data.catalogHash === catalogHash(cached.data.catalog)
+	) {
+		source.catalog = cached.data.catalog;
+		return source;
+	}
+	await withDevelopmentCompatibility(
+		source,
+		selectDevelopmentTargets(process.env),
+		() => undefined
+	);
 	return source;
 }

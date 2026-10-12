@@ -10,7 +10,10 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SQL, sleep } from "bun";
-import { generateDrizzleJson } from "drizzle-kit/api-postgres";
+import {
+	generateDrizzleJson,
+	generateMigration,
+} from "drizzle-kit/api-postgres";
 import { pgTable, text } from "drizzle-orm/pg-core";
 
 import {
@@ -21,8 +24,9 @@ import {
 import { runReadyDevelopment } from "./development-command";
 import { withDisposablePostgres } from "./disposable-postgres";
 import {
-	readValidatedSource,
-	validateMigrationSource,
+	readReplayedSource as readValidatedSource,
+	replayMigrationSource as validateMigrationSource,
+	validateMigrationSource as validateSharedMigrationSource,
 } from "./migration-source";
 import { readFreshRuntimeSource } from "./runtime-source";
 
@@ -97,7 +101,7 @@ test.skipIf(process.env.DB_TEST_POSTGRES !== "true")(
 					};
 					await expect(
 						runReadyDevelopment(source, [target], launch)
-					).rejects.toThrow("pending");
+					).rejects.toThrow("Pending migration 20261002000001_records");
 					expect(existsSync(marker)).toBe(false);
 					await expect(
 						withDevelopmentReadiness(source, [target], () => undefined)
@@ -317,17 +321,25 @@ test.skipIf(process.env.DB_TEST_POSTGRES !== "true")(
 		mkdirSync(path, { recursive: true });
 		writeFileSync(
 			join(path, "migration.sql"),
-			'CREATE TABLE "records" ("id" text PRIMARY KEY);'
+			(await generateMigration(await generateDrizzleJson({}), snapshot)).join(
+				"\n--> statement-breakpoint\n"
+			)
 		);
 		writeFileSync(join(path, "snapshot.json"), JSON.stringify(snapshot));
 		try {
-			await validateMigrationSource({ schema, migrationDirectory, proofPath });
+			const preparedSource = await validateSharedMigrationSource({
+				schema,
+				migrationDirectory,
+				proofPath,
+			});
 			await withDisposablePostgres(async ({ url }) => {
-				const source = await readFreshRuntimeSource(optionsModule);
 				const target = { name: "application", url };
-				expect((await prepareTargets(source, [target]))[0]?.status).toBe(
-					"ready"
-				);
+				expect(await prepareTargets(preparedSource, [target])).toEqual([
+					{ name: "application", status: "ready", applied: 1 },
+				]);
+				expect(JSON.parse(readFileSync(proofPath, "utf8")).version).toBe(3);
+				const source = await readFreshRuntimeSource(optionsModule);
+				expect(source.verification).toBe("shared");
 				const marker = join(directory, "alive");
 				let finished = false;
 				let inspections = 0;

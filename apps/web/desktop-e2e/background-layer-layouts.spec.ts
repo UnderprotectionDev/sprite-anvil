@@ -140,28 +140,23 @@ describe("Background Layer Layout", () => {
 				.$("xpath=.//label[normalize-space(.)='Safe area X']/input")
 				.setValue("24");
 			await layout
-				.$("xpath=.//label[normalize-space(.)='Safe area Y']/input")
-				.setValue("8");
-			await layout
 				.$("xpath=.//label[normalize-space(.)='Safe area width']/input")
 				.setValue("16");
+			await layout
+				.$("xpath=.//label[normalize-space(.)='Safe area Y']/input")
+				.setValue("8");
 			await layout
 				.$("xpath=.//label[normalize-space(.)='Safe area height']/input")
 				.setValue("16");
 			await (await layout.$("button=Save layer layout")).click();
-			await layout.$("p[role='alert']").waitForDisplayed();
-			await expect(await layout.$("p[role='alert']").getText()).toContain(
+			const alert = await layout.$("p[role='alert']");
+			await alert.waitForDisplayed();
+			await expect(await alert.getText()).toBe(
 				"Player safe area must remain inside the crop."
 			);
 			await layout
 				.$("xpath=.//label[normalize-space(.)='Safe area X']/input")
 				.setValue("8");
-			await layout
-				.$("xpath=.//label[normalize-space(.)='Safe area Y']/input")
-				.setValue("8");
-			await layout
-				.$("xpath=.//label[normalize-space(.)='Safe area height']/input")
-				.setValue("16");
 			await (await layout.$("button=Save layer layout")).click();
 			await layout
 				.$("p=Layer layout saved.")

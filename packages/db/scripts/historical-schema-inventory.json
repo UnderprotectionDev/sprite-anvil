@@ -30,5 +30,25 @@
     "[\"index\", \"public\", \"asset_versions\", \"CREATE INDEX asset_versions_project_record_idx ON public.asset_versions USING btree (project_id, asset_record_id)\", true, true]",
     "[\"index\", \"public\", \"asset_versions\", \"CREATE UNIQUE INDEX asset_versions_object_key_key ON public.asset_versions USING btree (object_key)\", true, true]",
     "[\"index\", \"public\", \"asset_versions\", \"CREATE UNIQUE INDEX asset_versions_record_version_number_idx ON public.asset_versions USING btree (asset_record_id, version_number)\", true, true]"
+  ],
+  "introspectionStatements": [
+    "ALTER TABLE \"asset_versions\" DROP CONSTRAINT \"asset_versions_object_key_key\";",
+    "ALTER TABLE \"asset_version_review_events\" DROP CONSTRAINT \"asset_version_review_events_type_check\";",
+    "ALTER TABLE \"asset_versions\" DROP CONSTRAINT \"asset_versions_content_length_positive\";",
+    "ALTER TABLE \"asset_versions\" DROP CONSTRAINT \"asset_versions_version_number_positive\";",
+    "DROP INDEX \"asset_families_created_by_user_id_idx\";",
+    "DROP INDEX \"asset_families_project_visual_world_idx\";",
+    "DROP INDEX \"asset_records_family_name_idx\";",
+    "DROP INDEX \"asset_records_project_family_id_idx\";",
+    "DROP INDEX \"asset_version_review_events_project_idx\";",
+    "DROP INDEX \"asset_version_review_events_version_created_idx\";",
+    "DROP INDEX \"asset_versions_created_by_user_id_idx\";",
+    "DROP INDEX \"asset_versions_project_record_idx\";",
+    "DROP INDEX \"asset_versions_record_version_number_idx\";",
+    "ALTER TABLE \"asset_version_review_events\" DROP COLUMN \"asset_family_id\";",
+    "ALTER TABLE \"asset_versions\" ALTER COLUMN \"idempotency_key\" SET DEFAULT 'legacy:' || gen_random_uuid();"
+  ],
+  "introspectionCatalog": [
+    "[\"column\", \"public\", \"asset_versions\", \"idempotency_key\", \"text\", true, \"\", \"\", \"('legacy:'::text || gen_random_uuid())\", \"default\"]"
   ]
 }

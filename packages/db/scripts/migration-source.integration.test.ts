@@ -5,8 +5,8 @@ import { join } from "node:path";
 
 import { sourceOptions } from "./migration-options";
 import {
-	readValidatedSource,
-	validateMigrationSource,
+	readReplayedSource as readValidatedSource,
+	replayMigrationSource as validateMigrationSource,
 } from "./migration-source";
 
 test.skipIf(process.env.DB_TEST_POSTGRES !== "true")(
