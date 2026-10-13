@@ -2,115 +2,66 @@
 
 ## Ne eklendi
 
-Portre ifade sürümleri, kaynak piksel kırpması, kesin kullanım boyutu, diyalog/arayüz amacı ve açık/koyu/şeffaf arka plan yan yana incelenir. Kimlik, ifade ve yüz görünürlüğü gözlemlerini kullanıcı verir. Sonuç etkin Özel Profil Sözleşmesi ve kesin Ana Tasarım/sürüm soyuyla değişmez kayda yazılır ve yeniden okunur. Ortak Varlık Kimliği diğer ailelerle paylaşılabilir; ailelerin Görsel Dünya ve Ana Tasarım sınırları korunur. Portre kullanımı oyun içi tam sayı piksel ölçeğine zorlanmaz.
+Portre ifade sürümleri, kaynak piksel kırpması, kesin kullanım boyutu, diyalog/arayüz amacı ve açık/koyu/şeffaf arka plan incelenir. Kimlik, ifade ve yüz görünürlüğü gözlemlerini kullanıcı verir. Sonuç etkin Özel Profil Sözleşmesi ve kesin Ana Tasarım/sürüm soyuyla değişmez kayda yazılır ve yeniden okunur. Ortak Varlık Kimliği başka ailelerle paylaşılabilir; Görsel Dünya ve Ana Tasarım aile sınırları korunur. Portre kullanımı oyun içi tam sayı piksel ölçeğine zorlanmaz. Belirsiz yazımda `Kaydı yeniden kontrol et` yalnız kaydı yeniden okur; yazımı tekrarlamaz.
 
-Sahiplik: QLT-02/QLT-03 (`docs/prd/05-asset-profiles.md`), RAS-08 (`docs/prd/10-acceptance-scenarios.md`), bu dizindeki `spec.md`, `docs/workflow/27-portrait-marketing-profile/phase-context.md`, `docs/CONTEXT.md` içindeki Portrait Identity Review. ADR 0002/0014 profil ve soy sınırlarını, 0003 iki yüzeyi, 0005 tarihsel kabulü, 0008 silinmiş içeriği, 0012 kullanıcı kararını korur. React/TanStack Query ve oRPC/Zod mevcut icon-family/background örneklerini izler; Drizzle/PostgreSQL kaydı sunucuda atomik doğrular. Yeni bağımlılık yok.
+İzlenebilirlik: Portrait Identity Review (`docs/CONTEXT.md`); QLT-02/QLT-03 (`docs/prd/05-asset-profiles.md`); RAS-08 (`docs/prd/10-acceptance-scenarios.md`); `spec.md`; `docs/workflow/27-portrait-marketing-profile/phase-context.md`. ADR 0002/0014 profil ve soy sınırlarını, 0003 iki yüzeyi, 0005 tarihsel kabulü, 0008 silinmiş içeriği, 0012 kullanıcı kararını korur. React/TanStack Query, oRPC/Zod ve Drizzle/PostgreSQL mevcut icon-family/background örneklerini izler; native fixture `packages/db/scripts/marketing-usage-e2e.ts` örneğini izler. Yeni bağımlılık yok.
 
-UI `apps/web/src/features/portrait-marketing-profile/ui/` altında, kalıcılık `apps/server/src/features/portrait-marketing-profile/server/` altında; ortak sözleşmeler API paketinde ve şema DB paketindedir. Logo/tanıtım incelemesi, kalite kanıtından otomatik onay ve dışa aktarım bu teslimde yok.
+UI `apps/web/src/features/portrait-marketing-profile/ui/`, kalıcılık `apps/server/src/features/portrait-marketing-profile/server/`, ortak sözleşmeler API paketi ve şema DB paketi altındadır. Tanıtım kullanım/güvenli alan incelemesi ve sahne/UI değişiklikleri bu issue’nun yeni davranışı değildir; ortak migration geçmişi için sahip kaynakları entegre edildi. Dışa aktarım ve otomatik sanat kabulü bu teslimde yok.
 
-**Ortak ortam teslimi engelli.** Ortak veritabanında uygulanmış `20261013111405_rare_mattie_franklin` migration’ının doğrulanmış Git kaynağı bulunamadı. Kendi `20261013111409_broad_puma` migration’ımız uygulanmadı. `db:prepare` geçmiş uyuşmazlığı nedeniyle tamamlanamadı; `db:validate` kaynak kimliklerini/snapshot’ı doğruladıktan sonra ortak geçmiş uyuşmazlığını bildirdi; `db:ready` başarısız. Diğer migration’ın sahip kodu/şeması/SQL’i/snapshot’ı birlikte entegre edilmeden ortak DB uygulaması ve canlı veri hazırlığı yapılamaz. Uygulanmış geçmiş değiştirilmedi. Ortak ortamda hazır test hesabı veya portre kaydı oluşturulmadı.
+Ortak DB engeli giderildi. Marketing kaynağı PR #136, kanonik UI geçmişi PR #138 (`8ddad9b`), sahne kaynağı PR #140 (`c67263c`) üzerinden tam kod/şema/SQL/snapshot ile doğrulandı. Otomatik kaynak çözümleyici rename/merge geçmişini bulamayınca PR head’leri ve özgün SQL hash’leri ayrıca karşılaştırılıp tam commit’ler birleştirildi. Kendi eski uygulanmamış migration’ımız isim ve hash üzerinden tek yetkili kalıcı hedefte yokluğu doğrulandıktan sonra `20261013122153_portrait_identity_reviews` olarak yeniden üretildi; SQL bytes/hash değişmedi. `db:prepare` portre migration’ını uyguladı. Son `db:ready` 76 migration ve fiziksel şemayı doğruladı. Uygulanmış dosyalar ve DB kayıtları değiştirilmedi. Ana daldaki artık kanonik olmayan `20261013121000_reconcile_ui_marketing_snapshots` uzlaştırması, SQL hash’i ve kimliği hiçbir kalıcı hedefte uygulanmamış olduğundan kaldırıldı; uygulanmış kanonik snapshot zinciri korundu.
 
-Kaynak yeniden kontrol edildi: migration’ın sahibi #134 (`feat/logo-marketing-usage-evidence`), yerel sahip commit `511f0f20e1b1899fab91a3637d73841acb8df72f` (`feat: add logo and marketing usage reviews (#134)`). Commit uygulama kodunu, `packages/db/src/schema/marketing-usage-reviews.ts`, özgün migration SQL’ini ve snapshot’ı birlikte içerir. Commit’teki SQL’in SHA-256 değeri ortak DB’deki `c565cb9eff83fc03e6f867d82c7bdf3b6241e47f24da9dae765d5eeef3573f2a` ile eşleşir. Bu yerel eşleşme güvenilir uzak kaynak koşulunu karşılamaz: güncel `origin/main`, açık PR listesi ve sahip dalın uzak ref kontrolünde yayımlanmış kaynak bulunmadı. Son `db:doctor` ve `db:sync --check` kaynağı `unresolved` bildirdi; son `db:ready` uygulanmamış portre migration’ı nedeniyle başarısız oldu.
+Canlı web doğrulaması normal giriş, proje/aile/profil oluşturma, R2 dosya yükleme, onay/soy bağı, kırpma, kaydetme ve yenileme üzerinden gerçek geliştirme DB’sinde geçti. Hazır proje `Hero Portrait Review`, aile `Hero portraits`, kayıtlar `Neutral portrait` ve `Happy portrait`. Bu otomatik fixture iki aynı 32 × 32 test görselini kullanır; ifade ve sanat kalitesi hakkında gerçek insan kabulü değildir. Native Tauri/WebKit aynı canlı web kaydını açtı, `Desktop portrait crop review.` kaydını gerçek API üzerinden yazdı ve yenilemeden sonra yeniden okudu.
 
-Engelin giderilmesi için #134 sahibi kod/şema/SQL/snapshot’ı içeren commit’i aynı repository’de PR olarak yayımlamalıdır. Ardından bu workspace’te temiz çalışma ağacından `bun run db:sync` ile sahip commit bütünüyle entegre edilmeli; snapshot soy çatışmaları çözüldükten sonra `bun run db:prepare`, ilgili testler ve `bun run db:ready` tamamlanmalıdır. Bu yeniden kontrolde DB uygulaması, ortak ortam veri hazırlığı veya canlı portre testi çalıştırılmadı.
-
+Masaüstü sınırı: HTTP üzerinde normal paketlenmiş Tauri girişinde Secure cookie korunmadı. Native portre doğrulamasında tek test hesabının normal auth handler tarafından verilmiş gerçek çerezi geçici loopback taşıma adaptörü ile iletildi; sahte oturum, sahte API kaydı veya yetki atlama kullanılmadı. Üretim cookie politikası değiştirilmedi; adaptörsüz native oturum eşdeğerliği veya üretim HTTPS davranışı doğrulanmış değildir. Tekrarlanabilir yüzey komutu `bun run test:e2e:portrait-review:surfaces` geçici PostgreSQL, bellek depolama, gerçek API/auth ve gerçek Tauri/WebKit kullanır; canlı DB’yi değiştirmez.
 
 ## İnceleme
 
 ## Standards
 
-Ayrı inceleyici bağlayıcı standart ihlali bulmadı. İki olası koku bildirdi: ölçek değişkenlerinin kısa adı düzeltildi; API ve SQL’deki uygunluk tekrarları eşzamanlı değişikliği atomik reddetmek için korundu ve gerekçesi kodda açıklandı.
+Bağımsız son incelemede açık bağlayıcı ihlal yok. Önceki ölçek değişkeni adlandırması düzeltildi. API/SQL uygunluk tekrarları eşzamanlı sözleşme/soy değişimini atomik reddetmek için korundu. Silinmiş sürüme ait içerikli incelemenin API’den gizlenmesi tarihsel satırı değiştirmez; SQL entegrasyon testi aynı kaydın saklandığını doğrular. Silme/tombstone iş akışı ayrı kapsamdadır.
 
 ## Spec
 
-Ayrı inceleyici #133 portre kapsamı için eksik veya yanlış davranış bulmadı. Ortak ortam teslimi ve masaüstü doğrulaması hâlâ tamamlanmış sayılmaz.
+Bağımsız incelemede açık portre kusuru yok. Profilin ortak `portrait_logo_marketing` kategorisine ek alt tür zorunluluğu bulunmadığı normatif sözleşme üzerinden kontrol edildi. Gerçek native testin taşıma sınırı yukarıda açıklandı; adaptörsüz oturum başarı iddiası yok.
 
-Standards: 0 bağlayıcı ihlal, 2 değerlendirme önerisi (1 düzeltildi, 1 gerekçeyle korundu). Spec: 0 bulgu.
+Standards: 0 açık bağlayıcı ihlal. Spec: 0 açık bulgu.
 
-Doğrulama: API önce başarısız testle, ardından başarılı testle geliştirildi. Dört API ve dört React testi geçti. Yerel geçici PostgreSQL testi kaydı ikinci bağlantıdan yeniden okudu; yabancı kullanıcı, soy/kimlik/sözleşme kayması ve silinmiş sürümü sınadı. Tam paket iki worker ile 617 test geçti; 40 opt-in test atlandı. Tip kontrolü ve repo lint kontrolü geçti. Masaüstü native akışı çalıştırılmadı. Chromium tarayıcı testi de geçti: gerçek dosya yükleme, onay/soy bağı, geçersiz kırpma, 137 × 181 kullanım ölçüsü, başarısız kullanıcı gözlemi ve yenilemeden sonra kalıcı ayrıntılar doğrulandı. Ekran görüntüsü `.context/portrait-review.png` dosyasındadır. Önceki koşularda test sunucusunda Bun çökmesi görüldü; başarılı son koşu varsayılan Bun ayarlarıyla yapıldı.
+Doğrulama: ilk API seam’i ve son OPS-06 düzeltmesi önce başarısız odak testlerle geliştirildi. Dört API ve beş React testi geçti. Gerçek geçici PostgreSQL entegrasyonu ikinci bağlantıdan kalıcı okuma, yabancı kullanıcı, soy/kimlik/sözleşme kayması ve silinmiş sürümü sınadı (1 test, 9 assertion). Son tam pakette DB 94 geçti/8 atlandı, web 253 geçti, server 306 geçti/35 atlandı; toplam 653 geçti/43 opt-in test atlandı. Altı tip kontrol görevi ve repo lint kontrolü geçti. Canlı Chromium 1 test geçti; kontrollü oturum taşımasıyla canlı Tauri/WebKit 1 test geçti. Tekrarlanabilir `test:e2e:portrait-review:surfaces` koşusu da geçti: bir Chromium ve bir native Tauri/WebKit senaryosu aynı geçici PostgreSQL/API üzerinde kayıt ve yenileme yaptı. İlk native fixture denemesinde Origin göndermeyen korumalı görsel istekleri cookie taşımadığı için kayıt kapalı kaldı; test adaptörünün bu isteklere gerçek oturum cookie’sini iletmesiyle son koşu geçti. Ekran görüntüleri `.context/portrait-review.png` ve `.context/portrait-review-desktop.png` altındadır. İlk source merge/snapshot ve native hazırlık denemeleri başarısız olmuş; başarılı son koşular ayrı loglarda korunmuştur.
 
 ## Nasıl test edilir
 
-Web uygulamasında `/projects` sayfasından başlayın ve projenin sahibi olarak giriş yapın. Aşağıdaki akış ortak DB geçmişi uzlaştırılıp bu migration uygulandıktan sonra kullanılabilir. `Hero portraits`, `Neutral portrait` ve `Happy portrait` isimleri hazırlıkta oluşturulacak örneklerdir; ortak ortamda hazır oldukları iddia edilmez. İki ifadeyi gösteren, kaynakları bilinen PNG/WebP dosyalarınızı hazırlayın.
+Web uygulamasında `/projects/e5b71e81-6d7a-403d-a06c-40d1d8fc87e8/asset-families` route’unu açın. Normal Run’da `/projects` sayfasındaki `Hero Portrait Review` projesinin `Varlık Aileleri` bağlantısıyla aynı sayfaya gidilir. `portrait-2e413b55-69f5-4bdb-90c7-388a543d8ab7@example.test` hesabıyla giriş yapın; deneme şifresi yalnız gitignored `.context/portrait-live-result.json` dosyasındadır. `Hero portraits`, `Neutral portrait`, `Happy portrait` ve etkin portre profili hazırdır; yeni veri hazırlamanız gerekmez.
 
-### Veri hazırlığı
+### Hazır kaydı ve kalıcılığı kontrol etme
 
-Giriş yaptıktan sonra `/context-proposals` sayfasını açın.
+1. `Profil incelemeleri` düğmesine tıklayın. `Portre Kimliğini ve Kırpmayı İnceleme` bölümü görünür.
+2. `Dialogue crop needs follow-up.` kaydındaki `İnceleme ayrıntılarını göster` kontrolünü açın. `Neutral portrait` için 137 × 181 px kullanım ölçüsü, 8, 0, 24 × 32 kırpma ve başarısız yüz görünürlüğü gözlemi korunur.
+3. Sayfayı yenileyin.
+4. `Profil incelemeleri` bölümünü yeniden açın. Aynı inceleme görünür; varsa `Desktop portrait crop review.` kaydı da native testin kalıcı sonucudur.
 
-1. `Proje adı` alanına `Hero Portrait Review` yazın.
-2. `Genel sanat yaklaşımı` alanına `Illustrated character portraits` yazın.
-3. `Projeyi oluştur` düğmesine tıklayın.
-4. `Görsel Dünyalar ve Temalar` düğmesine tıklayın.
-5. `Görsel Dünya adı` alanına `Illustrated portraits` yazın.
-6. `Görsel Dünya ekle` düğmesine tıklayın; yeni dünya listelenir.
-7. `/projects` sayfasını açın.
-8. `Hero Portrait Review` projesindeki `Varlık Aileleri` bağlantısına tıklayın.
-9. `Aile ve temsil ilişkileri` düğmesine tıklayın.
-10. `Varlık Kimliği adı` alanına `Hero` yazın.
-11. `Varlık Kimliği oluştur` düğmesine tıklayın.
-12. `Varlık Ailesi adı` alanına `Hero portraits` yazın.
-13. `Görsel Dünya` alanında `Illustrated portraits` seçin.
-14. `Kullanım bağlamı` alanına `Dialogue` yazın.
-15. `Varlık Ailesi oluştur` düğmesine tıklayın.
-16. `Bağımsız ürün anlamı` kutusunu işaretleyin.
-17. `Varlık Kaydı adı` alanına `Neutral portrait` yazın.
-18. `Varlık Kaydı ekle` düğmesine tıklayın.
-19. `Sürüm ve bağımlılık işlemleri` düğmesine tıklayın.
-20. `Neutral portrait` kaydındaki `Varlık Sürümü yükle` bağlantısını açın.
-21. `Kayıt bilgileri` düğmesine tıklayın.
-22. `Varlık kategorisi` alanında `Portreler, logolar ve tanıtım görselleri` seçin.
-23. `Metadata’yı kaydet` düğmesine tıklayın.
-24. `Sürümler ve dosyalar` düğmesine tıklayın.
-25. `PNG veya WebP dosyası` alanında ifadesiz portre dosyanızı seçin.
-26. `Bilinmeyen üretim geçmişi` alanına bu dosyanın bilmediğiniz üretim geçmişini dürüstçe yazın.
-27. `Bilinen kaynak` alanına dosyanın gerçek kaynağını yazın.
-28. `Varlıkla ilişkiniz` alanında dosyanız için doğru ilişkiyi seçin.
-29. `Aday sürümü kaydet` düğmesine tıklayın; `Aday Sürüm kaydedildi.` görünür.
-30. Projenin `Varlık Aileleri` bağlantısını açın.
-31. `Aile ve temsil ilişkileri` bölümünü açın.
-32. İkinci ifadeyi `Happy portrait` adıyla oluşturmak için 16–30 arasındaki adımları ikinci dosyanızla tekrarlayın.
-33. `Sürüm ve bağımlılık işlemleri` bölümünü açın.
-34. `Neutral portrait` kaydındaki `İnceleme gerekçesi` alanına onay gerekçenizi yazın.
-35. Aynı kayıttaki `Onayla` düğmesine tıklayın; sürüm `Onaylandı` olur.
-36. Aynı kayıttaki `Ana Tasarım olarak seç` düğmesine tıklayın; `Ana Tasarım seçildi.` görünür.
-37. `Aile ve temsil ilişkileri` bölümünü açın.
-38. `İlişki türü` alanında `Türetilmiş Varlık` seçin.
-39. `İlgili Varlık Kaydı` alanında `Happy portrait` seçin.
-40. `İlişki ekle` düğmesine tıklayın; `İlişki kaydedildi.` görünür.
-41. `Özel profil sözleşmeleri` bağlantısını açın.
-42. `Portre, logo ve tanıtım görseli` düğmesine tıklayın.
-43. Bu profilin `Sözleşmeyi etkinleştir` düğmesine tıklayın; etkin sözleşme görünür.
+### Yeni inceleme
 
-### Ana akış
-
-Projenin `Varlık Aileleri` bağlantısı `/projects/<proje>/asset-families` sayfasını açar.
-
-1. `Profil incelemeleri` düğmesine tıklayın; `Portre Kimliğini ve Kırpmayı İnceleme` bölümü görünür.
-2. İlk `Portre sürümü` alanında `Neutral portrait · Sürüm 1` seçin.
-3. İkinci `Portre sürümü` alanında `Happy portrait · Sürüm 1` seçin.
-4. İlk `İfade adı` alanına `Neutral` yazın.
-5. İkinci `İfade adı` alanına `Happy` yazın; iki önizleme kendi kullanım ölçülerinde görünür.
-6. İlk `Kullanım genişliği` alanına `137` yazın.
-7. İlk `Kullanım yüksekliği` alanına `181` yazın; tam sayı ölçek zorunluluğu olmadan bu ölçüde önizleme görünür.
-8. `Kimlik tutarlılığı` alanında görsellere göre kararınızı seçin.
-9. `Kimlik tutarlılığı notu` alanına gözleminizi yazın.
-10. `İfade tutarlılığı` alanında kararınızı seçin.
-11. `İfade tutarlılığı notu` alanına gözleminizi yazın.
-12. `Kırpma ve yüz görünürlüğü` alanında kararınızı seçin.
-13. `Kırpma ve yüz görünürlüğü notu` alanına gözleminizi yazın.
-14. `İnceleme gerekçesi` alanına `Dialogue crop review` yazın.
-15. `Portre incelemesini kaydet` düğmesine tıklayın; `Portre incelemesi kaydedildi.` görünür.
-
-### Kalıcılık
-
-1. Sayfayı yenileyin.
-2. `Profil incelemeleri` bölümünü açın; `Kaydedilen portre incelemeleri` altında gerekçeniz görünür.
-3. `İnceleme ayrıntılarını göster` kontrolünü açın; ifadeler, kırpmalar, ölçüler ve kendi gözlemleriniz korunur.
+1. İlk `Portre sürümü` alanında `Neutral portrait · Sürüm 1` seçin.
+2. İkinci `Portre sürümü` alanında `Happy portrait · Sürüm 1` seçin.
+3. İlk `İfade adı` alanına `Neutral` yazın.
+4. İkinci `İfade adı` alanına `Happy` yazın.
+5. İlk `Kullanım genişliği` alanına `137` yazın.
+6. İlk `Kullanım yüksekliği` alanına `181` yazın. Önizleme bu kesin ölçüde görünür.
+7. `Kimlik tutarlılığı` alanında kendi kararınızı seçin.
+8. `Kimlik tutarlılığı notu` alanına gözleminizi yazın.
+9. `İfade tutarlılığı` alanında kendi kararınızı seçin.
+10. `İfade tutarlılığı notu` alanına gözleminizi yazın.
+11. `Kırpma ve yüz görünürlüğü` alanında kendi kararınızı seçin.
+12. `Kırpma ve yüz görünürlüğü notu` alanına gözleminizi yazın.
+13. `İnceleme gerekçesi` alanına `Manual dialogue crop review` yazın.
+14. `Portre incelemesini kaydet` düğmesine tıklayın. `Portre incelemesi kaydedildi.` görünür.
+15. Sayfayı yenileyin.
+16. `Profil incelemeleri` bölümünü açın. Yeni gerekçe kaydedilen incelemeler arasında görünür.
 
 ### Hata ve belirsiz kayıt
 
-1. İlk `Kırpma X` alanına kaynak genişliğini aşan bir değer yazın; kırpma uyarısı görünür ve kayıt düğmesi kapanır.
-2. Aynı alana `0` yazın; diğer zorunlu alanlar ve görseller uygunsa kayıt yeniden açılır.
-3. Ağ hatasından sonra `Kaydı yeniden kontrol et` görünürse bu düğmeye tıklayın; aynı kayıt isteği kontrol edilir, farklı bir inceleme üretilmez.
+1. İlk `Kırpma X` alanına `40` yazın. 32 piksel kaynağın dışına çıkan kırpma uyarı verir ve kayıt kapanır.
+2. Aynı alana `0` yazın. Diğer zorunlu alanlar ve görseller uygunsa kayıt yeniden açılır.
+3. Ağ hatasından sonra `Kaydı yeniden kontrol et` görünürse bu düğmeye tıklayın. Yalnız mevcut kayıt yeniden okunur; yeni yazım gönderilmez. Sonuç bulunamazsa belirsizlik ve kayıt kilidi korunur.
 
-Kaydedilmiş incelemeyi geri alma/silme kontrolü bu akışta yok; yeni inceleme geçmiş kaydı değiştirmez.
+Kalıcı incelemeyi silme/geri alma kontrolü yoktur; yeni inceleme geçmiş kaydı değiştirmez. Normal HTTP Tauri girişindeki oturum sınırlaması nedeniyle adaptörsüz masaüstü elle giriş akışı hazır sayılmaz.
