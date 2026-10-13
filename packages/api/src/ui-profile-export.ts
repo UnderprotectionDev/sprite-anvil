@@ -103,11 +103,20 @@ const manifestBaseSchema = z
 		evidence: uiStretchTestRecordSchema,
 	})
 	.strict();
+function serializeMapping(value: unknown) {
+	return JSON.stringify(value, (_key, item: unknown) =>
+		item && typeof item === "object" && !Array.isArray(item)
+			? Object.fromEntries(
+					Object.entries(item).sort(([a], [b]) => a.localeCompare(b))
+				)
+			: item
+	);
+}
 export const uiProfileManifestSchema = manifestBaseSchema.superRefine(
 	(manifest, ctx) => {
 		if (
-			JSON.stringify(manifest) !==
-			JSON.stringify(
+			serializeMapping(manifest) !==
+			serializeMapping(
 				manifestBaseSchema.parse(makeUiProfileManifest(manifest.evidence))
 			)
 		) {
