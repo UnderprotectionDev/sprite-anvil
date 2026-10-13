@@ -30,6 +30,7 @@ English terms are the canonical technical names used in code and contracts. Turk
 | Asset Family | Varlık Ailesi |
 | Asset Family Comparison | Durum ve Yön Ailesi Karşılaştırması |
 | Collection | Koleksiyon |
+| Portrait Identity Review | Portre Kimliği İncelemesi |
 | Subject Identity | Varlık Kimliği |
 | Canonical Design | Ana Tasarım |
 | Derivative | Türetilmiş Varlık |
@@ -215,6 +216,10 @@ _Avoid_: Asset Family approval, automatic compatibility verdict, comparison of u
 **Collection**:
 A user-defined organizational grouping that may contain otherwise unrelated Asset Records or Asset Families. Membership creates no lineage, inherited rules, completion requirement, or delivery obligation.
 _Avoid_: Asset family, required set, delivery target
+
+**Portrait Identity Review**:
+An immutable user-authored review of expression Asset Versions in one portrait Asset Family, pinned to its Subject Identity, Visual World, exact Canonical Design, and Specialized Profile Contract. Each usage entry retains its expression, dialogue or UI purpose, verified Source Image Dimensions, source-pixel crop, exact display size, and background. Identity, expression, and face visibility judgments remain user decisions; the record alone is not family completion or Export Ready evidence.
+_Avoid_: Automatic identity approval, gameplay pixel-scale review, cross-world Asset Family
 
 **Subject Identity**:
 The enduring identity shared by related representations of the same character, object, or subject across Visual Worlds and use contexts.

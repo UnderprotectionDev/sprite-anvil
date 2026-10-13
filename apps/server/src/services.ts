@@ -26,6 +26,7 @@ import { createImportInboxStore } from "./features/imports/server/import-inbox-s
 import { createSourceMetadataMappingProposalStore } from "./features/imports/server/source-metadata-mapping-store";
 import { createAssetFamilyComparisonStore } from "./features/object-equipment-profile/server/asset-family-comparison-store";
 import { createMarketingUsageReviewStore } from "./features/portrait-marketing-profile/server/marketing-usage-review-store";
+import { createPortraitIdentityReviewStore } from "./features/portrait-marketing-profile/server/portrait-identity-review-store";
 import { createManagedSnapshotStore } from "./features/production-provenance/server/managed-snapshot-store";
 import { createProjectContextStore } from "./features/project-context/server/project-context-store";
 import { createProjectAccessStore } from "./features/projects/server/project-access-store";
@@ -33,6 +34,7 @@ import { createProviderGenerationRecordStore } from "./features/provider-generat
 import { createSpecializedProfileContractStore } from "./features/quality-evidence/server/specialized-profile-contract-store";
 import { createReferenceProductionStore } from "./features/reference-production/server/reference-production-store";
 import { createRightsRecordStore } from "./features/rights-evidence/server/rights-record-store";
+import { createSceneQaStore } from "./features/scene-qa-playground/server/scene-qa-store";
 import { createTextureRepetitionReviewStore } from "./features/tileset-texture-profile/server/texture-repetition-review-store";
 import { createTilesetAdjacencyReviewStore } from "./features/tileset-texture-profile/server/tileset-adjacency-review-store";
 import { createUiStateComparisonStore } from "./features/ui-profile/server/ui-state-comparison-store";
@@ -70,6 +72,8 @@ export const tilesetAdjacencyReviewStore =
 import { createUiStretchTestStore } from "./features/ui-profile/server/ui-stretch-test-store";
 export const uiStretchTestStore = createUiStretchTestStore(db);
 export const backgroundLayerLayoutStore = createBackgroundLayerLayoutStore(db);
+export const portraitIdentityReviewStore =
+	createPortraitIdentityReviewStore(db);
 export const uiStateComparisonStore = createUiStateComparisonStore(db);
 export const iconFamilyReviewStore = createIconFamilyReviewStore(db);
 export const gameplayMetadataStore = createGameplayMetadataStore(db);
@@ -112,4 +116,5 @@ export const auth = createAuth(ENV, db, desktopOrigins);
 export const backgroundScrollingTestStore =
 	createBackgroundScrollingTestStore(db);
 
+export const sceneQaStore = createSceneQaStore(db);
 export const marketingUsageReviewStore = createMarketingUsageReviewStore(db);

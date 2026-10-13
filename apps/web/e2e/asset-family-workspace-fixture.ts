@@ -37,7 +37,8 @@ export async function prepareAssetFamilyWorkspace(
 			png?: Buffer;
 		}[];
 	} = assetFamilyWorkspaceFixture,
-	contractVersion = "1.0.0"
+	contractVersion = "1.0.0",
+	activateProfile = true
 ) {
 	await signUpWithFixture(page, fixture);
 
@@ -187,7 +188,9 @@ export async function prepareAssetFamilyWorkspace(
 	if (!contractName) {
 		throw new Error(`Unknown fixture profile: ${fixture.categoryLabel}`);
 	}
-	await activateFamilyProfile(page, contractName, familyUrl, contractVersion);
+	if (activateProfile) {
+		await activateFamilyProfile(page, contractName, familyUrl, contractVersion);
+	}
 
 	return { familyName: fixture.familyName, familyUrl };
 }

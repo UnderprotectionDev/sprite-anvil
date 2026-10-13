@@ -22,11 +22,13 @@ import type { GameplayMetadataPackageTargetReader } from "./gameplay-metadata-pa
 import type { GenerationPackageStore } from "./generation-packages";
 import type { IconFamilyReviewStore } from "./icon-family-reviews";
 import type { MarketingUsageReviewStore } from "./marketing-usage-reviews";
+import type { PortraitIdentityReviewStore } from "./portrait-identity-reviews";
 import type { ProjectAccessStore } from "./project-access-store";
 import type { ProjectContextStore } from "./project-context";
 import type { ProviderGenerationRecordStore } from "./provider-generation-records";
 import type { ReferenceProductionStore } from "./reference-production";
 import type { RightsRecordStore } from "./rights-records";
+import type { SceneQaStore } from "./scene-qa";
 import type { SpecializedProfileContractStore } from "./specialized-profile-contracts";
 import type {
 	TextureAtlasRegion,
@@ -66,6 +68,7 @@ export interface Context {
 	generationPackageStore?: GenerationPackageStore;
 	iconFamilyReviewStore?: IconFamilyReviewStore;
 	marketingUsageReviewStore?: MarketingUsageReviewStore;
+	portraitIdentityReviewStore?: PortraitIdentityReviewStore;
 	projectAccess: ProjectAccessStore;
 	projectContextScopeStore: ProjectContextScopeStore;
 	projectContextStore: ProjectContextStore;
@@ -80,6 +83,7 @@ export interface Context {
 	referenceProductionStore?: ReferenceProductionStore;
 	reviewGameplayMetadata?: GameplayMetadataReviewHandler;
 	rightsRecordStore?: RightsRecordStore;
+	sceneQaStore?: SceneQaStore;
 	session: Session | null;
 	specializedProfileContractStore?: SpecializedProfileContractStore;
 	textureRepetitionReviewStore?: TextureRepetitionReviewStore;
