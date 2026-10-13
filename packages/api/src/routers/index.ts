@@ -108,7 +108,9 @@ async function readContextProposalReview(
 
 import { textureRepetitionReviewsRouter } from "./texture-repetition-reviews";
 
+import { uiStretchTestsRouter } from "./ui-stretch-tests";
 export const appRouter = {
+	uiStretchTests: uiStretchTestsRouter,
 	textureRepetitionReviews: textureRepetitionReviewsRouter,
 	tilesetAdjacencyReviews: tilesetAdjacencyReviewsRouter,
 	healthCheck: publicProcedure.handler(() => serializeRpcHealthResponse()),

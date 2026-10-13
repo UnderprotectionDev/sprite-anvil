@@ -17,6 +17,7 @@ import { AssetFamilyComparisonSections } from "@/features/object-equipment-profi
 import { MarketingUsageReviewSections } from "@/features/portrait-marketing-profile/ui/components/marketing-usage-review-sections";
 import { TextureRepetitionReviewSections } from "@/features/tileset-texture-profile/ui/components/texture-repetition-review-sections";
 import { TilesetAdjacencyReviewSections } from "@/features/tileset-texture-profile/ui/components/tileset-adjacency-review-sections";
+import { UiStretchTestSections } from "@/features/ui-profile/ui/components/ui-stretch-test-sections";
 import { VfxAppearanceSections } from "@/features/vfx-profile/ui/components/vfx-appearance-sections";
 import { VfxSynchronizationSections } from "@/features/vfx-profile/ui/components/vfx-synchronization-sections";
 import { client, orpc } from "@/utils/orpc";
@@ -491,6 +492,17 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 												assetRecords={assetRecords}
 												catalog={assetVersionCatalog}
 												projectId={projectId}
+											/>
+											<UiStretchTestSections
+												activation={getActiveProfileContract(
+													profileContractsQuery.data,
+													"ui"
+												)}
+												assetRecords={assetRecords}
+												families={reviewFamilies}
+												familyRecords={catalog.assetRecords}
+												projectId={projectId}
+												versions={assetVersionQuery.data.assetVersions}
 											/>
 											<BackgroundLayerLayoutSections
 												activation={backgroundProfileActivation}

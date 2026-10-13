@@ -65,6 +65,9 @@ export const textureRepetitionReviewStore =
 	createTextureRepetitionReviewStore(db);
 export const tilesetAdjacencyReviewStore =
 	createTilesetAdjacencyReviewStore(db);
+
+import { createUiStretchTestStore } from "./features/ui-profile/server/ui-stretch-test-store";
+export const uiStretchTestStore = createUiStretchTestStore(db);
 export const backgroundLayerLayoutStore = createBackgroundLayerLayoutStore(db);
 export const iconFamilyReviewStore = createIconFamilyReviewStore(db);
 export const gameplayMetadataStore = createGameplayMetadataStore(db);
