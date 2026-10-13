@@ -39,6 +39,7 @@ import {
 	textureRepetitionReviewStore,
 	tilesetAdjacencyReviewStore,
 	uiStateComparisonStore,
+	uiStretchTestStore,
 	vfxAppearanceReviewStore,
 	vfxSynchronizationStore,
 } from "./services";
@@ -70,6 +71,7 @@ export async function createContext({
 		generationPackageStore,
 		gameplayMetadataStore,
 		backgroundScrollingTestStore,
+		uiStretchTestStore,
 		backgroundLayerLayoutStore,
 		iconFamilyReviewStore,
 		uiStateComparisonStore,
