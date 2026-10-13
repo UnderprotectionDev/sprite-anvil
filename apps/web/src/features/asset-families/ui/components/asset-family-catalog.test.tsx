@@ -3,8 +3,22 @@
 import type { AssetFamilyCatalog } from "@sprite-anvil/api/asset-families";
 import type { AssetVersionCatalog } from "@sprite-anvil/api/asset-versions";
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, expect, test } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 import { AssetFamilyCatalogView } from "./asset-family-catalog";
+
+vi.mock("@tanstack/react-router", () => ({
+	Link: ({
+		children,
+		params,
+	}: {
+		children: React.ReactNode;
+		params: { projectId: string; assetRecordId: string };
+	}) => (
+		<a href={`/projects/${params.projectId}/assets/${params.assetRecordId}`}>
+			{children}
+		</a>
+	),
+}));
 
 const projectId = "project-ash-knight";
 const identityId = "identity-ash-knight";
@@ -193,4 +207,13 @@ test("shows the exact Asset Version selected as Canonical Design and used by a d
 				)
 			)
 	).toBe(true);
+});
+
+test("opens family members in their owning project", () => {
+	render(
+		<AssetFamilyCatalogView catalog={catalog} visualWorlds={visualWorlds} />
+	);
+	expect(
+		screen.getByRole("link", { name: "Ash Knight base" }).getAttribute("href")
+	).toBe(`/projects/${projectId}/assets/asset-base`);
 });

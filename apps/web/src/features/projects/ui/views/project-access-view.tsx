@@ -126,7 +126,7 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 	const permissions = permissionsQuery.data ?? [];
 
 	return (
-		<main className="mx-auto w-full max-w-3xl space-y-8 overflow-y-auto px-4 py-8">
+		<main className="mx-auto w-full max-w-3xl space-y-8 px-4 py-8">
 			<div className="space-y-3">
 				<Link
 					className="text-muted-foreground text-sm underline underline-offset-4"

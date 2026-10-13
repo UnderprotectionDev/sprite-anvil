@@ -1,17 +1,22 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
+import { activateFamilyProfile } from "./asset-family-workspace-fixture";
+import { assetVersionE2eEnabled } from "./asset-record-fixture";
 import { signUpWithFixture } from "./project-workflow";
 import {
 	textureRepetitionFixture as fixture,
 	readTexturePreviewPresentation,
 } from "./texture-repetition-review-fixture";
 
-const profileActivationButtonName = /Sözleşme v.*etkinleştir/;
 const profileLabel = "Karo setleri, arazi ve kesintisiz dokular";
 
 test("reviews exact texture edges and all three arrangements, then rereads metadata after reload", async ({
 	page,
 }) => {
+	test.skip(
+		!assetVersionE2eEnabled,
+		"A dedicated test database and explicitly selected test R2 bucket are required for texture persistence."
+	);
 	test.setTimeout(240_000);
 	await signUpWithFixture(page, fixture);
 	await page.goto("/context-proposals");
@@ -20,6 +25,9 @@ test("reviews exact texture edges and all three arrangements, then rereads metad
 		.getByLabel("Genel sanat yaklaşımı")
 		.fill("Seamless pixel surfaces");
 	await page.getByRole("button", { name: "Projeyi oluştur" }).click();
+	await page
+		.getByRole("button", { name: "Görsel Dünyalar ve Temalar", exact: true })
+		.click();
 	await page.getByLabel("Görsel Dünya adı").fill("Texture world");
 	await page.getByRole("button", { name: "Görsel Dünya ekle" }).click();
 	await expect(
@@ -27,27 +35,48 @@ test("reviews exact texture edges and all three arrangements, then rereads metad
 	).toBeVisible();
 	await page.goto("/projects");
 	await page.getByRole("link", { name: "Varlık Aileleri" }).click();
+	await page
+		.getByRole("button", { name: "Aile ve temsil ilişkileri", exact: true })
+		.click();
 	await page.getByLabel("Varlık Kimliği adı").fill("Grass surface");
 	await page.getByRole("button", { name: "Varlık Kimliği oluştur" }).click();
+	await page
+		.getByRole("button", { name: "Aile kataloğu", exact: true })
+		.click();
 	await expect(
 		page.getByRole("heading", { name: "Grass surface" })
 	).toBeVisible();
+	await page
+		.getByRole("button", { name: "Aile ve temsil ilişkileri", exact: true })
+		.click();
 	await page.getByLabel("Varlık Ailesi adı").fill("Grass textures");
 	await page
 		.getByLabel("Görsel Dünya")
 		.selectOption({ label: "Texture world" });
 	await page.getByLabel("Kullanım bağlamı").fill("Repeated terrain surface");
 	await page.getByRole("button", { name: "Varlık Ailesi oluştur" }).click();
+	await page
+		.getByRole("button", { name: "Aile kataloğu", exact: true })
+		.click();
 	await expect(
 		page
 			.getByRole("region", { name: "Kaydedilmiş Varlık Aileleri" })
 			.getByRole("heading", { name: "Grass textures", exact: true })
 	).toBeVisible();
 	const familyUrl = page.url();
+	await page
+		.getByRole("button", { name: "Aile ve temsil ilişkileri", exact: true })
+		.click();
 	await page.getByLabel("Bağımsız ürün anlamı", { exact: true }).check();
 	await page.getByLabel("Varlık Kaydı adı").fill("Grass texture");
 	await page.getByRole("button", { name: "Varlık Kaydı ekle" }).click();
+	await page
+		.getByRole("button", { name: "Sürüm ve bağımlılık işlemleri", exact: true })
+		.click();
 	await page.getByRole("link", { name: "Varlık Sürümü yükle" }).click();
+	await page
+		.getByRole("button", { name: "Kayıt bilgileri", exact: true })
+		.click();
 	const metadataForm = page.getByRole("region", {
 		name: "Varlık kaydı metadata’sı",
 	});
@@ -68,6 +97,9 @@ test("reviews exact texture edges and all three arrangements, then rereads metad
 	await expect(page.getByLabel("Varlık kategorisi")).toHaveValue(
 		"tileset_terrain_texture"
 	);
+	await page
+		.getByRole("button", { name: "Sürümler ve dosyalar", exact: true })
+		.click();
 	const file = {
 		name: "grass.png",
 		mimeType: "image/png",
@@ -90,6 +122,9 @@ test("reviews exact texture edges and all three arrangements, then rereads metad
 		page.getByText("Aday Sürüm kaydedildi.", { exact: true })
 	).toBeVisible();
 	await page.goto(familyUrl);
+	await page
+		.getByRole("button", { name: "Sürüm ve bağımlılık işlemleri", exact: true })
+		.click();
 	await page.getByLabel("Birim türü").selectOption("tile");
 	await page.getByLabel("Birim adı").fill("grass");
 	await page
@@ -101,12 +136,15 @@ test("reviews exact texture edges and all three arrangements, then rereads metad
 		page.getByText("grass · Birim Sürümü 1", { exact: false })
 	).toBeVisible();
 	await page.goto(familyUrl);
-	const profile = page
-		.getByRole("heading", { name: profileLabel, exact: true })
-		.locator("xpath=ancestor::li[1]");
-	await profile
-		.getByRole("button", { name: profileActivationButtonName })
+	await page
+		.getByRole("button", { name: "Sürüm ve bağımlılık işlemleri", exact: true })
 		.click();
+	await activateFamilyProfile(
+		page,
+		"Karo seti, arazi ve kesintisiz doku",
+		familyUrl,
+		"1.0.0"
+	);
 	const review = page
 		.getByRole("heading", { name: "Texture repetition · Grass textures" })
 		.locator("..");
@@ -142,6 +180,9 @@ test("reviews exact texture edges and all three arrangements, then rereads metad
 		path: "../../.context/texture-repetition-browser.png",
 	});
 	await page.reload();
+	await page
+		.getByRole("button", { name: "Profil incelemeleri", exact: true })
+		.click();
 	await expect(
 		review.getByText(
 			"shifted: passed — Uniform color repeats without a visible motif."

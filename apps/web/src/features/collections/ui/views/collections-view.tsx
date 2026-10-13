@@ -9,7 +9,7 @@ export function CollectionsView({ projectId }: { projectId: string }) {
 	const manager = useCollectionsManager(projectId);
 
 	return (
-		<main className="mx-auto w-full max-w-6xl space-y-8 overflow-y-auto px-4 py-8">
+		<main className="mx-auto w-full max-w-6xl space-y-8 px-4 py-8">
 			<PageHeader projectId={projectId} projectName={manager.project?.name} />
 			<CollectionPageStatus
 				catalogError={manager.catalogQuery.isError}

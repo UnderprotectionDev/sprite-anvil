@@ -19,7 +19,7 @@ export function LoginView() {
 
 function LoginShell({ children }: { children: ReactNode }) {
 	return (
-		<main className="grid min-h-0 w-full items-center overflow-y-auto px-4 py-6 sm:px-6 sm:py-10 lg:py-16">
+		<main className="grid min-h-0 w-full items-center px-4 py-6 sm:px-6 sm:py-10 lg:py-16">
 			<div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(22rem,0.85fr)] lg:items-center lg:gap-16">
 				<div className="max-w-xl space-y-3 sm:space-y-5">
 					<p className="font-mono text-primary text-xs uppercase tracking-[0.16em]">

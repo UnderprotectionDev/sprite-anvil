@@ -7,6 +7,7 @@ import {
 	sourceMetadataMappingFixture,
 	sourceMetadataMappingFixtureHash,
 } from "../e2e/source-metadata-mapping-fixture";
+import { openWorkspaceTask } from "./workspace-navigation";
 
 describe("Source Metadata Mapping Proposals", () => {
 	it("creates and rereads the same source-backed proposal through the desktop flow", async function () {
@@ -44,7 +45,7 @@ describe("Source Metadata Mapping Proposals", () => {
 			await (await $("input[name='email']")).setValue(fixture.email);
 			await (await $("input[name='password']")).setValue(fixture.password);
 			await (await $("button=Sign Up")).click();
-			await (await $("h1=Dashboard")).waitForDisplayed();
+			await (await $("h1=Oyun projeleri")).waitForDisplayed();
 
 			const visualWorldName = `${fixture.name} world`;
 			const identityName = `${fixture.name} identity`;
@@ -57,18 +58,22 @@ describe("Source Metadata Mapping Proposals", () => {
 				await $('//label[span[text()="Genel sanat yaklaşımı"]]/textarea')
 			).setValue(fixture.generalArtDirection);
 			await (await $("button=Projeyi oluştur")).click();
+			await openWorkspaceTask("Görsel Dünyalar ve Temalar");
 			await (await $("input[placeholder='Örn. Yüksek yaylalar']")).setValue(
 				visualWorldName
 			);
 			await (await $("button=Görsel Dünya ekle")).click();
 			await (await $(`strong=${visualWorldName}`)).waitForDisplayed();
-			await (await $("a=Projects")).click();
+			await (await $("a=Projeler")).click();
 			await (await $("a=Varlık Aileleri")).click();
+			await openWorkspaceTask("Aile ve temsil ilişkileri");
 			await (await $("input[id='subject-identity-name']")).setValue(
 				identityName
 			);
 			await (await $("button=Varlık Kimliği oluştur")).click();
+			await openWorkspaceTask("Aile kataloğu");
 			await (await $(`h2=${identityName}`)).waitForDisplayed();
+			await openWorkspaceTask("Aile ve temsil ilişkileri");
 			await (await $("input[id='asset-family-name']")).setValue(familyName);
 			await (await $("#asset-family-visual-world")).selectByVisibleText(
 				visualWorldName
@@ -77,10 +82,13 @@ describe("Source Metadata Mapping Proposals", () => {
 				"Walking animation"
 			);
 			await (await $("button=Varlık Ailesi oluştur")).click();
+			await openWorkspaceTask("Aile kataloğu");
 			await (await $(`h3=${familyName}`)).waitForDisplayed();
+			await openWorkspaceTask("Aile ve temsil ilişkileri");
 			await (await $("input[id='asset-record-name']")).setValue(fixture.name);
 			await (await $("button=Varlık Kaydı ekle")).click();
-			await (await $("a=Projects")).click();
+			await openWorkspaceTask("Sürüm ve bağımlılık işlemleri");
+			await (await $("a=Projeler")).click();
 			const projectLink = await $(
 				`a[aria-label="${fixture.projectName} varlık kayıtlarını aç"]`
 			);
@@ -97,6 +105,7 @@ describe("Source Metadata Mapping Proposals", () => {
 				uploadedPaths.join("\n")
 			);
 			await (await $("button=Dosyaları Gelen Kutusuna Al")).click();
+			await openWorkspaceTask("Bekleyen dosyalar");
 
 			const sourcePanel = await $(
 				`section[aria-label="${sourceMetadataMappingFixture.source.fileName} için Kaynak Metadata Eşleme Önerisi"]`
@@ -160,6 +169,7 @@ describe("Source Metadata Mapping Proposals", () => {
 			await $("li=Pivot · walk-0: Bilinmiyor").waitForDisplayed();
 
 			await browser.refresh();
+			await openWorkspaceTask("Bekleyen dosyalar");
 			const rereadProposal = await $("summary*=Kaynak Metadata Eşleme Önerisi");
 			await rereadProposal.waitForDisplayed();
 			await rereadProposal.click();

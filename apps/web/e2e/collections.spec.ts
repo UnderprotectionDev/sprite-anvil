@@ -23,6 +23,9 @@ test("persists Collection membership changes through the web flow", async ({
 			name: `${fixture.projectName} varlık kayıtlarını aç`,
 		})
 		.click();
+	await page
+		.getByRole("button", { name: "Yeni varlık kaydı", exact: true })
+		.click();
 	await page.getByLabel("Varlık adı").fill(fixture.name);
 	await page.getByRole("checkbox", { name: identityCheckboxName }).check();
 	await page.getByRole("button", { name: "Varlık kaydı oluştur" }).click();

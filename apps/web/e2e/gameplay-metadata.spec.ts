@@ -238,6 +238,9 @@ for (const outcome of ["confirmed", "uncertain", "conflicted"] as const) {
 			await route.fulfill({ json: { json: result } });
 		});
 		await page.goto(`/projects/${projectId}/assets/${assetRecordId}`);
+		await page
+			.getByRole("button", { name: "Oyun İçi Bilgiler", exact: true })
+			.click();
 		const panel = page.getByRole("region", {
 			name: "Oyun İçi Bilgileri",
 			exact: true,
@@ -298,6 +301,9 @@ for (const outcome of ["confirmed", "uncertain", "conflicted"] as const) {
 			]),
 		});
 		await page.reload();
+		await page
+			.getByRole("button", { name: "Oyun İçi Bilgiler", exact: true })
+			.click();
 		await expect(
 			panel.getByText("walk-0 — walk east", { exact: true })
 		).toBeVisible();
@@ -388,6 +394,9 @@ for (const outcome of ["confirmed", "uncertain", "conflicted"] as const) {
 				.getByRole("button", { name: "Oyun içi bilgileri kaydet" })
 				.click();
 			await page.reload();
+			await page
+				.getByRole("button", { name: "Oyun İçi Bilgiler", exact: true })
+				.click();
 			await expect(
 				panel.getByText('{"x":13,"y":24} · Kullanıcı girdisi', { exact: true })
 			).toBeVisible();
@@ -450,6 +459,9 @@ for (const outcome of ["confirmed", "uncertain", "conflicted"] as const) {
 				route.abort("failed")
 			);
 			await page.reload();
+			await page
+				.getByRole("button", { name: "Oyun İçi Bilgiler", exact: true })
+				.click();
 			await panel
 				.getByRole("button", { name: "Bilgileri incele", exact: true })
 				.nth(1)
@@ -462,6 +474,9 @@ for (const outcome of ["confirmed", "uncertain", "conflicted"] as const) {
 			).toBeDisabled();
 			frames.splice(0);
 			await page.reload();
+			await page
+				.getByRole("button", { name: "Oyun İçi Bilgiler", exact: true })
+				.click();
 			await panel
 				.getByRole("button", { name: "Bilgileri incele", exact: true })
 				.nth(1)

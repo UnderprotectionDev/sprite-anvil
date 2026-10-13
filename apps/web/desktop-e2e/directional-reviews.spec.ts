@@ -3,6 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { $, browser, expect } from "@wdio/globals";
 import { assetVersionFixture as fixture } from "../e2e/asset-version-fixture";
+import {
+	activateFamilyProfile,
+	openWorkspaceTask,
+} from "./workspace-navigation";
 
 describe("Directional Review", () => {
 	it("saves and reopens a four-direction review in the desktop flow", async function () {
@@ -35,20 +39,23 @@ describe("Directional Review", () => {
 				await $('//label[span[text()="Genel sanat yaklaşımı"]]/textarea')
 			).setValue(fixture.generalArtDirection);
 			await (await $("button=Projeyi oluştur")).click();
-			await (await $("h2=Bağlam Önerisi hazırlayın")).waitForDisplayed();
+			await openWorkspaceTask("Görsel Dünyalar ve Temalar");
 			await (await $("input[placeholder='Örn. Yüksek yaylalar']")).setValue(
 				fixture.visualWorldName
 			);
 			await (await $("button=Görsel Dünya ekle")).click();
 			await (await $(`strong=${fixture.visualWorldName}`)).waitForDisplayed();
 
-			await (await $("a=Projects")).click();
+			await (await $("a=Projeler")).click();
 			await (await $("a=Varlık Aileleri")).click();
+			await openWorkspaceTask("Aile ve temsil ilişkileri");
 			await (await $("input[id='subject-identity-name']")).setValue(
 				fixture.identityName
 			);
 			await (await $("button=Varlık Kimliği oluştur")).click();
+			await openWorkspaceTask("Aile kataloğu");
 			await (await $(`h2=${fixture.identityName}`)).waitForDisplayed();
+			await openWorkspaceTask("Aile ve temsil ilişkileri");
 			await (await $("input[id='asset-family-name']")).setValue(
 				fixture.familyName
 			);
@@ -59,6 +66,7 @@ describe("Directional Review", () => {
 				fixture.useContext
 			);
 			await (await $("button=Varlık Ailesi oluştur")).click();
+			await openWorkspaceTask("Aile kataloğu");
 			await (await $(`h3=${fixture.familyName}`)).waitForDisplayed();
 
 			// Without the character profile activation the character review
@@ -69,10 +77,12 @@ describe("Directional Review", () => {
 				)
 			).waitForDisplayed({ reverse: true, timeout: 20_000 });
 
+			await openWorkspaceTask("Aile ve temsil ilişkileri");
 			await (await $("input[id='asset-record-name']")).setValue(
 				fixture.sourceName
 			);
 			await (await $("button=Varlık Kaydı ekle")).click();
+			await openWorkspaceTask("Sürüm ve bağımlılık işlemleri");
 			await (
 				await $(
 					`input[aria-label='${fixture.sourceName} için Varlık Sürümü dosyası']`
@@ -88,17 +98,7 @@ describe("Directional Review", () => {
 			await (await $("button=Ana Tasarım olarak seç")).click();
 			await $("p=Ana Tasarım: Ash Knight base · Sürüm 1").waitForDisplayed();
 
-			const characterProfile = await $(
-				"h4=Karakterler, yaratıklar ve animasyonlar"
-			).$("xpath=ancestor::li[1]");
-			await (
-				await characterProfile.$(
-					"xpath=.//button[contains(normalize-space(.), 'etkinleştir')]"
-				)
-			).click();
-			await (
-				await characterProfile.$("p=Etkin sözleşme v1.0.1")
-			).waitForDisplayed();
+			await activateFamilyProfile("Karakter, yaratık ve animasyon", "1.0.1");
 
 			let review = await $(
 				`section[aria-label='${fixture.familyName} kimlik ve yön incelemesi']`
@@ -143,6 +143,7 @@ describe("Directional Review", () => {
 			).waitForDisplayed();
 
 			await browser.refresh();
+			await openWorkspaceTask("Profil incelemeleri");
 			review = await $(
 				`section[aria-label='${fixture.familyName} kimlik ve yön incelemesi']`
 			);

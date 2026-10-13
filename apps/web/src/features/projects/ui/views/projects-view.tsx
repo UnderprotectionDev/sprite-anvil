@@ -112,7 +112,7 @@ export function ProjectsView() {
 	}
 
 	return (
-		<main className="mx-auto w-full max-w-6xl overflow-y-auto px-4 py-8 sm:px-6 lg:py-12">
+		<main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:py-12">
 			<header className="mb-10 flex flex-wrap items-end justify-between gap-6">
 				<div className="max-w-3xl space-y-3">
 					<p className="font-mono text-primary text-xs uppercase tracking-[0.16em]">

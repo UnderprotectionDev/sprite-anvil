@@ -1,5 +1,6 @@
 import { $, browser, expect } from "@wdio/globals";
 import { projectContextFixture } from "../e2e/project-context-fixture";
+import { openWorkspaceTask } from "./workspace-navigation";
 
 describe("Project Context proposals", () => {
 	it("persists the same structured proposal from the desktop flow", async function () {
@@ -20,7 +21,7 @@ describe("Project Context proposals", () => {
 			projectContextFixture.password
 		);
 		await (await $("button=Sign Up")).click();
-		await (await $("h1=Dashboard")).waitForDisplayed();
+		await (await $("h1=Oyun projeleri")).waitForDisplayed();
 
 		await (await $("a=Proje Bağlamı")).click();
 		await (await $("h2=İlk projeyi oluşturun")).waitForDisplayed();
@@ -31,7 +32,7 @@ describe("Project Context proposals", () => {
 			await $('//label[span[text()="Genel sanat yaklaşımı"]]/textarea')
 		).setValue(projectContextFixture.generalArtDirection);
 		await (await $("button=Projeyi oluştur")).click();
-		await (await $("h2=Bağlam Önerisi hazırlayın")).waitForDisplayed();
+		await openWorkspaceTask("Görsel Dünyalar ve Temalar");
 		await (await $('//label[span[text()="Görsel Dünya adı"]]/input')).setValue(
 			"Sunken coast"
 		);
@@ -43,9 +44,11 @@ describe("Project Context proposals", () => {
 		await (await $("button=Tema ekle")).click();
 		await (await $("strong=Blue lanterns")).waitForDisplayed();
 
+		await openWorkspaceTask("Kural önerisi hazırla");
 		const operation = await $('select[aria-label="Değişiklik 1 işlemi"]');
 		await expect(await operation.$('option[value="replace"]')).toBeDisabled();
 		await expect(await operation.$('option[value="remove"]')).toBeDisabled();
+		await openWorkspaceTask("Kural önerisi hazırla");
 		await (
 			await $('select[aria-label="Değişiklik 1 kapsamı"]')
 		).selectByVisibleText("Tema · Sunken coast / Blue lanterns");
@@ -66,6 +69,7 @@ describe("Project Context proposals", () => {
 			projectContextFixture.evidence
 		);
 		await (await $("button=Bağlam Önerisini kaydet")).click();
+		await openWorkspaceTask("Önerileri incele");
 
 		const savedProposal = await $(`h3=${projectContextFixture.summary}`);
 		await savedProposal.waitForDisplayed();

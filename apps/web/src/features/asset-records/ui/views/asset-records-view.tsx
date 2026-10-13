@@ -4,15 +4,24 @@ import type {
 	AssetRecordCreateInput,
 } from "@sprite-anvil/api/asset-records";
 import { Button, buttonVariants } from "@sprite-anvil/ui/components/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+} from "@sprite-anvil/ui/components/dialog";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { type ReactNode, type SyntheticEvent, useRef, useState } from "react";
 import { toast } from "sonner";
+import { TaskWorkspace } from "@/components/task-workspace";
 import { AssetRecordSearchPanel } from "@/features/asset-discovery/ui/components/asset-record-search-panel";
 import { AnimationMetadataPackagePanel } from "@/features/character-animation-profile/ui/components/animation-metadata-package-panel";
 import { GameplayMetadataPanel } from "@/features/gameplay-metadata/ui/views/gameplay-metadata-panel";
 import { GenerationPackagePanel } from "@/features/generation-packages/ui/views/generation-package-panel";
+import { ReferenceBoardView } from "@/features/reference-production/ui/views/reference-board-view";
 import { RightsLineagePanel } from "@/features/rights-evidence/ui/components/rights-lineage-panel";
 import { RightsRecordPanel } from "@/features/rights-evidence/ui/components/rights-record-panel";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
@@ -79,6 +88,7 @@ export function AssetRecordsView({
 		...recordsQueryOptions,
 	});
 	const pendingCreate = useRef<AssetRecordCreateInput | null>(null);
+	const [isCreateOpen, setIsCreateOpen] = useState(false);
 	const [name, setName] = useState("");
 	const [identityCriteria, setIdentityCriteria] = useState<IdentityCriterion[]>(
 		[]
@@ -187,11 +197,23 @@ export function AssetRecordsView({
 	if (recordsQuery.isPending) {
 		recordsState = <p aria-live="polite">Varlık kayıtları yükleniyor…</p>;
 	} else if (recordsQuery.isError) {
-		recordsState = null;
+		recordsState = (
+			<div className="space-y-3" role="alert">
+				<p>Varlık kayıtları yüklenemedi.</p>
+				<Button
+					onClick={() => void recordsQuery.refetch()}
+					type="button"
+					variant="outline"
+				>
+					Yeniden dene
+				</Button>
+			</div>
+		);
 	} else if (records.length === 0) {
 		recordsState = (
 			<p className="rounded-lg border border-dashed p-5 text-muted-foreground">
-				Bu projede henüz varlık kaydı yok.
+				Bu projede henüz varlık kaydı yok. Başlamak için Yeni varlık kaydı
+				düğmesini kullanın.
 			</p>
 		);
 	} else {
@@ -225,7 +247,7 @@ export function AssetRecordsView({
 	}
 
 	return (
-		<main className="mx-auto w-full max-w-3xl space-y-8 overflow-y-auto px-4 py-8">
+		<main className="mx-auto w-full max-w-3xl space-y-8 px-4 py-8">
 			<header className="space-y-3">
 				<Link
 					className="inline-flex min-h-11 items-center text-muted-foreground text-sm underline underline-offset-4"
@@ -242,6 +264,13 @@ export function AssetRecordsView({
 							{projectQuery.data?.name ?? "Oyun projesi"}
 						</h1>
 					</div>
+					<Button
+						className="min-h-11"
+						onClick={() => setIsCreateOpen(true)}
+						type="button"
+					>
+						Yeni varlık kaydı
+					</Button>
 					<Link
 						className={`${buttonVariants({ variant: "outline" })} min-h-11`}
 						params={{ projectId }}
@@ -258,121 +287,174 @@ export function AssetRecordsView({
 
 			{projectState}
 
-			<section
-				aria-labelledby="create-asset-record-heading"
-				className="space-y-4 rounded-lg border p-5"
+			<Dialog
+				onOpenChange={(open) => {
+					if (!(isSaving || writeOutcomeUncertain)) {
+						setIsCreateOpen(open);
+					}
+				}}
+				open={isCreateOpen}
 			>
-				<div>
-					<h2
-						className="font-semibold text-xl"
-						id="create-asset-record-heading"
-					>
-						Yeni varlık kaydı
-					</h2>
-					<p className="mt-1 text-muted-foreground text-sm">
-						Farklı bir dosya veya düzenlenebilir kare olması tek başına yeni
-						kayıt gerekçesi değildir.
-					</p>
-				</div>
-				<form className="space-y-4" onSubmit={handleCreateRecord}>
-					<div className="space-y-2">
-						<label className="font-medium text-sm" htmlFor="asset-record-name">
-							Varlık adı
-						</label>
-						<Input
-							disabled={writeOutcomeUncertain || isSaving}
-							id="asset-record-name"
-							maxLength={120}
-							onChange={(event) => updateName(event.target.value)}
-							required
-							value={name}
-						/>
-					</div>
-					<fieldset
-						aria-describedby="asset-record-identity-help"
-						className="space-y-3"
-						disabled={writeOutcomeUncertain || isSaving}
-					>
-						<legend className="mb-2 font-medium text-sm">
-							Bu kaydın bağımsız kimliği
-						</legend>
-						{identityOptions.map((option) => (
-							<label
-								className="flex cursor-pointer items-start gap-3 rounded-md border p-3 has-checked:border-primary"
-								key={option.value}
-							>
-								<input
-									checked={identityCriteria.includes(option.value)}
-									className="mt-0.5 size-4 accent-primary"
-									onChange={(event) =>
-										toggleIdentityCriterion(option.value, event.target.checked)
-									}
-									type="checkbox"
-								/>
-								<span>
-									<span className="block font-medium text-sm">
-										{option.label}
-									</span>
-									<span className="block text-muted-foreground text-sm">
-										{option.description}
-									</span>
-								</span>
-							</label>
-						))}
-						<p
-							className="text-muted-foreground text-sm"
-							id="asset-record-identity-help"
-						>
-							En az bir kimlik nedeni seçin. Ayrı düzenlenebilmek tek başına
-							yeterli değildir.
-						</p>
-					</fieldset>
-					{writeOutcomeUncertain ? (
-						<Button
-							disabled={isCheckingWriteOutcome}
-							onClick={() => void checkWriteOutcome()}
-							type="button"
-							variant="outline"
-						>
-							{isCheckingWriteOutcome
-								? "Durum kontrol ediliyor…"
-								: "Durumu kontrol et"}
-						</Button>
-					) : null}
-					{statusMessage ? (
-						<p aria-live="polite" role="status">
-							{statusMessage}
-						</p>
-					) : null}
-					<Button
-						disabled={
-							isSaving ||
-							writeOutcomeUncertain ||
-							name.trim().length === 0 ||
-							identityCriteria.length === 0
-						}
-						type="submit"
-					>
-						{isSaving ? "Kaydediliyor…" : "Varlık kaydı oluştur"}
-					</Button>
-				</form>
-			</section>
+				<DialogContent
+					className="max-h-[calc(100dvh-2rem)] overflow-y-auto p-6 sm:max-w-xl"
+					showCloseButton={!(isSaving || writeOutcomeUncertain)}
+				>
+					<DialogHeader>
+						<DialogTitle>Yeni varlık kaydı</DialogTitle>
+						<DialogDescription>
+							Bağımsız kimliği olan yeni bir varlık oluşturun. Dosyaları mevcut
+							kayda sürüm olarak ekleyebilirsiniz.
+						</DialogDescription>
+					</DialogHeader>
 
-			<section aria-labelledby="asset-records-heading" className="space-y-4">
-				<div>
-					<h2 className="font-semibold text-xl" id="asset-records-heading">
-						Varlık kayıtları
-					</h2>
-					<p className="mt-1 text-muted-foreground text-sm">
-						Kayıt kimliği; dosyalardan, sürümlerden ve ayrı değiştirilebilir
-						birimlerden bağımsızdır.
-					</p>
-				</div>
-				{recordsState}
-			</section>
-			<AssetRecordSearchPanel
-				onOpenRecord={onOpenRecord}
-				projectId={projectId}
+					<section
+						aria-label="Varlık kaydı oluşturma"
+						className="space-y-4 rounded-lg border p-5"
+					>
+						<div>
+							<p className="mt-1 text-muted-foreground text-sm">
+								Farklı bir dosya veya düzenlenebilir kare olması tek başına yeni
+								kayıt gerekçesi değildir.
+							</p>
+						</div>
+						<form className="space-y-4" onSubmit={handleCreateRecord}>
+							<div className="space-y-2">
+								<label
+									className="font-medium text-sm"
+									htmlFor="asset-record-name"
+								>
+									Varlık adı
+								</label>
+								<Input
+									disabled={writeOutcomeUncertain || isSaving}
+									id="asset-record-name"
+									maxLength={120}
+									onChange={(event) => updateName(event.target.value)}
+									required
+									value={name}
+								/>
+							</div>
+							<fieldset
+								aria-describedby="asset-record-identity-help"
+								className="space-y-3"
+								disabled={writeOutcomeUncertain || isSaving}
+							>
+								<legend className="mb-2 font-medium text-sm">
+									Bu kaydın bağımsız kimliği
+								</legend>
+								{identityOptions.map((option) => (
+									<label
+										className="flex cursor-pointer items-start gap-3 rounded-md border p-3 has-checked:border-primary"
+										key={option.value}
+									>
+										<input
+											checked={identityCriteria.includes(option.value)}
+											className="mt-0.5 size-4 accent-primary"
+											onChange={(event) =>
+												toggleIdentityCriterion(
+													option.value,
+													event.target.checked
+												)
+											}
+											type="checkbox"
+										/>
+										<span>
+											<span className="block font-medium text-sm">
+												{option.label}
+											</span>
+											<span className="block text-muted-foreground text-sm">
+												{option.description}
+											</span>
+										</span>
+									</label>
+								))}
+								<p
+									className="text-muted-foreground text-sm"
+									id="asset-record-identity-help"
+								>
+									En az bir kimlik nedeni seçin. Ayrı düzenlenebilmek tek başına
+									yeterli değildir.
+								</p>
+							</fieldset>
+							{writeOutcomeUncertain ? (
+								<Button
+									disabled={isCheckingWriteOutcome}
+									onClick={() => void checkWriteOutcome()}
+									type="button"
+									variant="outline"
+								>
+									{isCheckingWriteOutcome
+										? "Durum kontrol ediliyor…"
+										: "Durumu kontrol et"}
+								</Button>
+							) : null}
+							{statusMessage ? (
+								<p aria-live="polite" role="status">
+									{statusMessage}
+								</p>
+							) : null}
+							<Button
+								disabled={
+									isSaving ||
+									writeOutcomeUncertain ||
+									name.trim().length === 0 ||
+									identityCriteria.length === 0
+								}
+								type="submit"
+							>
+								{isSaving ? "Kaydediliyor…" : "Varlık kaydı oluştur"}
+							</Button>
+						</form>
+					</section>
+				</DialogContent>
+			</Dialog>
+
+			<TaskWorkspace
+				label="Kütüphane görünümü"
+				sections={[
+					{
+						id: "search",
+						label: "Bul ve filtrele",
+						description:
+							"Ad, kategori, dünya, tema, ölçü ve etiketlerle kayıtları bulun. Sonuçtan kaydı veya eşleşen sürümü açın.",
+						content: (
+							<>
+								<AssetRecordSearchPanel
+									onOpenRecord={onOpenRecord}
+									projectId={projectId}
+								/>
+							</>
+						),
+					},
+					{
+						id: "all",
+						label: "Tüm kayıtlar",
+						description:
+							"Projedeki varlık kayıtlarını ve kayıt durumlarını inceleyin.",
+						content: (
+							<>
+								<section
+									aria-labelledby="asset-records-heading"
+									className="space-y-4"
+								>
+									<div>
+										<h2
+											className="font-semibold text-xl"
+											id="asset-records-heading"
+										>
+											Varlık kayıtları
+										</h2>
+										<p className="mt-1 text-muted-foreground text-sm">
+											Kayıt kimliği; dosyalardan, sürümlerden ve ayrı
+											değiştirilebilir birimlerden bağımsızdır.
+										</p>
+									</div>
+									{recordsState}
+								</section>
+							</>
+						),
+					},
+				]}
 			/>
 		</main>
 	);
@@ -440,86 +522,217 @@ export function AssetRecordDetailView({
 			/>
 		);
 	}
+	function renderRecordInformation() {
+		if (!record) {
+			return null;
+		}
+		return (
+			<>
+				<AssetRecordAvailabilityControl
+					onRefresh={() => recordQuery.refetch()}
+					record={record}
+				/>
+				{record.availability === "erased" ? null : (
+					<AssetRecordMetadataForm
+						familyWorldId={
+							trackingQuery.data?.tracking.family?.visualWorldId ?? null
+						}
+						projectId={projectId}
+						record={record}
+					/>
+				)}
+				{record.availability === "erased" ? (
+					<section className="rounded-lg border p-5">
+						<h2 className="font-semibold text-xl">Görsel ölçüleri</h2>
+						<p className="mt-2 text-muted-foreground text-sm">
+							Silinmiş kaydın ölçüleri görüntülenemez veya değiştirilemez.
+						</p>
+					</section>
+				) : (
+					<AssetRecordMeasurementsForm
+						onRefresh={() => recordQuery.refetch()}
+						record={record}
+					/>
+				)}
+			</>
+		);
+	}
+
+	function renderRecordProduction() {
+		if (!record) {
+			return null;
+		}
+		return (
+			<>
+				{trackingQuery.data && record.availability !== "erased" ? (
+					<ReferenceBoardView
+						assetRecordId={record.id}
+						assetRecordName={record.name}
+						availableVersions={trackingQuery.data.tracking.availableVersions}
+						hasCanonicalDesign={Boolean(
+							trackingQuery.data.tracking.family?.canonicalVersionId
+						)}
+						onRefresh={() => trackingQuery.refetch()}
+						projectId={projectId}
+						references={trackingQuery.data.tracking.references}
+					/>
+				) : null}
+				{trackingQuery.isError ? (
+					<div role="alert">
+						<p>Referanslara ait kayıt bilgisi yüklenemedi.</p>
+						<Button
+							onClick={() => void trackingQuery.refetch()}
+							type="button"
+							variant="outline"
+						>
+							Yeniden dene
+						</Button>
+					</div>
+				) : null}
+
+				{record.availability === "erased" ? null : (
+					<GenerationPackagePanel
+						key={`generation-package-${record.id}`}
+						projectId={projectId}
+						record={record}
+					/>
+				)}
+				{record.availability === "active" ? (
+					<ManualImportEvidenceForm
+						key={`manual-import-evidence-${record.id}`}
+						onRefresh={() => trackingQuery.refetch()}
+						record={record}
+					/>
+				) : null}
+			</>
+		);
+	}
+
 	return (
-		<main className="mx-auto w-full max-w-3xl space-y-8 overflow-y-auto px-4 py-8">
+		<main className="mx-auto w-full max-w-3xl space-y-8 px-4 py-8">
 			<header className="space-y-2">
+				<Link
+					className="inline-flex min-h-11 items-center text-sm underline underline-offset-4"
+					params={{ projectId }}
+					to="/projects/$projectId/assets"
+				>
+					Varlık kayıtlarına dön
+				</Link>
 				<p className="font-mono text-primary text-xs uppercase tracking-[0.16em]">
 					Varlık kütüphanesi / {projectQuery.data?.name ?? "Oyun projesi"}
 				</p>
 				{recordHeading}
 			</header>
 
+			{recordQuery.isError ? (
+				<div className="space-y-3" role="alert">
+					<p>
+						Kayıt yüklenemedi. Yeniden deneyin veya varlık kayıtlarına dönün.
+					</p>
+					<Button
+						onClick={() => void recordQuery.refetch()}
+						type="button"
+						variant="outline"
+					>
+						Yeniden dene
+					</Button>
+				</div>
+			) : null}
 			{record ? (
-				<>
-					<AssetRecordAvailabilityControl
-						onRefresh={() => recordQuery.refetch()}
-						record={record}
-					/>
-					{record.availability === "erased" ? null : (
-						<AssetRecordMetadataForm
-							familyWorldId={
-								trackingQuery.data?.tracking.family?.visualWorldId ?? null
-							}
-							projectId={projectId}
-							record={record}
-						/>
-					)}
-					{record.availability === "erased" ? (
-						<section className="rounded-lg border p-5">
-							<h2 className="font-semibold text-xl">Görsel ölçüleri</h2>
-							<p className="mt-2 text-muted-foreground text-sm">
-								Silinmiş kaydın ölçüleri görüntülenemez veya değiştirilemez.
-							</p>
-						</section>
-					) : (
-						<AssetRecordMeasurementsForm
-							onRefresh={() => recordQuery.refetch()}
-							record={record}
-						/>
-					)}
-					{trackingPanel}
-					{record.availability === "erased" ? null : (
-						<GameplayMetadataPanel
-							assetRecordId={record.id}
-							projectId={projectId}
-						/>
-					)}
-					<AnimationMetadataPackagePanel
-						projectId={projectId}
-						record={record}
-					/>
-					{record.availability === "erased" ? null : (
-						<RightsRecordPanel
-							assetRecordId={record.id}
-							key={`rights-record-${record.id}`}
-							projectId={projectId}
-						/>
-					)}
-					<AssetRecordLineageSection
-						isTrackingError={trackingQuery.isError}
-						key={`rights-lineage-${record.id}`}
-						onRetryTracking={() => {
-							void trackingQuery.refetch();
-						}}
-						projectId={projectId}
-						record={record}
-						tracking={trackingQuery.data?.tracking}
-					/>
-					{record.availability === "erased" ? null : (
-						<GenerationPackagePanel
-							key={`generation-package-${record.id}`}
-							projectId={projectId}
-							record={record}
-						/>
-					)}
-					{record.availability === "active" ? (
-						<ManualImportEvidenceForm
-							key={`manual-import-evidence-${record.id}`}
-							onRefresh={() => trackingQuery.refetch()}
-							record={record}
-						/>
-					) : null}
-				</>
+				<TaskWorkspace
+					initialSection="versions"
+					key={record.id}
+					label="Varlık çalışma alanları"
+					sections={[
+						{
+							id: "versions",
+							label: "Sürümler ve dosyalar",
+							description:
+								"Onaylı sürümü, alternatifleri ve kayıt geçmişini inceleyin; yeni aday sürüm ekleyin.",
+							content: (
+								<>
+									{trackingPanel}
+									{trackingQuery.isPending ? (
+										<p role="status">Sürüm geçmişi yükleniyor…</p>
+									) : null}
+									{trackingQuery.isError ? (
+										<div role="alert">
+											<p>Sürüm geçmişi yüklenemedi.</p>
+											<Button
+												onClick={() => void trackingQuery.refetch()}
+												type="button"
+												variant="outline"
+											>
+												Yeniden dene
+											</Button>
+										</div>
+									) : null}
+								</>
+							),
+						},
+						{
+							id: "information",
+							label: "Kayıt bilgileri",
+							description:
+								"Kategori, etiket, görsel kapsam, ölçüler ve kayıt durumunu düzenleyin.",
+							content: renderRecordInformation(),
+						},
+						{
+							id: "gameplay",
+							label: "Oyun İçi Bilgiler",
+							description:
+								"Kesin sürüm ve karelere bağlı oyun içi bilgileri ve animasyon metadata paketlerini yönetin.",
+							content: (
+								<>
+									{record.availability === "erased" ? null : (
+										<GameplayMetadataPanel
+											assetRecordId={record.id}
+											projectId={projectId}
+										/>
+									)}
+									<AnimationMetadataPackagePanel
+										projectId={projectId}
+										record={record}
+									/>
+								</>
+							),
+						},
+						{
+							id: "production",
+							label: "Üretim ve içe aktarma",
+							description:
+								"Referanslarla üretim paketi hazırlayın veya dışarıda üretilen sonucun kanıtını kaydedin.",
+							content: renderRecordProduction(),
+						},
+						{
+							id: "rights",
+							label: "Hak Kayıtları",
+							description:
+								"Bu kaydın hak kanıtını ve bağımlı kaynakların ayrı hak geçmişini inceleyin.",
+							content: (
+								<>
+									{record.availability === "erased" ? null : (
+										<RightsRecordPanel
+											assetRecordId={record.id}
+											key={`rights-record-${record.id}`}
+											projectId={projectId}
+										/>
+									)}
+									<AssetRecordLineageSection
+										isTrackingError={trackingQuery.isError}
+										key={`rights-lineage-${record.id}`}
+										onRetryTracking={() => {
+											void trackingQuery.refetch();
+										}}
+										projectId={projectId}
+										record={record}
+										tracking={trackingQuery.data?.tracking}
+									/>
+								</>
+							),
+						},
+					]}
+				/>
 			) : null}
 		</main>
 	);

@@ -12,7 +12,6 @@ import { toast } from "sonner";
 import { useAssetVersionWrites } from "@/features/asset-versions/ui/hooks/use-asset-version-writes";
 import { LiveFileLinkPanel } from "@/features/production-provenance/ui/components/live-file-link-panel";
 import { VersionProductionEvidencePanel } from "@/features/production-provenance/ui/components/version-production-evidence-panel";
-import { ReferenceBoardView } from "@/features/reference-production/ui/views/reference-board-view";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client } from "@/utils/orpc";
@@ -833,15 +832,6 @@ export function AssetRecordTrackingPanel({
 								setSelectedDependencyFacets
 							),
 					}}
-				/>
-				<ReferenceBoardView
-					assetRecordId={record.id}
-					assetRecordName={record.name}
-					availableVersions={tracking.availableVersions}
-					hasCanonicalDesign={Boolean(tracking.family?.canonicalVersionId)}
-					onRefresh={onRefresh}
-					projectId={record.projectId}
-					references={tracking.references}
 				/>
 
 				<section

@@ -31,6 +31,8 @@ Tamamlanma kanıtı: Desteklenen JSON biçimlerinden aynı alan önerisi iki uyg
 
 ## Implementation Decisions
 
+- **Gelen Kutusu görevleri:** Dosya ekleme ve bekleyen dosyaları/kaynak metadata eşlemelerini inceleme ayrı alanlardır. Yükleme sonuçları dosya ekleme alanında kalır. Bu düzenleme yeni hedef kayıt ilişkilendirme yeteneği oluşturmaz.
+
 - **İçe Aktarma Gelen Kutusuna Alma:** Hedefi belirsiz dosyalar onaylanabilir varlık sayılmadan yönetilen kopya ve kaynak gerçekleriyle bekletilir. Açık hedefe gelen dosya aday sürüm olabilir; hedefsiz toplu dosya yalnız yönetilen İçe Aktarma Gelen Kutusu Girdisidir. Kullanıcı ilişkiyi kesinleştirene kadar bu girdi onaylanamaz ve dışa aktarılamaz.
 - **Metadata Eşleme Önerisi Hazırlama:** Desteklenen Aseprite ve TexturePacker JSON alanları, kaynak değerleri ve çakışmalarıyla izlenebilir bir öneriye dönüşür. PNG veya düzenli görsel sayfasıyla gelen Aseprite ve TexturePacker JSON array/hash biçimleri dosya adına değil kök yapı ve zorunlu alanlara göre okunur. Kare kimliği ve dikdörtgeni zorunludur; süre, tag, slice, pivot, dokuz parça ve palet yalnız kaynakta varsa öneri içindeki kaynak alanları olarak gösterilir. Varlık Ailesi ve Gerekli Öğeler Listesi bağlantıları kaynak kanıtı yoksa Bilinmiyor kalır. Oyun İçi Bilgiler, pivot veya tag gibi kaynak alanlarından türetilmez; proje bağlamı olmadan Bilinmiyor kalır. Alanların kaynağı ile çakışması gösterilir; tanınmayan alan korunur, eksik geçmiş uydurulmaz.
 - **Alan Bazında Eşleme Kesinleştirme:** Kullanıcı zorunlu çakışmaları çözer, isteğe bağlı bilinmeyenleri korur ve hedef kayıtta yeni Aday Sürüm oluşturur. Zorunlu alan çakışmasını kullanıcı alan bazında çözer; isteğe bağlı alan Bilinmiyor kalabilir. Kesin ilişki kaynak değerini kullanıcı kararından ayırır; değişen sidecar eski ilişkiyi yazmaz, yeni öneri üretir. Kaynak Metadata Eşleme sözleşmesinin tam sürümü öneriye yazılır. Bilinmeyen zorunlu alan veya ana sürüm kesinleştirmeyi durdurur; tanınmayan isteğe bağlı alan korunur. Sözleşme göçü eski öneriyi değiştirmeden yeni kayıt üretir.
@@ -39,6 +41,8 @@ Tamamlanma kanıtı: Desteklenen JSON biçimlerinden aynı alan önerisi iki uyg
 - **Kapsam sınırı:** Yerel .aseprite dosyasını kayıpsız ayrıştırma veya dosya adından üretim geçmişi çıkarma taahhüdü yoktur.
 
 ## Testing Decisions
+
+- **Gelen Kutusu görünümü seam’i:** import-inbox-view testi yükleme, hata/belirsiz sonuç ve metadata eşlemeye Bekleyen dosyalar alanından erişimi sınar. workspace-usability Playwright testi ortak gezinme ve dar pencere erişimini sınar; dosya depolama kalıcılığına kanıt oluşturmaz.
 
 - **Birincil test seam’i:** Aynı PNG/sidecar özetlerini web ve masaüstü girişinden geçirip kaynak alanlarını, Bilinmiyor bağlantı ve Oyun İçi Bilgiler durumlarını, çakışmaları ve kalıcı yeniden okumayı karşılaştırma; YAS-02 çelişki fixture’ı kullanma. Pivot gibi alanlar kaynak alanlarında kalırken Oyun İçi Bilgiler aday listesi oluşmamalıdır.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.

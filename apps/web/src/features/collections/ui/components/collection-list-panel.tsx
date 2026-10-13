@@ -38,32 +38,6 @@ export function CollectionListPanel({
 				</p>
 			</header>
 
-			<form className="space-y-3" onSubmit={onCreateCollection}>
-				<div className="space-y-2">
-					<label className="font-medium text-sm" htmlFor="collection-name">
-						Koleksiyon adı
-					</label>
-					<input
-						autoComplete="off"
-						className="h-11 w-full rounded-md border bg-background px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
-						id="collection-name"
-						maxLength={120}
-						name="name"
-						onChange={(event) => onCollectionNameChange(event.target.value)}
-						value={collectionName}
-					/>
-				</div>
-				<Button
-					className="min-h-11"
-					disabled={writesDisabled || collectionName.trim().length === 0}
-					type="submit"
-				>
-					{savingOperation === "create"
-						? "Koleksiyon oluşturuluyor…"
-						: "Koleksiyon oluştur"}
-				</Button>
-			</form>
-
 			{collections.length === 0 ? (
 				<p className="rounded-lg border border-dashed p-4 text-muted-foreground text-sm">
 					Henüz Koleksiyon yok. Adını yazarak ilk Koleksiyonunuzu oluşturun.
@@ -83,7 +57,7 @@ export function CollectionListPanel({
 									onClick={() => onSelectCollection(collection.id)}
 									type="button"
 								>
-									<span className="truncate font-medium">
+									<span className="min-w-0 break-words font-medium">
 										{collection.name}
 									</span>
 									<span className="shrink-0 text-muted-foreground text-sm">
@@ -95,6 +69,39 @@ export function CollectionListPanel({
 					})}
 				</ul>
 			)}
+			<details
+				className="rounded-lg border p-3"
+				open={collections.length === 0}
+			>
+				<summary className="min-h-11 cursor-pointer py-3 font-medium focus-visible:outline-2 focus-visible:outline-ring">
+					Yeni Koleksiyon
+				</summary>
+				<form className="space-y-3" onSubmit={onCreateCollection}>
+					<div className="space-y-2">
+						<label className="font-medium text-sm" htmlFor="collection-name">
+							Koleksiyon adı
+						</label>
+						<input
+							autoComplete="off"
+							className="h-11 w-full rounded-md border bg-background px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
+							id="collection-name"
+							maxLength={120}
+							name="name"
+							onChange={(event) => onCollectionNameChange(event.target.value)}
+							value={collectionName}
+						/>
+					</div>
+					<Button
+						className="min-h-11"
+						disabled={writesDisabled || collectionName.trim().length === 0}
+						type="submit"
+					>
+						{savingOperation === "create"
+							? "Koleksiyon oluşturuluyor…"
+							: "Koleksiyon oluştur"}
+					</Button>
+				</form>
+			</details>
 		</section>
 	);
 }

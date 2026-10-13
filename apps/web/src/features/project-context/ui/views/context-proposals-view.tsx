@@ -13,7 +13,7 @@ import {
 } from "@sprite-anvil/ui/components/dialog";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { client, orpc } from "@/utils/orpc";
@@ -37,6 +37,16 @@ export function ContextProposalsView() {
 		? projectsQuery.data?.find((project) => project.id === projectIdFromSearch)
 		: projectsQuery.data?.[0];
 	const projectId = selectedProject?.id;
+	useEffect(() => {
+		if (!hasProjectIdFromSearch && projectId) {
+			void navigate({
+				to: "/context-proposals",
+				search: { projectId },
+				replace: true,
+			});
+		}
+	}, [hasProjectIdFromSearch, projectId, navigate]);
+
 	const scopeQueryOptions = orpc.contextScopes.list.queryOptions({
 		input: { projectId: projectId ?? "00000000-0000-4000-8000-000000000000" },
 	});

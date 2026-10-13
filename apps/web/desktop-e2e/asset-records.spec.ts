@@ -8,6 +8,7 @@ import {
 	assetVersionE2eEnabled,
 	createAssetRecordFixture,
 } from "../e2e/asset-record-fixture";
+import { openWorkspaceTask } from "./workspace-navigation";
 
 describe("Asset Records", () => {
 	it("persists an Asset Record created through the desktop flow", async function () {
@@ -24,9 +25,10 @@ describe("Asset Records", () => {
 			assetRecordFixture.password
 		);
 		await (await $("button=Sign Up")).click();
-		await (await $("h1=Dashboard")).waitForDisplayed();
+		await (await $("h1=Oyun projeleri")).waitForDisplayed();
 
-		await (await $("a=Projects")).click();
+		await (await $("a=Projeler")).click();
+		await openWorkspaceTask("Yeni oyun projesi");
 		await (await $("input#project-name")).setValue(
 			assetRecordFixture.projectName
 		);
@@ -40,15 +42,17 @@ describe("Asset Records", () => {
 		);
 		await projectLink.waitForClickable();
 		await projectLink.click();
-		await (await $("input#asset-record-name")).waitForDisplayed();
+		await (await $("button=Yeni varlık kaydı")).waitForDisplayed();
 		const assetRecordsUrl = await browser.getUrl();
 		for (const scenario of assetRecordMeasurementScenarios) {
 			// biome-ignore lint/performance/noAwaitInLoops: Each scenario reuses one desktop window and must finish before navigating to the next record.
 			await browser.url(assetRecordsUrl);
+			await openWorkspaceTask("Yeni varlık kaydı");
 			await (await $("input#asset-record-name")).setValue(scenario.name);
 			await (await $("input[type='checkbox']")).click();
 			await (await $("button=Varlık kaydı oluştur")).click();
 			await (await $(`h1=${scenario.name}`)).waitForDisplayed();
+			await openWorkspaceTask("Kayıt bilgileri");
 			await Promise.all(
 				scenario.inputs.map(async ({ id, kind, value }) => {
 					if (kind === "select") {
@@ -63,6 +67,7 @@ describe("Asset Records", () => {
 			await expect(await $("p*=Kayıt oluşturuldu")).toBeDisplayed();
 			await browser.refresh();
 			await (await $(`h1=${scenario.name}`)).waitForDisplayed();
+			await openWorkspaceTask("Kayıt bilgileri");
 			await expect(await $("p*=Kayıt oluşturuldu")).toBeDisplayed();
 			await Promise.all(
 				scenario.inputs.map(async ({ id, kind, value }) => {
@@ -86,8 +91,9 @@ describe("Asset Records", () => {
 		await (await $("input[name='email']")).setValue(versionFixture.email);
 		await (await $("input[name='password']")).setValue(versionFixture.password);
 		await (await $("button=Sign Up")).click();
-		await (await $("h1=Dashboard")).waitForDisplayed();
-		await (await $("a=Projects")).click();
+		await (await $("h1=Oyun projeleri")).waitForDisplayed();
+		await (await $("a=Projeler")).click();
+		await openWorkspaceTask("Yeni oyun projesi");
 		await (await $("input#project-name")).setValue(versionFixture.projectName);
 		await (await $("textarea#project-art-direction")).setValue(
 			versionFixture.generalArtDirection
@@ -99,6 +105,7 @@ describe("Asset Records", () => {
 		);
 		await projectLink.waitForClickable();
 		await projectLink.click();
+		await openWorkspaceTask("Yeni varlık kaydı");
 		await (await $("input#asset-record-name")).setValue(versionFixture.name);
 		await (await $("input[type='checkbox']")).click();
 		await (await $("button=Varlık kaydı oluştur")).click();
@@ -238,8 +245,9 @@ describe("Asset Records", () => {
 		await (await $("input[name='email']")).setValue(fixture.email);
 		await (await $("input[name='password']")).setValue(fixture.password);
 		await (await $("button=Sign Up")).click();
-		await (await $("h1=Dashboard")).waitForDisplayed();
-		await (await $("a=Projects")).click();
+		await (await $("h1=Oyun projeleri")).waitForDisplayed();
+		await (await $("a=Projeler")).click();
+		await openWorkspaceTask("Yeni oyun projesi");
 		await (await $("input#project-name")).setValue(fixture.projectName);
 		await (await $("textarea#project-art-direction")).setValue(
 			fixture.generalArtDirection
@@ -251,19 +259,23 @@ describe("Asset Records", () => {
 		);
 		await projectLink.waitForClickable();
 		await projectLink.click();
+		await openWorkspaceTask("Yeni varlık kaydı");
 		await (await $("input#asset-record-name")).setValue(fixture.name);
 		await (await $("input[type='checkbox']")).click();
 		await (await $("button=Varlık kaydı oluştur")).click();
 		await (await $(`h1=${fixture.name}`)).waitForDisplayed();
 
+		await openWorkspaceTask("Kayıt bilgileri");
 		await (await $("button=Kaydı arşivle")).click();
 		await (await $("p=Arşivlenmiş")).waitForDisplayed();
 		await browser.refresh();
+		await openWorkspaceTask("Kayıt bilgileri");
 		await (await $("p=Arşivlenmiş")).waitForDisplayed();
 
 		await (await $("button=Kaydı yeniden etkinleştir")).click();
 		await (await $("p=Etkin")).waitForDisplayed();
 		await browser.refresh();
+		await openWorkspaceTask("Kayıt bilgileri");
 		await (await $("p=Etkin")).waitForDisplayed();
 	});
 });

@@ -32,6 +32,8 @@ Tamamlanma kanıtı: Kesin sürümün bütünlük, ölçülebilir gereksinim, uy
 
 ## Implementation Decisions
 
+- **Profil sözleşmelerinin düzeni:** Projenin Özel Profil Sözleşmeleri ekranı seçili profili gösterir. Aile ekranı sözleşme yönetimine bağlantı verir; aynı etkinleştirme formunu ikinci yerde tekrar etmez. Kullanıcı etkinleştirmesi ve kalite kanıtı sınırları korunur.
+
 - **Özel Profil Sözleşmesini Etkinleştirme:** Metadata alanları, kural kimlikleri, insan incelemesi, kullanım testleri ve dışa aktarım eşlemeleri değişmez sözleşme sürümünde etkinleşir. Her kuralın sınıfı, girdisi, gözlenebilir sonucu, kanıtı, kapsamı ve dışa aktarım etkisi belirlenir. Etkin sözleşmesi olmayan tür özel profil diye sunulmaz; geçmiş değerlendirmeler kullandıkları sürümü korur. Bilinmeyen zorunlu alan veya ana sürüm değerlendirmeyi durdurur; göç geçmiş kanıtı yerinde değiştirmez.
 - **Kalite Kurallarını Değerlendirme:** Bütünlük Denetimi, İstisna Verilebilir Gereksinim, Kalite Uyarısı ve kullanım testi kesin sürüm için ayrı sonuç ve kanıt üretir. Zorunlu insan incelemesinin yapılıp yapılmadığı ayrıca denetlenir; İnceleme Kararını kullanıcı ayrı akışta verir. Bütünlük hatası ve eksik zorunlu kanıt dışa aktarımı engeller. Ölçülebilir gereksinim yalnız sözleşme izin veriyorsa istisna alabilir; açıklanabilir görsel uyarı kendi başına ret veya otomatik engel oluşturmaz. Yeni sözleşme kuralının etkilediği öğe yeniden değerlendirilir, etkilenmeyen kanıt korunur.
 - **Sürüme Özgü Kalite İstisnası Verme:** Kullanıcı yalnız istisna kabul eden ölçülebilir profil kuralına gerekçeli karar verir. İstisna tam kuralı, gözlenen değeri, Birim veya Birleşik Sürümü, kullanım kapsamını, Bağlam Sürümünü ve Ana Tasarımı sabitler. Yeni sürüme otomatik aktarılmaz; Bütünlük Denetimi, zorunlu insan incelemesi ve zorunlu kullanım testi istisna alamaz.
@@ -40,6 +42,8 @@ Tamamlanma kanıtı: Kesin sürümün bütünlük, ölçülebilir gereksinim, uy
 - **Kapsam sınırı:** Tek kalite puanı veya harici görsel analiz sanatsal kabul kararı değildir. Harici analiz varsa proje ve kategori izni ayrı izin akışında alınır; izin yokken yerel denetim ve insan incelemesi sürer.
 
 ## Testing Decisions
+
+- **Profil seçimi seam’i:** specialized-profile-contracts-view testi profil seçimi, etkinleştirme ve sonuç durumunu ilgili profil görünümünde sınar. Aile görünüm testleri etkin profil önkoşulunu korur. Bu UI kanıtları profil kullanım testi kabulünün yerine geçmez.
 
 - **Birincil test seam’i:** 8.1, RAS-01 örneklerinde kesin girdiyi kullanıcı eyleminden kalıcı kayda ve yeniden okumaya taşıyan sunucu/API yolunu sınama; web ve masaüstü görünür sonuçlarını karşılaştırma.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.

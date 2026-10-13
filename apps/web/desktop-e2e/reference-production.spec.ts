@@ -6,6 +6,7 @@ import {
 	assetVersionE2eEnabled,
 	createAssetRecordFixture,
 } from "../e2e/asset-record-fixture";
+import { openWorkspaceTask } from "./workspace-navigation";
 
 describe("Reference Transfer Constraints", () => {
 	it("persists the same reference rules and history in the desktop flow", async function () {
@@ -28,8 +29,9 @@ describe("Reference Transfer Constraints", () => {
 			await (await $("input[name='email']")).setValue(fixture.email);
 			await (await $("input[name='password']")).setValue(fixture.password);
 			await (await $("button=Sign Up")).click();
-			await (await $("h1=Dashboard")).waitForDisplayed();
-			await (await $("a=Projects")).click();
+			await (await $("h1=Oyun projeleri")).waitForDisplayed();
+			await (await $("a=Projeler")).click();
+			await openWorkspaceTask("Yeni oyun projesi");
 			await (await $("input#project-name")).setValue(fixture.projectName);
 			await (await $("textarea#project-art-direction")).setValue(
 				fixture.generalArtDirection
@@ -41,12 +43,14 @@ describe("Reference Transfer Constraints", () => {
 			);
 			await projectLink.waitForClickable();
 			await projectLink.click();
+			await openWorkspaceTask("Yeni varlık kaydı");
 			await (await $("input#asset-record-name")).setValue(fixture.name);
 			await (await $("input[type='checkbox']")).click();
 			await (await $("button=Varlık kaydı oluştur")).click();
 			await (await $(`h1=${fixture.name}`)).waitForDisplayed();
 
 			const uploadedPath = await browser.uploadFile(imagePath);
+			await openWorkspaceTask("Üretim ve içe aktarma");
 			await (await $("input#reference-upload-file")).setValue(uploadedPath);
 			const forbiddenFeatures = await $(
 				'//fieldset[legend[normalize-space()="Kaçınılacak özellikler"]]'
@@ -86,6 +90,7 @@ describe("Reference Transfer Constraints", () => {
 			await card.$("p*=Revizyon 2").waitForDisplayed();
 
 			await browser.refresh();
+			await openWorkspaceTask("Üretim ve içe aktarma");
 			card = await $(
 				'//article[.//img[@alt="walking-pose.png adlı referans görseli"]]'
 			);

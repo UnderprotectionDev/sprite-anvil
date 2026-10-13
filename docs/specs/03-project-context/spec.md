@@ -36,6 +36,8 @@ Tamamlanma kanıtı: Kullanıcı onayıyla oluşan etkin sürüm, çakışmasız
 
 ## Implementation Decisions
 
+- **Çalışma alanları:** Öneri inceleme, kural önerisi hazırlama ve Görsel Dünya/Tema düzenleme ayrı alanlardır. Alan değişimi taslağı korur; proje değişimi çalışma alanını yeni projeye bağlar. Proje seçimi URL ve ortak gezinmede görünür.
+
 - **Kural Değişikliği Önerme:** Kullanıcı kararları ve gözlenen değişiklikler, dayanak sürümü ve kanıtı belli yapılandırılmış bir Bağlam Önerisine dönüşür. Öneri taban Bağlam Sürümünü, ajan veya yapılandırılmış kontrolün kaynağını ve her ekleme, değiştirme ya da kaldırmanın dayanağını taşır. Serbest açıklama tek başına etkin kural değildir; ajan kullanılamadığında yapılandırılmış yaygın kararlar yine hazırlanabilir.
 - **Kural Sürümünü Doğrulama ve Etkinleştirme:** Kapsam önceliği, açık istisnalar ve çakışmalar doğrulanır; yalnız kullanıcının onayladığı geçerli set yeni Etkin Bağlam Sürümü olur. Sistem önerinin dayandığı Bağlam Sürümünü güncel sürümle karşılaştırır. Bağımsız kural değişiklikleri anlamları korunarak uzlaştırılabilir; aynı kuralı veya kapsamı etkileyen değişiklikler kullanıcı çözmeden etkinleşmez. Kullanıcı geçerli öneriyi inceleyip etkinleştirir. Veri yapısı, aynı kapsam düzeyindeki çelişki ve referans sınırları doğrulanır; dar kapsamın geniş kapsamı geçmesi ile gerekçeli istisnanın kaynağı yeni sürümde izlenir. Palet, kontur ve benzeri kurallar sürümlü Stil Modüllerinde gruplanabilir. Başka projeye kopyalanan modül orada bağımsız Bağlam Önerisi olarak incelenir; kaynak projeyle canlı eşitlenmez. Bağlam Kuralı ve Bağlam Ajanı sözleşmelerinin tam sürümü korunur; bilinmeyen zorunlu alan veya ana sürüm etkinleştirmeyi durdurur. Göç eski sürümü yazmaz ve yeni sürüm kullanıcı etkinleştirmeden üretime girmez.
 
@@ -43,6 +45,8 @@ Tamamlanma kanıtı: Kullanıcı onayıyla oluşan etkin sürüm, çakışmasız
 - **Kapsam sınırı:** Ajan öneriyi etkinleştiremez; ham context.md metni kullanıcıya yetkili kural düzenleme yolu olarak açılmaz.
 
 ## Testing Decisions
+
+- **Görünür görev ayrımı:** Ortak TaskWorkspace görünüm testi taslak korumasını; context-scope-registry görünüm testi kapsam düzenlemeye geçişi; workspace-usability Playwright testi proje seçiminin URL/gezinme bağını sınar. API taklitleri bağlam etkinleştirmenin kalıcılık kanıtı değildir.
 
 - **Birincil test seam’i:** 8.1 örneklerinde kesin girdiyi kullanıcı eyleminden kalıcı kayda ve yeniden okumaya taşıyan sunucu/API yolunu sınama; web ve masaüstü görünür sonuçlarını karşılaştırma.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.

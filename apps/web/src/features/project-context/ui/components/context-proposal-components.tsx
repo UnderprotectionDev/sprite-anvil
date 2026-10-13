@@ -13,6 +13,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
+import { TaskWorkspace } from "@/components/task-workspace";
 import { ScopeRegistryPanel } from "@/features/visual-worlds/ui/components/context-scope-registry";
 import { client, orpc } from "@/utils/orpc";
 import {
@@ -81,29 +82,63 @@ export function ContextWorkspace({
 					Yeni proje
 				</Button>
 			</div>
-			<ScopeRegistryPanel
-				isError={isScopeError}
-				isPending={isScopePending}
-				project={project}
-				scopeCatalog={scopeCatalog}
+			<TaskWorkspace
+				key={project.id}
+				label="Proje Bağlamı çalışma alanları"
+				sections={[
+					{
+						id: "proposals",
+						label: "Önerileri incele",
+						description:
+							"Kaydedilmiş önerileri, dayanaklarını ve etkinleştirme durumunu inceleyin.",
+						content: (
+							<>
+								<ProposalLedger
+									isError={isProposalsError}
+									isPending={isProposalsPending}
+									onRetry={onRetryProposals}
+									project={project}
+									proposals={proposals}
+									scopeCatalog={scopeCatalog}
+								/>
+							</>
+						),
+					},
+					{
+						id: "create",
+						label: "Kural önerisi hazırla",
+						description:
+							"Yeni kurallar üretimde kullanılmadan önce öneri olarak kaydedilir ve sizin tarafınızdan etkinleştirilir.",
+						content: (
+							<>
+								<ProposalForm
+									key={`${project.id}:${project.currentContextRevision.id}`}
+									onCheckCurrentState={onCheckProposalState}
+									onRefresh={onRefreshProposals}
+									project={project}
+									scopeCatalog={scopeCatalog}
+								/>
+							</>
+						),
+					},
+					{
+						id: "scopes",
+						label: "Görsel Dünyalar ve Temalar",
+						description:
+							"Kural kapsamlarını ve ailelerde kullanılacak Görsel Dünyaları tanımlayın.",
+						content: (
+							<>
+								<ScopeRegistryPanel
+									isError={isScopeError}
+									isPending={isScopePending}
+									project={project}
+									scopeCatalog={scopeCatalog}
+								/>
+							</>
+						),
+					},
+				]}
 			/>
-			<div className="context-grid">
-				<ProposalForm
-					key={`${project.id}:${project.currentContextRevision.id}`}
-					onCheckCurrentState={onCheckProposalState}
-					onRefresh={onRefreshProposals}
-					project={project}
-					scopeCatalog={scopeCatalog}
-				/>
-				<ProposalLedger
-					isError={isProposalsError}
-					isPending={isProposalsPending}
-					onRetry={onRetryProposals}
-					project={project}
-					proposals={proposals}
-					scopeCatalog={scopeCatalog}
-				/>
-			</div>
 		</>
 	);
 }

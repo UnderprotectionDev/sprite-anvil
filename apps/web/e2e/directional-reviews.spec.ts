@@ -1,10 +1,10 @@
 import { expect, test } from "@playwright/test";
+import { activateFamilyProfile } from "./asset-family-workspace-fixture";
 import { assetVersionFixture as fixture } from "./asset-version-fixture";
 import { signUpWithFixture } from "./project-workflow";
 
 const fourDirectionHistory = /4 yön · Takip gerekli/;
 const eightDirectionHistory = /8 yön · Tutarlı/;
-const activateContract = /Sözleşme v.*etkinleştir/;
 
 test("reviews four and eight directions with variable timing and persisted human observations", async ({
 	page,
@@ -26,9 +26,9 @@ test("reviews four and eight directions with variable timing and persisted human
 		.getByLabel("Genel sanat yaklaşımı")
 		.fill(fixture.generalArtDirection);
 	await page.getByRole("button", { name: "Projeyi oluştur" }).click();
-	await expect(
-		page.getByRole("heading", { name: "Bağlam Önerisi hazırlayın" })
-	).toBeVisible();
+	await page
+		.getByRole("button", { name: "Görsel Dünyalar ve Temalar", exact: true })
+		.click();
 	await page.getByLabel("Görsel Dünya adı").fill(fixture.visualWorldName);
 	await page.getByRole("button", { name: "Görsel Dünya ekle" }).click();
 	await expect(
@@ -37,27 +37,45 @@ test("reviews four and eight directions with variable timing and persisted human
 
 	await page.goto("/projects");
 	await page.getByRole("link", { name: "Varlık Aileleri" }).click();
+	await page
+		.getByRole("button", { name: "Aile ve temsil ilişkileri", exact: true })
+		.click();
 	await page.getByLabel("Varlık Kimliği adı").fill(fixture.identityName);
 	await page.getByRole("button", { name: "Varlık Kimliği oluştur" }).click();
+	await page
+		.getByRole("button", { name: "Aile kataloğu", exact: true })
+		.click();
 	await expect(
 		page.getByRole("heading", { name: fixture.identityName })
 	).toBeVisible();
+	await page
+		.getByRole("button", { name: "Aile ve temsil ilişkileri", exact: true })
+		.click();
 	await page.getByLabel("Varlık Ailesi adı").fill(fixture.familyName);
 	await page.getByLabel("Görsel Dünya").selectOption({
 		label: fixture.visualWorldName,
 	});
 	await page.getByLabel("Kullanım bağlamı").fill(fixture.useContext);
 	await page.getByRole("button", { name: "Varlık Ailesi oluştur" }).click();
+	await page
+		.getByRole("button", { name: "Aile kataloğu", exact: true })
+		.click();
 	await expect(
 		page
 			.getByRole("region", { name: "Kaydedilmiş Varlık Aileleri" })
 			.getByRole("heading", { name: fixture.familyName, exact: true })
 	).toBeVisible();
 
+	await page
+		.getByRole("button", { name: "Aile ve temsil ilişkileri", exact: true })
+		.click();
 	await page.getByLabel("Bağımsız ürün anlamı", { exact: true }).check();
 	await page.getByLabel("Varlık Kaydı adı").fill(fixture.sourceName);
 	await page.getByRole("button", { name: "Varlık Kaydı ekle" }).click();
 	const familyUrl = page.url();
+	await page
+		.getByRole("button", { name: "Sürüm ve bağımlılık işlemleri", exact: true })
+		.click();
 	await page
 		.getByRole("link", { name: "Varlık Sürümü yükle", exact: true })
 		.click();
@@ -85,6 +103,9 @@ test("reviews four and eight directions with variable timing and persisted human
 		page.getByText("Aday Sürüm kaydedildi.", { exact: true })
 	).toBeVisible();
 	await page.goto(familyUrl);
+	await page
+		.getByRole("button", { name: "Sürüm ve bağımlılık işlemleri", exact: true })
+		.click();
 
 	await expect(
 		page.getByRole("paragraph").filter({ hasText: "Sürüm 1 · Aday" })
@@ -102,16 +123,12 @@ test("reviews four and eight directions with variable timing and persisted human
 		page.getByText("Ana Tasarım: Ash Knight base · Sürüm 1")
 	).toBeVisible();
 
-	const profile = page
-		.getByRole("heading", {
-			name: "Karakterler, yaratıklar ve animasyonlar",
-			exact: true,
-		})
-		.locator("xpath=ancestor::li[1]");
-	await profile.getByRole("button", { name: activateContract }).click();
-	await expect(
-		profile.getByText("Etkin sözleşme v1.0.1", { exact: true })
-	).toBeVisible();
+	await activateFamilyProfile(
+		page,
+		"Karakter, yaratık ve animasyon",
+		familyUrl,
+		"1.0.1"
+	);
 	const review = page.getByRole("region", {
 		name: `${fixture.familyName} kimlik ve yön incelemesi`,
 	});
@@ -158,6 +175,9 @@ test("reviews four and eight directions with variable timing and persisted human
 		review.getByText("İnceleme kalıcı kayıttan doğrulandı.")
 	).toBeVisible();
 	await page.reload();
+	await page
+		.getByRole("button", { name: "Profil incelemeleri", exact: true })
+		.click();
 	await review.getByRole("button", { name: fourDirectionHistory }).click();
 	await expect(review.getByLabel("Gerekçe", { exact: true })).toHaveValue(
 		"Four directions inspected by a human"
@@ -199,6 +219,9 @@ test("reviews four and eight directions with variable timing and persisted human
 		review.getByText("İnceleme kalıcı kayıttan doğrulandı.")
 	).toBeVisible();
 	await page.reload();
+	await page
+		.getByRole("button", { name: "Profil incelemeleri", exact: true })
+		.click();
 	await review.getByRole("button", { name: eightDirectionHistory }).click();
 	await expect(review.getByLabel("Gerekçe", { exact: true })).toHaveValue(
 		"Eight directions inspected"

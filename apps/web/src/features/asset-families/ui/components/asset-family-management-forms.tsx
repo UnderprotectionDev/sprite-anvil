@@ -50,6 +50,7 @@ export interface AssetFamilyFormHandlers {
 }
 
 export function AssetFamilyManagementForms({
+	projectId,
 	catalog,
 	assetVersionCatalog,
 	disabled,
@@ -60,6 +61,7 @@ export function AssetFamilyManagementForms({
 	isSaving,
 	visualWorlds,
 }: {
+	projectId: string;
 	catalog: AssetFamilyCatalog;
 	assetVersionCatalog: AssetVersionCatalog;
 	disabled: boolean;
@@ -135,6 +137,7 @@ export function AssetFamilyManagementForms({
 					Varlık Ailesi oluşturmak için önce bir Görsel Dünya tanımlayın.{" "}
 					<Link
 						className="underline underline-offset-4"
+						search={{ projectId }}
 						to="/context-proposals"
 					>
 						Proje Bağlamı sayfasına gidin

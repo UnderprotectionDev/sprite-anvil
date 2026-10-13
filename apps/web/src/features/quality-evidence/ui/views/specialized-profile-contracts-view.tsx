@@ -3,6 +3,7 @@ import { Button } from "@sprite-anvil/ui/components/button";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { TaskWorkspace } from "@/components/task-workspace";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
@@ -88,7 +89,7 @@ export function SpecializedProfileContractsView({
 	const isUnavailable = contractsQuery.isPending || contractsQuery.isError;
 
 	return (
-		<main className="mx-auto w-full max-w-6xl space-y-8 overflow-y-auto px-4 py-8 sm:px-6 lg:py-12">
+		<main className="mx-auto w-full max-w-6xl space-y-8 px-4 py-8 sm:px-6 lg:py-12">
 			<header className="space-y-3">
 				<Link
 					className="text-muted-foreground text-sm underline underline-offset-4"
@@ -184,61 +185,67 @@ export function SpecializedProfileContractsView({
 							kullanılır.
 						</p>
 					</div>
-					<ul className="grid gap-4">
-						{profiles.map(({ activeContract, definition }) => (
-							<li
-								className="min-w-0 space-y-4 rounded-xl border bg-card p-5 shadow-sm"
-								key={definition.profileId}
-							>
-								<article aria-labelledby={`${definition.profileId}-heading`}>
-									<div className="flex flex-wrap items-start justify-between gap-4">
-										<div className="min-w-0 space-y-1">
-											<h3
-												className="font-semibold text-xl"
-												id={`${definition.profileId}-heading`}
-											>
-												{definition.name}
-											</h3>
-											<p className="text-muted-foreground text-sm">
-												Sözleşme sürümü {definition.version} · Şema{" "}
-												{definition.contractSchemaVersion}
-											</p>
-											{activeContract ? (
-												<p className="font-medium text-sm" role="status">
-													Bu projede etkin · {activeContract.contract.version}
-												</p>
-											) : (
+					<TaskWorkspace
+						label="Özel profil seçimi"
+						sections={profiles.map(({ activeContract, definition }) => ({
+							id: definition.profileId,
+							label: definition.name,
+							description: `${definition.name} sözleşmesini inceleyin ve bu projede kullanmak için etkinleştirin.`,
+							content: (
+								<div
+									className="min-w-0 space-y-4 rounded-xl border bg-card p-5 shadow-sm"
+									key={definition.profileId}
+								>
+									<article aria-labelledby={`${definition.profileId}-heading`}>
+										<div className="flex flex-wrap items-start justify-between gap-4">
+											<div className="min-w-0 space-y-1">
+												<h3
+													className="font-semibold text-xl"
+													id={`${definition.profileId}-heading`}
+												>
+													{definition.name}
+												</h3>
 												<p className="text-muted-foreground text-sm">
-													Bu projede henüz etkin değil
+													Sözleşme sürümü {definition.version} · Şema{" "}
+													{definition.contractSchemaVersion}
 												</p>
-											)}
+												{activeContract ? (
+													<p className="font-medium text-sm" role="status">
+														Bu projede etkin · {activeContract.contract.version}
+													</p>
+												) : (
+													<p className="text-muted-foreground text-sm">
+														Bu projede henüz etkin değil
+													</p>
+												)}
+											</div>
+											<Button
+												disabled={
+													isUnavailable ||
+													writeOutcomeUncertain ||
+													activateContract.isPending ||
+													activeContract?.contractRevisionId ===
+														`${definition.profileId}@${definition.version}`
+												}
+												onClick={() =>
+													activateContract.mutate(definition.profileId)
+												}
+												type="button"
+												variant={activeContract ? "outline" : "default"}
+											>
+												{activeContract?.contractRevisionId ===
+												`${definition.profileId}@${definition.version}`
+													? "Etkin"
+													: "Sözleşmeyi etkinleştir"}
+											</Button>
 										</div>
-										<Button
-											disabled={
-												isUnavailable ||
-												writeOutcomeUncertain ||
-												activateContract.isPending ||
-												activeContract?.contractRevisionId ===
-													`${definition.profileId}@${definition.version}`
-											}
-											onClick={() =>
-												activateContract.mutate(definition.profileId)
-											}
-											type="button"
-											variant={activeContract ? "outline" : "default"}
-										>
-											{activeContract?.contractRevisionId ===
-											`${definition.profileId}@${definition.version}`
-												? "Etkin"
-												: "Sözleşmeyi etkinleştir"}
-										</Button>
-									</div>
 
-									<ContractDetails contract={definition} />
-								</article>
-							</li>
-						))}
-					</ul>
+										<ContractDetails contract={definition} />
+									</article>
+								</div>
+							),
+						}))}
+					/>
 				</section>
 			) : null}
 		</main>
