@@ -14,6 +14,7 @@ import { HistoricalCompositionManager } from "@/features/dependency-revalidation
 import { FamilyReadinessManager } from "@/features/family-readiness/ui/components/family-readiness-manager";
 import { IconFamilyReviewSections } from "@/features/icon-profile/ui/components/icon-family-review-sections";
 import { AssetFamilyComparisonSections } from "@/features/object-equipment-profile/ui/components/asset-family-comparison-sections";
+import { PortraitIdentityReviewSections } from "@/features/portrait-marketing-profile/ui/components/portrait-identity-review-manager";
 import { TextureRepetitionReviewSections } from "@/features/tileset-texture-profile/ui/components/texture-repetition-review-sections";
 import { TilesetAdjacencyReviewSections } from "@/features/tileset-texture-profile/ui/components/tileset-adjacency-review-sections";
 import { VfxAppearanceSections } from "@/features/vfx-profile/ui/components/vfx-appearance-sections";
@@ -494,6 +495,16 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 												familyRecords={catalog.assetRecords}
 												projectId={projectId}
 												versions={assetVersionQuery.data.assetVersions}
+											/>
+											<PortraitIdentityReviewSections
+												activation={getActiveProfileContract(
+													profileContractsQuery.data,
+													"portrait_logo_marketing"
+												)}
+												assetRecords={assetRecords}
+												families={reviewFamilies}
+												familyCatalog={catalog}
+												versionCatalog={assetVersionCatalog}
 											/>
 											<IconFamilyReviewSections
 												activation={iconProfileActivation}

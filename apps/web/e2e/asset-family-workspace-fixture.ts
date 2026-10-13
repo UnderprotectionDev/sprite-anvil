@@ -37,7 +37,8 @@ export async function prepareAssetFamilyWorkspace(
 			png?: Buffer;
 		}[];
 	} = assetFamilyWorkspaceFixture,
-	contractVersion = "1.0.0"
+	contractVersion = "1.0.0",
+	activateProfile = true
 ) {
 	await signUpWithFixture(page, fixture);
 
@@ -121,7 +122,10 @@ export async function prepareAssetFamilyWorkspace(
 		// Scope hydration can reset the form's initial metadata. Select only once
 		// the record and its family world have finished loading.
 		await expect(
-			page.getByRole("heading", { name: "Kayıt izleme", exact: true })
+			page.getByRole("heading", {
+				name: "Varlık kaydı metadata’sı",
+				exact: true,
+			})
 		).toBeVisible();
 		await expect(page.locator("#asset-record-metadata-world")).toBeDisabled();
 		await expect(
@@ -172,6 +176,8 @@ export async function prepareAssetFamilyWorkspace(
 	}
 
 	const contractNames: Record<string, string> = {
+		"Portreler, logolar ve tanıtım görselleri":
+			"Portre, logo ve tanıtım görseli",
 		"Objeler, silahlar, ekipmanlar ve durum aileleri":
 			"Obje, silah, ekipman ve durum",
 		"Karakterler, yaratıklar ve animasyonlar": "Karakter, yaratık ve animasyon",
@@ -181,7 +187,9 @@ export async function prepareAssetFamilyWorkspace(
 	if (!contractName) {
 		throw new Error(`Unknown fixture profile: ${fixture.categoryLabel}`);
 	}
-	await activateFamilyProfile(page, contractName, familyUrl, contractVersion);
+	if (activateProfile) {
+		await activateFamilyProfile(page, contractName, familyUrl, contractVersion);
+	}
 
 	return { familyName: fixture.familyName, familyUrl };
 }

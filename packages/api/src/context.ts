@@ -21,6 +21,7 @@ import type {
 import type { GameplayMetadataPackageTargetReader } from "./gameplay-metadata-package";
 import type { GenerationPackageStore } from "./generation-packages";
 import type { IconFamilyReviewStore } from "./icon-family-reviews";
+import type { PortraitIdentityReviewStore } from "./portrait-identity-reviews";
 import type { ProjectAccessStore } from "./project-access-store";
 import type { ProjectContextStore } from "./project-context";
 import type { ProviderGenerationRecordStore } from "./provider-generation-records";
@@ -63,6 +64,7 @@ export interface Context {
 	gameplayMetadataStore?: GameplayMetadataStore;
 	generationPackageStore?: GenerationPackageStore;
 	iconFamilyReviewStore?: IconFamilyReviewStore;
+	portraitIdentityReviewStore?: PortraitIdentityReviewStore;
 	projectAccess: ProjectAccessStore;
 	projectContextScopeStore: ProjectContextScopeStore;
 	projectContextStore: ProjectContextStore;
