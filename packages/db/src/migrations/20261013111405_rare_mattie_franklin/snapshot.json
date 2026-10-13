@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "0f3a383c-ce72-4eed-a826-d9868857c5a7",
+  "id": "bdf67d66-5080-490b-9374-b669bbe6adda",
   "prevIds": [
     "8b222765-06d7-4dc8-a88f-85d0fd7401c1"
   ],
@@ -393,7 +393,7 @@
     },
     {
       "isRlsEnabled": false,
-      "name": "ui_state_comparisons",
+      "name": "marketing_usage_reviews",
       "entityType": "tables",
       "schema": "public"
     },
@@ -7415,7 +7415,7 @@
       "name": "id",
       "entityType": "columns",
       "schema": "public",
-      "table": "ui_state_comparisons"
+      "table": "marketing_usage_reviews"
     },
     {
       "type": "text",
@@ -7428,7 +7428,7 @@
       "name": "project_id",
       "entityType": "columns",
       "schema": "public",
-      "table": "ui_state_comparisons"
+      "table": "marketing_usage_reviews"
     },
     {
       "type": "text",
@@ -7441,7 +7441,7 @@
       "name": "asset_family_id",
       "entityType": "columns",
       "schema": "public",
-      "table": "ui_state_comparisons"
+      "table": "marketing_usage_reviews"
     },
     {
       "type": "text",
@@ -7454,7 +7454,7 @@
       "name": "contract_revision_id",
       "entityType": "columns",
       "schema": "public",
-      "table": "ui_state_comparisons"
+      "table": "marketing_usage_reviews"
     },
     {
       "type": "jsonb",
@@ -7467,7 +7467,7 @@
       "name": "record",
       "entityType": "columns",
       "schema": "public",
-      "table": "ui_state_comparisons"
+      "table": "marketing_usage_reviews"
     },
     {
       "type": "text",
@@ -7480,7 +7480,7 @@
       "name": "created_by_user_id",
       "entityType": "columns",
       "schema": "public",
-      "table": "ui_state_comparisons"
+      "table": "marketing_usage_reviews"
     },
     {
       "type": "timestamp",
@@ -7493,7 +7493,7 @@
       "name": "created_at",
       "entityType": "columns",
       "schema": "public",
-      "table": "ui_state_comparisons"
+      "table": "marketing_usage_reviews"
     },
     {
       "nameExplicit": true,
@@ -11298,10 +11298,10 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "ui_state_comparisons_family_idx",
+      "name": "marketing_usage_reviews_family_idx",
       "entityType": "indexes",
       "schema": "public",
-      "table": "ui_state_comparisons"
+      "table": "marketing_usage_reviews"
     },
     {
       "nameExplicit": false,
@@ -14448,10 +14448,10 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
-      "name": "ui_state_comparisons_rSi212lHvoGm_fkey",
+      "name": "marketing_usage_reviews_zhv38w0sf0vf_fkey",
       "entityType": "fks",
       "schema": "public",
-      "table": "ui_state_comparisons"
+      "table": "marketing_usage_reviews"
     },
     {
       "nameExplicit": false,
@@ -14465,10 +14465,10 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
-      "name": "ui_state_comparisons_created_by_user_id_user_id_fkey",
+      "name": "marketing_usage_reviews_created_by_user_id_user_id_fkey",
       "entityType": "fks",
       "schema": "public",
-      "table": "ui_state_comparisons"
+      "table": "marketing_usage_reviews"
     },
     {
       "nameExplicit": true,
@@ -14484,10 +14484,10 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
-      "name": "ui_state_comparisons_family_fk",
+      "name": "marketing_usage_reviews_family_fk",
       "entityType": "fks",
       "schema": "public",
-      "table": "ui_state_comparisons"
+      "table": "marketing_usage_reviews"
     },
     {
       "columns": [
@@ -15098,9 +15098,9 @@
         "id"
       ],
       "nameExplicit": false,
-      "name": "ui_state_comparisons_pkey",
+      "name": "marketing_usage_reviews_pkey",
       "schema": "public",
-      "table": "ui_state_comparisons",
+      "table": "marketing_usage_reviews",
       "entityType": "pks"
     },
     {

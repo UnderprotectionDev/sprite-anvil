@@ -25,6 +25,7 @@ import { createIconFamilyReviewStore } from "./features/icon-profile/server/icon
 import { createImportInboxStore } from "./features/imports/server/import-inbox-store";
 import { createSourceMetadataMappingProposalStore } from "./features/imports/server/source-metadata-mapping-store";
 import { createAssetFamilyComparisonStore } from "./features/object-equipment-profile/server/asset-family-comparison-store";
+import { createMarketingUsageReviewStore } from "./features/portrait-marketing-profile/server/marketing-usage-review-store";
 import { createManagedSnapshotStore } from "./features/production-provenance/server/managed-snapshot-store";
 import { createProjectContextStore } from "./features/project-context/server/project-context-store";
 import { createProjectAccessStore } from "./features/projects/server/project-access-store";
@@ -107,3 +108,5 @@ export const auth = createAuth(ENV, db, desktopOrigins);
 
 export const backgroundScrollingTestStore =
 	createBackgroundScrollingTestStore(db);
+
+export const marketingUsageReviewStore = createMarketingUsageReviewStore(db);
