@@ -10,7 +10,10 @@ import { Button } from "@sprite-anvil/ui/components/button";
 import { useQuery } from "@tanstack/react-query";
 import { type SyntheticEvent, useId, useState } from "react";
 import { ENV } from "@/env";
-import { isWriteOutcomeUncertain } from "@/utils/error-notification";
+import {
+	isWriteOutcomeUncertain,
+	showErrorToast,
+} from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
 import { MarketingUsagePreview } from "./marketing-usage-preview";
@@ -176,6 +179,7 @@ export function MarketingUsageReviewManager({
 			}
 		} catch (error) {
 			if (isWriteOutcomeUncertain(error)) {
+				showErrorToast(error, { kind: "mutation" });
 				setUncertainId(result.data.id);
 				setMessage("Kaydetme sonucu belirsiz. Güncel kayıtları kontrol edin.");
 			} else {
