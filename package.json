@@ -60,6 +60,7 @@
     "test:e2e:directional": "bun run --cwd packages/db test:e2e:directional",
     "test:e2e:marketing-usage": "bun run --cwd packages/db test:e2e:marketing-usage",
     "test:e2e:texture-repetition": "bun run --cwd packages/db test:e2e:texture-repetition",
+    "test:e2e:ui-state-comparison": "bun run --cwd packages/db test:e2e:ui-state-comparison",
     "test:e2e:ui-stretch": "bun run --cwd packages/db test:e2e:ui-stretch"
   },
   "dependencies": {

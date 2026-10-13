@@ -6,6 +6,7 @@ const repositoryDirectory = fileURLToPath(new URL("../../..", import.meta.url));
 const webDirectory = `${repositoryDirectory}/apps/web`;
 const serverDirectory = `${repositoryDirectory}/apps/server`;
 const modes = [
+	"--ui-state-comparison",
 	"--animation-timing",
 	"--asset-family-comparison",
 	"--directional",
@@ -29,6 +30,20 @@ const {
 	webE2ESpec,
 	desktopE2EScript,
 } = {
+	"--ui-state-comparison": {
+		reviewLabel: "UI State Comparison",
+		databaseNames: [
+			"ui_state_comparison_test",
+			"ui_state_comparison_web_test",
+			"ui_state_comparison_desktop_test",
+		] as readonly [string, string, string],
+		integrationTest:
+			"src/features/ui-profile/server/ui-state-comparison.integration.test.ts",
+		integrationDatabaseEnvironmentVariable:
+			"UI_STATE_COMPARISON_TEST_DATABASE_URL",
+		webE2ESpec: "e2e/ui-state-comparisons.spec.ts",
+		desktopE2EScript: "desktop:test:ui-state-comparison",
+	},
 	"--animation-timing": {
 		reviewLabel: "Animation timing review",
 		databaseNames: [
@@ -86,6 +101,7 @@ function isolatedEnvironment(): NodeJS.ProcessEnv {
 	const environment = { ...process.env };
 	for (const name of [
 		"DATABASE_URL_UNPOOLED",
+		"UI_STATE_COMPARISON_TEST_DATABASE_URL",
 		"MIGRATION_DATABASE_URL",
 		"DIRECTIONAL_REVIEW_TEST_DATABASE_URL",
 		"ANIMATION_TIMING_REVIEW_TEST_DATABASE_URL",
@@ -221,6 +237,12 @@ async function runCharacterAnimationProfileE2E(): Promise<void> {
 			webEnvironment
 		);
 
+		if (process.env.PROFILE_E2E_WEB_ONLY === "true") {
+			console.info(
+				"Desktop E2E was explicitly skipped (PROFILE_E2E_WEB_ONLY=true)."
+			);
+			return;
+		}
 		const desktopDatabaseUrl = databaseUrl(postgresUrl, databaseNames[2]);
 		const desktopEnvironment = {
 			...isolatedEnvironment(),
@@ -248,7 +270,9 @@ async function runCharacterAnimationProfileE2E(): Promise<void> {
 try {
 	await runCharacterAnimationProfileE2E();
 	console.info(
-		`\n${reviewLabel} PostgreSQL, web, and desktop E2E checks passed.`
+		process.env.PROFILE_E2E_WEB_ONLY === "true"
+			? `\n${reviewLabel} PostgreSQL and web E2E checks passed; desktop was skipped.`
+			: `\n${reviewLabel} PostgreSQL, web, and desktop E2E checks passed.`
 	);
 } catch (error) {
 	console.error(

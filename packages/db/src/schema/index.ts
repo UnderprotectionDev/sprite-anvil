@@ -32,6 +32,7 @@ export * from "./source-metadata-mapping";
 export * from "./specialized-profile-contracts";
 export * from "./texture-repetition-reviews";
 export * from "./tileset-adjacency-reviews";
+export * from "./ui-state-comparisons";
 export * from "./ui-stretch-tests";
 export * from "./vfx-appearance-reviews";
 export * from "./vfx-synchronization";

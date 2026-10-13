@@ -15,6 +15,7 @@
     "desktop:test:directional": "wdio run wdio.conf.ts --spec desktop-e2e/directional-reviews.spec.ts",
     "desktop:test:marketing-usage": "wdio run wdio.conf.ts --spec desktop-e2e/marketing-usage-reviews.spec.ts --mochaOpts.timeout 180000",
     "desktop:test:texture-repetition": "wdio run wdio.conf.ts --spec desktop-e2e/texture-repetition-reviews.spec.ts",
+    "desktop:test:ui-state-comparison": "wdio run wdio.conf.ts --spec desktop-e2e/ui-state-comparisons.spec.ts",
     "desktop:test:ui-stretch": "wdio run wdio.conf.ts --spec desktop-e2e/ui-stretch-tests.spec.ts",
     "dev": "vite dev",
     "doctor": "npx react-doctor@latest",
