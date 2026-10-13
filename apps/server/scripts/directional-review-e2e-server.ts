@@ -7,6 +7,7 @@ const allowedDatabases = new Set([
 	"background_layer_layout_test",
 	"directional_web_test",
 	"texture_repetition_web_test",
+	"marketing_usage_web_test",
 	"directional_desktop_test",
 	"animation_timing_web_test",
 	"animation_timing_desktop_test",

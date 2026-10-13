@@ -121,7 +121,10 @@ export async function prepareAssetFamilyWorkspace(
 		// Scope hydration can reset the form's initial metadata. Select only once
 		// the record and its family world have finished loading.
 		await expect(
-			page.getByRole("heading", { name: "Kayıt izleme", exact: true })
+			page.getByRole("heading", {
+				name: "Varlık kaydı metadata’sı",
+				exact: true,
+			})
 		).toBeVisible();
 		await expect(page.locator("#asset-record-metadata-world")).toBeDisabled();
 		await expect(
@@ -176,6 +179,8 @@ export async function prepareAssetFamilyWorkspace(
 			"Obje, silah, ekipman ve durum",
 		"Karakterler, yaratıklar ve animasyonlar": "Karakter, yaratık ve animasyon",
 		"Arka planlar ve katmanlı kaydırma": "Arka plan ve katmanlı kaydırma",
+		"Portreler, logolar ve tanıtım görselleri":
+			"Portre, logo ve tanıtım görseli",
 	};
 	const contractName = contractNames[fixture.categoryLabel];
 	if (!contractName) {

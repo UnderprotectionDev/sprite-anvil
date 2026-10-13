@@ -14,6 +14,7 @@ import { HistoricalCompositionManager } from "@/features/dependency-revalidation
 import { FamilyReadinessManager } from "@/features/family-readiness/ui/components/family-readiness-manager";
 import { IconFamilyReviewSections } from "@/features/icon-profile/ui/components/icon-family-review-sections";
 import { AssetFamilyComparisonSections } from "@/features/object-equipment-profile/ui/components/asset-family-comparison-sections";
+import { MarketingUsageReviewSections } from "@/features/portrait-marketing-profile/ui/components/marketing-usage-review-sections";
 import { TextureRepetitionReviewSections } from "@/features/tileset-texture-profile/ui/components/texture-repetition-review-sections";
 import { TilesetAdjacencyReviewSections } from "@/features/tileset-texture-profile/ui/components/tileset-adjacency-review-sections";
 import { VfxAppearanceSections } from "@/features/vfx-profile/ui/components/vfx-appearance-sections";
@@ -139,6 +140,10 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 	const objectEquipmentProfileActivation = getActiveProfileContract(
 		profileContractsQuery.data,
 		"object_weapon_equipment_states"
+	);
+	const marketingProfileActivation = getActiveProfileContract(
+		profileContractsQuery.data,
+		"portrait_logo_marketing"
 	);
 	const textureProfileActivation = getActiveProfileContract(
 		profileContractsQuery.data,
@@ -494,6 +499,13 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 												familyRecords={catalog.assetRecords}
 												projectId={projectId}
 												versions={assetVersionQuery.data.assetVersions}
+											/>
+											<MarketingUsageReviewSections
+												activation={marketingProfileActivation}
+												catalog={assetVersionQuery.data}
+												families={reviewFamilies}
+												projectId={projectId}
+												records={assetRecords}
 											/>
 											<IconFamilyReviewSections
 												activation={iconProfileActivation}

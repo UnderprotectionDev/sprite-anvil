@@ -44,6 +44,7 @@ English terms are the canonical technical names used in code and contracts. Turk
 | Review Event | İnceleme Kaydı |
 | Directional Review | Kimlik ve Yön Tutarlılığı İncelemesi |
 | Animation Timing and Transition Review | Animasyon Zamanlamasını ve Geçişlerini İnceleme |
+| Marketing Usage Review | Tanıtım Kullanımı İncelemesi |
 | Icon Family Review | İkon Ailesi İncelemesi |
 | Tileset Adjacency Review | Karo Komşuluğu İncelemesi |
 | Background Layer Layout | Arka Plan Katman Düzeni |
@@ -275,6 +276,11 @@ _Avoid_: Review Event, automatic artistic verdict, approval
 **Animation Timing and Transition Review**:
 An immutable user-authored comparison of ordered animation frames from exact Asset Versions in one Asset Family, under a pinned Specialized Profile Contract. It retains each frame's independent duration and optional movement phase, the playback speed and loop setting, and the user's outcome and rationale. It does not make an automatic judgment about motion or identity; ground and loop differences remain subject to profile rules.
 _Avoid_: fixed frame rate, mandatory phase template, automatic motion verdict, approval
+
+**Marketing Usage Review**:
+An immutable user-authored usage-context assessment of exact logo, opening, store, or marketing Asset Versions in one Asset Family under a pinned Specialized Profile Contract. It retains source dimensions, display size, source-image crop and safe area, transparent or opaque presentation, flattening color, separate light/dark observations, and the family's Visual World and optional exact Canonical Design link. Portrait expression evidence remains separate; marketing sizes do not inherit gameplay pixel-scale rules. Its JSON evidence package retains these purposes and pins but is not a delivery Export Bundle or a restorable Project Archive. It neither changes Review Disposition nor establishes QA Readiness.
+
+_Avoid_: portrait review (for logo evidence), automatic readability approval, export bundle (for the evidence JSON alone).
 
 **Icon Family Review**:
 An immutable user-authored assessment of exact icon Asset Versions in one Asset Family under a pinned icon Specialized Profile Contract. It records usage variants, logical sizes, light and dark background checks, grayscale comparison, and observations about object scale, lighting direction, outline, detail density, and whether a state or rarity color preserves identity. Its outcome does not change Review Disposition or create a project-wide art rule.
