@@ -121,7 +121,10 @@ export async function prepareAssetFamilyWorkspace(
 		// Scope hydration can reset the form's initial metadata. Select only once
 		// the record and its family world have finished loading.
 		await expect(
-			page.getByRole("heading", { name: "Kayıt durumu", exact: true })
+			page.getByRole("heading", {
+				name: "Varlık kaydı metadata’sı",
+				exact: true,
+			})
 		).toBeVisible();
 		await expect(page.locator("#asset-record-metadata-world")).toBeDisabled();
 		await expect(

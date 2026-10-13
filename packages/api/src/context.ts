@@ -35,12 +35,12 @@ import type {
 } from "./texture-repetition-reviews";
 import type { TilesetAdjacencyReviewStore } from "./tileset-adjacency-reviews";
 import type { UiStateComparisonStore } from "./ui-state-comparisons";
+import type { UiStretchTestStore } from "./ui-stretch-tests";
 import type {
 	VfxAppearanceFrame,
 	VfxAppearanceReviewStore,
 } from "./vfx-appearance-reviews";
 import type { VfxSynchronizationStore } from "./vfx-synchronization";
-
 export interface Context {
 	animationTimingReviewStore?: AnimationTimingReviewStore;
 	assetFamilyComparisonStore?: AssetFamilyComparisonStore;
@@ -85,6 +85,7 @@ export interface Context {
 	textureRepetitionReviewStore?: TextureRepetitionReviewStore;
 	tilesetAdjacencyReviewStore?: TilesetAdjacencyReviewStore;
 	uiStateComparisonStore?: UiStateComparisonStore;
+	uiStretchTestStore?: UiStretchTestStore;
 	verifyAssetVersionContent?: (
 		userId: string,
 		projectId: string,
