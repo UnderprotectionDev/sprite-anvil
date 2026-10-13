@@ -47,6 +47,7 @@ English terms are the canonical technical names used in code and contracts. Turk
 | Icon Family Review | İkon Ailesi İncelemesi |
 | Tileset Adjacency Review | Karo Komşuluğu İncelemesi |
 | Background Layer Layout | Arka Plan Katman Düzeni |
+| UI Stretch Test | Arayüz Germe Testi |
 | Background Scrolling Test | Arka Plan Kaydırma Testi |
 | Human-Gated Action | Kullanıcı Kesinleştirmeli İşlem |
 | Export-Ready Version | Dışa Aktarıma Hazır Sürüm |
@@ -291,6 +292,10 @@ _Avoid_: Static completion evidence, automatic player visibility verdict, latest
 **Background Scrolling Test**:
 An immutable user-authored usage-context test of one exact Background Layer Layout and an exact player Asset Version in the same project, under the layout's pinned Specialized Profile Contract. It retains horizontal layer speeds, crop repetition and starting offsets, player placement and layer order, playback duration, and human observations about loop, seam, crop, contrast, and player visibility. The result is Passed, Failed, or Inconclusive; it does not change Review Disposition or independently establish family completion.
 _Avoid_: Static completion evidence, automatic visibility verdict, latest player file
+
+**UI Stretch Test**:
+An immutable user-authored usage-context test of exact UI component/state Asset Versions in one Asset Family and Visual World under a pinned Specialized Profile Contract. It retains verified natural dimensions, nine-slice margins, source-pixel text safe areas, target sizes, sample text, optional screen links, and per-state/target observations. Corners retain their source size and text bounds follow the same piecewise stretch transform. Invalid source geometry is an Integrity Gate; an undersized target is a failed Waivable Requirement. Missing observations remain Inconclusive. Static profile metadata preserves the exact inputs and results without generating game interaction code, approving the family, or starting an Export Bundle.
+_Avoid_: Automatic artistic verdict, UI framework, Review Event, family-wide approval
 
 **Human-Gated Action**:
 A consequential decision reserved for the user: activating a Context Revision or Required Set, selecting a Canonical Design, recording a Review Event or Quality Waiver, starting an Export Bundle, resolving a divergent delivery target, and authorizing permanent erasure. Agents may prepare evidence and proposals but cannot perform these actions.
