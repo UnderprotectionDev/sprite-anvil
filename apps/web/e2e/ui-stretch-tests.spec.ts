@@ -1,10 +1,63 @@
 import { readFileSync } from "node:fs";
-import { expect, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 import { readUiProfileManifest } from "@sprite-anvil/api/ui-profile-export";
 import {
 	assetFamilyWorkspaceFixture,
 	prepareAssetFamilyWorkspace,
 } from "./asset-family-workspace-fixture";
+
+async function expectCornersAndText(
+	page: Page,
+	target: Locator,
+	expectedWidth: number,
+	expectedHeight: number
+) {
+	const screenshot = await target.screenshot();
+	const corners = await page.evaluate(
+		async ({ bytes, width, height }) => {
+			const bitmap = await createImageBitmap(
+				new Blob([new Uint8Array(bytes)], { type: "image/png" })
+			);
+			const canvas = document.createElement("canvas");
+			canvas.width = bitmap.width;
+			canvas.height = bitmap.height;
+			const ctx = canvas.getContext("2d");
+			if (!ctx) {
+				throw new Error("Missing pixel reader");
+			}
+			ctx.drawImage(bitmap, 0, 0);
+			return (
+				[
+					[1, 1],
+					[width - 2, 1],
+					[1, height - 2],
+					[width - 2, height - 2],
+				] as const
+			).map(([x, y]) => Array.from(ctx.getImageData(x, y, 1, 1).data));
+		},
+		{
+			bytes: Array.from(screenshot),
+			width: expectedWidth,
+			height: expectedHeight,
+		}
+	);
+	expect(corners).toEqual([
+		[255, 0, 0, 255],
+		[0, 255, 0, 255],
+		[0, 0, 255, 255],
+		[255, 255, 0, 255],
+	]);
+	const text = target.locator("foreignObject div");
+	await expect(text).toHaveText("Items");
+	const bounds = await text.evaluate((element) => ({
+		width: element.clientWidth,
+		height: element.clientHeight,
+		textWidth: element.scrollWidth,
+		textHeight: element.scrollHeight,
+	}));
+	expect(bounds.textWidth).toBeLessThanOrEqual(bounds.width);
+	expect(bounds.textHeight).toBeLessThanOrEqual(bounds.height);
+}
 
 test("stretches exact UI states at multiple sizes, preserves corners and rereads metadata", async ({
 	page,
@@ -66,34 +119,7 @@ test("stretches exact UI states at multiple sizes, preserves corners and rereads
 		name: "panel normal at 64 × 40 px",
 		exact: true,
 	});
-	const screenshot = await target.screenshot();
-	const corners = await page.evaluate(async (bytes) => {
-		const bitmap = await createImageBitmap(
-			new Blob([new Uint8Array(bytes)], { type: "image/png" })
-		);
-		const canvas = document.createElement("canvas");
-		canvas.width = bitmap.width;
-		canvas.height = bitmap.height;
-		const ctx = canvas.getContext("2d");
-		if (!ctx) {
-			throw new Error("Missing pixel reader");
-		}
-		ctx.drawImage(bitmap, 0, 0);
-		return (
-			[
-				[1, 1],
-				[62, 1],
-				[1, 38],
-				[62, 38],
-			] as const
-		).map(([x, y]) => Array.from(ctx.getImageData(x, y, 1, 1).data));
-	}, Array.from(screenshot));
-	expect(corners).toEqual([
-		[255, 0, 0, 255],
-		[0, 255, 0, 255],
-		[0, 0, 255, 255],
-		[255, 255, 0, 255],
-	]);
+	await expectCornersAndText(page, target, 64, 40);
 	await manager.getByLabel("Test result").selectOption("passed");
 	await manager
 		.getByLabel("Observation")
@@ -106,8 +132,26 @@ test("stretches exact UI states at multiple sizes, preserves corners and rereads
 		name: "Target 2",
 		exact: true,
 	});
-	await secondTarget.getByLabel("Target width").fill("8");
-	await secondTarget.getByLabel("Target height").fill("7");
+	await secondTarget.getByLabel("Target width").fill("80");
+	await secondTarget.getByLabel("Target height").fill("48");
+	await expectCornersAndText(
+		page,
+		manager.getByRole("img", {
+			name: "panel normal at 80 × 48 px",
+			exact: true,
+		}),
+		80,
+		48
+	);
+	await manager
+		.getByRole("button", { name: "Add target", exact: true })
+		.click();
+	const thirdTarget = manager.getByRole("group", {
+		name: "Target 3",
+		exact: true,
+	});
+	await thirdTarget.getByLabel("Target width").fill("8");
+	await thirdTarget.getByLabel("Target height").fill("7");
 	const validTarget = manager.getByRole("group", {
 		name: "panel · normal · 64 × 40 px",
 		exact: true,
@@ -132,6 +176,14 @@ test("stretches exact UI states at multiple sizes, preserves corners and rereads
 	await validTarget
 		.getByLabel("Observation")
 		.fill("All corners and Items text inspected.");
+	const largerTarget = manager.getByRole("group", {
+		name: "panel · normal · 80 × 48 px",
+		exact: true,
+	});
+	await largerTarget.getByLabel("Test result").selectOption("passed");
+	await largerTarget
+		.getByLabel("Observation")
+		.fill("Corners and Items text inspected at 80 × 48.");
 	await manager
 		.getByRole("button", { name: "Save stretch test", exact: true })
 		.click();
@@ -146,6 +198,12 @@ test("stretches exact UI states at multiple sizes, preserves corners and rereads
 		manager.getByText("panel · normal · 8 × 7 px · failed · geometry failed", {
 			exact: true,
 		})
+	).toBeVisible();
+	await expect(
+		manager.getByText(
+			"panel · normal · 80 × 48 px · passed · geometry passed",
+			{ exact: true }
+		)
 	).toBeVisible();
 	await manager.getByText("View saved test", { exact: true }).click();
 	await expect(
@@ -166,9 +224,11 @@ test("stretches exact UI states at multiple sizes, preserves corners and rereads
 	const manifest = readUiProfileManifest(readFileSync(path, "utf8"));
 	expect(manifest.evidence.targets).toEqual([
 		{ width: 64, height: 40 },
+		{ width: 80, height: 48 },
 		{ width: 8, height: 7 },
 	]);
 	expect(manifest.evidence.evaluations.map((e) => e.outcome)).toEqual([
+		"passed",
 		"passed",
 		"failed",
 	]);
