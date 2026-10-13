@@ -8,7 +8,12 @@ Sahne Kalite Kontrol Alanı seviye düzenleyicisi, fizik benzetimi, otomatik san
 
 İzlenebilirlik: `docs/CONTEXT.md` içindeki Scene QA Playground; `docs/prd/04-ingestion-lifecycle-and-quality.md` QLT-01; `docs/prd/06-scene-quality-and-pixel-editor.md` §4.10; `docs/specs/28-scene-qa/spec.md`; `docs/workflow/28-scene-qa/phase-context.md`; ADR 0003, 0006, 0012 ve 0017. Yığın: React/TanStack Query, PixiJS 8, oRPC/Zod ve Drizzle/PostgreSQL. Dosyalar `scene-qa-playground` özellik dizinlerinde, route kaydı `apps/web/src/routes/` altında; ortak sözleşme/API ve DB şeması ilgili paketlerde.
 
-**Canlı teslim engeli:** Paylaşılan geliştirme DB’sinde uygulanmış `20261013111405_rare_mattie_franklin` migration’ı için güvenilir kaynak bulunamadı (hash `c565cb9eff83fc03e6f867d82c7bdf3b6241e47f24da9dae765d5eeef3573f2a`). `db:sync --check` kaynak ve ref bulamadı. Kendi `20261013111450_scene_qa_playgrounds` SQL/snapshot dosyaları korunuyor; migration uygulanmadı. `db:prepare`, `db:validate` ve son `db:ready` başarılı değil. Owning kod/şema/özgün SQL/snapshot birlikte güvenilir Git kaynağından uzlaştırılmadan canlı kayıt akışı hazır değildir. Canlı test hesabı veya deneme kaydı hazırlanmadı.
+**Kaynak uzlaştırması:** Paylaşılan DB’nin uygulanmış geçmişi PR [#136](https://github.com/UnderprotectionDev/sprite-anvil/pull/136), [#138](https://github.com/UnderprotectionDev/sprite-anvil/pull/138) ve [#139](https://github.com/UnderprotectionDev/sprite-anvil/pull/139) kaynaklarından owning kod/şema/özgün SQL/snapshot birlikte entegre edilerek uzlaştırıldı. `20261013120647_ui_stretch_tests` için PR #138’in `8ddad9b` head’i; `20261013122153_portrait_identity_reviews` için PR #139’un `b55e92c` head’i origin üzerinden doğrulandı. Sahne migration’ının eski kimliği ve SQL hash’i tek yetkili kalıcı hedefte uygulanmamıştı. Bu doğrulamadan sonra migration `20261013122547_scene_qa_playgrounds` olarak kanonik generator ile yeniden üretildi; SQL bytes/hash (`5006e2461903ccdc76739cd70bdc608c270017b0a92ace10088619d6e01af400`) değişmedi, snapshot güncel şema ve parent zincirine bağlandı. Uygulanmış migration dosyaları veya DB kayıtları değiştirilmedi.
+
+**Canlı doğrulama:** `db:validate` 76 migration’ın kaynak/şema doğrulamasını ve paylaşılan katalog ile pending SQL karşılaştırmasını geçti. Kilit bırakıldıktan sonra `db:prepare` bir sahne migration’ını uygulayıp geçmişi ve fiziksel şemayı yeniden doğruladı. Başka workspace sonlandırılmadı. Normal uygulama API’leriyle gerçek hesap, Görsel Dünya, Varlık Kimliği, Varlık Ailesi, altı aileye bağlı Varlık Kaydı ve altı 32×32 PNG/R2 dosyası oluşturuldu; beş profil etkinleştirildi. İlk hazırlıktaki altı aileye bağlanmamış deneme kaydı da aynı deneme projesinde korunuyor; sahne seçimi için aşağıdaki `Scene QA` kayıtlarını kullanın.
+
+Gerçek tarayıcıda `Live six-role evidence 1791894890365` kaydı (`ef8dbe1b-7e5e-4a53-8637-9073c8d5e2be`) kaydedildi. Ayrı HTTP API okuması altı digest/ölçü/sürüm pini ve beş profil snapshot’ını doğruladı; sayfa yenilendi, kayıt yeniden açılıp oynatıldı. Oturumsuz okuma `401` verdi. Canlı test R2/Neon kullandı; bellek adaptörü veya disposable PostgreSQL kullanılmadı. Bu düz renkli dosyalar kalıcılık/ölçek/hareket kanıtıdır; sanatsal kabul değildir. Son `db:ready` geçti: 76 migration ve gerçek şema doğrulandı. Doğrulama için başlatılan API/web süreçleri kapatıldı; başka workspace süreçlerine dokunulmadı.
+
 
 ## İnceleme
 
@@ -18,89 +23,64 @@ Adlar, dosya sahipliği, mevcut yığın ve kaynak üretme sınırları kontrol 
 
 ### Spec
 
-QLT-01 ve §4.10’un bu issue’ya ait sahne kullanım dilimi karşılaştırıldı. Altı rol, hareket/geçiş, isabet efekti, katman/Y sıralaması, kamera, görsel kılavuzlar ve kullanıcı gözlemleri uygulanmış. İncelemede bulunan isteğe bağlı obje animasyonunun son karesini kaldırma sorunu, önce başarısız olan görünür bileşen testiyle düzeltildi. Açık kod bulgusu yok; canlı DB kalıcılığı ve masaüstü eşdeğerliği doğrulanmadı.
+QLT-01 ve §4.10’un bu issue’ya ait sahne kullanım dilimi karşılaştırıldı. Altı rol, hareket/geçiş, isabet efekti, katman/Y sıralaması, kamera, görsel kılavuzlar ve kullanıcı gözlemleri uygulanmış. İncelemede bulunan isteğe bağlı obje animasyonunun son karesini kaldırma sorunu, önce başarısız olan görünür bileşen testiyle düzeltildi. Açık kod bulgusu yok; canlı DB kalıcılığı normal API/R2/Neon akışında doğrulandı. Tauri/WebKit ve PixiJS üzerinde kontrollü masaüstü akışı geçti; native dropdown etkileşimi embedded driver sınırlaması nedeniyle DOM `change` sınırından sınandı.
 
-Doğrulama: API testleri 6 geçti; sahne web testleri 3 geçti; kontrollü API yanıtlarıyla gerçek Chromium/PixiJS uçtan uca testleri 3 geçti. DB paketi 94 geçti/8 atlandı; sunucu paketi 285 geçti/31 atlandı. Atlananlar çevresel entegrasyon testleridir. `check-types`, `check` ve `git diff --check` geçti. Tarayıcı kanıtı canlı PostgreSQL/R2 doğrulaması değildir.
+Doğrulama: API testleri 6 geçti; sahne web testleri 3 geçti; kontrollü API yanıtlarıyla gerçek Chromium/PixiJS uçtan uca testleri 3 geçti. Son geniş koşuda web 57 dosyada 251 geçti; DB 94 geçti/8 atlandı; sunucu 306 geçti/35 atlandı. Atlananlar çevresel entegrasyon testleridir. `check-types`, `check` (738 dosya) ve `git diff --check` geçti. Son merge sonrası sahne/portre API doğrulamasında 22 test geçti.
 
-Geniş web paketinin dört worker ile koşusunda 223 test geçti, 14 test başarısız oldu; zaman aşımları ve sonrasında karışan kullanıcı olayları görüldü. Hata veren 11 dosya ve sahne testlerinin tamamı tek worker ile yeniden çalıştırıldı: 45 test geçti. Ardından tüm web paketi tek worker ile yeniden çalıştırıldı: 52 dosyada 239 testin tamamı geçti. Son tarayıcı tekrarında da üç sahne senaryosu geçti.
+Gerçek Tauri/WebKit test derlemesi ve tek sahne WebDriver senaryosu geçti: altı rol, tamamlanmış oynatma, altı gözlem, kaydetme, sayfayı yenileme, kayıt/pinleri yeniden açma ve PixiJS replay. Test loopback HTTP üzerinde kontrollü veriler kullanır; bulut kalıcılığı değildir. `SCENE_QA_DESKTOP_API_PORT=4323` ile çalıştırıldı; test binary’si `VITE_SERVER_URL=http://localhost:4323` ile derlendi. Diğer özelliklerin masaüstü entegrasyon paketleri çalıştırılmadı.
 
-İnceleme özeti: Standards 0 açık kod bulgusu; Spec 0 açık kod bulgusu. DB hazır teslim engeli ve masaüstü doğrulama açığı sürüyor.
+Kaynak entegrasyonu sırasında eski snapshot ile iki DB kaynak testi başarısız oldu; kanonik sahne migration’ı yeniden üretildikten sonraki tam DB koşusunda bütün 94 test geçti. Masaüstü test hazırlığında auth mock ve native select driver sınırları çözüldü; son refresh/readback senaryosu geçti.
+
+İnceleme özeti: Standards 0 açık kod bulgusu; Spec 0 açık kod bulgusu. Canlı migration uygulaması, fixture ve DB kalıcılığı doğrulandı. Bağımsız alt ajan incelemesi yapılmadı; masaüstünün HTTP sınırı kontrollüdür, canlı bulut testi web yüzeyinde yapıldı.
+
 
 ## Nasıl test edilir
 
-Web uygulamasında proje sahibi hesabıyla giriş yapıp `/projects` sayfasını açın. Kendi uygun projenizi kullanın. Aşağıdaki akış DB engeli giderilip sahne tablosu hazırlandıktan sonra denenebilir; bu çalışmada önceden oluşturulmuş canlı kayıt yoktur. `Forest usage check` yalnız otomatik tarayıcı testinin verisidir.
+Web uygulamasında `/projects/9e9fd815-8e7b-4fa9-82bb-3bbf539e9852/scene-qa` route’unu açın. Canlı doğrulama `http://localhost:4321` yüzeyinde yapıldı; normal Run’da aynı route’u uygulamanın web adresinde kullanın. `scene-qa-bfbaa500-bcfe-4a2b-8f69-d50e906aa08c@example.test` hesabıyla giriş yapın. Deneme şifresi bu workspace’in gitignored `.context/scene-qa-live-fixture.json` dosyasındadır; kaynak koda veya GitHub’a eklenmedi. `Scene QA #135 live verification` projesi, `Scene QA six-role family` ailesi ve aşağıdaki altı kayıt hazırdır. Yeni veri oluşturmanız gerekmez.
 
-### Veri hazırlığı
+| Varlık Kaydı | Role |
+| --- | --- |
+| Scene QA tile | tile |
+| Scene QA background | background |
+| Scene QA character | character |
+| Scene QA object | object |
+| Scene QA shadow | shadow |
+| Scene QA effect | effect |
 
-Projede uygun kayıtlar ve etkin profiller varsa bu hazırlığı atlayabilirsiniz. Yeni deneme için `Scene QA manual` projesi ve kendi PNG/WebP dosyalarınız kullanılabilir. Dosyalar en fazla 5 MiB olmalı; karakter atlasındaki idle/walk/attack kare alanlarını bilmelisiniz.
+### Hazır kanıtı açma
 
-1. `/projects` sayfasında `Yeni oyun projesi` düğmesine tıklayın.
-2. `Oyun projesi adı` alanına `Scene QA manual` yazın.
-3. `Genel sanat yaklaşımı` alanına `Pixel art scene comparison` yazın.
-4. `Proje oluştur` düğmesine tıklayın; proje listede görünür.
-5. Bu projenin `Varlık kayıtları` bağlantısını açın.
-6. `Yeni varlık kaydı` düğmesine tıklayın.
-7. `Varlık adı` alanına `QA character` yazın.
-8. Deneme karakteri için `Bağımsız ürün anlamı` seçeneğini işaretleyin.
-9. `Varlık kaydı oluştur` düğmesine tıklayın; kayıt listede görünür.
-10. `QA character` kaydını açın.
-11. `Sürümler ve dosyalar` bölümünde `PNG veya WebP dosyası` alanından karakter atlasınızı seçin.
-12. `Bilinmeyen üretim geçmişi` alanına dosyanızın bilinmeyen üretim bilgilerini doğru biçimde yazın.
-13. `Aday sürümü kaydet` düğmesine tıklayın; aday sürüm listede görünür.
-14. `Kayıt bilgileri` bölümünü açın.
-15. `Varlık kategorisi` alanında `Karakterler, yaratıklar ve animasyonlar` seçin.
-16. `Metadata’yı kaydet` düğmesine tıklayın; kaydedildi bildirimi görünür.
+1. `Saved scene evidence` bölümündeki `Live six-role evidence 1791894890365` kaydını açın; altı gözlem, kesin sürümler ve profil sözleşmeleri görünür.
+2. `Replay saved scene` düğmesine tıklayın.
+3. `Play scene` düğmesine tıklayın; karakter hareket eder, idle → walk → attack → idle geçişi ve isabet anında efekt görülür. Oynatma `4000 / 4000 ms` değerine ulaşır.
+4. Sayfayı yenileyin; aynı kanıt listede kalır.
 
-Aynı kayıt ve dosya adımlarını aşağıdaki beş deneme kaydı için tekrarlayın. Her dosya kendi rolüne uygun olsun.
+### Yeni sahne kaydetme
 
-| Kayıt | Varlık kategorisi | Sahne rolü |
-| --- | --- | --- |
-| QA tile | Karo setleri, arazi ve kesintisiz dokular | tile |
-| QA background | Arka planlar ve katmanlı kaydırma | background |
-| QA object | Objeler, silahlar, ekipmanlar ve durum aileleri | object |
-| QA shadow | Görsel efektler, fırlatılan nesneler, gölgeler ve yüzey işaretleri | shadow |
-| QA effect | Görsel efektler, fırlatılan nesneler, gölgeler ve yüzey işaretleri | effect |
+1. `Scene name` alanına `Six-role manual review` yazın.
+2. `Role` alanında `character` seçin.
+3. `Exact Asset Version` alanında `Scene QA character · v1` ile başlayan sürümü seçin.
+4. `Profile usage test` alanından kullanım testini seçin.
+5. `Add to scene` düğmesine tıklayın; karakter yerleşimi görünür.
 
-1. Proje menüsünden `Özel profil sözleşmeleri` bağlantısını açın.
-2. Karakter profilinin bölümünü seçin.
-3. `Sözleşmeyi etkinleştir` düğmesine tıklayın; `Bu projede etkin` görünür.
-
-Son iki adımı karo, arka plan, obje ve görsel efekt profilleri için tekrarlayın. Gölge ve efekt aynı profili kullanır.
-
-### Ana akış
-
-1. Projenin `Sahne Kalite Kontrol Alanı` bağlantısını açın; `Scene QA Playground` görünür.
-2. `Scene name` alanına `Six-role scene review` yazın.
-3. `Role` alanında `character` seçin.
-4. `Exact Asset Version` alanında `QA character · v1` ile başlayan sürümü seçin.
-5. `Profile usage test` alanından denemek istediğiniz kullanım testini seçin.
-6. `Add to scene` düğmesine tıklayın; karakter yerleşimi görünür.
-7. Karakterin `Animation frames` bölümünde `idle`, `walk` ve `attack` için atlasınıza uygun kare alanlarını ve sürelerini ayarlayın; her alan ayrı bir kullanıcı eylemidir.
-
-Rol/sürüm/kullanım testi seçme ve ekleme adımlarını tablodaki diğer beş kayıt için tekrarlayın. `Integer scale`, `Position X`, `Position Y` ve `Layer` ile yerleşimleri düzenleyebilirsiniz.
+Rol, sürüm, kullanım testi ve ekleme adımlarını tablodaki diğer beş kayıt için tekrarlayın. Hazır dosyalar 32×32 olduğu için varsayılan kare alanları uygundur. `Integer scale`, `Position X`, `Position Y`, `Layer` ve `Animation frames` ile farklı kullanım koşulları denenebilir.
 
 1. `Camera` alanında `Follow character` seçin.
 2. `Contrast background` alanında `Light` seçin.
-3. `Play scene` düğmesine tıklayın; idle → walk → attack → idle geçişi, hareket ve isabet anındaki efekt görünür. Oynatma `4000 / 4000 ms` değerine ulaşmalıdır.
-4. `Scale and perspective` alanına gördüğünüz ölçek/perspektif sonucunu yazın.
-5. `Layering and Y-sort` alanına örtüşme sonucunu yazın.
-6. `Animation transitions` alanına geçiş sonucunu yazın.
-7. `Hit event and effect` alanına isabet/efekt sonucunu yazın.
-8. `Camera behavior` alanına kamera sonucunu yazın.
-9. `Contrast and readability` alanına okunurluk sonucunu yazın.
-10. `Save scene evidence` düğmesine tıklayın; `Scene evidence saved: Six-role scene review.` görünür.
-
-### Kalıcılık
-
-1. Sayfayı yenileyin; `Saved scene evidence` bölümünde `Six-role scene review` görünür.
-2. Kaydı açın; gözlemler, kesin sürümler ve profil sözleşmeleri görünür.
-3. `Replay saved scene` düğmesine tıklayın.
-4. Açılan önizlemede `Play scene` düğmesine tıklayın; kaydedilen sahne yeniden oynar.
+3. `Play scene` düğmesine tıklayın; oynatma `4000 / 4000 ms` değerine ulaşmalıdır.
+4. `Scale and perspective` alanına ölçek gözleminizi yazın.
+5. `Layering and Y-sort` alanına örtüşme gözleminizi yazın.
+6. `Animation transitions` alanına geçiş gözleminizi yazın.
+7. `Hit event and effect` alanına isabet/efekt gözleminizi yazın.
+8. `Camera behavior` alanına kamera gözleminizi yazın.
+9. `Contrast and readability` alanına okunurluk gözleminizi yazın.
+10. `Save scene evidence` düğmesine tıklayın; `Scene evidence saved: Six-role manual review.` görünür.
+11. Sayfayı yenileyin; yeni kayıt `Saved scene evidence` listesinde kalır.
+12. `Six-role manual review` kaydını açın; gözlemler ve kaynak pinleri kaydettiğiniz değerlerle görünür.
 
 ### Durdurma, değişiklik ve hata
 
 1. Sahne oynarken `Pause scene` düğmesine tıklayın; görüntü durur.
-2. `Reset playback` düğmesine tıklayın; süre sıfırlanır ve yeni tamamlanmış oynatma olmadan kaydetme kapalıdır.
+2. `Reset playback` düğmesine tıklayın; süre sıfırlanır ve tamamlanmış yeni oynatma olmadan kaydetme kapalıdır.
 3. `Walk displacement X` değerini değiştirin; yeni ayarlar yeniden oynatılmalıdır.
 
-Obje için eklediğiniz isteğe bağlı `walk` veya `attack` karesini `Remove frame` ile tamamen kaldırabilirsiniz. Karakterin zorunlu kliplerinin ve tüm yerleşimlerin `idle` klibinin son karesi korunur. Okunamayan görsel önizleme hatası verir ve tamamlanmış oynatma kanıtı oluşturmaz. Kaydetme yanıtı belirsiz kaldığında `Check saved evidence` düğmesine tıklayın; bulunan aynı kayıt doğrulanır, bulunamazsa belirsizlik mesajı sürer. Kalıcı kanıt silme/geri alma akışı bu değişiklikte yoktur.
+İsteğe bağlı obje `walk`/`attack` kareleri `Remove frame` ile tamamen kaldırılabilir. Karakterin zorunlu klipleri ve yerleşimlerin son `idle` karesi korunur. Okunamayan görsel hata verir ve tamamlanmış oynatma oluşturmaz. Kaydetme yanıtı belirsiz kaldığında `Check saved evidence` aynı kayıt kimliğini yeniden okur; bulunamazsa belirsizlik mesajı sürer. Kalıcı kanıt silme/geri alma akışı yoktur.

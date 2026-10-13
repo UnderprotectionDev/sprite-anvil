@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "aa1ae205-5f22-498a-8064-947eecd848f1",
+  "id": "ab73b0d6-817c-4582-bdb7-cd7d76407e59",
   "prevIds": [
-    "8b222765-06d7-4dc8-a88f-85d0fd7401c1"
+    "7e9dcb91-13a4-4a48-a398-1555cd07aacd"
   ],
   "ddl": [
     {
@@ -297,6 +297,18 @@
     },
     {
       "isRlsEnabled": false,
+      "name": "marketing_usage_reviews",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "portrait_identity_reviews",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
       "name": "project",
       "entityType": "tables",
       "schema": "public"
@@ -345,6 +357,12 @@
     },
     {
       "isRlsEnabled": false,
+      "name": "scene_qa_playgrounds",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
       "name": "source_metadata_mapping_finalizations",
       "entityType": "tables",
       "schema": "public"
@@ -381,6 +399,18 @@
     },
     {
       "isRlsEnabled": false,
+      "name": "ui_state_comparisons",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "ui_stretch_tests",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
       "name": "vfx_appearance_reviews",
       "entityType": "tables",
       "schema": "public"
@@ -388,12 +418,6 @@
     {
       "isRlsEnabled": false,
       "name": "vfx_synchronization_reviews",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "scene_qa_playgrounds",
       "entityType": "tables",
       "schema": "public"
     },
@@ -5465,6 +5489,188 @@
       "name": "id",
       "entityType": "columns",
       "schema": "public",
+      "table": "marketing_usage_reviews"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "project_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "marketing_usage_reviews"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "asset_family_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "marketing_usage_reviews"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "contract_revision_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "marketing_usage_reviews"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "record",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "marketing_usage_reviews"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "created_by_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "marketing_usage_reviews"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "marketing_usage_reviews"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "portrait_identity_reviews"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "project_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "portrait_identity_reviews"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "asset_family_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "portrait_identity_reviews"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "contract_revision_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "portrait_identity_reviews"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "record",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "portrait_identity_reviews"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "created_by_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "portrait_identity_reviews"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "portrait_identity_reviews"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
       "table": "project"
     },
     {
@@ -6723,6 +6929,71 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "scene_qa_playgrounds"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "project_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "scene_qa_playgrounds"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "record",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "scene_qa_playgrounds"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "created_by_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "scene_qa_playgrounds"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "scene_qa_playgrounds"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "proposal_id",
       "entityType": "columns",
       "schema": "public",
@@ -7233,6 +7504,188 @@
       "name": "id",
       "entityType": "columns",
       "schema": "public",
+      "table": "ui_state_comparisons"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "project_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ui_state_comparisons"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "asset_family_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ui_state_comparisons"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "contract_revision_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ui_state_comparisons"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "record",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ui_state_comparisons"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "created_by_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ui_state_comparisons"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ui_state_comparisons"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ui_stretch_tests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "project_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ui_stretch_tests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "asset_family_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ui_stretch_tests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "contract_revision_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ui_stretch_tests"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "record",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ui_stretch_tests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "created_by_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ui_stretch_tests"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ui_stretch_tests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
       "table": "vfx_appearance_reviews"
     },
     {
@@ -7403,71 +7856,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "vfx_synchronization_reviews"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "scene_qa_playgrounds"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "project_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "scene_qa_playgrounds"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "record",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "scene_qa_playgrounds"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "created_by_user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "scene_qa_playgrounds"
-    },
-    {
-      "type": "timestamp",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "scene_qa_playgrounds"
     },
     {
       "nameExplicit": true,
@@ -10469,6 +10857,76 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "project_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "asset_family_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "marketing_usage_reviews_family_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "marketing_usage_reviews"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "asset_family_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "portrait_identity_reviews_family_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "portrait_identity_reviews"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "owner_user_id",
           "isExpression": false,
           "asc": true,
@@ -11001,6 +11459,34 @@
           "opclass": null
         },
         {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "scene_qa_playgrounds_project_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "scene_qa_playgrounds"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
           "value": "source_entry_id",
           "isExpression": false,
           "asc": true,
@@ -11202,6 +11688,76 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
+      "name": "ui_state_comparisons_family_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "ui_state_comparisons"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "asset_family_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "ui_stretch_tests_family_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "ui_stretch_tests"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "asset_family_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
       "name": "vfx_appearance_reviews_family_idx",
       "entityType": "indexes",
       "schema": "public",
@@ -11241,34 +11797,6 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "vfx_synchronization_reviews"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "project_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "created_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "scene_qa_playgrounds_project_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "scene_qa_playgrounds"
     },
     {
       "nameExplicit": false,
@@ -13673,6 +14201,112 @@
     {
       "nameExplicit": false,
       "columns": [
+        "contract_revision_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "specialized_profile_contract_revisions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "marketing_usage_reviews_zhv38w0sf0vf_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "marketing_usage_reviews"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "created_by_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "user",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "marketing_usage_reviews_created_by_user_id_user_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "marketing_usage_reviews"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "project_id",
+        "asset_family_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "asset_families",
+      "columnsTo": [
+        "project_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "marketing_usage_reviews_family_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "marketing_usage_reviews"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "contract_revision_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "specialized_profile_contract_revisions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "portrait_identity_reviews_bfoBFVaAuQdL_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "portrait_identity_reviews"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "created_by_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "user",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "portrait_identity_reviews_created_by_user_id_user_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "portrait_identity_reviews"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "project_id",
+        "asset_family_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "asset_families",
+      "columnsTo": [
+        "project_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "portrait_identity_reviews_family_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "portrait_identity_reviews"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "owner_user_id"
       ],
       "schemaTo": "public",
@@ -13997,6 +14631,40 @@
     {
       "nameExplicit": false,
       "columns": [
+        "project_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "project",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "scene_qa_playgrounds_project_id_project_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "scene_qa_playgrounds"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "created_by_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "user",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "scene_qa_playgrounds_created_by_user_id_user_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "scene_qa_playgrounds"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "proposal_id"
       ],
       "schemaTo": "public",
@@ -14309,6 +14977,112 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
+      "name": "ui_state_comparisons_rSi212lHvoGm_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "ui_state_comparisons"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "created_by_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "user",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "ui_state_comparisons_created_by_user_id_user_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "ui_state_comparisons"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "project_id",
+        "asset_family_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "asset_families",
+      "columnsTo": [
+        "project_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "ui_state_comparisons_family_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "ui_state_comparisons"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "contract_revision_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "specialized_profile_contract_revisions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "ui_stretch_tests_rpsUvdx8vVib_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "ui_stretch_tests"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "created_by_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "user",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "ui_stretch_tests_created_by_user_id_user_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "ui_stretch_tests"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "project_id",
+        "asset_family_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "asset_families",
+      "columnsTo": [
+        "project_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "ui_stretch_tests_family_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "ui_stretch_tests"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "contract_revision_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "specialized_profile_contract_revisions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
       "name": "vfx_appearance_reviews_PITpwPWvc1OW_fkey",
       "entityType": "fks",
       "schema": "public",
@@ -14402,40 +15176,6 @@
       "entityType": "fks",
       "schema": "public",
       "table": "vfx_synchronization_reviews"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "project_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "project",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "scene_qa_playgrounds_project_id_project_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "scene_qa_playgrounds"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "created_by_user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "user",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "scene_qa_playgrounds_created_by_user_id_user_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "scene_qa_playgrounds"
     },
     {
       "columns": [
@@ -14896,6 +15636,26 @@
         "id"
       ],
       "nameExplicit": false,
+      "name": "marketing_usage_reviews_pkey",
+      "schema": "public",
+      "table": "marketing_usage_reviews",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "portrait_identity_reviews_pkey",
+      "schema": "public",
+      "table": "portrait_identity_reviews",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
       "name": "project_pkey",
       "schema": "public",
       "table": "project",
@@ -14973,6 +15733,16 @@
     },
     {
       "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "scene_qa_playgrounds_pkey",
+      "schema": "public",
+      "table": "scene_qa_playgrounds",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
         "proposal_id"
       ],
       "nameExplicit": false,
@@ -15026,6 +15796,26 @@
         "id"
       ],
       "nameExplicit": false,
+      "name": "ui_state_comparisons_pkey",
+      "schema": "public",
+      "table": "ui_state_comparisons",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "ui_stretch_tests_pkey",
+      "schema": "public",
+      "table": "ui_stretch_tests",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
       "name": "vfx_appearance_reviews_pkey",
       "schema": "public",
       "table": "vfx_appearance_reviews",
@@ -15039,16 +15829,6 @@
       "name": "vfx_synchronization_reviews_pkey",
       "schema": "public",
       "table": "vfx_synchronization_reviews",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "scene_qa_playgrounds_pkey",
-      "schema": "public",
-      "table": "scene_qa_playgrounds",
       "entityType": "pks"
     },
     {
