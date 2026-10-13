@@ -29,7 +29,7 @@ describe("Portrait identity surface equivalence", () => {
 		await review.$("summary=İnceleme ayrıntılarını göster").click();
 		await expect(
 			await review.$(
-				"p=Neutral portrait · Neutral · Diyalog · 137 × 181 px · Kırpma: 8, 0, 24 × 32 · Açık"
+				"li=Neutral portrait · Neutral · Diyalog · 137 × 181 px · Kırpma: 8, 0, 24 × 32 · Açık"
 			)
 		).toBeDisplayed();
 		await expect(
@@ -40,7 +40,7 @@ describe("Portrait identity surface equivalence", () => {
 		const expressions = await review.$$("input[maxlength='100']");
 		await expressions[0]?.setValue("Neutral");
 		await expressions[1]?.setValue("Happy");
-		const firstExpression = await review.$("fieldset fieldset");
+		const firstExpression = await review.$("fieldset");
 		await firstExpression
 			.$(".//label[contains(text(), 'Kırpma X')]/input")
 			.setValue("8");

@@ -214,15 +214,21 @@ export function PortraitIdentityReviewManager({
 		}
 		setSaving(true);
 		try {
-			await client.portraitIdentityReviews.save(pending);
 			const result = await query.refetch();
 			if (result.isError || !result.data?.some((r) => r.id === pending.id)) {
-				throw new Error("Kayıt sonucu doğrulanamadı.");
+				setMessage("Kayıt sonucu doğrulanamadı. Kaydı yeniden kontrol edin.");
+				return;
 			}
 			setPending(null);
 			setMessage("Portre incelemesi kaydedildi.");
 		} catch (error) {
-			setMessage(getErrorMessage(error, "Portre incelemesi kaydedilemedi."));
+			setMessage(
+				getErrorMessage(
+					error,
+					"Kayıt sonucu doğrulanamadı. Kaydı yeniden kontrol edin.",
+					"query"
+				)
+			);
 		} finally {
 			setSaving(false);
 		}

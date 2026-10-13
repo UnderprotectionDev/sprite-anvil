@@ -20,6 +20,7 @@ import {
 } from "@sprite-anvil/db/schema/asset-versions";
 import { user } from "@sprite-anvil/db/schema/auth";
 import { visualWorlds } from "@sprite-anvil/db/schema/context-scopes";
+import { portraitIdentityReviews } from "@sprite-anvil/db/schema/portrait-identity-reviews";
 import { project } from "@sprite-anvil/db/schema/project";
 import { SQL } from "bun";
 import { eq } from "drizzle-orm";
@@ -309,6 +310,11 @@ test.skipIf(!databaseUrl)(
 					{ context }
 				)
 			).toEqual([]);
+			const [historicalReview] = await db
+				.select()
+				.from(portraitIdentityReviews)
+				.where(eq(portraitIdentityReviews.id, saved.id));
+			expect(historicalReview?.record).toEqual(saved);
 		} finally {
 			await connection.close();
 			await second.close();

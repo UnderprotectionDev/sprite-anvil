@@ -209,7 +209,7 @@ test("blocks unloaded and broken previews and invalid crop bounds", async () => 
 	).toBeDisabled();
 	expect(mocks.save).not.toHaveBeenCalled();
 });
-test("locks uncertain saves and reconciles with the same operation id", async () => {
+test("locks uncertain saves and confirms persistence through readback without resending", async () => {
 	mocks.list.mockResolvedValue([]);
 	mocks.save.mockRejectedValueOnce(new TypeError("Failed to fetch"));
 	mount();
@@ -231,7 +231,7 @@ test("locks uncertain saves and reconciles with the same operation id", async ()
 		screen.getByRole("button", { name: "Kaydı yeniden kontrol et" })
 	);
 	await screen.findByText("Portre incelemesi kaydedildi.");
-	expect(mocks.save.mock.calls[1][0]).toEqual(request);
+	expect(mocks.save).toHaveBeenCalledOnce();
 });
 
 test("revokes save eligibility when a previously loaded preview fails", async () => {
@@ -248,4 +248,30 @@ test("revokes save eligibility when a previously loaded preview fails", async ()
 	expect(
 		screen.getByRole("button", { name: "Portre incelemesini kaydet" })
 	).toBeDisabled();
+});
+
+test("keeps an unconfirmed write locked when readback still cannot find it", async () => {
+	mocks.list.mockResolvedValue([]);
+	mocks.save.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+	mount();
+	await waitFor(() => expect(mocks.list).toHaveBeenCalled());
+	fill();
+	const save = screen.getByRole("button", {
+		name: "Portre incelemesini kaydet",
+	});
+	await waitFor(() => expect(save).toBeEnabled());
+	fireEvent.click(save);
+	const check = await screen.findByRole("button", {
+		name: "Kaydı yeniden kontrol et",
+	});
+	const readsBeforeCheck = mocks.list.mock.calls.length;
+	fireEvent.click(check);
+	await waitFor(() =>
+		expect(mocks.list.mock.calls.length).toBeGreaterThan(readsBeforeCheck)
+	);
+	await screen.findByText(
+		"Kayıt sonucu doğrulanamadı. Kaydı yeniden kontrol edin."
+	);
+	expect(mocks.save).toHaveBeenCalledOnce();
+	expect(save).toBeDisabled();
 });
