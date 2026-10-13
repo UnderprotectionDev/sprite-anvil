@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { spawn } from "bun";
 import type { AppliedMigration, LocalMigration } from "./migration-policy";
 import { MigrationSafetyError } from "./migration-safety-error";
@@ -6,6 +8,19 @@ import { MigrationSafetyError } from "./migration-safety-error";
 const migrationNamePattern = /^\d{14}_[a-z0-9][a-z0-9_-]*$/;
 const migrationHashPattern = /^[a-f0-9]{64}$/;
 const pullReferencePattern = /^refs\/remotes\/origin\/pull\/([1-9]\d*)$/;
+const commitHashPattern = /^[a-f0-9]{40,64}$/;
+
+export async function refreshMigrationReferences(
+	directory: string
+): Promise<void> {
+	await runGit(directory, [
+		"fetch",
+		"--no-tags",
+		"origin",
+		"+refs/heads/main:refs/remotes/origin/main",
+		"+refs/pull/*/head:refs/remotes/origin/pull/*",
+	]);
+}
 
 async function trustedReferences(directory: string): Promise<string[]> {
 	const references = (
@@ -83,7 +98,11 @@ async function migrationCandidates(
 		await runGit(directory, [
 			"log",
 			...trusted,
-			"--diff-filter=A",
+			"--full-history",
+			"--diff-merges=separate",
+			"--no-patch",
+			"--no-renames",
+			"--diff-filter=AM",
 			"--format=%H",
 			"--",
 			`${path}/migration.sql`,
@@ -93,10 +112,89 @@ async function migrationCandidates(
 		.filter(Boolean);
 }
 
+async function hasOwningSchemaHistory(
+	directory: string,
+	commit: string,
+	path: string
+): Promise<boolean> {
+	const currentFiles = (
+		await runGit(directory, [
+			"show",
+			"--diff-merges=separate",
+			"--format=",
+			"--name-only",
+			commit,
+		])
+	).split("\n");
+	if (currentFiles.some((file) => file.startsWith("packages/db/src/schema/"))) {
+		return true;
+	}
+	// Follow this SQL file's history, including byte-preserving renames. An
+	// unrelated schema commit elsewhere in the repository is not ownership.
+	const history = await runGit(directory, [
+		"log",
+		"--follow",
+		"--find-renames=100%",
+		"--format=%H",
+		"--name-status",
+		commit,
+		"--",
+		`${path}/migration.sql`,
+	]);
+	let ancestor = "";
+	for (const line of history.split("\n")) {
+		if (commitHashPattern.test(line)) {
+			ancestor = line;
+			continue;
+		}
+		if (!(ancestor && line)) {
+			continue;
+		}
+		const [status, ...paths] = line.split("\t");
+		if (status?.startsWith("C")) {
+			return false;
+		}
+		const sqlPath = paths.at(-1);
+		if (!sqlPath?.endsWith("/migration.sql")) {
+			continue;
+		}
+		const [subject = "", ...files] = (
+			await runGit(directory, [
+				"show",
+				"--diff-merges=separate",
+				"--format=%s",
+				"--name-only",
+				ancestor,
+			])
+		).split("\n");
+		if (
+			!subject.startsWith("checkpoint:") &&
+			files.some((file) => file.startsWith("packages/db/src/schema/"))
+		) {
+			try {
+				await runGit(directory, [
+					"cat-file",
+					"-e",
+					`${ancestor}:${sqlPath.slice(0, -"migration.sql".length)}snapshot.json`,
+				]);
+				return true;
+			} catch {
+				// A SQL-only ancestor cannot establish the owning source.
+			}
+		}
+		// Do not cross an unrelated earlier incarnation of a deleted/readded file.
+		if (status === "A" || status === "D") {
+			return false;
+		}
+	}
+	return false;
+}
+
 export async function findMissingMigrations(
 	directory: string,
 	local: LocalMigration[],
-	applied: AppliedMigration[]
+	applied: AppliedMigration[],
+	options: { refresh?: boolean } = {}
 ): Promise<MissingMigration[]> {
 	const absent = applied.filter(
 		(row) =>
@@ -109,6 +207,9 @@ export async function findMissingMigrations(
 	);
 	if (absent.length === 0) {
 		return [];
+	}
+	if (options.refresh) {
+		await refreshMigrationReferences(directory);
 	}
 	const result: MissingMigration[] = [];
 	const trusted = await trustedReferences(directory);
@@ -153,10 +254,7 @@ export async function findMissingMigrations(
 			} catch {
 				continue;
 			}
-			const files = (
-				await runGit(directory, ["show", "--format=", "--name-only", commit])
-			).split("\n");
-			if (!files.some((file) => file.startsWith("packages/db/src/schema/"))) {
+			if (!(await hasOwningSchemaHistory(directory, commit, path))) {
 				continue;
 			}
 			entry.commit = commit;
@@ -230,6 +328,103 @@ function assertSearchableMigration(row: AppliedMigration): void {
 	) {
 		throw new MigrationSafetyError(
 			"Shared migration has an invalid name or hash; preserve the database and inspect it securely."
+		);
+	}
+}
+
+/** Require the exact committed source to be discoverable before shared DDL. */
+export async function assertPublishedMigrationSources(
+	directory: string,
+	pending: LocalMigration[]
+): Promise<void> {
+	if (pending.length === 0) {
+		return;
+	}
+	if ((await runGit(directory, ["status", "--porcelain"])).length > 0) {
+		throw new MigrationSafetyError(
+			"Pending migrations require a clean, published owning implementation. The workspace has uncommitted changes; commit and publish code, schema, SQL and snapshots through an origin PR before db:prepare."
+		);
+	}
+	await refreshMigrationReferences(directory);
+	const head = await runGit(directory, ["rev-parse", "HEAD"]);
+	const trusted = await trustedReferences(directory);
+	// origin/main is also checked remotely here; cached main alone cannot authorize new writes.
+	const remoteMain = await runGit(directory, [
+		"ls-remote",
+		"origin",
+		"refs/heads/main",
+	]);
+	const containing = (
+		await runGit(directory, [
+			"for-each-ref",
+			`--contains=${head}`,
+			"--format=%(refname)",
+			...trusted,
+		])
+	)
+		.split("\n")
+		.filter(Boolean);
+	const main = trusted.includes("refs/remotes/origin/main")
+		? await runGit(directory, ["rev-parse", "refs/remotes/origin/main"])
+		: undefined;
+	const published = containing.some(
+		(ref) =>
+			trusted.includes(ref) &&
+			(ref !== "refs/remotes/origin/main" || main === remoteMain.split("\t")[0])
+	);
+	if (!published) {
+		throw new MigrationSafetyError(
+			"The owning implementation HEAD is not published through current origin/main or a verified origin PR. Publish the reviewed code, schema, SQL and snapshots before db:prepare; no migration was applied."
+		);
+	}
+	const sources = await findMissingMigrations(
+		directory,
+		[],
+		pending.map((entry, index) => ({ ...entry, id: index + 1 }))
+	);
+	for (const entry of sources) {
+		if (!entry.commit) {
+			throw new MigrationSafetyError(
+				`Pending migration ${entry.name} has no verified published owning schema/SQL/snapshot commit. No migration was applied.`
+			);
+		}
+		const path = `packages/db/src/migrations/${entry.name}`;
+		for (const file of ["migration.sql", "snapshot.json"]) {
+			const child = spawn(["git", "show", `${head}:${path}/${file}`], {
+				cwd: directory,
+				stdout: "pipe",
+				stderr: "pipe",
+			});
+			const [bytes, code] = await Promise.all([
+				new Response(child.stdout).arrayBuffer(),
+				child.exited,
+				new Response(child.stderr).text(),
+			]);
+			if (
+				code !== 0 ||
+				!readFileSync(join(directory, path, file)).equals(Buffer.from(bytes))
+			) {
+				throw new MigrationSafetyError(
+					`Pending migration ${entry.name} differs from its published source. Revalidate and publish before db:prepare; no migration was applied.`
+				);
+			}
+			if (
+				file === "migration.sql" &&
+				createHash("sha256").update(new Uint8Array(bytes)).digest("hex") !==
+					entry.hash
+			) {
+				throw new MigrationSafetyError(
+					`Pending migration ${entry.name} SQL hash differs from the verified plan. No migration was applied.`
+				);
+			}
+		}
+	}
+	if (
+		(await runGit(directory, ["rev-parse", "HEAD"])) !== head ||
+		(await runGit(directory, ["status", "--porcelain"])).length > 0
+	) {
+		throw new MigrationSafetyError(
+			"Owning source changed during publication verification. Retry db:prepare; no migration was applied."
 		);
 	}
 }

@@ -8,7 +8,6 @@ import { assertMigrationHistory } from "./migration-policy";
 import {
 	findMissingMigrations,
 	reconcileMigrationSources,
-	runGit,
 } from "./migration-reconciliation";
 import { MigrationSafetyError } from "./migration-safety-error";
 
@@ -56,25 +55,18 @@ async function run() {
 		process.exitCode = await child.exited;
 		return;
 	}
-	if (mode === "sync" && !process.argv.includes("--check")) {
-		await runGit(repositoryDirectory, ["fetch", "origin"]);
-		await runGit(repositoryDirectory, [
-			"fetch",
-			"origin",
-			"+refs/pull/*/head:refs/remotes/origin/pull/*",
-		]);
-	}
 	const missing = await findMissingMigrations(
 		repositoryDirectory,
 		local,
-		applied.applied
+		applied.applied,
+		{ refresh: true }
 	);
 	console.info(
 		`${target.name}: shared database ${applied.applied.length} migrations; workspace ${local.length}. Read-only database inspection.`
 	);
 	for (const entry of missing) {
 		console.info(
-			`${entry.name}\n  hash: ${entry.hash}\n  source: ${entry.commit ?? "unresolved"} ${entry.subject ?? ""}\n  refs: ${entry.references?.join(", ") || "none"}`
+			`${entry.name}\n  hash: ${entry.hash}\n  source: ${entry.commit ?? "unresolved after origin refresh"} ${entry.subject ?? ""}\n  refs: ${entry.references?.join(", ") || "none"}`
 		);
 	}
 	const pending = local.filter(
@@ -101,7 +93,7 @@ async function run() {
 		);
 	} else if (missing.length) {
 		console.info(
-			"Run bun run db:sync from a clean workspace to merge the verified owning commits. Unknown sources and real history conflicts remain blockers."
+			"Origin main and PR heads were refreshed. Run bun run db:sync from a clean workspace to merge verified owning commits. Unresolved sources may be unpublished or fail provenance checks; do not infer publication status from missing cached refs. Unknown sources and real history conflicts remain blockers."
 		);
 	} else {
 		console.info(

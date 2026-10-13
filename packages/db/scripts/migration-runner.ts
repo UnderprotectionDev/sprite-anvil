@@ -11,8 +11,9 @@ import {
 	selectDevelopmentTargets,
 } from "./development-targets";
 import { runDrizzle } from "./drizzle-command";
-import { sourceOptions } from "./migration-options";
+import { repositoryDirectory, sourceOptions } from "./migration-options";
 import { selectVerifiedDatabaseTarget } from "./migration-policy";
+import { assertPublishedMigrationSources } from "./migration-reconciliation";
 import { MigrationSafetyError } from "./migration-safety-error";
 import {
 	readValidatedSource,
@@ -78,7 +79,14 @@ async function run(): Promise<void> {
 					},
 				]
 			: selectDevelopmentTargets(process.env);
-	const results = await prepareTargets(source, targets);
+	const results = await prepareTargets(
+		source,
+		targets,
+		mode === "deploy"
+			? undefined
+			: (pending) =>
+					assertPublishedMigrationSources(repositoryDirectory, pending)
+	);
 	for (const result of results) {
 		console.info(
 			result.status === "ready"
