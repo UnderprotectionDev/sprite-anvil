@@ -45,6 +45,7 @@ English terms are the canonical technical names used in code and contracts. Turk
 | Review Event | İnceleme Kaydı |
 | Directional Review | Kimlik ve Yön Tutarlılığı İncelemesi |
 | Animation Timing and Transition Review | Animasyon Zamanlamasını ve Geçişlerini İnceleme |
+| Marketing Usage Review | Tanıtım Kullanımı İncelemesi |
 | Icon Family Review | İkon Ailesi İncelemesi |
 | Tileset Adjacency Review | Karo Komşuluğu İncelemesi |
 | Background Layer Layout | Arka Plan Katman Düzeni |
@@ -282,6 +283,11 @@ _Avoid_: Review Event, automatic artistic verdict, approval
 An immutable user-authored comparison of ordered animation frames from exact Asset Versions in one Asset Family, under a pinned Specialized Profile Contract. It retains each frame's independent duration and optional movement phase, the playback speed and loop setting, and the user's outcome and rationale. It does not make an automatic judgment about motion or identity; ground and loop differences remain subject to profile rules.
 _Avoid_: fixed frame rate, mandatory phase template, automatic motion verdict, approval
 
+**Marketing Usage Review**:
+An immutable user-authored usage-context assessment of exact logo, opening, store, or marketing Asset Versions in one Asset Family under a pinned Specialized Profile Contract. It retains source dimensions, display size, source-image crop and safe area, transparent or opaque presentation, flattening color, separate light/dark observations, and the family's Visual World and optional exact Canonical Design link. Portrait expression evidence remains separate; marketing sizes do not inherit gameplay pixel-scale rules. Its JSON evidence package retains these purposes and pins but is not a delivery Export Bundle or a restorable Project Archive. It neither changes Review Disposition nor establishes QA Readiness.
+
+_Avoid_: portrait review (for logo evidence), automatic readability approval, export bundle (for the evidence JSON alone).
+
 **Icon Family Review**:
 An immutable user-authored assessment of exact icon Asset Versions in one Asset Family under a pinned icon Specialized Profile Contract. It records usage variants, logical sizes, light and dark background checks, grayscale comparison, and observations about object scale, lighting direction, outline, detail density, and whether a state or rarity color preserves identity. Its outcome does not change Review Disposition or create a project-wide art rule.
 _Avoid_: Review Event, similarity score, automatic artistic verdict, global style rule
@@ -289,6 +295,10 @@ _Avoid_: Review Event, similarity score, automatic artistic verdict, global styl
 **Tileset Adjacency Review**:
 An immutable user-authored assessment of seven paintable tile-placement scenarios from exact Unit Versions in one Composite Version and Asset Family under a pinned Specialized Profile Contract. It retains atlas regions, optional terrain identities, declared edge connectors, map arrangements, observations, localized tile or connection issues, and separate deterministic connector results. New passing evidence must represent the named scenario; a failed result identifies an affected tile or connection. Historical records retain their original evidence contract version and outcome. The record neither changes Review Disposition nor establishes QA Readiness or Export Ready status; connector-label checks do not prove exact pixel-edge matching or visual quality. It excludes seamless-texture repetition tests and full Export Bundle contents.
 _Avoid_: Review Event, automatic artistic verdict, level editor, exact pixel-edge proof
+
+**UI State Comparison** (Arayüz Durum Karşılaştırması):
+An immutable user-authored comparison linking one exact UI screen Asset Version to component identities and their normal, hover, pressed, disabled, selected, open or closed states in one Asset Family. It pins the Specialized Profile Contract, image regions, exact Asset Versions and any selected state Unit Versions, and retains human observations about family style and state distinction. It does not establish QA Readiness, change Review Disposition, or generate gameplay interaction code.
+_Avoid_: Automatic UI approval, interaction implementation, full Export Bundle
 
 **Background Layer Layout**:
 An immutable user-authored setup of exact background Asset Versions in one Asset Family and its Visual World, under a pinned Specialized Profile Contract. Each layer retains its identity, back-to-front order, verified Source Image Dimensions, target aspect ratio, crop, and player safe area. Geometry uses source-image pixels from the top-left corner. Saving the setup does not provide scrolling-test or completion evidence.

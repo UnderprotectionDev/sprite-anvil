@@ -25,6 +25,7 @@ import { createIconFamilyReviewStore } from "./features/icon-profile/server/icon
 import { createImportInboxStore } from "./features/imports/server/import-inbox-store";
 import { createSourceMetadataMappingProposalStore } from "./features/imports/server/source-metadata-mapping-store";
 import { createAssetFamilyComparisonStore } from "./features/object-equipment-profile/server/asset-family-comparison-store";
+import { createMarketingUsageReviewStore } from "./features/portrait-marketing-profile/server/marketing-usage-review-store";
 import { createPortraitIdentityReviewStore } from "./features/portrait-marketing-profile/server/portrait-identity-review-store";
 import { createManagedSnapshotStore } from "./features/production-provenance/server/managed-snapshot-store";
 import { createProjectContextStore } from "./features/project-context/server/project-context-store";
@@ -35,6 +36,7 @@ import { createReferenceProductionStore } from "./features/reference-production/
 import { createRightsRecordStore } from "./features/rights-evidence/server/rights-record-store";
 import { createTextureRepetitionReviewStore } from "./features/tileset-texture-profile/server/texture-repetition-review-store";
 import { createTilesetAdjacencyReviewStore } from "./features/tileset-texture-profile/server/tileset-adjacency-review-store";
+import { createUiStateComparisonStore } from "./features/ui-profile/server/ui-state-comparison-store";
 import { createVfxAppearanceReviewStore } from "./features/vfx-profile/server/vfx-appearance-review-store";
 import { createVfxSynchronizationStore } from "./features/vfx-profile/server/vfx-synchronization-store";
 import { createProjectContextScopeStore } from "./features/visual-worlds/server/project-context-scope-store";
@@ -71,6 +73,7 @@ export const uiStretchTestStore = createUiStretchTestStore(db);
 export const backgroundLayerLayoutStore = createBackgroundLayerLayoutStore(db);
 export const portraitIdentityReviewStore =
 	createPortraitIdentityReviewStore(db);
+export const uiStateComparisonStore = createUiStateComparisonStore(db);
 export const iconFamilyReviewStore = createIconFamilyReviewStore(db);
 export const gameplayMetadataStore = createGameplayMetadataStore(db);
 export const assetFamilyStore = createAssetFamilyStore(db);
@@ -111,3 +114,5 @@ export const auth = createAuth(ENV, db, desktopOrigins);
 
 export const backgroundScrollingTestStore =
 	createBackgroundScrollingTestStore(db);
+
+export const marketingUsageReviewStore = createMarketingUsageReviewStore(db);

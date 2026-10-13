@@ -21,6 +21,7 @@ import type {
 import type { GameplayMetadataPackageTargetReader } from "./gameplay-metadata-package";
 import type { GenerationPackageStore } from "./generation-packages";
 import type { IconFamilyReviewStore } from "./icon-family-reviews";
+import type { MarketingUsageReviewStore } from "./marketing-usage-reviews";
 import type { PortraitIdentityReviewStore } from "./portrait-identity-reviews";
 import type { ProjectAccessStore } from "./project-access-store";
 import type { ProjectContextStore } from "./project-context";
@@ -34,6 +35,7 @@ import type {
 	TextureRepetitionReviewStore,
 } from "./texture-repetition-reviews";
 import type { TilesetAdjacencyReviewStore } from "./tileset-adjacency-reviews";
+import type { UiStateComparisonStore } from "./ui-state-comparisons";
 import type { UiStretchTestStore } from "./ui-stretch-tests";
 import type {
 	VfxAppearanceFrame,
@@ -64,6 +66,7 @@ export interface Context {
 	gameplayMetadataStore?: GameplayMetadataStore;
 	generationPackageStore?: GenerationPackageStore;
 	iconFamilyReviewStore?: IconFamilyReviewStore;
+	marketingUsageReviewStore?: MarketingUsageReviewStore;
 	portraitIdentityReviewStore?: PortraitIdentityReviewStore;
 	projectAccess: ProjectAccessStore;
 	projectContextScopeStore: ProjectContextScopeStore;
@@ -83,6 +86,7 @@ export interface Context {
 	specializedProfileContractStore?: SpecializedProfileContractStore;
 	textureRepetitionReviewStore?: TextureRepetitionReviewStore;
 	tilesetAdjacencyReviewStore?: TilesetAdjacencyReviewStore;
+	uiStateComparisonStore?: UiStateComparisonStore;
 	uiStretchTestStore?: UiStretchTestStore;
 	verifyAssetVersionContent?: (
 		userId: string,
