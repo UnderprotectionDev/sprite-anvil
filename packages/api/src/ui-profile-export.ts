@@ -1,3 +1,4 @@
+import { JSON_SCHEMA_REGISTRY } from "@orpc/zod/zod4";
 import { z } from "zod";
 import {
 	type UiStretchTestRecord,
@@ -46,6 +47,41 @@ export function makeUiProfileManifest(input: UiStretchTestRecord) {
 	};
 }
 
+// State identities are arbitrary own keys, including __proto__. Zod records
+// strip that key; validate values without rebuilding the mapping instead.
+function stateGeometryMapping<
+	Shape extends z.ZodObject<Record<string, z.ZodNumber>>,
+>(valueSchema: Shape) {
+	const keys = Object.keys(valueSchema.shape);
+	return z
+		.custom<Record<string, z.output<Shape>>>(
+			(value) =>
+				value !== null && typeof value === "object" && !Array.isArray(value),
+			"State geometry must be an object keyed by state identity."
+		)
+		.superRefine((mapping, ctx) => {
+			for (const [stateId, value] of Object.entries(mapping)) {
+				const parsed = valueSchema.safeParse(value);
+				if (!parsed.success) {
+					for (const issue of parsed.error.issues) {
+						ctx.addIssue({ ...issue, path: [stateId, ...issue.path] });
+					}
+				}
+			}
+		})
+		.register(JSON_SCHEMA_REGISTRY, {
+			type: "object",
+			additionalProperties: {
+				type: "object",
+				properties: Object.fromEntries(
+					keys.map((key) => [key, { type: "number" as const }])
+				),
+				required: keys,
+				additionalProperties: false,
+			},
+		});
+}
+
 const manifestBaseSchema = z
 	.object({
 		contract_version: z.literal("ui-stretch-test/1.0.0"),
@@ -69,12 +105,10 @@ const manifestBaseSchema = z
 									})
 									.strict()
 							),
-							natural_size: z.record(
-								z.string(),
+							natural_size: stateGeometryMapping(
 								z.object({ width: z.number(), height: z.number() }).strict()
 							),
-							stretch_margins: z.record(
-								z.string(),
+							stretch_margins: stateGeometryMapping(
 								z
 									.object({
 										left: z.number(),
@@ -84,8 +118,7 @@ const manifestBaseSchema = z
 									})
 									.strict()
 							),
-							text_safe_area: z.record(
-								z.string(),
+							text_safe_area: stateGeometryMapping(
 								z
 									.object({
 										x: z.number(),
@@ -116,9 +149,7 @@ export const uiProfileManifestSchema = manifestBaseSchema.superRefine(
 	(manifest, ctx) => {
 		if (
 			serializeMapping(manifest) !==
-			serializeMapping(
-				manifestBaseSchema.parse(makeUiProfileManifest(manifest.evidence))
-			)
+			serializeMapping(makeUiProfileManifest(manifest.evidence))
 		) {
 			ctx.addIssue({
 				code: "custom",

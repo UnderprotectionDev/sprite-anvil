@@ -1,11 +1,13 @@
 import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
+import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import type { Context } from "@sprite-anvil/api/context";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { getSpecializedProfileContract } from "@sprite-anvil/api/specialized-profile-contracts";
 import {
 	makeUiProfileManifest,
 	readUiProfileManifest,
+	uiProfileManifestSchema,
 } from "@sprite-anvil/api/ui-profile-export";
 import type { UiStretchTestInput } from "@sprite-anvil/api/ui-stretch-tests";
 import type { Database } from "@sprite-anvil/db";
@@ -243,6 +245,71 @@ test.skipIf(!url)(
 			}
 			pressedMargins.left = 8;
 			expect(() => readUiProfileManifest(JSON.stringify(tampered))).toThrow();
+			const specialStateIds = ["__proto__", "constructor", "toString"] as const;
+			const specialStates = await call(
+				appRouter.uiStretchTests.save,
+				{
+					...input,
+					id: crypto.randomUUID(),
+					states: specialStateIds.map((stateId) => ({
+						...normalState,
+						stateId,
+					})),
+					observations: [],
+				},
+				{ context }
+			);
+			const specialManifest = await call(
+				appRouter.uiStretchTests.export,
+				{ projectId, assetFamilyId: familyId, id: specialStates.id },
+				{ context: reread }
+			);
+			expect(readUiProfileManifest(JSON.stringify(specialManifest))).toEqual(
+				makeUiProfileManifest(specialStates)
+			);
+			const [component] = specialManifest.ui.components;
+			if (!component) {
+				throw new Error("Missing special state component");
+			}
+			for (const stateId of specialStateIds) {
+				expect(Object.hasOwn(component.natural_size, stateId)).toBe(true);
+				expect(component.natural_size[stateId]).toEqual(
+					normalState.naturalSize
+				);
+				expect(component.stretch_margins[stateId]).toEqual(
+					normalState.stretchMargins
+				);
+				expect(component.text_safe_area[stateId]).toEqual(
+					normalState.textSafeArea
+				);
+			}
+			for (const field of [
+				"natural_size",
+				"stretch_margins",
+				"text_safe_area",
+			] as const) {
+				const missing = structuredClone(specialManifest);
+				const [missingComponent] = missing.ui.components;
+				if (!missingComponent) {
+					throw new Error("Missing special state component");
+				}
+				Reflect.deleteProperty(missingComponent[field], "__proto__");
+				expect(() => readUiProfileManifest(JSON.stringify(missing))).toThrow();
+			}
+			const invalidGeometry = structuredClone(specialManifest);
+			const invalidSize =
+				invalidGeometry.ui.components[0]?.natural_size[specialStateIds[0]];
+			if (!invalidSize) {
+				throw new Error("Missing special state geometry");
+			}
+			invalidSize.width = 33;
+			expect(() =>
+				readUiProfileManifest(JSON.stringify(invalidGeometry))
+			).toThrow();
+			invalidSize.width = Number.NaN;
+			expect(() =>
+				readUiProfileManifest(JSON.stringify(invalidGeometry))
+			).toThrow();
 
 			await expect(
 				call(
@@ -363,3 +430,37 @@ test.skipIf(!url)(
 		}
 	}
 );
+
+test("UI Stretch Test OpenAPI retains numeric state geometry mappings", () => {
+	const [, schema] = new ZodToJsonSchemaConverter().convert(
+		uiProfileManifestSchema,
+		{
+			strategy: "output",
+		}
+	);
+	for (const [field, keys] of [
+		["natural_size", ["width", "height"]],
+		["stretch_margins", ["left", "right", "top", "bottom"]],
+		["text_safe_area", ["x", "y", "width", "height"]],
+	] as const) {
+		const path = `properties.ui.properties.components.items.properties.${field}`;
+		expect(schema).toHaveProperty(`${path}.type`, "object");
+		expect(schema).toHaveProperty(
+			`${path}.additionalProperties.type`,
+			"object"
+		);
+		expect(schema).toHaveProperty(
+			`${path}.additionalProperties.additionalProperties`,
+			false
+		);
+		expect(schema).toHaveProperty(`${path}.additionalProperties.required`, [
+			...keys,
+		]);
+		for (const key of keys) {
+			expect(schema).toHaveProperty(
+				`${path}.additionalProperties.properties.${key}.type`,
+				"number"
+			);
+		}
+	}
+});
