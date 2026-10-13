@@ -24,6 +24,7 @@ import {
 } from "./database-preparation";
 import { runReadyDevelopment } from "./development-command";
 import { withDisposablePostgres } from "./disposable-postgres";
+import { MigrationSafetyError } from "./migration-safety-error";
 import {
 	readValidatedSource as readSharedRuntimeSource,
 	readReplayedSource as readValidatedSource,
@@ -502,4 +503,71 @@ test.skipIf(process.env.DB_TEST_POSTGRES !== "true")(
 		}
 	},
 	30_000
+);
+
+test.skipIf(process.env.DB_TEST_POSTGRES !== "true")(
+	"publication refusal precedes shared migration writes and no-pending preparation needs no publication",
+	async () => {
+		const directory = mkdtempSync(
+			join(tmpdir(), "sprite-anvil-publication-gate-")
+		);
+		const schema = { records: pgTable("records", { id: text().primaryKey() }) };
+		const snapshot = await generateDrizzleJson(schema);
+		const migrationDirectory = join(directory, "migrations");
+		const path = join(migrationDirectory, "20261002000001_records");
+		mkdirSync(path, { recursive: true });
+		writeFileSync(join(path, "snapshot.json"), JSON.stringify(snapshot));
+		writeFileSync(
+			join(path, "migration.sql"),
+			(await generateMigration(await generateDrizzleJson({}), snapshot)).join(
+				"\n--> statement-breakpoint\n"
+			)
+		);
+		try {
+			const source = await validateSharedMigrationSource({
+				schema,
+				migrationDirectory,
+				proofPath: join(directory, "proof.json"),
+			});
+			await withDisposablePostgres(async ({ url }) => {
+				const target = { name: "application", url };
+				let calls = 0;
+				const refused = await prepareTargets(source, [target], (pending) => {
+					calls += 1;
+					expect(pending.map((entry) => entry.name)).toEqual([
+						"20261002000001_records",
+					]);
+					throw new MigrationSafetyError("Owning source is unpublished");
+				});
+				expect(refused).toEqual([
+					{
+						name: "application",
+						status: "failed",
+						reason: "Owning source is unpublished",
+					},
+				]);
+				const database = new SQL(url);
+				try {
+					const [state] =
+						await database`SELECT to_regclass('public.records') AS records, to_regclass('drizzle.__drizzle_migrations') AS history`;
+					expect(state).toEqual({ records: null, history: null });
+				} finally {
+					await database.close();
+				}
+				expect(
+					await prepareTargets(source, [target], () => {
+						calls += 1;
+					})
+				).toEqual([{ name: "application", status: "ready", applied: 1 }]);
+				expect(
+					await prepareTargets(source, [target], () => {
+						throw new Error("No pending migration may call publication");
+					})
+				).toEqual([{ name: "application", status: "ready", applied: 0 }]);
+				expect(calls).toBe(2);
+			});
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	}
 );

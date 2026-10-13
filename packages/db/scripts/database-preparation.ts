@@ -162,7 +162,8 @@ export type PreparationResult =
 
 export async function prepareTargets(
 	source: ValidatedSource,
-	targets: DevelopmentTarget[]
+	targets: DevelopmentTarget[],
+	beforeApply?: (pending: ValidatedSource["migrations"]) => void | Promise<void>
 ): Promise<PreparationResult[]> {
 	const results: PreparationResult[] = [];
 	for (const target of targets) {
@@ -179,6 +180,10 @@ export async function prepareTargets(
 			lease = await acquireLease(target, false);
 			const pending = await inspectTarget(source, lease.connection, false);
 			if (pending > 0) {
+				await beforeApply?.(source.migrations.slice(-pending));
+				await source.assertUnchanged();
+				await source.assertUnchanged(migrationDirectory);
+				await lease.assertHeld();
 				const configPath = join(directory, "drizzle.config.ts");
 				writeFileSync(
 					configPath,
