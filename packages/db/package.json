@@ -25,6 +25,7 @@
     "test:e2e:asset-family-comparison": "bun scripts/directional-review-e2e.ts --asset-family-comparison",
     "test:e2e:background-layout": "bun scripts/background-layer-layout-e2e.ts",
     "test:e2e:directional": "bun scripts/directional-review-e2e.ts",
+    "test:e2e:marketing-usage": "bun scripts/marketing-usage-e2e.ts",
     "test:e2e:texture-repetition": "bun scripts/texture-repetition-e2e.ts",
     "test:e2e:ui-stretch": "bun scripts/ui-stretch-test-e2e.ts",
     "test:tileset-adjacency": "bun scripts/tileset-adjacency-integration.ts"
