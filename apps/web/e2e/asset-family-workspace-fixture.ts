@@ -182,6 +182,7 @@ export async function prepareAssetFamilyWorkspace(
 			"Obje, silah, ekipman ve durum",
 		"Karakterler, yaratıklar ve animasyonlar": "Karakter, yaratık ve animasyon",
 		"Arka planlar ve katmanlı kaydırma": "Arka plan ve katmanlı kaydırma",
+		"Arayüz ekranları ve bileşenleri": "Arayüz ekranı ve bileşeni",
 	};
 	const contractName = contractNames[fixture.categoryLabel];
 	if (!contractName) {
