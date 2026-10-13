@@ -6,6 +6,7 @@ const projectLinks = [
 	{ to: "/projects/$projectId/assets", label: "Varlık kayıtları" },
 	{ to: "/projects/$projectId/collections", label: "Koleksiyonlar" },
 	{ to: "/projects/$projectId/asset-families", label: "Varlık Aileleri" },
+	{ to: "/projects/$projectId/scene-qa", label: "Sahne Kalite Kontrol Alanı" },
 	{ to: "/projects/$projectId/import-inbox", label: "İçe aktarma" },
 	{
 		to: "/projects/$projectId/profile-contracts",

@@ -26,6 +26,7 @@ import type { ProjectContextStore } from "./project-context";
 import type { ProviderGenerationRecordStore } from "./provider-generation-records";
 import type { ReferenceProductionStore } from "./reference-production";
 import type { RightsRecordStore } from "./rights-records";
+import type { SceneQaStore } from "./scene-qa";
 import type { SpecializedProfileContractStore } from "./specialized-profile-contracts";
 import type {
 	TextureAtlasRegion,
@@ -77,6 +78,7 @@ export interface Context {
 	referenceProductionStore?: ReferenceProductionStore;
 	reviewGameplayMetadata?: GameplayMetadataReviewHandler;
 	rightsRecordStore?: RightsRecordStore;
+	sceneQaStore?: SceneQaStore;
 	session: Session | null;
 	specializedProfileContractStore?: SpecializedProfileContractStore;
 	textureRepetitionReviewStore?: TextureRepetitionReviewStore;

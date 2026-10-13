@@ -45,6 +45,7 @@ import { iconFamilyReviewsRouter } from "./icon-family-reviews";
 import { projectsRouter } from "./projects";
 import { referenceProductionRouter } from "./reference-production";
 import { rightsRecordsRouter } from "./rights-records";
+import { sceneQaRouter } from "./scene-qa";
 import { specializedProfileContractsRouter } from "./specialized-profile-contracts";
 import { tilesetAdjacencyReviewsRouter } from "./tileset-adjacency-reviews";
 import { vfxAppearanceReviewsRouter } from "./vfx-appearance-reviews";
@@ -108,6 +109,7 @@ async function readContextProposalReview(
 import { textureRepetitionReviewsRouter } from "./texture-repetition-reviews";
 
 export const appRouter = {
+	sceneQa: sceneQaRouter,
 	textureRepetitionReviews: textureRepetitionReviewsRouter,
 	tilesetAdjacencyReviews: tilesetAdjacencyReviewsRouter,
 	healthCheck: publicProcedure.handler(() => serializeRpcHealthResponse()),

@@ -32,6 +32,7 @@ import { createProviderGenerationRecordStore } from "./features/provider-generat
 import { createSpecializedProfileContractStore } from "./features/quality-evidence/server/specialized-profile-contract-store";
 import { createReferenceProductionStore } from "./features/reference-production/server/reference-production-store";
 import { createRightsRecordStore } from "./features/rights-evidence/server/rights-record-store";
+import { createSceneQaStore } from "./features/scene-qa-playground/server/scene-qa-store";
 import { createTextureRepetitionReviewStore } from "./features/tileset-texture-profile/server/texture-repetition-review-store";
 import { createTilesetAdjacencyReviewStore } from "./features/tileset-texture-profile/server/tileset-adjacency-review-store";
 import { createVfxAppearanceReviewStore } from "./features/vfx-profile/server/vfx-appearance-review-store";
@@ -105,3 +106,5 @@ export const auth = createAuth(ENV, db, desktopOrigins);
 
 export const backgroundScrollingTestStore =
 	createBackgroundScrollingTestStore(db);
+
+export const sceneQaStore = createSceneQaStore(db);

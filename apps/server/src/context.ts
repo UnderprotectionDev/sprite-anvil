@@ -33,6 +33,7 @@ import {
 	providerGenerationRecordStore,
 	referenceProductionStore,
 	rightsRecordStore,
+	sceneQaStore,
 	specializedProfileContractStore,
 	textureRepetitionReviewStore,
 	tilesetAdjacencyReviewStore,
@@ -51,6 +52,7 @@ export async function createContext({
 		headers: context.req.raw.headers,
 	});
 	return {
+		sceneQaStore,
 		vfxSynchronizationStore,
 		readVfxImageDimensions,
 		assetFamilyStore,
