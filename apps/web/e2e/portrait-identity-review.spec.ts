@@ -1,3 +1,4 @@
+import { writeFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
 import {
 	activateFamilyProfile,
@@ -9,17 +10,19 @@ test("reviews portrait expressions in dialogue and rereads exact crop and user j
 	page,
 }) => {
 	test.skip(
-		!process.env.CONTEXT_TEST_DATABASE_URL,
+		!process.env.CONTEXT_TEST_DATABASE_URL &&
+			process.env.PORTRAIT_REVIEW_LIVE !== "true",
 		"Requires disposable PostgreSQL"
 	);
 	test.setTimeout(180_000);
 	page.setDefaultTimeout(15_000);
+	const email = `portrait-${crypto.randomUUID()}@example.test`;
 	const { familyUrl } = await prepareAssetFamilyWorkspace(
 		page,
 		{
 			...assetFamilyWorkspaceFixture,
 			userName: "Portrait Reviewer",
-			email: `portrait-${crypto.randomUUID()}@example.test`,
+			email,
 			projectName: "Hero Portrait Review",
 			identityName: "Hero",
 			familyName: "Hero portraits",
@@ -130,6 +133,17 @@ test("reviews portrait expressions in dialogue and rereads exact crop and user j
 		review.getByText("Portre incelemesi kaydedildi.", { exact: true })
 	).toBeVisible();
 	await review.screenshot({ path: "../../.context/portrait-review.png" });
+	if (process.env.PORTRAIT_REVIEW_RESULT_PATH) {
+		await writeFile(
+			process.env.PORTRAIT_REVIEW_RESULT_PATH,
+			JSON.stringify({
+				email,
+				password: assetFamilyWorkspaceFixture.password,
+				familyPath: new URL(familyUrl).pathname,
+			}),
+			{ mode: 0o600 }
+		);
+	}
 	await page.reload();
 	await page
 		.getByRole("button", { name: "Profil incelemeleri", exact: true })
