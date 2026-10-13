@@ -22,6 +22,7 @@ export * from "./historical-compositions";
 export * from "./icon-family-reviews";
 export * from "./import-inbox";
 export * from "./marketing-usage-reviews";
+export * from "./portrait-identity-reviews";
 export * from "./project";
 export * from "./project-access";
 export * from "./project-context";

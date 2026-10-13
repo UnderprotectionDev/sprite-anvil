@@ -15,6 +15,7 @@ import { FamilyReadinessManager } from "@/features/family-readiness/ui/component
 import { IconFamilyReviewSections } from "@/features/icon-profile/ui/components/icon-family-review-sections";
 import { AssetFamilyComparisonSections } from "@/features/object-equipment-profile/ui/components/asset-family-comparison-sections";
 import { MarketingUsageReviewSections } from "@/features/portrait-marketing-profile/ui/components/marketing-usage-review-sections";
+import { PortraitIdentityReviewSections } from "@/features/portrait-marketing-profile/ui/components/portrait-identity-review-manager";
 import { TextureRepetitionReviewSections } from "@/features/tileset-texture-profile/ui/components/texture-repetition-review-sections";
 import { TilesetAdjacencyReviewSections } from "@/features/tileset-texture-profile/ui/components/tileset-adjacency-review-sections";
 import { UiStateComparisonSections } from "@/features/ui-profile/ui/components/ui-state-comparison-sections";
@@ -512,6 +513,16 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 												familyRecords={catalog.assetRecords}
 												projectId={projectId}
 												versions={assetVersionQuery.data.assetVersions}
+											/>
+											<PortraitIdentityReviewSections
+												activation={getActiveProfileContract(
+													profileContractsQuery.data,
+													"portrait_logo_marketing"
+												)}
+												assetRecords={assetRecords}
+												families={reviewFamilies}
+												familyCatalog={catalog}
+												versionCatalog={assetVersionCatalog}
 											/>
 											<UiStateComparisonSections
 												activation={getActiveProfileContract(

@@ -7,6 +7,7 @@ const allowedDatabases = new Set([
 	"ui_state_comparison_web_test",
 	"ui_state_comparison_desktop_test",
 	"background_layer_layout_test",
+	"portrait_review_test",
 	"ui_stretch_test",
 	"directional_web_test",
 	"texture_repetition_web_test",

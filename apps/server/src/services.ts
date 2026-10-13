@@ -26,6 +26,7 @@ import { createImportInboxStore } from "./features/imports/server/import-inbox-s
 import { createSourceMetadataMappingProposalStore } from "./features/imports/server/source-metadata-mapping-store";
 import { createAssetFamilyComparisonStore } from "./features/object-equipment-profile/server/asset-family-comparison-store";
 import { createMarketingUsageReviewStore } from "./features/portrait-marketing-profile/server/marketing-usage-review-store";
+import { createPortraitIdentityReviewStore } from "./features/portrait-marketing-profile/server/portrait-identity-review-store";
 import { createManagedSnapshotStore } from "./features/production-provenance/server/managed-snapshot-store";
 import { createProjectContextStore } from "./features/project-context/server/project-context-store";
 import { createProjectAccessStore } from "./features/projects/server/project-access-store";
@@ -71,6 +72,8 @@ export const tilesetAdjacencyReviewStore =
 import { createUiStretchTestStore } from "./features/ui-profile/server/ui-stretch-test-store";
 export const uiStretchTestStore = createUiStretchTestStore(db);
 export const backgroundLayerLayoutStore = createBackgroundLayerLayoutStore(db);
+export const portraitIdentityReviewStore =
+	createPortraitIdentityReviewStore(db);
 export const uiStateComparisonStore = createUiStateComparisonStore(db);
 export const iconFamilyReviewStore = createIconFamilyReviewStore(db);
 export const gameplayMetadataStore = createGameplayMetadataStore(db);
