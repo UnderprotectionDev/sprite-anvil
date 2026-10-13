@@ -10,6 +10,11 @@ UI `apps/web/src/features/portrait-marketing-profile/ui/` altında, kalıcılık
 
 **Ortak ortam teslimi engelli.** Ortak veritabanında uygulanmış `20261013111405_rare_mattie_franklin` migration’ının doğrulanmış Git kaynağı bulunamadı. Kendi `20261013111409_broad_puma` migration’ımız uygulanmadı. `db:prepare` geçmiş uyuşmazlığı nedeniyle tamamlanamadı; `db:validate` kaynak kimliklerini/snapshot’ı doğruladıktan sonra ortak geçmiş uyuşmazlığını bildirdi; `db:ready` başarısız. Diğer migration’ın sahip kodu/şeması/SQL’i/snapshot’ı birlikte entegre edilmeden ortak DB uygulaması ve canlı veri hazırlığı yapılamaz. Uygulanmış geçmiş değiştirilmedi. Ortak ortamda hazır test hesabı veya portre kaydı oluşturulmadı.
 
+Kaynak yeniden kontrol edildi: migration’ın sahibi #134 (`feat/logo-marketing-usage-evidence`), yerel sahip commit `511f0f20e1b1899fab91a3637d73841acb8df72f` (`feat: add logo and marketing usage reviews (#134)`). Commit uygulama kodunu, `packages/db/src/schema/marketing-usage-reviews.ts`, özgün migration SQL’ini ve snapshot’ı birlikte içerir. Commit’teki SQL’in SHA-256 değeri ortak DB’deki `c565cb9eff83fc03e6f867d82c7bdf3b6241e47f24da9dae765d5eeef3573f2a` ile eşleşir. Bu yerel eşleşme güvenilir uzak kaynak koşulunu karşılamaz: güncel `origin/main`, açık PR listesi ve sahip dalın uzak ref kontrolünde yayımlanmış kaynak bulunmadı. Son `db:doctor` ve `db:sync --check` kaynağı `unresolved` bildirdi; son `db:ready` uygulanmamış portre migration’ı nedeniyle başarısız oldu.
+
+Engelin giderilmesi için #134 sahibi kod/şema/SQL/snapshot’ı içeren commit’i aynı repository’de PR olarak yayımlamalıdır. Ardından bu workspace’te temiz çalışma ağacından `bun run db:sync` ile sahip commit bütünüyle entegre edilmeli; snapshot soy çatışmaları çözüldükten sonra `bun run db:prepare`, ilgili testler ve `bun run db:ready` tamamlanmalıdır. Bu yeniden kontrolde DB uygulaması, ortak ortam veri hazırlığı veya canlı portre testi çalıştırılmadı.
+
+
 ## İnceleme
 
 ## Standards
