@@ -26,6 +26,7 @@ test("persists a Specialized Profile Contract activation through the web flow", 
 			name: `${fixture.projectName} · Özel Profil Sözleşmeleri`,
 		})
 	).toBeVisible();
+	await page.getByRole("button", { name: "İkon", exact: true }).click();
 	const iconProfile = page.getByRole("article", { name: "İkon" });
 	await iconProfile.getByText("Sözleşme ayrıntıları").click();
 	await expect(iconProfile.getByText("icon.metadata_roundtrip")).toBeVisible();
@@ -37,6 +38,7 @@ test("persists a Specialized Profile Contract activation through the web flow", 
 	).toBeVisible();
 
 	await page.reload();
+	await page.getByRole("button", { name: "İkon", exact: true }).click();
 	await expect(iconProfile.getByText("Bu projede etkin · 1.0.0")).toBeVisible();
 	await expect(
 		iconProfile.getByRole("button", { name: "Etkin" })

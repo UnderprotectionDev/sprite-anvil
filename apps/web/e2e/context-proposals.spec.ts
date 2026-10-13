@@ -18,9 +18,9 @@ test("persists a structured Project Context proposal from the web flow", async (
 		.getByLabel("Genel sanat yaklaşımı")
 		.fill(projectContextFixture.generalArtDirection);
 	await page.getByRole("button", { name: "Projeyi oluştur" }).click();
-	await expect(
-		page.getByRole("heading", { name: "Bağlam Önerisi hazırlayın" })
-	).toBeVisible();
+	await page
+		.getByRole("button", { name: "Görsel Dünyalar ve Temalar", exact: true })
+		.click();
 	await page.getByLabel("Görsel Dünya adı").fill("Sunken coast");
 	await page.getByRole("button", { name: "Görsel Dünya ekle" }).click();
 	await expect(
@@ -36,6 +36,9 @@ test("persists a structured Project Context proposal from the web flow", async (
 			.getByText("Blue lanterns", { exact: true })
 	).toBeVisible();
 
+	await page
+		.getByRole("button", { name: "Kural önerisi hazırla", exact: true })
+		.click();
 	const operation = page.locator('select[aria-label="Değişiklik 1 işlemi"]');
 	await expect(operation.locator('option[value="replace"]')).toBeDisabled();
 	await expect(operation.locator('option[value="remove"]')).toBeDisabled();
@@ -56,6 +59,9 @@ test("persists a structured Project Context proposal from the web flow", async (
 	await page.getByLabel("Kanıt").fill(projectContextFixture.evidence);
 	await page.getByRole("button", { name: "Bağlam Önerisini kaydet" }).click();
 
+	await page
+		.getByRole("button", { name: "Önerileri incele", exact: true })
+		.click();
 	const savedProposal = page.getByRole("heading", {
 		name: projectContextFixture.summary,
 	});

@@ -221,6 +221,9 @@ test("shows repeated Theme names beneath their own Visual Worlds and saves to th
 
 test("keeps each Theme rule scope attached to the selected Visual World", () => {
 	renderWorkspace();
+	fireEvent.click(
+		screen.getByRole("button", { name: "Kural önerisi hazırla" })
+	);
 
 	expect(screen.getByRole("combobox", { name: "Proje" })).toHaveValue(
 		projectId

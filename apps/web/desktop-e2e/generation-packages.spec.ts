@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { $, browser, expect } from "@wdio/globals";
 import { createAssetRecordFixture } from "../e2e/asset-record-fixture";
 import { projectContextFixture } from "../e2e/project-context-fixture";
+import { openWorkspaceTask } from "./workspace-navigation";
 
 describe("Generation Packages", () => {
 	it("blocks conflicting reference rules before pinning and rereading a resolved package in the desktop flow", async function () {
@@ -18,7 +19,7 @@ describe("Generation Packages", () => {
 		await (await $("input[name='email']")).setValue(fixture.email);
 		await (await $("input[name='password']")).setValue(fixture.password);
 		await (await $("button=Sign Up")).click();
-		await (await $("h1=Dashboard")).waitForDisplayed();
+		await (await $("h1=Oyun projeleri")).waitForDisplayed();
 
 		await (await $("a=Proje Bağlamı")).click();
 		await (await $("h2=İlk projeyi oluşturun")).waitForDisplayed();
@@ -29,7 +30,7 @@ describe("Generation Packages", () => {
 			await $('//label[span[text()="Genel sanat yaklaşımı"]]/textarea')
 		).setValue(fixture.generalArtDirection);
 		await (await $("button=Projeyi oluştur")).click();
-		await (await $("h2=Bağlam Önerisi hazırlayın")).waitForDisplayed();
+		await openWorkspaceTask("Görsel Dünyalar ve Temalar");
 		await (await $('//label[span[text()="Görsel Dünya adı"]]/input')).setValue(
 			"Sunken coast"
 		);
@@ -41,6 +42,7 @@ describe("Generation Packages", () => {
 		await (await $("button=Tema ekle")).click();
 		await (await $("strong=Blue lanterns")).waitForDisplayed();
 
+		await openWorkspaceTask("Kural önerisi hazırla");
 		await (
 			await $('select[aria-label="Değişiklik 1 kapsamı"]')
 		).selectByVisibleText("Tema · Sunken coast / Blue lanterns");
@@ -60,6 +62,7 @@ describe("Generation Packages", () => {
 			projectContextFixture.evidence
 		);
 		await (await $("button=Bağlam Önerisini kaydet")).click();
+		await openWorkspaceTask("Önerileri incele");
 		await $(`h3=${projectContextFixture.summary}`).waitForDisplayed();
 		await (await $("button=Öneriyi incele")).click();
 		await $("h4=Etkinleştirme özeti · R1").waitForDisplayed();
@@ -68,13 +71,14 @@ describe("Generation Packages", () => {
 			"p=Bu öneri Etkin Bağlam Sürümü R1 olarak kaydedildi."
 		).waitForDisplayed();
 
-		await (await $("a=Projects")).click();
+		await (await $("a=Projeler")).click();
 
 		const projectLink = await $(
 			`a[aria-label="${fixture.projectName} varlık kayıtlarını aç"]`
 		);
 		await projectLink.waitForClickable();
 		await projectLink.click();
+		await openWorkspaceTask("Yeni varlık kaydı");
 		await (await $("input#asset-record-name")).setValue(fixture.name);
 		await (await $("input[type='checkbox']")).click();
 		await (await $("button=Varlık kaydı oluştur")).click();
@@ -94,6 +98,7 @@ describe("Generation Packages", () => {
 		} finally {
 			rmSync(directory, { force: true, recursive: true });
 		}
+		await openWorkspaceTask("Üretim ve içe aktarma");
 		await $("input#reference-upload-file").setValue(uploadedPath);
 		const forbiddenFeatures = await $(
 			'//fieldset[legend[normalize-space()="Kaçınılacak özellikler"]]'
@@ -171,6 +176,7 @@ describe("Generation Packages", () => {
 		);
 
 		await browser.refresh();
+		await openWorkspaceTask("Üretim ve içe aktarma");
 		const reloadedPackage = await $(
 			"summary*=Create one four-frame attack animation."
 		);

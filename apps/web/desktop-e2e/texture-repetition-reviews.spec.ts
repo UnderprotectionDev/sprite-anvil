@@ -7,6 +7,7 @@ import {
 	textureRepetitionFixture as fixture,
 	readTexturePreviewPresentation,
 } from "../e2e/texture-repetition-review-fixture";
+import { openWorkspaceTask } from "./workspace-navigation";
 
 // The embedded macOS driver clicks <option> without dispatching change.
 // Drive the native select's standard DOM change event so React receives it.
@@ -56,6 +57,7 @@ describe("Texture repetition surface equivalence", () => {
 		await $("form button[type='submit']").click();
 		await $("h1=Oyun projeleri").waitForDisplayed();
 		await browser.url(`${origin}${result.familyPath}`);
+		await openWorkspaceTask("Profil incelemeleri");
 		await $("h3=Texture repetition · Grass textures").waitForDisplayed({
 			timeout: 20_000,
 		});
@@ -98,6 +100,7 @@ describe("Texture repetition surface equivalence", () => {
 		await review.$("button=Save texture review").click();
 		await review.$("p=Texture review saved.").waitForDisplayed();
 		await browser.refresh();
+		await openWorkspaceTask("Profil incelemeleri");
 		await $("h3=Texture repetition · Grass textures").waitForDisplayed({
 			timeout: 20_000,
 		});

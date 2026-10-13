@@ -143,6 +143,9 @@ test("compares variable frame timing and persists four- and eight-direction revi
 	).toBeVisible();
 
 	await page.reload();
+	await page
+		.getByRole("button", { name: "Profil incelemeleri", exact: true })
+		.click();
 	const fourDirectionRecord = review.getByRole("button", {
 		name: fourDirectionReviewName,
 	});
@@ -201,6 +204,9 @@ test("compares variable frame timing and persists four- and eight-direction revi
 		review.getByText("İnceleme kalıcı kayıttan doğrulandı.")
 	).toBeVisible();
 	await page.reload();
+	await page
+		.getByRole("button", { name: "Profil incelemeleri", exact: true })
+		.click();
 	await review.getByRole("button", { name: eightDirectionReviewName }).click();
 	await expect(review.getByLabel("Yön sayısı")).toHaveValue("8");
 	await expect(review.getByLabel("Yön 8 kare 1 kimliği")).toHaveValue(

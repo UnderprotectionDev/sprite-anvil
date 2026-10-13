@@ -4,6 +4,8 @@ import type {
 } from "@sprite-anvil/api/asset-families";
 import type { AssetVersionCatalog } from "@sprite-anvil/api/asset-versions";
 
+import { Link } from "@tanstack/react-router";
+
 const relationshipLabels = {
 	direction: "Yön",
 	animation: "Animasyon",
@@ -145,7 +147,18 @@ function FamilyCatalogItem({
 			{familyRecords.length > 0 ? (
 				<ul className="mt-1 list-inside list-disc text-sm">
 					{familyRecords.map((assetRecord) => (
-						<li key={assetRecord.id}>{assetRecord.name}</li>
+						<li key={assetRecord.id}>
+							<Link
+								className="inline-flex min-h-11 items-center underline underline-offset-4"
+								params={{
+									projectId: assetRecord.projectId,
+									assetRecordId: assetRecord.id,
+								}}
+								to="/projects/$projectId/assets/$assetRecordId"
+							>
+								{assetRecord.name}
+							</Link>
+						</li>
 					))}
 				</ul>
 			) : (

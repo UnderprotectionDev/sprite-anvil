@@ -33,6 +33,8 @@ Tamamlanma kanıtı: Kayıt, geçmiş ve ayrı ölçü değerleri tekrar bulunur
 
 ## Implementation Decisions
 
+- **Kayıt çalışma alanı:** Kayıt oluşturma diyalogda, bulma/listeme kütüphanede, metadata ve ölçü düzenleme kayıt ayrıntısındaki Kayıt bilgileri alanındadır. Sürüm/dosya, Oyun İçi Bilgiler, üretim/referans/elle içe aktarma ve Hak Kayıtları ayrı alanlardır. Görev değişimi taslağı korur; route değişimi için taslak kalıcılığı vaat edilmez.
+
 - **Varlık Kaydı Oluşturma ve İzleme:** Kayıt onaylı sürüm, alternatif, Türetilmiş Varlık, referans, kalite ve üretim geçmişini aynı kimlikte gösterir. Kayıt sınırı dosya veya değiştirilebilir birim sayısına göre değil bağımsız anlam, yaşam döngüsü veya teslimat kimliğine göre kurulur.
 - **Bağımsız Görsel Ölçüleri Kaydetme:** Kaynak, mantıksal, hücre, görünür içerik, gösterim ve atlas ölçüleri kayıtla ilişkilendirilir; öneri ile doğrulanmış değer ayrılır. Her Görünür İçerik Sınırı koordinat temeli olarak Mantıksal Çözünürlük veya Hücre Ölçüsü seçer. İlgili ölçü aynı öneri/doğrulanmış durumunda girilmişse sınır bu ölçüyü aşamaz; ölçü henüz bilinmiyorsa sınır ve temeli yine ayrı kaydedilebilir. Dosya veya sidecar ölçüsü yetkili mantıksal çözünürlük sayılmaz. Özel kare ve dikdörtgen ölçüler korunur; piksel sanatının mantıksal 1× kaynağı ve doğal sayı olmayan gösterim ölçeğinin keskinlik riski açıkça gösterilir. Yüksek çözünürlüklü illüstrasyonlar piksel sanatı ölçü kuralına zorlanmaz.
 - **Kaydı Arşivleme ve Geri Alma:** Kullanıcı etkin kaydı geri alınabilir biçimde arşivler veya yeniden etkinleştirir. Etkin ve Arşivlenmiş Kayıt Durumu, sürümün İnceleme Kararı, Bağlama Uygunluk Durumu ve Kalite Kontrol Durumundan ayrı kalır.
@@ -41,6 +43,8 @@ Tamamlanma kanıtı: Kayıt, geçmiş ve ayrı ölçü değerleri tekrar bulunur
 - **Kapsam sınırı:** Kalıcı silme kendi etki ve temizlik akışındadır; genel destek özel profil kanıtı üretmez.
 
 ## Testing Decisions
+
+- **Görev ve dönüş seam’i:** asset-records-view testleri oluşturma, arama, metadata, arşiv/geri alma, sürüm ve hak kontrollerini ilgili alanlarda sınar. workspace-usability Playwright testi diyalog iptali ve odak dönüşünü, metadata taslak korumasını, referans panosunun üretim alanında bulunmasını, kayıt okuma hatasından yeniden denemeyi sınar. Taklit API kayıtları canlı DB kanıtı değildir.
 
 - **Birincil test seam’i:** RAS-01, RAS-03, RAS-05 ve RAS-08 örneklerinde kesin girdiyi kullanıcı eyleminden kalıcı kayda ve yeniden okumaya taşıyan sunucu/API yolunu sınama; web ve masaüstü görünür sonuçlarını karşılaştırma. Örnekler karakter görseli, ikon, karo/atlas ve yüksek çözünürlüklü portre ölçülerini içerir; kayıt sonrası yenileme koordinat temelini ve ölçüleri korumalıdır.
 - **Ölçü doğrulaması:** API eksik Görünür İçerik Sınırı koordinat temelini ve seçilen Mantıksal Çözünürlük veya Hücre Ölçüsünü aşan sınırları reddeder, geçerli sınırı kabul eder. Web formu aynı hatayı kaydetme isteği göndermeden gösterir. Asset Version API’si tam çözümlenemeyen PNG/WebP yüklemesini reddeder; kabul edilen sürümün ölçüleri kaydedilmiş sürüm yeniden okunarak doğrulanır.

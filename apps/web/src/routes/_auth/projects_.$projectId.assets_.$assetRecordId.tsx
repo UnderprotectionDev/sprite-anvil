@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { AssetRecordDetailView } from "@/features/asset-records/ui/views/asset-records-view";
 
@@ -15,21 +15,10 @@ function AssetRecordDetailRoute() {
 	const { assetRecordId, projectId } = Route.useParams();
 	const { versionId } = Route.useSearch();
 	return (
-		<>
-			<div className="mx-auto w-full max-w-3xl px-4 pt-6">
-				<Link
-					className="text-muted-foreground text-sm underline underline-offset-4"
-					params={{ projectId }}
-					to="/projects/$projectId/assets"
-				>
-					Varlık kayıtlarına dön
-				</Link>
-			</div>
-			<AssetRecordDetailView
-				assetRecordId={assetRecordId}
-				focusVersionId={versionId}
-				projectId={projectId}
-			/>
-		</>
+		<AssetRecordDetailView
+			assetRecordId={assetRecordId}
+			focusVersionId={versionId}
+			projectId={projectId}
+		/>
 	);
 }

@@ -28,6 +28,8 @@ Tamamlanma kanıtı: Kullanıcı ilişkileri farklı kayıtları aynı Koleksiyo
 
 ## Implementation Decisions
 
+- **Liste ve oluşturma ayrımı:** Koleksiyon listesi seçim için önce görünür; Yeni Koleksiyon açılır bölümündeki form listeyi gölgelemez. Boş listede oluşturma bölümü açık başlar. Üyelik aynı proje bağlamında düzenlenir.
+
 - **Koleksiyonları Düzenleme:** Kullanıcı farklı ailelere ait Varlık Kayıtlarını isteğe bağlı Koleksiyonlarda bir araya getirir ve üyeliği yeniden düzenler. Koleksiyon kullanıcı düzenidir. Üye ekleme veya çıkarma kaynak kayıtları, Ana Tasarım soyunu ve mevcut kalite ya da onay geçmişini değiştirmez.
 - **Üyelik kardinalitesi:** Aynı Varlık Kaydı birden fazla Koleksiyonda bulunabilir. Bir Koleksiyondaki yinelenen üyelik tek kayıt olarak kalır.
 
@@ -35,6 +37,8 @@ Tamamlanma kanıtı: Kullanıcı ilişkileri farklı kayıtları aynı Koleksiyo
 - **Kapsam sınırı:** Koleksiyon Gerekli Öğeler Listesi veya Teslimat Hedefi değildir; üyelik kural devri, bağımlılık, tamamlanma ya da teslimat zorunluluğu oluşturmaz.
 
 ## Testing Decisions
+
+- **Koleksiyon arayüzü seam’i:** Mevcut collections-view testi oluşturma ve üyelik davranışını sınar; workspace-usability Playwright testi ortak proje gezinmesini ve dar pencerede erişimi sınar. Sunucu kalıcılık kabulü ayrı kalır.
 
 - **Birincil test seam’i:** YAS-01 örneklerinde kesin girdiyi kullanıcı eyleminden kalıcı kayda ve yeniden okumaya taşıyan sunucu/API yolunu sınama; web ve masaüstü görünür sonuçlarını karşılaştırma.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.

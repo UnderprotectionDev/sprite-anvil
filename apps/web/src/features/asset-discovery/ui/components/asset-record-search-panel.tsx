@@ -317,114 +317,124 @@ export function AssetRecordSearchPanel({
 						))}
 					</select>
 				</label>
-				<label
-					className="space-y-1 text-sm"
-					htmlFor="asset-record-search-world"
-				>
-					<span>Görsel Dünya</span>
-					<select
-						className="h-8 w-full rounded-md border bg-background px-2 text-sm"
-						id="asset-record-search-world"
-						onChange={(event) =>
-							updateDraft("visualWorldId", event.target.value)
-						}
-						value={draft.visualWorldId}
-					>
-						<option value="">Tüm Görsel Dünyalar</option>
-						{scopes.visualWorlds.map((world) => (
-							<option key={world.id} value={world.id}>
-								{world.name}
-							</option>
-						))}
-					</select>
-				</label>
-				<label
-					className="space-y-1 text-sm"
-					htmlFor="asset-record-search-theme"
-				>
-					<span>Tema</span>
-					<select
-						className="h-8 w-full rounded-md border bg-background px-2 text-sm"
-						id="asset-record-search-theme"
-						onChange={(event) => updateDraft("themeId", event.target.value)}
-						value={draft.themeId}
-					>
-						<option value="">Tüm Temalar</option>
-						{availableThemes.map((theme) => (
-							<option key={theme.id} value={theme.id}>
-								{theme.name}
-							</option>
-						))}
-					</select>
-				</label>
-				<div className="grid grid-cols-2 gap-3">
-					<label
-						className="space-y-1 text-sm"
-						htmlFor="asset-record-search-width"
-					>
-						<span>Kaynak Görsel genişliği (px)</span>
-						<Input
-							id="asset-record-search-width"
-							max="100000"
-							min="1"
-							onChange={(event) =>
-								updateDraft("sourceImageWidth", event.target.value)
-							}
-							step="1"
-							type="number"
-							value={draft.sourceImageWidth}
-						/>
-					</label>
-					<label
-						className="space-y-1 text-sm"
-						htmlFor="asset-record-search-height"
-					>
-						<span>Kaynak Görsel yüksekliği (px)</span>
-						<Input
-							id="asset-record-search-height"
-							max="100000"
-							min="1"
-							onChange={(event) =>
-								updateDraft("sourceImageHeight", event.target.value)
-							}
-							step="1"
-							type="number"
-							value={draft.sourceImageHeight}
-						/>
-					</label>
-				</div>
-				<label className="space-y-1 text-sm" htmlFor="asset-record-search-tag">
-					<span>Etiket</span>
-					<Input
-						id="asset-record-search-tag"
-						maxLength={40}
-						onChange={(event) => updateDraft("tag", event.target.value)}
-						value={draft.tag}
-					/>
-				</label>
-				<label
-					className="space-y-1 text-sm"
-					htmlFor="asset-record-search-availability"
-				>
-					<span>Kayıt durumu</span>
-					<select
-						className="h-8 w-full rounded-md border bg-background px-2 text-sm"
-						id="asset-record-search-availability"
-						onChange={(event) =>
-							updateDraft("availability", event.target.value)
-						}
-						value={draft.availability}
-					>
-						<option value="">Tüm durumlar</option>
-						{Object.entries(assetRecordAvailabilityLabels).map(
-							([value, label]) => (
-								<option key={value} value={value}>
-									{label}
-								</option>
-							)
-						)}
-					</select>
-				</label>
+				<details className="rounded-md border p-3 sm:col-span-2">
+					<summary className="cursor-pointer font-medium text-sm">
+						Diğer filtreler
+					</summary>
+					<div className="mt-3 grid gap-3 sm:grid-cols-2">
+						<label
+							className="space-y-1 text-sm"
+							htmlFor="asset-record-search-world"
+						>
+							<span>Görsel Dünya</span>
+							<select
+								className="h-8 w-full rounded-md border bg-background px-2 text-sm"
+								id="asset-record-search-world"
+								onChange={(event) =>
+									updateDraft("visualWorldId", event.target.value)
+								}
+								value={draft.visualWorldId}
+							>
+								<option value="">Tüm Görsel Dünyalar</option>
+								{scopes.visualWorlds.map((world) => (
+									<option key={world.id} value={world.id}>
+										{world.name}
+									</option>
+								))}
+							</select>
+						</label>
+						<label
+							className="space-y-1 text-sm"
+							htmlFor="asset-record-search-theme"
+						>
+							<span>Tema</span>
+							<select
+								className="h-8 w-full rounded-md border bg-background px-2 text-sm"
+								id="asset-record-search-theme"
+								onChange={(event) => updateDraft("themeId", event.target.value)}
+								value={draft.themeId}
+							>
+								<option value="">Tüm Temalar</option>
+								{availableThemes.map((theme) => (
+									<option key={theme.id} value={theme.id}>
+										{theme.name}
+									</option>
+								))}
+							</select>
+						</label>
+						<div className="grid grid-cols-2 gap-3">
+							<label
+								className="space-y-1 text-sm"
+								htmlFor="asset-record-search-width"
+							>
+								<span>Kaynak Görsel genişliği (px)</span>
+								<Input
+									id="asset-record-search-width"
+									max="100000"
+									min="1"
+									onChange={(event) =>
+										updateDraft("sourceImageWidth", event.target.value)
+									}
+									step="1"
+									type="number"
+									value={draft.sourceImageWidth}
+								/>
+							</label>
+							<label
+								className="space-y-1 text-sm"
+								htmlFor="asset-record-search-height"
+							>
+								<span>Kaynak Görsel yüksekliği (px)</span>
+								<Input
+									id="asset-record-search-height"
+									max="100000"
+									min="1"
+									onChange={(event) =>
+										updateDraft("sourceImageHeight", event.target.value)
+									}
+									step="1"
+									type="number"
+									value={draft.sourceImageHeight}
+								/>
+							</label>
+						</div>
+						<label
+							className="space-y-1 text-sm"
+							htmlFor="asset-record-search-tag"
+						>
+							<span>Etiket</span>
+							<Input
+								id="asset-record-search-tag"
+								maxLength={40}
+								onChange={(event) => updateDraft("tag", event.target.value)}
+								value={draft.tag}
+							/>
+						</label>
+						<label
+							className="space-y-1 text-sm"
+							htmlFor="asset-record-search-availability"
+						>
+							<span>Kayıt durumu</span>
+							<select
+								className="h-8 w-full rounded-md border bg-background px-2 text-sm"
+								id="asset-record-search-availability"
+								onChange={(event) =>
+									updateDraft("availability", event.target.value)
+								}
+								value={draft.availability}
+							>
+								<option value="">Tüm durumlar</option>
+								{Object.entries(assetRecordAvailabilityLabels).map(
+									([value, label]) => (
+										<option key={value} value={value}>
+											{label}
+										</option>
+									)
+								)}
+							</select>
+						</label>
+					</div>
+				</details>
 				<div className="sm:col-span-2">
 					{validationMessage ? (
 						<p className="mb-2 text-destructive text-sm" role="alert">

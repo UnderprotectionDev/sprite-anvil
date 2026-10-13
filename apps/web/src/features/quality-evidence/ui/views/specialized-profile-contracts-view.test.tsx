@@ -116,6 +116,7 @@ test("activates one project profile and displays the persisted revision", async 
 		return Promise.resolve(fakeApi.activation);
 	});
 	renderContracts();
+	fireEvent.click(await screen.findByRole("button", { name: "İkon" }));
 
 	const iconCard = await screen.findByRole("article", { name: "İkon" });
 	const detailsButton = within(iconCard).getByText("Sözleşme ayrıntıları");
@@ -144,6 +145,9 @@ test("activates one project profile and displays the persisted revision", async 
 	expect(
 		within(iconCard).getByRole("button", { name: "Etkin" })
 	).toBeDisabled();
+	fireEvent.click(
+		screen.getByRole("button", { name: "Arka plan ve katmanlı kaydırma" })
+	);
 	expect(
 		within(
 			screen.getByRole("article", { name: "Arka plan ve katmanlı kaydırma" })

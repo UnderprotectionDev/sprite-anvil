@@ -1,5 +1,6 @@
 import { $, browser, expect } from "@wdio/globals";
 import { createAssetRecordFixture } from "../e2e/asset-record-fixture";
+import { openWorkspaceTask } from "./workspace-navigation";
 
 describe("Specialized Profile Contracts", () => {
 	it("persists the same project-scoped profile activation through the desktop flow", async function () {
@@ -14,9 +15,10 @@ describe("Specialized Profile Contracts", () => {
 		await (await $("input[name='email']")).setValue(fixture.email);
 		await (await $("input[name='password']")).setValue(fixture.password);
 		await (await $("button=Sign Up")).click();
-		await (await $("h1=Dashboard")).waitForDisplayed();
+		await (await $("h1=Oyun projeleri")).waitForDisplayed();
 
-		await (await $("a=Projects")).click();
+		await (await $("a=Projeler")).click();
+		await openWorkspaceTask("Yeni oyun projesi");
 		await (await $("input#project-name")).setValue(fixture.projectName);
 		await (await $("textarea#project-art-direction")).setValue(
 			fixture.generalArtDirection
@@ -31,6 +33,7 @@ describe("Specialized Profile Contracts", () => {
 		await (
 			await $(`h1=${fixture.projectName} · Özel Profil Sözleşmeleri`)
 		).waitForDisplayed();
+		await openWorkspaceTask("İkon");
 		const iconProfile = await $('article[aria-labelledby="icon-heading"]');
 		await (await iconProfile.$("summary")).click();
 		await (
@@ -42,6 +45,7 @@ describe("Specialized Profile Contracts", () => {
 		).waitForDisplayed();
 
 		await browser.refresh();
+		await openWorkspaceTask("İkon");
 		await (
 			await iconProfile.$("p=Bu projede etkin · 1.0.0")
 		).waitForDisplayed();

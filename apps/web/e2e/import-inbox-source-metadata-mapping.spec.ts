@@ -29,10 +29,16 @@ test("creates and rereads the shared source metadata mapping proposal through th
 		.getByLabel("Genel sanat yaklaşımı")
 		.fill(fixture.generalArtDirection);
 	await page.getByRole("button", { name: "Projeyi oluştur" }).click();
+	await page
+		.getByRole("button", { name: "Görsel Dünyalar ve Temalar", exact: true })
+		.click();
 	await page.getByLabel("Görsel Dünya adı").fill(visualWorldName);
 	await page.getByRole("button", { name: "Görsel Dünya ekle" }).click();
 	await page.goto("/projects");
 	await page.getByRole("link", { name: "Varlık Aileleri" }).click();
+	await page
+		.getByRole("button", { name: "Aile ve temsil ilişkileri", exact: true })
+		.click();
 	await page.getByLabel("Varlık Kimliği adı").fill(identityName);
 	await page.getByRole("button", { name: "Varlık Kimliği oluştur" }).click();
 	await page.getByLabel("Varlık Ailesi adı").fill(familyName);
@@ -72,6 +78,9 @@ test("creates and rereads the shared source metadata mapping proposal through th
 		.getByRole("button", { name: "Dosyaları Gelen Kutusuna Al" })
 		.click();
 
+	await page
+		.getByRole("button", { name: "Bekleyen dosyalar", exact: true })
+		.click();
 	const sourcePanel = page.getByRole("region", {
 		name: `${sourceMetadataMappingFixture.source.fileName} için Kaynak Metadata Eşleme Önerisi`,
 	});
@@ -180,6 +189,9 @@ test("creates and rereads the shared source metadata mapping proposal through th
 	).toBeVisible();
 
 	await page.reload();
+	await page
+		.getByRole("button", { name: "Bekleyen dosyalar", exact: true })
+		.click();
 	const rereadProposalSummary = page
 		.locator("summary")
 		.filter({ hasText: "Kaynak Metadata Eşleme Önerisi" });

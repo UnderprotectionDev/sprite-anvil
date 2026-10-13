@@ -1,1 +1,25 @@
 @import "@sprite-anvil/ui/globals.css";
+
+/* The document owns page scrolling; only dialogs and visual canvases scroll locally. */
+[hidden] {
+	display: none !important;
+}
+main {
+	min-width: 0;
+}
+main :where(h1, h2, h3, p, dd, summary) {
+	overflow-wrap: anywhere;
+}
+.skip-link {
+	position: absolute;
+	top: 1rem;
+	left: 1rem;
+	z-index: 100;
+	padding: 0.75rem 1rem;
+	background: var(--background);
+	border: 2px solid var(--primary);
+	transform: translateY(-200%);
+}
+.skip-link:focus {
+	transform: translateY(0);
+}

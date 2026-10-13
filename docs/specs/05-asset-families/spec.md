@@ -32,6 +32,8 @@ Tamamlanma kanıtı: Aynı konu için farklı dünyalarda ayrı aile ve Ana Tasa
 
 ## Implementation Decisions
 
+- **Aile çalışma alanı:** Katalog, aile/temsil ilişkileri, tamamlanma kanıtları, profil incelemeleri ve proje genelindeki sürüm/bağımlılık işlemleri ayrı alanlardır. Tamamlanma ve profil incelemeleri seçili aileyle sınırlıdır. Katalogdaki Varlık Kayıtları kendi proje ayrıntısına açılır.
+
 - **Temsilleri Ailelere Bağlama:** Sprite, portre ve ikon gibi temsiller ortak kimliğe bağlanırken aile sınırları korunur. Aynı konunun farklı Görsel Dünya veya kullanım bağlamındaki temsili yeni aile olur; yön, animasyon, durum ve Türetilmiş Varlık ilişkileri yalnız doğru aile içinde kurulur.
 - **Ana Tasarımı Seçme ve Türetilmiş Varlıkları Bağlama:** Kullanıcının seçtiği onaylı Ana Tasarım her Türetilmiş Varlığın kimlik kaynağı olarak açıkça kaydedilir. Ana Tasarım onaylanmadan keşif Aday olarak kalabilir; Türetilmiş Varlık hangi kesin Ana Tasarımdan geldiğini saklar ve kullanıcı kararı olmadan üretim için onaylı sayılmaz.
 
@@ -39,6 +41,8 @@ Tamamlanma kanıtı: Aynı konu için farklı dünyalarda ayrı aile ve Ana Tasa
 - **Kapsam sınırı:** Teknik dosya bölünmesi ayrı Varlık Kaydı veya aile oluşturmaz; farklı kullanımın tasarım soyu zorla birleştirilmez.
 
 ## Testing Decisions
+
+- **Aile görünümü seam’i:** asset-families-view testleri mevcut işlemlere ilgili çalışma alanından ulaşılmasını ve profil kapılarını; asset-family-catalog testi aile üyesinin doğru projedeki kayda bağlantısını sınar. TaskWorkspace testi alanlar arası görünürlük ve taslak korumasını sınar. Bunlar aile kalıcılığı veya tüm profil kabul senaryolarının yerine geçmez.
 
 - **Birincil test seam’i:** RAS-01, RAS-08 örneklerinde kesin girdiyi kullanıcı eyleminden kalıcı kayda ve yeniden okumaya taşıyan sunucu/API yolunu sınama; web ve masaüstü görünür sonuçlarını karşılaştırma.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.

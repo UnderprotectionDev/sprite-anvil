@@ -103,6 +103,7 @@ test("uploads a source file and shows the persisted unresolved Import Inbox Entr
 
 	expect(await screen.findByText("hero source.aseprite")).toBeInTheDocument();
 	expect(screen.getByText(unresolvedStatusPattern)).toBeInTheDocument();
+	fireEvent.click(screen.getByRole("button", { name: "Bekleyen dosyalar" }));
 	expect(screen.getByRole("link", { name: "Dosyayı indir" })).toHaveAttribute(
 		"href",
 		"http://localhost:3000/api/projects/" +
@@ -293,6 +294,7 @@ test("shows the support reference for a failed inbox read and retries the query"
 	expect(
 		screen.getByText(`Destek Referansı: ${supportReference}`)
 	).toBeInTheDocument();
+	fireEvent.click(screen.getByRole("button", { name: "Bekleyen dosyalar" }));
 	fireEvent.click(screen.getByRole("button", { name: "Yeniden dene" }));
 	expect(
 		await screen.findByText("Henüz ilişkilendirme bekleyen dosya yok.")
@@ -459,6 +461,7 @@ test("creates and rereads a source metadata proposal from explicitly selected si
 	);
 
 	await screen.findByText("opaque-sidecar");
+	fireEvent.click(screen.getByRole("button", { name: "Bekleyen dosyalar" }));
 	const sourcePanel = within(
 		screen.getByRole("region", {
 			name: "sheet.png için Kaynak Metadata Eşleme Önerisi",

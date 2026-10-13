@@ -1,5 +1,6 @@
 import { $, browser } from "@wdio/globals";
 import { createAssetRecordFixture } from "../e2e/asset-record-fixture";
+import { openWorkspaceTask } from "./workspace-navigation";
 
 describe("Collections", () => {
 	it("persists Collection membership changes through the desktop flow", async function () {
@@ -15,9 +16,10 @@ describe("Collections", () => {
 		await (await $("input[name='email']")).setValue(fixture.email);
 		await (await $("input[name='password']")).setValue(fixture.password);
 		await (await $("button=Sign Up")).click();
-		await (await $("h1=Dashboard")).waitForDisplayed();
+		await (await $("h1=Oyun projeleri")).waitForDisplayed();
 
-		await (await $("a=Projects")).click();
+		await (await $("a=Projeler")).click();
+		await openWorkspaceTask("Yeni oyun projesi");
 		await (await $("input#project-name")).setValue(fixture.projectName);
 		await (await $("textarea#project-art-direction")).setValue(
 			fixture.generalArtDirection
@@ -30,12 +32,13 @@ describe("Collections", () => {
 			await $(`a[aria-label="${fixture.projectName} varlık kayıtlarını aç"]`)
 		).click();
 
+		await openWorkspaceTask("Yeni varlık kaydı");
 		await (await $("input#asset-record-name")).setValue(fixture.name);
 		await (await $("input[type='checkbox']")).click();
 		await (await $("button=Varlık kaydı oluştur")).click();
 		await (await $(`h1=${fixture.name}`)).waitForDisplayed();
 
-		await (await $("a=Projects")).click();
+		await (await $("a=Projeler")).click();
 		await (
 			await $(`a[aria-label="${fixture.projectName} koleksiyonlarını düzenle"]`)
 		).waitForClickable();

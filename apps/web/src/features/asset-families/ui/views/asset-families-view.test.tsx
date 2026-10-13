@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+	cleanup,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+} from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import type { AssetFamilyCatalog } from "@sprite-anvil/api/asset-families";
 import { specializedProfileContractCatalog } from "@sprite-anvil/api/specialized-profile-contracts";
@@ -252,6 +258,9 @@ function stageGameplayFamily() {
 test("hides the character directional review until the character contract is active", async () => {
 	stageGameplayFamily();
 	renderFamiliesView();
+	fireEvent.click(
+		await screen.findByRole("button", { name: "Sürüm ve bağımlılık işlemleri" })
+	);
 	expect(
 		await screen.findByRole("heading", {
 			name: "Varlık Sürümleri ve inceleme",
@@ -278,6 +287,9 @@ test("shows the character directional review once the character contract is acti
 		},
 	];
 	renderFamiliesView();
+	fireEvent.click(
+		await screen.findByRole("button", { name: "Profil incelemeleri" })
+	);
 	expect(
 		await screen.findByRole("region", { name: reviewSection })
 	).toBeVisible();
@@ -354,6 +366,9 @@ test("routes Varlık Sürümü yükle to the owning Asset Record detail", async 
 		</QueryClientProvider>
 	);
 
+	fireEvent.click(
+		await screen.findByRole("button", { name: "Sürüm ve bağımlılık işlemleri" })
+	);
 	expect(
 		await screen.findByRole("heading", {
 			name: "Varlık Sürümleri ve inceleme",

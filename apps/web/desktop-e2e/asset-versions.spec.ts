@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { $, browser } from "@wdio/globals";
 import { assetVersionFixture as fixture } from "../e2e/asset-version-fixture";
+import { openWorkspaceTask } from "./workspace-navigation";
 
 describe("Asset and Composite Version lineage", () => {
 	it("persists the same exact composition in the desktop flow", async function () {
@@ -67,7 +68,7 @@ describe("Asset and Composite Version lineage", () => {
 			await (await $("input[name='email']")).setValue(fixture.email);
 			await (await $("input[name='password']")).setValue(fixture.password);
 			await (await $("button=Sign Up")).click();
-			await (await $("h1=Dashboard")).waitForDisplayed();
+			await (await $("h1=Oyun projeleri")).waitForDisplayed();
 
 			await (await $("a=Proje Bağlamı")).click();
 			await (await $('//label[span[text()="Proje adı"]]/input')).setValue(
@@ -77,20 +78,23 @@ describe("Asset and Composite Version lineage", () => {
 				await $('//label[span[text()="Genel sanat yaklaşımı"]]/textarea')
 			).setValue(fixture.generalArtDirection);
 			await (await $("button=Projeyi oluştur")).click();
-			await (await $("h2=Bağlam Önerisi hazırlayın")).waitForDisplayed();
+			await openWorkspaceTask("Görsel Dünyalar ve Temalar");
 			await (await $("input[placeholder='Örn. Yüksek yaylalar']")).setValue(
 				fixture.visualWorldName
 			);
 			await (await $("button=Görsel Dünya ekle")).click();
 			await (await $(`strong=${fixture.visualWorldName}`)).waitForDisplayed();
 
-			await (await $("a=Projects")).click();
+			await (await $("a=Projeler")).click();
 			await (await $("a=Varlık Aileleri")).click();
+			await openWorkspaceTask("Aile ve temsil ilişkileri");
 			await (await $("input[id='subject-identity-name']")).setValue(
 				fixture.identityName
 			);
 			await (await $("button=Varlık Kimliği oluştur")).click();
+			await openWorkspaceTask("Aile kataloğu");
 			await (await $(`h2=${fixture.identityName}`)).waitForDisplayed();
+			await openWorkspaceTask("Aile ve temsil ilişkileri");
 			await (await $("input[id='asset-family-name']")).setValue(
 				fixture.familyName
 			);
@@ -101,17 +105,26 @@ describe("Asset and Composite Version lineage", () => {
 				fixture.useContext
 			);
 			await (await $("button=Varlık Ailesi oluştur")).click();
+			await openWorkspaceTask("Aile kataloğu");
 			await (await $(`h3=${fixture.familyName}`)).waitForDisplayed();
 
+			await openWorkspaceTask("Aile ve temsil ilişkileri");
 			await (await $("input[id='asset-record-name']")).setValue(
 				fixture.sourceName
 			);
 			await (await $("button=Varlık Kaydı ekle")).click();
+			await openWorkspaceTask("Sürüm ve bağımlılık işlemleri");
+			await openWorkspaceTask("Aile ve temsil ilişkileri");
 			await (await $("input[id='asset-record-name']")).setValue(
 				fixture.derivativeName
 			);
 			await (await $("button=Varlık Kaydı ekle")).click();
-			await (await $(`h4=${fixture.derivativeName}`)).waitForDisplayed();
+			await openWorkspaceTask("Sürüm ve bağımlılık işlemleri");
+			await (
+				await $("section[aria-label='Sürüm ve bağımlılık işlemleri']").$(
+					`h4=${fixture.derivativeName}`
+				)
+			).waitForDisplayed();
 
 			await (
 				await $(
@@ -130,6 +143,7 @@ describe("Asset and Composite Version lineage", () => {
 			await (await $("button=Ana Tasarım olarak seç")).click();
 			await $("p=Ana Tasarım: Ash Knight base · Sürüm 1").waitForDisplayed();
 
+			await openWorkspaceTask("Aile ve temsil ilişkileri");
 			await (await $("#relationship-type")).selectByAttribute(
 				"value",
 				"derivative"
@@ -139,8 +153,10 @@ describe("Asset and Composite Version lineage", () => {
 				fixture.derivativeName
 			);
 			await (await $("button=İlişki ekle")).click();
+			await openWorkspaceTask("Aile kataloğu");
 			const lineage = await $(`li*=${fixture.visibleLineage}`);
 			await lineage.waitForDisplayed();
+			await openWorkspaceTask("Sürüm ve bağımlılık işlemleri");
 
 			await uploadUnitCorrection({
 				filePath: frameV1Path,
@@ -241,6 +257,7 @@ describe("Asset and Composite Version lineage", () => {
 			).waitForDisplayed();
 
 			await browser.refresh();
+			await openWorkspaceTask("Sürüm ve bağımlılık işlemleri");
 			await (await $("p=Sürüm 1 · Onaylandı")).waitForDisplayed();
 			await $(`li*=— Gerekçe: ${reviewRationale}`).waitForDisplayed();
 			await (await $("time[datetime]")).waitForDisplayed();

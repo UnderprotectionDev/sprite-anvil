@@ -1,12 +1,16 @@
 import { createORPCClient } from "@orpc/client";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import type { AppRouterClient } from "@sprite-anvil/api/routers/index";
+import { Button } from "@sprite-anvil/ui/components/button";
 import { Toaster } from "@sprite-anvil/ui/components/sonner";
 import type { QueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
 	createRootRouteWithContext,
+	type ErrorComponentProps,
 	HeadContent,
+	Link,
 	Outlet,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
@@ -25,6 +29,8 @@ export interface RouterAppContext {
 
 export const Route = createRootRouteWithContext<RouterAppContext>()({
 	component: RootComponent,
+	notFoundComponent: MissingPage,
+	errorComponent: WorkspaceError,
 	head: () => ({
 		meta: [
 			{
@@ -57,9 +63,14 @@ function RootComponent() {
 				disableTransitionOnChange
 				storageKey="vite-ui-theme"
 			>
-				<div className="grid h-svh grid-rows-[auto_1fr]">
+				<div className="flex min-h-svh min-w-0 flex-col">
 					<Header />
-					<Outlet />
+					<a className="skip-link" href="#workspace-content">
+						İçeriğe geç
+					</a>
+					<div className="min-w-0 flex-1" id="workspace-content" tabIndex={-1}>
+						<Outlet />
+					</div>
 				</div>
 				<Toaster richColors />
 			</ThemeProvider>
@@ -70,5 +81,50 @@ function RootComponent() {
 				</>
 			) : null}
 		</>
+	);
+}
+
+function MissingPage() {
+	return (
+		<main className="mx-auto max-w-3xl space-y-4 px-4 py-12">
+			<h1 className="font-semibold text-3xl">Sayfa bulunamadı</h1>
+			<p>
+				Bu bağlantı mevcut bir çalışma alanına gitmiyor. Oyun projenizi açarak
+				devam edin.
+			</p>
+			<Link
+				className="inline-flex min-h-11 items-center underline"
+				to="/projects"
+			>
+				Oyun projelerine dön
+			</Link>
+		</main>
+	);
+}
+function WorkspaceError({ reset }: ErrorComponentProps) {
+	const queryClient = useQueryClient();
+	async function retryScreen() {
+		await queryClient.resetQueries();
+		reset();
+	}
+	return (
+		<main className="mx-auto max-w-3xl space-y-4 px-4 py-12">
+			<h1 className="font-semibold text-3xl">Ekran açılamadı</h1>
+			<p role="alert">
+				Bu ekran gösterilirken bir sorun oluştu. Yeniden deneyin veya projenize
+				listeden dönün.
+			</p>
+			<div className="flex flex-wrap items-center gap-4">
+				<Button onClick={() => void retryScreen()} type="button">
+					Yeniden dene
+				</Button>
+				<Link
+					className="inline-flex min-h-11 items-center underline"
+					to="/projects"
+				>
+					Oyun projelerine dön
+				</Link>
+			</div>
+		</main>
 	);
 }

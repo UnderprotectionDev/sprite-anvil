@@ -18,9 +18,9 @@ test("uploads and rereads exact Asset and Composite Version lineage", async ({
 		.getByLabel("Genel sanat yaklaşımı")
 		.fill(fixture.generalArtDirection);
 	await page.getByRole("button", { name: "Projeyi oluştur" }).click();
-	await expect(
-		page.getByRole("heading", { name: "Bağlam Önerisi hazırlayın" })
-	).toBeVisible();
+	await page
+		.getByRole("button", { name: "Görsel Dünyalar ve Temalar", exact: true })
+		.click();
 	await page.getByLabel("Görsel Dünya adı").fill(fixture.visualWorldName);
 	await page.getByRole("button", { name: "Görsel Dünya ekle" }).click();
 	await expect(
@@ -29,29 +29,50 @@ test("uploads and rereads exact Asset and Composite Version lineage", async ({
 
 	await page.goto("/projects");
 	await page.getByRole("link", { name: "Varlık Aileleri" }).click();
+	await page
+		.getByRole("button", { name: "Aile ve temsil ilişkileri", exact: true })
+		.click();
 	await page.getByLabel("Varlık Kimliği adı").fill(fixture.identityName);
 	await page.getByRole("button", { name: "Varlık Kimliği oluştur" }).click();
+	await page
+		.getByRole("button", { name: "Aile kataloğu", exact: true })
+		.click();
 	await expect(
 		page.getByRole("heading", { name: fixture.identityName })
 	).toBeVisible();
+	await page
+		.getByRole("button", { name: "Aile ve temsil ilişkileri", exact: true })
+		.click();
 	await page.getByLabel("Varlık Ailesi adı").fill(fixture.familyName);
 	await page.getByLabel("Görsel Dünya").selectOption({
 		label: fixture.visualWorldName,
 	});
 	await page.getByLabel("Kullanım bağlamı").fill(fixture.useContext);
 	await page.getByRole("button", { name: "Varlık Ailesi oluştur" }).click();
+	await page
+		.getByRole("button", { name: "Aile kataloğu", exact: true })
+		.click();
 	await expect(
 		page.getByText(fixture.familyName, { exact: true })
 	).toBeVisible();
 
+	await page
+		.getByRole("button", { name: "Aile ve temsil ilişkileri", exact: true })
+		.click();
 	await page.getByLabel("Varlık Kaydı adı").fill(fixture.sourceName);
 	await page.getByRole("button", { name: "Varlık Kaydı ekle" }).click();
 	await page.getByLabel("Varlık Kaydı adı").fill(fixture.derivativeName);
 	await page.getByRole("button", { name: "Varlık Kaydı ekle" }).click();
+	await page
+		.getByRole("button", { name: "Aile kataloğu", exact: true })
+		.click();
 	await expect(
 		page.getByText(fixture.derivativeName, { exact: true })
 	).toBeVisible();
 
+	await page
+		.getByRole("button", { name: "Sürüm ve bağımlılık işlemleri", exact: true })
+		.click();
 	await page
 		.getByLabel(`${fixture.sourceName} için Varlık Sürümü dosyası`)
 		.setInputFiles({
@@ -71,6 +92,9 @@ test("uploads and rereads exact Asset and Composite Version lineage", async ({
 		page.getByText("Ana Tasarım: Ash Knight base · Sürüm 1")
 	).toBeVisible();
 
+	await page
+		.getByRole("button", { name: "Aile ve temsil ilişkileri", exact: true })
+		.click();
 	await page.getByLabel("İlişki türü").selectOption("derivative");
 	await expect(
 		page.getByText("Ash Knight base · Ana Tasarım Sürüm 1")
@@ -79,7 +103,13 @@ test("uploads and rereads exact Asset and Composite Version lineage", async ({
 		.getByLabel("İlgili Varlık Kaydı")
 		.selectOption({ label: fixture.derivativeName });
 	await page.getByRole("button", { name: "İlişki ekle" }).click();
+	await page
+		.getByRole("button", { name: "Aile kataloğu", exact: true })
+		.click();
 	await expect(page.getByText(fixture.visibleLineage)).toBeVisible();
+	await page
+		.getByRole("button", { name: "Sürüm ve bağımlılık işlemleri", exact: true })
+		.click();
 
 	const sourceRecord = page
 		.getByRole("heading", { name: fixture.sourceName })
@@ -196,10 +226,19 @@ test("uploads and rereads exact Asset and Composite Version lineage", async ({
 	).toBeVisible();
 
 	await page.reload();
+	await page
+		.getByRole("button", { name: "Sürüm ve bağımlılık işlemleri", exact: true })
+		.click();
 	await expect(page.getByText("Sürüm 1 · Onaylandı")).toBeVisible();
 	await expect(page.getByText(`— Gerekçe: ${reviewRationale}`)).toBeVisible();
 	await expect(page.locator("time[datetime]").first()).toBeVisible();
+	await page
+		.getByRole("button", { name: "Aile kataloğu", exact: true })
+		.click();
 	await expect(page.getByText(fixture.visibleLineage)).toBeVisible();
+	await page
+		.getByRole("button", { name: "Sürüm ve bağımlılık işlemleri", exact: true })
+		.click();
 	await expect(
 		page.getByRole("heading", { name: "Birleşik Sürüm 1 · Onaylandı" })
 	).toBeVisible();

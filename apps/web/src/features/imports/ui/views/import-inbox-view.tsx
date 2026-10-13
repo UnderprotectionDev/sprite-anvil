@@ -7,6 +7,7 @@ import { Button } from "@sprite-anvil/ui/components/button";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { type ChangeEvent, useRef, useState } from "react";
+import { TaskWorkspace } from "@/components/task-workspace";
 import {
 	importInboxFileUrl,
 	importInboxUrl,
@@ -267,7 +268,7 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 	}
 
 	return (
-		<main className="mx-auto w-full max-w-3xl space-y-8 overflow-y-auto px-4 py-8">
+		<main className="mx-auto w-full max-w-3xl space-y-8 px-4 py-8">
 			<header className="space-y-4">
 				<Link
 					className="text-muted-foreground text-sm underline underline-offset-4"
@@ -291,145 +292,185 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 				</div>
 			</header>
 
-			<section
-				aria-labelledby="import-inbox-upload-heading"
-				className="space-y-4 rounded-lg border p-5"
-			>
-				<div>
-					<h2
-						className="font-semibold text-xl"
-						id="import-inbox-upload-heading"
-					>
-						Dosya ekle
-					</h2>
-					<p className="mt-1 text-muted-foreground text-sm">
-						Özgün dosya ve adı korunur. Dosya içeriğinden üretim geçmişi
-						çıkarılmaz.
-					</p>
-				</div>
-				<div className="space-y-2">
-					<label className="font-medium text-sm" htmlFor="import-inbox-files">
-						Dosyalar
-					</label>
-					<input
-						aria-describedby="import-inbox-file-help"
-						className="block min-h-11 w-full rounded-md border bg-background px-3 py-2 text-sm file:mr-3 file:min-h-9 file:cursor-pointer file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:font-medium"
-						disabled={isUploading}
-						id="import-inbox-files"
-						multiple
-						onChange={selectFiles}
-						type="file"
-					/>
-					<p
-						className="text-muted-foreground text-sm"
-						id="import-inbox-file-help"
-					>
-						Bir veya daha fazla dosya seçebilirsiniz. Dosyalar ayrı ayrı
-						yüklenir; güvenle yeniden denenebilenler seçili kalır.
-					</p>
-				</div>
-				{selectedFiles.length > 0 ? (
-					<ul aria-label="Seçilen dosyalar" className="space-y-1 text-sm">
-						{selectedFiles.map((file) => (
-							<li key={pendingEntryIds.current.get(file)}>
-								{file.name} · {formatContentLength(file.size)}
-							</li>
-						))}
-					</ul>
-				) : null}
-				{isUploading && uploadingFileName ? (
-					<p aria-live="polite" role="status">
-						Yükleniyor: {uploadingFileName}
-					</p>
-				) : null}
-				{uploadErrors.length > 0 ? (
-					<ul aria-label="Yükleme hataları" className="space-y-1" role="alert">
-						{uploadErrors.map((failure) => (
-							<li key={pendingEntryIds.current.get(failure.file)}>
-								{failure.file.name}: {failure.message}
-								{failure.supportReference ? (
-									<span className="block">
-										Destek Referansı: {failure.supportReference}
-									</span>
-								) : null}
-							</li>
-						))}
-					</ul>
-				) : null}
-				{statusMessage ? (
-					<p aria-live="polite" role="status">
-						{statusMessage}
-					</p>
-				) : null}
-				<Button
-					className="min-h-11"
-					disabled={isUploading || selectedFiles.length === 0}
-					onClick={() => void handleUpload()}
-					type="button"
-				>
-					{isUploading ? "Dosyalar alınıyor…" : "Dosyaları Gelen Kutusuna Al"}
-				</Button>
-			</section>
-
-			<section
-				aria-labelledby="import-inbox-entries-heading"
-				className="space-y-4"
-			>
-				<div>
-					<h2
-						className="font-semibold text-xl"
-						id="import-inbox-entries-heading"
-					>
-						İlişkilendirme bekleyen dosyalar
-					</h2>
-					<p className="mt-1 text-muted-foreground text-sm">
-						Bu listede yalnızca hedefi kesinleşmemiş İçe Aktarma Gelen Kutusu
-						Girdileri bulunur.
-					</p>
-				</div>
-				{entriesQuery.isPending ? (
-					<p aria-live="polite" role="status">
-						Gelen kutusu yükleniyor…
-					</p>
-				) : null}
-				{entriesQuery.isError ? (
-					<div className="space-y-2" role="alert">
-						<p>Gelen kutusu yüklenemedi.</p>
-						{entriesQuery.error instanceof ImportInboxReadError &&
-						entriesQuery.error.supportReference ? (
-							<p>Destek Referansı: {entriesQuery.error.supportReference}</p>
-						) : null}
-						<Button
-							className="min-h-11"
-							onClick={() => void entriesQuery.refetch()}
-							type="button"
-							variant="outline"
-						>
-							Yeniden dene
-						</Button>
-					</div>
-				) : null}
-				{entriesQuery.isSuccess && entriesQuery.data.length === 0 ? (
-					<p className="rounded-lg border border-dashed p-6 text-muted-foreground text-sm">
-						Henüz ilişkilendirme bekleyen dosya yok.
-					</p>
-				) : null}
-				{entriesQuery.isSuccess && entriesQuery.data.length > 0 ? (
-					<ul
-						aria-label="İçe Aktarma Gelen Kutusu Girdileri"
-						className="space-y-3"
-					>
-						{entriesQuery.data.map((entry) => (
-							<ImportInboxEntryCard
-								entries={entriesQuery.data}
-								entry={entry}
-								key={entry.id}
-								projectId={projectId}
-							/>
-						))}
-					</ul>
-				) : null}
-			</section>
+			<TaskWorkspace
+				label="İçe aktarma çalışma alanları"
+				sections={[
+					{
+						id: "upload",
+						label: "Dosya ekle",
+						description:
+							"Hedefi henüz belli olmayan dosyaları seçin ve Gelen Kutusuna alın.",
+						content: (
+							<>
+								<section
+									aria-labelledby="import-inbox-upload-heading"
+									className="space-y-4 rounded-lg border p-5"
+								>
+									<div>
+										<h2
+											className="font-semibold text-xl"
+											id="import-inbox-upload-heading"
+										>
+											Dosya ekle
+										</h2>
+										<p className="mt-1 text-muted-foreground text-sm">
+											Özgün dosya ve adı korunur. Dosya içeriğinden üretim
+											geçmişi çıkarılmaz.
+										</p>
+									</div>
+									<div className="space-y-2">
+										<label
+											className="font-medium text-sm"
+											htmlFor="import-inbox-files"
+										>
+											Dosyalar
+										</label>
+										<input
+											aria-describedby="import-inbox-file-help"
+											className="block min-h-11 w-full rounded-md border bg-background px-3 py-2 text-sm file:mr-3 file:min-h-9 file:cursor-pointer file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:font-medium"
+											disabled={isUploading}
+											id="import-inbox-files"
+											multiple
+											onChange={selectFiles}
+											type="file"
+										/>
+										<p
+											className="text-muted-foreground text-sm"
+											id="import-inbox-file-help"
+										>
+											Bir veya daha fazla dosya seçebilirsiniz. Dosyalar ayrı
+											ayrı yüklenir; güvenle yeniden denenebilenler seçili
+											kalır.
+										</p>
+									</div>
+									{selectedFiles.length > 0 ? (
+										<ul
+											aria-label="Seçilen dosyalar"
+											className="space-y-1 text-sm"
+										>
+											{selectedFiles.map((file) => (
+												<li key={pendingEntryIds.current.get(file)}>
+													{file.name} · {formatContentLength(file.size)}
+												</li>
+											))}
+										</ul>
+									) : null}
+									{isUploading && uploadingFileName ? (
+										<p aria-live="polite" role="status">
+											Yükleniyor: {uploadingFileName}
+										</p>
+									) : null}
+									{uploadErrors.length > 0 ? (
+										<ul
+											aria-label="Yükleme hataları"
+											className="space-y-1"
+											role="alert"
+										>
+											{uploadErrors.map((failure) => (
+												<li key={pendingEntryIds.current.get(failure.file)}>
+													{failure.file.name}: {failure.message}
+													{failure.supportReference ? (
+														<span className="block">
+															Destek Referansı: {failure.supportReference}
+														</span>
+													) : null}
+												</li>
+											))}
+										</ul>
+									) : null}
+									{statusMessage ? (
+										<p aria-live="polite" role="status">
+											{statusMessage}
+										</p>
+									) : null}
+									<Button
+										className="min-h-11"
+										disabled={isUploading || selectedFiles.length === 0}
+										onClick={() => void handleUpload()}
+										type="button"
+									>
+										{isUploading
+											? "Dosyalar alınıyor…"
+											: "Dosyaları Gelen Kutusuna Al"}
+									</Button>
+								</section>
+							</>
+						),
+					},
+					{
+						id: "entries",
+						label: "Bekleyen dosyalar",
+						description:
+							"Dosyaları bulun, kaynak bilgilerini inceleyin ve varsa kaynak metadata eşlemesini hazırlayın.",
+						content: (
+							<>
+								<section
+									aria-labelledby="import-inbox-entries-heading"
+									className="space-y-4"
+								>
+									<div>
+										<h2
+											className="font-semibold text-xl"
+											id="import-inbox-entries-heading"
+										>
+											İlişkilendirme bekleyen dosyalar
+										</h2>
+										<p className="mt-1 text-muted-foreground text-sm">
+											Bu listede yalnızca hedefi kesinleşmemiş İçe Aktarma Gelen
+											Kutusu Girdileri bulunur.
+										</p>
+									</div>
+									{entriesQuery.isPending ? (
+										<p aria-live="polite" role="status">
+											Gelen kutusu yükleniyor…
+										</p>
+									) : null}
+									{entriesQuery.isError ? (
+										<div className="space-y-2" role="alert">
+											<p>Gelen kutusu yüklenemedi.</p>
+											{entriesQuery.error instanceof ImportInboxReadError &&
+											entriesQuery.error.supportReference ? (
+												<p>
+													Destek Referansı:{" "}
+													{entriesQuery.error.supportReference}
+												</p>
+											) : null}
+											<Button
+												className="min-h-11"
+												onClick={() => void entriesQuery.refetch()}
+												type="button"
+												variant="outline"
+											>
+												Yeniden dene
+											</Button>
+										</div>
+									) : null}
+									{entriesQuery.isSuccess && entriesQuery.data.length === 0 ? (
+										<p className="rounded-lg border border-dashed p-6 text-muted-foreground text-sm">
+											Henüz ilişkilendirme bekleyen dosya yok.
+										</p>
+									) : null}
+									{entriesQuery.isSuccess && entriesQuery.data.length > 0 ? (
+										<ul
+											aria-label="İçe Aktarma Gelen Kutusu Girdileri"
+											className="space-y-3"
+										>
+											{entriesQuery.data.map((entry) => (
+												<ImportInboxEntryCard
+													entries={entriesQuery.data}
+													entry={entry}
+													key={entry.id}
+													projectId={projectId}
+												/>
+											))}
+										</ul>
+									) : null}
+								</section>
+							</>
+						),
+					},
+				]}
+			/>
 		</main>
 	);
 }

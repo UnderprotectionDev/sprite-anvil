@@ -418,6 +418,7 @@ test("filters Asset Records together and opens the matching version history", as
 	);
 
 	await screen.findByRole("heading", { name: "Forest Quest" });
+	fireEvent.click(screen.getByText("Diğer filtreler"));
 	fireEvent.change(screen.getByLabelText("Ada göre ara"), {
 		target: { value: "Ash" },
 	});
@@ -515,6 +516,11 @@ test("shows the Generation Package workflow on an active Asset Record", async ()
 			projectId={projectId}
 		/>
 	);
+	fireEvent.click(
+		await screen.findByRole("button", {
+			name: "Üretim ve içe aktarma",
+		})
+	);
 
 	expect(
 		await screen.findByRole("heading", { name: "Üretim Paketleri" })
@@ -533,6 +539,7 @@ test("shows Rights Record versioning on an active Asset Record", async () => {
 			projectId={projectId}
 		/>
 	);
+	fireEvent.click(await screen.findByRole("button", { name: "Hak Kayıtları" }));
 
 	expect(
 		await screen.findByRole("heading", { name: "Hak Kaydı" })
@@ -655,6 +662,7 @@ test("keeps dependent source rights visible when a linked package cannot load", 
 			projectId={projectId}
 		/>
 	);
+	fireEvent.click(await screen.findByRole("button", { name: "Hak Kayıtları" }));
 
 	const lineage = await screen.findByRole("region", { name: "Hak Geçmişi" });
 	expect(
@@ -1056,6 +1064,7 @@ test("shows a result's separate Rights Lineage and each source's versioned decla
 			projectId={projectId}
 		/>
 	);
+	fireEvent.click(await screen.findByRole("button", { name: "Hak Kayıtları" }));
 
 	const lineage = await screen.findByRole("region", { name: "Hak Geçmişi" });
 	const resultRightsRecord = screen.getByRole("region", { name: "Hak Kaydı" });
@@ -1171,6 +1180,8 @@ test("starts a clean Rights Record draft when the detail view switches records",
 			projectId={projectId}
 		/>
 	);
+	fireEvent.click(await screen.findByRole("button", { name: "Hak Kayıtları" }));
+
 	await waitFor(() =>
 		expect(screen.getByLabelText("Kaynak")).toHaveValue(
 			"https://example.test/source"
@@ -1184,6 +1195,7 @@ test("starts a clean Rights Record draft when the detail view switches records",
 	};
 	fakeApi.record = secondAssetRecord;
 	queryClient.setQueryData(["asset-record", assetRecord.id], secondAssetRecord);
+	fireEvent.click(await screen.findByRole("button", { name: "Hak Kayıtları" }));
 
 	await waitFor(() => expect(screen.getByLabelText("Kaynak")).toHaveValue(""));
 });
@@ -1226,6 +1238,11 @@ test("shows saved Generation Packages on archived Asset Records without enabling
 			assetRecordId={assetRecord.id}
 			projectId={projectId}
 		/>
+	);
+	fireEvent.click(
+		await screen.findByRole("button", {
+			name: "Üretim ve içe aktarma",
+		})
 	);
 
 	expect(
@@ -1273,6 +1290,9 @@ test("edits record metadata and limits Theme choices to the selected Visual Worl
 			assetRecordId={assetRecord.id}
 			projectId={projectId}
 		/>
+	);
+	fireEvent.click(
+		await screen.findByRole("button", { name: "Kayıt bilgileri" })
 	);
 
 	await screen.findByRole("heading", { name: "Ash Knight" });
@@ -1323,10 +1343,13 @@ test("shows a failed Asset Record list load only in Sonner", async () => {
 			<AssetRecordsView onOpenRecord={vi.fn()} projectId={projectId} />
 		</QueryClientProvider>
 	);
+	fireEvent.click(await screen.findByRole("button", { name: "Tüm kayıtlar" }));
 
 	await waitFor(() => expect(errorToast).toHaveBeenCalledTimes(1));
 	expect(errorToast.mock.calls[0]?.[0]).toBe("Data could not be loaded.");
-	expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+	expect(screen.getByRole("alert")).toHaveTextContent(
+		"Varlık kayıtları yüklenemedi."
+	);
 	expect(
 		screen.queryByRole("button", { name: "Retry" })
 	).not.toBeInTheDocument();
@@ -1346,8 +1369,13 @@ test("creates a durable Asset Record from its independent product identity", asy
 	renderWithQueryClient(
 		<AssetRecordsView onOpenRecord={onOpenRecord} projectId={projectId} />
 	);
+	fireEvent.click(
+		await screen.findByRole("button", {
+			name: "Yeni varlık kaydı",
+		})
+	);
 
-	await screen.findByRole("heading", { name: "Forest Quest" });
+	await screen.findByRole("dialog", { name: "Yeni varlık kaydı" });
 	fireEvent.change(screen.getByLabelText("Varlık adı"), {
 		target: { value: "Ash Knight" },
 	});
@@ -1374,8 +1402,13 @@ test("uncertain creates require a confirmed list check and reuse the same identi
 	renderWithQueryClient(
 		<AssetRecordsView onOpenRecord={onOpenRecord} projectId={projectId} />
 	);
+	fireEvent.click(
+		await screen.findByRole("button", {
+			name: "Yeni varlık kaydı",
+		})
+	);
 
-	await screen.findByRole("heading", { name: "Forest Quest" });
+	await screen.findByRole("dialog", { name: "Yeni varlık kaydı" });
 	fireEvent.change(screen.getByLabelText("Varlık adı"), {
 		target: { value: "Ash Knight" },
 	});
@@ -1408,6 +1441,7 @@ test("archived Asset Records remain findable in the project list", async () => {
 	renderWithQueryClient(
 		<AssetRecordsView onOpenRecord={onOpenRecord} projectId={projectId} />
 	);
+	fireEvent.click(await screen.findByRole("button", { name: "Tüm kayıtlar" }));
 
 	expect(await screen.findByText(archivedRecordStatus)).toBeVisible();
 	fireEvent.click(
@@ -1517,6 +1551,9 @@ test("shows persisted versions, derivatives, references, quality, and provenance
 	expect(await screen.findByText(versionFileName)).toBeVisible();
 	expect(screen.getByText(alternativeFileName)).toBeVisible();
 	expect(screen.getByText(derivativeName)).toBeVisible();
+	fireEvent.click(
+		screen.getByRole("button", { name: "Üretim ve içe aktarma" })
+	);
 	expect(screen.getByText(referenceName)).toBeVisible();
 	expect(
 		screen
@@ -1533,10 +1570,13 @@ test("shows persisted versions, derivatives, references, quality, and provenance
 	expect(
 		within(historyDisclosure).getByText(referenceHistoryRevision)
 	).toBeVisible();
+	fireEvent.click(screen.getByRole("button", { name: "Sürümler ve dosyalar" }));
 	expect(
 		screen.getByText("Dosya biçim imzası eşleşti (2 sürüm).")
 	).toBeVisible();
+	fireEvent.click(screen.getByRole("button", { name: "Kayıt bilgileri" }));
 	expect(screen.getByText(generalSupportCopy)).toBeVisible();
+	fireEvent.click(screen.getByRole("button", { name: "Sürümler ve dosyalar" }));
 	expect(screen.getByText(productionSource)).toBeVisible();
 	expect(screen.getByText(productionEvidence)).toBeVisible();
 	expect(
@@ -1554,6 +1594,7 @@ test("shows persisted versions, derivatives, references, quality, and provenance
 	expect(attestationTime).toHaveTextContent(localizedLegacyAttestationDate);
 	expect(screen.getByText(userRelationshipLabel)).toBeVisible();
 	expect(screen.getByText(unknownHistory)).toBeVisible();
+	fireEvent.click(screen.getByRole("button", { name: "Kayıt bilgileri" }));
 	expect(screen.getByText(recordCreatedCopy)).toBeVisible();
 });
 
@@ -1770,6 +1811,9 @@ test("saves proposed and confirmed dimensions independently on an Asset Record",
 			projectId={projectId}
 		/>
 	);
+	fireEvent.click(
+		await screen.findByRole("button", { name: "Kayıt bilgileri" })
+	);
 
 	await screen.findByRole("heading", { name: "Ash Knight" });
 	for (const heading of [
@@ -1840,6 +1884,10 @@ test("requires a Visible Content Bounds coordinate space and keeps bounds inside
 			projectId={projectId}
 		/>
 	);
+	fireEvent.click(
+		await screen.findByRole("button", { name: "Kayıt bilgileri" })
+	);
+
 	await screen.findByRole("heading", { name: "Ash Knight" });
 
 	for (const [label, value] of [
@@ -1904,6 +1952,10 @@ test("requires a complete pair when a dimension value is started", async () => {
 			projectId={projectId}
 		/>
 	);
+	fireEvent.click(
+		await screen.findByRole("button", { name: "Kayıt bilgileri" })
+	);
+
 	await screen.findByRole("heading", { name: "Ash Knight" });
 	const width = screen.getByLabelText(
 		"Kaynak Görsel Ölçüsü — Öneri — Genişlik (px)"
@@ -1928,6 +1980,10 @@ test("retains dimension inputs and offers retry context when saving fails", asyn
 			projectId={projectId}
 		/>
 	);
+	fireEvent.click(
+		await screen.findByRole("button", { name: "Kayıt bilgileri" })
+	);
+
 	await screen.findByRole("heading", { name: "Ash Knight" });
 	const width = screen.getByLabelText(
 		"Kaynak Görsel Ölçüsü — Öneri — Genişlik (px)"
@@ -1951,6 +2007,10 @@ test("shows a conditional crispness notice for fractional display scale", async 
 			projectId={projectId}
 		/>
 	);
+	fireEvent.click(
+		await screen.findByRole("button", { name: "Kayıt bilgileri" })
+	);
+
 	await screen.findByRole("heading", { name: "Ash Knight" });
 	fireEvent.change(screen.getByLabelText("Gösterim Ölçeği — Öneri — Ölçek"), {
 		target: { value: "2.5" },
@@ -1977,6 +2037,9 @@ test("uses the canonical Erased availability value and Turkish label", async () 
 			assetRecordId={assetRecord.id}
 			projectId={projectId}
 		/>
+	);
+	fireEvent.click(
+		await screen.findByRole("button", { name: "Kayıt bilgileri" })
 	);
 
 	expect(await screen.findByText("Silinmiş")).toBeVisible();
@@ -2017,6 +2080,9 @@ test("archives and restores an Asset Record without losing its detail view", asy
 			assetRecordId={assetRecord.id}
 			projectId={projectId}
 		/>
+	);
+	fireEvent.click(
+		await screen.findByRole("button", { name: "Kayıt bilgileri" })
 	);
 
 	fireEvent.click(await screen.findByRole("button", { name: "Kaydı arşivle" }));
@@ -2059,16 +2125,20 @@ test("keeps Asset Record availability available when tracking details fail", asy
 			projectId={projectId}
 		/>
 	);
+	fireEvent.click(
+		await screen.findByRole("button", { name: "Kayıt bilgileri" })
+	);
 
 	expect(
 		await screen.findByRole("heading", { name: "Ash Knight" })
 	).toBeVisible();
 	expect(screen.getByRole("button", { name: "Kaydı arşivle" })).toBeEnabled();
 	await waitFor(() => expect(errorToast).toHaveBeenCalledOnce());
+	fireEvent.click(screen.getByRole("button", { name: "Hak Kayıtları" }));
 	expect(
-		within(screen.getByRole("region", { name: "Hak Geçmişi" })).getByRole(
-			"alert"
-		)
+		within(
+			screen.getByRole("region", { name: "Hak Geçmişi", hidden: true })
+		).getByRole("alert")
 	).toHaveTextContent("Varlık Kaydı kaynak geçmişi yüklenemedi.");
 	expect(
 		queryClient
@@ -2076,6 +2146,7 @@ test("keeps Asset Record availability available when tracking details fail", asy
 			.find({ queryKey: ["asset-record-detail", assetRecord.id] })?.meta
 	).toBeUndefined();
 
+	fireEvent.click(screen.getByRole("button", { name: "Kayıt bilgileri" }));
 	fireEvent.click(screen.getByRole("button", { name: "Kaydı arşivle" }));
 	expect(await screen.findByText("Arşivlenmiş")).toBeVisible();
 	expect(await screen.findByRole("status")).toHaveTextContent(
@@ -2099,6 +2170,9 @@ test("checks the current Availability before allowing an uncertain archive retry
 			projectId={projectId}
 		/>
 	);
+	fireEvent.click(
+		await screen.findByRole("button", { name: "Kayıt bilgileri" })
+	);
 
 	fireEvent.click(await screen.findByRole("button", { name: "Kaydı arşivle" }));
 	await waitFor(() => expect(errorToast).toHaveBeenCalledOnce());
@@ -2116,6 +2190,9 @@ test("labels legacy Asset Records whose identity criteria were not recorded", as
 			assetRecordId={assetRecord.id}
 			projectId={projectId}
 		/>
+	);
+	fireEvent.click(
+		await screen.findByRole("button", { name: "Sürümler ve dosyalar" })
 	);
 
 	expect(await screen.findByText("Gerekçe kaydedilmemiş")).toBeVisible();

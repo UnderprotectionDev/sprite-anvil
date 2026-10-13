@@ -34,6 +34,8 @@ Tamamlanma kanıtı: Aşama 3 çekirdek akış karşılaştırması ara kanıt o
 
 ## Implementation Decisions
 
+- **Ortak uygulama kabuğu:** Proje adı ve proje alanları ortak gezinmede bulunur. Başlangıç projelere yönlendirir; dashboard proje listesine döner. Sayfalar belge kaydırmasını kullanır; diyaloglar pencereye sığan kendi kaydırmasını korur. Eksik route ve render hatası devam etme kontrolleri gösterir. Bu değişiklik yerel masaüstü veya telefon platform desteği ilan etmez.
+
 - **Aşama 3 çekirdek eşdeğerlik kanıtı:** Aynı Çekirdek Üretim Akışı girdisi web ve masaüstünde yetkili kayıt, kalite kanıtı ve motor bağımsız paket açısından karşılaştırılır. Bu ara kanıt, PLT-01'in veya destek matrisinin tamamlandığı anlamına gelmez.
 - **Aşama 4/5 tam platform kabulü:** Teslimat akışları, erişilebilir temel akış ve bütün RAS/YAS senaryoları web ve masaüstünde karşılaştırılır; Desteklenen Platformlar Tablosundaki her birleşim yayımlanmış süre, bellek ve sözleşme sınırlarını geçer. Ölçülmemiş birleşim destekleniyor diye ilan edilmez; destek kaldırma öncesi duyuru ve veri dışa aktarma yolu verilir. OV-08–OV-11 kapanmadan ilgili silme, arşiv boyutu, operasyonel kapasite veya platform desteği kabul edilmiş sayılmaz.
 
@@ -41,6 +43,8 @@ Tamamlanma kanıtı: Aşama 3 çekirdek akış karşılaştırması ara kanıt o
 - **Kapsam sınırı:** Ekranların birebir aynı olması, telefon/tablet veya tam çevrimdışı çalışma desteği vaat edilmez; ölçülmemiş platform ve proje boyutu destekleniyor diye ilan edilmez. Performans sınırları Operasyonel Kabul Profilinde, sözleşme sürümü ve göç kuralları ise ilgili kayıt akışlarının kabulünde doğrulanır.
 
 ## Testing Decisions
+
+- **Gezinme ve yerleşim seam’i:** app-shell, projects-navigation ve workspace-usability Playwright testleri başlangıç, oturum yönlendirmesi, proje bağlamı, dönüş, yükleme hatası, bilinmeyen route ve 1440/390 px pencere erişimini gerçek web renderer üzerinde taklit API ile sınar. Native masaüstü, canlı DB, destek matrisi, ekran okuyucu ve operasyonel kapasite doğrulaması ayrıca gerekir.
 
 - **Aşama 3 test seam’i:** Aynı Çekirdek Üretim Akışı girdisini web ve masaüstünde çalıştırıp yetkili kayıt, kalite kanıtı ve motor bağımsız paket anlamını karşılaştırma; farkları ara kanıt olarak saklama.
 - **Aşama 4/5 test seam’i:** Desteklenen Platformlar Tablosundaki web ve masaüstü birleşimlerinde tüm RAS/YAS fixture’larını ve OPS-04 erişilebilir temel akışı koşturup yetkili kayıt, paket, kilit, ayrışma ve senaryo sonuçlarını karşılaştırma. Tam kabul OV-08–OV-11 parametreleri ve kanıtları yayımlanmadan kapatılamaz.

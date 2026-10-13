@@ -26,11 +26,17 @@ test("persists reference transfer constraints through the web flow", async ({
 			name: `${fixture.projectName} varlık kayıtlarını aç`,
 		})
 		.click();
+	await page
+		.getByRole("button", { name: "Yeni varlık kaydı", exact: true })
+		.click();
 	await page.getByLabel("Varlık adı").fill(fixture.name);
 	await page.getByRole("checkbox", { name: identityCheckboxName }).check();
 	await page.getByRole("button", { name: "Varlık kaydı oluştur" }).click();
 	await expect(page.getByRole("heading", { name: fixture.name })).toBeVisible();
 
+	await page
+		.getByRole("button", { name: "Üretim ve içe aktarma", exact: true })
+		.click();
 	await page.locator("#reference-upload-file").setInputFiles({
 		name: "walking-pose.png",
 		mimeType: "image/png",
@@ -65,6 +71,9 @@ test("persists reference transfer constraints through the web flow", async ({
 	await expect(card.getByText("Revizyon 2 ·", { exact: false })).toBeVisible();
 
 	await page.reload();
+	await page
+		.getByRole("button", { name: "Üretim ve içe aktarma", exact: true })
+		.click();
 	card = page.getByRole("article").filter({
 		has: page.getByRole("img", {
 			name: "walking-pose.png adlı referans görseli",

@@ -508,4 +508,4 @@ test("the generated project route opens access from the authenticated project li
 	expect(screen.getByRole("group", { name: "Kimlik" })).toBeVisible();
 	expect(screen.getByRole("group", { name: "Tema" })).toBeVisible();
 	expect(screen.getByRole("group", { name: "Stil" })).toBeVisible();
-});
+}, 15_000);

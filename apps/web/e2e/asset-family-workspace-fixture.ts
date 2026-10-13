@@ -2,7 +2,6 @@ import { expect, type Page } from "@playwright/test";
 import { signUpWithFixture } from "./project-workflow";
 
 const objectProfileHeading = "Objeler, silahlar, ekipmanlar ve durum aileleri";
-const profileActivationButtonName = /Sözleşme v.*etkinleştir/;
 const candidateVersionText = "Sürüm 1 · Aday";
 
 export const assetFamilyWorkspaceFixture = {
@@ -48,9 +47,9 @@ export async function prepareAssetFamilyWorkspace(
 		.getByLabel("Genel sanat yaklaşımı")
 		.fill(fixture.generalArtDirection);
 	await page.getByRole("button", { name: "Projeyi oluştur" }).click();
-	await expect(
-		page.getByRole("heading", { name: "Bağlam Önerisi hazırlayın" })
-	).toBeVisible();
+	await page
+		.getByRole("button", { name: "Görsel Dünyalar ve Temalar", exact: true })
+		.click();
 	await page.getByLabel("Görsel Dünya adı").fill(fixture.visualWorldName);
 	await page.getByRole("button", { name: "Görsel Dünya ekle" }).click();
 	await expect(
@@ -59,17 +58,29 @@ export async function prepareAssetFamilyWorkspace(
 
 	await page.goto("/projects");
 	await page.getByRole("link", { name: "Varlık Aileleri" }).click();
+	await page
+		.getByRole("button", { name: "Aile ve temsil ilişkileri", exact: true })
+		.click();
 	await page.getByLabel("Varlık Kimliği adı").fill(fixture.identityName);
 	await page.getByRole("button", { name: "Varlık Kimliği oluştur" }).click();
+	await page
+		.getByRole("button", { name: "Aile kataloğu", exact: true })
+		.click();
 	await expect(
 		page.getByRole("heading", { name: fixture.identityName })
 	).toBeVisible();
+	await page
+		.getByRole("button", { name: "Aile ve temsil ilişkileri", exact: true })
+		.click();
 	await page.getByLabel("Varlık Ailesi adı").fill(fixture.familyName);
 	await page.getByLabel("Görsel Dünya").selectOption({
 		label: fixture.visualWorldName,
 	});
 	await page.getByLabel("Kullanım bağlamı").fill(fixture.useContext);
 	await page.getByRole("button", { name: "Varlık Ailesi oluştur" }).click();
+	await page
+		.getByRole("button", { name: "Aile kataloğu", exact: true })
+		.click();
 	await expect(
 		page
 			.getByRole("region", { name: "Kaydedilmiş Varlık Aileleri" })
@@ -79,9 +90,18 @@ export async function prepareAssetFamilyWorkspace(
 	const familyUrl = page.url();
 	for (const record of fixture.records) {
 		// biome-ignore lint/performance/noAwaitInLoops: Browser interactions within each record setup must occur in order.
+		await page
+			.getByRole("button", { name: "Aile ve temsil ilişkileri", exact: true })
+			.click();
 		await page.getByLabel("Bağımsız ürün anlamı", { exact: true }).check();
 		await page.getByLabel("Varlık Kaydı adı").fill(record.name);
 		await page.getByRole("button", { name: "Varlık Kaydı ekle" }).click();
+		await page
+			.getByRole("button", {
+				name: "Sürüm ve bağımlılık işlemleri",
+				exact: true,
+			})
+			.click();
 		await expect(
 			page
 				.getByRole("listitem")
@@ -95,6 +115,9 @@ export async function prepareAssetFamilyWorkspace(
 			.getByRole("link", { name: "Varlık Sürümü yükle" })
 			.click();
 
+		await page
+			.getByRole("button", { name: "Kayıt bilgileri", exact: true })
+			.click();
 		// Scope hydration can reset the form's initial metadata. Select only once
 		// the record and its family world have finished loading.
 		await expect(
@@ -112,6 +135,9 @@ export async function prepareAssetFamilyWorkspace(
 			page.getByText("Varlık kaydı metadata’sı kaydedildi.")
 		).toBeVisible();
 
+		await page
+			.getByRole("button", { name: "Sürümler ve dosyalar", exact: true })
+			.click();
 		await page.getByLabel("PNG veya WebP dosyası").setInputFiles({
 			name: `${record.name}.png`,
 			mimeType: "image/png",
@@ -130,6 +156,12 @@ export async function prepareAssetFamilyWorkspace(
 		).toBeVisible();
 
 		await page.goto(familyUrl);
+		await page
+			.getByRole("button", {
+				name: "Sürüm ve bağımlılık işlemleri",
+				exact: true,
+			})
+			.click();
 		await expect(
 			page
 				.getByRole("listitem")
@@ -139,17 +171,41 @@ export async function prepareAssetFamilyWorkspace(
 		).toBeVisible();
 	}
 
-	const activeProfile = page
-		.getByRole("heading", { name: fixture.categoryLabel, exact: true })
-		.locator("xpath=ancestor::li[1]");
-	await activeProfile
-		.getByRole("button", { name: profileActivationButtonName })
-		.click();
-	await expect(
-		activeProfile.getByText(`Etkin sözleşme v${contractVersion}`, {
-			exact: true,
-		})
-	).toBeVisible();
+	const contractNames: Record<string, string> = {
+		"Objeler, silahlar, ekipmanlar ve durum aileleri":
+			"Obje, silah, ekipman ve durum",
+		"Karakterler, yaratıklar ve animasyonlar": "Karakter, yaratık ve animasyon",
+		"Arka planlar ve katmanlı kaydırma": "Arka plan ve katmanlı kaydırma",
+	};
+	const contractName = contractNames[fixture.categoryLabel];
+	if (!contractName) {
+		throw new Error(`Unknown fixture profile: ${fixture.categoryLabel}`);
+	}
+	await activateFamilyProfile(page, contractName, familyUrl, contractVersion);
 
 	return { familyName: fixture.familyName, familyUrl };
+}
+
+export async function activateFamilyProfile(
+	page: Page,
+	contractName: string,
+	familyUrl: string,
+	contractVersion: string
+) {
+	await page
+		.getByRole("link", { name: "Özel profil sözleşmeleri", exact: true })
+		.click();
+	await page.getByRole("button", { name: contractName, exact: true }).click();
+	const profile = page.getByRole("article", {
+		name: contractName,
+		exact: true,
+	});
+	await profile.getByRole("button", { name: "Sözleşmeyi etkinleştir" }).click();
+	await expect(
+		profile.getByText(`Bu projede etkin · ${contractVersion}`)
+	).toBeVisible();
+	await page.goto(familyUrl);
+	await page
+		.getByRole("button", { name: "Profil incelemeleri", exact: true })
+		.click();
 }
