@@ -14,6 +14,7 @@
     "desktop:test:build": "VITE_WDIO=true tauri build --debug --no-bundle --config src-tauri/tauri.test.conf.json --features webdriver",
     "desktop:test:directional": "wdio run wdio.conf.ts --spec desktop-e2e/directional-reviews.spec.ts",
     "desktop:test:texture-repetition": "wdio run wdio.conf.ts --spec desktop-e2e/texture-repetition-reviews.spec.ts",
+    "desktop:test:ui-state-comparison": "wdio run wdio.conf.ts --spec desktop-e2e/ui-state-comparisons.spec.ts",
     "dev": "vite dev",
     "doctor": "npx react-doctor@latest",
     "e2e:install": "playwright install chromium",

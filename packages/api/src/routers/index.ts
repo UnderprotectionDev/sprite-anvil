@@ -47,6 +47,7 @@ import { referenceProductionRouter } from "./reference-production";
 import { rightsRecordsRouter } from "./rights-records";
 import { specializedProfileContractsRouter } from "./specialized-profile-contracts";
 import { tilesetAdjacencyReviewsRouter } from "./tileset-adjacency-reviews";
+import { uiStateComparisonsRouter } from "./ui-state-comparisons";
 import { vfxAppearanceReviewsRouter } from "./vfx-appearance-reviews";
 import { vfxSynchronizationRouter } from "./vfx-synchronization";
 
@@ -108,6 +109,7 @@ async function readContextProposalReview(
 import { textureRepetitionReviewsRouter } from "./texture-repetition-reviews";
 
 export const appRouter = {
+	uiStateComparisons: uiStateComparisonsRouter,
 	textureRepetitionReviews: textureRepetitionReviewsRouter,
 	tilesetAdjacencyReviews: tilesetAdjacencyReviewsRouter,
 	healthCheck: publicProcedure.handler(() => serializeRpcHealthResponse()),

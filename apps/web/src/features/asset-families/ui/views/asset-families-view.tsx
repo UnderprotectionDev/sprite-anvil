@@ -16,6 +16,7 @@ import { IconFamilyReviewSections } from "@/features/icon-profile/ui/components/
 import { AssetFamilyComparisonSections } from "@/features/object-equipment-profile/ui/components/asset-family-comparison-sections";
 import { TextureRepetitionReviewSections } from "@/features/tileset-texture-profile/ui/components/texture-repetition-review-sections";
 import { TilesetAdjacencyReviewSections } from "@/features/tileset-texture-profile/ui/components/tileset-adjacency-review-sections";
+import { UiStateComparisonSections } from "@/features/ui-profile/ui/components/ui-state-comparison-sections";
 import { VfxAppearanceSections } from "@/features/vfx-profile/ui/components/vfx-appearance-sections";
 import { VfxSynchronizationSections } from "@/features/vfx-profile/ui/components/vfx-synchronization-sections";
 import { client, orpc } from "@/utils/orpc";
@@ -493,6 +494,18 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 												families={reviewFamilies}
 												familyRecords={catalog.assetRecords}
 												projectId={projectId}
+												versions={assetVersionQuery.data.assetVersions}
+											/>
+											<UiStateComparisonSections
+												activation={getActiveProfileContract(
+													profileContractsQuery.data,
+													"ui"
+												)}
+												assetFamilies={reviewFamilies}
+												assetFamilyRecords={catalog.assetRecords}
+												assetRecordsById={assetRecordsById}
+												projectId={projectId}
+												units={assetVersionQuery.data.unitVersions}
 												versions={assetVersionQuery.data.assetVersions}
 											/>
 											<IconFamilyReviewSections

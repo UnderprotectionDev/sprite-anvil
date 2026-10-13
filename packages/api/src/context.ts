@@ -33,6 +33,7 @@ import type {
 	TextureRepetitionReviewStore,
 } from "./texture-repetition-reviews";
 import type { TilesetAdjacencyReviewStore } from "./tileset-adjacency-reviews";
+import type { UiStateComparisonStore } from "./ui-state-comparisons";
 import type {
 	VfxAppearanceFrame,
 	VfxAppearanceReviewStore,
@@ -81,6 +82,7 @@ export interface Context {
 	specializedProfileContractStore?: SpecializedProfileContractStore;
 	textureRepetitionReviewStore?: TextureRepetitionReviewStore;
 	tilesetAdjacencyReviewStore?: TilesetAdjacencyReviewStore;
+	uiStateComparisonStore?: UiStateComparisonStore;
 	verifyAssetVersionContent?: (
 		userId: string,
 		projectId: string,

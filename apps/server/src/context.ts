@@ -36,6 +36,7 @@ import {
 	specializedProfileContractStore,
 	textureRepetitionReviewStore,
 	tilesetAdjacencyReviewStore,
+	uiStateComparisonStore,
 	vfxAppearanceReviewStore,
 	vfxSynchronizationStore,
 } from "./services";
@@ -68,6 +69,7 @@ export async function createContext({
 		backgroundScrollingTestStore,
 		backgroundLayerLayoutStore,
 		iconFamilyReviewStore,
+		uiStateComparisonStore,
 		textureRepetitionReviewStore,
 		checkTextureEdges,
 		tilesetAdjacencyReviewStore,
