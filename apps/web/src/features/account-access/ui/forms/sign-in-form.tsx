@@ -1,12 +1,11 @@
 import { Button } from "@sprite-anvil/ui/components/button";
-import { Input } from "@sprite-anvil/ui/components/input";
-import { Label } from "@sprite-anvil/ui/components/label";
 import { useForm } from "@tanstack/react-form";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import z from "zod";
 import Loader from "@/components/loader";
 import { authClient } from "@/lib/auth-client";
+import { AccountAccessField } from "./account-access-field";
 
 export default function SignInForm({
 	onSwitchToSignUp,
@@ -74,30 +73,12 @@ export default function SignInForm({
 				<div>
 					<form.Field name="email">
 						{(field) => (
-							<div className="space-y-2">
-								<Label className="text-sm" htmlFor={field.name}>
-									Email
-								</Label>
-								<Input
-									autoComplete="email"
-									className="min-h-11 text-sm md:text-sm"
-									id={field.name}
-									name={field.name}
-									onBlur={field.handleBlur}
-									onChange={(e) => field.handleChange(e.target.value)}
-									type="email"
-									value={field.state.value}
-								/>
-								{field.state.meta.errors.map((error) => (
-									<p
-										className="text-destructive text-sm"
-										key={error?.message}
-										role="alert"
-									>
-										{error?.message}
-									</p>
-								))}
-							</div>
+							<AccountAccessField
+								autoComplete="email"
+								field={field}
+								label="Email"
+								type="email"
+							/>
 						)}
 					</form.Field>
 				</div>
@@ -105,30 +86,12 @@ export default function SignInForm({
 				<div>
 					<form.Field name="password">
 						{(field) => (
-							<div className="space-y-2">
-								<Label className="text-sm" htmlFor={field.name}>
-									Password
-								</Label>
-								<Input
-									autoComplete="current-password"
-									className="min-h-11 text-sm md:text-sm"
-									id={field.name}
-									name={field.name}
-									onBlur={field.handleBlur}
-									onChange={(e) => field.handleChange(e.target.value)}
-									type="password"
-									value={field.state.value}
-								/>
-								{field.state.meta.errors.map((error) => (
-									<p
-										className="text-destructive text-sm"
-										key={error?.message}
-										role="alert"
-									>
-										{error?.message}
-									</p>
-								))}
-							</div>
+							<AccountAccessField
+								autoComplete="current-password"
+								field={field}
+								label="Password"
+								type="password"
+							/>
 						)}
 					</form.Field>
 				</div>

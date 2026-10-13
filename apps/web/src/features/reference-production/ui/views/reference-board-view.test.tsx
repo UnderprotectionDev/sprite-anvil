@@ -171,7 +171,7 @@ test("pastes a reference image into the focused drop area", async () => {
 	expect(await screen.findByText("palette.webp")).toBeVisible();
 });
 
-test("exposes uploaded reference images as list items", async () => {
+test("edits an uploaded Reference and preserves failed-save retry feedback", async () => {
 	const timestamp = new Date().toISOString();
 	fakeApi.board = {
 		assetVersionReferences: [],
@@ -203,7 +203,30 @@ test("exposes uploaded reference images as list items", async () => {
 	};
 	renderBoard();
 
-	expect(await screen.findAllByRole("listitem")).toHaveLength(1);
+	const cards = await screen.findAllByRole("listitem");
+	expect(cards).toHaveLength(1);
+	const card = within(cards[0]);
+	fireEvent.click(card.getByText("Kuralları düzenle"));
+	fireEvent.change(card.getByLabelText("Referans notu"), {
+		target: { value: "Keep only the pose." },
+	});
+	fakeApi.updateImage.mockRejectedValueOnce(new Error("Save unavailable"));
+	fireEvent.click(card.getByRole("button", { name: "Kuralları kaydet" }));
+	expect(await card.findByRole("alert")).toHaveTextContent(
+		"Referans değişikliği kaydedilemedi."
+	);
+	fakeApi.updateImage.mockResolvedValueOnce(undefined);
+	fireEvent.click(card.getByRole("button", { name: "Kuralları kaydet" }));
+	expect(await card.findByRole("status")).toHaveTextContent(
+		"Referans kuralları ve notu kaydedildi."
+	);
+	expect(card.queryByRole("alert")).not.toBeInTheDocument();
+	expect(fakeApi.updateImage).toHaveBeenLastCalledWith(
+		expect.objectContaining({
+			notes: "Keep only the pose.",
+			expectedRevision: 1,
+		})
+	);
 });
 
 test("exposes a versioned Rights Record panel on each reference image", async () => {

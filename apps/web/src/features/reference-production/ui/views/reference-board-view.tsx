@@ -17,6 +17,7 @@ import {
 	type ReferenceConstraintDraft,
 	ReferenceConstraintEditor,
 } from "../components/reference-constraint-editor";
+import { ReferenceRulesEditor } from "../components/reference-rules-editor";
 import {
 	encodeMetadataHeader,
 	localizedFeatureList,
@@ -380,37 +381,18 @@ function ReferenceCard({
 					</p>
 				) : null}
 			</div>
-			<details className="border-t pt-3">
-				<summary className="cursor-pointer font-medium text-sm">
-					Kuralları düzenle
-				</summary>
-				<div className="mt-3 space-y-3">
-					<ReferenceConstraintEditor
-						draft={draft}
-						hasCanonicalDesign={hasCanonicalDesign}
-						idPrefix={`edit-reference-${image.id}`}
-						onChange={setDraft}
-					/>
-					{validationError ? (
-						<p className="text-destructive text-sm" role="alert">
-							{validationError}
-						</p>
-					) : null}
-					{error ? (
-						<p className="text-destructive text-sm" role="alert">
-							{error}
-						</p>
-					) : null}
-					{saved ? (
-						<p className="text-sm" role="status">
-							{saved}
-						</p>
-					) : null}
-					<Button disabled={saving} onClick={() => void save()} type="button">
-						{saving ? "Kaydediliyor…" : "Kuralları kaydet"}
-					</Button>
-				</div>
-			</details>
+			<ReferenceRulesEditor
+				feedback={{ error, saved, validationError }}
+				onSave={() => void save()}
+				saving={saving}
+			>
+				<ReferenceConstraintEditor
+					draft={draft}
+					hasCanonicalDesign={hasCanonicalDesign}
+					idPrefix={`edit-reference-${image.id}`}
+					onChange={setDraft}
+				/>
+			</ReferenceRulesEditor>
 			<details className="border-t pt-3">
 				<summary className="cursor-pointer font-medium text-sm">
 					Kural geçmişi
@@ -516,37 +498,18 @@ function AssetVersionReferenceCard({
 					</p>
 				) : null}
 			</div>
-			<details className="border-t pt-3">
-				<summary className="cursor-pointer font-medium text-sm">
-					Kuralları düzenle
-				</summary>
-				<div className="mt-3 space-y-3">
-					<ReferenceConstraintEditor
-						draft={draft}
-						hasCanonicalDesign={hasCanonicalDesign}
-						idPrefix={`edit-version-reference-${reference.id}`}
-						onChange={setDraft}
-					/>
-					{validationError ? (
-						<p className="text-destructive text-sm" role="alert">
-							{validationError}
-						</p>
-					) : null}
-					{error ? (
-						<p className="text-destructive text-sm" role="alert">
-							{error}
-						</p>
-					) : null}
-					{saved ? (
-						<p className="text-sm" role="status">
-							{saved}
-						</p>
-					) : null}
-					<Button disabled={saving} onClick={() => void save()} type="button">
-						{saving ? "Kaydediliyor…" : "Kuralları kaydet"}
-					</Button>
-				</div>
-			</details>
+			<ReferenceRulesEditor
+				feedback={{ error, saved, validationError }}
+				onSave={() => void save()}
+				saving={saving}
+			>
+				<ReferenceConstraintEditor
+					draft={draft}
+					hasCanonicalDesign={hasCanonicalDesign}
+					idPrefix={`edit-version-reference-${reference.id}`}
+					onChange={setDraft}
+				/>
+			</ReferenceRulesEditor>
 			<details className="border-t pt-3">
 				<summary className="cursor-pointer font-medium text-sm">
 					Kural geçmişi

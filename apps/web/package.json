@@ -15,6 +15,7 @@
     "desktop:test:directional": "wdio run wdio.conf.ts --spec desktop-e2e/directional-reviews.spec.ts",
     "desktop:test:texture-repetition": "wdio run wdio.conf.ts --spec desktop-e2e/texture-repetition-reviews.spec.ts",
     "dev": "vite dev",
+    "doctor": "npx react-doctor@latest",
     "e2e:install": "playwright install chromium",
     "env:generate": "varlock codegen",
     "serve": "vite preview",

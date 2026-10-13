@@ -24,6 +24,7 @@ import {
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
 import { rightsRecordEvidenceFileUrl } from "./rights-record-api";
+import { RightsRecordDetails } from "./rights-record-details";
 
 const stateLabels: Record<RightsRecordState, string> = {
 	assertion_only: "Yalnız Beyan",
@@ -264,23 +265,6 @@ function getCreatedAtLabel(value: string) {
 	}).format(new Date(value));
 }
 
-function HistoryField({
-	label,
-	value,
-}: {
-	label: string;
-	value: string | null;
-}) {
-	return (
-		<div>
-			<dt className="font-medium text-sm">{label}</dt>
-			<dd className="mt-1 whitespace-pre-wrap break-words text-muted-foreground text-sm">
-				{value || "Belirtilmedi"}
-			</dd>
-		</div>
-	);
-}
-
 function RightsRecordHistoryItem({
 	projectId,
 	record,
@@ -297,41 +281,7 @@ function RightsRecordHistoryItem({
 				</p>
 			</div>
 			<p className="text-sm">{stateLabels[record.state]}</p>
-			<dl className="grid gap-3 sm:grid-cols-2">
-				<HistoryField label="Kaynak" value={record.source} />
-				<HistoryField
-					label="Hak sahibi veya sağlayıcı"
-					value={record.rightsHolderOrProvider}
-				/>
-				<HistoryField
-					label="Beyan edilen izin kapsamı"
-					value={record.assertedScope}
-				/>
-				<HistoryField
-					label="Hak kaydını destekleyen kanıt"
-					value={record.evidence}
-				/>
-				{record.evidenceFile ? (
-					<div>
-						<dt className="font-medium text-sm">Kanıt dosyası</dt>
-						<dd className="mt-1 text-sm">
-							<a
-								download={record.evidenceFile.fileName}
-								href={rightsRecordEvidenceFileUrl(
-									projectId,
-									record.assetRecordId,
-									record.id,
-									record.referenceId ?? null
-								)}
-							>
-								{record.evidenceFile.fileName}
-							</a>
-						</dd>
-					</div>
-				) : null}
-				<HistoryField label="Bilinen kısıtlar" value={record.restrictions} />
-				<HistoryField label="Belirsizlik" value={record.uncertainty} />
-			</dl>
+			<RightsRecordDetails projectId={projectId} record={record} />
 		</li>
 	);
 }
