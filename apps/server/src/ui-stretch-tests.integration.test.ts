@@ -153,6 +153,10 @@ test.skipIf(!url)(
 					},
 				],
 			};
+			const [normalState] = input.states;
+			if (!normalState) {
+				throw new Error("Missing normal state fixture");
+			}
 			const saved = await call(appRouter.uiStretchTests.save, input, {
 				context,
 			});
@@ -212,7 +216,7 @@ test.skipIf(!url)(
 					...input,
 					id: crypto.randomUUID(),
 					screen: { assetRecordId: recordId, assetVersionId: versionId },
-					states: [...input.states, { ...input.states[0], stateId: "pressed" }],
+					states: [...input.states, { ...normalState, stateId: "pressed" }],
 					targets: [...input.targets, { width: 32, height: 24 }],
 				},
 				{ context }
@@ -247,7 +251,7 @@ test.skipIf(!url)(
 						...input,
 						states: [
 							{
-								...input.states[0],
+								...normalState,
 								stretchMargins: { left: 20, right: 20, top: 3, bottom: 5 },
 							},
 						],
@@ -262,7 +266,7 @@ test.skipIf(!url)(
 						...input,
 						id: crypto.randomUUID(),
 						states: [
-							{ ...input.states[0], naturalSize: { width: 33, height: 24 } },
+							{ ...normalState, naturalSize: { width: 33, height: 24 } },
 						],
 					},
 					{ context }
@@ -275,7 +279,7 @@ test.skipIf(!url)(
 						...input,
 						states: [
 							{
-								...input.states[0],
+								...normalState,
 								textSafeArea: { x: 31, y: 5, width: 18, height: 12 },
 							},
 						],
