@@ -42,12 +42,14 @@ import { familyReadinessRouter } from "./family-readiness";
 import { gameplayMetadataRouter } from "./gameplay-metadata";
 import { generationPackagesRouter } from "./generation-packages";
 import { iconFamilyReviewsRouter } from "./icon-family-reviews";
+import { marketingUsageReviewsRouter } from "./marketing-usage-reviews";
 import { projectsRouter } from "./projects";
 import { referenceProductionRouter } from "./reference-production";
 import { rightsRecordsRouter } from "./rights-records";
 import { sceneQaRouter } from "./scene-qa";
 import { specializedProfileContractsRouter } from "./specialized-profile-contracts";
 import { tilesetAdjacencyReviewsRouter } from "./tileset-adjacency-reviews";
+import { uiStateComparisonsRouter } from "./ui-state-comparisons";
 import { vfxAppearanceReviewsRouter } from "./vfx-appearance-reviews";
 import { vfxSynchronizationRouter } from "./vfx-synchronization";
 
@@ -110,6 +112,7 @@ import { textureRepetitionReviewsRouter } from "./texture-repetition-reviews";
 
 export const appRouter = {
 	sceneQa: sceneQaRouter,
+	uiStateComparisons: uiStateComparisonsRouter,
 	textureRepetitionReviews: textureRepetitionReviewsRouter,
 	tilesetAdjacencyReviews: tilesetAdjacencyReviewsRouter,
 	healthCheck: publicProcedure.handler(() => serializeRpcHealthResponse()),
@@ -126,6 +129,7 @@ export const appRouter = {
 	animationTimingReviews: animationTimingReviewsRouter,
 	vfxSynchronization: vfxSynchronizationRouter,
 	iconFamilyReviews: iconFamilyReviewsRouter,
+	marketingUsageReviews: marketingUsageReviewsRouter,
 	backgroundLayerLayouts: backgroundLayerLayoutsRouter,
 	backgroundScrollingTests: backgroundScrollingTestsRouter,
 	assetVersions: assetVersionsRouter,
