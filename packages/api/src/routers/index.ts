@@ -47,6 +47,7 @@ import { portraitIdentityReviewsRouter } from "./portrait-identity-reviews";
 import { projectsRouter } from "./projects";
 import { referenceProductionRouter } from "./reference-production";
 import { rightsRecordsRouter } from "./rights-records";
+import { sceneQaRouter } from "./scene-qa";
 import { specializedProfileContractsRouter } from "./specialized-profile-contracts";
 import { tilesetAdjacencyReviewsRouter } from "./tileset-adjacency-reviews";
 import { uiStateComparisonsRouter } from "./ui-state-comparisons";
@@ -112,6 +113,7 @@ import { textureRepetitionReviewsRouter } from "./texture-repetition-reviews";
 
 import { uiStretchTestsRouter } from "./ui-stretch-tests";
 export const appRouter = {
+	sceneQa: sceneQaRouter,
 	uiStretchTests: uiStretchTestsRouter,
 	uiStateComparisons: uiStateComparisonsRouter,
 	textureRepetitionReviews: textureRepetitionReviewsRouter,

@@ -310,6 +310,14 @@ function ProjectsList({
 								Varlık Aileleri
 							</Link>
 							<Link
+								aria-label={`${project.name} sahne kalite kontrol alanını aç`}
+								className={`${buttonVariants({ variant: "outline" })} !text-sm min-h-11`}
+								params={{ projectId: project.id }}
+								to="/projects/$projectId/scene-qa"
+							>
+								Sahne Kalite Kontrol Alanı
+							</Link>
+							<Link
 								aria-label={`${project.name} koleksiyonlarını düzenle`}
 								className={`${buttonVariants({ variant: "outline" })} !text-sm min-h-11`}
 								params={{ projectId: project.id }}
