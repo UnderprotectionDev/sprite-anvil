@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "bfcaaef9-d8a3-4111-b9b0-908cf6dcb89b",
+  "id": "5789219a-82fa-4a27-8333-4f4c60ff8f98",
   "prevIds": [
-    "8b222765-06d7-4dc8-a88f-85d0fd7401c1"
+    "eaa2e38c-33f1-4a3a-81d5-5e4b7a695068"
   ],
   "ddl": [
     {
@@ -183,12 +183,6 @@
     },
     {
       "isRlsEnabled": false,
-      "name": "ui_stretch_tests",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
       "name": "background_scrolling_tests",
       "entityType": "tables",
       "schema": "public"
@@ -303,6 +297,12 @@
     },
     {
       "isRlsEnabled": false,
+      "name": "marketing_usage_reviews",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
       "name": "project",
       "entityType": "tables",
       "schema": "public"
@@ -382,6 +382,18 @@
     {
       "isRlsEnabled": false,
       "name": "tileset_adjacency_reviews",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "ui_state_comparisons",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "ui_stretch_tests",
       "entityType": "tables",
       "schema": "public"
     },
@@ -3489,97 +3501,6 @@
       "name": "id",
       "entityType": "columns",
       "schema": "public",
-      "table": "ui_stretch_tests"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "project_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ui_stretch_tests"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "asset_family_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ui_stretch_tests"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "contract_revision_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ui_stretch_tests"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "record",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ui_stretch_tests"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "created_by_user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ui_stretch_tests"
-    },
-    {
-      "type": "timestamp",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ui_stretch_tests"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
       "table": "background_scrolling_tests"
     },
     {
@@ -5556,6 +5477,97 @@
       "name": "id",
       "entityType": "columns",
       "schema": "public",
+      "table": "marketing_usage_reviews"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "project_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "marketing_usage_reviews"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "asset_family_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "marketing_usage_reviews"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "contract_revision_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "marketing_usage_reviews"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "record",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "marketing_usage_reviews"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "created_by_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "marketing_usage_reviews"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "marketing_usage_reviews"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
       "table": "project"
     },
     {
@@ -7312,6 +7324,188 @@
       "entityType": "columns",
       "schema": "public",
       "table": "tileset_adjacency_reviews"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ui_state_comparisons"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "project_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ui_state_comparisons"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "asset_family_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ui_state_comparisons"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "contract_revision_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ui_state_comparisons"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "record",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ui_state_comparisons"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "created_by_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ui_state_comparisons"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ui_state_comparisons"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ui_stretch_tests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "project_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ui_stretch_tests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "asset_family_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ui_stretch_tests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "contract_revision_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ui_stretch_tests"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "record",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ui_stretch_tests"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "created_by_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ui_stretch_tests"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ui_stretch_tests"
     },
     {
       "type": "text",
@@ -9443,41 +9637,6 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "ui_stretch_tests_family_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "ui_stretch_tests"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "project_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "asset_family_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "created_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
       "name": "background_scrolling_tests_family_idx",
       "entityType": "indexes",
       "schema": "public",
@@ -10530,6 +10689,41 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "project_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "asset_family_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "marketing_usage_reviews_family_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "marketing_usage_reviews"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "owner_user_id",
           "isExpression": false,
           "asc": true,
@@ -11232,6 +11426,76 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "tileset_adjacency_reviews"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "asset_family_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "ui_state_comparisons_family_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "ui_state_comparisons"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "asset_family_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "created_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "ui_stretch_tests_family_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "ui_stretch_tests"
     },
     {
       "nameExplicit": true,
@@ -12631,59 +12895,6 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
-      "name": "ui_stretch_tests_rpsUvdx8vVib_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "ui_stretch_tests"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "created_by_user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "user",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "ui_stretch_tests_created_by_user_id_user_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "ui_stretch_tests"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "project_id",
-        "asset_family_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "asset_families",
-      "columnsTo": [
-        "project_id",
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "ui_stretch_tests_family_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "ui_stretch_tests"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "contract_revision_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "specialized_profile_contract_revisions",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
       "name": "background_scrolling_tests_kz0WONQDj9o1_fkey",
       "entityType": "fks",
       "schema": "public",
@@ -13759,6 +13970,59 @@
     {
       "nameExplicit": false,
       "columns": [
+        "contract_revision_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "specialized_profile_contract_revisions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "marketing_usage_reviews_zhv38w0sf0vf_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "marketing_usage_reviews"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "created_by_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "user",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "marketing_usage_reviews_created_by_user_id_user_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "marketing_usage_reviews"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "project_id",
+        "asset_family_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "asset_families",
+      "columnsTo": [
+        "project_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "marketing_usage_reviews_family_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "marketing_usage_reviews"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "owner_user_id"
       ],
       "schemaTo": "public",
@@ -14395,6 +14659,112 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
+      "name": "ui_state_comparisons_rSi212lHvoGm_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "ui_state_comparisons"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "created_by_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "user",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "ui_state_comparisons_created_by_user_id_user_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "ui_state_comparisons"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "project_id",
+        "asset_family_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "asset_families",
+      "columnsTo": [
+        "project_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "ui_state_comparisons_family_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "ui_state_comparisons"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "contract_revision_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "specialized_profile_contract_revisions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "ui_stretch_tests_rpsUvdx8vVib_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "ui_stretch_tests"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "created_by_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "user",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "ui_stretch_tests_created_by_user_id_user_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "ui_stretch_tests"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "project_id",
+        "asset_family_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "asset_families",
+      "columnsTo": [
+        "project_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "ui_stretch_tests_family_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "ui_stretch_tests"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "contract_revision_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "specialized_profile_contract_revisions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
       "name": "vfx_appearance_reviews_PITpwPWvc1OW_fkey",
       "entityType": "fks",
       "schema": "public",
@@ -14778,16 +15148,6 @@
         "id"
       ],
       "nameExplicit": false,
-      "name": "ui_stretch_tests_pkey",
-      "schema": "public",
-      "table": "ui_stretch_tests",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
       "name": "background_scrolling_tests_pkey",
       "schema": "public",
       "table": "background_scrolling_tests",
@@ -14958,6 +15318,16 @@
         "id"
       ],
       "nameExplicit": false,
+      "name": "marketing_usage_reviews_pkey",
+      "schema": "public",
+      "table": "marketing_usage_reviews",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
       "name": "project_pkey",
       "schema": "public",
       "table": "project",
@@ -15081,6 +15451,26 @@
       "name": "tileset_adjacency_reviews_pkey",
       "schema": "public",
       "table": "tileset_adjacency_reviews",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "ui_state_comparisons_pkey",
+      "schema": "public",
+      "table": "ui_state_comparisons",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "ui_stretch_tests_pkey",
+      "schema": "public",
+      "table": "ui_stretch_tests",
       "entityType": "pks"
     },
     {
