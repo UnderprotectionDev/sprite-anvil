@@ -12,7 +12,17 @@ import {
 import { afterEach, expect, test, vi } from "vitest";
 import { MarketingUsageReviewManager } from "./marketing-usage-review-manager";
 
-const mocks = vi.hoisted(() => ({ list: vi.fn(), save: vi.fn() }));
+const supportReferenceLabel = /Support reference:/;
+const uncertainResultMessage = /The result could not be confirmed/;
+const privateErrorDetails = /private database connection details/;
+const mocks = vi.hoisted(() => ({
+	list: vi.fn(),
+	save: vi.fn(),
+	errorToast: vi.fn(),
+}));
+vi.mock("sonner", () => ({
+	toast: { dismiss: vi.fn(), error: mocks.errorToast },
+}));
 vi.mock("@/utils/orpc", () => ({
 	client: { marketingUsageReviews: { save: mocks.save } },
 	orpc: {
@@ -124,6 +134,12 @@ test("blocks another write after an uncertain result and offers an actual reread
 	await screen.findByText(
 		"Kaydetme sonucu belirsiz. Güncel kayıtları kontrol edin."
 	);
+	await waitFor(() => expect(mocks.errorToast).toHaveBeenCalledOnce());
+	const [, options] = mocks.errorToast.mock.calls[0];
+	render(options.description);
+	expect(screen.queryByText(supportReferenceLabel)).not.toBeInTheDocument();
+	expect(screen.getByText(uncertainResultMessage)).toBeVisible();
+	expect(options.action).toBeUndefined();
 	expect(
 		screen.getByRole("button", { name: "Kullanım incelemesini kaydet" })
 	).toBeDisabled();
@@ -135,6 +151,42 @@ test("blocks another write after an uncertain result and offers an actual reread
 		expect(mocks.list.mock.calls.length).toBeGreaterThan(before)
 	);
 	expect(mocks.save).toHaveBeenCalledTimes(1);
+});
+test("shows the server support reference without exposing private details or retrying an uncertain write", async () => {
+	const supportReference = "SUP-7CFB1C3A-A7A3-4BC2-B748-B5065AA2314A";
+	show();
+	loadAndAssess();
+	mocks.save.mockRejectedValue(
+		Object.assign(new Error("private database connection details"), {
+			code: "INTERNAL_SERVER_ERROR",
+			status: 500,
+			data: { supportReference },
+		})
+	);
+	const save = screen.getByRole("button", {
+		name: "Kullanım incelemesini kaydet",
+	});
+	await waitFor(() => expect(save).toBeEnabled());
+	fireEvent.click(save);
+	await screen.findByText(
+		"Kaydetme sonucu belirsiz. Güncel kayıtları kontrol edin."
+	);
+	await waitFor(() => expect(mocks.errorToast).toHaveBeenCalledOnce());
+	const [title, options] = mocks.errorToast.mock.calls[0];
+	expect(title).toBe("This action could not be completed.");
+	render(options.description);
+	expect(screen.getByText(supportReference)).toBeVisible();
+	expect(screen.getByText(supportReferenceLabel)).toBeVisible();
+	expect(screen.queryByText(privateErrorDetails)).not.toBeInTheDocument();
+	expect(options.action).toBeUndefined();
+	expect(save).toBeDisabled();
+	fireEvent.click(
+		screen.getByRole("button", { name: "Güncel kayıtları kontrol et" })
+	);
+	await screen.findByText(
+		"Sonuç henüz doğrulanamadı. Aynı incelemeyi göndermeden güncel kayıtları tekrar kontrol edin."
+	);
+	expect(mocks.save).toHaveBeenCalledOnce();
 });
 test("invalidates inspected previews after geometry changes and handles failed images", () => {
 	show();
