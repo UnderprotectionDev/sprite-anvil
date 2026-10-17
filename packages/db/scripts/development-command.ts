@@ -4,24 +4,44 @@ import {
 	inspectDevelopmentCompatibility,
 	withDevelopmentCompatibility,
 } from "./database-preparation";
-import { type Connection, verifyDatabaseLease } from "./database-state";
+import {
+	type Connection,
+	readSchemaFingerprint,
+	verifyDatabaseLease,
+} from "./database-state";
 import type { DevelopmentTarget } from "./development-targets";
 import { MigrationSafetyError } from "./migration-safety-error";
 import type { ValidatedSource } from "./migration-source";
+import { createInspectionGate } from "./runtime-inspection-gate";
+
+// The lease check is a tiny query and runs every tick. The database digest
+// runs at most this often unless the local source changed; a full catalog read
+// happens only when the source or database digest differs from the last pass.
+const DATABASE_DIGEST_INTERVAL_MS = 30_000;
 
 async function verifyRuntimeTarget(
 	source: ValidatedSource,
 	connection: Connection,
 	pid: number,
-	name: string
-): Promise<void> {
+	name: string,
+	verified: string | undefined,
+	checkDatabase: boolean
+): Promise<string | undefined> {
 	try {
 		if (!(await verifyDatabaseLease(connection, pid, true))) {
 			throw new MigrationSafetyError(
 				"The development database lease was lost."
 			);
 		}
-		await inspectDevelopmentCompatibility(source, connection);
+		if (!checkDatabase) {
+			return verified;
+		}
+		// Read the digest before inspecting so a concurrent change is seen next pass.
+		const state = `${source.fingerprint}:${await readSchemaFingerprint(connection)}`;
+		if (state !== verified) {
+			await inspectDevelopmentCompatibility(source, connection);
+		}
+		return state;
 	} catch (error) {
 		const reason =
 			error instanceof MigrationSafetyError
@@ -64,6 +84,9 @@ export async function runReadyDevelopment(
 			let compatibilityFailed = false;
 			let failureReason = "";
 			let check: Promise<void> | undefined;
+			const databaseDue = createInspectionGate(DATABASE_DIGEST_INTERVAL_MS);
+			const verified: (string | undefined)[] = [];
+			let verifiedSource = source.fingerprint;
 			const verifyRuntime = async () => {
 				const currentSource = launch.revalidateSource
 					? await launch.revalidateSource()
@@ -71,14 +94,19 @@ export async function runReadyDevelopment(
 				if (!launch.revalidateSource) {
 					await currentSource.assertUnchanged();
 				}
+				const checkDatabase =
+					currentSource.fingerprint !== verifiedSource || databaseDue();
 				for (const [index, connection] of connections.entries()) {
-					await verifyRuntimeTarget(
+					verified[index] = await verifyRuntimeTarget(
 						currentSource,
 						connection,
 						identities[index] ?? 0,
-						targets[index]?.name ?? "development"
+						targets[index]?.name ?? "development",
+						verified[index],
+						checkDatabase
 					);
 				}
+				verifiedSource = currentSource.fingerprint;
 			};
 			const keepLease = setInterval(() => {
 				if (check) {
