@@ -74,6 +74,9 @@ PWA kullanılmayacak; web uygulaması için service worker ve kurulum manifesti 
 - Biome
 - Lefthook
 - GitHub Actions
+  - CI runs on pull requests and `main` pushes; docs-only (`docs/**`, `*.md`) changes skip it.
+  - Jobs: `quality` (Ultracite, types, disposable PostgreSQL migration tests, unit tests), `web-e2e` (build + Playwright), `desktop-webdriver` (Tauri WebDriver).
+  - React Doctor is advisory and reports through its own check and PR comment.
 
 ## Deployment
 
