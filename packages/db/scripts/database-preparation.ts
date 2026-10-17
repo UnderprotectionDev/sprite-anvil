@@ -2,6 +2,7 @@ import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SQL } from "bun";
+import { describeConnectionFailure } from "./database-connection-error";
 import {
 	type Connection,
 	catalogHash,
@@ -74,9 +75,7 @@ async function acquireLease(
 		await database.close({ timeout: 1 });
 		throw error instanceof MigrationSafetyError
 			? error
-			: new MigrationSafetyError(
-					`${target.name}: database connection failed. Check the declared development target and credentials in a secure environment.`
-				);
+			: new MigrationSafetyError(describeConnectionFailure(target.name, error));
 	}
 }
 

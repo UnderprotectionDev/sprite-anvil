@@ -44,10 +44,9 @@ export async function readDatabaseHistory(
 	};
 }
 
-export async function readSchemaCatalog(
-	connection: Connection
-): Promise<string[]> {
-	const rows = await connection`
+// One definition serves both the full catalog read and the server-side digest,
+// so the cheap change check always covers exactly what full inspection reads.
+const SCHEMA_CATALOG_SQL = `
 		WITH namespaces AS (
 			SELECT oid, nspname FROM pg_namespace WHERE nspname NOT IN ('pg_catalog', 'information_schema', 'drizzle')
 			AND nspname NOT LIKE 'pg_toast%' AND nspname NOT LIKE 'pg_temp%'
@@ -95,7 +94,30 @@ export async function readSchemaCatalog(
 		)
 		SELECT definition::text FROM objects ORDER BY definition::text COLLATE "C"
 	`;
+
+export async function readSchemaCatalog(
+	connection: Connection
+): Promise<string[]> {
+	const rows = await connection.unsafe(SCHEMA_CATALOG_SQL);
 	return rows.map((row: Record<string, unknown>) => String(row.definition));
+}
+
+/**
+ * Digests history and catalog on the server so an unchanged database costs a
+ * few hundred bytes instead of the full catalog (about 190 KB) per check.
+ */
+export async function readSchemaFingerprint(
+	connection: Connection
+): Promise<string> {
+	const [catalog] = await connection.unsafe(
+		`SELECT md5(coalesce(string_agg(definition, E'\\n' ORDER BY definition COLLATE "C"), '')) AS digest FROM (${SCHEMA_CATALOG_SQL}) AS catalog`
+	);
+	const [migrationTable] =
+		await connection`SELECT to_regclass('drizzle.__drizzle_migrations') IS NOT NULL AS present`;
+	const [history] = migrationTable?.present
+		? await connection`SELECT md5(coalesce(string_agg(row_to_json(migration)::text, E'\\n' ORDER BY migration.id), '')) AS digest FROM drizzle.__drizzle_migrations AS migration`
+		: [{ digest: "absent" }];
+	return `${String(catalog?.digest)}:${String(history?.digest)}`;
 }
 
 export function catalogHash(catalog: string[]): string {

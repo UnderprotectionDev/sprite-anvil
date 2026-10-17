@@ -1,676 +1,203 @@
 # Sprite Anvil — Arayüz Tasarım Planı
 
-Bu belge, Paper'da hangi ekranların çizileceğini ve her ekranın hangi düzen şablonunu kullanacağını tanımlar. Davranışın kaynağı [PRD](prd/README.md)'dir; görsel kararların kaynağı aynı Paper dosyasındaki `Design Language` ve `Layout Templates` sayfalarıdır. Kaynaklar arasında çelişki varsa uygulamadan önce ilgili kaynaklarla birlikte açıklanır. Tasarıma başlamadan önce [Start Here](https://app.paper.design/file/01M4ASVM4ATF4HHXQSJ96CWVFY/p-8-0) sayfasındaki görev adımlarını ve mekanik denetimi okuyun.
-
-## Ekranlar nasıl okunur
-
-1. **Ekran.** Her `###` başlığı bir ekrandır ve kimliği ekranın tek adresidir. Ekran, bölümünün Paper sayfasında çizilir; artboard adı `Kimlik · Ekran adı` ile başlar (ör. `03.2 · Varlık ayrıntısı`).
-2. **Alt ekran.** Kimliğe eklenen numara, ekranın içinden açılan sekme, panel, pencere veya ayrı akışı gösterir (`03.2.1`, `03.2`'nin içindedir); işlem sırası değildir. Alt ekran, üst ekranın üzerinde açık hâliyle kendi artboard'unda çizilir.
-3. **Görünüm.** Aynı ekranın içerik, durum veya mod farkları numara almaz. Ekranın altında önce **Ortak** kısım, sonra adlı görünüm maddeleri yazılır. Ortak kısım bir kez çizilir; görünüm aynı artboard'da adıyla etiketlenir. Yerleşimi belirgin biçimde değişen görünüm `Kimlik · Ekran — Görünüm` adlı ayrı artboard'da çizilir. Görünüme özgü kısıtlar kendi maddesinde kalır.
-4. **Ekran mı, görünüm mü?** Aynı şablonla aynı işi farklı içerik veya durumla yapan şey görünümdür. Farklı iş yapan ya da farklı şablon kullanan şey ayrı ekrandır; aynı şablonu paylaşmak tek başına görünüm nedeni değildir.
-5. **Anma.** Ekran kimlikle (`05.3`), görünüm kimlik ve adla (`08.2.7 › Yerel taslak kaydedildi`) anılır.
-6. **Kimlik değişikliği.** Kimlikler bölüm içinde boşluksuz sıralanır. Bir kimlik değişirse aynı değişiklikte bu belgedeki anmalar, Paper artboard adları ve artboard içindeki kimlik etiketleri birlikte güncellenir.
-
-## Paper'da üretim kuralları
-
-1. **Düzen.** Her ekranın `Düzen` satırı şablonunu `Layout Templates` sayfasından verir. `A + B`, A şablonunun yuvasına B'nin yerleşiminin girdiğini gösterir. `Yuva dolgusu`, durumun bulunduğu ekranın yuvasını doldurduğunu gösterir. Kompakt (960) varyant yalnız düzende `+960` yazıyorsa ayrıca çizilir.
-2. **Notlar.** Açıklamalar ekran artboard'una değil, yanındaki not artboard'una yazılır. Görünümler için ayrı dosya veya Paper sayfası açılmaz.
-3. **Ortak tasarımlar.** 00, 07 ve 08 bir kez tasarlanır ve 01–06'da kendi içerikleriyle kullanılır; ana arayüzler için ayrı silme, kurtarma, durum veya onay penceresi çizilmez. Aynı çerçeveyi tekrar eden hata, odak ve bekleme durumları, gerekli bağlam korunarak kompakt bileşen örnekleriyle gösterilebilir.
-4. **Tokenlar ve bileşenler.** Ortak tokenlar dosya genelinde kullanılır. Aynı işi yapan bileşenler `Design Language` içinde tek specimen'dir; yeni specimen, PRD gereksinimi veya ekran kimliği belirtilmeden eklenmez. Çoğaltılmış geometri canlı bağlantı değildir: ortak bir kontrol değişince önce kaynak örnek, sonra etkilenen ekranlar güncellenip karşılaştırılır.
-5. **Dil.** Ürün ekranlarındaki etiketler [sözlükteki](CONTEXT.md) eşleşmiş Türkçe adlardır; ürün ekranlarında karışık dil kullanılmaz ve İngilizce yalnız kod, sözleşme ve test adlarında kalır. `Design Language` specimen etiketleri sözlüğün kanonik İngilizce adlarıyla yazılabilir; proje verisi (dünya, tema, kural adları) olduğu gibi kalır.
-6. **Kod aktarımı.** Ekranın artboard'ları ve kullandığı ortak örnekler birlikte okunur. Yinelenen çerçeve ve kontroller kodda ortak bileşenlere ayrılır; Paper'daki her kopya ayrı uygulama bileşeni sayılmaz.
-7. **Kapsam tamamlanma değildir.** Bu belge planlanan kapsamdır. Paper'da bir sayfanın, alan haritasının veya artboard'un bulunması, ekranın tasarlandığı, onaylandığı veya kodlandığı anlamına gelmez; mevcut artboard'lar ilgili görevde ayrıca kontrol edilir.
-
-### Bütün ekranlarda uygulanacak kurallar
-
-| Konu | Tasarımda gösterilecek |
-| --- | --- |
-| Erişilebilirlik | Klavye kullanımı, görünür odak, ekran okuyucu adları ve durum bildirimleri; yalnız renkle anlatılmayan durumlar, durdurulabilir animasyon ve azaltılmış hareket. |
-| Web / masaüstü | Aynı iş sonucu; webde yükleme/indirme yolu. |
-| Güvenli hata açıklaması | Beklenmeyen sunucu hatasında genel açıklama ve Destek Referansı; sunucuya ulaşmayan bağlantı hatasında üretilmiş gibi bir referans gösterilmez. Ham hata ayrıntıları ve sırlar gösterilmez. |
-
-## Paper sayfaları
-
-Aktif tasarım kaynağı, Paper'daki `Sprite Anvil` klasöründe bulunan [Sprite Anvil · Product](https://app.paper.design/file/01M4ASVM4ATF4HHXQSJ96CWVFY) dosyasıdır. Aşağıdakiler bu dosyanın sayfalarıdır; ayrı dosyalar veya uygulama route'ları değildir. Sayfalar bu sırayla okunur ve bu tablo Paper sayfa dizininin tek kaynağıdır. Sayfa adı, sırası veya sahipliği değişirse bu tablo ve Paper birlikte güncellenir. Eski bağımsız `Design Language` ve `00 · Shared Shell` dosyaları yalnız arşivdir. `Archive · Before Consolidation` tasarım dosyalarının arşividir; üründeki 01.4 Proje Arşivi ile ilişkili değildir.
-
-| Paper sayfası | Sahip olduğu içerik |
-| --- | --- |
-| Start Here | Süreç: okuma sırası, kaynak önceliği, görev adımları, Paper kılavuzu istisnaları ve mekanik denetim (`Start Here · Okuma sırası ve görev adımları`). |
-| Design Language | Değerler ve bileşenler: `DL · İçindekiler`, `DL 01 · Color`, `DL 02 · Color in context`, `DL 03 · Typography`, `DL 04 · Spacing`, `DL 05 · Components` ve bileşen düzeyindeki `DL 06 · Flow states`. Genişlik ve kompakt düzen burada tutulmaz. |
-| Layout Templates | İskeletler: `T · Dizin` ile `T00`–`T10` ve 1440/1280/960 varyantları. Yuvalar, genişlikler, genişlik token'ları ve kaydırma `T00 · Notes` içindedir. Dizin şablonun amacını verir; şablonu kullanan ekranları bu belgedeki `Düzen` satırları tutar. `T00`'ın kaynağı 00 sayfasındaki `00.0 · Ortak ekran şablonu` örneğidir; bu örnek ürün gereksinimi değildir. |
-| 00 · Shared Shell | [00. Ortak çerçeve](#00-ortak-çerçeve) |
-| 01 · Accounts & Projects | [01. Hesap ve Projeler](#01-hesap-ve-projeler) |
-| 02 · Project Context & Management | [02. Proje Bağlamı ve Yönetimi](#02-proje-bağlamı-ve-yönetimi) |
-| 03 · Asset Library | [03. Varlık Kütüphanesi](#03-varlık-kütüphanesi) |
-| 04 · Production & Import | [04. Üretim ve İçe Aktarma](#04-üretim-ve-içe-aktarma) |
-| 05 · Review & Quality Control | [05. İnceleme ve Kalite Kontrolü](#05-inceleme-ve-kalite-kontrolü) |
-| 06 · Delivery | [06. Teslimat](#06-teslimat) |
-| 07 · Shared Operations | [07. Ortak işlemler](#07-ortak-işlemler) |
-| 08 · Shared Pages & States | [08. Ortak sayfalar ve ekran durumları](#08-ortak-sayfalar-ve-ekran-durumları) |
-
-## 00. Ortak çerçeve
-
-Proje değiştirme, ana alanlar arasında gezinme ve işlem durumuna erişim.
-
-### 00.1 · Proje ve gezinme
-
-Düzen: `T00`
-
-Seçili projenin adı, proje değiştirme kontrolü ve 01.2 Projeler listesine dönüş. Proje Bağlamı, Kütüphane, Üretim, İnceleme ve Teslimat geçişleri; açık alanın seçili görünümü.
-
-### 00.2 · İçerik alanı
-
-Düzen: `T00`
-
-Ekran başlığı, seçili kaydın adı ve açık alanın konum yolu. Ana içerik, o kayda ait işlem kontrolleri ve bağlı alt ekranlara geçişler. Alt ekrandan üst kayda veya açıldığı listeye dönüş kontrolü.
-
-### 00.3 · Durum alanı
-
-Düzen: `T00`
-
-Bağlantı durumu (çevrimdışıyken 08.2.4) ve devam eden işlemlerin durumu (08.2.7 › İşlem ilerlemesi); bir işlem seçildiğinde 07.2 ayrıntısı açılır.
-
-### 00.4 · Destek ve sınır bilgileri
-
-Düzen: `T09`
-
-Desteklenen tarayıcı, masaüstü, motor sürümü ve proje boyutu bilgileri. Yayımlanmış işlem/depolama sınırları ve destek değişikliği duyuruları; ilgili işlemde bu bilgilere erişim.
-
-### 00.4.1 · Destek kaldırma duyurusu ve dışa aktarma
-
-Düzen: `T08`
-
-Desteği kaldırılacak platform veya sürüm için önceden yapılan duyuru ve verilerin dışa aktarılacağı yol.
-
-### 00.5 · Hesap menüsü
-
-Düzen: `T00`
-
-Oturum açmış kullanıcının adı ve e-postası; oturumu kapatma kontrolü. Çıkış tamamlandığında 01.1 Giriş açılır.
-
-## 01. Hesap ve Projeler
-
-Giriş, proje seçme/oluşturma, arşivleme ve geri yükleme.
-
-### 01.1 · Giriş
-
-Düzen: `T01`
-
-**Ortak:** Kimlik bilgisi formu, gönderim bekleme durumu ve başarısız gönderim açıklaması; başarılı gönderimden sonra 01.2 Projeler açılır.
-
-- **Giriş:** E-posta ve parola alanları, giriş kontrolü ve Hesap oluşturma görünümüne geçiş.
-- **Hesap oluşturma:** Ad, e-posta ve parola alanları; alan doğrulama ve kayıt hatası durumları; hesap oluşturma ve Giriş görünümüne dönme kontrolleri.
-
-### 01.2 · Projeler
-
-Düzen: `T00 (proje öncesi) + T02`
-
-**Ortak:** Proje adları ve her projeyi açma kontrolü. Yeni proje oluşturma ve Proje Arşivine geçiş; proje yoksa oluşturmayı yönlendiren 08.2.2 › Henüz içerik yok.
-
-- **Izgara görünümü:** Projeler önizlemeli kartlarla.
-- **Liste görünümü:** Projeler satırlarla.
-
-### 01.3 · Yeni proje
-
-Düzen: `T01 + T04`
-
-Proje adı ve genel sanat yaklaşımı için giriş alanları. Projeyi oluşturma kontrolü, eksik/geçersiz alan açıklamaları ve oluşturulan projeye geçiş.
-
-### 01.4 · Proje Arşivi
-
-Düzen: `T00 (proje öncesi) + T02`
-
-**Ortak:** Arşiv listesi, seçili arşivin içerik özeti ve indirme kontrolü; geri yüklemeye (01.4.1) geçiş.
-
-- **Arşiv listesi:** Arşivler ve seçili arşivin özeti.
-- **Arşiv oluşturma:** Bağlam, varlık, üretim, inceleme ve teslimat geçmişini kapsayan içerik seçimi; seçili çalışma dosyaları ve dışarıda kalan kanıtlar. Arşivi oluşturma ve sonucunu izleme.
-
-### 01.4.1 · Geri yükleme
-
-Düzen: `T08`
-
-**Ortak:** Mevcut proje üzerine yazılmaz; geri yükleme her zaman bağımsız yeni proje oluşturur.
-
-- **Arşiv seçimi:** Geri yüklenecek arşivi seçme kontrolü.
-- **Bütünlük kontrolü:** Dosya/ilişki bütünlüğü sonucu ve eksik kanıt açıklamaları.
-- **Yeni projeyi açma:** Bağımsız proje oluşturma, işlem ilerlemesi ve tamamlanan yeni projeyi açma.
-
-### 01.5 · Proje yönetimi
-
-Düzen: `T04`
-
-Açık projenin yönetim görünümü: 01.4 Proje Arşivine geçiş ve kalıcı silmeyi başlatma (07.3).
-
-## 02. Proje Bağlamı ve Yönetimi
-
-Görsel kurallar, Temalar ve erişim izinleri.
-
-### 02.1 · Proje Bağlamı
-
-Düzen: `T02`
-
-Etkin Bağlam Sürümü ve kapsamlarına göre gruplanmış kurallar. Seçili kapsamda devralınan ve geçerli olan kuralları görme; yeni öneri hazırlama, bekleyen önerileri açma, 02.1.3 sürüm geçmişine ve 02.1.2 Stil Modüllerine geçiş.
-
-### 02.1.1 · Kural önerisi
-
-Düzen: `T04 + T05`
-
-**Ortak:** Mevcut ve önerilen kuralların farkları, taban sürüm, ajan/model veya kontrol kaynağı ve doğrulama sonucu.
-
-- **Hazırlama:** Kural, kapsam, değer ve dayanak girilen yapılandırılmış öneri kontrolleri.
-- **Bekleyen öneriler:** Henüz etkinleşmemiş öneriler ve her birinin doğrulama durumu.
-- **Çakışma çözümü:** Aynı kuraldaki çakışan önerileri karşılaştırıp çözme.
-- **İnceleme ve etkinleştirme:** Geçerli öneriyi inceleyip etkinleştirme.
-
-### 02.1.1.1 · Bağlam Kuralı İstisnası
-
-Düzen: `T04`
-
-Devralınan kural, yerine geçecek daha dar kapsamlı değer ve gerekçe. Kaynak kural zincirini ve etkilenen kapsamı görme; istisnayı Bağlam Önerisine dahil etme. Kalite İstisnası ayrı 05.1.2 ekranındadır.
-
-### 02.1.2 · Stil Modülleri
-
-Düzen: `T02`
-
-**Ortak:** Stil Modülleri, her modülün kuralları ve sürümleri. Palet, kontur gibi kuralları modülde gruplama.
-
-- **Modül listesi:** Modüller ve seçili modülün kuralları; 08.3 › Hedef proje seçici ile başka projeye bağımsız kopyalama. Kopya alıcı projede Bağlam Önerisi olarak incelenir.
-- **Sürüm hazırlama:** Yeni modül sürümünü hazırlama.
-- **Sürüm inceleme:** Hazırlanan sürümün farklarını inceleme.
-
-### 02.1.3 · Bağlam sürüm geçmişi
-
-Düzen: `T02 + T05`
-
-Bağlam Sürümleri, etkin sürüm işareti ve seçili sürümün kuralları/istisnaları. Sürümler arasındaki değişiklikleri ve kaynak öneriyi açma; bu sürümü kullanan üretim kayıtlarına geçiş.
-
-### 02.2 · Görsel Dünyalar ve Temalar
-
-Düzen: `T02`
-
-Görsel Dünyalar ve her dünyaya bağlı Temalar. Oluşturma/düzenleme kontrolleri; seçili dünya veya Temanın kuralları ve bu kapsamın Proje Bağlamındaki karşılığı.
-
-### 02.3 · Bağlantılar ve izinler
-
-Düzen: `T04`
-
-Araç/ajan için izin durumu, amaç ve proje/veri kapsamı. İzin verme/geri alma; başlangıçta kapalı olan Harici Görsel Analizi için kategori, sağlayıcı, aktarılacak veri ve bilinen saklama koşulları. Henüz desteklenmeyen bağlantılar kullanılamaz olarak gösterilir.
-
-### 02.3.1 · Harici Görsel Analizi gönderim bildirimi
-
-Düzen: `T10`
-
-08.3 ortak pencere yapısıyla, her gönderimden hemen önce 02.3'teki kategori, sağlayıcı, aktarılacak veri ve saklama bilgileri. Gönderme veya vazgeçme kontrolleri.
-
-### 02.4 · Ürün ölçümleri
-
-Düzen: `T09`
-
-Süre, başarı, koruma ve yarım kalan akış sonuçları; ölçüm kapsamı ve zaman aralığı. Farklı tanım sürümleri ayrı gösterilir; kullanılan Ölçüm Tanımını açma.
-
-### 02.4.1 · Ölçüm Tanımları
-
-Düzen: `T04 + T05`
-
-Tanımın kapsamı, başlangıç/bitiş olayları, pay/payda, hariç tutmalar, zaman aralığı ve saklama süresi. Yeni tanım sürümünü hazırlama, farklarını inceleme ve etkinleştirme.
-
-## 03. Varlık Kütüphanesi
-
-Varlıkları bulma, aileleri ve ayrıntıları yönetme.
-
-### 03.1 · Kütüphane
-
-Düzen: `T02`
-
-**Ortak:** Seçili kapsamın varlık önizlemeleri, adları, türleri ve Kayıt Durumları; bir varlık seçildiğinde 03.2 Varlık ayrıntısı açılır.
-
-- **Varlıklar:** Projenin bütün varlıkları. Ad, tür, Tema, Görsel Dünya, ölçü, etiket ve Etkin/Arşivlenmiş filtreleri; ölçüyle eşleşen sürümü gösterme. 03.1.1 ile kayıt oluşturma.
-- **Koleksiyonlar:** Koleksiyon listesi ve seçili koleksiyonun varlıkları. Koleksiyon oluşturma, üye ekleme/çıkarma.
-- **Varlık Aileleri:** Aile listesi ve seçili ailenin üyeleri, Onaylı Ana Tasarımı, Türetilmiş Varlıkları ve eksik öğeleri. 03.1.3 ile aile/temsil ilişkisini kurma; aynı Varlık Kimliğindeki ayrı aileleri açma ve 03.1.2 Gerekli Öğeler Listesine geçiş.
-
-### 03.1.1 · Yeni Varlık Kaydı
-
-Düzen: `T04 + T10`
-
-Ad, Varlık Kategorisi, etiket, Görsel Dünya ve Tema alanları. Bağımsız Varlık Kaydı oluşturma; varsa aile bağlantısını 03.1.3 ile kurma. Görsel sonucu 04.2 içe aktarma akışıyla yeni Aday Sürüm olarak ekleme.
-
-### 03.1.2 · Gerekli Öğeler Listesi
-
-Düzen: `T04`
-
-Gerekli yön, animasyon, durum, varyant ve kullanım testleri; her öğenin tamamlanma durumu. Öğe ekleme/düzenleme, gerekli/isteğe bağlı/uygulanamaz seçimi ve yeni liste sürümünü etkinleştirme. Eski liste sürümleri ile onları kullanan paketleri açma.
-
-### 03.1.3 · Aile ve temsil ilişkileri
-
-Düzen: `T04`
-
-Varlık Kimliği, Görsel Dünya ve kullanım bağlamı seçimleri; aile oluşturma ve üyeleri ilişkilendirme. Onaylı kesin Ana Tasarımı seçme, her Türetilmiş Varlığın kaynağını belirtme; farklı dünyadaki temsili ayrı aileye bağlama.
-
-### 03.2 · Varlık ayrıntısı
-
-Düzen: `T03`
-
-Büyük varlık önizlemesi; ad, Varlık Kategorisi, etiket, Görsel Dünya ve Tema alanları. Geçerli görsel kurallar, perspektif, ölçüler, kesin Ana Tasarım, referans amaçları ve mevcut üretim hedefinin özeti; bu kayıt ve hedefle 04.1 paket hazırlığına geçiş. Onaylı Sürüm ve alternatifler; İnceleme Kararı, Bağlama Uygunluk Durumu, Kalite Kontrol Durumu ve Kayıt Durumu 08.2.8 rozetleriyle. Alt ekranları sekme olarak açma, kaydı arşivleme veya yeniden etkinleştirme; kalıcı silmeyi 07.3 ile başlatma.
-
-### 03.2.1 · Oyun İçi Bilgiler
-
-Düzen: `T03 + T06`
-
-Seçili kare/görsel üzerinde pivot, zemin, sıralama, bağlantı noktaları (`mount point`) ve efekt başlangıç noktaları; vuruş, hasar alma ve çarpışma alanları ile olaylar. Katmanları gösterme/gizleme, noktaların koordinatlarını ve diğer değerleri düzenleme, kesin sürüm ve kare bağlantısını inceleme; bilinmeyen alanlar açıkça belirtilir.
-
-### 03.2.1.1 · Metadata paketi indirme
-
-Düzen: `T08`
-
-Seçili sürümün Oyun İçi Bilgiler ve animasyon metadata JSON paketini indirme; indirilen dosyayı yeniden okuyup doğrulama.
-
-### 03.2.2 · Sürümler ve dosyalar
-
-Düzen: `T03 + T02`
-
-Birim ve Birleşik Sürüm listeleri; her sürümün önizlemesi, inceleme durumu, kesin bileşim üyeleri ve dosyaları. Dosyaları inceleme; 03.2.2.3 ile iki sürümü karşılaştırma, seçili sürümü 05.1 incelemeye veya 05.3 düzenleyiciye açma. 03.2.2.1 yeni bileşime ve 03.2.2.2 harici çalışma dosyasına geçiş.
-
-### 03.2.2.1 · Yeni bileşim oluşturma
-
-Düzen: `T05`
-
-Kaynak bileşimin birimleri ve seçilebilecek kesin Birim Sürümleri. Değişecek/korunacak birimleri karşılaştırma, üyeleri seçme ve eski bileşimi koruyarak yeni Birleşik Sürüm oluşturma.
-
-### 03.2.2.2 · Harici çalışma dosyası
-
-Düzen: `T03 + T04`
-
-Yönetilen Kopya ve masaüstündeki Canlı Dosya Bağlantısı durumu; dosyayı harici düzenleyicide açma. Algılanan değişikliği inceleyip PNG/WebP sonucunu yeni Aday Sürüme bağlama. Dosya bulunamaz veya erişilemezse yeniden seçme; webde dosya yükleme yolu.
-
-### 03.2.2.3 · Sürüm karşılaştırması
-
-Düzen: `T05`
-
-Aynı varlığın karşılaştırılacak iki kesin sürümü ve yan yana önizlemeleri. Ortak yakınlaştırma ve çok kareli içerikte kare seçimi; görsel, ölçü, Oyun İçi Bilgiler ve Bileşim Üyeliği farkları. Kaynak sürümleri veya seçilen sürümün 05.1 incelemesini açma.
-
-### 03.2.3 · Üretim kanıtları
-
-Düzen: `T03 + T04`
-
-Kaynak türü ve mevcut/eksik üretim kanıtları; bilinmeyen geçmiş açıkça belirtilir. Elle İçe Aktarma Kanıtında paket, gerçek talimat, kaynak yüzeyi ve sonuç dosyası; Sağlayıcı Üretim Kaydında mevcut ayrıntılar. Sağlayıcı, arayüz, model/sürüm, istenen/gerçekleşen ölçüler, tohum ve diğer üretim parametrelerini elle girme formu. Elle girilen değerleri Kullanıcının Bildirdiği Sağlayıcı Ayrıntıları olarak bağlantı verisinden ayrı gösterme; boş sağlayıcı alanları Bilinmiyor kalır ve kullanıcı bildirimi tek başına onayı engellemez. Eski varlık için Geçmiş Varlık Beyanı girme.
-
-### 03.2.4 · Hak Kayıtları
-
-Düzen: `T03 + T02`
-
-Seçili varlık veya referansın Hak Kaydı: kaynak, hak sahibi/sağlayıcı, izin kapsamı, kısıt ve belirsizlik. Metin/URL ve dosya kanıtı ekleme; Belgelendi/Yalnız Beyan/Bilinmiyor/Kısıtlı seçimi. Önceki kaydı koruyarak yeni sürüm oluşturma; Ana Tasarım, referans ve bağımlı kaynakların ayrı hak geçmişlerini açma.
-
-### 03.2.5 · Bağımlılık bağlantıları
-
-Düzen: `T03 + T02`
-
-Varlığın kaynak Ana Tasarımı ve bağımlı olduğu kesin kayıtlar; kimlik, siluet, ekipman, palet, Tema, perspektif veya zamanlama türleri. Bağlantı ekleme/düzenleme, eksik bağımlılıkları görme ve 05.5 değişiklik etkisine geçiş.
-
-### 03.2.6 · Görsel ölçüler
-
-Düzen: `T03 + T04`
-
-Dosyadan doğrulanan Kaynak Görsel Ölçüsü; mantıksal çözünürlük, hücre, görünür içerik sınırı, gösterim ölçeği ve atlas ölçüleri için ayrı alanlar. Sınırın koordinat temeli ve önerilen/doğrulanmış değerler. Hazır veya özel kare/dikdörtgen ölçü girme; tam sayı olmayan gösterim ölçeğinde keskinlik uyarısı.
-
-## 04. Üretim ve İçe Aktarma
-
-Üretim girdilerini hazırlama, dosyaları alma, denemeleri karşılaştırma.
-
-### 04.1 · Üretim Paketi
-
-Düzen: `T04`
-
-Hedef, etkin bağlam kopyası, kesin Ana Tasarım, ölçüler ve beklenen çıktı alanları. Korunacak/değişecek/kaçınılacak özellikleri ve sabit birimleri belirleme; referansları inceleyip Üretim Paketi oluşturma. Kesinleşen paketi 04.1.2 içinde açma.
-
-### 04.1.1 · Referans panosu
-
-Düzen: `T06`
-
-Yan yana referans görselleri, notlar ve her görselin hazır/özel kullanım amacı. Görsel ekleme, izinli/yasak aktarımı düzenleme ve çakışmayı çözme. Referansın 03.2.4 Hak Kaydını açma; kimlik sınırı değişecekse 02.1.1.1 istisnasına geçiş.
-
-### 04.1.2 · Üretim paketi ayrıntısı ve geçmişi
-
-Düzen: `T02`
-
-Değişmez Üretim Paketleri ve seçili denemenin sabitlenmiş bağlam, Ana Tasarım, referans, ölçü ve çıktı özeti. Paketi harici üretimde kullanmak üzere inceleme; paket özetini kopyalama, pakete bağlı Ana Tasarım ve referans görsellerini indirme kontrolleri. Doğal dil talimatını harici üretim yüzeyinde kullanıcı yazar. İlişkili sonucu 04.2 ile içe aktarma ve bağlı Aday Sürümün kanıtlarını açma.
-
-### 04.2 · İçe Aktarma Gelen Kutusu
-
-Düzen: `T02`
-
-Yapıştırma, sürükleme veya yükleme alanı; dosya önizlemeleri, kaynak türü ve her dosyanın aktarım sonucu. Desteklenmeyen/okunamayan dosya ve eksik kanıt açıklamaları. Mevcut dosyalar Üretim Paketi hazırlanmadan da içe alınabilir. Hedefsiz girdileri bekletme; 04.2.2 ilişkilendirmesine, 04.2.1 metadata eşlemeye ve eksik kanıt için 03.2.3 üretim kanıtına geçiş.
-
-### 04.2.1 · Metadata eşleme
-
-Düzen: `T05`
-
-Görsel ve JSON sidecar için kare, süre, tag, slice, pivot, dokuz parça ve palet alanlarının kaynak/hedef karşılaştırması. Alan bazında tanılama ve çakışma çözümü; isteğe bağlı Bilinmiyor değerleri koruma. Yeni öneriyi önceki kullanıcı kararından ayrı kesinleştirme.
-
-### 04.2.2 · Hedef ilişkilendirme
-
-Düzen: `T04`
-
-Seçili girdinin görseli ve kaynak bilgisi yanında hedef Varlık Kaydı, yön/animasyon/durum veya birim seçimleri. Yeni kayıt gerekiyorsa aynı 03.1.1 formunu açma. Kullanıcı ilişkiyi kesinleştirince oluşan Aday Sürümü açma; onay için 05.1 kullanılır.
-
-### 04.3 · Üretim Deneyleri
-
-Düzen: `T02 + T05`
-
-Deney listesi; ortak üretim amacı belirleme ve her denemeye ayrı paket/Aday Sürüm ekleme. Sonuçları ve bağlam, Ana Tasarım, referans, talimat, ölçü, çıktı yapısı ve varsa üretim parametresi farklarını karşılaştırma. Seçim/sonuçsuzluk/bırakma kararı; deney seçimi varlığı onaylamaz. Öğrenimi 02.1.1 önerisine aktarma, ayrıştırılamayan nedenleri belirtme.
-
-### 04.4 · Üretim Tarifleri
-
-Düzen: `T02 + T04`
-
-Tarif listesi ve sürümler; seçilen deneyden tarif oluşturma. Talimat iskeleti, referans rolleri, çıktı yapısı ve sabit/doldurulacak alanları düzenleme. Güncel girdilerle paket hazırlama veya 08.3 › Hedef proje seçici ile başka projeye bağımsız kopyalama; eksik girdileri alıcı projede yeniden seçme ve kural çatışmalarını çözme.
-
-## 05. İnceleme ve Kalite Kontrolü
-
-Varlıkları sınama, düzeltme ve onay/ret kararı. Kütüphane, aile ve teslimat engelleri bu bölümdeki aynı test ve inceleme ekranlarını açar.
-
-### 05.1 · Sürüm incelemesi
-
-Düzen: `T03`
-
-Seçili kesin sürümün önizlemesi, kalite kanıtları, onay engelleri ve karar geçmişi. Önceki sürümle karşılaştırmak için aynı 03.2.2.3 ekranını açma. Onay/ret/yeniden Aday seçimi ve gerekçe alanı; kullanıcı kararıyla yeni İnceleme Kaydı oluşturma. İnceleme, bağlama uygunluk, kalite ve kayıt durumları 08.2.8 rozetleriyle.
-
-### 05.1.1 · Toplu inceleme
-
-Düzen: `T05`
-
-Seçili sürümlerin yan yana önizlemeleri ve her öğenin kendi kanıtları/engelleri. Her uygun öğe için ayrı karar; engelli öğelerin nedenleri görünür kalır.
-
-### 05.1.2 · Kalite İstisnası
-
-Düzen: `T10 + T04`
-
-İstisnaya izin veren kural, gözlenen değer, kesin sürüm, kullanım kapsamı, Bağlam Sürümü ve Ana Tasarım. Gerekçe girme ve istisnayı kesinleştirme; bütünlük, zorunlu inceleme ve test kanıtı eksikliği istisnayla aşılmaz.
-
-### 05.2 · Profil testleri
-
-Düzen: `T02`
-
-Seçili sürümün türü, etkin profil sözleşmesi ve değerlendirme sonuçları. Uygun test alanını (05.2.1) açma, kesin test girdilerini seçme ve kanıtları inceleme; özel profili olmayan tür için 05.2.2 Genel Varlık Desteğine geçiş.
-
-### 05.2.1 · Test alanı
-
-Düzen: `T06`
-
-**Ortak:** Bütünlük, ölçülebilir gereksinim, uyarı, insan incelemesi ve kullanım testi sonuçları ayrı gruplar. Her sonuçtan kural, şüpheli kare/bölge ve kanıta geçiş. 05.2.1.1 sözleşmesini açma; 05.2.1.2 ile test ve kullanıcı değerlendirmesini kaydetme. Her tür görünümü bu çerçeveyi uyarlar ve yalnız türe özgü kısmıyla gösterilir.
-
-- **Karakter ve animasyon:** Ana Tasarım ve yön önizlemeleri, zaman çizgisi ve kareye bağlı bilgiler. Eşzamanlı oynatma, 1× görünüm, soluk kareler ve değişken süre kontrolleri; döngü/geçiş, pivot, zemin, bağlantı noktası ve olay zamanlarını karşılaştırma.
-- **Obje ve ekipman:** Obje/ekipmanın durum ve yön önizlemeleri; durum geçişlerini oynatma; bağlantı noktası, ölçek, pivot, zemin ve sıralamayı karşılaştırma.
-- **Nesne yerleşim sahnesi:** Nesnenin onaylı karakterin yanında, proje ızgarasında ve farklı zeminlerde yerleştirildiği kullanım sahnesi; ölçek, pivot, zemin ve sıralamayı bu sahnede karşılaştırma.
-- **İkon:** İkonun kaynak, mantıksal ve gerçek kullanım ölçülerindeki önizlemeleri; aile üyeleri yan yana. Açık/koyu zemin ve gri tonlama seçenekleri; siluet, iç boşluk, ışık, kontur ve durum/nadirlik renklerini karşılaştırma.
-- **Efekt:** Efektin tek başına ve sahibiyle birlikte önizlemesi; hücre sınırı ve zaman çizgisi. Zemin, şeffaflık, süre/döngü, başlangıç noktası ve katman kontrolleri; taşmayı ve oyun olayıyla eşzamanlamayı inceleme.
-- **Karo ve doku:** Karo testi ve doku tekrarı için ayrı bölümler. Karo atlası ve boyanabilir haritada köşe/kenar/koridor/dolgu/rastgele yerleşim; sorunlu karoyu seçme. Dokuda 2×2, 3×3 ve kaydırmalı tekrar; kesin kenar eşleşmesi ile görünür tekrar izini ayrı inceleme.
-- **Arka plan:** Arka plan katmanları, hedef görüntü oranı, kırpma ve oyuncu güvenli alanı. Katman sırası, göreli hız ve kaydırma kontrolleri; döngü birleşimi, kontrast ve oyuncu görünürlüğünü hareket hâlinde inceleme.
-- **Oyun arayüzü varlıkları:** Aynı ailede ekran, panel ve bileşenler; normal, üzerine gelme, basılı, devre dışı, seçili, açık/kapalı durumlar. Durum ve hedef ölçü seçimi; paneli farklı boyutlarda germe, dokuz parça paylarını ve metin güvenli alanını görme. Düzeltilen bileşeni ekran yerleşiminde sınama.
-- **Portre, logo ve tanıtım:** Portre ve logo/tanıtım için ayrı kullanım bölümleri. Portrede ifade, Ana Tasarım bağı ve diyalog/arayüz kırpması; logo/tanıtımda hedef ölçü, güvenli alan, açık/koyu zemin ve şeffaf/opak kullanım. Kimlik ve küçük boyut okunurluğunu karşılaştırma.
-
-### 05.2.1.1 · Özel Profil Sözleşmesi
-
-Düzen: `T02`
-
-Sözleşme sürümleri; metadata alanları, kural sınıfları, zorunlu insan incelemesi/kullanım testleri, istisna izni ve dışa aktarım eşlemeleri. Geçerli sürümü inceleyip etkinleştirme; yeni kurallardan etkilenen kanıtları görme.
-
-### 05.2.1.2 · Değerlendirme ve test kanıtı
-
-Düzen: `T04`
-
-Kesin varlık/birim/bileşim, profil sürümü, test ortamı ve kanıtlar. Otomatik sonuçları inceleme; zorunlu insan değerlendirmesi ile Geçti/Başarısız/Sonuçsuz kullanım testi sonucunu kaydetme. Tutarlılık/yanlış uyarı geri bildirimi ve önceki değerlendirmeler.
-
-### 05.2.2 · Genel Varlık Desteği
-
-Düzen: `T03`
-
-Özel profili olmayan yazı tipi, imleç ve yardımcı görsellerin kayıt/dosya bilgileri ve uygun önizlemesi. Temel bütünlük sonuçlarını ve kullanıcı incelemesini açma; türe özgü test kanıtı iddia edilmez.
-
-### 05.3 · Son Dokunuş Piksel Düzenleyicisi
-
-Düzen: `T07`
-
-**Ortak:** Üstte kaynak sürüm/aile ve taslak durumu; solda araçlar, ortada tuval, sağda sayısal ayarlar ve çok kareli içerikte altta kare şeridi. 1×/tam sayı yakınlaştırma ve şeffaflık zeminleri. Tuval yakınlaştırmasından bağımsız, sürekli görülebilen gerçek kullanım boyutu önizlemesi; 1×, 2× veya seçili tam sayı Gösterim Ölçeği. Geri al/yinele, yerel taslak kaydı ve “Bitir ve yeni Aday Sürüm oluştur” kontrolü. Piksel, karo ve sahne düzenlemesi için klavyeyle kullanılabilen eşdeğer görevler veya erişilebilir özellik paneli.
-
-- **Piksel ve palet araçları:** Kalem, silgi, renk seçici, çizgi ve kesin renk doldurma; seçim, kes/kopyala/yapıştır, piksele oturan taşıma, çevirme ve 90° döndürme. Kırpma, tuval ölçüsü ve tam sayı ölçekleme; palet kilidi, yabancı renkler ve toplu değişimde etkilenecek piksel sayısı.
-- **Görsel sayfasını dilimleme:** Hücre genişliği/yüksekliği, satır/sütun, başlangıç ofseti, boşluk ve okuma sırası alanları. Numaralı hücre sınırları ve oynatılabilir kare önizlemesi; kaynak görseli koruyarak dilimlemeyi çalışma taslağına uygulama.
-- **Kare ve animasyon düzenleme:** Kare şeridi; ekleme, çoğaltma, silme, dosyayla değiştirme ve sıralama kontrolleri. Kare süresi, X/Y ofseti, pivot ve koru işareti; oynat/durdur, döngü ve önceki/sonraki soluk kareler. Zemin hizasını karşılaştırma.
-- **Fark ve seçici düzeltme:** Orijinal/taslak farkını yan yana, üst üste veya durdurulabilir geçişle görme; değişen piksel/kare listesi, değişen piksel sayısı ve değişiklik sınır kutusu. Görsele yazılmayan ok, bölge ve notlar; sorunlu/korunacak birimleri 04.1 paketine aktarma. Dönen seçeneği taslağı ezmeden karşılaştırma.
-
-### 05.4 · Sahne Kalite Kontrol Alanı
-
-Düzen: `T06`
-
-Karo, arka plan, karakter, obje, gölge ve efekt için kesin sürüm seçip yerleştirilen sahne. Karakter hareketi, bekleme/yürüme/saldırı geçişleri, olay anı, katman/Y sırası ve kamera kontrolleri. Metadata katmanlarını gösterme; sonucu 05.2.1.2 ile kanıta bağlama.
-
-### 05.5 · Yeniden doğrulama
-
-Düzen: `T02`
-
-Değişen kural veya Ana Tasarım; doğrudan/dolaylı etkilenen varlıklar ve etki nedenleri. 05.5.2 ile değişiklik kapsamını belirtme; etkilenen sürümü yeniden incelemeye veya düzeltmeye açma. Yeniden Doğrulama Gerekli 08.2.8 rozetiyle gösterilir.
-
-### 05.5.1 · Tarihsel bileşim
-
-Düzen: `T04`
-
-Geçmiş Bağlam Sürümü, Ana Tasarım, bağımlılıklar ve kalite kanıtı seçimleri. Kesin tarihsel bileşim için uyumluluk raporu ve çözülemeyen engeller; bu seçim güncel yeniden doğrulama ihtiyacını kaldırmaz.
-
-### 05.5.2 · Değişiklik kapsamı
-
-Düzen: `T04`
-
-Değişen Bağlam Sürümleri veya eski/yeni Ana Tasarım; etkilenen kimlik, siluet, ekipman, palet, Tema, perspektif ve zamanlama seçimleri. Kullanıcının Değişiklik Tanımını kaydetmesi; eşleşen doğrudan/dolaylı bağımlılıkları 05.5 listesinde görme.
-
-## 06. Teslimat
-
-Hedef planlama, paket oluşturma, oyunda doğrulama ve teslimatı kaydetme.
-
-### 06.1 · Hedef ve Hazırlık Planı
-
-Düzen: `T02`
-
-Teslimat Hedefleri ve her hedefin etkin sürümü, amacı, kapsamı ve Hazır/Engelli durumu. Hedef oluşturma veya seçme; 06.1.1 hedef tanımını ve 06.1.2 Hazırlık Planını açma. Hazır/Engelli ve Teslim Edildi 08.2.8 rozetleriyle.
-
-### 06.1.1 · Teslimat Hedefi tanımı
-
-Düzen: `T04 + T05`
-
-Amaç, gerekli aileler/liste sürümleri, Bağlam Sürümü, kullanım testleri ve kabul koşulları. Üretim Kanıtı/Hak Kanıtı Politikaları ile gerekli çalışma zamanı ortamlarını seçme. Yeni tabana geçerken kapsam, kural ve tamamlanma farklarını inceleme; taslağı yeni hedef sürümü olarak etkinleştirme ve geçmiş sürümleri açma.
-
-### 06.1.2 · Hazırlık Planı
-
-Düzen: `T02`
-
-Etkin hedefin engelleri, eksik kanıtları ve bir düzeltmeyle açılacak işler. Hedef zorunluluğu, kullanıcı önceliği ve yeniden doğrulama etkisi ayrı gerekçeler; iş sırasını değiştirme ve her engelden ilgili düzeltme ekranına geçiş: eksik varlık 03'e, kalite engeli 05'e, hak kaydı 03.2.4'e.
-
-### 06.2 · Profil ve paket
-
-Düzen: `T03`
-
-Paket girdilerinden önce 06.2.2'de seçilen Dışa Aktarım Profili sürümü, kesin varlık/birim/bileşim girdileri ve paket içerik özeti. Bağlam, gerekli liste, üretim/hak/kalite kanıtı ve istisna seçimlerini inceleme; engelleri çözme ve paket oluşturma. Sonucu 06.2.3 paket ayrıntısında açma.
-
-### 06.2.1 · Paket doğrulama
-
-Düzen: `T08`
-
-Doğrulanacak paketi seçme ve Paket Doğrulama Kitinin şema, dosya özetleri, README ve sürümünü görme. Ağ olmadan doğrulamayı başlatma; eksik/uyuşmayan dosya, yinelenen yol ve bozuk kayıt bağlantısı sonuçlarını inceleme.
-
-### 06.2.2 · Dışa Aktarım Profili
-
-Düzen: `T04`
-
-Profil sürümleri; yerleşim, padding, trim, ölçek, biçim ve adlandırma alanları. Metadata eşlemelerinde alan kimliği, birim ve koordinat sistemi; bilinmeyen/eksik alan davranışı. Ayarları yeni profil sürümü olarak kaydetme ve pakette kullanılacak sürümü seçme.
-
-### 06.2.3 · Paket ayrıntısı ve geçmişi
-
-Düzen: `T02`
-
-Değişmez paket listesi; seçili paketin manifesti, dosya yolları/özetleri, sabitlenmiş sürümleri, kanıtları ve istisnaları. Paketi ve Doğrulama Kitini indirme; 06.2.1 doğrulamasına, 06.3 Godot çıktısına, 06.4 oyun testine veya 06.5 teslimat konumuna geçiş.
-
-### 06.3 · Godot çıktısı
-
-Düzen: `T03 + T08`
-
-Kaynak Dışa Aktarım Paketi, desteklenen Godot ve bağdaştırıcı sürümü, üretilecek dosyalar. Motor çıktısını oluşturma/indirme; kare, pivot, zamanlama, olay ve geçerli karo/arayüz eşlemelerini inceleme. Gerçek oyun testine 06.4 ile geçiş.
-
-### 06.4 · Oyunda doğrulama
-
-Düzen: `T03 + T04`
-
-Kesin paket, oyun yapısı, motor/bağdaştırıcı sürümü ve doğrulama geçmişi. Görüntü, video, test sonucu veya gözlem ekleme; elle/izinli araç kaynaklarını ayırma. Geçti/Başarısız/Sonuçsuz sonucunu, başarısızlık kaynağını ve etkilenen kapsamı kesinleştirme.
-
-### 06.5 · Güvenli yenileme
-
-Düzen: `T05`
-
-Seçili konum, paket ve Teslimat Yenileme Kilidi. İlk teslimat için 06.5.1; sonraki yenilemede değişmemiş/güncellenecek/bayat/eksik/ayrışmış yollar. Farkı inceleyip koruma, başka konum veya açık değiştirme kararı; uygulanan ve durdurulan yolları ayrı görme. Webde değişiklik paketini, kilidi ve ayrışma raporunu indirme; masaüstünde izinli klasöre yenilemeyi uygulama kontrolleri.
-
-### 06.5.1 · İlk teslimat ve konum seçimi
-
-Düzen: `T08`
-
-Uygulanacak kesin paket ve teslimat konumu; masaüstünde klasör seçimi/erişim izni, webde indirilecek paket ve elle uygulama yolu. İlk uygulamayı başlatma; yazılan göreli yolları, oluşan Teslimat Yenileme Kilidini ve varsa kısmi başarısızlığı görme.
-
-### 06.6 · Teslimatı kesinleştirme
-
-Düzen: `T05`
-
-Hazır hedefin gereksinimleri ve her birini karşılayan kesin paket/sürümler ile gerekli kullanım/çalışma zamanı kanıtları. Eksik veya örtüşen eşlemeleri çözme; geçerli seçimlerle Teslimat Gerçekleşmesini kesinleştirme.
-
-### 06.6.1 · Teslimat geçmişi
-
-Düzen: `T02 + T05`
-
-Teslimat Gerçekleşmesi listesi; kayıt ayrıntısını veya karşılaştırılacak iki kaydı seçme. Eklenen/çıkarılan/değişen varlıklar, bağlam, kalite, istisna, hak, çalışma zamanı kanıtı ve paket eşlemeleri ayrı fark grupları. İlgili kesin kayıtları açma.
-
-### 06.6.2 · Tarihsel Risk Bildirimleri
-
-Düzen: `T02`
-
-Etkilenen geçmiş teslimatlar, riskli kaynak, yeni Hak Kaydı sürümü, sabitlenmiş politikayla uyuşmazlık ve saptama zamanı. Kaynak hak kaydını veya teslimat ayrıntısını açma; geçmiş Teslim Edildi sonucu korunur.
-
-## 07. Ortak işlemler
-
-Çevrimdışı taslak, çakışma, işlem kurtarma ve kalıcı silme akışları.
-
-### 07.1 · Çevrimdışı çalışma ve çakışma
-
-Düzen: `T02`
-
-Cihazdaki yerel taslaklar, bağlı oldukları proje/kaynak sürüm ve kayıt durumları. Taslağı yeniden açıp çalışmaya devam etme; bağlantı dönünce güncel tabanı kontrol etme. Bulut ilerlemişse 07.1.1 Çakışma çözümünü açma; çevrimdışı taslak bulut kararı sayılmaz.
-
-### 07.1.1 · Çakışma çözümü
-
-Düzen: `T05`
-
-Taban sürüm, güncel bulut ve yerel taslağın üçlü karşılaştırması. Yeni Aday Sürüm oluşturma, bulutu koruyup taslağı saklama veya 08.3 › Taslağı bırakma ile açıkça bırakma seçenekleri. Bağlam, inceleme ve teslimat gibi kesin kararlar için güncel bulut tabanında yeni karar oluşturma; seçilen çözümün kesin sonucu.
-
-### 07.2 · İşlem durumu ve kurtarma
-
-Düzen: `T02 + T08`
-
-**Ortak:** Arşivleme, geri yükleme, paket oluşturma, doğrulama ve silme için ortak işlem listesi; kimlik, tür, kapsam, durum, ilerleme, denemeler ve kesin sonuç. Bağlantı döndüğünde güncel sonucu bulma. İptal isteği ile kesin iptal sonucu ayrı gösterilir.
-
-- **Çalışıyor:** İlerleme ve uygun işte iptal isteme.
-- **Başarısız:** Hata açıklaması ve güvenli yeniden deneme.
-- **Teknik bilgi:** Seçili işlemin denemeleri ve destek için teknik ayrıntılar; ham hata ayrıntıları ve sırlar gösterilmez.
-
-### 07.3 · Kalıcı silme
-
-Düzen: `T08`
-
-Varlık ve arşiv silme için aynı akış, farklı kapsamla. Silinecek kayıtlar, Yönetilen Kopyalar, bütün paket/arşivler ve etkilenen teslimatların kapsamı/sayıları. Kapsam dışı kopyalar, geri alınamaz sonuç ve yedek saklama takvimi; içeriksiz Silme Kaydı bırakma seçimi. Kesin dökümü 08.3 › Kalıcı silme onayı ile onaylama; başladıktan sonra 07.3.1 sonucunu açma.
-
-### 07.3.1 · Silme sonucu ve makbuz
-
-Düzen: `T08`
-
-07.2 ortak işlem görünümüyle silme ilerlemesi; etkin depo temizliği ve yedeklerden kaldırma takvimi. İçeriksiz Silme Makbuzunu açma, kapsam dışında kalan kopyaları ve varsa oluşturulan içeriksiz Silme Kaydını görme.
-
-## 08. Ortak sayfalar ve ekran durumları
-
-Bulunamayan sayfa, erişim sorunu, yükleme, boş içerik, hata durumları ve ortak onay penceresi. 08.1 **durum sayfası** bütün içerik alanını kaplar; 08.2.1–08.2.8 **ekran durumları** mevcut ekranın veya panelin yuvasını doldurur; 08.3 **onay penceresi** ekranın üzerinde açılır. Çakışma çözümü, işlem kurtarma ve silmenin ayrıntılı akışları 07'ye, işlem durumuna giriş kontrolü 00.3'e aittir; 08 yalnız bunların ortak görünümünü verir.
-
-### 08.1 · Durum sayfası
-
-Düzen: `T00 (durum dolgusu)`
-
-**Ortak:** İçerik alanını kaplayan durum başlığı, açıklama ve güvenli çıkış kontrolü.
-
-- **Sayfa bulunamadı (404):** Geçersiz adres açıklaması ve Projeler ekranına dönüş.
-- **Erişim reddedildi:** Erişim reddi açıklaması ve erişilebilir projelere dönüş; korunan proje bilgisi, içerik veya önizleme gösterilmez.
-- **Oturum sona erdi:** Yeniden giriş gerektiği açıklaması ve 01.1 Giriş'e geçiş; varsa yerel taslağın kayıt durumu görünür kalır.
-- **Sayfa yüklenemedi:** Güvenli yeniden yükleme ve Projeler ekranına dönüş; beklenmeyen sunucu hatasında Destek Referansı gösterilir.
-
-### 08.2.1 · Yükleniyor
-
-Düzen: `Yuva dolgusu`
-
-Liste, ayrıntı veya önizleme alanında yükleme göstergesi ve içeriğin yerini koruyan yer tutucular. Yüklenen bölüm ile kullanılabilir içerik ayırt edilir.
-
-### 08.2.2 · Boş içerik
-
-Düzen: `Yuva dolgusu`
-
-**Ortak:** Gösterilecek kayıt olmadığını açıklayan mesaj ve sonraki adım kontrolü.
-
-- **Henüz içerik yok:** Ekranın bağlamına göre proje/koleksiyon oluşturma, varlık içe aktarma veya teslimat hazırlama işlemine geçiş.
-- **Arama sonucu yok:** Arama/filtrelerle eşleşen kayıt olmadığı; mevcut arama ve filtreler görünür kalır, aramayı değiştirme veya filtreleri temizleme kontrolleri.
-
-### 08.2.3 · İçerik gösterilemedi
-
-Düzen: `Yuva dolgusu`
-
-**Ortak:** Gösterilemeyen içeriğin yuvasında açıklama ve güvenli sonraki adım.
-
-- **Kayıt bulunamadı:** Seçilen proje, varlık veya sürümün görüntülenemediği açıklaması ve ilgili listeye dönüş; yetkisiz kişiye özel kaydın bilgileri verilmez.
-- **Önizleme yüklenemedi:** Görselin yerinde önizleme hatası ve güvenli yeniden deneme; erişilebilir kayıt bilgileri ve diğer kullanılabilir alanlar görünür kalır.
-- **Veri yüklenemedi:** Başarısız liste/panel içinde aynı okumayı yeniden çalıştıran kontrol; beklenmeyen sunucu hatasında Destek Referansı gösterilir, diğer bölümler kullanılabilir kalır.
-
-### 08.2.4 · Bağlantı kesildi
-
-Düzen: `Yuva dolgusu`
-
-Bağlantı kesintisi bildirimi, yerel taslağın 08.2.7 › Yerel taslak kaydedildi durumu ve kullanılabilir çevrimdışı işlemler. Taslak/çakışma yönetimi için 07.1 geçişi; bulutta kesinleşmeyen sonuç açıkça belirtilir.
-
-### 08.2.5 · Form doğrulama hatası
-
-Düzen: `Yuva dolgusu`
-
-Eksik veya geçersiz alanın yanında düzeltme açıklaması. Girilmiş değerler korunur; kullanıcı sorunlu alanı düzelterek işlemi tekrar gönderebilir.
-
-### 08.2.6 · İşlem engellendi
-
-Düzen: `Yuva dolgusu`
-
-İşlemi engelleyen koşul ve düzeltme yolu. Eksik kanıt, kalite engeli ve bilinmeyen sözleşme sürümü ayrı belirtilir. Desteklenmeyen platform/biçim veya kapasite sınırında ilgili sınır ve 00.4 bilgilerine geçiş gösterilir.
-
-### 08.2.7 · Kayıt ve işlem bildirimi
-
-Düzen: `Yuva dolgusu` (T00 `NoticeRegion`)
-
-**Ortak:** Tek bildirim yeri; ilgili kayıt veya işlemin adıyla durumunu bildirir.
-
-- **Kaydediliyor:** Devam eden kayıt; kesin sonuç alınana kadar başarı mesajı gösterilmez.
-- **Yerel taslak kaydedildi:** Taslağın bu cihazda saklandığı; bulut kaydının henüz kesinleşmediği açıkça gösterilir, taslağı incelemeye erişim.
-- **Bulut kaydı tamamlandı:** Bulut kaydının tamamlandığı ve güncel kayıt durumu; kesinleşen sonucu ilgili kayıtta görme.
-- **Kaydedilemedi:** Yalnız yazmanın gerçekleşmediği doğrulanmışsa hata açıklaması ve güvenli sonraki adım; taslak ve girilmiş içerik korunur.
-- **Sonuç belirsiz:** Sonucun henüz doğrulanamadığı açıklaması ve güncel durumu sorgulama eylemi; başarı/başarısızlık ilan edilmez, aynı yazmayı tekrar gönderen işlem sunulmaz.
-- **İşlem ilerlemesi:** Bekliyor, çalışıyor, tamamlandı, başarısız, iptal istendi ve iptal edildi bildirimleri. İlerleme veya kesin sonuç özeti; seçildiğinde 07.2 işlem ayrıntısı açılır.
-
-### 08.2.8 · Durum rozetleri
-
-Düzen: `Yuva dolgusu`
-
-İnceleme Kararı, Bağlama Uygunluk Durumu, Kalite Kontrol Durumu, Kayıt Durumu, Yeniden Doğrulama Gerekli, Hazır/Engelli ve Teslim Edildi için ortak rozet; her rozet ikon, etiket ve renkle verilir. Durumlar birbirinden ayrı gösterilir: Hazır, Teslim Edildi sonucundan; Yeniden Doğrulama Gerekli, geçmiş onaydan ayrıdır. Değerler sözlükteki tanımlardan gelir (İnceleme Kararı: Aday/Onaylı/Reddedildi; Kalite Kontrol Durumu: Değerlendirilmedi/Engelli/İstisnalarla Hazır/Dışa Aktarıma Hazır; Kayıt Durumu: Etkin/Arşivlenmiş/Silinmiş).
-
-### 08.3 · Onay penceresi
-
-Düzen: `T10`
-
-**Ortak:** İşlemin kapsamını ve sonucunu açıklayan pencere; açık kesinleştirme ve vazgeçme kontrolleri.
-
-- **Kullanıcı kararını onaylama:** Onay, istisna veya değişiklik kararının kapsamı, gerekçesi ve beklenen sonucu.
-- **Taslağı bırakma:** Bırakılacak yerel taslağın içeriği ve geri alınamayan sonuç; taslağı koruma veya açıkça bırakma.
-- **Kalıcı silme onayı:** 07.3'teki kesin dökümün kapsamı ve etkilenen içerik sayılarıyla onaylama; döküm değişirse yeni kapsam için yeniden onay gerekir.
-- **Hedef proje seçici:** Stil Modülünü (02.1.2) veya Üretim Tarifini (04.4) başka projeye bağımsız kopyalarken hedef proje seçimi; kopyanın alıcı projede sahibi ekranın tanımladığı şekilde ele alındığı açıklaması.
+Paper'da hangi artboard'ların, hangi düzen şablonuyla çizileceğinin listesi. Ekranın içinde ne olacağını bu belge değil, [PRD](prd/README.md) ve ilgili [iş akışı aşaması](workflow/) belirler; tablolardaki **İş akışı** sütunu o aşamanın numarasıdır.
+
+- **Paper dosyası:** [Sprite Anvil · Product](https://app.paper.design/file/01M4ASVM4ATF4HHXQSJ96CWVFY). Başlamadan önce `Start Here` sayfasını okuyun.
+- **Görsel kararlar:** `Design Language` (renk, yazı, boşluk, bileşenler) ve `Layout Templates` (şablon iskeletleri) sayfaları.
+- Kaynaklar çelişirse uygulamadan önce açıklanır.
+
+## Kurallar
+
+1. **Artboard adı** `Kimlik · Ekran adı` biçimindedir (ör. `03.2 · Varlık ayrıntısı`) ve bölümün Paper sayfasına çizilir.
+2. **Alt ekran** (`03.2.1`), üst ekranın içinden açılan sekme, panel veya penceredir; üst ekranın üzerinde açık hâliyle kendi artboard'unda çizilir.
+3. **Görünüm**, aynı ekranın içerik veya durum farkıdır; numara almaz ve `08.2.7 › Kaydediliyor` gibi anılır. Aynı artboard'da etiketlenir; yerleşim belirgin değişiyorsa `Kimlik · Ekran — Görünüm` adlı ayrı artboard açılır.
+4. **Ortak parçalar bir kez çizilir.** 00, 07 ve 08 diğer bölümlerde yeniden kullanılır; bölümlere ayrı silme, durum veya onay penceresi çizilmez. Aynı işi yapan bileşen `Design Language` içinde tek örnektir.
+5. **Açıklamalar** ekranın yanındaki not artboard'una yazılır.
+6. **Ürün etiketleri** [sözlükteki](CONTEXT.md) Türkçe adlardır.
+7. **Her ekranda:** klavye ve görünür odak, yalnız renge dayanmayan durumlar, webde yükleme/indirme yolu, ham hata yerine güvenli açıklama ve gerekiyorsa Destek Referansı.
+8. **Liste tamamlanma değildir.** Paper'da artboard bulunması, ekranın onaylandığı veya kodlandığı anlamına gelmez.
+9. **Kimlik değişirse** bu belge, Paper artboard adı ve artboard içindeki kimlik etiketi birlikte güncellenir.
+
+## Düzen şablonları
+
+| Kod | Şablon | Kod | Şablon |
+| --- | --- | --- | --- |
+| `T00` | Workspace Shell | `T06` | Test Harness |
+| `T01` | Entry Window | `T07` | Pixel Editor |
+| `T02` | List + Detail | `T08` | Operation Flow |
+| `T03` | Record Detail | `T09` | Dashboard |
+| `T04` | Structured Form | `T10` | Dialog / Sheet |
+| `T05` | Compare | | |
+
+- `A + B`: A şablonunun yuvasına B'nin yerleşimi girer.
+- `Yuva dolgusu`: durum, bulunduğu ekranın yuvasını doldurur.
+- Kompakt (960) varyant yalnız düzende `+960` yazıyorsa çizilir.
+
+## 00 · Ortak çerçeve
+
+Paper sayfası: `00 · Shared Shell`
+
+| Kimlik | Ekran | Düzen | İçerik | İş akışı |
+| --- | --- | --- | --- | --- |
+| 00.1 | Proje ve gezinme | `T00` | Seçili proje adı ve proje değiştirme; 01.2 Projeler'e dönüş; Proje Bağlamı, Kütüphane, Üretim, İnceleme ve Teslimat geçişleri, açık alanın seçili görünümü. | 01 |
+| 00.2 | İçerik alanı | `T00` | Ekran başlığı, seçili kaydın adı ve konum yolu; ana içerik, kayda ait işlem kontrolleri, alt ekran geçişleri; üst kayda veya listeye dönüş. | — |
+| 00.3 | Durum alanı | `T00` | Bağlantı durumu (çevrimdışıyken 08.2.4) ve devam eden işlemler (08.2.7 › İşlem ilerlemesi); işlem seçilince 07.2 açılır. | 32, 34 |
+| 00.4 | Destek ve sınır bilgileri | `T09` | Desteklenen tarayıcı, masaüstü, motor sürümü ve proje boyutu; yayımlanmış işlem/depolama sınırları ve destek değişikliği duyuruları. | 48 |
+| 00.4.1 | Destek kaldırma duyurusu ve dışa aktarma | `T08` | Desteği kaldırılacak platform veya sürüm için önceden duyuru ve verileri dışa aktarma yolu. | 48 |
+| 00.5 | Hesap menüsü | `T00` | Kullanıcının adı ve e-postası, oturumu kapatma; çıkıştan sonra 01.1 Giriş açılır. | 01 |
+
+## 01 · Hesap ve Projeler
+
+Paper sayfası: `01 · Accounts & Projects`
+
+| Kimlik | Ekran | Düzen | İçerik | İş akışı |
+| --- | --- | --- | --- | --- |
+| 01.1 | Giriş | `T01` | Kimlik bilgisi formu, gönderim bekleme ve başarısız gönderim açıklaması; başarılı girişte 01.2 açılır. Giriş: e-posta, parola. Hesap oluşturma: ad, e-posta, parola, alan doğrulama ve kayıt hatası. Görünümler: Giriş · Hesap oluşturma. | 01 |
+| 01.2 | Projeler | `T00 (proje öncesi) + T02` | Proje adları ve projeyi açma; yeni proje oluşturma, Proje Arşivine geçiş; proje yoksa 08.2.2 › Henüz içerik yok. Görünümler: Izgara · Liste. | 01 |
+| 01.3 | Yeni proje | `T01 + T04` | Proje adı ve genel sanat yaklaşımı alanları; oluşturma kontrolü, eksik/geçersiz alan açıklamaları, oluşan projeye geçiş. | 01 |
+| 01.4 | Proje Arşivi | `T00 (proje öncesi) + T02` | Arşiv listesi, seçili arşivin içerik özeti, indirme ve 01.4.1 geri yüklemeye geçiş. Arşiv oluşturmada bağlam, varlık, üretim, inceleme ve teslimat geçmişi seçimi; dışarıda kalan kanıtlar ve sonucu izleme. Görünümler: Arşiv listesi · Arşiv oluşturma. | 44 |
+| 01.4.1 | Geri yükleme | `T08` | Mevcut projenin üzerine yazmaz, her zaman bağımsız yeni proje oluşturur; dosya/ilişki bütünlüğü sonucu, eksik kanıtlar, işlem ilerlemesi ve yeni projeyi açma. Görünümler: Arşiv seçimi · Bütünlük kontrolü · Yeni projeyi açma. Geçersiz arşivde başarısızlık ve kısmi proje bırakılmadığı açıklaması. | 44 |
+| 01.5 | Proje yönetimi | `T04` | Açık projenin yönetimi: 01.4 Proje Arşivine geçiş ve kalıcı silmeyi başlatma (07.3). | 44, 45 |
+
+## 02 · Proje Bağlamı ve Yönetimi
+
+Paper sayfası: `02 · Project Context & Management`
+
+| Kimlik | Ekran | Düzen | İçerik | İş akışı |
+| --- | --- | --- | --- | --- |
+| 02.1 | Proje Bağlamı | `T02` | Etkin Bağlam Sürümü ve kapsamlara göre gruplanmış kurallar; seçili kapsamda devralınan ve geçerli kurallar; yeni öneri, bekleyen öneriler, 02.1.3 sürüm geçmişi ve 02.1.2 Stil Modülleri geçişleri. | 03 |
+| 02.1.1 | Kural önerisi | `T04 + T05` | Mevcut ve önerilen kural farkları, taban sürüm, ajan/model veya kontrol kaynağı, doğrulama sonucu. Hazırlamada kural, kapsam, değer ve dayanak alanları. Görünümler: Hazırlama · Bekleyen öneriler · Çakışma çözümü · İnceleme ve etkinleştirme. Bağlam Ajanından öneri isteme ve talimat verme (serbest biçimli değişiklikler). | 03 |
+| 02.1.1.1 | Bağlam Kuralı İstisnası | `T04` | Devralınan kural, yerine geçecek dar kapsamlı değer ve gerekçe; kaynak kural zinciri ve etkilenen kapsam; istisnayı Bağlam Önerisine ekleme. Kalite İstisnası ayrıdır (05.1.2). | 03 |
+| 02.1.2 | Stil Modülleri | `T02` | Stil Modülleri, kuralları ve sürümleri; palet, kontur gibi kuralları gruplama; 08.3 › Hedef proje seçici ile başka projeye kopyalama (alıcıda Bağlam Önerisi olur). Görünümler: Modül listesi · Sürüm hazırlama · Sürüm inceleme. | 03 |
+| 02.1.3 | Bağlam sürüm geçmişi | `T02 + T05` | Bağlam Sürümleri, etkin sürüm işareti, seçili sürümün kural ve istisnaları; sürüm farkları, kaynak öneri ve bu sürümü kullanan üretim kayıtları. | 03 |
+| 02.2 | Görsel Dünyalar ve Temalar | `T02` | Görsel Dünyalar ve bağlı Temalar; oluşturma/düzenleme; seçili dünya veya Temanın kuralları ve Proje Bağlamındaki karşılığı. | 04 |
+| 02.3 | Bağlantılar ve izinler | `T04` | Araç/ajan başına izin durumu, amaç ve proje/veri kapsamı; izin verme/geri alma. Başlangıçta kapalı Harici Görsel Analizi için kategori, sağlayıcı, aktarılan veri ve saklama koşulları; desteklenmeyen bağlantılar kullanılamaz görünür. | 02 |
+| 02.3.1 | Harici Görsel Analizi gönderim bildirimi | `T10` | Her gönderimden hemen önce 08.3 penceresiyle kategori, sağlayıcı, aktarılacak veri ve saklama bilgisi; gönder veya vazgeç. | 02 |
+| 02.4 | Ürün ölçümleri | `T09` | Süre, başarı, koruma ve yarım kalan akış sonuçları; ölçüm kapsamı ve zaman aralığı; farklı tanım sürümleri ayrı, kullanılan Ölçüm Tanımını açma. Baseline ve hedef durumu; baseline yoksa başarı yüzdesi gösterilmez. | 46 |
+| 02.4.1 | Ölçüm Tanımları | `T04 + T05` | Tanımın kapsamı, başlangıç/bitiş olayları, pay/payda, hariç tutmalar, zaman aralığı ve saklama süresi; yeni sürüm hazırlama, fark inceleme, etkinleştirme. Sonucu değiştirecek ürün kararı (karar kullanımı). | 46 |
+
+## 03 · Varlık Kütüphanesi
+
+Paper sayfası: `03 · Asset Library`
+
+| Kimlik | Ekran | Düzen | İçerik | İş akışı |
+| --- | --- | --- | --- | --- |
+| 03.1 | Kütüphane | `T02` | Varlık önizlemeleri, adları, Varlık Kategorileri ve Kayıt Durumları; seçilen varlık 03.2'de açılır. Varlıklar: ad, Varlık Kategorisi, Tema, Görsel Dünya, ölçü, etiket ve Etkin/Arşivlenmiş filtreleri. Koleksiyonlar: üye ekleme/çıkarma. Varlık Aileleri: üyeler, Onaylı Ana Tasarım, Türetilmiş Varlıklar, eksik öğeler. Görünümler: Varlıklar · Koleksiyonlar · Varlık Aileleri. | 05, 07, 08 |
+| 03.1.1 | Yeni Varlık Kaydı | `T04 + T10` | Ad, Varlık Kategorisi, etiket, Görsel Dünya ve Tema alanları; bağımsız kayıt oluşturma, aile bağlantısı için 03.1.3, görseli 04.2 ile Aday Sürüm olarak ekleme. | 06 |
+| 03.1.2 | Gerekli Öğeler Listesi | `T04` | Gerekli yön, animasyon, durum, varyant ve kullanım testleri ile tamamlanma durumları; gerekli/isteğe bağlı/uygulanamaz seçimi, yeni liste sürümü, eski sürümler ve onları kullanan paketler. Ajan veya profil varsayımından gelen liste taslağını etkin sürümün yanında inceleme; etkinleştirilmeden geçerli olmaz. | 15 |
+| 03.1.3 | Aile ve temsil ilişkileri | `T04` | Varlık Kimliği, Görsel Dünya ve kullanım bağlamı; aile oluşturma ve üye ilişkilendirme; Onaylı Ana Tasarımı ve Türetilmiş Varlık kaynaklarını seçme; farklı dünyadaki temsili ayrı aileye bağlama. | 05 |
+| 03.2 | Varlık ayrıntısı | `T03` | Büyük önizleme ve kayıt alanları; geçerli kurallar, perspektif, ölçüler, Ana Tasarım, referans amaçları ve üretim hedefi özeti; Onaylı Sürüm, alternatifler ve Türetilmiş Varlıklar, 08.2.8 durum rozetleri; alt ekran sekmeleri, 04.1'e geçiş, arşivleme ve 07.3 kalıcı silme. | 06 |
+| 03.2.1 | Oyun İçi Bilgiler | `T03 + T06` | Seçili kare üzerinde pivot, zemin, sıralama, bağlantı ve efekt noktaları; vuruş, hasar ve çarpışma alanları, olaylar; katman göster/gizle, koordinat düzenleme; bilinmeyen alanlar açıkça belirtilir. Profil alanlarını da girer: arka plan katman sırası, doğal ölçü, döngü/kırpma ve güvenli alan; arayüzde durum kimliği, germe payları ve metin güvenli alanı; portre/tanıtımda kullanım amacı, kırpma, güvenli alan ve arka plan çeşidi. | 19 |
+| 03.2.1.1 | Metadata paketi indirme | `T08` | Seçili sürümün Oyun İçi Bilgiler ve animasyon metadata JSON paketini indirme; indirilen dosyayı yeniden okuyup doğrulama. | 19 |
+| 03.2.2 | Sürümler ve dosyalar | `T03 + T02` | Birim ve Birleşik Sürüm listeleri; önizleme, inceleme durumu, bileşim üyeleri ve dosyalar; 03.2.2.3 karşılaştırma, 05.1 inceleme, 05.3 düzenleyici, 03.2.2.1 ve 03.2.2.2 geçişleri. | 09 |
+| 03.2.2.1 | Yeni bileşim oluşturma | `T05` | Kaynak bileşimin birimleri ve seçilebilir kesin Birim Sürümleri; değişecek/korunacak birimleri karşılaştırma; eski bileşimi koruyarak yeni Birleşik Sürüm oluşturma. | 09 |
+| 03.2.2.2 | Harici çalışma dosyası | `T03 + T04` | Yönetilen Kopya ve masaüstündeki Canlı Dosya Bağlantısı durumu; harici düzenleyicide açma, algılanan değişikliği PNG/WebP Aday Sürüme bağlama; dosya kaybolursa yeniden seçme, webde yükleme yolu. | 09, 48 |
+| 03.2.2.3 | Sürüm karşılaştırması | `T05` | Aynı varlığın iki kesin sürümü yan yana; ortak yakınlaştırma, kare seçimi; görsel, ölçü, Oyun İçi Bilgiler ve Bileşim Üyeliği farkları; 05.1 incelemesine geçiş. | 09, 17 |
+| 03.2.3 | Üretim kanıtları | `T03 + T04` | Kaynak türü, mevcut/eksik kanıtlar, bilinmeyen geçmiş; Elle İçe Aktarma Kanıtı ve Sağlayıcı Üretim Kaydı ayrıntıları; sağlayıcı, model, ölçü, tohum gibi değerleri elle girme (Kullanıcının Bildirdiği Sağlayıcı Ayrıntıları, boşlar Bilinmiyor); Geçmiş Varlık Beyanı. Elle İçe Aktarma Kanıtını tamamlama: paket, gerçek üretim talimatı ve kaynak yüzeyi girişi; dört alan tamamlanmadan onaylanamaz. | 13 |
+| 03.2.4 | Hak Kayıtları | `T03 + T02` | Hak Kaydı: kaynak, hak sahibi/sağlayıcı, izin kapsamı, kısıt ve belirsizlik; metin/URL ve dosya kanıtı; Belgelendi/Yalnız Beyan/Bilinmiyor/Kısıtlı seçimi; eskisini koruyarak yeni sürüm ve ayrı hak geçmişleri. Kanıt dosyası 5 MiB'a kadar; yalnız proje sahibi indirebilir. | 14 |
+| 03.2.5 | Bağımlılık bağlantıları | `T03 + T02` | Kaynak Ana Tasarım ve bağımlı kesin kayıtlar; kimlik, siluet, ekipman, palet, Tema, perspektif, zamanlama türleri; bağlantı ekleme/düzenleme, eksik bağımlılıklar, 05.5'e geçiş. | 18 |
+| 03.2.6 | Görsel ölçüler | `T03 + T04` | Dosyadan doğrulanan Kaynak Görsel Ölçüsü; mantıksal çözünürlük, hücre, görünür içerik sınırı, gösterim ölçeği ve atlas için ayrı alanlar; hazır/özel ölçü girme, tam sayı olmayan ölçekte keskinlik uyarısı. | 06 |
+
+## 04 · Üretim ve İçe Aktarma
+
+Paper sayfası: `04 · Production & Import`
+
+| Kimlik | Ekran | Düzen | İçerik | İş akışı |
+| --- | --- | --- | --- | --- |
+| 04.1 | Üretim Paketi | `T04` | Hedef, etkin bağlam kopyası, kesin Ana Tasarım, ölçüler ve beklenen çıktı; korunacak/değişecek/kaçınılacak özellikler ve sabit birimler; referansları inceleyip paketi oluşturma, sonucu 04.1.2'de açma. | 11 |
+| 04.1.1 | Referans panosu | `T06` | Yan yana referans görselleri, notlar ve hazır/özel kullanım amacı; izinli/yasak aktarım, çakışma çözümü; 03.2.4 Hak Kaydı ve kimlik sınırı değişirse 02.1.1.1 geçişi. | 10 |
+| 04.1.2 | Üretim paketi ayrıntısı ve geçmişi | `T02` | Değişmez Üretim Paketleri ve sabitlenmiş bağlam, Ana Tasarım, referans, ölçü, çıktı özeti; özeti kopyalama, görselleri indirme; talimatı kullanıcı dış yüzeyde yazar; sonucu 04.2 ile içe aktarma. | 11 |
+| 04.2 | İçe Aktarma Gelen Kutusu | `T02` | Yapıştırma, sürükleme veya yükleme alanı; dosya önizlemesi, kaynak türü, aktarım sonucu; desteklenmeyen dosya ve eksik kanıt açıklamaları; paket olmadan da içe alma; 04.2.1, 04.2.2 ve 03.2.3 geçişleri. Görsel sayfası içe aktarılırken hücre ölçüsü, satır/sütun, ofset, boşluk ve okuma sırası (05.3 › Görsel sayfasını dilimleme ile aynı kontroller). | 12 |
+| 04.2.1 | Metadata eşleme | `T05` | Görsel ve JSON sidecar için kare, süre, tag, slice, pivot, dokuz parça ve palet alanlarının kaynak/hedef karşılaştırması; alan bazında tanılama ve çakışma çözümü, Bilinmiyor değerleri koruma. Kaynak biçim ve sürümü, kaynak ve sidecar özetleri; önerilen Varlık Ailesi ve Gerekli Öğeler bağları; tanınmayan alanlar korunmuş görünür; değişen sidecar yeniden alınınca önceki öneriyle görünür fark. | 12 |
+| 04.2.2 | Hedef ilişkilendirme | `T04` | Girdinin görseli ve kaynağı yanında hedef Varlık Kaydı, yön/animasyon/durum veya birim seçimi; gerekirse 03.1.1 formu; kesinleşince oluşan Aday Sürümü açma. | 12 |
+| 04.3 | Üretim Deneyleri | `T02 + T05` | Deney listesi, ortak amaç ve her denemeye ayrı paket/Aday Sürüm; sonuçları ve girdi farklarını karşılaştırma; seçim/sonuçsuz/bırakma kararı (varlığı onaylamaz); öğrenimi 02.1.1 önerisine aktarma. | 30 |
+| 04.4 | Üretim Tarifleri | `T02 + T04` | Tarif listesi ve sürümleri; deneyden tarif oluşturma; talimat iskeleti, referans rolleri, çıktı yapısı, sabit/doldurulacak alanlar; paket hazırlama veya 08.3 › Hedef proje seçici ile kopyalama. | 31 |
+
+## 05 · İnceleme ve Kalite Kontrolü
+
+Paper sayfası: `05 · Review & Quality Control`
+
+| Kimlik | Ekran | Düzen | İçerik | İş akışı |
+| --- | --- | --- | --- | --- |
+| 05.1 | Sürüm incelemesi | `T03` | Kesin sürümün önizlemesi, kalite kanıtları, onay engelleri ve karar geçmişi; 03.2.2.3 ile karşılaştırma; onay/ret/yeniden Aday ve gerekçe; 08.2.8 durum rozetleri. | 17 |
+| 05.1.1 | Toplu inceleme | `T05` | Seçili sürümler yan yana, her birinin kanıt ve engelleri; Onayla/Reddet/Aday yap kararı ve gerekçe için önizleme. Engelli seçim varsa toplu işlem durur; kullanıcı seçimi değiştirip yeni önizlemeyle kesinleştirir. | 17 |
+| 05.1.2 | Kalite İstisnası | `T10 + T04` | İzin veren kural, gözlenen değer, kesin sürüm, kullanım kapsamı, Bağlam Sürümü ve Ana Tasarım; gerekçe ve kesinleştirme. Bütünlük, zorunlu inceleme ve eksik test kanıtı istisnayla aşılmaz. | 16 |
+| 05.2 | Profil testleri | `T02` | Sürümün Varlık Kategorisi, etkin profil sözleşmesi ve değerlendirme sonuçları; 05.2.1 test alanı, kesin test girdileri; özel profil yoksa 05.2.2'ye geçiş. | 16 |
+| 05.2.1 | Test alanı | `T06` | Bütünlük, ölçülebilir gereksinim, uyarı, insan incelemesi ve kullanım testi sonuçları ayrı gruplar; her kuralın kimliği, sınıfı, kanıtı ve dışa aktarım etkisi; her sonuçtan kural, şüpheli kare/bölge ve kanıta geçiş; 05.2.1.1 ve 05.2.1.2 geçişleri. Her tür görünümü yalnız türe özgü kısmı gösterir. Görünümler: Karakter ve animasyon · Obje ve ekipman · Nesne yerleşim sahnesi · İkon · Efekt · Karo ve doku · Arka plan · Oyun arayüzü varlıkları · Portre, logo ve tanıtım. | 20–27 |
+| 05.2.1.1 | Özel Profil Sözleşmesi | `T02` | Sözleşme sürümleri; metadata alanları, kural sınıfları, zorunlu inceleme/testler, istisna izni ve dışa aktarım eşlemeleri; etkinleştirme ve etkilenen kanıtlar. | 16 |
+| 05.2.1.2 | Değerlendirme ve test kanıtı | `T04` | Kesin varlık/birim/bileşim, profil sürümü, test ortamı ve kanıtlar; otomatik sonuçlar, insan değerlendirmesi, Geçti/Başarısız/Sonuçsuz kullanım testi; yanlış uyarı geri bildirimi ve önceki değerlendirmeler. | 16 |
+| 05.2.2 | Genel Varlık Desteği | `T03` | Yazı tipi, imleç ve yardımcı görseller için kayıt/dosya bilgisi ve önizleme; temel bütünlük ve kullanıcı incelemesi; türe özgü test iddia edilmez. | 16 |
+| 05.3 | Son Dokunuş Piksel Düzenleyicisi | `T07` | Üstte kaynak sürüm/aile, durum/yön/animasyon adı, mantıksal ve hücre ölçüsü, taslak durumu; solda araçlar, ortada tuval, sağda ayarlar, altta kare şeridi; 1×/tam sayı yakınlaştırma, piksel ızgarası, şeffaflık zemini, pivot ve zemin çizgisi katmanları, sürekli gerçek boyut önizlemesi; geri al/yinele, yerel taslak, “Bitir ve yeni Aday Sürüm oluştur”; piksel düzenlemesi için klavyeyle eşdeğer görevler. Görünümler: Piksel ve palet araçları · Görsel sayfasını dilimleme · Kare ve animasyon düzenleme · Fark ve seçici düzeltme. | 29 |
+| 05.4 | Sahne Kalite Kontrol Alanı | `T06` | Karo, arka plan, karakter, obje, gölge ve efekt için kesin sürüm seçilen sahne; hareket, bekleme/yürüme/saldırı geçişleri, olay anı, katman/Y sırası, kamera; metadata katmanları; sonucu 05.2.1.2 kanıtına bağlama. Karo boyama ve sahne düzenlemesi için klavyeyle eşdeğer görevler veya erişilebilir özellik paneli. | 28 |
+| 05.5 | Yeniden doğrulama | `T02` | Değişen kural veya Ana Tasarım; doğrudan/dolaylı etkilenen varlıklar ve nedenleri; 05.5.2 kapsam; yeniden incelemeye veya düzeltmeye açma; Yeniden Doğrulama Gerekli rozeti. | 18 |
+| 05.5.1 | Tarihsel bileşim | `T04` | Geçmiş Bağlam Sürümü, Ana Tasarım, bağımlılık ve kalite kanıtı seçimi; uyumluluk raporu ve çözülemeyen engeller; güncel yeniden doğrulama ihtiyacını kaldırmaz. | 18 |
+| 05.5.2 | Değişiklik kapsamı | `T04` | Değişen Bağlam Sürümleri veya eski/yeni Ana Tasarım; etkilenen kimlik, siluet, ekipman, palet, Tema, perspektif, zamanlama seçimi; Değişiklik Tanımını kaydetme. | 18 |
+
+**05.2.1 tür görünümleri**
+
+- **Karakter ve animasyon:** Ana Tasarım ve yön önizlemeleri, zaman çizgisi; eşzamanlı oynatma, 1×, soluk kareler, değişken süre, genel oynatma hızı, kareye hareket evresi işaretleme; döngü, pivot, zemin, bağlantı noktası ve olay zamanları.
+- **Obje ve ekipman:** En az iki Varlık Kaydı seçerek durum ve yön önizlemeleri, durum geçişlerini oynatma; bağlantı noktası, ölçek, pivot, zemin, sıralama; perspektif, malzeme dili ve durum/yön ayrışması gözlemleri.
+- **Nesne yerleşim sahnesi:** Nesne onaylı karakterin yanında, proje ızgarasında ve farklı zeminlerde; ölçek, pivot, zemin, sıralama.
+- **İkon:** Kaynak, mantıksal ve gerçek kullanım ölçüleri, aile üyeleri yan yana; açık/koyu zemin, gri tonlama; siluet, iç boşluk, ışık, kontur, ayrıntı yoğunluğu, arka plan/çerçeve yaklaşımı, durum/nadirlik renkleri; kullanım çeşidini kaydetme ve İkon Ailesi İnceleme Arşivini (JSON) indirme.
+- **Efekt:** Tek başına ve sahibiyle önizleme, hücre sınırı, zaman çizgisi; zemin, şeffaflık, süre/döngü, başlangıç noktası, katman; taşma ve oyun olayıyla eşzamanlama.
+- **Karo ve doku:** Atlas bölgeleri, arazi kimlikleri ve kenar bağlayıcılarını tanımlama; karo atlası ve boyanabilir haritada iç/dış köşe, kenar, koridor, dolgu, keskin geçiş ve rastgele yerleşim; karo boyama için klavye eşdeğeri; dokuda 2×2, 3×3 ve kaydırmalı tekrar; kenar eşleşmesi ile görünür tekrar izi ayrı; pakete taşınan doku tekrar ayarı.
+- **Arka plan:** Katmanlar, hedef oran, kırpma, oyuncu güvenli alanı; katman sırası, göreli hız, kaydırma; döngü birleşimi, kontrast ve oyuncu görünürlüğü hareket hâlinde.
+- **Oyun arayüzü varlıkları:** Ekran, panel ve bileşenlerin normal/üzerine gelme/basılı/devre dışı/seçili/açık-kapalı durumları; paneli germe, dokuz parça payları, metin güvenli alanı; ekran yerleşiminde sınama.
+- **Portre, logo ve tanıtım:** Portrede ifade, Ana Tasarım bağı, diyalog/arayüz kırpması; logo/tanıtımda hedef ölçü, güvenli alan, açık/koyu zemin, şeffaf/opak kullanım; küçük boyut okunurluğu.
+
+**05.3 görünümleri**
+
+- **Piksel ve palet araçları:** 1 piksel ve küçük tam sayı boyutlarında kalem ve silgi, renk seçici, çizgi, kesin doldurma; seçim, kes/kopyala/yapıştır, taşıma, çevirme, 90° döndürme; kırpma, tuval ölçüsü, tam sayı ölçekleme; palet kilidi, yabancı renkler, toplu değişimde etkilenecek piksel sayısı.
+- **Görsel sayfasını dilimleme:** Hücre ölçüsü, satır/sütun, ofset, boşluk, okuma sırası; numaralı hücre sınırları ve oynatılabilir önizleme; kareleri yeniden birleştirme ve boşluk değiştirme; kaynak görsel korunur.
+- **Kare ve animasyon düzenleme:** Kare şeridinde ekleme, çoğaltma, silme, dosyayla değiştirme, sıralama; kare süresi, X/Y ofseti, pivot; koru, değiştirilmiş ve sorunlu işaretleri; oynat/durdur, döngü, saydamlığı ayarlanabilir soluk kareler, zemin hizası.
+- **Fark ve seçici düzeltme:** Orijinal/taslak farkı yan yana, üst üste veya geçişle; değişen piksel/kare listesi, sayısı ve sınır kutusu; görsele yazılmayan ok, bölge ve notlar; birimleri ve komşu kareleri 04.1 paketine aktarma.
+
+## 06 · Teslimat
+
+Paper sayfası: `06 · Delivery`
+
+| Kimlik | Ekran | Düzen | İçerik | İş akışı |
+| --- | --- | --- | --- | --- |
+| 06.1 | Hedef ve Hazırlık Planı | `T02` | Teslimat Hedefleri, etkin sürüm, amaç, kapsam ve Hazır/Engelli durumu; hedef oluşturma/seçme; 06.1.1 ve 06.1.2 geçişleri; Hazır/Engelli ve Teslim Edildi rozetleri. | 35 |
+| 06.1.1 | Teslimat Hedefi tanımı | `T04 + T05` | Amaç, gerekli aileler/liste sürümleri, Bağlam Sürümü, kullanım testleri ve kabul koşulları; Üretim/Hak Kanıtı Politikaları ve çalışma zamanı ortamları; taban değişikliği farkları, yeni hedef sürümü ve geçmiş sürümler. Ajan veya kurallı sistemin hazırladığı hedef taslağı, etkinleşene kadar Hazırlık Planını değiştirmez; Üretim Kanıtı Politikası seçenekleri (tam paket geçmişi / Geçmiş Varlık Beyanı kabul / yalnız uyarı), Hak Kanıtı Politikasının kabul ettiği kayıt durumları ve çalışma zamanı kanıtının güncellik koşulları. | 35 |
+| 06.1.2 | Hazırlık Planı | `T02` | Engeller, eksik kanıtlar ve açılacak işler; zorunluluk, kullanıcı önceliği ve yeniden doğrulama etkisi ayrı gerekçe; iş sırasını değiştirme; engelden düzeltme ekranına geçiş (03, 05, 03.2.4). | 36 |
+| 06.2 | Profil ve paket | `T03` | 06.2.2'de seçilen profil sürümü, kesin varlık/birim/bileşim girdileri ve içerik özeti; bağlam, liste, kanıt ve istisna seçimlerini inceleme, engelleri çözme, paket oluşturma, sonucu 06.2.3'te açma. Paketin hangi Teslimat Hedefi sürümünü gerçekleştirdiğini belirtme. | 37 |
+| 06.2.1 | Paket doğrulama | `T08` | Paket seçimi; Paket Doğrulama Kitinin şeması, dosya özetleri, README ve sürümü; ağsız doğrulama; eksik/uyuşmayan dosya, yinelenen yol, bozuk kayıt bağlantısı sonuçları. | 37 |
+| 06.2.2 | Dışa Aktarım Profili | `T04` | Profil sürümleri; yerleşim, padding, trim, ölçek, biçim ve adlandırma; metadata eşlemelerinde alan kimliği, birim, koordinat sistemi, bilinmeyen alan davranışı; yeni sürüm kaydetme ve seçme. | 37 |
+| 06.2.3 | Paket ayrıntısı ve geçmişi | `T02` | Değişmez paket listesi; manifest, dosya yolları/özetleri, sabitlenmiş sürümler, kanıtlar, istisnalar; paketi ve Doğrulama Kitini indirme; 06.2.1, 06.3, 06.4, 06.5 geçişleri. Son dışa aktarım işaretini görme ve değiştirme (her zaman belirli bir değişmez paketi gösterir). | 37 |
+| 06.3 | Godot çıktısı | `T03 + T08` | Kaynak paket, desteklenen Godot ve bağdaştırıcı sürümü, üretilecek dosyalar; çıktıyı oluşturma/indirme; kare, pivot, zamanlama, olay, karo/arayüz eşlemelerini inceleme; 06.4'e geçiş. | 38 |
+| 06.4 | Oyunda doğrulama | `T03 + T04` | Kesin paket, oyun yapısı, motor/bağdaştırıcı sürümü ve doğrulama geçmişi; görüntü, video, test sonucu veya gözlem ekleme, elle/izinli araç kaynağını ayırma; Geçti/Başarısız/Sonuçsuz, başarısızlık kaynağı ve kapsamı. Başarısızlık önce Kaynak Belirsiz'dir ve hedefi engeller; sistemin önerdiği kaynak ve bağdaştırıcı taslağı kullanıcı kararından ayrı; kullanıcı Varlık İçeriği, Motor Bağdaştırıcısı, Oyun Yapılandırması veya Birden Fazla Kaynak sınıfını kesinleştirir. | 39 |
+| 06.5 | Güvenli yenileme | `T05` | Konum, paket ve Teslimat Yenileme Kilidi; değişmemiş/güncellenecek/bayat/eksik/ayrışmış yollar; koru, başka konum veya açık değiştir kararı; webde değişiklik paketi, kilit ve ayrışma raporunu indirme, masaüstünde izinli klasöre uygulama. | 40 |
+| 06.5.1 | İlk teslimat ve konum seçimi | `T08` | Kesin paket ve konum; masaüstünde klasör seçimi/izin, webde indirme ve elle uygulama; ilk uygulamayı başlatma; yazılan yollar, oluşan kilit, kısmi başarısızlık. | 40 |
+| 06.6 | Teslimatı kesinleştirme | `T05` | Hazır hedefin gereksinimleri ve karşılayan kesin paket/sürümler, kullanım ve çalışma zamanı kanıtları; eksik/örtüşen eşlemeleri çözme; Teslimat Gerçekleşmesini kesinleştirme. Sistemin hazırladığı eşleme taslağı, eksik ve çakışan kapsam vurgulu; gerçekleşmeyi yalnız kullanıcı oluşturur. | 41 |
+| 06.6.1 | Teslimat geçmişi | `T02 + T05` | Teslimat Gerçekleşmesi listesi; kayıt ayrıntısı veya iki kaydı karşılaştırma; varlık, bağlam, kalite, istisna, hak, çalışma zamanı kanıtı ve paket eşlemelerinde ayrı fark grupları. Paketi silinmiş gerçekleşme içeriksiz tarihsel kayıt olarak görünür: artık doğrulanamaz, Hazır/Teslim Edildi tarihseldir. | 42 |
+| 06.6.2 | Tarihsel Risk Bildirimleri | `T02` | Etkilenen geçmiş teslimatlar, riskli kaynak, yeni Hak Kaydı sürümü, politika uyuşmazlığı ve saptama zamanı; hak kaydını veya teslimatı açma; geçmiş Teslim Edildi sonucu korunur. Etkilenen kullanım. | 43 |
+
+## 07 · Ortak işlemler
+
+Paper sayfası: `07 · Shared Operations`
+
+| Kimlik | Ekran | Düzen | İçerik | İş akışı |
+| --- | --- | --- | --- | --- |
+| 07.1 | Çevrimdışı çalışma ve çakışma | `T02` | Cihazdaki yerel taslaklar, bağlı proje/kaynak sürüm ve kayıt durumları; taslağa devam etme; bağlantı dönünce tabanı kontrol, bulut ilerlemişse 07.1.1; çevrimdışı taslak bulut kararı sayılmaz. | 32 |
+| 07.1.1 | Çakışma çözümü | `T05` | Taban, güncel bulut ve yerel taslak üçlü karşılaştırması; yeni Aday Sürüm, bulutu koruyup taslağı saklama veya 08.3 › Taslağı bırakma; kesin kararlar güncel bulut tabanında yeniden verilir. | 32 |
+| 07.2 | İşlem durumu ve kurtarma | `T02 + T08` | Arşiv, geri yükleme, paket, doğrulama ve silme için ortak işlem listesi: kimlik, tür, kapsam, durum, ilerleme, denemeler, kesin sonuç; iptal isteği ile kesin iptal ayrı; ham hata ve sırlar gösterilmez. Görünümler: Çalışıyor · Başarısız · Teknik bilgi. Teknik bilgide tetikleyici ve durum geçişi geçmişi. | 34 |
+| 07.3 | Kalıcı silme | `T08` | Varlık ve arşiv için aynı akış; silinecek kayıtlar, Yönetilen Kopyalar, paket/arşivler ve etkilenen teslimat sayıları; kapsam dışı kopyalar, geri alınamazlık, yedek takvimi, içeriksiz Silme Kaydı seçimi; 08.3 › Kalıcı silme onayı. Silinecek içeriği gömen paket/arşivi bütünüyle kapsama ekleme veya iptal; yalnız seçili kopyalar silinirse bunun kapsamlı temizleme olmadığı açıkça belirtilir. | 45 |
+| 07.3.1 | Silme sonucu ve makbuz | `T08` | 07.2 görünümüyle silme ilerlemesi; depo temizliği ve yedek takvimi; içeriksiz Silme Makbuzu, kapsam dışı kopyalar ve varsa Silme Kaydı. | 45 |
+
+## 08 · Ortak sayfalar ve ekran durumları
+
+Paper sayfası: `08 · Shared Pages & States`. 08.1 bütün içerik alanını kaplar, 08.2 durumları ekranın yuvasını doldurur, 08.3 ekranın üzerinde açılır.
+
+| Kimlik | Ekran | Düzen | İçerik | İş akışı |
+| --- | --- | --- | --- | --- |
+| 08.1 | Durum sayfası | `T00 (durum dolgusu)` | İçerik alanını kaplayan başlık, açıklama ve güvenli çıkış. Erişim reddinde korunan bilgi gösterilmez; oturum bitince yerel taslak durumu görünür kalır; sunucu hatasında Destek Referansı. Görünümler: Sayfa bulunamadı (404) · Erişim reddedildi · Oturum sona erdi · Sayfa yüklenemedi. | 01 |
+| 08.2.1 | Yükleniyor | `Yuva dolgusu` | Liste, ayrıntı veya önizleme yuvasında yükleme göstergesi ve yer tutucular; yüklenen bölüm kullanılabilir içerikten ayırt edilir. | 47 |
+| 08.2.2 | Boş içerik | `Yuva dolgusu` | Kayıt olmadığını açıklayan mesaj ve sonraki adım; arama sonucunda mevcut arama/filtreler görünür, değiştirme veya temizleme kontrolü. Görünümler: Henüz içerik yok · Arama sonucu yok. | 47 |
+| 08.2.3 | İçerik gösterilemedi | `Yuva dolgusu` | Yuvada açıklama ve güvenli sonraki adım; yetkisiz kişiye kayıt bilgisi verilmez; diğer bölümler kullanılabilir kalır; sunucu hatasında Destek Referansı. Görünümler: Kayıt bulunamadı · Önizleme yüklenemedi · Veri yüklenemedi. | 47 |
+| 08.2.4 | Bağlantı kesildi | `Yuva dolgusu` | Kesinti bildirimi, yerel taslak durumu ve kullanılabilir çevrimdışı işlemler; 07.1 geçişi; bulutta kesinleşmeyen sonuç açıkça belirtilir. | 32 |
+| 08.2.5 | Form doğrulama hatası | `Yuva dolgusu` | Sorunlu alanın yanında düzeltme açıklaması; girilen değerler korunur ve yeniden gönderilebilir. | 47 |
+| 08.2.6 | İşlem engellendi | `Yuva dolgusu` | Engelleyen koşul ve düzeltme yolu; eksik kanıt, kalite engeli ve bilinmeyen sözleşme sürümü ayrı; platform/biçim veya kapasite sınırında 00.4'e geçiş. | 47, 48 |
+| 08.2.7 | Kayıt ve işlem bildirimi | `Yuva dolgusu` (T00 `NoticeRegion`) | Tek bildirim yeri, kayıt veya işlemin adıyla. Kesin sonuç gelmeden başarı gösterilmez; Sonuç belirsiz'de başarı/başarısızlık ilan edilmez ve aynı yazma yeniden gönderilmez; İşlem ilerlemesi seçilince 07.2 açılır. Görünümler: Kaydediliyor · Yerel taslak kaydedildi · Bulut kaydı tamamlandı · Kaydedilemedi · Sonuç belirsiz · İşlem ilerlemesi. | 32, 33, 34 |
+| 08.2.8 | Durum rozetleri | `Yuva dolgusu` | Her rozet ikon, etiket ve renkle; durumlar birbirinden ayrı (Hazır ≠ Teslim Edildi, Yeniden Doğrulama Gerekli ≠ geçmiş onay). Değerler sözlükten: İnceleme Kararı Aday/Onaylı/Reddedildi; Kalite Kontrol Durumu Değerlendirilmedi/Engel Var/İstisnalarla Hazır/Dışa Aktarıma Hazır; Kayıt Durumu Etkin/Arşivlenmiş/Silinmiş; Teslimat Hedefi Hazır/Engelli. Görünümler: İnceleme Kararı · Bağlama Uygunluk · Kalite Kontrol · Kayıt Durumu · Yeniden Doğrulama Gerekli · Hazır/Engelli · Teslim Edildi. | 17, 36 |
+| 08.3 | Onay penceresi | `T10` | İşlemin kapsamı ve sonucu, açık kesinleştirme ve vazgeçme; kalıcı silmede döküm değişirse yeniden onay; hedef proje seçicide kopyanın alıcı projede nasıl ele alındığı. Görünümler: Kullanıcı kararını onaylama · Taslağı bırakma · Kalıcı silme onayı · Hedef proje seçici. | — |
