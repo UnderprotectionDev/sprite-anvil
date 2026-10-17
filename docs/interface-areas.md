@@ -11,7 +11,7 @@ Aktif tasarım kaynağı, Paper'daki `Sprite Anvil` klasöründe bulunan [Sprite
 | Paper sayfası | Sahip olduğu tasarım |
 | --- | --- |
 | Start Here | Sayfa dizini, kaynak önceliği ve ortak tasarımları kullanma kuralları. |
-| Design Language | Ortak tokenlar, tipografi, kontrol hiyerarşisi ve bileşen örnekleri. |
+| Design Language | Ortak tokenlar, tipografi, kontrol hiyerarşisi ve bileşen örnekleri. Kanonik palet ailesi `--color-workbench-*` ve `--color-pixel-*` basamaklarıdır; kısa adlar ve `--color-ui-*` eski takma adlardır, yeni tasarımda kullanılmaz. Piksel kuralları (köşe 0 px, 2 px kenar, adlandırılmış bevel/gölge tarifleri, yazı rolleri, ikon seti) burada tanımlanır. |
 | 00 · Shared Shell | 00.1–00.5 ortak çerçevesi ve içerik yuvası. |
 | 01 · Accounts & Projects | 01 hesap, proje ve Proje Arşivi alanları. |
 | 02 · Project Context & Management | 02 Proje Bağlamı ve yönetim alanları. |
@@ -31,9 +31,32 @@ Alan kimlikleri korunur: `00.1–00.5` ayrı Paper sayfalarına bölünmez; ilgi
 - Ortak tokenlar dosya genelinde kullanılır. Çoğaltılmış artboard veya katman geometrisi canlı bileşen bağlantısı değildir. Ortak bir kontrol değiştiğinde önce kaynak örnek, sonra etkilenen ekran örnekleri güncellenip karşılaştırılır.
 - Tam ekran örneği çerçeve ve içerik ilişkisini gösterir. Aynı çerçeveyi tekrar eden hata, odak ve bekleme durumları, gerekli bağlam korunarak kompakt bileşen örnekleriyle gösterilebilir.
 - Kod aktarımında ilgili alanın artboard'u ve kullandığı ortak örnekler birlikte okunur. Yinelenen çerçeve ve kontroller kodda ortak bileşenlere ayrılır; Paper'daki kopyaların her biri ayrı uygulama bileşeni sayılmaz.
-- Eski bağımsız dosyalar arşiv/yedek kaynağıdır; yeni tasarımlar ve kod aktarımı Product dosyasından yürütülür. `Archive · Before Consolidation` tasarım dosyalarının arşividir; üründeki `01.4 Proje Arşivi` ile ilişkili değildir.
+- **Arayüz dili:** Ürün ekranlarındaki etiketler Türkçedir ([sözlükteki](CONTEXT.md) eşleşmiş Türkçe adlar). İngilizce yalnız kod, sözleşme ve test adlarında kalır; ürün ekranlarında karışık dil kullanılmaz. `Design Language` sayfası tasarım sistemi belgesidir ve specimen etiketlerini sözlüğün kanonik İngilizce adlarıyla yazabilir; proje verisi (dünya, tema, kural adları) olduğu gibi kalır.
+- **Bileşen kataloğu:** `Design Language` · Components, bir ürün akışının gerektirdiği bileşenleri içerir (yaklaşık 40 specimen, dokuz grup). Aynı işi yapan bileşenler tek specimen'de birleşir (ör. Segmented control, Notice, Dialog, Sheet, Menu, Field). Yeni specimen, ilgili PRD gereksinimi veya alan kimliği belirtilmeden eklenmez; PRD'de karşılığı olmayan katalog bileşenleri (takvim, OTP, karusel, tema seçici vb.) çıkarılmıştır.
+- **Tipografi ve token ölçeği:** Jersey 10 yalnız 20/30/40 px, Pixelify Sans 14/16/18/20 px, IBM Plex yalnız uzun metin ve token adlarında; en küçük metin 14 px. Eski kısa token adları ve `--color-ui-*` kaldırılmıştır; yalnız `--color-workbench-*` ve `--color-pixel-*` kullanılır.
+- **Düzen sınıfları:** Masaüstü çalışma alanı 1440 px, kompakt Çalışma Alanı 960 px (`--breakpoint-compact`: 768 px) esas alınır. Hangi ekranın kompakt varyantı gerektirdiği ilgili alanın görevinde ayrıca belirtilir; belirtilmeyen ekran için kompakt varyant kapsam sayılmaz.
+- **Piksel tutarlılığı:** Her artboard, Area map dahil, workbench zemini ve piksel yazı rolleriyle çizilir. Kenar ve ayırıcılar 2 px'in katlarıdır; gölgeler adlandırılmış tariflerden gelir ve ham hex değeri içermez. Durum rengi ikon ve etiketle birlikte verilir.
+- Eski bağımsız dosyalar (`Design Language`, `00 · Shared Shell`) kaynak değildir; yalnız arşiv/yedek olarak kalır. Yeni tasarımlar ve kod aktarımı Product dosyasından yürütülür. `Archive · Before Consolidation` tasarım dosyalarının arşividir; üründeki `01.4 Proje Arşivi` ile ilişkili değildir.
 
 **Kapsam ile tamamlanma ayrımı:** Bu belgedeki tablolar planlanan kapsamı gösterir. Paper'da bir sayfanın veya alan haritasının bulunması, o alanın bütün ekranlarının tasarlandığı, onaylandığı veya kodlandığı anlamına gelmez. Alan haritaları kapsam dizinidir; mevcut artboard'lar ve durum örnekleri ilgili görevde ayrıca kontrol edilir.
+
+## Paper tasarım kapsamı (17 Ekim 2026 durumu)
+
+Aşağıdaki tablo, Product dosyasında artboard'ı bulunan alanları gösterir; onay veya kodlama durumu değildir. Satırlar Paper sayfalarındaki artboard adlarından çıkarılmıştır.
+
+| Alan | Paper'da var | Henüz artboard'ı yok |
+| --- | --- | --- |
+| 00 | 00.0, 00.1, 00.3, 00.4, 00.5 | 00.2 (ayrı artboard yok; 00.0 şablonu kapsıyor olabilir, doğrulanmadı) |
+| 01 | 01.1 – 01.4.1 (tamamı) | — |
+| 02 | 02.1 – 02.4.1 (tamamı) | — |
+| 03 | 03.4 – 03.4.6 | 03.1, 03.1.1, 03.2, 03.3, 03.3.1, 03.3.2, 03.4.2.1 – 03.4.2.3 (alt görünümlerin 03.4.2 artboard'ında olup olmadığı doğrulanmadı) |
+| 04 | Yalnız Area map | 04.1 – 04.4 ve alt alanlar |
+| 05 | Yalnız Area map | 05.1 – 05.5 ve alt alanların tamamı |
+| 06 | Yalnız Area map | 06.1 – 06.6.2 |
+| 07 | 07.2 (Failed, Technical info, Running) | 07.1, 07.1.1, 07.3, 07.3.1 |
+| 08 | Yalnız Area map | 08.1, 08.2, 08.3 alan numaralı artboard'lar |
+
+Bu tablo ilgili görevde Paper'daki mevcut artboard'larla yeniden kontrol edilir.
 
 ## Ana arayüzler
 
@@ -136,7 +159,7 @@ Alan kimlikleri korunur: `00.1–00.5` ayrı Paper sayfalarına bölünmez; ilgi
 | 05.1.1 | Toplu inceleme | Seçili sürümlerin yan yana önizlemeleri ve her öğenin kendi kanıtları/engelleri. Her uygun öğe için ayrı karar; engelli öğelerin nedenleri görünür kalır. |
 | 05.1.2 | Kalite İstisnası | İstisnaya izin veren kural, gözlenen değer, kesin sürüm, kullanım kapsamı, Bağlam Sürümü ve Ana Tasarım. Gerekçe girme ve istisnayı kesinleştirme; bütünlük, zorunlu inceleme ve test kanıtı eksikliği istisnayla aşılmaz. |
 | 05.2 | Profil testleri | Seçili sürümün türü, etkin profil sözleşmesi ve değerlendirme sonuçları. Uygun test alanını açma, kesin test girdilerini seçme ve kanıtları inceleme; özel profili olmayan tür için Genel Varlık Desteğine geçiş. |
-| 05.3 | Son Dokunuş Piksel Düzenleyicisi | Üstte kaynak sürüm/aile ve taslak durumu; solda araçlar, ortada tuval, sağda sayısal ayarlar ve çok kareli içerikte altta kare şeridi. 1×/tam sayı yakınlaştırma ve şeffaflık zeminleri. Tuval yakınlaştırmasından bağımsız, sürekli görülebilen gerçek kullanım boyutu önizlemesi; 1×, 2× veya seçili tam sayı Gösterim Ölçeği. Geri al/yinele, yerel taslak kaydı ve “Bitir ve yeni Aday Sürüm oluştur” kontrolü. |
+| 05.3 | Son Dokunuş Piksel Düzenleyicisi | Üstte kaynak sürüm/aile ve taslak durumu; solda araçlar, ortada tuval, sağda sayısal ayarlar ve çok kareli içerikte altta kare şeridi. 1×/tam sayı yakınlaştırma ve şeffaflık zeminleri. Tuval yakınlaştırmasından bağımsız, sürekli görülebilen gerçek kullanım boyutu önizlemesi; 1×, 2× veya seçili tam sayı Gösterim Ölçeği. Geri al/yinele, yerel taslak kaydı ve “Bitir ve yeni Aday Sürüm oluştur” kontrolü. Piksel, karo ve sahne düzenlemesi için klavyeyle kullanılabilen eşdeğer görevler veya erişilebilir özellik paneli; animasyon önizlemesi durdurulabilir. |
 | 05.3.1 | Piksel ve palet araçları | Kalem, silgi, renk seçici, çizgi ve kesin renk doldurma; seçim, kes/kopyala/yapıştır, piksele oturan taşıma, çevirme ve 90° döndürme. Kırpma, tuval ölçüsü ve tam sayı ölçekleme; palet kilidi, yabancı renkler ve toplu değişimde etkilenecek piksel sayısı. |
 | 05.3.2 | Görsel sayfasını dilimleme | Hücre genişliği/yüksekliği, satır/sütun, başlangıç ofseti, boşluk ve okuma sırası alanları. Numaralı hücre sınırları ve oynatılabilir kare önizlemesi; kaynak görseli koruyarak dilimlemeyi çalışma taslağına uygulama. |
 | 05.3.3 | Kare ve animasyon düzenleme | Kare şeridi; ekleme, çoğaltma, silme, dosyayla değiştirme ve sıralama kontrolleri. Kare süresi, X/Y ofseti, pivot ve koru işareti; oynat/durdur, döngü ve önceki/sonraki soluk kareler. Zemin hizasını karşılaştırma. |
@@ -232,6 +255,7 @@ Ortak tasarımları bir kez oluştur ve ilgili arayüzlerde kullan. Aşağıda *
 | 08.2.13 | Kaydedilemedi | Yazmanın gerçekleşmediği doğrulanmışsa hata açıklaması ve güvenli sonraki adım. Taslak ve girilmiş içerik korunur. |
 | 08.2.14 | İşlem sonucu belirsiz | İşlem sonucunun henüz doğrulanamadığı açıklaması ve güncel durumu sorgulama eylemi. Başarı/başarısızlık ilan edilmez; aynı yazmayı tekrar gönderen işlem sunulmaz. |
 | 08.2.15 | İşlem ilerlemesi ve sonucu | Bekliyor, çalışıyor, tamamlandı, başarısız, iptal istendi ve iptal edildi bildirimleri. İlerleme veya kesin sonuç özeti; seçildiğinde 07.2 işlem ayrıntısı açılır. |
+| 08.2.16 | Durum rozetleri | İnceleme Kararı, Bağlama Uygunluk Durumu, Kalite Kontrol Durumu, Kayıt Durumu ve Hazır/Teslim Edildi için ortak rozet. Her rozet ikon, etiket ve renkle verilir; renk tek başına anlam taşımaz ve durumlar birbirinden ayrı gösterilir. Değerler sözlükteki tanımlardan gelir (İnceleme Kararı: Aday/Onaylı/Reddedildi; Kalite Kontrol Durumu: Değerlendirilmedi/Engelli/İstisnalarla Hazır/Dışa Aktarıma Hazır; Kayıt Durumu: Etkin/Arşivlenmiş/Silinmiş; Yeniden Doğrulama Gerekli). |
 
 ### 08.3. Ortak onay pencereleri
 
