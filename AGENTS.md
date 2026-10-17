@@ -15,6 +15,7 @@ This is the always-loaded process for work in Sprite Anvil. Apply the full seque
 
 - **Domain documents:** Before changing `docs/CONTEXT.md` or an ADR, or when a needed term is missing, read [domain guidance](docs/agents/domain.md). Preserve the distinction between this repository's glossary and an in-product project's `context.md`.
 - **Authentication and private project data:** Read the applicable requirements in [platform and operations](docs/prd/08-platform-and-operations.md) and the relevant privacy or permission [workflow phase](docs/workflow/). For Better Auth sessions, cookies, or account access, check the installed version's API and security guidance; test unauthorized, expired, and failed paths that the change affects.
+- **Spec-wide implementation:** Before running `/implement-spec` or implementing several tickets of one spec in one workspace, read [implement-spec](docs/agents/implement-spec.md).
 - **Issues:** At task start, check Conductor's selected issue context and any `.context/attachments/[GITHUB]-<number>.md` attachment. If an issue was selected, identify and read it before implementation using the [issue tracker guide](docs/agents/issue-tracker.md); read that guide before other tracker access too. Use [triage labels](docs/agents/triage-labels.md) when classifying or publishing an issue.
 - **User-facing changes:** Follow [the close-out guide](docs/agents/implement-close-out.md) to give a usable manual check with real screens, controls, setup, and expected results. For a change without a visible flow, state that explicitly.
 
