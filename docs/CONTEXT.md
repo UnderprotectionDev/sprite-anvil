@@ -48,6 +48,7 @@ English terms are the canonical technical names used in code and contracts. Turk
 | Marketing Usage Review | Tanıtım Kullanımı İncelemesi |
 | Icon Family Review | İkon Ailesi İncelemesi |
 | Tileset Adjacency Review | Karo Komşuluğu İncelemesi |
+| UI State Comparison | Arayüz Durum Karşılaştırması |
 | Background Layer Layout | Arka Plan Katman Düzeni |
 | UI Stretch Test | Arayüz Germe Testi |
 | Background Scrolling Test | Arka Plan Kaydırma Testi |
@@ -65,6 +66,7 @@ English terms are the canonical technical names used in code and contracts. Turk
 | Source Image Dimensions | Kaynak Görsel Ölçüsü |
 | Logical Resolution | Mantıksal Çözünürlük |
 | Icon Usage Variant | İkon Kullanım Çeşidi |
+| Sprite Sheet | Görsel Sayfası |
 | Cell Dimensions | Hücre Ölçüsü |
 | Visible Content Bounds | Görünür İçerik Sınırı |
 | Display Scale | Gösterim Ölçeği |
@@ -103,6 +105,8 @@ English terms are the canonical technical names used in code and contracts. Turk
 | Delivery Target | Teslimat Hedefi |
 | Production Evidence Policy | Üretim Kanıtı Politikası |
 | Readiness Plan | Hazırlık Planı |
+| Target Readiness | Hedef Hazırlığı |
+| Delivery Status | Teslim Durumu |
 | Delivery Fulfilment | Teslimat Gerçekleşmesi |
 | Historical Risk Notice | Tarihsel Risk Bildirimi |
 | Delivery Diff | Teslimat Farkı |
@@ -113,6 +117,8 @@ English terms are the canonical technical names used in code and contracts. Turk
 | Measurement Definition | Ölçüm Tanımı |
 | Project Archive | Proje Arşivi |
 | Icon Family Review Archive | İkon Ailesi İnceleme Arşivi |
+| Erasure Impact Report | Silme Etki Dökümü |
+| Deletion Receipt | Silme Makbuzu |
 | Erasure Tombstone | Silme Kaydı |
 | External Visual Analysis | Harici Görsel Analizi |
 | Scene QA Playground | Sahne Kalite Kontrol Alanı |
@@ -374,8 +380,12 @@ _Avoid_: Source image dimensions, display scale
 A user-entered free-text label for a specific recorded use of an icon, such as “Inventory item”. It is stored beside the target dimensions for that icon usage test; it does not create a new Asset Record, Asset Category, or project-wide usage rule.
 _Avoid_: Asset variant, closed usage taxonomy, global icon rule
 
+**Sprite Sheet**:
+A single source image that holds several frames in a regular grid of cells. On import the user declares Cell Dimensions, row and column counts, starting offset, cell spacing, and reading order; the product shows numbered cell bounds and a playable preview and never alters the original sheet.
+_Avoid_: Atlas, Composite Version, contact sheet
+
 **Cell Dimensions**:
-The width and height of one addressable cell within a sheet or atlas source.
+The width and height of one addressable cell within a Sprite Sheet or atlas source.
 _Avoid_: Visible content bounds, atlas dimensions
 
 **Visible Content Bounds**:
