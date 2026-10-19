@@ -34,6 +34,7 @@
     "build:app": "bun run --cwd apps/web build && bun run --cwd apps/server build",
     "check": "ultracite check",
     "check-types": "turbo run check-types",
+    "db:check": "bun run --cwd packages/db db:check",
     "db:doctor": "bun run --cwd packages/db db:doctor",
     "db:generate": "turbo run db:generate -F @sprite-anvil/db --",
     "db:migrate": "bun run --cwd packages/db db:migrate",

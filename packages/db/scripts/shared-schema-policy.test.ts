@@ -3,6 +3,7 @@ import {
 	checkSharedSchemaDiff,
 	normalizeMigrationSql,
 	projectRequiredCatalog,
+	withoutCheckRedefinitions,
 } from "./shared-schema-policy";
 
 const table = JSON.stringify([
@@ -160,4 +161,117 @@ test("snapshot reconciliation comments are inert but cannot hide executable pend
 			checkSharedSchemaDiff([], [pending], [], required, required, false)
 		).toThrow("reviewed pending SQL");
 	}
+});
+
+test("another branch's records may add columns, constraints, indexes and enum values beside pending SQL", () => {
+	const entry = (...values: unknown[]) => JSON.stringify(values);
+	const kind = entry("enum", "public", "kind", ["x", "y", "z"]);
+	const kindColumn = entry(
+		"column",
+		"public",
+		"records",
+		"kind",
+		"kind",
+		false,
+		"",
+		"",
+		null,
+		null
+	);
+	const extras = [
+		entry(
+			"column",
+			"public",
+			"records",
+			"owner_id",
+			"text",
+			false,
+			"",
+			"",
+			null,
+			"default"
+		),
+		entry(
+			"constraint",
+			"public",
+			"records",
+			"records_owner_fkey",
+			"FOREIGN KEY (owner_id) REFERENCES owners(id) ON DELETE SET NULL",
+			true
+		),
+		entry(
+			"index",
+			"public",
+			"records",
+			"CREATE UNIQUE INDEX records_owner_key ON public.records USING btree (owner_id)",
+			true,
+			true
+		),
+	];
+	const foreignRequired = [...required, kind, kindColumn];
+	const proposal = [
+		'ALTER TABLE "records" DROP CONSTRAINT "records_owner_fkey";',
+		'DROP INDEX "records_owner_key";',
+		'ALTER TABLE "records" ALTER COLUMN "kind" SET DATA TYPE text;',
+		'DROP TYPE "kind";',
+		"CREATE TYPE \"kind\" AS ENUM('x', 'y');",
+		'ALTER TABLE "records" ALTER COLUMN "kind" SET DATA TYPE "kind" USING "kind"::"kind";',
+		'ALTER TABLE "records" DROP COLUMN "owner_id";',
+		'ALTER TABLE "records" ADD COLUMN "label" text;',
+	];
+	expect(() =>
+		checkSharedSchemaDiff(
+			proposal,
+			['ALTER TABLE "records" ADD COLUMN "label" text;'],
+			[],
+			foreignRequired,
+			[...foreignRequired, ...extras],
+			true,
+			new Set(["public.kind"])
+		)
+	).not.toThrow();
+	expect(() =>
+		checkSharedSchemaDiff(
+			proposal,
+			['ALTER TABLE "records" ADD COLUMN "label" text;'],
+			[],
+			foreignRequired,
+			[...foreignRequired, ...extras],
+			true
+		)
+	).toThrow("reviewed pending SQL");
+	expect(() =>
+		checkSharedSchemaDiff(
+			proposal,
+			['ALTER TABLE "records" ADD COLUMN "label" text;'],
+			[],
+			foreignRequired,
+			[...foreignRequired, ...extras],
+			false,
+			new Set(["public.kind"])
+		)
+	).toThrow("Unexpected");
+});
+
+test("pending same-name CHECK redefinitions are verified after application, not by the schema diff", () => {
+	const redefinition =
+		'ALTER TABLE "records" DROP CONSTRAINT "records_status_check", ADD CONSTRAINT "records_status_check" CHECK ("status" IN (\'a\', \'b\', \'c\'));';
+	const checks = new Set(["public.records.records_status_check"]);
+	expect(withoutCheckRedefinitions([redefinition], checks)).toEqual([]);
+	expect(
+		withoutCheckRedefinitions(
+			[
+				'ALTER TABLE "records" DROP CONSTRAINT "records_status_check", ADD CONSTRAINT "records_status_check" CHECK ("status" IN (\'a\')), ADD COLUMN "x" text;',
+			],
+			checks
+		)
+	).toHaveLength(1);
+	expect(
+		withoutCheckRedefinitions(
+			[
+				'ALTER TABLE "records" DROP CONSTRAINT "records_other_check", ADD CONSTRAINT "records_other_check" CHECK ("status" <> \'\');',
+			],
+			checks
+		)
+	).toHaveLength(1);
 });

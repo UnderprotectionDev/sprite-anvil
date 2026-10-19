@@ -1,4 +1,5 @@
 import type { generateDrizzleJson } from "drizzle-kit/api-postgres";
+import { isCheckWidening } from "./constraint-widening";
 import type { Connection } from "./database-state";
 import { MigrationSafetyError } from "./migration-safety-error";
 
@@ -14,9 +15,12 @@ const quoteIdentifier = (value: string) => `"${value.replaceAll('"', '""')}"`;
 
 // Drizzle's diff omits same-name CHECK edits and constraint timing flags.
 // Verify those independently before projecting any actual catalog definitions.
+// With other branches' records present, a CHECK they widened is accepted.
 export async function assertSourceConstraints(
 	connection: Connection,
-	snapshot: Snapshot
+	snapshot: Snapshot,
+	foreign = false,
+	redefined: Set<string> = new Set()
 ): Promise<void> {
 	const rows = await connection`
 		SELECT namespace.nspname AS schema, relation.relname AS table, constraint_record.conname AS name,
@@ -61,7 +65,7 @@ export async function assertSourceConstraints(
 				`Required source constraint differs from the shared database: ${identity}. Run bun run db:doctor.`
 			);
 		}
-		if (entity.entityType !== "checks") {
+		if (entity.entityType !== "checks" || redefined.has(identity)) {
 			continue;
 		}
 		// PostgreSQL parses both expressions with the same column types and
@@ -72,7 +76,12 @@ export async function assertSourceConstraints(
 		);
 		const output: unknown = plan[0]?.["QUERY PLAN"]?.[0]?.Plan?.Output;
 		if (
-			!(Array.isArray(output) && output.length === 2 && output[0] === output[1])
+			!(
+				Array.isArray(output) &&
+				output.length === 2 &&
+				(output[0] === output[1] ||
+					(foreign && isCheckWidening(String(output[0]), String(output[1]))))
+			)
 		) {
 			throw new MigrationSafetyError(
 				`Required source CHECK constraint differs from the shared database: ${identity}. Run bun run db:doctor.`

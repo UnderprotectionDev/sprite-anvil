@@ -4,7 +4,7 @@ import { pushSchema } from "drizzle-kit/api-postgres";
 import { drizzle } from "drizzle-orm/pg-proxy";
 import type { Connection } from "./database-state";
 import { readSchemaCatalog } from "./database-state";
-import type { AppliedMigration, LocalMigration } from "./migration-policy";
+import type { LocalMigration } from "./migration-policy";
 import { MigrationSafetyError } from "./migration-safety-error";
 import type { SourceOptions } from "./migration-source";
 import { assertRuntimeCatalog } from "./runtime-compatibility";
@@ -12,6 +12,8 @@ import { assertSourceConstraints } from "./shared-constraints";
 import {
 	checkSharedSchemaDiff,
 	projectRequiredCatalog,
+	redefinedChecks,
+	withoutCheckRedefinitions,
 } from "./shared-schema-policy";
 
 type Snapshot = Awaited<
@@ -97,24 +99,91 @@ function assertCatalogIntegrity(actual: string[], historical: string[]): void {
 	}
 }
 
+export interface CatalogContext {
+	/** Production keeps its exact verification; no development redefinition handling. */
+	deployment?: boolean;
+	/** Other branches' migration records exist, so their additions are accepted. */
+	foreign: boolean;
+	/** This workspace's migrations without a shared record, in directory order. */
+	pending: LocalMigration[];
+}
+
+// Enums whose shared values extend the source values: another branch added values.
+function widenedEnums(snapshot: Snapshot, actual: string[]): Set<string> {
+	const widened = new Set<string>();
+	for (const entity of snapshot.ddl) {
+		if (entity.entityType !== "enums") {
+			continue;
+		}
+		const values = actual
+			.map((entry) => JSON.parse(entry) as unknown[])
+			.find(
+				(object) =>
+					object[0] === "enum" &&
+					object[1] === entity.schema &&
+					object[2] === entity.name
+			)?.[3];
+		if (
+			Array.isArray(values) &&
+			values.length > entity.values.length &&
+			entity.values.every((value) => values.includes(value))
+		) {
+			widened.add(`${entity.schema}.${entity.name}`);
+		}
+	}
+	return widened;
+}
+
 export async function verifySharedCatalog(
 	connection: Connection,
 	options: SourceOptions,
 	snapshot: Snapshot,
 	migrations: LocalMigration[],
-	applied: AppliedMigration[],
-	compatible: boolean
+	context: CatalogContext
 ): Promise<string[]> {
 	const actual = await readSchemaCatalog(connection);
 	const inventory = readHistoricalInventory(options);
 	assertHistoricalInventory(inventory, migrations, actual);
 	assertCatalogIntegrity(actual, inventory?.replayedOnly ?? []);
-	await assertSourceConstraints(connection, snapshot);
+	const pendingStatements = context.pending.flatMap((migration) =>
+		readFileSync(
+			join(options.migrationDirectory, migration.name, "migration.sql"),
+			"utf8"
+		)
+			.split("--> statement-breakpoint")
+			.filter((statement) => statement.trim())
+	);
+	const existingChecks = new Set(
+		actual
+			.map((entry) => JSON.parse(entry) as unknown[])
+			.filter(
+				(object) =>
+					object[0] === "constraint" && String(object[4]).startsWith("CHECK")
+			)
+			.map((object) => object.slice(1, 4).join("."))
+	);
+	// Pending SQL that redefines an existing CHECK is verified after it is
+	// applied, inside the migration transaction.
+	const redefined = context.deployment
+		? new Set<string>()
+		: redefinedChecks(pendingStatements, existingChecks);
+	await assertSourceConstraints(
+		connection,
+		snapshot,
+		context.foreign,
+		redefined
+	);
 	const required = projectRequiredCatalog(
 		snapshot.ddl,
 		actual,
 		inventory?.replayedOnly ?? []
 	);
+	if (context.foreign && context.pending.length > 0) {
+		// Drizzle cannot diff beside other branches' additions while this branch
+		// adds objects: it needs a rename-or-create hint. Preparation applies the
+		// pending SQL in one transaction and verifies the result before COMMIT.
+		return required;
+	}
 	// pg-proxy normally returns rows directly. This API requires the node-postgres
 	// result shape; expose that shape without changing the driver's row contents.
 	const db = drizzle(async (query, params) => {
@@ -127,25 +196,19 @@ export async function verifySharedCatalog(
 		entities: undefined,
 		extensions: undefined,
 	});
-	const pending = compatible
-		? []
-		: migrations.slice(applied.length).flatMap((migration) =>
-				readFileSync(
-					join(options.migrationDirectory, migration.name, "migration.sql"),
-					"utf8"
-				)
-					.split("--> statement-breakpoint")
-					.filter((statement) => statement.trim())
-			);
+	const pending = context.deployment
+		? pendingStatements
+		: withoutCheckRedefinitions(pendingStatements, existingChecks);
 	checkSharedSchemaDiff(
 		diff.sqlStatements,
 		pending,
 		inventory?.introspectionStatements ?? [],
 		required,
 		actual,
-		compatible
+		context.foreign,
+		context.foreign ? widenedEnums(snapshot, actual) : new Set()
 	);
-	if (compatible) {
+	if (context.foreign) {
 		assertRuntimeCatalog(required, actual);
 	}
 	return required;

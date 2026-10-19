@@ -14,7 +14,8 @@ import {
 	generateDrizzleJson,
 	generateMigration,
 } from "drizzle-kit/api-postgres";
-import { pgTable, text } from "drizzle-orm/pg-core";
+import { sql as rawSql } from "drizzle-orm";
+import { check, pgTable, text, uniqueIndex } from "drizzle-orm/pg-core";
 
 import {
 	inspectDevelopmentCompatibility,
@@ -63,7 +64,13 @@ test.skipIf(process.env.DB_TEST_POSTGRES !== "true")(
 			await withDisposablePostgres(async ({ url }) => {
 				const target = { name: "application", url };
 				expect(await prepareTargets(preparedSource, [target])).toEqual([
-					{ name: "application", status: "ready", applied: 1 },
+					{
+						name: "application",
+						status: "ready",
+						applied: 1,
+						foreign: 0,
+						rebased: 0,
+					},
 				]);
 				const cached = await readSharedRuntimeSource(options);
 				const database = new SQL(url, { max: 2 });
@@ -92,14 +99,11 @@ test.skipIf(process.env.DB_TEST_POSTGRES !== "true")(
 					queries.length = 0;
 					await connection`BEGIN READ ONLY`;
 					try {
-						await cached.verifyCatalog?.(
-							measured,
-							cached.migrations.map((migration, index) => ({
-								...migration,
-								id: index + 1,
-							})),
-							false
-						);
+						await cached.verifyCatalog?.(measured, {
+							pending: [],
+							foreign: false,
+							runtime: false,
+						});
 					} finally {
 						await connection`ROLLBACK`;
 					}
@@ -210,18 +214,44 @@ test.skipIf(process.env.DB_TEST_POSTGRES !== "true")(
 						withDevelopmentReadiness(source, [target], () => undefined)
 					).rejects.toThrow("pending");
 					expect(await prepareTargets(olderSource, [target])).toEqual([
-						{ name: "application", status: "ready", applied: 1 },
+						{
+							name: "application",
+							status: "ready",
+							applied: 1,
+							foreign: 0,
+							rebased: 0,
+						},
 					]);
 					await database`INSERT INTO records (id) VALUES ('preserved')`;
 					const prepared = await prepareTargets(source, [target]);
 					expect(prepared).toEqual([
-						{ name: "application", status: "ready", applied: 1 },
+						{
+							name: "application",
+							status: "ready",
+							applied: 1,
+							foreign: 0,
+							rebased: 0,
+						},
 					]);
-					await expect(
-						withDevelopmentReadiness(olderSource, [target], () => undefined)
-					).rejects.toThrow("ahead");
-					const refused = await prepareTargets(olderSource, [target]);
-					expect(refused[0]?.status).toBe("failed");
+					// The newer label record belongs to another branch for olderSource.
+					await withDevelopmentReadiness(
+						olderSource,
+						[target],
+						(_connections, histories) => {
+							expect(histories).toEqual([
+								{ name: "application", foreign: 1, rebased: 0 },
+							]);
+						}
+					);
+					expect(await prepareTargets(olderSource, [target])).toEqual([
+						{
+							name: "application",
+							status: "ready",
+							applied: 0,
+							foreign: 1,
+							rebased: 0,
+						},
+					]);
 					await withDevelopmentCompatibility(
 						olderSource,
 						[target],
@@ -243,17 +273,26 @@ test.skipIf(process.env.DB_TEST_POSTGRES !== "true")(
 					).toMatchObject({ id: "preserved", label: null });
 					await database`UPDATE records SET label = 'before' WHERE id = 'preserved'`;
 					expect(await prepareTargets(source, [target])).toEqual([
-						{ name: "application", status: "ready", applied: 0 },
+						{
+							name: "application",
+							status: "ready",
+							applied: 0,
+							foreign: 0,
+							rebased: 0,
+						},
 					]);
 					expect(
 						(
 							await database`SELECT label FROM records WHERE id = 'preserved'`
 						)[0]?.label
 					).toBe("before");
-					await database`ALTER TABLE records ALTER COLUMN label SET DEFAULT 'unsafe'`;
-					await expect(
-						withDevelopmentCompatibility(olderSource, [target], () => undefined)
-					).rejects.toThrow("Unsupported");
+					// Older inserts omit a defaulted column safely.
+					await database`ALTER TABLE records ALTER COLUMN label SET DEFAULT 'filled'`;
+					await withDevelopmentCompatibility(
+						olderSource,
+						[target],
+						() => undefined
+					);
 					await database`ALTER TABLE records ALTER COLUMN label DROP DEFAULT`;
 					await database`ALTER TABLE records ALTER COLUMN label SET NOT NULL`;
 					await expect(
@@ -331,7 +370,7 @@ test.skipIf(process.env.DB_TEST_POSTGRES !== "true")(
 					await database`INSERT INTO drizzle.__drizzle_migrations (name, created_at, hash) VALUES ('20261002000003_future', 1790899203000, 'future')`;
 					await expect(
 						withDevelopmentReadiness(source, [target], () => undefined)
-					).rejects.toThrow("ahead");
+					).rejects.toThrow("identity");
 					await database`DELETE FROM drizzle.__drizzle_migrations WHERE name = '20261002000003_future'`;
 					await database`ALTER TABLE records DROP COLUMN label`;
 					await expect(
@@ -438,7 +477,13 @@ test.skipIf(process.env.DB_TEST_POSTGRES !== "true")(
 			await withDisposablePostgres(async ({ url }) => {
 				const target = { name: "application", url };
 				expect(await prepareTargets(preparedSource, [target])).toEqual([
-					{ name: "application", status: "ready", applied: 1 },
+					{
+						name: "application",
+						status: "ready",
+						applied: 1,
+						foreign: 0,
+						rebased: 0,
+					},
 				]);
 				expect(JSON.parse(readFileSync(proofPath, "utf8")).version).toBe(3);
 				const source = await readFreshRuntimeSource(optionsModule);
@@ -558,16 +603,292 @@ test.skipIf(process.env.DB_TEST_POSTGRES !== "true")(
 					await prepareTargets(source, [target], () => {
 						calls += 1;
 					})
-				).toEqual([{ name: "application", status: "ready", applied: 1 }]);
+				).toEqual([
+					{
+						name: "application",
+						status: "ready",
+						applied: 1,
+						foreign: 0,
+						rebased: 0,
+					},
+				]);
 				expect(
 					await prepareTargets(source, [target], () => {
 						throw new Error("No pending migration may call publication");
 					})
-				).toEqual([{ name: "application", status: "ready", applied: 0 }]);
+				).toEqual([
+					{
+						name: "application",
+						status: "ready",
+						applied: 0,
+						foreign: 0,
+						rebased: 0,
+					},
+				]);
 				expect(calls).toBe(2);
 			});
 		} finally {
 			rmSync(directory, { recursive: true, force: true });
 		}
 	}
+);
+
+test.skipIf(process.env.DB_TEST_POSTGRES !== "true")(
+	"an older pending migration applies beside another branch's newer record and constrained nullable column",
+	async () => {
+		const directory = mkdtempSync(join(tmpdir(), "sprite-anvil-parallel-"));
+		const parents = pgTable("parents", { id: text().primaryKey() });
+		const base = {
+			parents,
+			records: pgTable("records", { id: text().primaryKey() }),
+		};
+		const labelled = {
+			parents,
+			records: pgTable("records", { id: text().primaryKey(), label: text() }),
+		};
+		const owned = {
+			parents,
+			records: pgTable(
+				"records",
+				{
+					id: text().primaryKey(),
+					ownerId: text("owner_id").references(() => parents.id, {
+						onDelete: "set null",
+					}),
+				},
+				(table) => [uniqueIndex("records_owner_key").on(table.ownerId)]
+			),
+		};
+		const required = {
+			parents,
+			records: pgTable("records", {
+				id: text().primaryKey(),
+				label: text(),
+				code: text().notNull(),
+			}),
+		};
+		const writeSource = async (
+			name: string,
+			chain: [string, Record<string, unknown>][],
+			schema: Record<string, unknown>
+		) => {
+			const migrationDirectory = join(directory, name);
+			let previous = await generateDrizzleJson({});
+			let lineage: string | undefined;
+			for (const [migration, step] of chain) {
+				const snapshot = await generateDrizzleJson(step, lineage);
+				lineage = snapshot.id;
+				const path = join(migrationDirectory, migration);
+				mkdirSync(path, { recursive: true });
+				writeFileSync(
+					join(path, "migration.sql"),
+					(await generateMigration(previous, snapshot)).join(
+						"\n--> statement-breakpoint\n"
+					)
+				);
+				writeFileSync(join(path, "snapshot.json"), JSON.stringify(snapshot));
+				previous = snapshot;
+			}
+			return await validateSharedMigrationSource({
+				schema,
+				migrationDirectory,
+				proofPath: join(directory, `${name}.json`),
+			});
+		};
+		try {
+			const initial = await writeSource(
+				"initial",
+				[["20261002000001_records", base]],
+				base
+			);
+			const other = await writeSource(
+				"other",
+				[
+					["20261002000001_records", base],
+					["20261002000003_owners", owned],
+				],
+				owned
+			);
+			const current = await writeSource(
+				"current",
+				[
+					["20261002000001_records", base],
+					["20261002000002_labels", labelled],
+				],
+				labelled
+			);
+			const broken = await writeSource(
+				"broken",
+				[
+					["20261002000001_records", base],
+					["20261002000002_labels", labelled],
+					["20261002000004_required", required],
+				],
+				required
+			);
+			await withDisposablePostgres(async ({ url }) => {
+				const target = { name: "application", url };
+				const database = new SQL(url);
+				try {
+					expect(await prepareTargets(initial, [target])).toEqual([
+						{
+							name: "application",
+							status: "ready",
+							applied: 1,
+							foreign: 0,
+							rebased: 0,
+						},
+					]);
+					expect(await prepareTargets(other, [target])).toEqual([
+						{
+							name: "application",
+							status: "ready",
+							applied: 1,
+							foreign: 0,
+							rebased: 0,
+						},
+					]);
+					await database`INSERT INTO parents (id) VALUES ('parent')`;
+					await database`INSERT INTO records (id, owner_id) VALUES ('owned', 'parent')`;
+					const [failed] = await prepareTargets(broken, [target]);
+					expect(failed?.status).toBe("failed");
+					expect(failed?.status === "failed" ? failed.reason : "").toContain(
+						"rolled back"
+					);
+					const [rolledBack] =
+						await database`SELECT count(*)::int AS records, to_regclass('public.records') IS NOT NULL AS present, EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'records' AND column_name = 'label') AS label FROM drizzle.__drizzle_migrations`;
+					expect(rolledBack).toEqual({
+						records: 2,
+						present: true,
+						label: false,
+					});
+					expect(await prepareTargets(current, [target])).toEqual([
+						{
+							name: "application",
+							status: "ready",
+							applied: 1,
+							foreign: 1,
+							rebased: 0,
+						},
+					]);
+					expect(await prepareTargets(current, [target])).toEqual([
+						{
+							name: "application",
+							status: "ready",
+							applied: 0,
+							foreign: 1,
+							rebased: 0,
+						},
+					]);
+					const [history] =
+						await database`SELECT count(*)::int AS records FROM drizzle.__drizzle_migrations`;
+					expect(history).toEqual({ records: 3 });
+					let ready = false;
+					await withDevelopmentReadiness(
+						current,
+						[target],
+						(_connections, histories) => {
+							expect(histories).toEqual([
+								{ name: "application", foreign: 1, rebased: 0 },
+							]);
+							ready = true;
+						}
+					);
+					expect(ready).toBe(true);
+					await withDevelopmentReadiness(other, [target], (_c, histories) => {
+						expect(histories).toEqual([
+							{ name: "application", foreign: 1, rebased: 0 },
+						]);
+					});
+				} finally {
+					await database.close();
+				}
+			});
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	},
+	120_000
+);
+
+test.skipIf(process.env.DB_TEST_POSTGRES !== "true")(
+	"a pending CHECK widening is prepared and verified before commit",
+	async () => {
+		const directory = mkdtempSync(join(tmpdir(), "sprite-anvil-widening-"));
+		const statusTable = (values: string) =>
+			pgTable("records", { id: text().primaryKey(), status: text() }, () => [
+				check("records_status_check", rawSql.raw(`"status" IN (${values})`)),
+			]);
+		const narrow = { records: statusTable("'draft', 'done'") };
+		const wide = { records: statusTable("'draft', 'done', 'archived'") };
+		const initialSnapshot = await generateDrizzleJson(narrow);
+		const wideSnapshot = await generateDrizzleJson(wide, initialSnapshot.id);
+		const write = async (
+			name: string,
+			steps: [string, typeof initialSnapshot, typeof initialSnapshot][]
+		) => {
+			const migrationDirectory = join(directory, name);
+			for (const [migration, previous, snapshot] of steps) {
+				const path = join(migrationDirectory, migration);
+				mkdirSync(path, { recursive: true });
+				writeFileSync(
+					join(path, "migration.sql"),
+					(await generateMigration(previous, snapshot)).join(
+						"\n--> statement-breakpoint\n"
+					)
+				);
+				writeFileSync(join(path, "snapshot.json"), JSON.stringify(snapshot));
+			}
+			return migrationDirectory;
+		};
+		const empty = await generateDrizzleJson({});
+		const initial = await validateSharedMigrationSource({
+			schema: narrow,
+			migrationDirectory: await write("initial", [
+				["20261002000001_records", empty, initialSnapshot],
+			]),
+			proofPath: join(directory, "initial.json"),
+		});
+		const widened = await validateSharedMigrationSource({
+			schema: wide,
+			migrationDirectory: await write("widened", [
+				["20261002000001_records", empty, initialSnapshot],
+				["20261002000002_archived_status", initialSnapshot, wideSnapshot],
+			]),
+			proofPath: join(directory, "widened.json"),
+		});
+		try {
+			await withDisposablePostgres(async ({ url }) => {
+				const target = { name: "application", url };
+				expect(await prepareTargets(initial, [target])).toEqual([
+					{
+						name: "application",
+						status: "ready",
+						applied: 1,
+						foreign: 0,
+						rebased: 0,
+					},
+				]);
+				expect(await prepareTargets(widened, [target])).toEqual([
+					{
+						name: "application",
+						status: "ready",
+						applied: 1,
+						foreign: 0,
+						rebased: 0,
+					},
+				]);
+				await withDevelopmentReadiness(widened, [target], () => undefined);
+				const database = new SQL(url);
+				try {
+					await database`INSERT INTO records (id, status) VALUES ('kept', 'archived')`;
+				} finally {
+					await database.close();
+				}
+			});
+		} finally {
+			rmSync(directory, { recursive: true, force: true });
+		}
+	},
+	120_000
 );

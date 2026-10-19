@@ -10,13 +10,17 @@ import {
 	readSchemaCatalog,
 	verifyDatabaseLease,
 } from "./database-state";
+import {
+	classifyDevelopmentHistory,
+	type DevelopmentHistory,
+} from "./development-history";
+import { applyDevelopmentMigrations } from "./development-migrator";
 import type { DevelopmentTarget } from "./development-targets";
 import { runDrizzle } from "./drizzle-command";
 import { assertMigrationHistory } from "./migration-policy";
 import { MigrationSafetyError } from "./migration-safety-error";
 import type { ValidatedSource } from "./migration-source";
 import { assertRuntimeCatalog } from "./runtime-compatibility";
-import { assertRuntimeHistory } from "./runtime-history";
 
 interface DatabaseLease {
 	assertHeld: () => Promise<void>;
@@ -79,90 +83,149 @@ async function acquireLease(
 	}
 }
 
+export type HistoryPolicy = "development" | "deployment";
+type Inspection = "prepare" | "ready" | "runtime";
+
+export interface TargetHistory {
+	foreign: number;
+	name: string;
+	rebased: number;
+}
+
+function planHistory(
+	source: ValidatedSource,
+	state: Awaited<ReturnType<typeof readDatabaseHistory>>,
+	policy: HistoryPolicy
+): DevelopmentHistory {
+	if (policy === "deployment") {
+		// Production applies main in order: any extra or reordered record is an error.
+		assertMigrationHistory(
+			source.migrations,
+			state.applied,
+			state.hasApplicationTables
+		);
+		return {
+			foreign: [],
+			pending: source.migrations.slice(state.applied.length),
+			rebased: [],
+		};
+	}
+	return classifyDevelopmentHistory(
+		source.migrations,
+		state.applied,
+		state.hasApplicationTables
+	);
+}
+
 async function inspectTarget(
 	source: ValidatedSource,
 	connection: Connection,
-	ready: boolean,
-	compatible = false
-): Promise<number> {
+	inspection: Inspection,
+	policy: HistoryPolicy = "development"
+): Promise<DevelopmentHistory> {
 	await connection`BEGIN READ ONLY`;
 	try {
-		const state = await readDatabaseHistory(connection);
-		if (compatible) {
-			assertRuntimeHistory(
-				source.migrations,
-				state.applied,
-				state.hasApplicationTables
-			);
-		} else {
-			assertMigrationHistory(
-				source.migrations,
-				state.applied,
-				state.hasApplicationTables
-			);
-		}
-		if (source.verification === "shared") {
-			await source.verifyCatalog?.(connection, state.applied, compatible);
-			const catalog = await readSchemaCatalog(connection);
-			if (compatible) {
-				assertRuntimeCatalog(source.catalog, catalog);
-				const otherIssue = state.applied.some(
-					(row) =>
-						!source.migrations.some((migration) => migration.name === row.name)
-				);
-				if (
-					!otherIssue &&
-					catalogHash(source.catalog) !== catalogHash(catalog)
-				) {
-					throw new MigrationSafetyError(
-						"Shared schema contains untracked changes without another applied migration; run bun run db:doctor."
-					);
-				}
-			} else if (source.verifyCatalog === undefined) {
-				throw new MigrationSafetyError(
-					"Shared schema verification is unavailable; run bun run db:doctor."
-				);
-			}
-			const pending = source.migrations.length - state.applied.length;
-			if (ready && pending > 0) {
-				throw new MigrationSafetyError(
-					`${pending} pending migration(s). Run bun run db:prepare.`
-				);
-			}
-			return Math.max(0, pending);
-		}
-		const catalog = await readSchemaCatalog(connection);
-		if (compatible && state.applied.length > source.migrations.length) {
-			assertRuntimeCatalog(source.catalog, catalog);
-			return 0;
-		}
-		if (
-			catalogHash(catalog) !== source.prefixCatalogHashes[state.applied.length]
-		) {
-			throw new MigrationSafetyError(
-				"The real database schema differs from its verified migration history. Inspect drift; preparation will not repair or db:push this target."
-			);
-		}
-		const pending = source.migrations.length - state.applied.length;
-		if (ready && pending > 0) {
-			throw new MigrationSafetyError(
-				`${pending} pending migration(s). Run bun run db:prepare before Run/dev.`
-			);
-		}
-		return pending;
+		return await inspectWithinTransaction(
+			source,
+			connection,
+			inspection,
+			policy
+		);
 	} finally {
 		await connection`ROLLBACK`;
 	}
 }
 
+async function inspectWithinTransaction(
+	source: ValidatedSource,
+	connection: Connection,
+	inspection: Inspection,
+	policy: HistoryPolicy,
+	uncommitted = false
+): Promise<DevelopmentHistory> {
+	const history = planHistory(
+		source,
+		await readDatabaseHistory(connection),
+		policy
+	);
+	const [next] = history.pending;
+	if (next && inspection === "runtime") {
+		throw new MigrationSafetyError(
+			`Pending migration ${next.name}. Run bun run db:prepare; records from other branches do not block it.`
+		);
+	}
+	if (next && inspection === "ready") {
+		throw new MigrationSafetyError(
+			`${history.pending.length} pending migration(s). Run bun run db:prepare.`
+		);
+	}
+	const foreign = history.foreign.length > 0;
+	if (source.verification === "shared") {
+		if (inspection !== "runtime" && source.verifyCatalog === undefined) {
+			throw new MigrationSafetyError(
+				"Shared schema verification is unavailable; run bun run db:doctor."
+			);
+		}
+		await source.verifyCatalog?.(connection, {
+			pending: history.pending,
+			foreign,
+			runtime: inspection === "runtime",
+			deployment: policy === "deployment",
+			uncommitted,
+		});
+		if (inspection === "runtime") {
+			const catalog = await readSchemaCatalog(connection);
+			assertRuntimeCatalog(source.catalog, catalog);
+			if (!foreign && catalogHash(source.catalog) !== catalogHash(catalog)) {
+				throw new MigrationSafetyError(
+					"Shared schema contains untracked changes without another branch's migration record; run bun run db:doctor."
+				);
+			}
+		}
+		return history;
+	}
+	const catalog = await readSchemaCatalog(connection);
+	if (foreign) {
+		if (history.pending.length > 0) {
+			throw new MigrationSafetyError(
+				"A replay-verified source cannot prepare beside other branches' migration records; use shared verification with bun run db:prepare."
+			);
+		}
+		assertRuntimeCatalog(source.catalog, catalog);
+		return history;
+	}
+	const appliedCount = source.migrations.length - history.pending.length;
+	if (
+		history.pending.some(
+			(migration, index) =>
+				migration !== source.migrations[appliedCount + index]
+		) ||
+		catalogHash(catalog) !== source.prefixCatalogHashes[appliedCount]
+	) {
+		throw new MigrationSafetyError(
+			"The real database schema differs from its verified migration history. Inspect drift; preparation will not repair or db:push this target."
+		);
+	}
+	return history;
+}
+
 export type PreparationResult =
-	| { name: string; status: "ready"; applied: number }
+	| {
+			name: string;
+			status: "ready";
+			applied: number;
+			foreign: number;
+			rebased: number;
+	  }
 	| { name: string; status: "failed"; reason: string };
 
 export async function prepareTargets(
 	source: ValidatedSource,
 	targets: DevelopmentTarget[],
-	beforeApply?: (pending: ValidatedSource["migrations"]) => void | Promise<void>
+	beforeApply?: (
+		pending: ValidatedSource["migrations"]
+	) => void | Promise<void>,
+	policy: HistoryPolicy = "development"
 ): Promise<PreparationResult[]> {
 	const results: PreparationResult[] = [];
 	for (const target of targets) {
@@ -177,22 +240,56 @@ export async function prepareTargets(
 			});
 			await source.assertUnchanged(migrationDirectory);
 			lease = await acquireLease(target, false);
-			const pending = await inspectTarget(source, lease.connection, false);
-			if (pending > 0) {
-				await beforeApply?.(source.migrations.slice(-pending));
+			const { pending } = await inspectTarget(
+				source,
+				lease.connection,
+				"prepare",
+				policy
+			);
+			if (pending.length > 0) {
+				await beforeApply?.(pending);
 				await source.assertUnchanged();
 				await source.assertUnchanged(migrationDirectory);
 				await lease.assertHeld();
-				const configPath = join(directory, "drizzle.config.ts");
-				writeFileSync(
-					configPath,
-					`export default { dialect: "postgresql", out: ${JSON.stringify(migrationDirectory)}, dbCredentials: { url: process.env.DATABASE_URL } };`
-				);
-				await runDrizzle("migrate", target.url, configPath, lease.assertHeld);
+				if (policy === "deployment") {
+					const configPath = join(directory, "drizzle.config.ts");
+					writeFileSync(
+						configPath,
+						`export default { dialect: "postgresql", out: ${JSON.stringify(migrationDirectory)}, dbCredentials: { url: process.env.DATABASE_URL } };`
+					);
+					await runDrizzle("migrate", target.url, configPath, lease.assertHeld);
+				} else {
+					const { connection } = lease;
+					await applyDevelopmentMigrations(
+						connection,
+						migrationDirectory,
+						pending,
+						async () => {
+							await inspectWithinTransaction(
+								source,
+								connection,
+								"ready",
+								policy,
+								true
+							);
+						}
+					);
+				}
 			}
 			await lease.assertHeld();
-			await inspectTarget(source, lease.connection, true);
-			results.push({ name: target.name, status: "ready", applied: pending });
+			const verified = await inspectTarget(
+				source,
+				lease.connection,
+				"ready",
+				policy
+			);
+			results.push({
+				name: target.name,
+				status: "ready",
+				applied: pending.length,
+				foreign: verified.foreign.length,
+				rebased: verified.rebased.length,
+			});
 		} catch (error) {
 			results.push({
 				name: target.name,
@@ -222,16 +319,29 @@ export async function prepareTargets(
 export async function withDevelopmentReadiness<Result>(
 	source: ValidatedSource,
 	targets: DevelopmentTarget[],
-	action: (connections: Connection[]) => Result | Promise<Result>,
+	action: (
+		connections: Connection[],
+		histories: TargetHistory[]
+	) => Result | Promise<Result>,
 	compatible = false
 ): Promise<Result> {
 	const leases: DatabaseLease[] = [];
+	const histories: TargetHistory[] = [];
 	try {
 		for (const target of targets) {
 			const lease = await acquireLease(target, true);
 			leases.push(lease);
 			try {
-				await inspectTarget(source, lease.connection, true, compatible);
+				const history = await inspectTarget(
+					source,
+					lease.connection,
+					compatible ? "runtime" : "ready"
+				);
+				histories.push({
+					name: target.name,
+					foreign: history.foreign.length,
+					rebased: history.rebased.length,
+				});
 			} catch (error) {
 				const reason =
 					error instanceof MigrationSafetyError
@@ -243,7 +353,10 @@ export async function withDevelopmentReadiness<Result>(
 			}
 		}
 		await Promise.all(leases.map((lease) => lease.assertHeld()));
-		return await action(leases.map((lease) => lease.connection));
+		return await action(
+			leases.map((lease) => lease.connection),
+			histories
+		);
 	} finally {
 		await Promise.allSettled(leases.map((lease) => lease.release()));
 	}
@@ -253,13 +366,16 @@ export async function inspectDevelopmentCompatibility(
 	source: ValidatedSource,
 	connection: Connection
 ): Promise<void> {
-	await inspectTarget(source, connection, true, true);
+	await inspectTarget(source, connection, "runtime");
 }
 
 export async function withDevelopmentCompatibility<Result>(
 	source: ValidatedSource,
 	targets: DevelopmentTarget[],
-	action: (connections: Connection[]) => Result | Promise<Result>
+	action: (
+		connections: Connection[],
+		histories: TargetHistory[]
+	) => Result | Promise<Result>
 ): Promise<Result> {
 	return await withDevelopmentReadiness(source, targets, action, true);
 }
@@ -267,22 +383,20 @@ export async function withDevelopmentCompatibility<Result>(
 export async function validateSharedTargets(
 	source: ValidatedSource,
 	targets: DevelopmentTarget[]
-): Promise<void> {
+): Promise<TargetHistory[]> {
+	const histories: TargetHistory[] = [];
 	for (const target of targets) {
 		const lease = await acquireLease(target, true);
 		try {
-			const history = await readDatabaseHistory(lease.connection);
-			const runtime =
-				history.applied.some(
-					(row) =>
-						!source.migrations.some((migration) => migration.name === row.name)
-				) &&
-				source.migrations.every((migration) =>
-					history.applied.some((row) => row.name === migration.name)
-				);
-			await inspectTarget(source, lease.connection, false, runtime);
+			const history = await inspectTarget(source, lease.connection, "prepare");
+			histories.push({
+				name: target.name,
+				foreign: history.foreign.length,
+				rebased: history.rebased.length,
+			});
 		} finally {
 			await lease.release();
 		}
 	}
+	return histories;
 }

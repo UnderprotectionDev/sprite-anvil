@@ -61,21 +61,20 @@ for (const [name, alter] of [
 					await connection`BEGIN READ ONLY`;
 					expect(
 						(
-							await verifySharedCatalog(
-								connection,
-								options,
-								snapshot,
-								[],
-								[],
-								true
-							)
+							await verifySharedCatalog(connection, options, snapshot, [], {
+								pending: [],
+								foreign: true,
+							})
 						).length
 					).toBeGreaterThan(0);
 					await connection`ROLLBACK`;
 					await connection.unsafe(alter);
 					await connection`BEGIN READ ONLY`;
 					await expect(
-						verifySharedCatalog(connection, options, snapshot, [], [], true)
+						verifySharedCatalog(connection, options, snapshot, [], {
+							pending: [],
+							foreign: true,
+						})
 					).rejects.toThrow("constraint");
 				} finally {
 					await connection`ROLLBACK`;
@@ -120,8 +119,7 @@ test.skipIf(process.env.DB_TEST_POSTGRES !== "true")(
 							sourceOptions,
 							snapshot,
 							migrations,
-							applied,
-							false
+							{ pending: migrations.slice(applied.length), foreign: false }
 						)
 					).length
 				).toBeGreaterThan(0);
@@ -144,8 +142,7 @@ test.skipIf(process.env.DB_TEST_POSTGRES !== "true")(
 							sourceOptions,
 							snapshot,
 							migrations,
-							[...applied, { ...last, id: migrations.length }],
-							true
+							{ pending: [], foreign: false }
 						)
 					).length
 				).toBeGreaterThan(0);
