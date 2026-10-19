@@ -8,6 +8,7 @@
   "scripts": {
     "build": "tsc -b",
     "check-types": "tsc -b",
+    "db:check": "bun scripts/migration-expansion-check.ts",
     "db:dev": "bun scripts/development-runner.ts",
     "db:doctor": "bun scripts/migration-doctor.ts doctor",
     "db:generate": "bun scripts/migration-doctor.ts generate",

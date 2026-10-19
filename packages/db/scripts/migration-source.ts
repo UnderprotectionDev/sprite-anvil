@@ -31,7 +31,7 @@ import {
 	type LocalMigration,
 } from "./migration-policy";
 import { MigrationSafetyError } from "./migration-safety-error";
-import { verifySharedCatalog } from "./shared-catalog";
+import { type CatalogContext, verifySharedCatalog } from "./shared-catalog";
 
 export interface SourceOptions {
 	historicalInventoryPath?: string;
@@ -47,6 +47,13 @@ const proofSchema = z.object({
 	prefixCatalogHashes: z.array(z.string().regex(/^[a-f0-9]{64}$/)).min(1),
 });
 
+export interface SourceCatalogContext extends CatalogContext {
+	/** Run/dev compatibility; preparation and readiness verify the full source. */
+	runtime: boolean;
+	/** Inside an open migration transaction: the proof waits for COMMIT. */
+	uncommitted?: boolean;
+}
+
 export interface ValidatedSource {
 	assertUnchanged: (directory?: string) => Promise<void>;
 	catalog: string[];
@@ -57,8 +64,7 @@ export interface ValidatedSource {
 	verification?: "shared";
 	verifyCatalog?: (
 		connection: Connection,
-		applied: import("./migration-policy").AppliedMigration[],
-		compatible: boolean
+		context: SourceCatalogContext
 	) => Promise<void>;
 }
 
@@ -140,7 +146,8 @@ async function inspectSource(options: SourceOptions) {
 		"drizzle-command.ts",
 		"migration-files.ts",
 		"migration-policy.ts",
-		"runtime-history.ts",
+		"development-history.ts",
+		"constraint-widening.ts",
 		"runtime-compatibility.ts",
 		"shared-catalog.ts",
 		"shared-constraints.ts",
@@ -363,16 +370,18 @@ export async function validateMigrationSource(
 				);
 			}
 		},
-		verifyCatalog: async (connection, applied, compatible) => {
+		verifyCatalog: async (connection, context) => {
 			source.catalog = await verifySharedCatalog(
 				connection,
 				options,
 				inspected.generated,
 				inspected.migrations,
-				applied,
-				compatible
+				context
 			);
-			if (compatible || applied.length === inspected.migrations.length) {
+			if (
+				!context.uncommitted &&
+				(context.runtime || context.pending.length === 0)
+			) {
 				mkdirSync(dirname(options.proofPath), { recursive: true });
 				const temporaryPath = `${options.proofPath}.${crypto.randomUUID()}.tmp`;
 				writeFileSync(
@@ -429,12 +438,12 @@ export async function readValidatedSource(
 		);
 	}
 	const { verifyCatalog } = source;
-	source.verifyCatalog = async (connection, applied, compatible) => {
+	source.verifyCatalog = async (connection, context) => {
 		// A current or freshly verified receipt binds the required catalog to source.
 		// Runtime still checks live history/catalog under its shared lease.
 		// Preparation and delivery readiness retain full source introspection.
-		if (!compatible) {
-			await verifyCatalog?.(connection, applied, compatible);
+		if (!context.runtime) {
+			await verifyCatalog?.(connection, context);
 		}
 	};
 	return source;

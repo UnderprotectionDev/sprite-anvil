@@ -256,7 +256,7 @@ function assertAheadIdentity(
 	}
 }
 
-function assertLocalIdentities(local: LocalMigration[]): void {
+export function assertLocalIdentities(local: readonly LocalMigration[]): void {
 	const names = new Set<string>();
 	let previousName = "";
 	let previousTime = Number.NEGATIVE_INFINITY;

@@ -1,10 +1,17 @@
 import "varlock/auto-load";
 import { SQL, spawn } from "bun";
 import { readDatabaseHistory } from "./database-state";
+import {
+	classifyDevelopmentHistory,
+	describeForeignRecords,
+} from "./development-history";
 import { selectDevelopmentTargets } from "./development-targets";
+import {
+	assertExpansionOnly,
+	formatContractWarnings,
+} from "./migration-expansion";
 import { loadMigrations } from "./migration-files";
 import { repositoryDirectory, sourceOptions } from "./migration-options";
-import { assertMigrationHistory } from "./migration-policy";
 import {
 	findMissingMigrations,
 	reconcileMigrationSources,
@@ -37,12 +44,13 @@ async function run() {
 		await database.close();
 	}
 	const local = loadMigrations(sourceOptions.migrationDirectory);
+	// Records from other branches never block generation; changed applied SQL does.
+	const history = classifyDevelopmentHistory(
+		local,
+		applied.applied,
+		applied.hasApplicationTables
+	);
 	if (mode === "generate") {
-		assertMigrationHistory(
-			local,
-			applied.applied,
-			applied.hasApplicationTables
-		);
 		const child = spawn(
 			["bun", "run", "drizzle-kit", "generate", ...process.argv.slice(3)],
 			{
@@ -53,38 +61,40 @@ async function run() {
 			}
 		);
 		process.exitCode = await child.exited;
+		if (process.exitCode === 0) {
+			const result = assertExpansionOnly(sourceOptions.migrationDirectory);
+			for (const warning of formatContractWarnings(result)) {
+				console.warn(warning);
+			}
+			console.info(
+				"Generated migrations passed the parallel-safety check. Review the SQL and snapshot before bun run db:prepare."
+			);
+		}
 		return;
 	}
 	const missing = await findMissingMigrations(
 		repositoryDirectory,
 		local,
-		applied.applied,
+		history.foreign,
 		{ refresh: true }
 	);
 	console.info(
-		`${target.name}: shared database ${applied.applied.length} migrations; workspace ${local.length}. Read-only database inspection.`
+		`${target.name}: shared database ${applied.applied.length} migration record(s); workspace ${local.length}, ${history.pending.length} pending. ${describeForeignRecords(history.foreign.length, history.rebased.length)} Read-only database inspection.`
 	);
 	for (const entry of missing) {
 		console.info(
 			`${entry.name}\n  hash: ${entry.hash}\n  source: ${entry.commit ?? "unresolved after origin refresh"} ${entry.subject ?? ""}\n  refs: ${entry.references?.join(", ") || "none"}`
 		);
 	}
-	const pending = local.filter(
-		(entry) =>
-			!applied.applied.some(
-				(row) => row.name === entry.name && row.hash === entry.hash
-			)
-	);
-	for (const entry of pending) {
+	for (const entry of history.pending) {
 		console.info(
-			`Workspace-only migration: ${entry.name}. Preserve it until applied status and ordering are reconciled.`
+			`Pending workspace migration: ${entry.name}. bun run db:prepare applies it by SQL hash; records from other branches do not block it.`
 		);
 	}
 	if (mode === "sync" && !process.argv.includes("--check")) {
 		await reconcileMigrationSources(repositoryDirectory, missing);
-		const updated = loadMigrations(sourceOptions.migrationDirectory);
-		assertMigrationHistory(
-			updated,
+		classifyDevelopmentHistory(
+			loadMigrations(sourceOptions.migrationDirectory),
 			applied.applied,
 			applied.hasApplicationTables
 		);
@@ -93,11 +103,11 @@ async function run() {
 		);
 	} else if (missing.length) {
 		console.info(
-			"Origin main and PR heads were refreshed. Run bun run db:sync from a clean workspace to merge verified owning commits. Unresolved sources may be unpublished or fail provenance checks; do not infer publication status from missing cached refs. Unknown sources and real history conflicts remain blockers."
+			"The records above belong to other branches and are accepted: generation, preparation and readiness continue. Origin main and PR heads were refreshed only to show their sources; bun run db:sync is optional when this workspace needs their code."
 		);
 	} else {
 		console.info(
-			"No missing applied migration identity/hash was found. Schema compatibility is checked by bun run db:runtime; delivery by bun run db:ready."
+			"No records from other branches. Schema compatibility is checked by bun run db:runtime; delivery by bun run db:ready."
 		);
 	}
 }
