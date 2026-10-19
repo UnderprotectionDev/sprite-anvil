@@ -4,7 +4,7 @@
 
 All Conductor workspaces use one explicitly authorized development PostgreSQL database. Production is a separately declared target. Project creation/archive never creates database branches or prepares a database. Credentials stay in ignored environment files or secure Conductor environment settings.
 
-The authorized shared development identity is direct endpoint `ep-holy-frost-zapt8ycl.c-2.eu-west-2.aws.neon.tech`, database `neondb`; defaults are pinned in `packages/db/.env.schema`. A different endpoint or database needs explicit authorization. `DATABASE_URL_UNPOOLED`, when present, must identify the same database as `DATABASE_URL`. `DB_DEVELOPMENT_TARGETS` accepts exactly one application target. A URL, Git branch or `NODE_ENV` does not authorize a target.
+The authorized shared development identity is direct endpoint `ep-cold-surf-bafbsaxt.c-8.eu-central-1.aws.neon.tech`, database `neondb`; defaults are pinned in `packages/db/.env.schema`. A different endpoint or database needs explicit authorization. `DATABASE_URL_UNPOOLED`, when present, must identify the same database as `DATABASE_URL`. `DB_DEVELOPMENT_TARGETS` accepts exactly one application target. A URL, Git branch or `NODE_ENV` does not authorize a target.
 
 ## Parallel issue workflow
 
