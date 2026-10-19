@@ -33,25 +33,20 @@ Tüm workspace'ler tek geliştirme veritabanını paylaşır ([shared developmen
 - Bir subagent başlatmadan önce ticket'ın şemaya dokunup dokunmadığını ticket gövdesinden ve owning spec'ten belirle.
 - Şemaya dokunan ticket'lar bağımlılık sırasıyla tek tek çalışır; sonraki şema ticket'ı, öncekinin migration'ı incelenip integration branch'e merge edilmeden başlamaz. Diğer tüm ticket'lar paralel çalışır.
 - Şema ticket'ının implementer'ı yalnız şema kaynağını değiştirir. Ticket merge edildikten sonra workspace, integration branch'te `bun run db:generate` çalıştırır, migration SQL'ini ve snapshot'ı inceler ve owning ticket'ın işi olarak commit'ler. Subagent'lar hiçbir `db:*` komutu çalıştırmaz.
-- Son ticket merge edildikten sonra workspace, [parallel migration workflow](issue-tracker.md#schema-migrations-across-parallel-issues)'u bir kez çalıştırır: `db:doctor`, integration branch'in draft PR ile yayımlanması, `db:prepare`, etkilenen testler, `db:ready`.
-- `db:prepare` tam `HEAD`'in yayımlanmış olmasını ister; bu yüzden draft PR çalıştırmadan önce açılmış ve push edilmiş olmalıdır.
+- Son ticket merge edildikten sonra workspace, [parallel migration workflow](issue-tracker.md#schema-migrations-across-parallel-issues)'u bir kez çalıştırır: `db:doctor`, integration branch'in yayımlanması (kullanıcı push eder ve draft PR'ı elle açar), `db:prepare`, etkilenen testler, `db:ready`.
+- `db:prepare` tam `HEAD`'in yayımlanmış olmasını ister; agent bu noktada durur, kullanıcıdan yayımlamasını ister ve yayımlandığını doğruladıktan sonra devam eder.
 
 **Done when** `bun run db:ready` merge edilmiş integration branch'te geçer veya kesin engel close-out için kaydedilmiştir; hiçbir subagent ortak veritabanına bağlanmamıştır.
 
 ## Pull request
 
-Draft PR ilk merge'den sonra workspace'ten açılır:
+PR'ı kullanıcı elle açar. Agent `gh pr create`, `gh pr ready` veya Conductor'ın `Create PR` eylemini çalıştırmaz ve PR açmak için branch'i kendiliğinden push etmez.
 
-`gh pr create --base main --draft`
+- Başlığı ve gövdeyi `pr` skill'iyle yaz ve close-out raporunda kullanıcıya ver; kullanıcı PR'a yapıştırır.
+- Gövde ticket başına bir bağımsız satır taşır: `Closes #<number>`. Conductor'ın `Create PR` eylemi seçili issue olmadığında bu satırları siler; kullanıcıya bunu hatırlat.
+- Kullanıcı PR'ı açtıktan sonra istenirse `gh pr view --json body,closingIssuesReferences` ile doğrula; her ticket numarası `closingIssuesReferences` içinde görünmeli.
 
-Conductor'ın `Create PR` eylemini kullanma: seçili issue olmadığında `Closes` satırlarını siler.
-
-- Başlığı ve gövdeyi `pr` skill'iyle yaz.
-- Gövde ticket başına bir bağımsız satır taşır: `Closes #<number>`.
-- `gh pr view --json body,closingIssuesReferences` ile doğrula; her ticket numarası `closingIssuesReferences` içinde görünmeli.
-- PR'ı yalnız close-out kontrolleri geçtikten sonra hazır işaretle (`gh pr ready`).
-
-**Done when** `closingIssuesReferences` çalışmanın her ticket'ını listeler ve PR `main`'i hedefler.
+**Done when** PR başlığı ve `Closes #<number>` satırlarını içeren gövde kullanıcıya teslim edilmiştir; PR'ı açmak kullanıcıya bırakılmıştır.
 
 ## Close-out
 
