@@ -26,12 +26,14 @@ Paper sayfası: `00 · Shared Shell`
 
 | Kimlik | Ekran | İçerik | İş akışı |
 | --- | --- | --- | --- |
-| 00.0 | Ortak ekran şablonu | 00.1–00.5'in bir arada görünen kabuğu; diğer bölümlerin ekranları bu kabuğun 00.2 İçerik alanına çizilir. | — |
-| 00.1 | Proje ve gezinme | Seçili proje adı ve proje değiştirme; 01.2 Projeler'e dönüş; Proje Bağlamı (02.1), Kütüphane (03.1), Üretim (04.2) ve Teslimat (06.1) geçişleri, açık alanın seçili görünümü; proje ayarlarından 01.4 Proje Arşivi ve 02.3 Bağlantılar ve izinler. İnceleme ekranları sürümden açılır (03.2.2, 03.2.2.3). | 01 |
-| 00.2 | İçerik alanı | Ekran başlığı, seçili kaydın adı ve konum yolu; ana içerik, kayda ait işlem kontrolleri, alt ekran geçişleri; üst kayda veya listeye dönüş. | — |
-| 00.3 | Durum alanı | Bağlantı durumu (çevrimdışıyken 08.2.4) ve devam eden işlemler (08.2.7 › İşlem ilerlemesi); işlem seçilince 07.2 açılır. | 32, 34 |
-| 00.4 | Destek ve sınır bilgileri | Desteklenen tarayıcı, masaüstü, motor sürümü ve proje boyutu; yayımlanmış işlem/depolama sınırları ve destek değişikliği duyuruları; duyurudan 00.4.1 geçişi. | 48 |
-| 00.4.1 | Destek kaldırma duyurusu ve dışa aktarma | Desteği kaldırılacak platform veya sürüm için önceden duyuru ve verileri dışa aktarma yolu. | 48 |
+| 00.0 | Ortak ekran şablonu | 00.1–00.5'in bir arada görünen kabuğu: solda proje rayı ve alan sütunu, ortada içerik alanı, sağda etkinlik şeridi. Diğer bölümlerin ekranları bu kabuğun 00.2 İçerik alanına çizilir. | — |
+| 00.1 | Proje ve gezinme | Proje rayı: projeler, seçili proje, 01.2 Projeler'e dönüş ve 00.5 hesap menüsü girişi. Alan sütunu: seçili proje adı ve proje değiştirme; Kütüphane (03.1), Teslimat (06.1) ve Proje Bağlamı (02.1) geçişleri, açık alanın seçili görünümü; proje ayarlarından 01.4 Proje Arşivi ve 02.3 Bağlantılar ve izinler. Üretim (04.2) etkinlik şeridinden (00.3) açılır. İnceleme ekranları sürümden açılır (03.2.2, 03.2.2.3). | 01 |
+| 00.1.1 | Komut paleti | Ctrl K ile açılır; proje, alan, kayıt ve komut arama; sonuçları klavyeyle seçip açma; Esc ile kapanır. | 01 |
+| 00.2 | İçerik alanı | Açık kayıt sekmeleri (kapatılabilir); ekran başlığı, seçili kaydın adı ve konum yolu; ana içerik; kayda ait işlem kontrolleri; alt ekran geçişleri; üst kayda veya listeye dönüş; kaydın süreç adımları için yuva (adımları kaydı sahiplenen bölüm belirler). | — |
+| 00.3 | Durum alanı | Etkinlik şeridi: Üretim, İşlem ve Destek düğmeleri ile bağlantı durumu (çevrimdışıyken 08.2.4). İşlem düğmesi devam eden işlemleri sağ panelde açar (08.2.7 › İşlem ilerlemesi); işlem seçilince 07.2 açılır. Üretim düğmesi 00.3.1'i, Destek düğmesi 00.4'ü açar. Görünümler: Şerit · İşlemler paneli. | 32, 34 |
+| 00.3.1 | Üretim özeti | Üretim kuyruğu özeti: hazırlanan paketler, girdisi eksik ve sırada bekleyen varlıklar, bekleyen girdi sayısı; tam sayfa için 04.2 İçe Aktarma Gelen Kutusu geçişi. | 12 |
+| 00.4 | Destek ve sınır bilgileri | Desteklenen tarayıcı, masaüstü, motor sürümü ve proje boyutu; yayımlanmış işlem/depolama sınırları ve destek değişikliği duyuruları; duyurudan 00.4.1 geçişi. Yeni duyuru Destek düğmesinde yalnız işaretle belirir, çalışmayı kesmez. | 48 |
+| 00.4.1 | Destek kaldırma duyurusu ve dışa aktarma | Desteği kaldırılacak platform veya sürüm için önceden duyuru ve verileri dışa aktarma yolu; 00.4'e dönüş. | 48 |
 | 00.5 | Hesap menüsü | Kullanıcının adı ve e-postası, oturumu kapatma; çıkıştan sonra 01.1 Giriş açılır. | 01 |
 
 ## 01 · Hesap ve Projeler
