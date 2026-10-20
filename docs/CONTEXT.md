@@ -4,7 +4,7 @@ This context defines the shared language for managing coherent 2D game-asset pro
 
 This repository-level `CONTEXT.md` is the product domain glossary. It is distinct from the agent-maintained per-game-project `context.md` that represents Project Context inside the product.
 
-English terms are the canonical technical names used in code and contracts. Turkish terms are the canonical product and PRD labels. Each pair has one meaning; alternate translations must not be introduced for the same concept.
+English terms are the canonical technical names used in code and contracts, and the labels shown in the product interface, which is English. Turkish terms are the canonical labels in the PRD and other Turkish product documentation. Each pair has one meaning; alternate translations must not be introduced for the same concept.
 
 ## Canonical bilingual terminology
 

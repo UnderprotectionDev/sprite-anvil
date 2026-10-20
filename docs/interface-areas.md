@@ -3,17 +3,17 @@
 Paper'da hangi artboard'ların çizileceğinin listesi. Ekranın içinde ne olacağını bu belge değil, [PRD](prd/README.md) ve ilgili [iş akışı aşaması](workflow/) belirler; tablolardaki **İş akışı** sütunu o aşamanın numarasıdır.
 
 - **Paper dosyası:** [Sprite Anvil · Product](https://app.paper.design/file/01M4ASVM4ATF4HHXQSJ96CWVFY). Başlamadan önce `Start Here` sayfasını okuyun.
-- **Görsel kararlar:** `Design Language` (renk, yazı, boşluk, bileşenler) sayfası. Ortak ekran kabuğu `00 · Shared Shell` sayfasındaki `00.0 · Ortak ekran şablonu`dur; ekranın yerleşimi kabuğun içerik alanında, içeriğine göre kurulur.
+- **Görsel kararlar:** `Design Language` (renk, yazı, boşluk, bileşenler) sayfası. Ortak ekran kabuğu `00 · Shared Shell` sayfasındaki `00.0 · Shared screen template` bölümüdür; ekranın yerleşimi kabuğun içerik alanında, içeriğine göre kurulur.
 - Kaynaklar çelişirse uygulamadan önce açıklanır.
 
 ## Kurallar
 
-1. **Artboard adı** `Kimlik · Ekran adı` biçimindedir (ör. `03.2 · Varlık ayrıntısı`) ve bölümün Paper sayfasına çizilir.
+1. **Artboard adı** `Kimlik · Screen name` biçiminde İngilizcedir (ör. `03.2 · Asset detail`) ve bölümün Paper sayfasına çizilir. Tablolardaki Türkçe ekran adı bu belgenin etiketidir; artboard ile eşleşme kimlik üzerinden yapılır.
 2. **Alt ekran** (`03.2.1`), üst ekranın içinden açılan sekme, panel veya penceredir; üst ekranın üzerinde açık hâliyle kendi artboard'unda çizilir.
 3. **Görünüm**, aynı ekranın içerik veya durum farkıdır; numara almaz ve `08.2.7 › Kaydediliyor` gibi anılır. Aynı artboard'da etiketlenir; yerleşim belirgin değişiyorsa `Kimlik · Ekran — Görünüm` adlı ayrı artboard açılır.
 4. **Ortak parçalar bir kez çizilir.** 00, 07 ve 08 diğer bölümlerde yeniden kullanılır; bölümlere ayrı silme, durum veya onay penceresi çizilmez. Aynı işi yapan bileşen `Design Language` içinde tek örnektir.
 5. **Açıklamalar** ekranın yanındaki not artboard'una yazılır.
-6. **Ürün etiketleri** [sözlükteki](CONTEXT.md) Türkçe adlardır.
+6. **Arayüz metni İngilizcedir.** Ürün etiketleri [sözlükteki](CONTEXT.md) İngilizce adlardır; Türkçe adlar PRD ve Türkçe ürün belgelerinde kullanılır.
 7. **Her ekranda:** klavye ve görünür odak, ekran okuyucu adları ve durum duyuruları, yalnız renge dayanmayan durumlar, durdurulabilir animasyon ve azaltılmış hareket tercihine uyum, webde yükleme/indirme yolu, ham hata yerine güvenli açıklama ve sunucu hatasında Destek Referansı.
 8. **Liste tamamlanma değildir.** Paper'da artboard bulunması, ekranın onaylandığı veya kodlandığı anlamına gelmez; onay durumu Paper yorumlarında tutulur.
 9. **Kimlik değişirse** bu belge, Paper artboard adı ve artboard içindeki kimlik etiketi birlikte güncellenir.

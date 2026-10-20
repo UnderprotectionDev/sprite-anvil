@@ -4,7 +4,7 @@ Use this guide when exploring or changing a product concept, editing the glossar
 
 ## Locate the owning sources
 
-- [docs/CONTEXT.md](../CONTEXT.md) is the repository-wide bilingual domain glossary. Its English names are technical names; its Turkish names are product and PRD labels. This file is distinct from the agent-maintained `context.md` of one game project inside the product, which represents **Project Context**.
+- [docs/CONTEXT.md](../CONTEXT.md) is the repository-wide bilingual domain glossary. Its English names are technical names and interface labels; its Turkish names are PRD and Turkish product documentation labels. This file is distinct from the agent-maintained `context.md` of one game project inside the product, which represents **Project Context**.
 - [docs/prd/README.md](../prd/README.md) indexes the canonical product requirements. Find the requirement ID and its topic file before treating a concept as deliverable behavior. Use [acceptance scenarios](../prd/10-acceptance-scenarios.md) to identify observable evidence.
 - [docs/workflow/](../workflow/) contains phase-context files that break product behavior into work, completion criteria, and scope boundaries. Select the phase that covers the change; record `none` if none does.
 - [docs/adr/](../adr/) records existing architectural decisions. Read every decision whose boundary the proposed change touches, not the entire folder by default.
@@ -16,7 +16,7 @@ The repository has one domain glossary under `docs/`; `apps/` and `packages/` ar
 
 ## Use and extend the vocabulary
 
-Use the glossary's canonical English technical name in code, API/schema contracts, tests, and technical discussion. Use the paired Turkish product label in Turkish product documentation. When referring to an actual UI control, use the text present in the interface; a domain label is not automatically a button label.
+Use the glossary's canonical English technical name in code, API/schema contracts, tests, and technical discussion. Use the paired Turkish product label in Turkish product documentation. Interface copy is English: use the English name there. When referring to an actual UI control, use the text present in the interface; a domain label is not automatically a button label.
 
 The glossary's `_Avoid_` lists exclude misleading alternatives, including in issue titles, hypotheses, refactor plans, and reports. If a desired name is absent, first check whether an existing term already covers the meaning. For a genuinely new concept, add its English/Turkish pair, definition, boundary, and useful `_Avoid_` terms near related entries in the same change that introduces it. Update the owning PRD or workflow text only where the new concept changes that source's meaning.
 
