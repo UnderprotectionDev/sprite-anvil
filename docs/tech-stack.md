@@ -82,6 +82,7 @@ Each responsibility is built with its technology, not with the substitute beside
 - Testing Library
 - Playwright
 - Opt-in database integration tests
+  - CI runs them in the `integration` job against a PostgreSQL service: profile tests use their own loopback databases cloned from a `db:push` schema template, and `createDb` (neon-http) tests go through the local Neon HTTP proxy in a non-blocking step until their known failures are fixed (`ghcr.io/timowilhelm/local-neon-http-proxy`, pinned by digest). `createDb` routes only the reserved host `db.localtest.me` to the proxy (`packages/db/src/local-neon-proxy.ts`).
 - Tauri WebDriver
 
 ## Tooling and CI
@@ -89,10 +90,12 @@ Each responsibility is built with its technology, not with the substitute beside
 - Biome
 - Lefthook
 - GitHub Actions
-  - CI runs on pull requests and `main` pushes; docs-only (`docs/**`, `*.md`) changes skip it.
-  - Jobs: `quality` (Ultracite, types, disposable PostgreSQL migration tests, unit tests), `web-e2e` (build + Playwright), `desktop-webdriver` (Tauri WebDriver).
-  - React Doctor is advisory and reports through its own check and PR comment.
-  - The `Conventions` workflow runs `bun run check:conventions` on every pull request and `main` push, docs included.
+  - CI runs on every pull request and `main` push. A `changes` job (dorny/paths-filter) skips the heavy jobs for docs-only (`docs/**`, `*.md`) changes and skips `desktop-webdriver` for server- or Fumadocs-only changes.
+  - Jobs: `docs` (lychee offline Markdown link and heading check, configured in `lychee.toml`), `quality` (Ultracite, types, unit tests), `integration` (disposable PostgreSQL migration tests and server integration tests), `web-e2e` (build + database-independent Playwright flows; report and traces uploaded on failure), `desktop-webdriver` (Tauri WebDriver; driver logs and failure screenshots uploaded on failure).
+  - `ci-ok` aggregates every job and is the single check to require on `main`; a skipped job passes it.
+  - Shared Bun setup lives in `.github/actions/setup` and test database preparation in `.github/actions/test-database`; Bun, Playwright browser, desktop apt packages and Rust builds are cached.
+  - React Doctor is advisory, runs only when `apps/web`, `apps/fumadocs` or `packages/ui` changes, and reports through its own check and PR comment.
+  - The `Conventions` workflow runs `bun run check:conventions` on every pull request and `main` push, docs included; unlike the jobs above it is not skipped for docs-only changes.
 
 ## Deployment
 

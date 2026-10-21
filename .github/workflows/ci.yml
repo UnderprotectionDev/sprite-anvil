@@ -2,75 +2,197 @@ name: CI
 
 on:
   pull_request:
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
   push:
     branches: ["main"]
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
+
+permissions:
+  contents: read
+  pull-requests: read
 
 # A new commit on the same PR (or main) supersedes the in-flight run.
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  VITE_SERVER_URL: http://127.0.0.1:3000
+
 jobs:
-  quality:
+  # Decides which heavy jobs a change needs. Docs-only changes skip them, but `ci-ok` still reports.
+  changes:
     runs-on: ubuntu-latest
-    env:
-      VITE_SERVER_URL: http://127.0.0.1:3000
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+      desktop: ${{ steps.filter.outputs.desktop }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@v7
+      - id: filter
+        uses: dorny/paths-filter@v4
         with:
-          bun-version: 1.3.13
-      - run: bun install --frozen-lockfile
+          predicate-quantifier: every
+          filters: |
+            code:
+              - "**"
+              - "!docs/**"
+              - "!**/*.md"
+            desktop:
+              - "**"
+              - "!docs/**"
+              - "!**/*.md"
+              - "!apps/server/**"
+              - "!apps/fumadocs/**"
+
+  # Offline Markdown link check; runs on every change because code moves break doc links too.
+  docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: lycheeverse/lychee-action@v2
+        with:
+          lycheeVersion: v0.24.2
+          args: --config lychee.toml './**/*.md'
+          jobSummary: true
+
+  quality:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
       - run: bun run check
       - run: bun run check-types
       # Static, DB-free: migrations after the baseline must keep older branches working.
       - run: bun run db:check
-      - name: Verify migrations with disposable PostgreSQL
-        env:
-          DB_TEST_POSTGRES: "true"
-        run: |
-          sudo apt-get update && sudo apt-get install -y postgresql
-          export DB_POSTGRES_BIN="$(dirname "$(find /usr/lib/postgresql -path '*/bin/initdb' -print -quit)")"
-          bun test packages/db/scripts/database-preparation.integration.test.ts packages/db/scripts/migration-source.integration.test.ts
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
       # Install the browser revision required by the web workspace's locked Playwright.
       - run: bun run --cwd apps/web e2e:install --with-deps
       - run: bun run test
 
-  web-e2e:
+  # Database-backed tests: disposable migration checks plus server integration tests against PostgreSQL.
+  integration:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
-    env:
-      VITE_SERVER_URL: http://127.0.0.1:3000
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      # Real Neon proxy in front of PostgreSQL so tests exercise the production neon-http driver.
+      neon-proxy:
+        image: ghcr.io/timowilhelm/local-neon-http-proxy@sha256:cd2ae14edf2feafbc3330492de5c80506f77274c3bd013154cdef697bdeb768a
+        # The proxy keeps its control table in the default `postgres` database so the
+        # test databases hold only the application schema that db:push owns.
+        env:
+          PG_CONNECTION_STRING: postgres://postgres:postgres@postgres:5432/postgres
+        ports: ["4444:4444"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/test-database
+      - name: Verify migrations with disposable PostgreSQL
+        env:
+          DB_TEST_POSTGRES: "true"
+        # The runner image ships PostgreSQL binaries; install them only if a future image drops them.
+        run: |
+          if [ -z "$(find /usr/lib/postgresql -path '*/bin/initdb' -print -quit 2>/dev/null)" ]; then
+            sudo apt-get update && sudo apt-get install -y postgresql
+          fi
+          DB_POSTGRES_BIN="$(dirname "$(find /usr/lib/postgresql -path '*/bin/initdb' -print -quit)")"
+          export DB_POSTGRES_BIN
+          bun test packages/db/scripts/database-preparation.integration.test.ts packages/db/scripts/migration-source.integration.test.ts
+      # Profile integration tests (bun-sql on their loopback databases); createDb tests skip here.
+      - name: Run server integration tests
+        working-directory: apps/server
+        run: bun test src
+      # Neon-driver (createDb) tests through the local proxy. Non-blocking until the failures they
+      # surfaced after running skipped for weeks are fixed; results stay visible in the job log.
+      - name: Run Neon-driver integration tests (non-blocking)
+        continue-on-error: true
+        working-directory: apps/server
+        env:
+          CONTEXT_TEST_DATABASE_URL: ${{ env.NEON_PROXY_TEST_DATABASE_URL }}
+        run: bun test src --timeout 30000
+
+  web-e2e:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - uses: actions/cache@v6
         with:
-          bun-version: 1.3.13
-      - run: bun install --frozen-lockfile
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
       # Install the browser revision required by the web workspace's locked Playwright.
       - run: bun run --cwd apps/web e2e:install --with-deps
       - run: bun run build
       # Database-backed flows keep their own opt-in fixtures and skip here.
       - run: bun run test:e2e
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7
 
   desktop-webdriver:
+    needs: changes
+    if: needs.changes.outputs.desktop == 'true'
     runs-on: ubuntu-latest
-    env:
-      VITE_SERVER_URL: http://127.0.0.1:3000
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - uses: awalsh128/cache-apt-pkgs-action@v1.6.3
         with:
-          bun-version: 1.3.13
-      - run: bun install --frozen-lockfile
-      - run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf xvfb
+          packages: libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev librsvg2-dev libayatana-appindicator3-dev patchelf xvfb
+          version: tauri-1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/web/src-tauri
       - run: bun run --cwd apps/web desktop:test:build
       - name: Run database-independent desktop WebDriver checks
-        env:
-          VITE_SERVER_URL: http://127.0.0.1:3000
         run: xvfb-run bun run --cwd apps/web desktop:test
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-e2e-results
+          path: apps/web/desktop-e2e-results
+          retention-days: 7
+
+  # The single check to require on `main`: passes when every needed job passed or was skipped.
+  ci-ok:
+    if: always()
+    needs: [changes, docs, quality, integration, web-e2e, desktop-webdriver]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify job results
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Job results: $RESULTS"
+          if echo "$RESULTS" | grep -Eq 'failure|cancelled'; then
+            echo "::error::At least one CI job failed or was cancelled."
+            exit 1
+          fi

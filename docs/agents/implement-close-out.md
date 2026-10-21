@@ -49,7 +49,7 @@ Bir işlem kalıcı veri yazıyorsa, sonucu sayfayı yenileyerek, kaydı yeniden
 
 Değişiklik başka bir seçimi, iptali, doğrulama/hata durumunu, geri almayı veya kayıt türünü etkiliyorsa, o yolu ayrı bir başlık ve kısa adımlarla anlat. İlgili bir yol yoksa bunu doğal bir cümleyle belirt; örneğin `Bu değişiklikte iptal, hata veya geri alma akışı yok.` İç durum adlarını veya hazırlaması açıklanmamış ifadeleri tek başına kullanma.
 
-Örnek (etiketler mevcut [Studio ekranından](../../apps/web/src/routes/studio.tsx) alınmıştır):
+Örnek (etiketler artık bulunmayan eski Studio ekranından alınmıştır; yalnızca anlatım biçimini gösterir):
 
 Başlangıç: Web uygulaması açık. Yerel taslak için giriş gerekmiyor; üst menüdeki `Studio` bağlantısı `/studio` sayfasını açar.
 
