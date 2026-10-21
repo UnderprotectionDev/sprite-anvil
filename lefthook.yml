@@ -11,3 +11,7 @@ pre-commit:
       glob:
         - "**/*.{js,jsx,cjs,mjs,ts,tsx,cts,mts,json,jsonc,css,graphql,gql,html}"
       stage_fixed: true
+    # Rules come from structure.md and docs/tech-stack.md, so a docs-only
+    # commit runs it too.
+    - name: conventions
+      run: bun run check:conventions

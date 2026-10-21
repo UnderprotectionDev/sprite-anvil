@@ -1,0 +1,35 @@
+name: Conventions
+
+# Runs on every change, docs included: the rules are read from structure.md
+# and docs/tech-stack.md, so a docs-only change can change what is enforced.
+on:
+  pull_request:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: conventions-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  conventions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+      - run: bun test ./scripts
+      - name: Check conventions
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ -n "$BASE_REF" ]; then
+            bun run check:conventions --base "origin/$BASE_REF"
+          else
+            bun run check:conventions
+          fi

@@ -24,6 +24,21 @@
 
 PWA kullanılmayacak; web uygulaması için service worker ve kurulum manifesti eklenmeyecek.
 
+## Responsibilities
+
+Each responsibility is built with its technology, not with the substitute beside it. `bun run check:conventions` rejects the substitutes marked with a check ([guide](agents/conventions.md)); review judges the rest.
+
+| Responsibility | Technology | Rejected substitute |
+|---|---|---|
+| Form state, validation and submission | TanStack Form with Zod | A `<form>` whose controls keep their own `useState` or prop callbacks; check `form-state` |
+| Interface controls | Base UI through `@sprite-anvil/ui` | A raw `<button>`, `<input>`, `<select>` or `<textarea>` where `@sprite-anvil/ui` has the primitive; check `raw-control`, exception with a reason |
+| Server data in the web app | oRPC client with TanStack Query | A `fetch` call in `apps/web/src`; check `raw-fetch`, exception with a reason |
+| Offline browser data | Dexie | The `indexedDB` API used directly; check `raw-indexeddb` |
+| State several components share | TanStack Store | A module-level mutable store, or a context used as one |
+| Long lists | TanStack Virtual | Hand-written windowing |
+| Drag and drop | dnd-kit | HTML drag events on sortable items |
+| Navigation | TanStack Router | `window.location` assignment, or `<a href>` to an app route |
+
 ## Pixel Editor
 
 - TypeScript
@@ -80,6 +95,7 @@ PWA kullanılmayacak; web uygulaması için service worker ve kurulum manifesti 
   - `ci-ok` aggregates every job and is the single check to require on `main`; a skipped job passes it.
   - Shared Bun setup lives in `.github/actions/setup` and test database preparation in `.github/actions/test-database`; Bun, Playwright browser, desktop apt packages and Rust builds are cached.
   - React Doctor is advisory, runs only when `apps/web`, `apps/fumadocs` or `packages/ui` changes, and reports through its own check and PR comment.
+  - The `Conventions` workflow runs `bun run check:conventions` on every pull request and `main` push, docs included; unlike the jobs above it is not skipped for docs-only changes.
 
 ## Deployment
 
