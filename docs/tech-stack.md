@@ -17,7 +17,7 @@
 - TanStack Store
 - TanStack Virtual
 - Tailwind CSS 4
-- Base UI
+- Base UI (through `@sprite-anvil/ui` components)
 - Lucide and Pixelarticons
 - dnd-kit
 - Fumadocs
@@ -45,7 +45,7 @@ PWA kullanılmayacak; web uygulaması için service worker ve kurulum manifesti 
 - Neon PostgreSQL
 - Drizzle ORM
 - Drizzle Kit
-- Cloudflare Queues
+- Cloudflare Queues (background work)
 
 ## Authentication
 
@@ -53,9 +53,9 @@ PWA kullanılmayacak; web uygulaması için service worker ve kurulum manifesti 
 
 ## Storage
 
-- Cloudflare R2
-- Dexie / IndexedDB
-- Tauri File System
+- Cloudflare R2 (uploaded and generated files)
+- Dexie / IndexedDB (offline browser data)
+- Tauri File System (desktop local files)
 
 ## Desktop
 
@@ -84,6 +84,3 @@ PWA kullanılmayacak; web uygulaması için service worker ve kurulum manifesti 
 - Railpack
 - Railway app service: React web build + Hono API
 - Railway worker service: Cloudflare Queues HTTP pull consumer
-
-
-Builder dışında eklenecekler: Base UI, Tailwind CSS 4, Lucide, TanStack Query/Form/Store/Virtual, dnd-kit, Zod 4, Cloudflare R2, Cloudflare Queues, Dexie ve Railway yapılandırması.
