@@ -99,8 +99,10 @@ jobs:
       # Real Neon proxy in front of PostgreSQL so tests exercise the production neon-http driver.
       neon-proxy:
         image: ghcr.io/timowilhelm/local-neon-http-proxy@sha256:cd2ae14edf2feafbc3330492de5c80506f77274c3bd013154cdef697bdeb768a
+        # The proxy keeps its control table in the default `postgres` database so the
+        # `main` test database holds only the application schema that db:push owns.
         env:
-          PG_CONNECTION_STRING: postgres://postgres:postgres@postgres:5432/main
+          PG_CONNECTION_STRING: postgres://postgres:postgres@postgres:5432/postgres
         ports: ["4444:4444"]
     steps:
       - uses: actions/checkout@v7
@@ -141,8 +143,10 @@ jobs:
       # Real Neon proxy in front of PostgreSQL so tests exercise the production neon-http driver.
       neon-proxy:
         image: ghcr.io/timowilhelm/local-neon-http-proxy@sha256:cd2ae14edf2feafbc3330492de5c80506f77274c3bd013154cdef697bdeb768a
+        # The proxy keeps its control table in the default `postgres` database so the
+        # `main` test database holds only the application schema that db:push owns.
         env:
-          PG_CONNECTION_STRING: postgres://postgres:postgres@postgres:5432/main
+          PG_CONNECTION_STRING: postgres://postgres:postgres@postgres:5432/postgres
         ports: ["4444:4444"]
     steps:
       - uses: actions/checkout@v7
