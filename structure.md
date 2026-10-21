@@ -1,387 +1,148 @@
 # structure.md
 
+Ownership rules for application code: where each kind of code lives and what may import what. It holds rules, not a file listing; read the real tree with `git ls-files apps packages`. A path named here is a place where code may live, not delivered scope.
+
+## Where does it go?
+
+| Code | Home |
+|---|---|
+| Behavior that belongs to one product capability | That feature (see Features) |
+| A page route registration | `apps/web/src/routes/` |
+| Header, theme, project navigation, a product component two or more features use | `apps/web/src/components/` |
+| Contract or router | `packages/api` |
+| Table, migration | `packages/db` |
+| Sign-in SDK, session, cookies | `packages/auth` |
+| Generic interface primitive | `packages/ui` |
+| Worker entry, service wiring, environment | `apps/server/src/` root |
+| Server, contract or schema code two features need | The owning `packages/` directory, never one feature importing the other |
+| A script | The `scripts/` folder of the workspace that owns it |
+| A test | In the feature that owns the code (see Tests); end-to-end tests in `apps/web/e2e/` or `apps/web/desktop-e2e/` |
+
+## Workspaces
+
+- `apps/web`: Vite + TanStack Router interface, Tauri shell (`src-tauri/`), end-to-end tests.
+- `apps/server`: Cloudflare worker, service wiring, per-feature server code.
+- `apps/fumadocs`: documentation site.
+- `packages/api`, `packages/db`, `packages/auth`, `packages/ui`, `packages/config`: contracts and routers, database, authentication, interface primitives, shared TypeScript configuration (see Packages).
+
+## Features
+
+A feature is a cohesive product capability whose UI, server behavior, schema and state change together. It is a domain slice, not a page: only some features have a routed view, the rest are panels another feature's view uses.
+
+One name in four places, the glossary's canonical English term in `kebab-case`. Example for `asset-versions`:
+
+| Layer | Path |
+|---|---|
+| Interface | `apps/web/src/features/asset-versions/ui/` |
+| Server | `apps/server/src/features/asset-versions/server/` |
+| Contract and router | `packages/api/src/asset-versions.ts`, `packages/api/src/routers/asset-versions.ts` |
+| Schema | `packages/db/src/schema/asset-versions.ts` |
+
+**Opening one**
+- Create a feature directory only when it owns implemented code. A server-only feature has no `ui/`; a UI-only feature has no `server/`.
+- None of these alone makes a feature: a table, a route, a CRUD verb, a provider SDK or config, a webhook or cron entry, a migration, a small toggle, a future capability.
+
+**Naming**
+- A collection surface is plural (`collections`); a lifecycle takes its process name (`imports`). A CRUD verb is never a feature name.
+- `core`, `domain`, `management`, `resources`, `workspace` and `metadata` are not feature names; they hide the real surfaces. A shared behavior boundary (`<name>-core`) opens only when two or more real features consume it.
+
+**Boundaries**
+- A feature does not import another feature's `ui/` or `server/` internals. No tool enforces this yet; check it in review. Shared code moves up one level:
+  - a web component that carries product meaning goes to `apps/web/src/components/`;
+  - server, contract or schema code goes to the owning `packages/` directory.
+- Auth, search, settings, notifications, reporting, jobs, i18n and theme become features only when they carry their own user-facing behavior, lifecycle or management surface. Their SDK, helper or config does not.
+- Last filter, selected record, restored route and onboarding progress are not features. They live in the owning feature's `store/`, `params.ts` or `lib/`; a named app-level helper only when several features consume them.
+
+## Web
+
+### App root
+
 ```text
-.
-├── .railway/
-│   └── railway.ts
-├── apps/
-│   ├── fumadocs/
-│   │   ├── content/
-│   │   │   └── docs/
-│   │   │       └── index.mdx
-│   │   ├── src/
-│   │   │   ├── app/
-│   │   │   │   ├── (home)/
-│   │   │   │   ├── api/
-│   │   │   │   └── docs/
-│   │   │   ├── components/
-│   │   │   │   └── mdx.tsx
-│   │   │   └── lib/
-│   │   │       ├── layout.shared.tsx
-│   │   │       └── source.ts
-│   │   ├── next.config.mjs
-│   │   └── package.json
-│   ├── server/
-│   │   ├── src/
-│   │   │   ├── features/
-│   │   │   │   ├── asset-discovery/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── asset-families/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── asset-records/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── asset-versions/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── background-operations/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── background-parallax-profile/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── character-animation-profile/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── delivery-fulfilment/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── delivery-refresh/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── delivery-targets/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── dependency-revalidation/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── external-visual-analysis/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── export-bundles/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── family-readiness/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── gameplay-metadata/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── icon-profile/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── imports/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── object-equipment-profile/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── offline-staged-work/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── permanent-erasure/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── portrait-marketing-profile/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── production-experiments/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── production-recipes/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── project-archives/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── project-context/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── projects/
-│   │   │   │   │   └── server/
-│   │   │   │   │       ├── project-access-store.ts
-│   │   │   │   │       └── project-routes.ts
-│   │   │   │   ├── provider-generation-records/
-│   │   │   │   │   └── server/
-│   │   │   ├── quality-evidence/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── reference-production/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── rights-evidence/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── reviews/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── scene-qa-playground/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── runtime-validation/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── tileset-texture-profile/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── ui-profile/
-│   │   │   │   │   └── server/
-│   │   │   │   ├── vfx-profile/
-│   │   │   │   │   └── server/
-│   │   │   │   └── visual-worlds/
-│   │   │   │       └── server/
-│   │   │   ├── cloudflare.ts
-│   │   │   ├── context.ts
-│   │   │   ├── env.server.ts
-│   │   │   ├── env.ts
-│   │   │   ├── index.ts
-│   │   │   ├── output-contracts.ts
-│   │   │   ├── project-context-store.ts
-│   │   │   ├── services.ts
-│   │   │   └── worker.ts
-│   │   ├── .env.schema
-│   │   ├── bunfig.toml
-│   │   ├── package.json
-│   │   ├── tsconfig.json
-│   │   └── tsdown.config.ts
-│   └── web/
-│       ├── desktop-e2e/
-│       │   └── app-shell.spec.ts
-│       ├── e2e/
-│       │   └── app-shell.spec.ts
-│       ├── src/
-│       │   ├── components/
-│       │   │   ├── header.tsx
-│       │   │   ├── loader.tsx
-│       │   │   ├── mode-toggle.tsx
-│       │   │   └── theme-provider.tsx
-│       │   ├── features/
-│       │   │   ├── account-access/
-│       │   │   │   └── ui/
-│       │   │   │       └── forms/
-│       │   │   ├── asset-discovery/
-│       │   │   │   └── ui/
-│       │   │   │       ├── components/
-│       │   │   │       └── views/
-│       │   │   ├── asset-families/
-│       │   │   │   └── ui/
-│       │   │   │       ├── forms/
-│       │   │   │       └── views/
-│       │   │   ├── asset-records/
-│       │   │   │   └── ui/
-│       │   │   │       ├── components/
-│       │   │   │       ├── forms/
-│       │   │   │       └── views/
-│       │   │   ├── asset-versions/
-│       │   │   │   └── ui/
-│       │   │   │       ├── components/
-│       │   │   │       ├── forms/
-│       │   │   │       └── views/
-│       │   │   ├── background-operations/
-│       │   │   │   ├── hooks/
-│       │   │   │   └── ui/
-│       │   │   │       └── views/
-│       │   │   ├── background-parallax-profile/
-│       │   │   │   └── ui/
-│       │   │   │       ├── forms/
-│       │   │   │       └── views/
-│       │   │   ├── character-animation-profile/
-│       │   │   │   └── ui/
-│       │   │   │       ├── forms/
-│       │   │   │       └── views/
-│       │   │   ├── delivery-fulfilment/
-│       │   │   │   └── ui/
-│       │   │   │       ├── forms/
-│       │   │   │       └── views/
-│       │   │   ├── delivery-refresh/
-│       │   │   │   └── ui/
-│       │   │   │       ├── components/
-│       │   │   │       └── views/
-│       │   │   ├── delivery-targets/
-│       │   │   │   └── ui/
-│       │   │   │       ├── forms/
-│       │   │   │       └── views/
-│       │   │   ├── dependency-revalidation/
-│       │   │   │   └── ui/
-│       │   │   │       └── components/
-│       │   │   ├── external-visual-analysis/
-│       │   │   │   └── ui/
-│       │   │   │       ├── forms/
-│       │   │   │       └── views/
-│       │   │   ├── export-bundles/
-│       │   │   │   └── ui/
-│       │   │   │       ├── components/
-│       │   │   │       ├── forms/
-│       │   │   │       └── views/
-│       │   │   ├── family-readiness/
-│       │   │   │   └── ui/
-│       │   │   │       ├── components/
-│       │   │   │       ├── forms/
-│       │   │   │       └── views/
-│       │   │   ├── gameplay-metadata/
-│       │   │   │   └── ui/
-│       │   │   │       ├── forms/
-│       │   │   │       └── views/
-│       │   │   ├── icon-profile/
-│       │   │   │   └── ui/
-│       │   │   │       ├── components/
-│       │   │   │       ├── forms/
-│       │   │   │       └── views/
-│       │   │   ├── imports/
-│       │   │   │   └── ui/
-│       │   │   │       ├── forms/
-│       │   │   │       └── views/
-│       │   │   ├── object-equipment-profile/
-│       │   │   │   └── ui/
-│       │   │   │       ├── forms/
-│       │   │   │       └── views/
-│       │   │   ├── offline-staged-work/
-│       │   │   │   ├── lib/
-│       │   │   │   ├── store/
-│       │   │   │   └── ui/
-│       │   │   │       └── views/
-│       │   │   ├── permanent-erasure/
-│       │   │   │   └── ui/
-│       │   │   │       ├── forms/
-│       │   │   │       └── views/
-│       │   │   ├── pixel-editor/
-│       │   │   │   └── ui/
-│       │   │   │       ├── components/
-│       │   │   │       └── views/
-│       │   │   ├── portrait-marketing-profile/
-│       │   │   │   └── ui/
-│       │   │   │       ├── forms/
-│       │   │   │       └── views/
-│       │   │   ├── production-experiments/
-│       │   │   │   └── ui/
-│       │   │   │       ├── forms/
-│       │   │   │       └── views/
-│       │   │   ├── production-recipes/
-│       │   │   │   └── ui/
-│       │   │   │       ├── forms/
-│       │   │   │       └── views/
-│       │   │   ├── project-archives/
-│       │   │   │   └── ui/
-│       │   │   │       ├── forms/
-│       │   │   │       └── views/
-│       │   │   ├── project-context/
-│       │   │   │   └── ui/
-│       │   │   │       ├── forms/
-│       │   │   │       └── views/
-│       │   │   ├── projects/
-│       │   │   │   └── ui/
-│       │   │   │       ├── forms/
-│       │   │   │       └── views/
-│       │   │   ├── quality-evidence/
-│       │   │   │   └── ui/
-│       │   │   │       ├── components/
-│       │   │   │       └── views/
-│       │   │   ├── reference-production/
-│       │   │   │   └── ui/
-│       │   │   │       ├── components/
-│       │   │   │       ├── forms/
-│       │   │   │       └── views/
-│       │   │   ├── reviews/
-│       │   │   │   └── ui/
-│       │   │   │       ├── forms/
-│       │   │   │       └── views/
-│       │   │   ├── rights-evidence/
-│       │   │   │   └── ui/
-│       │   │   │       ├── forms/
-│       │   │   │       └── views/
-│       │   │   ├── runtime-validation/
-│       │   │   │   └── ui/
-│       │   │   │       ├── forms/
-│       │   │   │       └── views/
-│       │   │   ├── scene-qa-playground/
-│       │   │   │   └── ui/
-│       │   │   │       ├── components/
-│       │   │   │       └── views/
-│       │   │   ├── tileset-texture-profile/
-│       │   │   │   └── ui/
-│       │   │   │       ├── forms/
-│       │   │   │       └── views/
-│       │   │   ├── ui-profile/
-│       │   │   │   └── ui/
-│       │   │   │       ├── forms/
-│       │   │   │       └── views/
-│       │   │   ├── vfx-profile/
-│       │   │   │   └── ui/
-│       │   │   │       ├── forms/
-│       │   │   │       └── views/
-│       │   │   └── visual-worlds/
-│       │   │       └── ui/
-│       │   │           ├── forms/
-│       │   │           └── views/
-│       │   ├── lib/
-│       │   │   └── auth-client.ts
-│       │   ├── routes/
-│       │   │   ├── _auth/
-│       │   │   │   ├── context-proposals.tsx
-│       │   │   │   ├── dashboard.tsx
-│       │   │   │   └── route.tsx
-│       │   │   ├── __root.tsx
-│       │   │   ├── index.tsx
-│       │   │   └── login.tsx
-│       │   ├── utils/
-│       │   │   └── orpc.ts
-│       │   ├── env.ts
-│       │   ├── index.css
-│       │   ├── main.tsx
-│       │   └── routeTree.gen.ts
-│       ├── src-tauri/
-│       │   ├── capabilities/
-│       │   ├── icons/
-│       │   ├── src/
-│       │   │   ├── lib.rs
-│       │   │   └── main.rs
-│       │   ├── Cargo.lock
-│       │   ├── Cargo.toml
-│       │   ├── build.rs
-│       │   ├── tauri.conf.json
-│       │   └── tauri.test.conf.json
-│       ├── .env.schema
-│       ├── bunfig.toml
-│       ├── components.json
-│       ├── index.html
-│       ├── package.json
-│       ├── playwright.config.ts
-│       ├── tsconfig.json
-│       ├── vite.config.ts
-│       ├── vitest.config.ts
-│       └── wdio.conf.ts
-├── cloudflare/
-│   └── r2-cors.example.json
-├── docs/
-│   ├── adr/
-│   ├── agents/
-│   ├── prd/
-│   ├── workflow/
-│   ├── CONTEXT.md
-│   ├── deployment.md
-│   ├── development-database.md
-│   ├── prd.md
-│   └── tech-stack.md
-├── packages/
-│   ├── api/
-│   │   ├── src/
-│   │   │   ├── routers/
-│   │   │   ├── provider-generation-records.ts
-│   │   │   ├── context.ts
-│   │   │   ├── project-access-policy.ts
-│   │   │   ├── project-access-store.ts
-│   │   │   ├── project-context.ts
-│   │   │   └── index.ts
-│   │   └── package.json
-│   ├── auth/
-│   │   ├── src/
-│   │   │   └── index.ts
-│   │   └── package.json
-│   ├── config/
-│   │   ├── package.json
-│   │   └── tsconfig.base.json
-│   ├── db/
-│   │   ├── scripts/             # Source validation, shared-target preparation and read-only dev leases
-│   │   ├── src/
-│   │   │   ├── migrations/
-│   │   │   ├── schema/
-│   │   │   │   └── provider-generation-records.ts
-│   │   │   ├── project-access.ts
-│   │   │   ├── project-context.ts
-│   │   │   ├── config.ts
-│   │   │   ├── env.ts
-│   │   │   ├── index.ts
-│   │   │   └── relations.ts
-│   │   ├── .env.schema
-│   │   ├── drizzle.config.ts
-│   │   └── package.json
-│   └── ui/
-│       ├── src/
-│       │   ├── components/
-│       │   ├── hooks/
-│       │   ├── lib/
-│       │   └── styles/
-│       ├── package.json
-│       └── postcss.config.mjs
-├── .gitignore
-├── AGENTS.md
-├── README.md
-├── biome.json
-├── bts.jsonc
-├── bun.lock
-├── bunfig.toml
-├── lefthook.yml
-├── package.json
-├── tsconfig.json
-└── turbo.json
+apps/web/src/
+├── routes/        TanStack file routes
+├── features/      see below
+├── components/    app shell and components shared by two or more features
+├── lib/           auth client
+├── utils/         app-wide helpers: oRPC and query clients, error handling
+├── env.ts         generated from .env.schema
+├── index.css
+└── main.tsx
 ```
+
+- A route file stays thin: it registers the route and composes one feature view. Feature code stays in the feature.
+- Route files follow the TanStack file-route naming; `_auth/` holds the routes behind sign-in.
+- `routeTree.gen.ts` and `env.ts` are generated; edit the source and regenerate.
+
+### Where an interface component lives
+
+| Layer | Path | Use when |
+|---|---|---|
+| Primitive | `packages/ui` | It knows no product term (button, dialog, field) |
+| Shared product component | `apps/web/src/components/` | It carries product meaning and two or more features use it |
+| Feature component | `apps/web/src/features/<feature>/ui/components/` | One feature uses it |
+
+Start in the feature and promote one level when a second feature needs it.
+
+### Feature folders
+
+A feature's web code sits under `apps/web/src/features/<feature>/ui/`; its server code is in a separate app, so `ui/` marks the web side of the feature. Open only the folders the feature owns; do not copy one template into every feature.
+
+| Folder | Holds |
+|---|---|
+| `views/` | A file a route renders directly |
+| `components/` | Everything else the interface renders: panels and parts a view or another component uses |
+| `forms/` | Form components |
+| `hooks/` | The feature's hooks |
+| `lib/` | Plain TypeScript without JSX: labels, constants, mappers, helpers |
+| `store/` | Feature-owned state |
+
+At the `ui/` root only:
+- `params.ts`: the feature's URL or search-parameter contract.
+- `schemas.ts`: input, form and domain validation. It is never the database schema.
+- `types.ts`: feature-owned types.
+
+Always:
+- Tests belong to the feature that owns the code; see Tests.
+- No `index.ts` barrel; add one only for a controlled public boundary and say why.
+- A folder beyond this table needs a reason stated in the change. `shared`, `common`, `utils`, `services`, `config` and `global` are not feature folders.
+- A primitive missing from `@sprite-anvil/ui` is composed in the owning feature's `ui/components/` until a second feature needs it.
+
+## Server
+
+- `apps/server/src/features/<feature>/server/` holds the feature's server code; its tests sit in `server/tests/`.
+- An HTTP or RPC entry is a thin adapter that calls the feature's server code; the feature's `server/` owns the behavior.
+- `apps/server/src/` root holds app-wide code only: worker entry, service wiring, context, environment, Cloudflare access.
+- A background-job or scheduled entry belongs to the provider boundary; the behavior it triggers stays in the feature's `server/`.
+
+## Packages
+
+- `packages/api`: contract and router files are named after their feature. `routers/index.ts` composes the app router. Files that serve every feature (`context.ts`, `error-contract.ts`, `output-contracts.ts`, `index.ts`) stay at the `src/` root.
+- `packages/db`: schema files are named after their feature. Migrations follow `docs/agents/issue-tracker.md`. The `src/` root holds package-wide code: configuration, environment, relations and the test helper.
+- `packages/auth`: the Better Auth SDK, cookies and session setup. The sign-in interface is a web feature; SDK clients, callbacks and bootstrap stay here.
+- `packages/ui`: generic primitives only, nothing feature-specific. `components/` holds primitives, `hooks/` and `lib/` hold their helpers, `styles/` holds the shared stylesheet.
+- Open a new package only when two or more apps consume it, it has real exports, or an architecture decision names it. "It might be shared later" is not enough.
+- The web app never imports server source. It reaches the server through the `packages/api` contract and its own oRPC client.
+
+## Tests
+
+A test belongs to the feature that owns the code it covers and moves or is deleted with it.
+
+| Test | Home | Name |
+|---|---|---|
+| Web unit or component | Next to the file: `ui/<folder>/x.tsx` and `x.test.tsx` | `*.test.ts(x)` |
+| Route test | Next to the route file in `routes/`, with a leading `-` so TanStack does not register it as a route | `-*.test.tsx` |
+| Server unit | `server/tests/` of the feature | `*.test.ts` |
+| Server integration (database or other infrastructure) | `server/tests/` of the feature | `*.integration.test.ts` |
+| Test helper or fixture | Beside the tests that use it; used by two features, it goes to the owning `packages/` directory | any name without `.test.` |
+| Package test | Next to the file it covers inside that package | `*.test.ts` |
+| Browser end-to-end | `apps/web/e2e/`, one spec per feature or flow, named after it | `<feature>.spec.ts` |
+| Desktop (Tauri) end-to-end | `apps/web/desktop-e2e/`, same naming | `<feature>.spec.ts` |
+| End-to-end fixture or flow helper | Beside the specs that use it | `<feature>-fixture.ts`, or a flow name |
+
+- A test never imports another feature's internals; it follows the same boundary as the code.
+- End-to-end specs stay in the app's `e2e/` folders, not inside a feature: they drive the whole running app.
+
+## Scripts and root files
+
+- A script lives in the `scripts/` folder of the workspace that owns it (`apps/server/scripts/`, `packages/db/scripts/`).
+- A root configuration file (`biome.json`, `turbo.json`, `lefthook.yml`, `bts.jsonc`, `tsconfig.json`) stays at the repository root only when it applies to the whole repository; a workspace-specific one goes in that workspace.
