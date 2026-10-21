@@ -13,17 +13,17 @@ import { RightsRecordPanel } from "@/features/rights-evidence/ui/components/righ
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
 import {
+	encodeMetadataHeader,
+	localizedFeatureList,
+	referenceFeatureLabels,
+	referenceRoleLabels,
+} from "../../lib/reference-board-contract";
+import {
 	emptyReferenceConstraintDraft,
 	type ReferenceConstraintDraft,
 	ReferenceConstraintEditor,
 } from "../components/reference-constraint-editor";
 import { ReferenceRulesEditor } from "../components/reference-rules-editor";
-import {
-	encodeMetadataHeader,
-	localizedFeatureList,
-	referenceFeatureLabels,
-	referenceRoleLabels,
-} from "../reference-board-contract";
 
 type Tracking = AssetRecordTrackingDetail["tracking"];
 type HistoryEntry = ReferenceBoardImage["history"][number];

@@ -1,9 +1,9 @@
 import { buttonVariants } from "@sprite-anvil/ui/components/button";
 import { Link } from "@tanstack/react-router";
+import { useCollectionsManager } from "../../hooks/use-collections-manager";
 import { CollectionListPanel } from "../components/collection-list-panel";
 import { CollectionMembershipPanel } from "../components/collection-membership-panel";
 import { CollectionPageStatus } from "../components/collection-page-status";
-import { useCollectionsManager } from "../hooks/use-collections-manager";
 
 export function CollectionsView({ projectId }: { projectId: string }) {
 	const manager = useCollectionsManager(projectId);

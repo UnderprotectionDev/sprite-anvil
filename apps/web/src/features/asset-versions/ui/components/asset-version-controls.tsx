@@ -9,7 +9,7 @@ import { useState } from "react";
 import { ENV } from "@/env";
 import { ExternalWorkingFileEditUpload } from "@/features/production-provenance/ui/components/external-working-file-edit-upload";
 import { VersionProductionEvidencePanel } from "@/features/production-provenance/ui/components/version-production-evidence-panel";
-import type { useAssetVersionWrites } from "../hooks/use-asset-version-writes";
+import type { useAssetVersionWrites } from "../../hooks/use-asset-version-writes";
 import { AssetVersionPreview } from "./asset-version-preview";
 import { BatchReviewControls } from "./batch-review-controls";
 import { CompositeVersionControls } from "./composite-version-controls";

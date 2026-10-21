@@ -8,7 +8,7 @@ import {
 	type LiveFileChangeDependencies,
 	type LiveFileInfo,
 	prepareLiveFileCandidate,
-} from "../services/live-file-change";
+} from "../../lib/live-file-change";
 
 const pathSeparatorPattern = /[\\/]/;
 

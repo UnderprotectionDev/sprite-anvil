@@ -10,7 +10,7 @@ import { type SyntheticEvent, useEffect, useState } from "react";
 import { QueryRetryButton } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
-import { assetCategoryLabels } from "../category-labels";
+import { assetCategoryLabels } from "../../lib/category-labels";
 
 export function AssetRecordMetadataForm({
 	familyWorldId,

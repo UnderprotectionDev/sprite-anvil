@@ -4,8 +4,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { type SyntheticEvent, useState } from "react";
 import { TaskWorkspace } from "@/components/task-workspace";
+import { useAssetVersionWrites } from "@/features/asset-versions/hooks/use-asset-version-writes";
 import { AssetVersionControls } from "@/features/asset-versions/ui/components/asset-version-controls";
-import { useAssetVersionWrites } from "@/features/asset-versions/ui/hooks/use-asset-version-writes";
 import { BackgroundLayerLayoutSections } from "@/features/background-parallax-profile/ui/components/background-layer-layout-sections";
 import { AnimationTimingReviewManager } from "@/features/character-animation-profile/ui/components/animation-timing-review-manager";
 import { DirectionalReviewSections } from "@/features/character-animation-profile/ui/components/directional-review-sections";
@@ -23,13 +23,13 @@ import { UiStretchTestSections } from "@/features/ui-profile/ui/components/ui-st
 import { VfxAppearanceSections } from "@/features/vfx-profile/ui/components/vfx-appearance-sections";
 import { VfxSynchronizationSections } from "@/features/vfx-profile/ui/components/vfx-synchronization-sections";
 import { client, orpc } from "@/utils/orpc";
+import { useAssetFamilyFormState } from "../../hooks/use-asset-family-form-state";
+import { useAssetFamilyWrites } from "../../hooks/use-asset-family-writes";
 import { AssetFamilyCatalogView } from "../components/asset-family-catalog";
 import {
 	type AssetFamilyFormHandlers,
 	AssetFamilyManagementForms,
 } from "../components/asset-family-management-forms";
-import { useAssetFamilyFormState } from "../hooks/use-asset-family-form-state";
-import { useAssetFamilyWrites } from "../hooks/use-asset-family-writes";
 
 const emptyAssetVersionCatalog = {
 	assetVersions: [],

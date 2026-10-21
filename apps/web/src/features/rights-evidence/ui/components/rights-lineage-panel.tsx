@@ -13,7 +13,7 @@ import { useMemo } from "react";
 import {
 	referenceFeatureLabels,
 	referenceRoleLabels,
-} from "@/features/reference-production/ui/reference-board-contract";
+} from "@/features/reference-production/lib/reference-board-contract";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { orpc } from "@/utils/orpc";
 import { RightsRecordDetails } from "./rights-record-details";
