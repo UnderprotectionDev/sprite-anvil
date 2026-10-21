@@ -40,7 +40,7 @@ Tamamlanma kanıtı: Temel üretim akışı webde WCAG 2.2 AA, masaüstünde eş
 
 - **Birincil test seam’i:** Gerçek web ve Tauri temel akışını klavye ve ekran okuyucu durumlarıyla dolaşma; durdurulabilir oynatma ve azaltılmış hareket örneklerini doğrulama.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.
-- Bugün repoda bu faza ait ürün sözleşmesi bulunmuyor. Mevcut sunucu ve yüzey test örnekleri: [`project-routes.test.ts`](../../../apps/server/src/project-routes.test.ts), [`app-shell.spec.ts` (web)](../../../apps/web/e2e/app-shell.spec.ts) ve [`app-shell.spec.ts` (desktop)](../../../apps/web/desktop-e2e/app-shell.spec.ts). Bunlar bu özelliğin test edildiği anlamına gelmez.
+- Bugün repoda bu faza ait ürün sözleşmesi bulunmuyor. Mevcut sunucu ve yüzey test örnekleri: [`project-routes.test.ts`](../../../apps/server/src/features/projects/server/tests/project-routes.test.ts), [`app-shell.spec.ts` (web)](../../../apps/web/e2e/app-shell.spec.ts) ve [`app-shell.spec.ts` (desktop)](../../../apps/web/desktop-e2e/app-shell.spec.ts). Bunlar bu özelliğin test edildiği anlamına gelmez.
 - Fazın özgül başarı ve red kanıtı: Temel üretim akışı webde WCAG 2.2 AA, masaüstünde eşdeğer klavye ve yardımcı teknoloji kabulünü geçer. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Erişilebilir görev yolu tam oyun erişilebilirliği sertifikası anlamına gelmez.
 - Kabul örnekleri: 8.1. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
 
