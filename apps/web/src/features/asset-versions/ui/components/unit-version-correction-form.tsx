@@ -6,7 +6,7 @@ import type {
 import { Button } from "@sprite-anvil/ui/components/button";
 import { type SyntheticEvent, useState } from "react";
 import type { useAssetVersionWrites } from "../../hooks/use-asset-version-writes";
-import { reviewDispositionLabels } from "./review-disposition-labels";
+import { reviewDispositionLabels } from "../../lib/review-disposition-labels";
 
 export const unitTypeLabels: Record<UnitVersionType, string> = {
 	frame: "Kare",

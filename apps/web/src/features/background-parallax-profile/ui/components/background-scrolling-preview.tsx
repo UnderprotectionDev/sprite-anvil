@@ -4,8 +4,8 @@ import { Button } from "@sprite-anvil/ui/components/button";
 import type { Application, Texture } from "pixi.js";
 import { useEffect, useRef, useState } from "react";
 import { ENV } from "@/env";
+import type { BackgroundLayerMotion } from "../../lib/background-scrolling-scene";
 
-export type BackgroundLayerMotion = BackgroundScrollingSetup["motions"][number];
 type Layer = BackgroundLayerLayoutInput["layers"][number];
 const trailingSlash = /\/$/;
 async function loadBackgroundLayers(setup: {
@@ -155,7 +155,7 @@ export function BackgroundScrollingPreview({
 				}
 				const [pixi, { createBackgroundScrollingScene }] = await Promise.all([
 					import("pixi.js"),
-					import("./background-scrolling-scene"),
+					import("../../lib/background-scrolling-scene"),
 				]);
 				if (disposed) {
 					return;

@@ -8,8 +8,8 @@ import { Button } from "@sprite-anvil/ui/components/button";
 import { type SyntheticEvent, useState } from "react";
 import { ENV } from "@/env";
 import type { useAssetVersionWrites } from "../../hooks/use-asset-version-writes";
+import { reviewDispositionLabels } from "../../lib/review-disposition-labels";
 import { AssetVersionPreview } from "./asset-version-preview";
-import { reviewDispositionLabels } from "./review-disposition-labels";
 import { unitTypeLabels } from "./unit-version-correction-form";
 
 const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";

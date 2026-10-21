@@ -12,7 +12,7 @@ import {
 	importInboxFileUrl,
 	importInboxUrl,
 	readSupportReference,
-} from "./import-inbox-api";
+} from "../../lib/import-inbox-api";
 import { SourceMetadataMappingPanel } from "./source-metadata-mapping-panel";
 
 interface UploadFailure {

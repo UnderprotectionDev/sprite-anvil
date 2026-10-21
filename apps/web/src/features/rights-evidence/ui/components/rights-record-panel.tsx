@@ -23,7 +23,7 @@ import {
 } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
-import { rightsRecordEvidenceFileUrl } from "./rights-record-api";
+import { rightsRecordEvidenceFileUrl } from "../../lib/rights-record-api";
 import { RightsRecordDetails } from "./rights-record-details";
 
 const stateLabels: Record<RightsRecordState, string> = {

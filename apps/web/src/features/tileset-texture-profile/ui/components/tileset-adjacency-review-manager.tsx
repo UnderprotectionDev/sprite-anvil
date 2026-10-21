@@ -19,9 +19,9 @@ import { useId, useState } from "react";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { client, orpc } from "@/utils/orpc";
+import { createTilesetTestMaps } from "../../lib/tileset-map-presets";
 import { TilesetAtlasTileEditor } from "./tileset-atlas-tile-editor";
 import { TilesetMap } from "./tileset-map";
-import { createTilesetTestMaps } from "./tileset-map-presets";
 
 type Tile = TilesetTile & { tileId: string; assetVersionId: string };
 const fieldClass = "min-h-11 rounded border bg-background p-2";

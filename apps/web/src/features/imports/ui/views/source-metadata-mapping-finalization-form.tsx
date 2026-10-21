@@ -5,7 +5,10 @@ import { Button } from "@sprite-anvil/ui/components/button";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { fieldLabel, formatFieldValue } from "./source-metadata-mapping-fields";
+import {
+	fieldLabel,
+	formatFieldValue,
+} from "../../lib/source-metadata-mapping-fields";
 
 export function ProposalFinalizationForm({
 	proposal,

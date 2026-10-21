@@ -4,7 +4,7 @@ import { ENV } from "@/env";
 import {
 	createVfxPlaybackRenderer,
 	type VfxPlayback,
-} from "./vfx-playback-renderer";
+} from "../../lib/vfx-playback-renderer";
 
 const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
 export function VfxAppearancePreview({

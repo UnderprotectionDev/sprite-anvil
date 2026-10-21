@@ -8,7 +8,7 @@ import type { Application as PixiApplication } from "pixi.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ENV } from "@/env";
 
-import { getVfxPreviewLayout } from "./vfx-preview-layout";
+import { getVfxPreviewLayout } from "../../lib/vfx-preview-layout";
 
 const trailingSlash = /\/$/;
 const backgroundColors = {
@@ -119,7 +119,7 @@ export function VfxSynchronizedPreview({
 				}
 				const [{ Application }, { createVfxPreviewScene }] = await Promise.all([
 					import("pixi.js"),
-					import("./vfx-preview-scene"),
+					import("../../lib/vfx-preview-scene"),
 				]);
 				if (disposed) {
 					return;

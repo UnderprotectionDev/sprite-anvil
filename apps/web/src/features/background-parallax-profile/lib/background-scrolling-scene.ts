@@ -1,7 +1,8 @@
 import type { BackgroundLayerLayoutInput } from "@sprite-anvil/api/background-layer-layouts";
 import type { BackgroundScrollingSetup } from "@sprite-anvil/api/background-scrolling-tests";
 import * as pixi from "pixi.js";
-import type { BackgroundLayerMotion } from "./background-scrolling-preview";
+
+export type BackgroundLayerMotion = BackgroundScrollingSetup["motions"][number];
 export function createBackgroundScrollingScene(
 	instance: pixi.Application,
 	images: {

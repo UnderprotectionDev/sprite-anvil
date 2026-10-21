@@ -16,13 +16,13 @@ import {
 	readSupportReference,
 	sourceMetadataMappingFinalizationUrl,
 	sourceMetadataMappingUrl,
-} from "./import-inbox-api";
+} from "../../lib/import-inbox-api";
 import {
 	fieldLabel,
 	formatFieldValue,
 	proposalFieldChanges,
 	stableValue,
-} from "./source-metadata-mapping-fields";
+} from "../../lib/source-metadata-mapping-fields";
 import { ProposalFinalizationForm } from "./source-metadata-mapping-finalization-form";
 
 function errorName(value: unknown) {

@@ -10,12 +10,12 @@ import { ENV } from "@/env";
 import { ExternalWorkingFileEditUpload } from "@/features/production-provenance/ui/components/external-working-file-edit-upload";
 import { VersionProductionEvidencePanel } from "@/features/production-provenance/ui/components/version-production-evidence-panel";
 import type { useAssetVersionWrites } from "../../hooks/use-asset-version-writes";
+import { reviewDispositionLabels } from "../../lib/review-disposition-labels";
 import { AssetVersionPreview } from "./asset-version-preview";
 import { BatchReviewControls } from "./batch-review-controls";
 import { CompositeVersionControls } from "./composite-version-controls";
 import { ProviderGenerationRecordDetails } from "./provider-generation-record-details";
 import { ProviderGenerationRecordForm } from "./provider-generation-record-form";
-import { reviewDispositionLabels } from "./review-disposition-labels";
 import {
 	UnitVersionCorrectionForm,
 	UnitVersionHistory,
