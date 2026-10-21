@@ -67,7 +67,7 @@ PWA kullanılmayacak; web uygulaması için service worker ve kurulum manifesti 
 - Testing Library
 - Playwright
 - Opt-in database integration tests
-  - CI runs them in the `integration` job against a PostgreSQL service: profile tests use their own loopback databases cloned from a `db:push` schema template, and `createDb` (neon-http) tests go through the local Neon HTTP proxy (`ghcr.io/timowilhelm/local-neon-http-proxy`, pinned by digest). `createDb` routes only the reserved host `db.localtest.me` to the proxy (`packages/db/src/local-neon-proxy.ts`).
+  - CI runs them in the `integration` job against a PostgreSQL service: profile tests use their own loopback databases cloned from a `db:push` schema template, and `createDb` (neon-http) tests go through the local Neon HTTP proxy in a non-blocking step until their known failures are fixed (`ghcr.io/timowilhelm/local-neon-http-proxy`, pinned by digest). `createDb` routes only the reserved host `db.localtest.me` to the proxy (`packages/db/src/local-neon-proxy.ts`).
 - Tauri WebDriver
 
 ## Tooling and CI

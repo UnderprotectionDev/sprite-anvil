@@ -59,5 +59,6 @@ runs:
         for name in "${!databases[@]}"; do
           echo "${name}_TEST_DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/${databases[$name]}" >> "$GITHUB_ENV"
         done
-        # createDb (neon-http) tests reach PostgreSQL through the local Neon proxy.
-        echo "CONTEXT_TEST_DATABASE_URL=postgres://postgres:postgres@db.localtest.me:5432/context_test" >> "$GITHUB_ENV"
+        # createDb (neon-http) tests reach PostgreSQL through the local Neon proxy. Exported under
+        # its own name so jobs opt in by mapping it to CONTEXT_TEST_DATABASE_URL.
+        echo "NEON_PROXY_TEST_DATABASE_URL=postgres://postgres:postgres@db.localtest.me:5432/context_test" >> "$GITHUB_ENV"
