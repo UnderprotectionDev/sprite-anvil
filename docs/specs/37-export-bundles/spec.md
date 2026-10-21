@@ -42,7 +42,7 @@ Tamamlanma kanıtı: Aynı girdiler aynı paketi üretir; web ve masaüstünde y
 
 - **Birincil test seam’i:** Aynı kesin girdi ve Export Profile ile iki paket üretip manifest ve checksum eşitliğini, sonra bozuk dosyayı Workbench ile ayrı çevrimdışı doğrulayıcıda aynı red sonucuyla sınama.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.
-- Bugün repoda bu faza ait ürün sözleşmesi bulunmuyor. Mevcut sunucu ve yüzey test örnekleri: [`account-access.test.ts`](../../../apps/server/src/account-access.test.ts), [`app-shell.spec.ts` (web)](../../../apps/web/e2e/app-shell.spec.ts) ve [`app-shell.spec.ts` (desktop)](../../../apps/web/desktop-e2e/app-shell.spec.ts). Bunlar bu özelliğin test edildiği anlamına gelmez.
+- Bugün repoda bu faza ait ürün sözleşmesi bulunmuyor. Mevcut sunucu ve yüzey test örnekleri: [`project-routes.test.ts`](../../../apps/server/src/project-routes.test.ts), [`app-shell.spec.ts` (web)](../../../apps/web/e2e/app-shell.spec.ts) ve [`app-shell.spec.ts` (desktop)](../../../apps/web/desktop-e2e/app-shell.spec.ts). Bunlar bu özelliğin test edildiği anlamına gelmez.
 - Fazın özgül başarı ve red kanıtı: Aynı girdiler aynı paketi üretir; web ve masaüstünde yeniden okunan manifest ile çevrimdışı doğrulayıcı aynı bütünlük sonucuna ulaşır. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Paket proje arşivi veya oyun motoru projesi değildir; çalıştırılabilir kurucu ve yetki taşıyan ajan talimatı içermez.
 - Kabul örnekleri: 8.1, YAS-03. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
 
