@@ -33,13 +33,13 @@ One name in four places, the glossary's canonical English term in `kebab-case`. 
 
 | Layer | Path |
 |---|---|
-| Interface | `apps/web/src/features/asset-versions/ui/` |
+| Interface | `apps/web/src/features/asset-versions/` |
 | Server | `apps/server/src/features/asset-versions/server/` |
 | Contract and router | `packages/api/src/asset-versions.ts`, `packages/api/src/routers/asset-versions.ts` |
 | Schema | `packages/db/src/schema/asset-versions.ts` |
 
 **Opening one**
-- Create a feature directory only when it owns implemented code. A server-only feature has no `ui/`; a UI-only feature has no `server/`.
+- Create a feature directory only when it owns implemented code. A server-only feature has no web directory; a UI-only feature has no `server/`.
 - None of these alone makes a feature: a table, a route, a CRUD verb, a provider SDK or config, a webhook or cron entry, a migration, a small toggle, a future capability.
 
 **Naming**
@@ -47,7 +47,7 @@ One name in four places, the glossary's canonical English term in `kebab-case`. 
 - `core`, `domain`, `management`, `resources`, `workspace` and `metadata` are not feature names; they hide the real surfaces. A shared behavior boundary (`<name>-core`) opens only when two or more real features consume it.
 
 **Boundaries**
-- A feature does not import another feature's `ui/` or `server/` internals. No tool enforces this yet; check it in review. Shared code moves up one level:
+- A feature does not import another feature's web folders (`ui/`, `hooks/`, `lib/`, `store/`) or `server/` internals. No tool enforces this yet; check it in review. Shared code moves up one level:
   - a web component that carries product meaning goes to `apps/web/src/components/`;
   - server, contract or schema code goes to the owning `packages/` directory.
 - Auth, search, settings, notifications, reporting, jobs, i18n and theme become features only when they carry their own user-facing behavior, lifecycle or management surface. Their SDK, helper or config does not.
@@ -85,23 +85,24 @@ Start in the feature and promote one level when a second feature needs it.
 
 ### Feature folders
 
-A feature's web code sits under `apps/web/src/features/<feature>/ui/`; its server code is in a separate app, so `ui/` marks the web side of the feature. Open only the folders the feature owns; do not copy one template into every feature.
+A feature's web code sits in `apps/web/src/features/<feature>/`; its server code is in a separate app, so every folder here is web code. `ui/` holds what the feature renders; the folders beside it hold what does not. Open only the folders the feature owns; do not copy one template into every feature.
 
 | Folder | Holds |
 |---|---|
-| `views/` | A file a route renders directly |
-| `components/` | Everything else the interface renders: panels and parts a view or another component uses |
-| `forms/` | Form components |
+| `ui/views/` | A file a route renders directly |
+| `ui/components/` | Everything else the interface renders: panels and parts a view or another component uses |
+| `ui/forms/` | Form components |
 | `hooks/` | The feature's hooks |
 | `lib/` | Plain TypeScript without JSX: labels, constants, mappers, helpers |
 | `store/` | Feature-owned state |
 
-At the `ui/` root only:
+At the feature root only:
 - `params.ts`: the feature's URL or search-parameter contract.
 - `schemas.ts`: input, form and domain validation. It is never the database schema.
 - `types.ts`: feature-owned types.
 
 Always:
+- `ui/` holds only the three folders above and no loose files; JSX goes in `ui/`, everything else beside it.
 - Tests belong to the feature that owns the code; see Tests.
 - No `index.ts` barrel; add one only for a controlled public boundary and say why.
 - A folder beyond this table needs a reason stated in the change. `shared`, `common`, `utils`, `services`, `config` and `global` are not feature folders.
@@ -129,7 +130,7 @@ A test belongs to the feature that owns the code it covers and moves or is delet
 
 | Test | Home | Name |
 |---|---|---|
-| Web unit or component | Next to the file: `ui/<folder>/x.tsx` and `x.test.tsx` | `*.test.ts(x)` |
+| Web unit or component | Next to the file: `x.tsx` and `x.test.tsx` | `*.test.ts(x)` |
 | Route test | Next to the route file in `routes/`, with a leading `-` so TanStack does not register it as a route | `-*.test.tsx` |
 | Server unit | `server/tests/` of the feature | `*.test.ts` |
 | Server integration (database or other infrastructure) | `server/tests/` of the feature | `*.integration.test.ts` |
