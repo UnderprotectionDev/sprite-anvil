@@ -7,7 +7,7 @@ import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { afterEach, expect, test, vi } from "vitest";
-import type { useAssetVersionWrites } from "../hooks/use-asset-version-writes";
+import type { useAssetVersionWrites } from "../../hooks/use-asset-version-writes";
 import { AssetVersionControls } from "./asset-version-controls";
 
 vi.mock("@/utils/orpc", () => ({

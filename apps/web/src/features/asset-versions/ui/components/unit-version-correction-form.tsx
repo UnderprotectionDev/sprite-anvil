@@ -5,7 +5,7 @@ import type {
 } from "@sprite-anvil/api/asset-versions";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { type SyntheticEvent, useState } from "react";
-import type { useAssetVersionWrites } from "../hooks/use-asset-version-writes";
+import type { useAssetVersionWrites } from "../../hooks/use-asset-version-writes";
 import { reviewDispositionLabels } from "./review-disposition-labels";
 
 export const unitTypeLabels: Record<UnitVersionType, string> = {

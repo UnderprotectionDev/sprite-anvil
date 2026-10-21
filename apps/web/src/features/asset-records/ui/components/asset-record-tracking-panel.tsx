@@ -9,7 +9,7 @@ import { Input } from "@sprite-anvil/ui/components/input";
 import type { ReactNode, SyntheticEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { useAssetVersionWrites } from "@/features/asset-versions/ui/hooks/use-asset-version-writes";
+import { useAssetVersionWrites } from "@/features/asset-versions/hooks/use-asset-version-writes";
 import { LiveFileLinkPanel } from "@/features/production-provenance/ui/components/live-file-link-panel";
 import { VersionProductionEvidencePanel } from "@/features/production-provenance/ui/components/version-production-evidence-panel";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";

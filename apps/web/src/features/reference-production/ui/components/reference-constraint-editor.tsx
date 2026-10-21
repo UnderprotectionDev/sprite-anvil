@@ -1,14 +1,14 @@
 import type {
 	ReferenceFeature,
 	ReferenceRole,
-} from "../reference-board-contract";
+} from "../../lib/reference-board-contract";
 import {
 	defaultTransferredFeatures,
 	referenceFeatureLabels,
 	referenceFeatures,
 	referenceRoleLabels,
 	referenceRoles,
-} from "../reference-board-contract";
+} from "../../lib/reference-board-contract";
 
 export interface ReferenceConstraintDraft {
 	contextOverrideRationale: string;

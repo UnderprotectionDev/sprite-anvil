@@ -2,7 +2,7 @@ import type { SpecializedProfileContractsListOutput } from "@sprite-anvil/api/sp
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { assetCategoryLabels } from "@/features/asset-records/ui/category-labels";
+import { assetCategoryLabels } from "@/features/asset-records/lib/category-labels";
 import { client, orpc } from "@/utils/orpc";
 
 const profileLabels = {

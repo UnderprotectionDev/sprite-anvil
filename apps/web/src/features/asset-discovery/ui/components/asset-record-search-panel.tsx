@@ -10,8 +10,8 @@ import { type ReactNode, type SyntheticEvent, useState } from "react";
 import {
 	assetCategoryLabels,
 	assetRecordAvailabilityLabels,
-} from "@/features/asset-records/ui/category-labels";
-import { getIdentitySummary } from "@/features/asset-records/ui/identity-criteria";
+} from "@/features/asset-records/lib/category-labels";
+import { getIdentitySummary } from "@/features/asset-records/lib/identity-criteria";
 import { QueryRetryButton } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { orpc } from "@/utils/orpc";
