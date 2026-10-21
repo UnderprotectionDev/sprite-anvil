@@ -1,0 +1,34 @@
+name: Prepare test database
+description: >-
+  Wait for the PostgreSQL and local Neon proxy service containers, apply the
+  current schema, and export every *_TEST_DATABASE_URL the test suites read.
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve the proxy host and wait for the Neon proxy
+      shell: bash
+      run: |
+        echo "127.0.0.1 db.localtest.me" | sudo tee -a /etc/hosts
+        for attempt in $(seq 1 30); do
+          if curl -s -o /dev/null http://db.localtest.me:4444; then exit 0; fi
+          sleep 2
+        done
+        echo "::error::The local Neon proxy did not start on port 4444."
+        exit 1
+    # db:push is restricted to disposable loopback PostgreSQL (NEON_LOCAL + DB_PUSH_DISPOSABLE).
+    - name: Apply the schema to the disposable database
+      shell: bash
+      env:
+        DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/main
+        NEON_LOCAL: "true"
+        DB_PUSH_DISPOSABLE: "true"
+      run: bun run --cwd packages/db db:push
+    - name: Export test database URLs
+      shell: bash
+      run: |
+        for name in CONTEXT ANIMATION_TIMING_REVIEW ASSET_FAMILY_COMPARISON BACKGROUND_LAYER_LAYOUT \
+          DEPENDENCY DIRECTIONAL_REVIEW GAMEPLAY ICON_FAMILY_REVIEW PORTRAIT_REVIEW \
+          TILESET_ADJACENCY UI_STATE_COMPARISON UI_STRETCH VFX_APPEARANCE_REVIEW VFX; do
+          echo "${name}_TEST_DATABASE_URL=${TEST_DATABASE_URL}" >> "$GITHUB_ENV"
+        done

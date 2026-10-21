@@ -52,6 +52,7 @@ coverage
 .nyc_output
 apps/web/test-results/
 apps/web/playwright-report/
+apps/web/desktop-e2e-results/
 
 # Misc
 *.tgz

@@ -60,6 +60,16 @@ webServer.push({
 
 export default defineConfig({
 	testDir: "./e2e",
-	use: { baseURL: webUrl, ...devices["Desktop Chrome"] },
+	// A committed test.only would silently skip the rest of the suite in CI.
+	forbidOnly: Boolean(process.env.CI),
+	reporter: process.env.CI
+		? [["list"], ["html", { open: "never" }]]
+		: [["list"]],
+	use: {
+		baseURL: webUrl,
+		...devices["Desktop Chrome"],
+		screenshot: "only-on-failure",
+		trace: "retain-on-failure",
+	},
 	webServer,
 });

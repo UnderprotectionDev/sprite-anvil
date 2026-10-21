@@ -1,0 +1,17 @@
+# Repository Markdown link check (CI `docs` job). Offline: only local files and
+# heading fragments are verified, so runs are fast and never flaky on the network.
+offline = true
+include_fragments = "full"
+no_progress = true
+
+exclude_path = [
+  "(^|/)node_modules/",
+  "(^|/)\\.context/",
+  "(^|/)\\.next/",
+  "(^|/)target/",
+]
+
+exclude = [
+  # Planned research notes; docs/competitors.md marks these links as not yet complete.
+  "/docs/research/",
+]
