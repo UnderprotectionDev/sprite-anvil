@@ -4,11 +4,11 @@
   "private": true,
   "scripts": {
     "build": "next build",
+    "check-types": "next typegen && tsc --noEmit",
     "dev": "next dev --port=${DOCS_PORT:-4000}",
     "format": "ultracite fix",
     "lint": "ultracite check",
-    "start": "next start",
-    "types:check": "next typegen && tsc --noEmit"
+    "start": "next start"
   },
   "dependencies": {
     "cn": "^0.3.0",

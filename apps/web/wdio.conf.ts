@@ -1,5 +1,7 @@
 import { type ChildProcess, spawn } from "node:child_process";
+import { mkdirSync } from "node:fs";
 import { setTimeout as delay } from "node:timers/promises";
+import { browser } from "@wdio/globals";
 import type { Options } from "@wdio/types";
 
 let contextTestServer: ChildProcess | undefined;
@@ -7,6 +9,8 @@ const apiPort = Number(process.env.DIRECTIONAL_E2E_API_PORT ?? 3000);
 const webPort = Number(process.env.DIRECTIONAL_E2E_WEB_PORT ?? 3001);
 const apiUrl = `http://127.0.0.1:${apiPort}`;
 const webUrl = `http://127.0.0.1:${webPort}`;
+// Driver logs and failure screenshots; CI uploads this directory when the job fails.
+const resultsDirectory = "./desktop-e2e-results";
 
 async function waitForTestServer(attempt = 0): Promise<void> {
 	if (!contextTestServer || contextTestServer.exitCode !== null) {
@@ -93,9 +97,20 @@ export const config: Options.Testrunner = {
 		],
 	],
 	reporters: ["spec"],
+	outputDir: resultsDirectory,
 	framework: "mocha",
 	mochaOpts: { ui: "bdd", timeout: 60_000 },
-	onPrepare: startTestServer,
+	onPrepare: async () => {
+		mkdirSync(resultsDirectory, { recursive: true });
+		await startTestServer();
+	},
+	afterTest: async (test, _context, { passed }) => {
+		if (passed) {
+			return;
+		}
+		const name = `${test.parent} ${test.title}`.replace(/[^a-z0-9]+/gi, "-");
+		await browser.saveScreenshot(`${resultsDirectory}/${name}.png`);
+	},
 	onComplete: () => {
 		contextTestServer?.kill();
 	},
