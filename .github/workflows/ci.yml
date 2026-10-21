@@ -16,8 +16,6 @@ concurrency:
 
 env:
   VITE_SERVER_URL: http://127.0.0.1:3000
-  # Disposable test database reached through the local Neon HTTP proxy (see the `integration` job).
-  TEST_DATABASE_URL: postgres://postgres:postgres@db.localtest.me:5432/main
 
 jobs:
   # Decides which heavy jobs a change needs. Docs-only changes skip them, but `ci-ok` still reports.
@@ -89,7 +87,6 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: main
         ports: ["5432:5432"]
         options: >-
           --health-cmd "pg_isready -U postgres"
@@ -100,7 +97,7 @@ jobs:
       neon-proxy:
         image: ghcr.io/timowilhelm/local-neon-http-proxy@sha256:cd2ae14edf2feafbc3330492de5c80506f77274c3bd013154cdef697bdeb768a
         # The proxy keeps its control table in the default `postgres` database so the
-        # `main` test database holds only the application schema that db:push owns.
+        # test databases hold only the application schema that db:push owns.
         env:
           PG_CONNECTION_STRING: postgres://postgres:postgres@postgres:5432/postgres
         ports: ["4444:4444"]
@@ -119,39 +116,19 @@ jobs:
           DB_POSTGRES_BIN="$(dirname "$(find /usr/lib/postgresql -path '*/bin/initdb' -print -quit)")"
           export DB_POSTGRES_BIN
           bun test packages/db/scripts/database-preparation.integration.test.ts packages/db/scripts/migration-source.integration.test.ts
+      # Neon-driver tests send every query through the proxy over HTTP, so allow more than the 5 s default.
       - name: Run server integration tests
-        run: bun run --cwd apps/server test
+        working-directory: apps/server
+        run: bun test src --timeout 30000
 
   web-e2e:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: main
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-      # Real Neon proxy in front of PostgreSQL so tests exercise the production neon-http driver.
-      neon-proxy:
-        image: ghcr.io/timowilhelm/local-neon-http-proxy@sha256:cd2ae14edf2feafbc3330492de5c80506f77274c3bd013154cdef697bdeb768a
-        # The proxy keeps its control table in the default `postgres` database so the
-        # `main` test database holds only the application schema that db:push owns.
-        env:
-          PG_CONNECTION_STRING: postgres://postgres:postgres@postgres:5432/postgres
-        ports: ["4444:4444"]
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
-      - uses: ./.github/actions/test-database
       - uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
@@ -159,7 +136,7 @@ jobs:
       # Install the browser revision required by the web workspace's locked Playwright.
       - run: bun run --cwd apps/web e2e:install --with-deps
       - run: bun run build
-      # The test database enables the database-backed flows; Playwright starts their API server.
+      # Database-backed flows keep their own opt-in fixtures and skip here.
       - run: bun run test:e2e
       - if: failure()
         uses: actions/upload-artifact@v7
