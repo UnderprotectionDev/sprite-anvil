@@ -24,6 +24,21 @@
 
 PWA kullanılmayacak; web uygulaması için service worker ve kurulum manifesti eklenmeyecek.
 
+## Responsibilities
+
+Each responsibility is built with its technology, not with the substitute beside it. `bun run check:conventions` rejects the substitutes marked with a check ([guide](agents/conventions.md)); review judges the rest.
+
+| Responsibility | Technology | Rejected substitute |
+|---|---|---|
+| Form state, validation and submission | TanStack Form with Zod | A `<form>` whose controls keep their own `useState` or prop callbacks; check `form-state` |
+| Interface controls | Base UI through `@sprite-anvil/ui` | A raw `<button>`, `<input>`, `<select>` or `<textarea>` where `@sprite-anvil/ui` has the primitive; check `raw-control`, exception with a reason |
+| Server data in the web app | oRPC client with TanStack Query | A `fetch` call in `apps/web/src`; check `raw-fetch`, exception with a reason |
+| Offline browser data | Dexie | The `indexedDB` API used directly; check `raw-indexeddb` |
+| State several components share | TanStack Store | A module-level mutable store, or a context used as one |
+| Long lists | TanStack Virtual | Hand-written windowing |
+| Drag and drop | dnd-kit | HTML drag events on sortable items |
+| Navigation | TanStack Router | `window.location` assignment, or `<a href>` to an app route |
+
 ## Pixel Editor
 
 - TypeScript
@@ -77,6 +92,7 @@ PWA kullanılmayacak; web uygulaması için service worker ve kurulum manifesti 
   - CI runs on pull requests and `main` pushes; docs-only (`docs/**`, `*.md`) changes skip it.
   - Jobs: `quality` (Ultracite, types, disposable PostgreSQL migration tests, unit tests), `web-e2e` (build + Playwright), `desktop-webdriver` (Tauri WebDriver).
   - React Doctor is advisory and reports through its own check and PR comment.
+  - The `Conventions` workflow runs `bun run check:conventions` on every pull request and `main` push, docs included.
 
 ## Deployment
 

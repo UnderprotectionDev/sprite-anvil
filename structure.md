@@ -1,6 +1,6 @@
 # structure.md
 
-Ownership rules for application code: where each kind of code lives and what may import what. It holds rules, not a file listing; read the real tree with `git ls-files apps packages`. A path named here is a place where code may live, not delivered scope.
+Ownership rules for application code: where each kind of code lives and what may import what. It holds rules, not a file listing; read the real tree with `git ls-files apps packages`. A path named here is a place where code may live, not delivered scope. `bun run check:conventions` enforces the placement, naming, boundary and test rules it can read mechanically; see [the conventions guide](docs/agents/conventions.md).
 
 ## Where does it go?
 
@@ -47,7 +47,7 @@ One name in four places, the glossary's canonical English term in `kebab-case`. 
 - `core`, `domain`, `management`, `resources`, `workspace` and `metadata` are not feature names; they hide the real surfaces. A shared behavior boundary (`<name>-core`) opens only when two or more real features consume it.
 
 **Boundaries**
-- A feature does not import another feature's web folders (`ui/`, `hooks/`, `lib/`, `store/`) or `server/` internals. No tool enforces this yet; check it in review. Shared code moves up one level:
+- A feature does not import another feature's web folders (`ui/`, `hooks/`, `lib/`, `store/`) or `server/` internals. Shared code moves up one level:
   - a web component that carries product meaning goes to `apps/web/src/components/`;
   - server, contract or schema code goes to the owning `packages/` directory.
 - Auth, search, settings, notifications, reporting, jobs, i18n and theme become features only when they carry their own user-facing behavior, lifecycle or management surface. Their SDK, helper or config does not.
@@ -147,3 +147,4 @@ A test belongs to the feature that owns the code it covers and moves or is delet
 
 - A script lives in the `scripts/` folder of the workspace that owns it (`apps/server/scripts/`, `packages/db/scripts/`).
 - A root configuration file (`biome.json`, `turbo.json`, `lefthook.yml`, `bts.jsonc`, `tsconfig.json`) stays at the repository root only when it applies to the whole repository; a workspace-specific one goes in that workspace.
+- A check that covers the whole repository lives in the root `scripts/` folder.

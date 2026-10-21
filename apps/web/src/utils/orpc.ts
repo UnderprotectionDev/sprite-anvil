@@ -6,6 +6,7 @@ import { ENV } from "../env";
 
 export const link = new RPCLink({
 	url: `${ENV.VITE_SERVER_URL.replace(/\/$/, "")}/rpc`,
+	// conventions-exception: raw-fetch This is the oRPC link's own transport, which every query uses.
 	fetch(_url, options) {
 		return fetch(_url, {
 			...options,

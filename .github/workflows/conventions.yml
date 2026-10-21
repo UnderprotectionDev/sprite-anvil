@@ -1,0 +1,34 @@
+name: Conventions
+
+# Runs on every change, docs included: the rules are read from structure.md
+# and docs/tech-stack.md, so a docs-only change can change what is enforced.
+on:
+  pull_request:
+  push:
+    branches: ["main"]
+
+concurrency:
+  group: conventions-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  conventions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.13
+      - run: bun install --frozen-lockfile
+      - run: bun test ./scripts
+      - name: Check conventions
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ -n "$BASE_REF" ]; then
+            bun run check:conventions --base "origin/$BASE_REF"
+          else
+            bun run check:conventions
+          fi
