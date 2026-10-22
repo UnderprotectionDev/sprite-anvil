@@ -48,8 +48,42 @@ vi.mock("@/utils/orpc", () => ({
 		},
 	},
 	orpc: {
-		contextScopes: { list: { queryKey: () => ["context-scopes"] } },
-		contextProposals: { list: { queryKey: () => ["context-proposals"] } },
+		contextScopes: {
+			list: { queryKey: () => ["context-scopes"] },
+			createTheme: {
+				mutationOptions: (options?: object) => ({
+					...options,
+					mutationFn: (input: unknown) => mocked.createTheme(input),
+				}),
+			},
+			createVisualWorld: {
+				mutationOptions: (options?: object) => ({
+					...options,
+					mutationFn: (input: unknown) => mocked.createVisualWorld(input),
+				}),
+			},
+		},
+		contextProposals: {
+			list: { queryKey: () => ["context-proposals"] },
+			create: {
+				mutationOptions: (options?: object) => ({
+					...options,
+					mutationFn: (input: unknown) => mocked.createProposal(input),
+				}),
+			},
+			review: {
+				mutationOptions: (options?: object) => ({
+					...options,
+					mutationFn: (input: unknown) => mocked.reviewProposal(input),
+				}),
+			},
+			activate: {
+				mutationOptions: (options?: object) => ({
+					...options,
+					mutationFn: (input: unknown) => mocked.activateProposal(input),
+				}),
+			},
+		},
 		projectContexts: { list: { queryKey: () => ["project-contexts"] } },
 	},
 }));
@@ -217,6 +251,129 @@ test("shows repeated Theme names beneath their own Visual Worlds and saves to th
 			description: "",
 		})
 	);
+});
+
+test("saves a Visual World and clears its draft after saving", async () => {
+	mocked.createVisualWorld.mockResolvedValue({});
+	renderScopeRegistry();
+
+	const name = screen.getByLabelText("Görsel Dünya adı");
+	expect(name).toBeRequired();
+	fireEvent.change(name, { target: { value: "Highlands" } });
+	fireEvent.change(screen.getAllByLabelText("Açıklama")[0] as HTMLElement, {
+		target: { value: "Windy cliffs." },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Görsel Dünya ekle" }));
+
+	await waitFor(() =>
+		expect(mocked.toastSuccess).toHaveBeenCalledWith("Görsel Dünya kaydedildi.")
+	);
+	expect(mocked.createVisualWorld).toHaveBeenCalledExactlyOnceWith({
+		projectId,
+		name: "Highlands",
+		description: "Windy cliffs.",
+	});
+	expect(name).toHaveValue("");
+	expect(screen.getAllByLabelText("Açıklama")[0]).toHaveValue("");
+});
+
+test("clears the Theme name and description but keeps the chosen Visual World", async () => {
+	mocked.createTheme.mockResolvedValue({});
+	renderScopeRegistry();
+
+	const world = screen.getByLabelText("Görsel Dünya");
+	expect(world).toHaveValue(worldId);
+	fireEvent.change(world, { target: { value: portraitWorldId } });
+	fireEvent.change(screen.getByLabelText("Tema adı"), {
+		target: { value: "Dusk" },
+	});
+	fireEvent.change(screen.getAllByLabelText("Açıklama")[1] as HTMLElement, {
+		target: { value: "Late light." },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Tema ekle" }));
+
+	await waitFor(() =>
+		expect(mocked.toastSuccess).toHaveBeenCalledWith("Tema kaydedildi.")
+	);
+	expect(mocked.createTheme).toHaveBeenCalledExactlyOnceWith({
+		projectId,
+		visualWorldId: portraitWorldId,
+		name: "Dusk",
+		description: "Late light.",
+	});
+	expect(screen.getByLabelText("Tema adı")).toHaveValue("");
+	expect(screen.getAllByLabelText("Açıklama")[1]).toHaveValue("");
+	expect(screen.getByLabelText("Görsel Dünya")).toHaveValue(portraitWorldId);
+});
+
+test("Theme creation waits for a Visual World and both forms lock on a catalog error", () => {
+	const { rerender } = render(
+		<QueryClientProvider client={createQueryClient()}>
+			<ScopeRegistryPanel
+				isError={false}
+				isPending={false}
+				project={project}
+				scopeCatalog={{ visualWorlds: [], themes: [] }}
+			/>
+		</QueryClientProvider>
+	);
+
+	expect(screen.getByLabelText("Görsel Dünya")).toHaveValue("");
+	expect(
+		screen.getByRole("option", { name: "Önce bir Görsel Dünya ekleyin" })
+	).toBeInTheDocument();
+	expect(screen.getByRole("button", { name: "Tema ekle" })).toBeDisabled();
+	expect(
+		screen.getByRole("button", { name: "Görsel Dünya ekle" })
+	).toBeEnabled();
+
+	rerender(
+		<QueryClientProvider client={createQueryClient()}>
+			<ScopeRegistryPanel
+				isError
+				isPending={false}
+				project={project}
+				scopeCatalog={scopeCatalog}
+			/>
+		</QueryClientProvider>
+	);
+	expect(screen.getByRole("button", { name: "Tema ekle" })).toBeDisabled();
+	expect(
+		screen.getByRole("button", { name: "Görsel Dünya ekle" })
+	).toBeDisabled();
+});
+
+test("choosing another project from the workspace selects that project", () => {
+	const otherProject: ProjectContext = {
+		...project,
+		id: "project-other",
+		name: "Ember Coast",
+	};
+	const onSelectProject = vi.fn();
+	render(
+		<QueryClientProvider client={createAppQueryClient()}>
+			<ContextWorkspace
+				isProposalsError={false}
+				isProposalsPending={false}
+				isScopeError={false}
+				isScopePending={false}
+				onCheckProposalState={async () => false}
+				onNewProject={() => undefined}
+				onRefreshProposals={async () => undefined}
+				onRetryProposals={() => undefined}
+				onSelectProject={onSelectProject}
+				project={project}
+				projects={[project, otherProject]}
+				proposals={[]}
+				scopeCatalog={scopeCatalog}
+			/>
+		</QueryClientProvider>
+	);
+
+	fireEvent.change(screen.getByRole("combobox", { name: "Proje" }), {
+		target: { value: "project-other" },
+	});
+	expect(onSelectProject).toHaveBeenCalledExactlyOnceWith(otherProject);
 });
 
 test("keeps each Theme rule scope attached to the selected Visual World", () => {

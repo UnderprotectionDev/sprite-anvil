@@ -4,42 +4,51 @@ import {
 	portraitReviewItemSchema,
 } from "@sprite-anvil/api/portrait-identity-reviews";
 import { Button } from "@sprite-anvil/ui/components/button";
+import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
+import { Input } from "@sprite-anvil/ui/components/input";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
 import { PortraitUsagePreview } from "./portrait-usage-preview";
 
 export function PortraitReviewItemFields({
-	item,
 	index,
 	versions,
 	names,
 	disabled,
-	onChange,
+	field,
 	onRemove,
 	onReady,
 }: {
-	item: PortraitReviewItem;
+	field: {
+		handleChange: (item: PortraitReviewItem) => void;
+		state: { value: PortraitReviewItem };
+	};
 	index: number;
 	versions: AssetVersion[];
 	names: ReadonlyMap<string, string>;
 	disabled: boolean;
-	onChange: (item: PortraitReviewItem) => void;
 	onRemove: () => void;
 	onReady: (ready: boolean) => void;
 }) {
+	const item = field.state.value;
 	const version = versions.find((v) => v.id === item.assetVersionId);
 	const valid = portraitReviewItemSchema.safeParse(item).success;
 	return (
-		<fieldset className="space-y-3 rounded-md border p-3" disabled={disabled}>
-			<legend>İfade {index + 1}</legend>
-			<label className="grid gap-1">
+		<FieldSet className="space-y-3 rounded-md border p-3" disabled={disabled}>
+			<FieldLegend>İfade {index + 1}</FieldLegend>
+			<Label className="grid gap-1">
 				Portre sürümü
-				<select
-					className="rounded border p-2"
+				<NativeSelect
+					className="w-full"
 					onChange={(e) => {
 						const next = versions.find((v) => v.id === e.target.value);
 						if (!next?.sourceImageDimensions) {
 							return;
 						}
-						onChange({
+						field.handleChange({
 							...item,
 							assetRecordId: next.assetRecordId,
 							assetVersionId: next.id,
@@ -50,38 +59,39 @@ export function PortraitReviewItemFields({
 					value={item.assetVersionId}
 				>
 					{versions.map((v) => (
-						<option key={v.id} value={v.id}>
+						<NativeSelectOption key={v.id} value={v.id}>
 							{names.get(v.assetRecordId)} · Sürüm {v.versionNumber}
-						</option>
+						</NativeSelectOption>
 					))}
-				</select>
-			</label>
-			<label className="grid gap-1">
+				</NativeSelect>
+			</Label>
+			<Label className="grid gap-1">
 				İfade adı
-				<input
-					className="rounded border p-2"
+				<Input
 					maxLength={100}
-					onChange={(e) => onChange({ ...item, expression: e.target.value })}
+					onChange={(e) =>
+						field.handleChange({ ...item, expression: e.target.value })
+					}
 					required
 					value={item.expression}
 				/>
-			</label>
-			<label className="grid gap-1">
+			</Label>
+			<Label className="grid gap-1">
 				Kullanım amacı
-				<select
-					className="rounded border p-2"
+				<NativeSelect
+					className="w-full"
 					onChange={(e) =>
-						onChange({
+						field.handleChange({
 							...item,
 							usagePurpose: e.target.value === "ui" ? "ui" : "dialogue",
 						})
 					}
 					value={item.usagePurpose}
 				>
-					<option value="dialogue">Diyalog</option>
-					<option value="ui">Arayüz</option>
-				</select>
-			</label>
+					<NativeSelectOption value="dialogue">Diyalog</NativeSelectOption>
+					<NativeSelectOption value="ui">Arayüz</NativeSelectOption>
+				</NativeSelect>
+			</Label>
 			<div className="grid grid-cols-2 gap-2">
 				{(
 					[
@@ -91,13 +101,13 @@ export function PortraitReviewItemFields({
 						["height", "Kırpma yüksekliği"],
 					] as const
 				).map(([key, label]) => (
-					<label className="grid gap-1" key={key}>
+					<Label className="grid gap-1" key={key}>
 						{label}
-						<input
-							className="w-full rounded border p-2"
+						<Input
+							className="w-full"
 							min={key === "x" || key === "y" ? 0 : 1}
 							onChange={(e) =>
-								onChange({
+								field.handleChange({
 									...item,
 									crop: { ...item.crop, [key]: e.target.valueAsNumber },
 								})
@@ -107,7 +117,7 @@ export function PortraitReviewItemFields({
 							type="number"
 							value={item.crop[key]}
 						/>
-					</label>
+					</Label>
 				))}
 				{(
 					[
@@ -115,14 +125,14 @@ export function PortraitReviewItemFields({
 						["height", "Kullanım yüksekliği"],
 					] as const
 				).map(([key, label]) => (
-					<label className="grid gap-1" key={key}>
+					<Label className="grid gap-1" key={key}>
 						{label}
-						<input
-							className="w-full rounded border p-2"
+						<Input
+							className="w-full"
 							max={32_768}
 							min={1}
 							onChange={(e) =>
-								onChange({
+								field.handleChange({
 									...item,
 									targetSize: {
 										...item.targetSize,
@@ -135,15 +145,15 @@ export function PortraitReviewItemFields({
 							type="number"
 							value={item.targetSize[key]}
 						/>
-					</label>
+					</Label>
 				))}
 			</div>
-			<label className="grid gap-1">
+			<Label className="grid gap-1">
 				Arka plan
-				<select
-					className="rounded border p-2"
+				<NativeSelect
+					className="w-full"
 					onChange={(e) =>
-						onChange({
+						field.handleChange({
 							...item,
 							background: portraitReviewItemSchema.shape.background.parse(
 								e.target.value
@@ -152,11 +162,11 @@ export function PortraitReviewItemFields({
 					}
 					value={item.background}
 				>
-					<option value="light">Açık</option>
-					<option value="dark">Koyu</option>
-					<option value="transparent">Şeffaf</option>
-				</select>
-			</label>
+					<NativeSelectOption value="light">Açık</NativeSelectOption>
+					<NativeSelectOption value="dark">Koyu</NativeSelectOption>
+					<NativeSelectOption value="transparent">Şeffaf</NativeSelectOption>
+				</NativeSelect>
+			</Label>
 			<p className="text-muted-foreground text-sm">
 				Kaynak: {item.naturalSize.width} × {item.naturalSize.height} px. Kırpma
 				kaynak görselin sol üstünden piksel cinsindendir. Önizleme kesin
@@ -180,6 +190,6 @@ export function PortraitReviewItemFields({
 			<Button onClick={onRemove} type="button" variant="outline">
 				İfadeyi kaldır
 			</Button>
-		</fieldset>
+		</FieldSet>
 	);
 }

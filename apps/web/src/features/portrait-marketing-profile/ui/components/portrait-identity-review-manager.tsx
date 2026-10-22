@@ -13,11 +13,21 @@ import {
 } from "@sprite-anvil/api/portrait-identity-reviews";
 import type { ProjectProfileContractActivation } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQuery } from "@tanstack/react-query";
-import { type SyntheticEvent, useId, useState } from "react";
+import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { Textarea } from "@sprite-anvil/ui/components/textarea";
+import { useForm, useStore } from "@tanstack/react-form";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useId, useState } from "react";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client, orpc } from "@/utils/orpc";
+import { mutationMeta } from "@/utils/mutation-meta";
+import { orpc } from "@/utils/orpc";
+import { portraitIdentityReviewFormSchema } from "../../schemas";
 import { PortraitReviewItemFields } from "./portrait-review-item-fields";
 
 const observationFields = [
@@ -36,6 +46,10 @@ interface Props {
 	family: AssetFamilyRecord;
 	familyCatalog: AssetFamilyCatalog;
 	versionCatalog: AssetVersionCatalog;
+}
+interface ReviewItemEntry {
+	key: string;
+	value: PortraitReviewItem;
 }
 function makeItem(
 	version: AssetVersionCatalog["assetVersions"][number]
@@ -142,27 +156,37 @@ export function PortraitIdentityReviewManager({
 						link.targetAssetRecordId === v.assetRecordId
 				))
 	);
-	const [items, setItems] = useState(() =>
-		versions.slice(0, 2).map((version) => ({
-			key: crypto.randomUUID(),
-			value: makeItem(version),
-		}))
-	);
-	const [observations, setObservations] = useState<
-		PortraitIdentityReviewInput["observations"]
-	>({
-		identity: { outcome: "inconclusive", notes: "" },
-		expression: { outcome: "inconclusive", notes: "" },
-		crop: { outcome: "inconclusive", notes: "" },
-	});
-	const [rationale, setRationale] = useState("");
+	const [defaultValues] = useState(() => ({
+		items: versions.slice(0, 2).map(
+			(version): ReviewItemEntry => ({
+				key: crypto.randomUUID(),
+				value: makeItem(version),
+			})
+		),
+		observations: {
+			identity: { outcome: "inconclusive", notes: "" },
+			expression: { outcome: "inconclusive", notes: "" },
+			crop: { outcome: "inconclusive", notes: "" },
+		} as PortraitIdentityReviewInput["observations"],
+		rationale: "",
+	}));
 	const [ready, setReady] = useState<Set<string>>(() => new Set());
 	const [pending, setPending] = useState<PortraitIdentityReviewInput | null>(
 		null
 	);
+	const saveMutation = useMutation(
+		orpc.portraitIdentityReviews.save.mutationOptions(mutationMeta)
+	);
 	const [saving, setSaving] = useState(false);
 	const [message, setMessage] = useState("");
 	const locked = saving || pending !== null;
+	const form = useForm({
+		defaultValues,
+		onSubmit: ({ value }) => submit(value),
+		validators: { onSubmit: portraitIdentityReviewFormSchema },
+	});
+	const values = useStore(form.store, (state) => state.values);
+	const { items, observations, rationale } = values;
 	const input = portraitIdentityReviewInputSchema.safeParse({
 		id: crypto.randomUUID(),
 		projectId: family.projectId,
@@ -183,15 +207,14 @@ export function PortraitIdentityReviewManager({
 			?.reviewDisposition === "approved" &&
 		!query.isPending &&
 		!query.isError;
-	async function submit(event: SyntheticEvent<HTMLFormElement>) {
-		event.preventDefault();
+	async function submit(_value: typeof defaultValues) {
 		if (locked || !canSave || !input.success) {
 			return;
 		}
 		setSaving(true);
 		setMessage("");
 		try {
-			const saved = await client.portraitIdentityReviews.save(input.data);
+			const saved = await saveMutation.mutateAsync(input.data);
 			const result = await query.refetch();
 			if (result.isError || !result.data?.some((r) => r.id === saved.id)) {
 				setPending(input.data);
@@ -272,113 +295,122 @@ export function PortraitIdentityReviewManager({
 					bağlarını bu ailenin onaylı Ana Tasarımına bağlayın.
 				</p>
 			) : null}
-			<form className="space-y-4" onSubmit={submit}>
-				<div className="grid gap-4 lg:grid-cols-2">
-					{items.map((item, index) => (
-						<PortraitReviewItemFields
-							disabled={locked}
-							index={index}
-							item={item.value}
-							key={item.key}
-							names={names}
-							onChange={(value) =>
-								setItems((current) =>
-									current.map((i) => (i.key === item.key ? { ...i, value } : i))
-								)
-							}
-							onReady={(isReady) =>
-								setReady((current) => {
-									const next = new Set(current);
-									const key = JSON.stringify(item.value);
-									if (isReady) {
-										next.add(key);
-									} else {
-										next.delete(key);
+			<form
+				className="space-y-4"
+				onSubmit={(event) => {
+					event.preventDefault();
+					event.stopPropagation();
+					form.handleSubmit();
+				}}
+			>
+				<form.Field mode="array" name="items">
+					{(itemsField) => (
+						<>
+							<div className="grid gap-4 lg:grid-cols-2">
+								{itemsField.state.value.map((item, index) => (
+									<form.Field key={item.key} name={`items[${index}].value`}>
+										{(itemField) => (
+											<PortraitReviewItemFields
+												disabled={locked}
+												field={itemField}
+												index={index}
+												names={names}
+												onReady={(isReady) =>
+													setReady((current) => {
+														const next = new Set(current);
+														const key = JSON.stringify(item.value);
+														if (isReady) {
+															next.add(key);
+														} else {
+															next.delete(key);
+														}
+														return next;
+													})
+												}
+												onRemove={() => itemsField.removeValue(index)}
+												versions={versions}
+											/>
+										)}
+									</form.Field>
+								))}
+							</div>
+							<Button
+								disabled={locked || versions.length === 0 || items.length >= 24}
+								onClick={() => {
+									const [version] = versions;
+									if (version) {
+										itemsField.pushValue({
+											key: crypto.randomUUID(),
+											value: makeItem(version),
+										});
 									}
-									return next;
-								})
-							}
-							onRemove={() =>
-								setItems((current) => current.filter((i) => i.key !== item.key))
-							}
-							versions={versions}
-						/>
-					))}
-				</div>
-				<Button
-					disabled={locked || versions.length === 0 || items.length >= 24}
-					onClick={() => {
-						const [version] = versions;
-						if (version) {
-							setItems((current) => [
-								...current,
-								{ key: crypto.randomUUID(), value: makeItem(version) },
-							]);
-						}
-					}}
-					type="button"
-					variant="outline"
-				>
-					İfade ekle
-				</Button>
-				<fieldset className="space-y-3" disabled={locked}>
-					<legend>Karşılaştırma gözlemleri</legend>
+								}}
+								type="button"
+								variant="outline"
+							>
+								İfade ekle
+							</Button>
+						</>
+					)}
+				</form.Field>
+				<FieldSet className="space-y-3" disabled={locked}>
+					<FieldLegend>Karşılaştırma gözlemleri</FieldLegend>
 					{observationFields.map(([key, label]) => (
 						<div className="grid gap-2 sm:grid-cols-2" key={key}>
 							<div className="grid gap-1">
-								<label htmlFor={`${formId}-${key}`}>{label}</label>
-								<select
-									className="rounded border p-2"
-									id={`${formId}-${key}`}
-									onChange={(e) =>
-										setObservations((current) => ({
-											...current,
-											[key]: {
-												...current[key],
-												outcome:
+								<Label htmlFor={`${formId}-${key}`}>{label}</Label>
+								<form.Field name={`observations.${key}.outcome`}>
+									{(field) => (
+										<NativeSelect
+											className="w-full"
+											id={`${formId}-${key}`}
+											onChange={(e) =>
+												field.handleChange(
 													portraitReviewObservationSchema.shape.outcome.parse(
 														e.target.value
-													),
-											},
-										}))
-									}
-									value={observations[key].outcome}
-								>
-									{Object.entries(outcomeLabels).map(([value, text]) => (
-										<option key={value} value={value}>
-											{text}
-										</option>
-									))}
-								</select>
+													)
+												)
+											}
+											value={field.state.value}
+										>
+											{Object.entries(outcomeLabels).map(([value, text]) => (
+												<NativeSelectOption key={value} value={value}>
+													{text}
+												</NativeSelectOption>
+											))}
+										</NativeSelect>
+									)}
+								</form.Field>
 							</div>
-							<label className="grid gap-1">
+							<Label className="grid gap-1">
 								{label} notu
-								<textarea
-									className="rounded border p-2"
-									maxLength={1000}
-									onChange={(e) =>
-										setObservations((current) => ({
-											...current,
-											[key]: { ...current[key], notes: e.target.value },
-										}))
-									}
-									required
-									value={observations[key].notes}
-								/>
-							</label>
+								<form.Field name={`observations.${key}.notes`}>
+									{(field) => (
+										<Textarea
+											maxLength={1000}
+											onChange={(e) => field.handleChange(e.target.value)}
+											required
+											value={field.state.value}
+										/>
+									)}
+								</form.Field>
+							</Label>
 						</div>
 					))}
-					<label className="grid gap-1">
+					<Label className="grid gap-1">
 						İnceleme gerekçesi
-						<textarea
-							className="rounded border p-2"
-							maxLength={2000}
-							onChange={(e) => setRationale(e.target.value)}
-							required
-							value={rationale}
-						/>
-					</label>
-				</fieldset>
+						<form.Field name="rationale">
+							{(field) => (
+								<Textarea
+									maxLength={2000}
+									onChange={(e) => field.handleChange(e.target.value)}
+									required
+									value={field.state.value}
+								/>
+							)}
+						</form.Field>
+					</Label>
+				</FieldSet>
 				<p className="text-muted-foreground text-sm">
 					İki farklı ifadeyi yüklenmiş önizlemelerde karşılaştırın ve gözlemleri
 					doldurun. Görsel değerlendirme sizin kararınızdır; kayıt aileyi

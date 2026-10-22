@@ -6,14 +6,15 @@ import type {
 	VfxAppearanceRecord,
 } from "@sprite-anvil/api/vfx-appearance-reviews";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import {
 	buildErrorNotification,
 	isWriteOutcomeUncertain,
 } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client, orpc } from "@/utils/orpc";
+import { mutationMeta } from "@/utils/mutation-meta";
+import { orpc } from "@/utils/orpc";
 
 import { VfxAppearanceEditor } from "./vfx-appearance-editor";
 
@@ -38,7 +39,23 @@ export function VfxAppearanceReviewManager({
 		})
 	);
 	const [selected, setSelected] = useState<VfxAppearanceRecord | null>(null);
-	const [saving, setSaving] = useState(false);
+	const queryClient = useQueryClient();
+	const saveMutation = useMutation(
+		orpc.vfxAppearanceReviews.save.mutationOptions({
+			...mutationMeta,
+			onSuccess: async (record) => {
+				setSelected(record);
+				setPendingId(null);
+				setMessage("İnceleme kalıcı kayıttan doğrulandı.");
+				await queryClient.invalidateQueries({
+					queryKey: orpc.vfxAppearanceReviews.list.queryKey({
+						input: { projectId, assetFamilyId },
+					}),
+				});
+			},
+		})
+	);
+	const saving = saveMutation.isPending;
 	const [pendingId, setPendingId] = useState<string | null>(null);
 	const [uncertain, setUncertain] = useState(false);
 	const [message, setMessage] = useState("");
@@ -90,16 +107,11 @@ export function VfxAppearanceReviewManager({
 		if (saving || uncertain || selected) {
 			return;
 		}
-		setSaving(true);
 		setMessage("");
 		setSupportReference("");
 		setPendingId(input.id);
 		try {
-			const record = await client.vfxAppearanceReviews.save(input);
-			setSelected(record);
-			setPendingId(null);
-			setMessage("İnceleme kalıcı kayıttan doğrulandı.");
-			await query.refetch();
+			await saveMutation.mutateAsync(input);
 		} catch (error) {
 			setSupportReference(
 				buildErrorNotification(error, "mutation").supportReference ?? ""
@@ -113,8 +125,6 @@ export function VfxAppearanceReviewManager({
 			setMessage(
 				"Kaydetme sonucu doğrulanamadı. Güncel kayıtları kontrol edin; aynı incelemeyi yeniden göndermeyin."
 			);
-		} finally {
-			setSaving(false);
 		}
 	};
 	const checkCurrentRecords = async () => {

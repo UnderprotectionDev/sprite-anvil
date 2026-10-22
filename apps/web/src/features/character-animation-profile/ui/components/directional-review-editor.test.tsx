@@ -211,3 +211,29 @@ test("loads authenticated previews from the configured API origin", async () => 
 		)
 	);
 });
+
+test("toggles a frame sprite sheet region from the keyboard and edits its bounds", async () => {
+	const user = userEvent.setup();
+	preparePreview();
+	renderReview();
+
+	const [region] = screen.getAllByRole("checkbox", {
+		name: "Sprite sheet alanı",
+	});
+	expect(region).toHaveAttribute("aria-checked", "true");
+	expect(
+		screen.getByRole("spinbutton", { name: "Yön 1 kare 1 width" })
+	).toHaveValue(32);
+
+	region.focus();
+	await user.keyboard(" ");
+	expect(region).toHaveAttribute("aria-checked", "false");
+	expect(
+		screen.queryByRole("spinbutton", { name: "Yön 1 kare 1 width" })
+	).not.toBeInTheDocument();
+	await user.keyboard(" ");
+	expect(region).toHaveAttribute("aria-checked", "true");
+	expect(
+		screen.getByRole("spinbutton", { name: "Yön 1 kare 1 width" })
+	).toHaveValue(32);
+});

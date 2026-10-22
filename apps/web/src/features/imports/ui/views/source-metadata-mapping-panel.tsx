@@ -1,62 +1,43 @@
+import { ORPCError } from "@orpc/client";
 import type { ImportInboxEntry } from "@sprite-anvil/api/import-inbox";
 import {
 	type SourceMetadataMappingProposal,
 	sourceMetadataMappingContractVersion,
-	sourceMetadataMappingFinalizationSchema,
-	sourceMetadataMappingProposalSchema,
-	sourceMetadataMappingProposalsSchema,
 	sourceMetadataMappingSidecarLimits,
 } from "@sprite-anvil/api/source-metadata-mapping";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Checkbox } from "@sprite-anvil/ui/components/checkbox";
+import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
+import { Label } from "@sprite-anvil/ui/components/label";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { buildErrorNotification } from "@/utils/error-notification";
+import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
-import {
-	readSupportReference,
-	sourceMetadataMappingFinalizationUrl,
-	sourceMetadataMappingUrl,
-} from "./import-inbox-api";
 import {
 	fieldLabel,
 	formatFieldValue,
 	proposalFieldChanges,
 	stableValue,
-} from "./source-metadata-mapping-fields";
+} from "../../lib/source-metadata-mapping-fields";
 import { ProposalFinalizationForm } from "./source-metadata-mapping-finalization-form";
 
-function errorName(value: unknown) {
-	if (typeof value !== "object" || value === null) {
+function supportReferenceOf(error: unknown) {
+	return buildErrorNotification(error, "query").supportReference;
+}
+
+function errorStatus(error: unknown) {
+	if (typeof error !== "object" || error === null) {
 		return;
 	}
-	const name = (value as { error?: unknown }).error;
-	return typeof name === "string" ? name : undefined;
+	const { status } = error as { status?: unknown };
+	return typeof status === "number" ? status : undefined;
 }
 
-class SourceMetadataMappingRequestError extends Error {
-	readonly supportReference?: string;
-
-	constructor(message: string, reference?: string) {
-		super(message);
-		this.supportReference = reference;
-	}
-}
-
-async function readProposals(projectId: string, entryId: string) {
-	const response = await fetch(sourceMetadataMappingUrl(projectId, entryId), {
-		credentials: "include",
-	});
-	if (!response.ok) {
-		const body: unknown = await response.json().catch(() => null);
-		throw new SourceMetadataMappingRequestError(
-			"Kaynak Metadata Eşleme Önerileri okunamadı.",
-			readSupportReference(body)
-		);
-	}
-	return sourceMetadataMappingProposalsSchema.parse(await response.json());
-}
-
-function createErrorMessage(status: number, body: unknown) {
+function createErrorMessage(error: unknown) {
+	const status = errorStatus(error);
+	const message = error instanceof Error ? error.message : undefined;
 	if (status === 401) {
 		return "Oturumunuz sona ermiş. Yeniden giriş yapın.";
 	}
@@ -64,7 +45,7 @@ function createErrorMessage(status: number, body: unknown) {
 		return "Kaynak veya sidecar girdisi Gelen Kutusunda bulunamadı.";
 	}
 	if (status === 422) {
-		return errorName(body) === "Unsupported source metadata format"
+		return message === "Unsupported source metadata format"
 			? "Seçilen dosyalarda desteklenen Aseprite veya TexturePacker JSON bulunamadı."
 			: "Seçilen JSON sidecar geçerli bir eşleme önerisi içermiyor.";
 	}
@@ -72,8 +53,7 @@ function createErrorMessage(status: number, body: unknown) {
 		return "Sidecar seçimini kontrol edip yeniden deneyin.";
 	}
 	if (status === 413) {
-		return errorName(body) ===
-			"Source metadata sidecars exceed the maximum size"
+		return message === "Source metadata sidecars exceed the maximum size"
 			? "Sidecar dosyaları dosya başına 5 MiB ve toplam 8 MiB sınırını aşıyor."
 			: "Öneri isteği 8 KiB boyut sınırını aşıyor.";
 	}
@@ -109,26 +89,11 @@ function ProposalDetails({
 		...orpc.assetFamilies.list.queryOptions({ input: { projectId } }),
 		enabled: isOpen,
 	});
-	const finalizationUrl = sourceMetadataMappingFinalizationUrl(
-		projectId,
-		entryId,
-		proposal.id
-	);
 	const finalizationQuery = useQuery({
-		queryKey: ["source-metadata-mapping-finalization", proposal.id],
+		...orpc.imports.getSourceMetadataMappingFinalization.queryOptions({
+			input: { entryId, projectId, proposalId: proposal.id },
+		}),
 		enabled: isOpen,
-		queryFn: async () => {
-			const response = await fetch(finalizationUrl, { credentials: "include" });
-			if (response.status === 404) {
-				return null;
-			}
-			if (!response.ok) {
-				throw new Error("Kesin ilişki okunamadı.");
-			}
-			return sourceMetadataMappingFinalizationSchema.parse(
-				await response.json()
-			);
-		},
 	});
 	const finalization = finalizationQuery.data;
 	const fieldChanges = previousProposal
@@ -289,7 +254,7 @@ function ProposalDetails({
 				finalizationQuery.isError ||
 				(isOpen && finalizationQuery.isPending) ? null : (
 					<ProposalFinalizationForm
-						finalizationUrl={finalizationUrl}
+						entryId={entryId}
 						projectId={projectId}
 						proposal={proposal}
 						records={recordsQuery.data?.assetRecords}
@@ -352,20 +317,21 @@ export function SourceMetadataMappingPanel({
 	const [selectedSidecarEntryIds, setSelectedSidecarEntryIds] = useState<
 		string[]
 	>([]);
-	const [isCreating, setIsCreating] = useState(false);
 	const [createError, setCreateError] = useState<{
 		message: string;
 		supportReference?: string;
 	} | null>(null);
-	const queryKey = [
-		"source-metadata-mapping-proposals",
-		projectId,
-		entry.id,
-	] as const;
-	const proposalsQuery = useQuery({
-		queryKey,
-		queryFn: () => readProposals(projectId, entry.id),
+	const proposalsInput = { entryId: entry.id, projectId };
+	const proposalsQuery = useQuery(
+		orpc.imports.listSourceMetadataMappingProposals.queryOptions({
+			input: proposalsInput,
+		})
+	);
+	const createMutation = useMutation({
+		...orpc.imports.createSourceMetadataMappingProposal.mutationOptions(),
+		...mutationMeta,
 	});
+	const isCreating = createMutation.isPending;
 	const sidecarEntries = entries.filter(
 		(candidate) => candidate.id !== entry.id
 	);
@@ -387,37 +353,33 @@ export function SourceMetadataMappingPanel({
 		if (isCreating || sidecarEntryIds.length === 0) {
 			return;
 		}
-		setIsCreating(true);
 		setCreateError(null);
+		const invalidateProposals = () =>
+			queryClient.invalidateQueries({
+				queryKey: orpc.imports.listSourceMetadataMappingProposals.queryKey({
+					input: proposalsInput,
+				}),
+			});
 		try {
-			const response = await fetch(
-				sourceMetadataMappingUrl(projectId, entry.id),
-				{
-					method: "POST",
-					credentials: "include",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ sidecarEntryIds }),
-				}
-			);
-			if (!response.ok) {
-				const body: unknown = await response.json().catch(() => null);
-				const supportReference = readSupportReference(body);
+			await createMutation.mutateAsync({
+				...proposalsInput,
+				input: { sidecarEntryIds },
+			});
+			await invalidateProposals();
+		} catch (error) {
+			if (error instanceof ORPCError) {
+				const { supportReference } = buildErrorNotification(error, "mutation");
 				setCreateError({
-					message: createErrorMessage(response.status, body),
+					message: createErrorMessage(error),
 					...(supportReference ? { supportReference } : {}),
 				});
 				return;
 			}
-			sourceMetadataMappingProposalSchema.parse(await response.json());
-			await queryClient.invalidateQueries({ queryKey });
-		} catch {
 			setCreateError({
 				message:
 					"Öneri oluşturma sonucu doğrulanamadı. Kayıtlı önerileri kontrol edin.",
 			});
-			await queryClient.invalidateQueries({ queryKey });
-		} finally {
-			setIsCreating(false);
+			await invalidateProposals();
 		}
 	}
 
@@ -433,8 +395,10 @@ export function SourceMetadataMappingPanel({
 					değerlerini gösterir; ilişkiyi kesinleştirmez.
 				</p>
 			</div>
-			<fieldset className="space-y-2" disabled={isCreating}>
-				<legend className="font-medium text-sm">JSON sidecar girdileri</legend>
+			<FieldSet className="space-y-2" disabled={isCreating}>
+				<FieldLegend className="font-medium text-sm" variant="label">
+					JSON sidecar girdileri
+				</FieldLegend>
 				<p className="text-muted-foreground text-sm">
 					En fazla {sourceMetadataMappingSidecarLimits.count} sidecar seçin. Her
 					dosya 5 MiB, toplam boyut 8 MiB ile sınırlıdır.
@@ -447,26 +411,25 @@ export function SourceMetadataMappingPanel({
 					<ul className="space-y-2">
 						{sidecarEntries.map((sidecar) => (
 							<li key={sidecar.id}>
-								<label className="flex min-h-11 items-center gap-2 text-sm">
-									<input
+								<Label className="min-h-11 text-sm">
+									<Checkbox
 										checked={selectedSidecarEntryIds.includes(sidecar.id)}
 										disabled={
 											!selectedSidecarEntryIds.includes(sidecar.id) &&
 											selectedSidecarEntryIds.length >=
 												sourceMetadataMappingSidecarLimits.count
 										}
-										onChange={() => toggleSidecar(sidecar.id)}
-										type="checkbox"
+										onCheckedChange={() => toggleSidecar(sidecar.id)}
 									/>
 									<span className="break-all">
 										{sidecar.fileName} · {sidecar.sourceContentType}
 									</span>
-								</label>
+								</Label>
 							</li>
 						))}
 					</ul>
 				)}
-			</fieldset>
+			</FieldSet>
 			<Button
 				aria-label={`Kaynak Metadata Eşleme Önerisi oluştur: ${entry.fileName}`}
 				className="min-h-11"
@@ -494,9 +457,8 @@ export function SourceMetadataMappingPanel({
 			{proposalsQuery.isError ? (
 				<div className="space-y-2" role="alert">
 					<p>Kaynak Metadata Eşleme Önerileri okunamadı.</p>
-					{proposalsQuery.error instanceof SourceMetadataMappingRequestError &&
-					proposalsQuery.error.supportReference ? (
-						<p>Destek Referansı: {proposalsQuery.error.supportReference}</p>
+					{supportReferenceOf(proposalsQuery.error) ? (
+						<p>Destek Referansı: {supportReferenceOf(proposalsQuery.error)}</p>
 					) : null}
 					<Button
 						className="min-h-11"

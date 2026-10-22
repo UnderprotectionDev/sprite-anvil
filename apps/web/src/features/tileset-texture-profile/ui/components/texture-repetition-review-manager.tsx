@@ -8,11 +8,20 @@ import {
 	textureRepetitionReviewInputSchema,
 } from "@sprite-anvil/api/texture-repetition-reviews";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQuery } from "@tanstack/react-query";
-import { useCallback, useId, useRef, useState } from "react";
+import { FieldSet } from "@sprite-anvil/ui/components/field";
+import { Input } from "@sprite-anvil/ui/components/input";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { Textarea } from "@sprite-anvil/ui/components/textarea";
+import { useForm, useStore } from "@tanstack/react-form";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client, orpc } from "@/utils/orpc";
+import { orpc } from "@/utils/orpc";
 import { TextureRepeatPreview } from "./texture-repeat-preview";
 
 export interface TextureRepetitionReviewManagerProps {
@@ -47,7 +56,8 @@ const axesOptions: Record<string, ("x" | "y")[]> = {
 	y: ["y"],
 };
 const arrangements = ["2x2", "3x3", "shifted"] as const;
-const fieldStyle = "w-full rounded border bg-background p-2";
+const labelClass = "flex flex-col items-stretch gap-1";
+const selectClass = "w-full";
 function EdgeResults({ result }: { result: TextureEdgeCheck }) {
 	return (
 		<div className="text-sm" role="status">
@@ -96,6 +106,29 @@ function getReviewableUnits(
 			)
 	);
 }
+interface Region {
+	height: number;
+	width: number;
+	x: number;
+	y: number;
+}
+interface Offset {
+	x: number;
+	y: number;
+}
+interface Observation {
+	arrangement: (typeof arrangements)[number];
+	notes: string;
+	outcome: string;
+}
+function emptyObservations(): Observation[] {
+	return arrangements.map((arrangement) => ({
+		arrangement,
+		outcome: "",
+		notes: "",
+	}));
+}
+
 export function TextureRepetitionReviewManager({
 	projectId,
 	assetFamilyId,
@@ -112,41 +145,45 @@ export function TextureRepetitionReviewManager({
 		records,
 		assetFamilyId,
 	});
-	const [selectedUnitId, setUnitId] = useState(reviewable[0]?.id ?? "");
-	const unitId = getSelectedUnitId(reviewable, selectedUnitId);
-	const [previousUnitId, setPreviousUnitId] = useState(unitId);
+	const form = useForm({
+		defaultValues: {
+			unitId: reviewable[0]?.id ?? "",
+			regionOverride: null as Region | null,
+			axes: ["x", "y"] as ("x" | "y")[],
+			offsetOverride: null as Offset | null,
+			terrainId: "",
+			zoom: 1,
+			observations: emptyObservations(),
+		},
+		onSubmit: async ({ value }) => {
+			await save(value);
+		},
+	});
+	const values = useStore(form.store, (state) => state.values);
+	const unitId = getSelectedUnitId(reviewable, values.unitId);
+	const previousUnitId = useRef(unitId);
 	const unit = reviewable.find((item) => item.id === unitId);
 	const version = versions.find((item) => item.id === unit?.assetVersionId);
-	const [regionOverride, setRegionOverride] = useState<{
-		x: number;
-		y: number;
-		width: number;
-		height: number;
-	} | null>(null);
+	const { axes, observations, terrainId, zoom } = values;
 	const onImageDimensions = useCallback(
 		(dimensions: { width: number; height: number }) => {
-			setRegionOverride(
+			form.setFieldValue(
+				"regionOverride",
 				(previous) => previous ?? { x: 0, y: 0, ...dimensions }
 			);
 		},
-		[]
+		[form]
 	);
-	const region = getRegion(regionOverride, version);
-	const [axes, setAxes] = useState<("x" | "y")[]>(["x", "y"]);
-	const [offsetOverride, setOffset] = useState<{ x: number; y: number } | null>(
-		null
+	const region = getRegion(values.regionOverride, version);
+	const offset = getOffset(values.offsetOverride, axes, region);
+	const queryClient = useQueryClient();
+	const inspectMutation = useMutation(
+		orpc.textureRepetitionReviews.inspect.mutationOptions()
 	);
-	const offset = getOffset(offsetOverride, axes, region);
-	const [terrainId, setTerrainId] = useState("");
-	const [zoom, setZoom] = useState(1);
-	const [observations, setObservations] = useState(
-		arrangements.map((arrangement) => ({
-			arrangement,
-			outcome: "" as string,
-			notes: "",
-		}))
+	const saveMutation = useMutation(
+		orpc.textureRepetitionReviews.save.mutationOptions()
 	);
-	const [pending, setPending] = useState(false);
+	const pending = inspectMutation.isPending || saveMutation.isPending;
 	const [uncertain, setUncertain] = useState(false);
 	const [message, setMessage] = useState("");
 	const [error, setError] = useState("");
@@ -179,21 +216,19 @@ export function TextureRepetitionReviewManager({
 		(arrangement) => previewReady[`${previewKey}:${arrangement}`]
 	);
 	function invalidate() {
-		setObservations(
-			arrangements.map((arrangement) => ({
-				arrangement,
-				outcome: "",
-				notes: "",
-			}))
-		);
+		form.setFieldValue("observations", emptyObservations());
 		setEdgeCheck(null);
 		setMessage("");
 	}
+	function resetUnitSelection() {
+		form.setFieldValue("regionOverride", null);
+		form.setFieldValue("offsetOverride", null);
+		invalidate();
+	}
 	async function inspect() {
-		setPending(true);
 		setError("");
 		try {
-			setEdgeCheck(await client.textureRepetitionReviews.inspect(target));
+			setEdgeCheck(await inspectMutation.mutateAsync(target));
 		} catch (cause) {
 			setError(
 				getErrorMessage(
@@ -202,19 +237,16 @@ export function TextureRepetitionReviewManager({
 					"query"
 				)
 			);
-		} finally {
-			setPending(false);
 		}
 	}
-	async function save(event: React.SyntheticEvent<HTMLFormElement>) {
-		event.preventDefault();
+	async function save(value: { observations: Observation[] }) {
 		setError("");
 		setMessage("");
 		const parsed = textureRepetitionReviewInputSchema.safeParse({
 			...target,
 			id: crypto.randomUUID(),
 			shiftedOffset: offset,
-			observations,
+			observations: value.observations,
 		});
 		if (!parsed.success) {
 			setError(
@@ -226,29 +258,30 @@ export function TextureRepetitionReviewManager({
 	}
 	async function persist(input: TextureRepetitionReviewInput) {
 		pendingInput.current = input;
-		setPending(true);
 		try {
-			const record = await client.textureRepetitionReviews.save(input);
+			const record = await saveMutation.mutateAsync(input);
 			setSaved(record);
 			setEdgeCheck(record.edgeCheck);
 			setUncertain(false);
 			setError("");
 			setMessage("Texture review saved.");
-			void query.refetch();
+			void queryClient.invalidateQueries({
+				queryKey: orpc.textureRepetitionReviews.list.queryKey({
+					input: { projectId, assetFamilyId },
+				}),
+			});
 		} catch (cause) {
 			setUncertain(isWriteOutcomeUncertain(cause));
 			setError(getErrorMessage(cause, "Texture review could not be saved."));
-		} finally {
-			setPending(false);
 		}
 	}
 
-	if (previousUnitId !== unitId) {
-		setPreviousUnitId(unitId);
-		setRegionOverride(null);
-		setOffset(null);
-		invalidate();
-	}
+	useEffect(() => {
+		if (previousUnitId.current !== unitId) {
+			previousUnitId.current = unitId;
+			resetUnitSelection();
+		}
+	});
 	if (activation.contract.profileId !== "tileset_terrain_texture") {
 		return null;
 	}
@@ -277,7 +310,14 @@ export function TextureRepetitionReviewManager({
 				</div>
 			) : null}
 			{reviewable.length ? (
-				<form className="space-y-4" onSubmit={save}>
+				<form
+					className="space-y-4"
+					onSubmit={(event) => {
+						event.preventDefault();
+						event.stopPropagation();
+						void form.handleSubmit();
+					}}
+				>
 					<TextureReviewFeedback error={error} message={message} />
 					{uncertain && pendingInput.current ? (
 						<TextureUncertainReviewActions
@@ -293,122 +333,160 @@ export function TextureRepetitionReviewManager({
 							pending={pending || query.isFetching}
 						/>
 					) : null}
-					<fieldset className="space-y-4" disabled={pending || uncertain}>
-						<label className="block" htmlFor={`${formId}-unit`}>
-							Texture unit
-							<select
-								className={fieldStyle}
-								id={`${formId}-unit`}
-								onChange={(event) => {
-									setUnitId(event.target.value);
-									setRegionOverride(null);
-									setOffset(null);
-
-									invalidate();
-								}}
-								value={unitId}
-							>
-								{reviewable.map((item) => (
-									<option key={item.id} value={item.id}>
-										{
-											records.find((record) => record.id === item.assetRecordId)
-												?.name
-										}{" "}
-										· {item.unitKey} · v{item.versionNumber}
-									</option>
-								))}
-							</select>
-						</label>
-						<div className="grid gap-3 sm:grid-cols-4">
-							{(["x", "y", "width", "height"] as const).map((key) => (
-								<label htmlFor={`${formId}-${key}`} key={key}>
-									Atlas {key}
-									<input
-										className={fieldStyle}
-										id={`${formId}-${key}`}
-										min={key === "width" || key === "height" ? 1 : 0}
+					<FieldSet className="block space-y-4" disabled={pending || uncertain}>
+						<form.Field name="unitId">
+							{(field) => (
+								<Label className={labelClass} htmlFor={`${formId}-unit`}>
+									Texture unit
+									<NativeSelect
+										className={selectClass}
+										id={`${formId}-unit`}
 										onChange={(event) => {
-											setRegionOverride({
-												...region,
-												[key]: Number(event.target.value),
-											});
+											field.handleChange(event.target.value);
+											resetUnitSelection();
+										}}
+										value={unitId}
+									>
+										{reviewable.map((item) => (
+											<NativeSelectOption key={item.id} value={item.id}>
+												{
+													records.find(
+														(record) => record.id === item.assetRecordId
+													)?.name
+												}{" "}
+												· {item.unitKey} · v{item.versionNumber}
+											</NativeSelectOption>
+										))}
+									</NativeSelect>
+								</Label>
+							)}
+						</form.Field>
+						<form.Field name="regionOverride">
+							{(field) => (
+								<div className="grid gap-3 sm:grid-cols-4">
+									{(["x", "y", "width", "height"] as const).map((key) => (
+										<Label
+											className={labelClass}
+											htmlFor={`${formId}-${key}`}
+											key={key}
+										>
+											Atlas {key}
+											<Input
+												id={`${formId}-${key}`}
+												min={key === "width" || key === "height" ? 1 : 0}
+												onChange={(event) => {
+													field.handleChange({
+														...region,
+														[key]: Number(event.target.value),
+													});
+													invalidate();
+												}}
+												required
+												step="1"
+												type="number"
+												value={region[key]}
+											/>
+										</Label>
+									))}
+								</div>
+							)}
+						</form.Field>
+						<form.Field name="terrainId">
+							{(field) => (
+								<Label className={labelClass} htmlFor={`${formId}-terrain`}>
+									Terrain ID
+									<Input
+										id={`${formId}-terrain`}
+										onChange={(event) => {
+											field.handleChange(event.target.value);
 											invalidate();
 										}}
-										required
-										step="1"
-										type="number"
-										value={region[key]}
+										value={field.state.value}
 									/>
-								</label>
-							))}
-						</div>
-						<label className="block" htmlFor={`${formId}-terrain`}>
-							Terrain ID
-							<input
-								className={fieldStyle}
-								id={`${formId}-terrain`}
-								onChange={(event) => {
-									setTerrainId(event.target.value);
-									invalidate();
-								}}
-								value={terrainId}
-							/>
-						</label>
-						<label className="block" htmlFor={`${formId}-axes`}>
-							Repeat axes
-							<select
-								className={fieldStyle}
-								id={`${formId}-axes`}
-								onChange={(event) => {
-									setAxes(axesOptions[event.target.value] ?? ["x", "y"]);
-									setOffset(null);
-									invalidate();
-								}}
-								value={axes.length === 2 ? "xy" : axes[0]}
-							>
-								<option value="xy">X and Y</option>
-								<option value="x">X only</option>
-								<option value="y">Y only</option>
-							</select>
-						</label>
-						<div className="grid gap-3 sm:grid-cols-3">
-							{(["x", "y"] as const).map((axis) => (
-								<label htmlFor={`${formId}-shift-${axis}`} key={axis}>
-									Shift {axis.toUpperCase()}
-									<input
-										className={fieldStyle}
-										disabled={!axes.includes(axis)}
-										id={`${formId}-shift-${axis}`}
-										max={(axis === "x" ? region.width : region.height) - 1}
-										min="0"
+								</Label>
+							)}
+						</form.Field>
+						<form.Field name="axes">
+							{(field) => (
+								<Label className={labelClass} htmlFor={`${formId}-axes`}>
+									Repeat axes
+									<NativeSelect
+										className={selectClass}
+										id={`${formId}-axes`}
 										onChange={(event) => {
-											setObservations(clearShiftedObservation);
-											setOffset({
-												...offset,
-												[axis]: Number(event.target.value),
-											});
+											field.handleChange(
+												axesOptions[event.target.value] ?? ["x", "y"]
+											);
+											form.setFieldValue("offsetOverride", null);
+											invalidate();
 										}}
-										step="1"
-										type="number"
-										value={offset[axis]}
-									/>
-								</label>
-							))}
-							<label htmlFor={`${formId}-zoom`}>
-								Preview zoom
-								<select
-									className={fieldStyle}
-									id={`${formId}-zoom`}
-									onChange={(event) => setZoom(Number(event.target.value))}
-									value={zoom}
-								>
-									{[1, 2, 4, 8].map((value) => (
-										<option key={value} value={value}>
-											{value}×
-										</option>
-									))}
-								</select>
-							</label>
+										value={axes.length === 2 ? "xy" : axes[0]}
+									>
+										<NativeSelectOption value="xy">X and Y</NativeSelectOption>
+										<NativeSelectOption value="x">X only</NativeSelectOption>
+										<NativeSelectOption value="y">Y only</NativeSelectOption>
+									</NativeSelect>
+								</Label>
+							)}
+						</form.Field>
+						<div className="grid gap-3 sm:grid-cols-3">
+							<form.Field name="offsetOverride">
+								{(field) => (
+									<>
+										{(["x", "y"] as const).map((axis) => (
+											<Label
+												className={labelClass}
+												htmlFor={`${formId}-shift-${axis}`}
+												key={axis}
+											>
+												Shift {axis.toUpperCase()}
+												<Input
+													disabled={!axes.includes(axis)}
+													id={`${formId}-shift-${axis}`}
+													max={
+														(axis === "x" ? region.width : region.height) - 1
+													}
+													min="0"
+													onChange={(event) => {
+														form.setFieldValue(
+															"observations",
+															clearShiftedObservation
+														);
+														field.handleChange({
+															...offset,
+															[axis]: Number(event.target.value),
+														});
+													}}
+													step="1"
+													type="number"
+													value={offset[axis]}
+												/>
+											</Label>
+										))}
+									</>
+								)}
+							</form.Field>
+							<form.Field name="zoom">
+								{(field) => (
+									<Label className={labelClass} htmlFor={`${formId}-zoom`}>
+										Preview zoom
+										<NativeSelect
+											className={selectClass}
+											id={`${formId}-zoom`}
+											onChange={(event) =>
+												field.handleChange(Number(event.target.value))
+											}
+											value={zoom}
+										>
+											{[1, 2, 4, 8].map((value) => (
+												<NativeSelectOption key={value} value={value}>
+													{value}×
+												</NativeSelectOption>
+											))}
+										</NativeSelect>
+									</Label>
+								)}
+							</form.Field>
 						</div>
 						<Button
 							onClick={() => void inspect()}
@@ -438,48 +516,60 @@ export function TextureRepetitionReviewManager({
 											zoom={zoom}
 										/>
 									) : null}
-									<label
-										className="block"
-										htmlFor={`${formId}-outcome-${index}`}
-									>
-										{observation.arrangement} outcome
-										<select
-											className={fieldStyle}
-											id={`${formId}-outcome-${index}`}
-											onChange={(event) =>
-												setObservations((items) =>
-													updateObservation(items, index, {
-														outcome: event.target.value,
-													})
-												)
-											}
-											required
-											value={observation.outcome}
-										>
-											<option value="">Choose outcome</option>
-											<option value="passed">Passed</option>
-											<option value="failed">Failed</option>
-											<option value="inconclusive">Inconclusive</option>
-											<option value="needs_follow_up">Needs follow-up</option>
-										</select>
-									</label>
-									<label className="block" htmlFor={`${formId}-notes-${index}`}>
-										{observation.arrangement} notes
-										<textarea
-											className={fieldStyle}
-											id={`${formId}-notes-${index}`}
-											maxLength={2000}
-											onChange={(event) =>
-												setObservations((items) =>
-													updateObservation(items, index, {
-														notes: event.target.value,
-													})
-												)
-											}
-											required
-											value={observation.notes}
-										/>
-									</label>
+									<form.Field name={`observations[${index}].outcome`}>
+										{(field) => (
+											<Label
+												className={labelClass}
+												htmlFor={`${formId}-outcome-${index}`}
+											>
+												{observation.arrangement} outcome
+												<NativeSelect
+													className={selectClass}
+													id={`${formId}-outcome-${index}`}
+													onChange={(event) =>
+														field.handleChange(event.target.value)
+													}
+													required
+													value={observation.outcome}
+												>
+													<NativeSelectOption value="">
+														Choose outcome
+													</NativeSelectOption>
+													<NativeSelectOption value="passed">
+														Passed
+													</NativeSelectOption>
+													<NativeSelectOption value="failed">
+														Failed
+													</NativeSelectOption>
+													<NativeSelectOption value="inconclusive">
+														Inconclusive
+													</NativeSelectOption>
+													<NativeSelectOption value="needs_follow_up">
+														Needs follow-up
+													</NativeSelectOption>
+												</NativeSelect>
+											</Label>
+										)}
+									</form.Field>
+									<form.Field name={`observations[${index}].notes`}>
+										{(field) => (
+											<Label
+												className={labelClass}
+												htmlFor={`${formId}-notes-${index}`}
+											>
+												{observation.arrangement} notes
+												<Textarea
+													id={`${formId}-notes-${index}`}
+													maxLength={2000}
+													onChange={(event) =>
+														field.handleChange(event.target.value)
+													}
+													required
+													value={observation.notes}
+												/>
+											</Label>
+										)}
+									</form.Field>
 								</div>
 							))}
 						</div>
@@ -489,7 +579,7 @@ export function TextureRepetitionReviewManager({
 						>
 							{pending ? "Saving texture review…" : "Save texture review"}
 						</Button>
-					</fieldset>
+					</FieldSet>
 				</form>
 			) : (
 				<p>
@@ -643,20 +733,6 @@ function TextureUncertainReviewActions({
 				</Button>
 			) : null}
 		</div>
-	);
-}
-
-function updateObservation(
-	items: {
-		arrangement: "2x2" | "3x3" | "shifted";
-		outcome: string;
-		notes: string;
-	}[],
-	index: number,
-	changes: { outcome?: string; notes?: string }
-) {
-	return items.map((item, position) =>
-		position === index ? { ...item, ...changes } : item
 	);
 }
 

@@ -10,6 +10,7 @@ import {
 	screen,
 	waitFor,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { AssetFamilyComparisonManager } from "./asset-family-comparison-manager";
 
@@ -17,18 +18,32 @@ const uncertainMessage = /Kaydetme sonucu doğrulanamadı/;
 const existingRecordButtonName = /· 2 Varlık Sürümü/;
 const closedCrateCheckboxName = /Kapalı sandık/;
 const openCrateCheckboxName = /Açık sandık/;
+const brokenCrateCheckboxName = /Kırık sandık/;
+// A native checkbox reports `:disabled`; the design-system checkbox exposes
+// the same state as `aria-disabled`.
+function isUnavailable(element: HTMLElement) {
+	return (
+		element.matches(":disabled") ||
+		element.getAttribute("aria-disabled") === "true"
+	);
+}
 const mocks = vi.hoisted(() => ({
 	save: vi.fn(),
 	list: vi.fn(),
 }));
 vi.mock("@/utils/orpc", () => ({
-	client: { assetFamilyComparisons: { save: mocks.save } },
 	orpc: {
 		assetFamilyComparisons: {
 			list: {
+				queryKey: () => ["asset-family-comparisons"],
 				queryOptions: () => ({
 					queryKey: ["asset-family-comparisons"],
 					queryFn: mocks.list,
+				}),
+			},
+			save: {
+				mutationOptions: () => ({
+					mutationFn: (input: unknown) => mocks.save(input),
 				}),
 			},
 		},
@@ -138,7 +153,7 @@ function savedRecord(id: string): AssetFamilyComparisonRecord {
 	};
 }
 
-function mount() {
+function mount(records = assetRecords) {
 	mocks.list.mockResolvedValue([savedRecord("existing")]);
 	render(
 		<QueryClientProvider
@@ -154,7 +169,7 @@ function mount() {
 					} as never
 				}
 				assetFamilyId="family"
-				assetRecords={assetRecords as never}
+				assetRecords={records as never}
 				catalog={catalog as never}
 				familyName="Sandık"
 				projectId="project"
@@ -258,4 +273,116 @@ test("starts a new comparison with cleared selections and observations", async (
 	expect(
 		screen.getByRole("button", { name: "Karşılaştırmayı kaydet" })
 	).toBeDisabled();
+});
+
+test("saves the selected current versions and observations as one comparison", async () => {
+	mocks.save.mockResolvedValue(savedRecord("fresh"));
+	mount();
+
+	await fillComparisonForm();
+	const saveButton = screen.getByRole("button", {
+		name: "Karşılaştırmayı kaydet",
+	});
+	await waitFor(() => expect(saveButton).toBeEnabled());
+	fireEvent.click(saveButton);
+	await screen.findByText("Karşılaştırma kalıcı kayıttan doğrulandı.");
+
+	expect(mocks.save).toHaveBeenCalledTimes(1);
+	expect(mocks.save.mock.calls[0]?.[0]).toEqual({
+		id: expect.any(String),
+		projectId: "project",
+		assetFamilyId: "family",
+		contractRevisionId: "contract",
+		assetVersions: [
+			{
+				assetRecordId: "record-one",
+				assetVersionId: "version-one",
+				unitVersionIds: [],
+			},
+			{
+				assetRecordId: "record-two",
+				assetVersionId: "version-two",
+				unitVersionIds: [],
+			},
+		],
+		observations: savedRecord("fresh").observations,
+	});
+});
+
+test("keeps save disabled until two versions and every observation are present", async () => {
+	mount();
+	await fillComparisonForm();
+	const saveButton = screen.getByRole("button", {
+		name: "Karşılaştırmayı kaydet",
+	});
+	await waitFor(() => expect(saveButton).toBeEnabled());
+
+	fireEvent.change(screen.getByLabelText("Perspektif gözlemi"), {
+		target: { value: "   " },
+	});
+	expect(saveButton).toBeDisabled();
+	fireEvent.change(screen.getByLabelText("Perspektif gözlemi"), {
+		target: { value: "Perspektif düşük kuşbakışı." },
+	});
+	expect(saveButton).toBeEnabled();
+
+	fireEvent.click(
+		screen.getByRole("checkbox", { name: openCrateCheckboxName })
+	);
+	expect(
+		screen.getByRole("checkbox", { name: openCrateCheckboxName })
+	).not.toBeChecked();
+	expect(saveButton).toBeDisabled();
+});
+
+test("toggles a version with the keyboard and disables records without a current version", async () => {
+	const user = userEvent.setup();
+	mount([
+		...assetRecords,
+		{
+			id: "record-three",
+			assetFamilyId: "family",
+			name: "Kırık sandık",
+			assetCategory: profileId,
+			availability: "active",
+		},
+	]);
+	const closed = await screen.findByRole("checkbox", {
+		name: closedCrateCheckboxName,
+	});
+	await waitFor(() => expect(closed).toBeEnabled());
+	closed.focus();
+	expect(closed).toHaveFocus();
+	await user.keyboard(" ");
+	expect(closed).toBeChecked();
+	await user.keyboard(" ");
+	expect(closed).not.toBeChecked();
+
+	const broken = screen.getByRole("checkbox", {
+		name: brokenCrateCheckboxName,
+	});
+	expect(isUnavailable(broken)).toBe(true);
+	expect(broken).not.toBeChecked();
+	expect(
+		screen.getByText("Karşılaştırılabilir güncel sürüm yok")
+	).toBeInTheDocument();
+});
+
+test("locks version choices and observations while a save outcome is uncertain", async () => {
+	mocks.save.mockRejectedValue(new TypeError("Failed to fetch"));
+	mount();
+	await fillComparisonForm();
+	const saveButton = screen.getByRole("button", {
+		name: "Karşılaştırmayı kaydet",
+	});
+	await waitFor(() => expect(saveButton).toBeEnabled());
+	fireEvent.click(saveButton);
+	await screen.findByText(uncertainMessage);
+
+	const closed = screen.getByRole("checkbox", {
+		name: closedCrateCheckboxName,
+	});
+	expect(isUnavailable(closed)).toBe(true);
+	expect(closed).toBeChecked();
+	expect(screen.getByLabelText("Ölçek gözlemi")).toBeDisabled();
 });

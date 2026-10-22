@@ -1,9 +1,12 @@
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
 import type { TilesetTile } from "@sprite-anvil/api/tileset-adjacency-reviews";
 import { tilesetEdges } from "@sprite-anvil/api/tileset-adjacency-reviews";
+import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
+import { Input } from "@sprite-anvil/ui/components/input";
+import { Label } from "@sprite-anvil/ui/components/label";
 import { TileImage } from "./tileset-map";
 
-const fieldClass = "min-h-11 rounded border bg-background p-2";
+const labelClass = "flex flex-col items-stretch gap-1";
 
 /** Editing one tile's declared atlas region and connectors. */
 export function TilesetAtlasTileEditor({
@@ -22,18 +25,18 @@ export function TilesetAtlasTileEditor({
 	onReady: (ready: boolean) => void;
 }) {
 	return (
-		<fieldset className="space-y-2 rounded border p-3">
-			<legend>{tileId}</legend>
+		<FieldSet className="block space-y-2 rounded border p-3">
+			<FieldLegend>{tileId}</FieldLegend>
 			<TileImage
 				key={JSON.stringify(tile.region)}
 				onReady={onReady}
 				tile={tile}
 				version={version}
 			/>
-			<label className="flex flex-col" htmlFor={`${prefix}-terrain`}>
+			<Label className={labelClass} htmlFor={`${prefix}-terrain`}>
 				Terrain ID
-				<input
-					className={fieldClass}
+				<Input
+					className="min-h-11"
 					id={`${prefix}-terrain`}
 					maxLength={200}
 					onChange={(event) =>
@@ -42,17 +45,17 @@ export function TilesetAtlasTileEditor({
 					placeholder="Optional for independent tiles"
 					value={tile.terrainId ?? ""}
 				/>
-			</label>
+			</Label>
 			<div className="grid grid-cols-2 gap-2">
 				{(["x", "y", "width", "height"] as const).map((key) => (
-					<label
-						className="flex flex-col"
+					<Label
+						className={labelClass}
 						htmlFor={`${prefix}-region-${key}`}
 						key={key}
 					>
 						Atlas {key}
-						<input
-							className={fieldClass}
+						<Input
+							className="min-h-11"
 							id={`${prefix}-region-${key}`}
 							max={key === "x" || key === "y" ? 16_384 : 4096}
 							min={key === "x" || key === "y" ? 0 : 1}
@@ -66,19 +69,19 @@ export function TilesetAtlasTileEditor({
 							type="number"
 							value={tile.region[key]}
 						/>
-					</label>
+					</Label>
 				))}
 			</div>
 			<div className="grid grid-cols-2 gap-2">
 				{tilesetEdges.map((edge) => (
-					<label
-						className="flex flex-col"
+					<Label
+						className={labelClass}
 						htmlFor={`${prefix}-edge-${edge}`}
 						key={edge}
 					>
 						{edge} connector
-						<input
-							className={fieldClass}
+						<Input
+							className="min-h-11"
 							id={`${prefix}-edge-${edge}`}
 							maxLength={200}
 							onChange={(event) =>
@@ -90,9 +93,9 @@ export function TilesetAtlasTileEditor({
 							placeholder="Unknown"
 							value={tile.edges[edge] ?? ""}
 						/>
-					</label>
+					</Label>
 				))}
 			</div>
-		</fieldset>
+		</FieldSet>
 	);
 }

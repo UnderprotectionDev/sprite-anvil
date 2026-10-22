@@ -16,7 +16,7 @@ import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { type ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
-import { client, orpc } from "@/utils/orpc";
+import { orpc } from "@/utils/orpc";
 import { ContextWorkspace } from "../components/context-proposal-components";
 import { ProjectSetupForm } from "../forms/project-setup-form";
 
@@ -69,40 +69,40 @@ export function ContextProposalsView() {
 	const [isCheckingProjectOutcome, setIsCheckingProjectOutcome] =
 		useState(false);
 
-	const createProject = useMutation({
-		mutationFn: (input: ProjectContextCreateInput) =>
-			client.projectContexts.create(input),
-		onSuccess: async (project) => {
-			queryClient.setQueryData(
-				projectsQueryOptions.queryKey,
-				(current: typeof projectsQuery.data) => {
-					if (current?.some((item) => item.id === project.id)) {
-						return current;
+	const createProject = useMutation(
+		orpc.projectContexts.create.mutationOptions({
+			onSuccess: async (project) => {
+				queryClient.setQueryData(
+					projectsQueryOptions.queryKey,
+					(current: typeof projectsQuery.data) => {
+						if (current?.some((item) => item.id === project.id)) {
+							return current;
+						}
+						return [...(current ?? []), project];
 					}
-					return [...(current ?? []), project];
+				);
+				void navigate({
+					to: "/context-proposals",
+					search: { projectId: project.id },
+					replace: true,
+				});
+				setProjectFormOpen(false);
+				await queryClient.invalidateQueries({
+					queryKey: orpc.projectContexts.list.queryKey(),
+				});
+				await queryClient.invalidateQueries({
+					queryKey: orpc.projects.list.queryKey(),
+				});
+				toast.success("Proje oluşturuldu.");
+			},
+			onError: (error, input) => {
+				if (isWriteOutcomeUncertain(error)) {
+					setProjectCreateOutcomeUncertain(true);
+					setUncertainProjectInput(input);
 				}
-			);
-			void navigate({
-				to: "/context-proposals",
-				search: { projectId: project.id },
-				replace: true,
-			});
-			setProjectFormOpen(false);
-			await queryClient.invalidateQueries({
-				queryKey: orpc.projectContexts.list.queryKey(),
-			});
-			await queryClient.invalidateQueries({
-				queryKey: orpc.projects.list.queryKey(),
-			});
-			toast.success("Proje oluşturuldu.");
-		},
-		onError: (error, input) => {
-			if (isWriteOutcomeUncertain(error)) {
-				setProjectCreateOutcomeUncertain(true);
-				setUncertainProjectInput(input);
-			}
-		},
-	});
+			},
+		})
+	);
 
 	async function checkProjectCreateStatus() {
 		setIsCheckingProjectOutcome(true);
@@ -198,7 +198,11 @@ export function ContextProposalsView() {
 				onNewProject={() => {
 					setProjectFormOpen(true);
 				}}
-				onRefreshProposals={() => proposalsQuery.refetch()}
+				onRefreshProposals={() =>
+					queryClient.invalidateQueries({
+						queryKey: proposalsQueryOptions.queryKey,
+					})
+				}
 				onRetryProposals={() => void proposalsQuery.refetch()}
 				onSelectProject={selectProject}
 				project={selectedProject}

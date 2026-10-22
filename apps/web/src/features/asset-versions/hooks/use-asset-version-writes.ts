@@ -6,12 +6,14 @@ import type {
 } from "@sprite-anvil/api/asset-versions";
 import type { ProviderGenerationRecordCreateInput } from "@sprite-anvil/api/provider-generation-records";
 import { assetVersionProductionSourceHeader } from "@sprite-anvil/api/provider-generation-records";
+import { useMutation } from "@tanstack/react-query";
 import { type SyntheticEvent, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ENV } from "@/env";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client } from "@/utils/orpc";
+import { mutationMeta } from "@/utils/mutation-meta";
+import { orpc } from "@/utils/orpc";
 
 const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
 
@@ -79,6 +81,24 @@ export function useAssetVersionWrites(
 		fingerprint: string;
 		idempotencyKey: string;
 	} | null>(null);
+	const recordProviderGenerationMutation = useMutation(
+		orpc.assetVersions.recordProviderGeneration.mutationOptions(mutationMeta)
+	);
+	const reviewBatchMutation = useMutation(
+		orpc.assetVersions.reviewBatch.mutationOptions(mutationMeta)
+	);
+	const reviewMutation = useMutation(
+		orpc.assetVersions.review.mutationOptions(mutationMeta)
+	);
+	const createCompositeVersionMutation = useMutation(
+		orpc.assetVersions.createCompositeVersion.mutationOptions(mutationMeta)
+	);
+	const reviewCompositeVersionMutation = useMutation(
+		orpc.assetVersions.reviewCompositeVersion.mutationOptions(mutationMeta)
+	);
+	const selectCanonicalDesignMutation = useMutation(
+		orpc.assetVersions.selectCanonicalDesign.mutationOptions(mutationMeta)
+	);
 	const [activeAction, setActiveAction] = useState<string | null>(null);
 	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
 	const [isCheckingOutcome, setIsCheckingOutcome] = useState(false);
@@ -198,6 +218,7 @@ export function useAssetVersionWrites(
 				headers["X-Unit-Version-Type"] = unitCorrection.unitType;
 				headers["X-Unit-Version-Key"] = unitCorrection.unitKey;
 			}
+			// conventions-exception: raw-fetch Candidate Version and Managed Snapshot uploads stream the raw file body with size and idempotency headers to the verifying Hono upload routes; the RPC link sends buffered JSON or multipart.
 			const response = await fetch(
 				`${serverUrl}/api/projects/${encodeURIComponent(projectId)}/asset-records/${encodeURIComponent(assetRecordId)}/${endpoint}`,
 				{
@@ -330,7 +351,7 @@ export function useAssetVersionWrites(
 		return runAction(
 			`provider-record:${assetVersionId}`,
 			() =>
-				client.assetVersions.recordProviderGeneration({
+				recordProviderGenerationMutation.mutateAsync({
 					...input,
 					assetVersionId,
 					projectId,
@@ -342,7 +363,7 @@ export function useAssetVersionWrites(
 	function reviewBatch(input: AssetVersionBatchReviewInput) {
 		return runAction(
 			"batch-review",
-			() => client.assetVersions.reviewBatch(input),
+			() => reviewBatchMutation.mutateAsync(input),
 			"Toplu inceleme tamamlandı. Her sürümün İnceleme Kaydı ayrı kaydedildi."
 		);
 	}
@@ -356,7 +377,7 @@ export function useAssetVersionWrites(
 		return runAction(
 			`review:${assetVersionId}`,
 			() =>
-				client.assetVersions.review({
+				reviewMutation.mutateAsync({
 					projectId,
 					assetVersionId,
 					decision,
@@ -383,7 +404,7 @@ export function useAssetVersionWrites(
 		const created = await runAction(
 			`composite:${assetRecordId}`,
 			() =>
-				client.assetVersions.createCompositeVersion({
+				createCompositeVersionMutation.mutateAsync({
 					projectId,
 					assetRecordId,
 					unitVersionIds: normalizedUnitVersionIds,
@@ -405,7 +426,7 @@ export function useAssetVersionWrites(
 		return runAction(
 			`composite-review:${compositeVersionId}`,
 			() =>
-				client.assetVersions.reviewCompositeVersion({
+				reviewCompositeVersionMutation.mutateAsync({
 					projectId,
 					compositeVersionId,
 					decision,
@@ -422,7 +443,7 @@ export function useAssetVersionWrites(
 		return runAction(
 			`canonical:${assetVersionId}`,
 			() =>
-				client.assetVersions.selectCanonicalDesign({
+				selectCanonicalDesignMutation.mutateAsync({
 					projectId,
 					assetFamilyId,
 					assetVersionId,

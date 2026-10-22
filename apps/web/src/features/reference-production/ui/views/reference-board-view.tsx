@@ -5,13 +5,25 @@ import type {
 } from "@sprite-anvil/api/asset-record-tracking";
 import type { ReferenceBoardImage } from "@sprite-anvil/api/reference-production";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQuery } from "@tanstack/react-query";
+import { Input } from "@sprite-anvil/ui/components/input";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { useForm, useStore } from "@tanstack/react-form";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type { ClipboardEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { ENV } from "@/env";
 import { RightsRecordPanel } from "@/features/rights-evidence/ui/components/rights-record-panel";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client, orpc } from "@/utils/orpc";
+import { mutationMeta } from "@/utils/mutation-meta";
+import { orpc } from "@/utils/orpc";
+import {
+	type ReferenceConstraintForm,
+	useReferenceConstraintForm,
+} from "../../hooks/use-reference-constraint-form";
 import {
 	encodeMetadataHeader,
 	localizedFeatureList,
@@ -19,8 +31,12 @@ import {
 	referenceRoleLabels,
 } from "../../lib/reference-board-contract";
 import {
-	emptyReferenceConstraintDraft,
 	type ReferenceConstraintDraft,
+	referenceConstraintError,
+	referenceVersionLinkFormSchema,
+} from "../../schemas";
+import {
+	emptyReferenceConstraintDraft,
 	ReferenceConstraintEditor,
 } from "../components/reference-constraint-editor";
 import { ReferenceRulesEditor } from "../components/reference-rules-editor";
@@ -67,30 +83,6 @@ function normalizedRules(draft: ReferenceConstraintDraft) {
 	};
 }
 
-function validateDraft(
-	draft: ReferenceConstraintDraft,
-	hasCanonicalDesign: boolean
-) {
-	if (
-		draft.transferredFeatures.length === 0 &&
-		draft.forbiddenFeatures.length === 0
-	) {
-		return "En az bir özelliği aktarılabilir veya kaçınılacak olarak seçin.";
-	}
-	if (draft.role === "custom" && !draft.customPurpose.trim()) {
-		return "Özel kullanım amacını yazın.";
-	}
-	if (
-		hasCanonicalDesign &&
-		draft.transferredFeatures.includes("identity") &&
-		!draft.forbiddenFeatures.includes("identity") &&
-		!draft.contextOverrideRationale.trim()
-	) {
-		return "Ana Tasarım kimlik sınırını aşmak için Bağlam Kuralı İstisnası gerekçesi yazın.";
-	}
-	return null;
-}
-
 function imageUrl(
 	projectId: string,
 	assetRecordId: string,
@@ -123,6 +115,15 @@ function purposeLabel(reference: {
 	return reference.role === "custom" && reference.customPurpose
 		? reference.customPurpose
 		: referenceRoleLabels[reference.role];
+}
+
+function useValidationError(
+	form: ReferenceConstraintForm,
+	hasCanonicalDesign: boolean
+) {
+	return useStore(form.store, (state) =>
+		referenceConstraintError(state.values, hasCanonicalDesign)
+	);
 }
 
 function ConflictSummary({
@@ -228,9 +229,9 @@ function ReferenceUploadDropArea({
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	return (
 		<div>
-			<button
+			<Button
 				aria-label="Referans görseli ekleme alanı"
-				className={`w-full rounded-md border border-dashed p-4 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ${isDragging ? "border-primary bg-muted" : ""}`}
+				className={`h-auto w-full flex-col items-stretch justify-start whitespace-normal border-dashed p-4 text-left font-normal ${isDragging ? "border-primary bg-muted" : ""}`}
 				onClick={() => fileInputRef.current?.click()}
 				onDragEnter={() => onDragStateChange(true)}
 				onDragLeave={(event) => {
@@ -246,6 +247,7 @@ function ReferenceUploadDropArea({
 				}}
 				onPaste={onPaste}
 				type="button"
+				variant="outline"
 			>
 				<span className="block font-medium text-sm">Görsel ekle</span>
 				<span className="mt-1 block text-muted-foreground text-sm">
@@ -255,11 +257,11 @@ function ReferenceUploadDropArea({
 				<span className="mt-3 inline-flex min-h-11 items-center rounded-md border px-3 py-2 text-sm">
 					Dosya seçin
 				</span>
-			</button>
-			<input
+			</Button>
+			<Input
 				accept="image/png,image/webp"
 				aria-hidden="true"
-				className="sr-only"
+				className="sr-only h-px w-px border-0 p-0"
 				id="reference-upload-file"
 				onChange={(event) => {
 					onChooseFile(event.target.files?.[0]);
@@ -313,27 +315,32 @@ function ReferenceCard({
 	image: ReferenceBoardImage;
 	projectId: string;
 }) {
-	const [draft, setDraft] = useState(() => toDraft(image));
 	const [saving, setSaving] = useState(false);
+	const updateImageMutation = useMutation(
+		orpc.referenceProduction.updateImage.mutationOptions(mutationMeta)
+	);
 	const [error, setError] = useState<string | null>(null);
 	const [saved, setSaved] = useState<string | null>(null);
-	const validationError = validateDraft(draft, hasCanonicalDesign);
+	const form = useReferenceConstraintForm({
+		defaultValues: toDraft(image),
+		hasCanonicalDesign,
+		onSubmit: save,
+		onSubmitInvalid: (invalid) =>
+			setError(referenceConstraintError(invalid, hasCanonicalDesign)),
+	});
+	const validationError = useValidationError(form, hasCanonicalDesign);
 	const preview = imageUrl(projectId, assetRecordId, image.id);
 
 	useEffect(() => {
-		setDraft(toDraft(image));
-	}, [image]);
+		form.reset(toDraft(image));
+	}, [form, image]);
 
-	async function save() {
-		if (validationError) {
-			setError(validationError);
-			return;
-		}
+	async function save(draft: ReferenceConstraintDraft) {
 		setSaving(true);
 		setError(null);
 		setSaved(null);
 		try {
-			await client.referenceProduction.updateImage({
+			await updateImageMutation.mutateAsync({
 				assetRecordId,
 				expectedRevision: image.revision,
 				id: image.id,
@@ -383,14 +390,13 @@ function ReferenceCard({
 			</div>
 			<ReferenceRulesEditor
 				feedback={{ error, saved, validationError }}
-				onSave={() => void save()}
+				onSave={() => void form.handleSubmit()}
 				saving={saving}
 			>
 				<ReferenceConstraintEditor
-					draft={draft}
+					form={form}
 					hasCanonicalDesign={hasCanonicalDesign}
 					idPrefix={`edit-reference-${image.id}`}
-					onChange={setDraft}
 				/>
 			</ReferenceRulesEditor>
 			<details className="border-t pt-3">
@@ -422,27 +428,32 @@ function AssetVersionReferenceCard({
 	projectId: string;
 	reference: ReferenceSummary;
 }) {
-	const [draft, setDraft] = useState(() => toDraft(reference));
 	const [saving, setSaving] = useState(false);
+	const updateReferenceMutation = useMutation(
+		orpc.assetRecords.updateReference.mutationOptions(mutationMeta)
+	);
 	const [error, setError] = useState<string | null>(null);
 	const [saved, setSaved] = useState<string | null>(null);
-	const validationError = validateDraft(draft, hasCanonicalDesign);
+	const form = useReferenceConstraintForm({
+		defaultValues: toDraft(reference),
+		hasCanonicalDesign,
+		onSubmit: save,
+		onSubmitInvalid: (invalid) =>
+			setError(referenceConstraintError(invalid, hasCanonicalDesign)),
+	});
+	const validationError = useValidationError(form, hasCanonicalDesign);
 	const preview = versionPreviewUrl(projectId, reference.versionId);
 
 	useEffect(() => {
-		setDraft(toDraft(reference));
-	}, [reference]);
+		form.reset(toDraft(reference));
+	}, [form, reference]);
 
-	async function save() {
-		if (validationError) {
-			setError(validationError);
-			return;
-		}
+	async function save(draft: ReferenceConstraintDraft) {
 		setSaving(true);
 		setError(null);
 		setSaved(null);
 		try {
-			await client.assetRecords.updateReference({
+			await updateReferenceMutation.mutateAsync({
 				assetRecordId,
 				expectedRevision: reference.revision ?? 1,
 				id: reference.id,
@@ -500,14 +511,13 @@ function AssetVersionReferenceCard({
 			</div>
 			<ReferenceRulesEditor
 				feedback={{ error, saved, validationError }}
-				onSave={() => void save()}
+				onSave={() => void form.handleSubmit()}
 				saving={saving}
 			>
 				<ReferenceConstraintEditor
-					draft={draft}
+					form={form}
 					hasCanonicalDesign={hasCanonicalDesign}
 					idPrefix={`edit-version-reference-${reference.id}`}
-					onChange={setDraft}
 				/>
 			</ReferenceRulesEditor>
 			<details className="border-t pt-3">
@@ -572,16 +582,48 @@ export function ReferenceBoardView({
 	const boardQuery = useQuery({
 		...orpc.referenceProduction.list.queryOptions({ input }),
 	});
-	const [draft, setDraft] = useState(emptyReferenceConstraintDraft);
-	const [selectedVersionId, setSelectedVersionId] = useState("");
 	const [file, setFile] = useState<File | null>(null);
 	const [isDragging, setIsDragging] = useState(false);
 	const [saving, setSaving] = useState(false);
+	const createReferenceMutation = useMutation(
+		orpc.assetRecords.createReference.mutationOptions(mutationMeta)
+	);
 	const [error, setError] = useState<string | null>(null);
 	const [saved, setSaved] = useState<string | null>(null);
 	const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 	const pendingRequest = useRef<{ id: string; signature: string } | null>(null);
-	const validationError = validateDraft(draft, hasCanonicalDesign);
+	const constraintForm = useReferenceConstraintForm({
+		defaultValues: emptyReferenceConstraintDraft(),
+		hasCanonicalDesign,
+		onSubmit: uploadImage,
+		onSubmitInvalid: (invalid) =>
+			setError(referenceConstraintError(invalid, hasCanonicalDesign)),
+	});
+	const validationError = useValidationError(
+		constraintForm,
+		hasCanonicalDesign
+	);
+	const versionLinkForm = useForm({
+		defaultValues: { selectedVersionId: "" },
+		onSubmit: ({ formApi, value }) =>
+			saveVersionReference(value.selectedVersionId, formApi.reset),
+		onSubmitInvalid: ({ value }) => {
+			setError(
+				referenceConstraintError(
+					constraintForm.state.values,
+					hasCanonicalDesign
+				) ??
+					referenceVersionLinkFormSchema.safeParse(value).error?.issues[0]
+						?.message ??
+					null
+			);
+		},
+		validators: { onSubmit: referenceVersionLinkFormSchema },
+	});
+	const selectedVersionId = useStore(
+		versionLinkForm.store,
+		(state) => state.values.selectedVersionId
+	);
 	const board = boardQuery.data;
 
 	useEffect(() => {
@@ -625,21 +667,24 @@ export function ReferenceBoardView({
 		await Promise.all([onRefresh(), boardQuery.refetch()]);
 	}
 
-	async function saveVersionReference() {
-		if (validationError) {
-			setError(validationError);
+	async function saveVersionReference(
+		versionId: string,
+		resetVersionLink: () => void
+	) {
+		const invalidDraft = referenceConstraintError(
+			constraintForm.state.values,
+			hasCanonicalDesign
+		);
+		if (invalidDraft) {
+			setError(invalidDraft);
 			return;
 		}
-		if (!selectedVersionId) {
-			setError("Bağlanacak Varlık Sürümünü seçin.");
-			return;
-		}
-		const rules = normalizedRules(draft);
+		const rules = normalizedRules(constraintForm.state.values);
 		const signature = JSON.stringify({
 			assetRecordId,
 			...rules,
 			projectId,
-			targetVersionId: selectedVersionId,
+			targetVersionId: versionId,
 		});
 		if (pendingRequest.current?.signature !== signature) {
 			pendingRequest.current = { id: crypto.randomUUID(), signature };
@@ -648,15 +693,15 @@ export function ReferenceBoardView({
 		setError(null);
 		setSaved(null);
 		try {
-			await client.assetRecords.createReference({
+			await createReferenceMutation.mutateAsync({
 				assetRecordId,
 				id: pendingRequest.current.id,
 				projectId,
-				targetVersionId: selectedVersionId,
+				targetVersionId: versionId,
 				...rules,
 			});
 			pendingRequest.current = null;
-			setSelectedVersionId("");
+			resetVersionLink();
 			setSaved("Varlık Sürümü referans panosuna eklendi.");
 			await refreshAfterSave();
 		} catch (caught) {
@@ -668,11 +713,7 @@ export function ReferenceBoardView({
 		}
 	}
 
-	async function uploadImage() {
-		if (validationError) {
-			setError(validationError);
-			return;
-		}
+	async function uploadImage(draft: ReferenceConstraintDraft) {
 		if (!file) {
 			setError(
 				"Önce bir PNG veya WebP görseli seçin, yapıştırın ya da bırakın."
@@ -698,6 +739,7 @@ export function ReferenceBoardView({
 		setError(null);
 		setSaved(null);
 		try {
+			// conventions-exception: raw-fetch Reference images stream the raw file body with size, metadata and idempotency headers to the verifying Hono upload route; the RPC link sends buffered JSON or multipart.
 			const response = await fetch(
 				`${serverUrl}/api/projects/${encodeURIComponent(projectId)}/assets/${encodeURIComponent(assetRecordId)}/references`,
 				{
@@ -776,10 +818,9 @@ export function ReferenceBoardView({
 				<h4 className="font-medium text-sm">Yeni referans kuralları</h4>
 				<div className="mt-3">
 					<ReferenceConstraintEditor
-						draft={draft}
+						form={constraintForm}
 						hasCanonicalDesign={hasCanonicalDesign}
 						idPrefix={`new-reference-${assetRecordId}`}
-						onChange={setDraft}
 					/>
 				</div>
 				{validationError ? (
@@ -800,7 +841,7 @@ export function ReferenceBoardView({
 				<div className="mt-3 flex flex-wrap gap-2">
 					<Button
 						disabled={saving || Boolean(validationError) || !file}
-						onClick={() => void uploadImage()}
+						onClick={() => void constraintForm.handleSubmit()}
 						type="button"
 					>
 						{saving ? "Kaydediliyor…" : "Görseli yükle"}
@@ -810,30 +851,35 @@ export function ReferenceBoardView({
 					className="mt-4 grid gap-3 border-t pt-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
 					onSubmit={(event) => {
 						event.preventDefault();
-						void saveVersionReference();
+						event.stopPropagation();
+						void versionLinkForm.handleSubmit();
 					}}
 				>
-					<label
-						className="block space-y-1 text-sm"
-						htmlFor="reference-version"
-					>
-						<span>Mevcut Varlık Sürümü</span>
-						<select
-							className="min-h-11 w-full rounded-md border bg-background px-3 py-2"
-							id="reference-version"
-							onChange={(event) => setSelectedVersionId(event.target.value)}
-							value={selectedVersionId}
-						>
-							<option value="">Sürüm seçin</option>
-							{availableToLink.map((version) => (
-								<option key={version.id} value={version.id}>
-									{version.assetRecordName} ·{" "}
-									{version.fileName ?? "Dosya adı bilinmiyor"} · Sürüm{" "}
-									{version.versionNumber}
-								</option>
-							))}
-						</select>
-					</label>
+					<versionLinkForm.Field name="selectedVersionId">
+						{(field) => (
+							<Label
+								className="block space-y-1 text-sm leading-normal"
+								htmlFor="reference-version"
+							>
+								<span>Mevcut Varlık Sürümü</span>
+								<NativeSelect
+									className="w-full"
+									id="reference-version"
+									onChange={(event) => field.handleChange(event.target.value)}
+									value={field.state.value}
+								>
+									<NativeSelectOption value="">Sürüm seçin</NativeSelectOption>
+									{availableToLink.map((version) => (
+										<NativeSelectOption key={version.id} value={version.id}>
+											{version.assetRecordName} ·{" "}
+											{version.fileName ?? "Dosya adı bilinmiyor"} · Sürüm{" "}
+											{version.versionNumber}
+										</NativeSelectOption>
+									))}
+								</NativeSelect>
+							</Label>
+						)}
+					</versionLinkForm.Field>
 					<Button
 						disabled={saving || Boolean(validationError) || !selectedVersionId}
 						type="submit"

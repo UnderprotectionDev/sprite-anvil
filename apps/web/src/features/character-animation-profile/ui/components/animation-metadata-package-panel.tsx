@@ -5,10 +5,17 @@ import {
 import type { AssetRecord } from "@sprite-anvil/api/asset-records";
 import type { CompositeVersion } from "@sprite-anvil/api/asset-versions";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQuery } from "@tanstack/react-query";
+import { Input } from "@sprite-anvil/ui/components/input";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client, orpc } from "@/utils/orpc";
+import { mutationMeta } from "@/utils/mutation-meta";
+import { orpc } from "@/utils/orpc";
 
 function getCompositeVersionLabel(compositeVersion: CompositeVersion) {
 	return `Birleşik Sürüm ${compositeVersion.versionNumber} · ${new Intl.DateTimeFormat(
@@ -55,7 +62,20 @@ function AnimationMetadataPackagePanelContent({
 	const packageFileInputId = useId();
 	const [selectedCompositeVersionId, setSelectedCompositeVersionId] =
 		useState("");
-	const [pending, setPending] = useState(false);
+	const [rereading, setRereading] = useState(false);
+	const createPackageMutation = useMutation(
+		orpc.animationMetadataPackage.createPackage.mutationOptions({
+			...mutationMeta,
+		})
+	);
+	// Re-reading is a button-triggered verification with no cache meaning, so it
+	// stays a mutation (always hits the server) instead of a cached query.
+	const readPackageMutation = useMutation(
+		orpc.animationMetadataPackage.readPackage.mutationOptions({
+			...mutationMeta,
+		})
+	);
+	const pending = createPackageMutation.isPending || rereading;
 	const [error, setError] = useState<string | null>(null);
 	const [message, setMessage] = useState<string | null>(null);
 	const versionsQuery = useQuery(
@@ -80,16 +100,14 @@ function AnimationMetadataPackagePanelContent({
 		if (!selectedCompositeVersion) {
 			return;
 		}
-		setPending(true);
 		setError(null);
 		setMessage(null);
 		try {
-			const animationMetadataPackage =
-				await client.animationMetadataPackage.createPackage({
-					projectId,
-					assetRecordId: record.id,
-					compositeVersionId: selectedCompositeVersion.id,
-				});
+			const animationMetadataPackage = await createPackageMutation.mutateAsync({
+				projectId,
+				assetRecordId: record.id,
+				compositeVersionId: selectedCompositeVersion.id,
+			});
 			const blob = new Blob([JSON.stringify(animationMetadataPackage)], {
 				type: "application/json",
 			});
@@ -106,13 +124,11 @@ function AnimationMetadataPackagePanelContent({
 			setError(
 				getErrorMessage(failure, "Animasyon metadata paketi indirilemedi.")
 			);
-		} finally {
-			setPending(false);
 		}
 	}
 
 	async function rereadPackage(file: File) {
-		setPending(true);
+		setRereading(true);
 		setError(null);
 		setMessage(null);
 		try {
@@ -139,7 +155,7 @@ function AnimationMetadataPackagePanelContent({
 				compositeVersionId: selectedCompositeVersion.id,
 				package: packageContents,
 			});
-			await client.animationMetadataPackage.readPackage(input);
+			await readPackageMutation.mutateAsync(input);
 			setMessage(
 				"Paket yeniden okundu; metadata ve kesin sürümler seçili Birleşik Sürümle eşleşiyor."
 			);
@@ -148,7 +164,7 @@ function AnimationMetadataPackagePanelContent({
 				getErrorMessage(failure, "Animasyon metadata paketi yeniden okunamadı.")
 			);
 		} finally {
-			setPending(false);
+			setRereading(false);
 		}
 	}
 
@@ -186,14 +202,14 @@ function AnimationMetadataPackagePanelContent({
 			{versionsQuery.isSuccess && compositeVersions.length > 0 ? (
 				<div className="space-y-3">
 					<div className="space-y-2">
-						<label
+						<Label
 							className="font-medium text-sm"
 							htmlFor={compositeVersionSelectId}
 						>
 							Birleşik Sürüm
-						</label>
-						<select
-							className="min-h-11 w-full rounded-md border bg-background px-3 text-sm"
+						</Label>
+						<NativeSelect
+							className="min-h-11 w-full"
 							disabled={pending}
 							id={compositeVersionSelectId}
 							onChange={(event) => {
@@ -203,13 +219,18 @@ function AnimationMetadataPackagePanelContent({
 							}}
 							value={selectedCompositeVersionId}
 						>
-							<option value="">Birleşik Sürüm seçin</option>
+							<NativeSelectOption value="">
+								Birleşik Sürüm seçin
+							</NativeSelectOption>
 							{compositeVersions.map((compositeVersion) => (
-								<option key={compositeVersion.id} value={compositeVersion.id}>
+								<NativeSelectOption
+									key={compositeVersion.id}
+									value={compositeVersion.id}
+								>
 									{getCompositeVersionLabel(compositeVersion)}
-								</option>
+								</NativeSelectOption>
 							))}
-						</select>
+						</NativeSelect>
 					</div>
 					<Button
 						disabled={pending || !selectedCompositeVersion}
@@ -219,13 +240,13 @@ function AnimationMetadataPackagePanelContent({
 						Animasyon metadata paketini indir
 					</Button>
 					<div className="space-y-2">
-						<label
+						<Label
 							className="block font-medium text-sm"
 							htmlFor={packageFileInputId}
 						>
 							Animasyon metadata paketini yeniden oku
-						</label>
-						<input
+						</Label>
+						<Input
 							accept=".json,application/json"
 							className="block min-h-11 w-full text-sm"
 							disabled={pending || !selectedCompositeVersion}

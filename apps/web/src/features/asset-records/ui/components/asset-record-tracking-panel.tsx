@@ -3,10 +3,12 @@ import type {
 	AssetVersionCreateInput,
 	AssetVersionSummary,
 } from "@sprite-anvil/api/asset-record-tracking";
-import { dependencyFacets } from "@sprite-anvil/api/asset-record-tracking";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { Input } from "@sprite-anvil/ui/components/input";
-import type { ReactNode, SyntheticEvent } from "react";
+import { Label } from "@sprite-anvil/ui/components/label";
+import { Textarea } from "@sprite-anvil/ui/components/textarea";
+import { useForm } from "@tanstack/react-form";
+import { useMutation } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useAssetVersionWrites } from "@/features/asset-versions/hooks/use-asset-version-writes";
@@ -14,18 +16,24 @@ import { LiveFileLinkPanel } from "@/features/production-provenance/ui/component
 import { VersionProductionEvidencePanel } from "@/features/production-provenance/ui/components/version-production-evidence-panel";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client } from "@/utils/orpc";
-
-const dependencyFacetLabels = {
-	identity: "Kimlik",
-	silhouette: "Siluet",
-	equipment: "Ekipman",
-	palette: "Palet",
-	theme: "Tema",
-	perspective: "Perspektif",
-	timing: "Zamanlama",
-	other: "Diğer",
-} as const;
+import { mutationMeta } from "@/utils/mutation-meta";
+import { orpc } from "@/utils/orpc";
+import { trackingReviewRationaleFormSchema } from "../../schemas";
+import {
+	AssetFamilyForm,
+	type AssetFamilyValues,
+	useAssetFamilyForm,
+} from "../forms/asset-family-form";
+import {
+	CandidateVersionForm,
+	type CandidateVersionValues,
+	useCandidateVersionForm,
+} from "../forms/candidate-version-form";
+import {
+	DerivativeLinkForm,
+	type DerivativeLinkValues,
+	useDerivativeLinkForm,
+} from "../forms/derivative-link-form";
 
 const userRelationshipLabels = {
 	created_by_user: "Kullanıcı oluşturdu",
@@ -51,27 +59,10 @@ interface PendingWrite {
 }
 
 interface FamilyAndDerivativeSectionProps {
-	actions: {
-		createDerivative: (event: SyntheticEvent<HTMLFormElement>) => void;
-		createFamily: (event: SyntheticEvent<HTMLFormElement>) => void;
-	};
 	busy: boolean;
+	derivativeForm: ReturnType<typeof useDerivativeLinkForm>;
 	detail: AssetRecordTrackingDetail;
-	form: {
-		derivativeAssetRecordId: string;
-		familyName: string;
-		familyUseContext: string;
-		selectedDependencyFacets: (typeof dependencyFacets)[number][];
-		visualWorldId: string;
-		setDerivativeAssetRecordId: (value: string) => void;
-		setFamilyName: (value: string) => void;
-		setFamilyUseContext: (value: string) => void;
-		setVisualWorldId: (value: string) => void;
-		toggleDependencyFacet: (
-			value: (typeof dependencyFacets)[number],
-			checked: boolean
-		) => void;
-	};
+	familyForm: ReturnType<typeof useAssetFamilyForm>;
 }
 
 function bytesToBase64(bytes: Uint8Array) {
@@ -85,102 +76,27 @@ function bytesToBase64(bytes: Uint8Array) {
 	return btoa(chunks.join(""));
 }
 
-function fieldsetCheckboxes<T extends string>({
-	legend,
-	options,
-	selected,
-	onToggle,
-}: {
-	legend: string;
-	options: readonly T[];
-	selected: readonly T[];
-	onToggle: (value: T, checked: boolean) => void;
-}) {
-	return (
-		<fieldset className="space-y-2">
-			<legend className="font-medium text-sm">{legend}</legend>
-			<div className="grid gap-2 sm:grid-cols-2">
-				{options.map((value) => {
-					const label =
-						dependencyFacetLabels[value as keyof typeof dependencyFacetLabels];
-					return (
-						<label className="flex items-center gap-2 text-sm" key={value}>
-							<input
-								checked={selected.includes(value)}
-								className="size-4 accent-primary"
-								onChange={(event) => onToggle(value, event.target.checked)}
-								type="checkbox"
-							/>
-							<span>{label ?? value}</span>
-						</label>
-					);
-				})}
-			</div>
-		</fieldset>
-	);
-}
-
 function FamilyAndDerivativeSection({
-	detail,
 	busy,
-	form,
-	actions,
+	derivativeForm,
+	detail,
+	familyForm,
 }: FamilyAndDerivativeSectionProps) {
 	const { record, tracking } = detail;
 	let familyControls: ReactNode = null;
 	if (tracking.family?.canonicalVersionId) {
 		familyControls = (
-			<form
-				className="mt-4 space-y-3 border-t pt-3"
-				onSubmit={actions.createDerivative}
-			>
-				<p className="text-sm">
-					Varlık Ailesi: {tracking.family.name} ·{" "}
-					{tracking.family.visualWorldName}
-				</p>
-				<label className="block space-y-1 text-sm" htmlFor="derivative-record">
-					<span>Türetilmiş Asset Record</span>
-					<select
-						className="w-full rounded-md border bg-background px-3 py-2"
-						id="derivative-record"
-						onChange={(event) =>
-							form.setDerivativeAssetRecordId(event.target.value)
-						}
-						required
-						value={form.derivativeAssetRecordId}
-					>
-						<option value="">Kayıt seçin</option>
-						{tracking.availableRecords
-							.filter(
-								(option) =>
-									option.id !== record.id &&
-									(!option.assetFamilyId ||
-										option.assetFamilyId === tracking.family?.id)
-							)
-							.map((option) => (
-								<option key={option.id} value={option.id}>
-									{option.name}
-								</option>
-							))}
-					</select>
-				</label>
-				{fieldsetCheckboxes({
-					legend: "Bağımlılık Tanımı",
-					options: dependencyFacets,
-					selected: form.selectedDependencyFacets,
-					onToggle: form.toggleDependencyFacet,
-				})}
-				<Button
-					disabled={
-						busy ||
-						!form.derivativeAssetRecordId ||
-						form.selectedDependencyFacets.length === 0
-					}
-					type="submit"
-				>
-					Türevi bağla
-				</Button>
-			</form>
+			<DerivativeLinkForm
+				busy={busy}
+				familyLabel={`Varlık Ailesi: ${tracking.family.name} · ${tracking.family.visualWorldName}`}
+				form={derivativeForm}
+				options={tracking.availableRecords.filter(
+					(option) =>
+						option.id !== record.id &&
+						(!option.assetFamilyId ||
+							option.assetFamilyId === tracking.family?.id)
+				)}
+			/>
 		);
 	} else if (tracking.family) {
 		familyControls = (
@@ -197,64 +113,12 @@ function FamilyAndDerivativeSection({
 		);
 	} else if (tracking.approvedVersion && tracking.visualWorlds.length > 0) {
 		familyControls = (
-			<form
-				className="mt-4 space-y-3 border-t pt-3"
-				onSubmit={actions.createFamily}
-			>
-				<h4 className="font-medium text-sm">
-					Türetilmiş varlıklar için aile oluştur
-				</h4>
-				<label className="block space-y-1 text-sm" htmlFor="family-name">
-					<span>Aile adı</span>
-					<Input
-						id="family-name"
-						onChange={(event) => form.setFamilyName(event.target.value)}
-						required
-						value={form.familyName}
-					/>
-				</label>
-				<label className="block space-y-1 text-sm" htmlFor="family-world">
-					<span>Görsel Dünya</span>
-					<select
-						className="w-full rounded-md border bg-background px-3 py-2"
-						id="family-world"
-						onChange={(event) => form.setVisualWorldId(event.target.value)}
-						required
-						value={form.visualWorldId}
-					>
-						<option value="">Görsel Dünya seçin</option>
-						{tracking.visualWorlds.map((world) => (
-							<option key={world.id} value={world.id}>
-								{world.name}
-							</option>
-						))}
-					</select>
-				</label>
-				<label className="block space-y-1 text-sm" htmlFor="family-use-context">
-					<span>Kullanım bağlamı</span>
-					<Input
-						id="family-use-context"
-						onChange={(event) => form.setFamilyUseContext(event.target.value)}
-						required
-						value={form.familyUseContext}
-					/>
-				</label>
-				<p className="text-muted-foreground text-xs">
-					Ana Tasarım olarak Onaylı Sürüm kullanılacak:{" "}
-					{displayFileName(tracking.approvedVersion.fileName)}.
-				</p>
-				<Button
-					disabled={
-						busy ||
-						form.familyName.trim().length === 0 ||
-						form.familyUseContext.trim().length === 0 ||
-						!form.visualWorldId
-					}
-					type="submit"
-				>
-					Aileyi oluştur
-				</Button>
-			</form>
+			<AssetFamilyForm
+				approvedFileName={displayFileName(tracking.approvedVersion.fileName)}
+				busy={busy}
+				form={familyForm}
+				visualWorlds={tracking.visualWorlds}
+			/>
 		);
 	} else if (tracking.approvedVersion) {
 		familyControls = (
@@ -338,23 +202,28 @@ export function AssetRecordTrackingPanel({
 	const derivativeRequest = useRef<{ id: string; signature: string } | null>(
 		null
 	);
+	const createVersionMutation = useMutation(
+		orpc.assetRecords.createVersion.mutationOptions(mutationMeta)
+	);
+	const recordReviewMutation = useMutation(
+		orpc.assetRecords.recordReview.mutationOptions(mutationMeta)
+	);
+	const createFamilyMutation = useMutation(
+		orpc.assetRecords.createFamily.mutationOptions(mutationMeta)
+	);
+	const createDerivativeMutation = useMutation(
+		orpc.assetRecords.createDerivative.mutationOptions(mutationMeta)
+	);
 	const [activeWrite, setActiveWrite] = useState<string | null>(null);
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
-	const [file, setFile] = useState<File | null>(null);
-	const [knownSource, setKnownSource] = useState("");
-	const [unknownHistoryDetails, setUnknownHistoryDetails] = useState("");
-	const [userRelationship, setUserRelationship] =
-		useState<AssetVersionCreateInput["userRelationship"]>("unknown");
-	const [supportingEvidence, setSupportingEvidence] = useState("");
-	const [reviewRationale, setReviewRationale] = useState("");
-	const [familyName, setFamilyName] = useState("");
-	const [familyUseContext, setFamilyUseContext] = useState("");
-	const [visualWorldId, setVisualWorldId] = useState("");
-	const [derivativeAssetRecordId, setDerivativeAssetRecordId] = useState("");
-	const [selectedDependencyFacets, setSelectedDependencyFacets] = useState<
-		(typeof dependencyFacets)[number][]
-	>([]);
+	const reviewForm = useForm({
+		defaultValues: { rationale: "" },
+		validators: { onChange: trackingReviewRationaleFormSchema },
+	});
+	const candidateVersionForm = useCandidateVersionForm(createVersion);
+	const familyForm = useAssetFamilyForm(createFamily);
+	const derivativeForm = useDerivativeLinkForm(createDerivative);
 
 	async function runWrite(
 		label: string,
@@ -422,21 +291,13 @@ export function AssetRecordTrackingPanel({
 		}
 	}
 
-	function toggle<T extends string>(
-		current: readonly T[],
-		value: T,
-		checked: boolean,
-		update: (next: T[]) => void
-	) {
-		update(
-			checked
-				? [...new Set([...current, value])]
-				: current.filter((item) => item !== value)
-		);
-	}
-
-	async function createVersion(event: SyntheticEvent<HTMLFormElement>) {
-		event.preventDefault();
+	async function createVersion({
+		file,
+		knownSource,
+		supportingEvidence,
+		unknownHistoryDetails,
+		userRelationship,
+	}: CandidateVersionValues) {
 		if (!(file && record)) {
 			return;
 		}
@@ -491,7 +352,7 @@ export function AssetRecordTrackingPanel({
 						)
 				);
 			},
-			() => client.assetRecords.createVersion(input)
+			() => createVersionMutation.mutateAsync(input)
 		);
 	}
 
@@ -502,7 +363,7 @@ export function AssetRecordTrackingPanel({
 		if (!record) {
 			return;
 		}
-		const rationale = reviewRationale.trim() || null;
+		const rationale = reviewForm.state.values.rationale.trim() || null;
 		const signature = JSON.stringify({ versionId, decision, rationale });
 		if (reviewRequest.current?.signature !== signature) {
 			reviewRequest.current = { id: crypto.randomUUID(), signature };
@@ -517,7 +378,7 @@ export function AssetRecordTrackingPanel({
 					(event) => event.id === request.id
 				),
 			() =>
-				client.assetRecords.recordReview({
+				recordReviewMutation.mutateAsync({
 					assetRecordId: record.id,
 					decision,
 					id: request.id,
@@ -528,8 +389,11 @@ export function AssetRecordTrackingPanel({
 		);
 	}
 
-	async function createFamily(event: SyntheticEvent<HTMLFormElement>) {
-		event.preventDefault();
+	async function createFamily({
+		familyName,
+		familyUseContext,
+		visualWorldId,
+	}: AssetFamilyValues) {
 		if (!(record && tracking.approvedVersion && visualWorldId)) {
 			return;
 		}
@@ -548,7 +412,7 @@ export function AssetRecordTrackingPanel({
 			"Varlık Ailesi kaydedildi.",
 			(refreshed) => refreshed.tracking.family?.id === request.id,
 			() =>
-				client.assetRecords.createFamily({
+				createFamilyMutation.mutateAsync({
 					assetRecordId: record.id,
 					canonicalVersionId: tracking.approvedVersion?.id as string,
 					id: request.id,
@@ -560,8 +424,10 @@ export function AssetRecordTrackingPanel({
 		);
 	}
 
-	async function createDerivative(event: SyntheticEvent<HTMLFormElement>) {
-		event.preventDefault();
+	async function createDerivative({
+		dependencyFacets: selectedDependencyFacets,
+		derivativeAssetRecordId,
+	}: DerivativeLinkValues) {
 		const { family } = tracking;
 		const canonicalVersionId = family?.canonicalVersionId;
 		if (
@@ -585,7 +451,7 @@ export function AssetRecordTrackingPanel({
 			(refreshed) =>
 				refreshed.tracking.derivatives.some((entry) => entry.id === request.id),
 			() =>
-				client.assetRecords.createDerivative({
+				createDerivativeMutation.mutateAsync({
 					canonicalVersionId,
 					dependencyFacets: selectedDependencyFacets,
 					derivedAssetRecordId: derivativeAssetRecordId,
@@ -768,19 +634,24 @@ export function AssetRecordTrackingPanel({
 							Henüz alternatif sürüm yok.
 						</p>
 					)}
-					<label
-						className="mt-3 block space-y-1 text-sm"
+					<Label
+						className="mt-3 block space-y-1 text-sm leading-normal"
 						htmlFor="review-rationale"
 					>
 						<span>İnceleme gerekçesi (isteğe bağlı)</span>
-						<textarea
-							className="min-h-16 w-full rounded-md border bg-background px-3 py-2"
-							id="review-rationale"
-							maxLength={1000}
-							onChange={(event) => setReviewRationale(event.target.value)}
-							value={reviewRationale}
-						/>
-					</label>
+						<reviewForm.Field name="rationale">
+							{(field) => (
+								<Textarea
+									className="w-full"
+									id="review-rationale"
+									maxLength={1000}
+									onBlur={field.handleBlur}
+									onChange={(event) => field.handleChange(event.target.value)}
+									value={field.state.value}
+								/>
+							)}
+						</reviewForm.Field>
+					</Label>
 					{tracking.reviewEvents.length > 0 ? (
 						<div className="mt-4 border-t pt-3">
 							<h4 className="font-medium text-sm">İnceleme geçmişi</h4>
@@ -811,27 +682,10 @@ export function AssetRecordTrackingPanel({
 				</section>
 
 				<FamilyAndDerivativeSection
-					actions={{ createDerivative, createFamily }}
 					busy={activeWrite !== null || writeOutcomeUncertain}
+					derivativeForm={derivativeForm}
 					detail={detail}
-					form={{
-						derivativeAssetRecordId,
-						familyName,
-						familyUseContext,
-						selectedDependencyFacets,
-						visualWorldId,
-						setDerivativeAssetRecordId,
-						setFamilyName,
-						setFamilyUseContext,
-						setVisualWorldId,
-						toggleDependencyFacet: (value, checked) =>
-							toggle(
-								selectedDependencyFacets,
-								value,
-								checked,
-								setSelectedDependencyFacets
-							),
-					}}
+					familyForm={familyForm}
 				/>
 
 				<section
@@ -961,104 +815,11 @@ export function AssetRecordTrackingPanel({
 					Dosya R2’de değişmez Varlık Sürümü olarak saklanır. Bu akış eski
 					varlık beyanı alır; bilinmeyen üretim geçmişini tahmin etmez.
 				</p>
-				<form
-					className="mt-4 space-y-3"
-					onSubmit={(event) => void createVersion(event)}
-				>
-					<label
-						className="block space-y-1 text-sm"
-						htmlFor="asset-version-file"
-					>
-						<span>PNG veya WebP dosyası</span>
-						<Input
-							accept="image/png,image/webp"
-							id="asset-version-file"
-							onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-							required
-							type="file"
-						/>
-					</label>
-					<label
-						className="block space-y-1 text-sm"
-						htmlFor="asset-version-missing-history"
-					>
-						<span>Bilinmeyen üretim geçmişi</span>
-						<textarea
-							className="min-h-20 w-full rounded-md border bg-background px-3 py-2"
-							id="asset-version-missing-history"
-							maxLength={1000}
-							onChange={(event) => setUnknownHistoryDetails(event.target.value)}
-							placeholder="Bilinmeyen üretim bilgilerini belirtin."
-							required
-							value={unknownHistoryDetails}
-						/>
-					</label>
-					<label
-						className="block space-y-1 text-sm"
-						htmlFor="asset-version-source"
-					>
-						<span>Bilinen kaynak</span>
-						<Input
-							id="asset-version-source"
-							onChange={(event) => setKnownSource(event.target.value)}
-							value={knownSource}
-						/>
-					</label>
-					<label
-						className="block space-y-1 text-sm"
-						htmlFor="asset-version-relationship"
-					>
-						<span>Varlıkla ilişkiniz</span>
-						<select
-							className="w-full rounded-md border bg-background px-3 py-2"
-							id="asset-version-relationship"
-							onChange={(event) =>
-								setUserRelationship(
-									event.target
-										.value as AssetVersionCreateInput["userRelationship"]
-								)
-							}
-							value={userRelationship}
-						>
-							<option value="unknown">Bilinmiyor</option>
-							<option value="created_by_user">Ben oluşturdum</option>
-							<option value="received_from_team">Ekipten aldım</option>
-							<option value="licensed_third_party">
-								Lisanslı üçüncü taraf
-							</option>
-						</select>
-					</label>
-					<label
-						className="block space-y-1 text-sm"
-						htmlFor="asset-version-evidence"
-					>
-						<span>Destekleyici kanıt</span>
-						<textarea
-							className="min-h-20 w-full rounded-md border bg-background px-3 py-2"
-							id="asset-version-evidence"
-							onChange={(event) => setSupportingEvidence(event.target.value)}
-							value={supportingEvidence}
-						/>
-					</label>
-					<p className="text-muted-foreground text-xs">
-						Eski üretim geçmişi bilinmiyor olarak kaydedilecek.
-					</p>
-					<Button
-						disabled={
-							activeWrite !== null ||
-							writeOutcomeUncertain ||
-							!unknownHistoryDetails.trim() ||
-							!file ||
-							file.size > 5 * 1024 * 1024 ||
-							!["image/png", "image/webp"].includes(file.type)
-						}
-						type="submit"
-					>
-						{activeWrite === "Aday Sürüm kaydedildi."
-							? "Kaydediliyor…"
-							: "Aday sürümü kaydet"}
-					</Button>
-				</form>
+				<CandidateVersionForm
+					busy={activeWrite !== null || writeOutcomeUncertain}
+					form={candidateVersionForm}
+					saving={activeWrite === "Aday Sürüm kaydedildi."}
+				/>
 			</section>
 		</section>
 	);

@@ -1,3 +1,7 @@
+import { Checkbox } from "@sprite-anvil/ui/components/checkbox";
+import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
+import { Input } from "@sprite-anvil/ui/components/input";
+import { Label } from "@sprite-anvil/ui/components/label";
 import { useId } from "react";
 
 const facetLabels = [
@@ -10,52 +14,58 @@ const facetLabels = [
 	["timing", "Zamanlama"],
 ] as const;
 
+interface ValueField<T> {
+	handleBlur: () => void;
+	handleChange: (value: T) => void;
+	state: { value: T };
+}
+
 export function DependencyFacets({
-	value,
-	onChange,
-	other,
-	onOtherChange,
+	facetsField,
+	otherField,
+	disabled,
 	legend,
 }: {
-	value: string[];
-	onChange: (value: string[]) => void;
-	other: string;
-	onOtherChange: (value: string) => void;
+	facetsField: ValueField<string[]>;
+	otherField: ValueField<string>;
+	disabled: boolean;
 	legend: string;
 }) {
 	const otherId = useId();
+	const { value } = facetsField.state;
 	return (
-		<fieldset className="space-y-3">
-			<legend className="font-medium">{legend}</legend>
+		<FieldSet className="space-y-3">
+			<FieldLegend className="font-medium">{legend}</FieldLegend>
 			<div className="flex flex-wrap gap-4">
 				{facetLabels.map(([facet, label]) => (
-					<label className="flex items-center gap-2" key={facet}>
-						<input
+					<Label className="flex items-center gap-2" key={facet}>
+						<Checkbox
 							checked={value.includes(facet)}
-							onChange={(event) =>
-								onChange(
-									event.target.checked
+							disabled={disabled}
+							onCheckedChange={(checked) =>
+								facetsField.handleChange(
+									checked
 										? [...value, facet]
 										: value.filter((selected) => selected !== facet)
 								)
 							}
-							type="checkbox"
 						/>
 						{label}
-					</label>
+					</Label>
 				))}
 			</div>
-			<label className="block space-y-1" htmlFor={otherId}>
+			<Label className="block space-y-1" htmlFor={otherId}>
 				<span>Diğer özellik</span>
-				<input
-					className="w-full rounded border px-3 py-2"
+				<Input
+					className="w-full"
 					id={otherId}
 					maxLength={80}
-					onChange={(event) => onOtherChange(event.target.value)}
-					value={other}
+					onBlur={otherField.handleBlur}
+					onChange={(event) => otherField.handleChange(event.target.value)}
+					value={otherField.state.value}
 				/>
-			</label>
-		</fieldset>
+			</Label>
+		</FieldSet>
 	);
 }
 

@@ -4,18 +4,21 @@ import type {
 	AssetVersionReviewInput,
 } from "@sprite-anvil/api/asset-versions";
 import { Button } from "@sprite-anvil/ui/components/button";
+import { Label } from "@sprite-anvil/ui/components/label";
+import { Textarea } from "@sprite-anvil/ui/components/textarea";
+import { useForm, useStore } from "@tanstack/react-form";
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
 import { ENV } from "@/env";
 import { ExternalWorkingFileEditUpload } from "@/features/production-provenance/ui/components/external-working-file-edit-upload";
 import { VersionProductionEvidencePanel } from "@/features/production-provenance/ui/components/version-production-evidence-panel";
 import type { useAssetVersionWrites } from "../../hooks/use-asset-version-writes";
+import { reviewDispositionLabels } from "../../lib/review-disposition-labels";
+import { reviewRationaleFormSchema } from "../../schemas";
 import { AssetVersionPreview } from "./asset-version-preview";
 import { BatchReviewControls } from "./batch-review-controls";
 import { CompositeVersionControls } from "./composite-version-controls";
 import { ProviderGenerationRecordDetails } from "./provider-generation-record-details";
 import { ProviderGenerationRecordForm } from "./provider-generation-record-form";
-import { reviewDispositionLabels } from "./review-disposition-labels";
 import {
 	UnitVersionCorrectionForm,
 	UnitVersionHistory,
@@ -320,7 +323,11 @@ function AssetVersionReviewControls({
 	version: AssetVersionCatalog["assetVersions"][number];
 	writes: ReturnType<typeof useAssetVersionWrites>;
 }) {
-	const [rationale, setRationale] = useState("");
+	const form = useForm({
+		defaultValues: { rationale: "" },
+		validators: { onChange: reviewRationaleFormSchema },
+	});
+	const rationale = useStore(form.store, (state) => state.values.rationale);
 	const providerGenerationRecordMissing =
 		version.productionSource === "connected_provider" &&
 		!version.providerGenerationRecord;
@@ -337,20 +344,27 @@ function AssetVersionReviewControls({
 
 	return (
 		<div className="space-y-2">
-			<label
+			<Label
 				className="block space-y-1 text-sm"
 				htmlFor={`review-rationale-${version.id}`}
 			>
 				<span>İnceleme gerekçesi</span>
-				<textarea
-					className="min-h-20 w-full rounded-md border bg-background px-3 py-2"
-					id={`review-rationale-${version.id}`}
-					maxLength={2000}
-					onChange={(event) => setRationale(event.currentTarget.value)}
-					required
-					value={rationale}
-				/>
-			</label>
+				<form.Field name="rationale">
+					{(field) => (
+						<Textarea
+							className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm md:text-sm"
+							id={`review-rationale-${version.id}`}
+							maxLength={2000}
+							onBlur={field.handleBlur}
+							onChange={(event) =>
+								field.handleChange(event.currentTarget.value)
+							}
+							required
+							value={field.state.value}
+						/>
+					)}
+				</form.Field>
+			</Label>
 			<div className="flex flex-wrap gap-2">
 				{version.reviewDisposition === "approved" ? null : (
 					<Button

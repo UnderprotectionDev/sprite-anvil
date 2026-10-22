@@ -7,12 +7,20 @@ import type {
 	ContextScope,
 } from "@sprite-anvil/api/project-context";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQuery } from "@tanstack/react-query";
-import type { SyntheticEvent } from "react";
+import { Checkbox } from "@sprite-anvil/ui/components/checkbox";
+import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
+import { Input } from "@sprite-anvil/ui/components/input";
+import { Label } from "@sprite-anvil/ui/components/label";
+import { Textarea } from "@sprite-anvil/ui/components/textarea";
+import { useForm } from "@tanstack/react-form";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import type z from "zod";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client, orpc } from "@/utils/orpc";
+import { mutationMeta } from "@/utils/mutation-meta";
+import { orpc } from "@/utils/orpc";
+import { generationPackageFormSchema } from "../../schemas";
 
 const referenceRoleLabels = {
 	avoid: "Kaçınılacak özellik",
@@ -51,6 +59,8 @@ const contextScopeLabels: Record<ContextScope["kind"], string> = {
 	theme: "Tema",
 	visual_world: "Görsel Dünya",
 };
+
+type GenerationPackageFormValues = z.infer<typeof generationPackageFormSchema>;
 
 const newlinePattern = /\r?\n/;
 
@@ -216,6 +226,39 @@ function GenerationPackageDetails({
 	);
 }
 
+function ConstraintField({
+	id,
+	label,
+	onBlur,
+	onValueChange,
+	value,
+}: {
+	id: string;
+	label: string;
+	onBlur: () => void;
+	onValueChange: (value: string) => void;
+	value: string;
+}) {
+	return (
+		<div className="space-y-2">
+			<Label className="font-medium text-sm leading-normal" htmlFor={id}>
+				{label}
+			</Label>
+			<Textarea
+				className="min-h-16 w-full"
+				id={id}
+				maxLength={15_000}
+				onBlur={onBlur}
+				onChange={(event) => onValueChange(event.target.value)}
+				value={value}
+			/>
+			<p className="text-muted-foreground text-xs">
+				Her satıra bir özellik yazın.
+			</p>
+		</div>
+	);
+}
+
 export function GenerationPackagePanel({
 	projectId,
 	record,
@@ -223,21 +266,10 @@ export function GenerationPackagePanel({
 	projectId: string;
 	record: AssetRecord;
 }) {
-	const [targetTask, setTargetTask] = useState("");
-	const [targetWidth, setTargetWidth] = useState(() =>
-		String(record.measurements.logicalResolution.confirmed?.width ?? "")
-	);
-	const [targetHeight, setTargetHeight] = useState(() =>
-		String(record.measurements.logicalResolution.confirmed?.height ?? "")
-	);
-	const [expectedOutputStructure, setExpectedOutputStructure] = useState("");
-	const [preserveConstraints, setPreserveConstraints] = useState("");
-	const [changeConstraints, setChangeConstraints] = useState("");
-	const [avoidConstraints, setAvoidConstraints] = useState("");
-	const [lockedUnitVersionIds, setLockedUnitVersionIds] = useState<string[]>(
-		[]
-	);
 	const [isSaving, setIsSaving] = useState(false);
+	const createPackage = useMutation(
+		orpc.generationPackages.create.mutationOptions(mutationMeta)
+	);
 	const [isCheckingOutcome, setIsCheckingOutcome] = useState(false);
 	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -259,15 +291,11 @@ export function GenerationPackagePanel({
 		);
 	const generationPackages = packagesQuery.data ?? [];
 
-	function toggleLockedUnit(id: string, checked: boolean) {
-		setLockedUnitVersionIds((current) =>
-			checked
-				? [...current, id]
-				: current.filter((currentId) => currentId !== id)
-		);
-	}
-
-	function renderUnitVersionOptions() {
+	function renderUnitVersionOptions(
+		selectedIds: string[],
+		toggle: (id: string, checked: boolean) => void,
+		disabled: boolean
+	) {
 		if (assetVersionsQuery.isPending) {
 			return (
 				<p aria-live="polite" className="text-muted-foreground text-sm">
@@ -301,20 +329,18 @@ export function GenerationPackagePanel({
 		return (
 			<div className="space-y-2">
 				{unitVersions.map((unit) => (
-					<label
-						className="flex items-start gap-3 rounded-md border p-3 text-sm"
+					<Label
+						className="items-start gap-3 rounded-md border p-3 text-sm leading-normal"
 						key={unit.id}
 					>
-						<input
-							checked={lockedUnitVersionIds.includes(unit.id)}
-							className="mt-0.5 size-4 accent-primary"
-							onChange={(event) =>
-								toggleLockedUnit(unit.id, event.target.checked)
-							}
-							type="checkbox"
+						<Checkbox
+							checked={selectedIds.includes(unit.id)}
+							className="mt-0.5"
+							disabled={disabled}
+							onCheckedChange={(checked) => toggle(unit.id, checked)}
 						/>
 						<span>{getUnitVersionLabel(unit)}</span>
-					</label>
+					</Label>
 				))}
 			</div>
 		);
@@ -363,8 +389,26 @@ export function GenerationPackagePanel({
 		);
 	}
 
-	async function handleCreate(event: SyntheticEvent<HTMLFormElement>) {
-		event.preventDefault();
+	const form = useForm({
+		defaultValues: {
+			avoidConstraints: "",
+			changeConstraints: "",
+			expectedOutputStructure: "",
+			lockedUnitVersionIds: [] as string[],
+			preserveConstraints: "",
+			targetHeight: String(
+				record.measurements.logicalResolution.confirmed?.height ?? ""
+			),
+			targetTask: "",
+			targetWidth: String(
+				record.measurements.logicalResolution.confirmed?.width ?? ""
+			),
+		},
+		onSubmit: ({ value }) => handleCreate(value),
+		validators: { onSubmit: generationPackageFormSchema },
+	});
+
+	async function handleCreate(value: GenerationPackageFormValues) {
 		if (writeOutcomeUncertain) {
 			return;
 		}
@@ -372,26 +416,26 @@ export function GenerationPackagePanel({
 		setStatusMessage(null);
 		setIsSaving(true);
 		try {
-			await client.generationPackages.create({
+			await createPackage.mutateAsync({
 				assetRecordId: record.id,
-				avoidConstraints: parseConstraintLines(avoidConstraints),
-				changeConstraints: parseConstraintLines(changeConstraints),
-				expectedOutputStructure,
-				lockedUnitVersionIds,
-				preserveConstraints: parseConstraintLines(preserveConstraints),
+				avoidConstraints: parseConstraintLines(value.avoidConstraints),
+				changeConstraints: parseConstraintLines(value.changeConstraints),
+				expectedOutputStructure: value.expectedOutputStructure,
+				lockedUnitVersionIds: value.lockedUnitVersionIds,
+				preserveConstraints: parseConstraintLines(value.preserveConstraints),
 				projectId,
 				targetDimensions: {
-					height: Number(targetHeight),
-					width: Number(targetWidth),
+					height: Number(value.targetHeight),
+					width: Number(value.targetWidth),
 				},
-				targetTask,
+				targetTask: value.targetTask,
 			});
-			setTargetTask("");
-			setExpectedOutputStructure("");
-			setPreserveConstraints("");
-			setChangeConstraints("");
-			setAvoidConstraints("");
-			setLockedUnitVersionIds([]);
+			form.setFieldValue("targetTask", "");
+			form.setFieldValue("expectedOutputStructure", "");
+			form.setFieldValue("preserveConstraints", "");
+			form.setFieldValue("changeConstraints", "");
+			form.setFieldValue("avoidConstraints", "");
+			form.setFieldValue("lockedUnitVersionIds", []);
 			setStatusMessage("Üretim Paketi oluşturuldu ve kaydedildi.");
 			try {
 				const result = await packagesQuery.refetch();
@@ -471,142 +515,180 @@ export function GenerationPackagePanel({
 				</p>
 			</header>
 
-			<form className="space-y-4" onSubmit={handleCreate}>
-				<fieldset
-					className="space-y-4"
+			<form
+				className="space-y-4"
+				onSubmit={(event) => {
+					event.preventDefault();
+					event.stopPropagation();
+					form.handleSubmit();
+				}}
+			>
+				<FieldSet
+					className="gap-4"
 					disabled={isSaving || writeOutcomeUncertain}
 				>
-					<legend className="sr-only">Üretim paketi bilgileri</legend>
-					<div className="space-y-2">
-						<label
-							className="font-medium text-sm"
-							htmlFor="generation-target-task"
-						>
-							Üretim hedefi
-						</label>
-						<textarea
-							className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm"
-							id="generation-target-task"
-							maxLength={2000}
-							onChange={(event) => setTargetTask(event.target.value)}
-							required
-							value={targetTask}
-						/>
-					</div>
+					<FieldLegend className="sr-only">Üretim paketi bilgileri</FieldLegend>
+					<form.Field name="targetTask">
+						{(field) => (
+							<div className="space-y-2">
+								<Label
+									className="font-medium text-sm leading-normal"
+									htmlFor="generation-target-task"
+								>
+									Üretim hedefi
+								</Label>
+								<Textarea
+									className="min-h-20 w-full"
+									id="generation-target-task"
+									maxLength={2000}
+									onBlur={field.handleBlur}
+									onChange={(event) => field.handleChange(event.target.value)}
+									required
+									value={field.state.value}
+								/>
+							</div>
+						)}
+					</form.Field>
 
-					<fieldset className="space-y-2">
-						<legend className="font-medium text-sm">Hedef ölçüleri</legend>
+					<FieldSet className="gap-2">
+						<FieldLegend className="mb-0" variant="label">
+							Hedef ölçüleri
+						</FieldLegend>
 						<p className="text-muted-foreground text-sm">
 							Kaydın onaylı mantıksal ölçüleri başlangıç değeri olarak
 							kullanılır; bu deneme için değiştirebilirsiniz.
 						</p>
 						<div className="grid gap-3 sm:grid-cols-2">
-							<div className="space-y-2">
-								<label
-									className="font-medium text-sm"
-									htmlFor="generation-target-width"
-								>
-									Hedef genişlik (px)
-								</label>
-								<input
-									className="h-9 w-full rounded-md border bg-background px-3 text-sm"
-									id="generation-target-width"
-									max={100_000}
-									min={1}
-									onChange={(event) => setTargetWidth(event.target.value)}
-									required
-									step={1}
-									type="number"
-									value={targetWidth}
-								/>
-							</div>
-							<div className="space-y-2">
-								<label
-									className="font-medium text-sm"
-									htmlFor="generation-target-height"
-								>
-									Hedef yükseklik (px)
-								</label>
-								<input
-									className="h-9 w-full rounded-md border bg-background px-3 text-sm"
-									id="generation-target-height"
-									max={100_000}
-									min={1}
-									onChange={(event) => setTargetHeight(event.target.value)}
-									required
-									step={1}
-									type="number"
-									value={targetHeight}
-								/>
-							</div>
+							<form.Field name="targetWidth">
+								{(field) => (
+									<div className="space-y-2">
+										<Label
+											className="font-medium text-sm leading-normal"
+											htmlFor="generation-target-width"
+										>
+											Hedef genişlik (px)
+										</Label>
+										<Input
+											id="generation-target-width"
+											max={100_000}
+											min={1}
+											onBlur={field.handleBlur}
+											onChange={(event) =>
+												field.handleChange(event.target.value)
+											}
+											required
+											step={1}
+											type="number"
+											value={field.state.value}
+										/>
+									</div>
+								)}
+							</form.Field>
+							<form.Field name="targetHeight">
+								{(field) => (
+									<div className="space-y-2">
+										<Label
+											className="font-medium text-sm leading-normal"
+											htmlFor="generation-target-height"
+										>
+											Hedef yükseklik (px)
+										</Label>
+										<Input
+											id="generation-target-height"
+											max={100_000}
+											min={1}
+											onBlur={field.handleBlur}
+											onChange={(event) =>
+												field.handleChange(event.target.value)
+											}
+											required
+											step={1}
+											type="number"
+											value={field.state.value}
+										/>
+									</div>
+								)}
+							</form.Field>
 						</div>
-					</fieldset>
+					</FieldSet>
 
-					{(
-						[
-							{
-								id: "generation-preserve-constraints",
-								label: "Korunacak özellikler",
-								value: preserveConstraints,
-								setValue: setPreserveConstraints,
-							},
-							{
-								id: "generation-change-constraints",
-								label: "Değiştirilecek özellikler",
-								value: changeConstraints,
-								setValue: setChangeConstraints,
-							},
-							{
-								id: "generation-avoid-constraints",
-								label: "Kaçınılacak özellikler",
-								value: avoidConstraints,
-								setValue: setAvoidConstraints,
-							},
-						] as const
-					).map(({ id, label, value, setValue }) => (
-						<div className="space-y-2" key={label}>
-							<label className="font-medium text-sm" htmlFor={id}>
-								{label}
-							</label>
-							<textarea
-								className="min-h-16 w-full rounded-md border bg-background px-3 py-2 text-sm"
-								id={id}
-								maxLength={15_000}
-								onChange={(event) => setValue(event.target.value)}
-								value={value}
+					<form.Field name="preserveConstraints">
+						{(field) => (
+							<ConstraintField
+								id="generation-preserve-constraints"
+								label="Korunacak özellikler"
+								onBlur={field.handleBlur}
+								onValueChange={field.handleChange}
+								value={field.state.value}
 							/>
-							<p className="text-muted-foreground text-xs">
-								Her satıra bir özellik yazın.
-							</p>
-						</div>
-					))}
+						)}
+					</form.Field>
+					<form.Field name="changeConstraints">
+						{(field) => (
+							<ConstraintField
+								id="generation-change-constraints"
+								label="Değiştirilecek özellikler"
+								onBlur={field.handleBlur}
+								onValueChange={field.handleChange}
+								value={field.state.value}
+							/>
+						)}
+					</form.Field>
+					<form.Field name="avoidConstraints">
+						{(field) => (
+							<ConstraintField
+								id="generation-avoid-constraints"
+								label="Kaçınılacak özellikler"
+								onBlur={field.handleBlur}
+								onValueChange={field.handleChange}
+								value={field.state.value}
+							/>
+						)}
+					</form.Field>
 
-					<div className="space-y-2">
-						<label
-							className="font-medium text-sm"
-							htmlFor="generation-expected-output"
-						>
-							Beklenen çıktı yapısı
-						</label>
-						<textarea
-							className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm"
-							id="generation-expected-output"
-							maxLength={2000}
-							onChange={(event) =>
-								setExpectedOutputStructure(event.target.value)
-							}
-							required
-							value={expectedOutputStructure}
-						/>
-					</div>
+					<form.Field name="expectedOutputStructure">
+						{(field) => (
+							<div className="space-y-2">
+								<Label
+									className="font-medium text-sm leading-normal"
+									htmlFor="generation-expected-output"
+								>
+									Beklenen çıktı yapısı
+								</Label>
+								<Textarea
+									className="min-h-20 w-full"
+									id="generation-expected-output"
+									maxLength={2000}
+									onBlur={field.handleBlur}
+									onChange={(event) => field.handleChange(event.target.value)}
+									required
+									value={field.state.value}
+								/>
+							</div>
+						)}
+					</form.Field>
 
-					<fieldset className="space-y-3" disabled={!canCreate}>
-						<legend className="font-medium text-sm">
+					<FieldSet className="gap-3" disabled={!canCreate}>
+						<FieldLegend className="mb-0" variant="label">
 							Değiştirilmeyecek Birim Sürümleri
-						</legend>
-						{renderUnitVersionOptions()}
-					</fieldset>
-				</fieldset>
+						</FieldLegend>
+						<form.Field mode="array" name="lockedUnitVersionIds">
+							{(field) =>
+								renderUnitVersionOptions(
+									field.state.value,
+									(id, checked) => {
+										if (checked) {
+											field.pushValue(id);
+											return;
+										}
+										field.removeValue(field.state.value.indexOf(id));
+									},
+									!canCreate
+								)
+							}
+						</form.Field>
+					</FieldSet>
+				</FieldSet>
 
 				{errorMessage ? (
 					<p

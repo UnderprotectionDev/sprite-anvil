@@ -3,6 +3,10 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
+import type {
+	LiveFileLinkStore,
+	StoredLiveFileLink,
+} from "../../lib/live-file-link-store";
 import {
 	type LiveFileLinkAdapter,
 	LiveFileLinkPanel,
@@ -18,8 +22,35 @@ const changedStatusPattern = /Çalışma dosyası değişti/;
 
 afterEach(() => {
 	cleanup();
-	window.localStorage.clear();
 });
+
+function createMemoryStore(initial?: StoredLiveFileLink) {
+	const links = new Map<string, StoredLiveFileLink>();
+	const keyOf = (project: string, record: string) => `${project}:${record}`;
+	if (initial) {
+		links.set(keyOf(projectId, assetRecordId), initial);
+	}
+	const linkStore: LiveFileLinkStore = {
+		read: (project, record) =>
+			Promise.resolve(links.get(keyOf(project, record)) ?? null),
+		write: (project, record, link) => {
+			links.set(keyOf(project, record), link);
+			return Promise.resolve();
+		},
+	};
+	return {
+		linkStore,
+		stored: () => links.get(keyOf(projectId, assetRecordId)),
+	};
+}
+
+async function clickConnect(user: ReturnType<typeof userEvent.setup>) {
+	const connect = await screen.findByRole("button", {
+		name: "Çalışma dosyasını bağla",
+	});
+	await waitFor(() => expect(connect.hasAttribute("disabled")).toBe(false));
+	await user.click(connect);
+}
 
 function createAdapter(
 	chooseExport: () => Promise<string | null>,
@@ -66,26 +97,20 @@ test("a watched file change creates a Candidate Version from a selected WebP and
 		Promise.resolve(exportPath)
 	);
 	const onImport = vi.fn().mockResolvedValue(true);
+	const { linkStore, stored } = createMemoryStore();
 	render(
 		<LiveFileLinkPanel
 			adapter={adapter}
 			assetRecordId={assetRecordId}
 			hasAssetFamily
+			linkStore={linkStore}
 			onImport={onImport}
 			projectId={projectId}
 		/>
 	);
 
-	await user.click(
-		screen.getByRole("button", { name: "Çalışma dosyasını bağla" })
-	);
-	await waitFor(() =>
-		expect(
-			window.localStorage.getItem(
-				`sprite-anvil.live-file-link:${projectId}:${assetRecordId}`
-			)
-		).toContain(sourcePath)
-	);
+	await clickConnect(user);
+	await waitFor(() => expect(stored()?.path).toBe(sourcePath));
 	await waitFor(() => expect(notifyChange).toBeDefined());
 	notifyChange();
 	await screen.findByText(changedStatusPattern);
@@ -114,19 +139,19 @@ test("cancelling the export picker leaves the file change pending", async () => 
 	const user = userEvent.setup();
 	const { adapter, notifyChange } = createAdapter(() => Promise.resolve(null));
 	const onImport = vi.fn().mockResolvedValue(true);
+	const { linkStore } = createMemoryStore();
 	render(
 		<LiveFileLinkPanel
 			adapter={adapter}
 			assetRecordId={assetRecordId}
 			hasAssetFamily
+			linkStore={linkStore}
 			onImport={onImport}
 			projectId={projectId}
 		/>
 	);
 
-	await user.click(
-		screen.getByRole("button", { name: "Çalışma dosyasını bağla" })
-	);
+	await clickConnect(user);
 	await waitFor(() => expect(notifyChange).toBeDefined());
 	notifyChange();
 	await user.click(
@@ -150,19 +175,19 @@ test("a successful import preserves a null source mtime as the unchanged baselin
 		null
 	);
 	const onImport = vi.fn().mockResolvedValue(true);
+	const { linkStore, stored } = createMemoryStore();
 	render(
 		<LiveFileLinkPanel
 			adapter={adapter}
 			assetRecordId={assetRecordId}
 			hasAssetFamily
+			linkStore={linkStore}
 			onImport={onImport}
 			projectId={projectId}
 		/>
 	);
 
-	await user.click(
-		screen.getByRole("button", { name: "Çalışma dosyasını bağla" })
-	);
+	await clickConnect(user);
 	await waitFor(() => expect(notifyChange).toBeDefined());
 	notifyChange(5);
 	await screen.findByText(changedStatusPattern);
@@ -173,18 +198,79 @@ test("a successful import preserves a null source mtime as the unchanged baselin
 	);
 
 	await waitFor(() => expect(onImport).toHaveBeenCalledTimes(1));
-	expect(
-		JSON.parse(
-			window.localStorage.getItem(
-				`sprite-anvil.live-file-link:${projectId}:${assetRecordId}`
-			) ?? "null"
-		)
-	).toMatchObject({ modifiedAt: null, size: 5 });
+	expect(stored()).toMatchObject({ modifiedAt: null, size: 5 });
 	await waitFor(() =>
 		expect(
 			screen.queryByRole("button", {
 				name: "Değişikliği PNG/WebP olarak içe aktar",
 			})
 		).toBeNull()
+	);
+});
+
+test("a link stored earlier is restored on mount and watched without reconnecting", async () => {
+	const { adapter, notifyChange } = createAdapter(() =>
+		Promise.resolve(exportPath)
+	);
+	const { linkStore } = createMemoryStore({
+		modifiedAt: 1000,
+		path: sourcePath,
+		size: sourceBytes.length,
+	});
+	render(
+		<LiveFileLinkPanel
+			adapter={adapter}
+			assetRecordId={assetRecordId}
+			hasAssetFamily
+			linkStore={linkStore}
+			onImport={vi.fn().mockResolvedValue(true)}
+			projectId={projectId}
+		/>
+	);
+
+	expect(await screen.findByText("Ash Knight.aseprite")).toBeTruthy();
+	expect(
+		screen.getByRole("button", {
+			name: "Çalışma dosyası bağlantısını yenile",
+		})
+	).toBeTruthy();
+	await waitFor(() => expect(notifyChange).toBeDefined());
+	notifyChange();
+	await screen.findByText(changedStatusPattern);
+});
+
+test("the connect button stays disabled until the stored link has loaded", async () => {
+	const { adapter } = createAdapter(() => Promise.resolve(exportPath));
+	let resolveRead: (link: StoredLiveFileLink | null) => void = () => undefined;
+	const linkStore: LiveFileLinkStore = {
+		read: () =>
+			new Promise((resolve) => {
+				resolveRead = resolve;
+			}),
+		write: () => Promise.resolve(),
+	};
+	render(
+		<LiveFileLinkPanel
+			adapter={adapter}
+			assetRecordId={assetRecordId}
+			hasAssetFamily
+			linkStore={linkStore}
+			onImport={vi.fn().mockResolvedValue(true)}
+			projectId={projectId}
+		/>
+	);
+
+	expect(
+		screen
+			.getByRole("button", { name: "Çalışma dosyasını bağla" })
+			.hasAttribute("disabled")
+	).toBe(true);
+	resolveRead(null);
+	await waitFor(() =>
+		expect(
+			screen
+				.getByRole("button", { name: "Çalışma dosyasını bağla" })
+				.hasAttribute("disabled")
+		).toBe(false)
 	);
 });

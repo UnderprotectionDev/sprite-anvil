@@ -9,14 +9,13 @@ import {
 	type LiveFileInfo,
 	prepareLiveFileCandidate,
 } from "../../lib/live-file-change";
+import {
+	getDefaultLiveFileLinkStore,
+	type LiveFileLinkStore,
+	type StoredLiveFileLink,
+} from "../../lib/live-file-link-store";
 
 const pathSeparatorPattern = /[\\/]/;
-
-interface StoredLiveFileLink {
-	modifiedAt: number | null;
-	path: string;
-	size: number;
-}
 
 export interface LiveFileLinkAdapter extends LiveFileChangeDependencies {
 	chooseWorkingFile: () => Promise<string | null>;
@@ -30,6 +29,7 @@ interface LiveFileLinkPanelProps {
 	assetRecordId: string;
 	disabled?: boolean;
 	hasAssetFamily: boolean;
+	linkStore?: LiveFileLinkStore;
 	onCheckWriteOutcome?: () => void;
 	onImport: (candidateFile: File, sourceFile: File) => Promise<boolean>;
 	projectId: string;
@@ -70,45 +70,6 @@ const nativeFileAdapter: LiveFileLinkAdapter = {
 	openPath,
 };
 
-function linkStorageKey(projectId: string, assetRecordId: string) {
-	return `sprite-anvil.live-file-link:${projectId}:${assetRecordId}`;
-}
-
-function readStoredLink(key: string): StoredLiveFileLink | null {
-	if (typeof window === "undefined") {
-		return null;
-	}
-	try {
-		const value: unknown = JSON.parse(
-			window.localStorage.getItem(key) ?? "null"
-		);
-		if (
-			value &&
-			typeof value === "object" &&
-			"path" in value &&
-			typeof value.path === "string" &&
-			"size" in value &&
-			typeof value.size === "number" &&
-			Number.isSafeInteger(value.size) &&
-			value.size > 0 &&
-			"modifiedAt" in value &&
-			(value.modifiedAt === null ||
-				(typeof value.modifiedAt === "number" &&
-					Number.isSafeInteger(value.modifiedAt) &&
-					value.modifiedAt >= 0))
-		) {
-			return {
-				path: value.path,
-				size: value.size,
-				modifiedAt: value.modifiedAt,
-			};
-		}
-	} catch {
-		return null;
-	}
-	return null;
-}
-
 function sameVersion(link: StoredLiveFileLink, info: LiveFileInfo) {
 	return (
 		info.isFile &&
@@ -145,26 +106,40 @@ export function LiveFileLinkPanel({
 	assetRecordId,
 	disabled = false,
 	hasAssetFamily,
+	linkStore: injectedLinkStore,
 	onCheckWriteOutcome,
 	onImport,
 	projectId,
 	writeOutcomeUncertain = false,
 	adapter = nativeFileAdapter,
 }: LiveFileLinkPanelProps) {
-	const storageKey = linkStorageKey(projectId, assetRecordId);
-	const [linkedFile, setLinkedFile] = useState<StoredLiveFileLink | null>(() =>
-		readStoredLink(storageKey)
-	);
+	const linkStore = injectedLinkStore ?? getDefaultLiveFileLinkStore();
+	const [linkedFile, setLinkedFile] = useState<StoredLiveFileLink | null>(null);
+	const [linkLoaded, setLinkLoaded] = useState(false);
 	const [changed, setChanged] = useState(false);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [status, setStatus] = useState<string | null>(null);
 
 	useEffect(() => {
-		setLinkedFile(readStoredLink(storageKey));
+		let disposed = false;
+		setLinkLoaded(false);
+		setLinkedFile(null);
 		setChanged(false);
 		setError(null);
-	}, [storageKey]);
+		linkStore
+			.read(projectId, assetRecordId)
+			.catch(() => null)
+			.then((stored) => {
+				if (!disposed) {
+					setLinkedFile(stored);
+					setLinkLoaded(true);
+				}
+			});
+		return () => {
+			disposed = true;
+		};
+	}, [assetRecordId, linkStore, projectId]);
 
 	useEffect(() => {
 		if (!(adapter.isAvailable && linkedFile)) {
@@ -227,7 +202,7 @@ export function LiveFileLinkPanel({
 				size: info.size,
 				modifiedAt: info.mtime?.getTime() ?? null,
 			};
-			window.localStorage.setItem(storageKey, JSON.stringify(link));
+			await linkStore.write(projectId, assetRecordId, link);
 			setLinkedFile(link);
 			setChanged(false);
 			setStatus("Çalışma dosyası bu masaüstü uygulamasına bağlandı.");
@@ -275,7 +250,7 @@ export function LiveFileLinkPanel({
 					size: prepared.sourceFile.size,
 					modifiedAt: prepared.sourceModifiedAt,
 				};
-				window.localStorage.setItem(storageKey, JSON.stringify(baseline));
+				await linkStore.write(projectId, assetRecordId, baseline);
 				setLinkedFile(baseline);
 				const current = await adapter.stat(linkedFile.path).catch(() => null);
 				const stillChanged = current ? !sameVersion(baseline, current) : true;
@@ -331,7 +306,7 @@ export function LiveFileLinkPanel({
 					) : null}
 					<div className="flex flex-wrap gap-2">
 						<Button
-							disabled={busy}
+							disabled={busy || !linkLoaded}
 							onClick={() => void connectWorkingFile()}
 							type="button"
 							variant="outline"

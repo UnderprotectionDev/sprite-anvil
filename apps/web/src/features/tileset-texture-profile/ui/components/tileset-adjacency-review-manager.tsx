@@ -14,17 +14,33 @@ import {
 } from "@sprite-anvil/api/tileset-adjacency-reviews";
 import { getTilesetReviewEvidenceError } from "@sprite-anvil/api/tileset-scenario-evidence";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQuery } from "@tanstack/react-query";
+import { Checkbox } from "@sprite-anvil/ui/components/checkbox";
+import { FieldSet } from "@sprite-anvil/ui/components/field";
+import { Input } from "@sprite-anvil/ui/components/input";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { Textarea } from "@sprite-anvil/ui/components/textarea";
+import { useForm, useStore } from "@tanstack/react-form";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client, orpc } from "@/utils/orpc";
+import { mutationMeta } from "@/utils/mutation-meta";
+import { orpc } from "@/utils/orpc";
+import { createTilesetTestMaps } from "../../lib/tileset-map-presets";
+import {
+	tilesetIssueFormDefaults,
+	tilesetIssueFormSchema,
+} from "../../schemas";
 import { TilesetAtlasTileEditor } from "./tileset-atlas-tile-editor";
 import { TilesetMap } from "./tileset-map";
-import { createTilesetTestMaps } from "./tileset-map-presets";
 
 type Tile = TilesetTile & { tileId: string; assetVersionId: string };
-const fieldClass = "min-h-11 rounded border bg-background p-2";
+const labelClass = "flex flex-col items-stretch gap-1";
+const selectClass = "w-full *:data-[slot=native-select]:min-h-11";
 export function TilesetAdjacencyReviewManager({
 	activation,
 	assetFamilyId,
@@ -63,18 +79,25 @@ export function TilesetAdjacencyReviewManager({
 				(member) => member.unitType === "tile"
 			)
 	);
-	const [compositeId, setCompositeId] = useState("");
+	const form = useForm({
+		defaultValues: { compositeId: "", ...tilesetIssueFormDefaults },
+	});
+	const { compositeId, issueNotes, neighborIndex } = useStore(
+		form.store,
+		(state) => state.values
+	);
 	const [tiles, setTiles] = useState<Tile[]>([]);
 	const [maps, setMaps] = useState<TilesetTestMap[]>([]);
 	const [scenarioIndex, setScenarioIndex] = useState(0);
 	const [brush, setBrush] = useState<string | null>(null);
 	const [inspectOnly, setInspectOnly] = useState(false);
 	const [cellIndex, setCellIndex] = useState(0);
-	const [neighborIndex, setNeighborIndex] = useState("");
-	const [issueNotes, setIssueNotes] = useState("");
 	const [previewGeneration, setPreviewGeneration] = useState(0);
 	const [previewReady, setPreviewReady] = useState<Record<string, boolean>>({});
 	const [status, setStatus] = useState("");
+	const saveMutation = useMutation(
+		orpc.tilesetAdjacencyReviews.save.mutationOptions(mutationMeta)
+	);
 	const [saving, setSaving] = useState(false);
 	const [pending, setPending] = useState<TilesetAdjacencyReviewInput | null>(
 		null
@@ -89,8 +112,8 @@ export function TilesetAdjacencyReviewManager({
 		setPreviewGeneration((current) => current + 1);
 		setCellIndex(0);
 		setScenarioIndex(0);
-		setNeighborIndex("");
-		setIssueNotes("");
+		form.setFieldValue("neighborIndex", "");
+		form.setFieldValue("issueNotes", "");
 	}
 	function chooseComposite(id: string) {
 		const composite = composites.find((item) => item.id === id);
@@ -116,7 +139,7 @@ export function TilesetAdjacencyReviewManager({
 				edges: { north: null, east: null, south: null, west: null },
 			});
 		}
-		setCompositeId(id);
+		form.setFieldValue("compositeId", id);
 		setTiles(selected);
 		setMaps(
 			selected[0]
@@ -137,7 +160,7 @@ export function TilesetAdjacencyReviewManager({
 		);
 	}
 	function loadReview(record: TilesetAdjacencyReviewRecord) {
-		setCompositeId(record.compositeVersionId);
+		form.setFieldValue("compositeId", record.compositeVersionId);
 		setTiles(
 			record.tiles.map((tile) => ({
 				...tile,
@@ -190,7 +213,7 @@ export function TilesetAdjacencyReviewManager({
 		setPending(request);
 		setSaving(true);
 		try {
-			await client.tilesetAdjacencyReviews.save(request);
+			await saveMutation.mutateAsync(request);
 			const readback = await reviews.refetch();
 			if (
 				readback.isError ||
@@ -252,31 +275,30 @@ export function TilesetAdjacencyReviewManager({
 					</Button>
 				))}
 			</div>
-			<fieldset className="space-y-4" disabled={locked}>
-				<label
-					className="flex flex-col gap-1"
-					htmlFor={`${prefix}-composition`}
-				>
+			<FieldSet className="block space-y-4" disabled={locked}>
+				<Label className={labelClass} htmlFor={`${prefix}-composition`}>
 					Birleşik Sürüm
-					<select
-						className={fieldClass}
+					<NativeSelect
+						className={selectClass}
 						id={`${prefix}-composition`}
 						onChange={(event) => chooseComposite(event.target.value)}
 						value={compositeId}
 					>
-						<option value="">Choose a tileset composition</option>
+						<NativeSelectOption value="">
+							Choose a tileset composition
+						</NativeSelectOption>
 						{composites.map((item) => (
-							<option key={item.id} value={item.id}>
+							<NativeSelectOption key={item.id} value={item.id}>
 								{
 									assetRecords.find(
 										(record) => record.id === item.assetRecordId
 									)?.name
 								}{" "}
 								· Composition {item.versionNumber}
-							</option>
+							</NativeSelectOption>
 						))}
-					</select>
-				</label>
+					</NativeSelect>
+				</Label>
 				{composites.length === 0 ? (
 					<p>
 						Bu ailede önce karo Birim Sürümlerini ve bir Birleşik Sürüm
@@ -316,10 +338,10 @@ export function TilesetAdjacencyReviewManager({
 					</div>
 					<div className="space-y-3">
 						<h4 className="font-semibold">Test map</h4>
-						<label className="flex flex-col" htmlFor={`${prefix}-scenario`}>
+						<Label className={labelClass} htmlFor={`${prefix}-scenario`}>
 							Scenario
-							<select
-								className={fieldClass}
+							<NativeSelect
+								className={selectClass}
 								id={`${prefix}-scenario`}
 								onChange={(event) => {
 									setScenarioIndex(Number(event.target.value));
@@ -328,40 +350,43 @@ export function TilesetAdjacencyReviewManager({
 								value={scenarioIndex}
 							>
 								{maps.map((item, index) => (
-									<option key={item.scenario} value={index}>
+									<NativeSelectOption key={item.scenario} value={index}>
 										{tilesetMapScenarioLabels[item.scenario]}
-									</option>
+									</NativeSelectOption>
 								))}
-							</select>
-						</label>
-						<label className="flex flex-col" htmlFor={`${prefix}-brush`}>
+							</NativeSelect>
+						</Label>
+						<Label className={labelClass} htmlFor={`${prefix}-brush`}>
 							Paint tile
-							<select
-								className={fieldClass}
+							<NativeSelect
+								className={selectClass}
 								id={`${prefix}-brush`}
 								onChange={(event) => setBrush(event.target.value || null)}
 								value={brush ?? ""}
 							>
-								<option value="">Erase</option>
+								<NativeSelectOption value="">Erase</NativeSelectOption>
 								{tiles.map((tile) => (
-									<option key={tile.unitVersionId} value={tile.unitVersionId}>
+									<NativeSelectOption
+										key={tile.unitVersionId}
+										value={tile.unitVersionId}
+									>
 										{tile.tileId}
-									</option>
+									</NativeSelectOption>
 								))}
-							</select>
-						</label>
-						<label
+							</NativeSelect>
+						</Label>
+						<Label
 							className="flex min-h-11 items-center gap-2"
 							htmlFor={`${prefix}-inspect`}
 						>
-							<input
+							<Checkbox
 								checked={inspectOnly}
+								disabled={locked}
 								id={`${prefix}-inspect`}
-								onChange={(event) => setInspectOnly(event.target.checked)}
-								type="checkbox"
+								onCheckedChange={setInspectOnly}
 							/>
 							Inspect without painting
-						</label>
+						</Label>
 						{map ? (
 							<>
 								<Button
@@ -422,50 +447,63 @@ export function TilesetAdjacencyReviewManager({
 										(tile) => tile.unitVersionId === map.cells[cellIndex]
 									)?.tileId ?? "Empty"}
 								</p>
-								<label className="flex flex-col" htmlFor={`${prefix}-neighbor`}>
+								<Label className={labelClass} htmlFor={`${prefix}-neighbor`}>
 									Connection to cell (optional)
-									<input
-										className={fieldClass}
+									<Input
+										className="min-h-11"
 										id={`${prefix}-neighbor`}
 										max={map.cells.length}
 										min={1}
-										onChange={(event) => setNeighborIndex(event.target.value)}
+										onChange={(event) =>
+											form.setFieldValue("neighborIndex", event.target.value)
+										}
 										type="number"
 										value={neighborIndex}
 									/>
-								</label>
-								<label className="flex flex-col" htmlFor={`${prefix}-issue`}>
+								</Label>
+								<Label className={labelClass} htmlFor={`${prefix}-issue`}>
 									Tile or connection issue
-									<textarea
-										className={fieldClass}
+									<Textarea
 										id={`${prefix}-issue`}
 										maxLength={1000}
-										onChange={(event) => setIssueNotes(event.target.value)}
+										onChange={(event) =>
+											form.setFieldValue("issueNotes", event.target.value)
+										}
 										value={issueNotes}
 									/>
-								</label>
+								</Label>
 								<Button
 									disabled={!(issueNotes.trim() && map.cells[cellIndex])}
 									onClick={() => {
+										const parsed = tilesetIssueFormSchema.safeParse({
+											issueNotes,
+											neighborIndex,
+										});
+										if (!parsed.success) {
+											setStatus(
+												parsed.error.issues[0]?.message ?? "Complete the issue."
+											);
+											return;
+										}
+										const neighbor = neighborIndex
+											? Number(neighborIndex) - 1
+											: null;
 										updateMap({
 											outcome: "failed",
 											issues: [
 												...map.issues.filter(
 													(issue) =>
 														issue.cellIndex !== cellIndex ||
-														issue.neighborIndex !==
-															(neighborIndex ? Number(neighborIndex) - 1 : null)
+														issue.neighborIndex !== neighbor
 												),
 												{
 													cellIndex,
-													neighborIndex: neighborIndex
-														? Number(neighborIndex) - 1
-														: null,
+													neighborIndex: neighbor,
 													notes: issueNotes,
 												},
 											],
 										});
-										setIssueNotes("");
+										form.setFieldValue("issueNotes", "");
 									}}
 									type="button"
 									variant="outline"
@@ -507,10 +545,10 @@ export function TilesetAdjacencyReviewManager({
 									Connector checks compare declared edge labels; they do not
 									check exact image pixels.
 								</p>
-								<label className="flex flex-col" htmlFor={`${prefix}-outcome`}>
+								<Label className={labelClass} htmlFor={`${prefix}-outcome`}>
 									Scenario result
-									<select
-										className={fieldClass}
+									<NativeSelect
+										className={selectClass}
 										id={`${prefix}-outcome`}
 										onChange={(event) =>
 											updateMap({
@@ -520,15 +558,20 @@ export function TilesetAdjacencyReviewManager({
 										}
 										value={map.outcome}
 									>
-										<option value="inconclusive">Inconclusive</option>
-										<option value="passed">Passed</option>
-										<option value="failed">Failed</option>
-									</select>
-								</label>
-								<label className="flex flex-col" htmlFor={`${prefix}-notes`}>
+										<NativeSelectOption value="inconclusive">
+											Inconclusive
+										</NativeSelectOption>
+										<NativeSelectOption value="passed">
+											Passed
+										</NativeSelectOption>
+										<NativeSelectOption value="failed">
+											Failed
+										</NativeSelectOption>
+									</NativeSelect>
+								</Label>
+								<Label className={labelClass} htmlFor={`${prefix}-notes`}>
 									Scenario observations
-									<textarea
-										className={fieldClass}
+									<Textarea
 										id={`${prefix}-notes`}
 										maxLength={2000}
 										onChange={(event) =>
@@ -536,12 +579,12 @@ export function TilesetAdjacencyReviewManager({
 										}
 										value={map.notes}
 									/>
-								</label>
+								</Label>
 							</>
 						) : null}
 					</div>
 				</div>
-			</fieldset>
+			</FieldSet>
 			<Button
 				disabled={
 					saving || reviews.isPending || reviews.isError || tiles.length === 0

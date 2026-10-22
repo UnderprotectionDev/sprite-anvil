@@ -18,18 +18,17 @@ const mocks = vi.hoisted(() => ({
 	save: vi.fn(),
 	inspect: vi.fn(),
 }));
-vi.mock("@/utils/orpc", () => ({
-	client: {
-		textureRepetitionReviews: { save: mocks.save, inspect: mocks.inspect },
-	},
-	orpc: {
+vi.mock("@/utils/orpc", async () => {
+	const { createTanstackQueryUtils } = await import("@orpc/tanstack-query");
+	const client = {
 		textureRepetitionReviews: {
-			list: {
-				queryOptions: () => ({ queryKey: ["texture"], queryFn: mocks.list }),
-			},
+			list: mocks.list,
+			save: mocks.save,
+			inspect: mocks.inspect,
 		},
-	},
-}));
+	};
+	return { client, orpc: createTanstackQueryUtils(client) };
+});
 vi.mock("./texture-repeat-preview", () => ({
 	TextureRepeatPreview: ({
 		arrangement,
@@ -46,6 +45,7 @@ vi.mock("./texture-repeat-preview", () => ({
 		return <div>{arrangement} preview</div>;
 	},
 }));
+const mismatchPattern = /mismatched pixels/;
 afterEach(() => {
 	cleanup();
 	vi.resetAllMocks();
@@ -245,4 +245,93 @@ test("keeps an intact texture reviewable when its older upload has no stored dim
 		).toBeEnabled()
 	);
 	expect(screen.getByLabelText("Texture unit")).toHaveValue("unit");
+});
+
+test("checks exact edges against the server every time and shows the result", async () => {
+	mocks.list.mockResolvedValue([]);
+	mocks.inspect.mockResolvedValue({
+		x: { mismatchCount: 3, firstMismatch: 1 },
+		y: null,
+	});
+	show();
+	fireEvent.click(screen.getByRole("button", { name: "Check exact edges" }));
+	await screen.findByText("X edge: 3 mismatched pixels; first at 1 px");
+	expect(screen.getByText("Y edge: not repeated")).toBeInTheDocument();
+	expect(mocks.inspect.mock.calls[0][0]).toMatchObject({
+		projectId: "project",
+		assetFamilyId: "family",
+		unitVersionId: "unit",
+		repeatAxes: ["x", "y"],
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Check exact edges" }));
+	await waitFor(() => expect(mocks.inspect).toHaveBeenCalledTimes(2));
+});
+
+test("shows an error and no edge result when the edge check fails", async () => {
+	mocks.list.mockResolvedValue([]);
+	mocks.inspect.mockRejectedValue(new Error("edge boom"));
+	show();
+	fireEvent.click(screen.getByRole("button", { name: "Check exact edges" }));
+	const alert = await screen.findByRole("alert");
+	expect(alert.textContent).not.toBe("");
+	expect(screen.queryByText(mismatchPattern)).not.toBeInTheDocument();
+	expect(
+		screen.getByRole("button", { name: "Save texture review" })
+	).toBeEnabled();
+});
+
+test("disables the form while saving, then shows the refreshed list", async () => {
+	let resolveSave: (value: unknown) => void = () => undefined;
+	const record = (input: Record<string, unknown>) => ({
+		...input,
+		unitSnapshot: { id: "unit", unitKey: "grass" },
+		edgeCheck: {
+			x: { mismatchCount: 0, firstMismatch: null },
+			y: { mismatchCount: 0, firstMismatch: null },
+		},
+		createdAt: "2026-10-11T00:00:00.000Z",
+	});
+	mocks.list.mockResolvedValueOnce([]);
+	mocks.save.mockImplementation(
+		(input) =>
+			new Promise((resolve) => {
+				resolveSave = () => resolve(record(input));
+			})
+	);
+	show();
+	observeAll();
+	await waitFor(() => expect(mocks.list).toHaveBeenCalledTimes(1));
+	fireEvent.click(screen.getByRole("button", { name: "Save texture review" }));
+	expect(
+		await screen.findByRole("button", { name: "Saving texture review…" })
+	).toBeInTheDocument();
+	expect(screen.getByLabelText("2x2 outcome")).toBeDisabled();
+	mocks.list.mockImplementation(async () => [
+		record(mocks.save.mock.calls[0][0]),
+	]);
+	resolveSave(null);
+	await screen.findByText("Texture review saved.");
+	await waitFor(() => expect(mocks.list).toHaveBeenCalledTimes(2));
+	await waitFor(() =>
+		expect(
+			screen.getByRole("button", { name: "Save texture review" })
+		).toBeEnabled()
+	);
+});
+
+test("keeps the draft and shows the rejection when a save is rejected", async () => {
+	mocks.list.mockResolvedValue([]);
+	mocks.save.mockRejectedValue(new Error("rejected by server"));
+	show();
+	observeAll();
+	fireEvent.click(screen.getByRole("button", { name: "Save texture review" }));
+	await screen.findByRole("alert");
+	expect(screen.queryByText("Texture review saved.")).not.toBeInTheDocument();
+	expect(
+		screen.queryByRole("button", { name: "Check current texture reviews" })
+	).not.toBeInTheDocument();
+	expect(screen.getByLabelText("2x2 outcome")).toHaveValue("passed");
+	expect(
+		screen.getByRole("button", { name: "Save texture review" })
+	).toBeEnabled();
 });

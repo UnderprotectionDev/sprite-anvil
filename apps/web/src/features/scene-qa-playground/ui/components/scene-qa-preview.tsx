@@ -2,8 +2,8 @@ import type { SceneQaSetup } from "@sprite-anvil/api/scene-qa";
 import { Button } from "@sprite-anvil/ui/components/button";
 import type { Application as PixiApplication } from "pixi.js";
 import { useEffect, useRef, useState } from "react";
-import { loadSceneQaImages } from "./scene-qa-images";
-import type { createSceneQaScene as createSceneQaSceneType } from "./scene-qa-scene";
+import { loadSceneQaImages } from "../../lib/scene-qa-images";
+import type { createSceneQaScene as createSceneQaSceneType } from "../../lib/scene-qa-scene";
 export function SceneQaPreview({
 	setup,
 	versions,
@@ -63,7 +63,7 @@ export function SceneQaPreview({
 				}
 				const [{ Application }, { createSceneQaScene }] = await Promise.all([
 					import("pixi.js"),
-					import("./scene-qa-scene"),
+					import("../../lib/scene-qa-scene"),
 				]);
 				app = new Application();
 				await app.init({

@@ -3,28 +3,29 @@ import type {
 	CollectionRecord,
 } from "@sprite-anvil/api/collections";
 import { Button } from "@sprite-anvil/ui/components/button";
-import type { SyntheticEvent } from "react";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import type { CollectionMembershipForm } from "../../hooks/use-collections-manager";
 
 export function CollectionMembershipPanel({
 	assetRecordsById,
 	availableAssetRecords,
+	membershipForm,
 	memberships,
-	onAddAssetRecord,
 	onRemoveAssetRecord,
-	onSelectedAssetRecordChange,
 	savingOperation,
-	selectedAssetRecordId,
 	selectedCollection,
 	writesDisabled,
 }: {
 	assetRecordsById: Map<string, CollectionCatalog["assetRecords"][number]>;
 	availableAssetRecords: CollectionCatalog["assetRecords"];
+	membershipForm: CollectionMembershipForm;
 	memberships: CollectionCatalog["memberships"];
-	onAddAssetRecord: (event: SyntheticEvent<HTMLFormElement>) => void;
 	onRemoveAssetRecord: (assetRecordId: string) => void;
-	onSelectedAssetRecordChange: (assetRecordId: string) => void;
 	savingOperation: string | null;
-	selectedAssetRecordId: string;
 	selectedCollection: CollectionRecord | null;
 	writesDisabled: boolean;
 }) {
@@ -33,12 +34,10 @@ export function CollectionMembershipPanel({
 			assetRecordsById={assetRecordsById}
 			availableAssetRecords={availableAssetRecords}
 			collection={selectedCollection}
+			membershipForm={membershipForm}
 			memberships={memberships}
-			onAddAssetRecord={onAddAssetRecord}
 			onRemoveAssetRecord={onRemoveAssetRecord}
-			onSelectedAssetRecordChange={onSelectedAssetRecordChange}
 			savingOperation={savingOperation}
-			selectedAssetRecordId={selectedAssetRecordId}
 			writesDisabled={writesDisabled}
 		/>
 	) : (
@@ -67,23 +66,19 @@ function CollectionMembers({
 	assetRecordsById,
 	availableAssetRecords,
 	collection,
+	membershipForm,
 	memberships,
-	onAddAssetRecord,
 	onRemoveAssetRecord,
-	onSelectedAssetRecordChange,
 	savingOperation,
-	selectedAssetRecordId,
 	writesDisabled,
 }: {
 	assetRecordsById: Map<string, CollectionCatalog["assetRecords"][number]>;
 	availableAssetRecords: CollectionCatalog["assetRecords"];
 	collection: CollectionRecord;
+	membershipForm: CollectionMembershipForm;
 	memberships: CollectionCatalog["memberships"];
-	onAddAssetRecord: (event: SyntheticEvent<HTMLFormElement>) => void;
 	onRemoveAssetRecord: (assetRecordId: string) => void;
-	onSelectedAssetRecordChange: (assetRecordId: string) => void;
 	savingOperation: string | null;
-	selectedAssetRecordId: string;
 	writesDisabled: boolean;
 }) {
 	const memberContent =
@@ -125,42 +120,60 @@ function CollectionMembers({
 
 			<form
 				className="flex flex-col gap-3 sm:flex-row"
-				onSubmit={onAddAssetRecord}
+				onSubmit={(event) => {
+					event.preventDefault();
+					event.stopPropagation();
+					void membershipForm.handleSubmit();
+				}}
 			>
-				<div className="min-w-0 flex-1 space-y-2">
-					<label
-						className="font-medium text-sm"
-						htmlFor="collection-asset-record"
-					>
-						Varlık Kaydı
-					</label>
-					<select
-						className="h-11 w-full rounded-md border bg-background px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
-						id="collection-asset-record"
-						name="assetRecordId"
-						onChange={(event) =>
-							onSelectedAssetRecordChange(event.target.value)
-						}
-						value={selectedAssetRecordId}
-					>
-						<option value="">Varlık Kaydı seçin</option>
-						{availableAssetRecords.map((assetRecord) => (
-							<option key={assetRecord.id} value={assetRecord.id}>
-								{assetRecord.name}
-								{assetRecord.assetFamilyName
-									? ` · ${assetRecord.assetFamilyName}`
-									: " · Varlık Ailesi atanmamış"}
-							</option>
-						))}
-					</select>
-				</div>
-				<Button
-					className="min-h-11 sm:mt-6"
-					disabled={writesDisabled || !selectedAssetRecordId}
-					type="submit"
+				<membershipForm.Field name="assetRecordId">
+					{(field) => (
+						<div className="min-w-0 flex-1 space-y-2">
+							<Label
+								className="font-medium text-sm"
+								htmlFor="collection-asset-record"
+							>
+								Varlık Kaydı
+							</Label>
+							<NativeSelect
+								className="w-full [&>select]:h-11"
+								id="collection-asset-record"
+								name={field.name}
+								onBlur={field.handleBlur}
+								onChange={(event) => field.handleChange(event.target.value)}
+								value={field.state.value}
+							>
+								<NativeSelectOption value="">
+									Varlık Kaydı seçin
+								</NativeSelectOption>
+								{availableAssetRecords.map((assetRecord) => (
+									<NativeSelectOption
+										key={assetRecord.id}
+										value={assetRecord.id}
+									>
+										{assetRecord.name}
+										{assetRecord.assetFamilyName
+											? ` · ${assetRecord.assetFamilyName}`
+											: " · Varlık Ailesi atanmamış"}
+									</NativeSelectOption>
+								))}
+							</NativeSelect>
+						</div>
+					)}
+				</membershipForm.Field>
+				<membershipForm.Subscribe
+					selector={(state) => state.values.assetRecordId}
 				>
-					{savingOperation === "add" ? "Ekleniyor…" : "Koleksiyona ekle"}
-				</Button>
+					{(selectedAssetRecordId) => (
+						<Button
+							className="min-h-11 sm:mt-6"
+							disabled={writesDisabled || !selectedAssetRecordId}
+							type="submit"
+						>
+							{savingOperation === "add" ? "Ekleniyor…" : "Koleksiyona ekle"}
+						</Button>
+					)}
+				</membershipForm.Subscribe>
 			</form>
 
 			{availableAssetRecords.length === 0 ? (

@@ -4,6 +4,7 @@ import type {
 	AssetRecordCreateInput,
 } from "@sprite-anvil/api/asset-records";
 import { Button, buttonVariants } from "@sprite-anvil/ui/components/button";
+import { Checkbox } from "@sprite-anvil/ui/components/checkbox";
 import {
 	Dialog,
 	DialogContent,
@@ -11,10 +12,13 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@sprite-anvil/ui/components/dialog";
+import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
 import { Input } from "@sprite-anvil/ui/components/input";
-import { useQuery } from "@tanstack/react-query";
+import { Label } from "@sprite-anvil/ui/components/label";
+import { useForm, useStore } from "@tanstack/react-form";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { type ReactNode, type SyntheticEvent, useRef, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { toast } from "sonner";
 import { TaskWorkspace } from "@/components/task-workspace";
 import { AssetRecordSearchPanel } from "@/features/asset-discovery/ui/components/asset-record-search-panel";
@@ -26,7 +30,9 @@ import { RightsLineagePanel } from "@/features/rights-evidence/ui/components/rig
 import { RightsRecordPanel } from "@/features/rights-evidence/ui/components/rights-record-panel";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client, orpc } from "@/utils/orpc";
+import { mutationMeta } from "@/utils/mutation-meta";
+import { orpc } from "@/utils/orpc";
+import { assetRecordCreateFormSchema } from "../../schemas";
 import {
 	AssetRecordAvailabilityControl,
 	getAvailabilityLabel,
@@ -89,28 +95,26 @@ export function AssetRecordsView({
 	});
 	const pendingCreate = useRef<AssetRecordCreateInput | null>(null);
 	const [isCreateOpen, setIsCreateOpen] = useState(false);
-	const [name, setName] = useState("");
-	const [identityCriteria, setIdentityCriteria] = useState<IdentityCriterion[]>(
-		[]
-	);
 	const [isSaving, setIsSaving] = useState(false);
+	const createRecord = useMutation(
+		orpc.assetRecords.create.mutationOptions(mutationMeta)
+	);
 	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
 	const [isCheckingWriteOutcome, setIsCheckingWriteOutcome] = useState(false);
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-	function updateName(value: string) {
-		setName(value);
-		pendingCreate.current = null;
-	}
-
-	function toggleIdentityCriterion(value: IdentityCriterion, checked: boolean) {
-		setIdentityCriteria((current) =>
-			checked
-				? [...new Set([...current, value])]
-				: current.filter((criterion) => criterion !== value)
-		);
-		pendingCreate.current = null;
-	}
+	const form = useForm({
+		defaultValues: {
+			identityCriteria: [] as IdentityCriterion[],
+			name: "",
+		},
+		onSubmit: ({ value }) => handleCreateRecord(value),
+		validators: { onSubmit: assetRecordCreateFormSchema },
+	});
+	const draftIsComplete = useStore(
+		form.store,
+		(state) => assetRecordCreateFormSchema.safeParse(state.values).success
+	);
 
 	async function checkWriteOutcome() {
 		setIsCheckingWriteOutcome(true);
@@ -141,8 +145,13 @@ export function AssetRecordsView({
 		}
 	}
 
-	async function handleCreateRecord(event: SyntheticEvent<HTMLFormElement>) {
-		event.preventDefault();
+	async function handleCreateRecord({
+		identityCriteria,
+		name,
+	}: {
+		identityCriteria: IdentityCriterion[];
+		name: string;
+	}) {
 		if (writeOutcomeUncertain || isSaving || identityCriteria.length === 0) {
 			return;
 		}
@@ -164,7 +173,7 @@ export function AssetRecordsView({
 		setStatusMessage(null);
 		setIsSaving(true);
 		try {
-			const record = await client.assetRecords.create(input);
+			const record = await createRecord.mutateAsync(input);
 			pendingCreate.current = null;
 			void recordsQuery.refetch();
 			onOpenRecord(record.id);
@@ -317,57 +326,84 @@ export function AssetRecordsView({
 								kayıt gerekçesi değildir.
 							</p>
 						</div>
-						<form className="space-y-4" onSubmit={handleCreateRecord}>
-							<div className="space-y-2">
-								<label
-									className="font-medium text-sm"
-									htmlFor="asset-record-name"
-								>
-									Varlık adı
-								</label>
-								<Input
-									disabled={writeOutcomeUncertain || isSaving}
-									id="asset-record-name"
-									maxLength={120}
-									onChange={(event) => updateName(event.target.value)}
-									required
-									value={name}
-								/>
-							</div>
-							<fieldset
+						<form
+							className="space-y-4"
+							onSubmit={(event) => {
+								event.preventDefault();
+								event.stopPropagation();
+								form.handleSubmit();
+							}}
+						>
+							<form.Field name="name">
+								{(field) => (
+									<div className="space-y-2">
+										<Label
+											className="font-medium text-sm leading-normal"
+											htmlFor="asset-record-name"
+										>
+											Varlık adı
+										</Label>
+										<Input
+											disabled={writeOutcomeUncertain || isSaving}
+											id="asset-record-name"
+											maxLength={120}
+											onChange={(event) => {
+												field.handleChange(event.target.value);
+												pendingCreate.current = null;
+											}}
+											required
+											value={field.state.value}
+										/>
+									</div>
+								)}
+							</form.Field>
+							<FieldSet
 								aria-describedby="asset-record-identity-help"
-								className="space-y-3"
+								className="gap-0 space-y-3"
 								disabled={writeOutcomeUncertain || isSaving}
 							>
-								<legend className="mb-2 font-medium text-sm">
+								<FieldLegend className="mb-2">
 									Bu kaydın bağımsız kimliği
-								</legend>
-								{identityOptions.map((option) => (
-									<label
-										className="flex cursor-pointer items-start gap-3 rounded-md border p-3 has-checked:border-primary"
-										key={option.value}
-									>
-										<input
-											checked={identityCriteria.includes(option.value)}
-											className="mt-0.5 size-4 accent-primary"
-											onChange={(event) =>
-												toggleIdentityCriterion(
-													option.value,
-													event.target.checked
-												)
-											}
-											type="checkbox"
-										/>
-										<span>
-											<span className="block font-medium text-sm">
-												{option.label}
-											</span>
-											<span className="block text-muted-foreground text-sm">
-												{option.description}
-											</span>
-										</span>
-									</label>
-								))}
+								</FieldLegend>
+								<form.Field name="identityCriteria">
+									{(field) =>
+										identityOptions.map((option) => (
+											<Label
+												className="cursor-pointer items-start gap-3 rounded-md border p-3 text-sm leading-normal has-checked:border-primary"
+												key={option.value}
+											>
+												<Checkbox
+													checked={field.state.value.includes(option.value)}
+													className="mt-0.5"
+													disabled={writeOutcomeUncertain || isSaving}
+													onCheckedChange={(checked) => {
+														field.handleChange(
+															checked
+																? [
+																		...new Set([
+																			...field.state.value,
+																			option.value,
+																		]),
+																	]
+																: field.state.value.filter(
+																		(criterion) => criterion !== option.value
+																	)
+														);
+														pendingCreate.current = null;
+													}}
+												/>
+												<span>
+													<span className="block font-medium text-sm">
+														{option.label}
+													</span>
+													<span className="block text-muted-foreground text-sm">
+														{option.description}
+													</span>
+												</span>
+											</Label>
+										))
+									}
+								</form.Field>
 								<p
 									className="text-muted-foreground text-sm"
 									id="asset-record-identity-help"
@@ -375,7 +411,7 @@ export function AssetRecordsView({
 									En az bir kimlik nedeni seçin. Ayrı düzenlenebilmek tek başına
 									yeterli değildir.
 								</p>
-							</fieldset>
+							</FieldSet>
 							{writeOutcomeUncertain ? (
 								<Button
 									disabled={isCheckingWriteOutcome}
@@ -394,12 +430,7 @@ export function AssetRecordsView({
 								</p>
 							) : null}
 							<Button
-								disabled={
-									isSaving ||
-									writeOutcomeUncertain ||
-									name.trim().length === 0 ||
-									identityCriteria.length === 0
-								}
+								disabled={isSaving || writeOutcomeUncertain || !draftIsComplete}
 								type="submit"
 							>
 								{isSaving ? "Kaydediliyor…" : "Varlık kaydı oluştur"}

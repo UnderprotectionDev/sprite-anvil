@@ -25,6 +25,12 @@ const fakeApi = vi.hoisted(() => ({
 	packages: [] as GenerationPackage[],
 }));
 
+const mutationOf = vi.hoisted(
+	() => (mutationFn: (input: never) => unknown) => ({
+		mutationOptions: (options?: object) => ({ ...options, mutationFn }),
+	})
+);
+
 vi.mock("@/utils/orpc", () => ({
 	client: {
 		assetRecords: {
@@ -37,6 +43,16 @@ vi.mock("@/utils/orpc", () => ({
 		},
 	},
 	orpc: {
+		assetRecords: {
+			createManualImportVersion: mutationOf((input: unknown) =>
+				fakeApi.createManualImportVersion(input)
+			),
+		},
+		assetVersions: {
+			recordProviderGeneration: mutationOf((input: unknown) =>
+				fakeApi.recordProviderGeneration(input)
+			),
+		},
 		generationPackages: {
 			list: {
 				queryOptions: ({ input }: { input: Record<string, unknown> }) => ({
@@ -204,7 +220,9 @@ test("records provider details after saving the manual result and its required e
 	await screen.findByLabelText("Sonuç dosyası");
 	await user.upload(screen.getByLabelText("Sonuç dosyası"), file);
 	await user.click(
-		screen.getByLabelText("Başka bir sağlayıcının arayüzünden alındı")
+		screen.getByRole("checkbox", {
+			name: "Başka bir sağlayıcının arayüzünden alındı",
+		})
 	);
 	await user.selectOptions(
 		screen.getByLabelText("Üretim Paketi"),
@@ -335,4 +353,189 @@ test("reports a result file that cannot be read", async () => {
 		"Sonuç dosyası okunamadı"
 	);
 	expect(fakeApi.createManualImportVersion).not.toHaveBeenCalled();
+});
+
+const selectedFileText = /Seçilen dosya:/;
+
+function renderManualImportForm(
+	onRefresh = vi.fn().mockResolvedValue(undefined)
+) {
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	render(
+		<QueryClientProvider client={queryClient}>
+			<ManualImportEvidenceForm onRefresh={onRefresh} record={record} />
+		</QueryClientProvider>
+	);
+	return onRefresh;
+}
+
+function readableFile(name: string, type = "image/png") {
+	const file = new File([new Uint8Array([1, 2, 3])], name, { type });
+	Object.defineProperty(file, "arrayBuffer", {
+		value: async () => new Uint8Array([1, 2, 3]).buffer,
+	});
+	return file;
+}
+
+async function fillManualImport(
+	user: ReturnType<typeof userEvent.setup>,
+	file: File
+) {
+	await user.upload(await screen.findByLabelText("Sonuç dosyası"), file);
+	await user.selectOptions(
+		screen.getByLabelText("Üretim Paketi"),
+		generationPackageId
+	);
+	await user.type(screen.getByLabelText("Üretim yüzeyi"), "ComfyUI");
+	await user.type(
+		screen.getByLabelText("Gerçek üretim talimatı"),
+		"Keep the cape."
+	);
+}
+
+test("keeps the manual import save disabled until every required value is usable", async () => {
+	const user = userEvent.setup();
+	fakeApi.packages = [generationPackage];
+	renderManualImportForm();
+	const submitButton = await screen.findByRole("button", {
+		name: "Kanıtla birlikte aday sürümü kaydet",
+	});
+	expect(submitButton).toBeDisabled();
+	fireEvent.change(screen.getByLabelText("Sonuç dosyası"), {
+		target: { files: [readableFile("result.gif", "image/gif")] },
+	});
+	expect(screen.getByRole("alert")).toHaveTextContent(
+		"5 MB’a kadar PNG veya WebP dosyası seçin."
+	);
+	await user.selectOptions(
+		screen.getByLabelText("Üretim Paketi"),
+		generationPackageId
+	);
+	await user.type(screen.getByLabelText("Üretim yüzeyi"), "   ");
+	await user.type(screen.getByLabelText("Gerçek üretim talimatı"), "Keep.");
+	expect(submitButton).toBeDisabled();
+	await user.clear(screen.getByLabelText("Üretim yüzeyi"));
+	await user.type(screen.getByLabelText("Üretim yüzeyi"), "ComfyUI");
+	expect(submitButton).toBeDisabled();
+	fireEvent.change(screen.getByLabelText("Sonuç dosyası"), {
+		target: { files: [readableFile("result.png")] },
+	});
+	expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+	expect(submitButton).toBeEnabled();
+});
+
+test("clears the manual import draft after a confirmed save", async () => {
+	const user = userEvent.setup();
+	fakeApi.packages = [generationPackage];
+	fakeApi.createManualImportVersion.mockResolvedValue({
+		id: "ad800472-d38e-4076-835a-ae4f51cd7db6",
+	});
+	renderManualImportForm();
+	await fillManualImport(user, readableFile("result.png"));
+	await user.click(
+		screen.getByRole("checkbox", {
+			name: "Başka bir sağlayıcının arayüzünden alındı",
+		})
+	);
+	await user.click(
+		screen.getByRole("button", { name: "Kanıtla birlikte aday sürümü kaydet" })
+	);
+
+	expect(await screen.findByRole("status")).toHaveTextContent(
+		"Elle İçe Aktarma Kanıtı kaydedildi"
+	);
+	expect(screen.getByLabelText("Üretim yüzeyi")).toHaveValue("");
+	expect(screen.getByLabelText("Gerçek üretim talimatı")).toHaveValue("");
+	expect(screen.getByLabelText("Üretim Paketi")).toHaveValue("");
+	expect(
+		screen.getByRole("checkbox", {
+			name: "Başka bir sağlayıcının arayüzünden alındı",
+		})
+	).not.toBeChecked();
+	expect(screen.queryByText(selectedFileText)).not.toBeInTheDocument();
+	expect(
+		(screen.getByLabelText("Sonuç dosyası") as HTMLInputElement).value
+	).toBe("");
+	expect(await screen.findByLabelText("Sağlayıcı")).toBeVisible();
+});
+
+test("keeps the manual import draft and request identity when saving fails", async () => {
+	const user = userEvent.setup();
+	fakeApi.packages = [generationPackage];
+	fakeApi.createManualImportVersion
+		.mockRejectedValueOnce(new Error("write failed"))
+		.mockResolvedValueOnce({ id: "ad800472-d38e-4076-835a-ae4f51cd7db6" });
+	renderManualImportForm();
+	await fillManualImport(user, readableFile("result.png"));
+	await user.click(
+		screen.getByRole("button", { name: "Kanıtla birlikte aday sürümü kaydet" })
+	);
+
+	expect(await screen.findByRole("alert")).toHaveTextContent(
+		"Elle İçe Aktarma Kanıtı kaydedilemedi."
+	);
+	expect(screen.getByLabelText("Üretim yüzeyi")).toHaveValue("ComfyUI");
+	expect(screen.getByLabelText("Gerçek üretim talimatı")).toHaveValue(
+		"Keep the cape."
+	);
+	expect(screen.getByRole("status")).toHaveTextContent(
+		"Seçilen dosya: result.png"
+	);
+	await user.click(
+		screen.getByRole("button", { name: "Kanıtla birlikte aday sürümü kaydet" })
+	);
+	await waitFor(() =>
+		expect(fakeApi.createManualImportVersion).toHaveBeenCalledTimes(2)
+	);
+	expect(fakeApi.createManualImportVersion.mock.calls[1]?.[0].id).toBe(
+		fakeApi.createManualImportVersion.mock.calls[0]?.[0].id
+	);
+});
+
+test("opens the file picker from the drop area and locks it during an uncertain save", async () => {
+	const user = userEvent.setup();
+	fakeApi.packages = [generationPackage];
+	fakeApi.createManualImportVersion.mockRejectedValueOnce(
+		new TypeError("Failed to fetch")
+	);
+	renderManualImportForm();
+	const fileInput = (await screen.findByLabelText(
+		"Sonuç dosyası"
+	)) as HTMLInputElement;
+	const pickerClick = vi.spyOn(fileInput, "click");
+	const area = screen.getByRole("button", {
+		name: "Sonuç dosyasını seçin, yapıştırın veya bırakın",
+	});
+	await user.click(area);
+	expect(pickerClick).toHaveBeenCalled();
+	await fillManualImport(user, readableFile("result.png"));
+	await user.click(
+		screen.getByRole("button", { name: "Kanıtla birlikte aday sürümü kaydet" })
+	);
+
+	expect(await screen.findByRole("alert")).toHaveTextContent(
+		"Kayıt sonucu doğrulanamadı."
+	);
+	expect(area).toBeDisabled();
+	expect(screen.getByLabelText("Üretim yüzeyi")).toBeDisabled();
+	expect(
+		screen.getByRole("button", { name: "Kanıtla birlikte aday sürümü kaydet" })
+	).toBeDisabled();
+});
+
+test("toggles the provider result checkbox with the keyboard", async () => {
+	const user = userEvent.setup();
+	fakeApi.packages = [generationPackage];
+	renderManualImportForm();
+	const checkbox = await screen.findByRole("checkbox", {
+		name: "Başka bir sağlayıcının arayüzünden alındı",
+	});
+	await user.tab();
+	checkbox.focus();
+	expect(checkbox).toHaveFocus();
+	await user.keyboard(" ");
+	expect(checkbox).toBeChecked();
+	await user.keyboard(" ");
+	expect(checkbox).not.toBeChecked();
 });

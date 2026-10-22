@@ -1,47 +1,73 @@
-import type { ProjectContextScopeCatalog } from "@sprite-anvil/api/context-scopes";
 import { Button } from "@sprite-anvil/ui/components/button";
-import type { SyntheticEvent } from "react";
+import { Input } from "@sprite-anvil/ui/components/input";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { Textarea } from "@sprite-anvil/ui/components/textarea";
+import type {
+	ThemeFormApi,
+	VisualWorldFormApi,
+} from "../../hooks/use-scope-forms";
+import {
+	resolveSelectedVisualWorldId,
+	type VisualWorlds,
+} from "../../lib/selected-visual-world";
+
+const fieldLabelClass = "context-field leading-[inherit]";
 
 export function VisualWorldForm({
-	description,
+	form,
 	isError,
 	isPending,
-	name,
-	onDescriptionChange,
-	onNameChange,
-	onSubmit,
 }: {
-	description: string;
+	form: VisualWorldFormApi;
 	isError: boolean;
 	isPending: boolean;
-	name: string;
-	onDescriptionChange: (value: string) => void;
-	onNameChange: (value: string) => void;
-	onSubmit: (event: SyntheticEvent<HTMLFormElement>) => void;
 }) {
 	return (
-		<form className="scope-create-form" onSubmit={onSubmit}>
+		<form
+			className="scope-create-form"
+			onSubmit={(event) => {
+				event.preventDefault();
+				event.stopPropagation();
+				form.handleSubmit();
+			}}
+		>
 			<h3>Görsel Dünya ekleyin</h3>
-			<label className="context-field">
-				<span>Görsel Dünya adı</span>
-				<input
-					maxLength={120}
-					onChange={(event) => onNameChange(event.target.value)}
-					placeholder="Örn. Yüksek yaylalar"
-					required
-					value={name}
-				/>
-			</label>
-			<label className="context-field">
-				<span>Açıklama</span>
-				<textarea
-					maxLength={1000}
-					onChange={(event) => onDescriptionChange(event.target.value)}
-					placeholder="Bu dünyanın ayırt edici bağlamını açıklayın."
-					rows={2}
-					value={description}
-				/>
-			</label>
+			<form.Field name="name">
+				{(field) => (
+					<Label className={fieldLabelClass}>
+						<span>Görsel Dünya adı</span>
+						<Input
+							maxLength={120}
+							name={field.name}
+							onBlur={field.handleBlur}
+							onChange={(event) => field.handleChange(event.target.value)}
+							placeholder="Örn. Yüksek yaylalar"
+							required
+							value={field.state.value}
+						/>
+					</Label>
+				)}
+			</form.Field>
+			<form.Field name="description">
+				{(field) => (
+					<Label className={fieldLabelClass}>
+						<span>Açıklama</span>
+						<Textarea
+							maxLength={1000}
+							name={field.name}
+							onBlur={field.handleBlur}
+							onChange={(event) => field.handleChange(event.target.value)}
+							placeholder="Bu dünyanın ayırt edici bağlamını açıklayın."
+							rows={2}
+							value={field.state.value}
+						/>
+					</Label>
+				)}
+			</form.Field>
 			<Button
 				className="quiet-button"
 				disabled={isPending || isError}
@@ -54,75 +80,102 @@ export function VisualWorldForm({
 }
 
 export function ThemeForm({
-	description,
+	form,
 	isError,
 	isPending,
-	name,
-	onDescriptionChange,
-	onNameChange,
-	onSubmit,
-	onVisualWorldChange,
-	selectedVisualWorldId,
 	visualWorlds,
 }: {
-	description: string;
+	form: ThemeFormApi;
 	isError: boolean;
 	isPending: boolean;
-	name: string;
-	onDescriptionChange: (value: string) => void;
-	onNameChange: (value: string) => void;
-	onSubmit: (event: SyntheticEvent<HTMLFormElement>) => void;
-	onVisualWorldChange: (value: string) => void;
-	selectedVisualWorldId: string;
-	visualWorlds: ProjectContextScopeCatalog["visualWorlds"];
+	visualWorlds: VisualWorlds;
 }) {
 	return (
-		<form className="scope-create-form" onSubmit={onSubmit}>
+		<form
+			className="scope-create-form"
+			onSubmit={(event) => {
+				event.preventDefault();
+				event.stopPropagation();
+				form.handleSubmit();
+			}}
+		>
 			<h3>Tema ekleyin</h3>
-			<label className="context-field">
-				<span>Görsel Dünya</span>
-				<select
-					onChange={(event) => onVisualWorldChange(event.target.value)}
-					required
-					value={selectedVisualWorldId}
-				>
-					{visualWorlds.length ? null : (
-						<option value="">Önce bir Görsel Dünya ekleyin</option>
-					)}
-					{visualWorlds.map((visualWorld) => (
-						<option key={visualWorld.id} value={visualWorld.id}>
-							{visualWorld.name}
-						</option>
-					))}
-				</select>
-			</label>
-			<label className="context-field">
-				<span>Tema adı</span>
-				<input
-					maxLength={120}
-					onChange={(event) => onNameChange(event.target.value)}
-					placeholder="Örn. Kış pazarı"
-					required
-					value={name}
-				/>
-			</label>
-			<label className="context-field">
-				<span>Açıklama</span>
-				<textarea
-					maxLength={1000}
-					onChange={(event) => onDescriptionChange(event.target.value)}
-					placeholder="Bu temanın ayırt edici bağlamını açıklayın."
-					rows={2}
-					value={description}
-				/>
-			</label>
-			<Button
-				className="quiet-button"
-				disabled={isPending || isError || !selectedVisualWorldId}
-				type="submit"
-			>
-				{isPending ? "Kaydediliyor…" : "Tema ekle"}
-			</Button>
+			<form.Field name="visualWorldId">
+				{(field) => (
+					<Label className={fieldLabelClass}>
+						<span>Görsel Dünya</span>
+						<NativeSelect
+							className="w-full"
+							name={field.name}
+							onBlur={field.handleBlur}
+							onChange={(event) => field.handleChange(event.target.value)}
+							required
+							value={resolveSelectedVisualWorldId(
+								field.state.value,
+								visualWorlds
+							)}
+						>
+							{visualWorlds.length ? null : (
+								<NativeSelectOption value="">
+									Önce bir Görsel Dünya ekleyin
+								</NativeSelectOption>
+							)}
+							{visualWorlds.map((visualWorld) => (
+								<NativeSelectOption key={visualWorld.id} value={visualWorld.id}>
+									{visualWorld.name}
+								</NativeSelectOption>
+							))}
+						</NativeSelect>
+					</Label>
+				)}
+			</form.Field>
+			<form.Field name="name">
+				{(field) => (
+					<Label className={fieldLabelClass}>
+						<span>Tema adı</span>
+						<Input
+							maxLength={120}
+							name={field.name}
+							onBlur={field.handleBlur}
+							onChange={(event) => field.handleChange(event.target.value)}
+							placeholder="Örn. Kış pazarı"
+							required
+							value={field.state.value}
+						/>
+					</Label>
+				)}
+			</form.Field>
+			<form.Field name="description">
+				{(field) => (
+					<Label className={fieldLabelClass}>
+						<span>Açıklama</span>
+						<Textarea
+							maxLength={1000}
+							name={field.name}
+							onBlur={field.handleBlur}
+							onChange={(event) => field.handleChange(event.target.value)}
+							placeholder="Bu temanın ayırt edici bağlamını açıklayın."
+							rows={2}
+							value={field.state.value}
+						/>
+					</Label>
+				)}
+			</form.Field>
+			<form.Subscribe selector={(state) => state.values.visualWorldId}>
+				{(chosenId) => (
+					<Button
+						className="quiet-button"
+						disabled={
+							isPending ||
+							isError ||
+							!resolveSelectedVisualWorldId(chosenId, visualWorlds)
+						}
+						type="submit"
+					>
+						{isPending ? "Kaydediliyor…" : "Tema ekle"}
+					</Button>
+				)}
+			</form.Subscribe>
 		</form>
 	);
 }

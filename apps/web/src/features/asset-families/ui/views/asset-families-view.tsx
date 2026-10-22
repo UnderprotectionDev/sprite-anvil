@@ -1,8 +1,13 @@
 import type { SpecializedProfileContractsListOutput } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { type QueryKey, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { type SyntheticEvent, useState } from "react";
+import { useState } from "react";
 import { TaskWorkspace } from "@/components/task-workspace";
 import { useAssetVersionWrites } from "@/features/asset-versions/hooks/use-asset-version-writes";
 import { AssetVersionControls } from "@/features/asset-versions/ui/components/asset-version-controls";
@@ -22,14 +27,11 @@ import { UiStateComparisonSections } from "@/features/ui-profile/ui/components/u
 import { UiStretchTestSections } from "@/features/ui-profile/ui/components/ui-stretch-test-sections";
 import { VfxAppearanceSections } from "@/features/vfx-profile/ui/components/vfx-appearance-sections";
 import { VfxSynchronizationSections } from "@/features/vfx-profile/ui/components/vfx-synchronization-sections";
-import { client, orpc } from "@/utils/orpc";
-import { useAssetFamilyFormState } from "../../hooks/use-asset-family-form-state";
+import { orpc } from "@/utils/orpc";
+import { useAssetFamilyForms } from "../../hooks/use-asset-family-forms";
 import { useAssetFamilyWrites } from "../../hooks/use-asset-family-writes";
 import { AssetFamilyCatalogView } from "../components/asset-family-catalog";
-import {
-	type AssetFamilyFormHandlers,
-	AssetFamilyManagementForms,
-} from "../components/asset-family-management-forms";
+import { AssetFamilyManagementForms } from "../components/asset-family-management-forms";
 
 const emptyAssetVersionCatalog = {
 	assetVersions: [],
@@ -152,118 +154,38 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 		profileContractsQuery.data,
 		"tileset_terrain_texture"
 	);
-	const form = useAssetFamilyFormState(catalog, visualWorlds);
-	const writes = useAssetFamilyWrites(catalogQuery.refetch);
-	const refreshAssetCatalogs = async () => {
-		const results = await Promise.all([
-			catalogQuery.refetch(),
-			assetVersionQuery.refetch(),
-		]);
-		return { isError: results.some((result) => result.isError) };
+	const catalogKey = orpc.assetFamilies.list.queryKey({ input: { projectId } });
+	const assetVersionKey = orpc.assetVersions.list.queryKey({
+		input: { projectId },
+	});
+	// Post-write refresh: invalidate the active reads and report whether any of
+	// them ended in an error so callers can keep the uncertain-outcome state.
+	const refreshQueries = async (keys: QueryKey[]) => {
+		await Promise.all(
+			keys.map((queryKey) => queryClient.invalidateQueries({ queryKey }))
+		);
+		return {
+			isError: keys.some(
+				(queryKey) => queryClient.getQueryState(queryKey)?.status === "error"
+			),
+		};
 	};
+	const writes = useAssetFamilyWrites(() => refreshQueries([catalogKey]));
+	const refreshAssetCatalogs = () =>
+		refreshQueries([catalogKey, assetVersionKey]);
 	const assetVersionWrites = useAssetVersionWrites(
 		projectId,
 		refreshAssetCatalogs
 	);
+	const forms = useAssetFamilyForms({
+		assetVersionCatalog,
+		catalog,
+		projectId,
+		save: writes.save,
+		visualWorlds,
+	});
 	const writesDisabled =
 		writes.writesDisabled || assetVersionWrites.writesDisabled;
-	const { state: formState } = form;
-
-	function submitSubjectIdentity(event: SyntheticEvent<HTMLFormElement>) {
-		void writes.save(
-			event,
-			"subject-identity",
-			() =>
-				client.assetFamilies.createSubjectIdentity({
-					projectId,
-					name: formState.subjectIdentityName,
-				}),
-			(record) => form.created.subjectIdentity(record.id),
-			"Varlık Kimliği kaydedildi."
-		);
-	}
-
-	function submitAssetFamily(event: SyntheticEvent<HTMLFormElement>) {
-		void writes.save(
-			event,
-			"asset-family",
-			() =>
-				client.assetFamilies.createAssetFamily({
-					projectId,
-					subjectIdentityId: formState.selectedSubjectIdentityId,
-					name: formState.familyName,
-					visualWorldId: formState.selectedVisualWorldId,
-					useContext: formState.familyUseContext,
-				}),
-			(record) => form.created.assetFamily(record.id),
-			"Varlık Ailesi kaydedildi."
-		);
-	}
-
-	function submitAssetRecord(event: SyntheticEvent<HTMLFormElement>) {
-		void writes.save(
-			event,
-			"asset-record",
-			() =>
-				client.assetFamilies.createAssetRecord({
-					projectId,
-					assetFamilyId: formState.selectedAssetRecordFamilyId,
-					name: formState.assetRecordName,
-					identityCriteria: formState.assetRecordIdentityCriteria,
-				}),
-			(record) => form.created.assetRecord(record.id),
-			"Varlık Kaydı kaydedildi."
-		);
-	}
-
-	function submitRelationship(event: SyntheticEvent<HTMLFormElement>) {
-		const canonicalDesign = assetVersionCatalog.canonicalDesigns
-			.filter(
-				(design) =>
-					design.assetFamilyId === formState.selectedRelationshipFamilyId
-			)
-			.at(-1);
-		const sourceAssetVersionId =
-			formState.relationshipType === "derivative"
-				? canonicalDesign?.assetVersionId
-				: undefined;
-		const sourceAssetRecordId =
-			formState.relationshipType === "derivative"
-				? (canonicalDesign?.assetRecordId ?? "")
-				: formState.selectedRelationshipSourceId;
-		const targetAssetRecordId =
-			formState.selectedRelationshipTargetId === sourceAssetRecordId
-				? (catalog?.assetRecords.find(
-						(record) =>
-							record.assetFamilyId === formState.selectedRelationshipFamilyId &&
-							record.id !== sourceAssetRecordId
-					)?.id ?? "")
-				: formState.selectedRelationshipTargetId;
-		void writes.save(
-			event,
-			"relationship",
-			() =>
-				client.assetFamilies.createRelationship({
-					projectId,
-					assetFamilyId: formState.selectedRelationshipFamilyId,
-					sourceAssetRecordId,
-					targetAssetRecordId,
-					type: formState.relationshipType,
-					...(sourceAssetVersionId ? { sourceAssetVersionId } : {}),
-				}),
-			() => undefined,
-			"İlişki kaydedildi."
-		);
-	}
-
-	const formHandlers: AssetFamilyFormHandlers = {
-		...form.changeHandlers,
-		submitAssetFamily,
-		submitAssetRecord,
-		submitRelationship,
-		submitSubjectIdentity,
-	};
-
 	function renderFamilyWorkspace() {
 		if (!catalog || catalogQuery.isError) {
 			return null;
@@ -271,22 +193,22 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 		return (
 			<>
 				{catalog.assetFamilies.length > 0 ? (
-					<label className="block space-y-2 text-sm">
+					<Label className="block space-y-2 text-sm">
 						<span className="font-medium">
 							İnceleme ve tamamlanma için aile
 						</span>
-						<select
-							className="min-h-11 w-full rounded-md border bg-background px-3"
+						<NativeSelect
+							className="w-full [&>select]:min-h-11"
 							onChange={(event) => setSelectedFamilyId(event.target.value)}
 							value={selectedFamily?.id ?? ""}
 						>
 							{catalog.assetFamilies.map((family) => (
-								<option key={family.id} value={family.id}>
+								<NativeSelectOption key={family.id} value={family.id}>
 									{family.name}
-								</option>
+								</NativeSelectOption>
 							))}
-						</select>
-					</label>
+						</NativeSelect>
+					</Label>
 				) : (
 					<p className="rounded-lg border border-dashed p-5">
 						Henüz Varlık Ailesi yok. Aile ve temsil ilişkileri alanından
@@ -339,8 +261,7 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 										assetVersionCatalog={assetVersionCatalog}
 										catalog={catalog}
 										disabled={writesDisabled}
-										formHandlers={formHandlers}
-										formState={formState}
+										forms={forms}
 										isSaving={writes.savingOperation}
 										isScopeError={scopeQuery.isError}
 										isScopeLoaded={scopeQuery.isSuccess}

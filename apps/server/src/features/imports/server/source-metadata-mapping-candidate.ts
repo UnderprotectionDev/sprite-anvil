@@ -9,10 +9,24 @@ import {
 	importInboxObjectKeySchema,
 } from "../../../cloudflare";
 import {
+	AssetVersionContentLengthError,
 	AssetVersionIntegrityError,
 	createAssetVersionIntegrityTransform,
 } from "../../asset-versions/server/asset-version-integrity";
-import { verifyImportInboxStream } from "./import-inbox-integrity";
+import {
+	ImportInboxContentLengthError,
+	ImportInboxIntegrityError,
+	verifyImportInboxStream,
+} from "./import-inbox-integrity";
+
+export function isInvalidSourceImageError(error: unknown) {
+	return (
+		error instanceof AssetVersionIntegrityError ||
+		error instanceof AssetVersionContentLengthError ||
+		error instanceof ImportInboxIntegrityError ||
+		error instanceof ImportInboxContentLengthError
+	);
+}
 
 export async function createCandidateFromInbox({
 	userId,

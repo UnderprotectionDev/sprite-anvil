@@ -4,11 +4,12 @@ import {
 	getGameplayMetadataFields,
 } from "@sprite-anvil/api/gameplay-metadata";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client, orpc } from "@/utils/orpc";
+import { mutationMeta } from "@/utils/mutation-meta";
+import { orpc } from "@/utils/orpc";
 import { GameplayMetadataForm } from "../forms/gameplay-metadata-form";
 import { GameplayMetadataReview } from "./gameplay-metadata-review";
 
@@ -53,6 +54,9 @@ export function GameplayMetadataPanel({
 	);
 	const [message, setMessage] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	const writeMutation = useMutation(
+		orpc.gameplayMetadata.write.mutationOptions(mutationMeta)
+	);
 	const contracts =
 		contractsQuery.data?.profiles.flatMap((profile) =>
 			profile.activeContract &&
@@ -71,7 +75,7 @@ export function GameplayMetadataPanel({
 		setMessage(null);
 		setError(null);
 		try {
-			await client.gameplayMetadata.write(input);
+			await writeMutation.mutateAsync(input);
 			setUncertain(null);
 			const result = await catalogQuery.refetch();
 			setMessage(

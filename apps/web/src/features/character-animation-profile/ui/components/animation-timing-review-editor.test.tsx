@@ -11,6 +11,7 @@ import {
 	screen,
 	waitFor,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { useEffect } from "react";
 import { afterEach, expect, test, vi } from "vitest";
 import { AnimationTimingReviewEditor } from "./animation-timing-review-editor";
@@ -403,7 +404,9 @@ test("keeps saved review fields read-only while allowing playback inspection", a
 	);
 	expect(screen.getByLabelText("Animasyon adı")).toBeDisabled();
 	expect(screen.getByLabelText("Oynatma hızı")).toBeDisabled();
-	expect(screen.getByLabelText("Döngüde oynat")).toBeDisabled();
+	expect(
+		screen.getByRole("checkbox", { name: "Döngüde oynat" })
+	).toHaveAttribute("aria-disabled", "true");
 	expect(screen.getByLabelText("İnceleme sonucu")).toBeDisabled();
 	expect(screen.getByLabelText("Gerekçe")).toBeDisabled();
 	expect(screen.getByLabelText("Oynatma konumu (ms)")).toBeEnabled();
@@ -440,4 +443,25 @@ test("advances every direction on one clock and stops at pause and reset", async
 	expect(cancel).toHaveBeenCalledWith(1);
 	fireEvent.click(screen.getByRole("button", { name: "Başa dön" }));
 	expect(screen.getByLabelText("Oynatma konumu (ms)")).toHaveValue(0);
+});
+
+test("toggles a frame sprite sheet region from the keyboard and edits its bounds", async () => {
+	const user = userEvent.setup();
+	renderEditor();
+
+	const region = screen.getByRole("checkbox", {
+		name: "Yön 1 kare 1 sprite sheet alanı",
+	});
+	const regionWidth = () =>
+		screen.queryByRole("spinbutton", { name: "Yön 1 kare 1 width" });
+	expect(region).toHaveAttribute("aria-checked", "false");
+	expect(regionWidth()).not.toBeInTheDocument();
+
+	region.focus();
+	await user.keyboard(" ");
+	expect(region).toHaveAttribute("aria-checked", "true");
+	expect(regionWidth()).toHaveValue(32);
+	await user.keyboard(" ");
+	expect(region).toHaveAttribute("aria-checked", "false");
+	expect(regionWidth()).not.toBeInTheDocument();
 });

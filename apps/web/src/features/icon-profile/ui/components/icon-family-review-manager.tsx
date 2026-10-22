@@ -4,16 +4,29 @@ import {
 	createIconFamilyReviewArchive,
 	type IconFamilyReviewInput,
 	type IconFamilyReviewRecord,
-	iconFamilyReviewInputSchema,
 } from "@sprite-anvil/api/icon-family-reviews";
 import type { ProjectProfileContractActivation } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQuery } from "@tanstack/react-query";
-import { type SyntheticEvent, useEffect, useId, useState } from "react";
+import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
+import { Input } from "@sprite-anvil/ui/components/input";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { Textarea } from "@sprite-anvil/ui/components/textarea";
+import { useForm, useStore } from "@tanstack/react-form";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useId, useState } from "react";
 import { ENV } from "@/env";
+import {
+	type IconFamilyReviewFormValues,
+	iconFamilyReviewFormSchema,
+} from "@/features/icon-profile/schemas";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client, orpc } from "@/utils/orpc";
+import { mutationMeta } from "@/utils/mutation-meta";
+import { orpc } from "@/utils/orpc";
 
 type ReviewableVersion = Pick<
 	AssetVersion,
@@ -266,9 +279,46 @@ export function IconFamilyReviewManager({
 			version.id,
 		]),
 	});
-	const [items, setItems] = useState(() =>
-		makeInitialItems(iconRecords, reviewableVersions)
+	const [pendingId, setPendingId] = useState<string | null>(null);
+	const [pendingInput, setPendingInput] =
+		useState<IconFamilyReviewInput | null>(null);
+	const [uncertain, setUncertain] = useState(false);
+	const [message, setMessage] = useState("");
+	const reviewSchema = iconFamilyReviewFormSchema({
+		assetFamilyId,
+		contractRevisionId: activation?.contractRevisionId ?? "",
+		projectId,
+	});
+	const [defaultValues] = useState(
+		(): IconFamilyReviewFormValues => ({
+			comparisons: makeComparisonDrafts(),
+			items: makeInitialItems(iconRecords, reviewableVersions),
+			outcome: "needs_follow_up",
+			rationale: "",
+		})
 	);
+	const form = useForm({
+		defaultValues,
+		onSubmit: ({ value }) => {
+			void save(reviewSchema.parse(value));
+		},
+		onSubmitInvalid: ({ formApi }) => {
+			const issue = formApi.state.errorMap.onSubmit;
+			setMessage(
+				typeof issue === "string" ? issue : "İnceleme bilgilerini kontrol edin."
+			);
+		},
+		validators: {
+			onSubmit: ({ value }) => {
+				const result = reviewSchema.safeParse(value);
+				return result.success
+					? undefined
+					: (result.error.issues[0]?.message ??
+							"İnceleme bilgilerini kontrol edin.");
+			},
+		},
+	});
+	const items = useStore(form.store, (state) => state.values.items);
 	const [itemsTouched, setItemsTouched] = useState(false);
 	const [initializedItemCatalog, setInitializedItemCatalog] =
 		useState(itemCatalogSignature);
@@ -280,26 +330,20 @@ export function IconFamilyReviewManager({
 		) {
 			return;
 		}
-		setItems(makeInitialItems(iconRecords, reviewableVersions));
+		form.setFieldValue(
+			"items",
+			makeInitialItems(iconRecords, reviewableVersions),
+			{ dontUpdateMeta: true }
+		);
 		setInitializedItemCatalog(itemCatalogSignature);
 	}, [
+		form,
 		iconRecords,
 		initializedItemCatalog,
 		itemCatalogSignature,
 		itemsTouched,
 		reviewableVersions,
 	]);
-	const [comparisons, setComparisons] = useState(makeComparisonDrafts);
-	const [outcome, setOutcome] = useState<"consistent" | "needs_follow_up">(
-		"needs_follow_up"
-	);
-	const [rationale, setRationale] = useState("");
-	const [saving, setSaving] = useState(false);
-	const [pendingId, setPendingId] = useState<string | null>(null);
-	const [pendingInput, setPendingInput] =
-		useState<IconFamilyReviewInput | null>(null);
-	const [uncertain, setUncertain] = useState(false);
-	const [message, setMessage] = useState("");
 	const reviewQuery = useQuery({
 		...orpc.iconFamilyReviews.list.queryOptions({
 			input: { assetFamilyId, projectId },
@@ -308,11 +352,39 @@ export function IconFamilyReviewManager({
 			activation?.contract.profileId === "icon" && iconRecords.length >= 2,
 	});
 
+	const queryClient = useQueryClient();
+	const saveMutation = useMutation(
+		orpc.iconFamilyReviews.save.mutationOptions({
+			...mutationMeta,
+			onSuccess: async (_saved, input) => {
+				setPendingInput(null);
+				const reviewsKey = orpc.iconFamilyReviews.list.queryKey({
+					input: { assetFamilyId, projectId },
+				});
+				await queryClient.invalidateQueries({ queryKey: reviewsKey });
+				const refreshed =
+					queryClient.getQueryState<IconFamilyReviewRecord[]>(reviewsKey);
+				const persisted = refreshed?.data?.find(
+					(record) => record.id === input.id
+				);
+				if (refreshed?.status === "error" || !persisted) {
+					setUncertain(true);
+					setMessage(
+						"İnceleme kaydedildi; ancak kalıcı kayıt yeniden okunamadı. Güncel kayıtları kontrol edin."
+					);
+					return;
+				}
+				setPendingId(null);
+				setUncertain(false);
+				setMessage("İnceleme kalıcı kayıttan doğrulandı.");
+			},
+		})
+	);
+	const saving = saveMutation.isPending;
+
 	if (activation?.contract.profileId !== "icon" || iconRecords.length < 2) {
 		return null;
 	}
-	const { contractRevisionId } = activation;
-
 	const versionsByRecord = new Map<string, ReviewableVersion[]>();
 	for (const version of reviewableVersions) {
 		const recordVersions = versionsByRecord.get(version.assetRecordId) ?? [];
@@ -323,34 +395,6 @@ export function IconFamilyReviewManager({
 	const versionsById = new Map(
 		reviewableVersions.map((version) => [version.id, version])
 	);
-
-	function updateItem(index: number, patch: Partial<ReviewItemDraft>) {
-		setItemsTouched(true);
-		setItems((current) =>
-			current.map((item, itemIndex) =>
-				itemIndex === index ? { ...item, ...patch } : item
-			)
-		);
-	}
-
-	function changeAssetRecord(index: number, assetRecordId: string) {
-		const firstVersion = versionsByRecord.get(assetRecordId)?.[0];
-		updateItem(index, {
-			assetRecordId,
-			assetVersionId: firstVersion?.id ?? "",
-		});
-	}
-
-	function updateComparison(
-		key: ComparisonKey,
-		field: keyof ComparisonDraft,
-		value: string
-	) {
-		setComparisons((current) => ({
-			...current,
-			[key]: { ...current[key], [field]: value },
-		}));
-	}
 
 	async function checkCurrentRecords() {
 		const result = await reviewQuery.refetch();
@@ -370,25 +414,11 @@ export function IconFamilyReviewManager({
 	}
 
 	async function save(input: IconFamilyReviewInput) {
-		setSaving(true);
 		setPendingId(input.id);
 		setPendingInput(input);
 		setMessage("");
 		try {
-			await client.iconFamilyReviews.save(input);
-			setPendingInput(null);
-			const result = await reviewQuery.refetch();
-			const persisted = result.data?.find((record) => record.id === input.id);
-			if (result.isError || !persisted) {
-				setUncertain(true);
-				setMessage(
-					"İnceleme kaydedildi; ancak kalıcı kayıt yeniden okunamadı. Güncel kayıtları kontrol edin."
-				);
-				return;
-			}
-			setPendingId(null);
-			setUncertain(false);
-			setMessage("İnceleme kalıcı kayıttan doğrulandı.");
+			await saveMutation.mutateAsync(input);
 		} catch (error) {
 			if (!isWriteOutcomeUncertain(error)) {
 				setPendingId(null);
@@ -401,8 +431,6 @@ export function IconFamilyReviewManager({
 			setMessage(
 				"Kaydetme sonucu doğrulanamadı. Güncel kayıtları kontrol edin; kayıt yoksa aynı incelemeyi yeniden gönderebilirsiniz."
 			);
-		} finally {
-			setSaving(false);
 		}
 	}
 
@@ -428,38 +456,6 @@ export function IconFamilyReviewManager({
 		} catch {
 			setMessage("İkon ailesi inceleme JSON arşivi oluşturulamadı.");
 		}
-	}
-
-	function submit(event: SyntheticEvent<HTMLFormElement>) {
-		event.preventDefault();
-		setMessage("");
-		const input = iconFamilyReviewInputSchema.safeParse({
-			assetFamilyId,
-			comparisons,
-			contractRevisionId,
-			grayscaleCompared: true,
-			id: crypto.randomUUID(),
-			items: items.map((item) => ({
-				assetRecordId: item.assetRecordId,
-				assetVersionId: item.assetVersionId,
-				logicalSize: {
-					height: Number(item.height),
-					width: Number(item.width),
-				},
-				usageVariant: item.usageVariant,
-			})),
-			outcome,
-			projectId,
-			rationale,
-			testedBackgrounds: ["light", "dark"],
-		});
-		if (!input.success) {
-			setMessage(
-				input.error.issues[0]?.message ?? "İnceleme bilgilerini kontrol edin."
-			);
-			return;
-		}
-		void save(input.data);
 	}
 
 	return (
@@ -528,159 +524,198 @@ export function IconFamilyReviewManager({
 					</ul>
 				</section>
 			) : null}
-			<form className="space-y-5" onSubmit={submit}>
-				<fieldset className="space-y-3">
-					<legend className="font-medium">Karşılaştırma öğeleri</legend>
-					{items.map((item, index) => {
-						const rowId = `${idPrefix}-item-${index}`;
-						return (
-							<fieldset
-								aria-label={`Karşılaştırma öğesi ${index + 1}`}
-								className="space-y-3 rounded-md border p-3"
-								key={item.key}
+			<form
+				className="space-y-5"
+				onSubmit={(event) => {
+					event.preventDefault();
+					event.stopPropagation();
+					setMessage("");
+					void form.handleSubmit();
+				}}
+			>
+				<form.Field mode="array" name="items">
+					{(itemsField) => (
+						<FieldSet className="space-y-3">
+							<FieldLegend className="font-medium">
+								Karşılaştırma öğeleri
+							</FieldLegend>
+							{itemsField.state.value.map((item, index) => {
+								const rowId = `${idPrefix}-item-${index}`;
+								return (
+									<FieldSet
+										aria-label={`Karşılaştırma öğesi ${index + 1}`}
+										className="space-y-3 rounded-md border p-3"
+										key={item.key}
+									>
+										<FieldLegend className="px-1 font-medium text-sm">
+											Karşılaştırma öğesi {index + 1}
+										</FieldLegend>
+										<div className="grid gap-3 sm:grid-cols-2">
+											<form.Field name={`items[${index}].assetRecordId`}>
+												{(field) => (
+													<Label
+														className="block space-y-1 text-sm"
+														htmlFor={`${rowId}-record`}
+													>
+														<span>Varlık Kaydı</span>
+														<NativeSelect
+															className="w-full"
+															id={`${rowId}-record`}
+															onChange={(event) => {
+																const assetRecordId = event.currentTarget.value;
+																setItemsTouched(true);
+																field.handleChange(assetRecordId);
+																form.setFieldValue(
+																	`items[${index}].assetVersionId`,
+																	versionsByRecord.get(assetRecordId)?.[0]
+																		?.id ?? ""
+																);
+															}}
+															value={field.state.value}
+														>
+															{iconRecords.map((option) => (
+																<NativeSelectOption
+																	key={option.id}
+																	value={option.id}
+																>
+																	{option.name}
+																</NativeSelectOption>
+															))}
+														</NativeSelect>
+													</Label>
+												)}
+											</form.Field>
+											<form.Field name={`items[${index}].assetVersionId`}>
+												{(field) => (
+													<Label
+														className="block space-y-1 text-sm"
+														htmlFor={`${rowId}-version`}
+													>
+														<span>Varlık Sürümü</span>
+														<NativeSelect
+															className="w-full"
+															id={`${rowId}-version`}
+															onChange={(event) => {
+																setItemsTouched(true);
+																field.handleChange(event.currentTarget.value);
+															}}
+															value={field.state.value}
+														>
+															{(
+																versionsByRecord.get(item.assetRecordId) ?? []
+															).map((option) => (
+																<NativeSelectOption
+																	key={option.id}
+																	value={option.id}
+																>
+																	Sürüm {option.versionNumber} ·{" "}
+																	{option.contentDigest?.slice(0, 12)}
+																</NativeSelectOption>
+															))}
+														</NativeSelect>
+													</Label>
+												)}
+											</form.Field>
+											<form.Field name={`items[${index}].usageVariant`}>
+												{(field) => (
+													<Label
+														className="block space-y-1 text-sm"
+														htmlFor={`${rowId}-variant`}
+													>
+														<span>Kullanım çeşidi</span>
+														<Input
+															id={`${rowId}-variant`}
+															maxLength={100}
+															onChange={(event) => {
+																setItemsTouched(true);
+																field.handleChange(event.currentTarget.value);
+															}}
+															required
+															value={field.state.value}
+														/>
+													</Label>
+												)}
+											</form.Field>
+											<form.Field name={`items[${index}].width`}>
+												{(field) => (
+													<Label
+														className="block space-y-1 text-sm"
+														htmlFor={`${rowId}-width`}
+													>
+														<span>Mantıksal genişlik (px)</span>
+														<Input
+															id={`${rowId}-width`}
+															max={4096}
+															min={1}
+															onChange={(event) => {
+																setItemsTouched(true);
+																field.handleChange(event.currentTarget.value);
+															}}
+															required
+															type="number"
+															value={field.state.value}
+														/>
+													</Label>
+												)}
+											</form.Field>
+											<form.Field name={`items[${index}].height`}>
+												{(field) => (
+													<Label
+														className="block space-y-1 text-sm"
+														htmlFor={`${rowId}-height`}
+													>
+														<span>Mantıksal yükseklik (px)</span>
+														<Input
+															id={`${rowId}-height`}
+															max={4096}
+															min={1}
+															onChange={(event) => {
+																setItemsTouched(true);
+																field.handleChange(event.currentTarget.value);
+															}}
+															required
+															type="number"
+															value={field.state.value}
+														/>
+													</Label>
+												)}
+											</form.Field>
+										</div>
+										{itemsField.state.value.length > 2 ? (
+											<Button
+												aria-label={`Karşılaştırma öğesi ${index + 1} satırını kaldır`}
+												onClick={() => {
+													setItemsTouched(true);
+													itemsField.removeValue(index);
+												}}
+												type="button"
+												variant="outline"
+											>
+												Satırı kaldır
+											</Button>
+										) : null}
+									</FieldSet>
+								);
+							})}
+							<Button
+								disabled={itemsField.state.value.length >= 24}
+								onClick={() => {
+									setItemsTouched(true);
+									const assetRecordId = iconRecords[0]?.id ?? "";
+									const assetVersionId =
+										versionsByRecord.get(assetRecordId)?.[0]?.id ?? "";
+									itemsField.pushValue(
+										makeItemDraft(assetRecordId, assetVersionId, 48)
+									);
+								}}
+								type="button"
+								variant="outline"
 							>
-								<legend className="px-1 font-medium text-sm">
-									Karşılaştırma öğesi {index + 1}
-								</legend>
-								<div className="grid gap-3 sm:grid-cols-2">
-									<label
-										className="space-y-1 text-sm"
-										htmlFor={`${rowId}-record`}
-									>
-										<span>Varlık Kaydı</span>
-										<select
-											className="min-h-10 w-full rounded-md border bg-background px-3"
-											id={`${rowId}-record`}
-											onChange={(event) =>
-												changeAssetRecord(index, event.currentTarget.value)
-											}
-											value={item.assetRecordId}
-										>
-											{iconRecords.map((option) => (
-												<option key={option.id} value={option.id}>
-													{option.name}
-												</option>
-											))}
-										</select>
-									</label>
-									<label
-										className="space-y-1 text-sm"
-										htmlFor={`${rowId}-version`}
-									>
-										<span>Varlık Sürümü</span>
-										<select
-											className="min-h-10 w-full rounded-md border bg-background px-3"
-											id={`${rowId}-version`}
-											onChange={(event) =>
-												updateItem(index, {
-													assetVersionId: event.currentTarget.value,
-												})
-											}
-											value={item.assetVersionId}
-										>
-											{(versionsByRecord.get(item.assetRecordId) ?? []).map(
-												(option) => (
-													<option key={option.id} value={option.id}>
-														Sürüm {option.versionNumber} ·{" "}
-														{option.contentDigest?.slice(0, 12)}
-													</option>
-												)
-											)}
-										</select>
-									</label>
-									<label
-										className="space-y-1 text-sm"
-										htmlFor={`${rowId}-variant`}
-									>
-										<span>Kullanım çeşidi</span>
-										<input
-											className="min-h-10 w-full rounded-md border bg-background px-3"
-											id={`${rowId}-variant`}
-											maxLength={100}
-											onChange={(event) =>
-												updateItem(index, {
-													usageVariant: event.currentTarget.value,
-												})
-											}
-											required
-											value={item.usageVariant}
-										/>
-									</label>
-									<label
-										className="space-y-1 text-sm"
-										htmlFor={`${rowId}-width`}
-									>
-										<span>Mantıksal genişlik (px)</span>
-										<input
-											className="min-h-10 w-full rounded-md border bg-background px-3"
-											id={`${rowId}-width`}
-											max={4096}
-											min={1}
-											onChange={(event) =>
-												updateItem(index, { width: event.currentTarget.value })
-											}
-											required
-											type="number"
-											value={item.width}
-										/>
-									</label>
-									<label
-										className="space-y-1 text-sm"
-										htmlFor={`${rowId}-height`}
-									>
-										<span>Mantıksal yükseklik (px)</span>
-										<input
-											className="min-h-10 w-full rounded-md border bg-background px-3"
-											id={`${rowId}-height`}
-											max={4096}
-											min={1}
-											onChange={(event) =>
-												updateItem(index, { height: event.currentTarget.value })
-											}
-											required
-											type="number"
-											value={item.height}
-										/>
-									</label>
-								</div>
-								{items.length > 2 ? (
-									<Button
-										aria-label={`Karşılaştırma öğesi ${index + 1} satırını kaldır`}
-										onClick={() => {
-											setItemsTouched(true);
-											setItems((current) =>
-												current.filter((_, itemIndex) => itemIndex !== index)
-											);
-										}}
-										type="button"
-										variant="outline"
-									>
-										Satırı kaldır
-									</Button>
-								) : null}
-							</fieldset>
-						);
-					})}
-					<Button
-						disabled={items.length >= 24}
-						onClick={() => {
-							setItemsTouched(true);
-							setItems((current) => {
-								const assetRecordId = iconRecords[0]?.id ?? "";
-								const assetVersionId =
-									versionsByRecord.get(assetRecordId)?.[0]?.id ?? "";
-								return [
-									...current,
-									makeItemDraft(assetRecordId, assetVersionId, 48),
-								];
-							});
-						}}
-						type="button"
-						variant="outline"
-					>
-						Kullanım çeşidi ekle
-					</Button>
-				</fieldset>
+								Kullanım çeşidi ekle
+							</Button>
+						</FieldSet>
+					)}
+				</form.Field>
 				<section
 					aria-labelledby={`${idPrefix}-family-comparison-heading`}
 					className="space-y-3"
@@ -765,87 +800,112 @@ export function IconFamilyReviewManager({
 					</div>
 				</section>
 
-				<fieldset className="space-y-3">
-					<legend className="font-medium">Aile karşılaştırmaları</legend>
+				<FieldSet className="space-y-3">
+					<FieldLegend className="font-medium">
+						Aile karşılaştırmaları
+					</FieldLegend>
 					<div className="grid gap-3 sm:grid-cols-2">
 						{comparisonFields.map(({ key, label }) => (
 							<div className="space-y-2" key={key}>
-								<label
-									className="block space-y-1 text-sm"
-									htmlFor={`${idPrefix}-${key}-assessment`}
-								>
-									<span>{label} değerlendirmesi</span>
-									<select
-										className="min-h-10 w-full rounded-md border bg-background px-3"
-										id={`${idPrefix}-${key}-assessment`}
-										onChange={(event) =>
-											updateComparison(
-												key,
-												"assessment",
-												event.currentTarget.value
-											)
-										}
-										value={comparisons[key].assessment}
-									>
-										{assessmentOptions[key].map(([value, optionLabel]) => (
-											<option key={value} value={value}>
-												{optionLabel}
-											</option>
-										))}
-									</select>
-								</label>
-								<label
-									className="block space-y-1 text-sm"
-									htmlFor={`${idPrefix}-${key}-notes`}
-								>
-									<span>{label} notu</span>
-									<textarea
-										className="min-h-20 w-full rounded-md border bg-background px-3 py-2"
-										id={`${idPrefix}-${key}-notes`}
-										maxLength={1000}
-										onChange={(event) =>
-											updateComparison(key, "notes", event.currentTarget.value)
-										}
-										required
-										value={comparisons[key].notes}
-									/>
-								</label>
+								<form.Field name={`comparisons.${key}.assessment`}>
+									{(field) => (
+										<Label
+											className="block space-y-1 text-sm"
+											htmlFor={`${idPrefix}-${key}-assessment`}
+										>
+											<span>{label} değerlendirmesi</span>
+											<NativeSelect
+												className="w-full"
+												id={`${idPrefix}-${key}-assessment`}
+												onChange={(event) =>
+													field.handleChange(event.currentTarget.value)
+												}
+												value={field.state.value}
+											>
+												{assessmentOptions[key].map(([value, optionLabel]) => (
+													<NativeSelectOption key={value} value={value}>
+														{optionLabel}
+													</NativeSelectOption>
+												))}
+											</NativeSelect>
+										</Label>
+									)}
+								</form.Field>
+								<form.Field name={`comparisons.${key}.notes`}>
+									{(field) => (
+										<Label
+											className="block space-y-1 text-sm"
+											htmlFor={`${idPrefix}-${key}-notes`}
+										>
+											<span>{label} notu</span>
+											<Textarea
+												className="min-h-20"
+												id={`${idPrefix}-${key}-notes`}
+												maxLength={1000}
+												onChange={(event) =>
+													field.handleChange(event.currentTarget.value)
+												}
+												required
+												value={field.state.value}
+											/>
+										</Label>
+									)}
+								</form.Field>
 							</div>
 						))}
 					</div>
-				</fieldset>
+				</FieldSet>
 
 				<div className="grid gap-3 sm:grid-cols-2">
-					<label className="space-y-1 text-sm" htmlFor={`${idPrefix}-outcome`}>
-						<span>İnceleme sonucu</span>
-						<select
-							className="min-h-10 w-full rounded-md border bg-background px-3"
-							id={`${idPrefix}-outcome`}
-							onChange={(event) =>
-								setOutcome(
-									event.currentTarget.value as "consistent" | "needs_follow_up"
-								)
-							}
-							value={outcome}
-						>
-							<option value="consistent">Tutarlı</option>
-							<option value="needs_follow_up">Takip gerekli</option>
-						</select>
-					</label>
-					<label
-						className="space-y-1 text-sm"
-						htmlFor={`${idPrefix}-rationale`}
-					>
-						<span>İnceleme gerekçesi</span>
-						<textarea
-							className="min-h-20 w-full rounded-md border bg-background px-3 py-2"
-							id={`${idPrefix}-rationale`}
-							maxLength={2000}
-							onChange={(event) => setRationale(event.currentTarget.value)}
-							required
-							value={rationale}
-						/>
-					</label>
+					<form.Field name="outcome">
+						{(field) => (
+							<Label
+								className="block space-y-1 text-sm"
+								htmlFor={`${idPrefix}-outcome`}
+							>
+								<span>İnceleme sonucu</span>
+								<NativeSelect
+									className="w-full"
+									id={`${idPrefix}-outcome`}
+									onChange={(event) =>
+										field.handleChange(
+											event.currentTarget.value as
+												| "consistent"
+												| "needs_follow_up"
+										)
+									}
+									value={field.state.value}
+								>
+									<NativeSelectOption value="consistent">
+										Tutarlı
+									</NativeSelectOption>
+									<NativeSelectOption value="needs_follow_up">
+										Takip gerekli
+									</NativeSelectOption>
+								</NativeSelect>
+							</Label>
+						)}
+					</form.Field>
+					<form.Field name="rationale">
+						{(field) => (
+							<Label
+								className="block space-y-1 text-sm"
+								htmlFor={`${idPrefix}-rationale`}
+							>
+								<span>İnceleme gerekçesi</span>
+								<Textarea
+									className="min-h-20"
+									id={`${idPrefix}-rationale`}
+									maxLength={2000}
+									onChange={(event) =>
+										field.handleChange(event.currentTarget.value)
+									}
+									required
+									value={field.state.value}
+								/>
+							</Label>
+						)}
+					</form.Field>
 				</div>
 				<p className="text-muted-foreground text-sm">
 					Tek bir ışık veya nadirlik rengi proje genelinde yeni bir sanat kuralı

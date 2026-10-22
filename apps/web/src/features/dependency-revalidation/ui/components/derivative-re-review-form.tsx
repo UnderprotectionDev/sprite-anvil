@@ -1,8 +1,17 @@
 import type { DerivativeReReviewInput } from "@sprite-anvil/api/dependency-revalidation";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useId, useState } from "react";
+import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { Textarea } from "@sprite-anvil/ui/components/textarea";
+import { useForm, useStore } from "@tanstack/react-form";
+import { useId } from "react";
 import { ENV } from "@/env";
 import { AssetVersionPreview } from "@/features/asset-versions/ui/components/asset-version-preview";
+import { derivativeReReviewFormSchema } from "../../schemas";
 
 const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
 
@@ -38,43 +47,56 @@ export function DerivativeReReviewForm({
 	onReview: (input: DerivativeReReviewInput) => void;
 }) {
 	const identifier = useId();
-	const [selectedContext, setSelectedContext] = useState("");
-	const [selectedCanonical, setSelectedCanonical] = useState("");
-	const [rationale, setRationale] = useState("");
-	const ready =
-		!disabled &&
-		Boolean(
-			contextRevisionId &&
-				canonicalDesignVersionId &&
-				selectedContext === contextRevisionId &&
-				selectedCanonical === canonicalDesignVersionId &&
-				rationale.trim()
-		);
+	const schema = derivativeReReviewFormSchema(
+		contextRevisionId,
+		canonicalDesignVersionId
+	);
+	const decisionMeta: { decision: DerivativeReReviewInput["decision"] } = {
+		decision: "approved",
+	};
+	const form = useForm({
+		defaultValues: {
+			contextRevisionId: "",
+			canonicalDesignVersionId: "",
+			rationale: "",
+		},
+		onSubmitMeta: decisionMeta,
+		onSubmit: ({ value, meta }) => {
+			if (disabled) {
+				return;
+			}
+			onReview({
+				projectId,
+				assetVersionId,
+				contextRevisionId: value.contextRevisionId,
+				canonicalDesignVersionId: value.canonicalDesignVersionId,
+				changeImpactIds,
+				rationale: value.rationale.trim(),
+				decision: meta.decision,
+			});
+		},
+		validators: { onSubmit: schema },
+	});
+	const values = useStore(form.store, (state) => state.values);
+	const ready = !disabled && schema.safeParse(values).success;
 	function review(decision: DerivativeReReviewInput["decision"]) {
 		if (!ready) {
 			return;
 		}
-		onReview({
-			projectId,
-			assetVersionId,
-			contextRevisionId: selectedContext,
-			canonicalDesignVersionId: selectedCanonical,
-			changeImpactIds,
-			rationale: rationale.trim(),
-			decision,
-		});
+		void form.handleSubmit({ decision });
 	}
 	return (
 		<form
 			onSubmit={(event) => {
 				event.preventDefault();
+				event.stopPropagation();
 				review("approved");
 			}}
 		>
-			<fieldset className="space-y-3 rounded border p-4" disabled={disabled}>
-				<legend className="font-semibold">
+			<FieldSet className="space-y-3 rounded border p-4" disabled={disabled}>
+				<FieldLegend className="font-semibold">
 					{label} — Güncel Türetilmiş Varlığı Yeniden İnceleme
-				</legend>
+				</FieldLegend>
 				<div className="flex flex-wrap gap-4">
 					{previewUrl ? (
 						<AssetVersionPreview
@@ -91,55 +113,80 @@ export function DerivativeReReviewForm({
 						/>
 					) : null}
 				</div>
-				<label className="block" htmlFor={`${identifier}-context`}>
-					İncelenen Bağlam Sürümü
-				</label>
-				<select
-					className="w-full rounded border px-3 py-2"
-					id={`${identifier}-context`}
-					onChange={(event) => setSelectedContext(event.target.value)}
-					required
-					value={selectedContext}
-				>
-					<option value="">Etkin Bağlam Sürümünü seçin</option>
-					{contextRevisionId ? (
-						<option value={contextRevisionId}>
-							Bağlam Sürümü {contextRevisionNumber} (etkin)
-						</option>
-					) : null}
-				</select>
-				<label className="block" htmlFor={`${identifier}-canonical`}>
-					İncelenen Ana Tasarım
-				</label>
-				<select
-					className="w-full rounded border px-3 py-2"
-					id={`${identifier}-canonical`}
-					onChange={(event) => setSelectedCanonical(event.target.value)}
-					required
-					value={selectedCanonical}
-				>
-					<option value="">Ailenin güncel Ana Tasarımını seçin</option>
-					{canonicalDesignVersionId ? (
-						<option value={canonicalDesignVersionId}>{canonicalLabel}</option>
-					) : null}
-				</select>
+				<form.Field name="contextRevisionId">
+					{(field) => (
+						<>
+							<Label className="block" htmlFor={`${identifier}-context`}>
+								İncelenen Bağlam Sürümü
+							</Label>
+							<NativeSelect
+								className="w-full"
+								id={`${identifier}-context`}
+								onChange={(event) => field.handleChange(event.target.value)}
+								required
+								value={field.state.value}
+							>
+								<NativeSelectOption value="">
+									Etkin Bağlam Sürümünü seçin
+								</NativeSelectOption>
+								{contextRevisionId ? (
+									<NativeSelectOption value={contextRevisionId}>
+										Bağlam Sürümü {contextRevisionNumber} (etkin)
+									</NativeSelectOption>
+								) : null}
+							</NativeSelect>
+						</>
+					)}
+				</form.Field>
+				<form.Field name="canonicalDesignVersionId">
+					{(field) => (
+						<>
+							<Label className="block" htmlFor={`${identifier}-canonical`}>
+								İncelenen Ana Tasarım
+							</Label>
+							<NativeSelect
+								className="w-full"
+								id={`${identifier}-canonical`}
+								onChange={(event) => field.handleChange(event.target.value)}
+								required
+								value={field.state.value}
+							>
+								<NativeSelectOption value="">
+									Ailenin güncel Ana Tasarımını seçin
+								</NativeSelectOption>
+								{canonicalDesignVersionId ? (
+									<NativeSelectOption value={canonicalDesignVersionId}>
+										{canonicalLabel}
+									</NativeSelectOption>
+								) : null}
+							</NativeSelect>
+						</>
+					)}
+				</form.Field>
 				{contextRevisionId && canonicalDesignVersionId ? null : (
 					<p>
 						Yeniden inceleme için etkin Bağlam Sürümü ve ailenin güncel Ana
 						Tasarımı gereklidir.
 					</p>
 				)}
-				<label className="block" htmlFor={`${identifier}-rationale`}>
-					Yeniden inceleme gerekçesi
-				</label>
-				<textarea
-					className="w-full rounded border px-3 py-2"
-					id={`${identifier}-rationale`}
-					maxLength={2000}
-					onChange={(event) => setRationale(event.target.value)}
-					required
-					value={rationale}
-				/>
+				<form.Field name="rationale">
+					{(field) => (
+						<>
+							<Label className="block" htmlFor={`${identifier}-rationale`}>
+								Yeniden inceleme gerekçesi
+							</Label>
+							<Textarea
+								className="w-full"
+								id={`${identifier}-rationale`}
+								maxLength={2000}
+								onBlur={field.handleBlur}
+								onChange={(event) => field.handleChange(event.target.value)}
+								required
+								value={field.state.value}
+							/>
+						</>
+					)}
+				</form.Field>
 				<p className="text-muted-foreground text-sm">
 					Geçmiş onay ve kalite kanıtları korunur. Kalite İstisnası güncel
 					uygunluk yerine geçmez. İçerik değişikliği yeni Birim veya Birleşik
@@ -164,7 +211,7 @@ export function DerivativeReReviewForm({
 				>
 					Birim veya Birleşik Sürüm Hazırla
 				</a>
-			</fieldset>
+			</FieldSet>
 		</form>
 	);
 }

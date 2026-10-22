@@ -7,11 +7,21 @@ import {
 	type BackgroundScrollingSetup as ScrollingSetup,
 } from "@sprite-anvil/api/background-scrolling-tests";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQuery } from "@tanstack/react-query";
+import { Checkbox } from "@sprite-anvil/ui/components/checkbox";
+import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
+import { Input } from "@sprite-anvil/ui/components/input";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { Textarea } from "@sprite-anvil/ui/components/textarea";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client, orpc } from "@/utils/orpc";
+import { mutationMeta } from "@/utils/mutation-meta";
+import { orpc } from "@/utils/orpc";
 import { BackgroundScrollingPreview } from "./background-scrolling-preview";
 
 interface Version {
@@ -28,6 +38,8 @@ const checkLabels = {
 	contrast: "Contrast",
 	playerVisibility: "Player visibility",
 };
+const labelClass = "flex flex-col items-start gap-1 leading-normal";
+const inputClass = "block w-auto";
 const emptyObservations: BackgroundScrollingTestInput["observations"] = {
 	loop: { outcome: "inconclusive", notes: "" },
 	seam: { outcome: "inconclusive", notes: "" },
@@ -71,6 +83,9 @@ export function BackgroundScrollingSetup({
 	const [observations, setObservations] = useState(emptyObservations);
 	const [message, setMessage] = useState("");
 	const [error, setError] = useState("");
+	const saveMutation = useMutation(
+		orpc.backgroundScrollingTests.save.mutationOptions(mutationMeta)
+	);
 	const [busy, setBusy] = useState(false);
 	const [pending, setPending] = useState<BackgroundScrollingTestInput | null>(
 		null
@@ -165,7 +180,7 @@ export function BackgroundScrollingSetup({
 		setMessage("");
 		setError("");
 		try {
-			await client.backgroundScrollingTests.save(input);
+			await saveMutation.mutateAsync(input);
 			await confirm(input);
 		} catch (failure) {
 			setError(getErrorMessage(failure, "Could not save the scrolling test."));
@@ -206,13 +221,13 @@ export function BackgroundScrollingSetup({
 				the crop; without loop, a layer can leave the frame. User observations
 				do not approve the family.
 			</p>
-			<fieldset className="space-y-3" disabled={busy || pending !== null}>
-				<legend>Scrolling settings</legend>
-				<label>
+			<FieldSet className="block space-y-3" disabled={busy || pending !== null}>
+				<FieldLegend>Scrolling settings</FieldLegend>
+				<Label className={labelClass}>
 					Test duration (ms)
-					<input
+					<Input
 						aria-label="Test duration (ms)"
-						className="block rounded border p-2"
+						className={inputClass}
 						max={120_000}
 						min={1}
 						onChange={(event) =>
@@ -221,15 +236,18 @@ export function BackgroundScrollingSetup({
 						type="number"
 						value={setup.durationMs}
 					/>
-				</label>
+				</Label>
 				{setup.motions.map((motion) => (
-					<fieldset className="flex flex-wrap gap-3" key={motion.layerId}>
-						<legend>{motion.layerId} scrolling</legend>
-						<label>
+					<FieldSet
+						className="flex flex-row flex-wrap gap-3"
+						key={motion.layerId}
+					>
+						<FieldLegend>{motion.layerId} scrolling</FieldLegend>
+						<Label className={labelClass}>
 							Relative speed (px/s)
-							<input
+							<Input
 								aria-label={`${motion.layerId} relative speed (px/s)`}
-								className="block rounded border p-2"
+								className={inputClass}
 								max={10_000}
 								min={-10_000}
 								onChange={(event) =>
@@ -245,12 +263,12 @@ export function BackgroundScrollingSetup({
 								type="number"
 								value={motion.speed}
 							/>
-						</label>
-						<label>
+						</Label>
+						<Label className={labelClass}>
 							Loop start offset (px)
-							<input
+							<Input
 								aria-label={`${motion.layerId} loop start offset (px)`}
-								className="block rounded border p-2"
+								className={inputClass}
 								max={32_768}
 								min={0}
 								onChange={(event) =>
@@ -266,53 +284,59 @@ export function BackgroundScrollingSetup({
 								type="number"
 								value={motion.startOffset}
 							/>
-						</label>
-						<label className="flex items-center gap-2">
-							<input
+						</Label>
+						<Label
+							className="flex items-center gap-2 leading-normal"
+							htmlFor={`${motion.layerId}-loop`}
+						>
+							<Checkbox
 								checked={motion.loop}
-								onChange={(event) =>
+								disabled={busy || pending !== null}
+								id={`${motion.layerId}-loop`}
+								onCheckedChange={(checked) =>
 									change({
 										...setup,
 										motions: setup.motions.map((item) =>
 											item.layerId === motion.layerId
-												? { ...item, loop: event.target.checked }
+												? { ...item, loop: checked }
 												: item
 										),
 									})
 								}
-								type="checkbox"
 							/>
 							{motion.layerId} loop
-						</label>
-					</fieldset>
+						</Label>
+					</FieldSet>
 				))}
-				<label>
+				<Label className={labelClass}>
 					Exact player version
-					<select
+					<NativeSelect
 						aria-label="Exact player version"
-						className="block rounded border p-2"
+						className={inputClass}
 						onChange={(event) => selectPlayer(event.target.value)}
 						value={setup.player.assetVersionId}
 					>
-						<option value="">Select a player version</option>
+						<NativeSelectOption value="">
+							Select a player version
+						</NativeSelectOption>
 						{players.map((version) => (
-							<option key={version.id} value={version.id}>
+							<NativeSelectOption key={version.id} value={version.id}>
 								{
 									assetRecords.find(
 										(record) => record.id === version.assetRecordId
 									)?.name
 								}{" "}
 								· {version.id}
-							</option>
+							</NativeSelectOption>
 						))}
-					</select>
-				</label>
+					</NativeSelect>
+				</Label>
 				{(["x", "y", "width", "height"] as const).map((field) => (
-					<label className="block" key={field}>
+					<Label className={labelClass} key={field}>
 						Player {field}
-						<input
+						<Input
 							aria-label={`Player ${field}`}
-							className="block rounded border p-2"
+							className={inputClass}
 							min={field === "width" || field === "height" ? 1 : 0}
 							onChange={(event) =>
 								change({
@@ -326,13 +350,13 @@ export function BackgroundScrollingSetup({
 							type="number"
 							value={setup.player[field]}
 						/>
-					</label>
+					</Label>
 				))}
-				<label>
+				<Label className={labelClass}>
 					Player order
-					<select
+					<NativeSelect
 						aria-label="Player order"
-						className="block rounded border p-2"
+						className={inputClass}
 						onChange={(event) =>
 							change({
 								...setup,
@@ -344,17 +368,17 @@ export function BackgroundScrollingSetup({
 						}
 						value={setup.player.afterLayerId ?? ""}
 					>
-						<option value="">Behind all layers</option>
+						<NativeSelectOption value="">Behind all layers</NativeSelectOption>
 						{[...layout.layers]
 							.sort((a, b) => a.order - b.order)
 							.map((layer) => (
-								<option key={layer.id} value={layer.id}>
+								<NativeSelectOption key={layer.id} value={layer.id}>
 									After {layer.id}
-								</option>
+								</NativeSelectOption>
 							))}
-					</select>
-				</label>
-			</fieldset>
+					</NativeSelect>
+				</Label>
+			</FieldSet>
 			{setup.player.assetVersionId ? (
 				<BackgroundScrollingPreview
 					durationMs={setup.durationMs}
@@ -373,15 +397,15 @@ export function BackgroundScrollingSetup({
 			<p>
 				Actual playback: {Math.round(playedMs)} / {setup.durationMs} ms
 			</p>
-			<fieldset className="space-y-3" disabled={busy || pending !== null}>
-				<legend>Human observations</legend>
+			<FieldSet className="block space-y-3" disabled={busy || pending !== null}>
+				<FieldLegend>Human observations</FieldLegend>
 				{backgroundScrollingChecks.map((check) => (
 					<div className="flex flex-wrap gap-3" key={check}>
-						<label>
+						<Label className={labelClass}>
 							{checkLabels[check]} outcome
-							<select
+							<NativeSelect
 								aria-label={`${checkLabels[check]} outcome`}
-								className="block rounded border p-2"
+								className={inputClass}
 								onChange={(event) =>
 									setObservations({
 										...observations,
@@ -393,16 +417,18 @@ export function BackgroundScrollingSetup({
 								}
 								value={observations[check].outcome}
 							>
-								<option value="passed">Passed</option>
-								<option value="failed">Failed</option>
-								<option value="inconclusive">Inconclusive</option>
-							</select>
-						</label>
-						<label>
+								<NativeSelectOption value="passed">Passed</NativeSelectOption>
+								<NativeSelectOption value="failed">Failed</NativeSelectOption>
+								<NativeSelectOption value="inconclusive">
+									Inconclusive
+								</NativeSelectOption>
+							</NativeSelect>
+						</Label>
+						<Label className={labelClass}>
 							{checkLabels[check]} notes
-							<textarea
+							<Textarea
 								aria-label={`${checkLabels[check]} notes`}
-								className="block rounded border p-2"
+								className={inputClass}
 								onChange={(event) =>
 									setObservations({
 										...observations,
@@ -414,7 +440,7 @@ export function BackgroundScrollingSetup({
 								}
 								value={observations[check].notes}
 							/>
-						</label>
+						</Label>
 					</div>
 				))}
 				<Button
@@ -426,7 +452,7 @@ export function BackgroundScrollingSetup({
 				>
 					{busy ? "Saving…" : "Save scrolling test"}
 				</Button>
-			</fieldset>
+			</FieldSet>
 			{error ? <p role="alert">{error}</p> : null}
 			{message ? <p role="status">{message}</p> : null}
 			{pending ? (

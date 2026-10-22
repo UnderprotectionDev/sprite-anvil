@@ -1,6 +1,5 @@
 import type { ProjectContextScopeCatalog } from "@sprite-anvil/api/context-scopes";
 import type {
-	ContextProposalInput,
 	ContextRevision,
 	ContextRule,
 	ContextRuleChange,
@@ -15,12 +14,27 @@ import {
 	STRUCTURED_CONTEXT_RULES,
 } from "@sprite-anvil/api/project-context";
 import { Button } from "@sprite-anvil/ui/components/button";
+import { Checkbox } from "@sprite-anvil/ui/components/checkbox";
+import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
+import { Input } from "@sprite-anvil/ui/components/input";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { Textarea } from "@sprite-anvil/ui/components/textarea";
+import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { Plus, Send, Trash2 } from "lucide-react";
-import { type SyntheticEvent, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
-import { client } from "@/utils/orpc";
+import { orpc } from "@/utils/orpc";
+import {
+	type ProposalChangeDraft,
+	type ProposalFormValues,
+	proposalFormSchema,
+} from "../../schemas";
 
 export type EvidenceKind = "user_decision" | "observed_change";
 type ValueType =
@@ -40,18 +54,10 @@ const structuredRuleLabels: Record<StructuredContextRuleId, string> = {
 	"motif.avoided": "Kaçınılacak motifler",
 };
 
-interface ChangeDraft {
-	evidence: string;
-	evidenceKind: EvidenceKind;
-	id: string;
-	isOverride: boolean;
-	operation: "add" | "replace" | "remove";
-	precedenceChain: ContextScope[];
-	rationale: string;
-	ruleId: string;
-	scope: ContextScope;
-	value: string;
-}
+type ChangeDraft = ProposalChangeDraft;
+
+const fieldLabelClass = "context-field leading-[inherit]";
+const fullWidthSelectClass = "w-full";
 
 interface ProposalFormProps {
 	onCheckCurrentState: () => Promise<boolean>;
@@ -71,45 +77,55 @@ export function ProposalForm({
 		scopeCatalog
 	);
 	const scopeOptions = [defaultScopeOption, ...otherScopeOptions];
-	const [summary, setSummary] = useState("");
-	const [changes, setChanges] = useState<ChangeDraft[]>(() => [
+	const currentRevision = project.currentContextRevision;
+	const createDraft = () =>
 		newChangeDraft(
-			availableRules(
-				project.currentContextRevision,
-				"add",
-				defaultScopeOption.scope
-			)[0]?.id ?? "",
+			availableRules(currentRevision, "add", defaultScopeOption.scope)[0]?.id ??
+				"",
 			defaultScopeOption
-		),
-	]);
+		);
+	const [initialValues] = useState<ProposalFormValues>(() => ({
+		summary: "",
+		changes: [createDraft()],
+	}));
+	const form = useForm({
+		defaultValues: initialValues,
+		onSubmit: ({ value }) => {
+			if (writeOutcomeUncertain) {
+				return;
+			}
+			setFormStatus(null);
+			createProposal.mutate({
+				projectId: project.id,
+				baseContextRevisionId: currentRevision.id,
+				summary: value.summary,
+				changes: value.changes.map((change) =>
+					toContextRuleChange(change, currentRevision.rules)
+				),
+			});
+		},
+		validators: { onSubmit: proposalFormSchema },
+	});
 	const [formStatus, setFormStatus] = useState<string | null>(null);
 	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
 	const [isCheckingOutcome, setIsCheckingOutcome] = useState(false);
-	const currentRevision = project.currentContextRevision;
 	const supportedBaseRuleCount = STRUCTURED_CONTEXT_RULE_IDS.filter((ruleId) =>
 		currentRevision.rules.some((rule) => rule.id === ruleId)
 	).length;
-	const createProposal = useMutation({
-		mutationFn: (input: ContextProposalInput) =>
-			client.contextProposals.create(input),
-		onSuccess: async () => {
-			setSummary("");
-			setChanges([
-				newChangeDraft(
-					availableRules(currentRevision, "add", defaultScopeOption.scope)[0]
-						?.id ?? "",
-					defaultScopeOption
-				),
-			]);
-			await onRefresh();
-			toast.success("Bağlam Önerisi kaydedildi.");
-		},
-		onError: (error) => {
-			if (isWriteOutcomeUncertain(error)) {
-				setWriteOutcomeUncertain(true);
-			}
-		},
-	});
+	const createProposal = useMutation(
+		orpc.contextProposals.create.mutationOptions({
+			onSuccess: async () => {
+				form.reset();
+				await onRefresh();
+				toast.success("Bağlam Önerisi kaydedildi.");
+			},
+			onError: (error) => {
+				if (isWriteOutcomeUncertain(error)) {
+					setWriteOutcomeUncertain(true);
+				}
+			},
+		})
+	);
 
 	async function checkCurrentState() {
 		setIsCheckingOutcome(true);
@@ -123,30 +139,6 @@ export function ProposalForm({
 		} finally {
 			setIsCheckingOutcome(false);
 		}
-	}
-
-	function updateChange(id: string, patch: Partial<ChangeDraft>) {
-		setChanges((current) =>
-			current.map((change) =>
-				change.id === id ? { ...change, ...patch } : change
-			)
-		);
-	}
-
-	function submitProposal(event: SyntheticEvent<HTMLFormElement>) {
-		event.preventDefault();
-		if (writeOutcomeUncertain) {
-			return;
-		}
-		setFormStatus(null);
-		createProposal.mutate({
-			projectId: project.id,
-			baseContextRevisionId: currentRevision.id,
-			summary,
-			changes: changes.map((change) =>
-				toContextRuleChange(change, currentRevision.rules)
-			),
-		});
 	}
 
 	return (
@@ -188,59 +180,70 @@ export function ProposalForm({
 					bir kural yok. Yalnızca ekleme önerisi hazırlayabilirsiniz.
 				</p>
 			) : null}
-			<form className="context-form" onSubmit={submitProposal}>
-				<label className="context-field">
-					<span>Öneri özeti</span>
-					<input
-						maxLength={240}
-						onChange={(event) => setSummary(event.target.value)}
-						placeholder="Örn. Karakter paletini sadeleştirme"
-						required
-						value={summary}
-					/>
-				</label>
-				<div className="rule-list-heading">
-					<h3>Önerilen kural değişiklikleri</h3>
-					<span>{changes.length} değişiklik</span>
-				</div>
-				<div className="rule-drafts">
-					{changes.map((change, index) => (
-						<RuleDraftCard
-							baseRevision={currentRevision}
-							canRemove={changes.length > 1}
-							change={change}
-							index={index}
-							key={change.id}
-							onChange={(patch) => updateChange(change.id, patch)}
-							onRemove={() =>
-								setChanges((current) =>
-									current.filter((item) => item.id !== change.id)
-								)
-							}
-							scopeOptions={scopeOptions}
-						/>
-					))}
-				</div>
-				<Button
-					className="add-change"
-					onClick={() =>
-						setChanges((current) => [
-							...current,
-							newChangeDraft(
-								availableRules(
-									currentRevision,
-									"add",
-									defaultScopeOption.scope
-								)[0]?.id ?? "",
-								defaultScopeOption
-							),
-						])
-					}
-					type="button"
-				>
-					<Plus aria-hidden="true" size={15} />
-					Başka kural değişikliği ekle
-				</Button>
+			<form
+				className="context-form"
+				onSubmit={(event) => {
+					event.preventDefault();
+					event.stopPropagation();
+					form.handleSubmit();
+				}}
+			>
+				<form.Field name="summary">
+					{(field) => (
+						<Label className={fieldLabelClass}>
+							<span>Öneri özeti</span>
+							<Input
+								maxLength={240}
+								name={field.name}
+								onBlur={field.handleBlur}
+								onChange={(event) => field.handleChange(event.target.value)}
+								placeholder="Örn. Karakter paletini sadeleştirme"
+								required
+								value={field.state.value}
+							/>
+						</Label>
+					)}
+				</form.Field>
+				<form.Field mode="array" name="changes">
+					{(changesField) => (
+						<>
+							<div className="rule-list-heading">
+								<h3>Önerilen kural değişiklikleri</h3>
+								<span>{changesField.state.value.length} değişiklik</span>
+							</div>
+							<div className="rule-drafts">
+								{changesField.state.value.map((draft, index) => (
+									<form.Field key={draft.id} name={`changes[${index}]`}>
+										{(changeField) => (
+											<RuleDraftCard
+												baseRevision={currentRevision}
+												canRemove={changesField.state.value.length > 1}
+												change={changeField.state.value}
+												index={index}
+												onChange={(patch) =>
+													changeField.handleChange({
+														...changeField.state.value,
+														...patch,
+													})
+												}
+												onRemove={() => changesField.removeValue(index)}
+												scopeOptions={scopeOptions}
+											/>
+										)}
+									</form.Field>
+								))}
+							</div>
+							<Button
+								className="add-change"
+								onClick={() => changesField.pushValue(createDraft())}
+								type="button"
+							>
+								<Plus aria-hidden="true" size={15} />
+								Başka kural değişikliği ekle
+							</Button>
+						</>
+					)}
+				</form.Field>
 				{writeOutcomeUncertain ? (
 					<Button
 						className="quiet-button"
@@ -385,49 +388,57 @@ function RuleDraftCard({
 	}
 
 	return (
-		<fieldset className="rule-card">
-			<legend>
+		<FieldSet className="rule-card">
+			<FieldLegend>
 				<span className="rule-card-number">
 					{String(index + 1).padStart(2, "0")}
 				</span>
 				{operationLabel(change.operation)}
-			</legend>
-			<label className="context-field">
+			</FieldLegend>
+			<Label className={fieldLabelClass}>
 				<span>İşlem</span>
-				<select
+				<NativeSelect
 					aria-label={`Değişiklik ${index + 1} işlemi`}
+					className={fullWidthSelectClass}
 					onChange={(event) =>
 						changeOperation(event.target.value as ChangeDraft["operation"])
 					}
 					value={change.operation}
 				>
-					<option disabled={addRules.length === 0} value="add">
+					<NativeSelectOption disabled={addRules.length === 0} value="add">
 						Ekleme
-					</option>
-					<option disabled={existingRules.length === 0} value="replace">
+					</NativeSelectOption>
+					<NativeSelectOption
+						disabled={existingRules.length === 0}
+						value="replace"
+					>
 						Değiştirme
-					</option>
-					<option disabled={existingRules.length === 0} value="remove">
+					</NativeSelectOption>
+					<NativeSelectOption
+						disabled={existingRules.length === 0}
+						value="remove"
+					>
 						Kaldırma
-					</option>
-				</select>
-			</label>
-			<label className="context-field">
+					</NativeSelectOption>
+				</NativeSelect>
+			</Label>
+			<Label className={fieldLabelClass}>
 				<span>Kapsam</span>
-				<select
+				<NativeSelect
 					aria-label={`Değişiklik ${index + 1} kapsamı`}
+					className={fullWidthSelectClass}
 					onChange={(event) => changeScope(event.target.value)}
 					value={scopeKeyFrom(change.scope)}
 				>
 					{scopeOptions.map((option) => (
-						<option
+						<NativeSelectOption
 							key={scopeKeyFrom(option.scope)}
 							value={scopeKeyFrom(option.scope)}
 						>
 							{option.label}
-						</option>
+						</NativeSelectOption>
 					))}
-				</select>
+				</NativeSelect>
 				{selectedScopeOption ? (
 					<span className="field-hint">
 						Öncelik:{" "}
@@ -436,30 +447,31 @@ function RuleDraftCard({
 							.join(" → ")}
 					</span>
 				) : null}
-			</label>
-			<label className="context-field">
+			</Label>
+			<Label className={fieldLabelClass}>
 				<span>Kural</span>
-				<select
+				<NativeSelect
 					aria-label={`Değişiklik ${index + 1} kuralı`}
+					className={fullWidthSelectClass}
 					onChange={(event) => changeRule(event.target.value)}
 					required
 					value={change.ruleId}
 				>
-					<option disabled value="">
+					<NativeSelectOption disabled value="">
 						Kural seçin
-					</option>
+					</NativeSelectOption>
 					{operationRules.map((rule) => (
-						<option key={rule.id} value={rule.id}>
+						<NativeSelectOption key={rule.id} value={rule.id}>
 							{rule.label}
-						</option>
+						</NativeSelectOption>
 					))}
-				</select>
+				</NativeSelect>
 				<span className="field-hint">
 					{change.operation === "add"
 						? "Yalnızca bu kapsamda henüz tanımlanmamış yaygın kurallar eklenebilir."
 						: `Bağlam Sürümü ${baseRevision.revisionNumber} içindeki bu kapsama ait bir kural seçilir.`}
 				</span>
-			</label>
+			</Label>
 			{change.operation === "remove" ? (
 				<p className="field-hint">
 					Kaldırma işlemi taban sürümdeki kuralı hedefler; yeni bir değer
@@ -472,11 +484,10 @@ function RuleDraftCard({
 				</div>
 			)}
 			{inheritedRule && change.operation !== "remove" ? (
-				<label className="override-control">
-					<input
+				<Label className="override-control leading-[inherit]">
+					<Checkbox
 						checked={change.isOverride}
-						onChange={(event) => onChange({ isOverride: event.target.checked })}
-						type="checkbox"
+						onCheckedChange={(checked) => onChange({ isOverride: checked })}
 					/>
 					<span>
 						<strong>Bağlam Kuralı İstisnası</strong>
@@ -486,11 +497,11 @@ function RuleDraftCard({
 							kuralını geçersiz kılar
 						</small>
 					</span>
-				</label>
+				</Label>
 			) : null}
-			<label className="context-field">
+			<Label className={fieldLabelClass}>
 				<span>Bu değişikliğin gerekçesi</span>
-				<textarea
+				<Textarea
 					maxLength={2000}
 					onChange={(event) => onChange({ rationale: event.target.value })}
 					placeholder="Neden ekleniyor, değişiyor veya kaldırılıyor?"
@@ -498,12 +509,13 @@ function RuleDraftCard({
 					rows={2}
 					value={change.rationale}
 				/>
-			</label>
+			</Label>
 			<div className="field-pair evidence-fields">
-				<label className="context-field">
+				<Label className={fieldLabelClass}>
 					<span>Dayanak türü</span>
-					<select
+					<NativeSelect
 						aria-label={`Değişiklik ${index + 1} dayanak türü`}
+						className={fullWidthSelectClass}
 						onChange={(event) =>
 							onChange({
 								evidenceKind: event.target.value as EvidenceKind,
@@ -511,13 +523,17 @@ function RuleDraftCard({
 						}
 						value={change.evidenceKind}
 					>
-						<option value="user_decision">Kullanıcı kararı</option>
-						<option value="observed_change">Gözlenen değişiklik</option>
-					</select>
-				</label>
-				<label className="context-field">
+						<NativeSelectOption value="user_decision">
+							Kullanıcı kararı
+						</NativeSelectOption>
+						<NativeSelectOption value="observed_change">
+							Gözlenen değişiklik
+						</NativeSelectOption>
+					</NativeSelect>
+				</Label>
+				<Label className={fieldLabelClass}>
 					<span>Kanıt</span>
-					<textarea
+					<Textarea
 						maxLength={1000}
 						onChange={(event) => onChange({ evidence: event.target.value })}
 						placeholder="Kararı veya projede görülen değişikliği açıklayın."
@@ -525,7 +541,7 @@ function RuleDraftCard({
 						rows={2}
 						value={change.evidence}
 					/>
-				</label>
+				</Label>
 			</div>
 			{canRemove ? (
 				<Button className="remove-change" onClick={onRemove} type="button">
@@ -533,7 +549,7 @@ function RuleDraftCard({
 					Değişikliği kaldır
 				</Button>
 			) : null}
-		</fieldset>
+		</FieldSet>
 	);
 }
 
@@ -547,7 +563,7 @@ function RuleValueField({ change, index, onChange }: RuleValueFieldProps) {
 	const inputId = `rule-value-${change.id}`;
 	return (
 		<div className="context-field">
-			<label htmlFor={inputId}>Kural değeri</label>
+			<Label htmlFor={inputId}>Kural değeri</Label>
 			<RuleValueControl
 				id={inputId}
 				index={index}
@@ -576,7 +592,7 @@ function RuleValueControl({
 }: RuleValueControlProps) {
 	if (valueType === "text_list") {
 		return (
-			<textarea
+			<Textarea
 				aria-label={`Değişiklik ${index + 1} kural değeri`}
 				id={id}
 				onChange={(event) => onChange(event.target.value)}
@@ -588,7 +604,7 @@ function RuleValueControl({
 		);
 	}
 	return (
-		<input
+		<Input
 			aria-label={`Değişiklik ${index + 1} kural değeri`}
 			id={id}
 			max={valueType === "number" ? "1000000000" : undefined}

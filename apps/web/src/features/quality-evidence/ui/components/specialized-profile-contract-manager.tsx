@@ -1,9 +1,10 @@
 import type { SpecializedProfileContractsListOutput } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { assetCategoryLabels } from "@/features/asset-records/lib/category-labels";
-import { client, orpc } from "@/utils/orpc";
+import { mutationMeta } from "@/utils/mutation-meta";
+import { orpc } from "@/utils/orpc";
 
 const profileLabels = {
 	character_creature_animation:
@@ -49,6 +50,9 @@ export function SpecializedProfileContractManager({
 			input: { projectId },
 		}),
 	});
+	const activateMutation = useMutation(
+		orpc.specializedProfileContracts.activate.mutationOptions(mutationMeta)
+	);
 	const [isSaving, setIsSaving] = useState(false);
 	const [message, setMessage] = useState("");
 
@@ -58,7 +62,7 @@ export function SpecializedProfileContractManager({
 		setIsSaving(true);
 		setMessage("");
 		try {
-			await client.specializedProfileContracts.activate({
+			await activateMutation.mutateAsync({
 				projectId,
 				profileId,
 			});

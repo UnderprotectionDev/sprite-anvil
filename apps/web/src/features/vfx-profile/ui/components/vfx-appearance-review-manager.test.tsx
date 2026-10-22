@@ -17,24 +17,14 @@ configure({ asyncUtilTimeout: 10_000 });
 const mocks = vi.hoisted(() => ({ save: vi.fn(), list: vi.fn() }));
 const oldBurst = /Old burst/;
 const uncertainMessage = /Kaydetme sonucu doğrulanamadı/;
-vi.mock("@/utils/orpc", () => ({
-	client: { vfxAppearanceReviews: { save: mocks.save } },
-	orpc: {
-		vfxAppearanceReviews: {
-			list: {
-				queryOptions: () => ({ queryKey: ["reviews"], queryFn: mocks.list }),
-			},
-		},
-		familyReadiness: {
-			list: {
-				queryOptions: () => ({
-					queryKey: ["readiness"],
-					queryFn: async () => ({ items: [] }),
-				}),
-			},
-		},
-	},
-}));
+vi.mock("@/utils/orpc", async () => {
+	const { createTanstackQueryUtils } = await import("@orpc/tanstack-query");
+	const client = {
+		vfxAppearanceReviews: { save: mocks.save, list: mocks.list },
+		familyReadiness: { list: async () => ({ items: [] }) },
+	};
+	return { client, orpc: createTanstackQueryUtils(client as never) };
+});
 vi.mock("./vfx-appearance-editor", () => ({
 	VfxAppearanceEditor: ({
 		onSave,

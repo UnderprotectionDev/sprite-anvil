@@ -5,6 +5,7 @@ import type {
 	UnitVersion,
 } from "@sprite-anvil/api/asset-versions";
 import { cleanup, render, screen } from "@testing-library/react";
+import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import {
@@ -160,4 +161,107 @@ test("uploads one corrected unit from an exact source while retaining the previo
 	expect(
 		screen.getByText("Karo · grass/inner-corner · Birim Sürümü 1")
 	).toBeTruthy();
+});
+
+test("keeps the save disabled until a unit name, source, and file are present, and clears the file only after a successful upload", async () => {
+	const user = userEvent.setup();
+	const upload = vi
+		.fn()
+		.mockResolvedValueOnce(false)
+		.mockResolvedValueOnce(true);
+	const writes = { upload, writesDisabled: false } as never;
+	const correctedFile = new File([new Uint8Array([1])], "tile.png", {
+		type: "image/png",
+	});
+	render(
+		<UnitVersionCorrectionForm
+			assetRecordId={assetRecordId}
+			assetVersions={assetVersions}
+			unitVersions={unitVersions}
+			writes={writes}
+		/>
+	);
+	const submit = screen.getByRole("button", {
+		name: "Birim düzeltmesini kaydet",
+	});
+	const typeSelect = screen.getByLabelText("Birim türü");
+	const sourceSelect = screen.getByLabelText("Kaynak Varlık Sürümü");
+	expect(typeSelect).toHaveValue("frame");
+	expect(submit).toBeDisabled();
+
+	await user.type(screen.getByLabelText("Birim adı"), "   ");
+	await user.selectOptions(sourceSelect, "version-source");
+	await user.upload(
+		screen.getByLabelText("Düzeltilmiş PNG veya WebP"),
+		correctedFile
+	);
+	expect(submit).toBeDisabled();
+
+	await user.clear(screen.getByLabelText("Birim adı"));
+	await user.type(screen.getByLabelText("Birim adı"), " grass/inner-corner ");
+	expect(screen.queryByRole("option", { name: "Sürüm 3 · Aday" })).toBeNull();
+	await user.selectOptions(typeSelect, "tile");
+	expect(
+		screen.getByRole("option", { name: "Sürüm 3 · Aday" })
+	).toBeInTheDocument();
+	expect(screen.queryByRole("option", { name: "Sürüm 2 · Aday" })).toBeNull();
+	expect(sourceSelect).toHaveValue("version-source");
+	expect(submit).toBeEnabled();
+
+	await user.click(submit);
+	expect(upload).toHaveBeenLastCalledWith(assetRecordId, correctedFile, {
+		unitCorrection: {
+			sourceAssetVersionId: "version-source",
+			unitType: "tile",
+			unitKey: "grass/inner-corner",
+		},
+	});
+	expect(submit).toBeEnabled();
+
+	await user.click(submit);
+	expect(upload).toHaveBeenCalledTimes(2);
+	expect(submit).toBeDisabled();
+	expect(screen.getByLabelText("Birim adı")).toHaveValue(
+		" grass/inner-corner "
+	);
+	expect(sourceSelect).toHaveValue("version-source");
+});
+
+test("drops a selected source that no longer matches the unit and disables writes", async () => {
+	const user = userEvent.setup();
+	const { rerender } = render(
+		<UnitVersionCorrectionForm
+			assetRecordId={assetRecordId}
+			assetVersions={assetVersions}
+			unitVersions={unitVersions}
+			writes={{ upload: vi.fn(), writesDisabled: false } as never}
+		/>
+	);
+	await user.type(screen.getByLabelText("Birim adı"), "attack/frame-3");
+	await user.selectOptions(
+		screen.getByLabelText("Kaynak Varlık Sürümü"),
+		"version-frame-1"
+	);
+	await user.selectOptions(screen.getByLabelText("Birim türü"), "direction");
+	expect(screen.getByLabelText("Kaynak Varlık Sürümü")).toHaveValue("");
+
+	rerender(
+		<UnitVersionCorrectionForm
+			assetRecordId={assetRecordId}
+			assetVersions={assetVersions}
+			unitVersions={unitVersions}
+			writes={{ upload: vi.fn(), writesDisabled: true } as never}
+		/>
+	);
+	for (const label of [
+		"Birim türü",
+		"Birim adı",
+		"Kaynak Varlık Sürümü",
+		"Düzeltilmiş PNG veya WebP",
+	]) {
+		expect(screen.getByLabelText(label)).toBeDisabled();
+	}
+	expect(
+		screen.getByRole("button", { name: "Birim düzeltmesini kaydet" })
+	).toBeDisabled();
 });

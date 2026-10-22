@@ -12,7 +12,9 @@ import {
 	render,
 	screen,
 	waitFor,
+	within,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { HistoricalCompositionManager } from "./historical-composition-manager";
 
@@ -23,42 +25,27 @@ const transport = vi.hoisted(() => ({
 	rejection: null as Error | null,
 	failHistory: false,
 }));
-vi.mock("@/utils/orpc", () => ({
-	orpc: {
+vi.mock("@/utils/orpc", async () => {
+	const { createTanstackQueryUtils } = await import("@orpc/tanstack-query");
+	const client = {
 		dependencyRevalidation: {
-			list: {
-				queryOptions: () => ({
-					queryKey: ["dependencies"],
-					queryFn: async () => ({
-						contextRevisions: [
-							{ id: "old-context", revisionNumber: 1, isActive: false },
-						],
-						dependencyLinks: [],
-					}),
-				}),
+			list: async () => ({
+				contextRevisions: [
+					{ id: "old-context", revisionNumber: 1, isActive: false },
+				],
+				dependencyLinks: [],
+			}),
+			listHistoricalCompositions: async () => {
+				await Promise.resolve();
+				if (transport.failHistory) {
+					throw new Error("Read failed");
+				}
+				return { pins: structuredClone(transport.pins) };
 			},
-			listHistoricalCompositions: {
-				queryOptions: () => ({
-					queryKey: ["historical"],
-					queryFn: async () => {
-						await Promise.resolve();
-						if (transport.failHistory) {
-							throw new Error("Read failed");
-						}
-						return { pins: structuredClone(transport.pins) };
-					},
-				}),
-			},
-			historicalCompositionOptions: {
-				queryOptions: () => ({
-					queryKey: ["historical-options"],
-					queryFn: async () => ({ evidence: [], contracts: [] }),
-				}),
-			},
-		},
-	},
-	client: {
-		dependencyRevalidation: {
+			historicalCompositionOptions: async () => ({
+				evidence: [],
+				contracts: [],
+			}),
 			pinHistoricalComposition: (input: HistoricalCompositionInput) => {
 				if (transport.rejection) {
 					return Promise.reject(transport.rejection);
@@ -89,8 +76,9 @@ vi.mock("@/utils/orpc", () => ({
 				return Promise.resolve(pin);
 			},
 		},
-	},
-}));
+	};
+	return { client, orpc: createTanstackQueryUtils(client as never) };
+});
 
 afterEach(() => {
 	cleanup();
@@ -217,4 +205,78 @@ test("distinguishes a saved pin from a failed report reread", async () => {
 		"Tarihsel seçim kaydedildi, ancak rapor yeniden okunamadı. Refresh historical selections ile tekrar okuyun."
 	);
 	expect(transport.pins).toHaveLength(1);
+});
+
+test("pins the explicitly checked historical dependency versions", async () => {
+	const user = userEvent.setup();
+	openManager();
+	await selectHistory();
+	const pin = screen.getByRole("button", { name: "Tarihsel bileşimi sabitle" });
+	expect(pin).toBeEnabled();
+	const group = screen.getByRole("group", {
+		name: "Tarihsel bağımlılık Varlık Sürümleri",
+	});
+	const oldVersion = within(group).getByRole("checkbox", {
+		name: "Ash Knight idle · v1",
+	});
+	const canonical = within(group).getByRole("checkbox", {
+		name: "Ash Knight idle · v2",
+	});
+	await user.click(oldVersion);
+	await user.click(canonical);
+	await user.click(oldVersion);
+	expect(oldVersion).not.toBeChecked();
+	expect(canonical).toBeChecked();
+	await user.click(pin);
+	await screen.findByText(
+		"Tarihsel seçim kaydedildi; güncel Yeniden Doğrulama Gerekli durumu değişmedi."
+	);
+	expect(transport.saved).toEqual({
+		projectId: "project-1",
+		idempotencyKey: expect.any(String),
+		compositeVersionId: "old-composite",
+		contextRevisionId: "old-context",
+		canonicalDesignVersionId: "old-canonical",
+		dependencyLinkIds: [],
+		dependencyVersionIds: ["old-canonical"],
+		readinessEvidenceIds: [],
+		profileContractRevisionIds: [],
+		reviewEventIds: [],
+	});
+});
+
+test("requires all three exact historical versions before pinning", async () => {
+	openManager();
+	await screen.findByRole("option", { name: "Bağlam Sürümü 1" });
+	const pin = screen.getByRole("button", { name: "Tarihsel bileşimi sabitle" });
+	fireEvent.change(screen.getByLabelText("Tarihsel Birleşik Sürüm"), {
+		target: { value: "old-composite" },
+	});
+	fireEvent.change(screen.getByLabelText("Tarihsel Bağlam Sürümü"), {
+		target: { value: "old-context" },
+	});
+	expect(pin).toBeDisabled();
+	fireEvent.change(screen.getByLabelText("Tarihsel Ana Tasarım"), {
+		target: { value: "old-canonical" },
+	});
+	expect(pin).toBeEnabled();
+});
+
+test("keeps the pending selection locked while an uncertain write awaits retry", async () => {
+	const user = userEvent.setup();
+	openManager();
+	await selectHistory();
+	transport.fail = true;
+	await user.click(
+		screen.getByRole("button", { name: "Tarihsel bileşimi sabitle" })
+	);
+	await screen.findByText(
+		"Kaydetme sonucu doğrulanamadı. Seçimi değiştirmeden yeniden deneyebilirsiniz."
+	);
+	expect(screen.getByLabelText("Tarihsel Bağlam Sürümü")).toBeDisabled();
+	const oldVersion = screen.getByRole("checkbox", {
+		name: "Ash Knight idle · v1",
+	});
+	await user.click(oldVersion);
+	expect(oldVersion).not.toBeChecked();
 });

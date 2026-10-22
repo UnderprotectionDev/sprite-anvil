@@ -5,11 +5,13 @@ import {
 	sceneQaSetupSchema,
 } from "@sprite-anvil/api/scene-qa";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQuery } from "@tanstack/react-query";
+import { useForm, useStore } from "@tanstack/react-form";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client, orpc } from "@/utils/orpc";
+import { mutationMeta } from "@/utils/mutation-meta";
+import { orpc } from "@/utils/orpc";
 import { SceneQaAddPlacement } from "../components/scene-qa-add-placement";
 import { SceneQaEvidence } from "../components/scene-qa-evidence";
 import { SceneQaObservations } from "../components/scene-qa-observations";
@@ -29,6 +31,14 @@ const initialSetup: SceneQaSetup = {
 	hitAtMs: 2700,
 	placements: [],
 };
+const initialObservations: SceneQaInput["observations"] = {
+	scale: "",
+	layering: "",
+	transitions: "",
+	events: "",
+	camera: "",
+	readability: "",
+};
 export function SceneQaView({ projectId }: { projectId: string }) {
 	const scenes = useQuery(
 		orpc.sceneQa.list.queryOptions({ input: { projectId } })
@@ -42,38 +52,45 @@ export function SceneQaView({ projectId }: { projectId: string }) {
 	const profiles = useQuery(
 		orpc.specializedProfileContracts.list.queryOptions({ input: { projectId } })
 	);
-	const [setup, setSetup] = useState(initialSetup);
-	const [name, setName] = useState("");
-	const [played, setPlayed] = useState(0);
-	const [observations, setObservations] = useState<
-		SceneQaInput["observations"]
-	>({
-		scale: "",
-		layering: "",
-		transitions: "",
-		events: "",
-		camera: "",
-		readability: "",
+	const form = useForm({
+		defaultValues: {
+			name: "",
+			setup: initialSetup,
+			observations: initialObservations,
+		},
+		onSubmit: ({ value }) => save(value),
 	});
+	const { name, setup, observations } = useStore(
+		form.store,
+		(state) => state.values
+	);
+	const [played, setPlayed] = useState(0);
+	const saveMutation = useMutation(
+		orpc.sceneQa.save.mutationOptions(mutationMeta)
+	);
 	const [pending, setPending] = useState(false);
 	const [uncertain, setUncertain] = useState(false);
 	const [message, setMessage] = useState("");
 	const operation = useRef<string | null>(null);
 	const validSetup = sceneQaSetupSchema.safeParse(setup);
 	function changeSetup(next: SceneQaSetup) {
-		setSetup(next);
+		form.setFieldValue("setup", next);
 		setPlayed(0);
 		setMessage("");
 	}
-	async function save() {
+	async function save(value: {
+		name: string;
+		observations: SceneQaInput["observations"];
+		setup: SceneQaSetup;
+	}) {
 		operation.current ??= crypto.randomUUID();
 		const parsed = sceneQaInputSchema.safeParse({
 			id: operation.current,
 			projectId,
-			name,
-			setup,
+			name: value.name,
+			setup: value.setup,
 			playbackMs: played,
-			observations,
+			observations: value.observations,
 		});
 		if (!parsed.success) {
 			setMessage(parsed.error.issues.map((i) => i.message).join(" "));
@@ -82,7 +99,7 @@ export function SceneQaView({ projectId }: { projectId: string }) {
 		setPending(true);
 		setMessage("");
 		try {
-			const saved = await client.sceneQa.save(parsed.data);
+			const saved = await saveMutation.mutateAsync(parsed.data);
 			setMessage(`Scene evidence saved: ${saved.name}.`);
 			operation.current = null;
 			await scenes.refetch();
@@ -154,7 +171,7 @@ export function SceneQaView({ projectId }: { projectId: string }) {
 				<SceneQaSettings
 					name={name}
 					onChange={changeSetup}
-					onNameChange={setName}
+					onNameChange={(next) => form.setFieldValue("name", next)}
 					setup={setup}
 				/>
 				<SceneQaAddPlacement
@@ -202,7 +219,7 @@ export function SceneQaView({ projectId }: { projectId: string }) {
 				<legend className="font-medium text-lg">Usage observations</legend>
 				<SceneQaObservations
 					observations={observations}
-					onChange={setObservations}
+					onChange={(next) => form.setFieldValue("observations", next)}
 				/>{" "}
 				<Button
 					disabled={
@@ -213,7 +230,7 @@ export function SceneQaView({ projectId }: { projectId: string }) {
 						failed ||
 						loading
 					}
-					onClick={save}
+					onClick={() => void form.handleSubmit()}
 					type="button"
 				>
 					{pending ? "Saving scene evidence…" : "Save scene evidence"}

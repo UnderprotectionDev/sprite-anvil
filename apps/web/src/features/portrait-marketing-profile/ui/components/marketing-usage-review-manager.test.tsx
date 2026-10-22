@@ -24,9 +24,14 @@ vi.mock("sonner", () => ({
 	toast: { dismiss: vi.fn(), error: mocks.errorToast },
 }));
 vi.mock("@/utils/orpc", () => ({
-	client: { marketingUsageReviews: { save: mocks.save } },
 	orpc: {
 		marketingUsageReviews: {
+			save: {
+				mutationOptions: (options?: object) => ({
+					...options,
+					mutationFn: (input: unknown) => mocks.save(input),
+				}),
+			},
 			list: {
 				queryOptions: () => ({ queryKey: ["marketing"], queryFn: mocks.list }),
 			},
@@ -205,4 +210,97 @@ test("invalidates inspected previews after geometry changes and handles failed i
 	expect(
 		screen.getByRole("button", { name: "Kullanım incelemesini kaydet" })
 	).toBeDisabled();
+});
+test("submits the chosen purpose, opaque presentation color, and observation outcomes", async () => {
+	show();
+	fireEvent.change(screen.getByLabelText("Kullanım amacı"), {
+		target: { value: "store" },
+	});
+	expect(screen.queryByLabelText("Opak zemin rengi")).toBeNull();
+	fireEvent.change(screen.getByLabelText("Sunum"), {
+		target: { value: "opaque" },
+	});
+	const color = screen.getByLabelText("Opak zemin rengi");
+	expect(color).toHaveValue("#ffffff");
+	fireEvent.change(color, { target: { value: "#ffcc00" } });
+	const [lightSafeArea] = screen.getAllByLabelText("Güvenli alan sonucu");
+	const [, darkReadability] = screen.getAllByLabelText(
+		"Küçük boyutta okunurluk"
+	);
+	if (!(lightSafeArea && darkReadability)) {
+		throw new Error("Missing observation selects");
+	}
+	fireEvent.change(lightSafeArea, { target: { value: "failed" } });
+	fireEvent.change(darkReadability, { target: { value: "passed" } });
+	fireEvent.change(screen.getByLabelText("displaySize height"), {
+		target: { value: "48" },
+	});
+	loadAndAssess();
+	mocks.save.mockImplementation((input) => {
+		const record = { ...input, createdAt: "2026-10-13T00:00:00.000Z" };
+		mocks.list.mockResolvedValue([record]);
+		return Promise.resolve(record);
+	});
+	const save = screen.getByRole("button", {
+		name: "Kullanım incelemesini kaydet",
+	});
+	await waitFor(() => expect(save).toBeEnabled());
+	fireEvent.click(save);
+	await screen.findByText("İnceleme kalıcı kayıttan doğrulandı.");
+	expect(mocks.save).toHaveBeenCalledWith(
+		expect.objectContaining({
+			items: [
+				expect.objectContaining({
+					usePurpose: "store",
+					presentation: "opaque",
+					opaqueColor: "#ffcc00",
+					displaySize: { width: 64, height: 48 },
+					observations: [
+						expect.objectContaining({
+							background: "light",
+							safeArea: "failed",
+							readability: "inconclusive",
+							notes: "Lettering needs more space.",
+						}),
+						expect.objectContaining({
+							background: "dark",
+							readability: "passed",
+						}),
+					],
+				}),
+			],
+		})
+	);
+});
+test("shows the geometry alert for out-of-bounds crops and locks controls after an uncertain write", async () => {
+	show();
+	fireEvent.change(screen.getByLabelText("crop width"), {
+		target: { value: "500" },
+	});
+	expect(screen.getByRole("alert")).toHaveTextContent(
+		"Kırpma ve güvenli alanı kaynak ölçüleri içinde tutun."
+	);
+	expect(screen.queryAllByRole("img")).toHaveLength(0);
+	fireEvent.change(screen.getByLabelText("crop width"), {
+		target: { value: "301" },
+	});
+	expect(
+		screen.queryByText("Kırpma ve güvenli alanı kaynak ölçüleri içinde tutun.")
+	).toBeNull();
+	loadAndAssess();
+	mocks.save.mockRejectedValue(new TypeError("Failed to fetch"));
+	const save = screen.getByRole("button", {
+		name: "Kullanım incelemesini kaydet",
+	});
+	await waitFor(() => expect(save).toBeEnabled());
+	fireEvent.click(save);
+	await screen.findByText(
+		"Kaydetme sonucu belirsiz. Güncel kayıtları kontrol edin."
+	);
+	expect(screen.getByLabelText("Kullanım amacı")).toBeDisabled();
+	expect(screen.getByLabelText("crop x")).toBeDisabled();
+	for (const notes of screen.getAllByLabelText("Gözlem")) {
+		expect(notes).toBeDisabled();
+		expect(notes).toBeRequired();
+	}
 });

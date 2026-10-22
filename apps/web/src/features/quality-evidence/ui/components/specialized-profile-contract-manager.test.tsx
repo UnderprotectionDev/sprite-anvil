@@ -22,11 +22,14 @@ const fakeApi = vi.hoisted(() => ({
 }));
 
 vi.mock("@/utils/orpc", () => ({
-	client: {
-		specializedProfileContracts: { activate: fakeApi.activate },
-	},
 	orpc: {
 		specializedProfileContracts: {
+			activate: {
+				mutationOptions: (options?: object) => ({
+					...options,
+					mutationFn: (input: unknown) => fakeApi.activate(input),
+				}),
+			},
 			list: {
 				queryOptions: ({ input }: { input: { projectId: string } }) => ({
 					queryKey: ["profile-contracts", input.projectId],

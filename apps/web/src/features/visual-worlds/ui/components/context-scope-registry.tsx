@@ -1,13 +1,11 @@
-import type {
-	ProjectContextScopeCatalog,
-	ThemeCreateInput,
-	VisualWorldCreateInput,
-} from "@sprite-anvil/api/context-scopes";
+import type { ProjectContextScopeCatalog } from "@sprite-anvil/api/context-scopes";
 import type { ProjectContext } from "@sprite-anvil/api/project-context";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { type SyntheticEvent, useState } from "react";
 import { toast } from "sonner";
-import { client, orpc } from "@/utils/orpc";
+import { orpc } from "@/utils/orpc";
+import { useThemeForm, useVisualWorldForm } from "../../hooks/use-scope-forms";
+import { resolveSelectedVisualWorldId } from "../../lib/selected-visual-world";
+import type { ThemeFormValues, VisualWorldFormValues } from "../../schemas";
 import { ThemeForm, VisualWorldForm } from "../forms/scope-forms";
 
 export function ScopeRegistryPanel({
@@ -22,62 +20,49 @@ export function ScopeRegistryPanel({
 	scopeCatalog: ProjectContextScopeCatalog;
 }) {
 	const queryClient = useQueryClient();
-	const [visualWorldName, setVisualWorldName] = useState("");
-	const [visualWorldDescription, setVisualWorldDescription] = useState("");
-	const [themeVisualWorldId, setThemeVisualWorldId] = useState("");
-	const [themeName, setThemeName] = useState("");
-	const [themeDescription, setThemeDescription] = useState("");
-	const selectedVisualWorldId =
-		scopeCatalog.visualWorlds.find(
-			(visualWorld) => visualWorld.id === themeVisualWorldId
-		)?.id ??
-		scopeCatalog.visualWorlds[0]?.id ??
-		"";
-	const createVisualWorld = useMutation({
-		mutationFn: (input: VisualWorldCreateInput) =>
-			client.contextScopes.createVisualWorld(input),
-		onSuccess: async () => {
-			setVisualWorldName("");
-			setVisualWorldDescription("");
-			await queryClient.invalidateQueries({
-				queryKey: orpc.contextScopes.list.queryKey({
-					input: { projectId: project.id },
-				}),
-			});
-			toast.success("Görsel Dünya kaydedildi.");
-		},
-	});
-	const createTheme = useMutation({
-		mutationFn: (input: ThemeCreateInput) =>
-			client.contextScopes.createTheme(input),
-		onSuccess: async () => {
-			setThemeName("");
-			setThemeDescription("");
-			await queryClient.invalidateQueries({
-				queryKey: orpc.contextScopes.list.queryKey({
-					input: { projectId: project.id },
-				}),
-			});
-			toast.success("Tema kaydedildi.");
-		},
-	});
+	const visualWorldForm = useVisualWorldForm(submitVisualWorld);
+	const themeForm = useThemeForm(submitTheme);
+	const createVisualWorld = useMutation(
+		orpc.contextScopes.createVisualWorld.mutationOptions({
+			onSuccess: async () => {
+				visualWorldForm.reset();
+				await queryClient.invalidateQueries({
+					queryKey: orpc.contextScopes.list.queryKey({
+						input: { projectId: project.id },
+					}),
+				});
+				toast.success("Görsel Dünya kaydedildi.");
+			},
+		})
+	);
+	const createTheme = useMutation(
+		orpc.contextScopes.createTheme.mutationOptions({
+			onSuccess: async () => {
+				themeForm.resetField("name");
+				themeForm.resetField("description");
+				await queryClient.invalidateQueries({
+					queryKey: orpc.contextScopes.list.queryKey({
+						input: { projectId: project.id },
+					}),
+				});
+				toast.success("Tema kaydedildi.");
+			},
+		})
+	);
 
-	function submitVisualWorld(event: SyntheticEvent<HTMLFormElement>) {
-		event.preventDefault();
-		createVisualWorld.mutate({
-			projectId: project.id,
-			name: visualWorldName,
-			description: visualWorldDescription,
-		});
+	function submitVisualWorld(input: VisualWorldFormValues) {
+		createVisualWorld.mutate({ projectId: project.id, ...input });
 	}
 
-	function submitTheme(event: SyntheticEvent<HTMLFormElement>) {
-		event.preventDefault();
+	function submitTheme(input: ThemeFormValues) {
 		createTheme.mutate({
 			projectId: project.id,
-			visualWorldId: selectedVisualWorldId,
-			name: themeName,
-			description: themeDescription,
+			visualWorldId: resolveSelectedVisualWorldId(
+				input.visualWorldId,
+				scopeCatalog.visualWorlds
+			),
+			name: input.name,
+			description: input.description,
 		});
 	}
 
@@ -107,24 +92,14 @@ export function ScopeRegistryPanel({
 			) : null}
 			<div className="scope-registry-grid">
 				<VisualWorldForm
-					description={visualWorldDescription}
+					form={visualWorldForm}
 					isError={isError}
 					isPending={createVisualWorld.isPending}
-					name={visualWorldName}
-					onDescriptionChange={setVisualWorldDescription}
-					onNameChange={setVisualWorldName}
-					onSubmit={submitVisualWorld}
 				/>
 				<ThemeForm
-					description={themeDescription}
+					form={themeForm}
 					isError={isError}
 					isPending={createTheme.isPending}
-					name={themeName}
-					onDescriptionChange={setThemeDescription}
-					onNameChange={setThemeName}
-					onSubmit={submitTheme}
-					onVisualWorldChange={setThemeVisualWorldId}
-					selectedVisualWorldId={selectedVisualWorldId}
 					visualWorlds={scopeCatalog.visualWorlds}
 				/>
 			</div>

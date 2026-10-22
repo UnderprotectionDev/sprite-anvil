@@ -14,6 +14,8 @@ const contract = {
 	contractRevisionId: "character@1",
 };
 
+const requiredPrefix = /^Zorunlu ·/;
+
 test("editing keeps the exact frame and untouched optional fields while changing a pivot", async () => {
 	const user = userEvent.setup();
 	const onSave = vi.fn().mockResolvedValue(true);
@@ -258,4 +260,213 @@ test("keeps the finalized source selection when the source catalog is reordered"
 			]),
 		})
 	);
+});
+
+test("requires a frame, active profile and non-blank use context before saving", async () => {
+	const user = userEvent.setup();
+	const onSave = vi.fn().mockResolvedValue(true);
+	render(
+		<GameplayMetadataForm
+			contracts={[contract]}
+			disabled={false}
+			frames={frames}
+			onSave={onSave}
+		/>
+	);
+	await user.type(screen.getByLabelText("Kullanım bağlamı"), "   ");
+	await user.click(
+		screen.getByRole("button", { name: "Oyun içi bilgileri kaydet" })
+	);
+	expect(onSave).not.toHaveBeenCalled();
+	expect(screen.getByRole("alert")).toHaveTextContent(
+		"Kare, etkin profil ve kullanım bağlamı seçin."
+	);
+	await user.type(screen.getByLabelText("Kullanım bağlamı"), "walk east  ");
+	expect(screen.getByRole("alert")).toHaveTextContent(
+		"Kare, etkin profil ve kullanım bağlamı seçin."
+	);
+	await user.click(
+		screen.getByRole("button", { name: "Oyun içi bilgileri kaydet" })
+	);
+	expect(onSave).toHaveBeenCalledWith(
+		expect.objectContaining({ useContext: "walk east" })
+	);
+	expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
+test("disables saving until a frame and profile are chosen", async () => {
+	const user = userEvent.setup();
+	render(
+		<GameplayMetadataForm
+			contracts={[contract]}
+			disabled={false}
+			frames={frames}
+			onSave={vi.fn()}
+		/>
+	);
+	const save = screen.getByRole("button", {
+		name: "Oyun içi bilgileri kaydet",
+	});
+	expect(save).toBeEnabled();
+	await user.selectOptions(screen.getByLabelText("Etkin özel profil"), "");
+	expect(save).toBeDisabled();
+	expect(
+		screen.queryByLabelText("Dönüş noktası (JSON)")
+	).not.toBeInTheDocument();
+});
+
+test("names a required field left blank", async () => {
+	const user = userEvent.setup();
+	const onSave = vi.fn();
+	const requiredPivot = {
+		...contract,
+		metadataFields: contract.metadataFields.map((field) =>
+			field.id === "pivot" ? { ...field, required: true } : field
+		),
+	};
+	render(
+		<GameplayMetadataForm
+			contracts={[requiredPivot]}
+			disabled={false}
+			frames={frames}
+			onSave={onSave}
+		/>
+	);
+	await user.type(screen.getByLabelText("Kullanım bağlamı"), "walk east");
+	await user.click(
+		screen.getByRole("button", { name: "Oyun içi bilgileri kaydet" })
+	);
+	expect(onSave).not.toHaveBeenCalled();
+	expect(screen.getByRole("alert")).toHaveTextContent(
+		"Dönüş noktası zorunludur."
+	);
+	expect(screen.getByText(requiredPrefix)).toBeInTheDocument();
+});
+
+test("changing the frame clears drafted field values", async () => {
+	const user = userEvent.setup();
+	const onSave = vi.fn().mockResolvedValue(true);
+	const otherFrame = {
+		assetVersionId: "version-2",
+		frameKey: "attack-0",
+		sourcePivots: [],
+	};
+	render(
+		<GameplayMetadataForm
+			contracts={[contract]}
+			disabled={false}
+			frames={[...frames, otherFrame]}
+			onSave={onSave}
+		/>
+	);
+	await user.click(screen.getByLabelText("Dönüş noktası (JSON)"));
+	await user.paste('{"x":1,"y":2}');
+	await user.selectOptions(
+		screen.getByLabelText("Kare ve kesin sürüm"),
+		screen.getByRole("option", { name: "attack-0 — version-2" })
+	);
+	expect(screen.getByLabelText("Dönüş noktası (JSON)")).toHaveValue("");
+	await user.type(screen.getByLabelText("Kullanım bağlamı"), "attack");
+	await user.click(
+		screen.getByRole("button", { name: "Oyun içi bilgileri kaydet" })
+	);
+	expect(onSave).toHaveBeenCalledWith(
+		expect.objectContaining({
+			assetVersionId: "version-2",
+			frameKey: "attack-0",
+			fields: expect.arrayContaining([{ fieldId: "pivot", source: null }]),
+		})
+	);
+});
+
+test("reports a finalized source that disappeared from the catalog", async () => {
+	const user = userEvent.setup();
+	const onSave = vi.fn();
+	const pivot = {
+		kind: "finalized_source" as const,
+		proposalId: "373ae13d-de81-4aee-91f5-05d4bb5e3b19",
+		sourceEntryId: "917ad7ee-86d4-49cd-8a3d-bcf2418c4680",
+		sourcePath: "$.frames[0].pivot",
+		value: { x: 3, y: 17 },
+	};
+	const view = render(
+		<GameplayMetadataForm
+			contracts={[contract]}
+			disabled={false}
+			frames={[{ ...frames[0], sourcePivots: [pivot] }]}
+			onSave={onSave}
+		/>
+	);
+	await user.type(screen.getByLabelText("Kullanım bağlamı"), "walk east");
+	await user.selectOptions(
+		screen.getByLabelText("Dönüş noktası kaynağı"),
+		screen.getByRole("option", {
+			name: 'Kesinleştirilmiş kaynak: {"x":3,"y":17}',
+		})
+	);
+	view.rerender(
+		<GameplayMetadataForm
+			contracts={[contract]}
+			disabled={false}
+			frames={[
+				{
+					...frames[0],
+					sourcePivots: [{ ...pivot, sourcePath: "$.frames[9].pivot" }],
+				},
+			]}
+			onSave={onSave}
+		/>
+	);
+	await user.click(
+		screen.getByRole("button", { name: "Oyun içi bilgileri kaydet" })
+	);
+	expect(onSave).not.toHaveBeenCalled();
+	expect(screen.getByRole("alert")).toHaveTextContent(
+		"Seçili kaynak artık kullanılamıyor. Dönüş noktası kaynağını yeniden seçin."
+	);
+});
+
+test("shows a save failure and the fallback for a non-error failure", async () => {
+	const user = userEvent.setup();
+	const onSave = vi
+		.fn()
+		.mockRejectedValueOnce(new Error("Sunucu reddetti."))
+		.mockRejectedValueOnce("offline");
+	render(
+		<GameplayMetadataForm
+			contracts={[contract]}
+			disabled={false}
+			frames={frames}
+			onSave={onSave}
+		/>
+	);
+	await user.type(screen.getByLabelText("Kullanım bağlamı"), "walk east");
+	const save = screen.getByRole("button", {
+		name: "Oyun içi bilgileri kaydet",
+	});
+	await user.click(save);
+	expect(await screen.findByRole("alert")).toHaveTextContent(
+		"Sunucu reddetti."
+	);
+	await user.click(save);
+	expect(await screen.findByRole("alert")).toHaveTextContent(
+		"Oyun içi bilgiler kaydedilemedi."
+	);
+	expect(screen.getByLabelText("Kullanım bağlamı")).toHaveValue("walk east");
+});
+
+test("disables every control while the parent write is unavailable", () => {
+	render(
+		<GameplayMetadataForm
+			contracts={[contract]}
+			disabled
+			frames={frames}
+			onSave={vi.fn()}
+		/>
+	);
+	expect(screen.getByLabelText("Kullanım bağlamı")).toBeDisabled();
+	expect(screen.getByLabelText("Dönüş noktası (JSON)")).toBeDisabled();
+	expect(
+		screen.getByRole("button", { name: "Oyun içi bilgileri kaydet" })
+	).toBeDisabled();
 });

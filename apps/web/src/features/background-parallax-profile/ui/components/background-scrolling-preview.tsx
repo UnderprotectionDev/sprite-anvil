@@ -1,11 +1,13 @@
 import type { BackgroundLayerLayoutInput } from "@sprite-anvil/api/background-layer-layouts";
 import type { BackgroundScrollingSetup } from "@sprite-anvil/api/background-scrolling-tests";
 import { Button } from "@sprite-anvil/ui/components/button";
+import { Input } from "@sprite-anvil/ui/components/input";
+import { Label } from "@sprite-anvil/ui/components/label";
 import type { Application, Texture } from "pixi.js";
 import { useEffect, useRef, useState } from "react";
 import { ENV } from "@/env";
+import type { BackgroundLayerMotion } from "../../lib/background-scrolling-scene";
 
-export type BackgroundLayerMotion = BackgroundScrollingSetup["motions"][number];
 type Layer = BackgroundLayerLayoutInput["layers"][number];
 const trailingSlash = /\/$/;
 async function loadBackgroundLayers(setup: {
@@ -155,7 +157,7 @@ export function BackgroundScrollingPreview({
 				}
 				const [pixi, { createBackgroundScrollingScene }] = await Promise.all([
 					import("pixi.js"),
-					import("./background-scrolling-scene"),
+					import("../../lib/background-scrolling-scene"),
 				]);
 				if (disposed) {
 					return;
@@ -261,11 +263,11 @@ export function BackgroundScrollingPreview({
 				>
 					Restart scrolling
 				</Button>
-				<label>
+				<Label className="flex flex-col items-start gap-1 leading-normal">
 					Timeline (ms)
-					<input
+					<Input
 						aria-label="Timeline (ms)"
-						className="block rounded border p-2"
+						className="block w-auto"
 						disabled={!ready}
 						max={durationMs}
 						min={0}
@@ -281,7 +283,7 @@ export function BackgroundScrollingPreview({
 						type="number"
 						value={Math.round(time)}
 					/>
-				</label>
+				</Label>
 			</div>
 			{motions.map((motion) => {
 				const raw = motion.startOffset + (motion.speed * time) / 1000;

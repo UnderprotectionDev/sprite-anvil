@@ -9,9 +9,13 @@ import {
 import { gameplayMetadataPackageReadInputSchema } from "@sprite-anvil/api/gameplay-metadata-package";
 import type { SpecializedProfileContract } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
+import { Input } from "@sprite-anvil/ui/components/input";
+import { Label } from "@sprite-anvil/ui/components/label";
+import { useMutation } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client } from "@/utils/orpc";
+import { mutationMeta } from "@/utils/mutation-meta";
+import { orpc } from "@/utils/orpc";
 import { GameplayMetadataOverlay } from "../components/gameplay-metadata-overlay";
 
 export function GameplayMetadataReview({
@@ -35,6 +39,15 @@ export function GameplayMetadataReview({
 	const [decisionId] = useState(() => crypto.randomUUID());
 	const [error, setError] = useState<string | null>(null);
 	const [message, setMessage] = useState<string | null>(null);
+	const reviewMutation = useMutation(
+		orpc.gameplayMetadata.review.mutationOptions(mutationMeta)
+	);
+	const createPackageMutation = useMutation(
+		orpc.gameplayMetadata.createPackage.mutationOptions(mutationMeta)
+	);
+	const readPackageMutation = useMutation(
+		orpc.gameplayMetadata.readPackage.mutationOptions(mutationMeta)
+	);
 	const errors = [
 		...getGameplayMetadataIntegrityErrors(record, frames, contract),
 		...getGameplayMetadataReviewSourceErrors(record, records),
@@ -60,7 +73,7 @@ export function GameplayMetadataReview({
 
 	async function review() {
 		await act(async () => {
-			const reviewed = await client.gameplayMetadata.review({
+			const reviewed = await reviewMutation.mutateAsync({
 				...target,
 				id: decisionId,
 			});
@@ -70,7 +83,7 @@ export function GameplayMetadataReview({
 
 	async function download() {
 		await act(async () => {
-			const result = await client.gameplayMetadata.createPackage(target);
+			const result = await createPackageMutation.mutateAsync(target);
 			const blob = new Blob([JSON.stringify(result)], {
 				type: "application/json",
 			});
@@ -93,7 +106,7 @@ export function GameplayMetadataReview({
 				...target,
 				package: JSON.parse(await file.text()),
 			});
-			await client.gameplayMetadata.readPackage(input);
+			await readPackageMutation.mutateAsync(input);
 			setMessage(
 				"Paket yeniden okundu; incelenmiş alanlar, kare ve kesin sürüm korunuyor."
 			);
@@ -159,10 +172,10 @@ export function GameplayMetadataReview({
 					>
 						Oyun içi bilgiler paketini indir
 					</Button>
-					<label className="block" htmlFor={fileInputId}>
+					<Label className="block" htmlFor={fileInputId}>
 						Paketi yeniden oku
-					</label>
-					<input
+					</Label>
+					<Input
 						accept=".json,application/json"
 						disabled={pending || Boolean(errors.length)}
 						id={fileInputId}

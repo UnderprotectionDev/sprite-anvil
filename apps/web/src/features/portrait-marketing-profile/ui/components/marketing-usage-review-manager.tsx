@@ -7,15 +7,25 @@ import {
 } from "@sprite-anvil/api/marketing-usage-reviews";
 import type { ProjectProfileContractActivation } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQuery } from "@tanstack/react-query";
-import { type SyntheticEvent, useId, useState } from "react";
+import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
+import { Input } from "@sprite-anvil/ui/components/input";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { Textarea } from "@sprite-anvil/ui/components/textarea";
+import { useForm, useStore } from "@tanstack/react-form";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useId, useState } from "react";
 import { ENV } from "@/env";
 import {
 	isWriteOutcomeUncertain,
 	showErrorToast,
 } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client, orpc } from "@/utils/orpc";
+import { mutationMeta } from "@/utils/mutation-meta";
+import { orpc } from "@/utils/orpc";
 import { MarketingUsagePreview } from "./marketing-usage-preview";
 
 type Version = Pick<
@@ -84,8 +94,8 @@ export function MarketingUsageReviewManager({
 	versions: Version[];
 }) {
 	const prefix = useId();
-	const [item, setItem] = useState(() =>
-		initialItem(
+	const [defaultValues] = useState(() => ({
+		item: initialItem(
 			versions[0] ?? {
 				id: "",
 				assetRecordId: "",
@@ -93,7 +103,15 @@ export function MarketingUsageReviewManager({
 				previewUrl: "",
 				sourceImageDimensions: null,
 			}
-		)
+		),
+	}));
+	const form = useForm({
+		defaultValues,
+		onSubmit: () => submit(),
+	});
+	const item = useStore(form.store, (state) => state.values.item);
+	const saveMutation = useMutation(
+		orpc.marketingUsageReviews.save.mutationOptions(mutationMeta)
 	);
 	const [saving, setSaving] = useState(false);
 	const [uncertainId, setUncertainId] = useState<string | null>(null);
@@ -123,9 +141,6 @@ export function MarketingUsageReviewManager({
 			notes: "preview",
 		})),
 	}).success;
-	function update(patch: Partial<Item>) {
-		setItem((current) => ({ ...current, ...patch }));
-	}
 	async function checkRecords() {
 		const result = await query.refetch();
 		if (
@@ -140,8 +155,7 @@ export function MarketingUsageReviewManager({
 			);
 		}
 	}
-	async function submit(event: SyntheticEvent<HTMLFormElement>) {
-		event.preventDefault();
+	async function submit() {
 		const result = marketingUsageReviewInputSchema.safeParse({
 			id: crypto.randomUUID(),
 			projectId,
@@ -164,7 +178,7 @@ export function MarketingUsageReviewManager({
 		setSaving(true);
 		setMessage("");
 		try {
-			await client.marketingUsageReviews.save(result.data);
+			await saveMutation.mutateAsync(result.data);
 			const reread = await query.refetch();
 			if (
 				reread.isError ||
@@ -199,188 +213,36 @@ export function MarketingUsageReviewManager({
 				ölçülür. Küçük kullanım sonucunu siz değerlendirirsiniz; oyun içi piksel
 				ölçeği uygulanmaz. Portre ifade incelemesi ayrı tutulur.
 			</p>
-			<form className="space-y-4" onSubmit={submit}>
-				<fieldset
+			<form
+				className="space-y-4"
+				onSubmit={(event) => {
+					event.preventDefault();
+					event.stopPropagation();
+					form.handleSubmit();
+				}}
+			>
+				<FieldSet
 					className="space-y-4"
 					disabled={saving || uncertainId !== null}
 				>
-					<label className="block">
-						Varlık Sürümü
-						<select
-							aria-label="Varlık Sürümü"
-							className="block w-full rounded border p-2"
-							onChange={(event) => {
-								const selected = versions.find(
-									(candidate) => candidate.id === event.target.value
-								);
-								if (selected) {
-									setItem(initialItem(selected));
-									setReadyKey(null);
+					<form.Field name="item">
+						{(field) => (
+							<MarketingUsageItemFields
+								familyName={family.name}
+								field={field}
+								geometryValid={geometryValid}
+								onPreviewReady={(ready) =>
+									setReadyKey(ready ? previewKey : null)
 								}
-							}}
-							value={item.assetVersionId}
-						>
-							{versions.map((candidate) => (
-								<option key={candidate.id} value={candidate.id}>
-									Sürüm {candidate.versionNumber} · {candidate.id.slice(0, 8)}
-								</option>
-							))}
-						</select>
-					</label>
-					<label className="block">
-						Kullanım amacı
-						<select
-							aria-label="Kullanım amacı"
-							className="block rounded border p-2"
-							onChange={(event) =>
-								update({ usePurpose: event.target.value as Item["usePurpose"] })
-							}
-							value={item.usePurpose}
-						>
-							{Object.entries(purposeLabels).map(([value, label]) => (
-								<option key={value} value={value}>
-									{label}
-								</option>
-							))}
-						</select>
-					</label>
-					<div className="grid gap-4 sm:grid-cols-3">
-						{(["crop", "safeArea", "displaySize"] as const).map((key) => (
-							<fieldset className="space-y-2 rounded border p-3" key={key}>
-								<legend>{geometryLabels[key]}</legend>
-								{Object.entries(item[key]).map(([field, value]) => (
-									<label className="block text-sm" key={field}>
-										{field}
-										<input
-											aria-label={`${key} ${field}`}
-											className="block w-full rounded border p-2"
-											max={32_768}
-											min={field === "x" || field === "y" ? 0 : 1}
-											onChange={(event) =>
-												update({
-													[key]: {
-														...item[key],
-														[field]: Number(event.target.value),
-													},
-												})
-											}
-											required
-											step={1}
-											type="number"
-											value={value}
-										/>
-									</label>
-								))}
-							</fieldset>
-						))}
-					</div>
-					<label className="block">
-						Sunum
-						<select
-							aria-label="Sunum"
-							className="block rounded border p-2"
-							onChange={(event) =>
-								update({
-									presentation: event.target.value as Item["presentation"],
-									opaqueColor:
-										event.target.value === "opaque" ? "#ffffff" : null,
-								})
-							}
-							value={item.presentation}
-						>
-							<option value="transparent">Şeffaf</option>
-							<option value="opaque">Opak</option>
-						</select>
-					</label>
-					{item.presentation === "opaque" ? (
-						<label className="block">
-							Opak zemin rengi
-							<input
-								aria-label="Opak zemin rengi"
-								className="block"
-								onChange={(event) =>
-									update({ opaqueColor: event.target.value })
-								}
-								type="color"
-								value={item.opaqueColor ?? "#ffffff"}
+								onVersionSelected={() => setReadyKey(null)}
+								prefix={prefix}
+								previewBaseUrl={serverUrl}
+								previewKey={previewKey}
+								version={version}
+								versions={versions}
 							/>
-						</label>
-					) : null}
-					{geometryValid && version ? (
-						<MarketingUsagePreview
-							item={item}
-							key={previewKey}
-							name={family.name}
-							onReady={(ready) => setReadyKey(ready ? previewKey : null)}
-							previewUrl={`${serverUrl}${version.previewUrl}`}
-						/>
-					) : (
-						<p role="alert">
-							Kırpma ve güvenli alanı kaynak ölçüleri içinde tutun.
-						</p>
-					)}
-					{item.observations.map((observation, index) => (
-						<fieldset
-							className="space-y-3 rounded border p-3"
-							key={observation.background}
-						>
-							<legend>
-								{observation.background === "light"
-									? "Açık zemin değerlendirmesi"
-									: "Koyu zemin değerlendirmesi"}
-							</legend>
-							{(["readability", "safeArea", "crop"] as const).map((key) => (
-								<label
-									className="block"
-									htmlFor={`${prefix}-${index}-${key}`}
-									key={key}
-								>
-									{observationLabels[key]}
-									<select
-										className="block rounded border p-2"
-										id={`${prefix}-${index}-${key}`}
-										onChange={(event) =>
-											update({
-												observations: item.observations.map((entry, i) =>
-													i === index
-														? { ...entry, [key]: event.target.value }
-														: entry
-												),
-											})
-										}
-										value={observation[key]}
-									>
-										{Object.entries(outcomeLabels).map(([value, label]) => (
-											<option key={value} value={value}>
-												{label}
-											</option>
-										))}
-									</select>
-								</label>
-							))}
-							<div>
-								<label className="block" htmlFor={`${prefix}-${index}-notes`}>
-									Gözlem
-								</label>
-								<textarea
-									className="block w-full rounded border p-2"
-									id={`${prefix}-${index}-notes`}
-									maxLength={2000}
-									onChange={(event) =>
-										update({
-											observations: item.observations.map((entry, i) =>
-												i === index
-													? { ...entry, notes: event.target.value }
-													: entry
-											),
-										})
-									}
-									required
-									value={observation.notes}
-								/>
-							</div>
-						</fieldset>
-					))}
+						)}
+					</form.Field>
 					<Button
 						disabled={
 							readyKey !== previewKey || query.isPending || query.isError
@@ -389,7 +251,7 @@ export function MarketingUsageReviewManager({
 					>
 						{saving ? "Kaydediliyor…" : "Kullanım incelemesini kaydet"}
 					</Button>
-				</fieldset>
+				</FieldSet>
 			</form>
 			{message ? <p role="status">{message}</p> : null}
 			{uncertainId ? (
@@ -454,5 +316,219 @@ export function MarketingUsageReviewManager({
 				))}
 			</ul>
 		</section>
+	);
+}
+
+function MarketingUsageItemFields({
+	familyName,
+	field,
+	geometryValid,
+	onPreviewReady,
+	onVersionSelected,
+	prefix,
+	previewKey,
+	previewBaseUrl,
+	version,
+	versions,
+}: {
+	familyName: string;
+	field: {
+		handleChange: (item: Item) => void;
+		state: { value: Item };
+	};
+	geometryValid: boolean;
+	onPreviewReady: (ready: boolean) => void;
+	onVersionSelected: () => void;
+	prefix: string;
+	previewKey: string;
+	previewBaseUrl: string;
+	version: Version | undefined;
+	versions: Version[];
+}) {
+	const item = field.state.value;
+	const update = (patch: Partial<Item>) =>
+		field.handleChange({ ...item, ...patch });
+	return (
+		<>
+			<Label className="block">
+				Varlık Sürümü
+				<NativeSelect
+					aria-label="Varlık Sürümü"
+					className="block w-full"
+					onChange={(event) => {
+						const selected = versions.find(
+							(candidate) => candidate.id === event.target.value
+						);
+						if (selected) {
+							field.handleChange(initialItem(selected));
+							onVersionSelected();
+						}
+					}}
+					value={item.assetVersionId}
+				>
+					{versions.map((candidate) => (
+						<NativeSelectOption key={candidate.id} value={candidate.id}>
+							Sürüm {candidate.versionNumber} · {candidate.id.slice(0, 8)}
+						</NativeSelectOption>
+					))}
+				</NativeSelect>
+			</Label>
+			<Label className="block">
+				Kullanım amacı
+				<NativeSelect
+					aria-label="Kullanım amacı"
+					className="block"
+					onChange={(event) =>
+						update({
+							usePurpose: event.target.value as Item["usePurpose"],
+						})
+					}
+					value={item.usePurpose}
+				>
+					{Object.entries(purposeLabels).map(([value, label]) => (
+						<NativeSelectOption key={value} value={value}>
+							{label}
+						</NativeSelectOption>
+					))}
+				</NativeSelect>
+			</Label>
+			<div className="grid gap-4 sm:grid-cols-3">
+				{(["crop", "safeArea", "displaySize"] as const).map((key) => (
+					<FieldSet className="space-y-2 rounded border p-3" key={key}>
+						<FieldLegend>{geometryLabels[key]}</FieldLegend>
+						{Object.entries(item[key]).map(([name, value]) => (
+							<Label className="block text-sm" key={name}>
+								{name}
+								<Input
+									aria-label={`${key} ${name}`}
+									className="block w-full"
+									max={32_768}
+									min={name === "x" || name === "y" ? 0 : 1}
+									onChange={(event) =>
+										update({
+											[key]: {
+												...item[key],
+												[name]: Number(event.target.value),
+											},
+										})
+									}
+									required
+									step={1}
+									type="number"
+									value={value}
+								/>
+							</Label>
+						))}
+					</FieldSet>
+				))}
+			</div>
+			<Label className="block">
+				Sunum
+				<NativeSelect
+					aria-label="Sunum"
+					className="block"
+					onChange={(event) =>
+						update({
+							presentation: event.target.value as Item["presentation"],
+							opaqueColor: event.target.value === "opaque" ? "#ffffff" : null,
+						})
+					}
+					value={item.presentation}
+				>
+					<NativeSelectOption value="transparent">Şeffaf</NativeSelectOption>
+					<NativeSelectOption value="opaque">Opak</NativeSelectOption>
+				</NativeSelect>
+			</Label>
+			{item.presentation === "opaque" ? (
+				<Label className="block">
+					Opak zemin rengi
+					<Input
+						aria-label="Opak zemin rengi"
+						className="block h-auto w-auto"
+						onChange={(event) => update({ opaqueColor: event.target.value })}
+						type="color"
+						value={item.opaqueColor ?? "#ffffff"}
+					/>
+				</Label>
+			) : null}
+			{geometryValid && version ? (
+				<MarketingUsagePreview
+					item={item}
+					key={previewKey}
+					name={familyName}
+					onReady={onPreviewReady}
+					previewUrl={`${previewBaseUrl}${version.previewUrl}`}
+				/>
+			) : (
+				<p role="alert">
+					Kırpma ve güvenli alanı kaynak ölçüleri içinde tutun.
+				</p>
+			)}
+			{item.observations.map((observation, index) => (
+				<FieldSet
+					className="space-y-3 rounded border p-3"
+					key={observation.background}
+				>
+					<FieldLegend>
+						{observation.background === "light"
+							? "Açık zemin değerlendirmesi"
+							: "Koyu zemin değerlendirmesi"}
+					</FieldLegend>
+					{(["readability", "safeArea", "crop"] as const).map((key) => (
+						<Label
+							className="block"
+							htmlFor={`${prefix}-${index}-${key}`}
+							key={key}
+						>
+							{observationLabels[key]}
+							<NativeSelect
+								className="block"
+								id={`${prefix}-${index}-${key}`}
+								onChange={(event) =>
+									update({
+										observations: item.observations.map((entry, i) =>
+											i === index
+												? {
+														...entry,
+														[key]: event.target.value,
+													}
+												: entry
+										),
+									})
+								}
+								value={observation[key]}
+							>
+								{Object.entries(outcomeLabels).map(([value, label]) => (
+									<NativeSelectOption key={value} value={value}>
+										{label}
+									</NativeSelectOption>
+								))}
+							</NativeSelect>
+						</Label>
+					))}
+					<div>
+						<Label className="block" htmlFor={`${prefix}-${index}-notes`}>
+							Gözlem
+						</Label>
+						<Textarea
+							className="block w-full"
+							id={`${prefix}-${index}-notes`}
+							maxLength={2000}
+							onChange={(event) =>
+								update({
+									observations: item.observations.map((entry, i) =>
+										i === index
+											? { ...entry, notes: event.target.value }
+											: entry
+									),
+								})
+							}
+							required
+							value={observation.notes}
+						/>
+					</div>
+				</FieldSet>
+			))}
+		</>
 	);
 }

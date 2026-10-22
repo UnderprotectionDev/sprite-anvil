@@ -2,19 +2,33 @@ import type { AssetRecord } from "@sprite-anvil/api/asset-records";
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
 import type { ProjectProfileContractActivation } from "@sprite-anvil/api/specialized-profile-contracts";
 import { readUiProfileManifest } from "@sprite-anvil/api/ui-profile-export";
-import {
-	type UiStretchTestInput,
-	type UiStretchTestRecord,
-	uiStretchStateSchema,
-	uiStretchTestInputSchema,
+import type {
+	UiStretchTestInput,
+	UiStretchTestRecord,
 } from "@sprite-anvil/api/ui-stretch-tests";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQuery } from "@tanstack/react-query";
-import { type SyntheticEvent, useState } from "react";
+import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
+import { Input } from "@sprite-anvil/ui/components/input";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { Textarea } from "@sprite-anvil/ui/components/textarea";
+import { useForm, useStore } from "@tanstack/react-form";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { ENV } from "@/env";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client, orpc } from "@/utils/orpc";
+import { orpc } from "@/utils/orpc";
+import {
+	createUiStretchConfigurationSchema,
+	createUiStretchStateSchema,
+	type UiStretchObservationDraft,
+	type UiStretchStateDraft,
+	uiStretchBoundsFields,
+} from "../../schemas";
 import { SavedUiStretchTest } from "./saved-ui-stretch-test";
 import { UiStretchPreview } from "./ui-stretch-preview";
 
@@ -40,23 +54,7 @@ export interface UiStretchTestManagerProps {
 	>[];
 	visualWorldId: string;
 }
-const fields = [
-	["left", "Left margin"],
-	["right", "Right margin"],
-	["top", "Top margin"],
-	["bottom", "Bottom margin"],
-	["x", "Text area X"],
-	["y", "Text area Y"],
-	["width", "Text area width"],
-	["height", "Text area height"],
-] as const;
-type Draft = {
-	key: string;
-	componentId: string;
-	stateId: string;
-	assetVersionId: string;
-} & Record<(typeof fields)[number][0], string>;
-const newState = (): Draft => ({
+const newState = (): UiStretchStateDraft => ({
 	key: crypto.randomUUID(),
 	componentId: "",
 	stateId: "",
@@ -70,7 +68,13 @@ const newState = (): Draft => ({
 	width: "",
 	height: "",
 });
-const fieldClass = "block min-h-11 w-full rounded border bg-background p-2";
+const fieldClass = "block min-h-11 w-full";
+// The desktop e2e specs address these selects as `label/select`, so they stay
+// direct label children instead of using the NativeSelect wrapper.
+const nativeSelectClass =
+	"block min-h-11 w-full rounded border bg-background p-2";
+const selectClass = "w-full [&_select]:min-h-11";
+const labelClass = "block text-base leading-normal";
 const trailingSlash = /\/$/;
 const previewSource = (url: string) =>
 	url.startsWith("/")
@@ -85,10 +89,22 @@ export function UiStretchTestManager({
 	assetRecords,
 	versions,
 }: UiStretchTestManagerProps) {
+	const queryClient = useQueryClient();
+	const listKey = orpc.uiStretchTests.list.queryKey({
+		input: { projectId, assetFamilyId },
+	});
 	const query = useQuery(
 		orpc.uiStretchTests.list.queryOptions({
 			input: { projectId, assetFamilyId },
 		})
+	);
+	const saveStretchTest = useMutation(
+		orpc.uiStretchTests.save.mutationOptions()
+	);
+	// Export is a button-triggered read with no cache meaning, so it is a
+	// mutation: every click hits the server and nothing is cached.
+	const exportStretchTest = useMutation(
+		orpc.uiStretchTests.export.mutationOptions()
 	);
 	const available = versions.filter(
 		(v) =>
@@ -103,73 +119,39 @@ export function UiStretchTestManager({
 					r.availability !== "erased"
 			)
 	);
-	const [drafts, setDrafts] = useState<Draft[]>(() => [newState()]);
-	const [targets, setTargets] = useState(() => [
-		{ key: crypto.randomUUID(), width: "", height: "" },
-	]);
-	const [screenVersion, setScreenVersion] = useState("");
-	const [sampleText, setSampleText] = useState("Inventory item description");
-	const [observations, setObservations] = useState<
-		Record<
-			string,
-			{ outcome: "passed" | "failed" | "inconclusive"; notes: string }
-		>
-	>({});
+	const [defaultValues] = useState(() => ({
+		drafts: [newState()],
+		targets: [{ key: crypto.randomUUID(), width: "", height: "" }],
+		screenVersion: "",
+		sampleText: "Inventory item description",
+		observations: {} as Record<string, UiStretchObservationDraft | undefined>,
+	}));
+	const form = useForm({
+		defaultValues,
+		onSubmit: ({ value }) => save(value),
+	});
+	const values = useStore(form.store, (state) => state.values);
+	const { drafts, targets, screenVersion, sampleText, observations } = values;
 	const [error, setError] = useState("");
 	const [message, setMessage] = useState("");
 	const [busy, setBusy] = useState(false);
 	const [pending, setPending] = useState<UiStretchTestInput | null>(null);
-	function change(key: string, field: keyof Draft, value: string) {
-		setDrafts((ds) =>
-			ds.map((d) => (d.key === key ? { ...d, [field]: value } : d))
-		);
-		setObservations({});
-		setMessage("");
-	}
-	const states = drafts.map((d) => {
-		const version = available.find((v) => v.id === d.assetVersionId);
-		return uiStretchStateSchema.safeParse({
-			componentId: d.componentId,
-			stateId: d.stateId,
-			assetVersionId: d.assetVersionId,
-			assetRecordId: version?.assetRecordId ?? "",
-			naturalSize: version?.sourceImageDimensions,
-			stretchMargins: {
-				left: Number(d.left),
-				right: Number(d.right),
-				top: Number(d.top),
-				bottom: Number(d.bottom),
-			},
-			textSafeArea: {
-				x: Number(d.x),
-				y: Number(d.y),
-				width: Number(d.width),
-				height: Number(d.height),
-			},
-		});
-	});
-	const targetSizes = targets.map((t) => ({
-		width: Number(t.width),
-		height: Number(t.height),
-	}));
-	const configuration = uiStretchTestInputSchema.safeParse({
-		id: crypto.randomUUID(),
+	const stateSchema = createUiStretchStateSchema(available);
+	const configurationSchema = createUiStretchConfigurationSchema({
 		projectId,
 		assetFamilyId,
 		visualWorldId,
 		contractRevisionId: activation.contractRevisionId,
-		screen: screenVersion
-			? {
-					assetRecordId: available.find((v) => v.id === screenVersion)
-						?.assetRecordId,
-					assetVersionId: screenVersion,
-				}
-			: undefined,
-		states: states.map((s) => (s.success ? s.data : null)),
-		targets: targetSizes,
-		observations: [],
-		sampleText,
+		available,
 	});
+	const configuration = configurationSchema.safeParse(values);
+	function resetObservations() {
+		form.setFieldValue("observations", {});
+	}
+	function changeDraft() {
+		resetObservations();
+		setMessage("");
+	}
 	async function checkCurrent() {
 		if (!pending || busy) {
 			return;
@@ -200,13 +182,13 @@ export function UiStretchTestManager({
 			setBusy(false);
 		}
 	}
-	async function save(event: SyntheticEvent<HTMLFormElement>) {
-		event.preventDefault();
+	async function save(value: typeof form.state.values) {
 		if (busy || pending) {
 			return;
 		}
 		setError("");
 		setMessage("");
+		const states = value.drafts.map((draft) => stateSchema.safeParse(draft));
 		const invalidState = states.find((state) => !state.success);
 		if (invalidState && !invalidState.success) {
 			setError(
@@ -214,15 +196,16 @@ export function UiStretchTestManager({
 			);
 			return;
 		}
-		if (!configuration.success) {
-			setError(configuration.error.issues.map((i) => i.message).join(" "));
+		const saveConfiguration = configurationSchema.safeParse(value);
+		if (!saveConfiguration.success) {
+			setError(saveConfiguration.error.issues.map((i) => i.message).join(" "));
 			return;
 		}
 		const input = {
-			...configuration.data,
-			observations: configuration.data.states.flatMap((s, index) =>
-				targets.flatMap((t, targetIndex) => {
-					const o = observations[`${drafts[index]?.key}/${t.key}`];
+			...saveConfiguration.data,
+			observations: saveConfiguration.data.states.flatMap((s, index) =>
+				value.targets.flatMap((t, targetIndex) => {
+					const o = value.observations[`${value.drafts[index]?.key}/${t.key}`];
 					return o?.notes.trim()
 						? [
 								{
@@ -238,10 +221,14 @@ export function UiStretchTestManager({
 		};
 		setBusy(true);
 		try {
-			const saved = await client.uiStretchTests.save(input);
+			const saved = await saveStretchTest.mutateAsync(input);
 			setPending(input);
-			const result = await query.refetch();
-			if (result.data?.some((r) => r.id === saved.id) && !result.isError) {
+			await queryClient.invalidateQueries({ queryKey: listKey });
+			const refreshed =
+				queryClient.getQueryData<UiStretchTestRecord[]>(listKey);
+			const refreshFailed =
+				queryClient.getQueryState(listKey)?.status === "error";
+			if (refreshed?.some((r) => r.id === saved.id) && !refreshFailed) {
 				setPending(null);
 				setMessage("Stretch test saved.");
 			} else {
@@ -262,7 +249,7 @@ export function UiStretchTestManager({
 		setBusy(true);
 		setError("");
 		try {
-			const manifest = await client.uiStretchTests.export({
+			const manifest = await exportStretchTest.mutateAsync({
 				projectId,
 				assetFamilyId,
 				id: record.id,
@@ -291,10 +278,10 @@ export function UiStretchTestManager({
 		}
 	}
 	const options = available.map((v) => (
-		<option key={v.id} value={v.id}>
+		<NativeSelectOption key={v.id} value={v.id}>
 			{assetRecords.find((r) => r.id === v.assetRecordId)?.name} · v
 			{v.versionNumber}
-		</option>
+		</NativeSelectOption>
 	));
 	return (
 		<section className="space-y-4 rounded-lg border p-4">
@@ -320,26 +307,39 @@ export function UiStretchTestManager({
 			) : null}
 			{error ? <p role="alert">{error}</p> : null}
 			{message ? <p role="status">{message}</p> : null}
-			<form className="space-y-4" onSubmit={save}>
-				<fieldset
+			<form
+				className="space-y-4"
+				onSubmit={(event) => {
+					event.preventDefault();
+					event.stopPropagation();
+					void form.handleSubmit();
+				}}
+			>
+				<FieldSet
 					className="space-y-4"
 					disabled={busy || !!pending || query.isPending || query.isError}
 				>
-					<legend className="sr-only">Stretch test setup</legend>
-					<label className="block">
-						Screen version (optional)
-						<select
-							className={fieldClass}
-							onChange={(e) => {
-								setScreenVersion(e.target.value);
-								setObservations({});
-							}}
-							value={screenVersion}
-						>
-							<option value="">No screen link</option>
-							{options}
-						</select>
-					</label>
+					<FieldLegend className="sr-only">Stretch test setup</FieldLegend>
+					<form.Field name="screenVersion">
+						{(field) => (
+							<Label className={labelClass}>
+								Screen version (optional)
+								<NativeSelect
+									className={selectClass}
+									onChange={(e) => {
+										field.handleChange(e.target.value);
+										resetObservations();
+									}}
+									value={field.state.value}
+								>
+									<NativeSelectOption value="">
+										No screen link
+									</NativeSelectOption>
+									{options}
+								</NativeSelect>
+							</Label>
+						)}
+					</form.Field>
 					{screenVersion ? (
 						<img
 							alt="Linked screen"
@@ -357,168 +357,225 @@ export function UiStretchTestManager({
 							}
 						/>
 					) : null}
-					{drafts.map((d, index) => (
-						<fieldset className="space-y-3 rounded border p-3" key={d.key}>
-							<legend>State {index + 1}</legend>
-							<div className="grid gap-3 sm:grid-cols-3">
-								<label>
-									Component identity
-									<input
-										className={fieldClass}
-										onChange={(e) =>
-											change(d.key, "componentId", e.target.value)
-										}
-										required
-										value={d.componentId}
-									/>
-								</label>
-								<label>
-									State identity
-									<input
-										className={fieldClass}
-										onChange={(e) => change(d.key, "stateId", e.target.value)}
-										required
-										value={d.stateId}
-									/>
-								</label>
-								<label>
-									Exact version
-									<select
-										className={fieldClass}
-										onChange={(e) =>
-											change(d.key, "assetVersionId", e.target.value)
-										}
-										required
-										value={d.assetVersionId}
+					<form.Field mode="array" name="drafts">
+						{(draftsField) => (
+							<>
+								{drafts.map((d, index) => (
+									<FieldSet
+										className="space-y-3 rounded border p-3"
+										key={d.key}
 									>
-										<option value="">Select a version</option>
-										{options}
-									</select>
-								</label>
-								{fields.map(([field, label]) => (
-									<label key={field}>
-										{label}
-										<input
-											className={fieldClass}
-											min={field === "width" || field === "height" ? 1 : 0}
-											onChange={(e) => change(d.key, field, e.target.value)}
-											required
-											step={1}
-											type="number"
-											value={d[field]}
-										/>
-									</label>
+										<FieldLegend>State {index + 1}</FieldLegend>
+										<div className="grid gap-3 sm:grid-cols-3">
+											<form.Field name={`drafts[${index}].componentId`}>
+												{(field) => (
+													<Label className={labelClass}>
+														Component identity
+														<Input
+															className={fieldClass}
+															onChange={(e) => {
+																field.handleChange(e.target.value);
+																changeDraft();
+															}}
+															required
+															value={field.state.value}
+														/>
+													</Label>
+												)}
+											</form.Field>
+											<form.Field name={`drafts[${index}].stateId`}>
+												{(field) => (
+													<Label className={labelClass}>
+														State identity
+														<Input
+															className={fieldClass}
+															onChange={(e) => {
+																field.handleChange(e.target.value);
+																changeDraft();
+															}}
+															required
+															value={field.state.value}
+														/>
+													</Label>
+												)}
+											</form.Field>
+											<form.Field name={`drafts[${index}].assetVersionId`}>
+												{(field) => (
+													<Label className={labelClass}>
+														Exact version
+														<select
+															className={nativeSelectClass}
+															onChange={(e) => {
+																field.handleChange(e.target.value);
+																changeDraft();
+															}}
+															required
+															value={field.state.value}
+														>
+															<NativeSelectOption value="">
+																Select a version
+															</NativeSelectOption>
+															{options}
+														</select>
+													</Label>
+												)}
+											</form.Field>
+											{uiStretchBoundsFields.map(([boundsField, label]) => (
+												<form.Field
+													key={boundsField}
+													name={`drafts[${index}].${boundsField}`}
+												>
+													{(field) => (
+														<Label className={labelClass}>
+															{label}
+															<Input
+																className={fieldClass}
+																min={
+																	boundsField === "width" ||
+																	boundsField === "height"
+																		? 1
+																		: 0
+																}
+																onChange={(e) => {
+																	field.handleChange(e.target.value);
+																	changeDraft();
+																}}
+																required
+																step={1}
+																type="number"
+																value={field.state.value}
+															/>
+														</Label>
+													)}
+												</form.Field>
+											))}
+											<p>
+												Natural size:{" "}
+												{available.find((v) => v.id === d.assetVersionId)
+													?.sourceImageDimensions?.width ?? "—"}{" "}
+												×{" "}
+												{available.find((v) => v.id === d.assetVersionId)
+													?.sourceImageDimensions?.height ?? "—"}{" "}
+												px
+											</p>
+										</div>
+										<Button
+											disabled={drafts.length === 1}
+											onClick={() => {
+												draftsField.removeValue(index);
+												resetObservations();
+											}}
+											type="button"
+										>
+											Remove state {index + 1}
+										</Button>
+									</FieldSet>
 								))}
-								<p>
-									Natural size:{" "}
-									{available.find((v) => v.id === d.assetVersionId)
-										?.sourceImageDimensions?.width ?? "—"}{" "}
-									×{" "}
-									{available.find((v) => v.id === d.assetVersionId)
-										?.sourceImageDimensions?.height ?? "—"}{" "}
-									px
-								</p>
-							</div>
-							<Button
-								disabled={drafts.length === 1}
-								onClick={() => {
-									setDrafts((ds) => ds.filter((s) => s.key !== d.key));
-									setObservations({});
-								}}
-								type="button"
-							>
-								Remove state {index + 1}
-							</Button>
-						</fieldset>
-					))}
-					<Button
-						disabled={drafts.length >= 24}
-						onClick={() => {
-							setDrafts((ds) => [...ds, newState()]);
-							setObservations({});
-						}}
-						type="button"
-					>
-						Add state
-					</Button>
-					{targets.map((t, index) => (
-						<fieldset className="flex flex-wrap items-end gap-3" key={t.key}>
-							<legend>Target {index + 1}</legend>
-							<label>
-								Target width
-								<input
-									className={fieldClass}
-									max={4096}
-									min={1}
-									onChange={(e) => {
-										setTargets((ts) =>
-											ts.map((s) =>
-												s.key === t.key ? { ...s, width: e.target.value } : s
-											)
-										);
-										setObservations({});
+								<Button
+									disabled={drafts.length >= 24}
+									onClick={() => {
+										draftsField.pushValue(newState());
+										resetObservations();
 									}}
-									required
-									type="number"
-									value={t.width}
-								/>
-							</label>
-							<label>
-								Target height
-								<input
-									className={fieldClass}
-									max={4096}
-									min={1}
-									onChange={(e) => {
-										setTargets((ts) =>
-											ts.map((s) =>
-												s.key === t.key ? { ...s, height: e.target.value } : s
-											)
-										);
-										setObservations({});
+									type="button"
+								>
+									Add state
+								</Button>
+							</>
+						)}
+					</form.Field>
+					<form.Field mode="array" name="targets">
+						{(targetsField) => (
+							<>
+								{targets.map((t, index) => (
+									<FieldSet
+										className="flex flex-wrap items-end gap-3"
+										key={t.key}
+									>
+										<FieldLegend>Target {index + 1}</FieldLegend>
+										<form.Field name={`targets[${index}].width`}>
+											{(field) => (
+												<Label className={labelClass}>
+													Target width
+													<Input
+														className={fieldClass}
+														max={4096}
+														min={1}
+														onChange={(e) => {
+															field.handleChange(e.target.value);
+															resetObservations();
+														}}
+														required
+														type="number"
+														value={field.state.value}
+													/>
+												</Label>
+											)}
+										</form.Field>
+										<form.Field name={`targets[${index}].height`}>
+											{(field) => (
+												<Label className={labelClass}>
+													Target height
+													<Input
+														className={fieldClass}
+														max={4096}
+														min={1}
+														onChange={(e) => {
+															field.handleChange(e.target.value);
+															resetObservations();
+														}}
+														required
+														type="number"
+														value={field.state.value}
+													/>
+												</Label>
+											)}
+										</form.Field>
+										<Button
+											disabled={targets.length === 1}
+											onClick={() => {
+												targetsField.removeValue(index);
+												resetObservations();
+											}}
+											type="button"
+										>
+											Remove target {index + 1}
+										</Button>
+									</FieldSet>
+								))}
+								<Button
+									disabled={targets.length >= 12}
+									onClick={() => {
+										targetsField.pushValue({
+											key: crypto.randomUUID(),
+											width: "",
+											height: "",
+										});
+										resetObservations();
 									}}
-									required
-									type="number"
-									value={t.height}
+									type="button"
+								>
+									Add target
+								</Button>
+							</>
+						)}
+					</form.Field>
+					<form.Field name="sampleText">
+						{(field) => (
+							<Label className={labelClass}>
+								Sample text
+								<Textarea
+									className={fieldClass}
+									maxLength={2000}
+									onChange={(e) => {
+										field.handleChange(e.target.value);
+										resetObservations();
+									}}
+									value={field.state.value}
 								/>
-							</label>
-							<Button
-								disabled={targets.length === 1}
-								onClick={() => {
-									setTargets((ts) => ts.filter((s) => s.key !== t.key));
-									setObservations({});
-								}}
-								type="button"
-							>
-								Remove target {index + 1}
-							</Button>
-						</fieldset>
-					))}
-					<Button
-						disabled={targets.length >= 12}
-						onClick={() => {
-							setTargets((ts) => [
-								...ts,
-								{ key: crypto.randomUUID(), width: "", height: "" },
-							]);
-							setObservations({});
-						}}
-						type="button"
-					>
-						Add target
-					</Button>
-					<label className="block">
-						Sample text
-						<textarea
-							className={fieldClass}
-							maxLength={2000}
-							onChange={(e) => {
-								setSampleText(e.target.value);
-								setObservations({});
-							}}
-							value={sampleText}
-						/>
-					</label>
+							</Label>
+						)}
+					</form.Field>
 					{configuration.success
 						? configuration.data.states.flatMap((s, index) =>
 								configuration.data.targets.map((t, targetIndex) => {
@@ -528,14 +585,14 @@ export function UiStretchTestManager({
 										notes: "",
 									};
 									return (
-										<fieldset
+										<FieldSet
 											className="space-y-3 rounded border p-3"
 											key={key}
 										>
-											<legend>
+											<FieldLegend>
 												{s.componentId} · {s.stateId} · {t.width} × {t.height}{" "}
 												px
-											</legend>
+											</FieldLegend>
 											<div className="grid gap-3 lg:grid-cols-2">
 												<div>
 													<p>Natural size</p>
@@ -562,45 +619,57 @@ export function UiStretchTestManager({
 													/>
 												</div>
 											</div>
-											<label className="block">
-												Test result
-												<select
-													className={fieldClass}
-													onChange={(e) => {
-														const result = e.target.value;
-														if (
-															result === "passed" ||
-															result === "failed" ||
-															result === "inconclusive"
-														) {
-															setObservations((os) => ({
-																...os,
-																[key]: { ...o, outcome: result },
-															}));
-														}
-													}}
-													value={o.outcome}
-												>
-													<option value="inconclusive">Inconclusive</option>
-													<option value="passed">Passed</option>
-													<option value="failed">Failed</option>
-												</select>
-											</label>
-											<label className="block">
-												Observation
-												<textarea
-													className={fieldClass}
-													maxLength={2000}
-													onChange={(e) =>
-														setObservations((os) => ({
-															...os,
-															[key]: { ...o, notes: e.target.value },
-														}))
-													}
-													value={o.notes}
-												/>
-											</label>
-										</fieldset>
+											<form.Field name={`observations.${key}`}>
+												{(field) => (
+													<>
+														<Label className={labelClass}>
+															Test result
+															<select
+																className={nativeSelectClass}
+																onChange={(e) => {
+																	const result = e.target.value;
+																	if (
+																		result === "passed" ||
+																		result === "failed" ||
+																		result === "inconclusive"
+																	) {
+																		field.handleChange({
+																			...o,
+																			outcome: result,
+																		});
+																	}
+																}}
+																value={o.outcome}
+															>
+																<NativeSelectOption value="inconclusive">
+																	Inconclusive
+																</NativeSelectOption>
+																<NativeSelectOption value="passed">
+																	Passed
+																</NativeSelectOption>
+																<NativeSelectOption value="failed">
+																	Failed
+																</NativeSelectOption>
+															</select>
+														</Label>
+														<Label className={labelClass}>
+															Observation
+															<Textarea
+																className={fieldClass}
+																maxLength={2000}
+																onChange={(e) =>
+																	field.handleChange({
+																		...o,
+																		notes: e.target.value,
+																	})
+																}
+																value={o.notes}
+															/>
+														</Label>
+													</>
+												)}
+											</form.Field>
+										</FieldSet>
 									);
 								})
 							)
@@ -618,7 +687,7 @@ export function UiStretchTestManager({
 							family first.
 						</p>
 					) : null}
-				</fieldset>
+				</FieldSet>
 			</form>
 			{pending ? (
 				<Button disabled={busy} onClick={checkCurrent} type="button">

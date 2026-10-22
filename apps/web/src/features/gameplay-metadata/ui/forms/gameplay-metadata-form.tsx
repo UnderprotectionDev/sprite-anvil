@@ -7,7 +7,20 @@ import {
 } from "@sprite-anvil/api/gameplay-metadata";
 import type { SpecializedProfileContract } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { type SyntheticEvent, useId, useState } from "react";
+import { FieldSet } from "@sprite-anvil/ui/components/field";
+import { Input } from "@sprite-anvil/ui/components/input";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { Textarea } from "@sprite-anvil/ui/components/textarea";
+import { useForm, useStore } from "@tanstack/react-form";
+import { useId, useState } from "react";
+import {
+	type GameplayMetadataFormValues,
+	gameplayMetadataFormSchema,
+} from "../../schemas";
 
 type Draft = Omit<
 	GameplayMetadataWriteInput,
@@ -40,215 +53,253 @@ export function GameplayMetadataForm({
 	initialRecord?: GameplayMetadataRecord;
 }) {
 	const formId = useId();
-	const [selectedFrame, setSelectedFrame] = useState(() =>
-		frameIdentity(
-			initialRecord ? { ...initialRecord, sourcePivots: [] } : frames[0]
-		)
-	);
-	const [selectedContractRevision, setSelectedContractRevision] = useState(
-		() =>
-			initialRecord?.contractRevisionId ??
-			contracts[0]?.contractRevisionId ??
-			""
-	);
-	const [useContext, setUseContext] = useState(initialRecord?.useContext ?? "");
-	const [values, setValues] = useState<Record<string, string>>(() =>
-		Object.fromEntries(
-			initialRecord?.fields.map((field) => [
-				field.fieldId,
-				field.value === null ? "" : JSON.stringify(field.value),
-			]) ?? []
-		)
-	);
-	const [selectedSourcePivot, setSelectedSourcePivot] = useState(() => {
+	// Shown from the latest submit until the next one, as a single alert.
+	const [error, setError] = useState<string | null>(null);
+	function resolve(draft: GameplayMetadataFormValues) {
+		const frame = frames.find(
+			(candidate) => frameIdentity(candidate) === draft.frame
+		);
+		const contract = contracts.find(
+			(candidate) => candidate.contractRevisionId === draft.contractRevision
+		);
+		return {
+			frame,
+			contract,
+			definitions: contract ? getGameplayMetadataFields(contract) : [],
+			sourcePivot: frame?.sourcePivots.find(
+				(pivot) => pivotIdentity(pivot) === draft.sourcePivot
+			),
+		};
+	}
+	const schema = gameplayMetadataFormSchema(resolve);
+	// The draft is seeded once, so later catalog reorders never reset it.
+	const [defaultValues] = useState<GameplayMetadataFormValues>(() => {
 		const pivot = initialRecord?.fields.find(
 			(field) => field.fieldId === "pivot"
 		);
-		return pivot?.source.kind === "finalized_source"
-			? pivotIdentity({ ...pivot.source, value: pivot.value })
-			: "";
+		return {
+			frame: frameIdentity(
+				initialRecord ? { ...initialRecord, sourcePivots: [] } : frames[0]
+			),
+			contractRevision:
+				initialRecord?.contractRevisionId ??
+				contracts[0]?.contractRevisionId ??
+				"",
+			useContext: initialRecord?.useContext ?? "",
+			fieldValues: Object.fromEntries(
+				initialRecord?.fields.map((field) => [
+					field.fieldId,
+					field.value === null ? "" : JSON.stringify(field.value),
+				]) ?? []
+			),
+			sourcePivot:
+				pivot?.source.kind === "finalized_source"
+					? pivotIdentity({ ...pivot.source, value: pivot.value })
+					: "",
+		};
 	});
-	const [error, setError] = useState<string | null>(null);
-	const frame = frames.find(
-		(candidate) => frameIdentity(candidate) === selectedFrame
-	);
-	const contract = contracts.find(
-		(candidate) => candidate.contractRevisionId === selectedContractRevision
-	);
-	const definitions = contract ? getGameplayMetadataFields(contract) : [];
-	const sourcePivot = frame?.sourcePivots.find(
-		(pivot) => pivotIdentity(pivot) === selectedSourcePivot
-	);
-
-	async function submit(event: SyntheticEvent<HTMLFormElement>) {
-		event.preventDefault();
-		setError(null);
-		if (!(frame && contract && useContext.trim())) {
-			setError("Kare, etkin profil ve kullanım bağlamı seçin.");
-			return;
-		}
-		try {
-			if (selectedSourcePivot && !sourcePivot) {
-				throw new Error(
-					"Seçili kaynak artık kullanılamıyor. Dönüş noktası kaynağını yeniden seçin."
-				);
+	const form = useForm({
+		defaultValues,
+		onSubmit: async ({ value }) => {
+			const { frame, contract, definitions, sourcePivot } = resolve(value);
+			if (!(frame && contract)) {
+				return;
 			}
-			const fields = definitions.map((definition) => {
+			const fields = definitions.flatMap((definition): Draft["fields"] => {
 				const fieldId = gameplayMetadataFieldIds.find(
 					(candidate) => candidate === definition.id
 				);
 				if (!fieldId) {
-					throw new Error("Desteklenmeyen alan.");
+					return [];
 				}
 				const pivot = fieldId === "pivot" ? sourcePivot : undefined;
 				if (pivot) {
 					const { value: _value, ...source } = pivot;
-					return { fieldId, source };
+					return [{ fieldId, source }];
 				}
-				const text = values[fieldId]?.trim();
-				if (!text && definition.required) {
-					throw new Error(`${definition.label} zorunludur.`);
-				}
-				return {
-					fieldId,
-					source: text
-						? { kind: "authored" as const, value: JSON.parse(text) }
-						: null,
-				};
+				const text = value.fieldValues[fieldId]?.trim();
+				return [
+					{
+						fieldId,
+						source: text
+							? { kind: "authored" as const, value: JSON.parse(text) }
+							: null,
+					},
+				];
 			});
-			await onSave({
-				assetVersionId: frame.assetVersionId,
-				frameKey: frame.frameKey,
-				profileId: contract.profileId,
-				contractRevisionId: contract.contractRevisionId,
-				useContext: useContext.trim(),
-				fields,
-			});
-		} catch (failure) {
-			if (failure instanceof SyntaxError) {
-				setError(
-					"Alanlara geçerli JSON girin; boş isteğe bağlı alanlar Bilinmiyor kalır."
-				);
-			} else {
+			try {
+				await onSave({
+					assetVersionId: frame.assetVersionId,
+					frameKey: frame.frameKey,
+					profileId: contract.profileId,
+					contractRevisionId: contract.contractRevisionId,
+					useContext: value.useContext.trim(),
+					fields,
+				});
+			} catch (failure) {
 				setError(
 					failure instanceof Error
 						? failure.message
 						: "Oyun içi bilgiler kaydedilemedi."
 				);
 			}
-		}
+		},
+		onSubmitInvalid: ({ formApi }) => {
+			const [message] = formApi.state.errors;
+			setError(typeof message === "string" ? message : null);
+		},
+		validators: {
+			onSubmit: ({ value }) =>
+				schema.safeParse(value).error?.issues[0]?.message,
+		},
+	});
+	const values = useStore(form.store, (state) => state.values);
+	const { frame, contract, definitions, sourcePivot } = resolve(values);
+	const selectedSourcePivot = values.sourcePivot;
+
+	function clearDraftFields() {
+		form.setFieldValue("sourcePivot", "");
+		form.setFieldValue("fieldValues", {});
 	}
 
 	return (
-		<form className="space-y-4" onSubmit={submit}>
-			<fieldset
+		<form
+			className="space-y-4"
+			onSubmit={(event) => {
+				event.preventDefault();
+				event.stopPropagation();
+				setError(null);
+				void form.handleSubmit();
+			}}
+		>
+			<FieldSet
 				className="space-y-4"
 				disabled={disabled || !frames.length || !contracts.length}
 			>
-				<label className="block space-y-1" htmlFor={`${formId}-frame`}>
-					<span>Kare ve kesin sürüm</span>
-					<select
-						className="w-full rounded border p-2"
-						disabled={Boolean(initialRecord)}
-						id={`${formId}-frame`}
-						onChange={(event) => {
-							setSelectedFrame(event.target.value);
-							setSelectedSourcePivot("");
-							setValues({});
-						}}
-						value={selectedFrame}
-					>
-						<option value="">Kare seçin</option>
-						{frames.map((candidate) => (
-							<option
-								key={`${candidate.assetVersionId}:${candidate.frameKey}`}
-								value={frameIdentity(candidate)}
+				<form.Field name="frame">
+					{(field) => (
+						<Label className="block space-y-1" htmlFor={`${formId}-frame`}>
+							<span>Kare ve kesin sürüm</span>
+							<NativeSelect
+								className="w-full"
+								disabled={Boolean(initialRecord)}
+								id={`${formId}-frame`}
+								onChange={(event) => {
+									field.handleChange(event.target.value);
+									clearDraftFields();
+								}}
+								value={field.state.value}
 							>
-								{candidate.frameKey} — {candidate.assetVersionId}
-							</option>
-						))}
-					</select>
-				</label>
-				<label className="block space-y-1" htmlFor={`${formId}-profile`}>
-					<span>Etkin özel profil</span>
-					<select
-						className="w-full rounded border p-2"
-						disabled={Boolean(initialRecord)}
-						id={`${formId}-profile`}
-						onChange={(event) => {
-							setSelectedContractRevision(event.target.value);
-							setSelectedSourcePivot("");
-							setValues({});
-						}}
-						value={selectedContractRevision}
-					>
-						<option value="">Profil seçin</option>
-						{contracts.map((definition) => (
-							<option
-								key={definition.contractRevisionId}
-								value={definition.contractRevisionId}
+								<NativeSelectOption value="">Kare seçin</NativeSelectOption>
+								{frames.map((candidate) => (
+									<NativeSelectOption
+										key={`${candidate.assetVersionId}:${candidate.frameKey}`}
+										value={frameIdentity(candidate)}
+									>
+										{candidate.frameKey} — {candidate.assetVersionId}
+									</NativeSelectOption>
+								))}
+							</NativeSelect>
+						</Label>
+					)}
+				</form.Field>
+				<form.Field name="contractRevision">
+					{(field) => (
+						<Label className="block space-y-1" htmlFor={`${formId}-profile`}>
+							<span>Etkin özel profil</span>
+							<NativeSelect
+								className="w-full"
+								disabled={Boolean(initialRecord)}
+								id={`${formId}-profile`}
+								onChange={(event) => {
+									field.handleChange(event.target.value);
+									clearDraftFields();
+								}}
+								value={field.state.value}
 							>
-								{definition.name} {definition.version}
-							</option>
-						))}
-					</select>
-				</label>
-				<label className="block space-y-1" htmlFor={`${formId}-context`}>
-					<span>Kullanım bağlamı</span>
-					<input
-						className="w-full rounded border p-2"
-						id={`${formId}-context`}
-						maxLength={512}
-						onChange={(event) => setUseContext(event.target.value)}
-						required
-						value={useContext}
-					/>
-				</label>
+								<NativeSelectOption value="">Profil seçin</NativeSelectOption>
+								{contracts.map((definition) => (
+									<NativeSelectOption
+										key={definition.contractRevisionId}
+										value={definition.contractRevisionId}
+									>
+										{definition.name} {definition.version}
+									</NativeSelectOption>
+								))}
+							</NativeSelect>
+						</Label>
+					)}
+				</form.Field>
+				<form.Field name="useContext">
+					{(field) => (
+						<Label className="block space-y-1" htmlFor={`${formId}-context`}>
+							<span>Kullanım bağlamı</span>
+							<Input
+								className="w-full"
+								id={`${formId}-context`}
+								maxLength={512}
+								onBlur={field.handleBlur}
+								onChange={(event) => field.handleChange(event.target.value)}
+								required
+								value={field.state.value}
+							/>
+						</Label>
+					)}
+				</form.Field>
 				{definitions.some((definition) => definition.id === "pivot") &&
 					Boolean(frame?.sourcePivots.length) && (
-						<label
-							className="block space-y-1"
-							htmlFor={`${formId}-source-pivot`}
-						>
-							<span>Dönüş noktası kaynağı</span>
-							<select
-								className="w-full rounded border p-2"
-								id={`${formId}-source-pivot`}
-								onChange={(event) => setSelectedSourcePivot(event.target.value)}
-								value={selectedSourcePivot}
-							>
-								<option value="">Elle yaz</option>
-								{frame?.sourcePivots.map((pivot) => (
-									<option
-										key={pivotIdentity(pivot)}
-										value={pivotIdentity(pivot)}
+						<form.Field name="sourcePivot">
+							{(field) => (
+								<Label
+									className="block space-y-1"
+									htmlFor={`${formId}-source-pivot`}
+								>
+									<span>Dönüş noktası kaynağı</span>
+									<NativeSelect
+										className="w-full"
+										id={`${formId}-source-pivot`}
+										onChange={(event) => field.handleChange(event.target.value)}
+										value={field.state.value}
 									>
-										Kesinleştirilmiş kaynak: {JSON.stringify(pivot.value)}
-									</option>
-								))}
-							</select>
-						</label>
+										<NativeSelectOption value="">Elle yaz</NativeSelectOption>
+										{frame?.sourcePivots.map((pivot) => (
+											<NativeSelectOption
+												key={pivotIdentity(pivot)}
+												value={pivotIdentity(pivot)}
+											>
+												Kesinleştirilmiş kaynak: {JSON.stringify(pivot.value)}
+											</NativeSelectOption>
+										))}
+									</NativeSelect>
+								</Label>
+							)}
+						</form.Field>
 					)}
 				{definitions.map((definition) => (
 					<div className="space-y-1" key={definition.id}>
-						<label className="block" htmlFor={`${formId}-${definition.id}`}>
+						<Label className="block" htmlFor={`${formId}-${definition.id}`}>
 							{definition.label} (JSON)
-						</label>
-						<textarea
-							aria-describedby={`${formId}-${definition.id}-help`}
-							className="min-h-20 w-full rounded border p-2 font-mono text-sm"
-							disabled={definition.id === "pivot" && selectedSourcePivot !== ""}
-							id={`${formId}-${definition.id}`}
-							maxLength={16_384}
-							onChange={(event) =>
-								setValues({ ...values, [definition.id]: event.target.value })
-							}
-							value={
-								definition.id === "pivot" && selectedSourcePivot !== ""
-									? JSON.stringify(sourcePivot?.value)
-									: (values[definition.id] ?? "")
-							}
-						/>
+						</Label>
+						<form.Field name={`fieldValues.${definition.id}`}>
+							{(field) => (
+								<Textarea
+									aria-describedby={`${formId}-${definition.id}-help`}
+									className="min-h-20 w-full font-mono text-sm"
+									disabled={
+										definition.id === "pivot" && selectedSourcePivot !== ""
+									}
+									id={`${formId}-${definition.id}`}
+									maxLength={16_384}
+									onBlur={field.handleBlur}
+									onChange={(event) => field.handleChange(event.target.value)}
+									value={
+										definition.id === "pivot" && selectedSourcePivot !== ""
+											? JSON.stringify(sourcePivot?.value)
+											: (field.state.value ?? "")
+									}
+								/>
+							)}
+						</form.Field>
 						<p
 							className="text-muted-foreground text-sm"
 							id={`${formId}-${definition.id}-help`}
@@ -276,7 +327,7 @@ export function GameplayMetadataForm({
 				<Button disabled={!(frame && contract)} type="submit">
 					Oyun içi bilgileri kaydet
 				</Button>
-			</fieldset>
+			</FieldSet>
 			{Boolean(error) && <p role="alert">{error}</p>}
 			{Boolean(initialRecord) && !frame && (
 				<p role="alert">

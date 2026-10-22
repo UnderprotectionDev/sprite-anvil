@@ -128,7 +128,7 @@ test("keeps looping playback running across subsequent owner events and stops a 
 	await expect(page.getByLabel("Timeline (ms)")).toHaveValue("300");
 	await page
 		.getByRole("group", { name: "Effect", exact: true })
-		.getByLabel("Loop", { exact: true })
+		.getByRole("checkbox", { name: "Loop", exact: true })
 		.check();
 	await expect(play).toBeEnabled();
 	await play.click();

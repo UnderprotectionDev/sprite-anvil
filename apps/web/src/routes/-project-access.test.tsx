@@ -124,6 +124,12 @@ vi.mock("@/utils/orpc", () => ({
 	},
 	orpc: {
 		projects: {
+			create: {
+				mutationOptions: (options?: object) => ({
+					...options,
+					mutationFn: () => Promise.reject(new Error("unexpected write")),
+				}),
+			},
 			list: {
 				queryOptions: () => ({
 					queryKey: ["projects"],
@@ -137,6 +143,53 @@ vi.mock("@/utils/orpc", () => ({
 				}),
 			},
 			access: {
+				grantContextAgent: {
+					mutationOptions: (options?: object) => ({
+						...options,
+						mutationFn: async (input: {
+							projectId: string;
+							purpose: string;
+							scopes: string[];
+						}) => {
+							const { client } = await import("@/utils/orpc");
+							return client.projects.access.grantContextAgent(input as never);
+						},
+					}),
+				},
+				revoke: {
+					mutationOptions: (options?: object) => ({
+						...options,
+						mutationFn: async (input: { permissionId: string }) => {
+							const { client } = await import("@/utils/orpc");
+							return client.projects.access.revoke(input as never);
+						},
+					}),
+				},
+				grantExternalVisualAnalysis: {
+					mutationOptions: (options?: object) => ({
+						...options,
+						mutationFn: async (input: {
+							category: "identity" | "theme" | "style";
+							projectId: string;
+						}) => {
+							const { client } = await import("@/utils/orpc");
+							return client.projects.access.grantExternalVisualAnalysis(
+								input as never
+							);
+						},
+					}),
+				},
+				revokeExternalVisualAnalysis: {
+					mutationOptions: (options?: object) => ({
+						...options,
+						mutationFn: async (input: { permissionId: string }) => {
+							const { client } = await import("@/utils/orpc");
+							return client.projects.access.revokeExternalVisualAnalysis(
+								input as never
+							);
+						},
+					}),
+				},
 				listExternalVisualAnalysis: {
 					queryOptions: () => ({
 						queryKey: ["analysis-permissions", projectId],

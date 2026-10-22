@@ -6,7 +6,7 @@ import { useState } from "react";
 import { TaskWorkspace } from "@/components/task-workspace";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client, orpc } from "@/utils/orpc";
+import { orpc } from "@/utils/orpc";
 
 const ruleClassLabels = {
 	integrity_gate: "Bütünlük Denetimi",
@@ -31,33 +31,36 @@ export function SpecializedProfileContractsView({
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
 	const [isCheckingWriteOutcome, setIsCheckingWriteOutcome] = useState(false);
-	const activateContract = useMutation({
-		mutationFn: (profileId: SpecializedProfileContract["profileId"]) =>
-			client.specializedProfileContracts.activate({ projectId, profileId }),
-		onSuccess: async (activation) => {
-			setWriteOutcomeUncertain(false);
-			setErrorMessage(null);
-			const result = await contractsQuery.refetch();
-			if (result.isError) {
+	const activateContract = useMutation(
+		orpc.specializedProfileContracts.activate.mutationOptions({
+			onSuccess: async (activation) => {
+				setWriteOutcomeUncertain(false);
+				setErrorMessage(null);
+				const result = await contractsQuery.refetch();
+				if (result.isError) {
+					setStatusMessage(
+						`${activation.contract.name} etkinleştirildi. Proje durumunu yeniden yükleyin.`
+					);
+					return;
+				}
 				setStatusMessage(
-					`${activation.contract.name} etkinleştirildi. Proje durumunu yeniden yükleyin.`
+					`${activation.contract.name} ${activation.contract.version} sürümü etkinleştirildi ve yeniden okundu.`
 				);
-				return;
-			}
-			setStatusMessage(
-				`${activation.contract.name} ${activation.contract.version} sürümü etkinleştirildi ve yeniden okundu.`
-			);
-		},
-		onError: (error) => {
-			setStatusMessage(null);
-			setErrorMessage(
-				getErrorMessage(error, "Sözleşme etkinleştirilemedi. Yeniden deneyin.")
-			);
-			if (isWriteOutcomeUncertain(error)) {
-				setWriteOutcomeUncertain(true);
-			}
-		},
-	});
+			},
+			onError: (error) => {
+				setStatusMessage(null);
+				setErrorMessage(
+					getErrorMessage(
+						error,
+						"Sözleşme etkinleştirilemedi. Yeniden deneyin."
+					)
+				);
+				if (isWriteOutcomeUncertain(error)) {
+					setWriteOutcomeUncertain(true);
+				}
+			},
+		})
+	);
 
 	async function refreshContractState() {
 		setIsCheckingWriteOutcome(true);
@@ -71,9 +74,9 @@ export function SpecializedProfileContractsView({
 			const matchingRevision = result.data.profiles.find(
 				(profile) =>
 					profile.activeContract?.contract.profileId ===
-						activateContract.variables &&
+						activateContract.variables?.profileId &&
 					profile.activeContract?.contractRevisionId ===
-						`${activateContract.variables}@${profile.definition.version}`
+						`${activateContract.variables?.profileId}@${profile.definition.version}`
 			);
 			setStatusMessage(
 				matchingRevision
@@ -228,7 +231,10 @@ export function SpecializedProfileContractsView({
 														`${definition.profileId}@${definition.version}`
 												}
 												onClick={() =>
-													activateContract.mutate(definition.profileId)
+													activateContract.mutate({
+														projectId,
+														profileId: definition.profileId,
+													})
 												}
 												type="button"
 												variant={activeContract ? "outline" : "default"}

@@ -1,8 +1,11 @@
 // @vitest-environment jsdom
 
 import { assetVersionProductionSourceHeader } from "@sprite-anvil/api/provider-generation-records";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, renderHook } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { afterEach, expect, test, vi } from "vitest";
+import { createQueryClient } from "@/utils/query-client";
 import { useAssetVersionWrites } from "./use-asset-version-writes";
 
 const {
@@ -18,16 +21,29 @@ const {
 }));
 
 vi.mock("@/env", () => ({ ENV: { VITE_SERVER_URL: "" } }));
-vi.mock("@/utils/orpc", () => ({
-	client: {
+vi.mock("@/utils/orpc", async () => {
+	const { createTanstackQueryUtils } = await import("@orpc/tanstack-query");
+	const client = {
 		assetVersions: {
 			recordProviderGeneration: recordProviderGenerationMock,
 			review: reviewMock,
 			reviewBatch: reviewBatchMock,
+			createCompositeVersion: vi.fn(),
+			reviewCompositeVersion: vi.fn(),
+			selectCanonicalDesign: vi.fn(),
 		},
-	},
-}));
+	};
+	return { client, orpc: createTanstackQueryUtils(client as never) };
+});
 vi.mock("sonner", () => ({ toast: { error: toastErrorMock } }));
+
+const queryClient = createQueryClient();
+
+function wrapper({ children }: { children: ReactNode }) {
+	return (
+		<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+	);
+}
 
 afterEach(() => {
 	cleanup();
@@ -41,8 +57,9 @@ test("does not claim batch success when the server refuses a blocked selection",
 	);
 	toastErrorMock.mockClear();
 	const refreshCatalogs = vi.fn();
-	const { result } = renderHook(() =>
-		useAssetVersionWrites("project", refreshCatalogs)
+	const { result } = renderHook(
+		() => useAssetVersionWrites("project", refreshCatalogs),
+		{ wrapper }
 	);
 	await act(async () => {
 		await result.current.reviewBatch({
@@ -70,8 +87,9 @@ test("shows missing mandatory evidence without claiming the Asset Version was ap
 	);
 	toastErrorMock.mockClear();
 	const refreshCatalogs = vi.fn().mockResolvedValue({ isError: false });
-	const { result } = renderHook(() =>
-		useAssetVersionWrites(projectId, refreshCatalogs)
+	const { result } = renderHook(
+		() => useAssetVersionWrites(projectId, refreshCatalogs),
+		{ wrapper }
 	);
 	await act(async () => {
 		await result.current.review(
@@ -106,8 +124,9 @@ test("retries an external working-file Candidate Version and its Managed Snapsho
 		);
 	vi.stubGlobal("fetch", fetchMock);
 	const refreshCatalogs = vi.fn().mockResolvedValue({ isError: false });
-	const { result } = renderHook(() =>
-		useAssetVersionWrites(projectId, refreshCatalogs)
+	const { result } = renderHook(
+		() => useAssetVersionWrites(projectId, refreshCatalogs),
+		{ wrapper }
 	);
 	const candidateFile = new File(
 		[new Uint8Array([5, 6, 7])],
@@ -193,8 +212,9 @@ test("does not re-import a saved Candidate Version when only catalog refresh fai
 	const refreshCatalogs = vi
 		.fn()
 		.mockRejectedValue(new Error("Catalog refresh failed"));
-	const { result } = renderHook(() =>
-		useAssetVersionWrites(projectId, refreshCatalogs)
+	const { result } = renderHook(
+		() => useAssetVersionWrites(projectId, refreshCatalogs),
+		{ wrapper }
 	);
 	const candidateFile = new File(
 		[new Uint8Array([5, 6, 7])],
@@ -228,8 +248,9 @@ test("marks a user-reported provider-result upload as user-reported", async () =
 	});
 	vi.stubGlobal("fetch", fetchMock);
 	const refreshCatalogs = vi.fn().mockResolvedValue({ isError: false });
-	const { result } = renderHook(() =>
-		useAssetVersionWrites("project-id", refreshCatalogs)
+	const { result } = renderHook(
+		() => useAssetVersionWrites("project-id", refreshCatalogs),
+		{ wrapper }
 	);
 	const file = new File([new Uint8Array([1, 2, 3])], "result.png", {
 		type: "image/png",
@@ -261,8 +282,9 @@ test("shows the server validation message when a Unit Version correction is reje
 		);
 	vi.stubGlobal("fetch", fetchMock);
 	const refreshCatalogs = vi.fn().mockResolvedValue({ isError: false });
-	const { result } = renderHook(() =>
-		useAssetVersionWrites(projectId, refreshCatalogs)
+	const { result } = renderHook(
+		() => useAssetVersionWrites(projectId, refreshCatalogs),
+		{ wrapper }
 	);
 	const file = new File([new Uint8Array([1, 2, 3])], "corrected-frame.png", {
 		type: "image/png",
@@ -286,8 +308,9 @@ test("shows the server validation message when a Unit Version correction is reje
 test("submits the user-entered record to the provider-generation API", async () => {
 	recordProviderGenerationMock.mockResolvedValue({});
 	const refreshCatalogs = vi.fn().mockResolvedValue({ isError: false });
-	const { result } = renderHook(() =>
-		useAssetVersionWrites("project-id", refreshCatalogs)
+	const { result } = renderHook(
+		() => useAssetVersionWrites("project-id", refreshCatalogs),
+		{ wrapper }
 	);
 	const input = {
 		actualDimensions: null,
@@ -306,10 +329,13 @@ test("submits the user-entered record to the provider-generation API", async () 
 		await result.current.recordProviderGeneration("version-id", input);
 	});
 
-	expect(recordProviderGenerationMock).toHaveBeenCalledWith({
-		...input,
-		assetVersionId: "version-id",
-		projectId: "project-id",
-	});
+	expect(recordProviderGenerationMock).toHaveBeenCalledWith(
+		{
+			...input,
+			assetVersionId: "version-id",
+			projectId: "project-id",
+		},
+		expect.anything()
+	);
 	expect(refreshCatalogs).toHaveBeenCalledOnce();
 });

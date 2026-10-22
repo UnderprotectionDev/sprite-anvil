@@ -25,11 +25,9 @@ export function CollectionsView({ projectId }: { projectId: string }) {
 
 			<div className="grid gap-6 lg:grid-cols-[minmax(16rem,0.8fr)_minmax(0,1.6fr)]">
 				<CollectionListPanel
-					collectionName={manager.collectionName}
+					collectionForm={manager.collectionForm}
 					collections={manager.collections}
 					memberships={manager.allMemberships}
-					onCollectionNameChange={manager.setCollectionName}
-					onCreateCollection={manager.createCollection}
 					onSelectCollection={manager.selectCollection}
 					savingOperation={manager.savingOperation}
 					selectedCollectionId={manager.selectedCollection?.id ?? null}
@@ -38,12 +36,10 @@ export function CollectionsView({ projectId }: { projectId: string }) {
 				<CollectionMembershipPanel
 					assetRecordsById={manager.assetRecordsById}
 					availableAssetRecords={manager.availableAssetRecords}
+					membershipForm={manager.membershipForm}
 					memberships={manager.memberships ?? []}
-					onAddAssetRecord={manager.addAssetRecord}
 					onRemoveAssetRecord={manager.removeAssetRecord}
-					onSelectedAssetRecordChange={manager.setSelectedAssetRecordId}
 					savingOperation={manager.savingOperation}
-					selectedAssetRecordId={manager.selectedAssetRecordId}
 					selectedCollection={manager.selectedCollection}
 					writesDisabled={manager.writesDisabled}
 				/>

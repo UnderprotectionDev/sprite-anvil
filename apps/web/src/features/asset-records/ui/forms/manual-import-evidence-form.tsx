@@ -3,15 +3,28 @@ import type { AssetRecord } from "@sprite-anvil/api/asset-records";
 import type { GenerationPackage } from "@sprite-anvil/api/generation-packages";
 import type { ProviderGenerationRecordCreateInput } from "@sprite-anvil/api/provider-generation-records";
 import { Button } from "@sprite-anvil/ui/components/button";
+import { Checkbox } from "@sprite-anvil/ui/components/checkbox";
 import { Input } from "@sprite-anvil/ui/components/input";
-import { useQuery } from "@tanstack/react-query";
-import { type RefObject, type SyntheticEvent, useRef, useState } from "react";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { Textarea } from "@sprite-anvil/ui/components/textarea";
+import { useForm, useStore } from "@tanstack/react-form";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { type RefObject, useRef, useState } from "react";
 import { ProviderGenerationRecordForm } from "@/features/asset-versions/ui/components/provider-generation-record-form";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client, orpc } from "@/utils/orpc";
+import { mutationMeta } from "@/utils/mutation-meta";
+import { orpc } from "@/utils/orpc";
+import {
+	isSupportedManualImportFile,
+	manualImportEvidenceFormSchema,
+	manualImportEvidenceSubmitSchema,
+} from "../../schemas";
 
-const maxAssetVersionBytes = 5 * 1024 * 1024;
 type ProviderGenerationRecordFields = Omit<
 	ProviderGenerationRecordCreateInput,
 	"assetVersionId" | "projectId"
@@ -69,51 +82,51 @@ function refreshedHasEvidence(result: unknown, assetVersionId: string) {
 	);
 }
 
+const manualImportFormDefaults = {
+	file: null as File | null,
+	generationInstruction: "",
+	generationPackageId: "",
+	isProviderResult: false,
+	sourceSurface: "",
+};
+
+function useManualImportForm(
+	onSubmit: (values: typeof manualImportFormDefaults) => Promise<void>
+) {
+	return useForm({
+		defaultValues: manualImportFormDefaults,
+		onSubmit: ({ value }) => onSubmit(value),
+		validators: { onSubmit: manualImportEvidenceSubmitSchema },
+	});
+}
+
 interface ManualImportPackageFormProps {
-	file: File | null;
 	fileInputRef: RefObject<HTMLInputElement | null>;
-	fileIsSupported: boolean;
-	generationInstruction: string;
-	generationPackageId: string;
+	form: ReturnType<typeof useManualImportForm>;
 	isError: boolean;
 	isLoading: boolean;
-	isProviderResult: boolean;
 	isSaving: boolean;
-	onFileChange: (file: File | null) => void;
-	onGenerationInstructionChange: (value: string) => void;
-	onGenerationPackageChange: (value: string) => void;
-	onProviderResultChange: (value: boolean) => void;
 	onRetry: () => void;
-	onSourceSurfaceChange: (value: string) => void;
-	onSubmit: (event: SyntheticEvent<HTMLFormElement>) => void;
 	packages: GenerationPackage[];
 	selectedPackageExists: boolean;
-	sourceSurface: string;
 	writeOutcomeUncertain: boolean;
 }
 
 function ManualImportPackageForm({
-	file,
 	fileInputRef,
-	fileIsSupported,
-	generationInstruction,
-	generationPackageId,
-	isProviderResult,
+	form,
 	isError,
 	isLoading,
 	isSaving,
-	onFileChange,
-	onGenerationInstructionChange,
-	onGenerationPackageChange,
-	onProviderResultChange,
 	onRetry,
-	onSourceSurfaceChange,
-	onSubmit,
 	packages,
 	selectedPackageExists,
-	sourceSurface,
 	writeOutcomeUncertain,
 }: ManualImportPackageFormProps) {
+	const values = useStore(form.store, (state) => state.values);
+	const { file } = values;
+	const fileIsSupported = isSupportedManualImportFile(file);
+	const locked = isSaving || writeOutcomeUncertain;
 	if (isLoading) {
 		return (
 			<p aria-live="polite" className="mt-4 text-muted-foreground text-sm">
@@ -148,137 +161,164 @@ function ManualImportPackageForm({
 	}
 
 	return (
-		<form className="mt-4 space-y-3" onSubmit={onSubmit}>
-			<label className="flex items-start gap-2 text-sm">
-				<input
-					checked={isProviderResult}
-					disabled={isSaving || writeOutcomeUncertain}
-					onChange={(event) =>
-						onProviderResultChange(event.currentTarget.checked)
-					}
-					type="checkbox"
-				/>
-				<span>Başka bir sağlayıcının arayüzünden alındı</span>
-			</label>
-			{isProviderResult ? (
+		<form
+			className="mt-4 space-y-3"
+			onSubmit={(event) => {
+				event.preventDefault();
+				event.stopPropagation();
+				form.handleSubmit();
+			}}
+		>
+			<form.Field name="isProviderResult">
+				{(field) => (
+					<Label className="items-start text-sm leading-normal">
+						<Checkbox
+							checked={field.state.value}
+							disabled={locked}
+							onCheckedChange={(checked) => field.handleChange(checked)}
+						/>
+						<span>Başka bir sağlayıcının arayüzünden alındı</span>
+					</Label>
+				)}
+			</form.Field>
+			{values.isProviderResult ? (
 				<p className="text-muted-foreground text-sm">
 					Dosya ve Elle İçe Aktarma Kanıtı kaydedildikten sonra, sağlayıcı
 					ekranında gördüğünüz ayrıntıları kullanıcı bildirimi olarak
 					girebilirsiniz.
 				</p>
 			) : null}
-			<div className="space-y-2 rounded-md border border-dashed p-3">
-				<label className="block space-y-1 text-sm" htmlFor="manual-import-file">
-					<span>Sonuç dosyası</span>
-					<Input
-						accept="image/png,image/webp"
-						disabled={isSaving || writeOutcomeUncertain}
-						id="manual-import-file"
-						onChange={(event) => onFileChange(event.target.files?.[0] ?? null)}
-						ref={fileInputRef}
-						type="file"
-					/>
-				</label>
-				<button
-					aria-label="Sonuç dosyasını seçin, yapıştırın veya bırakın"
-					className="w-full rounded-sm p-2 text-left text-muted-foreground text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-					disabled={isSaving || writeOutcomeUncertain}
-					onClick={() => fileInputRef.current?.click()}
-					onDragOver={(event) => event.preventDefault()}
-					onDrop={(event) => {
-						event.preventDefault();
-						const droppedFile = getTransferredFile(event.dataTransfer);
-						if (droppedFile) {
-							onFileChange(droppedFile);
-						}
-					}}
-					onPaste={(event) => {
-						const pastedFile = getTransferredFile(event.clipboardData);
-						if (pastedFile) {
-							event.preventDefault();
-							onFileChange(pastedFile);
-						}
-					}}
-					type="button"
-				>
-					PNG veya WebP dosyasını buraya sürükleyin ya da yapıştırın; dosya
-					seçmek için tıklayın.
-				</button>
-				{file ? (
-					<p className="text-sm" role="status">
-						Seçilen dosya: {file.name}
-					</p>
-				) : null}
-			</div>
+			<form.Field name="file">
+				{(field) => (
+					<div className="space-y-2 rounded-md border border-dashed p-3">
+						<Label
+							className="block space-y-1 text-sm leading-normal"
+							htmlFor="manual-import-file"
+						>
+							<span>Sonuç dosyası</span>
+							<Input
+								accept="image/png,image/webp"
+								disabled={locked}
+								id="manual-import-file"
+								onChange={(event) =>
+									field.handleChange(event.target.files?.[0] ?? null)
+								}
+								ref={fileInputRef}
+								type="file"
+							/>
+						</Label>
+						<Button
+							aria-label="Sonuç dosyasını seçin, yapıştırın veya bırakın"
+							className="h-auto w-full justify-start whitespace-normal p-2 text-left text-muted-foreground text-sm"
+							disabled={locked}
+							onClick={() => fileInputRef.current?.click()}
+							onDragOver={(event) => event.preventDefault()}
+							onDrop={(event) => {
+								event.preventDefault();
+								const droppedFile = getTransferredFile(event.dataTransfer);
+								if (droppedFile) {
+									field.handleChange(droppedFile);
+								}
+							}}
+							onPaste={(event) => {
+								const pastedFile = getTransferredFile(event.clipboardData);
+								if (pastedFile) {
+									event.preventDefault();
+									field.handleChange(pastedFile);
+								}
+							}}
+							type="button"
+							variant="ghost"
+						>
+							PNG veya WebP dosyasını buraya sürükleyin ya da yapıştırın; dosya
+							seçmek için tıklayın.
+						</Button>
+						{field.state.value ? (
+							<p className="text-sm" role="status">
+								Seçilen dosya: {field.state.value.name}
+							</p>
+						) : null}
+					</div>
+				)}
+			</form.Field>
 			{file && !fileIsSupported ? (
 				<p className="text-sm" role="alert">
 					5 MB’a kadar PNG veya WebP dosyası seçin.
 				</p>
 			) : null}
-			<label
-				className="block space-y-1 text-sm"
-				htmlFor="manual-import-generation-package"
-			>
-				<span>Üretim Paketi</span>
-				<select
-					className="w-full rounded-md border bg-background px-3 py-2"
-					disabled={isSaving || writeOutcomeUncertain}
-					id="manual-import-generation-package"
-					onChange={(event) => onGenerationPackageChange(event.target.value)}
-					required
-					value={generationPackageId}
-				>
-					<option value="">Paket seçin</option>
-					{packages.map((generationPackage) => (
-						<option key={generationPackage.id} value={generationPackage.id}>
-							{generationPackage.targetTask} ·{" "}
-							{getPackageDateLabel(generationPackage.createdAt)} ·{" "}
-							{generationPackage.id.slice(0, 8)}
-						</option>
-					))}
-				</select>
-			</label>
-			<label
-				className="block space-y-1 text-sm"
-				htmlFor="manual-import-surface"
-			>
-				<span>Üretim yüzeyi</span>
-				<Input
-					autoComplete="off"
-					disabled={isSaving || writeOutcomeUncertain}
-					id="manual-import-surface"
-					maxLength={255}
-					onChange={(event) => onSourceSurfaceChange(event.target.value)}
-					required
-					value={sourceSurface}
-				/>
-			</label>
-			<label
-				className="block space-y-1 text-sm"
-				htmlFor="manual-import-generation-instruction"
-			>
-				<span>Gerçek üretim talimatı</span>
-				<textarea
-					className="min-h-28 w-full rounded-md border bg-background px-3 py-2"
-					disabled={isSaving || writeOutcomeUncertain}
-					id="manual-import-generation-instruction"
-					maxLength={100_000}
-					onChange={(event) =>
-						onGenerationInstructionChange(event.target.value)
-					}
-					required
-					value={generationInstruction}
-				/>
-			</label>
+			<form.Field name="generationPackageId">
+				{(field) => (
+					<Label
+						className="block space-y-1 text-sm leading-normal"
+						htmlFor="manual-import-generation-package"
+					>
+						<span>Üretim Paketi</span>
+						<NativeSelect
+							className="w-full"
+							disabled={locked}
+							id="manual-import-generation-package"
+							onChange={(event) => field.handleChange(event.target.value)}
+							required
+							value={field.state.value}
+						>
+							<NativeSelectOption value="">Paket seçin</NativeSelectOption>
+							{packages.map((generationPackage) => (
+								<NativeSelectOption
+									key={generationPackage.id}
+									value={generationPackage.id}
+								>
+									{generationPackage.targetTask} ·{" "}
+									{getPackageDateLabel(generationPackage.createdAt)} ·{" "}
+									{generationPackage.id.slice(0, 8)}
+								</NativeSelectOption>
+							))}
+						</NativeSelect>
+					</Label>
+				)}
+			</form.Field>
+			<form.Field name="sourceSurface">
+				{(field) => (
+					<Label
+						className="block space-y-1 text-sm leading-normal"
+						htmlFor="manual-import-surface"
+					>
+						<span>Üretim yüzeyi</span>
+						<Input
+							autoComplete="off"
+							disabled={locked}
+							id="manual-import-surface"
+							maxLength={255}
+							onChange={(event) => field.handleChange(event.target.value)}
+							required
+							value={field.state.value}
+						/>
+					</Label>
+				)}
+			</form.Field>
+			<form.Field name="generationInstruction">
+				{(field) => (
+					<Label
+						className="block space-y-1 text-sm leading-normal"
+						htmlFor="manual-import-generation-instruction"
+					>
+						<span>Gerçek üretim talimatı</span>
+						<Textarea
+							className="min-h-28 w-full"
+							disabled={locked}
+							id="manual-import-generation-instruction"
+							maxLength={100_000}
+							onChange={(event) => field.handleChange(event.target.value)}
+							required
+							value={field.state.value}
+						/>
+					</Label>
+				)}
+			</form.Field>
 			<Button
 				disabled={
-					isSaving ||
-					writeOutcomeUncertain ||
-					!file ||
-					!fileIsSupported ||
+					locked ||
 					!selectedPackageExists ||
-					sourceSurface.trim().length === 0 ||
-					generationInstruction.trim().length === 0
+					!manualImportEvidenceFormSchema.safeParse(values).success
 				}
 				type="submit"
 			>
@@ -302,48 +342,53 @@ export function ManualImportEvidenceForm({
 	);
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const request = useRef<{ id: string; signature: string } | null>(null);
-	const [file, setFile] = useState<File | null>(null);
-	const [generationPackageId, setGenerationPackageId] = useState("");
-	const [sourceSurface, setSourceSurface] = useState("");
-	const [generationInstruction, setGenerationInstruction] = useState("");
-	const [isProviderResult, setIsProviderResult] = useState(false);
 	const [providerRecordVersionId, setProviderRecordVersionId] = useState<
 		string | null
 	>(null);
 	const [isSaving, setIsSaving] = useState(false);
+	const createManualImportVersion = useMutation(
+		orpc.assetRecords.createManualImportVersion.mutationOptions(mutationMeta)
+	);
+	const recordProviderGeneration = useMutation(
+		orpc.assetVersions.recordProviderGeneration.mutationOptions(mutationMeta)
+	);
 	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+	const form = useManualImportForm(submit);
+	const generationPackageId = useStore(
+		form.store,
+		(state) => state.values.generationPackageId
+	);
 
 	const packages = packagesQuery.data ?? [];
 	const selectedPackageExists = packages.some(
 		(generationPackage) => generationPackage.id === generationPackageId
 	);
-	const fileIsSupported = Boolean(
-		file &&
-			file.size > 0 &&
-			file.size <= maxAssetVersionBytes &&
-			["image/png", "image/webp"].includes(file.type)
-	);
 
 	function resetForm() {
 		request.current = null;
 		setWriteOutcomeUncertain(false);
-		setFile(null);
-		setGenerationPackageId("");
-		setSourceSurface("");
-		setGenerationInstruction("");
-		setIsProviderResult(false);
+		form.reset();
 		if (fileInputRef.current) {
 			fileInputRef.current.value = "";
 		}
 	}
 
-	async function submit(event: SyntheticEvent<HTMLFormElement>) {
-		event.preventDefault();
-		if (!(file && selectedPackageExists && fileIsSupported)) {
+	async function submit(values: typeof manualImportFormDefaults) {
+		const { file } = values;
+		if (
+			!(file && packages.some((item) => item.id === values.generationPackageId))
+		) {
 			return;
 		}
+		const {
+			generationInstruction,
+			generationPackageId: selectedPackageId,
+			isProviderResult: reportedByProvider,
+			sourceSurface,
+		} = values;
 
 		setErrorMessage(null);
 		setStatusMessage(null);
@@ -365,8 +410,10 @@ export function ManualImportEvidenceForm({
 			contentType: file.type,
 			fileName: file.name,
 			generationInstruction,
-			generationPackageId,
-			productionSource: isProviderResult ? "user_reported_provider" : "unknown",
+			generationPackageId: selectedPackageId,
+			productionSource: reportedByProvider
+				? "user_reported_provider"
+				: "unknown",
 			projectId: record.projectId,
 			sourceSurface,
 		});
@@ -379,10 +426,10 @@ export function ManualImportEvidenceForm({
 			contentType: file.type as ManualImportVersionCreateInput["contentType"],
 			fileName: file.name,
 			generationInstruction,
-			generationPackageId,
+			generationPackageId: selectedPackageId,
 			id: request.current.id,
 			projectId: record.projectId,
-			...(isProviderResult
+			...(reportedByProvider
 				? { productionSource: "user_reported_provider" as const }
 				: {}),
 			sourceSurface,
@@ -390,9 +437,8 @@ export function ManualImportEvidenceForm({
 
 		setIsSaving(true);
 		try {
-			const version =
-				await client.assetRecords.createManualImportVersion(input);
-			if (isProviderResult) {
+			const version = await createManualImportVersion.mutateAsync(input);
+			if (reportedByProvider) {
 				setProviderRecordVersionId(version.id);
 			}
 			await onRefresh();
@@ -425,7 +471,7 @@ export function ManualImportEvidenceForm({
 		try {
 			const result = await onRefresh();
 			if (refreshedHasEvidence(result, request.current.id)) {
-				if (isProviderResult) {
+				if (form.state.values.isProviderResult) {
 					setProviderRecordVersionId(request.current.id);
 				}
 				resetForm();
@@ -456,7 +502,7 @@ export function ManualImportEvidenceForm({
 		setErrorMessage(null);
 		setStatusMessage(null);
 		try {
-			await client.assetVersions.recordProviderGeneration({
+			await recordProviderGeneration.mutateAsync({
 				...input,
 				assetVersionId: providerRecordVersionId,
 				projectId: record.projectId,
@@ -512,25 +558,14 @@ export function ManualImportEvidenceForm({
 			) : null}
 
 			<ManualImportPackageForm
-				file={file}
 				fileInputRef={fileInputRef}
-				fileIsSupported={fileIsSupported}
-				generationInstruction={generationInstruction}
-				generationPackageId={generationPackageId}
+				form={form}
 				isError={packagesQuery.isError}
 				isLoading={packagesQuery.isPending}
-				isProviderResult={isProviderResult}
 				isSaving={isSaving}
-				onFileChange={setFile}
-				onGenerationInstructionChange={setGenerationInstruction}
-				onGenerationPackageChange={setGenerationPackageId}
-				onProviderResultChange={setIsProviderResult}
 				onRetry={() => void packagesQuery.refetch()}
-				onSourceSurfaceChange={setSourceSurface}
-				onSubmit={(event) => void submit(event)}
 				packages={packages}
 				selectedPackageExists={selectedPackageExists}
-				sourceSurface={sourceSurface}
 				writeOutcomeUncertain={writeOutcomeUncertain}
 			/>
 			{providerRecordVersionId ? (

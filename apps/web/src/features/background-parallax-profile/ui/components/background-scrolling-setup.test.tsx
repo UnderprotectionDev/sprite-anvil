@@ -10,14 +10,20 @@ import {
 	screen,
 	waitFor,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { BackgroundScrollingSetup } from "./background-scrolling-setup";
 
 const mocks = vi.hoisted(() => ({ list: vi.fn(), save: vi.fn() }));
 vi.mock("@/utils/orpc", () => ({
-	client: { backgroundScrollingTests: { save: mocks.save } },
 	orpc: {
 		backgroundScrollingTests: {
+			save: {
+				mutationOptions: (options?: object) => ({
+					...options,
+					mutationFn: (input: unknown) => mocks.save(input),
+				}),
+			},
 			list: {
 				queryOptions: () => ({ queryKey: ["scrolling"], queryFn: mocks.list }),
 			},
@@ -269,3 +275,42 @@ test.each([
 		).toBeDisabled();
 	}
 );
+
+test("names the layer loop toggle, toggles it with the keyboard, clears playback evidence and locks it while saving", async () => {
+	const user = userEvent.setup();
+	mocks.list.mockResolvedValue([]);
+	mount();
+	await prepare();
+	const loop = screen.getByRole("checkbox", { name: "sky loop" });
+	expect(loop).toBeChecked();
+	loop.focus();
+	expect(loop).toHaveFocus();
+	await user.keyboard(" ");
+	expect(loop).not.toBeChecked();
+	expect(screen.getByLabelText("Loop outcome")).toHaveValue("inconclusive");
+	expect(
+		screen.getByRole("button", { name: "Save scrolling test" })
+	).toBeDisabled();
+	await user.keyboard(" ");
+	expect(loop).toBeChecked();
+	for (const label of [
+		"Loop",
+		"Seam",
+		"Crop",
+		"Contrast",
+		"Player visibility",
+	]) {
+		fireEvent.change(screen.getByLabelText(`${label} outcome`), {
+			target: { value: "passed" },
+		});
+		fireEvent.change(screen.getByLabelText(`${label} notes`), {
+			target: { value: "Observed during playback." },
+		});
+	}
+	fireEvent.click(screen.getByRole("button", { name: "Complete playback" }));
+	mocks.save.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+	fireEvent.click(screen.getByRole("button", { name: "Save scrolling test" }));
+	await screen.findByRole("button", { name: "Retry same scrolling test" });
+	await user.click(screen.getByRole("checkbox", { name: "sky loop" }));
+	expect(screen.getByRole("checkbox", { name: "sky loop" })).toBeChecked();
+});

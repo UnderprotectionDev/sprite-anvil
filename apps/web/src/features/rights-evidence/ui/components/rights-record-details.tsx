@@ -1,5 +1,5 @@
 import type { RightsRecord } from "@sprite-anvil/api/rights-records";
-import { rightsRecordEvidenceFileUrl } from "./rights-record-api";
+import { rightsRecordEvidenceFileUrl } from "../../lib/rights-record-api";
 
 export function RightsRecordDetails({
 	projectId,
