@@ -1,4 +1,3 @@
-import type { ProjectContextScopeCatalog } from "@sprite-anvil/api/context-scopes";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
@@ -7,50 +6,16 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm } from "@tanstack/react-form";
+import type {
+	ThemeFormApi,
+	VisualWorldFormApi,
+} from "../../hooks/use-scope-forms";
 import {
-	type ThemeFormValues,
-	themeFormSchema,
-	type VisualWorldFormValues,
-	visualWorldFormSchema,
-} from "../../schemas";
+	resolveSelectedVisualWorldId,
+	type VisualWorlds,
+} from "../../lib/selected-visual-world";
 
 const fieldLabelClass = "context-field leading-[inherit]";
-
-type VisualWorlds = ProjectContextScopeCatalog["visualWorlds"];
-
-export function resolveSelectedVisualWorldId(
-	chosenId: string,
-	visualWorlds: VisualWorlds
-) {
-	return (
-		visualWorlds.find((visualWorld) => visualWorld.id === chosenId)?.id ??
-		visualWorlds[0]?.id ??
-		""
-	);
-}
-
-export function useVisualWorldForm(
-	onSubmit: (input: VisualWorldFormValues) => void
-) {
-	return useForm({
-		defaultValues: { name: "", description: "" },
-		onSubmit: ({ value }) => onSubmit(value),
-		validators: { onSubmit: visualWorldFormSchema },
-	});
-}
-
-export type VisualWorldFormApi = ReturnType<typeof useVisualWorldForm>;
-
-export function useThemeForm(onSubmit: (input: ThemeFormValues) => void) {
-	return useForm({
-		defaultValues: { visualWorldId: "", name: "", description: "" },
-		onSubmit: ({ value }) => onSubmit(value),
-		validators: { onSubmit: themeFormSchema },
-	});
-}
-
-export type ThemeFormApi = ReturnType<typeof useThemeForm>;
 
 export function VisualWorldForm({
 	form,

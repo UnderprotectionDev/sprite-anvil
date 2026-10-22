@@ -146,7 +146,7 @@ export function ExternalWorkingFileEditUpload({
 							<Input
 								accept="image/png,image/webp"
 								aria-label="PNG/WebP dışa aktarımı"
-								className="sr-only"
+								className="sr-only h-px w-px border-0 p-0"
 								disabled={disabled || busy}
 								onChange={(event) => {
 									const file = event.currentTarget.files?.[0] ?? null;
@@ -203,7 +203,7 @@ export function ExternalWorkingFileEditUpload({
 							<Input
 								accept="*/*"
 								aria-label="Düzenlenebilir çalışma dosyası"
-								className="sr-only"
+								className="sr-only h-px w-px border-0 p-0"
 								disabled={disabled || busy}
 								onChange={(event) => {
 									const file = event.currentTarget.files?.[0] ?? null;

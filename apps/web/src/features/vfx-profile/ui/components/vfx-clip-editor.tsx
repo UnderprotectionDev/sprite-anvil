@@ -9,7 +9,7 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
-import { useId, useState } from "react";
+import { useState } from "react";
 
 export function emptyVfxFrame(): VfxFrame {
 	return {
@@ -38,7 +38,6 @@ export function VfxClipEditor({
 	disabled: boolean;
 	onValueChange: (clip: VfxClip) => void;
 }) {
-	const loopId = useId();
 	const [rowKeys, setRowKeys] = useState(() =>
 		clip.frames.map(() => crypto.randomUUID())
 	);
@@ -53,11 +52,10 @@ export function VfxClipEditor({
 	return (
 		<FieldSet className="space-y-3 rounded border p-3">
 			<FieldLegend>{label}</FieldLegend>
-			<Label className="flex gap-2" htmlFor={loopId}>
+			<Label className="flex gap-2">
 				<Checkbox
 					checked={clip.looping}
 					disabled={disabled}
-					id={loopId}
 					onCheckedChange={(checked) =>
 						onValueChange({ ...clip, looping: checked })
 					}

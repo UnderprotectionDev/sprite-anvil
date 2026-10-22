@@ -3,14 +3,10 @@ import type { ProjectContext } from "@sprite-anvil/api/project-context";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { orpc } from "@/utils/orpc";
+import { useThemeForm, useVisualWorldForm } from "../../hooks/use-scope-forms";
+import { resolveSelectedVisualWorldId } from "../../lib/selected-visual-world";
 import type { ThemeFormValues, VisualWorldFormValues } from "../../schemas";
-import {
-	resolveSelectedVisualWorldId,
-	ThemeForm,
-	useThemeForm,
-	useVisualWorldForm,
-	VisualWorldForm,
-} from "../forms/scope-forms";
+import { ThemeForm, VisualWorldForm } from "../forms/scope-forms";
 
 export function ScopeRegistryPanel({
 	isError,

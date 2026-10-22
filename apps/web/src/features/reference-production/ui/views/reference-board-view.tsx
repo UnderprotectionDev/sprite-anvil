@@ -261,7 +261,7 @@ function ReferenceUploadDropArea({
 			<Input
 				accept="image/png,image/webp"
 				aria-hidden="true"
-				className="sr-only"
+				className="sr-only h-px w-px border-0 p-0"
 				id="reference-upload-file"
 				onChange={(event) => {
 					onChooseFile(event.target.files?.[0]);

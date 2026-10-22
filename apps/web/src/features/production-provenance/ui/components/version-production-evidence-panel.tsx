@@ -286,7 +286,7 @@ function ManagedSnapshotAttachments({
 			<Input
 				accept="*/*"
 				aria-label="Yönetilen çalışma dosyası"
-				className="sr-only"
+				className="sr-only h-px w-px border-0 p-0"
 				disabled={active}
 				onChange={(event) => {
 					const file = event.currentTarget.files?.[0];
