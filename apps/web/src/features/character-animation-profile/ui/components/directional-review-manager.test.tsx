@@ -14,16 +14,13 @@ import { DirectionalReviewManager } from "./directional-review-manager";
 
 const uncertainMessage = /Kaydetme sonucu doğrulanamadı/;
 const mocks = vi.hoisted(() => ({ save: vi.fn(), list: vi.fn() }));
-vi.mock("@/utils/orpc", () => ({
-	client: { directionalReviews: { save: mocks.save } },
-	orpc: {
-		directionalReviews: {
-			list: {
-				queryOptions: () => ({ queryKey: ["reviews"], queryFn: mocks.list }),
-			},
-		},
-	},
-}));
+vi.mock("@/utils/orpc", async () => {
+	const { createTanstackQueryUtils } = await import("@orpc/tanstack-query");
+	const client = {
+		directionalReviews: { save: mocks.save, list: mocks.list },
+	};
+	return { client, orpc: createTanstackQueryUtils(client as never) };
+});
 vi.mock("./directional-review-editor", () => ({
 	DirectionalReviewEditor: ({
 		onSave,

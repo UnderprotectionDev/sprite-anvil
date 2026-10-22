@@ -9,9 +9,10 @@ import {
 	within,
 } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
+import { ORPCError } from "@orpc/client";
 import { QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { afterEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { createQueryClient } from "@/utils/query-client";
 import { ImportInboxView } from "./import-inbox-view";
 
@@ -22,6 +23,9 @@ const secondSidecarEntryId = "4ea102e6-77db-453b-ab97-a8bc50f64c0d";
 const fakeApi = vi.hoisted(() => ({
 	entries: [] as Record<string, unknown>[],
 	fetch: vi.fn(),
+	listEntries: vi.fn(),
+	listProposals: vi.fn(),
+	createProposal: vi.fn(),
 }));
 const unresolvedStatusPattern = /İlişkilendirme bekliyor/;
 const uncertainUploadPattern = /Yükleme sonucu doğrulanamadı/;
@@ -34,6 +38,25 @@ const halfPivotPattern = /0\.5/;
 const quarterPivotPattern = /0\.25/;
 const changedPivotValuesPattern =
 	/Değişti: Pivot · walk\.png · .*"x":0\.5.* → .*"x":0\.75/;
+
+vi.mock("@/utils/orpc", async () => {
+	const { createTanstackQueryUtils } = await import("@orpc/tanstack-query");
+	// The oRPC utils pass a second options argument; forward the input only.
+	const client = {
+		assetFamilies: { list: async () => ({}) },
+		imports: {
+			listEntries: (input: unknown) => fakeApi.listEntries(input),
+			listSourceMetadataMappingProposals: (input: unknown) =>
+				fakeApi.listProposals(input),
+			createSourceMetadataMappingProposal: (input: unknown) =>
+				fakeApi.createProposal(input),
+			getSourceMetadataMappingFinalization: async () => null,
+			finalizeSourceMetadataMapping: () =>
+				Promise.reject(new Error("Unexpected finalization")),
+		},
+	};
+	return { client, orpc: createTanstackQueryUtils(client as never) };
+});
 
 vi.mock("@/env", () => ({
 	ENV: { VITE_SERVER_URL: "http://localhost:3000" },
@@ -55,6 +78,16 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 	fakeApi.entries = [];
 	fakeApi.fetch.mockReset();
+	fakeApi.listEntries.mockReset();
+	fakeApi.listProposals.mockReset();
+	fakeApi.createProposal.mockReset();
+});
+
+beforeEach(() => {
+	fakeApi.listEntries.mockImplementation(async () =>
+		structuredClone(fakeApi.entries)
+	);
+	fakeApi.listProposals.mockResolvedValue([]);
 });
 
 test("uploads a source file and shows the persisted unresolved Import Inbox Entry", async () => {
@@ -112,7 +145,8 @@ test("uploads a source file and shows the persisted unresolved Import Inbox Entr
 			entryId +
 			"/file"
 	);
-	await waitFor(() => expect(fakeApi.fetch).toHaveBeenCalledTimes(3));
+	await waitFor(() => expect(fakeApi.listEntries).toHaveBeenCalledTimes(2));
+	expect(fakeApi.fetch).toHaveBeenCalledTimes(1);
 });
 
 test("uploads and rereads an empty source file", async () => {
@@ -263,21 +297,20 @@ test("does not retry an upload when the connection result is unknown", async () 
 test("shows the support reference for a failed inbox read and retries the query", async () => {
 	const supportReference = "SUP-00000000-0000-4000-8000-000000000000";
 	let readCount = 0;
-	fakeApi.fetch.mockImplementation(
-		(_input: RequestInfo | URL, init?: RequestInit) => {
-			if (init?.method === "POST") {
-				throw new Error("Unexpected upload");
-			}
-			readCount += 1;
-			if (readCount === 1) {
-				return new Response(
-					JSON.stringify({ error: "Internal Server Error", supportReference }),
-					{ status: 500 }
-				);
-			}
-			return new Response(JSON.stringify(fakeApi.entries), { status: 200 });
+	fakeApi.listEntries.mockImplementation(() => {
+		readCount += 1;
+		if (readCount === 1) {
+			return Promise.reject(
+				new ORPCError("INTERNAL_SERVER_ERROR", {
+					data: { supportReference },
+				})
+			);
 		}
-	);
+		return Promise.resolve(structuredClone(fakeApi.entries));
+	});
+	fakeApi.fetch.mockImplementation(() => {
+		throw new Error("Unexpected upload");
+	});
 	vi.stubGlobal("fetch", fakeApi.fetch);
 
 	const queryClient = createQueryClient();
@@ -433,23 +466,15 @@ test("creates and rereads a source metadata proposal from explicitly selected si
 	let nextProposal: Record<string, unknown> = proposal;
 	let createInput: unknown;
 	fakeApi.entries = [sourceEntry, sidecarEntry, secondSidecarEntry];
-	fakeApi.fetch.mockImplementation(
-		(input: RequestInfo | URL, init?: RequestInit) => {
-			const url = String(input);
-			if (url.endsWith("/source-metadata-mapping-proposals")) {
-				if (init?.method === "POST") {
-					createInput = JSON.parse(String(init.body));
-					savedProposals = [nextProposal, ...savedProposals];
-					return new Response(JSON.stringify(nextProposal), { status: 201 });
-				}
-				return new Response(
-					JSON.stringify(url.includes(`/${entryId}/`) ? savedProposals : []),
-					{ status: 200 }
-				);
-			}
-			return new Response(JSON.stringify(fakeApi.entries), { status: 200 });
-		}
+	fakeApi.listProposals.mockImplementation(
+		async ({ entryId: listedEntryId }: { entryId: string }) =>
+			listedEntryId === entryId ? savedProposals : []
 	);
+	fakeApi.createProposal.mockImplementation(({ input }: { input: unknown }) => {
+		createInput = input;
+		savedProposals = [nextProposal, ...savedProposals];
+		return Promise.resolve(nextProposal);
+	});
 	vi.stubGlobal("fetch", fakeApi.fetch);
 
 	const queryClient = createQueryClient();
@@ -483,10 +508,7 @@ test("creates and rereads a source metadata proposal from explicitly selected si
 			name: "Kaynak Metadata Eşleme Önerisi oluştur: sheet.png",
 		})
 	);
-	expect(createInput).toEqual({
-		sidecarEntryIds: [sidecarEntryId, secondSidecarEntryId],
-	});
-	await waitFor(() => expect(fakeApi.fetch).toHaveBeenCalledTimes(4));
+	await waitFor(() => expect(fakeApi.createProposal).toHaveBeenCalledTimes(1));
 	expect(screen.getByText("source-metadata-mapping/1.1.0")).toBeInTheDocument();
 	expect(
 		screen.getByText(
@@ -531,10 +553,14 @@ test("creates and rereads a source metadata proposal from explicitly selected si
 			name: "Eşlemeyi kesinleştir ve Aday Sürüm oluştur",
 		})
 	).toBeDisabled();
-	expect(fakeApi.fetch).toHaveBeenCalledWith(
-		`http://localhost:3000/api/projects/${projectId}/import-inbox/${entryId}/source-metadata-mapping-proposals`,
-		expect.objectContaining({ method: "POST" })
-	);
+	expect(createInput).toEqual({
+		sidecarEntryIds: [sidecarEntryId, secondSidecarEntryId],
+	});
+	expect(fakeApi.createProposal).toHaveBeenCalledWith({
+		entryId,
+		projectId,
+		input: { sidecarEntryIds: [sidecarEntryId, secondSidecarEntryId] },
+	});
 	nextProposal = {
 		...proposal,
 		id: crypto.randomUUID(),

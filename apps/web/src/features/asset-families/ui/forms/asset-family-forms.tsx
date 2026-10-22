@@ -4,9 +4,19 @@ import type {
 } from "@sprite-anvil/api/asset-families";
 import type { AssetRecordIdentityCriterion } from "@sprite-anvil/api/asset-records";
 import { Button } from "@sprite-anvil/ui/components/button";
+import { Checkbox } from "@sprite-anvil/ui/components/checkbox";
+import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { useStore } from "@tanstack/react-form";
 import type { SyntheticEvent } from "react";
+import type { AssetFamilyForms } from "../../hooks/use-asset-family-forms";
+
+const selectClassName = "w-full [&>select]:min-h-10";
 
 const relationshipOptions: {
 	label: string;
@@ -27,23 +37,28 @@ const identityCriterionOptions: {
 	{ label: "Teslimat kimliği", value: "delivery_identity" },
 ];
 
+function submitWith(form: { handleSubmit: () => Promise<unknown> }) {
+	return (event: SyntheticEvent<HTMLFormElement>) => {
+		event.preventDefault();
+		event.stopPropagation();
+		void form.handleSubmit();
+	};
+}
+
 export function SubjectIdentityForm({
 	disabled,
+	form,
 	isSaving,
-	name,
-	onNameChange,
-	onSubmit,
 }: {
 	disabled: boolean;
+	form: AssetFamilyForms["subjectIdentityForm"];
 	isSaving: boolean;
-	name: string;
-	onNameChange: (value: string) => void;
-	onSubmit: (event: SyntheticEvent<HTMLFormElement>) => void;
 }) {
+	const name = useStore(form.store, (state) => state.values.name);
 	return (
 		<form
 			className="space-y-3 rounded-lg border border-l-2 border-l-primary/70 p-4"
-			onSubmit={onSubmit}
+			onSubmit={submitWith(form)}
 		>
 			<p className="font-mono text-primary text-xs uppercase tracking-widest">
 				01 / Kimlik
@@ -57,14 +72,20 @@ export function SubjectIdentityForm({
 			</p>
 			<div className="space-y-2">
 				<Label htmlFor="subject-identity-name">Varlık Kimliği adı</Label>
-				<Input
-					disabled={disabled}
-					id="subject-identity-name"
-					maxLength={120}
-					onChange={(event) => onNameChange(event.target.value)}
-					required
-					value={name}
-				/>
+				<form.Field name="name">
+					{(field) => (
+						<Input
+							disabled={disabled}
+							id="subject-identity-name"
+							maxLength={120}
+							name={field.name}
+							onBlur={field.handleBlur}
+							onChange={(event) => field.handleChange(event.target.value)}
+							required
+							value={field.state.value}
+						/>
+					)}
+				</form.Field>
 			</div>
 			<Button disabled={disabled || name.trim().length === 0} type="submit">
 				{isSaving ? "Kaydediliyor…" : "Varlık Kimliği oluştur"}
@@ -76,38 +97,28 @@ export function SubjectIdentityForm({
 export function AssetFamilyForm({
 	disabled,
 	families,
+	form,
 	isSaving,
-	name,
-	onNameChange,
-	onSubmit,
-	onSubjectIdentityChange,
-	onUseContextChange,
-	onVisualWorldChange,
 	selectedSubjectIdentityId,
 	selectedVisualWorldId,
 	subjectIdentities,
-	useContext,
 	visualWorlds,
 }: {
 	disabled: boolean;
 	families: AssetFamilyCatalog["assetFamilies"];
+	form: AssetFamilyForms["assetFamilyForm"];
 	isSaving: boolean;
-	name: string;
-	onNameChange: (value: string) => void;
-	onSubmit: (event: SyntheticEvent<HTMLFormElement>) => void;
-	onSubjectIdentityChange: (value: string) => void;
-	onUseContextChange: (value: string) => void;
-	onVisualWorldChange: (value: string) => void;
 	selectedSubjectIdentityId: string;
 	selectedVisualWorldId: string;
 	subjectIdentities: AssetFamilyCatalog["subjectIdentities"];
-	useContext: string;
 	visualWorlds: { id: string; name: string }[];
 }) {
+	const name = useStore(form.store, (state) => state.values.name);
+	const useContext = useStore(form.store, (state) => state.values.useContext);
 	return (
 		<form
 			className="space-y-3 rounded-lg border border-l-2 border-l-primary/70 p-4"
-			onSubmit={onSubmit}
+			onSubmit={submitWith(form)}
 		>
 			<p className="font-mono text-primary text-xs uppercase tracking-widest">
 				02 / Aile
@@ -121,60 +132,84 @@ export function AssetFamilyForm({
 			</p>
 			<div className="space-y-2">
 				<Label htmlFor="asset-family-subject-identity">Varlık Kimliği</Label>
-				<select
-					className="min-h-10 w-full rounded-md border bg-background px-3 py-2 text-sm"
-					disabled={disabled || subjectIdentities.length === 0}
-					id="asset-family-subject-identity"
-					onChange={(event) => onSubjectIdentityChange(event.target.value)}
-					required
-					value={selectedSubjectIdentityId}
-				>
-					{subjectIdentities.map((identity) => (
-						<option key={identity.id} value={identity.id}>
-							{identity.name}
-						</option>
-					))}
-				</select>
+				<form.Field name="subjectIdentityId">
+					{(field) => (
+						<NativeSelect
+							className={selectClassName}
+							disabled={disabled || subjectIdentities.length === 0}
+							id="asset-family-subject-identity"
+							name={field.name}
+							onBlur={field.handleBlur}
+							onChange={(event) => field.handleChange(event.target.value)}
+							required
+							value={selectedSubjectIdentityId}
+						>
+							{subjectIdentities.map((identity) => (
+								<NativeSelectOption key={identity.id} value={identity.id}>
+									{identity.name}
+								</NativeSelectOption>
+							))}
+						</NativeSelect>
+					)}
+				</form.Field>
 			</div>
 			<div className="space-y-2">
 				<Label htmlFor="asset-family-name">Varlık Ailesi adı</Label>
-				<Input
-					disabled={disabled}
-					id="asset-family-name"
-					maxLength={120}
-					onChange={(event) => onNameChange(event.target.value)}
-					required
-					value={name}
-				/>
+				<form.Field name="name">
+					{(field) => (
+						<Input
+							disabled={disabled}
+							id="asset-family-name"
+							maxLength={120}
+							name={field.name}
+							onBlur={field.handleBlur}
+							onChange={(event) => field.handleChange(event.target.value)}
+							required
+							value={field.state.value}
+						/>
+					)}
+				</form.Field>
 			</div>
 			<div className="space-y-2">
 				<Label htmlFor="asset-family-visual-world">Görsel Dünya</Label>
-				<select
-					className="min-h-10 w-full rounded-md border bg-background px-3 py-2 text-sm"
-					disabled={disabled || visualWorlds.length === 0}
-					id="asset-family-visual-world"
-					onChange={(event) => onVisualWorldChange(event.target.value)}
-					required
-					value={selectedVisualWorldId}
-				>
-					{visualWorlds.map((visualWorld) => (
-						<option key={visualWorld.id} value={visualWorld.id}>
-							{visualWorld.name}
-						</option>
-					))}
-				</select>
+				<form.Field name="visualWorldId">
+					{(field) => (
+						<NativeSelect
+							className={selectClassName}
+							disabled={disabled || visualWorlds.length === 0}
+							id="asset-family-visual-world"
+							name={field.name}
+							onBlur={field.handleBlur}
+							onChange={(event) => field.handleChange(event.target.value)}
+							required
+							value={selectedVisualWorldId}
+						>
+							{visualWorlds.map((visualWorld) => (
+								<NativeSelectOption key={visualWorld.id} value={visualWorld.id}>
+									{visualWorld.name}
+								</NativeSelectOption>
+							))}
+						</NativeSelect>
+					)}
+				</form.Field>
 			</div>
 			<div className="space-y-2">
 				<Label htmlFor="asset-family-use-context">Kullanım bağlamı</Label>
-				<Input
-					disabled={disabled}
-					id="asset-family-use-context"
-					maxLength={120}
-					onChange={(event) => onUseContextChange(event.target.value)}
-					placeholder="Örn. oyun içi sprite"
-					required
-					value={useContext}
-				/>
+				<form.Field name="useContext">
+					{(field) => (
+						<Input
+							disabled={disabled}
+							id="asset-family-use-context"
+							maxLength={120}
+							name={field.name}
+							onBlur={field.handleBlur}
+							onChange={(event) => field.handleChange(event.target.value)}
+							placeholder="Örn. oyun içi sprite"
+							required
+							value={field.state.value}
+						/>
+					)}
+				</form.Field>
 			</div>
 			<Button
 				disabled={
@@ -201,31 +236,26 @@ export function AssetRecordForm({
 	assetFamilies,
 	assetRecords,
 	disabled,
-	identityCriteria,
+	form,
 	isSaving,
-	name,
-	onAssetFamilyChange,
-	onIdentityCriterionToggle,
-	onNameChange,
-	onSubmit,
 	selectedAssetFamilyId,
 }: {
 	assetFamilies: AssetFamilyCatalog["assetFamilies"];
 	assetRecords: AssetFamilyCatalog["assetRecords"];
 	disabled: boolean;
-	identityCriteria: AssetRecordIdentityCriterion[];
+	form: AssetFamilyForms["assetRecordForm"];
 	isSaving: boolean;
-	name: string;
-	onAssetFamilyChange: (value: string) => void;
-	onIdentityCriterionToggle: (value: AssetRecordIdentityCriterion) => void;
-	onNameChange: (value: string) => void;
-	onSubmit: (event: SyntheticEvent<HTMLFormElement>) => void;
 	selectedAssetFamilyId: string;
 }) {
+	const name = useStore(form.store, (state) => state.values.name);
+	const identityCriteria = useStore(
+		form.store,
+		(state) => state.values.identityCriteria
+	);
 	return (
 		<form
 			className="space-y-3 rounded-lg border border-l-2 border-l-primary/70 p-4"
-			onSubmit={onSubmit}
+			onSubmit={submitWith(form)}
 		>
 			<p className="font-mono text-primary text-xs uppercase tracking-widest">
 				03 / Kayıt
@@ -236,49 +266,74 @@ export function AssetRecordForm({
 			</p>
 			<div className="space-y-2">
 				<Label htmlFor="asset-record-family">Varlık Ailesi</Label>
-				<select
-					className="min-h-10 w-full rounded-md border bg-background px-3 py-2 text-sm"
-					disabled={disabled || assetFamilies.length === 0}
-					id="asset-record-family"
-					onChange={(event) => onAssetFamilyChange(event.target.value)}
-					required
-					value={selectedAssetFamilyId}
-				>
-					{assetFamilies.map((family) => (
-						<option key={family.id} value={family.id}>
-							{family.name} — {family.useContext}
-						</option>
-					))}
-				</select>
+				<form.Field name="assetFamilyId">
+					{(field) => (
+						<NativeSelect
+							className={selectClassName}
+							disabled={disabled || assetFamilies.length === 0}
+							id="asset-record-family"
+							name={field.name}
+							onBlur={field.handleBlur}
+							onChange={(event) => field.handleChange(event.target.value)}
+							required
+							value={selectedAssetFamilyId}
+						>
+							{assetFamilies.map((family) => (
+								<NativeSelectOption key={family.id} value={family.id}>
+									{family.name} — {family.useContext}
+								</NativeSelectOption>
+							))}
+						</NativeSelect>
+					)}
+				</form.Field>
 			</div>
 			<div className="space-y-2">
 				<Label htmlFor="asset-record-name">Varlık Kaydı adı</Label>
-				<Input
-					disabled={disabled}
-					id="asset-record-name"
-					maxLength={120}
-					onChange={(event) => onNameChange(event.target.value)}
-					required
-					value={name}
-				/>
-			</div>
-			<fieldset className="space-y-2">
-				<legend className="font-medium text-sm">Kayıt gerekçesi</legend>
-				{identityCriterionOptions.map((criterion) => (
-					<label
-						className="flex items-center gap-2 text-sm"
-						key={criterion.value}
-					>
-						<input
-							checked={identityCriteria.includes(criterion.value)}
+				<form.Field name="name">
+					{(field) => (
+						<Input
 							disabled={disabled}
-							onChange={() => onIdentityCriterionToggle(criterion.value)}
-							type="checkbox"
+							id="asset-record-name"
+							maxLength={120}
+							name={field.name}
+							onBlur={field.handleBlur}
+							onChange={(event) => field.handleChange(event.target.value)}
+							required
+							value={field.state.value}
 						/>
-						{criterion.label}
-					</label>
-				))}
-			</fieldset>
+					)}
+				</form.Field>
+			</div>
+			<FieldSet className="gap-2">
+				<FieldLegend className="mb-0 font-medium text-sm">
+					Kayıt gerekçesi
+				</FieldLegend>
+				<form.Field name="identityCriteria">
+					{(field) =>
+						identityCriterionOptions.map((criterion) => (
+							<Label
+								className="flex items-center gap-2 text-sm"
+								key={criterion.value}
+							>
+								<Checkbox
+									checked={field.state.value.includes(criterion.value)}
+									disabled={disabled}
+									onCheckedChange={(checked) =>
+										field.handleChange(
+											checked
+												? [...field.state.value, criterion.value]
+												: field.state.value.filter(
+														(value) => value !== criterion.value
+													)
+										)
+									}
+								/>
+								{criterion.label}
+							</Label>
+						))
+					}
+				</form.Field>
+			</FieldSet>
 			<Button
 				disabled={
 					disabled ||
@@ -302,39 +357,30 @@ export function AssetRecordForm({
 export function AssetFamilyRelationshipForm({
 	assetFamilies,
 	assetRecords,
-	disabled,
-	isSaving,
-	onFamilyChange,
-	onSourceChange,
-	onSubmit,
-	onTargetChange,
-	onTypeChange,
 	canonicalDesign,
+	disabled,
+	form,
+	isSaving,
 	selectedAssetFamilyId,
 	selectedSourceId,
 	selectedTargetId,
-	type,
 }: {
 	assetFamilies: AssetFamilyCatalog["assetFamilies"];
 	assetRecords: AssetFamilyCatalog["assetRecords"];
-	disabled: boolean;
-	isSaving: boolean;
-	onFamilyChange: (value: string) => void;
-	onSourceChange: (value: string) => void;
-	onSubmit: (event: SyntheticEvent<HTMLFormElement>) => void;
-	onTargetChange: (value: string) => void;
-	onTypeChange: (value: AssetFamilyRelationshipType) => void;
 	canonicalDesign: {
 		assetRecordId: string;
 		assetVersionId: string;
 		recordName: string;
 		versionNumber: number;
 	} | null;
+	disabled: boolean;
+	form: AssetFamilyForms["relationshipForm"];
+	isSaving: boolean;
 	selectedAssetFamilyId: string;
 	selectedSourceId: string;
 	selectedTargetId: string;
-	type: AssetFamilyRelationshipType;
 }) {
+	const type = useStore(form.store, (state) => state.values.type);
 	const familyRecords = assetRecords.filter(
 		(assetRecord) => assetRecord.assetFamilyId === selectedAssetFamilyId
 	);
@@ -357,7 +403,7 @@ export function AssetFamilyRelationshipForm({
 	return (
 		<form
 			className="space-y-3 rounded-lg border border-l-2 border-l-primary/70 p-4"
-			onSubmit={onSubmit}
+			onSubmit={submitWith(form)}
 		>
 			<p className="font-mono text-primary text-xs uppercase tracking-widest">
 				04 / İlişki
@@ -369,20 +415,30 @@ export function AssetFamilyRelationshipForm({
 			</p>
 			<div className="space-y-2">
 				<Label htmlFor="relationship-family">Varlık Ailesi</Label>
-				<select
-					className="min-h-10 w-full rounded-md border bg-background px-3 py-2 text-sm"
-					disabled={disabled || assetFamilies.length === 0}
-					id="relationship-family"
-					onChange={(event) => onFamilyChange(event.target.value)}
-					required
-					value={selectedAssetFamilyId}
-				>
-					{assetFamilies.map((family) => (
-						<option key={family.id} value={family.id}>
-							{family.name}
-						</option>
-					))}
-				</select>
+				<form.Field name="assetFamilyId">
+					{(field) => (
+						<NativeSelect
+							className={selectClassName}
+							disabled={disabled || assetFamilies.length === 0}
+							id="relationship-family"
+							name={field.name}
+							onBlur={field.handleBlur}
+							onChange={(event) => {
+								field.handleChange(event.target.value);
+								form.setFieldValue("sourceAssetRecordId", "");
+								form.setFieldValue("targetAssetRecordId", "");
+							}}
+							required
+							value={selectedAssetFamilyId}
+						>
+							{assetFamilies.map((family) => (
+								<NativeSelectOption key={family.id} value={family.id}>
+									{family.name}
+								</NativeSelectOption>
+							))}
+						</NativeSelect>
+					)}
+				</form.Field>
 			</div>
 			<div className="space-y-2">
 				<Label htmlFor="relationship-source">Kaynak Varlık Kaydı</Label>
@@ -393,60 +449,83 @@ export function AssetFamilyRelationshipForm({
 							: "Önce onaylı bir Ana Tasarım seçin."}
 					</p>
 				) : (
-					<select
-						className="min-h-10 w-full rounded-md border bg-background px-3 py-2 text-sm"
-						disabled={disabled || familyRecords.length < 2}
-						id="relationship-source"
-						onChange={(event) => onSourceChange(event.target.value)}
-						required
-						value={selectedSourceId}
-					>
-						{familyRecords.map((assetRecord) => (
-							<option key={assetRecord.id} value={assetRecord.id}>
-								{assetRecord.name}
-							</option>
-						))}
-					</select>
+					<form.Field name="sourceAssetRecordId">
+						{(field) => (
+							<NativeSelect
+								className={selectClassName}
+								disabled={disabled || familyRecords.length < 2}
+								id="relationship-source"
+								name={field.name}
+								onBlur={field.handleBlur}
+								onChange={(event) => field.handleChange(event.target.value)}
+								required
+								value={selectedSourceId}
+							>
+								{familyRecords.map((assetRecord) => (
+									<NativeSelectOption
+										key={assetRecord.id}
+										value={assetRecord.id}
+									>
+										{assetRecord.name}
+									</NativeSelectOption>
+								))}
+							</NativeSelect>
+						)}
+					</form.Field>
 				)}
 			</div>
 			<div className="space-y-2">
 				<Label htmlFor="relationship-type">İlişki türü</Label>
-				<select
-					className="min-h-10 w-full rounded-md border bg-background px-3 py-2 text-sm"
-					disabled={disabled}
-					id="relationship-type"
-					onChange={(event) =>
-						onTypeChange(event.target.value as AssetFamilyRelationshipType)
-					}
-					value={type}
-				>
-					{relationshipOptions.map((option) => (
-						<option key={option.value} value={option.value}>
-							{option.label}
-						</option>
-					))}
-				</select>
+				<form.Field name="type">
+					{(field) => (
+						<NativeSelect
+							className={selectClassName}
+							disabled={disabled}
+							id="relationship-type"
+							name={field.name}
+							onBlur={field.handleBlur}
+							onChange={(event) =>
+								field.handleChange(
+									event.target.value as AssetFamilyRelationshipType
+								)
+							}
+							value={field.state.value}
+						>
+							{relationshipOptions.map((option) => (
+								<NativeSelectOption key={option.value} value={option.value}>
+									{option.label}
+								</NativeSelectOption>
+							))}
+						</NativeSelect>
+					)}
+				</form.Field>
 			</div>
 			<div className="space-y-2">
 				<Label htmlFor="relationship-target">İlgili Varlık Kaydı</Label>
-				<select
-					className="min-h-10 w-full rounded-md border bg-background px-3 py-2 text-sm"
-					disabled={disabled || familyRecords.length < 2}
-					id="relationship-target"
-					onChange={(event) => onTargetChange(event.target.value)}
-					required
-					value={targetAssetRecordId}
-				>
-					{familyRecords.map((assetRecord) => (
-						<option
-							disabled={assetRecord.id === sourceAssetRecordId}
-							key={assetRecord.id}
-							value={assetRecord.id}
+				<form.Field name="targetAssetRecordId">
+					{(field) => (
+						<NativeSelect
+							className={selectClassName}
+							disabled={disabled || familyRecords.length < 2}
+							id="relationship-target"
+							name={field.name}
+							onBlur={field.handleBlur}
+							onChange={(event) => field.handleChange(event.target.value)}
+							required
+							value={targetAssetRecordId}
 						>
-							{assetRecord.name}
-						</option>
-					))}
-				</select>
+							{familyRecords.map((assetRecord) => (
+								<NativeSelectOption
+									disabled={assetRecord.id === sourceAssetRecordId}
+									key={assetRecord.id}
+									value={assetRecord.id}
+								>
+									{assetRecord.name}
+								</NativeSelectOption>
+							))}
+						</NativeSelect>
+					)}
+				</form.Field>
 			</div>
 			<Button
 				disabled={

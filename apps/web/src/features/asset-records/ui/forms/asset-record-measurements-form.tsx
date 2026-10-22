@@ -1,14 +1,28 @@
-import {
-	type AssetRecord,
-	type AssetRecordMeasurements,
-	assetRecordMeasurementsSchema,
+import type {
+	AssetRecord,
+	AssetRecordMeasurements,
 } from "@sprite-anvil/api/asset-records";
 import { Button } from "@sprite-anvil/ui/components/button";
+import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
 import { Input } from "@sprite-anvil/ui/components/input";
-import type { SyntheticEvent } from "react";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { useForm } from "@tanstack/react-form";
+import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client } from "@/utils/orpc";
+import { mutationMeta } from "@/utils/mutation-meta";
+import { orpc } from "@/utils/orpc";
+import {
+	draftKey,
+	type MeasurementDraft,
+	type MeasurementState,
+	measurementsDraftFormSchema,
+	measurementsSaveFailureMessage,
+} from "../../schemas";
 
 const measurementDefinitions = [
 	{
@@ -60,10 +74,6 @@ const measurementDefinitions = [
 	},
 ] as const;
 
-type MeasurementKey = (typeof measurementDefinitions)[number]["key"];
-type MeasurementState = "proposal" | "confirmed";
-type MeasurementDraft = Record<string, string>;
-
 const measurementStates: readonly {
 	key: MeasurementState;
 	label: string;
@@ -71,14 +81,6 @@ const measurementStates: readonly {
 	{ key: "proposal", label: "Öneri" },
 	{ key: "confirmed", label: "Doğrulanmış değer" },
 ];
-
-function draftKey(
-	measurement: MeasurementKey,
-	state: MeasurementState,
-	field: string
-) {
-	return `${measurement}.${state}.${field}`;
-}
 
 function draftFromMeasurements(
 	measurements: AssetRecordMeasurements
@@ -100,204 +102,6 @@ function draftFromMeasurements(
 	return draft;
 }
 
-function readNumber(
-	draft: MeasurementDraft,
-	measurement: MeasurementKey,
-	state: MeasurementState,
-	field: string,
-	minimum: number,
-	integer: boolean,
-	label: string
-) {
-	const value = draft[draftKey(measurement, state, field)] ?? "";
-	if (value.trim() === "") {
-		return null;
-	}
-	const number = Number(value);
-	if (
-		!Number.isFinite(number) ||
-		number < minimum ||
-		(integer && !Number.isInteger(number))
-	) {
-		throw new Error(
-			`${label} geçerli bir ${integer ? "tam sayı" : "sayı"} olmalı.`
-		);
-	}
-	return number;
-}
-
-function readPixelDimensions(
-	draft: MeasurementDraft,
-	measurement: MeasurementKey,
-	state: MeasurementState,
-	label: string
-) {
-	const width = readNumber(draft, measurement, state, "width", 1, true, label);
-	const height = readNumber(
-		draft,
-		measurement,
-		state,
-		"height",
-		1,
-		true,
-		label
-	);
-	if (width === null && height === null) {
-		return null;
-	}
-	if (width === null || height === null) {
-		throw new Error(`${label} için genişlik ve yükseklik birlikte girilmeli.`);
-	}
-	return { height, width };
-}
-
-function readVisibleContentBounds(
-	draft: MeasurementDraft,
-	state: MeasurementState
-) {
-	const measurement = "visibleContentBounds";
-	const x = readNumber(
-		draft,
-		measurement,
-		state,
-		"x",
-		0,
-		true,
-		"Görünür İçerik Sınırı"
-	);
-	const y = readNumber(
-		draft,
-		measurement,
-		state,
-		"y",
-		0,
-		true,
-		"Görünür İçerik Sınırı"
-	);
-	const width = readNumber(
-		draft,
-		measurement,
-		state,
-		"width",
-		1,
-		true,
-		"Görünür İçerik Sınırı"
-	);
-	const height = readNumber(
-		draft,
-		measurement,
-		state,
-		"height",
-		1,
-		true,
-		"Görünür İçerik Sınırı"
-	);
-	if (x === null && y === null && width === null && height === null) {
-		return null;
-	}
-	if (x === null || y === null || width === null || height === null) {
-		throw new Error(
-			"Görünür İçerik Sınırı için X, Y, genişlik ve yükseklik birlikte girilmeli."
-		);
-	}
-	const coordinateSpace =
-		draft[draftKey(measurement, state, "coordinateSpace")];
-	if (
-		coordinateSpace !== "logicalResolution" &&
-		coordinateSpace !== "cellDimensions"
-	) {
-		throw new Error("Görünür İçerik Sınırı için koordinat temeli seçilmeli.");
-	}
-	return {
-		coordinateSpace: coordinateSpace as "logicalResolution" | "cellDimensions",
-		height,
-		width,
-		x,
-		y,
-	};
-}
-
-function readDisplayScale(draft: MeasurementDraft, state: MeasurementState) {
-	return readNumber(
-		draft,
-		"displayScale",
-		state,
-		"value",
-		Number.MIN_VALUE,
-		false,
-		"Gösterim Ölçeği"
-	);
-}
-
-function readMeasurements(draft: MeasurementDraft): AssetRecordMeasurements {
-	return {
-		atlasDimensions: {
-			confirmed: readPixelDimensions(
-				draft,
-				"atlasDimensions",
-				"confirmed",
-				"Atlas Ölçüsü"
-			),
-			proposal: readPixelDimensions(
-				draft,
-				"atlasDimensions",
-				"proposal",
-				"Atlas Ölçüsü"
-			),
-		},
-		cellDimensions: {
-			confirmed: readPixelDimensions(
-				draft,
-				"cellDimensions",
-				"confirmed",
-				"Hücre Ölçüsü"
-			),
-			proposal: readPixelDimensions(
-				draft,
-				"cellDimensions",
-				"proposal",
-				"Hücre Ölçüsü"
-			),
-		},
-		displayScale: {
-			confirmed: readDisplayScale(draft, "confirmed"),
-			proposal: readDisplayScale(draft, "proposal"),
-		},
-		logicalResolution: {
-			confirmed: readPixelDimensions(
-				draft,
-				"logicalResolution",
-				"confirmed",
-				"Mantıksal Çözünürlük"
-			),
-			proposal: readPixelDimensions(
-				draft,
-				"logicalResolution",
-				"proposal",
-				"Mantıksal Çözünürlük"
-			),
-		},
-		sourceImageDimensions: {
-			confirmed: readPixelDimensions(
-				draft,
-				"sourceImageDimensions",
-				"confirmed",
-				"Kaynak Görsel Ölçüsü"
-			),
-			proposal: readPixelDimensions(
-				draft,
-				"sourceImageDimensions",
-				"proposal",
-				"Kaynak Görsel Ölçüsü"
-			),
-		},
-		visibleContentBounds: {
-			confirmed: readVisibleContentBounds(draft, "confirmed"),
-			proposal: readVisibleContentBounds(draft, "proposal"),
-		},
-	};
-}
-
 function FieldGroup({
 	definition,
 	disabled,
@@ -315,8 +119,11 @@ function FieldGroup({
 		Boolean(draft[draftKey(definition.key, state.key, field.key)]?.trim())
 	);
 	return (
-		<fieldset className="space-y-3 rounded-md border p-3" disabled={disabled}>
-			<legend className="px-1 font-medium text-sm">{state.label}</legend>
+		<FieldSet
+			className="gap-0 space-y-3 rounded-md border p-3"
+			disabled={disabled}
+		>
+			<FieldLegend className="mb-0 px-1">{state.label}</FieldLegend>
 			<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
 				{definition.fields.map((field) => {
 					const id = `${definition.key}-${state.key}-${field.key}`;
@@ -328,8 +135,8 @@ function FieldGroup({
 							? 0
 							: 1;
 					return (
-						<label
-							className="block space-y-1 text-sm"
+						<Label
+							className="block space-y-1 text-sm leading-normal"
 							htmlFor={id}
 							key={field.key}
 						>
@@ -349,23 +156,23 @@ function FieldGroup({
 								type="number"
 								value={draft[key] ?? ""}
 							/>
-						</label>
+						</Label>
 					);
 				})}
 			</div>
 			{definition.key === "visibleContentBounds" ? (
-				<label
-					className="block space-y-1 text-sm"
+				<Label
+					className="block space-y-1 text-sm leading-normal"
 					htmlFor={`${definition.key}-${state.key}-coordinateSpace`}
 				>
 					<span>
 						Koordinat temeli
 						{hasValue ? " *" : ""}
 					</span>
-					<select
+					<NativeSelect
 						aria-describedby="asset-record-measurements-help"
 						aria-label={`${definition.label} — ${state.label} — Koordinat temeli`}
-						className="min-h-11 w-full rounded-md border bg-background px-3 py-2"
+						className="w-full"
 						id={`${definition.key}-${state.key}-coordinateSpace`}
 						onChange={(event) =>
 							onChange(
@@ -379,13 +186,17 @@ function FieldGroup({
 							""
 						}
 					>
-						<option value="">Seçin</option>
-						<option value="logicalResolution">Mantıksal Çözünürlük</option>
-						<option value="cellDimensions">Hücre Ölçüsü</option>
-					</select>
-				</label>
+						<NativeSelectOption value="">Seçin</NativeSelectOption>
+						<NativeSelectOption value="logicalResolution">
+							Mantıksal Çözünürlük
+						</NativeSelectOption>
+						<NativeSelectOption value="cellDimensions">
+							Hücre Ölçüsü
+						</NativeSelectOption>
+					</NativeSelect>
+				</Label>
 			) : null}
-		</fieldset>
+		</FieldSet>
 	);
 }
 
@@ -396,74 +207,47 @@ export function AssetRecordMeasurementsForm({
 	onRefresh: () => Promise<{ isError: boolean }>;
 	record: AssetRecord;
 }) {
-	const [draft, setDraft] = useState(() =>
-		draftFromMeasurements(record.measurements)
-	);
-	const [isSaving, setIsSaving] = useState(false);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
+	const updateMeasurements = useMutation(
+		orpc.assetRecords.updateMeasurements.mutationOptions(mutationMeta)
+	);
 
-	useEffect(() => {
-		setDraft(draftFromMeasurements(record.measurements));
-	}, [record.measurements]);
-
-	const displayScaleHasFraction = ["proposal", "confirmed"].some((state) => {
-		const value = Number(
-			draft[draftKey("displayScale", state as MeasurementState, "value")]
-		);
-		return Number.isFinite(value) && value > 0 && !Number.isInteger(value);
+	const form = useForm({
+		defaultValues: { draft: draftFromMeasurements(record.measurements) },
+		onSubmit: async ({ formApi, value }) => {
+			setErrorMessage(null);
+			setStatusMessage(null);
+			try {
+				const { draft: measurements } =
+					measurementsDraftFormSchema.parse(value);
+				const saved = await updateMeasurements.mutateAsync({
+					assetRecordId: record.id,
+					measurements,
+					projectId: record.projectId,
+				});
+				formApi.setFieldValue(
+					"draft",
+					draftFromMeasurements(saved.measurements)
+				);
+				const refreshed = await onRefresh();
+				if (refreshed.isError) {
+					setErrorMessage(
+						"Ölçüler kaydedildi ancak kayıt yeniden okunamadı. Sayfayı yenileyerek durumu kontrol edin."
+					);
+					return;
+				}
+				setStatusMessage("Ölçüler kaydedildi.");
+			} catch (error) {
+				setErrorMessage(getErrorMessage(error, measurementsSaveFailureMessage));
+			}
+		},
+		validators: { onSubmit: measurementsDraftFormSchema },
 	});
 
-	function updateDraft(key: string, value: string) {
-		setDraft((current) => ({ ...current, [key]: value }));
-		setErrorMessage(null);
-		setStatusMessage(null);
-	}
-
-	async function handleSubmit(event: SyntheticEvent<HTMLFormElement>) {
-		event.preventDefault();
-		if (isSaving) {
-			return;
-		}
-		setErrorMessage(null);
-		setStatusMessage(null);
-		setIsSaving(true);
-		try {
-			const parsedMeasurements = assetRecordMeasurementsSchema.safeParse(
-				readMeasurements(draft)
-			);
-			if (!parsedMeasurements.success) {
-				setErrorMessage(
-					parsedMeasurements.error.issues[0]?.message ??
-						"Görsel ölçü değerlerini kontrol edip yeniden deneyin."
-				);
-				return;
-			}
-			const saved = await client.assetRecords.updateMeasurements({
-				assetRecordId: record.id,
-				measurements: parsedMeasurements.data,
-				projectId: record.projectId,
-			});
-			setDraft(draftFromMeasurements(saved.measurements));
-			const refreshed = await onRefresh();
-			if (refreshed.isError) {
-				setErrorMessage(
-					"Ölçüler kaydedildi ancak kayıt yeniden okunamadı. Sayfayı yenileyerek durumu kontrol edin."
-				);
-				return;
-			}
-			setStatusMessage("Ölçüler kaydedildi.");
-		} catch (error) {
-			setErrorMessage(
-				getErrorMessage(
-					error,
-					"Ölçüler kaydedilemedi. Değerleri kontrol edip yeniden deneyin."
-				)
-			);
-		} finally {
-			setIsSaving(false);
-		}
-	}
+	useEffect(() => {
+		form.setFieldValue("draft", draftFromMeasurements(record.measurements));
+	}, [form, record.measurements]);
 
 	return (
 		<section
@@ -486,49 +270,101 @@ export function AssetRecordMeasurementsForm({
 					ölçüler kullanabilirsiniz.
 				</p>
 			</header>
-			{displayScaleHasFraction ? (
-				<p className="text-sm" role="status">
-					Piksel sanatında doğal sayı olmayan Gösterim Ölçeği keskinliği
-					bozabilir. Yüksek çözünürlüklü illüstrasyonlar bu kurala zorlanmaz.
-				</p>
-			) : null}
-			<form className="space-y-4" onSubmit={handleSubmit}>
-				{measurementDefinitions.map((definition) => (
-					<section
-						aria-labelledby={`${definition.key}-heading`}
-						className="space-y-3 rounded-md border p-4"
-						key={definition.key}
-					>
-						<h3 className="font-medium" id={`${definition.key}-heading`}>
-							{definition.label}
-						</h3>
-						<div className="grid gap-3 lg:grid-cols-2">
-							{measurementStates.map((state) => (
-								<FieldGroup
-									definition={definition}
-									disabled={isSaving}
-									draft={draft}
-									key={state.key}
-									onChange={updateDraft}
-									state={state}
-								/>
-							))}
-						</div>
-					</section>
-				))}
-				{errorMessage ? (
-					<p aria-live="assertive" role="alert">
-						{errorMessage}
-					</p>
-				) : null}
+			<form.Subscribe selector={(state) => state.values.draft}>
+				{(draft) =>
+					["proposal", "confirmed"].some((state) => {
+						const value = Number(
+							draft[
+								draftKey("displayScale", state as MeasurementState, "value")
+							]
+						);
+						return (
+							Number.isFinite(value) && value > 0 && !Number.isInteger(value)
+						);
+					}) ? (
+						<p className="text-sm" role="status">
+							Piksel sanatında doğal sayı olmayan Gösterim Ölçeği keskinliği
+							bozabilir. Yüksek çözünürlüklü illüstrasyonlar bu kurala
+							zorlanmaz.
+						</p>
+					) : null
+				}
+			</form.Subscribe>
+			<form
+				className="space-y-4"
+				onSubmit={(event) => {
+					event.preventDefault();
+					event.stopPropagation();
+					form.handleSubmit();
+				}}
+			>
+				<form.Field name="draft">
+					{(field) => {
+						const validationMessage =
+							field.state.meta.errors[0]?.message ?? null;
+						const shownError = errorMessage ?? validationMessage;
+						return (
+							<>
+								{measurementDefinitions.map((definition) => (
+									<section
+										aria-labelledby={`${definition.key}-heading`}
+										className="space-y-3 rounded-md border p-4"
+										key={definition.key}
+									>
+										<h3
+											className="font-medium"
+											id={`${definition.key}-heading`}
+										>
+											{definition.label}
+										</h3>
+										<div className="grid gap-3 lg:grid-cols-2">
+											{measurementStates.map((state) => (
+												<form.Subscribe
+													key={state.key}
+													selector={(formState) => formState.isSubmitting}
+												>
+													{(isSaving) => (
+														<FieldGroup
+															definition={definition}
+															disabled={isSaving}
+															draft={field.state.value}
+															onChange={(key, value) => {
+																field.handleChange({
+																	...field.state.value,
+																	[key]: value,
+																});
+																setErrorMessage(null);
+																setStatusMessage(null);
+															}}
+															state={state}
+														/>
+													)}
+												</form.Subscribe>
+											))}
+										</div>
+									</section>
+								))}
+								{shownError ? (
+									<p aria-live="assertive" role="alert">
+										{shownError}
+									</p>
+								) : null}
+							</>
+						);
+					}}
+				</form.Field>
 				{statusMessage ? (
 					<p aria-live="polite" role="status">
 						{statusMessage}
 					</p>
 				) : null}
-				<Button className="min-h-11" disabled={isSaving} type="submit">
-					{isSaving ? "Kaydediliyor…" : "Ölçüleri kaydet"}
-				</Button>
+				<form.Subscribe selector={(state) => state.isSubmitting}>
+					{(isSaving) => (
+						<Button className="min-h-11" disabled={isSaving} type="submit">
+							{isSaving ? "Kaydediliyor…" : "Ölçüleri kaydet"}
+						</Button>
+					)}
+				</form.Subscribe>
 			</form>
 		</section>
 	);

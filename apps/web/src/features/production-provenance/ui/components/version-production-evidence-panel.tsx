@@ -1,7 +1,15 @@
 import type { GenerationPackage } from "@sprite-anvil/api/generation-packages";
 import type { VersionProductionEvidence } from "@sprite-anvil/api/production-provenance";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQuery } from "@tanstack/react-query";
+import { Input } from "@sprite-anvil/ui/components/input";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { Textarea } from "@sprite-anvil/ui/components/textarea";
+import { useForm } from "@tanstack/react-form";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
 	type DragEvent,
 	type ClipboardEvent as ReactClipboardEvent,
@@ -12,10 +20,14 @@ import {
 } from "react";
 import { ENV } from "@/env";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client, orpc } from "@/utils/orpc";
+import { mutationMeta } from "@/utils/mutation-meta";
+import { orpc } from "@/utils/orpc";
+import {
+	managedSnapshotFileSchema,
+	manualImportEvidenceFormSchema,
+} from "../../schemas";
 
 const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
-const maxSnapshotBytes = 100 * 1024 * 1024;
 
 const sourceKindLabels: Record<
 	VersionProductionEvidence["sourceKind"],
@@ -77,21 +89,25 @@ function ManualImportEvidenceSection({
 	saving,
 	onSave,
 }: ManualImportEvidenceSectionProps) {
-	const [generationPackageId, setGenerationPackageId] = useState(
-		evidence.manualImportEvidence?.generationPackageId ?? ""
-	);
-	const [sourceSurface, setSourceSurface] = useState(
-		evidence.manualImportEvidence?.sourceSurface ?? ""
-	);
-	const [actualInstruction, setActualInstruction] = useState(
-		evidence.manualImportEvidence?.actualInstruction ?? ""
-	);
+	const form = useForm({
+		defaultValues: {
+			actualInstruction: evidence.manualImportEvidence?.actualInstruction ?? "",
+			generationPackageId:
+				evidence.manualImportEvidence?.generationPackageId ?? "",
+			sourceSurface: evidence.manualImportEvidence?.sourceSurface ?? "",
+		},
+		onSubmit: ({ value }) => {
+			onSave(value);
+		},
+		validators: { onSubmit: manualImportEvidenceFormSchema },
+	});
 	const noGenerationPackages =
 		!(packagesLoading || packagesLoadError) && generationPackages.length === 0;
 
 	function submit(event: SyntheticEvent<HTMLFormElement>) {
 		event.preventDefault();
-		onSave({ actualInstruction, generationPackageId, sourceSurface });
+		event.stopPropagation();
+		void form.handleSubmit();
 	}
 
 	return (
@@ -115,57 +131,76 @@ function ManualImportEvidenceSection({
 			) : null}
 			{reviewDisposition === "candidate" ? (
 				<form className="space-y-3 border-t pt-3" onSubmit={submit}>
-					<label className="block space-y-1 text-sm">
-						<span>Üretim Paketi</span>
-						<select
-							className="w-full rounded-md border bg-background px-3 py-2"
-							onChange={(event) =>
-								setGenerationPackageId(event.currentTarget.value)
-							}
-							required
-							value={generationPackageId}
-						>
-							<option value="">Üretim Paketi seçin</option>
-							{generationPackages.map((generationPackage) => (
-								<option key={generationPackage.id} value={generationPackage.id}>
-									{new Date(generationPackage.createdAt).toLocaleString(
-										"tr-TR"
-									)}{" "}
-									· {generationPackage.id}
-								</option>
-							))}
-						</select>
-						{packagesLoadError ? (
-							<span role="alert">Üretim Paketleri yüklenemedi.</span>
-						) : null}
-						{noGenerationPackages ? (
-							<span className="text-muted-foreground">
-								Önce bu Varlık Kaydı için Üretim Paketi oluşturun.
-							</span>
-						) : null}
-					</label>
-					<label className="block space-y-1 text-sm">
-						<span>Kaynak yüzeyi</span>
-						<input
-							className="w-full rounded-md border bg-background px-3 py-2"
-							maxLength={120}
-							onChange={(event) => setSourceSurface(event.currentTarget.value)}
-							required
-							value={sourceSurface}
-						/>
-					</label>
-					<label className="block space-y-1 text-sm">
-						<span>Gerçek üretim talimatı</span>
-						<textarea
-							className="min-h-20 w-full rounded-md border bg-background px-3 py-2"
-							maxLength={20_000}
-							onChange={(event) =>
-								setActualInstruction(event.currentTarget.value)
-							}
-							required
-							value={actualInstruction}
-						/>
-					</label>
+					<form.Field name="generationPackageId">
+						{(field) => (
+							<Label className="block space-y-1 text-sm">
+								<span>Üretim Paketi</span>
+								<NativeSelect
+									className="w-full"
+									onChange={(event) =>
+										field.handleChange(event.currentTarget.value)
+									}
+									required
+									value={field.state.value}
+								>
+									<NativeSelectOption value="">
+										Üretim Paketi seçin
+									</NativeSelectOption>
+									{generationPackages.map((generationPackage) => (
+										<NativeSelectOption
+											key={generationPackage.id}
+											value={generationPackage.id}
+										>
+											{new Date(generationPackage.createdAt).toLocaleString(
+												"tr-TR"
+											)}{" "}
+											· {generationPackage.id}
+										</NativeSelectOption>
+									))}
+								</NativeSelect>
+								{packagesLoadError ? (
+									<span role="alert">Üretim Paketleri yüklenemedi.</span>
+								) : null}
+								{noGenerationPackages ? (
+									<span className="text-muted-foreground">
+										Önce bu Varlık Kaydı için Üretim Paketi oluşturun.
+									</span>
+								) : null}
+							</Label>
+						)}
+					</form.Field>
+					<form.Field name="sourceSurface">
+						{(field) => (
+							<Label className="block space-y-1 text-sm">
+								<span>Kaynak yüzeyi</span>
+								<Input
+									className="w-full"
+									maxLength={120}
+									onChange={(event) =>
+										field.handleChange(event.currentTarget.value)
+									}
+									required
+									value={field.state.value}
+								/>
+							</Label>
+						)}
+					</form.Field>
+					<form.Field name="actualInstruction">
+						{(field) => (
+							<Label className="block space-y-1 text-sm">
+								<span>Gerçek üretim talimatı</span>
+								<Textarea
+									className="min-h-20 w-full"
+									maxLength={20_000}
+									onChange={(event) =>
+										field.handleChange(event.currentTarget.value)
+									}
+									required
+									value={field.state.value}
+								/>
+							</Label>
+						)}
+					</form.Field>
 					<Button
 						disabled={
 							saving ||
@@ -207,7 +242,7 @@ function ManagedSnapshotAttachments({
 }: ManagedSnapshotAttachmentsProps) {
 	const dropHintId = useId();
 	const fileInputRef = useRef<HTMLInputElement>(null);
-	function fileFromDrop(event: DragEvent<HTMLButtonElement>) {
+	function fileFromDrop(event: DragEvent<HTMLElement>) {
 		event.preventDefault();
 		const file = event.dataTransfer.files.item(0);
 		if (file) {
@@ -215,7 +250,7 @@ function ManagedSnapshotAttachments({
 		}
 	}
 
-	function fileFromPaste(event: ReactClipboardEvent<HTMLButtonElement>) {
+	function fileFromPaste(event: ReactClipboardEvent<HTMLElement>) {
 		const file = event.clipboardData.files.item(0);
 		if (file) {
 			event.preventDefault();
@@ -231,23 +266,24 @@ function ManagedSnapshotAttachments({
 				yapıştırın. Yönetilen kopya taşınabilir kaynak kanıtıdır; tek başına
 				onay oluşturmaz.
 			</p>
-			<button
+			<Button
 				aria-describedby={dropHintId}
 				aria-label="Çalışma dosyası seç, sürükle veya yapıştır"
-				className="flex min-h-14 w-full flex-col items-start justify-center gap-2 rounded-md border border-dashed p-3 text-left text-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+				className="flex h-auto min-h-14 w-full flex-col items-start justify-center gap-2 border-dashed p-3 text-left font-normal text-sm"
 				disabled={active}
 				onClick={() => fileInputRef.current?.click()}
 				onDragOver={(event) => event.preventDefault()}
 				onDrop={fileFromDrop}
 				onPaste={fileFromPaste}
 				type="button"
+				variant="outline"
 			>
 				<span>{active ? "Dosya yükleniyor…" : "Çalışma dosyası seç"}</span>
-			</button>
+			</Button>
 			<p className="sr-only" id={dropHintId}>
 				Dosyayı da sürükleyip bırakabilir veya panodan yapıştırabilirsiniz.
 			</p>
-			<input
+			<Input
 				accept="*/*"
 				aria-label="Yönetilen çalışma dosyası"
 				className="sr-only"
@@ -313,6 +349,9 @@ export function VersionProductionEvidencePanel({
 		fingerprint: string;
 		idempotencyKey: string;
 	} | null>(null);
+	const saveEvidenceMutation = useMutation(
+		orpc.assetVersions.saveManualImportEvidence.mutationOptions(mutationMeta)
+	);
 	const [activeAction, setActiveAction] = useState<
 		"evidence" | "snapshot" | null
 	>(null);
@@ -352,7 +391,7 @@ export function VersionProductionEvidencePanel({
 		setErrorMessage(null);
 		setStatusMessage(null);
 		try {
-			await client.assetVersions.saveManualImportEvidence({
+			await saveEvidenceMutation.mutateAsync({
 				...input,
 				assetRecordId,
 				projectId,
@@ -372,8 +411,9 @@ export function VersionProductionEvidencePanel({
 		if (activeAction) {
 			return;
 		}
-		if (file.size === 0 || file.size > maxSnapshotBytes) {
-			setErrorMessage("Çalışma dosyası boş olamaz ve 100 MB sınırını aşamaz.");
+		const selectionError = managedSnapshotFileSchema.safeParse(file).error;
+		if (selectionError) {
+			setErrorMessage(selectionError.issues[0]?.message ?? null);
 			return;
 		}
 		const fingerprint = [
@@ -391,6 +431,7 @@ export function VersionProductionEvidencePanel({
 		setErrorMessage(null);
 		setStatusMessage(null);
 		try {
+			// conventions-exception: raw-fetch Managed Snapshot files stream as raw bytes to and from the verifying Hono snapshot routes; the RPC link sends buffered JSON or multipart.
 			const response = await fetch(
 				`${serverUrl}/api/projects/${encodeURIComponent(projectId)}/asset-versions/${encodeURIComponent(versionId)}/managed-snapshots`,
 				{

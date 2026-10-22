@@ -1,13 +1,14 @@
 import type { ImportInboxEntry } from "@sprite-anvil/api/import-inbox";
-import {
-	importInboxEntriesSchema,
-	importInboxEntrySchema,
-} from "@sprite-anvil/api/import-inbox";
+import { importInboxEntrySchema } from "@sprite-anvil/api/import-inbox";
 import { Button } from "@sprite-anvil/ui/components/button";
+import { Input } from "@sprite-anvil/ui/components/input";
+import { Label } from "@sprite-anvil/ui/components/label";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { type ChangeEvent, useRef, useState } from "react";
 import { TaskWorkspace } from "@/components/task-workspace";
+import { buildErrorNotification } from "@/utils/error-notification";
+import { orpc } from "@/utils/orpc";
 import {
 	importInboxFileUrl,
 	importInboxUrl,
@@ -49,31 +50,8 @@ class ImportInboxUploadError extends Error {
 	}
 }
 
-class ImportInboxReadError extends Error {
-	readonly supportReference?: string;
-
-	constructor(message: string, supportReference?: string) {
-		super(message);
-		this.supportReference = supportReference;
-	}
-}
-
 const uncertainUploadMessage =
 	"Yükleme sonucu doğrulanamadı. Gelen Kutusunu yenileyip güncel durumu kontrol edin.";
-
-async function readEntries(projectId: string) {
-	const response = await fetch(importInboxUrl(projectId), {
-		credentials: "include",
-	});
-	if (!response.ok) {
-		const errorBody: unknown = await response.json().catch(() => null);
-		throw new ImportInboxReadError(
-			"İçe Aktarma Gelen Kutusu açılamadı.",
-			readSupportReference(errorBody)
-		);
-	}
-	return importInboxEntriesSchema.parse(await response.json());
-}
 
 function formatContentLength(contentLength: number) {
 	if (contentLength === 0) {
@@ -130,11 +108,10 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 		null
 	);
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
-	const queryKey = ["import-inbox", projectId] as const;
-	const entriesQuery = useQuery({
-		queryKey,
-		queryFn: () => readEntries(projectId),
+	const entriesQueryOptions = orpc.imports.listEntries.queryOptions({
+		input: { projectId },
 	});
+	const entriesQuery = useQuery(entriesQueryOptions);
 
 	function selectFiles(event: ChangeEvent<HTMLInputElement>) {
 		const files = Array.from(event.currentTarget.files ?? []);
@@ -151,6 +128,7 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 	}
 
 	async function uploadFile(file: File, entryId: string) {
+		// conventions-exception: raw-fetch Import Inbox files stream the raw file body with size, name and idempotency headers to the verifying Hono upload route; the RPC link sends buffered JSON or multipart.
 		const response = await fetch(importInboxUrl(projectId), {
 			method: "POST",
 			credentials: "include",
@@ -236,10 +214,14 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 				result.ok ? [] : [result]
 			);
 			const failures = uploadFailures.map(
-				({ file, message, supportReference }) => ({
-					file,
-					message,
-					...(supportReference ? { supportReference } : {}),
+				({
+					file: failedFile,
+					message: failureMessage,
+					supportReference: failureReference,
+				}) => ({
+					file: failedFile,
+					message: failureMessage,
+					...(failureReference ? { supportReference: failureReference } : {}),
 				})
 			);
 			const retryableFiles = uploadFailures
@@ -252,7 +234,9 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 			setSelectedFiles(retryableFiles);
 			setUploadErrors(failures);
 			if (savedCount > 0 || hasUnknownOutcome) {
-				await queryClient.invalidateQueries({ queryKey });
+				await queryClient.invalidateQueries({
+					queryKey: entriesQueryOptions.queryKey,
+				});
 			}
 			if (savedCount > 0) {
 				setStatusMessage(
@@ -266,6 +250,10 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 			setIsUploading(false);
 		}
 	}
+
+	const supportReference = entriesQuery.isError
+		? buildErrorNotification(entriesQuery.error, "query").supportReference
+		: undefined;
 
 	return (
 		<main className="mx-auto w-full max-w-3xl space-y-8 px-4 py-8">
@@ -319,15 +307,15 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 										</p>
 									</div>
 									<div className="space-y-2">
-										<label
+										<Label
 											className="font-medium text-sm"
 											htmlFor="import-inbox-files"
 										>
 											Dosyalar
-										</label>
-										<input
+										</Label>
+										<Input
 											aria-describedby="import-inbox-file-help"
-											className="block min-h-11 w-full rounded-md border bg-background px-3 py-2 text-sm file:mr-3 file:min-h-9 file:cursor-pointer file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:font-medium"
+											className="block h-auto min-h-11 rounded-md bg-background px-3 py-2 text-sm file:mr-3 file:min-h-9 file:cursor-pointer file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:font-medium"
 											disabled={isUploading}
 											id="import-inbox-files"
 											multiple
@@ -428,12 +416,8 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 									{entriesQuery.isError ? (
 										<div className="space-y-2" role="alert">
 											<p>Gelen kutusu yüklenemedi.</p>
-											{entriesQuery.error instanceof ImportInboxReadError &&
-											entriesQuery.error.supportReference ? (
-												<p>
-													Destek Referansı:{" "}
-													{entriesQuery.error.supportReference}
-												</p>
+											{supportReference ? (
+												<p>Destek Referansı: {supportReference}</p>
 											) : null}
 											<Button
 												className="min-h-11"

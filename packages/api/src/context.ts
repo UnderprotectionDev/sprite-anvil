@@ -21,6 +21,7 @@ import type {
 import type { GameplayMetadataPackageTargetReader } from "./gameplay-metadata-package";
 import type { GenerationPackageStore } from "./generation-packages";
 import type { IconFamilyReviewStore } from "./icon-family-reviews";
+import type { ImportInboxStore } from "./import-inbox";
 import type { MarketingUsageReviewStore } from "./marketing-usage-reviews";
 import type { PortraitIdentityReviewStore } from "./portrait-identity-reviews";
 import type { ProjectAccessStore } from "./project-access-store";
@@ -29,6 +30,11 @@ import type { ProviderGenerationRecordStore } from "./provider-generation-record
 import type { ReferenceProductionStore } from "./reference-production";
 import type { RightsRecordStore } from "./rights-records";
 import type { SceneQaStore } from "./scene-qa";
+import type {
+	SourceMetadataMappingFinalizer,
+	SourceMetadataMappingProposalCreator,
+	SourceMetadataMappingProposalStore,
+} from "./source-metadata-mapping";
 import type { SpecializedProfileContractStore } from "./specialized-profile-contracts";
 import type {
 	TextureAtlasRegion,
@@ -60,13 +66,16 @@ export interface Context {
 		axes: ("x" | "y")[]
 	) => Promise<TextureEdgeCheck | null>;
 	collectionStore: CollectionStore;
+	createSourceMetadataMappingProposal?: SourceMetadataMappingProposalCreator;
 	db: Database;
 	dependencyRevalidationStore?: DependencyRevalidationStore;
 	directionalReviewStore?: DirectionalReviewStore;
 	familyReadinessStore?: FamilyReadinessStore;
+	finalizeSourceMetadataMapping?: SourceMetadataMappingFinalizer;
 	gameplayMetadataStore?: GameplayMetadataStore;
 	generationPackageStore?: GenerationPackageStore;
 	iconFamilyReviewStore?: IconFamilyReviewStore;
+	importInboxStore?: ImportInboxStore;
 	marketingUsageReviewStore?: MarketingUsageReviewStore;
 	portraitIdentityReviewStore?: PortraitIdentityReviewStore;
 	projectAccess: ProjectAccessStore;
@@ -85,6 +94,7 @@ export interface Context {
 	rightsRecordStore?: RightsRecordStore;
 	sceneQaStore?: SceneQaStore;
 	session: Session | null;
+	sourceMetadataMappingProposalStore?: SourceMetadataMappingProposalStore;
 	specializedProfileContractStore?: SpecializedProfileContractStore;
 	textureRepetitionReviewStore?: TextureRepetitionReviewStore;
 	tilesetAdjacencyReviewStore?: TilesetAdjacencyReviewStore;

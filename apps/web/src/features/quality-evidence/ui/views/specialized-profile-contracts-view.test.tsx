@@ -42,11 +42,6 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
 });
 
 vi.mock("@/utils/orpc", () => ({
-	client: {
-		specializedProfileContracts: {
-			activate: (input: unknown) => fakeApi.activate(input),
-		},
-	},
 	orpc: {
 		projects: {
 			get: {
@@ -57,6 +52,12 @@ vi.mock("@/utils/orpc", () => ({
 			},
 		},
 		specializedProfileContracts: {
+			activate: {
+				mutationOptions: (options?: object) => ({
+					...options,
+					mutationFn: (input: unknown) => fakeApi.activate(input),
+				}),
+			},
 			list: {
 				queryOptions: ({ input }: { input: Record<string, unknown> }) => ({
 					queryKey: ["specialized-profile-contracts", input],

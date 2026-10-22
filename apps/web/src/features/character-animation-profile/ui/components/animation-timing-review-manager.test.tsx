@@ -21,24 +21,16 @@ const mocks = vi.hoisted(() => ({
 	metadata: vi.fn(),
 	versionsSeen: [] as unknown[],
 }));
-vi.mock("@/utils/orpc", () => ({
-	client: { animationTimingReviews: { save: mocks.save } },
-	orpc: {
+vi.mock("@/utils/orpc", async () => {
+	const { createTanstackQueryUtils } = await import("@orpc/tanstack-query");
+	const client = {
+		animationTimingReviews: { save: mocks.save, list: mocks.list },
 		gameplayMetadata: {
-			list: {
-				queryOptions: ({ input }: { input: Record<string, string> }) => ({
-					queryKey: ["gameplay-metadata", input],
-					queryFn: () => mocks.metadata(input),
-				}),
-			},
+			list: (input: Record<string, string>) => mocks.metadata(input),
 		},
-		animationTimingReviews: {
-			list: {
-				queryOptions: () => ({ queryKey: ["reviews"], queryFn: mocks.list }),
-			},
-		},
-	},
-}));
+	};
+	return { client, orpc: createTanstackQueryUtils(client as never) };
+});
 vi.mock("./animation-timing-review-editor", () => ({
 	AnimationTimingReviewEditor: ({
 		onSave,

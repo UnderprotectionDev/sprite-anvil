@@ -2,7 +2,9 @@
 
 import "@testing-library/jest-dom/vitest";
 import type {
+	ChangeFacetInput,
 	DependencyCatalog,
+	DependencyLinkInput,
 	DerivativeReReviewInput,
 } from "@sprite-anvil/api/dependency-revalidation";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -14,6 +16,7 @@ import {
 	waitFor,
 	within,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { DependencyRevalidationManager } from "./dependency-revalidation-manager";
 
@@ -33,25 +36,19 @@ const transport = vi.hoisted(() => ({
 	failRead: false,
 	failWrite: false,
 	lastReview: null as DerivativeReReviewInput | null,
+	lastLink: null as DependencyLinkInput | null,
+	lastDetermine: null as ChangeFacetInput | null,
 }));
-vi.mock("@/utils/orpc", () => ({
-	orpc: {
+vi.mock("@/utils/orpc", async () => {
+	const { createTanstackQueryUtils } = await import("@orpc/tanstack-query");
+	const client = {
 		dependencyRevalidation: {
-			list: {
-				queryOptions: () => ({
-					queryKey: ["dependency-revalidation"],
-					queryFn: () => {
-						if (transport.failRead) {
-							return Promise.reject(new Error("Read unavailable"));
-						}
-						return Promise.resolve(structuredClone(transport.catalog));
-					},
-				}),
+			list: () => {
+				if (transport.failRead) {
+					return Promise.reject(new Error("Read unavailable"));
+				}
+				return Promise.resolve(structuredClone(transport.catalog));
 			},
-		},
-	},
-	client: {
-		dependencyRevalidation: {
 			reReview: (input: DerivativeReReviewInput) => {
 				transport.lastReview = input;
 				if (transport.failWrite) {
@@ -68,11 +65,23 @@ vi.mock("@/utils/orpc", () => ({
 				}
 				return Promise.resolve(review);
 			},
+			createLink: (input: DependencyLinkInput) => {
+				transport.lastLink = input;
+				if (transport.failWrite) {
+					return Promise.reject(new Error("Write failed"));
+				}
+				return Promise.resolve({
+					...input,
+					id: "link-1",
+					createdAt: "2026-10-02T11:00:00.000Z",
+				});
+			},
 			determine: (input: {
 				projectId: string;
 				source: { kind: "canonical_design"; id: string };
 				facets: string[];
 			}) => {
+				transport.lastDetermine = input as ChangeFacetInput;
 				if (transport.failWrite) {
 					return Promise.reject(new Error("Write failed"));
 				}
@@ -98,8 +107,9 @@ vi.mock("@/utils/orpc", () => ({
 				return Promise.resolve(result);
 			},
 		},
-	},
-}));
+	};
+	return { client, orpc: createTanstackQueryUtils(client as never) };
+});
 
 afterEach(() => {
 	cleanup();
@@ -114,6 +124,8 @@ afterEach(() => {
 	transport.failRead = false;
 	transport.failWrite = false;
 	transport.lastReview = null;
+	transport.lastLink = null;
+	transport.lastDetermine = null;
 });
 
 function openManager() {
@@ -157,7 +169,7 @@ test("user confirms a palette Change Facet and sees persisted Revalidation Requi
 		target: { value: "base-version" },
 	});
 	const changeGroup = screen.getByRole("group", { name: "Değişen özellikler" });
-	fireEvent.click(within(changeGroup).getByLabelText("Palet"));
+	fireEvent.click(within(changeGroup).getByRole("checkbox", { name: "Palet" }));
 	fireEvent.click(
 		screen.getByRole("button", { name: "Değişiklik Etkisini Belirle" })
 	);
@@ -194,7 +206,7 @@ test("a failed write requires a persisted status check before another mutation",
 		target: { value: "base-version" },
 	});
 	const changeGroup = screen.getByRole("group", { name: "Değişen özellikler" });
-	fireEvent.click(within(changeGroup).getByLabelText("Palet"));
+	fireEvent.click(within(changeGroup).getByRole("checkbox", { name: "Palet" }));
 	fireEvent.click(
 		screen.getByRole("button", { name: "Değişiklik Etkisini Belirle" })
 	);
@@ -266,9 +278,10 @@ async function openAffectedDerivative() {
 		target: { value: "base-version" },
 	});
 	fireEvent.click(
-		within(
-			screen.getByRole("group", { name: "Değişen özellikler" })
-		).getByLabelText("Palet")
+		within(screen.getByRole("group", { name: "Değişen özellikler" })).getByRole(
+			"checkbox",
+			{ name: "Palet" }
+		)
 	);
 	fireEvent.click(
 		screen.getByRole("button", { name: "Değişiklik Etkisini Belirle" })
@@ -374,4 +387,170 @@ test("missing current context or family Canonical Design prevents re-review", as
 	expect(
 		screen.getByRole("button", { name: "İçerik Düzeltmesi Gerekli" })
 	).toBeDisabled();
+});
+
+test("a Dependency Link saves the exact source, Derivative target and selected facets", async () => {
+	const user = userEvent.setup();
+	openManager();
+	const save = await screen.findByRole("button", {
+		name: "Bağımlılık Bağlantısını Kaydet",
+	});
+	await waitFor(() =>
+		expect(screen.getByLabelText("Bağımlılık kaynağı")).toBeEnabled()
+	);
+	expect(save).toBeDisabled();
+	await user.selectOptions(
+		screen.getByLabelText("Bağımlılık kaynağı"),
+		"base-version"
+	);
+	expect(save).toBeDisabled();
+	await user.selectOptions(
+		screen.getByLabelText("Türetilmiş Varlık Sürümü"),
+		"east-version"
+	);
+	expect(save).toBeEnabled();
+	const linkGroup = screen.getByRole("group", { name: "Bağımlı özellikler" });
+	const identity = within(linkGroup).getByRole("checkbox", { name: "Kimlik" });
+	await user.click(identity);
+	expect(identity).toBeChecked();
+	await user.type(
+		within(linkGroup).getByLabelText("Diğer özellik"),
+		"  pelerin  "
+	);
+	await user.click(save);
+	await screen.findByText("Bağımlılık Bağlantısı kaydedildi.");
+	expect(transport.lastLink).toEqual({
+		projectId: "project-1",
+		source: { kind: "asset_version", id: "base-version" },
+		targetAssetVersionId: "east-version",
+		facets: ["identity", "pelerin"],
+	});
+});
+
+test("changing the Dependency Link source kind clears the chosen source", async () => {
+	const user = userEvent.setup();
+	transport.catalog.contextRevisions = [
+		{ id: "context-1", revisionNumber: 2, isActive: true },
+	];
+	openManager();
+	await waitFor(() =>
+		expect(screen.getByLabelText("Bağımlılık kaynağı")).toBeEnabled()
+	);
+	await user.selectOptions(
+		screen.getByLabelText("Bağımlılık kaynağı"),
+		"base-version"
+	);
+	await user.selectOptions(
+		screen.getByLabelText("Bağımlılık kaynak türü"),
+		"context_revision"
+	);
+	expect(screen.getByLabelText("Bağımlılık kaynağı")).toHaveValue("");
+	await user.selectOptions(
+		screen.getByLabelText("Bağımlılık kaynağı"),
+		"context-1"
+	);
+	await user.selectOptions(
+		screen.getByLabelText("Türetilmiş Varlık Sürümü"),
+		"east-version"
+	);
+	await user.click(
+		screen.getByRole("button", { name: "Bağımlılık Bağlantısını Kaydet" })
+	);
+	await screen.findByText("Bağımlılık Bağlantısı kaydedildi.");
+	expect(transport.lastLink).toEqual({
+		projectId: "project-1",
+		source: { kind: "context_revision", id: "context-1" },
+		targetAssetVersionId: "east-version",
+		facets: [],
+	});
+});
+
+test("a Change Facet needs a source and at least one non-blank facet", async () => {
+	const user = userEvent.setup();
+	openManager();
+	await waitFor(() =>
+		expect(screen.getByLabelText("Değişen kaynak")).toBeEnabled()
+	);
+	const determine = screen.getByRole("button", {
+		name: "Değişiklik Etkisini Belirle",
+	});
+	await user.selectOptions(
+		screen.getByLabelText("Değişen kaynak"),
+		"base-version"
+	);
+	expect(determine).toBeDisabled();
+	const changeGroup = screen.getByRole("group", { name: "Değişen özellikler" });
+	const other = within(changeGroup).getByLabelText("Diğer özellik");
+	await user.type(other, "   ");
+	expect(determine).toBeDisabled();
+	await user.type(other, "kask");
+	expect(determine).toBeEnabled();
+	await user.click(determine);
+	await screen.findByText("Değişiklik etkisi kaydedildi.");
+	expect(transport.lastDetermine).toEqual({
+		projectId: "project-1",
+		source: { kind: "canonical_design", id: "base-version" },
+		facets: ["kask"],
+	});
+});
+
+test("an uncertain write locks the facet checkboxes until the status check", async () => {
+	const user = userEvent.setup();
+	transport.failWrite = true;
+	openManager();
+	await waitFor(() =>
+		expect(screen.getByLabelText("Değişen kaynak")).toBeEnabled()
+	);
+	await user.selectOptions(
+		screen.getByLabelText("Değişen kaynak"),
+		"base-version"
+	);
+	const changeGroup = screen.getByRole("group", { name: "Değişen özellikler" });
+	await user.click(
+		within(changeGroup).getByRole("checkbox", { name: "Palet" })
+	);
+	await user.click(
+		screen.getByRole("button", { name: "Değişiklik Etkisini Belirle" })
+	);
+	await screen.findByText(
+		"İşlem tamamlanamadı veya sonucu doğrulanamadı. Yeniden kaydetmeden önce durumu kontrol edin."
+	);
+	const theme = within(changeGroup).getByRole("checkbox", { name: "Tema" });
+	await user.click(theme);
+	expect(theme).not.toBeChecked();
+});
+
+test("re-review stays unavailable for a blank rationale and saves a trimmed candidate decision", async () => {
+	const user = userEvent.setup();
+	await openAffectedDerivative();
+	await user.selectOptions(
+		screen.getByLabelText("İncelenen Bağlam Sürümü"),
+		"context-1"
+	);
+	await user.selectOptions(
+		screen.getByLabelText("İncelenen Ana Tasarım"),
+		"base-version"
+	);
+	const rationale = screen.getByLabelText("Yeniden inceleme gerekçesi");
+	await user.type(rationale, "   ");
+	expect(
+		screen.getByRole("button", { name: "Güncel Uygunluğu Onayla" })
+	).toBeDisabled();
+	expect(
+		screen.getByRole("button", { name: "İçerik Düzeltmesi Gerekli" })
+	).toBeDisabled();
+	await user.type(rationale, "Kask silueti bozuk.  ");
+	await user.click(
+		screen.getByRole("button", { name: "İçerik Düzeltmesi Gerekli" })
+	);
+	await screen.findByText(correctionSavedPattern);
+	expect(transport.lastReview).toEqual({
+		projectId: "project-1",
+		assetVersionId: "east-version",
+		contextRevisionId: "context-1",
+		canonicalDesignVersionId: "base-version",
+		changeImpactIds: ["change-1"],
+		decision: "candidate",
+		rationale: "Kask silueti bozuk.",
+	});
 });

@@ -9,13 +9,18 @@ import type {
 	ProjectContext,
 } from "@sprite-anvil/api/project-context";
 import { Button } from "@sprite-anvil/ui/components/button";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
 import { TaskWorkspace } from "@/components/task-workspace";
 import { ScopeRegistryPanel } from "@/features/visual-worlds/ui/components/context-scope-registry";
-import { client, orpc } from "@/utils/orpc";
+import { orpc } from "@/utils/orpc";
 import {
 	type EvidenceKind,
 	operationLabel,
@@ -56,10 +61,11 @@ export function ContextWorkspace({
 	return (
 		<>
 			<div className="context-toolbar">
-				<label className="project-select">
+				<Label className="project-select leading-[inherit]">
 					<span>Proje</span>
-					<select
+					<NativeSelect
 						aria-label="Proje"
+						className="w-full"
 						onChange={(event) => {
 							const selected = projects.find(
 								(candidate) => candidate.id === event.target.value
@@ -71,12 +77,12 @@ export function ContextWorkspace({
 						value={project.id}
 					>
 						{projects.map((item) => (
-							<option key={item.id} value={item.id}>
+							<NativeSelectOption key={item.id} value={item.id}>
 								{item.name}
-							</option>
+							</NativeSelectOption>
 						))}
-					</select>
-				</label>
+					</NativeSelect>
+				</Label>
 				<Button className="quiet-button" onClick={onNewProject} type="button">
 					<Plus aria-hidden="true" size={16} />
 					Yeni proje
@@ -222,35 +228,31 @@ function ProposalRecord({
 }) {
 	const queryClient = useQueryClient();
 	const [review, setReview] = useState<ContextProposalReview | null>(null);
-	const reviewProposal = useMutation({
-		meta: { errorOperationKind: "query" },
-		mutationFn: () =>
-			client.contextProposals.review({
-				projectId: project.id,
-				proposalId: proposal.id,
-			}),
-		onSuccess: setReview,
-	});
-	const activateProposal = useMutation({
-		mutationFn: (currentReview: ContextProposalReview) =>
-			client.contextProposals.activate({
-				projectId: project.id,
-				proposalId: proposal.id,
-				expectedCurrentRevisionId: currentReview.currentRevisionId,
-			}),
-		onSuccess: () => {
-			toast.success("Etkin Bağlam Sürümü oluşturuldu.");
-			void queryClient.invalidateQueries({
-				queryKey: orpc.projectContexts.list.queryKey(),
-			});
-			void queryClient.invalidateQueries({
-				queryKey: orpc.contextProposals.list.queryKey({
-					input: { projectId: project.id },
-				}),
-			});
-			reviewProposal.mutate();
-		},
-	});
+	const reviewProposal = useMutation(
+		orpc.contextProposals.review.mutationOptions({
+			meta: { errorOperationKind: "query" },
+			onSuccess: setReview,
+		})
+	);
+	const activateProposal = useMutation(
+		orpc.contextProposals.activate.mutationOptions({
+			onSuccess: () => {
+				toast.success("Etkin Bağlam Sürümü oluşturuldu.");
+				void queryClient.invalidateQueries({
+					queryKey: orpc.projectContexts.list.queryKey(),
+				});
+				void queryClient.invalidateQueries({
+					queryKey: orpc.contextProposals.list.queryKey({
+						input: { projectId: project.id },
+					}),
+				});
+				reviewProposal.mutate({
+					projectId: project.id,
+					proposalId: proposal.id,
+				});
+			},
+		})
+	);
 	const source =
 		proposal.source.kind === "structured_control"
 			? `Yapılandırılmış kontrol · ${proposal.source.controlId}`
@@ -308,7 +310,12 @@ function ProposalRecord({
 				<Button
 					className="quiet-button"
 					disabled={reviewProposal.isPending}
-					onClick={() => reviewProposal.mutate()}
+					onClick={() =>
+						reviewProposal.mutate({
+							projectId: project.id,
+							proposalId: proposal.id,
+						})
+					}
 					type="button"
 				>
 					{reviewButtonLabel(reviewProposal.isPending, Boolean(review))}
@@ -318,7 +325,13 @@ function ProposalRecord({
 						currentRevisionId={project.currentContextRevision.id}
 						isActivating={activateProposal.isPending}
 						isCurrent={isCurrent}
-						onActivate={() => activateProposal.mutate(review)}
+						onActivate={() =>
+							activateProposal.mutate({
+								projectId: project.id,
+								proposalId: proposal.id,
+								expectedCurrentRevisionId: review.currentRevisionId,
+							})
+						}
 						projectName={project.name}
 						review={review}
 						scopeCatalog={scopeCatalog}

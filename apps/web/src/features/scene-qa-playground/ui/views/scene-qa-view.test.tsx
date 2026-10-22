@@ -6,9 +6,14 @@ import { afterEach, expect, test, vi } from "vitest";
 import { SceneQaView } from "./scene-qa-view";
 
 vi.mock("@/utils/orpc", () => ({
-	client: {},
 	orpc: {
 		sceneQa: {
+			save: {
+				mutationOptions: (options?: object) => ({
+					...options,
+					mutationFn: () => Promise.reject(new Error("unexpected write")),
+				}),
+			},
 			list: {
 				queryOptions: () => ({ queryKey: ["scenes"], queryFn: async () => [] }),
 			},

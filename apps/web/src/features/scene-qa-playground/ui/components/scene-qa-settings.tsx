@@ -1,6 +1,12 @@
 import type { SceneQaSetup } from "@sprite-anvil/api/scene-qa";
+import { Checkbox } from "@sprite-anvil/ui/components/checkbox";
+import { FieldLegend } from "@sprite-anvil/ui/components/field";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
 import { SceneNumberField } from "./scene-qa-fields";
 export function SceneQaSettings({
 	setup,
@@ -16,7 +22,7 @@ export function SceneQaSettings({
 	return (
 		<>
 			{" "}
-			<legend className="font-medium text-lg">Scene setup</legend>
+			<FieldLegend className="font-medium text-lg">Scene setup</FieldLegend>
 			<div>
 				<Label htmlFor="scene-name">Scene name</Label>
 				<Input
@@ -50,8 +56,8 @@ export function SceneQaSettings({
 			<div className="grid gap-3 sm:grid-cols-4">
 				<div>
 					<Label htmlFor="scene-camera">Camera</Label>
-					<select
-						className="min-h-11 w-full rounded border bg-background px-3"
+					<NativeSelect
+						className="min-h-11 w-full"
 						id="scene-camera"
 						onChange={(e) => {
 							const camera = e.target.value;
@@ -65,15 +71,17 @@ export function SceneQaSettings({
 						}}
 						value={setup.camera}
 					>
-						<option value="fixed">Fixed</option>
-						<option value="follow">Follow character</option>
-						<option value="pan">Pan</option>
-					</select>
+						<NativeSelectOption value="fixed">Fixed</NativeSelectOption>
+						<NativeSelectOption value="follow">
+							Follow character
+						</NativeSelectOption>
+						<NativeSelectOption value="pan">Pan</NativeSelectOption>
+					</NativeSelect>
 				</div>
 				<div>
 					<Label htmlFor="scene-contrast">Contrast background</Label>
-					<select
-						className="min-h-11 w-full rounded border bg-background px-3"
+					<NativeSelect
+						className="min-h-11 w-full"
 						id="scene-contrast"
 						onChange={(e) =>
 							onChange({
@@ -83,9 +91,9 @@ export function SceneQaSettings({
 						}
 						value={setup.contrast}
 					>
-						<option value="dark">Dark</option>
-						<option value="light">Light</option>
-					</select>
+						<NativeSelectOption value="dark">Dark</NativeSelectOption>
+						<NativeSelectOption value="light">Light</NativeSelectOption>
+					</NativeSelect>
 				</div>
 				{(["x", "y"] as const).map((axis) => (
 					<SceneNumberField
@@ -102,24 +110,26 @@ export function SceneQaSettings({
 				))}
 			</div>
 			<div className="flex flex-wrap gap-4">
-				<label className="flex min-h-11 items-center gap-2">
-					<input
+				<Label className="min-h-11 text-sm" htmlFor="scene-y-sort">
+					<Checkbox
 						checked={setup.ySort}
-						onChange={(e) => onChange({ ...setup, ySort: e.target.checked })}
-						type="checkbox"
+						id="scene-y-sort"
+						onCheckedChange={(checked) =>
+							onChange({ ...setup, ySort: checked })
+						}
 					/>
 					Y-sort within layers
-				</label>
-				<label className="flex min-h-11 items-center gap-2">
-					<input
+				</Label>
+				<Label className="min-h-11 text-sm" htmlFor="scene-show-overlays">
+					<Checkbox
 						checked={setup.showOverlays}
-						onChange={(e) =>
-							onChange({ ...setup, showOverlays: e.target.checked })
+						id="scene-show-overlays"
+						onCheckedChange={(checked) =>
+							onChange({ ...setup, showOverlays: checked })
 						}
-						type="checkbox"
 					/>
 					Show metadata guides
-				</label>
+				</Label>
 			</div>
 		</>
 	);

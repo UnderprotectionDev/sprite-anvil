@@ -15,6 +15,8 @@ import { RightsRecordPanel } from "./rights-record-panel";
 const projectId = "00c1bc3a-8c39-436a-892e-0c3a6d37aed2";
 const assetRecordId = "a7301990-3d79-49c8-887a-c1fa9a468f85";
 const referenceId = "fcd2bb54-60fd-4555-bc6f-a30a1c2e4dd4";
+const evidenceFieldName = /Hak kaydını destekleyen kanıt/;
+const selectedFileText = /Seçilen dosya/;
 const restrictionsFieldName = /Bilinen kısıtlar/;
 
 const fakeApi = vi.hoisted(() => ({
@@ -36,13 +38,14 @@ function rightsRecordQueryKey(input: {
 }
 
 vi.mock("@/utils/orpc", () => ({
-	client: {
-		rightsRecords: {
-			create: (input: RightsRecordCreateInput) => fakeApi.create(input),
-		},
-	},
 	orpc: {
 		rightsRecords: {
+			create: {
+				mutationOptions: (options: Record<string, unknown>) => ({
+					...options,
+					mutationFn: (input: RightsRecordCreateInput) => fakeApi.create(input),
+				}),
+			},
 			list: {
 				queryKey: ({
 					input,
@@ -575,4 +578,83 @@ test("removing a carried evidence file only changes the new revision", async () 
 	);
 	await screen.findByText("Revizyon 2");
 	expect(screen.getAllByRole("link", { name: "license.pdf" })).toHaveLength(1);
+});
+
+test("validates the evidence field on blur and clears its message when edited", async () => {
+	const user = userEvent.setup();
+	renderPanel();
+	await user.selectOptions(
+		screen.getByLabelText("Beyan edilen hak durumu"),
+		"documented"
+	);
+	const evidence = screen.getByLabelText(evidenceFieldName);
+	expect(evidence).toBeRequired();
+	expect(evidence).toHaveAttribute("aria-invalid", "false");
+
+	await user.click(evidence);
+	await user.tab();
+
+	const alert = await screen.findByRole("alert");
+	expect(alert).toHaveTextContent(
+		"Belgelendi durumunda destekleyici kanıt gerekir."
+	);
+	expect(evidence).toHaveAttribute("aria-invalid", "true");
+	expect(evidence).toHaveAccessibleDescription(
+		"Belgelendi durumunda destekleyici kanıt gerekir."
+	);
+
+	await user.type(evidence, "License");
+	expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+	expect(evidence).toHaveAttribute("aria-invalid", "false");
+});
+
+test("validates the restrictions field on blur and clears every message when the state changes", async () => {
+	const user = userEvent.setup();
+	renderPanel();
+	await user.selectOptions(
+		screen.getByLabelText("Beyan edilen hak durumu"),
+		"restricted"
+	);
+
+	await user.click(screen.getByLabelText(restrictionsFieldName));
+	await user.tab();
+	expect(await screen.findByRole("alert")).toHaveTextContent(
+		"Kısıtlı durumunda bilinen en az bir kısıt gerekir."
+	);
+
+	await user.selectOptions(
+		screen.getByLabelText("Beyan edilen hak durumu"),
+		"unknown"
+	);
+	expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
+test("a supporting evidence file satisfies the Documented requirement", async () => {
+	const user = userEvent.setup();
+	renderPanel();
+	await user.selectOptions(
+		screen.getByLabelText("Beyan edilen hak durumu"),
+		"documented"
+	);
+	await user.upload(
+		screen.getByLabelText("Kanıt dosyası ekle"),
+		new File(["license"], "license.pdf", { type: "application/pdf" })
+	);
+
+	expect(screen.getByLabelText(evidenceFieldName)).not.toBeRequired();
+});
+
+test("rejects an empty evidence file with its message", async () => {
+	const user = userEvent.setup();
+	renderPanel();
+
+	await user.upload(
+		screen.getByLabelText("Kanıt dosyası ekle"),
+		new File([], "empty.pdf", { type: "application/pdf" })
+	);
+
+	expect(await screen.findByRole("alert")).toHaveTextContent(
+		"Kanıt dosyası boş olamaz."
+	);
+	expect(screen.queryByText(selectedFileText)).not.toBeInTheDocument();
 });

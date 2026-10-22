@@ -15,25 +15,25 @@ import { useState } from "react";
 import { afterEach, expect, test, vi } from "vitest";
 import { VfxSynchronizationManager } from "./vfx-synchronization-manager";
 
-const mocks = vi.hoisted(() => ({ save: vi.fn(), list: vi.fn() }));
-vi.mock("@/utils/orpc", () => ({
-	client: { vfxSynchronization: { save: mocks.save } },
-	orpc: {
-		vfxSynchronization: {
-			list: {
-				queryOptions: () => ({ queryKey: ["reviews"], queryFn: mocks.list }),
-			},
-		},
-		familyReadiness: {
-			list: {
-				queryOptions: () => ({
-					queryKey: ["readiness"],
-					queryFn: async () => ({ items: [] }),
-				}),
-			},
-		},
-	},
+const mocks = vi.hoisted(() => ({
+	save: vi.fn(),
+	list: vi.fn(),
+	exportEvidence: vi.fn(),
+	readEvidence: vi.fn(),
 }));
+vi.mock("@/utils/orpc", async () => {
+	const { createTanstackQueryUtils } = await import("@orpc/tanstack-query");
+	const client = {
+		vfxSynchronization: {
+			save: mocks.save,
+			list: mocks.list,
+			exportEvidence: mocks.exportEvidence,
+			readEvidence: mocks.readEvidence,
+		},
+		familyReadiness: { list: async () => ({ items: [] }) },
+	};
+	return { client, orpc: createTanstackQueryUtils(client as never) };
+});
 vi.mock("./vfx-synchronization-editor", () => ({
 	VfxSynchronizationEditor: ({
 		disabled,

@@ -20,9 +20,14 @@ import { PortraitIdentityReviewManager } from "./portrait-identity-review-manage
 
 const mocks = vi.hoisted(() => ({ list: vi.fn(), save: vi.fn() }));
 vi.mock("@/utils/orpc", () => ({
-	client: { portraitIdentityReviews: { save: mocks.save } },
 	orpc: {
 		portraitIdentityReviews: {
+			save: {
+				mutationOptions: (options?: object) => ({
+					...options,
+					mutationFn: (input: unknown) => mocks.save(input),
+				}),
+			},
 			list: {
 				queryOptions: () => ({
 					queryKey: ["portrait-reviews"],
@@ -274,4 +279,113 @@ test("keeps an unconfirmed write locked when readback still cannot find it", asy
 	);
 	expect(mocks.save).toHaveBeenCalledOnce();
 	expect(save).toBeDisabled();
+});
+
+test("adds and removes expressions and submits the edited item fields and observations", async () => {
+	let stored: PortraitIdentityReviewRecord[] = [];
+	mocks.list.mockImplementation(() => Promise.resolve(stored));
+	mocks.save.mockImplementation((input: PortraitIdentityReviewInput) => {
+		const record = makeSaved(input);
+		stored = [record];
+		return Promise.resolve(record);
+	});
+	mount();
+	await waitFor(() => expect(mocks.list).toHaveBeenCalled());
+	expect(
+		screen.getAllByText(
+			"İfade adı, kullanım ölçüsü ve kaynak sınırları içindeki kırpma gereklidir."
+		)
+	).toHaveLength(2);
+	fireEvent.click(screen.getByRole("button", { name: "İfade ekle" }));
+	expect(screen.getAllByLabelText("İfade adı")).toHaveLength(3);
+	fireEvent.click(screen.getAllByRole("button", { name: "İfadeyi kaldır" })[2]);
+	expect(screen.getAllByLabelText("İfade adı")).toHaveLength(2);
+	fireEvent.change(screen.getAllByLabelText("Kullanım amacı")[0], {
+		target: { value: "ui" },
+	});
+	fireEvent.change(screen.getAllByLabelText("Arka plan")[0], {
+		target: { value: "dark" },
+	});
+	fireEvent.change(screen.getAllByLabelText("Kullanım genişliği")[0], {
+		target: { value: "137" },
+	});
+	fireEvent.change(screen.getAllByLabelText("Kırpma X")[0], {
+		target: { value: "8" },
+	});
+	fireEvent.change(screen.getAllByLabelText("Kırpma genişliği")[0], {
+		target: { value: "592" },
+	});
+	fireEvent.change(screen.getByLabelText("Kimlik tutarlılığı"), {
+		target: { value: "passed" },
+	});
+	fireEvent.change(screen.getByLabelText("Kırpma ve yüz görünürlüğü"), {
+		target: { value: "failed" },
+	});
+	fill();
+	expect(
+		screen.queryByText(
+			"İfade adı, kullanım ölçüsü ve kaynak sınırları içindeki kırpma gereklidir."
+		)
+	).toBeNull();
+	const save = screen.getByRole("button", {
+		name: "Portre incelemesini kaydet",
+	});
+	await waitFor(() => expect(save).toBeEnabled());
+	fireEvent.click(save);
+	await screen.findByText("Portre incelemesi kaydedildi.");
+	expect(mocks.save).toHaveBeenCalledWith(
+		expect.objectContaining({
+			rationale: "Compared the face in dialogue.",
+			observations: {
+				identity: {
+					outcome: "passed",
+					notes: "Compared the face in dialogue.",
+				},
+				expression: {
+					outcome: "inconclusive",
+					notes: "Compared the face in dialogue.",
+				},
+				crop: { outcome: "failed", notes: "Compared the face in dialogue." },
+			},
+			items: [
+				expect.objectContaining({
+					assetVersionId: "neutral-version",
+					expression: "Neutral",
+					usagePurpose: "ui",
+					background: "dark",
+					crop: { x: 8, y: 0, width: 592, height: 800 },
+					targetSize: { width: 137, height: 160 },
+				}),
+				expect.objectContaining({
+					assetVersionId: "happy-version",
+					expression: "Happy",
+					usagePurpose: "dialogue",
+					background: "light",
+				}),
+			],
+		})
+	);
+});
+
+test("disables every review control while an uncertain write is unresolved", async () => {
+	mocks.list.mockResolvedValue([]);
+	mocks.save.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+	mount();
+	await waitFor(() => expect(mocks.list).toHaveBeenCalled());
+	fill();
+	const save = screen.getByRole("button", {
+		name: "Portre incelemesini kaydet",
+	});
+	await waitFor(() => expect(save).toBeEnabled());
+	fireEvent.click(save);
+	await screen.findByRole("button", { name: "Kaydı yeniden kontrol et" });
+	for (const control of [
+		...screen.getAllByLabelText("İfade adı"),
+		...screen.getAllByLabelText("Portre sürümü"),
+		screen.getByLabelText("Kimlik tutarlılığı"),
+		screen.getByLabelText("İnceleme gerekçesi"),
+	]) {
+		expect(control).toBeDisabled();
+	}
+	expect(screen.getByRole("button", { name: "İfade ekle" })).toBeDisabled();
 });

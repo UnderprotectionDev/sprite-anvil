@@ -46,13 +46,19 @@ const fakeApi = vi.hoisted(() => ({
 }));
 
 vi.mock("@/utils/orpc", () => ({
-	client: {
-		animationMetadataPackage: {
-			createPackage: (input: unknown) => fakeApi.createPackage(input),
-			readPackage: (input: unknown) => fakeApi.readPackage(input),
-		},
-	},
 	orpc: {
+		animationMetadataPackage: {
+			createPackage: {
+				mutationOptions: () => ({
+					mutationFn: (input: unknown) => fakeApi.createPackage(input),
+				}),
+			},
+			readPackage: {
+				mutationOptions: () => ({
+					mutationFn: (input: unknown) => fakeApi.readPackage(input),
+				}),
+			},
+		},
 		assetVersions: {
 			list: {
 				queryOptions: ({ input }: { input: Record<string, unknown> }) => ({

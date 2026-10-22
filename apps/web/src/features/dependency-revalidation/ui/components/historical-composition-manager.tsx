@@ -4,11 +4,20 @@ import type {
 } from "@sprite-anvil/api/asset-versions";
 import type { HistoricalCompositionInput } from "@sprite-anvil/api/historical-compositions";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQuery } from "@tanstack/react-query";
+import { Checkbox } from "@sprite-anvil/ui/components/checkbox";
+import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { useForm, useStore } from "@tanstack/react-form";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client, orpc } from "@/utils/orpc";
+import { orpc } from "@/utils/orpc";
+import { historicalCompositionFormSchema } from "../../schemas";
 
 interface Props {
 	canonicalDesigns: { assetVersionId: string }[];
@@ -45,40 +54,39 @@ const emptySelection: Selection = {
 function HistoricalChoices({
 	title,
 	options,
-	selected,
+	field,
 	disabled,
-	onChange,
 }: {
 	title: string;
 	options: { id: string; label: string }[];
-	selected: string[];
+	field: { handleChange: (ids: string[]) => void; state: { value: string[] } };
 	disabled: boolean;
-	onChange: (ids: string[]) => void;
 }) {
+	const selected = field.state.value;
 	return (
-		<fieldset className="space-y-2 rounded border p-3" disabled={disabled}>
-			<legend>{title}</legend>
+		<FieldSet className="space-y-2 rounded border p-3" disabled={disabled}>
+			<FieldLegend>{title}</FieldLegend>
 			{options.length === 0 ? (
 				<p>Seçilebilir kayıt yok; eksik kanıt raporda engel olarak görünür.</p>
 			) : (
 				options.map((option) => (
-					<label className="flex items-start gap-2" key={option.id}>
-						<input
+					<Label className="flex items-start gap-2" key={option.id}>
+						<Checkbox
 							checked={selected.includes(option.id)}
-							onChange={(event) =>
-								onChange(
-									event.target.checked
+							disabled={disabled}
+							onCheckedChange={(checked) =>
+								field.handleChange(
+									checked
 										? [...selected, option.id]
 										: selected.filter((id) => id !== option.id)
 								)
 							}
-							type="checkbox"
 						/>
 						<span>{option.label}</span>
-					</label>
+					</Label>
 				))
 			)}
-		</fieldset>
+		</FieldSet>
 	);
 }
 
@@ -103,7 +111,16 @@ export function HistoricalCompositionManager({
 			input: { projectId },
 		})
 	);
-	const [selection, setSelection] = useState<Selection>(emptySelection);
+	const queryClient = useQueryClient();
+	const pinMutation = useMutation(
+		orpc.dependencyRevalidation.pinHistoricalComposition.mutationOptions()
+	);
+	const form = useForm({
+		defaultValues: emptySelection,
+		onSubmit: ({ value }) => save(value),
+		validators: { onSubmit: historicalCompositionFormSchema },
+	});
+	const selection = useStore(form.store, (state) => state.values);
 	const [pending, setPending] = useState<HistoricalCompositionInput | null>(
 		null
 	);
@@ -213,12 +230,12 @@ export function HistoricalCompositionManager({
 			],
 		},
 	];
-	async function save() {
+	async function save(values: Selection) {
 		if (busy || loading) {
 			return;
 		}
 		const input = pending ?? {
-			...selection,
+			...values,
 			projectId,
 			idempotencyKey: crypto.randomUUID(),
 		};
@@ -226,11 +243,24 @@ export function HistoricalCompositionManager({
 		setBusy(true);
 		setMessage("");
 		try {
-			await client.dependencyRevalidation.pinHistoricalComposition(input);
+			await pinMutation.mutateAsync(input);
 			setPending(null);
-			const reread = await history.refetch();
+			let rereadFailed = false;
+			try {
+				await queryClient.invalidateQueries(
+					{
+						queryKey:
+							orpc.dependencyRevalidation.listHistoricalCompositions.queryKey({
+								input: { projectId },
+							}),
+					},
+					{ throwOnError: true }
+				);
+			} catch {
+				rereadFailed = true;
+			}
 			setMessage(
-				reread.isError
+				rereadFailed
 					? "Tarihsel seçim kaydedildi, ancak rapor yeniden okunamadı. Refresh historical selections ile tekrar okuyun."
 					: "Tarihsel seçim kaydedildi; güncel Yeniden Doğrulama Gerekli durumu değişmedi."
 			);
@@ -286,55 +316,55 @@ export function HistoricalCompositionManager({
 				className="space-y-3"
 				onSubmit={(event) => {
 					event.preventDefault();
-					save();
+					event.stopPropagation();
+					void form.handleSubmit();
 				}}
 			>
 				{selects.map((select) => (
-					<div className="space-y-1" key={select.field}>
-						<label htmlFor={`${identifier}-${select.field}`}>
-							{select.label}
-						</label>
-						<select
-							className="block w-full rounded border p-2"
-							disabled={disabled}
-							id={`${identifier}-${select.field}`}
-							onChange={(event) =>
-								setSelection({
-									...selection,
-									[select.field]: event.target.value,
-								})
-							}
-							required
-							value={selection[select.field]}
-						>
-							<option value="">Kesin sürüm seçin</option>
-							{select.choices.map((choice) => (
-								<option key={choice.id} value={choice.id}>
-									{choice.label}
-								</option>
-							))}
-						</select>
-					</div>
+					<form.Field key={select.field} name={select.field}>
+						{(field) => (
+							<div className="space-y-1">
+								<Label htmlFor={`${identifier}-${select.field}`}>
+									{select.label}
+								</Label>
+								<NativeSelect
+									className="block w-full"
+									disabled={disabled}
+									id={`${identifier}-${select.field}`}
+									onChange={(event) => field.handleChange(event.target.value)}
+									required
+									value={field.state.value}
+								>
+									<NativeSelectOption value="">
+										Kesin sürüm seçin
+									</NativeSelectOption>
+									{select.choices.map((choice) => (
+										<NativeSelectOption key={choice.id} value={choice.id}>
+											{choice.label}
+										</NativeSelectOption>
+									))}
+								</NativeSelect>
+							</div>
+						)}
+					</form.Field>
 				))}
 				{lists.map((list) => (
-					<HistoricalChoices
-						disabled={disabled}
-						key={list.field}
-						onChange={(ids) =>
-							setSelection({ ...selection, [list.field]: ids })
-						}
-						options={list.choices}
-						selected={selection[list.field]}
-						title={list.title}
-					/>
+					<form.Field key={list.field} name={list.field}>
+						{(field) => (
+							<HistoricalChoices
+								disabled={disabled}
+								field={field}
+								options={list.choices}
+								title={list.title}
+							/>
+						)}
+					</form.Field>
 				))}
 				<Button
 					disabled={
 						busy ||
 						loading ||
-						!selection.compositeVersionId ||
-						!selection.contextRevisionId ||
-						!selection.canonicalDesignVersionId
+						!historicalCompositionFormSchema.safeParse(selection).success
 					}
 					type="submit"
 				>

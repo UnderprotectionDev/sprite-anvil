@@ -1,5 +1,6 @@
 import type { SceneQaInput } from "@sprite-anvil/api/scene-qa";
 import { Label } from "@sprite-anvil/ui/components/label";
+import { Textarea } from "@sprite-anvil/ui/components/textarea";
 export const sceneQaObservationLabels = {
 	scale: "Scale and perspective",
 	layering: "Layering and Y-sort",
@@ -32,7 +33,7 @@ export function SceneQaObservations({
 						<Label htmlFor={`scene-observation-${key}`}>
 							{sceneQaObservationLabels[key]}
 						</Label>
-						<textarea
+						<Textarea
 							className="min-h-24 w-full rounded border bg-background p-3"
 							id={`scene-observation-${key}`}
 							maxLength={2000}

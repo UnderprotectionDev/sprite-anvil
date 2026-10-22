@@ -14,13 +14,18 @@ import { UiStateComparisonManager } from "./ui-state-comparison-manager";
 
 const mocks = vi.hoisted(() => ({ list: vi.fn(), save: vi.fn() }));
 vi.mock("@/utils/orpc", () => ({
-	client: { uiStateComparisons: { save: mocks.save } },
 	orpc: {
 		uiStateComparisons: {
 			list: {
+				queryKey: () => ["ui-state-comparisons"],
 				queryOptions: () => ({
 					queryKey: ["ui-state-comparisons"],
 					queryFn: mocks.list,
+				}),
+			},
+			save: {
+				mutationOptions: () => ({
+					mutationFn: (input: unknown) => mocks.save(input),
 				}),
 			},
 		},
@@ -163,4 +168,131 @@ test("an uncertain save retains the same operation for checking and retry", asyn
 	);
 	await waitFor(() => expect(mocks.save).toHaveBeenCalledTimes(2));
 	expect(mocks.save.mock.calls[1]?.[0]).toEqual(mocks.save.mock.calls[0]?.[0]);
+});
+test("submits the trimmed comparison input with every component state", async () => {
+	mocks.list.mockResolvedValue([]);
+	mocks.save.mockRejectedValue(new TypeError("Failed to fetch"));
+	mount();
+	await waitFor(() =>
+		expect(
+			screen.getByRole("button", { name: "Save comparison" })
+		).toBeEnabled()
+	);
+	fill();
+	fireEvent.change(screen.getByLabelText("Comparison name"), {
+		target: { value: "  Inventory controls  " },
+	});
+	expect(screen.getAllByLabelText("width")[0]).toHaveValue(64);
+	fireEvent.change(screen.getAllByLabelText("x")[0] as HTMLElement, {
+		target: { value: "2" },
+	});
+	fireEvent.change(screen.getAllByLabelText("width")[0] as HTMLElement, {
+		target: { value: "30" },
+	});
+	fireEvent.change(
+		screen.getAllByLabelText("Component kind")[1] as HTMLElement,
+		{
+			target: { value: "button" },
+		}
+	);
+	fireEvent.change(screen.getByLabelText("Comparison outcome"), {
+		target: { value: "consistent" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Save comparison" }));
+	await screen.findByText(
+		"Save result is uncertain. Check saved comparisons before retrying."
+	);
+	expect(mocks.save).toHaveBeenCalledTimes(1);
+	expect(mocks.save.mock.calls[0]?.[0]).toEqual({
+		id: expect.any(String),
+		projectId: "project",
+		assetFamilyId: "family",
+		contractRevisionId: "ui@1",
+		screenAssetVersionId: "screen",
+		name: "Inventory controls",
+		familyStyleNotes: "Outline is consistent.",
+		stateDistinctionNotes: "Hover is lighter.",
+		outcome: "consistent",
+		items: [
+			{
+				componentId: "inventory-button",
+				componentKind: "button",
+				state: "normal",
+				assetVersionId: "button",
+				unitVersionId: null,
+				region: { x: 2, y: 0, width: 30, height: 64 },
+			},
+			{
+				componentId: "inventory-button",
+				componentKind: "button",
+				state: "hover",
+				assetVersionId: "button",
+				unitVersionId: null,
+				region: { x: 0, y: 0, width: 64, height: 64 },
+			},
+		],
+	});
+	expect(screen.getByLabelText("Comparison name")).toBeDisabled();
+	expect(screen.getAllByLabelText("Component identity")[0]).toBeDisabled();
+});
+test("shows the first comparison validation issue without saving", async () => {
+	mocks.list.mockResolvedValue([]);
+	mount();
+	await waitFor(() =>
+		expect(
+			screen.getByRole("button", { name: "Save comparison" })
+		).toBeEnabled()
+	);
+	fill();
+	fireEvent.change(screen.getAllByLabelText("State")[1] as HTMLElement, {
+		target: { value: "normal" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Save comparison" }));
+	expect(
+		await screen.findByText(
+			"Each component state must have one unambiguous mapping."
+		)
+	).toHaveAttribute("role", "status");
+	expect(mocks.save).not.toHaveBeenCalled();
+	fireEvent.change(screen.getAllByLabelText("State")[1] as HTMLElement, {
+		target: { value: "pressed" },
+	});
+	expect(
+		screen.getByText("Each component state must have one unambiguous mapping.")
+	).toBeInTheDocument();
+});
+test("adds and removes component states beyond the required two", async () => {
+	mocks.list.mockResolvedValue([]);
+	mount();
+	await waitFor(() =>
+		expect(
+			screen.getByRole("button", { name: "Save comparison" })
+		).toBeEnabled()
+	);
+	expect(screen.getAllByLabelText("Component identity")).toHaveLength(2);
+	expect(
+		screen.queryByRole("button", { name: "Remove component state 1" })
+	).not.toBeInTheDocument();
+	fireEvent.click(screen.getByRole("button", { name: "Add component state" }));
+	const identities = screen.getAllByLabelText("Component identity");
+	expect(identities).toHaveLength(3);
+	expect(screen.getAllByLabelText("State")[2]).toHaveValue("normal");
+	fireEvent.change(identities[0] as HTMLElement, {
+		target: { value: "first" },
+	});
+	fireEvent.change(identities[2] as HTMLElement, {
+		target: { value: "third" },
+	});
+	fireEvent.click(
+		screen.getByRole("button", { name: "Remove component state 1" })
+	);
+	const remaining = screen.getAllByLabelText("Component identity");
+	expect(remaining).toHaveLength(2);
+	expect(remaining.map((input) => (input as HTMLInputElement).value)).toEqual([
+		"",
+		"third",
+	]);
+	expect(
+		screen.getAllByLabelText("State").map((s) => (s as HTMLSelectElement).value)
+	).toEqual(["hover", "normal"]);
 });

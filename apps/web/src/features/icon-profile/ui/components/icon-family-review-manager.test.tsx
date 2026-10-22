@@ -19,19 +19,17 @@ import { afterEach, expect, test, vi } from "vitest";
 import { IconFamilyReviewManager } from "./icon-family-review-manager";
 
 const mocks = vi.hoisted(() => ({ list: vi.fn(), save: vi.fn() }));
-vi.mock("@/utils/orpc", () => ({
-	client: { iconFamilyReviews: { save: mocks.save } },
-	orpc: {
+vi.mock("@/utils/orpc", async () => {
+	const { createTanstackQueryUtils } = await import("@orpc/tanstack-query");
+	const client = {
 		iconFamilyReviews: {
-			list: {
-				queryOptions: () => ({
-					queryKey: ["icon-family-reviews"],
-					queryFn: mocks.list,
-				}),
-			},
+			// The oRPC utils pass a second options argument; assert on the input only.
+			save: (input: unknown) => mocks.save(input),
+			list: () => mocks.list(),
 		},
-	},
-}));
+	};
+	return { client, orpc: createTanstackQueryUtils(client as never) };
+});
 
 function getIconContract() {
 	const iconContract = specializedProfileContractCatalog.find(
@@ -633,4 +631,198 @@ test("loads comparison defaults when asset records arrive after the profile acti
 			).getByLabelText("Varlık Sürümü")
 		).toHaveValue("version-mana");
 	});
+});
+
+function fillRequiredReviewFields() {
+	for (const [index, variant] of [
+		"inventory-slot",
+		"ability-wheel",
+	].entries()) {
+		fireEvent.change(
+			within(
+				screen.getByRole("group", {
+					name: `Karşılaştırma öğesi ${index + 1}`,
+				})
+			).getByLabelText("Kullanım çeşidi"),
+			{ target: { value: variant } }
+		);
+	}
+	for (const label of [
+		"Nesne ölçeği notu",
+		"Işık yönü notu",
+		"Kontur notu",
+		"Ayrıntı yoğunluğu notu",
+		"Durum veya nadirlik rengi notu",
+	]) {
+		fireEvent.change(screen.getByLabelText(label), {
+			target: { value: `${label} gözlemi` },
+		});
+	}
+	fireEvent.change(screen.getByLabelText("İnceleme gerekçesi"), {
+		target: { value: "Aile karşılaştırması gerekçesi." },
+	});
+}
+
+test("shows the first review validation issue and does not save an invalid review", async () => {
+	mocks.list.mockResolvedValue([]);
+
+	mount();
+	await waitFor(() =>
+		expect(
+			screen.getByRole("button", { name: "İncelemeyi kaydet" })
+		).toBeEnabled()
+	);
+	fillRequiredReviewFields();
+	const secondItem = screen.getByRole("group", {
+		name: "Karşılaştırma öğesi 2",
+	});
+	fireEvent.change(within(secondItem).getByLabelText("Varlık Kaydı"), {
+		target: { value: "record-health" },
+	});
+	expect(within(secondItem).getByLabelText("Varlık Sürümü")).toHaveValue(
+		"version-health"
+	);
+
+	fireEvent.click(screen.getByRole("button", { name: "İncelemeyi kaydet" }));
+
+	expect(
+		await screen.findByText("Compare at least two distinct icon Asset Records.")
+	).toHaveAttribute("role", "status");
+	expect(mocks.save).not.toHaveBeenCalled();
+
+	fireEvent.change(within(secondItem).getByLabelText("Varlık Kaydı"), {
+		target: { value: "record-mana" },
+	});
+	fireEvent.change(
+		within(secondItem).getByLabelText("Mantıksal genişlik (px)"),
+		{
+			target: { value: "24" },
+		}
+	);
+	fireEvent.change(
+		within(secondItem).getByLabelText("Mantıksal yükseklik (px)"),
+		{ target: { value: "24" } }
+	);
+	fireEvent.click(screen.getByRole("button", { name: "İncelemeyi kaydet" }));
+	expect(
+		await screen.findByText("Compare at least two distinct logical sizes.")
+	).toBeInTheDocument();
+	expect(
+		screen.queryByText("Compare at least two distinct icon Asset Records.")
+	).not.toBeInTheDocument();
+	expect(mocks.save).not.toHaveBeenCalled();
+});
+
+test("saves added usage rows, removed rows, assessments, and the chosen outcome", async () => {
+	mocks.list.mockResolvedValue([]);
+	mocks.save.mockImplementation((input: IconFamilyReviewInput) =>
+		Promise.resolve(makeReview(input))
+	);
+
+	mount();
+	await waitFor(() =>
+		expect(
+			screen.getByRole("button", { name: "İncelemeyi kaydet" })
+		).toBeEnabled()
+	);
+	expect(
+		screen.queryByRole("button", {
+			name: "Karşılaştırma öğesi 1 satırını kaldır",
+		})
+	).not.toBeInTheDocument();
+	fireEvent.click(screen.getByRole("button", { name: "Kullanım çeşidi ekle" }));
+	fireEvent.click(screen.getByRole("button", { name: "Kullanım çeşidi ekle" }));
+	const thirdItem = screen.getByRole("group", {
+		name: "Karşılaştırma öğesi 3",
+	});
+	expect(within(thirdItem).getByLabelText("Varlık Kaydı")).toHaveValue(
+		"record-health"
+	);
+	expect(
+		within(thirdItem).getByLabelText("Mantıksal genişlik (px)")
+	).toHaveValue(48);
+	fireEvent.click(
+		screen.getByRole("button", {
+			name: "Karşılaştırma öğesi 4 satırını kaldır",
+		})
+	);
+	expect(
+		screen.queryByRole("group", { name: "Karşılaştırma öğesi 4" })
+	).not.toBeInTheDocument();
+
+	fillRequiredReviewFields();
+	fireEvent.change(within(thirdItem).getByLabelText("Kullanım çeşidi"), {
+		target: { value: "tooltip" },
+	});
+	fireEvent.change(
+		within(thirdItem).getByLabelText("Mantıksal yükseklik (px)"),
+		{
+			target: { value: "32" },
+		}
+	);
+	fireEvent.change(screen.getByLabelText("Kontur değerlendirmesi"), {
+		target: { value: "needs_follow_up" },
+	});
+	fireEvent.change(
+		screen.getByLabelText("Durum veya nadirlik rengi değerlendirmesi"),
+		{ target: { value: "identity_changed" } }
+	);
+	fireEvent.change(screen.getByLabelText("İnceleme sonucu"), {
+		target: { value: "consistent" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "İncelemeyi kaydet" }));
+
+	await waitFor(() => expect(mocks.save).toHaveBeenCalledOnce());
+	expect(mocks.save).toHaveBeenCalledWith({
+		assetFamilyId: "family-1",
+		comparisons: {
+			detailDensity: {
+				assessment: "consistent",
+				notes: "Ayrıntı yoğunluğu notu gözlemi",
+			},
+			lightingDirection: {
+				assessment: "consistent",
+				notes: "Işık yönü notu gözlemi",
+			},
+			objectScale: {
+				assessment: "consistent",
+				notes: "Nesne ölçeği notu gözlemi",
+			},
+			outline: { assessment: "needs_follow_up", notes: "Kontur notu gözlemi" },
+			stateOrRarityColor: {
+				assessment: "identity_changed",
+				notes: "Durum veya nadirlik rengi notu gözlemi",
+			},
+		},
+		contractRevisionId: "contract-revision-7",
+		grayscaleCompared: true,
+		id: expect.any(String),
+		items: [
+			{
+				assetRecordId: "record-health",
+				assetVersionId: "version-health",
+				logicalSize: { height: 24, width: 24 },
+				usageVariant: "inventory-slot",
+			},
+			{
+				assetRecordId: "record-mana",
+				assetVersionId: "version-mana",
+				logicalSize: { height: 64, width: 64 },
+				usageVariant: "ability-wheel",
+			},
+			{
+				assetRecordId: "record-health",
+				assetVersionId: "version-health",
+				logicalSize: { height: 32, width: 48 },
+				usageVariant: "tooltip",
+			},
+		],
+		outcome: "consistent",
+		projectId: "project-1",
+		rationale: "Aile karşılaştırması gerekçesi.",
+		testedBackgrounds: ["light", "dark"],
+	});
+	expect(
+		await screen.findByRole("button", { name: "İncelemeyi kaydet" })
+	).toBeInTheDocument();
 });

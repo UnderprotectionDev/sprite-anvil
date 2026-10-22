@@ -14,9 +14,14 @@ import { BackgroundLayerLayoutManager } from "./background-layer-layout-manager"
 
 const mocks = vi.hoisted(() => ({ list: vi.fn(), save: vi.fn() }));
 vi.mock("@/utils/orpc", () => ({
-	client: { backgroundLayerLayouts: { save: mocks.save } },
 	orpc: {
 		backgroundLayerLayouts: {
+			save: {
+				mutationOptions: (options?: object) => ({
+					...options,
+					mutationFn: (input: unknown) => mocks.save(input),
+				}),
+			},
 			list: {
 				queryOptions: () => ({ queryKey: ["layouts"], queryFn: mocks.list }),
 			},

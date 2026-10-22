@@ -11,7 +11,7 @@ import { Button } from "@sprite-anvil/ui/components/button";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { client, orpc } from "@/utils/orpc";
+import { orpc } from "@/utils/orpc";
 
 const categoryDetails: Record<
 	ExternalVisualAnalysisCategory,
@@ -58,46 +58,48 @@ export function ExternalVisualAnalysisConsent({
 	const permissions = permissionsQuery.data ?? [];
 	const providerPolicyVerified =
 		isExternalVisualAnalysisProviderPolicyVerified();
-	const grantPermissionMutation = useMutation({
-		mutationFn: (category: ExternalVisualAnalysisCategory) =>
-			client.projects.access.grantExternalVisualAnalysis({
-				projectId,
-				category,
-			}),
-		onSuccess: async (_permission, category) => {
-			setStatusMessage(
-				`${categoryDetails[category].label} analizi izni kaydedildi.`
-			);
-			await permissionsQuery.refetch();
-		},
-	});
-	const revokePermissionMutation = useMutation({
-		mutationFn: (permission: ExternalVisualAnalysisPermission) =>
-			client.projects.access.revokeExternalVisualAnalysis({
-				projectId,
-				permissionId: permission.id,
-			}),
-		onSuccess: async (_result, permission) => {
-			setStatusMessage(
-				`${categoryDetails[permission.category].label} analizi izni geri alındı.`
-			);
-			await permissionsQuery.refetch();
-		},
-	});
+	const grantPermissionMutation = useMutation(
+		orpc.projects.access.grantExternalVisualAnalysis.mutationOptions({
+			onSuccess: async (_permission, { category }) => {
+				setStatusMessage(
+					`${categoryDetails[category].label} analizi izni kaydedildi.`
+				);
+				await permissionsQuery.refetch();
+			},
+		})
+	);
+	const revokePermissionMutation = useMutation(
+		orpc.projects.access.revokeExternalVisualAnalysis.mutationOptions({
+			onSuccess: async (_result, { permissionId }) => {
+				const revoked = permissions.find(
+					(permission) => permission.id === permissionId
+				);
+				setStatusMessage(
+					revoked
+						? `${categoryDetails[revoked.category].label} analizi izni geri alındı.`
+						: "Analiz izni geri alındı."
+				);
+				await permissionsQuery.refetch();
+			},
+		})
+	);
 	const isSaving =
 		grantPermissionMutation.isPending || revokePermissionMutation.isPending;
 	const revokingId = revokePermissionMutation.isPending
-		? revokePermissionMutation.variables?.id
+		? revokePermissionMutation.variables?.permissionId
 		: null;
 
 	function grantPermission(category: ExternalVisualAnalysisCategory) {
 		setStatusMessage(null);
-		grantPermissionMutation.mutate(category);
+		grantPermissionMutation.mutate({ projectId, category });
 	}
 
 	function revokePermission(permission: ExternalVisualAnalysisPermission) {
 		setStatusMessage(null);
-		revokePermissionMutation.mutate(permission);
+		revokePermissionMutation.mutate({
+			projectId,
+			permissionId: permission.id,
+		});
 	}
 
 	return (
@@ -150,7 +152,7 @@ export function ExternalVisualAnalysisConsent({
 					);
 					const categoryIsSaving =
 						grantPermissionMutation.isPending &&
-						grantPermissionMutation.variables === category;
+						grantPermissionMutation.variables?.category === category;
 
 					return (
 						<fieldset

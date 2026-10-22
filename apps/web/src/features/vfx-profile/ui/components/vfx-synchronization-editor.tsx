@@ -3,10 +3,23 @@ import type { ReadinessEvidence } from "@sprite-anvil/api/family-readiness";
 import {
 	type VfxSynchronizationInput,
 	vfxBackgrounds,
-	vfxSynchronizationInputSchema,
 } from "@sprite-anvil/api/vfx-synchronization";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useCallback, useState } from "react";
+import { Checkbox } from "@sprite-anvil/ui/components/checkbox";
+import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
+import { Input } from "@sprite-anvil/ui/components/input";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { Textarea } from "@sprite-anvil/ui/components/textarea";
+import { useForm, useStore } from "@tanstack/react-form";
+import { useCallback, useId, useState } from "react";
+import {
+	vfxReviewResultSchema,
+	vfxSynchronizationFormSchema,
+} from "../../schemas";
 import { emptyVfxFrame, VfxClipEditor } from "./vfx-clip-editor";
 import { VfxSynchronizedPreview } from "./vfx-synchronized-preview";
 
@@ -35,7 +48,7 @@ export function VfxSynchronizationEditor({
 	waivers: ReadinessEvidence[];
 	onSave: (input: VfxSynchronizationInput) => Promise<void>;
 }) {
-	const [input, setInput] = useState<VfxSynchronizationInput>(
+	const [defaults] = useState<VfxSynchronizationInput>(
 		() =>
 			initial ?? {
 				id: crypto.randomUUID(),
@@ -62,7 +75,18 @@ export function VfxSynchronizationEditor({
 	);
 	const [previewReady, setPreviewReady] = useState(false);
 	const onReady = useCallback((ready: boolean) => setPreviewReady(ready), []);
-	const validation = vfxSynchronizationInputSchema.safeParse(input);
+	const overflowId = useId();
+	const form = useForm({
+		defaultValues: defaults,
+		onSubmit: async ({ value }) => {
+			const parsed = vfxSynchronizationFormSchema.safeParse(value);
+			if (parsed.success && previewReady && !disabled && !readOnly) {
+				await onSave(parsed.data);
+			}
+		},
+	});
+	const input = useStore(form.store, (state) => state.values);
+	const validation = vfxSynchronizationFormSchema.safeParse(input);
 	const effectVersionIds = new Set(
 		catalog.assetVersions
 			.filter(
@@ -90,213 +114,252 @@ export function VfxSynchronizationEditor({
 			className="space-y-4"
 			onSubmit={(e) => {
 				e.preventDefault();
-				if (validation.success && previewReady && !disabled && !readOnly) {
-					void onSave(validation.data);
-				}
+				e.stopPropagation();
+				void form.handleSubmit();
 			}}
 		>
-			<fieldset className="space-y-4" disabled={disabled || readOnly}>
-				<label className="block">
-					Review name
-					<input
-						className="block w-full rounded border p-2"
-						maxLength={120}
-						onChange={(e) => setInput({ ...input, name: e.target.value })}
-						required
-						value={input.name}
-					/>
-				</label>
+			<FieldSet className="space-y-4" disabled={disabled || readOnly}>
+				<form.Field name="name">
+					{(field) => (
+						<Label className="block">
+							Review name
+							<Input
+								className="block w-full rounded border p-2"
+								maxLength={120}
+								onChange={(e) => field.handleChange(e.target.value)}
+								required
+								value={field.state.value}
+							/>
+						</Label>
+					)}
+				</form.Field>
 				<div className="grid gap-4 lg:grid-cols-2">
-					<VfxClipEditor
-						catalog={catalog}
-						clip={input.effect}
-						label="Effect"
-						onChange={(effect) => setInput({ ...input, effect })}
-						recordNames={recordNames}
-						versionIds={effectVersionIds}
-					/>
-					<VfxClipEditor
-						catalog={catalog}
-						clip={input.owner}
-						label="Owner"
-						onChange={(owner) => setInput({ ...input, owner })}
-						recordNames={recordNames}
-						versionIds={ownerVersionIds}
-					/>
+					<form.Field name="effect">
+						{(field) => (
+							<VfxClipEditor
+								catalog={catalog}
+								clip={field.state.value}
+								disabled={disabled || readOnly}
+								label="Effect"
+								onValueChange={field.handleChange}
+								recordNames={recordNames}
+								versionIds={effectVersionIds}
+							/>
+						)}
+					</form.Field>
+					<form.Field name="owner">
+						{(field) => (
+							<VfxClipEditor
+								catalog={catalog}
+								clip={field.state.value}
+								disabled={disabled || readOnly}
+								label="Owner"
+								onValueChange={field.handleChange}
+								recordNames={recordNames}
+								versionIds={ownerVersionIds}
+							/>
+						)}
+					</form.Field>
 				</div>
 				<div className="flex flex-wrap gap-3">
-					<label>
-						Game event
-						<input
-							className="block rounded border p-2"
-							maxLength={200}
-							onChange={(e) =>
-								setInput({
-									...input,
-									event: { ...input.event, id: e.target.value },
-								})
-							}
-							readOnly={!!input.sourceReviewId}
-							required
-							value={input.event.id}
-						/>
-					</label>
-					<label>
-						Event time (ms)
-						<input
-							className="block rounded border p-2"
-							min={0}
-							onChange={(e) =>
-								setInput({
-									...input,
-									event: { ...input.event, timeMs: Number(e.target.value) },
-								})
-							}
-							readOnly={!!input.sourceReviewId}
-							type="number"
-							value={input.event.timeMs}
-						/>
-					</label>
-					<label>
-						Layer
-						<input
-							className="block w-24 rounded border p-2"
-							max={100}
-							min={-100}
-							onChange={(e) =>
-								setInput({ ...input, layer: Number(e.target.value) })
-							}
-							type="number"
-							value={input.layer}
-						/>
-					</label>
+					<form.Field name="event.id">
+						{(field) => (
+							<Label className="block">
+								Game event
+								<Input
+									className="block rounded border p-2"
+									maxLength={200}
+									onChange={(e) => field.handleChange(e.target.value)}
+									readOnly={!!input.sourceReviewId}
+									required
+									value={field.state.value}
+								/>
+							</Label>
+						)}
+					</form.Field>
+					<form.Field name="event.timeMs">
+						{(field) => (
+							<Label className="block">
+								Event time (ms)
+								<Input
+									className="block rounded border p-2"
+									min={0}
+									onChange={(e) => field.handleChange(Number(e.target.value))}
+									readOnly={!!input.sourceReviewId}
+									type="number"
+									value={field.state.value}
+								/>
+							</Label>
+						)}
+					</form.Field>
+					<form.Field name="layer">
+						{(field) => (
+							<Label className="block">
+								Layer
+								<Input
+									className="block w-24 rounded border p-2"
+									max={100}
+									min={-100}
+									onChange={(e) => field.handleChange(Number(e.target.value))}
+									type="number"
+									value={field.state.value}
+								/>
+							</Label>
+						)}
+					</form.Field>
 				</div>
 				<p className="text-muted-foreground text-sm">
 					Define the owner's event id and time for these exact frames. The owner
 					uses layer 0. Negative effect layers appear behind it. Event time is
 					clip-relative and remains fixed in a selective repair.
 				</p>
-				<label className="block">
-					Scene background
-					<select
-						className="block w-full rounded border bg-background p-2"
-						onChange={(e) =>
-							setInput({ ...input, sceneAssetVersionId: e.target.value })
-						}
-						value={input.sceneAssetVersionId}
-					>
-						<option value="">Choose a scene version</option>
-						{sceneVersions.map((v) => (
-							<option key={v.id} value={v.id}>
-								{recordNames[v.assetRecordId] ?? v.assetRecordId} · Asset
-								Version {v.versionNumber}
-							</option>
-						))}
-					</select>
-				</label>
-				<label className="flex gap-2">
-					<input
-						checked={input.overflowAllowed}
-						onChange={(e) =>
-							setInput({ ...input, overflowAllowed: e.target.checked })
-						}
-						type="checkbox"
-					/>{" "}
-					Allow intentional cell overflow
-				</label>
+				<form.Field name="sceneAssetVersionId">
+					{(field) => (
+						<Label className="block">
+							Scene background
+							<NativeSelect
+								className="block w-full"
+								onChange={(e) => field.handleChange(e.target.value)}
+								value={field.state.value}
+							>
+								<NativeSelectOption value="">
+									Choose a scene version
+								</NativeSelectOption>
+								{sceneVersions.map((v) => (
+									<NativeSelectOption key={v.id} value={v.id}>
+										{recordNames[v.assetRecordId] ?? v.assetRecordId} · Asset
+										Version {v.versionNumber}
+									</NativeSelectOption>
+								))}
+							</NativeSelect>
+						</Label>
+					)}
+				</form.Field>
+				<form.Field name="overflowAllowed">
+					{(field) => (
+						<Label className="flex gap-2" htmlFor={overflowId}>
+							<Checkbox
+								checked={field.state.value}
+								disabled={disabled || readOnly}
+								id={overflowId}
+								onCheckedChange={(checked) => field.handleChange(checked)}
+							/>{" "}
+							Allow intentional cell overflow
+						</Label>
+					)}
+				</form.Field>
 				{waivers.length ? (
-					<fieldset>
-						<legend>Existing Quality Waivers</legend>
-						{waivers.map((waiver) => (
-							<label className="flex gap-2" key={waiver.id}>
-								<input
-									checked={input.waiverEvidenceIds.includes(waiver.id)}
-									onChange={(e) =>
-										setInput({
-											...input,
-											waiverEvidenceIds: e.target.checked
-												? [...input.waiverEvidenceIds, waiver.id]
-												: input.waiverEvidenceIds.filter(
-														(id) => id !== waiver.id
-													),
-										})
-									}
-									type="checkbox"
-								/>
-								{waiver.ruleId} · {waiver.rationale}
-							</label>
-						))}
-					</fieldset>
+					<form.Field name="waiverEvidenceIds">
+						{(field) => (
+							<FieldSet>
+								<FieldLegend>Existing Quality Waivers</FieldLegend>
+								{waivers.map((waiver) => (
+									<Label
+										className="flex gap-2"
+										htmlFor={`${overflowId}-${waiver.id}`}
+										key={waiver.id}
+									>
+										<Checkbox
+											checked={field.state.value.includes(waiver.id)}
+											disabled={disabled || readOnly}
+											id={`${overflowId}-${waiver.id}`}
+											onCheckedChange={(checked) =>
+												field.handleChange(
+													checked
+														? [...field.state.value, waiver.id]
+														: field.state.value.filter((id) => id !== waiver.id)
+												)
+											}
+										/>
+										{waiver.ruleId} · {waiver.rationale}
+									</Label>
+								))}
+							</FieldSet>
+						)}
+					</form.Field>
 				) : (
 					<p>
 						No current overflow Quality Waiver is selected. Permission never
 						waives unreadable alpha or broken frame links.
 					</p>
 				)}
-			</fieldset>
+			</FieldSet>
 			<VfxSynchronizedPreview
 				input={input}
 				onReady={onReady}
 				versions={catalog.assetVersions}
 			/>
-			<fieldset className="space-y-3" disabled={disabled || readOnly}>
-				<legend>Playback evidence</legend>
+			<FieldSet className="space-y-3" disabled={disabled || readOnly}>
+				<FieldLegend>Playback evidence</FieldLegend>
 				{input.backgrounds.map((evidence, index) => (
-					<fieldset
+					<FieldSet
 						className="flex flex-wrap gap-3 rounded border p-3"
 						key={evidence.background}
 					>
-						<legend>{evidence.background}</legend>
+						<FieldLegend>{evidence.background}</FieldLegend>
 						{(["alone", "synchronized"] as const).map((mode) => (
-							<label key={mode}>
-								{mode === "alone" ? "Effect alone result" : "With owner result"}
-								<select
-									className="block rounded border bg-background p-2"
-									onChange={(e) =>
-										setInput({
-											...input,
-											backgrounds: input.backgrounds.map((b, i) =>
-												i === index ? { ...b, [mode]: e.target.value } : b
-											),
-										})
-									}
-									value={evidence[mode]}
-								>
-									<option value="inconclusive">Inconclusive</option>
-									<option value="passed">Passed</option>
-									<option value="failed">Failed</option>
-								</select>
-							</label>
+							<form.Field key={mode} name={`backgrounds[${index}].${mode}`}>
+								{(field) => (
+									<Label className="block">
+										{mode === "alone"
+											? "Effect alone result"
+											: "With owner result"}
+										<NativeSelect
+											className="block"
+											onChange={(e) => {
+												const result = vfxReviewResultSchema.safeParse(
+													e.target.value
+												);
+												if (result.success) {
+													field.handleChange(result.data);
+												}
+											}}
+											value={field.state.value}
+										>
+											<NativeSelectOption value="inconclusive">
+												Inconclusive
+											</NativeSelectOption>
+											<NativeSelectOption value="passed">
+												Passed
+											</NativeSelectOption>
+											<NativeSelectOption value="failed">
+												Failed
+											</NativeSelectOption>
+										</NativeSelect>
+									</Label>
+								)}
+							</form.Field>
 						))}
-						<label className="grow">
-							Playback notes
-							<textarea
-								className="block w-full rounded border p-2"
-								maxLength={1000}
-								onChange={(e) =>
-									setInput({
-										...input,
-										backgrounds: input.backgrounds.map((b, i) =>
-											i === index ? { ...b, notes: e.target.value } : b
-										),
-									})
-								}
-								required
-								value={evidence.notes}
-							/>
-						</label>
-					</fieldset>
+						<form.Field name={`backgrounds[${index}].notes`}>
+							{(field) => (
+								<Label className="block grow">
+									Playback notes
+									<Textarea
+										className="block w-full rounded border p-2"
+										maxLength={1000}
+										onChange={(e) => field.handleChange(e.target.value)}
+										required
+										value={field.state.value}
+									/>
+								</Label>
+							)}
+						</form.Field>
+					</FieldSet>
 				))}
-				<label className="block">
-					Review rationale
-					<textarea
-						className="block w-full rounded border p-2"
-						maxLength={2000}
-						onChange={(e) => setInput({ ...input, rationale: e.target.value })}
-						required
-						value={input.rationale}
-					/>
-				</label>
+				<form.Field name="rationale">
+					{(field) => (
+						<Label className="block">
+							Review rationale
+							<Textarea
+								className="block w-full rounded border p-2"
+								maxLength={2000}
+								onChange={(e) => field.handleChange(e.target.value)}
+								required
+								value={field.state.value}
+							/>
+						</Label>
+					)}
+				</form.Field>
 				{!readOnly && (
 					<Button
 						disabled={disabled || !previewReady || !validation.success}
@@ -305,7 +368,7 @@ export function VfxSynchronizationEditor({
 						Save synchronization review
 					</Button>
 				)}
-			</fieldset>
+			</FieldSet>
 			{!(readOnly || validation.success) && (
 				<p role="status">
 					Complete the frame versions, positive durations, origins, event, scene

@@ -11,10 +11,12 @@ import {
 } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { QueryClientProvider } from "@tanstack/react-query";
+import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { createQueryClient } from "@/utils/query-client";
 import { ReferenceBoardView } from "./reference-board-view";
 
+const overrideRationaleLabel = /Bağlam Kuralı İstisnası gerekçesi/;
 const projectId = "c2edb5dc-a82f-42b2-84bb-a878ca20fabf";
 const assetRecordId = "7ea123f0-2bd0-4b38-ab57-29477a1366e6";
 
@@ -44,16 +46,22 @@ vi.mock("@/features/rights-evidence/ui/components/rights-record-panel", () => ({
 }));
 
 vi.mock("@/utils/orpc", () => ({
-	client: {
-		assetRecords: {
-			createReference: (input: unknown) => fakeApi.createReference(input),
-		},
-		referenceProduction: {
-			updateImage: (input: unknown) => fakeApi.updateImage(input),
-		},
-	},
 	orpc: {
+		assetRecords: {
+			createReference: {
+				mutationOptions: (options?: object) => ({
+					...options,
+					mutationFn: (input: unknown) => fakeApi.createReference(input),
+				}),
+			},
+		},
 		referenceProduction: {
+			updateImage: {
+				mutationOptions: (options?: object) => ({
+					...options,
+					mutationFn: (input: unknown) => fakeApi.updateImage(input),
+				}),
+			},
 			list: {
 				queryOptions: ({ input }: { input: Record<string, unknown> }) => ({
 					queryKey: ["reference-board", input],
@@ -79,7 +87,13 @@ afterEach(() => {
 	fakeApi.updateImage.mockReset();
 });
 
-function renderBoard() {
+function renderBoard({
+	availableVersions = [],
+	hasCanonicalDesign = false,
+}: {
+	availableVersions?: never[] | Record<string, unknown>[];
+	hasCanonicalDesign?: boolean;
+} = {}) {
 	const queryClient = createQueryClient();
 	queryClient.setDefaultOptions({ queries: { retry: false } });
 	return render(
@@ -87,8 +101,8 @@ function renderBoard() {
 			<ReferenceBoardView
 				assetRecordId={assetRecordId}
 				assetRecordName="Ash Knight"
-				availableVersions={[]}
-				hasCanonicalDesign={false}
+				availableVersions={availableVersions as never}
+				hasCanonicalDesign={hasCanonicalDesign}
 				onRefresh={async () => undefined}
 				projectId={projectId}
 				references={[]}
@@ -345,4 +359,120 @@ test("shows opposing transfer rules and explains that package creation is blocke
 	expect(conflictAlert).toHaveTextContent("palette-reference.png");
 	expect(conflictAlert).toHaveTextContent("avoid-palette.png");
 	expect(conflictAlert).toHaveTextContent("Üretim Paketi oluşturulamaz");
+});
+
+test("unchecking every feature shows the selection message and blocks the upload", async () => {
+	const user = userEvent.setup();
+	renderBoard();
+
+	await user.click(
+		within(
+			screen.getByRole("group", { name: "Aktarılabilir özellikler" })
+		).getByRole("checkbox", { name: "Poz veya hareket" })
+	);
+
+	expect(screen.getByRole("alert")).toHaveTextContent(
+		"En az bir özelliği aktarılabilir veya kaçınılacak olarak seçin."
+	);
+	expect(screen.getByRole("button", { name: "Görseli yükle" })).toBeDisabled();
+});
+
+test("feature checkboxes toggle with the keyboard", async () => {
+	const user = userEvent.setup();
+	renderBoard();
+	const checkbox = within(
+		screen.getByRole("group", { name: "Kaçınılacak özellikler" })
+	).getByRole("checkbox", { name: "Palet veya renk ilişkisi" });
+
+	checkbox.focus();
+	await user.keyboard(" ");
+	expect(checkbox).toBeChecked();
+	await user.keyboard(" ");
+	expect(checkbox).not.toBeChecked();
+});
+
+test("the custom purpose role requires a written purpose", async () => {
+	const user = userEvent.setup();
+	renderBoard();
+
+	await user.selectOptions(
+		screen.getByLabelText("Referans kullanım amacı"),
+		"custom"
+	);
+	await user.click(
+		within(
+			screen.getByRole("group", { name: "Kaçınılacak özellikler" })
+		).getByRole("checkbox", { name: "Poz veya hareket" })
+	);
+	expect(
+		within(
+			screen.getByRole("group", { name: "Aktarılabilir özellikler" })
+		).getByRole("checkbox", { name: "Poz veya hareket" })
+	).not.toBeChecked();
+	expect(screen.getByRole("alert")).toHaveTextContent(
+		"Özel kullanım amacını yazın."
+	);
+
+	await user.type(screen.getByLabelText("Özel kullanım amacı"), "Rim light");
+	expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
+test("a canonical design requires an override rationale for identity transfer", async () => {
+	const user = userEvent.setup();
+	renderBoard({ hasCanonicalDesign: true });
+
+	await user.selectOptions(
+		screen.getByLabelText("Referans kullanım amacı"),
+		"identity"
+	);
+	const rationale = screen.getByLabelText(overrideRationaleLabel);
+	expect(rationale).toBeRequired();
+	expect(screen.getByRole("alert")).toHaveTextContent(
+		"Ana Tasarım kimlik sınırını aşmak için Bağlam Kuralı İstisnası gerekçesi yazın."
+	);
+
+	await user.type(rationale, "Same hero.");
+	expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
+test("links an existing Asset Version with the entered rules and clears the choice", async () => {
+	const user = userEvent.setup();
+	const versionId = "1f0b8c0e-8a52-4a8d-9d7d-2f6b6c5e9a11";
+	fakeApi.createReference.mockResolvedValue(undefined);
+	renderBoard({
+		availableVersions: [
+			{
+				assetRecordId: crypto.randomUUID(),
+				assetRecordName: "Ash Mage",
+				fileName: "mage.png",
+				id: versionId,
+				versionNumber: 2,
+			},
+		],
+	});
+	const link = screen.getByRole("button", { name: "Varlık Sürümünü bağla" });
+	expect(link).toBeDisabled();
+
+	await user.selectOptions(
+		screen.getByLabelText("Mevcut Varlık Sürümü"),
+		versionId
+	);
+	await user.type(screen.getByLabelText("Referans notu"), "Pose only");
+	await user.click(link);
+
+	await waitFor(() =>
+		expect(fakeApi.createReference).toHaveBeenCalledWith(
+			expect.objectContaining({
+				forbiddenFeatures: [],
+				notes: "Pose only",
+				role: "pose",
+				targetVersionId: versionId,
+				transferredFeatures: ["pose"],
+			})
+		)
+	);
+	expect(
+		await screen.findByText("Varlık Sürümü referans panosuna eklendi.")
+	).toBeVisible();
+	expect(screen.getByLabelText("Mevcut Varlık Sürümü")).toHaveValue("");
 });

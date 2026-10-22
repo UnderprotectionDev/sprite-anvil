@@ -9,6 +9,7 @@ import {
 	sourceMetadataMappingSidecarSchema,
 	sourceMetadataMappingSuggestionsSchema,
 } from "@sprite-anvil/api/source-metadata-mapping";
+import z from "zod";
 
 type JsonRecord = Record<string, unknown>;
 type SourceMetadataField = SourceMetadataFieldProposal["field"];
@@ -63,12 +64,41 @@ function emptyCandidates(): CandidateCollection {
 	return { diagnostics: [], fields: [] };
 }
 
+const jsonRecordSchema = z.object({});
+const nonEmptyStringSchema = z
+	.string()
+	.refine((value) => value.trim().length > 0);
+const frameCollectionSchema = z.union([z.array(z.unknown()), jsonRecordSchema]);
+const frameRectangleSchema = z.object({
+	h: z.int().positive(),
+	w: z.int().positive(),
+	x: z.int().nonnegative(),
+	y: z.int().nonnegative(),
+});
+const framedRecordSchema = z.object({ frame: frameRectangleSchema });
+const namedRecordSchema = z.object({ name: nonEmptyStringSchema });
+const sourceMetadataDocumentSchema = z.object({ meta: jsonRecordSchema });
+
 function isRecord(value: unknown): value is JsonRecord {
-	return typeof value === "object" && value !== null && !Array.isArray(value);
+	return jsonRecordSchema.safeParse(value).success;
 }
 
 function nonEmptyString(value: unknown): value is string {
-	return typeof value === "string" && value.trim().length > 0;
+	return nonEmptyStringSchema.safeParse(value).success;
+}
+
+function hasName(value: unknown): value is JsonRecord & { name: string } {
+	return namedRecordSchema.safeParse(value).success;
+}
+
+function hasFrameRectangle(value: unknown): value is JsonRecord {
+	return framedRecordSchema.safeParse(value).success;
+}
+
+function isSourceMetadataDocument(
+	value: unknown
+): value is JsonRecord & { meta: JsonRecord } {
+	return sourceMetadataDocumentSchema.safeParse(value).success;
 }
 
 function sourceFormatFromApp(value: unknown): SourceMetadataFormat | null {
@@ -93,35 +123,10 @@ function sourceFormatFromApp(value: unknown): SourceMetadataFormat | null {
 	return null;
 }
 
-function numberAtLeastZero(value: unknown): value is number {
-	return typeof value === "number" && value >= 0;
-}
-
-function numberAboveZero(value: unknown): value is number {
-	return typeof value === "number" && value > 0;
-}
-
-function validFrameRectangle(value: unknown) {
-	if (!isRecord(value)) {
-		return false;
-	}
-	const { h, w, x, y } = value;
-	return (
-		Number.isSafeInteger(x) &&
-		Number.isSafeInteger(y) &&
-		Number.isSafeInteger(w) &&
-		Number.isSafeInteger(h) &&
-		numberAtLeastZero(x) &&
-		numberAtLeastZero(y) &&
-		numberAboveZero(w) &&
-		numberAboveZero(h)
-	);
-}
-
 function isFrameCollection(
 	value: unknown
 ): value is unknown[] | Record<string, unknown> {
-	return Array.isArray(value) || isRecord(value);
+	return frameCollectionSchema.safeParse(value).success;
 }
 
 function frameEntries(
@@ -137,7 +142,7 @@ function validFrameIdentity(
 	layout: FrameLayout,
 	key: string | undefined
 ): value is JsonRecord {
-	if (!(isRecord(value) && validFrameRectangle(value.frame))) {
+	if (!hasFrameRectangle(value)) {
 		return false;
 	}
 	return layout === "array"
@@ -164,7 +169,7 @@ function parseSourceMetadataDocument(
 	} catch {
 		return { ok: false, reason: "invalid_json" };
 	}
-	if (!(isRecord(document) && isRecord(document.meta))) {
+	if (!isSourceMetadataDocument(document)) {
 		return { ok: false, reason: "invalid_json" };
 	}
 
@@ -330,7 +335,7 @@ function tagFields(
 	}
 	const result = emptyCandidates();
 	for (const [index, tag] of tags.entries()) {
-		if (!(isRecord(tag) && nonEmptyString(tag.name))) {
+		if (!hasName(tag)) {
 			result.diagnostics.push(
 				createDiagnostic(
 					input,
@@ -418,7 +423,7 @@ function sliceCandidates(
 ): CandidateCollection {
 	const result = emptyCandidates();
 	const path = `meta.slices[${index}]`;
-	if (!(isRecord(slice) && nonEmptyString(slice.name))) {
+	if (!hasName(slice)) {
 		result.diagnostics.push(
 			createDiagnostic(input, path, "Slice name is missing")
 		);

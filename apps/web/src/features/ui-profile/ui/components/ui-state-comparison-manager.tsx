@@ -13,11 +13,24 @@ import {
 	uiStateComparisonInputSchema,
 } from "@sprite-anvil/api/ui-state-comparisons";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQuery } from "@tanstack/react-query";
-import { type SyntheticEvent, useId, useState } from "react";
+import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
+import { Input } from "@sprite-anvil/ui/components/input";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { Textarea } from "@sprite-anvil/ui/components/textarea";
+import { useForm } from "@tanstack/react-form";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useId, useState } from "react";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client, orpc } from "@/utils/orpc";
+import { orpc } from "@/utils/orpc";
+import {
+	createUiStateComparisonSubmitSchema,
+	type UiStateComparisonDraftItem,
+} from "../../schemas";
 import {
 	kindLabels,
 	outcomeLabels,
@@ -49,9 +62,10 @@ export interface UiStateComparisonManagerProps {
 		| "sourceImageDimensions"
 	>[];
 }
-type Item = UiStateComparisonInput["items"][number] & { key: string };
-const controlClass =
-	"min-h-11 w-full rounded-md border bg-background px-3 py-2";
+type Item = UiStateComparisonDraftItem;
+const inputClass = "min-h-11 w-full";
+const selectClass = "w-full [&_select]:min-h-11";
+const labelClass = "block space-y-1 text-base leading-normal";
 function newItem(state: Item["state"]): Item {
 	return {
 		key: crypto.randomUUID(),
@@ -85,16 +99,31 @@ export function UiStateComparisonManager(props: UiStateComparisonManagerProps) {
 		units,
 	} = props;
 	const prefix = useId();
-	const [items, setItems] = useState<Item[]>(() => [
-		newItem("normal"),
-		newItem("hover"),
-	]);
-	const [screenAssetVersionId, setScreenVersion] = useState("");
-	const [name, setName] = useState("");
-	const [familyStyleNotes, setFamilyNotes] = useState("");
-	const [stateDistinctionNotes, setStateNotes] = useState("");
-	const [outcome, setOutcome] =
-		useState<UiStateComparisonInput["outcome"]>("inconclusive");
+	const [defaultValues] = useState(() => ({
+		screenAssetVersionId: "",
+		name: "",
+		familyStyleNotes: "",
+		stateDistinctionNotes: "",
+		outcome: "inconclusive" as UiStateComparisonInput["outcome"],
+		items: [newItem("normal"), newItem("hover")],
+	}));
+	const form = useForm({
+		defaultValues,
+		onSubmit: ({ value }) => {
+			const parsed = createUiStateComparisonSubmitSchema({
+				projectId,
+				assetFamilyId,
+				contractRevisionId: activation?.contractRevisionId,
+			}).safeParse(value);
+			if (!parsed.success) {
+				setMessage(
+					parsed.error.issues[0]?.message ?? "Check comparison fields."
+				);
+				return;
+			}
+			void save(parsed.data);
+		},
+	});
 	const [saving, setSaving] = useState(false);
 	const [pending, setPending] = useState<UiStateComparisonInput | null>(null);
 	const [retryAllowed, setRetryAllowed] = useState(false);
@@ -115,6 +144,13 @@ export function UiStateComparisonManager(props: UiStateComparisonManagerProps) {
 			version.contentDigest &&
 			version.sourceImageDimensions
 	);
+	const queryClient = useQueryClient();
+	const saveComparison = useMutation(
+		orpc.uiStateComparisons.save.mutationOptions()
+	);
+	const listKey = orpc.uiStateComparisons.list.queryKey({
+		input: { projectId, assetFamilyId },
+	});
 	const query = useQuery({
 		...orpc.uiStateComparisons.list.queryOptions({
 			input: { projectId, assetFamilyId },
@@ -123,14 +159,6 @@ export function UiStateComparisonManager(props: UiStateComparisonManagerProps) {
 	});
 	if (activation?.contract.profileId !== "ui" || recordsById.size === 0) {
 		return null;
-	}
-	const screenVersion = choices.find(
-		(version) => version.id === screenAssetVersionId
-	);
-	function patch(key: string, change: Partial<Item>) {
-		setItems((current) =>
-			current.map((item) => (item.key === key ? { ...item, ...change } : item))
-		);
 	}
 	async function checkSaved() {
 		setRetryAllowed(false);
@@ -167,12 +195,16 @@ export function UiStateComparisonManager(props: UiStateComparisonManagerProps) {
 		setMessage("");
 		setRetryAllowed(false);
 		try {
-			const saved = await client.uiStateComparisons.save(input);
+			const saved = await saveComparison.mutateAsync(input);
 			setPending(input);
-			const result = await query.refetch();
-			const persisted = result.data?.find((record) => record.id === saved.id);
+			await queryClient.invalidateQueries({ queryKey: listKey });
+			const refreshed =
+				queryClient.getQueryData<UiStateComparisonRecord[]>(listKey);
+			const refreshFailed =
+				queryClient.getQueryState(listKey)?.status === "error";
+			const persisted = refreshed?.find((record) => record.id === saved.id);
 			if (
-				!result.isError &&
+				!refreshFailed &&
 				persisted &&
 				JSON.stringify(
 					uiStateComparisonInputSchema.strip().parse(persisted)
@@ -199,35 +231,15 @@ export function UiStateComparisonManager(props: UiStateComparisonManagerProps) {
 			setSaving(false);
 		}
 	}
-	function submit(event: SyntheticEvent<HTMLFormElement>) {
-		event.preventDefault();
-		const parsed = uiStateComparisonInputSchema.safeParse({
-			id: crypto.randomUUID(),
-			projectId,
-			assetFamilyId,
-			contractRevisionId: activation?.contractRevisionId,
-			screenAssetVersionId,
-			name,
-			familyStyleNotes,
-			stateDistinctionNotes,
-			outcome,
-			items: items.map(({ key: _key, ...item }) => item),
-		});
-		if (!parsed.success) {
-			setMessage(parsed.error.issues[0]?.message ?? "Check comparison fields.");
-			return;
-		}
-		void save(parsed.data);
-	}
 	function versionOptions() {
 		return (
 			<>
-				<option value="">Choose a version</option>
+				<NativeSelectOption value="">Choose a version</NativeSelectOption>
 				{choices.map((version) => (
-					<option key={version.id} value={version.id}>
+					<NativeSelectOption key={version.id} value={version.id}>
 						{recordsById.get(version.assetRecordId)?.name} · Version{" "}
 						{version.versionNumber}
-					</option>
+					</NativeSelectOption>
 				))}
 			</>
 		);
@@ -272,276 +284,366 @@ export function UiStateComparisonManager(props: UiStateComparisonManagerProps) {
 					Retry same comparison
 				</Button>
 			) : null}
-			<form className="space-y-4" onSubmit={submit}>
-				<fieldset className="space-y-4" disabled={saving || Boolean(pending)}>
-					<label className="block space-y-1" htmlFor={`${prefix}-name`}>
-						Comparison name
-						<input
-							className={controlClass}
-							id={`${prefix}-name`}
-							maxLength={120}
-							onChange={(event) => setName(event.currentTarget.value)}
-							required
-							value={name}
-						/>
-					</label>
-					<label className="block space-y-1" htmlFor={`${prefix}-screen`}>
-						Screen version
-						<select
-							className={controlClass}
-							id={`${prefix}-screen`}
-							onChange={(event) => setScreenVersion(event.currentTarget.value)}
-							required
-							value={screenAssetVersionId}
-						>
-							{versionOptions()}
-						</select>
-					</label>
-					{screenVersion?.sourceImageDimensions ? (
-						<UiStateComparisonPreview
-							dimensions={screenVersion.sourceImageDimensions}
-							key={screenVersion.id}
-							name={`Screen · ${recordsById.get(screenVersion.assetRecordId)?.name}`}
-							previewUrl={screenVersion.previewUrl}
-						/>
-					) : null}
-					<div className="grid gap-4 lg:grid-cols-2">
-						{items.map((item, index) => {
-							const version = choices.find(
-								(choice) => choice.id === item.assetVersionId
+			<form
+				className="space-y-4"
+				onSubmit={(event) => {
+					event.preventDefault();
+					event.stopPropagation();
+					void form.handleSubmit();
+				}}
+			>
+				<FieldSet className="space-y-4" disabled={saving || Boolean(pending)}>
+					<form.Field name="name">
+						{(field) => (
+							<Label className={labelClass} htmlFor={`${prefix}-name`}>
+								Comparison name
+								<Input
+									className={inputClass}
+									id={`${prefix}-name`}
+									maxLength={120}
+									onChange={(event) =>
+										field.handleChange(event.currentTarget.value)
+									}
+									required
+									value={field.state.value}
+								/>
+							</Label>
+						)}
+					</form.Field>
+					<form.Field name="screenAssetVersionId">
+						{(field) => {
+							const screenVersion = choices.find(
+								(version) => version.id === field.state.value
 							);
-							const unitChoices = units.filter(
-								(unit) =>
-									unit.assetVersionId === item.assetVersionId &&
-									unit.unitType === "state" &&
-									unit.projectId === projectId
-							);
-							const rowId = `${prefix}-${item.key}`;
 							return (
-								<fieldset
-									className="min-w-0 space-y-3 rounded border p-3"
-									key={item.key}
-								>
-									<legend>Component state {index + 1}</legend>
-									<label
-										className="block space-y-1"
-										htmlFor={`${rowId}-identity`}
-									>
-										Component identity
-										<input
-											className={controlClass}
-											id={`${rowId}-identity`}
-											maxLength={120}
+								<>
+									<Label className={labelClass} htmlFor={`${prefix}-screen`}>
+										Screen version
+										<NativeSelect
+											className={selectClass}
+											id={`${prefix}-screen`}
 											onChange={(event) =>
-												patch(item.key, {
-													componentId: event.currentTarget.value,
-												})
+												field.handleChange(event.currentTarget.value)
 											}
 											required
-											value={item.componentId}
-										/>
-									</label>
-									<label className="block space-y-1" htmlFor={`${rowId}-kind`}>
-										Component kind
-										<select
-											className={controlClass}
-											id={`${rowId}-kind`}
-											onChange={(event) => {
-												const parsed =
-													uiStateComparisonInputSchema.shape.items.element.shape.componentKind.parse(
-														event.currentTarget.value
-													);
-												patch(item.key, { componentKind: parsed });
-											}}
-											value={item.componentKind}
-										>
-											{uiComponentKinds.map((kind) => (
-												<option key={kind} value={kind}>
-													{kindLabels[kind]}
-												</option>
-											))}
-										</select>
-									</label>
-									<label className="block space-y-1" htmlFor={`${rowId}-state`}>
-										State
-										<select
-											className={controlClass}
-											id={`${rowId}-state`}
-											onChange={(event) =>
-												patch(item.key, {
-													state:
-														uiStateComparisonInputSchema.shape.items.element.shape.state.parse(
-															event.currentTarget.value
-														),
-												})
-											}
-											value={item.state}
-										>
-											{uiComponentStates.map((state) => (
-												<option key={state} value={state}>
-													{stateLabels[state]}
-												</option>
-											))}
-										</select>
-									</label>
-									<label
-										className="block space-y-1"
-										htmlFor={`${rowId}-version`}
-									>
-										Component version
-										<select
-											className={controlClass}
-											id={`${rowId}-version`}
-											onChange={(event) => {
-												const next = choices.find(
-													(choice) => choice.id === event.currentTarget.value
-												);
-												patch(item.key, {
-													assetVersionId: next?.id ?? "",
-													unitVersionId: null,
-													region: {
-														x: 0,
-														y: 0,
-														width: next?.sourceImageDimensions?.width ?? 1,
-														height: next?.sourceImageDimensions?.height ?? 1,
-													},
-												});
-											}}
-											required
-											value={item.assetVersionId}
+											value={field.state.value}
 										>
 											{versionOptions()}
-										</select>
-									</label>
-									<label className="block space-y-1" htmlFor={`${rowId}-unit`}>
-										State Unit Version
-										<select
-											className={controlClass}
-											id={`${rowId}-unit`}
-											onChange={(event) =>
-												patch(item.key, {
-													unitVersionId: event.currentTarget.value || null,
-												})
-											}
-											value={item.unitVersionId ?? ""}
-										>
-											<option value="">
-												Whole image / explicit image region
-											</option>
-											{unitChoices.map((unit) => (
-												<option key={unit.id} value={unit.id}>
-													{unit.unitKey} · Version {unit.versionNumber}
-												</option>
-											))}
-										</select>
-									</label>
-									<fieldset className="grid grid-cols-2 gap-2">
-										<legend>Source image region (px, top-left)</legend>
-										{(["x", "y", "width", "height"] as const).map((field) => (
-											<label htmlFor={`${rowId}-${field}`} key={field}>
-												{field}
-												<input
-													className={controlClass}
-													id={`${rowId}-${field}`}
-													max={4096}
-													min={field === "width" || field === "height" ? 1 : 0}
-													onChange={(event) =>
-														patch(item.key, {
-															region: {
-																...item.region,
-																[field]: Number(event.currentTarget.value),
-															},
-														})
-													}
-													required
-													type="number"
-													value={item.region[field]}
-												/>
-											</label>
-										))}
-									</fieldset>
-									{version?.sourceImageDimensions ? (
+										</NativeSelect>
+									</Label>
+									{screenVersion?.sourceImageDimensions ? (
 										<UiStateComparisonPreview
-											dimensions={version.sourceImageDimensions}
-											key={version.id}
-											name={`${item.componentId || "Component"} · ${kindLabels[item.componentKind]} · ${stateLabels[item.state]}`}
-											previewUrl={version.previewUrl}
-											region={item.region}
+											dimensions={screenVersion.sourceImageDimensions}
+											key={screenVersion.id}
+											name={`Screen · ${recordsById.get(screenVersion.assetRecordId)?.name}`}
+											previewUrl={screenVersion.previewUrl}
 										/>
 									) : null}
-									{items.length > 2 ? (
-										<Button
-											aria-label={`Remove component state ${index + 1}`}
-											onClick={() =>
-												setItems((current) =>
-													current.filter(
-														(candidate) => candidate.key !== item.key
-													)
-												)
-											}
-											type="button"
-											variant="outline"
-										>
-											Remove state
-										</Button>
-									) : null}
-								</fieldset>
+								</>
 							);
-						})}
-					</div>
-					<Button
-						disabled={items.length >= 49}
-						onClick={() =>
-							setItems((current) => [...current, newItem("normal")])
-						}
-						type="button"
-						variant="outline"
-					>
-						Add component state
-					</Button>
-					<label className="block space-y-1" htmlFor={`${prefix}-family-notes`}>
-						Family style observations
-						<textarea
-							className={controlClass}
-							id={`${prefix}-family-notes`}
-							maxLength={2000}
-							onChange={(event) => setFamilyNotes(event.currentTarget.value)}
-							required
-							value={familyStyleNotes}
-						/>
-					</label>
-					<label className="block space-y-1" htmlFor={`${prefix}-state-notes`}>
-						State distinction observations
-						<textarea
-							className={controlClass}
-							id={`${prefix}-state-notes`}
-							maxLength={2000}
-							onChange={(event) => setStateNotes(event.currentTarget.value)}
-							required
-							value={stateDistinctionNotes}
-						/>
-					</label>
-					<label className="block space-y-1" htmlFor={`${prefix}-outcome`}>
-						Comparison outcome
-						<select
-							className={controlClass}
-							id={`${prefix}-outcome`}
-							onChange={(event) =>
-								setOutcome(
-									uiStateComparisonInputSchema.shape.outcome.parse(
-										event.currentTarget.value
-									)
-								)
-							}
-							value={outcome}
-						>
-							{Object.entries(outcomeLabels).map(([value, label]) => (
-								<option key={value} value={value}>
-									{label}
-								</option>
-							))}
-						</select>
-					</label>
+						}}
+					</form.Field>
+					<form.Field mode="array" name="items">
+						{(itemsField) => (
+							<>
+								<div className="grid gap-4 lg:grid-cols-2">
+									{itemsField.state.value.map((item, index) => {
+										const version = choices.find(
+											(choice) => choice.id === item.assetVersionId
+										);
+										const unitChoices = units.filter(
+											(unit) =>
+												unit.assetVersionId === item.assetVersionId &&
+												unit.unitType === "state" &&
+												unit.projectId === projectId
+										);
+										const rowId = `${prefix}-${item.key}`;
+										return (
+											<FieldSet
+												className="min-w-0 space-y-3 rounded border p-3"
+												key={item.key}
+											>
+												<FieldLegend>Component state {index + 1}</FieldLegend>
+												<form.Field name={`items[${index}].componentId`}>
+													{(field) => (
+														<Label
+															className={labelClass}
+															htmlFor={`${rowId}-identity`}
+														>
+															Component identity
+															<Input
+																className={inputClass}
+																id={`${rowId}-identity`}
+																maxLength={120}
+																onChange={(event) =>
+																	field.handleChange(event.currentTarget.value)
+																}
+																required
+																value={field.state.value}
+															/>
+														</Label>
+													)}
+												</form.Field>
+												<form.Field name={`items[${index}].componentKind`}>
+													{(field) => (
+														<Label
+															className={labelClass}
+															htmlFor={`${rowId}-kind`}
+														>
+															Component kind
+															<NativeSelect
+																className={selectClass}
+																id={`${rowId}-kind`}
+																onChange={(event) =>
+																	field.handleChange(
+																		uiStateComparisonInputSchema.shape.items.element.shape.componentKind.parse(
+																			event.currentTarget.value
+																		)
+																	)
+																}
+																value={field.state.value}
+															>
+																{uiComponentKinds.map((kind) => (
+																	<NativeSelectOption key={kind} value={kind}>
+																		{kindLabels[kind]}
+																	</NativeSelectOption>
+																))}
+															</NativeSelect>
+														</Label>
+													)}
+												</form.Field>
+												<form.Field name={`items[${index}].state`}>
+													{(field) => (
+														<Label
+															className={labelClass}
+															htmlFor={`${rowId}-state`}
+														>
+															State
+															<NativeSelect
+																className={selectClass}
+																id={`${rowId}-state`}
+																onChange={(event) =>
+																	field.handleChange(
+																		uiStateComparisonInputSchema.shape.items.element.shape.state.parse(
+																			event.currentTarget.value
+																		)
+																	)
+																}
+																value={field.state.value}
+															>
+																{uiComponentStates.map((state) => (
+																	<NativeSelectOption key={state} value={state}>
+																		{stateLabels[state]}
+																	</NativeSelectOption>
+																))}
+															</NativeSelect>
+														</Label>
+													)}
+												</form.Field>
+												<form.Field name={`items[${index}].assetVersionId`}>
+													{(field) => (
+														<Label
+															className={labelClass}
+															htmlFor={`${rowId}-version`}
+														>
+															Component version
+															<NativeSelect
+																className={selectClass}
+																id={`${rowId}-version`}
+																onChange={(event) => {
+																	const next = choices.find(
+																		(choice) =>
+																			choice.id === event.currentTarget.value
+																	);
+																	field.handleChange(next?.id ?? "");
+																	form.setFieldValue(
+																		`items[${index}].unitVersionId`,
+																		null
+																	);
+																	form.setFieldValue(`items[${index}].region`, {
+																		x: 0,
+																		y: 0,
+																		width:
+																			next?.sourceImageDimensions?.width ?? 1,
+																		height:
+																			next?.sourceImageDimensions?.height ?? 1,
+																	});
+																}}
+																required
+																value={field.state.value}
+															>
+																{versionOptions()}
+															</NativeSelect>
+														</Label>
+													)}
+												</form.Field>
+												<form.Field name={`items[${index}].unitVersionId`}>
+													{(field) => (
+														<Label
+															className={labelClass}
+															htmlFor={`${rowId}-unit`}
+														>
+															State Unit Version
+															<NativeSelect
+																className={selectClass}
+																id={`${rowId}-unit`}
+																onChange={(event) =>
+																	field.handleChange(
+																		event.currentTarget.value || null
+																	)
+																}
+																value={field.state.value ?? ""}
+															>
+																<NativeSelectOption value="">
+																	Whole image / explicit image region
+																</NativeSelectOption>
+																{unitChoices.map((unit) => (
+																	<NativeSelectOption
+																		key={unit.id}
+																		value={unit.id}
+																	>
+																		{unit.unitKey} · Version{" "}
+																		{unit.versionNumber}
+																	</NativeSelectOption>
+																))}
+															</NativeSelect>
+														</Label>
+													)}
+												</form.Field>
+												<FieldSet className="grid grid-cols-2 gap-2">
+													<FieldLegend>
+														Source image region (px, top-left)
+													</FieldLegend>
+													{(["x", "y", "width", "height"] as const).map(
+														(regionField) => (
+															<form.Field
+																key={regionField}
+																name={`items[${index}].region.${regionField}`}
+															>
+																{(field) => (
+																	<Label
+																		className="block text-base leading-normal"
+																		htmlFor={`${rowId}-${regionField}`}
+																	>
+																		{regionField}
+																		<Input
+																			className={inputClass}
+																			id={`${rowId}-${regionField}`}
+																			max={4096}
+																			min={
+																				regionField === "width" ||
+																				regionField === "height"
+																					? 1
+																					: 0
+																			}
+																			onChange={(event) =>
+																				field.handleChange(
+																					Number(event.currentTarget.value)
+																				)
+																			}
+																			required
+																			type="number"
+																			value={field.state.value}
+																		/>
+																	</Label>
+																)}
+															</form.Field>
+														)
+													)}
+												</FieldSet>
+												{version?.sourceImageDimensions ? (
+													<UiStateComparisonPreview
+														dimensions={version.sourceImageDimensions}
+														key={version.id}
+														name={`${item.componentId || "Component"} · ${kindLabels[item.componentKind]} · ${stateLabels[item.state]}`}
+														previewUrl={version.previewUrl}
+														region={item.region}
+													/>
+												) : null}
+												{itemsField.state.value.length > 2 ? (
+													<Button
+														aria-label={`Remove component state ${index + 1}`}
+														onClick={() => itemsField.removeValue(index)}
+														type="button"
+														variant="outline"
+													>
+														Remove state
+													</Button>
+												) : null}
+											</FieldSet>
+										);
+									})}
+								</div>
+								<Button
+									disabled={itemsField.state.value.length >= 49}
+									onClick={() => itemsField.pushValue(newItem("normal"))}
+									type="button"
+									variant="outline"
+								>
+									Add component state
+								</Button>
+							</>
+						)}
+					</form.Field>
+					<form.Field name="familyStyleNotes">
+						{(field) => (
+							<Label className={labelClass} htmlFor={`${prefix}-family-notes`}>
+								Family style observations
+								<Textarea
+									className={inputClass}
+									id={`${prefix}-family-notes`}
+									maxLength={2000}
+									onChange={(event) =>
+										field.handleChange(event.currentTarget.value)
+									}
+									required
+									value={field.state.value}
+								/>
+							</Label>
+						)}
+					</form.Field>
+					<form.Field name="stateDistinctionNotes">
+						{(field) => (
+							<Label className={labelClass} htmlFor={`${prefix}-state-notes`}>
+								State distinction observations
+								<Textarea
+									className={inputClass}
+									id={`${prefix}-state-notes`}
+									maxLength={2000}
+									onChange={(event) =>
+										field.handleChange(event.currentTarget.value)
+									}
+									required
+									value={field.state.value}
+								/>
+							</Label>
+						)}
+					</form.Field>
+					<form.Field name="outcome">
+						{(field) => (
+							<Label className={labelClass} htmlFor={`${prefix}-outcome`}>
+								Comparison outcome
+								<NativeSelect
+									className={selectClass}
+									id={`${prefix}-outcome`}
+									onChange={(event) =>
+										field.handleChange(
+											uiStateComparisonInputSchema.shape.outcome.parse(
+												event.currentTarget.value
+											)
+										)
+									}
+									value={field.state.value}
+								>
+									{Object.entries(outcomeLabels).map(([value, label]) => (
+										<NativeSelectOption key={value} value={value}>
+											{label}
+										</NativeSelectOption>
+									))}
+								</NativeSelect>
+							</Label>
+						)}
+					</form.Field>
 					<Button
 						disabled={
 							saving ||
@@ -554,7 +656,7 @@ export function UiStateComparisonManager(props: UiStateComparisonManagerProps) {
 					>
 						{saving ? "Saving comparison…" : "Save comparison"}
 					</Button>
-				</fieldset>
+				</FieldSet>
 			</form>
 			{query.data?.length ? (
 				<section aria-label="Saved UI State Comparisons" className="space-y-3">

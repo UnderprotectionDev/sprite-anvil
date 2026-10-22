@@ -1,14 +1,14 @@
-import { type SyntheticEvent, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 
-interface RefetchCatalogResult {
+interface RefreshCatalogResult {
 	isError: boolean;
 }
 
 export function useAssetFamilyWrites(
-	refetchCatalog: () => Promise<RefetchCatalogResult>
+	refreshCatalog: () => Promise<RefreshCatalogResult>
 ) {
 	const [savingOperation, setSavingOperation] = useState<string | null>(null);
 	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
@@ -16,13 +16,11 @@ export function useAssetFamilyWrites(
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
 	async function save<T>(
-		event: SyntheticEvent<HTMLFormElement>,
 		operation: string,
 		action: () => Promise<T>,
 		onSuccess: (record: T) => void,
 		successMessage: string
 	) {
-		event.preventDefault();
 		if (writeOutcomeUncertain) {
 			return;
 		}
@@ -31,7 +29,7 @@ export function useAssetFamilyWrites(
 		try {
 			const record = await action();
 			onSuccess(record);
-			await refetchCatalog();
+			await refreshCatalog();
 			setStatusMessage(successMessage);
 		} catch (error) {
 			if (isWriteOutcomeUncertain(error)) {
@@ -51,7 +49,7 @@ export function useAssetFamilyWrites(
 	async function checkWriteOutcome() {
 		setIsCheckingOutcome(true);
 		try {
-			const result = await refetchCatalog();
+			const result = await refreshCatalog();
 			if (result.isError) {
 				return;
 			}

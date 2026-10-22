@@ -7,8 +7,11 @@ function Slider({
 	value,
 	min = 0,
 	max = 100,
+	getAriaLabel,
+	getAriaValueText,
 	...props
-}: SliderPrimitive.Root.Props) {
+}: SliderPrimitive.Root.Props &
+	Pick<SliderPrimitive.Thumb.Props, "getAriaLabel" | "getAriaValueText">) {
 	let thumbCount = 2;
 	if (Array.isArray(value)) {
 		thumbCount = value.length;
@@ -41,6 +44,8 @@ function Slider({
 					<SliderPrimitive.Thumb
 						className="relative block size-3 shrink-0 select-none rounded-none border border-ring bg-white ring-ring/50 transition-[color,box-shadow] after:absolute after:-inset-2 hover:ring-1 focus-visible:outline-hidden focus-visible:ring-1 active:ring-1 disabled:pointer-events-none disabled:opacity-50"
 						data-slot="slider-thumb"
+						getAriaLabel={getAriaLabel}
+						getAriaValueText={getAriaValueText}
 						// biome-ignore lint/suspicious/noArrayIndexKey: Slider thumbs retain their positional identity and may share a value.
 						key={index}
 					/>

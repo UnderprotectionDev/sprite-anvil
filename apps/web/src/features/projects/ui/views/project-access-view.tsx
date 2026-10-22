@@ -3,15 +3,16 @@ import type {
 	ToolAccessPermission,
 } from "@sprite-anvil/api/project-access-store";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { type SyntheticEvent, useState } from "react";
+import { useState } from "react";
 import { ExternalVisualAnalysisConsent } from "@/features/external-visual-analysis/ui/components/external-visual-analysis-consent";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
-import { client, orpc } from "@/utils/orpc";
+import { orpc } from "@/utils/orpc";
 import {
 	ContextAgentPermissionForm,
 	scopeOptions,
+	useContextAgentPermissionForm,
 } from "../forms/context-agent-permission-form";
 
 const connectionScopes = [
@@ -21,6 +22,7 @@ const connectionScopes = [
 ];
 
 export function ProjectAccessScreen({ projectId }: { projectId: string }) {
+	const queryClient = useQueryClient();
 	const projectQueryOptions = orpc.projects.get.queryOptions({
 		input: { projectId },
 	});
@@ -33,42 +35,42 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 	const permissionsQuery = useQuery({
 		...permissionsQueryOptions,
 	});
-	const [purpose, setPurpose] = useState("Proje Bağlamı için öneri hazırlama");
-	const [selectedScopes, setSelectedScopes] = useState<ContextAgentScope[]>([
-		"project_context:read",
-		"context_proposals:write",
-	]);
+	const grantForm = useContextAgentPermissionForm(handleGrantPermission);
 	const [revokingId, setRevokingId] = useState<string | null>(null);
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
 	const [isCheckingWriteOutcome, setIsCheckingWriteOutcome] = useState(false);
-	const grantPermission = useMutation({
-		mutationFn: (input: { purpose: string; scopes: ContextAgentScope[] }) =>
-			client.projects.access.grantContextAgent({ projectId, ...input }),
-		onSuccess: async () => {
-			setStatusMessage("Bağlam Ajanı izni kaydedildi.");
-			await permissionsQuery.refetch();
-		},
-		onError: (error) => {
-			if (isWriteOutcomeUncertain(error)) {
-				setWriteOutcomeUncertain(true);
-			}
-		},
-	});
-	const revokePermission = useMutation({
-		mutationFn: (permissionId: string) =>
-			client.projects.access.revoke({ projectId, permissionId }),
-		onSuccess: async () => {
-			setStatusMessage("İzin geri alındı. Yeni erişim istekleri reddedilir.");
-			await permissionsQuery.refetch();
-		},
-		onError: (error) => {
-			if (isWriteOutcomeUncertain(error)) {
-				setWriteOutcomeUncertain(true);
-			}
-		},
-		onSettled: () => setRevokingId(null),
-	});
+	const grantPermission = useMutation(
+		orpc.projects.access.grantContextAgent.mutationOptions({
+			onSuccess: async () => {
+				setStatusMessage("Bağlam Ajanı izni kaydedildi.");
+				await queryClient.invalidateQueries({
+					queryKey: permissionsQueryOptions.queryKey,
+				});
+			},
+			onError: (error) => {
+				if (isWriteOutcomeUncertain(error)) {
+					setWriteOutcomeUncertain(true);
+				}
+			},
+		})
+	);
+	const revokePermission = useMutation(
+		orpc.projects.access.revoke.mutationOptions({
+			onSuccess: async () => {
+				setStatusMessage("İzin geri alındı. Yeni erişim istekleri reddedilir.");
+				await queryClient.invalidateQueries({
+					queryKey: permissionsQueryOptions.queryKey,
+				});
+			},
+			onError: (error) => {
+				if (isWriteOutcomeUncertain(error)) {
+					setWriteOutcomeUncertain(true);
+				}
+			},
+			onSettled: () => setRevokingId(null),
+		})
+	);
 	const isPermissionStateUnavailable =
 		permissionsQuery.isFetching || permissionsQuery.isError;
 	const isGrantingLocked =
@@ -93,25 +95,15 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 		}
 	}
 
-	function toggleScope(scope: ContextAgentScope, checked: boolean) {
-		setSelectedScopes((current) =>
-			checked
-				? [...new Set([...current, scope])]
-				: current.filter((selectedScope) => selectedScope !== scope)
-		);
-	}
-
-	function handleGrantPermission(event: SyntheticEvent<HTMLFormElement>) {
-		event.preventDefault();
+	function handleGrantPermission(input: {
+		purpose: string;
+		scopes: ContextAgentScope[];
+	}) {
 		if (writeOutcomeUncertain || isGrantingLocked) {
 			return;
 		}
-		const trimmedPurpose = purpose.trim();
-		if (trimmedPurpose.length < 3 || selectedScopes.length === 0) {
-			return;
-		}
 		setStatusMessage(null);
-		grantPermission.mutate({ purpose: trimmedPurpose, scopes: selectedScopes });
+		grantPermission.mutate({ projectId, ...input });
 	}
 
 	function handleRevokePermission(permissionId: string) {
@@ -120,7 +112,7 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 		}
 		setStatusMessage(null);
 		setRevokingId(permissionId);
-		revokePermission.mutate(permissionId);
+		revokePermission.mutate({ projectId, permissionId });
 	}
 
 	const permissions = permissionsQuery.data ?? [];
@@ -179,13 +171,9 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 				</div>
 
 				<ContextAgentPermissionForm
+					form={grantForm}
 					isDisabled={isPermissionStateUnavailable}
 					isSaving={grantPermission.isPending}
-					onPurposeChange={setPurpose}
-					onSubmit={handleGrantPermission}
-					onToggleScope={toggleScope}
-					purpose={purpose}
-					selectedScopes={selectedScopes}
 					writeOutcomeUncertain={writeOutcomeUncertain}
 				/>
 

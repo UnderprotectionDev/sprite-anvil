@@ -59,10 +59,18 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
 	};
 });
 
+const unusedMutation = vi.hoisted(() => ({
+	mutationOptions: (options?: object) => ({
+		...options,
+		mutationFn: () => Promise.reject(new Error("unexpected write")),
+	}),
+}));
+
 vi.mock("@/utils/orpc", () => ({
 	client: {},
 	orpc: {
 		directionalReviews: {
+			save: unusedMutation,
 			list: {
 				queryOptions: ({ input }: { input: { assetFamilyId: string } }) => ({
 					queryKey: ["directional-reviews", input.assetFamilyId],
@@ -71,6 +79,7 @@ vi.mock("@/utils/orpc", () => ({
 			},
 		},
 		animationTimingReviews: {
+			save: unusedMutation,
 			list: {
 				queryOptions: ({ input }: { input: { assetFamilyId: string } }) => ({
 					queryKey: ["animation-timing-reviews", input.assetFamilyId],
@@ -79,6 +88,10 @@ vi.mock("@/utils/orpc", () => ({
 			},
 		},
 		dependencyRevalidation: {
+			createLink: unusedMutation,
+			determine: unusedMutation,
+			pinHistoricalComposition: unusedMutation,
+			reReview: unusedMutation,
 			listHistoricalCompositions: {
 				queryOptions: () => ({
 					queryKey: ["historical-compositions"],
@@ -106,7 +119,12 @@ vi.mock("@/utils/orpc", () => ({
 			},
 		},
 		assetFamilies: {
+			createAssetFamily: unusedMutation,
+			createAssetRecord: unusedMutation,
+			createRelationship: unusedMutation,
+			createSubjectIdentity: unusedMutation,
 			list: {
+				queryKey: () => ["asset-families"],
 				queryOptions: () => ({
 					queryKey: ["asset-families"],
 					queryFn: async () =>
@@ -120,7 +138,15 @@ vi.mock("@/utils/orpc", () => ({
 			},
 		},
 		assetVersions: {
+			createCompositeVersion: unusedMutation,
+			previewBatchReview: unusedMutation,
+			recordProviderGeneration: unusedMutation,
+			review: unusedMutation,
+			reviewBatch: unusedMutation,
+			reviewCompositeVersion: unusedMutation,
+			selectCanonicalDesign: unusedMutation,
 			list: {
+				queryKey: () => ["asset-versions"],
 				queryOptions: () => ({
 					queryKey: ["asset-versions"],
 					queryFn: async () => ({
@@ -152,6 +178,9 @@ vi.mock("@/utils/orpc", () => ({
 			},
 		},
 		familyReadiness: {
+			activate: unusedMutation,
+			recordEvidence: unusedMutation,
+			saveDraft: unusedMutation,
 			list: {
 				queryOptions: ({
 					input,

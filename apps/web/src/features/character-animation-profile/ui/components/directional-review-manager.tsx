@@ -5,11 +5,12 @@ import type {
 } from "@sprite-anvil/api/directional-reviews";
 import type { ProjectProfileContractActivation } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client, orpc } from "@/utils/orpc";
+import { mutationMeta } from "@/utils/mutation-meta";
+import { orpc } from "@/utils/orpc";
 import { DirectionalReviewEditor } from "./directional-review-editor";
 
 export function DirectionalReviewManager({
@@ -35,7 +36,23 @@ export function DirectionalReviewManager({
 	const [selected, setSelected] = useState<DirectionalReviewRecord | null>(
 		null
 	);
-	const [saving, setSaving] = useState(false);
+	const queryClient = useQueryClient();
+	const saveMutation = useMutation(
+		orpc.directionalReviews.save.mutationOptions({
+			...mutationMeta,
+			onSuccess: async (record) => {
+				setSelected(record);
+				setPendingId(null);
+				setMessage("İnceleme kalıcı kayıttan doğrulandı.");
+				await queryClient.invalidateQueries({
+					queryKey: orpc.directionalReviews.list.queryKey({
+						input: { projectId, assetFamilyId },
+					}),
+				});
+			},
+		})
+	);
+	const saving = saveMutation.isPending;
 	const [pendingId, setPendingId] = useState<string | null>(null);
 	const [uncertain, setUncertain] = useState(false);
 	const [message, setMessage] = useState("");
@@ -46,15 +63,10 @@ export function DirectionalReviewManager({
 		(version) => version.assetFamilyId === assetFamilyId
 	);
 	const save = async (input: DirectionalReviewInput) => {
-		setSaving(true);
 		setMessage("");
 		setPendingId(input.id);
 		try {
-			const record = await client.directionalReviews.save(input);
-			setSelected(record);
-			setPendingId(null);
-			setMessage("İnceleme kalıcı kayıttan doğrulandı.");
-			await query.refetch();
+			await saveMutation.mutateAsync(input);
 		} catch (error) {
 			if (!isWriteOutcomeUncertain(error)) {
 				setPendingId(null);
@@ -65,8 +77,6 @@ export function DirectionalReviewManager({
 			setMessage(
 				"Kaydetme sonucu doğrulanamadı. Güncel kayıtları kontrol edin; aynı incelemeyi yeniden göndermeyin."
 			);
-		} finally {
-			setSaving(false);
 		}
 	};
 	const checkCurrentRecords = async () => {

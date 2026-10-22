@@ -1,23 +1,21 @@
 import type { CollectionCatalog } from "@sprite-anvil/api/collections";
 import { Button } from "@sprite-anvil/ui/components/button";
-import type { SyntheticEvent } from "react";
+import { Input } from "@sprite-anvil/ui/components/input";
+import { Label } from "@sprite-anvil/ui/components/label";
+import type { CollectionNameForm } from "../../hooks/use-collections-manager";
 
 export function CollectionListPanel({
-	collectionName,
+	collectionForm,
 	collections,
 	memberships,
-	onCollectionNameChange,
-	onCreateCollection,
 	onSelectCollection,
 	savingOperation,
 	selectedCollectionId,
 	writesDisabled,
 }: {
-	collectionName: string;
+	collectionForm: CollectionNameForm;
 	collections: CollectionCatalog["collections"];
 	memberships: CollectionCatalog["memberships"];
-	onCollectionNameChange: (name: string) => void;
-	onCreateCollection: (event: SyntheticEvent<HTMLFormElement>) => void;
 	onSelectCollection: (collectionId: string) => void;
 	savingOperation: string | null;
 	selectedCollectionId: string | null;
@@ -50,12 +48,13 @@ export function CollectionListPanel({
 						).length;
 						return (
 							<li key={collection.id}>
-								<button
+								<Button
 									aria-pressed={selectedCollectionId === collection.id}
-									className="flex min-h-11 w-full items-center justify-between gap-3 rounded-md border px-3 py-2 text-left transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
+									className="h-auto min-h-11 w-full justify-between gap-3 whitespace-normal px-3 py-2 text-left"
 									disabled={savingOperation !== null}
 									onClick={() => onSelectCollection(collection.id)}
 									type="button"
+									variant="outline"
 								>
 									<span className="min-w-0 break-words font-medium">
 										{collection.name}
@@ -63,7 +62,7 @@ export function CollectionListPanel({
 									<span className="shrink-0 text-muted-foreground text-sm">
 										{memberCount} kayıt
 									</span>
-								</button>
+								</Button>
 							</li>
 						);
 					})}
@@ -76,30 +75,49 @@ export function CollectionListPanel({
 				<summary className="min-h-11 cursor-pointer py-3 font-medium focus-visible:outline-2 focus-visible:outline-ring">
 					Yeni Koleksiyon
 				</summary>
-				<form className="space-y-3" onSubmit={onCreateCollection}>
-					<div className="space-y-2">
-						<label className="font-medium text-sm" htmlFor="collection-name">
-							Koleksiyon adı
-						</label>
-						<input
-							autoComplete="off"
-							className="h-11 w-full rounded-md border bg-background px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
-							id="collection-name"
-							maxLength={120}
-							name="name"
-							onChange={(event) => onCollectionNameChange(event.target.value)}
-							value={collectionName}
-						/>
-					</div>
-					<Button
-						className="min-h-11"
-						disabled={writesDisabled || collectionName.trim().length === 0}
-						type="submit"
-					>
-						{savingOperation === "create"
-							? "Koleksiyon oluşturuluyor…"
-							: "Koleksiyon oluştur"}
-					</Button>
+				<form
+					className="space-y-3"
+					onSubmit={(event) => {
+						event.preventDefault();
+						event.stopPropagation();
+						void collectionForm.handleSubmit();
+					}}
+				>
+					<collectionForm.Field name="name">
+						{(field) => (
+							<div className="space-y-2">
+								<Label
+									className="font-medium text-sm"
+									htmlFor="collection-name"
+								>
+									Koleksiyon adı
+								</Label>
+								<Input
+									autoComplete="off"
+									className="h-11"
+									id="collection-name"
+									maxLength={120}
+									name={field.name}
+									onBlur={field.handleBlur}
+									onChange={(event) => field.handleChange(event.target.value)}
+									value={field.state.value}
+								/>
+							</div>
+						)}
+					</collectionForm.Field>
+					<collectionForm.Subscribe selector={(state) => state.values.name}>
+						{(collectionName) => (
+							<Button
+								className="min-h-11"
+								disabled={writesDisabled || collectionName.trim().length === 0}
+								type="submit"
+							>
+								{savingOperation === "create"
+									? "Koleksiyon oluşturuluyor…"
+									: "Koleksiyon oluştur"}
+							</Button>
+						)}
+					</collectionForm.Subscribe>
 				</form>
 			</details>
 		</section>

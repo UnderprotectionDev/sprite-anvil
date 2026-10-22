@@ -7,8 +7,14 @@ import {
 } from "@sprite-anvil/api/scene-qa";
 import type { SpecializedProfileContractsListOutput } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
+import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
 import { Label } from "@sprite-anvil/ui/components/label";
-import { useState } from "react";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { useForm, useStore } from "@tanstack/react-form";
+import { sceneQaPlacementFormSchema } from "../../schemas";
 
 const roleLayers = {
 	background: -2,
@@ -31,9 +37,23 @@ export function SceneQaAddPlacement({
 	assets: AssetRecord[];
 	profiles: SpecializedProfileContractsListOutput["profiles"];
 }) {
-	const [role, setRole] = useState<(typeof sceneQaRoles)[number]>("object");
-	const [versionId, setVersionId] = useState("");
-	const [usageTestId, setUsageTestId] = useState("");
+	const form = useForm({
+		defaultValues: {
+			role: "object" as (typeof sceneQaRoles)[number],
+			usageTestId: "",
+			versionId: "",
+		},
+		onSubmit: ({ value }) => {
+			const parsed = sceneQaPlacementFormSchema.safeParse(value);
+			if (parsed.success) {
+				addPlacement(parsed.data.role, parsed.data);
+			}
+		},
+	});
+	const { role, usageTestId, versionId } = useStore(
+		form.store,
+		(state) => state.values
+	);
 	const activation = profiles.find(
 		(p) => p.definition.profileId === sceneQaRoleProfiles[role]
 	)?.activeContract;
@@ -49,10 +69,14 @@ export function SceneQaAddPlacement({
 					a.assetCategory === sceneQaRoleProfiles[role]
 			)
 	);
-	function addPlacement() {
-		const version = matching.find((v) => v.id === versionId);
+	function addPlacement(
+		placementRole: (typeof sceneQaRoles)[number],
+		chosen: { usageTestId: string; versionId: string }
+	) {
+		const version = matching.find((v) => v.id === chosen.versionId);
 		const usage = activation?.contract.usageTests.find(
-			(t) => t.id === (usageTestId || activation.contract.usageTests[0]?.id)
+			(t) =>
+				t.id === (chosen.usageTestId || activation.contract.usageTests[0]?.id)
 		);
 		if (!(version?.sourceImageDimensions && activation && usage)) {
 			return;
@@ -66,24 +90,32 @@ export function SceneQaAddPlacement({
 				...setup.placements,
 				{
 					id: crypto.randomUUID(),
-					role,
+					role: placementRole,
 					assetVersionId: version.id,
 					contractRevisionId: activation.contractRevisionId,
 					usageTestId: usage.id,
-					x: role === "background" || role === "tile" ? 0 : 320,
-					y: role === "background" || role === "tile" ? 0 : 240,
-					layer: roleLayers[role],
+					x:
+						placementRole === "background" || placementRole === "tile"
+							? 0
+							: 320,
+					y:
+						placementRole === "background" || placementRole === "tile"
+							? 0
+							: 240,
+					layer: roleLayers[placementRole],
 					scale: 1,
 					pivot:
-						role === "background" || role === "tile" ? { x: 0, y: 0 } : point,
+						placementRole === "background" || placementRole === "tile"
+							? { x: 0, y: 0 }
+							: point,
 					groundPoint: point,
 					sortPoint: point,
 					origin: { x: Math.floor(width / 2), y: Math.floor(height / 2) },
 					areas: [],
 					clips: {
 						idle: [frame],
-						walk: role === "character" ? [frame] : [],
-						attack: role === "character" ? [frame] : [],
+						walk: placementRole === "character" ? [frame] : [],
+						attack: placementRole === "character" ? [frame] : [],
 					},
 				},
 			],
@@ -92,65 +124,65 @@ export function SceneQaAddPlacement({
 	return (
 		<>
 			{" "}
-			<fieldset className="grid gap-3 rounded-lg border p-4 sm:grid-cols-3">
-				<legend>Add placement</legend>
+			<FieldSet className="grid gap-3 rounded-lg border p-4 sm:grid-cols-3">
+				<FieldLegend>Add placement</FieldLegend>
 				<div>
 					<Label htmlFor="scene-role">Role</Label>
-					<select
-						className="min-h-11 w-full rounded border bg-background px-3"
+					<NativeSelect
+						className="min-h-11 w-full"
 						id="scene-role"
 						onChange={(e) => {
 							const next = sceneQaRoles.find((r) => r === e.target.value);
 							if (next) {
-								setRole(next);
-								setVersionId("");
-								setUsageTestId("");
+								form.setFieldValue("role", next);
+								form.setFieldValue("versionId", "");
+								form.setFieldValue("usageTestId", "");
 							}
 						}}
 						value={role}
 					>
 						{sceneQaRoles.map((r) => (
-							<option key={r} value={r}>
+							<NativeSelectOption key={r} value={r}>
 								{r}
-							</option>
+							</NativeSelectOption>
 						))}
-					</select>
+					</NativeSelect>
 				</div>
 				<div>
 					<Label htmlFor="scene-version">Exact Asset Version</Label>
-					<select
-						className="min-h-11 w-full rounded border bg-background px-3"
+					<NativeSelect
+						className="min-h-11 w-full"
 						id="scene-version"
-						onChange={(e) => setVersionId(e.target.value)}
+						onChange={(e) => form.setFieldValue("versionId", e.target.value)}
 						value={versionId}
 					>
-						<option value="">Select version</option>
+						<NativeSelectOption value="">Select version</NativeSelectOption>
 						{matching.map((v) => (
-							<option key={v.id} value={v.id}>
+							<NativeSelectOption key={v.id} value={v.id}>
 								{assets?.find((a) => a.id === v.assetRecordId)?.name} · v
 								{v.versionNumber} · {v.id}
-							</option>
+							</NativeSelectOption>
 						))}
-					</select>
+					</NativeSelect>
 				</div>
 				<div>
 					<Label htmlFor="scene-usage">Profile usage test</Label>
-					<select
-						className="min-h-11 w-full rounded border bg-background px-3"
+					<NativeSelect
+						className="min-h-11 w-full"
 						id="scene-usage"
-						onChange={(e) => setUsageTestId(e.target.value)}
+						onChange={(e) => form.setFieldValue("usageTestId", e.target.value)}
 						value={usageTestId || activation?.contract.usageTests[0]?.id || ""}
 					>
 						{activation?.contract.usageTests.map((t) => (
-							<option key={t.id} value={t.id}>
+							<NativeSelectOption key={t.id} value={t.id}>
 								{t.label}
-							</option>
+							</NativeSelectOption>
 						))}
-					</select>
+					</NativeSelect>
 				</div>
 				<Button
 					disabled={!(versionId && activation) || setup.placements.length >= 24}
-					onClick={addPlacement}
+					onClick={() => void form.handleSubmit()}
 					type="button"
 				>
 					Add to scene
@@ -167,7 +199,7 @@ export function SceneQaAddPlacement({
 						}
 					</p>
 				)}
-			</fieldset>
+			</FieldSet>
 			{!(matching.length && activation) && (
 				<p role="status">
 					Import intact image versions, assign their matching asset category,

@@ -3,27 +3,38 @@ import {
 	type RightsRecordCreateInput,
 	type RightsRecordEvidenceFile,
 	type RightsRecordState,
-	rightsRecordEvidenceFileLimitBytes,
 	rightsRecordSchema,
 	rightsRecordStates,
 } from "@sprite-anvil/api/rights-records";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Label } from "@sprite-anvil/ui/components/label";
 import {
-	type ChangeEvent,
-	type SyntheticEvent,
-	useEffect,
-	useRef,
-	useState,
-} from "react";
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { Textarea } from "@sprite-anvil/ui/components/textarea";
+import { useForm, useStore } from "@tanstack/react-form";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { type SyntheticEvent, useEffect, useRef, useState } from "react";
 import {
 	isWriteOutcomeUncertain,
 	QueryRetryButton,
 } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client, orpc } from "@/utils/orpc";
+import { mutationMeta } from "@/utils/mutation-meta";
+import { orpc } from "@/utils/orpc";
 import { rightsRecordEvidenceFileUrl } from "../../lib/rights-record-api";
+import {
+	documentedEvidenceError,
+	isRightsRecordFieldRequired,
+	type RightsRecordDraft,
+	type RightsRecordValidationField,
+	restrictedRestrictionsError,
+	rightsRecordEvidenceFileError,
+	rightsRecordFormErrors,
+	rightsRecordRequiredFieldSchema,
+} from "../../schemas";
 import { RightsRecordDetails } from "./rights-record-details";
 
 const stateLabels: Record<RightsRecordState, string> = {
@@ -32,48 +43,26 @@ const stateLabels: Record<RightsRecordState, string> = {
 	restricted: "Kısıtlı",
 	unknown: "Bilinmiyor",
 };
-const documentedEvidenceError =
-	"Belgelendi durumunda destekleyici kanıt gerekir.";
-const restrictedRestrictionsError =
-	"Kısıtlı durumunda bilinen en az bir kısıt gerekir.";
-type RightsRecordValidationField = "evidence" | "restrictions";
 interface RightsRecordSubmission {
 	evidenceFile: File | null;
 	input: RightsRecordCreateInput;
 }
 
-interface RightsRecordDraft {
-	assertedScope: string;
-	evidence: string;
-	restrictions: string;
-	rightsHolderOrProvider: string;
-	source: string;
-	state: RightsRecordState;
-	uncertainty: string;
-}
+type UploadRightsRecordSubmission = RightsRecordSubmission & {
+	evidenceFile: File;
+};
 
-function getEvidenceFileError(file: File | null) {
-	if (!file) {
-		return null;
-	}
-	if (file.size === 0) {
-		return "Kanıt dosyası boş olamaz.";
-	}
-	if (file.size > rightsRecordEvidenceFileLimitBytes) {
-		return "Kanıt dosyası 5 MiB sınırını aşıyor.";
-	}
-	return null;
-}
+const validationMessages: Record<RightsRecordValidationField, string> = {
+	evidence: documentedEvidenceError,
+	restrictions: restrictedRestrictionsError,
+};
 
-function isRightsRecordFieldRequired(
-	key: Exclude<keyof RightsRecordDraft, "state">,
-	state: RightsRecordState,
-	hasEvidenceFile: boolean
-) {
-	if (key === "evidence") {
-		return state === "documented" && !hasEvidenceFile;
+function firstErrorMessage(errors: readonly unknown[]) {
+	const [error] = errors;
+	if (typeof error === "string") {
+		return error;
 	}
-	return key === "restrictions" && state === "restricted";
+	return (error as { message?: string } | undefined)?.message;
 }
 
 const emptyDraft: RightsRecordDraft = {
@@ -139,52 +128,6 @@ function normalizeInputText(value: string) {
 	return value.trim() || null;
 }
 
-function getDraftValidationErrors(
-	draft: RightsRecordDraft,
-	hasEvidenceFile = false
-) {
-	const errors: Partial<Record<RightsRecordValidationField, string>> = {};
-	if (
-		isRightsRecordFieldRequired("evidence", draft.state, hasEvidenceFile) &&
-		!draft.evidence.trim()
-	) {
-		errors.evidence = documentedEvidenceError;
-	}
-	if (
-		isRightsRecordFieldRequired("restrictions", draft.state, hasEvidenceFile) &&
-		!draft.restrictions.trim()
-	) {
-		errors.restrictions = restrictedRestrictionsError;
-	}
-	return errors;
-}
-
-function removeRightsRecordValidationError(
-	errors: Partial<Record<RightsRecordValidationField, string>> | null,
-	field: RightsRecordValidationField
-) {
-	if (!errors) {
-		return null;
-	}
-	if (field === "evidence") {
-		return errors.restrictions ? { restrictions: errors.restrictions } : null;
-	}
-	return errors.evidence ? { evidence: errors.evidence } : null;
-}
-
-function updateRightsRecordValidationErrors(
-	errors: Partial<Record<RightsRecordValidationField, string>> | null,
-	key: keyof RightsRecordDraft
-) {
-	if (key === "state") {
-		return null;
-	}
-	if (key === "evidence" || key === "restrictions") {
-		return removeRightsRecordValidationError(errors, key);
-	}
-	return errors;
-}
-
 class RightsRecordEvidenceUploadError extends Error {
 	readonly outcomeUncertain: boolean;
 
@@ -216,20 +159,18 @@ function evidenceUploadErrorMessage(status: number) {
 	return "Kanıt dosyasıyla Hak Kaydı oluşturulamadı.";
 }
 
-async function createRightsRecordRevision(
+async function uploadRightsRecordRevision(
 	projectId: string,
 	assetRecordId: string,
-	{ input, evidenceFile }: RightsRecordSubmission
+	{ input, evidenceFile }: UploadRightsRecordSubmission
 ) {
-	if (!evidenceFile) {
-		return client.rightsRecords.create(input);
-	}
 	const formData = new FormData();
 	const { evidenceFileSourceRecordId: _sourceRecordId, ...uploadInput } = input;
 	formData.set("rightsRecord", JSON.stringify(uploadInput));
 	formData.set("evidenceFile", evidenceFile, evidenceFile.name);
 	let response: Response;
 	try {
+		// conventions-exception: raw-fetch The evidence upload is capped at 5 MiB by hono/body-limit before multipart parsing; the shared RPC handler has no per-procedure body limit.
 		response = await fetch(
 			rightsRecordEvidenceFileUrl(
 				projectId,
@@ -256,6 +197,51 @@ async function createRightsRecordRevision(
 		);
 	}
 	return rightsRecordSchema.parse(await response.json());
+}
+
+interface RevisionHandlers {
+	onError: (error: unknown) => void;
+	onSuccess: (record: RightsRecord) => Promise<void>;
+}
+
+// Without an attachment the revision goes through the oRPC procedure; an
+// attachment streams as multipart to the body-limited upload route instead.
+function useRightsRecordRevision(
+	projectId: string,
+	assetRecordId: string,
+	handlers: RevisionHandlers
+) {
+	const rpcRevision = useMutation(
+		orpc.rightsRecords.create.mutationOptions({
+			...mutationMeta,
+			...handlers,
+		})
+	);
+	const uploadRevision = useMutation({
+		...mutationMeta,
+		mutationFn: (submission: UploadRightsRecordSubmission) =>
+			uploadRightsRecordRevision(projectId, assetRecordId, submission),
+		...handlers,
+	});
+	return {
+		error: uploadRevision.error ?? rpcRevision.error,
+		isError: uploadRevision.isError || rpcRevision.isError,
+		isPending: uploadRevision.isPending || rpcRevision.isPending,
+		mutate(submission: RightsRecordSubmission) {
+			if (submission.evidenceFile) {
+				uploadRevision.mutate({
+					...submission,
+					evidenceFile: submission.evidenceFile,
+				});
+			} else {
+				rpcRevision.mutate(submission.input);
+			}
+		},
+		reset() {
+			uploadRevision.reset();
+			rpcRevision.reset();
+		},
+	};
 }
 
 function getCreatedAtLabel(value: string) {
@@ -421,8 +407,6 @@ export function RightsRecordPanel({
 	const evidenceFileInput = useRef<HTMLInputElement>(null);
 	const hasEditedDraft = useRef(false);
 	const initializedFromHistory = useRef(false);
-	const [draft, setDraft] = useState<RightsRecordDraft>(emptyDraft);
-	const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
 	const [evidenceFileSourceRecordId, setEvidenceFileSourceRecordId] = useState<
 		string | null
 	>(null);
@@ -434,9 +418,21 @@ export function RightsRecordPanel({
 	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
 	const [isCheckingWriteOutcome, setIsCheckingWriteOutcome] = useState(false);
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
-	const [validationErrors, setValidationErrors] = useState<Partial<
-		Record<RightsRecordValidationField, string>
-	> | null>(null);
+	const form = useForm({
+		defaultValues: { ...emptyDraft, evidenceFile: null as File | null },
+		onSubmit: ({ value }) => submitRevision(value),
+		validators: {
+			onSubmit: ({ value }) => {
+				const fields = rightsRecordFormErrors(
+					value,
+					Boolean(value.evidenceFile || evidenceFileSourceRecordId)
+				);
+				return Object.keys(fields).length > 0 ? { fields } : undefined;
+			},
+		},
+	});
+	const draft = useStore(form.store, (state) => state.values);
+	const { evidenceFile } = draft;
 	const queryInput = { assetRecordId, projectId, referenceId };
 	const historyQuery = useQuery({
 		...orpc.rightsRecords.list.queryOptions({ input: queryInput }),
@@ -449,16 +445,21 @@ export function RightsRecordPanel({
 		initializedFromHistory.current = true;
 		const [latest] = historyQuery.data;
 		if (latest && !hasEditedDraft.current) {
-			setDraft(draftFromRightsRecord(latest));
+			for (const [key, value] of Object.entries(
+				draftFromRightsRecord(latest)
+			) as [keyof RightsRecordDraft, string][]) {
+				form.setFieldValue(key, value as never, {
+					dontRunListeners: true,
+					dontValidate: true,
+				});
+			}
 			setEvidenceFileSourceRecordId(latest.evidenceFile ? latest.id : null);
 			setRetainedEvidenceFile(latest.evidenceFile);
 		}
-	}, [historyQuery.data, historyQuery.isSuccess]);
+	}, [form, historyQuery.data, historyQuery.isSuccess]);
 
-	const createRevision = useMutation({
-		mutationFn: (submission: RightsRecordSubmission) =>
-			createRightsRecordRevision(projectId, assetRecordId, submission),
-		onError(error) {
+	const revisionHandlers = {
+		onError(error: unknown) {
 			if (
 				isWriteOutcomeUncertain(error) ||
 				(error instanceof RightsRecordEvidenceUploadError &&
@@ -469,7 +470,7 @@ export function RightsRecordPanel({
 				pendingCreate.current = null;
 			}
 		},
-		async onSuccess(record) {
+		async onSuccess(record: RightsRecord) {
 			pendingCreate.current = null;
 			setEvidenceFile(null);
 			setEvidenceFileSourceRecordId(record.evidenceFile ? record.id : null);
@@ -479,7 +480,7 @@ export function RightsRecordPanel({
 				evidenceFileInput.current.value = "";
 			}
 			setWriteOutcomeUncertain(false);
-			setValidationErrors(null);
+			clearValidationErrors();
 			setStatusMessage(
 				`Hak Kaydı Revizyon ${record.versionNumber} oluşturuldu.`
 			);
@@ -487,68 +488,58 @@ export function RightsRecordPanel({
 				queryKey: orpc.rightsRecords.list.queryKey({ input: queryInput }),
 			});
 		},
-	});
+	};
+	const createRevision = useRightsRecordRevision(
+		projectId,
+		assetRecordId,
+		revisionHandlers
+	);
 
-	function updateDraft<K extends keyof RightsRecordDraft>(
-		key: K,
-		value: RightsRecordDraft[K]
-	) {
+	function setEvidenceFile(file: File | null) {
+		form.setFieldValue("evidenceFile", file);
+	}
+
+	function clearFieldErrors(name: RightsRecordValidationField) {
+		form.setFieldMeta(name, (meta) => ({
+			...meta,
+			errorMap: {},
+			errorSourceMap: {},
+		}));
+	}
+
+	function clearValidationErrors() {
+		clearFieldErrors("evidence");
+		clearFieldErrors("restrictions");
+	}
+
+	function markDraftEdited() {
 		hasEditedDraft.current = true;
-		setDraft((current) => ({ ...current, [key]: value }));
 		pendingCreate.current = null;
 		setStatusMessage(null);
 		if (createRevision.isError) {
 			createRevision.reset();
 		}
-		setValidationErrors((current) =>
-			updateRightsRecordValidationErrors(current, key)
-		);
 	}
 
-	function updateEvidenceFile(event: ChangeEvent<HTMLInputElement>) {
-		const selectedFile = event.currentTarget.files?.[0] ?? null;
-		setEvidenceFileError(getEvidenceFileError(selectedFile));
-		setEvidenceFile(
-			selectedFile &&
-				selectedFile.size > 0 &&
-				selectedFile.size <= rightsRecordEvidenceFileLimitBytes
-				? selectedFile
-				: null
-		);
-		if (
-			selectedFile &&
-			selectedFile.size > 0 &&
-			selectedFile.size <= rightsRecordEvidenceFileLimitBytes
-		) {
+	function selectEvidenceFile(
+		selectedFile: File | null,
+		handleChange: (file: File | null) => void
+	) {
+		const fileError = rightsRecordEvidenceFileError(selectedFile);
+		setEvidenceFileError(fileError);
+		const validFile = fileError ? null : selectedFile;
+		handleChange(validFile);
+		if (validFile) {
 			setEvidenceFileSourceRecordId(null);
 			setRetainedEvidenceFile(null);
 		}
-		hasEditedDraft.current = true;
-		pendingCreate.current = null;
-		setStatusMessage(null);
-		if (createRevision.isError) {
-			createRevision.reset();
-		}
-		setValidationErrors((current) =>
-			removeRightsRecordValidationError(current, "evidence")
-		);
-	}
-
-	function validateField(key: RightsRecordValidationField) {
-		const error = getDraftValidationErrors(
-			draft,
-			Boolean(evidenceFile || evidenceFileSourceRecordId)
-		)[key];
-		if (error) {
-			setValidationErrors((current) => ({
-				...current,
-				[key]: error,
-			}));
-		}
+		markDraftEdited();
+		clearFieldErrors("evidence");
 	}
 
 	function submit(event: SyntheticEvent<HTMLFormElement>) {
 		event.preventDefault();
+		event.stopPropagation();
 		if (
 			createRevision.isPending ||
 			writeOutcomeUncertain ||
@@ -556,38 +547,35 @@ export function RightsRecordPanel({
 		) {
 			return;
 		}
-		const errors = getDraftValidationErrors(
-			draft,
-			Boolean(evidenceFile || evidenceFileSourceRecordId)
-		);
-		if (Object.keys(errors).length > 0) {
-			setValidationErrors(errors);
-			return;
-		}
-		setValidationErrors(null);
+		void form.handleSubmit();
+	}
 
+	function submitRevision(
+		value: RightsRecordDraft & { evidenceFile: File | null }
+	) {
+		const { evidenceFile: selectedEvidenceFile, ...draftValue } = value;
 		const input =
 			pendingCreate.current?.input ??
 			({
 				assetRecordId,
-				assertedScope: normalizeInputText(draft.assertedScope),
-				evidence: normalizeInputText(draft.evidence),
-				evidenceFileSourceRecordId: evidenceFile
+				assertedScope: normalizeInputText(draftValue.assertedScope),
+				evidence: normalizeInputText(draftValue.evidence),
+				evidenceFileSourceRecordId: selectedEvidenceFile
 					? null
 					: evidenceFileSourceRecordId,
 				id: crypto.randomUUID(),
 				projectId,
 				referenceId,
-				restrictions: normalizeInputText(draft.restrictions),
+				restrictions: normalizeInputText(draftValue.restrictions),
 				rightsHolderOrProvider: normalizeInputText(
-					draft.rightsHolderOrProvider
+					draftValue.rightsHolderOrProvider
 				),
-				source: normalizeInputText(draft.source),
-				state: draft.state,
-				uncertainty: normalizeInputText(draft.uncertainty),
+				source: normalizeInputText(draftValue.source),
+				state: draftValue.state,
+				uncertainty: normalizeInputText(draftValue.uncertainty),
 			} satisfies RightsRecordCreateInput);
 		const submission = {
-			evidenceFile: pendingCreate.current?.evidenceFile ?? evidenceFile,
+			evidenceFile: pendingCreate.current?.evidenceFile ?? selectedEvidenceFile,
 			input,
 		};
 		pendingCreate.current = submission;
@@ -634,7 +622,7 @@ export function RightsRecordPanel({
 				if (evidenceFileInput.current) {
 					evidenceFileInput.current.value = "";
 				}
-				setValidationErrors(null);
+				clearValidationErrors();
 				setStatusMessage(
 					`Hak Kaydı Revizyon ${savedRecord.versionNumber} oluşturuldu.`
 				);
@@ -652,6 +640,7 @@ export function RightsRecordPanel({
 	}
 
 	const history = historyQuery.data ?? [];
+	const hasEvidenceFile = Boolean(evidenceFile || evidenceFileSourceRecordId);
 	const formDisabled = createRevision.isPending || writeOutcomeUncertain;
 	const targetId = referenceId
 		? `reference-${referenceId}`
@@ -693,95 +682,121 @@ export function RightsRecordPanel({
 					const errorId = `${fieldId}-error`;
 					const validationKey =
 						key === "evidence" || key === "restrictions" ? key : null;
-					const fieldError = validationKey
-						? validationErrors?.[validationKey]
-						: undefined;
 					const isRequired = isRightsRecordFieldRequired(
 						key,
 						draft.state,
-						Boolean(evidenceFile || evidenceFileSourceRecordId)
+						hasEvidenceFile
 					);
 					return (
-						<div className="space-y-1" key={key}>
-							<label className="block space-y-1 text-sm" htmlFor={fieldId}>
-								<span>
-									{label}
-									{isRequired ? (
-										<span aria-hidden="true"> · gerekli</span>
-									) : null}
-								</span>
-								{multiline ? (
-									<textarea
-										aria-describedby={fieldError ? errorId : undefined}
-										aria-invalid={Boolean(fieldError)}
-										aria-required={isRequired}
-										className="min-h-24 w-full rounded-md border bg-background px-3 py-2 text-sm"
-										disabled={formDisabled}
-										id={fieldId}
-										maxLength={5000}
-										onBlur={() => {
-											if (validationKey) {
-												validateField(validationKey);
-											}
-										}}
-										onChange={(event) =>
-											updateDraft(key, event.currentTarget.value)
+						<form.Field
+							key={key}
+							name={key}
+							validators={
+								validationKey
+									? {
+											onBlur: rightsRecordRequiredFieldSchema(
+												isRequired,
+												validationMessages[validationKey]
+											),
 										}
-										required={isRequired}
-										value={draft[key]}
-									/>
-								) : (
-									<Input
-										aria-describedby={fieldError ? errorId : undefined}
-										aria-invalid={Boolean(fieldError)}
-										aria-required={isRequired}
-										className="min-h-11"
-										disabled={formDisabled}
-										id={fieldId}
-										maxLength={5000}
-										onBlur={() => {
-											if (validationKey) {
-												validateField(validationKey);
-											}
-										}}
-										onChange={(event) =>
-											updateDraft(key, event.currentTarget.value)
-										}
-										required={isRequired}
-										value={draft[key]}
-									/>
-								)}
-							</label>
-							{fieldError ? (
-								<p className="text-sm" id={errorId} role="alert">
-									{fieldError}
-								</p>
-							) : null}
-						</div>
+									: undefined
+							}
+						>
+							{(field) => {
+								const fieldError = validationKey
+									? firstErrorMessage(field.state.meta.errors)
+									: undefined;
+								const fieldProps = {
+									"aria-describedby": fieldError ? errorId : undefined,
+									"aria-invalid": Boolean(fieldError),
+									"aria-required": isRequired,
+									disabled: formDisabled,
+									id: fieldId,
+									maxLength: 5000,
+									onBlur: field.handleBlur,
+									required: isRequired,
+									value: field.state.value,
+								};
+								return (
+									<div className="space-y-1">
+										<Label
+											className="block space-y-1 text-sm leading-normal"
+											htmlFor={fieldId}
+										>
+											<span>
+												{label}
+												{isRequired ? (
+													<span aria-hidden="true"> · gerekli</span>
+												) : null}
+											</span>
+											{multiline ? (
+												<Textarea
+													{...fieldProps}
+													className="min-h-24 w-full text-sm"
+													onChange={(event) => {
+														field.handleChange(event.currentTarget.value);
+														markDraftEdited();
+														if (validationKey) {
+															clearFieldErrors(validationKey);
+														}
+													}}
+												/>
+											) : (
+												<Input
+													{...fieldProps}
+													className="min-h-11"
+													onChange={(event) => {
+														field.handleChange(event.currentTarget.value);
+														markDraftEdited();
+														if (validationKey) {
+															clearFieldErrors(validationKey);
+														}
+													}}
+												/>
+											)}
+										</Label>
+										{fieldError ? (
+											<p className="text-sm" id={errorId} role="alert">
+												{fieldError}
+											</p>
+										) : null}
+									</div>
+								);
+							}}
+						</form.Field>
 					);
 				})}
 
 				<div className="space-y-1">
-					<label
-						className="block space-y-1 text-sm"
-						htmlFor={evidenceFileInputId}
-					>
-						<span>Kanıt dosyası ekle</span>
-						<input
-							aria-describedby={
-								evidenceFileError
-									? `${evidenceFileHelpId} ${evidenceFileErrorId}`
-									: evidenceFileHelpId
-							}
-							aria-invalid={Boolean(evidenceFileError)}
-							className="min-h-11 w-full rounded-md border bg-background px-3 py-2 text-sm file:mr-3 file:rounded-sm file:border-0 file:bg-muted file:px-3 file:py-1"
-							disabled={formDisabled}
-							id={evidenceFileInputId}
-							onChange={updateEvidenceFile}
-							ref={evidenceFileInput}
-							type="file"
-						/>
-					</label>
+					<form.Field name="evidenceFile">
+						{(field) => (
+							<Label
+								className="block space-y-1 text-sm leading-normal"
+								htmlFor={evidenceFileInputId}
+							>
+								<span>Kanıt dosyası ekle</span>
+								<Input
+									aria-describedby={
+										evidenceFileError
+											? `${evidenceFileHelpId} ${evidenceFileErrorId}`
+											: evidenceFileHelpId
+									}
+									aria-invalid={Boolean(evidenceFileError)}
+									className="min-h-11 w-full text-sm file:mr-3 file:rounded-sm file:bg-muted file:px-3 file:py-1"
+									disabled={formDisabled}
+									id={evidenceFileInputId}
+									onChange={(event) =>
+										selectEvidenceFile(
+											event.currentTarget.files?.[0] ?? null,
+											field.handleChange
+										)
+									}
+									ref={evidenceFileInput}
+									type="file"
+								/>
+							</Label>
+						)}
+					</form.Field>
 					<p className="text-muted-foreground text-sm" id={evidenceFileHelpId}>
 						Tek dosya, en fazla 5 MiB. Metin veya URL alanıyla birlikte
 						kullanabilirsiniz.
@@ -814,30 +829,35 @@ export function RightsRecordPanel({
 					) : null}
 				</div>
 
-				<label
-					className="block space-y-1 text-sm"
-					htmlFor={`rights-record-${targetId}-state`}
-				>
-					<span>Beyan edilen hak durumu</span>
-					<select
-						className="h-11 w-full rounded-md border bg-background px-3 text-sm"
-						disabled={formDisabled}
-						id={`rights-record-${targetId}-state`}
-						onChange={(event) =>
-							updateDraft(
-								"state",
-								event.currentTarget.value as RightsRecordState
-							)
-						}
-						value={draft.state}
-					>
-						{rightsRecordStates.map((state) => (
-							<option key={state} value={state}>
-								{stateLabels[state]}
-							</option>
-						))}
-					</select>
-				</label>
+				<form.Field name="state">
+					{(field) => (
+						<Label
+							className="block space-y-1 text-sm leading-normal"
+							htmlFor={`rights-record-${targetId}-state`}
+						>
+							<span>Beyan edilen hak durumu</span>
+							<NativeSelect
+								className="w-full"
+								disabled={formDisabled}
+								id={`rights-record-${targetId}-state`}
+								onChange={(event) => {
+									field.handleChange(
+										event.currentTarget.value as RightsRecordState
+									);
+									markDraftEdited();
+									clearValidationErrors();
+								}}
+								value={field.state.value}
+							>
+								{rightsRecordStates.map((state) => (
+									<NativeSelectOption key={state} value={state}>
+										{stateLabels[state]}
+									</NativeSelectOption>
+								))}
+							</NativeSelect>
+						</Label>
+					)}
+				</form.Field>
 
 				<RightsRecordSaveFeedback
 					error={createRevision.error}

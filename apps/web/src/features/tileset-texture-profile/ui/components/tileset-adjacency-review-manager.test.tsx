@@ -13,6 +13,7 @@ import {
 	screen,
 	waitFor,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
 import { afterEach, expect, test, vi } from "vitest";
 
@@ -23,9 +24,14 @@ import { TilesetAdjacencyReviewManager } from "./tileset-adjacency-review-manage
 
 const api = vi.hoisted(() => ({ save: vi.fn(), records: [] as unknown[] }));
 vi.mock("@/utils/orpc", () => ({
-	client: { tilesetAdjacencyReviews: { save: api.save } },
 	orpc: {
 		tilesetAdjacencyReviews: {
+			save: {
+				mutationOptions: (options?: object) => ({
+					...options,
+					mutationFn: (input: unknown) => api.save(input),
+				}),
+			},
 			list: {
 				queryOptions: () => ({
 					queryKey: ["tileset-reviews"],
@@ -170,7 +176,9 @@ test("paints and inspects a tile, persists exact map cells and restores the save
 		target: { value: "unit" },
 	});
 	fireEvent.click(screen.getByRole("button", { name: "Cell 1: Empty" }));
-	fireEvent.click(screen.getByLabelText("Inspect without painting"));
+	fireEvent.click(
+		screen.getByRole("checkbox", { name: "Inspect without painting" })
+	);
 	fireEvent.change(screen.getByLabelText("Tile or connection issue"), {
 		target: { value: "Visible corner seam" },
 	});
@@ -325,3 +333,36 @@ test("requires a targeted issue before submitting a failed visual judgment", asy
 		]),
 	});
 });
+
+test("names the inspect toggle, toggles it with the keyboard and locks it while a save is pending", async () => {
+	const user = userEvent.setup();
+	await openEditor();
+	const inspect = screen.getByRole("checkbox", {
+		name: "Inspect without painting",
+	});
+	expect(inspect).not.toBeChecked();
+	inspect.focus();
+	expect(inspect).toHaveFocus();
+	await user.keyboard(" ");
+	expect(inspect).toBeChecked();
+	fireEvent.change(screen.getByLabelText("Paint tile"), {
+		target: { value: "" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Cell 1: grass" }));
+	expect(
+		screen.getByRole("button", { name: "Cell 1: grass" })
+	).toBeInTheDocument();
+	await user.keyboard(" ");
+	expect(inspect).not.toBeChecked();
+	api.save.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+	fireEvent.click(
+		screen.getByRole("button", { name: "Save adjacency review" })
+	);
+	await screen.findByRole("button", { name: "Retry same review" });
+	const locked = screen.getByRole("checkbox", {
+		name: "Inspect without painting",
+	});
+	expect(locked).toHaveAttribute("aria-disabled", "true");
+	await user.click(locked);
+	expect(locked).not.toBeChecked();
+}, 20_000);

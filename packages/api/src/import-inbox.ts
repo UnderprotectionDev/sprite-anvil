@@ -22,6 +22,10 @@ export type ImportInboxEntry = z.infer<typeof importInboxEntrySchema>;
 
 export const importInboxEntriesSchema = z.array(importInboxEntrySchema);
 
+export const importInboxListInputSchema = z
+	.object({ projectId: z.string() })
+	.strict();
+
 export const importInboxUploadInputSchema = z
 	.object({
 		contentLength: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),

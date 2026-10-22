@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import {
+	act,
 	cleanup,
 	fireEvent,
 	render,
@@ -17,11 +18,19 @@ import { afterEach, expect, test, vi } from "vitest";
 import { createQueryClient } from "@/utils/query-client";
 import { FamilyReadinessManager } from "./family-readiness-manager";
 
+const usageTestIdLabel = /^Kullanım testi kimliği/;
+
 const fakeApi = vi.hoisted(() => ({
 	recordEvidence: vi.fn(),
 	saveDraft: vi.fn(),
 	readiness: null as unknown,
 }));
+
+const mutationOf = vi.hoisted(
+	() => (mutationFn: (input: never) => unknown) => ({
+		mutationOptions: (options?: object) => ({ ...options, mutationFn }),
+	})
+);
 
 vi.mock("@/utils/orpc", () => ({
 	client: {
@@ -32,6 +41,11 @@ vi.mock("@/utils/orpc", () => ({
 	},
 	orpc: {
 		familyReadiness: {
+			activate: mutationOf(() => Promise.reject(new Error("unexpected write"))),
+			recordEvidence: mutationOf((input: unknown) =>
+				fakeApi.recordEvidence(input)
+			),
+			saveDraft: mutationOf((input: unknown) => fakeApi.saveDraft(input)),
 			list: {
 				queryOptions: ({
 					input,
@@ -1419,4 +1433,345 @@ test("previews the current icon version and requires a fresh grayscale review af
 		targetDimensions: { width: 16, height: 24 },
 		grayscaleReviewed: true,
 	});
+});
+
+function renderDraftManager(readinessValue: FamilyReadiness = readiness) {
+	fakeApi.readiness = readinessValue;
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	return render(
+		<QueryClientProvider client={queryClient}>
+			<FamilyReadinessManager
+				assetFamilyId="family-1"
+				assetRecords={[
+					{
+						assetCategory: null,
+						id: "asset-record-1",
+						name: "East-facing sprite",
+					},
+					{
+						assetCategory: null,
+						id: "asset-record-2",
+						name: "West-facing sprite",
+					},
+				]}
+				familyName="Combat sprite"
+				profileContracts={null}
+				projectId="project-1"
+			/>
+		</QueryClientProvider>
+	);
+}
+
+test("adds, edits, and removes draft Required Set items before saving the draft", async () => {
+	fakeApi.saveDraft.mockResolvedValue({});
+	renderDraftManager();
+	await screen.findAllByRole("group", { name: "Gerekli öğe" });
+	fireEvent.click(screen.getByRole("button", { name: "Öğe ekle" }));
+	const editors = screen.getAllByRole("group", { name: "Gerekli öğe" });
+	expect(editors).toHaveLength(2);
+	const added = within(editors[1] as HTMLElement);
+	expect(added.getByRole("textbox", { name: "Öğe kimliği" })).toHaveAttribute(
+		"pattern",
+		"[a-z][a-z0-9._-]*"
+	);
+	expect(added.getByRole("textbox", { name: "Öğe adı" })).toBeRequired();
+	expect(added.getByRole("combobox", { name: "Öğe türü" })).toHaveValue(
+		"direction"
+	);
+	expect(added.getByRole("combobox", { name: "Varlık Kaydı" })).toBeRequired();
+	fireEvent.change(added.getByRole("textbox", { name: "Öğe kimliği" }), {
+		target: { value: "west-facing" },
+	});
+	fireEvent.change(added.getByRole("textbox", { name: "Öğe adı" }), {
+		target: { value: "West-facing sprite" },
+	});
+	fireEvent.change(added.getByRole("combobox", { name: "Durum" }), {
+		target: { value: "optional" },
+	});
+	expect(
+		added.getByRole("combobox", { name: "Varlık Kaydı" })
+	).not.toBeRequired();
+	fireEvent.change(added.getByRole("combobox", { name: "Varlık Kaydı" }), {
+		target: { value: "asset-record-2" },
+	});
+	fireEvent.click(
+		within(editors[0] as HTMLElement).getByRole("button", {
+			name: "Öğeyi kaldır",
+		})
+	);
+	expect(screen.getAllByRole("group", { name: "Gerekli öğe" })).toHaveLength(1);
+	fireEvent.submit(
+		screen
+			.getByRole("button", { name: "Taslak sürümü kaydet" })
+			.closest("form") as HTMLFormElement
+	);
+
+	await waitFor(() => expect(fakeApi.saveDraft).toHaveBeenCalledOnce());
+	expect(fakeApi.saveDraft).toHaveBeenCalledWith({
+		projectId: "project-1",
+		assetFamilyId: "family-1",
+		items: [
+			{
+				id: "west-facing",
+				kind: "direction",
+				name: "West-facing sprite",
+				disposition: "optional",
+				assetRecordIds: ["asset-record-2"],
+			},
+		],
+	});
+	expect(
+		await screen.findByText("Yeni liste sürümü taslak olarak kaydedildi.")
+	).toBeVisible();
+});
+
+test("selects usage test Asset Records with labeled checkboxes in the draft", async () => {
+	fakeApi.saveDraft.mockResolvedValue({});
+	renderDraftManager();
+	const kind = await screen.findByRole("combobox", { name: "Öğe türü" });
+	fireEvent.change(kind, { target: { value: "usage_test" } });
+	const testId = screen.getByLabelText(usageTestIdLabel);
+	expect(testId).toBeRequired();
+	expect(
+		screen.getByText(
+			"Genel Varlık Desteği için kararlı bir test kimliği yazın."
+		)
+	).toBeVisible();
+	fireEvent.change(testId, { target: { value: "scene.readability" } });
+	const east = screen.getByRole("checkbox", { name: "East-facing sprite" });
+	const west = screen.getByRole("checkbox", { name: "West-facing sprite" });
+	expect(east).not.toBeChecked();
+	fireEvent.click(west);
+	fireEvent.click(east);
+	expect(east).toBeChecked();
+	fireEvent.click(west);
+	expect(west).not.toBeChecked();
+	fireEvent.submit(kind.closest("form") as HTMLFormElement);
+
+	await waitFor(() => expect(fakeApi.saveDraft).toHaveBeenCalledOnce());
+	expect(fakeApi.saveDraft).toHaveBeenCalledWith({
+		projectId: "project-1",
+		assetFamilyId: "family-1",
+		items: [
+			{
+				id: "east-facing",
+				kind: "usage_test",
+				name: "East-facing sprite",
+				disposition: "required",
+				assetRecordIds: ["asset-record-1"],
+				testId: "scene.readability",
+			},
+		],
+	});
+});
+
+test("records applicability evidence and disables writes while saving", async () => {
+	let resolveWrite: (value: unknown) => void = () => undefined;
+	fakeApi.recordEvidence.mockReturnValue(
+		new Promise((resolve) => {
+			resolveWrite = resolve;
+		})
+	);
+	renderDraftManager();
+	const form = (
+		await screen.findByRole("heading", {
+			name: "Bağlama Uygunluk değerlendirmesi",
+		})
+	).closest("form") as HTMLFormElement;
+	const controls = within(form);
+	expect(controls.queryByRole("textbox", { name: "Yöntem" })).toBeNull();
+	expect(
+		controls.getByRole("textbox", { name: "Gerekçe veya gözlem" })
+	).toBeRequired();
+	fireEvent.change(controls.getByRole("combobox", { name: "Sonuç" }), {
+		target: { value: "inapplicable" },
+	});
+	fireEvent.change(
+		controls.getByRole("textbox", { name: "Gerekçe veya gözlem" }),
+		{ target: { value: "Not used in combat." } }
+	);
+	fireEvent.submit(form);
+	await waitFor(() => expect(fakeApi.recordEvidence).toHaveBeenCalledOnce());
+	expect(fakeApi.recordEvidence).toHaveBeenCalledWith({
+		projectId: "project-1",
+		assetFamilyId: "family-1",
+		revisionId: "revision-1",
+		itemId: "east-facing",
+		kind: "applicability",
+		result: "inapplicable",
+		rationale: "Not used in combat.",
+	});
+	expect(
+		controls.getByRole("button", { name: "Kanıtı kaydet" })
+	).toBeDisabled();
+	expect(screen.getByRole("button", { name: "Kaydediliyor…" })).toBeDisabled();
+	resolveWrite({});
+	expect(
+		await screen.findByText(
+			"Kanıt kaydedildi ve güncel durum yeniden hesaplandı."
+		)
+	).toBeVisible();
+	expect(controls.getByRole("button", { name: "Kanıtı kaydet" })).toBeEnabled();
+	expect(
+		controls.getByRole("textbox", { name: "Gerekçe veya gözlem" })
+	).toHaveValue("Not used in combat.");
+});
+
+function usageTestReadiness(testId: string): FamilyReadiness {
+	const [sourceItemResult] = readiness.items;
+	if (!(sourceItemResult && readiness.activeRevision)) {
+		throw new Error("Missing usage test fixtures.");
+	}
+	const usageItem: FamilyReadiness["items"][number]["item"] = {
+		id: "usage-item",
+		kind: "usage_test",
+		name: "Usage item",
+		disposition: "required",
+		assetRecordIds: ["asset-record-1"],
+		testId,
+	};
+	return {
+		...readiness,
+		activeRevision: { ...readiness.activeRevision, items: [usageItem] },
+		items: [
+			{
+				...sourceItemResult,
+				item: usageItem,
+				qualityRequirements: [],
+				latestEvidence: [],
+			},
+		],
+	};
+}
+
+async function submitAndSettle(form: HTMLFormElement) {
+	await act(async () => {
+		fireEvent.submit(form);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+	});
+}
+
+test("requires whole positive cell dimensions before recording usage evidence", async () => {
+	fakeApi.recordEvidence.mockResolvedValue({});
+	renderDraftManager(usageTestReadiness("scene.readability"));
+	const form = (
+		await screen.findByRole("heading", { name: "Kullanım testi sonucu" })
+	).closest("form") as HTMLFormElement;
+	const controls = within(form);
+	const width = controls.getByRole("spinbutton", {
+		name: "Hücre genişliği (px)",
+	});
+	const height = controls.getByRole("spinbutton", {
+		name: "Hücre yüksekliği (px)",
+	});
+	expect(width).toBeRequired();
+	expect(width).toHaveAttribute("min", "1");
+	expect(width).toHaveAttribute("max", "4096");
+	fireEvent.change(controls.getByRole("textbox", { name: "Yöntem" }), {
+		target: { value: "Placed in a scene." },
+	});
+	fireEvent.change(
+		controls.getByRole("textbox", { name: "Gerekçe veya gözlem" }),
+		{ target: { value: "Readable." } }
+	);
+	fireEvent.change(width, { target: { value: "1.5" } });
+	fireEvent.change(height, { target: { value: "32" } });
+	await submitAndSettle(form);
+	fireEvent.change(width, { target: { value: "0" } });
+	await submitAndSettle(form);
+	fireEvent.change(width, { target: { value: "32" } });
+	fireEvent.change(height, { target: { value: "" } });
+	await submitAndSettle(form);
+	expect(fakeApi.recordEvidence).not.toHaveBeenCalled();
+	fireEvent.change(height, { target: { value: "48" } });
+	await submitAndSettle(form);
+	await waitFor(() => expect(fakeApi.recordEvidence).toHaveBeenCalledOnce());
+	expect(fakeApi.recordEvidence).toHaveBeenCalledWith({
+		projectId: "project-1",
+		assetFamilyId: "family-1",
+		revisionId: "revision-1",
+		itemId: "usage-item",
+		kind: "usage_test",
+		result: "passed",
+		testId: "scene.readability",
+		method: "Placed in a scene.",
+		rationale: "Readable.",
+		usageTestContext: { cellDimensions: { width: 32, height: 48 } },
+	});
+});
+
+test("shows the blank usage variant error until a non-blank variant is entered and requires whole target sizes", async () => {
+	fakeApi.recordEvidence.mockResolvedValue({});
+	renderDraftManager(usageTestReadiness("icon.light_dark_target_size"));
+	const form = (
+		await screen.findByRole("heading", { name: "Kullanım testi sonucu" })
+	).closest("form") as HTMLFormElement;
+	const controls = within(form);
+	fireEvent.change(
+		controls.getByRole("spinbutton", { name: "Hücre genişliği (px)" }),
+		{ target: { value: "32" } }
+	);
+	fireEvent.change(
+		controls.getByRole("spinbutton", { name: "Hücre yüksekliği (px)" }),
+		{ target: { value: "32" } }
+	);
+	fireEvent.change(controls.getByRole("textbox", { name: "Yöntem" }), {
+		target: { value: "Compared backgrounds." },
+	});
+	fireEvent.change(
+		controls.getByRole("textbox", { name: "Gerekçe veya gözlem" }),
+		{ target: { value: "Readable." } }
+	);
+	const variant = controls.getByRole("textbox", { name: "Kullanım Çeşidi" });
+	expect(controls.queryByRole("alert")).toBeNull();
+	expect(variant).not.toHaveAttribute("aria-invalid");
+	fireEvent.change(variant, { target: { value: "  " } });
+	expect(controls.queryByRole("alert")).toBeNull();
+	await submitAndSettle(form);
+	expect(await controls.findByRole("alert")).toHaveTextContent(
+		"Kullanım çeşidi boşluklardan oluşamaz."
+	);
+	expect(variant).toHaveAttribute("aria-invalid", "true");
+	expect(variant).toHaveAccessibleDescription(
+		"Kullanım çeşidi boşluklardan oluşamaz."
+	);
+	fireEvent.change(variant, { target: { value: "   " } });
+	expect(controls.getByRole("alert")).toHaveTextContent(
+		"Kullanım çeşidi boşluklardan oluşamaz."
+	);
+	fireEvent.change(variant, { target: { value: " Hotbar " } });
+	expect(controls.queryByRole("alert")).toBeNull();
+	expect(variant).not.toHaveAttribute("aria-invalid");
+	const targetWidth = controls.getByRole("spinbutton", {
+		name: "Hedef genişlik",
+	});
+	const targetHeight = controls.getByRole("spinbutton", {
+		name: "Hedef yükseklik",
+	});
+	fireEvent.change(targetWidth, { target: { value: "16.5" } });
+	fireEvent.change(targetHeight, { target: { value: "16" } });
+	const grayscale = controls.getByRole("checkbox", {
+		name: "Gri tonlamayı inceledim",
+	});
+	fireEvent.click(grayscale);
+	await submitAndSettle(form);
+	fireEvent.change(targetWidth, { target: { value: "0" } });
+	fireEvent.click(grayscale);
+	await submitAndSettle(form);
+	expect(fakeApi.recordEvidence).not.toHaveBeenCalled();
+	fireEvent.change(targetWidth, { target: { value: "16" } });
+	await submitAndSettle(form);
+	expect(fakeApi.recordEvidence).not.toHaveBeenCalled();
+	fireEvent.click(grayscale);
+	await submitAndSettle(form);
+	await waitFor(() => expect(fakeApi.recordEvidence).toHaveBeenCalledOnce());
+	expect(fakeApi.recordEvidence).toHaveBeenCalledWith(
+		expect.objectContaining({
+			usageVariant: "Hotbar",
+			targetDimensions: { width: 16, height: 16 },
+			grayscaleReviewed: true,
+			usageTestContext: { cellDimensions: { width: 32, height: 32 } },
+		})
+	);
 });

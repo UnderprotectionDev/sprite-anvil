@@ -2,7 +2,8 @@
 
 import "@testing-library/jest-dom/vitest";
 import type { GameplayMetadataRecord } from "@sprite-anvil/api/gameplay-metadata";
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { GameplayMetadataOverlay } from "./gameplay-metadata-overlay";
 
@@ -130,4 +131,31 @@ test("draws the rectangle when collision areas hold a single object", async () =
 		).toEqual([[4, 6, 10, 12]]);
 	});
 	expect(drawCalls.filter((call) => call.method === "moveTo")).toHaveLength(0);
+});
+
+test("toggles a visual layer checkbox by pointer and Space and redraws", async () => {
+	const user = userEvent.setup();
+	render(
+		<GameplayMetadataOverlay
+			onReady={() => undefined}
+			previewUrl="/preview.png"
+			record={recordWith([pxAreaField({ x: 4, y: 6, width: 10, height: 12 })])}
+		/>
+	);
+	const layer = screen.getByRole("checkbox", { name: "collision_areas" });
+	expect(layer).toBeChecked();
+	await waitFor(() => {
+		expect(drawCalls.filter((call) => call.method === "rect")).toHaveLength(1);
+	});
+	drawCalls.splice(0);
+	await user.click(layer);
+	expect(layer).not.toBeChecked();
+	await new Promise((resolve) => setTimeout(resolve, 50));
+	expect(drawCalls.filter((call) => call.method === "rect")).toHaveLength(0);
+	layer.focus();
+	await user.keyboard(" ");
+	expect(layer).toBeChecked();
+	await waitFor(() => {
+		expect(drawCalls.filter((call) => call.method === "rect")).toHaveLength(1);
+	});
 });

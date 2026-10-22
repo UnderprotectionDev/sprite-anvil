@@ -226,6 +226,59 @@ export const sourceMetadataMappingProposalsSchema = z.array(
 	sourceMetadataMappingProposalSchema
 );
 
+// Identifiers stay plain strings at the procedure boundary so a malformed
+// identifier resolves as "not found", as it did before these became procedures.
+const sourceMetadataMappingEntryInputSchema = z
+	.object({ entryId: z.string(), projectId: z.string() })
+	.strict();
+export const sourceMetadataMappingProposalListInputSchema =
+	sourceMetadataMappingEntryInputSchema;
+export const sourceMetadataMappingProposalCreateRequestSchema =
+	sourceMetadataMappingEntryInputSchema.extend({
+		input: sourceMetadataMappingProposalCreateInputSchema,
+	});
+export const sourceMetadataMappingFinalizationReadInputSchema =
+	sourceMetadataMappingEntryInputSchema.extend({ proposalId: z.string() });
+export const sourceMetadataMappingFinalizeRequestSchema =
+	sourceMetadataMappingFinalizationReadInputSchema.extend({
+		input: sourceMetadataMappingFinalizeInputSchema,
+	});
+
+export type SourceMetadataMappingProposalCreateResult =
+	| { ok: true; proposal: SourceMetadataMappingProposal }
+	| {
+			ok: false;
+			reason: "invalid_json" | "not_found" | "too_large" | "unsupported_format";
+	  };
+
+export type SourceMetadataMappingFinalizeResult =
+	| { ok: true; finalization: SourceMetadataMappingFinalization }
+	| {
+			ok: false;
+			reason:
+				| "candidate_conflict"
+				| "finalized_differently"
+				| "invalid_decisions"
+				| "invalid_source_image"
+				| "not_found"
+				| "unsupported_source_image";
+	  };
+
+export type SourceMetadataMappingProposalCreator = (request: {
+	input: SourceMetadataMappingProposalCreateInput;
+	projectId: string;
+	sourceEntryId: string;
+	userId: string;
+}) => Promise<SourceMetadataMappingProposalCreateResult>;
+
+export type SourceMetadataMappingFinalizer = (request: {
+	entryId: string;
+	input: SourceMetadataMappingFinalizeInput;
+	projectId: string;
+	proposal: SourceMetadataMappingProposal;
+	userId: string;
+}) => Promise<SourceMetadataMappingFinalizeResult>;
+
 export interface SourceMetadataMappingProposalStore {
 	completeFinalization: (
 		userId: string,

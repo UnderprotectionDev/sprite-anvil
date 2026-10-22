@@ -1,11 +1,7 @@
-import type {
-	AssetFamilyCatalog,
-	AssetFamilyRelationshipType,
-} from "@sprite-anvil/api/asset-families";
-import type { AssetRecordIdentityCriterion } from "@sprite-anvil/api/asset-records";
+import type { AssetFamilyCatalog } from "@sprite-anvil/api/asset-families";
 import type { AssetVersionCatalog } from "@sprite-anvil/api/asset-versions";
 import { Link } from "@tanstack/react-router";
-import type { SyntheticEvent } from "react";
+import type { AssetFamilyForms } from "../../hooks/use-asset-family-forms";
 import {
 	AssetFamilyForm,
 	AssetFamilyRelationshipForm,
@@ -13,49 +9,12 @@ import {
 	SubjectIdentityForm,
 } from "../forms/asset-family-forms";
 
-export interface AssetFamilyFormState {
-	assetRecordIdentityCriteria: AssetRecordIdentityCriterion[];
-	assetRecordName: string;
-	familyName: string;
-	familyUseContext: string;
-	relationshipType: AssetFamilyRelationshipType;
-	selectedAssetRecordFamilyId: string;
-	selectedRelationshipFamilyId: string;
-	selectedRelationshipSourceId: string;
-	selectedRelationshipTargetId: string;
-	selectedSubjectIdentityId: string;
-	selectedVisualWorldId: string;
-	subjectIdentityName: string;
-}
-
-export interface AssetFamilyFormHandlers {
-	onAssetRecordFamilyChange: (value: string) => void;
-	onAssetRecordIdentityCriterionToggle: (
-		value: AssetRecordIdentityCriterion
-	) => void;
-	onAssetRecordNameChange: (value: string) => void;
-	onFamilyNameChange: (value: string) => void;
-	onFamilyUseContextChange: (value: string) => void;
-	onRelationshipFamilyChange: (value: string) => void;
-	onRelationshipSourceChange: (value: string) => void;
-	onRelationshipTargetChange: (value: string) => void;
-	onRelationshipTypeChange: (value: AssetFamilyRelationshipType) => void;
-	onSubjectIdentityChange: (value: string) => void;
-	onSubjectIdentityNameChange: (value: string) => void;
-	onVisualWorldChange: (value: string) => void;
-	submitAssetFamily: (event: SyntheticEvent<HTMLFormElement>) => void;
-	submitAssetRecord: (event: SyntheticEvent<HTMLFormElement>) => void;
-	submitRelationship: (event: SyntheticEvent<HTMLFormElement>) => void;
-	submitSubjectIdentity: (event: SyntheticEvent<HTMLFormElement>) => void;
-}
-
 export function AssetFamilyManagementForms({
 	projectId,
 	catalog,
 	assetVersionCatalog,
 	disabled,
-	formHandlers,
-	formState,
+	forms,
 	isScopeError,
 	isScopeLoaded,
 	isSaving,
@@ -65,8 +24,7 @@ export function AssetFamilyManagementForms({
 	catalog: AssetFamilyCatalog;
 	assetVersionCatalog: AssetVersionCatalog;
 	disabled: boolean;
-	formHandlers: AssetFamilyFormHandlers;
-	formState: AssetFamilyFormState;
+	forms: AssetFamilyForms;
 	isScopeError: boolean;
 	isScopeLoaded: boolean;
 	isSaving: string | null;
@@ -74,8 +32,7 @@ export function AssetFamilyManagementForms({
 }) {
 	const selectedCanonicalDesign = assetVersionCatalog.canonicalDesigns
 		.filter(
-			(design) =>
-				design.assetFamilyId === formState.selectedRelationshipFamilyId
+			(design) => design.assetFamilyId === forms.selection.relationshipFamilyId
 		)
 		.at(-1);
 	const selectedCanonicalVersion = selectedCanonicalDesign
@@ -110,25 +67,17 @@ export function AssetFamilyManagementForms({
 			<div className="grid gap-4 md:grid-cols-2">
 				<SubjectIdentityForm
 					disabled={disabled}
+					form={forms.subjectIdentityForm}
 					isSaving={isSaving === "subject-identity"}
-					name={formState.subjectIdentityName}
-					onNameChange={formHandlers.onSubjectIdentityNameChange}
-					onSubmit={formHandlers.submitSubjectIdentity}
 				/>
 				<AssetFamilyForm
 					disabled={disabled || isScopeError}
 					families={catalog.assetFamilies}
+					form={forms.assetFamilyForm}
 					isSaving={isSaving === "asset-family"}
-					name={formState.familyName}
-					onNameChange={formHandlers.onFamilyNameChange}
-					onSubjectIdentityChange={formHandlers.onSubjectIdentityChange}
-					onSubmit={formHandlers.submitAssetFamily}
-					onUseContextChange={formHandlers.onFamilyUseContextChange}
-					onVisualWorldChange={formHandlers.onVisualWorldChange}
-					selectedSubjectIdentityId={formState.selectedSubjectIdentityId}
-					selectedVisualWorldId={formState.selectedVisualWorldId}
+					selectedSubjectIdentityId={forms.selection.subjectIdentityId}
+					selectedVisualWorldId={forms.selection.visualWorldId}
 					subjectIdentities={catalog.subjectIdentities}
-					useContext={formState.familyUseContext}
 					visualWorlds={visualWorlds}
 				/>
 			</div>
@@ -150,32 +99,20 @@ export function AssetFamilyManagementForms({
 						assetFamilies={catalog.assetFamilies}
 						assetRecords={catalog.assetRecords}
 						disabled={disabled}
-						identityCriteria={formState.assetRecordIdentityCriteria}
+						form={forms.assetRecordForm}
 						isSaving={isSaving === "asset-record"}
-						name={formState.assetRecordName}
-						onAssetFamilyChange={formHandlers.onAssetRecordFamilyChange}
-						onIdentityCriterionToggle={
-							formHandlers.onAssetRecordIdentityCriterionToggle
-						}
-						onNameChange={formHandlers.onAssetRecordNameChange}
-						onSubmit={formHandlers.submitAssetRecord}
-						selectedAssetFamilyId={formState.selectedAssetRecordFamilyId}
+						selectedAssetFamilyId={forms.selection.assetRecordFamilyId}
 					/>
 					<AssetFamilyRelationshipForm
 						assetFamilies={catalog.assetFamilies}
 						assetRecords={catalog.assetRecords}
 						canonicalDesign={canonicalDesign}
 						disabled={disabled}
+						form={forms.relationshipForm}
 						isSaving={isSaving === "relationship"}
-						onFamilyChange={formHandlers.onRelationshipFamilyChange}
-						onSourceChange={formHandlers.onRelationshipSourceChange}
-						onSubmit={formHandlers.submitRelationship}
-						onTargetChange={formHandlers.onRelationshipTargetChange}
-						onTypeChange={formHandlers.onRelationshipTypeChange}
-						selectedAssetFamilyId={formState.selectedRelationshipFamilyId}
-						selectedSourceId={formState.selectedRelationshipSourceId}
-						selectedTargetId={formState.selectedRelationshipTargetId}
-						type={formState.relationshipType}
+						selectedAssetFamilyId={forms.selection.relationshipFamilyId}
+						selectedSourceId={forms.selection.relationshipSourceId}
+						selectedTargetId={forms.selection.relationshipTargetId}
 					/>
 				</div>
 			) : null}

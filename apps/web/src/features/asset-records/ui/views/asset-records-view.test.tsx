@@ -14,6 +14,7 @@ import {
 	waitFor,
 	within,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom/vitest";
 import { QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
@@ -40,6 +41,7 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
 
 const projectId = "c2edb5dc-a82f-42b2-84bb-a878ca20fabf";
 const identityCheckboxName = /^Bağımsız ürün anlamı/;
+const deliveryIdentityCheckboxName = /^Teslimat kimliği/;
 const archivedRecordStatus = /Kayıt durumu · Arşivlenmiş/;
 const archivedPackageSummary = /Archived attack package/;
 const fileBoundaryCopy =
@@ -93,6 +95,8 @@ type TestAssetRecord = Omit<AssetRecord, "identityCriteria"> & {
 const fakeApi = vi.hoisted(() => ({
 	archive: vi.fn(),
 	create: vi.fn(),
+	createDerivative: vi.fn(),
+	createFamily: vi.fn(),
 	createVersion: vi.fn(),
 	createReference: vi.fn(),
 	createGenerationPackage: vi.fn(),
@@ -140,11 +144,26 @@ vi.mock("@/env", () => ({
 	ENV: { VITE_SERVER_URL: "https://app.example.test" },
 }));
 
+const unusedMutation = vi.hoisted(() => ({
+	mutationOptions: (options?: object) => ({
+		...options,
+		mutationFn: () => Promise.reject(new Error("unexpected write")),
+	}),
+}));
+
+const mutationOf = vi.hoisted(
+	() => (mutationFn: (input: never) => unknown) => ({
+		mutationOptions: (options?: object) => ({ ...options, mutationFn }),
+	})
+);
+
 vi.mock("@/utils/orpc", () => ({
 	client: {
 		assetRecords: {
 			archive: (input: unknown) => fakeApi.archive(input),
 			create: (input: unknown) => fakeApi.create(input),
+			createDerivative: (input: unknown) => fakeApi.createDerivative(input),
+			createFamily: (input: unknown) => fakeApi.createFamily(input),
 			createVersion: (input: unknown) => fakeApi.createVersion(input),
 			restore: (input: unknown) => fakeApi.restore(input),
 			updateMetadata: (input: unknown) => fakeApi.updateMetadata(input),
@@ -160,6 +179,10 @@ vi.mock("@/utils/orpc", () => ({
 	},
 	orpc: {
 		gameplayMetadata: {
+			createPackage: unusedMutation,
+			readPackage: unusedMutation,
+			review: unusedMutation,
+			write: unusedMutation,
 			list: {
 				queryOptions: ({ input }: { input: Record<string, unknown> }) => ({
 					queryKey: ["gameplay-metadata", input],
@@ -176,6 +199,14 @@ vi.mock("@/utils/orpc", () => ({
 			},
 		},
 		assetVersions: {
+			createCompositeVersion: unusedMutation,
+			previewBatchReview: unusedMutation,
+			recordProviderGeneration: unusedMutation,
+			review: unusedMutation,
+			saveManualImportEvidence: unusedMutation,
+			reviewBatch: unusedMutation,
+			reviewCompositeVersion: unusedMutation,
+			selectCanonicalDesign: unusedMutation,
 			list: {
 				queryOptions: ({ input }: { input: Record<string, unknown> }) => ({
 					queryKey: ["asset-versions", input],
@@ -192,6 +223,9 @@ vi.mock("@/utils/orpc", () => ({
 			},
 		},
 		generationPackages: {
+			create: mutationOf((input: unknown) =>
+				fakeApi.createGenerationPackage(input)
+			),
 			list: {
 				queryOptions: ({ input }: { input: Record<string, unknown> }) => ({
 					queryKey: ["generation-packages", input],
@@ -205,6 +239,7 @@ vi.mock("@/utils/orpc", () => ({
 			},
 		},
 		rightsRecords: {
+			create: mutationOf((input: unknown) => fakeApi.rightsRecordCreate(input)),
 			list: {
 				queryOptions: ({ input }: { input: Record<string, unknown> }) => ({
 					queryKey: ["rights-records", input],
@@ -223,6 +258,28 @@ vi.mock("@/utils/orpc", () => ({
 			},
 		},
 		assetRecords: {
+			updateReference: unusedMutation,
+			archive: mutationOf((input: unknown) => fakeApi.archive(input)),
+			create: mutationOf((input: unknown) => fakeApi.create(input)),
+			createDerivative: mutationOf((input: unknown) =>
+				fakeApi.createDerivative(input)
+			),
+			createFamily: mutationOf((input: unknown) => fakeApi.createFamily(input)),
+			createManualImportVersion: unusedMutation,
+			createReference: mutationOf((input: unknown) =>
+				fakeApi.createReference(input)
+			),
+			createVersion: mutationOf((input: unknown) =>
+				fakeApi.createVersion(input)
+			),
+			recordReview: unusedMutation,
+			restore: mutationOf((input: unknown) => fakeApi.restore(input)),
+			updateMetadata: mutationOf((input: unknown) =>
+				fakeApi.updateMetadata(input)
+			),
+			updateMeasurements: mutationOf((input: unknown) =>
+				fakeApi.updateMeasurements(input)
+			),
 			search: {
 				queryOptions: ({ input }: { input: Record<string, unknown> }) => ({
 					queryKey: ["asset-record-search", input],
@@ -328,6 +385,8 @@ afterEach(() => {
 	fakeApi.trackingError = null;
 	fakeApi.archive.mockReset();
 	fakeApi.create.mockReset();
+	fakeApi.createDerivative.mockReset();
+	fakeApi.createFamily.mockReset();
 	fakeApi.createVersion.mockReset();
 	fakeApi.createReference.mockReset();
 	fakeApi.createGenerationPackage.mockReset();
@@ -1415,8 +1474,8 @@ test("uncertain creates require a confirmed list check and reuse the same identi
 	fireEvent.click(screen.getByRole("checkbox", { name: identityCheckboxName }));
 	fireEvent.click(screen.getByRole("button", { name: "Varlık kaydı oluştur" }));
 
-	const identity = fakeApi.create.mock.calls[0]?.[0].id;
 	await waitFor(() => expect(errorToast).toHaveBeenCalledOnce());
+	const identity = fakeApi.create.mock.calls[0]?.[0].id;
 	expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 	expect(
 		screen.getByRole("button", { name: "Varlık kaydı oluştur" })
@@ -2086,10 +2145,12 @@ test("archives and restores an Asset Record without losing its detail view", asy
 	);
 
 	fireEvent.click(await screen.findByRole("button", { name: "Kaydı arşivle" }));
-	expect(fakeApi.archive).toHaveBeenCalledWith({
-		assetRecordId: assetRecord.id,
-		projectId,
-	});
+	await waitFor(() =>
+		expect(fakeApi.archive).toHaveBeenCalledWith({
+			assetRecordId: assetRecord.id,
+			projectId,
+		})
+	);
 	expect(await screen.findByText("Arşivlenmiş")).toBeVisible();
 	expect(await screen.findByRole("status")).toHaveTextContent(
 		"Kayıt arşivlendi."
@@ -2098,10 +2159,12 @@ test("archives and restores an Asset Record without losing its detail view", asy
 	fireEvent.click(
 		screen.getByRole("button", { name: "Kaydı yeniden etkinleştir" })
 	);
-	expect(fakeApi.restore).toHaveBeenCalledWith({
-		assetRecordId: assetRecord.id,
-		projectId,
-	});
+	await waitFor(() =>
+		expect(fakeApi.restore).toHaveBeenCalledWith({
+			assetRecordId: assetRecord.id,
+			projectId,
+		})
+	);
 	expect(await screen.findByText("Etkin")).toBeVisible();
 	expect(await screen.findByRole("status")).toHaveTextContent(
 		"Kayıt yeniden etkinleştirildi."
@@ -2196,4 +2259,431 @@ test("labels legacy Asset Records whose identity criteria were not recorded", as
 	);
 
 	expect(await screen.findByText("Gerekçe kaydedilmemiş")).toBeVisible();
+});
+
+const approvedVersionForFamily = {
+	createdAt: "2026-09-25T08:01:00.000Z",
+	fileName: "ash-knight.png",
+	id: "f7b32d26-6b7c-4e16-a578-dac3e0dab68b",
+	productionEvidence: unknownVersionProductionEvidence,
+	reviewDisposition: "approved",
+	sha256: null,
+	versionNumber: 1,
+};
+const familyWorldId = "742cbe57-ecb0-4616-8d1f-71723ad8cd62";
+const derivedRecordId = "5d0f6a1e-6d55-4c39-8f39-3c3d0b9a2f11";
+
+function trackingDetail(tracking: Record<string, unknown>) {
+	return {
+		record: assetRecord,
+		tracking: {
+			availableRecords: [],
+			availableVersions: [],
+			approvedVersion: null,
+			alternatives: [],
+			derivatives: [],
+			family: null,
+			manualImportEvidenceRequiredVersionIds: [],
+			productionHistory: [],
+			quality: {
+				integrityStatus: "unavailable",
+				profileStatus: "general_support",
+				verifiedVersionCount: 0,
+			},
+			references: [],
+			reviewEvents: [],
+			visualWorlds: [],
+			...tracking,
+		},
+	};
+}
+
+test("creates an Asset Family from the approved version with trimmed values", async () => {
+	fakeApi.detail = trackingDetail({
+		approvedVersion: approvedVersionForFamily,
+		visualWorlds: [{ id: familyWorldId, name: "Gameplay" }],
+	});
+	fakeApi.createFamily.mockResolvedValue({ id: "family" });
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+	const createButton = await screen.findByRole("button", {
+		name: "Aileyi oluştur",
+	});
+	expect(createButton).toBeDisabled();
+	fireEvent.change(screen.getByLabelText("Aile adı"), {
+		target: { value: "  Ash family  " },
+	});
+	fireEvent.change(
+		screen.getByLabelText("Kullanım bağlamı", {
+			selector: "#family-use-context",
+		}),
+		{
+			target: { value: "   " },
+		}
+	);
+	fireEvent.change(
+		screen.getByLabelText("Görsel Dünya", { selector: "#family-world" }),
+		{ target: { value: familyWorldId } }
+	);
+	expect(createButton).toBeDisabled();
+	fireEvent.change(
+		screen.getByLabelText("Kullanım bağlamı", {
+			selector: "#family-use-context",
+		}),
+		{
+			target: { value: " Combat sprite " },
+		}
+	);
+	expect(createButton).toBeEnabled();
+	fireEvent.click(createButton);
+
+	await waitFor(() =>
+		expect(fakeApi.createFamily).toHaveBeenCalledWith({
+			assetRecordId: assetRecord.id,
+			canonicalVersionId: approvedVersionForFamily.id,
+			id: expect.any(String),
+			name: "Ash family",
+			projectId,
+			useContext: "Combat sprite",
+			visualWorldId: familyWorldId,
+		})
+	);
+	expect(await screen.findByText("Varlık Ailesi kaydedildi.")).toBeVisible();
+});
+
+test("reuses the Asset Family request identity when an uncertain create is retried", async () => {
+	fakeApi.detail = trackingDetail({
+		approvedVersion: approvedVersionForFamily,
+		visualWorlds: [{ id: familyWorldId, name: "Gameplay" }],
+	});
+	fakeApi.createFamily
+		.mockRejectedValueOnce(new TypeError("Failed to fetch"))
+		.mockResolvedValueOnce({ id: "family" });
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+	fireEvent.change(await screen.findByLabelText("Aile adı"), {
+		target: { value: "Ash family" },
+	});
+	fireEvent.change(
+		screen.getByLabelText("Kullanım bağlamı", {
+			selector: "#family-use-context",
+		}),
+		{
+			target: { value: "Combat sprite" },
+		}
+	);
+	fireEvent.change(
+		screen.getByLabelText("Görsel Dünya", { selector: "#family-world" }),
+		{ target: { value: familyWorldId } }
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Aileyi oluştur" }));
+	await waitFor(() => expect(errorToast).toHaveBeenCalledOnce());
+	expect(screen.getByRole("button", { name: "Aileyi oluştur" })).toBeDisabled();
+	expect(screen.getByLabelText("Aile adı")).toHaveValue("Ash family");
+	fireEvent.click(screen.getByRole("button", { name: "Durumu kontrol et" }));
+	await waitFor(() =>
+		expect(screen.getByRole("button", { name: "Aileyi oluştur" })).toBeEnabled()
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Aileyi oluştur" }));
+	await waitFor(() => expect(fakeApi.createFamily).toHaveBeenCalledTimes(2));
+	expect(fakeApi.createFamily.mock.calls[1]?.[0].id).toBe(
+		fakeApi.createFamily.mock.calls[0]?.[0].id
+	);
+});
+
+test("links a derivative with keyboard-selected dependency facets", async () => {
+	const user = userEvent.setup();
+	fakeApi.detail = trackingDetail({
+		approvedVersion: approvedVersionForFamily,
+		availableRecords: [
+			{ assetFamilyId: null, id: derivedRecordId, name: "Ash Knight idle" },
+		],
+		family: {
+			canonicalVersionId: approvedVersionForFamily.id,
+			id: "2e289929-ad8b-4b76-b7c5-e18b001d8214",
+			name: "Ash Knight gameplay",
+			useContext: "Combat sprite",
+			visualWorldId: familyWorldId,
+			visualWorldName: "Gameplay",
+		},
+	});
+	fakeApi.createDerivative.mockResolvedValue({ id: "derivative" });
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+	const linkButton = await screen.findByRole("button", {
+		name: "Türevi bağla",
+	});
+	expect(linkButton).toBeDisabled();
+	fireEvent.change(screen.getByLabelText("Türetilmiş Asset Record"), {
+		target: { value: derivedRecordId },
+	});
+	expect(linkButton).toBeDisabled();
+	const silhouette = screen.getByRole("checkbox", { name: "Siluet" });
+	silhouette.focus();
+	await user.keyboard(" ");
+	expect(silhouette).toBeChecked();
+	await user.click(screen.getByRole("checkbox", { name: "Palet" }));
+	await user.click(screen.getByRole("checkbox", { name: "Palet" }));
+	expect(screen.getByRole("checkbox", { name: "Palet" })).not.toBeChecked();
+	expect(linkButton).toBeEnabled();
+	fireEvent.click(linkButton);
+
+	await waitFor(() =>
+		expect(fakeApi.createDerivative).toHaveBeenCalledWith({
+			canonicalVersionId: approvedVersionForFamily.id,
+			dependencyFacets: ["silhouette"],
+			derivedAssetRecordId: derivedRecordId,
+			id: expect.any(String),
+			projectId,
+			sourceAssetRecordId: assetRecord.id,
+		})
+	);
+	expect(
+		await screen.findByText("Türetilmiş Varlık bağlantısı kaydedildi.")
+	).toBeVisible();
+});
+
+test("keeps the candidate version save disabled until missing history is described", async () => {
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+	await screen.findByRole("heading", { name: "Aday sürüm oluştur" });
+	const submitButton = screen.getByRole("button", {
+		name: "Aday sürümü kaydet",
+	});
+	const uploadedFile = new File([new Uint8Array([1])], "legacy.png", {
+		type: "image/png",
+	});
+	fireEvent.change(screen.getByLabelText("PNG veya WebP dosyası"), {
+		target: { files: [uploadedFile] },
+	});
+	fireEvent.change(screen.getByLabelText("Bilinmeyen üretim geçmişi"), {
+		target: { value: "   " },
+	});
+	expect(submitButton).toBeDisabled();
+	fireEvent.change(screen.getByLabelText("PNG veya WebP dosyası"), {
+		target: {
+			files: [
+				new File([new Uint8Array([1])], "legacy.gif", { type: "image/gif" }),
+			],
+		},
+	});
+	fireEvent.change(screen.getByLabelText("Bilinmeyen üretim geçmişi"), {
+		target: { value: "Instruction unavailable." },
+	});
+	expect(submitButton).toBeDisabled();
+	fireEvent.change(screen.getByLabelText("PNG veya WebP dosyası"), {
+		target: { files: [uploadedFile] },
+	});
+	expect(submitButton).toBeEnabled();
+});
+
+test("keeps an unsaved metadata draft when switching workspace sections", async () => {
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+	fireEvent.click(
+		await screen.findByRole("button", { name: "Kayıt bilgileri" })
+	);
+	await screen.findByRole("heading", { name: "Varlık kaydı metadata’sı" });
+	fireEvent.change(screen.getByLabelText("Etiketler"), {
+		target: { value: "unfinished-edit" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Sürümler ve dosyalar" }));
+	fireEvent.click(screen.getByRole("button", { name: "Kayıt bilgileri" }));
+
+	expect(screen.getByLabelText("Etiketler")).toHaveValue("unfinished-edit");
+	expect(fakeApi.updateMetadata).not.toHaveBeenCalled();
+});
+
+test("sends normalized unique metadata tags and keeps the draft when saving fails", async () => {
+	fakeApi.updateMetadata.mockRejectedValue(new Error("write failed"));
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+	fireEvent.click(
+		await screen.findByRole("button", { name: "Kayıt bilgileri" })
+	);
+	await screen.findByRole("heading", { name: "Varlık kaydı metadata’sı" });
+	fireEvent.change(screen.getByLabelText("Etiketler"), {
+		target: { value: " Envanter, nadir ,envanter,, " },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Metadata’yı kaydet" }));
+
+	await waitFor(() =>
+		expect(fakeApi.updateMetadata).toHaveBeenCalledWith({
+			assetCategory: null,
+			assetRecordId: assetRecord.id,
+			projectId,
+			tags: ["envanter", "nadir"],
+			themeId: null,
+			visualWorldId: null,
+		})
+	);
+	expect(await screen.findByRole("alert")).toHaveTextContent(
+		"Varlık kaydı metadata’sı kaydedilemedi."
+	);
+	expect(screen.getByLabelText("Etiketler")).toHaveValue(
+		" Envanter, nadir ,envanter,, "
+	);
+	expect(screen.getByLabelText("Tema", { selector: "select" })).toBeDisabled();
+});
+
+test("clears a measurement validation error as soon as a value changes", async () => {
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+	fireEvent.click(
+		await screen.findByRole("button", { name: "Kayıt bilgileri" })
+	);
+	await screen.findByRole("heading", { name: "Ash Knight" });
+	for (const [label, value] of [
+		["Mantıksal Çözünürlük — Öneri — Genişlik (px)", "32"],
+		["Mantıksal Çözünürlük — Öneri — Yükseklik (px)", "32"],
+		["Görünür İçerik Sınırı — Öneri — X (px)", "3"],
+		["Görünür İçerik Sınırı — Öneri — Y (px)", "4"],
+		["Görünür İçerik Sınırı — Öneri — Genişlik (px)", "30"],
+		["Görünür İçerik Sınırı — Öneri — Yükseklik (px)", "10"],
+	] as const) {
+		fireEvent.change(screen.getByLabelText(label), { target: { value } });
+	}
+	fireEvent.change(
+		screen.getByLabelText("Görünür İçerik Sınırı — Öneri — Koordinat temeli"),
+		{ target: { value: "logicalResolution" } }
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Ölçüleri kaydet" }));
+	expect(await screen.findByRole("alert")).toBeVisible();
+
+	fireEvent.change(
+		screen.getByLabelText("Görünür İçerik Sınırı — Öneri — X (px)"),
+		{ target: { value: "2" } }
+	);
+	expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+	expect(fakeApi.updateMeasurements).not.toHaveBeenCalled();
+});
+
+test("shows the generic measurement error for an incomplete pair without sending it", async () => {
+	renderWithQueryClient(
+		<AssetRecordDetailView
+			assetRecordId={assetRecord.id}
+			projectId={projectId}
+		/>
+	);
+	fireEvent.click(
+		await screen.findByRole("button", { name: "Kayıt bilgileri" })
+	);
+	await screen.findByRole("heading", { name: "Ash Knight" });
+	fireEvent.change(
+		screen.getByLabelText("Atlas Ölçüsü — Doğrulanmış değer — Genişlik (px)"),
+		{ target: { value: "64" } }
+	);
+	fireEvent.submit(
+		screen
+			.getByRole("button", { name: "Ölçüleri kaydet" })
+			.closest("form") as HTMLFormElement
+	);
+
+	expect(await screen.findByRole("alert")).toHaveTextContent(
+		"Ölçüler kaydedilemedi. Değerleri kontrol edip yeniden deneyin."
+	);
+	expect(fakeApi.updateMeasurements).not.toHaveBeenCalled();
+});
+
+test("requires a non-blank name and an identity criterion before creating an Asset Record", async () => {
+	const user = userEvent.setup();
+	const onOpenRecord = vi.fn();
+	fakeApi.create.mockResolvedValue(assetRecord);
+	renderWithQueryClient(
+		<AssetRecordsView onOpenRecord={onOpenRecord} projectId={projectId} />
+	);
+	fireEvent.click(
+		await screen.findByRole("button", { name: "Yeni varlık kaydı" })
+	);
+	await screen.findByRole("dialog", { name: "Yeni varlık kaydı" });
+	const createButton = screen.getByRole("button", {
+		name: "Varlık kaydı oluştur",
+	});
+	fireEvent.change(screen.getByLabelText("Varlık adı"), {
+		target: { value: "   " },
+	});
+	const criterion = screen.getByRole("checkbox", {
+		name: identityCheckboxName,
+	});
+	criterion.focus();
+	await user.keyboard(" ");
+	expect(criterion).toBeChecked();
+	expect(createButton).toBeDisabled();
+	fireEvent.change(screen.getByLabelText("Varlık adı"), {
+		target: { value: "  Ash Knight  " },
+	});
+	await user.keyboard(" ");
+	expect(criterion).not.toBeChecked();
+	expect(createButton).toBeDisabled();
+	fireEvent.click(criterion);
+	fireEvent.click(
+		screen.getByRole("checkbox", { name: deliveryIdentityCheckboxName })
+	);
+	expect(createButton).toBeEnabled();
+	fireEvent.click(createButton);
+
+	await waitFor(() =>
+		expect(onOpenRecord).toHaveBeenCalledWith(assetRecord.id)
+	);
+	expect(fakeApi.create).toHaveBeenCalledWith({
+		id: expect.any(String),
+		identityCriteria: ["independent_product_meaning", "delivery_identity"],
+		name: "Ash Knight",
+		projectId,
+	});
+});
+
+test("locks the Asset Record draft while an uncertain create is unresolved", async () => {
+	const user = userEvent.setup();
+	fakeApi.create.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+	renderWithQueryClient(
+		<AssetRecordsView onOpenRecord={vi.fn()} projectId={projectId} />
+	);
+	fireEvent.click(
+		await screen.findByRole("button", { name: "Yeni varlık kaydı" })
+	);
+	await screen.findByRole("dialog", { name: "Yeni varlık kaydı" });
+	fireEvent.change(screen.getByLabelText("Varlık adı"), {
+		target: { value: "Ash Knight" },
+	});
+	fireEvent.click(screen.getByRole("checkbox", { name: identityCheckboxName }));
+	fireEvent.click(screen.getByRole("button", { name: "Varlık kaydı oluştur" }));
+
+	await waitFor(() => expect(errorToast).toHaveBeenCalledOnce());
+	expect(screen.getByLabelText("Varlık adı")).toBeDisabled();
+	expect(screen.getByLabelText("Varlık adı")).toHaveValue("Ash Knight");
+	const criterion = screen.getByRole("checkbox", {
+		name: identityCheckboxName,
+	});
+	expect(criterion).toBeChecked();
+	await user.click(criterion);
+	expect(criterion).toBeChecked();
 });

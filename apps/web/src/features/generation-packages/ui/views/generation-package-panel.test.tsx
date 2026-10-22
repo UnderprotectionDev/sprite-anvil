@@ -11,6 +11,7 @@ import {
 } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { QueryClientProvider } from "@tanstack/react-query";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { createQueryClient } from "@/utils/query-client";
 import { GenerationPackagePanel } from "./generation-package-panel";
@@ -28,11 +29,18 @@ const themePrecedenceRuleLabel = /Öncelik zinciri: Tema/;
 const customPurposeLabel = /Kullanım amacı: Yalnızca gölge desenini kullanın\./;
 const contextOverrideRationaleLabel =
 	/Bağlam istisnası gerekçesi: Kimlik özellikleri/;
+const rejectedOrFallback = /Rejected|oluşturulamadı/;
 const fakeApi = vi.hoisted(() => ({
 	create: vi.fn(),
 	listPackages: vi.fn(),
 	packages: [] as GenerationPackage[],
 }));
+
+const mutationOf = vi.hoisted(
+	() => (mutationFn: (input: never) => unknown) => ({
+		mutationOptions: (options?: object) => ({ ...options, mutationFn }),
+	})
+);
 
 vi.mock("@/utils/orpc", () => ({
 	client: {
@@ -67,6 +75,7 @@ vi.mock("@/utils/orpc", () => ({
 			},
 		},
 		generationPackages: {
+			create: mutationOf((input: unknown) => fakeApi.create(input)),
 			list: {
 				queryOptions: ({ input }: { input: Record<string, unknown> }) => ({
 					queryKey: ["generation-packages", input],
@@ -350,4 +359,43 @@ test("blocks a second create after an uncertain write until package history is r
 		).toBeEnabled()
 	);
 	expect(fakeApi.create).toHaveBeenCalledOnce();
+});
+
+test("keeps the draft and the locked Unit Version after a rejected create, toggling it by keyboard", async () => {
+	const user = userEvent.setup();
+	fakeApi.create.mockRejectedValue(new Error("Rejected"));
+	renderPanel();
+	const unitCheckbox = await screen.findByRole("checkbox", {
+		name: unitVersionLabel,
+	});
+	unitCheckbox.focus();
+	await user.keyboard(" ");
+	expect(unitCheckbox).toBeChecked();
+	await user.keyboard(" ");
+	expect(unitCheckbox).not.toBeChecked();
+	await user.keyboard(" ");
+	await user.type(screen.getByLabelText("Üretim hedefi"), "Task text");
+	await user.type(screen.getByLabelText("Beklenen çıktı yapısı"), "Sheet");
+	await user.type(
+		screen.getByLabelText("Korunacak özellikler"),
+		"Keep a{Enter}Keep b"
+	);
+	await user.click(
+		screen.getByRole("button", { name: "Üretim Paketini sabitle" })
+	);
+
+	expect(await screen.findByRole("alert")).toHaveTextContent(
+		rejectedOrFallback
+	);
+	expect(fakeApi.create).toHaveBeenCalledWith(
+		expect.objectContaining({
+			lockedUnitVersionIds: [unitVersionId],
+			preserveConstraints: ["Keep a", "Keep b"],
+		})
+	);
+	expect(screen.getByLabelText("Üretim hedefi")).toHaveValue("Task text");
+	expect(screen.getByLabelText("Hedef genişlik (px)")).toHaveValue(72);
+	expect(
+		screen.getByRole("checkbox", { name: unitVersionLabel })
+	).toBeChecked();
 });

@@ -3,12 +3,13 @@ import type {
 	MutableAssetRecordAvailability,
 } from "@sprite-anvil/api/asset-records";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client, orpc } from "@/utils/orpc";
+import { mutationMeta } from "@/utils/mutation-meta";
+import { orpc } from "@/utils/orpc";
 
 interface AvailabilityRefreshResult {
 	data?: AssetRecord;
@@ -51,6 +52,12 @@ export function AssetRecordAvailabilityControl({
 	const recordsQueryOptions = orpc.assetRecords.list.queryOptions({
 		input: { projectId: record.projectId },
 	});
+	const archiveRecord = useMutation(
+		orpc.assetRecords.archive.mutationOptions(mutationMeta)
+	);
+	const restoreRecord = useMutation(
+		orpc.assetRecords.restore.mutationOptions(mutationMeta)
+	);
 	const [isUpdatingAvailability, setIsUpdatingAvailability] = useState(false);
 	const [pendingAvailability, setPendingAvailability] =
 		useState<MutableAssetRecordAvailability | null>(null);
@@ -71,9 +78,9 @@ export function AssetRecordAvailabilityControl({
 		try {
 			const input = { assetRecordId: record.id, projectId: record.projectId };
 			if (availability === "archived") {
-				await client.assetRecords.archive(input);
+				await archiveRecord.mutateAsync(input);
 			} else {
-				await client.assetRecords.restore(input);
+				await restoreRecord.mutateAsync(input);
 			}
 			void queryClient.invalidateQueries({
 				queryKey: recordsQueryOptions.queryKey,

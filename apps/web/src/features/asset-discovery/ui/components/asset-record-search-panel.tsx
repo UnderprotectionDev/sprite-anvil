@@ -5,8 +5,14 @@ import {
 import type { ProjectContextScopeCatalog } from "@sprite-anvil/api/context-scopes";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { useForm, useStore } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
-import { type ReactNode, type SyntheticEvent, useState } from "react";
+import { type ReactNode, useState } from "react";
 import {
 	assetCategoryLabels,
 	assetRecordAvailabilityLabels,
@@ -15,6 +21,10 @@ import { getIdentitySummary } from "@/features/asset-records/lib/identity-criter
 import { QueryRetryButton } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { orpc } from "@/utils/orpc";
+import {
+	type AssetRecordSearchDraft,
+	assetRecordSearchDraftSchema,
+} from "../../schemas";
 
 function getVersionLabel(version: {
 	fileName: string | null;
@@ -32,18 +42,7 @@ function getVersionHistoryLabel(version: {
 	return `${version.fileName ? `${version.fileName} ` : ""}sürüm ${version.versionNumber} geçmişini aç`;
 }
 
-interface SearchDraft {
-	assetCategory: string;
-	availability: string;
-	name: string;
-	sourceImageHeight: string;
-	sourceImageWidth: string;
-	tag: string;
-	themeId: string;
-	visualWorldId: string;
-}
-
-const emptyDraft: SearchDraft = {
+const emptyDraft: AssetRecordSearchDraft = {
 	name: "",
 	assetCategory: "",
 	visualWorldId: "",
@@ -72,7 +71,7 @@ function recordAvailabilityLabel(availability: string) {
 	);
 }
 
-function buildSearchInput(projectId: string, draft: SearchDraft) {
+function buildSearchInput(projectId: string, draft: AssetRecordSearchDraft) {
 	const input: AssetRecordSearchInput = { projectId };
 	const name = draft.name.trim();
 	const tag = draft.tag.trim();
@@ -103,6 +102,11 @@ function buildSearchInput(projectId: string, draft: SearchDraft) {
 	return input;
 }
 
+function validateSearchDraft({ value }: { value: AssetRecordSearchDraft }) {
+	return assetRecordSearchDraftSchema.safeParse(value).error?.issues[0]
+		?.message;
+}
+
 export function AssetRecordSearchPanel({
 	onOpenRecord,
 	projectId,
@@ -110,12 +114,23 @@ export function AssetRecordSearchPanel({
 	onOpenRecord: (assetRecordId: string, versionId?: string) => void;
 	projectId: string;
 }) {
-	const [draft, setDraft] = useState<SearchDraft>(emptyDraft);
 	const [submitted, setSubmitted] = useState<AssetRecordSearchInput>({
 		projectId,
 	});
-	const [validationMessage, setValidationMessage] = useState<string | null>(
-		null
+	const form = useForm({
+		defaultValues: emptyDraft,
+		onSubmit: ({ value }) => {
+			setSubmitted(buildSearchInput(projectId, value));
+		},
+		validators: { onSubmit: validateSearchDraft },
+	});
+	const selectedVisualWorldId = useStore(
+		form.store,
+		(state) => state.values.visualWorldId
+	);
+	const validationMessage = useStore(
+		form.store,
+		(state) => state.errorMap.onSubmit
 	);
 	const scopeQuery = useQuery({
 		...orpc.contextScopes.list.queryOptions({ input: { projectId } }),
@@ -129,9 +144,9 @@ export function AssetRecordSearchPanel({
 		themes: [],
 		visualWorlds: [],
 	};
-	const availableThemes = draft.visualWorldId
+	const availableThemes = selectedVisualWorldId
 		? scopes.themes.filter(
-				(theme) => theme.visualWorldId === draft.visualWorldId
+				(theme) => theme.visualWorldId === selectedVisualWorldId
 			)
 		: scopes.themes;
 	const hasActiveFilters = Object.entries(submitted).some(
@@ -227,51 +242,6 @@ export function AssetRecordSearchPanel({
 		);
 	}
 
-	function updateDraft<K extends keyof SearchDraft>(
-		key: K,
-		value: SearchDraft[K]
-	) {
-		setDraft((current) => ({
-			...current,
-			[key]: value,
-			...(key === "visualWorldId" ? { themeId: "" } : {}),
-		}));
-		setValidationMessage(null);
-	}
-
-	function submitSearch(event: SyntheticEvent<HTMLFormElement>) {
-		event.preventDefault();
-		const width = draft.sourceImageWidth.trim();
-		const height = draft.sourceImageHeight.trim();
-		if (Boolean(width) !== Boolean(height)) {
-			setValidationMessage(
-				"Ölçü aramak için genişlik ve yüksekliği birlikte girin."
-			);
-			return;
-		}
-		if (width || height) {
-			const parsedWidth = Number(width);
-			const parsedHeight = Number(height);
-			if (
-				!(
-					Number.isSafeInteger(parsedWidth) &&
-					Number.isSafeInteger(parsedHeight)
-				) ||
-				parsedWidth < 1 ||
-				parsedHeight < 1 ||
-				parsedWidth > 100_000 ||
-				parsedHeight > 100_000
-			) {
-				setValidationMessage(
-					"Genişlik ve yükseklik 1–100.000 px arasında tam sayı olmalı."
-				);
-				return;
-			}
-		}
-		setValidationMessage(null);
-		setSubmitted(buildSearchInput(projectId, draft));
-	}
-
 	return (
 		<section
 			aria-labelledby="asset-record-search-heading"
@@ -286,153 +256,210 @@ export function AssetRecordSearchPanel({
 					eşleşen sürümü gösterir.
 				</p>
 			</div>
-			<form className="grid gap-3 sm:grid-cols-2" onSubmit={submitSearch}>
-				<label className="space-y-1 text-sm" htmlFor="asset-record-search-name">
-					<span>Ada göre ara</span>
-					<Input
-						id="asset-record-search-name"
-						maxLength={120}
-						onChange={(event) => updateDraft("name", event.target.value)}
-						value={draft.name}
-					/>
-				</label>
-				<label
-					className="space-y-1 text-sm"
-					htmlFor="asset-record-search-category"
-				>
-					<span>Varlık kategorisi</span>
-					<select
-						className="h-8 w-full rounded-md border bg-background px-2 text-sm"
-						id="asset-record-search-category"
-						onChange={(event) =>
-							updateDraft("assetCategory", event.target.value)
-						}
-						value={draft.assetCategory}
-					>
-						<option value="">Tüm kategoriler</option>
-						{assetRecordCategoryValues.map((category) => (
-							<option key={category} value={category}>
-								{assetCategoryLabels[category]}
-							</option>
-						))}
-					</select>
-				</label>
+			<form
+				className="grid gap-3 sm:grid-cols-2"
+				onSubmit={(event) => {
+					event.preventDefault();
+					event.stopPropagation();
+					void form.handleSubmit();
+				}}
+			>
+				<form.Field name="name">
+					{(field) => (
+						<Label
+							className="block space-y-1 text-sm leading-normal"
+							htmlFor="asset-record-search-name"
+						>
+							<span>Ada göre ara</span>
+							<Input
+								id="asset-record-search-name"
+								maxLength={120}
+								onBlur={field.handleBlur}
+								onChange={(event) => field.handleChange(event.target.value)}
+								value={field.state.value}
+							/>
+						</Label>
+					)}
+				</form.Field>
+				<form.Field name="assetCategory">
+					{(field) => (
+						<Label
+							className="block space-y-1 text-sm leading-normal"
+							htmlFor="asset-record-search-category"
+						>
+							<span>Varlık kategorisi</span>
+							<NativeSelect
+								className="w-full"
+								id="asset-record-search-category"
+								onBlur={field.handleBlur}
+								onChange={(event) => field.handleChange(event.target.value)}
+								value={field.state.value}
+							>
+								<NativeSelectOption value="">
+									Tüm kategoriler
+								</NativeSelectOption>
+								{assetRecordCategoryValues.map((category) => (
+									<NativeSelectOption key={category} value={category}>
+										{assetCategoryLabels[category]}
+									</NativeSelectOption>
+								))}
+							</NativeSelect>
+						</Label>
+					)}
+				</form.Field>
 				<details className="rounded-md border p-3 sm:col-span-2">
 					<summary className="cursor-pointer font-medium text-sm">
 						Diğer filtreler
 					</summary>
 					<div className="mt-3 grid gap-3 sm:grid-cols-2">
-						<label
-							className="space-y-1 text-sm"
-							htmlFor="asset-record-search-world"
+						<form.Field
+							listeners={{
+								onChange: () => form.setFieldValue("themeId", ""),
+							}}
+							name="visualWorldId"
 						>
-							<span>Görsel Dünya</span>
-							<select
-								className="h-8 w-full rounded-md border bg-background px-2 text-sm"
-								id="asset-record-search-world"
-								onChange={(event) =>
-									updateDraft("visualWorldId", event.target.value)
-								}
-								value={draft.visualWorldId}
-							>
-								<option value="">Tüm Görsel Dünyalar</option>
-								{scopes.visualWorlds.map((world) => (
-									<option key={world.id} value={world.id}>
-										{world.name}
-									</option>
-								))}
-							</select>
-						</label>
-						<label
-							className="space-y-1 text-sm"
-							htmlFor="asset-record-search-theme"
-						>
-							<span>Tema</span>
-							<select
-								className="h-8 w-full rounded-md border bg-background px-2 text-sm"
-								id="asset-record-search-theme"
-								onChange={(event) => updateDraft("themeId", event.target.value)}
-								value={draft.themeId}
-							>
-								<option value="">Tüm Temalar</option>
-								{availableThemes.map((theme) => (
-									<option key={theme.id} value={theme.id}>
-										{theme.name}
-									</option>
-								))}
-							</select>
-						</label>
+							{(field) => (
+								<Label
+									className="block space-y-1 text-sm leading-normal"
+									htmlFor="asset-record-search-world"
+								>
+									<span>Görsel Dünya</span>
+									<NativeSelect
+										className="w-full"
+										id="asset-record-search-world"
+										onBlur={field.handleBlur}
+										onChange={(event) => field.handleChange(event.target.value)}
+										value={field.state.value}
+									>
+										<NativeSelectOption value="">
+											Tüm Görsel Dünyalar
+										</NativeSelectOption>
+										{scopes.visualWorlds.map((world) => (
+											<NativeSelectOption key={world.id} value={world.id}>
+												{world.name}
+											</NativeSelectOption>
+										))}
+									</NativeSelect>
+								</Label>
+							)}
+						</form.Field>
+						<form.Field name="themeId">
+							{(field) => (
+								<Label
+									className="block space-y-1 text-sm leading-normal"
+									htmlFor="asset-record-search-theme"
+								>
+									<span>Tema</span>
+									<NativeSelect
+										className="w-full"
+										id="asset-record-search-theme"
+										onBlur={field.handleBlur}
+										onChange={(event) => field.handleChange(event.target.value)}
+										value={field.state.value}
+									>
+										<NativeSelectOption value="">
+											Tüm Temalar
+										</NativeSelectOption>
+										{availableThemes.map((theme) => (
+											<NativeSelectOption key={theme.id} value={theme.id}>
+												{theme.name}
+											</NativeSelectOption>
+										))}
+									</NativeSelect>
+								</Label>
+							)}
+						</form.Field>
 						<div className="grid grid-cols-2 gap-3">
-							<label
-								className="space-y-1 text-sm"
-								htmlFor="asset-record-search-width"
-							>
-								<span>Kaynak Görsel genişliği (px)</span>
-								<Input
-									id="asset-record-search-width"
-									max="100000"
-									min="1"
-									onChange={(event) =>
-										updateDraft("sourceImageWidth", event.target.value)
-									}
-									step="1"
-									type="number"
-									value={draft.sourceImageWidth}
-								/>
-							</label>
-							<label
-								className="space-y-1 text-sm"
-								htmlFor="asset-record-search-height"
-							>
-								<span>Kaynak Görsel yüksekliği (px)</span>
-								<Input
-									id="asset-record-search-height"
-									max="100000"
-									min="1"
-									onChange={(event) =>
-										updateDraft("sourceImageHeight", event.target.value)
-									}
-									step="1"
-									type="number"
-									value={draft.sourceImageHeight}
-								/>
-							</label>
-						</div>
-						<label
-							className="space-y-1 text-sm"
-							htmlFor="asset-record-search-tag"
-						>
-							<span>Etiket</span>
-							<Input
-								id="asset-record-search-tag"
-								maxLength={40}
-								onChange={(event) => updateDraft("tag", event.target.value)}
-								value={draft.tag}
-							/>
-						</label>
-						<label
-							className="space-y-1 text-sm"
-							htmlFor="asset-record-search-availability"
-						>
-							<span>Kayıt durumu</span>
-							<select
-								className="h-8 w-full rounded-md border bg-background px-2 text-sm"
-								id="asset-record-search-availability"
-								onChange={(event) =>
-									updateDraft("availability", event.target.value)
-								}
-								value={draft.availability}
-							>
-								<option value="">Tüm durumlar</option>
-								{Object.entries(assetRecordAvailabilityLabels).map(
-									([value, label]) => (
-										<option key={value} value={value}>
-											{label}
-										</option>
-									)
+							<form.Field name="sourceImageWidth">
+								{(field) => (
+									<Label
+										className="block space-y-1 text-sm leading-normal"
+										htmlFor="asset-record-search-width"
+									>
+										<span>Kaynak Görsel genişliği (px)</span>
+										<Input
+											id="asset-record-search-width"
+											max="100000"
+											min="1"
+											onBlur={field.handleBlur}
+											onChange={(event) =>
+												field.handleChange(event.target.value)
+											}
+											step="1"
+											type="number"
+											value={field.state.value}
+										/>
+									</Label>
 								)}
-							</select>
-						</label>
+							</form.Field>
+							<form.Field name="sourceImageHeight">
+								{(field) => (
+									<Label
+										className="block space-y-1 text-sm leading-normal"
+										htmlFor="asset-record-search-height"
+									>
+										<span>Kaynak Görsel yüksekliği (px)</span>
+										<Input
+											id="asset-record-search-height"
+											max="100000"
+											min="1"
+											onBlur={field.handleBlur}
+											onChange={(event) =>
+												field.handleChange(event.target.value)
+											}
+											step="1"
+											type="number"
+											value={field.state.value}
+										/>
+									</Label>
+								)}
+							</form.Field>
+						</div>
+						<form.Field name="tag">
+							{(field) => (
+								<Label
+									className="block space-y-1 text-sm leading-normal"
+									htmlFor="asset-record-search-tag"
+								>
+									<span>Etiket</span>
+									<Input
+										id="asset-record-search-tag"
+										maxLength={40}
+										onBlur={field.handleBlur}
+										onChange={(event) => field.handleChange(event.target.value)}
+										value={field.state.value}
+									/>
+								</Label>
+							)}
+						</form.Field>
+						<form.Field name="availability">
+							{(field) => (
+								<Label
+									className="block space-y-1 text-sm leading-normal"
+									htmlFor="asset-record-search-availability"
+								>
+									<span>Kayıt durumu</span>
+									<NativeSelect
+										className="w-full"
+										id="asset-record-search-availability"
+										onBlur={field.handleBlur}
+										onChange={(event) => field.handleChange(event.target.value)}
+										value={field.state.value}
+									>
+										<NativeSelectOption value="">
+											Tüm durumlar
+										</NativeSelectOption>
+										{Object.entries(assetRecordAvailabilityLabels).map(
+											([value, label]) => (
+												<NativeSelectOption key={value} value={value}>
+													{label}
+												</NativeSelectOption>
+											)
+										)}
+									</NativeSelect>
+								</Label>
+							)}
+						</form.Field>
 					</div>
 				</details>
 				<div className="sm:col-span-2">

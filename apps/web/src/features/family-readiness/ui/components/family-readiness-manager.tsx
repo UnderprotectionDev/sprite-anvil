@@ -10,7 +10,17 @@ import { objectSceneUsageTestId } from "@sprite-anvil/api/family-readiness";
 import type { SpecializedProfileContractsListOutput } from "@sprite-anvil/api/specialized-profile-contracts";
 import { iconLightDarkTargetSizeTestId } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQuery } from "@tanstack/react-query";
+import { Checkbox } from "@sprite-anvil/ui/components/checkbox";
+import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
+import { Input } from "@sprite-anvil/ui/components/input";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { Textarea } from "@sprite-anvil/ui/components/textarea";
+import { useForm, useStore } from "@tanstack/react-form";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import type {
 	IconPixelDimensions,
@@ -20,7 +30,13 @@ import {
 	formatIconPixelDimensions as formatPixelDimensions,
 	IconUsageEvidenceFields,
 } from "@/features/icon-profile/ui/components/icon-usage-evidence-fields";
-import { client, orpc } from "@/utils/orpc";
+import { mutationMeta } from "@/utils/mutation-meta";
+import { orpc } from "@/utils/orpc";
+import {
+	cellDimensionSchema,
+	pixelDimensionSchema,
+	usageVariantSchema,
+} from "../../schemas";
 
 interface DraftItem {
 	assetRecordIds: string[];
@@ -55,13 +71,11 @@ interface FamilyReadinessAssetRecord {
 }
 
 function parsePositivePixelDimension(value: string) {
-	const dimension = Number(value);
-	return Number.isSafeInteger(dimension) &&
-		dimension > 0 &&
-		dimension <= 2_147_483_647
-		? dimension
-		: null;
+	const parsed = pixelDimensionSchema.safeParse(value);
+	return parsed.success ? parsed.data : null;
 }
+
+const fieldLabelClass = "block space-y-1 text-sm leading-normal";
 
 const itemKindLabels: Record<DraftItem["kind"], string> = {
 	direction: "Yön",
@@ -227,10 +241,22 @@ export function FamilyReadinessManager({
 			input: { projectId, assetFamilyId },
 		}),
 	});
-	const [draftItems, setDraftItems] = useState<DraftItem[]>([]);
 	const [isSaving, setIsSaving] = useState(false);
+	const saveDraftMutation = useMutation(
+		orpc.familyReadiness.saveDraft.mutationOptions(mutationMeta)
+	);
+	const activateMutation = useMutation(
+		orpc.familyReadiness.activate.mutationOptions(mutationMeta)
+	);
+	const recordEvidenceMutation = useMutation(
+		orpc.familyReadiness.recordEvidence.mutationOptions(mutationMeta)
+	);
 	const [message, setMessage] = useState("");
 	const lastLoadedRevisionId = useRef<string | null>(null);
+	const draftForm = useForm({
+		defaultValues: { items: [] as DraftItem[] },
+		onSubmit: ({ value }) => saveDraft(value.items),
+	});
 	const latestRevision = query.data?.revisions.at(-1);
 	const activeRevisionId = query.data?.activeRevision?.id;
 
@@ -241,24 +267,11 @@ export function FamilyReadinessManager({
 			return;
 		}
 		lastLoadedRevisionId.current = sourceId;
-		setDraftItems(sourceRevision?.items.map(toDraftItem) ?? []);
-	}, [latestRevision, query.data?.activeRevision]);
-
-	function updateItem(localId: string, change: Partial<DraftItem>) {
-		setDraftItems((items) =>
-			items.map((item) => {
-				if (item.localId !== localId) {
-					return item;
-				}
-				const updatedItem = { ...item, ...change };
-				if (change.kind && change.kind !== "usage_test") {
-					const { testId: _testId, ...itemWithoutTestId } = updatedItem;
-					return itemWithoutTestId;
-				}
-				return updatedItem;
-			})
+		draftForm.setFieldValue(
+			"items",
+			sourceRevision?.items.map(toDraftItem) ?? []
 		);
-	}
+	}, [draftForm, latestRevision, query.data?.activeRevision]);
 
 	async function refresh() {
 		const result = await query.refetch();
@@ -293,14 +306,13 @@ export function FamilyReadinessManager({
 		}
 	}
 
-	function saveDraft(event: React.FormEvent<HTMLFormElement>) {
-		event.preventDefault();
+	function saveDraft(draftItems: DraftItem[]) {
 		const items: RequiredSetItem[] = draftItems.map(
 			({ localId: _localId, ...item }) => item
 		);
 		void runWrite(
 			() =>
-				client.familyReadiness.saveDraft({
+				saveDraftMutation.mutateAsync({
 					projectId,
 					assetFamilyId,
 					items,
@@ -312,7 +324,7 @@ export function FamilyReadinessManager({
 	function activateRevision(revisionId: string) {
 		void runWrite(
 			() =>
-				client.familyReadiness.activate({
+				activateMutation.mutateAsync({
 					projectId,
 					assetFamilyId,
 					revisionId,
@@ -323,7 +335,7 @@ export function FamilyReadinessManager({
 
 	function recordEvidence(input: ReadinessEvidenceInput) {
 		return runWrite(
-			() => client.familyReadiness.recordEvidence(input),
+			() => recordEvidenceMutation.mutateAsync(input),
 			"Kanıt kaydedildi ve güncel durum yeniden hesaplandı."
 		);
 	}
@@ -387,7 +399,14 @@ export function FamilyReadinessManager({
 				</section>
 			) : null}
 
-			<form className="space-y-4 border-t pt-4" onSubmit={saveDraft}>
+			<form
+				className="space-y-4 border-t pt-4"
+				onSubmit={(event) => {
+					event.preventDefault();
+					event.stopPropagation();
+					draftForm.handleSubmit();
+				}}
+			>
 				<div>
 					<h4 className="font-medium">
 						{latestRevision && !latestRevision.isActive
@@ -399,46 +418,47 @@ export function FamilyReadinessManager({
 						etkinleştirildiğinde başlar.
 					</p>
 				</div>
-				{draftItems.map((item) => (
-					<RequiredSetItemEditor
-						assetFamilyId={assetFamilyId}
-						assetRecords={assetRecords}
-						item={item}
-						key={item.localId}
-						onChange={(change) => updateItem(item.localId, change)}
-						onRemove={() =>
-							setDraftItems((items) =>
-								items.filter((entry) => entry.localId !== item.localId)
-							)
-						}
-						profileContracts={profileContracts}
-					/>
-				))}
-				<div className="flex flex-wrap gap-2">
-					<Button
-						disabled={isSaving}
-						onClick={() =>
-							setDraftItems((items) => [
-								...items,
-								{
-									localId: crypto.randomUUID(),
-									id: `item-${crypto.randomUUID()}`,
-									kind: "direction",
-									name: "",
-									disposition: "required",
-									assetRecordIds: [],
-								},
-							])
-						}
-						type="button"
-						variant="outline"
-					>
-						Öğe ekle
-					</Button>
-					<Button disabled={isSaving || query.isPending} type="submit">
-						{isSaving ? "Kaydediliyor…" : "Taslak sürümü kaydet"}
-					</Button>
-				</div>
+				<draftForm.Field mode="array" name="items">
+					{(itemsField) => (
+						<>
+							{itemsField.state.value.map((item, index) => (
+								<draftForm.Field key={item.localId} name={`items[${index}]`}>
+									{(itemField) => (
+										<RequiredSetItemEditor
+											assetFamilyId={assetFamilyId}
+											assetRecords={assetRecords}
+											field={itemField}
+											onRemove={() => itemsField.removeValue(index)}
+											profileContracts={profileContracts}
+										/>
+									)}
+								</draftForm.Field>
+							))}
+							<div className="flex flex-wrap gap-2">
+								<Button
+									disabled={isSaving}
+									onClick={() =>
+										itemsField.pushValue({
+											localId: crypto.randomUUID(),
+											id: `item-${crypto.randomUUID()}`,
+											kind: "direction",
+											name: "",
+											disposition: "required",
+											assetRecordIds: [],
+										})
+									}
+									type="button"
+									variant="outline"
+								>
+									Öğe ekle
+								</Button>
+								<Button disabled={isSaving || query.isPending} type="submit">
+									{isSaving ? "Kaydediliyor…" : "Taslak sürümü kaydet"}
+								</Button>
+							</div>
+						</>
+					)}
+				</draftForm.Field>
 			</form>
 
 			{query.data && query.data.revisions.length > 0 ? (
@@ -791,8 +811,7 @@ function ReadinessEvidenceDetails({
 function RequiredSetItemEditor({
 	assetFamilyId,
 	assetRecords,
-	item,
-	onChange,
+	field,
 	onRemove,
 	profileContracts,
 }: {
@@ -802,11 +821,14 @@ function RequiredSetItemEditor({
 		id: string;
 		name: string;
 	}[];
-	item: DraftItem;
-	onChange: (change: Partial<DraftItem>) => void;
+	field: {
+		handleChange: (item: DraftItem) => void;
+		state: { value: DraftItem };
+	};
 	onRemove: () => void;
 	profileContracts: SpecializedProfileContractsListOutput | null;
 }) {
+	const item = field.state.value;
 	const idPrefix = `required-set-${assetFamilyId}-${item.id}`;
 	const usageTestOptions = getUsageTestOptions(
 		item,
@@ -820,40 +842,47 @@ function RequiredSetItemEditor({
 				(profile) => profile.definition.profileId === record.assetCategory
 			)
 	);
+	function update(change: Partial<DraftItem>) {
+		const updatedItem = { ...item, ...change };
+		if (change.kind && change.kind !== "usage_test") {
+			const { testId: _testId, ...itemWithoutTestId } = updatedItem;
+			field.handleChange(itemWithoutTestId);
+			return;
+		}
+		field.handleChange(updatedItem);
+	}
 	return (
-		<fieldset className="space-y-3 rounded-md border p-4">
-			<legend className="px-1 font-medium">Gerekli öğe</legend>
+		<FieldSet className="space-y-3 rounded-md border p-4">
+			<FieldLegend className="px-1 font-medium">Gerekli öğe</FieldLegend>
 			<div className="grid gap-3 sm:grid-cols-2">
-				<label className="space-y-1 text-sm">
+				<Label className={fieldLabelClass}>
 					<span>Öğe kimliği</span>
-					<input
-						className="w-full rounded-md border bg-background px-3 py-2"
+					<Input
 						id={`${idPrefix}-id`}
 						maxLength={100}
-						onChange={(event) => onChange({ id: event.currentTarget.value })}
+						onChange={(event) => update({ id: event.currentTarget.value })}
 						pattern="[a-z][a-z0-9._-]*"
 						required
 						value={item.id}
 					/>
-				</label>
-				<label className="space-y-1 text-sm">
+				</Label>
+				<Label className={fieldLabelClass}>
 					<span>Öğe adı</span>
-					<input
-						className="w-full rounded-md border bg-background px-3 py-2"
+					<Input
 						id={`${idPrefix}-name`}
 						maxLength={120}
-						onChange={(event) => onChange({ name: event.currentTarget.value })}
+						onChange={(event) => update({ name: event.currentTarget.value })}
 						required
 						value={item.name}
 					/>
-				</label>
-				<label className="space-y-1 text-sm">
+				</Label>
+				<Label className={fieldLabelClass}>
 					<span>Öğe türü</span>
-					<select
-						className="w-full rounded-md border bg-background px-3 py-2"
+					<NativeSelect
+						className="w-full"
 						id={`${idPrefix}-kind`}
 						onChange={(event) =>
-							onChange({
+							update({
 								kind: event.currentTarget.value as DraftItem["kind"],
 								assetRecordIds: [],
 							})
@@ -861,45 +890,45 @@ function RequiredSetItemEditor({
 						value={item.kind}
 					>
 						{Object.entries(itemKindLabels).map(([kind, label]) => (
-							<option key={kind} value={kind}>
+							<NativeSelectOption key={kind} value={kind}>
 								{label}
-							</option>
+							</NativeSelectOption>
 						))}
-					</select>
-				</label>
-				<label className="space-y-1 text-sm">
+					</NativeSelect>
+				</Label>
+				<Label className={fieldLabelClass}>
 					<span>Durum</span>
-					<select
-						className="w-full rounded-md border bg-background px-3 py-2"
+					<NativeSelect
+						className="w-full"
 						id={`${idPrefix}-disposition`}
 						onChange={(event) =>
-							onChange({
+							update({
 								disposition: event.currentTarget
 									.value as DraftItem["disposition"],
 							})
 						}
 						value={item.disposition}
 					>
-						<option value="required">Gerekli</option>
-						<option value="optional">İsteğe bağlı</option>
-						<option value="inapplicable">Uygulanamaz</option>
-					</select>
-				</label>
+						<NativeSelectOption value="required">Gerekli</NativeSelectOption>
+						<NativeSelectOption value="optional">
+							İsteğe bağlı
+						</NativeSelectOption>
+						<NativeSelectOption value="inapplicable">
+							Uygulanamaz
+						</NativeSelectOption>
+					</NativeSelect>
+				</Label>
 			</div>
 			{item.kind === "usage_test" ? (
 				<div className="space-y-3">
-					<label
-						className="block space-y-1 text-sm"
-						htmlFor={`${idPrefix}-test-id`}
-					>
+					<Label className={fieldLabelClass} htmlFor={`${idPrefix}-test-id`}>
 						<span>Kullanım testi kimliği</span>
-						<input
-							className="w-full rounded-md border bg-background px-3 py-2"
+						<Input
 							id={`${idPrefix}-test-id`}
 							list={`${idPrefix}-test-options`}
 							maxLength={120}
 							onChange={(event) =>
-								onChange({ testId: event.currentTarget.value })
+								update({ testId: event.currentTarget.value })
 							}
 							pattern="[a-z][a-z0-9._-]*"
 							required={item.disposition === "required"}
@@ -918,43 +947,44 @@ function RequiredSetItemEditor({
 								selectedSpecializedRecord
 							)}
 						</p>
-					</label>
-					<fieldset className="space-y-2">
-						<legend className="text-sm">
+					</Label>
+					<FieldSet className="space-y-2">
+						<FieldLegend className="text-sm">
 							Teste katılacak Varlık Kayıtları
-						</legend>
+						</FieldLegend>
 						<p className="text-muted-foreground text-xs">
 							Özel profil testini aynı Özel Varlık Profilindeki kayıtlarla
 							tanımlayın.
 						</p>
 						{assetRecords.map((record) => (
-							<label
+							<Label
 								className="flex items-center gap-2 text-sm"
+								htmlFor={`${idPrefix}-record-${record.id}`}
 								key={record.id}
 							>
-								<input
+								<Checkbox
 									checked={item.assetRecordIds.includes(record.id)}
-									onChange={(event) =>
-										onChange({
-											assetRecordIds: event.currentTarget.checked
+									id={`${idPrefix}-record-${record.id}`}
+									onCheckedChange={(checked) =>
+										update({
+											assetRecordIds: checked
 												? [...item.assetRecordIds, record.id]
 												: item.assetRecordIds.filter((id) => id !== record.id),
 										})
 									}
-									type="checkbox"
 								/>
 								{record.name}
-							</label>
+							</Label>
 						))}
-					</fieldset>
+					</FieldSet>
 				</div>
 			) : (
-				<label className="block space-y-1 text-sm">
+				<Label className={fieldLabelClass}>
 					<span>Varlık Kaydı</span>
-					<select
-						className="w-full rounded-md border bg-background px-3 py-2"
+					<NativeSelect
+						className="w-full"
 						onChange={(event) =>
-							onChange({
+							update({
 								assetRecordIds: event.currentTarget.value
 									? [event.currentTarget.value]
 									: [],
@@ -963,19 +993,19 @@ function RequiredSetItemEditor({
 						required={item.disposition === "required"}
 						value={item.assetRecordIds[0] ?? ""}
 					>
-						<option value="">Varlık Kaydı seçin</option>
+						<NativeSelectOption value="">Varlık Kaydı seçin</NativeSelectOption>
 						{assetRecords.map((record) => (
-							<option key={record.id} value={record.id}>
+							<NativeSelectOption key={record.id} value={record.id}>
 								{record.name}
-							</option>
+							</NativeSelectOption>
 						))}
-					</select>
-				</label>
+					</NativeSelect>
+				</Label>
 			)}
 			<Button onClick={onRemove} type="button" variant="outline">
 				Öğeyi kaldır
 			</Button>
-		</fieldset>
+		</FieldSet>
 	);
 }
 
@@ -1323,13 +1353,10 @@ function QualityVersionTargetSelect({
 	required: boolean;
 }) {
 	return (
-		<label
-			className="block space-y-1 text-sm"
-			htmlFor={`${formId}-version-target`}
-		>
+		<Label className={fieldLabelClass} htmlFor={`${formId}-version-target`}>
 			<span>Birim Sürümü veya Birleşik Sürüm</span>
-			<select
-				className="w-full rounded-md border bg-background px-3 py-2"
+			<NativeSelect
+				className="w-full"
 				disabled={isWaiver}
 				id={`${formId}-version-target`}
 				onChange={(event) =>
@@ -1342,18 +1369,18 @@ function QualityVersionTargetSelect({
 				required={required}
 				value={value}
 			>
-				<option value="">Kesin sürüm seçin</option>
+				<NativeSelectOption value="">Kesin sürüm seçin</NativeSelectOption>
 				{versionTargets.map((target) => (
-					<option
+					<NativeSelectOption
 						key={`${target.kind}:${target.id}`}
 						value={JSON.stringify(target)}
 					>
 						{target.kind === "unit" ? "Birim Sürümü" : "Birleşik Sürüm"} ·{" "}
 						{target.id}
-					</option>
+					</NativeSelectOption>
 				))}
-			</select>
-		</label>
+			</NativeSelect>
+		</Label>
 	);
 }
 
@@ -1373,31 +1400,31 @@ function UsageTestVersionSelect({
 	value: string;
 }) {
 	return (
-		<label className="block space-y-1 text-sm" htmlFor={id}>
+		<Label className={fieldLabelClass} htmlFor={id}>
 			<span>{label}</span>
-			<select
-				className="w-full rounded-md border bg-background px-3 py-2"
+			<NativeSelect
+				className="w-full"
 				id={id}
 				onChange={(event) => onChange(event.currentTarget.value)}
 				required
 				value={value}
 			>
-				<option value="">Sürüm seçin</option>
+				<NativeSelectOption value="">Sürüm seçin</NativeSelectOption>
 				{versions.map((version) => {
 					const record = recordsById.get(version.assetRecordId);
 					return record ? (
-						<option key={version.id} value={version.id}>
+						<NativeSelectOption key={version.id} value={version.id}>
 							{record.name} · v{version.versionNumber}
-						</option>
+						</NativeSelectOption>
 					) : null;
 				})}
-			</select>
+			</NativeSelect>
 			{versions.length === 0 ? (
 				<span className="text-muted-foreground">
 					Bu ölçütlere uyan sürüm bulunamadı.
 				</span>
 			) : null}
-		</label>
+		</Label>
 	);
 }
 
@@ -1411,11 +1438,11 @@ function evidenceRequirementId(
 
 function QualityWaiverScope({ evidence }: { evidence: ReadinessEvidence }) {
 	return (
-		<fieldset
+		<FieldSet
 			aria-label="Kalite İstisnası kapsamı"
 			className="space-y-2 rounded-md border p-3 text-sm"
 		>
-			<legend>Kalite İstisnası kapsamı</legend>
+			<FieldLegend>Kalite İstisnası kapsamı</FieldLegend>
 			<p>
 				Bu karar yalnız gösterilen ölçüm ve kesin sürümler içindir. Yeni sürüme
 				aktarılmaz; bütünlük, zorunlu insan incelemesi ve kullanım testi
@@ -1443,7 +1470,7 @@ function QualityWaiverScope({ evidence }: { evidence: ReadinessEvidence }) {
 				<dt>Ana Tasarım Sürümü</dt>
 				<dd>{evidence.canonicalDesignVersionId ?? "Seçilmedi"}</dd>
 			</dl>
-		</fieldset>
+		</FieldSet>
 	);
 }
 
@@ -1484,18 +1511,14 @@ function buildUsageTestEvidenceInput({
 	>;
 	testId?: string;
 }): UsageTestEvidenceInput | null {
-	const width = Number(cellWidth);
-	const height = Number(cellHeight);
-	if (
-		!(testId && Number.isInteger(width) && Number.isInteger(height)) ||
-		width < 1 ||
-		height < 1
-	) {
+	const width = cellDimensionSchema.safeParse(cellWidth);
+	const height = cellDimensionSchema.safeParse(cellHeight);
+	if (!(testId && width.success && height.success)) {
 		return null;
 	}
 	const usageTestContext: NonNullable<
 		UsageTestEvidenceInput["usageTestContext"]
-	> = { cellDimensions: { width, height } };
+	> = { cellDimensions: { width: width.data, height: height.data } };
 	if (isObjectSceneTest) {
 		const selectedCharacter = approvedCharacterVersions.find(
 			(version) => version.id === approvedCharacterVersionId
@@ -1525,110 +1548,6 @@ function buildUsageTestEvidenceInput({
 	};
 }
 
-function UsageTestContextFields({
-	approvedCharacterVersionId,
-	approvedCharacterVersions,
-	cellHeight,
-	cellWidth,
-	firstGroundVersionId,
-	formId,
-	groundVersions,
-	isObjectSceneTest,
-	onApprovedCharacterVersionChange,
-	onCellHeightChange,
-	onCellWidthChange,
-	onFirstGroundVersionChange,
-	onSecondGroundVersionChange,
-	recordsById,
-	secondGroundVersionId,
-	secondGroundVersions,
-}: {
-	approvedCharacterVersionId: string;
-	approvedCharacterVersions: UsageTestAssetVersion[];
-	cellHeight: string;
-	cellWidth: string;
-	firstGroundVersionId: string;
-	formId: string;
-	groundVersions: UsageTestAssetVersion[];
-	isObjectSceneTest: boolean;
-	onApprovedCharacterVersionChange: (versionId: string) => void;
-	onCellHeightChange: (value: string) => void;
-	onCellWidthChange: (value: string) => void;
-	onFirstGroundVersionChange: (versionId: string) => void;
-	onSecondGroundVersionChange: (versionId: string) => void;
-	recordsById: Map<string, UsageTestAssetRecord>;
-	secondGroundVersionId: string;
-	secondGroundVersions: UsageTestAssetVersion[];
-}) {
-	return (
-		<>
-			<div className="grid grid-cols-2 gap-2">
-				<label
-					className="block space-y-1 text-sm"
-					htmlFor={`${formId}-cell-width`}
-				>
-					<span>Hücre genişliği (px)</span>
-					<input
-						className="w-full rounded-md border bg-background px-3 py-2"
-						id={`${formId}-cell-width`}
-						max={4096}
-						min={1}
-						onChange={(event) => onCellWidthChange(event.currentTarget.value)}
-						required
-						type="number"
-						value={cellWidth}
-					/>
-				</label>
-				<label
-					className="block space-y-1 text-sm"
-					htmlFor={`${formId}-cell-height`}
-				>
-					<span>Hücre yüksekliği (px)</span>
-					<input
-						className="w-full rounded-md border bg-background px-3 py-2"
-						id={`${formId}-cell-height`}
-						max={4096}
-						min={1}
-						onChange={(event) => onCellHeightChange(event.currentTarget.value)}
-						required
-						step={1}
-						type="number"
-						value={cellHeight}
-					/>
-				</label>
-			</div>
-			{isObjectSceneTest ? (
-				<>
-					<UsageTestVersionSelect
-						id={`${formId}-approved-character-version`}
-						label="Onaylı karakter sürümü"
-						onChange={onApprovedCharacterVersionChange}
-						recordsById={recordsById}
-						value={approvedCharacterVersionId}
-						versions={approvedCharacterVersions}
-					/>
-					<UsageTestVersionSelect
-						id={`${formId}-first-ground-version`}
-						label="Birinci zemin sürümü"
-						onChange={onFirstGroundVersionChange}
-						recordsById={recordsById}
-						value={firstGroundVersionId}
-						versions={groundVersions}
-					/>
-					<UsageTestVersionSelect
-						id={`${formId}-second-ground-version`}
-						label="İkinci zemin sürümü"
-						onChange={onSecondGroundVersionChange}
-						recordsById={recordsById}
-						value={secondGroundVersionId}
-						versions={secondGroundVersions}
-					/>
-				</>
-			) : null}
-		</>
-	);
-}
-
 type EvidenceFormResult =
 	| "applicable"
 	| "inapplicable"
@@ -1637,67 +1556,218 @@ type EvidenceFormResult =
 	| "inconclusive"
 	| "waived";
 
-function EvidenceResultField({
-	canWaive,
-	formId,
-	kind,
-	onChange,
-	result,
-}: {
-	canWaive: boolean;
-	formId: string;
-	kind: "applicability" | "quality" | "usage_test";
-	onChange: (result: EvidenceFormResult) => void;
+interface EvidenceFormValues {
+	approvedCharacterVersionId: string;
+	cellHeight: string;
+	cellWidth: string;
+	firstGroundVersionId: string;
+	method: string;
+	observedValue: string;
+	rationale: string;
 	result: EvidenceFormResult;
+	secondGroundVersionId: string;
+	targetHeight: string;
+	targetWidth: string;
+	usageVariant: string;
+	versionTarget: QualityVersionTarget | undefined;
+}
+
+function useEvidenceForm(
+	initialResult: EvidenceFormResult,
+	onSubmit: (value: EvidenceFormValues) => void
+) {
+	return useForm({
+		defaultValues: {
+			approvedCharacterVersionId: "",
+			cellHeight: "",
+			cellWidth: "",
+			firstGroundVersionId: "",
+			method: "",
+			observedValue: "",
+			rationale: "",
+			result: initialResult,
+			secondGroundVersionId: "",
+			targetHeight: "",
+			targetWidth: "",
+			usageVariant: "",
+			versionTarget: undefined,
+		} as EvidenceFormValues,
+		onSubmit: ({ value }) => onSubmit(value),
+	});
+}
+
+type EvidenceFormApi = ReturnType<typeof useEvidenceForm>;
+
+function UsageTestContextFields({
+	approvedCharacterVersions,
+	form,
+	formId,
+	groundVersions,
+	isObjectSceneTest,
+	recordsById,
+	secondGroundVersions,
+}: {
+	approvedCharacterVersions: UsageTestAssetVersion[];
+	form: EvidenceFormApi;
+	formId: string;
+	groundVersions: UsageTestAssetVersion[];
+	isObjectSceneTest: boolean;
+	recordsById: Map<string, UsageTestAssetRecord>;
+	secondGroundVersions: UsageTestAssetVersion[];
 }) {
 	return (
-		<label className="block space-y-1 text-sm" htmlFor={`${formId}-result`}>
+		<>
+			<div className="grid grid-cols-2 gap-2">
+				<Label className={fieldLabelClass} htmlFor={`${formId}-cell-width`}>
+					<span>Hücre genişliği (px)</span>
+					<form.Field name="cellWidth">
+						{(field) => (
+							<Input
+								id={`${formId}-cell-width`}
+								max={4096}
+								min={1}
+								onChange={(event) =>
+									field.handleChange(event.currentTarget.value)
+								}
+								required
+								type="number"
+								value={field.state.value}
+							/>
+						)}
+					</form.Field>
+				</Label>
+				<Label className={fieldLabelClass} htmlFor={`${formId}-cell-height`}>
+					<span>Hücre yüksekliği (px)</span>
+					<form.Field name="cellHeight">
+						{(field) => (
+							<Input
+								id={`${formId}-cell-height`}
+								max={4096}
+								min={1}
+								onChange={(event) =>
+									field.handleChange(event.currentTarget.value)
+								}
+								required
+								step={1}
+								type="number"
+								value={field.state.value}
+							/>
+						)}
+					</form.Field>
+				</Label>
+			</div>
+			{isObjectSceneTest ? (
+				<>
+					<form.Field name="approvedCharacterVersionId">
+						{(field) => (
+							<UsageTestVersionSelect
+								id={`${formId}-approved-character-version`}
+								label="Onaylı karakter sürümü"
+								onChange={field.handleChange}
+								recordsById={recordsById}
+								value={field.state.value}
+								versions={approvedCharacterVersions}
+							/>
+						)}
+					</form.Field>
+					<form.Field name="firstGroundVersionId">
+						{(field) => (
+							<UsageTestVersionSelect
+								id={`${formId}-first-ground-version`}
+								label="Birinci zemin sürümü"
+								onChange={field.handleChange}
+								recordsById={recordsById}
+								value={field.state.value}
+								versions={groundVersions}
+							/>
+						)}
+					</form.Field>
+					<form.Field name="secondGroundVersionId">
+						{(field) => (
+							<UsageTestVersionSelect
+								id={`${formId}-second-ground-version`}
+								label="İkinci zemin sürümü"
+								onChange={field.handleChange}
+								recordsById={recordsById}
+								value={field.state.value}
+								versions={secondGroundVersions}
+							/>
+						)}
+					</form.Field>
+				</>
+			) : null}
+		</>
+	);
+}
+
+function EvidenceResultField({
+	canWaive,
+	field,
+	formId,
+	kind,
+}: {
+	canWaive: boolean;
+	field: {
+		handleChange: (result: EvidenceFormResult) => void;
+		state: { value: EvidenceFormResult };
+	};
+	formId: string;
+	kind: "applicability" | "quality" | "usage_test";
+}) {
+	return (
+		<Label className={fieldLabelClass} htmlFor={`${formId}-result`}>
 			<span>Sonuç</span>
-			<select
-				className="w-full rounded-md border bg-background px-3 py-2"
+			<NativeSelect
+				className="w-full"
 				id={`${formId}-result`}
 				onChange={(event) =>
-					onChange(event.currentTarget.value as EvidenceFormResult)
+					field.handleChange(event.currentTarget.value as EvidenceFormResult)
 				}
-				value={result}
+				value={field.state.value}
 			>
 				{kind === "applicability" ? (
 					<>
-						<option value="applicable">Bağlama uygun</option>
-						<option value="inapplicable">Bağlama uygun değil</option>
+						<NativeSelectOption value="applicable">
+							Bağlama uygun
+						</NativeSelectOption>
+						<NativeSelectOption value="inapplicable">
+							Bağlama uygun değil
+						</NativeSelectOption>
 					</>
 				) : (
 					<>
-						<option value="passed">Geçti</option>
-						<option value="failed">Başarısız</option>
-						<option value="inconclusive">Sonuçsuz</option>
+						<NativeSelectOption value="passed">Geçti</NativeSelectOption>
+						<NativeSelectOption value="failed">Başarısız</NativeSelectOption>
+						<NativeSelectOption value="inconclusive">
+							Sonuçsuz
+						</NativeSelectOption>
 						{kind === "quality" && canWaive ? (
-							<option value="waived">Kalite İstisnası ver</option>
+							<NativeSelectOption value="waived">
+								Kalite İstisnası ver
+							</NativeSelectOption>
 						) : null}
 					</>
 				)}
-			</select>
-		</label>
+			</NativeSelect>
+		</Label>
 	);
 }
 
 function QualityEvidenceFields({
+	form,
 	formId,
 	humanReviewRequirement,
 	isWaiver,
 	measurementValues,
-	onObservedValueChange,
-	onVersionTargetChange,
 	qualityRequirement,
 	requiresVersionTarget,
 	versionTargets,
 }: {
+	form: EvidenceFormApi;
 	formId: string;
 	humanReviewRequirement?: FamilyReadiness["items"][number]["humanReviewRequirements"][number];
 	isWaiver: boolean;
 	measurementValues: ReturnType<typeof qualityMeasurementValues>;
-	onObservedValueChange: (value: string) => void;
-	onVersionTargetChange: (target: QualityVersionTarget | undefined) => void;
 	qualityRequirement?: FamilyReadiness["items"][number]["qualityRequirements"][number];
 	requiresVersionTarget: boolean;
 	versionTargets: QualityVersionTarget[];
@@ -1705,55 +1775,53 @@ function QualityEvidenceFields({
 	return (
 		<>
 			{qualityRequirement && versionTargets.length > 0 ? (
-				<QualityVersionTargetSelect
-					formId={formId}
-					isWaiver={isWaiver}
-					onSelect={onVersionTargetChange}
-					required={requiresVersionTarget}
-					value={measurementValues.versionTarget}
-					versionTargets={versionTargets}
-				/>
+				<form.Field name="versionTarget">
+					{(field) => (
+						<QualityVersionTargetSelect
+							formId={formId}
+							isWaiver={isWaiver}
+							onSelect={field.handleChange}
+							required={requiresVersionTarget}
+							value={measurementValues.versionTarget}
+							versionTargets={versionTargets}
+						/>
+					)}
+				</form.Field>
 			) : null}
 			{qualityRequirement ? (
-				<label className="block space-y-1 text-sm" htmlFor={`${formId}-rule`}>
+				<Label className={fieldLabelClass} htmlFor={`${formId}-rule`}>
 					<span>Kural kimliği</span>
-					<input
-						className="w-full rounded-md border bg-background px-3 py-2"
-						id={`${formId}-rule`}
-						readOnly
-						value={qualityRequirement.id}
-					/>
-				</label>
+					<Input id={`${formId}-rule`} readOnly value={qualityRequirement.id} />
+				</Label>
 			) : null}
 			{humanReviewRequirement ? (
-				<label className="block space-y-1 text-sm" htmlFor={`${formId}-review`}>
+				<Label className={fieldLabelClass} htmlFor={`${formId}-review`}>
 					<span>İnsan incelemesi kimliği</span>
-					<input
-						className="w-full rounded-md border bg-background px-3 py-2"
+					<Input
 						id={`${formId}-review`}
 						readOnly
 						value={humanReviewRequirement.id}
 					/>
-				</label>
+				</Label>
 			) : null}
 			{qualityRequirement?.waiverEligible ? (
-				<label
-					className="block space-y-1 text-sm"
-					htmlFor={`${formId}-observed-value`}
-				>
+				<Label className={fieldLabelClass} htmlFor={`${formId}-observed-value`}>
 					<span>Gözlenen değer</span>
-					<input
-						className="w-full rounded-md border bg-background px-3 py-2"
-						id={`${formId}-observed-value`}
-						maxLength={500}
-						onChange={(event) =>
-							onObservedValueChange(event.currentTarget.value)
-						}
-						readOnly={isWaiver}
-						required
-						value={measurementValues.observedValue}
-					/>
-				</label>
+					<form.Field name="observedValue">
+						{(field) => (
+							<Input
+								id={`${formId}-observed-value`}
+								maxLength={500}
+								onChange={(event) =>
+									field.handleChange(event.currentTarget.value)
+								}
+								readOnly={isWaiver}
+								required
+								value={measurementValues.observedValue}
+							/>
+						)}
+					</form.Field>
+				</Label>
 			) : null}
 		</>
 	);
@@ -1761,34 +1829,26 @@ function QualityEvidenceFields({
 
 function UsageTestEvidenceFields({
 	data,
+	form,
 	formId,
 	grayscaleReviewed,
 	isIconTargetSizeTest,
 	kind,
 	onGrayscaleReviewedChange,
-	onTargetHeightChange,
-	onTargetWidthChange,
-	onUsageVariantChange,
+	onScopeInputChange,
 	targetDimensions,
-	targetHeight,
-	targetWidth,
-	usageVariantError,
 	testId,
 	usageVariant,
 }: {
 	data?: IconUsagePreviewContext;
+	form: EvidenceFormApi;
 	formId: string;
 	grayscaleReviewed: boolean;
 	isIconTargetSizeTest: boolean;
 	kind: "applicability" | "quality" | "usage_test";
 	onGrayscaleReviewedChange: (reviewed: boolean) => void;
-	onTargetHeightChange: (height: string) => void;
-	onTargetWidthChange: (width: string) => void;
-	onUsageVariantChange: (variant: string) => void;
+	onScopeInputChange: () => void;
 	targetDimensions: PixelDimensions | null;
-	targetHeight: string;
-	targetWidth: string;
-	usageVariantError: string;
 	testId?: string;
 	usageVariant: string;
 }) {
@@ -1797,64 +1857,98 @@ function UsageTestEvidenceFields({
 	}
 	return (
 		<>
-			<label className="block space-y-1 text-sm" htmlFor={`${formId}-test`}>
+			<Label className={fieldLabelClass} htmlFor={`${formId}-test`}>
 				<span>Kullanım testi kimliği</span>
-				<input
-					className="w-full rounded-md border bg-background px-3 py-2"
-					id={`${formId}-test`}
-					readOnly
-					value={testId ?? ""}
-				/>
-			</label>
+				<Input id={`${formId}-test`} readOnly value={testId ?? ""} />
+			</Label>
 			{isIconTargetSizeTest ? (
-				<IconUsageEvidenceFields
-					data={data}
-					formId={formId}
-					grayscaleReviewed={grayscaleReviewed}
-					onGrayscaleReviewedChange={onGrayscaleReviewedChange}
-					onTargetHeightChange={onTargetHeightChange}
-					onTargetWidthChange={onTargetWidthChange}
-					onUsageVariantChange={onUsageVariantChange}
-					targetDimensions={targetDimensions}
-					targetHeight={targetHeight}
-					targetWidth={targetWidth}
-					usageVariant={usageVariant}
-					usageVariantError={usageVariantError}
-				/>
+				<form.Field
+					name="usageVariant"
+					validators={{
+						// A blank-variant error stays visible until a non-blank variant is entered.
+						onChange: ({ fieldApi, value }) => {
+							const { errorMap } = fieldApi.state.meta;
+							if (!(errorMap.onSubmit || errorMap.onChange)) {
+								return;
+							}
+							const issue =
+								usageVariantSchema.safeParse(value).error?.issues[0];
+							return issue ? { message: issue.message } : undefined;
+						},
+						onSubmit: usageVariantSchema,
+					}}
+				>
+					{(variantField) => (
+						<form.Field name="targetWidth">
+							{(widthField) => (
+								<form.Field name="targetHeight">
+									{(heightField) => (
+										<IconUsageEvidenceFields
+											data={data}
+											formId={formId}
+											grayscaleReviewed={grayscaleReviewed}
+											onGrayscaleReviewedChange={onGrayscaleReviewedChange}
+											onTargetHeightChange={(height) => {
+												heightField.handleChange(height);
+												onScopeInputChange();
+											}}
+											onTargetWidthChange={(width) => {
+												widthField.handleChange(width);
+												onScopeInputChange();
+											}}
+											onUsageVariantChange={(variant) => {
+												if (variant.trim() !== usageVariant.trim()) {
+													onScopeInputChange();
+												}
+												variantField.handleChange(variant);
+											}}
+											targetDimensions={targetDimensions}
+											targetHeight={heightField.state.value}
+											targetWidth={widthField.state.value}
+											usageVariant={variantField.state.value}
+											usageVariantError={
+												variantField.state.meta.errors[0]?.message ?? ""
+											}
+										/>
+									)}
+								</form.Field>
+							)}
+						</form.Field>
+					)}
+				</form.Field>
 			) : null}
 		</>
 	);
 }
 
 function EvidenceMethodField({
+	field,
 	formId,
 	kind,
 	isWaiver,
 	measurementValue,
-	onChange,
 }: {
+	field: { handleChange: (value: string) => void };
 	formId: string;
 	kind: "applicability" | "quality" | "usage_test";
 	isWaiver: boolean;
 	measurementValue: string;
-	onChange: (value: string) => void;
 }) {
 	if (kind === "applicability") {
 		return null;
 	}
 	return (
-		<label className="block space-y-1 text-sm" htmlFor={`${formId}-method`}>
+		<Label className={fieldLabelClass} htmlFor={`${formId}-method`}>
 			<span>Yöntem</span>
-			<textarea
-				className="min-h-16 w-full rounded-md border bg-background px-3 py-2"
+			<Textarea
 				id={`${formId}-method`}
 				maxLength={1000}
-				onChange={(event) => onChange(event.currentTarget.value)}
+				onChange={(event) => field.handleChange(event.currentTarget.value)}
 				readOnly={isWaiver}
 				required
 				value={measurementValue}
 			/>
-		</label>
+		</Label>
 	);
 }
 
@@ -1895,21 +1989,17 @@ function EvidenceForm({
 	usageTestAssetRecords?: UsageTestAssetRecord[];
 	usageTestAssetVersions?: UsageTestAssetVersion[];
 }) {
-	const [result, setResult] = useState<EvidenceFormResult>(initialResult);
-	const [method, setMethod] = useState("");
-	const [rationale, setRationale] = useState("");
-	const [observedValue, setObservedValue] = useState("");
-	const [versionTarget, setVersionTarget] = useState<QualityVersionTarget>();
-	const [cellWidth, setCellWidth] = useState("");
-	const [cellHeight, setCellHeight] = useState("");
-	const [approvedCharacterVersionId, setApprovedCharacterVersionId] =
-		useState("");
-	const [firstGroundVersionId, setFirstGroundVersionId] = useState("");
-	const [secondGroundVersionId, setSecondGroundVersionId] = useState("");
-	const [usageVariant, setUsageVariant] = useState("");
-	const [usageVariantError, setUsageVariantError] = useState("");
-	const [targetWidth, setTargetWidth] = useState("");
-	const [targetHeight, setTargetHeight] = useState("");
+	const form = useEvidenceForm(initialResult, submit);
+	const {
+		firstGroundVersionId,
+		method,
+		observedValue,
+		result,
+		targetHeight,
+		targetWidth,
+		usageVariant,
+		versionTarget,
+	} = useStore(form.store, (state) => state.values);
 	const [grayscaleReviewedScopeKey, setGrayscaleReviewedScopeKey] = useState<
 		string | null
 	>(null);
@@ -1971,40 +2061,34 @@ function EvidenceForm({
 		versionTarget
 	);
 
-	function submit(event: React.FormEvent<HTMLFormElement>) {
-		event.preventDefault();
-		if (isIconTargetSizeTest && !usageVariant.trim()) {
-			setUsageVariantError("Kullanım çeşidi boşluklardan oluşamaz.");
-			return;
-		}
-		setUsageVariantError("");
+	function submit(value: EvidenceFormValues) {
 		const shared = {
 			projectId,
 			assetFamilyId,
 			revisionId,
 			itemId: item.id,
-			rationale,
+			rationale: value.rationale,
 		};
 		if (kind === "applicability") {
 			void onRecord({
 				...shared,
 				kind,
-				result: result as "applicable" | "inapplicable",
+				result: value.result as "applicable" | "inapplicable",
 			});
 			return;
 		}
 		if (kind === "quality") {
-			if (requiresVersionTarget && !versionTarget) {
+			if (requiresVersionTarget && !value.versionTarget) {
 				return;
 			}
 			const qualityInput = qualityEvidenceFormInput({
 				shared,
 				qualityRequirement,
 				humanReviewRequirement,
-				result: result as "passed" | "failed" | "inconclusive" | "waived",
-				method,
-				observedValue,
-				versionTarget,
+				result: value.result as "passed" | "failed" | "inconclusive" | "waived",
+				method: value.method,
+				observedValue: value.observedValue,
+				versionTarget: value.versionTarget,
 				waiverEvidence,
 			});
 			if (qualityInput) {
@@ -2013,16 +2097,16 @@ function EvidenceForm({
 			return;
 		}
 		const usageTestInput = buildUsageTestEvidenceInput({
-			approvedCharacterVersionId,
+			approvedCharacterVersionId: value.approvedCharacterVersionId,
 			approvedCharacterVersions,
-			cellHeight,
-			cellWidth,
-			firstGroundVersionId,
+			cellHeight: value.cellHeight,
+			cellWidth: value.cellWidth,
+			firstGroundVersionId: value.firstGroundVersionId,
 			groundVersions,
 			isObjectSceneTest,
-			method,
-			result: result as UsageTestEvidenceInput["result"],
-			secondGroundVersionId,
+			method: value.method,
+			result: value.result as UsageTestEvidenceInput["result"],
+			secondGroundVersionId: value.secondGroundVersionId,
 			secondGroundVersions,
 			shared,
 			testId,
@@ -2032,8 +2116,8 @@ function EvidenceForm({
 				shared,
 				result: usageTestInput.result,
 				testId,
-				method,
-				usageVariant,
+				method: value.method,
+				usageVariant: value.usageVariant,
 				targetDimensions,
 				grayscaleReviewed,
 				usageTestContext: usageTestInput.usageTestContext,
@@ -2045,36 +2129,50 @@ function EvidenceForm({
 	}
 
 	return (
-		<form className="space-y-2 rounded-md bg-muted/30 p-3" onSubmit={submit}>
+		<form
+			className="space-y-2 rounded-md bg-muted/30 p-3"
+			onSubmit={(event) => {
+				event.preventDefault();
+				event.stopPropagation();
+				form.handleSubmit();
+			}}
+		>
 			<h6 className="font-medium text-sm">{description}</h6>
-			<EvidenceResultField
-				canWaive={Boolean(waiverEvidence)}
-				formId={formId}
-				kind={kind}
-				onChange={(nextResult) => {
-					setResult(nextResult);
-					if (nextResult === "waived") {
-						setRationale("");
-					}
+			<form.Field
+				listeners={{
+					onChange: ({ value }) => {
+						if (value === "waived") {
+							form.setFieldValue("rationale", "");
+						}
+					},
 				}}
-				result={result}
-			/>
+				name="result"
+			>
+				{(field) => (
+					<EvidenceResultField
+						canWaive={Boolean(waiverEvidence)}
+						field={field}
+						formId={formId}
+						kind={kind}
+					/>
+				)}
+			</form.Field>
 			{isWaiver && waiverEvidence ? (
 				<QualityWaiverScope evidence={waiverEvidence} />
 			) : null}
 			<QualityEvidenceFields
+				form={form}
 				formId={formId}
 				humanReviewRequirement={humanReviewRequirement}
 				isWaiver={isWaiver}
 				measurementValues={measurementValues}
-				onObservedValueChange={setObservedValue}
-				onVersionTargetChange={setVersionTarget}
 				qualityRequirement={qualityRequirement}
 				requiresVersionTarget={requiresVersionTarget}
 				versionTargets={versionTargets}
 			/>
 			<UsageTestEvidenceFields
 				data={iconUsagePreview}
+				form={form}
 				formId={formId}
 				grayscaleReviewed={grayscaleReviewed}
 				isIconTargetSizeTest={isIconTargetSizeTest}
@@ -2084,71 +2182,49 @@ function EvidenceForm({
 						reviewed ? currentGrayscaleReviewScopeKey : null
 					)
 				}
-				onTargetHeightChange={(height) => {
-					setTargetHeight(height);
-					setGrayscaleReviewedScopeKey(null);
-				}}
-				onTargetWidthChange={(width) => {
-					setTargetWidth(width);
-					setGrayscaleReviewedScopeKey(null);
-				}}
-				onUsageVariantChange={(variant) => {
-					if (variant.trim() !== usageVariant.trim()) {
-						setGrayscaleReviewedScopeKey(null);
-					}
-					setUsageVariant(variant);
-					if (variant.trim()) {
-						setUsageVariantError("");
-					}
-				}}
+				onScopeInputChange={() => setGrayscaleReviewedScopeKey(null)}
 				targetDimensions={targetDimensions}
-				targetHeight={targetHeight}
-				targetWidth={targetWidth}
 				testId={testId}
 				usageVariant={usageVariant}
-				usageVariantError={usageVariantError}
 			/>
-			<EvidenceMethodField
-				formId={formId}
-				isWaiver={isWaiver}
-				kind={kind}
-				measurementValue={measurementValues.method}
-				onChange={setMethod}
-			/>
+			<form.Field name="method">
+				{(field) => (
+					<EvidenceMethodField
+						field={field}
+						formId={formId}
+						isWaiver={isWaiver}
+						kind={kind}
+						measurementValue={measurementValues.method}
+					/>
+				)}
+			</form.Field>
 			{kind === "usage_test" ? (
 				<UsageTestContextFields
-					approvedCharacterVersionId={approvedCharacterVersionId}
 					approvedCharacterVersions={approvedCharacterVersions}
-					cellHeight={cellHeight}
-					cellWidth={cellWidth}
-					firstGroundVersionId={firstGroundVersionId}
+					form={form}
 					formId={formId}
 					groundVersions={groundVersions}
 					isObjectSceneTest={isObjectSceneTest}
-					onApprovedCharacterVersionChange={setApprovedCharacterVersionId}
-					onCellHeightChange={setCellHeight}
-					onCellWidthChange={setCellWidth}
-					onFirstGroundVersionChange={setFirstGroundVersionId}
-					onSecondGroundVersionChange={setSecondGroundVersionId}
 					recordsById={recordsById}
-					secondGroundVersionId={secondGroundVersionId}
 					secondGroundVersions={secondGroundVersions}
 				/>
 			) : null}
-			<label
-				className="block space-y-1 text-sm"
-				htmlFor={`${formId}-rationale`}
-			>
+			<Label className={fieldLabelClass} htmlFor={`${formId}-rationale`}>
 				<span>Gerekçe veya gözlem</span>
-				<textarea
-					className="min-h-16 w-full rounded-md border bg-background px-3 py-2"
-					id={`${formId}-rationale`}
-					maxLength={2000}
-					onChange={(event) => setRationale(event.currentTarget.value)}
-					required
-					value={rationale}
-				/>
-			</label>
+				<form.Field name="rationale">
+					{(field) => (
+						<Textarea
+							id={`${formId}-rationale`}
+							maxLength={2000}
+							onChange={(event) =>
+								field.handleChange(event.currentTarget.value)
+							}
+							required
+							value={field.state.value}
+						/>
+					)}
+				</form.Field>
+			</Label>
 			<Button
 				disabled={isSaving || (isWaiver && !waiverEvidence)}
 				type="submit"

@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
+import { createRouterClient } from "@orpc/server";
+import { RPCHandler } from "@orpc/server/fetch";
 import type {
 	ImportInboxEntry,
 	ImportInboxFileRecord,
@@ -7,6 +9,7 @@ import type {
 	ImportInboxUploadInput,
 } from "@sprite-anvil/api/import-inbox";
 import { importInboxEntrySchema } from "@sprite-anvil/api/import-inbox";
+import { appRouter } from "@sprite-anvil/api/routers/index";
 import type {
 	SourceMetadataMappingFinalization,
 	SourceMetadataMappingFinalizeInput,
@@ -21,6 +24,13 @@ import { Hono } from "hono";
 import sharp from "sharp";
 import { serializePublicApiError } from "../../../../output-contracts";
 import { mountImportInboxRoutes } from "../import-inbox-routes";
+import { mountImportInboxRpcGuards } from "../import-inbox-rpc-guards";
+import {
+	createSourceMetadataMappingFinalizer,
+	createSourceMetadataMappingProposalCreator,
+} from "../source-metadata-mapping-procedures";
+
+const supportReferencePattern = /^SUP-/;
 
 const userId = crypto.randomUUID();
 const projectId = crypto.randomUUID();
@@ -222,70 +232,67 @@ function mountTestApp() {
 			500
 		)
 	);
+	const assetVersionStore = {
+		getAssetRecordForUpload: async (
+			_userId: string,
+			requestedProjectId: string,
+			assetRecordId: string
+		) =>
+			requestedProjectId === projectId && assetRecordId === targetAssetRecordId
+				? { projectId, assetRecordId, assetFamilyId: crypto.randomUUID() }
+				: null,
+		// biome-ignore lint/suspicious/useAwait: The test store mirrors the asynchronous production contract.
+		createCandidateVersion: async (_userId: string, input: { id: string }) => {
+			const existed = createdVersions.includes(input.id);
+			if (!existed) {
+				createdVersions.push(input.id);
+			}
+			return {
+				kind: existed ? ("existing" as const) : ("created" as const),
+				version: {} as never,
+			};
+		},
+	};
+	const createId = () => {
+		uploadAttempt += 1;
+		return (
+			"924eac6d-9fbb-44ce-b215-38f3774d95" +
+			String(uploadAttempt).padStart(2, "0")
+		);
+	};
+	const createStorage = () => ({
+		// biome-ignore lint/suspicious/useAwait: Storage methods mirror asynchronous network calls.
+		delete: async (key: string) => {
+			deletedKeys.push(key);
+			objects.delete(key);
+		},
+		// biome-ignore lint/suspicious/useAwait: Storage methods mirror asynchronous network calls.
+		get: async (key: string) => {
+			if (storageState.failGet) {
+				throw new Error("R2 read failed");
+			}
+			const bytes = objects.get(key);
+			return bytes
+				? {
+						body: new ReadableStream<Uint8Array>({
+							start(controller) {
+								controller.enqueue(bytes.slice());
+								controller.close();
+							},
+						}),
+						contentLength: bytes.byteLength,
+						contentType: "application/octet-stream",
+					}
+				: null;
+		},
+		put: async (key: string, body: ReadableStream<Uint8Array>) => {
+			objects.set(key, new Uint8Array(await new Response(body).arrayBuffer()));
+		},
+	});
 	mountImportInboxRoutes(app, {
-		assetVersionStore: {
-			getAssetRecordForUpload: async (
-				_userId,
-				requestedProjectId,
-				assetRecordId
-			) =>
-				requestedProjectId === projectId &&
-				assetRecordId === targetAssetRecordId
-					? { projectId, assetRecordId, assetFamilyId: crypto.randomUUID() }
-					: null,
-			// biome-ignore lint/suspicious/useAwait: The test store mirrors the asynchronous production contract.
-			createCandidateVersion: async (_userId, input) => {
-				const existed = createdVersions.includes(input.id);
-				if (!existed) {
-					createdVersions.push(input.id);
-				}
-				return {
-					kind: existed ? ("existing" as const) : ("created" as const),
-					version: {} as never,
-				};
-			},
-		},
 		importInboxStore: store,
-		sourceMetadataMappingProposalStore,
-		createId: () => {
-			uploadAttempt += 1;
-			return (
-				"924eac6d-9fbb-44ce-b215-38f3774d95" +
-				String(uploadAttempt).padStart(2, "0")
-			);
-		},
-		createStorage: () => ({
-			// biome-ignore lint/suspicious/useAwait: Storage methods mirror asynchronous network calls.
-			delete: async (key) => {
-				deletedKeys.push(key);
-				objects.delete(key);
-			},
-			// biome-ignore lint/suspicious/useAwait: Storage methods mirror asynchronous network calls.
-			get: async (key) => {
-				if (storageState.failGet) {
-					throw new Error("R2 read failed");
-				}
-				const bytes = objects.get(key);
-				return bytes
-					? {
-							body: new ReadableStream<Uint8Array>({
-								start(controller) {
-									controller.enqueue(bytes.slice());
-									controller.close();
-								},
-							}),
-							contentLength: bytes.byteLength,
-							contentType: "application/octet-stream",
-						}
-					: null;
-			},
-			put: async (key, body) => {
-				objects.set(
-					key,
-					new Uint8Array(await new Response(body).arrayBuffer())
-				);
-			},
-		}),
+		createId,
+		createStorage: createStorage as never,
 		getProjectForUser: async (requestedUserId, requestedProjectId) =>
 			requestedUserId === userId && requestedProjectId === projectId
 				? { id: projectId }
@@ -295,9 +302,61 @@ function mountTestApp() {
 				? { user: { id: userId } }
 				: null,
 	});
+	const mappingDependencies = {
+		assetVersionStore,
+		createId,
+		createStorage: createStorage as never,
+		importInboxStore: store,
+		sourceMetadataMappingProposalStore,
+	};
+	function createContext(session: { user: { id: string } } | null) {
+		return {
+			createSourceMetadataMappingProposal:
+				createSourceMetadataMappingProposalCreator(mappingDependencies),
+			finalizeSourceMetadataMapping:
+				createSourceMetadataMappingFinalizer(mappingDependencies),
+			importInboxStore: store,
+			projectAccess: {
+				getProject: async (
+					requestedUserId: string,
+					requestedProjectId: string
+				) =>
+					requestedUserId === userId && requestedProjectId === projectId
+						? { id: projectId }
+						: null,
+			},
+			session,
+			sourceMetadataMappingProposalStore,
+		} as never;
+	}
+	const client = createRouterClient(appRouter, {
+		context: createContext({ user: { id: userId } }),
+	});
+	const anonymousClient = createRouterClient(appRouter, {
+		context: createContext(null),
+	});
+	// The wire harness runs the production request guards in front of the real
+	// RPC handler, so byte caps, status codes and cache headers are asserted as
+	// a browser would see them.
+	const rpcApp = new Hono();
+	mountImportInboxRpcGuards(rpcApp);
+	const rpcHandler = new RPCHandler(appRouter);
+	rpcApp.use("/*", async (c, next) => {
+		const result = await rpcHandler.handle(c.req.raw, {
+			context: createContext({ user: { id: userId } }),
+			prefix: "/rpc",
+		});
+		if (result.matched) {
+			return c.newResponse(result.response.body, result.response);
+		}
+		await next();
+	});
 
 	return {
+		anonymousClient,
 		app,
+		client,
+		rpcApp,
 		targetAssetRecordId,
 		createdVersions,
 		deletedKeys,
@@ -306,6 +365,13 @@ function mountTestApp() {
 		storageState,
 		store,
 	};
+}
+
+async function expectProcedureError(
+	call: Promise<unknown>,
+	expected: { code: string; message?: string; status: number }
+) {
+	await expect(call).rejects.toMatchObject(expected);
 }
 
 function uploadRequest(
@@ -328,7 +394,7 @@ function uploadRequest(
 }
 
 test("stores an opaque .aseprite file as an Import Inbox Entry and rereads the managed bytes", async () => {
-	const { app, objects } = mountTestApp();
+	const { app, client, objects } = mountTestApp();
 	const response = await app.request(
 		`/api/projects/${projectId}/import-inbox`,
 		uploadRequest("hero source.aseprite", opaqueAsepriteFile)
@@ -343,12 +409,7 @@ test("stores an opaque .aseprite file as an Import Inbox Entry and rereads the m
 	expect(created).not.toHaveProperty("assetRecordId");
 	expect(created).not.toHaveProperty("candidateVersionId");
 
-	const listResponse = await app.request(
-		`/api/projects/${projectId}/import-inbox`,
-		{ headers: { authorization: `Bearer ${userId}` } }
-	);
-	expect(listResponse.status).toBe(200);
-	expect(await listResponse.json()).toEqual([created]);
+	expect(await client.imports.listEntries({ projectId })).toEqual([created]);
 
 	const downloadResponse = await app.request(
 		`/api/projects/${projectId}/import-inbox/${created.id}/file`,
@@ -368,7 +429,7 @@ test("stores an opaque .aseprite file as an Import Inbox Entry and rereads the m
 });
 
 test("preserves the source file name exactly across upload, listing, and download", async () => {
-	const { app } = mountTestApp();
+	const { app, client } = mountTestApp();
 	const sourceFileName = " hero source.aseprite ";
 	const response = await app.request(
 		`/api/projects/${projectId}/import-inbox`,
@@ -379,11 +440,7 @@ test("preserves the source file name exactly across upload, listing, and downloa
 	const created = importInboxEntrySchema.parse(await response.json());
 	expect(created.fileName).toBe(sourceFileName);
 
-	const listResponse = await app.request(
-		`/api/projects/${projectId}/import-inbox`,
-		{ headers: { authorization: `Bearer ${userId}` } }
-	);
-	expect(await listResponse.json()).toEqual([created]);
+	expect(await client.imports.listEntries({ projectId })).toEqual([created]);
 
 	const downloadResponse = await app.request(
 		`/api/projects/${projectId}/import-inbox/${created.id}/file`,
@@ -532,7 +589,7 @@ test("reports managed-file storage failures with a support reference", async () 
 });
 
 test("creates and rereads a source metadata proposal from Aseprite and TexturePacker sidecars", async () => {
-	const { app } = mountTestApp();
+	const { app, client } = mountTestApp();
 	const sourceBytes = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]);
 	const asepriteBytes = new TextEncoder().encode(
 		JSON.stringify({
@@ -602,17 +659,11 @@ test("creates and rereads a source metadata proposal from Aseprite and TexturePa
 		201, 201, 201,
 	]);
 
-	const proposalPath = `/api/projects/${projectId}/import-inbox/${sourceId}/source-metadata-mapping-proposals`;
-	const createdResponse = await app.request(proposalPath, {
-		method: "POST",
-		headers: {
-			authorization: `Bearer ${userId}`,
-			"content-type": "application/json",
-		},
-		body: JSON.stringify({ sidecarEntryIds: [asepriteId, texturePackerId] }),
-	});
-	expect(createdResponse.status).toBe(201);
-	const created = (await createdResponse.json()) as {
+	const created = (await client.imports.createSourceMetadataMappingProposal({
+		entryId: sourceId,
+		input: { sidecarEntryIds: [asepriteId, texturePackerId] },
+		projectId,
+	})) as {
 		contractVersion: string;
 		conflicts: Array<{ field: string; key: string }>;
 		fields: Array<{ field: string; key: string; value: unknown }>;
@@ -688,15 +739,16 @@ test("creates and rereads a source metadata proposal from Aseprite and TexturePa
 		["pivot", "button"],
 	]);
 
-	const rereadResponse = await app.request(proposalPath, {
-		headers: { authorization: `Bearer ${userId}` },
-	});
-	expect(rereadResponse.status).toBe(200);
-	expect(await rereadResponse.json()).toEqual([created]);
+	expect(
+		(await client.imports.listSourceMetadataMappingProposals({
+			entryId: sourceId,
+			projectId,
+		})) as unknown
+	).toEqual([created]);
 });
 
 test("rejects malformed and unsupported sidecars without saving proposals", async () => {
-	const { app } = mountTestApp();
+	const { app, client } = mountTestApp();
 	const sourceId = crypto.randomUUID();
 	const invalidJsonId = crypto.randomUUID();
 	const unsupportedId = crypto.randomUUID();
@@ -728,42 +780,41 @@ test("rejects malformed and unsupported sidecars without saving proposals", asyn
 		),
 	]);
 	expect(uploads.map((uploaded) => uploaded.status)).toEqual([201, 201, 201]);
-	const proposalPath = `/api/projects/${projectId}/import-inbox/${sourceId}/source-metadata-mapping-proposals`;
-	const invalidJsonResponse = await app.request(proposalPath, {
-		method: "POST",
-		headers: {
-			authorization: `Bearer ${userId}`,
-			"content-type": "application/json",
-		},
-		body: JSON.stringify({ sidecarEntryIds: [invalidJsonId] }),
-	});
-	expect(invalidJsonResponse.status).toBe(422);
-	expect(await invalidJsonResponse.json()).toEqual({
-		error: "Invalid source metadata JSON",
-	});
+	await expectProcedureError(
+		client.imports.createSourceMetadataMappingProposal({
+			entryId: sourceId,
+			input: { sidecarEntryIds: [invalidJsonId] },
+			projectId,
+		}),
+		{
+			code: "UNPROCESSABLE_CONTENT",
+			message: "Invalid source metadata JSON",
+			status: 422,
+		}
+	);
+	await expectProcedureError(
+		client.imports.createSourceMetadataMappingProposal({
+			entryId: sourceId,
+			input: { sidecarEntryIds: [unsupportedId] },
+			projectId,
+		}),
+		{
+			code: "UNPROCESSABLE_CONTENT",
+			message: "Unsupported source metadata format",
+			status: 422,
+		}
+	);
 
-	const unsupportedResponse = await app.request(proposalPath, {
-		method: "POST",
-		headers: {
-			authorization: `Bearer ${userId}`,
-			"content-type": "application/json",
-		},
-		body: JSON.stringify({ sidecarEntryIds: [unsupportedId] }),
-	});
-	expect(unsupportedResponse.status).toBe(422);
-	expect(await unsupportedResponse.json()).toEqual({
-		error: "Unsupported source metadata format",
-	});
-
-	const reread = await app.request(proposalPath, {
-		headers: { authorization: `Bearer ${userId}` },
-	});
-	expect(reread.status).toBe(200);
-	expect(await reread.json()).toEqual([]);
+	expect(
+		await client.imports.listSourceMetadataMappingProposals({
+			entryId: sourceId,
+			projectId,
+		})
+	).toEqual([]);
 });
 
 test("reads Aseprite array and TexturePacker hash layouts from JSON structure", async () => {
-	const { app } = mountTestApp();
+	const { app, client } = mountTestApp();
 	const sourceId = crypto.randomUUID();
 	const asepriteId = crypto.randomUUID();
 	const texturePackerId = crypto.randomUUID();
@@ -816,19 +867,11 @@ test("reads Aseprite array and TexturePacker hash layouts from JSON structure", 
 	]);
 	expect(uploads.map((uploaded) => uploaded.status)).toEqual([201, 201, 201]);
 
-	const response = await app.request(
-		`/api/projects/${projectId}/import-inbox/${sourceId}/source-metadata-mapping-proposals`,
-		{
-			method: "POST",
-			headers: {
-				authorization: `Bearer ${userId}`,
-				"content-type": "application/json",
-			},
-			body: JSON.stringify({ sidecarEntryIds: [asepriteId, texturePackerId] }),
-		}
-	);
-	expect(response.status).toBe(201);
-	const proposal = (await response.json()) as {
+	const proposal = (await client.imports.createSourceMetadataMappingProposal({
+		entryId: sourceId,
+		input: { sidecarEntryIds: [asepriteId, texturePackerId] },
+		projectId,
+	})) as {
 		fields: Array<{ field: string; key: string }>;
 		sidecars: Array<{ format: string; jsonLayout: string }>;
 	};
@@ -848,7 +891,7 @@ test("reads Aseprite array and TexturePacker hash layouts from JSON structure", 
 });
 
 test("marks gameplay metadata unknown when the sidecar has no direct pivot source", async () => {
-	const { app } = mountTestApp();
+	const { app, client } = mountTestApp();
 	const sourceId = crypto.randomUUID();
 	const sidecarId = crypto.randomUUID();
 	const sourceBytes = Uint8Array.from([137, 80, 78, 71]);
@@ -878,19 +921,11 @@ test("marks gameplay metadata unknown when the sidecar has no direct pivot sourc
 	]);
 	expect(uploads.map((upload) => upload.status)).toEqual([201, 201]);
 
-	const response = await app.request(
-		`/api/projects/${projectId}/import-inbox/${sourceId}/source-metadata-mapping-proposals`,
-		{
-			method: "POST",
-			headers: {
-				authorization: `Bearer ${userId}`,
-				"content-type": "application/json",
-			},
-			body: JSON.stringify({ sidecarEntryIds: [sidecarId] }),
-		}
-	);
-	expect(response.status).toBe(201);
-	const proposal = (await response.json()) as {
+	const proposal = (await client.imports.createSourceMetadataMappingProposal({
+		entryId: sourceId,
+		input: { sidecarEntryIds: [sidecarId] },
+		projectId,
+	})) as {
 		suggestions: { gameplayMetadata: { reason: string; status: string } };
 	};
 	expect(proposal.suggestions.gameplayMetadata).toEqual({
@@ -900,46 +935,87 @@ test("marks gameplay metadata unknown when the sidecar has no direct pivot sourc
 });
 
 test("protects source metadata proposals with project access and inbox membership", async () => {
-	const { app } = mountTestApp();
+	const { anonymousClient, app, client } = mountTestApp();
 	const sourceId = crypto.randomUUID();
 	const sourceUpload = await app.request(
 		`/api/projects/${projectId}/import-inbox`,
 		uploadRequest("source.png", Uint8Array.from([137, 80, 78, 71]), sourceId)
 	);
 	expect(sourceUpload.status).toBe(201);
-	const proposalPath = `/api/projects/${projectId}/import-inbox/${sourceId}/source-metadata-mapping-proposals`;
 	const request = {
-		method: "POST",
-		headers: { "content-type": "application/json" },
-		body: JSON.stringify({ sidecarEntryIds: [crypto.randomUUID()] }),
+		entryId: sourceId,
+		input: { sidecarEntryIds: [crypto.randomUUID()] },
+		projectId,
 	};
-	const unauthenticated = await app.request(proposalPath, request);
-	expect(unauthenticated.status).toBe(401);
+	await expectProcedureError(
+		anonymousClient.imports.createSourceMetadataMappingProposal(request),
+		{ code: "UNAUTHORIZED", status: 401 }
+	);
+	await expectProcedureError(
+		anonymousClient.imports.listSourceMetadataMappingProposals({
+			entryId: sourceId,
+			projectId,
+		}),
+		{ code: "UNAUTHORIZED", status: 401 }
+	);
 
-	const missingSidecar = await app.request(proposalPath, {
-		...request,
-		headers: {
-			...request.headers,
-			authorization: `Bearer ${userId}`,
-		},
-	});
-	expect(missingSidecar.status).toBe(404);
+	await expectProcedureError(
+		client.imports.createSourceMetadataMappingProposal(request),
+		{ code: "NOT_FOUND", status: 404 }
+	);
 
-	const inaccessibleProject = await app.request(
-		`/api/projects/${otherProjectId}/import-inbox/${sourceId}/source-metadata-mapping-proposals`,
-		{
+	await expectProcedureError(
+		client.imports.createSourceMetadataMappingProposal({
 			...request,
-			headers: {
-				...request.headers,
-				authorization: `Bearer ${userId}`,
-			},
+			projectId: otherProjectId,
+		}),
+		{ code: "NOT_FOUND", status: 404 }
+	);
+	await expectProcedureError(
+		client.imports.listSourceMetadataMappingProposals({
+			entryId: sourceId,
+			projectId: otherProjectId,
+		}),
+		{ code: "NOT_FOUND", status: 404 }
+	);
+	await expectProcedureError(
+		client.imports.listSourceMetadataMappingProposals({
+			entryId: crypto.randomUUID(),
+			projectId,
+		}),
+		{ code: "NOT_FOUND", status: 404 }
+	);
+	await expectProcedureError(
+		client.imports.listSourceMetadataMappingProposals({
+			entryId: "not-an-identifier",
+			projectId,
+		}),
+		{ code: "NOT_FOUND", status: 404 }
+	);
+});
+
+test("lists Import Inbox Entries only for an authenticated user with project access", async () => {
+	const { anonymousClient, client } = mountTestApp();
+	await expectProcedureError(
+		anonymousClient.imports.listEntries({ projectId }),
+		{
+			code: "UNAUTHORIZED",
+			status: 401,
 		}
 	);
-	expect(inaccessibleProject.status).toBe(404);
+	await expectProcedureError(
+		client.imports.listEntries({ projectId: otherProjectId }),
+		{ code: "NOT_FOUND", status: 404 }
+	);
+	await expectProcedureError(
+		client.imports.listEntries({ projectId: "not-an-identifier" }),
+		{ code: "NOT_FOUND", status: 404 }
+	);
+	expect(await client.imports.listEntries({ projectId })).toEqual([]);
 });
 
 test("allows an optional nine-slice conflict to remain unknown when the frame is unchanged", async () => {
-	const { app, targetAssetRecordId, createdVersions } = mountTestApp();
+	const { app, client, targetAssetRecordId, createdVersions } = mountTestApp();
 	const imageBytes = await sharp({
 		create: { width: 1, height: 1, channels: 4, background: "white" },
 	})
@@ -991,36 +1067,21 @@ test("allows an optional nine-slice conflict to remain unknown when the frame is
 	]);
 	expect(uploads.map((response) => response.status)).toEqual([201, 201, 201]);
 
-	const proposalResponse = await app.request(
-		`/api/projects/${projectId}/import-inbox/${sourceId}/source-metadata-mapping-proposals`,
-		{
-			method: "POST",
-			headers: {
-				authorization: `Bearer ${userId}`,
-				"content-type": "application/json",
-			},
-			body: JSON.stringify({
-				sidecarEntryIds: [firstSidecarId, secondSidecarId],
-			}),
-		}
-	);
-	expect(proposalResponse.status).toBe(201);
 	const proposal = sourceMetadataMappingProposalSchema.parse(
-		await proposalResponse.json()
+		await client.imports.createSourceMetadataMappingProposal({
+			entryId: sourceId,
+			input: { sidecarEntryIds: [firstSidecarId, secondSidecarId] },
+			projectId,
+		})
 	);
 	expect(proposal.conflicts.map(({ field, key }) => [field, key])).toEqual([
 		["nine-slice", "walk-0"],
 	]);
 
-	const finalizationResponse = await app.request(
-		`/api/projects/${projectId}/import-inbox/${sourceId}/source-metadata-mapping-proposals/${proposal.id}/finalization`,
-		{
-			method: "POST",
-			headers: {
-				authorization: `Bearer ${userId}`,
-				"content-type": "application/json",
-			},
-			body: JSON.stringify({
+	expect(
+		await client.imports.finalizeSourceMetadataMapping({
+			entryId: sourceId,
+			input: {
 				assetRecordId: targetAssetRecordId,
 				decisions: [
 					{
@@ -1030,11 +1091,11 @@ test("allows an optional nine-slice conflict to remain unknown when the frame is
 						sourcePath: null,
 					},
 				],
-			}),
-		}
-	);
-	expect(finalizationResponse.status).toBe(201);
-	expect(await finalizationResponse.json()).toMatchObject({
+			},
+			projectId,
+			proposalId: proposal.id,
+		})
+	).toMatchObject({
 		assetRecordId: targetAssetRecordId,
 		decisions: [
 			{
@@ -1050,7 +1111,10 @@ test("allows an optional nine-slice conflict to remain unknown when the frame is
 
 test("finalizes a source metadata mapping into one rereadable Candidate Version", async () => {
 	const {
+		anonymousClient,
 		app,
+		client,
+		rpcApp,
 		sourceMetadataMappingProposalStore,
 		targetAssetRecordId,
 		createdVersions,
@@ -1131,44 +1195,53 @@ test("finalizes a source metadata mapping into one rereadable Candidate Version"
 		],
 	};
 	sourceMetadataMappingProposalStore.proposals.set(sourceId, [proposal]);
-	const path = `/api/projects/${projectId}/import-inbox/${sourceId}/source-metadata-mapping-proposals/${proposal.id}/finalization`;
-	const request = {
-		method: "POST",
-		headers: {
-			authorization: `Bearer ${userId}`,
-			"content-type": "application/json",
-		},
-		body: JSON.stringify({
-			assetRecordId: targetAssetRecordId,
-			decisions: [
-				{
-					field: "frame",
-					key: "walk",
-					sourceEntryId: sidecarId,
-					sourcePath: "frames.walk",
-				},
-			],
-		}),
+	const location = { entryId: sourceId, projectId, proposalId: proposal.id };
+	const input = {
+		assetRecordId: targetAssetRecordId,
+		decisions: [
+			{
+				field: "frame" as const,
+				key: "walk",
+				sourceEntryId: sidecarId,
+				sourcePath: "frames.walk",
+			},
+		],
 	};
 	expect(
-		(
-			await app.request(path, {
-				...request,
-				body: JSON.stringify({
-					assetRecordId: targetAssetRecordId,
-					decisions: [],
-				}),
-			})
-		).status
-	).toBe(422);
+		await client.imports.getSourceMetadataMappingFinalization(location)
+	).toBeNull();
+	await expectProcedureError(
+		client.imports.finalizeSourceMetadataMapping({
+			...location,
+			input: { assetRecordId: targetAssetRecordId, decisions: [] },
+		}),
+		{
+			code: "UNPROCESSABLE_CONTENT",
+			message: "Invalid source metadata mapping decisions",
+			status: 422,
+		}
+	);
 	expect(createdVersions).toHaveLength(0);
-	expect(
-		(await app.request(path, { ...request, body: "x".repeat(1024 * 1024 + 1) }))
-			.status
-	).toBe(413);
-	const created = await app.request(path, request);
-	expect(created.status).toBe(201);
-	const result = await created.json();
+	const oversized = await rpcApp.request(
+		"/rpc/imports/finalizeSourceMetadataMapping",
+		{
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: "x".repeat(1024 * 1024 + 1),
+		}
+	);
+	expect(oversized.status).toBe(413);
+	expect(await oversized.json()).toMatchObject({
+		json: {
+			code: "PAYLOAD_TOO_LARGE",
+			message: "Source metadata finalization request exceeds the maximum size",
+			status: 413,
+		},
+	});
+	const result = await client.imports.finalizeSourceMetadataMapping({
+		...location,
+		input,
+	});
 	expect(result).toMatchObject({
 		proposalId: proposal.id,
 		assetRecordId: targetAssetRecordId,
@@ -1184,31 +1257,66 @@ test("finalizes a source metadata mapping into one rereadable Candidate Version"
 		],
 	});
 	expect(createdVersions).toEqual([proposal.id]);
-	expect((await app.request(path, request)).status).toBe(200);
-	expect(createdVersions).toEqual([proposal.id]);
-	const reread = await app.request(path, {
-		headers: { authorization: `Bearer ${userId}` },
-	});
-	expect(await reread.json()).toEqual(result);
 	expect(
-		(
-			await app.request(path, {
-				...request,
-				body: JSON.stringify({
-					assetRecordId: crypto.randomUUID(),
-					decisions: [
-						{
-							field: "frame",
-							key: "walk",
-							sourceEntryId: sidecarId,
-							sourcePath: "frames.walk",
-						},
-					],
-				}),
-			})
-		).status
-	).toBe(404);
-	expect((await app.request(path, { method: "GET" })).status).toBe(401);
+		await client.imports.finalizeSourceMetadataMapping({ ...location, input })
+	).toEqual(result);
+	expect(createdVersions).toEqual([proposal.id]);
+	expect(
+		await client.imports.getSourceMetadataMappingFinalization(location)
+	).toEqual(result);
+	await expectProcedureError(
+		client.imports.finalizeSourceMetadataMapping({
+			...location,
+			input: { ...input, assetRecordId: crypto.randomUUID() },
+		}),
+		{ code: "NOT_FOUND", status: 404 }
+	);
+	await expectProcedureError(
+		client.imports.finalizeSourceMetadataMapping({
+			...location,
+			input: {
+				...input,
+				decisions: [
+					{
+						field: "frame",
+						key: "walk",
+						sourceEntryId: otherSidecarId,
+						sourcePath: "frames.walk",
+					},
+				],
+			},
+		}),
+		{
+			code: "CONFLICT",
+			message: "Source metadata mapping already finalized differently",
+			status: 409,
+		}
+	);
+	await expectProcedureError(
+		client.imports.finalizeSourceMetadataMapping({
+			...location,
+			input: { assetRecordId: targetAssetRecordId, decisions: "none" as never },
+		}),
+		{ code: "BAD_REQUEST", status: 400 }
+	);
+	await expectProcedureError(
+		client.imports.getSourceMetadataMappingFinalization({
+			...location,
+			proposalId: crypto.randomUUID(),
+		}),
+		{ code: "NOT_FOUND", status: 404 }
+	);
+	await expectProcedureError(
+		anonymousClient.imports.getSourceMetadataMappingFinalization(location),
+		{ code: "UNAUTHORIZED", status: 401 }
+	);
+	await expectProcedureError(
+		anonymousClient.imports.finalizeSourceMetadataMapping({
+			...location,
+			input,
+		}),
+		{ code: "UNAUTHORIZED", status: 401 }
+	);
 });
 
 test("continues to parse persisted source metadata mapping contract version 1.0", () => {
@@ -1271,7 +1379,7 @@ test("continues to parse persisted source metadata mapping contract version 1.0"
 });
 
 test("rejects source metadata sidecars that exceed the parsing size limit", async () => {
-	const { app } = mountTestApp();
+	const { app, client } = mountTestApp();
 	const sourceId = crypto.randomUUID();
 	const sidecarId = crypto.randomUUID();
 	const sourceBytes = Uint8Array.from([137, 80, 78, 71]);
@@ -1288,25 +1396,22 @@ test("rejects source metadata sidecars that exceed the parsing size limit", asyn
 	]);
 	expect(uploads.map((upload) => upload.status)).toEqual([201, 201]);
 
-	const response = await app.request(
-		`/api/projects/${projectId}/import-inbox/${sourceId}/source-metadata-mapping-proposals`,
+	await expectProcedureError(
+		client.imports.createSourceMetadataMappingProposal({
+			entryId: sourceId,
+			input: { sidecarEntryIds: [sidecarId] },
+			projectId,
+		}),
 		{
-			method: "POST",
-			headers: {
-				authorization: `Bearer ${userId}`,
-				"content-type": "application/json",
-			},
-			body: JSON.stringify({ sidecarEntryIds: [sidecarId] }),
+			code: "PAYLOAD_TOO_LARGE",
+			message: "Source metadata sidecars exceed the maximum size",
+			status: 413,
 		}
 	);
-	expect(response.status).toBe(413);
-	expect(await response.json()).toEqual({
-		error: "Source metadata sidecars exceed the maximum size",
-	});
 });
 
 test("rejects source metadata sidecars whose aggregate size exceeds the parsing limit", async () => {
-	const { app } = mountTestApp();
+	const { app, client } = mountTestApp();
 	const sourceId = crypto.randomUUID();
 	const sidecarIds = [crypto.randomUUID(), crypto.randomUUID()];
 	const sourceBytes = Uint8Array.from([137, 80, 78, 71]);
@@ -1329,50 +1434,100 @@ test("rejects source metadata sidecars whose aggregate size exceeds the parsing 
 	]);
 	expect(uploads.map((upload) => upload.status)).toEqual([201, 201, 201]);
 
-	const response = await app.request(
-		`/api/projects/${projectId}/import-inbox/${sourceId}/source-metadata-mapping-proposals`,
+	await expectProcedureError(
+		client.imports.createSourceMetadataMappingProposal({
+			entryId: sourceId,
+			input: { sidecarEntryIds: sidecarIds },
+			projectId,
+		}),
 		{
-			method: "POST",
-			headers: {
-				authorization: `Bearer ${userId}`,
-				"content-type": "application/json",
-			},
-			body: JSON.stringify({ sidecarEntryIds: sidecarIds }),
+			code: "PAYLOAD_TOO_LARGE",
+			message: "Source metadata sidecars exceed the maximum size",
+			status: 413,
 		}
 	);
-	expect(response.status).toBe(413);
-	expect(await response.json()).toEqual({
-		error: "Source metadata sidecars exceed the maximum size",
-	});
 });
 
 test("bounds source metadata proposal input size and sidecar count", async () => {
-	const { app } = mountTestApp();
+	const { client, rpcApp } = mountTestApp();
 	const sourceId = crypto.randomUUID();
-	const proposalPath = `/api/projects/${projectId}/import-inbox/${sourceId}/source-metadata-mapping-proposals`;
-	const headers = {
-		authorization: `Bearer ${userId}`,
-		"content-type": "application/json",
-	};
-	const excessiveSidecarCount = await app.request(proposalPath, {
-		method: "POST",
-		headers,
-		body: JSON.stringify({
-			sidecarEntryIds: Array.from({ length: 11 }, () => crypto.randomUUID()),
+	await expectProcedureError(
+		client.imports.createSourceMetadataMappingProposal({
+			entryId: sourceId,
+			input: {
+				sidecarEntryIds: Array.from({ length: 11 }, () => crypto.randomUUID()),
+			},
+			projectId,
 		}),
-	});
-	expect(excessiveSidecarCount.status).toBe(400);
-	expect(await excessiveSidecarCount.json()).toEqual({
-		error: "Invalid source metadata proposal",
-	});
+		{ code: "BAD_REQUEST", status: 400 }
+	);
 
-	const oversizedRequestBody = await app.request(proposalPath, {
-		method: "POST",
-		headers,
-		body: `${JSON.stringify({ sidecarEntryIds: [crypto.randomUUID()] })}${" ".repeat(8192)}`,
-	});
+	const oversizedRequestBody = await rpcApp.request(
+		"/rpc/imports/createSourceMetadataMappingProposal",
+		{
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: `${JSON.stringify({
+				json: {
+					entryId: sourceId,
+					input: { sidecarEntryIds: [crypto.randomUUID()] },
+					projectId,
+				},
+			})}${" ".repeat(8192)}`,
+		}
+	);
 	expect(oversizedRequestBody.status).toBe(413);
-	expect(await oversizedRequestBody.json()).toEqual({
-		error: "Source metadata proposal request exceeds the maximum size",
+	expect(oversizedRequestBody.headers.get("cache-control")).toBe(
+		"private, no-store"
+	);
+	expect(await oversizedRequestBody.json()).toMatchObject({
+		json: {
+			code: "PAYLOAD_TOO_LARGE",
+			message: "Source metadata proposal request exceeds the maximum size",
+			status: 413,
+		},
+	});
+});
+
+test("answers Import Inbox procedures privately and uncached", async () => {
+	const { rpcApp } = mountTestApp();
+	const response = await rpcApp.request("/rpc/imports/listEntries", {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify({ json: { projectId } }),
+	});
+	expect(response.status).toBe(200);
+	expect(response.headers.get("cache-control")).toBe("private, no-store");
+	expect(await response.json()).toMatchObject({ json: [] });
+});
+
+test("reports a sidecar storage failure from the proposal procedure with a support reference", async () => {
+	const { app, client, storageState } = mountTestApp();
+	const sourceId = crypto.randomUUID();
+	const sidecarId = crypto.randomUUID();
+	const uploads = await Promise.all([
+		app.request(
+			`/api/projects/${projectId}/import-inbox`,
+			uploadRequest("source.png", Uint8Array.from([137, 80, 78, 71]), sourceId)
+		),
+		app.request(
+			`/api/projects/${projectId}/import-inbox`,
+			uploadRequest("sidecar.json", new TextEncoder().encode("{}"), sidecarId)
+		),
+	]);
+	expect(uploads.map((upload) => upload.status)).toEqual([201, 201]);
+	storageState.failGet = true;
+
+	const error = await client.imports
+		.createSourceMetadataMappingProposal({
+			entryId: sourceId,
+			input: { sidecarEntryIds: [sidecarId] },
+			projectId,
+		})
+		.catch((caught: unknown) => caught);
+	expect(error).toMatchObject({
+		code: "INTERNAL_SERVER_ERROR",
+		data: { supportReference: expect.stringMatching(supportReferencePattern) },
+		status: 500,
 	});
 });

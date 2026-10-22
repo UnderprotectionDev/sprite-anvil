@@ -1,9 +1,38 @@
-import { useQuery } from "@tanstack/react-query";
-import { type SyntheticEvent, useState } from "react";
+import { useForm } from "@tanstack/react-form";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { toast } from "sonner";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client, orpc } from "@/utils/orpc";
+import { mutationMeta } from "@/utils/mutation-meta";
+import { orpc } from "@/utils/orpc";
+import {
+	collectionMembershipFormSchema,
+	collectionNameFormSchema,
+} from "../schemas";
+
+function useCollectionNameForm(onSubmit: (name: string) => void) {
+	return useForm({
+		defaultValues: { name: "" },
+		onSubmit: ({ value }) => onSubmit(value.name),
+		validators: { onSubmit: collectionNameFormSchema },
+	});
+}
+
+function useCollectionMembershipForm(
+	onSubmit: (assetRecordId: string) => void
+) {
+	return useForm({
+		defaultValues: { assetRecordId: "" },
+		onSubmit: ({ value }) => onSubmit(value.assetRecordId),
+		validators: { onSubmit: collectionMembershipFormSchema },
+	});
+}
+
+export type CollectionNameForm = ReturnType<typeof useCollectionNameForm>;
+export type CollectionMembershipForm = ReturnType<
+	typeof useCollectionMembershipForm
+>;
 
 export function useCollectionsManager(projectId: string) {
 	const projectsQuery = useQuery({
@@ -12,11 +41,24 @@ export function useCollectionsManager(projectId: string) {
 	const catalogQuery = useQuery({
 		...orpc.collections.list.queryOptions({ input: { projectId } }),
 	});
-	const [collectionName, setCollectionName] = useState("");
+	const queryClient = useQueryClient();
+	const catalogKey = orpc.collections.list.queryKey({ input: { projectId } });
+	// save() reports failures itself (toast and uncertain-outcome handling), so
+	// the global mutation error toast is suppressed to avoid a duplicate.
+	const createCollectionMutation = useMutation(
+		orpc.collections.create.mutationOptions(mutationMeta)
+	);
+	const addAssetRecordMutation = useMutation(
+		orpc.collections.addAssetRecord.mutationOptions(mutationMeta)
+	);
+	const removeAssetRecordMutation = useMutation(
+		orpc.collections.removeAssetRecord.mutationOptions(mutationMeta)
+	);
+	const collectionForm = useCollectionNameForm(createCollection);
+	const membershipForm = useCollectionMembershipForm(addAssetRecord);
 	const [selectedCollectionId, setSelectedCollectionId] = useState<
 		string | null
 	>(null);
-	const [selectedAssetRecordId, setSelectedAssetRecordId] = useState("");
 	const [savingOperation, setSavingOperation] = useState<string | null>(null);
 	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
 	const [isCheckingOutcome, setIsCheckingOutcome] = useState(false);
@@ -61,10 +103,10 @@ export function useCollectionsManager(projectId: string) {
 		setStatusMessage(null);
 		try {
 			await action();
-			const result = await catalogQuery.refetch();
-			if (result.isError) {
-				throw result.error;
-			}
+			await queryClient.invalidateQueries(
+				{ queryKey: catalogKey },
+				{ throwOnError: true }
+			);
 			setStatusMessage(successMessage);
 		} catch (error) {
 			if (isWriteOutcomeUncertain(error)) {
@@ -81,8 +123,7 @@ export function useCollectionsManager(projectId: string) {
 		}
 	}
 
-	function createCollection(event: SyntheticEvent<HTMLFormElement>) {
-		event.preventDefault();
+	function createCollection(collectionName: string) {
 		const name = collectionName.trim();
 		if (name.length === 0) {
 			return;
@@ -90,28 +131,30 @@ export function useCollectionsManager(projectId: string) {
 		void save(
 			"create",
 			async () => {
-				const collection = await client.collections.create({ projectId, name });
-				setCollectionName("");
+				const collection = await createCollectionMutation.mutateAsync({
+					projectId,
+					name,
+				});
+				collectionForm.reset();
 				setSelectedCollectionId(collection.id);
 			},
 			"Koleksiyon oluşturuldu."
 		);
 	}
 
-	function addAssetRecord(event: SyntheticEvent<HTMLFormElement>) {
-		event.preventDefault();
+	function addAssetRecord(selectedAssetRecordId: string) {
 		if (!(selectedCollection && selectedAssetRecordId)) {
 			return;
 		}
 		void save(
 			"add",
 			async () => {
-				await client.collections.addAssetRecord({
+				await addAssetRecordMutation.mutateAsync({
 					projectId,
 					collectionId: selectedCollection.id,
 					assetRecordId: selectedAssetRecordId,
 				});
-				setSelectedAssetRecordId("");
+				membershipForm.reset();
 			},
 			"Varlık Kaydı Koleksiyona eklendi."
 		);
@@ -124,7 +167,7 @@ export function useCollectionsManager(projectId: string) {
 		void save(
 			`remove-${assetRecordId}`,
 			() =>
-				client.collections.removeAssetRecord({
+				removeAssetRecordMutation.mutateAsync({
 					projectId,
 					collectionId: selectedCollection.id,
 					assetRecordId,
@@ -136,8 +179,12 @@ export function useCollectionsManager(projectId: string) {
 	async function checkWriteOutcome() {
 		setIsCheckingOutcome(true);
 		try {
-			const result = await catalogQuery.refetch();
-			if (result.isError) {
+			try {
+				await queryClient.invalidateQueries(
+					{ queryKey: catalogKey },
+					{ throwOnError: true }
+				);
+			} catch {
 				return;
 			}
 			setWriteOutcomeUncertain(false);
@@ -151,32 +198,28 @@ export function useCollectionsManager(projectId: string) {
 
 	function selectCollection(collectionId: string) {
 		setSelectedCollectionId(collectionId);
-		setSelectedAssetRecordId("");
+		membershipForm.reset();
 		setStatusMessage(null);
 	}
 
 	return {
-		addAssetRecord,
 		assetRecordsById,
 		allMemberships,
 		availableAssetRecords,
 		catalog,
 		catalogQuery,
 		checkWriteOutcome,
-		collectionName,
+		collectionForm,
 		collections,
-		createCollection,
 		isCheckingOutcome,
+		membershipForm,
 		memberships,
 		project,
 		projectsQuery,
 		removeAssetRecord,
 		savingOperation,
-		selectedAssetRecordId,
 		selectedCollection,
 		selectCollection,
-		setCollectionName,
-		setSelectedAssetRecordId,
 		statusMessage,
 		writeOutcomeUncertain,
 		writesDisabled,

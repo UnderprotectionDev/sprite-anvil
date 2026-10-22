@@ -7,12 +7,21 @@ import {
 } from "@sprite-anvil/api/background-layer-layouts";
 import type { ProjectProfileContractActivation } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQuery } from "@tanstack/react-query";
-import { type SyntheticEvent, useRef, useState } from "react";
+import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
+import { Input } from "@sprite-anvil/ui/components/input";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { useForm, useStore } from "@tanstack/react-form";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useRef, useState } from "react";
 import { ENV } from "@/env";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client, orpc } from "@/utils/orpc";
+import { mutationMeta } from "@/utils/mutation-meta";
+import { orpc } from "@/utils/orpc";
 
 import { BackgroundScrollingSetup } from "./background-scrolling-setup";
 
@@ -167,9 +176,19 @@ export function BackgroundLayerLayoutManager({
 	});
 	const [scrollingLayout, setScrollingLayout] =
 		useState<BackgroundLayerLayoutRecord | null>(null);
-	const [layers, setLayers] = useState<LayerDraft[]>(() => [newLayer(0)]);
+	const [initialLayers] = useState<LayerDraft[]>(() => [newLayer(0)]);
+	const form = useForm({
+		defaultValues: { layers: initialLayers },
+		onSubmit: async ({ value }) => {
+			await save(value.layers);
+		},
+	});
+	const layers = useStore(form.store, (state) => state.values.layers);
 	const [message, setMessage] = useState("");
 	const [error, setError] = useState("");
+	const saveMutation = useMutation(
+		orpc.backgroundLayerLayouts.save.mutationOptions(mutationMeta)
+	);
 	const [saving, setSaving] = useState(false);
 	const [uncertain, setUncertain] = useState(false);
 	const [pendingInput, setPendingInput] =
@@ -189,40 +208,28 @@ export function BackgroundLayerLayoutManager({
 					r.availability !== "erased"
 			)
 	);
-	function update(key: string, field: keyof LayerDraft, value: string) {
-		setLayers((current) =>
-			current.map((layer) =>
-				layer.key === key ? { ...layer, [field]: value } : layer
-			)
-		);
+	function clearFeedback() {
 		setMessage("");
 		setError("");
 	}
-	function selectVersion(key: string, assetVersionId: string) {
+	function selectVersion(index: number, assetVersionId: string) {
 		const version = available.find((v) => v.id === assetVersionId);
 		const dimensions = version?.sourceImageDimensions;
-		setLayers((current) =>
-			current.map((layer) =>
-				layer.key === key
-					? {
-							...layer,
-							assetVersionId,
-							ratioWidth: String(dimensions?.width ?? ""),
-							ratioHeight: String(dimensions?.height ?? ""),
-							cropX: "0",
-							cropY: "0",
-							cropWidth: String(dimensions?.width ?? ""),
-							cropHeight: String(dimensions?.height ?? ""),
-							safeX: "",
-							safeY: "",
-							safeWidth: "",
-							safeHeight: "",
-						}
-					: layer
-			)
-		);
-		setMessage("");
-		setError("");
+		form.setFieldValue(`layers[${index}]`, (layer) => ({
+			...layer,
+			assetVersionId,
+			ratioWidth: String(dimensions?.width ?? ""),
+			ratioHeight: String(dimensions?.height ?? ""),
+			cropX: "0",
+			cropY: "0",
+			cropWidth: String(dimensions?.width ?? ""),
+			cropHeight: String(dimensions?.height ?? ""),
+			safeX: "",
+			safeY: "",
+			safeWidth: "",
+			safeHeight: "",
+		}));
+		clearFeedback();
 	}
 	async function confirmLayout(input: BackgroundLayerLayoutInput) {
 		const result = await query.refetch();
@@ -252,7 +259,7 @@ export function BackgroundLayerLayoutManager({
 		setMessage("");
 		setError("");
 		try {
-			await client.backgroundLayerLayouts.save(input);
+			await saveMutation.mutateAsync(input);
 			await confirmLayout(input);
 		} catch (failure) {
 			setError(getErrorMessage(failure, "Could not save the layer layout."));
@@ -276,8 +283,7 @@ export function BackgroundLayerLayoutManager({
 			setChecking(false);
 		}
 	}
-	async function save(event: SyntheticEvent<HTMLFormElement>) {
-		event.preventDefault();
+	async function save(drafts: LayerDraft[]) {
 		if (saving || uncertain || checking) {
 			return;
 		}
@@ -289,7 +295,7 @@ export function BackgroundLayerLayoutManager({
 			assetFamilyId,
 			visualWorldId,
 			contractRevisionId: activation.contractRevisionId,
-			layers: layers.map((layer) =>
+			layers: drafts.map((layer) =>
 				layerInput(
 					layer,
 					available.find((v) => v.id === layer.assetVersionId)
@@ -325,140 +331,179 @@ export function BackgroundLayerLayoutManager({
 				</div>
 			) : null}
 			{query.isPending ? <p role="status">Loading layer layouts…</p> : null}
-			<form className="space-y-4" onSubmit={save}>
+			<form
+				className="space-y-4"
+				onSubmit={(event) => {
+					event.preventDefault();
+					event.stopPropagation();
+					void form.handleSubmit();
+				}}
+			>
 				{error ? (
 					<p ref={errorRef} role="alert" tabIndex={-1}>
 						{error}
 					</p>
 				) : null}
-				<fieldset
-					className="space-y-4"
+				<FieldSet
+					className="block space-y-4"
 					disabled={saving || uncertain || query.isPending || query.isError}
 				>
-					<legend className="sr-only">Layer layout</legend>
-					{layers.map((draft, index) => {
-						const version = available.find(
-							(v) => v.id === draft.assetVersionId
-						);
-						return (
-							<fieldset
-								className="space-y-3 rounded border p-3"
-								key={draft.key}
-							>
-								<legend>Layer {index + 1}</legend>
-								<div className="grid gap-3 sm:grid-cols-3">
-									<label className="space-y-1" htmlFor={`${draft.key}-id`}>
-										Layer identity
-										<input
-											className="block min-h-10 w-full rounded border p-2"
-											id={`${draft.key}-id`}
-											onChange={(e) => update(draft.key, "id", e.target.value)}
-											required
-											value={draft.id}
-										/>
-									</label>
-									<label className="space-y-1" htmlFor={`${draft.key}-version`}>
-										Exact version
-										<select
-											className="block min-h-10 w-full rounded border p-2"
-											id={`${draft.key}-version`}
-											onChange={(e) => selectVersion(draft.key, e.target.value)}
-											required
-											value={draft.assetVersionId}
+					<FieldLegend className="sr-only">Layer layout</FieldLegend>
+					<form.Field mode="array" name="layers">
+						{(layersField) => (
+							<>
+								{layers.map((draft, index) => {
+									const version = available.find(
+										(v) => v.id === draft.assetVersionId
+									);
+									return (
+										<FieldSet
+											className="block space-y-3 rounded border p-3"
+											key={draft.key}
 										>
-											<option value="">Select a version</option>
-											{available.map((v) => (
-												<option key={v.id} value={v.id}>
-													{
-														assetRecords.find((r) => r.id === v.assetRecordId)
-															?.name
-													}{" "}
-													· v{v.versionNumber}
-												</option>
-											))}
-										</select>
-									</label>
-									<p>
-										Natural size:{" "}
-										{version?.sourceImageDimensions
-											? `${version.sourceImageDimensions.width} × ${version.sourceImageDimensions.height} px`
-											: "Select a verified source version."}
-									</p>
-									{numericFields.map(([field, label]) => (
-										<label
-											className="space-y-1"
-											htmlFor={`${draft.key}-${field}`}
-											key={field}
-										>
-											{label}
-											<input
-												className="block min-h-10 w-full rounded border p-2"
-												id={`${draft.key}-${field}`}
-												min={
-													[
-														"order",
-														"cropX",
-														"cropY",
-														"safeX",
-														"safeY",
-													].includes(field)
-														? 0
-														: 1
-												}
-												onChange={(e) =>
-													update(draft.key, field, e.target.value)
-												}
-												required
-												step={1}
-												type="number"
-												value={draft[field]}
-											/>
-										</label>
-									))}
+											<FieldLegend>Layer {index + 1}</FieldLegend>
+											<div className="grid gap-3 sm:grid-cols-3">
+												<form.Field name={`layers[${index}].id`}>
+													{(field) => (
+														<Label
+															className="block space-y-1 leading-normal"
+															htmlFor={`${draft.key}-id`}
+														>
+															Layer identity
+															<Input
+																className="block min-h-10"
+																id={`${draft.key}-id`}
+																onChange={(e) => {
+																	field.handleChange(e.target.value);
+																	clearFeedback();
+																}}
+																required
+																value={draft.id}
+															/>
+														</Label>
+													)}
+												</form.Field>
+												<form.Field name={`layers[${index}].assetVersionId`}>
+													{(field) => (
+														<Label
+															className="block space-y-1 leading-normal"
+															htmlFor={`${draft.key}-version`}
+														>
+															Exact version
+															<NativeSelect
+																className="block w-full *:data-[slot=native-select]:min-h-10"
+																id={`${draft.key}-version`}
+																onChange={(e) => {
+																	field.handleChange(e.target.value);
+																	selectVersion(index, e.target.value);
+																}}
+																required
+																value={draft.assetVersionId}
+															>
+																<NativeSelectOption value="">
+																	Select a version
+																</NativeSelectOption>
+																{available.map((v) => (
+																	<NativeSelectOption key={v.id} value={v.id}>
+																		{
+																			assetRecords.find(
+																				(r) => r.id === v.assetRecordId
+																			)?.name
+																		}{" "}
+																		· v{v.versionNumber}
+																	</NativeSelectOption>
+																))}
+															</NativeSelect>
+														</Label>
+													)}
+												</form.Field>
+												<p>
+													Natural size:{" "}
+													{version?.sourceImageDimensions
+														? `${version.sourceImageDimensions.width} × ${version.sourceImageDimensions.height} px`
+														: "Select a verified source version."}
+												</p>
+												{numericFields.map(([numericField, label]) => (
+													<form.Field
+														key={numericField}
+														name={`layers[${index}].${numericField}`}
+													>
+														{(field) => (
+															<Label
+																className="block space-y-1 leading-normal"
+																htmlFor={`${draft.key}-${numericField}`}
+															>
+																{label}
+																<Input
+																	className="block min-h-10"
+																	id={`${draft.key}-${numericField}`}
+																	min={
+																		[
+																			"order",
+																			"cropX",
+																			"cropY",
+																			"safeX",
+																			"safeY",
+																		].includes(numericField)
+																			? 0
+																			: 1
+																	}
+																	onChange={(e) => {
+																		field.handleChange(e.target.value);
+																		clearFeedback();
+																	}}
+																	required
+																	step={1}
+																	type="number"
+																	value={draft[numericField]}
+																/>
+															</Label>
+														)}
+													</form.Field>
+												))}
+											</div>
+											{version ? (
+												<LayerPreview draft={draft} version={version} />
+											) : null}
+											<Button
+												disabled={layers.length === 1}
+												onClick={() => layersField.removeValue(index)}
+												type="button"
+											>
+												Remove layer {index + 1}
+											</Button>
+										</FieldSet>
+									);
+								})}
+								<div className="flex flex-wrap gap-2">
+									<Button
+										disabled={layers.length >= 24}
+										onClick={() =>
+											layersField.pushValue(
+												newLayer(
+													Math.max(...layers.map((l) => Number(l.order) || 0)) +
+														1
+												)
+											)
+										}
+										type="button"
+									>
+										Add layer
+									</Button>
+									<Button disabled={available.length === 0} type="submit">
+										{saving ? "Saving…" : "Save layer layout"}
+									</Button>
 								</div>
-								{version ? (
-									<LayerPreview draft={draft} version={version} />
-								) : null}
-								<Button
-									disabled={layers.length === 1}
-									onClick={() =>
-										setLayers((current) =>
-											current.filter((layer) => layer.key !== draft.key)
-										)
-									}
-									type="button"
-								>
-									Remove layer {index + 1}
-								</Button>
-							</fieldset>
-						);
-					})}
-					<div className="flex flex-wrap gap-2">
-						<Button
-							disabled={layers.length >= 24}
-							onClick={() =>
-								setLayers((current) => [
-									...current,
-									newLayer(
-										Math.max(...current.map((l) => Number(l.order) || 0)) + 1
-									),
-								])
-							}
-							type="button"
-						>
-							Add layer
-						</Button>
-						<Button disabled={available.length === 0} type="submit">
-							{saving ? "Saving…" : "Save layer layout"}
-						</Button>
-					</div>
+							</>
+						)}
+					</form.Field>
 					{available.length === 0 ? (
 						<p>
 							Add a background Asset Version with verified source dimensions to
 							this family first.
 						</p>
 					) : null}
-				</fieldset>
+				</FieldSet>
 			</form>
 			{message ? <p role="status">{message}</p> : null}
 			{uncertain ? (

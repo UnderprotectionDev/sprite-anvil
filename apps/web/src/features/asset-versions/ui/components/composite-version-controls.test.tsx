@@ -6,6 +6,7 @@ import type {
 	UnitVersion,
 } from "@sprite-anvil/api/asset-versions";
 import { cleanup, render, screen } from "@testing-library/react";
+import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { CompositeVersionControls } from "./composite-version-controls";
@@ -259,4 +260,86 @@ test("builds from one Composite Version, replaces one exact Unit Version, and re
 		"approved",
 		"The corrected frame works with the retained direction."
 	);
+});
+
+test("keeps the selection after a failed save and clears it after a successful save", async () => {
+	const user = userEvent.setup();
+	const createCompositeVersion = vi
+		.fn()
+		.mockResolvedValueOnce(false)
+		.mockResolvedValueOnce(true);
+	render(
+		<CompositeVersionControls
+			assetRecordId={assetRecordId}
+			assetRecordName="Ash Knight attack"
+			assetVersions={assetVersions}
+			compositeVersions={compositeVersions}
+			unitVersions={unitVersions}
+			writes={
+				{
+					createCompositeVersion,
+					reviewCompositeVersion: vi.fn(),
+					writesDisabled: false,
+				} as never
+			}
+		/>
+	);
+	const save = screen.getByRole("button", {
+		name: "Yeni Birleşik Sürüm kaydet",
+	});
+	const sourceSelect = screen.getByLabelText("Başlangıç Birleşik Sürümü");
+	const frameSelect = screen.getByLabelText("Kare · attack/frame-3");
+	const directionSelect = screen.getByLabelText("Yön · north");
+	expect(save).toBeDisabled();
+
+	await user.selectOptions(directionSelect, "unit-direction-north-v1");
+	expect(save).toBeEnabled();
+	await user.selectOptions(sourceSelect, "composite-v2");
+	expect(frameSelect).toHaveValue("unit-frame-v2");
+	expect(
+		screen.getByText("Birleşik Sürüm 2 üyelikleri seçildi.")
+	).toBeInTheDocument();
+	await user.selectOptions(directionSelect, "");
+
+	await user.click(save);
+	expect(createCompositeVersion).toHaveBeenLastCalledWith(assetRecordId, [
+		"unit-frame-v2",
+	]);
+	expect(sourceSelect).toHaveValue("composite-v2");
+	expect(frameSelect).toHaveValue("unit-frame-v2");
+
+	await user.click(save);
+	expect(createCompositeVersion).toHaveBeenCalledTimes(2);
+	expect(sourceSelect).toHaveValue("");
+	expect(frameSelect).toHaveValue("");
+	expect(save).toBeDisabled();
+});
+
+test("disables the composite controls while writes are disabled", () => {
+	render(
+		<CompositeVersionControls
+			assetRecordId={assetRecordId}
+			assetRecordName="Ash Knight attack"
+			assetVersions={assetVersions}
+			compositeVersions={compositeVersions}
+			unitVersions={unitVersions}
+			writes={
+				{
+					createCompositeVersion: vi.fn(),
+					reviewCompositeVersion: vi.fn(),
+					writesDisabled: true,
+				} as never
+			}
+		/>
+	);
+	expect(screen.getByLabelText("Başlangıç Birleşik Sürümü")).toBeDisabled();
+	expect(screen.getByLabelText("Kare · attack/frame-3")).toBeDisabled();
+	expect(
+		screen.getByLabelText("Birleşik Sürüm 2 inceleme gerekçesi")
+	).toBeDisabled();
+	expect(
+		screen.getByRole("group", {
+			name: "Yeni Birleşik Sürümün Birim Sürümleri",
+		})
+	).toBeInTheDocument();
 });

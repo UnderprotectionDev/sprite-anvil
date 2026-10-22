@@ -18,6 +18,9 @@ const { saveManualImportEvidence, onRefresh } = vi.hoisted(() => ({
 }));
 
 vi.mock("@tanstack/react-query", () => ({
+	useMutation: (options: { mutationFn: (input: unknown) => unknown }) => ({
+		mutateAsync: (input: unknown) => options.mutationFn(input),
+	}),
 	useQuery: () => ({
 		data: [
 			{
@@ -32,12 +35,15 @@ vi.mock("@tanstack/react-query", () => ({
 }));
 
 vi.mock("@/utils/orpc", () => ({
-	client: {
-		assetVersions: {
-			saveManualImportEvidence,
-		},
-	},
 	orpc: {
+		assetVersions: {
+			saveManualImportEvidence: {
+				mutationOptions: (options?: object) => ({
+					...options,
+					mutationFn: (input: unknown) => saveManualImportEvidence(input),
+				}),
+			},
+		},
 		generationPackages: {
 			list: { queryOptions: () => ({}) },
 		},
@@ -264,4 +270,112 @@ test("pasting an external working file uploads the same Managed Snapshot", async
 
 	await expectSnapshotUpload(fetchSpy, workingFile);
 	expect(onRefresh).toHaveBeenCalled();
+});
+
+test("recorded manual import evidence prefills the update form and requires every field", () => {
+	render(
+		<VersionProductionEvidencePanel
+			assetRecordId="a17f5ff0-a50d-438f-8bf2-a0152b42c301"
+			evidence={{
+				evidenceLevel: "complete",
+				managedSnapshots: [],
+				manualImportEvidence: {
+					actualInstruction: "Export the idle pose.",
+					generationPackageId: "a17f5ff0-a50d-438f-8bf2-a0152b42c309",
+					id: "a17f5ff0-a50d-438f-8bf2-a0152b42c310",
+					recordedAt: "2026-09-28T12:30:00.000Z",
+					revision: 2,
+					sourceSurface: "Aseprite 1.3.15",
+				},
+				sourceKind: "manual_import",
+			}}
+			onRefresh={onRefresh}
+			projectId="a17f5ff0-a50d-438f-8bf2-a0152b42c300"
+			reviewDisposition="candidate"
+			versionId="a17f5ff0-a50d-438f-8bf2-a0152b42c302"
+		/>
+	);
+
+	expect(screen.getByLabelText("Üretim Paketi")).toHaveValue(
+		"a17f5ff0-a50d-438f-8bf2-a0152b42c309"
+	);
+	expect(screen.getByLabelText("Kaynak yüzeyi")).toHaveValue("Aseprite 1.3.15");
+	expect(screen.getByLabelText("Gerçek üretim talimatı")).toHaveValue(
+		"Export the idle pose."
+	);
+	expect(screen.getByLabelText("Üretim Paketi")).toBeRequired();
+	expect(screen.getByLabelText("Kaynak yüzeyi")).toBeRequired();
+	expect(screen.getByLabelText("Gerçek üretim talimatı")).toBeRequired();
+	expect(screen.getByRole("button", { name: "Kanıtı güncelle" })).toBeEnabled();
+});
+
+test("a failed manual import evidence save shows its message and keeps the draft", async () => {
+	const user = userEvent.setup();
+	saveManualImportEvidence.mockRejectedValue(new Error("offline"));
+	render(
+		<VersionProductionEvidencePanel
+			assetRecordId="a17f5ff0-a50d-438f-8bf2-a0152b42c301"
+			evidence={{
+				evidenceLevel: "incomplete",
+				managedSnapshots: [],
+				manualImportEvidence: null,
+				sourceKind: "manual_import",
+			}}
+			onRefresh={onRefresh}
+			projectId="a17f5ff0-a50d-438f-8bf2-a0152b42c300"
+			reviewDisposition="candidate"
+			versionId="a17f5ff0-a50d-438f-8bf2-a0152b42c302"
+		/>
+	);
+
+	await user.selectOptions(
+		screen.getByLabelText("Üretim Paketi"),
+		"a17f5ff0-a50d-438f-8bf2-a0152b42c309"
+	);
+	await user.type(screen.getByLabelText("Kaynak yüzeyi"), "Aseprite");
+	await user.type(screen.getByLabelText("Gerçek üretim talimatı"), "Export.");
+	await user.click(
+		screen.getByRole("button", { name: "Elle içe aktarma kanıtını kaydet" })
+	);
+
+	expect(await screen.findByRole("alert")).toHaveTextContent(
+		"Elle İçe Aktarma Kanıtı kaydedilemedi."
+	);
+	expect(screen.getByLabelText("Kaynak yüzeyi")).toHaveValue("Aseprite");
+	expect(onRefresh).not.toHaveBeenCalled();
+});
+
+test("an empty working file is rejected before any upload starts", () => {
+	const { fetchSpy } = renderSnapshotUploadPanel();
+	fireEvent.change(screen.getByLabelText("Yönetilen çalışma dosyası"), {
+		target: { files: [new File([], "empty.aseprite")] },
+	});
+
+	expect(screen.getByRole("alert")).toHaveTextContent(
+		"Çalışma dosyası boş olamaz ve 100 MB sınırını aşamaz."
+	);
+	expect(fetchSpy).not.toHaveBeenCalled();
+});
+
+test("non-candidate versions hide the manual import evidence form", () => {
+	render(
+		<VersionProductionEvidencePanel
+			assetRecordId="a17f5ff0-a50d-438f-8bf2-a0152b42c301"
+			evidence={{
+				evidenceLevel: "incomplete",
+				managedSnapshots: [],
+				manualImportEvidence: null,
+				sourceKind: "manual_import",
+			}}
+			onRefresh={onRefresh}
+			projectId="a17f5ff0-a50d-438f-8bf2-a0152b42c300"
+			reviewDisposition="approved"
+			versionId="a17f5ff0-a50d-438f-8bf2-a0152b42c302"
+		/>
+	);
+
+	expect(screen.queryByLabelText("Kaynak yüzeyi")).toBeNull();
+	expect(screen.getByRole("status")).toHaveTextContent(
+		"Eksik Elle İçe Aktarma Kanıtı"
+	);
 });

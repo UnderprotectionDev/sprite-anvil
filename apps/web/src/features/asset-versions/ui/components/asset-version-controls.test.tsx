@@ -2,17 +2,26 @@
 
 import type { AssetFamilyCatalog } from "@sprite-anvil/api/asset-families";
 import type { AssetVersionCatalog } from "@sprite-anvil/api/asset-versions";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { QueryClientProvider } from "@tanstack/react-query";
+import {
+	render as baseRender,
+	cleanup,
+	fireEvent,
+	screen,
+} from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { afterEach, expect, test, vi } from "vitest";
+import { createQueryClient } from "@/utils/query-client";
 import type { useAssetVersionWrites } from "../../hooks/use-asset-version-writes";
 import { AssetVersionControls } from "./asset-version-controls";
 
-vi.mock("@/utils/orpc", () => ({
-	client: { assetVersions: { previewBatchReview: vi.fn() } },
-}));
+vi.mock("@/utils/orpc", async () => {
+	const { createTanstackQueryUtils } = await import("@orpc/tanstack-query");
+	const client = { assetVersions: { previewBatchReview: vi.fn() } };
+	return { client, orpc: createTanstackQueryUtils(client as never) };
+});
 
 vi.mock("./composite-version-controls", () => ({
 	CompositeVersionControls: () => null,
@@ -43,6 +52,13 @@ vi.mock(
 	"@/features/production-provenance/ui/components/version-production-evidence-panel",
 	() => ({ VersionProductionEvidencePanel: () => null })
 );
+
+const queryClient = createQueryClient();
+function render(node: ReactElement) {
+	return baseRender(
+		<QueryClientProvider client={queryClient}>{node}</QueryClientProvider>
+	);
+}
 
 afterEach(cleanup);
 

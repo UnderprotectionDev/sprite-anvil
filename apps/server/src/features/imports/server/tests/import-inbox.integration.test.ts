@@ -1,8 +1,7 @@
 import { expect, test } from "bun:test";
-import {
-	importInboxEntriesSchema,
-	importInboxEntrySchema,
-} from "@sprite-anvil/api/import-inbox";
+import { createRouterClient } from "@orpc/server";
+import { importInboxEntrySchema } from "@sprite-anvil/api/import-inbox";
+import { appRouter } from "@sprite-anvil/api/routers/index";
 import { sourceMetadataMappingProposalSchema } from "@sprite-anvil/api/source-metadata-mapping";
 import { createDb, getProjectForUser } from "@sprite-anvil/db";
 import { user } from "@sprite-anvil/db/schema/auth";
@@ -13,6 +12,7 @@ import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { mountImportInboxRoutes } from "../import-inbox-routes";
 import { createImportInboxStore } from "../import-inbox-store";
+import { createSourceMetadataMappingProposalCreator } from "../source-metadata-mapping-procedures";
 import { createSourceMetadataMappingProposalStore } from "../source-metadata-mapping-store";
 
 const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
@@ -23,6 +23,34 @@ const uploadAttemptId = crypto.randomUUID();
 const sourceBytes = Uint8Array.from([
 	65, 83, 69, 80, 82, 73, 84, 69, 0, 255, 32, 0, 128,
 ]);
+
+function createTestClient(
+	targetDb: ReturnType<typeof createDb>,
+	requestingUserId: string,
+	objects: Map<string, Uint8Array>
+) {
+	const importInboxStore = createImportInboxStore(targetDb);
+	const sourceMetadataMappingProposalStore =
+		createSourceMetadataMappingProposalStore(targetDb);
+	return createRouterClient(appRouter, {
+		context: {
+			createSourceMetadataMappingProposal:
+				createSourceMetadataMappingProposalCreator({
+					assetVersionStore: {} as never,
+					createStorage: createTestStorage(objects),
+					importInboxStore,
+					sourceMetadataMappingProposalStore,
+				}),
+			importInboxStore,
+			projectAccess: {
+				getProject: (ownerId: string, requestedProjectId: string) =>
+					getProjectForUser(targetDb, ownerId, requestedProjectId),
+			},
+			session: { user: { id: requestingUserId } },
+			sourceMetadataMappingProposalStore,
+		} as never,
+	});
+}
 
 function createTestStorage(objects: Map<string, Uint8Array>) {
 	return () => ({
@@ -86,8 +114,6 @@ test.skipIf(!databaseUrl)(
 			const firstApp = new Hono();
 			mountImportInboxRoutes(firstApp, {
 				importInboxStore: createImportInboxStore(db),
-				sourceMetadataMappingProposalStore:
-					createSourceMetadataMappingProposalStore(db),
 				createId: () => uploadAttemptId,
 				createStorage: createTestStorage(objects),
 				getProjectForUser: (requestedUserId, requestedProjectId) =>
@@ -124,8 +150,6 @@ test.skipIf(!databaseUrl)(
 			const rereadApp = new Hono();
 			mountImportInboxRoutes(rereadApp, {
 				importInboxStore: createImportInboxStore(rereadDb),
-				sourceMetadataMappingProposalStore:
-					createSourceMetadataMappingProposalStore(rereadDb),
 				createStorage: createTestStorage(objects),
 				getProjectForUser: (requestedUserId, requestedProjectId) =>
 					getProjectForUser(rereadDb, requestedUserId, requestedProjectId),
@@ -136,14 +160,11 @@ test.skipIf(!databaseUrl)(
 							: null
 					),
 			});
-			const rereadList = await rereadApp.request(
-				`/api/projects/${projectId}/import-inbox`,
-				{ headers: { authorization: `Bearer ${userId}` } }
-			);
-			expect(rereadList.status).toBe(200);
-			expect(importInboxEntriesSchema.parse(await rereadList.json())).toEqual([
-				created,
-			]);
+			expect(
+				await createTestClient(rereadDb, userId, objects).imports.listEntries({
+					projectId,
+				})
+			).toEqual([created]);
 
 			const rereadFile = await rereadApp.request(
 				`/api/projects/${projectId}/import-inbox/${entryId}/file`,
@@ -219,8 +240,6 @@ test.skipIf(!databaseUrl)(
 			const app = new Hono();
 			mountImportInboxRoutes(app, {
 				importInboxStore: createImportInboxStore(targetDb),
-				sourceMetadataMappingProposalStore:
-					createSourceMetadataMappingProposalStore(targetDb),
 				createStorage: createTestStorage(objects),
 				getProjectForUser: (requestedUserId, requestedProjectId) =>
 					getProjectForUser(targetDb, requestedUserId, requestedProjectId),
@@ -263,26 +282,29 @@ test.skipIf(!databaseUrl)(
 			);
 			expect(sourceUpload.status).toBe(201);
 			expect(sidecarUpload.status).toBe(201);
-			const proposalPath = `/api/projects/${proposalProjectId}/import-inbox/${proposalSourceEntryId}/source-metadata-mapping-proposals`;
-			const createdResponse = await firstApp.request(proposalPath, {
-				method: "POST",
-				headers: {
-					authorization: `Bearer ${proposalUserId}`,
-					"content-type": "application/json",
-				},
-				body: JSON.stringify({ sidecarEntryIds: [sidecarEntryId] }),
-			});
-			expect(createdResponse.status).toBe(201);
 			const created = sourceMetadataMappingProposalSchema.parse(
-				await createdResponse.json()
+				await createTestClient(
+					db,
+					proposalUserId,
+					objects
+				).imports.createSourceMetadataMappingProposal({
+					entryId: proposalSourceEntryId,
+					input: { sidecarEntryIds: [sidecarEntryId] },
+					projectId: proposalProjectId,
+				})
 			);
 
 			const rereadDb = createDb({ DATABASE_URL: databaseUrl });
-			const rereadResponse = await createApp(rereadDb).request(proposalPath, {
-				headers: { authorization: `Bearer ${proposalUserId}` },
-			});
-			expect(rereadResponse.status).toBe(200);
-			expect(await rereadResponse.json()).toEqual([created]);
+			expect(
+				await createTestClient(
+					rereadDb,
+					proposalUserId,
+					objects
+				).imports.listSourceMetadataMappingProposals({
+					entryId: proposalSourceEntryId,
+					projectId: proposalProjectId,
+				})
+			).toEqual([created]);
 		} finally {
 			await db
 				.delete(sourceMetadataMappingProposals)

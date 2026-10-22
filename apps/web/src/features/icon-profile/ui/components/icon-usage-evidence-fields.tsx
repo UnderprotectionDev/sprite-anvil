@@ -1,4 +1,7 @@
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
+import { Checkbox } from "@sprite-anvil/ui/components/checkbox";
+import { Input } from "@sprite-anvil/ui/components/input";
+import { Label } from "@sprite-anvil/ui/components/label";
 
 export interface IconPixelDimensions {
 	height: number;
@@ -212,17 +215,16 @@ export function IconUsageEvidenceFields({
 	return (
 		<>
 			<IconUsageSizePreview data={data} targetDimensions={targetDimensions} />
-			<label
+			<Label
 				className="block space-y-1 text-sm"
 				htmlFor={`${formId}-usage-variant`}
 			>
 				<span>Kullanım Çeşidi</span>
-				<input
+				<Input
 					aria-describedby={
 						usageVariantError ? `${formId}-usage-variant-error` : undefined
 					}
 					aria-invalid={usageVariantError !== "" || undefined}
-					className="w-full rounded-md border bg-background px-3 py-2"
 					id={`${formId}-usage-variant`}
 					maxLength={120}
 					onChange={(event) => onUsageVariantChange(event.currentTarget.value)}
@@ -230,7 +232,7 @@ export function IconUsageEvidenceFields({
 					type="text"
 					value={usageVariant}
 				/>
-			</label>
+			</Label>
 			{usageVariantError ? (
 				<p
 					className="text-destructive text-sm"
@@ -241,13 +243,12 @@ export function IconUsageEvidenceFields({
 				</p>
 			) : null}
 			<div className="grid gap-3 sm:grid-cols-2">
-				<label
+				<Label
 					className="block space-y-1 text-sm"
 					htmlFor={`${formId}-target-width`}
 				>
 					<span>Hedef genişlik</span>
-					<input
-						className="w-full rounded-md border bg-background px-3 py-2"
+					<Input
 						id={`${formId}-target-width`}
 						inputMode="numeric"
 						max={2_147_483_647}
@@ -258,14 +259,13 @@ export function IconUsageEvidenceFields({
 						type="number"
 						value={targetWidth}
 					/>
-				</label>
-				<label
+				</Label>
+				<Label
 					className="block space-y-1 text-sm"
 					htmlFor={`${formId}-target-height`}
 				>
 					<span>Hedef yükseklik</span>
-					<input
-						className="w-full rounded-md border bg-background px-3 py-2"
+					<Input
 						id={`${formId}-target-height`}
 						inputMode="numeric"
 						max={2_147_483_647}
@@ -278,23 +278,20 @@ export function IconUsageEvidenceFields({
 						type="number"
 						value={targetHeight}
 					/>
-				</label>
+				</Label>
 			</div>
-			<label
+			<Label
 				className="flex items-center gap-2 text-sm"
 				htmlFor={`${formId}-grayscale-reviewed`}
 			>
-				<input
+				<Checkbox
 					checked={grayscaleReviewed}
 					id={`${formId}-grayscale-reviewed`}
-					onChange={(event) =>
-						onGrayscaleReviewedChange(event.currentTarget.checked)
-					}
+					onCheckedChange={onGrayscaleReviewedChange}
 					required
-					type="checkbox"
 				/>
 				<span>Gri tonlamayı inceledim</span>
-			</label>
+			</Label>
 		</>
 	);
 }

@@ -6,11 +6,17 @@ import type { AssetVersionCatalog } from "@sprite-anvil/api/asset-versions";
 import type { GameplayMetadataRecord } from "@sprite-anvil/api/gameplay-metadata";
 import type { ProjectProfileContractActivation } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import {
+	useMutation,
+	useQueries,
+	useQuery,
+	useQueryClient,
+} from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client, orpc } from "@/utils/orpc";
+import { mutationMeta } from "@/utils/mutation-meta";
+import { orpc } from "@/utils/orpc";
 import type { AnimationTimingMetadataStatus } from "./animation-timing-event-timeline";
 import { AnimationTimingReviewEditor } from "./animation-timing-review-editor";
 
@@ -37,7 +43,23 @@ export function AnimationTimingReviewManager({
 	const [selected, setSelected] = useState<AnimationTimingReviewRecord | null>(
 		null
 	);
-	const [saving, setSaving] = useState(false);
+	const queryClient = useQueryClient();
+	const saveMutation = useMutation(
+		orpc.animationTimingReviews.save.mutationOptions({
+			...mutationMeta,
+			onSuccess: async (record) => {
+				setSelected(record);
+				setPendingId(null);
+				setMessage("İnceleme kalıcı kayıttan doğrulandı.");
+				await queryClient.invalidateQueries({
+					queryKey: orpc.animationTimingReviews.list.queryKey({
+						input: { projectId, assetFamilyId },
+					}),
+				});
+			},
+		})
+	);
+	const saving = saveMutation.isPending;
 	const [pendingId, setPendingId] = useState<string | null>(null);
 	const [uncertain, setUncertain] = useState(false);
 	const [message, setMessage] = useState("");
@@ -74,15 +96,10 @@ export function AnimationTimingReviewManager({
 		if (saving || uncertain || selected) {
 			return;
 		}
-		setSaving(true);
 		setMessage("");
 		setPendingId(input.id);
 		try {
-			const record = await client.animationTimingReviews.save(input);
-			setSelected(record);
-			setPendingId(null);
-			setMessage("İnceleme kalıcı kayıttan doğrulandı.");
-			await query.refetch();
+			await saveMutation.mutateAsync(input);
 		} catch (error) {
 			if (!isWriteOutcomeUncertain(error)) {
 				setPendingId(null);
@@ -95,8 +112,6 @@ export function AnimationTimingReviewManager({
 			setMessage(
 				"Kaydetme sonucu doğrulanamadı. Güncel kayıtları kontrol edin; aynı incelemeyi yeniden göndermeyin."
 			);
-		} finally {
-			setSaving(false);
 		}
 	};
 	const checkCurrentRecords = async () => {

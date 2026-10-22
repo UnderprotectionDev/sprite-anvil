@@ -1,3 +1,14 @@
+import { Checkbox } from "@sprite-anvil/ui/components/checkbox";
+import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
+import { Input } from "@sprite-anvil/ui/components/input";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { Textarea } from "@sprite-anvil/ui/components/textarea";
+import { useStore } from "@tanstack/react-form";
+import type { ReferenceConstraintForm } from "../../hooks/use-reference-constraint-form";
 import type {
 	ReferenceFeature,
 	ReferenceRole,
@@ -9,15 +20,7 @@ import {
 	referenceRoleLabels,
 	referenceRoles,
 } from "../../lib/reference-board-contract";
-
-export interface ReferenceConstraintDraft {
-	contextOverrideRationale: string;
-	customPurpose: string;
-	forbiddenFeatures: ReferenceFeature[];
-	notes: string;
-	role: ReferenceRole;
-	transferredFeatures: ReferenceFeature[];
-}
+import type { ReferenceConstraintDraft } from "../../schemas";
 
 export const emptyReferenceConstraintDraft = (): ReferenceConstraintDraft => ({
 	contextOverrideRationale: "",
@@ -27,41 +30,6 @@ export const emptyReferenceConstraintDraft = (): ReferenceConstraintDraft => ({
 	role: "pose",
 	transferredFeatures: ["pose"],
 });
-
-function featureChoices({
-	legend,
-	namePrefix,
-	onChange,
-	selected,
-}: {
-	legend: string;
-	namePrefix: string;
-	onChange: (feature: ReferenceFeature, checked: boolean) => void;
-	selected: readonly ReferenceFeature[];
-}) {
-	return (
-		<fieldset className="space-y-2">
-			<legend className="font-medium text-sm">{legend}</legend>
-			<div className="grid gap-2 sm:grid-cols-2">
-				{referenceFeatures.map((feature) => (
-					<label
-						className="flex min-h-11 items-center gap-2 text-sm"
-						key={feature}
-					>
-						<input
-							checked={selected.includes(feature)}
-							className="size-4 accent-primary"
-							id={`${namePrefix}-${legend}-${feature}`}
-							onChange={(event) => onChange(feature, event.target.checked)}
-							type="checkbox"
-						/>
-						<span>{referenceFeatureLabels[feature]}</span>
-					</label>
-				))}
-			</div>
-		</fieldset>
-	);
-}
 
 function toggleFeature(
 	current: readonly ReferenceFeature[],
@@ -73,143 +41,188 @@ function toggleFeature(
 		: current.filter((item) => item !== feature);
 }
 
+function FeatureChoices({
+	form,
+	idPrefix,
+	legend,
+	name,
+	readOnly,
+}: {
+	form: ReferenceConstraintForm;
+	idPrefix: string;
+	legend: string;
+	name: "forbiddenFeatures" | "transferredFeatures";
+	readOnly: boolean;
+}) {
+	return (
+		<FieldSet className="gap-2">
+			<FieldLegend className="mb-0">{legend}</FieldLegend>
+			<form.Field name={name}>
+				{(field) => (
+					<div className="grid gap-2 sm:grid-cols-2">
+						{referenceFeatures.map((feature) => (
+							<Label className="min-h-11 text-sm leading-normal" key={feature}>
+								<Checkbox
+									aria-label={referenceFeatureLabels[feature]}
+									checked={field.state.value.includes(feature)}
+									disabled={readOnly}
+									id={`${idPrefix}-${legend}-${feature}`}
+									onCheckedChange={(checked) =>
+										field.handleChange(
+											toggleFeature(field.state.value, feature, checked)
+										)
+									}
+								/>
+								<span>{referenceFeatureLabels[feature]}</span>
+							</Label>
+						))}
+					</div>
+				)}
+			</form.Field>
+		</FieldSet>
+	);
+}
+
 export function ReferenceConstraintEditor({
-	draft,
+	form,
 	hasCanonicalDesign,
 	idPrefix,
-	onChange,
 	readOnly = false,
 }: {
-	draft: ReferenceConstraintDraft;
+	form: ReferenceConstraintForm;
 	hasCanonicalDesign: boolean;
 	idPrefix: string;
-	onChange: (draft: ReferenceConstraintDraft) => void;
 	readOnly?: boolean;
 }) {
-	const identityTransfer =
-		draft.transferredFeatures.includes("identity") &&
-		!draft.forbiddenFeatures.includes("identity");
-	const needsOverride = hasCanonicalDesign && identityTransfer;
+	const role = useStore(form.store, (state) => state.values.role);
+	const needsOverride = useStore(
+		form.store,
+		({ values }) =>
+			hasCanonicalDesign &&
+			values.transferredFeatures.includes("identity") &&
+			!values.forbiddenFeatures.includes("identity")
+	);
 
 	return (
 		<div className="space-y-4">
-			<label className="block space-y-1 text-sm" htmlFor={`${idPrefix}-role`}>
-				<span>Referans kullanım amacı</span>
-				<select
-					className="min-h-11 w-full rounded-md border bg-background px-3 py-2"
-					disabled={readOnly}
-					id={`${idPrefix}-role`}
-					onChange={(event) => {
-						const role = event.target.value as ReferenceRole;
-						onChange({
-							...draft,
-							customPurpose: role === "custom" ? draft.customPurpose : "",
-							role,
-							transferredFeatures: defaultTransferredFeatures(role),
-						});
-					}}
-					value={draft.role}
-				>
-					{referenceRoles.map((role) => (
-						<option key={role} value={role}>
-							{referenceRoleLabels[role]}
-						</option>
-					))}
-				</select>
-			</label>
-			{draft.role === "custom" ? (
-				<label
-					className="block space-y-1 text-sm"
-					htmlFor={`${idPrefix}-custom-purpose`}
-				>
-					<span>Özel kullanım amacı</span>
-					<input
-						className="min-h-11 w-full rounded-md border bg-background px-3 py-2"
-						disabled={readOnly}
-						id={`${idPrefix}-custom-purpose`}
-						maxLength={240}
-						onChange={(event) =>
-							onChange({ ...draft, customPurpose: event.target.value })
-						}
-						value={draft.customPurpose}
-					/>
-				</label>
+			<form.Field name="role">
+				{(field) => (
+					<Label
+						className="block space-y-1 text-sm leading-normal"
+						htmlFor={`${idPrefix}-role`}
+					>
+						<span>Referans kullanım amacı</span>
+						<NativeSelect
+							className="w-full"
+							disabled={readOnly}
+							id={`${idPrefix}-role`}
+							onChange={(event) => {
+								const nextRole = event.target.value as ReferenceRole;
+								field.handleChange(nextRole);
+								if (nextRole !== "custom") {
+									form.setFieldValue("customPurpose", "");
+								}
+								form.setFieldValue(
+									"transferredFeatures",
+									defaultTransferredFeatures(nextRole)
+								);
+							}}
+							value={field.state.value}
+						>
+							{referenceRoles.map((option) => (
+								<NativeSelectOption key={option} value={option}>
+									{referenceRoleLabels[option]}
+								</NativeSelectOption>
+							))}
+						</NativeSelect>
+					</Label>
+				)}
+			</form.Field>
+			{role === "custom" ? (
+				<form.Field name="customPurpose">
+					{(field) => (
+						<Label
+							className="block space-y-1 text-sm leading-normal"
+							htmlFor={`${idPrefix}-custom-purpose`}
+						>
+							<span>Özel kullanım amacı</span>
+							<Input
+								className="min-h-11 w-full"
+								disabled={readOnly}
+								id={`${idPrefix}-custom-purpose`}
+								maxLength={240}
+								onChange={(event) => field.handleChange(event.target.value)}
+								value={field.state.value}
+							/>
+						</Label>
+					)}
+				</form.Field>
 			) : null}
-			{featureChoices({
-				legend: "Aktarılabilir özellikler",
-				namePrefix: idPrefix,
-				onChange: (feature, checked) =>
-					onChange({
-						...draft,
-						transferredFeatures: toggleFeature(
-							draft.transferredFeatures,
-							feature,
-							checked
-						),
-					}),
-				selected: draft.transferredFeatures,
-			})}
-			{featureChoices({
-				legend: "Kaçınılacak özellikler",
-				namePrefix: idPrefix,
-				onChange: (feature, checked) =>
-					onChange({
-						...draft,
-						forbiddenFeatures: toggleFeature(
-							draft.forbiddenFeatures,
-							feature,
-							checked
-						),
-					}),
-				selected: draft.forbiddenFeatures,
-			})}
+			<FeatureChoices
+				form={form}
+				idPrefix={idPrefix}
+				legend="Aktarılabilir özellikler"
+				name="transferredFeatures"
+				readOnly={readOnly}
+			/>
+			<FeatureChoices
+				form={form}
+				idPrefix={idPrefix}
+				legend="Kaçınılacak özellikler"
+				name="forbiddenFeatures"
+				readOnly={readOnly}
+			/>
 			<p className="text-muted-foreground text-xs">
 				Aynı özellik için izin ve yasak çakışırsa Üretim Paketi oluşturulamaz;
 				kurallardan birini düzenleyerek çelişkiyi giderin.
 			</p>
 			{needsOverride ? (
-				<label
-					className="block space-y-1 text-sm"
-					htmlFor={`${idPrefix}-context-override`}
-				>
-					<span>Bağlam Kuralı İstisnası gerekçesi</span>
-					<textarea
-						aria-describedby={`${idPrefix}-context-override-help`}
-						className="min-h-20 w-full rounded-md border bg-background px-3 py-2"
-						disabled={readOnly}
-						id={`${idPrefix}-context-override`}
-						maxLength={1000}
-						onChange={(event) =>
-							onChange({
-								...draft,
-								contextOverrideRationale: event.target.value,
-							})
-						}
-						required
-						value={draft.contextOverrideRationale}
-					/>
-					<span
-						className="text-muted-foreground text-xs"
-						id={`${idPrefix}-context-override-help`}
-					>
-						Bu Varlık Ailesi Ana Tasarım sürümünün kimlik sınırını aşacağından
-						açıklama zorunludur.
-					</span>
-				</label>
+				<form.Field name="contextOverrideRationale">
+					{(field) => (
+						<Label
+							className="block space-y-1 text-sm leading-normal"
+							htmlFor={`${idPrefix}-context-override`}
+						>
+							<span>Bağlam Kuralı İstisnası gerekçesi</span>
+							<Textarea
+								aria-describedby={`${idPrefix}-context-override-help`}
+								className="min-h-20 w-full"
+								disabled={readOnly}
+								id={`${idPrefix}-context-override`}
+								maxLength={1000}
+								onChange={(event) => field.handleChange(event.target.value)}
+								required
+								value={field.state.value}
+							/>
+							<span
+								className="text-muted-foreground text-xs"
+								id={`${idPrefix}-context-override-help`}
+							>
+								Bu Varlık Ailesi Ana Tasarım sürümünün kimlik sınırını
+								aşacağından açıklama zorunludur.
+							</span>
+						</Label>
+					)}
+				</form.Field>
 			) : null}
-			<label className="block space-y-1 text-sm" htmlFor={`${idPrefix}-notes`}>
-				<span>Referans notu</span>
-				<textarea
-					className="min-h-20 w-full rounded-md border bg-background px-3 py-2"
-					disabled={readOnly}
-					id={`${idPrefix}-notes`}
-					maxLength={1000}
-					onChange={(event) =>
-						onChange({ ...draft, notes: event.target.value })
-					}
-					value={draft.notes}
-				/>
-			</label>
+			<form.Field name="notes">
+				{(field) => (
+					<Label
+						className="block space-y-1 text-sm leading-normal"
+						htmlFor={`${idPrefix}-notes`}
+					>
+						<span>Referans notu</span>
+						<Textarea
+							className="min-h-20 w-full"
+							disabled={readOnly}
+							id={`${idPrefix}-notes`}
+							maxLength={1000}
+							onChange={(event) => field.handleChange(event.target.value)}
+							value={field.state.value}
+						/>
+					</Label>
+				)}
+			</form.Field>
 		</div>
 	);
 }

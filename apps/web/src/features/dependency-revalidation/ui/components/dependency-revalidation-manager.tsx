@@ -7,9 +7,18 @@ import type {
 	DependencyLinkInput,
 } from "@sprite-anvil/api/dependency-revalidation";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQuery } from "@tanstack/react-query";
+import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { useForm, useStore } from "@tanstack/react-form";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
-import { client, orpc } from "@/utils/orpc";
+import type z from "zod";
+import { orpc } from "@/utils/orpc";
+import { changeFacetFormSchema, dependencyLinkFormSchema } from "../../schemas";
 import {
 	DependencyFacets,
 	dependencyFacetLabel,
@@ -43,18 +52,65 @@ export function DependencyRevalidationManager({
 	const query = useQuery({
 		...orpc.dependencyRevalidation.list.queryOptions({ input: { projectId } }),
 	});
+	const queryClient = useQueryClient();
+	const createLinkMutation = useMutation(
+		orpc.dependencyRevalidation.createLink.mutationOptions()
+	);
+	const determineMutation = useMutation(
+		orpc.dependencyRevalidation.determine.mutationOptions()
+	);
+	const reReviewMutation = useMutation(
+		orpc.dependencyRevalidation.reReview.mutationOptions()
+	);
 	const identifier = useId();
-	const [linkKind, setLinkKind] =
-		useState<DependencyLinkInput["source"]["kind"]>("asset_version");
-	const [linkSourceId, setLinkSourceId] = useState("");
-	const [targetId, setTargetId] = useState("");
-	const [linkFacets, setLinkFacets] = useState<string[]>([]);
-	const [linkOther, setLinkOther] = useState("");
-	const [changeKind, setChangeKind] =
-		useState<ChangeFacetInput["source"]["kind"]>("canonical_design");
-	const [changeSourceId, setChangeSourceId] = useState("");
-	const [changeFacets, setChangeFacets] = useState<string[]>([]);
-	const [changeOther, setChangeOther] = useState("");
+	const linkDefaults: z.input<typeof dependencyLinkFormSchema> = {
+		kind: "asset_version",
+		sourceId: "",
+		targetId: "",
+		facets: [],
+		other: "",
+	};
+	const linkForm = useForm({
+		defaultValues: linkDefaults,
+		onSubmit: ({ value }) => {
+			void save(
+				() =>
+					createLinkMutation.mutateAsync({
+						projectId,
+						source: { kind: value.kind, id: value.sourceId },
+						targetAssetVersionId: value.targetId,
+						facets: selectedDependencyFacets(value.facets, value.other),
+					}),
+				"Bağımlılık Bağlantısı kaydedildi."
+			);
+		},
+		validators: { onSubmit: dependencyLinkFormSchema },
+	});
+	const changeDefaults: z.input<typeof changeFacetFormSchema> = {
+		kind: "canonical_design",
+		sourceId: "",
+		facets: [],
+		other: "",
+	};
+	const changeForm = useForm({
+		defaultValues: changeDefaults,
+		onSubmit: ({ value }) => {
+			void save(
+				() =>
+					determineMutation.mutateAsync({
+						projectId,
+						source: { kind: value.kind, id: value.sourceId },
+						facets: selectedDependencyFacets(value.facets, value.other),
+					}),
+				"Değişiklik etkisi kaydedildi."
+			);
+		},
+		validators: { onSubmit: changeFacetFormSchema },
+	});
+	const link = useStore(linkForm.store, (state) => state.values);
+	const change = useStore(changeForm.store, (state) => state.values);
+	const linkKind: DependencyLinkInput["source"]["kind"] = link.kind;
+	const changeKind: ChangeFacetInput["source"]["kind"] = change.kind;
 	const [busy, setBusy] = useState(false);
 	const [uncertain, setUncertain] = useState(false);
 	const [message, setMessage] = useState("");
@@ -108,9 +164,21 @@ export function DependencyRevalidationManager({
 		setMessage("");
 		try {
 			await operation();
-			const result = await query.refetch();
+			let rereadFailed = false;
+			try {
+				await queryClient.invalidateQueries(
+					{
+						queryKey: orpc.dependencyRevalidation.list.queryKey({
+							input: { projectId },
+						}),
+					},
+					{ throwOnError: true }
+				);
+			} catch {
+				rereadFailed = true;
+			}
 			await onImpactSaved?.();
-			if (result.isError) {
+			if (rereadFailed) {
 				setUncertain(true);
 				setMessage(
 					"Kayıt kaydedildi ancak sonuç yeniden okunamadı. Durumu kontrol edin."
@@ -183,186 +251,224 @@ export function DependencyRevalidationManager({
 			<form
 				onSubmit={(event) => {
 					event.preventDefault();
-					void save(
-						() =>
-							client.dependencyRevalidation.createLink({
-								projectId,
-								source: { kind: linkKind, id: linkSourceId },
-								targetAssetVersionId: targetId,
-								facets: selectedDependencyFacets(linkFacets, linkOther),
-							}),
-						"Bağımlılık Bağlantısı kaydedildi."
-					);
+					event.stopPropagation();
+					void linkForm.handleSubmit();
 				}}
 			>
-				<fieldset className="space-y-4" disabled={disabled}>
-					<legend className="font-semibold">Bağımlılık Bağlantısı</legend>
-					<label className="block" htmlFor={`${identifier}-link-kind`}>
-						Bağımlılık kaynak türü
-					</label>
-					<select
-						className="w-full rounded border px-3 py-2"
-						id={`${identifier}-link-kind`}
-						onChange={(event) => {
-							setLinkKind(
-								event.target.value === "context_revision"
-									? "context_revision"
-									: "asset_version"
-							);
-							setLinkSourceId("");
-						}}
-						value={linkKind}
-					>
-						<option value="asset_version">Varlık Sürümü</option>
-						<option value="context_revision">Bağlam Sürümü</option>
-					</select>
-					<label className="block" htmlFor={`${identifier}-link-source`}>
-						Bağımlılık kaynağı
-					</label>
-					<select
-						className="w-full rounded border px-3 py-2"
-						id={`${identifier}-link-source`}
-						onChange={(event) => setLinkSourceId(event.target.value)}
-						required
-						value={linkSourceId}
-					>
-						<option value="">Kaynak seçin</option>
-						{linkOptions.map((option) => (
-							<option key={option.id} value={option.id}>
-								{option.label}
-							</option>
-						))}
-					</select>
-					<label className="block" htmlFor={`${identifier}-target`}>
-						Türetilmiş Varlık Sürümü
-					</label>
-					<select
-						className="w-full rounded border px-3 py-2"
-						id={`${identifier}-target`}
-						onChange={(event) => setTargetId(event.target.value)}
-						required
-						value={targetId}
-					>
-						<option value="">Sürüm seçin</option>
-						{versions
-							.filter(
-								(version) =>
-									version.sourceKind === "derived" &&
-									(linkKind !== "asset_version" || version.id !== linkSourceId)
-							)
-							.map((version) => (
-								<option key={version.id} value={version.id}>
-									{versionLabels.get(version.id)}
-								</option>
-							))}
-					</select>
-					<DependencyFacets
-						legend="Bağımlı özellikler"
-						onChange={setLinkFacets}
-						onOtherChange={setLinkOther}
-						other={linkOther}
-						value={linkFacets}
-					/>
+				<FieldSet className="space-y-4" disabled={disabled}>
+					<FieldLegend className="font-semibold">
+						Bağımlılık Bağlantısı
+					</FieldLegend>
+					<linkForm.Field name="kind">
+						{(field) => (
+							<>
+								<Label className="block" htmlFor={`${identifier}-link-kind`}>
+									Bağımlılık kaynak türü
+								</Label>
+								<NativeSelect
+									className="w-full"
+									id={`${identifier}-link-kind`}
+									onChange={(event) => {
+										field.handleChange(
+											event.target.value === "context_revision"
+												? "context_revision"
+												: "asset_version"
+										);
+										linkForm.setFieldValue("sourceId", "");
+									}}
+									value={field.state.value}
+								>
+									<NativeSelectOption value="asset_version">
+										Varlık Sürümü
+									</NativeSelectOption>
+									<NativeSelectOption value="context_revision">
+										Bağlam Sürümü
+									</NativeSelectOption>
+								</NativeSelect>
+							</>
+						)}
+					</linkForm.Field>
+					<linkForm.Field name="sourceId">
+						{(field) => (
+							<>
+								<Label className="block" htmlFor={`${identifier}-link-source`}>
+									Bağımlılık kaynağı
+								</Label>
+								<NativeSelect
+									className="w-full"
+									id={`${identifier}-link-source`}
+									onChange={(event) => field.handleChange(event.target.value)}
+									required
+									value={field.state.value}
+								>
+									<NativeSelectOption value="">Kaynak seçin</NativeSelectOption>
+									{linkOptions.map((option) => (
+										<NativeSelectOption key={option.id} value={option.id}>
+											{option.label}
+										</NativeSelectOption>
+									))}
+								</NativeSelect>
+							</>
+						)}
+					</linkForm.Field>
+					<linkForm.Field name="targetId">
+						{(field) => (
+							<>
+								<Label className="block" htmlFor={`${identifier}-target`}>
+									Türetilmiş Varlık Sürümü
+								</Label>
+								<NativeSelect
+									className="w-full"
+									id={`${identifier}-target`}
+									onChange={(event) => field.handleChange(event.target.value)}
+									required
+									value={field.state.value}
+								>
+									<NativeSelectOption value="">Sürüm seçin</NativeSelectOption>
+									{versions
+										.filter(
+											(version) =>
+												version.sourceKind === "derived" &&
+												(linkKind !== "asset_version" ||
+													version.id !== link.sourceId)
+										)
+										.map((version) => (
+											<NativeSelectOption key={version.id} value={version.id}>
+												{versionLabels.get(version.id)}
+											</NativeSelectOption>
+										))}
+								</NativeSelect>
+							</>
+						)}
+					</linkForm.Field>
+					<linkForm.Field name="facets">
+						{(facetsField) => (
+							<linkForm.Field name="other">
+								{(otherField) => (
+									<DependencyFacets
+										disabled={disabled}
+										facetsField={facetsField}
+										legend="Bağımlı özellikler"
+										otherField={otherField}
+									/>
+								)}
+							</linkForm.Field>
+						)}
+					</linkForm.Field>
 					<p className="text-muted-foreground text-sm">
 						Özellik seçilmezse bağlantı eksik tanımlanmış sayılır ve
 						değişikliklerde güvenli tarafta işaretlenir.
 					</p>
 					<Button
 						disabled={
-							disabled ||
-							!linkSourceId ||
-							!targetId ||
-							(linkKind === "asset_version" && linkSourceId === targetId)
+							disabled || !dependencyLinkFormSchema.safeParse(link).success
 						}
 						type="submit"
 					>
 						Bağımlılık Bağlantısını Kaydet
 					</Button>
-				</fieldset>
+				</FieldSet>
 			</form>
 			<form
 				onSubmit={(event) => {
 					event.preventDefault();
-					void save(
-						() =>
-							client.dependencyRevalidation.determine({
-								projectId,
-								source: { kind: changeKind, id: changeSourceId },
-								facets: selectedDependencyFacets(changeFacets, changeOther),
-							}),
-						"Değişiklik etkisi kaydedildi."
-					);
+					event.stopPropagation();
+					void changeForm.handleSubmit();
 				}}
 			>
-				<fieldset className="space-y-4" disabled={disabled}>
-					<legend className="font-semibold">Değişiklik Tanımı</legend>
-					<label className="block" htmlFor={`${identifier}-change-kind`}>
-						Değişen kaynak türü
-					</label>
-					<select
-						className="w-full rounded border px-3 py-2"
-						id={`${identifier}-change-kind`}
-						onChange={(event) => {
-							setChangeKind(
-								event.target.value === "context_revision"
-									? "context_revision"
-									: "canonical_design"
-							);
-							setChangeSourceId("");
-						}}
-						value={changeKind}
-					>
-						<option value="canonical_design">Ana Tasarım</option>
-						<option value="context_revision">Bağlam Sürümü</option>
-					</select>
-					<label className="block" htmlFor={`${identifier}-change-source`}>
-						Değişen kaynak
-					</label>
-					<select
-						className="w-full rounded border px-3 py-2"
-						id={`${identifier}-change-source`}
-						onChange={(event) => setChangeSourceId(event.target.value)}
-						required
-						value={changeSourceId}
-					>
-						<option value="">Kaynak seçin</option>
-						{changeOptions.map((option) => (
-							<option key={option.id} value={option.id}>
-								{option.label}
-							</option>
-						))}
-					</select>
-					<DependencyFacets
-						legend="Değişen özellikler"
-						onChange={setChangeFacets}
-						onOtherChange={setChangeOther}
-						other={changeOther}
-						value={changeFacets}
-					/>
+				<FieldSet className="space-y-4" disabled={disabled}>
+					<FieldLegend className="font-semibold">Değişiklik Tanımı</FieldLegend>
+					<changeForm.Field name="kind">
+						{(field) => (
+							<>
+								<Label className="block" htmlFor={`${identifier}-change-kind`}>
+									Değişen kaynak türü
+								</Label>
+								<NativeSelect
+									className="w-full"
+									id={`${identifier}-change-kind`}
+									onChange={(event) => {
+										field.handleChange(
+											event.target.value === "context_revision"
+												? "context_revision"
+												: "canonical_design"
+										);
+										changeForm.setFieldValue("sourceId", "");
+									}}
+									value={field.state.value}
+								>
+									<NativeSelectOption value="canonical_design">
+										Ana Tasarım
+									</NativeSelectOption>
+									<NativeSelectOption value="context_revision">
+										Bağlam Sürümü
+									</NativeSelectOption>
+								</NativeSelect>
+							</>
+						)}
+					</changeForm.Field>
+					<changeForm.Field name="sourceId">
+						{(field) => (
+							<>
+								<Label
+									className="block"
+									htmlFor={`${identifier}-change-source`}
+								>
+									Değişen kaynak
+								</Label>
+								<NativeSelect
+									className="w-full"
+									id={`${identifier}-change-source`}
+									onChange={(event) => field.handleChange(event.target.value)}
+									required
+									value={field.state.value}
+								>
+									<NativeSelectOption value="">Kaynak seçin</NativeSelectOption>
+									{changeOptions.map((option) => (
+										<NativeSelectOption key={option.id} value={option.id}>
+											{option.label}
+										</NativeSelectOption>
+									))}
+								</NativeSelect>
+							</>
+						)}
+					</changeForm.Field>
+					<changeForm.Field name="facets">
+						{(facetsField) => (
+							<changeForm.Field name="other">
+								{(otherField) => (
+									<DependencyFacets
+										disabled={disabled}
+										facetsField={facetsField}
+										legend="Değişen özellikler"
+										otherField={otherField}
+									/>
+								)}
+							</changeForm.Field>
+						)}
+					</changeForm.Field>
 					<Button
 						disabled={
-							disabled ||
-							!changeSourceId ||
-							selectedDependencyFacets(changeFacets, changeOther).length === 0
+							disabled || !changeFacetFormSchema.safeParse(change).success
 						}
 						type="submit"
 					>
 						Değişiklik Etkisini Belirle
 					</Button>
-				</fieldset>
+				</FieldSet>
 			</form>
 			{query.data ? (
 				<div className="space-y-4">
 					<h3 className="font-semibold">Kalıcı Bağımlılık Bağlantıları</h3>
 					<ul className="space-y-2">
-						{query.data.dependencyLinks.map((link) => (
-							<li key={link.id}>
-								{dependencySourceLabel(link.source)} →{" "}
-								{versionLabels.get(link.targetAssetVersionId) ??
-									link.targetAssetVersionId}
+						{query.data.dependencyLinks.map((savedLink) => (
+							<li key={savedLink.id}>
+								{dependencySourceLabel(savedLink.source)} →{" "}
+								{versionLabels.get(savedLink.targetAssetVersionId) ??
+									savedLink.targetAssetVersionId}
 								:{" "}
-								{link.facets.length > 0
-									? link.facets.map(dependencyFacetLabel).join(", ")
+								{savedLink.facets.length > 0
+									? savedLink.facets.map(dependencyFacetLabel).join(", ")
 									: "Eksik Bağımlılık Bağlantısı"}
 							</li>
 						))}
@@ -416,7 +522,7 @@ export function DependencyRevalidationManager({
 								label={versionLabels.get(versionId) ?? versionId}
 								onReview={(input) =>
 									void save(
-										() => client.dependencyRevalidation.reReview(input),
+										() => reReviewMutation.mutateAsync(input),
 										input.decision === "approved"
 											? "Güncel uygunluk için yeni İnceleme Kaydı kaydedildi."
 											: "İçerik düzeltmesi için Aday inceleme kaydı kaydedildi. Yeni Birim veya Birleşik Sürüm hazırlayın; Yeniden Doğrulama Gerekli korunur."

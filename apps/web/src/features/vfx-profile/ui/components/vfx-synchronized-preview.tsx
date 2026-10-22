@@ -4,6 +4,12 @@ import {
 	vfxBackgrounds,
 } from "@sprite-anvil/api/vfx-synchronization";
 import { Button } from "@sprite-anvil/ui/components/button";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { Slider } from "@sprite-anvil/ui/components/slider";
 import type { Application as PixiApplication } from "pixi.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ENV } from "@/env";
@@ -241,11 +247,10 @@ export function VfxSynchronizedPreview({
 				>
 					Restart
 				</Button>
-				<label>
+				<Label className="block">
 					Playback mode
-					<select
+					<NativeSelect
 						aria-label="Playback mode"
-						className="block rounded border bg-background p-2"
 						onChange={(e) => {
 							setPlaying(false);
 							setElapsedMs(0);
@@ -253,54 +258,54 @@ export function VfxSynchronizedPreview({
 						}}
 						value={alone ? "alone" : "synchronized"}
 					>
-						<option value="synchronized">With owner</option>
-						<option value="alone">Effect alone</option>
-					</select>
-				</label>
-				<label>
+						<NativeSelectOption value="synchronized">
+							With owner
+						</NativeSelectOption>
+						<NativeSelectOption value="alone">Effect alone</NativeSelectOption>
+					</NativeSelect>
+				</Label>
+				<Label className="block">
 					Background
-					<select
+					<NativeSelect
 						aria-label="Background"
-						className="block rounded border bg-background p-2"
 						onChange={(e) => setBackground(e.target.value as Background)}
 						value={background}
 					>
 						{vfxBackgrounds.map((value) => (
-							<option key={value} value={value}>
+							<NativeSelectOption key={value} value={value}>
 								{value}
-							</option>
+							</NativeSelectOption>
 						))}
-					</select>
-				</label>
-				<label>
+					</NativeSelect>
+				</Label>
+				<Label className="block">
 					Zoom
-					<select
+					<NativeSelect
 						aria-label="Zoom"
-						className="block rounded border bg-background p-2"
 						onChange={(e) => setZoom(Number(e.target.value))}
 						value={zoom}
 					>
-						<option value={1}>1×</option>
-						<option value={2}>2×</option>
-						<option value={4}>4×</option>
-					</select>
-				</label>
+						<NativeSelectOption value={1}>1×</NativeSelectOption>
+						<NativeSelectOption value={2}>2×</NativeSelectOption>
+						<NativeSelectOption value={4}>4×</NativeSelectOption>
+					</NativeSelect>
+				</Label>
 			</div>
-			<label className="block">
+			<Label className="block">
 				Timeline (ms)
-				<input
+				<Slider
 					className="block w-full"
+					getAriaLabel={() => "Timeline (ms)"}
 					max={Math.max(duration, Math.ceil(elapsedMs))}
 					min={0}
-					onChange={(e) => {
+					onValueChange={(value) => {
 						setPlaying(false);
-						setElapsedMs(Number(e.target.value));
+						setElapsedMs(Array.isArray(value) ? (value[0] ?? 0) : value);
 					}}
 					step={1}
-					type="range"
-					value={Math.round(elapsedMs)}
+					value={[Math.round(elapsedMs)]}
 				/>
-			</label>
+			</Label>
 			<p>
 				{Math.round(elapsedMs)} ms · {input.event.id || "No event selected"} at{" "}
 				{input.event.timeMs} ms · layer {input.layer}

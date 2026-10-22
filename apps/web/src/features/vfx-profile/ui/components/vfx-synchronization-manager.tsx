@@ -6,11 +6,12 @@ import {
 	vfxSynchronizationInputSchema,
 } from "@sprite-anvil/api/vfx-synchronization";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client, orpc } from "@/utils/orpc";
+import { mutationMeta } from "@/utils/mutation-meta";
+import { orpc } from "@/utils/orpc";
 import { VfxSynchronizationEditor } from "./vfx-synchronization-editor";
 
 export function VfxSynchronizationManager({
@@ -46,7 +47,45 @@ export function VfxSynchronizationManager({
 		null
 	);
 	const [repair, setRepair] = useState<VfxSynchronizationInput | undefined>();
-	const [pending, setPending] = useState(false);
+	const queryClient = useQueryClient();
+	const saveMutation = useMutation(
+		orpc.vfxSynchronization.save.mutationOptions({
+			...mutationMeta,
+			onSuccess: async (saved) => {
+				setSelected(saved);
+				setUncertainInput(null);
+				setRepair(undefined);
+				setMessage("Synchronization review verified from persistent storage.");
+				await queryClient.invalidateQueries({
+					queryKey: orpc.vfxSynchronization.list.queryKey({
+						input: { projectId, assetFamilyId },
+					}),
+				});
+			},
+		})
+	);
+	// One-shot export plus exact readback. It spans two procedures on purpose: the
+	// readback must verify the very package the export just returned, so a single
+	// mutation keeps the pair atomic for the caller and a single oRPC
+	// mutationOptions (one procedure) cannot express it. It has no cache meaning,
+	// so it stays a mutation and always reaches the server.
+	const exportMutation = useMutation({
+		...mutationMeta,
+		mutationFn: async (target: {
+			projectId: string;
+			assetFamilyId: string;
+			recordId: string;
+		}) => {
+			const evidencePackage =
+				await orpc.vfxSynchronization.exportEvidence.call(target);
+			await orpc.vfxSynchronization.readEvidence.call({
+				...target,
+				package: evidencePackage,
+			});
+			return evidencePackage;
+		},
+	});
+	const pending = saveMutation.isPending || exportMutation.isPending;
 	const [uncertainInput, setUncertainInput] =
 		useState<VfxSynchronizationInput | null>(null);
 	const [canRetry, setCanRetry] = useState(false);
@@ -56,16 +95,10 @@ export function VfxSynchronizationManager({
 		if (pending || (uncertainInput && !(retry && canRetry))) {
 			return;
 		}
-		setPending(true);
 		setCanRetry(false);
 		setMessage("");
 		try {
-			const saved = await client.vfxSynchronization.save(input);
-			setSelected(saved);
-			setUncertainInput(null);
-			setRepair(undefined);
-			setMessage("Synchronization review verified from persistent storage.");
-			await query.refetch();
+			await saveMutation.mutateAsync(input);
 		} catch (error) {
 			if (isWriteOutcomeUncertain(error)) {
 				setUncertainInput(structuredClone(input));
@@ -76,8 +109,6 @@ export function VfxSynchronizationManager({
 				setUncertainInput(null);
 				setMessage(getErrorMessage(error, "Review could not be saved."));
 			}
-		} finally {
-			setPending(false);
 		}
 	}
 	async function checkRecords() {
@@ -103,15 +134,12 @@ export function VfxSynchronizationManager({
 		if (!selected || locked) {
 			return;
 		}
-		setPending(true);
 		setMessage("");
 		try {
-			const target = { projectId, assetFamilyId, recordId: selected.id };
-			const evidencePackage =
-				await client.vfxSynchronization.exportEvidence(target);
-			await client.vfxSynchronization.readEvidence({
-				...target,
-				package: evidencePackage,
+			const evidencePackage = await exportMutation.mutateAsync({
+				projectId,
+				assetFamilyId,
+				recordId: selected.id,
 			});
 			const url = URL.createObjectURL(
 				new Blob([JSON.stringify(evidencePackage, null, 2)], {
@@ -128,8 +156,6 @@ export function VfxSynchronizationManager({
 			);
 		} catch (error) {
 			setMessage(getErrorMessage(error, "Evidence export failed."));
-		} finally {
-			setPending(false);
 		}
 	}
 	const waivers =

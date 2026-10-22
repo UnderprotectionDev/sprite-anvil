@@ -7,13 +7,22 @@ import type { AssetRecord } from "@sprite-anvil/api/asset-records";
 import type { AssetVersionCatalog } from "@sprite-anvil/api/asset-versions";
 import type { ProjectProfileContractActivation } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useQuery } from "@tanstack/react-query";
+import { Checkbox } from "@sprite-anvil/ui/components/checkbox";
+import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
+import { Label } from "@sprite-anvil/ui/components/label";
+import { Textarea } from "@sprite-anvil/ui/components/textarea";
+import { useForm, useStore } from "@tanstack/react-form";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ENV } from "@/env";
 import { AssetVersionPreview } from "@/features/asset-versions/ui/components/asset-version-preview";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
-import { client, orpc } from "@/utils/orpc";
+import { orpc } from "@/utils/orpc";
+import {
+	assetFamilyComparisonFormSchema,
+	maxComparedVersionCount,
+} from "../../schemas";
 
 const profileId = "object_weapon_equipment_states";
 const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
@@ -24,6 +33,11 @@ const emptyObservations = {
 	materialLanguage: "",
 	stateDirectionDistinction: "",
 };
+
+interface ComparisonFormValues {
+	observations: typeof emptyObservations;
+	selectedRecordIds: string[];
+}
 
 const observationLabels = {
 	scale: "Ölçek gözlemi",
@@ -50,13 +64,27 @@ export function AssetFamilyComparisonManager({
 	familyName: string;
 	projectId: string;
 }) {
+	const queryClient = useQueryClient();
+	const saveComparison = useMutation(
+		orpc.assetFamilyComparisons.save.mutationOptions()
+	);
 	const query = useQuery(
 		orpc.assetFamilyComparisons.list.queryOptions({
 			input: { projectId, assetFamilyId },
 		})
 	);
-	const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
-	const [observations, setObservations] = useState(emptyObservations);
+	const form = useForm({
+		defaultValues: {
+			selectedRecordIds: [] as string[],
+			observations: emptyObservations,
+		},
+		validators: { onChange: assetFamilyComparisonFormSchema },
+		onSubmit: ({ value }) => save(value),
+	});
+	const { selectedRecordIds, observations } = useStore(
+		form.store,
+		(state) => state.values
+	);
 	const [selected, setSelected] = useState<AssetFamilyComparisonRecord | null>(
 		null
 	);
@@ -110,30 +138,43 @@ export function AssetFamilyComparisonManager({
 		!query.isPending &&
 		!query.isError;
 
-	async function save() {
+	async function save(values: ComparisonFormValues) {
+		const selectedForSave = values.selectedRecordIds.flatMap(
+			(assetRecordId) => {
+				const record = eligibleRecords.find(
+					(candidate) => candidate.id === assetRecordId
+				);
+				const version = currentVersionByRecord.get(assetRecordId);
+				return record && version ? [{ record, version }] : [];
+			}
+		);
 		const input: AssetFamilyComparisonInput = {
 			id: crypto.randomUUID(),
 			projectId,
 			assetFamilyId,
 			contractRevisionId: activation.contractRevisionId,
-			assetVersions: selectedVersions.map(({ record, version }) => ({
+			assetVersions: selectedForSave.map(({ record, version }) => ({
 				assetRecordId: record.id,
 				assetVersionId: version.id,
 				unitVersionIds: (unitVersionsByAssetVersion.get(version.id) ?? []).map(
 					(unitVersion) => unitVersion.id
 				),
 			})),
-			observations,
+			observations: values.observations,
 		};
 		setSaving(true);
 		setMessage("");
 		setPendingId(input.id);
 		try {
-			const record = await client.assetFamilyComparisons.save(input);
+			const record = await saveComparison.mutateAsync(input);
 			setSelected(record);
 			setPendingId(null);
 			setMessage("Karşılaştırma kalıcı kayıttan doğrulandı.");
-			await query.refetch();
+			await queryClient.invalidateQueries({
+				queryKey: orpc.assetFamilyComparisons.list.queryKey({
+					input: { projectId, assetFamilyId },
+				}),
+			});
 		} catch (error) {
 			if (!isWriteOutcomeUncertain(error)) {
 				setPendingId(null);
@@ -254,8 +295,7 @@ export function AssetFamilyComparisonManager({
 							setSelected(null);
 							setUncertain(false);
 							setMessage("");
-							setSelectedRecordIds([]);
-							setObservations(emptyObservations);
+							form.reset();
 						}}
 						type="button"
 					>
@@ -263,45 +303,62 @@ export function AssetFamilyComparisonManager({
 					</Button>
 				</>
 			) : (
-				<div className="space-y-4">
-					<fieldset className="space-y-3" disabled={saving || uncertain}>
-						<legend className="font-medium">
+				<form
+					className="space-y-4"
+					onSubmit={(event) => {
+						event.preventDefault();
+						event.stopPropagation();
+						if (canSave) {
+							void form.handleSubmit();
+						}
+					}}
+				>
+					<FieldSet className="space-y-3" disabled={saving || uncertain}>
+						<FieldLegend className="font-medium">
 							Karşılaştırılacak güncel sürümler
-						</legend>
-						{eligibleRecords.map((record) => {
-							const version = currentVersionByRecord.get(record.id);
-							const checked = selectedRecordIds.includes(record.id);
-							return (
-								<label
-									className="flex items-start gap-3 rounded border p-3"
-									key={record.id}
-								>
-									<input
-										checked={checked}
-										disabled={
-											!version || (!checked && selectedRecordIds.length >= 100)
-										}
-										onChange={() =>
-											setSelectedRecordIds((current) =>
-												checked
-													? current.filter((id) => id !== record.id)
-													: [...current, record.id]
-											)
-										}
-										type="checkbox"
-									/>
-									<span>
-										<span className="block font-medium">{record.name}</span>
-										<span className="text-muted-foreground text-sm">
-											{version
-												? `Güncel Varlık Sürümü ${version.versionNumber}`
-												: "Karşılaştırılabilir güncel sürüm yok"}
-										</span>
-									</span>
-								</label>
-							);
-						})}
-					</fieldset>
+						</FieldLegend>
+						<form.Field name="selectedRecordIds">
+							{(field) =>
+								eligibleRecords.map((record) => {
+									const version = currentVersionByRecord.get(record.id);
+									const checked = field.state.value.includes(record.id);
+									return (
+										<Label
+											className="flex items-start gap-3 rounded border p-3 text-base leading-normal"
+											key={record.id}
+										>
+											<Checkbox
+												checked={checked}
+												disabled={
+													controlsLocked ||
+													!version ||
+													(!checked &&
+														field.state.value.length >= maxComparedVersionCount)
+												}
+												onCheckedChange={() =>
+													field.handleChange(
+														checked
+															? field.state.value.filter(
+																	(id) => id !== record.id
+																)
+															: [...field.state.value, record.id]
+													)
+												}
+											/>
+											<span>
+												<span className="block font-medium">{record.name}</span>
+												<span className="text-muted-foreground text-sm">
+													{version
+														? `Güncel Varlık Sürümü ${version.versionNumber}`
+														: "Karşılaştırılabilir güncel sürüm yok"}
+												</span>
+											</span>
+										</Label>
+									);
+								})
+							}
+						</form.Field>
+					</FieldSet>
 					{selectedVersions.length ? (
 						<div className="grid gap-4 sm:grid-cols-2">
 							{selectedVersions.map(({ record, version }) => (
@@ -323,33 +380,37 @@ export function AssetFamilyComparisonManager({
 								keyof typeof observationLabels
 							>
 						).map((key) => (
-							<label className="space-y-1" key={key}>
+							<Label
+								className="block space-y-1 text-base leading-normal"
+								key={key}
+							>
 								<span className="font-medium text-sm">
 									{observationLabels[key]}
 								</span>
-								<textarea
-									aria-label={observationLabels[key]}
-									className="min-h-24 w-full rounded border bg-background p-2"
-									disabled={saving || uncertain}
-									maxLength={1000}
-									onChange={(event) =>
-										setObservations((current) => ({
-											...current,
-											[key]: event.target.value,
-										}))
-									}
-									value={observations[key]}
-								/>
-							</label>
+								<form.Field name={`observations.${key}`}>
+									{(field) => (
+										<Textarea
+											aria-label={observationLabels[key]}
+											className="min-h-24 w-full"
+											disabled={saving || uncertain}
+											maxLength={1000}
+											onChange={(event) =>
+												field.handleChange(event.target.value)
+											}
+											value={field.state.value}
+										/>
+									)}
+								</form.Field>
+							</Label>
 						))}
 					</div>
 					<p className="text-muted-foreground text-sm">
 						Gerekli durumları Gerekli Öğeler Listesi’nde izlemeye devam edin.
 					</p>
-					<Button disabled={!canSave} onClick={() => void save()} type="button">
+					<Button disabled={!canSave} type="submit">
 						{saving ? "Kaydediliyor…" : "Karşılaştırmayı kaydet"}
 					</Button>
-				</div>
+				</form>
 			)}
 		</section>
 	);

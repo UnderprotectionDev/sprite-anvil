@@ -18,6 +18,7 @@ import { createContext } from "./context";
 import { desktopOrigins, ENV } from "./env.server";
 import { mountAssetVersionRoutes } from "./features/asset-versions/server/asset-version-routes";
 import { mountImportInboxRoutes } from "./features/imports/server/import-inbox-routes";
+import { mountImportInboxRpcGuards } from "./features/imports/server/import-inbox-rpc-guards";
 import { mountManagedSnapshotRoutes } from "./features/production-provenance/server/managed-snapshot-routes";
 import { mountProjectRoutes } from "./features/projects/server/project-routes";
 import { mountReferenceProductionRoutes } from "./features/reference-production/server/reference-production-routes";
@@ -36,7 +37,6 @@ import {
 	managedSnapshotStore,
 	referenceProductionStore,
 	rightsRecordStore,
-	sourceMetadataMappingProposalStore,
 } from "./services";
 
 const app = new Hono();
@@ -127,10 +127,10 @@ mountReferenceProductionRoutes(app, {
 	createStorage: createServerAssetVersionStorage,
 });
 
+mountImportInboxRpcGuards(app);
+
 mountImportInboxRoutes(app, {
 	importInboxStore,
-	sourceMetadataMappingProposalStore,
-	assetVersionStore,
 	getSession: (headers) => auth.api.getSession({ headers }),
 	getProjectForUser: async (userId, projectId) =>
 		getProjectForUser(db, userId, projectId),

@@ -5,12 +5,26 @@ import type {
 	UnitVersionType,
 } from "@sprite-anvil/api/asset-versions";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { type SyntheticEvent, useState } from "react";
+import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { Textarea } from "@sprite-anvil/ui/components/textarea";
+import { useForm, useStore } from "@tanstack/react-form";
 import { ENV } from "@/env";
 import type { useAssetVersionWrites } from "../../hooks/use-asset-version-writes";
 import { reviewDispositionLabels } from "../../lib/review-disposition-labels";
+import {
+	compositeVersionFormSchema,
+	reviewRationaleFormSchema,
+} from "../../schemas";
 import { AssetVersionPreview } from "./asset-version-preview";
 import { unitTypeLabels } from "./unit-version-correction-form";
+
+const selectWrapperClassName =
+	"w-full [&_select]:min-h-11 [&_select]:rounded-md [&_select]:border [&_select]:bg-background [&_select]:px-3 [&_select]:text-sm";
 
 const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
 
@@ -62,10 +76,33 @@ export function CompositeVersionControls({
 	unitVersions: UnitVersion[];
 	writes: ReturnType<typeof useAssetVersionWrites>;
 }) {
-	const [sourceCompositeVersionId, setSourceCompositeVersionId] = useState("");
-	const [selectedUnitVersionIds, setSelectedUnitVersionIds] = useState<
-		Record<string, string>
-	>({});
+	const form = useForm({
+		defaultValues: {
+			selectedUnitVersionIds: {} as Record<string, string>,
+			sourceCompositeVersionId: "",
+		},
+		onSubmit: async ({ value }) => {
+			const parsed = compositeVersionFormSchema(
+				new Set(unitVersions.map((unitVersion) => unitVersion.id))
+			).safeParse(value);
+			if (!parsed.success) {
+				return;
+			}
+			const created = await writes.createCompositeVersion(
+				assetRecordId,
+				Object.values(parsed.data.selectedUnitVersionIds).filter((id) =>
+					unitVersionsById.has(id)
+				)
+			);
+			if (created) {
+				form.reset();
+			}
+		},
+	});
+	const { selectedUnitVersionIds, sourceCompositeVersionId } = useStore(
+		form.store,
+		(state) => state.values
+	);
 	const slots = groupUnitVersions(unitVersions);
 	const formId = `composite-version-${assetRecordId}`;
 	const unitVersionsById = new Map(
@@ -82,11 +119,11 @@ export function CompositeVersionControls({
 	).filter((id) => unitVersionsById.has(id));
 
 	function chooseSourceCompositeVersion(id: string) {
-		setSourceCompositeVersionId(id);
 		const source = compositeVersions.find(
 			(compositeVersion) => compositeVersion.id === id
 		);
-		setSelectedUnitVersionIds(
+		form.setFieldValue(
+			"selectedUnitVersionIds",
 			Object.fromEntries(
 				(source?.compositionMemberships ?? []).map((membership) => [
 					getSlotKey(membership.unitType, membership.unitKey),
@@ -94,21 +131,6 @@ export function CompositeVersionControls({
 				])
 			)
 		);
-	}
-
-	async function submit(event: SyntheticEvent<HTMLFormElement>) {
-		event.preventDefault();
-		if (selectedUnitVersionIdsForSave.length === 0) {
-			return;
-		}
-		const created = await writes.createCompositeVersion(
-			assetRecordId,
-			selectedUnitVersionIdsForSave
-		);
-		if (created) {
-			setSourceCompositeVersionId("");
-			setSelectedUnitVersionIds({});
-		}
 	}
 
 	return (
@@ -132,35 +154,59 @@ export function CompositeVersionControls({
 					birimleri burada listeler.
 				</p>
 			) : (
-				<form className="space-y-3" onSubmit={submit}>
-					<label
-						className="block space-y-1 text-sm"
-						htmlFor={`${formId}-source`}
-					>
-						<span className="block">Başlangıç Birleşik Sürümü</span>
-						<select
-							className="min-h-11 w-full rounded-md border bg-background px-3"
-							disabled={writes.writesDisabled || compositeVersions.length === 0}
-							id={`${formId}-source`}
-							onChange={(event) =>
-								chooseSourceCompositeVersion(event.currentTarget.value)
-							}
-							value={sourceCompositeVersionId}
-						>
-							<option value="">Boş seçimle başla</option>
-							{compositeVersions.map((compositeVersion) => (
-								<option key={compositeVersion.id} value={compositeVersion.id}>
-									Birleşik Sürüm {compositeVersion.versionNumber} ·{" "}
-									{reviewDispositionLabels[compositeVersion.reviewDisposition]}
-								</option>
-							))}
-						</select>
-					</label>
+				<form
+					className="space-y-3"
+					onSubmit={(event) => {
+						event.preventDefault();
+						event.stopPropagation();
+						form.handleSubmit();
+					}}
+				>
+					<form.Field name="sourceCompositeVersionId">
+						{(field) => (
+							<Label
+								className="block space-y-1 text-sm"
+								htmlFor={`${formId}-source`}
+							>
+								<span className="block">Başlangıç Birleşik Sürümü</span>
+								<NativeSelect
+									className={selectWrapperClassName}
+									disabled={
+										writes.writesDisabled || compositeVersions.length === 0
+									}
+									id={`${formId}-source`}
+									onBlur={field.handleBlur}
+									onChange={(event) => {
+										field.handleChange(event.currentTarget.value);
+										chooseSourceCompositeVersion(event.currentTarget.value);
+									}}
+									value={field.state.value}
+								>
+									<NativeSelectOption value="">
+										Boş seçimle başla
+									</NativeSelectOption>
+									{compositeVersions.map((compositeVersion) => (
+										<NativeSelectOption
+											key={compositeVersion.id}
+											value={compositeVersion.id}
+										>
+											Birleşik Sürüm {compositeVersion.versionNumber} ·{" "}
+											{
+												reviewDispositionLabels[
+													compositeVersion.reviewDisposition
+												]
+											}
+										</NativeSelectOption>
+									))}
+								</NativeSelect>
+							</Label>
+						)}
+					</form.Field>
 
-					<fieldset className="space-y-3">
-						<legend className="font-medium text-sm">
+					<FieldSet className="space-y-3">
+						<FieldLegend className="mb-0">
 							Yeni Birleşik Sürümün Birim Sürümleri
-						</legend>
+						</FieldLegend>
 						<p className="text-muted-foreground text-sm">
 							Aynı birim için bir sürüm seçin veya bu birimi bileşime almayın.
 						</p>
@@ -169,47 +215,57 @@ export function CompositeVersionControls({
 								const key = getSlotKey(slot.unitType, slot.unitKey);
 								const fieldId = `${formId}-unit-${index}`;
 								return (
-									<label
-										className="space-y-1 text-sm"
-										htmlFor={fieldId}
-										key={key}
-									>
-										<span className="block">
-											{unitTypeLabels[slot.unitType]} · {slot.unitKey}
-										</span>
-										<select
-											className="min-h-11 w-full rounded-md border bg-background px-3"
-											disabled={writes.writesDisabled}
-											id={fieldId}
-											onChange={(event) => {
-												const selectedUnitVersionId = event.currentTarget.value;
-												setSelectedUnitVersionIds((current) => ({
-													...current,
-													[key]: selectedUnitVersionId,
-												}));
-											}}
-											value={selectedUnitVersionIds[key] ?? ""}
-										>
-											<option value="">Bileşime ekleme</option>
-											{slot.unitVersions.map((unitVersion) => {
-												const assetVersion = assetVersionsById.get(
-													unitVersion.assetVersionId
-												);
-												return (
-													<option key={unitVersion.id} value={unitVersion.id}>
-														Birim Sürümü {unitVersion.versionNumber}
-														{assetVersion
-															? ` · Varlık Sürümü ${assetVersion.versionNumber} · ${reviewDispositionLabels[assetVersion.reviewDisposition]}`
-															: ""}
-													</option>
-												);
-											})}
-										</select>
-									</label>
+									<form.Field key={key} name="selectedUnitVersionIds">
+										{(field) => (
+											<Label
+												className="block space-y-1 text-sm"
+												htmlFor={fieldId}
+											>
+												<span className="block">
+													{unitTypeLabels[slot.unitType]} · {slot.unitKey}
+												</span>
+												<NativeSelect
+													className={selectWrapperClassName}
+													disabled={writes.writesDisabled}
+													id={fieldId}
+													onBlur={field.handleBlur}
+													onChange={(event) => {
+														const selectedUnitVersionId =
+															event.currentTarget.value;
+														field.handleChange({
+															...field.state.value,
+															[key]: selectedUnitVersionId,
+														});
+													}}
+													value={field.state.value[key] ?? ""}
+												>
+													<NativeSelectOption value="">
+														Bileşime ekleme
+													</NativeSelectOption>
+													{slot.unitVersions.map((unitVersion) => {
+														const assetVersion = assetVersionsById.get(
+															unitVersion.assetVersionId
+														);
+														return (
+															<NativeSelectOption
+																key={unitVersion.id}
+																value={unitVersion.id}
+															>
+																Birim Sürümü {unitVersion.versionNumber}
+																{assetVersion
+																	? ` · Varlık Sürümü ${assetVersion.versionNumber} · ${reviewDispositionLabels[assetVersion.reviewDisposition]}`
+																	: ""}
+															</NativeSelectOption>
+														);
+													})}
+												</NativeSelect>
+											</Label>
+										)}
+									</form.Field>
 								);
 							})}
 						</div>
-					</fieldset>
+					</FieldSet>
 					<Button
 						disabled={
 							writes.writesDisabled ||
@@ -340,7 +396,11 @@ function CompositeVersionReviewControls({
 	compositeVersion: CompositeVersion;
 	writes: ReturnType<typeof useAssetVersionWrites>;
 }) {
-	const [rationale, setRationale] = useState("");
+	const form = useForm({
+		defaultValues: { rationale: "" },
+		validators: { onChange: reviewRationaleFormSchema },
+	});
+	const rationale = useStore(form.store, (state) => state.values.rationale);
 	const review = (decision: "approved" | "candidate" | "rejected") =>
 		void writes.reviewCompositeVersion(
 			compositeVersion.id,
@@ -350,23 +410,30 @@ function CompositeVersionReviewControls({
 
 	return (
 		<div className="space-y-2">
-			<label
+			<Label
 				className="block space-y-1 text-sm"
 				htmlFor={`composite-review-rationale-${compositeVersion.id}`}
 			>
 				<span>
 					Birleşik Sürüm {compositeVersion.versionNumber} inceleme gerekçesi
 				</span>
-				<textarea
-					className="min-h-20 w-full rounded-md border bg-background px-3 py-2"
-					disabled={writes.writesDisabled}
-					id={`composite-review-rationale-${compositeVersion.id}`}
-					maxLength={2000}
-					onChange={(event) => setRationale(event.currentTarget.value)}
-					required
-					value={rationale}
-				/>
-			</label>
+				<form.Field name="rationale">
+					{(field) => (
+						<Textarea
+							className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm md:text-sm"
+							disabled={writes.writesDisabled}
+							id={`composite-review-rationale-${compositeVersion.id}`}
+							maxLength={2000}
+							onBlur={field.handleBlur}
+							onChange={(event) =>
+								field.handleChange(event.currentTarget.value)
+							}
+							required
+							value={field.state.value}
+						/>
+					)}
+				</form.Field>
+			</Label>
 			<div className="flex flex-wrap gap-2">
 				{compositeVersion.reviewDisposition === "approved" ? null : (
 					<Button

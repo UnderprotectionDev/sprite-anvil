@@ -8,11 +8,15 @@ import {
 } from "@sprite-anvil/ui/components/dialog";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { type SyntheticEvent, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
-import { client, orpc } from "@/utils/orpc";
-import { CreateProjectForm } from "../forms/create-project-form";
+import { orpc } from "@/utils/orpc";
+import type { CreateProjectFormValues } from "../../schemas";
+import {
+	CreateProjectForm,
+	useCreateProjectForm,
+} from "../forms/create-project-form";
 
 export function ProjectsView() {
 	const queryClient = useQueryClient();
@@ -20,8 +24,7 @@ export function ProjectsView() {
 	const projectsQuery = useQuery({
 		...projectsQueryOptions,
 	});
-	const [name, setName] = useState("");
-	const [generalArtDirection, setGeneralArtDirection] = useState("");
+	const createProjectForm = useCreateProjectForm(handleCreateProject);
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 	const [verificationMessage, setVerificationMessage] = useState<string | null>(
 		null
@@ -30,34 +33,35 @@ export function ProjectsView() {
 	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
 	const [isCheckingProjectState, setIsCheckingProjectState] = useState(false);
 	const projectIdsBeforeCreate = useRef<Set<string>>(new Set());
-	const createProject = useMutation({
-		mutationFn: (input: { name: string; generalArtDirection: string }) =>
-			client.projects.create(input),
-		onSuccess: async (project) => {
-			queryClient.setQueryData(
-				projectsQueryOptions.queryKey,
-				(current: typeof projectsQuery.data) => {
-					if (current?.some((item) => item.id === project.id)) {
-						return current;
+	const createProject = useMutation(
+		orpc.projects.create.mutationOptions({
+			onSuccess: async (project) => {
+				queryClient.setQueryData(
+					projectsQueryOptions.queryKey,
+					(current: typeof projectsQuery.data) => {
+						if (current?.some((item) => item.id === project.id)) {
+							return current;
+						}
+						return [...(current ?? []), project];
 					}
-					return [...(current ?? []), project];
+				);
+				createProjectForm.reset();
+				setIsCreateOpen(false);
+				setStatusMessage("Oyun projesi kaydedildi.");
+				await queryClient.invalidateQueries({
+					queryKey: projectsQueryOptions.queryKey,
+				});
+				await queryClient.invalidateQueries({
+					queryKey: orpc.projectContexts.list.queryKey(),
+				});
+			},
+			onError: (error) => {
+				if (isWriteOutcomeUncertain(error)) {
+					setWriteOutcomeUncertain(true);
 				}
-			);
-			setName("");
-			setGeneralArtDirection("");
-			setIsCreateOpen(false);
-			setStatusMessage("Oyun projesi kaydedildi.");
-			await projectsQuery.refetch();
-			await queryClient.invalidateQueries({
-				queryKey: orpc.projectContexts.list.queryKey(),
-			});
-		},
-		onError: (error) => {
-			if (isWriteOutcomeUncertain(error)) {
-				setWriteOutcomeUncertain(true);
-			}
-		},
-	});
+			},
+		})
+	);
 
 	async function refreshProjects() {
 		setIsCheckingProjectState(true);
@@ -71,12 +75,11 @@ export function ProjectsView() {
 				setWriteOutcomeUncertain(false);
 				const savedProject = result.data?.find(
 					(project) =>
-						project.name === name.trim() &&
+						project.name === createProjectForm.state.values.name.trim() &&
 						!projectIdsBeforeCreate.current.has(project.id)
 				);
 				if (savedProject) {
-					setName("");
-					setGeneralArtDirection("");
+					createProjectForm.reset();
 					setIsCreateOpen(false);
 					setStatusMessage("Oyun projesi kaydedildi.");
 				} else {
@@ -90,14 +93,8 @@ export function ProjectsView() {
 		}
 	}
 
-	function handleCreateProject(event: SyntheticEvent<HTMLFormElement>) {
-		event.preventDefault();
+	function handleCreateProject(input: CreateProjectFormValues) {
 		if (writeOutcomeUncertain || createProject.isPending) {
-			return;
-		}
-		const trimmedName = name.trim();
-		const trimmedArtDirection = generalArtDirection.trim();
-		if (trimmedName.length === 0 || trimmedArtDirection.length === 0) {
 			return;
 		}
 		setStatusMessage(null);
@@ -105,10 +102,7 @@ export function ProjectsView() {
 		projectIdsBeforeCreate.current = new Set(
 			projectsQuery.data?.map((project) => project.id) ?? []
 		);
-		createProject.mutate({
-			name: trimmedName,
-			generalArtDirection: trimmedArtDirection,
-		});
+		createProject.mutate(input);
 	}
 
 	return (
@@ -177,12 +171,8 @@ export function ProjectsView() {
 						</DialogDescription>
 					</DialogHeader>
 					<CreateProjectForm
-						generalArtDirection={generalArtDirection}
+						form={createProjectForm}
 						isSaving={createProject.isPending}
-						name={name}
-						onGeneralArtDirectionChange={setGeneralArtDirection}
-						onNameChange={setName}
-						onSubmit={handleCreateProject}
 						writeOutcomeUncertain={writeOutcomeUncertain}
 					/>
 					{writeOutcomeUncertain ? (

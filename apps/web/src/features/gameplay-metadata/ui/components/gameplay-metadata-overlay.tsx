@@ -1,4 +1,7 @@
 import type { GameplayMetadataRecord } from "@sprite-anvil/api/gameplay-metadata";
+import { Checkbox } from "@sprite-anvil/ui/components/checkbox";
+import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
+import { Label } from "@sprite-anvil/ui/components/label";
 import type {
 	Application as PixiApplication,
 	Graphics as PixiGraphics,
@@ -159,29 +162,28 @@ export function GameplayMetadataOverlay({
 	}, [record, previewUrl, visibleFields, onReady]);
 	return (
 		<div className="space-y-2">
-			<fieldset className="flex flex-wrap gap-3">
-				<legend>Görsel katmanlar</legend>
+			<FieldSet className="flex-row flex-wrap gap-3">
+				<FieldLegend>Görsel katmanlar</FieldLegend>
 				{record.fields.map((field) => (
-					<label className="flex items-center gap-1" key={field.fieldId}>
-						<input
+					<Label className="gap-1 text-sm" key={field.fieldId}>
+						<Checkbox
 							checked={visibleFields.includes(field.fieldId)}
-							onChange={(event) =>
+							onCheckedChange={(checked) =>
 								setVisibleFields(
-									event.target.checked
+									checked
 										? [...visibleFields, field.fieldId]
 										: visibleFields.filter(
 												(fieldId) => fieldId !== field.fieldId
 											)
 								)
 							}
-							type="checkbox"
 						/>
 						{record.contractSnapshot?.metadataFields.find(
 							(definition) => definition.id === field.fieldId
 						)?.label ?? field.fieldId}
-					</label>
+					</Label>
 				))}
-			</fieldset>
+			</FieldSet>
 			<div className="relative w-fit max-w-full">
 				<div ref={host} />
 				{events?.value !== null &&

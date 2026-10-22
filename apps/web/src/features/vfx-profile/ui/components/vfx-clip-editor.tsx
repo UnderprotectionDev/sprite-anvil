@@ -1,7 +1,15 @@
 import type { AssetVersionCatalog } from "@sprite-anvil/api/asset-versions";
 import type { VfxClip, VfxFrame } from "@sprite-anvil/api/vfx-synchronization";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useState } from "react";
+import { Checkbox } from "@sprite-anvil/ui/components/checkbox";
+import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
+import { Input } from "@sprite-anvil/ui/components/input";
+import { Label } from "@sprite-anvil/ui/components/label";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { useId, useState } from "react";
 
 export function emptyVfxFrame(): VfxFrame {
 	return {
@@ -19,15 +27,18 @@ export function VfxClipEditor({
 	catalog,
 	recordNames,
 	versionIds,
-	onChange,
+	disabled,
+	onValueChange,
 }: {
 	label: string;
 	clip: VfxClip;
 	catalog: AssetVersionCatalog;
 	recordNames: Record<string, string>;
 	versionIds: Set<string>;
-	onChange: (clip: VfxClip) => void;
+	disabled: boolean;
+	onValueChange: (clip: VfxClip) => void;
 }) {
+	const loopId = useId();
 	const [rowKeys, setRowKeys] = useState(() =>
 		clip.frames.map(() => crypto.randomUUID())
 	);
@@ -35,30 +46,33 @@ export function VfxClipEditor({
 		(u) => u.unitType === "frame" && versionIds.has(u.assetVersionId)
 	);
 	const updateFrame = (index: number, frame: VfxFrame) =>
-		onChange({
+		onValueChange({
 			...clip,
 			frames: clip.frames.map((f, i) => (i === index ? frame : f)),
 		});
 	return (
-		<fieldset className="space-y-3 rounded border p-3">
-			<legend>{label}</legend>
-			<label className="flex gap-2">
-				<input
+		<FieldSet className="space-y-3 rounded border p-3">
+			<FieldLegend>{label}</FieldLegend>
+			<Label className="flex gap-2" htmlFor={loopId}>
+				<Checkbox
 					checked={clip.looping}
-					onChange={(e) => onChange({ ...clip, looping: e.target.checked })}
-					type="checkbox"
+					disabled={disabled}
+					id={loopId}
+					onCheckedChange={(checked) =>
+						onValueChange({ ...clip, looping: checked })
+					}
 				/>{" "}
 				Loop
-			</label>
+			</Label>
 			{clip.frames.map((frame, index) => (
-				<fieldset className="space-y-2 rounded border p-2" key={rowKeys[index]}>
-					<legend>
+				<FieldSet className="space-y-2 rounded border p-2" key={rowKeys[index]}>
+					<FieldLegend>
 						{label} frame {index + 1}
-					</legend>
-					<label className="block">
+					</FieldLegend>
+					<Label className="block">
 						Frame version
-						<select
-							className="block w-full rounded border bg-background p-2"
+						<NativeSelect
+							className="block w-full"
 							onChange={(e) => {
 								const unit = units.find((u) => u.id === e.target.value);
 								if (unit) {
@@ -72,23 +86,23 @@ export function VfxClipEditor({
 							}}
 							value={frame.unitVersionId}
 						>
-							<option value="">Choose a frame</option>
+							<NativeSelectOption value="">Choose a frame</NativeSelectOption>
 							{units.map((u) => (
-								<option key={u.id} value={u.id}>
+								<NativeSelectOption key={u.id} value={u.id}>
 									{recordNames[u.assetRecordId] ?? u.assetRecordId} ·{" "}
 									{u.unitKey} · Unit Version {u.versionNumber} · Asset Version{" "}
 									{
 										catalog.assetVersions.find((v) => v.id === u.assetVersionId)
 											?.versionNumber
 									}
-								</option>
+								</NativeSelectOption>
 							))}
-						</select>
-					</label>
+						</NativeSelect>
+					</Label>
 					<div className="flex flex-wrap gap-3">
-						<label>
+						<Label className="block">
 							Duration (ms)
-							<input
+							<Input
 								className="block w-28 rounded border p-2"
 								max={60_000}
 								min={1}
@@ -101,11 +115,11 @@ export function VfxClipEditor({
 								type="number"
 								value={frame.durationMs}
 							/>
-						</label>
+						</Label>
 						{(["x", "y", "width", "height"] as const).map((key) => (
-							<label key={key}>
+							<Label className="block" key={key}>
 								Region {key}
-								<input
+								<Input
 									className="block w-24 rounded border p-2"
 									max={16_384}
 									min={key === "width" || key === "height" ? 1 : 0}
@@ -121,12 +135,12 @@ export function VfxClipEditor({
 									type="number"
 									value={frame.region[key]}
 								/>
-							</label>
+							</Label>
 						))}
 						{(["x", "y"] as const).map((key) => (
-							<label key={key}>
+							<Label className="block" key={key}>
 								Origin {key}
-								<input
+								<Input
 									className="block w-24 rounded border p-2"
 									max={16_384}
 									min={-16_384}
@@ -142,14 +156,14 @@ export function VfxClipEditor({
 									type="number"
 									value={frame.origin[key]}
 								/>
-							</label>
+							</Label>
 						))}
 					</div>
 					<Button
 						disabled={clip.frames.length === 1}
 						onClick={() => {
 							setRowKeys((keys) => keys.filter((_, i) => i !== index));
-							onChange({
+							onValueChange({
 								...clip,
 								frames: clip.frames.filter((_, i) => i !== index),
 							});
@@ -158,13 +172,16 @@ export function VfxClipEditor({
 					>
 						Remove frame
 					</Button>
-				</fieldset>
+				</FieldSet>
 			))}
 			<Button
 				disabled={clip.frames.length >= 64}
 				onClick={() => {
 					setRowKeys((keys) => [...keys, crypto.randomUUID()]);
-					onChange({ ...clip, frames: [...clip.frames, emptyVfxFrame()] });
+					onValueChange({
+						...clip,
+						frames: [...clip.frames, emptyVfxFrame()],
+					});
 				}}
 				type="button"
 			>
@@ -174,6 +191,6 @@ export function VfxClipEditor({
 				Origin uses source image pixels from the top left. The owner origin is
 				the attachment point. Frame order follows this list.
 			</p>
-		</fieldset>
+		</FieldSet>
 	);
 }

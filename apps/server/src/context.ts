@@ -5,6 +5,10 @@ import { verifyAssetVersionStream } from "./features/asset-versions/server/asset
 import { readAnimationMetadataPackageTarget } from "./features/character-animation-profile/server/animation-metadata-package-target";
 import { readGameplayMetadataPackageTarget } from "./features/gameplay-metadata/server/gameplay-metadata-package-target";
 import { reviewGameplayMetadata } from "./features/gameplay-metadata/server/gameplay-metadata-review";
+import {
+	createSourceMetadataMappingFinalizer,
+	createSourceMetadataMappingProposalCreator,
+} from "./features/imports/server/source-metadata-mapping-procedures";
 import { checkTextureEdges } from "./features/tileset-texture-profile/server/texture-image-reader";
 import { decodeVfxFrame } from "./features/vfx-profile/server/vfx-frame-decoder";
 import { readVfxImageDimensions } from "./features/vfx-profile/server/vfx-image-dimensions";
@@ -27,6 +31,7 @@ import {
 	gameplayMetadataStore,
 	generationPackageStore,
 	iconFamilyReviewStore,
+	importInboxStore,
 	marketingUsageReviewStore,
 	portraitIdentityReviewStore,
 	projectAccess,
@@ -36,6 +41,7 @@ import {
 	referenceProductionStore,
 	rightsRecordStore,
 	sceneQaStore,
+	sourceMetadataMappingProposalStore,
 	specializedProfileContractStore,
 	textureRepetitionReviewStore,
 	tilesetAdjacencyReviewStore,
@@ -44,6 +50,18 @@ import {
 	vfxAppearanceReviewStore,
 	vfxSynchronizationStore,
 } from "./services";
+
+const sourceMetadataMappingDependencies = {
+	assetVersionStore,
+	createStorage: createServerAssetVersionStorage,
+	importInboxStore,
+	sourceMetadataMappingProposalStore,
+};
+const createSourceMetadataMappingProposal =
+	createSourceMetadataMappingProposalCreator(sourceMetadataMappingDependencies);
+const finalizeSourceMetadataMapping = createSourceMetadataMappingFinalizer(
+	sourceMetadataMappingDependencies
+);
 
 export interface CreateContextOptions {
 	context: HonoContext;
@@ -161,6 +179,10 @@ export async function createContext({
 		providerGenerationRecordStore,
 		referenceProductionStore,
 		rightsRecordStore,
+		importInboxStore,
+		sourceMetadataMappingProposalStore,
+		createSourceMetadataMappingProposal,
+		finalizeSourceMetadataMapping,
 		specializedProfileContractStore,
 		session,
 	};
