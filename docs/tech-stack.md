@@ -38,6 +38,7 @@ Each responsibility is built with its technology, not with the substitute beside
 | Long lists | TanStack Virtual | Hand-written windowing |
 | Drag and drop | dnd-kit | HTML drag events on sortable items |
 | Navigation | TanStack Router | `window.location` assignment, or `<a href>` to an app route |
+| Dithered fades and fills (ink fades, media surfaces) | Pre-generated static SVG images, a 2px cell and the ink colour from the Design Language, referenced as CSS images | A dither or noise library, a canvas or shader pass at runtime, or CSS gradients |
 
 ## Pixel Editor
 
