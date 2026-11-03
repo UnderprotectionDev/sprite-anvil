@@ -3,10 +3,13 @@ import { assetVersionReviewDispositionSchema } from "./asset-versions";
 import type { GenerationPackage } from "./generation-packages";
 import { generationPackageSchema } from "./generation-packages";
 import {
-	contextProposalSchema,
-	contextRuleChangeSchema,
 	productionExperimentComparedInputs,
 	productionExperimentOutcomes,
+	productionExperimentTrialSchema,
+} from "./production-experiment-trials";
+import {
+	contextProposalSchema,
+	contextRuleChangeSchema,
 } from "./project-context";
 import { providerGenerationRecordSchema } from "./provider-generation-records";
 
@@ -23,17 +26,6 @@ export const productionExperimentOutcomeSchema = z.enum(
 export const productionExperimentComparedInputSchema = z.enum(
 	productionExperimentComparedInputs
 );
-
-export const productionExperimentTrialSchema = z
-	.object({
-		assetVersionId: idSchema,
-		createdAt: z.iso.datetime(),
-		generationPackageId: idSchema,
-		id: idSchema,
-		label: labelSchema,
-		position: z.number().int().nonnegative(),
-	})
-	.strict();
 
 export const productionExperimentConclusionSchema = z
 	.object({
@@ -242,6 +234,10 @@ function stableJson(value: unknown): string {
 	return JSON.stringify(value) ?? "null";
 }
 
+function assertNever(value: never): never {
+	throw new Error(`Unhandled compared input: ${String(value)}`);
+}
+
 function pickInputValue(
 	input: (typeof productionExperimentComparedInputs)[number],
 	trial: ComparableTrial
@@ -269,7 +265,7 @@ function pickInputValue(
 		case "provider_parameters":
 			return trial.providerParameters;
 		default:
-			return null;
+			return assertNever(input);
 	}
 }
 
@@ -315,7 +311,7 @@ export function compareProductionExperimentTrials(
 		.filter((entry) => entry.status === "different")
 		.map((entry) => entry.input);
 	return {
-		causeCanBeSeparated: changedInputs.length <= 1,
+		causeCanBeSeparated: changedInputs.length === 1,
 		changedInputs,
 		inputs,
 		statement: describeComparison(changedInputs),

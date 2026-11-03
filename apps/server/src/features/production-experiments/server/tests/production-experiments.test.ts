@@ -20,6 +20,8 @@ const versionBId = "5d0c6a5b-1c1c-4b0b-9b1b-0a1b2c3d4e5f";
 const versionCId = "6e1d7b6c-2d2d-4c1c-8c2c-1b2c3d4e5f60";
 const foreignVersionId = "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d";
 const unknownId = "11111111-2222-4333-8444-555555555555";
+const pinnedInputMessage = /Generation Package or Candidate Version/;
+const productionExperimentMessage = /Production Experiment/;
 const causalWording = /\bcaused\b|\bbecause\b/i;
 const timestamp = "2026-09-28T09:00:00.000Z";
 
@@ -250,6 +252,8 @@ test("groups trials and rereads each pinned Generation Package and Candidate Ver
 	]);
 	expect(reread.comparison.changedInputs).toEqual([]);
 	expect(reread.comparison.statement).toContain("No recorded input differs");
+	expect(reread.comparison.causeCanBeSeparated).toBe(false);
+	expect(reread.comparison.statement).not.toMatch(causalWording);
 	const listed = await call(
 		appRouter.productionExperiments.list,
 		{ assetRecordId, projectId },
@@ -529,4 +533,34 @@ test("rejects unauthenticated and unowned access", async () => {
 			context: unowned,
 		})
 	).rejects.toMatchObject({ code: "NOT_FOUND" });
+});
+
+test("reports a conflict instead of a server error when a pinned input is missing", async () => {
+	const { context, packages } = createTestContext();
+	const { id } = await createExperiment(context);
+	packages.splice(0, 1);
+
+	await expect(
+		call(
+			appRouter.productionExperiments.get,
+			{ experimentId: id, projectId },
+			{ context }
+		)
+	).rejects.toMatchObject({
+		code: "CONFLICT",
+		message: expect.stringMatching(pinnedInputMessage),
+	});
+});
+
+test("uses English interface copy for failures", async () => {
+	const { context } = createTestContext();
+	await expect(
+		call(
+			appRouter.productionExperiments.get,
+			{ experimentId: unknownId, projectId },
+			{ context }
+		)
+	).rejects.toMatchObject({
+		message: expect.stringMatching(productionExperimentMessage),
+	});
 });

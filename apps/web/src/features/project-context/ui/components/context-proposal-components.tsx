@@ -676,8 +676,16 @@ function describeProposalSource(source: ContextProposal["source"]) {
 		case "structured_control":
 			return `Yapılandırılmış kontrol · ${source.controlId}`;
 		case "production_experiment":
-			return `Üretim Deneyi · ${source.experimentId}`;
-		default:
+			return `Production Experiment · ${source.experimentId}`;
+		case "agent":
 			return `Bağlam ajanı · ${source.agentId} / ${source.modelId}`;
+		default:
+			return assertNever(source);
 	}
+}
+
+function assertNever(value: never): never {
+	throw new Error(
+		`Unhandled Context Proposal source: ${JSON.stringify(value)}`
+	);
 }
