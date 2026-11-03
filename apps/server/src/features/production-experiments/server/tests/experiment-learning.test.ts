@@ -66,7 +66,11 @@ function createPackage(id: string, overrides: Record<string, unknown> = {}) {
 	};
 }
 
-function createVersion(id: string, versionNumber: number) {
+function createVersion(
+	id: string,
+	versionNumber: number,
+	producedFromPackageId: string
+) {
 	return {
 		assetFamilyId: "cae44a22-bf95-4582-a7d1-52fa111fbfc0",
 		assetRecordId,
@@ -78,6 +82,19 @@ function createVersion(id: string, versionNumber: number) {
 		integrityVerified: true,
 		previewUrl: `/private/${id}`,
 		projectId,
+		productionEvidence: {
+			evidenceLevel: "complete",
+			managedSnapshots: [],
+			manualImportEvidence: {
+				actualInstruction: "Generate.",
+				generationPackageId: producedFromPackageId,
+				id: crypto.randomUUID(),
+				recordedAt: timestamp,
+				revision: 1,
+				sourceSurface: "Provider",
+			},
+			sourceKind: "manual_import",
+		},
 		providerGenerationRecord: null,
 		reviewDisposition: "candidate",
 		reviewEvents: [],
@@ -102,7 +119,10 @@ function createContext(options: { packageB?: Record<string, unknown> } = {}) {
 		createPackage(packageAId),
 		createPackage(packageBId, options.packageB),
 	];
-	const versions = [createVersion(versionAId, 1), createVersion(versionBId, 2)];
+	const versions = [
+		createVersion(versionAId, 1, packageAId),
+		createVersion(versionBId, 2, packageBId),
+	];
 	const productionExperimentStore: ProductionExperimentStore = {
 		conclude: (_user, input) => {
 			const experiment = experiments.find((e) => e.id === input.experimentId);
@@ -278,6 +298,7 @@ test("transfers a concluded experiment into a reviewable Context Proposal at the
 	expect(created.source).toMatchObject({
 		causeCanBeSeparated: true,
 		changedInputs: ["instruction"],
+		separability: "single_changed",
 		comment: "Try this for the whole Ember theme.",
 		experimentId: experiment.id,
 		kind: "production_experiment",
@@ -350,12 +371,31 @@ test("records that the cause cannot be separated and makes no causal claim", asy
 		throw new Error("Expected a Production Experiment source.");
 	}
 	expect(created.source.causeCanBeSeparated).toBe(false);
+	expect(created.source.separability).toBe("several_changed");
 	expect(created.source.changedInputs).toEqual([
 		"instruction",
 		"output_structure",
 	]);
 	expect(created.source.comparisonStatement).toContain("cannot be separated");
 	expect(created.source.comparisonStatement).not.toMatch(causalWording);
+});
+
+test("states that no input changed instead of calling it several", async () => {
+	const { context } = createContext();
+	const experiment = await concludedExperiment(context);
+
+	const created = await call(
+		appRouter.productionExperiments.transferLearning,
+		learningInput(experiment.id),
+		{ context }
+	);
+
+	if (created.source.kind !== "production_experiment") {
+		throw new Error("Expected a Production Experiment source.");
+	}
+	expect(created.source.causeCanBeSeparated).toBe(false);
+	expect(created.source.separability).toBe("none_changed");
+	expect(created.source.changedInputs).toEqual([]);
 });
 
 test("keeps widening the scope a user decision", async () => {

@@ -3,6 +3,7 @@ import type { ProjectContextScopeCatalog } from "./context-scopes";
 import {
 	productionExperimentComparedInputs,
 	productionExperimentOutcomes,
+	productionExperimentSeparabilities,
 	productionExperimentTrialSchema,
 } from "./production-experiment-trials";
 
@@ -72,6 +73,37 @@ export const contextScopeSchema = z.discriminatedUnion("kind", [
 ]);
 
 export type ContextScope = z.infer<typeof contextScopeSchema>;
+
+export function sameContextScope(left: ContextScope, right: ContextScope) {
+	return left.kind === right.kind && left.id === right.id;
+}
+
+/**
+ * The narrowest scope an Asset Record is registered under, followed by its
+ * wider parents. Asset-level scopes are not registered Project Context scopes
+ * yet, so the Theme (else Visual World, else Project) is the narrowest one.
+ */
+export function narrowestScopeChain(
+	projectId: string,
+	assetRecord: { themeId?: string | null; visualWorldId?: string | null },
+	catalog: ProjectContextScopeCatalog
+): ContextScope[] {
+	const project: ContextScope = { id: projectId, kind: "project" };
+	const theme = assetRecord.themeId
+		? catalog.themes.find((entry) => entry.id === assetRecord.themeId)
+		: undefined;
+	const visualWorldId = theme?.visualWorldId ?? assetRecord.visualWorldId;
+	const visualWorld = visualWorldId
+		? catalog.visualWorlds.find((entry) => entry.id === visualWorldId)
+		: undefined;
+	return [
+		...(theme ? [{ id: theme.id, kind: "theme" as const }] : []),
+		...(visualWorld
+			? [{ id: visualWorld.id, kind: "visual_world" as const }]
+			: []),
+		project,
+	];
+}
 
 const contextRuleValueSchema = z.discriminatedUnion("type", [
 	z
@@ -277,10 +309,10 @@ export const contextProposalReviewSchema = z
 export const productionExperimentLearningSourceSchema = z
 	.object({
 		kind: z.literal("production_experiment"),
-		experimentId: z.string().uuid(),
-		assetRecordId: z.string().uuid(),
+		experimentId: z.uuid(),
+		assetRecordId: z.uuid(),
 		outcome: z.enum(productionExperimentOutcomes),
-		selectedTrialId: z.string().uuid().nullable(),
+		selectedTrialId: z.uuid().nullable(),
 		comparedTrials: z
 			.array(
 				productionExperimentTrialSchema
@@ -295,8 +327,9 @@ export const productionExperimentLearningSourceSchema = z
 			.min(2)
 			.max(20),
 		changedInputs: z.array(z.enum(productionExperimentComparedInputs)),
-		// False when no input or several inputs differ.
+		// False when no input or several inputs differ; `separability` says which.
 		causeCanBeSeparated: z.boolean(),
+		separability: z.enum(productionExperimentSeparabilities),
 		comparisonStatement: z.string().min(1),
 		comment: z.string().trim().min(1).max(2000),
 		narrowestScope: contextScopeSchema,

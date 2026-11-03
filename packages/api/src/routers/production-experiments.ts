@@ -13,9 +13,10 @@ import {
 	productionExperimentListInputSchema,
 	productionExperimentSchema,
 } from "../production-experiments";
-import type { ContextScope } from "../project-context";
 import {
 	contextProposalSchema,
+	narrowestScopeChain,
+	sameContextScope,
 	validateContextProposal,
 } from "../project-context";
 
@@ -35,23 +36,35 @@ function notFound() {
 	});
 }
 
+async function readAssetRecordInputs(
+	context: Context,
+	userId: string,
+	projectId: string,
+	assetRecordId: string
+) {
+	const { generationPackageStore } = requireStores(context);
+	const [assetRecord, packages, catalog] = await Promise.all([
+		context.assetRecordStore.get(userId, projectId, assetRecordId),
+		generationPackageStore.list(userId, projectId, assetRecordId),
+		context.assetVersionStore.list(userId, projectId),
+	]);
+	if (!(assetRecord && packages && catalog)) {
+		throw notFound();
+	}
+	return { assetRecord, catalog, packages };
+}
+
 async function readTrialInputs(
 	context: Context,
 	userId: string,
 	experiment: ProductionExperiment
 ) {
-	const { generationPackageStore } = requireStores(context);
-	const [packages, catalog] = await Promise.all([
-		generationPackageStore.list(
-			userId,
-			experiment.projectId,
-			experiment.assetRecordId
-		),
-		context.assetVersionStore.list(userId, experiment.projectId),
-	]);
-	if (!(packages && catalog)) {
-		throw notFound();
-	}
+	const { catalog, packages } = await readAssetRecordInputs(
+		context,
+		userId,
+		experiment.projectId,
+		experiment.assetRecordId
+	);
 	return experiment.trials.map((trial) => {
 		const generationPackage = packages.find(
 			(entry) => entry.id === trial.generationPackageId
@@ -69,7 +82,9 @@ async function readTrialInputs(
 	});
 }
 
-function compareInputs(inputs: Awaited<ReturnType<typeof readTrialInputs>>) {
+type TrialInput = Awaited<ReturnType<typeof readTrialInputs>>[number];
+
+function compareTrialInputs(inputs: TrialInput[]) {
 	const comparable: ComparableTrial[] = inputs.map((entry) => {
 		const record = entry.candidateVersion.providerGenerationRecord;
 		return {
@@ -90,38 +105,18 @@ function compareInputs(inputs: Awaited<ReturnType<typeof readTrialInputs>>) {
 	return compareProductionExperimentTrials(comparable);
 }
 
-function sameScope(left: ContextScope, right: ContextScope) {
-	return left.kind === right.kind && left.id === right.id;
-}
-
-/**
- * The narrowest scope the Asset Record is registered under, followed by its
- * wider parents. Asset-level scopes are not registered Project Context scopes
- * yet, so the Theme (else Visual World, else Project) is the narrowest one.
- */
-function narrowestScopeChain(
-	projectId: string,
-	assetRecord: { themeId?: string | null; visualWorldId?: string | null },
-	catalog: {
-		themes: { id: string; visualWorldId: string }[];
-		visualWorlds: { id: string }[];
+/** A concluded selection must still point at one of the pinned trials. */
+function assertSelectedTrialPinned(experiment: ProductionExperiment) {
+	const selectedTrialId = experiment.conclusion?.selectedTrialId;
+	if (
+		selectedTrialId &&
+		!experiment.trials.some((trial) => trial.id === selectedTrialId)
+	) {
+		throw new ORPCError("CONFLICT", {
+			message:
+				"The selected trial of this Production Experiment is missing from its recorded trials.",
+		});
 	}
-): ContextScope[] {
-	const project: ContextScope = { id: projectId, kind: "project" };
-	const theme = assetRecord.themeId
-		? catalog.themes.find((entry) => entry.id === assetRecord.themeId)
-		: undefined;
-	const visualWorldId = theme?.visualWorldId ?? assetRecord.visualWorldId;
-	const visualWorld = visualWorldId
-		? catalog.visualWorlds.find((entry) => entry.id === visualWorldId)
-		: undefined;
-	return [
-		...(theme ? [{ id: theme.id, kind: "theme" as const }] : []),
-		...(visualWorld
-			? [{ id: visualWorld.id, kind: "visual_world" as const }]
-			: []),
-		project,
-	];
 }
 
 export const productionExperimentsRouter = {
@@ -148,6 +143,12 @@ export const productionExperimentsRouter = {
 					message: "This Production Experiment is already concluded.",
 				});
 			}
+			if (result.kind === "trial-changed") {
+				throw new ORPCError("CONFLICT", {
+					message:
+						"The selected trial changed while concluding this Production Experiment; reload and try again.",
+				});
+			}
 			if (result.kind === "trial-not-found") {
 				throw new ORPCError("BAD_REQUEST", {
 					message:
@@ -161,24 +162,13 @@ export const productionExperimentsRouter = {
 		.output(productionExperimentSchema)
 		.handler(async ({ context, input }) => {
 			const userId = context.session.user.id;
-			const { generationPackageStore, productionExperimentStore } =
-				requireStores(context);
-			const [assetRecord, packages, catalog] = await Promise.all([
-				context.assetRecordStore.get(
-					userId,
-					input.projectId,
-					input.assetRecordId
-				),
-				generationPackageStore.list(
-					userId,
-					input.projectId,
-					input.assetRecordId
-				),
-				context.assetVersionStore.list(userId, input.projectId),
-			]);
-			if (!(assetRecord && packages && catalog)) {
-				throw notFound();
-			}
+			const { productionExperimentStore } = requireStores(context);
+			const { catalog, packages } = await readAssetRecordInputs(
+				context,
+				userId,
+				input.projectId,
+				input.assetRecordId
+			);
 
 			const packageIds = new Set(
 				input.trials.map((t) => t.generationPackageId)
@@ -210,6 +200,18 @@ export const productionExperimentsRouter = {
 							"The Generation Package and Candidate Version must belong to this Asset Record.",
 					});
 				}
+				// The Candidate Version must record this very Generation Package as
+				// its production source (manual import evidence).
+				const producedFrom = catalog.assetVersions.find(
+					(entry) => entry.id === trial.assetVersionId
+				)?.productionEvidence?.manualImportEvidence?.generationPackageId;
+				if (producedFrom !== trial.generationPackageId) {
+					throw new ORPCError("BAD_REQUEST", {
+						message: producedFrom
+							? `Trial "${trial.label}": the Candidate Version was produced from a different Generation Package than the one chosen for this trial.`
+							: `Trial "${trial.label}": the Candidate Version records no Generation Package, so it cannot be paired with this trial.`,
+					});
+				}
 			}
 
 			const experiment = await productionExperimentStore.create(userId, input);
@@ -232,8 +234,9 @@ export const productionExperimentsRouter = {
 			if (!experiment) {
 				throw notFound();
 			}
+			assertSelectedTrialPinned(experiment);
 			const inputs = await readTrialInputs(context, userId, experiment);
-			const comparison = compareInputs(inputs);
+			const comparison = compareTrialInputs(inputs);
 			return {
 				assetRecordId: experiment.assetRecordId,
 				comparison,
@@ -286,6 +289,7 @@ export const productionExperimentsRouter = {
 			if (!experiment) {
 				throw notFound();
 			}
+			assertSelectedTrialPinned(experiment);
 			const { conclusion } = experiment;
 			if (!conclusion) {
 				throw new ORPCError("CONFLICT", {
@@ -321,7 +325,7 @@ export const productionExperimentsRouter = {
 			}
 			const changes = input.changes.map((change) => {
 				const index = chain.findIndex((scope) =>
-					sameScope(scope, change.scope)
+					sameContextScope(scope, change.scope)
 				);
 				const allowed = input.widenScope ? index >= 0 : index === 0;
 				if (!allowed) {
@@ -334,10 +338,10 @@ export const productionExperimentsRouter = {
 				return { ...change, precedenceChain: chain.slice(index) };
 			});
 			const scopeWidenedByUser = changes.some(
-				(change) => !sameScope(change.scope, narrowestScope)
+				(change) => !sameContextScope(change.scope, narrowestScope)
 			);
 
-			const comparison = compareInputs(trialInputs);
+			const comparison = compareTrialInputs(trialInputs);
 			const createdAt = new Date().toISOString();
 			const proposal = contextProposalSchema.parse({
 				activationAllowed: false,
@@ -351,6 +355,7 @@ export const productionExperimentsRouter = {
 				source: {
 					assetRecordId: experiment.assetRecordId,
 					causeCanBeSeparated: comparison.causeCanBeSeparated,
+					separability: comparison.separability,
 					changedInputs: comparison.changedInputs,
 					comment: input.comment,
 					comparedTrials: experiment.trials.map((trial) => ({

@@ -22,6 +22,9 @@ const foreignVersionId = "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d";
 const unknownId = "11111111-2222-4333-8444-555555555555";
 const pinnedInputMessage = /Generation Package or Candidate Version/;
 const productionExperimentMessage = /Production Experiment/;
+const differentPackageMessage = /different Generation Package/;
+const noPackageMessage = /records no Generation Package/;
+const selectedTrialMessage = /selected trial/;
 const causalWording = /\bcaused\b|\bbecause\b/i;
 const timestamp = "2026-09-28T09:00:00.000Z";
 
@@ -33,6 +36,12 @@ const record = {
 	name: "Ash Knight attack",
 	projectId,
 	supportLevel: "general",
+};
+
+const packageForVersion: Record<string, string> = {
+	[versionAId]: packageAId,
+	[versionBId]: packageBId,
+	[versionCId]: packageCId,
 };
 
 function createPackage(id: string, overrides: Record<string, unknown> = {}) {
@@ -68,7 +77,8 @@ function createVersion(
 	id: string,
 	versionNumber: number,
 	providerGenerationRecord: Record<string, unknown> | null = null,
-	forAssetRecordId = assetRecordId
+	forAssetRecordId = assetRecordId,
+	producedFromPackageId = packageForVersion[id] ?? foreignPackageId
 ) {
 	return {
 		assetFamilyId: "cae44a22-bf95-4582-a7d1-52fa111fbfc0",
@@ -81,6 +91,19 @@ function createVersion(
 		integrityVerified: true,
 		previewUrl: `/private/${id}`,
 		projectId,
+		productionEvidence: {
+			evidenceLevel: "complete",
+			managedSnapshots: [],
+			manualImportEvidence: {
+				actualInstruction: "Generate.",
+				generationPackageId: producedFromPackageId,
+				id: crypto.randomUUID(),
+				recordedAt: timestamp,
+				revision: 1,
+				sourceSurface: "Provider",
+			},
+			sourceKind: "manual_import",
+		},
 		providerGenerationRecord,
 		reviewDisposition: "candidate",
 		reviewEvents: [],
@@ -253,6 +276,7 @@ test("groups trials and rereads each pinned Generation Package and Candidate Ver
 	expect(reread.comparison.changedInputs).toEqual([]);
 	expect(reread.comparison.statement).toContain("No recorded input differs");
 	expect(reread.comparison.causeCanBeSeparated).toBe(false);
+	expect(reread.comparison.separability).toBe("none_changed");
 	expect(reread.comparison.statement).not.toMatch(causalWording);
 	const listed = await call(
 		appRouter.productionExperiments.list,
@@ -277,6 +301,7 @@ test("names a single differing input without claiming it caused the outcome", as
 
 	expect(comparison.changedInputs).toEqual(["instruction"]);
 	expect(comparison.causeCanBeSeparated).toBe(true);
+	expect(comparison.separability).toBe("single_changed");
 	expect(comparison.statement).toContain("not proof");
 	expect(comparison.statement).not.toMatch(causalWording);
 	const instruction = comparison.inputs.find(
@@ -318,6 +343,7 @@ test("states that the cause cannot be separated when several inputs differ", asy
 		"provider_parameters",
 	]);
 	expect(comparison.causeCanBeSeparated).toBe(false);
+	expect(comparison.separability).toBe("several_changed");
 	expect(comparison.statement).toContain("cannot be separated");
 });
 
@@ -496,6 +522,18 @@ test("rejects trials that are not distinct, pinned inputs of the Asset Record", 
 		[first, { ...second, assetVersionId: foreignVersionId }],
 		[first, { ...second, assetVersionId: unknownId }],
 	];
+	// Pairing: a version produced from another package is rejected, loudly.
+	await expect(
+		call(
+			appRouter.productionExperiments.create,
+			createInput([first, { ...second, generationPackageId: packageCId }]),
+			{ context }
+		)
+	).rejects.toMatchObject({
+		code: "BAD_REQUEST",
+		message: expect.stringMatching(differentPackageMessage),
+	});
+	expect(experimentStore.experiments).toHaveLength(0);
 	await Promise.all(
 		invalid.map((trials) =>
 			expect(
@@ -506,6 +544,132 @@ test("rejects trials that are not distinct, pinned inputs of the Asset Record", 
 		)
 	);
 	expect(experimentStore.experiments).toHaveLength(0);
+});
+
+test("rejects a Candidate Version that records no Generation Package", async () => {
+	const { context, versions } = createTestContext();
+	const bare = createVersion(versionBId, 2);
+	versions[1] = {
+		...bare,
+		productionEvidence: {
+			evidenceLevel: "unknown",
+			managedSnapshots: [],
+			manualImportEvidence: null,
+			sourceKind: "unknown",
+		},
+	} as unknown as (typeof versions)[number];
+
+	await expect(
+		call(appRouter.productionExperiments.create, createInput(), { context })
+	).rejects.toMatchObject({
+		code: "BAD_REQUEST",
+		message: expect.stringMatching(noPackageMessage),
+	});
+});
+
+test("fails clearly when a concluded selection points at a missing trial", async () => {
+	const { context, experimentStore } = createTestContext();
+	const { id } = await createExperiment(context);
+	const [experiment] = experimentStore.experiments;
+	if (!experiment) {
+		throw new Error("Expected an experiment.");
+	}
+	experiment.conclusion = {
+		concludedAt: timestamp,
+		note: null,
+		outcome: "selection_made",
+		selectedTrialId: unknownId,
+	};
+
+	await expect(
+		call(
+			appRouter.productionExperiments.get,
+			{ experimentId: id, projectId },
+			{ context }
+		)
+	).rejects.toMatchObject({
+		code: "CONFLICT",
+		message: expect.stringMatching(selectedTrialMessage),
+	});
+});
+
+test("reports a conflict when the selected trial changes during the write", async () => {
+	const { context, experimentStore } = createTestContext();
+	const { id, trialIds } = await createExperiment(context);
+	experimentStore.conclude = () =>
+		Promise.resolve({ kind: "trial-changed" as const });
+
+	await expect(
+		call(
+			appRouter.productionExperiments.conclude,
+			{
+				experimentId: id,
+				outcome: "selection_made",
+				projectId,
+				selectedTrialId: trialIds[0],
+			},
+			{ context }
+		)
+	).rejects.toMatchObject({ code: "CONFLICT" });
+});
+
+test("lets only a signed-in user conclude or transfer a learning", async () => {
+	// The repo has no agent-token or automation credential: every caller is a
+	// Better Auth session. Anything without a session user is turned away.
+	const { context } = createTestContext();
+	const { id, trialIds } = await createExperiment(context);
+	const nonUsers = [
+		null,
+		{},
+		{ session: { id: "automation" } },
+		{ user: null },
+	];
+	await Promise.all(
+		nonUsers.map(async (session) => {
+			const caller = { ...context, session } as unknown as Context;
+			await expect(
+				call(
+					appRouter.productionExperiments.conclude,
+					{
+						experimentId: id,
+						outcome: "selection_made",
+						projectId,
+						selectedTrialId: trialIds[0],
+					},
+					{ context: caller }
+				)
+			).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+			await expect(
+				call(
+					appRouter.productionExperiments.transferLearning,
+					{
+						baseContextRevisionId: unknownId,
+						changes: [
+							{
+								evidence: [{ kind: "user_decision", statement: "Agent says." }],
+								operation: "add",
+								rationale: "Automated.",
+								ruleId: "detail.density",
+								scope: { id: projectId, kind: "project" },
+								value: { type: "text", value: "low" },
+							},
+						],
+						comment: "Automated.",
+						experimentId: id,
+						projectId,
+						summary: "Automated",
+					},
+					{ context: caller }
+				)
+			).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+		})
+	);
+	const reread = await call(
+		appRouter.productionExperiments.get,
+		{ experimentId: id, projectId },
+		{ context }
+	);
+	expect(reread.conclusion).toBeNull();
 });
 
 test("rejects unauthenticated and unowned access", async () => {

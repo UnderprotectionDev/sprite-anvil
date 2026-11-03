@@ -672,20 +672,11 @@ function withOccurrenceKeys<T>(
 }
 
 function describeProposalSource(source: ContextProposal["source"]) {
-	switch (source.kind) {
-		case "structured_control":
-			return `Yapılandırılmış kontrol · ${source.controlId}`;
-		case "production_experiment":
-			return `Production Experiment · ${source.experimentId}`;
-		case "agent":
-			return `Bağlam ajanı · ${source.agentId} / ${source.modelId}`;
-		default:
-			return assertNever(source);
+	if (source.kind === "structured_control") {
+		return `Structured control · ${source.controlId}`;
 	}
-}
-
-function assertNever(value: never): never {
-	throw new Error(
-		`Unhandled Context Proposal source: ${JSON.stringify(value)}`
-	);
+	if (source.kind === "production_experiment") {
+		return `Production Experiment · ${source.experimentId}`;
+	}
+	return `Context agent · ${source.agentId} / ${source.modelId}`;
 }
