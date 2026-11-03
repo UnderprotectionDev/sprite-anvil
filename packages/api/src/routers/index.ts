@@ -45,6 +45,7 @@ import { iconFamilyReviewsRouter } from "./icon-family-reviews";
 import { importsRouter } from "./imports";
 import { marketingUsageReviewsRouter } from "./marketing-usage-reviews";
 import { portraitIdentityReviewsRouter } from "./portrait-identity-reviews";
+import { productionExperimentsRouter } from "./production-experiments";
 import { projectsRouter } from "./projects";
 import { referenceProductionRouter } from "./reference-production";
 import { rightsRecordsRouter } from "./rights-records";
@@ -142,6 +143,7 @@ export const appRouter = {
 	collections: collectionsRouter,
 	animationMetadataPackage: animationMetadataPackageRouter,
 	generationPackages: generationPackagesRouter,
+	productionExperiments: productionExperimentsRouter,
 	gameplayMetadata: gameplayMetadataRouter,
 	assetRecordTracking: assetRecordTrackingRouter,
 	imports: importsRouter,

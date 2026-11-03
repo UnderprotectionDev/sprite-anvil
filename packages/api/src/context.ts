@@ -27,6 +27,7 @@ import type { IconFamilyReviewStore } from "./icon-family-reviews";
 import type { ImportInboxStore } from "./import-inbox";
 import type { MarketingUsageReviewStore } from "./marketing-usage-reviews";
 import type { PortraitIdentityReviewStore } from "./portrait-identity-reviews";
+import type { ProductionExperimentStore } from "./production-experiments";
 import type { ProjectAccessStore } from "./project-access-store";
 import type { ProjectContextStore } from "./project-context";
 import type { ProviderGenerationRecordStore } from "./provider-generation-records";
@@ -81,6 +82,7 @@ export interface Context {
 	importInboxStore?: ImportInboxStore;
 	marketingUsageReviewStore?: MarketingUsageReviewStore;
 	portraitIdentityReviewStore?: PortraitIdentityReviewStore;
+	productionExperimentStore?: ProductionExperimentStore;
 	projectAccess: ProjectAccessStore;
 	projectContextScopeStore: ProjectContextScopeStore;
 	projectContextStore: ProjectContextStore;

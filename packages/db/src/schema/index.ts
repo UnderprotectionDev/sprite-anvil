@@ -24,6 +24,7 @@ export * from "./import-inbox";
 export * from "./marketing-usage-reviews";
 export * from "./pixel-editor";
 export * from "./portrait-identity-reviews";
+export * from "./production-experiments";
 export * from "./project";
 export * from "./project-access";
 export * from "./project-context";

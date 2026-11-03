@@ -28,6 +28,7 @@ import { createAssetFamilyComparisonStore } from "./features/object-equipment-pr
 import { createPixelEditorStore } from "./features/pixel-editor/server/pixel-editor-store";
 import { createMarketingUsageReviewStore } from "./features/portrait-marketing-profile/server/marketing-usage-review-store";
 import { createPortraitIdentityReviewStore } from "./features/portrait-marketing-profile/server/portrait-identity-review-store";
+import { createProductionExperimentStore } from "./features/production-experiments/server/production-experiment-store";
 import { createManagedSnapshotStore } from "./features/production-provenance/server/managed-snapshot-store";
 import { createProjectContextStore } from "./features/project-context/server/project-context-store";
 import { createProjectAccessStore } from "./features/projects/server/project-access-store";
@@ -85,6 +86,7 @@ export const dependencyRevalidationStore =
 	createDependencyRevalidationStore(db);
 export const collectionStore = createCollectionStore(db);
 export const generationPackageStore = createGenerationPackageStore(db);
+export const productionExperimentStore = createProductionExperimentStore(db);
 export const importInboxStore = createImportInboxStore(db);
 export const pixelEditorStore = createPixelEditorStore(db);
 export const sourceMetadataMappingProposalStore =
