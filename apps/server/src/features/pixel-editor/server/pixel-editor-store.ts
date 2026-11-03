@@ -5,6 +5,10 @@ import {
 	type PixelOperation,
 	pixelOperationSchema,
 } from "@sprite-anvil/api/pixel-editor";
+import {
+	type SheetStructure,
+	sheetStructureSchema,
+} from "@sprite-anvil/api/pixel-editor-structure";
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
 import { pixelEditorDrafts } from "@sprite-anvil/db/schema/pixel-editor";
 import { and, eq, sql } from "drizzle-orm";
@@ -27,6 +31,10 @@ function toRecord(
 		appliedOperationCount: row.appliedOperationCount,
 		revision: row.revision,
 		committedAssetVersionId: row.committedAssetVersionId,
+		structure:
+			row.structure === null || row.structure === undefined
+				? null
+				: sheetStructureSchema.parse(row.structure),
 		updatedAt: row.updatedAt,
 	};
 }
@@ -129,6 +137,12 @@ export function createPixelEditorStore(db: Database): PixelEditorStore {
 			return updateOpen(userId, projectId, draftId, update.expectedRevision, {
 				operations: update.operations satisfies PixelOperation[],
 				appliedOperationCount: update.appliedOperationCount,
+			});
+		},
+
+		updateStructure(userId, projectId, draftId, update) {
+			return updateOpen(userId, projectId, draftId, update.expectedRevision, {
+				structure: update.structure satisfies SheetStructure,
 			});
 		},
 

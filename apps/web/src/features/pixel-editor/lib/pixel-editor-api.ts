@@ -22,7 +22,7 @@ export class PixelEditorApiError extends Error {
 	}
 }
 
-function draftsUrl(projectId: string) {
+export function draftsUrl(projectId: string) {
 	const serverUrl = ENV.VITE_SERVER_URL.replace(trailingSlashPattern, "");
 	return `${serverUrl}/api/projects/${encodeURIComponent(projectId)}/pixel-editor/drafts`;
 }
@@ -37,7 +37,7 @@ export function pixelDraftSourceUrl(draft: PixelDraft) {
 	return `${serverUrl}${draft.sourcePreviewUrl}`;
 }
 
-async function post(url: string, body: unknown) {
+export async function post(url: string, body: unknown) {
 	const response = await fetch(url, {
 		method: "POST",
 		credentials: "include",
@@ -52,6 +52,22 @@ async function post(url: string, body: unknown) {
 			? [parsed.data.error, parsed.data.detail].filter(Boolean).join(": ")
 			: "The Working Draft request failed";
 		throw new PixelEditorApiError(message, response.status);
+	}
+	return response.json() as Promise<unknown>;
+}
+
+export async function getJson(url: string) {
+	const response = await fetch(url, { credentials: "include" });
+	if (!response.ok) {
+		const parsed = pixelEditorErrorSchema.safeParse(
+			await response.json().catch(() => null)
+		);
+		throw new PixelEditorApiError(
+			parsed.success
+				? [parsed.data.error, parsed.data.detail].filter(Boolean).join(": ")
+				: "The Working Draft request failed",
+			response.status
+		);
 	}
 	return response.json() as Promise<unknown>;
 }

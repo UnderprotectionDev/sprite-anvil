@@ -40,6 +40,9 @@ export const pixelEditorDrafts = pgTable(
 			.notNull(),
 		revision: integer("revision").default(0).notNull(),
 		committedAssetVersionId: text("committed_asset_version_id"),
+		// Frame and sprite sheet structure (slicing plus ordered frames); null
+		// until the user slices a sheet. Nullable keeps the change expansion-only.
+		structure: jsonb("structure").$type<unknown>(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		updatedAt: timestamp("updated_at").defaultNow().notNull(),
 	},
