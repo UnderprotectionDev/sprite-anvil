@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { SheetStructure } from "./pixel-editor-structure";
 
 /**
  * Last-Mile Pixel Editor contract. A Working Draft stores an ordered list of
@@ -227,6 +228,12 @@ export const pixelEditorErrors = [
 	"Nothing to redo",
 	"Source Asset Version image unavailable",
 	"Working Draft commit failed",
+	"Invalid slicing parameters",
+	"Invalid frame operation",
+	"Protected frame",
+	"Working Draft has no frame structure",
+	"Frame structure has no changes",
+	"Frame structure commit failed",
 ] as const;
 
 export const pixelEditorErrorSchema = z
@@ -257,6 +264,7 @@ export interface PixelDraftRecord {
 	revision: number;
 	sourceAssetVersionId: string;
 	status: PixelDraftStatus;
+	structure: SheetStructure | null;
 	updatedAt: Date;
 }
 
@@ -306,5 +314,11 @@ export interface PixelEditorStore {
 			expectedRevision: number;
 			operations: PixelOperation[];
 		}
+	) => Promise<PixelDraftUpdateResult | null>;
+	updateStructure: (
+		userId: string,
+		projectId: string,
+		draftId: string,
+		update: { expectedRevision: number | null; structure: SheetStructure }
 	) => Promise<PixelDraftUpdateResult | null>;
 }

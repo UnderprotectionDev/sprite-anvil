@@ -1,13 +1,8 @@
 import { createHash } from "node:crypto";
-import type {
-	AssetVersionFileRecord,
-	AssetVersionStore,
-} from "@sprite-anvil/api/asset-versions";
 import {
 	type PixelDraft,
 	type PixelDraftRecord,
 	type PixelDraftUpdateResult,
-	type PixelEditorStore,
 	type PixelOperation,
 	pixelColorReplacePreviewInputSchema,
 	pixelColorReplacePreviewSchema,
@@ -15,16 +10,25 @@ import {
 	pixelDraftHistoryInputSchema,
 	pixelDraftOpenInputSchema,
 	pixelDraftSchema,
-	pixelEditorErrorSchema,
 	pixelEditorMaxOperations,
 	pixelOperationSchema,
 } from "@sprite-anvil/api/pixel-editor";
 import type { Context, Hono } from "hono";
 import z from "zod";
+import { createProjectAssetVersionObjectKey } from "../../../cloudflare";
 import {
-	createProjectAssetVersionObjectKey,
-	type TwoDVisualAssetStorage,
-} from "../../../cloudflare";
+	type Access,
+	draftIdSchema,
+	type ErrorName,
+	fail,
+	type LoadedDraft,
+	loadDraft,
+	type PixelEditorRouteDependencies,
+	readJson,
+	readSourceRaster,
+	resolveAccess,
+} from "./pixel-editor-http";
+import { mountPixelEditorStructureRoutes } from "./pixel-editor-structure-routes";
 import {
 	applyOperation,
 	applyOperations,
@@ -34,161 +38,20 @@ import {
 	diffRasters,
 	PixelOperationError,
 	parseColor,
-	type Raster,
 } from "./pixel-operations";
-import { encodeRasterPng, readRasterFromPng } from "./pixel-raster-codec";
+import { encodeRasterPng } from "./pixel-raster-codec";
+import {
+	assertSheetEditKeepsProtectedFrames,
+	SheetStructureError,
+} from "./sheet-structure";
 
-const projectIdSchema = z.string().min(1).max(200);
-const draftIdSchema = z.string().uuid();
+export type {
+	PixelEditorRouteDependencies,
+	PixelEditorSession,
+} from "./pixel-editor-http";
+
 const fileExtensionPattern = /\.[^.]+$/;
 const expectedRevisionSchema = z.number().int().min(0);
-
-export interface PixelEditorSession {
-	user: { id: string };
-}
-
-export interface PixelEditorRouteDependencies {
-	assetVersionStore: Pick<
-		AssetVersionStore,
-		"createCandidateVersion" | "getFileRecord"
-	>;
-	createId?: () => string;
-	createStorage: () => TwoDVisualAssetStorage;
-	getProjectForUser: (
-		userId: string,
-		projectId: string
-	) => Promise<{ id: string } | null>;
-	getSession: (headers: Headers) => Promise<PixelEditorSession | null>;
-	pixelEditorStore: PixelEditorStore;
-}
-
-type ErrorName = z.infer<typeof pixelEditorErrorSchema>["error"];
-type ErrorStatus = 400 | 401 | 404 | 409 | 422 | 502 | 503;
-
-function fail(
-	c: Context,
-	error: ErrorName,
-	status: ErrorStatus,
-	detail?: string
-) {
-	c.header("Cache-Control", "private, no-store");
-	return c.json(
-		pixelEditorErrorSchema.parse({ error, ...(detail ? { detail } : {}) }),
-		status
-	);
-}
-
-type Access =
-	| { ok: true; projectId: string; userId: string }
-	| { ok: false; error: ErrorName; status: 401 | 404 };
-
-async function resolveAccess(
-	c: Context,
-	dependencies: PixelEditorRouteDependencies
-): Promise<Access> {
-	const session = await dependencies.getSession(c.req.raw.headers);
-	if (!session?.user) {
-		return { ok: false, error: "Unauthorized", status: 401 };
-	}
-	const projectId = projectIdSchema.safeParse(c.req.param("projectId"));
-	if (!projectId.success) {
-		return { ok: false, error: "Not found", status: 404 };
-	}
-	const project = await dependencies.getProjectForUser(
-		session.user.id,
-		projectId.data
-	);
-	if (!project) {
-		return { ok: false, error: "Not found", status: 404 };
-	}
-	return { ok: true, projectId: projectId.data, userId: session.user.id };
-}
-
-async function readJson(c: Context): Promise<unknown> {
-	try {
-		return await c.req.json();
-	} catch {
-		return null;
-	}
-}
-
-async function readSourceRaster(
-	dependencies: PixelEditorRouteDependencies,
-	file: AssetVersionFileRecord
-): Promise<Raster | null> {
-	if (!(file.integrityVerified && file.contentDigest)) {
-		return null;
-	}
-	const object = await dependencies
-		.createStorage()
-		.get(file.objectKey as never);
-	if (!object) {
-		return null;
-	}
-	const bytes = new Uint8Array(await new Response(object.body).arrayBuffer());
-	const digest = createHash("sha256").update(bytes).digest("hex");
-	if (
-		bytes.byteLength !== file.contentLength ||
-		digest !== file.contentDigest
-	) {
-		return null;
-	}
-	try {
-		return await readRasterFromPng(bytes);
-	} catch {
-		return null;
-	}
-}
-
-interface LoadedDraft {
-	applied: Raster;
-	draft: PixelDraftRecord;
-	source: Raster;
-	sourceFile: AssetVersionFileRecord;
-}
-
-async function loadDraft(
-	c: Context,
-	access: Extract<Access, { ok: true }>,
-	dependencies: PixelEditorRouteDependencies,
-	draftIdInput = c.req.param("draftId")
-): Promise<LoadedDraft | Response> {
-	const draftId = draftIdSchema.safeParse(draftIdInput);
-	if (!draftId.success) {
-		return fail(c, "Not found", 404);
-	}
-	const draft = await dependencies.pixelEditorStore.getDraft(
-		access.userId,
-		access.projectId,
-		draftId.data
-	);
-	if (!draft) {
-		return fail(c, "Not found", 404);
-	}
-	const sourceFile = await dependencies.assetVersionStore.getFileRecord(
-		access.userId,
-		access.projectId,
-		draft.sourceAssetVersionId
-	);
-	const source = sourceFile
-		? await readSourceRaster(dependencies, sourceFile)
-		: null;
-	if (!(sourceFile && source)) {
-		return fail(c, "Source Asset Version image unavailable", 502);
-	}
-	try {
-		const applied = applyOperations(
-			source,
-			draft.operations.slice(0, draft.appliedOperationCount)
-		);
-		return { applied, draft, source, sourceFile };
-	} catch (error) {
-		if (error instanceof PixelOperationError) {
-			return fail(c, "Invalid pixel operation", 422, error.message);
-		}
-		throw error;
-	}
-}
 
 function sortedUsage(counts: Map<string, number>, only?: Set<string>) {
 	return [...counts.entries()]
@@ -248,6 +111,16 @@ async function viewResponse(
 	}
 	c.header("Cache-Control", "private, no-store");
 	return c.json(buildView(loaded), status);
+}
+
+/** Maps a frame structure rule failure to its HTTP error; null for other errors. */
+function structureFailure(c: Context, error: unknown) {
+	if (!(error instanceof SheetStructureError)) {
+		return null;
+	}
+	return error.kind === "protected"
+		? fail(c, "Protected frame", 409, error.message)
+		: fail(c, "Invalid pixel operation", 422, error.message);
 }
 
 function mapUpdateFailure(c: Context, result: PixelDraftUpdateResult | null) {
@@ -345,8 +218,19 @@ async function applyDraftOperation(
 		);
 	}
 	try {
-		applyOperation(loaded.applied, operation.data);
+		const next = applyOperation(loaded.applied, operation.data);
+		if (loaded.draft.structure) {
+			assertSheetEditKeepsProtectedFrames(
+				loaded.draft.structure,
+				loaded.applied,
+				next
+			);
+		}
 	} catch (error) {
+		const failure = structureFailure(c, error);
+		if (failure) {
+			return failure;
+		}
 		if (error instanceof PixelOperationError) {
 			return fail(c, "Invalid pixel operation", 422, error.message);
 		}
@@ -402,6 +286,26 @@ async function moveHistory(
 	) {
 		return fail(c, "Nothing to redo", 409);
 	}
+	const appliedOperationCount =
+		draft.appliedOperationCount + (direction === "undo" ? -1 : 1);
+	if (draft.structure) {
+		try {
+			assertSheetEditKeepsProtectedFrames(
+				draft.structure,
+				loaded.applied,
+				applyOperations(
+					loaded.source,
+					draft.operations.slice(0, appliedOperationCount)
+				)
+			);
+		} catch (error) {
+			const failure = structureFailure(c, error);
+			if (failure) {
+				return failure;
+			}
+			throw error;
+		}
+	}
 	const result = await dependencies.pixelEditorStore.updateOperations(
 		access.userId,
 		access.projectId,
@@ -409,8 +313,7 @@ async function moveHistory(
 		{
 			expectedRevision: input.data.expectedRevision,
 			operations: draft.operations,
-			appliedOperationCount:
-				draft.appliedOperationCount + (direction === "undo" ? -1 : 1),
+			appliedOperationCount,
 		}
 	);
 	return (
@@ -563,6 +466,7 @@ export function mountPixelEditorRoutes(
 	dependencies: PixelEditorRouteDependencies
 ) {
 	const base = "/api/projects/:projectId/pixel-editor/drafts";
+	mountPixelEditorStructureRoutes(app, dependencies, base);
 
 	app.post(base, (c) => openDraft(c, dependencies));
 

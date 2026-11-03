@@ -24,6 +24,7 @@ import { ComparePreview } from "../components/compare-preview";
 import { PixelCanvas } from "../components/pixel-canvas";
 import { ReviewPanel } from "../components/review-panel";
 import { ToolPanel } from "../components/tool-panel";
+import { FrameStructurePanel } from "./frame-structure-panel";
 
 const zoomLevels = [1, 2, 4, 8, 16, 32];
 const compareLabels: Record<CompareMode, string> = {
@@ -271,6 +272,13 @@ export function PixelEditorView({
 					/>
 				</aside>
 			</div>
+
+			<FrameStructurePanel
+				disabled={locked}
+				draft={draft}
+				projectId={projectId}
+				sheetImage={draftImage.image}
+			/>
 		</main>
 	);
 }
