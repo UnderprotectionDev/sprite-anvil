@@ -5,15 +5,13 @@ import { generationPackageSchema } from "./generation-packages";
 import {
 	productionExperimentComparedInputs,
 	productionExperimentOutcomes,
+	productionExperimentSeparabilities,
 	productionExperimentTrialSchema,
 } from "./production-experiment-trials";
-import {
-	contextProposalSchema,
-	contextRuleChangeSchema,
-} from "./project-context";
+import { contextRuleChangeSchema } from "./project-context";
 import { providerGenerationRecordSchema } from "./provider-generation-records";
 
-type JsonValue = z.infer<ReturnType<typeof z.json>>;
+export type JsonValue = z.infer<ReturnType<typeof z.json>>;
 
 const idSchema = z.uuid();
 const labelSchema = z.string().trim().min(1).max(120);
@@ -102,6 +100,10 @@ export const productionExperimentConcludeInputSchema = z
 		}
 	});
 
+// The user authors the rule change (`changes`, `summary`, and the base
+// revision it was written against): an experiment shows what differed, never
+// which rule to adopt, so the Context Proposal needs a rule change the user
+// wrote. The experiment only supplies the evidence in the proposal source.
 export const productionExperimentLearningInputSchema = z
 	.object({
 		baseContextRevisionId: idSchema,
@@ -115,17 +117,22 @@ export const productionExperimentLearningInputSchema = z
 	})
 	.strict();
 
-export const productionExperimentLearningOutputSchema = contextProposalSchema;
+export const productionExperimentComparisonStatusSchema = z.enum([
+	"same",
+	"different",
+	"not_provided",
+]);
 
 export const productionExperimentComparisonSchema = z
 	.object({
 		causeCanBeSeparated: z.boolean(),
+		separability: z.enum(productionExperimentSeparabilities),
 		changedInputs: z.array(productionExperimentComparedInputSchema),
 		inputs: z.array(
 			z
 				.object({
 					input: productionExperimentComparedInputSchema,
-					status: z.enum(["same", "different", "not_provided"]),
+					status: productionExperimentComparisonStatusSchema,
 					trials: z.array(
 						z.object({ trialId: idSchema, value: z.json().nullable() }).strict()
 					),
@@ -163,6 +170,9 @@ export type ProductionExperiment = z.infer<typeof productionExperimentSchema>;
 export type ProductionExperimentComparison = z.infer<
 	typeof productionExperimentComparisonSchema
 >;
+export type ProductionExperimentComparisonStatus = z.infer<
+	typeof productionExperimentComparisonStatusSchema
+>;
 export type ProductionExperimentCreateInput = z.infer<
 	typeof productionExperimentCreateInputSchema
 >;
@@ -173,7 +183,9 @@ export type ProductionExperimentOutcome = z.infer<
 export type ProductionExperimentConcludeResult =
 	| { kind: "concluded"; experiment: ProductionExperiment }
 	| { kind: "already-concluded" }
-	| { kind: "trial-not-found" };
+	| { kind: "trial-not-found" }
+	// The selected trial vanished between the pre-check and the write.
+	| { kind: "trial-changed" };
 
 export interface ProductionExperimentStore {
 	conclude: (
@@ -204,7 +216,7 @@ export interface ProductionExperimentStore {
 
 export interface ComparableTrial {
 	generationPackage: GenerationPackage;
-	providerParameters: unknown;
+	providerParameters: JsonValue | null;
 	trialId: string;
 }
 
@@ -234,40 +246,25 @@ function stableJson(value: unknown): string {
 	return JSON.stringify(value) ?? "null";
 }
 
-function assertNever(value: never): never {
-	throw new Error(`Unhandled compared input: ${String(value)}`);
-}
-
-function pickInputValue(
-	input: (typeof productionExperimentComparedInputs)[number],
-	trial: ComparableTrial
-): unknown {
-	const pinned = trial.generationPackage;
-	switch (input) {
-		case "context":
-			return pinned.productionContextSnapshot;
-		case "master_design":
-			return pinned.canonicalDesign;
-		case "reference":
-			return pinned.referenceRoles;
-		case "instruction":
-			return {
-				avoidConstraints: pinned.avoidConstraints,
-				changeConstraints: pinned.changeConstraints,
-				lockedUnits: pinned.lockedUnits,
-				preserveConstraints: pinned.preserveConstraints,
-				targetTask: pinned.targetTask,
-			};
-		case "target_measure":
-			return pinned.targetDimensions;
-		case "output_structure":
-			return pinned.expectedOutputStructure;
-		case "provider_parameters":
-			return trial.providerParameters;
-		default:
-			return assertNever(input);
-	}
-}
+// A record keyed by every compared input keeps the picker exhaustive.
+const inputPickers: Record<
+	(typeof productionExperimentComparedInputs)[number],
+	(trial: ComparableTrial) => JsonValue
+> = {
+	context: (trial) => trial.generationPackage.productionContextSnapshot,
+	instruction: ({ generationPackage }) => ({
+		avoidConstraints: generationPackage.avoidConstraints,
+		changeConstraints: generationPackage.changeConstraints,
+		lockedUnits: generationPackage.lockedUnits,
+		preserveConstraints: generationPackage.preserveConstraints,
+		targetTask: generationPackage.targetTask,
+	}),
+	master_design: (trial) => trial.generationPackage.canonicalDesign,
+	output_structure: (trial) => trial.generationPackage.expectedOutputStructure,
+	provider_parameters: (trial) => trial.providerParameters,
+	reference: (trial) => trial.generationPackage.referenceRoles,
+	target_measure: (trial) => trial.generationPackage.targetDimensions,
+};
 
 function describeComparison(
 	changedInputs: (typeof productionExperimentComparedInputs)[number][]
@@ -294,10 +291,10 @@ export function compareProductionExperimentTrials(
 	const inputs = productionExperimentComparedInputs.map((input) => {
 		const values = trials.map((trial) => ({
 			trialId: trial.trialId,
-			value: pickInputValue(input, trial) as JsonValue,
+			value: inputPickers[input](trial),
 		}));
 		const distinct = new Set(values.map((entry) => stableJson(entry.value)));
-		let status: "same" | "different" | "not_provided" = "same";
+		let status: ProductionExperimentComparisonStatus = "same";
 		if (input === "provider_parameters" && distinct.size === 1) {
 			status = values.every((entry) => entry.value === null)
 				? "not_provided"
@@ -310,8 +307,16 @@ export function compareProductionExperimentTrials(
 	const changedInputs = inputs
 		.filter((entry) => entry.status === "different")
 		.map((entry) => entry.input);
+	let separability: ProductionExperimentComparison["separability"] =
+		"several_changed";
+	if (changedInputs.length === 0) {
+		separability = "none_changed";
+	} else if (changedInputs.length === 1) {
+		separability = "single_changed";
+	}
 	return {
-		causeCanBeSeparated: changedInputs.length === 1,
+		causeCanBeSeparated: separability === "single_changed",
+		separability,
 		changedInputs,
 		inputs,
 		statement: describeComparison(changedInputs),

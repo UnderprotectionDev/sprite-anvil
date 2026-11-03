@@ -15,6 +15,17 @@ export const productionExperimentComparedInputs = [
 	"provider_parameters",
 ] as const;
 
+/**
+ * Whether the recorded differences isolate one input. "none_changed" and
+ * "several_changed" both mean the cause cannot be separated, for different
+ * reasons.
+ */
+export const productionExperimentSeparabilities = [
+	"none_changed",
+	"single_changed",
+	"several_changed",
+] as const;
+
 export const productionExperimentOutcomes = [
 	"selection_made",
 	"inconclusive",

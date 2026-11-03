@@ -10,7 +10,7 @@ import {
 	productionExperimentTrials,
 } from "@sprite-anvil/db/schema/production-experiments";
 import { project } from "@sprite-anvil/db/schema/project";
-import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, exists, inArray, isNull } from "drizzle-orm";
 
 function toISOString(value: Date | string) {
 	return value instanceof Date
@@ -139,7 +139,26 @@ export function createProductionExperimentStore(
 				return { kind: "trial-not-found" };
 			}
 
-			// The outcome IS NULL guard keeps the first conclusion final.
+			// The outcome IS NULL guard keeps the first conclusion final; the EXISTS
+			// guard re-verifies the selected trial inside the write itself.
+			const selectedTrialGuard = input.selectedTrialId
+				? [
+						exists(
+							db
+								.select({ id: productionExperimentTrials.id })
+								.from(productionExperimentTrials)
+								.where(
+									and(
+										eq(
+											productionExperimentTrials.experimentId,
+											input.experimentId
+										),
+										eq(productionExperimentTrials.id, input.selectedTrialId)
+									)
+								)
+						),
+					]
+				: [];
 			const updated = await db
 				.update(productionExperiments)
 				.set({
@@ -153,12 +172,24 @@ export function createProductionExperimentStore(
 					and(
 						eq(productionExperiments.projectId, input.projectId),
 						eq(productionExperiments.id, input.experimentId),
-						isNull(productionExperiments.outcome)
+						isNull(productionExperiments.outcome),
+						...selectedTrialGuard
 					)
 				)
 				.returning({ id: productionExperiments.id });
 			if (updated.length === 0) {
-				return { kind: "already-concluded" };
+				const [current] = await readOwnedExperiments(
+					db,
+					userId,
+					input.projectId,
+					{ experimentId: input.experimentId }
+				);
+				if (!current) {
+					return null;
+				}
+				return current.conclusion
+					? { kind: "already-concluded" }
+					: { kind: "trial-changed" };
 			}
 			const [reread] = await readOwnedExperiments(db, userId, input.projectId, {
 				experimentId: input.experimentId,
