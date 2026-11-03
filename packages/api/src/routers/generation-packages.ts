@@ -1,5 +1,6 @@
 import { ORPCError } from "@orpc/server";
 import {
+	correctionErrors,
 	createGenerationPackageSnapshot,
 	type GenerationPackageSnapshot,
 	generationPackageCreateInputSchema,
@@ -8,6 +9,15 @@ import {
 } from "../generation-packages";
 import { protectedProcedure } from "../index";
 import { analyzeReferenceTransferConstraints } from "../reference-production";
+
+function throwIfInvalidCorrection(error: Error) {
+	if (Object.values<string>(correctionErrors).includes(error.message)) {
+		throw new ORPCError("BAD_REQUEST", {
+			message: "Düzeltme işaretleri veya hedef birim geçersiz.",
+			cause: error,
+		});
+	}
+}
 
 export const generationPackagesRouter = {
 	create: protectedProcedure
@@ -118,6 +128,7 @@ export const generationPackagesRouter = {
 							cause: error,
 						});
 					}
+					throwIfInvalidCorrection(error);
 					if (
 						error.message ===
 						"The current Canonical Design is missing its version."
