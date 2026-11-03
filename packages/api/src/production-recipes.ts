@@ -3,7 +3,13 @@ import {
 	referenceFeatureSchema,
 	referenceRoleSchema,
 } from "./asset-record-tracking";
-import type { GenerationPackage } from "./generation-packages";
+import type {
+	GenerationPackage,
+	GenerationPackageCreateInput,
+} from "./generation-packages";
+import { generationPackageCreateInputSchema } from "./generation-packages";
+import type { ReferenceTransferConstraintSet } from "./reference-production";
+import { analyzeReferenceTransferConstraints } from "./reference-production";
 
 const idSchema = z.uuid();
 const titleSchema = z.string().trim().min(1).max(120);
@@ -103,6 +109,35 @@ export const productionRecipeGetInputSchema = z
 
 export const productionRecipeListInputSchema = z
 	.object({ projectId: idSchema })
+	.strict();
+
+const fillInValuesSchema = z.record(
+	z.string().regex(/^[a-z][a-z0-9_]{0,39}$/),
+	z.string().max(2000)
+);
+
+/** Prepares a new Generation Package from a recipe version in the same project. */
+export const productionRecipeUseInputSchema = z
+	.object({
+		assetRecordId: idSchema,
+		// Omitted: the latest version at the time of use.
+		versionNumber: z.number().int().positive().optional(),
+		fillIns: fillInValuesSchema,
+		lockedUnitVersionIds: z.array(idSchema).max(100).default([]),
+		projectId: idSchema,
+		recipeId: idSchema,
+		targetDimensions: generationPackageCreateInputSchema.shape.targetDimensions,
+	})
+	.strict();
+
+/** Copies the latest version of a recipe into another project as version 1. */
+export const productionRecipeCopyInputSchema = z
+	.object({
+		recipeId: idSchema,
+		sourceProjectId: idSchema,
+		targetProjectId: idSchema,
+		title: titleSchema.optional(),
+	})
 	.strict();
 
 export type ProductionRecipe = z.infer<typeof productionRecipeSchema>;
@@ -237,4 +272,142 @@ export function deriveProductionRecipeContent(
 			transferredFeatures: reference.transferredFeatures,
 		})),
 	};
+}
+
+const constraintFieldKeys = {
+	avoid: "avoid_constraints",
+	change: "change_constraints",
+	preserve: "preserve_constraints",
+} as const;
+
+function splitConstraints(value: string | undefined) {
+	const lines = (value ?? "")
+		.split("\n")
+		.map((line) => line.trim())
+		.filter(Boolean);
+	return [...new Set(lines)];
+}
+
+export type ProductionRecipeUseResult =
+	| { kind: "ready"; input: GenerationPackageCreateInput }
+	| { kind: "invalid"; message: string };
+
+/**
+ * Resolves the fields of a recipe version against the values supplied at use
+ * time and builds the Generation Package request. Fixed fields keep their
+ * recipe value, every fill-in field must be supplied now, and nothing from the
+ * experiment the recipe came from is read.
+ */
+export function buildProductionRecipeUse(
+	content: ProductionRecipeContent,
+	use: {
+		assetRecordId: string;
+		fillIns: Record<string, string>;
+		lockedUnitVersionIds: string[];
+		projectId: string;
+		targetDimensions: GenerationPackageCreateInput["targetDimensions"];
+	}
+): ProductionRecipeUseResult {
+	const known = new Set(content.fields.map((field) => field.key));
+	for (const key of Object.keys(use.fillIns)) {
+		if (!known.has(key)) {
+			return { kind: "invalid", message: `Unknown field "${key}".` };
+		}
+	}
+	const values: Record<string, string> = {};
+	const missing: string[] = [];
+	for (const field of content.fields) {
+		if (field.mode === "fixed") {
+			if (field.key in use.fillIns) {
+				return {
+					kind: "invalid",
+					message: `Field "${field.key}" is fixed in this recipe and cannot be replaced at use time.`,
+				};
+			}
+			values[field.key] = field.value ?? "";
+			continue;
+		}
+		const supplied = use.fillIns[field.key]?.trim();
+		if (supplied) {
+			values[field.key] = supplied;
+		} else {
+			missing.push(field.key);
+		}
+	}
+	if (missing.length > 0) {
+		return {
+			kind: "invalid",
+			message: `Fill in these fields to use the recipe: ${missing.join(", ")}.`,
+		};
+	}
+	// One pass, so a supplied value containing {{...}} is never expanded again.
+	const targetTask = content.instructionSkeleton.replace(
+		placeholderPattern,
+		(_match, key: string) => values[key] ?? ""
+	);
+	const parsed = generationPackageCreateInputSchema.safeParse({
+		assetRecordId: use.assetRecordId,
+		avoidConstraints: splitConstraints(values[constraintFieldKeys.avoid]),
+		changeConstraints: splitConstraints(values[constraintFieldKeys.change]),
+		expectedOutputStructure: content.expectedOutputStructure,
+		lockedUnitVersionIds: use.lockedUnitVersionIds,
+		preserveConstraints: splitConstraints(values[constraintFieldKeys.preserve]),
+		projectId: use.projectId,
+		targetDimensions: use.targetDimensions,
+		targetTask,
+	});
+	if (!parsed.success) {
+		return {
+			kind: "invalid",
+			message: `The filled-in recipe does not make a valid Generation Package: ${parsed.error.issues
+				.map((issue) => issue.message)
+				.join("; ")}`,
+		};
+	}
+	return { kind: "ready", input: parsed.data };
+}
+
+export interface ProductionRecipeRoleCheck {
+	conflictFeatures: string[];
+	missingRoles: string[];
+}
+
+/**
+ * Compares the roles a recipe expects with the references selected on the
+ * target Asset Record. A role without a selected reference is missing (the
+ * user selects it separately); a recipe role that allows what a selected
+ * reference forbids, or the reverse, is a rule conflict.
+ */
+export function checkProductionRecipeRoles(
+	recipeRoles: ProductionRecipeContent["referenceRoles"],
+	selected: (ReferenceTransferConstraintSet & { role: string })[]
+): ProductionRecipeRoleCheck {
+	const missingRoles = [
+		...new Set(
+			recipeRoles
+				.filter(
+					(expected) => !selected.some((entry) => entry.role === expected.role)
+				)
+				.map((expected) => expected.role)
+		),
+	];
+	const analysis = analyzeReferenceTransferConstraints([
+		...selected,
+		...recipeRoles.map((expected, index) => ({
+			forbiddenFeatures: expected.forbiddenFeatures,
+			id: `recipe-role-${index}`,
+			transferredFeatures: expected.transferredFeatures,
+		})),
+	]);
+	return {
+		conflictFeatures: analysis.conflicts.map((conflict) => conflict.feature),
+		missingRoles,
+	};
+}
+
+/** Builds the independent copy: only the skeleton, roles, output structure and fields travel. */
+export function copyProductionRecipeContent(
+	content: ProductionRecipeContent
+): ProductionRecipeContent {
+	return productionRecipeContentSchema.parse(structuredClone(content));
 }

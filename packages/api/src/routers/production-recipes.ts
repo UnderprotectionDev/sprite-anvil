@@ -1,16 +1,22 @@
 import { ORPCError } from "@orpc/server";
 import type { Context } from "../context";
+import { generationPackageSchema } from "../generation-packages";
 import { protectedProcedure } from "../index";
 import {
+	buildProductionRecipeUse,
+	copyProductionRecipeContent,
 	deriveProductionRecipeContent,
 	type ProductionRecipeContent,
+	productionRecipeCopyInputSchema,
 	productionRecipeCreateInputSchema,
 	productionRecipeCreateVersionInputSchema,
 	productionRecipeGetInputSchema,
 	productionRecipeListInputSchema,
 	productionRecipeSchema,
+	productionRecipeUseInputSchema,
 	validateProductionRecipeContent,
 } from "../production-recipes";
+import { prepareGenerationPackage } from "./generation-packages";
 
 function requireStores(context: Context) {
 	const { generationPackageStore, productionExperimentStore } = context;
@@ -31,6 +37,15 @@ function requireStores(context: Context) {
 		productionExperimentStore,
 		productionRecipeStore,
 	};
+}
+
+function requireRecipeStore(context: Context) {
+	if (!context.productionRecipeStore) {
+		throw new ORPCError("INTERNAL_SERVER_ERROR", {
+			message: "Production Recipe storage is not configured.",
+		});
+	}
+	return context.productionRecipeStore;
 }
 
 function notFound() {
@@ -109,6 +124,45 @@ export const productionRecipesRouter = {
 			}
 			return recipe;
 		}),
+	copy: protectedProcedure
+		.input(productionRecipeCopyInputSchema)
+		.output(productionRecipeSchema)
+		.handler(async ({ context, input }) => {
+			if (input.sourceProjectId === input.targetProjectId) {
+				throw new ORPCError("BAD_REQUEST", {
+					message:
+						"Copy a Production Recipe into a different project; use it directly in its own project.",
+				});
+			}
+			const userId = context.session.user.id;
+			const productionRecipeStore = requireRecipeStore(context);
+			// Both reads require access to their project; either miss is "not found".
+			const [source, targetRecipes] = await Promise.all([
+				productionRecipeStore.get(
+					userId,
+					input.sourceProjectId,
+					input.recipeId
+				),
+				productionRecipeStore.list(userId, input.targetProjectId),
+			]);
+			const latest = source?.versions.at(-1);
+			if (!(source && latest && targetRecipes)) {
+				throw notFound();
+			}
+			// A new record at version 1: only the skeleton, roles, output structure
+			// and fields travel. Nothing links the copy back, so later source
+			// versions never reach it.
+			const copy = await productionRecipeStore.create(userId, {
+				content: copyProductionRecipeContent(latest.content),
+				projectId: input.targetProjectId,
+				source: source.source,
+				title: input.title ?? source.title,
+			});
+			if (!copy) {
+				throw notFound();
+			}
+			return copy;
+		}),
 	createVersion: protectedProcedure
 		.input(productionRecipeCreateVersionInputSchema)
 		.output(productionRecipeSchema)
@@ -164,5 +218,37 @@ export const productionRecipesRouter = {
 				throw notFound();
 			}
 			return recipes;
+		}),
+	use: protectedProcedure
+		.input(productionRecipeUseInputSchema)
+		.output(generationPackageSchema)
+		.handler(async ({ context, input }) => {
+			const userId = context.session.user.id;
+			const productionRecipeStore = requireRecipeStore(context);
+			const recipe = await productionRecipeStore.get(
+				userId,
+				input.projectId,
+				input.recipeId
+			);
+			if (!recipe) {
+				throw notFound();
+			}
+			const version = input.versionNumber
+				? recipe.versions.find(
+						(entry) => entry.versionNumber === input.versionNumber
+					)
+				: recipe.versions.at(-1);
+			if (!version) {
+				throw notFound();
+			}
+			const prepared = buildProductionRecipeUse(version.content, input);
+			if (prepared.kind === "invalid") {
+				throw new ORPCError("BAD_REQUEST", { message: prepared.message });
+			}
+			// Always a new package built from the current Project Context; the
+			// recipe's source trial, review decision and rights evidence are not read.
+			return await prepareGenerationPackage(context, userId, prepared.input, {
+				recipeRoles: version.content.referenceRoles,
+			});
 		}),
 };
