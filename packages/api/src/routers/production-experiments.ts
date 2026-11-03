@@ -31,7 +31,7 @@ function requireStores(context: Context) {
 
 function notFound() {
 	return new ORPCError("NOT_FOUND", {
-		message: "Üretim Deneyi, Varlık Kaydı veya proje bulunamadı.",
+		message: "Production Experiment, Asset Record, or project not found.",
 	});
 }
 
@@ -60,9 +60,10 @@ async function readTrialInputs(
 			(entry) => entry.id === trial.assetVersionId
 		);
 		if (!(generationPackage && candidateVersion)) {
-			throw new Error(
-				"A Production Experiment trial lost its pinned Generation Package or Candidate Version."
-			);
+			throw new ORPCError("CONFLICT", {
+				message:
+					"A Production Experiment trial lost its pinned Generation Package or Candidate Version.",
+			});
 		}
 		return { candidateVersion, generationPackage, trial };
 	});
@@ -144,12 +145,13 @@ export const productionExperimentsRouter = {
 			}
 			if (result.kind === "already-concluded") {
 				throw new ORPCError("CONFLICT", {
-					message: "Bu Üretim Deneyi zaten sonuçlandırıldı.",
+					message: "This Production Experiment is already concluded.",
 				});
 			}
 			if (result.kind === "trial-not-found") {
 				throw new ORPCError("BAD_REQUEST", {
-					message: "Seçilen deneme bu Üretim Deneyine ait değil.",
+					message:
+						"The selected trial does not belong to this Production Experiment.",
 				});
 			}
 			return result.experiment;
@@ -188,7 +190,7 @@ export const productionExperimentsRouter = {
 			) {
 				throw new ORPCError("BAD_REQUEST", {
 					message:
-						"Her deneme kendi Üretim Paketini ve Aday Sürümünü kullanmalıdır.",
+						"Each trial must use its own Generation Package and Candidate Version.",
 				});
 			}
 			for (const trial of input.trials) {
@@ -205,7 +207,7 @@ export const productionExperimentsRouter = {
 				if (!(ownsPackage && ownsVersion)) {
 					throw new ORPCError("BAD_REQUEST", {
 						message:
-							"Üretim Paketi ve Aday Sürümü bu Varlık Kaydına ait olmalıdır.",
+							"The Generation Package and Candidate Version must belong to this Asset Record.",
 					});
 				}
 			}
@@ -288,7 +290,7 @@ export const productionExperimentsRouter = {
 			if (!conclusion) {
 				throw new ORPCError("CONFLICT", {
 					message:
-						"Öğrenim yalnız sonuçlandırılmış bir Üretim Deneyinden aktarılabilir.",
+						"A learning can be transferred only from a concluded Production Experiment.",
 				});
 			}
 			const [baseRevision, assetRecord, catalog, trialInputs] =
@@ -308,7 +310,7 @@ export const productionExperimentsRouter = {
 				]);
 			if (!(baseRevision && assetRecord && catalog)) {
 				throw new ORPCError("NOT_FOUND", {
-					message: "Bağlam Sürümü, Varlık Kaydı veya proje bulunamadı.",
+					message: "Context Revision, Asset Record, or project not found.",
 				});
 			}
 
@@ -325,8 +327,8 @@ export const productionExperimentsRouter = {
 				if (!allowed) {
 					throw new ORPCError("BAD_REQUEST", {
 						message: input.widenScope
-							? "Kapsam bu Varlık Kaydının kapsam zincirinde olmalıdır."
-							: "Öneri en dar anlamlı kapsamda kalmalıdır; kapsamı genişletmek kullanıcı kararıdır.",
+							? "The scope must be in this Asset Record's scope chain."
+							: "The proposal must stay in the narrowest meaningful scope; widening it is the user's decision.",
 					});
 				}
 				return { ...change, precedenceChain: chain.slice(index) };
