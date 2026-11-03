@@ -251,6 +251,16 @@ function AssetVersionEntry({
 					{reviewDispositionLabels[version.reviewDisposition]}
 				</p>
 				<AssetVersionReviewHistory reviewEvents={version.reviewEvents} />
+				<Link
+					className="text-sm underline underline-offset-4"
+					params={{
+						assetVersionId: version.id,
+						projectId: version.projectId,
+					}}
+					to="/projects/$projectId/pixel-editor/$assetVersionId"
+				>
+					Open in Last-Mile Pixel Editor
+				</Link>
 				<p className="text-muted-foreground text-sm">
 					Dosya bütünlüğü:{" "}
 					{version.integrityVerified ? "Doğrulandı" : "Doğrulanmadı"}
