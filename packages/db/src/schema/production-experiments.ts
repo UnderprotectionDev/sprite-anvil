@@ -24,12 +24,12 @@ export const productionExperiments = pgTable(
 			.$defaultFn(() => crypto.randomUUID()),
 		projectId: text("project_id")
 			.notNull()
-			.references(() => project.id, { onDelete: "restrict" }),
+			.references(() => project.id, { onDelete: "cascade" }),
 		assetRecordId: text("asset_record_id").notNull(),
 		title: text("title").notNull(),
 		createdByUserId: text("created_by_user_id")
 			.notNull()
-			.references(() => user.id, { onDelete: "restrict" }),
+			.references(() => user.id, { onDelete: "cascade" }),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		outcome: text("outcome").$type<
 			"selection_made" | "inconclusive" | "abandoned"
@@ -39,7 +39,7 @@ export const productionExperiments = pgTable(
 		selectedTrialId: text("selected_trial_id"),
 		outcomeNote: text("outcome_note"),
 		concludedByUserId: text("concluded_by_user_id").references(() => user.id, {
-			onDelete: "restrict",
+			onDelete: "cascade",
 		}),
 		concludedAt: timestamp("concluded_at"),
 	},
@@ -48,7 +48,7 @@ export const productionExperiments = pgTable(
 			name: "production_experiments_project_asset_record_fk",
 			columns: [table.projectId, table.assetRecordId],
 			foreignColumns: [assetRecords.projectId, assetRecords.id],
-		}).onDelete("restrict"),
+		}).onDelete("cascade"),
 		uniqueIndex("production_experiments_project_record_id_idx").on(
 			table.projectId,
 			table.assetRecordId,
@@ -93,7 +93,7 @@ export const productionExperimentTrials = pgTable(
 				productionExperiments.assetRecordId,
 				productionExperiments.id,
 			],
-		}).onDelete("restrict"),
+		}).onDelete("cascade"),
 		foreignKey({
 			name: "production_experiment_trials_generation_package_fk",
 			columns: [
@@ -106,7 +106,7 @@ export const productionExperimentTrials = pgTable(
 				generationPackages.assetRecordId,
 				generationPackages.id,
 			],
-		}).onDelete("restrict"),
+		}).onDelete("cascade"),
 		foreignKey({
 			name: "production_experiment_trials_asset_version_fk",
 			columns: [table.projectId, table.assetVersionId, table.assetRecordId],
@@ -115,7 +115,7 @@ export const productionExperimentTrials = pgTable(
 				assetVersions.id,
 				assetVersions.assetRecordId,
 			],
-		}).onDelete("restrict"),
+		}).onDelete("cascade"),
 		uniqueIndex("production_experiment_trials_experiment_package_idx").on(
 			table.experimentId,
 			table.generationPackageId
