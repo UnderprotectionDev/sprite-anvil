@@ -1,13 +1,22 @@
 import { createHash } from "node:crypto";
+import type { PixelOperation } from "@sprite-anvil/api/pixel-editor";
 import {
 	type FrameOperation,
+	pixelEditorMaxFrameEdits,
 	pixelEditorMaxFrames,
 	type SheetCell,
 	type SheetFrameRecord,
 	type SheetSlicing,
 	type SheetStructure,
+	sheetStructureSchema,
 } from "@sprite-anvil/api/pixel-editor-structure";
-import { createRaster, type Raster } from "./pixel-operations";
+import {
+	anchorOffset,
+	createRaster,
+	PixelOperationError,
+	type Raster,
+	replayOperations,
+} from "./pixel-operations";
 
 /**
  * Deterministic frame and sprite sheet structure rules. Everything here is a
@@ -21,8 +30,12 @@ export type StructureFailureKind = "slicing" | "operation" | "protected";
 export class SheetStructureError extends Error {
 	readonly kind: StructureFailureKind;
 
-	constructor(kind: StructureFailureKind, message: string) {
-		super(message);
+	constructor(
+		kind: StructureFailureKind,
+		message: string,
+		options?: ErrorOptions
+	) {
+		super(message, options);
 		this.name = "SheetStructureError";
 		this.kind = kind;
 	}
@@ -107,8 +120,22 @@ function newFrame(
 		pivotX: Math.floor(slicing.cellWidth / 2),
 		pivotY: slicing.cellHeight,
 		keep: false,
+		issue: false,
+		edits: [],
 		committed: null,
 	};
+}
+
+/** Validates a structure before it is persisted; a violation is a rule failure, not a crash. */
+export function parseStructure(structure: SheetStructure): SheetStructure {
+	const parsed = sheetStructureSchema.safeParse(structure);
+	if (!parsed.success) {
+		throw new SheetStructureError(
+			"operation",
+			`The frame structure would be invalid: ${parsed.error.issues[0]?.message ?? "unknown rule"}`
+		);
+	}
+	return parsed.data;
 }
 
 /** First slicing: one frame per cell, in reading order. */
@@ -201,7 +228,40 @@ function shift(raster: Raster, dx: number, dy: number) {
 	return out;
 }
 
-/** Frame image: its origin cut at the cell size, then shifted by the frame offset. */
+function frameEditError(frame: SheetFrameRecord, cause: PixelOperationError) {
+	return new SheetStructureError(
+		"operation",
+		`${frame.key} edit failed: ${cause.message}`,
+		{ cause }
+	);
+}
+
+/** Replays a frame's own pixel edits on its base image; the size must not change. */
+function applyFrameEdits(frame: SheetFrameRecord, base: Raster) {
+	if (frame.edits.length === 0) {
+		return base;
+	}
+	try {
+		const edited = replayOperations(base, frame.edits).raster;
+		if (edited.width !== base.width || edited.height !== base.height) {
+			throw new SheetStructureError(
+				"operation",
+				`${frame.key} edits may not change the frame size`
+			);
+		}
+		return edited;
+	} catch (error) {
+		if (error instanceof PixelOperationError) {
+			throw frameEditError(frame, error);
+		}
+		throw error;
+	}
+}
+
+/**
+ * Frame image: its origin cut at the cell size, then the frame's own pixel
+ * edits (blank and Asset Version frames), then shifted by the frame offset.
+ */
 export function renderFrame(
 	frame: SheetFrameRecord,
 	cells: SheetCell[],
@@ -239,10 +299,10 @@ export function renderFrame(
 		}
 		base = raster;
 	}
-	return shift(base, frame.offsetX, frame.offsetY);
+	return shift(applyFrameEdits(frame, base), frame.offsetX, frame.offsetY);
 }
 
-/** Digest of what a Unit Version for this frame would contain: pixels, duration, pivot. */
+/** Digest of what a Unit Version for this frame would contain: pixels, duration, pivot, offset and issue mark. */
 export function frameFingerprint(frame: SheetFrameRecord, raster: Raster) {
 	const hash = createHash("sha256");
 	const normalised = new Uint8Array(raster.data.length);
@@ -253,7 +313,7 @@ export function frameFingerprint(frame: SheetFrameRecord, raster: Raster) {
 	}
 	hash.update(normalised);
 	hash.update(
-		`|${raster.width}x${raster.height}|${frame.durationMs}|${frame.pivotX},${frame.pivotY}`
+		`|${raster.width}x${raster.height}|${frame.durationMs}|${frame.pivotX},${frame.pivotY}|${frame.offsetX},${frame.offsetY}|${frame.issue ? "issue" : "ok"}`
 	);
 	return hash.digest("hex");
 }
@@ -286,6 +346,34 @@ function sameRecordExceptKeep(a: SheetFrameRecord, b: SheetFrameRecord) {
 }
 
 /**
+ * A kept frame holds its playback position: the frames that exist both before
+ * and after must be the same set in front of it, so no move can cross it.
+ * Adding or deleting other frames is not a move.
+ */
+function sameLeadingFrames(
+	before: SheetStructure,
+	after: SheetStructure,
+	index: number
+) {
+	const key = before.frames[index]?.key;
+	const beforeKeys = new Set(before.frames.map((frame) => frame.key));
+	const afterKeys = new Set(after.frames.map((frame) => frame.key));
+	const leadingBefore = before.frames
+		.slice(0, index)
+		.map((frame) => frame.key)
+		.filter((entry) => afterKeys.has(entry));
+	const afterIndex = after.frames.findIndex((frame) => frame.key === key);
+	const leadingAfter = after.frames
+		.slice(0, afterIndex)
+		.map((frame) => frame.key)
+		.filter((entry) => beforeKeys.has(entry));
+	return (
+		leadingBefore.length === leadingAfter.length &&
+		leadingBefore.every((entry) => leadingAfter.includes(entry))
+	);
+}
+
+/**
  * A protected ("keep") frame must still exist with an identical record and
  * identical pixels. Turning keep off is the only way to unlock it, and that
  * request may change nothing else about the frame or its cells, so an unlock
@@ -298,7 +386,7 @@ export function assertProtectedFramesUnchanged(
 	contexts: { after: RenderContext; before: RenderContext }
 ) {
 	const afterByKey = new Map(after.frames.map((frame) => [frame.key, frame]));
-	for (const frame of before.frames) {
+	for (const [index, frame] of before.frames.entries()) {
 		if (!frame.keep) {
 			continue;
 		}
@@ -307,6 +395,12 @@ export function assertProtectedFramesUnchanged(
 			throw new SheetStructureError(
 				"protected",
 				`${frame.key} is protected; turn off keep before deleting it`
+			);
+		}
+		if (!sameLeadingFrames(before, after, index)) {
+			throw new SheetStructureError(
+				"protected",
+				`${frame.key} is protected; turn off keep before moving frames across it`
 			);
 		}
 		const was = frameFingerprint(
@@ -471,6 +565,7 @@ export function applyFrameOperation(
 				},
 				offsetX: 0,
 				offsetY: 0,
+				edits: [],
 			});
 		case "reorder": {
 			const { frame, index } = findFrame(structure, operation.frameKey);
@@ -499,11 +594,72 @@ export function applyFrameOperation(
 				pivotX: operation.x,
 				pivotY: operation.y,
 			});
+		case "set-issue":
+			return updateFrame(structure, operation.frameKey, {
+				issue: operation.issue,
+			});
+		case "edit-pixels":
+			return editFramePixels(
+				structure,
+				operation.frameKey,
+				operation.operation,
+				sources
+			);
+		case "undo-pixel-edit": {
+			const { frame } = findFrame(structure, operation.frameKey);
+			if (frame.edits.length === 0) {
+				throw new SheetStructureError(
+					"operation",
+					`${frame.key} has no pixel edit to undo`
+				);
+			}
+			return updateFrame(structure, operation.frameKey, {
+				edits: frame.edits.slice(0, -1),
+			});
+		}
 		default:
 			return updateFrame(structure, operation.frameKey, {
 				keep: operation.keep,
 			});
 	}
+}
+
+/** Appends one pixel edit to a blank or Asset Version frame after proving it replays at the cell size. */
+function editFramePixels(
+	structure: SheetStructure,
+	frameKey: string,
+	edit: PixelOperation,
+	sources: Map<string, Raster>
+) {
+	const { frame } = findFrame(structure, frameKey);
+	const { slicing } = structure;
+	if (frame.origin.kind === "cell") {
+		throw new SheetStructureError(
+			"operation",
+			`${frame.key} is cut from the sheet; edit the sheet pixels instead`
+		);
+	}
+	if (frame.edits.length >= pixelEditorMaxFrameEdits) {
+		throw new SheetStructureError(
+			"operation",
+			`${frame.key} reached the limit of ${pixelEditorMaxFrameEdits} pixel edits`
+		);
+	}
+	const next = updateFrame(structure, frameKey, {
+		edits: [...frame.edits, edit],
+	});
+	const base =
+		frame.origin.kind === "blank"
+			? createRaster(slicing.cellWidth, slicing.cellHeight)
+			: sources.get(frame.origin.assetVersionId);
+	if (!base) {
+		throw new SheetStructureError(
+			"operation",
+			`${frame.key} image is unavailable`
+		);
+	}
+	applyFrameEdits(findFrame(next, frameKey).frame, base);
+	return next;
 }
 
 export function frameStatus(
@@ -566,4 +722,90 @@ export function assertSheetEditKeepsProtectedFrames(
 			);
 		}
 	}
+}
+
+/** How a whole-sheet edit moves the grid: a translation (crop, canvas resize) or an integer scale. */
+export type GeometryChange =
+	| { dx: number; dy: number; kind: "translate" }
+	| { factor: number; kind: "scale" };
+
+/** The grid movement of a sheet edit; null when the edit leaves the sheet geometry alone. */
+export function geometryChangeOf(
+	operation: PixelOperation,
+	before: Raster
+): GeometryChange | null {
+	switch (operation.type) {
+		case "crop":
+			return {
+				kind: "translate",
+				dx: -operation.rect.x,
+				dy: -operation.rect.y,
+			};
+		case "resize-canvas": {
+			const offset = anchorOffset(operation.anchor, before, operation);
+			return { kind: "translate", dx: offset.x, dy: offset.y };
+		}
+		case "scale":
+			return { kind: "scale", factor: operation.factor };
+		default:
+			return null;
+	}
+}
+
+function divide(value: number, factor: number, label: string) {
+	if (value % factor !== 0) {
+		throw new SheetStructureError(
+			"operation",
+			`${label} ${value} is not a multiple of ${factor}; re-slice before undoing the scale`
+		);
+	}
+	return value / factor;
+}
+
+/**
+ * Maps the grid and the frame geometry through a sheet edit, so the frames keep
+ * cutting the same pixels. `inverse` maps back (undo). Pure integer arithmetic;
+ * the caller proves the result with computeCells and the protection check.
+ */
+export function remapStructure(
+	structure: SheetStructure,
+	change: GeometryChange,
+	direction: "forward" | "inverse"
+): SheetStructure {
+	const { slicing } = structure;
+	if (change.kind === "translate") {
+		const sign = direction === "forward" ? 1 : -1;
+		const offsetX = slicing.offsetX + sign * change.dx;
+		const offsetY = slicing.offsetY + sign * change.dy;
+		if (offsetX < 0 || offsetY < 0) {
+			throw new SheetStructureError(
+				"slicing",
+				"The edit would cut into the frame grid; keep every cell inside the sheet"
+			);
+		}
+		return { ...structure, slicing: { ...slicing, offsetX, offsetY } };
+	}
+	const scale = (value: number, label: string) =>
+		direction === "forward"
+			? value * change.factor
+			: divide(value, change.factor, label);
+	return {
+		...structure,
+		slicing: {
+			...slicing,
+			cellWidth: scale(slicing.cellWidth, "Cell width"),
+			cellHeight: scale(slicing.cellHeight, "Cell height"),
+			offsetX: scale(slicing.offsetX, "Grid offset X"),
+			offsetY: scale(slicing.offsetY, "Grid offset Y"),
+			gapX: scale(slicing.gapX, "Gap X"),
+			gapY: scale(slicing.gapY, "Gap Y"),
+		},
+		frames: structure.frames.map((frame) => ({
+			...frame,
+			offsetX: scale(frame.offsetX, `${frame.key} offset X`),
+			offsetY: scale(frame.offsetY, `${frame.key} offset Y`),
+			pivotX: scale(frame.pivotX, `${frame.key} pivot X`),
+			pivotY: scale(frame.pivotY, `${frame.key} pivot Y`),
+		})),
+	};
 }

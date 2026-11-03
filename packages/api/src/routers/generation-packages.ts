@@ -1,22 +1,59 @@
 import { ORPCError } from "@orpc/server";
+import type { Context } from "../context";
 import {
 	correctionErrors,
 	createGenerationPackageSnapshot,
+	type GenerationPackageCreateInput,
 	type GenerationPackageSnapshot,
 	generationPackageCreateInputSchema,
 	generationPackageListInputSchema,
 	generationPackageSchema,
+	resolveCorrectionCoordinateSpace,
 } from "../generation-packages";
 import { protectedProcedure } from "../index";
 import { analyzeReferenceTransferConstraints } from "../reference-production";
 
 function throwIfInvalidCorrection(error: Error) {
+	if (error.message === correctionErrors.draftUnavailable) {
+		throw new ORPCError("NOT_FOUND", {
+			message: "Düzeltmenin Çalışma Taslağı bulunamadı.",
+			cause: error,
+		});
+	}
+	if (error.message === correctionErrors.draftStale) {
+		throw new ORPCError("CONFLICT", {
+			message:
+				"Çalışma Taslağı işaretlemeden sonra değişti; düzeltmeyi yeniden hazırlayın.",
+			cause: error,
+		});
+	}
 	if (Object.values<string>(correctionErrors).includes(error.message)) {
 		throw new ORPCError("BAD_REQUEST", {
 			message: "Düzeltme işaretleri veya hedef birim geçersiz.",
 			cause: error,
 		});
 	}
+}
+
+/** The Working Draft space a correction refers to, read from the server; undefined without a correction. */
+async function readCorrectionSpace(
+	context: Context,
+	userId: string,
+	input: GenerationPackageCreateInput
+) {
+	const { correction } = input;
+	if (!correction) {
+		return;
+	}
+	return resolveCorrectionCoordinateSpace(
+		correction,
+		(await context.readPixelDraftCoordinateSpace?.(
+			userId,
+			input.projectId,
+			correction.draft.id
+		)) ?? null,
+		input.assetRecordId
+	);
 }
 
 export const generationPackagesRouter = {
@@ -108,9 +145,15 @@ export const generationPackagesRouter = {
 
 			let snapshot: GenerationPackageSnapshot;
 			try {
+				const correctionSpace = await readCorrectionSpace(
+					context,
+					userId,
+					input
+				);
 				snapshot = createGenerationPackageSnapshot({
 					assetRecord,
 					assetVersionCatalog,
+					correctionSpace,
 					input,
 					projectContext,
 					projectContextScopeCatalog: scopeCatalog,

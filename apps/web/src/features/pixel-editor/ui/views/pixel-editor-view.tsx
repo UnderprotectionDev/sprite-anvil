@@ -33,6 +33,7 @@ const compareLabels: Record<CompareMode, string> = {
 	source: "Source",
 	"side-by-side": "Side by side",
 	overlay: "Overlay (draft over source)",
+	transition: "Transition (source and draft)",
 };
 
 export function PixelEditorView({

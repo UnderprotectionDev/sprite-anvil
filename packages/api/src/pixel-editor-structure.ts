@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { pixelEditorMaxDimension } from "./pixel-editor";
+import { pixelEditorMaxDimension, pixelOperationSchema } from "./pixel-editor";
 
 /**
  * Frame and sprite sheet structure of a Last-Mile Pixel Editor Working Draft.
@@ -10,6 +10,7 @@ import { pixelEditorMaxDimension } from "./pixel-editor";
 
 export const pixelEditorMaxFrames = 256;
 export const pixelEditorMaxFrameDurationMs = 60_000;
+export const pixelEditorMaxFrameEdits = 200;
 
 const sheetDimensionSchema = z
 	.number()
@@ -83,6 +84,16 @@ export const sheetFrameRecordSchema = z
 		pivotX: nonNegativeSchema,
 		pivotY: nonNegativeSchema,
 		keep: z.boolean(),
+		/** Marked as problematic by the user; versioned with the frame. */
+		issue: z.boolean().default(false),
+		/**
+		 * Pixel edits made on the frame itself, applied in order to its blank or
+		 * Asset Version image. Cell frames are edited on the sheet instead.
+		 */
+		edits: z
+			.array(pixelOperationSchema)
+			.max(pixelEditorMaxFrameEdits)
+			.default([]),
 		committed: frameCommittedSchema.nullable(),
 	})
 	.strict();
@@ -198,6 +209,23 @@ export const frameOperationSchema = z.discriminatedUnion("type", [
 			keep: z.boolean(),
 		})
 		.strict(),
+	z
+		.object({
+			type: z.literal("set-issue"),
+			...frameKeyOperation,
+			issue: z.boolean(),
+		})
+		.strict(),
+	z
+		.object({
+			type: z.literal("edit-pixels"),
+			...frameKeyOperation,
+			operation: pixelOperationSchema,
+		})
+		.strict(),
+	z
+		.object({ type: z.literal("undo-pixel-edit"), ...frameKeyOperation })
+		.strict(),
 ]);
 
 export const frameOperationInputSchema = z
@@ -224,6 +252,8 @@ export const sheetFrameViewSchema = z
 		pivotX: nonNegativeSchema,
 		pivotY: nonNegativeSchema,
 		keep: z.boolean(),
+		issue: z.boolean(),
+		editCount: z.number().int().min(0),
 		/** pinned: matches its Unit Version; changed: differs from it; new: none yet. */
 		status: frameStatusSchema,
 		unitVersionId: z.string().nullable(),

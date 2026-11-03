@@ -81,6 +81,13 @@ export const scaleFormSchema = z.object({
 	factor: wholeNumber(2, pixelEditorMaxScaleFactor, "Factor"),
 });
 
+export const framePixelEditFormSchema = z.object({
+	tool: z.enum(["pen", "eraser", "fill"]),
+	x: wholeNumber(0, pixelEditorMaxDimension, "Pixel x"),
+	y: wholeNumber(0, pixelEditorMaxDimension, "Pixel y"),
+	color: z.string().regex(/^#[0-9a-f]{6}$/i, "Choose a colour"),
+});
+
 export const replaceColorFormSchema = z
 	.object({ from: pixelColorSchema, to: pixelColorSchema })
 	.refine((value) => value.from !== value.to, {
@@ -101,11 +108,26 @@ export const correctionFormSchema = z.object({
 	regionWidth: wholeNumber(1, pixelEditorMaxDimension, "Region width"),
 	regionHeight: wholeNumber(1, pixelEditorMaxDimension, "Region height"),
 	targetUnitVersionId: z.string(),
-	preservedUnitVersionIds: z.array(z.string()),
+	/** null until the user changes the list; then frames marked keep are proposed. */
+	preservedUnitVersionIds: z.array(z.string()).nullable(),
+	targetTask: z.string().trim().max(2000),
+	changeInstruction: z.string().trim().max(2000),
+	expectedOutputStructure: z.string().trim().max(2000),
+	preserveConstraints: z.string().max(15_000),
+	avoidConstraints: z.string().max(15_000),
 });
 
+export const correctionAnnotationKinds = [
+	"arrow",
+	"line",
+	"region",
+	"note",
+	"pivot",
+	"ground-line",
+] as const;
+
 export const correctionAnnotationFormSchema = z.object({
-	kind: z.enum(["arrow", "line", "region", "note"]),
+	kind: z.enum(correctionAnnotationKinds),
 	x: gridCoordinate("x"),
 	y: gridCoordinate("y"),
 	x2: gridCoordinate("x2"),

@@ -9,6 +9,7 @@ import {
 	createSourceMetadataMappingFinalizer,
 	createSourceMetadataMappingProposalCreator,
 } from "./features/imports/server/source-metadata-mapping-procedures";
+import { createDraftCoordinateSpaceReader } from "./features/pixel-editor/server/draft-coordinate-space";
 import { checkTextureEdges } from "./features/tileset-texture-profile/server/texture-image-reader";
 import { decodeVfxFrame } from "./features/vfx-profile/server/vfx-frame-decoder";
 import { readVfxImageDimensions } from "./features/vfx-profile/server/vfx-image-dimensions";
@@ -33,6 +34,7 @@ import {
 	iconFamilyReviewStore,
 	importInboxStore,
 	marketingUsageReviewStore,
+	pixelEditorStore,
 	portraitIdentityReviewStore,
 	projectAccess,
 	projectContextScopeStore,
@@ -57,6 +59,11 @@ const sourceMetadataMappingDependencies = {
 	importInboxStore,
 	sourceMetadataMappingProposalStore,
 };
+const readPixelDraftCoordinateSpace = createDraftCoordinateSpaceReader({
+	assetVersionStore,
+	createStorage: createServerAssetVersionStorage,
+	pixelEditorStore,
+});
 const createSourceMetadataMappingProposal =
 	createSourceMetadataMappingProposalCreator(sourceMetadataMappingDependencies);
 const finalizeSourceMetadataMapping = createSourceMetadataMappingFinalizer(
@@ -88,6 +95,7 @@ export async function createContext({
 		vfxAppearanceReviewStore,
 		collectionStore,
 		generationPackageStore,
+		readPixelDraftCoordinateSpace,
 		gameplayMetadataStore,
 		backgroundScrollingTestStore,
 		uiStretchTestStore,

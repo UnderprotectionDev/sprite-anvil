@@ -137,6 +137,9 @@ export function createPixelEditorStore(db: Database): PixelEditorStore {
 			return updateOpen(userId, projectId, draftId, update.expectedRevision, {
 				operations: update.operations satisfies PixelOperation[],
 				appliedOperationCount: update.appliedOperationCount,
+				...(update.structure
+					? { structure: update.structure satisfies SheetStructure }
+					: {}),
 			});
 		},
 
