@@ -6,10 +6,12 @@ import {
 	sheetSlicingPreviewSchema,
 	sheetStructureViewSchema,
 } from "@sprite-anvil/api/pixel-editor-structure";
-import { ENV } from "@/env";
-import { draftsUrl, getJson, post } from "./pixel-editor-api";
-
-const trailingSlashPattern = /\/$/;
+import {
+	draftsUrl,
+	pixelEditorGetJson,
+	pixelEditorPost,
+	pixelEditorServerUrl,
+} from "./pixel-editor-api";
 
 function structureUrl(projectId: string, draftId: string) {
 	return `${draftsUrl(projectId)}/${draftId}/structure`;
@@ -19,8 +21,7 @@ export function frameImageUrl(
 	view: SheetStructureView,
 	frame: SheetStructureView["frames"][number]
 ) {
-	const serverUrl = ENV.VITE_SERVER_URL.replace(trailingSlashPattern, "");
-	return `${serverUrl}${frame.previewUrl}?revision=${view.draftRevision}`;
+	return `${pixelEditorServerUrl()}${frame.previewUrl}?revision=${view.draftRevision}`;
 }
 
 export async function previewSheetSlicing(
@@ -29,15 +30,18 @@ export async function previewSheetSlicing(
 	slicing: SheetSlicing
 ) {
 	return sheetSlicingPreviewSchema.parse(
-		await post(`${draftsUrl(projectId)}/${draftId}/slicing-preview`, {
-			slicing,
-		})
+		await pixelEditorPost(
+			`${draftsUrl(projectId)}/${draftId}/slicing-preview`,
+			{
+				slicing,
+			}
+		)
 	);
 }
 
 export async function readFrameStructure(projectId: string, draftId: string) {
 	return sheetStructureViewSchema.parse(
-		await getJson(structureUrl(projectId, draftId))
+		await pixelEditorGetJson(structureUrl(projectId, draftId))
 	);
 }
 
@@ -48,7 +52,7 @@ export async function applySheetSlicing(
 	slicing: SheetSlicing
 ) {
 	return sheetStructureViewSchema.parse(
-		await post(`${structureUrl(projectId, draftId)}/slicing`, {
+		await pixelEditorPost(`${structureUrl(projectId, draftId)}/slicing`, {
 			expectedRevision,
 			slicing,
 		})
@@ -61,10 +65,13 @@ export async function applyFrameOperation(
 	operation: FrameOperation
 ) {
 	return sheetStructureViewSchema.parse(
-		await post(`${structureUrl(projectId, view.draftId)}/operations`, {
-			expectedRevision: view.draftRevision,
-			operation,
-		})
+		await pixelEditorPost(
+			`${structureUrl(projectId, view.draftId)}/operations`,
+			{
+				expectedRevision: view.draftRevision,
+				operation,
+			}
+		)
 	);
 }
 
@@ -73,7 +80,7 @@ export async function commitFrameStructure(
 	view: SheetStructureView
 ) {
 	return frameStructureCommitResponseSchema.parse(
-		await post(`${structureUrl(projectId, view.draftId)}/commit`, {
+		await pixelEditorPost(`${structureUrl(projectId, view.draftId)}/commit`, {
 			expectedRevision: view.draftRevision,
 		})
 	);

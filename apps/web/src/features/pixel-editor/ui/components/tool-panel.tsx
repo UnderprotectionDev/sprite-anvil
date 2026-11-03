@@ -35,11 +35,13 @@ const brushSizes = Array.from(
 );
 
 export function ToolPanel({
+	canPaste,
 	disabled,
 	onOperation,
 	size,
 	store,
 }: {
+	canPaste: boolean;
 	disabled: boolean;
 	onOperation: (operation: PixelOperation) => void;
 	size: { height: number; width: number };
@@ -177,6 +179,44 @@ export function ToolPanel({
 						variant="outline"
 					>
 						Crop to selection
+					</Button>
+					<Button
+						disabled={disabled || !selection}
+						onClick={() => {
+							if (selection) {
+								onOperation({ type: "copy", rect: selection });
+							}
+						}}
+						size="sm"
+						type="button"
+						variant="outline"
+					>
+						Copy selection
+					</Button>
+					<Button
+						disabled={disabled || !selection}
+						onClick={() => {
+							if (selection) {
+								onOperation({ type: "cut", rect: selection });
+							}
+						}}
+						size="sm"
+						type="button"
+						variant="outline"
+					>
+						Cut selection
+					</Button>
+					<Button
+						disabled={disabled || !canPaste}
+						onClick={() => {
+							const at = selection ?? { x: 0, y: 0 };
+							onOperation({ type: "paste", x: at.x, y: at.y });
+						}}
+						size="sm"
+						type="button"
+						variant="outline"
+					>
+						{selection ? "Paste at selection" : "Paste at top left"}
 					</Button>
 					<Button
 						disabled={!selection}

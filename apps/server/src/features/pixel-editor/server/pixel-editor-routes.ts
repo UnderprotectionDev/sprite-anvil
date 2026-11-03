@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 import {
 	type PixelDraft,
 	type PixelDraftRecord,
-	type PixelDraftUpdateResult,
 	type PixelOperation,
 	pixelColorReplacePreviewInputSchema,
 	pixelColorReplacePreviewSchema,
@@ -23,15 +22,18 @@ import {
 	fail,
 	type LoadedDraft,
 	loadDraft,
+	mapUpdateFailure,
+	noStoreJson,
 	type PixelEditorRouteDependencies,
 	readJson,
 	readSourceRaster,
 	resolveAccess,
+	structureFailure,
 } from "./pixel-editor-http";
 import { mountPixelEditorStructureRoutes } from "./pixel-editor-structure-routes";
 import {
-	applyOperation,
 	applyOperations,
+	applyOperationToState,
 	colorToHex,
 	countColor,
 	countColors,
@@ -40,10 +42,7 @@ import {
 	parseColor,
 } from "./pixel-operations";
 import { encodeRasterPng } from "./pixel-raster-codec";
-import {
-	assertSheetEditKeepsProtectedFrames,
-	SheetStructureError,
-} from "./sheet-structure";
+import { assertSheetEditKeepsProtectedFrames } from "./sheet-structure";
 
 export type {
 	PixelEditorRouteDependencies,
@@ -109,31 +108,7 @@ async function viewResponse(
 	if (loaded instanceof Response) {
 		return loaded;
 	}
-	c.header("Cache-Control", "private, no-store");
-	return c.json(buildView(loaded), status);
-}
-
-/** Maps a frame structure rule failure to its HTTP error; null for other errors. */
-function structureFailure(c: Context, error: unknown) {
-	if (!(error instanceof SheetStructureError)) {
-		return null;
-	}
-	return error.kind === "protected"
-		? fail(c, "Protected frame", 409, error.message)
-		: fail(c, "Invalid pixel operation", 422, error.message);
-}
-
-function mapUpdateFailure(c: Context, result: PixelDraftUpdateResult | null) {
-	if (!result) {
-		return fail(c, "Not found", 404);
-	}
-	if (result.kind === "conflict") {
-		return fail(c, "Working Draft revision conflict", 409);
-	}
-	if (result.kind === "not-open") {
-		return fail(c, "Working Draft is not open", 409);
-	}
-	return null;
+	return noStoreJson(c, buildView(loaded), status);
 }
 
 async function openDraft(
@@ -218,7 +193,10 @@ async function applyDraftOperation(
 		);
 	}
 	try {
-		const next = applyOperation(loaded.applied, operation.data);
+		const { raster: next } = applyOperationToState(
+			{ raster: loaded.applied, clipboard: loaded.clipboard },
+			operation.data
+		);
 		if (loaded.draft.structure) {
 			assertSheetEditKeepsProtectedFrames(
 				loaded.draft.structure,
@@ -227,7 +205,7 @@ async function applyDraftOperation(
 			);
 		}
 	} catch (error) {
-		const failure = structureFailure(c, error);
+		const failure = structureFailure(c, error, "Invalid pixel operation");
 		if (failure) {
 			return failure;
 		}
@@ -299,7 +277,7 @@ async function moveHistory(
 				)
 			);
 		} catch (error) {
-			const failure = structureFailure(c, error);
+			const failure = structureFailure(c, error, "Invalid pixel operation");
 			if (failure) {
 				return failure;
 			}
@@ -450,8 +428,8 @@ async function commitDraft(
 	if (reread instanceof Response) {
 		return reread;
 	}
-	c.header("Cache-Control", "private, no-store");
-	return c.json(
+	return noStoreJson(
+		c,
 		pixelDraftCommitResponseSchema.parse({
 			draft: buildView(reread),
 			assetVersionId: reread.draft.committedAssetVersionId ?? stored.versionId,
@@ -479,8 +457,7 @@ export function mountPixelEditorRoutes(
 		if (loaded instanceof Response) {
 			return loaded;
 		}
-		c.header("Cache-Control", "private, no-store");
-		return c.json(buildView(loaded));
+		return noStoreJson(c, buildView(loaded));
 	});
 
 	app.get(`${base}/:draftId/preview`, async (c) => {

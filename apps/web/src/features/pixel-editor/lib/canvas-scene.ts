@@ -1,15 +1,20 @@
+import type { PixelRect } from "@sprite-anvil/api/pixel-editor";
 import type { PixelEditorToolState } from "../store/pixel-editor-tool-store";
 import { drawBackground, drawImageCrisp, strokeRect } from "./canvas-drawing";
 import { type Cell, hexToCss, moveRect, rectFromCells } from "./pixel-geometry";
 
 export interface CanvasScene {
 	anchor: Cell | null;
+	/** Changed-pixel bounding box outlined in overlay compare mode. */
+	changedBox?: PixelRect | null;
 	hover: Cell | null;
 	image: HTMLImageElement | null;
 	interactive: boolean;
 	path: Cell[];
 	size: { height: number; width: number };
 	state: PixelEditorToolState;
+	/** Source image drawn dimmed beneath the draft in overlay compare mode. */
+	underlay?: HTMLImageElement | null;
 }
 
 function paintGrid(context: CanvasRenderingContext2D, scene: CanvasScene) {
@@ -72,8 +77,17 @@ export function paintScene(
 	const height = size.height * zoom;
 	context.clearRect(0, 0, width, height);
 	drawBackground(context, width, height, state.background, state.contrastColor);
+	if (scene.underlay) {
+		context.globalAlpha = 0.45;
+		drawImageCrisp(context, scene.underlay, 0, 0, width, height);
+		context.globalAlpha = 1;
+	}
 	if (image) {
 		drawImageCrisp(context, image, 0, 0, width, height);
+	}
+	if (scene.changedBox) {
+		// A dashed outline marks the changed area by shape, not by colour alone.
+		strokeRect(context, scene.changedBox, zoom, "#ff3b30");
 	}
 	if (state.showGrid && zoom >= 8) {
 		paintGrid(context, scene);
