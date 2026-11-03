@@ -29,7 +29,7 @@ export const pixelEditorDrafts = pgTable(
 		sourceAssetVersionId: text("source_asset_version_id").notNull(),
 		ownerUserId: text("owner_user_id")
 			.notNull()
-			.references(() => user.id, { onDelete: "restrict" }),
+			.references(() => user.id, { onDelete: "cascade" }),
 		status: text("status")
 			.$type<"open" | "committed" | "discarded">()
 			.default("open")
@@ -48,12 +48,12 @@ export const pixelEditorDrafts = pgTable(
 			name: "pixel_editor_drafts_source_version_fk",
 			columns: [table.projectId, table.sourceAssetVersionId],
 			foreignColumns: [assetVersions.projectId, assetVersions.id],
-		}).onDelete("restrict"),
+		}).onDelete("cascade"),
 		foreignKey({
 			name: "pixel_editor_drafts_committed_version_fk",
 			columns: [table.projectId, table.committedAssetVersionId],
 			foreignColumns: [assetVersions.projectId, assetVersions.id],
-		}).onDelete("restrict"),
+		}).onDelete("cascade"),
 		uniqueIndex("pixel_editor_drafts_open_source_idx")
 			.on(table.projectId, table.ownerUserId, table.sourceAssetVersionId)
 			.where(sql`${table.status} = 'open'`),
