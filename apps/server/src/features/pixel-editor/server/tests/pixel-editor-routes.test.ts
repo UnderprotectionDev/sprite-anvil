@@ -1,3 +1,4 @@
+// biome-ignore-all lint/performance/noAwaitInLoops: each request depends on the revision the previous one returned
 import { expect, test } from "bun:test";
 import {
 	assetRecordId,
@@ -446,4 +447,53 @@ test("does not offer layers, free-angle rotation, smoothing or other out-of-scop
 		outOfScope.map(() => ({ status: 400, error: "Invalid pixel operation" }))
 	);
 	expect(harness.drafts.get(draft.id)?.revision).toBe(0);
+});
+
+test("copy, cut and paste a rectangular selection with exact colours", async () => {
+	const harness = await createHarness();
+	const draft = await openDraft(harness);
+
+	const beforeCopy = await harness.apply(draft.id, 0, {
+		type: "paste",
+		x: 0,
+		y: 0,
+	});
+	expect(beforeCopy.status).toBe(422);
+
+	await harness.apply(draft.id, 0, {
+		type: "copy",
+		rect: { x: 0, y: 0, width: 2, height: 2 },
+	});
+	const pasted = (await (
+		await harness.apply(draft.id, 1, { type: "paste", x: 2, y: 2 })
+	).json()) as Record<string, any>;
+	expect(pasted.outOfPaletteColors).toEqual([]);
+	const afterPaste = await readPixels(await harness.preview(draft.id));
+	expect(afterPaste.pixel(2, 2)).toBe(red);
+	expect(afterPaste.pixel(3, 3)).toBe(red);
+	expect(afterPaste.pixel(0, 0)).toBe(red);
+
+	await harness.apply(draft.id, 2, {
+		type: "cut",
+		rect: { x: 2, y: 0, width: 2, height: 2 },
+	});
+	const afterCut = await readPixels(await harness.preview(draft.id));
+	expect(afterCut.pixel(2, 0)).toBe(clear);
+	await harness.apply(draft.id, 3, { type: "paste", x: 0, y: 2 });
+	const afterCutPaste = await readPixels(await harness.preview(draft.id));
+	expect(afterCutPaste.pixel(0, 2)).toBe(blue);
+
+	// The clipboard is derived from the applied history, so undoing everything
+	// leaves nothing to paste.
+	for (let revision = 4; revision < 8; revision += 1) {
+		await harness.undo(draft.id, revision);
+	}
+	const empty = await harness.apply(draft.id, 8, { type: "paste", x: 0, y: 0 });
+	expect(empty.status).toBe(422);
+
+	const outside = await harness.apply(draft.id, 8, {
+		type: "cut",
+		rect: { x: 3, y: 3, width: 2, height: 2 },
+	});
+	expect(outside.status).toBe(422);
 });

@@ -1,4 +1,4 @@
-import type { PixelOperation } from "@sprite-anvil/api/pixel-editor";
+import type { PixelOperation, PixelRect } from "@sprite-anvil/api/pixel-editor";
 import { useStore } from "@tanstack/react-store";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { paintScene } from "../../lib/canvas-scene";
@@ -15,6 +15,7 @@ import {
 } from "../../store/pixel-editor-tool-store";
 
 interface PixelCanvasProps {
+	changedBox?: PixelRect | null;
 	disabled: boolean;
 	image: HTMLImageElement | null;
 	interactive: boolean;
@@ -22,6 +23,7 @@ interface PixelCanvasProps {
 	onOperation: (operation: PixelOperation) => void;
 	size: { height: number; width: number };
 	store: PixelEditorToolStore;
+	underlay?: HTMLImageElement | null;
 }
 
 const cursorSteps: Record<string, Cell> = {
@@ -50,6 +52,7 @@ function readPixelColor(image: HTMLImageElement, cell: Cell) {
 }
 
 export function PixelCanvas({
+	changedBox,
 	disabled,
 	image,
 	interactive,
@@ -57,6 +60,7 @@ export function PixelCanvas({
 	onOperation,
 	size,
 	store,
+	underlay,
 }: PixelCanvasProps) {
 	const state = useStore(store, (current) => current);
 	const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -72,15 +76,27 @@ export function PixelCanvas({
 		if (context) {
 			paintScene(context, {
 				anchor,
+				changedBox,
 				hover,
 				image,
 				interactive,
 				path,
 				size,
 				state,
+				underlay,
 			});
 		}
-	}, [anchor, hover, image, interactive, path, size, state]);
+	}, [
+		anchor,
+		changedBox,
+		hover,
+		image,
+		interactive,
+		path,
+		size,
+		state,
+		underlay,
+	]);
 
 	function reset() {
 		setAnchor(null);

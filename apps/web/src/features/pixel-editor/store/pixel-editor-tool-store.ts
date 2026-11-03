@@ -21,7 +21,12 @@ export const transparencyBackgrounds = [
 ] as const;
 export type TransparencyBackground = (typeof transparencyBackgrounds)[number];
 
-export const compareModes = ["draft", "source", "side-by-side"] as const;
+export const compareModes = [
+	"draft",
+	"source",
+	"side-by-side",
+	"overlay",
+] as const;
 export type CompareMode = (typeof compareModes)[number];
 
 export interface PixelEditorToolState {

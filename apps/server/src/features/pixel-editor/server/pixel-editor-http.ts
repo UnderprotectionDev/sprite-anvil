@@ -5,6 +5,7 @@ import type {
 } from "@sprite-anvil/api/asset-versions";
 import {
 	type PixelDraftRecord,
+	type PixelDraftUpdateResult,
 	type PixelEditorStore,
 	pixelEditorErrorSchema,
 } from "@sprite-anvil/api/pixel-editor";
@@ -12,11 +13,13 @@ import type { Context } from "hono";
 import z from "zod";
 import type { TwoDVisualAssetStorage } from "../../../cloudflare";
 import {
-	applyOperations,
+	type EditState,
 	PixelOperationError,
 	type Raster,
+	replayOperations,
 } from "./pixel-operations";
 import { readRasterFromPng } from "./pixel-raster-codec";
+import { SheetStructureError } from "./sheet-structure";
 
 const projectIdSchema = z.string().min(1).max(200);
 export const draftIdSchema = z.string().uuid();
@@ -54,6 +57,56 @@ export function fail(
 		pixelEditorErrorSchema.parse({ error, ...(detail ? { detail } : {}) }),
 		status
 	);
+}
+
+/** JSON response that must never be cached: Working Draft state is private and mutable. */
+export function noStoreJson(
+	c: Context,
+	body: unknown,
+	status: 200 | 201 = 200
+) {
+	c.header("Cache-Control", "private, no-store");
+	return c.json(body as never, status);
+}
+
+/**
+ * Maps a frame structure rule failure to its HTTP error; null for other
+ * errors. `operationError` names the failure of a rule that is neither a
+ * slicing nor a protection rule, which differs between sheet pixel edits and
+ * frame edits.
+ */
+export function structureFailure(
+	c: Context,
+	error: unknown,
+	operationError: ErrorName = "Invalid frame operation"
+) {
+	if (!(error instanceof SheetStructureError)) {
+		return null;
+	}
+	switch (error.kind) {
+		case "slicing":
+			return fail(c, "Invalid slicing parameters", 422, error.message);
+		case "protected":
+			return fail(c, "Protected frame", 409, error.message);
+		default:
+			return fail(c, operationError, 422, error.message);
+	}
+}
+
+export function mapUpdateFailure(
+	c: Context,
+	result: PixelDraftUpdateResult | null
+) {
+	if (!result) {
+		return fail(c, "Not found", 404);
+	}
+	if (result.kind === "conflict") {
+		return fail(c, "Working Draft revision conflict", 409);
+	}
+	if (result.kind === "not-open") {
+		return fail(c, "Working Draft is not open", 409);
+	}
+	return null;
 }
 
 export type Access =
@@ -120,6 +173,7 @@ export async function readSourceRaster(
 
 export interface LoadedDraft {
 	applied: Raster;
+	clipboard: EditState["clipboard"];
 	draft: PixelDraftRecord;
 	source: Raster;
 	sourceFile: AssetVersionFileRecord;
@@ -155,11 +209,11 @@ export async function loadDraft(
 		return fail(c, "Source Asset Version image unavailable", 502);
 	}
 	try {
-		const applied = applyOperations(
+		const { raster: applied, clipboard } = replayOperations(
 			source,
 			draft.operations.slice(0, draft.appliedOperationCount)
 		);
-		return { applied, draft, source, sourceFile };
+		return { applied, clipboard, draft, source, sourceFile };
 	} catch (error) {
 		if (error instanceof PixelOperationError) {
 			return fail(c, "Invalid pixel operation", 422, error.message);

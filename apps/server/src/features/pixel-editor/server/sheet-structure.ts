@@ -278,9 +278,18 @@ export function renderFrames(
 	return rendered;
 }
 
+function sameRecordExceptKeep(a: SheetFrameRecord, b: SheetFrameRecord) {
+	return (
+		JSON.stringify({ ...a, keep: false }) ===
+		JSON.stringify({ ...b, keep: false })
+	);
+}
+
 /**
- * A protected ("keep") frame must still exist with identical pixels, duration
- * and pivot; turning keep off is the only way to unlock it.
+ * A protected ("keep") frame must still exist with an identical record and
+ * identical pixels. Turning keep off is the only way to unlock it, and that
+ * request may change nothing else about the frame or its cells, so an unlock
+ * cannot smuggle in a pixel, duration, pivot or offset change.
  */
 export function assertProtectedFramesUnchanged(
 	before: SheetStructure,
@@ -300,9 +309,6 @@ export function assertProtectedFramesUnchanged(
 				`${frame.key} is protected; turn off keep before deleting it`
 			);
 		}
-		if (!next.keep) {
-			continue;
-		}
 		const was = frameFingerprint(
 			frame,
 			renderFrame(frame, cells.before, before.slicing, contexts.before)
@@ -311,10 +317,12 @@ export function assertProtectedFramesUnchanged(
 			next,
 			renderFrame(next, cells.after, after.slicing, contexts.after)
 		);
-		if (was !== now) {
+		if (was !== now || !sameRecordExceptKeep(frame, next)) {
 			throw new SheetStructureError(
 				"protected",
-				`${frame.key} is protected; turn off keep before changing it`
+				next.keep
+					? `${frame.key} is protected; turn off keep before changing it`
+					: `${frame.key} can only be unlocked on its own; change it in a separate request`
 			);
 		}
 	}
@@ -520,7 +528,12 @@ export function orderChanged(structure: SheetStructure) {
 	);
 }
 
-/** Pixel guard for whole-sheet edits: kept cells may not change and the grid may not move. */
+/**
+ * Pixel guard for whole-sheet edits: kept cells may not change and the grid may
+ * not move. Only frames cut from a cell read sheet pixels; blank and
+ * asset-version frames render from their own image (see renderFrame), so no
+ * sheet pixel edit can alter a kept frame of those kinds.
+ */
 export function assertSheetEditKeepsProtectedFrames(
 	structure: SheetStructure,
 	before: Raster,
@@ -539,7 +552,10 @@ export function assertSheetEditKeepsProtectedFrames(
 		}
 		const cell = cells[frame.origin.cellIndex];
 		if (!cell) {
-			continue;
+			throw new SheetStructureError(
+				"operation",
+				`${frame.key} points at a cell that does not exist`
+			);
 		}
 		const was = crop(before, cell).data;
 		const now = crop(after, cell).data;

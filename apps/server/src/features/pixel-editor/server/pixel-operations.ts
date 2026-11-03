@@ -316,6 +316,49 @@ function transformSelection(
 	return result;
 }
 
+/** Raster plus the rectangle last copied or cut in the applied history. */
+export interface EditState {
+	clipboard: Raster | null;
+	raster: Raster;
+}
+
+function clearRect(raster: Raster, rect: PixelRect) {
+	for (let y = 0; y < rect.height; y += 1) {
+		for (let x = 0; x < rect.width; x += 1) {
+			writePixel(raster, rect.x + x, rect.y + y, transparent);
+		}
+	}
+}
+
+/** Applies one operation, carrying the clipboard that copy, cut and paste share. */
+export function applyOperationToState(
+	state: EditState,
+	operation: PixelOperation
+): EditState {
+	const { raster, clipboard } = state;
+	switch (operation.type) {
+		case "copy":
+			assertInside(raster, operation.rect, "Selection");
+			return { raster, clipboard: copyRegion(raster, operation.rect) };
+		case "cut": {
+			assertInside(raster, operation.rect, "Selection");
+			const next = cloneRaster(raster);
+			clearRect(next, operation.rect);
+			return { raster: next, clipboard: copyRegion(raster, operation.rect) };
+		}
+		case "paste": {
+			if (!clipboard) {
+				throw new PixelOperationError("Copy or cut a selection before pasting");
+			}
+			const next = cloneRaster(raster);
+			pasteRegion(next, clipboard, operation.x, operation.y);
+			return { raster: next, clipboard };
+		}
+		default:
+			return { raster: applyOperation(raster, operation), clipboard };
+	}
+}
+
 export function applyOperation(raster: Raster, operation: PixelOperation) {
 	switch (operation.type) {
 		case "pen": {
@@ -357,16 +400,7 @@ export function applyOperation(raster: Raster, operation: PixelOperation) {
 			assertInside(raster, operation.rect, "Selection");
 			const region = copyRegion(raster, operation.rect);
 			const next = cloneRaster(raster);
-			for (let y = 0; y < operation.rect.height; y += 1) {
-				for (let x = 0; x < operation.rect.width; x += 1) {
-					writePixel(
-						next,
-						operation.rect.x + x,
-						operation.rect.y + y,
-						transparent
-					);
-				}
-			}
+			clearRect(next, operation.rect);
 			pasteRegion(
 				next,
 				region,
@@ -409,12 +443,19 @@ export function applyOperation(raster: Raster, operation: PixelOperation) {
 	}
 }
 
-export function applyOperations(source: Raster, operations: PixelOperation[]) {
-	let raster = source;
+export function replayOperations(
+	source: Raster,
+	operations: PixelOperation[]
+): EditState {
+	let state: EditState = { raster: source, clipboard: null };
 	for (const operation of operations) {
-		raster = applyOperation(raster, operation);
+		state = applyOperationToState(state, operation);
 	}
-	return raster;
+	return state;
+}
+
+export function applyOperations(source: Raster, operations: PixelOperation[]) {
+	return replayOperations(source, operations).raster;
 }
 
 /** Opaque and translucent colours present in the raster, excluding transparent pixels. */

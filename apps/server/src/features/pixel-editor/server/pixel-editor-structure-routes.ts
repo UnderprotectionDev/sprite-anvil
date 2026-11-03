@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import type { PixelDraftUpdateResult } from "@sprite-anvil/api/pixel-editor";
 import {
 	type FrameOperation,
 	frameKeySchema,
@@ -21,10 +20,13 @@ import {
 	fail,
 	type LoadedDraft,
 	loadDraft,
+	mapUpdateFailure,
+	noStoreJson,
 	type PixelEditorRouteDependencies,
 	readJson,
 	readSourceRaster,
 	resolveAccess,
+	structureFailure,
 } from "./pixel-editor-http";
 import type { Raster } from "./pixel-operations";
 import { encodeRasterPng } from "./pixel-raster-codec";
@@ -38,7 +40,6 @@ import {
 	type RenderContext,
 	renderFrames,
 	resliceStructure,
-	SheetStructureError,
 } from "./sheet-structure";
 
 const fileExtensionPattern = /\.[^.]+$/;
@@ -80,33 +81,6 @@ async function readSources(
 		sources.set(id, raster);
 	}
 	return { sources };
-}
-
-function structureFailure(c: Context, error: unknown) {
-	if (!(error instanceof SheetStructureError)) {
-		return null;
-	}
-	switch (error.kind) {
-		case "slicing":
-			return fail(c, "Invalid slicing parameters", 422, error.message);
-		case "protected":
-			return fail(c, "Protected frame", 409, error.message);
-		default:
-			return fail(c, "Invalid frame operation", 422, error.message);
-	}
-}
-
-function mapUpdateFailure(c: Context, result: PixelDraftUpdateResult | null) {
-	if (!result) {
-		return fail(c, "Not found", 404);
-	}
-	if (result.kind === "conflict") {
-		return fail(c, "Working Draft revision conflict", 409);
-	}
-	if (result.kind === "not-open") {
-		return fail(c, "Working Draft is not open", 409);
-	}
-	return null;
 }
 
 function structurePath(projectId: string, draftId: string) {
@@ -197,9 +171,8 @@ async function structureResponse(
 	if (state instanceof Response) {
 		return state;
 	}
-	c.header("Cache-Control", "private, no-store");
 	try {
-		return c.json(buildView(state), status);
+		return noStoreJson(c, buildView(state), status);
 	} catch (error) {
 		return (
 			structureFailure(c, error) ??
@@ -237,8 +210,8 @@ async function previewSlicing(
 	}
 	try {
 		const cells = computeCells(input.data.slicing, loaded.applied);
-		c.header("Cache-Control", "private, no-store");
-		return c.json(
+		return noStoreJson(
+			c,
 			sheetSlicingPreviewSchema.parse({
 				cells,
 				frameCount: cells.length,
@@ -619,8 +592,8 @@ async function commitStructure(
 		if (reread instanceof Response) {
 			return reread;
 		}
-		c.header("Cache-Control", "private, no-store");
-		return c.json(
+		return noStoreJson(
+			c,
 			frameStructureCommitResponseSchema.parse({
 				structure: buildView(reread),
 				compositeVersionId: composite.compositeVersion.id,

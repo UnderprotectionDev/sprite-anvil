@@ -6,6 +6,10 @@ import type { SheetStructure } from "./pixel-editor-structure";
  * deterministic, grid-preserving operations. The server re-applies them to the
  * source Asset Version; nothing here describes smoothing, layers, free-angle
  * rotation, or skeleton animation, which are out of scope.
+ *
+ * The clipboard is not stored: `copy` and `cut` take a rectangle of the raster
+ * as it is at that point in the history, and `paste` places the most recent
+ * one, so replaying the applied operations always rebuilds the same clipboard.
  */
 
 export const pixelEditorMaxDimension = 2048;
@@ -90,6 +94,15 @@ export const pixelOperationSchema = z.discriminatedUnion("type", [
 			rect: pixelRectSchema,
 			dx: coordinateSchema,
 			dy: coordinateSchema,
+		})
+		.strict(),
+	z.object({ type: z.literal("copy"), rect: pixelRectSchema }).strict(),
+	z.object({ type: z.literal("cut"), rect: pixelRectSchema }).strict(),
+	z
+		.object({
+			type: z.literal("paste"),
+			x: coordinateSchema,
+			y: coordinateSchema,
 		})
 		.strict(),
 	z

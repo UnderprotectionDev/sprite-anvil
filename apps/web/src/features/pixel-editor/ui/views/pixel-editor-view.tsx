@@ -21,7 +21,7 @@ import {
 	patchToolState,
 } from "../../store/pixel-editor-tool-store";
 import { ComparePreview } from "../components/compare-preview";
-import { PixelCanvas } from "../components/pixel-canvas";
+import { CompareStage } from "../components/compare-stage";
 import { ReviewPanel } from "../components/review-panel";
 import { ToolPanel } from "../components/tool-panel";
 import { CorrectionForm } from "../forms/correction-form";
@@ -32,6 +32,7 @@ const compareLabels: Record<CompareMode, string> = {
 	draft: "Working Draft",
 	source: "Source",
 	"side-by-side": "Side by side",
+	overlay: "Overlay (draft over source)",
 };
 
 export function PixelEditorView({
@@ -67,8 +68,9 @@ export function PixelEditorView({
 
 	const isOpen = draft.status === "open";
 	const locked = !isOpen || isBusy;
-	const showDraft = state.compareMode !== "source";
-	const showSource = state.compareMode !== "draft";
+	const canPaste = draft.operations.some(
+		(entry) => entry.type === "copy" || entry.type === "cut"
+	);
 
 	return (
 		<main className="mx-auto w-full max-w-[110rem] space-y-4 px-4 py-6">
@@ -169,6 +171,7 @@ export function PixelEditorView({
 			<div className="grid gap-4 lg:grid-cols-[16rem_minmax(0,1fr)_20rem]">
 				<aside aria-label="Tool settings" className="min-w-0">
 					<ToolPanel
+						canPaste={canPaste}
 						disabled={locked}
 						onOperation={(next) => operation.mutate(next)}
 						size={draft.size}
@@ -224,30 +227,15 @@ export function PixelEditorView({
 							Pixel grid
 						</Button>
 					</div>
-					<div className="flex max-h-[70vh] flex-wrap items-start gap-4 overflow-auto rounded-md border bg-muted/30 p-3">
-						{showDraft ? (
-							<PixelCanvas
-								disabled={locked}
-								image={draftImage.image}
-								interactive
-								label="Working Draft pixel canvas"
-								onOperation={(next) => operation.mutate(next)}
-								size={draft.size}
-								store={store}
-							/>
-						) : null}
-						{showSource && sourceImage.image ? (
-							<PixelCanvas
-								disabled
-								image={sourceImage.image}
-								interactive={false}
-								label="Source Asset Version"
-								onOperation={() => undefined}
-								size={draft.sourceSize}
-								store={store}
-							/>
-						) : null}
-					</div>
+					<CompareStage
+						disabled={locked}
+						draft={draft}
+						draftImage={draftImage.image}
+						mode={state.compareMode}
+						onOperation={(next) => operation.mutate(next)}
+						sourceImage={sourceImage.image}
+						store={store}
+					/>
 					{draftImage.failed ? (
 						<p className="text-destructive text-sm" role="alert">
 							The Working Draft image could not be loaded.

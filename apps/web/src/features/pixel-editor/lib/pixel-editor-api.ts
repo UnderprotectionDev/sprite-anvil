@@ -12,6 +12,11 @@ import { ENV } from "@/env";
 
 const trailingSlashPattern = /\/$/;
 
+/** Base URL of the API server without a trailing slash. */
+export function pixelEditorServerUrl() {
+	return ENV.VITE_SERVER_URL.replace(trailingSlashPattern, "");
+}
+
 export class PixelEditorApiError extends Error {
 	readonly status: number;
 
@@ -23,27 +28,18 @@ export class PixelEditorApiError extends Error {
 }
 
 export function draftsUrl(projectId: string) {
-	const serverUrl = ENV.VITE_SERVER_URL.replace(trailingSlashPattern, "");
-	return `${serverUrl}/api/projects/${encodeURIComponent(projectId)}/pixel-editor/drafts`;
+	return `${pixelEditorServerUrl()}/api/projects/${encodeURIComponent(projectId)}/pixel-editor/drafts`;
 }
 
 export function pixelDraftPreviewUrl(draft: PixelDraft) {
-	const serverUrl = ENV.VITE_SERVER_URL.replace(trailingSlashPattern, "");
-	return `${serverUrl}${draft.previewUrl}?revision=${draft.revision}`;
+	return `${pixelEditorServerUrl()}${draft.previewUrl}?revision=${draft.revision}`;
 }
 
 export function pixelDraftSourceUrl(draft: PixelDraft) {
-	const serverUrl = ENV.VITE_SERVER_URL.replace(trailingSlashPattern, "");
-	return `${serverUrl}${draft.sourcePreviewUrl}`;
+	return `${pixelEditorServerUrl()}${draft.sourcePreviewUrl}`;
 }
 
-export async function post(url: string, body: unknown) {
-	const response = await fetch(url, {
-		method: "POST",
-		credentials: "include",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify(body ?? {}),
-	});
+async function readJsonOrThrow(response: Response) {
 	if (!response.ok) {
 		const parsed = pixelEditorErrorSchema.safeParse(
 			await response.json().catch(() => null)
@@ -56,20 +52,19 @@ export async function post(url: string, body: unknown) {
 	return response.json() as Promise<unknown>;
 }
 
-export async function getJson(url: string) {
-	const response = await fetch(url, { credentials: "include" });
-	if (!response.ok) {
-		const parsed = pixelEditorErrorSchema.safeParse(
-			await response.json().catch(() => null)
-		);
-		throw new PixelEditorApiError(
-			parsed.success
-				? [parsed.data.error, parsed.data.detail].filter(Boolean).join(": ")
-				: "The Working Draft request failed",
-			response.status
-		);
-	}
-	return response.json() as Promise<unknown>;
+export async function pixelEditorPost(url: string, body: unknown) {
+	return readJsonOrThrow(
+		await fetch(url, {
+			method: "POST",
+			credentials: "include",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(body ?? {}),
+		})
+	);
+}
+
+export async function pixelEditorGetJson(url: string) {
+	return readJsonOrThrow(await fetch(url, { credentials: "include" }));
 }
 
 export async function openPixelDraft(
@@ -77,7 +72,7 @@ export async function openPixelDraft(
 	sourceAssetVersionId: string
 ) {
 	return pixelDraftSchema.parse(
-		await post(draftsUrl(projectId), { sourceAssetVersionId })
+		await pixelEditorPost(draftsUrl(projectId), { sourceAssetVersionId })
 	);
 }
 
@@ -87,7 +82,7 @@ export async function applyPixelOperation(
 	operation: PixelOperation
 ) {
 	return pixelDraftSchema.parse(
-		await post(`${draftsUrl(projectId)}/${draft.id}/operations`, {
+		await pixelEditorPost(`${draftsUrl(projectId)}/${draft.id}/operations`, {
 			expectedRevision: draft.revision,
 			operation,
 		})
@@ -100,7 +95,7 @@ export async function movePixelDraftHistory(
 	direction: "undo" | "redo"
 ) {
 	return pixelDraftSchema.parse(
-		await post(`${draftsUrl(projectId)}/${draft.id}/${direction}`, {
+		await pixelEditorPost(`${draftsUrl(projectId)}/${draft.id}/${direction}`, {
 			expectedRevision: draft.revision,
 		})
 	);
@@ -113,21 +108,24 @@ export async function previewPixelColorReplace(
 	to: string
 ): Promise<PixelColorReplacePreview> {
 	return pixelColorReplacePreviewSchema.parse(
-		await post(`${draftsUrl(projectId)}/${draftId}/color-replace-preview`, {
-			from,
-			to,
-		})
+		await pixelEditorPost(
+			`${draftsUrl(projectId)}/${draftId}/color-replace-preview`,
+			{
+				from,
+				to,
+			}
+		)
 	);
 }
 
 export async function commitPixelDraft(projectId: string, draftId: string) {
 	return pixelDraftCommitResponseSchema.parse(
-		await post(`${draftsUrl(projectId)}/${draftId}/commit`, {})
+		await pixelEditorPost(`${draftsUrl(projectId)}/${draftId}/commit`, {})
 	);
 }
 
 export async function discardPixelDraft(projectId: string, draftId: string) {
 	return pixelDraftSchema.parse(
-		await post(`${draftsUrl(projectId)}/${draftId}/discard`, {})
+		await pixelEditorPost(`${draftsUrl(projectId)}/${draftId}/discard`, {})
 	);
 }
