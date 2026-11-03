@@ -1,5 +1,6 @@
 import { ORPCError } from "@orpc/server";
 import type { Context } from "../context";
+import { prepareGenerationPackage } from "../generation-package-preparation";
 import { generationPackageSchema } from "../generation-packages";
 import { protectedProcedure } from "../index";
 import {
@@ -16,7 +17,6 @@ import {
 	productionRecipeUseInputSchema,
 	validateProductionRecipeContent,
 } from "../production-recipes";
-import { prepareGenerationPackage } from "./generation-packages";
 
 function requireStores(context: Context) {
 	const { generationPackageStore, productionExperimentStore } = context;
@@ -136,17 +136,15 @@ export const productionRecipesRouter = {
 			}
 			const userId = context.session.user.id;
 			const productionRecipeStore = requireRecipeStore(context);
-			// Both reads require access to their project; either miss is "not found".
-			const [source, targetRecipes] = await Promise.all([
-				productionRecipeStore.get(
-					userId,
-					input.sourceProjectId,
-					input.recipeId
-				),
-				productionRecipeStore.list(userId, input.targetProjectId),
-			]);
+			// Reading the source requires access to its project; creating in the
+			// target requires access to that one. Either miss is "not found".
+			const source = await productionRecipeStore.get(
+				userId,
+				input.sourceProjectId,
+				input.recipeId
+			);
 			const latest = source?.versions.at(-1);
-			if (!(source && latest && targetRecipes)) {
+			if (!(source && latest)) {
 				throw notFound();
 			}
 			// A new record at version 1: only the skeleton, roles, output structure
@@ -167,7 +165,7 @@ export const productionRecipesRouter = {
 		.input(productionRecipeCreateVersionInputSchema)
 		.output(productionRecipeSchema)
 		.handler(async ({ context, input }) => {
-			const { productionRecipeStore } = requireStores(context);
+			const productionRecipeStore = requireRecipeStore(context);
 			assertConsistent(input.content);
 			const result = await productionRecipeStore.addVersion(
 				context.session.user.id,
@@ -194,7 +192,7 @@ export const productionRecipesRouter = {
 		.input(productionRecipeGetInputSchema)
 		.output(productionRecipeSchema)
 		.handler(async ({ context, input }) => {
-			const { productionRecipeStore } = requireStores(context);
+			const productionRecipeStore = requireRecipeStore(context);
 			const recipe = await productionRecipeStore.get(
 				context.session.user.id,
 				input.projectId,
@@ -209,7 +207,7 @@ export const productionRecipesRouter = {
 		.input(productionRecipeListInputSchema)
 		.output(productionRecipeSchema.array())
 		.handler(async ({ context, input }) => {
-			const { productionRecipeStore } = requireStores(context);
+			const productionRecipeStore = requireRecipeStore(context);
 			const recipes = await productionRecipeStore.list(
 				context.session.user.id,
 				input.projectId

@@ -409,5 +409,5 @@ export function checkProductionRecipeRoles(
 export function copyProductionRecipeContent(
 	content: ProductionRecipeContent
 ): ProductionRecipeContent {
-	return productionRecipeContentSchema.parse(structuredClone(content));
+	return productionRecipeContentSchema.parse(content);
 }

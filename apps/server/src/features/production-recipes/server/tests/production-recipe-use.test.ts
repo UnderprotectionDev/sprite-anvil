@@ -590,3 +590,107 @@ test("refuses to copy without access to both projects or into the same project",
 	).rejects.toMatchObject({ code: "NOT_FOUND" });
 	expect(recipes).toHaveLength(1);
 });
+
+test("reads and edits recipes with only the recipe store configured", async () => {
+	const { context, recipes } = createTestContext();
+	const recipe = seedRecipe(recipes);
+	const recipeOnly = {
+		productionRecipeStore: context.productionRecipeStore,
+		session: context.session,
+	} as unknown as Context;
+
+	const listed = await call(
+		appRouter.productionRecipes.list,
+		{ projectId },
+		{ context: recipeOnly }
+	);
+	expect(listed.map((entry) => entry.id)).toEqual([recipe.id]);
+	const read = await call(
+		appRouter.productionRecipes.get,
+		{ projectId, recipeId: recipe.id },
+		{ context: recipeOnly }
+	);
+	expect(read.id).toBe(recipe.id);
+	const edited = await call(
+		appRouter.productionRecipes.createVersion,
+		{
+			baseVersionNumber: 1,
+			content: baseContent,
+			projectId,
+			recipeId: recipe.id,
+		},
+		{ context: recipeOnly }
+	);
+	expect(edited.versions).toHaveLength(2);
+});
+
+test("uses an edited version without constraint fields and yields empty constraints", async () => {
+	const { context, recipes } = createTestContext();
+	const recipe = seedRecipe(recipes);
+	await call(
+		appRouter.productionRecipes.createVersion,
+		{
+			baseVersionNumber: 1,
+			content: {
+				...baseContent,
+				fields: baseContent.fields.slice(0, 1),
+				instructionSkeleton: "Task: {{target_task}}",
+			},
+			projectId,
+			recipeId: recipe.id,
+		},
+		{ context }
+	);
+
+	const used = await call(
+		appRouter.productionRecipes.use,
+		useInput(recipe.id, { target_task: "Animate a slash." }),
+		{ context }
+	);
+	expect(used.targetTask).toBe("Task: Animate a slash.");
+	expect(used.preserveConstraints).toEqual([]);
+	expect(used.avoidConstraints).toEqual([]);
+	expect(used.changeConstraints).toEqual([]);
+});
+
+test("using a copy pins the target project's current context", async () => {
+	const { context, recipes, state } = createTestContext();
+	const recipe = seedRecipe(recipes);
+	const copy = await call(
+		appRouter.productionRecipes.copy,
+		{
+			recipeId: recipe.id,
+			sourceProjectId: projectId,
+			targetProjectId: otherProjectId,
+		},
+		{ context }
+	);
+	const targetRevision: ContextRevision = {
+		...revision,
+		id: "3c1f6a52-9d0e-4a57-b0f2-7d1b7f3e8a11",
+		projectId: otherProjectId,
+		revisionNumber: 9,
+	};
+	context.projectContextStore.listProjects = () =>
+		Promise.resolve([
+			state.projectContext,
+			{
+				...state.projectContext,
+				currentContextRevision: targetRevision,
+				id: otherProjectId,
+			},
+		]);
+
+	const used = await call(
+		appRouter.productionRecipes.use,
+		{
+			...useInput(copy.id, { target_task: "Animate a slash." }),
+			projectId: otherProjectId,
+		},
+		{ context }
+	);
+	expect(used.projectId).toBe(otherProjectId);
+	expect(used.productionContextSnapshot.contextRevisionId).toBe(
+		targetRevision.id
+	);
+});
