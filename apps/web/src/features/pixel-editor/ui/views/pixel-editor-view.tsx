@@ -24,6 +24,7 @@ import { ComparePreview } from "../components/compare-preview";
 import { PixelCanvas } from "../components/pixel-canvas";
 import { ReviewPanel } from "../components/review-panel";
 import { ToolPanel } from "../components/tool-panel";
+import { CorrectionForm } from "../forms/correction-form";
 import { FrameStructurePanel } from "./frame-structure-panel";
 
 const zoomLevels = [1, 2, 4, 8, 16, 32];
@@ -263,6 +264,12 @@ export function PixelEditorView({
 							operation.mutate({ type: "replace-color", ...values })
 						}
 						projectId={projectId}
+					/>
+					<CorrectionForm
+						disabled={!isOpen || isBusy}
+						draft={draft}
+						projectId={projectId}
+						selection={state.selection}
 					/>
 					<ComparePreview
 						draftImage={draftImage.image}

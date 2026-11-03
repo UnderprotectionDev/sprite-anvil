@@ -10,6 +10,7 @@ import type { AssetVersionCatalog } from "./asset-versions";
 import { unitVersionSchema } from "./asset-versions";
 import type { ProjectContextScopeCatalog } from "./context-scopes";
 import { themeRecordSchema, visualWorldRecordSchema } from "./context-scopes";
+import { pixelRectSchema } from "./pixel-editor";
 import type { ProjectContext } from "./project-context";
 import { projectContextSchema } from "./project-context";
 import type { ReferenceBoardImage } from "./reference-production";
@@ -81,6 +82,58 @@ const lockedUnitSnapshotSchema = unitVersionSchema
 	})
 	.strict();
 
+const correctionPointSchema = z
+	.object({
+		x: z.number().int().min(0).max(100_000),
+		y: z.number().int().min(0).max(100_000),
+	})
+	.strict();
+
+const correctionRectSchema = pixelRectSchema.extend({
+	x: z.number().int().min(0).max(100_000),
+	y: z.number().int().min(0).max(100_000),
+});
+
+/** Non-image-altering marks; they travel with the package and never touch pixels. */
+export const correctionAnnotationSchema = z.discriminatedUnion("kind", [
+	z
+		.object({
+			kind: z.literal("arrow"),
+			from: correctionPointSchema,
+			to: correctionPointSchema,
+		})
+		.strict(),
+	z
+		.object({
+			kind: z.literal("line"),
+			from: correctionPointSchema,
+			to: correctionPointSchema,
+		})
+		.strict(),
+	z.object({ kind: z.literal("region"), rect: correctionRectSchema }).strict(),
+	z
+		.object({
+			kind: z.literal("note"),
+			at: correctionPointSchema,
+			text: z.string().trim().min(1).max(500),
+		})
+		.strict(),
+]);
+
+export const generationPackageCorrectionInputSchema = z
+	.object({
+		annotations: z.array(correctionAnnotationSchema).max(50),
+		issueNote: z.string().trim().min(1).max(2000),
+		redrawRegion: correctionRectSchema,
+		sourceAssetVersionId: idSchema,
+		targetUnitVersionId: idSchema.nullable(),
+	})
+	.strict();
+
+const generationPackageCorrectionSchema = generationPackageCorrectionInputSchema
+	.extend({ targetUnit: lockedUnitSnapshotSchema.nullable() })
+	.strict();
+
 const contextRulesSchema =
 	projectContextSchema.shape.currentContextRevision.shape.rules;
 
@@ -90,6 +143,7 @@ export const generationPackageSnapshotSchema = z
 		avoidConstraints: constraintListSchema,
 		canonicalDesign: canonicalDesignSnapshotSchema.nullable(),
 		changeConstraints: constraintListSchema,
+		correction: generationPackageCorrectionSchema.optional(),
 		expectedOutputStructure: z.string().trim().min(1).max(2000),
 		lockedUnits: z.array(lockedUnitSnapshotSchema).max(100),
 		preserveConstraints: constraintListSchema,
@@ -125,6 +179,7 @@ export const generationPackageCreateInputSchema = z
 		assetRecordId: idSchema,
 		avoidConstraints: constraintListSchema,
 		changeConstraints: constraintListSchema,
+		correction: generationPackageCorrectionInputSchema.optional(),
 		expectedOutputStructure: z.string().trim().min(1).max(2000),
 		lockedUnitVersionIds: z
 			.array(idSchema)
@@ -141,6 +196,9 @@ export const generationPackageListInputSchema = z
 	.object({ assetRecordId: idSchema, projectId: idSchema })
 	.strict();
 
+export type GenerationPackageCorrectionInput = z.infer<
+	typeof generationPackageCorrectionInputSchema
+>;
 export type GenerationPackage = z.infer<typeof generationPackageSchema>;
 export type GenerationPackageSnapshot = z.infer<
 	typeof generationPackageSnapshotSchema
@@ -163,6 +221,80 @@ export interface GenerationPackageStore {
 		projectId: string,
 		assetRecordId: string
 	) => Promise<GenerationPackage[] | null>;
+}
+
+export const correctionErrors = {
+	outsideBounds: "A correction mark is outside the target bounds.",
+	sourceNotInRecord:
+		"The correction source version does not belong to this record.",
+	targetUnitInvalid:
+		"The correction target Unit Version is not in this record or is also preserved.",
+} as const;
+
+type Dimensions = z.infer<typeof dimensionSchema>;
+type Point = z.infer<typeof correctionPointSchema>;
+type Rect = z.infer<typeof correctionRectSchema>;
+
+function pointInside(point: Point, size: Dimensions) {
+	return point.x < size.width && point.y < size.height;
+}
+
+function rectInside(rect: Rect, size: Dimensions) {
+	return (
+		rect.x + rect.width <= size.width && rect.y + rect.height <= size.height
+	);
+}
+
+function buildCorrection(
+	correction: z.infer<typeof generationPackageCorrectionInputSchema>,
+	size: Dimensions,
+	assetRecordId: string,
+	catalog: AssetVersionCatalog,
+	lockedUnitVersionIds: string[]
+) {
+	if (
+		!catalog.assetVersions.some(
+			(version) =>
+				version.id === correction.sourceAssetVersionId &&
+				version.assetRecordId === assetRecordId
+		)
+	) {
+		throw new Error(correctionErrors.sourceNotInRecord);
+	}
+	let targetUnit: z.infer<typeof lockedUnitSnapshotSchema> | null = null;
+	if (correction.targetUnitVersionId) {
+		const unit = catalog.unitVersions.find(
+			(entry) =>
+				entry.id === correction.targetUnitVersionId &&
+				entry.assetRecordId === assetRecordId
+		);
+		if (!unit || lockedUnitVersionIds.includes(unit.id)) {
+			throw new Error(correctionErrors.targetUnitInvalid);
+		}
+		targetUnit = {
+			assetVersionId: unit.assetVersionId,
+			id: unit.id,
+			sourceAssetVersionId: unit.sourceAssetVersionId,
+			unitKey: unit.unitKey,
+			unitType: unit.unitType,
+			versionNumber: unit.versionNumber,
+		};
+	}
+	const inside =
+		rectInside(correction.redrawRegion, size) &&
+		correction.annotations.every((mark) => {
+			if (mark.kind === "region") {
+				return rectInside(mark.rect, size);
+			}
+			if (mark.kind === "note") {
+				return pointInside(mark.at, size);
+			}
+			return pointInside(mark.from, size) && pointInside(mark.to, size);
+		});
+	if (!inside) {
+		throw new Error(correctionErrors.outsideBounds);
+	}
+	return { ...correction, targetUnit };
 }
 
 export function createGenerationPackageSnapshot(data: {
@@ -238,6 +370,16 @@ export function createGenerationPackageSnapshot(data: {
 		};
 	});
 
+	const correction = request.correction
+		? buildCorrection(
+				request.correction,
+				request.targetDimensions,
+				assetRecord.id,
+				assetVersionCatalog,
+				request.lockedUnitVersionIds
+			)
+		: undefined;
+
 	const referenceRoles: GenerationPackage["referenceRoles"] = [
 		...data.tracking.references.map((reference) => ({
 			assetRecordId: reference.assetRecordId,
@@ -297,6 +439,7 @@ export function createGenerationPackageSnapshot(data: {
 		avoidConstraints: request.avoidConstraints,
 		canonicalDesign,
 		changeConstraints: request.changeConstraints,
+		correction,
 		expectedOutputStructure: request.expectedOutputStructure,
 		lockedUnits,
 		preserveConstraints: request.preserveConstraints,
