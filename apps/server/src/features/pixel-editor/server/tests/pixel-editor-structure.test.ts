@@ -1,15 +1,15 @@
 // biome-ignore-all lint/performance/noAwaitInLoops: each request depends on the revision the previous one returned
 import { expect, test } from "bun:test";
-import sharp from "sharp";
 import {
-	blue,
 	createHarness,
+	createSheetPng,
 	green,
 	otherProjectId,
 	otherUserId,
 	readPixels,
 	red,
-	rgba,
+	sheetSlicing as slicing,
+	solidPng,
 	sourceVersionId,
 } from "./pixel-editor-harness";
 
@@ -19,53 +19,12 @@ const replacementVersionId = "b17f5ff0-a50d-438f-8bf2-a0152b42c302";
 const wrongSizeVersionId = "b17f5ff0-a50d-438f-8bf2-a0152b42c303";
 const unknownVersionId = "b17f5ff0-a50d-438f-8bf2-a0152b42c3ee";
 
-async function solid(width: number, height: number, hex: string) {
-	const data = Buffer.from(
-		Array.from({ length: width * height }, () => rgba(hex)).flat()
-	);
-	return new Uint8Array(
-		await sharp(data, { raw: { width, height, channels: 4 } })
-			.png()
-			.toBuffer()
-	);
-}
-
-/** 6x2 sheet: three 2x2 cells (red, green, blue) side by side. */
-async function createSheetPng() {
-	const colours = [red, green, blue];
-	const data: number[] = [];
-	for (let y = 0; y < 2; y += 1) {
-		for (let x = 0; x < 6; x += 1) {
-			data.push(...rgba(colours[Math.floor(x / 2)] ?? red));
-		}
-	}
-	return new Uint8Array(
-		await sharp(Buffer.from(data), {
-			raw: { width: 6, height: 2, channels: 4 },
-		})
-			.png()
-			.toBuffer()
-	);
-}
-
-const slicing = {
-	cellWidth: 2,
-	cellHeight: 2,
-	columns: 3,
-	rows: 1,
-	offsetX: 0,
-	offsetY: 0,
-	gapX: 0,
-	gapY: 0,
-	readingOrder: "rows-left-to-right",
-};
-
 async function sheetHarness(session?: Parameters<typeof createHarness>[0]) {
 	return await createHarness(session, {
 		sourcePng: await createSheetPng(),
 		versions: {
-			[replacementVersionId]: await solid(2, 2, yellow),
-			[wrongSizeVersionId]: await solid(3, 3, yellow),
+			[replacementVersionId]: await solidPng(2, 2, yellow),
+			[wrongSizeVersionId]: await solidPng(3, 3, yellow),
 		},
 	});
 }

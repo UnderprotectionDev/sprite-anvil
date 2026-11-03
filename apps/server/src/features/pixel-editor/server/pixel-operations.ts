@@ -248,7 +248,7 @@ function rotateRegion(
 	return rotated;
 }
 
-function anchorOffset(
+export function anchorOffset(
 	anchor: CanvasAnchor,
 	from: { width: number; height: number },
 	to: { width: number; height: number }

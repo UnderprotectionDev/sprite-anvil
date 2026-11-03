@@ -164,6 +164,10 @@ export const pixelDraftHistoryInputSchema = z
 	.object({ expectedRevision: z.number().int().min(0) })
 	.strict();
 
+export const pixelDraftCommitInputSchema = z
+	.object({ expectedRevision: z.number().int().min(0) })
+	.strict();
+
 export const pixelColorReplacePreviewInputSchema = z
 	.object({ from: pixelColorSchema, to: pixelColorSchema })
 	.strict();
@@ -260,6 +264,9 @@ export type CanvasAnchor = z.infer<typeof canvasAnchorSchema>;
 export type PixelOperation = z.infer<typeof pixelOperationSchema>;
 export type PixelDraft = z.infer<typeof pixelDraftSchema>;
 export type PixelDraftStatus = z.infer<typeof pixelDraftStatusSchema>;
+export type PixelDraftCommitResponse = z.infer<
+	typeof pixelDraftCommitResponseSchema
+>;
 export type PixelColorReplacePreview = z.infer<
 	typeof pixelColorReplacePreviewSchema
 >;
@@ -326,6 +333,8 @@ export interface PixelEditorStore {
 			appliedOperationCount: number;
 			expectedRevision: number;
 			operations: PixelOperation[];
+			/** Written in the same update when a sheet edit moved the frame grid. */
+			structure?: SheetStructure;
 		}
 	) => Promise<PixelDraftUpdateResult | null>;
 	updateStructure: (

@@ -45,6 +45,49 @@ export async function createSourcePng() {
 		.toBuffer();
 }
 
+/** One-colour PNG of the given size. */
+export async function solidPng(width: number, height: number, hex: string) {
+	const data = Buffer.from(
+		Array.from({ length: width * height }, () => rgba(hex)).flat()
+	);
+	return new Uint8Array(
+		await sharp(data, { raw: { width, height, channels: 4 } })
+			.png()
+			.toBuffer()
+	);
+}
+
+/** 6x2 sheet: three 2x2 cells (red, green, blue) side by side. */
+export async function createSheetPng() {
+	const colours = [red, green, blue];
+	const data: number[] = [];
+	for (let y = 0; y < 2; y += 1) {
+		for (let x = 0; x < 6; x += 1) {
+			data.push(...rgba(colours[Math.floor(x / 2)] ?? red));
+		}
+	}
+	return new Uint8Array(
+		await sharp(Buffer.from(data), {
+			raw: { width: 6, height: 2, channels: 4 },
+		})
+			.png()
+			.toBuffer()
+	);
+}
+
+/** Slicing that cuts the createSheetPng sheet into its three cells. */
+export const sheetSlicing = {
+	cellWidth: 2,
+	cellHeight: 2,
+	columns: 3,
+	rows: 1,
+	offsetX: 0,
+	offsetY: 0,
+	gapX: 0,
+	gapY: 0,
+	readingOrder: "rows-left-to-right",
+};
+
 export async function readPixels(png: Uint8Array) {
 	const { data, info } = await sharp(png)
 		.ensureAlpha()
@@ -145,6 +188,9 @@ export async function createHarness(
 			} else if (draft.revision === update.expectedRevision) {
 				draft.operations = update.operations;
 				draft.appliedOperationCount = update.appliedOperationCount;
+				if (update.structure) {
+					draft.structure = update.structure;
+				}
 				draft.revision += 1;
 				touch(draft);
 				result = { kind: "updated", draft };
@@ -201,7 +247,15 @@ export async function createHarness(
 		},
 	};
 
-	const candidatesByKey = new Map<string, { id: string }>();
+	const faults = {
+		/** 1-based call number of createCandidateVersion that throws. */
+		failCandidateOnCall: null as number | null,
+		failPut: false,
+	};
+	const candidatesByKey = new Map<
+		string,
+		{ id: string; unitVersion?: { id: string; unitKey: string } }
+	>();
 	const unitVersions = new Map<string, string>();
 	const compositesByKey = new Map<
 		string,
@@ -209,6 +263,9 @@ export async function createHarness(
 	>();
 	const storage = {
 		put: async (key: string, body: ReadableStream<Uint8Array>) => {
+			if (faults.failPut) {
+				throw new Error("storage unavailable");
+			}
 			objects.set(key, new Uint8Array(await new Response(body).arrayBuffer()));
 		},
 		get(key: string) {
@@ -278,18 +335,25 @@ export async function createHarness(
 			},
 			createCandidateVersion(_user, input) {
 				calls.candidates.push(input as unknown as Record<string, unknown>);
+				if (faults.failCandidateOnCall === calls.candidates.length) {
+					return Promise.reject(new Error("database unavailable"));
+				}
 				const existing = candidatesByKey.get(input.idempotencyKey);
 				if (existing) {
 					return Promise.resolve({
 						kind: "existing",
-						version: existing,
+						version: { id: existing.id },
+						unitVersion: existing.unitVersion,
 					} as never);
 				}
-				candidatesByKey.set(input.idempotencyKey, { id: input.id });
 				const unitKey = input.unitCorrection?.unitKey;
 				const unitVersion = unitKey
 					? { id: `unit-${input.id}`, unitKey }
 					: undefined;
+				candidatesByKey.set(input.idempotencyKey, {
+					id: input.id,
+					unitVersion,
+				});
 				if (unitVersion) {
 					unitVersions.set(unitVersion.id, input.id);
 				}
@@ -348,6 +412,7 @@ export async function createHarness(
 	return {
 		app,
 		calls,
+		faults,
 		drafts,
 		objects,
 		sourceKey,
@@ -364,7 +429,10 @@ export async function createHarness(
 			json(`${base}/${draftId}/undo`, { expectedRevision: revision }),
 		redo: (draftId: string, revision: number) =>
 			json(`${base}/${draftId}/redo`, { expectedRevision: revision }),
-		commit: (draftId: string) => json(`${base}/${draftId}/commit`, {}),
+		commit: (draftId: string, revision?: number) =>
+			json(`${base}/${draftId}/commit`, {
+				expectedRevision: revision ?? drafts.get(draftId)?.revision ?? 0,
+			}),
 		slicingPreview: (draftId: string, slicing: unknown) =>
 			json(`${base}/${draftId}/slicing-preview`, { slicing }),
 		slice: (draftId: string, revision: number, slicing: unknown) =>
