@@ -10,6 +10,7 @@ import type { AssetVersionCatalog } from "./asset-versions";
 import { unitVersionSchema } from "./asset-versions";
 import type { ProjectContextScopeCatalog } from "./context-scopes";
 import { themeRecordSchema, visualWorldRecordSchema } from "./context-scopes";
+import { pixelRectSchema } from "./pixel-editor";
 import type { ProjectContext } from "./project-context";
 import { projectContextSchema } from "./project-context";
 import type { ReferenceBoardImage } from "./reference-production";
@@ -81,6 +82,84 @@ const lockedUnitSnapshotSchema = unitVersionSchema
 	})
 	.strict();
 
+const correctionPointSchema = z
+	.object({
+		x: z.number().int().min(0).max(100_000),
+		y: z.number().int().min(0).max(100_000),
+	})
+	.strict();
+
+const correctionRectSchema = pixelRectSchema.extend({
+	x: z.number().int().min(0).max(100_000),
+	y: z.number().int().min(0).max(100_000),
+});
+
+/** Non-image-altering marks; they travel with the package and never touch pixels. */
+export const correctionAnnotationSchema = z.discriminatedUnion("kind", [
+	z
+		.object({
+			kind: z.literal("arrow"),
+			from: correctionPointSchema,
+			to: correctionPointSchema,
+		})
+		.strict(),
+	z
+		.object({
+			kind: z.literal("line"),
+			from: correctionPointSchema,
+			to: correctionPointSchema,
+		})
+		.strict(),
+	z.object({ kind: z.literal("region"), rect: correctionRectSchema }).strict(),
+	z
+		.object({
+			kind: z.literal("note"),
+			at: correctionPointSchema,
+			text: z.string().trim().min(1).max(500),
+		})
+		.strict(),
+	z.object({ kind: z.literal("pivot"), at: correctionPointSchema }).strict(),
+	z
+		.object({
+			kind: z.literal("ground-line"),
+			y: z.number().int().min(0).max(100_000),
+		})
+		.strict(),
+]);
+
+/** The Working Draft a correction was marked on; its size and revision fix what the coordinates mean. */
+export const correctionDraftReferenceSchema = z
+	.object({ id: idSchema, revision: z.number().int().min(0) })
+	.strict();
+
+export const correctionCoordinateSpaceSchema = z
+	.object({
+		draftId: idSchema,
+		draftRevision: z.number().int().min(0),
+		height: dimensionSchema.shape.height,
+		width: dimensionSchema.shape.width,
+	})
+	.strict();
+
+export const generationPackageCorrectionInputSchema = z
+	.object({
+		annotations: z.array(correctionAnnotationSchema).max(50),
+		draft: correctionDraftReferenceSchema,
+		issueNote: z.string().trim().min(1).max(2000),
+		redrawRegion: correctionRectSchema,
+		sourceAssetVersionId: idSchema,
+		targetUnitVersionId: idSchema.nullable(),
+	})
+	.strict();
+
+const generationPackageCorrectionSchema = generationPackageCorrectionInputSchema
+	.omit({ draft: true })
+	.extend({
+		coordinateSpace: correctionCoordinateSpaceSchema,
+		targetUnit: lockedUnitSnapshotSchema.nullable(),
+	})
+	.strict();
+
 const contextRulesSchema =
 	projectContextSchema.shape.currentContextRevision.shape.rules;
 
@@ -90,6 +169,7 @@ export const generationPackageSnapshotSchema = z
 		avoidConstraints: constraintListSchema,
 		canonicalDesign: canonicalDesignSnapshotSchema.nullable(),
 		changeConstraints: constraintListSchema,
+		correction: generationPackageCorrectionSchema.optional(),
 		expectedOutputStructure: z.string().trim().min(1).max(2000),
 		lockedUnits: z.array(lockedUnitSnapshotSchema).max(100),
 		preserveConstraints: constraintListSchema,
@@ -125,6 +205,7 @@ export const generationPackageCreateInputSchema = z
 		assetRecordId: idSchema,
 		avoidConstraints: constraintListSchema,
 		changeConstraints: constraintListSchema,
+		correction: generationPackageCorrectionInputSchema.optional(),
 		expectedOutputStructure: z.string().trim().min(1).max(2000),
 		lockedUnitVersionIds: z
 			.array(idSchema)
@@ -141,6 +222,9 @@ export const generationPackageListInputSchema = z
 	.object({ assetRecordId: idSchema, projectId: idSchema })
 	.strict();
 
+export type GenerationPackageCorrectionInput = z.infer<
+	typeof generationPackageCorrectionInputSchema
+>;
 export type GenerationPackage = z.infer<typeof generationPackageSchema>;
 export type GenerationPackageSnapshot = z.infer<
 	typeof generationPackageSnapshotSchema
@@ -165,9 +249,139 @@ export interface GenerationPackageStore {
 	) => Promise<GenerationPackage[] | null>;
 }
 
+/** Size and revision of a Working Draft as the server derived them; supplied by the pixel editor. */
+export interface PixelDraftCoordinateSpace {
+	assetRecordId: string;
+	draftId: string;
+	draftRevision: number;
+	height: number;
+	sourceAssetVersionId: string;
+	width: number;
+}
+
+export const correctionErrors = {
+	draftMismatch:
+		"The correction Working Draft does not belong to this record and source version.",
+	draftStale: "The Working Draft changed after the correction was marked.",
+	draftUnavailable: "The correction Working Draft could not be found.",
+	outsideBounds: "A correction mark is outside the target bounds.",
+	sourceNotInRecord:
+		"The correction source version does not belong to this record.",
+	targetUnitInvalid:
+		"The correction target Unit Version is not in this record or is also preserved.",
+} as const;
+
+type Dimensions = z.infer<typeof dimensionSchema>;
+type Point = z.infer<typeof correctionPointSchema>;
+type Rect = z.infer<typeof correctionRectSchema>;
+
+function pointInside(point: Point, size: Dimensions) {
+	return point.x < size.width && point.y < size.height;
+}
+
+function rectInside(rect: Rect, size: Dimensions) {
+	return (
+		rect.x + rect.width <= size.width && rect.y + rect.height <= size.height
+	);
+}
+
+/**
+ * Checks a correction's Working Draft reference against the draft the server
+ * read. Returns the coordinate space the marks are validated in; throws a
+ * correctionErrors message otherwise.
+ */
+export function resolveCorrectionCoordinateSpace(
+	correction: Pick<
+		GenerationPackageCorrectionInput,
+		"draft" | "sourceAssetVersionId"
+	>,
+	draftSpace: PixelDraftCoordinateSpace | null,
+	assetRecordId: string
+): z.infer<typeof correctionCoordinateSpaceSchema> {
+	if (!draftSpace || draftSpace.draftId !== correction.draft.id) {
+		throw new Error(correctionErrors.draftUnavailable);
+	}
+	if (
+		draftSpace.assetRecordId !== assetRecordId ||
+		draftSpace.sourceAssetVersionId !== correction.sourceAssetVersionId
+	) {
+		throw new Error(correctionErrors.draftMismatch);
+	}
+	if (draftSpace.draftRevision !== correction.draft.revision) {
+		throw new Error(correctionErrors.draftStale);
+	}
+	return {
+		draftId: draftSpace.draftId,
+		draftRevision: draftSpace.draftRevision,
+		height: draftSpace.height,
+		width: draftSpace.width,
+	};
+}
+
+function buildCorrection(
+	correction: z.infer<typeof generationPackageCorrectionInputSchema>,
+	coordinateSpace: z.infer<typeof correctionCoordinateSpaceSchema>,
+	assetRecordId: string,
+	catalog: AssetVersionCatalog,
+	lockedUnitVersionIds: string[]
+) {
+	if (
+		!catalog.assetVersions.some(
+			(version) =>
+				version.id === correction.sourceAssetVersionId &&
+				version.assetRecordId === assetRecordId
+		)
+	) {
+		throw new Error(correctionErrors.sourceNotInRecord);
+	}
+	let targetUnit: z.infer<typeof lockedUnitSnapshotSchema> | null = null;
+	if (correction.targetUnitVersionId) {
+		const unit = catalog.unitVersions.find(
+			(entry) =>
+				entry.id === correction.targetUnitVersionId &&
+				entry.assetRecordId === assetRecordId
+		);
+		if (!unit || lockedUnitVersionIds.includes(unit.id)) {
+			throw new Error(correctionErrors.targetUnitInvalid);
+		}
+		targetUnit = {
+			assetVersionId: unit.assetVersionId,
+			id: unit.id,
+			sourceAssetVersionId: unit.sourceAssetVersionId,
+			unitKey: unit.unitKey,
+			unitType: unit.unitType,
+			versionNumber: unit.versionNumber,
+		};
+	}
+	const inside =
+		rectInside(correction.redrawRegion, coordinateSpace) &&
+		correction.annotations.every((mark) => {
+			if (mark.kind === "region") {
+				return rectInside(mark.rect, coordinateSpace);
+			}
+			if (mark.kind === "note" || mark.kind === "pivot") {
+				return pointInside(mark.at, coordinateSpace);
+			}
+			if (mark.kind === "ground-line") {
+				return mark.y < coordinateSpace.height;
+			}
+			return (
+				pointInside(mark.from, coordinateSpace) &&
+				pointInside(mark.to, coordinateSpace)
+			);
+		});
+	if (!inside) {
+		throw new Error(correctionErrors.outsideBounds);
+	}
+	const { draft: _draft, ...recorded } = correction;
+	return { ...recorded, coordinateSpace, targetUnit };
+}
+
 export function createGenerationPackageSnapshot(data: {
 	assetRecord: AssetRecord;
 	assetVersionCatalog: AssetVersionCatalog;
+	/** Required with a correction: the Working Draft space the server derived. */
+	correctionSpace?: z.infer<typeof correctionCoordinateSpaceSchema>;
 	input: GenerationPackageCreateInput;
 	projectContext: ProjectContext;
 	projectContextScopeCatalog: ProjectContextScopeCatalog;
@@ -238,6 +452,20 @@ export function createGenerationPackageSnapshot(data: {
 		};
 	});
 
+	if (request.correction && !data.correctionSpace) {
+		throw new Error(correctionErrors.draftUnavailable);
+	}
+	const correction =
+		request.correction && data.correctionSpace
+			? buildCorrection(
+					request.correction,
+					data.correctionSpace,
+					assetRecord.id,
+					assetVersionCatalog,
+					request.lockedUnitVersionIds
+				)
+			: undefined;
+
 	const referenceRoles: GenerationPackage["referenceRoles"] = [
 		...data.tracking.references.map((reference) => ({
 			assetRecordId: reference.assetRecordId,
@@ -297,6 +525,7 @@ export function createGenerationPackageSnapshot(data: {
 		avoidConstraints: request.avoidConstraints,
 		canonicalDesign,
 		changeConstraints: request.changeConstraints,
+		correction,
 		expectedOutputStructure: request.expectedOutputStructure,
 		lockedUnits,
 		preserveConstraints: request.preserveConstraints,
@@ -310,7 +539,12 @@ export function createGenerationPackageSnapshot(data: {
 			visualWorld: visualWorld ?? null,
 		},
 		referenceRoles,
-		targetDimensions: request.targetDimensions,
+		targetDimensions: data.correctionSpace
+			? {
+					height: data.correctionSpace.height,
+					width: data.correctionSpace.width,
+				}
+			: request.targetDimensions,
 		targetTask: request.targetTask,
 	});
 }

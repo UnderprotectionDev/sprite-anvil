@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
 import type { Context } from "@sprite-anvil/api/context";
+import {
+	type GenerationPackageCorrectionInput,
+	generationPackageCorrectionInputSchema,
+} from "@sprite-anvil/api/generation-packages";
 import type {
 	ContextRevision,
 	ContextRule,
@@ -149,6 +153,22 @@ function createTestContext() {
 		referenceImages: [referenceImage],
 		trackingReferences: [] as Record<string, unknown>[],
 		unitVersions: [lockedUnit],
+		/** The Working Draft the correction coordinates were taken on (72x80 at revision 3). */
+		draftSpace: {
+			assetRecordId,
+			draftId: pixelDraftId,
+			draftRevision: 3,
+			height: 80,
+			sourceAssetVersionId: canonicalVersionId,
+			width: 72,
+		} as {
+			assetRecordId: string;
+			draftId: string;
+			draftRevision: number;
+			height: number;
+			sourceAssetVersionId: string;
+			width: number;
+		} | null,
 	};
 
 	const context = {
@@ -225,6 +245,12 @@ function createTestContext() {
 		referenceProductionStore: {
 			listImages: async () => state.referenceImages,
 		},
+		readPixelDraftCoordinateSpace: async (
+			_requestedUserId: string,
+			_requestedProjectId: string,
+			requestedDraftId: string
+		) =>
+			state.draftSpace?.draftId === requestedDraftId ? state.draftSpace : null,
 		session: { user: { id: userId } },
 	} as unknown as Context;
 
@@ -448,6 +474,253 @@ test("rejects unauthenticated Generation Package access before reading or writin
 	await expect(
 		call(appRouter.generationPackages.create, createInput(), {
 			context: unauthenticatedContext,
+		})
+	).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+	expect(storedPackages).toHaveLength(0);
+});
+
+const pixelDraftId = "5d7b8f1e-2a64-4f0f-8d1d-3b6f6c0b9a21";
+const targetUnitVersionId = "0a6f3a1e-5c0a-4f0e-9f51-3d1c0f4b6a11";
+const targetUnit = {
+	...lockedUnit,
+	id: targetUnitVersionId,
+	unitKey: "attack-02",
+	versionNumber: 1,
+};
+
+function createCorrectionInput() {
+	return {
+		...createInput(),
+		correction: {
+			annotations: [
+				{ from: { x: 2, y: 3 }, kind: "arrow", to: { x: 10, y: 12 } },
+				{ from: { x: 0, y: 0 }, kind: "line", to: { x: 5, y: 5 } },
+				{
+					kind: "region",
+					rect: { height: 6, width: 8, x: 4, y: 4 },
+				},
+				{ at: { x: 1, y: 1 }, kind: "note", text: "Sword tip is clipped" },
+				{ at: { x: 36, y: 79 }, kind: "pivot" },
+				{ kind: "ground-line", y: 79 },
+			] as GenerationPackageCorrectionInput["annotations"],
+			draft: { id: pixelDraftId, revision: 3 },
+			issueNote: "The sword tip is clipped on the attack frame.",
+			redrawRegion: { height: 10, width: 12, x: 20, y: 8 },
+			sourceAssetVersionId: canonicalVersionId,
+			targetUnitVersionId: targetUnitVersionId as string | null,
+		},
+	};
+}
+
+test("prepares a selective correction Production Package and rereads it unchanged", async () => {
+	const { context, state } = createTestContext();
+	state.unitVersions = [lockedUnit, targetUnit];
+	const input = createCorrectionInput();
+
+	const created = await call(appRouter.generationPackages.create, input, {
+		context,
+	});
+
+	const { draft, ...recorded } = input.correction;
+	expect(draft.id).toBe(pixelDraftId);
+	expect(created.correction).toEqual({
+		...recorded,
+		coordinateSpace: {
+			draftId: pixelDraftId,
+			draftRevision: 3,
+			height: 80,
+			width: 72,
+		},
+		targetUnit: expect.objectContaining({
+			id: targetUnitVersionId,
+			unitKey: "attack-02",
+		}),
+	});
+	expect(created.lockedUnits.map((unit) => unit.id)).toEqual([unitVersionId]);
+
+	const reread = await call(
+		appRouter.generationPackages.list,
+		{ assetRecordId, projectId },
+		{ context }
+	);
+	expect(reread).toEqual([created]);
+});
+
+test("the server takes the correction size from the Working Draft, not from the client", async () => {
+	const { context, state } = createTestContext();
+	state.unitVersions = [lockedUnit, targetUnit];
+	const input = createCorrectionInput();
+	input.targetDimensions = { height: 4000, width: 4000 };
+	const created = await call(appRouter.generationPackages.create, input, {
+		context,
+	});
+	expect(created.targetDimensions).toEqual({ height: 80, width: 72 });
+	expect(created.correction?.coordinateSpace).toMatchObject({
+		draftId: pixelDraftId,
+		draftRevision: 3,
+		height: 80,
+		width: 72,
+	});
+});
+
+test("rejects a correction for a stale, unknown or foreign Working Draft", async () => {
+	const { context, state, storedPackages } = createTestContext();
+	state.unitVersions = [lockedUnit, targetUnit];
+
+	const stale = createCorrectionInput();
+	stale.correction.draft.revision = 2;
+	await expect(
+		call(appRouter.generationPackages.create, stale, { context })
+	).rejects.toMatchObject({ code: "CONFLICT" });
+
+	const unknown = createCorrectionInput();
+	unknown.correction.draft.id = crypto.randomUUID();
+	await expect(
+		call(appRouter.generationPackages.create, unknown, { context })
+	).rejects.toMatchObject({ code: "NOT_FOUND" });
+
+	if (state.draftSpace) {
+		state.draftSpace.assetRecordId = crypto.randomUUID();
+	}
+	await expect(
+		call(appRouter.generationPackages.create, createCorrectionInput(), {
+			context,
+		})
+	).rejects.toMatchObject({ code: "BAD_REQUEST" });
+	expect(storedPackages).toHaveLength(0);
+});
+
+test("rejects a pivot or ground line outside the Working Draft size", async () => {
+	const { context, storedPackages } = createTestContext();
+	for (const mark of [
+		{ at: { x: 72, y: 10 }, kind: "pivot" },
+		{ kind: "ground-line", y: 80 },
+	] as const) {
+		const input = createCorrectionInput();
+		input.correction.annotations.push(mark as never);
+		// biome-ignore lint/performance/noAwaitInLoops: each mark is checked against a fresh input
+		await expect(
+			call(appRouter.generationPackages.create, input, { context })
+		).rejects.toMatchObject({ code: "BAD_REQUEST" });
+	}
+	expect(storedPackages).toHaveLength(0);
+});
+
+test("a package without a correction still parses and has no correction", async () => {
+	const { context } = createTestContext();
+	const created = await call(
+		appRouter.generationPackages.create,
+		createInput(),
+		{ context }
+	);
+	expect(created.correction).toBeUndefined();
+});
+
+test("rejects an annotation or redraw region outside the target bounds", async () => {
+	const { context, storedPackages } = createTestContext();
+	const outsideAnnotation = createCorrectionInput();
+	outsideAnnotation.correction.annotations[0] = {
+		from: { x: 2, y: 3 },
+		kind: "arrow",
+		to: { x: 500, y: 12 },
+	};
+	await expect(
+		call(appRouter.generationPackages.create, outsideAnnotation, { context })
+	).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+	const outsideRegion = createCorrectionInput();
+	outsideRegion.correction.redrawRegion = {
+		height: 10,
+		width: 60,
+		x: 20,
+		y: 8,
+	};
+	await expect(
+		call(appRouter.generationPackages.create, outsideRegion, { context })
+	).rejects.toMatchObject({ code: "BAD_REQUEST" });
+	expect(storedPackages).toHaveLength(0);
+});
+
+test("rejects a correction whose source version or target unit is not in the record", async () => {
+	const { context, state, storedPackages } = createTestContext();
+	state.unitVersions = [lockedUnit, targetUnit];
+
+	const foreignSource = createCorrectionInput();
+	foreignSource.correction.sourceAssetVersionId = crypto.randomUUID();
+	await expect(
+		call(appRouter.generationPackages.create, foreignSource, { context })
+	).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+	const foreignTarget = createCorrectionInput();
+	foreignTarget.correction.targetUnitVersionId = crypto.randomUUID();
+	await expect(
+		call(appRouter.generationPackages.create, foreignTarget, { context })
+	).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+	const lockedTarget = createCorrectionInput();
+	lockedTarget.correction.targetUnitVersionId = unitVersionId;
+	await expect(
+		call(appRouter.generationPackages.create, lockedTarget, { context })
+	).rejects.toMatchObject({ code: "BAD_REQUEST" });
+	expect(storedPackages).toHaveLength(0);
+});
+
+test("rejects a malformed correction at the input boundary", async () => {
+	const { context, storedPackages } = createTestContext();
+	const blankNote = createCorrectionInput();
+	blankNote.correction.issueNote = "  ";
+	await expect(
+		call(appRouter.generationPackages.create, blankNote, { context })
+	).rejects.toThrow();
+
+	const unknownKind = createCorrectionInput();
+	unknownKind.correction.annotations.push({
+		kind: "layer",
+		name: "paint",
+	} as never);
+	await expect(
+		call(appRouter.generationPackages.create, unknownKind, { context })
+	).rejects.toThrow();
+	expect(storedPackages).toHaveLength(0);
+});
+
+test("preparing a correction only reads asset versions and never writes pixels", async () => {
+	const { context, state } = createTestContext();
+	state.unitVersions = [lockedUnit, targetUnit];
+	const calls: string[] = [];
+	const assetVersionStore = new Proxy(
+		(context as unknown as { assetVersionStore: object }).assetVersionStore,
+		{
+			get(target, property, receiver) {
+				calls.push(String(property));
+				return Reflect.get(target, property, receiver);
+			},
+		}
+	);
+	await call(appRouter.generationPackages.create, createCorrectionInput(), {
+		context: { ...context, assetVersionStore } as unknown as Context,
+	});
+	expect(calls).toEqual(["list"]);
+});
+
+test("keeps layers, full drawing and skeleton animation out of the correction contract", () => {
+	expect(
+		Object.keys(generationPackageCorrectionInputSchema.shape).sort()
+	).toEqual([
+		"annotations",
+		"draft",
+		"issueNote",
+		"redrawRegion",
+		"sourceAssetVersionId",
+		"targetUnitVersionId",
+	]);
+});
+
+test("rejects unauthenticated correction preparation", async () => {
+	const { context, storedPackages } = createTestContext();
+	await expect(
+		call(appRouter.generationPackages.create, createCorrectionInput(), {
+			context: { ...context, session: null } as unknown as Context,
 		})
 	).rejects.toMatchObject({ code: "UNAUTHORIZED" });
 	expect(storedPackages).toHaveLength(0);
