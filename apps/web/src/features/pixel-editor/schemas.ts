@@ -38,3 +38,24 @@ export const replaceColorFormSchema = z
 		message: "Choose two different colours",
 		path: ["to"],
 	});
+
+const gridCoordinate = (label: string) => wholeNumber(0, 100_000, label);
+
+export const correctionFormSchema = z.object({
+	issueNote: z.string().trim().min(1, "Describe the issue").max(2000),
+	regionX: gridCoordinate("Region x"),
+	regionY: gridCoordinate("Region y"),
+	regionWidth: wholeNumber(1, pixelEditorMaxDimension, "Region width"),
+	regionHeight: wholeNumber(1, pixelEditorMaxDimension, "Region height"),
+	targetUnitVersionId: z.string(),
+	preservedUnitVersionIds: z.array(z.string()),
+});
+
+export const correctionAnnotationFormSchema = z.object({
+	kind: z.enum(["arrow", "line", "region", "note"]),
+	x: gridCoordinate("x"),
+	y: gridCoordinate("y"),
+	x2: gridCoordinate("x2"),
+	y2: gridCoordinate("y2"),
+	text: z.string().trim().max(500),
+});
