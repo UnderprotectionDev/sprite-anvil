@@ -336,7 +336,7 @@ export interface AssetVersionFileRecord {
 	objectKey: string;
 	productionSource?: AssetVersionProductionSource;
 	projectId: string;
-	sourceKind?: "manual_import" | "external_working_file_edit";
+	sourceKind?: "manual_import" | "external_working_file_edit" | "derived";
 	unitCorrection?: UnitVersionCorrectionInput;
 }
 

@@ -19,6 +19,7 @@ import { desktopOrigins, ENV } from "./env.server";
 import { mountAssetVersionRoutes } from "./features/asset-versions/server/asset-version-routes";
 import { mountImportInboxRoutes } from "./features/imports/server/import-inbox-routes";
 import { mountImportInboxRpcGuards } from "./features/imports/server/import-inbox-rpc-guards";
+import { mountPixelEditorRoutes } from "./features/pixel-editor/server/pixel-editor-routes";
 import { mountManagedSnapshotRoutes } from "./features/production-provenance/server/managed-snapshot-routes";
 import { mountProjectRoutes } from "./features/projects/server/project-routes";
 import { mountReferenceProductionRoutes } from "./features/reference-production/server/reference-production-routes";
@@ -35,6 +36,7 @@ import {
 	db,
 	importInboxStore,
 	managedSnapshotStore,
+	pixelEditorStore,
 	referenceProductionStore,
 	rightsRecordStore,
 } from "./services";
@@ -105,6 +107,15 @@ mountProjectRoutes(app, {
 
 mountAssetVersionRoutes(app, {
 	assetVersionStore,
+	getSession: (headers) => auth.api.getSession({ headers }),
+	getProjectForUser: async (userId, projectId) =>
+		getProjectForUser(db, userId, projectId),
+	createStorage: createServerAssetVersionStorage,
+});
+
+mountPixelEditorRoutes(app, {
+	assetVersionStore,
+	pixelEditorStore,
 	getSession: (headers) => auth.api.getSession({ headers }),
 	getProjectForUser: async (userId, projectId) =>
 		getProjectForUser(db, userId, projectId),
