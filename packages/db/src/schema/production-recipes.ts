@@ -45,10 +45,10 @@ export const productionRecipes = pgTable(
 		// Where the recipe was derived from. These are plain provenance values with
 		// no foreign key: a recipe must outlive its experiment and never gain the
 		// experiment's review decision, rights evidence or pinned inputs.
-		sourceAssetRecordId: text("source_asset_record_id").notNull(),
-		sourceExperimentId: text("source_experiment_id").notNull(),
-		sourceGenerationPackageId: text("source_generation_package_id").notNull(),
-		sourceTrialId: text("source_trial_id").notNull(),
+		sourceAssetRecordId: text("source_asset_record_id"),
+		sourceExperimentId: text("source_experiment_id"),
+		sourceGenerationPackageId: text("source_generation_package_id"),
+		sourceTrialId: text("source_trial_id"),
 		createdByUserId: text("created_by_user_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),

@@ -25,12 +25,18 @@ function mapRecipe(
 		createdAt: toISOString(row.createdAt),
 		id: row.id,
 		projectId: row.projectId,
-		source: {
-			assetRecordId: row.sourceAssetRecordId,
-			experimentId: row.sourceExperimentId,
-			generationPackageId: row.sourceGenerationPackageId,
-			trialId: row.sourceTrialId,
-		},
+		source:
+			row.sourceAssetRecordId &&
+			row.sourceExperimentId &&
+			row.sourceGenerationPackageId &&
+			row.sourceTrialId
+				? {
+						assetRecordId: row.sourceAssetRecordId,
+						experimentId: row.sourceExperimentId,
+						generationPackageId: row.sourceGenerationPackageId,
+						trialId: row.sourceTrialId,
+					}
+				: null,
 		title: row.title,
 		versions: versions
 			.filter((version) => version.recipeId === row.id)
@@ -147,10 +153,10 @@ export function createProductionRecipeStore(
 					createdByUserId: userId,
 					id: recipeId,
 					projectId: input.projectId,
-					sourceAssetRecordId: input.source.assetRecordId,
-					sourceExperimentId: input.source.experimentId,
-					sourceGenerationPackageId: input.source.generationPackageId,
-					sourceTrialId: input.source.trialId,
+					sourceAssetRecordId: input.source?.assetRecordId ?? null,
+					sourceExperimentId: input.source?.experimentId ?? null,
+					sourceGenerationPackageId: input.source?.generationPackageId ?? null,
+					sourceTrialId: input.source?.trialId ?? null,
 					title: input.title,
 				}),
 				db.insert(productionRecipeVersions).values({

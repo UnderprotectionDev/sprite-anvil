@@ -395,8 +395,8 @@ test("never copies old experiment inputs into the package", async () => {
 		{ context }
 	);
 	const serialized = JSON.stringify(created);
-	expect(serialized).not.toContain(recipe.source.generationPackageId);
-	expect(serialized).not.toContain(recipe.source.trialId);
+	expect(serialized).not.toContain(recipe.source?.generationPackageId ?? "");
+	expect(serialized).not.toContain(recipe.source?.trialId ?? "");
 	// Reference inputs come from the target record's own current selection.
 	expect(created.referenceRoles.map((entry) => entry.id)).toEqual([
 		referenceId,
@@ -497,6 +497,8 @@ test("copies a recipe into another project as an independent version 1", async (
 	);
 	expect(copy.id).not.toBe(recipe.id);
 	expect(copy.projectId).toBe(otherProjectId);
+	// The source project's trial ids never cross into the receiving project.
+	expect(copy.source).toBeNull();
 	expect(copy.versions).toHaveLength(1);
 	expect(copy.versions[0]?.versionNumber).toBe(1);
 	expect(copy.versions[0]?.note).toBeNull();

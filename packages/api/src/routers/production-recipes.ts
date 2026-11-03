@@ -153,7 +153,7 @@ export const productionRecipesRouter = {
 			const copy = await productionRecipeStore.create(userId, {
 				content: copyProductionRecipeContent(latest.content),
 				projectId: input.targetProjectId,
-				source: source.source,
+				source: null,
 				title: input.title ?? source.title,
 			});
 			if (!copy) {

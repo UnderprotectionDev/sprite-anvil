@@ -76,7 +76,8 @@ export const productionRecipeSchema = z
 		createdAt: z.iso.datetime(),
 		id: idSchema,
 		projectId: idSchema,
-		source: productionRecipeSourceSchema,
+		// Null for a copy: the source project's trial ids never cross projects.
+		source: productionRecipeSourceSchema.nullable(),
 		title: titleSchema,
 		versions: z.array(productionRecipeVersionSchema).min(1),
 	})
@@ -169,7 +170,7 @@ export interface ProductionRecipeStore {
 		input: {
 			content: ProductionRecipeContent;
 			projectId: string;
-			source: ProductionRecipeSource;
+			source: ProductionRecipeSource | null;
 			title: string;
 		}
 	) => Promise<ProductionRecipe | null>;
