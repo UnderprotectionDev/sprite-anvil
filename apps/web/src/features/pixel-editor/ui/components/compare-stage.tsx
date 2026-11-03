@@ -7,6 +7,7 @@ import type {
 	PixelEditorToolStore,
 } from "../../store/pixel-editor-tool-store";
 import { PixelCanvas } from "./pixel-canvas";
+import { TransitionCompare } from "./transition-compare";
 
 function overlayNotice(diff: PixelDraft["diff"]) {
 	if (diff.sizeChanged) {
@@ -37,6 +38,16 @@ export function CompareStage({
 	sourceImage: HTMLImageElement | null;
 	store: PixelEditorToolStore;
 }) {
+	if (mode === "transition") {
+		return (
+			<TransitionCompare
+				draft={draft}
+				draftImage={draftImage}
+				sourceImage={sourceImage}
+				store={store}
+			/>
+		);
+	}
 	const overlay = mode === "overlay";
 	const showSource = mode === "source" || mode === "side-by-side";
 	return (

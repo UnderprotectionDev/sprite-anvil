@@ -19,7 +19,10 @@ import type {
 	GameplayMetadataStore,
 } from "./gameplay-metadata";
 import type { GameplayMetadataPackageTargetReader } from "./gameplay-metadata-package";
-import type { GenerationPackageStore } from "./generation-packages";
+import type {
+	GenerationPackageStore,
+	PixelDraftCoordinateSpace,
+} from "./generation-packages";
 import type { IconFamilyReviewStore } from "./icon-family-reviews";
 import type { ImportInboxStore } from "./import-inbox";
 import type { MarketingUsageReviewStore } from "./marketing-usage-reviews";
@@ -84,6 +87,12 @@ export interface Context {
 	providerGenerationRecordStore?: ProviderGenerationRecordStore;
 	readAnimationMetadataPackageTarget?: AnimationMetadataPackageTargetReader;
 	readGameplayMetadataPackageTarget?: GameplayMetadataPackageTargetReader;
+	/** Size and revision of a Working Draft, derived on the server by the pixel editor. */
+	readPixelDraftCoordinateSpace?: (
+		userId: string,
+		projectId: string,
+		draftId: string
+	) => Promise<PixelDraftCoordinateSpace | null>;
 	readVfxImageDimensions?: (
 		userId: string,
 		projectId: string,

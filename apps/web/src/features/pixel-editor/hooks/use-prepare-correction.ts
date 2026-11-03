@@ -1,25 +1,30 @@
-import type { GenerationPackage } from "@sprite-anvil/api/generation-packages";
 import type { PixelDraft } from "@sprite-anvil/api/pixel-editor";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { orpc } from "@/utils/orpc";
-
-export type CorrectionAnnotation = NonNullable<
-	GenerationPackage["correction"]
->["annotations"][number];
-
-export interface PrepareCorrectionValues {
-	annotations: CorrectionAnnotation[];
-	issueNote: string;
-	preservedUnitVersionIds: string[];
-	redrawRegion: { height: number; width: number; x: number; y: number };
-	targetUnitVersionId: string | null;
-}
+import {
+	buildCorrectionPackageInput,
+	type CorrectionPackageValues,
+	defaultPreservedUnitIds,
+} from "../lib/correction-package";
+import { readFrameStructure } from "../lib/frame-structure-api";
 
 /** Creates a Production Package for a selective correction; never touches the draft. */
 export function usePrepareCorrection(projectId: string, draft: PixelDraft) {
 	const versions = useQuery(
 		orpc.assetVersions.list.queryOptions({ input: { projectId } })
 	);
+	// Same key as useFrameStructure, so the panel and this form share one read.
+	const structure = useQuery({
+		queryKey: [
+			"pixel-editor",
+			projectId,
+			"structure",
+			draft.id,
+			draft.revision,
+		],
+		queryFn: () => readFrameStructure(projectId, draft.id),
+		retry: false,
+	});
 	const units = (versions.data?.unitVersions ?? [])
 		.filter((unit) => unit.assetRecordId === draft.assetRecordId)
 		.map((unit) => ({
@@ -33,32 +38,15 @@ export function usePrepareCorrection(projectId: string, draft: PixelDraft) {
 	);
 	return {
 		units,
+		keptUnitIds: defaultPreservedUnitIds(structure.data),
 		prepare: {
 			error: mutation.error,
 			isError: mutation.isError,
 			isPending: mutation.isPending,
-			mutateAsync: (values: PrepareCorrectionValues) =>
-				mutation.mutateAsync({
-					assetRecordId: draft.assetRecordId,
-					avoidConstraints: [],
-					changeConstraints: [values.issueNote],
-					correction: {
-						annotations: values.annotations,
-						issueNote: values.issueNote,
-						redrawRegion: values.redrawRegion,
-						sourceAssetVersionId: draft.sourceAssetVersionId,
-						targetUnitVersionId: values.targetUnitVersionId,
-					},
-					expectedOutputStructure:
-						"Redraw only the marked region and return one image at the target size.",
-					lockedUnitVersionIds: values.preservedUnitVersionIds,
-					preserveConstraints: [
-						"Do not change pixels outside the redraw region.",
-					],
-					projectId,
-					targetDimensions: draft.size,
-					targetTask: values.issueNote,
-				}),
+			mutateAsync: (values: CorrectionPackageValues) =>
+				mutation.mutateAsync(
+					buildCorrectionPackageInput(draft, projectId, values)
+				),
 		},
 	};
 }

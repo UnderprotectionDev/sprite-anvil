@@ -68,6 +68,7 @@ export function FrameSettingsForm({
 		},
 	});
 	const keepId = `keep-${frame.key}`;
+	const issueId = `issue-${frame.key}`;
 
 	return (
 		<div className="space-y-3">
@@ -84,6 +85,17 @@ export function FrameSettingsForm({
 				<Label htmlFor={keepId}>
 					Keep (protect this frame from silent changes)
 				</Label>
+			</div>
+			<div className="flex items-center gap-2">
+				<Checkbox
+					checked={frame.issue}
+					disabled={disabled}
+					id={issueId}
+					onCheckedChange={(issue) =>
+						onEdit([{ type: "set-issue", frameKey: frame.key, issue }])
+					}
+				/>
+				<Label htmlFor={issueId}>Mark as issue (needs attention)</Label>
 			</div>
 			<form
 				className="space-y-2"

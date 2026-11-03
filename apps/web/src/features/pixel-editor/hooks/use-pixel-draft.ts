@@ -65,7 +65,7 @@ export function usePixelDraft(projectId: string, sourceAssetVersionId: string) {
 			if (!draft) {
 				throw new Error("The Working Draft is not loaded yet");
 			}
-			return commitPixelDraft(projectId, draft.id);
+			return commitPixelDraft(projectId, draft);
 		},
 		onSuccess: (result) => {
 			remember(result.draft);

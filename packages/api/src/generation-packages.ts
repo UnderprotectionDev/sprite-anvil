@@ -118,11 +118,33 @@ export const correctionAnnotationSchema = z.discriminatedUnion("kind", [
 			text: z.string().trim().min(1).max(500),
 		})
 		.strict(),
+	z.object({ kind: z.literal("pivot"), at: correctionPointSchema }).strict(),
+	z
+		.object({
+			kind: z.literal("ground-line"),
+			y: z.number().int().min(0).max(100_000),
+		})
+		.strict(),
 ]);
+
+/** The Working Draft a correction was marked on; its size and revision fix what the coordinates mean. */
+export const correctionDraftReferenceSchema = z
+	.object({ id: idSchema, revision: z.number().int().min(0) })
+	.strict();
+
+export const correctionCoordinateSpaceSchema = z
+	.object({
+		draftId: idSchema,
+		draftRevision: z.number().int().min(0),
+		height: dimensionSchema.shape.height,
+		width: dimensionSchema.shape.width,
+	})
+	.strict();
 
 export const generationPackageCorrectionInputSchema = z
 	.object({
 		annotations: z.array(correctionAnnotationSchema).max(50),
+		draft: correctionDraftReferenceSchema,
 		issueNote: z.string().trim().min(1).max(2000),
 		redrawRegion: correctionRectSchema,
 		sourceAssetVersionId: idSchema,
@@ -131,7 +153,11 @@ export const generationPackageCorrectionInputSchema = z
 	.strict();
 
 const generationPackageCorrectionSchema = generationPackageCorrectionInputSchema
-	.extend({ targetUnit: lockedUnitSnapshotSchema.nullable() })
+	.omit({ draft: true })
+	.extend({
+		coordinateSpace: correctionCoordinateSpaceSchema,
+		targetUnit: lockedUnitSnapshotSchema.nullable(),
+	})
 	.strict();
 
 const contextRulesSchema =
@@ -223,7 +249,21 @@ export interface GenerationPackageStore {
 	) => Promise<GenerationPackage[] | null>;
 }
 
+/** Size and revision of a Working Draft as the server derived them; supplied by the pixel editor. */
+export interface PixelDraftCoordinateSpace {
+	assetRecordId: string;
+	draftId: string;
+	draftRevision: number;
+	height: number;
+	sourceAssetVersionId: string;
+	width: number;
+}
+
 export const correctionErrors = {
+	draftMismatch:
+		"The correction Working Draft does not belong to this record and source version.",
+	draftStale: "The Working Draft changed after the correction was marked.",
+	draftUnavailable: "The correction Working Draft could not be found.",
 	outsideBounds: "A correction mark is outside the target bounds.",
 	sourceNotInRecord:
 		"The correction source version does not belong to this record.",
@@ -245,9 +285,42 @@ function rectInside(rect: Rect, size: Dimensions) {
 	);
 }
 
+/**
+ * Checks a correction's Working Draft reference against the draft the server
+ * read. Returns the coordinate space the marks are validated in; throws a
+ * correctionErrors message otherwise.
+ */
+export function resolveCorrectionCoordinateSpace(
+	correction: Pick<
+		GenerationPackageCorrectionInput,
+		"draft" | "sourceAssetVersionId"
+	>,
+	draftSpace: PixelDraftCoordinateSpace | null,
+	assetRecordId: string
+): z.infer<typeof correctionCoordinateSpaceSchema> {
+	if (!draftSpace || draftSpace.draftId !== correction.draft.id) {
+		throw new Error(correctionErrors.draftUnavailable);
+	}
+	if (
+		draftSpace.assetRecordId !== assetRecordId ||
+		draftSpace.sourceAssetVersionId !== correction.sourceAssetVersionId
+	) {
+		throw new Error(correctionErrors.draftMismatch);
+	}
+	if (draftSpace.draftRevision !== correction.draft.revision) {
+		throw new Error(correctionErrors.draftStale);
+	}
+	return {
+		draftId: draftSpace.draftId,
+		draftRevision: draftSpace.draftRevision,
+		height: draftSpace.height,
+		width: draftSpace.width,
+	};
+}
+
 function buildCorrection(
 	correction: z.infer<typeof generationPackageCorrectionInputSchema>,
-	size: Dimensions,
+	coordinateSpace: z.infer<typeof correctionCoordinateSpaceSchema>,
 	assetRecordId: string,
 	catalog: AssetVersionCatalog,
 	lockedUnitVersionIds: string[]
@@ -281,25 +354,34 @@ function buildCorrection(
 		};
 	}
 	const inside =
-		rectInside(correction.redrawRegion, size) &&
+		rectInside(correction.redrawRegion, coordinateSpace) &&
 		correction.annotations.every((mark) => {
 			if (mark.kind === "region") {
-				return rectInside(mark.rect, size);
+				return rectInside(mark.rect, coordinateSpace);
 			}
-			if (mark.kind === "note") {
-				return pointInside(mark.at, size);
+			if (mark.kind === "note" || mark.kind === "pivot") {
+				return pointInside(mark.at, coordinateSpace);
 			}
-			return pointInside(mark.from, size) && pointInside(mark.to, size);
+			if (mark.kind === "ground-line") {
+				return mark.y < coordinateSpace.height;
+			}
+			return (
+				pointInside(mark.from, coordinateSpace) &&
+				pointInside(mark.to, coordinateSpace)
+			);
 		});
 	if (!inside) {
 		throw new Error(correctionErrors.outsideBounds);
 	}
-	return { ...correction, targetUnit };
+	const { draft: _draft, ...recorded } = correction;
+	return { ...recorded, coordinateSpace, targetUnit };
 }
 
 export function createGenerationPackageSnapshot(data: {
 	assetRecord: AssetRecord;
 	assetVersionCatalog: AssetVersionCatalog;
+	/** Required with a correction: the Working Draft space the server derived. */
+	correctionSpace?: z.infer<typeof correctionCoordinateSpaceSchema>;
 	input: GenerationPackageCreateInput;
 	projectContext: ProjectContext;
 	projectContextScopeCatalog: ProjectContextScopeCatalog;
@@ -370,15 +452,19 @@ export function createGenerationPackageSnapshot(data: {
 		};
 	});
 
-	const correction = request.correction
-		? buildCorrection(
-				request.correction,
-				request.targetDimensions,
-				assetRecord.id,
-				assetVersionCatalog,
-				request.lockedUnitVersionIds
-			)
-		: undefined;
+	if (request.correction && !data.correctionSpace) {
+		throw new Error(correctionErrors.draftUnavailable);
+	}
+	const correction =
+		request.correction && data.correctionSpace
+			? buildCorrection(
+					request.correction,
+					data.correctionSpace,
+					assetRecord.id,
+					assetVersionCatalog,
+					request.lockedUnitVersionIds
+				)
+			: undefined;
 
 	const referenceRoles: GenerationPackage["referenceRoles"] = [
 		...data.tracking.references.map((reference) => ({
@@ -453,7 +539,12 @@ export function createGenerationPackageSnapshot(data: {
 			visualWorld: visualWorld ?? null,
 		},
 		referenceRoles,
-		targetDimensions: request.targetDimensions,
+		targetDimensions: data.correctionSpace
+			? {
+					height: data.correctionSpace.height,
+					width: data.correctionSpace.width,
+				}
+			: request.targetDimensions,
 		targetTask: request.targetTask,
 	});
 }

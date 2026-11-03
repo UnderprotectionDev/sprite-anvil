@@ -118,9 +118,11 @@ export async function previewPixelColorReplace(
 	);
 }
 
-export async function commitPixelDraft(projectId: string, draftId: string) {
+export async function commitPixelDraft(projectId: string, draft: PixelDraft) {
 	return pixelDraftCommitResponseSchema.parse(
-		await pixelEditorPost(`${draftsUrl(projectId)}/${draftId}/commit`, {})
+		await pixelEditorPost(`${draftsUrl(projectId)}/${draft.id}/commit`, {
+			expectedRevision: draft.revision,
+		})
 	);
 }
 

@@ -22,13 +22,16 @@ import type {
 } from "@sprite-anvil/api/pixel-editor-structure";
 import { Badge } from "@sprite-anvil/ui/components/badge";
 import { Button } from "@sprite-anvil/ui/components/button";
+import { TriangleAlert } from "lucide-react";
 import { frameImageUrl } from "../../lib/frame-structure-api";
 
-const statusLabels: Record<SheetFrameView["status"], string> = {
-	new: "New",
-	changed: "Changed",
-	pinned: "Pinned",
-};
+export const statusLabels: Record<SheetFrameView["status"] | "issue", string> =
+	{
+		new: "New",
+		changed: "Changed",
+		pinned: "Pinned",
+		issue: "Issue",
+	};
 
 function FrameItem({
 	disabled,
@@ -60,7 +63,7 @@ function FrameItem({
 			<button
 				{...sortable.attributes}
 				{...sortable.listeners}
-				aria-label={`Frame ${frame.index + 1}${frame.keep ? ", protected" : ""}. Press space to pick up and the arrow keys to reorder.`}
+				aria-label={`Frame ${frame.index + 1}${frame.keep ? ", protected" : ""}${frame.issue ? ", marked as issue" : ""}. Press space to pick up and the arrow keys to reorder.`}
 				aria-pressed={selected}
 				className={`flex w-28 flex-col items-center gap-1 rounded-md border p-2 text-xs ${selected ? "border-primary bg-primary/10" : "bg-background"}`}
 				onClick={() => onSelect(frame.key)}
@@ -81,6 +84,12 @@ function FrameItem({
 						{statusLabels[frame.status]}
 					</Badge>
 					{frame.keep ? <Badge variant="default">Keep</Badge> : null}
+					{frame.issue ? (
+						<Badge variant="destructive">
+							<TriangleAlert aria-hidden="true" />
+							{statusLabels.issue}
+						</Badge>
+					) : null}
 				</span>
 			</button>
 		</li>

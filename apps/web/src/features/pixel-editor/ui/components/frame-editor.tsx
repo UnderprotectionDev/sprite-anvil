@@ -4,6 +4,7 @@ import type {
 } from "@sprite-anvil/api/pixel-editor-structure";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useState } from "react";
+import { FramePixelEditForm } from "../forms/frame-pixel-edit-form";
 import { FrameSettingsForm } from "../forms/frame-settings-form";
 import { FrameSourceForm } from "../forms/frame-source-form";
 import { FrameAlignmentCanvas } from "./frame-alignment-canvas";
@@ -51,6 +52,14 @@ export function FrameEditor({
 							key={`${selected.key}-${structure.draftRevision}`}
 							onEdit={onEdit}
 						/>
+						{selected.origin.kind === "cell" ? null : (
+							<FramePixelEditForm
+								disabled={busy}
+								frame={selected}
+								key={`edit-${selected.key}-${structure.draftRevision}`}
+								onEdit={onEdit}
+							/>
+						)}
 						<FrameSourceForm
 							disabled={busy}
 							onAdd={(assetVersionId) =>

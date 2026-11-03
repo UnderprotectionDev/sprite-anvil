@@ -26,6 +26,7 @@ export const compareModes = [
 	"source",
 	"side-by-side",
 	"overlay",
+	"transition",
 ] as const;
 export type CompareMode = (typeof compareModes)[number];
 

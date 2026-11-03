@@ -32,19 +32,23 @@ export interface PixelEditorSession {
 	user: { id: string };
 }
 
-export interface PixelEditorRouteDependencies {
+/** What loading and storing a Working Draft needs; no session or project lookup. */
+export interface DraftDependencies {
 	assetVersionStore: Pick<
 		AssetVersionStore,
 		"createCandidateVersion" | "createCompositeVersion" | "getFileRecord"
 	>;
 	createId?: () => string;
 	createStorage: () => TwoDVisualAssetStorage;
+	pixelEditorStore: PixelEditorStore;
+}
+
+export interface PixelEditorRouteDependencies extends DraftDependencies {
 	getProjectForUser: (
 		userId: string,
 		projectId: string
 	) => Promise<{ id: string } | null>;
 	getSession: (headers: Headers) => Promise<PixelEditorSession | null>;
-	pixelEditorStore: PixelEditorStore;
 }
 
 export type ErrorName = z.infer<typeof pixelEditorErrorSchema>["error"];
@@ -120,15 +124,15 @@ export function updateFailure(
 /** Who is acting on which project, and through which services. */
 export interface Scope {
 	access: ProjectAccess;
-	dependencies: PixelEditorRouteDependencies;
+	dependencies: DraftDependencies;
 }
 
-export function newId(dependencies: PixelEditorRouteDependencies) {
+export function newId(dependencies: DraftDependencies) {
 	return dependencies.createId ? dependencies.createId() : crypto.randomUUID();
 }
 
 export async function readSourceRaster(
-	dependencies: PixelEditorRouteDependencies,
+	dependencies: DraftDependencies,
 	file: AssetVersionFileRecord
 ): Promise<Raster | null> {
 	if (!(file.integrityVerified && file.contentDigest)) {
