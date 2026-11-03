@@ -269,7 +269,53 @@ export const contextProposalReviewSchema = z
 	})
 	.strict();
 
+export const productionExperimentComparedInputs = [
+	"context",
+	"master_design",
+	"reference",
+	"instruction",
+	"target_measure",
+	"output_structure",
+	"provider_parameters",
+] as const;
+
+export const productionExperimentOutcomes = [
+	"selection_made",
+	"inconclusive",
+	"abandoned",
+] as const;
+
+export const productionExperimentLearningSourceSchema = z
+	.object({
+		kind: z.literal("production_experiment"),
+		experimentId: z.string().uuid(),
+		assetRecordId: z.string().uuid(),
+		outcome: z.enum(productionExperimentOutcomes),
+		selectedTrialId: z.string().uuid().nullable(),
+		comparedTrials: z
+			.array(
+				z
+					.object({
+						trialId: z.string().uuid(),
+						label: z.string().min(1).max(120),
+						generationPackageId: z.string().uuid(),
+						assetVersionId: z.string().uuid(),
+					})
+					.strict()
+			)
+			.min(2)
+			.max(20),
+		changedInputs: z.array(z.enum(productionExperimentComparedInputs)),
+		causeCanBeSeparated: z.boolean(),
+		comparisonStatement: z.string().min(1),
+		comment: z.string().trim().min(1).max(2000),
+		narrowestScope: contextScopeSchema,
+		scopeWidenedByUser: z.boolean(),
+	})
+	.strict();
+
 export const contextProposalSourceSchema = z.discriminatedUnion("kind", [
+	productionExperimentLearningSourceSchema,
 	z
 		.object({
 			kind: z.literal("structured_control"),

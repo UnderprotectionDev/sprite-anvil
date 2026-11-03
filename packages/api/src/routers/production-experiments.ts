@@ -9,9 +9,15 @@ import {
 	productionExperimentCreateInputSchema,
 	productionExperimentDetailSchema,
 	productionExperimentGetInputSchema,
+	productionExperimentLearningInputSchema,
 	productionExperimentListInputSchema,
 	productionExperimentSchema,
 } from "../production-experiments";
+import type { ContextScope } from "../project-context";
+import {
+	contextProposalSchema,
+	validateContextProposal,
+} from "../project-context";
 
 function requireStores(context: Context) {
 	const { generationPackageStore, productionExperimentStore } = context;
@@ -60,6 +66,61 @@ async function readTrialInputs(
 		}
 		return { candidateVersion, generationPackage, trial };
 	});
+}
+
+function compareInputs(inputs: Awaited<ReturnType<typeof readTrialInputs>>) {
+	const comparable: ComparableTrial[] = inputs.map((entry) => {
+		const record = entry.candidateVersion.providerGenerationRecord;
+		return {
+			generationPackage: entry.generationPackage,
+			providerParameters: record
+				? {
+						interface: record.interface,
+						model: record.model,
+						modelVersion: record.modelVersion,
+						parameters: record.parameterSnapshot.parameters,
+						provider: record.provider,
+						seed: record.seed,
+					}
+				: null,
+			trialId: entry.trial.id,
+		};
+	});
+	return compareProductionExperimentTrials(comparable);
+}
+
+function sameScope(left: ContextScope, right: ContextScope) {
+	return left.kind === right.kind && left.id === right.id;
+}
+
+/**
+ * The narrowest scope the Asset Record is registered under, followed by its
+ * wider parents. Asset-level scopes are not registered Project Context scopes
+ * yet, so the Theme (else Visual World, else Project) is the narrowest one.
+ */
+function narrowestScopeChain(
+	projectId: string,
+	assetRecord: { themeId?: string | null; visualWorldId?: string | null },
+	catalog: {
+		themes: { id: string; visualWorldId: string }[];
+		visualWorlds: { id: string }[];
+	}
+): ContextScope[] {
+	const project: ContextScope = { id: projectId, kind: "project" };
+	const theme = assetRecord.themeId
+		? catalog.themes.find((entry) => entry.id === assetRecord.themeId)
+		: undefined;
+	const visualWorldId = theme?.visualWorldId ?? assetRecord.visualWorldId;
+	const visualWorld = visualWorldId
+		? catalog.visualWorlds.find((entry) => entry.id === visualWorldId)
+		: undefined;
+	return [
+		...(theme ? [{ id: theme.id, kind: "theme" as const }] : []),
+		...(visualWorld
+			? [{ id: visualWorld.id, kind: "visual_world" as const }]
+			: []),
+		project,
+	];
 }
 
 export const productionExperimentsRouter = {
@@ -170,26 +231,10 @@ export const productionExperimentsRouter = {
 				throw notFound();
 			}
 			const inputs = await readTrialInputs(context, userId, experiment);
-			const comparable: ComparableTrial[] = inputs.map((entry) => {
-				const record = entry.candidateVersion.providerGenerationRecord;
-				return {
-					generationPackage: entry.generationPackage,
-					providerParameters: record
-						? {
-								interface: record.interface,
-								model: record.model,
-								modelVersion: record.modelVersion,
-								parameters: record.parameterSnapshot.parameters,
-								provider: record.provider,
-								seed: record.seed,
-							}
-						: null,
-					trialId: entry.trial.id,
-				};
-			});
+			const comparison = compareInputs(inputs);
 			return {
 				assetRecordId: experiment.assetRecordId,
-				comparison: compareProductionExperimentTrials(comparable),
+				comparison,
 				conclusion: experiment.conclusion,
 				createdAt: experiment.createdAt,
 				id: experiment.id,
@@ -222,5 +267,114 @@ export const productionExperimentsRouter = {
 				throw notFound();
 			}
 			return experiments;
+		}),
+	transferLearning: protectedProcedure
+		.input(productionExperimentLearningInputSchema)
+		.output(contextProposalSchema)
+		.handler(async ({ context, input }) => {
+			// Only the signed-in user reaches this procedure and the source is built
+			// here, so an agent or automation cannot record this user decision.
+			const userId = context.session.user.id;
+			const { productionExperimentStore } = requireStores(context);
+			const experiment = await productionExperimentStore.get(
+				userId,
+				input.projectId,
+				input.experimentId
+			);
+			if (!experiment) {
+				throw notFound();
+			}
+			const { conclusion } = experiment;
+			if (!conclusion) {
+				throw new ORPCError("CONFLICT", {
+					message:
+						"Öğrenim yalnız sonuçlandırılmış bir Üretim Deneyinden aktarılabilir.",
+				});
+			}
+			const [baseRevision, assetRecord, catalog, trialInputs] =
+				await Promise.all([
+					context.projectContextStore.getRevision(
+						userId,
+						input.projectId,
+						input.baseContextRevisionId
+					),
+					context.assetRecordStore.get(
+						userId,
+						input.projectId,
+						experiment.assetRecordId
+					),
+					context.projectContextScopeStore.list(userId, input.projectId),
+					readTrialInputs(context, userId, experiment),
+				]);
+			if (!(baseRevision && assetRecord && catalog)) {
+				throw new ORPCError("NOT_FOUND", {
+					message: "Bağlam Sürümü, Varlık Kaydı veya proje bulunamadı.",
+				});
+			}
+
+			const chain = narrowestScopeChain(input.projectId, assetRecord, catalog);
+			const [narrowestScope] = chain;
+			if (!narrowestScope) {
+				throw new Error("A Project scope always exists.");
+			}
+			const changes = input.changes.map((change) => {
+				const index = chain.findIndex((scope) =>
+					sameScope(scope, change.scope)
+				);
+				const allowed = input.widenScope ? index >= 0 : index === 0;
+				if (!allowed) {
+					throw new ORPCError("BAD_REQUEST", {
+						message: input.widenScope
+							? "Kapsam bu Varlık Kaydının kapsam zincirinde olmalıdır."
+							: "Öneri en dar anlamlı kapsamda kalmalıdır; kapsamı genişletmek kullanıcı kararıdır.",
+					});
+				}
+				return { ...change, precedenceChain: chain.slice(index) };
+			});
+			const scopeWidenedByUser = changes.some(
+				(change) => !sameScope(change.scope, narrowestScope)
+			);
+
+			const comparison = compareInputs(trialInputs);
+			const createdAt = new Date().toISOString();
+			const proposal = contextProposalSchema.parse({
+				activationAllowed: false,
+				baseContextRevisionId: baseRevision.id,
+				changes,
+				contractVersion: "context-agent/1.0.0",
+				createdAt,
+				id: crypto.randomUUID(),
+				projectId: input.projectId,
+				ruleContractVersion: baseRevision.ruleContractVersion,
+				source: {
+					assetRecordId: experiment.assetRecordId,
+					causeCanBeSeparated: comparison.causeCanBeSeparated,
+					changedInputs: comparison.changedInputs,
+					comment: input.comment,
+					comparedTrials: experiment.trials.map((trial) => ({
+						assetVersionId: trial.assetVersionId,
+						generationPackageId: trial.generationPackageId,
+						label: trial.label,
+						trialId: trial.id,
+					})),
+					comparisonStatement: comparison.statement,
+					experimentId: experiment.id,
+					kind: "production_experiment",
+					narrowestScope,
+					outcome: conclusion.outcome,
+					scopeWidenedByUser,
+					selectedTrialId: conclusion.selectedTrialId,
+				},
+				summary: input.summary,
+				validation: validateContextProposal(
+					input.projectId,
+					baseRevision,
+					changes,
+					createdAt,
+					catalog
+				),
+			});
+			await context.projectContextStore.createProposal(userId, proposal);
+			return proposal;
 		}),
 };
