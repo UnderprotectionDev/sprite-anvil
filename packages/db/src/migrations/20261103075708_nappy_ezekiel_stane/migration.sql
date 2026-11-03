@@ -1,0 +1,1 @@
+ALTER TABLE "pixel_editor_drafts" ADD COLUMN "structure" jsonb;
