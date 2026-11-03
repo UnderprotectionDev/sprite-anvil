@@ -253,10 +253,7 @@ function ProposalRecord({
 			},
 		})
 	);
-	const source =
-		proposal.source.kind === "structured_control"
-			? `Yapılandırılmış kontrol · ${proposal.source.controlId}`
-			: `Bağlam ajanı · ${proposal.source.agentId} / ${proposal.source.modelId}`;
+	const source = describeProposalSource(proposal.source);
 	const isCurrent =
 		project.currentContextRevision.sourceProposalId === proposal.id;
 
@@ -672,4 +669,15 @@ function withOccurrenceKeys<T>(
 		occurrences.set(baseKey, occurrence + 1);
 		return { item, key: `${baseKey}:${occurrence}` };
 	});
+}
+
+function describeProposalSource(source: ContextProposal["source"]) {
+	switch (source.kind) {
+		case "structured_control":
+			return `Yapılandırılmış kontrol · ${source.controlId}`;
+		case "production_experiment":
+			return `Üretim Deneyi · ${source.experimentId}`;
+		default:
+			return `Bağlam ajanı · ${source.agentId} / ${source.modelId}`;
+	}
 }

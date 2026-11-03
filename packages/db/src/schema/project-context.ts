@@ -61,7 +61,7 @@ export const contextProposals = pgTable(
 			.references(() => user.id, { onDelete: "cascade" }),
 		contractVersion: text("contract_version").notNull(),
 		sourceKind: text("source_kind")
-			.$type<"structured_control" | "agent">()
+			.$type<"structured_control" | "agent" | "production_experiment">()
 			.notNull(),
 		proposal: jsonb("proposal").$type<Record<string, unknown>>().notNull(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),

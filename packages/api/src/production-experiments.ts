@@ -2,6 +2,12 @@ import { z } from "zod";
 import { assetVersionReviewDispositionSchema } from "./asset-versions";
 import type { GenerationPackage } from "./generation-packages";
 import { generationPackageSchema } from "./generation-packages";
+import {
+	contextProposalSchema,
+	contextRuleChangeSchema,
+	productionExperimentComparedInputs,
+	productionExperimentOutcomes,
+} from "./project-context";
 import { providerGenerationRecordSchema } from "./provider-generation-records";
 
 type JsonValue = z.infer<ReturnType<typeof z.json>>;
@@ -10,24 +16,10 @@ const idSchema = z.uuid();
 const labelSchema = z.string().trim().min(1).max(120);
 const noteSchema = z.string().trim().min(1).max(2000);
 
-export const productionExperimentOutcomes = [
-	"selection_made",
-	"inconclusive",
-	"abandoned",
-] as const;
 export const productionExperimentOutcomeSchema = z.enum(
 	productionExperimentOutcomes
 );
 
-export const productionExperimentComparedInputs = [
-	"context",
-	"master_design",
-	"reference",
-	"instruction",
-	"target_measure",
-	"output_structure",
-	"provider_parameters",
-] as const;
 export const productionExperimentComparedInputSchema = z.enum(
 	productionExperimentComparedInputs
 );
@@ -117,6 +109,21 @@ export const productionExperimentConcludeInputSchema = z
 			});
 		}
 	});
+
+export const productionExperimentLearningInputSchema = z
+	.object({
+		baseContextRevisionId: idSchema,
+		changes: z.array(contextRuleChangeSchema).min(1).max(50),
+		comment: noteSchema,
+		experimentId: idSchema,
+		projectId: idSchema,
+		summary: z.string().trim().min(1).max(240),
+		// Widening beyond the narrowest meaningful scope is the user's decision.
+		widenScope: z.boolean().default(false),
+	})
+	.strict();
+
+export const productionExperimentLearningOutputSchema = contextProposalSchema;
 
 export const productionExperimentComparisonSchema = z
 	.object({
