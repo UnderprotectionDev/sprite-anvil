@@ -30,6 +30,7 @@ import { createMarketingUsageReviewStore } from "./features/portrait-marketing-p
 import { createPortraitIdentityReviewStore } from "./features/portrait-marketing-profile/server/portrait-identity-review-store";
 import { createProductionExperimentStore } from "./features/production-experiments/server/production-experiment-store";
 import { createManagedSnapshotStore } from "./features/production-provenance/server/managed-snapshot-store";
+import { createProductionRecipeStore } from "./features/production-recipes/server/production-recipe-store";
 import { createProjectContextStore } from "./features/project-context/server/project-context-store";
 import { createProjectAccessStore } from "./features/projects/server/project-access-store";
 import { createProviderGenerationRecordStore } from "./features/provider-generation-records/server/provider-generation-record-store";
@@ -87,6 +88,7 @@ export const dependencyRevalidationStore =
 export const collectionStore = createCollectionStore(db);
 export const generationPackageStore = createGenerationPackageStore(db);
 export const productionExperimentStore = createProductionExperimentStore(db);
+export const productionRecipeStore = createProductionRecipeStore(db);
 export const importInboxStore = createImportInboxStore(db);
 export const pixelEditorStore = createPixelEditorStore(db);
 export const sourceMetadataMappingProposalStore =

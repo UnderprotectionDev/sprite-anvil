@@ -28,6 +28,7 @@ import type { ImportInboxStore } from "./import-inbox";
 import type { MarketingUsageReviewStore } from "./marketing-usage-reviews";
 import type { PortraitIdentityReviewStore } from "./portrait-identity-reviews";
 import type { ProductionExperimentStore } from "./production-experiments";
+import type { ProductionRecipeStore } from "./production-recipes";
 import type { ProjectAccessStore } from "./project-access-store";
 import type { ProjectContextStore } from "./project-context";
 import type { ProviderGenerationRecordStore } from "./provider-generation-records";
@@ -83,6 +84,7 @@ export interface Context {
 	marketingUsageReviewStore?: MarketingUsageReviewStore;
 	portraitIdentityReviewStore?: PortraitIdentityReviewStore;
 	productionExperimentStore?: ProductionExperimentStore;
+	productionRecipeStore?: ProductionRecipeStore;
 	projectAccess: ProjectAccessStore;
 	projectContextScopeStore: ProjectContextScopeStore;
 	projectContextStore: ProjectContextStore;
