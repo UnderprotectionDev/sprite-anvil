@@ -42,13 +42,13 @@ Paper sayfası: `01 · Accounts & Projects`
 
 | Kimlik | Ekran | İçerik | İş akışı |
 | --- | --- | --- | --- |
-| 01.1 | Giriş | Kimlik bilgisi formu; gönderim 08.2.7, alan hataları 08.2.5 ile; başarılı girişte 01.2 açılır. Giriş: e-posta, parola. Hesap oluşturma: ad, e-posta, parola. Görünümler: Giriş · Hesap oluşturma. Hesap oluşturma ve giriş gereksinimi PRD'de henüz yazılı değildir. | 01 |
+| 01.1 | Giriş | Açılır pencerede yalnızca GitHub ve Google ile giriş; e-posta ve parola ile giriş yoktur. Ayrı hesap oluşturma görünümü yoktur; ilk girişte hesap oluşur. Sağlayıcı beklenirken ve başarısızlıkta 08.2.7; başarılı girişte 01.2 açılır. Hesap oluşturma ve giriş gereksinimi PRD'de henüz yazılı değildir. | 01 |
 | 01.2 | Projeler | Proje adları ve projeyi açma; 01.3 Yeni proje ve 01.4 Proje Arşivi geçişleri; her projeden 01.5 Proje ayrıntıları geçişi; proje yoksa 08.2.2 › Henüz içerik yok. Görünümler: Izgara · Liste. | 01 |
 | 01.3 | Yeni proje | Proje adı ve genel sanat yaklaşımı alanları; oluşturma kontrolü, alan hataları 08.2.5 ile, oluşan projeye geçiş. | 03 |
 | 01.4 | Proje Arşivi | Arşiv listesi, seçili arşivin içerik özeti, indirme ve 01.4.1 geri yüklemeye geçiş. Arşiv oluşturmada taşınacak içeriğin özeti (bağlam, varlık, üretim, inceleme ve teslimat geçmişi); isteğe bağlı çalışma dosyaları ve büyük ikili çalışma zamanı kanıtları seçimi; dışarıda kalan kanıtların kimliği ve özeti; sonucu 07.2'de izleme. Görünümler: Arşiv listesi · Arşiv oluşturma. | 44 |
 | 01.4.1 | Geri yükleme | Geri yüklemenin bağımsız yeni proje oluşturduğu açıklaması; dosya/ilişki bütünlüğü sonucu, eksik kanıtlar, 08.2.7 › İşlem ilerlemesi ve yeni projeyi açma. Görünümler: Arşiv seçimi (listeden veya başka ortamda indirilmiş arşiv dosyasını yükleyerek) · Bütünlük kontrolü · Yeni projeyi açma. Geçersiz arşivde 07.2 › Başarısız ve kısmi proje kalmadığı bilgisi. | 44 |
 | 01.5 | Proje ayrıntıları | Proje adını yeniden adlandırma ve genel sanat yaklaşımını düzenleme; genel sanat yaklaşımı proje metadata'sıdır, Proje Bağlamı kuralı değildir ve bağlama ancak 02.1.1 önerisiyle girer; alan hataları 08.2.5 ile; projeyi silme 07.3 Kalıcı silme akışını proje kapsamıyla başlatır (bu satırda ayrı silme akışı çizilmez); silinen projeden sonra 01.2 açılır. Proje yeniden adlandırma ve silme gereksinimi PRD'de henüz yazılı değildir. | 01, 45 |
-| 01.6 | Hesap ayarları | Kullanıcının adını ve e-postasını düzenleme, parola değiştirme; alan hataları 08.2.5 ile, başarısızlıkta 08.2.7; 00.5 hesap menüsünden açılır, 00.5'e dönüş. Hesap kurtarma (parola sıfırlama, e-posta doğrulama) ürün kapsamı dışındadır. Hesap ayarları gereksinimi PRD'de henüz yazılı değildir. | 01 |
+| 01.6 | Hesap ayarları | Kullanıcının görünen adını düzenleme; e-posta giriş sağlayıcısından gelir ve salt okunurdur; bağlı giriş yöntemleri (GitHub, Google), eksik sağlayıcıyı bağlama ve oturumu kapatma; parola yoktur. Alan hataları 08.2.5 ile, başarısızlıkta 08.2.7; 00.5 hesap menüsünden açılır, 00.5'e dönüş. Hesap kurtarma sağlayıcıya aittir ve ürün kapsamı dışındadır. Hesap ayarları gereksinimi PRD'de henüz yazılı değildir. | 01 |
 
 ## 02 · Proje Bağlamı ve Ayarlar
 
