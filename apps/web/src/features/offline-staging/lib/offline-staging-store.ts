@@ -54,6 +54,9 @@ export type StageFileResult =
 	| { ok: true; file: StagedFileRow }
 	| { ok: false; reason: "not-png" | "too-large" };
 
+/** `kept-existing`: the staged copy differs in revision, so its base and content stay together. */
+export type StageDraftResult = "kept-existing" | "staged";
+
 export interface OfflineStagingStore {
 	cacheProject: (
 		projectId: string,
@@ -70,7 +73,10 @@ export interface OfflineStagingStore {
 		input: { data: Blob; name: string },
 		options?: { id?: string; now?: number }
 	) => Promise<StageFileResult>;
-	stageWorkingDraft: (draft: StageableDraft, now?: number) => Promise<void>;
+	stageWorkingDraft: (
+		draft: StageableDraft,
+		now?: number
+	) => Promise<StageDraftResult>;
 }
 
 async function hasPngSignature(data: Blob) {
@@ -129,10 +135,14 @@ export function createOfflineStagingStore({
 		},
 		async stageWorkingDraft(draft, now = Date.now()) {
 			const existing = await drafts.get(draft.id);
+			// A staged draft and its pinned base must describe the same cloud record:
+			// a newer cloud revision never overwrites it, or edits would look conflicting.
+			if (existing && existing.draft.revision !== draft.revision) {
+				return "kept-existing";
+			}
 			await drafts.put({
 				id: draft.id,
 				projectId: draft.projectId,
-				// The base is pinned once: later saves update the draft, not its base.
 				base: existing?.base ?? {
 					revision: draft.revision,
 					sourceAssetVersionId: draft.sourceAssetVersionId,
@@ -140,6 +150,7 @@ export function createOfflineStagingStore({
 				draft,
 				stagedAt: existing?.stagedAt ?? now,
 			});
+			return "staged";
 		},
 		async listStagedDrafts(projectId) {
 			return newestFirst(await drafts.listByProject(projectId));

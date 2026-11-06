@@ -22,7 +22,14 @@ export function StageWorkingDraftPanel({
 				projectId,
 				sourceAssetVersionId
 			);
-			await getDefaultOfflineStagingStore().stageWorkingDraft(draft);
+			const result =
+				await getDefaultOfflineStagingStore().stageWorkingDraft(draft);
+			if (result === "kept-existing") {
+				setMessage(
+					"An earlier staged copy of this Working Draft is kept so its pinned base stays consistent. Check it against the cloud before staging again."
+				);
+				return;
+			}
 			setMessage(
 				`Working Draft saved offline at revision ${draft.revision}. The cloud stays authoritative.`
 			);

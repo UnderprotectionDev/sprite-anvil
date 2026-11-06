@@ -163,8 +163,13 @@ export function OfflineStagingView({ projectId }: { projectId: string }) {
 				)
 			);
 			if (choice !== "keep-cloud-retain-draft") {
-				await store.removeStagedDraft(conflict.draftId);
-				await queryClient.invalidateQueries({ queryKey: stagedKey });
+				try {
+					await store.removeStagedDraft(conflict.draftId);
+					await queryClient.invalidateQueries({ queryKey: stagedKey });
+				} catch {
+					// The server already recorded the resolution; only local cleanup failed.
+					return "The resolution was recorded, but the staged draft could not be removed from this browser. Remove it manually.";
+				}
 			}
 			return null;
 		} catch (error) {

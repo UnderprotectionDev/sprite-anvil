@@ -6,25 +6,22 @@
 export function createResolutionKeys(
 	newKey: () => string = () => crypto.randomUUID()
 ) {
-	const keys = new Map<string, string>();
+	const keys = new Map<string, Map<string, string>>();
 	return {
 		keyFor(conflictId: string, choice: string) {
-			const id = `${conflictId}:${choice}`;
-			const existing = keys.get(id);
+			const byChoice = keys.get(conflictId) ?? new Map<string, string>();
+			keys.set(conflictId, byChoice);
+			const existing = byChoice.get(choice);
 			if (existing) {
 				return existing;
 			}
 			const created = newKey();
-			keys.set(id, created);
+			byChoice.set(choice, created);
 			return created;
 		},
 		/** Forgets the keys of a record once it is resolved. */
 		settle(conflictId: string) {
-			for (const id of keys.keys()) {
-				if (id.startsWith(`${conflictId}:`)) {
-					keys.delete(id);
-				}
-			}
+			keys.delete(conflictId);
 		},
 	};
 }

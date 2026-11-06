@@ -139,15 +139,28 @@ test("a staged Working Draft pins its base revision and source Asset Version and
 	});
 });
 
-test("staging the same Working Draft again keeps the first pinned base", async () => {
+test("staging again after the cloud moved on keeps the first draft and base together", async () => {
 	const tables = createTables();
 	const store = createOfflineStagingStore(tables);
 	await store.stageWorkingDraft(draft, 3000);
-	await store.stageWorkingDraft({ ...draft, revision: 5 }, 4000);
+	const result = await store.stageWorkingDraft({ ...draft, revision: 5 }, 4000);
 
 	const [staged] = await store.listStagedDrafts(projectId);
+	expect(result).toBe("kept-existing");
 	expect(staged.base.revision).toBe(3);
-	expect(staged.draft.revision).toBe(5);
+	expect(staged.draft).toEqual(draft);
+	expect(staged.stagedAt).toBe(3000);
+});
+
+test("staging the same revision again refreshes the draft", async () => {
+	const tables = createTables();
+	const store = createOfflineStagingStore(tables);
+	await store.stageWorkingDraft(draft, 3000);
+	const result = await store.stageWorkingDraft({ ...draft }, 4000);
+
+	expect(result).toBe("staged");
+	const [staged] = await store.listStagedDrafts(projectId);
+	expect(staged.base.revision).toBe(3);
 	expect(staged.stagedAt).toBe(3000);
 });
 
