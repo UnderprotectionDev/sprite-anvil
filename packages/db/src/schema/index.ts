@@ -9,6 +9,7 @@ export * from "./asset-records";
 export * from "./asset-versions";
 export * from "./auth";
 export * from "./background-layer-layouts";
+export * from "./background-operations";
 export * from "./background-scrolling-tests";
 export * from "./collections";
 export * from "./context-scopes";
