@@ -100,7 +100,7 @@ export function createDatabaseOperationStorage(db: Database): OperationStorage {
 					attemptCount: sql`${backgroundOperations.attemptCount} + 1`,
 					heartbeatAt: now,
 					startedAt: sql`coalesce(${backgroundOperations.startedAt}, ${stamp(now)}::timestamp)`,
-					status: "running",
+					status: sql`case when ${backgroundOperations.cancelRequestedAt} is not null then 'cancel_requested' else 'running' end`,
 					updatedAt: now,
 				})
 				.where(
@@ -265,7 +265,7 @@ export function createDatabaseOperationStorage(db: Database): OperationStorage {
 				db,
 				sql`WITH requeued AS (
 					UPDATE background_operations SET status = 'pending', updated_at = ${stamp(now)}::timestamp
-					WHERE id = ${operationId} AND status = 'running' AND attempt_count = ${attemptCount}
+					WHERE id = ${operationId} AND status IN ('running', 'cancel_requested') AND attempt_count = ${attemptCount}
 					RETURNING id
 				)
 				INSERT INTO background_operation_outbox (id, operation_id, created_at)

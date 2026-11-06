@@ -95,7 +95,7 @@ export function createMemoryOperationStorage() {
 					{
 						attemptCount: current.attemptCount + 1,
 						startedAt: current.startedAt ?? now.toISOString(),
-						status: "running",
+						status: current.cancelRequestedAt ? "cancel_requested" : "running",
 					},
 					now
 				)
@@ -222,10 +222,7 @@ export function createMemoryOperationStorage() {
 		},
 		requeueWithOutbox(id, attemptCount, outboxId, now) {
 			const current = operations.get(id);
-			if (
-				current?.status !== "running" ||
-				current.attemptCount !== attemptCount
-			) {
+			if (!inAttempt(current, attemptCount)) {
 				return Promise.resolve(false);
 			}
 			update(id, { status: "pending" }, now);

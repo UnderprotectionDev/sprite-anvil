@@ -37,7 +37,7 @@ const transitions: Record<
 > = {
 	pending: ["running", "cancel_requested", "cancelled", "failed"],
 	running: ["pending", "completed", "failed", "cancel_requested"],
-	cancel_requested: ["cancelled", "completed", "failed"],
+	cancel_requested: ["pending", "cancelled", "completed", "failed"],
 	completed: [],
 	failed: [],
 	cancelled: [],
@@ -54,6 +54,11 @@ export function isBackgroundOperationActive(status: BackgroundOperationStatus) {
 	return !(finalBackgroundOperationStatuses as readonly string[]).includes(
 		status
 	);
+}
+
+/** Only a Pending or Running operation takes a new cancel request; every other status already has its answer. */
+export function canRequestCancel(status: BackgroundOperationStatus) {
+	return status === "pending" || status === "running";
 }
 
 /** An action that has not answered within this time shows its progress (OPS-05). */

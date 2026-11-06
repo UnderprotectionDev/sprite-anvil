@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
 	backgroundOperationStatuses,
+	canRequestCancel,
 	canTransitionBackgroundOperation,
 	isBackgroundOperationActive,
 	shouldShowOperationProgress,
@@ -58,4 +59,12 @@ test("shows progress only for an active operation that has waited a second", () 
 			created + 5000
 		)
 	).toBe(false);
+});
+
+test("only a Pending or Running operation takes a cancel request", () => {
+	for (const status of backgroundOperationStatuses) {
+		expect(canRequestCancel(status)).toBe(
+			status === "pending" || status === "running"
+		);
+	}
 });

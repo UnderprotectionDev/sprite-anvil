@@ -1,6 +1,7 @@
 import {
 	type BackgroundOperation,
 	cancelOutcome,
+	canRequestCancel,
 	shouldShowOperationProgress,
 } from "@sprite-anvil/api/background-operations";
 import { Button } from "@sprite-anvil/ui/components/button";
@@ -41,7 +42,7 @@ function OperationProgress({
 
 function CancelControl({ operation }: { operation: BackgroundOperation }) {
 	const cancel = useCancelBackgroundOperation(operation.projectId);
-	if (operation.status !== "pending" && operation.status !== "running") {
+	if (!canRequestCancel(operation.status)) {
 		return null;
 	}
 	return (

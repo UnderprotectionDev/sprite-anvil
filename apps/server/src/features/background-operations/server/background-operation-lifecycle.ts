@@ -238,11 +238,8 @@ export function createBackgroundOperationLifecycle(options: LifecycleOptions) {
 				? "failed"
 				: "superseded";
 		}
-		// The user asked to stop and this attempt ended without a result: honour
-		// the request instead of starting another attempt.
-		if ((await storage.get(operation.id))?.status === "cancel_requested") {
-			return stopCancelled(operation);
-		}
+		// A cancel request is not an outcome: only a checkpoint stop is Cancelled.
+		// An errored or stalled attempt follows the normal retry or Failed path.
 		if (exhausted) {
 			return (await storage.fail(
 				operation.id,

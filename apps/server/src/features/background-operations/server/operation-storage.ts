@@ -2,6 +2,7 @@ import type {
 	BackgroundOperation,
 	BackgroundOperationKind,
 } from "@sprite-anvil/api/background-operations";
+import type { OperationProgress } from "./background-operation-lifecycle";
 
 /** A new Background Operation as its owning feature requests it. */
 export interface NewBackgroundOperation {
@@ -35,7 +36,7 @@ export interface OperationStorage {
 		attemptCount: number,
 		now: Date
 	) => Promise<boolean>;
-	/** Pending to Running for one new attempt; null when the operation is not Pending. */
+	/** Pending to Running (Cancel Requested when a request is already recorded) for one new attempt; null when the operation is not Pending. */
 	claim: (
 		operationId: string,
 		now: Date
@@ -75,12 +76,12 @@ export interface OperationStorage {
 	reportProgress: (
 		operationId: string,
 		attemptCount: number,
-		progress: { percent: number | null; step: string | null },
+		progress: OperationProgress,
 		now: Date
 	) => Promise<boolean>;
 	/** Running to Cancel Requested; the first request stamps when it was made. */
 	requestCancelRunning: (operationId: string, now: Date) => Promise<boolean>;
-	/** Running to Pending for another attempt, with a new outbox record. */
+	/** Running or Cancel Requested to Pending for another attempt, with a new outbox record; the cancel request stays recorded. */
 	requeueWithOutbox: (
 		operationId: string,
 		attemptCount: number,
