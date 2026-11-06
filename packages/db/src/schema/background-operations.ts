@@ -54,6 +54,7 @@ export const backgroundOperations = pgTable(
 		startedAt: timestamp("started_at"),
 		heartbeatAt: timestamp("heartbeat_at"),
 		finishedAt: timestamp("finished_at"),
+		cancelRequestedAt: timestamp("cancel_requested_at"),
 	},
 	(table) => [
 		index("background_operations_project_created_at_idx").on(

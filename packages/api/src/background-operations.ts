@@ -79,6 +79,7 @@ export const backgroundOperationSchema = z
 		updatedAt: z.string().datetime(),
 		startedAt: z.string().datetime().nullable(),
 		finishedAt: z.string().datetime().nullable(),
+		cancelRequestedAt: z.string().datetime().nullable(),
 	})
 	.strict();
 
@@ -98,6 +99,34 @@ export function shouldShowOperationProgress(
 	);
 }
 
+/**
+ * What the user is told about a cancel request. A request is never a
+ * successful cancel by itself: only the Cancelled status is, and an operation
+ * that finished anyway reports its real result.
+ */
+export type CancelOutcome =
+	| "cancelled"
+	| "completed_despite_request"
+	| "failed_after_request"
+	| "requested";
+
+export function cancelOutcome(
+	operation: Pick<BackgroundOperation, "cancelRequestedAt" | "status">
+): CancelOutcome | null {
+	switch (operation.status) {
+		case "cancelled":
+			return "cancelled";
+		case "cancel_requested":
+			return "requested";
+		case "completed":
+			return operation.cancelRequestedAt ? "completed_despite_request" : null;
+		case "failed":
+			return operation.cancelRequestedAt ? "failed_after_request" : null;
+		default:
+			return null;
+	}
+}
+
 export const backgroundOperationListInputSchema = z
 	.object({ projectId: idSchema })
 	.strict();
@@ -106,11 +135,19 @@ export const backgroundOperationGetInputSchema = z
 	.object({ projectId: idSchema, operationId: idSchema })
 	.strict();
 
+export const backgroundOperationCancelInputSchema =
+	backgroundOperationGetInputSchema;
+
 export const backgroundOperationListSchema = z
 	.object({ operations: z.array(backgroundOperationSchema) })
 	.strict();
 
-/** Authorized, project-scoped reads of the authoritative record. Writes are made by the owning features through the lifecycle. */
+export type CancelRequestResult =
+	| { operation: BackgroundOperation; outcome: "accepted" }
+	| { operation: BackgroundOperation; outcome: "finished" }
+	| { outcome: "not_found" };
+
+/** Authorized, project-scoped access to the authoritative record. Other writes are made by the owning features through the lifecycle. */
 export interface BackgroundOperationStore {
 	get: (
 		userId: string,
@@ -121,4 +158,10 @@ export interface BackgroundOperationStore {
 		userId: string,
 		projectId: string
 	) => Promise<BackgroundOperation[] | null>;
+	/** Asks to cancel: accepted (idempotently) while the operation is active or already Cancelled, `finished` once it Completed or Failed. */
+	requestCancel: (
+		userId: string,
+		projectId: string,
+		operationId: string
+	) => Promise<CancelRequestResult>;
 }

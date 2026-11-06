@@ -6,6 +6,8 @@ import {
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
 import { backgroundOperations } from "@sprite-anvil/db/schema/background-operations";
 import { and, desc, eq } from "drizzle-orm";
+import { requestOperationCancel } from "./operation-cancellation";
+import type { OperationStorage } from "./operation-storage";
 
 function toISOString(value: Date | string) {
 	return value instanceof Date
@@ -22,6 +24,7 @@ export function toBackgroundOperation(
 ): BackgroundOperation {
 	return backgroundOperationSchema.parse({
 		attemptCount: row.attemptCount,
+		cancelRequestedAt: toNullableISOString(row.cancelRequestedAt),
 		createdAt: toISOString(row.createdAt),
 		failureSummary: row.failureSummary,
 		finishedAt: toNullableISOString(row.finishedAt),
@@ -44,9 +47,20 @@ export function toBackgroundOperation(
 
 /** Project-scoped reads of the authoritative Background Operation record. */
 export function createBackgroundOperationStore(
-	db: Database
+	db: Database,
+	storage: OperationStorage
 ): BackgroundOperationStore {
 	return {
+		async requestCancel(userId, projectId, operationId) {
+			if (!(await getProjectForUser(db, userId, projectId))) {
+				return { outcome: "not_found" };
+			}
+			const operation = await storage.get(operationId);
+			if (operation?.projectId !== projectId) {
+				return { outcome: "not_found" };
+			}
+			return requestOperationCancel(storage, operationId, new Date());
+		},
 		async get(userId, projectId, operationId) {
 			if (!(await getProjectForUser(db, userId, projectId))) {
 				return null;

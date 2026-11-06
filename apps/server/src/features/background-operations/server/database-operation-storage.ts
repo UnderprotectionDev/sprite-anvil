@@ -7,6 +7,7 @@ import {
 	and,
 	asc,
 	eq,
+	inArray,
 	isNull,
 	lt,
 	notExists,
@@ -29,10 +30,11 @@ function stamp(value: Date) {
 	return value.toISOString();
 }
 
+/** An attempt in progress: Running, or Running with a cancel request it has not yet honoured. */
 const running = (operationId: string, attemptCount: number) =>
 	and(
 		eq(backgroundOperations.id, operationId),
-		eq(backgroundOperations.status, "running"),
+		inArray(backgroundOperations.status, ["running", "cancel_requested"]),
 		eq(backgroundOperations.attemptCount, attemptCount)
 	);
 
@@ -42,6 +44,55 @@ const running = (operationId: string, attemptCount: number) =>
  */
 export function createDatabaseOperationStorage(db: Database): OperationStorage {
 	return {
+		async cancelPending(operationId, now) {
+			const updated = await db
+				.update(backgroundOperations)
+				.set({
+					cancelRequestedAt: now,
+					finishedAt: now,
+					status: "cancelled",
+					updatedAt: now,
+				})
+				.where(
+					and(
+						eq(backgroundOperations.id, operationId),
+						eq(backgroundOperations.status, "pending")
+					)
+				)
+				.returning({ id: backgroundOperations.id });
+			return updated.length > 0;
+		},
+		async cancelRequested(operationId, attemptCount, now) {
+			const updated = await db
+				.update(backgroundOperations)
+				.set({ finishedAt: now, status: "cancelled", updatedAt: now })
+				.where(
+					and(
+						eq(backgroundOperations.id, operationId),
+						eq(backgroundOperations.status, "cancel_requested"),
+						eq(backgroundOperations.attemptCount, attemptCount)
+					)
+				)
+				.returning({ id: backgroundOperations.id });
+			return updated.length > 0;
+		},
+		async requestCancelRunning(operationId, now) {
+			const updated = await db
+				.update(backgroundOperations)
+				.set({
+					cancelRequestedAt: now,
+					status: "cancel_requested",
+					updatedAt: now,
+				})
+				.where(
+					and(
+						eq(backgroundOperations.id, operationId),
+						eq(backgroundOperations.status, "running")
+					)
+				)
+				.returning({ id: backgroundOperations.id });
+			return updated.length > 0;
+		},
 		async claim(operationId, now) {
 			const [row] = await db
 				.update(backgroundOperations)
@@ -145,7 +196,10 @@ export function createDatabaseOperationStorage(db: Database): OperationStorage {
 				.from(backgroundOperations)
 				.where(
 					and(
-						eq(backgroundOperations.status, "running"),
+						inArray(backgroundOperations.status, [
+							"running",
+							"cancel_requested",
+						]),
 						or(
 							lt(backgroundOperations.heartbeatAt, heartbeatBefore),
 							and(

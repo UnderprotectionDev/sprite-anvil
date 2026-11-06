@@ -2,6 +2,7 @@ import type {
 	BackgroundOperation,
 	BackgroundOperationStore,
 } from "@sprite-anvil/api/background-operations";
+import { requestOperationCancel } from "../operation-cancellation";
 import type {
 	NewBackgroundOperation,
 	OperationStorage,
@@ -21,7 +22,10 @@ export function createMemoryOperationStorage() {
 	const operations = new Map<string, BackgroundOperation>();
 	const outbox: OutboxEntry[] = [];
 	const heartbeats = new Map<string, Date>();
-	const control = { failNextPublishMark: false };
+	const control = {
+		failNextPublishMark: false,
+		now: () => new Date(),
+	};
 
 	function update(id: string, patch: Partial<BackgroundOperation>, now: Date) {
 		const current = operations.get(id);
@@ -33,7 +37,52 @@ export function createMemoryOperationStorage() {
 		return next;
 	}
 
+	/** A cancel request keeps working while the attempt is Running or Cancel Requested. */
+	const inAttempt = (
+		current: BackgroundOperation | undefined,
+		attemptCount: number
+	) =>
+		(current?.status === "running" || current?.status === "cancel_requested") &&
+		current.attemptCount === attemptCount;
+
 	const storage: OperationStorage = {
+		cancelPending(id, now) {
+			if (operations.get(id)?.status !== "pending") {
+				return Promise.resolve(false);
+			}
+			update(
+				id,
+				{
+					cancelRequestedAt: now.toISOString(),
+					finishedAt: now.toISOString(),
+					status: "cancelled",
+				},
+				now
+			);
+			return Promise.resolve(true);
+		},
+		cancelRequested(id, attemptCount, now) {
+			const current = operations.get(id);
+			if (
+				current?.status !== "cancel_requested" ||
+				current.attemptCount !== attemptCount
+			) {
+				return Promise.resolve(false);
+			}
+			update(id, { finishedAt: now.toISOString(), status: "cancelled" }, now);
+			return Promise.resolve(true);
+		},
+		requestCancelRunning(id, now) {
+			if (operations.get(id)?.status !== "running") {
+				return Promise.resolve(false);
+			}
+			update(
+				id,
+				{ cancelRequestedAt: now.toISOString(), status: "cancel_requested" },
+				now
+			);
+			return Promise.resolve(true);
+		},
 		claim(id, now) {
 			const current = operations.get(id);
 			if (current?.status !== "pending") {
@@ -54,10 +103,7 @@ export function createMemoryOperationStorage() {
 		},
 		complete(id, attemptCount, resultSummary, now) {
 			const current = operations.get(id);
-			if (
-				current?.status !== "running" ||
-				current.attemptCount !== attemptCount
-			) {
+			if (!inAttempt(current, attemptCount)) {
 				return Promise.resolve(false);
 			}
 			update(
@@ -74,10 +120,7 @@ export function createMemoryOperationStorage() {
 		},
 		fail(id, attemptCount, failureSummary, now) {
 			const current = operations.get(id);
-			if (
-				current?.status !== "running" ||
-				current.attemptCount !== attemptCount
-			) {
+			if (!inAttempt(current, attemptCount)) {
 				return Promise.resolve(false);
 			}
 			update(
@@ -99,6 +142,7 @@ export function createMemoryOperationStorage() {
 			operations.set(operation.id, {
 				...operation,
 				attemptCount: 0,
+				cancelRequestedAt: null,
 				createdAt: now.toISOString(),
 				failureSummary: null,
 				finishedAt: null,
@@ -132,7 +176,8 @@ export function createMemoryOperationStorage() {
 			Promise.resolve(
 				[...operations.values()].filter(
 					(operation) =>
-						operation.status === "running" &&
+						(operation.status === "running" ||
+							operation.status === "cancel_requested") &&
 						(heartbeats.get(operation.id) ?? new Date(0)) < heartbeatBefore
 				)
 			),
@@ -164,10 +209,7 @@ export function createMemoryOperationStorage() {
 		},
 		reportProgress(id, attemptCount, progress, now) {
 			const current = operations.get(id);
-			if (
-				current?.status !== "running" ||
-				current.attemptCount !== attemptCount
-			) {
+			if (!inAttempt(current, attemptCount)) {
 				return Promise.resolve(false);
 			}
 			heartbeats.set(id, now);
@@ -194,6 +236,12 @@ export function createMemoryOperationStorage() {
 
 	/** Reads like the API store does: authoritative record only, project-scoped. */
 	const readStore: BackgroundOperationStore = {
+		requestCancel: async (_userId, projectId, operationId) => {
+			if (operations.get(operationId)?.projectId !== projectId) {
+				return { outcome: "not_found" };
+			}
+			return await requestOperationCancel(storage, operationId, control.now());
+		},
 		get: (_userId, projectId, operationId) => {
 			const operation = operations.get(operationId);
 			return Promise.resolve(
