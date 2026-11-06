@@ -1,5 +1,5 @@
 import { createAuth } from "@sprite-anvil/auth";
-import { createDb } from "@sprite-anvil/db";
+import { createDb, getProjectForUser } from "@sprite-anvil/db";
 import { createLocalTestDb } from "@sprite-anvil/db/testing";
 import {
 	createStorage,
@@ -19,6 +19,8 @@ import { createBackgroundScrollingTestStore } from "./features/background-parall
 import { createAnimationTimingReviewStore } from "./features/character-animation-profile/server/animation-timing-review-store";
 import { createDirectionalReviewStore } from "./features/character-animation-profile/server/directional-review-store";
 import { createCollectionStore } from "./features/collections/server/collection-store";
+import { createDatabaseDeliveryPlanningStorage } from "./features/delivery-planning/server/database-delivery-planning-storage";
+import { createDeliveryTargetStore } from "./features/delivery-planning/server/delivery-target-store";
 import { createDependencyRevalidationStore } from "./features/dependency-revalidation/server/dependency-revalidation-store";
 import { createFamilyReadinessStore } from "./features/family-readiness/server/family-readiness-store";
 import { createGameplayMetadataStore } from "./features/gameplay-metadata/server/gameplay-metadata-store";
@@ -86,6 +88,11 @@ export const gameplayMetadataStore = createGameplayMetadataStore(db);
 export const assetFamilyStore = createAssetFamilyStore(db);
 export const assetFamilyComparisonStore = createAssetFamilyComparisonStore(db);
 export const familyReadinessStore = createFamilyReadinessStore(db);
+export const deliveryTargetStore = createDeliveryTargetStore({
+	canAccessProject: async (userId, projectId) =>
+		(await getProjectForUser(db, userId, projectId)) !== null,
+	storage: createDatabaseDeliveryPlanningStorage(db),
+});
 export const dependencyRevalidationStore =
 	createDependencyRevalidationStore(db);
 export const collectionStore = createCollectionStore(db);
