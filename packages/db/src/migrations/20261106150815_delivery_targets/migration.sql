@@ -12,6 +12,8 @@ CREATE TABLE "delivery_target_drafts" (
 	"project_id" text NOT NULL,
 	"delivery_target_id" text NOT NULL,
 	"context_revision_id" text NOT NULL,
+	"production_evidence_policy" jsonb NOT NULL,
+	"rights_evidence_policy" jsonb NOT NULL,
 	"created_by_user_id" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );

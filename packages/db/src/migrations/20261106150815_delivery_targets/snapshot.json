@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "9800ec25-0ec4-4892-a938-2af63ee1af78",
+  "id": "2b4628fd-3360-429e-9137-1b327e034f9c",
   "prevIds": [
     "e1a3e8cd-4c7a-4192-b39b-7a4db1a47350"
   ],
@@ -4420,6 +4420,32 @@
       "generated": null,
       "identity": null,
       "name": "context_revision_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "delivery_target_drafts"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "production_evidence_policy",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "delivery_target_drafts"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "rights_evidence_policy",
       "entityType": "columns",
       "schema": "public",
       "table": "delivery_target_drafts"
