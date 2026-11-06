@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
+import { cancelOutcome } from "@sprite-anvil/api/background-operations";
 import type { Context } from "@sprite-anvil/api/context";
 import { IdempotencyConflictError } from "@sprite-anvil/api/record-publication";
 import { appRouter } from "@sprite-anvil/api/routers/index";
@@ -26,6 +27,7 @@ function setup(
 ) {
 	const memory = createMemoryOperationStorage();
 	const clock = { now: startedAt };
+	memory.control.now = () => clock.now;
 	const sent: string[] = [];
 	const transport: OperationTransport = {
 		send: (operationId) => {
@@ -346,4 +348,179 @@ test("an operation outside the requesting member's project is not readable", asy
 			{ context }
 		)
 	).rejects.toMatchObject({ code: "NOT_FOUND" });
+});
+
+function cancel(
+	setupResult: ReturnType<typeof setup>,
+	operationId: string,
+	overrides: { projectId?: string } = {}
+) {
+	return call(
+		appRouter.backgroundOperations.cancel,
+		{ operationId, projectId: overrides.projectId ?? projectId },
+		{ context: setupResult.context }
+	);
+}
+
+function gate() {
+	let release: () => void = () => undefined;
+	const promise = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	return { promise, release };
+}
+
+test("cancelling a Pending operation makes it Cancelled directly, and a later delivery never runs it", async () => {
+	const s = setup();
+	const { id } = await s.lifecycle.enqueue(request);
+
+	expect(await cancel(s, id)).toMatchObject({
+		cancelRequestedAt: startedAt.toISOString(),
+		status: "cancelled",
+	});
+	expect(await s.read(id)).toMatchObject({ status: "cancelled" });
+
+	await s.lifecycle.publishOutbox();
+	expect(await s.lifecycle.deliver(id)).toBe("ignored");
+	expect(s.runs()).toBe(0);
+	expect(await s.read(id)).toMatchObject({
+		attemptCount: 0,
+		status: "cancelled",
+	});
+});
+
+test("a Running operation moves to Cancel Requested, then Cancelled when the executor stops safely at a checkpoint", async () => {
+	const hold = gate();
+	let afterCheckpoint = false;
+	const s = setup({
+		handler: async (context) => {
+			await context.reportProgress({ percent: 30, step: "Packing" });
+			await hold.promise;
+			await context.checkpoint();
+			afterCheckpoint = true;
+			return "done";
+		},
+	});
+	const { id } = await s.lifecycle.enqueue(request);
+	const delivery = s.lifecycle.deliver(id);
+	await flush();
+
+	expect(await cancel(s, id)).toMatchObject({ status: "cancel_requested" });
+	// A second request is idempotent.
+	expect(await cancel(s, id)).toMatchObject({
+		cancelRequestedAt: startedAt.toISOString(),
+		status: "cancel_requested",
+	});
+	expect(await s.read(id)).toMatchObject({ status: "cancel_requested" });
+
+	hold.release();
+	expect(await delivery).toBe("cancelled");
+	expect(afterCheckpoint).toBe(false);
+	expect(await s.read(id)).toMatchObject({
+		resultSummary: null,
+		status: "cancelled",
+	});
+	expect(await s.lifecycle.deliver(id)).toBe("ignored");
+});
+
+test("work past the irreversible boundary completes, stores the real result, and is never shown as a successful cancel", async () => {
+	const hold = gate();
+	const s = setup({
+		handler: async () => {
+			// Past the boundary: the executor no longer checks for a stop.
+			await hold.promise;
+			return "Deleted 12 files";
+		},
+	});
+	const { id } = await s.lifecycle.enqueue(request);
+	const delivery = s.lifecycle.deliver(id);
+	await flush();
+	await cancel(s, id);
+
+	hold.release();
+	expect(await delivery).toBe("completed");
+	const record = await s.read(id);
+	expect(record).toMatchObject({
+		cancelRequestedAt: startedAt.toISOString(),
+		resultSummary: "Deleted 12 files",
+		status: "completed",
+	});
+	expect(cancelOutcome(record)).toBe("completed_despite_request");
+	expect(cancelOutcome({ ...record, cancelRequestedAt: null })).toBeNull();
+});
+
+test("a transient failure after a cancel request cancels instead of retrying", async () => {
+	const hold = gate();
+	const s = setup({
+		handler: async () => {
+			await hold.promise;
+			throw new TransientOperationError("Storage was busy.");
+		},
+	});
+	const { id } = await s.lifecycle.enqueue(request);
+	const delivery = s.lifecycle.deliver(id);
+	await flush();
+	await cancel(s, id);
+
+	hold.release();
+	expect(await delivery).toBe("cancelled");
+	expect(await s.read(id)).toMatchObject({ status: "cancelled" });
+});
+
+test("cancelling a Completed or Failed operation is rejected with a descriptive error, and its result is untouched", async () => {
+	const s = setup();
+	const done = await s.lifecycle.enqueue(request);
+	await s.lifecycle.deliver(done.id);
+	const failed = await s.lifecycle.enqueue({
+		...request,
+		kind: "archive",
+		scopeSummary: "Archive Forest Quest",
+	});
+	await s.lifecycle.deliver(failed.id);
+
+	await expect(cancel(s, done.id)).rejects.toMatchObject({
+		code: "CONFLICT",
+		message: "This operation already completed and can no longer be cancelled.",
+	});
+	await expect(cancel(s, failed.id)).rejects.toMatchObject({
+		code: "CONFLICT",
+		message: "This operation already failed and can no longer be cancelled.",
+	});
+	expect(await s.read(done.id)).toMatchObject({
+		cancelRequestedAt: null,
+		status: "completed",
+	});
+});
+
+test("a repeated cancel of a Cancelled operation is idempotent", async () => {
+	const s = setup();
+	const { id } = await s.lifecycle.enqueue(request);
+	await cancel(s, id);
+
+	expect(await cancel(s, id)).toMatchObject({ status: "cancelled" });
+});
+
+test("cancelling an unknown operation or one in another project is NOT_FOUND", async () => {
+	const s = setup();
+	const { id } = await s.lifecycle.enqueue(request);
+
+	await expect(cancel(s, "missing")).rejects.toMatchObject({
+		code: "NOT_FOUND",
+	});
+	await expect(
+		cancel(s, id, { projectId: "other-project" })
+	).rejects.toMatchObject({ code: "NOT_FOUND" });
+	expect(await s.read(id)).toMatchObject({ status: "pending" });
+});
+
+test("a stalled Cancel Requested operation is cancelled by reconciliation", async () => {
+	const s = setup({ handler: () => new Promise(() => undefined) });
+	const { id } = await s.lifecycle.enqueue(request);
+	void s.lifecycle.deliver(id);
+	await flush();
+	await cancel(s, id);
+
+	s.clock.now = new Date(startedAt.getTime() + 120_000);
+	await s.lifecycle.reconcile();
+	expect(await s.read(id)).toMatchObject({ status: "cancelled" });
 });

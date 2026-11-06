@@ -27,12 +27,20 @@ export interface OutboxRecord {
  * Each method that also writes an outbox record does both in one transaction.
  */
 export interface OperationStorage {
+	/** Pending to Cancelled directly: no executor ever started it. */
+	cancelPending: (operationId: string, now: Date) => Promise<boolean>;
+	/** Cancel Requested to Cancelled for this attempt, once the executor stopped safely. */
+	cancelRequested: (
+		operationId: string,
+		attemptCount: number,
+		now: Date
+	) => Promise<boolean>;
 	/** Pending to Running for one new attempt; null when the operation is not Pending. */
 	claim: (
 		operationId: string,
 		now: Date
 	) => Promise<BackgroundOperation | null>;
-	/** Running to Completed for this attempt. */
+	/** Running (or Cancel Requested, when the work could not be stopped) to Completed for this attempt. */
 	complete: (
 		operationId: string,
 		attemptCount: number,
@@ -70,6 +78,8 @@ export interface OperationStorage {
 		progress: { percent: number | null; step: string | null },
 		now: Date
 	) => Promise<boolean>;
+	/** Running to Cancel Requested; the first request stamps when it was made. */
+	requestCancelRunning: (operationId: string, now: Date) => Promise<boolean>;
 	/** Running to Pending for another attempt, with a new outbox record. */
 	requeueWithOutbox: (
 		operationId: string,

@@ -7,6 +7,10 @@ import {
 	IdempotencyConflictError,
 	resolveRecordId,
 } from "@sprite-anvil/api/record-publication";
+import {
+	OperationCancelledSignal,
+	requestOperationCancel,
+} from "./operation-cancellation";
 import type { OperationStorage, OperationTransport } from "./operation-storage";
 
 /** A failure worth another attempt; `message` is shown to the user. */
@@ -35,6 +39,13 @@ export interface OperationProgress {
 }
 
 export interface OperationHandlerContext {
+	/**
+	 * Call at each point where the work can still be stopped safely. It throws
+	 * when the user asked to cancel, which ends the operation as Cancelled.
+	 * Once the work passes its irreversible boundary, stop calling it: the
+	 * operation then completes and keeps its real result.
+	 */
+	checkpoint: () => Promise<void>;
 	operation: BackgroundOperation;
 	/** Records progress and a heartbeat; call it while working so a stall can be told from slow work. */
 	reportProgress: (progress: OperationProgress) => Promise<void>;
@@ -50,6 +61,7 @@ export type OperationHandler = (
 ) => Promise<string>;
 
 export type DeliveryOutcome =
+	| "cancelled"
 	| "completed"
 	| "failed"
 	| "ignored"
@@ -195,10 +207,25 @@ export function createBackgroundOperationLifecycle(options: LifecycleOptions) {
 		return { failed, published };
 	}
 
+	async function stopCancelled(
+		operation: BackgroundOperation
+	): Promise<DeliveryOutcome> {
+		return (await storage.cancelRequested(
+			operation.id,
+			operation.attemptCount,
+			now()
+		))
+			? "cancelled"
+			: "superseded";
+	}
+
 	async function failAttempt(
 		operation: BackgroundOperation,
 		error: unknown
 	): Promise<DeliveryOutcome> {
+		if (error instanceof OperationCancelledSignal) {
+			return stopCancelled(operation);
+		}
 		const message = userMessage(error);
 		const exhausted = operation.attemptCount >= operation.maxAttempts;
 		if (error instanceof PermanentOperationError) {
@@ -210,6 +237,11 @@ export function createBackgroundOperationLifecycle(options: LifecycleOptions) {
 			))
 				? "failed"
 				: "superseded";
+		}
+		// The user asked to stop and this attempt ended without a result: honour
+		// the request instead of starting another attempt.
+		if ((await storage.get(operation.id))?.status === "cancel_requested") {
+			return stopCancelled(operation);
 		}
 		if (exhausted) {
 			return (await storage.fail(
@@ -249,6 +281,11 @@ export function createBackgroundOperationLifecycle(options: LifecycleOptions) {
 		let summary: string;
 		try {
 			summary = await handler({
+				checkpoint: async () => {
+					if ((await storage.get(claimed.id))?.status === "cancel_requested") {
+						throw new OperationCancelledSignal();
+					}
+				},
 				operation: claimed,
 				reportProgress: async (progress) => {
 					await storage.reportProgress(
@@ -316,5 +353,10 @@ export function createBackgroundOperationLifecycle(options: LifecycleOptions) {
 		return { failed, redelivered, requeued };
 	}
 
-	return { deliver, enqueue, publishOutbox, reconcile };
+	/** Records a cancel request; the caller has already checked the user may act on this operation. */
+	function requestCancel(operationId: string) {
+		return requestOperationCancel(storage, operationId, now());
+	}
+
+	return { deliver, enqueue, publishOutbox, reconcile, requestCancel };
 }
