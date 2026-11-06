@@ -30,11 +30,11 @@ function setup(
 	memory.control.now = () => clock.now;
 	const sent: string[] = [];
 	const transport: OperationTransport = {
-		send: (operationId) => {
+		send: (backgroundOperationId) => {
 			if (options.sendFails?.()) {
 				return Promise.reject(new Error("transport down"));
 			}
-			sent.push(operationId);
+			sent.push(backgroundOperationId);
 			return Promise.resolve();
 		},
 	};
@@ -65,12 +65,18 @@ function setup(
 		memory,
 		runs: () => runs,
 		sent,
-		read: (operationId: string) =>
-			call(
-				appRouter.backgroundOperations.get,
-				{ operationId, projectId },
+		read: async (id: string) => {
+			const { operations } = await call(
+				appRouter.backgroundOperations.list,
+				{ projectId },
 				{ context: apiContext }
-			),
+			);
+			const operation = operations.find((entry) => entry.id === id);
+			if (!operation) {
+				throw new Error(`Background Operation ${id} was not listed.`);
+			}
+			return operation;
+		},
 	};
 }
 
@@ -226,6 +232,24 @@ test("an operation kind without an executor fails visibly instead of waiting for
 	expect((await read(id)).failureSummary).toContain("archive");
 });
 
+test("a retried attempt receives the same idempotency key as the first", async () => {
+	const keys: string[] = [];
+	const { lifecycle } = setup({
+		handler: (context) => {
+			keys.push(context.idempotencyKey);
+			return keys.length === 1
+				? Promise.reject(new TransientOperationError("Storage was busy."))
+				: Promise.resolve("Exported on retry");
+		},
+	});
+	const { id } = await lifecycle.enqueue(request);
+
+	await lifecycle.deliver(id);
+	await lifecycle.deliver(id);
+
+	expect(keys).toEqual([id, id]);
+});
+
 test("progress reported while running is read back from the record", async () => {
 	let observed: unknown = null;
 	const setupResult = setup({
@@ -263,7 +287,11 @@ test("an outbox record that was not published is redelivered, and a crash after 
 	expect(sent).toEqual([id, id]);
 	expect(await lifecycle.publishOutbox()).toEqual({ failed: 0, published: 0 });
 
-	await Promise.all(sent.map((operationId) => lifecycle.deliver(operationId)));
+	await Promise.all(
+		sent.map((backgroundOperationId) =>
+			lifecycle.deliver(backgroundOperationId)
+		)
+	);
 	expect(runs()).toBe(1);
 });
 
@@ -343,8 +371,8 @@ test("an operation outside the requesting member's project is not readable", asy
 	expect(list.operations).toEqual([]);
 	await expect(
 		call(
-			appRouter.backgroundOperations.get,
-			{ operationId: id, projectId: "other-project" },
+			appRouter.backgroundOperations.cancel,
+			{ id, projectId: "other-project" },
 			{ context }
 		)
 	).rejects.toMatchObject({ code: "NOT_FOUND" });
@@ -352,12 +380,12 @@ test("an operation outside the requesting member's project is not readable", asy
 
 function cancel(
 	setupResult: ReturnType<typeof setup>,
-	operationId: string,
+	backgroundOperationId: string,
 	overrides: { projectId?: string } = {}
 ) {
 	return call(
 		appRouter.backgroundOperations.cancel,
-		{ operationId, projectId: overrides.projectId ?? projectId },
+		{ id: backgroundOperationId, projectId: overrides.projectId ?? projectId },
 		{ context: setupResult.context }
 	);
 }

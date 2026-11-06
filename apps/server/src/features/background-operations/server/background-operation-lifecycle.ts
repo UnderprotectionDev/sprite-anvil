@@ -7,10 +7,7 @@ import {
 	IdempotencyConflictError,
 	resolveRecordId,
 } from "@sprite-anvil/api/record-publication";
-import {
-	OperationCancelledSignal,
-	requestOperationCancel,
-} from "./operation-cancellation";
+import { OperationCancelledSignal } from "./operation-cancellation";
 import type { OperationStorage, OperationTransport } from "./operation-storage";
 
 /** A failure worth another attempt; `message` is shown to the user. */
@@ -46,6 +43,8 @@ export interface OperationHandlerContext {
 	 * operation then completes and keeps its real result.
 	 */
 	checkpoint: () => Promise<void>;
+	/** Stable across deliveries and retries of this operation: key every output and external call on it so a repeat changes nothing. */
+	idempotencyKey: string;
 	operation: BackgroundOperation;
 	/** Records progress and a heartbeat; call it while working so a stall can be told from slow work. */
 	reportProgress: (progress: OperationProgress) => Promise<void>;
@@ -54,7 +53,7 @@ export interface OperationHandlerContext {
 /**
  * Does the work of one operation kind and returns the result summary the user
  * sees. A delivery can repeat and an attempt can be retried, so the handler
- * keys every output on `operation.id` and must tolerate running again.
+ * keys every output on `context.idempotencyKey` and must tolerate running again.
  */
 export type OperationHandler = (
 	context: OperationHandlerContext
@@ -117,7 +116,7 @@ function requestDigest(request: {
 
 /**
  * The lifecycle of Background Operations over the authoritative record. The
- * transport only carries an operation id: every state, retry and result lives
+ * transport only carries a Background Operation identity: every state, retry and result lives
  * in the record, so a lost, repeated or late message cannot change the
  * outcome.
  */
@@ -196,7 +195,7 @@ export function createBackgroundOperationLifecycle(options: LifecycleOptions) {
 		for (const record of pending) {
 			try {
 				// biome-ignore lint/performance/noAwaitInLoops: Records are sent in order, one at a time.
-				await transport.send(record.operationId);
+				await transport.send(record.backgroundOperationId);
 			} catch {
 				failed += 1;
 				continue;
@@ -261,8 +260,10 @@ export function createBackgroundOperationLifecycle(options: LifecycleOptions) {
 	}
 
 	/** Handles one delivered message: only the delivery that claims a Pending operation runs it. */
-	async function deliver(operationId: string): Promise<DeliveryOutcome> {
-		const claimed = await storage.claim(operationId, now());
+	async function deliver(
+		backgroundOperationId: string
+	): Promise<DeliveryOutcome> {
+		const claimed = await storage.claim(backgroundOperationId, now());
 		if (!claimed) {
 			return "ignored";
 		}
@@ -283,6 +284,7 @@ export function createBackgroundOperationLifecycle(options: LifecycleOptions) {
 						throw new OperationCancelledSignal();
 					}
 				},
+				idempotencyKey: claimed.id,
 				operation: claimed,
 				reportProgress: async (progress) => {
 					await storage.reportProgress(
@@ -350,10 +352,5 @@ export function createBackgroundOperationLifecycle(options: LifecycleOptions) {
 		return { failed, redelivered, requeued };
 	}
 
-	/** Records a cancel request; the caller has already checked the user may act on this operation. */
-	function requestCancel(operationId: string) {
-		return requestOperationCancel(storage, operationId, now());
-	}
-
-	return { deliver, enqueue, publishOutbox, reconcile, requestCancel };
+	return { deliver, enqueue, publishOutbox, reconcile };
 }

@@ -31,9 +31,9 @@ function stamp(value: Date) {
 }
 
 /** An attempt in progress: Running, or Running with a cancel request it has not yet honoured. */
-const running = (operationId: string, attemptCount: number) =>
+const running = (backgroundOperationId: string, attemptCount: number) =>
 	and(
-		eq(backgroundOperations.id, operationId),
+		eq(backgroundOperations.id, backgroundOperationId),
 		inArray(backgroundOperations.status, ["running", "cancel_requested"]),
 		eq(backgroundOperations.attemptCount, attemptCount)
 	);
@@ -44,7 +44,7 @@ const running = (operationId: string, attemptCount: number) =>
  */
 export function createDatabaseOperationStorage(db: Database): OperationStorage {
 	return {
-		async cancelPending(operationId, now) {
+		async cancelPending(backgroundOperationId, now) {
 			const updated = await db
 				.update(backgroundOperations)
 				.set({
@@ -55,20 +55,20 @@ export function createDatabaseOperationStorage(db: Database): OperationStorage {
 				})
 				.where(
 					and(
-						eq(backgroundOperations.id, operationId),
+						eq(backgroundOperations.id, backgroundOperationId),
 						eq(backgroundOperations.status, "pending")
 					)
 				)
 				.returning({ id: backgroundOperations.id });
 			return updated.length > 0;
 		},
-		async cancelRequested(operationId, attemptCount, now) {
+		async cancelRequested(backgroundOperationId, attemptCount, now) {
 			const updated = await db
 				.update(backgroundOperations)
 				.set({ finishedAt: now, status: "cancelled", updatedAt: now })
 				.where(
 					and(
-						eq(backgroundOperations.id, operationId),
+						eq(backgroundOperations.id, backgroundOperationId),
 						eq(backgroundOperations.status, "cancel_requested"),
 						eq(backgroundOperations.attemptCount, attemptCount)
 					)
@@ -76,7 +76,7 @@ export function createDatabaseOperationStorage(db: Database): OperationStorage {
 				.returning({ id: backgroundOperations.id });
 			return updated.length > 0;
 		},
-		async requestCancelRunning(operationId, now) {
+		async requestCancelRunning(backgroundOperationId, now) {
 			const updated = await db
 				.update(backgroundOperations)
 				.set({
@@ -86,14 +86,14 @@ export function createDatabaseOperationStorage(db: Database): OperationStorage {
 				})
 				.where(
 					and(
-						eq(backgroundOperations.id, operationId),
+						eq(backgroundOperations.id, backgroundOperationId),
 						eq(backgroundOperations.status, "running")
 					)
 				)
 				.returning({ id: backgroundOperations.id });
 			return updated.length > 0;
 		},
-		async claim(operationId, now) {
+		async claim(backgroundOperationId, now) {
 			const [row] = await db
 				.update(backgroundOperations)
 				.set({
@@ -105,14 +105,14 @@ export function createDatabaseOperationStorage(db: Database): OperationStorage {
 				})
 				.where(
 					and(
-						eq(backgroundOperations.id, operationId),
+						eq(backgroundOperations.id, backgroundOperationId),
 						eq(backgroundOperations.status, "pending")
 					)
 				)
 				.returning();
 			return row ? toBackgroundOperation(row) : null;
 		},
-		async complete(operationId, attemptCount, resultSummary, now) {
+		async complete(backgroundOperationId, attemptCount, resultSummary, now) {
 			const updated = await db
 				.update(backgroundOperations)
 				.set({
@@ -122,11 +122,11 @@ export function createDatabaseOperationStorage(db: Database): OperationStorage {
 					status: "completed",
 					updatedAt: now,
 				})
-				.where(running(operationId, attemptCount))
+				.where(running(backgroundOperationId, attemptCount))
 				.returning({ id: backgroundOperations.id });
 			return updated.length > 0;
 		},
-		async fail(operationId, attemptCount, failureSummary, now) {
+		async fail(backgroundOperationId, attemptCount, failureSummary, now) {
 			const updated = await db
 				.update(backgroundOperations)
 				.set({
@@ -135,15 +135,15 @@ export function createDatabaseOperationStorage(db: Database): OperationStorage {
 					status: "failed",
 					updatedAt: now,
 				})
-				.where(running(operationId, attemptCount))
+				.where(running(backgroundOperationId, attemptCount))
 				.returning({ id: backgroundOperations.id });
 			return updated.length > 0;
 		},
-		async get(operationId) {
+		async get(backgroundOperationId) {
 			const [row] = await db
 				.select()
 				.from(backgroundOperations)
-				.where(eq(backgroundOperations.id, operationId))
+				.where(eq(backgroundOperations.id, backgroundOperationId))
 				.limit(1);
 			return row ? toBackgroundOperation(row) : null;
 		},
@@ -177,7 +177,7 @@ export function createDatabaseOperationStorage(db: Database): OperationStorage {
 								.where(
 									and(
 										eq(
-											backgroundOperationOutbox.operationId,
+											backgroundOperationOutbox.backgroundOperationId,
 											backgroundOperations.id
 										),
 										isNull(backgroundOperationOutbox.publishedAt)
@@ -217,7 +217,8 @@ export function createDatabaseOperationStorage(db: Database): OperationStorage {
 			return await db
 				.select({
 					id: backgroundOperationOutbox.id,
-					operationId: backgroundOperationOutbox.operationId,
+					backgroundOperationId:
+						backgroundOperationOutbox.backgroundOperationId,
 				})
 				.from(backgroundOperationOutbox)
 				.where(isNull(backgroundOperationOutbox.publishedAt))
@@ -233,12 +234,12 @@ export function createDatabaseOperationStorage(db: Database): OperationStorage {
 				.set({ publishedAt: now })
 				.where(eq(backgroundOperationOutbox.id, outboxId));
 		},
-		async redeliverPendingWithOutbox(operationId, outboxId, now) {
+		async redeliverPendingWithOutbox(backgroundOperationId, outboxId, now) {
 			const moved = await rows(
 				db,
 				sql`WITH touched AS (
 					UPDATE background_operations SET updated_at = ${stamp(now)}::timestamp
-					WHERE id = ${operationId} AND status = 'pending'
+					WHERE id = ${backgroundOperationId} AND status = 'pending'
 					RETURNING id
 				)
 				INSERT INTO background_operation_outbox (id, operation_id, created_at)
@@ -247,7 +248,7 @@ export function createDatabaseOperationStorage(db: Database): OperationStorage {
 			);
 			return moved.length > 0;
 		},
-		async reportProgress(operationId, attemptCount, progress, now) {
+		async reportProgress(backgroundOperationId, attemptCount, progress, now) {
 			const updated = await db
 				.update(backgroundOperations)
 				.set({
@@ -256,16 +257,21 @@ export function createDatabaseOperationStorage(db: Database): OperationStorage {
 					progressStep: progress.step,
 					updatedAt: now,
 				})
-				.where(running(operationId, attemptCount))
+				.where(running(backgroundOperationId, attemptCount))
 				.returning({ id: backgroundOperations.id });
 			return updated.length > 0;
 		},
-		async requeueWithOutbox(operationId, attemptCount, outboxId, now) {
+		async requeueWithOutbox(
+			backgroundOperationId,
+			attemptCount,
+			outboxId,
+			now
+		) {
 			const moved = await rows(
 				db,
 				sql`WITH requeued AS (
 					UPDATE background_operations SET status = 'pending', updated_at = ${stamp(now)}::timestamp
-					WHERE id = ${operationId} AND status IN ('running', 'cancel_requested') AND attempt_count = ${attemptCount}
+					WHERE id = ${backgroundOperationId} AND status IN ('running', 'cancel_requested') AND attempt_count = ${attemptCount}
 					RETURNING id
 				)
 				INSERT INTO background_operation_outbox (id, operation_id, created_at)

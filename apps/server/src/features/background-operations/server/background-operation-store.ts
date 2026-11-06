@@ -5,7 +5,7 @@ import {
 } from "@sprite-anvil/api/background-operations";
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
 import { backgroundOperations } from "@sprite-anvil/db/schema/background-operations";
-import { and, desc, eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { requestOperationCancel } from "./operation-cancellation";
 import type { OperationStorage } from "./operation-storage";
 
@@ -51,31 +51,15 @@ export function createBackgroundOperationStore(
 	storage: OperationStorage
 ): BackgroundOperationStore {
 	return {
-		async requestCancel(userId, projectId, operationId) {
+		async requestCancel(userId, projectId, backgroundOperationId) {
 			if (!(await getProjectForUser(db, userId, projectId))) {
 				return { outcome: "not_found" };
 			}
-			const operation = await storage.get(operationId);
+			const operation = await storage.get(backgroundOperationId);
 			if (operation?.projectId !== projectId) {
 				return { outcome: "not_found" };
 			}
-			return requestOperationCancel(storage, operationId, new Date());
-		},
-		async get(userId, projectId, operationId) {
-			if (!(await getProjectForUser(db, userId, projectId))) {
-				return null;
-			}
-			const [row] = await db
-				.select()
-				.from(backgroundOperations)
-				.where(
-					and(
-						eq(backgroundOperations.projectId, projectId),
-						eq(backgroundOperations.id, operationId)
-					)
-				)
-				.limit(1);
-			return row ? toBackgroundOperation(row) : null;
+			return requestOperationCancel(storage, backgroundOperationId, new Date());
 		},
 		async list(userId, projectId) {
 			if (!(await getProjectForUser(db, userId, projectId))) {
