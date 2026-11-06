@@ -14,6 +14,7 @@ import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
+import { usePendingIdempotencyKey } from "@/utils/pending-idempotency-key";
 
 const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
 
@@ -81,6 +82,8 @@ export function useAssetVersionWrites(
 		fingerprint: string;
 		idempotencyKey: string;
 	} | null>(null);
+	const pendingReviewKey = usePendingIdempotencyKey();
+	const pendingCompositeReviewKey = usePendingIdempotencyKey();
 	const recordProviderGenerationMutation = useMutation(
 		orpc.assetVersions.recordProviderGeneration.mutationOptions(mutationMeta)
 	);
@@ -368,23 +371,32 @@ export function useAssetVersionWrites(
 		);
 	}
 
-	function review(
+	async function review(
 		assetVersionId: string,
 		decision: ReviewDecision,
 		rationale: string
 	) {
 		const normalizedRationale = rationale.trim();
-		return runAction(
+		// A retry of the same decision reuses the key, so a lost response cannot add a second Review Event.
+		const idempotencyKey = pendingReviewKey.keyFor(
+			[assetVersionId, decision, normalizedRationale].join("\u0000")
+		);
+		const reviewed = await runAction(
 			`review:${assetVersionId}`,
 			() =>
 				reviewMutation.mutateAsync({
 					projectId,
 					assetVersionId,
 					decision,
+					idempotencyKey,
 					rationale: normalizedRationale,
 				}),
 			reviewSuccessMessages[decision]
 		);
+		if (reviewed) {
+			pendingReviewKey.clear();
+		}
+		return reviewed;
 	}
 
 	async function createCompositeVersion(
@@ -418,22 +430,31 @@ export function useAssetVersionWrites(
 		return created;
 	}
 
-	function reviewCompositeVersion(
+	async function reviewCompositeVersion(
 		compositeVersionId: string,
 		decision: CompositeReviewDecision,
 		rationale: string
 	) {
-		return runAction(
+		const normalizedRationale = rationale.trim();
+		const idempotencyKey = pendingCompositeReviewKey.keyFor(
+			[compositeVersionId, decision, normalizedRationale].join("\u0000")
+		);
+		const reviewed = await runAction(
 			`composite-review:${compositeVersionId}`,
 			() =>
 				reviewCompositeVersionMutation.mutateAsync({
 					projectId,
 					compositeVersionId,
 					decision,
-					rationale: rationale.trim(),
+					idempotencyKey,
+					rationale: normalizedRationale,
 				}),
 			compositeReviewSuccessMessages[decision]
 		);
+		if (reviewed) {
+			pendingCompositeReviewKey.clear();
+		}
+		return reviewed;
 	}
 
 	function selectCanonicalDesign(

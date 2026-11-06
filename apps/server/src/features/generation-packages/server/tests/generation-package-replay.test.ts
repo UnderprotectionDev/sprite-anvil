@@ -48,8 +48,11 @@ type Row = Record<string, unknown>;
  * changes nothing. `loseNextReread` drops the first re-read, as an interrupted
  * publication would.
  */
-function fakeDb(options: { loseNextReread?: boolean } = {}) {
+function fakeDb(
+	options: { failDeletes?: number; loseNextReread?: boolean } = {}
+) {
 	const state = { deleted: 0, rereadsLost: 0, rows: [] as Row[] };
+	let failDeletes = options.failDeletes ?? 0;
 	let loseReread = options.loseNextReread ?? false;
 	const db = {
 		select: () => ({
@@ -98,6 +101,10 @@ function fakeDb(options: { loseNextReread?: boolean } = {}) {
 		}),
 		delete: () => ({
 			where: () => {
+				if (failDeletes > 0) {
+					failDeletes -= 1;
+					return Promise.reject(new Error("connection reset"));
+				}
 				state.deleted += 1;
 				state.rows.length = 0;
 				return Promise.resolve();
@@ -137,21 +144,21 @@ test("the same key with other request content conflicts instead of adding a reco
 	expect(state.rows).toHaveLength(1);
 });
 
-test("a key already used for another Asset Record conflicts", async () => {
-	const { db } = fakeDb();
+test("the same key for another Asset Record addresses another package", async () => {
+	const { db, state } = fakeDb();
 	const store = createGenerationPackageStore(db);
-	await store.create(userId, input);
+	const first = await store.create(userId, input);
+	state.rows.length = 0;
 	const otherRecord = crypto.randomUUID();
-	await expect(
-		store.create(userId, {
-			...input,
-			assetRecordId: otherRecord,
-			snapshot: {
-				...snapshot,
-				assetRecord: { ...snapshot.assetRecord, id: otherRecord },
-			},
-		})
-	).rejects.toBeInstanceOf(IdempotencyConflictError);
+	const other = await store.create(userId, {
+		...input,
+		assetRecordId: otherRecord,
+		snapshot: {
+			...snapshot,
+			assetRecord: { ...snapshot.assetRecord, id: otherRecord },
+		},
+	});
+	expect(other?.id).not.toBe(first?.id as string);
 });
 
 test("a repeat ignores context that changed since the first request", async () => {
@@ -192,16 +199,44 @@ test("a request without a key still creates a new package each time", async () =
 	expect(second).not.toBeNull();
 });
 
-test("a stored package pointing at another Asset Record is not replayed as success", async () => {
+test("a stored package pointing at another Asset Record is repaired, not replayed as success", async () => {
 	const { db, state } = fakeDb();
 	const store = createGenerationPackageStore(db);
-	await store.create(userId, input);
+	const first = await store.create(userId, input);
 	const row = state.rows[0] as Row;
 	row.snapshot = {
 		...(row.snapshot as Row),
 		assetRecord: { ...snapshot.assetRecord, id: crypto.randomUUID() },
 	};
+	const repaired = await store.create(userId, input);
+	expect(repaired?.id).toBe(first?.id as string);
+	expect(repaired?.assetRecord.id).toBe(assetRecordId);
+	expect(state.deleted).toBe(1);
+	expect(state.rows).toHaveLength(1);
+});
+
+test("a stored snapshot that is no longer a valid Generation Package snapshot is repaired too", async () => {
+	const { db, state } = fakeDb();
+	const store = createGenerationPackageStore(db);
+	await store.create(userId, input);
+	const row = state.rows[0] as Row;
+	row.snapshot = { ...(row.snapshot as Row), referenceRoles: "broken" };
+	const repaired = await store.create(userId, input);
+	expect(repaired?.referenceRoles).toEqual([]);
+	expect(state.deleted).toBe(1);
+});
+
+test("a failed withdrawal fails retryably and the next request with the same key repairs the residue", async () => {
+	const { db, state } = fakeDb({ failDeletes: 1 });
+	const store = createGenerationPackageStore(db);
+	await store.create(userId, input);
+	const row = state.rows[0] as Row;
+	row.snapshot = { ...(row.snapshot as Row), referenceRoles: "broken" };
 	await expect(store.create(userId, input)).rejects.toBeInstanceOf(
 		RecordIntegrityError
 	);
+	expect(state.rows).toHaveLength(1);
+	const repaired = await store.create(userId, input);
+	expect(repaired?.referenceRoles).toEqual([]);
+	expect(state.rows).toHaveLength(1);
 });

@@ -134,7 +134,7 @@ test("rejects a recipe whose persisted source relation differs from the submitte
 	});
 	await expect(
 		createProductionRecipeStore(db).create(userId, input)
-	).rejects.toThrow("relation");
+	).rejects.toThrow("differs from the submitted");
 });
 
 test("does not report success when the written recipe cannot be re-read", async () => {

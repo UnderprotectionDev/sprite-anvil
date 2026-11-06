@@ -20,6 +20,7 @@ import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
+import { usePendingIdempotencyKey } from "@/utils/pending-idempotency-key";
 import { generationPackageFormSchema } from "../../schemas";
 
 const referenceRoleLabels = {
@@ -267,6 +268,7 @@ export function GenerationPackagePanel({
 	record: AssetRecord;
 }) {
 	const [isSaving, setIsSaving] = useState(false);
+	const pendingPackageKey = usePendingIdempotencyKey();
 	const createPackage = useMutation(
 		orpc.generationPackages.create.mutationOptions(mutationMeta)
 	);
@@ -416,7 +418,7 @@ export function GenerationPackagePanel({
 		setStatusMessage(null);
 		setIsSaving(true);
 		try {
-			await createPackage.mutateAsync({
+			const request = {
 				assetRecordId: record.id,
 				avoidConstraints: parseConstraintLines(value.avoidConstraints),
 				changeConstraints: parseConstraintLines(value.changeConstraints),
@@ -429,7 +431,13 @@ export function GenerationPackagePanel({
 					width: Number(value.targetWidth),
 				},
 				targetTask: value.targetTask,
+			};
+			// A retry of the same form content reuses the key, so a lost response cannot add a second package.
+			await createPackage.mutateAsync({
+				...request,
+				idempotencyKey: pendingPackageKey.keyFor(JSON.stringify(request)),
 			});
+			pendingPackageKey.clear();
 			form.setFieldValue("targetTask", "");
 			form.setFieldValue("expectedOutputStructure", "");
 			form.setFieldValue("preserveConstraints", "");

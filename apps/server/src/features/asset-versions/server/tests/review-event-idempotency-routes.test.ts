@@ -13,7 +13,11 @@ const createdAt = "2026-11-06T12:00:00.000Z";
 
 function context(
 	reviewDisposition: "candidate" | "approved",
-	recordReviewEvent: () => unknown
+	recordReviewEvent: () => unknown,
+	options: {
+		replayReviewEvent?: () => unknown;
+		verifiesContent?: boolean;
+	} = {}
 ) {
 	return {
 		assetRecordTrackingStore: {
@@ -50,9 +54,10 @@ function context(
 				unitVersions: [],
 			}),
 			recordReviewEvent,
+			replayReviewEvent: options.replayReviewEvent ?? (async () => null),
 		},
 		session: { user: { id: "user-1" } },
-		verifyAssetVersionContent: async () => true,
+		verifyAssetVersionContent: async () => options.verifiesContent ?? true,
 	};
 }
 
@@ -64,18 +69,43 @@ const review = {
 	rationale: "Ready for the library.",
 };
 
+const firstEvent = {
+	assetVersionId,
+	createdAt,
+	id: "event-first",
+	rationale: review.rationale,
+	type: "approved",
+};
+
 test("a keyed repeat of an applied decision replays the first Review Event instead of failing", async () => {
-	const event = {
-		assetVersionId,
-		createdAt,
-		id: "event-first",
-		rationale: review.rationale,
-		type: "approved",
-	};
 	const result = await call(appRouter.assetVersions.review, review, {
-		context: context("approved", () => event) as never,
+		context: context(
+			"approved",
+			() => {
+				throw new Error("a replay must not write");
+			},
+			{ replayReviewEvent: () => firstEvent }
+		) as never,
 	});
 	expect(result.id).toBe("event-first");
+});
+
+test("a keyed replay returns the first result even when the version no longer passes the approval checks", async () => {
+	const result = await call(appRouter.assetVersions.review, review, {
+		context: context("candidate", () => null, {
+			replayReviewEvent: () => firstEvent,
+			verifiesContent: false,
+		}) as never,
+	});
+	expect(result.id).toBe("event-first");
+});
+
+test("a keyed request that is not a replay of an applied decision is still rejected as already decided", async () => {
+	await expect(
+		call(appRouter.assetVersions.review, review, {
+			context: context("approved", () => null) as never,
+		})
+	).rejects.toMatchObject({ code: "BAD_REQUEST" });
 });
 
 test("an unkeyed repeat of an applied decision is still rejected", async () => {

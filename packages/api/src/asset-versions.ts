@@ -404,6 +404,14 @@ export interface AssetVersionStore {
 		userId: string,
 		input: AssetVersionReviewInput
 	) => Promise<AssetVersionReviewEvent | AssetVersionApprovalBlocked | null>;
+	replayCompositeVersionReviewEvent: (
+		userId: string,
+		input: CompositeVersionReviewInput
+	) => Promise<CompositeVersionReviewEvent | null>;
+	replayReviewEvent: (
+		userId: string,
+		input: AssetVersionReviewInput
+	) => Promise<AssetVersionReviewEvent | null>;
 	saveManualImportEvidence: (
 		userId: string,
 		input: ManualImportEvidenceInput

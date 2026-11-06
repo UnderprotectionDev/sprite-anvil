@@ -5,10 +5,9 @@ import type {
 import { productionRecipeSchema } from "@sprite-anvil/api/production-recipes";
 import { recordContentDigest } from "@sprite-anvil/api/record-content-digest";
 import {
-	IdempotencyConflictError,
-	RecordIntegrityError,
+	replayPublishedRecord,
 	resolveRecordId,
-	withdrawAndFail,
+	verifyPublishedRecord,
 } from "@sprite-anvil/api/record-publication";
 import type { Database } from "@sprite-anvil/db";
 import {
@@ -133,145 +132,146 @@ function sourceMatches(
 	);
 }
 
-/** A published recipe has exactly one version, number 1, filed under the same project. */
+/** A published recipe keeps its version 1 filed under the same project; later versions may follow. */
 function firstVersionOf(
 	recipe: RecipeRow,
 	versions: RecipeVersionRow[],
 	projectId: string
 ) {
-	const own = versions.filter((version) => version.recipeId === recipe.id);
-	const [first] = own;
-	return own.length === 1 &&
-		first?.versionNumber === 1 &&
+	const first = versions.find(
+		(version) => version.recipeId === recipe.id && version.versionNumber === 1
+	);
+	return first &&
 		first.projectId === projectId &&
 		recipe.projectId === projectId
 		? first
 		: null;
 }
 
-function withdrawRecipe(
-	db: Database,
-	projectId: string,
-	recipeId: string,
-	message: string
-) {
-	return withdrawAndFail(
-		() =>
-			db.batch([
-				db
-					.delete(productionRecipeVersions)
-					.where(
-						and(
-							eq(productionRecipeVersions.projectId, projectId),
-							eq(productionRecipeVersions.recipeId, recipeId)
-						)
-					),
-				db
-					.delete(productionRecipes)
-					.where(
-						and(
-							eq(productionRecipes.projectId, projectId),
-							eq(productionRecipes.id, recipeId)
-						)
-					),
-			]),
-		message
-	);
+function withdrawRecipe(db: Database, projectId: string, recipeId: string) {
+	return db.batch([
+		db
+			.delete(productionRecipeVersions)
+			.where(
+				and(
+					eq(productionRecipeVersions.projectId, projectId),
+					eq(productionRecipeVersions.recipeId, recipeId)
+				)
+			),
+		db
+			.delete(productionRecipes)
+			.where(
+				and(
+					eq(productionRecipes.projectId, projectId),
+					eq(productionRecipes.id, recipeId)
+				)
+			),
+	]);
 }
 
 type RecipeCreateInput = Parameters<ProductionRecipeStore["create"]>[1];
 
-/**
- * Re-reads the published recipe and checks its relations and the first
- * version's content digest against what was submitted. A half-done or
- * mismatched record is withdrawn and fails instead of showing as success.
- */
-async function verifyPublishedRecipe(
+/** The recipe row with its versions, as one record to check. */
+interface RecipeRecord {
+	recipe: RecipeRow;
+	versions: RecipeVersionRow[];
+}
+
+async function readRecipeRecord(
 	db: Database,
 	userId: string,
-	input: RecipeCreateInput,
+	projectId: string,
 	recipeId: string
-) {
+): Promise<RecipeRecord | null> {
 	const { recipes, versions } = await readOwnedRecipeRows(
 		db,
 		userId,
-		input.projectId,
+		projectId,
 		recipeId
 	);
 	const [recipe] = recipes;
-	if (!recipe) {
-		throw new RecordIntegrityError(
-			"The published Production Recipe could not be re-read from the persisted record."
-		);
-	}
+	return recipe ? { recipe, versions } : null;
+}
+
+/** Version 1 must be present and filed under this project; the record is otherwise not a recipe. */
+function missingFirstVersion(
+	{ recipe, versions }: RecipeRecord,
+	input: RecipeCreateInput
+) {
+	return firstVersionOf(recipe, versions, input.projectId)
+		? null
+		: "Production Recipe relation check failed: the persisted recipe is missing its first version.";
+}
+
+/** True when the stored title, source or version 1 content differ from the request. */
+async function differsFromRequest(
+	{ recipe, versions }: RecipeRecord,
+	input: RecipeCreateInput
+) {
 	const first = firstVersionOf(recipe, versions, input.projectId);
-	if (
-		!first ||
-		recipe.title !== input.title ||
-		!sourceMatches(recipe, input.source)
-	) {
-		return withdrawRecipe(
-			db,
-			input.projectId,
-			recipeId,
-			"Production Recipe relation check failed: the persisted recipe is missing its first version or differs from the submitted source."
-		);
+	if (!first) {
+		return true;
 	}
 	const [submitted, stored] = await Promise.all([
 		recordContentDigest(input.content),
 		recordContentDigest(first.content),
 	]);
-	if (submitted !== stored) {
-		return withdrawRecipe(
-			db,
-			input.projectId,
-			recipeId,
-			"Production Recipe content digest check failed: the persisted content differs from the submitted one."
-		);
-	}
-	return mapRecipe(recipe, versions);
+	return (
+		recipe.title !== input.title ||
+		!sourceMatches(recipe, input.source) ||
+		submitted !== stored
+	);
+}
+
+/**
+ * Re-reads the published recipe and checks its relations and the first
+ * version's content digest against what was submitted. A half-done or
+ * mismatched record is withdrawn and fails instead of showing as success. The
+ * batch that writes the recipe and this check are separate steps: the recipe
+ * is briefly readable before it is verified, and a failed withdrawal leaves a
+ * residue that the next request with the same key repairs.
+ */
+function verifyPublishedRecipe(
+	db: Database,
+	userId: string,
+	input: RecipeCreateInput,
+	recipeId: string
+) {
+	return verifyPublishedRecord({
+		integrityFailure: async (record) =>
+			missingFirstVersion(record, input) ??
+			((await differsFromRequest(record, input))
+				? "Production Recipe content digest check failed: the persisted recipe differs from the submitted one."
+				: null),
+		label: "Production Recipe",
+		read: () => readRecipeRecord(db, userId, input.projectId, recipeId),
+		toResult: ({ recipe, versions }) => mapRecipe(recipe, versions),
+		withdraw: () => withdrawRecipe(db, input.projectId, recipeId),
+	});
 }
 
 /**
  * The recipe an earlier request with this key published, or a conflict when
  * its content differs. The stored recipe is re-verified, so one left behind by
- * a failed publication or withdrawal is never replayed as success.
+ * a failed publication or withdrawal is repaired and never replayed as
+ * success. Later versions of the recipe do not change the replay.
  */
-async function readReplay(
+function readReplay(
 	db: Database,
 	userId: string,
 	input: RecipeCreateInput,
 	recipeId: string
 ) {
-	const { recipes, versions } = await readOwnedRecipeRows(
-		db,
-		userId,
-		input.projectId,
-		recipeId
-	);
-	const [recipe] = recipes;
-	if (!recipe) {
-		return null;
-	}
-	const first = firstVersionOf(recipe, versions, input.projectId);
-	if (!first) {
-		throw new RecordIntegrityError(
-			"Production Recipe relation check failed: the persisted recipe is missing its first version."
-		);
-	}
-	const [submitted, stored] = await Promise.all([
-		recordContentDigest(input.content),
-		recordContentDigest(first.content),
-	]);
-	if (
-		recipe.createdByUserId !== userId ||
-		recipe.title !== input.title ||
-		!sourceMatches(recipe, input.source) ||
-		submitted !== stored
-	) {
-		throw new IdempotencyConflictError("Production Recipe");
-	}
-	return mapRecipe(recipe, versions);
+	return replayPublishedRecord({
+		differs: async (record) =>
+			record.recipe.createdByUserId !== userId ||
+			(await differsFromRequest(record, input)),
+		integrityFailure: (record) => missingFirstVersion(record, input),
+		label: "Production Recipe",
+		read: () => readRecipeRecord(db, userId, input.projectId, recipeId),
+		repair: () => withdrawRecipe(db, input.projectId, recipeId),
+		toResult: ({ recipe, versions }) => mapRecipe(recipe, versions),
+	});
 }
 
 export function createProductionRecipeStore(
@@ -351,7 +351,7 @@ export function createProductionRecipeStore(
 			// No column holds the key, so a keyed request derives the recipe id from
 			// it: the same key always addresses the same recipe.
 			const recipeId = await resolveRecordId(
-				["production-recipe", input.projectId, userId],
+				{ kind: "production-recipe", projectId: input.projectId, userId },
 				input.idempotencyKey
 			);
 			if (input.idempotencyKey) {

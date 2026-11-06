@@ -1,6 +1,7 @@
 import type { PixelDraft } from "@sprite-anvil/api/pixel-editor";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { orpc } from "@/utils/orpc";
+import { usePendingIdempotencyKey } from "@/utils/pending-idempotency-key";
 import {
 	buildCorrectionPackageInput,
 	type CorrectionPackageValues,
@@ -31,6 +32,7 @@ export function usePrepareCorrection(projectId: string, draft: PixelDraft) {
 			id: unit.id,
 			label: `${unit.unitType} ${unit.unitKey} v${unit.versionNumber}`,
 		}));
+	const pendingKey = usePendingIdempotencyKey();
 	const mutation = useMutation(
 		orpc.generationPackages.create.mutationOptions({
 			meta: { suppressGlobalErrorToast: true },
@@ -43,10 +45,16 @@ export function usePrepareCorrection(projectId: string, draft: PixelDraft) {
 			error: mutation.error,
 			isError: mutation.isError,
 			isPending: mutation.isPending,
-			mutateAsync: (values: CorrectionPackageValues) =>
-				mutation.mutateAsync(
-					buildCorrectionPackageInput(draft, projectId, values)
-				),
+			mutateAsync: async (values: CorrectionPackageValues) => {
+				const request = buildCorrectionPackageInput(draft, projectId, values);
+				// A retry of the same correction reuses the key, so a lost response cannot add a second package.
+				const result = await mutation.mutateAsync({
+					...request,
+					idempotencyKey: pendingKey.keyFor(JSON.stringify(request)),
+				});
+				pendingKey.clear();
+				return result;
+			},
 		},
 	};
 }

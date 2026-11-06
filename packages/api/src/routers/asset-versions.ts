@@ -209,6 +209,19 @@ export const assetVersionsRouter = {
 		.input(compositeVersionReviewInputSchema)
 		.output(compositeVersionReviewEventSchema)
 		.handler(async ({ context, input }) => {
+			// A keyed repeat returns the first result before any state-based check
+			// can turn it into a failure.
+			const replayed = input.idempotencyKey
+				? await withPublicationErrors(() =>
+						context.assetVersionStore.replayCompositeVersionReviewEvent(
+							context.session.user.id,
+							input
+						)
+					)
+				: null;
+			if (replayed) {
+				return compositeVersionReviewEventSchema.parse(replayed);
+			}
 			const catalog = await readVersionCatalog(context, input.projectId);
 			const compositeVersion = catalog.compositeVersions.find(
 				(item) => item.id === input.compositeVersionId
@@ -218,10 +231,7 @@ export const assetVersionsRouter = {
 					message: "Birleşik Sürüm bulunamadı.",
 				});
 			}
-			if (
-				!input.idempotencyKey &&
-				compositeVersion.reviewDisposition === input.decision
-			) {
+			if (compositeVersion.reviewDisposition === input.decision) {
 				throw new ORPCError("BAD_REQUEST", {
 					message: "Birleşik Sürümün güncel inceleme kararı zaten bu.",
 				});
@@ -244,6 +254,17 @@ export const assetVersionsRouter = {
 		.input(assetVersionReviewInputSchema)
 		.output(assetVersionReviewEventSchema)
 		.handler(async ({ context, input }) => {
+			const replayed = input.idempotencyKey
+				? await withPublicationErrors(() =>
+						context.assetVersionStore.replayReviewEvent(
+							context.session.user.id,
+							input
+						)
+					)
+				: null;
+			if (replayed) {
+				return assetVersionReviewEventSchema.parse(replayed);
+			}
 			const catalog = await readVersionCatalog(context, input.projectId);
 			const version = catalog.assetVersions.find(
 				(item) => item.id === input.assetVersionId
@@ -253,11 +274,7 @@ export const assetVersionsRouter = {
 					message: "Varlık Sürümü bulunamadı.",
 				});
 			}
-			// A keyed repeat is a replay of an earlier request, not a new decision.
-			if (
-				!input.idempotencyKey &&
-				version.reviewDisposition === input.decision
-			) {
+			if (version.reviewDisposition === input.decision) {
 				throw new ORPCError("BAD_REQUEST", {
 					message: "Varlık Sürümünün güncel inceleme kararı zaten bu.",
 				});

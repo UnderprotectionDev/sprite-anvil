@@ -31,11 +31,14 @@ type Row = Record<string, unknown>;
  * duplicate recipe id rejects the whole batch. `loseNextReread` drops the first
  * re-read after a write, as an interrupted publication would.
  */
-function fakeDb(options: { loseNextReread?: boolean } = {}) {
+function fakeDb(
+	options: { failDeletes?: number; loseNextReread?: boolean } = {}
+) {
 	const state = {
 		recipes: [] as Row[],
 		versions: [] as Row[],
 	};
+	let failDeletes = options.failDeletes ?? 0;
 	let loseReread = options.loseNextReread ?? false;
 	const db = {
 		select: () => ({
@@ -65,6 +68,15 @@ function fakeDb(options: { loseNextReread?: boolean } = {}) {
 		delete: () => ({ where: () => ({ kind: "delete" }) }),
 		batch: (statements: { values?: Row }[]) => {
 			const [recipe, version] = statements.map((statement) => statement.values);
+			if (!recipe) {
+				// A withdrawal batch: the version and recipe deletes.
+				if (failDeletes > 0) {
+					failDeletes -= 1;
+					return Promise.reject(new Error("connection reset"));
+				}
+				state.recipes.length = 0;
+				state.versions.length = 0;
+			}
 			if (recipe && "title" in recipe) {
 				if (state.recipes.some((existing) => existing.id === recipe.id)) {
 					return Promise.reject(
@@ -125,12 +137,43 @@ test("an interrupted publication fails visibly and the retry yields exactly one 
 	expect(state.versions).toHaveLength(1);
 });
 
-test("a stored recipe with a missing first version is not replayed as success", async () => {
+test("a stored recipe with a missing first version is repaired, not replayed as success", async () => {
 	const { db, state } = fakeDb();
+	const store = createProductionRecipeStore(db);
+	const first = await store.create(userId, input);
+	state.versions.length = 0;
+	const retry = await store.create(userId, input);
+	expect(retry?.id).toBe(first?.id as string);
+	expect(retry?.versions).toHaveLength(1);
+	expect(state.recipes).toHaveLength(1);
+	expect(state.versions).toHaveLength(1);
+});
+
+test("a failed withdrawal leaves a retryable failure and the next request with the same key repairs the residue", async () => {
+	const { db, state } = fakeDb({ failDeletes: 1 });
 	const store = createProductionRecipeStore(db);
 	await store.create(userId, input);
 	state.versions.length = 0;
 	await expect(store.create(userId, input)).rejects.toBeInstanceOf(
 		RecordIntegrityError
 	);
+	const repaired = await store.create(userId, input);
+	expect(repaired?.versions).toHaveLength(1);
+	expect(state.recipes).toHaveLength(1);
+});
+
+test("a keyed replay after a later version exists returns the recipe instead of an integrity error", async () => {
+	const { db, state } = fakeDb();
+	const store = createProductionRecipeStore(db);
+	const first = await store.create(userId, input);
+	state.versions.push({
+		...(state.versions[0] as Row),
+		content: { ...content, instructionSkeleton: "Revised." },
+		id: crypto.randomUUID(),
+		versionNumber: 2,
+	});
+	const repeat = await store.create(userId, input);
+	expect(repeat?.id).toBe(first?.id as string);
+	expect(repeat?.versions).toHaveLength(2);
+	expect(state.recipes).toHaveLength(1);
 });
