@@ -64,6 +64,11 @@ export type InsertRevisionResult =
 	| { revision: StoredDeliveryTargetRevision; status: "inserted" }
 	| { status: "conflict" };
 
+export type InsertDraftResult =
+	| "draft_exists"
+	| "inserted"
+	| "target_in_other_project";
+
 /**
  * The persistent side of Delivery Target planning. It only reads the Context
  * Revisions and Required Items List revisions it pins; it never writes them.
@@ -89,11 +94,11 @@ export interface DeliveryPlanningStorage {
 		projectId: string,
 		deliveryTargetId: string
 	) => Promise<StoredDeliveryTarget | null>;
-	/** Records the target when it is new, and the draft, together; false when the draft id already exists. */
+	/** Records the target when it is new, and the draft, together; reports an existing draft id or a target id owned by another project instead of throwing. */
 	insertDraft: (
 		target: StoredDeliveryTarget,
 		draft: StoredDeliveryTargetDraft
-	) => Promise<boolean>;
+	) => Promise<InsertDraftResult>;
 	/** Inserts the target's next revision number; a conflict means the draft or the number was taken concurrently. */
 	insertRevision: (
 		revision: NewDeliveryTargetRevision

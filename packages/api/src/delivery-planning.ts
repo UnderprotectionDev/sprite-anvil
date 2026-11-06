@@ -48,7 +48,7 @@ export const productionEvidencePolicySchema = z
 				(requirements) =>
 					new Set(requirements.map((entry) => entry.assetFamilyId)).size ===
 					requirements.length,
-				"Bir Varlık Ailesi için yalnızca bir Üretim Kanıtı gereksinimi verilebilir."
+				"An Asset Family can have only one Production Evidence requirement."
 			),
 	})
 	.strict();
@@ -63,19 +63,16 @@ export const rightsEvidencePolicySchema = z
 	.object({
 		acceptableStates: z
 			.array(rightsRecordStateSchema)
-			.min(
-				1,
-				"Hak Kanıtı Politikası en az bir kabul edilebilir durum içermelidir."
-			)
+			.min(1, "A Rights Evidence Policy needs at least one acceptable state.")
 			.refine(
 				(states) => new Set(states).size === states.length,
-				"Bir Hak Kaydı durumu yalnızca bir kez seçilebilir."
+				"A Rights Record state can be chosen only once."
 			),
 		requireRecordFor: z
 			.array(rightsEvidenceSubjectSchema)
 			.refine(
 				(subjects) => new Set(subjects).size === subjects.length,
-				"Bir kapsam yalnızca bir kez seçilebilir."
+				"A scope can be chosen only once."
 			),
 	})
 	.strict();
@@ -87,15 +84,15 @@ export const deliveryTargetDraftSaveInputSchema = z
 		deliveryTargetId: idSchema,
 		families: z
 			.array(deliveryTargetFamilyInputSchema)
-			.min(2, "Teslimat Hedefi en az iki Varlık Ailesini kapsamalıdır.")
+			.min(2, "A Delivery Target must cover at least two Asset Families.")
 			.max(50)
 			.refine(
 				(families) =>
 					new Set(families.map((family) => family.assetFamilyId)).size ===
 					families.length,
-				"Bir Varlık Ailesi hedefte yalnızca bir kez seçilebilir."
+				"An Asset Family can be chosen only once per Delivery Target."
 			),
-		/** Doubles as the idempotency key: saving the same id again returns the stored draft. */
+		/** Doubles as the idempotency key: saving the same id again with the same content returns the stored draft; different content is a conflict. */
 		id: idSchema,
 		name: z.string().trim().min(1).max(120),
 		productionEvidencePolicy: productionEvidencePolicySchema,
@@ -224,6 +221,8 @@ export type DeliveryTargetCatalog = z.infer<typeof deliveryTargetCatalogSchema>;
 
 export type DeliveryTargetDraftSaveFailureReason =
 	| "context_revision_not_found"
+	| "delivery_target_unavailable"
+	| "draft_id_conflict"
 	| "policy_family_not_pinned"
 	| "required_set_revision_not_found";
 
@@ -231,13 +230,17 @@ export type DeliveryTargetDraftSaveResult =
 	| { draft: DeliveryTargetDraft; status: "saved" }
 	| { reason: DeliveryTargetDraftSaveFailureReason; status: "rejected" };
 
+export type DeliveryTargetActivateResult =
+	| { revision: DeliveryTargetRevision; status: "activated" }
+	| { status: "revision_number_conflict" };
+
 /** Authorized, project-scoped access to Delivery Target drafts and revisions. */
 export interface DeliveryTargetStore {
-	/** Turns a draft into the next immutable revision; null when the project or draft is not found. */
+	/** Turns a draft into the next immutable revision; null when the project or draft is not found, a conflict when the revision number stays contested. */
 	activate: (
 		userId: string,
 		input: DeliveryTargetActivateInput
-	) => Promise<DeliveryTargetRevision | null>;
+	) => Promise<DeliveryTargetActivateResult | null>;
 	/** Null when the project is not found. */
 	list: (
 		userId: string,

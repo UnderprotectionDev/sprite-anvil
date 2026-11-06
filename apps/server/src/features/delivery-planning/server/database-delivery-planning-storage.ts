@@ -18,13 +18,22 @@ import type {
 } from "./delivery-planning-storage";
 
 const uniqueViolationCode = "23505";
+const foreignKeyViolationCode = "23503";
 
-function isUniqueViolation(error: unknown): boolean {
+function hasErrorCode(error: unknown, expected: string): boolean {
 	if (typeof error !== "object" || error === null) {
 		return false;
 	}
 	const { cause, code } = error as { cause?: unknown; code?: unknown };
-	return code === uniqueViolationCode || isUniqueViolation(cause);
+	return code === expected || hasErrorCode(cause, expected);
+}
+
+function isUniqueViolation(error: unknown) {
+	return hasErrorCode(error, uniqueViolationCode);
+}
+
+function isForeignKeyViolation(error: unknown) {
+	return hasErrorCode(error, foreignKeyViolationCode);
 }
 
 async function readFamilies(
@@ -244,13 +253,21 @@ export function createDatabaseDeliveryPlanningStorage(
 						}))
 					),
 				]);
-				return true;
+				return "inserted";
 			} catch (error) {
 				if (
 					isUniqueViolation(error) &&
 					(await storage.findDraft(draft.projectId, draft.id))
 				) {
-					return false;
+					return "draft_exists";
+				}
+				// The target id exists, but under another project, so the draft's
+				// project-scoped target reference has nothing to point at.
+				if (
+					isForeignKeyViolation(error) &&
+					!(await storage.findTarget(draft.projectId, target.id))
+				) {
+					return "target_in_other_project";
 				}
 				throw error;
 			}

@@ -20,15 +20,20 @@ function getDeliveryTargetStore(context: Context) {
 	return context.deliveryTargetStore;
 }
 
-const projectNotFound = "Proje bulunamadı.";
+const projectNotFound = "Project not found.";
 
 const rejectionMessages: Record<DeliveryTargetDraftSaveFailureReason, string> =
 	{
-		context_revision_not_found: "Seçilen Bağlam Sürümü bu projede bulunamadı.",
+		context_revision_not_found:
+			"The selected Context Revision was not found in this project.",
+		delivery_target_unavailable:
+			"This Delivery Target id is already used by another project.",
+		draft_id_conflict:
+			"This Delivery Target draft id is already used for different content.",
 		policy_family_not_pinned:
-			"Üretim Kanıtı Politikası yalnızca hedefte seçili Varlık Ailelerine gereksinim verebilir.",
+			"A Production Evidence Policy can only set requirements for Asset Families the target pins.",
 		required_set_revision_not_found:
-			"Seçilen Gerekli Öğeler Listesi sürümü, hedefteki Varlık Ailesine ait bir sürüm olmalıdır.",
+			"The selected Required Items List revision must belong to the target's Asset Family.",
 	};
 
 export const deliveryPlanningRouter = {
@@ -36,16 +41,22 @@ export const deliveryPlanningRouter = {
 		.input(deliveryTargetActivateInputSchema)
 		.output(deliveryTargetRevisionSchema)
 		.handler(async ({ context, input }) => {
-			const revision = await getDeliveryTargetStore(context).activate(
+			const result = await getDeliveryTargetStore(context).activate(
 				context.session.user.id,
 				input
 			);
-			if (!revision) {
+			if (!result) {
 				throw new ORPCError("NOT_FOUND", {
-					message: "Etkinleştirilecek Teslimat Hedefi taslağı bulunamadı.",
+					message: "Delivery Target draft to activate was not found.",
 				});
 			}
-			return revision;
+			if (result.status === "revision_number_conflict") {
+				throw new ORPCError("CONFLICT", {
+					message:
+						"The Delivery Target revision number was taken repeatedly; try activating again.",
+				});
+			}
+			return result.revision;
 		}),
 	list: protectedProcedure
 		.input(deliveryTargetListInputSchema)
@@ -72,9 +83,10 @@ export const deliveryPlanningRouter = {
 				throw new ORPCError("NOT_FOUND", { message: projectNotFound });
 			}
 			if (result.status === "rejected") {
-				throw new ORPCError("BAD_REQUEST", {
-					message: rejectionMessages[result.reason],
-				});
+				throw new ORPCError(
+					result.reason === "draft_id_conflict" ? "CONFLICT" : "BAD_REQUEST",
+					{ message: rejectionMessages[result.reason] }
+				);
 			}
 			return result.draft;
 		}),
