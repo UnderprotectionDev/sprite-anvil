@@ -34,6 +34,7 @@ import { assetRecordTrackingRouter } from "./asset-record-tracking";
 import { assetRecordsRouter } from "./asset-records";
 import { assetVersionsRouter } from "./asset-versions";
 import { backgroundLayerLayoutsRouter } from "./background-layer-layouts";
+import { backgroundOperationsRouter } from "./background-operations";
 import { backgroundScrollingTestsRouter } from "./background-scrolling-tests";
 import { collectionsRouter } from "./collections";
 import { dependencyRevalidationRouter } from "./dependency-revalidation";
@@ -141,6 +142,7 @@ export const appRouter = {
 	backgroundScrollingTests: backgroundScrollingTestsRouter,
 	assetVersions: assetVersionsRouter,
 	assetRecords: assetRecordsRouter,
+	backgroundOperations: backgroundOperationsRouter,
 	collections: collectionsRouter,
 	animationMetadataPackage: animationMetadataPackageRouter,
 	generationPackages: generationPackagesRouter,
