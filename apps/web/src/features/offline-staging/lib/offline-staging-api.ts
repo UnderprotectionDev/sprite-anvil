@@ -4,7 +4,7 @@ import type { StagedFileUpload } from "./send-staged-files";
 
 const trailingSlashPattern = /\/$/;
 
-function projectApiUrl(projectId: string) {
+export function projectApiUrl(projectId: string) {
 	const serverUrl = ENV.VITE_SERVER_URL.replace(trailingSlashPattern, "");
 	return `${serverUrl}/api/projects/${encodeURIComponent(projectId)}`;
 }
