@@ -34,14 +34,14 @@ export const backgroundOperations = pgTable(
 		id: text("id").primaryKey(),
 		projectId: text("project_id")
 			.notNull()
-			.references(() => project.id, { onDelete: "restrict" }),
+			.references(() => project.id, { onDelete: "cascade" }),
 		kind: backgroundOperationKind("kind").notNull(),
 		scopeSummary: text("scope_summary").notNull(),
 		scopeTargetId: text("scope_target_id"),
 		triggerSummary: text("trigger_summary").notNull(),
 		triggeredByUserId: text("triggered_by_user_id")
 			.notNull()
-			.references(() => user.id, { onDelete: "restrict" }),
+			.references(() => user.id, { onDelete: "cascade" }),
 		status: backgroundOperationStatus("status").default("pending").notNull(),
 		attemptCount: integer("attempt_count").default(0).notNull(),
 		maxAttempts: integer("max_attempts").default(3).notNull(),
@@ -78,7 +78,7 @@ export const backgroundOperationOutbox = pgTable(
 		id: text("id").primaryKey(),
 		operationId: text("operation_id")
 			.notNull()
-			.references(() => backgroundOperations.id, { onDelete: "restrict" }),
+			.references(() => backgroundOperations.id, { onDelete: "cascade" }),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		publishedAt: timestamp("published_at"),
 	},
