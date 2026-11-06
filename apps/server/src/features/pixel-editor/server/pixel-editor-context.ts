@@ -3,6 +3,7 @@ import type {
 	AssetVersionFileRecord,
 	AssetVersionStore,
 } from "@sprite-anvil/api/asset-versions";
+import type { OfflineConflictStore } from "@sprite-anvil/api/offline-conflict";
 import type {
 	PixelDraftRecord,
 	PixelDraftUpdateResult,
@@ -40,15 +41,19 @@ export interface DraftDependencies {
 	>;
 	createId?: () => string;
 	createStorage: () => TwoDVisualAssetStorage;
+	offlineConflictStore: OfflineConflictStore;
 	pixelEditorStore: PixelEditorStore;
 }
 
 export interface PixelEditorRouteDependencies extends DraftDependencies {
+	/** Signs the short-lived abandon confirmation tokens; never leaves the server. */
+	abandonConfirmationSecret: string;
 	getProjectForUser: (
 		userId: string,
 		projectId: string
 	) => Promise<{ id: string } | null>;
 	getSession: (headers: Headers) => Promise<PixelEditorSession | null>;
+	now?: () => number;
 }
 
 export type ErrorName = z.infer<typeof pixelEditorErrorSchema>["error"];

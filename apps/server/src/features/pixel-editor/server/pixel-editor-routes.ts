@@ -1,4 +1,5 @@
 import type { Hono } from "hono";
+import { mountOfflineConflictRoutes } from "./offline-conflict-routes";
 import type { PixelEditorRouteDependencies } from "./pixel-editor-context";
 import { handleJson, handlePng, readJson } from "./pixel-editor-http";
 import { mountPixelEditorStructureRoutes } from "./pixel-editor-structure-routes";
@@ -25,6 +26,7 @@ export function mountPixelEditorRoutes(
 ) {
 	const base = "/api/projects/:projectId/pixel-editor/drafts";
 	mountPixelEditorStructureRoutes(app, dependencies, base);
+	mountOfflineConflictRoutes(app, dependencies);
 
 	app.post(base, async (c) => {
 		const body = await readJson(c);

@@ -36,6 +36,7 @@ import {
 	db,
 	importInboxStore,
 	managedSnapshotStore,
+	offlineConflictStore,
 	pixelEditorStore,
 	referenceProductionStore,
 	rightsRecordStore,
@@ -114,7 +115,9 @@ mountAssetVersionRoutes(app, {
 });
 
 mountPixelEditorRoutes(app, {
+	abandonConfirmationSecret: ENV.BETTER_AUTH_SECRET,
 	assetVersionStore,
+	offlineConflictStore,
 	pixelEditorStore,
 	getSession: (headers) => auth.api.getSession({ headers }),
 	getProjectForUser: async (userId, projectId) =>

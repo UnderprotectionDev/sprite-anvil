@@ -1,5 +1,9 @@
 import { createHash } from "node:crypto";
 import type {
+	OfflineConflictEntry,
+	OfflineConflictStore,
+} from "@sprite-anvil/api/offline-conflict";
+import type {
 	PixelDraftRecord,
 	PixelDraftUpdateResult,
 	PixelEditorStore,
@@ -247,6 +251,99 @@ export async function createHarness(
 		},
 	};
 
+	const conflicts = new Map<string, OfflineConflictEntry>();
+	const offlineConflictStore: OfflineConflictStore = {
+		completeResolution(user, conflictId, resultAssetVersionId) {
+			const entry = conflicts.get(conflictId);
+			const resolution = entry?.resolution;
+			if (!resolution || resolution.resolvedByUserId !== user) {
+				return Promise.resolve(null);
+			}
+			if (resolution.resultAssetVersionId === null) {
+				resolution.resultAssetVersionId = resultAssetVersionId;
+			}
+			return Promise.resolve(resolution);
+		},
+		releaseResolution(user, conflictId, idempotencyKey) {
+			const entry = conflicts.get(conflictId);
+			if (
+				entry?.resolution &&
+				entry.resolution.resolvedByUserId === user &&
+				entry.resolution.idempotencyKey === idempotencyKey &&
+				entry.resolution.resultAssetVersionId === null
+			) {
+				entry.resolution = null;
+			}
+			return Promise.resolve();
+		},
+		createRecord(user, input) {
+			const existing = [...conflicts.values()].find(
+				({ record }) =>
+					record.ownerUserId === user &&
+					record.projectId === input.projectId &&
+					record.draftId === input.draftId &&
+					record.baseRevision === input.baseRevision &&
+					record.cloudRevision === input.cloudRevision &&
+					record.localDigest === input.localDigest
+			);
+			if (existing) {
+				return Promise.resolve({ kind: "existing", entry: existing });
+			}
+			const entry: OfflineConflictEntry = {
+				record: { ...input, ownerUserId: user, createdAt: new Date() },
+				resolution: null,
+			};
+			conflicts.set(input.id, entry);
+			return Promise.resolve({ kind: "created", entry });
+		},
+		getEntry(user, project, id) {
+			const entry = conflicts.get(id);
+			return Promise.resolve(
+				entry &&
+					entry.record.ownerUserId === user &&
+					entry.record.projectId === project
+					? entry
+					: null
+			);
+		},
+		listEntries: (user, project) =>
+			Promise.resolve(
+				[...conflicts.values()].filter(
+					({ record }) =>
+						record.ownerUserId === user && record.projectId === project
+				)
+			),
+		createResolution(user, input) {
+			const entry = conflicts.get(input.conflictId);
+			if (
+				!entry ||
+				entry.record.ownerUserId !== user ||
+				entry.record.projectId !== input.projectId
+			) {
+				return Promise.resolve(null);
+			}
+			if (entry.resolution) {
+				return Promise.resolve({
+					kind: "existing",
+					resolution: entry.resolution,
+				});
+			}
+			entry.resolution = {
+				id: input.id,
+				conflictId: input.conflictId,
+				choice: input.choice,
+				idempotencyKey: input.idempotencyKey,
+				resultAssetVersionId: input.resultAssetVersionId,
+				resolvedByUserId: user,
+				resolvedAt: new Date(),
+			};
+			return Promise.resolve({
+				kind: "created",
+				resolution: entry.resolution,
+			});
+		},
+	};
+
 	const faults = {
 		/** 1-based call number of createCandidateVersion that throws. */
 		failCandidateOnCall: null as number | null,
@@ -288,8 +385,12 @@ export async function createHarness(
 		},
 	};
 	let idCount = 0;
+	const clock = { now: Date.UTC(2026, 10, 6, 12, 0, 0) };
 	const dependencies: PixelEditorRouteDependencies = {
+		abandonConfirmationSecret: "pixel-editor-harness-secret",
+		now: () => clock.now,
 		pixelEditorStore,
+		offlineConflictStore,
 		assetVersionStore: {
 			getFileRecord(requestedUser, requestedProject, versionId) {
 				const extra = extraFiles.get(versionId);
@@ -412,6 +513,8 @@ export async function createHarness(
 	return {
 		app,
 		calls,
+		clock,
+		conflicts,
 		faults,
 		drafts,
 		objects,
@@ -460,6 +563,7 @@ export async function createHarness(
 				).arrayBuffer()
 			),
 		read: (draftId: string) => app.request(`${base}/${draftId}`),
+		conflictBase: `${base.replace("/drafts", "/offline-conflicts")}`,
 		preview: async (draftId: string) =>
 			new Uint8Array(
 				await (await app.request(`${base}/${draftId}/preview`)).arrayBuffer()

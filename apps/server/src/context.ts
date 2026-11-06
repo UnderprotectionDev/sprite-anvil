@@ -34,6 +34,7 @@ import {
 	iconFamilyReviewStore,
 	importInboxStore,
 	marketingUsageReviewStore,
+	offlineConflictStore,
 	pixelEditorStore,
 	portraitIdentityReviewStore,
 	productionExperimentStore,
@@ -64,6 +65,7 @@ const sourceMetadataMappingDependencies = {
 const readPixelDraftCoordinateSpace = createDraftCoordinateSpaceReader({
 	assetVersionStore,
 	createStorage: createServerAssetVersionStorage,
+	offlineConflictStore,
 	pixelEditorStore,
 });
 const createSourceMetadataMappingProposal =
