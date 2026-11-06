@@ -47,7 +47,7 @@ export function useOfflineReconcile({
 	const [isChecking, setIsChecking] = useState(false);
 	const [message, setMessage] = useState<string | null>(null);
 	const checking = useRef(false);
-	const resolutionKeys = useRef(createResolutionKeys());
+	const [resolutionKeys] = useState(createResolutionKeys);
 
 	const checkDrafts = useCallback(async () => {
 		if (checking.current) {
@@ -106,10 +106,10 @@ export function useOfflineReconcile({
 		try {
 			const result = await resolveOfflineConflict(projectId, conflict.id, {
 				choice,
-				idempotencyKey: resolutionKeys.current.keyFor(conflict.id, choice),
+				idempotencyKey: resolutionKeys.keyFor(conflict.id, choice),
 				...confirmation,
 			});
-			resolutionKeys.current.settle(conflict.id);
+			resolutionKeys.settle(conflict.id);
 			setReconciled((entries) =>
 				entries.map((entry) =>
 					entry.kind === "conflict" && entry.conflict.id === conflict.id

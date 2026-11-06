@@ -97,21 +97,26 @@ export function OfflineConflictPanel({
 	) {
 		setPending(true);
 		setError(null);
-		const failure = await onResolve(conflict, choice, confirmation);
-		setError(failure);
-		setPending(false);
+		try {
+			setError(await onResolve(conflict, choice, confirmation));
+		} finally {
+			setPending(false);
+		}
 	}
 
 	async function askToAbandon() {
 		setPending(true);
 		setError(null);
-		const result = await onRequestAbandon(conflict);
-		if (result.ok) {
-			setServed(result.confirmation);
-		} else {
-			setError(result.message);
+		try {
+			const result = await onRequestAbandon(conflict);
+			if (result.ok) {
+				setServed(result.confirmation);
+			} else {
+				setError(result.message);
+			}
+		} finally {
+			setPending(false);
 		}
-		setPending(false);
 	}
 
 	const headingId = `offline-conflict-${conflict.id}`;
