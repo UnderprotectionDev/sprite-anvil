@@ -74,7 +74,9 @@ export const offlineConflictResolutions = pgTable(
 			.notNull(),
 		idempotencyKey: text("idempotency_key").notNull(),
 		// The Candidate Version a create-candidate choice produced (plain
-		// provenance, no foreign key); null for the other choices.
+		// provenance, no foreign key); null for the other choices. A
+		// create-candidate row is claimed with null first and completed once the
+		// Candidate Version exists, so a losing racer never creates one.
 		resultAssetVersionId: text("result_asset_version_id"),
 		resolvedAt: timestamp("resolved_at").defaultNow().notNull(),
 	},
@@ -88,7 +90,7 @@ export const offlineConflictResolutions = pgTable(
 		),
 		check(
 			"offline_conflict_resolutions_result_check",
-			sql`(${table.choice} = 'create-candidate') = (${table.resultAssetVersionId} IS NOT NULL)`
+			sql`${table.choice} = 'create-candidate' OR ${table.resultAssetVersionId} IS NULL`
 		),
 	]
 );

@@ -1,13 +1,6 @@
 import { pixelDraftSchema } from "@sprite-anvil/api/pixel-editor";
-import { ENV } from "@/env";
+import { honoPostJson, projectApiUrl } from "@/utils/hono-api";
 import type { StagedFileUpload } from "./send-staged-files";
-
-const trailingSlashPattern = /\/$/;
-
-export function projectApiUrl(projectId: string) {
-	const serverUrl = ENV.VITE_SERVER_URL.replace(trailingSlashPattern, "");
-	return `${serverUrl}/api/projects/${encodeURIComponent(projectId)}`;
-}
 
 /** Sends a staged PNG through the existing Import Inbox upload route. */
 export const uploadStagedFileToImportInbox =
@@ -39,20 +32,11 @@ export async function fetchWorkingDraftForStaging(
 	projectId: string,
 	sourceAssetVersionId: string
 ) {
-	// conventions-exception: raw-fetch Working Draft routes are authenticated Hono project routes that render and store PNG bytes through the verifying Asset Version storage; the oRPC context carries no object storage.
-	const response = await fetch(
-		`${projectApiUrl(projectId)}/pixel-editor/drafts`,
-		{
-			method: "POST",
-			credentials: "include",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ sourceAssetVersionId }),
-		}
+	return pixelDraftSchema.parse(
+		await honoPostJson(
+			`${projectApiUrl(projectId)}/pixel-editor/drafts`,
+			{ sourceAssetVersionId },
+			"The Working Draft could not be opened"
+		)
 	);
-	if (!response.ok) {
-		throw new Error(
-			`The Working Draft could not be opened (status ${response.status}).`
-		);
-	}
-	return pixelDraftSchema.parse(await response.json());
 }

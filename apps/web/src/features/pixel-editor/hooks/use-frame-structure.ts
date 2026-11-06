@@ -4,6 +4,7 @@ import type {
 } from "@sprite-anvil/api/pixel-editor-structure";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { HonoApiError } from "@/utils/hono-api";
 import {
 	applyFrameOperation,
 	applySheetSlicing,
@@ -11,7 +12,6 @@ import {
 	previewSheetSlicing,
 	readFrameStructure,
 } from "../lib/frame-structure-api";
-import { PixelEditorApiError } from "../lib/pixel-editor-api";
 
 function errorText(error: unknown) {
 	return error instanceof Error ? error.message : "The request failed";
@@ -32,7 +32,7 @@ export function useFrameStructure(
 	const structure = structureQuery.data;
 	// A 409 means the draft has no slicing yet, which is a normal empty state.
 	const hasNoStructure =
-		structureQuery.error instanceof PixelEditorApiError &&
+		structureQuery.error instanceof HonoApiError &&
 		structureQuery.error.status === 409;
 
 	const refresh = () =>

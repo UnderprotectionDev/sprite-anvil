@@ -115,6 +115,7 @@ mountAssetVersionRoutes(app, {
 });
 
 mountPixelEditorRoutes(app, {
+	abandonConfirmationSecret: ENV.BETTER_AUTH_SECRET,
 	assetVersionStore,
 	offlineConflictStore,
 	pixelEditorStore,

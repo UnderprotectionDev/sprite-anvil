@@ -160,11 +160,31 @@ export const offlineReconcileInputSchema = z.looseObject({
 
 export const offlineConflictResolveInputSchema = z
 	.object({
+		/** Checked like the record's own contract version: an unknown major stops resolution. */
+		contractVersion: z.string(),
 		idempotencyKey: z.uuid(),
 		choice: offlineConflictChoiceSchema,
-		/** Abandoning is irreversible: both fields must be sent, after showing the local content. */
+		/**
+		 * Abandoning is irreversible: both fields must be sent. The token comes from
+		 * the abandon-confirmation step, which serves the affected local content.
+		 */
 		confirmAbandon: z.boolean().optional(),
-		shownLocalDigest: z.string().min(1).max(128).optional(),
+		confirmationToken: z.string().min(1).max(512).optional(),
+	})
+	.strict();
+
+/** What abandoning would discard, served together with the token that confirms it. */
+export const offlineAbandonConfirmationSchema = z
+	.object({
+		conflictId: z.uuid(),
+		localDigest: z.string().min(1),
+		operationCount: z.number().int().min(0),
+		appliedOperationCount: z.number().int().min(0),
+		operations: z.array(
+			z.object({ type: z.string(), count: z.number().int().min(1) }).strict()
+		),
+		confirmationToken: z.string().min(1),
+		expiresAt: z.iso.datetime(),
 	})
 	.strict();
 
@@ -239,6 +259,9 @@ export const offlineConflictSides = ["base", "cloud", "local"] as const;
 
 export type OfflineConflictChoice = z.infer<typeof offlineConflictChoiceSchema>;
 export type OfflineConflictView = z.infer<typeof offlineConflictViewSchema>;
+export type OfflineAbandonConfirmation = z.infer<
+	typeof offlineAbandonConfirmationSchema
+>;
 export type OfflineConflictResolveInput = z.infer<
 	typeof offlineConflictResolveInputSchema
 >;
@@ -300,8 +323,18 @@ export interface OfflineConflictResolutionInput {
 	resultAssetVersionId: string | null;
 }
 
-/** Records are never updated or deleted; resolving adds one resolution row beside them. */
+/**
+ * Records are never updated or deleted; resolving adds one resolution row
+ * beside them. A create-candidate resolution is claimed first without a result
+ * so a losing request never creates a Candidate Version; the claim is then
+ * completed with the Candidate Version, or released if that write failed.
+ */
 export interface OfflineConflictStore {
+	completeResolution: (
+		userId: string,
+		conflictId: string,
+		resultAssetVersionId: string
+	) => Promise<OfflineConflictResolutionRow | null>;
 	createRecord: (
 		userId: string,
 		input: OfflineConflictCreateInput
@@ -322,4 +355,10 @@ export interface OfflineConflictStore {
 		userId: string,
 		projectId: string
 	) => Promise<OfflineConflictEntry[]>;
+	/** Removes only a claim that has no result yet and carries this key. */
+	releaseResolution: (
+		userId: string,
+		conflictId: string,
+		idempotencyKey: string
+	) => Promise<void>;
 }

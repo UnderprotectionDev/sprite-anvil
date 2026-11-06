@@ -1,3 +1,4 @@
+import { pixelEditorMaxOperations } from "@sprite-anvil/api/pixel-editor";
 import { expect, test } from "vitest";
 import {
 	createOfflineStagingStore,
@@ -46,13 +47,20 @@ const pngBlob = (extra = 4) =>
 	});
 
 const sourceAssetVersionId = "11111111-1111-4111-8111-111111111111";
+const pen = (x: number, y: number) => ({
+	type: "pen" as const,
+	color: "#00ff00ff",
+	size: 1,
+	points: [{ x, y }],
+});
 const draft = {
 	id: "22222222-2222-4222-8222-222222222222",
 	projectId,
-	assetRecordId: "record-ash-knight",
 	sourceAssetVersionId,
 	revision: 3,
-	operations: [{ kind: "example" }],
+	operations: [pen(0, 0)],
+	appliedOperationCount: 1,
+	size: { width: 4, height: 4 },
 };
 
 test("a cached project reads back after a reload and stays project scoped", async () => {
@@ -137,6 +145,89 @@ test("a staged Working Draft pins its base revision and source Asset Version and
 		draft,
 		stagedAt: 3000,
 	});
+});
+
+test("staging again at the same revision keeps local operations added offline", async () => {
+	const tables = createTables();
+	const store = createOfflineStagingStore(tables);
+	await store.stageWorkingDraft(draft, 3000);
+	await store.addStagedOperation(draft.id, pen(1, 1));
+	const result = await store.stageWorkingDraft({ ...draft }, 4000);
+
+	expect(result).toBe("kept-existing");
+	const [staged] = await store.listStagedDrafts(projectId);
+	expect(staged.draft.operations).toEqual([pen(0, 0), pen(1, 1)]);
+});
+
+test("an operation added to a staged draft is kept over the pinned base and reads back after a reload", async () => {
+	const tables = createTables();
+	await createOfflineStagingStore(tables).stageWorkingDraft(draft, 3000);
+	const added = await createOfflineStagingStore(tables).addStagedOperation(
+		draft.id,
+		pen(2, 3)
+	);
+
+	expect(added).toBe("added");
+	const [staged] =
+		await createOfflineStagingStore(tables).listStagedDrafts(projectId);
+	expect(staged.draft.operations).toEqual([pen(0, 0), pen(2, 3)]);
+	expect(staged.draft.appliedOperationCount).toBe(2);
+	// The base and the cloud revision it was staged at do not move.
+	expect(staged.base).toEqual({ revision: 3, sourceAssetVersionId });
+	expect(staged.draft.revision).toBe(3);
+});
+
+test("an operation added after an undo replaces the undone tail", async () => {
+	const tables = createTables();
+	const store = createOfflineStagingStore(tables);
+	await store.stageWorkingDraft(
+		{
+			...draft,
+			operations: [pen(0, 0), pen(1, 0)],
+			appliedOperationCount: 1,
+		},
+		3000
+	);
+	await store.addStagedOperation(draft.id, pen(3, 3));
+
+	const [staged] = await store.listStagedDrafts(projectId);
+	expect(staged.draft.operations).toEqual([pen(0, 0), pen(3, 3)]);
+	expect(staged.draft.appliedOperationCount).toBe(2);
+});
+
+test("an invalid operation, an unknown draft or a full draft adds nothing", async () => {
+	const tables = createTables();
+	const store = createOfflineStagingStore(tables);
+	await store.stageWorkingDraft(draft, 3000);
+
+	expect(
+		await store.addStagedOperation(draft.id, { type: "bogus" } as never)
+	).toBe("invalid");
+	expect(await store.addStagedOperation("unknown-draft", pen(0, 0))).toBe(
+		"missing"
+	);
+	const full = Array.from({ length: pixelEditorMaxOperations }, () =>
+		pen(0, 0)
+	);
+	await store.stageWorkingDraft(
+		{
+			...draft,
+			id: "33333333-3333-4333-8333-333333333333",
+			operations: full,
+			appliedOperationCount: full.length,
+		},
+		3000
+	);
+	expect(
+		await store.addStagedOperation(
+			"33333333-3333-4333-8333-333333333333",
+			pen(1, 1)
+		)
+	).toBe("limit");
+	const [first] = (await store.listStagedDrafts(projectId)).filter(
+		(row) => row.id === draft.id
+	);
+	expect(first.draft.operations).toEqual([pen(0, 0)]);
 });
 
 test("staging again after the cloud moved on keeps the first draft and base together", async () => {

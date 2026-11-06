@@ -1,4 +1,5 @@
 import type {
+	OfflineAbandonConfirmation,
 	OfflineConflictChoice,
 	OfflineConflictView,
 } from "@sprite-anvil/api/offline-conflict";
@@ -14,7 +15,9 @@ import {
 } from "@sprite-anvil/ui/components/alert-dialog";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useState } from "react";
+import type { AbandonConfirmationInput } from "../../hooks/use-offline-reconcile";
 import { conflictPreviewUrl } from "../../lib/offline-conflict-api";
+import { countOperations, describeCounts } from "../../lib/operation-summary";
 
 const choiceLabel: Record<OfflineConflictChoice, string> = {
 	"create-candidate":
@@ -25,16 +28,7 @@ const choiceLabel: Record<OfflineConflictChoice, string> = {
 };
 
 function describeOperations(operations: { type: string }[]) {
-	if (operations.length === 0) {
-		return "no operations";
-	}
-	const counts = new Map<string, number>();
-	for (const { type } of operations) {
-		counts.set(type, (counts.get(type) ?? 0) + 1);
-	}
-	return [...counts.entries()]
-		.map(([type, count]) => `${type} x${count}`)
-		.join(", ");
+	return describeCounts(countOperations(operations));
 }
 
 function Version({
@@ -73,30 +67,50 @@ function Version({
  */
 export function OfflineConflictPanel({
 	conflict,
+	onRequestAbandon,
 	onResolve,
 	projectId,
 }: {
 	conflict: OfflineConflictView;
+	onRequestAbandon: (
+		conflict: OfflineConflictView
+	) => Promise<
+		| { confirmation: OfflineAbandonConfirmation; ok: true }
+		| { message: string; ok: false }
+	>;
 	onResolve: (
 		conflict: OfflineConflictView,
 		choice: OfflineConflictChoice,
-		confirmation?: { confirmAbandon: true; shownLocalDigest: string }
+		confirmation?: AbandonConfirmationInput
 	) => Promise<string | null>;
 	projectId: string;
 }) {
 	const [pending, setPending] = useState(false);
-	const [confirming, setConfirming] = useState(false);
+	// The local content the cloud served for the abandon dialog, with its token.
+	const [served, setServed] = useState<OfflineAbandonConfirmation | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const { resolution } = conflict;
 
 	async function choose(
 		choice: OfflineConflictChoice,
-		confirmation?: { confirmAbandon: true; shownLocalDigest: string }
+		confirmation?: AbandonConfirmationInput
 	) {
 		setPending(true);
 		setError(null);
 		const failure = await onResolve(conflict, choice, confirmation);
 		setError(failure);
+		setPending(false);
+	}
+
+	async function askToAbandon() {
+		setPending(true);
+		setError(null);
+		const result = await onRequestAbandon(conflict);
+		if (result.ok) {
+			setServed(result.confirmation);
+		} else {
+			setError(result.message);
+		}
 		setPending(false);
 	}
 
@@ -156,7 +170,7 @@ export function OfflineConflictPanel({
 					</Button>
 					<Button
 						disabled={pending}
-						onClick={() => setConfirming(true)}
+						onClick={() => askToAbandon()}
 						type="button"
 						variant="destructive"
 					>
@@ -165,7 +179,14 @@ export function OfflineConflictPanel({
 				</div>
 			)}
 			{error ? <p role="alert">{error}</p> : null}
-			<AlertDialog onOpenChange={setConfirming} open={confirming}>
+			<AlertDialog
+				onOpenChange={(open) => {
+					if (!open) {
+						setServed(null);
+					}
+				}}
+				open={served !== null}
+			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
 						<AlertDialogTitle>
@@ -173,25 +194,22 @@ export function OfflineConflictPanel({
 						</AlertDialogTitle>
 						<AlertDialogDescription>
 							This cannot be undone. The local draft with{" "}
-							{describeOperations(
-								conflict.local.operations.slice(
-									0,
-									conflict.local.appliedOperationCount
-								)
-							)}{" "}
-							will no longer be offered for resolution. The cloud version is not
-							changed.
+							{served ? describeCounts(served.operations) : null} will no longer
+							be offered for resolution. The cloud version is not changed.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel>Keep the local draft</AlertDialogCancel>
 						<AlertDialogAction
 							onClick={() => {
-								setConfirming(false);
-								choose("abandon", {
-									confirmAbandon: true,
-									shownLocalDigest: conflict.localDigest,
-								}).catch(() => undefined);
+								const confirmationToken = served?.confirmationToken;
+								setServed(null);
+								if (confirmationToken) {
+									choose("abandon", {
+										confirmAbandon: true,
+										confirmationToken,
+									}).catch(() => undefined);
+								}
 							}}
 							variant="destructive"
 						>

@@ -1,20 +1,25 @@
 import type { Hono } from "hono";
+import { createAbandonConfirmations } from "./abandon-confirmation";
 import {
 	listOfflineConflicts,
 	readOfflineConflict,
 	readOfflineConflictPreview,
-	reconcileStagedDraft,
+} from "./offline-conflict-reads";
+import {
 	resolveOfflineConflict,
-} from "./offline-conflicts";
+	serveAbandonConfirmation,
+} from "./offline-conflict-resolution";
+import { reconcileStagedDraft } from "./offline-reconcile";
 import type { PixelEditorRouteDependencies } from "./pixel-editor-context";
 import { handleJson, handlePng, readJson } from "./pixel-editor-http";
 
-/** Thin adapters: the reconnect check and resolution live in offline-conflicts.ts. */
+/** Thin adapters: the reconnect check, reads and resolution live in the offline-* modules. */
 export function mountOfflineConflictRoutes(
 	app: Hono,
 	dependencies: PixelEditorRouteDependencies
 ) {
 	const base = "/api/projects/:projectId/pixel-editor/offline-conflicts";
+	const confirmations = createAbandonConfirmations(dependencies);
 
 	app.post(`${base}/reconcile`, async (c) => {
 		const body = await readJson(c);
@@ -39,10 +44,20 @@ export function mountOfflineConflictRoutes(
 			)
 		)
 	);
+	app.post(`${base}/:conflictId/abandon-confirmation`, (c) =>
+		handleJson(c, dependencies, (scope) =>
+			serveAbandonConfirmation(scope, confirmations, c.req.param("conflictId"))
+		)
+	);
 	app.post(`${base}/:conflictId/resolve`, async (c) => {
 		const body = await readJson(c);
 		return handleJson(c, dependencies, (scope) =>
-			resolveOfflineConflict(scope, c.req.param("conflictId"), body)
+			resolveOfflineConflict(
+				scope,
+				confirmations,
+				c.req.param("conflictId"),
+				body
+			)
 		);
 	});
 }

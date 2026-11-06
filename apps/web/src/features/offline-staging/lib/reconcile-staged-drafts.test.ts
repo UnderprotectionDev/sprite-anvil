@@ -11,6 +11,7 @@ const draftId = "b17f5ff0-a50d-438f-8bf2-a0152b42c401";
 const sourceAssetVersionId = "b17f5ff0-a50d-438f-8bf2-a0152b42c301";
 
 function stagedRow(id: string, operations: unknown = []): StagedDraftRow {
+	// `operations` may be unreadable on purpose; the row type is bypassed for that case.
 	return {
 		id,
 		projectId: "project-1",
@@ -23,7 +24,8 @@ function stagedRow(id: string, operations: unknown = []): StagedDraftRow {
 			sourceAssetVersionId,
 			operations,
 			appliedOperationCount: Array.isArray(operations) ? operations.length : 0,
-		},
+			size: { width: 4, height: 4 },
+		} as StagedDraftRow["draft"],
 	};
 }
 
@@ -39,7 +41,7 @@ test("each staged draft is sent with its pinned base and local content, and the 
 				request.draftId === draftId
 					? {
 							outcome: "base-current",
-							draft: { id: draftId, revision: 2, sourceAssetVersionId },
+							draft: { id: draftId, revision: 3, sourceAssetVersionId },
 						}
 					: { outcome: "conflict", conflict };
 			return Promise.resolve(response);
@@ -56,6 +58,12 @@ test("each staged draft is sent with its pinned base and local content, and the 
 		"base-current",
 		"conflict",
 	]);
+	// Finalization commits the revision the server wrote the local operations at.
+	expect(results[0]).toEqual({
+		kind: "base-current",
+		draftId,
+		draft: { revision: 3 },
+	});
 });
 
 test("a failed check or unreadable staged draft keeps the draft and reports why", async () => {

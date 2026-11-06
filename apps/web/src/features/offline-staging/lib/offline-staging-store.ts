@@ -1,4 +1,11 @@
+import {
+	type PixelDraft,
+	type PixelOperation,
+	pixelEditorMaxOperations,
+	pixelOperationSchema,
+} from "@sprite-anvil/api/pixel-editor";
 import Dexie, { type Table } from "dexie";
+import type { CachedProject } from "../schemas";
 
 /** Largest PNG accepted into Offline Staged Work (browser storage is quota-bound). */
 export const maxStagedFileBytes = 10 * 1024 * 1024;
@@ -7,7 +14,7 @@ const pngSignature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
 export interface StagedProjectRow {
 	cachedAt: number;
-	project: unknown;
+	project: CachedProject;
 	projectId: string;
 }
 
@@ -27,13 +34,20 @@ export interface StagedDraftBase {
 	sourceAssetVersionId: string;
 }
 
-export interface StageableDraft {
-	id: string;
-	projectId: string;
-	revision: number;
-	sourceAssetVersionId: string;
-	[field: string]: unknown;
-}
+/**
+ * The part of a Working Draft that is kept offline: the operations over the
+ * pinned source Asset Version. `revision` is the cloud revision it was staged at.
+ */
+export type StageableDraft = Pick<
+	PixelDraft,
+	| "appliedOperationCount"
+	| "id"
+	| "operations"
+	| "projectId"
+	| "revision"
+	| "size"
+	| "sourceAssetVersionId"
+>;
 
 export interface StagedDraftRow {
 	base: StagedDraftBase;
@@ -54,13 +68,27 @@ export type StageFileResult =
 	| { ok: true; file: StagedFileRow }
 	| { ok: false; reason: "not-png" | "too-large" };
 
-/** `kept-existing`: the staged copy differs in revision, so its base and content stay together. */
+/**
+ * `kept-existing`: the staged copy differs in revision or holds local
+ * operations, so its base and content stay together and nothing is lost.
+ */
 export type StageDraftResult = "kept-existing" | "staged";
 
+export type AddStagedOperationResult =
+	| "added"
+	| "invalid"
+	| "limit"
+	| "missing";
+
 export interface OfflineStagingStore {
+	/** Adds a Working Draft operation, as a local operation over the pinned base. */
+	addStagedOperation: (
+		id: string,
+		operation: PixelOperation
+	) => Promise<AddStagedOperationResult>;
 	cacheProject: (
 		projectId: string,
-		project: unknown,
+		project: CachedProject,
 		now?: number
 	) => Promise<void>;
 	listStagedDrafts: (projectId: string) => Promise<StagedDraftRow[]>;
@@ -84,6 +112,26 @@ async function hasPngSignature(data: Blob) {
 	return pngSignature.every((byte, index) => header[index] === byte);
 }
 
+/** Only the operations over the base are kept, never the rendered view of the draft. */
+function keptFields(draft: StageableDraft): StageableDraft {
+	return {
+		id: draft.id,
+		projectId: draft.projectId,
+		revision: draft.revision,
+		sourceAssetVersionId: draft.sourceAssetVersionId,
+		operations: draft.operations,
+		appliedOperationCount: draft.appliedOperationCount,
+		size: draft.size,
+	};
+}
+
+function sameOperations(a: StageableDraft, b: StageableDraft) {
+	return (
+		a.appliedOperationCount === b.appliedOperationCount &&
+		JSON.stringify(a.operations) === JSON.stringify(b.operations)
+	);
+}
+
 function newestFirst<Row extends { stagedAt: number }>(rows: Row[]) {
 	return [...rows].sort((a, b) => b.stagedAt - a.stagedAt);
 }
@@ -102,6 +150,34 @@ export function createOfflineStagingStore({
 	projects: OfflineStagingTable<StagedProjectRow>;
 }): OfflineStagingStore {
 	return {
+		async addStagedOperation(id, operation) {
+			const existing = await drafts.get(id);
+			if (!existing) {
+				return "missing";
+			}
+			const parsed = pixelOperationSchema.safeParse(operation);
+			if (!parsed.success) {
+				return "invalid";
+			}
+			const { draft } = existing;
+			if (draft.appliedOperationCount >= pixelEditorMaxOperations) {
+				return "limit";
+			}
+			// Like the cloud draft, a new operation replaces the undone tail.
+			const operations = [
+				...draft.operations.slice(0, draft.appliedOperationCount),
+				parsed.data,
+			];
+			await drafts.put({
+				...existing,
+				draft: {
+					...draft,
+					operations,
+					appliedOperationCount: operations.length,
+				},
+			});
+			return "added";
+		},
 		async cacheProject(projectId, project, now = Date.now()) {
 			await projects.put({ projectId, project, cachedAt: now });
 		},
@@ -137,7 +213,12 @@ export function createOfflineStagingStore({
 			const existing = await drafts.get(draft.id);
 			// A staged draft and its pinned base must describe the same cloud record:
 			// a newer cloud revision never overwrites it, or edits would look conflicting.
-			if (existing && existing.draft.revision !== draft.revision) {
+			// Operations added offline are never replaced by a refreshed copy either.
+			if (
+				existing &&
+				(existing.draft.revision !== draft.revision ||
+					!sameOperations(existing.draft, draft))
+			) {
 				return "kept-existing";
 			}
 			await drafts.put({
@@ -147,7 +228,7 @@ export function createOfflineStagingStore({
 					revision: draft.revision,
 					sourceAssetVersionId: draft.sourceAssetVersionId,
 				},
-				draft,
+				draft: keptFields(draft),
 				stagedAt: existing?.stagedAt ?? now,
 			});
 			return "staged";

@@ -33,9 +33,12 @@ const stagingUrl = `/projects/${projectId}/offline-staging`;
 interface ResolveRequest {
 	choice: string;
 	confirmAbandon?: boolean;
+	confirmationToken?: string;
+	contractVersion: string;
 	idempotencyKey: string;
-	shownLocalDigest?: string;
 }
+
+const abandonToken = "1793000000000.served-by-the-cloud";
 
 const conflictView = (resolution: unknown = null) => ({
 	id: conflictId,
@@ -64,6 +67,8 @@ async function mockCloud(page: Page) {
 		baseCurrent: false,
 		failNextResolve: false,
 		reconciles: 0,
+		reconcileRequests: [] as { local: { operations: unknown[] } }[],
+		abandonConfirmations: 0,
 		resolves: [] as ResolveRequest[],
 		commits: [] as unknown[],
 	};
@@ -96,18 +101,34 @@ async function mockCloud(page: Page) {
 		const { pathname } = new URL(request.url());
 		if (pathname.endsWith("/reconcile")) {
 			cloud.reconciles += 1;
+			cloud.reconcileRequests.push(request.postDataJSON());
 			return route.fulfill({
 				status: cloud.baseCurrent ? 200 : 201,
 				json: cloud.baseCurrent
 					? {
 							outcome: "base-current",
-							draft: { id: draftId, revision: 1, sourceAssetVersionId },
+							// The cloud took the staged operations and bumped the revision.
+							draft: { id: draftId, revision: 2, sourceAssetVersionId },
 						}
 					: { outcome: "conflict", conflict: conflictView() },
 			});
 		}
 		if (pathname.includes("/preview/")) {
 			return route.fulfill({ contentType: "image/png", body: onePixelPng });
+		}
+		if (pathname.endsWith("/abandon-confirmation")) {
+			cloud.abandonConfirmations += 1;
+			return route.fulfill({
+				json: {
+					conflictId,
+					localDigest,
+					operationCount: 1,
+					appliedOperationCount: 1,
+					operations: [{ type: "pen", count: 1 }],
+					confirmationToken: abandonToken,
+					expiresAt: "2026-11-06T10:15:00.000Z",
+				},
+			});
 		}
 		if (pathname.endsWith("/resolve")) {
 			const body = request.postDataJSON() as ResolveRequest;
@@ -212,6 +233,7 @@ async function seedStagedDraft(page: Page) {
 							},
 						],
 						appliedOperationCount: 1,
+						size: { width: 4, height: 4 },
 					},
 				});
 				tx.oncomplete = () => resolve();
@@ -297,7 +319,9 @@ test("abandoning shows the local content and needs a separate confirmation", asy
 	await page.getByRole("button", { name: "Abandon the local draft" }).click();
 	const dialog = page.getByRole("alertdialog");
 	await expect(dialog).toContainText("This cannot be undone");
+	// The affected content is what the cloud served, not what the page echoes.
 	await expect(dialog).toContainText("pen x1");
+	expect(cloud.abandonConfirmations).toBe(1);
 	expect(cloud.resolves).toHaveLength(0);
 
 	await dialog.getByRole("button", { name: "Keep the local draft" }).click();
@@ -314,8 +338,9 @@ test("abandoning shows the local content and needs a separate confirmation", asy
 	expect(cloud.resolves).toHaveLength(1);
 	expect(cloud.resolves[0]).toMatchObject({
 		choice: "abandon",
+		contractVersion: "offline-conflict/1.0.0",
 		confirmAbandon: true,
-		shownLocalDigest: localDigest,
+		confirmationToken: abandonToken,
 	});
 });
 
@@ -355,8 +380,53 @@ test("a still-current base is finalized through the normal commit path", async (
 		.getByRole("button", { name: "Finalize as a Candidate Version" })
 		.click();
 	await expect(page.getByText(finalizedText)).toBeVisible();
-	expect(cloud.commits).toEqual([{ expectedRevision: 1 }]);
+	// The commit uses the revision the cloud reported after taking the staged operations.
+	expect(cloud.commits).toEqual([{ expectedRevision: 2 }]);
 	await expect(page.getByText("Pinned base revision 1")).toHaveCount(0);
+});
+
+test("an edit added while offline is kept over a reload and sent with the staged draft at reconnect", async ({
+	context,
+	page,
+}) => {
+	const cloud = await mockCloud(page);
+	cloud.baseCurrent = true;
+	await seedStagedDraft(page);
+	cloud.reachable = false;
+	await context.setOffline(true);
+	await expect(
+		page.getByRole("status").filter({ hasText: "Offline" })
+	).toBeVisible();
+
+	await page.getByLabel("Pixel x").fill("2");
+	await page.getByLabel("Pixel y").fill("3");
+	await page
+		.getByRole("button", { name: "Add edit to the staged draft" })
+		.click();
+	await expect(page.getByText("Edit saved in this browser")).toBeVisible();
+	await expect(page.getByText("with 2 operation(s)")).toBeVisible();
+
+	await page.getByLabel("Pixel x").fill("9");
+	await page
+		.getByRole("button", { name: "Add edit to the staged draft" })
+		.click();
+	await expect(page.getByRole("alert")).toContainText("use at most 3");
+	await expect(page.getByText("with 2 operation(s)")).toBeVisible();
+
+	// The page itself cannot load offline (no service worker), so the reload
+	// happens with the browser online and the cloud still unreachable.
+	await context.setOffline(false);
+	await page.reload();
+	await expect(page.getByText("with 2 operation(s)")).toBeVisible();
+
+	cloud.reachable = true;
+	await page
+		.getByRole("button", {
+			name: "Check staged Working Drafts against the cloud",
+		})
+		.click();
+	await expect(page.getByText("can be finalized normally")).toBeVisible();
+	expect(cloud.reconcileRequests[0]?.local.operations).toHaveLength(2);
 });
 
 test("an unreachable cloud during the check leaves the staged draft in place", async ({

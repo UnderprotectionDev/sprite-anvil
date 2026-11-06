@@ -9,7 +9,7 @@ import {
 	offlineConflictRecords,
 	offlineConflictResolutions,
 } from "@sprite-anvil/db/schema/offline-conflicts";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 
 function toRecord(
 	row: typeof offlineConflictRecords.$inferSelect
@@ -61,6 +61,36 @@ export function createOfflineConflictStore(db: Database): OfflineConflictStore {
 	}
 
 	return {
+		async completeResolution(userId, conflictId, resultAssetVersionId) {
+			const [updated] = await db
+				.update(offlineConflictResolutions)
+				.set({ resultAssetVersionId })
+				.where(
+					and(
+						eq(offlineConflictResolutions.conflictId, conflictId),
+						eq(offlineConflictResolutions.resolvedByUserId, userId),
+						eq(offlineConflictResolutions.choice, "create-candidate"),
+						isNull(offlineConflictResolutions.resultAssetVersionId)
+					)
+				)
+				.returning();
+			// An already completed claim keeps its first result.
+			return updated ? toResolution(updated) : await readResolution(conflictId);
+		},
+
+		async releaseResolution(userId, conflictId, idempotencyKey) {
+			await db
+				.delete(offlineConflictResolutions)
+				.where(
+					and(
+						eq(offlineConflictResolutions.conflictId, conflictId),
+						eq(offlineConflictResolutions.resolvedByUserId, userId),
+						eq(offlineConflictResolutions.idempotencyKey, idempotencyKey),
+						isNull(offlineConflictResolutions.resultAssetVersionId)
+					)
+				);
+		},
+
 		async createRecord(userId, input) {
 			if (!(await getProjectForUser(db, userId, input.projectId))) {
 				throw new Error("Project not available to the user");

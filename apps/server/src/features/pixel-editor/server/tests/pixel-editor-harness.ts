@@ -253,6 +253,29 @@ export async function createHarness(
 
 	const conflicts = new Map<string, OfflineConflictEntry>();
 	const offlineConflictStore: OfflineConflictStore = {
+		completeResolution(user, conflictId, resultAssetVersionId) {
+			const entry = conflicts.get(conflictId);
+			const resolution = entry?.resolution;
+			if (!resolution || resolution.resolvedByUserId !== user) {
+				return Promise.resolve(null);
+			}
+			if (resolution.resultAssetVersionId === null) {
+				resolution.resultAssetVersionId = resultAssetVersionId;
+			}
+			return Promise.resolve(resolution);
+		},
+		releaseResolution(user, conflictId, idempotencyKey) {
+			const entry = conflicts.get(conflictId);
+			if (
+				entry?.resolution &&
+				entry.resolution.resolvedByUserId === user &&
+				entry.resolution.idempotencyKey === idempotencyKey &&
+				entry.resolution.resultAssetVersionId === null
+			) {
+				entry.resolution = null;
+			}
+			return Promise.resolve();
+		},
 		createRecord(user, input) {
 			const existing = [...conflicts.values()].find(
 				({ record }) =>
@@ -362,7 +385,10 @@ export async function createHarness(
 		},
 	};
 	let idCount = 0;
+	const clock = { now: Date.UTC(2026, 10, 6, 12, 0, 0) };
 	const dependencies: PixelEditorRouteDependencies = {
+		abandonConfirmationSecret: "pixel-editor-harness-secret",
+		now: () => clock.now,
 		pixelEditorStore,
 		offlineConflictStore,
 		assetVersionStore: {
@@ -487,6 +513,7 @@ export async function createHarness(
 	return {
 		app,
 		calls,
+		clock,
 		conflicts,
 		faults,
 		drafts,

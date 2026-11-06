@@ -46,11 +46,14 @@ export interface DraftDependencies {
 }
 
 export interface PixelEditorRouteDependencies extends DraftDependencies {
+	/** Signs the short-lived abandon confirmation tokens; never leaves the server. */
+	abandonConfirmationSecret: string;
 	getProjectForUser: (
 		userId: string,
 		projectId: string
 	) => Promise<{ id: string } | null>;
 	getSession: (headers: Headers) => Promise<PixelEditorSession | null>;
+	now?: () => number;
 }
 
 export type ErrorName = z.infer<typeof pixelEditorErrorSchema>["error"];

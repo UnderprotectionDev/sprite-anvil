@@ -67,7 +67,20 @@ const keyA = "6f0f4c52-6c0f-4f0e-9d3c-000000000001";
 const keyB = "6f0f4c52-6c0f-4f0e-9d3c-000000000002";
 
 function resolve(harness: Harness, id: string, body: Json) {
-	return post(harness, `${harness.conflictBase}/${id}/resolve`, body);
+	return post(harness, `${harness.conflictBase}/${id}/resolve`, {
+		contractVersion: "offline-conflict/1.0.0",
+		...body,
+	});
+}
+
+/** The abandon-confirmation step: serves the local content and a bound token. */
+async function confirmAbandon(harness: Harness, id: string) {
+	const response = await post(
+		harness,
+		`${harness.conflictBase}/${id}/abandon-confirmation`,
+		{}
+	);
+	return { response, body: (await response.json()) as Json };
 }
 
 /** Staged draft with one more local edit, then the cloud draft advances: a conflict exists. */
@@ -145,18 +158,57 @@ test("a cloud draft that advanced opens a three-version record and the cloud sta
 	expect(harness.conflicts.size).toBe(1);
 });
 
-test("a local draft that differs from an unchanged cloud draft is a conflict, never a silent discard", async () => {
+test("a still-current base with extra local operations finalizes normally over the unchanged cloud draft", async () => {
+	const harness = await createHarness();
+	const staged = await stageDraft(harness);
+	const local = {
+		operations: [...staged.local.operations, penBlue(2, 2)],
+		appliedOperationCount: 2,
+	};
+	const response = await reconcile(harness, { ...staged, local });
+	const body = (await response.json()) as Json;
+
+	expect(response.status).toBe(200);
+	expect(body.outcome).toBe("base-current");
+	expect(body.draft.revision).toBe(staged.base.revision + 1);
+	expect(harness.conflicts.size).toBe(0);
+	// The staged local operations now live in the cloud draft, not lost.
+	expect(harness.drafts.get(staged.draftId)?.operations as unknown[]).toEqual(
+		local.operations
+	);
+
+	// Repeating the check after the write is not a false conflict.
+	const again = await reconcile(harness, { ...staged, local });
+	expect(((await again.json()) as Json).outcome).toBe("base-current");
+	expect(harness.conflicts.size).toBe(0);
+
+	const committed = await harness.commit(staged.draftId, body.draft.revision);
+	expect(committed.status).toBe(201);
+	const candidateId = ((await committed.json()) as Json).assetVersionId;
+	const stored = [...harness.objects.entries()].find(([key]) =>
+		key.endsWith(candidateId)
+	);
+	const pixels = await readPixels(stored?.[1] as Uint8Array);
+	expect(pixels.pixel(0, 0)).toBe(green);
+	expect(pixels.pixel(2, 2)).toBe(blue);
+});
+
+test("local operations that cannot replay over the unchanged cloud draft are refused and change nothing", async () => {
 	const harness = await createHarness();
 	const staged = await stageDraft(harness);
 	const response = await reconcile(harness, {
 		...staged,
 		local: {
-			operations: [...staged.local.operations, penBlue(2, 2)],
+			// Pasting with nothing copied cannot replay.
+			operations: [...staged.local.operations, { type: "paste", x: 0, y: 0 }],
 			appliedOperationCount: 2,
 		},
 	});
-	expect(response.status).toBe(201);
-	expect(((await response.json()) as Json).outcome).toBe("conflict");
+	expect(response.status).toBe(422);
+	expect(harness.conflicts.size).toBe(0);
+	expect(harness.drafts.get(staged.draftId)?.revision).toBe(
+		staged.base.revision
+	);
 });
 
 test("the reconnect check refuses bad input, other projects and missing drafts", async () => {
@@ -259,8 +311,6 @@ test("creating a Candidate Version from the local draft is separate, idempotent 
 	const reused = await resolve(harness, id, {
 		idempotencyKey: keyA,
 		choice: "abandon",
-		confirmAbandon: true,
-		shownLocalDigest: conflict.conflict.localDigest,
 	});
 	expect(reused.status).toBe(409);
 	expect(((await reused.json()) as Json).error).toBe(
@@ -321,18 +371,44 @@ test("keeping the cloud retains the local draft in the record and creates nothin
 	);
 });
 
-test("abandoning needs shown local content and a separate confirmation", async () => {
+test("abandoning needs the server-served local content and its confirmation token", async () => {
 	const harness = await createHarness();
-	const { conflict } = await openConflict(harness);
+	const { staged, conflict } = await openConflict(harness);
 	const id = conflict.conflict.id as string;
-	const digest = conflict.conflict.localDigest as string;
+	const second = await reconcile(harness, staged, {
+		local: {
+			operations: [...staged.local.operations, penBlue(3, 3)],
+			appliedOperationCount: 2,
+		},
+	});
+	const secondId = ((await second.json()) as Json).conflict.id as string;
+	const other = (await confirmAbandon(harness, secondId)).body
+		.confirmationToken as string;
 
-	for (const extra of [
+	const served = await confirmAbandon(harness, id);
+	expect(served.response.status).toBe(200);
+	expect(served.body).toMatchObject({
+		conflictId: id,
+		localDigest: conflict.conflict.localDigest,
+		operationCount: 2,
+		appliedOperationCount: 2,
+		operations: [{ type: "pen", count: 2 }],
+	});
+	const token = served.body.confirmationToken as string;
+	expect(token).toBeString();
+
+	harness.clock.now += 1000;
+	const refusals: Json[] = [
 		{},
 		{ confirmAbandon: true },
-		{ confirmAbandon: false, shownLocalDigest: digest },
-		{ confirmAbandon: true, shownLocalDigest: "stale-digest" },
-	]) {
+		{ confirmationToken: token },
+		{ confirmAbandon: false, confirmationToken: token },
+		{ confirmAbandon: true, confirmationToken: "forged.token" },
+		{ confirmAbandon: true, confirmationToken: `${token}0` },
+		// A token served for another record is bound to that record.
+		{ confirmAbandon: true, confirmationToken: other },
+	];
+	for (const extra of refusals) {
 		const refused = await resolve(harness, id, {
 			idempotencyKey: keyA,
 			choice: "abandon",
@@ -343,19 +419,155 @@ test("abandoning needs shown local content and a separate confirmation", async (
 			"Abandoning a local Working Draft needs confirmation"
 		);
 	}
+	// A client-echoed digest is no confirmation any more.
+	const echoed = await resolve(harness, id, {
+		idempotencyKey: keyA,
+		choice: "abandon",
+		confirmAbandon: true,
+		shownLocalDigest: conflict.conflict.localDigest,
+	});
+	expect(echoed.status).toBe(400);
 	expect(harness.conflicts.get(id)?.resolution).toBeNull();
 
+	// An expired token is refused; a fresh one works.
+	harness.clock.now += 11 * 60 * 1000;
+	const expired = await resolve(harness, id, {
+		idempotencyKey: keyA,
+		choice: "abandon",
+		confirmAbandon: true,
+		confirmationToken: token,
+	});
+	expect(expired.status).toBe(400);
+	expect(((await expired.json()) as Json).detail).toContain("expired");
+
+	const fresh = (await confirmAbandon(harness, id)).body.confirmationToken;
 	const abandoned = await resolve(harness, id, {
 		idempotencyKey: keyA,
 		choice: "abandon",
 		confirmAbandon: true,
-		shownLocalDigest: digest,
+		confirmationToken: fresh,
 	});
 	expect(abandoned.status).toBe(201);
 	expect(harness.calls.candidates).toHaveLength(0);
+
+	// Replay of the same key stays idempotent without a token.
+	const replay = await resolve(harness, id, {
+		idempotencyKey: keyA,
+		choice: "abandon",
+	});
+	expect(replay.status).toBe(200);
+	// A resolved record serves no further confirmation.
+	expect((await confirmAbandon(harness, id)).response.status).toBe(409);
 	// The immutable record keeps the abandoned content.
 	const kept = harness.conflicts.get(id)?.record.content as Json | undefined;
 	expect(kept?.local.operations).toHaveLength(2);
+});
+
+test("abandon confirmation is not served for unknown records, other projects or signed-out users", async () => {
+	const harness = await createHarness();
+	const { conflict } = await openConflict(harness);
+	const id = conflict.conflict.id as string;
+	expect(
+		(await confirmAbandon(harness, "b17f5ff0-a50d-438f-8bf2-a0152b42c3aa"))
+			.response.status
+	).toBe(404);
+	const otherProject = await post(
+		harness,
+		`${harness.conflictBase.replace(projectId, otherProjectId)}/${id}/abandon-confirmation`,
+		{}
+	);
+	expect(otherProject.status).toBe(404);
+	const signedOut = await createHarness(null);
+	expect((await confirmAbandon(signedOut, id)).response.status).toBe(401);
+});
+
+test("racing resolutions with different keys never leave an unreferenced Candidate Version", async () => {
+	const harness = await createHarness();
+	const { conflict } = await openConflict(harness);
+	const id = conflict.conflict.id as string;
+
+	const [create, keep] = await Promise.all([
+		resolve(harness, id, { idempotencyKey: keyA, choice: "create-candidate" }),
+		resolve(harness, id, {
+			idempotencyKey: keyB,
+			choice: "keep-cloud-retain-draft",
+		}),
+	]);
+	const resolution = harness.conflicts.get(id)?.resolution;
+	expect([create.status, keep.status].sort()).toEqual([201, 409]);
+	expect(harness.calls.candidates).toHaveLength(
+		resolution?.choice === "create-candidate" ? 1 : 0
+	);
+	if (resolution?.choice === "create-candidate") {
+		expect(resolution.resultAssetVersionId).toBeString();
+	}
+});
+
+test("a create-candidate claim that never completed is finished by a retry with the same key only", async () => {
+	const harness = await createHarness();
+	const { conflict } = await openConflict(harness);
+	const id = conflict.conflict.id as string;
+	const entry = harness.conflicts.get(id);
+	if (!entry) {
+		throw new Error("missing record");
+	}
+	entry.resolution = {
+		id: "b17f5ff0-a50d-438f-8bf2-a0152b42c3bb",
+		conflictId: id,
+		choice: "create-candidate",
+		idempotencyKey: keyA,
+		resultAssetVersionId: null,
+		resolvedByUserId: "pixel-editor-user",
+		resolvedAt: new Date(),
+	};
+	const view = (await (
+		await harness.app.request(`${harness.conflictBase}/${id}`)
+	).json()) as Json;
+	expect(view.resolution).toBeNull();
+
+	const other = await resolve(harness, id, {
+		idempotencyKey: keyB,
+		choice: "keep-cloud-retain-draft",
+	});
+	expect(other.status).toBe(409);
+	expect(harness.calls.candidates).toHaveLength(0);
+
+	const finished = await resolve(harness, id, {
+		idempotencyKey: keyA,
+		choice: "create-candidate",
+	});
+	expect(finished.status).toBe(201);
+	expect(harness.calls.candidates).toHaveLength(1);
+	expect(entry.resolution?.resultAssetVersionId).toBeString();
+});
+
+test("resolution checks the request's contract version like the record's", async () => {
+	const harness = await createHarness();
+	const { conflict } = await openConflict(harness);
+	const id = conflict.conflict.id as string;
+	const body = { idempotencyKey: keyA, choice: "keep-cloud-retain-draft" };
+
+	const major = await resolve(harness, id, {
+		...body,
+		contractVersion: "offline-conflict/2.0.0",
+	});
+	const majorBody = (await major.json()) as Json;
+	expect(major.status).toBe(422);
+	expect(majorBody.error).toBe("Offline Conflict Record contract unsupported");
+	expect(majorBody.detail).toContain("offline-conflict/2.0.0");
+
+	const missing = await post(
+		harness,
+		`${harness.conflictBase}/${id}/resolve`,
+		body
+	);
+	expect(missing.status).toBe(400);
+	expect(harness.conflicts.get(id)?.resolution).toBeNull();
+	const minor = await resolve(harness, id, {
+		...body,
+		contractVersion: "offline-conflict/1.7.0",
+	});
+	expect(minor.status).toBe(201);
 });
 
 test("resolution rejects bad input, unknown records and other projects", async () => {

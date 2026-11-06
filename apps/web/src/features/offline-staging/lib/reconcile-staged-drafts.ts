@@ -9,7 +9,8 @@ import type { StagedDraftRow } from "./offline-staging-store";
 
 export type ReconcileEntry =
 	| {
-			base: { revision: number; sourceAssetVersionId: string };
+			/** The cloud draft now holds the staged operations at this revision. */
+			draft: { revision: number };
 			draftId: string;
 			kind: "base-current";
 	  }
@@ -18,8 +19,9 @@ export type ReconcileEntry =
 
 /**
  * Reconnect check of every staged Working Draft against the cloud. The check
- * only reads and records: a draft is never removed or sent anywhere else here,
- * so a failed or unreadable check leaves the staged draft where it is.
+ * records conflicts and, while the base is still current, has the cloud take the
+ * staged operations. A draft is never removed or sent anywhere else here, so a
+ * failed or unreadable check leaves the staged draft where it is.
  */
 export async function reconcileStagedDrafts({
 	drafts,
@@ -60,7 +62,11 @@ export async function reconcileStagedDrafts({
 			entries.push(
 				response.outcome === "conflict"
 					? { kind: "conflict", draftId, conflict: response.conflict }
-					: { kind: "base-current", draftId, base: row.base }
+					: {
+							kind: "base-current",
+							draftId,
+							draft: { revision: response.draft.revision },
+						}
 			);
 		} catch (error) {
 			entries.push({
