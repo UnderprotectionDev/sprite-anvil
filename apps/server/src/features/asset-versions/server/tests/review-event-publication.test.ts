@@ -19,7 +19,8 @@ function harness(options: {
 	inserted: { id: string }[];
 	persisted: Record<string, unknown> | null;
 	transactionError?: Error;
-}): Harness {
+}): Harness & { deleted: number } {
+	const state = { deleted: 0 };
 	const transactions: Harness["transactions"] = [];
 	const db = {
 		$client: {
@@ -32,6 +33,12 @@ function harness(options: {
 				return Promise.resolve([{ rows: options.inserted }]);
 			},
 		},
+		delete: () => ({
+			where: () => {
+				state.deleted += 1;
+				return Promise.resolve();
+			},
+		}),
 		select: () => ({
 			from: () => ({
 				where: () => ({
@@ -41,7 +48,13 @@ function harness(options: {
 			}),
 		}),
 	} as unknown as Database;
-	return { db, transactions };
+	return {
+		db,
+		transactions,
+		get deleted() {
+			return state.deleted;
+		},
+	};
 }
 
 const assetInput = {
@@ -124,13 +137,15 @@ test("does not report success when the written record cannot be re-read", async 
 });
 
 test("does not report success when the re-read record differs from what was published", async () => {
-	const { db } = harness({
+	const result = harness({
 		inserted: [{ id: "event-1" }],
 		persisted: { ...persistedAssetRow, decision: "rejected" },
 	});
-	await expect(publishAssetVersionReviewEvent(db, assetInput)).rejects.toThrow(
-		"does not match"
-	);
+	await expect(
+		publishAssetVersionReviewEvent(result.db, assetInput)
+	).rejects.toThrow("does not match");
+	// The bad row is withdrawn so a keyed retry cannot replay it as success.
+	expect(result.deleted).toBe(1);
 });
 
 test("publishes a Composite Version Review Event through the same guarded statement", async () => {

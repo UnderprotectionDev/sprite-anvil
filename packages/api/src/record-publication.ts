@@ -40,18 +40,41 @@ export async function idempotentRecordId(
 	return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-${variant}${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 }
 
+/**
+ * Id for a new final record: derived from the key when the request carries
+ * one (scope should include record kind, project, user and target), random
+ * otherwise.
+ */
+export function resolveRecordId(
+	scope: readonly string[],
+	key: string | undefined
+): Promise<string> {
+	return key
+		? idempotentRecordId(scope, key)
+		: Promise.resolve(crypto.randomUUID());
+}
+
+/** Withdraws a record that failed verification, then fails; a failed withdrawal also fails, never succeeds. */
+export async function withdrawAndFail(
+	withdraw: () => Promise<unknown>,
+	message: string
+): Promise<never> {
+	await withdraw();
+	throw new RecordIntegrityError(message);
+}
+
 /** Maps a publication failure to a user-facing API error; other errors pass through. */
 export function mapRecordPublicationError(error: unknown): unknown {
 	if (error instanceof IdempotencyConflictError) {
 		return new ORPCError("CONFLICT", {
 			message:
-				"Bu istek anahtarı daha önce farklı içerikle kullanıldı. Yeni bir istek anahtarıyla yeniden deneyin.",
+				"This idempotency key was already used with different content. Retry with a new idempotency key.",
 		});
 	}
 	if (error instanceof RecordIntegrityError) {
 		return new ORPCError("CONFLICT", {
 			message:
-				"Kayıt doğrulanamadığı için yayımlanmadı. Aynı istek anahtarıyla yeniden deneyebilirsiniz.",
+				"The record was not published because it could not be verified. Retry with the same idempotency key.",
 		});
 	}
 	return error;

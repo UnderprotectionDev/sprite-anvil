@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { IdempotencyConflictError } from "@sprite-anvil/api/record-publication";
+import {
+	IdempotencyConflictError,
+	RecordIntegrityError,
+} from "@sprite-anvil/api/record-publication";
 import type { Database } from "@sprite-anvil/db";
 import { createProductionRecipeStore } from "../production-recipe-store";
 
@@ -120,4 +123,14 @@ test("an interrupted publication fails visibly and the retry yields exactly one 
 	expect(retry?.id).toBe(state.recipes[0]?.id as string);
 	expect(state.recipes).toHaveLength(1);
 	expect(state.versions).toHaveLength(1);
+});
+
+test("a stored recipe with a missing first version is not replayed as success", async () => {
+	const { db, state } = fakeDb();
+	const store = createProductionRecipeStore(db);
+	await store.create(userId, input);
+	state.versions.length = 0;
+	await expect(store.create(userId, input)).rejects.toBeInstanceOf(
+		RecordIntegrityError
+	);
 });

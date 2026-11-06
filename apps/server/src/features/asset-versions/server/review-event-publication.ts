@@ -1,5 +1,6 @@
 import type {
 	AssetVersionReviewEvent,
+	assetVersionReviewDispositionSchema,
 	CompositeVersionReviewEvent,
 } from "@sprite-anvil/api/asset-versions";
 import {
@@ -8,8 +9,9 @@ import {
 } from "@sprite-anvil/api/asset-versions";
 import {
 	IdempotencyConflictError,
-	idempotentRecordId,
 	RecordIntegrityError,
+	resolveRecordId,
+	withdrawAndFail,
 } from "@sprite-anvil/api/record-publication";
 import type { Database } from "@sprite-anvil/db";
 import {
@@ -19,8 +21,9 @@ import {
 import type { SQL } from "drizzle-orm";
 import { and, eq, sql } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
+import type { z } from "zod";
 
-type ReviewDecision = "candidate" | "approved" | "rejected";
+type ReviewDecision = z.infer<typeof assetVersionReviewDispositionSchema>;
 
 interface PublicationBase {
 	assetRecordId: string;
@@ -39,6 +42,57 @@ function toISOString(value: Date | string) {
 		? value.toISOString()
 		: new Date(value).toISOString();
 }
+
+/** What differs between Asset Version and Composite Version Review Events: table, target column, copy. */
+interface EventKind<Event> {
+	/** Stored column name of the target, interpolated only from these constants. */
+	column: string;
+	label: string;
+	scope: string;
+	table: typeof assetVersionReviewEvents | typeof compositeVersionReviewEvents;
+	tableName: string;
+	targetOf: (row: EventRow) => string;
+	toEvent: (row: EventRow) => Event;
+}
+
+type EventRow = typeof assetVersionReviewEvents.$inferSelect &
+	Partial<typeof compositeVersionReviewEvents.$inferSelect>;
+
+const assetKind: EventKind<AssetVersionReviewEvent> = {
+	column: "version_id",
+	label: "Review Event",
+	scope: "asset-version-review-event",
+	table: assetVersionReviewEvents,
+	tableName: "asset_version_review_events",
+	targetOf: (row) => row.versionId,
+	toEvent: (row) =>
+		assetVersionReviewEventSchema.parse({
+			id: row.id,
+			assetVersionId: row.versionId,
+			type: row.decision,
+			rationale: row.rationale,
+			createdAt: toISOString(row.createdAt),
+		}),
+};
+
+const compositeKind: EventKind<CompositeVersionReviewEvent> = {
+	column: "composite_version_id",
+	label: "Composite Version Review Event",
+	scope: "composite-version-review-event",
+	table: compositeVersionReviewEvents,
+	tableName: "composite_version_review_events",
+	targetOf: (row) => row.compositeVersionId as string,
+	toEvent: (row) =>
+		compositeVersionReviewEventSchema.parse({
+			id: row.id,
+			compositeVersionId: row.compositeVersionId,
+			type: row.decision,
+			rationale: row.rationale,
+			createdAt: toISOString(row.createdAt),
+		}),
+};
+
+type Input = PublicationBase & { targetId: string };
 
 /**
  * Writes one Review Event with a single guarded INSERT inside a Serializable
@@ -67,226 +121,161 @@ async function insertGuarded(db: Database, statement: SQL) {
 	}
 }
 
-function assertPersisted(matches: boolean) {
-	if (!matches) {
-		throw new RecordIntegrityError(
-			"The persisted Review Event does not match what was published; the result is not reported as success."
-		);
-	}
+/** Keyed ids are scoped to record kind, project, member and target, so another member's key never collides. */
+function eventId(kind: EventKind<unknown>, input: Input) {
+	return resolveRecordId(
+		[kind.scope, input.projectId, input.userId, input.targetId],
+		input.idempotencyKey
+	);
 }
 
-function assetEventId(input: PublicationBase & { versionId: string }) {
-	return input.idempotencyKey
-		? idempotentRecordId(
-				["asset-version-review-event", input.projectId, input.versionId],
-				input.idempotencyKey
-			)
-		: Promise.resolve(crypto.randomUUID());
-}
-
-function compositeEventId(
-	input: PublicationBase & { compositeVersionId: string }
+async function readEvent(
+	db: Database,
+	kind: EventKind<unknown>,
+	projectId: string,
+	id: string
 ) {
-	return input.idempotencyKey
-		? idempotentRecordId(
-				[
-					"composite-version-review-event",
-					input.projectId,
-					input.compositeVersionId,
-				],
-				input.idempotencyKey
-			)
-		: Promise.resolve(crypto.randomUUID());
+	const [row] = await db
+		.select()
+		.from(kind.table)
+		.where(and(eq(kind.table.projectId, projectId), eq(kind.table.id, id)))
+		.limit(1);
+	return (row as EventRow | undefined) ?? null;
+}
+
+function matchesRequest(
+	kind: EventKind<unknown>,
+	row: EventRow,
+	input: Input,
+	rationale: string
+) {
+	return (
+		kind.targetOf(row) === input.targetId &&
+		row.decision === input.decision &&
+		row.rationale === rationale &&
+		row.createdByUserId === input.userId
+	);
 }
 
 /**
  * Returns the Review Event an earlier request with the same key already
  * published, or null when the key is new. The same key with other content is
- * a conflict, never a second record.
+ * a conflict, never a second record; a stored row that points at another
+ * Asset Record is an integrity failure, never a success.
  */
-export async function replayAssetVersionReviewEvent(
+async function replay<Event>(
 	db: Database,
-	input: PublicationBase & { versionId: string }
-): Promise<AssetVersionReviewEvent | null> {
+	kind: EventKind<Event>,
+	input: Input
+): Promise<Event | null> {
 	if (!input.idempotencyKey) {
 		return null;
 	}
-	const [row] = await db
-		.select()
-		.from(assetVersionReviewEvents)
-		.where(
-			and(
-				eq(assetVersionReviewEvents.projectId, input.projectId),
-				eq(assetVersionReviewEvents.id, await assetEventId(input))
-			)
-		)
-		.limit(1);
+	const row = await readEvent(
+		db,
+		kind,
+		input.projectId,
+		await eventId(kind, input)
+	);
 	if (!row) {
 		return null;
 	}
-	if (
-		row.versionId !== input.versionId ||
-		row.decision !== input.decision ||
-		row.rationale !== input.rationale.trim() ||
-		row.createdByUserId !== input.userId
-	) {
-		throw new IdempotencyConflictError("Review Event");
+	if (!matchesRequest(kind, row, input, input.rationale.trim())) {
+		throw new IdempotencyConflictError(kind.label);
 	}
-	return assetVersionReviewEventSchema.parse({
-		id: row.id,
-		assetVersionId: row.versionId,
-		type: row.decision,
-		rationale: row.rationale,
-		createdAt: toISOString(row.createdAt),
-	});
+	if (row.assetRecordId !== input.assetRecordId) {
+		throw new RecordIntegrityError(
+			`The persisted ${kind.label} points at another Asset Record; the result is not reported as success.`
+		);
+	}
+	return kind.toEvent(row);
 }
 
-export async function replayCompositeVersionReviewEvent(
+async function publish<Event>(
 	db: Database,
-	input: PublicationBase & { compositeVersionId: string }
-): Promise<CompositeVersionReviewEvent | null> {
-	if (!input.idempotencyKey) {
-		return null;
-	}
-	const [row] = await db
-		.select()
-		.from(compositeVersionReviewEvents)
-		.where(
-			and(
-				eq(compositeVersionReviewEvents.projectId, input.projectId),
-				eq(compositeVersionReviewEvents.id, await compositeEventId(input))
-			)
-		)
-		.limit(1);
-	if (!row) {
-		return null;
-	}
-	if (
-		row.compositeVersionId !== input.compositeVersionId ||
-		row.decision !== input.decision ||
-		row.rationale !== input.rationale.trim() ||
-		row.createdByUserId !== input.userId
-	) {
-		throw new IdempotencyConflictError("Composite Version Review Event");
-	}
-	return compositeVersionReviewEventSchema.parse({
-		id: row.id,
-		compositeVersionId: row.compositeVersionId,
-		type: row.decision,
-		rationale: row.rationale,
-		createdAt: toISOString(row.createdAt),
-	});
-}
-
-export async function publishAssetVersionReviewEvent(
-	db: Database,
-	input: PublicationBase & { versionId: string }
-): Promise<AssetVersionReviewEvent | null> {
-	const id = await assetEventId(input);
+	kind: EventKind<Event>,
+	input: Input
+): Promise<Event | null> {
+	const id = await eventId(kind, input);
 	const rationale = input.rationale.trim();
+	const table = sql.raw(kind.tableName);
+	const column = sql.raw(kind.column);
+	const latest = (
+		field: string
+	) => sql`(SELECT event.${sql.raw(field)} FROM ${table} event
+		WHERE event.project_id = ${input.projectId} AND event.${column} = ${input.targetId}
+		ORDER BY event.created_at DESC, event.id DESC LIMIT 1)`;
 	const writtenId = await insertGuarded(
 		db,
 		sql`
-			INSERT INTO asset_version_review_events (id, project_id, asset_record_id, version_id, decision, rationale, created_by_user_id)
-			SELECT ${id}, ${input.projectId}, ${input.assetRecordId}, ${input.versionId}, ${input.decision}, ${rationale}, ${input.userId}
-			WHERE (SELECT event.id FROM asset_version_review_events event
-				WHERE event.project_id = ${input.projectId} AND event.version_id = ${input.versionId}
-				ORDER BY event.created_at DESC, event.id DESC LIMIT 1)
-				IS NOT DISTINCT FROM ${input.expectedLatestEventId}::text
-			AND (SELECT event.decision FROM asset_version_review_events event
-				WHERE event.project_id = ${input.projectId} AND event.version_id = ${input.versionId}
-				ORDER BY event.created_at DESC, event.id DESC LIMIT 1)
-				IS DISTINCT FROM ${input.decision}
+			INSERT INTO ${table} (id, project_id, asset_record_id, ${column}, decision, rationale, created_by_user_id)
+			SELECT ${id}, ${input.projectId}, ${input.assetRecordId}, ${input.targetId}, ${input.decision}, ${rationale}, ${input.userId}
+			WHERE ${latest("id")} IS NOT DISTINCT FROM ${input.expectedLatestEventId}::text
+			AND ${latest("decision")} IS DISTINCT FROM ${input.decision}
 			RETURNING id
 		`
 	);
 	if (!writtenId) {
 		// A lost race with the same key resolves to the record the winner wrote.
-		return replayAssetVersionReviewEvent(db, input);
+		return replay(db, kind, input);
 	}
-	const [row] = await db
-		.select()
-		.from(assetVersionReviewEvents)
-		.where(
-			and(
-				eq(assetVersionReviewEvents.projectId, input.projectId),
-				eq(assetVersionReviewEvents.id, writtenId)
-			)
-		)
-		.limit(1);
+	const row = await readEvent(db, kind, input.projectId, writtenId);
 	if (!row) {
 		throw new Error(
-			"The published Review Event could not be re-read from the persisted record."
+			`The published ${kind.label} could not be re-read from the persisted record.`
 		);
 	}
-	assertPersisted(
-		row.versionId === input.versionId &&
-			row.assetRecordId === input.assetRecordId &&
-			row.decision === input.decision &&
-			row.rationale === rationale &&
-			row.createdByUserId === input.userId
-	);
-	return assetVersionReviewEventSchema.parse({
-		id: row.id,
-		assetVersionId: row.versionId,
-		type: row.decision,
-		rationale: row.rationale,
-		createdAt: toISOString(row.createdAt),
+	if (
+		!matchesRequest(kind, row, input, rationale) ||
+		row.assetRecordId !== input.assetRecordId
+	) {
+		// Withdrawn so a keyed retry cannot replay the bad row as success.
+		return withdrawAndFail(
+			() =>
+				db
+					.delete(kind.table)
+					.where(
+						and(
+							eq(kind.table.projectId, input.projectId),
+							eq(kind.table.id, id)
+						)
+					),
+			`The persisted ${kind.label} does not match what was published; the result is not reported as success.`
+		);
+	}
+	return kind.toEvent(row);
+}
+
+type AssetInput = PublicationBase & { versionId: string };
+type CompositeInput = PublicationBase & { compositeVersionId: string };
+
+export function replayAssetVersionReviewEvent(db: Database, input: AssetInput) {
+	return replay(db, assetKind, { ...input, targetId: input.versionId });
+}
+
+export function replayCompositeVersionReviewEvent(
+	db: Database,
+	input: CompositeInput
+) {
+	return replay(db, compositeKind, {
+		...input,
+		targetId: input.compositeVersionId,
 	});
 }
 
-export async function publishCompositeVersionReviewEvent(
+export function publishAssetVersionReviewEvent(
 	db: Database,
-	input: PublicationBase & { compositeVersionId: string }
-): Promise<CompositeVersionReviewEvent | null> {
-	const id = await compositeEventId(input);
-	const rationale = input.rationale.trim();
-	const writtenId = await insertGuarded(
-		db,
-		sql`
-			INSERT INTO composite_version_review_events (id, project_id, asset_record_id, composite_version_id, decision, rationale, created_by_user_id)
-			SELECT ${id}, ${input.projectId}, ${input.assetRecordId}, ${input.compositeVersionId}, ${input.decision}, ${rationale}, ${input.userId}
-			WHERE (SELECT event.id FROM composite_version_review_events event
-				WHERE event.project_id = ${input.projectId} AND event.composite_version_id = ${input.compositeVersionId}
-				ORDER BY event.created_at DESC, event.id DESC LIMIT 1)
-				IS NOT DISTINCT FROM ${input.expectedLatestEventId}::text
-			AND (SELECT event.decision FROM composite_version_review_events event
-				WHERE event.project_id = ${input.projectId} AND event.composite_version_id = ${input.compositeVersionId}
-				ORDER BY event.created_at DESC, event.id DESC LIMIT 1)
-				IS DISTINCT FROM ${input.decision}
-			RETURNING id
-		`
-	);
-	if (!writtenId) {
-		return replayCompositeVersionReviewEvent(db, input);
-	}
-	const [row] = await db
-		.select()
-		.from(compositeVersionReviewEvents)
-		.where(
-			and(
-				eq(compositeVersionReviewEvents.projectId, input.projectId),
-				eq(compositeVersionReviewEvents.id, writtenId)
-			)
-		)
-		.limit(1);
-	if (!row) {
-		throw new Error(
-			"The published Composite Version Review Event could not be re-read from the persisted record."
-		);
-	}
-	assertPersisted(
-		row.compositeVersionId === input.compositeVersionId &&
-			row.assetRecordId === input.assetRecordId &&
-			row.decision === input.decision &&
-			row.rationale === rationale &&
-			row.createdByUserId === input.userId
-	);
-	return compositeVersionReviewEventSchema.parse({
-		id: row.id,
-		compositeVersionId: row.compositeVersionId,
-		type: row.decision,
-		rationale: row.rationale,
-		createdAt: toISOString(row.createdAt),
+	input: AssetInput
+) {
+	return publish(db, assetKind, { ...input, targetId: input.versionId });
+}
+
+export function publishCompositeVersionReviewEvent(
+	db: Database,
+	input: CompositeInput
+) {
+	return publish(db, compositeKind, {
+		...input,
+		targetId: input.compositeVersionId,
 	});
 }
