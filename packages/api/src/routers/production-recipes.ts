@@ -17,6 +17,7 @@ import {
 	productionRecipeUseInputSchema,
 	validateProductionRecipeContent,
 } from "../production-recipes";
+import { withPublicationErrors } from "../record-publication";
 
 function requireStores(context: Context) {
 	const { generationPackageStore, productionExperimentStore } = context;
@@ -108,17 +109,20 @@ export const productionRecipesRouter = {
 			const content =
 				input.content ?? deriveProductionRecipeContent(generationPackage);
 			assertConsistent(content);
-			const recipe = await productionRecipeStore.create(userId, {
-				content,
-				projectId: input.projectId,
-				source: {
-					assetRecordId: experiment.assetRecordId,
-					experimentId: experiment.id,
-					generationPackageId: generationPackage.id,
-					trialId: trial.id,
-				},
-				title: input.title,
-			});
+			const recipe = await withPublicationErrors(() =>
+				productionRecipeStore.create(userId, {
+					content,
+					idempotencyKey: input.idempotencyKey,
+					projectId: input.projectId,
+					source: {
+						assetRecordId: experiment.assetRecordId,
+						experimentId: experiment.id,
+						generationPackageId: generationPackage.id,
+						trialId: trial.id,
+					},
+					title: input.title,
+				})
+			);
 			if (!recipe) {
 				throw notFound();
 			}
@@ -150,12 +154,15 @@ export const productionRecipesRouter = {
 			// A new record at version 1: only the skeleton, roles, output structure
 			// and fields travel. Nothing links the copy back, so later source
 			// versions never reach it.
-			const copy = await productionRecipeStore.create(userId, {
-				content: copyProductionRecipeContent(latest.content),
-				projectId: input.targetProjectId,
-				source: null,
-				title: input.title ?? source.title,
-			});
+			const copy = await withPublicationErrors(() =>
+				productionRecipeStore.create(userId, {
+					content: copyProductionRecipeContent(latest.content),
+					idempotencyKey: input.idempotencyKey,
+					projectId: input.targetProjectId,
+					source: null,
+					title: input.title ?? source.title,
+				})
+			);
 			if (!copy) {
 				throw notFound();
 			}

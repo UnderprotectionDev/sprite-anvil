@@ -12,6 +12,7 @@ import {
 	checkProductionRecipeRoles,
 	type ProductionRecipeContent,
 } from "./production-recipes";
+import { withPublicationErrors } from "./record-publication";
 import { analyzeReferenceTransferConstraints } from "./reference-production";
 
 function throwIfInvalidCorrection(error: Error) {
@@ -219,11 +220,14 @@ export async function prepareGenerationPackage(
 		return throwSnapshotError(error);
 	}
 
-	const generationPackage = await store.create(userId, {
-		assetRecordId: input.assetRecordId,
-		projectId: input.projectId,
-		snapshot,
-	});
+	const generationPackage = await withPublicationErrors(() =>
+		store.create(userId, {
+			assetRecordId: input.assetRecordId,
+			idempotencyKey: input.idempotencyKey,
+			projectId: input.projectId,
+			snapshot,
+		})
+	);
 	if (!generationPackage) {
 		throw new ORPCError("NOT_FOUND", {
 			message: "Varlık kaydı veya proje bulunamadı.",

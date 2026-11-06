@@ -73,6 +73,8 @@ import {
 import {
 	publishAssetVersionReviewEvent,
 	publishCompositeVersionReviewEvent,
+	replayAssetVersionReviewEvent,
+	replayCompositeVersionReviewEvent,
 } from "./review-event-publication";
 
 const contentDigestPattern = /^[0-9a-f]{64}$/;
@@ -1313,6 +1315,21 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 			if (!version?.assetFamilyId) {
 				return null;
 			}
+			// A repeat with the same key returns the first record before any
+			// "already this decision" check can turn it into a failure.
+			const replayed = await replayAssetVersionReviewEvent(db, {
+				assetRecordId: version.assetRecordId,
+				decision: input.decision,
+				expectedLatestEventId: null,
+				idempotencyKey: input.idempotencyKey,
+				projectId: version.projectId,
+				rationale: input.rationale,
+				userId,
+				versionId: version.id,
+			});
+			if (replayed) {
+				return replayed;
+			}
 			const [latestEvent] = await db
 				.select({
 					id: assetVersionReviewEvents.id,
@@ -1344,6 +1361,7 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 				assetRecordId: version.assetRecordId,
 				decision: input.decision,
 				expectedLatestEventId: latestEvent?.id ?? null,
+				idempotencyKey: input.idempotencyKey,
 				projectId: version.projectId,
 				rationale: input.rationale,
 				userId,
@@ -1371,6 +1389,19 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 				.limit(1);
 			if (!compositeVersion) {
 				return null;
+			}
+			const replayed = await replayCompositeVersionReviewEvent(db, {
+				assetRecordId: compositeVersion.assetRecordId,
+				compositeVersionId: compositeVersion.id,
+				decision: input.decision,
+				expectedLatestEventId: null,
+				idempotencyKey: input.idempotencyKey,
+				projectId: compositeVersion.projectId,
+				rationale: input.rationale,
+				userId,
+			});
+			if (replayed) {
+				return replayed;
 			}
 			const [latestEvent] = await db
 				.select({
@@ -1400,6 +1431,7 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 				compositeVersionId: compositeVersion.id,
 				decision: input.decision,
 				expectedLatestEventId: latestEvent?.id ?? null,
+				idempotencyKey: input.idempotencyKey,
 				projectId: compositeVersion.projectId,
 				rationale: input.rationale,
 				userId,
