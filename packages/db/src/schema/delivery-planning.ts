@@ -4,6 +4,7 @@ import {
 	foreignKey,
 	index,
 	integer,
+	jsonb,
 	pgTable,
 	primaryKey,
 	text,
@@ -17,6 +18,26 @@ import { project } from "./project";
 import { contextRevisions } from "./project-context";
 
 type DeliveryTargetPurpose = "demo" | "chapter" | "update" | "other";
+type ProductionEvidenceRequirement =
+	| "full_generation_package_history"
+	| "legacy_asset_attestation_acceptable"
+	| "advisory";
+type RightsRecordState =
+	| "documented"
+	| "assertion_only"
+	| "unknown"
+	| "restricted";
+export interface ProductionEvidencePolicy {
+	defaultRequirement: ProductionEvidenceRequirement;
+	familyRequirements: {
+		assetFamilyId: string;
+		requirement: ProductionEvidenceRequirement;
+	}[];
+}
+export interface RightsEvidencePolicy {
+	acceptableStates: RightsRecordState[];
+	requireRecordFor: ("references" | "results")[];
+}
 
 /** The identity a user's versions of one delivery intent share. */
 export const deliveryTargets = pgTable(
@@ -57,6 +78,13 @@ export const deliveryTargetDrafts = pgTable(
 		projectId: text("project_id").notNull(),
 		deliveryTargetId: text("delivery_target_id").notNull(),
 		contextRevisionId: text("context_revision_id").notNull(),
+		/** Pinned with the draft; an activated revision reads them from its draft. */
+		productionEvidencePolicy: jsonb("production_evidence_policy")
+			.$type<ProductionEvidencePolicy>()
+			.notNull(),
+		rightsEvidencePolicy: jsonb("rights_evidence_policy")
+			.$type<RightsEvidencePolicy>()
+			.notNull(),
 		createdByUserId: text("created_by_user_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),

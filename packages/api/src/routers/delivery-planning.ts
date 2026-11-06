@@ -25,6 +25,8 @@ const projectNotFound = "Proje bulunamadı.";
 const rejectionMessages: Record<DeliveryTargetDraftSaveFailureReason, string> =
 	{
 		context_revision_not_found: "Seçilen Bağlam Sürümü bu projede bulunamadı.",
+		policy_family_not_pinned:
+			"Üretim Kanıtı Politikası yalnızca hedefte seçili Varlık Ailelerine gereksinim verebilir.",
 		required_set_revision_not_found:
 			"Seçilen Gerekli Öğeler Listesi sürümü, hedefteki Varlık Ailesine ait bir sürüm olmalıdır.",
 	};

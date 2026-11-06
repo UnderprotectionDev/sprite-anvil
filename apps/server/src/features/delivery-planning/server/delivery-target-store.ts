@@ -3,6 +3,7 @@ import {
 	type DeliveryTargetDraft,
 	type DeliveryTargetFamilyScope,
 	type DeliveryTargetRevision,
+	type DeliveryTargetScopeDiff,
 	type DeliveryTargetStore,
 	deliveryTargetDraftSchema,
 	deliveryTargetRevisionSchema,
@@ -75,6 +76,74 @@ function describeScope(
 	};
 }
 
+function samePolicy(left: unknown, right: unknown) {
+	return JSON.stringify(left) === JSON.stringify(right);
+}
+
+/** Compares a revision's base with the target's previous revision; both are immutable, so the diff is derived on read. */
+function diffAgainstPrevious(
+	revision: StoredDeliveryTargetRevision,
+	previous: StoredDeliveryTargetRevision | undefined,
+	snapshots: PinnedSnapshots
+): DeliveryTargetScopeDiff | null {
+	if (!previous) {
+		return null;
+	}
+	const current = describeScope(revision, snapshots);
+	const before = describeScope(previous, snapshots);
+	const beforeByFamily = new Map(
+		before.families.map((family) => [family.assetFamilyId, family])
+	);
+	const currentByFamily = new Map(
+		current.families.map((family) => [family.assetFamilyId, family])
+	);
+	const nameOf = (family: DeliveryTargetFamilyScope) => ({
+		assetFamilyId: family.assetFamilyId,
+		assetFamilyName: family.assetFamilyName,
+	});
+	return {
+		contextChange:
+			current.contextRevisionId === before.contextRevisionId
+				? null
+				: {
+						fromRevisionId: before.contextRevisionId,
+						fromRevisionNumber: before.contextRevisionNumber,
+						toRevisionId: current.contextRevisionId,
+						toRevisionNumber: current.contextRevisionNumber,
+					},
+		familiesAdded: current.families
+			.filter((family) => !beforeByFamily.has(family.assetFamilyId))
+			.map(nameOf),
+		familiesRemoved: before.families
+			.filter((family) => !currentByFamily.has(family.assetFamilyId))
+			.map(nameOf),
+		previousRevisionId: previous.id,
+		previousRevisionNumber: previous.revisionNumber,
+		productionEvidencePolicyChanged: !samePolicy(
+			previous.productionEvidencePolicy,
+			revision.productionEvidencePolicy
+		),
+		requiredSetChanges: current.families.flatMap((family) => {
+			const old = beforeByFamily.get(family.assetFamilyId);
+			return old && old.requiredSetRevisionId !== family.requiredSetRevisionId
+				? [
+						{
+							...nameOf(family),
+							fromRevisionId: old.requiredSetRevisionId,
+							fromRevisionNumber: old.requiredSetRevisionNumber,
+							toRevisionId: family.requiredSetRevisionId,
+							toRevisionNumber: family.requiredSetRevisionNumber,
+						},
+					]
+				: [];
+		}),
+		rightsEvidencePolicyChanged: !samePolicy(
+			previous.rightsEvidencePolicy,
+			revision.rightsEvidencePolicy
+		),
+	};
+}
+
 function toDraft(
 	draft: StoredDeliveryTargetDraft,
 	activatedRevisionId: string | null,
@@ -83,6 +152,8 @@ function toDraft(
 	return deliveryTargetDraftSchema.parse({
 		...describeScope(draft, snapshots),
 		activatedRevisionId,
+		productionEvidencePolicy: draft.productionEvidencePolicy,
+		rightsEvidencePolicy: draft.rightsEvidencePolicy,
 		createdAt: draft.createdAt.toISOString(),
 		id: draft.id,
 	});
@@ -90,6 +161,7 @@ function toDraft(
 
 function toRevision(
 	revision: StoredDeliveryTargetRevision,
+	previous: StoredDeliveryTargetRevision | undefined,
 	snapshots: PinnedSnapshots
 ): DeliveryTargetRevision {
 	return deliveryTargetRevisionSchema.parse({
@@ -97,8 +169,22 @@ function toRevision(
 		activatedAt: revision.activatedAt.toISOString(),
 		draftId: revision.draftId,
 		id: revision.id,
+		productionEvidencePolicy: revision.productionEvidencePolicy,
 		revisionNumber: revision.revisionNumber,
+		rightsEvidencePolicy: revision.rightsEvidencePolicy,
+		scopeDiff: diffAgainstPrevious(revision, previous, snapshots),
 	});
+}
+
+function previousRevisionOf(
+	revision: StoredDeliveryTargetRevision,
+	all: StoredDeliveryTargetRevision[]
+) {
+	return all.find(
+		(candidate) =>
+			candidate.deliveryTargetId === revision.deliveryTargetId &&
+			candidate.revisionNumber === revision.revisionNumber - 1
+	);
 }
 
 async function loadSnapshots(
@@ -150,9 +236,18 @@ export function createDeliveryTargetStore(
 		projectId: string,
 		revision: StoredDeliveryTargetRevision
 	) {
+		const previous = previousRevisionOf(
+			revision,
+			await storage.listRevisions(projectId)
+		);
 		return toRevision(
 			revision,
-			await loadSnapshots(storage, projectId, [revision])
+			previous,
+			await loadSnapshots(
+				storage,
+				projectId,
+				previous ? [revision, previous] : [revision]
+			)
 		);
 	}
 
@@ -188,6 +283,8 @@ export function createDeliveryTargetStore(
 					draftId: draft.id,
 					families: draft.families,
 					id: input.id,
+					productionEvidencePolicy: draft.productionEvidencePolicy,
+					rightsEvidencePolicy: draft.rightsEvidencePolicy,
 					projectId: input.projectId,
 				});
 				return result.status === "inserted"
@@ -218,7 +315,13 @@ export function createDeliveryTargetStore(
 					const targetRevisions = revisions
 						.filter((revision) => revision.deliveryTargetId === target.id)
 						.sort((left, right) => left.revisionNumber - right.revisionNumber)
-						.map((revision) => toRevision(revision, snapshots));
+						.map((revision) =>
+							toRevision(
+								revision,
+								previousRevisionOf(revision, revisions),
+								snapshots
+							)
+						);
 					return deliveryTargetSchema.parse({
 						activeRevision: targetRevisions.at(-1) ?? null,
 						drafts: drafts
@@ -275,6 +378,16 @@ export function createDeliveryTargetStore(
 					status: "rejected",
 				};
 			}
+			const pinnedFamilyIds = new Set(
+				input.families.map((family) => family.assetFamilyId)
+			);
+			if (
+				!input.productionEvidencePolicy.familyRequirements.every((entry) =>
+					pinnedFamilyIds.has(entry.assetFamilyId)
+				)
+			) {
+				return { reason: "policy_family_not_pinned", status: "rejected" };
+			}
 			const target = (await storage.findTarget(
 				input.projectId,
 				input.deliveryTargetId
@@ -291,7 +404,9 @@ export function createDeliveryTargetStore(
 				deliveryTargetId: target.id,
 				families: input.families,
 				id: input.id,
+				productionEvidencePolicy: input.productionEvidencePolicy,
 				projectId: input.projectId,
+				rightsEvidencePolicy: input.rightsEvidencePolicy,
 			};
 			if (!(await storage.insertDraft(target, draft))) {
 				// A concurrent save of this same draft won; return what it stored.

@@ -13,6 +13,7 @@ const secondDraftId = "6f1a3d62-3d2e-4b86-8a7c-0e6c2f0d2002";
 const revisionId = "6f1a3d62-3d2e-4b86-8a7c-0e6c2f0d3001";
 const secondRevisionId = "6f1a3d62-3d2e-4b86-8a7c-0e6c2f0d3002";
 
+const assetVersionPattern = /assetVersion/i;
 const knightFamily = "family-knight";
 const slimeFamily = "family-slime";
 
@@ -43,6 +44,20 @@ const slimeItems = [
 	},
 ];
 
+const productionEvidencePolicy = {
+	defaultRequirement: "legacy_asset_attestation_acceptable",
+	familyRequirements: [
+		{
+			assetFamilyId: knightFamily,
+			requirement: "full_generation_package_history",
+		},
+	],
+};
+const rightsEvidencePolicy = {
+	acceptableStates: ["documented", "assertion_only"],
+	requireRecordFor: ["references", "results"],
+};
+
 function seed() {
 	return {
 		contextRevisions: [
@@ -63,6 +78,20 @@ function seed() {
 				id: "slime-set-1",
 				items: slimeItems,
 				revisionNumber: 1,
+			},
+			{
+				assetFamilyId: "family-orc",
+				assetFamilyName: "Orc",
+				id: "orc-set-1",
+				items: slimeItems,
+				revisionNumber: 1,
+			},
+			{
+				assetFamilyId: slimeFamily,
+				assetFamilyName: "Slime",
+				id: "slime-set-2",
+				items: slimeItems,
+				revisionNumber: 2,
 			},
 		],
 	};
@@ -109,8 +138,10 @@ function setup(options: { hasAccess?: boolean; session?: boolean } = {}) {
 					],
 					id: draftId,
 					name: "Chapter 1 demo",
+					productionEvidencePolicy,
 					projectId,
 					purpose: "demo",
+					rightsEvidencePolicy,
 					...overrides,
 				} as never,
 				{ context }
@@ -282,4 +313,213 @@ test("planning requires a session and project access", async () => {
 	await expect(
 		outsider.activate({ draftId, id: revisionId })
 	).rejects.toMatchObject({ code: "NOT_FOUND" });
+});
+
+test("pinned evidence policies are saved on the draft and reread from the activated revision", async () => {
+	const { activate, list, saveDraft } = setup();
+
+	const draft = await saveDraft();
+	const revision = await activate({ draftId, id: revisionId });
+	const [target] = (await list()).deliveryTargets;
+
+	expect(draft.productionEvidencePolicy).toEqual(productionEvidencePolicy);
+	expect(draft.rightsEvidencePolicy).toEqual(rightsEvidencePolicy);
+	expect(revision.productionEvidencePolicy).toEqual(productionEvidencePolicy);
+	expect(revision.rightsEvidencePolicy).toEqual(rightsEvidencePolicy);
+	expect(target?.activeRevision).toEqual(revision);
+	expect(revision.scopeDiff).toBeNull();
+});
+
+test("moving to a new base adds a revision with a scope diff and leaves the earlier revision unchanged", async () => {
+	const { activate, list, saveDraft, seeded } = setup();
+	const before = structuredClone(seeded);
+	await saveDraft();
+	const first = await activate({ draftId, id: revisionId });
+	const firstSnapshot = JSON.stringify(first);
+	const newRights = {
+		acceptableStates: ["documented"],
+		requireRecordFor: ["results"],
+	};
+	await saveDraft({
+		contextRevisionId: "context-2",
+		families: [
+			{ assetFamilyId: knightFamily, requiredSetRevisionId: "knight-set-1" },
+			{ assetFamilyId: slimeFamily, requiredSetRevisionId: "slime-set-2" },
+		],
+		id: secondDraftId,
+		rightsEvidencePolicy: newRights,
+	});
+
+	const second = await activate({
+		draftId: secondDraftId,
+		id: secondRevisionId,
+	});
+	const [target] = (await list()).deliveryTargets;
+
+	expect(second.revisionNumber).toBe(2);
+	expect(second.rightsEvidencePolicy).toEqual(newRights);
+	expect(second.scopeDiff).toMatchObject({
+		contextChange: {
+			fromRevisionId: "context-1",
+			fromRevisionNumber: 1,
+			toRevisionId: "context-2",
+			toRevisionNumber: 2,
+		},
+		familiesAdded: [],
+		familiesRemoved: [],
+		previousRevisionId: revisionId,
+		previousRevisionNumber: 1,
+		productionEvidencePolicyChanged: false,
+		requiredSetChanges: [
+			{
+				assetFamilyId: slimeFamily,
+				assetFamilyName: "Slime",
+				fromRevisionId: "slime-set-1",
+				fromRevisionNumber: 1,
+				toRevisionId: "slime-set-2",
+				toRevisionNumber: 2,
+			},
+		],
+		rightsEvidencePolicyChanged: true,
+	});
+	expect(target?.revisions).toHaveLength(2);
+	expect(JSON.stringify(target?.revisions[0])).toBe(firstSnapshot);
+	expect(target?.revisions[0]?.productionEvidencePolicy).toEqual(
+		productionEvidencePolicy
+	);
+	expect(target?.activeRevision).toEqual(second);
+	expect(seeded).toEqual(before);
+});
+
+test("a revision pinning identical scope and policies shows an empty diff", async () => {
+	const { activate, saveDraft } = setup();
+	await saveDraft();
+	await activate({ draftId, id: revisionId });
+	await saveDraft({ id: secondDraftId });
+
+	const second = await activate({
+		draftId: secondDraftId,
+		id: secondRevisionId,
+	});
+
+	expect(second.scopeDiff).toEqual({
+		contextChange: null,
+		familiesAdded: [],
+		familiesRemoved: [],
+		previousRevisionId: revisionId,
+		previousRevisionNumber: 1,
+		productionEvidencePolicyChanged: false,
+		requiredSetChanges: [],
+		rightsEvidencePolicyChanged: false,
+	});
+});
+
+test("a diff names families added to or removed from the target", async () => {
+	const { activate, saveDraft } = setup();
+	await saveDraft();
+	await activate({ draftId, id: revisionId });
+	await saveDraft({
+		families: [
+			{ assetFamilyId: slimeFamily, requiredSetRevisionId: "slime-set-1" },
+			{ assetFamilyId: "family-orc", requiredSetRevisionId: "orc-set-1" },
+		],
+		id: secondDraftId,
+		productionEvidencePolicy: {
+			defaultRequirement: "advisory",
+			familyRequirements: [],
+		},
+	});
+
+	const second = await activate({
+		draftId: secondDraftId,
+		id: secondRevisionId,
+	});
+
+	expect(second.scopeDiff?.familiesAdded).toEqual([
+		{ assetFamilyId: "family-orc", assetFamilyName: "Orc" },
+	]);
+	expect(second.scopeDiff?.familiesRemoved).toEqual([
+		{ assetFamilyId: knightFamily, assetFamilyName: "Knight" },
+	]);
+	expect(second.scopeDiff?.productionEvidencePolicyChanged).toBe(true);
+});
+
+test("an invalid or missing evidence policy is rejected and stores nothing", async () => {
+	const { list, saveDraft } = setup();
+	const rejected = (overrides: Record<string, unknown>) =>
+		expect(saveDraft(overrides)).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+	await rejected({
+		productionEvidencePolicy: {
+			defaultRequirement: "trust_me",
+			familyRequirements: [],
+		},
+	});
+	await rejected({
+		productionEvidencePolicy: {
+			defaultRequirement: "advisory",
+			familyRequirements: [
+				{ assetFamilyId: knightFamily, requirement: "advisory" },
+				{ assetFamilyId: knightFamily, requirement: "advisory" },
+			],
+		},
+	});
+	// A family requirement for a family the target does not pin.
+	await rejected({
+		productionEvidencePolicy: {
+			defaultRequirement: "advisory",
+			familyRequirements: [
+				{ assetFamilyId: "family-orc", requirement: "advisory" },
+			],
+		},
+	});
+	await rejected({
+		rightsEvidencePolicy: { acceptableStates: [], requireRecordFor: [] },
+	});
+	await rejected({
+		rightsEvidencePolicy: {
+			acceptableStates: ["legally_valid"],
+			requireRecordFor: [],
+		},
+	});
+	await rejected({
+		rightsEvidencePolicy: {
+			acceptableStates: ["documented", "documented"],
+			requireRecordFor: [],
+		},
+	});
+	await rejected({ productionEvidencePolicy: undefined });
+	await rejected({ rightsEvidencePolicy: undefined });
+
+	expect((await list()).deliveryTargets).toEqual([]);
+});
+
+test("only an authenticated user activates and a caller cannot name another actor", async () => {
+	const anonymous = setup({ session: false });
+	await expect(
+		anonymous.activate({ draftId, id: revisionId })
+	).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+
+	const { activate, list, saveDraft } = setup();
+	await saveDraft();
+	await expect(
+		activate({
+			activatedByUserId: "agent-1",
+			draftId,
+			id: revisionId,
+		} as never)
+	).rejects.toMatchObject({ code: "BAD_REQUEST" });
+	// Saving a draft, even a complete one, never activates it.
+	expect((await list()).deliveryTargets[0]?.revisions).toEqual([]);
+});
+
+test("a revision pins Context and Required Items List revisions, never Asset Versions", async () => {
+	const { activate, saveDraft } = setup();
+	await saveDraft();
+	const revision = await activate({ draftId, id: revisionId });
+
+	expect(JSON.stringify(revision)).not.toMatch(assetVersionPattern);
+	expect(Object.keys(revision.families[0] ?? {})).not.toContain(
+		"assetVersionId"
+	);
 });
