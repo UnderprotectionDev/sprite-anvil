@@ -1,5 +1,5 @@
 import { createAuth } from "@sprite-anvil/auth";
-import { createDb, getProjectForUser } from "@sprite-anvil/db";
+import { createDb } from "@sprite-anvil/db";
 import { createLocalTestDb } from "@sprite-anvil/db/testing";
 import {
 	createStorage,
@@ -88,11 +88,10 @@ export const gameplayMetadataStore = createGameplayMetadataStore(db);
 export const assetFamilyStore = createAssetFamilyStore(db);
 export const assetFamilyComparisonStore = createAssetFamilyComparisonStore(db);
 export const familyReadinessStore = createFamilyReadinessStore(db);
-export const deliveryTargetStore = createDeliveryTargetStore({
-	canAccessProject: async (userId, projectId) =>
-		(await getProjectForUser(db, userId, projectId)) !== null,
-	storage: createDatabaseDeliveryPlanningStorage(db),
-});
+export const deliveryTargetStore = createDeliveryTargetStore(
+	db,
+	createDatabaseDeliveryPlanningStorage(db)
+);
 export const dependencyRevalidationStore =
 	createDependencyRevalidationStore(db);
 export const collectionStore = createCollectionStore(db);

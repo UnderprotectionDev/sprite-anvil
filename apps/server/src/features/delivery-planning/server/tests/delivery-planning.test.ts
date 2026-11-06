@@ -4,8 +4,9 @@ import type { Context } from "@sprite-anvil/api/context";
 import type {
 	ProductionEvidencePolicy,
 	RightsEvidencePolicy,
-} from "@sprite-anvil/api/delivery-planning";
+} from "@sprite-anvil/api/delivery-planning-inputs";
 import { appRouter } from "@sprite-anvil/api/routers/index";
+import type { Database } from "@sprite-anvil/db";
 import { createDeliveryTargetStore } from "../delivery-target-store";
 import { createMemoryDeliveryPlanningStorage } from "./memory-delivery-planning-storage";
 
@@ -39,6 +40,13 @@ const knightItems = [
 		testId: "object.approved_character_ground_scene",
 	},
 ];
+const slimeWalkItem = {
+	assetRecordIds: ["record-slime-walk"],
+	disposition: "required",
+	id: "walk",
+	kind: "animation",
+	name: "Walk",
+};
 const slimeItems = [
 	{
 		assetRecordIds: ["record-slime-idle"],
@@ -95,7 +103,7 @@ function seed() {
 				assetFamilyId: slimeFamily,
 				assetFamilyName: "Slime",
 				id: "slime-set-2",
-				items: slimeItems,
+				items: [slimeWalkItem],
 				revisionNumber: 2,
 			},
 		],
@@ -106,15 +114,20 @@ function setup(options: { hasAccess?: boolean; session?: boolean } = {}) {
 	const seeded = seed();
 	const memory = createMemoryDeliveryPlanningStorage(seeded);
 	const context = {
-		deliveryTargetStore: createDeliveryTargetStore({
-			canAccessProject: (_userId, requestedProjectId) =>
-				Promise.resolve(
-					(options.hasAccess ?? true) &&
-						[projectId, otherProjectId].includes(requestedProjectId)
-				),
-			now: () => new Date("2026-11-06T10:00:00.000Z"),
-			storage: memory.storage,
-		}),
+		deliveryTargetStore: createDeliveryTargetStore(
+			{} as Database,
+			memory.storage,
+			{
+				getProjectForUser: (_userId, requestedProjectId) =>
+					Promise.resolve(
+						(options.hasAccess ?? true) &&
+							[projectId, otherProjectId].includes(requestedProjectId)
+							? { id: requestedProjectId }
+							: null
+					),
+				now: () => new Date("2026-11-06T10:00:00.000Z"),
+			}
+		),
 		session: options.session === false ? null : { user: { id: userId } },
 	} as unknown as Context;
 	return {
@@ -479,6 +492,8 @@ test("moving to a new base adds a revision with a scope diff and leaves the earl
 				assetFamilyName: "Slime",
 				fromRevisionId: "slime-set-1",
 				fromRevisionNumber: 1,
+				itemsAdded: [slimeWalkItem],
+				itemsRemoved: [slimeItems[0]],
 				toRevisionId: "slime-set-2",
 				toRevisionNumber: 2,
 			},

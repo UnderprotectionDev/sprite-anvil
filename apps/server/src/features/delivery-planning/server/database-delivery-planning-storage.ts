@@ -12,10 +12,12 @@ import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type {
 	DeliveryPlanningStorage,
 	PinnedFamily,
+	PinnedScope,
 	StoredDeliveryTarget,
 	StoredDeliveryTargetDraft,
 	StoredDeliveryTargetRevision,
 } from "./delivery-planning-storage";
+import { pinnedScopeOf } from "./delivery-planning-storage";
 
 const uniqueViolationCode = "23505";
 const foreignKeyViolationCode = "23503";
@@ -67,20 +69,28 @@ async function readFamilies(
 	return byDraft;
 }
 
+/** The pinned columns of a draft row, the only place they are mapped from the database. */
+function pinnedScopeFromRow(
+	row: typeof deliveryTargetDrafts.$inferSelect,
+	families: Map<string, PinnedFamily[]>
+): PinnedScope {
+	return pinnedScopeOf({
+		...row,
+		families: families.get(row.id) ?? [],
+	});
+}
+
 function toDraft(
 	row: typeof deliveryTargetDrafts.$inferSelect,
 	families: Map<string, PinnedFamily[]>
 ): StoredDeliveryTargetDraft {
 	return {
-		contextRevisionId: row.contextRevisionId,
+		...pinnedScopeFromRow(row, families),
 		createdAt: row.createdAt,
 		createdByUserId: row.createdByUserId,
 		deliveryTargetId: row.deliveryTargetId,
-		families: families.get(row.id) ?? [],
 		id: row.id,
-		productionEvidencePolicy: row.productionEvidencePolicy,
 		projectId: row.projectId,
-		rightsEvidencePolicy: row.rightsEvidencePolicy,
 	};
 }
 
@@ -91,16 +101,8 @@ async function readRevisions(
 ) {
 	const rows = await db
 		.select({
-			activatedAt: deliveryTargetRevisions.activatedAt,
-			activatedByUserId: deliveryTargetRevisions.activatedByUserId,
-			contextRevisionId: deliveryTargetDrafts.contextRevisionId,
-			deliveryTargetId: deliveryTargetRevisions.deliveryTargetId,
-			draftId: deliveryTargetRevisions.draftId,
-			id: deliveryTargetRevisions.id,
-			productionEvidencePolicy: deliveryTargetDrafts.productionEvidencePolicy,
-			projectId: deliveryTargetRevisions.projectId,
-			revisionNumber: deliveryTargetRevisions.revisionNumber,
-			rightsEvidencePolicy: deliveryTargetDrafts.rightsEvidencePolicy,
+			draft: deliveryTargetDrafts,
+			revision: deliveryTargetRevisions,
 		})
 		.from(deliveryTargetRevisions)
 		.innerJoin(
@@ -122,12 +124,18 @@ async function readRevisions(
 	const families = await readFamilies(
 		db,
 		projectId,
-		rows.map((row) => row.draftId)
+		rows.map((row) => row.revision.draftId)
 	);
 	return rows.map(
-		(row): StoredDeliveryTargetRevision => ({
-			...row,
-			families: families.get(row.draftId) ?? [],
+		({ draft, revision }): StoredDeliveryTargetRevision => ({
+			...pinnedScopeFromRow(draft, families),
+			activatedAt: revision.activatedAt,
+			activatedByUserId: revision.activatedByUserId,
+			deliveryTargetId: revision.deliveryTargetId,
+			draftId: revision.draftId,
+			id: revision.id,
+			projectId: revision.projectId,
+			revisionNumber: revision.revisionNumber,
 		})
 	);
 }
@@ -221,6 +229,7 @@ export function createDatabaseDeliveryPlanningStorage(
 			return row ?? null;
 		},
 		async insertDraft(target, draft) {
+			const { families, ...draftColumns } = draft;
 			try {
 				await db.batch([
 					db
@@ -233,18 +242,9 @@ export function createDatabaseDeliveryPlanningStorage(
 							purpose: target.purpose,
 						})
 						.onConflictDoNothing(),
-					db.insert(deliveryTargetDrafts).values({
-						contextRevisionId: draft.contextRevisionId,
-						createdAt: draft.createdAt,
-						createdByUserId: draft.createdByUserId,
-						deliveryTargetId: draft.deliveryTargetId,
-						id: draft.id,
-						productionEvidencePolicy: draft.productionEvidencePolicy,
-						projectId: draft.projectId,
-						rightsEvidencePolicy: draft.rightsEvidencePolicy,
-					}),
+					db.insert(deliveryTargetDrafts).values(draftColumns),
 					db.insert(deliveryTargetDraftFamilies).values(
-						draft.families.map((family, position) => ({
+						families.map((family, position) => ({
 							assetFamilyId: family.assetFamilyId,
 							draftId: draft.id,
 							position,

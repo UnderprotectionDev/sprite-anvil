@@ -1,28 +1,33 @@
+import type { DeliveryTargetDraftSaveInput } from "@sprite-anvil/api/delivery-planning-inputs";
 import {
-	type DeliveryTargetActivateResult,
 	type DeliveryTargetCatalog,
 	type DeliveryTargetDraft,
-	type DeliveryTargetDraftSaveInput,
-	type DeliveryTargetDraftSaveResult,
 	type DeliveryTargetFamilyScope,
 	type DeliveryTargetRevision,
 	type DeliveryTargetScopeDiff,
-	type DeliveryTargetStore,
 	deliveryTargetDraftSchema,
 	deliveryTargetRevisionSchema,
 	deliveryTargetSchema,
-} from "@sprite-anvil/api/delivery-planning";
+} from "@sprite-anvil/api/delivery-planning-outputs";
+import type {
+	DeliveryTargetActivateResult,
+	DeliveryTargetDraftSaveResult,
+	DeliveryTargetStore,
+} from "@sprite-anvil/api/delivery-planning-store";
 import { requiredSetItemSchema } from "@sprite-anvil/api/family-readiness";
+import { type Database, getProjectForUser } from "@sprite-anvil/db";
 import { z } from "zod";
 import type {
 	ContextRevisionSnapshot,
 	DeliveryPlanningStorage,
 	PinnedFamily,
+	PinnedScope,
 	RequiredSetRevisionSnapshot,
 	StoredDeliveryTarget,
 	StoredDeliveryTargetDraft,
 	StoredDeliveryTargetRevision,
 } from "./delivery-planning-storage";
+import { pinnedScopeOf } from "./delivery-planning-storage";
 
 const maxRevisionAttempts = 3;
 const requiredSetItemsSchema = z.array(requiredSetItemSchema);
@@ -33,9 +38,9 @@ interface PinnedSnapshots {
 }
 
 export interface DeliveryTargetStoreOptions {
-	canAccessProject: (userId: string, projectId: string) => Promise<boolean>;
+	/** Resolves a project the user owns; defaults to the shared project access lookup. */
+	getProjectForUser?: (userId: string, projectId: string) => Promise<unknown>;
 	now?: () => Date;
-	storage: DeliveryPlanningStorage;
 }
 
 function describeFamily(
@@ -63,10 +68,7 @@ function describeFamily(
 	};
 }
 
-function describeScope(
-	stored: { contextRevisionId: string; families: PinnedFamily[] },
-	snapshots: PinnedSnapshots
-) {
+function describeScope(stored: PinnedScope, snapshots: PinnedSnapshots) {
 	const context = snapshots.contexts.get(stored.contextRevisionId);
 	if (!context) {
 		throw new Error(
@@ -77,6 +79,8 @@ function describeScope(
 		contextRevisionId: context.id,
 		contextRevisionNumber: context.revisionNumber,
 		families: stored.families.map((pin) => describeFamily(pin, snapshots)),
+		productionEvidencePolicy: stored.productionEvidencePolicy,
+		rightsEvidencePolicy: stored.rightsEvidencePolicy,
 	};
 }
 
@@ -121,6 +125,21 @@ function sameDraftContent(
 		) &&
 		samePolicy(stored.rightsEvidencePolicy, input.rightsEvidencePolicy)
 	);
+}
+
+function requiredItemsOf(family: DeliveryTargetFamilyScope) {
+	return [...family.requiredItems, ...family.usageTests];
+}
+
+/** The items that the other family's pinned list does not hold unchanged. */
+function itemsMissingFrom(
+	items: ReturnType<typeof requiredItemsOf>,
+	other: DeliveryTargetFamilyScope
+) {
+	const known = new Set(
+		requiredItemsOf(other).map((item) => canonicalPolicy(item))
+	);
+	return items.filter((item) => !known.has(canonicalPolicy(item)));
 }
 
 /** Compares a revision's base with the target's previous revision; both are immutable, so the diff is derived on read. */
@@ -172,6 +191,8 @@ function diffAgainstPrevious(
 				? [
 						{
 							...nameOf(family),
+							itemsAdded: itemsMissingFrom(requiredItemsOf(family), old),
+							itemsRemoved: itemsMissingFrom(requiredItemsOf(old), family),
 							fromRevisionId: old.requiredSetRevisionId,
 							fromRevisionNumber: old.requiredSetRevisionNumber,
 							toRevisionId: family.requiredSetRevisionId,
@@ -195,8 +216,6 @@ function toDraft(
 	return deliveryTargetDraftSchema.parse({
 		...describeScope(draft, snapshots),
 		activatedRevisionId,
-		productionEvidencePolicy: draft.productionEvidencePolicy,
-		rightsEvidencePolicy: draft.rightsEvidencePolicy,
 		createdAt: draft.createdAt.toISOString(),
 		id: draft.id,
 	});
@@ -212,9 +231,7 @@ function toRevision(
 		activatedAt: revision.activatedAt.toISOString(),
 		draftId: revision.draftId,
 		id: revision.id,
-		productionEvidencePolicy: revision.productionEvidencePolicy,
 		revisionNumber: revision.revisionNumber,
-		rightsEvidencePolicy: revision.rightsEvidencePolicy,
 		scopeDiff: diffAgainstPrevious(revision, previous, snapshots),
 	});
 }
@@ -233,7 +250,7 @@ function previousRevisionOf(
 async function loadSnapshots(
 	storage: DeliveryPlanningStorage,
 	projectId: string,
-	scopes: { contextRevisionId: string; families: PinnedFamily[] }[]
+	scopes: Pick<PinnedScope, "contextRevisionId" | "families">[]
 ): Promise<PinnedSnapshots> {
 	const contextIds = [
 		...new Set(scopes.map((scope) => scope.contextRevisionId)),
@@ -259,9 +276,16 @@ async function loadSnapshots(
 
 /** Project-scoped Delivery Target planning: drafts are prepared, only an activation creates a revision. */
 export function createDeliveryTargetStore(
-	options: DeliveryTargetStoreOptions
+	db: Database,
+	storage: DeliveryPlanningStorage,
+	options: DeliveryTargetStoreOptions = {}
 ): DeliveryTargetStore {
-	const { canAccessProject, storage } = options;
+	const lookupProject =
+		options.getProjectForUser ??
+		((userId: string, projectId: string) =>
+			getProjectForUser(db, userId, projectId));
+	const canAccessProject = async (userId: string, projectId: string) =>
+		(await lookupProject(userId, projectId)) !== null;
 	const now = options.now ?? (() => new Date());
 
 	async function readDraft(
@@ -340,13 +364,10 @@ export function createDeliveryTargetStore(
 				const result = await storage.insertRevision({
 					activatedAt: now(),
 					activatedByUserId: userId,
-					contextRevisionId: draft.contextRevisionId,
+					...pinnedScopeOf(draft),
 					deliveryTargetId: draft.deliveryTargetId,
 					draftId: draft.id,
-					families: draft.families,
 					id: input.id,
-					productionEvidencePolicy: draft.productionEvidencePolicy,
-					rightsEvidencePolicy: draft.rightsEvidencePolicy,
 					projectId: input.projectId,
 				});
 				return result.status === "inserted"
@@ -420,12 +441,7 @@ export function createDeliveryTargetStore(
 			if (existing) {
 				return resolveExistingDraft(existing, input);
 			}
-			const snapshots = await loadSnapshots(storage, input.projectId, [
-				{
-					contextRevisionId: input.contextRevisionId,
-					families: input.families,
-				},
-			]);
+			const snapshots = await loadSnapshots(storage, input.projectId, [input]);
 			if (!snapshots.contexts.has(input.contextRevisionId)) {
 				return { reason: "context_revision_not_found", status: "rejected" };
 			}
@@ -460,15 +476,12 @@ export function createDeliveryTargetStore(
 				purpose: input.purpose,
 			};
 			const draft: StoredDeliveryTargetDraft = {
-				contextRevisionId: input.contextRevisionId,
+				...pinnedScopeOf(input),
 				createdAt: now(),
 				createdByUserId: userId,
 				deliveryTargetId: target.id,
-				families: input.families,
 				id: input.id,
-				productionEvidencePolicy: input.productionEvidencePolicy,
 				projectId: input.projectId,
-				rightsEvidencePolicy: input.rightsEvidencePolicy,
 			};
 			const inserted = await storage.insertDraft(target, draft);
 			if (inserted === "target_in_other_project") {

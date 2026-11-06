@@ -2,7 +2,7 @@ import type {
 	DeliveryTargetPurpose,
 	ProductionEvidencePolicy,
 	RightsEvidencePolicy,
-} from "@sprite-anvil/api/delivery-planning";
+} from "@sprite-anvil/api/delivery-planning-inputs";
 
 export interface PinnedFamily {
 	assetFamilyId: string;
@@ -16,30 +16,40 @@ export interface StoredDeliveryTarget {
 	purpose: DeliveryTargetPurpose;
 }
 
-export interface StoredDeliveryTargetDraft {
+/** What a draft pins and a revision inherits; a new pinned field is added here and nowhere else. */
+export interface PinnedScope {
 	contextRevisionId: string;
-	createdAt: Date;
-	createdByUserId: string;
-	deliveryTargetId: string;
 	families: PinnedFamily[];
-	id: string;
 	productionEvidencePolicy: ProductionEvidencePolicy;
-	projectId: string;
 	rightsEvidencePolicy: RightsEvidencePolicy;
 }
 
-export interface StoredDeliveryTargetRevision {
+export interface StoredDeliveryTargetDraft extends PinnedScope {
+	createdAt: Date;
+	createdByUserId: string;
+	deliveryTargetId: string;
+	id: string;
+	projectId: string;
+}
+
+export interface StoredDeliveryTargetRevision extends PinnedScope {
 	activatedAt: Date;
 	activatedByUserId: string;
-	contextRevisionId: string;
 	deliveryTargetId: string;
 	draftId: string;
-	families: PinnedFamily[];
 	id: string;
-	productionEvidencePolicy: ProductionEvidencePolicy;
 	projectId: string;
 	revisionNumber: number;
-	rightsEvidencePolicy: RightsEvidencePolicy;
+}
+
+/** Copies exactly the pinned fields, so no caller lists them by hand. */
+export function pinnedScopeOf(source: PinnedScope): PinnedScope {
+	return {
+		contextRevisionId: source.contextRevisionId,
+		families: source.families,
+		productionEvidencePolicy: source.productionEvidencePolicy,
+		rightsEvidencePolicy: source.rightsEvidencePolicy,
+	};
 }
 
 export interface ContextRevisionSnapshot {
