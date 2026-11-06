@@ -175,7 +175,7 @@ test("shows a cancel control for an active operation and re-reads the record aft
 	);
 
 	expect(fakeApi.cancel).toHaveBeenCalledWith({
-		operationId: "op-run",
+		id: "op-run",
 		projectId,
 	});
 	expect(

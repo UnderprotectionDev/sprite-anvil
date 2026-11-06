@@ -22,12 +22,12 @@ const maxCompareAndSetRounds = 5;
  */
 export async function requestOperationCancel(
 	storage: OperationStorage,
-	operationId: string,
+	backgroundOperationId: string,
 	now: Date
 ): Promise<CancelRequestResult> {
 	for (let round = 0; round < maxCompareAndSetRounds; round += 1) {
 		// biome-ignore lint/performance/noAwaitInLoops: Each round re-reads the record the previous change raced with.
-		const current = await storage.get(operationId);
+		const current = await storage.get(backgroundOperationId);
 		if (!current) {
 			return { outcome: "not_found" };
 		}
@@ -37,21 +37,21 @@ export async function requestOperationCancel(
 				: { operation: current, outcome: "accepted" };
 		}
 		if (current.status === "pending") {
-			if (await storage.cancelPending(operationId, now)) {
-				return await accepted(storage, operationId);
+			if (await storage.cancelPending(backgroundOperationId, now)) {
+				return await cancelAccepted(storage, backgroundOperationId);
 			}
-		} else if (await storage.requestCancelRunning(operationId, now)) {
-			return await accepted(storage, operationId);
+		} else if (await storage.requestCancelRunning(backgroundOperationId, now)) {
+			return await cancelAccepted(storage, backgroundOperationId);
 		}
 	}
 	throw new Error("The cancel request could not be recorded; try again.");
 }
 
-async function accepted(
+async function cancelAccepted(
 	storage: OperationStorage,
-	operationId: string
+	backgroundOperationId: string
 ): Promise<CancelRequestResult> {
-	const operation = await storage.get(operationId);
+	const operation = await storage.get(backgroundOperationId);
 	if (!operation) {
 		return { outcome: "not_found" };
 	}

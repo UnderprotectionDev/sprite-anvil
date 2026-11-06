@@ -136,12 +136,9 @@ export const backgroundOperationListInputSchema = z
 	.object({ projectId: idSchema })
 	.strict();
 
-export const backgroundOperationGetInputSchema = z
-	.object({ projectId: idSchema, operationId: idSchema })
+export const backgroundOperationCancelInputSchema = z
+	.object({ id: idSchema, projectId: idSchema })
 	.strict();
-
-export const backgroundOperationCancelInputSchema =
-	backgroundOperationGetInputSchema;
 
 export const backgroundOperationListSchema = z
 	.object({ operations: z.array(backgroundOperationSchema) })
@@ -154,11 +151,6 @@ export type CancelRequestResult =
 
 /** Authorized, project-scoped access to the authoritative record. Other writes are made by the owning features through the lifecycle. */
 export interface BackgroundOperationStore {
-	get: (
-		userId: string,
-		projectId: string,
-		operationId: string
-	) => Promise<BackgroundOperation | null>;
 	list: (
 		userId: string,
 		projectId: string
@@ -167,6 +159,6 @@ export interface BackgroundOperationStore {
 	requestCancel: (
 		userId: string,
 		projectId: string,
-		operationId: string
+		backgroundOperationId: string
 	) => Promise<CancelRequestResult>;
 }

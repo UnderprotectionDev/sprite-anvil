@@ -1,7 +1,6 @@
 import { ORPCError } from "@orpc/server";
 import {
 	backgroundOperationCancelInputSchema,
-	backgroundOperationGetInputSchema,
 	backgroundOperationListInputSchema,
 	backgroundOperationListSchema,
 	backgroundOperationSchema,
@@ -32,22 +31,6 @@ export const backgroundOperationsRouter = {
 			}
 			return backgroundOperationListSchema.parse({ operations });
 		}),
-	get: protectedProcedure
-		.input(backgroundOperationGetInputSchema)
-		.output(backgroundOperationSchema)
-		.handler(async ({ context, input }) => {
-			const operation = await requireStore(context).get(
-				context.session.user.id,
-				input.projectId,
-				input.operationId
-			);
-			if (!operation) {
-				throw new ORPCError("NOT_FOUND", {
-					message: "Background Operation not found",
-				});
-			}
-			return backgroundOperationSchema.parse(operation);
-		}),
 	cancel: protectedProcedure
 		.input(backgroundOperationCancelInputSchema)
 		.output(backgroundOperationSchema)
@@ -55,7 +38,7 @@ export const backgroundOperationsRouter = {
 			const result = await requireStore(context).requestCancel(
 				context.session.user.id,
 				input.projectId,
-				input.operationId
+				input.id
 			);
 			if (result.outcome === "not_found") {
 				throw new ORPCError("NOT_FOUND", {

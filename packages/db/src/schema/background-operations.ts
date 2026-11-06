@@ -77,7 +77,7 @@ export const backgroundOperationOutbox = pgTable(
 	"background_operation_outbox",
 	{
 		id: text("id").primaryKey(),
-		operationId: text("operation_id")
+		backgroundOperationId: text("operation_id")
 			.notNull()
 			.references(() => backgroundOperations.id, { onDelete: "cascade" }),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -88,6 +88,8 @@ export const backgroundOperationOutbox = pgTable(
 			table.publishedAt,
 			table.createdAt
 		),
-		index("background_operation_outbox_operation_id_idx").on(table.operationId),
+		index("background_operation_outbox_operation_id_idx").on(
+			table.backgroundOperationId
+		),
 	]
 );

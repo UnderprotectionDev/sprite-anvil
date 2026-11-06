@@ -53,7 +53,7 @@ function CancelControl({ operation }: { operation: BackgroundOperation }) {
 				disabled={cancel.isPending}
 				onClick={() =>
 					cancel.mutate({
-						operationId: operation.id,
+						id: operation.id,
 						projectId: operation.projectId,
 					})
 				}

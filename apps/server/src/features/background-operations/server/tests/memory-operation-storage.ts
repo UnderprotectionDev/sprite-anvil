@@ -155,7 +155,7 @@ export function createMemoryOperationStorage() {
 			});
 			outbox.push({
 				id: outboxId,
-				operationId: operation.id,
+				backgroundOperationId: operation.id,
 				publishedAt: null,
 			});
 			return Promise.resolve(true);
@@ -168,7 +168,8 @@ export function createMemoryOperationStorage() {
 						Date.parse(operation.updatedAt) < olderThan.getTime() &&
 						!outbox.some(
 							(entry) =>
-								entry.operationId === operation.id && entry.publishedAt === null
+								entry.backgroundOperationId === operation.id &&
+								entry.publishedAt === null
 						)
 				)
 			),
@@ -186,7 +187,10 @@ export function createMemoryOperationStorage() {
 				outbox
 					.filter((entry) => entry.publishedAt === null)
 					.slice(0, limit)
-					.map(({ id, operationId }) => ({ id, operationId }))
+					.map(({ id, backgroundOperationId }) => ({
+						id,
+						backgroundOperationId,
+					}))
 			),
 		markOutboxPublished(outboxId, now) {
 			if (control.failNextPublishMark) {
@@ -204,7 +208,11 @@ export function createMemoryOperationStorage() {
 				return Promise.resolve(false);
 			}
 			update(id, {}, now);
-			outbox.push({ id: outboxId, operationId: id, publishedAt: null });
+			outbox.push({
+				id: outboxId,
+				backgroundOperationId: id,
+				publishedAt: null,
+			});
 			return Promise.resolve(true);
 		},
 		reportProgress(id, attemptCount, progress, now) {
@@ -226,23 +234,25 @@ export function createMemoryOperationStorage() {
 				return Promise.resolve(false);
 			}
 			update(id, { status: "pending" }, now);
-			outbox.push({ id: outboxId, operationId: id, publishedAt: null });
+			outbox.push({
+				id: outboxId,
+				backgroundOperationId: id,
+				publishedAt: null,
+			});
 			return Promise.resolve(true);
 		},
 	};
 
 	/** Reads like the API store does: authoritative record only, project-scoped. */
 	const readStore: BackgroundOperationStore = {
-		requestCancel: async (_userId, projectId, operationId) => {
-			if (operations.get(operationId)?.projectId !== projectId) {
+		requestCancel: async (_userId, projectId, backgroundOperationId) => {
+			if (operations.get(backgroundOperationId)?.projectId !== projectId) {
 				return { outcome: "not_found" };
 			}
-			return await requestOperationCancel(storage, operationId, control.now());
-		},
-		get: (_userId, projectId, operationId) => {
-			const operation = operations.get(operationId);
-			return Promise.resolve(
-				operation?.projectId === projectId ? operation : null
+			return await requestOperationCancel(
+				storage,
+				backgroundOperationId,
+				control.now()
 			);
 		},
 		list: (_userId, projectId) =>
