@@ -1,0 +1,1 @@
+ALTER TABLE "background_operations" ADD COLUMN "cancel_requested_at" timestamp;
