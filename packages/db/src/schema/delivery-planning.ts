@@ -25,12 +25,12 @@ export const deliveryTargets = pgTable(
 		id: text("id").primaryKey(),
 		projectId: text("project_id")
 			.notNull()
-			.references(() => project.id, { onDelete: "restrict" }),
+			.references(() => project.id, { onDelete: "cascade" }),
 		name: text("name").notNull(),
 		purpose: text("purpose").$type<DeliveryTargetPurpose>().notNull(),
 		createdByUserId: text("created_by_user_id")
 			.notNull()
-			.references(() => user.id, { onDelete: "restrict" }),
+			.references(() => user.id, { onDelete: "cascade" }),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 	},
 	(table) => [
@@ -59,7 +59,7 @@ export const deliveryTargetDrafts = pgTable(
 		contextRevisionId: text("context_revision_id").notNull(),
 		createdByUserId: text("created_by_user_id")
 			.notNull()
-			.references(() => user.id, { onDelete: "restrict" }),
+			.references(() => user.id, { onDelete: "cascade" }),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 	},
 	(table) => [
@@ -67,12 +67,12 @@ export const deliveryTargetDrafts = pgTable(
 			name: "delivery_target_drafts_target_fk",
 			columns: [table.projectId, table.deliveryTargetId],
 			foreignColumns: [deliveryTargets.projectId, deliveryTargets.id],
-		}).onDelete("restrict"),
+		}).onDelete("cascade"),
 		foreignKey({
 			name: "delivery_target_drafts_context_revision_fk",
 			columns: [table.projectId, table.contextRevisionId],
 			foreignColumns: [contextRevisions.projectId, contextRevisions.id],
-		}).onDelete("restrict"),
+		}).onDelete("cascade"),
 		uniqueIndex("delivery_target_drafts_project_id_id_idx").on(
 			table.projectId,
 			table.id
@@ -102,7 +102,7 @@ export const deliveryTargetDraftFamilies = pgTable(
 			name: "delivery_target_draft_families_draft_fk",
 			columns: [table.projectId, table.draftId],
 			foreignColumns: [deliveryTargetDrafts.projectId, deliveryTargetDrafts.id],
-		}).onDelete("restrict"),
+		}).onDelete("cascade"),
 		foreignKey({
 			name: "delivery_target_draft_families_required_set_fk",
 			columns: [
@@ -115,7 +115,7 @@ export const deliveryTargetDraftFamilies = pgTable(
 				familyRequiredSetRevisions.assetFamilyId,
 				familyRequiredSetRevisions.id,
 			],
-		}).onDelete("restrict"),
+		}).onDelete("cascade"),
 		uniqueIndex("delivery_target_draft_families_position_idx").on(
 			table.draftId,
 			table.position
@@ -138,7 +138,7 @@ export const deliveryTargetRevisions = pgTable(
 		draftId: text("draft_id").notNull(),
 		activatedByUserId: text("activated_by_user_id")
 			.notNull()
-			.references(() => user.id, { onDelete: "restrict" }),
+			.references(() => user.id, { onDelete: "cascade" }),
 		activatedAt: timestamp("activated_at").defaultNow().notNull(),
 	},
 	(table) => [
@@ -146,12 +146,12 @@ export const deliveryTargetRevisions = pgTable(
 			name: "delivery_target_revisions_target_fk",
 			columns: [table.projectId, table.deliveryTargetId],
 			foreignColumns: [deliveryTargets.projectId, deliveryTargets.id],
-		}).onDelete("restrict"),
+		}).onDelete("cascade"),
 		foreignKey({
 			name: "delivery_target_revisions_draft_fk",
 			columns: [table.projectId, table.draftId],
 			foreignColumns: [deliveryTargetDrafts.projectId, deliveryTargetDrafts.id],
-		}).onDelete("restrict"),
+		}).onDelete("cascade"),
 		uniqueIndex("delivery_target_revisions_draft_idx").on(table.draftId),
 		uniqueIndex("delivery_target_revisions_target_number_idx").on(
 			table.deliveryTargetId,
