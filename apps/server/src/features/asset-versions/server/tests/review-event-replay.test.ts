@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { idempotentRecordId } from "@sprite-anvil/api/record-publication";
+import {
+	idempotentRecordId,
+	RecordIntegrityError,
+} from "@sprite-anvil/api/record-publication";
 import type { Database } from "@sprite-anvil/db";
 import {
 	publishAssetVersionReviewEvent,
@@ -55,7 +58,7 @@ const compositeInput = { ...base, compositeVersionId: "composite-1" };
 
 async function assetEventId() {
 	return await idempotentRecordId(
-		["asset-version-review-event", "project-1", "version-1"],
+		["asset-version-review-event", "project-1", "user-1", "version-1"],
 		"key-1"
 	);
 }
@@ -160,7 +163,7 @@ test("an interrupted publication fails visibly and the retry yields exactly one 
 
 test("a Composite Version Review Event key replays and conflicts the same way", async () => {
 	const id = await idempotentRecordId(
-		["composite-version-review-event", "project-1", "composite-1"],
+		["composite-version-review-event", "project-1", "user-1", "composite-1"],
 		"key-1"
 	);
 	const row = {
@@ -187,4 +190,50 @@ test("a Composite Version Review Event key replays and conflicts the same way", 
 	const written = fakeDb({ rows: [row] });
 	await publishCompositeVersionReviewEvent(written.db, compositeInput);
 	expect(written.state.inserts[0]?.params[0]).toBe(id);
+});
+
+test("a replayed Review Event whose stored Asset Record differs is an integrity failure, not a success", async () => {
+	const id = await assetEventId();
+	await expect(
+		replayAssetVersionReviewEvent(
+			fakeDb({ rows: [{ ...assetRowBase(id), assetRecordId: "record-9" }] }).db,
+			assetInput
+		)
+	).rejects.toBeInstanceOf(RecordIntegrityError);
+	const compositeId = await idempotentRecordId(
+		["composite-version-review-event", "project-1", "user-1", "composite-1"],
+		"key-1"
+	);
+	await expect(
+		replayCompositeVersionReviewEvent(
+			fakeDb({
+				rows: [
+					{
+						assetRecordId: "record-9",
+						compositeVersionId: "composite-1",
+						createdAt: new Date("2026-11-06T10:00:00.000Z"),
+						createdByUserId: "user-1",
+						decision: "approved",
+						id: compositeId,
+						projectId: "project-1",
+						rationale: "Ready.",
+					},
+				],
+			}).db,
+			compositeInput
+		)
+	).rejects.toBeInstanceOf(RecordIntegrityError);
+});
+
+test("another member's same key derives another id", async () => {
+	const mine = fakeDb({ rows: [] });
+	const theirs = fakeDb({ rows: [] });
+	await publishAssetVersionReviewEvent(mine.db, assetInput).catch(() => null);
+	await publishAssetVersionReviewEvent(theirs.db, {
+		...assetInput,
+		userId: "user-2",
+	}).catch(() => null);
+	expect(mine.state.inserts[0]?.params[0]).not.toBe(
+		theirs.state.inserts[0]?.params[0]
+	);
 });

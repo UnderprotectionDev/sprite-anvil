@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { generationPackageSnapshotSchema } from "@sprite-anvil/api/generation-packages";
-import { IdempotencyConflictError } from "@sprite-anvil/api/record-publication";
+import {
+	IdempotencyConflictError,
+	RecordIntegrityError,
+} from "@sprite-anvil/api/record-publication";
 import type { Database } from "@sprite-anvil/db";
 import { createGenerationPackageStore } from "../generation-package-store";
 
@@ -187,4 +190,18 @@ test("a request without a key still creates a new package each time", async () =
 	state.rows.length = 0;
 	const second = await store.create(userId, unkeyed);
 	expect(second).not.toBeNull();
+});
+
+test("a stored package pointing at another Asset Record is not replayed as success", async () => {
+	const { db, state } = fakeDb();
+	const store = createGenerationPackageStore(db);
+	await store.create(userId, input);
+	const row = state.rows[0] as Row;
+	row.snapshot = {
+		...(row.snapshot as Row),
+		assetRecord: { ...snapshot.assetRecord, id: crypto.randomUUID() },
+	};
+	await expect(store.create(userId, input)).rejects.toBeInstanceOf(
+		RecordIntegrityError
+	);
 });

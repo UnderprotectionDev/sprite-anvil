@@ -6,8 +6,9 @@ import { generationPackageSchema } from "@sprite-anvil/api/generation-packages";
 import { recordContentDigest } from "@sprite-anvil/api/record-content-digest";
 import {
 	IdempotencyConflictError,
-	idempotentRecordId,
 	RecordIntegrityError,
+	resolveRecordId,
+	withdrawAndFail,
 } from "@sprite-anvil/api/record-publication";
 import type { Database } from "@sprite-anvil/db";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
@@ -70,23 +71,57 @@ async function requestDigest(snapshot: Record<string, unknown>) {
 	return await recordContentDigest(requested);
 }
 
-/** The package an earlier request with this key published, or a conflict when its content differs. */
-async function readReplay(
-	db: Database,
-	userId: string,
-	input: { assetRecordId: string; projectId: string; snapshot: unknown },
-	id: string
-) {
-	const [existing] = await db
+async function readPackage(db: Database, projectId: string, id: string) {
+	const [row] = await db
 		.select()
 		.from(generationPackages)
 		.where(
 			and(
-				eq(generationPackages.projectId, input.projectId),
+				eq(generationPackages.projectId, projectId),
 				eq(generationPackages.id, id)
 			)
 		)
 		.limit(1);
+	return row ?? null;
+}
+
+interface PublishInput {
+	assetRecordId: string;
+	projectId: string;
+	snapshot: unknown;
+}
+
+function snapshotRecord(snapshot: unknown) {
+	return (
+		snapshot as { assetRecord?: { id?: string; projectId?: string } } | null
+	)?.assetRecord;
+}
+
+/** The stored row and the snapshot inside it must describe the project and Asset Record it is filed under. */
+function relationsMatch(
+	row: NonNullable<Awaited<ReturnType<typeof readPackage>>>,
+	input: PublishInput
+) {
+	return (
+		row.projectId === input.projectId &&
+		row.assetRecordId === input.assetRecordId &&
+		snapshotRecord(row.snapshot)?.id === input.assetRecordId &&
+		snapshotRecord(row.snapshot)?.projectId === input.projectId
+	);
+}
+
+/**
+ * The package an earlier request with this key published, or a conflict when
+ * its content differs. The stored record is re-verified, so a package left
+ * behind by a failed publication or withdrawal is never replayed as success.
+ */
+async function readReplay(
+	db: Database,
+	userId: string,
+	input: PublishInput,
+	id: string
+) {
+	const existing = await readPackage(db, input.projectId, id);
 	if (!existing) {
 		return null;
 	}
@@ -101,16 +136,32 @@ async function readReplay(
 	) {
 		throw new IdempotencyConflictError("Generation Package");
 	}
+	if (!relationsMatch(existing, input)) {
+		throw new RecordIntegrityError(
+			"Generation Package relation check failed: the persisted record points at another project or Asset Record."
+		);
+	}
 	return mapGenerationPackage(existing);
 }
 
-function withdrawAndFail(db: Database, id: string, message: string) {
-	return db
-		.delete(generationPackages)
-		.where(eq(generationPackages.id, id))
-		.then(() => {
-			throw new RecordIntegrityError(message);
-		});
+function withdrawPackage(
+	db: Database,
+	projectId: string,
+	id: string,
+	message: string
+) {
+	return withdrawAndFail(
+		() =>
+			db
+				.delete(generationPackages)
+				.where(
+					and(
+						eq(generationPackages.projectId, projectId),
+						eq(generationPackages.id, id)
+					)
+				),
+		message
+	);
 }
 
 /**
@@ -120,30 +171,19 @@ function withdrawAndFail(db: Database, id: string, message: string) {
  */
 async function verifyPublishedPackage(
 	db: Database,
-	input: { assetRecordId: string; projectId: string; snapshot: unknown },
+	input: PublishInput,
 	id: string
 ) {
-	const [persisted] = await db
-		.select()
-		.from(generationPackages)
-		.where(
-			and(
-				eq(generationPackages.projectId, input.projectId),
-				eq(generationPackages.id, id)
-			)
-		)
-		.limit(1);
+	const persisted = await readPackage(db, input.projectId, id);
 	if (!persisted) {
 		throw new RecordIntegrityError(
 			"The published Generation Package could not be re-read from the persisted record."
 		);
 	}
-	if (
-		persisted.projectId !== input.projectId ||
-		persisted.assetRecordId !== input.assetRecordId
-	) {
-		return withdrawAndFail(
+	if (!relationsMatch(persisted, input)) {
+		return withdrawPackage(
 			db,
+			input.projectId,
 			id,
 			"Generation Package relation check failed: the persisted record points at another project or Asset Record."
 		);
@@ -153,8 +193,9 @@ async function verifyPublishedPackage(
 		recordContentDigest(persisted.snapshot),
 	]);
 	if (submitted !== stored) {
-		return withdrawAndFail(
+		return withdrawPackage(
 			db,
+			input.projectId,
 			id,
 			"Generation Package content digest check failed: the persisted snapshot differs from the submitted one."
 		);
@@ -189,12 +230,10 @@ export function createGenerationPackageStore(
 
 			// No column holds the key, so a keyed request derives the package id from
 			// it: the same key always addresses the same record.
-			const id = input.idempotencyKey
-				? await idempotentRecordId(
-						["generation-package", input.projectId],
-						input.idempotencyKey
-					)
-				: crypto.randomUUID();
+			const id = await resolveRecordId(
+				["generation-package", input.projectId, userId],
+				input.idempotencyKey
+			);
 			if (input.idempotencyKey) {
 				const replayed = await readReplay(db, userId, input, id);
 				if (replayed) {
