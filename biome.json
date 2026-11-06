@@ -17,6 +17,8 @@
       "!**/.zed",
       "!**/.vscode",
       "!**/routeTree.gen.ts",
+      "!dither.svg",
+      "!apps/web/public/logo.svg",
       "!**/src/migrations/**/snapshot.json",
       "!**/test-results",
       "!**/playwright-report",

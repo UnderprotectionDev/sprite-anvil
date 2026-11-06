@@ -1,4 +1,3 @@
-// conventions-exception: raw-fetch Working Draft routes are authenticated Hono project routes that render and store PNG bytes through the verifying Asset Version storage; the oRPC context carries no object storage.
 import {
 	type PixelColorReplacePreview,
 	type PixelDraft,
@@ -6,29 +5,23 @@ import {
 	pixelColorReplacePreviewSchema,
 	pixelDraftCommitResponseSchema,
 	pixelDraftSchema,
-	pixelEditorErrorSchema,
 } from "@sprite-anvil/api/pixel-editor";
-import { ENV } from "@/env";
+import {
+	honoGetJson,
+	honoPostJson,
+	projectApiUrl,
+	serverUrl,
+} from "@/utils/hono-api";
 
-const trailingSlashPattern = /\/$/;
+const requestFailed = "The Working Draft request failed";
 
 /** Base URL of the API server without a trailing slash. */
 export function pixelEditorServerUrl() {
-	return ENV.VITE_SERVER_URL.replace(trailingSlashPattern, "");
-}
-
-export class PixelEditorApiError extends Error {
-	readonly status: number;
-
-	constructor(message: string, status: number) {
-		super(message);
-		this.name = "PixelEditorApiError";
-		this.status = status;
-	}
+	return serverUrl();
 }
 
 export function draftsUrl(projectId: string) {
-	return `${pixelEditorServerUrl()}/api/projects/${encodeURIComponent(projectId)}/pixel-editor/drafts`;
+	return `${projectApiUrl(projectId)}/pixel-editor/drafts`;
 }
 
 export function pixelDraftPreviewUrl(draft: PixelDraft) {
@@ -39,32 +32,12 @@ export function pixelDraftSourceUrl(draft: PixelDraft) {
 	return `${pixelEditorServerUrl()}${draft.sourcePreviewUrl}`;
 }
 
-async function readJsonOrThrow(response: Response) {
-	if (!response.ok) {
-		const parsed = pixelEditorErrorSchema.safeParse(
-			await response.json().catch(() => null)
-		);
-		const message = parsed.success
-			? [parsed.data.error, parsed.data.detail].filter(Boolean).join(": ")
-			: "The Working Draft request failed";
-		throw new PixelEditorApiError(message, response.status);
-	}
-	return response.json() as Promise<unknown>;
+export function pixelEditorPost(url: string, body: unknown) {
+	return honoPostJson(url, body, requestFailed);
 }
 
-export async function pixelEditorPost(url: string, body: unknown) {
-	return readJsonOrThrow(
-		await fetch(url, {
-			method: "POST",
-			credentials: "include",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(body ?? {}),
-		})
-	);
-}
-
-export async function pixelEditorGetJson(url: string) {
-	return readJsonOrThrow(await fetch(url, { credentials: "include" }));
+export function pixelEditorGetJson(url: string) {
+	return honoGetJson(url, requestFailed);
 }
 
 export async function openPixelDraft(

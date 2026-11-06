@@ -25,6 +25,7 @@ import { createIconFamilyReviewStore } from "./features/icon-profile/server/icon
 import { createImportInboxStore } from "./features/imports/server/import-inbox-store";
 import { createSourceMetadataMappingProposalStore } from "./features/imports/server/source-metadata-mapping-store";
 import { createAssetFamilyComparisonStore } from "./features/object-equipment-profile/server/asset-family-comparison-store";
+import { createOfflineConflictStore } from "./features/pixel-editor/server/offline-conflict-store";
 import { createPixelEditorStore } from "./features/pixel-editor/server/pixel-editor-store";
 import { createMarketingUsageReviewStore } from "./features/portrait-marketing-profile/server/marketing-usage-review-store";
 import { createPortraitIdentityReviewStore } from "./features/portrait-marketing-profile/server/portrait-identity-review-store";
@@ -91,6 +92,7 @@ export const productionExperimentStore = createProductionExperimentStore(db);
 export const productionRecipeStore = createProductionRecipeStore(db);
 export const importInboxStore = createImportInboxStore(db);
 export const pixelEditorStore = createPixelEditorStore(db);
+export const offlineConflictStore = createOfflineConflictStore(db);
 export const sourceMetadataMappingProposalStore =
 	createSourceMetadataMappingProposalStore(db);
 export const assetVersionStore = createAssetVersionStore(db);
