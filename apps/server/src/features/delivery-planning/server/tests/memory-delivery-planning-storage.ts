@@ -20,6 +20,7 @@ export function createMemoryDeliveryPlanningStorage(seed: {
 	const targets = new Map<string, StoredDeliveryTarget>();
 	const drafts = new Map<string, StoredDeliveryTargetDraft>();
 	const revisions: StoredDeliveryTargetRevision[] = [];
+	let pendingRevisionConflicts = 0;
 
 	const storage: DeliveryPlanningStorage = {
 		findContextRevisions: (_projectId, ids) =>
@@ -49,25 +50,38 @@ export function createMemoryDeliveryPlanningStorage(seed: {
 		},
 		insertDraft: (target, draft) => {
 			if (drafts.has(draft.id)) {
-				return Promise.resolve(false);
+				return Promise.resolve("draft_exists");
 			}
-			if (!targets.has(target.id)) {
+			const knownTarget = targets.get(target.id);
+			if (knownTarget && knownTarget.projectId !== draft.projectId) {
+				return Promise.resolve("target_in_other_project");
+			}
+			if (!knownTarget) {
 				targets.set(target.id, target);
 			}
 			drafts.set(draft.id, draft);
-			return Promise.resolve(true);
+			return Promise.resolve("inserted");
 		},
 		insertRevision: (revision) => {
 			if (revisions.some((existing) => existing.draftId === revision.draftId)) {
 				return Promise.resolve({ status: "conflict" });
 			}
+			if (pendingRevisionConflicts > 0) {
+				pendingRevisionConflicts -= 1;
+				return Promise.resolve({ status: "conflict" });
+			}
 			const stored = {
 				...revision,
 				revisionNumber:
-					revisions.filter(
-						(existing) =>
-							existing.deliveryTargetId === revision.deliveryTargetId
-					).length + 1,
+					Math.max(
+						0,
+						...revisions
+							.filter(
+								(existing) =>
+									existing.deliveryTargetId === revision.deliveryTargetId
+							)
+							.map((existing) => existing.revisionNumber)
+					) + 1,
 			};
 			revisions.push(stored);
 			return Promise.resolve({ revision: stored, status: "inserted" });
@@ -86,5 +100,11 @@ export function createMemoryDeliveryPlanningStorage(seed: {
 			),
 	};
 
-	return { storage };
+	return {
+		/** Makes the next `count` revision inserts lose the revision-number race, as a concurrent activation would. */
+		failNextRevisionInserts: (count: number) => {
+			pendingRevisionConflicts = count;
+		},
+		storage,
+	};
 }

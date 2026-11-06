@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
 import type { Context } from "@sprite-anvil/api/context";
+import type {
+	ProductionEvidencePolicy,
+	RightsEvidencePolicy,
+} from "@sprite-anvil/api/delivery-planning";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { createDeliveryTargetStore } from "../delivery-target-store";
 import { createMemoryDeliveryPlanningStorage } from "./memory-delivery-planning-storage";
@@ -9,6 +13,7 @@ const userId = "user-1";
 const projectId = "7a1f0f0e-8f4e-4c36-9a53-0b0b6a2f2a01";
 const targetId = "6f1a3d62-3d2e-4b86-8a7c-0e6c2f0d1001";
 const draftId = "6f1a3d62-3d2e-4b86-8a7c-0e6c2f0d2001";
+const otherProjectId = "7a1f0f0e-8f4e-4c36-9a53-0b0b6a2f2a02";
 const secondDraftId = "6f1a3d62-3d2e-4b86-8a7c-0e6c2f0d2002";
 const revisionId = "6f1a3d62-3d2e-4b86-8a7c-0e6c2f0d3001";
 const secondRevisionId = "6f1a3d62-3d2e-4b86-8a7c-0e6c2f0d3002";
@@ -44,7 +49,7 @@ const slimeItems = [
 	},
 ];
 
-const productionEvidencePolicy = {
+const productionEvidencePolicy: ProductionEvidencePolicy = {
 	defaultRequirement: "legacy_asset_attestation_acceptable",
 	familyRequirements: [
 		{
@@ -53,7 +58,7 @@ const productionEvidencePolicy = {
 		},
 	],
 };
-const rightsEvidencePolicy = {
+const rightsEvidencePolicy: RightsEvidencePolicy = {
 	acceptableStates: ["documented", "assertion_only"],
 	requireRecordFor: ["references", "results"],
 };
@@ -104,7 +109,8 @@ function setup(options: { hasAccess?: boolean; session?: boolean } = {}) {
 		deliveryTargetStore: createDeliveryTargetStore({
 			canAccessProject: (_userId, requestedProjectId) =>
 				Promise.resolve(
-					(options.hasAccess ?? true) && requestedProjectId === projectId
+					(options.hasAccess ?? true) &&
+						[projectId, otherProjectId].includes(requestedProjectId)
 				),
 			now: () => new Date("2026-11-06T10:00:00.000Z"),
 			storage: memory.storage,
@@ -112,6 +118,7 @@ function setup(options: { hasAccess?: boolean; session?: boolean } = {}) {
 		session: options.session === false ? null : { user: { id: userId } },
 	} as unknown as Context;
 	return {
+		failNextRevisionInserts: memory.failNextRevisionInserts,
 		activate: (input: { draftId: string; id: string }) =>
 			call(
 				appRouter.deliveryPlanning.activate,
@@ -240,14 +247,110 @@ test("a later activation adds a revision and leaves the earlier one unchanged", 
 	expect(first.contextRevisionId).toBe("context-1");
 });
 
-test("saving the same draft id again returns the stored draft", async () => {
+test("saving the same draft id again with the same content returns the stored draft", async () => {
 	const { list, saveDraft } = setup();
 	const first = await saveDraft();
 
-	const second = await saveDraft({ name: "Renamed" });
+	const second = await saveDraft({
+		rightsEvidencePolicy: {
+			acceptableStates: ["assertion_only", "documented"],
+			requireRecordFor: ["results", "references"],
+		},
+	});
 
 	expect(second).toEqual(first);
 	expect((await list()).deliveryTargets[0]?.drafts).toHaveLength(1);
+});
+
+test("saving an existing draft id with different content is a conflict and keeps the stored draft", async () => {
+	const { list, saveDraft } = setup();
+	const first = await saveDraft();
+
+	await expect(saveDraft({ name: "Renamed" })).rejects.toMatchObject({
+		code: "CONFLICT",
+	});
+	await expect(
+		saveDraft({ contextRevisionId: "context-2" })
+	).rejects.toMatchObject({ code: "CONFLICT" });
+	await expect(
+		saveDraft({
+			rightsEvidencePolicy: {
+				acceptableStates: ["documented"],
+				requireRecordFor: [],
+			},
+		})
+	).rejects.toMatchObject({ code: "CONFLICT" });
+
+	expect((await list()).deliveryTargets[0]?.drafts).toEqual([first]);
+});
+
+test("a target id already used by another project is a clean rejection", async () => {
+	const { list, saveDraft } = setup();
+	await saveDraft();
+
+	await expect(
+		saveDraft({ id: secondDraftId, projectId: otherProjectId })
+	).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+	expect((await list()).deliveryTargets[0]?.drafts).toHaveLength(1);
+});
+
+test("an activation that keeps losing the revision number race is a conflict", async () => {
+	const { activate, failNextRevisionInserts, list, saveDraft } = setup();
+	await saveDraft();
+	failNextRevisionInserts(10);
+
+	await expect(activate({ draftId, id: revisionId })).rejects.toMatchObject({
+		code: "CONFLICT",
+	});
+	expect((await list()).deliveryTargets[0]?.revisions).toEqual([]);
+});
+
+test("an activation retries after losing the revision number race", async () => {
+	const { activate, failNextRevisionInserts, saveDraft } = setup();
+	await saveDraft();
+	failNextRevisionInserts(2);
+
+	const revision = await activate({ draftId, id: revisionId });
+
+	expect(revision.revisionNumber).toBe(1);
+});
+
+test("reordering set-like policy entries is not a policy change", async () => {
+	const { activate, saveDraft } = setup();
+	const requirements = [
+		{
+			assetFamilyId: knightFamily,
+			requirement: "full_generation_package_history",
+		},
+		{ assetFamilyId: slimeFamily, requirement: "advisory" },
+	];
+	await saveDraft({
+		productionEvidencePolicy: {
+			defaultRequirement: "advisory",
+			familyRequirements: requirements,
+		},
+	});
+	await activate({ draftId, id: revisionId });
+	await saveDraft({
+		id: secondDraftId,
+		productionEvidencePolicy: {
+			defaultRequirement: "advisory",
+			familyRequirements: [...requirements].reverse(),
+		},
+		rightsEvidencePolicy: {
+			acceptableStates: ["assertion_only", "documented"],
+			requireRecordFor: ["results", "references"],
+		},
+	});
+
+	const second = await activate({
+		draftId: secondDraftId,
+		id: secondRevisionId,
+	});
+
+	expect(second.scopeDiff?.productionEvidencePolicyChanged).toBe(false);
+	expect(second.scopeDiff?.rightsEvidencePolicyChanged).toBe(false);
 });
 
 test("a draft with an unknown or mismatched pin is rejected and stores nothing", async () => {
@@ -336,7 +439,7 @@ test("moving to a new base adds a revision with a scope diff and leaves the earl
 	await saveDraft();
 	const first = await activate({ draftId, id: revisionId });
 	const firstSnapshot = JSON.stringify(first);
-	const newRights = {
+	const newRights: RightsEvidencePolicy = {
 		acceptableStates: ["documented"],
 		requireRecordFor: ["results"],
 	};

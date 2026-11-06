@@ -1,6 +1,9 @@
 import {
+	type DeliveryTargetActivateResult,
 	type DeliveryTargetCatalog,
 	type DeliveryTargetDraft,
+	type DeliveryTargetDraftSaveInput,
+	type DeliveryTargetDraftSaveResult,
 	type DeliveryTargetFamilyScope,
 	type DeliveryTargetRevision,
 	type DeliveryTargetScopeDiff,
@@ -16,6 +19,7 @@ import type {
 	DeliveryPlanningStorage,
 	PinnedFamily,
 	RequiredSetRevisionSnapshot,
+	StoredDeliveryTarget,
 	StoredDeliveryTargetDraft,
 	StoredDeliveryTargetRevision,
 } from "./delivery-planning-storage";
@@ -76,8 +80,47 @@ function describeScope(
 	};
 }
 
+/** Key- and element-order independent form; every array in an evidence policy is a set. */
+function canonicalPolicy(value: unknown): string {
+	if (Array.isArray(value)) {
+		return `[${value.map(canonicalPolicy).sort().join(",")}]`;
+	}
+	if (typeof value === "object" && value !== null) {
+		return `{${Object.entries(value)
+			.sort(([left], [right]) => left.localeCompare(right))
+			.map(([key, entry]) => `${JSON.stringify(key)}:${canonicalPolicy(entry)}`)
+			.join(",")}}`;
+	}
+	return JSON.stringify(value);
+}
+
 function samePolicy(left: unknown, right: unknown) {
-	return JSON.stringify(left) === JSON.stringify(right);
+	return canonicalPolicy(left) === canonicalPolicy(right);
+}
+
+function sameDraftContent(
+	stored: StoredDeliveryTargetDraft,
+	target: StoredDeliveryTarget | null,
+	input: DeliveryTargetDraftSaveInput
+) {
+	return (
+		target?.name === input.name &&
+		target.purpose === input.purpose &&
+		stored.deliveryTargetId === input.deliveryTargetId &&
+		stored.contextRevisionId === input.contextRevisionId &&
+		stored.families.length === input.families.length &&
+		stored.families.every(
+			(family, index) =>
+				family.assetFamilyId === input.families[index]?.assetFamilyId &&
+				family.requiredSetRevisionId ===
+					input.families[index]?.requiredSetRevisionId
+		) &&
+		samePolicy(
+			stored.productionEvidencePolicy,
+			input.productionEvidencePolicy
+		) &&
+		samePolicy(stored.rightsEvidencePolicy, input.rightsEvidencePolicy)
+	);
 }
 
 /** Compares a revision's base with the target's previous revision; both are immutable, so the diff is derived on read. */
@@ -232,6 +275,24 @@ export function createDeliveryTargetStore(
 		return toDraft(draft, revision?.id ?? null, snapshots);
 	}
 
+	/** The draft already stored under the input's id: the same content is an idempotent re-save, different content a conflict. */
+	async function resolveExistingDraft(
+		stored: StoredDeliveryTargetDraft,
+		input: DeliveryTargetDraftSaveInput
+	): Promise<DeliveryTargetDraftSaveResult> {
+		const target = await storage.findTarget(
+			input.projectId,
+			stored.deliveryTargetId
+		);
+		if (!sameDraftContent(stored, target, input)) {
+			return { reason: "draft_id_conflict", status: "rejected" };
+		}
+		return {
+			draft: await readDraft(input.projectId, stored),
+			status: "saved",
+		};
+	}
+
 	async function readRevision(
 		projectId: string,
 		revision: StoredDeliveryTargetRevision
@@ -262,18 +323,19 @@ export function createDeliveryTargetStore(
 			}
 			const activateOnce = async (
 				attemptsLeft: number
-			): Promise<DeliveryTargetRevision> => {
+			): Promise<DeliveryTargetActivateResult> => {
 				const existing = await storage.findRevisionForDraft(
 					input.projectId,
 					draft.id
 				);
 				if (existing) {
-					return readRevision(input.projectId, existing);
+					return {
+						revision: await readRevision(input.projectId, existing),
+						status: "activated",
+					};
 				}
 				if (attemptsLeft === 0) {
-					throw new Error(
-						"The Delivery Target revision number was taken repeatedly; try activating again."
-					);
+					return { status: "revision_number_conflict" };
 				}
 				const result = await storage.insertRevision({
 					activatedAt: now(),
@@ -288,7 +350,10 @@ export function createDeliveryTargetStore(
 					projectId: input.projectId,
 				});
 				return result.status === "inserted"
-					? readRevision(input.projectId, result.revision)
+					? {
+							revision: await readRevision(input.projectId, result.revision),
+							status: "activated",
+						}
 					: activateOnce(attemptsLeft - 1);
 			};
 			return activateOnce(maxRevisionAttempts);
@@ -353,10 +418,7 @@ export function createDeliveryTargetStore(
 			}
 			const existing = await storage.findDraft(input.projectId, input.id);
 			if (existing) {
-				return {
-					draft: await readDraft(input.projectId, existing),
-					status: "saved",
-				};
+				return resolveExistingDraft(existing, input);
 			}
 			const snapshots = await loadSnapshots(storage, input.projectId, [
 				{
@@ -408,16 +470,17 @@ export function createDeliveryTargetStore(
 				projectId: input.projectId,
 				rightsEvidencePolicy: input.rightsEvidencePolicy,
 			};
-			if (!(await storage.insertDraft(target, draft))) {
-				// A concurrent save of this same draft won; return what it stored.
+			const inserted = await storage.insertDraft(target, draft);
+			if (inserted === "target_in_other_project") {
+				return { reason: "delivery_target_unavailable", status: "rejected" };
+			}
+			if (inserted === "draft_exists") {
+				// A concurrent save of this same draft won; compare with what it stored.
 				const stored = await storage.findDraft(input.projectId, input.id);
 				if (!stored) {
 					throw new Error("The Delivery Target draft could not be saved.");
 				}
-				return {
-					draft: await readDraft(input.projectId, stored),
-					status: "saved",
-				};
+				return resolveExistingDraft(stored, input);
 			}
 			return {
 				draft: await readDraft(input.projectId, draft),
