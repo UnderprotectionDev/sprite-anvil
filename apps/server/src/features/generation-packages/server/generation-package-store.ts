@@ -3,6 +3,7 @@ import type {
 	GenerationPackageStore,
 } from "@sprite-anvil/api/generation-packages";
 import { generationPackageSchema } from "@sprite-anvil/api/generation-packages";
+import { recordContentDigest } from "@sprite-anvil/api/record-content-digest";
 import type { Database } from "@sprite-anvil/db";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
 import { generationPackages } from "@sprite-anvil/db/schema/generation-packages";
@@ -48,6 +49,64 @@ async function getOwnedAssetRecord(
 	return record ?? null;
 }
 
+function withdrawAndFail(db: Database, id: string, message: string) {
+	return db
+		.delete(generationPackages)
+		.where(eq(generationPackages.id, id))
+		.then(() => {
+			throw new Error(message);
+		});
+}
+
+/**
+ * Re-reads the published package and checks its content digest and relations
+ * against what was submitted. A mismatch withdraws the package and fails, so
+ * an unexplained difference is never shown as a successful publish.
+ */
+async function verifyPublishedPackage(
+	db: Database,
+	input: { assetRecordId: string; projectId: string; snapshot: unknown },
+	id: string
+) {
+	const [persisted] = await db
+		.select()
+		.from(generationPackages)
+		.where(
+			and(
+				eq(generationPackages.projectId, input.projectId),
+				eq(generationPackages.id, id)
+			)
+		)
+		.limit(1);
+	if (!persisted) {
+		throw new Error(
+			"The published Generation Package could not be re-read from the persisted record."
+		);
+	}
+	if (
+		persisted.projectId !== input.projectId ||
+		persisted.assetRecordId !== input.assetRecordId
+	) {
+		return withdrawAndFail(
+			db,
+			id,
+			"Generation Package relation check failed: the persisted record points at another project or Asset Record."
+		);
+	}
+	const [submitted, stored] = await Promise.all([
+		recordContentDigest(input.snapshot),
+		recordContentDigest(persisted.snapshot),
+	]);
+	if (submitted !== stored) {
+		return withdrawAndFail(
+			db,
+			id,
+			"Generation Package content digest check failed: the persisted snapshot differs from the submitted one."
+		);
+	}
+	return mapGenerationPackage(persisted);
+}
+
 export function createGenerationPackageStore(
 	db: Database
 ): GenerationPackageStore {
@@ -63,7 +122,17 @@ export function createGenerationPackageStore(
 				return null;
 			}
 
-			const [row] = await db
+			// The snapshot must describe the Asset Record it is published against.
+			if (
+				input.snapshot.assetRecord.id !== input.assetRecordId ||
+				input.snapshot.assetRecord.projectId !== input.projectId
+			) {
+				throw new Error(
+					"Generation Package relation check failed: the snapshot describes another Asset Record."
+				);
+			}
+
+			const [written] = await db
 				.insert(generationPackages)
 				.values({
 					projectId: input.projectId,
@@ -72,7 +141,10 @@ export function createGenerationPackageStore(
 					snapshot: { ...input.snapshot },
 				})
 				.returning();
-			return row ? mapGenerationPackage(row) : null;
+			if (!written) {
+				return null;
+			}
+			return verifyPublishedPackage(db, input, written.id);
 		},
 		async list(userId, projectId, assetRecordId) {
 			const record = await getOwnedAssetRecord(
