@@ -26,6 +26,7 @@ import {
 	providerGenerationRecordCreateInputSchema,
 	providerGenerationRecordSchema,
 } from "../provider-generation-records";
+import { withPublicationErrors } from "../record-publication";
 
 async function readVersionCatalog(context: Context, projectId: string) {
 	const userId = context.session?.user.id ?? "";
@@ -217,16 +218,20 @@ export const assetVersionsRouter = {
 					message: "Birleşik Sürüm bulunamadı.",
 				});
 			}
-			if (compositeVersion.reviewDisposition === input.decision) {
+			if (
+				!input.idempotencyKey &&
+				compositeVersion.reviewDisposition === input.decision
+			) {
 				throw new ORPCError("BAD_REQUEST", {
 					message: "Birleşik Sürümün güncel inceleme kararı zaten bu.",
 				});
 			}
-			const event =
-				await context.assetVersionStore.recordCompositeVersionReviewEvent(
+			const event = await withPublicationErrors(() =>
+				context.assetVersionStore.recordCompositeVersionReviewEvent(
 					context.session.user.id,
 					input
-				);
+				)
+			);
 			if (!event) {
 				throw new ORPCError("CONFLICT", {
 					message:
@@ -248,7 +253,11 @@ export const assetVersionsRouter = {
 					message: "Varlık Sürümü bulunamadı.",
 				});
 			}
-			if (version.reviewDisposition === input.decision) {
+			// A keyed repeat is a replay of an earlier request, not a new decision.
+			if (
+				!input.idempotencyKey &&
+				version.reviewDisposition === input.decision
+			) {
 				throw new ORPCError("BAD_REQUEST", {
 					message: "Varlık Sürümünün güncel inceleme kararı zaten bu.",
 				});
@@ -302,9 +311,11 @@ export const assetVersionsRouter = {
 						"Saklanan Varlık Sürümü bütünlük doğrulamasından geçmediği için onaylanamaz.",
 				});
 			}
-			const event = await context.assetVersionStore.recordReviewEvent(
-				context.session.user.id,
-				input
+			const event = await withPublicationErrors(() =>
+				context.assetVersionStore.recordReviewEvent(
+					context.session.user.id,
+					input
+				)
 			);
 			if (!event) {
 				throw new ORPCError("CONFLICT", {

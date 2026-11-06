@@ -4,6 +4,11 @@ import type {
 } from "@sprite-anvil/api/production-recipes";
 import { productionRecipeSchema } from "@sprite-anvil/api/production-recipes";
 import { recordContentDigest } from "@sprite-anvil/api/record-content-digest";
+import {
+	IdempotencyConflictError,
+	idempotentRecordId,
+	RecordIntegrityError,
+} from "@sprite-anvil/api/record-publication";
 import type { Database } from "@sprite-anvil/db";
 import {
 	productionRecipes,
@@ -122,7 +127,7 @@ async function withdrawAndFail(
 			.where(eq(productionRecipeVersions.recipeId, recipeId)),
 		db.delete(productionRecipes).where(eq(productionRecipes.id, recipeId)),
 	]);
-	throw new Error(message);
+	throw new RecordIntegrityError(message);
 }
 
 /**
@@ -149,7 +154,7 @@ async function verifyPublishedRecipe(
 	);
 	const [recipe] = recipes;
 	if (!recipe) {
-		throw new Error(
+		throw new RecordIntegrityError(
 			"The published Production Recipe could not be re-read from the persisted record."
 		);
 	}
@@ -185,6 +190,47 @@ async function verifyPublishedRecipe(
 			recipeId,
 			"Production Recipe content digest check failed: the persisted content differs from the submitted one."
 		);
+	}
+	return mapRecipe(recipe, versions);
+}
+
+type RecipeCreateInput = Parameters<ProductionRecipeStore["create"]>[1];
+
+/** The recipe an earlier request with this key published, or a conflict when its content differs. */
+async function readReplay(
+	db: Database,
+	userId: string,
+	input: RecipeCreateInput,
+	recipeId: string
+) {
+	const { recipes, versions } = await readOwnedRecipeRows(
+		db,
+		userId,
+		input.projectId,
+		recipeId
+	);
+	const [recipe] = recipes;
+	if (!recipe) {
+		return null;
+	}
+	const own = versions.filter((version) => version.recipeId === recipeId);
+	const [submitted, stored] = await Promise.all([
+		recordContentDigest(input.content),
+		recordContentDigest(own[0]?.content ?? null),
+	]);
+	if (
+		recipe.createdByUserId !== userId ||
+		recipe.title !== input.title ||
+		(recipe.sourceAssetRecordId ?? null) !==
+			(input.source?.assetRecordId ?? null) ||
+		(recipe.sourceExperimentId ?? null) !==
+			(input.source?.experimentId ?? null) ||
+		(recipe.sourceGenerationPackageId ?? null) !==
+			(input.source?.generationPackageId ?? null) ||
+		(recipe.sourceTrialId ?? null) !== (input.source?.trialId ?? null) ||
+		submitted !== stored
+	) {
+		throw new IdempotencyConflictError("Production Recipe");
 	}
 	return mapRecipe(recipe, versions);
 }
@@ -241,27 +287,54 @@ export function createProductionRecipeStore(
 			if (!(await isOwnedProject(db, userId, input.projectId))) {
 				return null;
 			}
-			const recipeId = crypto.randomUUID();
-			await db.batch([
-				db.insert(productionRecipes).values({
-					createdByUserId: userId,
-					id: recipeId,
-					projectId: input.projectId,
-					sourceAssetRecordId: input.source?.assetRecordId ?? null,
-					sourceExperimentId: input.source?.experimentId ?? null,
-					sourceGenerationPackageId: input.source?.generationPackageId ?? null,
-					sourceTrialId: input.source?.trialId ?? null,
-					title: input.title,
-				}),
-				db.insert(productionRecipeVersions).values({
-					content: input.content,
-					createdByUserId: userId,
-					note: null,
-					projectId: input.projectId,
-					recipeId,
-					versionNumber: 1,
-				}),
-			]);
+			const publishRecipeRows = (newRecipeId: string) =>
+				db.batch([
+					db.insert(productionRecipes).values({
+						createdByUserId: userId,
+						id: newRecipeId,
+						projectId: input.projectId,
+						sourceAssetRecordId: input.source?.assetRecordId ?? null,
+						sourceExperimentId: input.source?.experimentId ?? null,
+						sourceGenerationPackageId:
+							input.source?.generationPackageId ?? null,
+						sourceTrialId: input.source?.trialId ?? null,
+						title: input.title,
+					}),
+					db.insert(productionRecipeVersions).values({
+						content: input.content,
+						createdByUserId: userId,
+						note: null,
+						projectId: input.projectId,
+						recipeId: newRecipeId,
+						versionNumber: 1,
+					}),
+				]);
+			// No column holds the key, so a keyed request derives the recipe id from
+			// it: the same key always addresses the same recipe.
+			const recipeId = input.idempotencyKey
+				? await idempotentRecordId(
+						["production-recipe", input.projectId],
+						input.idempotencyKey
+					)
+				: crypto.randomUUID();
+			if (input.idempotencyKey) {
+				const replayed = await readReplay(db, userId, input, recipeId);
+				if (replayed) {
+					return replayed;
+				}
+			}
+			try {
+				await publishRecipeRows(recipeId);
+			} catch (error) {
+				// A concurrent request with the same key won the insert.
+				const raced = input.idempotencyKey
+					? await readReplay(db, userId, input, recipeId)
+					: null;
+				if (raced) {
+					return raced;
+				}
+				throw error;
+			}
 			return verifyPublishedRecipe(db, userId, input, recipeId);
 		},
 		async get(userId, projectId, recipeId) {

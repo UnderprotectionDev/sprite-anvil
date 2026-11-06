@@ -4,6 +4,11 @@ import type {
 } from "@sprite-anvil/api/generation-packages";
 import { generationPackageSchema } from "@sprite-anvil/api/generation-packages";
 import { recordContentDigest } from "@sprite-anvil/api/record-content-digest";
+import {
+	IdempotencyConflictError,
+	idempotentRecordId,
+	RecordIntegrityError,
+} from "@sprite-anvil/api/record-publication";
 import type { Database } from "@sprite-anvil/db";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
 import { generationPackages } from "@sprite-anvil/db/schema/generation-packages";
@@ -49,12 +54,62 @@ async function getOwnedAssetRecord(
 	return record ?? null;
 }
 
+/**
+ * The part of a snapshot the requester supplied. Project context, canonical
+ * design and reference roles are read from the project when the package is
+ * built, so they may legitimately differ on a repeat and are not compared.
+ */
+async function requestDigest(snapshot: Record<string, unknown>) {
+	const {
+		assetRecord: _assetRecord,
+		canonicalDesign: _canonicalDesign,
+		productionContextSnapshot: _context,
+		referenceRoles: _roles,
+		...requested
+	} = snapshot;
+	return await recordContentDigest(requested);
+}
+
+/** The package an earlier request with this key published, or a conflict when its content differs. */
+async function readReplay(
+	db: Database,
+	userId: string,
+	input: { assetRecordId: string; projectId: string; snapshot: unknown },
+	id: string
+) {
+	const [existing] = await db
+		.select()
+		.from(generationPackages)
+		.where(
+			and(
+				eq(generationPackages.projectId, input.projectId),
+				eq(generationPackages.id, id)
+			)
+		)
+		.limit(1);
+	if (!existing) {
+		return null;
+	}
+	const [submitted, stored] = await Promise.all([
+		requestDigest(input.snapshot as Record<string, unknown>),
+		requestDigest(existing.snapshot),
+	]);
+	if (
+		existing.assetRecordId !== input.assetRecordId ||
+		existing.createdByUserId !== userId ||
+		submitted !== stored
+	) {
+		throw new IdempotencyConflictError("Generation Package");
+	}
+	return mapGenerationPackage(existing);
+}
+
 function withdrawAndFail(db: Database, id: string, message: string) {
 	return db
 		.delete(generationPackages)
 		.where(eq(generationPackages.id, id))
 		.then(() => {
-			throw new Error(message);
+			throw new RecordIntegrityError(message);
 		});
 }
 
@@ -79,7 +134,7 @@ async function verifyPublishedPackage(
 		)
 		.limit(1);
 	if (!persisted) {
-		throw new Error(
+		throw new RecordIntegrityError(
 			"The published Generation Package could not be re-read from the persisted record."
 		);
 	}
@@ -127,22 +182,40 @@ export function createGenerationPackageStore(
 				input.snapshot.assetRecord.id !== input.assetRecordId ||
 				input.snapshot.assetRecord.projectId !== input.projectId
 			) {
-				throw new Error(
+				throw new RecordIntegrityError(
 					"Generation Package relation check failed: the snapshot describes another Asset Record."
 				);
 			}
 
-			const [written] = await db
-				.insert(generationPackages)
-				.values({
-					projectId: input.projectId,
-					assetRecordId: input.assetRecordId,
-					createdByUserId: userId,
-					snapshot: { ...input.snapshot },
-				})
-				.returning();
+			// No column holds the key, so a keyed request derives the package id from
+			// it: the same key always addresses the same record.
+			const id = input.idempotencyKey
+				? await idempotentRecordId(
+						["generation-package", input.projectId],
+						input.idempotencyKey
+					)
+				: crypto.randomUUID();
+			if (input.idempotencyKey) {
+				const replayed = await readReplay(db, userId, input, id);
+				if (replayed) {
+					return replayed;
+				}
+			}
+
+			const insert = db.insert(generationPackages).values({
+				id,
+				projectId: input.projectId,
+				assetRecordId: input.assetRecordId,
+				createdByUserId: userId,
+				snapshot: { ...input.snapshot },
+			});
+			const [written] = await (input.idempotencyKey
+				? insert.onConflictDoNothing()
+				: insert
+			).returning();
 			if (!written) {
-				return null;
+				// A concurrent request with the same key won the insert.
+				return input.idempotencyKey ? readReplay(db, userId, input, id) : null;
 			}
 			return verifyPublishedPackage(db, input, written.id);
 		},
