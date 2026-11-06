@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "496f5a08-8530-415b-8e8c-ae9b5a8cd8e5",
+  "id": "54283e0b-6fb3-46d8-9560-93de11e40259",
   "prevIds": [
     "c4f53355-d1ef-4caa-898d-2318bb81ab24"
   ],
@@ -18173,7 +18173,7 @@
       "table": "offline_conflict_resolutions"
     },
     {
-      "value": "(\"choice\" = 'create-candidate') = (\"result_asset_version_id\" IS NOT NULL)",
+      "value": "\"choice\" = 'create-candidate' OR \"result_asset_version_id\" IS NULL",
       "name": "offline_conflict_resolutions_result_check",
       "entityType": "checks",
       "schema": "public",

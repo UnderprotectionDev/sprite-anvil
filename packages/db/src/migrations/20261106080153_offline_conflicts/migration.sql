@@ -22,7 +22,7 @@ CREATE TABLE "offline_conflict_resolutions" (
 	"result_asset_version_id" text,
 	"resolved_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "offline_conflict_resolutions_choice_check" CHECK ("choice" IN ('create-candidate', 'keep-cloud-retain-draft', 'abandon')),
-	CONSTRAINT "offline_conflict_resolutions_result_check" CHECK (("choice" = 'create-candidate') = ("result_asset_version_id" IS NOT NULL))
+	CONSTRAINT "offline_conflict_resolutions_result_check" CHECK ("choice" = 'create-candidate' OR "result_asset_version_id" IS NULL)
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX "offline_conflict_records_detection_idx" ON "offline_conflict_records" ("project_id","owner_user_id","draft_id","base_revision","cloud_revision","local_digest");--> statement-breakpoint
