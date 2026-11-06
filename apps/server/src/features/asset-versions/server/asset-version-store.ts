@@ -70,6 +70,10 @@ import {
 	readBatchReviewEvents,
 	recordBatchReviewEvents,
 } from "../../reviews/server/batch-review-events";
+import {
+	publishAssetVersionReviewEvent,
+	publishCompositeVersionReviewEvent,
+} from "./review-event-publication";
 
 const contentDigestPattern = /^[0-9a-f]{64}$/;
 
@@ -1310,7 +1314,10 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 				return null;
 			}
 			const [latestEvent] = await db
-				.select({ type: assetVersionReviewEvents.decision })
+				.select({
+					id: assetVersionReviewEvents.id,
+					type: assetVersionReviewEvents.decision,
+				})
 				.from(assetVersionReviewEvents)
 				.where(
 					and(
@@ -1333,19 +1340,15 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 				}
 			}
 
-			const [event] = await db
-				.insert(assetVersionReviewEvents)
-				.values({
-					id: crypto.randomUUID(),
-					projectId: version.projectId,
-					assetRecordId: version.assetRecordId,
-					versionId: version.id,
-					decision: input.decision,
-					rationale: input.rationale.trim(),
-					createdByUserId: userId,
-				})
-				.returning();
-			return event ? toReviewEvent(event) : null;
+			return publishAssetVersionReviewEvent(db, {
+				assetRecordId: version.assetRecordId,
+				decision: input.decision,
+				expectedLatestEventId: latestEvent?.id ?? null,
+				projectId: version.projectId,
+				rationale: input.rationale,
+				userId,
+				versionId: version.id,
+			});
 		},
 
 		async recordCompositeVersionReviewEvent(
@@ -1370,7 +1373,10 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 				return null;
 			}
 			const [latestEvent] = await db
-				.select({ type: compositeVersionReviewEvents.decision })
+				.select({
+					id: compositeVersionReviewEvents.id,
+					type: compositeVersionReviewEvents.decision,
+				})
 				.from(compositeVersionReviewEvents)
 				.where(
 					and(
@@ -1389,19 +1395,15 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 			if (latestEvent?.type === input.decision) {
 				return null;
 			}
-			const [event] = await db
-				.insert(compositeVersionReviewEvents)
-				.values({
-					id: crypto.randomUUID(),
-					projectId: compositeVersion.projectId,
-					assetRecordId: compositeVersion.assetRecordId,
-					compositeVersionId: compositeVersion.id,
-					decision: input.decision,
-					rationale: input.rationale.trim(),
-					createdByUserId: userId,
-				})
-				.returning();
-			return event ? toCompositeVersionReviewEvent(event) : null;
+			return publishCompositeVersionReviewEvent(db, {
+				assetRecordId: compositeVersion.assetRecordId,
+				compositeVersionId: compositeVersion.id,
+				decision: input.decision,
+				expectedLatestEventId: latestEvent?.id ?? null,
+				projectId: compositeVersion.projectId,
+				rationale: input.rationale,
+				userId,
+			});
 		},
 
 		async selectCanonicalDesign(

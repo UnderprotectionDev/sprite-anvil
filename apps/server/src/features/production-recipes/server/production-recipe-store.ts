@@ -3,6 +3,7 @@ import type {
 	ProductionRecipeStore,
 } from "@sprite-anvil/api/production-recipes";
 import { productionRecipeSchema } from "@sprite-anvil/api/production-recipes";
+import { recordContentDigest } from "@sprite-anvil/api/record-content-digest";
 import type { Database } from "@sprite-anvil/db";
 import {
 	productionRecipes,
@@ -60,7 +61,7 @@ async function isOwnedProject(db: Database, userId: string, projectId: string) {
 	return Boolean(owned);
 }
 
-async function readOwnedRecipes(
+async function readOwnedRecipeRows(
 	db: Database,
 	userId: string,
 	projectId: string,
@@ -80,7 +81,7 @@ async function readOwnedRecipes(
 		.where(and(...conditions))
 		.orderBy(desc(productionRecipes.createdAt), desc(productionRecipes.id));
 	if (rows.length === 0) {
-		return [];
+		return { recipes: [], versions: [] };
 	}
 	const versions = await db
 		.select()
@@ -92,7 +93,100 @@ async function readOwnedRecipes(
 			)
 		)
 		.orderBy(asc(productionRecipeVersions.versionNumber));
-	return rows.map((row) => mapRecipe(row.recipe, versions));
+	return { recipes: rows.map((row) => row.recipe), versions };
+}
+
+async function readOwnedRecipes(
+	db: Database,
+	userId: string,
+	projectId: string,
+	recipeId?: string
+) {
+	const { recipes, versions } = await readOwnedRecipeRows(
+		db,
+		userId,
+		projectId,
+		recipeId
+	);
+	return recipes.map((recipe) => mapRecipe(recipe, versions));
+}
+
+async function withdrawAndFail(
+	db: Database,
+	recipeId: string,
+	message: string
+): Promise<never> {
+	await db.batch([
+		db
+			.delete(productionRecipeVersions)
+			.where(eq(productionRecipeVersions.recipeId, recipeId)),
+		db.delete(productionRecipes).where(eq(productionRecipes.id, recipeId)),
+	]);
+	throw new Error(message);
+}
+
+/**
+ * Re-reads the published recipe and checks its relations and the first
+ * version's content digest against what was submitted. A half-done or
+ * mismatched record is withdrawn and fails instead of showing as success.
+ */
+async function verifyPublishedRecipe(
+	db: Database,
+	userId: string,
+	input: {
+		content: unknown;
+		projectId: string;
+		source: ProductionRecipe["source"];
+		title: string;
+	},
+	recipeId: string
+) {
+	const { recipes, versions } = await readOwnedRecipeRows(
+		db,
+		userId,
+		input.projectId,
+		recipeId
+	);
+	const [recipe] = recipes;
+	if (!recipe) {
+		throw new Error(
+			"The published Production Recipe could not be re-read from the persisted record."
+		);
+	}
+	const own = versions.filter((version) => version.recipeId === recipeId);
+	const [first] = own;
+	if (
+		own.length !== 1 ||
+		first?.versionNumber !== 1 ||
+		first.projectId !== input.projectId ||
+		recipe.projectId !== input.projectId ||
+		recipe.title !== input.title ||
+		(recipe.sourceAssetRecordId ?? null) !==
+			(input.source?.assetRecordId ?? null) ||
+		(recipe.sourceExperimentId ?? null) !==
+			(input.source?.experimentId ?? null) ||
+		(recipe.sourceGenerationPackageId ?? null) !==
+			(input.source?.generationPackageId ?? null) ||
+		(recipe.sourceTrialId ?? null) !== (input.source?.trialId ?? null)
+	) {
+		return withdrawAndFail(
+			db,
+			recipeId,
+			"Production Recipe relation check failed: the persisted recipe is missing its first version or differs from the submitted source."
+		);
+	}
+	const [submitted, stored] = await Promise.all([
+		recordContentDigest(input.content),
+		recordContentDigest(first.content),
+	]);
+	if (submitted !== stored) {
+		return withdrawAndFail(
+			db,
+			recipeId,
+			"Production Recipe content digest check failed: the persisted content differs from the submitted one."
+		);
+	}
+	return mapRecipe(recipe, versions);
 }
 
 export function createProductionRecipeStore(
@@ -168,13 +262,7 @@ export function createProductionRecipeStore(
 					versionNumber: 1,
 				}),
 			]);
-			const [created] = await readOwnedRecipes(
-				db,
-				userId,
-				input.projectId,
-				recipeId
-			);
-			return created ?? null;
+			return verifyPublishedRecipe(db, userId, input, recipeId);
 		},
 		async get(userId, projectId, recipeId) {
 			const [recipe] = await readOwnedRecipes(db, userId, projectId, recipeId);
