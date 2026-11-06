@@ -9,6 +9,7 @@ import {
 	assetVersionProductionSourceSchema,
 	providerGenerationRecordSchema,
 } from "./provider-generation-records";
+import { idempotencyKeySchema } from "./record-publication";
 
 const idSchema = z.string().trim().min(1).max(128);
 const pixelDimensionsSchema = z
@@ -182,6 +183,7 @@ export const assetVersionReviewInputSchema = z
 	.object({
 		projectId: idSchema,
 		assetVersionId: idSchema,
+		idempotencyKey: idempotencyKeySchema.optional(),
 		decision: assetVersionReviewDispositionSchema,
 		rationale: z.string().trim().min(1).max(2000),
 	})
@@ -274,6 +276,7 @@ export const compositeVersionReviewInputSchema = z
 	.object({
 		projectId: idSchema,
 		compositeVersionId: idSchema,
+		idempotencyKey: idempotencyKeySchema.optional(),
 		decision: assetVersionReviewDispositionSchema,
 		rationale: z.string().trim().min(1).max(2000),
 	})
@@ -401,6 +404,14 @@ export interface AssetVersionStore {
 		userId: string,
 		input: AssetVersionReviewInput
 	) => Promise<AssetVersionReviewEvent | AssetVersionApprovalBlocked | null>;
+	replayCompositeVersionReviewEvent: (
+		userId: string,
+		input: CompositeVersionReviewInput
+	) => Promise<CompositeVersionReviewEvent | null>;
+	replayReviewEvent: (
+		userId: string,
+		input: AssetVersionReviewInput
+	) => Promise<AssetVersionReviewEvent | null>;
 	saveManualImportEvidence: (
 		userId: string,
 		input: ManualImportEvidenceInput

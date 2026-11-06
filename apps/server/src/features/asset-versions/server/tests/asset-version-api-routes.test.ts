@@ -95,6 +95,8 @@ function createRouteHarness(
 			readReviewBlockers: async () => [],
 			readBatchReviewEvents: async () => null,
 			recordBatchReviewEvents: async () => null,
+			replayReviewEvent: async () => null,
+			replayCompositeVersionReviewEvent: async () => null,
 			createCompositeVersion: () => Promise.resolve(null),
 			saveManualImportEvidence: () => Promise.resolve({ kind: "not-found" }),
 			createCandidateVersion(_requestedUserId, input) {

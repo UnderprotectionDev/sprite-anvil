@@ -26,6 +26,7 @@ import {
 	providerGenerationRecordCreateInputSchema,
 	providerGenerationRecordSchema,
 } from "../provider-generation-records";
+import { withPublicationErrors } from "../record-publication";
 
 async function readVersionCatalog(context: Context, projectId: string) {
 	const userId = context.session?.user.id ?? "";
@@ -208,6 +209,19 @@ export const assetVersionsRouter = {
 		.input(compositeVersionReviewInputSchema)
 		.output(compositeVersionReviewEventSchema)
 		.handler(async ({ context, input }) => {
+			// A keyed repeat returns the first result before any state-based check
+			// can turn it into a failure.
+			const replayed = input.idempotencyKey
+				? await withPublicationErrors(() =>
+						context.assetVersionStore.replayCompositeVersionReviewEvent(
+							context.session.user.id,
+							input
+						)
+					)
+				: null;
+			if (replayed) {
+				return compositeVersionReviewEventSchema.parse(replayed);
+			}
 			const catalog = await readVersionCatalog(context, input.projectId);
 			const compositeVersion = catalog.compositeVersions.find(
 				(item) => item.id === input.compositeVersionId
@@ -222,11 +236,12 @@ export const assetVersionsRouter = {
 					message: "Birleşik Sürümün güncel inceleme kararı zaten bu.",
 				});
 			}
-			const event =
-				await context.assetVersionStore.recordCompositeVersionReviewEvent(
+			const event = await withPublicationErrors(() =>
+				context.assetVersionStore.recordCompositeVersionReviewEvent(
 					context.session.user.id,
 					input
-				);
+				)
+			);
 			if (!event) {
 				throw new ORPCError("CONFLICT", {
 					message:
@@ -239,6 +254,17 @@ export const assetVersionsRouter = {
 		.input(assetVersionReviewInputSchema)
 		.output(assetVersionReviewEventSchema)
 		.handler(async ({ context, input }) => {
+			const replayed = input.idempotencyKey
+				? await withPublicationErrors(() =>
+						context.assetVersionStore.replayReviewEvent(
+							context.session.user.id,
+							input
+						)
+					)
+				: null;
+			if (replayed) {
+				return assetVersionReviewEventSchema.parse(replayed);
+			}
 			const catalog = await readVersionCatalog(context, input.projectId);
 			const version = catalog.assetVersions.find(
 				(item) => item.id === input.assetVersionId
@@ -302,9 +328,11 @@ export const assetVersionsRouter = {
 						"Saklanan Varlık Sürümü bütünlük doğrulamasından geçmediği için onaylanamaz.",
 				});
 			}
-			const event = await context.assetVersionStore.recordReviewEvent(
-				context.session.user.id,
-				input
+			const event = await withPublicationErrors(() =>
+				context.assetVersionStore.recordReviewEvent(
+					context.session.user.id,
+					input
+				)
 			);
 			if (!event) {
 				throw new ORPCError("CONFLICT", {

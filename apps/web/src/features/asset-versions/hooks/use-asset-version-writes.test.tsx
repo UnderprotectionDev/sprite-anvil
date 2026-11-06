@@ -339,3 +339,31 @@ test("submits the user-entered record to the provider-generation API", async () 
 	);
 	expect(refreshCatalogs).toHaveBeenCalledOnce();
 });
+
+test("sends one idempotency key per review decision, reuses it on retry and starts fresh after success", async () => {
+	reviewMock.mockReset();
+	reviewMock
+		.mockRejectedValueOnce(Object.assign(new Error("offline"), { status: 503 }))
+		.mockResolvedValue({});
+	const refreshCatalogs = vi.fn().mockResolvedValue({ isError: false });
+	const { result } = renderHook(
+		() => useAssetVersionWrites(projectId, refreshCatalogs),
+		{ wrapper }
+	);
+	await act(async () => {
+		await result.current.review(assetVersionId, "rejected", "Needs work.");
+	});
+	await act(async () => {
+		await result.current.checkWriteOutcome();
+	});
+	await act(async () => {
+		await result.current.review(assetVersionId, "rejected", "Needs work.");
+	});
+	await act(async () => {
+		await result.current.review(assetVersionId, "candidate", "Try again.");
+	});
+	const keys = reviewMock.mock.calls.map(([input]) => input.idempotencyKey);
+	expect(keys[0]).toBeTruthy();
+	expect(keys[1]).toBe(keys[0]);
+	expect(keys[2]).not.toBe(keys[0]);
+});

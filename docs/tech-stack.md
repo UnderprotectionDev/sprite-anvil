@@ -61,6 +61,7 @@ Each responsibility is built with its technology, not with the substitute beside
 - Neon PostgreSQL
 - Drizzle ORM
 - Drizzle Kit
+  - Exception (pending user approval, not yet approved): the guarded Review Event insert (`apps/server/src/features/asset-versions/server/review-event-publication.ts`) is a raw SQL `INSERT ... SELECT ... WHERE` sent through the Neon client in one Serializable transaction that also verifies the written row. Drizzle's `insert().select()` needs a `FROM` source and cannot express an insert of literal values guarded by two latest-event subqueries, and the Neon HTTP driver only offers Serializable isolation through `$client.transaction`. All other queries use Drizzle.
 - Cloudflare Queues (background work)
 
 ## Authentication

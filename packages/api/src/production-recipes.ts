@@ -8,6 +8,7 @@ import type {
 	GenerationPackageCreateInput,
 } from "./generation-packages";
 import { generationPackageCreateInputSchema } from "./generation-packages";
+import { idempotencyKeySchema } from "./record-publication";
 import type { ReferenceTransferConstraintSet } from "./reference-production";
 import { analyzeReferenceTransferConstraints } from "./reference-production";
 
@@ -88,6 +89,7 @@ export const productionRecipeCreateInputSchema = z
 		// Omitted: the skeleton is derived from the selected trial's package.
 		content: productionRecipeContentSchema.optional(),
 		experimentId: idSchema,
+		idempotencyKey: idempotencyKeySchema.optional(),
 		projectId: idSchema,
 		title: titleSchema,
 		trialId: idSchema,
@@ -134,6 +136,7 @@ export const productionRecipeUseInputSchema = z
 /** Copies the latest version of a recipe into another project as version 1. */
 export const productionRecipeCopyInputSchema = z
 	.object({
+		idempotencyKey: idempotencyKeySchema.optional(),
 		recipeId: idSchema,
 		sourceProjectId: idSchema,
 		targetProjectId: idSchema,
@@ -169,6 +172,7 @@ export interface ProductionRecipeStore {
 		userId: string,
 		input: {
 			content: ProductionRecipeContent;
+			idempotencyKey?: string;
 			projectId: string;
 			source: ProductionRecipeSource | null;
 			title: string;

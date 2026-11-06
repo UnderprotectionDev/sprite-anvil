@@ -70,6 +70,12 @@ import {
 	readBatchReviewEvents,
 	recordBatchReviewEvents,
 } from "../../reviews/server/batch-review-events";
+import {
+	recordAssetVersionReviewEvent,
+	recordCompositeVersionReviewEvent,
+	replayAssetVersionReviewEvent,
+	replayCompositeVersionReviewEvent,
+} from "./review-event-publication";
 
 const contentDigestPattern = /^[0-9a-f]{64}$/;
 
@@ -825,6 +831,81 @@ async function insertCompositeVersion(
 	}
 }
 
+/** The Asset Version a member may review: in an owned project and filed in a family. */
+async function readReviewableVersion(
+	db: Database,
+	userId: string,
+	input: AssetVersionReviewInput
+) {
+	if (!(await getProjectForUser(db, userId, input.projectId))) {
+		return null;
+	}
+	const [version] = await db
+		.select()
+		.from(assetVersions)
+		.where(
+			and(
+				eq(assetVersions.projectId, input.projectId),
+				eq(assetVersions.id, input.assetVersionId)
+			)
+		)
+		.limit(1);
+	return version?.assetFamilyId ? version : null;
+}
+
+async function readReviewableCompositeVersion(
+	db: Database,
+	userId: string,
+	input: CompositeVersionReviewInput
+) {
+	if (!(await getProjectForUser(db, userId, input.projectId))) {
+		return null;
+	}
+	const [compositeVersion] = await db
+		.select()
+		.from(compositeVersions)
+		.where(
+			and(
+				eq(compositeVersions.projectId, input.projectId),
+				eq(compositeVersions.id, input.compositeVersionId)
+			)
+		)
+		.limit(1);
+	return compositeVersion ?? null;
+}
+
+function assetReviewRequest(
+	version: typeof assetVersions.$inferSelect,
+	userId: string,
+	input: AssetVersionReviewInput
+) {
+	return {
+		assetRecordId: version.assetRecordId,
+		decision: input.decision,
+		idempotencyKey: input.idempotencyKey,
+		projectId: version.projectId,
+		rationale: input.rationale,
+		userId,
+		versionId: version.id,
+	};
+}
+
+function compositeReviewRequest(
+	compositeVersion: typeof compositeVersions.$inferSelect,
+	userId: string,
+	input: CompositeVersionReviewInput
+) {
+	return {
+		assetRecordId: compositeVersion.assetRecordId,
+		compositeVersionId: compositeVersion.id,
+		decision: input.decision,
+		idempotencyKey: input.idempotencyKey,
+		projectId: compositeVersion.projectId,
+		rationale: input.rationale,
+		userId,
+	};
+}
+
 export function createAssetVersionStore(db: Database): AssetVersionStore {
 	return {
 		async list(userId, projectId) {
@@ -1290,118 +1371,61 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 			}
 			return recordBatchReviewEvents(db, userId, input);
 		},
+		async replayReviewEvent(userId, input: AssetVersionReviewInput) {
+			const version = await readReviewableVersion(db, userId, input);
+			return version
+				? replayAssetVersionReviewEvent(
+						db,
+						assetReviewRequest(version, userId, input)
+					)
+				: null;
+		},
 		async recordReviewEvent(userId, input: AssetVersionReviewInput) {
-			const ownedProject = await getProjectForUser(db, userId, input.projectId);
-			if (!ownedProject) {
+			const version = await readReviewableVersion(db, userId, input);
+			if (!version) {
 				return null;
 			}
-
-			const [version] = await db
-				.select()
-				.from(assetVersions)
-				.where(
-					and(
-						eq(assetVersions.projectId, input.projectId),
-						eq(assetVersions.id, input.assetVersionId)
-					)
-				)
-				.limit(1);
-			if (!version?.assetFamilyId) {
-				return null;
-			}
-			const [latestEvent] = await db
-				.select({ type: assetVersionReviewEvents.decision })
-				.from(assetVersionReviewEvents)
-				.where(
-					and(
-						eq(assetVersionReviewEvents.projectId, input.projectId),
-						eq(assetVersionReviewEvents.versionId, input.assetVersionId)
-					)
-				)
-				.orderBy(
-					desc(assetVersionReviewEvents.createdAt),
-					desc(assetVersionReviewEvents.id)
-				)
-				.limit(1);
-			if (latestEvent?.type === input.decision) {
-				return null;
-			}
-			if (input.decision === "approved") {
-				const approval = await checkReviewApproval(db, userId, version);
-				if (approval !== true) {
-					return approval;
-				}
-			}
-
-			const [event] = await db
-				.insert(assetVersionReviewEvents)
-				.values({
-					id: crypto.randomUUID(),
-					projectId: version.projectId,
-					assetRecordId: version.assetRecordId,
-					versionId: version.id,
-					decision: input.decision,
-					rationale: input.rationale.trim(),
-					createdByUserId: userId,
-				})
-				.returning();
-			return event ? toReviewEvent(event) : null;
+			return recordAssetVersionReviewEvent(
+				db,
+				assetReviewRequest(version, userId, input),
+				() =>
+					input.decision === "approved"
+						? checkReviewApproval(db, userId, version)
+						: Promise.resolve(true)
+			);
 		},
 
+		async replayCompositeVersionReviewEvent(
+			userId,
+			input: CompositeVersionReviewInput
+		) {
+			const compositeVersion = await readReviewableCompositeVersion(
+				db,
+				userId,
+				input
+			);
+			return compositeVersion
+				? replayCompositeVersionReviewEvent(
+						db,
+						compositeReviewRequest(compositeVersion, userId, input)
+					)
+				: null;
+		},
 		async recordCompositeVersionReviewEvent(
 			userId,
 			input: CompositeVersionReviewInput
 		) {
-			const ownedProject = await getProjectForUser(db, userId, input.projectId);
-			if (!ownedProject) {
-				return null;
-			}
-			const [compositeVersion] = await db
-				.select()
-				.from(compositeVersions)
-				.where(
-					and(
-						eq(compositeVersions.projectId, input.projectId),
-						eq(compositeVersions.id, input.compositeVersionId)
+			const compositeVersion = await readReviewableCompositeVersion(
+				db,
+				userId,
+				input
+			);
+			return compositeVersion
+				? recordCompositeVersionReviewEvent(
+						db,
+						compositeReviewRequest(compositeVersion, userId, input)
 					)
-				)
-				.limit(1);
-			if (!compositeVersion) {
-				return null;
-			}
-			const [latestEvent] = await db
-				.select({ type: compositeVersionReviewEvents.decision })
-				.from(compositeVersionReviewEvents)
-				.where(
-					and(
-						eq(compositeVersionReviewEvents.projectId, input.projectId),
-						eq(
-							compositeVersionReviewEvents.compositeVersionId,
-							input.compositeVersionId
-						)
-					)
-				)
-				.orderBy(
-					desc(compositeVersionReviewEvents.createdAt),
-					desc(compositeVersionReviewEvents.id)
-				)
-				.limit(1);
-			if (latestEvent?.type === input.decision) {
-				return null;
-			}
-			const [event] = await db
-				.insert(compositeVersionReviewEvents)
-				.values({
-					id: crypto.randomUUID(),
-					projectId: compositeVersion.projectId,
-					assetRecordId: compositeVersion.assetRecordId,
-					compositeVersionId: compositeVersion.id,
-					decision: input.decision,
-					rationale: input.rationale.trim(),
-					createdByUserId: userId,
-				})
-				.returning();
-			return event ? toCompositeVersionReviewEvent(event) : null;
+				: null;
 		},
 
 		async selectCanonicalDesign(

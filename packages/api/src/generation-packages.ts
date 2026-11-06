@@ -13,6 +13,7 @@ import { themeRecordSchema, visualWorldRecordSchema } from "./context-scopes";
 import { pixelRectSchema } from "./pixel-editor";
 import type { ProjectContext } from "./project-context";
 import { projectContextSchema } from "./project-context";
+import { idempotencyKeySchema } from "./record-publication";
 import type { ReferenceBoardImage } from "./reference-production";
 
 const idSchema = z.uuid();
@@ -207,6 +208,7 @@ export const generationPackageCreateInputSchema = z
 		changeConstraints: constraintListSchema,
 		correction: generationPackageCorrectionInputSchema.optional(),
 		expectedOutputStructure: z.string().trim().min(1).max(2000),
+		idempotencyKey: idempotencyKeySchema.optional(),
 		lockedUnitVersionIds: z
 			.array(idSchema)
 			.max(100)
@@ -238,6 +240,7 @@ export interface GenerationPackageStore {
 		userId: string,
 		input: {
 			assetRecordId: string;
+			idempotencyKey?: string;
 			projectId: string;
 			snapshot: GenerationPackageSnapshot;
 		}
