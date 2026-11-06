@@ -12,6 +12,7 @@ import type { BackgroundOperationStore } from "./background-operations";
 import type { BackgroundScrollingTestStore } from "./background-scrolling-tests";
 import type { CollectionStore } from "./collections";
 import type { ProjectContextScopeStore } from "./context-scopes";
+import type { DeliveryTargetStore } from "./delivery-planning-store";
 import type { DependencyRevalidationStore } from "./dependency-revalidation";
 import type { DirectionalReviewStore } from "./directional-reviews";
 import type { FamilyReadinessStore } from "./family-readiness";
@@ -75,6 +76,7 @@ export interface Context {
 	collectionStore: CollectionStore;
 	createSourceMetadataMappingProposal?: SourceMetadataMappingProposalCreator;
 	db: Database;
+	deliveryTargetStore?: DeliveryTargetStore;
 	dependencyRevalidationStore?: DependencyRevalidationStore;
 	directionalReviewStore?: DirectionalReviewStore;
 	familyReadinessStore?: FamilyReadinessStore;
