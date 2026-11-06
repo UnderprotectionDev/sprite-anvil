@@ -1,4 +1,7 @@
-import type { CancelRequestResult } from "@sprite-anvil/api/background-operations";
+import {
+	type CancelRequestResult,
+	canRequestCancel,
+} from "@sprite-anvil/api/background-operations";
 import type { OperationStorage } from "./operation-storage";
 
 /** Thrown by a checkpoint when the user asked to cancel and the executor may stop safely. */
@@ -28,25 +31,17 @@ export async function requestOperationCancel(
 		if (!current) {
 			return { outcome: "not_found" };
 		}
-		switch (current.status) {
-			case "completed":
-			case "failed":
-				return { operation: current, outcome: "finished" };
-			case "cancelled":
-			case "cancel_requested":
-				return { operation: current, outcome: "accepted" };
-			case "pending":
-				if (await storage.cancelPending(operationId, now)) {
-					return await accepted(storage, operationId);
-				}
-				break;
-			case "running":
-				if (await storage.requestCancelRunning(operationId, now)) {
-					return await accepted(storage, operationId);
-				}
-				break;
-			default:
-				break;
+		if (!canRequestCancel(current.status)) {
+			return current.status === "completed" || current.status === "failed"
+				? { operation: current, outcome: "finished" }
+				: { operation: current, outcome: "accepted" };
+		}
+		if (current.status === "pending") {
+			if (await storage.cancelPending(operationId, now)) {
+				return await accepted(storage, operationId);
+			}
+		} else if (await storage.requestCancelRunning(operationId, now)) {
+			return await accepted(storage, operationId);
 		}
 	}
 	throw new Error("The cancel request could not be recorded; try again.");

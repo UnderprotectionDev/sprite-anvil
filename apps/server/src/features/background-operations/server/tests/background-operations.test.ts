@@ -449,12 +449,18 @@ test("work past the irreversible boundary completes, stores the real result, and
 	expect(cancelOutcome({ ...record, cancelRequestedAt: null })).toBeNull();
 });
 
-test("a transient failure after a cancel request cancels instead of retrying", async () => {
+test("a transient failure after a cancel request is never a successful cancel: it retries, keeps the request visible, and ends Cancelled only at a checkpoint", async () => {
 	const hold = gate();
+	let attempt = 0;
 	const s = setup({
-		handler: async () => {
-			await hold.promise;
-			throw new TransientOperationError("Storage was busy.");
+		handler: async (context) => {
+			attempt += 1;
+			if (attempt === 1) {
+				await hold.promise;
+				throw new TransientOperationError("Storage was busy.");
+			}
+			await context.checkpoint();
+			return "done";
 		},
 	});
 	const { id } = await s.lifecycle.enqueue(request);
@@ -463,8 +469,35 @@ test("a transient failure after a cancel request cancels instead of retrying", a
 	await cancel(s, id);
 
 	hold.release();
-	expect(await delivery).toBe("cancelled");
+	expect(await delivery).toBe("retrying");
+	expect(await s.read(id)).toMatchObject({
+		cancelRequestedAt: startedAt.toISOString(),
+		status: "pending",
+	});
+
+	expect(await s.lifecycle.deliver(id)).toBe("cancelled");
 	expect(await s.read(id)).toMatchObject({ status: "cancelled" });
+});
+
+test("a cancel-requested operation whose attempts run out fails and never claims a cancel", async () => {
+	const hold = gate();
+	const s = setup({
+		handler: async () => {
+			await hold.promise;
+			throw new TransientOperationError("Storage was busy.");
+		},
+		maxAttempts: 1,
+	});
+	const { id } = await s.lifecycle.enqueue(request);
+	const delivery = s.lifecycle.deliver(id);
+	await flush();
+	await cancel(s, id);
+
+	hold.release();
+	expect(await delivery).toBe("failed");
+	const record = await s.read(id);
+	expect(record).toMatchObject({ status: "failed" });
+	expect(cancelOutcome(record)).toBe("failed_after_request");
 });
 
 test("cancelling a Completed or Failed operation is rejected with a descriptive error, and its result is untouched", async () => {
@@ -513,7 +546,7 @@ test("cancelling an unknown operation or one in another project is NOT_FOUND", a
 	expect(await s.read(id)).toMatchObject({ status: "pending" });
 });
 
-test("a stalled Cancel Requested operation is cancelled by reconciliation", async () => {
+test("a stalled Cancel Requested operation is retried, not cancelled, by reconciliation", async () => {
 	const s = setup({ handler: () => new Promise(() => undefined) });
 	const { id } = await s.lifecycle.enqueue(request);
 	void s.lifecycle.deliver(id);
@@ -521,6 +554,26 @@ test("a stalled Cancel Requested operation is cancelled by reconciliation", asyn
 	await cancel(s, id);
 
 	s.clock.now = new Date(startedAt.getTime() + 120_000);
-	await s.lifecycle.reconcile();
-	expect(await s.read(id)).toMatchObject({ status: "cancelled" });
+	expect(await s.lifecycle.reconcile()).toMatchObject({ requeued: 1 });
+	expect(await s.read(id)).toMatchObject({
+		cancelRequestedAt: startedAt.toISOString(),
+		status: "pending",
+	});
+});
+
+test("a stalled Cancel Requested operation out of attempts fails instead of cancelling", async () => {
+	const s = setup({
+		handler: () => new Promise(() => undefined),
+		maxAttempts: 1,
+	});
+	const { id } = await s.lifecycle.enqueue(request);
+	void s.lifecycle.deliver(id);
+	await flush();
+	await cancel(s, id);
+
+	s.clock.now = new Date(startedAt.getTime() + 120_000);
+	expect(await s.lifecycle.reconcile()).toMatchObject({ failed: 1 });
+	const record = await s.read(id);
+	expect(record).toMatchObject({ status: "failed" });
+	expect(cancelOutcome(record)).toBe("failed_after_request");
 });
