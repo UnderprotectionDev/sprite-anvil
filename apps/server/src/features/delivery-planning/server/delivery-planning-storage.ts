@@ -1,4 +1,8 @@
-import type { DeliveryTargetPurpose } from "@sprite-anvil/api/delivery-planning";
+import type {
+	DeliveryTargetPurpose,
+	ProductionEvidencePolicy,
+	RightsEvidencePolicy,
+} from "@sprite-anvil/api/delivery-planning";
 
 export interface PinnedFamily {
 	assetFamilyId: string;
@@ -19,7 +23,9 @@ export interface StoredDeliveryTargetDraft {
 	deliveryTargetId: string;
 	families: PinnedFamily[];
 	id: string;
+	productionEvidencePolicy: ProductionEvidencePolicy;
 	projectId: string;
+	rightsEvidencePolicy: RightsEvidencePolicy;
 }
 
 export interface StoredDeliveryTargetRevision {
@@ -30,8 +36,10 @@ export interface StoredDeliveryTargetRevision {
 	draftId: string;
 	families: PinnedFamily[];
 	id: string;
+	productionEvidencePolicy: ProductionEvidencePolicy;
 	projectId: string;
 	revisionNumber: number;
+	rightsEvidencePolicy: RightsEvidencePolicy;
 }
 
 export interface ContextRevisionSnapshot {

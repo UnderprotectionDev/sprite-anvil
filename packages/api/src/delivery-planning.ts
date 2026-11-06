@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { requiredSetItemSchema } from "./family-readiness";
+import { rightsRecordStateSchema } from "./rights-records";
 
 const idSchema = z.uuid();
 
@@ -19,6 +20,67 @@ export const deliveryTargetFamilyInputSchema = z
 	})
 	.strict();
 
+/** Where a target needs full Generation Package history, accepts a Legacy Asset Attestation, or treats missing history as advisory. */
+export const productionEvidenceRequirementSchema = z.enum([
+	"full_generation_package_history",
+	"legacy_asset_attestation_acceptable",
+	"advisory",
+]);
+export type ProductionEvidenceRequirement = z.infer<
+	typeof productionEvidenceRequirementSchema
+>;
+
+export const productionEvidencePolicySchema = z
+	.object({
+		/** Applies to every pinned family without its own requirement. */
+		defaultRequirement: productionEvidenceRequirementSchema,
+		familyRequirements: z
+			.array(
+				z
+					.object({
+						assetFamilyId: z.string().trim().min(1).max(128),
+						requirement: productionEvidenceRequirementSchema,
+					})
+					.strict()
+			)
+			.max(50)
+			.refine(
+				(requirements) =>
+					new Set(requirements.map((entry) => entry.assetFamilyId)).size ===
+					requirements.length,
+				"Bir Varlık Ailesi için yalnızca bir Üretim Kanıtı gereksinimi verilebilir."
+			),
+	})
+	.strict();
+export type ProductionEvidencePolicy = z.infer<
+	typeof productionEvidencePolicySchema
+>;
+
+export const rightsEvidenceSubjectSchema = z.enum(["references", "results"]);
+
+/** Which references and results need Rights Records, and which user-declared record states the target accepts. */
+export const rightsEvidencePolicySchema = z
+	.object({
+		acceptableStates: z
+			.array(rightsRecordStateSchema)
+			.min(
+				1,
+				"Hak Kanıtı Politikası en az bir kabul edilebilir durum içermelidir."
+			)
+			.refine(
+				(states) => new Set(states).size === states.length,
+				"Bir Hak Kaydı durumu yalnızca bir kez seçilebilir."
+			),
+		requireRecordFor: z
+			.array(rightsEvidenceSubjectSchema)
+			.refine(
+				(subjects) => new Set(subjects).size === subjects.length,
+				"Bir kapsam yalnızca bir kez seçilebilir."
+			),
+	})
+	.strict();
+export type RightsEvidencePolicy = z.infer<typeof rightsEvidencePolicySchema>;
+
 export const deliveryTargetDraftSaveInputSchema = z
 	.object({
 		contextRevisionId: z.string().trim().min(1).max(128),
@@ -36,8 +98,10 @@ export const deliveryTargetDraftSaveInputSchema = z
 		/** Doubles as the idempotency key: saving the same id again returns the stored draft. */
 		id: idSchema,
 		name: z.string().trim().min(1).max(120),
+		productionEvidencePolicy: productionEvidencePolicySchema,
 		projectId: idSchema,
 		purpose: deliveryTargetPurposeSchema,
+		rightsEvidencePolicy: rightsEvidencePolicySchema,
 	})
 	.strict();
 export type DeliveryTargetDraftSaveInput = z.infer<
@@ -79,7 +143,40 @@ const scopeFields = {
 	contextRevisionId: z.string(),
 	contextRevisionNumber: z.number().int().positive(),
 	families: z.array(deliveryTargetFamilyScopeSchema),
+	productionEvidencePolicy: productionEvidencePolicySchema,
+	rightsEvidencePolicy: rightsEvidencePolicySchema,
 };
+
+const revisionRefFields = {
+	fromRevisionId: z.string(),
+	fromRevisionNumber: z.number().int().positive(),
+	toRevisionId: z.string(),
+	toRevisionNumber: z.number().int().positive(),
+};
+
+const familyRefFields = {
+	assetFamilyId: z.string(),
+	assetFamilyName: z.string(),
+};
+
+/** What a revision's base changed against the target's previous revision. */
+export const deliveryTargetScopeDiffSchema = z
+	.object({
+		contextChange: z.object(revisionRefFields).strict().nullable(),
+		familiesAdded: z.array(z.object(familyRefFields).strict()),
+		familiesRemoved: z.array(z.object(familyRefFields).strict()),
+		previousRevisionId: idSchema,
+		previousRevisionNumber: z.number().int().positive(),
+		productionEvidencePolicyChanged: z.boolean(),
+		requiredSetChanges: z.array(
+			z.object({ ...familyRefFields, ...revisionRefFields }).strict()
+		),
+		rightsEvidencePolicyChanged: z.boolean(),
+	})
+	.strict();
+export type DeliveryTargetScopeDiff = z.infer<
+	typeof deliveryTargetScopeDiffSchema
+>;
 
 export const deliveryTargetDraftSchema = z
 	.object({
@@ -99,6 +196,8 @@ export const deliveryTargetRevisionSchema = z
 		draftId: idSchema,
 		id: idSchema,
 		revisionNumber: z.number().int().positive(),
+		/** Null for a target's first revision. */
+		scopeDiff: deliveryTargetScopeDiffSchema.nullable(),
 	})
 	.strict();
 export type DeliveryTargetRevision = z.infer<
@@ -125,6 +224,7 @@ export type DeliveryTargetCatalog = z.infer<typeof deliveryTargetCatalogSchema>;
 
 export type DeliveryTargetDraftSaveFailureReason =
 	| "context_revision_not_found"
+	| "policy_family_not_pinned"
 	| "required_set_revision_not_found";
 
 export type DeliveryTargetDraftSaveResult =

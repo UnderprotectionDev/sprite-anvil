@@ -69,7 +69,9 @@ function toDraft(
 		deliveryTargetId: row.deliveryTargetId,
 		families: families.get(row.id) ?? [],
 		id: row.id,
+		productionEvidencePolicy: row.productionEvidencePolicy,
 		projectId: row.projectId,
+		rightsEvidencePolicy: row.rightsEvidencePolicy,
 	};
 }
 
@@ -86,8 +88,10 @@ async function readRevisions(
 			deliveryTargetId: deliveryTargetRevisions.deliveryTargetId,
 			draftId: deliveryTargetRevisions.draftId,
 			id: deliveryTargetRevisions.id,
+			productionEvidencePolicy: deliveryTargetDrafts.productionEvidencePolicy,
 			projectId: deliveryTargetRevisions.projectId,
 			revisionNumber: deliveryTargetRevisions.revisionNumber,
+			rightsEvidencePolicy: deliveryTargetDrafts.rightsEvidencePolicy,
 		})
 		.from(deliveryTargetRevisions)
 		.innerJoin(
@@ -226,7 +230,9 @@ export function createDatabaseDeliveryPlanningStorage(
 						createdByUserId: draft.createdByUserId,
 						deliveryTargetId: draft.deliveryTargetId,
 						id: draft.id,
+						productionEvidencePolicy: draft.productionEvidencePolicy,
 						projectId: draft.projectId,
+						rightsEvidencePolicy: draft.rightsEvidencePolicy,
 					}),
 					db.insert(deliveryTargetDraftFamilies).values(
 						draft.families.map((family, position) => ({
