@@ -3,6 +3,7 @@ import type {
 	AssetVersionFileRecord,
 	AssetVersionStore,
 } from "@sprite-anvil/api/asset-versions";
+import type { OfflineConflictStore } from "@sprite-anvil/api/offline-conflict";
 import type {
 	PixelDraftRecord,
 	PixelDraftUpdateResult,
@@ -40,6 +41,7 @@ export interface DraftDependencies {
 	>;
 	createId?: () => string;
 	createStorage: () => TwoDVisualAssetStorage;
+	offlineConflictStore: OfflineConflictStore;
 	pixelEditorStore: PixelEditorStore;
 }
 

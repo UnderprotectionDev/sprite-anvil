@@ -251,6 +251,11 @@ export const pixelEditorErrors = [
 	"Working Draft has no frame structure",
 	"Frame structure has no changes",
 	"Frame structure commit failed",
+	"Invalid Offline Conflict request",
+	"Offline Conflict Record contract unsupported",
+	"Offline Conflict Record already resolved",
+	"Offline Conflict resolution key reused",
+	"Abandoning a local Working Draft needs confirmation",
 ] as const;
 
 export const pixelEditorErrorSchema = z

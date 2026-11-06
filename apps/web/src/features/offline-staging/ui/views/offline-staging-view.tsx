@@ -1,3 +1,4 @@
+import type { OfflineConflictChoice } from "@sprite-anvil/api/offline-conflict";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
@@ -13,10 +14,21 @@ import {
 } from "react";
 import { orpc } from "@/utils/orpc";
 import { useOnlineStatus } from "../../hooks/use-online-status";
+import {
+	finalizeStagedDraft,
+	reconcileStagedDraft,
+	resolveOfflineConflict,
+} from "../../lib/offline-conflict-api";
 import { uploadStagedFileToImportInbox } from "../../lib/offline-staging-api";
 import { getDefaultOfflineStagingStore } from "../../lib/offline-staging-store";
+import {
+	type ReconcileEntry,
+	reconcileStagedDrafts,
+} from "../../lib/reconcile-staged-drafts";
+import { createResolutionKeys } from "../../lib/resolution-keys";
 import { sendStagedFiles } from "../../lib/send-staged-files";
 import { cachedProjectNameSchema } from "../../schemas";
+import { OfflineConflictPanel } from "../components/offline-conflict-panel";
 
 const refusalText = {
 	"not-png": "Only PNG files can be staged.",
@@ -30,6 +42,10 @@ export function OfflineStagingView({ projectId }: { projectId: string }) {
 	const [message, setMessage] = useState<string | null>(null);
 	const [isSending, setIsSending] = useState(false);
 	const sending = useRef(false);
+	const [reconciled, setReconciled] = useState<ReconcileEntry[]>([]);
+	const [isChecking, setIsChecking] = useState(false);
+	const checking = useRef(false);
+	const resolutionKeys = useRef(createResolutionKeys());
 	const stagedKey = useMemo(() => ["offline-staging", projectId], [projectId]);
 
 	const projectQuery = useQuery({
@@ -96,6 +112,83 @@ export function OfflineStagingView({ projectId }: { projectId: string }) {
 		}
 		wasOnline.current = online;
 	}, [online, stagedFileCount, send]);
+
+	const stagedDraftCount = staged.data?.drafts.length ?? 0;
+	const checkDrafts = useCallback(async () => {
+		if (checking.current) {
+			return;
+		}
+		checking.current = true;
+		setIsChecking(true);
+		try {
+			const drafts = await store.listStagedDrafts(projectId);
+			setReconciled(
+				await reconcileStagedDrafts({
+					drafts,
+					reconcile: reconcileStagedDraft(projectId),
+				})
+			);
+		} finally {
+			checking.current = false;
+			setIsChecking(false);
+		}
+	}, [projectId, store]);
+
+	// Reconnecting compares every staged Working Draft with the cloud before anything is finalized.
+	const checkedOnline = useRef(online);
+	useEffect(() => {
+		if (online && !checkedOnline.current && stagedDraftCount > 0) {
+			checkDrafts().catch(() => undefined);
+		}
+		checkedOnline.current = online;
+	}, [online, stagedDraftCount, checkDrafts]);
+
+	async function resolveConflict(
+		conflict: { draftId: string; id: string },
+		choice: OfflineConflictChoice,
+		confirmation?: { confirmAbandon: true; shownLocalDigest: string }
+	) {
+		try {
+			const result = await resolveOfflineConflict(projectId, conflict.id, {
+				choice,
+				idempotencyKey: resolutionKeys.current.keyFor(conflict.id, choice),
+				...confirmation,
+			});
+			resolutionKeys.current.settle(conflict.id);
+			setReconciled((entries) =>
+				entries.map((entry) =>
+					entry.kind === "conflict" && entry.conflict.id === conflict.id
+						? { ...entry, conflict: result.conflict }
+						: entry
+				)
+			);
+			if (choice !== "keep-cloud-retain-draft") {
+				await store.removeStagedDraft(conflict.draftId);
+				await queryClient.invalidateQueries({ queryKey: stagedKey });
+			}
+			return null;
+		} catch (error) {
+			return error instanceof Error ? error.message : "The resolution failed.";
+		}
+	}
+
+	async function finalizeDraft(draftId: string, revision: number) {
+		try {
+			const result = await finalizeStagedDraft(projectId, draftId, revision);
+			await store.removeStagedDraft(draftId);
+			setReconciled((entries) =>
+				entries.filter((entry) => entry.draftId !== draftId)
+			);
+			setMessage(
+				`Candidate Version ${result.assetVersionId} was created from the staged Working Draft. Nothing is approved.`
+			);
+			await queryClient.invalidateQueries({ queryKey: stagedKey });
+		} catch (error) {
+			setMessage(
+				error instanceof Error ? error.message : "Finalizing the draft failed."
+			);
+		}
+	}
 
 	async function stageFile(event: ChangeEvent<HTMLInputElement>) {
 		const input = event.currentTarget;
@@ -248,7 +341,62 @@ export function OfflineStagingView({ projectId }: { projectId: string }) {
 						online.
 					</p>
 				)}
+				<Button
+					disabled={!online || isChecking || stagedDraftCount === 0}
+					onClick={() => checkDrafts()}
+					type="button"
+					variant="outline"
+				>
+					Check staged Working Drafts against the cloud
+				</Button>
 			</section>
+
+			{reconciled.length > 0 ? (
+				<section aria-labelledby="offline-reconcile" className="space-y-4">
+					<h2 className="font-medium text-lg" id="offline-reconcile">
+						Reconnect check
+					</h2>
+					{reconciled.map((entry) => {
+						if (entry.kind === "conflict") {
+							return (
+								<OfflineConflictPanel
+									conflict={entry.conflict}
+									key={entry.conflict.id}
+									onResolve={resolveConflict}
+									projectId={projectId}
+								/>
+							);
+						}
+						if (entry.kind === "base-current") {
+							return (
+								<div
+									className="flex flex-wrap items-center gap-3 rounded-md border p-3"
+									key={entry.draftId}
+								>
+									<p>
+										The cloud has not changed since revision{" "}
+										{entry.base.revision}: this Working Draft can be finalized
+										normally.
+									</p>
+									<Button
+										onClick={() =>
+											finalizeDraft(entry.draftId, entry.base.revision)
+										}
+										type="button"
+									>
+										Finalize as a Candidate Version
+									</Button>
+								</div>
+							);
+						}
+						return (
+							<p key={entry.draftId} role="alert">
+								Staged draft {entry.draftId} stays staged: {entry.message}
+							</p>
+						);
+					})}
+				</section>
+			) : null}
 		</main>
 	);
 }
