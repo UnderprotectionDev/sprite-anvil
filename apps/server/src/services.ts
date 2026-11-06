@@ -12,6 +12,8 @@ import { createAssetRecordStore } from "./features/asset-records/server/asset-re
 import { createAssetRecordTrackingStore } from "./features/asset-records/server/asset-record-tracking-store";
 import { createAssetVersionStore } from "./features/asset-versions/server/asset-version-store";
 import { createTestAssetVersionStorage } from "./features/asset-versions/server/test-asset-version-storage";
+import { createBackgroundOperationStore } from "./features/background-operations/server/background-operation-store";
+import { createDatabaseOperationStorage } from "./features/background-operations/server/database-operation-storage";
 import { createBackgroundLayerLayoutStore } from "./features/background-parallax-profile/server/background-layer-layout-store";
 import { createBackgroundScrollingTestStore } from "./features/background-parallax-profile/server/background-scrolling-test-store";
 import { createAnimationTimingReviewStore } from "./features/character-animation-profile/server/animation-timing-review-store";
@@ -87,6 +89,10 @@ export const familyReadinessStore = createFamilyReadinessStore(db);
 export const dependencyRevalidationStore =
 	createDependencyRevalidationStore(db);
 export const collectionStore = createCollectionStore(db);
+export const backgroundOperationStore = createBackgroundOperationStore(
+	db,
+	createDatabaseOperationStorage(db)
+);
 export const generationPackageStore = createGenerationPackageStore(db);
 export const productionExperimentStore = createProductionExperimentStore(db);
 export const productionRecipeStore = createProductionRecipeStore(db);

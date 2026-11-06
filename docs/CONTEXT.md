@@ -126,6 +126,7 @@ English terms are the canonical technical names used in code and contracts, and 
 | Gameplay Metadata | Oyun İçi Bilgiler |
 | Animation Metadata Package | Animasyon Metadata Paketi |
 | Deletion Job | Silme İşlemi |
+| Background Operation | Arka Plan İşlemi |
 | Support Reference | Destek Referansı |
 | Tool Access Permission | Dış Araç Erişim İzni |
 | External Tool Connection | Dış Araç Bağlantısı |
@@ -645,6 +646,10 @@ _Avoid_: Export Bundle, Directional Review record, asset archive
 **Deletion Job**:
 A trackable erasure operation authorized against an exact Erasure Impact Report. The report identifies managed copies, immutable archives or bundles that embed the content, affected historical fulfilments, excluded copies, and the published backup-retention deadline. An immutable container is erased as a whole or left unchanged; it is never silently rewritten to remove one item. A content-free deletion receipt records completion, and an Erasure Tombstone remains only when content-free lineage is preserved.
 _Avoid_: Instant unverifiable deletion, archive action
+
+**Background Operation**:
+The persistent, user-visible record of one archive, restore, export-coordination, verification, or permanent-deletion run that cannot finish safely within an interactive request. It carries its identity, kind, scope, trigger, status (Pending, Running, Completed, Failed, Cancel Requested, or Cancelled), attempt count, progress, and final result summary, and it stays authoritative whatever transport message delivers the work: a repeated delivery produces no second result, and a message never replaces the record. A Deletion Job is a Background Operation of the deletion kind.
+_Avoid_: Queue message, worker task, job id, operation ID
 
 **Support Reference**:
 A non-secret identifier shown for an unexpected server failure and recorded with its server-side diagnostic log. It helps correlate a user's report with that failure without exposing the exception or establishing whether a write committed. It is distinct from an operation identity.

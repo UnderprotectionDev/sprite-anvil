@@ -9,6 +9,7 @@ const projectLinks = [
 	{ to: "/projects/$projectId/scene-qa", label: "Sahne Kalite Kontrol Alanı" },
 	{ to: "/projects/$projectId/import-inbox", label: "İçe aktarma" },
 	{ to: "/projects/$projectId/offline-staging", label: "Offline staging" },
+	{ to: "/projects/$projectId/operations", label: "Background operations" },
 	{
 		to: "/projects/$projectId/profile-contracts",
 		label: "Özel profil sözleşmeleri",
