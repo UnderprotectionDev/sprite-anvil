@@ -1,6 +1,6 @@
 import type { DeliveryTargetDraft } from "@sprite-anvil/api/delivery-planning-outputs";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { errorCodeOf } from "@/utils/error-code";
 import { useActivateDeliveryTarget } from "../../hooks/use-delivery-target-writes";
 import { DeliveryTargetScope } from "./delivery-target-scope";
@@ -21,17 +21,17 @@ export function DeliveryDraftReview({
 	const activate = useActivateDeliveryTarget(projectId);
 	const [failure, setFailure] = useState<string | null>(null);
 	// Keeps a retry after an uncertain outcome idempotent for this draft.
-	const revisionId = useRef(crypto.randomUUID());
+	const [revisionId, setRevisionId] = useState(() => crypto.randomUUID());
 
 	const onActivate = () => {
 		setFailure(null);
 		activate.mutate(
-			{ draftId: draft.id, id: revisionId.current, projectId },
+			{ draftId: draft.id, id: revisionId, projectId },
 			{
 				onError: (error) => {
 					const code = errorCodeOf(error);
 					if (code) {
-						revisionId.current = crypto.randomUUID();
+						setRevisionId(crypto.randomUUID());
 					}
 					setFailure(
 						activationFailures[code ?? ""] ??
