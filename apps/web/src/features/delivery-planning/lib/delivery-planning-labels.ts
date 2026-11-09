@@ -40,14 +40,6 @@ export const itemKindLabels: Record<string, string> = {
 	variant: "Variant",
 };
 
-export function errorCodeOf(error: unknown): string | undefined {
-	if (typeof error !== "object" || error === null) {
-		return undefined;
-	}
-	const code = Reflect.get(error, "code");
-	return typeof code === "string" ? code : undefined;
-}
-
 export function errorMessageOf(error: unknown): string | undefined {
 	return error instanceof Error && error.message ? error.message : undefined;
 }

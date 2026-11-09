@@ -6,6 +6,14 @@ import {
 
 const readinessPlanUrl = /\/readiness-plan\?deliveryTargetId=/;
 const moveDownName = /^Move .* down$/;
+const familyListRevisionOne = /^Etkin Sürüm 1$/;
+const familyListRevisionTwo = /Sürüm 2/;
+const rationaleTerms = [
+	"Target requirement",
+	"Work opened",
+	"User priority",
+	"Revalidation impact",
+];
 
 test("activates a Delivery Target, re-versions it with evidence policies and opens its Readiness Plan", async ({
 	page,
@@ -24,6 +32,19 @@ test("activates a Delivery Target, re-versions it with evidence policies and ope
 	).toBeVisible();
 	await page.getByRole("button", { name: "New Delivery Target" }).click();
 	await page.getByLabel("Name", { exact: true }).fill(fixture.targetName);
+	// Purpose, the default requirement and the accepted Rights Record states start unchosen.
+	await expect(page.getByLabel("Purpose")).toHaveValue("");
+	await expect(
+		page.getByLabel("Default Production Evidence requirement")
+	).toHaveValue("");
+	await expect(
+		page.getByRole("checkbox", { name: "Documented" })
+	).not.toBeChecked();
+	await page.getByLabel("Purpose").selectOption({ label: "Demo" });
+	await page
+		.getByLabel("Default Production Evidence requirement")
+		.selectOption({ label: "Missing history is advisory" });
+	await page.getByRole("checkbox", { name: "Documented" }).check();
 	for (const family of fixture.families) {
 		// biome-ignore lint/performance/noAwaitInLoops: Checkbox interactions are order-independent but kept sequential for stable rendering.
 		await page.getByRole("checkbox", { name: family.familyName }).check();
@@ -88,7 +109,35 @@ test("activates a Delivery Target, re-versions it with evidence policies and ope
 	await expect(diff.getByText("Rights Evidence Policy changed")).toBeVisible();
 	await expect(diff.getByText("Context Revision unchanged")).toBeVisible();
 
+	// The reloaded catalog still carries revision 1 with the policy values it was activated with.
+	const catalogResponse = page.waitForResponse((response) =>
+		response.url().includes("/rpc/deliveryPlanning/list")
+	);
 	await page.reload();
+	const catalogBody = (await (await catalogResponse).json()) as {
+		json: {
+			deliveryTargets: {
+				revisions: {
+					productionEvidencePolicy: { defaultRequirement: string };
+					revisionNumber: number;
+					rightsEvidencePolicy: {
+						acceptableStates: string[];
+						requireRecordFor: string[];
+					};
+				}[];
+			}[];
+		};
+	};
+	const firstRevision = catalogBody.json.deliveryTargets[0]?.revisions.find(
+		(revision) => revision.revisionNumber === 1
+	);
+	expect(firstRevision?.productionEvidencePolicy.defaultRequirement).toBe(
+		"advisory"
+	);
+	expect(firstRevision?.rightsEvidencePolicy).toEqual({
+		acceptableStates: ["documented"],
+		requireRecordFor: [],
+	});
 	await expect(
 		page.getByRole("heading", { name: "Active revision 2" })
 	).toBeVisible();
@@ -105,6 +154,23 @@ test("activates a Delivery Target, re-versions it with evidence policies and ope
 		history.getByText("Revision 2,", { exact: false })
 	).toBeVisible();
 
+	// Activating a Delivery Target revision did not replace either family's Required Items List.
+	await page.getByRole("link", { name: "Varlık Aileleri" }).click();
+	for (const family of fixture.families) {
+		// biome-ignore lint/performance/noAwaitInLoops: Each family is selected and read in turn.
+		await page
+			.getByRole("button", { name: "Tamamlanma ve kanıtlar", exact: true })
+			.click();
+		await page
+			.getByLabel("İnceleme ve tamamlanma için aile")
+			.selectOption({ label: family.familyName });
+		await expect(
+			page.getByRole("heading", { name: familyListRevisionOne })
+		).toBeVisible();
+		await expect(page.getByText(familyListRevisionTwo)).toHaveCount(0);
+	}
+	await page.getByRole("link", { name: "Delivery Targets" }).click();
+
 	// The Readiness Plan explains what blocks the target; activation did not make it Ready.
 	await page.getByRole("link", { name: "Open Readiness Plan" }).click();
 	await expect(page).toHaveURL(readinessPlanUrl);
@@ -113,11 +179,25 @@ test("activates a Delivery Target, re-versions it with evidence policies and ope
 	).toBeVisible();
 	await expect(page.getByText("Target Readiness: Blocked")).toBeVisible();
 	await expect(page.getByText("Delivery Status: Not delivered")).toBeVisible();
+	await expect(
+		page
+			.getByRole("list", { name: "Blockers" })
+			.getByRole("list", { name: "Unmet evidence" })
+			.first()
+	).toBeVisible();
+	const firstStep = page
+		.getByRole("list", { name: "Dependent work" })
+		.getByRole("listitem")
+		.first();
+	for (const term of rationaleTerms) {
+		// biome-ignore lint/performance/noAwaitInLoops: Assertions read the same step in order.
+		await expect(firstStep.getByText(term, { exact: true })).toBeVisible();
+	}
 
 	// A user reorder persists across a reload.
 	const steps = page
 		.getByRole("list", { name: "Dependent work" })
-		.getByRole("heading", { level: 4 });
+		.getByRole("heading", { level: 3 });
 	await expect(steps.nth(1)).toBeVisible();
 	const before = await steps.allTextContents();
 	expect(before.length).toBeGreaterThanOrEqual(2);

@@ -2,12 +2,14 @@ import type { ReadinessPlan } from "@sprite-anvil/api/readiness-plans";
 import { Badge } from "@sprite-anvil/ui/components/badge";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useState } from "react";
+import { errorCodeOf } from "@/utils/error-code";
 import { useReorderReadinessPlan } from "../../hooks/use-reorder-readiness-plan";
 import {
 	blockerKindLabels,
-	errorCodeOf,
+	deliveryStatusLabels,
 	moveWorkId,
 	requirementKindLabels,
+	targetReadinessLabels,
 } from "../../lib/readiness-plan-labels";
 import { ReadinessWorkItemCard } from "./readiness-work-item";
 
@@ -102,12 +104,13 @@ export function ReadinessPlanPanel({
 				</h2>
 				<div className="flex flex-wrap items-center gap-2">
 					<p className="font-semibold text-lg">
-						Target Readiness:{" "}
-						{plan.targetReadiness === "ready" ? "Ready" : "Blocked"}
+						Target Readiness: {targetReadinessLabels[plan.targetReadiness]}
 					</p>
 					<Badge variant="outline">Revision {plan.revisionNumber}</Badge>
 				</div>
-				<p className="font-medium">Delivery Status: Not delivered</p>
+				<p className="font-medium">
+					Delivery Status: {deliveryStatusLabels[plan.deliveryStatus]}
+				</p>
 				<p className="text-muted-foreground text-sm">
 					Ready does not mean delivered. Delivery needs a Delivery Fulfilment,
 					which this plan never creates.

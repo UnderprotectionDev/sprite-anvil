@@ -5,7 +5,7 @@ import { openWorkspaceTask } from "./workspace-navigation";
 const checkboxIn = (label: string) =>
 	`//label[contains(normalize-space(.), '${label}')]//input[@type='checkbox']`;
 
-async function headings(level: "h4") {
+async function headings(level: "h3") {
 	const elements = await $$(`//ol[@aria-label='Dependent work']//${level}`);
 	return Promise.all(elements.map((element) => element.getText()));
 }
@@ -97,6 +97,12 @@ describe("Delivery Planning", () => {
 		// Review a draft spanning both families.
 		await (await $("button=New Delivery Target")).click();
 		await $("#delivery-target-name").setValue(fixture.targetName);
+		await expect(await $("#delivery-target-purpose").getValue()).toBe("");
+		await $("#delivery-target-purpose").selectByVisibleText("Demo");
+		await $("#delivery-target-default-production").selectByVisibleText(
+			"Missing history is advisory"
+		);
+		await (await $(checkboxIn("Documented"))).click();
 		for (const family of fixture.families) {
 			// biome-ignore lint/performance/noAwaitInLoops: Checkbox interactions stay sequential for stable rendering.
 			await (await $(checkboxIn(family.familyName))).click();
@@ -149,7 +155,20 @@ describe("Delivery Planning", () => {
 		});
 		await $("p=Delivery Status: Not delivered").waitForDisplayed();
 
-		const before = await headings("h4");
+		await $("ul[aria-label='Unmet evidence']").waitForDisplayed();
+		for (const term of [
+			"Target requirement",
+			"Work opened",
+			"User priority",
+			"Revalidation impact",
+		]) {
+			// biome-ignore lint/performance/noAwaitInLoops: Assertions read the same step in order.
+			await $(
+				`//ol[@aria-label='Dependent work']//dt[text()='${term}']`
+			).waitForDisplayed();
+		}
+
+		const before = await headings("h3");
 		await expect(before.length >= 2).toBe(true);
 		await (
 			await $(
@@ -158,7 +177,7 @@ describe("Delivery Planning", () => {
 		).click();
 		await browser.waitUntil(
 			async () => {
-				const after = await headings("h4");
+				const after = await headings("h3");
 				return after[0] === before[1] && after[1] === before[0];
 			},
 			{ timeout: 20_000, timeoutMsg: "The reordered plan was not shown." }
@@ -166,7 +185,7 @@ describe("Delivery Planning", () => {
 		await browser.refresh();
 		await browser.waitUntil(
 			async () => {
-				const after = await headings("h4");
+				const after = await headings("h3");
 				return after[0] === before[1] && after[1] === before[0];
 			},
 			{ timeout: 20_000, timeoutMsg: "The reorder did not persist." }

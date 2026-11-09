@@ -1,5 +1,6 @@
 import type {
 	ReadinessBlockerKind,
+	ReadinessPlan,
 	ReadinessWorkItem,
 } from "@sprite-anvil/api/readiness-plans";
 
@@ -11,6 +12,21 @@ export const blockerKindLabels: Record<ReadinessBlockerKind, string> = {
 		"Production Evidence Policy not evaluated",
 	required_item_incomplete: "Required item incomplete",
 	rights_evidence_policy_not_evaluated: "Rights Evidence Policy not evaluated",
+};
+
+export const targetReadinessLabels: Record<
+	ReadinessPlan["targetReadiness"],
+	string
+> = {
+	blocked: "Blocked",
+	ready: "Ready",
+};
+
+export const deliveryStatusLabels: Record<
+	ReadinessPlan["deliveryStatus"],
+	string
+> = {
+	not_delivered: "Not delivered",
 };
 
 export const requirementKindLabels = {
@@ -49,12 +65,4 @@ export function moveWorkId(
 	}
 	next.splice(target, 0, moved);
 	return next;
-}
-
-export function errorCodeOf(error: unknown): string | undefined {
-	if (typeof error !== "object" || error === null) {
-		return undefined;
-	}
-	const code = Reflect.get(error, "code");
-	return typeof code === "string" ? code : undefined;
 }

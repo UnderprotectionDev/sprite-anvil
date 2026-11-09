@@ -1,6 +1,6 @@
 import type { DeliveryTarget } from "@sprite-anvil/api/delivery-planning-outputs";
-import { Button } from "@sprite-anvil/ui/components/button";
 import { useQueries, useQuery } from "@tanstack/react-query";
+import { LoadErrorAlert } from "@/components/load-error-alert";
 import { orpc } from "@/utils/orpc";
 import type { FamilyListChoice } from "../../lib/delivery-target-form";
 import { DeliveryTargetDraftForm } from "../forms/delivery-target-draft-form";
@@ -35,21 +35,14 @@ function FamilyListsLoader({
 	}
 	if (lists.some((list) => list.isError)) {
 		return (
-			<div className="space-y-2" role="alert">
-				<p>The Required Items Lists could not be loaded.</p>
-				<Button
-					className="min-h-11"
-					onClick={() => {
-						for (const list of lists) {
-							void list.refetch();
-						}
-					}}
-					type="button"
-					variant="outline"
-				>
-					Retry
-				</Button>
-			</div>
+			<LoadErrorAlert
+				message="The Required Items Lists could not be loaded."
+				onRetry={() => {
+					for (const list of lists) {
+						void list.refetch();
+					}
+				}}
+			/>
 		);
 	}
 	const choices: FamilyListChoice[] = families.map((family, index) => ({
@@ -101,20 +94,13 @@ export function DeliveryTargetFormLoader({
 	}
 	if (project.isError || catalog.isError) {
 		return (
-			<div className="space-y-2" role="alert">
-				<p>The project scope could not be loaded.</p>
-				<Button
-					className="min-h-11"
-					onClick={() => {
-						void project.refetch();
-						void catalog.refetch();
-					}}
-					type="button"
-					variant="outline"
-				>
-					Retry
-				</Button>
-			</div>
+			<LoadErrorAlert
+				message="The project scope could not be loaded."
+				onRetry={() => {
+					void project.refetch();
+					void catalog.refetch();
+				}}
+			/>
 		);
 	}
 	const revision = project.data.find(

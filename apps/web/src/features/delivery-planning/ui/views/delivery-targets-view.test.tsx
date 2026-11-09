@@ -27,6 +27,10 @@ const revisionId = "77777777-7777-4777-8777-777777777771";
 
 const noTargetsText = "This project has no Delivery Targets yet.";
 const atLeastTwoText = /must cover at least two Asset Families/;
+const draftSavedHeading = /^Draft saved/;
+const choosePurposeText = /Choose a purpose\./;
+const chooseRequirementText =
+	/Choose a default Production Evidence requirement\./;
 const needsStateText = /needs at least one acceptable state/;
 const takenRepeatedlyText = /revision number was taken repeatedly/;
 const contextOneText = "Context Revision 1";
@@ -319,6 +323,15 @@ async function openNewTargetForm(user: ReturnType<typeof userEvent.setup>) {
 	);
 }
 
+async function choosePolicies(user: ReturnType<typeof userEvent.setup>) {
+	await user.selectOptions(screen.getByLabelText("Purpose"), "demo");
+	await user.selectOptions(
+		screen.getByLabelText("Default Production Evidence requirement"),
+		"advisory"
+	);
+	await user.click(screen.getByRole("checkbox", { name: "Documented" }));
+}
+
 async function pinBothFamilies(user: ReturnType<typeof userEvent.setup>) {
 	await user.click(await screen.findByRole("checkbox", { name: "Ash Knight" }));
 	await user.click(screen.getByRole("checkbox", { name: "Moss Slime" }));
@@ -337,6 +350,9 @@ test("a draft spanning two families is reviewed with its pinned scope and not ye
 	renderView();
 
 	const review = await screen.findByRole("region", { name: "Draft review" });
+	expect(
+		within(review).getByRole("heading", { level: 3, name: draftSavedHeading })
+	).toBeVisible();
 	expect(within(review).getByText(contextOneText)).toBeVisible();
 	expect(within(review).getByText("Ash Knight")).toBeVisible();
 	expect(within(review).getByText("Moss Slime")).toBeVisible();
@@ -419,6 +435,7 @@ test("the new-target form rejects fewer than two families without saving", async
 	await openNewTargetForm(user);
 	await user.type(await screen.findByLabelText("Name"), "Demo build");
 	await user.click(await screen.findByRole("checkbox", { name: "Ash Knight" }));
+	await choosePolicies(user);
 	await user.click(screen.getByRole("button", { name: "Save draft" }));
 
 	expect(await screen.findByText(atLeastTwoText)).toBeVisible();
@@ -432,10 +449,42 @@ test("the new-target form rejects an empty rights state selection", async () => 
 	await openNewTargetForm(user);
 	await user.type(await screen.findByLabelText("Name"), "Demo build");
 	await pinBothFamilies(user);
-	await user.click(screen.getByRole("checkbox", { name: "Documented" }));
+	await user.selectOptions(screen.getByLabelText("Purpose"), "demo");
+	await user.selectOptions(
+		screen.getByLabelText("Default Production Evidence requirement"),
+		"advisory"
+	);
 	await user.click(screen.getByRole("button", { name: "Save draft" }));
 
 	expect(await screen.findByText(needsStateText)).toBeVisible();
+	expect(fakeApi.saveDraft).not.toHaveBeenCalled();
+});
+
+test("a new target form starts with no purpose, requirement or Rights Record state chosen", async () => {
+	const user = userEvent.setup();
+	renderView();
+
+	await openNewTargetForm(user);
+
+	expect(await screen.findByLabelText("Purpose")).toHaveValue("");
+	expect(
+		screen.getByLabelText("Default Production Evidence requirement")
+	).toHaveValue("");
+	for (const state of [
+		"Assertion only",
+		"Documented",
+		"Restricted",
+		"Unknown",
+	]) {
+		expect(screen.getByRole("checkbox", { name: state })).not.toBeChecked();
+	}
+	await user.type(screen.getByLabelText("Name"), "Demo build");
+	await pinBothFamilies(user);
+	await user.click(screen.getByRole("button", { name: "Save draft" }));
+
+	expect(await screen.findByText(choosePurposeText)).toBeVisible();
+	expect(screen.getByText(chooseRequirementText)).toBeVisible();
+	expect(screen.getByText(needsStateText)).toBeVisible();
 	expect(fakeApi.saveDraft).not.toHaveBeenCalled();
 });
 
@@ -469,6 +518,8 @@ test("saving a draft sends the pinned scope and policies, then shows it for revi
 	await openNewTargetForm(user);
 	await user.type(await screen.findByLabelText("Name"), "Chapter 1 demo");
 	await pinBothFamilies(user);
+	await user.selectOptions(screen.getByLabelText("Purpose"), "demo");
+	await user.click(screen.getByRole("checkbox", { name: "Documented" }));
 	await user.selectOptions(
 		screen.getByLabelText("Required Items List revision for Ash Knight"),
 		knightListV2Id
@@ -529,6 +580,7 @@ test("a rejected draft keeps the form and explains the server reason", async () 
 	await openNewTargetForm(user);
 	await user.type(await screen.findByLabelText("Name"), "Demo");
 	await pinBothFamilies(user);
+	await choosePolicies(user);
 	await user.click(screen.getByRole("button", { name: "Save draft" }));
 
 	expect(await screen.findByRole("alert")).toHaveTextContent(

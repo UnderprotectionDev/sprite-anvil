@@ -40,15 +40,18 @@ export function ReadinessWorkItemCard({
 	onMove: (offset: -1 | 1) => void;
 	titleById: Map<string, string>;
 }) {
-	const { revalidationImpact, targetRequirement, unlocksDependentWork } =
-		item.rationales;
-	const { userPriority } = item.rationales;
+	const {
+		revalidationImpact,
+		targetRequirement,
+		unlocksDependentWork,
+		userPriority,
+	} = item.rationales;
 	return (
 		<li className="space-y-3 rounded-md border p-4">
 			<div className="flex flex-wrap items-start justify-between gap-3">
 				<div className="min-w-0 space-y-1">
 					<p className="text-muted-foreground text-xs">Step {item.position}</p>
-					<h4 className="break-words font-medium">{item.title}</h4>
+					<h3 className="break-words font-medium">{item.title}</h3>
 					{item.dependsOnWorkIds.length > 0 ? (
 						<p className="text-muted-foreground text-sm">
 							Waits for: {titlesOf(item.dependsOnWorkIds, titleById)}

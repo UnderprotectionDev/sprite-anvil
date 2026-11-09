@@ -1,8 +1,8 @@
 import type { DeliveryTargetDraft } from "@sprite-anvil/api/delivery-planning-outputs";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useRef, useState } from "react";
+import { errorCodeOf } from "@/utils/error-code";
 import { useActivateDeliveryTarget } from "../../hooks/use-delivery-target-writes";
-import { errorCodeOf } from "../../lib/delivery-planning-labels";
 import { DeliveryTargetScope } from "./delivery-target-scope";
 
 const activationFailures: Record<string, string> = {
@@ -47,9 +47,9 @@ export function DeliveryDraftReview({
 			aria-label="Draft review"
 			className="space-y-3 rounded-md border border-dashed p-4"
 		>
-			<h4 className="font-medium">
+			<h3 className="font-medium">
 				Draft saved {new Date(draft.createdAt).toLocaleString("en-US")}
-			</h4>
+			</h3>
 			<DeliveryTargetScope scope={draft} />
 			<p className="text-muted-foreground text-sm">
 				Target Readiness does not change until a revision is activated, and no

@@ -1,11 +1,11 @@
-import { Button } from "@sprite-anvil/ui/components/button";
 import {
 	NativeSelect,
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { useQuery } from "@tanstack/react-query";
+import { LoadErrorAlert } from "@/components/load-error-alert";
+import { errorCodeOf } from "@/utils/error-code";
 import { orpc } from "@/utils/orpc";
-import { errorCodeOf } from "../../lib/readiness-plan-labels";
 import { ReadinessPlanPanel } from "../components/readiness-plan-panel";
 
 function NoActiveRevision({ name }: { name: string }) {
@@ -45,21 +45,14 @@ function PlanSection({
 			return <NoActiveRevision name={name} />;
 		}
 		return (
-			<div className="space-y-2" role="alert">
-				<p>
-					{code === "NOT_FOUND"
+			<LoadErrorAlert
+				message={
+					code === "NOT_FOUND"
 						? "This Delivery Target was not found."
-						: "The Readiness Plan could not be loaded."}
-				</p>
-				<Button
-					className="min-h-11"
-					onClick={() => void query.refetch()}
-					type="button"
-					variant="outline"
-				>
-					Retry
-				</Button>
-			</div>
+						: "The Readiness Plan could not be loaded."
+				}
+				onRetry={() => void query.refetch()}
+			/>
 		);
 	}
 	return (
@@ -106,17 +99,10 @@ export function ReadinessPlanView({
 				</p>
 			) : null}
 			{catalog.isError ? (
-				<div className="space-y-2" role="alert">
-					<p>Delivery Targets could not be loaded.</p>
-					<Button
-						className="min-h-11"
-						onClick={() => void catalog.refetch()}
-						type="button"
-						variant="outline"
-					>
-						Retry
-					</Button>
-				</div>
+				<LoadErrorAlert
+					message="Delivery Targets could not be loaded."
+					onRetry={() => void catalog.refetch()}
+				/>
 			) : null}
 			{catalog.isSuccess && !selected ? (
 				<p className="text-muted-foreground">

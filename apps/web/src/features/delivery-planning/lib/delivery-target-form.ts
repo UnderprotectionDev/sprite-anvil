@@ -17,7 +17,7 @@ function defaultRevisionId(family: FamilyListChoice) {
 	);
 }
 
-/** Starts a new target with nothing pinned, or a re-version from the revision it moves on from. */
+/** Starts a new target with nothing pinned and no policy chosen, or a re-version from the revision it moves on from. */
 export function defaultFormValues(
 	families: FamilyListChoice[],
 	base: {
@@ -38,11 +38,10 @@ export function defaultFormValues(
 		)
 	);
 	return {
-		acceptableStates: base.revision?.rightsEvidencePolicy.acceptableStates ?? [
-			"documented",
-		],
+		acceptableStates:
+			base.revision?.rightsEvidencePolicy.acceptableStates ?? [],
 		defaultProductionRequirement:
-			base.revision?.productionEvidencePolicy.defaultRequirement ?? "advisory",
+			base.revision?.productionEvidencePolicy.defaultRequirement ?? "",
 		families: families.map((family) => ({
 			assetFamilyId: family.id,
 			assetFamilyName: family.name,
@@ -53,7 +52,7 @@ export function defaultFormValues(
 			selected: pinned.has(family.id),
 		})),
 		name: base.name,
-		purpose: (base.purpose || "demo") as DeliveryTargetFormValues["purpose"],
+		purpose: base.purpose as DeliveryTargetFormValues["purpose"],
 		requireRecordFor:
 			base.revision?.rightsEvidencePolicy.requireRecordFor ?? [],
 	};
@@ -69,6 +68,12 @@ export function toSaveInput(
 		projectId: string;
 	}
 ): DeliveryTargetDraftSaveInput {
+	const { defaultProductionRequirement, purpose } = values;
+	if (purpose === "" || defaultProductionRequirement === "") {
+		throw new Error(
+			"Choose a purpose and a default requirement before saving."
+		);
+	}
 	const pinned = values.families.filter((family) => family.selected);
 	return {
 		contextRevisionId: ids.contextRevisionId,
@@ -80,7 +85,7 @@ export function toSaveInput(
 		id: ids.draftId,
 		name: values.name.trim(),
 		productionEvidencePolicy: {
-			defaultRequirement: values.defaultProductionRequirement,
+			defaultRequirement: defaultProductionRequirement,
 			familyRequirements: pinned.flatMap((family) =>
 				family.productionRequirement === "default"
 					? []
@@ -93,7 +98,7 @@ export function toSaveInput(
 			),
 		},
 		projectId: ids.projectId,
-		purpose: values.purpose,
+		purpose,
 		rightsEvidencePolicy: {
 			acceptableStates: values.acceptableStates,
 			requireRecordFor: values.requireRecordFor,

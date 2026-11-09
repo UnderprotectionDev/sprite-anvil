@@ -120,12 +120,28 @@ describe("Offline conflict", () => {
 		);
 		await setCloudReachable(false);
 		await check.click();
-		await (await $("p[role='alert']*=stays staged")).waitForDisplayed();
+		const unreachable = await $("p[role='alert']*=stays staged");
+		await unreachable.waitForDisplayed();
+		await expect(await unreachable.getText()).toContain("Failed to fetch");
 		await expect(await $("p*=Pinned base revision 1")).toBeDisplayed();
 
+		// Reconnected, the cloud answers and refuses the draft it does not know: a
+		// verdict from the cloud replaces the network failure, and the draft stays.
 		await setCloudReachable(true);
 		await check.click();
-		await (await $("p[role='alert']*=stays staged")).waitForDisplayed();
+		await browser.waitUntil(
+			async () => {
+				const alert = await $("p[role='alert']*=stays staged");
+				return (
+					(await alert.isExisting()) &&
+					!(await alert.getText()).includes("Failed to fetch")
+				);
+			},
+			{
+				timeout: 20_000,
+				timeoutMsg: "The reconnected check still reported a network failure.",
+			}
+		);
 		await expect(await $("p*=Pinned base revision 1")).toBeDisplayed();
 	});
 });

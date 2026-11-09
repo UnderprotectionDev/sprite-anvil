@@ -11,9 +11,9 @@ import {
 } from "@sprite-anvil/ui/components/native-select";
 import { useForm } from "@tanstack/react-form";
 import { type SyntheticEvent, useRef, useState } from "react";
+import { errorCodeOf } from "@/utils/error-code";
 import { useSaveDeliveryTargetDraft } from "../../hooks/use-delivery-target-writes";
 import {
-	errorCodeOf,
 	errorMessageOf,
 	productionRequirementLabels,
 	purposeLabels,
@@ -80,7 +80,7 @@ export function DeliveryTargetDraftForm({
 	const form = useForm({
 		defaultValues: defaultFormValues(families, {
 			name: target?.name ?? "",
-			purpose: target?.purpose ?? "demo",
+			purpose: target?.purpose ?? "",
 			revision: target?.activeRevision ?? null,
 		}),
 		onSubmit: async ({ value }) => {
@@ -151,23 +151,29 @@ export function DeliveryTargetDraftForm({
 					<Label htmlFor="delivery-target-purpose">Purpose</Label>
 					<form.Field name="purpose">
 						{(field) => (
-							<NativeSelect
-								className={selectClassName}
-								disabled={isRevision}
-								id="delivery-target-purpose"
-								onChange={(event) =>
-									field.handleChange(
-										event.target.value as typeof field.state.value
-									)
-								}
-								value={field.state.value}
-							>
-								{purposeKeys.map((purpose) => (
-									<NativeSelectOption key={purpose} value={purpose}>
-										{purposeLabels[purpose]}
+							<>
+								<NativeSelect
+									className={selectClassName}
+									disabled={isRevision}
+									id="delivery-target-purpose"
+									onChange={(event) =>
+										field.handleChange(
+											event.target.value as typeof field.state.value
+										)
+									}
+									value={field.state.value}
+								>
+									<NativeSelectOption value="">
+										Choose a purpose
 									</NativeSelectOption>
-								))}
-							</NativeSelect>
+									{purposeKeys.map((purpose) => (
+										<NativeSelectOption key={purpose} value={purpose}>
+											{purposeLabels[purpose]}
+										</NativeSelectOption>
+									))}
+								</NativeSelect>
+								<FieldErrors errors={field.state.meta.errors} />
+							</>
 						)}
 					</form.Field>
 				</div>
@@ -307,22 +313,28 @@ export function DeliveryTargetDraftForm({
 					</Label>
 					<form.Field name="defaultProductionRequirement">
 						{(field) => (
-							<NativeSelect
-								className={selectClassName}
-								id="delivery-target-default-production"
-								onChange={(event) =>
-									field.handleChange(
-										event.target.value as typeof field.state.value
-									)
-								}
-								value={field.state.value}
-							>
-								{requirementKeys.map((requirement) => (
-									<NativeSelectOption key={requirement} value={requirement}>
-										{productionRequirementLabels[requirement]}
+							<>
+								<NativeSelect
+									className={selectClassName}
+									id="delivery-target-default-production"
+									onChange={(event) =>
+										field.handleChange(
+											event.target.value as typeof field.state.value
+										)
+									}
+									value={field.state.value}
+								>
+									<NativeSelectOption value="">
+										Choose a requirement
 									</NativeSelectOption>
-								))}
-							</NativeSelect>
+									{requirementKeys.map((requirement) => (
+										<NativeSelectOption key={requirement} value={requirement}>
+											{productionRequirementLabels[requirement]}
+										</NativeSelectOption>
+									))}
+								</NativeSelect>
+								<FieldErrors errors={field.state.meta.errors} />
+							</>
 						)}
 					</form.Field>
 				</div>

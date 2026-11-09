@@ -204,6 +204,9 @@ test("shows the four rationales as separate fields, never one score", async () =
 
 	await screen.findByRole("list", { name: "Dependent work" });
 	const first = stepItems()[0] as HTMLElement;
+	expect(
+		within(first).getByRole("heading", { level: 3, name: "Work a" })
+	).toBeVisible();
 	for (const term of [
 		"Target requirement",
 		"Work opened",
