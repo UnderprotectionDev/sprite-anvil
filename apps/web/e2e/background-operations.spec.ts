@@ -185,12 +185,17 @@ test("a load failure offers a retry that re-reads the record", async ({
 	const cloud = await mockCloud(page, [operation("op-running")]);
 	cloud.failList = true;
 	await page.goto(operationsUrl);
+	// The query retries with backoff before it reports the failure.
 	await expect(
 		page.getByText("Background operations could not be loaded.")
-	).toBeVisible();
+	).toBeVisible({ timeout: 15_000 });
 
 	cloud.failList = false;
-	await page.getByRole("button", { name: "Retry" }).click();
+	// A toast offers its own Retry; scope to the workspace content.
+	await page
+		.locator("#workspace-content")
+		.getByRole("button", { name: "Retry" })
+		.click();
 	await expect(page.getByText(`Export: ${exportScope}`)).toBeVisible();
 });
 
