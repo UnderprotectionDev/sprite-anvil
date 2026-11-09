@@ -62,10 +62,12 @@ export const readinessPlansRouter = {
 				)
 			);
 			if (result.status === "rejected") {
-				throw new ORPCError(
-					result.reason === "revision_not_active" ? "CONFLICT" : "BAD_REQUEST",
-					{ message: rejectionMessages[result.reason] }
-				);
+				// Every rejection means the plan changed after the user read it: the input
+				// schema already refuses malformed orders (duplicates, bad ids) as
+				// BAD_REQUEST, so a work-set mismatch here is a stale order.
+				throw new ORPCError("CONFLICT", {
+					message: rejectionMessages[result.reason],
+				});
 			}
 			return result.plan;
 		}),

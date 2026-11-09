@@ -188,6 +188,8 @@ function setup(
 		accessLost: false,
 		/** Family ids whose readiness cannot be read. */
 		unreadableFamilies: [] as string[],
+		/** The dependency catalog is unavailable to the user. */
+		dependenciesUnavailable: false,
 		onFamilyRead: undefined as (() => void) | undefined,
 		revalidationRequired: ["version-east"],
 	};
@@ -249,20 +251,24 @@ function setup(
 	} satisfies FamilyReadinessStore;
 	const dependencies = {
 		list: () =>
-			Promise.resolve({
-				changeImpacts: [],
-				dependencyLinks: [
-					{
-						createdAt: "2026-11-06T10:00:00.000Z",
-						facets: ["palette"],
-						id: "link-1",
-						projectId,
-						source: { id: "version-east", kind: "asset_version" },
-						targetAssetVersionId: "version-derived",
-					},
-				],
-				revalidationRequiredVersionIds: state.revalidationRequired,
-			}),
+			Promise.resolve(
+				state.dependenciesUnavailable
+					? null
+					: {
+							changeImpacts: [],
+							dependencyLinks: [
+								{
+									createdAt: "2026-11-06T10:00:00.000Z",
+									facets: ["palette"],
+									id: "link-1",
+									projectId,
+									source: { id: "version-east", kind: "asset_version" },
+									targetAssetVersionId: "version-derived",
+								},
+							],
+							revalidationRequiredVersionIds: state.revalidationRequired,
+						}
+			),
 	} as unknown as DependencyRevalidationStore;
 	const memory = createMemoryReadinessPlanStorage(
 		(deliveryTargetId) =>
@@ -407,9 +413,9 @@ test("a rejected reorder leaves the saved order unchanged", async () => {
 
 	await expect(
 		reorder([approval, quality, usageTest, "family-knight:ghost:quality"])
-	).rejects.toMatchObject({ code: "BAD_REQUEST" });
+	).rejects.toMatchObject({ code: "CONFLICT" });
 	await expect(reorder([approval, quality])).rejects.toMatchObject({
-		code: "BAD_REQUEST",
+		code: "CONFLICT",
 	});
 	await expect(
 		reorder([approval, quality, usageTest], {
@@ -604,6 +610,16 @@ test("a family whose readiness is unavailable blocks, but losing project access 
 		code: "NOT_FOUND",
 	});
 	await expect(unauthorized.reorder([])).rejects.toMatchObject({
+		code: "NOT_FOUND",
+	});
+});
+
+test("an unavailable dependency catalog is an error and not an empty one", async () => {
+	const { get, reorder, state } = setup();
+	state.dependenciesUnavailable = true;
+
+	await expect(get()).rejects.toMatchObject({ code: "NOT_FOUND" });
+	await expect(reorder([approval, quality, usageTest])).rejects.toMatchObject({
 		code: "NOT_FOUND",
 	});
 });

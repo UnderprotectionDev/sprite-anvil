@@ -179,12 +179,17 @@ test("activates a Delivery Target, re-versions it with evidence policies and ope
 	).toBeVisible();
 	await expect(page.getByText("Target Readiness: Blocked")).toBeVisible();
 	await expect(page.getByText("Delivery Status: Not delivered")).toBeVisible();
-	await expect(
-		page
-			.getByRole("list", { name: "Blockers" })
-			.getByRole("list", { name: "Unmet evidence" })
-			.first()
-	).toBeVisible();
+	// Records without an Asset Version leave each required item incomplete.
+	const blockers = page.getByRole("list", { name: "Blockers" });
+	await expect(blockers.getByText("Required item incomplete")).toHaveCount(
+		fixture.families.length
+	);
+	for (const family of fixture.families) {
+		// biome-ignore lint/performance/noAwaitInLoops: Assertions read the same list in order.
+		await expect(
+			blockers.getByText(family.itemName, { exact: true })
+		).toBeVisible();
+	}
 	const firstStep = page
 		.getByRole("list", { name: "Dependent work" })
 		.getByRole("listitem")

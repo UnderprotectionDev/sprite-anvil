@@ -83,15 +83,13 @@ export function createReadinessPlanStore(
 			deps.storage.findOrder(projectId, revision.id),
 			readFamilies(userId, projectId, revision),
 		]);
-		if (!familyReadiness) {
+		// An unavailable dependency catalog is access lost, not an empty catalog.
+		if (!(familyReadiness && dependencies)) {
 			return null;
 		}
 		return buildReadinessPlan({
 			deliveryTargetId: target.id,
-			dependencies: dependencies ?? {
-				dependencyLinks: [],
-				revalidationRequiredVersionIds: [],
-			},
+			dependencies,
 			familyReadiness,
 			revision,
 			savedOrder,

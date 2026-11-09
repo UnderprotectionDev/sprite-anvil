@@ -155,7 +155,16 @@ describe("Delivery Planning", () => {
 		});
 		await $("p=Delivery Status: Not delivered").waitForDisplayed();
 
-		await $("ul[aria-label='Unmet evidence']").waitForDisplayed();
+		// Records without an Asset Version leave each required item incomplete.
+		for (const family of fixture.families) {
+			// biome-ignore lint/performance/noAwaitInLoops: Assertions read the same list in order.
+			await $(
+				`//ul[@aria-label='Blockers']//p[text()='${family.itemName}']`
+			).waitForDisplayed();
+		}
+		await $(
+			"//ul[@aria-label='Blockers']//p[text()='Required item incomplete']"
+		).waitForDisplayed();
 		for (const term of [
 			"Target requirement",
 			"Work opened",
