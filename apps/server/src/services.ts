@@ -40,6 +40,8 @@ import { createProjectContextStore } from "./features/project-context/server/pro
 import { createProjectAccessStore } from "./features/projects/server/project-access-store";
 import { createProviderGenerationRecordStore } from "./features/provider-generation-records/server/provider-generation-record-store";
 import { createSpecializedProfileContractStore } from "./features/quality-evidence/server/specialized-profile-contract-store";
+import { createDatabaseReadinessPlanStorage } from "./features/readiness-plans/server/database-readiness-plan-storage";
+import { createReadinessPlanStore } from "./features/readiness-plans/server/readiness-plan-store";
 import { createReferenceProductionStore } from "./features/reference-production/server/reference-production-store";
 import { createRightsRecordStore } from "./features/rights-evidence/server/rights-record-store";
 import { createSceneQaStore } from "./features/scene-qa-playground/server/scene-qa-store";
@@ -94,6 +96,12 @@ export const deliveryTargetStore = createDeliveryTargetStore(
 );
 export const dependencyRevalidationStore =
 	createDependencyRevalidationStore(db);
+export const readinessPlanStore = createReadinessPlanStore({
+	deliveryTargets: deliveryTargetStore,
+	dependencies: dependencyRevalidationStore,
+	familyReadiness: familyReadinessStore,
+	storage: createDatabaseReadinessPlanStorage(db),
+});
 export const collectionStore = createCollectionStore(db);
 export const backgroundOperationStore = createBackgroundOperationStore(
 	db,

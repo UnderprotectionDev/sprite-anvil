@@ -34,6 +34,7 @@ import type { ProductionRecipeStore } from "./production-recipes";
 import type { ProjectAccessStore } from "./project-access-store";
 import type { ProjectContextStore } from "./project-context";
 import type { ProviderGenerationRecordStore } from "./provider-generation-records";
+import type { ReadinessPlanStore } from "./readiness-plans";
 import type { ReferenceProductionStore } from "./reference-production";
 import type { RightsRecordStore } from "./rights-records";
 import type { SceneQaStore } from "./scene-qa";
@@ -95,6 +96,7 @@ export interface Context {
 	providerGenerationRecordStore?: ProviderGenerationRecordStore;
 	readAnimationMetadataPackageTarget?: AnimationMetadataPackageTargetReader;
 	readGameplayMetadataPackageTarget?: GameplayMetadataPackageTargetReader;
+	readinessPlanStore?: ReadinessPlanStore;
 	/** Size and revision of a Working Draft, derived on the server by the pixel editor. */
 	readPixelDraftCoordinateSpace?: (
 		userId: string,
