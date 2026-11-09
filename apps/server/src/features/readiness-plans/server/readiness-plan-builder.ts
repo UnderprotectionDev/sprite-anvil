@@ -1,6 +1,9 @@
 import type { DeliveryTargetRevision } from "@sprite-anvil/api/delivery-planning-outputs";
 import type { DependencyCatalog } from "@sprite-anvil/api/dependency-revalidation";
-import type { FamilyReadiness } from "@sprite-anvil/api/family-readiness";
+import type {
+	ReadinessBlocker as FamilyBlockerCode,
+	FamilyReadiness,
+} from "@sprite-anvil/api/family-readiness";
 import type {
 	ReadinessBlocker,
 	ReadinessPlan,
@@ -42,7 +45,7 @@ interface DraftWork {
  * has to exist before it can be approved, and quality evidence has to be in
  * before profile or usage tests can pass. Codes of the same tier are parallel.
  */
-const blockerTier: Record<string, number> = {
+const blockerTier: Record<FamilyBlockerCode, number> = {
 	applicability: 1,
 	approval: 1,
 	asset_version: 0,
@@ -55,7 +58,7 @@ const blockerTier: Record<string, number> = {
 const defaultTier = 1;
 
 function tierOf(code: string) {
-	return blockerTier[code] ?? defaultTier;
+	return blockerTier[code as FamilyBlockerCode] ?? defaultTier;
 }
 
 function blockerOf(
@@ -84,7 +87,7 @@ function listRequirement(
 	};
 }
 
-function singleWork(
+function standaloneWork(
 	blocker: ReadinessBlocker,
 	title: string,
 	requirement: TargetRequirement
@@ -194,7 +197,7 @@ function familyWork(
 	};
 	if (!readiness) {
 		return [
-			singleWork(
+			standaloneWork(
 				blockerOf({
 					...base,
 					id: `${family.assetFamilyId}:family_readiness_unavailable`,
@@ -207,7 +210,7 @@ function familyWork(
 	}
 	if (readiness.activeRevision?.id !== family.requiredSetRevisionId) {
 		return [
-			singleWork(
+			standaloneWork(
 				blockerOf({
 					...base,
 					id: `${family.assetFamilyId}:pinned_required_list_not_active`,
@@ -247,6 +250,17 @@ function familyWork(
 	);
 }
 
+function policyRequirement(
+	source: "production_evidence_policy" | "rights_evidence_policy"
+): TargetRequirement {
+	return {
+		itemId: null,
+		requiredSetRevisionId: null,
+		requiredSetRevisionNumber: null,
+		source,
+	};
+}
+
 /** Policies the plan cannot judge yet are blockers: a target is never Ready on evidence nobody checked. */
 function policyWork(revision: DeliveryTargetRevision): DraftWork[] {
 	const production = revision.families.flatMap((family) => {
@@ -257,7 +271,7 @@ function policyWork(revision: DeliveryTargetRevision): DraftWork[] {
 		return requirement === "advisory"
 			? []
 			: [
-					singleWork(
+					standaloneWork(
 						blockerOf({
 							assetFamilyId: family.assetFamilyId,
 							assetFamilyName: family.assetFamilyName,
@@ -265,30 +279,20 @@ function policyWork(revision: DeliveryTargetRevision): DraftWork[] {
 							kind: "production_evidence_policy_not_evaluated",
 						}),
 						`Production Evidence Policy (${requirement.replaceAll("_", " ")}) for ${family.assetFamilyName} is not evaluated yet`,
-						{
-							itemId: null,
-							requiredSetRevisionId: null,
-							requiredSetRevisionNumber: null,
-							source: "production_evidence_policy",
-						}
+						policyRequirement("production_evidence_policy")
 					),
 				];
 	});
 	const rights =
 		revision.rightsEvidencePolicy.requireRecordFor.length > 0
 			? [
-					singleWork(
+					standaloneWork(
 						blockerOf({
 							id: "rights_evidence_policy",
 							kind: "rights_evidence_policy_not_evaluated",
 						}),
 						`Rights Evidence Policy (records for ${revision.rightsEvidencePolicy.requireRecordFor.join(" and ")}) is not evaluated yet`,
-						{
-							itemId: null,
-							requiredSetRevisionId: null,
-							requiredSetRevisionNumber: null,
-							source: "rights_evidence_policy",
-						}
+						policyRequirement("rights_evidence_policy")
 					),
 				]
 			: [];
@@ -322,8 +326,8 @@ function revalidationOf(work: DraftWork, sources: ReadinessPlanSources) {
  */
 function suggestedOrder(
 	work: DraftWork[],
-	opens: Map<string, string[]>,
-	revalidationCost: Map<string, number>
+	opensByWork: Map<string, string[]>,
+	revalidationCostByWork: Map<string, number>
 ) {
 	const done = new Set<string>();
 	const remaining = [...work];
@@ -334,10 +338,10 @@ function suggestedOrder(
 		);
 		const [next] = (startable.length > 0 ? startable : remaining).sort(
 			(left, right) =>
-				(opens.get(right.id)?.length ?? 0) -
-					(opens.get(left.id)?.length ?? 0) ||
-				(revalidationCost.get(left.id) ?? 0) -
-					(revalidationCost.get(right.id) ?? 0) ||
+				(opensByWork.get(right.id)?.length ?? 0) -
+					(opensByWork.get(left.id)?.length ?? 0) ||
+				(revalidationCostByWork.get(left.id) ?? 0) -
+					(revalidationCostByWork.get(right.id) ?? 0) ||
 				left.id.localeCompare(right.id)
 		);
 		if (!next) {
@@ -348,6 +352,61 @@ function suggestedOrder(
 		remaining.splice(remaining.indexOf(next), 1);
 	}
 	return order;
+}
+
+/** The user's saved order first, minus work that is gone, then the suggestion for everything they have not ordered. */
+function mergeOrder(
+	work: DraftWork[],
+	savedOrder: string[] | null,
+	suggested: string[]
+) {
+	const known = new Set(work.map((entry) => entry.id));
+	const userOrder = (savedOrder ?? []).filter((id) => known.has(id));
+	const userOrdered = new Set(userOrder);
+	return {
+		effective: [
+			...userOrder,
+			...suggested.filter((id) => !userOrdered.has(id)),
+		],
+		userCount: userOrder.length,
+	};
+}
+
+function toWorkItems(
+	work: DraftWork[],
+	order: ReturnType<typeof mergeOrder>,
+	opensByWork: Map<string, string[]>,
+	revalidation: Map<string, ReturnType<typeof revalidationOf>>
+): ReadinessWorkItem[] {
+	const byId = new Map(work.map((entry) => [entry.id, entry]));
+	return order.effective.flatMap((id, index) => {
+		const entry = byId.get(id);
+		if (!entry) {
+			return [];
+		}
+		const isUser = index < order.userCount;
+		const opened = opensByWork.get(id) ?? [];
+		return [
+			{
+				blockerId: entry.blocker.id,
+				dependsOnWorkIds: entry.dependsOn,
+				id,
+				opensWorkIds: opened,
+				orderSource: isUser ? "user" : "suggested",
+				position: index + 1,
+				rationales: {
+					revalidationImpact: revalidation.get(id) ?? {
+						derivativeVersionIds: [],
+						requiredNowVersionIds: [],
+					},
+					targetRequirement: entry.requirement,
+					unlocksDependentWork: { count: opened.length },
+					userPriority: { position: isUser ? index + 1 : null },
+				},
+				title: entry.title,
+			},
+		];
+	});
 }
 
 /** Derives the Readiness Plan of one active Delivery Target revision; pure, so reading it can change nothing. */
@@ -361,7 +420,7 @@ export function buildReadinessPlan(
 		),
 		...policyWork(revision),
 	];
-	const opens = new Map<string, string[]>(
+	const opensByWork = new Map<string, string[]>(
 		work.map((entry) => [
 			entry.id,
 			work
@@ -372,53 +431,22 @@ export function buildReadinessPlan(
 	const revalidation = new Map(
 		work.map((entry) => [entry.id, revalidationOf(entry, sources)])
 	);
-	const cost = new Map(
+	const revalidationCostByWork = new Map(
 		[...revalidation].map(([id, value]) => [
 			id,
 			value.requiredNowVersionIds.length + value.derivativeVersionIds.length,
 		])
 	);
-	const known = new Set(work.map((entry) => entry.id));
-	const userOrder = (sources.savedOrder ?? []).filter((id) => known.has(id));
-	const suggested = suggestedOrder(work, opens, cost).filter(
-		(id) => !userOrder.includes(id)
+	const order = mergeOrder(
+		work,
+		sources.savedOrder,
+		suggestedOrder(work, opensByWork, revalidationCostByWork)
 	);
-	const effective = [...userOrder, ...suggested];
-	const indexOf = new Map(effective.map((id, index) => [id, index]));
-	const byId = new Map(work.map((entry) => [entry.id, entry]));
-	const workItems: ReadinessWorkItem[] = effective.flatMap((id, index) => {
-		const entry = byId.get(id);
-		if (!entry) {
-			return [];
-		}
-		const isUser = index < userOrder.length;
-		return [
-			{
-				blockerId: entry.blocker.id,
-				dependsOnWorkIds: entry.dependsOn,
-				id,
-				opensWorkIds: opens.get(id) ?? [],
-				orderSource: isUser ? "user" : "suggested",
-				position: index + 1,
-				rationales: {
-					revalidationImpact: revalidation.get(id) ?? {
-						derivativeVersionIds: [],
-						requiredNowVersionIds: [],
-					},
-					targetRequirement: entry.requirement,
-					unlocksDependentWork: { count: opens.get(id)?.length ?? 0 },
-					userPriority: { position: isUser ? index + 1 : null },
-				},
-				title: entry.title,
-			},
-		];
-	});
-	const blockers: ReadinessBlocker[] = [];
-	for (const entry of work) {
-		if (!blockers.some((blocker) => blocker.id === entry.blocker.id)) {
-			blockers.push(entry.blocker);
-		}
-	}
+	const indexOf = new Map(order.effective.map((id, index) => [id, index]));
+	const workItems = toWorkItems(work, order, opensByWork, revalidation);
+	const blockers = [
+		...new Map(work.map((entry) => [entry.blocker.id, entry.blocker])).values(),
+	];
 	const next = workItems.find((entry) => entry.dependsOnWorkIds.length === 0);
 	return {
 		blockers,

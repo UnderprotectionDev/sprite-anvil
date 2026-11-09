@@ -1,4 +1,5 @@
 export interface StoredReadinessPlanOrder {
+	deliveryTargetId: string;
 	orderedWorkIds: string[];
 	projectId: string;
 	revisionId: string;
@@ -16,6 +17,10 @@ export interface ReadinessPlanStorage {
 		projectId: string,
 		revisionId: string
 	) => Promise<string[] | null>;
-	/** Replaces the saved order of the revision as one write. */
-	saveOrder: (order: StoredReadinessPlanOrder) => Promise<void>;
+	/**
+	 * Replaces the saved order of the revision as one write that happens only
+	 * while the revision is still the Delivery Target's active one. Returns
+	 * false, writing nothing, when a newer revision has been activated.
+	 */
+	saveOrder: (order: StoredReadinessPlanOrder) => Promise<boolean>;
 }

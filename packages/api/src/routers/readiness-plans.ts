@@ -30,37 +30,37 @@ const rejectionMessages: Record<ReadinessPlanReorderFailureReason, string> = {
 		"The order names work that is not part of the current plan.",
 };
 
+/** Maps the store's shared non-success outcomes of both procedures to API errors. */
+function orThrow<Result extends { status: string }>(result: Result | null) {
+	if (!result) {
+		throw new ORPCError("NOT_FOUND", { message: notFound });
+	}
+	if (result.status === "no_active_revision") {
+		throw new ORPCError("CONFLICT", { message: noActiveRevision });
+	}
+	return result as Exclude<Result, { status: "no_active_revision" }>;
+}
+
 export const readinessPlansRouter = {
 	get: protectedProcedure
 		.input(readinessPlanGetInputSchema)
 		.output(readinessPlanSchema)
 		.handler(async ({ context, input }) => {
-			const result = await getReadinessPlanStore(context).get(
-				context.session.user.id,
-				input
+			const result = orThrow(
+				await getReadinessPlanStore(context).get(context.session.user.id, input)
 			);
-			if (!result) {
-				throw new ORPCError("NOT_FOUND", { message: notFound });
-			}
-			if (result.status === "no_active_revision") {
-				throw new ORPCError("CONFLICT", { message: noActiveRevision });
-			}
 			return result.plan;
 		}),
 	reorder: protectedProcedure
 		.input(readinessPlanReorderInputSchema)
 		.output(readinessPlanSchema)
 		.handler(async ({ context, input }) => {
-			const result = await getReadinessPlanStore(context).reorder(
-				context.session.user.id,
-				input
+			const result = orThrow(
+				await getReadinessPlanStore(context).reorder(
+					context.session.user.id,
+					input
+				)
 			);
-			if (!result) {
-				throw new ORPCError("NOT_FOUND", { message: notFound });
-			}
-			if (result.status === "no_active_revision") {
-				throw new ORPCError("CONFLICT", { message: noActiveRevision });
-			}
 			if (result.status === "rejected") {
 				throw new ORPCError(
 					result.reason === "revision_not_active" ? "CONFLICT" : "BAD_REQUEST",

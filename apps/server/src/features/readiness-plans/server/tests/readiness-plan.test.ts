@@ -184,6 +184,11 @@ function setup(
 			},
 		] as ItemState[],
 		knightActiveRevisionId: "knight-set-1",
+		/** Runs while a family's readiness is being read, to change the world mid-computation. */
+		accessLost: false,
+		/** Family ids whose readiness cannot be read. */
+		unreadableFamilies: [] as string[],
+		onFamilyRead: undefined as (() => void) | undefined,
 		revalidationRequired: ["version-east"],
 	};
 	const catalog = catalogOf(
@@ -196,7 +201,9 @@ function setup(
 		},
 		list: (_user, requestedProjectId) =>
 			Promise.resolve(
-				(options.hasAccess ?? true) && requestedProjectId === projectId
+				(options.hasAccess ?? true) &&
+					!state.accessLost &&
+					requestedProjectId === projectId
 					? catalog
 					: null
 			),
@@ -210,8 +217,12 @@ function setup(
 			writes.push("required-set-activate");
 			return Promise.reject(new Error("never"));
 		},
-		list: (_user, _project, assetFamilyId) =>
-			Promise.resolve(
+		list: (_user, _project, assetFamilyId) => {
+			state.onFamilyRead?.();
+			if (state.unreadableFamilies.includes(assetFamilyId)) {
+				return Promise.resolve(null);
+			}
+			return Promise.resolve(
 				assetFamilyId === knight
 					? readinessOf(
 							knight,
@@ -225,7 +236,8 @@ function setup(
 							[idleItem],
 							[{ blockers: [], id: "idle", versions: ["version-idle"] }]
 						)
-			),
+			);
+		},
 		recordEvidence: () => {
 			writes.push("record-evidence");
 			return Promise.reject(new Error("never"));
@@ -252,7 +264,13 @@ function setup(
 				revalidationRequiredVersionIds: state.revalidationRequired,
 			}),
 	} as unknown as DependencyRevalidationStore;
-	const memory = createMemoryReadinessPlanStorage();
+	const memory = createMemoryReadinessPlanStorage(
+		(deliveryTargetId) =>
+			(
+				catalog.deliveryTargets.find((target) => target.id === deliveryTargetId)
+					?.activeRevision as { id: string } | null
+			)?.id ?? null
+	);
 	const context = {
 		readinessPlanStore: createReadinessPlanStore({
 			deliveryTargets,
@@ -535,5 +553,57 @@ test("an unknown target, an inaccessible project and a missing session are refus
 	});
 	await expect(setup({ session: false }).get()).rejects.toMatchObject({
 		code: "UNAUTHORIZED",
+	});
+});
+
+test("a newer revision activated while a reorder is computed is not overwritten by the stale plan", async () => {
+	const { catalog, get, reorder, state } = setup();
+	await reorder([quality, approval, usageTest]);
+	const target = catalog.deliveryTargets[0] as unknown as {
+		activeRevision: Record<string, unknown>;
+	};
+	const staleRevision = target.activeRevision;
+	state.onFamilyRead = () => {
+		state.onFamilyRead = undefined;
+		target.activeRevision = {
+			...staleRevision,
+			id: "6f1a3d62-3d2e-4b86-8a7c-0e6c2f0d4999",
+			revisionNumber: 2,
+		};
+	};
+
+	await expect(reorder([usageTest, approval, quality])).rejects.toMatchObject({
+		code: "CONFLICT",
+	});
+
+	target.activeRevision = staleRevision;
+	expect((await get()).workItems.map((work) => work.id)).toEqual([
+		quality,
+		approval,
+		usageTest,
+	]);
+});
+
+test("a family whose readiness is unavailable blocks, but losing project access is an error and not a blocker", async () => {
+	const unavailable = setup();
+	unavailable.state.unreadableFamilies = [slime];
+
+	const plan = await unavailable.get();
+
+	expect(plan.targetReadiness).toBe("blocked");
+	expect(plan.blockers.map((blocker) => blocker.kind)).toContain(
+		"family_readiness_unavailable"
+	);
+
+	const unauthorized = setup();
+	unauthorized.state.unreadableFamilies = [slime];
+	unauthorized.state.onFamilyRead = () => {
+		unauthorized.state.accessLost = true;
+	};
+	await expect(unauthorized.get()).rejects.toMatchObject({
+		code: "NOT_FOUND",
+	});
+	await expect(unauthorized.reorder([])).rejects.toMatchObject({
+		code: "NOT_FOUND",
 	});
 });

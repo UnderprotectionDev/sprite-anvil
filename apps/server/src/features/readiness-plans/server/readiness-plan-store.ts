@@ -41,36 +41,58 @@ export function createReadinessPlanStore(
 		);
 	}
 
+	/**
+	 * A family whose readiness cannot be read is a blocker only while the user
+	 * still has access to the project; once they have lost it, the whole read is
+	 * unauthorized and returns null instead of a plan that hides the reason.
+	 */
+	async function readFamilies(
+		userId: string,
+		projectId: string,
+		revision: DeliveryTargetRevision
+	) {
+		const families = await Promise.all(
+			revision.families.map(
+				async (family) =>
+					[
+						family.assetFamilyId,
+						await deps.familyReadiness.list(
+							userId,
+							projectId,
+							family.assetFamilyId
+						),
+					] as const
+			)
+		);
+		const unreadable = families.some(([, readiness]) => readiness === null);
+		if (unreadable && !(await deps.deliveryTargets.list(userId, projectId))) {
+			return null;
+		}
+		return new Map(families);
+	}
+
+	/** Null when access to the project was lost while the plan was being read. */
 	async function planFor(
 		userId: string,
 		projectId: string,
-		deliveryTargetId: string,
+		target: { id: string },
 		revision: DeliveryTargetRevision
 	) {
-		const [dependencies, savedOrder, families] = await Promise.all([
+		const [dependencies, savedOrder, familyReadiness] = await Promise.all([
 			deps.dependencies.list(userId, projectId),
 			deps.storage.findOrder(projectId, revision.id),
-			Promise.all(
-				revision.families.map(
-					async (family) =>
-						[
-							family.assetFamilyId,
-							await deps.familyReadiness.list(
-								userId,
-								projectId,
-								family.assetFamilyId
-							),
-						] as const
-				)
-			),
+			readFamilies(userId, projectId, revision),
 		]);
+		if (!familyReadiness) {
+			return null;
+		}
 		return buildReadinessPlan({
-			deliveryTargetId,
+			deliveryTargetId: target.id,
 			dependencies: dependencies ?? {
 				dependencyLinks: [],
 				revalidationRequiredVersionIds: [],
 			},
-			familyReadiness: new Map(families),
+			familyReadiness,
 			revision,
 			savedOrder,
 		});
@@ -85,15 +107,13 @@ export function createReadinessPlanStore(
 			if (!target.activeRevision) {
 				return { status: "no_active_revision" };
 			}
-			return {
-				plan: await planFor(
-					userId,
-					input.projectId,
-					target.id,
-					target.activeRevision
-				),
-				status: "found",
-			};
+			const plan = await planFor(
+				userId,
+				input.projectId,
+				target,
+				target.activeRevision
+			);
+			return plan && { plan, status: "found" };
 		},
 
 		async reorder(userId, input): Promise<ReadinessPlanReorderResult | null> {
@@ -108,12 +128,10 @@ export function createReadinessPlanStore(
 			if (revision.id !== input.revisionId) {
 				return { reason: "revision_not_active", status: "rejected" };
 			}
-			const current = await planFor(
-				userId,
-				input.projectId,
-				target.id,
-				revision
-			);
+			const current = await planFor(userId, input.projectId, target, revision);
+			if (!current) {
+				return null;
+			}
 			const known = new Set(current.workItems.map((work) => work.id));
 			if (input.orderedWorkIds.some((id) => !known.has(id))) {
 				return { reason: "work_not_in_plan", status: "rejected" };
@@ -121,17 +139,22 @@ export function createReadinessPlanStore(
 			if (input.orderedWorkIds.length !== known.size) {
 				return { reason: "work_missing_from_order", status: "rejected" };
 			}
-			await deps.storage.saveOrder({
+			// The order was validated against a plan that may have gone stale while it
+			// was computed, so the write itself only lands while this revision is
+			// still the active one.
+			const wasSaved = await deps.storage.saveOrder({
+				deliveryTargetId: target.id,
 				orderedWorkIds: input.orderedWorkIds,
 				projectId: input.projectId,
 				revisionId: revision.id,
 				updatedAt: now(),
 				updatedByUserId: userId,
 			});
-			return {
-				plan: await planFor(userId, input.projectId, target.id, revision),
-				status: "saved",
-			};
+			if (!wasSaved) {
+				return { reason: "revision_not_active", status: "rejected" };
+			}
+			const saved = await planFor(userId, input.projectId, target, revision);
+			return saved && { plan: saved, status: "saved" };
 		},
 	};
 }
