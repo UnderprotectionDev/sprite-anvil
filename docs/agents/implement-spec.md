@@ -26,6 +26,19 @@ Kullanıcı spec yolunu (`docs/specs/<phase>/spec.md`) ve ticket numaralarını 
 
 **Done when** bu çalışmanın açtığı her implementer worktree'si kaldırılmış ve integration branch adı değişmemiştir. Conductor workspace'i de bir worktree olduğundan `git worktree list` onu ve diğer workspace'leri göstermeye devam eder.
 
+## Subagent brief'i
+
+Her implementer ve düzeltme subagent'ının brief'i şu sınırları bir cümleyle taşır; skill'in varsayılanı bunlarla çelişirse bu rehber geçerlidir.
+
+- AGENTS.md sürecini (Orient'ten Close'a) ve ticket'ın spec/PRD/ADR işaretçilerini izler; brief bunları yeniden anlatmaz.
+- Hiçbir `db:*` komutu çalıştırmaz, `drizzle-kit`'i doğrudan çağırmaz; yalnız şema kaynağını değiştirir.
+- Push etmez, PR açmaz, `gh pr` çalıştırmaz; yalnız kendi worktree branch'ine commit eder.
+- `.env` dosyaları yoktur; DB'ye bağlı testleri atlar ve atladığını raporlar.
+- Spec'in kararsız bıraktığı ürün seçimini uydurmaz; raporlar.
+- Son raporu AGENTS.md Close adımına göre verir; kullanıcıya dönük close-out'u subagent değil ana agent yazar.
+
+**Done when** brief'te bu altı sınır yer alır ve subagent raporu ticket başına doğrulama, atlananlar ve açık kararları içerir.
+
 ## Veritabanı
 
 Tüm workspace'ler tek geliştirme veritabanını paylaşır ([shared development database operations](../development-database.md)). Subagent'lar ona hiç bağlanmaz. `db:generate` de applied history'yi ondan okur; bu yüzden workspace'e aittir.

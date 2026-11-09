@@ -50,6 +50,7 @@ import { portraitIdentityReviewsRouter } from "./portrait-identity-reviews";
 import { productionExperimentsRouter } from "./production-experiments";
 import { productionRecipesRouter } from "./production-recipes";
 import { projectsRouter } from "./projects";
+import { readinessPlansRouter } from "./readiness-plans";
 import { referenceProductionRouter } from "./reference-production";
 import { rightsRecordsRouter } from "./rights-records";
 import { sceneQaRouter } from "./scene-qa";
@@ -139,6 +140,7 @@ export const appRouter = {
 	vfxSynchronization: vfxSynchronizationRouter,
 	iconFamilyReviews: iconFamilyReviewsRouter,
 	portraitIdentityReviews: portraitIdentityReviewsRouter,
+	readinessPlans: readinessPlansRouter,
 	marketingUsageReviews: marketingUsageReviewsRouter,
 	backgroundLayerLayouts: backgroundLayerLayoutsRouter,
 	backgroundScrollingTests: backgroundScrollingTestsRouter,
