@@ -8,6 +8,6 @@
     "outDir": "dist",
     "strictNullChecks": true
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "test-support/**/*.ts"],
   "references": [{ "path": "../db" }, { "path": "../auth" }]
 }

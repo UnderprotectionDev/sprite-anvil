@@ -40,6 +40,8 @@ import { collectionsRouter } from "./collections";
 import { deliveryPlanningRouter } from "./delivery-planning";
 import { dependencyRevalidationRouter } from "./dependency-revalidation";
 import { directionalReviewsRouter } from "./directional-reviews";
+import { exportBundlesRouter } from "./export-bundles";
+import { exportProfilesRouter } from "./export-profiles";
 import { familyReadinessRouter } from "./family-readiness";
 import { gameplayMetadataRouter } from "./gameplay-metadata";
 import { generationPackagesRouter } from "./generation-packages";
@@ -132,6 +134,8 @@ export const appRouter = {
 	assetFamilies: assetFamiliesRouter,
 	assetFamilyComparisons: assetFamilyComparisonsRouter,
 	deliveryPlanning: deliveryPlanningRouter,
+	exportBundles: exportBundlesRouter,
+	exportProfiles: exportProfilesRouter,
 	dependencyRevalidation: dependencyRevalidationRouter,
 	familyReadiness: familyReadinessRouter,
 	directionalReviews: directionalReviewsRouter,
