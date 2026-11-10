@@ -20,6 +20,8 @@ import {
 	type ExportBundleIntegrityResult,
 	type ExportBundleVerificationFile,
 	exportBundleManifestJsonSchema,
+	isSamePath,
+	sha256Hex,
 	verifyExportBundle,
 } from "./export-bundle-verification";
 import { exportBundleVerifierSource } from "./export-bundle-verifier-source";
@@ -209,7 +211,7 @@ test("a README that contradicts the manifest, or a kit schema of another version
 				)
 			)
 		)
-	).toEqual(["readme_contradiction"]);
+	).toEqual(["readme_contradiction", "kit_digest_mismatch"]);
 	const schema = new TextDecoder().decode(
 		files.find(
 			(file) => file.path === "verification-kit/schema/manifest.schema.json"
@@ -226,7 +228,7 @@ test("a README that contradicts the manifest, or a kit schema of another version
 				)
 			)
 		)
-	).toEqual(["kit_schema_mismatch"]);
+	).toEqual(["kit_schema_mismatch", "kit_digest_mismatch"]);
 });
 
 test("the kit must be complete, consistent and non-executable", async () => {
@@ -259,7 +261,7 @@ test("the kit must be complete, consistent and non-executable", async () => {
 				})
 			)
 		)
-	).toEqual(["kit_executable"]);
+	).toEqual(["kit_executable", "kit_digest_mismatch"]);
 	expect(
 		await failureCodes(
 			replaceFile(
@@ -268,7 +270,7 @@ test("the kit must be complete, consistent and non-executable", async () => {
 				JSON.stringify({ executable: true, kitContractVersion: "1.0.0" })
 			)
 		)
-	).toEqual(["kit_executable"]);
+	).toEqual(["kit_executable", "kit_digest_mismatch"]);
 });
 
 test("the generated kit has no installer or agent instruction", async () => {
@@ -327,4 +329,90 @@ test("the verifier source every stored bundle ships equals the verifier module",
 			"utf8"
 		)
 	);
+});
+
+test("a changed verifier, README, schema or example is rejected because the manifest pins every kit file", async () => {
+	const files = await buildFixtureBundleFiles();
+	const text = (path: string) =>
+		new TextDecoder().decode(files.find((file) => file.path === path)?.bytes);
+	const changes: [string, string][] = [
+		["verification-kit/verify.ts", ""],
+		[
+			"verification-kit/README.md",
+			`${text("verification-kit/README.md")}\nExtra line.\n`,
+		],
+		[
+			"verification-kit/schema/manifest.schema.json",
+			text("verification-kit/schema/manifest.schema.json").replace(
+				'"x-contractVersion": "1.0.0"',
+				'"x-contractVersion": "1.0.0", "x-note": "edited"'
+			),
+		],
+		[
+			"verification-kit/examples/file-mapping.example.json",
+			text("verification-kit/examples/file-mapping.example.json").replace(
+				"image.path",
+				"image.file"
+			),
+		],
+	];
+	const results = await Promise.all(
+		changes.map(([path, content]) =>
+			verifyExportBundle(replaceFile(files, path, content))
+		)
+	);
+	for (const [index, result] of results.entries()) {
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.failures).toContainEqual(
+				expect.objectContaining({
+					code: "kit_digest_mismatch",
+					path: changes[index]?.[0],
+				})
+			);
+		}
+	}
+});
+
+test("a kit file the manifest does not pin is rejected", async () => {
+	const files = await buildFixtureBundleFiles();
+	expect(
+		await failureCodes(
+			await withManifest(files, (manifest) => {
+				manifest.kitFiles = (manifest.kitFiles as unknown[]).slice(1);
+			})
+		)
+	).toContain("kit_unexpected_file");
+});
+
+test("a file held elsewhere is checked against its recorded size and digest", async () => {
+	const files = await buildFixtureBundleFiles();
+	const image = files.find((file) => file.path === "images/hero_idle.png");
+	const recorded = {
+		byteSize: image?.bytes.length ?? 0,
+		sha256: await sha256Hex(image?.bytes ?? new Uint8Array()),
+	};
+	const held = (changed: Partial<typeof recorded>) =>
+		files.map((file) =>
+			file.path === "images/hero_idle.png"
+				? {
+						bytes: new Uint8Array(),
+						path: file.path,
+						recorded: { ...recorded, ...changed },
+					}
+				: file
+		);
+	expect((await verifyExportBundle(held({}))).ok).toBe(true);
+	expect(await failureCodes(held({ sha256: "0".repeat(64) }))).toEqual([
+		"digest_mismatch",
+	]);
+	expect(await failureCodes(held({ byteSize: 1 }))).toEqual(["size_mismatch"]);
+});
+
+test("the standalone entry point matches the verifier path exactly, not by suffix", () => {
+	expect(isSamePath("/a/kit/verify.ts", "/a/kit/verify.ts")).toBe(true);
+	expect(isSamePath("/a/kit/verify.ts", "/a/kit/../kit/verify.ts")).toBe(true);
+	expect(isSamePath("/a/x.ts", "/b/x.ts")).toBe(false);
+	expect(isSamePath("/b/x.ts", "x.ts")).toBe(false);
+	expect(isSamePath("/C:/kit/verify.ts", "C:\\kit\\verify.ts")).toBe(true);
 });

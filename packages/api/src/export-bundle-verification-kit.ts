@@ -17,14 +17,17 @@ export interface ExportBundleKitFile {
 	path: string;
 }
 
-function readmeText(manifest: ExportBundleManifest): string {
+function readmeText(versions: {
+	contractVersion: string;
+	profileContractVersion: string;
+}): string {
 	return `# Package Verification Kit
 
 This directory lets you check an Engine-Neutral Bundle without a network.
 It is not a project archive and not a game engine project.
 
-Manifest contract version: ${manifest.contractVersion}
-Profile contract version: ${manifest.profile.contractVersion}
+Manifest contract version: ${versions.contractVersion}
+Profile contract version: ${versions.profileContractVersion}
 Kit contract version: ${exportBundleKitContractVersion}
 
 ## Contents
@@ -63,29 +66,7 @@ function exampleText(): string {
 	)}\n`;
 }
 
-/**
- * The kit files for a bundle, path-sorted and deterministic: the same
- * manifest, checksum list and verifier source give the same bytes.
- */
-export function buildExportBundleVerificationKit(input: {
-	checksumsText: string;
-	manifest: ExportBundleManifest;
-	verifierSource: string;
-}): ExportBundleKitFile[] {
-	const schema = {
-		...exportBundleManifestJsonSchema,
-		"x-contractVersion": input.manifest.contractVersion,
-	};
-	const files = [
-		{ content: input.checksumsText, path: "checksums.txt" },
-		{ content: exampleText(), path: "examples/file-mapping.example.json" },
-		{ content: readmeText(input.manifest), path: "README.md" },
-		{
-			content: `${JSON.stringify(schema, null, 2)}\n`,
-			path: "schema/manifest.schema.json",
-		},
-		{ content: input.verifierSource, path: "verify.ts" },
-	];
+function sortByPath(files: ExportBundleKitFile[]): ExportBundleKitFile[] {
 	return files
 		.map((file) => ({
 			content: file.content,
@@ -95,4 +76,54 @@ export function buildExportBundleVerificationKit(input: {
 			(left, right) =>
 				Number(left.path > right.path) - Number(left.path < right.path)
 		);
+}
+
+/**
+ * The kit files that depend only on the contract versions and the verifier
+ * source. The manifest pins their digests; the checksum list is left out
+ * because it depends on the manifest.
+ */
+export function buildExportBundleKitContent(input: {
+	contractVersion: string;
+	profileContractVersion: string;
+	verifierSource: string;
+}): ExportBundleKitFile[] {
+	const schema = {
+		...exportBundleManifestJsonSchema,
+		"x-contractVersion": input.contractVersion,
+	};
+	return sortByPath([
+		{ content: exampleText(), path: "examples/file-mapping.example.json" },
+		{ content: readmeText(input), path: "README.md" },
+		{
+			content: `${JSON.stringify(schema, null, 2)}\n`,
+			path: "schema/manifest.schema.json",
+		},
+		{ content: input.verifierSource, path: "verify.ts" },
+	]);
+}
+
+/**
+ * The kit files for a bundle, path-sorted and deterministic: the same
+ * manifest, checksum list and verifier source give the same bytes.
+ */
+export function buildExportBundleVerificationKit(input: {
+	checksumsText: string;
+	manifest: ExportBundleManifest;
+	verifierSource: string;
+}): ExportBundleKitFile[] {
+	return [
+		...buildExportBundleKitContent({
+			contractVersion: input.manifest.contractVersion,
+			profileContractVersion: input.manifest.profile.contractVersion,
+			verifierSource: input.verifierSource,
+		}),
+		{
+			content: input.checksumsText,
+			path: `${exportBundleKitDirectory}/checksums.txt`,
+		},
+	].sort(
+		(left, right) =>
+			Number(left.path > right.path) - Number(left.path < right.path)
+	);
 }

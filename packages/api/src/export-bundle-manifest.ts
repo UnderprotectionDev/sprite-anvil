@@ -7,7 +7,8 @@
  * profile revision give the same manifest and checksums.
  */
 import { z } from "zod";
-import { exportBundleKitDirectory } from "./export-bundle-verification";
+import { buildExportBundleKitContent } from "./export-bundle-verification-kit";
+import { exportBundleVerifierSource } from "./export-bundle-verifier-source";
 import type { ExportProfileDefinition } from "./export-profiles";
 import { recordContentDigest } from "./record-content-digest";
 
@@ -76,6 +77,9 @@ export const exportBundleManifestSchema = z
 				.strict()
 		),
 		format: z.literal(exportBundleManifestFormat),
+		kitFiles: z.array(
+			z.object({ path: z.string().min(1), sha256: sha256Schema }).strict()
+		),
 		productionEvidence: z.array(
 			z
 				.object({
@@ -162,8 +166,6 @@ export const exportBundleManifestSchema = z
 					itemId: idSchema,
 					observedValue: z.string().nullable(),
 					rationale: z.string(),
-					recordedAt: z.string(),
-					recordedByUserId: idSchema,
 					ruleClass: z.string().nullable(),
 					ruleId: z.string().nullable(),
 					versionTarget: versionTargetSchema.nullable(),
@@ -229,9 +231,6 @@ export interface ExportBundleSourceQuality {
 	kind: string;
 	observedValue: string | null;
 	rationale: string;
-	/** Recorded facts of the evidence, kept only for waivers (ADR 0011). */
-	recordedAt: string;
-	recordedByUserId: string;
 	result: string;
 	ruleClass: string | null;
 	ruleId: string | null;
@@ -503,6 +502,20 @@ export async function buildExportBundle(
 	const versionTarget = (entry: ExportBundleSourceQuality) =>
 		entry.versionTarget ? { ...entry.versionTarget } : null;
 
+	const kitFiles = sortBy(
+		await Promise.all(
+			buildExportBundleKitContent({
+				contractVersion: exportBundleManifestContractVersion,
+				profileContractVersion: options.profile.contractVersion,
+				verifierSource: exportBundleVerifierSource,
+			}).map(async (file) => ({
+				path: file.path,
+				sha256: await exportBundleSha256(file.content),
+			}))
+		),
+		(file) => file.path
+	);
+
 	const manifest: ExportBundleManifest = {
 		adapterVersion: options.adapterVersion,
 		compositeVersions: sortBy(
@@ -530,6 +543,7 @@ export async function buildExportBundle(
 		})),
 		files: sortedFiles,
 		format: exportBundleManifestFormat,
+		kitFiles,
 		productionEvidence: sortBy(
 			source.assetVersions.filter((version) =>
 				pinnedVersionIds.has(version.id)
@@ -586,8 +600,6 @@ export async function buildExportBundle(
 				itemId: entry.itemId,
 				observedValue: entry.observedValue,
 				rationale: entry.rationale,
-				recordedAt: entry.recordedAt,
-				recordedByUserId: entry.recordedByUserId,
 				ruleClass: entry.ruleClass,
 				ruleId: entry.ruleId,
 				versionTarget: versionTarget(entry),
@@ -656,82 +668,4 @@ export function exportBundleRequestDigest(request: {
 		deliveryTargetRevisionId: request.deliveryTargetRevisionId,
 		profileRevisionId: request.profileRevisionId,
 	});
-}
-
-/**
- * Re-reads a bundle's files and returns the first integrity failure, or null.
- * `files` holds the text of generated files (manifest, checksums) and the
- * recorded SHA-256 of every file. The same check serves the Workbench and the
- * offline verifier, so both reach one result.
- */
-export async function checkExportBundleFiles(
-	files: { content: string | null; path: string; sha256: string }[]
-): Promise<string | null> {
-	const paths = new Set<string>();
-	for (const file of files) {
-		const key = file.path.toLowerCase();
-		if (paths.has(key)) {
-			return `The path ${file.path} appears more than once.`;
-		}
-		paths.add(key);
-	}
-	const byPath = new Map(files.map((file) => [file.path, file]));
-	const manifestFile = byPath.get(exportBundleManifestPath);
-	const checksumsFile = byPath.get(exportBundleChecksumsPath);
-	if (!(manifestFile?.content && checksumsFile?.content)) {
-		return "The manifest or the checksum list is missing.";
-	}
-	// Every file whose text is stored (manifest, checksums, kit) must match its recorded digest.
-	const generated = files.filter((file) => file.content !== null);
-	const actual = await Promise.all(
-		generated.map((file) => exportBundleSha256(file.content ?? ""))
-	);
-	const mismatch = generated.find(
-		(file, index) => actual[index] !== file.sha256
-	);
-	if (mismatch) {
-		return `${mismatch.path} does not match its recorded checksum.`;
-	}
-	let parsedJson: unknown;
-	try {
-		parsedJson = JSON.parse(manifestFile.content);
-	} catch {
-		return "The manifest is not valid JSON.";
-	}
-	const major = (parsedJson as { contractVersion?: unknown } | null)
-		?.contractVersion;
-	if (
-		typeof major !== "string" ||
-		exportBundleContractMajorOf(major) !== supportedExportBundleManifestMajor
-	) {
-		return "The manifest contract version is not supported.";
-	}
-	const parsed = exportBundleManifestSchema.safeParse(parsedJson);
-	if (!parsed.success) {
-		return "The manifest has an unknown or missing required field.";
-	}
-	const manifest = parsed.data;
-	for (const entry of manifest.files) {
-		const file = byPath.get(entry.path);
-		if (!file) {
-			return `The file ${entry.path} is missing.`;
-		}
-		if (file.sha256 !== entry.sha256) {
-			return `The file ${entry.path} does not match the manifest.`;
-		}
-	}
-	const bundleFileCount = files.filter(
-		(file) => !file.path.startsWith(`${exportBundleKitDirectory}/`)
-	).length;
-	if (bundleFileCount !== manifest.files.length + 2) {
-		return "The bundle holds a file the manifest does not list.";
-	}
-	const expectedChecksums = renderExportBundleChecksums([
-		...manifest.files,
-		{ path: exportBundleManifestPath, sha256: manifestFile.sha256 },
-	]);
-	if (expectedChecksums !== checksumsFile.content) {
-		return "The checksum list does not match the manifest.";
-	}
-	return null;
 }
