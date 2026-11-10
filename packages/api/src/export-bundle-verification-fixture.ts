@@ -119,7 +119,7 @@ export async function fixtureSource(): Promise<ExportBundleSource> {
 /** The verifier module's own text, as the kit ships it. */
 export function verifierSource(): string {
 	return readFileSync(
-		new URL("./export-bundle-verification.ts", import.meta.url),
+		join(import.meta.dirname, "export-bundle-verification.ts"),
 		"utf8"
 	);
 }
