@@ -1,9 +1,17 @@
 import { expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawn } from "bun";
 import { z } from "zod";
+import {
+	buildFixtureBundleFiles,
+	fixtureProfile,
+	fixtureSource,
+	replaceFile,
+	withManifest,
+	writeBundleDirectory,
+} from "../test-support/export-bundle-verification-fixture";
 import {
 	buildExportBundle,
 	exportBundleManifestSchema,
@@ -14,14 +22,7 @@ import {
 	exportBundleManifestJsonSchema,
 	verifyExportBundle,
 } from "./export-bundle-verification";
-import {
-	buildFixtureBundleFiles,
-	fixtureProfile,
-	fixtureSource,
-	replaceFile,
-	withManifest,
-	writeBundleDirectory,
-} from "./export-bundle-verification-fixture";
+import { exportBundleVerifierSource } from "./export-bundle-verifier-source";
 
 const forbiddenKitWords = /(install|agent|assistant|you must run|curl|sudo)/i;
 
@@ -316,5 +317,14 @@ test("a corrupted file is rejected identically by the Workbench path and the sta
 	expect(intact.code).toBe(0);
 	expect(intact.result).toEqual(
 		await verifyExportBundle(await buildFixtureBundleFiles())
+	);
+});
+
+test("the verifier source every stored bundle ships equals the verifier module", () => {
+	expect(exportBundleVerifierSource).toBe(
+		readFileSync(
+			join(import.meta.dirname, "export-bundle-verification.ts"),
+			"utf8"
+		)
 	);
 });

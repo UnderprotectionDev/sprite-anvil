@@ -17,6 +17,7 @@
       "!**/.zed",
       "!**/.vscode",
       "!**/routeTree.gen.ts",
+      "!packages/api/src/export-bundle-verifier-source.ts",
       "!dither.svg",
       "!apps/web/public/logo.svg",
       "!**/src/migrations/**/snapshot.json",

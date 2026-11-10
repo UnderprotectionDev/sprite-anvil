@@ -3,6 +3,10 @@ import { call } from "@orpc/server";
 import type { Context } from "@sprite-anvil/api/context";
 import type { ExportBundleSource } from "@sprite-anvil/api/export-bundle-manifest";
 import type { ExportBundleSourceReader } from "@sprite-anvil/api/export-bundle-store";
+import {
+	sha256Hex,
+	verifyExportBundle,
+} from "@sprite-anvil/api/export-bundle-verification";
 import type { ExportProfileStore } from "@sprite-anvil/api/export-profile-store";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import type { Database } from "@sprite-anvil/db";
@@ -18,6 +22,25 @@ const revisionId = "8b2a3d62-3d2e-4b86-8a7c-0e6c2f0d3001";
 const unknownRevisionId = "8b2a3d62-3d2e-4b86-8a7c-0e6c2f0d3999";
 const forbiddenContent = /installer|executable|agent_instruction|consumption/i;
 const familyId = "9c3b4e73-4e3f-4c97-9b8d-1f7d3a1e2001";
+const assetBytes = Uint8Array.from([137, 80, 78, 71, 1, 2, 3]);
+const encoder = new TextEncoder();
+const kitPaths = [
+	"verification-kit/README.md",
+	"verification-kit/checksums.txt",
+	"verification-kit/examples/file-mapping.example.json",
+	"verification-kit/schema/manifest.schema.json",
+	"verification-kit/verify.ts",
+];
+
+/** The bundle directory as a consumer holds it: generated text plus the asset bytes. */
+function directoryOf(bundle: {
+	files: { content: string | null; path: string }[];
+}) {
+	return bundle.files.map((file) => ({
+		bytes: file.content === null ? assetBytes : encoder.encode(file.content),
+		path: file.path,
+	}));
+}
 
 const profileDefinition = {
 	fileFormat: "png" as const,
@@ -180,6 +203,7 @@ test("a created bundle is re-read from storage with its pinned manifest and file
 		"checksums.txt",
 		"images/hero_idle.png",
 		"manifest.json",
+		...kitPaths,
 	]);
 
 	const catalog = await list();
@@ -295,7 +319,7 @@ test("a stored bundle whose content no longer matches its manifest fails verific
 	).rejects.toMatchObject({ code: "NOT_FOUND" });
 });
 
-test("the bundle holds only images, a manifest and checksums, never an installer or agent instruction", async () => {
+test("the bundle holds only images, a manifest, checksums and the data-only kit, never an installer or agent instruction", async () => {
 	const { create } = setup();
 	const { bundle } = await create();
 
@@ -303,7 +327,8 @@ test("the bundle holds only images, a manifest and checksums, never an installer
 		expect(
 			file.path === "manifest.json" ||
 				file.path === "checksums.txt" ||
-				file.path.startsWith("images/")
+				file.path.startsWith("images/") ||
+				file.path.startsWith("verification-kit/")
 		).toBe(true);
 	}
 	expect(JSON.stringify(bundle.manifest)).not.toMatch(forbiddenContent);
@@ -313,4 +338,84 @@ test("a project the user cannot access is not found", async () => {
 	const { create, list } = setup({ hasAccess: false });
 	await expect(create()).rejects.toMatchObject({ code: "NOT_FOUND" });
 	await expect(list()).rejects.toMatchObject({ code: "NOT_FOUND" });
+});
+
+async function sourceWithRealAsset(): Promise<ExportBundleSource> {
+	const base = resolvedSource();
+	return {
+		...base,
+		assetVersions: await Promise.all(
+			base.assetVersions.map(async (version) => ({
+				...version,
+				byteSize: assetBytes.length,
+				sha256: await sha256Hex(assetBytes),
+			}))
+		),
+	};
+}
+
+test("a created bundle stores the Package Verification Kit and passes the offline verifier when re-read", async () => {
+	const { create, get } = setup({ source: await sourceWithRealAsset() });
+	const created = await create();
+	const reread = await get(created.bundle.id);
+
+	const kitFiles = reread.files
+		.map((file) => file.path)
+		.filter((path) => path.startsWith("verification-kit/"));
+	expect(kitFiles).toEqual(kitPaths);
+	const kitChecksums = reread.files.find(
+		(file) => file.path === "verification-kit/checksums.txt"
+	);
+	const checksums = reread.files.find((file) => file.path === "checksums.txt");
+	expect(kitChecksums?.content).toBe(checksums?.content ?? "missing");
+
+	const result = await verifyExportBundle(directoryOf(reread));
+	expect(result).toMatchObject({ ok: true });
+});
+
+test("a corrupted kit or asset file is rejected by the verifier and by the store", async () => {
+	const { create, get } = setup({ source: await sourceWithRealAsset() });
+	const created = await create();
+	const files = directoryOf(await get(created.bundle.id));
+
+	const results = await Promise.all(
+		["verification-kit/checksums.txt", "images/hero_idle.png"].map((path) =>
+			verifyExportBundle(
+				files.map((file) =>
+					file.path === path
+						? { ...file, bytes: encoder.encode("changed") }
+						: file
+				)
+			)
+		)
+	);
+	for (const result of results) {
+		expect(result).toMatchObject({ ok: false });
+	}
+
+	let tampered = false;
+	const tamperedSetup = setup({
+		source: await sourceWithRealAsset(),
+		wrapStorage: (storage) => ({
+			...storage,
+			findBundle: async (...args) => {
+				const found = await storage.findBundle(...args);
+				return found && tampered
+					? {
+							...found,
+							files: found.files.map((file) =>
+								file.path === "verification-kit/verify.ts"
+									? { ...file, content: "tampered\n" }
+									: file
+							),
+						}
+					: found;
+			},
+		}),
+	});
+	const second = await tamperedSetup.create();
+	tampered = true;
+	await expect(tamperedSetup.get(second.bundle.id)).rejects.toMatchObject({
+		code: "CONFLICT",
+	});
 });

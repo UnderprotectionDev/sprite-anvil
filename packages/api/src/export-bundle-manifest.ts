@@ -7,6 +7,7 @@
  * profile revision give the same manifest and checksums.
  */
 import { z } from "zod";
+import { exportBundleKitDirectory } from "./export-bundle-verification";
 import type { ExportProfileDefinition } from "./export-profiles";
 import { recordContentDigest } from "./record-content-digest";
 
@@ -20,7 +21,7 @@ export const exportBundleDataStructureVersion = "1.0.0";
 export const exportBundleManifestPath = "manifest.json";
 export const exportBundleChecksumsPath = "checksums.txt";
 
-const sha256Schema = z.string().regex(/^[0-9a-f]{64}$/);
+export const sha256Schema = z.string().regex(/^[0-9a-f]{64}$/);
 const versionSchema = z.string().regex(/^\d+\.\d+\.\d+$/);
 const idSchema = z.string().min(1);
 const versionTargetSchema = z
@@ -680,7 +681,8 @@ export async function checkExportBundleFiles(
 	if (!(manifestFile?.content && checksumsFile?.content)) {
 		return "The manifest or the checksum list is missing.";
 	}
-	const generated = [manifestFile, checksumsFile];
+	// Every file whose text is stored (manifest, checksums, kit) must match its recorded digest.
+	const generated = files.filter((file) => file.content !== null);
 	const actual = await Promise.all(
 		generated.map((file) => exportBundleSha256(file.content ?? ""))
 	);
@@ -718,7 +720,10 @@ export async function checkExportBundleFiles(
 			return `The file ${entry.path} does not match the manifest.`;
 		}
 	}
-	if (files.length !== manifest.files.length + 2) {
+	const bundleFileCount = files.filter(
+		(file) => !file.path.startsWith(`${exportBundleKitDirectory}/`)
+	).length;
+	if (bundleFileCount !== manifest.files.length + 2) {
 		return "The bundle holds a file the manifest does not list.";
 	}
 	const expectedChecksums = renderExportBundleChecksums([

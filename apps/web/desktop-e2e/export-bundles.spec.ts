@@ -4,7 +4,7 @@ import { join } from "node:path";
 import {
 	buildFixtureBundleFiles,
 	writeBundleDirectory,
-} from "@sprite-anvil/api/export-bundle-verification-fixture";
+} from "@sprite-anvil/api/test-support/export-bundle-verification-fixture";
 import { $, expect } from "@wdio/globals";
 import { deliveryPlanningFixture as fixture } from "../e2e/delivery-planning-fixture";
 

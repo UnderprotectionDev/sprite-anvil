@@ -6,7 +6,7 @@ import {
 	buildFixtureBundleFiles,
 	replaceFile,
 	writeBundleDirectory,
-} from "@sprite-anvil/api/export-bundle-verification-fixture";
+} from "@sprite-anvil/api/test-support/export-bundle-verification-fixture";
 import {
 	createProjectFromProjectsView,
 	signUpWithFixture,

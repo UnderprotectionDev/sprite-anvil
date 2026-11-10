@@ -4,7 +4,7 @@ import type { ExportBundleVerificationFile } from "@sprite-anvil/api/export-bund
 import {
 	buildFixtureBundleFiles,
 	replaceFile,
-} from "@sprite-anvil/api/export-bundle-verification-fixture";
+} from "@sprite-anvil/api/test-support/export-bundle-verification-fixture";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import userEvent from "@testing-library/user-event";
