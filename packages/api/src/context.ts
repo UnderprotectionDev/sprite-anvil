@@ -15,6 +15,7 @@ import type { ProjectContextScopeStore } from "./context-scopes";
 import type { DeliveryTargetStore } from "./delivery-planning-store";
 import type { DependencyRevalidationStore } from "./dependency-revalidation";
 import type { DirectionalReviewStore } from "./directional-reviews";
+import type { ExportBundleStore } from "./export-bundle-store";
 import type { ExportProfileStore } from "./export-profile-store";
 import type { FamilyReadinessStore } from "./family-readiness";
 import type {
@@ -81,6 +82,7 @@ export interface Context {
 	deliveryTargetStore?: DeliveryTargetStore;
 	dependencyRevalidationStore?: DependencyRevalidationStore;
 	directionalReviewStore?: DirectionalReviewStore;
+	exportBundleStore?: ExportBundleStore;
 	exportProfileStore?: ExportProfileStore;
 	familyReadinessStore?: FamilyReadinessStore;
 	finalizeSourceMetadataMapping?: SourceMetadataMappingFinalizer;
