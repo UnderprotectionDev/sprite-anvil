@@ -15,6 +15,7 @@ import type { ProjectContextScopeStore } from "./context-scopes";
 import type { DeliveryTargetStore } from "./delivery-planning-store";
 import type { DependencyRevalidationStore } from "./dependency-revalidation";
 import type { DirectionalReviewStore } from "./directional-reviews";
+import type { ExportProfileStore } from "./export-profile-store";
 import type { FamilyReadinessStore } from "./family-readiness";
 import type {
 	GameplayMetadataReviewHandler,
@@ -80,6 +81,7 @@ export interface Context {
 	deliveryTargetStore?: DeliveryTargetStore;
 	dependencyRevalidationStore?: DependencyRevalidationStore;
 	directionalReviewStore?: DirectionalReviewStore;
+	exportProfileStore?: ExportProfileStore;
 	familyReadinessStore?: FamilyReadinessStore;
 	finalizeSourceMetadataMapping?: SourceMetadataMappingFinalizer;
 	gameplayMetadataStore?: GameplayMetadataStore;

@@ -22,6 +22,8 @@ import { createCollectionStore } from "./features/collections/server/collection-
 import { createDatabaseDeliveryPlanningStorage } from "./features/delivery-planning/server/database-delivery-planning-storage";
 import { createDeliveryTargetStore } from "./features/delivery-planning/server/delivery-target-store";
 import { createDependencyRevalidationStore } from "./features/dependency-revalidation/server/dependency-revalidation-store";
+import { createDatabaseExportProfileStorage } from "./features/export-profiles/server/database-export-profile-storage";
+import { createExportProfileStore } from "./features/export-profiles/server/export-profile-store";
 import { createFamilyReadinessStore } from "./features/family-readiness/server/family-readiness-store";
 import { createGameplayMetadataStore } from "./features/gameplay-metadata/server/gameplay-metadata-store";
 import { createGenerationPackageStore } from "./features/generation-packages/server/generation-package-store";
@@ -102,6 +104,10 @@ export const readinessPlanStore = createReadinessPlanStore({
 	familyReadiness: familyReadinessStore,
 	storage: createDatabaseReadinessPlanStorage(db),
 });
+export const exportProfileStore = createExportProfileStore(
+	db,
+	createDatabaseExportProfileStorage(db)
+);
 export const collectionStore = createCollectionStore(db);
 export const backgroundOperationStore = createBackgroundOperationStore(
 	db,

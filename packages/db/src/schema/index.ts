@@ -16,6 +16,7 @@ export * from "./context-scopes";
 export * from "./delivery-planning";
 export * from "./dependency-revalidation";
 export * from "./directional-reviews";
+export * from "./export-profiles";
 export * from "./external-visual-analysis";
 export * from "./family-readiness";
 export * from "./gameplay-metadata";
