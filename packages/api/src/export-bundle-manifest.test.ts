@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import {
 	buildExportBundle,
-	checkExportBundleFiles,
 	type ExportBundleProfilePin,
 	type ExportBundleSource,
 } from "./export-bundle-manifest";
+import { exportBundleVerifierSource } from "./export-bundle-verifier-source";
 
 const profile: ExportBundleProfilePin = {
 	contentDigest: "a".repeat(64),
@@ -191,8 +191,6 @@ test("waivers travel with the version, rule, observed value and rationale", asyn
 					kind: "quality",
 					observedValue: "12 colors",
 					rationale: "Accepted for retro look",
-					recordedAt: "2026-11-01T10:00:00.000Z",
-					recordedByUserId: "user-1",
 					result: "waived",
 					ruleClass: "waivable_requirement",
 					ruleId: "palette.max_colors",
@@ -213,8 +211,6 @@ test("waivers travel with the version, rule, observed value and rationale", asyn
 			itemId: "idle",
 			observedValue: "12 colors",
 			rationale: "Accepted for retro look",
-			recordedAt: "2026-11-01T10:00:00.000Z",
-			recordedByUserId: "user-1",
 			ruleClass: "waivable_requirement",
 			ruleId: "palette.max_colors",
 			versionTarget: { id: "uv-1", kind: "unit" },
@@ -289,48 +285,20 @@ test("a changed profile revision changes the manifest digest", async () => {
 	expect(second.bundle.manifestDigest).not.toBe(first.bundle.manifestDigest);
 });
 
-test("the integrity check passes a built bundle and rejects a corrupted one the same way", async () => {
+test("the manifest pins every kit file except the checksum list by digest", async () => {
 	const result = await buildExportBundle(source(), options);
 	if (!result.ok) {
 		throw new Error("expected the bundle to build");
 	}
-	const { files } = result.bundle;
-	expect(await checkExportBundleFiles(files)).toBeNull();
-
-	const corruptedChecksums = files.map((file) =>
-		file.path === "checksums.txt" ? { ...file, content: "x\n" } : file
+	const { kitFiles } = result.bundle.manifest;
+	expect(kitFiles.map((file) => file.path)).toEqual([
+		"verification-kit/README.md",
+		"verification-kit/examples/file-mapping.example.json",
+		"verification-kit/schema/manifest.schema.json",
+		"verification-kit/verify.ts",
+	]);
+	const verify = kitFiles.find(
+		(file) => file.path === "verification-kit/verify.ts"
 	);
-	expect(await checkExportBundleFiles(corruptedChecksums)).toBe(
-		"checksums.txt does not match its recorded checksum."
-	);
-
-	const corruptedFile = files.map((file) =>
-		file.path === "images/hero_idle.png"
-			? { ...file, sha256: "0".repeat(64) }
-			: file
-	);
-	expect(await checkExportBundleFiles(corruptedFile)).toBe(
-		"The file images/hero_idle.png does not match the manifest."
-	);
-
-	expect(
-		await checkExportBundleFiles(
-			files.filter((file) => file.path !== "images/hero_walk.png")
-		)
-	).toBe("The file images/hero_walk.png is missing.");
-
-	const unknownMajor = JSON.stringify({
-		...result.bundle.manifest,
-		contractVersion: "2.0.0",
-	});
-	const unknownMajorSha = await sha256(unknownMajor);
-	expect(
-		await checkExportBundleFiles(
-			files.map((file) =>
-				file.path === "manifest.json"
-					? { ...file, content: unknownMajor, sha256: unknownMajorSha }
-					: file
-			)
-		)
-	).toBe("The manifest contract version is not supported.");
+	expect(verify?.sha256).toBe(await sha256(exportBundleVerifierSource));
 });

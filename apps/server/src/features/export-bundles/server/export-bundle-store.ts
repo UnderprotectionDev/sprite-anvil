@@ -1,7 +1,6 @@
 import {
 	type BuiltExportBundle,
 	buildExportBundle,
-	checkExportBundleFiles,
 	exportBundleManifestSchema,
 	exportBundleRequestDigest,
 	exportBundleSha256,
@@ -11,6 +10,10 @@ import type {
 	ExportBundleSourceReader,
 	ExportBundleStore,
 } from "@sprite-anvil/api/export-bundle-store";
+import {
+	type ExportBundleVerificationFile,
+	verifyExportBundle,
+} from "@sprite-anvil/api/export-bundle-verification";
 import { buildExportBundleVerificationKit } from "@sprite-anvil/api/export-bundle-verification-kit";
 import { exportBundleVerifierSource } from "@sprite-anvil/api/export-bundle-verifier-source";
 import {
@@ -109,14 +112,34 @@ function toBundle(
 	});
 }
 
-/** Failure text when the stored bundle no longer matches its own manifest and checksums, else null. */
+/**
+ * The stored files as the offline verifier reads them. Generated text (manifest,
+ * checksums, kit) is checked byte for byte; an asset file is referenced, so its
+ * recorded size and SHA-256 stand in for its bytes.
+ */
+function toVerificationFiles(
+	files: StoredExportBundleFile[]
+): ExportBundleVerificationFile[] {
+	return files.map((file) =>
+		file.content === null
+			? {
+					bytes: new Uint8Array(),
+					path: file.path,
+					recorded: { byteSize: file.byteSize, sha256: file.sha256 },
+				}
+			: { bytes: encoder.encode(file.content), path: file.path }
+	);
+}
+
+/** Failure text when the stored bundle no longer passes the offline verifier or its record, else null. */
 async function integrityFailure(stored: StoredBundle): Promise<string | null> {
-	const failure = await checkExportBundleFiles(stored.files);
-	if (failure) {
-		return `The Export Bundle failed verification: ${failure}`;
+	const result = await verifyExportBundle(toVerificationFiles(stored.files));
+	if (!result.ok) {
+		return `The Export Bundle failed verification: ${result.failures
+			.map((entry) => entry.message)
+			.join(" ")}`;
 	}
-	const manifest = stored.files.find((file) => file.path === "manifest.json");
-	if (manifest?.sha256 !== stored.bundle.manifestDigest) {
+	if (result.manifestDigest !== stored.bundle.manifestDigest) {
 		return "The Export Bundle failed verification: its manifest digest does not match the record.";
 	}
 	return null;

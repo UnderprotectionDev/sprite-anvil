@@ -2,6 +2,7 @@ import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
 import { useState } from "react";
 import {
+	describeError,
 	type ExportBundleManifestSummary,
 	type ExportBundleReading,
 	readExportBundle,
@@ -68,6 +69,9 @@ function VerificationResult({ reading }: { reading: ExportBundleReading }) {
 					</>
 				)}
 			</section>
+			{reading.manifestError ? (
+				<p role="alert">{reading.manifestError}</p>
+			) : null}
 			{reading.manifest ? <ManifestSummary summary={reading.manifest} /> : null}
 		</div>
 	);
@@ -86,9 +90,11 @@ export function ExportBundleVerificationView() {
 		setReadError(null);
 		try {
 			setReading(await readExportBundle(files));
-		} catch {
+		} catch (error) {
 			setReading(null);
-			setReadError("The chosen directory could not be read.");
+			setReadError(
+				`The chosen directory could not be read: ${describeError(error)}`
+			);
 		} finally {
 			setIsReading(false);
 		}

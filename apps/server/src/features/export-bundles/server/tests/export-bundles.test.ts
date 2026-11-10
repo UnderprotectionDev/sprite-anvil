@@ -419,3 +419,118 @@ test("a corrupted kit or asset file is rejected by the verifier and by the store
 		code: "CONFLICT",
 	});
 });
+
+interface TextFile {
+	content: string | null;
+	path: string;
+}
+
+/** A storage whose stored bundle is rewritten after creation, with every recorded digest kept consistent. */
+function rewritingStorage(
+	rewrite: (files: TextFile[]) => Promise<{
+		files: TextFile[];
+		manifestDigest?: string;
+	}>
+) {
+	let active = false;
+	return {
+		activate: () => {
+			active = true;
+		},
+		wrap: (storage: ExportBundleStorage): ExportBundleStorage => ({
+			...storage,
+			findBundle: async (...args) => {
+				const found = await storage.findBundle(...args);
+				if (!(found && active)) {
+					return found;
+				}
+				const changed = await rewrite(found.files);
+				const files = await Promise.all(
+					found.files.map(async (file) => {
+						const content =
+							changed.files.find((entry) => entry.path === file.path)
+								?.content ?? file.content;
+						return content === null || content === file.content
+							? file
+							: {
+									...file,
+									byteSize: encoder.encode(content).length,
+									content,
+									sha256: await sha256Hex(encoder.encode(content)),
+								};
+					})
+				);
+				return {
+					bundle: {
+						...found.bundle,
+						manifestDigest:
+							changed.manifestDigest ?? found.bundle.manifestDigest,
+					},
+					files,
+				};
+			},
+		}),
+	};
+}
+
+test("a stored bundle with an altered kit file is rejected even when its recorded digest is consistent", async () => {
+	const rewriting = rewritingStorage((files) =>
+		Promise.resolve({
+			files: files.map((file) =>
+				file.path === "verification-kit/verify.ts"
+					? { ...file, content: "export {};\n" }
+					: file
+			),
+		})
+	);
+	const { create, get } = setup({
+		source: await sourceWithRealAsset(),
+		wrapStorage: rewriting.wrap,
+	});
+	const created = await create();
+	rewriting.activate();
+	await expect(get(created.bundle.id)).rejects.toMatchObject({
+		code: "CONFLICT",
+	});
+	await expect(create()).rejects.toMatchObject({ code: "CONFLICT" });
+});
+
+test("a stored bundle with a broken record link is rejected even when its manifest and checksums are consistent", async () => {
+	const rewriting = rewritingStorage(async (files) => {
+		const manifestText = files.find(
+			(file) => file.path === "manifest.json"
+		)?.content;
+		const manifest = JSON.parse(manifestText ?? "{}");
+		manifest.productionEvidence = [];
+		const nextManifest = `${JSON.stringify(manifest, null, 2)}\n`;
+		const digest = await sha256Hex(encoder.encode(nextManifest));
+		const checksums = (
+			files.find((file) => file.path === "checksums.txt")?.content ?? ""
+		)
+			.split("\n")
+			.map((line) =>
+				line.endsWith("  manifest.json") ? `${digest}  manifest.json` : line
+			)
+			.join("\n");
+		return {
+			files: files.map((file) => {
+				if (file.path === "manifest.json") {
+					return { ...file, content: nextManifest };
+				}
+				return file.path.endsWith("checksums.txt")
+					? { ...file, content: checksums }
+					: file;
+			}),
+			manifestDigest: digest,
+		};
+	});
+	const { create, get } = setup({
+		source: await sourceWithRealAsset(),
+		wrapStorage: rewriting.wrap,
+	});
+	const created = await create();
+	rewriting.activate();
+	await expect(get(created.bundle.id)).rejects.toMatchObject({
+		code: "CONFLICT",
+	});
+});

@@ -26,6 +26,7 @@ const kitChecksumsPath = `${kitPrefix}checksums.txt`;
 const kitSchemaPath = `${kitPrefix}schema/manifest.schema.json`;
 const kitVerifierPath = `${kitPrefix}verify.ts`;
 const kitExamplePattern = /^verification-kit\/examples\/[^/]+\.json$/;
+const driveLetterUrlPrefix = /^\/([A-Za-z]:)/;
 const leadingSeparators = /^[\\\\/]+/;
 const forbiddenExampleKeys = [
 	"command",
@@ -40,6 +41,11 @@ export interface ExportBundleVerificationFile {
 	bytes: Uint8Array;
 	/** Forward-slash path relative to the bundle directory. */
 	path: string;
+	/**
+	 * Set when the bytes live elsewhere (an asset file a store only references):
+	 * the recorded size and SHA-256 stand in for `bytes`.
+	 */
+	recorded?: { byteSize: number; sha256: string };
 }
 
 export interface ExportBundleIntegrityFailure {
@@ -47,6 +53,7 @@ export interface ExportBundleIntegrityFailure {
 		| "checksum_list_mismatch"
 		| "digest_mismatch"
 		| "duplicate_path"
+		| "kit_digest_mismatch"
 		| "kit_executable"
 		| "kit_file_missing"
 		| "kit_schema_mismatch"
@@ -68,9 +75,9 @@ export type ExportBundleIntegrityResult =
 	| { fileCount: number; manifestDigest: string; ok: true }
 	| { failures: ExportBundleIntegrityFailure[]; ok: false };
 
-// The manifest JSON Schema. Emitted from the Zod manifest contract in
+// The manifest JSON Schema, shipped in the kit. Emitted from the Zod manifest contract in
 // `export-bundle-manifest.ts`; a test keeps the two identical.
-const manifestJsonSchema: Record<string, unknown> = {
+export const exportBundleManifestJsonSchema: Record<string, unknown> = {
 	$schema: "https://json-schema.org/draft/2020-12/schema",
 	type: "object",
 	properties: {
@@ -246,6 +253,24 @@ const manifestJsonSchema: Record<string, unknown> = {
 		format: {
 			type: "string",
 			const: "sprite-anvil.export-bundle",
+		},
+		kitFiles: {
+			type: "array",
+			items: {
+				type: "object",
+				properties: {
+					path: {
+						type: "string",
+						minLength: 1,
+					},
+					sha256: {
+						type: "string",
+						pattern: "^[0-9a-f]{64}$",
+					},
+				},
+				required: ["path", "sha256"],
+				additionalProperties: false,
+			},
 		},
 		productionEvidence: {
 			type: "array",
@@ -554,13 +579,6 @@ const manifestJsonSchema: Record<string, unknown> = {
 					rationale: {
 						type: "string",
 					},
-					recordedAt: {
-						type: "string",
-					},
-					recordedByUserId: {
-						type: "string",
-						minLength: 1,
-					},
 					ruleClass: {
 						type: ["string", "null"],
 					},
@@ -596,8 +614,6 @@ const manifestJsonSchema: Record<string, unknown> = {
 					"itemId",
 					"observedValue",
 					"rationale",
-					"recordedAt",
-					"recordedByUserId",
 					"ruleClass",
 					"ruleId",
 					"versionTarget",
@@ -617,6 +633,7 @@ const manifestJsonSchema: Record<string, unknown> = {
 		"families",
 		"files",
 		"format",
+		"kitFiles",
 		"productionEvidence",
 		"profile",
 		"qualityEvidence",
@@ -627,9 +644,6 @@ const manifestJsonSchema: Record<string, unknown> = {
 	],
 	additionalProperties: false,
 };
-
-/** The JSON Schema of the Bundle Manifest, shipped in the kit. */
-export const exportBundleManifestJsonSchema = manifestJsonSchema;
 
 type JsonObject = Record<string, unknown>;
 
@@ -781,7 +795,7 @@ function validateSchema(
 /** Messages for every way `value` violates `schema`; empty when it conforms. */
 export function validateJsonSchema(
 	value: unknown,
-	schema: JsonObject = manifestJsonSchema
+	schema: JsonObject = exportBundleManifestJsonSchema
 ): string[] {
 	const errors: string[] = [];
 	validateSchema(value, schema, "", errors);
@@ -862,6 +876,7 @@ interface Manifest {
 		path: string;
 		sha256: string;
 	}[];
+	kitFiles: { path: string; sha256: string }[];
 	[key: string]: unknown;
 }
 
@@ -913,7 +928,7 @@ function listedFileFailure(
 			entry.path
 		);
 	}
-	if (file.bytes.length !== entry.byteSize) {
+	if ((file.recorded?.byteSize ?? file.bytes.length) !== entry.byteSize) {
 		return failure(
 			"size_mismatch",
 			`The file ${entry.path} does not have the size the manifest records.`,
@@ -938,7 +953,10 @@ async function checkListedFiles(
 	const digests = await Promise.all(
 		manifest.files.map((entry) => {
 			const file = byPath.get(entry.path);
-			return file ? sha256Hex(file.bytes) : null;
+			if (!file) {
+				return null;
+			}
+			return file.recorded ? file.recorded.sha256 : sha256Hex(file.bytes);
 		})
 	);
 	for (const [index, entry] of manifest.files.entries()) {
@@ -1211,7 +1229,7 @@ function checkKitSchema(
 			Object.fromEntries(
 				Object.entries(schema).filter(([key]) => !key.startsWith("x-"))
 			)
-		) === canonicalJson(manifestJsonSchema);
+		) === canonicalJson(exportBundleManifestJsonSchema);
 	return matches
 		? []
 		: [
@@ -1286,11 +1304,60 @@ function checkKitReadmeAndExamples(
 	return failures;
 }
 
-function checkKit(
+/** Every kit file but the checksum list is pinned by the manifest: same set, same digests. */
+async function checkKitPins(
+	manifest: Manifest,
+	byPath: Map<string, ExportBundleVerificationFile>
+): Promise<Failure[]> {
+	const pinned = new Map(manifest.kitFiles.map((pin) => [pin.path, pin]));
+	const checked = await Promise.all(
+		[...byPath.entries()]
+			.filter(([path]) => path.startsWith(kitPrefix) && pinned.has(path))
+			.map(async ([path, file]) => ({
+				digest: await sha256Hex(file.bytes),
+				path,
+			}))
+	);
+	const failures = checked
+		.filter((entry) => entry.digest !== pinned.get(entry.path)?.sha256)
+		.map((entry) =>
+			failure(
+				"kit_digest_mismatch",
+				`The kit file ${entry.path} does not match the digest the manifest pins.`,
+				entry.path
+			)
+		);
+	for (const path of [...byPath.keys()].sort(compare)) {
+		const isKitContent =
+			path === kitReadmePath ||
+			path === kitSchemaPath ||
+			path === kitVerifierPath ||
+			kitExamplePattern.test(path);
+		if (isKitContent && !pinned.has(path)) {
+			failures.push(
+				failure(
+					"kit_unexpected_file",
+					`The kit holds ${path}, which the manifest does not pin.`,
+					path
+				)
+			);
+		}
+	}
+	for (const path of [...pinned.keys()].sort(compare)) {
+		if (!byPath.has(path)) {
+			failures.push(
+				failure("kit_file_missing", `The kit file ${path} is missing.`, path)
+			);
+		}
+	}
+	return failures;
+}
+
+async function checkKit(
 	manifest: Manifest,
 	byPath: Map<string, ExportBundleVerificationFile>,
 	checksumBytes: Uint8Array
-): Failure[] {
+): Promise<Failure[]> {
 	const examples = [...byPath.keys()].filter((path) =>
 		kitExamplePattern.test(path)
 	);
@@ -1309,7 +1376,10 @@ function checkKit(
 	if (schemaFile) {
 		failures.push(...checkKitSchema(manifest, schemaFile));
 	}
-	failures.push(...checkKitReadmeAndExamples(manifest, byPath, examples));
+	failures.push(
+		...checkKitReadmeAndExamples(manifest, byPath, examples),
+		...(await checkKitPins(manifest, byPath))
+	);
 	return failures;
 }
 
@@ -1387,7 +1457,7 @@ export async function verifyExportBundle(
 			checksumsFile.bytes
 		)),
 		...checkRecordLinks(manifest),
-		...checkKit(manifest, byPath, checksumsFile.bytes)
+		...(await checkKit(manifest, byPath, checksumsFile.bytes))
 	);
 	if (failures.length > 0) {
 		return { failures, ok: false };
@@ -1435,26 +1505,53 @@ export async function runExportBundleVerifier(argv: string[]): Promise<number> {
 	return result.ok ? 0 : 1;
 }
 
-/** Equal paths, allowing a symlinked prefix such as /var against /private/var. */
-function isSamePath(left: string, right: string): boolean {
-	return left.endsWith(right) || right.endsWith(left);
+/** A path in one comparable form: forward slashes, no drive-letter URL slash, no `.` or `..` segments. */
+function normalizePath(path: string): string {
+	const slashed = path
+		.replaceAll("\\", "/")
+		.replace(driveLetterUrlPrefix, "$1");
+	const absolute = slashed.startsWith("/");
+	const parts: string[] = [];
+	for (const part of slashed.split("/")) {
+		if (part === "..") {
+			parts.pop();
+		} else if (part !== "" && part !== ".") {
+			parts.push(part);
+		}
+	}
+	return `${absolute ? "/" : ""}${parts.join("/")}`;
+}
+
+/** Whether two paths name the same file after normalizing; a different directory is never the same. */
+export function isSamePath(left: string, right: string): boolean {
+	return normalizePath(left) === normalizePath(right);
 }
 
 const runtime = globalThis as unknown as {
 	process?: { argv: string[]; exitCode?: number };
 };
-const scriptPath = runtime.process?.argv[1];
-if (
-	runtime.process &&
-	scriptPath &&
-	isSamePath(
-		decodeURIComponent(new URL(import.meta.url).pathname),
-		scriptPath.replaceAll("\\", "/")
-	)
-) {
+
+/** Whether this module is the script being run, resolving a symlinked prefix such as /var against /private/var. */
+async function isEntryPoint(script: string): Promise<boolean> {
+	const modulePath = decodeURIComponent(new URL(import.meta.url).pathname);
+	if (isSamePath(modulePath, script)) {
+		return true;
+	}
+	try {
+		const { realpath } = await import("node:fs/promises");
+		return isSamePath(await realpath(modulePath), await realpath(script));
+	} catch {
+		return false;
+	}
+}
+
+const entryScript = runtime.process?.argv[1];
+if (runtime.process && entryScript) {
 	const host = runtime.process;
-	// Set the exit code instead of exiting so a piped result is fully written.
-	runExportBundleVerifier(host.argv.slice(2)).then((code) => {
-		host.exitCode = code;
+	isEntryPoint(entryScript).then(async (isEntry) => {
+		if (isEntry) {
+			// Set the exit code instead of exiting so a piped result is fully written.
+			host.exitCode = await runExportBundleVerifier(host.argv.slice(2));
+		}
 	});
 }

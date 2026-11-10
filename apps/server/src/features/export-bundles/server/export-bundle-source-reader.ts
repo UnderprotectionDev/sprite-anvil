@@ -61,8 +61,6 @@ function pinQuality(
 		kind: evidence.kind,
 		observedValue: evidence.observedValue,
 		rationale: evidence.rationale,
-		recordedAt: evidence.createdAt,
-		recordedByUserId: evidence.createdByUserId,
 		result: evidence.result,
 		ruleClass: evidence.ruleClass,
 		ruleId: evidence.ruleId,
