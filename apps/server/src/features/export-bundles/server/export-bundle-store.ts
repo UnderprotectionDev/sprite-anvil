@@ -1,14 +1,18 @@
 import {
+	type BuiltExportBundle,
 	buildExportBundle,
 	checkExportBundleFiles,
 	exportBundleManifestSchema,
 	exportBundleRequestDigest,
+	exportBundleSha256,
 } from "@sprite-anvil/api/export-bundle-manifest";
 import type {
 	ExportBundleCreateResult,
 	ExportBundleSourceReader,
 	ExportBundleStore,
 } from "@sprite-anvil/api/export-bundle-store";
+import { buildExportBundleVerificationKit } from "@sprite-anvil/api/export-bundle-verification-kit";
+import { exportBundleVerifierSource } from "@sprite-anvil/api/export-bundle-verifier-source";
 import {
 	type ExportBundle,
 	exportBundleCatalogSchema,
@@ -61,6 +65,27 @@ function toSummary(bundle: StoredExportBundle, latestBundleId: string | null) {
 		profileId: bundle.profileId,
 		profileRevisionId: bundle.profileRevisionId,
 	});
+}
+
+const encoder = new TextEncoder();
+
+/** The kit's rows: text files under `verification-kit/`, pinned by the same digests as every other file. */
+async function kitFileRows(
+	bundle: BuiltExportBundle
+): Promise<StoredExportBundleFile[]> {
+	return await Promise.all(
+		buildExportBundleVerificationKit({
+			checksumsText: bundle.checksumsText,
+			manifest: bundle.manifest,
+			verifierSource: exportBundleVerifierSource,
+		}).map(async (file) => ({
+			assetVersionId: null,
+			byteSize: encoder.encode(file.content).length,
+			content: file.content,
+			path: file.path,
+			sha256: await exportBundleSha256(file.content),
+		}))
+	);
 }
 
 function toBundle(
@@ -208,7 +233,7 @@ export function createExportBundleStore(
 					projectId: input.projectId,
 					requestDigest,
 				},
-				built.bundle.files
+				[...built.bundle.files, ...(await kitFileRows(built.bundle))]
 			);
 			if (inserted.status === "conflict") {
 				// A concurrent request with the same key won; its record is the answer.

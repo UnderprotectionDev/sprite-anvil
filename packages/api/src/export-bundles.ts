@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { exportBundleManifestSchema } from "./export-bundle-manifest";
+import {
+	exportBundleManifestSchema,
+	sha256Schema,
+} from "./export-bundle-manifest";
 import { idempotencyKeySchema } from "./record-publication";
 
 const idSchema = z.uuid();
@@ -46,7 +49,7 @@ export const exportBundleFileSchema = z.object({
 	/** Text of a generated file (manifest, checksums); null for an asset file kept in storage. */
 	content: z.string().nullable(),
 	path: z.string(),
-	sha256: z.string().regex(/^[0-9a-f]{64}$/),
+	sha256: sha256Schema,
 });
 
 export const exportBundleSummarySchema = z.object({
@@ -58,7 +61,7 @@ export const exportBundleSummarySchema = z.object({
 	id: idSchema,
 	/** The movable latest-bundle marker points at exactly this bundle. */
 	isLatest: z.boolean(),
-	manifestDigest: z.string().regex(/^[0-9a-f]{64}$/),
+	manifestDigest: sha256Schema,
 	profileId: z.string(),
 	profileRevisionId: z.string(),
 });

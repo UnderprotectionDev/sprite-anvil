@@ -3,19 +3,20 @@
  * Package Verification Kit, built through the real manifest contract. Shared
  * by the unit tests and the end-to-end specs; never imported by product code.
  */
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
 	buildExportBundle,
 	type ExportBundleProfilePin,
 	type ExportBundleSource,
 	exportBundleSha256,
-} from "./export-bundle-manifest";
+} from "../src/export-bundle-manifest";
 import {
 	type ExportBundleVerificationFile,
 	sha256Hex,
-} from "./export-bundle-verification";
-import { buildExportBundleVerificationKit } from "./export-bundle-verification-kit";
+} from "../src/export-bundle-verification";
+import { buildExportBundleVerificationKit } from "../src/export-bundle-verification-kit";
+import { exportBundleVerifierSource } from "../src/export-bundle-verifier-source";
 
 const encoder = new TextEncoder();
 
@@ -116,14 +117,6 @@ export async function fixtureSource(): Promise<ExportBundleSource> {
 	};
 }
 
-/** The verifier module's own text, as the kit ships it. */
-export function verifierSource(): string {
-	return readFileSync(
-		join(import.meta.dirname, "export-bundle-verification.ts"),
-		"utf8"
-	);
-}
-
 /** Every file of the bundle directory, kit included, as bytes. */
 export async function buildFixtureBundleFiles(): Promise<
 	ExportBundleVerificationFile[]
@@ -140,7 +133,7 @@ export async function buildFixtureBundleFiles(): Promise<
 	const kit = buildExportBundleVerificationKit({
 		checksumsText: bundle.checksumsText,
 		manifest: bundle.manifest,
-		verifierSource: verifierSource(),
+		verifierSource: exportBundleVerifierSource,
 	});
 	const assets = bundle.files
 		.filter((file) => file.assetVersionId !== null)

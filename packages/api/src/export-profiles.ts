@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sha256Schema } from "./export-bundle-manifest";
 
 const idSchema = z.uuid();
 
@@ -92,7 +93,7 @@ export type ExportProfileRevisionCreateInput = z.infer<
 >;
 
 export const exportProfileRevisionSchema = z.object({
-	contentDigest: z.string().regex(/^[0-9a-f]{64}$/),
+	contentDigest: sha256Schema,
 	contractVersion: contractVersionSchema,
 	createdAt: z.iso.datetime(),
 	definition: exportProfileDefinitionSchema,

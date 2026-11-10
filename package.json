@@ -51,6 +51,7 @@
     "dev:server": "bun run --cwd packages/db db:dev server",
     "dev:web": "turbo run dev -F web --",
     "env:generate": "varlock codegen --path ./apps/web/ && varlock codegen --path ./apps/server/ && varlock codegen --path ./packages/db/",
+    "export-bundle:generate-verifier-source": "bun scripts/generate-export-bundle-verifier-source.ts",
     "fix": "ultracite fix",
     "postinstall": "varlock codegen --path ./apps/web/ && varlock codegen --path ./apps/server/ && varlock codegen --path ./packages/db/",
     "prepare": "lefthook install",

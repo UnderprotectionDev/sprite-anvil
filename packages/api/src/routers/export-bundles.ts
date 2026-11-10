@@ -23,6 +23,11 @@ function getExportBundleStore(context: Context) {
 
 const projectNotFound = "Project not found.";
 
+/** Compile-time proof that every rejection reason has a message. */
+function assertNever(rejection: never): never {
+	throw new Error(`Unhandled Export Bundle rejection: ${String(rejection)}`);
+}
+
 function rejectionMessage(rejection: ExportBundleRejection): string {
 	switch (rejection.reason) {
 		case "profile_revision_unavailable":
@@ -42,7 +47,7 @@ function rejectionMessage(rejection: ExportBundleRejection): string {
 		case "unknown_naming_placeholder":
 			return `The Export Profile naming template uses the unknown placeholder {${rejection.placeholder}}.`;
 		default:
-			return "The Export Bundle was not created.";
+			return assertNever(rejection);
 	}
 }
 

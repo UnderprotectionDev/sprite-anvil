@@ -5,7 +5,7 @@ import {
 	type ExportBundleManifestSummary,
 	type ExportBundleReading,
 	readExportBundle,
-} from "../../lib/read-bundle-directory";
+} from "../../lib/read-export-bundle";
 
 const directoryAttributes = { webkitdirectory: "" } as Record<string, string>;
 
