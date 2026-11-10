@@ -22,6 +22,9 @@ import { createCollectionStore } from "./features/collections/server/collection-
 import { createDatabaseDeliveryPlanningStorage } from "./features/delivery-planning/server/database-delivery-planning-storage";
 import { createDeliveryTargetStore } from "./features/delivery-planning/server/delivery-target-store";
 import { createDependencyRevalidationStore } from "./features/dependency-revalidation/server/dependency-revalidation-store";
+import { createDatabaseExportBundleStorage } from "./features/export-bundles/server/database-export-bundle-storage";
+import { createExportBundleSourceReader } from "./features/export-bundles/server/export-bundle-source-reader";
+import { createExportBundleStore } from "./features/export-bundles/server/export-bundle-store";
 import { createDatabaseExportProfileStorage } from "./features/export-profiles/server/database-export-profile-storage";
 import { createExportProfileStore } from "./features/export-profiles/server/export-profile-store";
 import { createFamilyReadinessStore } from "./features/family-readiness/server/family-readiness-store";
@@ -140,6 +143,17 @@ export function createServerAssetVersionStorage() {
 export const projectContextStore = createProjectContextStore(db);
 export const referenceProductionStore = createReferenceProductionStore(db);
 export const rightsRecordStore = createRightsRecordStore(db);
+export const exportBundleStore = createExportBundleStore(db, {
+	profiles: exportProfileStore,
+	sourceReader: createExportBundleSourceReader({
+		assetFamilies: assetFamilyStore,
+		assetVersions: assetVersionStore,
+		familyReadiness: familyReadinessStore,
+		projectContext: projectContextStore,
+		rights: rightsRecordStore,
+	}),
+	storage: createDatabaseExportBundleStorage(db),
+});
 export const managedSnapshotStore = createManagedSnapshotStore(db);
 export const projectContextScopeStore = createProjectContextScopeStore(db);
 export const specializedProfileContractStore =
