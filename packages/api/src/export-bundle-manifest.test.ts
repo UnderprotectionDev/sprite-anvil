@@ -3,6 +3,7 @@ import {
 	buildExportBundle,
 	type ExportBundleProfilePin,
 	type ExportBundleSource,
+	exportBundleHasEngineData,
 	exportBundleManifestSchema,
 } from "./export-bundle-manifest";
 import { exportBundleVerifierSource } from "./export-bundle-verifier-source";
@@ -367,4 +368,13 @@ test("a bundle without engine data pins empty lists, and a 1.0.0 manifest withou
 			contractVersion: "1.0.0",
 		}).success
 	).toBe(true);
+});
+
+test("only manifest contracts from 1.1.0 pin engine data", () => {
+	expect(exportBundleHasEngineData("1.0.0")).toBe(false);
+	expect(exportBundleHasEngineData("1.0.9")).toBe(false);
+	expect(exportBundleHasEngineData("1.1.0")).toBe(true);
+	expect(exportBundleHasEngineData("1.2.0")).toBe(true);
+	expect(exportBundleHasEngineData("2.0.0")).toBe(true);
+	expect(exportBundleHasEngineData("0.9.0")).toBe(false);
 });

@@ -319,6 +319,19 @@ export function exportBundleContractMajorOf(version: string): number {
 	return Number(version.split(".")[0]);
 }
 
+/** The manifest contract minor that first pinned engine data. */
+const engineDataContractMinor = 1;
+
+/** Whether a manifest of this contract version pins the engine data section. */
+export function exportBundleHasEngineData(contractVersion: string): boolean {
+	const [major = 0, minor = 0] = contractVersion.split(".").map(Number);
+	return (
+		major > exportBundleContractMajorOf("1.0.0") ||
+		(major === exportBundleContractMajorOf("1.0.0") &&
+			minor >= engineDataContractMinor)
+	);
+}
+
 function compare(left: string, right: string): number {
 	return Number(left > right) - Number(left < right);
 }

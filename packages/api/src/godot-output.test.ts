@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
 import { unzipSync } from "fflate";
 import {
 	fixtureProfile,
@@ -14,6 +15,7 @@ import {
 	godotSupportedEngineVersions,
 } from "./godot-output";
 
+const invalidNumber = /Infinity|NaN/;
 const sha256Pattern = /^[0-9a-f]{64}$/;
 
 const engineData: ExportBundleEngineData = {
@@ -341,4 +343,149 @@ test("the zip is refused when a texture's bytes are missing", async () => {
 	expect(() => buildGodotOutputZip(built, new Map())).toThrow(
 		"Texture bytes are missing for av-1"
 	);
+});
+
+function withDirections(
+	directions: ExportBundleEngineData["animations"][number]["directions"]
+): ExportBundleEngineData {
+	const [animation] = engineData.animations;
+	if (!animation) {
+		throw new Error("fixture animation");
+	}
+	return { ...engineData, animations: [{ ...animation, directions }] };
+}
+
+const frame = engineData.animations[0]?.directions[0]?.frames[0];
+
+test("a direction without frames is left out of the SpriteFrames and the JSON", async () => {
+	if (!frame) {
+		throw new Error("fixture frame");
+	}
+	const built = await output(
+		await bundleWith(
+			withDirections([
+				{ direction: "north", frames: [] },
+				{ direction: "south", frames: [frame] },
+			])
+		)
+	);
+	const tres = textOf(built, "sprite_anvil/animations/walk-cycle.tres");
+	expect(tres).not.toMatch(invalidNumber);
+	expect(tres).not.toContain('&"north"');
+	expect(tres).toContain('&"south"');
+	const json = JSON.parse(textOf(built, "sprite_anvil/animations.json"));
+	expect(
+		json.animations[0].directions.map(
+			(direction: { animation: string }) => direction.animation
+		)
+	).toEqual(["south"]);
+});
+
+test("a direction whose frames have no duration is left out instead of giving NaN", async () => {
+	if (!frame) {
+		throw new Error("fixture frame");
+	}
+	const built = await output(
+		await bundleWith(
+			withDirections([
+				{ direction: "north", frames: [{ ...frame, durationMs: 0 }] },
+			])
+		)
+	);
+	expect(
+		textOf(built, "sprite_anvil/animations/walk-cycle.tres")
+	).not.toContain('"name"');
+});
+
+test("direction names that share a slug stay distinct within one animation", async () => {
+	if (!frame) {
+		throw new Error("fixture frame");
+	}
+	const built = await output(
+		await bundleWith(
+			withDirections([
+				{ direction: "North", frames: [frame] },
+				{ direction: "north", frames: [frame] },
+			])
+		)
+	);
+	const tres = textOf(built, "sprite_anvil/animations/walk-cycle.tres");
+	expect(tres).toContain('&"north"');
+	expect(tres).toContain('&"north-2"');
+	const json = JSON.parse(textOf(built, "sprite_anvil/animations.json"));
+	expect(
+		json.animations[0].directions.map(
+			(direction: { animation: string }) => direction.animation
+		)
+	).toEqual(["north", "north-2"]);
+});
+
+test("mixed tile sizes give each source its own region size and a stable tile_size", async () => {
+	const [tileset] = tilesAndUi.tilesets;
+	const [tile] = tileset?.tiles ?? [];
+	if (!(tileset && tile)) {
+		throw new Error("fixture tile");
+	}
+	const small = { ...tile, region: { height: 8, width: 8, x: 0, y: 0 } };
+	const big = {
+		...tile,
+		region: { height: 16, width: 16, x: 0, y: 0 },
+		unitVersionId: "uv-2",
+	};
+	const tres = async (tiles: (typeof tile)[]) =>
+		textOf(
+			await output(
+				await bundleWith({
+					...tilesAndUi,
+					tilesets: [{ ...tileset, tiles }],
+				})
+			),
+			"sprite_anvil/tiles/cv-1.tres"
+		);
+	const forward = await tres([big, small]);
+	expect(forward).toContain("tile_size = Vector2i(8, 8)");
+	expect(forward).toContain("texture_region_size = Vector2i(16, 16)");
+	expect(forward).toContain("texture_region_size = Vector2i(8, 8)");
+	expect(await tres([small, big])).toContain("tile_size = Vector2i(8, 8)");
+});
+
+test("a frame with a pivot but no region keeps its pivot and has no offset", async () => {
+	if (!frame) {
+		throw new Error("fixture frame");
+	}
+	const built = await output(
+		await bundleWith(
+			withDirections([
+				{
+					direction: "south",
+					frames: [{ ...frame, pivot: { x: 3, y: 4 }, region: null }],
+				},
+			])
+		)
+	);
+	const json = JSON.parse(textOf(built, "sprite_anvil/animations.json"));
+	const [out] = json.animations[0].directions[0].frames;
+	expect(out.pivot).toEqual({ x: 3, y: 4 });
+	expect(out.offset).toBeNull();
+});
+
+test("the zip bytes do not depend on the time zone", () => {
+	const script = `import { buildGodotOutputZip } from "./godot-output";
+const files = [{ assetVersionId: null, byteSize: 1, content: "x", path: "a.txt", sha256: "0".repeat(64) }];
+console.log(Bun.hash(buildGodotOutputZip({ files }, new Map())));`;
+	const hashes = [
+		"UTC",
+		"America/Los_Angeles",
+		"Asia/Kolkata",
+		"Pacific/Kiritimati",
+		"America/Sao_Paulo",
+	].map((TZ) => {
+		const result = spawnSync("bun", ["-e", script], {
+			cwd: import.meta.dirname,
+			env: { ...process.env, TZ },
+		});
+		expect(result.status).toBe(0);
+		return String(result.stdout).trim();
+	});
+	expect(new Set(hashes).size).toBe(1);
 });

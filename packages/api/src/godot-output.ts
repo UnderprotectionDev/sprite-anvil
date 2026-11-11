@@ -11,11 +11,9 @@
  */
 import { zipSync } from "fflate";
 import { z } from "zod";
-import type {
-	ExportBundleEngineData as EngineData,
-	ExportBundleEngineData,
-} from "./export-bundle-engine-data";
+import type { ExportBundleEngineData } from "./export-bundle-engine-data";
 import {
+	exportBundleHasEngineData,
 	exportBundleSha256,
 	renderExportBundleChecksums,
 	sha256Schema,
@@ -52,8 +50,7 @@ export const godotOutputSchema = z.object({
 export type GodotOutput = z.infer<typeof godotOutputSchema>;
 export type GodotOutputFile = z.infer<typeof godotOutputFileSchema>;
 
-export type GodotOutputResult =
-	| { ok: true; output: GodotOutput }
+export type GodotOutputRejection =
 	| { ok: false; reason: "engine_data_missing" }
 	| {
 			bundleAdapterVersion: string;
@@ -61,6 +58,10 @@ export type GodotOutputResult =
 			reason: "adapter_version_mismatch";
 	  }
 	| { assetVersionIds: string[]; ok: false; reason: "texture_missing" };
+
+export type GodotOutputResult =
+	| { ok: true; output: GodotOutput }
+	| GodotOutputRejection;
 
 const encoder = new TextEncoder();
 
@@ -138,7 +139,7 @@ interface TextureRef {
 	sha256: string;
 }
 
-type Animation = EngineData["animations"][number];
+type Animation = ExportBundleEngineData["animations"][number];
 type AnimationDirection = Animation["directions"][number];
 
 /** Ordered, unique texture references of a resource, with their resource ids. */
@@ -171,31 +172,55 @@ class TextureTable {
 	}
 }
 
+interface PlayableDirection {
+	/** The unique Godot animation name of the direction within its animation. */
+	animation: string;
+	direction: AnimationDirection;
+	/** Greatest common divisor of the frame durations; always positive. */
+	step: number;
+}
+
+/**
+ * The directions Godot can play, in order, with unique animation names. A
+ * direction without frames or without a positive duration has no speed to
+ * derive, so it is left out of every generated file.
+ */
+function playableDirections(animation: Animation): PlayableDirection[] {
+	const taken = new Set<string>();
+	return animation.directions.flatMap((direction) => {
+		const step = direction.frames.reduce(
+			(common, frame) => gcd(common, frame.durationMs),
+			0
+		);
+		return step > 0
+			? [{ animation: uniqueSlug(direction.direction, taken), direction, step }]
+			: [];
+	});
+}
+
 function renderSpriteFrames(
 	animation: Animation,
 	byVersion: Map<string, TextureRef>
 ): string {
 	const table = new TextureTable(byVersion);
 	const atlas: string[] = [];
-	const entries = animation.directions.map((direction) => {
-		const step = direction.frames.reduce(
-			(common, frame) => gcd(common, frame.durationMs),
-			0
-		);
-		const frames = direction.frames.map((frame) => {
-			const textureId = table.idOf(frame.assetVersionId);
-			let texture = `ExtResource("${textureId}")`;
-			if (frame.region) {
-				const atlasId = `AtlasTexture_${atlas.length + 1}`;
-				atlas.push(
-					`[sub_resource type="AtlasTexture" id="${atlasId}"]\natlas = ExtResource("${textureId}")\nregion = ${rect2(frame.region)}\n`
-				);
-				texture = `SubResource("${atlasId}")`;
-			}
-			return `{\n"duration": ${gdFloat(frame.durationMs / step)},\n"texture": ${texture}\n}`;
-		});
-		return `{\n"frames": [${frames.join(", ")}],\n"loop": ${animation.looping},\n"name": &"${slug(direction.direction)}",\n"speed": ${gdFloat(1000 / step)}\n}`;
-	});
+	const entries = playableDirections(animation).map(
+		({ animation: name, direction, step }) => {
+			const frames = direction.frames.map((frame) => {
+				const textureId = table.idOf(frame.assetVersionId);
+				let texture = `ExtResource("${textureId}")`;
+				if (frame.region) {
+					const atlasId = `AtlasTexture_${atlas.length + 1}`;
+					atlas.push(
+						`[sub_resource type="AtlasTexture" id="${atlasId}"]\natlas = ExtResource("${textureId}")\nregion = ${rect2(frame.region)}\n`
+					);
+					texture = `SubResource("${atlasId}")`;
+				}
+				return `{\n"duration": ${gdFloat(frame.durationMs / step)},\n"texture": ${texture}\n}`;
+			});
+			return `{\n"frames": [${frames.join(", ")}],\n"loop": ${animation.looping},\n"name": &"${name}",\n"speed": ${gdFloat(1000 / step)}\n}`;
+		}
+	);
 	return [
 		`[gd_resource type="SpriteFrames" load_steps=${table.size + atlas.length + 1} format=3]\n`,
 		`${table.renderExternal().join("\n")}\n`,
@@ -219,20 +244,22 @@ function animationJson(
 	byVersion: Map<string, TextureRef>
 ) {
 	return {
-		directions: animation.directions.map((direction: AnimationDirection) => ({
-			animation: slug(direction.direction),
-			direction: direction.direction,
-			frames: direction.frames.map((frame) => ({
-				assetVersionId: frame.assetVersionId,
-				durationMs: frame.durationMs,
-				events: frame.events,
-				frameKey: frame.frameKey,
-				offset: offsetOf(frame.pivot, frame.region),
-				pivot: frame.pivot,
-				region: frame.region,
-				texture: `res://${byVersion.get(frame.assetVersionId)?.path}`,
-			})),
-		})),
+		directions: playableDirections(animation).map(
+			({ animation: name, direction }) => ({
+				animation: name,
+				direction: direction.direction,
+				frames: direction.frames.map((frame) => ({
+					assetVersionId: frame.assetVersionId,
+					durationMs: frame.durationMs,
+					events: frame.events,
+					frameKey: frame.frameKey,
+					offset: offsetOf(frame.pivot, frame.region),
+					pivot: frame.pivot,
+					region: frame.region,
+					texture: `res://${byVersion.get(frame.assetVersionId)?.path}`,
+				})),
+			})
+		),
 		looping: animation.looping,
 		name: animation.name,
 		playbackSpeed: animation.playbackSpeed,
@@ -240,7 +267,7 @@ function animationJson(
 	};
 }
 
-type Tileset = EngineData["tilesets"][number];
+type Tileset = ExportBundleEngineData["tilesets"][number];
 
 function renderTileSet(
 	tileset: Tileset,
@@ -264,14 +291,19 @@ function renderTileSet(
 		];
 		return `${lines.join("\n")}\n`;
 	});
-	const [first] = tileset.tiles;
+	// A TileSet has one tile_size; each source keeps its own texture_region_size.
+	// The smallest tile gives the same size whatever the tile order.
+	const tileWidth = Math.min(...tileset.tiles.map((tile) => tile.region.width));
+	const tileHeight = Math.min(
+		...tileset.tiles.map((tile) => tile.region.height)
+	);
 	return [
 		`[gd_resource type="TileSet" load_steps=${table.size + sources.length + 1} format=3]\n`,
 		`${table.renderExternal().join("\n")}\n`,
 		...sources,
 		`${[
 			"[resource]",
-			`tile_size = Vector2i(${first?.region.width ?? 0}, ${first?.region.height ?? 0})`,
+			`tile_size = Vector2i(${tileset.tiles.length > 0 ? tileWidth : 0}, ${tileset.tiles.length > 0 ? tileHeight : 0})`,
 			...(hasTerrain
 				? [
 						'custom_data_layer_0/name = "terrain"',
@@ -334,7 +366,7 @@ export async function buildGodotOutput(
 ): Promise<GodotOutputResult> {
 	const { manifest } = bundle;
 	const data = manifest.engineData;
-	if (!data) {
+	if (!(data && exportBundleHasEngineData(manifest.contractVersion))) {
 		return { ok: false, reason: "engine_data_missing" };
 	}
 	if (
@@ -469,8 +501,13 @@ export async function buildGodotOutput(
 	};
 }
 
-/** 1980-01-01 local time: the zip's fixed timestamp, so equal output zips to equal bytes. */
-const zipTimestamp = new Date(1980, 0, 1, 0, 0, 0);
+/**
+ * The zip's fixed timestamp, so equal output zips to equal bytes. A zip stores
+ * the local wall-clock fields of its mtime, so a Date built from local fields
+ * stores the same fields in every time zone; noon avoids a midnight that a
+ * zone's clock change could skip.
+ */
+const zipTimestamp = new Date(1980, 0, 1, 12, 0, 0);
 
 /**
  * Packs the output into one zip with a fixed timestamp and path order.
