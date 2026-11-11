@@ -7,6 +7,12 @@
  * profile revision give the same manifest and checksums.
  */
 import { z } from "zod";
+import {
+	canonicalizeExportBundleEngineData,
+	type ExportBundleEngineData,
+	emptyExportBundleEngineData,
+	exportBundleEngineDataSchema,
+} from "./export-bundle-engine-data";
 import { buildExportBundleKitContent } from "./export-bundle-verification-kit";
 import { exportBundleVerifierSource } from "./export-bundle-verifier-source";
 import type { ExportProfileDefinition } from "./export-profiles";
@@ -14,7 +20,7 @@ import { recordContentDigest } from "./record-content-digest";
 
 export const exportBundleManifestFormat = "sprite-anvil.export-bundle";
 /** The Bundle Manifest contract version this build writes; its major gates reading. */
-export const exportBundleManifestContractVersion = "1.0.0";
+export const exportBundleManifestContractVersion = "1.1.0";
 export const supportedExportBundleManifestMajor = 1;
 /** The data-structure contract version the manifest pins for its fields. */
 export const exportBundleDataStructureVersion = "1.0.0";
@@ -51,6 +57,8 @@ export const exportBundleManifestSchema = z
 		contractVersion: versionSchema,
 		dataStructureVersion: versionSchema,
 		deliveryTargetRevisionId: idSchema.nullable(),
+		/** Pinned game data for engine adapters; absent in 1.0.0 manifests. */
+		engineData: exportBundleEngineDataSchema.optional(),
 		engineNeutral: z.literal(true),
 		families: z.array(
 			z
@@ -249,6 +257,8 @@ export interface ExportBundleSource {
 		versionNumber: number;
 	}[];
 	context: { revisionId: string; revisionNumber: number };
+	/** Animation, tile and UI data to pin; none when the families carry none. */
+	engineData?: ExportBundleEngineData;
 	families: ExportBundleSourceFamily[];
 	quality: ExportBundleSourceQuality[];
 	rights: {
@@ -529,6 +539,9 @@ export async function buildExportBundle(
 		contractVersion: exportBundleManifestContractVersion,
 		dataStructureVersion: exportBundleDataStructureVersion,
 		deliveryTargetRevisionId: options.deliveryTargetRevisionId,
+		engineData: canonicalizeExportBundleEngineData(
+			source.engineData ?? emptyExportBundleEngineData
+		),
 		engineNeutral: true,
 		families: families.map((family) => ({
 			assetFamilyId: family.assetFamilyId,

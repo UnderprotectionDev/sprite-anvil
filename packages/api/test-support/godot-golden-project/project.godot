@@ -1,0 +1,13 @@
+; Engine configuration file for the Sprite Anvil Godot golden project.
+; The project only reads the generated sprite_anvil/ output; it holds no game.
+
+config_version=5
+
+[application]
+
+config/name="Sprite Anvil Golden Project"
+config/features=PackedStringArray("4.3")
+
+[rendering]
+
+textures/canvas_textures/default_texture_filter=0

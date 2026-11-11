@@ -62,3 +62,18 @@ export async function honoPostJson(
 		fallback
 	);
 }
+
+/** The bytes of a verified file served by an authenticated Hono route. */
+export async function honoGetBytes(
+	url: string,
+	fallback: string
+): Promise<Uint8Array> {
+	const response = await fetch(url, { credentials: "include" });
+	if (!response.ok) {
+		throw new HonoApiError(
+			`${fallback} (status ${response.status}).`,
+			response.status
+		);
+	}
+	return new Uint8Array(await response.arrayBuffer());
+}
