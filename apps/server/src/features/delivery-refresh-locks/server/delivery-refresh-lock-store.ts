@@ -75,33 +75,35 @@ function lockDigestOf(
 	);
 }
 
-function requestDigestOf(
-	input: DeliveryRefreshLockApplyInput
-): Promise<string> {
-	return exportBundleSha256(
-		JSON.stringify({
-			bundleId: input.bundleId,
-			destinationLabel: input.destinationLabel,
-			projectId: input.projectId,
-			written: [...input.written].sort(byPath).map((f) => [f.path, f.sha256]),
-		})
-	);
-}
+const sortedPairs = <T extends { path: string }>(
+	items: T[],
+	pair: (item: T) => (string | null)[]
+) => [...items].sort(byPath).map(pair);
 
-function refreshRequestDigestOf(
-	input: DeliveryRefreshLockRefreshInput
+/** Digest of what a request asked for; a replay with another request on the same key conflicts. */
+function requestDigestOf(
+	input: DeliveryRefreshLockApplyInput | DeliveryRefreshLockRefreshInput
 ): Promise<string> {
+	const written = sortedPairs(input.written, (f) => [f.path, f.sha256]);
+	if (!("previousLockId" in input)) {
+		return exportBundleSha256(
+			JSON.stringify({
+				bundleId: input.bundleId,
+				destinationLabel: input.destinationLabel,
+				projectId: input.projectId,
+				written,
+			})
+		);
+	}
 	return exportBundleSha256(
 		JSON.stringify({
 			bundleId: input.bundleId,
-			decisions: [...input.decisions]
-				.sort(byPath)
-				.map((d) => [d.path, d.decision]),
+			decisions: sortedPairs(input.decisions, (d) => [d.path, d.decision]),
 			kind: "refresh",
-			observed: [...input.observed].sort(byPath).map((o) => [o.path, o.sha256]),
+			observed: sortedPairs(input.observed, (o) => [o.path, o.sha256]),
 			previousLockId: input.previousLockId,
 			projectId: input.projectId,
-			written: [...input.written].sort(byPath).map((f) => [f.path, f.sha256]),
+			written,
 		})
 	);
 }
@@ -252,6 +254,38 @@ export function createDeliveryRefreshLockStore(
 	}
 
 	/**
+	 * The lock id the idempotency key names, and the replay of an earlier record under it.
+	 * A record of the same key with another request digest conflicts; a stored lock must verify.
+	 */
+	async function idempotency(params: {
+		bundle: ExportBundle;
+		idempotencyKey: string;
+		projectId: string;
+		requestDigest: string;
+		userId: string;
+	}) {
+		const { bundle, projectId, requestDigest } = params;
+		const lockId = await idempotentRecordId(
+			{
+				kind: "delivery-refresh-lock",
+				projectId,
+				targetId: bundle.id,
+				userId: params.userId,
+			},
+			params.idempotencyKey
+		);
+		const replay = () =>
+			replayPublishedRecord<StoredLock, DeliveryRefreshLock>({
+				differs: (row) => row.lock.requestDigest !== requestDigest,
+				integrityFailure: (row) => integrityFailure(row, bundle),
+				label: "Delivery Refresh Lock",
+				read: () => storage.findLock(projectId, lockId),
+				toResult: (row) => toLock(row, bundle),
+			});
+		return { lockId, replay };
+	}
+
+	/**
 	 * The lock a refresh starts from. Its own contract version and required fields are checked
 	 * before anything else about it is trusted; an unknown major or a missing field stops the refresh.
 	 */
@@ -295,24 +329,14 @@ export function createDeliveryRefreshLockStore(
 				return { reason: "bundle_unavailable", status: "rejected" };
 			}
 
-			const lockId = await idempotentRecordId(
-				{
-					kind: "delivery-refresh-lock",
-					projectId: input.projectId,
-					targetId: input.bundleId,
-					userId,
-				},
-				input.idempotencyKey
-			);
 			const requestDigest = await requestDigestOf(input);
-			const replay = () =>
-				replayPublishedRecord<StoredLock, DeliveryRefreshLock>({
-					differs: (row) => row.lock.requestDigest !== requestDigest,
-					integrityFailure: (row) => integrityFailure(row, bundle),
-					label: "Delivery Refresh Lock",
-					read: () => storage.findLock(input.projectId, lockId),
-					toResult: (row) => toLock(row, bundle),
-				});
+			const { lockId, replay } = await idempotency({
+				bundle,
+				idempotencyKey: input.idempotencyKey,
+				projectId: input.projectId,
+				requestDigest,
+				userId,
+			});
 			const replayed = await replay();
 			if (replayed) {
 				return { lock: replayed, status: "replayed" };
@@ -367,29 +391,19 @@ export function createDeliveryRefreshLockStore(
 				previous: previous.files,
 			});
 			const plan = planDeliveryRefresh(classification, input.decisions);
-			const lockId = await idempotentRecordId(
-				{
-					kind: "delivery-refresh-lock",
-					projectId: input.projectId,
-					targetId: input.bundleId,
-					userId,
-				},
-				input.idempotencyKey
-			);
-			const requestDigest = await refreshRequestDigestOf(input);
+			const requestDigest = await requestDigestOf(input);
+			const { lockId, replay } = await idempotency({
+				bundle,
+				idempotencyKey: input.idempotencyKey,
+				projectId: input.projectId,
+				requestDigest,
+				userId,
+			});
 			const preserved = plan.held;
 			const heldPaths = new Set(plan.held.map((held) => held.path));
 			const lockFiles = bundle.files.filter(
 				(file) => !heldPaths.has(file.path)
 			);
-			const replay = () =>
-				replayPublishedRecord<StoredLock, DeliveryRefreshLock>({
-					differs: (row) => row.lock.requestDigest !== requestDigest,
-					integrityFailure: (row) => integrityFailure(row, bundle),
-					label: "Delivery Refresh Lock",
-					read: () => storage.findLock(input.projectId, lockId),
-					toResult: (row) => toLock(row, bundle),
-				});
 			const outcome = plan.held.length > 0 ? "partial" : "complete";
 			const replayed = await replay();
 			if (replayed) {
@@ -398,6 +412,7 @@ export function createDeliveryRefreshLockStore(
 					lock: replayed,
 					outcome,
 					preserved,
+					staleDiverged: plan.staleDiverged,
 					status: "replayed",
 				};
 			}
@@ -418,6 +433,7 @@ export function createDeliveryRefreshLockStore(
 					),
 					halted: plan.halted,
 					preserved,
+					staleDiverged: plan.staleDiverged,
 					status: "halted",
 				};
 			}
@@ -439,6 +455,7 @@ export function createDeliveryRefreshLockStore(
 				lock: published.lock,
 				outcome,
 				preserved,
+				staleDiverged: plan.staleDiverged,
 				status: published.status,
 			};
 		},
@@ -472,6 +489,50 @@ export function createDeliveryRefreshLockStore(
 	};
 }
 
+/** Paths the report names that the bundle does not own, in path order; null when none. */
+function outsideBundle(
+	owned: Map<string, string>,
+	reported: Map<string, string>
+): DeliveryRefreshLockRejection | null {
+	const outside = [...reported.keys()].filter((path) => !owned.has(path));
+	return outside.length > 0
+		? {
+				paths: outside.sort(comparePaths),
+				reason: "written_path_not_in_bundle",
+			}
+		: null;
+}
+
+/** Reported paths whose digest is not the bundle's own, in path order; null when none. */
+function differingDigest(
+	owned: Map<string, string>,
+	reported: Map<string, string>
+): DeliveryRefreshLockRejection | null {
+	const differing = [...reported]
+		.filter(([path, sha256]) => owned.get(path) !== sha256)
+		.map(([path]) => path);
+	return differing.length > 0
+		? {
+				paths: differing.sort(comparePaths),
+				reason: "written_digest_mismatch",
+			}
+		: null;
+}
+
+/** Expected paths the report omits, in path order; null when none. */
+function missingFromReport(
+	expected: Iterable<string>,
+	reported: Map<string, string>
+): DeliveryRefreshLockRejection | null {
+	const missing = [...expected].filter((path) => !reported.has(path));
+	return missing.length > 0
+		? {
+				paths: missing.sort(comparePaths),
+				reason: "written_files_incomplete",
+			}
+		: null;
+}
+
 /**
  * A lock is only made when the surface wrote exactly the bundle's files with
  * the bundle's digests: nothing missing (partial), nothing extra (unowned),
@@ -483,30 +544,11 @@ function classifyWrittenFiles(
 ): DeliveryRefreshLockRejection | null {
 	const owned = new Map(bundle.files.map((file) => [file.path, file.sha256]));
 	const reported = new Map(written.map((file) => [file.path, file.sha256]));
-	const outside = [...reported.keys()].filter((path) => !owned.has(path));
-	if (outside.length > 0) {
-		return {
-			paths: outside.sort(comparePaths),
-			reason: "written_path_not_in_bundle",
-		};
-	}
-	const missing = [...owned.keys()].filter((path) => !reported.has(path));
-	if (missing.length > 0) {
-		return {
-			paths: missing.sort(comparePaths),
-			reason: "written_files_incomplete",
-		};
-	}
-	const differing = [...owned].filter(
-		([path, sha256]) => reported.get(path) !== sha256
+	return (
+		outsideBundle(owned, reported) ??
+		missingFromReport(owned.keys(), reported) ??
+		differingDigest(owned, reported)
 	);
-	if (differing.length > 0) {
-		return {
-			paths: differing.map(([path]) => path).sort(comparePaths),
-			reason: "written_digest_mismatch",
-		};
-	}
-	return null;
 }
 
 /**
@@ -581,12 +623,9 @@ function classifyRefreshReport(
 
 	const reported = new Map(input.written.map((f) => [f.path, f.sha256]));
 	const released = new Set(plan.applied);
-	const outside = [...reported.keys()].filter((p) => !ownedDigest.has(p));
-	if (outside.length > 0) {
-		return {
-			paths: outside.sort(comparePaths),
-			reason: "written_path_not_in_bundle",
-		};
+	const outside = outsideBundle(ownedDigest, reported);
+	if (outside) {
+		return outside;
 	}
 	const unreleased = [...reported.keys()].filter(
 		(path) => decidable.has(path) && !released.has(path)
@@ -604,21 +643,10 @@ function classifyRefreshReport(
 			reason: "written_path_not_expected",
 		};
 	}
-	const differing = [...reported]
-		.filter(([path, sha256]) => ownedDigest.get(path) !== sha256)
-		.map(([path]) => path);
-	if (differing.length > 0) {
-		return {
-			paths: differing.sort(comparePaths),
-			reason: "written_digest_mismatch",
-		};
-	}
-	const missing = plan.applied.filter((path) => !reported.has(path));
-	if (plan.halted.length === 0 && missing.length > 0) {
-		return {
-			paths: missing.sort(comparePaths),
-			reason: "written_files_incomplete",
-		};
-	}
-	return null;
+	return (
+		differingDigest(ownedDigest, reported) ??
+		(plan.halted.length === 0
+			? missingFromReport(plan.applied, reported)
+			: null)
+	);
 }

@@ -35,3 +35,21 @@ export const byPath = (
 	left: { path: string },
 	right: { path: string }
 ): number => comparePaths(left.path, right.path);
+
+/** A human label for the destination. It names the folder for the user and is never a local path. */
+export const deliveryDestinationLabelSchema = z
+	.string()
+	.trim()
+	.min(1)
+	.max(120)
+	.refine(
+		(label) =>
+			!(
+				label.startsWith("/") ||
+				label.startsWith("~") ||
+				label.includes("\\") ||
+				label.includes("..") ||
+				windowsDrivePattern.test(label)
+			),
+		"The destination label must be a name, not a local path."
+	);

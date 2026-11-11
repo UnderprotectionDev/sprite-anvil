@@ -8,14 +8,14 @@ import {
 import { useForm, useStore } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { type SyntheticEvent, useState } from "react";
+import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
 import { useApplyDelivery } from "../../hooks/use-apply-delivery";
 import { useIdempotencyKey } from "../../hooks/use-idempotency-key";
+import { directoryAttributes } from "../../lib/directory-attributes";
 import { chooseFolder, readWrittenFiles } from "../../lib/read-target-folder";
 import { firstApplyFormSchema } from "../../schemas";
 import { LockPanel } from "../components/lock-panel";
-
-const directoryAttributes = { webkitdirectory: "" } as Record<string, string>;
 
 function FieldErrors({ errors }: { errors: unknown[] }) {
 	const messages = errors.flatMap((error) =>
@@ -42,7 +42,7 @@ export function FirstApplyForm({ projectId }: { projectId: string }) {
 	const [failure, setFailure] = useState<string | null>(null);
 	const bundles = useQuery({
 		...orpc.exportBundles.list.queryOptions({ input: { projectId } }),
-		meta: { suppressGlobalErrorToast: true },
+		...mutationMeta,
 	});
 
 	const form = useForm({
@@ -92,7 +92,7 @@ export function FirstApplyForm({ projectId }: { projectId: string }) {
 			input: { bundleId: values.bundleId, projectId },
 		}),
 		enabled: values.bundleId !== "",
-		meta: { suppressGlobalErrorToast: true },
+		...mutationMeta,
 	}).data;
 	const idempotencyKey = useIdempotencyKey(
 		JSON.stringify([

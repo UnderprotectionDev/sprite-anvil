@@ -66,7 +66,7 @@ function keysOf(value: unknown): string[] {
 }
 
 test("the change package carries the proposed lock and the divergence report", () => {
-	const pkg = build([{ decision: "replace", path: "b.png" }]);
+	const pkg = build([{ decision: "replace", diffViewed: true, path: "b.png" }]);
 
 	expect(
 		deliveryChangePackageSchema.parse(
@@ -107,10 +107,42 @@ test("a preserved path stays out of the proposed lock and the package shows a pa
 	]);
 });
 
+test("a hand-edited path the new bundle no longer ships is reported in the package, not dropped", () => {
+	const classification = classifyDeliveryRefreshPaths({
+		next: [bundle.files[0] as (typeof bundle.files)[number]],
+		observed: [
+			{ path: "a.png", sha256: digest("a") },
+			{ path: "b.png", sha256: digest("f") },
+		],
+		previous: previousFiles,
+	});
+	const pkg = buildDeliveryChangePackage({
+		bundle: {
+			...bundle,
+			files: [bundle.files[0] as (typeof bundle.files)[number]],
+		},
+		classification,
+		decisions: [],
+		previous,
+	});
+
+	expect(pkg.report.staleDiverged.map((entry) => entry.path)).toEqual([
+		"b.png",
+	]);
+	expect(pkg.lock?.files.map((file) => file.path)).toEqual(["a.png"]);
+	expect(deliveryChangePackageSchema.safeParse(pkg).success).toBe(true);
+});
+
 test("the package holds data only: no executable content, no unrecognised file, no absolute path", () => {
 	for (const decisions of [
 		[],
-		[{ decision: "replace" as const, path: "b.png" }],
+		[
+			{
+				decision: "replace" as const,
+				diffViewed: true as const,
+				path: "b.png",
+			},
+		],
 	]) {
 		const text = renderDeliveryChangePackage(build(decisions));
 

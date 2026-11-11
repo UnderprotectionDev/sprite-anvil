@@ -136,7 +136,7 @@ test("replace writes the diverged path, preserve keeps it back and shows the ref
 	});
 
 	const replaced = planDeliveryRefresh(classification, [
-		{ decision: "replace", path: "edited.png" },
+		{ decision: "replace", diffViewed: true, path: "edited.png" },
 	]);
 	expect(replaced.outcome).toBe("complete");
 	expect(replaced.applied).toContain("edited.png");
@@ -152,7 +152,7 @@ test("replace writes the diverged path, preserve keeps it back and shows the ref
 	}
 });
 
-test("a diverged path the new bundle no longer ships needs no decision", () => {
+test("a diverged path the new bundle no longer ships needs no decision but is reported, never dropped silently", () => {
 	const classification = classifyDeliveryRefreshPaths({
 		next,
 		observed: observed.map((entry) =>
@@ -162,11 +162,64 @@ test("a diverged path the new bundle no longer ships needs no decision", () => {
 	});
 
 	expect(classes(classification.entries)["dropped.png"]).toBe("diverged");
+	const plan = planDeliveryRefresh(classification, [
+		{ decision: "preserve", path: "edited.png" },
+	]);
+	expect(plan.halted).toEqual([]);
+	expect(plan.applied).not.toContain("dropped.png");
+	expect(plan.staleDiverged.map((entry) => entry.path)).toEqual([
+		"dropped.png",
+	]);
+});
+
+test("a clean stale path is not reported as a stale divergence", () => {
+	const classification = classifyDeliveryRefreshPaths({
+		next,
+		observed,
+		previous,
+	});
+	expect(classes(classification.entries)["dropped.png"]).toBe("stale");
+	expect(planDeliveryRefresh(classification, []).staleDiverged).toEqual([]);
+});
+
+test("a replace decision without proof that the diff was seen is refused and writes nothing", () => {
 	expect(
-		planDeliveryRefresh(classification, [
-			{ decision: "preserve", path: "edited.png" },
-		]).halted
-	).toEqual([]);
+		deliveryRefreshDecisionSchema.safeParse({
+			decision: "replace",
+			path: "edited.png",
+		}).success
+	).toBe(false);
+	expect(
+		deliveryRefreshDecisionSchema.safeParse({
+			decision: "replace",
+			diffViewed: false,
+			path: "edited.png",
+		}).success
+	).toBe(false);
+	expect(
+		deliveryRefreshDecisionSchema.safeParse({
+			decision: "replace",
+			diffViewed: true,
+			path: "edited.png",
+		}).success
+	).toBe(true);
+	expect(
+		deliveryRefreshDecisionSchema.safeParse({
+			decision: "preserve",
+			path: "edited.png",
+		}).success
+	).toBe(true);
+
+	const classification = classifyDeliveryRefreshPaths({
+		next,
+		observed,
+		previous,
+	});
+	const plan = planDeliveryRefresh(classification, [
+		{ decision: "replace", path: "edited.png" } as never,
+	]);
+	expect(plan.outcome).toBe("halted");
+	expect(plan.applied).not.toContain("edited.png");
 });
 
 const validLock = {
@@ -219,13 +272,17 @@ test("an unknown major version or a missing required field stops the refresh", (
 test("a decision naming a path outside the destination is refused at the boundary", () => {
 	for (const path of ["/etc/passwd", "../outside.png", "a\\b.png", "C:/x"]) {
 		expect(
-			deliveryRefreshDecisionSchema.safeParse({ decision: "replace", path })
-				.success
+			deliveryRefreshDecisionSchema.safeParse({
+				decision: "replace",
+				diffViewed: true,
+				path,
+			}).success
 		).toBe(false);
 	}
 	expect(
 		deliveryRefreshDecisionSchema.safeParse({
 			decision: "replace",
+			diffViewed: true,
 			path: "images/a.png",
 		}).success
 	).toBe(true);

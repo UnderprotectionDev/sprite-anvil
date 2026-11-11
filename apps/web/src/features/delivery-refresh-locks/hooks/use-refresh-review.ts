@@ -7,13 +7,12 @@ import {
 } from "@sprite-anvil/api/delivery-refresh-classification";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
+import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
 import {
 	type ChosenFolder,
 	observeTargetFolder,
 } from "../lib/read-target-folder";
-
-const quiet = { meta: { suppressGlobalErrorToast: true } };
 
 /**
  * Reads the chosen lock and bundle, observes only the paths they name in the destination
@@ -25,19 +24,21 @@ export function useRefreshReview(input: {
 	lockId: string;
 	projectId: string;
 	target: ChosenFolder | null;
+	/** Paths whose differences the user has opened; a replace is only sent for these. */
+	viewed: Record<string, boolean>;
 }) {
-	const { bundleId, decided, lockId, projectId, target } = input;
+	const { bundleId, decided, lockId, projectId, target, viewed } = input;
 	const lock = useQuery({
 		...orpc.deliveryRefreshLocks.get.queryOptions({
 			input: { lockId, projectId },
 		}),
 		enabled: lockId !== "",
-		...quiet,
+		...mutationMeta,
 	}).data;
 	const bundle = useQuery({
 		...orpc.exportBundles.get.queryOptions({ input: { bundleId, projectId } }),
 		enabled: bundleId !== "",
-		...quiet,
+		...mutationMeta,
 	}).data;
 
 	const contract = lock
@@ -78,8 +79,13 @@ export function useRefreshReview(input: {
 				: null,
 		[lock, bundle, observation]
 	);
-	const decisions: DeliveryRefreshDecision[] = Object.entries(decided).map(
-		([path, decision]) => ({ decision, path })
+	const decisions = Object.entries(decided).flatMap(
+		([path, decision]): DeliveryRefreshDecision[] => {
+			if (decision !== "replace") {
+				return [{ decision, path }];
+			}
+			return viewed[path] ? [{ decision, diffViewed: true, path }] : [];
+		}
 	);
 	const plan = classification
 		? planDeliveryRefresh(classification, decisions)
