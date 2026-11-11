@@ -602,7 +602,7 @@ test("replace after the decision refreshes every owned path into a new lock and 
 		readBundle(second.id),
 	]);
 	const decisions: DeliveryRefreshDecision[] = [
-		{ decision: "replace", path: editedPath },
+		{ decision: "replace", diffViewed: true, path: editedPath },
 	];
 	const report = surfaceRefresh(folder, previous, second, decisions);
 
@@ -635,6 +635,56 @@ test("replace after the decision refreshes every owned path into a new lock and 
 	expect(await get(previous.id)).toEqual(previous);
 	expect((await list()).locks).toHaveLength(2);
 	expect([readBundle(first.id), readBundle(second.id)]).toEqual(bundlesBefore);
+});
+
+test("the server refuses a replace decision that carries no proof the diff was seen", async () => {
+	const { editedPath, folder, list, previous, refresh, second } =
+		await firstDelivery();
+	const report = surfaceRefresh(folder, previous, second, [
+		{ decision: "replace", diffViewed: true, path: editedPath },
+	]);
+	const unproven = [
+		[{ decision: "replace", path: editedPath }],
+		[{ decision: "replace", diffViewed: false, path: editedPath }],
+	];
+	await Promise.all(
+		unproven.map((decisions) =>
+			expect(
+				refresh({
+					bundleId: second.id,
+					decisions,
+					observed: report.observed,
+					previousLockId: previous.id,
+					written: report.written,
+				})
+			).rejects.toMatchObject({ code: "BAD_REQUEST" })
+		)
+	);
+	expect((await list()).locks).toHaveLength(1);
+});
+
+test("a hand-edited path the new bundle no longer ships is reported apart and is not dropped silently", async () => {
+	const { editedPath, folder, previous, refresh, second } =
+		await firstDelivery();
+	second.files = second.files.filter((file) => file.path !== editedPath);
+	const report = surfaceRefresh(folder, previous, second);
+
+	const result = await refresh({
+		bundleId: second.id,
+		decisions: report.decisions,
+		observed: report.observed,
+		previousLockId: previous.id,
+		written: report.written,
+	});
+
+	expect(result.status).toBe("created");
+	if (result.status !== "created") {
+		throw new Error("expected a created refresh");
+	}
+	expect(result.staleDiverged.map((entry) => entry.path)).toEqual([editedPath]);
+	expect(result.applied).not.toContain(editedPath);
+	expect(result.lock.files.map((file) => file.path)).not.toContain(editedPath);
+	expect(folder.get(editedPath)).toBe(editedByHand);
 });
 
 test("preserving the diverged file refreshes the rest, shows a partial result and does not claim the preserved path", async () => {
@@ -705,7 +755,7 @@ test("a refresh that writes an unrecognised path, a wrong digest or too little i
 	const { editedPath, folder, list, previous, refresh, second } =
 		await firstDelivery();
 	const decisions: DeliveryRefreshDecision[] = [
-		{ decision: "replace", path: editedPath },
+		{ decision: "replace", diffViewed: true, path: editedPath },
 	];
 	folder.set("checksums.txt", sha256Of(second, "checksums.txt"));
 	const report = surfaceRefresh(folder, previous, second, decisions);
@@ -763,7 +813,9 @@ test("a decision for a path that is not diverged is rejected", async () => {
 	await expect(
 		refresh({
 			bundleId: second.id,
-			decisions: [{ decision: "replace", path: "manifest.json" }],
+			decisions: [
+				{ decision: "replace", diffViewed: true, path: "manifest.json" },
+			],
 			observed: report.observed,
 			previousLockId: previous.id,
 			written: report.written,
@@ -875,7 +927,7 @@ test("a refresh is idempotent: the same key replays the lock and a different req
 	const { editedPath, folder, list, previous, refresh, second } =
 		await firstDelivery();
 	const decisions: DeliveryRefreshDecision[] = [
-		{ decision: "replace", path: editedPath },
+		{ decision: "replace", diffViewed: true, path: editedPath },
 	];
 	const report = surfaceRefresh(folder, previous, second, decisions);
 	const input = {
@@ -976,7 +1028,7 @@ test("refresh stays one-way: no continuous sync, no Consumption Receipt and no d
 	const { editedPath, folder, previous, refresh, second } =
 		await firstDelivery();
 	const decisions: DeliveryRefreshDecision[] = [
-		{ decision: "replace", path: editedPath },
+		{ decision: "replace", diffViewed: true, path: editedPath },
 	];
 	const report = surfaceRefresh(folder, previous, second, decisions);
 	const result = await refresh({

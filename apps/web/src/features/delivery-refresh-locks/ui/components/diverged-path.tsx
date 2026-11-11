@@ -8,7 +8,6 @@ import {
 	RadioGroupItem,
 } from "@sprite-anvil/ui/components/radio-group";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
 import { readTargetText } from "../../lib/read-target-folder";
 
 const decisions: {
@@ -58,19 +57,24 @@ function Side({ text, title }: { text: string | null; title: string }) {
 export function DivergedPath({
 	bundleText,
 	decision,
+	diffViewed,
 	entry,
 	folderToken,
 	onDecide,
+	onShowDiff,
 	targetFile,
 }: {
 	bundleText: string | null;
 	decision: DeliveryRefreshDecisionKind | undefined;
+	/** The user has opened the differences; replacing is only offered after this. */
+	diffViewed: boolean;
 	entry: DeliveryRefreshPathEntry;
 	folderToken: number;
 	onDecide: (kind: DeliveryRefreshDecisionKind) => void;
+	onShowDiff: () => void;
 	targetFile: File | undefined;
 }) {
-	const [diffShown, setDiffShown] = useState(false);
+	const diffShown = diffViewed;
 	const targetText = useQuery({
 		enabled: diffShown && targetFile !== undefined,
 		queryFn: () => (targetFile ? readTargetText(targetFile) : null),
@@ -84,7 +88,8 @@ export function DivergedPath({
 			{needsDecision ? null : (
 				<p className="text-muted-foreground text-sm">
 					The new bundle no longer ships this path, so nothing is written and no
-					decision is needed.
+					decision is needed. Your edited file stays in place and the path stops
+					being owned; the refresh reports it.
 				</p>
 			)}
 			<dl className="grid grid-cols-[max-content_1fr] gap-x-4 text-xs">
@@ -106,7 +111,7 @@ export function DivergedPath({
 					<Button
 						aria-expanded={diffShown}
 						className="min-h-11"
-						onClick={() => setDiffShown(true)}
+						onClick={onShowDiff}
 						type="button"
 						variant="outline"
 					>

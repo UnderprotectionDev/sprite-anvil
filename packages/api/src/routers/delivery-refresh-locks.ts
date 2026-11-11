@@ -65,6 +65,23 @@ function rejectionMessage(rejection: DeliveryRefreshLockRejection): string {
 	}
 }
 
+/** A null result is a missing project; a rejection is a bad request that carries its reason. */
+function settle<T extends { status: string }>(
+	result: T | null
+): Exclude<T, { status: "rejected" }> {
+	if (!result) {
+		throw new ORPCError("NOT_FOUND", { message: projectNotFound });
+	}
+	if (result.status === "rejected") {
+		const rejection = result as unknown as DeliveryRefreshLockRejection;
+		throw new ORPCError("BAD_REQUEST", {
+			data: result,
+			message: rejectionMessage(rejection),
+		});
+	}
+	return result as Exclude<T, { status: "rejected" }>;
+}
+
 export const deliveryRefreshLocksRouter = {
 	apply: protectedProcedure
 		.input(deliveryRefreshLockApplyInputSchema)
@@ -75,22 +92,14 @@ export const deliveryRefreshLocksRouter = {
 			})
 		)
 		.handler(({ context, input }) =>
-			withPublicationErrors(async () => {
-				const result = await getDeliveryRefreshLockStore(context).apply(
-					context.session.user.id,
-					input
-				);
-				if (!result) {
-					throw new ORPCError("NOT_FOUND", { message: projectNotFound });
-				}
-				if (result.status === "rejected") {
-					throw new ORPCError("BAD_REQUEST", {
-						data: result,
-						message: rejectionMessage(result),
-					});
-				}
-				return result;
-			})
+			withPublicationErrors(async () =>
+				settle(
+					await getDeliveryRefreshLockStore(context).apply(
+						context.session.user.id,
+						input
+					)
+				)
+			)
 		),
 	get: protectedProcedure
 		.input(deliveryRefreshLockGetInputSchema)
@@ -114,22 +123,14 @@ export const deliveryRefreshLocksRouter = {
 		.input(deliveryRefreshLockRefreshInputSchema)
 		.output(deliveryRefreshLockRefreshResultSchema)
 		.handler(({ context, input }) =>
-			withPublicationErrors(async () => {
-				const result = await getDeliveryRefreshLockStore(context).refresh(
-					context.session.user.id,
-					input
-				);
-				if (!result) {
-					throw new ORPCError("NOT_FOUND", { message: projectNotFound });
-				}
-				if (result.status === "rejected") {
-					throw new ORPCError("BAD_REQUEST", {
-						data: result,
-						message: rejectionMessage(result),
-					});
-				}
-				return result;
-			})
+			withPublicationErrors(async () =>
+				settle(
+					await getDeliveryRefreshLockStore(context).refresh(
+						context.session.user.id,
+						input
+					)
+				)
+			)
 		),
 	list: protectedProcedure
 		.input(deliveryRefreshLockListInputSchema)

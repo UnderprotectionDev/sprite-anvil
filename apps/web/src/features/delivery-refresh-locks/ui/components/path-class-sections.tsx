@@ -16,13 +16,17 @@ export function PathClassSections({
 	classification,
 	decided,
 	onDecide,
+	onShowDiff,
 	target,
+	viewed,
 }: {
 	bundleTexts: Map<string, string | null>;
 	classification: DeliveryRefreshClassification;
 	decided: Record<string, DeliveryRefreshDecisionKind>;
 	onDecide: (path: string, kind: DeliveryRefreshDecisionKind) => void;
+	onShowDiff: (path: string) => void;
 	target: ChosenFolder | null;
+	viewed: Record<string, boolean>;
 }) {
 	const entriesOf = (name: DeliveryRefreshPathClass) =>
 		classification.entries.filter((entry) => entry.class === name);
@@ -38,10 +42,12 @@ export function PathClassSections({
 							<DivergedPath
 								bundleText={bundleTexts.get(entry.path) ?? null}
 								decision={decided[entry.path]}
+								diffViewed={viewed[entry.path] === true}
 								entry={entry}
 								folderToken={target?.token ?? 0}
 								key={entry.path}
 								onDecide={(kind) => onDecide(entry.path, kind)}
+								onShowDiff={() => onShowDiff(entry.path)}
 								targetFile={target?.files.get(entry.path)}
 							/>
 						))}

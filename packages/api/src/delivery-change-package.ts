@@ -73,6 +73,8 @@ export const deliveryChangePackageSchema = z
 				entries: z.array(entrySchema),
 				halted: z.array(entrySchema),
 				outcome: z.enum(["complete", "halted", "partial"]),
+				/** Diverged paths the new bundle no longer ships: left in place and no longer owned. */
+				staleDiverged: z.array(entrySchema),
 				preserved: z.array(
 					z
 						.object({
@@ -145,6 +147,9 @@ export function buildDeliveryChangePackage(input: {
 			),
 			outcome: plan.outcome,
 			preserved: plan.held,
+			staleDiverged: entries.filter((entry) =>
+				plan.staleDiverged.some((stale) => stale.path === entry.path)
+			),
 		},
 	};
 }

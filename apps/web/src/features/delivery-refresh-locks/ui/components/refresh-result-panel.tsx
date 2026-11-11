@@ -53,6 +53,10 @@ export function RefreshResultPanel({
 				label="Preserved paths"
 				paths={result.preserved.map((held) => held.path)}
 			/>
+			<Paths
+				label="Edited paths no longer shipped"
+				paths={result.staleDiverged.map((entry) => entry.path)}
+			/>
 		</section>
 	);
 }

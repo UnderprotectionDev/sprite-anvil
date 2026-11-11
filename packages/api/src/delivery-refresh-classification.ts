@@ -30,12 +30,32 @@ export const deliveryRefreshDecisionKinds = [
 export type DeliveryRefreshDecisionKind =
 	(typeof deliveryRefreshDecisionKinds)[number];
 
-export const deliveryRefreshDecisionSchema = z
-	.object({
-		decision: z.enum(deliveryRefreshDecisionKinds),
-		path: deliveryRelativePathSchema,
-	})
-	.strict();
+/**
+ * A user's decision on one diverged path. Replacing overwrites the user's own file, so
+ * it carries `diffViewed: true`, the surface's statement that the user saw the differences
+ * before choosing; a replace without it is refused here and ignored by the plan.
+ */
+export const deliveryRefreshDecisionSchema = z.discriminatedUnion("decision", [
+	z
+		.object({
+			decision: z.literal("preserve"),
+			path: deliveryRelativePathSchema,
+		})
+		.strict(),
+	z
+		.object({
+			decision: z.literal("other_destination"),
+			path: deliveryRelativePathSchema,
+		})
+		.strict(),
+	z
+		.object({
+			decision: z.literal("replace"),
+			diffViewed: z.literal(true),
+			path: deliveryRelativePathSchema,
+		})
+		.strict(),
+]);
 export type DeliveryRefreshDecision = z.infer<
 	typeof deliveryRefreshDecisionSchema
 >;
@@ -147,6 +167,11 @@ export interface DeliveryRefreshPlan {
 	held: DeliveryRefreshHeldPath[];
 	/** Never "complete" while a path is halted or held back. */
 	outcome: DeliveryRefreshOutcome;
+	/**
+	 * Diverged paths the new bundle no longer ships: the user's edited file stays in place,
+	 * is not written and stops being owned. Reported apart so it never vanishes silently.
+	 */
+	staleDiverged: DeliveryRefreshPathEntry[];
 }
 
 /** What the classification and the user's decisions allow a surface to write. */
@@ -154,10 +179,18 @@ export function planDeliveryRefresh(
 	classification: DeliveryRefreshClassification,
 	decisions: DeliveryRefreshDecision[]
 ): DeliveryRefreshPlan {
-	const decided = new Map(decisions.map((d) => [d.path, d.decision]));
+	// A replace without the diff-viewed proof is no decision: the path keeps waiting.
+	const decided = new Map(
+		decisions.flatMap((d) =>
+			d.decision === "replace" && d.diffViewed !== true
+				? []
+				: [[d.path, d.decision] as const]
+		)
+	);
 	const applied: string[] = [];
 	const held: DeliveryRefreshHeldPath[] = [];
 	const halted: DeliveryRefreshPathEntry[] = [];
+	const staleDiverged: DeliveryRefreshPathEntry[] = [];
 	for (const entry of classification.entries) {
 		if (requiresDeliveryRefreshDecision(entry)) {
 			const decision = decided.get(entry.path);
@@ -168,6 +201,8 @@ export function planDeliveryRefresh(
 			} else {
 				halted.push(entry);
 			}
+		} else if (entry.class === "diverged") {
+			staleDiverged.push(entry);
 		} else if (
 			entry.nextSha256 !== null &&
 			(entry.class === "to-update" || entry.class === "missing")
@@ -181,7 +216,7 @@ export function planDeliveryRefresh(
 	} else if (held.length > 0) {
 		outcome = "partial";
 	}
-	return { applied, halted, held, outcome };
+	return { applied, halted, held, outcome, staleDiverged };
 }
 
 /** The lock contract major this build can refresh from. */

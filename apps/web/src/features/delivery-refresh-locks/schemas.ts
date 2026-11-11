@@ -1,5 +1,5 @@
+import { deliveryDestinationLabelSchema } from "@sprite-anvil/api/delivery-path-schemas";
 import { deliveryRefreshDecisionKinds } from "@sprite-anvil/api/delivery-refresh-classification";
-import { deliveryDestinationLabelSchema } from "@sprite-anvil/api/delivery-refresh-locks";
 import { z } from "zod";
 import type { ChosenFolder } from "./lib/read-target-folder";
 
@@ -20,4 +20,5 @@ export const refreshFormSchema = z.object({
 	lockId: z.string().min(1, "Choose a lock."),
 	target: z.custom<ChosenFolder | null>(),
 	updated: folderSchema,
+	viewed: z.record(z.string(), z.boolean()),
 });

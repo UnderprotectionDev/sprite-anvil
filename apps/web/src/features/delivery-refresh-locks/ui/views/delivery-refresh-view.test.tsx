@@ -28,6 +28,7 @@ const re9 = /cannot refresh from/;
 const re10 = /Export Bundle of/;
 const re11 = /First delivery lock/;
 const re12 = /not complete/;
+const re13 = /no longer ships/;
 
 const projectId = "11111111-1111-4111-8111-111111111111";
 const lockId = "22222222-2222-4222-8222-222222222221";
@@ -279,6 +280,85 @@ test("a diverged path halts the refresh until the user decides, and replace need
 	expect(screen.getByRole("status")).not.toHaveTextContent(re5);
 });
 
+test("a replace decision is sent with proof that the diff was shown, never without it", async () => {
+	await arrange();
+	api.refresh.mockResolvedValue({
+		applied: ["deleted.json", "edited.json", "update.json"],
+		lock: { id: "22222222-2222-4222-8222-222222222229" },
+		outcome: "complete",
+		preserved: [],
+		staleDiverged: [],
+		status: "created",
+	});
+	await review();
+	const diverged = await screen.findByRole("region", { name: re4 });
+	await userEvent.click(
+		within(diverged).getByRole("button", { name: "Show differences" })
+	);
+	await userEvent.click(
+		within(diverged).getByRole("radio", { name: "Replace" })
+	);
+	await userEvent.upload(
+		screen.getByLabelText("Updated destination folder"),
+		folder({ "deleted.json": "gone", "edited.json": "v2", "update.json": "v2" })
+	);
+	await userEvent.click(screen.getByRole("button", { name: "Record refresh" }));
+
+	await waitFor(() => expect(api.refresh).toHaveBeenCalledTimes(1));
+	expect(api.refresh.mock.calls[0]?.[0].decisions).toEqual([
+		{ decision: "replace", diffViewed: true, path: "edited.json" },
+	]);
+});
+
+test("a hand-edited path the new bundle no longer ships is shown and reported, not silently dropped", async () => {
+	await arrange();
+	api.refresh.mockResolvedValue({
+		applied: ["update.json"],
+		lock: { id: "22222222-2222-4222-8222-222222222229" },
+		outcome: "complete",
+		preserved: [],
+		staleDiverged: [
+			{
+				class: "diverged",
+				lockSha256: "a".repeat(64),
+				nextSha256: null,
+				path: "dropped.json",
+				targetSha256: "c".repeat(64),
+			},
+		],
+		status: "created",
+	});
+	renderView();
+	await screen.findByRole("option", { name: re0 });
+	await screen.findByRole("option", { name: re1 });
+	await userEvent.selectOptions(
+		await screen.findByLabelText("Previous lock"),
+		lockId
+	);
+	await userEvent.selectOptions(
+		await screen.findByLabelText("New Export Bundle"),
+		bundleId
+	);
+	await userEvent.upload(
+		screen.getByLabelText("Destination folder"),
+		folder({ "dropped.json": "my own notes in it" })
+	);
+
+	const diverged = await screen.findByRole("region", { name: re4 });
+	expect(within(diverged).getByText("dropped.json")).toBeVisible();
+	expect(screen.getByRole("status")).toHaveTextContent(re13);
+
+	await userEvent.upload(
+		screen.getByLabelText("Updated destination folder"),
+		folder({ "update.json": "v2" })
+	);
+	await userEvent.click(screen.getByRole("button", { name: "Record refresh" }));
+	const result = await screen.findByRole("region", { name: re6 });
+	expect(
+		within(result).getByRole("list", { name: "Edited paths no longer shipped" })
+	).toHaveTextContent("dropped.json");
+});
+
 test("the change package holds the lock and the divergence report and no unrecognised file", async () => {
 	await arrange();
 	await review();
@@ -315,6 +395,7 @@ test("recording a refresh reports the folder state; a preserved path shows a par
 		lock: { id: "22222222-2222-4222-8222-222222222229" },
 		outcome: "partial",
 		preserved: [{ decision: "preserve", path: "edited.json" }],
+		staleDiverged: [],
 		status: "created",
 	});
 	await review();
@@ -376,6 +457,7 @@ test("a halted server result lists applied paths and halted divergences apart", 
 			},
 		],
 		preserved: [],
+		staleDiverged: [],
 		status: "halted",
 	});
 	await review();

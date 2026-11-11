@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+	deliveryDestinationLabelSchema,
 	deliveryPathDigestSchema,
 	deliveryRelativePathSchema,
 } from "./delivery-path-schemas";
@@ -14,26 +15,6 @@ const idSchema = z.uuid();
 
 /** The Delivery Refresh Lock contract version this build writes; an unknown major stops use of a lock. */
 export const deliveryRefreshLockContractVersion = "1.0.0";
-
-const windowsDrivePattern = /^[a-zA-Z]:/;
-
-/** A human label for the destination. It names the folder for the user and is never a local path. */
-export const deliveryDestinationLabelSchema = z
-	.string()
-	.trim()
-	.min(1)
-	.max(120)
-	.refine(
-		(label) =>
-			!(
-				label.startsWith("/") ||
-				label.startsWith("~") ||
-				label.includes("\\") ||
-				label.includes("..") ||
-				windowsDrivePattern.test(label)
-			),
-		"The destination label must be a name, not a local path."
-	);
 
 export const deliveryRefreshLockListInputSchema = z
 	.object({ projectId: idSchema })
@@ -136,6 +117,9 @@ const divergedPathSchema = z.object({
 	targetSha256: sha256Schema.nullable(),
 });
 
+/** Diverged paths the new bundle no longer ships: left in place, no longer owned, never dropped silently. */
+const staleDivergedField = z.array(divergedPathSchema);
+
 const heldPathSchema = z.object({
 	decision: z.enum(["preserve", "other_destination"]),
 	path: z.string(),
@@ -155,12 +139,14 @@ export const deliveryRefreshLockRefreshResultSchema = z.discriminatedUnion(
 			/** `partial` when the user kept diverged paths out of the new lock. */
 			outcome: z.enum(["complete", "partial"]),
 			preserved: z.array(heldPathSchema),
+			staleDiverged: staleDivergedField,
 			status: z.enum(["created", "replayed"]),
 		}),
 		z.object({
 			applied: z.array(z.string()),
 			halted: z.array(divergedPathSchema).min(1),
 			preserved: z.array(heldPathSchema),
+			staleDiverged: staleDivergedField,
 			status: z.literal("halted"),
 		}),
 	]

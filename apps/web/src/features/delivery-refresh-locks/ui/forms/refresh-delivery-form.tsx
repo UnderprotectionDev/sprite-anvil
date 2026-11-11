@@ -13,10 +13,12 @@ import {
 import { useForm, useStore } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { type SyntheticEvent, useState } from "react";
+import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
 import { useIdempotencyKey } from "../../hooks/use-idempotency-key";
 import { useRefreshDelivery } from "../../hooks/use-refresh-delivery";
 import { useRefreshReview } from "../../hooks/use-refresh-review";
+import { directoryAttributes } from "../../lib/directory-attributes";
 import { downloadJson } from "../../lib/download-text";
 import {
 	type ChosenFolder,
@@ -28,19 +30,17 @@ import { refreshFormSchema } from "../../schemas";
 import { PathClassSections } from "../components/path-class-sections";
 import { RefreshResultPanel } from "../components/refresh-result-panel";
 
-const directoryAttributes = { webkitdirectory: "" } as Record<string, string>;
-
 /** Refreshes a destination from a new bundle: review the classes, decide diverged paths, record the result. */
 export function RefreshDeliveryForm({ projectId }: { projectId: string }) {
 	const [recordError, setRecordError] = useState<string | null>(null);
 	const refresh = useRefreshDelivery(projectId);
 	const locks = useQuery({
 		...orpc.deliveryRefreshLocks.list.queryOptions({ input: { projectId } }),
-		meta: { suppressGlobalErrorToast: true },
+		...mutationMeta,
 	});
 	const bundles = useQuery({
 		...orpc.exportBundles.list.queryOptions({ input: { projectId } }),
-		meta: { suppressGlobalErrorToast: true },
+		...mutationMeta,
 	});
 
 	const form = useForm({
@@ -50,6 +50,7 @@ export function RefreshDeliveryForm({ projectId }: { projectId: string }) {
 			lockId: "",
 			target: null as ChosenFolder | null,
 			updated: null as ChosenFolder | null,
+			viewed: {} as Record<string, boolean>,
 		},
 		onSubmit: async ({ value }) => {
 			if (!(review.plan && review.observation && value.updated)) {
@@ -87,6 +88,7 @@ export function RefreshDeliveryForm({ projectId }: { projectId: string }) {
 		lockId: values.lockId,
 		projectId,
 		target: values.target,
+		viewed: values.viewed,
 	});
 	const { bundle, classification, contract, decisions, lock, plan } = review;
 	const idempotencyKey = useIdempotencyKey(
@@ -101,6 +103,7 @@ export function RefreshDeliveryForm({ projectId }: { projectId: string }) {
 
 	function startOver() {
 		form.setFieldValue("decided", {});
+		form.setFieldValue("viewed", {});
 		setRecordError(null);
 		refresh.reset();
 	}
@@ -240,7 +243,14 @@ export function RefreshDeliveryForm({ projectId }: { projectId: string }) {
 								[path]: kind,
 							}))
 						}
+						onShowDiff={(path) =>
+							form.setFieldValue("viewed", (current) => ({
+								...current,
+								[path]: true,
+							}))
+						}
 						target={values.target}
+						viewed={values.viewed}
 					/>
 
 					<div className="space-y-3 border-t pt-4">
