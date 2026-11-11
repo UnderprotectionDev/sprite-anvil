@@ -10,6 +10,10 @@ const projectLinks = [
 	{ to: "/projects/$projectId/delivery-targets", label: "Delivery Targets" },
 	{ to: "/projects/$projectId/readiness-plan", label: "Readiness Plan" },
 	{ to: "/projects/$projectId/export-bundles", label: "Export Bundles" },
+	{
+		to: "/projects/$projectId/runtime-validation",
+		label: "Runtime Validation",
+	},
 	{ to: "/projects/$projectId/delivery-refresh", label: "Delivery Refresh" },
 	{ to: "/projects/$projectId/import-inbox", label: "İçe aktarma" },
 	{ to: "/projects/$projectId/offline-staging", label: "Offline staging" },

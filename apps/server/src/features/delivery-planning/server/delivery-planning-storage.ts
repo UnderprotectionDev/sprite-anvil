@@ -3,6 +3,7 @@ import type {
 	ProductionEvidencePolicy,
 	RightsEvidencePolicy,
 } from "@sprite-anvil/api/delivery-planning-inputs";
+import type { RuntimeValidationCriterion } from "@sprite-anvil/api/runtime-validation-readiness";
 
 export interface PinnedFamily {
 	assetFamilyId: string;
@@ -22,6 +23,7 @@ export interface PinnedScope {
 	families: PinnedFamily[];
 	productionEvidencePolicy: ProductionEvidencePolicy;
 	rightsEvidencePolicy: RightsEvidencePolicy;
+	runtimeValidationCriterion: RuntimeValidationCriterion | null;
 }
 
 export interface StoredDeliveryTargetDraft extends PinnedScope {
@@ -49,6 +51,7 @@ export function pinnedScopeOf(source: PinnedScope): PinnedScope {
 		families: source.families,
 		productionEvidencePolicy: source.productionEvidencePolicy,
 		rightsEvidencePolicy: source.rightsEvidencePolicy,
+		runtimeValidationCriterion: source.runtimeValidationCriterion,
 	};
 }
 

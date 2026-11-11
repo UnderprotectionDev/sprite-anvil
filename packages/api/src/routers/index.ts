@@ -56,6 +56,7 @@ import { projectsRouter } from "./projects";
 import { readinessPlansRouter } from "./readiness-plans";
 import { referenceProductionRouter } from "./reference-production";
 import { rightsRecordsRouter } from "./rights-records";
+import { runtimeValidationRouter } from "./runtime-validation";
 import { sceneQaRouter } from "./scene-qa";
 import { specializedProfileContractsRouter } from "./specialized-profile-contracts";
 import { tilesetAdjacencyReviewsRouter } from "./tileset-adjacency-reviews";
@@ -163,6 +164,7 @@ export const appRouter = {
 	imports: importsRouter,
 	referenceProduction: referenceProductionRouter,
 	rightsRecords: rightsRecordsRouter,
+	runtimeValidation: runtimeValidationRouter,
 	specializedProfileContracts: specializedProfileContractsRouter,
 	contextScopes: {
 		list: protectedProcedure

@@ -15,6 +15,7 @@ type Scope = Pick<
 	| "families"
 	| "productionEvidencePolicy"
 	| "rightsEvidencePolicy"
+	| "runtimeValidationCriterion"
 >;
 
 /** The pinned scope as the user reviews it: Context Revision, per-family list revisions with usage tests, and both evidence policies. */
@@ -75,6 +76,33 @@ export function DeliveryTargetScope({ scope }: { scope: Scope }) {
 								.map((subject) => rightsSubjectLabels[subject])
 								.join(", ")}
 				</p>
+			</div>
+			<div className="space-y-1 text-sm">
+				<p className="font-medium">Runtime validation</p>
+				{scope.runtimeValidationCriterion ? (
+					<>
+						<p>
+							Ready only through a current Pass you finalized for the exact
+							Export Bundle in each required environment.
+						</p>
+						<ul aria-label="Required environments" className="space-y-1">
+							{scope.runtimeValidationCriterion.environments.map(
+								(environment) => (
+									<li
+										key={`${environment.gameBuild}|${environment.engineVersion}|${environment.adapterVersion ?? ""}`}
+									>
+										{environment.gameBuild} on {environment.engineVersion}
+										{environment.adapterVersion
+											? `, adapter ${environment.adapterVersion}`
+											: ""}
+									</li>
+								)
+							)}
+						</ul>
+					</>
+				) : (
+					<p>Not required.</p>
+				)}
 			</div>
 		</div>
 	);

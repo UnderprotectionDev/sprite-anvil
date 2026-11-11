@@ -51,6 +51,8 @@ import { createDatabaseReadinessPlanStorage } from "./features/readiness-plans/s
 import { createReadinessPlanStore } from "./features/readiness-plans/server/readiness-plan-store";
 import { createReferenceProductionStore } from "./features/reference-production/server/reference-production-store";
 import { createRightsRecordStore } from "./features/rights-evidence/server/rights-record-store";
+import { createDatabaseRuntimeValidationStorage } from "./features/runtime-validation/server/database-runtime-validation-storage";
+import { createRuntimeValidationStore } from "./features/runtime-validation/server/runtime-validation-store";
 import { createSceneQaStore } from "./features/scene-qa-playground/server/scene-qa-store";
 import { createTextureRepetitionReviewStore } from "./features/tileset-texture-profile/server/texture-repetition-review-store";
 import { createTilesetAdjacencyReviewStore } from "./features/tileset-texture-profile/server/tileset-adjacency-review-store";
@@ -159,6 +161,11 @@ export const exportBundleStore = createExportBundleStore(db, {
 		uiStretchTests: uiStretchTestStore,
 	}),
 	storage: createDatabaseExportBundleStorage(db),
+});
+export const runtimeValidationStore = createRuntimeValidationStore(db, {
+	getBundle: (userId, projectId, bundleId) =>
+		exportBundleStore.get(userId, projectId, bundleId),
+	storage: createDatabaseRuntimeValidationStorage(db),
 });
 export const deliveryRefreshLockStore = createDeliveryRefreshLockStore(db, {
 	bundles: exportBundleStore,

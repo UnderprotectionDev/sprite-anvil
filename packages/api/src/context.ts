@@ -40,6 +40,7 @@ import type { ProviderGenerationRecordStore } from "./provider-generation-record
 import type { ReadinessPlanStore } from "./readiness-plans";
 import type { ReferenceProductionStore } from "./reference-production";
 import type { RightsRecordStore } from "./rights-records";
+import type { RuntimeValidationStore } from "./runtime-validation-store";
 import type { SceneQaStore } from "./scene-qa";
 import type {
 	SourceMetadataMappingFinalizer,
@@ -117,6 +118,7 @@ export interface Context {
 	referenceProductionStore?: ReferenceProductionStore;
 	reviewGameplayMetadata?: GameplayMetadataReviewHandler;
 	rightsRecordStore?: RightsRecordStore;
+	runtimeValidationStore?: RuntimeValidationStore;
 	sceneQaStore?: SceneQaStore;
 	session: Session | null;
 	sourceMetadataMappingProposalStore?: SourceMetadataMappingProposalStore;

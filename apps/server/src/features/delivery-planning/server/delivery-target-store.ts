@@ -81,6 +81,7 @@ function describeScope(stored: PinnedScope, snapshots: PinnedSnapshots) {
 		families: stored.families.map((pin) => describeFamily(pin, snapshots)),
 		productionEvidencePolicy: stored.productionEvidencePolicy,
 		rightsEvidencePolicy: stored.rightsEvidencePolicy,
+		runtimeValidationCriterion: stored.runtimeValidationCriterion,
 	};
 }
 
@@ -123,7 +124,11 @@ function sameDraftContent(
 			stored.productionEvidencePolicy,
 			input.productionEvidencePolicy
 		) &&
-		samePolicy(stored.rightsEvidencePolicy, input.rightsEvidencePolicy)
+		samePolicy(stored.rightsEvidencePolicy, input.rightsEvidencePolicy) &&
+		samePolicy(
+			stored.runtimeValidationCriterion,
+			input.runtimeValidationCriterion
+		)
 	);
 }
 
@@ -204,6 +209,10 @@ function diffAgainstPrevious(
 		rightsEvidencePolicyChanged: !samePolicy(
 			previous.rightsEvidencePolicy,
 			revision.rightsEvidencePolicy
+		),
+		runtimeValidationCriterionChanged: !samePolicy(
+			previous.runtimeValidationCriterion,
+			revision.runtimeValidationCriterion
 		),
 	};
 }

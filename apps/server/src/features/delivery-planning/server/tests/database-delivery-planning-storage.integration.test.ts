@@ -127,6 +127,7 @@ function draftInput(
 			acceptableStates: ["documented", "assertion_only"],
 			requireRecordFor: ["references", "results"],
 		},
+		runtimeValidationCriterion: null,
 		...overrides,
 	};
 }

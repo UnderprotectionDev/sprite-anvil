@@ -39,6 +39,16 @@ export interface RightsEvidencePolicy {
 	requireRecordFor: ("references" | "results")[];
 }
 
+/** Required game environments and the freshness rule a Delivery Target accepts as runtime validation. */
+export interface RuntimeValidationCriterion {
+	environments: {
+		adapterVersion: string | null;
+		engineVersion: string;
+		gameBuild: string;
+	}[];
+	freshness: "not_superseded";
+}
+
 /** The identity a user's versions of one delivery intent share. */
 export const deliveryTargets = pgTable(
 	"delivery_targets",
@@ -85,6 +95,10 @@ export const deliveryTargetDrafts = pgTable(
 		rightsEvidencePolicy: jsonb("rights_evidence_policy")
 			.$type<RightsEvidencePolicy>()
 			.notNull(),
+		/** Null for a target without a runtime validation acceptance criterion. */
+		runtimeValidationCriterion: jsonb(
+			"runtime_validation_criterion"
+		).$type<RuntimeValidationCriterion>(),
 		createdByUserId: text("created_by_user_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),

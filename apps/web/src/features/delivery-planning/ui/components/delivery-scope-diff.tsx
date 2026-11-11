@@ -64,6 +64,12 @@ export function DeliveryScopeDiff({ diff }: { diff: DeliveryTargetScopeDiff }) {
 			<p>
 				{changed("Rights Evidence Policy", diff.rightsEvidencePolicyChanged)}
 			</p>
+			<p>
+				{changed(
+					"Runtime validation criterion",
+					diff.runtimeValidationCriterionChanged
+				)}
+			</p>
 		</section>
 	);
 }
