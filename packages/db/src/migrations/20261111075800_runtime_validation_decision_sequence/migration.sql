@@ -1,0 +1,1 @@
+ALTER TABLE "runtime_validation_decisions" ADD COLUMN "sequence" bigint GENERATED ALWAYS AS IDENTITY (sequence name "runtime_validation_decisions_sequence_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1);
