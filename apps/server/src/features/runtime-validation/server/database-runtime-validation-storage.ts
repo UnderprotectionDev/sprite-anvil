@@ -1,5 +1,6 @@
 import type { Database } from "@sprite-anvil/db";
 import {
+	runtimeValidationDecisions,
 	runtimeValidationEvidence,
 	runtimeValidationRecords,
 } from "@sprite-anvil/db/schema/runtime-validation";
@@ -20,6 +21,47 @@ export function createDatabaseRuntimeValidationStorage(
 	db: Database
 ): RuntimeValidationStorage {
 	return {
+		async findDecision(projectId, decisionId) {
+			const [row] = await db
+				.select()
+				.from(runtimeValidationDecisions)
+				.where(
+					and(
+						eq(runtimeValidationDecisions.projectId, projectId),
+						eq(runtimeValidationDecisions.id, decisionId)
+					)
+				);
+			return row ?? null;
+		},
+		async insertDecision(decision) {
+			try {
+				await db.insert(runtimeValidationDecisions).values(decision);
+				return { status: "inserted" };
+			} catch (error) {
+				if (hasErrorCode(error, uniqueViolationCode)) {
+					return { status: "conflict" };
+				}
+				throw error;
+			}
+		},
+		async listDecisions(projectId, recordIds) {
+			if (recordIds.length === 0) {
+				return [];
+			}
+			return await db
+				.select()
+				.from(runtimeValidationDecisions)
+				.where(
+					and(
+						eq(runtimeValidationDecisions.projectId, projectId),
+						inArray(runtimeValidationDecisions.recordId, recordIds)
+					)
+				)
+				.orderBy(
+					asc(runtimeValidationDecisions.createdAt),
+					asc(runtimeValidationDecisions.id)
+				);
+		},
 		async findEvidence(projectId, evidenceId) {
 			const [row] = await db
 				.select()

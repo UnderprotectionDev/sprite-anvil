@@ -397,6 +397,111 @@ export function DeliveryTargetDraftForm({
 				</form.Field>
 			</FieldSet>
 
+			<FieldSet>
+				<FieldLegend variant="label">Runtime validation</FieldLegend>
+				<p className="text-muted-foreground text-sm">
+					Optional acceptance criterion. When required, the target is ready only
+					through a current Pass you finalized for the exact Export Bundle in
+					each environment listed here. An unconfirmed failure source blocks it.
+				</p>
+				<form.Field name="requireRuntimeValidation">
+					{(field) => (
+						<Label className="flex items-center gap-2 text-sm">
+							<Checkbox
+								checked={field.state.value}
+								onCheckedChange={(checked) =>
+									field.handleChange(Boolean(checked))
+								}
+							/>
+							Require runtime validation
+						</Label>
+					)}
+				</form.Field>
+				<form.Subscribe
+					selector={(state) => state.values.requireRuntimeValidation}
+				>
+					{(required) =>
+						required ? (
+							<form.Field mode="array" name="runtimeEnvironments">
+								{(environments) => (
+									<div className="space-y-3">
+										{environments.state.value.map((_, index) => (
+											<div
+												className="space-y-2 rounded-md border p-3"
+												// biome-ignore lint/suspicious/noArrayIndexKey: environments have no id before they are saved
+												key={index}
+											>
+												<div className="grid gap-3 sm:grid-cols-3">
+													{(
+														[
+															["gameBuild", "Game build"],
+															["engineVersion", "Engine version"],
+															["adapterVersion", "Adapter version (optional)"],
+														] as const
+													).map(([key, label]) => (
+														<form.Field
+															key={key}
+															name={`runtimeEnvironments[${index}].${key}`}
+														>
+															{(field) => (
+																<div className="space-y-1">
+																	<Label
+																		htmlFor={`delivery-target-runtime-${index}-${key}`}
+																	>
+																		{label}
+																	</Label>
+																	<Input
+																		id={`delivery-target-runtime-${index}-${key}`}
+																		maxLength={200}
+																		onBlur={field.handleBlur}
+																		onChange={(event) =>
+																			field.handleChange(event.target.value)
+																		}
+																		value={field.state.value}
+																	/>
+																	<FieldErrors
+																		errors={field.state.meta.errors}
+																	/>
+																</div>
+															)}
+														</form.Field>
+													))}
+												</div>
+												<Button
+													onClick={() => environments.removeValue(index)}
+													type="button"
+													variant="outline"
+												>
+													Remove environment
+												</Button>
+											</div>
+										))}
+										<Button
+											onClick={() =>
+												environments.pushValue({
+													adapterVersion: "",
+													engineVersion: "",
+													gameBuild: "",
+												})
+											}
+											type="button"
+											variant="outline"
+										>
+											Add environment
+										</Button>
+										<FieldErrors errors={environments.state.meta.errors} />
+									</div>
+								)}
+							</form.Field>
+						) : null
+					}
+				</form.Subscribe>
+				<p className="text-muted-foreground text-xs">
+					A Pass counts as current while no later record for the same Export
+					Bundle and environment supersedes it.
+				</p>
+			</FieldSet>
+
 			{failure ? (
 				<p className="text-destructive text-sm" role="alert">
 					{failure}

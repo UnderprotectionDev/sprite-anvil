@@ -1,3 +1,4 @@
+import type { RuntimeValidationRecord } from "@sprite-anvil/api/runtime-validation";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
@@ -22,9 +23,14 @@ export interface BundleChoice {
 export function RuntimeValidationRecordForm({
 	bundles,
 	projectId,
+	records,
 }: {
 	bundles: BundleChoice[];
 	projectId: string;
+	records: Pick<
+		RuntimeValidationRecord,
+		"createdAt" | "engineVersion" | "gameBuild" | "id"
+	>[];
 }) {
 	const create = useCreateRuntimeValidationRecord();
 	const [failure, setFailure] = useState<string | null>(null);
@@ -37,6 +43,7 @@ export function RuntimeValidationRecordForm({
 			bundleId: "",
 			engineVersion: "",
 			gameBuild: "",
+			supersedesRecordId: "",
 		},
 		onSubmit: async ({ value }) => {
 			setFailure(null);
@@ -48,6 +55,7 @@ export function RuntimeValidationRecordForm({
 					gameBuild: value.gameBuild,
 					idempotencyKey: idempotencyKey.current,
 					projectId,
+					supersedesRecordId: value.supersedesRecordId || null,
 				});
 				idempotencyKey.current = crypto.randomUUID();
 				form.reset();
@@ -164,6 +172,37 @@ export function RuntimeValidationRecordForm({
 					</form.Field>
 				</div>
 			</div>
+
+			{records.length > 0 ? (
+				<div className="space-y-2">
+					<Label htmlFor="runtime-validation-supersedes">
+						Retest or fix of an earlier record (optional)
+					</Label>
+					<form.Field name="supersedesRecordId">
+						{(field) => (
+							<NativeSelect
+								className="w-full [&>select]:min-h-10"
+								id="runtime-validation-supersedes"
+								onChange={(event) => field.handleChange(event.target.value)}
+								value={field.state.value}
+							>
+								<NativeSelectOption value="">
+									This is not a retest
+								</NativeSelectOption>
+								{records.map((record) => (
+									<NativeSelectOption key={record.id} value={record.id}>
+										{`${record.gameBuild} on ${record.engineVersion} · ${new Date(record.createdAt).toLocaleString()}`}
+									</NativeSelectOption>
+								))}
+							</NativeSelect>
+						)}
+					</form.Field>
+					<p className="text-muted-foreground text-xs">
+						The earlier record stays exactly as it is; this new record only
+						points to it.
+					</p>
+				</div>
+			) : null}
 
 			{failure ? <p role="alert">{failure}</p> : null}
 			<Button className="min-h-11" disabled={create.isPending} type="submit">

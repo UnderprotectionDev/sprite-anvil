@@ -7,10 +7,28 @@ import type {
 	RuntimeValidationStoredEvidenceFile,
 	RuntimeValidationTextEvidenceInput,
 } from "./runtime-validation";
+import type {
+	RuntimeValidationConfirmFailureSourceInput,
+	RuntimeValidationDecision,
+	RuntimeValidationFinalizeOutcomeInput,
+} from "./runtime-validation-decisions";
 
 export type RuntimeValidationRecordCreateResult =
 	| { record: RuntimeValidationRecord; status: "created" | "replayed" }
-	| { reason: "bundle_not_found"; status: "rejected" };
+	| {
+			reason: "bundle_not_found" | "superseded_record_not_found";
+			status: "rejected";
+	  };
+
+export type RuntimeValidationDecisionResult =
+	| { decision: RuntimeValidationDecision; status: "created" | "replayed" }
+	| {
+			reason:
+				| "outcome_already_decided"
+				| "outcome_not_fail"
+				| "outcome_not_decided";
+			status: "rejected";
+	  };
 
 export interface RuntimeValidationEvidenceResult {
 	evidence: RuntimeValidationEvidence;
@@ -29,11 +47,21 @@ export interface RuntimeValidationStore {
 		userId: string,
 		input: RuntimeValidationTextEvidenceInput
 	) => Promise<RuntimeValidationEvidenceResult | null>;
+	/** Appends a failure-source decision; allowed only on a Fail. Null when the project or record is not found. */
+	confirmFailureSource: (
+		userId: string,
+		input: RuntimeValidationConfirmFailureSourceInput
+	) => Promise<RuntimeValidationDecisionResult | null>;
 	/** Null when the project is not found. */
 	create: (
 		userId: string,
 		input: RuntimeValidationRecordCreateInput
 	) => Promise<RuntimeValidationRecordCreateResult | null>;
+	/** Appends the record's single, final outcome decision. Null when the project or record is not found. */
+	finalizeOutcome: (
+		userId: string,
+		input: RuntimeValidationFinalizeOutcomeInput
+	) => Promise<RuntimeValidationDecisionResult | null>;
 	/** Null when the project or record is not found. */
 	get: (
 		userId: string,

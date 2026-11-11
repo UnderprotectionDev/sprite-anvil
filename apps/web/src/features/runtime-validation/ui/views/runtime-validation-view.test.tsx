@@ -14,7 +14,9 @@ const manifestDigest = "d".repeat(64);
 
 const fakeApi = vi.hoisted(() => ({
 	addTextEvidence: vi.fn(),
+	confirmFailureSource: vi.fn(),
 	create: vi.fn(),
+	finalizeOutcome: vi.fn(),
 	records: [] as unknown[],
 }));
 
@@ -41,7 +43,28 @@ vi.mock("@/utils/orpc", () => ({
 				}),
 			},
 		},
+		deliveryPlanning: {
+			list: {
+				queryOptions: () => ({
+					queryFn: () => Promise.resolve({ deliveryTargets: [] }),
+					queryKey: ["delivery-targets"],
+				}),
+			},
+		},
 		runtimeValidation: {
+			confirmFailureSource: {
+				mutationOptions: (options?: object) => ({
+					...options,
+					mutationFn: (input: unknown) => fakeApi.confirmFailureSource(input),
+				}),
+			},
+			deliveryTargetReadiness: { key: () => ["runtime-validation-readiness"] },
+			finalizeOutcome: {
+				mutationOptions: (options?: object) => ({
+					...options,
+					mutationFn: (input: unknown) => fakeApi.finalizeOutcome(input),
+				}),
+			},
 			addTextEvidence: {
 				mutationOptions: (options?: object) => ({
 					...options,
@@ -68,17 +91,32 @@ vi.mock("@/utils/orpc", () => ({
 
 vi.mock("sonner", () => ({ toast: { dismiss: vi.fn(), error: vi.fn() } }));
 
-function record(evidence: unknown[] = []) {
+const recordId = "33333333-3333-4333-8333-333333333333";
+const sourceUnknownBlocksPattern = /Source Unknown blocks any Delivery Target/;
+const revalidationRequiredPattern = /Revalidation Required for this use only/;
+
+function record(
+	evidence: unknown[] = [],
+	state: {
+		decisions?: unknown[];
+		failureSource?: string | null;
+		outcome?: string | null;
+	} = {}
+) {
 	return {
 		adapterVersion: null,
 		bundleId,
 		createdAt: "2026-11-11T10:00:00.000Z",
+		decisions: state.decisions ?? [],
 		engineVersion: "Godot 4.4.1",
 		evidence,
+		failureSource: state.failureSource ?? null,
 		gameBuild: "build-7",
-		id: "33333333-3333-4333-8333-333333333333",
+		id: recordId,
 		manifestDigest,
+		outcome: state.outcome ?? null,
 		projectId,
+		supersedesRecordId: null,
 	};
 }
 
@@ -89,7 +127,9 @@ beforeEach(() => {
 afterEach(() => {
 	cleanup();
 	fakeApi.addTextEvidence.mockReset();
+	fakeApi.confirmFailureSource.mockReset();
 	fakeApi.create.mockReset();
+	fakeApi.finalizeOutcome.mockReset();
 });
 
 function renderView() {
@@ -197,4 +237,78 @@ test("an observation with no text is refused", async () => {
 
 	expect(await screen.findByText("Write the observation.")).toBeInTheDocument();
 	expect(fakeApi.addTextEvidence).not.toHaveBeenCalled();
+});
+
+test("the user finalizes the outcome and the re-read record shows it as final", async () => {
+	const user = userEvent.setup();
+	fakeApi.records = [record()];
+	fakeApi.finalizeOutcome.mockImplementation(() => {
+		fakeApi.records = [
+			record([], {
+				decisions: [
+					{
+						createdAt: "2026-11-11T10:06:00.000Z",
+						failureSource: null,
+						id: "55555555-5555-4555-8555-555555555555",
+						kind: "outcome",
+						outcome: "pass",
+					},
+				],
+				outcome: "pass",
+			}),
+		];
+		return Promise.resolve({ status: "created" });
+	});
+	renderView();
+
+	// nothing is chosen for the user
+	await user.click(
+		await screen.findByRole("button", { name: "Finalize outcome" })
+	);
+	expect(
+		await screen.findByText("Choose the outcome of this test.")
+	).toBeVisible();
+	expect(fakeApi.finalizeOutcome).not.toHaveBeenCalled();
+
+	await user.selectOptions(
+		screen.getByLabelText("Outcome", { selector: "select" }),
+		"pass"
+	);
+	await user.click(screen.getByRole("button", { name: "Finalize outcome" }));
+
+	expect(await screen.findByText("Pass")).toBeVisible();
+	expect(fakeApi.finalizeOutcome).toHaveBeenCalledWith(
+		expect.objectContaining({ outcome: "pass", projectId, recordId })
+	);
+	expect(
+		screen.queryByRole("button", { name: "Finalize outcome" })
+	).not.toBeInTheDocument();
+});
+
+test("a Fail shows Source Unknown as blocking and the user confirms the source", async () => {
+	const user = userEvent.setup();
+	fakeApi.records = [
+		record([], { failureSource: "source_unknown", outcome: "fail" }),
+	];
+	fakeApi.confirmFailureSource.mockImplementation(() => {
+		fakeApi.records = [
+			record([], { failureSource: "asset_content", outcome: "fail" }),
+		];
+		return Promise.resolve({ status: "created" });
+	});
+	renderView();
+
+	expect(await screen.findByText(sourceUnknownBlocksPattern)).toBeVisible();
+	await user.selectOptions(
+		screen.getByLabelText("Failure source"),
+		"asset_content"
+	);
+	await user.click(
+		screen.getByRole("button", { name: "Confirm failure source" })
+	);
+
+	expect(await screen.findByText(revalidationRequiredPattern)).toBeVisible();
+	expect(fakeApi.confirmFailureSource).toHaveBeenCalledWith(
+		expect.objectContaining({ failureSource: "asset_content", recordId })
+	);
 });

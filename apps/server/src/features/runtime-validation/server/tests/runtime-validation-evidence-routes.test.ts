@@ -96,6 +96,7 @@ function createTestServer() {
 				gameBuild: "build-1",
 				idempotencyKey: "record-key",
 				projectId,
+				supersedesRecordId: null,
 			});
 			if (result?.status !== "created") {
 				throw new Error("The test record was not created.");

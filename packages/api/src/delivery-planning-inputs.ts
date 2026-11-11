@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { rightsRecordStateSchema } from "./rights-records";
+import { runtimeValidationCriterionSchema } from "./runtime-validation-readiness";
 
 const idSchema = z.uuid();
 
@@ -103,6 +104,10 @@ export const deliveryTargetDraftSaveInputSchema = z
 		...pinnedEvidencePolicyFields,
 		projectId: idSchema,
 		purpose: deliveryTargetPurposeSchema,
+		/** Optional acceptance criterion; null keeps the target as it was without one. */
+		runtimeValidationCriterion: runtimeValidationCriterionSchema
+			.nullable()
+			.default(null),
 	})
 	.strict();
 export type DeliveryTargetDraftSaveInput = z.infer<

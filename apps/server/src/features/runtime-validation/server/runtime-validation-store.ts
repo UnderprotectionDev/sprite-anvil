@@ -11,13 +11,19 @@ import {
 	runtimeValidationRecordListSchema,
 	runtimeValidationRecordSchema,
 } from "@sprite-anvil/api/runtime-validation";
+import {
+	deriveRuntimeValidationState,
+	runtimeValidationDecisionSchema,
+} from "@sprite-anvil/api/runtime-validation-decisions";
 import type {
+	RuntimeValidationDecisionResult,
 	RuntimeValidationEvidenceResult,
 	RuntimeValidationStore,
 } from "@sprite-anvil/api/runtime-validation-store";
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
 import type {
 	RuntimeValidationStorage,
+	StoredRuntimeValidationDecision,
 	StoredRuntimeValidationEvidence,
 	StoredRuntimeValidationRecord,
 } from "./runtime-validation-storage";
@@ -54,8 +60,8 @@ function toEvidence(row: StoredRuntimeValidationEvidence) {
 }
 
 function byAddedOrder(
-	left: StoredRuntimeValidationEvidence,
-	right: StoredRuntimeValidationEvidence
+	left: { createdAt: Date; id: string },
+	right: { createdAt: Date; id: string }
 ) {
 	return (
 		left.createdAt.getTime() - right.createdAt.getTime() ||
@@ -63,14 +69,30 @@ function byAddedOrder(
 	);
 }
 
+function toDecision(row: StoredRuntimeValidationDecision) {
+	return runtimeValidationDecisionSchema.parse({
+		createdAt: row.createdAt.toISOString(),
+		failureSource: row.failureSource,
+		id: row.id,
+		kind: row.kind,
+		outcome: row.outcome,
+	});
+}
+
 function toRecord(
 	row: StoredRuntimeValidationRecord,
-	evidence: StoredRuntimeValidationEvidence[]
+	evidence: StoredRuntimeValidationEvidence[],
+	storedDecisions: StoredRuntimeValidationDecision[]
 ): RuntimeValidationRecord {
+	const decisions = storedDecisions
+		.filter((item) => item.recordId === row.id)
+		.sort(byAddedOrder)
+		.map(toDecision);
 	return runtimeValidationRecordSchema.parse({
 		adapterVersion: row.adapterVersion,
 		bundleId: row.bundleId,
 		createdAt: row.createdAt.toISOString(),
+		decisions,
 		engineVersion: row.engineVersion,
 		evidence: evidence
 			.filter((item) => item.recordId === row.id)
@@ -80,7 +102,23 @@ function toRecord(
 		id: row.id,
 		manifestDigest: row.manifestDigest,
 		projectId: row.projectId,
+		supersedesRecordId: row.supersedesRecordId,
+		...deriveRuntimeValidationState(decisions),
 	});
+}
+
+/** Why a decision cannot be appended to a record with this outcome: the outcome is final, and a source needs a Fail. */
+function decisionRefusal(
+	kind: StoredRuntimeValidationDecision["kind"],
+	outcome: RuntimeValidationRecord["outcome"]
+) {
+	if (kind === "outcome") {
+		return outcome === null ? null : "outcome_already_decided";
+	}
+	if (outcome === null) {
+		return "outcome_not_decided";
+	}
+	return outcome === "fail" ? null : "outcome_not_fail";
 }
 
 function digestOf(content: unknown): Promise<string> {
@@ -103,7 +141,82 @@ export function createRuntimeValidationStore(
 		if (!row) {
 			return null;
 		}
-		return toRecord(row, await storage.listEvidence(projectId, [recordId]));
+		const [evidence, decisions] = await Promise.all([
+			storage.listEvidence(projectId, [recordId]),
+			storage.listDecisions(projectId, [recordId]),
+		]);
+		return toRecord(row, evidence, decisions);
+	}
+
+	/** The one place a decision row is appended; a repeated key replays and a taken outcome slot is reported. */
+	async function decide(
+		userId: string,
+		input: { idempotencyKey: string; projectId: string; recordId: string },
+		content: Pick<
+			StoredRuntimeValidationDecision,
+			"failureSource" | "kind" | "outcome"
+		>
+	): Promise<RuntimeValidationDecisionResult | null> {
+		if ((await lookupProject(userId, input.projectId)) === null) {
+			return null;
+		}
+		const record = await readRecord(input.projectId, input.recordId);
+		if (!record) {
+			return null;
+		}
+		const id = await idempotentRecordId(
+			{
+				kind: "runtime-validation-decision",
+				projectId: input.projectId,
+				targetId: input.recordId,
+				userId,
+			},
+			input.idempotencyKey
+		);
+		const requestDigest = await digestOf(content);
+		const replay =
+			async (): Promise<RuntimeValidationDecisionResult | null> => {
+				const existing = await storage.findDecision(input.projectId, id);
+				if (!existing) {
+					return null;
+				}
+				if (existing.requestDigest !== requestDigest) {
+					throw new IdempotencyConflictError("Runtime Validation decision");
+				}
+				return { decision: toDecision(existing), status: "replayed" };
+			};
+		const replayed = await replay();
+		if (replayed) {
+			return replayed;
+		}
+		const refusal = decisionRefusal(content.kind, record.outcome);
+		if (refusal) {
+			return { reason: refusal, status: "rejected" };
+		}
+		const inserted = await storage.insertDecision({
+			...content,
+			createdAt: now(),
+			decidedByUserId: userId,
+			id,
+			projectId: input.projectId,
+			recordId: input.recordId,
+			requestDigest,
+		});
+		if (inserted.status === "conflict") {
+			const winner = await replay();
+			if (winner) {
+				return winner;
+			}
+			// The outcome slot was taken concurrently by another decision.
+			return { reason: "outcome_already_decided", status: "rejected" };
+		}
+		const stored = await storage.findDecision(input.projectId, id);
+		if (!stored) {
+			throw new RecordIntegrityError(
+				"The Runtime Validation decision could not be re-read from the persisted record."
+			);
+		}
+		return { decision: toDecision(stored), status: "created" };
 	}
 
 	async function addEvidence(
@@ -207,6 +320,20 @@ export function createRuntimeValidationStore(
 				text: input.text,
 			}),
 
+		confirmFailureSource: (userId, input) =>
+			decide(userId, input, {
+				failureSource: input.failureSource,
+				kind: "failure_source",
+				outcome: null,
+			}),
+
+		finalizeOutcome: (userId, input) =>
+			decide(userId, input, {
+				failureSource: null,
+				kind: "outcome",
+				outcome: input.outcome,
+			}),
+
 		async create(userId, input) {
 			if ((await lookupProject(userId, input.projectId)) === null) {
 				return null;
@@ -214,6 +341,12 @@ export function createRuntimeValidationStore(
 			const bundle = await getBundle(userId, input.projectId, input.bundleId);
 			if (!bundle) {
 				return { reason: "bundle_not_found", status: "rejected" };
+			}
+			if (
+				input.supersedesRecordId !== null &&
+				!(await storage.findRecord(input.projectId, input.supersedesRecordId))
+			) {
+				return { reason: "superseded_record_not_found", status: "rejected" };
 			}
 			const id = await idempotentRecordId(
 				{
@@ -228,6 +361,10 @@ export function createRuntimeValidationStore(
 				bundleId: input.bundleId,
 				engineVersion: input.engineVersion,
 				gameBuild: input.gameBuild,
+				// Left out when absent, so a key used before retests existed keeps its digest.
+				...(input.supersedesRecordId === null
+					? {}
+					: { supersedesRecordId: input.supersedesRecordId }),
 			});
 			const replay = async () => {
 				const existing = await storage.findRecord(input.projectId, id);
@@ -256,6 +393,7 @@ export function createRuntimeValidationStore(
 				manifestDigest: bundle.manifestDigest,
 				projectId: input.projectId,
 				requestDigest,
+				supersedesRecordId: input.supersedesRecordId,
 			});
 			if (inserted.status === "conflict") {
 				const winner = await replay();
@@ -308,12 +446,13 @@ export function createRuntimeValidationStore(
 				return null;
 			}
 			const rows = await storage.listRecords(projectId, bundleId);
-			const evidence = await storage.listEvidence(
-				projectId,
-				rows.map((row) => row.id)
-			);
+			const ids = rows.map((row) => row.id);
+			const [evidence, decisions] = await Promise.all([
+				storage.listEvidence(projectId, ids),
+				storage.listDecisions(projectId, ids),
+			]);
 			return runtimeValidationRecordListSchema.parse({
-				records: rows.map((row) => toRecord(row, evidence)),
+				records: rows.map((row) => toRecord(row, evidence, decisions)),
 			});
 		},
 	};

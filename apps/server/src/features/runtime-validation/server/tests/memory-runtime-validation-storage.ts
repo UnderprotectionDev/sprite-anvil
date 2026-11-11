@@ -1,5 +1,6 @@
 import type {
 	RuntimeValidationStorage,
+	StoredRuntimeValidationDecision,
 	StoredRuntimeValidationEvidence,
 	StoredRuntimeValidationRecord,
 } from "../runtime-validation-storage";
@@ -10,8 +11,37 @@ export function createMemoryRuntimeValidationStorage(): RuntimeValidationStorage
 } {
 	const records = new Map<string, StoredRuntimeValidationRecord>();
 	const evidence = new Map<string, StoredRuntimeValidationEvidence>();
+	const decisions = new Map<string, StoredRuntimeValidationDecision>();
 
 	return {
+		findDecision: (projectId, decisionId) => {
+			const found = decisions.get(decisionId);
+			return Promise.resolve(
+				found?.projectId === projectId ? structuredClone(found) : null
+			);
+		},
+		insertDecision: (row) => {
+			const secondOutcome =
+				row.kind === "outcome" &&
+				[...decisions.values()].some(
+					(existing) =>
+						existing.kind === "outcome" && existing.recordId === row.recordId
+				);
+			if (decisions.has(row.id) || secondOutcome) {
+				return Promise.resolve({ status: "conflict" });
+			}
+			decisions.set(row.id, structuredClone(row));
+			return Promise.resolve({ status: "inserted" });
+		},
+		listDecisions: (projectId, recordIds) =>
+			Promise.resolve(
+				[...decisions.values()]
+					.filter(
+						(row) =>
+							row.projectId === projectId && recordIds.includes(row.recordId)
+					)
+					.map((row) => structuredClone(row))
+			),
 		findEvidence: (projectId, evidenceId) => {
 			const found = evidence.get(evidenceId);
 			return Promise.resolve(
@@ -58,6 +88,10 @@ export function createMemoryRuntimeValidationStorage(): RuntimeValidationStorage
 					.map((row) => structuredClone(row))
 			),
 		snapshot: () =>
-			JSON.stringify([[...records.values()], [...evidence.values()]]),
+			JSON.stringify([
+				[...records.values()],
+				[...evidence.values()],
+				[...decisions.values()],
+			]),
 	};
 }

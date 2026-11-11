@@ -2,6 +2,11 @@ import { z } from "zod";
 import { assetSourceFileNameSchema } from "./asset-file-contracts";
 import { sha256Schema } from "./export-bundle-manifest";
 import { idempotencyKeySchema } from "./record-publication";
+import {
+	runtimeValidationDecisionSchema,
+	runtimeValidationFailureSourceSchema,
+	runtimeValidationOutcomeSchema,
+} from "./runtime-validation-decisions";
 
 const idSchema = z.uuid();
 
@@ -58,6 +63,8 @@ export const runtimeValidationRecordCreateInputSchema = z
 		gameBuild: requiredTextSchema,
 		idempotencyKey: idempotencyKeySchema,
 		projectId: idSchema,
+		/** The earlier record this retest or fix supersedes; it stays unchanged. */
+		supersedesRecordId: idSchema.nullable().default(null),
 	})
 	.strict();
 export type RuntimeValidationRecordCreateInput = z.infer<
@@ -125,12 +132,20 @@ export const runtimeValidationRecordSchema = z.object({
 	bundleId: idSchema,
 	createdAt: z.iso.datetime(),
 	engineVersion: z.string(),
+	/** The user's decisions in the order made; the record row itself is never changed by them. */
+	decisions: z.array(runtimeValidationDecisionSchema),
 	evidence: z.array(runtimeValidationEvidenceSchema),
+	/** Source Unknown until the user confirms a class; null unless the outcome is Fail. */
+	failureSource: runtimeValidationFailureSourceSchema.nullable(),
 	gameBuild: z.string(),
 	id: idSchema,
 	/** Manifest digest of the bundle, copied when the record was written. */
 	manifestDigest: sha256Schema,
+	/** Null until the user finalizes it; never set by an adapter. */
+	outcome: runtimeValidationOutcomeSchema.nullable(),
 	projectId: idSchema,
+	/** The earlier record this one retests or fixes. */
+	supersedesRecordId: idSchema.nullable(),
 });
 export type RuntimeValidationRecord = z.infer<
 	typeof runtimeValidationRecordSchema

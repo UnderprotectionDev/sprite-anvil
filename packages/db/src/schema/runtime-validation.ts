@@ -32,6 +32,8 @@ export const runtimeValidationRecords = pgTable(
 		gameBuild: text("game_build").notNull(),
 		engineVersion: text("engine_version").notNull(),
 		adapterVersion: text("adapter_version"),
+		/** The earlier record this retest or fix supersedes; that record is never changed. */
+		supersedesRecordId: text("supersedes_record_id"),
 		/** Digest of the create request, so a repeated key with other content is a conflict. */
 		requestDigest: text("request_digest").notNull(),
 		createdByUserId: text("created_by_user_id")
@@ -98,6 +100,53 @@ export const runtimeValidationEvidence = pgTable(
 		check(
 			"runtime_validation_evidence_content_check",
 			sql`(${table.text} is not null and ${table.fileName} is null and ${table.byteSize} is null and ${table.sha256} is null and ${table.objectKey} is null) or (${table.text} is null and ${table.fileName} is not null and ${table.byteSize} > 0 and ${table.sha256} is not null and ${table.objectKey} is not null)`
+		),
+	]
+);
+
+/**
+ * One append-only user decision on a Runtime Validation Record: its outcome
+ * (Pass, Fail or Inconclusive) or a failure-source classification. Only the
+ * user writes these. A record has at most one outcome decision, which is final;
+ * a Fail without a failure-source row is Source Unknown, and each
+ * reclassification appends another row (the latest wins). Rows are inserted
+ * once, never updated.
+ */
+export const runtimeValidationDecisions = pgTable(
+	"runtime_validation_decisions",
+	{
+		id: text("id").primaryKey(),
+		projectId: text("project_id").notNull(),
+		recordId: text("record_id").notNull(),
+		kind: text("kind").$type<"outcome" | "failure_source">().notNull(),
+		outcome: text("outcome").$type<"pass" | "fail" | "inconclusive">(),
+		failureSource: text("failure_source").$type<
+			| "asset_content"
+			| "engine_adapter"
+			| "game_configuration"
+			| "multiple_sources"
+		>(),
+		requestDigest: text("request_digest").notNull(),
+		decidedByUserId: text("decided_by_user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+	},
+	(table) => [
+		foreignKey({
+			name: "runtime_validation_decisions_record_fk",
+			columns: [table.projectId, table.recordId],
+			foreignColumns: [
+				runtimeValidationRecords.projectId,
+				runtimeValidationRecords.id,
+			],
+		}).onDelete("cascade"),
+		uniqueIndex("runtime_validation_decisions_one_outcome_idx")
+			.on(table.recordId)
+			.where(sql`${table.kind} = 'outcome'`),
+		check(
+			"runtime_validation_decisions_content_check",
+			sql`(${table.kind} = 'outcome' and ${table.outcome} in ('pass', 'fail', 'inconclusive') and ${table.failureSource} is null) or (${table.kind} = 'failure_source' and ${table.outcome} is null and ${table.failureSource} in ('asset_content', 'engine_adapter', 'game_configuration', 'multiple_sources'))`
 		),
 	]
 );

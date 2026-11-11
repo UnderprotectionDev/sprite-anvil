@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { LoadErrorAlert } from "@/components/load-error-alert";
 import { orpc } from "@/utils/orpc";
+import { RuntimeValidationReadinessPanel } from "../components/runtime-validation-readiness-panel";
 import { RuntimeValidationRecordCard } from "../components/runtime-validation-record-card";
 import { RuntimeValidationRecordForm } from "../forms/runtime-validation-record-form";
 
@@ -40,6 +41,14 @@ export function RuntimeValidationView({ projectId }: { projectId: string }) {
 			) : null}
 			{bundles.isSuccess && bundles.data.bundles.length > 0 ? (
 				<RuntimeValidationRecordForm
+					bundles={bundles.data.bundles}
+					projectId={projectId}
+					records={recordList}
+				/>
+			) : null}
+
+			{bundles.isSuccess && bundles.data.bundles.length > 0 ? (
+				<RuntimeValidationReadinessPanel
 					bundles={bundles.data.bundles}
 					projectId={projectId}
 				/>
