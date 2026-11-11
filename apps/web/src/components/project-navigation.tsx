@@ -14,6 +14,7 @@ const projectLinks = [
 		to: "/projects/$projectId/runtime-validation",
 		label: "Runtime Validation",
 	},
+	{ to: "/projects/$projectId/delivery-refresh", label: "Delivery Refresh" },
 	{ to: "/projects/$projectId/import-inbox", label: "İçe aktarma" },
 	{ to: "/projects/$projectId/offline-staging", label: "Offline staging" },
 	{ to: "/projects/$projectId/operations", label: "Background operations" },

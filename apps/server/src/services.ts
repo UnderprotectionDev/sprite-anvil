@@ -21,6 +21,8 @@ import { createDirectionalReviewStore } from "./features/character-animation-pro
 import { createCollectionStore } from "./features/collections/server/collection-store";
 import { createDatabaseDeliveryPlanningStorage } from "./features/delivery-planning/server/database-delivery-planning-storage";
 import { createDeliveryTargetStore } from "./features/delivery-planning/server/delivery-target-store";
+import { createDatabaseDeliveryRefreshLockStorage } from "./features/delivery-refresh-locks/server/database-delivery-refresh-lock-storage";
+import { createDeliveryRefreshLockStore } from "./features/delivery-refresh-locks/server/delivery-refresh-lock-store";
 import { createDependencyRevalidationStore } from "./features/dependency-revalidation/server/dependency-revalidation-store";
 import { createDatabaseExportBundleStorage } from "./features/export-bundles/server/database-export-bundle-storage";
 import { createExportBundleSourceReader } from "./features/export-bundles/server/export-bundle-source-reader";
@@ -148,11 +150,15 @@ export const rightsRecordStore = createRightsRecordStore(db);
 export const exportBundleStore = createExportBundleStore(db, {
 	profiles: exportProfileStore,
 	sourceReader: createExportBundleSourceReader({
+		animationTimingReviews: animationTimingReviewStore,
 		assetFamilies: assetFamilyStore,
 		assetVersions: assetVersionStore,
 		familyReadiness: familyReadinessStore,
+		gameplayMetadata: gameplayMetadataStore,
 		projectContext: projectContextStore,
 		rights: rightsRecordStore,
+		tilesetAdjacencyReviews: tilesetAdjacencyReviewStore,
+		uiStretchTests: uiStretchTestStore,
 	}),
 	storage: createDatabaseExportBundleStorage(db),
 });
@@ -160,6 +166,10 @@ export const runtimeValidationStore = createRuntimeValidationStore(db, {
 	getBundle: (userId, projectId, bundleId) =>
 		exportBundleStore.get(userId, projectId, bundleId),
 	storage: createDatabaseRuntimeValidationStorage(db),
+});
+export const deliveryRefreshLockStore = createDeliveryRefreshLockStore(db, {
+	bundles: exportBundleStore,
+	storage: createDatabaseDeliveryRefreshLockStorage(db),
 });
 export const managedSnapshotStore = createManagedSnapshotStore(db);
 export const projectContextScopeStore = createProjectContextScopeStore(db);

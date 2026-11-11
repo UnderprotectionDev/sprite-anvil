@@ -38,6 +38,7 @@ import { backgroundOperationsRouter } from "./background-operations";
 import { backgroundScrollingTestsRouter } from "./background-scrolling-tests";
 import { collectionsRouter } from "./collections";
 import { deliveryPlanningRouter } from "./delivery-planning";
+import { deliveryRefreshLocksRouter } from "./delivery-refresh-locks";
 import { dependencyRevalidationRouter } from "./dependency-revalidation";
 import { directionalReviewsRouter } from "./directional-reviews";
 import { exportBundlesRouter } from "./export-bundles";
@@ -135,6 +136,7 @@ export const appRouter = {
 	assetFamilies: assetFamiliesRouter,
 	assetFamilyComparisons: assetFamilyComparisonsRouter,
 	deliveryPlanning: deliveryPlanningRouter,
+	deliveryRefreshLocks: deliveryRefreshLocksRouter,
 	exportBundles: exportBundlesRouter,
 	exportProfiles: exportProfilesRouter,
 	dependencyRevalidation: dependencyRevalidationRouter,

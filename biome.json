@@ -18,6 +18,7 @@
       "!**/.vscode",
       "!**/routeTree.gen.ts",
       "!packages/api/src/export-bundle-verifier-source.ts",
+      "!packages/api/test-support/godot-golden-output",
       "!dither.svg",
       "!apps/web/public/logo.svg",
       "!**/src/migrations/**/snapshot.json",

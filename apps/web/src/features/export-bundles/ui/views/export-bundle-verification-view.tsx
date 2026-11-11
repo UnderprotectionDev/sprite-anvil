@@ -1,6 +1,6 @@
 import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import {
 	describeError,
 	type ExportBundleManifestSummary,
@@ -77,7 +77,12 @@ function VerificationResult({ reading }: { reading: ExportBundleReading }) {
 	);
 }
 
-export function ExportBundleVerificationView() {
+export function ExportBundleVerificationView({
+	children,
+}: {
+	/** Further sections of the Export Bundles screen, shown above the offline check. */
+	children?: ReactNode;
+}) {
 	const [reading, setReading] = useState<ExportBundleReading | null>(null);
 	const [readError, setReadError] = useState<string | null>(null);
 	const [isReading, setIsReading] = useState(false);
@@ -110,6 +115,7 @@ export function ExportBundleVerificationView() {
 					with the same verifier the Package Verification Kit ships.
 				</p>
 			</header>
+			{children}
 			<div className="space-y-1 text-sm">
 				<Label htmlFor="bundle-directory">Bundle directory</Label>
 				<Input

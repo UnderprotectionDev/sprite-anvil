@@ -9,6 +9,13 @@ import {
 	exportBundleListInputSchema,
 	exportBundleSchema,
 } from "../export-bundles";
+import {
+	buildGodotOutput,
+	type GodotOutputRejection,
+	godotAdapterVersion,
+	godotOutputGetInputSchema,
+	godotOutputSchema,
+} from "../godot-output";
 import { protectedProcedure } from "../index";
 import { withPublicationErrors } from "../record-publication";
 
@@ -46,6 +53,19 @@ function rejectionMessage(rejection: ExportBundleRejection): string {
 			return "The Export Profile naming template gives two files the same path.";
 		case "unknown_naming_placeholder":
 			return `The Export Profile naming template uses the unknown placeholder {${rejection.placeholder}}.`;
+		default:
+			return assertNever(rejection);
+	}
+}
+
+function godotRejectionMessage(rejection: GodotOutputRejection): string {
+	switch (rejection.reason) {
+		case "engine_data_missing":
+			return "This Export Bundle was created before engine data was pinned (manifest 1.0.0); create a new bundle to get Godot output.";
+		case "adapter_version_mismatch":
+			return `This Export Bundle names the adapter ${rejection.bundleAdapterVersion}; this build produces ${godotAdapterVersion}.`;
+		case "texture_missing":
+			return "The pinned game data refers to textures the bundle does not hold.";
 		default:
 			return assertNever(rejection);
 	}
@@ -94,6 +114,35 @@ export const exportBundlesRouter = {
 					});
 				}
 				return bundle;
+			})
+		),
+	/**
+	 * Derives the Godot output of one stored bundle on demand. Nothing is
+	 * stored: the output is a separate result and never a Workbench source.
+	 */
+	godotOutput: protectedProcedure
+		.input(godotOutputGetInputSchema)
+		.output(godotOutputSchema)
+		.handler(({ context, input }) =>
+			withPublicationErrors(async () => {
+				const bundle = await getExportBundleStore(context).get(
+					context.session.user.id,
+					input.projectId,
+					input.bundleId
+				);
+				if (!bundle) {
+					throw new ORPCError("NOT_FOUND", {
+						message: "Export Bundle not found.",
+					});
+				}
+				const result = await buildGodotOutput(bundle);
+				if (!result.ok) {
+					throw new ORPCError("BAD_REQUEST", {
+						data: result,
+						message: godotRejectionMessage(result),
+					});
+				}
+				return result.output;
 			})
 		),
 	list: protectedProcedure

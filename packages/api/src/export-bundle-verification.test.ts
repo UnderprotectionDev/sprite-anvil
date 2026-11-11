@@ -206,7 +206,7 @@ test("a README that contradicts the manifest, or a kit schema of another version
 				files,
 				"verification-kit/README.md",
 				readme.replace(
-					"Manifest contract version: 1.0.0",
+					"Manifest contract version: 1.1.0",
 					"Manifest contract version: 1.4.0"
 				)
 			)
@@ -223,7 +223,7 @@ test("a README that contradicts the manifest, or a kit schema of another version
 				files,
 				"verification-kit/schema/manifest.schema.json",
 				schema.replace(
-					'"x-contractVersion": "1.0.0"',
+					'"x-contractVersion": "1.1.0"',
 					'"x-contractVersion": "2.0.0"'
 				)
 			)
@@ -344,8 +344,8 @@ test("a changed verifier, README, schema or example is rejected because the mani
 		[
 			"verification-kit/schema/manifest.schema.json",
 			text("verification-kit/schema/manifest.schema.json").replace(
-				'"x-contractVersion": "1.0.0"',
-				'"x-contractVersion": "1.0.0", "x-note": "edited"'
+				'"x-contractVersion": "1.1.0"',
+				'"x-contractVersion": "1.1.0", "x-note": "edited"'
 			),
 		],
 		[

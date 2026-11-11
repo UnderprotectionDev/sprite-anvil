@@ -49,8 +49,19 @@ function readiness(status: "complete" | "incomplete") {
 	};
 }
 
-function reader(status: "complete" | "incomplete", hasFamily = true) {
+function reader(
+	status: "complete" | "incomplete",
+	hasFamily = true,
+	engine: Record<string, unknown> = {}
+) {
 	return createExportBundleSourceReader({
+		animationTimingReviews: { list: () => Promise.resolve([]) },
+		gameplayMetadata: {
+			list: () => Promise.resolve({ frames: [], records: [] }),
+		},
+		tilesetAdjacencyReviews: { list: () => Promise.resolve([]) },
+		uiStretchTests: { list: () => Promise.resolve([]) },
+		...engine,
 		assetFamilies: {
 			list: () =>
 				Promise.resolve({ assetFamilies: [{ id: familyId, name: "Hero" }] }),
@@ -155,4 +166,196 @@ test("a family without an active Required Set is unavailable", async () => {
 			projectId,
 		})
 	).toEqual({ assetFamilyIds: [familyId], status: "family_unavailable" });
+});
+
+const timingRecord = (overrides: Record<string, unknown> = {}) => ({
+	animationName: "idle",
+	createdAt: "2026-11-02T10:00:00.000Z",
+	directions: [
+		{
+			direction: "south",
+			frames: [
+				{
+					assetVersionId: "av-1",
+					durationMs: 100,
+					frameKey: "idle_00",
+					motionPhase: null,
+					region: { height: 16, width: 16, x: 0, y: 0 },
+				},
+			],
+		},
+	],
+	looping: true,
+	outcome: "consistent",
+	playbackSpeed: 1,
+	...overrides,
+});
+
+const pivotRecord = {
+	assetVersionId: "av-1",
+	createdAt: "2026-11-02T10:00:00.000Z",
+	fields: [
+		{ fieldId: "pivot", value: { x: 8, y: 15 } },
+		{ fieldId: "event_links", value: [{ id: "step", timeMs: 40 }, "blink"] },
+	],
+	frameKey: "idle_00",
+};
+
+test("pins the latest consistent animation timing with its pivot and events", async () => {
+	const result = await reader("complete", true, {
+		animationTimingReviews: {
+			list: () =>
+				Promise.resolve([
+					timingRecord({ durationMs: 1 }),
+					timingRecord({
+						createdAt: "2026-11-03T10:00:00.000Z",
+						outcome: "needs_follow_up",
+					}),
+				]),
+		},
+		gameplayMetadata: {
+			list: () => Promise.resolve({ frames: [], records: [pivotRecord] }),
+		},
+	}).read("u", { assetFamilyIds: [familyId], projectId });
+	if (result?.status !== "resolved") {
+		throw new Error("expected a resolved source");
+	}
+	expect(result.source.engineData?.animations).toEqual([
+		{
+			assetFamilyId: familyId,
+			directions: [
+				{
+					direction: "south",
+					frames: [
+						{
+							assetVersionId: "av-1",
+							durationMs: 100,
+							events: [
+								{ id: "step", timeMs: 40 },
+								{ id: "blink", timeMs: null },
+							],
+							frameKey: "idle_00",
+							pivot: { x: 8, y: 15 },
+							region: { height: 16, width: 16, x: 0, y: 0 },
+						},
+					],
+				},
+			],
+			looping: true,
+			name: "idle",
+			playbackSpeed: 1,
+		},
+	]);
+});
+
+test("an animation whose frame is not a pinned selection is not pinned", async () => {
+	const result = await reader("complete", true, {
+		animationTimingReviews: {
+			list: () =>
+				Promise.resolve([
+					timingRecord({
+						directions: [
+							{
+								direction: "south",
+								frames: [
+									{
+										assetVersionId: "av-other",
+										durationMs: 100,
+										frameKey: "x",
+										motionPhase: null,
+										region: null,
+									},
+								],
+							},
+						],
+					}),
+				]),
+		},
+	}).read("u", { assetFamilyIds: [familyId], projectId });
+	if (result?.status !== "resolved") {
+		throw new Error("expected a resolved source");
+	}
+	expect(result.source.engineData?.animations).toEqual([]);
+});
+
+test("pins tile and UI data only from the family records that have them", async () => {
+	const digest = "a".repeat(64);
+	const result = await reader("complete", true, {
+		tilesetAdjacencyReviews: {
+			list: () =>
+				Promise.resolve([
+					{
+						compositeVersionId: "cv-1",
+						createdAt: "2026-11-02T10:00:00.000Z",
+						tiles: [
+							{
+								edges: { east: "g", north: null, south: null, west: "g" },
+								region: { height: 16, width: 16, x: 0, y: 0 },
+								terrainId: "grass",
+								unitVersionId: "uv-1",
+							},
+						],
+						versionPins: [
+							{
+								assetVersionId: "av-1",
+								contentDigest: digest,
+								tileId: "t-1",
+								unitVersionId: "uv-1",
+							},
+						],
+					},
+				]),
+		},
+		uiStretchTests: {
+			list: () =>
+				Promise.resolve([
+					{
+						createdAt: "2026-11-02T10:00:00.000Z",
+						states: [
+							{
+								assetVersionId: "av-1",
+								componentId: "button",
+								naturalSize: { height: 24, width: 48 },
+								stateId: "normal",
+								stretchMargins: { bottom: 4, left: 4, right: 4, top: 4 },
+								textSafeArea: { height: 16, width: 40, x: 4, y: 4 },
+							},
+						],
+					},
+				]),
+		},
+	}).read("u", { assetFamilyIds: [familyId], projectId });
+	if (result?.status !== "resolved") {
+		throw new Error("expected a resolved source");
+	}
+	expect(result.source.engineData?.tilesets).toEqual([
+		{
+			assetFamilyId: familyId,
+			compositeVersionId: "cv-1",
+			tiles: [
+				{
+					assetVersionId: "av-1",
+					edges: { east: "g", north: null, south: null, west: "g" },
+					region: { height: 16, width: 16, x: 0, y: 0 },
+					terrainId: "grass",
+					unitVersionId: "uv-1",
+				},
+			],
+		},
+	]);
+	expect(result.source.engineData?.uiComponents).toEqual([
+		{
+			assetFamilyId: familyId,
+			id: "button",
+			states: [
+				{
+					assetVersionId: "av-1",
+					id: "normal",
+					naturalSize: { height: 24, width: 48 },
+					stretchMargins: { bottom: 4, left: 4, right: 4, top: 4 },
+					textSafeArea: { height: 16, width: 40, x: 4, y: 4 },
+				},
+			],
+		},
+	]);
 });

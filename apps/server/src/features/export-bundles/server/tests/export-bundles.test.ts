@@ -181,6 +181,12 @@ function setup(
 			),
 		get: (bundleId: string) =>
 			call(appRouter.exportBundles.get, { bundleId, projectId }, { context }),
+		godotOutput: (bundleId: string, id = projectId) =>
+			call(
+				appRouter.exportBundles.godotOutput,
+				{ bundleId, projectId: id },
+				{ context }
+			),
 		list: (id = projectId) =>
 			call(appRouter.exportBundles.list, { projectId: id }, { context }),
 	};
@@ -533,4 +539,76 @@ test("a stored bundle with a broken record link is rejected even when its manife
 	await expect(get(created.bundle.id)).rejects.toMatchObject({
 		code: "CONFLICT",
 	});
+});
+
+const walkAnimation = {
+	assetFamilyId: familyId,
+	directions: [
+		{
+			direction: "south",
+			frames: [
+				{
+					assetVersionId: "av-1",
+					durationMs: 100,
+					events: [{ id: "step", timeMs: 20 }],
+					frameKey: "idle_00",
+					pivot: { x: 4, y: 8 },
+					region: { height: 16, width: 16, x: 0, y: 0 },
+				},
+			],
+		},
+	],
+	looping: true,
+	name: "idle",
+	playbackSpeed: 1,
+};
+
+test("Godot output is derived from a stored bundle, repeats exactly and stores nothing", async () => {
+	const { create, godotOutput, list } = setup({
+		source: resolvedSource({
+			engineData: {
+				animations: [walkAnimation],
+				tilesets: [],
+				uiComponents: [],
+			},
+		}),
+	});
+	const { bundle } = await create();
+	const catalogBefore = await list();
+
+	const first = await godotOutput(bundle.id);
+	const second = await godotOutput(bundle.id);
+
+	expect(second).toEqual(first);
+	expect(first.bundleId).toBe(bundle.id);
+	expect(first.bundleManifestDigest).toBe(bundle.manifestDigest);
+	expect(first.files.map((file) => file.path)).toEqual([
+		"sprite_anvil/adapter.json",
+		"sprite_anvil/animations.json",
+		"sprite_anvil/animations/idle.tres",
+		"sprite_anvil/textures/hero_idle.png",
+	]);
+	// The output is a separate result: the bundle and its marker are unchanged.
+	expect(await list()).toEqual(catalogBefore);
+});
+
+test("Godot output is not found for an unknown bundle or another project, and refused for another adapter", async () => {
+	const { create, godotOutput } = setup();
+	const { bundle } = await create({ adapterVersion: "unity-adapter/1.0.0" });
+	await expect(
+		godotOutput("11111111-1111-4111-8111-111111111111")
+	).rejects.toMatchObject({ code: "NOT_FOUND" });
+	await expect(godotOutput(bundle.id, otherProjectId)).rejects.toMatchObject({
+		code: "NOT_FOUND",
+	});
+	await expect(godotOutput(bundle.id)).rejects.toMatchObject({
+		code: "BAD_REQUEST",
+	});
+});
+
+test("Godot output is not found when the user cannot access the project", async () => {
+	const { godotOutput } = setup({ hasAccess: false });
+	await expect(
+		godotOutput("11111111-1111-4111-8111-111111111111")
+	).rejects.toMatchObject({ code: "NOT_FOUND" });
 });

@@ -1,0 +1,27 @@
+{
+  "tilesets": [
+    {
+      "compositeVersionId": "cv-1",
+      "resource": "res://sprite_anvil/tiles/cv-1.tres",
+      "tiles": [
+        {
+          "assetVersionId": "av-1",
+          "edges": {
+            "east": "g",
+            "north": null,
+            "south": null,
+            "west": "g"
+          },
+          "region": {
+            "height": 16,
+            "width": 16,
+            "x": 0,
+            "y": 0
+          },
+          "terrainId": "grass",
+          "unitVersionId": "uv-1"
+        }
+      ]
+    }
+  ]
+}
