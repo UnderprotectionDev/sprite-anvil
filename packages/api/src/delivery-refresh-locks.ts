@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+	deliveryRefreshDecisionSchema,
+	deliveryRefreshPathClasses,
+} from "./delivery-refresh-classification";
 import { sha256Schema } from "./export-bundle-manifest";
 import { idempotencyKeySchema } from "./record-publication";
 
@@ -114,4 +118,82 @@ export const deliveryRefreshLockCatalogSchema = z.object({
 });
 export type DeliveryRefreshLockCatalog = z.infer<
 	typeof deliveryRefreshLockCatalogSchema
+>;
+
+/**
+ * What a surface reports for a user-started refresh of one destination: the state it
+ * observed in the owned and bundle paths before writing, the user's decisions on diverged
+ * paths, and the relative path and SHA-256 of every file it then wrote. `previousLockId`
+ * is the lock the user chose for the destination; the destination has no other identity.
+ * The server re-classifies the observation itself and verifies the report against it.
+ */
+export const deliveryRefreshLockRefreshInputSchema = z
+	.object({
+		bundleId: idSchema,
+		decisions: z.array(deliveryRefreshDecisionSchema).max(5000),
+		idempotencyKey: idempotencyKeySchema,
+		observed: z
+			.array(
+				z
+					.object({
+						path: deliveryRelativePathSchema,
+						sha256: sha256Schema.nullable(),
+					})
+					.strict()
+			)
+			.max(10_000),
+		previousLockId: idSchema,
+		projectId: idSchema,
+		written: z
+			.array(
+				z
+					.object({ path: deliveryRelativePathSchema, sha256: sha256Schema })
+					.strict()
+			)
+			.max(5000),
+	})
+	.strict();
+export type DeliveryRefreshLockRefreshInput = z.infer<
+	typeof deliveryRefreshLockRefreshInputSchema
+>;
+
+const divergedPathSchema = z.object({
+	class: z.enum(deliveryRefreshPathClasses),
+	lockSha256: sha256Schema.nullable(),
+	nextSha256: sha256Schema.nullable(),
+	path: z.string(),
+	targetSha256: sha256Schema.nullable(),
+});
+
+const heldPathSchema = z.object({
+	decision: z.enum(["preserve", "other_destination"]),
+	path: z.string(),
+});
+
+/**
+ * A refresh either made a new lock, or halted on diverged paths that still wait for a
+ * decision. Applied paths and halted divergences are always listed apart, and a halted or
+ * partial refresh is never a completed delivery.
+ */
+export const deliveryRefreshLockRefreshResultSchema = z.discriminatedUnion(
+	"status",
+	[
+		z.object({
+			applied: z.array(z.string()),
+			lock: deliveryRefreshLockSchema,
+			/** `partial` when the user kept diverged paths out of the new lock. */
+			outcome: z.enum(["complete", "partial"]),
+			preserved: z.array(heldPathSchema),
+			status: z.enum(["created", "replayed"]),
+		}),
+		z.object({
+			applied: z.array(z.string()),
+			halted: z.array(divergedPathSchema).min(1),
+			preserved: z.array(heldPathSchema),
+			status: z.literal("halted"),
+		}),
+	]
+);
+export type DeliveryRefreshLockRefreshResult = z.infer<
+	typeof deliveryRefreshLockRefreshResultSchema
 >;
