@@ -1,4 +1,4 @@
-import { exportBundleContractMajorOf } from "@sprite-anvil/api/export-bundle-manifest";
+import { exportBundleHasEngineData } from "@sprite-anvil/api/export-bundle-manifest";
 import type { ExportBundleSummary } from "@sprite-anvil/api/export-bundles";
 import {
 	type GodotOutput,
@@ -13,17 +13,6 @@ import { client, orpc } from "@/utils/orpc";
 import { downloadZip, packGodotOutput } from "../../lib/pack-godot-output";
 import { describeError } from "../../lib/read-export-bundle";
 
-/** The first manifest contract that pins the game data Godot output needs. */
-const engineDataMinor = 1;
-
-function hasEngineData(bundle: ExportBundleSummary): boolean {
-	const [major, minor] = bundle.contractVersion.split(".").map(Number);
-	return (
-		(major ?? 0) > exportBundleContractMajorOf("1.0.0") ||
-		(minor ?? 0) >= engineDataMinor
-	);
-}
-
 function BundleRow({
 	bundle,
 	busy,
@@ -33,7 +22,7 @@ function BundleRow({
 	busy: boolean;
 	onCreate: (bundle: ExportBundleSummary) => void;
 }) {
-	const usable = hasEngineData(bundle);
+	const usable = exportBundleHasEngineData(bundle.contractVersion);
 	const describedBy = `godot-bundle-${bundle.id}`;
 	return (
 		<li className="flex flex-wrap items-center justify-between gap-3 rounded border p-3">

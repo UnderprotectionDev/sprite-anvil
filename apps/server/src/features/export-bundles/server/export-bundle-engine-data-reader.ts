@@ -3,6 +3,7 @@ import type { ExportBundleEngineData } from "@sprite-anvil/api/export-bundle-eng
 import type { GameplayMetadataStore } from "@sprite-anvil/api/gameplay-metadata";
 import type { TilesetAdjacencyReviewStore } from "@sprite-anvil/api/tileset-adjacency-reviews";
 import type { UiStretchTestStore } from "@sprite-anvil/api/ui-stretch-tests";
+import { z } from "zod";
 
 export interface ExportBundleEngineDataDependencies {
 	animationTimingReviews: Pick<AnimationTimingReviewStore, "list">;
@@ -37,14 +38,24 @@ function newestFirst<T extends { createdAt: string }>(records: T[]): T[] {
 	);
 }
 
+const pivotValueSchema = z.object({ x: z.number(), y: z.number() });
+
+/** One stored event link: a bare id, or an id with an optional non-negative integer time. */
+const eventValueSchema = z.union([
+	z
+		.string()
+		.min(1)
+		.transform((id) => ({ id, timeMs: null as number | null })),
+	z
+		.object({ id: z.string().min(1), timeMs: z.unknown() })
+		.transform(({ id, timeMs }) => ({
+			id,
+			timeMs: z.number().int().nonnegative().safeParse(timeMs).data ?? null,
+		})),
+]);
+
 function readPivot(value: unknown): { x: number; y: number } | null {
-	if (value && typeof value === "object" && !Array.isArray(value)) {
-		const { x, y } = value as Record<string, unknown>;
-		if (typeof x === "number" && typeof y === "number") {
-			return { x, y };
-		}
-	}
-	return null;
+	return pivotValueSchema.safeParse(value).data ?? null;
 }
 
 function readEvents(value: unknown): { id: string; timeMs: number | null }[] {
@@ -52,26 +63,8 @@ function readEvents(value: unknown): { id: string; timeMs: number | null }[] {
 		return [];
 	}
 	return value.flatMap((entry) => {
-		if (typeof entry === "string" && entry.length > 0) {
-			return [{ id: entry, timeMs: null }];
-		}
-		if (entry && typeof entry === "object") {
-			const { id, timeMs } = entry as Record<string, unknown>;
-			if (typeof id === "string" && id.length > 0) {
-				return [
-					{
-						id,
-						timeMs:
-							typeof timeMs === "number" &&
-							Number.isInteger(timeMs) &&
-							timeMs >= 0
-								? timeMs
-								: null,
-					},
-				];
-			}
-		}
-		return [];
+		const parsed = eventValueSchema.safeParse(entry);
+		return parsed.success ? [parsed.data] : [];
 	});
 }
 

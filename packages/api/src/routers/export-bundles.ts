@@ -11,6 +11,7 @@ import {
 } from "../export-bundles";
 import {
 	buildGodotOutput,
+	type GodotOutputRejection,
 	godotAdapterVersion,
 	godotOutputGetInputSchema,
 	godotOutputSchema,
@@ -57,9 +58,7 @@ function rejectionMessage(rejection: ExportBundleRejection): string {
 	}
 }
 
-function godotRejectionMessage(
-	rejection: Exclude<Awaited<ReturnType<typeof buildGodotOutput>>, { ok: true }>
-): string {
+function godotRejectionMessage(rejection: GodotOutputRejection): string {
 	switch (rejection.reason) {
 		case "engine_data_missing":
 			return "This Export Bundle was created before engine data was pinned (manifest 1.0.0); create a new bundle to get Godot output.";
