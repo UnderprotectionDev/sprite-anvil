@@ -7,6 +7,8 @@ import {
 	deliveryRefreshLockCatalogSchema,
 	deliveryRefreshLockGetInputSchema,
 	deliveryRefreshLockListInputSchema,
+	deliveryRefreshLockRefreshInputSchema,
+	deliveryRefreshLockRefreshResultSchema,
 	deliveryRefreshLockSchema,
 } from "../delivery-refresh-locks";
 import { protectedProcedure } from "../index";
@@ -40,6 +42,20 @@ function rejectionMessage(rejection: DeliveryRefreshLockRejection): string {
 			return "Some written paths are not files of the Export Bundle; Sprite Anvil only owns what the bundle wrote.";
 		case "written_digest_mismatch":
 			return "Some written files do not match the Export Bundle digests.";
+		case "previous_lock_unavailable":
+			return "The previous Delivery Refresh Lock does not exist in the project.";
+		case "lock_version_unsupported":
+			return `The previous lock uses contract version ${rejection.version}, which this build cannot refresh from.`;
+		case "lock_malformed":
+			return "The previous lock is missing a required field or carries no full contract version.";
+		case "decision_not_applicable":
+			return "Some decisions name paths that are not diverged paths of this refresh.";
+		case "diverged_path_not_released":
+			return "Some diverged paths were reported as written without a replace decision.";
+		case "written_path_not_expected":
+			return "Some written paths are not paths this refresh is allowed to write.";
+		case "no_files_applied":
+			return "Nothing of the bundle would be owned after this refresh; apply the bundle to another destination instead.";
 		default:
 			return assertNever(rejection);
 	}
@@ -88,6 +104,27 @@ export const deliveryRefreshLocksRouter = {
 					});
 				}
 				return lock;
+			})
+		),
+	refresh: protectedProcedure
+		.input(deliveryRefreshLockRefreshInputSchema)
+		.output(deliveryRefreshLockRefreshResultSchema)
+		.handler(({ context, input }) =>
+			withPublicationErrors(async () => {
+				const result = await getDeliveryRefreshLockStore(context).refresh(
+					context.session.user.id,
+					input
+				);
+				if (!result) {
+					throw new ORPCError("NOT_FOUND", { message: projectNotFound });
+				}
+				if (result.status === "rejected") {
+					throw new ORPCError("BAD_REQUEST", {
+						data: result,
+						message: rejectionMessage(result),
+					});
+				}
+				return result;
 			})
 		),
 	list: protectedProcedure
