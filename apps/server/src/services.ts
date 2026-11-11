@@ -146,11 +146,15 @@ export const rightsRecordStore = createRightsRecordStore(db);
 export const exportBundleStore = createExportBundleStore(db, {
 	profiles: exportProfileStore,
 	sourceReader: createExportBundleSourceReader({
+		animationTimingReviews: animationTimingReviewStore,
 		assetFamilies: assetFamilyStore,
 		assetVersions: assetVersionStore,
 		familyReadiness: familyReadinessStore,
+		gameplayMetadata: gameplayMetadataStore,
 		projectContext: projectContextStore,
 		rights: rightsRecordStore,
+		tilesetAdjacencyReviews: tilesetAdjacencyReviewStore,
+		uiStretchTests: uiStretchTestStore,
 	}),
 	storage: createDatabaseExportBundleStorage(db),
 });

@@ -43,7 +43,7 @@ test("an intact bundle shows its manifest and a verified result", async () => {
 
 	expect(await screen.findByText(verifiedText)).toBeVisible();
 	expect(screen.getByText("Manifest contract version")).toBeVisible();
-	expect(screen.getByText("1.0.0")).toBeVisible();
+	expect(screen.getByText("1.1.0")).toBeVisible();
 	expect(screen.getByText("Profile revision")).toBeVisible();
 	expect(screen.getByText("Context revision")).toBeVisible();
 	expect(screen.getByText("Waivers")).toBeVisible();

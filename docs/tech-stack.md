@@ -55,6 +55,7 @@ Each responsibility is built with its technology, not with the substitute beside
 - oRPC
 - Zod 4
 - OpenAPI
+- fflate (deterministic zip of Godot output: fixed timestamps and path order; user-approved)
 
 ## Database and Queue
 
@@ -86,6 +87,7 @@ Each responsibility is built with its technology, not with the substitute beside
 - Opt-in database integration tests
   - CI runs them in the `integration` job against a PostgreSQL service: profile tests use their own loopback databases cloned from a `db:push` schema template, and `createDb` (neon-http) tests go through the local Neon HTTP proxy in a non-blocking step until their known failures are fixed (`ghcr.io/timowilhelm/local-neon-http-proxy`, pinned by digest). `createDb` routes only the reserved host `db.localtest.me` to the proxy (`packages/db/src/local-neon-proxy.ts`).
 - Tauri WebDriver
+- Godot 4.x stable, 4.3 to 4.5 (user-approved platform dependency): the Godot Verified Engine Adapter targets this range, and the golden-project contract (`packages/api/src/godot-golden.test.ts`) runs headless Godot against `GODOT_BIN` (or `godot`/`godot4` on PATH). Without a binary the headless check is skipped and says so; the static golden-output checks always run. Unity is not a supported target.
 
 ## Tooling and CI
 

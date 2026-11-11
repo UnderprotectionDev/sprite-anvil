@@ -3,6 +3,7 @@ import {
 	buildExportBundle,
 	type ExportBundleProfilePin,
 	type ExportBundleSource,
+	exportBundleManifestSchema,
 } from "./export-bundle-manifest";
 import { exportBundleVerifierSource } from "./export-bundle-verifier-source";
 
@@ -301,4 +302,69 @@ test("the manifest pins every kit file except the checksum list by digest", asyn
 		(file) => file.path === "verification-kit/verify.ts"
 	);
 	expect(verify?.sha256).toBe(await sha256(exportBundleVerifierSource));
+});
+
+const animation = {
+	assetFamilyId: "fam-1",
+	directions: [
+		{
+			direction: "south",
+			frames: [
+				{
+					assetVersionId: "av-2",
+					durationMs: 120,
+					events: [{ id: "footstep", timeMs: 40 }],
+					frameKey: "walk_01",
+					pivot: { x: 8, y: 15 },
+					region: { height: 16, width: 16, x: 16, y: 0 },
+				},
+				{
+					assetVersionId: "av-2",
+					durationMs: 80,
+					events: [],
+					frameKey: "walk_00",
+					pivot: null,
+					region: null,
+				},
+			],
+		},
+	],
+	looping: true,
+	name: "walk",
+	playbackSpeed: 1,
+};
+
+test("a bundle pins engine data and writes contract 1.1.0 deterministically", async () => {
+	const engineData = {
+		animations: [animation],
+		tilesets: [],
+		uiComponents: [],
+	};
+	const first = await buildExportBundle(source({ engineData }), options);
+	const second = await buildExportBundle(source({ engineData }), options);
+	if (!(first.ok && second.ok)) {
+		throw new Error("expected both bundles to build");
+	}
+	expect(first.bundle.manifest.contractVersion).toBe("1.1.0");
+	expect(first.bundle.manifest.engineData?.animations[0]?.name).toBe("walk");
+	expect(first.bundle.manifestText).toBe(second.bundle.manifestText);
+});
+
+test("a bundle without engine data pins empty lists, and a 1.0.0 manifest without the section still parses", async () => {
+	const result = await buildExportBundle(source(), options);
+	if (!result.ok) {
+		throw new Error("expected the bundle to build");
+	}
+	expect(result.bundle.manifest.engineData).toEqual({
+		animations: [],
+		tilesets: [],
+		uiComponents: [],
+	});
+	const { engineData: _omitted, ...legacy } = result.bundle.manifest;
+	expect(
+		exportBundleManifestSchema.safeParse({
+			...legacy,
+			contractVersion: "1.0.0",
+		}).success
+	).toBe(true);
 });
