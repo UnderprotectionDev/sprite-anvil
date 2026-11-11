@@ -25,6 +25,9 @@ const re6 = /^Refresh result/;
 const re7 = /Partial refresh/;
 const re8 = /Delivery completed/;
 const re9 = /cannot refresh from/;
+const re10 = /Export Bundle of/;
+const re11 = /First delivery lock/;
+const re12 = /not complete/;
 
 const projectId = "11111111-1111-4111-8111-111111111111";
 const lockId = "22222222-2222-4222-8222-222222222221";
@@ -35,6 +38,7 @@ const encoder = new TextEncoder();
 const digestOf = (text: string) => sha256Hex(encoder.encode(text));
 
 const api = vi.hoisted(() => ({
+	apply: vi.fn(),
 	lock: null as unknown,
 	refresh: vi.fn(),
 }));
@@ -43,6 +47,12 @@ vi.mock("@/utils/orpc", () => ({
 	client: {},
 	orpc: {
 		deliveryRefreshLocks: {
+			apply: {
+				mutationOptions: (options?: object) => ({
+					...options,
+					mutationFn: (input: unknown) => api.apply(input),
+				}),
+			},
 			get: {
 				queryOptions: () => ({
 					queryFn: () => Promise.resolve(structuredClone(api.lock)),
@@ -212,6 +222,7 @@ beforeEach(() => {
 		() => undefined
 	);
 	api.refresh.mockReset();
+	api.apply.mockReset();
 	vi.stubGlobal("URL", {
 		...URL,
 		createObjectURL: (blob: Blob) => {
@@ -392,4 +403,84 @@ test("a lock with an unknown major version stops the refresh before any review",
 	expect(await screen.findByRole("alert")).toHaveTextContent(re9);
 	expect(screen.queryByRole("region", { name: re4 })).toBeNull();
 	expect(screen.queryByRole("button", { name: "Record refresh" })).toBeNull();
+});
+
+const bundleFolder = (omit: Name[] = []) =>
+	folder(
+		Object.fromEntries(
+			names
+				.filter((name) => contents[name].next !== null && !omit.includes(name))
+				.map((name) => [name, contents[name].next])
+		),
+		{ "my-notes.txt": "private" }
+	);
+
+async function startFirstApply(files: File[]) {
+	renderView();
+	await screen.findByRole("option", { name: re10 });
+	await userEvent.selectOptions(
+		await screen.findByLabelText("Bundle to apply"),
+		bundleId
+	);
+	await userEvent.type(
+		screen.getByLabelText("Destination label"),
+		"Fresh game folder"
+	);
+	await userEvent.upload(
+		screen.getByLabelText("Folder the bundle was written to"),
+		files
+	);
+}
+
+test("the first apply reads only the bundle's paths, applies it and shows the lock it made", async () => {
+	await arrange();
+	const bundle = bundleState.bundle as {
+		files: { byteSize: number; path: string; sha256: string }[];
+	};
+	api.apply.mockResolvedValue({
+		lock: {
+			...(api.lock as object),
+			destinationLabel: "Fresh game folder",
+			files: bundle.files.map(({ byteSize, path, sha256 }) => ({
+				byteSize,
+				path,
+				sha256,
+			})),
+			id: "22222222-2222-4222-8222-222222222229",
+		},
+		status: "created",
+	});
+	await startFirstApply(bundleFolder());
+	await userEvent.click(
+		screen.getByRole("button", { name: "Apply bundle and lock" })
+	);
+
+	await waitFor(() => expect(api.apply).toHaveBeenCalledTimes(1));
+	const input = api.apply.mock.calls[0]?.[0];
+	expect(input).toMatchObject({
+		bundleId,
+		destinationLabel: "Fresh game folder",
+		projectId,
+	});
+	expect(input.idempotencyKey).toBeTruthy();
+	expect(input.written).toEqual(
+		bundle.files.map(({ path, sha256 }) => ({ path, sha256 }))
+	);
+	expect(JSON.stringify(input)).not.toContain("my-notes.txt");
+
+	const result = await screen.findByRole("region", { name: re11 });
+	expect(within(result).getByText("Fresh game folder")).toBeVisible();
+	expect(within(result).getByText("update.json")).toBeVisible();
+	expect(within(result).queryByText("my-notes.txt")).toBeNull();
+});
+
+test("a folder that lacks a bundle file is not applied and no lock is requested", async () => {
+	await arrange();
+	await startFirstApply(bundleFolder(["update.json"]));
+	await userEvent.click(
+		screen.getByRole("button", { name: "Apply bundle and lock" })
+	);
+
+	expect(await screen.findByRole("alert")).toHaveTextContent(re12);
+	expect(api.apply).not.toHaveBeenCalled();
 });

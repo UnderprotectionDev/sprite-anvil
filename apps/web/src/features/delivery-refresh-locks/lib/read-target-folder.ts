@@ -7,6 +7,22 @@ import { sha256Hex } from "@sprite-anvil/api/export-bundle-verification";
  */
 export type TargetFolder = Map<string, File>;
 
+/** A folder the user chose; the token tells one choice from the next. */
+export interface ChosenFolder {
+	files: TargetFolder;
+	token: number;
+}
+
+let folderChoices = 0;
+
+/** An empty choice clears the folder. */
+export function chooseFolder(files: File[]): ChosenFolder | null {
+	folderChoices += 1;
+	return files.length === 0
+		? null
+		: { files: indexTargetFolder(files), token: folderChoices };
+}
+
 export function indexTargetFolder(files: File[]): TargetFolder {
 	return new Map(
 		files.map((file) => {
@@ -35,6 +51,26 @@ export async function observeTargetFolder(
 			return { path, sha256: file ? await digestOfFile(file) : null };
 		})
 	);
+}
+
+/**
+ * The digests of the files a surface wrote, read from the chosen folder, and the paths
+ * the folder lacks. Only the given paths are opened.
+ */
+export async function readWrittenFiles(
+	folder: TargetFolder,
+	paths: string[]
+): Promise<{ missing: string[]; written: { path: string; sha256: string }[] }> {
+	const written: { path: string; sha256: string }[] = [];
+	const missing: string[] = [];
+	for (const { path, sha256 } of await observeTargetFolder(folder, paths)) {
+		if (sha256) {
+			written.push({ path, sha256 });
+		} else {
+			missing.push(path);
+		}
+	}
+	return { missing, written };
 }
 
 /** The text of a file when it is valid UTF-8, else null (a binary file is compared by digest). */

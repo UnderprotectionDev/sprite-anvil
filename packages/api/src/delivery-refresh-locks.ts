@@ -1,5 +1,9 @@
 import { z } from "zod";
 import {
+	deliveryPathDigestSchema,
+	deliveryRelativePathSchema,
+} from "./delivery-path-schemas";
+import {
 	deliveryRefreshDecisionSchema,
 	deliveryRefreshPathClasses,
 } from "./delivery-refresh-classification";
@@ -10,31 +14,11 @@ const idSchema = z.uuid();
 
 /** The Delivery Refresh Lock contract version this build writes; an unknown major stops use of a lock. */
 export const deliveryRefreshLockContractVersion = "1.0.0";
-export const supportedDeliveryRefreshLockContractMajor = 1;
 
 const windowsDrivePattern = /^[a-zA-Z]:/;
 
-/** A relative, forward-slash path inside the delivery destination; never absolute and never leaving it. */
-export const deliveryRelativePathSchema = z
-	.string()
-	.min(1)
-	.max(512)
-	.refine(
-		(path) =>
-			!(
-				path.startsWith("/") ||
-				path.startsWith("~") ||
-				path.includes("\\") ||
-				windowsDrivePattern.test(path) ||
-				path
-					.split("/")
-					.some((part) => part === "" || part === "." || part === "..")
-			),
-		"A path must be relative to the delivery destination."
-	);
-
 /** A human label for the destination. It names the folder for the user and is never a local path. */
-const destinationLabelSchema = z
+export const deliveryDestinationLabelSchema = z
 	.string()
 	.trim()
 	.min(1)
@@ -67,17 +51,10 @@ export const deliveryRefreshLockGetInputSchema = z
 export const deliveryRefreshLockApplyInputSchema = z
 	.object({
 		bundleId: idSchema,
-		destinationLabel: destinationLabelSchema,
+		destinationLabel: deliveryDestinationLabelSchema,
 		idempotencyKey: idempotencyKeySchema,
 		projectId: idSchema,
-		written: z
-			.array(
-				z
-					.object({ path: deliveryRelativePathSchema, sha256: sha256Schema })
-					.strict()
-			)
-			.min(1)
-			.max(5000),
+		written: z.array(deliveryPathDigestSchema).min(1).max(5000),
 	})
 	.strict();
 export type DeliveryRefreshLockApplyInput = z.infer<
@@ -144,13 +121,7 @@ export const deliveryRefreshLockRefreshInputSchema = z
 			.max(10_000),
 		previousLockId: idSchema,
 		projectId: idSchema,
-		written: z
-			.array(
-				z
-					.object({ path: deliveryRelativePathSchema, sha256: sha256Schema })
-					.strict()
-			)
-			.max(5000),
+		written: z.array(deliveryPathDigestSchema).max(5000),
 	})
 	.strict();
 export type DeliveryRefreshLockRefreshInput = z.infer<

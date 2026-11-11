@@ -220,6 +220,7 @@ function setup(
 		list: (id = projectId) =>
 			call(appRouter.deliveryRefreshLocks.list, { projectId: id }, { context }),
 		readBundle: (id: string) => bundles.get(id),
+		removeBundle: (id: string) => bundles.delete(id),
 		writtenBy,
 	};
 }
@@ -437,6 +438,15 @@ test("a stored lock whose files changed fails the integrity check on read", asyn
 	tamper = true;
 
 	await expect(get(lock.id)).rejects.toMatchObject({ code: "CONFLICT" });
+});
+
+test("listing locks whose bundle is gone is a verification conflict, not an unhandled error", async () => {
+	const { apply, createBundle, list, removeBundle, writtenBy } = setup();
+	const bundle = await createBundle();
+	await apply({ bundleId: bundle.id, written: writtenBy(bundle) });
+	removeBundle(bundle.id);
+
+	await expect(list()).rejects.toMatchObject({ code: "CONFLICT" });
 });
 
 test("locks are scoped to their project and bundles stay immutable", async () => {
@@ -760,6 +770,54 @@ test("a decision for a path that is not diverged is rejected", async () => {
 		})
 	).rejects.toMatchObject({
 		data: { paths: ["manifest.json"], reason: "decision_not_applicable" },
+	});
+	expect((await list()).locks).toHaveLength(1);
+});
+
+test("a refresh whose observation omits a path, or adds an unrecognised one, is rejected and makes no lock", async () => {
+	const { editedPath, folder, list, previous, refresh, second } =
+		await firstDelivery();
+	const report = surfaceRefresh(folder, previous, second, [
+		{ decision: "preserve", path: editedPath },
+	]);
+	const base = {
+		bundleId: second.id,
+		decisions: report.decisions,
+		previousLockId: previous.id,
+		written: report.written,
+	};
+
+	// Omitting the hand-edited path would make it look absent and release it for overwrite.
+	await expect(
+		refresh({
+			...base,
+			decisions: [],
+			observed: report.observed.filter((o) => o.path !== editedPath),
+		})
+	).rejects.toMatchObject({
+		data: { paths: [editedPath], reason: "observation_incomplete" },
+	});
+	await expect(
+		refresh({
+			...base,
+			observed: [
+				...report.observed,
+				{ path: unrecognisedFile, sha256: unrecognisedDigest },
+			],
+		})
+	).rejects.toMatchObject({
+		data: { paths: [unrecognisedFile], reason: "observation_not_expected" },
+	});
+	await expect(
+		refresh({
+			...base,
+			observed: [...report.observed, report.observed[0]],
+		})
+	).rejects.toMatchObject({
+		data: {
+			paths: [report.observed[0]?.path],
+			reason: "observation_not_expected",
+		},
 	});
 	expect((await list()).locks).toHaveLength(1);
 });

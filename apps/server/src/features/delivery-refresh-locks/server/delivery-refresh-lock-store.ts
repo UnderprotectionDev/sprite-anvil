@@ -1,3 +1,4 @@
+import { byPath, comparePaths } from "@sprite-anvil/api/delivery-path-schemas";
 import {
 	checkDeliveryRefreshLockContract,
 	classifyDeliveryRefreshPaths,
@@ -47,12 +48,6 @@ interface StoredLock {
 	files: StoredDeliveryRefreshLockFile[];
 	lock: StoredDeliveryRefreshLock;
 }
-
-const comparePaths = (left: string, right: string): number =>
-	Number(left > right) - Number(left < right);
-
-const byPath = (left: { path: string }, right: { path: string }): number =>
-	Number(left.path > right.path) - Number(left.path < right.path);
 
 /** The digest a lock is checked against: its binding to the bundle and profile revision plus every owned file. */
 function lockDigestOf(
@@ -358,6 +353,14 @@ export function createDeliveryRefreshLockStore(
 			}
 			const { previous } = loaded;
 
+			const unobserved = classifyObservation(
+				previous.files,
+				bundle.files,
+				input.observed
+			);
+			if (unobserved) {
+				return { ...unobserved, status: "rejected" };
+			}
 			const classification = classifyDeliveryRefreshPaths({
 				next: bundle.files,
 				observed: input.observed,
@@ -374,10 +377,7 @@ export function createDeliveryRefreshLockStore(
 				input.idempotencyKey
 			);
 			const requestDigest = await refreshRequestDigestOf(input);
-			const preserved = plan.held.map((held) => ({
-				decision: held.decision as "other_destination" | "preserve",
-				path: held.path,
-			}));
+			const preserved = plan.held;
 			const heldPaths = new Set(plan.held.map((held) => held.path));
 			const lockFiles = bundle.files.filter(
 				(file) => !heldPaths.has(file.path)
@@ -504,6 +504,47 @@ function classifyWrittenFiles(
 		return {
 			paths: differing.map(([path]) => path).sort(comparePaths),
 			reason: "written_digest_mismatch",
+		};
+	}
+	return null;
+}
+
+/**
+ * The observation must cover exactly the previous lock's paths and the new bundle's paths.
+ * An omitted path would read as absent and be released for overwrite without a decision;
+ * an extra path would carry an unrecognised file into the report.
+ */
+function classifyObservation(
+	previous: { path: string }[],
+	next: { path: string }[],
+	observed: { path: string }[]
+): DeliveryRefreshLockRejection | null {
+	const expected = new Set([...previous, ...next].map((file) => file.path));
+	const seen = new Set<string>();
+	const duplicated: string[] = [];
+	for (const { path } of observed) {
+		if (seen.has(path)) {
+			duplicated.push(path);
+		}
+		seen.add(path);
+	}
+	const unexpected = [
+		...new Set([
+			...[...seen].filter((path) => !expected.has(path)),
+			...duplicated,
+		]),
+	];
+	if (unexpected.length > 0) {
+		return {
+			paths: unexpected.sort(comparePaths),
+			reason: "observation_not_expected",
+		};
+	}
+	const omitted = [...expected].filter((path) => !seen.has(path));
+	if (omitted.length > 0) {
+		return {
+			paths: omitted.sort(comparePaths),
+			reason: "observation_incomplete",
 		};
 	}
 	return null;

@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
 	checkDeliveryRefreshLockContract,
 	classifyDeliveryRefreshPaths,
+	deliveryRefreshDecisionSchema,
 	planDeliveryRefresh,
 } from "./delivery-refresh-classification";
 
@@ -213,4 +214,19 @@ test("an unknown major version or a missing required field stops the refresh", (
 		ok: false,
 		reason: "malformed",
 	});
+});
+
+test("a decision naming a path outside the destination is refused at the boundary", () => {
+	for (const path of ["/etc/passwd", "../outside.png", "a\\b.png", "C:/x"]) {
+		expect(
+			deliveryRefreshDecisionSchema.safeParse({ decision: "replace", path })
+				.success
+		).toBe(false);
+	}
+	expect(
+		deliveryRefreshDecisionSchema.safeParse({
+			decision: "replace",
+			path: "images/a.png",
+		}).success
+	).toBe(true);
 });
