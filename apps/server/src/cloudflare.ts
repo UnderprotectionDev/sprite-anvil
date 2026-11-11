@@ -68,6 +68,14 @@ export const rightsRecordEvidenceObjectKeySchema = z
 		)
 	);
 
+export const runtimeValidationEvidenceObjectKeySchema = z
+	.string()
+	.regex(
+		new RegExp(
+			`^projects/${projectKeySegmentPattern}/runtime-validation-records/${uuidPattern}/evidence/${uuidPattern}$`
+		)
+	);
+
 export const managedSnapshotObjectKeySchema = z
 	.string()
 	.regex(
@@ -126,6 +134,18 @@ export function createProjectRightsRecordEvidenceObjectKey(
 	const projectKeySegment = encodeURIComponent(projectId);
 	return rightsRecordEvidenceObjectKeySchema.parse(
 		`projects/${projectKeySegment}/asset-records/${assetRecordId}/rights-records/${rightsRecordId}/evidence/${objectFingerprint}`
+	);
+}
+
+/** One object per upload attempt, so a rejected or replayed attempt can delete its own object without touching stored evidence. */
+export function createProjectRuntimeValidationEvidenceObjectKey(
+	projectId: string,
+	recordId: string,
+	uploadAttemptId: string
+) {
+	const projectKeySegment = encodeURIComponent(projectId);
+	return runtimeValidationEvidenceObjectKeySchema.parse(
+		`projects/${projectKeySegment}/runtime-validation-records/${recordId}/evidence/${uploadAttemptId}`
 	);
 }
 

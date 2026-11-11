@@ -24,6 +24,7 @@ import { mountManagedSnapshotRoutes } from "./features/production-provenance/ser
 import { mountProjectRoutes } from "./features/projects/server/project-routes";
 import { mountReferenceProductionRoutes } from "./features/reference-production/server/reference-production-routes";
 import { mountRightsRecordEvidenceRoutes } from "./features/rights-evidence/server/rights-record-evidence-routes";
+import { mountRuntimeValidationEvidenceRoutes } from "./features/runtime-validation/server/runtime-validation-evidence-routes";
 import {
 	serializeHealthResponse,
 	serializePublicApiError,
@@ -40,6 +41,7 @@ import {
 	pixelEditorStore,
 	referenceProductionStore,
 	rightsRecordStore,
+	runtimeValidationStore,
 } from "./services";
 
 const app = new Hono();
@@ -153,6 +155,12 @@ mountImportInboxRoutes(app, {
 
 mountRightsRecordEvidenceRoutes(app, {
 	rightsRecordStore,
+	getSession: (headers) => auth.api.getSession({ headers }),
+	createStorage: createServerAssetVersionStorage,
+});
+
+mountRuntimeValidationEvidenceRoutes(app, {
+	runtimeValidationStore,
 	getSession: (headers) => auth.api.getSession({ headers }),
 	createStorage: createServerAssetVersionStorage,
 });

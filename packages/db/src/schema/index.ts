@@ -38,6 +38,7 @@ export * from "./provider-generation-records";
 export * from "./readiness-plans";
 export * from "./reference-production";
 export * from "./rights-records";
+export * from "./runtime-validation";
 export * from "./scene-qa";
 export * from "./source-metadata-mapping";
 export * from "./specialized-profile-contracts";
