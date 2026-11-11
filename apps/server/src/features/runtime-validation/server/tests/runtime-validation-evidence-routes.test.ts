@@ -316,5 +316,9 @@ test("an upload to a record that already has an outcome is refused and leaves no
 		method: "POST",
 	});
 	expect(response.status).toBe(409);
+	// distinct from the idempotency conflict, so the web can say which one happened
+	expect(await response.json()).toMatchObject({
+		error: "Runtime validation evidence is closed once the outcome is final",
+	});
 	expect(server.objects.size).toBe(0);
 });

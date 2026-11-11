@@ -40,7 +40,27 @@ export class RuntimeValidationUploadError extends Error {
 	}
 }
 
-function uploadErrorMessage(status: number) {
+/** The server's typed 409 messages, which say why the same status was returned. */
+const closedEvidenceError =
+	"Runtime validation evidence is closed once the outcome is final";
+const notSavedEvidenceError =
+	"Runtime validation evidence was not saved; retry with the same key";
+
+async function serverErrorOf(response: Response): Promise<string | null> {
+	try {
+		const body: unknown = await response.json();
+		return typeof body === "object" &&
+			body !== null &&
+			"error" in body &&
+			typeof body.error === "string"
+			? body.error
+			: null;
+	} catch {
+		return null;
+	}
+}
+
+function uploadErrorMessage(status: number, serverError: string | null) {
 	switch (status) {
 		case 400:
 			return "The evidence file was not accepted. Check the kind and the file.";
@@ -49,6 +69,12 @@ function uploadErrorMessage(status: number) {
 		case 404:
 			return "This Runtime Validation Record was not found.";
 		case 409:
+			if (serverError === closedEvidenceError) {
+				return "This record's outcome is final, so no more evidence can be added. A changed result needs a new record.";
+			}
+			if (serverError === notSavedEvidenceError) {
+				return "The evidence was not saved. Try again.";
+			}
 			return "This upload key was already used for different evidence. Add the evidence again.";
 		case 413:
 			return "The file is larger than 5 MiB.";
@@ -84,10 +110,13 @@ export async function uploadRuntimeValidationEvidenceFile(input: {
 		);
 	}
 	if (!response.ok) {
+		const serverError = await serverErrorOf(response);
 		throw new RuntimeValidationUploadError(
-			uploadErrorMessage(response.status),
+			uploadErrorMessage(response.status, serverError),
 			{
-				outcomeUncertain: response.status >= 500,
+				// A not-saved conflict keeps its key: the same key is safe to send again.
+				outcomeUncertain:
+					response.status >= 500 || serverError === notSavedEvidenceError,
 			}
 		);
 	}

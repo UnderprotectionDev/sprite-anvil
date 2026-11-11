@@ -19,6 +19,7 @@ export type RuntimeValidationRecordCreateResult =
 			reason:
 				| "bundle_not_found"
 				| "superseded_record_mismatch"
+				| "superseded_record_not_eligible"
 				| "superseded_record_not_found";
 			status: "rejected";
 	  };

@@ -1,3 +1,4 @@
+import { runtimeEnvironmentTextLimit } from "@sprite-anvil/api/runtime-environment";
 import type { RuntimeValidationRecord } from "@sprite-anvil/api/runtime-validation";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
@@ -12,7 +13,7 @@ import { errorCodeOf } from "@/utils/error-code";
 import { useCreateRuntimeValidationRecord } from "../../hooks/use-runtime-validation-writes";
 import { errorMessageOf } from "../../lib/runtime-validation-labels";
 import { runtimeValidationRecordFormSchema } from "../../schemas";
-import { FieldErrors } from "../components/field-errors";
+import { FieldErrors, fieldErrorAttributes } from "../components/field-errors";
 
 export interface BundleChoice {
 	createdAt: string;
@@ -29,9 +30,20 @@ export function RuntimeValidationRecordForm({
 	projectId: string;
 	records: Pick<
 		RuntimeValidationRecord,
-		"createdAt" | "engineVersion" | "gameBuild" | "id"
+		| "createdAt"
+		| "engineVersion"
+		| "failureSource"
+		| "gameBuild"
+		| "id"
+		| "outcome"
 	>[];
 }) {
+	// Mirrors the server: only an Inconclusive record or a Fail with a confirmed source can be superseded.
+	const retestable = records.filter(
+		(record) =>
+			record.outcome === "inconclusive" ||
+			(record.outcome === "fail" && record.failureSource !== "source_unknown")
+	);
 	const create = useCreateRuntimeValidationRecord();
 	const [failure, setFailure] = useState<string | null>(null);
 	// The key makes a retry after an uncertain outcome idempotent; a server verdict ends it.
@@ -101,6 +113,10 @@ export function RuntimeValidationRecordForm({
 								id="runtime-validation-bundle"
 								onChange={(event) => field.handleChange(event.target.value)}
 								value={field.state.value}
+								{...fieldErrorAttributes(
+									"runtime-validation-bundle",
+									field.state.meta.errors
+								)}
 							>
 								<NativeSelectOption value="">
 									Choose an Export Bundle
@@ -111,7 +127,10 @@ export function RuntimeValidationRecordForm({
 									</NativeSelectOption>
 								))}
 							</NativeSelect>
-							<FieldErrors errors={field.state.meta.errors} />
+							<FieldErrors
+								errors={field.state.meta.errors}
+								fieldId="runtime-validation-bundle"
+							/>
 						</>
 					)}
 				</form.Field>
@@ -125,12 +144,19 @@ export function RuntimeValidationRecordForm({
 							<>
 								<Input
 									id="runtime-validation-build"
-									maxLength={200}
+									maxLength={runtimeEnvironmentTextLimit}
 									onBlur={field.handleBlur}
 									onChange={(event) => field.handleChange(event.target.value)}
 									value={field.state.value}
+									{...fieldErrorAttributes(
+										"runtime-validation-build",
+										field.state.meta.errors
+									)}
 								/>
-								<FieldErrors errors={field.state.meta.errors} />
+								<FieldErrors
+									errors={field.state.meta.errors}
+									fieldId="runtime-validation-build"
+								/>
 							</>
 						)}
 					</form.Field>
@@ -142,12 +168,19 @@ export function RuntimeValidationRecordForm({
 							<>
 								<Input
 									id="runtime-validation-engine"
-									maxLength={200}
+									maxLength={runtimeEnvironmentTextLimit}
 									onBlur={field.handleBlur}
 									onChange={(event) => field.handleChange(event.target.value)}
 									value={field.state.value}
+									{...fieldErrorAttributes(
+										"runtime-validation-engine",
+										field.state.meta.errors
+									)}
 								/>
-								<FieldErrors errors={field.state.meta.errors} />
+								<FieldErrors
+									errors={field.state.meta.errors}
+									fieldId="runtime-validation-engine"
+								/>
 							</>
 						)}
 					</form.Field>
@@ -161,19 +194,26 @@ export function RuntimeValidationRecordForm({
 							<>
 								<Input
 									id="runtime-validation-adapter"
-									maxLength={200}
+									maxLength={runtimeEnvironmentTextLimit}
 									onBlur={field.handleBlur}
 									onChange={(event) => field.handleChange(event.target.value)}
 									value={field.state.value}
+									{...fieldErrorAttributes(
+										"runtime-validation-adapter",
+										field.state.meta.errors
+									)}
 								/>
-								<FieldErrors errors={field.state.meta.errors} />
+								<FieldErrors
+									errors={field.state.meta.errors}
+									fieldId="runtime-validation-adapter"
+								/>
 							</>
 						)}
 					</form.Field>
 				</div>
 			</div>
 
-			{records.length > 0 ? (
+			{retestable.length > 0 ? (
 				<div className="space-y-2">
 					<Label htmlFor="runtime-validation-supersedes">
 						Retest or fix of an earlier record (optional)
@@ -189,7 +229,7 @@ export function RuntimeValidationRecordForm({
 								<NativeSelectOption value="">
 									This is not a retest
 								</NativeSelectOption>
-								{records.map((record) => (
+								{retestable.map((record) => (
 									<NativeSelectOption key={record.id} value={record.id}>
 										{`${record.gameBuild} on ${record.engineVersion} · ${new Date(record.createdAt).toLocaleString()}`}
 									</NativeSelectOption>

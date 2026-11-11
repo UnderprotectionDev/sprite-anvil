@@ -25,7 +25,7 @@ const bundles: Record<string, { manifestDigest: string; projectId: string }> = {
 	},
 };
 
-function setup(options: { hasAccess?: boolean } = {}) {
+function setup(options: { hasAccess?: boolean; sameInstant?: boolean } = {}) {
 	let tick = 0;
 	const storage = createMemoryRuntimeValidationStorage();
 	const store = () =>
@@ -46,7 +46,7 @@ function setup(options: { hasAccess?: boolean } = {}) {
 						: null
 				),
 			now: () => {
-				tick += 1;
+				tick += options.sameInstant ? 0 : 1;
 				return new Date(Date.UTC(2026, 10, 11, 10, 0, tick));
 			},
 			storage,
@@ -409,9 +409,10 @@ test("a failure leaves the exported bundle unchanged and the game project is nev
 });
 
 test("a fix is a new record linked to the one it supersedes, and the old record stays unchanged", async () => {
-	const { create, finalizeOutcome, get } = setup();
+	const { confirmFailureSource, create, finalizeOutcome, get } = setup();
 	const { record: failed } = await create();
 	await finalizeOutcome(failed.id, { outcome: "fail" });
+	await confirmFailureSource(failed.id);
 	const before = await get(failed.id);
 
 	const { record: retest } = await create({
@@ -428,9 +429,10 @@ test("a fix is a new record linked to the one it supersedes, and the old record 
 });
 
 test("a retest can supersede only a record of the same bundle and environment", async () => {
-	const { create, finalizeOutcome } = setup();
+	const { confirmFailureSource, create, finalizeOutcome } = setup();
 	const { record: failed } = await create();
 	await finalizeOutcome(failed.id, { outcome: "fail" });
+	await confirmFailureSource(failed.id);
 
 	const changes = [
 		{ bundleId: secondBundleId },
@@ -449,6 +451,49 @@ test("a retest can supersede only a record of the same bundle and environment", 
 			).rejects.toMatchObject({ code: "BAD_REQUEST" })
 		)
 	);
+});
+
+test("only a Fail with a confirmed failure source or an Inconclusive record can be superseded", async () => {
+	const { confirmFailureSource, create, finalizeOutcome, get } = setup();
+	const supersede = (id: string, key: string) =>
+		create({ idempotencyKey: key, supersedesRecordId: id });
+	const withOutcome = async (key: string, outcome: string) => {
+		const { record } = await create({ idempotencyKey: key });
+		if (outcome !== "pending") {
+			await finalizeOutcome(record.id, {
+				idempotencyKey: `${key}-outcome`,
+				outcome,
+			});
+		}
+		return record;
+	};
+
+	const pending = await withOutcome("pending", "pending");
+	const pass = await withOutcome("pass", "pass");
+	const unclassified = await withOutcome("unclassified", "fail");
+	await Promise.all(
+		[pending, pass, unclassified].map((record, index) =>
+			expect(supersede(record.id, `refused-${index}`)).rejects.toMatchObject({
+				code: "BAD_REQUEST",
+				message: expect.stringContaining("supersede"),
+			})
+		)
+	);
+	// refused retests create nothing
+	expect((await get(pass.id)).supersedesRecordId).toBeNull();
+
+	const classified = await withOutcome("classified", "fail");
+	await confirmFailureSource(classified.id);
+	const inconclusive = await withOutcome("inconclusive", "inconclusive");
+	const retests = await Promise.all(
+		[classified, inconclusive].map((record, index) =>
+			supersede(record.id, `allowed-${index}`)
+		)
+	);
+	expect(retests.map((item) => item.record.supersedesRecordId)).toEqual([
+		classified.id,
+		inconclusive.id,
+	]);
 });
 
 test("a record in another project cannot be superseded", async () => {
@@ -473,4 +518,58 @@ test("evidence cannot be added to a record that already has an outcome decision"
 	expect((await get(record.id)).evidence).toHaveLength(1);
 	// a retry of evidence added before the decision still replays
 	expect(await addText(record.id)).toMatchObject({ status: "replayed" });
+});
+
+test("the latest reclassification wins even when decisions share one timestamp", async () => {
+	const { confirmFailureSource, create, finalizeOutcome, get } = setup({
+		sameInstant: true,
+	});
+	const { record } = await create();
+	await finalizeOutcome(record.id, { outcome: "fail" });
+	const sources = [
+		"asset_content",
+		"engine_adapter",
+		"game_configuration",
+		"multiple_sources",
+		"asset_content",
+		"engine_adapter",
+	] as const;
+	for (const [index, failureSource] of sources.entries()) {
+		// biome-ignore lint/performance/noAwaitInLoops: each reclassification must be appended after the previous one.
+		await confirmFailureSource(record.id, {
+			failureSource,
+			idempotencyKey: `source-${index}`,
+		});
+		expect((await get(record.id)).failureSource).toBe(failureSource);
+	}
+	const reread = await get(record.id);
+	expect(reread.decisions.map((decision) => decision.failureSource)).toEqual([
+		null,
+		...sources,
+	]);
+});
+
+test("evidence racing an outcome decision is closed by the storage, not only by the earlier check", async () => {
+	const { addText, create, get, storage } = setup();
+	const { record } = await create();
+	// The outcome lands after the store's own check but before its evidence insert.
+	const { insertEvidence } = storage;
+	storage.insertEvidence = async (row) => {
+		await storage.insertDecision({
+			createdAt: new Date(Date.UTC(2026, 10, 11, 11, 0, 0)),
+			decidedByUserId: userId,
+			failureSource: null,
+			id: crypto.randomUUID(),
+			kind: "outcome",
+			outcome: "pass",
+			projectId,
+			recordId: record.id,
+			requestDigest: "r".repeat(64),
+		});
+		return await insertEvidence(row);
+	};
+	await expect(addText(record.id)).rejects.toMatchObject({ code: "CONFLICT" });
+	const reread = await get(record.id);
+	expect(reread.outcome).toBe("pass");
+	expect(reread.evidence).toHaveLength(0);
 });

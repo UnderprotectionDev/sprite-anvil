@@ -107,6 +107,12 @@ export const runtimeValidationRouter = {
 								"A retest can supersede only a record of the same Export Bundle, game build, engine version and adapter version.",
 						});
 					}
+					if (result.reason === "superseded_record_not_eligible") {
+						throw new ORPCError("BAD_REQUEST", {
+							message:
+								"A retest can supersede only a Runtime Validation Record whose outcome is Inconclusive or Fail with a confirmed failure source.",
+						});
+					}
 					throw new ORPCError("NOT_FOUND", {
 						message:
 							result.reason === "bundle_not_found"

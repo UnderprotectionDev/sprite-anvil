@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { requiredRuntimeEnvironmentText } from "./runtime-environment";
 import type { RuntimeValidationRecord } from "./runtime-validation";
 
 const idSchema = z.uuid();
-const labelSchema = z.string().trim().min(1).max(200);
+const labelSchema = requiredRuntimeEnvironmentText();
 
 /** One game environment a Delivery Target needs validated: game build, engine version and optional adapter version label. */
 export const runtimeValidationEnvironmentSchema = z

@@ -87,7 +87,8 @@ function toRecord(
 ): RuntimeValidationRecord {
 	const decisions = storedDecisions
 		.filter((item) => item.recordId === row.id)
-		.sort(byAddedOrder)
+		// Timestamps can tie, so decisions are ordered by the storage's insert sequence.
+		.sort((left, right) => left.sequence - right.sequence)
 		.map(toDecision);
 	return runtimeValidationRecordSchema.parse({
 		adapterVersion: row.adapterVersion,
@@ -220,16 +221,25 @@ export function createRuntimeValidationStore(
 		return { decision: toDecision(stored), status: "created" };
 	}
 
-	/** Why a retest cannot supersede its record: it is unknown to the project or is another bundle or environment. */
+	/**
+	 * Why a retest cannot supersede its record: it is unknown to the project, is
+	 * another bundle or environment, or is not a result that needs a retest. Only
+	 * a Fail with a confirmed failure source or an Inconclusive record may be
+	 * superseded; a pending, Pass or Source Unknown record stays current, so a
+	 * newer record cannot hide it from readiness.
+	 */
 	async function refuseSupersession(
 		input: RuntimeValidationRecordCreateInput
 	): Promise<
-		"superseded_record_mismatch" | "superseded_record_not_found" | null
+		| "superseded_record_mismatch"
+		| "superseded_record_not_eligible"
+		| "superseded_record_not_found"
+		| null
 	> {
 		if (input.supersedesRecordId === null) {
 			return null;
 		}
-		const superseded = await storage.findRecord(
+		const superseded = await readRecord(
 			input.projectId,
 			input.supersedesRecordId
 		);
@@ -241,7 +251,14 @@ export function createRuntimeValidationStore(
 			superseded.gameBuild === input.gameBuild &&
 			superseded.engineVersion === input.engineVersion &&
 			superseded.adapterVersion === input.adapterVersion;
-		return sameEnvironment ? null : "superseded_record_mismatch";
+		if (!sameEnvironment) {
+			return "superseded_record_mismatch";
+		}
+		const needsRetest =
+			superseded.outcome === "inconclusive" ||
+			(superseded.outcome === "fail" &&
+				superseded.failureSource !== "source_unknown");
+		return needsRetest ? null : "superseded_record_not_eligible";
 	}
 
 	async function addEvidence(
@@ -311,6 +328,10 @@ export function createRuntimeValidationStore(
 			requestDigest,
 		};
 		const inserted = await storage.insertEvidence(row);
+		if (inserted.status === "closed") {
+			// The outcome landed after the check above.
+			return { reason: "outcome_already_decided", status: "rejected" };
+		}
 		if (inserted.status === "conflict") {
 			const winner = await replay();
 			if (!winner) {

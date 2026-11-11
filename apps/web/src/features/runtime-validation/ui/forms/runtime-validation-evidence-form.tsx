@@ -24,7 +24,7 @@ import {
 	evidenceSourceLabels,
 } from "../../lib/runtime-validation-labels";
 import { runtimeValidationEvidenceFormSchema } from "../../schemas";
-import { FieldErrors } from "../components/field-errors";
+import { FieldErrors, fieldErrorAttributes } from "../components/field-errors";
 
 export function RuntimeValidationEvidenceForm({
 	projectId,
@@ -167,8 +167,15 @@ export function RuntimeValidationEvidenceForm({
 								onBlur={field.handleBlur}
 								onChange={(event) => field.handleChange(event.target.value)}
 								value={field.state.value}
+								{...fieldErrorAttributes(
+									inputId("text"),
+									field.state.meta.errors
+								)}
 							/>
-							<FieldErrors errors={field.state.meta.errors} />
+							<FieldErrors
+								errors={field.state.meta.errors}
+								fieldId={inputId("text")}
+							/>
 						</>
 					)}
 				</form.Field>
@@ -188,8 +195,15 @@ export function RuntimeValidationEvidenceForm({
 								}
 								ref={fileInput}
 								type="file"
+								{...fieldErrorAttributes(
+									inputId("file"),
+									field.state.meta.errors
+								)}
 							/>
-							<FieldErrors errors={field.state.meta.errors} />
+							<FieldErrors
+								errors={field.state.meta.errors}
+								fieldId={inputId("file")}
+							/>
 						</>
 					)}
 				</form.Field>

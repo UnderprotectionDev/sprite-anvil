@@ -24,7 +24,7 @@ import {
 	runtimeValidationFailureSourceFormSchema,
 	runtimeValidationOutcomeFormSchema,
 } from "../../schemas";
-import { FieldErrors } from "../components/field-errors";
+import { FieldErrors, fieldErrorAttributes } from "../components/field-errors";
 
 function preventAndSubmit(submit: () => Promise<unknown>) {
 	return (event: SyntheticEvent<HTMLFormElement>) => {
@@ -99,6 +99,7 @@ export function RuntimeValidationOutcomeForm({
 									)
 								}
 								value={field.state.value}
+								{...fieldErrorAttributes(inputId, field.state.meta.errors)}
 							>
 								<NativeSelectOption value="">
 									Choose an outcome
@@ -109,7 +110,7 @@ export function RuntimeValidationOutcomeForm({
 									</NativeSelectOption>
 								))}
 							</NativeSelect>
-							<FieldErrors errors={field.state.meta.errors} />
+							<FieldErrors errors={field.state.meta.errors} fieldId={inputId} />
 						</>
 					)}
 				</form.Field>
@@ -188,6 +189,7 @@ export function RuntimeValidationFailureSourceForm({
 									)
 								}
 								value={field.state.value}
+								{...fieldErrorAttributes(inputId, field.state.meta.errors)}
 							>
 								<NativeSelectOption value="">
 									Choose a source
@@ -198,7 +200,7 @@ export function RuntimeValidationFailureSourceForm({
 									</NativeSelectOption>
 								))}
 							</NativeSelect>
-							<FieldErrors errors={field.state.meta.errors} />
+							<FieldErrors errors={field.state.meta.errors} fieldId={inputId} />
 						</>
 					)}
 				</form.Field>
