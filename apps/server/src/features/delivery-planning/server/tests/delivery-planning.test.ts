@@ -446,6 +446,67 @@ test("pinned evidence policies are saved on the draft and reread from the activa
 	expect(revision.scopeDiff).toBeNull();
 });
 
+const runtimeValidationCriterion = {
+	environments: [
+		{
+			adapterVersion: "godot-adapter-1.2.0",
+			engineVersion: "Godot 4.4.1",
+			gameBuild: "build-2026.11.11",
+		},
+	],
+	freshness: "not_superseded" as const,
+};
+
+test("a target without the runtime validation criterion keeps working and reads it as null", async () => {
+	const { activate, saveDraft } = setup();
+	const draft = await saveDraft();
+	const revision = await activate({ draftId, id: revisionId });
+	expect(draft.runtimeValidationCriterion).toBeNull();
+	expect(revision.runtimeValidationCriterion).toBeNull();
+});
+
+test("the runtime validation criterion is pinned on the draft, reread from the revision, and a change is a visible diff", async () => {
+	const { activate, saveDraft } = setup();
+	const draft = await saveDraft({ runtimeValidationCriterion });
+	const first = await activate({ draftId, id: revisionId });
+	expect(draft.runtimeValidationCriterion).toEqual(runtimeValidationCriterion);
+	expect(first.runtimeValidationCriterion).toEqual(runtimeValidationCriterion);
+
+	await saveDraft({ id: secondDraftId, runtimeValidationCriterion: null });
+	const second = await activate({
+		draftId: secondDraftId,
+		id: secondRevisionId,
+	});
+	expect(second.scopeDiff?.runtimeValidationCriterionChanged).toBe(true);
+	expect(second.runtimeValidationCriterion).toBeNull();
+	// the earlier revision is not rewritten
+	expect(first.runtimeValidationCriterion).toEqual(runtimeValidationCriterion);
+});
+
+test("an invalid criterion is rejected and stores nothing", async () => {
+	const { list, saveDraft } = setup();
+	const [environment] = runtimeValidationCriterion.environments;
+	await Promise.all(
+		[
+			{ ...runtimeValidationCriterion, environments: [] },
+			{
+				...runtimeValidationCriterion,
+				environments: [environment, { ...environment }],
+			},
+			{
+				...runtimeValidationCriterion,
+				environments: [{ ...environment, gameBuild: "  " }],
+			},
+			{ ...runtimeValidationCriterion, freshness: "whenever" },
+		].map((bad) =>
+			expect(
+				saveDraft({ runtimeValidationCriterion: bad })
+			).rejects.toMatchObject({ code: "BAD_REQUEST" })
+		)
+	);
+	expect((await list()).deliveryTargets).toEqual([]);
+});
+
 test("moving to a new base adds a revision with a scope diff and leaves the earlier revision unchanged", async () => {
 	const { activate, list, saveDraft, seeded } = setup();
 	const before = structuredClone(seeded);
@@ -529,6 +590,7 @@ test("a revision pinning identical scope and policies shows an empty diff", asyn
 		productionEvidencePolicyChanged: false,
 		requiredSetChanges: [],
 		rightsEvidencePolicyChanged: false,
+		runtimeValidationCriterionChanged: false,
 	});
 });
 

@@ -7,14 +7,35 @@ import { uploadRuntimeValidationEvidenceFile } from "../lib/runtime-validation-a
 function useRefreshRecords() {
 	const queryClient = useQueryClient();
 	return () =>
-		queryClient.invalidateQueries({
-			queryKey: orpc.runtimeValidation.list.key(),
-		});
+		Promise.all([
+			queryClient.invalidateQueries({
+				queryKey: orpc.runtimeValidation.list.key(),
+			}),
+			queryClient.invalidateQueries({
+				queryKey: orpc.runtimeValidation.deliveryTargetReadiness.key(),
+			}),
+		]);
 }
 
 export function useCreateRuntimeValidationRecord() {
 	return useMutation({
 		...orpc.runtimeValidation.create.mutationOptions(mutationMeta),
+		onSuccess: useRefreshRecords(),
+	});
+}
+
+export function useFinalizeRuntimeValidationOutcome() {
+	return useMutation({
+		...orpc.runtimeValidation.finalizeOutcome.mutationOptions(mutationMeta),
+		onSuccess: useRefreshRecords(),
+	});
+}
+
+export function useConfirmRuntimeValidationFailureSource() {
+	return useMutation({
+		...orpc.runtimeValidation.confirmFailureSource.mutationOptions(
+			mutationMeta
+		),
 		onSuccess: useRefreshRecords(),
 	});
 }

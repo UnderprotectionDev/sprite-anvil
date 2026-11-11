@@ -4,6 +4,7 @@ import {
 	pinnedEvidencePolicyFields,
 } from "./delivery-planning-inputs";
 import { requiredSetItemSchema } from "./family-readiness";
+import { runtimeValidationCriterionSchema } from "./runtime-validation-readiness";
 
 const idSchema = z.uuid();
 
@@ -27,6 +28,8 @@ const scopeFields = {
 	contextRevisionNumber: z.number().int().positive(),
 	families: z.array(deliveryTargetFamilyScopeSchema),
 	...pinnedEvidencePolicyFields,
+	/** Null for a target without a runtime validation acceptance criterion. */
+	runtimeValidationCriterion: runtimeValidationCriterionSchema.nullable(),
 };
 
 const revisionRefFields = {
@@ -62,6 +65,7 @@ export const deliveryTargetScopeDiffSchema = z
 				.strict()
 		),
 		rightsEvidencePolicyChanged: z.boolean(),
+		runtimeValidationCriterionChanged: z.boolean(),
 	})
 	.strict();
 export type DeliveryTargetScopeDiff = z.infer<

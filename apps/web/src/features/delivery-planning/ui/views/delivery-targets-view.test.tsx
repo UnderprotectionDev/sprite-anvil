@@ -564,7 +564,71 @@ test("saving a draft sends the pinned scope and policies, then shows it for revi
 			acceptableStates: ["documented", "restricted"],
 			requireRecordFor: ["results"],
 		},
+		runtimeValidationCriterion: null,
 	});
+});
+
+test("a runtime validation criterion is sent with its required environments", async () => {
+	const user = userEvent.setup();
+	fakeApi.saveDraft.mockImplementation((input: { id: string }) =>
+		Promise.resolve(draft({ id: input.id }))
+	);
+	renderView();
+
+	await openNewTargetForm(user);
+	await user.type(await screen.findByLabelText("Name"), "Chapter 1 demo");
+	await pinBothFamilies(user);
+	await user.selectOptions(screen.getByLabelText("Purpose"), "demo");
+	await user.click(screen.getByRole("checkbox", { name: "Documented" }));
+	await user.selectOptions(
+		screen.getByLabelText("Default Production Evidence requirement"),
+		"advisory"
+	);
+	await user.click(
+		screen.getByRole("checkbox", { name: "Require runtime validation" })
+	);
+	await user.click(screen.getByRole("button", { name: "Add environment" }));
+	await user.type(screen.getByLabelText("Game build"), "build-7");
+	await user.type(screen.getByLabelText("Engine version"), "Godot 4.4.1");
+	await user.click(screen.getByRole("button", { name: "Save draft" }));
+
+	await waitFor(() => expect(fakeApi.saveDraft).toHaveBeenCalledTimes(1));
+	expect(fakeApi.saveDraft.mock.calls[0]?.[0]).toMatchObject({
+		runtimeValidationCriterion: {
+			environments: [
+				{
+					adapterVersion: null,
+					engineVersion: "Godot 4.4.1",
+					gameBuild: "build-7",
+				},
+			],
+			freshness: "not_superseded",
+		},
+	});
+});
+
+test("a required runtime validation criterion without an environment is refused", async () => {
+	const user = userEvent.setup();
+	renderView();
+
+	await openNewTargetForm(user);
+	await user.type(await screen.findByLabelText("Name"), "Chapter 1 demo");
+	await pinBothFamilies(user);
+	await user.selectOptions(screen.getByLabelText("Purpose"), "demo");
+	await user.click(screen.getByRole("checkbox", { name: "Documented" }));
+	await user.selectOptions(
+		screen.getByLabelText("Default Production Evidence requirement"),
+		"advisory"
+	);
+	await user.click(
+		screen.getByRole("checkbox", { name: "Require runtime validation" })
+	);
+	await user.click(screen.getByRole("button", { name: "Save draft" }));
+
+	expect(
+		await screen.findByText("Add at least one required environment.")
+	).toBeVisible();
+	expect(fakeApi.saveDraft).not.toHaveBeenCalled();
 });
 
 test("a rejected draft keeps the form and explains the server reason", async () => {

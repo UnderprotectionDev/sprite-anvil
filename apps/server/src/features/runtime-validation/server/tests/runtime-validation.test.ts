@@ -93,7 +93,48 @@ function setup(options: { hasAccess?: boolean } = {}) {
 			} as never,
 			{ context: ctx }
 		);
-	return { addText, context, create, get, list, storage };
+	const finalizeOutcome = (
+		recordId: string,
+		input: Record<string, unknown> = {},
+		ctx = context()
+	) =>
+		call(
+			appRouter.runtimeValidation.finalizeOutcome,
+			{
+				idempotencyKey: "outcome-1",
+				outcome: "pass",
+				projectId,
+				recordId,
+				...input,
+			} as never,
+			{ context: ctx }
+		);
+	const confirmFailureSource = (
+		recordId: string,
+		input: Record<string, unknown> = {},
+		ctx = context()
+	) =>
+		call(
+			appRouter.runtimeValidation.confirmFailureSource,
+			{
+				failureSource: "asset_content",
+				idempotencyKey: "source-1",
+				projectId,
+				recordId,
+				...input,
+			} as never,
+			{ context: ctx }
+		);
+	return {
+		addText,
+		confirmFailureSource,
+		context,
+		create,
+		finalizeOutcome,
+		get,
+		list,
+		storage,
+	};
 }
 
 test("a created Runtime Validation Record is re-read from the persisted record with its exact bundle, build, engine and adapter", async () => {
@@ -216,4 +257,171 @@ test("text evidence replays by key, and invalid or misplaced evidence is refused
 		code: "NOT_FOUND",
 	});
 	expect((await get(record.id)).evidence).toHaveLength(1);
+});
+
+test("only the user finalizes the outcome; adapter drafted evidence never sets it", async () => {
+	const { addText, create, finalizeOutcome, get } = setup();
+	const { record } = await create({ adapterVersion: "godot-adapter-1.2.0" });
+	await addText(record.id, {
+		kind: "test_result",
+		source: "adapter_draft",
+		text: "12 of 12 checks passed",
+	});
+	const drafted = await get(record.id);
+	expect(drafted.outcome).toBeNull();
+	expect(drafted.failureSource).toBeNull();
+	expect(drafted.decisions).toEqual([]);
+
+	await Promise.all(
+		[
+			{ source: "adapter_draft" },
+			{ decidedBy: "adapter" },
+			{ outcome: "ok" },
+		].map((bad) =>
+			expect(
+				finalizeOutcome(record.id, { idempotencyKey: "bad", ...bad })
+			).rejects.toMatchObject({ code: "BAD_REQUEST" })
+		)
+	);
+	expect((await get(record.id)).outcome).toBeNull();
+
+	const decided = await finalizeOutcome(record.id);
+	expect(decided.status).toBe("created");
+	const reread = await get(record.id);
+	expect(reread.outcome).toBe("pass");
+	expect(reread.failureSource).toBeNull();
+	expect(reread.decisions.map((item) => item.kind)).toEqual(["outcome"]);
+	// the record's own content is unchanged by the decision
+	expect({ ...reread, decisions: [], outcome: null }).toEqual({
+		...drafted,
+		decisions: [],
+		outcome: null,
+	});
+});
+
+test("a Fail starts as Source Unknown and the user confirms or reclassifies it with appended decisions", async () => {
+	const { confirmFailureSource, create, finalizeOutcome, get, storage } =
+		setup();
+	const { record } = await create();
+	await finalizeOutcome(record.id, { outcome: "fail" });
+	expect((await get(record.id)).failureSource).toBe("source_unknown");
+
+	const afterFail = JSON.parse(storage.snapshot()) as unknown[][];
+	await confirmFailureSource(record.id, { failureSource: "asset_content" });
+	expect((await get(record.id)).failureSource).toBe("asset_content");
+	await confirmFailureSource(record.id, {
+		failureSource: "multiple_sources",
+		idempotencyKey: "source-2",
+	});
+	const reread = await get(record.id);
+	expect(reread.failureSource).toBe("multiple_sources");
+	expect(
+		reread.decisions.map((item) => [
+			item.kind,
+			item.outcome,
+			item.failureSource,
+		])
+	).toEqual([
+		["outcome", "fail", null],
+		["failure_source", null, "asset_content"],
+		["failure_source", null, "multiple_sources"],
+	]);
+	// earlier rows are unchanged: reclassification only appended
+	const afterAll = JSON.parse(storage.snapshot()) as unknown[][];
+	expect(afterAll[0]).toEqual(afterFail[0]);
+	expect(afterAll[2]?.[0]).toEqual(afterFail[2]?.[0]);
+	expect(afterAll[2]).toHaveLength(3);
+	// a repeated key replays instead of appending
+	const replay = await confirmFailureSource(record.id, {
+		failureSource: "multiple_sources",
+		idempotencyKey: "source-2",
+	});
+	expect(replay.status).toBe("replayed");
+	expect((await get(record.id)).decisions).toHaveLength(3);
+});
+
+test("finalizing is refused for a non-owner, an unknown record, a second outcome and a source on a non-Fail", async () => {
+	const { confirmFailureSource, context, create, finalizeOutcome, get } =
+		setup();
+	const { record } = await create();
+	const denied = setup({ hasAccess: false });
+	await expect(denied.finalizeOutcome(record.id)).rejects.toMatchObject({
+		code: "NOT_FOUND",
+	});
+	await expect(denied.confirmFailureSource(record.id)).rejects.toMatchObject({
+		code: "NOT_FOUND",
+	});
+	await expect(
+		finalizeOutcome(record.id, {}, context(null))
+	).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+	await expect(finalizeOutcome(unknownRecordId)).rejects.toMatchObject({
+		code: "NOT_FOUND",
+	});
+	await expect(confirmFailureSource(unknownRecordId)).rejects.toMatchObject({
+		code: "NOT_FOUND",
+	});
+
+	// a source before any outcome, or on an Inconclusive, is refused
+	await expect(confirmFailureSource(record.id)).rejects.toMatchObject({
+		code: "CONFLICT",
+	});
+	await finalizeOutcome(record.id, { outcome: "inconclusive" });
+	await expect(
+		confirmFailureSource(record.id, { idempotencyKey: "s-2" })
+	).rejects.toMatchObject({ code: "CONFLICT" });
+	await expect(
+		confirmFailureSource(record.id, { failureSource: "source_unknown" })
+	).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+	// the first outcome is final; a changed mind needs a new record
+	await expect(
+		finalizeOutcome(record.id, { idempotencyKey: "outcome-2", outcome: "pass" })
+	).rejects.toMatchObject({ code: "CONFLICT" });
+	await expect(
+		finalizeOutcome(record.id, { idempotencyKey: "outcome-2", outcome: "fail" })
+	).rejects.toMatchObject({ code: "CONFLICT" });
+	const same = await finalizeOutcome(record.id, { outcome: "inconclusive" });
+	expect(same.status).toBe("replayed");
+	const reread = await get(record.id);
+	expect(reread.outcome).toBe("inconclusive");
+	expect(reread.decisions).toHaveLength(1);
+});
+
+test("a failure leaves the exported bundle unchanged and the game project is never a sync or authoritative source", async () => {
+	const { confirmFailureSource, create, finalizeOutcome } = setup();
+	const bundlesBefore = structuredClone(bundles);
+	const { record } = await create();
+	await finalizeOutcome(record.id, { outcome: "fail" });
+	await confirmFailureSource(record.id, { failureSource: "engine_adapter" });
+	expect(bundles).toEqual(bundlesBefore);
+	// evidence flows one way into records; there is no import, pull or sync operation
+	expect(Object.keys(appRouter.runtimeValidation).sort()).toEqual([
+		"addTextEvidence",
+		"confirmFailureSource",
+		"create",
+		"deliveryTargetReadiness",
+		"finalizeOutcome",
+		"get",
+		"list",
+	]);
+});
+
+test("a fix is a new record linked to the one it supersedes, and the old record stays unchanged", async () => {
+	const { create, finalizeOutcome, get } = setup();
+	const { record: failed } = await create();
+	await finalizeOutcome(failed.id, { outcome: "fail" });
+	const before = await get(failed.id);
+
+	const { record: retest } = await create({
+		gameBuild: "build-2026.11.12",
+		idempotencyKey: "key-2",
+		supersedesRecordId: failed.id,
+	});
+	expect(retest.supersedesRecordId).toBe(failed.id);
+	expect(retest.outcome).toBeNull();
+	expect(await get(failed.id)).toEqual(before);
+
+	await expect(
+		create({ idempotencyKey: "key-3", supersedesRecordId: unknownRecordId })
+	).rejects.toMatchObject({ code: "NOT_FOUND" });
 });

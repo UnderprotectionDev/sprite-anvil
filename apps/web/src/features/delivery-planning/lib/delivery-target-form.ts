@@ -55,6 +55,16 @@ export function defaultFormValues(
 		purpose: base.purpose as DeliveryTargetFormValues["purpose"],
 		requireRecordFor:
 			base.revision?.rightsEvidencePolicy.requireRecordFor ?? [],
+		requireRuntimeValidation: Boolean(
+			base.revision?.runtimeValidationCriterion
+		),
+		runtimeEnvironments: (
+			base.revision?.runtimeValidationCriterion?.environments ?? []
+		).map((environment) => ({
+			adapterVersion: environment.adapterVersion ?? "",
+			engineVersion: environment.engineVersion,
+			gameBuild: environment.gameBuild,
+		})),
 	};
 }
 
@@ -103,5 +113,15 @@ export function toSaveInput(
 			acceptableStates: values.acceptableStates,
 			requireRecordFor: values.requireRecordFor,
 		},
+		runtimeValidationCriterion: values.requireRuntimeValidation
+			? {
+					environments: values.runtimeEnvironments.map((environment) => ({
+						adapterVersion: environment.adapterVersion.trim() || null,
+						engineVersion: environment.engineVersion.trim(),
+						gameBuild: environment.gameBuild.trim(),
+					})),
+					freshness: "not_superseded",
+				}
+			: null,
 	};
 }

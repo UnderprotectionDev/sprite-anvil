@@ -4,6 +4,10 @@ import {
 	runtimeValidationEvidenceSourceSchema,
 	runtimeValidationEvidenceTextLimit,
 } from "@sprite-anvil/api/runtime-validation";
+import {
+	runtimeValidationConfirmedFailureSourceSchema,
+	runtimeValidationOutcomeSchema,
+} from "@sprite-anvil/api/runtime-validation-decisions";
 import { z } from "zod";
 
 const requiredText = (message: string) =>
@@ -14,6 +18,21 @@ export const runtimeValidationRecordFormSchema = z.object({
 	bundleId: z.string().min(1, "Choose the Export Bundle that was tested."),
 	engineVersion: requiredText("Enter the engine version."),
 	gameBuild: requiredText("Enter the game build."),
+	/** "" when this is not a retest or fix of an earlier record. */
+	supersedesRecordId: z.string(),
+});
+
+/** "" is the unchosen starting value: the user must pick the outcome themselves. */
+export const runtimeValidationOutcomeFormSchema = z.object({
+	outcome: z
+		.union([runtimeValidationOutcomeSchema, z.literal("")])
+		.refine((value) => value !== "", "Choose the outcome of this test."),
+});
+
+export const runtimeValidationFailureSourceFormSchema = z.object({
+	failureSource: z
+		.union([runtimeValidationConfirmedFailureSourceSchema, z.literal("")])
+		.refine((value) => value !== "", "Choose the failure source."),
 });
 
 export const runtimeValidationEvidenceFormSchema = z

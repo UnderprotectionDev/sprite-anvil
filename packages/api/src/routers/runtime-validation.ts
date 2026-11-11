@@ -12,6 +12,17 @@ import {
 	runtimeValidationRecordSchema,
 	runtimeValidationTextEvidenceInputSchema,
 } from "../runtime-validation";
+import {
+	runtimeValidationConfirmFailureSourceInputSchema,
+	runtimeValidationDecisionResultSchema,
+	runtimeValidationFinalizeOutcomeInputSchema,
+} from "../runtime-validation-decisions";
+import {
+	evaluateRuntimeValidationCriterion,
+	runtimeValidationReadinessInputSchema,
+	runtimeValidationReadinessSchema,
+} from "../runtime-validation-readiness";
+import type { RuntimeValidationDecisionResult } from "../runtime-validation-store";
 
 function getRuntimeValidationStore(context: Context) {
 	if (!context.runtimeValidationStore) {
@@ -24,6 +35,27 @@ function getRuntimeValidationStore(context: Context) {
 
 const projectNotFound = "Project not found.";
 const recordNotFound = "Runtime Validation Record not found.";
+
+const decisionRejections = {
+	outcome_already_decided:
+		"The outcome of this Runtime Validation Record is already final; a changed result needs a new record.",
+	outcome_not_decided:
+		"Finalize the outcome as Fail before confirming a failure source.",
+	outcome_not_fail:
+		"A failure source can only be confirmed on a Runtime Validation Record whose outcome is Fail.",
+} as const;
+
+function decisionOrThrow(result: RuntimeValidationDecisionResult | null) {
+	if (!result) {
+		throw new ORPCError("NOT_FOUND", { message: recordNotFound });
+	}
+	if (result.status === "rejected") {
+		throw new ORPCError("CONFLICT", {
+			message: decisionRejections[result.reason],
+		});
+	}
+	return result;
+}
 
 export const runtimeValidationRouter = {
 	addTextEvidence: protectedProcedure
@@ -65,11 +97,80 @@ export const runtimeValidationRouter = {
 				}
 				if (result.status === "rejected") {
 					throw new ORPCError("NOT_FOUND", {
-						message: "Export Bundle not found in this project.",
+						message:
+							result.reason === "bundle_not_found"
+								? "Export Bundle not found in this project."
+								: "The Runtime Validation Record to supersede was not found in this project.",
 					});
 				}
 				return result;
 			})
+		),
+	confirmFailureSource: protectedProcedure
+		.input(runtimeValidationConfirmFailureSourceInputSchema)
+		.output(runtimeValidationDecisionResultSchema)
+		.handler(({ context, input }) =>
+			withPublicationErrors(async () =>
+				decisionOrThrow(
+					await getRuntimeValidationStore(context).confirmFailureSource(
+						context.session.user.id,
+						input
+					)
+				)
+			)
+		),
+	/** Whether the exact bundle meets a Delivery Target revision's runtime validation criterion, with each blocker. */
+	deliveryTargetReadiness: protectedProcedure
+		.input(runtimeValidationReadinessInputSchema)
+		.output(runtimeValidationReadinessSchema)
+		.handler(async ({ context, input }) => {
+			if (!context.deliveryTargetStore) {
+				throw new ORPCError("INTERNAL_SERVER_ERROR", {
+					message: "Delivery Target storage is unavailable.",
+				});
+			}
+			const userId = context.session.user.id;
+			const catalog = await context.deliveryTargetStore.list(
+				userId,
+				input.projectId
+			);
+			if (!catalog) {
+				throw new ORPCError("NOT_FOUND", { message: projectNotFound });
+			}
+			const revision = catalog.deliveryTargets
+				.flatMap((target) => target.revisions)
+				.find((candidate) => candidate.id === input.revisionId);
+			if (!revision) {
+				throw new ORPCError("NOT_FOUND", {
+					message: "Delivery Target revision not found.",
+				});
+			}
+			// Every record of the project: a retest on another bundle can supersede one of this bundle's.
+			const records = await getRuntimeValidationStore(context).list(
+				userId,
+				input.projectId
+			);
+			if (!records) {
+				throw new ORPCError("NOT_FOUND", { message: projectNotFound });
+			}
+			return evaluateRuntimeValidationCriterion(
+				revision.runtimeValidationCriterion,
+				input.bundleId,
+				records.records
+			);
+		}),
+	finalizeOutcome: protectedProcedure
+		.input(runtimeValidationFinalizeOutcomeInputSchema)
+		.output(runtimeValidationDecisionResultSchema)
+		.handler(({ context, input }) =>
+			withPublicationErrors(async () =>
+				decisionOrThrow(
+					await getRuntimeValidationStore(context).finalizeOutcome(
+						context.session.user.id,
+						input
+					)
+				)
+			)
 		),
 	get: protectedProcedure
 		.input(runtimeValidationRecordGetInputSchema)

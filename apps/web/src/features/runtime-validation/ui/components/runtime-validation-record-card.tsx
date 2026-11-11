@@ -3,7 +3,13 @@ import { runtimeValidationEvidenceDownloadUrl } from "../../lib/runtime-validati
 import {
 	evidenceKindLabels,
 	evidenceSourceLabels,
+	failureSourceLabels,
+	outcomeLabels,
 } from "../../lib/runtime-validation-labels";
+import {
+	RuntimeValidationFailureSourceForm,
+	RuntimeValidationOutcomeForm,
+} from "../forms/runtime-validation-decision-forms";
 import { RuntimeValidationEvidenceForm } from "../forms/runtime-validation-evidence-form";
 
 export function RuntimeValidationRecordCard({
@@ -18,6 +24,9 @@ export function RuntimeValidationRecordCard({
 		["Engine version", record.engineVersion],
 		["Adapter version", record.adapterVersion ?? "None"],
 		["Recorded", new Date(record.createdAt).toLocaleString()],
+		...(record.supersedesRecordId
+			? [["Supersedes record", record.supersedesRecordId] as [string, string]]
+			: []),
 	];
 	return (
 		<article
@@ -35,6 +44,58 @@ export function RuntimeValidationRecordCard({
 					</div>
 				))}
 			</dl>
+			<section aria-label="Outcome" className="space-y-3">
+				<h4 className="font-medium">Outcome</h4>
+				{record.outcome === null ? (
+					<>
+						<p>Not finalized. This record does not satisfy any target yet.</p>
+						<RuntimeValidationOutcomeForm
+							projectId={record.projectId}
+							recordId={record.id}
+						/>
+					</>
+				) : (
+					<p>
+						<strong>{outcomeLabels[record.outcome]}</strong>
+						{record.failureSource
+							? ` · Failure source: ${failureSourceLabels[record.failureSource]}`
+							: ""}
+					</p>
+				)}
+				{record.failureSource === "source_unknown" ? (
+					<p role="status">
+						Source Unknown blocks any Delivery Target that requires runtime
+						validation until you confirm a failure source and test again.
+					</p>
+				) : null}
+				{record.outcome === "fail" ? (
+					<>
+						{record.failureSource === "source_unknown" ? null : (
+							<p role="status">
+								Revalidation Required for this use only. Past Review Records and
+								Export Bundles, and exports for other uses, are unchanged. Fix
+								the cause and save a new record that supersedes this one.
+							</p>
+						)}
+						<RuntimeValidationFailureSourceForm
+							projectId={record.projectId}
+							recordId={record.id}
+						/>
+					</>
+				) : null}
+				{record.decisions.length > 0 ? (
+					<ol aria-label="Decision history" className="space-y-1 text-sm">
+						{record.decisions.map((decision) => (
+							<li key={decision.id}>
+								{new Date(decision.createdAt).toLocaleString()} ·{" "}
+								{decision.outcome
+									? `Outcome ${outcomeLabels[decision.outcome]}`
+									: `Failure source ${failureSourceLabels[decision.failureSource ?? "source_unknown"]}`}
+							</li>
+						))}
+					</ol>
+				) : null}
+			</section>
 			<section aria-label="Evidence" className="space-y-2">
 				<h4 className="font-medium">Evidence</h4>
 				{record.evidence.length === 0 ? (
