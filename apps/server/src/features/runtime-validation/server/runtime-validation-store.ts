@@ -7,6 +7,7 @@ import {
 } from "@sprite-anvil/api/record-publication";
 import {
 	type RuntimeValidationRecord,
+	type RuntimeValidationRecordCreateInput,
 	runtimeValidationEvidenceSchema,
 	runtimeValidationRecordListSchema,
 	runtimeValidationRecordSchema,
@@ -219,6 +220,30 @@ export function createRuntimeValidationStore(
 		return { decision: toDecision(stored), status: "created" };
 	}
 
+	/** Why a retest cannot supersede its record: it is unknown to the project or is another bundle or environment. */
+	async function refuseSupersession(
+		input: RuntimeValidationRecordCreateInput
+	): Promise<
+		"superseded_record_mismatch" | "superseded_record_not_found" | null
+	> {
+		if (input.supersedesRecordId === null) {
+			return null;
+		}
+		const superseded = await storage.findRecord(
+			input.projectId,
+			input.supersedesRecordId
+		);
+		if (!superseded) {
+			return "superseded_record_not_found";
+		}
+		const sameEnvironment =
+			superseded.bundleId === input.bundleId &&
+			superseded.gameBuild === input.gameBuild &&
+			superseded.engineVersion === input.engineVersion &&
+			superseded.adapterVersion === input.adapterVersion;
+		return sameEnvironment ? null : "superseded_record_mismatch";
+	}
+
 	async function addEvidence(
 		userId: string,
 		input: { idempotencyKey: string; projectId: string; recordId: string },
@@ -236,7 +261,8 @@ export function createRuntimeValidationStore(
 		if ((await lookupProject(userId, input.projectId)) === null) {
 			return null;
 		}
-		if (!(await storage.findRecord(input.projectId, input.recordId))) {
+		const record = await readRecord(input.projectId, input.recordId);
+		if (!record) {
 			return null;
 		}
 		const id = await idempotentRecordId(
@@ -270,6 +296,10 @@ export function createRuntimeValidationStore(
 		const replayed = await replay();
 		if (replayed) {
 			return replayed;
+		}
+		// Evidence closes with the outcome; a retry of earlier evidence has already replayed above.
+		if (record.outcome !== null) {
+			return { reason: "outcome_already_decided", status: "rejected" };
 		}
 		const row: StoredRuntimeValidationEvidence = {
 			...content,
@@ -342,11 +372,9 @@ export function createRuntimeValidationStore(
 			if (!bundle) {
 				return { reason: "bundle_not_found", status: "rejected" };
 			}
-			if (
-				input.supersedesRecordId !== null &&
-				!(await storage.findRecord(input.projectId, input.supersedesRecordId))
-			) {
-				return { reason: "superseded_record_not_found", status: "rejected" };
+			const supersessionRefusal = await refuseSupersession(input);
+			if (supersessionRefusal) {
+				return { reason: supersessionRefusal, status: "rejected" };
 			}
 			const id = await idempotentRecordId(
 				{

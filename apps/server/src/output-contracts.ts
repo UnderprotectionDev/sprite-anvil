@@ -121,6 +121,7 @@ export const publicApiErrorSchema = z
 			"Runtime validation evidence integrity check failed",
 			"Runtime validation evidence idempotency conflict",
 			"Runtime validation evidence was not saved; retry with the same key",
+			"Runtime validation evidence is closed once the outcome is final",
 			"Invalid source metadata proposal",
 			"Invalid source metadata JSON",
 			"Unsupported source metadata format",

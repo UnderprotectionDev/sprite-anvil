@@ -17,9 +17,9 @@ export type RuntimeValidationEnvironment = z.infer<
 >;
 
 /**
- * The only freshness rule so far: a Pass is current while no later record for
- * the same bundle and environment, and no record that names it as superseded,
- * exists. Further rules are added as options here.
+ * The only freshness rule so far: a record is current only while no other
+ * record of the same bundle and environment names it as superseded. Further
+ * rules are added as options here.
  */
 export const runtimeValidationFreshnessSchema = z.enum(["not_superseded"]);
 
@@ -57,6 +57,7 @@ export const runtimeValidationBlockers = [
 	"inconclusive",
 	"failed_source_unknown",
 	"failed_revalidation_required",
+	/** Kept for the contract; the current record is by definition never superseded. */
 	"superseded",
 ] as const;
 export const runtimeValidationBlockerSchema = z.enum(runtimeValidationBlockers);
@@ -110,7 +111,9 @@ function sameEnvironment(
  * Whether the exact bundle meets a Delivery Target's criterion. A record counts
  * only for its exact bundle, game build, engine and adapter version; the latest
  * such record decides, and only a Pass the user finalized satisfies the
- * environment. `records` are oldest first, as listed.
+ * environment. The current record is the latest one in that bundle and
+ * environment that no other record there supersedes. `records` are oldest
+ * first, as listed.
  */
 export function evaluateRuntimeValidationCriterion(
 	criterion: RuntimeValidationCriterion | null,
@@ -120,17 +123,19 @@ export function evaluateRuntimeValidationCriterion(
 	if (!criterion) {
 		return { environments: [], ready: true, required: false };
 	}
-	const supersededIds = new Set(
-		records.flatMap((record) =>
-			record.supersedesRecordId ? [record.supersedesRecordId] : []
-		)
-	);
 	const environments = criterion.environments.map((environment) => {
-		const current = records
-			.filter(
-				(record) =>
-					record.bundleId === bundleId && sameEnvironment(record, environment)
+		const matching = records.filter(
+			(record) =>
+				record.bundleId === bundleId && sameEnvironment(record, environment)
+		);
+		// A retest supersedes only its own bundle and environment, so only these records can.
+		const supersededIds = new Set(
+			matching.flatMap((record) =>
+				record.supersedesRecordId ? [record.supersedesRecordId] : []
 			)
+		);
+		const current = matching
+			.filter((record) => !supersededIds.has(record.id))
 			.at(-1);
 		const blocked = (blocker: RuntimeValidationBlocker) => ({
 			blocker,
@@ -140,9 +145,6 @@ export function evaluateRuntimeValidationCriterion(
 		});
 		if (!current) {
 			return blocked("no_record");
-		}
-		if (supersededIds.has(current.id)) {
-			return blocked("superseded");
 		}
 		switch (current.outcome) {
 			case null:

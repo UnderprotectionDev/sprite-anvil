@@ -16,7 +16,10 @@ import type {
 export type RuntimeValidationRecordCreateResult =
 	| { record: RuntimeValidationRecord; status: "created" | "replayed" }
 	| {
-			reason: "bundle_not_found" | "superseded_record_not_found";
+			reason:
+				| "bundle_not_found"
+				| "superseded_record_mismatch"
+				| "superseded_record_not_found";
 			status: "rejected";
 	  };
 
@@ -30,19 +33,19 @@ export type RuntimeValidationDecisionResult =
 			status: "rejected";
 	  };
 
-export interface RuntimeValidationEvidenceResult {
-	evidence: RuntimeValidationEvidence;
-	status: "created" | "replayed";
-}
+export type RuntimeValidationEvidenceResult =
+	| { evidence: RuntimeValidationEvidence; status: "created" | "replayed" }
+	/** The record's outcome is final, so its evidence is closed. */
+	| { reason: "outcome_already_decided"; status: "rejected" };
 
 /** Authorized, project-scoped access to immutable Runtime Validation Records and their evidence. */
 export interface RuntimeValidationStore {
-	/** Null when the project or record is not found. */
+	/** Rejected once the record has an outcome decision. Null when the project or record is not found. */
 	addFileEvidence: (
 		userId: string,
 		input: RuntimeValidationFileEvidenceInput
 	) => Promise<RuntimeValidationEvidenceResult | null>;
-	/** Null when the project or record is not found. */
+	/** Rejected once the record has an outcome decision. Null when the project or record is not found. */
 	addTextEvidence: (
 		userId: string,
 		input: RuntimeValidationTextEvidenceInput

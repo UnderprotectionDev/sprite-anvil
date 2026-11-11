@@ -239,6 +239,25 @@ test("an observation with no text is refused", async () => {
 	expect(fakeApi.addTextEvidence).not.toHaveBeenCalled();
 });
 
+test("an observation with a file attached is refused with a message, not skipped silently", async () => {
+	const user = userEvent.setup();
+	fakeApi.records = [record()];
+	renderView();
+
+	await user.upload(
+		await screen.findByLabelText(
+			"Screenshot, recording or test result file (up to 5 MiB)"
+		),
+		new File(["frame"], "hero.png", { type: "image/png" })
+	);
+	await user.click(screen.getByRole("button", { name: "Add evidence" }));
+
+	expect(
+		await screen.findByText("An observation is text only.")
+	).toBeInTheDocument();
+	expect(fakeApi.addTextEvidence).not.toHaveBeenCalled();
+});
+
 test("the user finalizes the outcome and the re-read record shows it as final", async () => {
 	const user = userEvent.setup();
 	fakeApi.records = [record()];

@@ -50,9 +50,7 @@ export function RuntimeValidationEvidenceForm({
 			setFailure(null);
 			try {
 				if (value.file) {
-					if (value.kind === "observation") {
-						return;
-					}
+					// An observation with a file never reaches here: the form schema refuses it with a message.
 					await upload.mutateAsync({
 						file: value.file,
 						idempotencyKey: idempotencyKey.current,

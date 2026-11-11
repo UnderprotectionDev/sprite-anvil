@@ -11,12 +11,14 @@ const projectId = "7a1f0f0e-8f4e-4c36-9a53-0b0b6a2f2a01";
 const otherProjectId = "7a1f0f0e-8f4e-4c36-9a53-0b0b6a2f2a02";
 const bundleId = "5b1f0f0e-8f4e-4c36-9a53-0b0b6a2f2b01";
 const otherProjectBundleId = "5b1f0f0e-8f4e-4c36-9a53-0b0b6a2f2b02";
+const secondBundleId = "5b1f0f0e-8f4e-4c36-9a53-0b0b6a2f2b03";
 const unknownBundleId = "5b1f0f0e-8f4e-4c36-9a53-0b0b6a2f2b99";
 const unknownRecordId = "5b1f0f0e-8f4e-4c36-9a53-0b0b6a2f2c99";
 const manifestDigest = "d".repeat(64);
 
 const bundles: Record<string, { manifestDigest: string; projectId: string }> = {
 	[bundleId]: { manifestDigest, projectId },
+	[secondBundleId]: { manifestDigest: "f".repeat(64), projectId },
 	[otherProjectBundleId]: {
 		manifestDigest: "e".repeat(64),
 		projectId: otherProjectId,
@@ -413,7 +415,6 @@ test("a fix is a new record linked to the one it supersedes, and the old record 
 	const before = await get(failed.id);
 
 	const { record: retest } = await create({
-		gameBuild: "build-2026.11.12",
 		idempotencyKey: "key-2",
 		supersedesRecordId: failed.id,
 	});
@@ -424,4 +425,52 @@ test("a fix is a new record linked to the one it supersedes, and the old record 
 	await expect(
 		create({ idempotencyKey: "key-3", supersedesRecordId: unknownRecordId })
 	).rejects.toMatchObject({ code: "NOT_FOUND" });
+});
+
+test("a retest can supersede only a record of the same bundle and environment", async () => {
+	const { create, finalizeOutcome } = setup();
+	const { record: failed } = await create();
+	await finalizeOutcome(failed.id, { outcome: "fail" });
+
+	const changes = [
+		{ bundleId: secondBundleId },
+		{ gameBuild: "build-2026.11.12" },
+		{ engineVersion: "Godot 4.5.0" },
+		{ adapterVersion: "godot-adapter-1.2.0" },
+	];
+	await Promise.all(
+		changes.map((change, index) =>
+			expect(
+				create({
+					idempotencyKey: `mismatch-${index}`,
+					supersedesRecordId: failed.id,
+					...change,
+				})
+			).rejects.toMatchObject({ code: "BAD_REQUEST" })
+		)
+	);
+});
+
+test("a record in another project cannot be superseded", async () => {
+	const { create } = setup();
+	const { record: foreign } = await create(
+		{ bundleId: otherProjectBundleId, projectId: otherProjectId },
+		undefined
+	);
+	await expect(
+		create({ idempotencyKey: "cross-project", supersedesRecordId: foreign.id })
+	).rejects.toMatchObject({ code: "NOT_FOUND" });
+});
+
+test("evidence cannot be added to a record that already has an outcome decision", async () => {
+	const { addText, create, finalizeOutcome, get } = setup();
+	const { record } = await create();
+	await addText(record.id);
+	await finalizeOutcome(record.id, { outcome: "fail" });
+	await expect(
+		addText(record.id, { idempotencyKey: "ev-late", text: "Late note." })
+	).rejects.toMatchObject({ code: "CONFLICT" });
+	expect((await get(record.id)).evidence).toHaveLength(1);
+	// a retry of evidence added before the decision still replays
+	expect(await addText(record.id)).toMatchObject({ status: "replayed" });
 });

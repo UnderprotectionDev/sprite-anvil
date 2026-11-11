@@ -75,6 +75,11 @@ export const runtimeValidationRouter = {
 				if (!result) {
 					throw new ORPCError("NOT_FOUND", { message: recordNotFound });
 				}
+				if (result.status === "rejected") {
+					throw new ORPCError("CONFLICT", {
+						message: decisionRejections[result.reason],
+					});
+				}
 				return result;
 			})
 		),
@@ -96,6 +101,12 @@ export const runtimeValidationRouter = {
 					throw new ORPCError("NOT_FOUND", { message: projectNotFound });
 				}
 				if (result.status === "rejected") {
+					if (result.reason === "superseded_record_mismatch") {
+						throw new ORPCError("BAD_REQUEST", {
+							message:
+								"A retest can supersede only a record of the same Export Bundle, game build, engine version and adapter version.",
+						});
+					}
 					throw new ORPCError("NOT_FOUND", {
 						message:
 							result.reason === "bundle_not_found"
@@ -145,10 +156,27 @@ export const runtimeValidationRouter = {
 					message: "Delivery Target revision not found.",
 				});
 			}
-			// Every record of the project: a retest on another bundle can supersede one of this bundle's.
+			if (!context.exportBundleStore) {
+				throw new ORPCError("INTERNAL_SERVER_ERROR", {
+					message: "Export Bundle storage is unavailable.",
+				});
+			}
+			if (
+				!(await context.exportBundleStore.get(
+					userId,
+					input.projectId,
+					input.bundleId
+				))
+			) {
+				throw new ORPCError("NOT_FOUND", {
+					message: "Export Bundle not found in this project.",
+				});
+			}
+			// Retests supersede within one bundle, so this bundle's records are enough.
 			const records = await getRuntimeValidationStore(context).list(
 				userId,
-				input.projectId
+				input.projectId,
+				input.bundleId
 			);
 			if (!records) {
 				throw new ORPCError("NOT_FOUND", { message: projectNotFound });

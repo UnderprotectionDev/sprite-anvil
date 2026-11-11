@@ -300,3 +300,21 @@ test("evidence whose stored bytes no longer match the recorded digest is not dow
 	);
 	expect(download.status).toBe(502);
 });
+
+test("an upload to a record that already has an outcome is refused and leaves no object", async () => {
+	const server = createTestServer();
+	const recordId = await server.createRecord();
+	await server.store.finalizeOutcome("owner-user", {
+		idempotencyKey: "outcome-key",
+		outcome: "pass",
+		projectId,
+		recordId,
+	});
+	const response = await server.app.request(uploadPath(recordId), {
+		body: uploadForm(),
+		headers: owner,
+		method: "POST",
+	});
+	expect(response.status).toBe(409);
+	expect(server.objects.size).toBe(0);
+});
