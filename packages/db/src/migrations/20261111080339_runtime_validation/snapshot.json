@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "aa583d1d-4538-434e-bdb4-716193bc82c7",
+  "id": "9a0ccef8-b6fa-4bcf-8088-e621a66a30f6",
   "prevIds": [
-    "15e08789-8e2e-4038-9239-f49381818050"
+    "da3086a2-2a3a-47da-999d-ceb8ed18c2e7"
   ],
   "ddl": [
     {
@@ -269,6 +269,18 @@
     {
       "isRlsEnabled": false,
       "name": "delivery_targets",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "delivery_refresh_lock_files",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "delivery_refresh_locks",
       "entityType": "tables",
       "schema": "public"
     },
@@ -4711,6 +4723,214 @@
       "entityType": "columns",
       "schema": "public",
       "table": "delivery_targets"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "lock_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "delivery_refresh_lock_files"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "path",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "delivery_refresh_lock_files"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "sha256",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "delivery_refresh_lock_files"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "byte_size",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "delivery_refresh_lock_files"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "delivery_refresh_locks"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "project_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "delivery_refresh_locks"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "bundle_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "delivery_refresh_locks"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "profile_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "delivery_refresh_locks"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "profile_revision_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "delivery_refresh_locks"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "bundle_manifest_digest",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "delivery_refresh_locks"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "contract_version",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "delivery_refresh_locks"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "lock_digest",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "delivery_refresh_locks"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "request_digest",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "delivery_refresh_locks"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "destination_label",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "delivery_refresh_locks"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "created_by_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "delivery_refresh_locks"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "delivery_refresh_locks"
     },
     {
       "type": "text",
@@ -9172,6 +9392,28 @@
       "table": "runtime_validation_decisions"
     },
     {
+      "type": "bigint",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": {
+        "type": "always",
+        "name": "runtime_validation_decisions_sequence_seq",
+        "increment": "1",
+        "startWith": "1",
+        "minValue": "1",
+        "maxValue": "9223372036854775807",
+        "cache": 1,
+        "cycle": false
+      },
+      "name": "sequence",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "runtime_validation_decisions"
+    },
+    {
       "type": "text",
       "typeSchema": null,
       "notNull": true,
@@ -13056,6 +13298,34 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "delivery_targets"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "delivery_refresh_locks_project_id_id_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "delivery_refresh_locks"
     },
     {
       "nameExplicit": true,
@@ -17196,6 +17466,76 @@
     {
       "nameExplicit": false,
       "columns": [
+        "lock_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "delivery_refresh_locks",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "delivery_refresh_lock_files_Lr5N9BxATPPk_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "delivery_refresh_lock_files"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "project_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "project",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "delivery_refresh_locks_project_id_project_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "delivery_refresh_locks"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "created_by_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "user",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "delivery_refresh_locks_created_by_user_id_user_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "delivery_refresh_locks"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "project_id",
+        "bundle_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "export_bundles",
+      "columnsTo": [
+        "project_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "delivery_refresh_locks_bundle_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "delivery_refresh_locks"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "project_id"
       ],
       "schemaTo": "public",
@@ -19722,6 +20062,17 @@
     },
     {
       "columns": [
+        "lock_id",
+        "path"
+      ],
+      "nameExplicit": true,
+      "name": "delivery_refresh_lock_files_pk",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "delivery_refresh_lock_files"
+    },
+    {
+      "columns": [
         "bundle_id",
         "path"
       ],
@@ -20080,6 +20431,16 @@
       "name": "delivery_targets_pkey",
       "schema": "public",
       "table": "delivery_targets",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "delivery_refresh_locks_pkey",
+      "schema": "public",
+      "table": "delivery_refresh_locks",
       "entityType": "pks"
     },
     {
@@ -20940,6 +21301,13 @@
       "entityType": "checks",
       "schema": "public",
       "table": "delivery_targets"
+    },
+    {
+      "value": "\"byte_size\" > 0",
+      "name": "delivery_refresh_lock_files_size_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "delivery_refresh_lock_files"
     },
     {
       "value": "(\"source_asset_version_id\" IS NOT NULL) <> (\"source_context_revision_id\" IS NOT NULL)",
