@@ -16,8 +16,13 @@ import type {
 import type { ProjectContextStore } from "@sprite-anvil/api/project-context";
 import { recordContentDigest } from "@sprite-anvil/api/record-content-digest";
 import type { RightsRecordStore } from "@sprite-anvil/api/rights-records";
+import {
+	type ExportBundleEngineDataDependencies,
+	readExportBundleEngineData,
+} from "./export-bundle-engine-data-reader";
 
-export interface ExportBundleSourceReaderDependencies {
+export interface ExportBundleSourceReaderDependencies
+	extends ExportBundleEngineDataDependencies {
 	assetFamilies: Pick<AssetFamilyStore, "list">;
 	assetVersions: Pick<AssetVersionStore, "list">;
 	familyReadiness: Pick<FamilyReadinessStore, "list">;
@@ -293,6 +298,18 @@ export function createExportBundleSourceReader(
 						revisionId: project.currentContextRevision.id,
 						revisionNumber: project.currentContextRevision.revisionNumber,
 					},
+					engineData: await readExportBundleEngineData(dependencies, {
+						assetFamilyIds,
+						assetRecordIdByVersionId: new Map(
+							catalog.assetVersions.map((version) => [
+								version.id,
+								version.assetRecordId,
+							])
+						),
+						projectId,
+						selectedVersionIds,
+						userId,
+					}),
 					families: pins.map((pin) => pin.family),
 					quality: pins.flatMap((pin) => pin.quality),
 					rights,

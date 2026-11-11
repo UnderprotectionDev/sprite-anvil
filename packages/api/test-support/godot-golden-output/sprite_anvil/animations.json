@@ -1,0 +1,54 @@
+{
+  "animations": [
+    {
+      "directions": [
+        {
+          "animation": "south",
+          "direction": "south",
+          "frames": [
+            {
+              "assetVersionId": "av-2",
+              "durationMs": 120,
+              "events": [
+                {
+                  "id": "footstep",
+                  "timeMs": 40
+                }
+              ],
+              "frameKey": "walk_01",
+              "offset": {
+                "x": 0,
+                "y": -7
+              },
+              "pivot": {
+                "x": 8,
+                "y": 15
+              },
+              "region": {
+                "height": 16,
+                "width": 16,
+                "x": 16,
+                "y": 0
+              },
+              "texture": "res://sprite_anvil/textures/hero_walk.png"
+            },
+            {
+              "assetVersionId": "av-2",
+              "durationMs": 80,
+              "events": [],
+              "frameKey": "walk_00",
+              "offset": null,
+              "pivot": null,
+              "region": null,
+              "texture": "res://sprite_anvil/textures/hero_walk.png"
+            }
+          ]
+        }
+      ],
+      "looping": true,
+      "name": "Walk Cycle",
+      "playbackSpeed": 1,
+      "resource": "res://sprite_anvil/animations/walk-cycle.tres"
+    }
+  ]
+}

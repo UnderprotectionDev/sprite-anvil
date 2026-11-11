@@ -162,6 +162,392 @@ export const exportBundleManifestJsonSchema: Record<string, unknown> = {
 				},
 			],
 		},
+		engineData: {
+			type: "object",
+			properties: {
+				animations: {
+					type: "array",
+					items: {
+						type: "object",
+						properties: {
+							assetFamilyId: {
+								type: "string",
+								minLength: 1,
+							},
+							directions: {
+								type: "array",
+								items: {
+									type: "object",
+									properties: {
+										direction: {
+											type: "string",
+											minLength: 1,
+										},
+										frames: {
+											type: "array",
+											items: {
+												type: "object",
+												properties: {
+													assetVersionId: {
+														type: "string",
+														minLength: 1,
+													},
+													durationMs: {
+														type: "integer",
+														exclusiveMinimum: 0,
+														maximum: 9_007_199_254_740_991,
+													},
+													events: {
+														type: "array",
+														items: {
+															type: "object",
+															properties: {
+																id: {
+																	type: "string",
+																	minLength: 1,
+																},
+																timeMs: {
+																	anyOf: [
+																		{
+																			type: "integer",
+																			minimum: 0,
+																			maximum: 9_007_199_254_740_991,
+																		},
+																		{
+																			type: "null",
+																		},
+																	],
+																},
+															},
+															required: ["id", "timeMs"],
+															additionalProperties: false,
+														},
+													},
+													frameKey: {
+														type: "string",
+														minLength: 1,
+													},
+													pivot: {
+														anyOf: [
+															{
+																type: "object",
+																properties: {
+																	x: {
+																		type: "number",
+																	},
+																	y: {
+																		type: "number",
+																	},
+																},
+																required: ["x", "y"],
+																additionalProperties: false,
+															},
+															{
+																type: "null",
+															},
+														],
+													},
+													region: {
+														anyOf: [
+															{
+																type: "object",
+																properties: {
+																	height: {
+																		type: "integer",
+																		exclusiveMinimum: 0,
+																		maximum: 9_007_199_254_740_991,
+																	},
+																	width: {
+																		type: "integer",
+																		exclusiveMinimum: 0,
+																		maximum: 9_007_199_254_740_991,
+																	},
+																	x: {
+																		type: "integer",
+																		minimum: 0,
+																		maximum: 9_007_199_254_740_991,
+																	},
+																	y: {
+																		type: "integer",
+																		minimum: 0,
+																		maximum: 9_007_199_254_740_991,
+																	},
+																},
+																required: ["height", "width", "x", "y"],
+																additionalProperties: false,
+															},
+															{
+																type: "null",
+															},
+														],
+													},
+												},
+												required: [
+													"assetVersionId",
+													"durationMs",
+													"events",
+													"frameKey",
+													"pivot",
+													"region",
+												],
+												additionalProperties: false,
+											},
+										},
+									},
+									required: ["direction", "frames"],
+									additionalProperties: false,
+								},
+							},
+							looping: {
+								type: "boolean",
+							},
+							name: {
+								type: "string",
+								minLength: 1,
+							},
+							playbackSpeed: {
+								type: "number",
+								exclusiveMinimum: 0,
+							},
+						},
+						required: [
+							"assetFamilyId",
+							"directions",
+							"looping",
+							"name",
+							"playbackSpeed",
+						],
+						additionalProperties: false,
+					},
+				},
+				tilesets: {
+					type: "array",
+					items: {
+						type: "object",
+						properties: {
+							assetFamilyId: {
+								type: "string",
+								minLength: 1,
+							},
+							compositeVersionId: {
+								type: "string",
+								minLength: 1,
+							},
+							tiles: {
+								type: "array",
+								items: {
+									type: "object",
+									properties: {
+										assetVersionId: {
+											type: "string",
+											minLength: 1,
+										},
+										edges: {
+											type: "object",
+											properties: {
+												east: {
+													anyOf: [
+														{
+															type: "string",
+															minLength: 1,
+														},
+														{
+															type: "null",
+														},
+													],
+												},
+												north: {
+													anyOf: [
+														{
+															type: "string",
+															minLength: 1,
+														},
+														{
+															type: "null",
+														},
+													],
+												},
+												south: {
+													anyOf: [
+														{
+															type: "string",
+															minLength: 1,
+														},
+														{
+															type: "null",
+														},
+													],
+												},
+												west: {
+													anyOf: [
+														{
+															type: "string",
+															minLength: 1,
+														},
+														{
+															type: "null",
+														},
+													],
+												},
+											},
+											required: ["east", "north", "south", "west"],
+											additionalProperties: false,
+										},
+										region: {
+											type: "object",
+											properties: {
+												height: {
+													type: "integer",
+													exclusiveMinimum: 0,
+													maximum: 9_007_199_254_740_991,
+												},
+												width: {
+													type: "integer",
+													exclusiveMinimum: 0,
+													maximum: 9_007_199_254_740_991,
+												},
+												x: {
+													type: "integer",
+													minimum: 0,
+													maximum: 9_007_199_254_740_991,
+												},
+												y: {
+													type: "integer",
+													minimum: 0,
+													maximum: 9_007_199_254_740_991,
+												},
+											},
+											required: ["height", "width", "x", "y"],
+											additionalProperties: false,
+										},
+										terrainId: {
+											anyOf: [
+												{
+													type: "string",
+													minLength: 1,
+												},
+												{
+													type: "null",
+												},
+											],
+										},
+										unitVersionId: {
+											type: "string",
+											minLength: 1,
+										},
+									},
+									required: [
+										"assetVersionId",
+										"edges",
+										"region",
+										"terrainId",
+										"unitVersionId",
+									],
+									additionalProperties: false,
+								},
+							},
+						},
+						required: ["assetFamilyId", "compositeVersionId", "tiles"],
+						additionalProperties: false,
+					},
+				},
+				uiComponents: {
+					type: "array",
+					items: {
+						type: "object",
+						properties: {
+							assetFamilyId: {
+								type: "string",
+								minLength: 1,
+							},
+							id: {
+								type: "string",
+								minLength: 1,
+							},
+							states: {
+								type: "array",
+								items: {
+									type: "object",
+									properties: {
+										assetVersionId: {
+											type: "string",
+											minLength: 1,
+										},
+										id: {
+											type: "string",
+											minLength: 1,
+										},
+										naturalSize: {
+											type: "object",
+											properties: {
+												height: {
+													type: "number",
+												},
+												width: {
+													type: "number",
+												},
+											},
+											required: ["height", "width"],
+											additionalProperties: false,
+										},
+										stretchMargins: {
+											type: "object",
+											properties: {
+												bottom: {
+													type: "number",
+												},
+												left: {
+													type: "number",
+												},
+												right: {
+													type: "number",
+												},
+												top: {
+													type: "number",
+												},
+											},
+											required: ["bottom", "left", "right", "top"],
+											additionalProperties: false,
+										},
+										textSafeArea: {
+											type: "object",
+											properties: {
+												height: {
+													type: "number",
+												},
+												width: {
+													type: "number",
+												},
+												x: {
+													type: "number",
+												},
+												y: {
+													type: "number",
+												},
+											},
+											required: ["height", "width", "x", "y"],
+											additionalProperties: false,
+										},
+									},
+									required: [
+										"assetVersionId",
+										"id",
+										"naturalSize",
+										"stretchMargins",
+										"textSafeArea",
+									],
+									additionalProperties: false,
+								},
+							},
+						},
+						required: ["assetFamilyId", "id", "states"],
+						additionalProperties: false,
+					},
+				},
+			},
+			required: ["animations", "tilesets", "uiComponents"],
+			additionalProperties: false,
+		},
 		engineNeutral: {
 			type: "boolean",
 			const: true,

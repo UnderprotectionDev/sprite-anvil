@@ -1,0 +1,42 @@
+{
+  "adapterVersion": "godot-adapter/1.0.0",
+  "bundleId": "11111111-1111-4111-8111-111111111111",
+  "bundleManifestDigest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "files": [
+    {
+      "path": "sprite_anvil/animations.json",
+      "sha256": "da34e077ab8d79489f4ab7fc32749973d0c7c73f12c365bed1fb374536f2dd22"
+    },
+    {
+      "path": "sprite_anvil/animations/walk-cycle.tres",
+      "sha256": "c62e169005f067608a461c063941791f381b9a1bf66b1c3e264e8ffab958b4eb"
+    },
+    {
+      "path": "sprite_anvil/textures/hero_idle.png",
+      "sha256": "cdf3cefe7ec6253d1cb4828ab654da6beb8a4727daac0c49dbf26bedf5887f79"
+    },
+    {
+      "path": "sprite_anvil/textures/hero_walk.png",
+      "sha256": "31dad7563f987b96edcf4a0dd6662a3ea7a89bd0c54558f34ea6017b8cfbe7c9"
+    },
+    {
+      "path": "sprite_anvil/tiles/cv-1.tres",
+      "sha256": "2c6b92283309cc5625ea9e8d7cc787a06b7deac11257125c2a48a16212063e68"
+    },
+    {
+      "path": "sprite_anvil/tilesets.json",
+      "sha256": "ce14ae7a2a47397f326fa5affa08ee86195ae37603d70803ebdea9e23e3b82c5"
+    },
+    {
+      "path": "sprite_anvil/ui.json",
+      "sha256": "51cb8f352e4936ad0ab4fe9002b2c28fb18eae2aafcfd30e25444ff56c493d9e"
+    }
+  ],
+  "profileRevisionId": "r-1",
+  "supportedGodotVersions": [
+    "4.3",
+    "4.4",
+    "4.5"
+  ],
+  "textureFilter": "nearest"
+}
