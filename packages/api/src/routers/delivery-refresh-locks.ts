@@ -42,6 +42,10 @@ function rejectionMessage(rejection: DeliveryRefreshLockRejection): string {
 			return "Some written paths are not files of the Export Bundle; Sprite Anvil only owns what the bundle wrote.";
 		case "written_digest_mismatch":
 			return "Some written files do not match the Export Bundle digests.";
+		case "observation_incomplete":
+			return "The observed folder state omits paths the previous lock or the bundle names; every one of them must be read.";
+		case "observation_not_expected":
+			return "The observed folder state names paths that are not paths of the previous lock or the bundle, or names a path twice.";
 		case "previous_lock_unavailable":
 			return "The previous Delivery Refresh Lock does not exist in the project.";
 		case "lock_version_unsupported":
@@ -130,14 +134,16 @@ export const deliveryRefreshLocksRouter = {
 	list: protectedProcedure
 		.input(deliveryRefreshLockListInputSchema)
 		.output(deliveryRefreshLockCatalogSchema)
-		.handler(async ({ context, input }) => {
-			const catalog = await getDeliveryRefreshLockStore(context).list(
-				context.session.user.id,
-				input.projectId
-			);
-			if (!catalog) {
-				throw new ORPCError("NOT_FOUND", { message: projectNotFound });
-			}
-			return catalog;
-		}),
+		.handler(({ context, input }) =>
+			withPublicationErrors(async () => {
+				const catalog = await getDeliveryRefreshLockStore(context).list(
+					context.session.user.id,
+					input.projectId
+				);
+				if (!catalog) {
+					throw new ORPCError("NOT_FOUND", { message: projectNotFound });
+				}
+				return catalog;
+			})
+		),
 };

@@ -137,3 +137,33 @@ test("a package whose contract version has an unknown major is not readable", ()
 		deliveryChangePackageSchema.safeParse({ ...pkg, report: undefined }).success
 	).toBe(false);
 });
+
+const unsafePaths = ["/etc/passwd", "../outside.png", "a\\b.png", "C:/x.png"];
+
+test("a package that names a path leaving the destination is not readable", () => {
+	const pkg = JSON.parse(renderDeliveryChangePackage(build([])));
+
+	for (const path of unsafePaths) {
+		expect(
+			deliveryChangePackageSchema.safeParse({
+				...pkg,
+				changes: [{ ...pkg.changes[0], path }],
+			}).success
+		).toBe(false);
+		expect(
+			deliveryChangePackageSchema.safeParse({
+				...pkg,
+				report: {
+					...pkg.report,
+					entries: [{ ...pkg.report.entries[0], path }],
+				},
+			}).success
+		).toBe(false);
+		expect(
+			deliveryChangePackageSchema.safeParse({
+				...pkg,
+				report: { ...pkg.report, applied: [path] },
+			}).success
+		).toBe(false);
+	}
+});

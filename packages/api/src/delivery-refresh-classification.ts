@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+	comparePaths,
+	deliveryRelativePathSchema,
+} from "./delivery-path-schemas";
 import { sha256Schema } from "./export-bundle-manifest";
 
 /**
@@ -29,7 +33,7 @@ export type DeliveryRefreshDecisionKind =
 export const deliveryRefreshDecisionSchema = z
 	.object({
 		decision: z.enum(deliveryRefreshDecisionKinds),
-		path: z.string().min(1).max(512),
+		path: deliveryRelativePathSchema,
 	})
 	.strict();
 export type DeliveryRefreshDecision = z.infer<
@@ -62,9 +66,6 @@ export interface DeliveryRefreshClassification {
 	/** Path-sorted. */
 	entries: DeliveryRefreshPathEntry[];
 }
-
-const comparePaths = (left: string, right: string): number =>
-	Number(left > right) - Number(left < right);
 
 function classifyOne(
 	lockSha256: string | null,
@@ -129,6 +130,12 @@ export function requiresDeliveryRefreshDecision(
 	return entry.class === "diverged" && entry.nextSha256 !== null;
 }
 
+/** A diverged path the user kept out of a refresh. */
+export interface DeliveryRefreshHeldPath {
+	decision: Exclude<DeliveryRefreshDecisionKind, "replace">;
+	path: string;
+}
+
 export type DeliveryRefreshOutcome = "complete" | "halted" | "partial";
 
 export interface DeliveryRefreshPlan {
@@ -137,7 +144,7 @@ export interface DeliveryRefreshPlan {
 	/** Diverged paths that still wait for a decision. Nothing is written for them. */
 	halted: DeliveryRefreshPathEntry[];
 	/** Diverged paths the user kept out of this refresh (preserve or another destination). */
-	held: DeliveryRefreshDecision[];
+	held: DeliveryRefreshHeldPath[];
 	/** Never "complete" while a path is halted or held back. */
 	outcome: DeliveryRefreshOutcome;
 }
@@ -149,7 +156,7 @@ export function planDeliveryRefresh(
 ): DeliveryRefreshPlan {
 	const decided = new Map(decisions.map((d) => [d.path, d.decision]));
 	const applied: string[] = [];
-	const held: DeliveryRefreshDecision[] = [];
+	const held: DeliveryRefreshHeldPath[] = [];
 	const halted: DeliveryRefreshPathEntry[] = [];
 	for (const entry of classification.entries) {
 		if (requiresDeliveryRefreshDecision(entry)) {

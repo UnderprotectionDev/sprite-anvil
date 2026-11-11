@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { deliveryRelativePathSchema } from "./delivery-path-schemas";
 import {
 	type DeliveryRefreshClassification,
 	type DeliveryRefreshDecision,
@@ -18,7 +19,7 @@ const majorPattern = /^(\d+)\.\d+\.\d+$/;
 const fileSchema = z
 	.object({
 		byteSize: z.number().int().positive(),
-		path: z.string().min(1),
+		path: deliveryRelativePathSchema,
 		sha256: sha256Schema,
 	})
 	.strict();
@@ -29,7 +30,7 @@ const entrySchema = z
 		decision: z.enum(deliveryRefreshDecisionKinds).nullable(),
 		lockSha256: sha256Schema.nullable(),
 		nextSha256: sha256Schema.nullable(),
-		path: z.string().min(1),
+		path: deliveryRelativePathSchema,
 		targetSha256: sha256Schema.nullable(),
 	})
 	.strict();
@@ -68,7 +69,7 @@ export const deliveryChangePackageSchema = z
 		previousLockId: z.string(),
 		report: z
 			.object({
-				applied: z.array(z.string()),
+				applied: z.array(deliveryRelativePathSchema),
 				entries: z.array(entrySchema),
 				halted: z.array(entrySchema),
 				outcome: z.enum(["complete", "halted", "partial"]),
@@ -76,7 +77,7 @@ export const deliveryChangePackageSchema = z
 					z
 						.object({
 							decision: z.enum(["other_destination", "preserve"]),
-							path: z.string(),
+							path: deliveryRelativePathSchema,
 						})
 						.strict()
 				),
@@ -106,10 +107,10 @@ export function buildDeliveryChangePackage(input: {
 		decision: decided.get(entry.path) ?? null,
 	}));
 	const heldPaths = new Set(plan.held.map((held) => held.path));
-	const byPath = new Map(bundle.files.map((file) => [file.path, file]));
+	const bundleFile = new Map(bundle.files.map((file) => [file.path, file]));
 	return {
 		changes: plan.applied.map((path) => {
-			const { byteSize, sha256 } = byPath.get(path) as {
+			const { byteSize, sha256 } = bundleFile.get(path) as {
 				byteSize: number;
 				sha256: string;
 			};
@@ -143,10 +144,7 @@ export function buildDeliveryChangePackage(input: {
 				plan.halted.some((halted) => halted.path === entry.path)
 			),
 			outcome: plan.outcome,
-			preserved: plan.held.map((held) => ({
-				decision: held.decision as "other_destination" | "preserve",
-				path: held.path,
-			})),
+			preserved: plan.held,
 		},
 	};
 }

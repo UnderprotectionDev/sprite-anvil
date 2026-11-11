@@ -13,6 +13,8 @@ export type DeliveryRefreshLockRejection =
 	| { reason: "lock_malformed" }
 	| { reason: "lock_version_unsupported"; version: string }
 	| { reason: "no_files_applied" }
+	| { paths: string[]; reason: "observation_incomplete" }
+	| { paths: string[]; reason: "observation_not_expected" }
 	| { reason: "previous_lock_unavailable" }
 	| { paths: string[]; reason: "written_path_not_expected" }
 	| { paths: string[]; reason: "written_digest_mismatch" }
