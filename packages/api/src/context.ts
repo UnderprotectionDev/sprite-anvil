@@ -13,6 +13,7 @@ import type { BackgroundScrollingTestStore } from "./background-scrolling-tests"
 import type { CollectionStore } from "./collections";
 import type { ProjectContextScopeStore } from "./context-scopes";
 import type { DeliveryTargetStore } from "./delivery-planning-store";
+import type { DeliveryRefreshLockStore } from "./delivery-refresh-lock-store";
 import type { DependencyRevalidationStore } from "./dependency-revalidation";
 import type { DirectionalReviewStore } from "./directional-reviews";
 import type { ExportBundleStore } from "./export-bundle-store";
@@ -79,6 +80,7 @@ export interface Context {
 	collectionStore: CollectionStore;
 	createSourceMetadataMappingProposal?: SourceMetadataMappingProposalCreator;
 	db: Database;
+	deliveryRefreshLockStore?: DeliveryRefreshLockStore;
 	deliveryTargetStore?: DeliveryTargetStore;
 	dependencyRevalidationStore?: DependencyRevalidationStore;
 	directionalReviewStore?: DirectionalReviewStore;
