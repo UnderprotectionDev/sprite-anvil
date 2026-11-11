@@ -210,6 +210,15 @@ async function uploadEvidenceFile(
 		await storage.delete(objectKey);
 		return c.json(serializePublicApiError("Not found"), 404);
 	}
+	if (result.status === "rejected") {
+		await storage.delete(objectKey);
+		return c.json(
+			serializePublicApiError(
+				"Runtime validation evidence is closed once the outcome is final"
+			),
+			409
+		);
+	}
 	if (result.status === "replayed") {
 		// The first upload's object is the evidence; this attempt's copy is a duplicate.
 		await storage.delete(objectKey);

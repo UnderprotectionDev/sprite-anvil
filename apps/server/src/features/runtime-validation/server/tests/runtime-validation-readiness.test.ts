@@ -2,6 +2,8 @@ import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
 import type { Context } from "@sprite-anvil/api/context";
 import { appRouter } from "@sprite-anvil/api/routers/index";
+import type { RuntimeValidationRecord } from "@sprite-anvil/api/runtime-validation";
+import { evaluateRuntimeValidationCriterion } from "@sprite-anvil/api/runtime-validation-readiness";
 import type { Database } from "@sprite-anvil/db";
 import { createRuntimeValidationStore } from "../runtime-validation-store";
 import { createMemoryRuntimeValidationStorage } from "./memory-runtime-validation-storage";
@@ -71,8 +73,23 @@ function setup() {
 				deliveryTargets: [{ revisions }],
 			}),
 	};
+	// Only the bundle lookup is used: the bundle exists in the project or it does not.
+	const exportBundleStore = {
+		get: (
+			_userId: string,
+			requestedProjectId: string,
+			requestedBundleId: string
+		) =>
+			Promise.resolve(
+				requestedProjectId === projectId &&
+					[bundleId, otherBundleId].includes(requestedBundleId)
+					? { id: requestedBundleId }
+					: null
+			),
+	};
 	const context = {
 		deliveryTargetStore,
+		exportBundleStore,
 		runtimeValidationStore,
 		session: { user: { id: userId } },
 	} as unknown as Context;
@@ -233,4 +250,66 @@ test("an unknown revision or a project the user cannot open reaches nothing", as
 	await expect(
 		readiness({}, { ...context, session: null } as unknown as Context)
 	).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+});
+
+test("readiness for a bundle that is not in the project reaches nothing", async () => {
+	const { readiness } = setup();
+	await expect(
+		readiness({ bundleId: "5b1f0f0e-8f4e-4c36-9a53-0b0b6a2f2b99" })
+	).rejects.toMatchObject({ code: "NOT_FOUND" });
+});
+
+const criterion = {
+	environments: [environmentA],
+	freshness: "not_superseded" as const,
+};
+
+let recordCount = 0;
+function makeRecord(
+	overrides: Partial<RuntimeValidationRecord>
+): RuntimeValidationRecord {
+	recordCount += 1;
+	return {
+		...environmentA,
+		bundleId,
+		createdAt: new Date(
+			Date.UTC(2026, 10, 11, 10, 0, recordCount)
+		).toISOString(),
+		decisions: [],
+		evidence: [],
+		failureSource: null,
+		id: `00000000-0000-4000-8000-${String(recordCount).padStart(12, "0")}`,
+		manifestDigest: "d".repeat(64),
+		outcome: null,
+		projectId,
+		supersedesRecordId: null,
+		...overrides,
+	} as RuntimeValidationRecord;
+}
+
+test("a newer pending record that supersedes a Pass blocks the target", () => {
+	const pass = makeRecord({ outcome: "pass" });
+	const pendingRetest = makeRecord({ supersedesRecordId: pass.id });
+	expect(
+		evaluateRuntimeValidationCriterion(criterion, bundleId, [
+			pass,
+			pendingRetest,
+		]).environments[0]
+	).toMatchObject({ blocker: "decision_pending", recordId: pendingRetest.id });
+});
+
+test("a Pass stays current while nothing in its bundle and environment supersedes it", () => {
+	const pass = makeRecord({ outcome: "pass" });
+	// records of another environment or bundle, even when newer, never touch this Pass
+	const unrelated = [
+		makeRecord({ gameBuild: "build-B" }),
+		makeRecord({ bundleId: otherBundleId }),
+		makeRecord({ bundleId: otherBundleId, supersedesRecordId: pass.id }),
+	];
+	expect(
+		evaluateRuntimeValidationCriterion(criterion, bundleId, [
+			pass,
+			...unrelated,
+		]).environments[0]
+	).toMatchObject({ blocker: null, recordId: pass.id, satisfied: true });
 });
