@@ -1,4 +1,8 @@
 import {
+	optionalRuntimeEnvironmentText,
+	requiredRuntimeEnvironmentText,
+} from "@sprite-anvil/api/runtime-environment";
+import {
 	runtimeValidationEvidenceFileLimitBytes,
 	runtimeValidationEvidenceKindSchema,
 	runtimeValidationEvidenceSourceSchema,
@@ -10,14 +14,11 @@ import {
 } from "@sprite-anvil/api/runtime-validation-decisions";
 import { z } from "zod";
 
-const requiredText = (message: string) =>
-	z.string().trim().min(1, message).max(200, "Use at most 200 characters.");
-
 export const runtimeValidationRecordFormSchema = z.object({
-	adapterVersion: z.string().trim().max(200, "Use at most 200 characters."),
+	adapterVersion: optionalRuntimeEnvironmentText(),
 	bundleId: z.string().min(1, "Choose the Export Bundle that was tested."),
-	engineVersion: requiredText("Enter the engine version."),
-	gameBuild: requiredText("Enter the game build."),
+	engineVersion: requiredRuntimeEnvironmentText("Enter the engine version."),
+	gameBuild: requiredRuntimeEnvironmentText("Enter the game build."),
 	/** "" when this is not a retest or fix of an earlier record. */
 	supersedesRecordId: z.string(),
 });

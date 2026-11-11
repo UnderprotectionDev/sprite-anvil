@@ -218,16 +218,49 @@ test("a Pass is invalidated by a changed environment or a later record for the s
 		"no_record"
 	);
 
-	// a retest of the same environment supersedes the Pass until it is decided
-	const retest = await create({ supersedesRecordId: pass.id });
+	// a Pass cannot be superseded: only a failure with a confirmed source or an Inconclusive record can
+	await expect(create({ supersedesRecordId: pass.id })).rejects.toMatchObject({
+		code: "BAD_REQUEST",
+	});
+	expect((await readiness()).ready).toBe(true);
+
+	// a later record that does not supersede it is the latest one and decides
+	const later = await create();
+	expect((await readiness()).environments[0]).toMatchObject({
+		blocker: "decision_pending",
+		recordId: later.id,
+	});
+	await decide(later.id, "fail");
+	expect((await readiness()).environments[0]?.blocker).toBe(
+		"failed_source_unknown"
+	);
+});
+
+test("a Source Unknown failure cannot be hidden by a superseding Pass", async () => {
+	const { create, decide, readiness } = setup();
+	const failed = await create();
+	await decide(failed.id, "fail");
+	await expect(create({ supersedesRecordId: failed.id })).rejects.toMatchObject(
+		{ code: "BAD_REQUEST" }
+	);
+	expect(await readiness()).toMatchObject({
+		environments: [{ blocker: "failed_source_unknown", recordId: failed.id }],
+		ready: false,
+	});
+});
+
+test("a retest of a classified failure supersedes it and decides readiness", async () => {
+	const { confirm, create, decide, readiness } = setup();
+	const failed = await create();
+	await decide(failed.id, "fail");
+	await confirm(failed.id, "asset_content");
+	const retest = await create({ supersedesRecordId: failed.id });
 	expect((await readiness()).environments[0]).toMatchObject({
 		blocker: "decision_pending",
 		recordId: retest.id,
 	});
-	await decide(retest.id, "fail");
-	expect((await readiness()).environments[0]?.blocker).toBe(
-		"failed_source_unknown"
-	);
+	await decide(retest.id, "pass");
+	expect((await readiness()).ready).toBe(true);
 });
 
 test("a failure blocks only this target's use: other bundles and other targets keep their own state", async () => {

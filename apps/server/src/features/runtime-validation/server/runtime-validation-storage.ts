@@ -27,7 +27,15 @@ export interface StoredRuntimeValidationDecision {
 	projectId: string;
 	recordId: string;
 	requestDigest: string;
+	/** Assigned by the storage in insert order; decisions are read in this order. */
+	sequence: number;
 }
+
+/** A decision as inserted; the storage assigns its `sequence`. */
+export type NewRuntimeValidationDecision = Omit<
+	StoredRuntimeValidationDecision,
+	"sequence"
+>;
 
 export interface StoredRuntimeValidationEvidence {
 	byteSize: number | null;
@@ -50,6 +58,11 @@ export type InsertRuntimeValidationResult =
 	/** The id already exists. */
 	| { status: "conflict" };
 
+export type InsertRuntimeValidationEvidenceResult =
+	| InsertRuntimeValidationResult
+	/** The record already has an outcome decision, so its evidence is closed. */
+	| { status: "closed" };
+
 /** The persistent side of Runtime Validation Records. Rows are only ever inserted. */
 export interface RuntimeValidationStorage {
 	findDecision: (
@@ -66,15 +79,19 @@ export interface RuntimeValidationStorage {
 	) => Promise<StoredRuntimeValidationRecord | null>;
 	/** A conflict is a taken id or, for an outcome, an outcome the record already has. */
 	insertDecision: (
-		decision: StoredRuntimeValidationDecision
+		decision: NewRuntimeValidationDecision
 	) => Promise<InsertRuntimeValidationResult>;
+	/**
+	 * Closed, atomically with the check, when the record has an outcome decision:
+	 * evidence and the outcome cannot both land after each other's check.
+	 */
 	insertEvidence: (
 		evidence: StoredRuntimeValidationEvidence
-	) => Promise<InsertRuntimeValidationResult>;
+	) => Promise<InsertRuntimeValidationEvidenceResult>;
 	insertRecord: (
 		record: StoredRuntimeValidationRecord
 	) => Promise<InsertRuntimeValidationResult>;
-	/** In the order made. */
+	/** In the order made (by `sequence`). */
 	listDecisions: (
 		projectId: string,
 		recordIds: string[]

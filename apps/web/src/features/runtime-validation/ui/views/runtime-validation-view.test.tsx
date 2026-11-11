@@ -331,3 +331,89 @@ test("a Fail shows Source Unknown as blocking and the user confirms the source",
 		expect.objectContaining({ failureSource: "asset_content", recordId })
 	);
 });
+
+test("the retest picker lists only records that can be superseded", async () => {
+	const withState = (
+		id: string,
+		gameBuild: string,
+		state: { failureSource?: string | null; outcome?: string | null }
+	) => ({ ...record([], state), gameBuild, id });
+	fakeApi.records = [
+		withState("a0000000-0000-4000-8000-000000000001", "build-pending", {}),
+		withState("a0000000-0000-4000-8000-000000000002", "build-pass", {
+			outcome: "pass",
+		}),
+		withState("a0000000-0000-4000-8000-000000000003", "build-unknown", {
+			failureSource: "source_unknown",
+			outcome: "fail",
+		}),
+		withState("a0000000-0000-4000-8000-000000000004", "build-classified", {
+			failureSource: "asset_content",
+			outcome: "fail",
+		}),
+		withState("a0000000-0000-4000-8000-000000000005", "build-inconclusive", {
+			outcome: "inconclusive",
+		}),
+	];
+	renderView();
+
+	const picker = await screen.findByLabelText(
+		"Retest or fix of an earlier record (optional)"
+	);
+	const labels = within(picker)
+		.getAllByRole("option")
+		.map((option) => option.textContent ?? "");
+	expect(labels).toHaveLength(3);
+	expect(labels[1]).toContain("build-classified");
+	expect(labels[2]).toContain("build-inconclusive");
+});
+
+test("an invalid field is marked invalid and points at its error message", async () => {
+	const user = userEvent.setup();
+	renderView();
+	await user.click(
+		await screen.findByRole("button", {
+			name: "Save Runtime Validation Record",
+		})
+	);
+
+	const build = await screen.findByLabelText("Game build");
+	expect(build).toHaveAttribute("aria-invalid", "true");
+	const errorId = build.getAttribute("aria-describedby");
+	expect(errorId).toBeTruthy();
+	expect(document.getElementById(errorId ?? "")).toHaveTextContent(
+		"Enter the game build."
+	);
+	expect(screen.getByLabelText("Export Bundle")).toHaveAttribute(
+		"aria-invalid",
+		"true"
+	);
+	// a valid field carries neither
+	const adapter = screen.getByLabelText("Adapter version (optional)");
+	expect(adapter).not.toHaveAttribute("aria-invalid");
+	expect(adapter).not.toHaveAttribute("aria-describedby");
+});
+
+test("the decision and evidence forms mark their invalid fields too", async () => {
+	const user = userEvent.setup();
+	fakeApi.records = [record()];
+	renderView();
+
+	await user.click(
+		await screen.findByRole("button", { name: "Finalize outcome" })
+	);
+	const outcome = await screen.findByLabelText("Outcome", {
+		selector: "select",
+	});
+	expect(outcome).toHaveAttribute("aria-invalid", "true");
+	expect(
+		document.getElementById(outcome.getAttribute("aria-describedby") ?? "")
+	).toHaveTextContent("Choose the outcome of this test.");
+
+	await user.click(screen.getByRole("button", { name: "Add evidence" }));
+	const text = await screen.findByLabelText("Observation or test result text");
+	expect(text).toHaveAttribute("aria-invalid", "true");
+	expect(
+		document.getElementById(text.getAttribute("aria-describedby") ?? "")
+	).toHaveTextContent("Write the observation.");
+});

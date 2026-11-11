@@ -1,4 +1,5 @@
 import type {
+	NewRuntimeValidationDecision,
 	RuntimeValidationStorage,
 	StoredRuntimeValidationDecision,
 	StoredRuntimeValidationEvidence,
@@ -12,6 +13,7 @@ export function createMemoryRuntimeValidationStorage(): RuntimeValidationStorage
 	const records = new Map<string, StoredRuntimeValidationRecord>();
 	const evidence = new Map<string, StoredRuntimeValidationEvidence>();
 	const decisions = new Map<string, StoredRuntimeValidationDecision>();
+	let decisionSequence = 0;
 
 	return {
 		findDecision: (projectId, decisionId) => {
@@ -20,7 +22,7 @@ export function createMemoryRuntimeValidationStorage(): RuntimeValidationStorage
 				found?.projectId === projectId ? structuredClone(found) : null
 			);
 		},
-		insertDecision: (row) => {
+		insertDecision: (row: NewRuntimeValidationDecision) => {
 			const secondOutcome =
 				row.kind === "outcome" &&
 				[...decisions.values()].some(
@@ -30,7 +32,11 @@ export function createMemoryRuntimeValidationStorage(): RuntimeValidationStorage
 			if (decisions.has(row.id) || secondOutcome) {
 				return Promise.resolve({ status: "conflict" });
 			}
-			decisions.set(row.id, structuredClone(row));
+			decisionSequence += 1;
+			decisions.set(row.id, {
+				...structuredClone(row),
+				sequence: decisionSequence,
+			});
 			return Promise.resolve({ status: "inserted" });
 		},
 		listDecisions: (projectId, recordIds) =>
@@ -40,6 +46,8 @@ export function createMemoryRuntimeValidationStorage(): RuntimeValidationStorage
 						(row) =>
 							row.projectId === projectId && recordIds.includes(row.recordId)
 					)
+					// Deliberately not in insert order: the store must sort by sequence.
+					.sort((left, right) => right.id.localeCompare(left.id))
 					.map((row) => structuredClone(row))
 			),
 		findEvidence: (projectId, evidenceId) => {
@@ -55,6 +63,13 @@ export function createMemoryRuntimeValidationStorage(): RuntimeValidationStorage
 			);
 		},
 		insertEvidence: (row) => {
+			const outcomeDecided = [...decisions.values()].some(
+				(existing) =>
+					existing.kind === "outcome" && existing.recordId === row.recordId
+			);
+			if (outcomeDecided) {
+				return Promise.resolve({ status: "closed" });
+			}
 			if (evidence.has(row.id)) {
 				return Promise.resolve({ status: "conflict" });
 			}

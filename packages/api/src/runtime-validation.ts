@@ -2,6 +2,7 @@ import { z } from "zod";
 import { assetSourceFileNameSchema } from "./asset-file-contracts";
 import { sha256Schema } from "./export-bundle-manifest";
 import { idempotencyKeySchema } from "./record-publication";
+import { requiredRuntimeEnvironmentText } from "./runtime-environment";
 import {
 	runtimeValidationDecisionSchema,
 	runtimeValidationFailureSourceSchema,
@@ -51,7 +52,7 @@ export const runtimeValidationFileEvidenceKindSchema = z.enum([
 	"test_result",
 ]);
 
-const requiredTextSchema = z.string().trim().min(1).max(200);
+const requiredTextSchema = requiredRuntimeEnvironmentText();
 
 export const runtimeValidationRecordCreateInputSchema = z
 	.object({

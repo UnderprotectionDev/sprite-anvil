@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+	bigint,
 	check,
 	foreignKey,
 	integer,
@@ -109,13 +110,17 @@ export const runtimeValidationEvidence = pgTable(
  * (Pass, Fail or Inconclusive) or a failure-source classification. Only the
  * user writes these. A record has at most one outcome decision, which is final;
  * a Fail without a failure-source row is Source Unknown, and each
- * reclassification appends another row (the latest wins). Rows are inserted
- * once, never updated.
+ * reclassification appends another row (the latest by `sequence` wins). Rows
+ * are inserted once, never updated.
  */
 export const runtimeValidationDecisions = pgTable(
 	"runtime_validation_decisions",
 	{
 		id: text("id").primaryKey(),
+		/** Filled by the database in insert order; the one order decisions are read in, since timestamps can tie. */
+		sequence: bigint("sequence", { mode: "number" })
+			.generatedAlwaysAsIdentity()
+			.notNull(),
 		projectId: text("project_id").notNull(),
 		recordId: text("record_id").notNull(),
 		kind: text("kind").$type<"outcome" | "failure_source">().notNull(),

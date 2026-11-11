@@ -4,6 +4,7 @@ import {
 	rightsEvidenceSubjectSchema,
 } from "@sprite-anvil/api/delivery-planning-inputs";
 import { rightsRecordStateSchema } from "@sprite-anvil/api/rights-records";
+import { optionalRuntimeEnvironmentText } from "@sprite-anvil/api/runtime-environment";
 import { z } from "zod";
 
 export const familyChoiceSchema = z.object({
@@ -25,10 +26,11 @@ function explicitChoice<T extends z.ZodType>(schema: T, message: string) {
 		.refine((value) => value !== "", message);
 }
 
+// Blank is allowed here; the criterion check below asks for the required two only when it applies.
 const runtimeEnvironmentChoiceSchema = z.object({
-	adapterVersion: z.string().max(200, "Use at most 200 characters."),
-	engineVersion: z.string().max(200, "Use at most 200 characters."),
-	gameBuild: z.string().max(200, "Use at most 200 characters."),
+	adapterVersion: optionalRuntimeEnvironmentText(),
+	engineVersion: optionalRuntimeEnvironmentText(),
+	gameBuild: optionalRuntimeEnvironmentText(),
 });
 
 export const deliveryTargetFormSchema = z
