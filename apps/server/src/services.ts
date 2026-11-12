@@ -50,8 +50,11 @@ import { createPortraitIdentityReviewStore } from "./features/portrait-marketing
 import { createProductionExperimentStore } from "./features/production-experiments/server/production-experiment-store";
 import { createManagedSnapshotStore } from "./features/production-provenance/server/managed-snapshot-store";
 import { createProductionRecipeStore } from "./features/production-recipes/server/production-recipe-store";
+import { createDatabaseProjectArchiveRestoreStorage } from "./features/project-archives/server/database-project-archive-restore-storage";
 import { createDatabaseProjectArchiveStorage } from "./features/project-archives/server/database-project-archive-storage";
+import { createObjectFileCopier } from "./features/project-archives/server/object-file-copier";
 import { createObjectFileVerifier } from "./features/project-archives/server/object-file-verifier";
+import { createProjectArchiveRestoreStore } from "./features/project-archives/server/project-archive-restore-store";
 import { createProjectArchiveSourceReader } from "./features/project-archives/server/project-archive-source-reader";
 import { createProjectArchiveStore } from "./features/project-archives/server/project-archive-store";
 import { createProjectContextStore } from "./features/project-context/server/project-context-store";
@@ -198,6 +201,17 @@ export const projectArchiveStore = createProjectArchiveStore(db, {
 		? createObjectFileVerifier(archiveObjectStorage)
 		: undefined,
 });
+/** Restoring copies files, so it needs object storage; without it restore is unavailable. */
+export const projectArchiveRestoreStore = archiveObjectStorage
+	? createProjectArchiveRestoreStore(db, {
+			archives: createDatabaseProjectArchiveStorage(db),
+			files: {
+				copy: createObjectFileCopier(archiveObjectStorage),
+				verify: createObjectFileVerifier(archiveObjectStorage),
+			},
+			storage: createDatabaseProjectArchiveRestoreStorage(db),
+		})
+	: undefined;
 export const runtimeValidationStore = createRuntimeValidationStore(db, {
 	getBundle: (userId, projectId, bundleId) =>
 		exportBundleStore.get(userId, projectId, bundleId),
