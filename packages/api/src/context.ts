@@ -30,6 +30,7 @@ import type {
 	GenerationPackageStore,
 	PixelDraftCoordinateSpace,
 } from "./generation-packages";
+import type { HistoricalRiskNoticeStore } from "./historical-risk-notices";
 import type { IconFamilyReviewStore } from "./icon-family-reviews";
 import type { ImportInboxStore } from "./import-inbox";
 import type { MarketingUsageReviewStore } from "./marketing-usage-reviews";
@@ -95,6 +96,7 @@ export interface Context {
 	fulfilmentMappingStore?: FulfilmentMappingStore;
 	gameplayMetadataStore?: GameplayMetadataStore;
 	generationPackageStore?: GenerationPackageStore;
+	historicalRiskNoticeStore?: HistoricalRiskNoticeStore;
 	iconFamilyReviewStore?: IconFamilyReviewStore;
 	importInboxStore?: ImportInboxStore;
 	marketingUsageReviewStore?: MarketingUsageReviewStore;

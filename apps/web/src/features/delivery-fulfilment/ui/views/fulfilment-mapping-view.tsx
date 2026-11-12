@@ -10,6 +10,7 @@ import { useIdempotentSubmit } from "../../hooks/use-idempotent-submit";
 import { usePrepareFulfilmentMapping } from "../../hooks/use-prepare-fulfilment-mapping";
 import { DeliveryFulfilmentList } from "../components/delivery-fulfilment-list";
 import { FulfilmentMappingDraftPanel } from "../components/fulfilment-mapping-draft";
+import { HistoricalRiskNoticeList } from "../components/historical-risk-notice-list";
 import { FulfilmentFinalizeForm } from "../forms/fulfilment-finalize-form";
 
 function TargetMapping({
@@ -29,6 +30,12 @@ function TargetMapping({
 	});
 	const fulfilments = useQuery({
 		...orpc.deliveryFulfilment.listFulfilments.queryOptions({
+			input: { deliveryTargetId, projectId },
+		}),
+		meta: { suppressGlobalErrorToast: true },
+	});
+	const notices = useQuery({
+		...orpc.historicalRiskNotices.list.queryOptions({
 			input: { deliveryTargetId, projectId },
 		}),
 		meta: { suppressGlobalErrorToast: true },
@@ -98,6 +105,23 @@ function TargetMapping({
 				) : null}
 				{fulfilments.isSuccess ? (
 					<DeliveryFulfilmentList fulfilments={fulfilments.data.fulfilments} />
+				) : null}
+			</section>
+			<section aria-label="Historical Risk Notices" className="space-y-3">
+				<h2 className="font-semibold text-lg">Historical Risk Notices</h2>
+				{notices.isPending ? (
+					<p aria-live="polite" role="status">
+						Loading Historical Risk Notices…
+					</p>
+				) : null}
+				{notices.isError ? (
+					<LoadErrorAlert
+						message="Historical Risk Notices could not be loaded."
+						onRetry={() => void notices.refetch()}
+					/>
+				) : null}
+				{notices.isSuccess ? (
+					<HistoricalRiskNoticeList notices={notices.data.notices} />
 				) : null}
 			</section>
 		</div>

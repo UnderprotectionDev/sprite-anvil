@@ -25,6 +25,7 @@ export * from "./family-readiness";
 export * from "./gameplay-metadata";
 export * from "./generation-packages";
 export * from "./historical-compositions";
+export * from "./historical-risk-notices";
 export * from "./icon-family-reviews";
 export * from "./import-inbox";
 export * from "./marketing-usage-reviews";
