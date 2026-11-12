@@ -18,23 +18,20 @@ import {
 import { protectedProcedure } from "../index";
 import { withPublicationErrors } from "../record-publication";
 
-function getStore(context: Context) {
-	if (!context.fulfilmentMappingStore) {
+function requireStore<Store>(store: Store | undefined): Store {
+	if (!store) {
 		throw new ORPCError("INTERNAL_SERVER_ERROR", {
 			message: "Delivery Fulfilment storage is unavailable.",
 		});
 	}
-	return context.fulfilmentMappingStore;
+	return store;
 }
 
-function getFulfilmentStore(context: Context) {
-	if (!context.deliveryFulfilmentStore) {
-		throw new ORPCError("INTERNAL_SERVER_ERROR", {
-			message: "Delivery Fulfilment storage is unavailable.",
-		});
-	}
-	return context.deliveryFulfilmentStore;
-}
+const getMappingStore = (context: Context) =>
+	requireStore(context.fulfilmentMappingStore);
+
+const getFulfilmentStore = (context: Context) =>
+	requireStore(context.deliveryFulfilmentStore);
 
 const fulfilmentNotFound = "Delivery Fulfilment not found.";
 const finalizeRejections = {
@@ -44,6 +41,8 @@ const finalizeRejections = {
 		"The mapping has requirements that no Export Bundle meets yet; a Delivery Fulfilment must cover every requirement.",
 	no_active_revision:
 		"This Delivery Target has no activated revision, so nothing can be fulfilled.",
+	no_requirements:
+		"The mapping has no requirements, so a Delivery Fulfilment would cover nothing.",
 	revision_changed:
 		"The mapping draft belongs to a revision that is no longer the active revision. Prepare a new mapping.",
 	target_not_ready:
@@ -58,6 +57,8 @@ const draftNotFound = "Fulfilment mapping draft not found.";
 const rejections = {
 	no_active_revision:
 		"This Delivery Target has no activated revision, so there is nothing to map.",
+	no_requirements:
+		"The active revision has no required items, so there is nothing to map.",
 	target_not_ready:
 		"Only a Ready Delivery Target can have a mapping prepared; resolve its Readiness Plan blockers first.",
 } as const;
@@ -129,7 +130,10 @@ export const deliveryFulfilmentRouter = {
 		.input(fulfilmentMappingGetInputSchema)
 		.output(fulfilmentMappingDraftSchema)
 		.handler(async ({ context, input }) => {
-			const draft = await getStore(context).get(context.session.user.id, input);
+			const draft = await getMappingStore(context).get(
+				context.session.user.id,
+				input
+			);
 			if (!draft) {
 				throw new ORPCError("NOT_FOUND", { message: draftNotFound });
 			}
@@ -139,7 +143,10 @@ export const deliveryFulfilmentRouter = {
 		.input(fulfilmentMappingListInputSchema)
 		.output(fulfilmentMappingDraftListSchema)
 		.handler(async ({ context, input }) => {
-			const list = await getStore(context).list(context.session.user.id, input);
+			const list = await getMappingStore(context).list(
+				context.session.user.id,
+				input
+			);
 			if (!list) {
 				throw new ORPCError("NOT_FOUND", { message: targetNotFound });
 			}
@@ -160,7 +167,7 @@ export const deliveryFulfilmentRouter = {
 		)
 		.handler(({ context, input }) =>
 			withPublicationErrors(async () => {
-				const result = await getStore(context).prepare(
+				const result = await getMappingStore(context).prepare(
 					context.session.user.id,
 					input
 				);

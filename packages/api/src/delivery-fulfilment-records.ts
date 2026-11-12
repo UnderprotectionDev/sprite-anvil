@@ -98,6 +98,7 @@ export type FulfilmentFinalizeRejection =
 	| "invalid_selection"
 	| "missing_requirements"
 	| "no_active_revision"
+	| "no_requirements"
 	| "revision_changed"
 	| "target_not_ready"
 	| "unresolved_conflicts";

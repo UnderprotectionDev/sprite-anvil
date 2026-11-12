@@ -5,8 +5,8 @@ import {
 import {
 	requirementStatusHints,
 	requirementStatusLabels,
-	shortId,
 } from "../../lib/fulfilment-mapping-labels";
+import { shortId } from "../../lib/short-id";
 
 function RequirementRow({
 	requirement,

@@ -12,7 +12,7 @@ import { useForm } from "@tanstack/react-form";
 import { type SyntheticEvent, useRef, useState } from "react";
 import { errorCodeOf } from "@/utils/error-code";
 import { useFinalizeFulfilment } from "../../hooks/use-finalize-fulfilment";
-import { shortId } from "../../lib/fulfilment-mapping-labels";
+import { shortId } from "../../lib/short-id";
 import { fulfilmentFinalizeFormSchema } from "../../schemas";
 
 function messagesOf(errors: unknown[]) {

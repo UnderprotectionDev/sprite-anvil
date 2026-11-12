@@ -1,5 +1,5 @@
 import type { DeliveryFulfilment } from "@sprite-anvil/api/delivery-fulfilment-records";
-import { shortId } from "../../lib/fulfilment-mapping-labels";
+import { shortId } from "../../lib/short-id";
 
 /** The immutable Delivery Fulfilments of a target, newest first; the first of a revision is current and the rest stay as history. */
 export function DeliveryFulfilmentList({

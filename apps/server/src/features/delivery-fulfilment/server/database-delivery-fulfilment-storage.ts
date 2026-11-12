@@ -107,31 +107,28 @@ export function createDatabaseDeliveryFulfilmentStorage(
 					revisionId: fulfilment.revisionId,
 					revisionNumber: fulfilment.revisionNumber,
 				});
-				if (fulfilment.requirements.length === 0) {
-					await header;
-				} else {
-					await db.batch([
-						header,
-						db.insert(deliveryFulfilmentRequirements).values(
-							fulfilment.requirements.map((requirement, position) => ({
-								assetFamilyId: requirement.assetFamilyId,
-								assetFamilyName: requirement.assetFamilyName,
-								assetVersionIds: requirement.assetVersionIds,
-								bundleId: requirement.bundleId,
-								fulfilmentId: fulfilment.id,
-								id: `${fulfilment.id}:${position}`,
-								itemId: requirement.itemId,
-								itemKind: requirement.itemKind,
-								itemName: requirement.itemName,
-								manifestDigest: requirement.manifestDigest,
-								position,
-								projectId: fulfilment.projectId,
-								requiredSetRevisionId: requirement.requiredSetRevisionId,
-								resolution: requirement.resolution,
-							}))
-						),
-					]);
-				}
+				// The store never writes an empty Fulfilment, so the rows insert is never empty.
+				await db.batch([
+					header,
+					db.insert(deliveryFulfilmentRequirements).values(
+						fulfilment.requirements.map((requirement, position) => ({
+							assetFamilyId: requirement.assetFamilyId,
+							assetFamilyName: requirement.assetFamilyName,
+							assetVersionIds: requirement.assetVersionIds,
+							bundleId: requirement.bundleId,
+							fulfilmentId: fulfilment.id,
+							id: `${fulfilment.id}:${position}`,
+							itemId: requirement.itemId,
+							itemKind: requirement.itemKind,
+							itemName: requirement.itemName,
+							manifestDigest: requirement.manifestDigest,
+							position,
+							projectId: fulfilment.projectId,
+							requiredSetRevisionId: requirement.requiredSetRevisionId,
+							resolution: requirement.resolution,
+						}))
+					),
+				]);
 				return { status: "inserted" };
 			} catch (error) {
 				if (hasErrorCode(error, uniqueViolationCode)) {

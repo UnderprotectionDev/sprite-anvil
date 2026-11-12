@@ -7,6 +7,7 @@ import { createFulfilmentMappingStore } from "../fulfilment-mapping-store";
 import { createMemoryFulfilmentMappingStorage } from "./memory-fulfilment-mapping-storage";
 
 const deliveryStatusText = /delivered|deliveryStatus/;
+const noRequiredItemsText = /no required items/i;
 const userId = "user-1";
 const projectId = "7a1f0f0e-8f4e-4c36-9a53-0b0b6a2f2a01";
 const otherProjectId = "7a1f0f0e-8f4e-4c36-9a53-0b0b6a2f2a02";
@@ -77,6 +78,7 @@ function setup(
 		activeRevision?: boolean;
 		bundles?: ReturnType<typeof fullBundle>[];
 		hasAccess?: boolean;
+		noRequirements?: boolean;
 		ready?: boolean;
 	} = {}
 ) {
@@ -89,8 +91,11 @@ function setup(
 	];
 	let tick = 0;
 	const storage = createMemoryFulfilmentMappingStorage();
+	const activeRevision = options.noRequirements
+		? { ...revision, families: [] }
+		: revision;
 	const target = {
-		activeRevision: options.activeRevision === false ? null : revision,
+		activeRevision: options.activeRevision === false ? null : activeRevision,
 		drafts: [],
 		id: targetId,
 		name: "Demo",
@@ -261,6 +266,15 @@ test("preparing creates no Delivery Fulfilment and no delivery status", async ()
 test("refuses a target that is not ready", async () => {
 	const { list, prepare } = setup({ ready: false });
 	await expect(prepare()).rejects.toMatchObject({ code: "CONFLICT" });
+	expect((await list()).drafts).toEqual([]);
+});
+
+test("refuses a revision with no requirements instead of proposing an empty mapping", async () => {
+	const { list, prepare } = setup({ noRequirements: true });
+	await expect(prepare()).rejects.toMatchObject({
+		code: "CONFLICT",
+		message: expect.stringMatching(noRequiredItemsText),
+	});
 	expect((await list()).drafts).toEqual([]);
 });
 

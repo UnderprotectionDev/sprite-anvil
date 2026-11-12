@@ -27,6 +27,7 @@ const staleText = /no longer the active revision/;
 const noActiveText = /no activated revision/;
 const invalidSelectionText = /selection/i;
 const idempotencyText = /idempotency/i;
+const noRequirementsText = /no requirements/i;
 
 const item = (id: string, kind = "state") => ({
 	assetRecordIds: ["rec-1"],
@@ -216,6 +217,7 @@ function setup(
 				{ deliveryTargetId, projectId },
 				{ context: context() }
 			),
+		mappingStorage,
 		prepare,
 		state,
 		storage,
@@ -307,6 +309,29 @@ test("a missing requirement blocks finalizing even when every conflict is resolv
 		message: expect.stringMatching(missingText),
 	});
 	expect((await env.list()).fulfilments).toEqual([]);
+});
+
+test("a draft with no requirements cannot finalize, because an empty Fulfilment would deliver nothing", async () => {
+	const env = setup();
+	const emptyId = "6c1f0f0e-8f4e-4c36-9a53-0b0b6a2f2c01";
+	await env.mappingStorage.insertDraft({
+		bundleChecks: [],
+		createdAt: new Date(Date.UTC(2026, 10, 11, 13)),
+		createdByUserId: userId,
+		deliveryTargetId: targetId,
+		id: emptyId,
+		projectId,
+		requestDigest: "empty",
+		requirements: [],
+		revisionId,
+		revisionNumber: 1,
+	});
+	await expect(env.finalize({ draftId: emptyId })).rejects.toMatchObject({
+		code: "CONFLICT",
+		message: expect.stringMatching(noRequirementsText),
+	});
+	expect((await env.list()).fulfilments).toEqual([]);
+	expect(env.storage.snapshot()).toBe("[]");
 });
 
 test("rejects selections that are not a candidate, not a conflict, or unknown", async () => {

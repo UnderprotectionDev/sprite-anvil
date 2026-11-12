@@ -21,7 +21,3 @@ export const requirementStatusHints: Record<
 	mapped: "One Export Bundle meets this requirement.",
 	missing: "No Export Bundle for this revision meets this requirement yet.",
 };
-
-export function shortId(id: string) {
-	return id.slice(0, 8);
-}

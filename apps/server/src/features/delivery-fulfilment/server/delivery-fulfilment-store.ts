@@ -19,6 +19,12 @@ import type {
 	StoredDeliveryFulfilment,
 } from "./delivery-fulfilment-storage";
 import type { FulfilmentMappingStorage } from "./fulfilment-mapping-storage";
+import {
+	isReadyForRevision,
+	newestFirst,
+	readDeliveryTarget,
+	requirementKey,
+} from "./fulfilment-support";
 
 export interface DeliveryFulfilmentStoreOptions {
 	deliveryTargets: Pick<DeliveryTargetStore, "list">;
@@ -34,18 +40,11 @@ type Draft = NonNullable<
 >;
 type Requirement = Draft["requirements"][number];
 
-const requirementKey = (assetFamilyId: string, itemId: string) =>
-	JSON.stringify([assetFamilyId, itemId]);
-
-function newestFirst(
-	left: StoredDeliveryFulfilment,
-	right: StoredDeliveryFulfilment
-) {
-	return (
-		right.createdAt.getTime() - left.createdAt.getTime() ||
-		right.id.localeCompare(left.id)
-	);
-}
+const resolutions = {
+	agreed: "identical_pins",
+	conflict: "user_selected",
+	mapped: "only_bundle",
+} as const;
 
 /** The newest Fulfilment of each revision is the current one. */
 function toFulfilments(rows: StoredDeliveryFulfilment[]): DeliveryFulfilment[] {
@@ -67,7 +66,10 @@ function toFulfilments(rows: StoredDeliveryFulfilment[]): DeliveryFulfilment[] {
 	});
 }
 
-/** Null selection problems mean the selections are valid for the draft. */
+/**
+ * The bundle the user picked per requirement key, or null when any selection
+ * is not a candidate of a conflicting requirement or repeats a requirement.
+ */
 function validateSelections(
 	requirements: Requirement[],
 	selections: FulfilmentFinalizeInput["selections"]
@@ -91,23 +93,19 @@ function validateSelections(
 	return chosen;
 }
 
+/** The Fulfilment row of one requirement, or null when it has no bundle: missing, or a conflict nobody picked. */
 function recordOf(
 	requirement: Requirement,
 	chosenBundleId: string | undefined
 ): FulfilmentRequirementRecord | null {
+	if (requirement.status === "missing") {
+		return null;
+	}
 	const bundleId = chosenBundleId ?? requirement.proposedBundleId;
 	const candidate = requirement.candidates.find(
 		(entry) => entry.bundleId === bundleId
 	);
 	if (!candidate) {
-		return null;
-	}
-	const resolutions = {
-		agreed: "identical_pins",
-		conflict: "user_selected",
-		mapped: "only_bundle",
-	} as const;
-	if (requirement.status === "missing") {
 		return null;
 	}
 	return {
@@ -134,8 +132,13 @@ function resolveRequirements(
 			reason:
 				| "invalid_selection"
 				| "missing_requirements"
+				| "no_requirements"
 				| "unresolved_conflicts";
 	  } {
+	// An empty draft would make a vacuous Fulfilment that delivers nothing.
+	if (draftRequirements.length === 0) {
+		return { reason: "no_requirements" };
+	}
 	const chosen = validateSelections(draftRequirements, selections);
 	if (!chosen) {
 		return { reason: "invalid_selection" };
@@ -143,15 +146,16 @@ function resolveRequirements(
 	if (draftRequirements.some((entry) => entry.status === "missing")) {
 		return { reason: "missing_requirements" };
 	}
-	const requirements = draftRequirements.map((requirement) =>
+	// With nothing missing, a requirement lacking a bundle here is a conflict the user did not resolve.
+	const records = draftRequirements.map((requirement) =>
 		recordOf(
 			requirement,
 			chosen.get(requirementKey(requirement.assetFamilyId, requirement.itemId))
 		)
 	);
-	const complete = requirements.filter((record) => record !== null);
-	return complete.length === requirements.length
-		? { requirements: complete }
+	const requirements = records.filter((record) => record !== null);
+	return requirements.length === records.length
+		? { requirements }
 		: { reason: "unresolved_conflicts" };
 }
 
@@ -168,17 +172,10 @@ export function createDeliveryFulfilmentStore(
 	const { deliveryTargets, drafts, readinessPlans, storage } = options;
 	const now = options.now ?? (() => new Date());
 
-	async function readTarget(
+	const readTarget = (
 		userId: string,
 		input: { deliveryTargetId: string; projectId: string }
-	) {
-		const catalog = await deliveryTargets.list(userId, input.projectId);
-		return (
-			catalog?.deliveryTargets.find(
-				(target) => target.id === input.deliveryTargetId
-			) ?? null
-		);
-	}
+	) => readDeliveryTarget(deliveryTargets, userId, input);
 
 	return {
 		async finalize(userId, input): Promise<FulfilmentFinalizeResult | null> {
@@ -236,11 +233,8 @@ export function createDeliveryFulfilmentStore(
 			if (draft.revisionId !== revision.id) {
 				return { reason: "revision_changed", status: "rejected" };
 			}
-			const plan = await readinessPlans.get(userId, input);
 			if (
-				plan?.status !== "found" ||
-				plan.plan.revisionId !== revision.id ||
-				plan.plan.targetReadiness !== "ready"
+				!(await isReadyForRevision(readinessPlans, userId, input, revision))
 			) {
 				return { reason: "target_not_ready", status: "rejected" };
 			}

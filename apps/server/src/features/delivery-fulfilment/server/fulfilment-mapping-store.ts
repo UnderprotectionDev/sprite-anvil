@@ -20,6 +20,11 @@ import type {
 	FulfilmentMappingStorage,
 	StoredFulfilmentMappingDraft,
 } from "./fulfilment-mapping-storage";
+import {
+	isReadyForRevision,
+	newestFirst,
+	readDeliveryTarget,
+} from "./fulfilment-support";
 
 export interface FulfilmentMappingStoreOptions {
 	bundles: Pick<ExportBundleStore, "get" | "list">;
@@ -57,17 +62,10 @@ export function createFulfilmentMappingStore(
 	const { storage } = options;
 	const now = options.now ?? (() => new Date());
 
-	async function readTarget(
+	const readTarget = (
 		userId: string,
 		input: { deliveryTargetId: string; projectId: string }
-	) {
-		const catalog = await deliveryTargets.list(userId, input.projectId);
-		return (
-			catalog?.deliveryTargets.find(
-				(target) => target.id === input.deliveryTargetId
-			) ?? null
-		);
-	}
+	) => readDeliveryTarget(deliveryTargets, userId, input);
 
 	return {
 		async get(userId, input) {
@@ -86,13 +84,7 @@ export function createFulfilmentMappingStore(
 				input.deliveryTargetId
 			);
 			return {
-				drafts: rows
-					.sort(
-						(left, right) =>
-							right.createdAt.getTime() - left.createdAt.getTime() ||
-							right.id.localeCompare(left.id)
-					)
-					.map(toDraft),
+				drafts: rows.sort(newestFirst).map(toDraft),
 			};
 		},
 		async prepare(
@@ -135,11 +127,8 @@ export function createFulfilmentMappingStore(
 			if (!revision) {
 				return { reason: "no_active_revision", status: "rejected" };
 			}
-			const plan = await readinessPlans.get(userId, input);
 			if (
-				plan?.status !== "found" ||
-				plan.plan.revisionId !== revision.id ||
-				plan.plan.targetReadiness !== "ready"
+				!(await isReadyForRevision(readinessPlans, userId, input, revision))
 			) {
 				return { reason: "target_not_ready", status: "rejected" };
 			}
@@ -174,6 +163,10 @@ export function createFulfilmentMappingStore(
 				recordsByBundleId,
 				revision,
 			});
+			// An empty mapping would let a Fulfilment cover nothing, so none is proposed.
+			if (requirements.length === 0) {
+				return { reason: "no_requirements", status: "rejected" };
+			}
 			const inserted = await storage.insertDraft({
 				bundleChecks,
 				createdAt: now(),

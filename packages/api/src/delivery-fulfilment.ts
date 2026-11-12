@@ -122,7 +122,7 @@ export function summarizeMappingDraft(draft: {
 export type FulfilmentMappingPrepareResult =
 	| { draft: FulfilmentMappingDraft; status: "created" | "replayed" }
 	| {
-			reason: "no_active_revision" | "target_not_ready";
+			reason: "no_active_revision" | "no_requirements" | "target_not_ready";
 			status: "rejected";
 	  };
 

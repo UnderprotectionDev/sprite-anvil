@@ -15,8 +15,8 @@ export interface ReadinessPlanStoreDependencies {
 	deliveryTargets: DeliveryTargetStore;
 	dependencies: DependencyRevalidationStore;
 	familyReadiness: FamilyReadinessStore;
-	/** Delivery Status reads only whether a Fulfilment exists; without it nothing is delivered. */
-	fulfilments?: DeliveredRevisionLookup;
+	/** Delivery Status reads only whether a Fulfilment exists for the revision. */
+	fulfilments: DeliveredRevisionLookup;
 	now?: () => Date;
 	storage: ReadinessPlanStorage;
 }
@@ -86,7 +86,7 @@ export function createReadinessPlanStore(
 				deps.dependencies.list(userId, projectId),
 				deps.storage.findOrder(projectId, revision.id),
 				readFamilies(userId, projectId, revision),
-				deps.fulfilments?.hasFulfilment(projectId, revision.id) ?? false,
+				deps.fulfilments.hasFulfilment(projectId, revision.id),
 			]);
 		// An unavailable dependency catalog is access lost, not an empty catalog.
 		if (!(familyReadiness && dependencies)) {
