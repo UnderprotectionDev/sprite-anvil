@@ -1,4 +1,7 @@
-import { sha256Hex } from "@sprite-anvil/api/export-bundle-verification";
+import {
+	type ObjectReader,
+	readVerifiedObjectBytes,
+} from "./object-file-bytes";
 
 type StoredContentType =
 	| "application/octet-stream"
@@ -6,10 +9,7 @@ type StoredContentType =
 	| "image/webp";
 
 /** The shared object storage's `get` and `put` have this shape. */
-interface ObjectStorage {
-	get: (
-		key: string
-	) => Promise<{ body: ReadableStream<Uint8Array> | null } | null>;
+interface ObjectStorage extends ObjectReader {
 	put: (
 		key: string,
 		body: ReadableStream<Uint8Array>,
@@ -38,19 +38,16 @@ export function createObjectFileCopier(storage: ObjectStorage) {
 		sha256: string;
 		to: string;
 	}): Promise<void> => {
-		const object = await storage.get(file.from);
-		if (!object?.body) {
+		const read = await readVerifiedObjectBytes(storage, file.from, file);
+		if (read.status === "missing") {
 			throw new Error(`The archived file ${file.from} is missing.`);
 		}
-		const bytes = new Uint8Array(await new Response(object.body).arrayBuffer());
-		if (
-			bytes.byteLength !== file.byteSize ||
-			(await sha256Hex(bytes)) !== file.sha256
-		) {
+		if (read.status === "mismatch") {
 			throw new Error(
 				`The archived file ${file.from} no longer matches its digest.`
 			);
 		}
+		const { bytes } = read;
 		const { body } = new Response(bytes);
 		if (!body) {
 			throw new Error("The restored file could not be streamed.");
@@ -62,4 +59,11 @@ export function createObjectFileCopier(storage: ObjectStorage) {
 			bytes.byteLength
 		);
 	};
+}
+
+/** Deletes one stored object; used to undo the copies of a restore that did not complete. */
+export function createObjectFileRemover(storage: {
+	delete: (key: string) => Promise<void>;
+}) {
+	return (key: string): Promise<void> => storage.delete(key);
 }

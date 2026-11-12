@@ -15,6 +15,7 @@ import {
 import { assetVersions } from "@sprite-anvil/db/schema/asset-versions";
 import { contextRevisions } from "@sprite-anvil/db/schema/project-context";
 import { asc, eq } from "drizzle-orm";
+import { iso } from "./iso";
 import { readProjectArchiveDelivery } from "./project-archive-delivery-reader";
 import { readProjectArchiveHistory } from "./project-archive-history-reader";
 
@@ -24,8 +25,6 @@ export interface ProjectArchiveSourceReaderDependencies {
 	assetVersions: Pick<AssetVersionStore, "list">;
 	db: Database;
 }
-
-const iso = (value: Date) => value.toISOString();
 
 /**
  * Reads the foundation and history records of one owned project. Authorized, project-scoped

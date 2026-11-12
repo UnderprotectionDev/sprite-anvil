@@ -46,6 +46,8 @@ export interface ProjectArchiveRestoreFiles {
 		sha256: string;
 		to: string;
 	}) => Promise<void>;
+	/** Deletes a copied object; used best-effort to undo the copies of a restore that did not complete. */
+	remove: (key: string) => Promise<void>;
 	/** Confirms a stored file still has the archived digest and size. */
 	verify: (file: {
 		byteSize: number;
@@ -187,7 +189,8 @@ async function copyRestoredFiles(
 	plan: ProjectArchiveRestorePlan,
 	locations: Map<string, string>,
 	files: ProjectArchiveRestoreFiles,
-	newKey: (file: { kind: string; restoredId: string }) => string
+	newKey: (file: { kind: string; restoredId: string }) => string,
+	copied: string[]
 ): Promise<StoredRestoredFile[]> {
 	const restored: StoredRestoredFile[] = [];
 	for (const file of plan.files) {
@@ -205,9 +208,34 @@ async function copyRestoredFiles(
 			sha256: file.sha256,
 			to,
 		});
+		copied.push(to);
 		restored.push({ ...file, objectKey: to });
 	}
 	return restored;
+}
+
+/**
+ * Best-effort cleanup of the objects one failed attempt copied. Nothing is
+ * deleted when a restore record for the key exists, since the keys are the
+ * same ones that record owns; a failed delete never hides the original error.
+ */
+async function removeUnownedCopies(
+	copied: string[],
+	files: ProjectArchiveRestoreFiles,
+	find: () => Promise<unknown>
+) {
+	if (copied.length === 0) {
+		return;
+	}
+	try {
+		if (await find()) {
+			return;
+		}
+	} catch {
+		// Ownership is unknown; keeping a possible orphan is safer than deleting owned files.
+		return;
+	}
+	await Promise.allSettled(copied.map((key) => files.remove(key)));
 }
 
 export function createProjectArchiveRestoreStore(
@@ -322,29 +350,40 @@ export function createProjectArchiveRestoreStore(
 				},
 				input.idempotencyKey
 			);
-			const restoredFiles = await copyRestoredFiles(
-				plan,
-				locations,
-				files,
-				(file) => restoredObjectKey(restoredProjectId, restoreId, file)
-			);
-
-			const inserted = await storage.insert({
-				files: restoredFiles,
-				ids: plan.ids,
-				projectName: input.name,
-				restore: {
-					archiveId: input.archiveId,
-					createdAt: now(),
-					createdByUserId: userId,
-					id: restoreId,
-					manifestDigest: plan.sourceManifestDigest,
-					requestDigest,
-					restoredProjectId,
-					sourceProjectId: input.projectId,
-				},
-				sections: plan.sections,
-			});
+			// Object keys are derived, so a concurrent or earlier attempt for the same
+			// key owns these exact keys; only a restore that left no record may undo them.
+			const copied: string[] = [];
+			let inserted: Awaited<ReturnType<typeof storage.insert>>;
+			try {
+				const restoredFiles = await copyRestoredFiles(
+					plan,
+					locations,
+					files,
+					(file) => restoredObjectKey(restoredProjectId, restoreId, file),
+					copied
+				);
+				inserted = await storage.insert({
+					files: restoredFiles,
+					ids: plan.ids,
+					projectName: input.name,
+					restore: {
+						archiveId: input.archiveId,
+						createdAt: now(),
+						createdByUserId: userId,
+						id: restoreId,
+						manifestDigest: plan.sourceManifestDigest,
+						requestDigest,
+						restoredProjectId,
+						sourceProjectId: input.projectId,
+					},
+					sections: plan.sections,
+				});
+			} catch (error) {
+				await removeUnownedCopies(copied, files, () =>
+					storage.find(input.projectId, restoreId)
+				);
+				throw error;
+			}
 			if (inserted.status === "conflict") {
 				// A concurrent request with the same key won; its record is the answer.
 				const winner = await replay();

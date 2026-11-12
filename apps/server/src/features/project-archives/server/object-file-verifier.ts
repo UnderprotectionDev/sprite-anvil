@@ -1,11 +1,7 @@
-import { sha256Hex } from "@sprite-anvil/api/export-bundle-verification";
-
-/** Reads one stored object; the shared object storage's `get` has this shape. */
-interface ObjectReader {
-	get: (
-		key: string
-	) => Promise<{ body: ReadableStream<Uint8Array> | null } | null>;
-}
+import {
+	type ObjectReader,
+	readVerifiedObjectBytes,
+} from "./object-file-bytes";
 
 /**
  * Confirms a stored file still has the recorded size and SHA-256 before it
@@ -17,15 +13,7 @@ export function createObjectFileVerifier(storage: ObjectReader) {
 		byteSize: number;
 		objectKey: string;
 		sha256: string;
-	}): Promise<boolean> => {
-		const object = await storage.get(file.objectKey);
-		if (!object?.body) {
-			return false;
-		}
-		const bytes = new Uint8Array(await new Response(object.body).arrayBuffer());
-		return (
-			bytes.byteLength === file.byteSize &&
-			(await sha256Hex(bytes)) === file.sha256
-		);
-	};
+	}): Promise<boolean> =>
+		(await readVerifiedObjectBytes(storage, file.objectKey, file)).status ===
+		"ok";
 }

@@ -323,7 +323,6 @@ export const projectArchiveCreateInputSchema = z
 		/** Managed Snapshot ids included as working files; every other working file is listed as excluded. */
 		workingFileIds: z
 			.array(uuidSchema)
-			.max(500)
 			.default([])
 			.refine(
 				(list) => new Set(list).size === list.length,

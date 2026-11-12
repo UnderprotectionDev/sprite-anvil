@@ -41,6 +41,7 @@ import { uiStretchTests } from "@sprite-anvil/db/schema/ui-stretch-tests";
 import { vfxAppearanceReviews } from "@sprite-anvil/db/schema/vfx-appearance-reviews";
 import { vfxSynchronizationReviews } from "@sprite-anvil/db/schema/vfx-synchronization";
 import { eq, inArray } from "drizzle-orm";
+import { iso } from "./iso";
 
 type ReviewKind = (typeof reviewKinds)[number];
 
@@ -71,7 +72,6 @@ export interface HistoryRows {
 	trials: (typeof productionExperimentTrials.$inferSelect)[];
 }
 
-const iso = (value: Date) => value.toISOString();
 const isoOrNull = (value: Date | null) => (value ? iso(value) : null);
 
 /**

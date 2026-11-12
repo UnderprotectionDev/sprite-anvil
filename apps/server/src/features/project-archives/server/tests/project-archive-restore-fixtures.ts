@@ -58,6 +58,7 @@ export function restoreSetup(
 	options: {
 		copyFile?: (file: { from: string; to: string }) => Promise<void>;
 		hasAccess?: boolean;
+		removeFile?: (key: string) => Promise<void>;
 		verifyFile?: (file: { objectKey: string }) => Promise<boolean>;
 		wrapRestoreStorage?: (
 			storage: ReturnType<
@@ -94,6 +95,7 @@ export function restoreSetup(
 	});
 	const memory = createMemoryProjectArchiveRestoreStorage();
 	const copies: { from: string; to: string }[] = [];
+	const removed: string[] = [];
 	const projectArchiveRestoreStore = createProjectArchiveRestoreStore(
 		{} as Database,
 		{
@@ -102,6 +104,10 @@ export function restoreSetup(
 				copy: async (file) => {
 					await options.copyFile?.(file);
 					copies.push({ from: file.from, to: file.to });
+				},
+				remove: async (key) => {
+					await options.removeFile?.(key);
+					removed.push(key);
 				},
 				verify: (file) => options.verifyFile?.(file) ?? Promise.resolve(true),
 			},
@@ -121,6 +127,7 @@ export function restoreSetup(
 		archiveStore,
 		archives,
 		copies,
+		removed,
 		context,
 		createArchive: (key = "archive-key") =>
 			call(
