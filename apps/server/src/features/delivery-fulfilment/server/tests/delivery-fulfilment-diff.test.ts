@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { diffFulfilments } from "../delivery-diff";
 import {
 	bundleA,
 	bundleB,
@@ -18,7 +19,7 @@ import {
 const sameFulfilmentText = /two different/i;
 const notRecordedKeys = [
 	"qualityEvidence",
-	"qualityException",
+	"qualityWaiver",
 	"rights",
 	"runtimeEvidence",
 ] as const;
@@ -184,7 +185,13 @@ test("refuses the same Fulfilment twice, a missing one, another project and a us
 		env.compare({ fromFulfilmentId: first.id, toFulfilmentId: first.id })
 	).rejects.toMatchObject({
 		code: "BAD_REQUEST",
-		message: expect.stringMatching(sameFulfilmentText),
+		data: {
+			issues: [
+				expect.objectContaining({
+					message: expect.stringMatching(sameFulfilmentText),
+				}),
+			],
+		},
 	});
 	await expect(
 		env.compare({ fromFulfilmentId: first.id, toFulfilmentId: unknownId })
@@ -214,4 +221,38 @@ test("a Fulfilment whose revision left the catalog still compares, with context 
 	});
 	expect(diff.context.status).toBe("not_recorded");
 	expect(diff.assetVersions.added).toHaveLength(1);
+});
+
+test("the same Asset Versions in another order or with a repeated id are not a difference", () => {
+	const requirement = (assetVersionIds: string[]) => ({
+		assetFamilyId: "fam-a",
+		assetFamilyName: "Family",
+		assetVersionIds,
+		bundleId: bundleA,
+		itemId: "idle",
+		itemKind: "variant" as const,
+		itemName: "Idle",
+		manifestDigest: "digest",
+		requiredSetRevisionId: "rs-1",
+		resolution: "only_bundle" as const,
+	});
+	const fulfilment = (id: string, assetVersionIds: string[]) => ({
+		createdAt: new Date("2026-11-11T10:00:00.000Z"),
+		createdByUserId: "user",
+		deliveryTargetId: "target",
+		draftId: "draft",
+		id,
+		projectId,
+		requestDigest: "digest",
+		requirements: [requirement(assetVersionIds)],
+		revisionId,
+		revisionNumber: 1,
+	});
+	const diff = diffFulfilments(
+		fulfilment("f-1", ["v-1", "v-2"]),
+		fulfilment("f-2", ["v-2", "v-1", "v-1"]),
+		{ deliveryTargets: [] } as never
+	);
+	expect(diff.assetVersions.changed).toEqual([]);
+	expect(diff.assetVersions.unchangedCount).toBe(1);
 });

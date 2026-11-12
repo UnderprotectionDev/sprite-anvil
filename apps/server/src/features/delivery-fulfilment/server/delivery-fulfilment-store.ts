@@ -191,28 +191,7 @@ export function createDeliveryFulfilmentStore(
 			if (!(from && to)) {
 				return null;
 			}
-			if (from.id === to.id) {
-				return { status: "same_fulfilment" };
-			}
-			const revisions = catalog.deliveryTargets.flatMap(
-				(target) => target.revisions
-			);
-			const contextOf = (revisionId: string) => {
-				const revision = revisions.find((entry) => entry.id === revisionId);
-				return revision
-					? {
-							contextRevisionId: revision.contextRevisionId,
-							contextRevisionNumber: revision.contextRevisionNumber,
-						}
-					: null;
-			};
-			return {
-				diff: diffFulfilments(from, to, {
-					from: contextOf(from.revisionId),
-					to: contextOf(to.revisionId),
-				}),
-				status: "found",
-			};
+			return diffFulfilments(from, to, catalog);
 		},
 		async finalize(userId, input): Promise<FulfilmentFinalizeResult | null> {
 			const target = await readTarget(userId, input);

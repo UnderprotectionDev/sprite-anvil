@@ -1,4 +1,7 @@
-import type { DeliveryDiff } from "@sprite-anvil/api/delivery-diff";
+import type {
+	DeliveryDiff,
+	NotRecordedSectionKey,
+} from "@sprite-anvil/api/delivery-diff";
 import type { ReactNode } from "react";
 import { shortId } from "../../lib/short-id";
 
@@ -20,10 +23,22 @@ function NotRecorded({ reason }: { reason: string }) {
 	);
 }
 
-type Ref = DeliveryDiff["assetVersions"]["added"][number];
+type RequirementIdentity = Omit<
+	DeliveryDiff["assetVersions"]["added"][number],
+	"assetVersionIds"
+>;
 
-const refLabel = (ref: Pick<Ref, "assetFamilyName" | "itemName">) =>
-	`${ref.assetFamilyName}: ${ref.itemName}`;
+const requirementLabel = (
+	requirement: Pick<RequirementIdentity, "assetFamilyName" | "itemName">
+) => `${requirement.assetFamilyName}: ${requirement.itemName}`;
+
+/** The sections whose source data a Fulfilment does not record, in display order. */
+const notRecordedSections: { key: NotRecordedSectionKey; title: string }[] = [
+	{ key: "qualityEvidence", title: "Quality evidence" },
+	{ key: "qualityWaiver", title: "Quality Waiver" },
+	{ key: "rights", title: "Rights" },
+	{ key: "runtimeEvidence", title: "Runtime evidence" },
+];
 
 function AssetVersionGroup({
 	empty,
@@ -54,8 +69,17 @@ function AssetVersionGroup({
 	);
 }
 
-const keyOf = (ref: { assetFamilyId: string; itemId: string }) =>
-	`${ref.assetFamilyId}:${ref.itemId}`;
+const keyOf = (requirement: { assetFamilyId: string; itemId: string }) =>
+	`${requirement.assetFamilyId}:${requirement.itemId}`;
+
+const versionRow = (requirement: RequirementIdentity, versions: string) => ({
+	key: keyOf(requirement),
+	label: requirementLabel(requirement),
+	versions,
+});
+
+const versionedRow = (entry: DeliveryDiff["assetVersions"]["added"][number]) =>
+	versionRow(entry, entry.assetVersionIds.join(", "));
 
 function AssetVersionsSection({
 	assetVersions,
@@ -66,29 +90,22 @@ function AssetVersionsSection({
 		<Section title="Asset Versions">
 			<AssetVersionGroup
 				empty="No Asset Version was added."
-				rows={assetVersions.added.map((entry) => ({
-					key: keyOf(entry),
-					label: refLabel(entry),
-					versions: entry.assetVersionIds.join(", "),
-				}))}
+				rows={assetVersions.added.map(versionedRow)}
 				title="Added"
 			/>
 			<AssetVersionGroup
 				empty="No Asset Version was removed."
-				rows={assetVersions.removed.map((entry) => ({
-					key: keyOf(entry),
-					label: refLabel(entry),
-					versions: entry.assetVersionIds.join(", "),
-				}))}
+				rows={assetVersions.removed.map(versionedRow)}
 				title="Removed"
 			/>
 			<AssetVersionGroup
 				empty="No Asset Version was swapped."
-				rows={assetVersions.changed.map((entry) => ({
-					key: keyOf(entry),
-					label: refLabel(entry),
-					versions: `${entry.fromAssetVersionIds.join(", ")} → ${entry.toAssetVersionIds.join(", ")}`,
-				}))}
+				rows={assetVersions.changed.map((entry) =>
+					versionRow(
+						entry,
+						`${entry.fromAssetVersionIds.join(", ")} → ${entry.toAssetVersionIds.join(", ")}`
+					)
+				)}
 				title="Changed"
 			/>
 			<p className="text-muted-foreground text-sm">
@@ -125,7 +142,7 @@ type Mapping = NonNullable<
 const describeMapping = (mapping: Mapping | null) =>
 	mapping
 		? `Export Bundle ${shortId(mapping.bundleId)} (${mapping.resolution.replace("_", " ")})`
-		: "none";
+		: "not in this Fulfilment";
 
 function BundleMappingsSection({
 	bundleMappings,
@@ -142,7 +159,7 @@ function BundleMappingsSection({
 				<ul className="space-y-1 text-sm">
 					{bundleMappings.changes.map((change) => (
 						<li key={keyOf(change)}>
-							{refLabel(change)} · {describeMapping(change.from)} →{" "}
+							{requirementLabel(change)} · {describeMapping(change.from)} →{" "}
 							{describeMapping(change.to)}
 						</li>
 					))}
@@ -163,18 +180,11 @@ export function DeliveryDiffPanel({ diff }: { diff: DeliveryDiff }) {
 			</p>
 			<AssetVersionsSection assetVersions={diff.assetVersions} />
 			<ContextSection context={diff.context} />
-			<Section title="Quality evidence">
-				<NotRecorded reason={diff.qualityEvidence.reason} />
-			</Section>
-			<Section title="Quality Exception">
-				<NotRecorded reason={diff.qualityException.reason} />
-			</Section>
-			<Section title="Rights">
-				<NotRecorded reason={diff.rights.reason} />
-			</Section>
-			<Section title="Runtime evidence">
-				<NotRecorded reason={diff.runtimeEvidence.reason} />
-			</Section>
+			{notRecordedSections.map(({ key, title }) => (
+				<Section key={key} title={title}>
+					<NotRecorded reason={diff[key].reason} />
+				</Section>
+			))}
 			<BundleMappingsSection bundleMappings={diff.bundleMappings} />
 		</div>
 	);

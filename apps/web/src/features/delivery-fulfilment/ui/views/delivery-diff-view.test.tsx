@@ -148,7 +148,7 @@ const diff = {
 	},
 	from: summary(firstId, 1),
 	qualityEvidence: notRecorded("QA evidence"),
-	qualityException: notRecorded("Quality Exceptions"),
+	qualityWaiver: notRecorded("Quality Waivers"),
 	rights: notRecorded("Rights Record revisions"),
 	runtimeEvidence: notRecorded("runtime validation evidence"),
 	to: summary(secondId, 2),
@@ -205,7 +205,7 @@ test("shows each difference section separately, with unrecorded sections explici
 		(await section("Bundle mappings")).getByText(itemIdleText)
 	).toBeInTheDocument();
 	const unrecorded = await Promise.all(
-		["Quality evidence", "Quality Exception", "Rights", "Runtime evidence"].map(
+		["Quality evidence", "Quality Waiver", "Rights", "Runtime evidence"].map(
 			section
 		)
 	);

@@ -1,12 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { z } from "zod";
+import { deliveryDiffSearchSchema } from "@/features/delivery-fulfilment/params";
 import { DeliveryDiffView } from "@/features/delivery-fulfilment/ui/views/delivery-diff-view";
 
 export const Route = createFileRoute(
 	"/_auth/projects_/$projectId/delivery-diff"
 )({
 	component: ProjectDeliveryDiffRoute,
-	validateSearch: z.object({ deliveryTargetId: z.string().optional() }),
+	validateSearch: deliveryDiffSearchSchema,
 });
 
 function ProjectDeliveryDiffRoute() {

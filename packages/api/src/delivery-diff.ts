@@ -12,10 +12,14 @@ export const deliveryDiffInputSchema = z
 		projectId: idSchema,
 		toFulfilmentId: idSchema,
 	})
-	.strict();
+	.strict()
+	.refine((input) => input.fromFulfilmentId !== input.toFulfilmentId, {
+		message: "Pick two different Delivery Fulfilments to compare.",
+		path: ["toFulfilmentId"],
+	});
 export type DeliveryDiffInput = z.infer<typeof deliveryDiffInputSchema>;
 
-const requirementRefShape = {
+const requirementIdentityShape = {
 	assetFamilyId: z.string(),
 	assetFamilyName: z.string(),
 	itemId: z.string(),
@@ -36,7 +40,10 @@ const fulfilmentSummarySchema = z
 const assetVersionIdsSchema = z.array(z.string());
 
 const assetVersionEntrySchema = z
-	.object({ ...requirementRefShape, assetVersionIds: assetVersionIdsSchema })
+	.object({
+		...requirementIdentityShape,
+		assetVersionIds: assetVersionIdsSchema,
+	})
 	.strict();
 
 const bundleMappingSchema = z
@@ -55,7 +62,7 @@ const contextSideSchema = z
 	.strict();
 
 /** A section whose source data the Delivery Fulfilment model does not record; it is shown as such, never as "no difference". */
-export const notRecordedSectionSchema = z
+const notRecordedSectionSchema = z
 	.object({ reason: z.string(), status: z.literal("not_recorded") })
 	.strict();
 
@@ -67,7 +74,7 @@ export const deliveryDiffSchema = z
 				changed: z.array(
 					z
 						.object({
-							...requirementRefShape,
+							...requirementIdentityShape,
 							fromAssetVersionIds: assetVersionIdsSchema,
 							toAssetVersionIds: assetVersionIdsSchema,
 						})
@@ -83,7 +90,7 @@ export const deliveryDiffSchema = z
 				changes: z.array(
 					z
 						.object({
-							...requirementRefShape,
+							...requirementIdentityShape,
 							from: bundleMappingSchema.nullable(),
 							to: bundleMappingSchema.nullable(),
 						})
@@ -104,7 +111,7 @@ export const deliveryDiffSchema = z
 		]),
 		from: fulfilmentSummarySchema,
 		qualityEvidence: notRecordedSectionSchema,
-		qualityException: notRecordedSectionSchema,
+		qualityWaiver: notRecordedSectionSchema,
 		rights: notRecordedSectionSchema,
 		runtimeEvidence: notRecordedSectionSchema,
 		to: fulfilmentSummarySchema,
@@ -112,6 +119,9 @@ export const deliveryDiffSchema = z
 	.strict();
 export type DeliveryDiff = z.infer<typeof deliveryDiffSchema>;
 
-export type DeliveryDiffResult =
-	| { diff: DeliveryDiff; status: "found" }
-	| { status: "same_fulfilment" };
+/** The sections of a Delivery Diff whose source data a Delivery Fulfilment does not record. */
+export type NotRecordedSectionKey =
+	| "qualityEvidence"
+	| "qualityWaiver"
+	| "rights"
+	| "runtimeEvidence";

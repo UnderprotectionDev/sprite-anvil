@@ -81,12 +81,7 @@ export const deliveryFulfilmentRouter = {
 			if (!result) {
 				throw new ORPCError("NOT_FOUND", { message: fulfilmentNotFound });
 			}
-			if (result.status === "same_fulfilment") {
-				throw new ORPCError("BAD_REQUEST", {
-					message: "Pick two different Delivery Fulfilments to compare.",
-				});
-			}
-			return result.diff;
+			return result;
 		}),
 	/**
 	 * The user's act: turns a mapping draft, with a pick for every conflict, into

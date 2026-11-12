@@ -54,7 +54,7 @@ export function makeRevision(
 	};
 }
 
-export type Files = { assetVersionId: string; itemId: string }[];
+type Files = { assetVersionId: string; itemId: string }[];
 
 export function fullBundle(
 	id: string,

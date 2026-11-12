@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { DeliveryDiffInput, DeliveryDiffResult } from "./delivery-diff";
+import type { DeliveryDiff, DeliveryDiffInput } from "./delivery-diff";
 import {
 	deliveryTargetScopeInputSchema,
 	fulfilmentRequirementIdentityShape,
@@ -109,7 +109,7 @@ export interface DeliveryFulfilmentStore {
 	compare: (
 		userId: string,
 		input: DeliveryDiffInput
-	) => Promise<DeliveryDiffResult | null>;
+	) => Promise<DeliveryDiff | null>;
 	/** Finalizes a draft. Null when the project, Delivery Target or draft is not found. */
 	finalize: (
 		userId: string,
