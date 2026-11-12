@@ -10,6 +10,7 @@ import type {
 	RightsRecordStore,
 } from "@sprite-anvil/api/rights-records";
 import { appRouter } from "@sprite-anvil/api/routers/index";
+import type { StoredHistoricalRiskNotice } from "../historical-risk-notice-storage";
 import { createHistoricalRiskNoticeStore } from "../historical-risk-notice-store";
 import { withHistoricalRiskDetection } from "../rights-record-risk-detection";
 import { createMemoryHistoricalRiskNoticeStorage } from "./memory-historical-risk-notice-storage";
@@ -72,6 +73,7 @@ function rightsInput(
 function setup(
 	options: {
 		activeRevision?: ReturnType<typeof revision>;
+		failFirstNoticeInsert?: boolean;
 		hasAccess?: boolean;
 		policy?: RightsEvidencePolicy;
 	} = {}
@@ -196,7 +198,18 @@ function setup(
 					: null
 			),
 	};
-	const storage = createMemoryHistoricalRiskNoticeStorage();
+	const memoryStorage = createMemoryHistoricalRiskNoticeStorage();
+	let failNextInsert = options.failFirstNoticeInsert ?? false;
+	const storage = {
+		...memoryStorage,
+		insertNotice: (notice: StoredHistoricalRiskNotice) => {
+			if (failNextInsert) {
+				failNextInsert = false;
+				return Promise.reject(new Error("notice storage unavailable"));
+			}
+			return memoryStorage.insertNotice(notice);
+		},
+	};
 	let tick = 0;
 	const now = () => {
 		tick += 1;
@@ -232,7 +245,7 @@ function setup(
 				{ deliveryTargetId: targetId, projectId, ...input },
 				{ context: context() }
 			),
-		noticeSnapshot: storage.snapshot,
+		noticeSnapshot: memoryStorage.snapshot,
 		rights,
 		state,
 	};
@@ -303,6 +316,21 @@ test("the notice is immutable: repeating the same creation adds nothing and keep
 
 	expect(world.noticeSnapshot()).toBe(stored);
 	expect(await world.listNotices()).toEqual(first);
+});
+
+test("a retry after a failed detection replays the saved revision and still writes the notice", async () => {
+	const world = setup({ failFirstNoticeInsert: true });
+	const input = rightsInput(pinnedAssetRecordId, "restricted");
+
+	await expect(world.rights.createRevision(userId, input)).rejects.toThrow(
+		"notice storage unavailable"
+	);
+	expect((await world.listNotices()).notices).toHaveLength(0);
+
+	const retried = await world.rights.createRevision(userId, input);
+
+	expect(retried.ok).toBe(true);
+	expect((await world.listNotices()).notices).toHaveLength(1);
 });
 
 test("a revision the pinned policy accepts creates no notice", async () => {
