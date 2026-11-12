@@ -11,6 +11,12 @@ import {
 	assetRecordSupportLevels,
 	assetRecordTagsSchema,
 } from "./asset-records";
+import {
+	type HistoryRecords,
+	historyGroup,
+	historyRelationFailures,
+	historySectionSchemas,
+} from "./project-archive-history";
 import { recordContentDigest } from "./record-content-digest";
 import { idempotencyKeySchema } from "./record-publication";
 
@@ -190,7 +196,10 @@ export type FoundationRecords = {
 export const projectArchiveSectionRegistry: Record<
 	string,
 	Record<string, z.ZodType>
-> = { foundation: foundationSectionSchemas };
+> = {
+	foundation: foundationSectionSchemas,
+	[historyGroup]: historySectionSchemas,
+};
 
 export const foundationGroup = "foundation";
 
@@ -201,6 +210,7 @@ export const foundationGroup = "foundation";
 /** Kinds of file an archive accounts for. A later record group adds its own kinds. */
 export const projectArchiveFileKinds = [
 	"asset_version_file",
+	"rights_evidence_file",
 	"working_file",
 ] as const;
 
@@ -211,7 +221,9 @@ export const projectArchiveFileEntrySchema = z
 		byteSize: z.number().int().positive(),
 		contentType: z.string().nullable(),
 		/** Why an excluded file is absent; null for an included file. */
-		exclusionReason: z.enum(["not_selected"]).nullable(),
+		exclusionReason: z
+			.enum(["evidence_not_archived", "not_selected"])
+			.nullable(),
 		fileName: z.string().nullable(),
 		kind: z.enum(projectArchiveFileKinds),
 		/** Included: the archive holds the file. Excluded: only identity, digest and size are kept. */
@@ -327,6 +339,8 @@ export interface ProjectArchiveSourceFile
 
 export interface ProjectArchiveSource {
 	files: ProjectArchiveSourceFile[];
+	/** Production and review history; every list is empty for a project without any. */
+	history: HistoryRecords;
 	records: FoundationRecords;
 }
 
@@ -533,14 +547,23 @@ export async function buildProjectArchive(
 	const selected = new Set(options.workingFileIds);
 	const files = source.files
 		.map((file): ProjectArchiveFileEntry => {
-			const included =
-				file.kind !== "working_file" || selected.has(file.sourceId);
+			// Rights evidence files are never carried; only identity, digest and absence are.
+			const exclusionReason = (() => {
+				if (file.kind === "rights_evidence_file") {
+					return "evidence_not_archived" as const;
+				}
+				if (file.kind === "working_file" && !selected.has(file.sourceId)) {
+					return "not_selected" as const;
+				}
+				return null;
+			})();
+			const included = exclusionReason === null;
 			return {
 				assetRecordId: file.assetRecordId,
 				assetVersionId: file.assetVersionId,
 				byteSize: file.byteSize,
 				contentType: file.contentType,
-				exclusionReason: included ? null : "not_selected",
+				exclusionReason,
 				fileName: file.fileName,
 				kind: file.kind,
 				presence: included ? "included" : "excluded",
@@ -556,14 +579,21 @@ export async function buildProjectArchive(
 		);
 
 	const sections: ProjectArchiveSection[] = [];
-	for (const name of Object.keys(
-		foundationSectionSchemas
-	) as FoundationSectionName[]) {
-		const schema = foundationSectionSchemas[name];
-		const records = source.records[name]
-			.map((record) => schema.parse(record) as { id: string })
-			.sort(byId);
-		sections.push({ group: foundationGroup, name, records });
+	const groups: [
+		string,
+		Record<string, z.ZodType>,
+		Record<string, unknown[]>,
+	][] = [
+		[foundationGroup, foundationSectionSchemas, source.records],
+		[historyGroup, historySectionSchemas, source.history],
+	];
+	for (const [group, schemas, recordsByName] of groups) {
+		for (const [name, schema] of Object.entries(schemas)) {
+			const records = (recordsByName[name] ?? [])
+				.map((record) => schema.parse(record) as { id: string })
+				.sort(byId);
+			sections.push({ group, name, records });
+		}
 	}
 
 	const secretPaths = [
@@ -585,7 +615,10 @@ export async function buildProjectArchive(
 		};
 	}
 
-	const failures = foundationRelationFailures(source.records, files);
+	const failures = [
+		...foundationRelationFailures(source.records, files),
+		...historyRelationFailures(source.history, source.records, files),
+	];
 	if (failures.length > 0) {
 		return { failures, ok: false, reason: "inconsistent_records" };
 	}
@@ -689,6 +722,22 @@ export async function verifyProjectArchive(archive: {
 	) {
 		failures.push(
 			...foundationRelationFailures(foundation, archive.manifest.files)
+		);
+	}
+	const history = Object.fromEntries(
+		archive.sections
+			.filter((section) => section.group === historyGroup)
+			.map((section) => [section.name, section.records])
+	) as unknown as HistoryRecords;
+	const historyComplete = Object.keys(historySectionSchemas).every(
+		(name) => name in history
+	);
+	if (
+		historyComplete &&
+		Object.keys(foundationSectionSchemas).every((name) => name in foundation)
+	) {
+		failures.push(
+			...historyRelationFailures(history, foundation, archive.manifest.files)
 		);
 	}
 	return failures;

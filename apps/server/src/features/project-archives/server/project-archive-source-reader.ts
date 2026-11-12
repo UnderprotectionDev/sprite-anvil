@@ -15,6 +15,7 @@ import {
 import { assetVersions } from "@sprite-anvil/db/schema/asset-versions";
 import { contextRevisions } from "@sprite-anvil/db/schema/project-context";
 import { asc, eq } from "drizzle-orm";
+import { readProjectArchiveHistory } from "./project-archive-history-reader";
 
 export interface ProjectArchiveSourceReaderDependencies {
 	assetFamilies: Pick<AssetFamilyStore, "list">;
@@ -26,7 +27,7 @@ export interface ProjectArchiveSourceReaderDependencies {
 const iso = (value: Date) => value.toISOString();
 
 /**
- * Reads the foundation records of one owned project. Authorized, project-scoped
+ * Reads the foundation and history records of one owned project. Authorized, project-scoped
  * stores supply the records they own; only what no store lists (all context
  * revisions, references, file locations) is read from the tables. Only the
  * fields the archive format names are copied, so no location, preview link or
@@ -197,6 +198,7 @@ export function createProjectArchiveSourceReader(
 				})),
 			};
 
+			const historySource = await readProjectArchiveHistory(db, projectId);
 			const fileLocation = new Map(fileRows.map((row) => [row.id, row]));
 			const files: ProjectArchiveSourceFile[] = [
 				...versions.assetVersions.flatMap((version) => {
@@ -232,7 +234,11 @@ export function createProjectArchiveSourceReader(
 					sourceId: snapshot.id,
 				})),
 			];
-			return { files, records: foundation };
+			return {
+				files: [...files, ...historySource.files],
+				history: historySource.history,
+				records: foundation,
+			};
 		},
 	};
 }

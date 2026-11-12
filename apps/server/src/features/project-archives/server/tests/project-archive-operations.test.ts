@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import type { BackgroundOperation } from "@sprite-anvil/api/background-operations";
+import { emptyHistoryRecords } from "@sprite-anvil/api/project-archive-history";
 import type { ProjectArchiveSource } from "@sprite-anvil/api/project-archives";
 import type { Database } from "@sprite-anvil/db";
 import { createProjectArchiveOperations } from "../project-archive-operations";
@@ -25,6 +26,7 @@ const emptySource: ProjectArchiveSource = {
 			sourceId: snapshotId,
 		},
 	],
+	history: emptyHistoryRecords(),
 	records: {
 		assetFamilies: [],
 		assetRecords: [],
