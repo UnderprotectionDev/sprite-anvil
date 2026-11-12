@@ -1,3 +1,5 @@
+import { fulfilmentBundleCheckSchema } from "@sprite-anvil/api/delivery-fulfilment";
+import { requiredSetItemKindSchema } from "@sprite-anvil/api/family-readiness";
 import type { Database } from "@sprite-anvil/db";
 import {
 	deliveryFulfilmentDraftRequirements,
@@ -8,16 +10,7 @@ import type {
 	FulfilmentMappingStorage,
 	StoredFulfilmentMappingDraft,
 } from "./fulfilment-mapping-storage";
-
-const uniqueViolationCode = "23505";
-
-function hasErrorCode(error: unknown, expected: string): boolean {
-	if (typeof error !== "object" || error === null) {
-		return false;
-	}
-	const { cause, code } = error as { cause?: unknown; code?: unknown };
-	return code === expected || hasErrorCode(cause, expected);
-}
+import { isUniqueViolation } from "./fulfilment-storage-errors";
 
 export function createDatabaseFulfilmentMappingStorage(
 	db: Database
@@ -39,8 +32,9 @@ export function createDatabaseFulfilmentMappingStorage(
 			)
 			.orderBy(asc(deliveryFulfilmentDraftRequirements.position));
 		return headers.map((header) => ({
-			bundleChecks:
-				header.bundleChecks as StoredFulfilmentMappingDraft["bundleChecks"],
+			bundleChecks: fulfilmentBundleCheckSchema
+				.array()
+				.parse(header.bundleChecks),
 			createdAt: header.createdAt,
 			createdByUserId: header.createdByUserId,
 			deliveryTargetId: header.deliveryTargetId,
@@ -54,8 +48,7 @@ export function createDatabaseFulfilmentMappingStorage(
 					assetFamilyName: row.assetFamilyName,
 					candidates: row.candidates,
 					itemId: row.itemId,
-					itemKind:
-						row.itemKind as StoredFulfilmentMappingDraft["requirements"][number]["itemKind"],
+					itemKind: requiredSetItemKindSchema.parse(row.itemKind),
 					itemName: row.itemName,
 					proposedBundleId: row.proposedBundleId,
 					requiredSetRevisionId: row.requiredSetRevisionId,
@@ -119,7 +112,7 @@ export function createDatabaseFulfilmentMappingStorage(
 				}
 				return { status: "inserted" };
 			} catch (error) {
-				if (hasErrorCode(error, uniqueViolationCode)) {
+				if (isUniqueViolation(error)) {
 					return { status: "conflict" };
 				}
 				throw error;

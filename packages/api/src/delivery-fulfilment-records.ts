@@ -1,8 +1,10 @@
 import { z } from "zod";
-import { requiredSetItemKindSchema } from "./family-readiness";
+import {
+	deliveryTargetScopeInputSchema,
+	fulfilmentRequirementIdentityShape,
+	idSchema,
+} from "./delivery-fulfilment-shared";
 import { idempotencyKeySchema } from "./record-publication";
-
-const idSchema = z.uuid();
 
 /** The user's pick of one bundle for one conflicting requirement. */
 export const fulfilmentSelectionSchema = z
@@ -36,9 +38,7 @@ export const deliveryFulfilmentGetInputSchema = z
 	.object({ fulfilmentId: idSchema, projectId: idSchema })
 	.strict();
 
-export const deliveryFulfilmentListInputSchema = z
-	.object({ deliveryTargetId: idSchema, projectId: idSchema })
-	.strict();
+export const deliveryFulfilmentListInputSchema = deliveryTargetScopeInputSchema;
 
 /**
  * only_bundle: exactly one bundle met the requirement.
@@ -55,15 +55,10 @@ export type FulfilmentResolution = z.infer<typeof fulfilmentResolutionSchema>;
 /** One requirement of the revision mapped to the exact bundle and Asset Versions that fulfilled it. */
 export const fulfilmentRequirementRecordSchema = z
 	.object({
-		assetFamilyId: z.string(),
-		assetFamilyName: z.string(),
+		...fulfilmentRequirementIdentityShape,
 		assetVersionIds: z.array(z.string()).min(1),
 		bundleId: z.string(),
-		itemId: z.string(),
-		itemKind: requiredSetItemKindSchema,
-		itemName: z.string(),
 		manifestDigest: z.string(),
-		requiredSetRevisionId: z.string(),
 		resolution: fulfilmentResolutionSchema,
 	})
 	.strict();

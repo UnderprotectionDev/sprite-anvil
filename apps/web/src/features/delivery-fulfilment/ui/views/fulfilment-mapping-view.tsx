@@ -4,10 +4,9 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { useQuery } from "@tanstack/react-query";
-import { useRef, useState } from "react";
 import { LoadErrorAlert } from "@/components/load-error-alert";
-import { errorCodeOf } from "@/utils/error-code";
 import { orpc } from "@/utils/orpc";
+import { useIdempotentSubmit } from "../../hooks/use-idempotent-submit";
 import { usePrepareFulfilmentMapping } from "../../hooks/use-prepare-fulfilment-mapping";
 import { DeliveryFulfilmentList } from "../components/delivery-fulfilment-list";
 import { FulfilmentMappingDraftPanel } from "../components/fulfilment-mapping-draft";
@@ -35,31 +34,15 @@ function TargetMapping({
 		meta: { suppressGlobalErrorToast: true },
 	});
 	const prepare = usePrepareFulfilmentMapping();
-	const [failure, setFailure] = useState<string | null>(null);
-	const idempotencyKey = useRef(crypto.randomUUID());
+	const { failure, submit } = useIdempotentSubmit(
+		`The mapping for ${name} could not be prepared. Try again.`
+	);
 	const latest = drafts.data?.drafts[0];
 
-	async function onPrepare() {
-		setFailure(null);
-		try {
-			await prepare.mutateAsync({
-				deliveryTargetId,
-				idempotencyKey: idempotencyKey.current,
-				projectId,
-			});
-			// A new preparation reads the target again, so it needs its own key.
-			idempotencyKey.current = crypto.randomUUID();
-		} catch (error) {
-			if (errorCodeOf(error)) {
-				idempotencyKey.current = crypto.randomUUID();
-			}
-			setFailure(
-				error instanceof Error && error.message
-					? error.message
-					: `The mapping for ${name} could not be prepared. Try again.`
-			);
-		}
-	}
+	const onPrepare = () =>
+		submit((idempotencyKey) =>
+			prepare.mutateAsync({ deliveryTargetId, idempotencyKey, projectId })
+		);
 
 	return (
 		<div className="space-y-6">

@@ -1,3 +1,4 @@
+import { requiredSetItemKindSchema } from "@sprite-anvil/api/family-readiness";
 import type { Database } from "@sprite-anvil/db";
 import {
 	deliveryFulfilmentRequirements,
@@ -8,16 +9,7 @@ import type {
 	DeliveryFulfilmentStorage,
 	StoredDeliveryFulfilment,
 } from "./delivery-fulfilment-storage";
-
-const uniqueViolationCode = "23505";
-
-function hasErrorCode(error: unknown, expected: string): boolean {
-	if (typeof error !== "object" || error === null) {
-		return false;
-	}
-	const { cause, code } = error as { cause?: unknown; code?: unknown };
-	return code === expected || hasErrorCode(cause, expected);
-}
+import { isUniqueViolation } from "./fulfilment-storage-errors";
 
 /** Insert-only: this storage has no update or delete, so a written Fulfilment never changes. */
 export function createDatabaseDeliveryFulfilmentStorage(
@@ -55,8 +47,7 @@ export function createDatabaseDeliveryFulfilmentStorage(
 					assetVersionIds: row.assetVersionIds,
 					bundleId: row.bundleId,
 					itemId: row.itemId,
-					itemKind:
-						row.itemKind as StoredDeliveryFulfilment["requirements"][number]["itemKind"],
+					itemKind: requiredSetItemKindSchema.parse(row.itemKind),
 					itemName: row.itemName,
 					manifestDigest: row.manifestDigest,
 					requiredSetRevisionId: row.requiredSetRevisionId,
@@ -131,7 +122,7 @@ export function createDatabaseDeliveryFulfilmentStorage(
 				]);
 				return { status: "inserted" };
 			} catch (error) {
-				if (hasErrorCode(error, uniqueViolationCode)) {
+				if (isUniqueViolation(error)) {
 					return { status: "conflict" };
 				}
 				throw error;

@@ -9,9 +9,9 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { useForm } from "@tanstack/react-form";
-import { type SyntheticEvent, useRef, useState } from "react";
-import { errorCodeOf } from "@/utils/error-code";
+import type { SyntheticEvent } from "react";
 import { useFinalizeFulfilment } from "../../hooks/use-finalize-fulfilment";
+import { useIdempotentSubmit } from "../../hooks/use-idempotent-submit";
 import { shortId } from "../../lib/short-id";
 import { fulfilmentFinalizeFormSchema } from "../../schemas";
 
@@ -35,8 +35,9 @@ export function FulfilmentFinalizeForm({
 	draft: FulfilmentMappingDraft;
 }) {
 	const finalize = useFinalizeFulfilment();
-	const [failure, setFailure] = useState<string | null>(null);
-	const idempotencyKey = useRef(crypto.randomUUID());
+	const { failure, submit } = useIdempotentSubmit(
+		"The Delivery Fulfilment could not be created. Try again."
+	);
 	const conflicts = draft.requirements.filter(
 		(entry) => entry.status === "conflict"
 	);
@@ -44,33 +45,20 @@ export function FulfilmentFinalizeForm({
 
 	const form = useForm({
 		defaultValues: { bundleIds: conflicts.map(() => "") },
-		onSubmit: async ({ value }) => {
-			setFailure(null);
-			try {
-				await finalize.mutateAsync({
+		onSubmit: ({ value }) =>
+			submit((idempotencyKey) =>
+				finalize.mutateAsync({
 					deliveryTargetId,
 					draftId: draft.id,
-					idempotencyKey: idempotencyKey.current,
+					idempotencyKey,
 					projectId: draft.projectId,
 					selections: conflicts.map((requirement, index) => ({
 						assetFamilyId: requirement.assetFamilyId,
 						bundleId: value.bundleIds[index] ?? "",
 						itemId: requirement.itemId,
 					})),
-				});
-				// A later Fulfilment of the same mapping is a new act, so it needs its own key.
-				idempotencyKey.current = crypto.randomUUID();
-			} catch (error) {
-				if (errorCodeOf(error)) {
-					idempotencyKey.current = crypto.randomUUID();
-				}
-				setFailure(
-					error instanceof Error && error.message
-						? error.message
-						: "The Delivery Fulfilment could not be created. Try again."
-				);
-			}
-		},
+				})
+			),
 		validators: { onSubmit: fulfilmentFinalizeFormSchema },
 	});
 

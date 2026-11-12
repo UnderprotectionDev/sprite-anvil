@@ -1,9 +1,11 @@
 import { z } from "zod";
-import { requiredSetItemKindSchema } from "./family-readiness";
+import {
+	deliveryTargetScopeInputSchema,
+	fulfilmentRequirementIdentityShape,
+	idSchema,
+} from "./delivery-fulfilment-shared";
 import { idempotencyKeySchema } from "./record-publication";
 import { runtimeValidationReadinessSchema } from "./runtime-validation-readiness";
-
-const idSchema = z.uuid();
 
 /**
  * Prepares one mapping draft for the active revision of a Delivery Target.
@@ -25,9 +27,7 @@ export const fulfilmentMappingGetInputSchema = z
 	.object({ draftId: idSchema, projectId: idSchema })
 	.strict();
 
-export const fulfilmentMappingListInputSchema = z
-	.object({ deliveryTargetId: idSchema, projectId: idSchema })
-	.strict();
+export const fulfilmentMappingListInputSchema = deliveryTargetScopeInputSchema;
 
 /**
  * mapped: exactly one candidate bundle meets the requirement.
@@ -58,15 +58,10 @@ export type FulfilmentCandidate = z.infer<typeof fulfilmentCandidateSchema>;
 /** One required Required Set item (usage tests included) of one pinned family. */
 export const fulfilmentRequirementSchema = z
 	.object({
-		assetFamilyId: z.string(),
-		assetFamilyName: z.string(),
+		...fulfilmentRequirementIdentityShape,
 		candidates: z.array(fulfilmentCandidateSchema),
-		itemId: z.string(),
-		itemKind: requiredSetItemKindSchema,
-		itemName: z.string(),
 		/** Set for mapped and agreed requirements only; a conflict or a missing requirement has no proposal. */
 		proposedBundleId: z.string().nullable(),
-		requiredSetRevisionId: z.string(),
 		status: fulfilmentRequirementStatusSchema,
 	})
 	.strict();
