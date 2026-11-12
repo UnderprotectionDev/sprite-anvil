@@ -36,8 +36,9 @@ Her implementer ve düzeltme subagent'ının brief'i şu sınırları bir cümle
 - `.env` dosyaları yoktur; DB'ye bağlı testleri atlar ve atladığını raporlar.
 - Spec'in kararsız bıraktığı ürün seçimini uydurmaz; raporlar.
 - Son raporu AGENTS.md Close adımına göre verir; kullanıcıya dönük close-out'u subagent değil ana agent yazar.
+- Raporunu Türkçe yazar; kod, komut ve UI etiketleri İngilizce kalır. Ana agent kullanıcıyla her zaman Türkçe konuşur: ara açıklamalar ve close-out dahil ([AGENTS.md](../../AGENTS.md#language)).
 
-**Done when** brief'te bu altı sınır yer alır ve subagent raporu ticket başına doğrulama, atlananlar ve açık kararları içerir.
+**Done when** brief'te bu yedi sınır yer alır ve subagent raporu ticket başına doğrulama, atlananlar ve açık kararları içerir.
 
 ## Veritabanı
 

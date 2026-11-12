@@ -2,6 +2,10 @@
 
 This is the always-loaded process for work in Sprite Anvil. Apply the full sequence to product behavior changes. For maintenance or documentation work, follow only the steps and references the change touches.
 
+## Language
+
+Every message to the user — progress notes, explanations, questions, and the final report — is in Turkish. Code, commands, file paths, identifiers, and real UI labels stay English. Subagent reports follow [the subagent brief](docs/agents/implement-spec.md#subagent-briefi).
+
 ## Process
 
 1. **Orient.** Before changing product behavior, name the owning term in [the repository glossary](docs/CONTEXT.md), the requirement ID and file in [the PRD](docs/prd/README.md), the owning [implementation spec](docs/specs/), the relevant [workflow phase](docs/workflow/), and every affected [ADR](docs/adr/). Record a path for each, or `none` after checking. The PRD defines behavior; the spec's `Testing Decisions` defines the test seam, while a glossary term or workflow phase alone does not establish delivery scope. Surface contradictions with exact paths before implementation.

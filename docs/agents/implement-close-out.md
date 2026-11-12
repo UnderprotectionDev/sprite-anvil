@@ -1,6 +1,6 @@
 # Implement close-out
 
-Final user message after implementation — Turkish, three sections in order.
+Final user message after implementation — **write it in Turkish** (see [AGENTS.md](../../AGENTS.md#language)), three sections in order. The skill's own English wording does not change this.
 
 ## When
 
