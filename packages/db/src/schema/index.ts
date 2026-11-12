@@ -36,6 +36,7 @@ export * from "./production-experiments";
 export * from "./production-recipes";
 export * from "./project";
 export * from "./project-access";
+export * from "./project-archives";
 export * from "./project-context";
 export * from "./provider-generation-records";
 export * from "./readiness-plans";

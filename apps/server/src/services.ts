@@ -50,6 +50,10 @@ import { createPortraitIdentityReviewStore } from "./features/portrait-marketing
 import { createProductionExperimentStore } from "./features/production-experiments/server/production-experiment-store";
 import { createManagedSnapshotStore } from "./features/production-provenance/server/managed-snapshot-store";
 import { createProductionRecipeStore } from "./features/production-recipes/server/production-recipe-store";
+import { createDatabaseProjectArchiveStorage } from "./features/project-archives/server/database-project-archive-storage";
+import { createObjectFileVerifier } from "./features/project-archives/server/object-file-verifier";
+import { createProjectArchiveSourceReader } from "./features/project-archives/server/project-archive-source-reader";
+import { createProjectArchiveStore } from "./features/project-archives/server/project-archive-store";
 import { createProjectContextStore } from "./features/project-context/server/project-context-store";
 import { createProjectAccessStore } from "./features/projects/server/project-access-store";
 import { createProviderGenerationRecordStore } from "./features/provider-generation-records/server/provider-generation-record-store";
@@ -170,6 +174,29 @@ export const exportBundleStore = createExportBundleStore(db, {
 		uiStretchTests: uiStretchTestStore,
 	}),
 	storage: createDatabaseExportBundleStorage(db),
+});
+const credentialNamePattern = /SECRET|TOKEN|KEY|PASSWORD/i;
+const archiveObjectStorage =
+	testAssetVersionStorage ?? (r2Config ? createStorage(r2Config) : null);
+export const projectArchiveStore = createProjectArchiveStore(db, {
+	/** Every configured credential value; an archive holding one is refused. */
+	secretValues: () =>
+		Object.entries(ENV)
+			.filter(
+				([name, value]) =>
+					credentialNamePattern.test(name) && typeof value === "string"
+			)
+			.map(([, value]) => value as string),
+	sourceReader: createProjectArchiveSourceReader({
+		assetFamilies: assetFamilyStore,
+		assetRecords: assetRecordStore,
+		assetVersions: assetVersionStore,
+		db,
+	}),
+	storage: createDatabaseProjectArchiveStorage(db),
+	verifyFile: archiveObjectStorage
+		? createObjectFileVerifier(archiveObjectStorage)
+		: undefined,
 });
 export const runtimeValidationStore = createRuntimeValidationStore(db, {
 	getBundle: (userId, projectId, bundleId) =>
