@@ -38,6 +38,7 @@ import type { PortraitIdentityReviewStore } from "./portrait-identity-reviews";
 import type { ProductionExperimentStore } from "./production-experiments";
 import type { ProductionRecipeStore } from "./production-recipes";
 import type { ProjectAccessStore } from "./project-access-store";
+import type { ProjectArchiveStore } from "./project-archive-store";
 import type { ProjectContextStore } from "./project-context";
 import type { ProviderGenerationRecordStore } from "./provider-generation-records";
 import type { ReadinessPlanStore } from "./readiness-plans";
@@ -104,6 +105,7 @@ export interface Context {
 	productionExperimentStore?: ProductionExperimentStore;
 	productionRecipeStore?: ProductionRecipeStore;
 	projectAccess: ProjectAccessStore;
+	projectArchiveStore?: ProjectArchiveStore;
 	projectContextScopeStore: ProjectContextScopeStore;
 	projectContextStore: ProjectContextStore;
 	providerGenerationRecordStore?: ProviderGenerationRecordStore;
