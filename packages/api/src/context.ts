@@ -12,6 +12,7 @@ import type { BackgroundOperationStore } from "./background-operations";
 import type { BackgroundScrollingTestStore } from "./background-scrolling-tests";
 import type { CollectionStore } from "./collections";
 import type { ProjectContextScopeStore } from "./context-scopes";
+import type { FulfilmentMappingStore } from "./delivery-fulfilment";
 import type { DeliveryTargetStore } from "./delivery-planning-store";
 import type { DeliveryRefreshLockStore } from "./delivery-refresh-lock-store";
 import type { DependencyRevalidationStore } from "./dependency-revalidation";
@@ -89,6 +90,7 @@ export interface Context {
 	exportProfileStore?: ExportProfileStore;
 	familyReadinessStore?: FamilyReadinessStore;
 	finalizeSourceMetadataMapping?: SourceMetadataMappingFinalizer;
+	fulfilmentMappingStore?: FulfilmentMappingStore;
 	gameplayMetadataStore?: GameplayMetadataStore;
 	generationPackageStore?: GenerationPackageStore;
 	iconFamilyReviewStore?: IconFamilyReviewStore;
