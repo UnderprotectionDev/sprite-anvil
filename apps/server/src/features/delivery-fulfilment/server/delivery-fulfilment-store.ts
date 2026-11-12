@@ -14,6 +14,7 @@ import {
 	idempotentRecordId,
 	RecordIntegrityError,
 } from "@sprite-anvil/api/record-publication";
+import { diffFulfilments } from "./delivery-diff";
 import type {
 	DeliveryFulfilmentStorage,
 	StoredDeliveryFulfilment,
@@ -178,6 +179,20 @@ export function createDeliveryFulfilmentStore(
 	) => readDeliveryTarget(deliveryTargets, userId, input);
 
 	return {
+		async compare(userId, input) {
+			const catalog = await deliveryTargets.list(userId, input.projectId);
+			if (!catalog) {
+				return null;
+			}
+			const [from, to] = await Promise.all([
+				storage.findFulfilment(input.projectId, input.fromFulfilmentId),
+				storage.findFulfilment(input.projectId, input.toFulfilmentId),
+			]);
+			if (!(from && to)) {
+				return null;
+			}
+			return diffFulfilments(from, to, catalog);
+		},
 		async finalize(userId, input): Promise<FulfilmentFinalizeResult | null> {
 			const target = await readTarget(userId, input);
 			if (!target) {
