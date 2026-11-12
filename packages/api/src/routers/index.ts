@@ -54,6 +54,7 @@ import { marketingUsageReviewsRouter } from "./marketing-usage-reviews";
 import { portraitIdentityReviewsRouter } from "./portrait-identity-reviews";
 import { productionExperimentsRouter } from "./production-experiments";
 import { productionRecipesRouter } from "./production-recipes";
+import { projectArchivesRouter } from "./project-archives";
 import { projectsRouter } from "./projects";
 import { readinessPlansRouter } from "./readiness-plans";
 import { referenceProductionRouter } from "./reference-production";
@@ -142,6 +143,7 @@ export const appRouter = {
 	deliveryPlanning: deliveryPlanningRouter,
 	deliveryRefreshLocks: deliveryRefreshLocksRouter,
 	exportBundles: exportBundlesRouter,
+	projectArchives: projectArchivesRouter,
 	exportProfiles: exportProfilesRouter,
 	dependencyRevalidation: dependencyRevalidationRouter,
 	familyReadiness: familyReadinessRouter,
