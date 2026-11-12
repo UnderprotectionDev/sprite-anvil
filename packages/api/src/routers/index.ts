@@ -47,6 +47,7 @@ import { exportProfilesRouter } from "./export-profiles";
 import { familyReadinessRouter } from "./family-readiness";
 import { gameplayMetadataRouter } from "./gameplay-metadata";
 import { generationPackagesRouter } from "./generation-packages";
+import { historicalRiskNoticesRouter } from "./historical-risk-notices";
 import { iconFamilyReviewsRouter } from "./icon-family-reviews";
 import { importsRouter } from "./imports";
 import { marketingUsageReviewsRouter } from "./marketing-usage-reviews";
@@ -137,6 +138,7 @@ export const appRouter = {
 	assetFamilies: assetFamiliesRouter,
 	assetFamilyComparisons: assetFamilyComparisonsRouter,
 	deliveryFulfilment: deliveryFulfilmentRouter,
+	historicalRiskNotices: historicalRiskNoticesRouter,
 	deliveryPlanning: deliveryPlanningRouter,
 	deliveryRefreshLocks: deliveryRefreshLocksRouter,
 	exportBundles: exportBundlesRouter,

@@ -15,6 +15,7 @@ const draftId = "44444444-4444-4444-8444-444444444444";
 const bundleA = "55555555-5555-4555-8555-555555555551";
 const bundleB = "55555555-5555-4555-8555-555555555552";
 
+const noticeTitle = /Rights Record revision 2 \(Restricted\)/;
 const notDelivered = /A mapping draft is not a Delivery Fulfilment/;
 const readyNotDelivered = /Ready does not mean delivered/;
 const mustBeReady = /Only a Ready Delivery Target/;
@@ -27,6 +28,7 @@ const fakeApi = vi.hoisted(() => ({
 	drafts: [] as unknown[],
 	finalize: vi.fn(),
 	fulfilments: [] as unknown[],
+	notices: [] as unknown[],
 	prepare: vi.fn(),
 	targets: [] as unknown[],
 }));
@@ -63,6 +65,15 @@ vi.mock("@/utils/orpc", () => ({
 				mutationOptions: (options?: object) => ({
 					...options,
 					mutationFn: (input: unknown) => fakeApi.prepare(input),
+				}),
+			},
+		},
+		historicalRiskNotices: {
+			list: {
+				queryOptions: () => ({
+					queryFn: () =>
+						Promise.resolve({ notices: structuredClone(fakeApi.notices) }),
+					queryKey: ["historical-risk-notices", targetId],
 				}),
 			},
 		},
@@ -166,8 +177,54 @@ beforeEach(() => {
 	fakeApi.prepare.mockReset();
 	fakeApi.finalize.mockReset();
 	fakeApi.fulfilments = [];
+	fakeApi.notices = [];
 });
 afterEach(cleanup);
+
+test("shows a Historical Risk Notice with its source, new revision, usage and detection time, and no legal judgment", async () => {
+	fakeApi.notices = [
+		{
+			affectedUsage: [
+				{
+					assetFamilyId: "fam",
+					assetFamilyName: "Hero",
+					bundleId: bundleA,
+					itemId: "idle",
+					itemName: "Idle",
+				},
+			],
+			assetRecordId: "66666666-6666-4666-8666-666666666666",
+			currentPolicy: { accepted: false, revisionId, revisionNumber: 2 },
+			deliveryTargetId: targetId,
+			detectedAt: "2026-11-12T08:00:00.000Z",
+			fulfilmentId: "77777777-7777-4777-8777-777777777777",
+			id: "88888888-8888-4888-8888-888888888888",
+			pinnedPolicy: {
+				acceptableStates: ["documented"],
+				requireRecordFor: ["results"],
+			},
+			pinnedRights: {
+				rightsRecordId: "99999999-9999-4999-8999-999999999999",
+				state: "documented",
+				versionNumber: 1,
+			},
+			projectId,
+			revisionId,
+			revisionNumber: 1,
+			rightsRecordId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+			rightsRecordState: "restricted",
+			rightsRecordVersionNumber: 2,
+		},
+	];
+	renderView();
+	const notice = (await screen.findByText(noticeTitle)).closest("li");
+	expect(notice).toHaveTextContent("Asset Record 66666666");
+	expect(notice).toHaveTextContent("pinned at revision 1 (Documented)");
+	expect(notice).toHaveTextContent("Affected usage: Hero: Idle");
+	expect(notice).toHaveTextContent("Detected");
+	expect(notice).toHaveTextContent("does not accept Restricted for new use");
+	expect(notice).toHaveTextContent("not a legal judgment");
+});
 
 test("shows the persisted draft with missing and conflicting requirements", async () => {
 	fakeApi.drafts = [draft];

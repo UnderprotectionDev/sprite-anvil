@@ -36,6 +36,9 @@ import { createExportProfileStore } from "./features/export-profiles/server/expo
 import { createFamilyReadinessStore } from "./features/family-readiness/server/family-readiness-store";
 import { createGameplayMetadataStore } from "./features/gameplay-metadata/server/gameplay-metadata-store";
 import { createGenerationPackageStore } from "./features/generation-packages/server/generation-package-store";
+import { createDatabaseHistoricalRiskNoticeStorage } from "./features/historical-rights-risk/server/database-historical-risk-notice-storage";
+import { createHistoricalRiskNoticeStore } from "./features/historical-rights-risk/server/historical-risk-notice-store";
+import { withHistoricalRiskDetection } from "./features/historical-rights-risk/server/rights-record-risk-detection";
 import { createIconFamilyReviewStore } from "./features/icon-profile/server/icon-family-review-store";
 import { createImportInboxStore } from "./features/imports/server/import-inbox-store";
 import { createSourceMetadataMappingProposalStore } from "./features/imports/server/source-metadata-mapping-store";
@@ -152,7 +155,7 @@ export function createServerAssetVersionStorage() {
 }
 export const projectContextStore = createProjectContextStore(db);
 export const referenceProductionStore = createReferenceProductionStore(db);
-export const rightsRecordStore = createRightsRecordStore(db);
+const persistedRightsRecordStore = createRightsRecordStore(db);
 export const exportBundleStore = createExportBundleStore(db, {
 	profiles: exportProfileStore,
 	sourceReader: createExportBundleSourceReader({
@@ -162,7 +165,7 @@ export const exportBundleStore = createExportBundleStore(db, {
 		familyReadiness: familyReadinessStore,
 		gameplayMetadata: gameplayMetadataStore,
 		projectContext: projectContextStore,
-		rights: rightsRecordStore,
+		rights: persistedRightsRecordStore,
 		tilesetAdjacencyReviews: tilesetAdjacencyReviewStore,
 		uiStretchTests: uiStretchTestStore,
 	}),
@@ -187,6 +190,18 @@ export const deliveryFulfilmentStore = createDeliveryFulfilmentStore({
 	readinessPlans: readinessPlanStore,
 	storage: deliveryFulfilmentStorage,
 });
+export const historicalRiskNoticeStore = createHistoricalRiskNoticeStore({
+	bundles: exportBundleStore,
+	deliveryTargets: deliveryTargetStore,
+	fulfilments: deliveryFulfilmentStore,
+	rights: persistedRightsRecordStore,
+	storage: createDatabaseHistoricalRiskNoticeStorage(db),
+});
+/** Every new Rights Record revision is evaluated against past Delivery Fulfilments once saved. */
+export const rightsRecordStore = withHistoricalRiskDetection(
+	persistedRightsRecordStore,
+	historicalRiskNoticeStore
+);
 export const deliveryRefreshLockStore = createDeliveryRefreshLockStore(db, {
 	bundles: exportBundleStore,
 	storage: createDatabaseDeliveryRefreshLockStorage(db),
