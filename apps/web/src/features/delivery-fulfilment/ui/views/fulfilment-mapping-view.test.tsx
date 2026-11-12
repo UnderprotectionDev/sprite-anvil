@@ -25,6 +25,8 @@ const noActiveRevisionText = /has no activated revision/;
 
 const fakeApi = vi.hoisted(() => ({
 	drafts: [] as unknown[],
+	finalize: vi.fn(),
+	fulfilments: [] as unknown[],
 	prepare: vi.fn(),
 	targets: [] as unknown[],
 }));
@@ -33,6 +35,22 @@ vi.mock("@/utils/orpc", () => ({
 	client: {},
 	orpc: {
 		deliveryFulfilment: {
+			finalize: {
+				mutationOptions: (options?: object) => ({
+					...options,
+					mutationFn: (input: unknown) => fakeApi.finalize(input),
+				}),
+			},
+			listFulfilments: {
+				key: () => ["delivery-fulfilments"],
+				queryOptions: () => ({
+					queryFn: () =>
+						Promise.resolve({
+							fulfilments: structuredClone(fakeApi.fulfilments),
+						}),
+					queryKey: ["delivery-fulfilments", targetId],
+				}),
+			},
 			listMappings: {
 				key: () => ["fulfilment-mappings"],
 				queryOptions: () => ({
@@ -48,6 +66,7 @@ vi.mock("@/utils/orpc", () => ({
 				}),
 			},
 		},
+		readinessPlans: { get: { key: () => ["readiness-plan"] } },
 		deliveryPlanning: {
 			list: {
 				queryOptions: () => ({
@@ -145,6 +164,8 @@ beforeEach(() => {
 	fakeApi.drafts = [];
 	fakeApi.targets = [target];
 	fakeApi.prepare.mockReset();
+	fakeApi.finalize.mockReset();
+	fakeApi.fulfilments = [];
 });
 afterEach(cleanup);
 
@@ -211,4 +232,128 @@ test("says so when the project has no Delivery Target", async () => {
 	expect(
 		await screen.findByText("This project has no Delivery Targets yet.")
 	).toBeInTheDocument();
+});
+
+const conflictOnlyDraft = {
+	...draft,
+	requirements: draft.requirements.filter((entry) => entry.itemId !== "jump"),
+};
+
+const cannotFinalize = /cannot be finalized while 1 requirement is missing/;
+const pickBundle = /Pick an Export Bundle/;
+const noFulfilment = /No Delivery Fulfilment exists/;
+const staleRevision = /no longer the active revision/;
+
+function fulfilmentRecord(id: string, createdAt: string, isCurrent: boolean) {
+	return {
+		createdAt,
+		deliveryTargetId: targetId,
+		draftId,
+		id,
+		isCurrent,
+		projectId,
+		requirements: [],
+		revisionId,
+		revisionNumber: 2,
+	};
+}
+
+test("a draft with a missing requirement cannot be finalized", async () => {
+	fakeApi.drafts = [draft];
+	renderView();
+	expect(await screen.findByText(cannotFinalize)).toBeInTheDocument();
+	expect(
+		screen.queryByRole("button", { name: "Finalize Fulfilment" })
+	).not.toBeInTheDocument();
+});
+
+test("every conflict needs the user's pick before a Fulfilment is finalized", async () => {
+	fakeApi.drafts = [conflictOnlyDraft];
+	renderView();
+	await userEvent.click(
+		await screen.findByRole("button", { name: "Finalize Fulfilment" })
+	);
+	expect(await screen.findByText(pickBundle)).toBeInTheDocument();
+	expect(fakeApi.finalize).not.toHaveBeenCalled();
+});
+
+test("finalizes with the picked bundle and then shows the current Fulfilment", async () => {
+	fakeApi.drafts = [conflictOnlyDraft];
+	fakeApi.finalize.mockImplementation(() => {
+		fakeApi.fulfilments = [
+			fulfilmentRecord("fulfil-1", "2026-11-12T11:00:00.000Z", true),
+		];
+		return Promise.resolve({
+			fulfilment: fakeApi.fulfilments[0],
+			status: "created",
+		});
+	});
+	renderView();
+	await userEvent.selectOptions(
+		await screen.findByLabelText("Export Bundle for Hero: Item run"),
+		bundleB
+	);
+	await userEvent.click(
+		screen.getByRole("button", { name: "Finalize Fulfilment" })
+	);
+	expect(fakeApi.finalize).toHaveBeenCalledWith(
+		expect.objectContaining({
+			deliveryTargetId: targetId,
+			draftId,
+			projectId,
+			selections: [{ assetFamilyId: "fam", bundleId: bundleB, itemId: "run" }],
+		})
+	);
+	expect(await screen.findByText("Current Fulfilment")).toBeInTheDocument();
+});
+
+test("a conflict-free draft finalizes without any pick", async () => {
+	fakeApi.drafts = [
+		{
+			...draft,
+			requirements: [draft.requirements[0]],
+		},
+	];
+	fakeApi.finalize.mockResolvedValue({ status: "created" });
+	renderView();
+	await userEvent.click(
+		await screen.findByRole("button", { name: "Finalize Fulfilment" })
+	);
+	expect(fakeApi.finalize).toHaveBeenCalledWith(
+		expect.objectContaining({ draftId, selections: [] })
+	);
+});
+
+test("shows why finalizing was refused", async () => {
+	fakeApi.drafts = [{ ...draft, requirements: [draft.requirements[0]] }];
+	fakeApi.finalize.mockRejectedValue(
+		Object.assign(
+			new Error(
+				"The mapping draft belongs to a revision that is no longer the active revision. Prepare a new mapping."
+			),
+			{ code: "CONFLICT" }
+		)
+	);
+	renderView();
+	await userEvent.click(
+		await screen.findByRole("button", { name: "Finalize Fulfilment" })
+	);
+	expect(await screen.findByRole("alert")).toHaveTextContent(staleRevision);
+});
+
+test("says no Fulfilment exists yet and that Ready is not Delivered", async () => {
+	fakeApi.drafts = [draft];
+	renderView();
+	expect(await screen.findByText(noFulfilment)).toBeInTheDocument();
+});
+
+test("lists the current Fulfilment and keeps earlier ones as history", async () => {
+	fakeApi.drafts = [draft];
+	fakeApi.fulfilments = [
+		fulfilmentRecord("fulfil-2", "2026-11-12T12:00:00.000Z", true),
+		fulfilmentRecord("fulfil-1", "2026-11-12T11:00:00.000Z", false),
+	];
+	renderView();
+	expect(await screen.findByText("Current Fulfilment")).toBeInTheDocument();
+	expect(screen.getByText("Earlier Fulfilment")).toBeInTheDocument();
 });

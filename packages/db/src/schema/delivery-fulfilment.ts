@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
 	check,
 	foreignKey,
+	index,
 	integer,
 	jsonb,
 	pgTable,
@@ -107,6 +108,93 @@ export const deliveryFulfilmentDraftRequirements = pgTable(
 		),
 		uniqueIndex("delivery_fulfilment_draft_requirements_position_idx").on(
 			table.draftId,
+			table.position
+		),
+	]
+);
+
+/**
+ * One immutable Delivery Fulfilment: the user-finalized mapping of every
+ * requirement of one Delivery Target revision to exact bundles and Asset
+ * Versions. Rows are only inserted, never updated or deleted; a later
+ * Fulfilment of the same revision is another row and the newest one is current.
+ * `draftId` records the mapping draft it came from and is not a foreign key, so
+ * the Fulfilment stands on its own.
+ */
+export const deliveryFulfilments = pgTable(
+	"delivery_fulfilments",
+	{
+		id: text("id").primaryKey(),
+		projectId: text("project_id")
+			.notNull()
+			.references(() => project.id, { onDelete: "cascade" }),
+		deliveryTargetId: text("delivery_target_id").notNull(),
+		revisionId: text("revision_id")
+			.notNull()
+			.references(() => deliveryTargetRevisions.id, { onDelete: "cascade" }),
+		revisionNumber: integer("revision_number").notNull(),
+		draftId: text("draft_id").notNull(),
+		/** Digest of the finalize request (draft and selections), so a repeated key with other content is a conflict. */
+		requestDigest: text("request_digest").notNull(),
+		createdByUserId: text("created_by_user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+	},
+	(table) => [
+		uniqueIndex("delivery_fulfilments_project_id_id_idx").on(
+			table.projectId,
+			table.id
+		),
+		index("delivery_fulfilments_target_idx").on(
+			table.projectId,
+			table.deliveryTargetId
+		),
+		index("delivery_fulfilments_revision_idx").on(
+			table.projectId,
+			table.revisionId
+		),
+		check(
+			"delivery_fulfilments_revision_number_check",
+			sql`${table.revisionNumber} > 0`
+		),
+	]
+);
+
+/** One requirement of a Fulfilment with the exact bundle and Asset Versions that fulfilled it. Rows are only inserted. */
+export const deliveryFulfilmentRequirements = pgTable(
+	"delivery_fulfilment_requirements",
+	{
+		id: text("id").primaryKey(),
+		projectId: text("project_id").notNull(),
+		fulfilmentId: text("fulfilment_id").notNull(),
+		position: integer("position").notNull(),
+		assetFamilyId: text("asset_family_id").notNull(),
+		assetFamilyName: text("asset_family_name").notNull(),
+		itemId: text("item_id").notNull(),
+		itemKind: text("item_kind").notNull(),
+		itemName: text("item_name").notNull(),
+		requiredSetRevisionId: text("required_set_revision_id").notNull(),
+		bundleId: text("bundle_id").notNull(),
+		manifestDigest: text("manifest_digest").notNull(),
+		assetVersionIds: jsonb("asset_version_ids").$type<string[]>().notNull(),
+		resolution: text("resolution")
+			.$type<"only_bundle" | "identical_pins" | "user_selected">()
+			.notNull(),
+	},
+	(table) => [
+		foreignKey({
+			name: "delivery_fulfilment_requirements_fulfilment_fk",
+			columns: [table.projectId, table.fulfilmentId],
+			foreignColumns: [deliveryFulfilments.projectId, deliveryFulfilments.id],
+		}).onDelete("cascade"),
+		uniqueIndex("delivery_fulfilment_requirements_item_idx").on(
+			table.fulfilmentId,
+			table.assetFamilyId,
+			table.itemId
+		),
+		uniqueIndex("delivery_fulfilment_requirements_position_idx").on(
+			table.fulfilmentId,
 			table.position
 		),
 	]

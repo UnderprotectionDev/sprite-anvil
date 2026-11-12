@@ -9,7 +9,9 @@ import { LoadErrorAlert } from "@/components/load-error-alert";
 import { errorCodeOf } from "@/utils/error-code";
 import { orpc } from "@/utils/orpc";
 import { usePrepareFulfilmentMapping } from "../../hooks/use-prepare-fulfilment-mapping";
+import { DeliveryFulfilmentList } from "../components/delivery-fulfilment-list";
 import { FulfilmentMappingDraftPanel } from "../components/fulfilment-mapping-draft";
+import { FulfilmentFinalizeForm } from "../forms/fulfilment-finalize-form";
 
 function TargetMapping({
 	deliveryTargetId,
@@ -22,6 +24,12 @@ function TargetMapping({
 }) {
 	const drafts = useQuery({
 		...orpc.deliveryFulfilment.listMappings.queryOptions({
+			input: { deliveryTargetId, projectId },
+		}),
+		meta: { suppressGlobalErrorToast: true },
+	});
+	const fulfilments = useQuery({
+		...orpc.deliveryFulfilment.listFulfilments.queryOptions({
 			input: { deliveryTargetId, projectId },
 		}),
 		meta: { suppressGlobalErrorToast: true },
@@ -82,7 +90,33 @@ function TargetMapping({
 					No mapping has been prepared for {name} yet.
 				</p>
 			) : null}
-			{latest ? <FulfilmentMappingDraftPanel draft={latest} /> : null}
+			{latest ? (
+				<>
+					<FulfilmentMappingDraftPanel draft={latest} />
+					<FulfilmentFinalizeForm
+						deliveryTargetId={deliveryTargetId}
+						draft={latest}
+						key={latest.id}
+					/>
+				</>
+			) : null}
+			<section aria-label="Delivery Fulfilments" className="space-y-3">
+				<h2 className="font-semibold text-lg">Delivery Fulfilments</h2>
+				{fulfilments.isPending ? (
+					<p aria-live="polite" role="status">
+						Loading Delivery Fulfilments…
+					</p>
+				) : null}
+				{fulfilments.isError ? (
+					<LoadErrorAlert
+						message="Delivery Fulfilments could not be loaded."
+						onRetry={() => void fulfilments.refetch()}
+					/>
+				) : null}
+				{fulfilments.isSuccess ? (
+					<DeliveryFulfilmentList fulfilments={fulfilments.data.fulfilments} />
+				) : null}
+			</section>
 		</div>
 	);
 }
