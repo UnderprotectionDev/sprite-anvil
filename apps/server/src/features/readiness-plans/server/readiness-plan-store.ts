@@ -1,3 +1,4 @@
+import type { DeliveredRevisionLookup } from "@sprite-anvil/api/delivery-fulfilment-records";
 import type { DeliveryTargetRevision } from "@sprite-anvil/api/delivery-planning-outputs";
 import type { DeliveryTargetStore } from "@sprite-anvil/api/delivery-planning-store";
 import type { DependencyRevalidationStore } from "@sprite-anvil/api/dependency-revalidation";
@@ -14,6 +15,8 @@ export interface ReadinessPlanStoreDependencies {
 	deliveryTargets: DeliveryTargetStore;
 	dependencies: DependencyRevalidationStore;
 	familyReadiness: FamilyReadinessStore;
+	/** Delivery Status reads only whether a Fulfilment exists for the revision. */
+	fulfilments: DeliveredRevisionLookup;
 	now?: () => Date;
 	storage: ReadinessPlanStorage;
 }
@@ -78,11 +81,13 @@ export function createReadinessPlanStore(
 		target: { id: string },
 		revision: DeliveryTargetRevision
 	) {
-		const [dependencies, savedOrder, familyReadiness] = await Promise.all([
-			deps.dependencies.list(userId, projectId),
-			deps.storage.findOrder(projectId, revision.id),
-			readFamilies(userId, projectId, revision),
-		]);
+		const [dependencies, savedOrder, familyReadiness, hasFulfilment] =
+			await Promise.all([
+				deps.dependencies.list(userId, projectId),
+				deps.storage.findOrder(projectId, revision.id),
+				readFamilies(userId, projectId, revision),
+				deps.fulfilments.hasFulfilment(projectId, revision.id),
+			]);
 		// An unavailable dependency catalog is access lost, not an empty catalog.
 		if (!(familyReadiness && dependencies)) {
 			return null;
@@ -91,6 +96,7 @@ export function createReadinessPlanStore(
 			deliveryTargetId: target.id,
 			dependencies,
 			familyReadiness,
+			hasFulfilment,
 			revision,
 			savedOrder,
 		});

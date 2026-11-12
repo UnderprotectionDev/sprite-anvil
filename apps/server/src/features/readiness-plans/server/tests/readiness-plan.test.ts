@@ -192,6 +192,8 @@ function setup(
 		dependenciesUnavailable: false,
 		onFamilyRead: undefined as (() => void) | undefined,
 		revalidationRequired: ["version-east"],
+		/** Revision ids that have a Delivery Fulfilment. */
+		fulfilledRevisionIds: new Set<string>(),
 	};
 	const catalog = catalogOf(
 		options.revision === undefined ? revisionScope() : options.revision
@@ -282,6 +284,10 @@ function setup(
 			deliveryTargets,
 			dependencies,
 			familyReadiness,
+			fulfilments: {
+				hasFulfilment: (_projectId, forRevisionId) =>
+					Promise.resolve(state.fulfilledRevisionIds.has(forRevisionId)),
+			},
 			storage: memory.storage,
 		}),
 		session: options.session === false ? null : { user: { id: userId } },
@@ -465,6 +471,34 @@ test("a target whose every condition is met is Ready, still not Delivered, and h
 	expect(plan.blockers).toEqual([]);
 	expect(plan.workItems).toEqual([]);
 	expect(plan.recommendedNext).toBeNull();
+});
+
+test("a Fulfilment of the active revision makes the plan Delivered, separately from Ready", async () => {
+	const { get, state } = setup();
+	state.knight = [
+		{ blockers: [], id: "east-facing", versions: ["version-east"] },
+		{ blockers: [], id: "ground-scene", versions: ["version-east"] },
+	];
+	state.fulfilledRevisionIds.add(revisionId);
+
+	const plan = await get();
+
+	expect(plan.targetReadiness).toBe("ready");
+	expect(plan.deliveryStatus).toBe("delivered");
+});
+
+test("a Fulfilment of another revision does not deliver the active revision", async () => {
+	const { get, state } = setup();
+	state.knight = [
+		{ blockers: [], id: "east-facing", versions: ["version-east"] },
+		{ blockers: [], id: "ground-scene", versions: ["version-east"] },
+	];
+	state.fulfilledRevisionIds.add("6f1a3d62-3d2e-4b86-8a7c-0e6c2f0d3998");
+
+	const plan = await get();
+
+	expect(plan.targetReadiness).toBe("ready");
+	expect(plan.deliveryStatus).toBe("not_delivered");
 });
 
 test("a pinned Required Items List that is no longer active blocks instead of silently following the new list", async () => {

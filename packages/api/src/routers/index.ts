@@ -37,6 +37,7 @@ import { backgroundLayerLayoutsRouter } from "./background-layer-layouts";
 import { backgroundOperationsRouter } from "./background-operations";
 import { backgroundScrollingTestsRouter } from "./background-scrolling-tests";
 import { collectionsRouter } from "./collections";
+import { deliveryFulfilmentRouter } from "./delivery-fulfilment";
 import { deliveryPlanningRouter } from "./delivery-planning";
 import { deliveryRefreshLocksRouter } from "./delivery-refresh-locks";
 import { dependencyRevalidationRouter } from "./dependency-revalidation";
@@ -135,6 +136,7 @@ export const appRouter = {
 	projects: projectsRouter,
 	assetFamilies: assetFamiliesRouter,
 	assetFamilyComparisons: assetFamilyComparisonsRouter,
+	deliveryFulfilment: deliveryFulfilmentRouter,
 	deliveryPlanning: deliveryPlanningRouter,
 	deliveryRefreshLocks: deliveryRefreshLocksRouter,
 	exportBundles: exportBundlesRouter,
