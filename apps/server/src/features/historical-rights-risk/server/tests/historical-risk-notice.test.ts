@@ -76,6 +76,7 @@ function setup(
 		failFirstNoticeInsert?: boolean;
 		hasAccess?: boolean;
 		policy?: RightsEvidencePolicy;
+		pinnedVersions?: [number, number];
 	} = {}
 ) {
 	const policy = options.policy ?? strictPolicy;
@@ -117,6 +118,22 @@ function setup(
 		projectId,
 		isCurrent: true,
 		requirements: [
+			...(options.pinnedVersions
+				? [
+						{
+							assetFamilyId: "fam-a",
+							assetFamilyName: "Hero",
+							assetVersionIds: ["v-idle"],
+							bundleId: "bundle-2",
+							itemId: "idle",
+							itemKind: "state" as const,
+							itemName: "Idle",
+							manifestDigest: "cd".repeat(32),
+							requiredSetRevisionId: "rs-1",
+							resolution: "only_bundle" as const,
+						},
+					]
+				: []),
 			{
 				assetFamilyId: "fam-a",
 				assetFamilyName: "Hero",
@@ -136,9 +153,10 @@ function setup(
 	const bundles = {
 		get: (_user: string, requestedProject: string, id: string) =>
 			Promise.resolve(
-				requestedProject === projectId && id === bundleId
+				requestedProject === projectId &&
+					(id === bundleId || (id === "bundle-2" && options.pinnedVersions))
 					? ({
-							id: bundleId,
+							id,
 							manifest: {
 								files: [
 									{
@@ -153,7 +171,10 @@ function setup(
 										assetRecordId: pinnedAssetRecordId,
 										rightsRecordId: pinnedRightsId,
 										state: "documented",
-										versionNumber: 1,
+										versionNumber:
+											id === "bundle-2"
+												? (options.pinnedVersions?.[0] ?? 1)
+												: (options.pinnedVersions?.[1] ?? 1),
 									},
 								],
 							},
@@ -423,4 +444,22 @@ test("the notice list is not found for a project the user cannot read", async ()
 	await expect(
 		world.listNotices({ projectId: otherProjectId })
 	).rejects.toThrow(notFoundText);
+});
+
+test("a revision newer than the rights pinned by any bundle creates a notice even when another bundle already pinned it", async () => {
+	// The new revision is version 2: bundle-2 already pinned it, the main bundle pinned version 1.
+	const world = setup({ pinnedVersions: [2, 1] });
+	const created = await world.rights.createRevision(
+		userId,
+		rightsInput(pinnedAssetRecordId, "restricted")
+	);
+	if (!created.ok) {
+		throw new Error("rights record not created");
+	}
+
+	const { notices } = await world.listNotices();
+
+	expect(notices).toHaveLength(1);
+	expect(notices[0]?.pinnedRights?.versionNumber).toBe(1);
+	expect(notices[0]?.affectedUsage).toHaveLength(2);
 });

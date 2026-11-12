@@ -132,7 +132,11 @@ export function createHistoricalRiskNoticeStore(
 			const pinned = rightsEvidence.find(
 				(entry) => entry.assetRecordId === assetRecordId
 			);
-			if (pinned && !pinnedRights) {
+			// Keep the oldest pinned revision: any bundle that pinned less than the new revision is affected.
+			if (
+				pinned &&
+				(!pinnedRights || pinned.versionNumber < pinnedRights.versionNumber)
+			) {
 				pinnedRights = {
 					rightsRecordId: pinned.rightsRecordId,
 					state: pinned.state,
