@@ -13,7 +13,6 @@ import {
 
 import { deliveryFulfilments } from "./delivery-fulfilment";
 import { project } from "./project";
-import { rightsRecords } from "./rights-records";
 
 export interface HistoricalRiskPinnedPolicy {
 	acceptableStates: string[];
@@ -52,9 +51,7 @@ export const historicalRiskNotices = pgTable(
 		revisionId: text("revision_id").notNull(),
 		revisionNumber: integer("revision_number").notNull(),
 		assetRecordId: text("asset_record_id").notNull(),
-		rightsRecordId: text("rights_record_id")
-			.notNull()
-			.references(() => rightsRecords.id, { onDelete: "restrict" }),
+		rightsRecordId: text("rights_record_id").notNull(),
 		rightsRecordVersionNumber: integer(
 			"rights_record_version_number"
 		).notNull(),
