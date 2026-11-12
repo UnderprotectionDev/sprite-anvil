@@ -12,6 +12,12 @@ import {
 	assetRecordTagsSchema,
 } from "./asset-records";
 import {
+	type DeliveryRecords,
+	deliveryGroup,
+	deliveryRelationFailures,
+	deliverySectionSchemas,
+} from "./project-archive-delivery";
+import {
 	type HistoryRecords,
 	historyGroup,
 	historyRelationFailures,
@@ -199,6 +205,7 @@ export const projectArchiveSectionRegistry: Record<
 > = {
 	foundation: foundationSectionSchemas,
 	[historyGroup]: historySectionSchemas,
+	[deliveryGroup]: deliverySectionSchemas,
 };
 
 export const foundationGroup = "foundation";
@@ -211,6 +218,7 @@ export const foundationGroup = "foundation";
 export const projectArchiveFileKinds = [
 	"asset_version_file",
 	"rights_evidence_file",
+	"runtime_evidence_file",
 	"working_file",
 ] as const;
 
@@ -338,6 +346,8 @@ export interface ProjectArchiveSourceFile
 }
 
 export interface ProjectArchiveSource {
+	/** Delivery and validation history; every list is empty for a project without any. */
+	delivery: DeliveryRecords;
 	files: ProjectArchiveSourceFile[];
 	/** Production and review history; every list is empty for a project without any. */
 	history: HistoryRecords;
@@ -547,9 +557,12 @@ export async function buildProjectArchive(
 	const selected = new Set(options.workingFileIds);
 	const files = source.files
 		.map((file): ProjectArchiveFileEntry => {
-			// Rights evidence files are never carried; only identity, digest and absence are.
+			// Rights and runtime evidence files are never carried; only identity, digest and absence are.
 			const exclusionReason = (() => {
-				if (file.kind === "rights_evidence_file") {
+				if (
+					file.kind === "rights_evidence_file" ||
+					file.kind === "runtime_evidence_file"
+				) {
 					return "evidence_not_archived" as const;
 				}
 				if (file.kind === "working_file" && !selected.has(file.sourceId)) {
@@ -586,6 +599,7 @@ export async function buildProjectArchive(
 	][] = [
 		[foundationGroup, foundationSectionSchemas, source.records],
 		[historyGroup, historySectionSchemas, source.history],
+		[deliveryGroup, deliverySectionSchemas, source.delivery],
 	];
 	for (const [group, schemas, recordsByName] of groups) {
 		for (const [name, schema] of Object.entries(schemas)) {
@@ -595,6 +609,13 @@ export async function buildProjectArchive(
 			sections.push({ group, name, records });
 		}
 	}
+
+	// A re-read archive lists its sections ordered by group and name; build in the same order.
+	sections.sort(
+		(left, right) =>
+			Number(left.group > right.group) - Number(left.group < right.group) ||
+			Number(left.name > right.name) - Number(left.name < right.name)
+	);
 
 	const secretPaths = [
 		...findSecretKeyPaths(
@@ -618,6 +639,12 @@ export async function buildProjectArchive(
 	const failures = [
 		...foundationRelationFailures(source.records, files),
 		...historyRelationFailures(source.history, source.records, files),
+		...(await deliveryRelationFailures(
+			source.delivery,
+			source.records,
+			source.history,
+			files
+		)),
 	];
 	if (failures.length > 0) {
 		return { failures, ok: false, reason: "inconsistent_records" };
@@ -738,6 +765,25 @@ export async function verifyProjectArchive(archive: {
 	) {
 		failures.push(
 			...historyRelationFailures(history, foundation, archive.manifest.files)
+		);
+	}
+	const delivery = Object.fromEntries(
+		archive.sections
+			.filter((section) => section.group === deliveryGroup)
+			.map((section) => [section.name, section.records])
+	) as unknown as DeliveryRecords;
+	if (
+		historyComplete &&
+		Object.keys(deliverySectionSchemas).every((name) => name in delivery) &&
+		Object.keys(foundationSectionSchemas).every((name) => name in foundation)
+	) {
+		failures.push(
+			...(await deliveryRelationFailures(
+				delivery,
+				foundation,
+				history,
+				archive.manifest.files
+			))
 		);
 	}
 	return failures;

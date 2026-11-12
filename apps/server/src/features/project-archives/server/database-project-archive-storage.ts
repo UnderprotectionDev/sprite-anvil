@@ -1,3 +1,4 @@
+import type { ProjectArchiveFileEntry } from "@sprite-anvil/api/project-archives";
 import type { Database } from "@sprite-anvil/db";
 import {
 	projectArchiveFiles,
@@ -95,7 +96,7 @@ export function createDatabaseProjectArchiveStorage(
 					contentType: file.contentType,
 					exclusionReason: file.exclusionReason as "not_selected" | null,
 					fileName: file.fileName,
-					kind: file.kind as "asset_version_file" | "working_file",
+					kind: file.kind as ProjectArchiveFileEntry["kind"],
 					presence: file.presence,
 					sha256: file.sha256,
 					sourceId: file.sourceId,

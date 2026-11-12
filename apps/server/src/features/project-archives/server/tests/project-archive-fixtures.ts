@@ -1,5 +1,6 @@
 import { call } from "@orpc/server";
 import type { Context } from "@sprite-anvil/api/context";
+import { emptyDeliveryRecords } from "@sprite-anvil/api/project-archive-delivery";
 import { emptyHistoryRecords } from "@sprite-anvil/api/project-archive-history";
 import type { ProjectArchiveSourceReader } from "@sprite-anvil/api/project-archive-store";
 import type { ProjectArchiveSource } from "@sprite-anvil/api/project-archives";
@@ -75,6 +76,7 @@ export function foundationSource(): ProjectArchiveSource {
 				sourceId: ids.workingB,
 			},
 		],
+		delivery: emptyDeliveryRecords(),
 		history: emptyHistoryRecords(),
 		records: {
 			assetFamilies: [
