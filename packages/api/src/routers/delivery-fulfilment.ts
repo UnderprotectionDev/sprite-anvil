@@ -1,6 +1,7 @@
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 import type { Context } from "../context";
+import { deliveryDiffInputSchema, deliveryDiffSchema } from "../delivery-diff";
 import {
 	fulfilmentMappingDraftListSchema,
 	fulfilmentMappingDraftSchema,
@@ -64,6 +65,29 @@ const rejections = {
 } as const;
 
 export const deliveryFulfilmentRouter = {
+	/**
+	 * Read-only Delivery Diff of two Delivery Fulfilments: Asset Versions,
+	 * context and bundle mappings, plus the sections the model does not record
+	 * yet. It writes nothing and never changes a Delivered status.
+	 */
+	compareFulfilments: protectedProcedure
+		.input(deliveryDiffInputSchema)
+		.output(deliveryDiffSchema)
+		.handler(async ({ context, input }) => {
+			const result = await getFulfilmentStore(context).compare(
+				context.session.user.id,
+				input
+			);
+			if (!result) {
+				throw new ORPCError("NOT_FOUND", { message: fulfilmentNotFound });
+			}
+			if (result.status === "same_fulfilment") {
+				throw new ORPCError("BAD_REQUEST", {
+					message: "Pick two different Delivery Fulfilments to compare.",
+				});
+			}
+			return result.diff;
+		}),
 	/**
 	 * The user's act: turns a mapping draft, with a pick for every conflict, into
 	 * an immutable Delivery Fulfilment of the active revision. Missing or
