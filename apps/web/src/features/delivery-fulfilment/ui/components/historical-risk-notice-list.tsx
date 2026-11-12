@@ -1,14 +1,6 @@
 import type { HistoricalRiskNotice } from "@sprite-anvil/api/historical-risk-notices";
+import { rightsRecordStateLabel as label } from "../../lib/rights-record-state-labels";
 import { shortId } from "../../lib/short-id";
-
-const stateLabels: Record<string, string> = {
-	assertion_only: "Assertion Only",
-	documented: "Documented",
-	restricted: "Restricted",
-	unknown: "Unknown",
-};
-
-const label = (state: string) => stateLabels[state] ?? state;
 
 function currentPolicyText(notice: HistoricalRiskNotice) {
 	if (!notice.currentPolicy) {

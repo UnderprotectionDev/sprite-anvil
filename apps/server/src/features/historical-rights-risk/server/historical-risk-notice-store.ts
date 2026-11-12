@@ -21,6 +21,7 @@ import {
 } from "@sprite-anvil/api/record-publication";
 import type {
 	RightsRecord,
+	RightsRecordState,
 	RightsRecordStore,
 } from "@sprite-anvil/api/rights-records";
 import type {
@@ -38,14 +39,17 @@ export interface HistoricalRiskNoticeStoreOptions {
 }
 
 /** Whether a Rights Evidence Policy accepts the user-declared state of a result's Rights Record. */
-function acceptsResultState(policy: RightsEvidencePolicy, state: string) {
+function acceptsResultState(
+	policy: RightsEvidencePolicy,
+	state: RightsRecordState
+) {
 	return (
 		!policy.requireRecordFor.includes("results") ||
-		policy.acceptableStates.some((accepted) => accepted === state)
+		policy.acceptableStates.includes(state)
 	);
 }
 
-function currentPolicyOf(target: DeliveryTarget, state: string) {
+function currentPolicyOf(target: DeliveryTarget, state: RightsRecordState) {
 	const active: DeliveryTargetRevision | null = target.activeRevision;
 	return active
 		? {
@@ -151,11 +155,9 @@ export function createHistoricalRiskNoticeStore(
 		if (!pinnedPolicy || acceptsResultState(pinnedPolicy, rightsRecord.state)) {
 			return null;
 		}
-		const existing = await storage.findNotice(
-			fulfilment.projectId,
-			fulfilment.id,
-			rightsRecord.id
-		);
+		const findNotice = () =>
+			storage.findNotice(fulfilment.projectId, fulfilment.id, rightsRecord.id);
+		const existing = await findNotice();
 		if (existing) {
 			return toView(existing, target);
 		}
@@ -196,14 +198,7 @@ export function createHistoricalRiskNoticeStore(
 			rightsRecordVersionNumber: rightsRecord.versionNumber,
 		};
 		const inserted = await storage.insertNotice(notice);
-		const stored =
-			inserted.status === "inserted"
-				? notice
-				: await storage.findNotice(
-						fulfilment.projectId,
-						fulfilment.id,
-						rightsRecord.id
-					);
+		const stored = inserted.status === "inserted" ? notice : await findNotice();
 		if (!stored) {
 			throw new RecordIntegrityError(
 				"The historical risk notice could not be re-read from the persisted record."
