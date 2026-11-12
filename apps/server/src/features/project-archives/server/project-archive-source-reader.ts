@@ -15,6 +15,7 @@ import {
 import { assetVersions } from "@sprite-anvil/db/schema/asset-versions";
 import { contextRevisions } from "@sprite-anvil/db/schema/project-context";
 import { asc, eq } from "drizzle-orm";
+import { readProjectArchiveDelivery } from "./project-archive-delivery-reader";
 import { readProjectArchiveHistory } from "./project-archive-history-reader";
 
 export interface ProjectArchiveSourceReaderDependencies {
@@ -234,8 +235,10 @@ export function createProjectArchiveSourceReader(
 					sourceId: snapshot.id,
 				})),
 			];
+			const deliverySource = await readProjectArchiveDelivery(db, projectId);
 			return {
-				files: [...files, ...historySource.files],
+				delivery: deliverySource.delivery,
+				files: [...files, ...historySource.files, ...deliverySource.files],
 				history: historySource.history,
 				records: foundation,
 			};

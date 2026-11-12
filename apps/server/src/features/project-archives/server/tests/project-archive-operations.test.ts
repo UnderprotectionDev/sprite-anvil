@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import type { BackgroundOperation } from "@sprite-anvil/api/background-operations";
+import { emptyDeliveryRecords } from "@sprite-anvil/api/project-archive-delivery";
 import { emptyHistoryRecords } from "@sprite-anvil/api/project-archive-history";
 import type { ProjectArchiveSource } from "@sprite-anvil/api/project-archives";
 import type { Database } from "@sprite-anvil/db";
@@ -13,6 +14,7 @@ const projectId = "7a1f0f0e-8f4e-4c36-9a53-0b0b6a2f2a01";
 const snapshotId = "88888888-8888-4888-8888-888888888801";
 
 const emptySource: ProjectArchiveSource = {
+	delivery: emptyDeliveryRecords(),
 	files: [
 		{
 			assetRecordId: null,
