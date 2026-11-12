@@ -58,7 +58,7 @@ function toSummary(archive: StoredProjectArchive) {
 }
 
 /** The archive as a reader sees it: the manifest is rebuilt from the stored section and file rows. */
-function toArchive(stored: StoredProjectArchiveRecord): ProjectArchive {
+export function toArchive(stored: StoredProjectArchiveRecord): ProjectArchive {
 	const sections = [...stored.sections].sort(
 		(left, right) =>
 			Number(left.group > right.group) - Number(left.group < right.group) ||

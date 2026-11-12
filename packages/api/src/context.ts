@@ -8,7 +8,10 @@ import type { AssetRecordTrackingStore } from "./asset-record-tracking";
 import type { AssetRecordStore } from "./asset-records";
 import type { AssetVersionStore } from "./asset-versions";
 import type { BackgroundLayerLayoutStore } from "./background-layer-layouts";
-import type { BackgroundOperationStore } from "./background-operations";
+import type {
+	BackgroundOperation,
+	BackgroundOperationStore,
+} from "./background-operations";
 import type { BackgroundScrollingTestStore } from "./background-scrolling-tests";
 import type { CollectionStore } from "./collections";
 import type { ProjectContextScopeStore } from "./context-scopes";
@@ -38,6 +41,8 @@ import type { PortraitIdentityReviewStore } from "./portrait-identity-reviews";
 import type { ProductionExperimentStore } from "./production-experiments";
 import type { ProductionRecipeStore } from "./production-recipes";
 import type { ProjectAccessStore } from "./project-access-store";
+import type { ProjectArchiveRestoreInput } from "./project-archive-restore";
+import type { ProjectArchiveRestoreStore } from "./project-archive-restore-store";
 import type { ProjectArchiveStore } from "./project-archive-store";
 import type { ProjectContextStore } from "./project-context";
 import type { ProviderGenerationRecordStore } from "./provider-generation-records";
@@ -105,6 +110,14 @@ export interface Context {
 	productionExperimentStore?: ProductionExperimentStore;
 	productionRecipeStore?: ProductionRecipeStore;
 	projectAccess: ProjectAccessStore;
+	/** Records a restore as a Background Operation; null when the project is not found. */
+	projectArchiveRestoreOperations?: {
+		request: (
+			userId: string,
+			input: ProjectArchiveRestoreInput
+		) => Promise<BackgroundOperation | null>;
+	};
+	projectArchiveRestoreStore?: ProjectArchiveRestoreStore;
 	projectArchiveStore?: ProjectArchiveStore;
 	projectContextScopeStore: ProjectContextScopeStore;
 	projectContextStore: ProjectContextStore;
