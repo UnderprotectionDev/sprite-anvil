@@ -1,0 +1,172 @@
+import { Button } from "@sprite-anvil/ui/components/button";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@sprite-anvil/ui/components/native-select";
+import { useQuery } from "@tanstack/react-query";
+import { useRef, useState } from "react";
+import { LoadErrorAlert } from "@/components/load-error-alert";
+import { errorCodeOf } from "@/utils/error-code";
+import { orpc } from "@/utils/orpc";
+import { usePrepareFulfilmentMapping } from "../../hooks/use-prepare-fulfilment-mapping";
+import { FulfilmentMappingDraftPanel } from "../components/fulfilment-mapping-draft";
+
+function TargetMapping({
+	deliveryTargetId,
+	name,
+	projectId,
+}: {
+	deliveryTargetId: string;
+	name: string;
+	projectId: string;
+}) {
+	const drafts = useQuery({
+		...orpc.deliveryFulfilment.listMappings.queryOptions({
+			input: { deliveryTargetId, projectId },
+		}),
+		meta: { suppressGlobalErrorToast: true },
+	});
+	const prepare = usePrepareFulfilmentMapping();
+	const [failure, setFailure] = useState<string | null>(null);
+	const idempotencyKey = useRef(crypto.randomUUID());
+	const latest = drafts.data?.drafts[0];
+
+	async function onPrepare() {
+		setFailure(null);
+		try {
+			await prepare.mutateAsync({
+				deliveryTargetId,
+				idempotencyKey: idempotencyKey.current,
+				projectId,
+			});
+			// A new preparation reads the target again, so it needs its own key.
+			idempotencyKey.current = crypto.randomUUID();
+		} catch (error) {
+			if (errorCodeOf(error)) {
+				idempotencyKey.current = crypto.randomUUID();
+			}
+			setFailure(
+				error instanceof Error && error.message
+					? error.message
+					: `The mapping for ${name} could not be prepared. Try again.`
+			);
+		}
+	}
+
+	return (
+		<div className="space-y-6">
+			<div className="space-y-2">
+				<Button
+					className="min-h-11"
+					disabled={prepare.isPending}
+					onClick={() => void onPrepare()}
+					type="button"
+				>
+					Prepare mapping
+				</Button>
+				{failure ? <p role="alert">{failure}</p> : null}
+			</div>
+			{drafts.isPending ? (
+				<p aria-live="polite" role="status">
+					Loading mapping drafts…
+				</p>
+			) : null}
+			{drafts.isError ? (
+				<LoadErrorAlert
+					message="Mapping drafts could not be loaded."
+					onRetry={() => void drafts.refetch()}
+				/>
+			) : null}
+			{drafts.isSuccess && !latest ? (
+				<p className="text-muted-foreground">
+					No mapping has been prepared for {name} yet.
+				</p>
+			) : null}
+			{latest ? <FulfilmentMappingDraftPanel draft={latest} /> : null}
+		</div>
+	);
+}
+
+export function FulfilmentMappingView({
+	deliveryTargetId,
+	onSelectTarget,
+	projectId,
+}: {
+	deliveryTargetId: string | undefined;
+	onSelectTarget: (deliveryTargetId: string) => void;
+	projectId: string;
+}) {
+	const catalog = useQuery({
+		...orpc.deliveryPlanning.list.queryOptions({ input: { projectId } }),
+		meta: { suppressGlobalErrorToast: true },
+	});
+	const targets = catalog.data?.deliveryTargets ?? [];
+	const selected =
+		targets.find((target) => target.id === deliveryTargetId) ??
+		targets.find((target) => target.activeRevision !== null) ??
+		targets[0];
+
+	return (
+		<main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
+			<header className="space-y-2">
+				<h1 className="font-semibold text-2xl">Fulfilment mapping</h1>
+				<p className="text-muted-foreground text-sm">
+					Maps each required item of a Ready Delivery Target to the exact Export
+					Bundles and Asset Versions that meet it. Missing and conflicting items
+					are shown; the system proposes, only you pick between conflicting
+					bundles.
+				</p>
+			</header>
+			{catalog.isPending ? (
+				<p aria-live="polite" role="status">
+					Loading Delivery Targets…
+				</p>
+			) : null}
+			{catalog.isError ? (
+				<LoadErrorAlert
+					message="Delivery Targets could not be loaded."
+					onRetry={() => void catalog.refetch()}
+				/>
+			) : null}
+			{catalog.isSuccess && !selected ? (
+				<p className="text-muted-foreground">
+					This project has no Delivery Targets yet.
+				</p>
+			) : null}
+			{selected ? (
+				<div className="space-y-6">
+					<label className="block max-w-sm space-y-1 text-sm" htmlFor="target">
+						<span className="font-medium">Delivery Target</span>
+						<NativeSelect
+							className="w-full"
+							id="target"
+							onChange={(event) => onSelectTarget(event.target.value)}
+							value={selected.id}
+						>
+							{targets.map((target) => (
+								<NativeSelectOption key={target.id} value={target.id}>
+									{target.name}
+									{target.activeRevision
+										? ` (revision ${target.activeRevision.revisionNumber})`
+										: " (not activated)"}
+								</NativeSelectOption>
+							))}
+						</NativeSelect>
+					</label>
+					{selected.activeRevision ? (
+						<TargetMapping
+							deliveryTargetId={selected.id}
+							name={selected.name}
+							projectId={projectId}
+						/>
+					) : (
+						<p className="text-muted-foreground">
+							{selected.name} has no activated revision, so there is nothing to
+							map. Activate a draft revision first.
+						</p>
+					)}
+				</div>
+			) : null}
+		</main>
+	);
+}

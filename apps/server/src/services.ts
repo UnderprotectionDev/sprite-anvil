@@ -19,6 +19,8 @@ import { createBackgroundScrollingTestStore } from "./features/background-parall
 import { createAnimationTimingReviewStore } from "./features/character-animation-profile/server/animation-timing-review-store";
 import { createDirectionalReviewStore } from "./features/character-animation-profile/server/directional-review-store";
 import { createCollectionStore } from "./features/collections/server/collection-store";
+import { createDatabaseFulfilmentMappingStorage } from "./features/delivery-fulfilment/server/database-fulfilment-mapping-storage";
+import { createFulfilmentMappingStore } from "./features/delivery-fulfilment/server/fulfilment-mapping-store";
 import { createDatabaseDeliveryPlanningStorage } from "./features/delivery-planning/server/database-delivery-planning-storage";
 import { createDeliveryTargetStore } from "./features/delivery-planning/server/delivery-target-store";
 import { createDatabaseDeliveryRefreshLockStorage } from "./features/delivery-refresh-locks/server/database-delivery-refresh-lock-storage";
@@ -166,6 +168,13 @@ export const runtimeValidationStore = createRuntimeValidationStore(db, {
 	getBundle: (userId, projectId, bundleId) =>
 		exportBundleStore.get(userId, projectId, bundleId),
 	storage: createDatabaseRuntimeValidationStorage(db),
+});
+export const fulfilmentMappingStore = createFulfilmentMappingStore({
+	bundles: exportBundleStore,
+	deliveryTargets: deliveryTargetStore,
+	readinessPlans: readinessPlanStore,
+	runtimeValidation: runtimeValidationStore,
+	storage: createDatabaseFulfilmentMappingStorage(db),
 });
 export const deliveryRefreshLockStore = createDeliveryRefreshLockStore(db, {
 	bundles: exportBundleStore,

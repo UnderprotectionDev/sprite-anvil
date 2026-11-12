@@ -11,6 +11,10 @@ const projectLinks = [
 	{ to: "/projects/$projectId/readiness-plan", label: "Readiness Plan" },
 	{ to: "/projects/$projectId/export-bundles", label: "Export Bundles" },
 	{
+		to: "/projects/$projectId/fulfilment-mapping",
+		label: "Fulfilment mapping",
+	},
+	{
 		to: "/projects/$projectId/runtime-validation",
 		label: "Runtime Validation",
 	},

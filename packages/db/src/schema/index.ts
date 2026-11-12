@@ -13,6 +13,7 @@ export * from "./background-operations";
 export * from "./background-scrolling-tests";
 export * from "./collections";
 export * from "./context-scopes";
+export * from "./delivery-fulfilment";
 export * from "./delivery-planning";
 export * from "./delivery-refresh-locks";
 export * from "./dependency-revalidation";
