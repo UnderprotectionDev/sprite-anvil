@@ -206,13 +206,16 @@ function foreignIds(
 
 const diffsSection = { group: deliveryGroup, name: "deliveryDiffs" };
 
+/** Record ids of a restore are derived per restore, not per user; this fixed actor keeps the ids stable, so changing it would change every restored id. */
+const restoredRecordActor = "restore";
+
 /** The new cloud id of an archived id within one restore; the same restore always yields the same id. */
 export function restoredRecordId(restoreId: string, sourceId: string) {
 	return idempotentRecordId(
 		{
 			kind: "project-archive-restored-record",
 			projectId: restoreId,
-			userId: "restore",
+			userId: restoredRecordActor,
 		},
 		sourceId
 	);

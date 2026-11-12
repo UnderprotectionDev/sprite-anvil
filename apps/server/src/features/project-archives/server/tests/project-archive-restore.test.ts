@@ -276,6 +276,59 @@ test("a write that fails halfway leaves no partial project", async () => {
 	expect((await setup.listRestores()).restores).toEqual([]);
 });
 
+test("a write that fails after the files were copied removes the copies it made", async () => {
+	const setup = restoreSetup({
+		wrapRestoreStorage: (storage) => ({
+			...storage,
+			insert: () => Promise.reject(new Error("connection lost")),
+		}),
+	});
+	const { archive } = await setup.createArchive();
+
+	await expect(setup.restore(input(archive.id))).rejects.toThrow();
+	expect(setup.copies.length).toBeGreaterThan(0);
+	expect(new Set(setup.removed)).toEqual(
+		new Set(setup.copies.map((copy) => copy.to))
+	);
+});
+
+test("a copy that fails halfway removes the files already copied", async () => {
+	let calls = 0;
+	const setup = restoreSetup({
+		copyFile: () => {
+			calls += 1;
+			return calls === 2
+				? Promise.reject(new Error("storage down"))
+				: Promise.resolve();
+		},
+	});
+	const { archive } = await setup.createArchive();
+
+	await expect(setup.restore(input(archive.id))).rejects.toThrow();
+	expect(setup.removed).toEqual(setup.copies.map((copy) => copy.to));
+	expect(setup.removed.length).toBe(1);
+});
+
+test("a lost race keeps the files the winning restore owns", async () => {
+	const setup = restoreSetup({
+		wrapRestoreStorage: (storage) => ({
+			...storage,
+			// The same key's other request wins just before this insert.
+			insert: async (record) => {
+				await storage.insert(record);
+				return storage.insert(record);
+			},
+		}),
+	});
+	const { archive } = await setup.createArchive();
+
+	const result = await setup.restore(input(archive.id));
+
+	expect(result.status).toBe("replayed");
+	expect(setup.copies.length).toBeGreaterThan(0);
+	expect(setup.removed).toEqual([]);
+});
+
 test("an unknown archive or a project the user cannot open is not found", async () => {
 	const setup = restoreSetup();
 	await setup.createArchive();

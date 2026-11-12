@@ -52,7 +52,10 @@ import { createManagedSnapshotStore } from "./features/production-provenance/ser
 import { createProductionRecipeStore } from "./features/production-recipes/server/production-recipe-store";
 import { createDatabaseProjectArchiveRestoreStorage } from "./features/project-archives/server/database-project-archive-restore-storage";
 import { createDatabaseProjectArchiveStorage } from "./features/project-archives/server/database-project-archive-storage";
-import { createObjectFileCopier } from "./features/project-archives/server/object-file-copier";
+import {
+	createObjectFileCopier,
+	createObjectFileRemover,
+} from "./features/project-archives/server/object-file-copier";
 import { createObjectFileVerifier } from "./features/project-archives/server/object-file-verifier";
 import { createProjectArchiveRestoreStore } from "./features/project-archives/server/project-archive-restore-store";
 import { createProjectArchiveSourceReader } from "./features/project-archives/server/project-archive-source-reader";
@@ -207,6 +210,7 @@ export const projectArchiveRestoreStore = archiveObjectStorage
 			archives: createDatabaseProjectArchiveStorage(db),
 			files: {
 				copy: createObjectFileCopier(archiveObjectStorage),
+				remove: createObjectFileRemover(archiveObjectStorage),
 				verify: createObjectFileVerifier(archiveObjectStorage),
 			},
 			storage: createDatabaseProjectArchiveRestoreStorage(db),

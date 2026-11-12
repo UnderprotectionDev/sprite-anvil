@@ -35,6 +35,7 @@ import {
 	runtimeValidationRecords,
 } from "@sprite-anvil/db/schema/runtime-validation";
 import { eq } from "drizzle-orm";
+import { iso } from "./iso";
 
 export interface DeliveryRows {
 	bundleFiles: (typeof exportBundleFiles.$inferSelect)[];
@@ -54,8 +55,6 @@ export interface DeliveryRows {
 	validationEvidence: (typeof runtimeValidationEvidence.$inferSelect)[];
 	validations: (typeof runtimeValidationRecords.$inferSelect)[];
 }
-
-const iso = (value: Date) => value.toISOString();
 
 function groupBy<Row, Key extends string>(
 	rows: Row[],
