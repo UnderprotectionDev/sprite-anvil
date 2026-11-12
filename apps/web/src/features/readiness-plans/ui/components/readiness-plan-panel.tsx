@@ -112,8 +112,9 @@ export function ReadinessPlanPanel({
 					Delivery Status: {deliveryStatusLabels[plan.deliveryStatus]}
 				</p>
 				<p className="text-muted-foreground text-sm">
-					Ready does not mean delivered. Delivery needs a Delivery Fulfilment,
-					which this plan never creates.
+					{plan.deliveryStatus === "delivered"
+						? "A Delivery Fulfilment exists for this revision. Delivery Status is separate from Target Readiness."
+						: "Ready does not mean delivered. Delivery needs a Delivery Fulfilment, which this plan never creates."}
 				</p>
 			</section>
 

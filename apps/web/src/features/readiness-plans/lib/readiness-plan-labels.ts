@@ -26,6 +26,7 @@ export const deliveryStatusLabels: Record<
 	ReadinessPlan["deliveryStatus"],
 	string
 > = {
+	delivered: "Delivered",
 	not_delivered: "Not delivered",
 };
 

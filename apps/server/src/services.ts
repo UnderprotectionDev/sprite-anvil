@@ -19,7 +19,9 @@ import { createBackgroundScrollingTestStore } from "./features/background-parall
 import { createAnimationTimingReviewStore } from "./features/character-animation-profile/server/animation-timing-review-store";
 import { createDirectionalReviewStore } from "./features/character-animation-profile/server/directional-review-store";
 import { createCollectionStore } from "./features/collections/server/collection-store";
+import { createDatabaseDeliveryFulfilmentStorage } from "./features/delivery-fulfilment/server/database-delivery-fulfilment-storage";
 import { createDatabaseFulfilmentMappingStorage } from "./features/delivery-fulfilment/server/database-fulfilment-mapping-storage";
+import { createDeliveryFulfilmentStore } from "./features/delivery-fulfilment/server/delivery-fulfilment-store";
 import { createFulfilmentMappingStore } from "./features/delivery-fulfilment/server/fulfilment-mapping-store";
 import { createDatabaseDeliveryPlanningStorage } from "./features/delivery-planning/server/database-delivery-planning-storage";
 import { createDeliveryTargetStore } from "./features/delivery-planning/server/delivery-target-store";
@@ -107,10 +109,12 @@ export const deliveryTargetStore = createDeliveryTargetStore(
 );
 export const dependencyRevalidationStore =
 	createDependencyRevalidationStore(db);
+const deliveryFulfilmentStorage = createDatabaseDeliveryFulfilmentStorage(db);
 export const readinessPlanStore = createReadinessPlanStore({
 	deliveryTargets: deliveryTargetStore,
 	dependencies: dependencyRevalidationStore,
 	familyReadiness: familyReadinessStore,
+	fulfilments: deliveryFulfilmentStorage,
 	storage: createDatabaseReadinessPlanStorage(db),
 });
 export const exportProfileStore = createExportProfileStore(
@@ -169,12 +173,19 @@ export const runtimeValidationStore = createRuntimeValidationStore(db, {
 		exportBundleStore.get(userId, projectId, bundleId),
 	storage: createDatabaseRuntimeValidationStorage(db),
 });
+const fulfilmentMappingStorage = createDatabaseFulfilmentMappingStorage(db);
 export const fulfilmentMappingStore = createFulfilmentMappingStore({
 	bundles: exportBundleStore,
 	deliveryTargets: deliveryTargetStore,
 	readinessPlans: readinessPlanStore,
 	runtimeValidation: runtimeValidationStore,
-	storage: createDatabaseFulfilmentMappingStorage(db),
+	storage: fulfilmentMappingStorage,
+});
+export const deliveryFulfilmentStore = createDeliveryFulfilmentStore({
+	deliveryTargets: deliveryTargetStore,
+	drafts: fulfilmentMappingStorage,
+	readinessPlans: readinessPlanStore,
+	storage: deliveryFulfilmentStorage,
 });
 export const deliveryRefreshLockStore = createDeliveryRefreshLockStore(db, {
 	bundles: exportBundleStore,

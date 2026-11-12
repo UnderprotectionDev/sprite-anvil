@@ -22,6 +22,8 @@ export interface ReadinessPlanSources {
 		"dependencyLinks" | "revalidationRequiredVersionIds"
 	>;
 	familyReadiness: Map<string, FamilyReadiness | null>;
+	/** Whether a Delivery Fulfilment exists for this revision; Readiness never decides it. */
+	hasFulfilment: boolean;
 	revision: DeliveryTargetRevision;
 	/** The user's saved order, if any. */
 	savedOrder: string[] | null;
@@ -450,7 +452,7 @@ export function buildReadinessPlan(
 	const next = workItems.find((entry) => entry.dependsOnWorkIds.length === 0);
 	return {
 		blockers,
-		deliveryStatus: "not_delivered",
+		deliveryStatus: sources.hasFulfilment ? "delivered" : "not_delivered",
 		deliveryTargetId: sources.deliveryTargetId,
 		orderWarnings: workItems.flatMap((entry) =>
 			entry.dependsOnWorkIds

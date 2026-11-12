@@ -8,6 +8,13 @@ import {
 	fulfilmentMappingListInputSchema,
 	fulfilmentMappingPrepareInputSchema,
 } from "../delivery-fulfilment";
+import {
+	deliveryFulfilmentGetInputSchema,
+	deliveryFulfilmentListInputSchema,
+	deliveryFulfilmentListSchema,
+	deliveryFulfilmentSchema,
+	fulfilmentFinalizeInputSchema,
+} from "../delivery-fulfilment-records";
 import { protectedProcedure } from "../index";
 import { withPublicationErrors } from "../record-publication";
 
@@ -20,6 +27,31 @@ function getStore(context: Context) {
 	return context.fulfilmentMappingStore;
 }
 
+function getFulfilmentStore(context: Context) {
+	if (!context.deliveryFulfilmentStore) {
+		throw new ORPCError("INTERNAL_SERVER_ERROR", {
+			message: "Delivery Fulfilment storage is unavailable.",
+		});
+	}
+	return context.deliveryFulfilmentStore;
+}
+
+const fulfilmentNotFound = "Delivery Fulfilment not found.";
+const finalizeRejections = {
+	invalid_selection:
+		"A selection must pick one of the candidate Export Bundles for a conflicting requirement, once per requirement.",
+	missing_requirements:
+		"The mapping has requirements that no Export Bundle meets yet; a Delivery Fulfilment must cover every requirement.",
+	no_active_revision:
+		"This Delivery Target has no activated revision, so nothing can be fulfilled.",
+	revision_changed:
+		"The mapping draft belongs to a revision that is no longer the active revision. Prepare a new mapping.",
+	target_not_ready:
+		"Only a Ready Delivery Target can be fulfilled; resolve its Readiness Plan blockers first.",
+	unresolved_conflicts:
+		"The mapping still has conflicting requirements; pick an Export Bundle for each one.",
+} as const;
+
 const targetNotFound = "Delivery Target not found.";
 const draftNotFound = "Fulfilment mapping draft not found.";
 
@@ -31,6 +63,67 @@ const rejections = {
 } as const;
 
 export const deliveryFulfilmentRouter = {
+	/**
+	 * The user's act: turns a mapping draft, with a pick for every conflict, into
+	 * an immutable Delivery Fulfilment of the active revision. Missing or
+	 * conflicting requirements and a target that is no longer Ready block it.
+	 */
+	finalize: protectedProcedure
+		.input(fulfilmentFinalizeInputSchema)
+		.output(
+			z.object({
+				fulfilment: deliveryFulfilmentSchema,
+				status: z.enum(["created", "replayed"]),
+			})
+		)
+		.handler(({ context, input }) =>
+			withPublicationErrors(async () => {
+				const result = await getFulfilmentStore(context).finalize(
+					context.session.user.id,
+					input
+				);
+				if (!result) {
+					throw new ORPCError("NOT_FOUND", {
+						message: "Delivery Target or mapping draft not found.",
+					});
+				}
+				if (result.status === "rejected") {
+					throw new ORPCError(
+						result.reason === "invalid_selection" ? "BAD_REQUEST" : "CONFLICT",
+						{ message: finalizeRejections[result.reason] }
+					);
+				}
+				return result;
+			})
+		),
+	/** Re-reads one persisted Delivery Fulfilment. */
+	getFulfilment: protectedProcedure
+		.input(deliveryFulfilmentGetInputSchema)
+		.output(deliveryFulfilmentSchema)
+		.handler(async ({ context, input }) => {
+			const fulfilment = await getFulfilmentStore(context).get(
+				context.session.user.id,
+				input
+			);
+			if (!fulfilment) {
+				throw new ORPCError("NOT_FOUND", { message: fulfilmentNotFound });
+			}
+			return fulfilment;
+		}),
+	/** Newest first; the first one of a revision is its current Fulfilment. */
+	listFulfilments: protectedProcedure
+		.input(deliveryFulfilmentListInputSchema)
+		.output(deliveryFulfilmentListSchema)
+		.handler(async ({ context, input }) => {
+			const list = await getFulfilmentStore(context).list(
+				context.session.user.id,
+				input
+			);
+			if (!list) {
+				throw new ORPCError("NOT_FOUND", { message: targetNotFound });
+			}
+			return list;
+		}),
 	/** Reads a persisted mapping draft back from storage. */
 	getMapping: protectedProcedure
 		.input(fulfilmentMappingGetInputSchema)

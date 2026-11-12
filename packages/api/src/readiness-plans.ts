@@ -30,6 +30,8 @@ export type ReadinessPlanReorderInput = z.infer<
 
 export const targetReadinessSchema = z.enum(["ready", "blocked"]);
 
+export const deliveryStatusSchema = z.enum(["not_delivered", "delivered"]);
+
 export const readinessBlockerKindSchema = z.enum([
 	"required_item_incomplete",
 	"pinned_required_list_not_active",
@@ -115,8 +117,8 @@ export type ReadinessWorkItem = z.infer<typeof readinessWorkItemSchema>;
 export const readinessPlanSchema = z
 	.object({
 		blockers: z.array(readinessBlockerSchema),
-		/** Delivery Status needs a Delivery Fulfilment, which a Readiness Plan never creates; a Ready target stays not delivered. */
-		deliveryStatus: z.literal("not_delivered"),
+		/** Delivered only when a Delivery Fulfilment exists for this revision; a Readiness Plan never creates one, so a Ready target alone stays not delivered. A newer revision starts not delivered. */
+		deliveryStatus: deliveryStatusSchema,
 		deliveryTargetId: idSchema,
 		/** Work that sits before something it depends on, because the user ordered it so. Informational; the user's order stands. */
 		orderWarnings: z.array(

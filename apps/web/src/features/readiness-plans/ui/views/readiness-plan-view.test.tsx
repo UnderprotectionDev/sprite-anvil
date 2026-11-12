@@ -240,6 +240,22 @@ test("a ready plan reads Ready but not Delivered", async () => {
 	expect(screen.getByText("No blockers.")).toBeVisible();
 });
 
+test("a delivered plan shows Delivered next to, not instead of, Ready", async () => {
+	fakeApi.catalog = catalog();
+	fakeApi.plan = plan({
+		blockers: [],
+		deliveryStatus: "delivered",
+		recommendedNext: null,
+		targetReadiness: "ready",
+		workItems: [],
+	});
+	renderView();
+
+	expect(await screen.findByText("Target Readiness: Ready")).toBeVisible();
+	expect(screen.getByText("Delivery Status: Delivered")).toBeVisible();
+	expect(screen.queryByText(readyNotDelivered)).not.toBeInTheDocument();
+});
+
 test("the recommended next step is a suggestion that starts nothing", async () => {
 	fakeApi.catalog = catalog();
 	fakeApi.plan = plan();
