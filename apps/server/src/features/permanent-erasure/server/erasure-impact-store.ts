@@ -19,15 +19,17 @@ import {
 	replayPublishedRecord,
 	verifyPublishedRecord,
 } from "@sprite-anvil/api/record-publication";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
 import type {
 	ErasureImpactStorage,
 	StoredErasureImpactReport,
 } from "./erasure-impact-storage";
+import {
+	type ProjectLookupOptions,
+	resolveProjectLookup,
+} from "./project-lookup";
 
-export interface ErasureImpactStoreOptions {
-	/** Resolves a project the user owns; defaults to the shared project access lookup. */
-	getProjectForUser?: (userId: string, projectId: string) => Promise<unknown>;
+export interface ErasureImpactStoreOptions extends ProjectLookupOptions {
 	now?: () => Date;
 	/**
 	 * The published backup retention schedule, supplied by configuration. Null
@@ -73,14 +75,7 @@ export function createErasureImpactStore(
 	options: ErasureImpactStoreOptions & { db?: Database }
 ): ErasureImpactStore {
 	const { sourceReader, storage } = options;
-	const lookupProject =
-		options.getProjectForUser ??
-		((userId: string, projectId: string) => {
-			if (!options.db) {
-				throw new Error("A database or a project lookup is required.");
-			}
-			return getProjectForUser(options.db, userId, projectId);
-		});
+	const lookupProject = resolveProjectLookup(options);
 	const now = options.now ?? (() => new Date());
 
 	return {

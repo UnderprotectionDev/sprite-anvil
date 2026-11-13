@@ -1,5 +1,6 @@
 import type { DeletionReceipt } from "@sprite-anvil/api/permanent-erasure-deletion";
 import type { Database } from "@sprite-anvil/db";
+import { hasErrorCode } from "@sprite-anvil/db/error-codes";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
 import { assetVersions } from "@sprite-anvil/db/schema/asset-versions";
 import { exportBundles } from "@sprite-anvil/db/schema/export-bundles";
@@ -8,7 +9,10 @@ import {
 	erasureReceipts,
 	erasureTombstones,
 } from "@sprite-anvil/db/schema/permanent-erasure";
-import { projectArchives } from "@sprite-anvil/db/schema/project-archives";
+import {
+	projectArchiveFiles,
+	projectArchives,
+} from "@sprite-anvil/db/schema/project-archives";
 import { and, eq, inArray } from "drizzle-orm";
 import type {
 	ErasureDeletionStorage,
@@ -16,14 +20,6 @@ import type {
 } from "./erasure-deletion-storage";
 
 const uniqueViolationCode = "23505";
-
-function hasErrorCode(error: unknown, expected: string): boolean {
-	if (typeof error !== "object" || error === null) {
-		return false;
-	}
-	const { cause, code } = error as { cause?: unknown; code?: unknown };
-	return code === expected || hasErrorCode(cause, expected);
-}
 
 function toAuthorization(
 	row: typeof erasureAuthorizations.$inferSelect
@@ -46,6 +42,30 @@ export function createDatabaseErasureDeletionStorage(
 	db: Database
 ): ErasureDeletionStorage {
 	return {
+		async archiveObjectKeys(projectId, archiveIds, assetVersionIds) {
+			if (archiveIds.length === 0 || assetVersionIds.length === 0) {
+				return [];
+			}
+			const rows = await db
+				.select({ key: projectArchiveFiles.sourceObjectKey })
+				.from(projectArchiveFiles)
+				.innerJoin(
+					projectArchives,
+					eq(projectArchives.id, projectArchiveFiles.archiveId)
+				)
+				.where(
+					and(
+						eq(projectArchives.projectId, projectId),
+						inArray(projectArchiveFiles.archiveId, archiveIds),
+						inArray(projectArchiveFiles.assetVersionId, assetVersionIds),
+						eq(projectArchiveFiles.presence, "included")
+					)
+				);
+			return [
+				...new Set(rows.flatMap((row) => (row.key === null ? [] : [row.key]))),
+			];
+		},
+
 		async findAuthorization(projectId, id) {
 			const [row] = await db
 				.select()

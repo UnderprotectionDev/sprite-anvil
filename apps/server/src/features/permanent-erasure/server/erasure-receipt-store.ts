@@ -6,12 +6,14 @@ import {
 } from "@sprite-anvil/api/permanent-erasure-deletion";
 import type { DeletionReceiptStore } from "@sprite-anvil/api/permanent-erasure-deletion-store";
 import { RecordIntegrityError } from "@sprite-anvil/api/record-publication";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
 import type { ErasureDeletionStorage } from "./erasure-deletion-storage";
+import {
+	type ProjectLookupOptions,
+	resolveProjectLookup,
+} from "./project-lookup";
 
-export interface ErasureReceiptStoreOptions {
-	/** Resolves a project the user owns; defaults to the shared project access lookup. */
-	getProjectForUser?: (userId: string, projectId: string) => Promise<unknown>;
+export interface ErasureReceiptStoreOptions extends ProjectLookupOptions {
 	storage: Pick<ErasureDeletionStorage, "findReceipt">;
 }
 
@@ -19,14 +21,7 @@ export interface ErasureReceiptStoreOptions {
 export function createErasureReceiptStore(
 	options: ErasureReceiptStoreOptions & { db?: Database }
 ): DeletionReceiptStore {
-	const lookupProject =
-		options.getProjectForUser ??
-		((userId: string, projectId: string) => {
-			if (!options.db) {
-				throw new Error("A database or a project lookup is required.");
-			}
-			return getProjectForUser(options.db, userId, projectId);
-		});
+	const lookupProject = resolveProjectLookup(options);
 	return {
 		async get(
 			userId,

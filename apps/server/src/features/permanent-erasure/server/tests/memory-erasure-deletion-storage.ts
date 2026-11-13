@@ -7,7 +7,9 @@ import type {
 
 /** An in-memory ErasureDeletionStorage; finalize is one atomic step, as in the database. */
 export function createMemoryErasureDeletionStorage(
-	objectKeys: Record<string, string>
+	objectKeys: Record<string, string>,
+	/** Keys of included archive files that belong to erased versions, per archive id. */
+	archiveObjectKeys: Record<string, string[]> = {}
 ) {
 	const authorizations = new Map<string, StoredErasureAuthorization>();
 	const receipts = new Map<string, StoredDeletionReceipt>();
@@ -43,6 +45,8 @@ export function createMemoryErasureDeletionStorage(
 			authorizations.set(row.id, structuredClone(row));
 			return Promise.resolve({ status: "inserted" });
 		},
+		archiveObjectKeys: (_projectId, archiveIds) =>
+			Promise.resolve(archiveIds.flatMap((id) => archiveObjectKeys[id] ?? [])),
 		objectKeys: (_projectId, ids) => {
 			const found = new Map<string, string>();
 			for (const id of ids) {

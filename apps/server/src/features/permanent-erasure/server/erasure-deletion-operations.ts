@@ -2,6 +2,7 @@ import type { BackgroundOperation } from "@sprite-anvil/api/background-operation
 import {
 	buildErasureImpactScope,
 	type ErasureImpactReport,
+	type ErasureImpactScope,
 	erasureImpactDigest,
 } from "@sprite-anvil/api/permanent-erasure";
 import {
@@ -21,11 +22,16 @@ import {
 	idempotentRecordId,
 	RecordIntegrityError,
 } from "@sprite-anvil/api/record-publication";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
 import type {
 	ErasureDeletionStorage,
 	ErasureObjectRemover,
+	StoredErasureAuthorization,
 } from "./erasure-deletion-storage";
+import {
+	type ProjectLookupOptions,
+	resolveProjectLookup,
+} from "./project-lookup";
 
 /** What the Background Operation lifecycle offers to enqueue an operation. */
 interface OperationEnqueuer {
@@ -40,9 +46,7 @@ interface OperationEnqueuer {
 	}) => Promise<BackgroundOperation>;
 }
 
-export interface ErasureDeletionOperationsOptions {
-	/** Resolves a project the user owns; defaults to the shared project access lookup. */
-	getProjectForUser?: (userId: string, projectId: string) => Promise<unknown>;
+export interface ErasureDeletionOperationsOptions extends ProjectLookupOptions {
 	impactStore: ErasureImpactStore;
 	now?: () => Date;
 	objects: ErasureObjectRemover;
@@ -51,6 +55,8 @@ export interface ErasureDeletionOperationsOptions {
 	permanentFailure: (message: string) => Error;
 	sourceReader: ErasureImpactSourceReader;
 	storage: ErasureDeletionStorage;
+	/** Builds the error the lifecycle retries, showing the user its message. */
+	transientFailure: (message: string) => Error;
 }
 
 /**
@@ -61,19 +67,16 @@ export interface ErasureDeletionOperationsOptions {
  * the exact scope, passes one last cancel checkpoint, then removes objects with
  * no further checkpoint (the irreversible boundary) and finalizes the receipt,
  * the Erasure Tombstones and the whole-container removal in one atomic write.
+ * Removing objects and finalizing are not one atomic step: a failure between
+ * them leaves some objects removed and no receipt. That is safe because
+ * object removal is idempotent and the scope is read from rows the removal
+ * never touches, so a retry removes the rest and finalizes.
  */
 export function createErasureDeletionOperations(
 	options: ErasureDeletionOperationsOptions & { db?: Database }
 ) {
 	const { impactStore, sourceReader, storage } = options;
-	const lookupProject =
-		options.getProjectForUser ??
-		((userId: string, projectId: string) => {
-			if (!options.db) {
-				throw new Error("A database or a project lookup is required.");
-			}
-			return getProjectForUser(options.db, userId, projectId);
-		});
+	const lookupProject = resolveProjectLookup(options);
 	const now = options.now ?? (() => new Date());
 
 	/** The exact scope of the approved report as it stands now; null when it can no longer be built. */
@@ -98,6 +101,59 @@ export function createErasureDeletionOperations(
 					: null,
 		});
 		return built.ok ? built.scope : null;
+	}
+
+	/** Every stored object the approved scope removes: the managed copies and the selected archives' copies of them. */
+	async function objectKeysToRemove(
+		authorization: StoredErasureAuthorization,
+		scope: ErasureImpactScope,
+		versionIds: string[]
+	) {
+		const keys = await storage.objectKeys(authorization.projectId, versionIds);
+		const objectKeys = new Set<string>();
+		for (const versionId of versionIds) {
+			const key = keys.get(versionId);
+			if (key === undefined) {
+				throw options.permanentFailure(
+					"Some managed copies have no stored object to remove, so no object was removed by this attempt."
+				);
+			}
+			objectKeys.add(key);
+		}
+		// Copies a selected Project Archive keeps of the erased content go with it.
+		const selectedArchiveIds = scope.containers
+			.filter(
+				(container) =>
+					container.kind === "project_archive" &&
+					authorization.selectedContainerIds.includes(container.id)
+			)
+			.map((container) => container.id);
+		for (const key of await storage.archiveObjectKeys(
+			authorization.projectId,
+			selectedArchiveIds,
+			versionIds
+		)) {
+			objectKeys.add(key);
+		}
+		return [...objectKeys];
+	}
+
+	/** Removes the objects one at a time; a failure says how many were already removed. */
+	async function removeObjects(objectKeys: string[]) {
+		let removed = 0;
+		for (const key of objectKeys) {
+			try {
+				// biome-ignore lint/performance/noAwaitInLoops: Objects are removed one at a time so a failure leaves a known prefix.
+				await options.objects.delete(key);
+			} catch (error) {
+				const failure = options.transientFailure(
+					`Removing stored objects failed after ${removed} of ${objectKeys.length} were removed. The removed objects stay removed; no receipt exists yet, and the next attempt removes the rest and completes the erasure.`
+				);
+				failure.cause = error;
+				throw failure;
+			}
+			removed += 1;
+		}
 	}
 
 	async function readReport(
@@ -231,7 +287,7 @@ export function createErasureDeletionOperations(
 			);
 			if (!report || report === "unreadable") {
 				throw options.permanentFailure(
-					"The approved Erasure Impact Report cannot be read, so nothing was deleted."
+					"The approved Erasure Impact Report cannot be read, so no object was removed by this attempt."
 				);
 			}
 			const scope = await currentScope(
@@ -244,27 +300,20 @@ export function createErasureDeletionOperations(
 				(await erasureImpactDigest(scope)) !== authorization.reportDigest
 			) {
 				throw options.permanentFailure(
-					"The scope changed after it was approved, so nothing was deleted. Prepare a new Erasure Impact Report and approve it again."
+					"The scope changed after it was approved, so no object was removed by this attempt. Prepare a new Erasure Impact Report and approve it again."
 				);
 			}
 			const versionIds = scope.managedCopies.map((copy) => copy.assetVersionId);
-			const keys = await storage.objectKeys(
-				authorization.projectId,
+			const objectKeys = await objectKeysToRemove(
+				authorization,
+				scope,
 				versionIds
 			);
-			if (keys.size !== versionIds.length) {
-				throw options.permanentFailure(
-					"Some managed copies have no stored object to remove, so nothing was deleted."
-				);
-			}
 
 			// The last point where the work can still stop safely: after the first
 			// object is removed the operation reports its real result, never Cancelled.
 			await context.checkpoint();
-			for (const versionId of versionIds) {
-				// biome-ignore lint/performance/noAwaitInLoops: Objects are removed one at a time so a failure leaves a known prefix.
-				await options.objects.delete(keys.get(versionId) as string);
-			}
+			await removeObjects(objectKeys);
 
 			const completedAt = now();
 			const receipt = buildDeletionReceipt({

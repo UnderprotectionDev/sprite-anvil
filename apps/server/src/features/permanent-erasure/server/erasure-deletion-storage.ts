@@ -46,6 +46,16 @@ export interface FinalizeErasureInput {
 /** The persistent side of the Deletion Job. Authorizations and receipts are only ever inserted. */
 export interface ErasureDeletionStorage {
 	/**
+	 * Storage locations of the included files of the given Project Archives that
+	 * hold content of the given Asset Versions. An archive's other files point at
+	 * objects the project still uses, so those are never returned.
+	 */
+	archiveObjectKeys: (
+		projectId: string,
+		archiveIds: string[],
+		assetVersionIds: string[]
+	) => Promise<string[]>;
+	/**
 	 * One atomic write: the receipt, the Erasure Tombstones, the erased
 	 * availability of the Asset Record and the removal of the selected whole
 	 * containers. `existing` means a receipt for this authorization is already
@@ -75,7 +85,10 @@ export interface ErasureDeletionStorage {
 	) => Promise<Map<string, string>>;
 }
 
-/** Removes one stored object; removing a missing object succeeds, so a repeat changes nothing. */
+/**
+ * Removes one stored object. Removing a missing object succeeds, so a repeat
+ * changes nothing: a retry after a partial removal may remove the same key again.
+ */
 export interface ErasureObjectRemover {
 	delete: (key: string) => Promise<void>;
 }
