@@ -1,9 +1,12 @@
 import type { PlatformEquivalenceReport } from "@sprite-anvil/api/platform-equivalence";
+import { platformSurfaces } from "@sprite-anvil/api/platform-equivalence-comparison";
 import {
+	inputFieldLabels,
 	notEvaluatedLabels,
 	outcomeLabels,
 	sectionLabels,
 	sectionResultLabels,
+	surfaceLabels,
 } from "../../lib/platform-equivalence-labels";
 
 export function PlatformEquivalenceReportCard({
@@ -25,10 +28,45 @@ export function PlatformEquivalenceReportCard({
 				</p>
 				{report.comparison.missingSurfaces.length > 0 ? (
 					<p className="text-sm">
-						Missing run for: {report.comparison.missingSurfaces.join(", ")}.
+						Missing run for:{" "}
+						{report.comparison.missingSurfaces
+							.map((surface) => surfaceLabels[surface])
+							.join(", ")}
+						.
+					</p>
+				) : null}
+				{report.comparison.differingInputs.length > 0 ? (
+					<p className="text-sm">
+						Inputs that differ:{" "}
+						{report.comparison.differingInputs
+							.map((field) => inputFieldLabels[field])
+							.join(", ")}
+						.
 					</p>
 				) : null}
 			</header>
+			<dl className="space-y-1 text-sm">
+				{platformSurfaces.map((surface) => {
+					const summary = report.comparison.inputs[surface];
+					return (
+						<div className="flex flex-wrap gap-x-2" key={surface}>
+							<dt className="font-medium">{`${surfaceLabels[surface]} input`}</dt>
+							<dd>
+								{summary ? (
+									<>
+										<code>{summary.inputDigest.slice(0, 12)}</code>
+										{summary.bundleId
+											? ` · Export Bundle ${summary.bundleId.slice(0, 8)}`
+											: null}
+									</>
+								) : (
+									"No run"
+								)}
+							</dd>
+						</div>
+					);
+				})}
+			</dl>
 			<table className="w-full text-left text-sm">
 				<caption className="sr-only">Comparison by evidence section</caption>
 				<thead>

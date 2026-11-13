@@ -5,9 +5,9 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { useForm } from "@tanstack/react-form";
-import { type SyntheticEvent, useRef, useState } from "react";
+import type { SyntheticEvent } from "react";
 import { StatusMessage } from "@/components/status-message";
-import { errorCodeOf } from "@/utils/error-code";
+import { usePendingIdempotencyKey } from "@/utils/pending-idempotency-key";
 import { useRecordPlatformEquivalenceRun } from "../../hooks/use-platform-equivalence-writes";
 import {
 	currentSurface,
@@ -30,31 +30,23 @@ export function RecordRunForm({
 }) {
 	const surface = currentSurface();
 	const record = useRecordPlatformEquivalenceRun();
-	const [failure, setFailure] = useState<string | null>(null);
-	const [saved, setSaved] = useState(false);
-	// The key makes a retry after an uncertain outcome idempotent; a server verdict ends it.
-	const idempotencyKey = useRef(crypto.randomUUID());
+	// A retry of the same bundle and surface replays the first attempt; a success starts a new act.
+	const idempotencyKey = usePendingIdempotencyKey();
 
 	const form = useForm({
 		defaultValues: { bundleId: "" },
 		onSubmit: async ({ value }) => {
-			setFailure(null);
-			setSaved(false);
 			try {
 				await record.mutateAsync({
 					bundleId: value.bundleId,
-					idempotencyKey: idempotencyKey.current,
+					idempotencyKey: idempotencyKey.keyFor(`${surface}:${value.bundleId}`),
 					projectId,
 					surface,
 				});
-				idempotencyKey.current = crypto.randomUUID();
-				setSaved(true);
+				idempotencyKey.clear();
 				form.reset();
-			} catch (error) {
-				if (errorCodeOf(error)) {
-					idempotencyKey.current = crypto.randomUUID();
-				}
-				setFailure("The run could not be recorded. Try again.");
+			} catch {
+				// The mutation state below reports the failure.
 			}
 		},
 		validators: { onSubmit: platformEquivalenceRunFormSchema },
@@ -126,13 +118,21 @@ export function RecordRunForm({
 					}}
 				</form.Field>
 			</div>
-			{failure ? <StatusMessage tone="error">{failure}</StatusMessage> : null}
-			{saved ? (
+			{record.isError ? (
+				<StatusMessage tone="error">
+					The run could not be recorded. Try again.
+				</StatusMessage>
+			) : null}
+			{record.isSuccess ? (
 				<StatusMessage tone="success">Run recorded.</StatusMessage>
 			) : null}
-			<Button className="min-h-11" disabled={record.isPending} type="submit">
-				{record.isPending ? "Recording…" : "Record run"}
-			</Button>
+			<form.Subscribe selector={(state) => state.isSubmitting}>
+				{(isSubmitting) => (
+					<Button className="min-h-11" disabled={isSubmitting} type="submit">
+						{isSubmitting ? "Recording…" : "Record run"}
+					</Button>
+				)}
+			</form.Subscribe>
 		</form>
 	);
 }

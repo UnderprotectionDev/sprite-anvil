@@ -1,19 +1,13 @@
 import type { PlatformEquivalenceRun } from "@sprite-anvil/api/platform-equivalence";
-import { Button } from "@sprite-anvil/ui/components/button";
-import { StatusMessage } from "@/components/status-message";
 import { surfaceLabels } from "../../lib/platform-equivalence-labels";
+import { CreateReportForm } from "../forms/create-report-form";
 
 export function PlatformEquivalenceRunsPanel({
-	canCompare,
-	failure,
-	isPending,
-	onCompare,
+	projectId,
 	runs,
 }: {
-	canCompare: boolean;
-	failure: string | null;
-	isPending: boolean;
-	onCompare: () => void;
+	projectId: string;
+	/** Newest first. */
 	runs: PlatformEquivalenceRun[];
 }) {
 	return (
@@ -32,15 +26,7 @@ export function PlatformEquivalenceRunsPanel({
 					))}
 				</ul>
 			)}
-			{failure ? <StatusMessage tone="error">{failure}</StatusMessage> : null}
-			<Button
-				className="min-h-11"
-				disabled={isPending || !canCompare}
-				onClick={onCompare}
-				type="button"
-			>
-				{isPending ? "Creating report…" : "Create report from latest runs"}
-			</Button>
+			<CreateReportForm projectId={projectId} runs={runs} />
 		</section>
 	);
 }

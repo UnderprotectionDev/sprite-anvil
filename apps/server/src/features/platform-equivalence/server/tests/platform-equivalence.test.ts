@@ -173,6 +173,39 @@ test("runs from different inputs and a missing surface are reported, not equated
 	expect(differentInputs.report.comparison.outcome).toBe("inputs_differ");
 	expect(missing.report.comparison.outcome).toBe("missing_surface");
 	expect(missing.report.comparison.missingSurfaces).toEqual(["desktop"]);
+	expect(
+		differentInputs.report.comparison.differingInputs.length
+	).toBeGreaterThan(0);
+});
+
+test("a re-read report keeps each run's bundle and input digest", async () => {
+	const { bundles, createReport, getReport, recordRun } = await setup();
+	const web = await recordRun({
+		bundleId: bundles.webBundle.id,
+		idempotencyKey: "web-run",
+		surface: "web",
+	});
+	const desktop = await recordRun({
+		bundleId: bundles.changedBundle.id,
+		idempotencyKey: "desktop-run",
+		surface: "desktop",
+	});
+	const created = await createReport({
+		desktopRunId: desktop.run.id,
+		webRunId: web.run.id,
+	});
+
+	const { comparison } = await getReport(created.report.id);
+
+	expect(comparison.inputs.web).toMatchObject({
+		bundleId: bundles.webBundle.id,
+		inputDigest: web.run.evidence.inputDigest,
+	});
+	expect(comparison.inputs.desktop).toMatchObject({
+		bundleId: bundles.changedBundle.id,
+		inputDigest: desktop.run.evidence.inputDigest,
+	});
+	expect(comparison.differingInputs).toEqual(["contextRevisionId"]);
 });
 
 test("an unknown bundle, a wrong-surface run, no run and a foreign project are rejected", async () => {

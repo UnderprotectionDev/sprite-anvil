@@ -1,3 +1,4 @@
+import { platformSurfaceSchema } from "@sprite-anvil/api/platform-equivalence-comparison";
 import type { Database } from "@sprite-anvil/db";
 import {
 	platformEquivalenceReports,
@@ -22,7 +23,8 @@ function hasErrorCode(error: unknown, expected: string): boolean {
 function toRun(
 	row: typeof platformEquivalenceRuns.$inferSelect
 ): StoredPlatformEquivalenceRun {
-	return { ...row, surface: row.surface === "web" ? "web" : "desktop" };
+	// The table check keeps the surface to web or desktop; a stray value fails loudly.
+	return { ...row, surface: platformSurfaceSchema.parse(row.surface) };
 }
 
 export function createDatabasePlatformEquivalenceStorage(

@@ -94,11 +94,16 @@ async function runIntegrityFailure(
 	return null;
 }
 
+interface ChosenRun {
+	bundleId: string;
+	evidence: PlatformEquivalenceEvidence;
+}
+
 type ChosenRuns =
 	| {
-			desktop: PlatformEquivalenceEvidence | null;
+			desktop: ChosenRun | null;
 			status: "chosen";
-			web: PlatformEquivalenceEvidence | null;
+			web: ChosenRun | null;
 	  }
 	| {
 			reason: "run_not_found" | "run_surface_mismatch";
@@ -136,12 +141,17 @@ async function chooseRuns(
 	if (failure) {
 		throw new RecordIntegrityError(failure);
 	}
-	const evidenceOf = (run: StoredPlatformEquivalenceRun | null) =>
-		run ? (run.evidence as unknown as PlatformEquivalenceEvidence) : null;
+	const chosenOf = (run: StoredPlatformEquivalenceRun | null) =>
+		run
+			? {
+					bundleId: run.bundleId,
+					evidence: run.evidence as unknown as PlatformEquivalenceEvidence,
+				}
+			: null;
 	return {
-		desktop: evidenceOf(desktop),
+		desktop: chosenOf(desktop),
 		status: "chosen",
-		web: evidenceOf(web),
+		web: chosenOf(web),
 	};
 }
 
@@ -197,7 +207,14 @@ export function createPlatformEquivalenceStore(
 			if (chosen.status === "rejected") {
 				return chosen;
 			}
-			const comparison = compareEquivalenceEvidence(chosen.web, chosen.desktop);
+			const comparison = compareEquivalenceEvidence(
+				chosen.web?.evidence ?? null,
+				chosen.desktop?.evidence ?? null,
+				{
+					...(chosen.desktop && { desktop: chosen.desktop.bundleId }),
+					...(chosen.web && { web: chosen.web.bundleId }),
+				}
+			);
 
 			const inserted = await storage.insertReport({
 				comparison,

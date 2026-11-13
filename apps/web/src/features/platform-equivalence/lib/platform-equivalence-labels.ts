@@ -1,5 +1,6 @@
 import type {
 	PlatformEquivalenceComparison,
+	PlatformEquivalenceInputField,
 	PlatformEquivalenceSection,
 	PlatformSurface,
 	platformEquivalenceNotEvaluated,
@@ -12,8 +13,17 @@ export function currentSurface(): PlatformSurface {
 }
 
 export const surfaceLabels: Record<PlatformSurface, string> = {
-	desktop: "Desktop app",
-	web: "Web app",
+	desktop: "Desktop application",
+	web: "Web application",
+};
+
+/** The inputs a run is made from, named as the glossary names them. */
+export const inputFieldLabels: Record<PlatformEquivalenceInputField, string> = {
+	adapterVersion: "Verified Engine Adapter version",
+	assetFamilyIds: "Asset Families",
+	contextRevisionId: "Context Revision",
+	deliveryTargetRevisionId: "Delivery Target revision",
+	profileRevisionId: "Profile revision",
 };
 
 export const sectionLabels: Record<PlatformEquivalenceSection, string> = {

@@ -82,7 +82,39 @@ export const platformEquivalenceSectionResultSchema = z.object({
 	section: platformEquivalenceSectionSchema,
 });
 
+/** The input one surface's run was made from, kept so the report can be read again. */
+export const platformEquivalenceInputSummarySchema = z.object({
+	/** The stored Export Bundle the run derived from; null when the caller did not supply it. */
+	bundleId: z.string().nullable(),
+	input: platformEquivalenceInputSchema,
+	inputDigest: sha256Schema,
+});
+export type PlatformEquivalenceInputSummary = z.infer<
+	typeof platformEquivalenceInputSummarySchema
+>;
+
+export const platformEquivalenceInputFields = [
+	"adapterVersion",
+	"assetFamilyIds",
+	"contextRevisionId",
+	"deliveryTargetRevisionId",
+	"profileRevisionId",
+] as const satisfies readonly (keyof PlatformEquivalenceInput)[];
+export const platformEquivalenceInputFieldSchema = z.enum(
+	platformEquivalenceInputFields
+);
+export type PlatformEquivalenceInputField = z.infer<
+	typeof platformEquivalenceInputFieldSchema
+>;
+
 export const platformEquivalenceComparisonSchema = z.object({
+	/** The input fields that differ between the two runs; empty unless both runs exist. */
+	differingInputs: z.array(platformEquivalenceInputFieldSchema),
+	/** Each surface's input summary; null for a surface with no run. */
+	inputs: z.object({
+		desktop: platformEquivalenceInputSummarySchema.nullable(),
+		web: platformEquivalenceInputSummarySchema.nullable(),
+	}),
 	missingSurfaces: z.array(platformSurfaceSchema),
 	outcome: platformEquivalenceOutcomeSchema,
 	sections: z.array(platformEquivalenceSectionResultSchema),
@@ -169,16 +201,48 @@ function notCompared() {
 	}));
 }
 
-/** Compares the evidence of the web and desktop runs; a missing or different-input run compares nothing. */
+function summaryOf(
+	evidence: PlatformEquivalenceEvidence | null,
+	bundleId: string | undefined
+): PlatformEquivalenceInputSummary | null {
+	return evidence
+		? {
+				bundleId: bundleId ?? null,
+				input: evidence.input,
+				inputDigest: evidence.inputDigest,
+			}
+		: null;
+}
+
+function differingInputs(
+	web: PlatformEquivalenceInput,
+	desktop: PlatformEquivalenceInput
+): PlatformEquivalenceInputField[] {
+	return platformEquivalenceInputFields.filter(
+		(field) => JSON.stringify(web[field]) !== JSON.stringify(desktop[field])
+	);
+}
+
+/**
+ * Compares the evidence of the web and desktop runs; a missing or different-input
+ * run compares nothing. `bundleIds` only labels the kept input summaries.
+ */
 export function compareEquivalenceEvidence(
 	web: PlatformEquivalenceEvidence | null,
-	desktop: PlatformEquivalenceEvidence | null
+	desktop: PlatformEquivalenceEvidence | null,
+	bundleIds: Partial<Record<PlatformSurface, string>> = {}
 ): PlatformEquivalenceComparison {
+	const inputs = {
+		desktop: summaryOf(desktop, bundleIds.desktop),
+		web: summaryOf(web, bundleIds.web),
+	};
 	const missingSurfaces = platformSurfaces.filter(
 		(surface) => !(surface === "web" ? web : desktop)
 	);
 	if (!(web && desktop)) {
 		return {
+			differingInputs: [],
+			inputs,
 			missingSurfaces,
 			outcome: "missing_surface",
 			sections: notCompared(),
@@ -186,6 +250,8 @@ export function compareEquivalenceEvidence(
 	}
 	if (web.inputDigest !== desktop.inputDigest) {
 		return {
+			differingInputs: differingInputs(web.input, desktop.input),
+			inputs,
 			missingSurfaces: [],
 			outcome: "inputs_differ",
 			sections: notCompared(),
@@ -209,6 +275,8 @@ export function compareEquivalenceEvidence(
 		};
 	});
 	return {
+		differingInputs: [],
+		inputs,
 		missingSurfaces: [],
 		outcome: sections.every((section) => section.result === "same")
 			? "equivalent"
