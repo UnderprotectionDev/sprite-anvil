@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "977fc4db-e9bc-4f36-be6f-d52eba77b3fa",
+  "id": "b984ce49-bf26-4e5e-b5ef-a16bf474c2e4",
   "prevIds": [
-    "832534e8-e481-4918-b3c9-2940218be4f1"
+    "64ea18b7-7113-4330-9fb4-032afb96dc06"
   ],
   "ddl": [
     {
@@ -448,7 +448,13 @@
     },
     {
       "isRlsEnabled": false,
-      "name": "erasure_authorizations",
+      "name": "deletion_receipts",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "erasure_approvals",
       "entityType": "tables",
       "schema": "public"
     },
@@ -460,7 +466,7 @@
     },
     {
       "isRlsEnabled": false,
-      "name": "erasure_receipts",
+      "name": "erasure_removal_starts",
       "entityType": "tables",
       "schema": "public"
     },
@@ -8181,23 +8187,23 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "authorized_by_user_id",
+      "name": "background_operation_id",
       "entityType": "columns",
       "schema": "public",
-      "table": "erasure_authorizations"
+      "table": "deletion_receipts"
     },
     {
-      "type": "jsonb",
+      "type": "text",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "confirmed",
+      "name": "contract_version",
       "entityType": "columns",
       "schema": "public",
-      "table": "erasure_authorizations"
+      "table": "deletion_receipts"
     },
     {
       "type": "timestamp",
@@ -8210,7 +8216,7 @@
       "name": "created_at",
       "entityType": "columns",
       "schema": "public",
-      "table": "erasure_authorizations"
+      "table": "deletion_receipts"
     },
     {
       "type": "text",
@@ -8223,7 +8229,98 @@
       "name": "id",
       "entityType": "columns",
       "schema": "public",
-      "table": "erasure_authorizations"
+      "table": "deletion_receipts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "project_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "deletion_receipts"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "receipt",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "deletion_receipts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "receipt_digest",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "deletion_receipts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "approved_by_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "erasure_approvals"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "confirmed",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "erasure_approvals"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "erasure_approvals"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "erasure_approvals"
     },
     {
       "type": "text",
@@ -8236,7 +8333,7 @@
       "name": "idempotency_key",
       "entityType": "columns",
       "schema": "public",
-      "table": "erasure_authorizations"
+      "table": "erasure_approvals"
     },
     {
       "type": "text",
@@ -8249,7 +8346,7 @@
       "name": "project_id",
       "entityType": "columns",
       "schema": "public",
-      "table": "erasure_authorizations"
+      "table": "erasure_approvals"
     },
     {
       "type": "text",
@@ -8262,7 +8359,7 @@
       "name": "report_digest",
       "entityType": "columns",
       "schema": "public",
-      "table": "erasure_authorizations"
+      "table": "erasure_approvals"
     },
     {
       "type": "text",
@@ -8275,7 +8372,7 @@
       "name": "report_id",
       "entityType": "columns",
       "schema": "public",
-      "table": "erasure_authorizations"
+      "table": "erasure_approvals"
     },
     {
       "type": "text",
@@ -8288,7 +8385,7 @@
       "name": "request_digest",
       "entityType": "columns",
       "schema": "public",
-      "table": "erasure_authorizations"
+      "table": "erasure_approvals"
     },
     {
       "type": "jsonb",
@@ -8301,7 +8398,46 @@
       "name": "selected_container_ids",
       "entityType": "columns",
       "schema": "public",
-      "table": "erasure_authorizations"
+      "table": "erasure_approvals"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "contract_version",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "erasure_impact_reports"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "erasure_impact_reports"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "created_by_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "erasure_impact_reports"
     },
     {
       "type": "text",
@@ -8325,32 +8461,6 @@
       "generated": null,
       "identity": null,
       "name": "project_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_impact_reports"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "target_asset_record_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_impact_reports"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "contract_version",
       "entityType": "columns",
       "schema": "public",
       "table": "erasure_impact_reports"
@@ -8402,62 +8512,10 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "created_by_user_id",
+      "name": "target_asset_record_id",
       "entityType": "columns",
       "schema": "public",
       "table": "erasure_impact_reports"
-    },
-    {
-      "type": "timestamp",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_impact_reports"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "background_operation_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_receipts"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "contract_version",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_receipts"
-    },
-    {
-      "type": "timestamp",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_receipts"
     },
     {
       "type": "text",
@@ -8470,7 +8528,7 @@
       "name": "id",
       "entityType": "columns",
       "schema": "public",
-      "table": "erasure_receipts"
+      "table": "erasure_removal_starts"
     },
     {
       "type": "text",
@@ -8483,33 +8541,20 @@
       "name": "project_id",
       "entityType": "columns",
       "schema": "public",
-      "table": "erasure_receipts"
+      "table": "erasure_removal_starts"
     },
     {
-      "type": "jsonb",
+      "type": "timestamp",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "receipt",
+      "name": "started_at",
       "entityType": "columns",
       "schema": "public",
-      "table": "erasure_receipts"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "receipt_digest",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_receipts"
+      "table": "erasure_removal_starts"
     },
     {
       "type": "text",
@@ -16858,10 +16903,38 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "erasure_authorizations_project_id_id_idx",
+      "name": "deletion_receipts_project_id_id_idx",
       "entityType": "indexes",
       "schema": "public",
-      "table": "erasure_authorizations"
+      "table": "deletion_receipts"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "project_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "erasure_approvals_project_id_id_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "erasure_approvals"
     },
     {
       "nameExplicit": true,
@@ -16914,10 +16987,10 @@
       "with": "",
       "method": "btree",
       "concurrently": false,
-      "name": "erasure_receipts_project_id_id_idx",
+      "name": "erasure_removal_starts_project_id_id_idx",
       "entityType": "indexes",
       "schema": "public",
-      "table": "erasure_receipts"
+      "table": "erasure_removal_starts"
     },
     {
       "nameExplicit": true,
@@ -21639,7 +21712,24 @@
     {
       "nameExplicit": false,
       "columns": [
-        "authorized_by_user_id"
+        "project_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "project",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "deletion_receipts_project_id_project_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "deletion_receipts"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "approved_by_user_id"
       ],
       "schemaTo": "public",
       "tableTo": "user",
@@ -21648,10 +21738,10 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
-      "name": "erasure_authorizations_authorized_by_user_id_user_id_fkey",
+      "name": "erasure_approvals_approved_by_user_id_user_id_fkey",
       "entityType": "fks",
       "schema": "public",
-      "table": "erasure_authorizations"
+      "table": "erasure_approvals"
     },
     {
       "nameExplicit": false,
@@ -21665,27 +21755,10 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
-      "name": "erasure_authorizations_project_id_project_id_fkey",
+      "name": "erasure_approvals_project_id_project_id_fkey",
       "entityType": "fks",
       "schema": "public",
-      "table": "erasure_authorizations"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "project_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "project",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "erasure_impact_reports_project_id_project_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "erasure_impact_reports"
+      "table": "erasure_approvals"
     },
     {
       "nameExplicit": false,
@@ -21716,10 +21789,27 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
-      "name": "erasure_receipts_project_id_project_id_fkey",
+      "name": "erasure_impact_reports_project_id_project_id_fkey",
       "entityType": "fks",
       "schema": "public",
-      "table": "erasure_receipts"
+      "table": "erasure_impact_reports"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "project_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "project",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "erasure_removal_starts_project_id_project_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "erasure_removal_starts"
     },
     {
       "nameExplicit": false,
@@ -24052,9 +24142,19 @@
         "id"
       ],
       "nameExplicit": false,
-      "name": "erasure_authorizations_pkey",
+      "name": "deletion_receipts_pkey",
       "schema": "public",
-      "table": "erasure_authorizations",
+      "table": "deletion_receipts",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "erasure_approvals_pkey",
+      "schema": "public",
+      "table": "erasure_approvals",
       "entityType": "pks"
     },
     {
@@ -24072,9 +24172,9 @@
         "id"
       ],
       "nameExplicit": false,
-      "name": "erasure_receipts_pkey",
+      "name": "erasure_removal_starts_pkey",
       "schema": "public",
-      "table": "erasure_receipts",
+      "table": "erasure_removal_starts",
       "entityType": "pks"
     },
     {
