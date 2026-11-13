@@ -43,6 +43,9 @@ import { createIconFamilyReviewStore } from "./features/icon-profile/server/icon
 import { createImportInboxStore } from "./features/imports/server/import-inbox-store";
 import { createSourceMetadataMappingProposalStore } from "./features/imports/server/source-metadata-mapping-store";
 import { createAssetFamilyComparisonStore } from "./features/object-equipment-profile/server/asset-family-comparison-store";
+import { createDatabaseErasureImpactStorage } from "./features/permanent-erasure/server/database-erasure-impact-storage";
+import { createErasureImpactSourceReader } from "./features/permanent-erasure/server/erasure-impact-source-reader";
+import { createErasureImpactStore } from "./features/permanent-erasure/server/erasure-impact-store";
 import { createOfflineConflictStore } from "./features/pixel-editor/server/offline-conflict-store";
 import { createPixelEditorStore } from "./features/pixel-editor/server/pixel-editor-store";
 import { createMarketingUsageReviewStore } from "./features/portrait-marketing-profile/server/marketing-usage-review-store";
@@ -180,6 +183,12 @@ export const exportBundleStore = createExportBundleStore(db, {
 		uiStretchTests: uiStretchTestStore,
 	}),
 	storage: createDatabaseExportBundleStorage(db),
+});
+/** No backup retention schedule is published yet (OV-08), so reports claim no clean-up time. */
+export const erasureImpactStore = createErasureImpactStore({
+	db,
+	sourceReader: createErasureImpactSourceReader(db),
+	storage: createDatabaseErasureImpactStorage(db),
 });
 const credentialNamePattern = /SECRET|TOKEN|KEY|PASSWORD/i;
 const archiveObjectStorage =
