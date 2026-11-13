@@ -51,6 +51,9 @@ import { historicalRiskNoticesRouter } from "./historical-risk-notices";
 import { iconFamilyReviewsRouter } from "./icon-family-reviews";
 import { importsRouter } from "./imports";
 import { marketingUsageReviewsRouter } from "./marketing-usage-reviews";
+import { measurementDefinitionsRouter } from "./measurement-definitions";
+import { measurementEventsRouter } from "./measurement-events";
+import { measurementMeasuresRouter } from "./measurement-measures";
 import { permanentErasureRouter } from "./permanent-erasure";
 import { portraitIdentityReviewsRouter } from "./portrait-identity-reviews";
 import { productionExperimentsRouter } from "./production-experiments";
@@ -157,6 +160,9 @@ export const appRouter = {
 	portraitIdentityReviews: portraitIdentityReviewsRouter,
 	readinessPlans: readinessPlansRouter,
 	marketingUsageReviews: marketingUsageReviewsRouter,
+	measurementDefinitions: measurementDefinitionsRouter,
+	measurementEvents: measurementEventsRouter,
+	measurementMeasures: measurementMeasuresRouter,
 	backgroundLayerLayouts: backgroundLayerLayoutsRouter,
 	backgroundScrollingTests: backgroundScrollingTestsRouter,
 	assetVersions: assetVersionsRouter,

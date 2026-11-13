@@ -29,6 +29,8 @@ export * from "./historical-risk-notices";
 export * from "./icon-family-reviews";
 export * from "./import-inbox";
 export * from "./marketing-usage-reviews";
+export * from "./measurement-definitions";
+export * from "./measurement-events";
 export * from "./offline-conflicts";
 export * from "./permanent-erasure";
 export * from "./pixel-editor";

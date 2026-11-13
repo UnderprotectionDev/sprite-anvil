@@ -37,6 +37,9 @@ import type { HistoricalRiskNoticeStore } from "./historical-risk-notices";
 import type { IconFamilyReviewStore } from "./icon-family-reviews";
 import type { ImportInboxStore } from "./import-inbox";
 import type { MarketingUsageReviewStore } from "./marketing-usage-reviews";
+import type { MeasurementDefinitionStore } from "./measurement-definition-store";
+import type { MeasurementEventStore } from "./measurement-event-store";
+import type { MeasurementMeasureStore } from "./measurement-measure-store";
 import type {
 	DeletionReceiptStore,
 	ErasureApprovalOperations,
@@ -115,6 +118,9 @@ export interface Context {
 	iconFamilyReviewStore?: IconFamilyReviewStore;
 	importInboxStore?: ImportInboxStore;
 	marketingUsageReviewStore?: MarketingUsageReviewStore;
+	measurementDefinitionStore?: MeasurementDefinitionStore;
+	measurementEventStore?: MeasurementEventStore;
+	measurementMeasureStore?: MeasurementMeasureStore;
 	portraitIdentityReviewStore?: PortraitIdentityReviewStore;
 	productionExperimentStore?: ProductionExperimentStore;
 	productionRecipeStore?: ProductionRecipeStore;

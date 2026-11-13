@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "b984ce49-bf26-4e5e-b5ef-a16bf474c2e4",
+  "id": "8b621ddc-e0b8-465b-8070-44665b543a59",
   "prevIds": [
-    "64ea18b7-7113-4330-9fb4-032afb96dc06"
+    "aeae493b-d12e-4961-9273-8b9d753b1495"
   ],
   "ddl": [
     {
@@ -436,6 +436,18 @@
     },
     {
       "isRlsEnabled": false,
+      "name": "measurement_definitions",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "measurement_events",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
       "name": "offline_conflict_records",
       "entityType": "tables",
       "schema": "public"
@@ -443,36 +455,6 @@
     {
       "isRlsEnabled": false,
       "name": "offline_conflict_resolutions",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "deletion_receipts",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "erasure_approvals",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "erasure_impact_reports",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "erasure_removal_starts",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "erasure_tombstones",
       "entityType": "tables",
       "schema": "public"
     },
@@ -7956,6 +7938,409 @@
       "name": "id",
       "entityType": "columns",
       "schema": "public",
+      "table": "measurement_definitions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "owner_user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_definitions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "metric_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_definitions"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "version",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_definitions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "contract_version",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_definitions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "event_family",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_definitions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "start_event",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_definitions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "end_event",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_definitions"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "scope",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_definitions"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "numerator",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_definitions"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "denominator",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_definitions"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "exclusions",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_definitions"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "time_window_days",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_definitions"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "retention_days",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_definitions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "decision_use",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_definitions"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "activated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_definitions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_events"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "definition_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_events"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "definition_version",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_events"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "metric_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_events"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "1",
+      "generated": null,
+      "identity": null,
+      "name": "event_version",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_events"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "event_family",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_events"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "user_pseudonym",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_events"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "project_pseudonym",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_events"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "workflow_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_events"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "record_kind",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_events"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "event_name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_events"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "surface",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_events"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "outcome_class",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_events"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "counters",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_events"
+    },
+    {
+      "type": "timestamp",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "occurred_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "measurement_events"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
       "table": "offline_conflict_records"
     },
     {
@@ -8178,448 +8563,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "offline_conflict_resolutions"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "background_operation_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "deletion_receipts"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "contract_version",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "deletion_receipts"
-    },
-    {
-      "type": "timestamp",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "deletion_receipts"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "deletion_receipts"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "project_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "deletion_receipts"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "receipt",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "deletion_receipts"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "receipt_digest",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "deletion_receipts"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "approved_by_user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_approvals"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "confirmed",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_approvals"
-    },
-    {
-      "type": "timestamp",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_approvals"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_approvals"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "idempotency_key",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_approvals"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "project_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_approvals"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "report_digest",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_approvals"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "report_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_approvals"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "request_digest",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_approvals"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "selected_container_ids",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_approvals"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "contract_version",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_impact_reports"
-    },
-    {
-      "type": "timestamp",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_impact_reports"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "created_by_user_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_impact_reports"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_impact_reports"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "project_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_impact_reports"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "report_digest",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_impact_reports"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "request_digest",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_impact_reports"
-    },
-    {
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "scope",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_impact_reports"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "target_asset_record_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_impact_reports"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_removal_starts"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "project_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_removal_starts"
-    },
-    {
-      "type": "timestamp",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "started_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_removal_starts"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "asset_record_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_tombstones"
-    },
-    {
-      "type": "timestamp",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "erased_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_tombstones"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_tombstones"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "project_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_tombstones"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "receipt_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "erasure_tombstones"
     },
     {
       "type": "text",
@@ -16772,6 +16715,69 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "owner_user_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "metric_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "version",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "measurement_definitions_owner_metric_version_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "measurement_definitions"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "definition_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "workflow_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "measurement_events_definition_workflow_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "measurement_events"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "project_id",
           "isExpression": false,
           "asc": true,
@@ -16879,146 +16885,6 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "offline_conflict_resolutions"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "project_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "deletion_receipts_project_id_id_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "deletion_receipts"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "project_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "erasure_approvals_project_id_id_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "erasure_approvals"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "project_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "erasure_impact_reports_project_id_id_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "erasure_impact_reports"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "project_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "erasure_removal_starts_project_id_id_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "erasure_removal_starts"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "project_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "asset_record_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "erasure_tombstones_project_asset_record_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "erasure_tombstones"
     },
     {
       "nameExplicit": true,
@@ -21670,6 +21536,40 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
+      "name": "measurement_definitions_owner_user_id_user_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "measurement_definitions"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "definition_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "measurement_definitions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "measurement_events_4Dmzfq6Fu2HC_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "measurement_events"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "owner_user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "user",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
       "name": "offline_conflict_records_owner_user_id_user_id_fkey",
       "entityType": "fks",
       "schema": "public",
@@ -21708,125 +21608,6 @@
       "entityType": "fks",
       "schema": "public",
       "table": "offline_conflict_resolutions"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "project_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "project",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "deletion_receipts_project_id_project_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "deletion_receipts"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "approved_by_user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "user",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "erasure_approvals_approved_by_user_id_user_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "erasure_approvals"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "project_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "project",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "erasure_approvals_project_id_project_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "erasure_approvals"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "created_by_user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "user",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "erasure_impact_reports_created_by_user_id_user_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "erasure_impact_reports"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "project_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "project",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "erasure_impact_reports_project_id_project_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "erasure_impact_reports"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "project_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "project",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "erasure_removal_starts_project_id_project_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "erasure_removal_starts"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "project_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "project",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "erasure_tombstones_project_id_project_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "erasure_tombstones"
     },
     {
       "nameExplicit": false,
@@ -24122,6 +23903,26 @@
         "id"
       ],
       "nameExplicit": false,
+      "name": "measurement_definitions_pkey",
+      "schema": "public",
+      "table": "measurement_definitions",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "measurement_events_pkey",
+      "schema": "public",
+      "table": "measurement_events",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
       "name": "offline_conflict_records_pkey",
       "schema": "public",
       "table": "offline_conflict_records",
@@ -24135,56 +23936,6 @@
       "name": "offline_conflict_resolutions_pkey",
       "schema": "public",
       "table": "offline_conflict_resolutions",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "deletion_receipts_pkey",
-      "schema": "public",
-      "table": "deletion_receipts",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "erasure_approvals_pkey",
-      "schema": "public",
-      "table": "erasure_approvals",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "erasure_impact_reports_pkey",
-      "schema": "public",
-      "table": "erasure_impact_reports",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "erasure_removal_starts_pkey",
-      "schema": "public",
-      "table": "erasure_removal_starts",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
-      "name": "erasure_tombstones_pkey",
-      "schema": "public",
-      "table": "erasure_tombstones",
       "entityType": "pks"
     },
     {
@@ -25032,6 +24783,55 @@
       "entityType": "checks",
       "schema": "public",
       "table": "import_inbox_entries"
+    },
+    {
+      "value": "\"version\" > 0",
+      "name": "measurement_definitions_version_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "measurement_definitions"
+    },
+    {
+      "value": "\"event_family\" in ('production_workflow', 'review_and_repair', 'import_mapping', 'export_delivery', 'runtime_validation', 'offline_verification')",
+      "name": "measurement_definitions_event_family_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "measurement_definitions"
+    },
+    {
+      "value": "\"time_window_days\" > 0 and \"retention_days\" > 0",
+      "name": "measurement_definitions_window_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "measurement_definitions"
+    },
+    {
+      "value": "\"start_event\" <> \"end_event\"",
+      "name": "measurement_definitions_events_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "measurement_definitions"
+    },
+    {
+      "value": "\"surface\" in ('web', 'desktop')",
+      "name": "measurement_events_surface_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "measurement_events"
+    },
+    {
+      "value": "\"event_version\" > 0",
+      "name": "measurement_events_event_version_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "measurement_events"
+    },
+    {
+      "value": "\"definition_version\" > 0",
+      "name": "measurement_events_version_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "measurement_events"
     },
     {
       "value": "\"base_revision\" >= 0 AND \"cloud_revision\" >= 0",

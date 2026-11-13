@@ -52,6 +52,12 @@ import { createOfflineConflictStore } from "./features/pixel-editor/server/offli
 import { createPixelEditorStore } from "./features/pixel-editor/server/pixel-editor-store";
 import { createMarketingUsageReviewStore } from "./features/portrait-marketing-profile/server/marketing-usage-review-store";
 import { createPortraitIdentityReviewStore } from "./features/portrait-marketing-profile/server/portrait-identity-review-store";
+import { createDatabaseMeasurementDefinitionStorage } from "./features/product-measurement/server/database-measurement-definition-storage";
+import { createDatabaseMeasurementEventStorage } from "./features/product-measurement/server/database-measurement-event-storage";
+import { createMeasurementDefinitionStore } from "./features/product-measurement/server/measurement-definition-store";
+import { createMeasurementEventStore } from "./features/product-measurement/server/measurement-event-store";
+import { createMeasurementMeasureStore } from "./features/product-measurement/server/measurement-measure-store";
+import { createMeasurementPseudonymizer } from "./features/product-measurement/server/measurement-pseudonym";
 import { createProductionExperimentStore } from "./features/production-experiments/server/production-experiment-store";
 import { createManagedSnapshotStore } from "./features/production-provenance/server/managed-snapshot-store";
 import { createProductionRecipeStore } from "./features/production-recipes/server/production-recipe-store";
@@ -118,6 +124,27 @@ export const portraitIdentityReviewStore =
 export const uiStateComparisonStore = createUiStateComparisonStore(db);
 export const iconFamilyReviewStore = createIconFamilyReviewStore(db);
 export const gameplayMetadataStore = createGameplayMetadataStore(db);
+const measurementDefinitionStorage =
+	createDatabaseMeasurementDefinitionStorage(db);
+export const measurementDefinitionStore = createMeasurementDefinitionStore({
+	storage: measurementDefinitionStorage,
+});
+const measurementPseudonymize = createMeasurementPseudonymizer(
+	ENV.BETTER_AUTH_SECRET
+);
+const measurementEventStorage = createDatabaseMeasurementEventStorage(db);
+export const measurementEventStore = createMeasurementEventStore({
+	definitionStorage: measurementDefinitionStorage,
+	ownsProject: async (userId, projectId) =>
+		(await projectAccess.getProject(userId, projectId)) !== null,
+	pseudonymize: measurementPseudonymize,
+	storage: measurementEventStorage,
+});
+export const measurementMeasureStore = createMeasurementMeasureStore({
+	definitionStorage: measurementDefinitionStorage,
+	eventStorage: measurementEventStorage,
+	pseudonymize: measurementPseudonymize,
+});
 export const assetFamilyStore = createAssetFamilyStore(db);
 export const assetFamilyComparisonStore = createAssetFamilyComparisonStore(db);
 export const familyReadinessStore = createFamilyReadinessStore(db);
