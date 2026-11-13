@@ -15,6 +15,7 @@ import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { ClipboardEvent } from "react";
 import { useEffect, useRef, useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { ENV } from "@/env";
 import { RightsRecordPanel } from "@/features/rights-evidence/ui/components/rights-record-panel";
 import { getErrorMessage } from "@/utils/get-error-message";
@@ -801,9 +802,9 @@ export function ReferenceBoardView({
 				transferredFeatures={board?.effectiveTransferredFeatures ?? []}
 			/>
 			{boardQuery.isError ? (
-				<p className="text-destructive text-sm" role="alert">
+				<StatusMessage tone="error">
 					Referans panosu yüklenemedi. Sayfayı yenileyip tekrar deneyin.
-				</p>
+				</StatusMessage>
 			) : null}
 			<ReferenceUploadDropArea
 				file={file}
@@ -824,14 +825,14 @@ export function ReferenceBoardView({
 					/>
 				</div>
 				{validationError ? (
-					<p className="mt-3 text-destructive text-sm" role="alert">
+					<StatusMessage className="mt-3" tone="error">
 						{validationError}
-					</p>
+					</StatusMessage>
 				) : null}
 				{error ? (
-					<p className="mt-3 text-destructive text-sm" role="alert">
+					<StatusMessage className="mt-3" tone="error">
 						{error}
-					</p>
+					</StatusMessage>
 				) : null}
 				{saved ? (
 					<p className="mt-3 text-sm" role="status">

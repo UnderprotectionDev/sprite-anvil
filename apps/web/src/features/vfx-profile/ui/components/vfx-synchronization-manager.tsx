@@ -8,6 +8,10 @@ import {
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import {
+	StatusMessage,
+	WriteOutcomeMessage,
+} from "@/components/status-message";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { mutationMeta } from "@/utils/mutation-meta";
@@ -175,13 +179,18 @@ export function VfxSynchronizationManager({
 			<h3 className="font-semibold text-xl">
 				{familyName} · VFX owner and event synchronization
 			</h3>
-			{message ? <p role="status">{message}</p> : null}
-			{query.isError ? <p role="alert">Reviews could not be loaded.</p> : null}
+			<WriteOutcomeMessage
+				message={message}
+				uncertain={Boolean(uncertainInput)}
+			/>
+			{query.isError ? (
+				<StatusMessage tone="error">Reviews could not be loaded.</StatusMessage>
+			) : null}
 			{readiness.isError ? (
-				<p role="alert">
+				<StatusMessage tone="error">
 					Quality Waivers could not be read. Reload before selecting exception
 					evidence.
-				</p>
+				</StatusMessage>
 			) : null}
 			<Button
 				disabled={pending || query.isFetching}

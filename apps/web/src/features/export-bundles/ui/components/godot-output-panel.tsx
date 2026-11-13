@@ -8,6 +8,8 @@ import { Button } from "@sprite-anvil/ui/components/button";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { LoadErrorAlert } from "@/components/load-error-alert";
+import { StatusMessage } from "@/components/status-message";
+import { getSupportReference } from "@/utils/error-notification";
 import { mutationMeta } from "@/utils/mutation-meta";
 import { client, orpc } from "@/utils/orpc";
 import { downloadZip, packGodotOutput } from "../../lib/pack-godot-output";
@@ -97,6 +99,7 @@ export function GodotOutputPanel({ projectId }: { projectId: string }) {
 			<LoadErrorAlert
 				message="The stored Export Bundles could not be loaded."
 				onRetry={() => void catalog.refetch()}
+				supportReference={getSupportReference(catalog.error)}
 			/>
 		);
 	} else if (catalog.isSuccess && bundles.length === 0) {
@@ -132,9 +135,9 @@ export function GodotOutputPanel({ projectId }: { projectId: string }) {
 				</p>
 			) : null}
 			{create.isError ? (
-				<p role="alert">
+				<StatusMessage tone="error">
 					Godot output could not be created: {describeError(create.error)}
-				</p>
+				</StatusMessage>
 			) : null}
 			{create.isSuccess ? <CreatedStatus output={create.data} /> : null}
 		</section>

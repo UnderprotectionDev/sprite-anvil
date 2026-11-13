@@ -11,6 +11,7 @@ import {
 } from "@sprite-anvil/ui/components/native-select";
 import { useForm } from "@tanstack/react-form";
 import { type SyntheticEvent, useRef, useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { errorCodeOf } from "@/utils/error-code";
 import { useSaveDeliveryTargetDraft } from "../../hooks/use-delivery-target-writes";
 import {
@@ -502,11 +503,7 @@ export function DeliveryTargetDraftForm({
 				</p>
 			</FieldSet>
 
-			{failure ? (
-				<p className="text-destructive text-sm" role="alert">
-					{failure}
-				</p>
-			) : null}
+			{failure ? <StatusMessage tone="error">{failure}</StatusMessage> : null}
 			<div className="flex flex-wrap gap-2">
 				<Button
 					className="min-h-11"

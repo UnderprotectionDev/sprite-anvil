@@ -9,6 +9,7 @@ import {
 } from "@sprite-anvil/ui/components/native-select";
 import { useForm } from "@tanstack/react-form";
 import { type SyntheticEvent, useRef, useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { errorCodeOf } from "@/utils/error-code";
 import { useCreateRuntimeValidationRecord } from "../../hooks/use-runtime-validation-writes";
 import { errorMessageOf } from "../../lib/runtime-validation-labels";
@@ -244,7 +245,7 @@ export function RuntimeValidationRecordForm({
 				</div>
 			) : null}
 
-			{failure ? <p role="alert">{failure}</p> : null}
+			{failure ? <StatusMessage tone="error">{failure}</StatusMessage> : null}
 			<Button className="min-h-11" disabled={create.isPending} type="submit">
 				Save Runtime Validation Record
 			</Button>

@@ -33,8 +33,6 @@ const cursorSteps: Record<string, Cell> = {
 	ArrowDown: { x: 0, y: 1 },
 };
 
-const shiftStepCells = 8;
-
 function readPixelColor(image: HTMLImageElement, cell: Cell) {
 	const probe = document.createElement("canvas");
 	probe.width = image.naturalWidth;
@@ -184,11 +182,11 @@ export function PixelCanvas({
 		);
 	}
 
-	function moveCursor(step: Cell, distance: number) {
+	function moveCursor(step: Cell) {
 		const current = hover ?? { x: 0, y: 0 };
 		const next = {
-			x: Math.min(Math.max(current.x + step.x * distance, 0), size.width - 1),
-			y: Math.min(Math.max(current.y + step.y * distance, 0), size.height - 1),
+			x: Math.min(Math.max(current.x + step.x, 0), size.width - 1),
+			y: Math.min(Math.max(current.y + step.y, 0), size.height - 1),
 		};
 		setNotice("");
 		setHover(next);
@@ -201,7 +199,7 @@ export function PixelCanvas({
 		const step = cursorSteps[event.key];
 		if (step) {
 			event.preventDefault();
-			moveCursor(step, event.shiftKey ? shiftStepCells : 1);
+			moveCursor(step);
 		} else if (event.key === "Enter" || event.key === " ") {
 			event.preventDefault();
 			const current = hover ?? { x: 0, y: 0 };
@@ -232,7 +230,7 @@ export function PixelCanvas({
 		<div className="space-y-1">
 			{/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: The pixel canvas is a custom widget with its own arrow-key cursor model; application is the role for that. */}
 			<div
-				aria-label={`${label}. Arrow keys move the cursor, Shift with an arrow key moves eight pixels, Enter applies the active tool, Escape cancels.`}
+				aria-label={`${label}. Arrow keys move the cursor, Enter applies the active tool, Escape cancels.`}
 				className="w-fit outline-none focus-visible:ring-2 focus-visible:ring-ring"
 				onFocus={() => setHover((current) => current ?? { x: 0, y: 0 })}
 				onKeyDown={onKeyDown}

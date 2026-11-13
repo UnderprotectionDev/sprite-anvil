@@ -1,8 +1,8 @@
 import { $, browser, expect } from "@wdio/globals";
+import { hasVisibleFocusIndicator } from "../src/utils/focus-indicator";
 
 const startLinkText = "Başlamak için giriş yap";
 const maxTabs = 40;
-const minimumFocusThickness = 2;
 
 /** Presses Tab until the element matching `selector` owns focus. */
 async function tabTo(selector: string) {
@@ -22,22 +22,21 @@ async function tabTo(selector: string) {
 	);
 }
 
-/** The focused element shows an outline or shadow ring of at least 2 CSS px. */
-async function focusThickness() {
-	return await browser.execute(() => {
+/** The focused element's computed outline and shadow, judged by the shared rule. */
+async function focusIsVisible() {
+	const indicator = await browser.execute(() => {
 		const element = document.activeElement;
 		if (!element) {
-			return 0;
+			return { outlineStyle: "none", outlineWidth: 0, boxShadow: "none" };
 		}
 		const style = getComputedStyle(element);
-		const outline =
-			style.outlineStyle === "none" ? 0 : Number.parseFloat(style.outlineWidth);
-		const spreads = [...style.boxShadow.matchAll(/(-?\d*\.?\d+)px/g)].map(
-			(match) => Number.parseFloat(match[1] ?? "0")
-		);
-		const [, , , shadow = 0] = spreads;
-		return Math.max(outline, shadow);
+		return {
+			outlineStyle: style.outlineStyle,
+			outlineWidth: Number.parseFloat(style.outlineWidth),
+			boxShadow: style.boxShadow,
+		};
 	});
+	return hasVisibleFocusIndicator(indicator);
 }
 
 describe("Keyboard access in the desktop shell", () => {
@@ -53,9 +52,7 @@ describe("Keyboard access in the desktop shell", () => {
 	it("reaches the skip link first by keyboard with a visible focus indicator", async () => {
 		await tabTo(".skip-link");
 		await expect(await $(".skip-link")).toBeFocused();
-		expect(await focusThickness()).toBeGreaterThanOrEqual(
-			minimumFocusThickness
-		);
+		expect(await focusIsVisible()).toBe(true);
 	});
 
 	it("reaches the start action by keyboard with an accessible name and visible focus", async () => {
@@ -63,8 +60,6 @@ describe("Keyboard access in the desktop shell", () => {
 		const start = await $(`a=${startLinkText}`);
 		await expect(start).toBeFocused();
 		expect(await start.getText()).not.toBe("");
-		expect(await focusThickness()).toBeGreaterThanOrEqual(
-			minimumFocusThickness
-		);
+		expect(await focusIsVisible()).toBe(true);
 	});
 });

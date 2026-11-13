@@ -19,6 +19,10 @@ import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import {
+	StatusMessage,
+	WriteOutcomeMessage,
+} from "@/components/status-message";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { orpc } from "@/utils/orpc";
@@ -294,12 +298,14 @@ export function TextureRepetitionReviewManager({
 				blank when unknown.
 			</p>
 			{query.isError ? (
-				<div role="alert">
-					{getErrorMessage(
-						query.error,
-						"Texture reviews could not be loaded.",
-						"query"
-					)}{" "}
+				<div className="space-y-2">
+					<StatusMessage tone="error">
+						{getErrorMessage(
+							query.error,
+							"Texture reviews could not be loaded.",
+							"query"
+						)}
+					</StatusMessage>
 					<Button
 						onClick={() => void query.refetch()}
 						type="button"
@@ -318,7 +324,11 @@ export function TextureRepetitionReviewManager({
 						void form.handleSubmit();
 					}}
 				>
-					<TextureReviewFeedback error={error} message={message} />
+					<TextureReviewFeedback
+						error={error}
+						message={message}
+						uncertain={uncertain}
+					/>
 					{uncertain && pendingInput.current ? (
 						<TextureUncertainReviewActions
 							input={pendingInput.current}
@@ -756,14 +766,16 @@ function clearShiftedObservation(
 function TextureReviewFeedback({
 	error,
 	message,
+	uncertain,
 }: {
 	error: string;
 	message: string;
+	uncertain: boolean;
 }) {
 	return (
 		<>
-			{error ? <p role="alert">{error}</p> : null}
-			{message ? <p role="status">{message}</p> : null}
+			{error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
+			<WriteOutcomeMessage message={message} uncertain={uncertain} />
 		</>
 	);
 }

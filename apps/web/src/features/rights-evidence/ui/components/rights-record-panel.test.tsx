@@ -600,7 +600,7 @@ test("validates the evidence field on blur and clears its message when edited", 
 	);
 	expect(evidence).toHaveAttribute("aria-invalid", "true");
 	expect(evidence).toHaveAccessibleDescription(
-		"Belgelendi durumunda destekleyici kanıt gerekir."
+		"Error: Belgelendi durumunda destekleyici kanıt gerekir."
 	);
 
 	await user.type(evidence, "License");

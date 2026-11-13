@@ -5,6 +5,7 @@ import { Label } from "@sprite-anvil/ui/components/label";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { revalidateLogic, useForm } from "@tanstack/react-form";
 import { useId } from "react";
+import { StatusMessage } from "@/components/status-message";
 import {
 	type ProviderGenerationRecordFields,
 	providerGenerationRecordFormDefaults,
@@ -319,12 +320,9 @@ export function ProviderGenerationRecordForm({
 				<form.Subscribe selector={(state) => state.errorMap.onDynamic}>
 					{(formError) =>
 						formError ? (
-							<p
-								className="text-destructive text-sm sm:col-span-2"
-								role="alert"
-							>
+							<StatusMessage className="sm:col-span-2" tone="error">
 								{formError}
-							</p>
+							</StatusMessage>
 						) : null
 					}
 				</form.Subscribe>

@@ -11,6 +11,7 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
+import { StatusMessage } from "@/components/status-message";
 import { PortraitUsagePreview } from "./portrait-usage-preview";
 
 export function PortraitReviewItemFields({
@@ -173,10 +174,10 @@ export function PortraitReviewItemFields({
 				kullanım ölçüsündedir.
 			</p>
 			{valid ? null : (
-				<p role="alert">
+				<StatusMessage tone="error">
 					İfade adı, kullanım ölçüsü ve kaynak sınırları içindeki kırpma
 					gereklidir.
-				</p>
+				</StatusMessage>
 			)}
 			{valid && version ? (
 				<PortraitUsagePreview

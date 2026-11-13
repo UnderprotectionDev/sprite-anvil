@@ -1,6 +1,8 @@
 import type { DeliveryTarget } from "@sprite-anvil/api/delivery-planning-outputs";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { LoadErrorAlert } from "@/components/load-error-alert";
+import { StatusMessage } from "@/components/status-message";
+import { getSupportReference } from "@/utils/error-notification";
 import { orpc } from "@/utils/orpc";
 import type { FamilyListChoice } from "../../lib/delivery-target-form";
 import { DeliveryTargetDraftForm } from "../forms/delivery-target-draft-form";
@@ -42,6 +44,9 @@ function FamilyListsLoader({
 						void list.refetch();
 					}
 				}}
+				supportReference={getSupportReference(
+					lists.find((list) => list.isError)?.error
+				)}
 			/>
 		);
 	}
@@ -100,6 +105,9 @@ export function DeliveryTargetFormLoader({
 					void project.refetch();
 					void catalog.refetch();
 				}}
+				supportReference={getSupportReference(
+					project.isError ? project.error : catalog.error
+				)}
 			/>
 		);
 	}
@@ -108,7 +116,9 @@ export function DeliveryTargetFormLoader({
 	)?.currentContextRevision;
 	if (!revision) {
 		return (
-			<p role="alert">This project's Context Revision could not be found.</p>
+			<StatusMessage tone="error">
+				This project's Context Revision could not be found.
+			</StatusMessage>
 		);
 	}
 	return (

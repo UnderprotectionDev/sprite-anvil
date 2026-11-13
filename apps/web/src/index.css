@@ -24,11 +24,10 @@ main :where(h1, h2, h3, p, dd, summary) {
 	transform: translateY(0);
 }
 
-/* WCAG 2.2 AA 2.4.7 / 2.4.11: every keyboard focus target gets a visible, high-contrast indicator.
-   It sits in the base layer so a primitive's own focus-visible ring still wins. */
-@layer base {
-	:focus-visible {
-		outline: 2px solid var(--foreground);
-		outline-offset: 2px;
-	}
+/* WCAG 2.2 AA 2.4.7 / 2.4.11: every keyboard focus target gets a visible, high-contrast indicator
+   of at least 2px. It is deliberately unlayered: the primitives' `outline-none` and 1px
+   `ring-1` utilities live in Tailwind's layers and would otherwise override a base-layer rule. */
+:focus-visible {
+	outline: 2px solid var(--foreground);
+	outline-offset: 2px;
 }

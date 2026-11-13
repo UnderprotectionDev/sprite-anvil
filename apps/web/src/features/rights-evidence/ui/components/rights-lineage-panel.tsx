@@ -10,6 +10,7 @@ import type {
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
+import { StatusMessage } from "@/components/status-message";
 import {
 	referenceFeatureLabels,
 	referenceRoleLabels,
@@ -405,7 +406,9 @@ function RightsRecordRevision({
 function TrackingHistoryError({ onRetry }: { onRetry: () => void }) {
 	return (
 		<div className="space-y-2">
-			<p role="alert">Varlık Kaydı kaynak geçmişi yüklenemedi.</p>
+			<StatusMessage tone="error">
+				Varlık Kaydı kaynak geçmişi yüklenemedi.
+			</StatusMessage>
 			<Button onClick={onRetry} type="button" variant="outline">
 				Yeniden yükle
 			</Button>
@@ -422,7 +425,9 @@ function SourceCatalogError({
 }) {
 	return (
 		<div className="space-y-2">
-			<p role="alert">Kaynak Varlık Kayıtları veya Sürümleri yüklenemedi.</p>
+			<StatusMessage tone="error">
+				Kaynak Varlık Kayıtları veya Sürümleri yüklenemedi.
+			</StatusMessage>
 			<Button
 				disabled={isFetching}
 				onClick={onRetry}
@@ -446,13 +451,13 @@ function GenerationPackageError({
 }) {
 	return (
 		<div className="space-y-2">
-			<p role="alert">
+			<StatusMessage tone="error">
 				{getErrorMessage(
 					error,
 					"Üretim Paketi kaynakları yüklenemedi.",
 					"query"
 				)}
-			</p>
+			</StatusMessage>
 			<Button
 				disabled={isFetching}
 				onClick={onRetry}
@@ -853,13 +858,13 @@ function RightsRecordHistory({
 	if (historyQuery.isError) {
 		return (
 			<div className="space-y-2">
-				<p role="alert">
+				<StatusMessage tone="error">
 					{getErrorMessage(
 						historyQuery.error,
 						"Bu kaynağın Hak Kaydı geçmişi yüklenemedi.",
 						"query"
 					)}
-				</p>
+				</StatusMessage>
 				<Button
 					disabled={historyQuery.isFetching}
 					onClick={() => void historyQuery.refetch()}

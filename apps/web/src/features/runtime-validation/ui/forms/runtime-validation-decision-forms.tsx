@@ -10,6 +10,7 @@ import {
 } from "@sprite-anvil/ui/components/native-select";
 import { useForm } from "@tanstack/react-form";
 import { type SyntheticEvent, useRef, useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { errorCodeOf } from "@/utils/error-code";
 import {
 	useConfirmRuntimeValidationFailureSource,
@@ -115,7 +116,7 @@ export function RuntimeValidationOutcomeForm({
 					)}
 				</form.Field>
 			</div>
-			{failure ? <p role="alert">{failure}</p> : null}
+			{failure ? <StatusMessage tone="error">{failure}</StatusMessage> : null}
 			<Button className="min-h-11" disabled={finalize.isPending} type="submit">
 				Finalize outcome
 			</Button>
@@ -205,7 +206,7 @@ export function RuntimeValidationFailureSourceForm({
 					)}
 				</form.Field>
 			</div>
-			{failure ? <p role="alert">{failure}</p> : null}
+			{failure ? <StatusMessage tone="error">{failure}</StatusMessage> : null}
 			<Button className="min-h-11" disabled={confirm.isPending} type="submit">
 				Confirm failure source
 			</Button>

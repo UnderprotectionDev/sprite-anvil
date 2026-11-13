@@ -13,6 +13,7 @@ import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
 import { useMutation } from "@tanstack/react-query";
 import { useId, useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
@@ -124,12 +125,14 @@ export function GameplayMetadataReview({
 			</p>
 			<p>{record.review ? "İncelendi" : "Henüz incelenmedi"}</p>
 			{errors.map((failure) => (
-				<p key={failure} role="alert">
+				<StatusMessage key={failure} tone="error">
 					Bütünlük hatası: {failure}
-				</p>
+				</StatusMessage>
 			))}
 			{!previewUrl && (
-				<p role="alert">Kesin sürümün doğrulanmış görseli bulunamadı.</p>
+				<StatusMessage tone="error">
+					Kesin sürümün doğrulanmış görseli bulunamadı.
+				</StatusMessage>
 			)}
 			{previewUrl && !errors.length && (
 				<GameplayMetadataOverlay
@@ -195,7 +198,7 @@ export function GameplayMetadataReview({
 					</p>
 				</div>
 			)}
-			{error ? <p role="alert">{error}</p> : null}
+			{error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
 			{message ? <p role="status">{message}</p> : null}
 		</section>
 	);

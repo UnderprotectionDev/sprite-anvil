@@ -6,6 +6,10 @@ import {
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import {
+	StatusMessage,
+	WriteOutcomeMessage,
+} from "@/components/status-message";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { mutationMeta } from "@/utils/mutation-meta";
@@ -124,7 +128,7 @@ export function GameplayMetadataPanel({
 				<p>Oyun içi bilgiler yükleniyor…</p>
 			) : null}
 			{catalogQuery.isError || contractsQuery.isError ? (
-				<p role="alert">
+				<StatusMessage tone="error">
 					Oyun içi bilgiler açılamadı.{" "}
 					<Button
 						onClick={() => {
@@ -135,7 +139,7 @@ export function GameplayMetadataPanel({
 					>
 						Yeniden yükle
 					</Button>
-				</p>
+				</StatusMessage>
 			) : null}
 			{Boolean(catalogQuery.data && contractsQuery.data) &&
 				catalogQuery.data && (
@@ -268,8 +272,11 @@ export function GameplayMetadataPanel({
 						))}
 					</>
 				)}
-			{Boolean(message) && <p role="status">{message}</p>}
-			{Boolean(error) && <p role="alert">{error}</p>}
+			<WriteOutcomeMessage
+				message={message ?? ""}
+				uncertain={Boolean(uncertain)}
+			/>
+			{Boolean(error) && <StatusMessage tone="error">{error}</StatusMessage>}
 			{uncertain !== null && (
 				<div className="flex gap-2">
 					<Button disabled={pending} onClick={checkOutcome} type="button">

@@ -1,4 +1,5 @@
 import { Button } from "@sprite-anvil/ui/components/button";
+import { StatusMessage } from "@/components/status-message";
 
 export function CollectionPageStatus({
 	catalogError,
@@ -23,7 +24,9 @@ export function CollectionPageStatus({
 }) {
 	return (
 		<div className="space-y-3">
-			{projectMissing ? <p role="alert">Bu Proje bulunamadı.</p> : null}
+			{projectMissing ? (
+				<StatusMessage tone="error">Bu Proje bulunamadı.</StatusMessage>
+			) : null}
 			{projectsPending ? (
 				<p aria-live="polite" role="status">
 					Projeler yükleniyor…
@@ -35,8 +38,8 @@ export function CollectionPageStatus({
 				</p>
 			) : null}
 			{catalogError ? (
-				<div className="space-y-2" role="alert">
-					<p>Koleksiyonlar yüklenemedi.</p>
+				<div className="space-y-2">
+					<StatusMessage tone="error">Koleksiyonlar yüklenemedi.</StatusMessage>
 					<Button
 						className="min-h-11"
 						onClick={onRetry}

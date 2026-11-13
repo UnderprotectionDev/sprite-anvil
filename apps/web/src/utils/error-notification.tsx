@@ -51,7 +51,8 @@ function getErrorCode(error: unknown): string | undefined {
 	return typeof code === "string" ? code : undefined;
 }
 
-function getSupportReference(error: unknown): string | undefined {
+/** The Support Reference an internal server error carries; nothing for any other failure. */
+export function getSupportReference(error: unknown): string | undefined {
 	if (getErrorCode(error) !== "INTERNAL_SERVER_ERROR") {
 		return undefined;
 	}

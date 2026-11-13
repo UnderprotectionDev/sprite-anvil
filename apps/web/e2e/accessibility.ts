@@ -1,4 +1,8 @@
 import { expect, type Locator, type Page } from "@playwright/test";
+import {
+	hasVisibleFocusIndicator,
+	minimumFocusThickness,
+} from "../src/utils/focus-indicator";
 
 const nonEmpty = /\S/;
 
@@ -23,13 +27,9 @@ export async function tabTo(page: Page, target: Locator, maxTabs = 40) {
 	);
 }
 
-const minimumFocusThickness = 2;
-const lengthPattern = /(-?\d*\.?\d+)px/g;
-const shadowLayerSeparator = /,(?![^(]*\))/;
-
 /**
- * The focused control must show an outline at least 2 CSS px thick, or a
- * box-shadow ring with a non-blurred spread of at least 2 CSS px.
+ * The focused control must show an outline or box-shadow ring at least 2 CSS px
+ * thick; the rule itself lives in `focus-indicator.ts`, shared with the desktop spec.
  */
 export async function expectVisibleFocus(target: Locator) {
 	await expect(target).toBeFocused();
@@ -41,41 +41,13 @@ export async function expectVisibleFocus(target: Locator) {
 			boxShadow: style.boxShadow,
 		};
 	});
-	const hasOutline =
-		indicator.outlineStyle !== "none" &&
-		indicator.outlineWidth >= minimumFocusThickness;
 	expect(
-		hasOutline ||
-			shadowRingThickness(indicator.boxShadow) >= minimumFocusThickness,
+		hasVisibleFocusIndicator(indicator),
 		`focus indicator thinner than ${minimumFocusThickness}px: ${JSON.stringify(indicator)}`
 	).toBe(true);
-}
-
-/**
- * Thickest solid ring in a computed box-shadow list. Computed values look like
- * `rgb(0, 0, 0) 0px 0px 0px 3px`: offsets x y, blur, then spread. Inset shadows
- * and plain drop shadows with blur and no spread do not count.
- */
-export function shadowRingThickness(boxShadow: string) {
-	if (boxShadow === "none") {
-		return 0;
-	}
-	let thickest = 0;
-	for (const layer of boxShadow.split(shadowLayerSeparator)) {
-		const [, , , spread = 0] = [...layer.matchAll(lengthPattern)].map((match) =>
-			Number.parseFloat(match[1] ?? "0")
-		);
-		thickest = Math.max(thickest, Number(spread));
-	}
-	return thickest;
 }
 
 /** A control exposes a non-empty accessible name. */
 export async function expectAccessibleName(target: Locator) {
 	await expect(target).toHaveAccessibleName(nonEmpty);
-}
-
-/** Announced state text lives in the live-region role of the expected politeness. */
-export function liveRegion(page: Page, politeness: "assertive" | "polite") {
-	return page.getByRole(politeness === "assertive" ? "alert" : "status");
 }

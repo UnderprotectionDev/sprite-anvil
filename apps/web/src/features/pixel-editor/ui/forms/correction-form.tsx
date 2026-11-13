@@ -11,6 +11,7 @@ import {
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { useCorrectionAnnotations } from "../../hooks/use-correction-annotations";
 import { usePrepareCorrection } from "../../hooks/use-prepare-correction";
 import {
@@ -279,11 +280,11 @@ export function CorrectionForm({
 				</Button>
 			</form>
 			{prepare.isError ? (
-				<p className="text-destructive text-xs" role="alert">
+				<StatusMessage tone="error">
 					{prepare.error instanceof Error
 						? prepare.error.message
 						: "The Production Package could not be prepared."}
-				</p>
+				</StatusMessage>
 			) : null}
 			{prepared ? (
 				<p className="text-xs" role="status">

@@ -13,6 +13,7 @@ import {
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
@@ -345,9 +346,7 @@ export function AssetRecordMeasurementsForm({
 									</section>
 								))}
 								{shownError ? (
-									<p aria-live="assertive" role="alert">
-										{shownError}
-									</p>
+									<StatusMessage tone="error">{shownError}</StatusMessage>
 								) : null}
 							</>
 						);

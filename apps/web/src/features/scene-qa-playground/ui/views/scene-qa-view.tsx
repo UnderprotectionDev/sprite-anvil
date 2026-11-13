@@ -8,6 +8,7 @@ import { Button } from "@sprite-anvil/ui/components/button";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { mutationMeta } from "@/utils/mutation-meta";
@@ -148,8 +149,10 @@ export function SceneQaView({ projectId }: { projectId: string }) {
 			</header>
 			{loading && <p role="status">Loading scene versions and profiles…</p>}
 			{failed && (
-				<div role="alert">
-					<p>Scene data could not be loaded.</p>
+				<div>
+					<StatusMessage tone="error">
+						Scene data could not be loaded.
+					</StatusMessage>
 					<Button
 						onClick={() => {
 							for (const query of reads) {

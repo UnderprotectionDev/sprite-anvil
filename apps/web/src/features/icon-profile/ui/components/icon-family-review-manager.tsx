@@ -18,6 +18,7 @@ import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { ENV } from "@/env";
 import {
 	type IconFamilyReviewFormValues,
@@ -480,9 +481,9 @@ export function IconFamilyReviewManager({
 				</p>
 			) : null}
 			{reviewQuery.isError ? (
-				<p role="alert">
+				<StatusMessage tone="error">
 					İkon aile incelemeleri okunamadı. Kayıtları yeniden okuyun.
-				</p>
+				</StatusMessage>
 			) : null}
 			{message ? (
 				<p aria-live="polite" role="status">

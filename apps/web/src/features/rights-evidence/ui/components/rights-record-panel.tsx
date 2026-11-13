@@ -17,6 +17,7 @@ import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type SyntheticEvent, useEffect, useRef, useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import {
 	isWriteOutcomeUncertain,
 	QueryRetryButton,
@@ -292,14 +293,14 @@ function RightsRecordSaveFeedback({
 	return (
 		<>
 			{isError ? (
-				<p role="alert">
+				<StatusMessage tone="error">
 					{writeOutcomeUncertain
 						? "Kaydetme sonucu doğrulanamadı. Geçmişi yenileyerek kaydın oluşup oluşmadığını denetleyin."
 						: getErrorMessage(
 								error,
 								"Hak Kaydı oluşturulamadı. Girdi bilgilerini kontrol edip yeniden deneyin."
 							)}
-				</p>
+				</StatusMessage>
 			) : null}
 			{statusMessage ? (
 				<p aria-live="polite" className="text-sm">
@@ -364,9 +365,9 @@ function RightsRecordHistory({
 			) : null}
 			{isError ? (
 				<div className="space-y-2">
-					<p role="alert">
+					<StatusMessage tone="error">
 						{getErrorMessage(error, "Hak Kaydı geçmişi yüklenemedi.", "query")}
-					</p>
+					</StatusMessage>
 					<QueryRetryButton disabled={isFetching} onRetry={onRetry} />
 				</div>
 			) : null}
@@ -756,9 +757,9 @@ export function RightsRecordPanel({
 											)}
 										</Label>
 										{fieldError ? (
-											<p className="text-sm" id={errorId} role="alert">
+											<StatusMessage id={errorId} tone="error">
 												{fieldError}
-											</p>
+											</StatusMessage>
 										) : null}
 									</div>
 								);
@@ -810,9 +811,9 @@ export function RightsRecordPanel({
 						</p>
 					) : null}
 					{evidenceFileError ? (
-						<p className="text-sm" id={evidenceFileErrorId} role="alert">
+						<StatusMessage id={evidenceFileErrorId} tone="error">
 							{evidenceFileError}
-						</p>
+						</StatusMessage>
 					) : null}
 					{evidenceFile || evidenceFileError || retainedEvidenceFile ? (
 						<Button

@@ -11,6 +11,7 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
 import {
@@ -144,7 +145,9 @@ export function ProposalFinalizationForm({
 				</p>
 			) : null}
 			{recordsError ? (
-				<p role="alert">Hedef Varlık Kayıtları okunamadı.</p>
+				<StatusMessage tone="error">
+					Hedef Varlık Kayıtları okunamadı.
+				</StatusMessage>
 			) : null}
 			<form.Field name="decisions">
 				{(field) =>
@@ -207,7 +210,9 @@ export function ProposalFinalizationForm({
 					</Button>
 				)}
 			</form.Subscribe>
-			{finalizeError ? <p role="alert">{finalizeError}</p> : null}
+			{finalizeError ? (
+				<StatusMessage tone="error">{finalizeError}</StatusMessage>
+			) : null}
 		</section>
 	);
 }

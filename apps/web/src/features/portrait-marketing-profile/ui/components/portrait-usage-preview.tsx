@@ -1,5 +1,6 @@
 import type { PortraitReviewItem } from "@sprite-anvil/api/portrait-identity-reviews";
 import { useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { ENV } from "@/env";
 
 const trailingSlash = /\/$/;
@@ -77,9 +78,9 @@ export function PortraitUsagePreview({
 				</div>
 			</div>
 			{failed ? (
-				<p role="alert">
+				<StatusMessage tone="error">
 					Görsel yüklenemedi veya kaynak ölçüsü uyuşmuyor. Yeniden yükleyin.
-				</p>
+				</StatusMessage>
 			) : null}
 		</figure>
 	);

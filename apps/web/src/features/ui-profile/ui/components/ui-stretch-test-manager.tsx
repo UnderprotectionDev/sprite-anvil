@@ -18,6 +18,7 @@ import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { ENV } from "@/env";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
@@ -294,18 +295,20 @@ export function UiStretchTestManager({
 			</p>
 			{query.isPending ? <p role="status">Loading stretch tests…</p> : null}
 			{query.isError ? (
-				<div role="alert">
-					{getErrorMessage(
-						query.error,
-						"Could not load stretch tests.",
-						"query"
-					)}{" "}
+				<div className="space-y-2">
+					<StatusMessage tone="error">
+						{getErrorMessage(
+							query.error,
+							"Could not load stretch tests.",
+							"query"
+						)}
+					</StatusMessage>
 					<Button onClick={() => query.refetch()} type="button">
 						Retry
 					</Button>
 				</div>
 			) : null}
-			{error ? <p role="alert">{error}</p> : null}
+			{error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
 			{message ? <p role="status">{message}</p> : null}
 			<form
 				className="space-y-4"

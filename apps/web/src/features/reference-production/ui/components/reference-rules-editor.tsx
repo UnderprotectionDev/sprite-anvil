@@ -1,5 +1,6 @@
 import { Button } from "@sprite-anvil/ui/components/button";
 import type { ReactNode } from "react";
+import { StatusMessage } from "@/components/status-message";
 
 interface ReferenceRulesEditorProps {
 	children: ReactNode;
@@ -26,14 +27,10 @@ export function ReferenceRulesEditor({
 			<div className="mt-3 space-y-3">
 				{children}
 				{feedback.validationError ? (
-					<p className="text-destructive text-sm" role="alert">
-						{feedback.validationError}
-					</p>
+					<StatusMessage tone="error">{feedback.validationError}</StatusMessage>
 				) : null}
 				{feedback.error ? (
-					<p className="text-destructive text-sm" role="alert">
-						{feedback.error}
-					</p>
+					<StatusMessage tone="error">{feedback.error}</StatusMessage>
 				) : null}
 				{feedback.saved ? (
 					<p className="text-sm" role="status">

@@ -12,6 +12,7 @@ import {
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm } from "@tanstack/react-form";
 import { type SyntheticEvent, useRef, useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { errorCodeOf } from "@/utils/error-code";
 import {
 	useAddRuntimeValidationTextEvidence,
@@ -208,7 +209,7 @@ export function RuntimeValidationEvidenceForm({
 					)}
 				</form.Field>
 			</div>
-			{failure ? <p role="alert">{failure}</p> : null}
+			{failure ? <StatusMessage tone="error">{failure}</StatusMessage> : null}
 			<Button
 				className="min-h-11"
 				disabled={addText.isPending || upload.isPending}

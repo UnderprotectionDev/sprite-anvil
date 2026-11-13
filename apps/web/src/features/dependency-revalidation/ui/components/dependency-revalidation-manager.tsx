@@ -17,6 +17,7 @@ import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import type z from "zod";
+import { StatusMessage } from "@/components/status-message";
 import { orpc } from "@/utils/orpc";
 import { changeFacetFormSchema, dependencyLinkFormSchema } from "../../schemas";
 import {
@@ -231,7 +232,9 @@ export function DependencyRevalidationManager({
 				<p role="status">Bağımlılık kayıtları yükleniyor…</p>
 			) : null}
 			{query.isError ? (
-				<p role="alert">Bağımlılık kayıtları okunamadı.</p>
+				<StatusMessage tone="error">
+					Bağımlılık kayıtları okunamadı.
+				</StatusMessage>
 			) : null}
 			{message ? (
 				<p aria-live="polite" role="status">

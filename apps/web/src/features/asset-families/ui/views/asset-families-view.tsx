@@ -8,6 +8,7 @@ import {
 import { type QueryKey, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { TaskWorkspace } from "@/components/task-workspace";
 import { useAssetVersionWrites } from "@/features/asset-versions/hooks/use-asset-version-writes";
 import { AssetVersionControls } from "@/features/asset-versions/ui/components/asset-version-controls";
@@ -554,7 +555,7 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 				loadingMessage="Projeler yükleniyor…"
 			/>
 			{projectsQuery.isSuccess && !project ? (
-				<p role="alert">Bu Proje bulunamadı.</p>
+				<StatusMessage tone="error">Bu Proje bulunamadı.</StatusMessage>
 			) : null}
 			{writes.statusMessage ? (
 				<p aria-live="polite" role="status">
@@ -588,8 +589,10 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 			/>
 
 			{catalogQuery.isError ? (
-				<div className="space-y-3" role="alert">
-					<p>Varlık Aileleri yüklenemedi.</p>
+				<div className="space-y-3">
+					<StatusMessage tone="error">
+						Varlık Aileleri yüklenemedi.
+					</StatusMessage>
 					<Button
 						onClick={() => void catalogQuery.refetch()}
 						type="button"
@@ -600,11 +603,11 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 				</div>
 			) : null}
 			{assetVersionQuery.isError ? (
-				<div role="alert">
-					<p>
+				<div>
+					<StatusMessage tone="error">
 						Varlık Sürümleri yüklenemedi. İnceleme için sürümleri yeniden
 						yükleyin.
-					</p>
+					</StatusMessage>
 					<Button
 						onClick={() => void assetVersionQuery.refetch()}
 						type="button"
@@ -615,8 +618,10 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 				</div>
 			) : null}
 			{profileContractsQuery.isError ? (
-				<div role="alert">
-					<p>Özel profil sözleşmeleri yüklenemedi.</p>
+				<div>
+					<StatusMessage tone="error">
+						Özel profil sözleşmeleri yüklenemedi.
+					</StatusMessage>
 					<Button
 						onClick={() => void profileContractsQuery.refetch()}
 						type="button"

@@ -21,6 +21,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { link, type orpc } from "@/utils/orpc";
 
 import "../index.css";
+import { StatusMessage } from "@/components/status-message";
 
 export interface RouterAppContext {
 	orpc: typeof orpc;
@@ -110,10 +111,10 @@ function WorkspaceError({ reset }: ErrorComponentProps) {
 	return (
 		<main className="mx-auto max-w-3xl space-y-4 px-4 py-12">
 			<h1 className="font-semibold text-3xl">Ekran açılamadı</h1>
-			<p role="alert">
+			<StatusMessage tone="error">
 				Bu ekran gösterilirken bir sorun oluştu. Yeniden deneyin veya projenize
 				listeden dönün.
-			</p>
+			</StatusMessage>
 			<div className="flex flex-wrap items-center gap-4">
 				<Button onClick={() => void retryScreen()} type="button">
 					Yeniden dene

@@ -14,6 +14,7 @@ import {
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { orpc } from "@/utils/orpc";
@@ -307,7 +308,9 @@ export function HistoricalCompositionManager({
 				işlem paket üretmez veya güncel uygunluğu değiştirmez.
 			</p>
 			{failedRead ? (
-				<p role="alert">Tarihsel seçim kayıtları okunamadı.</p>
+				<StatusMessage tone="error">
+					Tarihsel seçim kayıtları okunamadı.
+				</StatusMessage>
 			) : null}
 			{loading && !failedRead ? (
 				<p role="status">Tarihsel seçim kayıtları yükleniyor.</p>

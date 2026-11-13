@@ -10,12 +10,11 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Slider } from "@sprite-anvil/ui/components/slider";
-import { usePauseOnReducedMotion } from "@sprite-anvil/ui/hooks/use-pause-on-reduced-motion";
 import type { Application as PixiApplication } from "pixi.js";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ReducedMotionNotice } from "@/components/reduced-motion-notice";
+import { StatusMessage } from "@/components/status-message";
 import { ENV } from "@/env";
-
 import { getVfxPreviewLayout } from "../../lib/vfx-preview-layout";
 
 const trailingSlash = /\/$/;
@@ -81,8 +80,6 @@ export function VfxSynchronizedPreview({
 	const [error, setError] = useState("");
 	const [ready, setReady] = useState(false);
 	const [playing, setPlaying] = useState(false);
-	const pause = useCallback(() => setPlaying(false), []);
-	const reducedMotion = usePauseOnReducedMotion(pause);
 	const [elapsedMs, setElapsedMs] = useState(0);
 	const [background, setBackground] = useState<Background>("transparent");
 	const [alone, setAlone] = useState(false);
@@ -329,9 +326,9 @@ export function VfxSynchronizedPreview({
 					}}
 				/>
 			</div>
-			<ReducedMotionNotice reducedMotion={reducedMotion} />
+			<ReducedMotionNotice onReducedMotion={() => setPlaying(false)} />
 			{error ? (
-				<p role="alert">{error}</p>
+				<StatusMessage tone="error">{error}</StatusMessage>
 			) : (
 				<p className="text-muted-foreground text-sm">
 					Playback uses one timeline. Event time is measured from the owner clip

@@ -7,6 +7,7 @@ import {
 } from "@sprite-anvil/ui/components/native-select";
 import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import type {
 	OfflineStagingStore,
 	StageableDraft,
@@ -115,13 +116,13 @@ export function StageOperationForm({
 									value={field.state.value}
 								/>
 								{field.state.meta.errors.length > 0 ? (
-									<span role="alert">
+									<StatusMessage tone="error">
 										{field.state.meta.errors
 											.map((error) =>
 												typeof error === "string" ? error : error?.message
 											)
 											.join(" ")}
-									</span>
+									</StatusMessage>
 								) : null}
 							</Label>
 						)}

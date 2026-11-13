@@ -13,6 +13,7 @@ import {
 } from "@sprite-anvil/ui/components/native-select";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
@@ -186,7 +187,9 @@ function AnimationMetadataPackagePanelContent({
 			) : null}
 			{versionsQuery.isError ? (
 				<div className="space-y-2">
-					<p role="alert">Birleşik Sürümler yüklenemedi.</p>
+					<StatusMessage tone="error">
+						Birleşik Sürümler yüklenemedi.
+					</StatusMessage>
 					<Button
 						onClick={() => void versionsQuery.refetch()}
 						type="button"
@@ -269,7 +272,7 @@ function AnimationMetadataPackagePanelContent({
 				Kimlik ve Yön Tutarlılığı İncelemesi kaydında kalır; görsel dosyalar ve
 				tam Dışa Aktarım Paketi kapsam dışıdır.
 			</p>
-			{error ? <p role="alert">{error}</p> : null}
+			{error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
 			{message ? <p role="status">{message}</p> : null}
 		</section>
 	);

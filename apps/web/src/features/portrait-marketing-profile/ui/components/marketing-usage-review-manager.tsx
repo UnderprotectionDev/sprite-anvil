@@ -18,6 +18,10 @@ import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
+import {
+	StatusMessage,
+	WriteOutcomeMessage,
+} from "@/components/status-message";
 import { ENV } from "@/env";
 import {
 	isWriteOutcomeUncertain,
@@ -253,15 +257,15 @@ export function MarketingUsageReviewManager({
 					</Button>
 				</FieldSet>
 			</form>
-			{message ? <p role="status">{message}</p> : null}
+			<WriteOutcomeMessage message={message} uncertain={uncertainId !== null} />
 			{uncertainId ? (
 				<Button onClick={checkRecords} type="button" variant="outline">
 					Güncel kayıtları kontrol et
 				</Button>
 			) : null}
 			{query.isError ? (
-				<div role="alert">
-					İncelemeler okunamadı.
+				<div className="space-y-2">
+					<StatusMessage tone="error">İncelemeler okunamadı.</StatusMessage>
 					<Button onClick={() => query.refetch()} type="button">
 						Retry
 					</Button>
@@ -460,9 +464,9 @@ function MarketingUsageItemFields({
 					previewUrl={`${previewBaseUrl}${version.previewUrl}`}
 				/>
 			) : (
-				<p role="alert">
+				<StatusMessage tone="error">
 					Kırpma ve güvenli alanı kaynak ölçüleri içinde tutun.
-				</p>
+				</StatusMessage>
 			)}
 			{item.observations.map((observation, index) => (
 				<FieldSet

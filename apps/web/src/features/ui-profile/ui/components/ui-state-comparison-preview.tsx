@@ -1,5 +1,6 @@
 import type { UiStateComparisonInput } from "@sprite-anvil/api/ui-state-comparisons";
 import { useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { ENV } from "@/env";
 
 export const stateLabels = {
@@ -47,7 +48,11 @@ export function UiStateComparisonPreview({
 		bounds.x + bounds.width > dimensions.width ||
 		bounds.y + bounds.height > dimensions.height
 	) {
-		return <p role="alert">Preview region must fit the source image.</p>;
+		return (
+			<StatusMessage tone="error">
+				Preview region must fit the source image.
+			</StatusMessage>
+		);
 	}
 	const scale = Math.min(1, 240 / bounds.width, 180 / bounds.height);
 	return (
@@ -58,7 +63,9 @@ export function UiStateComparisonPreview({
 			</figcaption>
 			<div className="flex min-h-24 items-center justify-center rounded border bg-muted p-2">
 				{failed ? (
-					<p role="alert">Image preview could not be loaded.</p>
+					<StatusMessage tone="error">
+						Image preview could not be loaded.
+					</StatusMessage>
 				) : (
 					<div
 						className="relative overflow-hidden"
