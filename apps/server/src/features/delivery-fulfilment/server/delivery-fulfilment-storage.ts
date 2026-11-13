@@ -21,6 +21,11 @@ export type InsertDeliveryFulfilmentResult =
 
 /** The persistent side of Delivery Fulfilments. Rows are only ever inserted, header and requirements together; there is no update or delete. */
 export interface DeliveryFulfilmentStorage {
+	/** The given Asset Versions that an Erasure Tombstone stands for; no Fulfilment row is read or changed. */
+	erasedAssetVersionIds: (
+		projectId: string,
+		assetVersionIds: string[]
+	) => Promise<Set<string>>;
 	findFulfilment: (
 		projectId: string,
 		fulfilmentId: string

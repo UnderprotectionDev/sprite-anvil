@@ -54,6 +54,7 @@ import { marketingUsageReviewsRouter } from "./marketing-usage-reviews";
 import { measurementDefinitionsRouter } from "./measurement-definitions";
 import { measurementEventsRouter } from "./measurement-events";
 import { measurementMeasuresRouter } from "./measurement-measures";
+import { permanentErasureRouter } from "./permanent-erasure";
 import { portraitIdentityReviewsRouter } from "./portrait-identity-reviews";
 import { productionExperimentsRouter } from "./production-experiments";
 import { productionRecipesRouter } from "./production-recipes";
@@ -146,6 +147,7 @@ export const appRouter = {
 	deliveryPlanning: deliveryPlanningRouter,
 	deliveryRefreshLocks: deliveryRefreshLocksRouter,
 	exportBundles: exportBundlesRouter,
+	permanentErasure: permanentErasureRouter,
 	projectArchives: projectArchivesRouter,
 	exportProfiles: exportProfilesRouter,
 	dependencyRevalidation: dependencyRevalidationRouter,

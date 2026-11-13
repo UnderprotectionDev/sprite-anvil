@@ -1,5 +1,6 @@
 import type { FoundationRecords } from "@sprite-anvil/api/project-archives";
 import type { Database } from "@sprite-anvil/db";
+import { hasErrorCode } from "@sprite-anvil/db/error-codes";
 import { project } from "@sprite-anvil/db/schema/project";
 import {
 	projectArchiveRestoreFiles,
@@ -20,14 +21,6 @@ import type {
 const uniqueViolationCode = "23505";
 /** Rows per insert statement, well under the database's bound-parameter limit. */
 const insertChunkSize = 500;
-
-function hasErrorCode(error: unknown, expected: string): boolean {
-	if (typeof error !== "object" || error === null) {
-		return false;
-	}
-	const { cause, code } = error as { cause?: unknown; code?: unknown };
-	return code === expected || hasErrorCode(cause, expected);
-}
 
 function chunks<T>(rows: T[]): T[][] {
 	const parts: T[][] = [];

@@ -79,6 +79,8 @@ export const deliveryFulfilmentSchema = z
 		requirements: z.array(fulfilmentRequirementRecordSchema),
 		revisionId: idSchema,
 		revisionNumber: z.number().int().positive(),
+		/** Computed on read: false once an Erasure Tombstone stands for an Asset Version a requirement pins. The stored rows never change. */
+		verifiable: z.boolean(),
 	})
 	.strict();
 export type DeliveryFulfilment = z.infer<typeof deliveryFulfilmentSchema>;

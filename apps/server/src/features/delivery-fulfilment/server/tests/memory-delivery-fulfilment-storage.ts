@@ -5,10 +5,15 @@ import type {
 
 /** An in-memory DeliveryFulfilmentStorage with the same insert-only behavior as the database store. */
 export function createMemoryDeliveryFulfilmentStorage(): DeliveryFulfilmentStorage & {
+	/** Models the Erasure Tombstones of erased Asset Versions; the Fulfilment rows are not touched. */
+	markErased: (assetVersionIds: string[]) => void;
 	snapshot: () => string;
 } {
 	const rows = new Map<string, StoredDeliveryFulfilment>();
+	const erased = new Set<string>();
 	return {
+		erasedAssetVersionIds: (_projectId, assetVersionIds) =>
+			Promise.resolve(new Set(assetVersionIds.filter((id) => erased.has(id)))),
 		findFulfilment: (projectId, fulfilmentId) => {
 			const found = rows.get(fulfilmentId);
 			return Promise.resolve(
@@ -43,6 +48,11 @@ export function createMemoryDeliveryFulfilmentStorage(): DeliveryFulfilmentStora
 					)
 					.map((row) => structuredClone(row))
 			),
+		markErased: (assetVersionIds) => {
+			for (const id of assetVersionIds) {
+				erased.add(id);
+			}
+		},
 		snapshot: () => JSON.stringify([...rows.values()]),
 	};
 }

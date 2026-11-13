@@ -4,6 +4,7 @@ import {
 	deliveryFulfilmentRequirements,
 	deliveryFulfilments,
 } from "@sprite-anvil/db/schema/delivery-fulfilment";
+import { erasureTombstones } from "@sprite-anvil/db/schema/permanent-erasure";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import type {
 	DeliveryFulfilmentStorage,
@@ -59,6 +60,21 @@ export function createDatabaseDeliveryFulfilmentStorage(
 	}
 
 	return {
+		async erasedAssetVersionIds(projectId, assetVersionIds) {
+			if (assetVersionIds.length === 0) {
+				return new Set();
+			}
+			const rows = await db
+				.select({ id: erasureTombstones.id })
+				.from(erasureTombstones)
+				.where(
+					and(
+						eq(erasureTombstones.projectId, projectId),
+						inArray(erasureTombstones.id, assetVersionIds)
+					)
+				);
+			return new Set(rows.map((row) => row.id));
+		},
 		async findFulfilment(projectId, fulfilmentId) {
 			const headers = await db
 				.select()
