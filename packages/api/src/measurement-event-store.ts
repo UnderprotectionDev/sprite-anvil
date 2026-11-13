@@ -9,7 +9,9 @@ export type MeasurementEventRejectionReason =
 	| "id_conflict"
 	| "invalid_event"
 	| "project_not_found"
-	| "surface_out_of_scope";
+	| "project_out_of_scope"
+	| "surface_out_of_scope"
+	| "user_out_of_scope";
 
 export type MeasurementEventRecordResult =
 	| { event: MeasurementEvent; status: "recorded" }

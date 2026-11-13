@@ -16,16 +16,43 @@ function getMeasurementEventStore(context: Context) {
 	return context.measurementEventStore;
 }
 
-const rejectionMessages: Record<MeasurementEventRejectionReason, string> = {
-	definition_not_found:
-		"No activated Measurement Definition with this id exists for you.",
-	event_not_in_definition:
-		"This event is neither the start nor the end event of the Measurement Definition.",
-	id_conflict: "This event id is already used for a different event.",
-	invalid_event: "The event does not match the privacy-preserving envelope.",
-	project_not_found: "No project with this id exists for you.",
-	surface_out_of_scope:
-		"This surface is outside the Measurement Definition's scope.",
+const rejections: Record<
+	MeasurementEventRejectionReason,
+	{ code: "BAD_REQUEST" | "CONFLICT"; message: string }
+> = {
+	definition_not_found: {
+		code: "BAD_REQUEST",
+		message: "No activated Measurement Definition with this id exists for you.",
+	},
+	event_not_in_definition: {
+		code: "BAD_REQUEST",
+		message:
+			"This event is neither the start nor the end event of the Measurement Definition.",
+	},
+	id_conflict: {
+		code: "CONFLICT",
+		message: "This event id is already used for a different event.",
+	},
+	invalid_event: {
+		code: "BAD_REQUEST",
+		message: "The event does not match the privacy-preserving envelope.",
+	},
+	project_not_found: {
+		code: "BAD_REQUEST",
+		message: "No project with this id exists for you.",
+	},
+	project_out_of_scope: {
+		code: "BAD_REQUEST",
+		message: "This project is outside the Measurement Definition's scope.",
+	},
+	surface_out_of_scope: {
+		code: "BAD_REQUEST",
+		message: "This surface is outside the Measurement Definition's scope.",
+	},
+	user_out_of_scope: {
+		code: "BAD_REQUEST",
+		message: "This user is outside the Measurement Definition's scope.",
+	},
 };
 
 export const measurementEventsRouter = {
@@ -38,10 +65,8 @@ export const measurementEventsRouter = {
 				input
 			);
 			if (result.status === "rejected") {
-				throw new ORPCError(
-					result.reason === "id_conflict" ? "CONFLICT" : "BAD_REQUEST",
-					{ message: rejectionMessages[result.reason] }
-				);
+				const { code, message } = rejections[result.reason];
+				throw new ORPCError(code, { message });
 			}
 			return result.event;
 		}),

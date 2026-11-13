@@ -37,6 +37,8 @@ export const measurementEvents = pgTable(
 		/** Copied from the definition at record time so a series reads without a join. */
 		definitionVersion: integer("definition_version").notNull(),
 		metricId: text("metric_id").notNull(),
+		/** The envelope schema version this row was written under. */
+		eventVersion: integer("event_version").notNull().default(1),
 		eventFamily: text("event_family").$type<MeasurementEventFamily>().notNull(),
 		userPseudonym: text("user_pseudonym").notNull(),
 		projectPseudonym: text("project_pseudonym").notNull(),
@@ -56,6 +58,10 @@ export const measurementEvents = pgTable(
 		check(
 			"measurement_events_surface_check",
 			sql`${table.surface} in ('web', 'desktop')`
+		),
+		check(
+			"measurement_events_event_version_check",
+			sql`${table.eventVersion} > 0`
 		),
 		check(
 			"measurement_events_version_check",

@@ -9,7 +9,8 @@ import type {
 	MeasurementEventStorage,
 	StoredMeasurementEvent,
 } from "./measurement-event-storage";
-import type { Pseudonymize } from "./measurement-pseudonym-kind";
+import type { Pseudonymize } from "./measurement-pseudonymize";
+import { createScopeCheck } from "./measurement-scope";
 
 const dayMs = 86_400_000;
 
@@ -47,32 +48,24 @@ function groupFlowsInScope(
 	events: StoredMeasurementEvent[],
 	pseudonymize: Pseudonymize
 ): StoredMeasurementEvent[][] {
-	const listedProjects =
-		definition.scope.projects.kind === "listed_projects"
-			? new Set(
-					definition.scope.projects.projectIds.map((id) =>
-						pseudonymize("project", id)
-					)
-				)
-			: null;
-	const ownerPseudonym =
-		definition.scope.users === "owner_only"
-			? pseudonymize("user", definition.ownerUserId)
-			: null;
-	const inScope = (event: StoredMeasurementEvent) =>
-		definition.scope.surfaces.includes(event.surface) &&
-		(!listedProjects || listedProjects.has(event.projectPseudonym)) &&
-		(!ownerPseudonym || event.userPseudonym === ownerPseudonym);
-
+	const violatesScope = createScopeCheck(definition, pseudonymize);
 	// A workflow id is only unique within one user and project, so the flow key includes both pseudonyms.
 	const flows = new Map<string, StoredMeasurementEvent[]>();
-	for (const event of events.filter(inScope).sort(byTime)) {
+	for (const event of events.sort(byTime)) {
+		if (violatesScope(event)) {
+			continue;
+		}
 		const key = JSON.stringify([
 			event.userPseudonym,
 			event.projectPseudonym,
 			event.workflowId,
 		]);
-		flows.set(key, [...(flows.get(key) ?? []), event]);
+		const flow = flows.get(key);
+		if (flow) {
+			flow.push(event);
+		} else {
+			flows.set(key, [event]);
+		}
 	}
 	return [...flows.values()];
 }
@@ -86,8 +79,57 @@ interface Tally {
 	missingEnd: number;
 	missingStart: number;
 	numerator: number;
+	unusedEndEvents: number;
 }
 
+function newTally(): Tally {
+	return {
+		counterTotals: {},
+		denominator: 0,
+		durationsMs: [],
+		endOutcomeCounts: {},
+		excludedFlows: 0,
+		missingEnd: 0,
+		missingStart: 0,
+		numerator: 0,
+		unusedEndEvents: 0,
+	};
+}
+
+/** The window is the shorter of the time window and the retention period, ending at the server's now. */
+function windowStartOf(definition: StoredMeasurementDefinition, asOf: Date) {
+	const windowDays = Math.min(
+		definition.timeWindowDays,
+		definition.retentionDays
+	);
+	return new Date(asOf.getTime() - windowDays * dayMs);
+}
+
+/** A flow belongs to the window by when it began, or by its first event if it never did. */
+function isInWindow(
+	definition: StoredMeasurementDefinition,
+	flowEvents: StoredMeasurementEvent[],
+	windowStart: Date
+) {
+	const anchor =
+		flowEvents.find((event) => event.eventName === definition.startEvent) ??
+		flowEvents[0];
+	return anchor !== undefined && anchor.occurredAt >= windowStart;
+}
+
+/** A flow with any event of an excluded outcome class or record kind leaves every count. */
+function isExcluded(
+	definition: StoredMeasurementDefinition,
+	flowEvents: StoredMeasurementEvent[]
+) {
+	const exclusions = new Set(definition.exclusions);
+	return flowEvents.some(
+		(event) =>
+			exclusions.has(event.outcomeClass) || exclusions.has(event.recordKind)
+	);
+}
+
+/** Guardrails are raw tallies over every in-scope event of the flow, duplicates included. */
 function tallyGuardrail(
 	definition: StoredMeasurementDefinition,
 	flowEvents: StoredMeasurementEvent[],
@@ -103,19 +145,27 @@ function tallyGuardrail(
 	}
 }
 
-/** A duration and a success count need this flow's explicit start and a later explicit end; anything else is abandonment. */
+/**
+ * A duration and a success count need the flow's first start and the first end
+ * stamped at or after it (an end at the very same time counts, as a zero-length
+ * flow); anything else is abandonment. An end before the start never completes
+ * a flow. Every other end event of a completed flow, a later duplicate or an
+ * early one, is neither a duration nor a success: it is counted once in
+ * `unusedEndEvents` so it stays visible without changing the result.
+ */
 function tallyOutcome(
 	definition: StoredMeasurementDefinition,
 	flowEvents: StoredMeasurementEvent[],
-	startEvent: StoredMeasurementEvent | undefined,
 	tally: Tally
 ) {
+	const startEvent = flowEvents.find(
+		(event) => event.eventName === definition.startEvent
+	);
+	const endEvents = flowEvents.filter(
+		(event) => event.eventName === definition.endEvent
+	);
 	const endEvent = startEvent
-		? flowEvents.find(
-				(event) =>
-					event.eventName === definition.endEvent &&
-					event.occurredAt >= startEvent.occurredAt
-			)
+		? endEvents.find((event) => event.occurredAt >= startEvent.occurredAt)
 		: undefined;
 	if (!(startEvent && endEvent)) {
 		if (startEvent) {
@@ -125,6 +175,7 @@ function tallyOutcome(
 		}
 		return;
 	}
+	tally.unusedEndEvents += endEvents.length - 1;
 	tally.durationsMs.push(
 		endEvent.occurredAt.getTime() - startEvent.occurredAt.getTime()
 	);
@@ -136,60 +187,11 @@ function tallyOutcome(
 	}
 }
 
-/**
- * Computes one definition version's measures from the events collected under
- * exactly that version. Only labels, counters and server times are read, so no
- * image or subjective rating can turn into a success label.
- */
-function computeMeasure(
+function toMeasure(
 	definition: StoredMeasurementDefinition,
-	events: StoredMeasurementEvent[],
-	asOf: Date,
-	pseudonymize: Pseudonymize
+	tally: Tally,
+	windowStart: Date
 ): MeasurementMeasure {
-	const windowDays = Math.min(
-		definition.timeWindowDays,
-		definition.retentionDays
-	);
-	const windowStart = new Date(asOf.getTime() - windowDays * dayMs);
-	const exclusions = new Set(definition.exclusions);
-	const tally: Tally = {
-		counterTotals: {},
-		denominator: 0,
-		durationsMs: [],
-		endOutcomeCounts: {},
-		excludedFlows: 0,
-		missingEnd: 0,
-		missingStart: 0,
-		numerator: 0,
-	};
-
-	for (const flowEvents of groupFlowsInScope(
-		definition,
-		events,
-		pseudonymize
-	)) {
-		const startEvent = flowEvents.find(
-			(event) => event.eventName === definition.startEvent
-		);
-		// A flow belongs to the window by when it began, or by its first event if it never did.
-		const anchor = startEvent ?? flowEvents[0];
-		if (!anchor || anchor.occurredAt < windowStart) {
-			continue;
-		}
-		if (
-			flowEvents.some(
-				(event) =>
-					exclusions.has(event.outcomeClass) || exclusions.has(event.recordKind)
-			)
-		) {
-			tally.excludedFlows += 1;
-			continue;
-		}
-		tallyGuardrail(definition, flowEvents, tally);
-		tallyOutcome(definition, flowEvents, startEvent, tally);
-	}
-
 	const durationsMs = tally.durationsMs.sort((left, right) => left - right);
 	return {
 		abandonment: {
@@ -197,6 +199,7 @@ function computeMeasure(
 			missingStart: tally.missingStart,
 			total: tally.missingEnd + tally.missingStart,
 		},
+		contractVersion: definition.contractVersion,
 		definitionId: definition.id,
 		duration: {
 			completedFlows: durationsMs.length,
@@ -222,9 +225,41 @@ function computeMeasure(
 				outcomeClass: definition.numerator.outcomeClass,
 			},
 		},
+		unusedEndEvents: tally.unusedEndEvents,
 		version: definition.version,
 		windowStart: windowStart.toISOString(),
 	};
+}
+
+/**
+ * Computes one definition version's measures from the events collected under
+ * exactly that version. Only labels, counters and server times are read, so no
+ * image or subjective rating can turn into a success label.
+ */
+function computeMeasure(
+	definition: StoredMeasurementDefinition,
+	events: StoredMeasurementEvent[],
+	asOf: Date,
+	pseudonymize: Pseudonymize
+): MeasurementMeasure {
+	const windowStart = windowStartOf(definition, asOf);
+	const tally = newTally();
+	for (const flowEvents of groupFlowsInScope(
+		definition,
+		events,
+		pseudonymize
+	)) {
+		if (!isInWindow(definition, flowEvents, windowStart)) {
+			continue;
+		}
+		if (isExcluded(definition, flowEvents)) {
+			tally.excludedFlows += 1;
+			continue;
+		}
+		tallyGuardrail(definition, flowEvents, tally);
+		tallyOutcome(definition, flowEvents, tally);
+	}
+	return toMeasure(definition, tally, windowStart);
 }
 
 export function createMeasurementMeasureStore({

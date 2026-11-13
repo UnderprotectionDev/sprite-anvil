@@ -56,14 +56,14 @@ export const measurementRatioTermSchema = z
 	.object({ outcomeClass: slugSchema })
 	.strict();
 
-const contractVersionSchema = z
+export const measurementContractVersionSchema = z
 	.string()
 	.trim()
 	.regex(/^\d{1,4}\.\d{1,4}$/, "Use a major.minor contract version.");
 
 /** The fields a user fixes; the server adds the version number, the time source and the activation time. */
 const definitionFields = {
-	contractVersion: contractVersionSchema,
+	contractVersion: measurementContractVersionSchema,
 	/** The product decision the result can change; it describes the metric, it is not telemetry. */
 	decisionUse: z.string().trim().min(1).max(500),
 	denominator: measurementRatioTermSchema,

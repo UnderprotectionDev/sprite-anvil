@@ -16,6 +16,7 @@ export interface StoredMeasurementEvent
 	> {
 	definitionVersion: number;
 	eventFamily: MeasurementEventFamily;
+	eventVersion: number;
 	metricId: string;
 	occurredAt: Date;
 	projectPseudonym: string;

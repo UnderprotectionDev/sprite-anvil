@@ -17,13 +17,21 @@ function getMeasurementDefinitionStore(context: Context) {
 	return context.measurementDefinitionStore;
 }
 
-const rejectionMessages: Record<MeasurementDefinitionRejectionReason, string> =
-	{
-		id_conflict:
+const rejections: Record<
+	MeasurementDefinitionRejectionReason,
+	{ code: "BAD_REQUEST" | "CONFLICT"; message: string }
+> = {
+	id_conflict: {
+		code: "CONFLICT",
+		message:
 			"This Measurement Definition id is already used for different content.",
-		unsupported_contract_version:
+	},
+	unsupported_contract_version: {
+		code: "BAD_REQUEST",
+		message:
 			"This Measurement Definition contract major version is not supported, so it cannot be activated.",
-	};
+	},
+};
 
 export const measurementDefinitionsRouter = {
 	activate: protectedProcedure
@@ -35,10 +43,8 @@ export const measurementDefinitionsRouter = {
 				input
 			);
 			if (result.status === "rejected") {
-				throw new ORPCError(
-					result.reason === "id_conflict" ? "CONFLICT" : "BAD_REQUEST",
-					{ message: rejectionMessages[result.reason] }
-				);
+				const { code, message } = rejections[result.reason];
+				throw new ORPCError(code, { message });
 			}
 			if (result.status === "version_conflict") {
 				throw new ORPCError("CONFLICT", {

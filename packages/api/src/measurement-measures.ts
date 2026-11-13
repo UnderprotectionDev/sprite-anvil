@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+	measurementContractVersionSchema,
 	measurementEventFamilySchema,
 	measurementRatioTermSchema,
 } from "./measurement-definitions";
@@ -55,6 +56,8 @@ export const measurementGuardrailSchema = z
 export const measurementMeasureSchema = z
 	.object({
 		abandonment: measurementAbandonmentSchema,
+		/** The contract version the definition was activated under; another one is another entry, never merged. */
+		contractVersion: measurementContractVersionSchema,
 		definitionId: z.uuid(),
 		duration: measurementDurationSchema,
 		eventFamily: measurementEventFamilySchema,
@@ -62,6 +65,8 @@ export const measurementMeasureSchema = z
 		guardrail: measurementGuardrailSchema,
 		metricId: z.string().min(1).max(64),
 		success: measurementSuccessCountsSchema,
+		/** End events of completed flows that did not give the duration: later duplicates and ends stamped before the start. */
+		unusedEndEvents: countSchema,
 		version: z.number().int().positive(),
 		windowStart: z.iso.datetime(),
 	})

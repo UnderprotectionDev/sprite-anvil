@@ -6,9 +6,16 @@ import {
 
 const idSchema = z.uuid();
 
-/** Contains a long hex or digit run, or a well-known credential prefix: shapes a secret or content digest takes. */
+/** The version of the event envelope this build writes; a server constant, never taken from the client. */
+export const measurementEventVersion = 1;
+
+/**
+ * Shapes a secret or content digest takes in a label's value: a long hex or
+ * digit run, or a credential prefix followed by the token body. A prefix alone
+ * (`skip_count`, `pkg_export_count`) is an ordinary word and stays valid.
+ */
 const secretShape =
-	/[a-f0-9]{20,}|\d{10,}|^(?:sk|pk|ghp|gho|ghs|xox[a-z]|akia|eyj)[_a-z0-9-]*$/i;
+	/[a-f0-9]{20,}|\d{10,}|^(?:sk|pk|rk)_(?:live|test)_|^gh[pousr]_[a-z0-9]{8,}|^xox[a-z]_?\d{6,}|^akia[a-z0-9]{12,}$|^eyj[a-z0-9_-]{10,}$/i;
 
 /**
  * A closed-vocabulary label: lowercase words joined by underscores. It cannot
@@ -79,6 +86,8 @@ export const measurementEventSchema = z
 		...envelopeFields,
 		definitionVersion: z.number().int().positive(),
 		eventFamily: measurementEventFamilySchema,
+		/** The envelope schema version, so a later envelope change never reads as this one. */
+		eventVersion: z.number().int().positive(),
 		id: idSchema,
 		metricId: z.string().min(1).max(64),
 		/** Always the server clock; a device clock never moves a measurement. */

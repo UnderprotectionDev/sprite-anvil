@@ -272,7 +272,7 @@ test("different definition versions of one metric are computed separately and ne
 });
 
 test("exclusions, the time window and the project scope of the pinned definition are applied", async () => {
-	const { activate, flow, measure } = setup();
+	const { activate, events, flow, measure } = setup();
 	const listedProject = crypto.randomUUID();
 	const definition = await activate({
 		exclusions: ["internal_test"],
@@ -289,11 +289,36 @@ test("exclusions, the time window and the project scope of the pinned definition
 		startAt: new Date("2026-11-12T09:00:00.000Z"),
 		startOverrides: inScope,
 	});
-	// Another project: out of the listed scope.
-	await flow(definition.id, {
-		endAfterMinutes: 5,
-		startAt: new Date("2026-11-12T09:00:00.000Z"),
-	});
+	// Another project: out of the listed scope. Recording refuses it, so it is
+	// planted in storage to prove the measure applies the same scope rule.
+	const strayWorkflowId = crypto.randomUUID();
+	const strayEvents = (
+		[
+			[start, 0],
+			[end, 5],
+		] as const
+	).map(([eventName, minutes]) =>
+		events.storage.insert({
+			counters: {},
+			definitionId: definition.id,
+			definitionVersion: definition.version,
+			eventFamily: definition.eventFamily,
+			eventName,
+			eventVersion: 1,
+			id: crypto.randomUUID(),
+			metricId: definition.metricId,
+			occurredAt: new Date(
+				new Date("2026-11-12T09:00:00.000Z").getTime() + minutes * 60_000
+			),
+			outcomeClass: "workflow_started",
+			projectPseudonym: pseudonymize("project", crypto.randomUUID()),
+			recordKind: "generation_package",
+			surface: "web",
+			userPseudonym: pseudonymize("user", ownerId),
+			workflowId: strayWorkflowId,
+		})
+	);
+	await Promise.all(strayEvents);
 	// Older than the 7-day window.
 	await flow(definition.id, {
 		endAfterMinutes: 5,
@@ -378,6 +403,7 @@ test("the same workflow id from another project or user never merges into one fl
 		definitionVersion: definition.version,
 		eventFamily: definition.eventFamily,
 		eventName: end,
+		eventVersion: 1,
 		id: crypto.randomUUID(),
 		metricId: definition.metricId,
 		occurredAt: new Date(t0.getTime() + 120_000),
@@ -397,4 +423,91 @@ test("the same workflow id from another project or user never merges into one fl
 		missingStart: 2,
 		total: 3,
 	});
+});
+
+test("different contract versions of one metric stay separate entries, each with its own events and contract version", async () => {
+	const { activate, flow, measure } = setup();
+	const minor0 = await activate({ contractVersion: "1.0" });
+	const minor1 = await activate({ contractVersion: "1.1" });
+	await flow(minor0.id, { endAfterMinutes: 10 });
+	await flow(minor1.id, { endAfterMinutes: 20 });
+	await flow(minor1.id, { endAfterMinutes: 30 });
+
+	const report = await measure();
+
+	expect(
+		report.measures.map((m) => [
+			m.metricId,
+			m.contractVersion,
+			m.duration.durationsMs,
+		])
+	).toEqual([
+		["time_to_first_preview", "1.0", [10 * 60_000]],
+		["time_to_first_preview", "1.1", [20 * 60_000, 30 * 60_000]],
+	]);
+});
+
+test("duplicate end events: the first end at or after the start gives the duration, later ones are counted as unused and never change it", async () => {
+	const { activate, measure, record } = setup();
+	const definition = await activate();
+	const workflowId = crypto.randomUUID();
+	await record(definition.id, t0, { eventName: start, workflowId });
+	await record(definition.id, new Date(t0.getTime() + 10 * 60_000), {
+		eventName: end,
+		outcomeClass: "preview_reached",
+		workflowId,
+	});
+	await record(definition.id, new Date(t0.getTime() + 25 * 60_000), {
+		eventName: end,
+		outcomeClass: "preview_failed",
+		workflowId,
+	});
+
+	const [only] = (await measure()).measures;
+
+	expect(only?.duration.durationsMs).toEqual([10 * 60_000]);
+	expect(only?.success.numerator.count).toBe(1);
+	expect(only?.unusedEndEvents).toBe(1);
+	expect(only?.abandonment.total).toBe(0);
+});
+
+test("an end stamped at the same time as the start is a zero-length completed flow", async () => {
+	const { activate, measure, record } = setup();
+	const definition = await activate();
+	const workflowId = crypto.randomUUID();
+	await record(definition.id, t0, { eventName: start, workflowId });
+	await record(definition.id, t0, {
+		eventName: end,
+		outcomeClass: "preview_reached",
+		workflowId,
+	});
+
+	const [only] = (await measure()).measures;
+
+	expect(only?.duration.durationsMs).toEqual([0]);
+	expect(only?.unusedEndEvents).toBe(0);
+	expect(only?.abandonment.total).toBe(0);
+});
+
+test("an end before the start followed by a valid end uses the valid end and counts the early one as unused", async () => {
+	const { activate, measure, record } = setup();
+	const definition = await activate();
+	const workflowId = crypto.randomUUID();
+	await record(definition.id, new Date(t0.getTime() - 60_000), {
+		eventName: end,
+		outcomeClass: "preview_failed",
+		workflowId,
+	});
+	await record(definition.id, t0, { eventName: start, workflowId });
+	await record(definition.id, new Date(t0.getTime() + 5 * 60_000), {
+		eventName: end,
+		outcomeClass: "preview_reached",
+		workflowId,
+	});
+
+	const [only] = (await measure()).measures;
+
+	expect(only?.duration.durationsMs).toEqual([5 * 60_000]);
+	expect(only?.unusedEndEvents).toBe(1);
+	expect(only?.success.numerator.count).toBe(1);
 });

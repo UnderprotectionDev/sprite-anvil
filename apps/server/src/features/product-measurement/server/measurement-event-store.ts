@@ -1,18 +1,21 @@
 import type {
 	MeasurementEventRecordResult,
+	MeasurementEventRejectionReason,
 	MeasurementEventStore,
 } from "@sprite-anvil/api/measurement-event-store";
 import {
 	type MeasurementEvent,
 	measurementEventRecordInputSchema,
 	measurementEventSchema,
+	measurementEventVersion,
 } from "@sprite-anvil/api/measurement-events";
 import type { MeasurementDefinitionStorage } from "./measurement-definition-storage";
 import type {
 	MeasurementEventStorage,
 	StoredMeasurementEvent,
 } from "./measurement-event-storage";
-import type { Pseudonymize } from "./measurement-pseudonym-kind";
+import type { Pseudonymize } from "./measurement-pseudonymize";
+import { createScopeCheck, type ScopeViolation } from "./measurement-scope";
 
 export interface MeasurementEventStoreOptions {
 	definitionStorage: MeasurementDefinitionStorage;
@@ -24,6 +27,12 @@ export interface MeasurementEventStoreOptions {
 	pseudonymize: Pseudonymize;
 	storage: MeasurementEventStorage;
 }
+
+const scopeRejections = {
+	project: "project_out_of_scope",
+	surface: "surface_out_of_scope",
+	user: "user_out_of_scope",
+} as const satisfies Record<ScopeViolation, MeasurementEventRejectionReason>;
 
 /** Key-order independent form of the fields an event's identity covers (everything but the time). */
 function contentKey(event: StoredMeasurementEvent): string {
@@ -44,21 +53,9 @@ function contentKey(event: StoredMeasurementEvent): string {
 
 function toEvent(stored: StoredMeasurementEvent): MeasurementEvent {
 	return measurementEventSchema.parse({
-		counters: stored.counters,
-		definitionId: stored.definitionId,
-		definitionVersion: stored.definitionVersion,
-		eventFamily: stored.eventFamily,
-		eventName: stored.eventName,
-		id: stored.id,
-		metricId: stored.metricId,
+		...stored,
 		occurredAt: stored.occurredAt.toISOString(),
-		outcomeClass: stored.outcomeClass,
-		projectPseudonym: stored.projectPseudonym,
-		recordKind: stored.recordKind,
-		surface: stored.surface,
 		timeSource: "server_time",
-		userPseudonym: stored.userPseudonym,
-		workflowId: stored.workflowId,
 	});
 }
 
@@ -101,26 +98,23 @@ export function createMeasurementEventStore({
 			) {
 				return { reason: "event_not_in_definition", status: "rejected" };
 			}
-			if (!definition.scope.surfaces.includes(input.surface)) {
-				return { reason: "surface_out_of_scope", status: "rejected" };
-			}
 
+			const { projectId, ...envelope } = input;
 			const candidate: StoredMeasurementEvent = {
-				counters: input.counters,
-				definitionId: definition.id,
+				...envelope,
 				definitionVersion: definition.version,
 				eventFamily: definition.eventFamily,
-				eventName: input.eventName,
-				id: input.id,
+				eventVersion: measurementEventVersion,
 				metricId: definition.metricId,
 				occurredAt: now(),
-				outcomeClass: input.outcomeClass,
-				projectPseudonym: pseudonymize("project", input.projectId),
-				recordKind: input.recordKind,
-				surface: input.surface,
+				projectPseudonym: pseudonymize("project", projectId),
 				userPseudonym: pseudonymize("user", userId),
-				workflowId: input.workflowId,
 			};
+			// The same rule the measures apply, so an out-of-scope event is never stored.
+			const violation = createScopeCheck(definition, pseudonymize)(candidate);
+			if (violation) {
+				return { reason: scopeRejections[violation], status: "rejected" };
+			}
 
 			const existing = await storage.findById(candidate.id);
 			if (existing) {

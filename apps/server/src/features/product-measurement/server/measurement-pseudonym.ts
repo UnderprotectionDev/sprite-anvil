@@ -1,5 +1,5 @@
 import { createHmac } from "node:crypto";
-import type { Pseudonymize } from "./measurement-pseudonym-kind";
+import type { Pseudonymize } from "./measurement-pseudonymize";
 
 /**
  * A keyed one-way pseudonym: the same id always maps to the same value for one

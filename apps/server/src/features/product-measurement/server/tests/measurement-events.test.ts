@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { measurementDefinitionActivateInputSchema } from "@sprite-anvil/api/measurement-definitions";
+import {
+	type MeasurementScope,
+	measurementDefinitionActivateInputSchema,
+} from "@sprite-anvil/api/measurement-definitions";
 import {
 	type MeasurementEventRecordInput,
 	measurementEventRecordInputSchema,
@@ -7,8 +10,17 @@ import {
 import { createMeasurementDefinitionStore } from "../measurement-definition-store";
 import { createMeasurementEventStore } from "../measurement-event-store";
 import { createMeasurementPseudonymizer } from "../measurement-pseudonym";
+import { createScopeCheck } from "../measurement-scope";
 import { createMemoryMeasurementDefinitionStorage } from "./memory-measurement-definition-storage";
 import { createMemoryMeasurementEventStorage } from "./memory-measurement-event-storage";
+
+function findScopeViolation(
+	definition: Parameters<typeof createScopeCheck>[0],
+	event: Parameters<ReturnType<typeof createScopeCheck>>[0],
+	pseudonymizer: Parameters<typeof createScopeCheck>[1]
+) {
+	return createScopeCheck(definition, pseudonymizer)(event);
+}
 
 const ownerId = "user-owner";
 const otherUserId = "user-other";
@@ -16,7 +28,7 @@ const projectId = crypto.randomUUID();
 const pseudonymize = createMeasurementPseudonymizer("test-key");
 const serverTime = new Date("2026-11-13T10:00:00.000Z");
 
-async function setup() {
+async function setup(scope?: Partial<MeasurementScope>) {
 	const definitions = createMemoryMeasurementDefinitionStorage();
 	const events = createMemoryMeasurementEventStorage();
 	const definitionStore = createMeasurementDefinitionStore({
@@ -39,6 +51,7 @@ async function setup() {
 				projects: { kind: "all_projects" },
 				surfaces: ["web"],
 				users: "all_users",
+				...scope,
 			},
 			startEvent: "generation_package_preparation_started",
 			timeWindowDays: 30,
@@ -100,6 +113,7 @@ test("recording stores a pseudonymous envelope stamped with server time, related
 		definitionVersion: definition.version,
 		eventFamily: "production_workflow",
 		eventName: input.eventName,
+		eventVersion: 1,
 		id: input.id,
 		metricId: "time_to_first_preview",
 		occurredAt: serverTime.toISOString(),
@@ -260,6 +274,12 @@ test("benign counter labels that merely mention a secret-like word are accepted,
 		"password_reset_count",
 		"secret_rotation_count",
 		"bearer_retry_count",
+		"skip_count",
+		"skin_tone_changes",
+		"pkg_export_count",
+		"ghost_layer_count",
+		"akin_review_count",
+		"frames_2024",
 	]) {
 		expect(parse({ counters: { [label]: 3 } })).toBe(true);
 	}
@@ -267,6 +287,9 @@ test("benign counter labels that merely mention a secret-like word are accepted,
 		"sk_live_abcdef",
 		"ghp_0123456789abcdefghijklmnopqrstuvwxyz",
 		"akia0123456789abcdef",
+		"pk_test_abc",
+		"xoxb_123456789012",
+		"eyjhbgcioijiuzi1nij9",
 		"a3f9c2d41b7e8a06c5d2e1f09b8a7c6d",
 	]) {
 		expect(parse({ outcomeClass: value })).toBe(false);
@@ -284,4 +307,81 @@ test("a project the caller does not own is rejected and nothing is stored", asyn
 
 	expect(result).toEqual({ reason: "project_not_found", status: "rejected" });
 	expect(events.rows()).toHaveLength(0);
+});
+
+test("recording enforces the definition's project scope at write time: an unlisted project is rejected and nothing is stored", async () => {
+	const { definition, events, store } = await setup({
+		projects: { kind: "listed_projects", projectIds: [crypto.randomUUID()] },
+	});
+
+	const result = await store.record(ownerId, eventInput(definition.id));
+
+	expect(result).toEqual({
+		reason: "project_out_of_scope",
+		status: "rejected",
+	});
+	expect(events.rows()).toHaveLength(0);
+});
+
+test("a listed project is accepted", async () => {
+	const { definition, events, store } = await setup({
+		projects: { kind: "listed_projects", projectIds: [projectId] },
+	});
+
+	const result = await store.record(ownerId, eventInput(definition.id));
+
+	expect(result.status).toBe("recorded");
+	expect(events.rows()).toHaveLength(1);
+});
+
+test("one scope rule decides surface, user and project membership for an event", () => {
+	const scope: MeasurementScope = {
+		projects: { kind: "listed_projects", projectIds: [projectId] },
+		surfaces: ["web"],
+		users: "owner_only",
+	};
+	const subject = {
+		ownerUserId: ownerId,
+		scope,
+	};
+	const event = {
+		projectPseudonym: pseudonymize("project", projectId),
+		surface: "web" as const,
+		userPseudonym: pseudonymize("user", ownerId),
+	};
+	expect(findScopeViolation(subject, event, pseudonymize)).toBeNull();
+	expect(
+		findScopeViolation(subject, { ...event, surface: "desktop" }, pseudonymize)
+	).toBe("surface");
+	expect(
+		findScopeViolation(
+			subject,
+			{ ...event, userPseudonym: pseudonymize("user", otherUserId) },
+			pseudonymize
+		)
+	).toBe("user");
+	expect(
+		findScopeViolation(
+			subject,
+			{ ...event, projectPseudonym: pseudonymize("project", "other") },
+			pseudonymize
+		)
+	).toBe("project");
+	expect(
+		findScopeViolation(
+			{ ownerUserId: ownerId, scope: { ...scope, users: "all_users" } },
+			{ ...event, userPseudonym: pseudonymize("user", otherUserId) },
+			pseudonymize
+		)
+	).toBeNull();
+	expect(
+		findScopeViolation(
+			{
+				ownerUserId: ownerId,
+				scope: { ...scope, projects: { kind: "all_projects" } },
+			},
+			{ ...event, projectPseudonym: pseudonymize("project", "other") },
+			pseudonymize
+		)
+	).toBeNull();
 });

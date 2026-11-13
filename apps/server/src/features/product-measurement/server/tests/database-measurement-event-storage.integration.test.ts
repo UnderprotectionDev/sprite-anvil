@@ -96,6 +96,7 @@ test.skipIf(!databaseUrl)(
 			expect(rows[0]).toMatchObject({
 				definitionId: activation.definition.id,
 				definitionVersion: 1,
+				eventVersion: 1,
 				counters: { regeneration_count: 1 },
 			});
 			expect(JSON.stringify(rows)).not.toContain(userId);
