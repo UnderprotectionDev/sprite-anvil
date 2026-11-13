@@ -73,6 +73,7 @@ const section = { differences: [], result: "not_compared" };
 const webRunPattern = /Web app ·/;
 const reportNamePattern = /Platform Equivalence Report/;
 const interimPattern = /Phase 3 interim evidence/;
+const openPattern = /^Open:/;
 
 function webRun() {
 	return {
@@ -222,4 +223,18 @@ test("the screen has nothing to compare before any run exists", async () => {
 	expect(
 		screen.getByText("This project has no Platform Equivalence Report yet.")
 	).toBeInTheDocument();
+});
+
+test("the screen shows the support gate closed: no supported platform and OV-08 to OV-11 open", async () => {
+	renderView();
+
+	const gate = await screen.findByRole("region", {
+		name: "Platform support gate",
+	});
+	expect(
+		within(gate).getByText(
+			"No Supported Platform Matrix combination is published, so no platform is declared supported."
+		)
+	).toBeInTheDocument();
+	expect(within(gate).getAllByText(openPattern)).toHaveLength(4);
 });

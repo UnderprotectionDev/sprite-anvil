@@ -1,3 +1,5 @@
+import { summarizePlatformSupport } from "@sprite-anvil/api/platform-support-gate";
+import { publishedPlatformSupport } from "@sprite-anvil/api/platform-support-published";
 import { useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { LoadErrorAlert } from "@/components/load-error-alert";
@@ -6,7 +8,10 @@ import { orpc } from "@/utils/orpc";
 import { useCreatePlatformEquivalenceReport } from "../../hooks/use-platform-equivalence-writes";
 import { PlatformEquivalenceReportCard } from "../components/platform-equivalence-report-card";
 import { PlatformEquivalenceRunsPanel } from "../components/platform-equivalence-runs-panel";
+import { PlatformSupportGatePanel } from "../components/platform-support-gate-panel";
 import { RecordRunForm } from "../forms/record-run-form";
+
+const supportSummary = summarizePlatformSupport(publishedPlatformSupport);
 
 export function PlatformEquivalenceReportView({
 	projectId,
@@ -100,6 +105,8 @@ export function PlatformEquivalenceReportView({
 					runs={runs}
 				/>
 			) : null}
+
+			<PlatformSupportGatePanel summary={supportSummary} />
 
 			{overview.isSuccess ? (
 				<section className="space-y-4">
