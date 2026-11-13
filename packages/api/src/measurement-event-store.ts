@@ -8,6 +8,7 @@ export type MeasurementEventRejectionReason =
 	| "event_not_in_definition"
 	| "id_conflict"
 	| "invalid_event"
+	| "project_not_found"
 	| "surface_out_of_scope";
 
 export type MeasurementEventRecordResult =

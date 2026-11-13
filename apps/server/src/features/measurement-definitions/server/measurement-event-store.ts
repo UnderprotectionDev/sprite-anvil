@@ -12,15 +12,16 @@ import type {
 	MeasurementEventStorage,
 	StoredMeasurementEvent,
 } from "./measurement-event-storage";
-
-export type PseudonymKind = "project" | "user";
+import type { Pseudonymize } from "./measurement-pseudonym-kind";
 
 export interface MeasurementEventStoreOptions {
 	definitionStorage: MeasurementDefinitionStorage;
 	/** The server clock; it stamps every event, never a client-supplied time. */
 	now?: () => Date;
+	/** Whether the user owns the project; events for a project the caller cannot access are refused. */
+	ownsProject: (userId: string, projectId: string) => Promise<boolean>;
 	/** A stable, one-way pseudonym for an id, so the stored envelope never holds the real user or project id. */
-	pseudonymize: (kind: PseudonymKind, id: string) => string;
+	pseudonymize: Pseudonymize;
 	storage: MeasurementEventStorage;
 }
 
@@ -64,6 +65,7 @@ function toEvent(stored: StoredMeasurementEvent): MeasurementEvent {
 export function createMeasurementEventStore({
 	definitionStorage,
 	now = () => new Date(),
+	ownsProject,
 	pseudonymize,
 	storage,
 }: MeasurementEventStoreOptions): MeasurementEventStore {
@@ -89,6 +91,9 @@ export function createMeasurementEventStore({
 			const definition = await definitionStorage.findById(input.definitionId);
 			if (!definition || definition.ownerUserId !== userId) {
 				return { reason: "definition_not_found", status: "rejected" };
+			}
+			if (!(await ownsProject(userId, input.projectId))) {
+				return { reason: "project_not_found", status: "rejected" };
 			}
 			if (
 				input.eventName !== definition.startEvent &&

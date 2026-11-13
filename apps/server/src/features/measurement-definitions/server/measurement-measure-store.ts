@@ -9,7 +9,7 @@ import type {
 	MeasurementEventStorage,
 	StoredMeasurementEvent,
 } from "./measurement-event-storage";
-import type { PseudonymKind } from "./measurement-event-store";
+import type { Pseudonymize } from "./measurement-pseudonym-kind";
 
 const dayMs = 86_400_000;
 
@@ -19,7 +19,7 @@ export interface MeasurementMeasureStoreOptions {
 	/** The server clock; the window is read against it, never a client time. */
 	now?: () => Date;
 	/** The same pseudonymizer that stamped the events, so scope can be matched without real ids. */
-	pseudonymize: (kind: PseudonymKind, id: string) => string;
+	pseudonymize: Pseudonymize;
 }
 
 function increment(counts: Record<string, number>, label: string, by = 1) {
@@ -40,8 +40,6 @@ function median(sorted: number[]): number | null {
 function byTime(left: StoredMeasurementEvent, right: StoredMeasurementEvent) {
 	return left.occurredAt.getTime() - right.occurredAt.getTime();
 }
-
-type Pseudonymize = MeasurementMeasureStoreOptions["pseudonymize"];
 
 /** Keeps the events the definition's scope covers, grouped per workflow and in server-time order. */
 function groupFlowsInScope(
@@ -66,12 +64,15 @@ function groupFlowsInScope(
 		(!listedProjects || listedProjects.has(event.projectPseudonym)) &&
 		(!ownerPseudonym || event.userPseudonym === ownerPseudonym);
 
+	// A workflow id is only unique within one user and project, so the flow key includes both pseudonyms.
 	const flows = new Map<string, StoredMeasurementEvent[]>();
 	for (const event of events.filter(inScope).sort(byTime)) {
-		flows.set(event.workflowId, [
-			...(flows.get(event.workflowId) ?? []),
-			event,
+		const key = JSON.stringify([
+			event.userPseudonym,
+			event.projectPseudonym,
+			event.workflowId,
 		]);
+		flows.set(key, [...(flows.get(key) ?? []), event]);
 	}
 	return [...flows.values()];
 }

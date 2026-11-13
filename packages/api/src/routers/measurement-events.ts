@@ -23,6 +23,7 @@ const rejectionMessages: Record<MeasurementEventRejectionReason, string> = {
 		"This event is neither the start nor the end event of the Measurement Definition.",
 	id_conflict: "This event id is already used for a different event.",
 	invalid_event: "The event does not match the privacy-preserving envelope.",
+	project_not_found: "No project with this id exists for you.",
 	surface_out_of_scope:
 		"This surface is outside the Measurement Definition's scope.",
 };

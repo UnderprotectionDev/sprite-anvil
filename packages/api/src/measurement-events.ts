@@ -8,7 +8,7 @@ const idSchema = z.uuid();
 
 /** Contains a long hex or digit run, or a well-known credential prefix: shapes a secret or content digest takes. */
 const secretShape =
-	/[a-f0-9]{20,}|\d{10,}|^(?:sk|pk|ghp|gho|ghs|xox[a-z]|akia|eyj)[_a-z0-9-]*$|bearer|password|secret|token/i;
+	/[a-f0-9]{20,}|\d{10,}|^(?:sk|pk|ghp|gho|ghs|xox[a-z]|akia|eyj)[_a-z0-9-]*$/i;
 
 /**
  * A closed-vocabulary label: lowercase words joined by underscores. It cannot

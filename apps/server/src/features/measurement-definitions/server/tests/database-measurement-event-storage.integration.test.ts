@@ -69,6 +69,7 @@ test.skipIf(!databaseUrl)(
 			const projectId = crypto.randomUUID();
 			const store = createMeasurementEventStore({
 				definitionStorage,
+				ownsProject: () => Promise.resolve(true),
 				pseudonymize: createMeasurementPseudonymizer("integration-key"),
 				storage: createDatabaseMeasurementEventStorage(db),
 			});

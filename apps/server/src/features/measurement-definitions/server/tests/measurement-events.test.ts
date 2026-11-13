@@ -51,6 +51,8 @@ async function setup() {
 	const store = createMeasurementEventStore({
 		definitionStorage: definitions.storage,
 		now: () => clock,
+		ownsProject: (userId, candidateProjectId) =>
+			Promise.resolve(userId === ownerId && candidateProjectId === projectId),
 		pseudonymize,
 		storage: events.storage,
 	});
@@ -245,4 +247,41 @@ test("pseudonyms are stable per key, differ by kind and key, and do not contain 
 	expect(keyed("user", ownerId)).not.toBe(other("user", ownerId));
 	expect(keyed("user", ownerId)).not.toContain(ownerId);
 	expect(() => createMeasurementPseudonymizer("")).toThrow();
+});
+
+test("benign counter labels that merely mention a secret-like word are accepted, while secret-looking values are still rejected", () => {
+	const parse = (extra: Record<string, unknown>) =>
+		measurementEventRecordInputSchema.safeParse({
+			...eventInput(crypto.randomUUID()),
+			...extra,
+		}).success;
+	for (const label of [
+		"token_count",
+		"password_reset_count",
+		"secret_rotation_count",
+		"bearer_retry_count",
+	]) {
+		expect(parse({ counters: { [label]: 3 } })).toBe(true);
+	}
+	for (const value of [
+		"sk_live_abcdef",
+		"ghp_0123456789abcdefghijklmnopqrstuvwxyz",
+		"akia0123456789abcdef",
+		"a3f9c2d41b7e8a06c5d2e1f09b8a7c6d",
+	]) {
+		expect(parse({ outcomeClass: value })).toBe(false);
+		expect(parse({ counters: { [value]: 1 } })).toBe(false);
+	}
+});
+
+test("a project the caller does not own is rejected and nothing is stored", async () => {
+	const { definition, events, store } = await setup();
+
+	const result = await store.record(
+		ownerId,
+		eventInput(definition.id, { projectId: crypto.randomUUID() })
+	);
+
+	expect(result).toEqual({ reason: "project_not_found", status: "rejected" });
+	expect(events.rows()).toHaveLength(0);
 });

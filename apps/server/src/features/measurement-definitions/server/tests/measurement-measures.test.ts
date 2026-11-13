@@ -65,6 +65,7 @@ function setup() {
 	const eventStore = createMeasurementEventStore({
 		definitionStorage: definitions.storage,
 		now: () => clock,
+		ownsProject: () => Promise.resolve(true),
 		pseudonymize,
 		storage: events.storage,
 	});
@@ -154,6 +155,7 @@ function setup() {
 
 	return {
 		activate,
+		events,
 		flow,
 		measure: () => measureStore.compute(ownerId),
 		measureFor: (userId: string) => measureStore.compute(userId),
@@ -355,4 +357,44 @@ test("no measure is derived from image content: the report contract rejects any 
 		imageQuality: "consistent",
 	});
 	expect(parsed.success).toBe(false);
+});
+
+test("the same workflow id from another project or user never merges into one flow", async () => {
+	const { activate, events, measure, record } = setup();
+	const definition = await activate();
+	const workflowId = crypto.randomUUID();
+	await record(definition.id, t0, { eventName: start, workflowId });
+	// Same workflow id, different project: its end must not complete the first flow.
+	await record(definition.id, new Date(t0.getTime() + 60_000), {
+		eventName: end,
+		outcomeClass: "preview_reached",
+		projectId: crypto.randomUUID(),
+		workflowId,
+	});
+	// Same workflow id, different user pseudonym, same project pseudonym.
+	await events.storage.insert({
+		counters: {},
+		definitionId: definition.id,
+		definitionVersion: definition.version,
+		eventFamily: definition.eventFamily,
+		eventName: end,
+		id: crypto.randomUUID(),
+		metricId: definition.metricId,
+		occurredAt: new Date(t0.getTime() + 120_000),
+		outcomeClass: "preview_reached",
+		projectPseudonym: pseudonymize("project", projectId),
+		recordKind: "generation_package",
+		surface: "web",
+		userPseudonym: pseudonymize("user", otherUserId),
+		workflowId,
+	});
+
+	const [measure1] = (await measure()).measures;
+
+	expect(measure1?.duration.completedFlows).toBe(0);
+	expect(measure1?.abandonment).toEqual({
+		missingEnd: 1,
+		missingStart: 2,
+		total: 3,
+	});
 });

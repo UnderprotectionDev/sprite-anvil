@@ -130,6 +130,8 @@ const measurementPseudonymize = createMeasurementPseudonymizer(
 const measurementEventStorage = createDatabaseMeasurementEventStorage(db);
 export const measurementEventStore = createMeasurementEventStore({
 	definitionStorage: measurementDefinitionStorage,
+	ownsProject: async (userId, projectId) =>
+		(await projectAccess.getProject(userId, projectId)) !== null,
 	pseudonymize: measurementPseudonymize,
 	storage: measurementEventStorage,
 });
