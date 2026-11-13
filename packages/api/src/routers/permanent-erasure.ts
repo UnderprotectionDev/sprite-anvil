@@ -8,6 +8,10 @@ import {
 	erasureImpactPrepareInputSchema,
 	erasureImpactReportSchema,
 } from "../permanent-erasure";
+import {
+	deletionReceiptGetInputSchema,
+	deletionReceiptRecordSchema,
+} from "../permanent-erasure-deletion";
 import { withPublicationErrors } from "../record-publication";
 
 function getErasureImpactStore(context: Context) {
@@ -35,6 +39,29 @@ function rejectionMessage(rejection: ErasureImpactRejection): string {
 }
 
 export const permanentErasureRouter = {
+	getDeletionReceipt: protectedProcedure
+		.input(deletionReceiptGetInputSchema)
+		.output(deletionReceiptRecordSchema)
+		.handler(({ context, input }) =>
+			withPublicationErrors(async () => {
+				if (!context.deletionReceiptStore) {
+					throw new ORPCError("INTERNAL_SERVER_ERROR", {
+						message: "Deletion Receipt storage is unavailable.",
+					});
+				}
+				const receipt = await context.deletionReceiptStore.get(
+					context.session.user.id,
+					input.projectId,
+					input.receiptId
+				);
+				if (!receipt) {
+					throw new ORPCError("NOT_FOUND", {
+						message: "Deletion Receipt not found.",
+					});
+				}
+				return receipt;
+			})
+		),
 	getImpactReport: protectedProcedure
 		.input(erasureImpactGetInputSchema)
 		.output(erasureImpactReportSchema)

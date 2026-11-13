@@ -1,0 +1,269 @@
+import { z } from "zod";
+import {
+	type ErasureImpactScope,
+	externalCopiesStatement,
+} from "./permanent-erasure";
+import { recordContentDigest } from "./record-content-digest";
+import { idempotencyKeySchema } from "./record-publication";
+
+/**
+ * The full contract version of a Deletion Receipt. A reader accepts only the
+ * major it knows; a receipt of a newer major is never read as valid.
+ */
+export const deletionReceiptContractVersion = "deletion-receipt/1.0.0";
+
+const supportedMajor = 1;
+const contractVersionPattern = /^deletion-receipt\/(\d+)\.(\d+)\.(\d+)$/;
+
+export function deletionReceiptContractSupport(
+	version: string
+):
+	| { status: "supported" }
+	| { status: "unsupported_major"; major: number }
+	| { status: "malformed" } {
+	const match = contractVersionPattern.exec(version);
+	if (!match) {
+		return { status: "malformed" };
+	}
+	const major = Number(match[1]);
+	return major === supportedMajor
+		? { status: "supported" }
+		: { major, status: "unsupported_major" };
+}
+
+const uuidSchema = z.uuid();
+const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/);
+const countSchema = z.number().int().nonnegative();
+
+/** The exact counts the user confirms against the exact report. */
+export const erasureConfirmedCountsSchema = z
+	.object({
+		archives: countSchema,
+		bundles: countSchema,
+		containerFiles: countSchema,
+		fulfilments: countSchema,
+		managedCopies: countSchema,
+	})
+	.strict();
+export type ErasureConfirmedCounts = z.infer<
+	typeof erasureConfirmedCountsSchema
+>;
+
+/**
+ * The user's explicit approval of one exact Erasure Impact Report. It names
+ * the report digest, the whole containers selected, the counts shown, and the
+ * two consequences the user must accept; an approval of another digest never
+ * authorizes. Only a signed-in user acts here: no agent or automation input
+ * can stand in for it.
+ */
+export const erasureAuthorizeInputSchema = z
+	.object({
+		acknowledgements: z
+			.object({
+				externalCopiesRemain: z.literal(true),
+				irreversible: z.literal(true),
+			})
+			.strict(),
+		confirmed: erasureConfirmedCountsSchema,
+		idempotencyKey: idempotencyKeySchema,
+		projectId: uuidSchema,
+		reportDigest: sha256Schema,
+		reportId: uuidSchema,
+		selectedContainerIds: z.array(z.string().min(1)),
+	})
+	.strict();
+export type ErasureAuthorizeInput = z.infer<typeof erasureAuthorizeInputSchema>;
+
+export const deletionReceiptGetInputSchema = z
+	.object({ projectId: uuidSchema, receiptId: uuidSchema })
+	.strict();
+
+/** The counts of what a selection removes, derived from the exact report. */
+export function selectedErasureCounts(
+	scope: ErasureImpactScope,
+	selectedContainerIds: readonly string[]
+): ErasureConfirmedCounts {
+	const selected = scope.containers.filter((container) =>
+		selectedContainerIds.includes(container.id)
+	);
+	return {
+		archives: selected.filter((entry) => entry.kind === "project_archive")
+			.length,
+		bundles: selected.filter((entry) => entry.kind === "export_bundle").length,
+		containerFiles: selected.reduce(
+			(sum, entry) => sum + entry.embeddedFileCount,
+			0
+		),
+		fulfilments: scope.fulfilments.length,
+		managedCopies: scope.managedCopies.length,
+	};
+}
+
+export function erasureAuthorizeRequestDigest(input: ErasureAuthorizeInput) {
+	return recordContentDigest({
+		confirmed: input.confirmed,
+		projectId: input.projectId,
+		reportDigest: input.reportDigest,
+		reportId: input.reportId,
+		selectedContainerIds: [...input.selectedContainerIds].sort(),
+	});
+}
+
+export type ErasureAuthorizeRejection =
+	/** The current scope no longer matches the report the user approved, or the digest given is not the report's. */
+	| { reason: "report_changed" }
+	| { reason: "report_not_found" }
+	/** The stored report cannot be read or verified by this build. */
+	| { reason: "report_unreadable" }
+	| { reason: "counts_mismatch" }
+	| { reason: "unknown_container"; containerIds: string[] }
+	| { reason: "no_selection" };
+
+export type ErasureAuthorizeResult<Operation> =
+	| { operation: Operation; status: "accepted" }
+	| ({ status: "rejected" } & ErasureAuthorizeRejection);
+
+const receiptContainerSchema = z
+	.object({
+		id: z.string().min(1),
+		kind: z.enum(["export_bundle", "project_archive"]),
+		manifestDigest: sha256Schema,
+	})
+	.strict();
+
+const receiptBackupSchema = z.discriminatedUnion("status", [
+	z
+		.object({
+			purgeDueAt: z.iso.datetime(),
+			purgeWindowDays: z.number().int().positive(),
+			retentionScheduleVersion: z.string().min(1),
+			status: z.literal("scheduled"),
+			/** Backup clean-up is confirmed by an operational check outside this system, not by this receipt. */
+			verification: z.literal("operational_check_pending"),
+		})
+		.strict(),
+	z.object({ status: z.literal("unpublished") }).strict(),
+]);
+
+/**
+ * Content-free proof of one completed Deletion Job: who, which operation,
+ * which exact report, what was removed by identity and digest, and what
+ * remains. It never carries file names, storage locations or content.
+ */
+export const deletionReceiptSchema = z
+	.object({
+		authorizationId: z.string().min(1),
+		authorizedAt: z.iso.datetime(),
+		backup: receiptBackupSchema,
+		completedAt: z.iso.datetime(),
+		contractVersion: z.string().min(1),
+		counts: erasureConfirmedCountsSchema,
+		erased: z
+			.object({
+				assetVersionIds: z.array(z.string().min(1)).min(1),
+				containers: z.array(receiptContainerSchema),
+			})
+			.strict(),
+		externalCopies: z
+			.object({ recallable: z.literal(false), statement: z.string().min(1) })
+			.strict(),
+		id: z.string().min(1),
+		operationId: z.string().min(1),
+		projectId: z.string().min(1),
+		/** Whole containers outside the selection: they still hold the content they embed. */
+		remainingContainers: z.array(
+			z
+				.object({
+					id: z.string().min(1),
+					kind: z.enum(["export_bundle", "project_archive"]),
+				})
+				.strict()
+		),
+		reportDigest: sha256Schema,
+		reportId: z.string().min(1),
+		requestedByUserId: z.string().min(1),
+		targetAssetRecordId: z.string().min(1),
+		/** Fulfilments that pinned an erased version; they stay as content-free records and can no longer be verified. */
+		unverifiableFulfilmentIds: z.array(z.string().min(1)),
+	})
+	.strict();
+export type DeletionReceipt = z.infer<typeof deletionReceiptSchema>;
+
+export const deletionReceiptRecordSchema = deletionReceiptSchema
+	.extend({ receiptDigest: sha256Schema })
+	.strict();
+export type DeletionReceiptRecord = z.infer<typeof deletionReceiptRecordSchema>;
+
+export function deletionReceiptDigest(receipt: DeletionReceipt) {
+	return recordContentDigest(receipt);
+}
+
+const dayMs = 86_400_000;
+
+/** Builds the content-free receipt for a completed deletion from the exact approved scope. */
+export function buildDeletionReceipt(input: {
+	authorization: {
+		authorizedAt: Date;
+		authorizedByUserId: string;
+		id: string;
+		reportId: string;
+		selectedContainerIds: readonly string[];
+	};
+	completedAt: Date;
+	operationId: string;
+	reportDigest: string;
+	scope: ErasureImpactScope;
+}): DeletionReceipt {
+	const { authorization, completedAt, scope } = input;
+	const selected = scope.containers.filter((container) =>
+		authorization.selectedContainerIds.includes(container.id)
+	);
+	const remaining = scope.containers.filter(
+		(container) => !authorization.selectedContainerIds.includes(container.id)
+	);
+	return {
+		authorizationId: authorization.id,
+		authorizedAt: authorization.authorizedAt.toISOString(),
+		backup:
+			scope.backup.status === "scheduled"
+				? {
+						purgeDueAt: new Date(
+							completedAt.getTime() + scope.backup.purgeWindowDays * dayMs
+						).toISOString(),
+						purgeWindowDays: scope.backup.purgeWindowDays,
+						retentionScheduleVersion: scope.backup.retentionScheduleVersion,
+						status: "scheduled",
+						verification: "operational_check_pending",
+					}
+				: { status: "unpublished" },
+		completedAt: completedAt.toISOString(),
+		contractVersion: deletionReceiptContractVersion,
+		counts: selectedErasureCounts(scope, authorization.selectedContainerIds),
+		erased: {
+			assetVersionIds: scope.managedCopies.map((copy) => copy.assetVersionId),
+			containers: selected.map((container) => ({
+				id: container.id,
+				kind: container.kind,
+				manifestDigest: container.manifestDigest,
+			})),
+		},
+		externalCopies: {
+			recallable: false,
+			statement: externalCopiesStatement,
+		},
+		id: authorization.id,
+		operationId: input.operationId,
+		projectId: scope.projectId,
+		remainingContainers: remaining.map((container) => ({
+			id: container.id,
+			kind: container.kind,
+		})),
+		reportDigest: input.reportDigest,
+		reportId: authorization.reportId,
+		requestedByUserId: authorization.authorizedByUserId,
+		targetAssetRecordId: scope.target.assetRecordId,
+		unverifiableFulfilmentIds: scope.fulfilments
+			.filter((fulfilment) => fulfilment.pinsErasedVersions)
+			.map((fulfilment) => fulfilment.id),
+	};
+}
