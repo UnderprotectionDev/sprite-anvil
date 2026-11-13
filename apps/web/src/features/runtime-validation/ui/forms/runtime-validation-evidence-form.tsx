@@ -12,6 +12,7 @@ import {
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm } from "@tanstack/react-form";
 import { type SyntheticEvent, useRef, useState } from "react";
+import { FieldErrors, fieldErrorAttributes } from "@/components/field-errors";
 import { StatusMessage } from "@/components/status-message";
 import { errorCodeOf } from "@/utils/error-code";
 import {
@@ -25,7 +26,6 @@ import {
 	evidenceSourceLabels,
 } from "../../lib/runtime-validation-labels";
 import { runtimeValidationEvidenceFormSchema } from "../../schemas";
-import { FieldErrors, fieldErrorAttributes } from "../components/field-errors";
 
 export function RuntimeValidationEvidenceForm({
 	projectId,

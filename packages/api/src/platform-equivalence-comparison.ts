@@ -72,6 +72,7 @@ export const platformEquivalenceOutcomeSchema = z.enum([
 	"equivalent",
 	"different",
 	"inputs_differ",
+	"same_bundle",
 	"missing_surface",
 ]);
 
@@ -224,8 +225,8 @@ function differingInputs(
 }
 
 /**
- * Compares the evidence of the web and desktop runs; a missing or different-input
- * run compares nothing. `bundleIds` only labels the kept input summaries.
+ * Compares the evidence of the web and desktop runs; a missing, different-input or
+ * same-bundle run compares nothing. `bundleIds` only labels the kept input summaries.
  */
 export function compareEquivalenceEvidence(
 	web: PlatformEquivalenceEvidence | null,
@@ -245,6 +246,16 @@ export function compareEquivalenceEvidence(
 			inputs,
 			missingSurfaces,
 			outcome: "missing_surface",
+			sections: notCompared(),
+		};
+	}
+	if (bundleIds.web && bundleIds.web === bundleIds.desktop) {
+		// One Export Bundle on both surfaces proves nothing about the surfaces.
+		return {
+			differingInputs: [],
+			inputs,
+			missingSurfaces: [],
+			outcome: "same_bundle",
 			sections: notCompared(),
 		};
 	}

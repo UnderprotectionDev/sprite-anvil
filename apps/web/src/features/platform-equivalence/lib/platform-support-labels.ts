@@ -32,6 +32,7 @@ const scenarioReasonLabels: Record<
 	missing: "not measured",
 	missing_surface: "a surface has no result",
 	no_evidence_ref: noEvidenceRef,
+	same_bundle: "both surfaces recorded the same Export Bundle",
 	not_bound_to_scenario: "the result belongs to another scenario",
 };
 
