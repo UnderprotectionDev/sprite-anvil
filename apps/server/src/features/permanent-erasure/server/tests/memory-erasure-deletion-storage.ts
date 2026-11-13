@@ -2,7 +2,7 @@ import type {
 	ErasureDeletionStorage,
 	ErasureTombstoneRow,
 	StoredDeletionReceipt,
-	StoredErasureAuthorization,
+	StoredErasureApproval,
 } from "../erasure-deletion-storage";
 
 /** An in-memory ErasureDeletionStorage; finalize is one atomic step, as in the database. */
@@ -11,14 +11,14 @@ export function createMemoryErasureDeletionStorage(
 	/** Keys of included archive files that belong to erased versions, per archive id. */
 	archiveObjectKeys: Record<string, string[]> = {}
 ) {
-	const authorizations = new Map<string, StoredErasureAuthorization>();
+	const approvals = new Map<string, StoredErasureApproval>();
 	const receipts = new Map<string, StoredDeletionReceipt>();
 	const tombstones: ErasureTombstoneRow[] = [];
 	const removedContainers: string[] = [];
 	const erasedAssetRecords: string[] = [];
 	const storage: ErasureDeletionStorage = {
-		findAuthorization: (projectId, id) => {
-			const found = authorizations.get(id);
+		findApproval: (projectId, id) => {
+			const found = approvals.get(id);
 			return Promise.resolve(found?.projectId === projectId ? found : null);
 		},
 		findReceipt: (projectId, id) => {
@@ -37,12 +37,12 @@ export function createMemoryErasureDeletionStorage(
 			erasedAssetRecords.push(input.assetRecordId);
 			return Promise.resolve({ status: "finalized" });
 		},
-		insertAuthorization: (row) => {
-			const existing = authorizations.get(row.id);
+		insertApproval: (row) => {
+			const existing = approvals.get(row.id);
 			if (existing) {
 				return Promise.resolve({ existing, status: "existing" });
 			}
-			authorizations.set(row.id, structuredClone(row));
+			approvals.set(row.id, structuredClone(row));
 			return Promise.resolve({ status: "inserted" });
 		},
 		archiveObjectKeys: (_projectId, archiveIds) =>
@@ -59,7 +59,7 @@ export function createMemoryErasureDeletionStorage(
 		},
 	};
 	return {
-		authorizations,
+		approvals,
 		erasedAssetRecords,
 		receipts,
 		removedContainers,

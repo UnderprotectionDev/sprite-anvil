@@ -45,9 +45,9 @@ import { createSourceMetadataMappingProposalStore } from "./features/imports/ser
 import { createAssetFamilyComparisonStore } from "./features/object-equipment-profile/server/asset-family-comparison-store";
 import { createDatabaseErasureDeletionStorage } from "./features/permanent-erasure/server/database-erasure-deletion-storage";
 import { createDatabaseErasureImpactStorage } from "./features/permanent-erasure/server/database-erasure-impact-storage";
+import { createDeletionReceiptStore } from "./features/permanent-erasure/server/deletion-receipt-store";
 import { createErasureImpactSourceReader } from "./features/permanent-erasure/server/erasure-impact-source-reader";
 import { createErasureImpactStore } from "./features/permanent-erasure/server/erasure-impact-store";
-import { createErasureReceiptStore } from "./features/permanent-erasure/server/erasure-receipt-store";
 import { createOfflineConflictStore } from "./features/pixel-editor/server/offline-conflict-store";
 import { createPixelEditorStore } from "./features/pixel-editor/server/pixel-editor-store";
 import { createMarketingUsageReviewStore } from "./features/portrait-marketing-profile/server/marketing-usage-review-store";
@@ -193,7 +193,7 @@ export const erasureImpactStore = createErasureImpactStore({
 	storage: createDatabaseErasureImpactStorage(db),
 });
 /** Deletion Receipts are read here; the Deletion Job executor is not wired to a live worker yet, like the archive executors. */
-export const deletionReceiptStore = createErasureReceiptStore({
+export const deletionReceiptStore = createDeletionReceiptStore({
 	db,
 	storage: createDatabaseErasureDeletionStorage(db),
 });

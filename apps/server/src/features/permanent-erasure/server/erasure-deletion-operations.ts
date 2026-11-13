@@ -8,9 +8,9 @@ import {
 import {
 	buildDeletionReceipt,
 	deletionReceiptDigest,
-	type ErasureAuthorizeInput,
-	type ErasureAuthorizeResult,
-	erasureAuthorizeRequestDigest,
+	type ErasureApprovalInput,
+	type ErasureApprovalResult,
+	erasureApprovalRequestDigest,
 	selectedErasureCounts,
 } from "@sprite-anvil/api/permanent-erasure-deletion";
 import type {
@@ -26,7 +26,7 @@ import type { Database } from "@sprite-anvil/db";
 import type {
 	ErasureDeletionStorage,
 	ErasureObjectRemover,
-	StoredErasureAuthorization,
+	StoredErasureApproval,
 } from "./erasure-deletion-storage";
 import {
 	type ProjectLookupOptions,
@@ -60,7 +60,7 @@ export interface ErasureDeletionOperationsOptions extends ProjectLookupOptions {
 }
 
 /**
- * The OPS-01 path of permanent erasure. `authorize` is the explicit user
+ * The OPS-01 path of permanent erasure. `approve` is the explicit user
  * approval of one exact Erasure Impact Report: it records the approval and the
  * Deletion Job together, keyed by the idempotency key. `execute` is the
  * handler of `deletion` operations: it re-proves the approved scope is still
@@ -105,11 +105,11 @@ export function createErasureDeletionOperations(
 
 	/** Every stored object the approved scope removes: the managed copies and the selected archives' copies of them. */
 	async function objectKeysToRemove(
-		authorization: StoredErasureAuthorization,
+		approval: StoredErasureApproval,
 		scope: ErasureImpactScope,
 		versionIds: string[]
 	) {
-		const keys = await storage.objectKeys(authorization.projectId, versionIds);
+		const keys = await storage.objectKeys(approval.projectId, versionIds);
 		const objectKeys = new Set<string>();
 		for (const versionId of versionIds) {
 			const key = keys.get(versionId);
@@ -125,11 +125,11 @@ export function createErasureDeletionOperations(
 			.filter(
 				(container) =>
 					container.kind === "project_archive" &&
-					authorization.selectedContainerIds.includes(container.id)
+					approval.selectedContainerIds.includes(container.id)
 			)
 			.map((container) => container.id);
 		for (const key of await storage.archiveObjectKeys(
-			authorization.projectId,
+			approval.projectId,
 			selectedArchiveIds,
 			versionIds
 		)) {
@@ -173,10 +173,10 @@ export function createErasureDeletionOperations(
 
 	return {
 		/** Records the user's approval and its Deletion Job; null when the project is not found. */
-		async authorize(
+		async approve(
 			userId: string,
-			input: ErasureAuthorizeInput
-		): Promise<ErasureAuthorizeResult<BackgroundOperation> | null> {
+			input: ErasureApprovalInput
+		): Promise<ErasureApprovalResult<BackgroundOperation> | null> {
 			if ((await lookupProject(userId, input.projectId)) === null) {
 				return null;
 			}
@@ -212,21 +212,21 @@ export function createErasureDeletionOperations(
 				return { reason: "counts_mismatch", status: "rejected" };
 			}
 
-			const authorizationId = await idempotentRecordId(
+			const approvalId = await idempotentRecordId(
 				{
 					assetRecordId: report.target.assetRecordId,
-					kind: "erasure-authorization",
+					kind: "erasure-approval",
 					projectId: input.projectId,
 					userId,
 				},
 				input.idempotencyKey
 			);
-			const requestDigest = await erasureAuthorizeRequestDigest(input);
-			const inserted = await storage.insertAuthorization({
-				authorizedByUserId: userId,
+			const requestDigest = await erasureApprovalRequestDigest(input);
+			const inserted = await storage.insertApproval({
+				approvedByUserId: userId,
 				confirmed: input.confirmed,
 				createdAt: now(),
-				id: authorizationId,
+				id: approvalId,
 				idempotencyKey: input.idempotencyKey,
 				projectId: input.projectId,
 				reportDigest: report.reportDigest,
@@ -245,8 +245,8 @@ export function createErasureDeletionOperations(
 				kind: "deletion",
 				projectId: input.projectId,
 				scopeSummary: `Permanent erasure of ${scope.managedCopies.length} managed copies and ${input.selectedContainerIds.length} whole containers`,
-				scopeTargetId: authorizationId,
-				triggerSummary: "Erasure authorized by the project owner",
+				scopeTargetId: approvalId,
+				triggerSummary: "Erasure approved by the project owner",
 				userId,
 			});
 			return { operation, status: "accepted" };
@@ -261,54 +261,42 @@ export function createErasureDeletionOperations(
 			>;
 		}) {
 			const { operation } = context;
-			const authorization = operation.scopeTargetId
-				? await storage.findAuthorization(
+			const approval = operation.scopeTargetId
+				? await storage.findApproval(
 						operation.projectId,
 						operation.scopeTargetId
 					)
 				: null;
-			if (!authorization) {
-				throw options.permanentFailure(
-					"The erasure authorization was not found."
-				);
+			if (!approval) {
+				throw options.permanentFailure("The erasure approval was not found.");
 			}
-			const done = await storage.findReceipt(
-				authorization.projectId,
-				authorization.id
-			);
+			const done = await storage.findReceipt(approval.projectId, approval.id);
 			if (done) {
 				return `Deletion Receipt ${done.id} replayed.`;
 			}
 
 			const report = await readReport(
-				authorization.authorizedByUserId,
-				authorization.projectId,
-				authorization.reportId
+				approval.approvedByUserId,
+				approval.projectId,
+				approval.reportId
 			);
 			if (!report || report === "unreadable") {
 				throw options.permanentFailure(
 					"The approved Erasure Impact Report cannot be read, so no object was removed by this attempt."
 				);
 			}
-			const scope = await currentScope(
-				authorization.authorizedByUserId,
-				report
-			);
+			const scope = await currentScope(approval.approvedByUserId, report);
 			if (
-				report.reportDigest !== authorization.reportDigest ||
+				report.reportDigest !== approval.reportDigest ||
 				!scope ||
-				(await erasureImpactDigest(scope)) !== authorization.reportDigest
+				(await erasureImpactDigest(scope)) !== approval.reportDigest
 			) {
 				throw options.permanentFailure(
 					"The scope changed after it was approved, so no object was removed by this attempt. Prepare a new Erasure Impact Report and approve it again."
 				);
 			}
 			const versionIds = scope.managedCopies.map((copy) => copy.assetVersionId);
-			const objectKeys = await objectKeysToRemove(
-				authorization,
-				scope,
-				versionIds
-			);
+			const objectKeys = await objectKeysToRemove(approval, scope, versionIds);
 
 			// The last point where the work can still stop safely: after the first
 			// object is removed the operation reports its real result, never Cancelled.
@@ -317,25 +305,25 @@ export function createErasureDeletionOperations(
 
 			const completedAt = now();
 			const receipt = buildDeletionReceipt({
-				authorization: {
-					authorizedAt: authorization.createdAt,
-					authorizedByUserId: authorization.authorizedByUserId,
-					id: authorization.id,
-					reportId: authorization.reportId,
-					selectedContainerIds: authorization.selectedContainerIds,
+				approval: {
+					approvedAt: approval.createdAt,
+					approvedByUserId: approval.approvedByUserId,
+					id: approval.id,
+					reportId: approval.reportId,
+					selectedContainerIds: approval.selectedContainerIds,
 				},
 				completedAt,
 				operationId: operation.id,
-				reportDigest: authorization.reportDigest,
+				reportDigest: approval.reportDigest,
 				scope,
 			});
-			const selected = new Set(authorization.selectedContainerIds);
+			const selected = new Set(approval.selectedContainerIds);
 			const finalized = await storage.finalize({
 				assetRecordId: scope.target.assetRecordId,
-				projectId: authorization.projectId,
+				projectId: approval.projectId,
 				receipt: {
-					id: authorization.id,
-					projectId: authorization.projectId,
+					id: approval.id,
+					projectId: approval.projectId,
 					receipt,
 					receiptDigest: await deletionReceiptDigest(receipt),
 				},
@@ -346,11 +334,11 @@ export function createErasureDeletionOperations(
 					assetRecordId: scope.target.assetRecordId,
 					assetVersionId,
 					erasedAt: completedAt,
-					projectId: authorization.projectId,
-					receiptId: authorization.id,
+					projectId: approval.projectId,
+					receiptId: approval.id,
 				})),
 			});
-			return `Deletion Receipt ${authorization.id} ${finalized.status === "finalized" ? "created" : "replayed"}.`;
+			return `Deletion Receipt ${approval.id} ${finalized.status === "finalized" ? "created" : "replayed"}.`;
 		},
 	};
 }

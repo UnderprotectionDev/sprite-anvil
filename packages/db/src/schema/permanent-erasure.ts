@@ -49,10 +49,10 @@ export const erasureImpactReports = pgTable(
  * report is not a foreign key: the approval and its receipt outlive the
  * scope they describe. Rows are inserted once, never updated.
  */
-export const erasureAuthorizations = pgTable(
-	"erasure_authorizations",
+export const erasureApprovals = pgTable(
+	"erasure_approvals",
 	{
-		authorizedByUserId: text("authorized_by_user_id")
+		approvedByUserId: text("approved_by_user_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
 		confirmed: jsonb("confirmed").$type<Record<string, number>>().notNull(),
@@ -70,7 +70,7 @@ export const erasureAuthorizations = pgTable(
 			.notNull(),
 	},
 	(table) => [
-		uniqueIndex("erasure_authorizations_project_id_id_idx").on(
+		uniqueIndex("erasure_approvals_project_id_id_idx").on(
 			table.projectId,
 			table.id
 		),
@@ -79,12 +79,12 @@ export const erasureAuthorizations = pgTable(
 
 /**
  * The content-free Deletion Receipt of one completed Deletion Job. The id is
- * the authorization id, so one approval can never have a second receipt. The
+ * the approval id, so one approval can never have a second receipt. The
  * receipt holds identities, digests, counts and times only; no file content,
  * name or storage location. Rows are inserted once, never updated.
  */
-export const erasureReceipts = pgTable(
-	"erasure_receipts",
+export const deletionReceipts = pgTable(
+	"deletion_receipts",
 	{
 		backgroundOperationId: text("background_operation_id").notNull(),
 		contractVersion: text("contract_version").notNull(),
@@ -97,7 +97,7 @@ export const erasureReceipts = pgTable(
 		receiptDigest: text("receipt_digest").notNull(),
 	},
 	(table) => [
-		uniqueIndex("erasure_receipts_project_id_id_idx").on(
+		uniqueIndex("deletion_receipts_project_id_id_idx").on(
 			table.projectId,
 			table.id
 		),

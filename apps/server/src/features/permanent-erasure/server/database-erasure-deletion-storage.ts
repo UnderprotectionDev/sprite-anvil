@@ -5,8 +5,8 @@ import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
 import { assetVersions } from "@sprite-anvil/db/schema/asset-versions";
 import { exportBundles } from "@sprite-anvil/db/schema/export-bundles";
 import {
-	erasureAuthorizations,
-	erasureReceipts,
+	deletionReceipts,
+	erasureApprovals,
 	erasureTombstones,
 } from "@sprite-anvil/db/schema/permanent-erasure";
 import {
@@ -16,17 +16,17 @@ import {
 import { and, eq, inArray } from "drizzle-orm";
 import type {
 	ErasureDeletionStorage,
-	StoredErasureAuthorization,
+	StoredErasureApproval,
 } from "./erasure-deletion-storage";
 
 const uniqueViolationCode = "23505";
 
-function toAuthorization(
-	row: typeof erasureAuthorizations.$inferSelect
-): StoredErasureAuthorization {
+function toApproval(
+	row: typeof erasureApprovals.$inferSelect
+): StoredErasureApproval {
 	return {
-		authorizedByUserId: row.authorizedByUserId,
-		confirmed: row.confirmed as StoredErasureAuthorization["confirmed"],
+		approvedByUserId: row.approvedByUserId,
+		confirmed: row.confirmed as StoredErasureApproval["confirmed"],
 		createdAt: row.createdAt,
 		id: row.id,
 		idempotencyKey: row.idempotencyKey,
@@ -66,27 +66,27 @@ export function createDatabaseErasureDeletionStorage(
 			];
 		},
 
-		async findAuthorization(projectId, id) {
+		async findApproval(projectId, id) {
 			const [row] = await db
 				.select()
-				.from(erasureAuthorizations)
+				.from(erasureApprovals)
 				.where(
 					and(
-						eq(erasureAuthorizations.projectId, projectId),
-						eq(erasureAuthorizations.id, id)
+						eq(erasureApprovals.projectId, projectId),
+						eq(erasureApprovals.id, id)
 					)
 				);
-			return row ? toAuthorization(row) : null;
+			return row ? toApproval(row) : null;
 		},
 
 		async findReceipt(projectId, id) {
 			const [row] = await db
 				.select()
-				.from(erasureReceipts)
+				.from(deletionReceipts)
 				.where(
 					and(
-						eq(erasureReceipts.projectId, projectId),
-						eq(erasureReceipts.id, id)
+						eq(deletionReceipts.projectId, projectId),
+						eq(deletionReceipts.id, id)
 					)
 				);
 			if (!row) {
@@ -110,7 +110,7 @@ export function createDatabaseErasureDeletionStorage(
 				.map((container) => container.id);
 			try {
 				await db.transaction(async (tx) => {
-					await tx.insert(erasureReceipts).values({
+					await tx.insert(deletionReceipts).values({
 						backgroundOperationId: input.receipt.receipt.operationId,
 						contractVersion: input.receipt.receipt.contractVersion,
 						id: input.receipt.id,
@@ -169,10 +169,10 @@ export function createDatabaseErasureDeletionStorage(
 			}
 		},
 
-		async insertAuthorization(row) {
+		async insertApproval(row) {
 			try {
-				await db.insert(erasureAuthorizations).values({
-					authorizedByUserId: row.authorizedByUserId,
+				await db.insert(erasureApprovals).values({
+					approvedByUserId: row.approvedByUserId,
 					confirmed: row.confirmed,
 					createdAt: row.createdAt,
 					id: row.id,
@@ -190,12 +190,12 @@ export function createDatabaseErasureDeletionStorage(
 				}
 				const [existing] = await db
 					.select()
-					.from(erasureAuthorizations)
-					.where(eq(erasureAuthorizations.id, row.id));
+					.from(erasureApprovals)
+					.where(eq(erasureApprovals.id, row.id));
 				if (!existing) {
 					throw error;
 				}
-				return { existing: toAuthorization(existing), status: "existing" };
+				return { existing: toApproval(existing), status: "existing" };
 			}
 		},
 

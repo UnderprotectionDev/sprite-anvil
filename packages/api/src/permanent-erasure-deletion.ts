@@ -52,10 +52,10 @@ export type ErasureConfirmedCounts = z.infer<
  * The user's explicit approval of one exact Erasure Impact Report. It names
  * the report digest, the whole containers selected, the counts shown, and the
  * two consequences the user must accept; an approval of another digest never
- * authorizes. Only a signed-in user acts here: no agent or automation input
+ * counts. Only a signed-in user acts here: no agent or automation input
  * can stand in for it.
  */
-export const erasureAuthorizeInputSchema = z
+export const erasureApprovalInputSchema = z
 	.object({
 		acknowledgements: z
 			.object({
@@ -72,7 +72,7 @@ export const erasureAuthorizeInputSchema = z
 		selectedContainerIds: z.array(z.string().min(1)),
 	})
 	.strict();
-export type ErasureAuthorizeInput = z.infer<typeof erasureAuthorizeInputSchema>;
+export type ErasureApprovalInput = z.infer<typeof erasureApprovalInputSchema>;
 
 export const deletionReceiptGetInputSchema = z
 	.object({ projectId: uuidSchema, receiptId: uuidSchema })
@@ -99,7 +99,7 @@ export function selectedErasureCounts(
 	};
 }
 
-export function erasureAuthorizeRequestDigest(input: ErasureAuthorizeInput) {
+export function erasureApprovalRequestDigest(input: ErasureApprovalInput) {
 	return recordContentDigest({
 		confirmed: input.confirmed,
 		projectId: input.projectId,
@@ -109,7 +109,7 @@ export function erasureAuthorizeRequestDigest(input: ErasureAuthorizeInput) {
 	});
 }
 
-export type ErasureAuthorizeRejection =
+export type ErasureApprovalRejection =
 	/** The current scope no longer matches the report the user approved, or the digest given is not the report's. */
 	| { reason: "report_changed" }
 	| { reason: "report_not_found" }
@@ -118,9 +118,9 @@ export type ErasureAuthorizeRejection =
 	| { reason: "counts_mismatch" }
 	| { reason: "unknown_container"; containerIds: string[] };
 
-export type ErasureAuthorizeResult<Operation> =
+export type ErasureApprovalResult<Operation> =
 	| { operation: Operation; status: "accepted" }
-	| ({ status: "rejected" } & ErasureAuthorizeRejection);
+	| ({ status: "rejected" } & ErasureApprovalRejection);
 
 const receiptContainerSchema = z
 	.object({
@@ -151,8 +151,8 @@ const receiptBackupSchema = z.discriminatedUnion("status", [
  */
 export const deletionReceiptSchema = z
 	.object({
-		authorizationId: z.string().min(1),
-		authorizedAt: z.iso.datetime(),
+		approvalId: z.string().min(1),
+		approvedAt: z.iso.datetime(),
 		backup: receiptBackupSchema,
 		completedAt: z.iso.datetime(),
 		contractVersion: z.string().min(1),
@@ -201,9 +201,9 @@ const dayMs = 86_400_000;
 
 /** Builds the content-free receipt for a completed deletion from the exact approved scope. */
 export function buildDeletionReceipt(input: {
-	authorization: {
-		authorizedAt: Date;
-		authorizedByUserId: string;
+	approval: {
+		approvedAt: Date;
+		approvedByUserId: string;
 		id: string;
 		reportId: string;
 		selectedContainerIds: readonly string[];
@@ -213,16 +213,16 @@ export function buildDeletionReceipt(input: {
 	reportDigest: string;
 	scope: ErasureImpactScope;
 }): DeletionReceipt {
-	const { authorization, completedAt, scope } = input;
+	const { approval, completedAt, scope } = input;
 	const selected = scope.containers.filter((container) =>
-		authorization.selectedContainerIds.includes(container.id)
+		approval.selectedContainerIds.includes(container.id)
 	);
 	const remaining = scope.containers.filter(
-		(container) => !authorization.selectedContainerIds.includes(container.id)
+		(container) => !approval.selectedContainerIds.includes(container.id)
 	);
 	return {
-		authorizationId: authorization.id,
-		authorizedAt: authorization.authorizedAt.toISOString(),
+		approvalId: approval.id,
+		approvedAt: approval.approvedAt.toISOString(),
 		backup:
 			scope.backup.status === "scheduled"
 				? {
@@ -237,7 +237,7 @@ export function buildDeletionReceipt(input: {
 				: { status: "unpublished" },
 		completedAt: completedAt.toISOString(),
 		contractVersion: deletionReceiptContractVersion,
-		counts: selectedErasureCounts(scope, authorization.selectedContainerIds),
+		counts: selectedErasureCounts(scope, approval.selectedContainerIds),
 		erased: {
 			assetVersionIds: scope.managedCopies.map((copy) => copy.assetVersionId),
 			containers: selected.map((container) => ({
@@ -250,7 +250,7 @@ export function buildDeletionReceipt(input: {
 			recallable: false,
 			statement: externalCopiesStatement,
 		},
-		id: authorization.id,
+		id: approval.id,
 		operationId: input.operationId,
 		projectId: scope.projectId,
 		remainingContainers: remaining.map((container) => ({
@@ -258,8 +258,8 @@ export function buildDeletionReceipt(input: {
 			kind: container.kind,
 		})),
 		reportDigest: input.reportDigest,
-		reportId: authorization.reportId,
-		requestedByUserId: authorization.authorizedByUserId,
+		reportId: approval.reportId,
+		requestedByUserId: approval.approvedByUserId,
 		targetAssetRecordId: scope.target.assetRecordId,
 		unverifiableFulfilmentIds: scope.fulfilments
 			.filter((fulfilment) => fulfilment.pinsErasedVersions)

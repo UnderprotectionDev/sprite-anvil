@@ -13,13 +13,13 @@ import {
 	resolveProjectLookup,
 } from "./project-lookup";
 
-export interface ErasureReceiptStoreOptions extends ProjectLookupOptions {
+export interface DeletionReceiptStoreOptions extends ProjectLookupOptions {
 	storage: Pick<ErasureDeletionStorage, "findReceipt">;
 }
 
 /** Rereads a Deletion Receipt from its stored record and verifies its version and digest before showing it. */
-export function createErasureReceiptStore(
-	options: ErasureReceiptStoreOptions & { db?: Database }
+export function createDeletionReceiptStore(
+	options: DeletionReceiptStoreOptions & { db?: Database }
 ): DeletionReceiptStore {
 	const lookupProject = resolveProjectLookup(options);
 	return {

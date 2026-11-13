@@ -3,8 +3,8 @@ import type { ErasureImpactScope } from "./permanent-erasure";
 import {
 	deletionReceiptContractSupport,
 	deletionReceiptContractVersion,
-	type ErasureAuthorizeInput,
-	erasureAuthorizeRequestDigest,
+	type ErasureApprovalInput,
+	erasureApprovalRequestDigest,
 	selectedErasureCounts,
 } from "./permanent-erasure-deletion";
 
@@ -35,7 +35,7 @@ test("selected counts follow the chosen containers, while copies and fulfilments
 	});
 });
 
-const input: ErasureAuthorizeInput = {
+const input: ErasureApprovalInput = {
 	acknowledgements: { externalCopiesRemain: true, irreversible: true },
 	confirmed: {
 		archives: 1,
@@ -52,22 +52,22 @@ const input: ErasureAuthorizeInput = {
 };
 
 test("the request digest ignores selection order and the idempotency key, but not the content", async () => {
-	const base = await erasureAuthorizeRequestDigest(input);
+	const base = await erasureApprovalRequestDigest(input);
 	expect(
-		await erasureAuthorizeRequestDigest({
+		await erasureApprovalRequestDigest({
 			...input,
 			idempotencyKey: "key-2",
 			selectedContainerIds: ["a1", "b1"],
 		})
 	).toBe(base);
 	expect(
-		await erasureAuthorizeRequestDigest({
+		await erasureApprovalRequestDigest({
 			...input,
 			selectedContainerIds: ["b1"],
 		})
 	).not.toBe(base);
 	expect(
-		await erasureAuthorizeRequestDigest({
+		await erasureApprovalRequestDigest({
 			...input,
 			reportDigest: "b".repeat(64),
 		})
