@@ -45,6 +45,7 @@ import type {
 	ErasureApprovalOperations,
 } from "./permanent-erasure-deletion-store";
 import type { ErasureImpactStore } from "./permanent-erasure-store";
+import type { PlatformEquivalenceStore } from "./platform-equivalence-store";
 import type { PortraitIdentityReviewStore } from "./portrait-identity-reviews";
 import type { ProductionExperimentStore } from "./production-experiments";
 import type { ProductionRecipeStore } from "./production-recipes";
@@ -121,6 +122,7 @@ export interface Context {
 	measurementDefinitionStore?: MeasurementDefinitionStore;
 	measurementEventStore?: MeasurementEventStore;
 	measurementMeasureStore?: MeasurementMeasureStore;
+	platformEquivalenceStore?: PlatformEquivalenceStore;
 	portraitIdentityReviewStore?: PortraitIdentityReviewStore;
 	productionExperimentStore?: ProductionExperimentStore;
 	productionRecipeStore?: ProductionRecipeStore;
