@@ -178,6 +178,33 @@ test("runs from different inputs and a missing surface are reported, not equated
 	).toBeGreaterThan(0);
 });
 
+test("the same Export Bundle on both surfaces is flagged, not reported as equivalent", async () => {
+	const { bundles, createReport, recordRun } = await setup();
+	const web = await recordRun({
+		bundleId: bundles.webBundle.id,
+		idempotencyKey: "web-run",
+		surface: "web",
+	});
+	const desktop = await recordRun({
+		bundleId: bundles.webBundle.id,
+		idempotencyKey: "desktop-run",
+		surface: "desktop",
+	});
+
+	const created = await createReport({
+		desktopRunId: desktop.run.id,
+		webRunId: web.run.id,
+	});
+
+	expect(desktop.status).toBe("created");
+	expect(created.report.comparison.outcome).toBe("same_bundle");
+	expect(
+		created.report.comparison.sections.every(
+			(section: { result: string }) => section.result === "not_compared"
+		)
+	).toBe(true);
+});
+
 test("a re-read report keeps each run's bundle and input digest", async () => {
 	const { bundles, createReport, getReport, recordRun } = await setup();
 	const web = await recordRun({

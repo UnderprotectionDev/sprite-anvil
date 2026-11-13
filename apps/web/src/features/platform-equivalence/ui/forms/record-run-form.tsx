@@ -6,6 +6,7 @@ import {
 } from "@sprite-anvil/ui/components/native-select";
 import { useForm } from "@tanstack/react-form";
 import type { SyntheticEvent } from "react";
+import { FieldErrors, fieldErrorAttributes } from "@/components/field-errors";
 import { StatusMessage } from "@/components/status-message";
 import { usePendingIdempotencyKey } from "@/utils/pending-idempotency-key";
 import { useRecordPlatformEquivalenceRun } from "../../hooks/use-platform-equivalence-writes";
@@ -73,49 +74,33 @@ export function RecordRunForm({
 			<div className="space-y-2">
 				<Label htmlFor="platform-equivalence-bundle">Export Bundle</Label>
 				<form.Field name="bundleId">
-					{(field) => {
-						const messages = field.state.meta.errors.flatMap((error) =>
-							typeof error === "object" && error !== null && "message" in error
-								? [String(error.message)]
-								: []
-						);
-						return (
-							<>
-								<NativeSelect
-									aria-describedby={
-										messages.length > 0
-											? "platform-equivalence-bundle-errors"
-											: undefined
-									}
-									aria-invalid={messages.length > 0 ? true : undefined}
-									className="w-full [&>select]:min-h-10"
-									id="platform-equivalence-bundle"
-									onChange={(event) => field.handleChange(event.target.value)}
-									value={field.state.value}
-								>
-									<NativeSelectOption value="">
-										Choose an Export Bundle
+					{(field) => (
+						<>
+							<NativeSelect
+								{...fieldErrorAttributes(
+									"platform-equivalence-bundle",
+									field.state.meta.errors
+								)}
+								className="w-full [&>select]:min-h-10"
+								id="platform-equivalence-bundle"
+								onChange={(event) => field.handleChange(event.target.value)}
+								value={field.state.value}
+							>
+								<NativeSelectOption value="">
+									Choose an Export Bundle
+								</NativeSelectOption>
+								{bundles.map((bundle) => (
+									<NativeSelectOption key={bundle.id} value={bundle.id}>
+										{`${new Date(bundle.createdAt).toLocaleString()} · ${bundle.manifestDigest.slice(0, 12)}`}
 									</NativeSelectOption>
-									{bundles.map((bundle) => (
-										<NativeSelectOption key={bundle.id} value={bundle.id}>
-											{`${new Date(bundle.createdAt).toLocaleString()} · ${bundle.manifestDigest.slice(0, 12)}`}
-										</NativeSelectOption>
-									))}
-								</NativeSelect>
-								{messages.length > 0 ? (
-									<ul
-										className="space-y-1 text-destructive text-sm"
-										id="platform-equivalence-bundle-errors"
-										role="alert"
-									>
-										{messages.map((message) => (
-											<li key={message}>{message}</li>
-										))}
-									</ul>
-								) : null}
-							</>
-						);
-					}}
+								))}
+							</NativeSelect>
+							<FieldErrors
+								errors={field.state.meta.errors}
+								fieldId="platform-equivalence-bundle"
+							/>
+						</>
+					)}
 				</form.Field>
 			</div>
 			{record.isError ? (

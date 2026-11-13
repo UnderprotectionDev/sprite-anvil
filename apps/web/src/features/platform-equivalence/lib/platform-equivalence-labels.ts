@@ -41,6 +41,8 @@ export const outcomeLabels: Record<
 	inputs_differ:
 		"The runs were made from different inputs, so they were not compared.",
 	missing_surface: "A surface has no run yet, so nothing was compared.",
+	same_bundle:
+		"Both surfaces recorded the same Export Bundle, so nothing was compared.",
 };
 
 export const sectionResultLabels = {
