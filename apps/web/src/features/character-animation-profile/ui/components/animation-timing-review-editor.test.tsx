@@ -465,3 +465,24 @@ test("toggles a frame sprite sheet region from the keyboard and edits its bounds
 	expect(region).toHaveAttribute("aria-checked", "false");
 	expect(regionWidth()).not.toBeInTheDocument();
 });
+
+test("when the system already reduces motion nothing plays until Play together is pressed", async () => {
+	vi.stubGlobal("matchMedia", (query: string) => ({
+		matches: true,
+		media: query,
+		addEventListener: vi.fn(),
+		removeEventListener: vi.fn(),
+	}));
+	vi.stubGlobal(
+		"requestAnimationFrame",
+		vi.fn(() => 1)
+	);
+	vi.stubGlobal("cancelAnimationFrame", vi.fn());
+	renderEditor();
+	await waitFor(() =>
+		expect(screen.getByRole("button", { name: "Play together" })).toBeEnabled()
+	);
+	expect(screen.getByRole("note")).toHaveTextContent("reduced motion");
+	fireEvent.click(screen.getByRole("button", { name: "Play together" }));
+	expect(screen.getByRole("button", { name: "Pause" })).toBeInTheDocument();
+});

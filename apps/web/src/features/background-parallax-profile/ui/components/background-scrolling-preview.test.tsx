@@ -1,6 +1,13 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+	act,
+	cleanup,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { BackgroundScrollingPreview } from "./background-scrolling-preview";
@@ -63,6 +70,7 @@ const layers = [
 ];
 afterEach(() => {
 	cleanup();
+	vi.unstubAllGlobals();
 	vi.restoreAllMocks();
 });
 test("seeks all layers on one timeline with independent speed and loop settings", async () => {
@@ -123,4 +131,84 @@ test("unreadable exact content blocks playback", async () => {
 		expect(screen.getByRole("alert")).toHaveTextContent("Image unavailable")
 	);
 	expect(screen.getByRole("button", { name: "Play scrolling" })).toBeDisabled();
+});
+
+function stubReducedMotion(initial: boolean) {
+	let matches = initial;
+	const listeners = new Set<() => void>();
+	vi.stubGlobal("matchMedia", (query: string) => ({
+		get matches() {
+			return matches;
+		},
+		media: query,
+		addEventListener: (_: string, listener: () => void) =>
+			listeners.add(listener),
+		removeEventListener: (_: string, listener: () => void) =>
+			listeners.delete(listener),
+	}));
+	return (next: boolean) => {
+		matches = next;
+		for (const listener of listeners) {
+			listener();
+		}
+	};
+}
+
+function renderPreview() {
+	vi.spyOn(HTMLImageElement.prototype, "naturalWidth", "get").mockReturnValue(
+		320
+	);
+	vi.spyOn(HTMLImageElement.prototype, "naturalHeight", "get").mockReturnValue(
+		180
+	);
+	render(
+		<BackgroundScrollingPreview
+			durationMs={10_000}
+			layers={layers}
+			motions={[
+				{ layerId: "sky", speed: 40, loop: true, startOffset: 0 },
+				{ layerId: "trees", speed: 100, loop: false, startOffset: 0 },
+			]}
+			onPlayback={vi.fn()}
+			versions={[
+				{ id: "sky-version", previewUrl: "/sky" },
+				{ id: "trees-version", previewUrl: "/trees" },
+			]}
+		/>
+	);
+}
+
+test("when the system already reduces motion scrolling starts paused, explains why and Pause still works", async () => {
+	stubReducedMotion(true);
+	renderPreview();
+	await waitFor(() =>
+		expect(screen.getByRole("button", { name: "Play scrolling" })).toBeEnabled()
+	);
+	expect(screen.getByRole("note")).toHaveTextContent("reduced motion");
+	fireEvent.click(screen.getByRole("button", { name: "Play scrolling" }));
+	expect(
+		screen.getByRole("button", { name: "Pause scrolling" })
+	).toBeInTheDocument();
+	fireEvent.click(screen.getByRole("button", { name: "Pause scrolling" }));
+	expect(
+		screen.getByRole("button", { name: "Play scrolling" })
+	).toBeInTheDocument();
+});
+
+test("scrolling pauses when the system turns reduced motion on", async () => {
+	const setReduced = stubReducedMotion(false);
+	renderPreview();
+	await waitFor(() =>
+		expect(screen.getByRole("button", { name: "Play scrolling" })).toBeEnabled()
+	);
+	expect(screen.queryByRole("note")).toBeNull();
+	fireEvent.click(screen.getByRole("button", { name: "Play scrolling" }));
+	expect(
+		screen.getByRole("button", { name: "Pause scrolling" })
+	).toBeInTheDocument();
+	act(() => setReduced(true));
+	expect(
+		screen.getByRole("button", { name: "Play scrolling" })
+	).toBeInTheDocument();
+	expect(screen.getByRole("note")).toHaveTextContent("reduced motion");
 });

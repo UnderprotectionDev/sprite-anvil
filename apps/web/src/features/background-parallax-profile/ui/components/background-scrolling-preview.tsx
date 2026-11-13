@@ -3,8 +3,10 @@ import type { BackgroundScrollingSetup } from "@sprite-anvil/api/background-scro
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
+import { usePauseOnReducedMotion } from "@sprite-anvil/ui/hooks/use-pause-on-reduced-motion";
 import type { Application, Texture } from "pixi.js";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ReducedMotionNotice } from "@/components/reduced-motion-notice";
 import { ENV } from "@/env";
 import type { BackgroundLayerMotion } from "../../lib/background-scrolling-scene";
 
@@ -103,6 +105,8 @@ export function BackgroundScrollingPreview({
 	const [ready, setReady] = useState(false);
 	const [error, setError] = useState("");
 	const [playing, setPlaying] = useState(false);
+	const pause = useCallback(() => setPlaying(false), []);
+	const reducedMotion = usePauseOnReducedMotion(pause);
 	const [time, setTime] = useState(0);
 	const playedMs = useRef(0);
 	const callback = useRef(onPlayback);
@@ -285,6 +289,7 @@ export function BackgroundScrollingPreview({
 					/>
 				</Label>
 			</div>
+			<ReducedMotionNotice reducedMotion={reducedMotion} />
 			{motions.map((motion) => {
 				const raw = motion.startOffset + (motion.speed * time) / 1000;
 				const offset = motion.loop ? ((raw % width) + width) % width : raw;

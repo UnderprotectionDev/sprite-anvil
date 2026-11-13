@@ -14,20 +14,20 @@ test("an error is announced assertively with a visible name and text", () => {
 	const alert = screen.getByRole("alert");
 	expect(alert).toHaveTextContent("Error");
 	expect(alert).toHaveTextContent("Review could not be saved.");
-	expect(alert).toHaveAttribute("aria-live", "assertive");
+	expect(alert).not.toHaveAttribute("aria-live");
 });
 
 test.each([
 	["warning", "Warning"],
 	["success", "Success"],
-	["info", "Note"],
+	["info", "Info"],
 ] as const)(
 	"%s is announced politely and names itself in text",
 	(tone, label) => {
 		render(<StatusMessage tone={tone}>Check complete.</StatusMessage>);
 		const status = screen.getByRole("status");
 		expect(status).toHaveTextContent(label);
-		expect(status).toHaveAttribute("aria-live", "polite");
+		expect(status).not.toHaveAttribute("aria-live");
 		expect(screen.queryByRole("alert")).toBeNull();
 	}
 );

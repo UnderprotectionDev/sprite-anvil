@@ -306,3 +306,24 @@ test("pauses the appearance preview and explains it when the system turns reduce
 	expect(screen.getByRole("button", { name: "Play" })).toBeEnabled();
 	expect(screen.getByRole("note")).toHaveTextContent("reduced motion");
 });
+
+test("when the system already reduces motion the appearance preview starts paused until Play is pressed", async () => {
+	vi.stubGlobal("matchMedia", (query: string) => ({
+		matches: true,
+		media: query,
+		addEventListener: vi.fn(),
+		removeEventListener: vi.fn(),
+	}));
+	vi.stubGlobal(
+		"requestAnimationFrame",
+		vi.fn(() => 1)
+	);
+	vi.stubGlobal("cancelAnimationFrame", vi.fn());
+	mount();
+	await waitFor(() =>
+		expect(screen.getByRole("button", { name: "Play" })).toBeEnabled()
+	);
+	expect(screen.getByRole("note")).toHaveTextContent("reduced motion");
+	fireEvent.click(screen.getByRole("button", { name: "Play" }));
+	expect(screen.getByRole("button", { name: "Pause" })).toBeEnabled();
+});
