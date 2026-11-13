@@ -1,21 +1,21 @@
 import type { DeletionReceipt } from "@sprite-anvil/api/permanent-erasure-deletion";
 import type { Database } from "@sprite-anvil/db";
 import { hasErrorCode } from "@sprite-anvil/db/error-codes";
-import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
 import { assetVersions } from "@sprite-anvil/db/schema/asset-versions";
-import { exportBundles } from "@sprite-anvil/db/schema/export-bundles";
 import {
 	deletionReceipts,
 	erasureApprovals,
-	erasureTombstones,
+	erasureRemovalStarts,
 } from "@sprite-anvil/db/schema/permanent-erasure";
 import {
 	projectArchiveFiles,
 	projectArchives,
 } from "@sprite-anvil/db/schema/project-archives";
 import { and, eq, inArray } from "drizzle-orm";
+import { finalizeErasure } from "./database-erasure-finalize";
 import type {
 	ErasureDeletionStorage,
+	StoredDeletionReceipt,
 	StoredErasureApproval,
 } from "./erasure-deletion-storage";
 
@@ -41,6 +41,31 @@ function toApproval(
 export function createDatabaseErasureDeletionStorage(
 	db: Database
 ): ErasureDeletionStorage {
+	async function findReceipt(
+		projectId: string,
+		id: string
+	): Promise<StoredDeletionReceipt | null> {
+		const [row] = await db
+			.select()
+			.from(deletionReceipts)
+			.where(
+				and(
+					eq(deletionReceipts.projectId, projectId),
+					eq(deletionReceipts.id, id)
+				)
+			);
+		if (!row) {
+			return null;
+		}
+		return {
+			id: row.id,
+			projectId: row.projectId,
+			// Revalidated against the contract on every read.
+			receipt: row.receipt as DeletionReceipt,
+			receiptDigest: row.receiptDigest,
+		};
+	}
+
 	return {
 		async archiveObjectKeys(projectId, archiveIds, assetVersionIds) {
 			if (archiveIds.length === 0 || assetVersionIds.length === 0) {
@@ -79,90 +104,17 @@ export function createDatabaseErasureDeletionStorage(
 			return row ? toApproval(row) : null;
 		},
 
-		async findReceipt(projectId, id) {
-			const [row] = await db
-				.select()
-				.from(deletionReceipts)
-				.where(
-					and(
-						eq(deletionReceipts.projectId, projectId),
-						eq(deletionReceipts.id, id)
-					)
-				);
-			if (!row) {
-				return null;
-			}
-			return {
-				id: row.id,
-				projectId: row.projectId,
-				// Revalidated against the contract on every read.
-				receipt: row.receipt as DeletionReceipt,
-				receiptDigest: row.receiptDigest,
-			};
-		},
+		findReceipt,
 
 		async finalize(input) {
-			const bundleIds = input.removeContainers
-				.filter((container) => container.kind === "export_bundle")
-				.map((container) => container.id);
-			const archiveIds = input.removeContainers
-				.filter((container) => container.kind === "project_archive")
-				.map((container) => container.id);
 			try {
-				await db.transaction(async (tx) => {
-					await tx.insert(deletionReceipts).values({
-						backgroundOperationId: input.receipt.receipt.operationId,
-						contractVersion: input.receipt.receipt.contractVersion,
-						id: input.receipt.id,
-						projectId: input.projectId,
-						receipt: input.receipt.receipt,
-						receiptDigest: input.receipt.receiptDigest,
-					});
-					if (input.tombstones.length > 0) {
-						await tx.insert(erasureTombstones).values(
-							input.tombstones.map((row) => ({
-								assetRecordId: row.assetRecordId,
-								erasedAt: row.erasedAt,
-								id: row.assetVersionId,
-								projectId: row.projectId,
-								receiptId: row.receiptId,
-							}))
-						);
-					}
-					await tx
-						.update(assetRecords)
-						.set({ availability: "erased" })
-						.where(
-							and(
-								eq(assetRecords.projectId, input.projectId),
-								eq(assetRecords.id, input.assetRecordId)
-							)
-						);
-					// Whole containers go with their file rows (cascade); none is rewritten.
-					if (bundleIds.length > 0) {
-						await tx
-							.delete(exportBundles)
-							.where(
-								and(
-									eq(exportBundles.projectId, input.projectId),
-									inArray(exportBundles.id, bundleIds)
-								)
-							);
-					}
-					if (archiveIds.length > 0) {
-						await tx
-							.delete(projectArchives)
-							.where(
-								and(
-									eq(projectArchives.projectId, input.projectId),
-									inArray(projectArchives.id, archiveIds)
-								)
-							);
-					}
-				});
-				return { status: "finalized" };
+				return await finalizeErasure(db, input);
 			} catch (error) {
-				if (hasErrorCode(error, uniqueViolationCode)) {
+				// A unique violation only means "already finalized" when that approval's receipt is there.
+				if (
+					hasErrorCode(error, uniqueViolationCode) &&
+					(await findReceipt(input.projectId, input.receipt.id))
+				) {
 					return { status: "existing" };
 				}
 				throw error;
@@ -199,6 +151,17 @@ export function createDatabaseErasureDeletionStorage(
 			}
 		},
 
+		async markRemovalStarted(row) {
+			await db
+				.insert(erasureRemovalStarts)
+				.values({
+					id: row.approvalId,
+					projectId: row.projectId,
+					startedAt: row.startedAt,
+				})
+				.onConflictDoNothing();
+		},
+
 		async objectKeys(projectId, assetVersionIds) {
 			if (assetVersionIds.length === 0) {
 				return new Map();
@@ -213,6 +176,19 @@ export function createDatabaseErasureDeletionStorage(
 					)
 				);
 			return new Map(rows.map((row) => [row.id, row.objectKey]));
+		},
+
+		async removalStarted(projectId, approvalId) {
+			const [row] = await db
+				.select({ id: erasureRemovalStarts.id })
+				.from(erasureRemovalStarts)
+				.where(
+					and(
+						eq(erasureRemovalStarts.projectId, projectId),
+						eq(erasureRemovalStarts.id, approvalId)
+					)
+				);
+			return row !== undefined;
 		},
 	};
 }

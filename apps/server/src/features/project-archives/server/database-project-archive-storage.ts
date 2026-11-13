@@ -1,5 +1,6 @@
 import type { ProjectArchiveFileEntry } from "@sprite-anvil/api/project-archives";
 import type { Database } from "@sprite-anvil/db";
+import { hasErrorCode } from "@sprite-anvil/db/error-codes";
 import {
 	projectArchiveFiles,
 	projectArchiveRequests,
@@ -15,14 +16,6 @@ import type {
 } from "./project-archive-storage";
 
 const uniqueViolationCode = "23505";
-
-function hasErrorCode(error: unknown, expected: string): boolean {
-	if (typeof error !== "object" || error === null) {
-		return false;
-	}
-	const { cause, code } = error as { cause?: unknown; code?: unknown };
-	return code === expected || hasErrorCode(cause, expected);
-}
 
 function toArchive(
 	row: typeof projectArchives.$inferSelect

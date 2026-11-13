@@ -1,4 +1,4 @@
-import type { ErasureImpactSource } from "@sprite-anvil/api/permanent-erasure";
+import type { ErasureImpactSource } from "@sprite-anvil/api/permanent-erasure-scope";
 import type { ErasureImpactSourceReader } from "@sprite-anvil/api/permanent-erasure-store";
 import type { Database } from "@sprite-anvil/db";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
@@ -45,8 +45,6 @@ export function createErasureImpactSourceReader(
 			const versions = await db
 				.select({
 					byteSize: assetVersions.byteSize,
-					contentType: assetVersions.contentType,
-					fileName: assetVersions.fileName,
 					id: assetVersions.id,
 					sha256: assetVersions.sha256,
 				})
@@ -73,7 +71,6 @@ export function createErasureImpactSourceReader(
 					.select({
 						assetVersionId: exportBundleFiles.assetVersionId,
 						bundleId: exportBundleFiles.bundleId,
-						path: exportBundleFiles.path,
 					})
 					.from(exportBundleFiles)
 					.innerJoin(
@@ -90,9 +87,7 @@ export function createErasureImpactSourceReader(
 					.select({
 						archiveId: projectArchiveFiles.archiveId,
 						assetVersionId: projectArchiveFiles.assetVersionId,
-						kind: projectArchiveFiles.kind,
 						presence: projectArchiveFiles.presence,
-						sourceId: projectArchiveFiles.sourceId,
 					})
 					.from(projectArchiveFiles)
 					.innerJoin(
@@ -196,9 +191,7 @@ export function createErasureImpactSourceReader(
 						.filter((file) => file.archiveId === archive.id)
 						.map((file) => ({
 							assetVersionId: file.assetVersionId,
-							kind: file.kind,
 							presence: file.presence,
-							sourceId: file.sourceId,
 						})),
 					id: archive.id,
 					manifestDigest: archive.manifestDigest,
@@ -207,10 +200,7 @@ export function createErasureImpactSourceReader(
 				bundles: bundleRows.map((bundle) => ({
 					files: bundleFileRows
 						.filter((file) => file.bundleId === bundle.id)
-						.map((file) => ({
-							assetVersionId: file.assetVersionId,
-							path: file.path,
-						})),
+						.map((file) => ({ assetVersionId: file.assetVersionId })),
 					id: bundle.id,
 					manifestDigest: bundle.manifestDigest,
 				})),

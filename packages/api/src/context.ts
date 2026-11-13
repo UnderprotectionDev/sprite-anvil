@@ -37,7 +37,10 @@ import type { HistoricalRiskNoticeStore } from "./historical-risk-notices";
 import type { IconFamilyReviewStore } from "./icon-family-reviews";
 import type { ImportInboxStore } from "./import-inbox";
 import type { MarketingUsageReviewStore } from "./marketing-usage-reviews";
-import type { DeletionReceiptStore } from "./permanent-erasure-deletion-store";
+import type {
+	DeletionReceiptStore,
+	ErasureApprovalOperations,
+} from "./permanent-erasure-deletion-store";
 import type { ErasureImpactStore } from "./permanent-erasure-store";
 import type { PortraitIdentityReviewStore } from "./portrait-identity-reviews";
 import type { ProductionExperimentStore } from "./production-experiments";
@@ -98,6 +101,8 @@ export interface Context {
 	deliveryTargetStore?: DeliveryTargetStore;
 	dependencyRevalidationStore?: DependencyRevalidationStore;
 	directionalReviewStore?: DirectionalReviewStore;
+	/** Records an erasure approval as a Deletion Job. Not wired in production yet: it needs the live Background Operation executor, like `projectArchiveRestoreOperations`. */
+	erasureApprovalOperations?: ErasureApprovalOperations;
 	erasureImpactStore?: ErasureImpactStore;
 	exportBundleStore?: ExportBundleStore;
 	exportProfileStore?: ExportProfileStore;

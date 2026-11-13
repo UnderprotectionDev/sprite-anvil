@@ -186,16 +186,22 @@ export const exportBundleStore = createExportBundleStore(db, {
 	}),
 	storage: createDatabaseExportBundleStorage(db),
 });
+/**
+ * Deletion Receipts are read here. The erasure approval (`approveErasure`) and
+ * the Deletion Job executor are not wired: they need the live Background
+ * Operation lifecycle and an object remover, which production does not run
+ * yet, like the archive executors. Until then `approveErasure` answers
+ * "unavailable" and no Deletion Job can start.
+ */
+export const deletionReceiptStore = createDeletionReceiptStore({
+	db,
+	storage: createDatabaseErasureDeletionStorage(db),
+});
 /** No backup retention schedule is published yet (OV-08), so reports claim no clean-up time. */
 export const erasureImpactStore = createErasureImpactStore({
 	db,
 	sourceReader: createErasureImpactSourceReader(db),
 	storage: createDatabaseErasureImpactStorage(db),
-});
-/** Deletion Receipts are read here; the Deletion Job executor is not wired to a live worker yet, like the archive executors. */
-export const deletionReceiptStore = createDeletionReceiptStore({
-	db,
-	storage: createDatabaseErasureDeletionStorage(db),
 });
 const credentialNamePattern = /SECRET|TOKEN|KEY|PASSWORD/i;
 const archiveObjectStorage =

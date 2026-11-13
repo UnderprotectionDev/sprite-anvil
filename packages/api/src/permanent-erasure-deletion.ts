@@ -1,9 +1,11 @@
 import { z } from "zod";
+import { contractVersionSupport } from "./contract-version";
+import { sha256Schema } from "./export-bundle-manifest";
 import {
-	countSchema,
 	type ErasureImpactScope,
+	erasureContainerRefSchema,
+	erasureCountsSchema,
 	externalCopiesStatement,
-	sha256Schema,
 	uuidSchema,
 } from "./permanent-erasure";
 import { recordContentDigest } from "./record-content-digest";
@@ -15,35 +17,16 @@ import { idempotencyKeySchema } from "./record-publication";
  */
 export const deletionReceiptContractVersion = "deletion-receipt/1.0.0";
 
-const supportedMajor = 1;
-const contractVersionPattern = /^deletion-receipt\/(\d+)\.(\d+)\.(\d+)$/;
-
-export function deletionReceiptContractSupport(
-	version: string
-):
-	| { status: "supported" }
-	| { status: "unsupported_major"; major: number }
-	| { status: "malformed" } {
-	const match = contractVersionPattern.exec(version);
-	if (!match) {
-		return { status: "malformed" };
-	}
-	const major = Number(match[1]);
-	return major === supportedMajor
-		? { status: "supported" }
-		: { major, status: "unsupported_major" };
+/** Whether this build can read a receipt written under `version`. */
+export function deletionReceiptContractSupport(version: string) {
+	return contractVersionSupport(version, {
+		name: "deletion-receipt",
+		supportedMajor: 1,
+	});
 }
 
-/** The exact counts the user confirms against the exact report. */
-export const erasureConfirmedCountsSchema = z
-	.object({
-		archives: countSchema,
-		bundles: countSchema,
-		containerFiles: countSchema,
-		fulfilments: countSchema,
-		managedCopies: countSchema,
-	})
-	.strict();
+/** The exact counts the user confirms against the exact report: the same counts the report shows. */
+export const erasureConfirmedCountsSchema = erasureCountsSchema;
 export type ErasureConfirmedCounts = z.infer<
 	typeof erasureConfirmedCountsSchema
 >;
@@ -99,6 +82,27 @@ export function selectedErasureCounts(
 	};
 }
 
+/** Whether every count the user confirmed equals what the selection removes under the exact report. */
+export function confirmedCountsMatch(
+	scope: ErasureImpactScope,
+	selectedContainerIds: readonly string[],
+	confirmed: ErasureConfirmedCounts
+) {
+	const expected = selectedErasureCounts(scope, selectedContainerIds);
+	return (Object.keys(expected) as (keyof ErasureConfirmedCounts)[]).every(
+		(key) => expected[key] === confirmed[key]
+	);
+}
+
+/** The selected ids that name no container of the exact report. */
+export function unknownErasureContainerIds(
+	scope: ErasureImpactScope,
+	selectedContainerIds: readonly string[]
+) {
+	const known = new Set(scope.containers.map((container) => container.id));
+	return selectedContainerIds.filter((id) => !known.has(id));
+}
+
 export function erasureApprovalRequestDigest(input: ErasureApprovalInput) {
 	return recordContentDigest({
 		confirmed: input.confirmed,
@@ -122,12 +126,8 @@ export type ErasureApprovalResult<Operation> =
 	| { operation: Operation; status: "accepted" }
 	| ({ status: "rejected" } & ErasureApprovalRejection);
 
-const receiptContainerSchema = z
-	.object({
-		id: z.string().min(1),
-		kind: z.enum(["export_bundle", "project_archive"]),
-		manifestDigest: sha256Schema,
-	})
+const receiptContainerSchema = erasureContainerRefSchema
+	.extend({ manifestDigest: sha256Schema })
 	.strict();
 
 const receiptBackupSchema = z.discriminatedUnion("status", [
@@ -170,14 +170,7 @@ export const deletionReceiptSchema = z
 		operationId: z.string().min(1),
 		projectId: z.string().min(1),
 		/** Whole containers outside the selection: they still hold the content they embed. */
-		remainingContainers: z.array(
-			z
-				.object({
-					id: z.string().min(1),
-					kind: z.enum(["export_bundle", "project_archive"]),
-				})
-				.strict()
-		),
+		remainingContainers: z.array(erasureContainerRefSchema),
 		reportDigest: sha256Schema,
 		reportId: z.string().min(1),
 		requestedByUserId: z.string().min(1),

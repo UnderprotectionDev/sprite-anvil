@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { ErasureImpactSource } from "@sprite-anvil/api/permanent-erasure";
+import type { ErasureImpactSource } from "@sprite-anvil/api/permanent-erasure-scope";
 import type { ErasureImpactSourceReader } from "@sprite-anvil/api/permanent-erasure-store";
 import {
 	IdempotencyConflictError,
@@ -50,8 +50,9 @@ test("YAS-04 report separates copies, whole containers, fulfilments and external
 	}
 	const { report } = created;
 	expect(report.contractVersion).toBe("erasure-impact-report/1.0.0");
-	expect(report.managedCopies.map((copy) => copy.assetVersionId)).toEqual([
-		versionId,
+	// Identity, size and digest only: no file name or content type is kept in the report.
+	expect(report.managedCopies).toEqual([
+		{ assetVersionId: versionId, byteSize: 120, sha256: "c".repeat(64) },
 	]);
 	expect(report.containers).toEqual([
 		expect.objectContaining({

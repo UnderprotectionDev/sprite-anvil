@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import type { ErasureImpactScope } from "./permanent-erasure";
 import {
+	confirmedCountsMatch,
 	deletionReceiptContractSupport,
 	deletionReceiptContractVersion,
 	type ErasureApprovalInput,
@@ -88,4 +89,19 @@ test("only the known major receipt contract version is supported", () => {
 	expect(deletionReceiptContractSupport("receipt/1")).toEqual({
 		status: "malformed",
 	});
+});
+
+test("the confirmed counts match only when every shown count equals the selection's", () => {
+	const confirmed = {
+		archives: 1,
+		bundles: 1,
+		containerFiles: 5,
+		fulfilments: 2,
+		managedCopies: 2,
+	};
+	expect(confirmedCountsMatch(scope, ["b1", "a1"], confirmed)).toBe(true);
+	expect(
+		confirmedCountsMatch(scope, ["b1", "a1"], { ...confirmed, bundles: 0 })
+	).toBe(false);
+	expect(confirmedCountsMatch(scope, ["b1"], confirmed)).toBe(false);
 });

@@ -1,13 +1,15 @@
 import {
-	buildErasureImpactScope,
 	type ErasureImpactReport,
 	erasureContractSupport,
 	erasureImpactDigest,
 	erasureImpactReportSchema,
 	erasureImpactRequestDigest,
 	erasureImpactScopeSchema,
-	type RetentionSchedule,
 } from "@sprite-anvil/api/permanent-erasure";
+import {
+	buildErasureImpactScope,
+	type RetentionSchedule,
+} from "@sprite-anvil/api/permanent-erasure-scope";
 import type {
 	ErasureImpactSourceReader,
 	ErasureImpactStore,
@@ -19,7 +21,6 @@ import {
 	replayPublishedRecord,
 	verifyPublishedRecord,
 } from "@sprite-anvil/api/record-publication";
-import type { Database } from "@sprite-anvil/db";
 import type {
 	ErasureImpactStorage,
 	StoredErasureImpactReport,
@@ -29,7 +30,7 @@ import {
 	resolveProjectLookup,
 } from "./project-lookup";
 
-export interface ErasureImpactStoreOptions extends ProjectLookupOptions {
+export type ErasureImpactStoreOptions = ProjectLookupOptions & {
 	now?: () => Date;
 	/**
 	 * The published backup retention schedule, supplied by configuration. Null
@@ -38,7 +39,7 @@ export interface ErasureImpactStoreOptions extends ProjectLookupOptions {
 	retentionSchedule?: () => RetentionSchedule | null;
 	sourceReader: ErasureImpactSourceReader;
 	storage: ErasureImpactStorage;
-}
+};
 
 /** The report as a reader sees it, rebuilt from the stored scope. */
 function toReport(stored: StoredErasureImpactReport): ErasureImpactReport {
@@ -72,7 +73,7 @@ async function integrityFailure(
 }
 
 export function createErasureImpactStore(
-	options: ErasureImpactStoreOptions & { db?: Database }
+	options: ErasureImpactStoreOptions
 ): ErasureImpactStore {
 	const { sourceReader, storage } = options;
 	const lookupProject = resolveProjectLookup(options);

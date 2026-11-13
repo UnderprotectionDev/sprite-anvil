@@ -1,21 +1,23 @@
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
 
-export interface ProjectLookupOptions {
-	/** Resolves a project the user owns; defaults to the shared project access lookup. */
-	getProjectForUser?: (userId: string, projectId: string) => Promise<unknown>;
-}
+type ProjectLookup = (userId: string, projectId: string) => Promise<unknown>;
 
-/** The project lookup of a permanent-erasure store: the injected one, or the shared lookup on the given database. */
+/**
+ * How a permanent-erasure store finds the project a user owns: either the
+ * shared project access lookup on a database, or an injected lookup. Exactly
+ * one of the two is given.
+ */
+export type ProjectLookupOptions =
+	| { db: Database; getProjectForUser?: undefined }
+	| { db?: undefined; getProjectForUser: ProjectLookup };
+
+/** The project lookup of a permanent-erasure store. */
 export function resolveProjectLookup(
-	options: ProjectLookupOptions & { db?: Database }
-) {
-	if (options.getProjectForUser) {
-		return options.getProjectForUser;
+	options: ProjectLookupOptions
+): ProjectLookup {
+	if (options.db) {
+		const { db } = options;
+		return (userId, projectId) => getProjectForUser(db, userId, projectId);
 	}
-	const { db } = options;
-	if (!db) {
-		throw new Error("A database or a project lookup is required.");
-	}
-	return (userId: string, projectId: string) =>
-		getProjectForUser(db, userId, projectId);
+	return options.getProjectForUser;
 }

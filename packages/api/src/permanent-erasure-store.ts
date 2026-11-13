@@ -1,9 +1,11 @@
 import type {
 	ErasureImpactPrepareInput,
-	ErasureImpactRejection,
 	ErasureImpactReport,
-	ErasureImpactSource,
 } from "./permanent-erasure";
+import type {
+	ErasureImpactRejection,
+	ErasureImpactSource,
+} from "./permanent-erasure-scope";
 
 export type ErasureImpactPrepareResult =
 	| { report: ErasureImpactReport; status: "created" | "replayed" }

@@ -47,8 +47,14 @@ const resolutions = {
 	mapped: "only_bundle",
 } as const;
 
-/** The newest Fulfilment of each revision is the current one. */
-function toFulfilments(rows: StoredDeliveryFulfilment[]): DeliveryFulfilment[] {
+/**
+ * The newest Fulfilment of each revision is the current one. A Fulfilment is
+ * verifiable unless a requirement pins an Asset Version that was erased.
+ */
+function toFulfilments(
+	rows: StoredDeliveryFulfilment[],
+	erasedVersionIds: ReadonlySet<string>
+): DeliveryFulfilment[] {
 	const seenRevisions = new Set<string>();
 	return [...rows].sort(newestFirst).map((row) => {
 		const isCurrent = !seenRevisions.has(row.revisionId);
@@ -63,6 +69,9 @@ function toFulfilments(rows: StoredDeliveryFulfilment[]): DeliveryFulfilment[] {
 			requirements: row.requirements,
 			revisionId: row.revisionId,
 			revisionNumber: row.revisionNumber,
+			verifiable: !row.requirements.some((requirement) =>
+				requirement.assetVersionIds.some((id) => erasedVersionIds.has(id))
+			),
 		});
 	});
 }
@@ -177,6 +186,22 @@ export function createDeliveryFulfilmentStore(
 		userId: string,
 		input: { deliveryTargetId: string; projectId: string }
 	) => readDeliveryTarget(deliveryTargets, userId, input);
+
+	/** The rows as Fulfilments, with their verifiability read from the Erasure Tombstones at this moment. */
+	const present = async (
+		projectId: string,
+		rows: StoredDeliveryFulfilment[]
+	) => {
+		const pinned = new Set(
+			rows.flatMap((row) =>
+				row.requirements.flatMap((requirement) => requirement.assetVersionIds)
+			)
+		);
+		return toFulfilments(
+			rows,
+			await storage.erasedAssetVersionIds(projectId, [...pinned])
+		);
+	};
 
 	return {
 		async compare(userId, input) {
@@ -295,7 +320,9 @@ export function createDeliveryFulfilmentStore(
 				found.deliveryTargetId
 			);
 			return (
-				toFulfilments(siblings).find((entry) => entry.id === found.id) ?? null
+				(await present(input.projectId, siblings)).find(
+					(entry) => entry.id === found.id
+				) ?? null
 			);
 		},
 		async list(userId, input) {
@@ -303,7 +330,8 @@ export function createDeliveryFulfilmentStore(
 				return null;
 			}
 			return {
-				fulfilments: toFulfilments(
+				fulfilments: await present(
+					input.projectId,
 					await storage.listFulfilments(input.projectId, input.deliveryTargetId)
 				),
 			};
@@ -318,7 +346,9 @@ export function createDeliveryFulfilmentStore(
 			input.projectId,
 			input.deliveryTargetId
 		);
-		const stored = toFulfilments(rows).find((entry) => entry.id === id);
+		const stored = (await present(input.projectId, rows)).find(
+			(entry) => entry.id === id
+		);
 		if (!stored) {
 			throw new RecordIntegrityError(
 				"The delivery fulfilment could not be re-read from the persisted record."
