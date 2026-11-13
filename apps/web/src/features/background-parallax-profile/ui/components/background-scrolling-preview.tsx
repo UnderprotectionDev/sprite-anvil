@@ -5,6 +5,8 @@ import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
 import type { Application, Texture } from "pixi.js";
 import { useEffect, useRef, useState } from "react";
+import { ReducedMotionNotice } from "@/components/reduced-motion-notice";
+import { StatusMessage } from "@/components/status-message";
 import { ENV } from "@/env";
 import type { BackgroundLayerMotion } from "../../lib/background-scrolling-scene";
 
@@ -285,6 +287,7 @@ export function BackgroundScrollingPreview({
 					/>
 				</Label>
 			</div>
+			<ReducedMotionNotice onReducedMotion={() => setPlaying(false)} />
 			{motions.map((motion) => {
 				const raw = motion.startOffset + (motion.speed * time) / 1000;
 				const offset = motion.loop ? ((raw % width) + width) % width : raw;
@@ -296,7 +299,7 @@ export function BackgroundScrollingPreview({
 				);
 			})}
 			{error ? (
-				<p role="alert">{error}</p>
+				<StatusMessage tone="error">{error}</StatusMessage>
 			) : (
 				<p>
 					Playback starts only when you press Play scrolling. A static frame

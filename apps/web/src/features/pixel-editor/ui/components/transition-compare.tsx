@@ -1,7 +1,7 @@
 import type { PixelDraft } from "@sprite-anvil/api/pixel-editor";
 import { Badge } from "@sprite-anvil/ui/components/badge";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { usePrefersReducedMotion } from "../../hooks/use-prefers-reduced-motion";
+import { usePrefersReducedMotion } from "@sprite-anvil/ui/hooks/use-prefers-reduced-motion";
 import { useTransitionCompare } from "../../hooks/use-transition-compare";
 import type { PixelEditorToolStore } from "../../store/pixel-editor-tool-store";
 import { PixelCanvas } from "./pixel-canvas";
@@ -30,7 +30,6 @@ export function TransitionCompare({
 		<div className="space-y-2">
 			<div className="flex flex-wrap items-center gap-2">
 				<Button
-					disabled={reducedMotion && !transition.running}
 					onClick={transition.running ? transition.stop : transition.start}
 					size="sm"
 					type="button"
@@ -53,8 +52,8 @@ export function TransitionCompare({
 			</div>
 			{reducedMotion ? (
 				<p className="text-muted-foreground text-xs">
-					Automatic switching is off because your system asks for reduced
-					motion. Use the button to switch by hand.
+					Your system asks for reduced motion, so switching stays paused until
+					you press Start transition. You can also switch by hand.
 				</p>
 			) : null}
 			<div className="flex max-h-[70vh] items-start overflow-auto rounded-md border bg-muted/30 p-3">

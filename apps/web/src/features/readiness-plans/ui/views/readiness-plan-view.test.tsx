@@ -335,9 +335,7 @@ test("a CONFLICT on reorder tells the user the plan changed and offers a reload"
 	expect(alert).toHaveTextContent(
 		"The order was not saved because the plan changed."
 	);
-	expect(
-		within(alert).getByRole("button", { name: "Reload plan" })
-	).toBeVisible();
+	expect(screen.getByRole("button", { name: "Reload plan" })).toBeVisible();
 	expect(
 		within(stepItems()[0] as HTMLElement).getByText("Work a")
 	).toBeVisible();
@@ -385,6 +383,31 @@ test("a NOT_FOUND when loading the plan says the target was not found", async ()
 	expect(await screen.findByRole("alert")).toHaveTextContent(
 		"This Delivery Target was not found."
 	);
+});
+
+test("a server failure when loading the plan shows the Support Reference as text", async () => {
+	fakeApi.catalog = catalog();
+	fakeApi.getError = Object.assign(new Error("private details"), {
+		code: "INTERNAL_SERVER_ERROR",
+		data: { supportReference: "SUP-7CFB1C3A-A7A3-4BC2-B748-B5065AA2314A" },
+	});
+	renderView();
+
+	const alert = await screen.findByRole("alert");
+	expect(alert).toHaveTextContent("The Readiness Plan could not be loaded.");
+	expect(alert).toHaveTextContent(
+		"Support reference: SUP-7CFB1C3A-A7A3-4BC2-B748-B5065AA2314A"
+	);
+});
+
+test("a connection failure when loading the plan invents no Support Reference", async () => {
+	fakeApi.catalog = catalog();
+	fakeApi.getError = new TypeError("Failed to fetch");
+	renderView();
+
+	const alert = await screen.findByRole("alert");
+	expect(alert).toHaveTextContent("The Readiness Plan could not be loaded.");
+	expect(alert).not.toHaveTextContent("Support reference");
 });
 
 test("a project with no Delivery Targets says so", async () => {

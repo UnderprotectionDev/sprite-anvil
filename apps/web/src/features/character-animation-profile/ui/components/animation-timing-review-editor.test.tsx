@@ -400,7 +400,7 @@ test("keeps saved review fields read-only while allowing playback inspection", a
 	);
 
 	await waitFor(() =>
-		expect(screen.getByRole("button", { name: "Birlikte oynat" })).toBeEnabled()
+		expect(screen.getByRole("button", { name: "Play together" })).toBeEnabled()
 	);
 	expect(screen.getByLabelText("Animasyon adı")).toBeDisabled();
 	expect(screen.getByLabelText("Oynatma hızı")).toBeDisabled();
@@ -426,22 +426,22 @@ test("advances every direction on one clock and stops at pause and reset", async
 	vi.stubGlobal("cancelAnimationFrame", cancel);
 	renderEditor();
 	await waitFor(() =>
-		expect(screen.getByRole("button", { name: "Birlikte oynat" })).toBeEnabled()
+		expect(screen.getByRole("button", { name: "Play together" })).toBeEnabled()
 	);
 	fireEvent.change(screen.getByLabelText("Oynatma hızı"), {
 		target: { value: "2" },
 	});
 
-	fireEvent.click(screen.getByRole("button", { name: "Birlikte oynat" }));
+	fireEvent.click(screen.getByRole("button", { name: "Play together" }));
 	act(() => tick(1000));
 	act(() => tick(1150));
 	expect(screen.getByLabelText("Oynatma konumu (ms)")).toHaveValue(300);
 	expect(screen.getByTestId("preview-south")).toHaveTextContent("300ms");
 	expect(screen.getByTestId("preview-west")).toHaveTextContent("300ms");
 
-	fireEvent.click(screen.getByRole("button", { name: "Duraklat" }));
+	fireEvent.click(screen.getByRole("button", { name: "Pause" }));
 	expect(cancel).toHaveBeenCalledWith(1);
-	fireEvent.click(screen.getByRole("button", { name: "Başa dön" }));
+	fireEvent.click(screen.getByRole("button", { name: "Restart" }));
 	expect(screen.getByLabelText("Oynatma konumu (ms)")).toHaveValue(0);
 });
 
@@ -464,4 +464,25 @@ test("toggles a frame sprite sheet region from the keyboard and edits its bounds
 	await user.keyboard(" ");
 	expect(region).toHaveAttribute("aria-checked", "false");
 	expect(regionWidth()).not.toBeInTheDocument();
+});
+
+test("when the system already reduces motion nothing plays until Play together is pressed", async () => {
+	vi.stubGlobal("matchMedia", (query: string) => ({
+		matches: true,
+		media: query,
+		addEventListener: vi.fn(),
+		removeEventListener: vi.fn(),
+	}));
+	vi.stubGlobal(
+		"requestAnimationFrame",
+		vi.fn(() => 1)
+	);
+	vi.stubGlobal("cancelAnimationFrame", vi.fn());
+	renderEditor();
+	await waitFor(() =>
+		expect(screen.getByRole("button", { name: "Play together" })).toBeEnabled()
+	);
+	expect(screen.getByRole("note")).toHaveTextContent("reduced motion");
+	fireEvent.click(screen.getByRole("button", { name: "Play together" }));
+	expect(screen.getByRole("button", { name: "Pause" })).toBeInTheDocument();
 });

@@ -4,6 +4,7 @@ import type {
 	SheetSlicingPreview,
 } from "@sprite-anvil/api/pixel-editor-structure";
 import { useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { useFrameStructure } from "../../hooks/use-frame-structure";
 import { FrameEditor } from "../components/frame-editor";
 import { SlicingPreviewCanvas } from "../components/slicing-preview-canvas";
@@ -48,12 +49,12 @@ export function FrameStructurePanel({
 	}
 	if (!(structure || frames.hasNoStructure)) {
 		return (
-			<p role="alert">
+			<StatusMessage tone="error">
 				The frame structure could not be loaded.{" "}
 				{frames.structureQuery.error instanceof Error
 					? frames.structureQuery.error.message
 					: ""}
-			</p>
+			</StatusMessage>
 		);
 	}
 

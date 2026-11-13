@@ -16,6 +16,7 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import type z from "zod";
+import { StatusMessage } from "@/components/status-message";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { mutationMeta } from "@/utils/mutation-meta";
@@ -308,9 +309,9 @@ export function GenerationPackagePanel({
 		if (assetVersionsQuery.isError) {
 			return (
 				<div className="space-y-2">
-					<p className="text-sm" role="alert">
+					<StatusMessage tone="error">
 						Birim Sürümleri yüklenemedi.
-					</p>
+					</StatusMessage>
 					<Button
 						onClick={() => void assetVersionsQuery.refetch()}
 						type="button"
@@ -359,9 +360,9 @@ export function GenerationPackagePanel({
 		if (packagesQuery.isError) {
 			return (
 				<div className="space-y-2">
-					<p className="text-sm" role="alert">
+					<StatusMessage tone="error">
 						Üretim Paketleri yüklenemedi.
-					</p>
+					</StatusMessage>
 					<Button
 						onClick={() => void packagesQuery.refetch()}
 						type="button"
@@ -699,12 +700,12 @@ export function GenerationPackagePanel({
 				</FieldSet>
 
 				{errorMessage ? (
-					<p
-						className="rounded-md border border-destructive p-3 text-sm"
-						role="alert"
+					<StatusMessage
+						className="rounded-md border border-destructive p-3"
+						tone="error"
 					>
 						{errorMessage}
-					</p>
+					</StatusMessage>
 				) : null}
 				{writeOutcomeUncertain ? (
 					<Button

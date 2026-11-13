@@ -13,6 +13,7 @@ import {
 import { useForm, useStore } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { type SyntheticEvent, useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
 import { useIdempotencyKey } from "../../hooks/use-idempotency-key";
@@ -219,11 +220,11 @@ export function RefreshDeliveryForm({ projectId }: { projectId: string }) {
 			</div>
 
 			{contract && !contract.ok ? (
-				<p role="alert">
+				<StatusMessage tone="error">
 					{contract.reason === "unsupported_major"
 						? `This lock uses contract version ${lock?.contractVersion}, which this build cannot refresh from. The refresh is stopped.`
 						: "This lock is missing a required field or a full contract version and cannot be refreshed from. The refresh is stopped."}
-				</p>
+				</StatusMessage>
 			) : null}
 
 			{classification && plan ? (
@@ -295,8 +296,12 @@ export function RefreshDeliveryForm({ projectId }: { projectId: string }) {
 							Record refresh
 						</Button>
 					</div>
-					{recordError ? <p role="alert">{recordError}</p> : null}
-					{refresh.error ? <p role="alert">{refresh.error.message}</p> : null}
+					{recordError ? (
+						<StatusMessage tone="error">{recordError}</StatusMessage>
+					) : null}
+					{refresh.error ? (
+						<StatusMessage tone="error">{refresh.error.message}</StatusMessage>
+					) : null}
 					{refresh.data ? <RefreshResultPanel result={refresh.data} /> : null}
 				</div>
 			) : null}

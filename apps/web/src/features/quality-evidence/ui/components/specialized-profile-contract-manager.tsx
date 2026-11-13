@@ -2,6 +2,7 @@ import type { SpecializedProfileContractsListOutput } from "@sprite-anvil/api/sp
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { assetCategoryLabels } from "@/features/asset-records/lib/category-labels";
 import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
@@ -98,7 +99,9 @@ export function SpecializedProfileContractManager({
 			</div>
 			{query.isPending ? <p>Sözleşmeler yükleniyor…</p> : null}
 			{query.isError ? (
-				<p role="alert">Özel Profil Sözleşmeleri yüklenemedi.</p>
+				<StatusMessage tone="error">
+					Özel Profil Sözleşmeleri yüklenemedi.
+				</StatusMessage>
 			) : null}
 			{message ? (
 				<p aria-live="polite" role="status">

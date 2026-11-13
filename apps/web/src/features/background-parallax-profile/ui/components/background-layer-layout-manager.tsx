@@ -17,12 +17,15 @@ import {
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
+import {
+	StatusMessage,
+	WriteOutcomeMessage,
+} from "@/components/status-message";
 import { ENV } from "@/env";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
-
 import { BackgroundScrollingSetup } from "./background-scrolling-setup";
 
 type LayoutVersion = Pick<
@@ -194,7 +197,7 @@ export function BackgroundLayerLayoutManager({
 	const [pendingInput, setPendingInput] =
 		useState<BackgroundLayerLayoutInput | null>(null);
 	const [checking, setChecking] = useState(false);
-	const errorRef = useRef<HTMLParagraphElement>(null);
+	const errorRef = useRef<HTMLDivElement>(null);
 	const available = versions.filter(
 		(v) =>
 			v.assetFamilyId === assetFamilyId &&
@@ -319,12 +322,14 @@ export function BackgroundLayerLayoutManager({
 			</p>
 			<p>Actual scrolling test is still required.</p>
 			{query.isError ? (
-				<div role="alert">
-					{getErrorMessage(
-						query.error,
-						"Could not load layer layouts.",
-						"query"
-					)}{" "}
+				<div className="space-y-2">
+					<StatusMessage tone="error">
+						{getErrorMessage(
+							query.error,
+							"Could not load layer layouts.",
+							"query"
+						)}
+					</StatusMessage>
 					<Button onClick={() => query.refetch()} type="button">
 						Retry
 					</Button>
@@ -340,9 +345,9 @@ export function BackgroundLayerLayoutManager({
 				}}
 			>
 				{error ? (
-					<p ref={errorRef} role="alert" tabIndex={-1}>
+					<StatusMessage ref={errorRef} tabIndex={-1} tone="error">
 						{error}
-					</p>
+					</StatusMessage>
 				) : null}
 				<FieldSet
 					className="block space-y-4"
@@ -505,7 +510,7 @@ export function BackgroundLayerLayoutManager({
 					) : null}
 				</FieldSet>
 			</form>
-			{message ? <p role="status">{message}</p> : null}
+			<WriteOutcomeMessage message={message} uncertain={uncertain} />
 			{uncertain ? (
 				<div className="flex flex-wrap gap-2">
 					<Button

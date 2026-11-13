@@ -11,6 +11,7 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { useForm } from "@tanstack/react-form";
+import { StatusMessage } from "@/components/status-message";
 import { resizeCanvasFormSchema, scaleFormSchema } from "../../schemas";
 
 const anchorLabels: Record<CanvasAnchor, string> = {
@@ -179,8 +180,6 @@ function FormErrors({ errors }: { errors: unknown[] }) {
 		return [];
 	});
 	return messages.length > 0 ? (
-		<p className="text-destructive text-xs" role="alert">
-			{messages.join(" ")}
-		</p>
+		<StatusMessage tone="error">{messages.join(" ")}</StatusMessage>
 	) : null;
 }

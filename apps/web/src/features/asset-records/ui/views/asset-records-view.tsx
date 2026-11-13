@@ -20,6 +20,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { type ReactNode, useRef, useState } from "react";
 import { toast } from "sonner";
+import { StatusMessage } from "@/components/status-message";
 import { TaskWorkspace } from "@/components/task-workspace";
 import { AssetRecordSearchPanel } from "@/features/asset-discovery/ui/components/asset-record-search-panel";
 import { AnimationMetadataPackagePanel } from "@/features/character-animation-profile/ui/components/animation-metadata-package-panel";
@@ -207,8 +208,10 @@ export function AssetRecordsView({
 		recordsState = <p aria-live="polite">Varlık kayıtları yükleniyor…</p>;
 	} else if (recordsQuery.isError) {
 		recordsState = (
-			<div className="space-y-3" role="alert">
-				<p>Varlık kayıtları yüklenemedi.</p>
+			<div className="space-y-3">
+				<StatusMessage tone="error">
+					Varlık kayıtları yüklenemedi.
+				</StatusMessage>
 				<Button
 					onClick={() => void recordsQuery.refetch()}
 					type="button"
@@ -609,8 +612,10 @@ export function AssetRecordDetailView({
 					/>
 				) : null}
 				{trackingQuery.isError ? (
-					<div role="alert">
-						<p>Referanslara ait kayıt bilgisi yüklenemedi.</p>
+					<div>
+						<StatusMessage tone="error">
+							Referanslara ait kayıt bilgisi yüklenemedi.
+						</StatusMessage>
 						<Button
 							onClick={() => void trackingQuery.refetch()}
 							type="button"
@@ -656,10 +661,10 @@ export function AssetRecordDetailView({
 			</header>
 
 			{recordQuery.isError ? (
-				<div className="space-y-3" role="alert">
-					<p>
+				<div className="space-y-3">
+					<StatusMessage tone="error">
 						Kayıt yüklenemedi. Yeniden deneyin veya varlık kayıtlarına dönün.
-					</p>
+					</StatusMessage>
 					<Button
 						onClick={() => void recordQuery.refetch()}
 						type="button"
@@ -687,8 +692,10 @@ export function AssetRecordDetailView({
 										<p role="status">Sürüm geçmişi yükleniyor…</p>
 									) : null}
 									{trackingQuery.isError ? (
-										<div role="alert">
-											<p>Sürüm geçmişi yüklenemedi.</p>
+										<div>
+											<StatusMessage tone="error">
+												Sürüm geçmişi yüklenemedi.
+											</StatusMessage>
 											<Button
 												onClick={() => void trackingQuery.refetch()}
 												type="button"

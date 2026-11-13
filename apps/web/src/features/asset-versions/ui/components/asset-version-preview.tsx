@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 
 export function AssetVersionPreview({
 	recordName,
@@ -12,9 +13,9 @@ export function AssetVersionPreview({
 	const [failed, setFailed] = useState(false);
 	if (failed) {
 		return (
-			<p className="w-32 self-center text-destructive text-sm" role="alert">
+			<StatusMessage className="w-32 self-center" tone="error">
 				Sürüm {versionNumber} önizlemesi bütünlük doğrulamasından geçemedi.
-			</p>
+			</StatusMessage>
 		);
 	}
 	return (

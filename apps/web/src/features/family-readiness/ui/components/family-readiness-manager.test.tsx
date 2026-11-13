@@ -1403,7 +1403,7 @@ test("previews the current icon version and requires a fresh grayscale review af
 			.closest("form") as HTMLFormElement
 	);
 	expect(await usageForm.findByRole("alert")).toHaveTextContent(
-		"Kullanım çeşidi boşluklardan oluşamaz."
+		"Error: Kullanım çeşidi boşluklardan oluşamaz."
 	);
 	expect(fakeApi.recordEvidence).not.toHaveBeenCalled();
 
@@ -1730,15 +1730,15 @@ test("shows the blank usage variant error until a non-blank variant is entered a
 	expect(controls.queryByRole("alert")).toBeNull();
 	await submitAndSettle(form);
 	expect(await controls.findByRole("alert")).toHaveTextContent(
-		"Kullanım çeşidi boşluklardan oluşamaz."
+		"Error: Kullanım çeşidi boşluklardan oluşamaz."
 	);
 	expect(variant).toHaveAttribute("aria-invalid", "true");
 	expect(variant).toHaveAccessibleDescription(
-		"Kullanım çeşidi boşluklardan oluşamaz."
+		"Error: Kullanım çeşidi boşluklardan oluşamaz."
 	);
 	fireEvent.change(variant, { target: { value: "   " } });
 	expect(controls.getByRole("alert")).toHaveTextContent(
-		"Kullanım çeşidi boşluklardan oluşamaz."
+		"Error: Kullanım çeşidi boşluklardan oluşamaz."
 	);
 	fireEvent.change(variant, { target: { value: " Hotbar " } });
 	expect(controls.queryByRole("alert")).toBeNull();

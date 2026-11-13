@@ -159,3 +159,27 @@ test("toggles a visual layer checkbox by pointer and Space and redraws", async (
 		expect(drawCalls.filter((call) => call.method === "rect")).toHaveLength(1);
 	});
 });
+
+test("lists each drawn layer and its position as text, not only as line color", async () => {
+	render(
+		<GameplayMetadataOverlay
+			onReady={() => undefined}
+			previewUrl="/preview.png"
+			record={recordWith([
+				pxAreaField([{ x: 4, y: 6, width: 10, height: 12 }]),
+				{
+					fieldId: "pivot",
+					value: { x: 2, y: 3 },
+					unit: "px",
+					coordinateSystem: "source_image_top_left",
+					source: { kind: "authored" },
+				},
+			])}
+		/>
+	);
+	const list = screen.getByRole("list", { name: "Layer positions" });
+	expect(list).toHaveTextContent("collision_areas · (4, 6) 10×12");
+	expect(list).toHaveTextContent("pivot · (2, 3)");
+	await userEvent.click(screen.getByRole("checkbox", { name: "pivot" }));
+	expect(list).not.toHaveTextContent("pivot · (2, 3)");
+});

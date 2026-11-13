@@ -16,6 +16,7 @@ import {
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ReducedMotionNotice } from "@/components/reduced-motion-notice";
 import { AnimationTimingClipPreview } from "./animation-timing-clip-preview";
 import {
 	AnimationTimingEventTimeline,
@@ -250,7 +251,7 @@ export function AnimationTimingReviewEditor({
 					onClick={() => setPlaying((value) => !value)}
 					type="button"
 				>
-					{playing ? "Duraklat" : "Birlikte oynat"}
+					{playing ? "Pause" : "Play together"}
 				</Button>
 				<Button
 					disabled={!canPlay}
@@ -260,7 +261,7 @@ export function AnimationTimingReviewEditor({
 					}}
 					type="button"
 				>
-					Başa dön
+					Restart
 				</Button>
 				<Label className="block space-y-1 text-sm">
 					Oynatma konumu (ms)
@@ -277,6 +278,7 @@ export function AnimationTimingReviewEditor({
 					/>
 				</Label>
 			</div>
+			<ReducedMotionNotice onReducedMotion={() => setPlaying(false)} />
 			<form
 				className="space-y-4"
 				onSubmit={(event) => {

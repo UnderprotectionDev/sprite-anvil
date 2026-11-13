@@ -16,6 +16,7 @@ import {
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { ReducedMotionNotice } from "@/components/reduced-motion-notice";
 import { vfxAppearanceFormSchema, vfxReviewResultSchema } from "../../schemas";
 import { VfxAppearancePlaybackControls } from "./vfx-appearance-playback-controls";
 import { VfxAppearancePreview } from "./vfx-appearance-preview";
@@ -451,6 +452,7 @@ export function VfxAppearanceEditor({
 				}
 				ready={ready}
 			/>
+			<ReducedMotionNotice onReducedMotion={() => setPlaying(false)} />
 			{draft.frames.every(
 				(frame) => vfxAppearanceFrameSchema.safeParse(frame).success
 			) &&

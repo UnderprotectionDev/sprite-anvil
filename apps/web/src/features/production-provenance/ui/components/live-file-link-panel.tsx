@@ -4,6 +4,7 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { readFile, stat, type UnwatchFn, watch } from "@tauri-apps/plugin-fs";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { useEffect, useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import {
 	type LiveFileChangeDependencies,
 	type LiveFileInfo,
@@ -354,11 +355,7 @@ export function LiveFileLinkPanel({
 					kullanılabilir.
 				</p>
 			)}
-			{error ? (
-				<p className="text-destructive text-sm" role="alert">
-					{error}
-				</p>
-			) : null}
+			{error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
 			{status ? (
 				<p className="text-sm" role="status">
 					{status}

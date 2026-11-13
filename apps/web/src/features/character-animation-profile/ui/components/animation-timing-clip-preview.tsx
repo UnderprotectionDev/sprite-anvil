@@ -1,7 +1,7 @@
 import type { AnimationTimingReviewFrame } from "@sprite-anvil/api/animation-timing-reviews";
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
 import { useEffect, useRef, useState } from "react";
-
+import { StatusMessage } from "@/components/status-message";
 import { ENV } from "@/env";
 
 const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
@@ -259,7 +259,7 @@ export function AnimationTimingClipPreview({
 				/>
 			</div>
 			{atLoopBoundary ? <p>Döngü sınırı · son kare → ilk kare</p> : null}
-			{error ? <p role="alert">{error}</p> : null}
+			{error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
 		</figure>
 	);
 }

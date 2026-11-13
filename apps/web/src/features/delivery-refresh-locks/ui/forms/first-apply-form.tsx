@@ -8,6 +8,7 @@ import {
 import { useForm, useStore } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { type SyntheticEvent, useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
 import { useApplyDelivery } from "../../hooks/use-apply-delivery";
@@ -204,7 +205,7 @@ export function FirstApplyForm({ projectId }: { projectId: string }) {
 			<Button className="min-h-11" disabled={apply.isPending} type="submit">
 				Apply bundle and lock
 			</Button>
-			{failure ? <p role="alert">{failure}</p> : null}
+			{failure ? <StatusMessage tone="error">{failure}</StatusMessage> : null}
 			{apply.data ? (
 				<LockPanel
 					heading={

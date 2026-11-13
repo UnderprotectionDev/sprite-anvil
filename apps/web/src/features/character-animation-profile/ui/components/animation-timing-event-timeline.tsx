@@ -2,6 +2,7 @@ import type { AnimationTimingReviewInput } from "@sprite-anvil/api/animation-tim
 import type { GameplayMetadataRecord } from "@sprite-anvil/api/gameplay-metadata";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { type ReactNode, useMemo } from "react";
+import { StatusMessage } from "@/components/status-message";
 
 export type AnimationTimingMetadataStatus = "loading" | "ready" | "error";
 
@@ -259,12 +260,12 @@ export function AnimationTimingEventTimeline({
 	let metadataNotice: ReactNode = null;
 	if (gameplayMetadataStatus === "error") {
 		metadataNotice = (
-			<p className="flex flex-wrap items-center gap-2 text-sm" role="alert">
+			<StatusMessage className="flex flex-wrap items-center gap-2" tone="error">
 				{message} Olay olmadığı varsayılmadı.
 				<Button onClick={onRetryGameplayMetadata} type="button">
 					Olay bilgilerini yeniden yükle
 				</Button>
-			</p>
+			</StatusMessage>
 		);
 	} else if (message) {
 		metadataNotice = (

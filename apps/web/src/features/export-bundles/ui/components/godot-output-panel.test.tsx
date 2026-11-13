@@ -178,7 +178,7 @@ test("a refused output is shown as an error and nothing is downloaded", async ()
 	await userEvent.click(button as HTMLElement);
 
 	expect(await screen.findByRole("alert")).toHaveTextContent(
-		"The bundle names another adapter."
+		"Error: Godot output could not be created: The bundle names another adapter."
 	);
 	expect(downloads).toHaveLength(0);
 });

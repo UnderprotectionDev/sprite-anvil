@@ -1,6 +1,7 @@
 import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
 import { type ReactNode, useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import {
 	describeError,
 	type ExportBundleManifestSummary,
@@ -70,7 +71,7 @@ function VerificationResult({ reading }: { reading: ExportBundleReading }) {
 				)}
 			</section>
 			{reading.manifestError ? (
-				<p role="alert">{reading.manifestError}</p>
+				<StatusMessage tone="error">{reading.manifestError}</StatusMessage>
 			) : null}
 			{reading.manifest ? <ManifestSummary summary={reading.manifest} /> : null}
 		</div>
@@ -131,7 +132,9 @@ export function ExportBundleVerificationView({
 					Verifying bundle…
 				</p>
 			) : null}
-			{readError ? <p role="alert">{readError}</p> : null}
+			{readError ? (
+				<StatusMessage tone="error">{readError}</StatusMessage>
+			) : null}
 			{reading && !isReading ? <VerificationResult reading={reading} /> : null}
 		</main>
 	);

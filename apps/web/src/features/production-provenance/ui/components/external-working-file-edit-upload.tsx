@@ -8,6 +8,7 @@ import type {
 } from "react";
 import { useId, useRef, useState } from "react";
 import type z from "zod";
+import { StatusMessage } from "@/components/status-message";
 import {
 	candidateExportFileSchema,
 	externalWorkingFileEditFormSchema,
@@ -221,11 +222,7 @@ export function ExternalWorkingFileEditUpload({
 					)}
 				</form.Field>
 			</div>
-			{error ? (
-				<p className="text-destructive text-sm" role="alert">
-					{error}
-				</p>
-			) : null}
+			{error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
 			<Button
 				disabled={
 					disabled || busy || !values.candidateFile || !values.sourceFile

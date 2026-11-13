@@ -1,6 +1,7 @@
 import type { DeliveryTargetDraft } from "@sprite-anvil/api/delivery-planning-outputs";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { errorCodeOf } from "@/utils/error-code";
 import { useActivateDeliveryTarget } from "../../hooks/use-delivery-target-writes";
 import { DeliveryTargetScope } from "./delivery-target-scope";
@@ -55,11 +56,7 @@ export function DeliveryDraftReview({
 				Target Readiness does not change until a revision is activated, and no
 				family's Required Items List is replaced.
 			</p>
-			{failure ? (
-				<p className="text-destructive text-sm" role="alert">
-					{failure}
-				</p>
-			) : null}
+			{failure ? <StatusMessage tone="error">{failure}</StatusMessage> : null}
 			<Button
 				className="min-h-11"
 				disabled={activate.isPending}

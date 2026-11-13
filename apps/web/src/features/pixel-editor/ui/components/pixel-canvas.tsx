@@ -67,6 +67,7 @@ export function PixelCanvas({
 	const [anchor, setAnchor] = useState<Cell | null>(null);
 	const [hover, setHover] = useState<Cell | null>(null);
 	const [path, setPath] = useState<Cell[]>([]);
+	const [notice, setNotice] = useState("");
 	const { zoom } = state;
 	const width = size.width * zoom;
 	const height = size.height * zoom;
@@ -103,6 +104,13 @@ export function PixelCanvas({
 		setPath([]);
 	}
 
+	function cancel() {
+		if (anchor) {
+			setNotice("Cancelled.");
+		}
+		reset();
+	}
+
 	function begin(cell: Cell) {
 		if (disabled) {
 			return;
@@ -119,8 +127,10 @@ export function PixelCanvas({
 			return;
 		}
 		if (state.tool === "move" && !state.selection) {
+			setNotice("Select an area first with the Select tool, then use Move.");
 			return;
 		}
+		setNotice("");
 		setAnchor(cell);
 		setPath(state.tool === "pen" || state.tool === "eraser" ? [cell] : []);
 	}
@@ -178,6 +188,7 @@ export function PixelCanvas({
 			x: Math.min(Math.max(current.x + step.x, 0), size.width - 1),
 			y: Math.min(Math.max(current.y + step.y, 0), size.height - 1),
 		};
+		setNotice("");
 		setHover(next);
 		if (anchor && (state.tool === "pen" || state.tool === "eraser")) {
 			setPath((previous) => [...previous, next]);
@@ -198,7 +209,7 @@ export function PixelCanvas({
 				begin(current);
 			}
 		} else if (event.key === "Escape") {
-			reset();
+			cancel();
 		}
 	}
 
@@ -221,6 +232,7 @@ export function PixelCanvas({
 			<div
 				aria-label={`${label}. Arrow keys move the cursor, Enter applies the active tool, Escape cancels.`}
 				className="w-fit outline-none focus-visible:ring-2 focus-visible:ring-ring"
+				onFocus={() => setHover((current) => current ?? { x: 0, y: 0 })}
 				onKeyDown={onKeyDown}
 				role="application"
 				// biome-ignore lint/a11y/noNoninteractiveTabindex: Keyboard focus is how the custom pixel cursor receives arrow keys.
@@ -269,6 +281,10 @@ export function PixelCanvas({
 			<p aria-live="polite" className="text-muted-foreground text-xs">
 				{hover ? `Pixel ${hover.x}, ${hover.y}` : "Pixel grid"}
 				{anchor ? ` · started at ${anchor.x}, ${anchor.y}` : ""}
+				{state.selection
+					? ` · Selection ${state.selection.width} × ${state.selection.height} at ${state.selection.x}, ${state.selection.y}`
+					: ""}
+				{notice ? ` · ${notice}` : ""}
 			</p>
 		</div>
 	);

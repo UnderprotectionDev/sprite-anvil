@@ -18,6 +18,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { ENV } from "@/env";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { mutationMeta } from "@/utils/mutation-meta";
@@ -159,7 +160,9 @@ function ManualImportEvidenceSection({
 									))}
 								</NativeSelect>
 								{packagesLoadError ? (
-									<span role="alert">Üretim Paketleri yüklenemedi.</span>
+									<StatusMessage tone="error">
+										Üretim Paketleri yüklenemedi.
+									</StatusMessage>
 								) : null}
 								{noGenerationPackages ? (
 									<span className="text-muted-foreground">
@@ -546,9 +549,7 @@ export function VersionProductionEvidencePanel({
 				</p>
 			) : null}
 			{errorMessage ? (
-				<p aria-live="assertive" role="alert">
-					{errorMessage}
-				</p>
+				<StatusMessage tone="error">{errorMessage}</StatusMessage>
 			) : null}
 		</section>
 	);

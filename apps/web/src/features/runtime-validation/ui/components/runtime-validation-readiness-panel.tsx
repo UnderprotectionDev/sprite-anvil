@@ -6,6 +6,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { LoadErrorAlert } from "@/components/load-error-alert";
+import { getSupportReference } from "@/utils/error-notification";
 import { orpc } from "@/utils/orpc";
 import { blockerLabels } from "../../lib/runtime-validation-labels";
 
@@ -48,6 +49,7 @@ function TargetReadiness({
 				<LoadErrorAlert
 					message="Runtime validation readiness could not be loaded."
 					onRetry={() => void readiness.refetch()}
+					supportReference={getSupportReference(readiness.error)}
 				/>
 			) : null}
 			{readiness.isSuccess ? (
@@ -116,6 +118,7 @@ export function RuntimeValidationReadinessPanel({
 				<LoadErrorAlert
 					message="Delivery Targets could not be loaded."
 					onRetry={() => void catalog.refetch()}
+					supportReference={getSupportReference(catalog.error)}
 				/>
 			) : null}
 			<div className="space-y-2">

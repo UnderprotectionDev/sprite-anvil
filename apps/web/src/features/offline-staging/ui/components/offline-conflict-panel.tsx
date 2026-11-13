@@ -15,6 +15,7 @@ import {
 } from "@sprite-anvil/ui/components/alert-dialog";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import type { AbandonConfirmationInput } from "../../hooks/use-offline-reconcile";
 import { conflictPreviewUrl } from "../../lib/offline-conflict-api";
 import { countOperations, describeCounts } from "../../lib/operation-summary";
@@ -183,7 +184,7 @@ export function OfflineConflictPanel({
 					</Button>
 				</div>
 			)}
-			{error ? <p role="alert">{error}</p> : null}
+			{error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
 			<AlertDialog
 				onOpenChange={(open) => {
 					if (!open) {

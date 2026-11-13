@@ -14,6 +14,7 @@ import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { type RefObject, useRef, useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { ProviderGenerationRecordForm } from "@/features/asset-versions/ui/components/provider-generation-record-form";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
@@ -137,9 +138,9 @@ function ManualImportPackageForm({
 	if (isError) {
 		return (
 			<div className="mt-4 space-y-2">
-				<p className="text-sm" role="alert">
+				<StatusMessage tone="error">
 					Üretim Paketleri yüklenemedi.
-				</p>
+				</StatusMessage>
 				<Button
 					disabled={isSaving}
 					onClick={onRetry}
@@ -242,9 +243,9 @@ function ManualImportPackageForm({
 				)}
 			</form.Field>
 			{file && !fileIsSupported ? (
-				<p className="text-sm" role="alert">
+				<StatusMessage tone="error">
 					5 MB’a kadar PNG veya WebP dosyası seçin.
-				</p>
+				</StatusMessage>
 			) : null}
 			<form.Field name="generationPackageId">
 				{(field) => (
@@ -536,9 +537,9 @@ export function ManualImportEvidenceForm({
 				sonuç dosyasıyla birlikte kaydedin. Tam konuşma arşivi gerekmez.
 			</p>
 			{errorMessage ? (
-				<p className="mt-3 text-sm" role="alert">
+				<StatusMessage className="mt-3" tone="error">
 					{errorMessage}
-				</p>
+				</StatusMessage>
 			) : null}
 			{statusMessage ? (
 				<p aria-live="polite" className="mt-3 text-sm" role="status">

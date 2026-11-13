@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { StatusMessage } from "@/components/status-message";
 import { orpc } from "@/utils/orpc";
 
 const projectLinks = [
@@ -57,9 +58,9 @@ export function ProjectNavigation({ projectId }: { projectId: string }) {
 						<span role="status">Proje yükleniyor…</span>
 					) : null}
 					{projectQuery.isError ? (
-						<span className="text-sm" role="alert">
+						<StatusMessage tone="error">
 							Proje bilgisi yüklenemedi. Projelerden yeniden açın.
-						</span>
+						</StatusMessage>
 					) : null}
 				</div>
 				<nav aria-label="Proje gezinmesi" className="flex flex-wrap gap-1">

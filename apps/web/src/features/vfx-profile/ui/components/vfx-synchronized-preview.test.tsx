@@ -3,6 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
 import type { VfxSynchronizationInput } from "@sprite-anvil/api/vfx-synchronization";
 import {
+	act,
 	cleanup,
 	fireEvent,
 	render,
@@ -34,6 +35,7 @@ beforeEach(() => {
 });
 afterEach(() => {
 	cleanup();
+	vi.unstubAllGlobals();
 	mocks.render.mockReset();
 });
 
@@ -126,4 +128,58 @@ test("reports a missing version and keeps playback disabled", async () => {
 	expect(onReady).toHaveBeenLastCalledWith(false);
 	expect(screen.getByRole("button", { name: "Play" })).toBeDisabled();
 	expect(screen.getByRole("button", { name: "Restart" })).toBeDisabled();
+});
+
+function stubReducedMotion(initial: boolean) {
+	let matches = initial;
+	const listeners = new Set<() => void>();
+	vi.stubGlobal("matchMedia", (query: string) => ({
+		get matches() {
+			return matches;
+		},
+		media: query,
+		addEventListener: (_: string, listener: () => void) =>
+			listeners.add(listener),
+		removeEventListener: (_: string, listener: () => void) =>
+			listeners.delete(listener),
+	}));
+	return (next: boolean) => {
+		matches = next;
+		for (const listener of listeners) {
+			listener();
+		}
+	};
+}
+
+test("pauses playback and explains it when the system turns reduced motion on", async () => {
+	const setReduced = stubReducedMotion(false);
+	const onReady = mount();
+	await waitFor(() => expect(onReady).toHaveBeenLastCalledWith(true));
+	fireEvent.click(screen.getByRole("button", { name: "Play" }));
+	expect(screen.getByRole("button", { name: "Pause" })).toBeEnabled();
+	act(() => setReduced(true));
+	expect(screen.getByRole("button", { name: "Play" })).toBeEnabled();
+	expect(screen.getByRole("note")).toHaveTextContent("reduced motion");
+	fireEvent.click(screen.getByRole("button", { name: "Play" }));
+	expect(screen.getByRole("button", { name: "Pause" })).toBeEnabled();
+});
+
+test("when the system already reduces motion playback starts paused until Play is pressed", async () => {
+	vi.stubGlobal("matchMedia", (query: string) => ({
+		matches: true,
+		media: query,
+		addEventListener: vi.fn(),
+		removeEventListener: vi.fn(),
+	}));
+	vi.stubGlobal(
+		"requestAnimationFrame",
+		vi.fn(() => 1)
+	);
+	vi.stubGlobal("cancelAnimationFrame", vi.fn());
+	const onReady = mount();
+	await waitFor(() => expect(onReady).toHaveBeenLastCalledWith(true));
+	expect(screen.getByRole("note")).toHaveTextContent("reduced motion");
+	expect(screen.getByRole("button", { name: "Play" })).toBeEnabled();
+	fireEvent.click(screen.getByRole("button", { name: "Play" }));
+	expect(screen.getByRole("button", { name: "Pause" })).toBeEnabled();
 });

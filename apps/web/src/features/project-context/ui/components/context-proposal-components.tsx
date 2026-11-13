@@ -18,6 +18,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
+import { StatusMessage } from "@/components/status-message";
 import { TaskWorkspace } from "@/components/task-workspace";
 import { ScopeRegistryPanel } from "@/features/visual-worlds/ui/components/context-scope-registry";
 import { orpc } from "@/utils/orpc";
@@ -175,8 +176,8 @@ function ProposalLedger({
 		);
 	} else if (isError) {
 		content = (
-			<div className="ledger-empty" role="alert">
-				<p>Öneriler yüklenemedi.</p>
+			<div className="ledger-empty">
+				<StatusMessage tone="error">Öneriler yüklenemedi.</StatusMessage>
 				<Button className="quiet-button" onClick={onRetry} type="button">
 					Yeniden dene
 				</Button>

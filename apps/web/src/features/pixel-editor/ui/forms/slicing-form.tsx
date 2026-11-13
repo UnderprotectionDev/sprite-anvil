@@ -11,6 +11,7 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { useForm } from "@tanstack/react-form";
+import { StatusMessage } from "@/components/status-message";
 import { slicingFormSchema } from "../../schemas";
 
 const readingOrderLabels: Record<SheetReadingOrder, string> = {
@@ -111,10 +112,10 @@ export function SlicingForm({
 			<form.Subscribe selector={(state) => state.errors}>
 				{(errors) =>
 					errors.length > 0 ? (
-						<p className="text-destructive text-xs" role="alert">
+						<StatusMessage tone="error">
 							Check the highlighted numbers: all values must be whole numbers
 							within range.
-						</p>
+						</StatusMessage>
 					) : null
 				}
 			</form.Subscribe>

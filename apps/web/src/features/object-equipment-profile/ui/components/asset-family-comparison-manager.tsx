@@ -14,6 +14,10 @@ import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import {
+	StatusMessage,
+	WriteOutcomeMessage,
+} from "@/components/status-message";
 import { ENV } from "@/env";
 import { AssetVersionPreview } from "@/features/asset-versions/ui/components/asset-version-preview";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
@@ -229,14 +233,16 @@ export function AssetFamilyComparisonManager({
 				</p>
 			</header>
 			{query.isError ? (
-				<div role="alert">
-					Karşılaştırmalar okunamadı.{" "}
+				<div className="space-y-2">
+					<StatusMessage tone="error">
+						Karşılaştırmalar okunamadı.
+					</StatusMessage>
 					<Button onClick={() => void query.refetch()} type="button">
 						Kayıtları yeniden oku
 					</Button>
 				</div>
 			) : null}
-			{message ? <p role="status">{message}</p> : null}
+			<WriteOutcomeMessage message={message} uncertain={uncertain} />
 			{uncertain ? (
 				<Button
 					disabled={query.isFetching}

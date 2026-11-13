@@ -18,6 +18,7 @@ import {
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { mutationMeta } from "@/utils/mutation-meta";
@@ -453,7 +454,7 @@ export function BackgroundScrollingSetup({
 					{busy ? "Saving…" : "Save scrolling test"}
 				</Button>
 			</FieldSet>
-			{error ? <p role="alert">{error}</p> : null}
+			{error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
 			{message ? <p role="status">{message}</p> : null}
 			{pending ? (
 				<div className="flex flex-wrap gap-3">
@@ -481,12 +482,12 @@ export function BackgroundScrollingSetup({
 				</div>
 			) : null}
 			{query.isError ? (
-				<p role="alert">
+				<StatusMessage tone="error">
 					Could not load scrolling tests.{" "}
 					<Button onClick={() => query.refetch()} type="button">
 						Retry tests
 					</Button>
-				</p>
+				</StatusMessage>
 			) : null}
 			<h4>Saved scrolling tests</h4>
 			{query.data

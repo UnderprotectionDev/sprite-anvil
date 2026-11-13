@@ -163,11 +163,9 @@ test("shows every issue of the first invalid state without saving", async () => 
 	});
 	expect(screen.queryByLabelText("Observation")).not.toBeInTheDocument();
 	fireEvent.click(screen.getByRole("button", { name: "Save stretch test" }));
-	expect(
-		await screen.findByText(
-			"Stretch margins must leave a positive source center. Text safe area must fit inside the source image."
-		)
-	).toHaveAttribute("role", "alert");
+	expect(await screen.findByRole("alert")).toHaveTextContent(
+		"Error: Stretch margins must leave a positive source center. Text safe area must fit inside the source image."
+	);
 	expect(mocks.save).not.toHaveBeenCalled();
 });
 test("shows configuration issues once every state is valid", async () => {
@@ -193,9 +191,9 @@ test("shows configuration issues once every state is valid", async () => {
 		fireEvent.change(second(label), { target: { value } });
 	}
 	fireEvent.click(screen.getByRole("button", { name: "Save stretch test" }));
-	expect(
-		await screen.findByText("Component and state identities must be unique.")
-	).toHaveAttribute("role", "alert");
+	expect(await screen.findByRole("alert")).toHaveTextContent(
+		"Error: Component and state identities must be unique."
+	);
 	expect(mocks.save).not.toHaveBeenCalled();
 	fireEvent.click(screen.getByRole("button", { name: "Remove state 2" }));
 	expect(screen.getByRole("button", { name: "Remove state 1" })).toBeDisabled();

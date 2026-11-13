@@ -1,5 +1,6 @@
 import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
+import { StatusMessage } from "@/components/status-message";
 
 interface AccountAccessFieldProps {
 	autoComplete: string;
@@ -38,13 +39,9 @@ export function AccountAccessField({
 				value={field.state.value}
 			/>
 			{field.state.meta.errors.map((error) => (
-				<p
-					className="text-destructive text-sm"
-					key={error?.message}
-					role="alert"
-				>
+				<StatusMessage key={error?.message} tone="error">
 					{error?.message}
-				</p>
+				</StatusMessage>
 			))}
 		</div>
 	);
