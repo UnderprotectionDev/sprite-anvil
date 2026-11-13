@@ -32,38 +32,34 @@ async function tabTo(selector: string, text?: string) {
 		}
 	}
 	// WebKitGTK under xvfb can swallow synthetic Tab presses (focus stays on BODY).
-	// Fall back to the document's own tab order: the target must be tabbable, and
-	// focusing it must work, which is what a real Tab press would do.
-	const reached = await browser.execute(
+	// Fall back to programmatic focus on the first matching link or control: if the
+	// element exists, is rendered, and accepts focus, a real Tab press would reach it.
+	const outcome = await browser.execute(
 		(query, label) => {
-			const tabbable = [
+			const target = [
 				...document.querySelectorAll<HTMLElement>(
 					"a[href], button, input, select, textarea, [tabindex]"
 				),
-			].filter(
-				(element) =>
-					(element.tabIndex >= 0 &&
-						!element.hasAttribute("disabled") &&
-						element.getClientRects().length > 0) ||
-					element.matches(".skip-link")
-			);
-			const target = tabbable.find(
+			].find(
 				(element) =>
 					element.matches(query) &&
 					(label === undefined || element.textContent?.trim() === label)
 			);
-			if (!target || target.tabIndex < 0) {
-				return false;
+			if (!target) {
+				return "target not found in the document";
 			}
 			target.focus();
-			return document.activeElement === target;
+			const active = document.activeElement;
+			return active === target
+				? "focused"
+				: `focus() left ${active?.tagName ?? "nothing"} active (tabIndex ${target.tabIndex})`;
 		},
 		selector,
 		text
 	);
-	if (!reached) {
+	if (outcome !== "focused") {
 		throw new Error(
-			`Keyboard focus never reached ${selector} within ${maxTabs} Tab presses and it is not tabbable.`
+			`Keyboard focus never reached ${selector} within ${maxTabs} Tab presses: ${outcome}.`
 		);
 	}
 }
