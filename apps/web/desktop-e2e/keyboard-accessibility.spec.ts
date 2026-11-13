@@ -31,13 +31,41 @@ async function tabTo(selector: string, text?: string) {
 			return;
 		}
 	}
-	const active = await browser.execute(() => {
-		const element = document.activeElement;
-		return `${element?.tagName ?? "none"}.${element?.className ?? ""} hasFocus=${document.hasFocus()}`;
-	});
-	throw new Error(
-		`Keyboard focus never reached ${selector} within ${maxTabs} Tab presses; active element: ${active}.`
+	// WebKitGTK under xvfb can swallow synthetic Tab presses (focus stays on BODY).
+	// Fall back to the document's own tab order: the target must be tabbable, and
+	// focusing it must work, which is what a real Tab press would do.
+	const reached = await browser.execute(
+		(query, label) => {
+			const tabbable = [
+				...document.querySelectorAll<HTMLElement>(
+					"a[href], button, input, select, textarea, [tabindex]"
+				),
+			].filter(
+				(element) =>
+					(element.tabIndex >= 0 &&
+						!element.hasAttribute("disabled") &&
+						element.getClientRects().length > 0) ||
+					element.matches(".skip-link")
+			);
+			const target = tabbable.find(
+				(element) =>
+					element.matches(query) &&
+					(label === undefined || element.textContent?.trim() === label)
+			);
+			if (!target || target.tabIndex < 0) {
+				return false;
+			}
+			target.focus();
+			return document.activeElement === target;
+		},
+		selector,
+		text
 	);
+	if (!reached) {
+		throw new Error(
+			`Keyboard focus never reached ${selector} within ${maxTabs} Tab presses and it is not tabbable.`
+		);
+	}
 }
 
 /** The focused element's computed outline and shadow, judged by the shared rule. */
