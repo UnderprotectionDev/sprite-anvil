@@ -6,6 +6,13 @@ const maxTabs = 40;
 
 /** Presses Tab until the element matching `selector` (CSS) or showing `text` owns focus. */
 async function tabTo(selector: string, text?: string) {
+	// Under xvfb the webview may not own keyboard focus yet; without it Tab never moves focus.
+	await browser.execute(() => {
+		window.focus();
+		if (document.activeElement instanceof HTMLElement) {
+			document.activeElement.blur();
+		}
+	});
 	for (let index = 0; index < maxTabs; index += 1) {
 		// biome-ignore lint/performance/noAwaitInLoops: each Tab press must settle before the next
 		await browser.keys("Tab");
@@ -24,8 +31,12 @@ async function tabTo(selector: string, text?: string) {
 			return;
 		}
 	}
+	const active = await browser.execute(() => {
+		const element = document.activeElement;
+		return `${element?.tagName ?? "none"}.${element?.className ?? ""} hasFocus=${document.hasFocus()}`;
+	});
 	throw new Error(
-		`Keyboard focus never reached ${selector} within ${maxTabs} Tab presses.`
+		`Keyboard focus never reached ${selector} within ${maxTabs} Tab presses; active element: ${active}.`
 	);
 }
 
