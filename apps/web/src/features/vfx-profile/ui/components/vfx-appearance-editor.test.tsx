@@ -3,6 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
 import type { VfxAppearanceInput } from "@sprite-anvil/api/vfx-appearance-reviews";
 import {
+	act,
 	cleanup,
 	configure,
 	fireEvent,
@@ -35,6 +36,7 @@ vi.mock("./vfx-appearance-preview", () => ({
 }));
 afterEach(() => {
 	cleanup();
+	vi.unstubAllGlobals();
 	mocks.readable = true;
 	mocks.seen = [];
 });
@@ -121,6 +123,7 @@ test("blocks saving when images cannot be decoded and keeps historical reviews i
 	).toBeDisabled();
 	expect(onSave).not.toHaveBeenCalled();
 	cleanup();
+	vi.unstubAllGlobals();
 	mocks.readable = true;
 	mount(onSave, true);
 	await waitFor(() =>
@@ -268,4 +271,38 @@ test("does not toggle options of an immutable review", async () => {
 	expect(screen.getByLabelText("Effect name")).toBeDisabled();
 	expect(screen.getByLabelText("Result")).toBeDisabled();
 	expect(screen.getByLabelText("Review notes")).toBeDisabled();
+});
+
+function stubReducedMotion(startsReduced: boolean) {
+	let matches = startsReduced;
+	const listeners = new Set<() => void>();
+	vi.stubGlobal("matchMedia", (query: string) => ({
+		get matches() {
+			return matches;
+		},
+		media: query,
+		addEventListener: (_: string, listener: () => void) =>
+			listeners.add(listener),
+		removeEventListener: (_: string, listener: () => void) =>
+			listeners.delete(listener),
+	}));
+	return (next: boolean) => {
+		matches = next;
+		for (const listener of listeners) {
+			listener();
+		}
+	};
+}
+
+test("pauses the appearance preview and explains it when the system turns reduced motion on", async () => {
+	const setReduced = stubReducedMotion(false);
+	mount();
+	await waitFor(() =>
+		expect(screen.getByRole("button", { name: "Play" })).toBeEnabled()
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Play" }));
+	expect(screen.getByRole("button", { name: "Pause" })).toBeEnabled();
+	act(() => setReduced(true));
+	expect(screen.getByRole("button", { name: "Play" })).toBeEnabled();
+	expect(screen.getByRole("note")).toHaveTextContent("reduced motion");
 });

@@ -10,8 +10,10 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Slider } from "@sprite-anvil/ui/components/slider";
+import { usePrefersReducedMotion } from "@sprite-anvil/ui/hooks/use-prefers-reduced-motion";
 import type { Application as PixiApplication } from "pixi.js";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ReducedMotionNotice } from "@/components/reduced-motion-notice";
 import { ENV } from "@/env";
 
 import { getVfxPreviewLayout } from "../../lib/vfx-preview-layout";
@@ -79,6 +81,12 @@ export function VfxSynchronizedPreview({
 	const [error, setError] = useState("");
 	const [ready, setReady] = useState(false);
 	const [playing, setPlaying] = useState(false);
+	const reducedMotion = usePrefersReducedMotion();
+	useEffect(() => {
+		if (reducedMotion) {
+			setPlaying(false);
+		}
+	}, [reducedMotion]);
 	const [elapsedMs, setElapsedMs] = useState(0);
 	const [background, setBackground] = useState<Background>("transparent");
 	const [alone, setAlone] = useState(false);
@@ -325,6 +333,7 @@ export function VfxSynchronizedPreview({
 					}}
 				/>
 			</div>
+			<ReducedMotionNotice reducedMotion={reducedMotion} />
 			{error ? (
 				<p role="alert">{error}</p>
 			) : (
