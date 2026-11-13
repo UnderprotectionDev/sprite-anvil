@@ -43,9 +43,11 @@ import { createIconFamilyReviewStore } from "./features/icon-profile/server/icon
 import { createImportInboxStore } from "./features/imports/server/import-inbox-store";
 import { createSourceMetadataMappingProposalStore } from "./features/imports/server/source-metadata-mapping-store";
 import { createAssetFamilyComparisonStore } from "./features/object-equipment-profile/server/asset-family-comparison-store";
+import { createDatabaseErasureDeletionStorage } from "./features/permanent-erasure/server/database-erasure-deletion-storage";
 import { createDatabaseErasureImpactStorage } from "./features/permanent-erasure/server/database-erasure-impact-storage";
 import { createErasureImpactSourceReader } from "./features/permanent-erasure/server/erasure-impact-source-reader";
 import { createErasureImpactStore } from "./features/permanent-erasure/server/erasure-impact-store";
+import { createErasureReceiptStore } from "./features/permanent-erasure/server/erasure-receipt-store";
 import { createOfflineConflictStore } from "./features/pixel-editor/server/offline-conflict-store";
 import { createPixelEditorStore } from "./features/pixel-editor/server/pixel-editor-store";
 import { createMarketingUsageReviewStore } from "./features/portrait-marketing-profile/server/marketing-usage-review-store";
@@ -189,6 +191,11 @@ export const erasureImpactStore = createErasureImpactStore({
 	db,
 	sourceReader: createErasureImpactSourceReader(db),
 	storage: createDatabaseErasureImpactStorage(db),
+});
+/** Deletion Receipts are read here; the Deletion Job executor is not wired to a live worker yet, like the archive executors. */
+export const deletionReceiptStore = createErasureReceiptStore({
+	db,
+	storage: createDatabaseErasureDeletionStorage(db),
 });
 const credentialNamePattern = /SECRET|TOKEN|KEY|PASSWORD/i;
 const archiveObjectStorage =
