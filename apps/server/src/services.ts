@@ -50,6 +50,8 @@ import { createErasureImpactSourceReader } from "./features/permanent-erasure/se
 import { createErasureImpactStore } from "./features/permanent-erasure/server/erasure-impact-store";
 import { createOfflineConflictStore } from "./features/pixel-editor/server/offline-conflict-store";
 import { createPixelEditorStore } from "./features/pixel-editor/server/pixel-editor-store";
+import { createDatabasePlatformEquivalenceStorage } from "./features/platform-equivalence/server/database-platform-equivalence-storage";
+import { createPlatformEquivalenceStore } from "./features/platform-equivalence/server/platform-equivalence-store";
 import { createMarketingUsageReviewStore } from "./features/portrait-marketing-profile/server/marketing-usage-review-store";
 import { createPortraitIdentityReviewStore } from "./features/portrait-marketing-profile/server/portrait-identity-review-store";
 import { createDatabaseMeasurementDefinitionStorage } from "./features/product-measurement/server/database-measurement-definition-storage";
@@ -265,6 +267,10 @@ export const projectArchiveRestoreStore = archiveObjectStorage
 			storage: createDatabaseProjectArchiveRestoreStorage(db),
 		})
 	: undefined;
+export const platformEquivalenceStore = createPlatformEquivalenceStore(db, {
+	bundles: exportBundleStore,
+	storage: createDatabasePlatformEquivalenceStorage(db),
+});
 export const runtimeValidationStore = createRuntimeValidationStore(db, {
 	getBundle: (userId, projectId, bundleId) =>
 		exportBundleStore.get(userId, projectId, bundleId),

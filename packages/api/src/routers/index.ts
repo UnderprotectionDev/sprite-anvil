@@ -55,6 +55,7 @@ import { measurementDefinitionsRouter } from "./measurement-definitions";
 import { measurementEventsRouter } from "./measurement-events";
 import { measurementMeasuresRouter } from "./measurement-measures";
 import { permanentErasureRouter } from "./permanent-erasure";
+import { platformEquivalenceRouter } from "./platform-equivalence";
 import { portraitIdentityReviewsRouter } from "./portrait-identity-reviews";
 import { productionExperimentsRouter } from "./production-experiments";
 import { productionRecipesRouter } from "./production-recipes";
@@ -148,6 +149,7 @@ export const appRouter = {
 	deliveryRefreshLocks: deliveryRefreshLocksRouter,
 	exportBundles: exportBundlesRouter,
 	permanentErasure: permanentErasureRouter,
+	platformEquivalence: platformEquivalenceRouter,
 	projectArchives: projectArchivesRouter,
 	exportProfiles: exportProfilesRouter,
 	dependencyRevalidation: dependencyRevalidationRouter,

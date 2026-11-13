@@ -34,6 +34,7 @@ export * from "./measurement-events";
 export * from "./offline-conflicts";
 export * from "./permanent-erasure";
 export * from "./pixel-editor";
+export * from "./platform-equivalence";
 export * from "./portrait-identity-reviews";
 export * from "./production-experiments";
 export * from "./production-recipes";
