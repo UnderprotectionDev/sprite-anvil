@@ -112,6 +112,8 @@ English terms are the canonical technical names used in code and contracts, and 
 | Delivery Diff | Teslimat Farkı |
 | Verified Engine Adapter | Doğrulanmış Motor Bağdaştırıcısı |
 | Core Production Lifecycle | Temel Üretim Akışı |
+| Platform Equivalence Run | Platform Eşdeğerlik Çalıştırması |
+| Platform Equivalence Report | Platform Eşdeğerlik Raporu |
 | Offline Staged Work | Çevrimdışı Hazırlık Çalışması |
 | Offline Conflict Record | Çakışma Kaydı |
 | Measurement Definition | Ölçüm Tanımı |
@@ -589,6 +591,14 @@ Quality in Sprite Anvil means traceable technical gates, declared tolerances, ex
 **Core Production Lifecycle**:
 The context, import, QA, approval, versioning, correction, and export workflow that must be completable in both the web and desktop applications.
 _Avoid_: Identical platform implementation, review-only web experience
+
+**Platform Equivalence Run**:
+The evidence one surface, web or desktop, derived from one stored Export Bundle: its input, authoritative records, quality evidence, and Engine-Neutral Bundle digests. The surface name is the client's own declaration and the server does not verify it. A run is immutable.
+_Avoid_: Platform test run, device session, verified platform
+
+**Platform Equivalence Report**:
+The immutable comparison of one web and one desktop Platform Equivalence Run made from the same Core Production Lifecycle input. It is Phase 3 interim evidence: it does not evaluate Delivery Refresh Lock or divergence results or any Reference or Extended Acceptance Scenario, and it never claims full platform acceptance or completes the platform equivalence requirement.
+_Avoid_: Platform support certificate, acceptance report, compatibility matrix
 
 The desktop application may add operating-system affordances such as local folder watching and opening files in external editors when the web application provides a manual path to the same production outcome. Cloud state is authoritative; full offline operation is not implied.
 
