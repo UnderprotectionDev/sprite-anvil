@@ -50,6 +50,13 @@ export function createDatabaseMeasurementEventStorage(
 
 	return {
 		findById,
+		async listByDefinitionId(definitionId) {
+			const rows = await db
+				.select()
+				.from(measurementEvents)
+				.where(eq(measurementEvents.definitionId, definitionId));
+			return rows.map(toStored);
+		},
 		async insert(event) {
 			try {
 				await db.insert(measurementEvents).values(event);

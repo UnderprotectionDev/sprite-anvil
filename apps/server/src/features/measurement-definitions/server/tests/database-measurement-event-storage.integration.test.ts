@@ -102,6 +102,12 @@ test.skipIf(!databaseUrl)(
 
 			// A replay returns the stored event with its original server time.
 			expect(await store.record(userId, input)).toEqual(result);
+
+			// The measure computation reads the persisted events of one definition version.
+			const listed = await createDatabaseMeasurementEventStorage(
+				db
+			).listByDefinitionId(activation.definition.id);
+			expect(listed.map((event) => event.id)).toEqual([input.id]);
 		} finally {
 			await db
 				.delete(measurementDefinitions)

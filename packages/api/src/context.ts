@@ -39,6 +39,7 @@ import type { ImportInboxStore } from "./import-inbox";
 import type { MarketingUsageReviewStore } from "./marketing-usage-reviews";
 import type { MeasurementDefinitionStore } from "./measurement-definition-store";
 import type { MeasurementEventStore } from "./measurement-event-store";
+import type { MeasurementMeasureStore } from "./measurement-measure-store";
 import type { PortraitIdentityReviewStore } from "./portrait-identity-reviews";
 import type { ProductionExperimentStore } from "./production-experiments";
 import type { ProductionRecipeStore } from "./production-recipes";
@@ -110,6 +111,7 @@ export interface Context {
 	marketingUsageReviewStore?: MarketingUsageReviewStore;
 	measurementDefinitionStore?: MeasurementDefinitionStore;
 	measurementEventStore?: MeasurementEventStore;
+	measurementMeasureStore?: MeasurementMeasureStore;
 	portraitIdentityReviewStore?: PortraitIdentityReviewStore;
 	productionExperimentStore?: ProductionExperimentStore;
 	productionRecipeStore?: ProductionRecipeStore;

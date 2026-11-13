@@ -46,6 +46,7 @@ import { createDatabaseMeasurementDefinitionStorage } from "./features/measureme
 import { createDatabaseMeasurementEventStorage } from "./features/measurement-definitions/server/database-measurement-event-storage";
 import { createMeasurementDefinitionStore } from "./features/measurement-definitions/server/measurement-definition-store";
 import { createMeasurementEventStore } from "./features/measurement-definitions/server/measurement-event-store";
+import { createMeasurementMeasureStore } from "./features/measurement-definitions/server/measurement-measure-store";
 import { createMeasurementPseudonymizer } from "./features/measurement-definitions/server/measurement-pseudonym";
 import { createAssetFamilyComparisonStore } from "./features/object-equipment-profile/server/asset-family-comparison-store";
 import { createOfflineConflictStore } from "./features/pixel-editor/server/offline-conflict-store";
@@ -123,10 +124,19 @@ const measurementDefinitionStorage =
 export const measurementDefinitionStore = createMeasurementDefinitionStore({
 	storage: measurementDefinitionStorage,
 });
+const measurementPseudonymize = createMeasurementPseudonymizer(
+	ENV.BETTER_AUTH_SECRET
+);
+const measurementEventStorage = createDatabaseMeasurementEventStorage(db);
 export const measurementEventStore = createMeasurementEventStore({
 	definitionStorage: measurementDefinitionStorage,
-	pseudonymize: createMeasurementPseudonymizer(ENV.BETTER_AUTH_SECRET),
-	storage: createDatabaseMeasurementEventStorage(db),
+	pseudonymize: measurementPseudonymize,
+	storage: measurementEventStorage,
+});
+export const measurementMeasureStore = createMeasurementMeasureStore({
+	definitionStorage: measurementDefinitionStorage,
+	eventStorage: measurementEventStorage,
+	pseudonymize: measurementPseudonymize,
 });
 export const assetFamilyStore = createAssetFamilyStore(db);
 export const assetFamilyComparisonStore = createAssetFamilyComparisonStore(db);

@@ -31,4 +31,8 @@ export interface MeasurementEventStorage {
 	findById: (id: string) => Promise<StoredMeasurementEvent | null>;
 	/** A conflict means the id was taken, possibly concurrently. */
 	insert: (event: StoredMeasurementEvent) => Promise<InsertEventResult>;
+	/** Every event collected under one definition version, in no guaranteed order. */
+	listByDefinitionId: (
+		definitionId: string
+	) => Promise<StoredMeasurementEvent[]>;
 }

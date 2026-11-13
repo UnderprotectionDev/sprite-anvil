@@ -12,6 +12,12 @@ export function createMemoryMeasurementEventStorage() {
 			const row = rows.find((candidate) => candidate.id === id);
 			return Promise.resolve(row ? structuredClone(row) : null);
 		},
+		listByDefinitionId: (definitionId) =>
+			Promise.resolve(
+				rows
+					.filter((row) => row.definitionId === definitionId)
+					.map((row) => structuredClone(row))
+			),
 		insert: (event) => {
 			if (rows.some((row) => row.id === event.id)) {
 				return Promise.resolve({ status: "conflict" });
