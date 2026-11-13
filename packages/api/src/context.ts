@@ -38,6 +38,7 @@ import type { IconFamilyReviewStore } from "./icon-family-reviews";
 import type { ImportInboxStore } from "./import-inbox";
 import type { MarketingUsageReviewStore } from "./marketing-usage-reviews";
 import type { MeasurementDefinitionStore } from "./measurement-definition-store";
+import type { MeasurementEventStore } from "./measurement-event-store";
 import type { PortraitIdentityReviewStore } from "./portrait-identity-reviews";
 import type { ProductionExperimentStore } from "./production-experiments";
 import type { ProductionRecipeStore } from "./production-recipes";
@@ -108,6 +109,7 @@ export interface Context {
 	importInboxStore?: ImportInboxStore;
 	marketingUsageReviewStore?: MarketingUsageReviewStore;
 	measurementDefinitionStore?: MeasurementDefinitionStore;
+	measurementEventStore?: MeasurementEventStore;
 	portraitIdentityReviewStore?: PortraitIdentityReviewStore;
 	productionExperimentStore?: ProductionExperimentStore;
 	productionRecipeStore?: ProductionRecipeStore;

@@ -43,7 +43,10 @@ import { createIconFamilyReviewStore } from "./features/icon-profile/server/icon
 import { createImportInboxStore } from "./features/imports/server/import-inbox-store";
 import { createSourceMetadataMappingProposalStore } from "./features/imports/server/source-metadata-mapping-store";
 import { createDatabaseMeasurementDefinitionStorage } from "./features/measurement-definitions/server/database-measurement-definition-storage";
+import { createDatabaseMeasurementEventStorage } from "./features/measurement-definitions/server/database-measurement-event-storage";
 import { createMeasurementDefinitionStore } from "./features/measurement-definitions/server/measurement-definition-store";
+import { createMeasurementEventStore } from "./features/measurement-definitions/server/measurement-event-store";
+import { createMeasurementPseudonymizer } from "./features/measurement-definitions/server/measurement-pseudonym";
 import { createAssetFamilyComparisonStore } from "./features/object-equipment-profile/server/asset-family-comparison-store";
 import { createOfflineConflictStore } from "./features/pixel-editor/server/offline-conflict-store";
 import { createPixelEditorStore } from "./features/pixel-editor/server/pixel-editor-store";
@@ -115,8 +118,15 @@ export const portraitIdentityReviewStore =
 export const uiStateComparisonStore = createUiStateComparisonStore(db);
 export const iconFamilyReviewStore = createIconFamilyReviewStore(db);
 export const gameplayMetadataStore = createGameplayMetadataStore(db);
+const measurementDefinitionStorage =
+	createDatabaseMeasurementDefinitionStorage(db);
 export const measurementDefinitionStore = createMeasurementDefinitionStore({
-	storage: createDatabaseMeasurementDefinitionStorage(db),
+	storage: measurementDefinitionStorage,
+});
+export const measurementEventStore = createMeasurementEventStore({
+	definitionStorage: measurementDefinitionStorage,
+	pseudonymize: createMeasurementPseudonymizer(ENV.BETTER_AUTH_SECRET),
+	storage: createDatabaseMeasurementEventStorage(db),
 });
 export const assetFamilyStore = createAssetFamilyStore(db);
 export const assetFamilyComparisonStore = createAssetFamilyComparisonStore(db);

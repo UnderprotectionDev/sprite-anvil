@@ -52,6 +52,7 @@ import { iconFamilyReviewsRouter } from "./icon-family-reviews";
 import { importsRouter } from "./imports";
 import { marketingUsageReviewsRouter } from "./marketing-usage-reviews";
 import { measurementDefinitionsRouter } from "./measurement-definitions";
+import { measurementEventsRouter } from "./measurement-events";
 import { portraitIdentityReviewsRouter } from "./portrait-identity-reviews";
 import { productionExperimentsRouter } from "./production-experiments";
 import { productionRecipesRouter } from "./production-recipes";
@@ -157,6 +158,7 @@ export const appRouter = {
 	readinessPlans: readinessPlansRouter,
 	marketingUsageReviews: marketingUsageReviewsRouter,
 	measurementDefinitions: measurementDefinitionsRouter,
+	measurementEvents: measurementEventsRouter,
 	backgroundLayerLayouts: backgroundLayerLayoutsRouter,
 	backgroundScrollingTests: backgroundScrollingTestsRouter,
 	assetVersions: assetVersionsRouter,
