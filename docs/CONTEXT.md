@@ -112,8 +112,10 @@ English terms are the canonical technical names used in code and contracts, and 
 | Delivery Diff | Teslimat Farkı |
 | Verified Engine Adapter | Doğrulanmış Motor Bağdaştırıcısı |
 | Core Production Lifecycle | Temel Üretim Akışı |
+| Platform Surface | Platform Yüzeyi |
 | Platform Equivalence Run | Platform Eşdeğerlik Çalıştırması |
 | Platform Equivalence Report | Platform Eşdeğerlik Raporu |
+| Platform Support Gate | Platform Destek Kapısı |
 | Offline Staged Work | Çevrimdışı Hazırlık Çalışması |
 | Offline Conflict Record | Çakışma Kaydı |
 | Measurement Definition | Ölçüm Tanımı |
@@ -592,13 +594,21 @@ Quality in Sprite Anvil means traceable technical gates, declared tolerances, ex
 The context, import, QA, approval, versioning, correction, and export workflow that must be completable in both the web and desktop applications.
 _Avoid_: Identical platform implementation, review-only web experience
 
+**Platform Surface**:
+The web application or the desktop application, the two product surfaces that must produce semantically equivalent results. A Platform Surface is declared by the client that records a result; the server does not verify it. In the interface it is named Web application or Desktop application.
+_Avoid_: Platform (for a browser or operating system), device, client type, Web app, Desktop app
+
 **Platform Equivalence Run**:
-The evidence one surface, web or desktop, derived from one stored Export Bundle: its input, authoritative records, quality evidence, and Engine-Neutral Bundle digests. The surface name is the client's own declaration and the server does not verify it. A run is immutable.
+The evidence one Platform Surface derived from one stored Export Bundle: its input, authoritative records, quality evidence, and Engine-Neutral Bundle digests. The surface name is the client's own declaration and the server does not verify it. A run is immutable.
 _Avoid_: Platform test run, device session, verified platform
 
 **Platform Equivalence Report**:
-The immutable comparison of one web and one desktop Platform Equivalence Run made from the same Core Production Lifecycle input. It is Phase 3 interim evidence: it does not evaluate Delivery Refresh Lock or divergence results or any Reference or Extended Acceptance Scenario, and it never claims full platform acceptance or completes the platform equivalence requirement.
+The immutable comparison of one chosen web and one chosen desktop Platform Equivalence Run, kept with each run's Export Bundle and input digest so the input that was used can be read again. It is Phase 3 interim evidence: it does not evaluate Delivery Refresh Lock or divergence results or any Reference or Extended Acceptance Scenario, and it never claims full platform acceptance or completes the platform equivalence requirement. Its outcome is `equivalent` or `different` only when both runs were made from the same Core Production Lifecycle input. When a surface has no run (`missing_surface`) or the two runs used different inputs (`inputs_differ`, which lists the inputs that differ), the report records that outcome, compares no evidence section, and is never treated as equivalent.
 _Avoid_: Platform support certificate, acceptance report, compatibility matrix
+
+**Platform Support Gate**:
+The check that decides whether one combination of the Supported Platform Matrix is `supported` or `unmeasured`. A combination is supported only when every acceptance scenario is equivalent on both Platform Surfaces with its own result and evidence reference, the Delivery Refresh Lock and divergence results are equivalent with evidence references, the accessible core flow passed on both surfaces with evidence references, and the open validations OV-08 to OV-11 have published parameters and evidence. The gate holds no thresholds or default parameters; a Phase 3 interim Platform Equivalence Report is not scenario evidence, and anything not evidenced stays unmeasured and is never declared supported.
+_Avoid_: Support certificate, compatibility check, best-effort support
 
 The desktop application may add operating-system affordances such as local folder watching and opening files in external editors when the web application provides a manual path to the same production outcome. Cloud state is authoritative; full offline operation is not implied.
 

@@ -29,9 +29,7 @@ describe("Platform Equivalence", () => {
 		await (await $("a=Platform Equivalence")).click();
 		await $("h1=Platform Equivalence").waitForDisplayed();
 		await $("p=No run has been recorded yet.").waitForDisplayed();
-		await expect(
-			await $("button=Create report from latest runs")
-		).toBeDisabled();
+		await expect(await $("button=Create report")).toBeDisabled();
 		await expect(await $("p*=Phase 3 interim evidence")).toBeDisplayed();
 	});
 });

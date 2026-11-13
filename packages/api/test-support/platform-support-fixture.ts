@@ -13,6 +13,7 @@ import {
 import {
 	type AcceptanceScenarioId,
 	acceptanceScenarioIds,
+	ops04EvidenceSources,
 	type PlatformSupportInput,
 } from "../src/platform-support-gate";
 import {
@@ -63,7 +64,7 @@ export async function fixtureScenarioRuns(
 	return Object.fromEntries(entries);
 }
 
-/** Compares the two surfaces scenario by scenario; a scenario run on neither surface is left out. */
+/** Compares the two surfaces scenario by scenario; each result is bound to its scenario and carries an evidence reference. A scenario run on neither surface is left out. */
 export function compareScenarioRuns(
 	web: ScenarioRuns,
 	desktop: ScenarioRuns
@@ -74,7 +75,11 @@ export function compareScenarioRuns(
 		const left = web[id] ?? null;
 		const right = desktop[id] ?? null;
 		if (left || right) {
-			comparisons[id] = compareEquivalenceEvidence(left, right);
+			comparisons[id] = {
+				comparison: compareEquivalenceEvidence(left, right),
+				evidenceRef: `fixture://scenario/${id}`,
+				scenarioId: id,
+			};
 		}
 	}
 	return comparisons;
@@ -100,9 +105,18 @@ export async function fixtureSupportInput(): Promise<
 		publishedAt,
 	});
 	return {
-		accessibility: { desktop: "passed", web: "passed" },
+		accessibility: {
+			desktop: {
+				evidenceRef: ops04EvidenceSources.desktop,
+				result: "passed",
+			},
+			web: { evidenceRef: ops04EvidenceSources.web, result: "passed" },
+		},
 		combinationId: "fixture-combination",
-		deliveryRefresh: { divergence: "same", lock: "same" },
+		deliveryRefresh: {
+			divergence: { evidenceRef: "fixture://divergence", result: "same" },
+			lock: { evidenceRef: "fixture://lock", result: "same" },
+		},
 		openValidations: {
 			"OV-08": published("ov-08"),
 			"OV-09": published("ov-09"),

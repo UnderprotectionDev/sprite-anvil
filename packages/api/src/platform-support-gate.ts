@@ -13,6 +13,7 @@ import { z } from "zod";
 import {
 	type PlatformEquivalenceComparison,
 	type PlatformSurface,
+	platformEquivalenceComparisonSchema,
 	platformSurfaces,
 } from "./platform-equivalence-comparison";
 
@@ -48,8 +49,11 @@ export const ops04EvidenceSources: Record<PlatformSurface, string> = {
 	web: "apps/web/e2e/accessible-focus.spec.ts",
 };
 
+/** Where a claimed result can be checked; a result without one is not evidence. */
+export const evidenceRefSchema = z.string().trim().min(1);
+
 export const publishedValidationSchema = z.object({
-	evidenceRef: z.string().trim().min(1),
+	evidenceRef: evidenceRefSchema,
 	parameters: z
 		.record(z.string().min(1), z.unknown())
 		.refine((parameters) => Object.keys(parameters).length > 0),
@@ -59,36 +63,62 @@ export type PublishedValidation = z.infer<typeof publishedValidationSchema>;
 
 export type DeliveryRefreshResult = "same" | "different" | "not_evaluated";
 
+/** A claimed result and the reference to the evidence behind it. */
+export interface EvidencedResult<Result> {
+	evidenceRef: string;
+	result: Result;
+}
+
+/**
+ * The web/desktop comparison of one acceptance scenario. It is bound to its
+ * scenario by id, so a Phase 3 interim report (three evidence sections, no
+ * scenario) or another scenario's comparison is never a scenario result.
+ */
+export const scenarioEvidenceSchema = z.object({
+	comparison: platformEquivalenceComparisonSchema,
+	evidenceRef: z.string(),
+	scenarioId: z.enum(acceptanceScenarioIds),
+});
+export interface ScenarioEvidence {
+	comparison: PlatformEquivalenceComparison;
+	evidenceRef: string;
+	scenarioId: AcceptanceScenarioId;
+}
+
 export interface PlatformSupportInput {
-	accessibility?: Partial<Record<PlatformSurface, "passed" | "failed">>;
+	accessibility?: Partial<
+		Record<PlatformSurface, EvidencedResult<"passed" | "failed">>
+	>;
 	combinationId: string;
 	deliveryRefresh?: {
-		divergence: DeliveryRefreshResult;
-		lock: DeliveryRefreshResult;
+		divergence: EvidencedResult<DeliveryRefreshResult>;
+		lock: EvidencedResult<DeliveryRefreshResult>;
 	};
 	openValidations?: Partial<
 		Record<OpenValidationId, PublishedValidation | undefined>
 	>;
-	scenarioComparisons?: Partial<
-		Record<AcceptanceScenarioId, PlatformEquivalenceComparison>
-	>;
+	scenarioComparisons?: Partial<Record<AcceptanceScenarioId, ScenarioEvidence>>;
 }
 
 export type PlatformSupportBlocker =
 	| {
 			kind: "scenario";
 			id: AcceptanceScenarioId;
-			reason: "missing" | PlatformEquivalenceComparison["outcome"];
+			reason:
+				| "missing"
+				| "not_bound_to_scenario"
+				| "no_evidence_ref"
+				| Exclude<PlatformEquivalenceComparison["outcome"], "equivalent">;
 	  }
 	| {
 			kind: "delivery_refresh";
 			part: "lock" | "divergence";
-			reason: "not_evaluated" | "different";
+			reason: "not_evaluated" | "different" | "no_evidence_ref";
 	  }
 	| {
 			kind: "accessibility";
 			surface: PlatformSurface;
-			reason: "not_measured" | "failed";
+			reason: "not_measured" | "failed" | "no_evidence_ref";
 	  }
 	| { kind: "open_validation"; id: OpenValidationId; reason: "not_published" };
 
@@ -102,17 +132,29 @@ function isPublished(validation: unknown): boolean {
 	return publishedValidationSchema.safeParse(validation).success;
 }
 
+function hasEvidenceRef(evidenceRef: unknown): boolean {
+	return evidenceRefSchema.safeParse(evidenceRef).success;
+}
+
 function scenarioBlockers(
 	input: PlatformSupportInput
 ): PlatformSupportBlocker[] {
 	return acceptanceScenarioIds.flatMap((id): PlatformSupportBlocker[] => {
-		const comparison = input.scenarioComparisons?.[id];
-		if (!comparison) {
+		const evidence: unknown = input.scenarioComparisons?.[id];
+		if (!evidence) {
 			return [{ id, kind: "scenario", reason: "missing" }];
 		}
-		return comparison.outcome === "equivalent"
+		const parsed = scenarioEvidenceSchema.safeParse(evidence);
+		if (!parsed.success || parsed.data.scenarioId !== id) {
+			return [{ id, kind: "scenario", reason: "not_bound_to_scenario" }];
+		}
+		if (!hasEvidenceRef(parsed.data.evidenceRef)) {
+			return [{ id, kind: "scenario", reason: "no_evidence_ref" }];
+		}
+		const { outcome } = parsed.data.comparison;
+		return outcome === "equivalent"
 			? []
-			: [{ id, kind: "scenario", reason: comparison.outcome }];
+			: [{ id, kind: "scenario", reason: outcome }];
 	});
 }
 
@@ -121,7 +163,11 @@ function deliveryRefreshBlockers(
 ): PlatformSupportBlocker[] {
 	return (["lock", "divergence"] as const).flatMap(
 		(part): PlatformSupportBlocker[] => {
-			const result = input.deliveryRefresh?.[part] ?? "not_evaluated";
+			const claim = input.deliveryRefresh?.[part];
+			const result = claim?.result ?? "not_evaluated";
+			if (result === "same" && !hasEvidenceRef(claim?.evidenceRef)) {
+				return [{ kind: "delivery_refresh", part, reason: "no_evidence_ref" }];
+			}
 			return result === "same"
 				? []
 				: [
@@ -139,7 +185,11 @@ function accessibilityBlockers(
 	input: PlatformSupportInput
 ): PlatformSupportBlocker[] {
 	return platformSurfaces.flatMap((surface): PlatformSupportBlocker[] => {
-		const result = input.accessibility?.[surface];
+		const claim = input.accessibility?.[surface];
+		const result = claim?.result;
+		if (result === "passed" && !hasEvidenceRef(claim?.evidenceRef)) {
+			return [{ kind: "accessibility", reason: "no_evidence_ref", surface }];
+		}
 		return result === "passed"
 			? []
 			: [

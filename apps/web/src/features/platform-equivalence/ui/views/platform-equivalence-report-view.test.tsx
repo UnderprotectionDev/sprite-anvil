@@ -70,37 +70,49 @@ vi.mock("@/utils/orpc", () => ({
 vi.mock("sonner", () => ({ toast: { dismiss: vi.fn(), error: vi.fn() } }));
 
 const section = { differences: [], result: "not_compared" };
-const webRunPattern = /Web app ·/;
+const webRunPattern = /Web application ·/;
 const reportNamePattern = /Platform Equivalence Report/;
 const interimPattern = /Phase 3 interim evidence/;
 const openPattern = /^Open:/;
 
-function webRun() {
+const runInput = {
+	adapterVersion: null,
+	assetFamilyIds: [],
+	contextRevisionId: "ctx-1",
+	deliveryTargetRevisionId: null,
+	profileRevisionId: "r-1",
+};
+
+function runOf(
+	surface: "desktop" | "web",
+	id: string,
+	createdAt: string,
+	inputDigest = digest
+) {
 	return {
 		bundleId,
-		createdAt: "2026-11-12T10:00:00.000Z",
-		evidence: {
-			input: {
-				adapterVersion: null,
-				assetFamilyIds: [],
-				contextRevisionId: "ctx-1",
-				deliveryTargetRevisionId: null,
-				profileRevisionId: "r-1",
-			},
-			inputDigest: digest,
-			sections: {},
-		},
-		id: webRunId,
+		createdAt,
+		evidence: { input: runInput, inputDigest, sections: {} },
+		id,
 		projectId,
-		surface: "web",
+		surface,
 		surfaceIdentity: "client_declared",
 	};
+}
+
+function webRun() {
+	return runOf("web", webRunId, "2026-11-12T10:00:00.000Z");
 }
 
 function report() {
 	return {
 		claimsFullAcceptance: false,
 		comparison: {
+			differingInputs: [],
+			inputs: {
+				desktop: null,
+				web: { bundleId, input: runInput, inputDigest: digest },
+			},
 			missingSurfaces: ["desktop"],
 			outcome: "missing_surface",
 			sections: [
@@ -187,7 +199,7 @@ test("a report names what is not evaluated and never claims completion", async (
 
 	await user.click(
 		await screen.findByRole("button", {
-			name: "Create report from latest runs",
+			name: "Create report",
 		})
 	);
 
@@ -200,6 +212,10 @@ test("a report names what is not evaluated and never claims completion", async (
 	expect(
 		within(card).getByText("A surface has no run yet, so nothing was compared.")
 	).toBeInTheDocument();
+	expect(
+		within(card).getByText("Missing run for: Desktop application.")
+	).toBeInTheDocument();
+	expect(within(card).getByText(digest.slice(0, 12))).toBeInTheDocument();
 	expect(
 		within(card).getByText("Delivery Refresh Lock: not evaluated")
 	).toBeInTheDocument();
@@ -217,9 +233,7 @@ test("the screen has nothing to compare before any run exists", async () => {
 	expect(
 		await screen.findByText("No run has been recorded yet.")
 	).toBeInTheDocument();
-	expect(
-		screen.getByRole("button", { name: "Create report from latest runs" })
-	).toBeDisabled();
+	expect(screen.getByRole("button", { name: "Create report" })).toBeDisabled();
 	expect(
 		screen.getByText("This project has no Platform Equivalence Report yet.")
 	).toBeInTheDocument();
@@ -229,7 +243,7 @@ test("the screen shows the support gate closed: no supported platform and OV-08 
 	renderView();
 
 	const gate = await screen.findByRole("region", {
-		name: "Platform support gate",
+		name: "Platform Support Gate",
 	});
 	expect(
 		within(gate).getByText(
@@ -237,4 +251,97 @@ test("the screen shows the support gate closed: no supported platform and OV-08 
 		)
 	).toBeInTheDocument();
 	expect(within(gate).getAllByText(openPattern)).toHaveLength(4);
+});
+
+test("the user picks the web and desktop run to compare, newest by default", async () => {
+	const user = userEvent.setup();
+	const olderWebId = "55555555-5555-4555-8555-555555555555";
+	const desktopId = "66666666-6666-4666-8666-666666666666";
+	fakeApi.overview = {
+		reports: [],
+		runs: [
+			webRun(),
+			runOf("web", olderWebId, "2026-11-11T10:00:00.000Z"),
+			runOf("desktop", desktopId, "2026-11-11T12:00:00.000Z"),
+		],
+	};
+	fakeApi.createReport.mockResolvedValue({
+		report: report(),
+		status: "created",
+	});
+	renderView();
+
+	await user.click(
+		await screen.findByRole("button", { name: "Create report" })
+	);
+	expect(fakeApi.createReport).toHaveBeenLastCalledWith(
+		expect.objectContaining({ desktopRunId: desktopId, webRunId })
+	);
+
+	await user.selectOptions(
+		screen.getByLabelText("Web application run"),
+		olderWebId
+	);
+	await user.click(screen.getByRole("button", { name: "Create report" }));
+	expect(fakeApi.createReport).toHaveBeenLastCalledWith(
+		expect.objectContaining({ desktopRunId: desktopId, webRunId: olderWebId })
+	);
+});
+
+test("a report from runs with different inputs names the inputs that differ and both digests", async () => {
+	const otherDigest = "b".repeat(64);
+	fakeApi.overview = {
+		reports: [
+			{
+				...report(),
+				comparison: {
+					differingInputs: ["contextRevisionId"],
+					inputs: {
+						desktop: {
+							bundleId,
+							input: { ...runInput, contextRevisionId: "ctx-2" },
+							inputDigest: otherDigest,
+						},
+						web: { bundleId, input: runInput, inputDigest: digest },
+					},
+					missingSurfaces: [],
+					outcome: "inputs_differ",
+					sections: report().comparison.sections,
+				},
+			},
+		],
+		runs: [webRun()],
+	};
+	renderView();
+
+	const card = await screen.findByRole("article", { name: reportNamePattern });
+
+	expect(
+		within(card).getByText("Inputs that differ: Context Revision.")
+	).toBeInTheDocument();
+	expect(within(card).getByText(digest.slice(0, 12))).toBeInTheDocument();
+	expect(within(card).getByText(otherDigest.slice(0, 12))).toBeInTheDocument();
+});
+
+test("a failed recording shows the failure and a retry replays the same key", async () => {
+	const user = userEvent.setup();
+	fakeApi.recordRun.mockRejectedValueOnce(new Error("network"));
+	fakeApi.recordRun.mockResolvedValueOnce({ run: webRun(), status: "created" });
+	renderView();
+
+	await user.selectOptions(
+		await screen.findByLabelText("Export Bundle"),
+		bundleId
+	);
+	await user.click(screen.getByRole("button", { name: "Record run" }));
+	expect(
+		await screen.findByText("The run could not be recorded. Try again.")
+	).toBeInTheDocument();
+	await user.click(screen.getByRole("button", { name: "Record run" }));
+
+	expect(await screen.findByText("Run recorded.")).toBeInTheDocument();
+	const [first, second] = fakeApi.recordRun.mock.calls.map(
+		([call]) => call.idempotencyKey
+	);
+	expect(first).toBe(second);
 });

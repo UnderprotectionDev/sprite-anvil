@@ -96,11 +96,14 @@ test("a failed or unmeasured accessibility result on either surface blocks suppo
 
 	const failed = evaluatePlatformSupport({
 		...input,
-		accessibility: { desktop: "failed", web: "passed" },
+		accessibility: {
+			desktop: { evidenceRef: "spec://desktop", result: "failed" },
+			web: { evidenceRef: "spec://web", result: "passed" },
+		},
 	});
 	const unmeasured = evaluatePlatformSupport({
 		...input,
-		accessibility: { web: "passed" },
+		accessibility: { web: { evidenceRef: "spec://web", result: "passed" } },
 	});
 
 	expect(failed.blockers).toEqual([
@@ -150,12 +153,84 @@ test("a delivery refresh lock or divergence that differs or is not evaluated blo
 
 	const result = evaluatePlatformSupport({
 		...input,
-		deliveryRefresh: { divergence: "different", lock: "not_evaluated" },
+		deliveryRefresh: {
+			divergence: { evidenceRef: "ref://divergence", result: "different" },
+			lock: { evidenceRef: "ref://lock", result: "not_evaluated" },
+		},
 	});
 
 	expect(result.blockers).toEqual([
 		{ kind: "delivery_refresh", part: "lock", reason: "not_evaluated" },
 		{ kind: "delivery_refresh", part: "divergence", reason: "different" },
+	]);
+});
+
+test("a scenario comparison counts only for the scenario it is bound to", async () => {
+	const input = await fixtureSupportInput();
+	const ras01 = input.scenarioComparisons["RAS-01"];
+
+	const result = evaluatePlatformSupport({
+		...input,
+		scenarioComparisons: {
+			...input.scenarioComparisons,
+			"RAS-02": ras01,
+		},
+	});
+
+	expect(result.status).toBe("unmeasured");
+	expect(result.blockers).toEqual([
+		{ id: "RAS-02", kind: "scenario", reason: "not_bound_to_scenario" },
+	]);
+});
+
+test("a Phase 3 interim comparison without a scenario id is never scenario evidence", async () => {
+	const input = await fixtureSupportInput();
+	const interim = {
+		comparison: input.scenarioComparisons["RAS-01"]?.comparison,
+	};
+	const scenarioComparisons = Object.fromEntries(
+		acceptanceScenarioIds.map((id) => [id, interim])
+	) as unknown as typeof input.scenarioComparisons;
+
+	const result = evaluatePlatformSupport({ ...input, scenarioComparisons });
+
+	expect(result.status).toBe("unmeasured");
+	expect(result.blockers).toEqual(
+		acceptanceScenarioIds.map((id) => ({
+			id,
+			kind: "scenario",
+			reason: "not_bound_to_scenario",
+		}))
+	);
+});
+
+test("an equivalent scenario, passed accessibility or same lock and divergence without an evidence reference stays blocked", async () => {
+	const input = await fixtureSupportInput();
+	const ras03 = input.scenarioComparisons["RAS-03"];
+	if (!ras03) {
+		throw new Error("Fixture lacks RAS-03.");
+	}
+
+	const result = evaluatePlatformSupport({
+		...input,
+		accessibility: {
+			desktop: { evidenceRef: " ", result: "passed" },
+			web: input.accessibility.web,
+		},
+		deliveryRefresh: {
+			divergence: { evidenceRef: "", result: "same" },
+			lock: input.deliveryRefresh.lock,
+		},
+		scenarioComparisons: {
+			...input.scenarioComparisons,
+			"RAS-03": { ...ras03, evidenceRef: "" },
+		},
+	});
+
+	expect(result.blockers).toEqual([
+		{ id: "RAS-03", kind: "scenario", reason: "no_evidence_ref" },
+		{ kind: "delivery_refresh", part: "divergence", reason: "no_evidence_ref" },
+		{ kind: "accessibility", reason: "no_evidence_ref", surface: "desktop" },
 	]);
 });
 

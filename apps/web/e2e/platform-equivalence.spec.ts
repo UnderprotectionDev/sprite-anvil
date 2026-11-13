@@ -37,6 +37,6 @@ test("the web app shows interim evidence, and offers no report without a run", a
 	).toBeVisible();
 	await expect(page.getByText("No run has been recorded yet.")).toBeVisible();
 	await expect(
-		page.getByRole("button", { name: "Create report from latest runs" })
+		page.getByRole("button", { name: "Create report" })
 	).toBeDisabled();
 });

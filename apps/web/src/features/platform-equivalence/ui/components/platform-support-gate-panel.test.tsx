@@ -5,7 +5,7 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach, expect, test } from "vitest";
 import { PlatformSupportGatePanel } from "./platform-support-gate-panel";
 
-const supportedPattern = /: supported$/;
+const supportedPattern = /: Supported$/;
 const openPattern = /^Open:/;
 const publishedPattern = /^Published:/;
 
@@ -50,8 +50,8 @@ test("an unmeasured combination is shown as unmeasured with its blockers, never 
 		/>
 	);
 
-	const gate = screen.getByRole("region", { name: "Platform support gate" });
-	expect(within(gate).getByText("combo-1: unmeasured")).toBeInTheDocument();
+	const gate = screen.getByRole("region", { name: "Platform Support Gate" });
+	expect(within(gate).getByText("combo-1: Unmeasured")).toBeInTheDocument();
 	expect(within(gate).queryByText(supportedPattern)).not.toBeInTheDocument();
 	expect(
 		within(gate).getByText("RAS-03: the surfaces produced different results")
@@ -60,7 +60,7 @@ test("an unmeasured combination is shown as unmeasured with its blockers, never 
 		within(gate).getByText("Delivery Refresh Lock: not evaluated")
 	).toBeInTheDocument();
 	expect(
-		within(gate).getByText("Desktop app accessibility: not measured")
+		within(gate).getByText("Desktop application accessibility: not measured")
 	).toBeInTheDocument();
 	expect(within(gate).getAllByText(openPattern)).toHaveLength(3);
 	expect(within(gate).getByText(publishedPattern)).toBeInTheDocument();
