@@ -1,22 +1,21 @@
 import { expect, test } from "bun:test";
 import type { BackgroundOperation } from "@sprite-anvil/api/background-operations";
-import type {
-	ErasureImpactReport,
-	ErasureImpactSource,
-} from "@sprite-anvil/api/permanent-erasure";
+import type { ErasureImpactReport } from "@sprite-anvil/api/permanent-erasure";
 import {
-	type ErasureAuthorizeInput,
-	erasureAuthorizeInputSchema,
+	type ErasureApprovalInput,
+	erasureApprovalInputSchema,
 	selectedErasureCounts,
 } from "@sprite-anvil/api/permanent-erasure-deletion";
+import type { ErasureImpactSource } from "@sprite-anvil/api/permanent-erasure-scope";
+import { createDeletionReceiptStore } from "../deletion-receipt-store";
 import { createErasureDeletionOperations } from "../erasure-deletion-operations";
 import { createErasureImpactStore } from "../erasure-impact-store";
-import { createErasureReceiptStore } from "../erasure-receipt-store";
 import {
 	archiveId,
 	assetRecordId,
 	bundleId,
 	fulfilmentId,
+	liveScopeOf,
 	projectId,
 	userId,
 	versionId,
@@ -36,15 +35,19 @@ interface Options {
 	failDelete?: boolean;
 	/** Object keys whose removal fails once, then succeeds. */
 	failOnce?: string[];
+	/** Runs after each successful object removal, e.g. to change the records while the removal is under way. */
+	onDelete?: (state: { source: ErasureImpactSource }) => void;
 	retention?: typeof retention | null;
 }
 
 function setup(options: Options = {}) {
-	const state = { source: yas04Source() as ErasureImpactSource };
+	const state = { access: true, source: yas04Source() as ErasureImpactSource };
 	const impactStorage = createMemoryErasureImpactStorage();
 	const clock = () => new Date("2026-11-13T10:00:00.000Z");
 	const accessCheck = (user: string, project: string) =>
-		Promise.resolve(user === userId && project === projectId ? {} : null);
+		Promise.resolve(
+			state.access && user === userId && project === projectId ? {} : null
+		);
 	const impactStore = createErasureImpactStore({
 		getProjectForUser: accessCheck,
 		now: clock,
@@ -53,10 +56,11 @@ function setup(options: Options = {}) {
 		sourceReader: { read: () => Promise.resolve(state.source) },
 		storage: impactStorage,
 	});
-	const deletion = createMemoryErasureDeletionStorage(
-		{ [versionId]: objectKey },
-		{ [archiveId]: options.archiveKeys ?? [] }
-	);
+	const deletion = createMemoryErasureDeletionStorage({
+		archiveObjectKeys: { [archiveId]: options.archiveKeys ?? [] },
+		live: () => liveScopeOf(state.source),
+		objectKeys: { [versionId]: objectKey },
+	});
 	const deletedObjects: string[] = [];
 	const failOnce = new Set(options.failOnce);
 	const enqueued: unknown[] = [];
@@ -75,6 +79,7 @@ function setup(options: Options = {}) {
 				if (!deletedObjects.includes(key)) {
 					deletedObjects.push(key);
 				}
+				options.onDelete?.(state);
 				return Promise.resolve();
 			},
 		},
@@ -93,7 +98,7 @@ function setup(options: Options = {}) {
 		sourceReader: { read: () => Promise.resolve(state.source) },
 		storage: deletion.storage,
 	});
-	const receipts = createErasureReceiptStore({
+	const receipts = createDeletionReceiptStore({
 		getProjectForUser: accessCheck,
 		storage: deletion.storage,
 	});
@@ -123,8 +128,8 @@ function setup(options: Options = {}) {
 
 function approval(
 	report: ErasureImpactReport,
-	overrides: Partial<ErasureAuthorizeInput> = {}
-): ErasureAuthorizeInput {
+	overrides: Partial<ErasureApprovalInput> = {}
+): ErasureApprovalInput {
 	const selectedContainerIds = report.containers.map((c) => c.id);
 	return {
 		acknowledgements: { externalCopiesRemain: true, irreversible: true },
@@ -150,12 +155,12 @@ function run(
 
 const scopeTarget = { id: "" };
 
-async function authorize(
+async function approve(
 	ctx: ReturnType<typeof setup>,
-	overrides: Partial<ErasureAuthorizeInput> = {}
+	overrides: Partial<ErasureApprovalInput> = {}
 ) {
 	const report = await ctx.prepare();
-	const result = await ctx.operations.authorize(
+	const result = await ctx.operations.approve(
 		userId,
 		approval(report, overrides)
 	);
@@ -168,7 +173,7 @@ async function authorize(
 
 test("YAS-04 report, approval, whole-container deletion and a content-free receipt reread", async () => {
 	const ctx = setup();
-	const { report, result } = await authorize(ctx);
+	const { report, result } = await approve(ctx);
 	expect(result?.status).toBe("accepted");
 	expect(ctx.enqueued).toHaveLength(1);
 	expect(ctx.enqueued[0]).toMatchObject({ kind: "deletion" });
@@ -208,22 +213,23 @@ test("YAS-04 report, approval, whole-container deletion and a content-free recei
 	});
 	const text = JSON.stringify(receipt);
 	expect(text).not.toContain(objectKey);
-	expect(text).not.toContain("hero.png");
+	// The Erasure Tombstone is identity and receipt only; the version's file name is redacted.
+	expect(ctx.deletion.redactedVersionIds).toEqual([versionId]);
 });
 
 test("an approval of an older report digest is rejected once the scope has changed, and nothing is recorded", async () => {
 	const ctx = setup();
 	const report = await ctx.prepare();
 	ctx.state.source.bundles.push({
-		files: [{ assetVersionId: versionId, path: "extra/hero.png" }],
+		files: [{ assetVersionId: versionId }],
 		id: "33333333-3333-4333-8333-333333333399",
 		manifestDigest: "d".repeat(64),
 	});
 
-	const result = await ctx.operations.authorize(userId, approval(report));
+	const result = await ctx.operations.approve(userId, approval(report));
 
 	expect(result).toEqual({ reason: "report_changed", status: "rejected" });
-	expect(ctx.deletion.authorizations.size).toBe(0);
+	expect(ctx.deletion.approvals.size).toBe(0);
 	expect(ctx.enqueued).toHaveLength(0);
 });
 
@@ -232,13 +238,13 @@ test("an approval naming another digest, wrong counts or an unknown container is
 	const report = await ctx.prepare();
 
 	expect(
-		await ctx.operations.authorize(
+		await ctx.operations.approve(
 			userId,
 			approval(report, { reportDigest: "e".repeat(64) })
 		)
 	).toEqual({ reason: "report_changed", status: "rejected" });
 	expect(
-		await ctx.operations.authorize(
+		await ctx.operations.approve(
 			userId,
 			approval(report, {
 				confirmed: { ...approval(report).confirmed, managedCopies: 9 },
@@ -246,12 +252,12 @@ test("an approval naming another digest, wrong counts or an unknown container is
 		)
 	).toEqual({ reason: "counts_mismatch", status: "rejected" });
 	expect(
-		await ctx.operations.authorize(
+		await ctx.operations.approve(
 			userId,
 			approval(report, { selectedContainerIds: ["no-such-container"] })
 		)
 	).toMatchObject({ reason: "unknown_container", status: "rejected" });
-	expect(ctx.deletion.authorizations.size).toBe(0);
+	expect(ctx.deletion.approvals.size).toBe(0);
 });
 
 test("the approval contract needs both explicit acknowledgements", () => {
@@ -270,42 +276,39 @@ test("the approval contract needs both explicit acknowledgements", () => {
 		reportId: assetRecordId,
 		selectedContainerIds: [],
 	};
-	expect(erasureAuthorizeInputSchema.safeParse(base).success).toBe(true);
+	expect(erasureApprovalInputSchema.safeParse(base).success).toBe(true);
 	expect(
-		erasureAuthorizeInputSchema.safeParse({
+		erasureApprovalInputSchema.safeParse({
 			...base,
 			acknowledgements: { externalCopiesRemain: true, irreversible: false },
 		}).success
 	).toBe(false);
 	expect(
-		erasureAuthorizeInputSchema.safeParse({ ...base, acknowledgements: {} })
+		erasureApprovalInputSchema.safeParse({ ...base, acknowledgements: {} })
 			.success
 	).toBe(false);
 });
 
 test("a scope that changes after approval fails the job before any object is removed", async () => {
 	const ctx = setup();
-	await authorize(ctx);
-	ctx.state.source.bundles[0]?.files.push({
-		assetVersionId: versionId,
-		path: "late/hero.png",
-	});
+	await approve(ctx);
+	ctx.state.source.bundles[0]?.files.push({ assetVersionId: versionId });
 
 	await expect(run(ctx.operations)).rejects.toThrow("no object was removed");
 	expect(ctx.deletedObjects).toEqual([]);
 	expect(ctx.deletion.receipts.size).toBe(0);
 });
 
-test("a repeated approval and a repeated delivery never make a second authorization, receipt or removal", async () => {
+test("a repeated approval and a repeated delivery never make a second approval, receipt or removal", async () => {
 	const ctx = setup();
-	const { report } = await authorize(ctx);
+	const { report } = await approve(ctx);
 	const firstTarget = scopeTarget.id;
-	const replay = await ctx.operations.authorize(userId, approval(report));
+	const replay = await ctx.operations.approve(userId, approval(report));
 	expect(replay).toMatchObject({
 		operation: { scopeTargetId: firstTarget },
 		status: "accepted",
 	});
-	expect(ctx.deletion.authorizations.size).toBe(1);
+	expect(ctx.deletion.approvals.size).toBe(1);
 
 	await run(ctx.operations);
 	const again = await run(ctx.operations);
@@ -318,11 +321,11 @@ test("a repeated approval and a repeated delivery never make a second authorizat
 
 test("the same key with another selection is a conflict", async () => {
 	const ctx = setup();
-	const { report } = await authorize(ctx);
+	const { report } = await approve(ctx);
 	const bundleOnly = [bundleId];
 
 	await expect(
-		ctx.operations.authorize(
+		ctx.operations.approve(
 			userId,
 			approval(report, {
 				confirmed: selectedErasureCounts(report, bundleOnly),
@@ -330,12 +333,12 @@ test("the same key with another selection is a conflict", async () => {
 			})
 		)
 	).rejects.toMatchObject({ name: "IdempotencyConflictError" });
-	expect(ctx.deletion.authorizations.size).toBe(1);
+	expect(ctx.deletion.approvals.size).toBe(1);
 });
 
 test("a cancel at the checkpoint before the first removal deletes nothing and leaves no receipt", async () => {
 	const ctx = setup();
-	await authorize(ctx);
+	await approve(ctx);
 
 	await expect(
 		run(ctx.operations, () => Promise.reject(new Error("cancelled")))
@@ -348,7 +351,7 @@ test("a cancel at the checkpoint before the first removal deletes nothing and le
 
 test("after the first removal no checkpoint runs, so a late cancel still reports the real result", async () => {
 	const ctx = setup();
-	await authorize(ctx);
+	await approve(ctx);
 	let checkpoints = 0;
 
 	const summary = await run(ctx.operations, () => {
@@ -363,7 +366,7 @@ test("after the first removal no checkpoint runs, so a late cancel still reports
 
 test("a failing storage removal leaves no receipt, tombstone or container removal", async () => {
 	const ctx = setup({ failDelete: true });
-	await authorize(ctx);
+	await approve(ctx);
 
 	await expect(run(ctx.operations)).rejects.toThrow("0 of 1 were removed");
 
@@ -376,7 +379,7 @@ test("a selection of one container removes only it whole and the receipt lists t
 	const ctx = setup();
 	const report = await ctx.prepare();
 	const selected = [archiveId];
-	const result = await ctx.operations.authorize(
+	const result = await ctx.operations.approve(
 		userId,
 		approval(report, {
 			confirmed: selectedErasureCounts(report, selected),
@@ -405,13 +408,13 @@ test("a report or receipt of an unknown contract major is never used", async () 
 		throw new Error("expected a stored report");
 	}
 	stored.contractVersion = "erasure-impact-report/2.0.0";
-	expect(await ctx.operations.authorize(userId, approval(report))).toEqual({
+	expect(await ctx.operations.approve(userId, approval(report))).toEqual({
 		reason: "report_unreadable",
 		status: "rejected",
 	});
 
 	const done = setup();
-	await authorize(done);
+	await approve(done);
 	await run(done.operations);
 	const receipt = done.deletion.receipts.get(scopeTarget.id);
 	if (!receipt) {
@@ -425,14 +428,14 @@ test("a report or receipt of an unknown contract major is never used", async () 
 
 test("a selected archive's own copies of the erased content are removed with it, an unselected archive's are not", async () => {
 	const selectedArchive = setup({ archiveKeys: [archiveCopyKey] });
-	await authorize(selectedArchive);
+	await approve(selectedArchive);
 	await run(selectedArchive.operations);
 	expect(selectedArchive.deletedObjects).toEqual([objectKey, archiveCopyKey]);
 
 	const bundleOnly = setup({ archiveKeys: [archiveCopyKey] });
 	const report = await bundleOnly.prepare();
 	const selected = [bundleId];
-	const result = await bundleOnly.operations.authorize(
+	const result = await bundleOnly.operations.approve(
 		userId,
 		approval(report, {
 			confirmed: selectedErasureCounts(report, selected),
@@ -452,7 +455,7 @@ test("a failure in the middle of the removals says what was removed, and a retry
 		archiveKeys: [archiveCopyKey],
 		failOnce: [archiveCopyKey],
 	});
-	await authorize(ctx);
+	await approve(ctx);
 
 	const failure = await run(ctx.operations).catch((error: Error) => error);
 	expect(failure).toBeInstanceOf(Error);
@@ -473,7 +476,7 @@ test("a failure in the middle of the removals says what was removed, and a retry
 test("an empty selection is valid: only the managed copies are erased and every container stays out of scope", async () => {
 	const ctx = setup();
 	const report = await ctx.prepare();
-	const result = await ctx.operations.authorize(
+	const result = await ctx.operations.approve(
 		userId,
 		approval(report, {
 			confirmed: selectedErasureCounts(report, []),
@@ -489,4 +492,128 @@ test("an empty selection is valid: only the managed copies are erased and every 
 	expect(ctx.deletion.removedContainers).toEqual([]);
 	const receipt = await ctx.receipts.get(userId, projectId, scopeTarget.id);
 	expect(receipt?.remainingContainers).toHaveLength(2);
+});
+
+test("the same key and content after the erasure finished replays the first approval, never report_changed", async () => {
+	const ctx = setup();
+	const { report } = await approve(ctx);
+	await run(ctx.operations);
+	// The erasure changed the records the report was built from.
+	ctx.state.source.assetRecord.availability = "erased";
+
+	const replay = await ctx.operations.approve(userId, approval(report));
+
+	expect(replay).toMatchObject({
+		operation: { scopeTargetId: scopeTarget.id },
+		status: "accepted",
+	});
+	expect(ctx.deletion.approvals.size).toBe(1);
+	expect(ctx.deletion.receipts.size).toBe(1);
+});
+
+test("the same key with other confirmed counts is an idempotency conflict, not a counts mismatch", async () => {
+	const ctx = setup();
+	const { report } = await approve(ctx);
+	const confirmed = { ...approval(report).confirmed, managedCopies: 9 };
+
+	await expect(
+		ctx.operations.approve(userId, approval(report, { confirmed }))
+	).rejects.toMatchObject({ name: "IdempotencyConflictError" });
+	expect(ctx.deletion.approvals.size).toBe(1);
+});
+
+test("a retry after a partial removal never passes the cancel checkpoint again", async () => {
+	const ctx = setup({
+		archiveKeys: [archiveCopyKey],
+		failOnce: [archiveCopyKey],
+	});
+	await approve(ctx);
+	let checkpoints = 0;
+	const counting = () => {
+		checkpoints += 1;
+		return Promise.resolve();
+	};
+
+	await expect(run(ctx.operations, counting)).rejects.toThrow("1 of 2");
+	expect(checkpoints).toBe(1);
+	expect(ctx.deletion.removalStarts.size).toBe(1);
+
+	// A cancel asked in between would throw at a checkpoint; the retry has none left.
+	const summary = await run(ctx.operations, () =>
+		Promise.reject(new Error("cancelled"))
+	);
+
+	expect(summary).toContain("created");
+	expect(ctx.deletion.receipts.size).toBe(1);
+});
+
+test("a cancel before any removal leaves no removal start, so the next attempt can still be cancelled", async () => {
+	const ctx = setup();
+	await approve(ctx);
+
+	await expect(
+		run(ctx.operations, () => Promise.reject(new Error("cancelled")))
+	).rejects.toThrow("cancelled");
+
+	expect(ctx.deletion.removalStarts.size).toBe(0);
+});
+
+test("a version or container that appears while objects are removed fails the finalize and writes nothing", async () => {
+	const ctx = setup({
+		onDelete: ({ source }) => {
+			source.bundles.push({
+				files: [{ assetVersionId: versionId }],
+				id: "33333333-3333-4333-8333-333333333398",
+				manifestDigest: "e".repeat(64),
+			});
+		},
+	});
+	await approve(ctx);
+
+	await expect(run(ctx.operations)).rejects.toThrow("scope changed");
+
+	expect(ctx.deletedObjects).toEqual([objectKey]);
+	expect(ctx.deletion.receipts.size).toBe(0);
+	expect(ctx.deletion.tombstones).toEqual([]);
+	expect(ctx.deletion.erasedAssetRecords).toEqual([]);
+	expect(ctx.deletion.removedContainers).toEqual([]);
+});
+
+test("an Asset Record erased or removed while objects are removed gets no receipt", async () => {
+	const ctx = setup({
+		onDelete: ({ source }) => {
+			source.assetRecord.availability = "erased";
+		},
+	});
+	await approve(ctx);
+
+	await expect(run(ctx.operations)).rejects.toThrow("scope changed");
+
+	expect(ctx.deletion.receipts.size).toBe(0);
+	expect(ctx.deletion.erasedAssetRecords).toEqual([]);
+});
+
+test("an approving user who lost project access fails the job naming the access loss, not an unreadable report", async () => {
+	const ctx = setup();
+	await approve(ctx);
+	ctx.state.access = false;
+
+	const failure = await run(ctx.operations).catch((error: Error) => error);
+
+	expect(failure).toBeInstanceOf(Error);
+	expect((failure as Error).message).toContain("no longer has access");
+	expect((failure as Error).message).not.toContain("cannot be read");
+	expect(ctx.deletedObjects).toEqual([]);
+	expect(ctx.deletion.receipts.size).toBe(0);
+});
+
+test("a report missing for an approved job is named as missing, not as an access or digest problem", async () => {
+	const ctx = setup();
+	await approve(ctx);
+	ctx.impactStorage.rows.clear();
+
+	const failure = await run(ctx.operations).catch((error: Error) => error);
+
+	expect((failure as Error).message).toContain("was not found");
+	expect(ctx.deletedObjects).toEqual([]);
 });

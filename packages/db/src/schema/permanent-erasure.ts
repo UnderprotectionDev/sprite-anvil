@@ -14,26 +14,26 @@ import { project } from "./project";
  * One Erasure Impact Report: the exact scope of erasing one Asset Record. The
  * row id is derived from the client's idempotency key, so a repeated key finds
  * the same row. `scope` holds the content-free scope the digest covers; no file
- * content or storage location is kept. `targetAssetRecordId` is not a foreign
- * key: the report outlives the erasure it describes. Rows are inserted once,
- * never updated.
+ * name, file content or storage location is kept. `targetAssetRecordId` is not
+ * a foreign key: the report outlives the erasure it describes. Rows are
+ * inserted once, never updated.
  */
 export const erasureImpactReports = pgTable(
 	"erasure_impact_reports",
 	{
+		contractVersion: text("contract_version").notNull(),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+		createdByUserId: text("created_by_user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
 		id: text("id").primaryKey(),
 		projectId: text("project_id")
 			.notNull()
 			.references(() => project.id, { onDelete: "cascade" }),
-		targetAssetRecordId: text("target_asset_record_id").notNull(),
-		contractVersion: text("contract_version").notNull(),
 		reportDigest: text("report_digest").notNull(),
 		requestDigest: text("request_digest").notNull(),
 		scope: jsonb("scope").$type<Record<string, unknown>>().notNull(),
-		createdByUserId: text("created_by_user_id")
-			.notNull()
-			.references(() => user.id, { onDelete: "cascade" }),
-		createdAt: timestamp("created_at").defaultNow().notNull(),
+		targetAssetRecordId: text("target_asset_record_id").notNull(),
 	},
 	(table) => [
 		uniqueIndex("erasure_impact_reports_project_id_id_idx").on(
@@ -49,10 +49,10 @@ export const erasureImpactReports = pgTable(
  * report is not a foreign key: the approval and its receipt outlive the
  * scope they describe. Rows are inserted once, never updated.
  */
-export const erasureAuthorizations = pgTable(
-	"erasure_authorizations",
+export const erasureApprovals = pgTable(
+	"erasure_approvals",
 	{
-		authorizedByUserId: text("authorized_by_user_id")
+		approvedByUserId: text("approved_by_user_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
 		confirmed: jsonb("confirmed").$type<Record<string, number>>().notNull(),
@@ -70,7 +70,30 @@ export const erasureAuthorizations = pgTable(
 			.notNull(),
 	},
 	(table) => [
-		uniqueIndex("erasure_authorizations_project_id_id_idx").on(
+		uniqueIndex("erasure_approvals_project_id_id_idx").on(
+			table.projectId,
+			table.id
+		),
+	]
+);
+
+/**
+ * The mark that the removal of stored objects began for one approval: the
+ * irreversible boundary. Once it exists the Deletion Job no longer passes a
+ * cancel checkpoint, because cancelling can no longer undo what was removed.
+ * The id is the approval id. Rows are inserted once, never updated.
+ */
+export const erasureRemovalStarts = pgTable(
+	"erasure_removal_starts",
+	{
+		id: text("id").primaryKey(),
+		projectId: text("project_id")
+			.notNull()
+			.references(() => project.id, { onDelete: "cascade" }),
+		startedAt: timestamp("started_at").notNull(),
+	},
+	(table) => [
+		uniqueIndex("erasure_removal_starts_project_id_id_idx").on(
 			table.projectId,
 			table.id
 		),
@@ -79,12 +102,12 @@ export const erasureAuthorizations = pgTable(
 
 /**
  * The content-free Deletion Receipt of one completed Deletion Job. The id is
- * the authorization id, so one approval can never have a second receipt. The
+ * the approval id, so one approval can never have a second receipt. The
  * receipt holds identities, digests, counts and times only; no file content,
  * name or storage location. Rows are inserted once, never updated.
  */
-export const erasureReceipts = pgTable(
-	"erasure_receipts",
+export const deletionReceipts = pgTable(
+	"deletion_receipts",
 	{
 		backgroundOperationId: text("background_operation_id").notNull(),
 		contractVersion: text("contract_version").notNull(),
@@ -97,7 +120,7 @@ export const erasureReceipts = pgTable(
 		receiptDigest: text("receipt_digest").notNull(),
 	},
 	(table) => [
-		uniqueIndex("erasure_receipts_project_id_id_idx").on(
+		uniqueIndex("deletion_receipts_project_id_id_idx").on(
 			table.projectId,
 			table.id
 		),
@@ -106,9 +129,9 @@ export const erasureReceipts = pgTable(
 
 /**
  * What stays of an erased Asset Version: its identity and the receipt that
- * erased it, never content. The Asset Version row stays, the Asset Record is
- * marked erased and its stored object is gone. The id is the Asset Version id.
- * Rows are inserted once, never updated.
+ * erased it, never content. The Asset Version row stays with its file name
+ * redacted, the Asset Record is marked erased and its stored object is gone.
+ * The id is the Asset Version id. Rows are inserted once, never updated.
  */
 export const erasureTombstones = pgTable(
 	"erasure_tombstones",

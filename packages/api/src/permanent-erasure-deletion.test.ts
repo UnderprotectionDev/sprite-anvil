@@ -1,10 +1,11 @@
 import { expect, test } from "bun:test";
 import type { ErasureImpactScope } from "./permanent-erasure";
 import {
+	confirmedCountsMatch,
 	deletionReceiptContractSupport,
 	deletionReceiptContractVersion,
-	type ErasureAuthorizeInput,
-	erasureAuthorizeRequestDigest,
+	type ErasureApprovalInput,
+	erasureApprovalRequestDigest,
 	selectedErasureCounts,
 } from "./permanent-erasure-deletion";
 
@@ -35,7 +36,7 @@ test("selected counts follow the chosen containers, while copies and fulfilments
 	});
 });
 
-const input: ErasureAuthorizeInput = {
+const input: ErasureApprovalInput = {
 	acknowledgements: { externalCopiesRemain: true, irreversible: true },
 	confirmed: {
 		archives: 1,
@@ -52,22 +53,22 @@ const input: ErasureAuthorizeInput = {
 };
 
 test("the request digest ignores selection order and the idempotency key, but not the content", async () => {
-	const base = await erasureAuthorizeRequestDigest(input);
+	const base = await erasureApprovalRequestDigest(input);
 	expect(
-		await erasureAuthorizeRequestDigest({
+		await erasureApprovalRequestDigest({
 			...input,
 			idempotencyKey: "key-2",
 			selectedContainerIds: ["a1", "b1"],
 		})
 	).toBe(base);
 	expect(
-		await erasureAuthorizeRequestDigest({
+		await erasureApprovalRequestDigest({
 			...input,
 			selectedContainerIds: ["b1"],
 		})
 	).not.toBe(base);
 	expect(
-		await erasureAuthorizeRequestDigest({
+		await erasureApprovalRequestDigest({
 			...input,
 			reportDigest: "b".repeat(64),
 		})
@@ -88,4 +89,19 @@ test("only the known major receipt contract version is supported", () => {
 	expect(deletionReceiptContractSupport("receipt/1")).toEqual({
 		status: "malformed",
 	});
+});
+
+test("the confirmed counts match only when every shown count equals the selection's", () => {
+	const confirmed = {
+		archives: 1,
+		bundles: 1,
+		containerFiles: 5,
+		fulfilments: 2,
+		managedCopies: 2,
+	};
+	expect(confirmedCountsMatch(scope, ["b1", "a1"], confirmed)).toBe(true);
+	expect(
+		confirmedCountsMatch(scope, ["b1", "a1"], { ...confirmed, bundles: 0 })
+	).toBe(false);
+	expect(confirmedCountsMatch(scope, ["b1"], confirmed)).toBe(false);
 });

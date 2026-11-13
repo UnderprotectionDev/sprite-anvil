@@ -1,4 +1,4 @@
-import type { ErasureImpactSource } from "@sprite-anvil/api/permanent-erasure";
+import type { ErasureImpactSource } from "@sprite-anvil/api/permanent-erasure-scope";
 
 export const userId = "user-1";
 export const projectId = "7a1f0f0e-8f4e-4c36-9a53-0b0b6a2f2a01";
@@ -15,18 +15,8 @@ export function yas04Source(): ErasureImpactSource {
 		archives: [
 			{
 				files: [
-					{
-						assetVersionId: versionId,
-						kind: "asset_version",
-						presence: "included",
-						sourceId: versionId,
-					},
-					{
-						assetVersionId: otherVersionId,
-						kind: "asset_version",
-						presence: "included",
-						sourceId: otherVersionId,
-					},
+					{ assetVersionId: versionId, presence: "included" },
+					{ assetVersionId: otherVersionId, presence: "included" },
 				],
 				id: archiveId,
 				manifestDigest: "a".repeat(64),
@@ -35,10 +25,7 @@ export function yas04Source(): ErasureImpactSource {
 		assetRecord: { availability: "active", id: assetRecordId },
 		bundles: [
 			{
-				files: [
-					{ assetVersionId: versionId, path: "sprites/hero.png" },
-					{ assetVersionId: null, path: "manifest.json" },
-				],
+				files: [{ assetVersionId: versionId }, { assetVersionId: null }],
 				id: bundleId,
 				manifestDigest: "b".repeat(64),
 			},
@@ -54,11 +41,36 @@ export function yas04Source(): ErasureImpactSource {
 		versions: [
 			{
 				byteSize: 120,
-				contentType: "image/png",
-				fileName: "hero.png",
 				id: versionId,
 				sha256: "c".repeat(64),
 			},
 		],
+	};
+}
+
+/** What the database holds for the asset right now, as the finalize step re-checks it. */
+export function liveScopeOf(source: ErasureImpactSource) {
+	const versionIds = source.versions.map((version) => version.id);
+	const embeds = (files: { assetVersionId: string | null }[]) =>
+		files.some(
+			(file) =>
+				file.assetVersionId !== null && versionIds.includes(file.assetVersionId)
+		);
+	return {
+		availability: source.assetRecord.availability,
+		containers: [
+			...source.bundles
+				.filter((bundle) => embeds(bundle.files))
+				.map((bundle) => ({ id: bundle.id, kind: "export_bundle" as const })),
+			...source.archives
+				.filter((archive) =>
+					embeds(archive.files.filter((file) => file.presence === "included"))
+				)
+				.map((archive) => ({
+					id: archive.id,
+					kind: "project_archive" as const,
+				})),
+		],
+		versionIds,
 	};
 }

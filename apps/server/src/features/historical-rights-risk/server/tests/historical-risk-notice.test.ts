@@ -117,6 +117,7 @@ function setup(
 		id: fulfilmentId,
 		projectId,
 		isCurrent: true,
+		verifiable: true,
 		requirements: [
 			...(options.pinnedVersions
 				? [
