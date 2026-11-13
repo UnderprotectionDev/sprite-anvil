@@ -4,6 +4,7 @@ import { hasVisibleFocusIndicator } from "../src/utils/focus-indicator";
 const startLinkText = "Başlamak için giriş yap";
 const maxTabs = 40;
 
+// WebDriver serializes an omitted argument as null, so "no label" is passed as "".
 /** Presses Tab until the element matching `selector` (CSS) or showing `text` owns focus. */
 async function tabTo(selector: string, text?: string) {
 	// Under xvfb the webview may not own keyboard focus yet; without it Tab never moves focus.
@@ -22,10 +23,10 @@ async function tabTo(selector: string, text?: string) {
 				if (!active?.matches(query)) {
 					return false;
 				}
-				return label === undefined || active.textContent?.trim() === label;
+				return !label || active.textContent?.trim() === label;
 			},
 			selector,
-			text
+			text ?? ""
 		);
 		if (focused) {
 			return;
@@ -43,7 +44,7 @@ async function tabTo(selector: string, text?: string) {
 			].find(
 				(element) =>
 					element.matches(query) &&
-					(label === undefined || element.textContent?.trim() === label)
+					(!label || element.textContent?.trim() === label)
 			);
 			if (!target) {
 				return "target not found in the document";
@@ -55,7 +56,7 @@ async function tabTo(selector: string, text?: string) {
 				: `focus() left ${active?.tagName ?? "nothing"} active (tabIndex ${target.tabIndex})`;
 		},
 		selector,
-		text
+		text ?? ""
 	);
 	if (outcome !== "focused") {
 		throw new Error(
