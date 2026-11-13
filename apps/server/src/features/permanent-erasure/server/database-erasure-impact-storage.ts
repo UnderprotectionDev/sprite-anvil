@@ -1,18 +1,11 @@
 import type { ErasureImpactScope } from "@sprite-anvil/api/permanent-erasure";
 import type { Database } from "@sprite-anvil/db";
+import { hasErrorCode } from "@sprite-anvil/db/error-codes";
 import { erasureImpactReports } from "@sprite-anvil/db/schema/permanent-erasure";
 import { and, eq } from "drizzle-orm";
 import type { ErasureImpactStorage } from "./erasure-impact-storage";
 
 const uniqueViolationCode = "23505";
-
-function hasErrorCode(error: unknown, expected: string): boolean {
-	if (typeof error !== "object" || error === null) {
-		return false;
-	}
-	const { cause, code } = error as { cause?: unknown; code?: unknown };
-	return code === expected || hasErrorCode(cause, expected);
-}
 
 export function createDatabaseErasureImpactStorage(
 	db: Database

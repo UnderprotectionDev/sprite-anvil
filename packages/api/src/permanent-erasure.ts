@@ -30,8 +30,9 @@ export function erasureContractSupport(
 		: { major, status: "unsupported_major" };
 }
 
-const uuidSchema = z.uuid();
-const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/);
+export const uuidSchema = z.uuid();
+export const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/);
+export const countSchema = z.number().int().nonnegative();
 
 export const erasureImpactPrepareInputSchema = z
 	.object({
@@ -101,11 +102,11 @@ export const erasureImpactScopeSchema = z
 		contractVersion: z.string().min(1),
 		counts: z
 			.object({
-				archives: z.number().int().nonnegative(),
-				bundles: z.number().int().nonnegative(),
-				containerFiles: z.number().int().nonnegative(),
-				fulfilments: z.number().int().nonnegative(),
-				managedCopies: z.number().int().nonnegative(),
+				archives: countSchema,
+				bundles: countSchema,
+				containerFiles: countSchema,
+				fulfilments: countSchema,
+				managedCopies: countSchema,
 			})
 			.strict(),
 		/** Copies outside managed storage are never recalled and never claimed as removed. */

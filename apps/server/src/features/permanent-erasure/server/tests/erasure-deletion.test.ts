@@ -29,8 +29,13 @@ const objectKey = "projects/p/objects/hero-secret-location";
 const retention = { purgeWindowDays: 30, version: "fixture-schedule-1" };
 const operationId = "99999999-9999-4999-8999-999999999901";
 
+const archiveCopyKey = "projects/p/objects/hero-working-copy";
+
 interface Options {
+	archiveKeys?: string[];
 	failDelete?: boolean;
+	/** Object keys whose removal fails once, then succeeds. */
+	failOnce?: string[];
 	retention?: typeof retention | null;
 }
 
@@ -48,10 +53,12 @@ function setup(options: Options = {}) {
 		sourceReader: { read: () => Promise.resolve(state.source) },
 		storage: impactStorage,
 	});
-	const deletion = createMemoryErasureDeletionStorage({
-		[versionId]: objectKey,
-	});
+	const deletion = createMemoryErasureDeletionStorage(
+		{ [versionId]: objectKey },
+		{ [archiveId]: options.archiveKeys ?? [] }
+	);
 	const deletedObjects: string[] = [];
+	const failOnce = new Set(options.failOnce);
 	const enqueued: unknown[] = [];
 	const operations = createErasureDeletionOperations({
 		getProjectForUser: accessCheck,
@@ -62,7 +69,12 @@ function setup(options: Options = {}) {
 				if (options.failDelete) {
 					return Promise.reject(new Error("storage unavailable"));
 				}
-				deletedObjects.push(key);
+				if (failOnce.delete(key)) {
+					return Promise.reject(new Error("storage unavailable"));
+				}
+				if (!deletedObjects.includes(key)) {
+					deletedObjects.push(key);
+				}
 				return Promise.resolve();
 			},
 		},
@@ -77,6 +89,7 @@ function setup(options: Options = {}) {
 			},
 		},
 		permanentFailure: (message) => new Error(message),
+		transientFailure: (message) => new Error(message),
 		sourceReader: { read: () => Promise.resolve(state.source) },
 		storage: deletion.storage,
 	});
@@ -278,7 +291,7 @@ test("a scope that changes after approval fails the job before any object is rem
 		path: "late/hero.png",
 	});
 
-	await expect(run(ctx.operations)).rejects.toThrow("nothing was deleted");
+	await expect(run(ctx.operations)).rejects.toThrow("no object was removed");
 	expect(ctx.deletedObjects).toEqual([]);
 	expect(ctx.deletion.receipts.size).toBe(0);
 });
@@ -352,7 +365,7 @@ test("a failing storage removal leaves no receipt, tombstone or container remova
 	const ctx = setup({ failDelete: true });
 	await authorize(ctx);
 
-	await expect(run(ctx.operations)).rejects.toThrow("storage unavailable");
+	await expect(run(ctx.operations)).rejects.toThrow("0 of 1 were removed");
 
 	expect(ctx.deletion.receipts.size).toBe(0);
 	expect(ctx.deletion.tombstones).toEqual([]);
@@ -408,4 +421,72 @@ test("a report or receipt of an unknown contract major is never used", async () 
 	await expect(
 		done.receipts.get(userId, projectId, scopeTarget.id)
 	).rejects.toMatchObject({ name: "RecordIntegrityError" });
+});
+
+test("a selected archive's own copies of the erased content are removed with it, an unselected archive's are not", async () => {
+	const selectedArchive = setup({ archiveKeys: [archiveCopyKey] });
+	await authorize(selectedArchive);
+	await run(selectedArchive.operations);
+	expect(selectedArchive.deletedObjects).toEqual([objectKey, archiveCopyKey]);
+
+	const bundleOnly = setup({ archiveKeys: [archiveCopyKey] });
+	const report = await bundleOnly.prepare();
+	const selected = [bundleId];
+	const result = await bundleOnly.operations.authorize(
+		userId,
+		approval(report, {
+			confirmed: selectedErasureCounts(report, selected),
+			selectedContainerIds: selected,
+		})
+	);
+	if (result?.status !== "accepted") {
+		throw new Error("expected an accepted approval");
+	}
+	scopeTarget.id = result.operation.scopeTargetId ?? "";
+	await run(bundleOnly.operations);
+	expect(bundleOnly.deletedObjects).toEqual([objectKey]);
+});
+
+test("a failure in the middle of the removals says what was removed, and a retry completes with one receipt and one tombstone", async () => {
+	const ctx = setup({
+		archiveKeys: [archiveCopyKey],
+		failOnce: [archiveCopyKey],
+	});
+	await authorize(ctx);
+
+	const failure = await run(ctx.operations).catch((error: Error) => error);
+	expect(failure).toBeInstanceOf(Error);
+	expect((failure as Error).message).toContain("1 of 2");
+	expect((failure as Error).message).not.toContain("nothing was deleted");
+	expect(ctx.deletedObjects).toEqual([objectKey]);
+	expect(ctx.deletion.receipts.size).toBe(0);
+
+	const summary = await run(ctx.operations);
+
+	expect(summary).toContain("created");
+	// The first object is removed again: removing a missing object is not an error.
+	expect(ctx.deletedObjects).toEqual([objectKey, archiveCopyKey]);
+	expect(ctx.deletion.receipts.size).toBe(1);
+	expect(ctx.deletion.tombstones).toHaveLength(1);
+});
+
+test("an empty selection is valid: only the managed copies are erased and every container stays out of scope", async () => {
+	const ctx = setup();
+	const report = await ctx.prepare();
+	const result = await ctx.operations.authorize(
+		userId,
+		approval(report, {
+			confirmed: selectedErasureCounts(report, []),
+			selectedContainerIds: [],
+		})
+	);
+	if (result?.status !== "accepted") {
+		throw new Error("expected an accepted approval");
+	}
+	scopeTarget.id = result.operation.scopeTargetId ?? "";
+	await run(ctx.operations);
+
+	expect(ctx.deletion.removedContainers).toEqual([]);
+	const receipt = await ctx.receipts.get(userId, projectId, scopeTarget.id);
+	expect(receipt?.remainingContainers).toHaveLength(2);
 });

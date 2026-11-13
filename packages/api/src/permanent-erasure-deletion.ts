@@ -1,7 +1,10 @@
 import { z } from "zod";
 import {
+	countSchema,
 	type ErasureImpactScope,
 	externalCopiesStatement,
+	sha256Schema,
+	uuidSchema,
 } from "./permanent-erasure";
 import { recordContentDigest } from "./record-content-digest";
 import { idempotencyKeySchema } from "./record-publication";
@@ -30,10 +33,6 @@ export function deletionReceiptContractSupport(
 		? { status: "supported" }
 		: { major, status: "unsupported_major" };
 }
-
-const uuidSchema = z.uuid();
-const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/);
-const countSchema = z.number().int().nonnegative();
 
 /** The exact counts the user confirms against the exact report. */
 export const erasureConfirmedCountsSchema = z
@@ -69,6 +68,7 @@ export const erasureAuthorizeInputSchema = z
 		projectId: uuidSchema,
 		reportDigest: sha256Schema,
 		reportId: uuidSchema,
+		/** May be empty: a container left out of the selection stays out of scope and keeps its content. */
 		selectedContainerIds: z.array(z.string().min(1)),
 	})
 	.strict();
@@ -116,8 +116,7 @@ export type ErasureAuthorizeRejection =
 	/** The stored report cannot be read or verified by this build. */
 	| { reason: "report_unreadable" }
 	| { reason: "counts_mismatch" }
-	| { reason: "unknown_container"; containerIds: string[] }
-	| { reason: "no_selection" };
+	| { reason: "unknown_container"; containerIds: string[] };
 
 export type ErasureAuthorizeResult<Operation> =
 	| { operation: Operation; status: "accepted" }

@@ -23,6 +23,15 @@ function getErasureImpactStore(context: Context) {
 	return context.erasureImpactStore;
 }
 
+function getDeletionReceiptStore(context: Context) {
+	if (!context.deletionReceiptStore) {
+		throw new ORPCError("INTERNAL_SERVER_ERROR", {
+			message: "Deletion Receipt storage is unavailable.",
+		});
+	}
+	return context.deletionReceiptStore;
+}
+
 function rejectionMessage(rejection: ErasureImpactRejection): string {
 	switch (rejection.reason) {
 		case "already_erased":
@@ -44,12 +53,7 @@ export const permanentErasureRouter = {
 		.output(deletionReceiptRecordSchema)
 		.handler(({ context, input }) =>
 			withPublicationErrors(async () => {
-				if (!context.deletionReceiptStore) {
-					throw new ORPCError("INTERNAL_SERVER_ERROR", {
-						message: "Deletion Receipt storage is unavailable.",
-					});
-				}
-				const receipt = await context.deletionReceiptStore.get(
+				const receipt = await getDeletionReceiptStore(context).get(
 					context.session.user.id,
 					input.projectId,
 					input.receiptId
