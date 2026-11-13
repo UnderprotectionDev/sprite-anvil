@@ -6,6 +6,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { LoadErrorAlert } from "@/components/load-error-alert";
+import { getSupportReference } from "@/utils/error-notification";
 import { orpc } from "@/utils/orpc";
 import { shortId } from "../../lib/short-id";
 import { DeliveryDiffPanel } from "../components/delivery-diff-panel";
@@ -74,6 +75,7 @@ function Comparison({
 			<LoadErrorAlert
 				message="The comparison could not be loaded."
 				onRetry={() => void comparison.refetch()}
+				supportReference={getSupportReference(comparison.error)}
 			/>
 		);
 	}
@@ -108,6 +110,7 @@ function TargetComparison({
 			<LoadErrorAlert
 				message="Delivery Fulfilments could not be loaded."
 				onRetry={() => void fulfilments.refetch()}
+				supportReference={getSupportReference(fulfilments.error)}
 			/>
 		);
 	}
@@ -190,6 +193,7 @@ export function DeliveryDiffView({
 				<LoadErrorAlert
 					message="Delivery Targets could not be loaded."
 					onRetry={() => void catalog.refetch()}
+					supportReference={getSupportReference(catalog.error)}
 				/>
 			) : null}
 			{catalog.isSuccess && !selected ? (

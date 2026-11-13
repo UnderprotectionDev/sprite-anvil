@@ -3,6 +3,7 @@ import { Button } from "@sprite-anvil/ui/components/button";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { TaskWorkspace } from "@/components/task-workspace";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
@@ -131,13 +132,7 @@ export function SpecializedProfileContractsView({
 				</p>
 			) : null}
 			{errorMessage ? (
-				<p
-					aria-live="assertive"
-					className="text-destructive text-sm"
-					role="alert"
-				>
-					{errorMessage}
-				</p>
+				<StatusMessage tone="error">{errorMessage}</StatusMessage>
 			) : null}
 			{writeOutcomeUncertain ? (
 				<Button
@@ -156,11 +151,11 @@ export function SpecializedProfileContractsView({
 				<p aria-live="polite">Profil sözleşmeleri yükleniyor…</p>
 			) : null}
 			{contractsQuery.isError ? (
-				<div className="space-y-3 rounded-lg border p-5" role="alert">
-					<p>
+				<div className="space-y-3 rounded-lg border p-5">
+					<StatusMessage tone="error">
 						Profil sözleşmeleri yüklenemedi. Proje erişimini kontrol edip
 						yeniden deneyin.
-					</p>
+					</StatusMessage>
 					<Button
 						onClick={() => void contractsQuery.refetch()}
 						type="button"

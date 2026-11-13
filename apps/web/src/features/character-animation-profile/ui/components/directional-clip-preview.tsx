@@ -1,7 +1,7 @@
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
 import type { DirectionalReviewFrame } from "@sprite-anvil/api/directional-reviews";
 import { useEffect, useRef, useState } from "react";
-
+import { StatusMessage } from "@/components/status-message";
 import { ENV } from "@/env";
 
 const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
@@ -168,7 +168,7 @@ export function DirectionalClipPreview({
 					}}
 				/>
 			</div>
-			{error ? <p role="alert">{error}</p> : null}
+			{error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
 		</figure>
 	);
 }

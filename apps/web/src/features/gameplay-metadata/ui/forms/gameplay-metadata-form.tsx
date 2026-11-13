@@ -17,6 +17,7 @@ import {
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useId, useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import {
 	type GameplayMetadataFormValues,
 	gameplayMetadataFormSchema,
@@ -328,12 +329,12 @@ export function GameplayMetadataForm({
 					Oyun içi bilgileri kaydet
 				</Button>
 			</FieldSet>
-			{Boolean(error) && <p role="alert">{error}</p>}
+			{Boolean(error) && <StatusMessage tone="error">{error}</StatusMessage>}
 			{Boolean(initialRecord) && !frame && (
-				<p role="alert">
+				<StatusMessage tone="error">
 					Bütünlük hatası: düzenlenen kaydın kare veya kesin sürüm bağlantısı
 					kayboldu.
-				</p>
+				</StatusMessage>
 			)}
 		</form>
 	);

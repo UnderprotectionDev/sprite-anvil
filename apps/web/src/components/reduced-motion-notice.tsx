@@ -1,12 +1,25 @@
+import { usePrefersReducedMotion } from "@sprite-anvil/ui/hooks/use-prefers-reduced-motion";
+import { useEffect, useRef } from "react";
+
 /**
- * Tells the user why playback starts paused when the system asks for reduced
- * motion. Renders nothing otherwise.
+ * For players that never start on their own. When the system asks for reduced
+ * motion it calls `onReducedMotion` (stop playback) as the preference turns on
+ * and tells the user why playback waits for Play. Renders nothing otherwise.
+ * `onReducedMotion` need not be stable: the latest one is always called.
  */
 export function ReducedMotionNotice({
-	reducedMotion,
+	onReducedMotion,
 }: {
-	reducedMotion: boolean;
+	onReducedMotion: () => void;
 }) {
+	const reducedMotion = usePrefersReducedMotion();
+	const latest = useRef(onReducedMotion);
+	latest.current = onReducedMotion;
+	useEffect(() => {
+		if (reducedMotion) {
+			latest.current();
+		}
+	}, [reducedMotion]);
 	if (!reducedMotion) {
 		return null;
 	}

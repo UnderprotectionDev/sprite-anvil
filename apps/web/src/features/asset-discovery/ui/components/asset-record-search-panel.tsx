@@ -13,6 +13,7 @@ import {
 import { useForm, useStore } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import {
 	assetCategoryLabels,
 	assetRecordAvailabilityLabels,
@@ -464,9 +465,9 @@ export function AssetRecordSearchPanel({
 				</details>
 				<div className="sm:col-span-2">
 					{validationMessage ? (
-						<p className="mb-2 text-destructive text-sm" role="alert">
+						<StatusMessage className="mb-2" tone="error">
 							{validationMessage}
-						</p>
+						</StatusMessage>
 					) : null}
 					<Button disabled={searchQuery.isFetching} type="submit">
 						{searchQuery.isFetching ? "Aranıyor…" : "Varlık kayıtlarını ara"}
@@ -478,13 +479,13 @@ export function AssetRecordSearchPanel({
 			) : null}
 			{scopeQuery.isError ? (
 				<div className="space-y-2">
-					<p role="alert">
+					<StatusMessage tone="error">
 						{getErrorMessage(
 							scopeQuery.error,
 							"Tema ve Görsel Dünya kayıtları yüklenemedi.",
 							"query"
 						)}
-					</p>
+					</StatusMessage>
 					<QueryRetryButton
 						disabled={scopeQuery.isFetching}
 						onRetry={() => void scopeQuery.refetch()}
@@ -496,13 +497,13 @@ export function AssetRecordSearchPanel({
 			) : null}
 			{searchQuery.isError ? (
 				<div className="space-y-2">
-					<p role="alert">
+					<StatusMessage tone="error">
 						{getErrorMessage(
 							searchQuery.error,
 							"Varlık kayıtları aranamadı.",
 							"query"
 						)}
-					</p>
+					</StatusMessage>
 					<QueryRetryButton
 						disabled={searchQuery.isFetching}
 						onRetry={() => void searchQuery.refetch()}

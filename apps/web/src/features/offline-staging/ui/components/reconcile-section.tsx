@@ -4,6 +4,7 @@ import type {
 	OfflineConflictView,
 } from "@sprite-anvil/api/offline-conflict";
 import { Button } from "@sprite-anvil/ui/components/button";
+import { StatusMessage } from "@/components/status-message";
 import type { AbandonConfirmationInput } from "../../hooks/use-offline-reconcile";
 import type { ReconcileEntry } from "../../lib/reconcile-staged-drafts";
 import { OfflineConflictPanel } from "./offline-conflict-panel";
@@ -72,9 +73,9 @@ export function ReconcileSection({
 					);
 				}
 				return (
-					<p key={entry.draftId} role="alert">
+					<StatusMessage key={entry.draftId} tone="error">
 						Staged draft {entry.draftId} stays staged: {entry.message}
-					</p>
+					</StatusMessage>
 				);
 			})}
 		</section>

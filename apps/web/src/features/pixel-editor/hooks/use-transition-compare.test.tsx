@@ -72,6 +72,7 @@ test("playback stops when the system starts asking for reduced motion", () => {
 	act(() => {
 		vi.advanceTimersByTime(transitionIntervalMs * 3);
 	});
+	expect(result.current.running).toBe(false);
 	expect(result.current.phase).toBe("draft");
 });
 

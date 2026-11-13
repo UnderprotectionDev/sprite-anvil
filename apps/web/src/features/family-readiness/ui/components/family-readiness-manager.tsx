@@ -22,6 +22,7 @@ import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import type {
 	IconPixelDimensions,
 	IconUsagePreviewContext,
@@ -356,7 +357,9 @@ export function FamilyReadinessManager({
 
 			{query.isPending ? <p>Gerekli Öğeler Listesi yükleniyor…</p> : null}
 			{query.isError ? (
-				<p role="alert">Gerekli Öğeler Listesi yüklenemedi.</p>
+				<StatusMessage tone="error">
+					Gerekli Öğeler Listesi yüklenemedi.
+				</StatusMessage>
 			) : null}
 			{message ? (
 				<p aria-live="polite" role="status">

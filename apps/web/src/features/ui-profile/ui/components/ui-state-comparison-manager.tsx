@@ -24,6 +24,7 @@ import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { orpc } from "@/utils/orpc";
@@ -265,7 +266,9 @@ export function UiStateComparisonManager(props: UiStateComparisonManagerProps) {
 			) : null}
 			{query.isPending ? <p role="status">Loading comparisons…</p> : null}
 			{query.isError ? (
-				<p role="alert">Comparisons could not be read.</p>
+				<StatusMessage tone="error">
+					Comparisons could not be read.
+				</StatusMessage>
 			) : null}
 			<Button
 				disabled={saving || query.isFetching}

@@ -5,6 +5,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { LoadErrorAlert } from "@/components/load-error-alert";
 import { errorCodeOf } from "@/utils/error-code";
+import { getSupportReference } from "@/utils/error-notification";
 import { orpc } from "@/utils/orpc";
 import { ReadinessPlanPanel } from "../components/readiness-plan-panel";
 
@@ -52,6 +53,7 @@ function PlanSection({
 						: "The Readiness Plan could not be loaded."
 				}
 				onRetry={() => void query.refetch()}
+				supportReference={getSupportReference(query.error)}
 			/>
 		);
 	}
@@ -102,6 +104,7 @@ export function ReadinessPlanView({
 				<LoadErrorAlert
 					message="Delivery Targets could not be loaded."
 					onRetry={() => void catalog.refetch()}
+					supportReference={getSupportReference(catalog.error)}
 				/>
 			) : null}
 			{catalog.isSuccess && !selected ? (

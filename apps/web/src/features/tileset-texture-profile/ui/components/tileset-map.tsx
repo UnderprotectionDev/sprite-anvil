@@ -4,7 +4,7 @@ import type {
 	TilesetTile,
 } from "@sprite-anvil/api/tileset-adjacency-reviews";
 import { Button } from "@sprite-anvil/ui/components/button";
-import type { KeyboardEvent } from "react";
+import { type KeyboardEvent, useRef } from "react";
 import { ENV } from "@/env";
 
 const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
@@ -68,26 +68,28 @@ const arrowSteps = {
 	ArrowDown: { column: 0, row: 1 },
 } as const;
 
-/** Arrow keys move focus to the neighboring cell; the edges of the map stop it. */
-function focusNeighbor(
-	event: KeyboardEvent<HTMLButtonElement>,
+function isArrowKey(key: string): key is keyof typeof arrowSteps {
+	return key in arrowSteps;
+}
+
+/**
+ * Where an arrow key moves from the cell at `index` in a map `width` cells
+ * wide holding `count` cells, or `undefined` at any edge of the map.
+ */
+function neighborIndex(
+	key: keyof typeof arrowSteps,
 	index: number,
-	map: Pick<TilesetTestMap, "cells" | "width">
+	width: number,
+	count: number
 ) {
-	const step = arrowSteps[event.key as keyof typeof arrowSteps];
-	if (!step) {
+	const step = arrowSteps[key];
+	const column = (index % width) + step.column;
+	const row = Math.floor(index / width) + step.row;
+	if (column < 0 || column >= width || row < 0) {
 		return;
 	}
-	event.preventDefault();
-	const column = (index % map.width) + step.column;
-	const row = Math.floor(index / map.width) + step.row;
-	if (column < 0 || column >= map.width || row < 0) {
-		return;
-	}
-	const next = event.currentTarget.parentElement?.children[
-		row * map.width + column
-	] as HTMLElement | undefined;
-	next?.focus();
+	const next = row * width + column;
+	return next < count ? next : undefined;
 }
 
 export function TilesetMap({
@@ -106,6 +108,23 @@ export function TilesetMap({
 	const cellWidth = Math.max(1, ...tiles.map((tile) => tile.region.width));
 	const cellHeight = Math.max(1, ...tiles.map((tile) => tile.region.height));
 	const scale = Math.max(1, Math.ceil(44 / Math.min(cellWidth, cellHeight)));
+	const cellRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+	/** Arrow keys move focus to the neighboring cell; the edges of the map stop it. */
+	function focusNeighbor(
+		event: KeyboardEvent<HTMLButtonElement>,
+		index: number
+	) {
+		if (!isArrowKey(event.key)) {
+			return;
+		}
+		event.preventDefault();
+		const next = neighborIndex(event.key, index, map.width, map.cells.length);
+		if (next !== undefined) {
+			cellRefs.current[next]?.focus();
+		}
+	}
+
 	return (
 		<div
 			aria-label="Paintable test map"
@@ -127,7 +146,10 @@ export function TilesetMap({
 							onInspect(index);
 							onPaint?.(index);
 						}}
-						onKeyDown={(event) => focusNeighbor(event, index, map)}
+						onKeyDown={(event) => focusNeighbor(event, index)}
+						ref={(element) => {
+							cellRefs.current[index] = element;
+						}}
 						style={{ width: cellWidth * scale, height: cellHeight * scale }}
 						type="button"
 						variant="ghost"

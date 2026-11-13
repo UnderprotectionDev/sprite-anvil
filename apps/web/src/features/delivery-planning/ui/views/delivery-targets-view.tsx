@@ -2,6 +2,7 @@ import { Button } from "@sprite-anvil/ui/components/button";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { LoadErrorAlert } from "@/components/load-error-alert";
+import { getSupportReference } from "@/utils/error-notification";
 import { orpc } from "@/utils/orpc";
 import { DeliveryTargetCard } from "../components/delivery-target-card";
 import { DeliveryTargetFormLoader } from "../components/delivery-target-form-loader";
@@ -70,6 +71,7 @@ export function DeliveryTargetsView({ projectId }: { projectId: string }) {
 				<LoadErrorAlert
 					message="Delivery Targets could not be loaded."
 					onRetry={() => void catalog.refetch()}
+					supportReference={getSupportReference(catalog.error)}
 				/>
 			) : null}
 			{catalog.isSuccess && targets.length === 0 ? (

@@ -99,7 +99,11 @@ test("an uncertain save resolves only when its exact record is read back", async
 		expect(screen.getByText("Save test review")).toBeEnabled()
 	);
 	fireEvent.click(screen.getByText("Save test review"));
-	await screen.findByText(uncertainMessage);
+	const uncertainStatus = (await screen.findByText(uncertainMessage)).closest(
+		'[role="status"]'
+	);
+	expect(uncertainStatus).toHaveTextContent("Warning: Kaydetme sonucu");
+	expect(uncertainStatus).not.toHaveTextContent("kaydedilmedi");
 	expect(screen.getByText("Save test review")).toBeDisabled();
 	mocks.list.mockResolvedValue([
 		{

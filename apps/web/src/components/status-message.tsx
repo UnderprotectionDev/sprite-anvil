@@ -5,7 +5,7 @@ import {
 	InfoIcon,
 	XCircleIcon,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 
 export type StatusTone = "error" | "info" | "success" | "warning";
 
@@ -15,7 +15,7 @@ export type StatusTone = "error" | "info" | "success" | "warning";
  * for the user to be idle (`role="status"`, implicitly polite). The role alone
  * carries the live-region behavior.
  */
-const tones = {
+const toneConfig = {
 	error: { label: "Error", role: "alert", Icon: XCircleIcon },
 	warning: { label: "Warning", role: "status", Icon: AlertTriangleIcon },
 	success: { label: "Success", role: "status", Icon: CheckCircle2Icon },
@@ -41,27 +41,36 @@ export function SupportReference({ value }: { value: string }) {
 export function StatusMessage({
 	children,
 	className,
+	id,
+	ref,
 	supportReference,
+	tabIndex,
 	tone,
 }: {
 	children: ReactNode;
 	className?: string;
+	id?: string;
+	ref?: Ref<HTMLDivElement>;
 	supportReference?: string;
+	tabIndex?: number;
 	tone: StatusTone;
 }) {
-	const { label, role, Icon } = tones[tone];
+	const { label, role, Icon } = toneConfig[tone];
 	return (
 		<div
 			aria-atomic="true"
 			className={cn("flex items-start gap-2 border p-2 text-sm", className)}
 			data-tone={tone}
+			id={id}
+			ref={ref}
 			role={role}
+			tabIndex={tabIndex}
 		>
 			<Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
 			<div className="min-w-0 space-y-1">
 				<p>
 					<strong data-slot="status-label">{label}</strong>
-					<span aria-hidden="true">: </span>
+					{": "}
 					<span>{children}</span>
 				</p>
 				{supportReference ? (
@@ -69,5 +78,27 @@ export function StatusMessage({
 				) : null}
 			</div>
 		</div>
+	);
+}
+
+/**
+ * The result text of a write. While the outcome is uncertain it is a visible
+ * Warning (it never says the write failed and never invites a blind retry);
+ * otherwise it stays the plain polite status.
+ */
+export function WriteOutcomeMessage({
+	message,
+	uncertain,
+}: {
+	message: string;
+	uncertain: boolean;
+}) {
+	if (!message) {
+		return null;
+	}
+	return uncertain ? (
+		<StatusMessage tone="warning">{message}</StatusMessage>
+	) : (
+		<p role="status">{message}</p>
 	);
 }

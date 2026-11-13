@@ -1,5 +1,6 @@
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
 import { useEffect, useRef, useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { ENV } from "@/env";
 import {
 	createVfxPlaybackRenderer,
@@ -89,7 +90,7 @@ export function VfxAppearancePreview({
 	}, [elapsedMs]);
 	return (
 		<div>
-			{error ? <p role="alert">{error}</p> : null}
+			{error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
 			<div className="grid gap-4 md:grid-cols-2" ref={host} />
 		</div>
 	);

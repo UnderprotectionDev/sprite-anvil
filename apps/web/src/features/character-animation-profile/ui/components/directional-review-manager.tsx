@@ -7,6 +7,10 @@ import type { ProjectProfileContractActivation } from "@sprite-anvil/api/special
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import {
+	StatusMessage,
+	WriteOutcomeMessage,
+} from "@/components/status-message";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { mutationMeta } from "@/utils/mutation-meta";
@@ -104,14 +108,14 @@ export function DirectionalReviewManager({
 				{familyName} · Kimlik ve Yön Tutarlılığını İnceleme
 			</h3>
 			{query.isError ? (
-				<div role="alert">
-					İncelemeler okunamadı.{" "}
+				<div className="space-y-2">
+					<StatusMessage tone="error">İncelemeler okunamadı.</StatusMessage>
 					<Button onClick={() => query.refetch()} type="button">
 						Kayıtları yeniden oku
 					</Button>
 				</div>
 			) : null}
-			{message ? <p role="status">{message}</p> : null}
+			<WriteOutcomeMessage message={message} uncertain={uncertain} />
 			<Button
 				disabled={query.isFetching}
 				onClick={checkCurrentRecords}

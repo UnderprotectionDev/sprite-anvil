@@ -10,6 +10,7 @@ import {
 } from "@sprite-anvil/ui/components/native-select";
 import { useForm } from "@tanstack/react-form";
 import type { SyntheticEvent } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { useFinalizeFulfilment } from "../../hooks/use-finalize-fulfilment";
 import { useIdempotentSubmit } from "../../hooks/use-idempotent-submit";
 import { shortId } from "../../lib/short-id";
@@ -119,13 +120,9 @@ export function FulfilmentFinalizeForm({
 										))}
 									</NativeSelect>
 									{messages.length > 0 ? (
-										<p
-											className="text-destructive text-sm"
-											id={`${inputId}-errors`}
-											role="alert"
-										>
+										<StatusMessage id={`${inputId}-errors`} tone="error">
 											{messages[0]}
-										</p>
+										</StatusMessage>
 									) : null}
 								</div>
 							);
@@ -133,7 +130,7 @@ export function FulfilmentFinalizeForm({
 					</form.Field>
 				);
 			})}
-			{failure ? <p role="alert">{failure}</p> : null}
+			{failure ? <StatusMessage tone="error">{failure}</StatusMessage> : null}
 			<Button className="min-h-11" disabled={finalize.isPending} type="submit">
 				Finalize Fulfilment
 			</Button>

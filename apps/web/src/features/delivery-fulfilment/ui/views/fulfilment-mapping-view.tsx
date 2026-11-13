@@ -5,6 +5,8 @@ import {
 } from "@sprite-anvil/ui/components/native-select";
 import { useQuery } from "@tanstack/react-query";
 import { LoadErrorAlert } from "@/components/load-error-alert";
+import { StatusMessage } from "@/components/status-message";
+import { getSupportReference } from "@/utils/error-notification";
 import { orpc } from "@/utils/orpc";
 import { useIdempotentSubmit } from "../../hooks/use-idempotent-submit";
 import { usePrepareFulfilmentMapping } from "../../hooks/use-prepare-fulfilment-mapping";
@@ -62,7 +64,7 @@ function TargetMapping({
 				>
 					Prepare mapping
 				</Button>
-				{failure ? <p role="alert">{failure}</p> : null}
+				{failure ? <StatusMessage tone="error">{failure}</StatusMessage> : null}
 			</div>
 			{drafts.isPending ? (
 				<p aria-live="polite" role="status">
@@ -73,6 +75,7 @@ function TargetMapping({
 				<LoadErrorAlert
 					message="Mapping drafts could not be loaded."
 					onRetry={() => void drafts.refetch()}
+					supportReference={getSupportReference(drafts.error)}
 				/>
 			) : null}
 			{drafts.isSuccess && !latest ? (
@@ -101,6 +104,7 @@ function TargetMapping({
 					<LoadErrorAlert
 						message="Delivery Fulfilments could not be loaded."
 						onRetry={() => void fulfilments.refetch()}
+						supportReference={getSupportReference(fulfilments.error)}
 					/>
 				) : null}
 				{fulfilments.isSuccess ? (
@@ -118,6 +122,7 @@ function TargetMapping({
 					<LoadErrorAlert
 						message="Historical Risk Notices could not be loaded."
 						onRetry={() => void notices.refetch()}
+						supportReference={getSupportReference(notices.error)}
 					/>
 				) : null}
 				{notices.isSuccess ? (
@@ -167,6 +172,7 @@ export function FulfilmentMappingView({
 				<LoadErrorAlert
 					message="Delivery Targets could not be loaded."
 					onRetry={() => void catalog.refetch()}
+					supportReference={getSupportReference(catalog.error)}
 				/>
 			) : null}
 			{catalog.isSuccess && !selected ? (

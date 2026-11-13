@@ -8,6 +8,7 @@ import {
 import { Link } from "@tanstack/react-router";
 import { useStore } from "@tanstack/react-store";
 import { useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { useLoadedImage } from "../../hooks/use-loaded-image";
 import { usePixelDraft } from "../../hooks/use-pixel-draft";
 import {
@@ -56,10 +57,10 @@ export function PixelEditorView({
 	if (!draft) {
 		return (
 			<Shell projectId={projectId}>
-				<p role="alert">
+				<StatusMessage tone="error">
 					The Working Draft could not be opened.{" "}
 					{draftQuery.error instanceof Error ? draftQuery.error.message : ""}
-				</p>
+				</StatusMessage>
 				<Button onClick={() => draftQuery.refetch()} type="button">
 					Try again
 				</Button>
@@ -238,9 +239,9 @@ export function PixelEditorView({
 						store={store}
 					/>
 					{draftImage.failed ? (
-						<p className="text-destructive text-sm" role="alert">
+						<StatusMessage tone="error">
 							The Working Draft image could not be loaded.
-						</p>
+						</StatusMessage>
 					) : null}
 				</section>
 

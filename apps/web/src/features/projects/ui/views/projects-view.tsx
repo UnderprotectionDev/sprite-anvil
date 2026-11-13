@@ -9,7 +9,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useRef, useState } from "react";
-
+import { StatusMessage } from "@/components/status-message";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { orpc } from "@/utils/orpc";
 import type { CreateProjectFormValues } from "../../schemas";
@@ -220,8 +220,10 @@ function ProjectsList({
 	}
 	if (isError && projects.length === 0) {
 		return (
-			<div className="space-y-3 rounded-lg border p-5" role="alert">
-				<p>Projeler yüklenemedi. Bağlantıyı kontrol edip yeniden deneyin.</p>
+			<div className="space-y-3 rounded-lg border p-5">
+				<StatusMessage tone="error">
+					Projeler yüklenemedi. Bağlantıyı kontrol edip yeniden deneyin.
+				</StatusMessage>
 				<Button onClick={onRetry} type="button" variant="outline">
 					Yeniden dene
 				</Button>
@@ -248,11 +250,11 @@ function ProjectsList({
 	return (
 		<div className="space-y-4">
 			{isError ? (
-				<div className="space-y-3 rounded-lg border p-5" role="alert">
-					<p>
+				<div className="space-y-3 rounded-lg border p-5">
+					<StatusMessage tone="error">
 						Proje listesi yenilenemedi. Görünen kayıtlar son bilinen durumu
 						gösteriyor.
-					</p>
+					</StatusMessage>
 					<Button onClick={onRetry} type="button" variant="outline">
 						Yeniden dene
 					</Button>

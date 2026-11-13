@@ -12,6 +12,7 @@ import { Label } from "@sprite-anvil/ui/components/label";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { buildErrorNotification } from "@/utils/error-notification";
 import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
@@ -202,8 +203,8 @@ function ProposalDetails({
 					<p role="status">Kesin ilişki okunuyor…</p>
 				) : null}
 				{finalizationQuery.isError ? (
-					<div role="alert">
-						Kesin ilişki okunamadı.{" "}
+					<div className="space-y-2">
+						<StatusMessage tone="error">Kesin ilişki okunamadı.</StatusMessage>
 						<Button
 							onClick={() => void finalizationQuery.refetch()}
 							type="button"
@@ -442,8 +443,8 @@ export function SourceMetadataMappingPanel({
 					: "Kaynak Metadata Eşleme Önerisi oluştur"}
 			</Button>
 			{createError ? (
-				<div role="alert">
-					<p>{createError.message}</p>
+				<div>
+					<StatusMessage tone="error">{createError.message}</StatusMessage>
 					{createError.supportReference ? (
 						<p>Destek Referansı: {createError.supportReference}</p>
 					) : null}
@@ -455,8 +456,10 @@ export function SourceMetadataMappingPanel({
 				</p>
 			) : null}
 			{proposalsQuery.isError ? (
-				<div className="space-y-2" role="alert">
-					<p>Kaynak Metadata Eşleme Önerileri okunamadı.</p>
+				<div className="space-y-2">
+					<StatusMessage tone="error">
+						Kaynak Metadata Eşleme Önerileri okunamadı.
+					</StatusMessage>
 					{supportReferenceOf(proposalsQuery.error) ? (
 						<p>Destek Referansı: {supportReferenceOf(proposalsQuery.error)}</p>
 					) : null}

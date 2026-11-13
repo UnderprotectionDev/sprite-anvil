@@ -2,6 +2,7 @@ import type { ReadinessPlan } from "@sprite-anvil/api/readiness-plans";
 import { Badge } from "@sprite-anvil/ui/components/badge";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { errorCodeOf } from "@/utils/error-code";
 import { useReorderReadinessPlan } from "../../hooks/use-reorder-readiness-plan";
 import {
@@ -152,8 +153,8 @@ export function ReadinessPlanPanel({
 					order; your order is kept and does not change readiness.
 				</p>
 				{failure ? (
-					<div className="space-y-2" role="alert">
-						<p>{failure}</p>
+					<div className="space-y-2">
+						<StatusMessage tone="error">{failure}</StatusMessage>
 						<Button
 							className="min-h-11"
 							onClick={() => {

@@ -23,6 +23,7 @@ import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { mutationMeta } from "@/utils/mutation-meta";
@@ -432,7 +433,7 @@ export function PortraitIdentityReviewManager({
 				</Button>
 			) : null}
 			{query.isError ? (
-				<p role="alert">
+				<StatusMessage tone="error">
 					İncelemeler yüklenemedi.{" "}
 					<Button
 						onClick={() => void query.refetch()}
@@ -441,7 +442,7 @@ export function PortraitIdentityReviewManager({
 					>
 						Yeniden yükle
 					</Button>
-				</p>
+				</StatusMessage>
 			) : null}
 			<h4 className="font-medium">Kaydedilen portre incelemeleri</h4>
 			<ul className="space-y-3">

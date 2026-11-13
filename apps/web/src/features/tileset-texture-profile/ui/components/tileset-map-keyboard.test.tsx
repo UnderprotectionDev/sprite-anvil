@@ -70,6 +70,16 @@ test("arrow keys move focus between map cells and stop at the edges", async () =
 	expect(cell(1)).toHaveFocus();
 });
 
+test("arrow keys at the right and bottom edges keep focus on the same cell", async () => {
+	const user = userEvent.setup();
+	setup();
+	cell(6).focus();
+	await user.keyboard("{ArrowRight}");
+	expect(cell(6)).toHaveFocus();
+	await user.keyboard("{ArrowDown}");
+	expect(cell(6)).toHaveFocus();
+});
+
 test("Enter and Space on a focused cell still inspect and paint it", async () => {
 	const user = userEvent.setup();
 	const { onInspect, onPaint } = setup();

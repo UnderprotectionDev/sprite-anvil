@@ -32,7 +32,7 @@ const choosePurposeText = /Choose a purpose\./;
 const chooseRequirementText =
 	/Choose a default Production Evidence requirement\./;
 const needsStateText = /needs at least one acceptable state/;
-const takenRepeatedlyText = /revision number was taken repeatedly/;
+const errorTakenRepeatedly = /^Error: .*revision number was taken repeatedly/;
 const contextOneText = "Context Revision 1";
 const listRevisionOneText = "Required Items List revision 1";
 const nothingChangesText = /Target Readiness does not change/;
@@ -419,9 +419,9 @@ test("an activation conflict is explained and the draft stays reviewable", async
 		await screen.findByRole("button", { name: "Activate revision" })
 	);
 
-	expect(await screen.findByRole("alert")).toHaveTextContent(
-		takenRepeatedlyText
-	);
+	const alert = await screen.findByRole("alert");
+	expect(alert).toHaveTextContent(errorTakenRepeatedly);
+	expect(alert.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
 	expect(
 		screen.getByRole("button", { name: "Activate revision" })
 	).toBeEnabled();

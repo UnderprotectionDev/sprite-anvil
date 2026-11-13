@@ -1,9 +1,9 @@
 import type { SceneQaSetup } from "@sprite-anvil/api/scene-qa";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { usePauseOnReducedMotion } from "@sprite-anvil/ui/hooks/use-pause-on-reduced-motion";
 import type { Application as PixiApplication } from "pixi.js";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ReducedMotionNotice } from "@/components/reduced-motion-notice";
+import { StatusMessage } from "@/components/status-message";
 import { loadSceneQaImages } from "../../lib/scene-qa-images";
 import type { createSceneQaScene as createSceneQaSceneType } from "../../lib/scene-qa-scene";
 import { SceneQaGuideList } from "./scene-qa-guide-list";
@@ -22,8 +22,6 @@ export function SceneQaPreview({
 	const [error, setError] = useState("");
 	const [ready, setReady] = useState(false);
 	const [playing, setPlaying] = useState(false);
-	const pause = useCallback(() => setPlaying(false), []);
-	const reducedMotion = usePauseOnReducedMotion(pause);
 	const [time, setTime] = useState(0);
 	const [state, setState] = useState("idle");
 	const renderer = useRef<ReturnType<typeof createSceneQaSceneType> | null>(
@@ -150,7 +148,7 @@ export function SceneQaPreview({
 				ref={host}
 				role="img"
 			/>
-			{error.length > 0 && <p role="alert">{error}</p>}
+			{error.length > 0 && <StatusMessage tone="error">{error}</StatusMessage>}
 			{!(ready || error) && <p role="status">Loading exact scene content…</p>}
 			<div className="flex flex-wrap items-center gap-3">
 				<Button
@@ -185,7 +183,7 @@ export function SceneQaPreview({
 					{time >= setup.hitAtMs ? " · Hit event reached" : ""}
 				</output>
 			</div>
-			<ReducedMotionNotice reducedMotion={reducedMotion} />
+			<ReducedMotionNotice onReducedMotion={() => setPlaying(false)} />
 			<p className="text-muted-foreground text-sm">
 				Playback starts only when you choose Play scene. Idle → walk → attack →
 				idle. Overlays mark pivot, ground, sort and effect origin points and

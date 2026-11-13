@@ -21,6 +21,7 @@ import { ContextWorkspace } from "../components/context-proposal-components";
 import { ProjectSetupForm } from "../forms/project-setup-form";
 
 import "../components/context-proposals.css";
+import { StatusMessage } from "@/components/status-message";
 
 export function ContextProposalsView() {
 	const queryClient = useQueryClient();
@@ -165,8 +166,10 @@ export function ContextProposalsView() {
 		);
 	} else if (projectsQuery.isError) {
 		content = (
-			<div className="context-message" role="alert">
-				<p>Projeler yüklenemedi. Bağlantıyı kontrol edip yeniden deneyin.</p>
+			<div className="context-message">
+				<StatusMessage tone="error">
+					Projeler yüklenemedi. Bağlantıyı kontrol edip yeniden deneyin.
+				</StatusMessage>
 				<Button
 					onClick={() => void projectsQuery.refetch()}
 					type="button"
@@ -178,8 +181,10 @@ export function ContextProposalsView() {
 		);
 	} else if (hasProjectIdFromSearch && projectsQuery.data && !selectedProject) {
 		content = (
-			<div className="context-message" role="alert">
-				<p>Bu proje bulunamadı veya bu projeye erişiminiz yok.</p>
+			<div className="context-message">
+				<StatusMessage tone="error">
+					Bu proje bulunamadı veya bu projeye erişiminiz yok.
+				</StatusMessage>
 				<Link className="context-back-link" to="/projects">
 					Projelere dön
 				</Link>

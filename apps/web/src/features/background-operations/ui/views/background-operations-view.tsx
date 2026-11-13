@@ -1,4 +1,5 @@
 import { Button } from "@sprite-anvil/ui/components/button";
+import { StatusMessage } from "@/components/status-message";
 import { useBackgroundOperations } from "../../hooks/use-background-operations";
 import { BackgroundOperationCard } from "../components/background-operation-card";
 
@@ -21,8 +22,10 @@ export function BackgroundOperationsView({ projectId }: { projectId: string }) {
 				</p>
 			) : null}
 			{query.isError ? (
-				<div className="space-y-2" role="alert">
-					<p>Background operations could not be loaded.</p>
+				<div className="space-y-2">
+					<StatusMessage tone="error">
+						Background operations could not be loaded.
+					</StatusMessage>
 					<Button
 						className="min-h-11"
 						onClick={() => void query.refetch()}

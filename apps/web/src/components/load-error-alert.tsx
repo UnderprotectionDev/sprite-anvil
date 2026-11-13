@@ -13,10 +13,7 @@ export function LoadErrorAlert({
 }) {
 	return (
 		<div className="space-y-2">
-			<StatusMessage
-				{...(supportReference ? { supportReference } : {})}
-				tone="error"
-			>
+			<StatusMessage supportReference={supportReference} tone="error">
 				{message}
 			</StatusMessage>
 			<Button

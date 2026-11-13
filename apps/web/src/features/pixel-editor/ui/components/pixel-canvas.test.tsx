@@ -44,11 +44,11 @@ test("focusing the canvas puts the cursor on a pixel and announces it", async ()
 	expect(screen.getByText("Pixel 0, 0", { exact: false })).toBeInTheDocument();
 });
 
-test("Shift with an arrow key jumps eight pixels", async () => {
+test("Shift with an arrow key still moves one pixel", async () => {
 	const { user } = setup("pen");
 	await user.tab();
 	await user.keyboard("{Shift>}{ArrowRight}{ArrowDown}{/Shift}");
-	expect(screen.getByText("Pixel 8, 8", { exact: false })).toBeInTheDocument();
+	expect(screen.getByText("Pixel 1, 1", { exact: false })).toBeInTheDocument();
 });
 
 test("keyboard alone selects an area and announces it", async () => {

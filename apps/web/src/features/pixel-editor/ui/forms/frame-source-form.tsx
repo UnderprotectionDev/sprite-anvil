@@ -2,6 +2,7 @@ import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
 import { useForm } from "@tanstack/react-form";
+import { StatusMessage } from "@/components/status-message";
 import { frameSourceFormSchema } from "../../schemas";
 
 /** Adds a frame from, or replaces the selected frame with, another Asset Version of this project. */
@@ -49,9 +50,9 @@ export function FrameSourceForm({
 							value={field.state.value}
 						/>
 						{field.state.meta.errors.length > 0 ? (
-							<span className="text-destructive" role="alert">
+							<StatusMessage tone="error">
 								Enter a valid Asset Version ID.
-							</span>
+							</StatusMessage>
 						) : null}
 					</Label>
 				)}

@@ -12,6 +12,7 @@ import {
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { QueryRetryButton } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { orpc } from "@/utils/orpc";
@@ -118,13 +119,13 @@ export function AssetRecordMetadataForm({
 			) : null}
 			{scopeQuery.isError ? (
 				<div className="space-y-2">
-					<p role="alert">
+					<StatusMessage tone="error">
 						{getErrorMessage(
 							scopeQuery.error,
 							"Tema ve Görsel Dünya kayıtları yüklenemedi.",
 							"query"
 						)}
-					</p>
+					</StatusMessage>
 					<QueryRetryButton
 						disabled={scopeQuery.isFetching}
 						onRetry={() => void scopeQuery.refetch()}
@@ -247,12 +248,12 @@ export function AssetRecordMetadataForm({
 						</p>
 					) : null}
 					{updateMetadata.isError ? (
-						<p role="alert">
+						<StatusMessage tone="error">
 							{getErrorMessage(
 								updateMetadata.error,
 								"Varlık kaydı metadata’sı kaydedilemedi."
 							)}
-						</p>
+						</StatusMessage>
 					) : null}
 					{statusMessage ? (
 						<p aria-live="polite" role="status">

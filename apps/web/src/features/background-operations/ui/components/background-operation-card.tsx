@@ -6,6 +6,7 @@ import {
 } from "@sprite-anvil/api/background-operations";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Progress } from "@sprite-anvil/ui/components/progress";
+import { StatusMessage } from "@/components/status-message";
 import { useCancelBackgroundOperation } from "../../hooks/use-cancel-background-operation";
 import {
 	attemptText,
@@ -63,9 +64,7 @@ function CancelControl({ operation }: { operation: BackgroundOperation }) {
 				{cancel.isPending ? "Cancelling…" : "Cancel"}
 			</Button>
 			{cancel.isError ? (
-				<p className="text-destructive text-sm" role="alert">
-					{cancel.error.message}
-				</p>
+				<StatusMessage tone="error">{cancel.error.message}</StatusMessage>
 			) : null}
 		</div>
 	);
@@ -102,9 +101,9 @@ export function BackgroundOperationCard({
 				<p className="text-sm">{operation.resultSummary}</p>
 			) : null}
 			{operation.status === "failed" ? (
-				<p className="text-destructive text-sm" role="alert">
+				<StatusMessage tone="error">
 					{operation.failureSummary ?? "The operation failed."}
-				</p>
+				</StatusMessage>
 			) : null}
 		</li>
 	);

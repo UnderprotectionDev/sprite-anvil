@@ -1,5 +1,6 @@
 import type { TextureAtlasRegion } from "@sprite-anvil/api/texture-repetition-reviews";
 import { useEffect, useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { ENV } from "@/env";
 
 const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
@@ -105,7 +106,7 @@ export function TextureRepeatPreview({
 	const shiftY = arrangement === "shifted" ? offset.y * zoom : 0;
 	return (
 		<div className="overflow-auto rounded border p-2">
-			{error ? <p role="alert">{error}</p> : null}
+			{error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
 			{imageUrl || error ? null : <p role="status">Loading texture preview…</p>}
 			<div
 				aria-label={`${arrangement} texture repetition preview`}

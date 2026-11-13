@@ -14,7 +14,6 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { usePauseOnReducedMotion } from "@sprite-anvil/ui/hooks/use-pause-on-reduced-motion";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ReducedMotionNotice } from "@/components/reduced-motion-notice";
@@ -151,8 +150,6 @@ export function AnimationTimingReviewEditor({
 	) => form.setFieldValue("directions", change);
 	const [zoom, setZoom] = useState(1);
 	const [playing, setPlaying] = useState(false);
-	const pause = useCallback(() => setPlaying(false), []);
-	const reducedMotion = usePauseOnReducedMotion(pause);
 	const [elapsedMs, setElapsedMs] = useState(0);
 	const [ready, setReady] = useState<Record<string, boolean>>({});
 	const onStatus = useCallback(
@@ -281,7 +278,7 @@ export function AnimationTimingReviewEditor({
 					/>
 				</Label>
 			</div>
-			<ReducedMotionNotice reducedMotion={reducedMotion} />
+			<ReducedMotionNotice onReducedMotion={() => setPlaying(false)} />
 			<form
 				className="space-y-4"
 				onSubmit={(event) => {

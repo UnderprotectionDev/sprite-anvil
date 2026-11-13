@@ -26,6 +26,7 @@ import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { mutationMeta } from "@/utils/mutation-meta";
@@ -255,12 +256,12 @@ export function TilesetAdjacencyReviewManager({
 			</p>
 			<p role="status">{status}</p>
 			{reviews.isError ? (
-				<p role="alert">
+				<StatusMessage tone="error">
 					Reviews could not be loaded.{" "}
 					<Button onClick={() => void reviews.refetch()} type="button">
 						Reload reviews
 					</Button>
-				</p>
+				</StatusMessage>
 			) : null}
 			<div className="flex flex-wrap gap-2">
 				{reviews.data?.map((record) => (

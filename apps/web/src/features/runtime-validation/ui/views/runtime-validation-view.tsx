@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { LoadErrorAlert } from "@/components/load-error-alert";
+import { getSupportReference } from "@/utils/error-notification";
 import { orpc } from "@/utils/orpc";
 import { RuntimeValidationReadinessPanel } from "../components/runtime-validation-readiness-panel";
 import { RuntimeValidationRecordCard } from "../components/runtime-validation-record-card";
@@ -32,6 +33,7 @@ export function RuntimeValidationView({ projectId }: { projectId: string }) {
 				<LoadErrorAlert
 					message="Export Bundles could not be loaded."
 					onRetry={() => void bundles.refetch()}
+					supportReference={getSupportReference(bundles.error)}
 				/>
 			) : null}
 			{bundles.isSuccess && bundles.data.bundles.length === 0 ? (
@@ -63,6 +65,7 @@ export function RuntimeValidationView({ projectId }: { projectId: string }) {
 				<LoadErrorAlert
 					message="Runtime Validation Records could not be loaded."
 					onRetry={() => void records.refetch()}
+					supportReference={getSupportReference(records.error)}
 				/>
 			) : null}
 			{records.isSuccess && recordList.length === 0 ? (

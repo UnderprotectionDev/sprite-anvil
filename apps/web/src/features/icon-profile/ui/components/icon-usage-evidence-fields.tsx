@@ -2,6 +2,7 @@ import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
 import { Checkbox } from "@sprite-anvil/ui/components/checkbox";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
+import { StatusMessage } from "@/components/status-message";
 
 export interface IconPixelDimensions {
 	height: number;
@@ -234,13 +235,9 @@ export function IconUsageEvidenceFields({
 				/>
 			</Label>
 			{usageVariantError ? (
-				<p
-					className="text-destructive text-sm"
-					id={`${formId}-usage-variant-error`}
-					role="alert"
-				>
+				<StatusMessage id={`${formId}-usage-variant-error`} tone="error">
 					{usageVariantError}
-				</p>
+				</StatusMessage>
 			) : null}
 			<div className="grid gap-3 sm:grid-cols-2">
 				<Label

@@ -6,6 +6,7 @@ import { Label } from "@sprite-anvil/ui/components/label";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { type ChangeEvent, useRef, useState } from "react";
+import { StatusMessage } from "@/components/status-message";
 import { TaskWorkspace } from "@/components/task-workspace";
 import { buildErrorNotification } from "@/utils/error-notification";
 import { orpc } from "@/utils/orpc";
@@ -414,8 +415,10 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 										</p>
 									) : null}
 									{entriesQuery.isError ? (
-										<div className="space-y-2" role="alert">
-											<p>Gelen kutusu yüklenemedi.</p>
+										<div className="space-y-2">
+											<StatusMessage tone="error">
+												Gelen kutusu yüklenemedi.
+											</StatusMessage>
 											{supportReference ? (
 												<p>Destek Referansı: {supportReference}</p>
 											) : null}
