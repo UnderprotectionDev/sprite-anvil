@@ -37,6 +37,7 @@ import type { HistoricalRiskNoticeStore } from "./historical-risk-notices";
 import type { IconFamilyReviewStore } from "./icon-family-reviews";
 import type { ImportInboxStore } from "./import-inbox";
 import type { MarketingUsageReviewStore } from "./marketing-usage-reviews";
+import type { ErasureImpactStore } from "./permanent-erasure-store";
 import type { PortraitIdentityReviewStore } from "./portrait-identity-reviews";
 import type { ProductionExperimentStore } from "./production-experiments";
 import type { ProductionRecipeStore } from "./production-recipes";
@@ -95,6 +96,7 @@ export interface Context {
 	deliveryTargetStore?: DeliveryTargetStore;
 	dependencyRevalidationStore?: DependencyRevalidationStore;
 	directionalReviewStore?: DirectionalReviewStore;
+	erasureImpactStore?: ErasureImpactStore;
 	exportBundleStore?: ExportBundleStore;
 	exportProfileStore?: ExportProfileStore;
 	familyReadinessStore?: FamilyReadinessStore;

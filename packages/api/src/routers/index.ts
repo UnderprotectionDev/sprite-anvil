@@ -51,6 +51,7 @@ import { historicalRiskNoticesRouter } from "./historical-risk-notices";
 import { iconFamilyReviewsRouter } from "./icon-family-reviews";
 import { importsRouter } from "./imports";
 import { marketingUsageReviewsRouter } from "./marketing-usage-reviews";
+import { permanentErasureRouter } from "./permanent-erasure";
 import { portraitIdentityReviewsRouter } from "./portrait-identity-reviews";
 import { productionExperimentsRouter } from "./production-experiments";
 import { productionRecipesRouter } from "./production-recipes";
@@ -144,6 +145,7 @@ export const appRouter = {
 	deliveryRefreshLocks: deliveryRefreshLocksRouter,
 	exportBundles: exportBundlesRouter,
 	projectArchives: projectArchivesRouter,
+	permanentErasure: permanentErasureRouter,
 	exportProfiles: exportProfilesRouter,
 	dependencyRevalidation: dependencyRevalidationRouter,
 	familyReadiness: familyReadinessRouter,
