@@ -163,3 +163,23 @@ test("pauses playback and explains it when the system turns reduced motion on", 
 	fireEvent.click(screen.getByRole("button", { name: "Play" }));
 	expect(screen.getByRole("button", { name: "Pause" })).toBeEnabled();
 });
+
+test("when the system already reduces motion playback starts paused until Play is pressed", async () => {
+	vi.stubGlobal("matchMedia", (query: string) => ({
+		matches: true,
+		media: query,
+		addEventListener: vi.fn(),
+		removeEventListener: vi.fn(),
+	}));
+	vi.stubGlobal(
+		"requestAnimationFrame",
+		vi.fn(() => 1)
+	);
+	vi.stubGlobal("cancelAnimationFrame", vi.fn());
+	const onReady = mount();
+	await waitFor(() => expect(onReady).toHaveBeenLastCalledWith(true));
+	expect(screen.getByRole("note")).toHaveTextContent("reduced motion");
+	expect(screen.getByRole("button", { name: "Play" })).toBeEnabled();
+	fireEvent.click(screen.getByRole("button", { name: "Play" }));
+	expect(screen.getByRole("button", { name: "Pause" })).toBeEnabled();
+});

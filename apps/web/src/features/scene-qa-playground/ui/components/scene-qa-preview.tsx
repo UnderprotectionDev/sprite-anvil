@@ -1,8 +1,8 @@
 import type { SceneQaSetup } from "@sprite-anvil/api/scene-qa";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { usePrefersReducedMotion } from "@sprite-anvil/ui/hooks/use-prefers-reduced-motion";
+import { usePauseOnReducedMotion } from "@sprite-anvil/ui/hooks/use-pause-on-reduced-motion";
 import type { Application as PixiApplication } from "pixi.js";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ReducedMotionNotice } from "@/components/reduced-motion-notice";
 import { loadSceneQaImages } from "../../lib/scene-qa-images";
 import type { createSceneQaScene as createSceneQaSceneType } from "../../lib/scene-qa-scene";
@@ -22,12 +22,8 @@ export function SceneQaPreview({
 	const [error, setError] = useState("");
 	const [ready, setReady] = useState(false);
 	const [playing, setPlaying] = useState(false);
-	const reducedMotion = usePrefersReducedMotion();
-	useEffect(() => {
-		if (reducedMotion) {
-			setPlaying(false);
-		}
-	}, [reducedMotion]);
+	const pause = useCallback(() => setPlaying(false), []);
+	const reducedMotion = usePauseOnReducedMotion(pause);
 	const [time, setTime] = useState(0);
 	const [state, setState] = useState("idle");
 	const renderer = useRef<ReturnType<typeof createSceneQaSceneType> | null>(

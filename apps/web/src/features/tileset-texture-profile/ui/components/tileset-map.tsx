@@ -4,6 +4,7 @@ import type {
 	TilesetTile,
 } from "@sprite-anvil/api/tileset-adjacency-reviews";
 import { Button } from "@sprite-anvil/ui/components/button";
+import type { KeyboardEvent } from "react";
 import { ENV } from "@/env";
 
 const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
@@ -60,6 +61,35 @@ export function TileImage({
 		</span>
 	);
 }
+const arrowSteps = {
+	ArrowLeft: { column: -1, row: 0 },
+	ArrowRight: { column: 1, row: 0 },
+	ArrowUp: { column: 0, row: -1 },
+	ArrowDown: { column: 0, row: 1 },
+} as const;
+
+/** Arrow keys move focus to the neighboring cell; the edges of the map stop it. */
+function focusNeighbor(
+	event: KeyboardEvent<HTMLButtonElement>,
+	index: number,
+	map: Pick<TilesetTestMap, "cells" | "width">
+) {
+	const step = arrowSteps[event.key as keyof typeof arrowSteps];
+	if (!step) {
+		return;
+	}
+	event.preventDefault();
+	const column = (index % map.width) + step.column;
+	const row = Math.floor(index / map.width) + step.row;
+	if (column < 0 || column >= map.width || row < 0) {
+		return;
+	}
+	const next = event.currentTarget.parentElement?.children[
+		row * map.width + column
+	] as HTMLElement | undefined;
+	next?.focus();
+}
+
 export function TilesetMap({
 	map,
 	tiles,
@@ -97,6 +127,7 @@ export function TilesetMap({
 							onInspect(index);
 							onPaint?.(index);
 						}}
+						onKeyDown={(event) => focusNeighbor(event, index, map)}
 						style={{ width: cellWidth * scale, height: cellHeight * scale }}
 						type="button"
 						variant="ghost"

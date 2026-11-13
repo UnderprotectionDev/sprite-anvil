@@ -10,23 +10,20 @@ import type { ReactNode } from "react";
 export type StatusTone = "error" | "info" | "success" | "warning";
 
 /**
- * One announcement policy for every status the interface shows:
- * errors interrupt (assertive, `role="alert"`); every other outcome waits for
- * the user to be idle (polite, `role="status"`).
+ * One announcement policy for every status the interface shows: errors
+ * interrupt (`role="alert"`, implicitly assertive); every other outcome waits
+ * for the user to be idle (`role="status"`, implicitly polite). The role alone
+ * carries the live-region behavior.
  */
 const tones = {
-	error: { label: "Error", politeness: "assertive", Icon: XCircleIcon },
-	warning: { label: "Warning", politeness: "polite", Icon: AlertTriangleIcon },
-	success: { label: "Success", politeness: "polite", Icon: CheckCircle2Icon },
-	info: { label: "Note", politeness: "polite", Icon: InfoIcon },
+	error: { label: "Error", role: "alert", Icon: XCircleIcon },
+	warning: { label: "Warning", role: "status", Icon: AlertTriangleIcon },
+	success: { label: "Success", role: "status", Icon: CheckCircle2Icon },
+	info: { label: "Info", role: "status", Icon: InfoIcon },
 } as const satisfies Record<
 	StatusTone,
-	{ Icon: unknown; label: string; politeness: "assertive" | "polite" }
+	{ Icon: unknown; label: string; role: "alert" | "status" }
 >;
-
-export function getStatusPoliteness(tone: StatusTone) {
-	return tones[tone].politeness;
-}
 
 /** A Support Reference shown as copyable text. */
 export function SupportReference({ value }: { value: string }) {
@@ -52,14 +49,13 @@ export function StatusMessage({
 	supportReference?: string;
 	tone: StatusTone;
 }) {
-	const { label, politeness, Icon } = tones[tone];
+	const { label, role, Icon } = tones[tone];
 	return (
 		<div
 			aria-atomic="true"
-			aria-live={politeness}
 			className={cn("flex items-start gap-2 border p-2 text-sm", className)}
 			data-tone={tone}
-			role={tone === "error" ? "alert" : "status"}
+			role={role}
 		>
 			<Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
 			<div className="min-w-0 space-y-1">
