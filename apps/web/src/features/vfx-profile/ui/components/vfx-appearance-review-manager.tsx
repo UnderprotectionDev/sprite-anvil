@@ -8,6 +8,7 @@ import type {
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { StatusMessage, SupportReference } from "@/components/status-message";
 import {
 	buildErrorNotification,
 	isWriteOutcomeUncertain,
@@ -151,13 +152,15 @@ export function VfxAppearanceReviewManager({
 				{familyName} · Efekt Görünümünü ve Taşmasını Sınama
 			</h3>
 			{query.isError ? (
-				<div role="alert">
-					İncelemeler okunamadı.{" "}
-					{querySupportReference ? (
-						<p className="break-all font-mono text-xs">
-							Support reference: <code>{querySupportReference}</code>
-						</p>
-					) : null}
+				<div className="space-y-2">
+					<StatusMessage
+						{...(querySupportReference
+							? { supportReference: querySupportReference }
+							: {})}
+						tone="error"
+					>
+						İncelemeler okunamadı.
+					</StatusMessage>
 					<Button onClick={() => query.refetch()} type="button">
 						Kayıtları yeniden oku
 					</Button>
@@ -166,9 +169,7 @@ export function VfxAppearanceReviewManager({
 			<div aria-atomic="true" role="status">
 				{statusMessage ? <p>{statusMessage}</p> : null}
 				{supportReference ? (
-					<p className="break-all font-mono text-xs">
-						Support reference: <code>{supportReference}</code>
-					</p>
+					<SupportReference value={supportReference} />
 				) : null}
 			</div>
 			<Button

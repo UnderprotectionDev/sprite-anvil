@@ -2,6 +2,7 @@ import { internalServerErrorDataSchema } from "@sprite-anvil/api/error-contract"
 import { Button } from "@sprite-anvil/ui/components/button";
 import type { ReactElement } from "react";
 import { toast } from "sonner";
+import { SupportReference } from "@/components/status-message";
 
 const connectionErrorPattern = /(fetch|network|connection|load failed)/i;
 const nonRetryableQueryCodes = new Set([
@@ -153,9 +154,7 @@ export function showErrorToast(
 		<div className="space-y-1">
 			<p>{notification.description}</p>
 			{notification.supportReference ? (
-				<p className="break-all font-mono text-xs">
-					Support reference: <code>{notification.supportReference}</code>
-				</p>
+				<SupportReference value={notification.supportReference} />
 			) : null}
 		</div>
 	) as ReactElement;

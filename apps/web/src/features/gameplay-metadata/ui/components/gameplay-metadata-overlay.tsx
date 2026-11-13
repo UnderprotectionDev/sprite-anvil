@@ -8,6 +8,7 @@ import type {
 } from "pixi.js";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
+import { StatusMessage } from "@/components/status-message";
 
 const pointSchema = z.object({ x: z.number(), y: z.number() });
 const areaSchema = pointSchema.extend({
@@ -64,6 +65,35 @@ function drawLayers(
 			}
 		}
 	}
+}
+
+function layerPositionLines(
+	record: GameplayMetadataRecord,
+	visibleFields: string[]
+): string[] {
+	return record.fields
+		.filter(
+			(field) =>
+				visibleFields.includes(field.fieldId) &&
+				field.unit === "px" &&
+				field.coordinateSystem === "source_image_top_left"
+		)
+		.flatMap((field) => {
+			if (field.fieldId === "collision_areas") {
+				const areas = Array.isArray(field.value) ? field.value : [field.value];
+				return areas.flatMap((raw) => {
+					const area = areaSchema.safeParse(raw);
+					return area.success
+						? [
+								`${field.fieldId} · (${area.data.x}, ${area.data.y}) ${area.data.width}×${area.data.height}`,
+							]
+						: [];
+				});
+			}
+			return points(field.value).map(
+				(point) => `${field.fieldId} · (${point.x}, ${point.y})`
+			);
+		});
 }
 
 export function GameplayMetadataOverlay({
@@ -202,7 +232,13 @@ export function GameplayMetadataOverlay({
 						</div>
 					)}
 			</div>
-			{error ? <p role="alert">{error}</p> : null}
+			<ul aria-label="Layer positions" className="text-sm">
+				{layerPositionLines(record, visibleFields).map((line, index) => (
+					// biome-ignore lint/suspicious/noArrayIndexKey: identical lines can repeat
+					<li key={`${index}-${line}`}>{line}</li>
+				))}
+			</ul>
+			{error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
 			<p className="text-muted-foreground text-sm">
 				Koordinatlar kaynak görselinin sol üst köşesine göre gösterilir.
 				Noktalar ve dikdörtgenler kullanıcı verisidir; diğer JSON değerleri
