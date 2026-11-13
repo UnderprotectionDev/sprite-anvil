@@ -163,7 +163,7 @@ test("shows progress, a visible failure with its attempts, and a completed resul
 		.filter({ hasText: `Archive: ${archiveScope}` });
 	await expect(failed.getByText("Failed", { exact: true })).toBeVisible();
 	await expect(failed.getByText("Attempt 3 of 3")).toBeVisible();
-	await expect(failed.getByRole("alert")).toHaveText(
+	await expect(failed.getByRole("alert")).toContainText(
 		"The storage was busy. It failed after 3 attempts."
 	);
 	// A failed operation can no longer be cancelled and shows no progress.

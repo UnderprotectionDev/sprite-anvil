@@ -4,14 +4,21 @@ import { hasVisibleFocusIndicator } from "../src/utils/focus-indicator";
 const startLinkText = "Başlamak için giriş yap";
 const maxTabs = 40;
 
-/** Presses Tab until the element matching `selector` owns focus. */
-async function tabTo(selector: string) {
+/** Presses Tab until the element matching `selector` (CSS) or showing `text` owns focus. */
+async function tabTo(selector: string, text?: string) {
 	for (let index = 0; index < maxTabs; index += 1) {
 		// biome-ignore lint/performance/noAwaitInLoops: each Tab press must settle before the next
 		await browser.keys("Tab");
 		const focused = await browser.execute(
-			(query) => document.activeElement?.matches(query) ?? false,
-			selector
+			(query, label) => {
+				const active = document.activeElement;
+				if (!active?.matches(query)) {
+					return false;
+				}
+				return label === undefined || active.textContent?.trim() === label;
+			},
+			selector,
+			text
 		);
 		if (focused) {
 			return;
@@ -56,7 +63,7 @@ describe("Keyboard access in the desktop shell", () => {
 	});
 
 	it("reaches the start action by keyboard with an accessible name and visible focus", async () => {
-		await tabTo(`a=${startLinkText}`);
+		await tabTo("a", startLinkText);
 		const start = await $(`a=${startLinkText}`);
 		await expect(start).toBeFocused();
 		expect(await start.getText()).not.toBe("");

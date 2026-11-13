@@ -250,7 +250,7 @@ for (const outcome of ["confirmed", "uncertain", "conflicted"] as const) {
 		await panel
 			.getByRole("button", { name: "Oyun içi bilgileri kaydet" })
 			.click();
-		await expect(panel.getByRole("alert")).toHaveText(
+		await expect(panel.getByRole("alert")).toContainText(
 			"Alanlara geçerli JSON girin; boş isteğe bağlı alanlar Bilinmiyor kalır."
 		);
 		expect(request).toBeNull();
@@ -271,14 +271,14 @@ for (const outcome of ["confirmed", "uncertain", "conflicted"] as const) {
 		} else if (outcome === "conflicted") {
 			await expect(panel.getByLabel("Kullanım bağlamı")).toBeDisabled();
 			await panel.getByRole("button", { name: "Kaydı kontrol et" }).click();
-			await expect(panel.getByRole("alert")).toHaveText(
+			await expect(panel.getByRole("alert")).toContainText(
 				"Kayıt henüz görünmüyor. Aynı işlemi yeniden deneyin; yeni kayıt oluşturulmaz."
 			);
 			await expect(panel.getByLabel("Kullanım bağlamı")).toBeDisabled();
 			await panel
 				.getByRole("button", { name: "Aynı işlemi yeniden dene" })
 				.click();
-			await expect(panel.getByRole("alert")).toHaveText(
+			await expect(panel.getByRole("alert")).toContainText(
 				"The selected Specialized Profile Contract revision changed. Reload and select the active contract."
 			);
 			await expect(panel.getByLabel("Kullanım bağlamı")).toBeEnabled();

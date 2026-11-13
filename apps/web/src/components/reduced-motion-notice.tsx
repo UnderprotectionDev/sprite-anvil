@@ -14,7 +14,9 @@ export function ReducedMotionNotice({
 }) {
 	const reducedMotion = usePrefersReducedMotion();
 	const latest = useRef(onReducedMotion);
-	latest.current = onReducedMotion;
+	useEffect(() => {
+		latest.current = onReducedMotion;
+	});
 	useEffect(() => {
 		if (reducedMotion) {
 			latest.current();

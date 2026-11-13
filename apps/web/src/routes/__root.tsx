@@ -65,10 +65,10 @@ function RootComponent() {
 				storageKey="vite-ui-theme"
 			>
 				<div className="flex min-h-svh min-w-0 flex-col">
-					<Header />
 					<a className="skip-link" href="#workspace-content">
 						İçeriğe geç
 					</a>
+					<Header />
 					<div className="min-w-0 flex-1" id="workspace-content" tabIndex={-1}>
 						<Outlet />
 					</div>
