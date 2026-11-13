@@ -1,0 +1,2 @@
+ALTER TABLE "measurement_events" ADD COLUMN "event_version" integer DEFAULT 1 NOT NULL;--> statement-breakpoint
+ALTER TABLE "measurement_events" ADD CONSTRAINT "measurement_events_event_version_check" CHECK ("event_version" > 0);

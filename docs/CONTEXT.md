@@ -115,6 +115,9 @@ English terms are the canonical technical names used in code and contracts, and 
 | Offline Staged Work | Çevrimdışı Hazırlık Çalışması |
 | Offline Conflict Record | Çakışma Kaydı |
 | Measurement Definition | Ölçüm Tanımı |
+| Measurement Event | Ölçüm Olayı |
+| Measure | Ölçü |
+| Pseudonym | Takma Ad |
 | Project Archive | Proje Arşivi |
 | Icon Family Review Archive | İkon Ailesi İnceleme Arşivi |
 | Erasure Impact Report | Silme Etki Dökümü |
@@ -600,6 +603,18 @@ _Avoid_: Last-write-wins merge, silent draft discard
 **Measurement Definition**:
 A versioned contract for one product-outcome metric that fixes its population, start and end events, numerator and denominator, exclusions, time window, retention period, and the product decision the result can influence. Baselines from different definition revisions are not silently combined, and telemetry excludes user image content, raw generation instructions, free-form notes, local paths, and secrets.
 _Avoid_: Unversioned dashboard query, quality gate
+
+**Measurement Event**:
+One server-recorded workflow event collected under exactly one Measurement Definition version. Its envelope carries an envelope version, the definition version, Pseudonyms of the user and project, the workflow and record-kind labels, the surface, the server time, an outcome class label, and whole-number counters; it carries no image, file content, raw instruction, note, local path, asset name, or secret. An event outside the definition's population or event boundaries is rejected, never stored, and rows are only inserted, never updated.
+_Avoid_: Telemetry payload, analytics ping, client event
+
+**Measure**:
+A raw count or duration computed from the Measurement Events of one Measurement Definition version: durations, numerator and denominator counts, abandonment, and guardrail tallies. Measures of different definition versions or contract versions are separate entries and are never merged, and no success percentage is claimed without a baseline and agreed target. Code identifiers carry the `Measurement` prefix (`MeasurementMeasure`) to stay apart from other uses of the word.
+_Avoid_: Metric value, KPI, success rate, quality score
+
+**Pseudonym**:
+A stable, keyed, one-way stand-in for a user or project id, so stored Measurement Events never hold the real id. The same id gives the same Pseudonym under one key, the user and project kinds never collide, and the id cannot be recovered without the key.
+_Avoid_: Anonymized id, hashed user id, user token
 
 **Project Archive**:
 A portable, restorable package of Project Context revisions, asset relationships and versions, source-metadata mapping proposals and user decisions, references and roles, approval and QA history, Export Profiles, Delivery Refresh Locks, export manifests, and optionally included working files. It excludes credentials and secrets and is distinct from a delivery-oriented Export Bundle.
