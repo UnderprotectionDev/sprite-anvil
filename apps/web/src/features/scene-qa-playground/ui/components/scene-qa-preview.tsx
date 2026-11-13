@@ -1,7 +1,9 @@
 import type { SceneQaSetup } from "@sprite-anvil/api/scene-qa";
 import { Button } from "@sprite-anvil/ui/components/button";
+import { usePrefersReducedMotion } from "@sprite-anvil/ui/hooks/use-prefers-reduced-motion";
 import type { Application as PixiApplication } from "pixi.js";
 import { useEffect, useRef, useState } from "react";
+import { ReducedMotionNotice } from "@/components/reduced-motion-notice";
 import { loadSceneQaImages } from "../../lib/scene-qa-images";
 import type { createSceneQaScene as createSceneQaSceneType } from "../../lib/scene-qa-scene";
 import { SceneQaGuideList } from "./scene-qa-guide-list";
@@ -20,6 +22,12 @@ export function SceneQaPreview({
 	const [error, setError] = useState("");
 	const [ready, setReady] = useState(false);
 	const [playing, setPlaying] = useState(false);
+	const reducedMotion = usePrefersReducedMotion();
+	useEffect(() => {
+		if (reducedMotion) {
+			setPlaying(false);
+		}
+	}, [reducedMotion]);
 	const [time, setTime] = useState(0);
 	const [state, setState] = useState("idle");
 	const renderer = useRef<ReturnType<typeof createSceneQaSceneType> | null>(
@@ -181,6 +189,7 @@ export function SceneQaPreview({
 					{time >= setup.hitAtMs ? " · Hit event reached" : ""}
 				</output>
 			</div>
+			<ReducedMotionNotice reducedMotion={reducedMotion} />
 			<p className="text-muted-foreground text-sm">
 				Playback starts only when you choose Play scene. Idle → walk → attack →
 				idle. Overlays mark pivot, ground, sort and effect origin points and

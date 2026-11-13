@@ -127,4 +127,17 @@
 	html {
 		@apply font-sans;
 	}
+	/* One equivalent of `motion-reduce:` for every `transition-*`, `animate-*`
+	 * and `duration-*` utility the primitives use. Status text stays; motion goes. */
+	@media (prefers-reduced-motion: reduce) {
+		*,
+		::before,
+		::after {
+			animation-duration: 0.01ms !important;
+			animation-iteration-count: 1 !important;
+			scroll-behavior: auto !important;
+			transition-duration: 0.01ms !important;
+			transition-delay: 0ms !important;
+		}
+	}
 }

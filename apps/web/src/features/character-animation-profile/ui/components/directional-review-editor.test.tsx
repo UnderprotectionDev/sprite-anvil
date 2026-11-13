@@ -131,7 +131,7 @@ test("compares varying frame durations at shared elapsed time and saves exact hu
 	const user = userEvent.setup();
 	renderReview(onSave);
 	await waitFor(() =>
-		expect(screen.getByRole("button", { name: "Birlikte oynat" })).toBeEnabled()
+		expect(screen.getByRole("button", { name: "Play together" })).toBeEnabled()
 	);
 	fireEvent.change(screen.getByLabelText("Oynatma konumu (ms)"), {
 		target: { value: "150" },
@@ -172,17 +172,17 @@ test("advances all directions on one clock and stops at pause and reset", async 
 	vi.stubGlobal("cancelAnimationFrame", cancel);
 	renderReview();
 	await waitFor(() =>
-		expect(screen.getByRole("button", { name: "Birlikte oynat" })).toBeEnabled()
+		expect(screen.getByRole("button", { name: "Play together" })).toBeEnabled()
 	);
-	fireEvent.click(screen.getByRole("button", { name: "Birlikte oynat" }));
+	fireEvent.click(screen.getByRole("button", { name: "Play together" }));
 	act(() => tick(1000));
 	act(() => tick(1150));
 	expect(screen.getByLabelText("Oynatma konumu (ms)")).toHaveValue(150);
 	expect(screen.getByText("south · Kare 2")).toBeInTheDocument();
 	expect(screen.getByText("east · Kare 1")).toBeInTheDocument();
-	fireEvent.click(screen.getByRole("button", { name: "Duraklat" }));
+	fireEvent.click(screen.getByRole("button", { name: "Pause" }));
 	expect(cancel).toHaveBeenCalledWith(1);
-	fireEvent.click(screen.getByRole("button", { name: "Başa dön" }));
+	fireEvent.click(screen.getByRole("button", { name: "Restart" }));
 	expect(screen.getByLabelText("Oynatma konumu (ms)")).toHaveValue(0);
 });
 test("blocks saving a crop outside the pinned image", async () => {
@@ -236,4 +236,62 @@ test("toggles a frame sprite sheet region from the keyboard and edits its bounds
 	expect(
 		screen.getByRole("spinbutton", { name: "Yön 1 kare 1 width" })
 	).toHaveValue(32);
+});
+
+function stubReducedMotion(initial: boolean) {
+	let matches = initial;
+	const listeners = new Set<() => void>();
+	vi.stubGlobal("matchMedia", (query: string) => ({
+		get matches() {
+			return matches;
+		},
+		media: query,
+		addEventListener: (_: string, listener: () => void) =>
+			listeners.add(listener),
+		removeEventListener: (_: string, listener: () => void) =>
+			listeners.delete(listener),
+	}));
+	return (next: boolean) => {
+		matches = next;
+		for (const listener of listeners) {
+			listener();
+		}
+	};
+}
+
+test("under reduced motion playback starts paused, explains why, and Pause still works", async () => {
+	preparePreview();
+	stubReducedMotion(true);
+	vi.stubGlobal(
+		"requestAnimationFrame",
+		vi.fn(() => 1)
+	);
+	vi.stubGlobal("cancelAnimationFrame", vi.fn());
+	renderReview();
+	expect(screen.getByRole("note")).toHaveTextContent("reduced motion");
+	await waitFor(() =>
+		expect(screen.getByRole("button", { name: "Play together" })).toBeEnabled()
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Play together" }));
+	expect(screen.getByRole("button", { name: "Pause" })).toBeInTheDocument();
+});
+
+test("playback pauses when the system turns reduced motion on", async () => {
+	preparePreview();
+	const setReduced = stubReducedMotion(false);
+	vi.stubGlobal(
+		"requestAnimationFrame",
+		vi.fn(() => 1)
+	);
+	vi.stubGlobal("cancelAnimationFrame", vi.fn());
+	renderReview();
+	await waitFor(() =>
+		expect(screen.getByRole("button", { name: "Play together" })).toBeEnabled()
+	);
+	fireEvent.click(screen.getByRole("button", { name: "Play together" }));
+	expect(screen.getByRole("button", { name: "Pause" })).toBeInTheDocument();
+	act(() => setReduced(true));
+	expect(
+		screen.getByRole("button", { name: "Play together" })
+	).toBeInTheDocument();
 });

@@ -14,8 +14,10 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
+import { usePrefersReducedMotion } from "@sprite-anvil/ui/hooks/use-prefers-reduced-motion";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { ReducedMotionNotice } from "@/components/reduced-motion-notice";
 import { vfxAppearanceFormSchema, vfxReviewResultSchema } from "../../schemas";
 import { VfxAppearancePlaybackControls } from "./vfx-appearance-playback-controls";
 import { VfxAppearancePreview } from "./vfx-appearance-preview";
@@ -85,6 +87,12 @@ export function VfxAppearanceEditor({
 	);
 	const [ready, setReady] = useState(false);
 	const [playing, setPlaying] = useState(false);
+	const reducedMotion = usePrefersReducedMotion();
+	useEffect(() => {
+		if (reducedMotion) {
+			setPlaying(false);
+		}
+	}, [reducedMotion]);
 	const [elapsed, setElapsed] = useState(0);
 	const form = useForm({
 		defaultValues: defaults,
@@ -451,6 +459,7 @@ export function VfxAppearanceEditor({
 				}
 				ready={ready}
 			/>
+			<ReducedMotionNotice reducedMotion={reducedMotion} />
 			{draft.frames.every(
 				(frame) => vfxAppearanceFrameSchema.safeParse(frame).success
 			) &&

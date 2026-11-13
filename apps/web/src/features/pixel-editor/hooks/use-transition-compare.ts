@@ -6,13 +6,20 @@ export type TransitionPhase = "source" | "draft";
 
 /**
  * Transition compare: switches between the Source and the Working Draft. It
- * never starts by itself, runs only between Start and Stop, and does not run
- * at all when the user prefers reduced motion; the manual toggle still works.
+ * never starts by itself and runs only between Start and Stop, so under
+ * reduced motion it also begins paused and the user starts it. It stops when
+ * the system preference turns on; the manual toggle always works.
  */
 export function useTransitionCompare(reducedMotion: boolean) {
 	const [phase, setPhase] = useState<TransitionPhase>("draft");
 	const [started, setStarted] = useState(false);
-	const running = started && !reducedMotion;
+	const running = started;
+
+	useEffect(() => {
+		if (reducedMotion) {
+			setStarted(false);
+		}
+	}, [reducedMotion]);
 
 	useEffect(() => {
 		if (!running) {
@@ -28,7 +35,7 @@ export function useTransitionCompare(reducedMotion: boolean) {
 	return {
 		phase,
 		running,
-		start: () => setStarted(!reducedMotion),
+		start: () => setStarted(true),
 		stop: () => setStarted(false),
 		toggle: () =>
 			setPhase((current) => (current === "draft" ? "source" : "draft")),

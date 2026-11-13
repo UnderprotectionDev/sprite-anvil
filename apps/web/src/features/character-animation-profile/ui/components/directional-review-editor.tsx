@@ -15,8 +15,10 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
+import { usePrefersReducedMotion } from "@sprite-anvil/ui/hooks/use-prefers-reduced-motion";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ReducedMotionNotice } from "@/components/reduced-motion-notice";
 import { DirectionalClipPreview } from "./directional-clip-preview";
 
 const ruleClassLabels = {
@@ -148,6 +150,12 @@ export function DirectionalReviewEditor({
 	) => form.setFieldValue("directions", change);
 	const [zoom, setZoom] = useState(1);
 	const [playing, setPlaying] = useState(false);
+	const reducedMotion = usePrefersReducedMotion();
+	useEffect(() => {
+		if (reducedMotion) {
+			setPlaying(false);
+		}
+	}, [reducedMotion]);
 	const [elapsedMs, setElapsedMs] = useState(0);
 	const [rotation, setRotation] = useState(0);
 	const [ready, setReady] = useState<Record<string, boolean>>({});
@@ -243,7 +251,7 @@ export function DirectionalReviewEditor({
 					onClick={() => setPlaying((value) => !value)}
 					type="button"
 				>
-					{playing ? "Duraklat" : "Birlikte oynat"}
+					{playing ? "Pause" : "Play together"}
 				</Button>
 				<Button
 					onClick={() => {
@@ -252,7 +260,7 @@ export function DirectionalReviewEditor({
 					}}
 					type="button"
 				>
-					Başa dön
+					Restart
 				</Button>
 				<Label className="block space-y-1 text-sm">
 					Oynatma konumu (ms)
@@ -269,6 +277,7 @@ export function DirectionalReviewEditor({
 					/>
 				</Label>
 			</div>
+			<ReducedMotionNotice reducedMotion={reducedMotion} />
 			<DirectionalClipPreview
 				elapsedMs={0}
 				frames={canonicalFrames}
