@@ -8,18 +8,18 @@ import {
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useStore } from "@tanstack/react-form";
-import type { ReferenceConstraintForm } from "../../hooks/use-reference-constraint-form";
 import type {
 	ReferenceFeature,
 	ReferenceRole,
-} from "../../lib/reference-board-contract";
+} from "@/utils/reference-board-contract";
 import {
 	defaultTransferredFeatures,
 	referenceFeatureLabels,
 	referenceFeatures,
 	referenceRoleLabels,
 	referenceRoles,
-} from "../../lib/reference-board-contract";
+} from "@/utils/reference-board-contract";
+import type { ReferenceConstraintForm } from "../../hooks/use-reference-constraint-form";
 import type { ReferenceConstraintDraft } from "../../schemas";
 
 export const emptyReferenceConstraintDraft = (): ReferenceConstraintDraft => ({
@@ -111,7 +111,7 @@ export function ReferenceConstraintEditor({
 						className="block space-y-1 text-sm leading-normal"
 						htmlFor={`${idPrefix}-role`}
 					>
-						<span>Referans kullanım amacı</span>
+						<span>Reference usage purpose</span>
 						<NativeSelect
 							className="w-full"
 							disabled={readOnly}
@@ -145,7 +145,7 @@ export function ReferenceConstraintEditor({
 							className="block space-y-1 text-sm leading-normal"
 							htmlFor={`${idPrefix}-custom-purpose`}
 						>
-							<span>Özel kullanım amacı</span>
+							<span>Custom usage purpose</span>
 							<Input
 								className="min-h-11 w-full"
 								disabled={readOnly}
@@ -161,20 +161,20 @@ export function ReferenceConstraintEditor({
 			<FeatureChoices
 				form={form}
 				idPrefix={idPrefix}
-				legend="Aktarılabilir özellikler"
+				legend="Transferable features"
 				name="transferredFeatures"
 				readOnly={readOnly}
 			/>
 			<FeatureChoices
 				form={form}
 				idPrefix={idPrefix}
-				legend="Kaçınılacak özellikler"
+				legend="Avoided features"
 				name="forbiddenFeatures"
 				readOnly={readOnly}
 			/>
 			<p className="text-muted-foreground text-xs">
-				Aynı özellik için izin ve yasak çakışırsa Üretim Paketi oluşturulamaz;
-				kurallardan birini düzenleyerek çelişkiyi giderin.
+				A Generation Package cannot be created when permission and prohibition
+				conflict for the same feature. Edit a rule to resolve the conflict.
 			</p>
 			{needsOverride ? (
 				<form.Field name="contextOverrideRationale">
@@ -183,7 +183,7 @@ export function ReferenceConstraintEditor({
 							className="block space-y-1 text-sm leading-normal"
 							htmlFor={`${idPrefix}-context-override`}
 						>
-							<span>Bağlam Kuralı İstisnası gerekçesi</span>
+							<span>Context Override rationale</span>
 							<Textarea
 								aria-describedby={`${idPrefix}-context-override-help`}
 								className="min-h-20 w-full"
@@ -198,8 +198,8 @@ export function ReferenceConstraintEditor({
 								className="text-muted-foreground text-xs"
 								id={`${idPrefix}-context-override-help`}
 							>
-								Bu Varlık Ailesi Ana Tasarım sürümünün kimlik sınırını
-								aşacağından açıklama zorunludur.
+								A rationale is required because this exceeds the identity
+								boundary of the Asset Family Canonical Design version.
 							</span>
 						</Label>
 					)}
@@ -211,7 +211,7 @@ export function ReferenceConstraintEditor({
 						className="block space-y-1 text-sm leading-normal"
 						htmlFor={`${idPrefix}-notes`}
 					>
-						<span>Referans notu</span>
+						<span>Reference note</span>
 						<Textarea
 							className="min-h-20 w-full"
 							disabled={readOnly}

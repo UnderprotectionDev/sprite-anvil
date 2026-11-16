@@ -18,11 +18,16 @@ import type { ComponentProps } from "react";
 import { afterEach, expect, test, vi } from "vitest";
 
 const openReviewPattern = /Open review/;
+const pixelDifferencePattern = /1 of 16 pixels differ/;
 const seamPattern = /Visible corner seam/;
 
 import { TilesetAdjacencyReviewManager } from "./tileset-adjacency-review-manager";
 
-const api = vi.hoisted(() => ({ save: vi.fn(), records: [] as unknown[] }));
+const api = vi.hoisted(() => ({
+	save: vi.fn(),
+	inspectSeam: vi.fn(),
+	records: [] as unknown[],
+}));
 vi.mock("@/utils/orpc", () => ({
 	orpc: {
 		tilesetAdjacencyReviews: {
@@ -30,6 +35,11 @@ vi.mock("@/utils/orpc", () => ({
 				mutationOptions: (options?: object) => ({
 					...options,
 					mutationFn: (input: unknown) => api.save(input),
+				}),
+			},
+			inspectSeam: {
+				mutationOptions: () => ({
+					mutationFn: (input: unknown) => api.inspectSeam(input),
 				}),
 			},
 			list: {
@@ -102,7 +112,7 @@ async function openEditor() {
 			<TilesetAdjacencyReviewManager {...props} />
 		</QueryClientProvider>
 	);
-	fireEvent.change(screen.getByLabelText("Birleşik Sürüm"), {
+	fireEvent.change(screen.getByLabelText("Composite Version"), {
 		target: { value: "composite" },
 	});
 	fireEvent.change(screen.getByLabelText("Terrain ID"), {
@@ -366,3 +376,34 @@ test("names the inspect toggle, toggles it with the keyboard and locks it while 
 	await user.click(locked);
 	expect(locked).not.toBeChecked();
 }, 20_000);
+
+test("shows measured pixel differences separately from connector labels", async () => {
+	api.inspectSeam.mockResolvedValueOnce({
+		length: 16,
+		mismatchCount: 1,
+		firstMismatch: 2,
+		mismatchOffsets: [2],
+	});
+	await openEditor();
+	fireEvent.change(screen.getByLabelText("Connection to cell (optional)"), {
+		target: { value: "2" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Inspect pixel seam" }));
+	await screen.findByText(pixelDifferencePattern);
+	expect(
+		screen.getByRole("img", { name: "Difference preview" })
+	).toBeInTheDocument();
+	expect(api.inspectSeam).toHaveBeenCalledWith(
+		expect.objectContaining({
+			cellIndex: 0,
+			neighborIndex: 1,
+			compositeVersionId: "composite",
+		})
+	);
+	fireEvent.change(screen.getByLabelText("Connection to cell (optional)"), {
+		target: { value: "3" },
+	});
+	expect(
+		screen.queryByRole("region", { name: "Pixel seam result" })
+	).not.toBeInTheDocument();
+});

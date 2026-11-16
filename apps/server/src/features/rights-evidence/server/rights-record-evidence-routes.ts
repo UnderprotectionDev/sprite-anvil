@@ -367,6 +367,9 @@ async function respondWithEvidenceFile(
 			502
 		);
 	}
+	if (storedFile.data.objectKey === null) {
+		return c.json(serializePublicApiError("Not found"), 404);
+	}
 	const objectKey = rightsRecordEvidenceObjectKeySchema.safeParse(
 		storedFile.data.objectKey
 	);

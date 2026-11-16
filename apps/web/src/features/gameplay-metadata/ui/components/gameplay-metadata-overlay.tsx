@@ -9,6 +9,7 @@ import type {
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { StatusMessage } from "@/components/status-message";
+import { builtinProfilePresentation } from "@/utils/builtin-profile-labels";
 
 const pointSchema = z.object({ x: z.number(), y: z.number() });
 const areaSchema = pointSchema.extend({
@@ -163,7 +164,7 @@ export function GameplayMetadataOverlay({
 				application.stage.addChild(layer);
 				application.canvas.setAttribute(
 					"aria-label",
-					`${record.frameKey} — ${record.assetVersionId} oyun içi bilgi katmanları`
+					`${record.frameKey} — ${record.assetVersionId} Gameplay Metadata overlays`
 				);
 				application.canvas.setAttribute("role", "img");
 				application.canvas.style.maxWidth = "100%";
@@ -173,7 +174,9 @@ export function GameplayMetadataOverlay({
 				onReady(true);
 			} catch {
 				if (!disposed) {
-					setError("Kesin sürümün görseli yüklenemedi; inceleme kaydedilemez.");
+					setError(
+						"Could not load the exact version's image; the review cannot be saved."
+					);
 					onReady(false);
 				}
 			}
@@ -193,7 +196,7 @@ export function GameplayMetadataOverlay({
 	return (
 		<div className="space-y-2">
 			<FieldSet className="flex-row flex-wrap gap-3">
-				<FieldLegend>Görsel katmanlar</FieldLegend>
+				<FieldLegend>Visual overlays</FieldLegend>
 				{record.fields.map((field) => (
 					<Label className="gap-1 text-sm" key={field.fieldId}>
 						<Checkbox
@@ -208,7 +211,10 @@ export function GameplayMetadataOverlay({
 								)
 							}
 						/>
-						{record.contractSnapshot?.metadataFields.find(
+						{(record.contractSnapshot
+							? builtinProfilePresentation(record.contractSnapshot)
+							: undefined
+						)?.metadataFields.find(
 							(definition) => definition.id === field.fieldId
 						)?.label ?? field.fieldId}
 					</Label>
@@ -221,11 +227,11 @@ export function GameplayMetadataOverlay({
 					visibleFields.includes("event_links") &&
 					!error && (
 						<div
-							aria-label="Olay bağlantıları görsel katmanı"
+							aria-label="Event links visual overlay"
 							className="absolute inset-x-0 bottom-0 max-h-16 overflow-auto bg-black/80 p-1 text-white text-xs"
 							role="note"
 						>
-							<p>Olay bağlantıları · {record.frameKey}</p>
+							<p>Event links · {record.frameKey}</p>
 							<p className="break-all font-mono">
 								{JSON.stringify(events.value)}
 							</p>
@@ -240,9 +246,9 @@ export function GameplayMetadataOverlay({
 			</ul>
 			{error ? <StatusMessage tone="error">{error}</StatusMessage> : null}
 			<p className="text-muted-foreground text-sm">
-				Koordinatlar kaynak görselinin sol üst köşesine göre gösterilir.
-				Noktalar ve dikdörtgenler kullanıcı verisidir; diğer JSON değerleri
-				aşağıda korunur. Görsel alfadan çarpışma veya fizik bilgisi üretilmez.
+				Coordinates are shown relative to the top-left of the source image.
+				Points and rectangles are user data; other JSON values are preserved
+				below. Collision or physics data is not derived from image alpha.
 			</p>
 		</div>
 	);

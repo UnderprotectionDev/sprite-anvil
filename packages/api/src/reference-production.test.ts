@@ -14,20 +14,33 @@ test("requires a purpose for custom reference rules and valid override evidence"
 		role: "custom" as const,
 		transferredFeatures: ["pose" as const],
 	};
-	const missingPurpose = referenceBoardMetadataSchema.safeParse(common);
-	expect(missingPurpose.success).toBe(false);
+	for (const customPurpose of [null, "", "   "]) {
+		const missingPurpose = referenceBoardMetadataSchema.safeParse({
+			...common,
+			customPurpose,
+		});
+		expect(missingPurpose.success).toBe(false);
+	}
 
-	const missingOverrideEvidence = referenceBoardMetadataSchema.safeParse({
+	const forbiddenIdentityOverride = referenceBoardMetadataSchema.safeParse({
 		...common,
 		contextOverrideRationale: "Overrides identity boundary",
 		customPurpose: "Use this as a character identity",
+		forbiddenFeatures: ["identity"],
 		transferredFeatures: ["identity"],
 	});
-	expect(missingOverrideEvidence.success).toBe(false);
+	expect(forbiddenIdentityOverride.success).toBe(false);
+
+	const identityNotAllowed = referenceBoardMetadataSchema.safeParse({
+		...common,
+		contextOverrideRationale: "Overrides identity boundary",
+		customPurpose: "Use the pose",
+	});
+	expect(identityNotAllowed.success).toBe(false);
 
 	const validRules = referenceBoardMetadataSchema.safeParse({
 		...common,
-		contextOverrideRationale: "Matches the specific family direction.",
+		contextOverrideRationale: "Overrides identity boundary",
 		customPurpose: "Use the silhouette",
 		transferredFeatures: ["identity"],
 	});

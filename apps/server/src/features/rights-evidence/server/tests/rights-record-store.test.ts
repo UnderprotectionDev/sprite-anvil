@@ -421,3 +421,32 @@ test("does not create or return Rights Record history for an erased Asset Record
 		await store.list(userId, testProjectId, testAssetRecordId, null)
 	).toBeNull();
 });
+
+test("restored excluded evidence retains metadata and reports its absence", async () => {
+	const { database, records } = createDatabaseHarness();
+	const store = createRightsRecordStore(database);
+	records.push({
+		...baseInput,
+		referenceId: null,
+		evidence: null,
+		evidenceFile: {
+			contentLength: 12,
+			fileName: "license.pdf",
+			objectKey: null,
+			sha256: "a".repeat(64),
+			sourceContentType: "application/pdf",
+		},
+		versionNumber: 1,
+		createdAt: new Date("2026-11-01T10:00:00Z"),
+	});
+	const result = await store.list(
+		userId,
+		testProjectId,
+		testAssetRecordId,
+		null
+	);
+	expect(result?.[0]?.evidenceFile).toMatchObject({
+		fileName: "license.pdf",
+		availability: "excluded",
+	});
+});

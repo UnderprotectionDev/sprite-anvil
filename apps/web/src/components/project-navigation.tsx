@@ -1,44 +1,78 @@
+import {
+	SidebarGroup,
+	SidebarGroupLabel,
+	SidebarMenu,
+	SidebarMenuButton,
+	SidebarMenuItem,
+} from "@sprite-anvil/ui/components/sidebar";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { StatusMessage } from "@/components/status-message";
 import { orpc } from "@/utils/orpc";
 
-const projectLinks = [
-	{ to: "/projects/$projectId/assets", label: "Varlık kayıtları" },
-	{ to: "/projects/$projectId/collections", label: "Koleksiyonlar" },
-	{ to: "/projects/$projectId/asset-families", label: "Varlık Aileleri" },
-	{ to: "/projects/$projectId/scene-qa", label: "Sahne Kalite Kontrol Alanı" },
-	{ to: "/projects/$projectId/delivery-targets", label: "Delivery Targets" },
-	{ to: "/projects/$projectId/readiness-plan", label: "Readiness Plan" },
-	{ to: "/projects/$projectId/export-bundles", label: "Export Bundles" },
+const groups = [
 	{
-		to: "/projects/$projectId/fulfilment-mapping",
-		label: "Fulfilment mapping",
+		label: "Library",
+		links: [
+			{ to: "/projects/$projectId/assets", label: "Asset Records" },
+			{ to: "/projects/$projectId/collections", label: "Collections" },
+			{ to: "/projects/$projectId/asset-families", label: "Asset Families" },
+			{ to: "/projects/$projectId/scene-qa", label: "Scene QA" },
+			{ to: "/projects/$projectId/import-inbox", label: "Import Inbox" },
+			{ to: "/projects/$projectId/offline-staging", label: "Offline Staging" },
+			{
+				to: "/projects/$projectId/production-experiments",
+				label: "Production Experiments",
+			},
+			{
+				to: "/projects/$projectId/production-recipes",
+				label: "Production Recipes",
+			},
+			{
+				to: "/projects/$projectId/project-archives",
+				label: "Project Archives",
+			},
+		],
 	},
 	{
-		to: "/projects/$projectId/runtime-validation",
-		label: "Runtime Validation",
+		label: "Delivery",
+		links: [
+			{
+				to: "/projects/$projectId/delivery-targets",
+				label: "Delivery Targets",
+			},
+			{ to: "/projects/$projectId/readiness-plan", label: "Readiness Plan" },
+			{ to: "/projects/$projectId/export-bundles", label: "Export Bundles" },
+			{
+				to: "/projects/$projectId/fulfilment-mapping",
+				label: "Fulfilment Mapping",
+			},
+			{
+				to: "/projects/$projectId/runtime-validation",
+				label: "Runtime Validation",
+			},
+			{
+				to: "/projects/$projectId/delivery-refresh",
+				label: "Delivery Refresh",
+			},
+			{ to: "/projects/$projectId/delivery-diff", label: "Delivery Diff" },
+			{
+				to: "/projects/$projectId/platform-equivalence",
+				label: "Platform Equivalence",
+			},
+			{ to: "/projects/$projectId/operations", label: "Background Operations" },
+			{
+				to: "/projects/$projectId/profile-contracts",
+				label: "Profile Contracts",
+			},
+			{ to: "/projects/$projectId/access", label: "Access" },
+			{
+				to: "/projects/$projectId/permanent-erasure",
+				label: "Permanent Erasure",
+			},
+		],
 	},
-	{ to: "/projects/$projectId/delivery-refresh", label: "Delivery Refresh" },
-	{
-		to: "/projects/$projectId/platform-equivalence",
-		label: "Platform Equivalence",
-	},
-	{ to: "/projects/$projectId/import-inbox", label: "İçe aktarma" },
-	{ to: "/projects/$projectId/offline-staging", label: "Offline staging" },
-	{ to: "/projects/$projectId/operations", label: "Background operations" },
-	{
-		to: "/projects/$projectId/profile-contracts",
-		label: "Özel profil sözleşmeleri",
-	},
-	{ to: "/projects/$projectId/access", label: "İzinler" },
 ] as const;
-const linkClass =
-	"inline-flex min-h-11 items-center rounded-md px-3 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground";
-const activeProps = {
-	className: "bg-accent text-accent-foreground",
-	"aria-current": "page",
-} as const;
 
 export function ProjectNavigation({ projectId }: { projectId: string }) {
 	const projectQuery = useQuery({
@@ -46,60 +80,89 @@ export function ProjectNavigation({ projectId }: { projectId: string }) {
 		meta: { errorPresentation: "inline" },
 	});
 	return (
-		<div className="border-b bg-card">
-			<div className="mx-auto max-w-6xl space-y-2 px-4 py-3 sm:px-6">
-				<div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
-					<span className="min-w-0 break-words font-semibold">
-						{projectQuery.data?.name ?? "Oyun projesi"}
-					</span>
-					<Link
-						className="inline-flex min-h-11 items-center text-sm underline underline-offset-4"
-						to="/projects"
-					>
-						Proje değiştir
-					</Link>
-					{projectQuery.isPending ? (
-						<span role="status">Proje yükleniyor…</span>
-					) : null}
-					{projectQuery.isError ? (
-						<StatusMessage tone="error">
-							Proje bilgisi yüklenemedi. Projelerden yeniden açın.
-						</StatusMessage>
-					) : null}
-				</div>
-				<nav aria-label="Proje gezinmesi" className="flex flex-wrap gap-1">
-					{projectLinks.slice(0, 4).map(({ to, label }) => (
-						<Link
-							activeProps={activeProps}
-							className={linkClass}
-							key={to}
-							params={{ projectId }}
-							to={to}
-						>
-							{label}
-						</Link>
-					))}
-					<Link
-						activeProps={activeProps}
-						className={linkClass}
-						search={{ projectId }}
-						to="/context-proposals"
-					>
-						Proje Bağlamı
-					</Link>
-					{projectLinks.slice(4).map(({ to, label }) => (
-						<Link
-							activeProps={activeProps}
-							className={linkClass}
-							key={to}
-							params={{ projectId }}
-							to={to}
-						>
-							{label}
-						</Link>
-					))}
-				</nav>
+		<nav aria-label="Project navigation">
+			<div className="px-4 py-2 font-semibold">
+				{projectQuery.data?.name ?? "Project"}
+				{projectQuery.isPending ? (
+					<span role="status"> Loading project…</span>
+				) : null}
+				{projectQuery.isError ? (
+					<StatusMessage tone="error">
+						Could not load project. Open it again from Projects.
+					</StatusMessage>
+				) : null}
 			</div>
-		</div>
+			{groups.slice(0, 1).map((group) => (
+				<SidebarGroup key={group.label}>
+					<SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+					<SidebarMenu>
+						{group.links.map(({ to, label }) => (
+							<SidebarMenuItem key={to}>
+								<SidebarMenuButton
+									render={
+										<Link
+											activeProps={{
+												"aria-current": "page",
+												className: "bg-accent text-accent-foreground",
+											}}
+											params={{ projectId }}
+											to={to}
+										/>
+									}
+								>
+									{label}
+								</SidebarMenuButton>
+							</SidebarMenuItem>
+						))}
+					</SidebarMenu>
+				</SidebarGroup>
+			))}
+			<SidebarGroup>
+				<SidebarGroupLabel>Context</SidebarGroupLabel>
+				<SidebarMenu>
+					<SidebarMenuItem>
+						<SidebarMenuButton
+							render={
+								<Link
+									activeProps={{
+										"aria-current": "page",
+										className: "bg-accent text-accent-foreground",
+									}}
+									search={{ projectId }}
+									to="/context-proposals"
+								/>
+							}
+						>
+							Context Proposals
+						</SidebarMenuButton>
+					</SidebarMenuItem>
+				</SidebarMenu>
+			</SidebarGroup>
+			{groups.slice(1).map((group) => (
+				<SidebarGroup key={group.label}>
+					<SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+					<SidebarMenu>
+						{group.links.map(({ to, label }) => (
+							<SidebarMenuItem key={to}>
+								<SidebarMenuButton
+									render={
+										<Link
+											activeProps={{
+												"aria-current": "page",
+												className: "bg-accent text-accent-foreground",
+											}}
+											params={{ projectId }}
+											to={to}
+										/>
+									}
+								>
+									{label}
+								</SidebarMenuButton>
+							</SidebarMenuItem>
+						))}
+					</SidebarMenu>
+				</SidebarGroup>
+			))}
+		</nav>
 	);
 }

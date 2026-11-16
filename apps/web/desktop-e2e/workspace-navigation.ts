@@ -8,13 +8,13 @@ export async function openWorkspaceTask(label: string) {
 
 export async function activateFamilyProfile(name: string, version: string) {
 	const familyUrl = await browser.getUrl();
-	await (await $("a=Özel profil sözleşmeleri")).click();
+	await (await $("a=Specialized Profile Contracts")).click();
 	await openWorkspaceTask(name);
 	const profile = await $(`section[aria-label='${name}'] article`);
-	await (await profile.$("button=Sözleşmeyi etkinleştir")).click();
+	await (await profile.$("button=Activate contract")).click();
 	await expect(
-		await profile.$(`p=Bu projede etkin · ${version}`)
+		await profile.$(`p=Active in this project · ${version}`)
 	).toBeDisplayed();
 	await browser.url(familyUrl);
-	await openWorkspaceTask("Profil incelemeleri");
+	await openWorkspaceTask("Profile reviews");
 }

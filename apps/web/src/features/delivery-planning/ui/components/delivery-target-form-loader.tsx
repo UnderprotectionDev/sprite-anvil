@@ -25,7 +25,7 @@ function FamilyListsLoader({
 			...orpc.familyReadiness.list.queryOptions({
 				input: { assetFamilyId: family.id, projectId },
 			}),
-			meta: { suppressGlobalErrorToast: true },
+			meta: { errorPresentation: "inline" },
 		})),
 	});
 	if (lists.some((list) => list.isPending)) {
@@ -84,11 +84,11 @@ export function DeliveryTargetFormLoader({
 }) {
 	const project = useQuery({
 		...orpc.projectContexts.list.queryOptions(),
-		meta: { suppressGlobalErrorToast: true },
+		meta: { errorPresentation: "inline" },
 	});
 	const catalog = useQuery({
 		...orpc.assetFamilies.list.queryOptions({ input: { projectId } }),
-		meta: { suppressGlobalErrorToast: true },
+		meta: { errorPresentation: "inline" },
 	});
 	if (project.isPending || catalog.isPending) {
 		return (

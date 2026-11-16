@@ -15,13 +15,13 @@ function isSupportedCandidateExport(file: File) {
 export const candidateExportFileSchema = z
 	.instanceof(File)
 	.refine((file) => file.size > 0 && isSupportedCandidateExport(file), {
-		message: "Aday Sürüm dosyası PNG veya WebP olmalı ve boş olamaz.",
+		message: "The Candidate Version file must be a nonempty PNG or WebP.",
 	});
 
 export const managedSnapshotFileSchema = z
 	.instanceof(File)
 	.refine((file) => file.size > 0 && file.size <= maxManagedSnapshotBytes, {
-		message: "Çalışma dosyası boş olamaz ve 100 MB sınırını aşamaz.",
+		message: "The working file must be nonempty and no larger than 100 MB.",
 	});
 
 export const externalWorkingFileEditFormSchema = z.object({
@@ -34,7 +34,9 @@ export function fileSelectionError(schema: z.ZodType<File>, file: File) {
 }
 
 export const manualImportEvidenceFormSchema = z.object({
-	actualInstruction: z.string().min(1, "Gerçek üretim talimatı gerekli."),
-	generationPackageId: z.string().min(1, "Üretim Paketi seçin."),
-	sourceSurface: z.string().min(1, "Kaynak yüzeyi gerekli."),
+	actualInstruction: z
+		.string()
+		.min(1, "Actual production instruction is required."),
+	generationPackageId: z.string().min(1, "Select a Generation Package."),
+	sourceSurface: z.string().min(1, "Source surface is required."),
 });

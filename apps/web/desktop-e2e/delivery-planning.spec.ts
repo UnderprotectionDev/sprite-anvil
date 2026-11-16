@@ -24,34 +24,34 @@ describe("Delivery Planning", () => {
 		await $("input[name='email']").setValue(fixture.email);
 		await $("input[name='password']").setValue(fixture.password);
 		await (await $("button=Sign Up")).click();
-		await $("h1=Oyun projeleri").waitForDisplayed({ timeout: 30_000 });
+		await $("h1=Game projects").waitForDisplayed({ timeout: 30_000 });
 
-		await (await $("a=Proje Bağlamı")).click();
-		await $("//label[span[text()='Proje adı']]/input").setValue(
+		await (await $("a=Context Proposals")).click();
+		await $("//label[span[text()='Project name']]/input").setValue(
 			fixture.projectName
 		);
-		await $("//label[span[text()='Genel sanat yaklaşımı']]/textarea").setValue(
+		await $("//label[span[text()='General art direction']]/textarea").setValue(
 			fixture.generalArtDirection
 		);
-		await (await $("button=Projeyi oluştur")).click();
-		await openWorkspaceTask("Görsel Dünyalar ve Temalar");
-		await $("input[placeholder='Örn. Yüksek yaylalar']").setValue(
+		await (await $("button=Create project")).click();
+		await openWorkspaceTask("Visual Worlds and Themes");
+		await $("input[placeholder='e.g. High plateaus']").setValue(
 			fixture.visualWorldName
 		);
-		await (await $("button=Görsel Dünya ekle")).click();
+		await (await $("button=Add Visual World")).click();
 		await $(`strong=${fixture.visualWorldName}`).waitForDisplayed();
 
 		await (await $("a=Projeler")).click();
-		await (await $("a=Varlık Aileleri")).click();
-		await openWorkspaceTask("Aile ve temsil ilişkileri");
+		await (await $("a=Asset Families")).click();
+		await openWorkspaceTask("Family and representation relationships");
 		await $("input[id='subject-identity-name']").setValue(fixture.identityName);
-		await (await $("button=Varlık Kimliği oluştur")).click();
-		await openWorkspaceTask("Aile kataloğu");
+		await (await $("button=Create Subject Identity")).click();
+		await openWorkspaceTask("Family catalog");
 		await $(`h2=${fixture.identityName}`).waitForDisplayed();
 
 		for (const family of fixture.families) {
 			// biome-ignore lint/performance/noAwaitInLoops: Desktop interactions within each family setup must occur in order.
-			await openWorkspaceTask("Aile ve temsil ilişkileri");
+			await openWorkspaceTask("Family and representation relationships");
 			await $("input[id='asset-family-name']").setValue(family.familyName);
 			await $("#asset-family-visual-world").selectByVisibleText(
 				fixture.visualWorldName
@@ -59,35 +59,35 @@ describe("Delivery Planning", () => {
 			await $("input[id='asset-family-use-context']").setValue(
 				fixture.useContext
 			);
-			await (await $("button=Varlık Ailesi oluştur")).click();
-			await (await $(checkboxIn("Bağımsız ürün anlamı"))).click();
+			await (await $("button=Create Asset Family")).click();
+			await (await $(checkboxIn("Independent product meaning"))).click();
 			await $("input[id='asset-record-name']").setValue(family.recordName);
-			await (await $("button=Varlık Kaydı ekle")).click();
-			await openWorkspaceTask("Aile kataloğu");
+			await (await $("button=Add Asset Record")).click();
+			await openWorkspaceTask("Family catalog");
 			await $(`h3=${family.familyName}`).waitForDisplayed();
 		}
 
 		for (const family of fixture.families) {
 			// biome-ignore lint/performance/noAwaitInLoops: Each family's list is saved and activated before the next.
-			await openWorkspaceTask("Tamamlanma ve kanıtlar");
+			await openWorkspaceTask("Completion and evidence");
 			await $(
-				"//label[span[normalize-space()='İnceleme ve tamamlanma için aile']]//select"
+				"//label[span[normalize-space()='Family for review and completion']]//select"
 			).selectByVisibleText(family.familyName);
-			await (await $("button=Öğe ekle")).click();
+			await (await $("button=Add item")).click();
 			await $("//label[span[normalize-space()='Öğe adı']]//input").setValue(
 				family.itemName
 			);
 			await $(
-				"//label[span[normalize-space()='Varlık Kaydı']]//select"
+				"//label[span[normalize-space()='Asset Record']]//select"
 			).selectByVisibleText(family.recordName);
-			await (await $("button=Taslak sürümü kaydet")).click();
-			await $("p=Yeni liste sürümü taslak olarak kaydedildi.").waitForDisplayed(
-				{ timeout: 20_000 }
-			);
-			await (await $("button=Bu sürümü etkinleştir")).click();
-			await $(
-				"p=Gerekli Öğeler Listesi sürümü etkinleştirildi."
-			).waitForDisplayed({ timeout: 20_000 });
+			await (await $("button=Save draft version")).click();
+			await $("p=New list version saved as a draft.").waitForDisplayed({
+				timeout: 20_000,
+			});
+			await (await $("button=Activate this version")).click();
+			await $("p=Required Set version activated.").waitForDisplayed({
+				timeout: 20_000,
+			});
 		}
 
 		await (await $("a=Delivery Targets")).click();

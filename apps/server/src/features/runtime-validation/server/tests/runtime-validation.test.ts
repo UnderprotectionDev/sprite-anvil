@@ -573,3 +573,41 @@ test("evidence racing an outcome decision is closed by the storage, not only by 
 	expect(reread.outcome).toBe("pass");
 	expect(reread.evidence).toHaveLength(0);
 });
+
+test("restored excluded evidence preserves file identity and reports that bytes are unavailable", async () => {
+	const { create, get, storage, context } = setup();
+	const { record } = await create();
+	const id = crypto.randomUUID();
+	await storage.insertEvidence({
+		id,
+		projectId,
+		recordId: record.id,
+		byteSize: 12,
+		createdAt: new Date(),
+		createdByUserId: userId,
+		fileName: "archived-run.mp4",
+		kind: "recording",
+		objectKey: null,
+		requestDigest: "a".repeat(64),
+		sha256: "b".repeat(64),
+		source: "manual",
+		text: null,
+	});
+	const restored = await get(record.id);
+	expect(restored.evidence[0]).toMatchObject({
+		fileAvailability: "unavailable",
+		file: {
+			fileName: "archived-run.mp4",
+			byteSize: 12,
+			sha256: "b".repeat(64),
+		},
+	});
+	expect(
+		await context().runtimeValidationStore?.getEvidenceFile(
+			userId,
+			projectId,
+			record.id,
+			id
+		)
+	).toBeNull();
+});

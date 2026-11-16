@@ -142,7 +142,7 @@ function dependencyBlockers(
 		blocker(
 			"dependency",
 			link.targetAssetVersionId,
-			"Bağımlılık Bağlantısı eksik, belirsiz veya farklı bir bağlama ait."
+			"The Dependency Link is missing, ambiguous, or belongs to another context."
 		)
 	);
 	for (const version of facts.versions.filter(
@@ -153,7 +153,7 @@ function dependencyBlockers(
 				blocker(
 					"dependency",
 					version.id,
-					"Türetilmiş Varlık seçili tarihsel Ana Tasarıma bağlanmıyor."
+					"The Derived Asset is not linked to the selected historical Canonical Design."
 				)
 			);
 		}
@@ -163,7 +163,7 @@ function dependencyBlockers(
 			blocker(
 				"dependency",
 				input.compositeVersionId,
-				"Birleşik Sürümün kesin Birim Sürümleri eksik."
+				"The exact Unit Versions of the Composite Version are missing."
 			)
 		);
 	}
@@ -267,7 +267,11 @@ function qualityBlockers(
 		...assessment.outstandingHumanReviewIds,
 		...assessment.outstandingUsageTestIds,
 	].map((id) =>
-		blocker("quality", target.id, `Zorunlu kalite kanıtı tamamlanmamış: ${id}`)
+		blocker(
+			"quality",
+			target.id,
+			`Required quality evidence is incomplete: ${id}`
+		)
 	);
 }
 
@@ -280,7 +284,7 @@ function targetBlockers(
 	const record = facts.records.find((row) => row.id === target.assetRecordId);
 	if (record?.availability !== "active") {
 		blockers.push(
-			blocker("availability", target.id, "Varlık Kaydı kullanılabilir değil.")
+			blocker("availability", target.id, "Asset Record is unavailable.")
 		);
 	}
 	if (!targetIsApproved(target, facts)) {
@@ -288,7 +292,7 @@ function targetBlockers(
 			blocker(
 				"approval",
 				target.id,
-				"Kesin sürüm için geçmiş onay İnceleme Kaydı sabitlenmemiş."
+				"A historical approval Review Event is not pinned for the exact version."
 			)
 		);
 	}
@@ -301,7 +305,7 @@ function targetBlockers(
 			blocker(
 				"quality_contract",
 				target.id,
-				"Özel Profil Sözleşmesi açıkça sabitlenmemiş."
+				"The Specialized Profile Contract is not explicitly pinned."
 			),
 		];
 	}
@@ -320,7 +324,7 @@ function targetBlockers(
 			blocker(
 				"applicability",
 				target.id,
-				"Seçili tarihsel bağlam ve Ana Tasarım için uygunluk kanıtı eksik."
+				"Compatibility evidence for the selected historical context and Canonical Design is missing."
 			)
 		);
 	}
@@ -333,7 +337,11 @@ export function assessHistoricalComposition(
 ): HistoricalCompositionReport {
 	const blockers = [
 		...facts.integrityFailures.map((id) =>
-			blocker("integrity", id, "Kesin Varlık Sürümünün içeriği doğrulanamadı.")
+			blocker(
+				"integrity",
+				id,
+				"The exact Asset Version content could not be verified."
+			)
 		),
 		...dependencyBlockers(input, facts),
 		...facts.targets.flatMap((target) => targetBlockers(input, facts, target)),

@@ -1,9 +1,12 @@
 import { assetVersionContentTypeSchema } from "@sprite-anvil/api/asset-record-tracking";
+import {
+	checkReviewApproval,
+	readVersionProductionEvidence,
+} from "@sprite-anvil/api/asset-version-review-approval";
 import type {
 	AssetFamilyCanonicalDesign,
 	AssetFamilyCanonicalDesignInput,
 	AssetVersion,
-	AssetVersionApprovalBlocked,
 	AssetVersionFileRecord,
 	AssetVersionReviewEvent,
 	AssetVersionReviewInput,
@@ -29,12 +32,20 @@ import {
 	unitVersionSchema,
 } from "@sprite-anvil/api/asset-versions";
 import {
+	readBatchReviewEvents,
+	recordBatchReviewEvents,
+} from "@sprite-anvil/api/batch-review-events";
+import {
 	createVersionProductionEvidence,
 	type ManagedSnapshot,
 	type ManualImportEvidence,
 	type ManualImportEvidenceInput,
 	type VersionProductionEvidence,
 } from "@sprite-anvil/api/production-provenance";
+import {
+	toManagedSnapshot,
+	toManualImportEvidence,
+} from "@sprite-anvil/api/production-provenance-mapper";
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
 import { assetFamilyCanonicalDesigns } from "@sprite-anvil/db/schema/asset-families";
 import {
@@ -57,19 +68,6 @@ import {
 } from "@sprite-anvil/db/schema/asset-versions";
 import { generationPackages } from "@sprite-anvil/db/schema/generation-packages";
 import { and, asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
-import {
-	hasManualImportEvidence,
-	isManualImportEvidenceRequired,
-} from "../../asset-records/server/manual-import-evidence-gate";
-import {
-	toManagedSnapshot,
-	toManualImportEvidence,
-} from "../../production-provenance/server/production-provenance-mapper";
-import { readAssetVersionApprovalBlockers } from "../../reviews/server/asset-version-approval";
-import {
-	readBatchReviewEvents,
-	recordBatchReviewEvents,
-} from "../../reviews/server/batch-review-events";
 import {
 	recordAssetVersionReviewEvent,
 	recordCompositeVersionReviewEvent,
@@ -201,76 +199,6 @@ function toAssetVersion(
 		reviewEvents,
 		createdAt: toISOString(record.createdAt),
 	});
-}
-
-async function readVersionProductionEvidence(
-	db: Database,
-	record: typeof assetVersions.$inferSelect
-) {
-	const [manualRows, legacyRows, snapshotRows] = await Promise.all([
-		db
-			.select()
-			.from(manualImportEvidence)
-			.where(
-				and(
-					eq(manualImportEvidence.projectId, record.projectId),
-					eq(manualImportEvidence.versionId, record.id)
-				)
-			)
-			.orderBy(asc(manualImportEvidence.revision)),
-		db
-			.select({ id: legacyAssetAttestations.id })
-			.from(legacyAssetAttestations)
-			.where(
-				and(
-					eq(legacyAssetAttestations.projectId, record.projectId),
-					eq(legacyAssetAttestations.versionId, record.id)
-				)
-			)
-			.limit(1),
-		db
-			.select()
-			.from(managedSnapshots)
-			.where(
-				and(
-					eq(managedSnapshots.projectId, record.projectId),
-					eq(managedSnapshots.assetVersionId, record.id)
-				)
-			)
-			.orderBy(asc(managedSnapshots.createdAt), asc(managedSnapshots.id)),
-	]);
-	const latestManualEvidence = manualRows.at(-1);
-	return createVersionProductionEvidence(
-		legacyRows.length > 0 ? "legacy_asset" : record.sourceKind,
-		latestManualEvidence ? toManualImportEvidence(latestManualEvidence) : null,
-		snapshotRows.map(toManagedSnapshot)
-	);
-}
-
-export async function checkReviewApproval(
-	db: Database,
-	userId: string,
-	version: typeof assetVersions.$inferSelect
-): Promise<true | AssetVersionApprovalBlocked | null> {
-	if (!(version.integrityVerified && version.contentDigest)) {
-		return null;
-	}
-	const productionEvidence = await readVersionProductionEvidence(db, version);
-	if (productionEvidence.evidenceLevel === "incomplete") {
-		return null;
-	}
-	if (
-		isManualImportEvidenceRequired(version.sourceKind) &&
-		!(await hasManualImportEvidence(db, {
-			assetRecordId: version.assetRecordId,
-			projectId: version.projectId,
-			versionId: version.id,
-		}))
-	) {
-		return null;
-	}
-	const blockers = await readAssetVersionApprovalBlockers(db, userId, version);
-	return blockers.length > 0 ? { kind: "approval-blocked", blockers } : true;
 }
 
 function toFileRecord(
@@ -1347,7 +1275,7 @@ export function createAssetVersionStore(db: Database): AssetVersionStore {
 			}
 			return approval
 				? approval.blockers
-				: ["Bütünlük veya zorunlu üretim kanıtı eksik."];
+				: ["Integrity or required production evidence is missing."];
 		},
 		readBatchReviewEvents: (userId, input) =>
 			readBatchReviewEvents(db, userId, input),

@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { orpc } from "@/utils/orpc";
 import { ContextWorkspace } from "../components/context-proposal-components";
+import { StyleModules } from "../components/style-modules";
 import { ProjectSetupForm } from "../forms/project-setup-form";
 
 import "../components/context-proposals.css";
@@ -62,6 +63,25 @@ export function ContextProposalsView() {
 		...proposalsQueryOptions,
 		enabled: Boolean(projectId),
 	});
+	const createStyleModule = useMutation(
+		orpc.contextProposals.createStyleModule.mutationOptions()
+	);
+	const copyStyleModule = useMutation(
+		orpc.contextProposals.copyStyleModule.mutationOptions()
+	);
+	async function styleProposal(action: () => Promise<unknown>) {
+		try {
+			await action();
+			await queryClient.invalidateQueries({
+				queryKey: proposalsQueryOptions.queryKey,
+			});
+			toast.success("Style Module proposal created.");
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Could not create proposal."
+			);
+		}
+	}
 	const [projectFormOpen, setProjectFormOpen] = useState(false);
 	const [projectCreateOutcomeUncertain, setProjectCreateOutcomeUncertain] =
 		useState(false);
@@ -94,7 +114,7 @@ export function ContextProposalsView() {
 				await queryClient.invalidateQueries({
 					queryKey: orpc.projects.list.queryKey(),
 				});
-				toast.success("Proje oluşturuldu.");
+				toast.success("Project created.");
 			},
 			onError: (error, input) => {
 				if (isWriteOutcomeUncertain(error)) {
@@ -111,7 +131,7 @@ export function ContextProposalsView() {
 			const result = await projectsQuery.refetch();
 			if (result.isError || !result.data) {
 				if (!result.isError) {
-					toast.error("Proje listesi yenilenemedi. Yeniden deneyin.");
+					toast.error("Could not refresh the project list. Try again.");
 				}
 				return;
 			}
@@ -134,7 +154,7 @@ export function ContextProposalsView() {
 				return;
 			}
 			toast.error(
-				"Proje listesi yenilendi; kayıt görünmüyor. Gerekirse işlemi yeniden gönderebilirsiniz."
+				"The project list was refreshed, but the record is not visible. You can submit again if needed."
 			);
 		} finally {
 			setIsCheckingProjectOutcome(false);
@@ -161,21 +181,21 @@ export function ContextProposalsView() {
 	if (projectsQuery.isPending) {
 		content = (
 			<div className="context-message" role="status">
-				Projeler yükleniyor…
+				Loading projects…
 			</div>
 		);
 	} else if (projectsQuery.isError) {
 		content = (
 			<div className="context-message">
 				<StatusMessage tone="error">
-					Projeler yüklenemedi. Bağlantıyı kontrol edip yeniden deneyin.
+					Could not load projects. Check your connection and try again.
 				</StatusMessage>
 				<Button
 					onClick={() => void projectsQuery.refetch()}
 					type="button"
 					variant="outline"
 				>
-					Yeniden dene
+					Try again
 				</Button>
 			</div>
 		);
@@ -183,38 +203,51 @@ export function ContextProposalsView() {
 		content = (
 			<div className="context-message">
 				<StatusMessage tone="error">
-					Bu proje bulunamadı veya bu projeye erişiminiz yok.
+					This project was not found or you do not have access to it.
 				</StatusMessage>
 				<Link className="context-back-link" to="/projects">
-					Projelere dön
+					Back to projects
 				</Link>
 			</div>
 		);
 	} else if (selectedProject) {
 		content = (
-			<ContextWorkspace
-				isProposalsError={proposalsQuery.isError}
-				isProposalsPending={proposalsQuery.isPending}
-				isScopeError={scopeQuery.isError}
-				isScopePending={scopeQuery.isPending}
-				onCheckProposalState={async () =>
-					(await proposalsQuery.refetch()).isError
-				}
-				onNewProject={() => {
-					setProjectFormOpen(true);
-				}}
-				onRefreshProposals={() =>
-					queryClient.invalidateQueries({
-						queryKey: proposalsQueryOptions.queryKey,
-					})
-				}
-				onRetryProposals={() => void proposalsQuery.refetch()}
-				onSelectProject={selectProject}
-				project={selectedProject}
-				projects={projectsQuery.data ?? []}
-				proposals={proposalsQuery.data ?? []}
-				scopeCatalog={scopeQuery.data ?? EMPTY_SCOPE_CATALOG}
-			/>
+			<>
+				<StyleModules
+					copy={(input) =>
+						styleProposal(() => copyStyleModule.mutateAsync(input))
+					}
+					create={(input) =>
+						styleProposal(() => createStyleModule.mutateAsync(input))
+					}
+					key={selectedProject.id}
+					project={selectedProject}
+					projects={projectsQuery.data ?? []}
+				/>
+				<ContextWorkspace
+					isProposalsError={proposalsQuery.isError}
+					isProposalsPending={proposalsQuery.isPending}
+					isScopeError={scopeQuery.isError}
+					isScopePending={scopeQuery.isPending}
+					onCheckProposalState={async () =>
+						(await proposalsQuery.refetch()).isError
+					}
+					onNewProject={() => {
+						setProjectFormOpen(true);
+					}}
+					onRefreshProposals={() =>
+						queryClient.invalidateQueries({
+							queryKey: proposalsQueryOptions.queryKey,
+						})
+					}
+					onRetryProposals={() => void proposalsQuery.refetch()}
+					onSelectProject={selectProject}
+					project={selectedProject}
+					projects={projectsQuery.data ?? []}
+					proposals={proposalsQuery.data ?? []}
+					scopeCatalog={scopeQuery.data ?? EMPTY_SCOPE_CATALOG}
+				/>
+			</>
 		);
 	} else {
 		content = (
@@ -234,20 +267,20 @@ export function ContextProposalsView() {
 				<header className="context-heading">
 					<div>
 						<Link className="context-back-link" to="/projects">
-							← Projelere dön
+							← Back to projects
 						</Link>
-						<p className="context-kicker">PROJE BAĞLAMI</p>
-						<h1>Proje Bağlamı</h1>
+						<p className="context-kicker">PROJECT CONTEXT</p>
+						<h1>Project Context</h1>
 						<p className="context-intro">
-							Kararları ve gözlenen değişiklikleri, dayanağı görünen kural
-							önerilerine dönüştürün.
+							Turn decisions and observed changes into rule proposals with
+							visible evidence.
 						</p>
 					</div>
 					{selectedProject ? (
 						<div className="context-stamp">
 							<span aria-hidden="true" className="stamp-dot" />
 							<div>
-								<span className="stamp-label">SEÇİLİ PROJE</span>
+								<span className="stamp-label">SELECTED PROJECT</span>
 								<strong>{selectedProject.name}</strong>
 							</div>
 						</div>
@@ -270,9 +303,9 @@ export function ContextProposalsView() {
 					>
 						<div className="context-page context-dialog-body">
 							<DialogHeader className="sr-only">
-								<DialogTitle>Yeni proje</DialogTitle>
+								<DialogTitle>New project</DialogTitle>
 								<DialogDescription>
-									Proje adı ve genel sanat yaklaşımını girin.
+									Enter the project name and general art direction.
 								</DialogDescription>
 							</DialogHeader>
 							<ProjectSetupForm

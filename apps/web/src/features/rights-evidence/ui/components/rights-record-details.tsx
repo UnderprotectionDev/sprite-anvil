@@ -10,39 +10,45 @@ export function RightsRecordDetails({
 }) {
 	return (
 		<dl className="grid gap-3 sm:grid-cols-2">
-			<HistoryField label="Kaynak" value={record.source} />
+			<HistoryField label="Source" value={record.source} />
 			<HistoryField
-				label="Hak sahibi veya sağlayıcı"
+				label="Rights holder or provider"
 				value={record.rightsHolderOrProvider}
 			/>
 			<HistoryField
-				label="Beyan edilen izin kapsamı"
+				label="Declared permission scope"
 				value={record.assertedScope}
 			/>
 			<HistoryField
-				label="Hak kaydını destekleyen kanıt"
+				label="Evidence supporting the Rights Record"
 				value={record.evidence}
 			/>
 			{record.evidenceFile ? (
 				<div>
-					<dt className="font-medium text-sm">Kanıt dosyası</dt>
+					<dt className="font-medium text-sm">Evidence file</dt>
 					<dd className="mt-1 text-sm">
-						<a
-							download={record.evidenceFile.fileName}
-							href={rightsRecordEvidenceFileUrl(
-								projectId,
-								record.assetRecordId,
-								record.id,
-								record.referenceId ?? null
-							)}
-						>
-							{record.evidenceFile.fileName}
-						</a>
+						{record.evidenceFile.availability === "excluded" ? (
+							<span>
+								{record.evidenceFile.fileName} (not included in Project Archive)
+							</span>
+						) : (
+							<a
+								download={record.evidenceFile.fileName}
+								href={rightsRecordEvidenceFileUrl(
+									projectId,
+									record.assetRecordId,
+									record.id,
+									record.referenceId ?? null
+								)}
+							>
+								{record.evidenceFile.fileName}
+							</a>
+						)}
 					</dd>
 				</div>
 			) : null}
-			<HistoryField label="Bilinen kısıtlar" value={record.restrictions} />
-			<HistoryField label="Belirsizlik" value={record.uncertainty} />
+			<HistoryField label="Known restrictions" value={record.restrictions} />
+			<HistoryField label="Uncertainty" value={record.uncertainty} />
 		</dl>
 	);
 }

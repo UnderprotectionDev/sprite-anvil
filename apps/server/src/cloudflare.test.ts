@@ -212,3 +212,38 @@ describe("Cloudflare R2 HTTP transport", () => {
 		}
 	});
 });
+
+it("R2 range reads send the exact byte interval", async () => {
+	let receivedRange = "";
+	const server = createServer((request, response) => {
+		receivedRange = String(request.headers.range ?? "");
+		response.writeHead(206, {
+			"Content-Length": "3",
+			"Content-Range": "bytes 2-4/10",
+		});
+		response.end("234");
+	});
+	await new Promise<void>((resolve, reject) => {
+		server.once("error", reject);
+		server.listen(0, "127.0.0.1", () => {
+			server.off("error", reject);
+			resolve();
+		});
+	});
+	const address = server.address();
+	if (!address || typeof address === "string") {
+		throw new Error("Missing server address");
+	}
+	try {
+		const storage = createStorage(config, `http://127.0.0.1:${address.port}`);
+		const result = await storage.get("private.zip", { offset: 2, length: 3 });
+		expect(result?.body && (await new Response(result.body).text())).toBe(
+			"234"
+		);
+		expect(receivedRange).toBe("bytes=2-4");
+	} finally {
+		await new Promise<void>((resolve, reject) =>
+			server.close((error) => (error ? reject(error) : resolve()))
+		);
+	}
+});

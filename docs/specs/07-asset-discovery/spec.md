@@ -42,12 +42,14 @@ Tamamlanma kanıtı: Kullanıcı belirtilen alanlarla aradığı kaydı ve iliş
 
 ## Testing Decisions
 
+- **Sayfalama seam’i:** Arama ve katalog ilk istekte en fazla 50 kayıt alır; sonraki ve önceki sayfalar ile filtre değişince ilk sayfaya dönüş görünüm testinde sınanır. Workbench Search en fazla 20 kayıt ister. Neon/Drizzle entegrasyon testi boyut filtresinin sayfa sınırından önce uygulanmasını, toplamı, sayfa sırasını ve erişim sınırını doğrular; önceki sayfasız çağrılar tüm sonuçları korur.
+
 - **Filtre erişimi seam’i:** Görünüm testi kesin filtre girdisini API sınırında kontrol eder. workspace-usability Playwright testi ayrıntılı filtrelerin açılıp kapanmasını ve aramaya devam edilmesini sınar. Dar pencere testi yatay taşmayı kontrol eder; yüksek kayıt sayısı performans kabulü değildir.
 
 - **Birincil test seam’i:** Asset Discovery arama API’si ve Neon/Drizzle store üzerinden kesin filtre girdisini, proje erişim sınırını ve eşleşen Varlık Sürümünün yeniden okunmasını sınama. Web ile masaüstü aynı `AssetRecordsView` bileşenini kullandığından görünür filtre ve sonuç davranışı bu ortak bileşenin görünüm testinde sınanır; kalıcılık API entegrasyon testinde sınanır.
 - **Eski sürüm uyumluluğu:** Kaynak Görsel Ölçüsü bilinmeyen eski sürümlerin ölçü filtresinde eşleşme üretmediğini; bu sürümlerin arama ve izleme yanıtlarında dosya adı olmadan da sürüm numarasıyla sunulabildiğini sınama. Bu durum için Drizzle migration uyumluluk testi ve API sözleşme testi kullanılır.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.
-- Mevcut yakın örnekler: [`asset-records.test.ts`](../../../apps/server/src/features/asset-records/server/tests/asset-records.test.ts), [`asset-records.integration.test.ts`](../../../apps/server/src/features/asset-records/server/tests/asset-records.integration.test.ts), [`asset-records-view.test.tsx`](../../../apps/web/src/features/asset-records/ui/views/asset-records-view.test.tsx), [`asset-records.spec.ts` (web)](../../../apps/web/e2e/asset-records.spec.ts) ve [`asset-records.spec.ts` (desktop)](../../../apps/web/desktop-e2e/asset-records.spec.ts). Bunlar keşif filtrelerinin kanıtı yerine geçmez.
+- Mevcut yakın örnekler: [`asset-records.test.ts`](../../../apps/server/src/features/asset-records/server/tests/asset-records.test.ts), [`asset-records.integration.test.ts`](../../../apps/server/src/asset-records.integration.test.ts), [`asset-records-view.test.tsx`](../../../apps/web/src/features/asset-records/ui/views/asset-records-view.test.tsx), [`asset-records.spec.ts` (web)](../../../apps/web/e2e/asset-records.spec.ts) ve [`asset-records.spec.ts` (desktop)](../../../apps/web/desktop-e2e/asset-records.spec.ts). Bunlar keşif filtrelerinin kanıtı yerine geçmez.
 - Fazın özgül başarı ve red kanıtı: Kullanıcı belirtilen alanlarla aradığı kaydı ve ilişkili geçmişi bulur; boş ve erişim dışı sonuçlar açıkça ayırt edilir. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Arama sonucu Varlık Ailesi soyunu, Koleksiyon üyeliğini veya teslimat zorunluluğunu değiştirmez.
 - Kabul örnekleri: 8.1. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
 
@@ -72,4 +74,4 @@ Arama sonucu Varlık Ailesi soyunu, Koleksiyon üyeliğini veya teslimat zorunlu
 **Kabul izlenebilirliği**
 
 - [8.1](../../prd/10-acceptance-scenarios.md)
-- Mevcut uygulama yalnız temel web/masaüstü kabuğu ve sınırlı sunucu yükleme yolunu içeriyor; bu spec teslim edilmiş ürün iddiası değildir. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.
+- PRD ve bu spec hedef davranışı tanımlar; mevcut sözleşmeler ve testler tek başına tüm kabul senaryolarının tamamlandığını göstermez. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.

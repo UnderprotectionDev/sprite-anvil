@@ -1,7 +1,7 @@
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
 import {
 	type DirectionalReviewInput,
-	directionalReviewCriteria,
+	type directionalReviewCriteria,
 	directionalReviewInputSchema,
 } from "@sprite-anvil/api/directional-reviews";
 import type { SpecializedProfileContract } from "@sprite-anvil/api/specialized-profile-contracts";
@@ -18,12 +18,26 @@ import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ReducedMotionNotice } from "@/components/reduced-motion-notice";
+import { StatusMessage } from "@/components/status-message";
 import { DirectionalClipPreview } from "./directional-clip-preview";
 
+const reviewCriteriaLabels: Record<
+	keyof typeof directionalReviewCriteria,
+	string
+> = {
+	silhouette: "Silhouette",
+	proportions: "Proportions",
+	equipmentSide: "Equipment side",
+	palette: "Palette",
+	perspective: "Perspective",
+	scale: "Scale",
+	groundContact: "Ground contact",
+};
+
 const ruleClassLabels = {
-	integrity_gate: "Bütünlük Denetimi",
-	waivable_requirement: "İstisna Verilebilir Gereksinim",
-	quality_advisory: "Kalite Uyarısı",
+	integrity_gate: "Integrity Gate",
+	waivable_requirement: "Waivable Requirement",
+	quality_advisory: "Quality Advisory",
 } as const;
 
 const fourDirections = ["south", "west", "north", "east"];
@@ -203,22 +217,24 @@ export function DirectionalReviewEditor({
 			(direction, index) =>
 				ready[`${index}:${JSON.stringify(direction.frames)}`]
 		);
-	const valid =
-		directionalReviewInputSchema.safeParse(toCandidate(values)).success &&
-		previewReady;
+	const validation = directionalReviewInputSchema.safeParse(
+		toCandidate(values)
+	);
+	const valid = validation.success && previewReady;
 	const groundRule = contract.rules.find(
 		(rule) => rule.id === "character.ground_and_loop_tolerance"
 	);
 	return (
 		<div className="space-y-4">
 			<p>
-				Otomatik sanatsal hüküm verilmez. Sonuç ve yedi gözlem kullanıcı
-				incelemesidir.
+				No automatic artistic judgment is made. The result and seven
+				observations are reviewed by the user.
 			</p>
 			{groundRule ? (
 				<details>
 					<summary>
-						Zemin ve döngü profil kuralı · {ruleClassLabels[groundRule.class]}
+						Grounding and loop profile rule ·{" "}
+						{ruleClassLabels[groundRule.class]}
 					</summary>
 					<p>{groundRule.input}</p>
 					<p>{groundRule.successResult}</p>
@@ -227,14 +243,14 @@ export function DirectionalReviewEditor({
 			) : null}
 			<div className="flex flex-wrap gap-4">
 				<Label className="block space-y-1 text-sm">
-					Yakınlaştırma
+					Zoom
 					<NativeSelect
-						aria-label="Yakınlaştırma"
+						aria-label="Zoom"
 						className="min-h-11 max-w-full"
 						onChange={(event) => setZoom(Number(event.target.value))}
 						value={zoom}
 					>
-						<NativeSelectOption value={1}>1× (doğal)</NativeSelectOption>
+						<NativeSelectOption value={1}>1× (native)</NativeSelectOption>
 						<NativeSelectOption value={2}>2×</NativeSelectOption>
 						<NativeSelectOption value={4}>4×</NativeSelectOption>
 					</NativeSelect>
@@ -256,9 +272,9 @@ export function DirectionalReviewEditor({
 					Restart
 				</Button>
 				<Label className="block space-y-1 text-sm">
-					Oynatma konumu (ms)
+					Playback position (ms)
 					<Input
-						aria-label="Oynatma konumu (ms)"
+						aria-label="Playback position (ms)"
 						className="min-h-11 w-40"
 						min={0}
 						onChange={(event) => {
@@ -274,20 +290,20 @@ export function DirectionalReviewEditor({
 			<DirectionalClipPreview
 				elapsedMs={0}
 				frames={canonicalFrames}
-				label="Ana Tasarım"
+				label="Canonical Design"
 				onStatus={onStatus}
 				statusKey={canonicalVersionId}
 				versions={versions}
 				zoom={zoom}
 			/>
 			<p>
-				Dönüşü incelemek için komşu yön çiftini seçin. Tüm yönler aynı
-				milisaniye konumunda oynar; kare süreleri bağımsızdır.
+				Select adjacent directions to review the turn. All directions play at
+				the same millisecond position; frame durations are independent.
 			</p>
 			<Label className="block space-y-1 text-sm">
-				Dönüş karşılaştırması
+				Turn comparison
 				<NativeSelect
-					aria-label="Dönüş karşılaştırması"
+					aria-label="Turn comparison"
 					className="min-h-11 max-w-full"
 					onChange={(event) => setRotation(Number(event.target.value))}
 					value={rotation}
@@ -310,11 +326,11 @@ export function DirectionalReviewEditor({
 			>
 				<div className="flex flex-wrap gap-4">
 					<Label className="block space-y-1 text-sm">
-						Yön sayısı
+						Direction count
 						<form.Field name={"directions"}>
 							{(field) => (
 								<NativeSelect
-									aria-label="Yön sayısı"
+									aria-label="Direction count"
 									className="min-h-11 max-w-full"
 									disabled={disabled}
 									onBlur={field.handleBlur}
@@ -354,18 +370,18 @@ export function DirectionalReviewEditor({
 							key={direction.clientId}
 						>
 							<FieldLegend>
-								Yön {index + 1}
+								Direction {index + 1}
 								{index === rotation ||
 								index === (rotation + 1) % directions.length
-									? " · Dönüş karşılaştırması"
+									? " · Turn comparison"
 									: ""}
 							</FieldLegend>
 							<Label className="block space-y-1 text-sm">
-								Yön adı
+								Direction name
 								<form.Field name={`directions[${index}].direction`}>
 									{(field) => (
 										<Input
-											aria-label={`Yön adı ${index + 1}`}
+											aria-label={`Direction name ${index + 1}`}
 											className="min-h-11 w-full"
 											maxLength={80}
 											onBlur={field.handleBlur}
@@ -381,7 +397,7 @@ export function DirectionalReviewEditor({
 							<DirectionalClipPreview
 								elapsedMs={elapsedMs}
 								frames={direction.frames}
-								label={direction.direction || `Yön ${index + 1}`}
+								label={direction.direction || `Direction ${index + 1}`}
 								onStatus={onStatus}
 								statusKey={`${index}:${JSON.stringify(direction.frames)}`}
 								versions={versions}
@@ -390,13 +406,13 @@ export function DirectionalReviewEditor({
 							{direction.frames.map((frame, frameIndex) => (
 								<div className="space-y-3 border-t pt-3" key={frame.clientId}>
 									<Label className="block space-y-1 text-sm">
-										Kare {frameIndex + 1} sürümü
+										Frame {frameIndex + 1} version
 										<form.Field
 											name={`directions[${index}].frames[${frameIndex}].assetVersionId`}
 										>
 											{(field) => (
 												<NativeSelect
-													aria-label={`Yön ${index + 1} kare ${frameIndex + 1} sürümü`}
+													aria-label={`Direction ${index + 1} frame ${frameIndex + 1} version`}
 													className="min-h-11 max-w-full"
 													onBlur={field.handleBlur}
 													onChange={(event) => {
@@ -406,15 +422,15 @@ export function DirectionalReviewEditor({
 													value={field.state.value}
 												>
 													<NativeSelectOption value="">
-														Sürüm seçin
+														Select a version
 													</NativeSelectOption>
 													{versions.map((version) => (
 														<NativeSelectOption
 															key={version.id}
 															value={version.id}
 														>
-															{recordNames[version.assetRecordId] ?? "Varlık"} ·
-															Sürüm {version.versionNumber}
+															{recordNames[version.assetRecordId] ?? "Asset"} ·
+															Version {version.versionNumber}
 														</NativeSelectOption>
 													))}
 												</NativeSelect>
@@ -422,13 +438,13 @@ export function DirectionalReviewEditor({
 										</form.Field>
 									</Label>
 									<Label className="block space-y-1 text-sm">
-										Süre (ms)
+										Duration (ms)
 										<form.Field
 											name={`directions[${index}].frames[${frameIndex}].durationMs`}
 										>
 											{(field) => (
 												<Input
-													aria-label={`Yön ${index + 1} kare ${frameIndex + 1} süre (ms)`}
+													aria-label={`Direction ${index + 1} frame ${frameIndex + 1} duration (ms)`}
 													className="min-h-11 w-full"
 													max={60_000}
 													min={1}
@@ -461,7 +477,7 @@ export function DirectionalReviewEditor({
 												/>
 											)}
 										</form.Field>
-										Sprite sheet alanı
+										Sprite sheet region
 									</Label>
 									{frame.region ? (
 										<div className="flex flex-wrap gap-2">
@@ -473,7 +489,7 @@ export function DirectionalReviewEditor({
 													>
 														{(regionField) => (
 															<Input
-																aria-label={`Yön ${index + 1} kare ${frameIndex + 1} ${field}`}
+																aria-label={`Direction ${index + 1} frame ${frameIndex + 1} ${field}`}
 																className="min-h-11 w-20"
 																min={field === "x" || field === "y" ? 0 : 1}
 																onBlur={regionField.handleBlur}
@@ -507,7 +523,7 @@ export function DirectionalReviewEditor({
 										}
 										type="button"
 									>
-										Kareyi kaldır
+										Remove frame
 									</Button>
 								</div>
 							))}
@@ -521,46 +537,44 @@ export function DirectionalReviewEditor({
 								}
 								type="button"
 							>
-								Kare ekle
+								Add frame
 							</Button>
 						</FieldSet>
 					))}
 				</div>
 				<FieldSet className="grid gap-3 sm:grid-cols-2" disabled={disabled}>
-					<FieldLegend>İnceleme gözlemleri</FieldLegend>
-					{Object.entries(directionalReviewCriteria).map(
-						([criterion, label]) => (
-							<Label className="block space-y-1 text-sm" key={criterion}>
-								{label}
-								<form.Field name="observations">
-									{(field) => (
-										<Textarea
-											aria-label={label}
-											maxLength={1000}
-											onBlur={field.handleBlur}
-											onChange={(event) =>
-												field.handleChange({
-													...field.state.value,
-													[criterion]: event.target.value,
-												})
-											}
-											value={
-												field.state.value[
-													criterion as keyof typeof emptyObservations
-												]
-											}
-										/>
-									)}
-								</form.Field>
-							</Label>
-						)
-					)}
+					<FieldLegend>Review observations</FieldLegend>
+					{Object.entries(reviewCriteriaLabels).map(([criterion, label]) => (
+						<Label className="block space-y-1 text-sm" key={criterion}>
+							{label}
+							<form.Field name="observations">
+								{(field) => (
+									<Textarea
+										aria-label={label}
+										maxLength={1000}
+										onBlur={field.handleBlur}
+										onChange={(event) =>
+											field.handleChange({
+												...field.state.value,
+												[criterion]: event.target.value,
+											})
+										}
+										value={
+											field.state.value[
+												criterion as keyof typeof emptyObservations
+											]
+										}
+									/>
+								)}
+							</form.Field>
+						</Label>
+					))}
 					<Label className="block space-y-1 text-sm">
-						Kullanıcı sonucu
+						User result
 						<form.Field name="outcome">
 							{(field) => (
 								<NativeSelect
-									aria-label="Kullanıcı sonucu"
+									aria-label="User result"
 									className="min-h-11 max-w-full"
 									onBlur={field.handleBlur}
 									onChange={(event) =>
@@ -571,21 +585,21 @@ export function DirectionalReviewEditor({
 									value={field.state.value}
 								>
 									<NativeSelectOption value="needs_follow_up">
-										Takip gerekli
+										Needs follow-up
 									</NativeSelectOption>
 									<NativeSelectOption value="consistent">
-										Tutarlı
+										Consistent
 									</NativeSelectOption>
 								</NativeSelect>
 							)}
 						</form.Field>
 					</Label>
 					<Label className="block space-y-1 text-sm">
-						Gerekçe
+						Rationale
 						<form.Field name="rationale">
 							{(field) => (
 								<Textarea
-									aria-label="Gerekçe"
+									aria-label="Rationale"
 									className="min-h-20"
 									maxLength={2000}
 									onBlur={field.handleBlur}
@@ -596,8 +610,15 @@ export function DirectionalReviewEditor({
 						</form.Field>
 					</Label>
 				</FieldSet>
+				{!validation.success && (
+					<StatusMessage tone="error">
+						{[
+							...new Set(validation.error.issues.map((issue) => issue.message)),
+						].join(" ")}
+					</StatusMessage>
+				)}
 				<Button disabled={disabled || !valid} type="submit">
-					İncelemeyi kaydet
+					Save review
 				</Button>
 			</form>
 		</div>

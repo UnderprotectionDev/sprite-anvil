@@ -18,7 +18,7 @@ import { AnimationTimingReviewEditor } from "./animation-timing-review-editor";
 
 const unusedEventName = /unused/;
 const brokenEventName = /broken/;
-const malformedTimeMessage = /zaman bilgisi geçersiz/;
+const malformedTimeMessage = /timing is invalid/;
 
 vi.mock("./animation-timing-clip-preview", () => ({
 	AnimationTimingClipPreview: ({
@@ -173,8 +173,8 @@ test("positions event links from clip start on one shared elapsed-time axis", ()
 		screen.queryByRole("img", { name: unusedEventName })
 	).not.toBeInTheDocument();
 	expect(
-		screen.getByRole("region", { name: "Olay zaman çizgisi" })
-	).toHaveTextContent("Klip başlangıcından geçen süre (ms)");
+		screen.getByRole("region", { name: "Event timeline" })
+	).toHaveTextContent("Elapsed time from the start of the clip (ms)");
 });
 
 test("uses the latest Gameplay Metadata record for each selected frame", () => {
@@ -245,7 +245,7 @@ test("does not restore events from older metadata after the latest record clears
 		screen.queryByRole("img", { name: "south · strike · 90 ms" })
 	).not.toBeInTheDocument();
 	expect(
-		screen.getByText("Seçili karelerde olay bağlantısı yok.")
+		screen.getByText("There are no event links on the selected frames.")
 	).toBeInTheDocument();
 });
 
@@ -286,11 +286,11 @@ test("accepts and preserves exact 512-character Gameplay Metadata frame keys", a
 	const onSave = vi.fn();
 	renderEditor(onSave);
 	const frameKey = ` ${"f".repeat(510)} `;
-	const frameKeyInput = screen.getByLabelText("Yön 1 kare 1 kimliği");
+	const frameKeyInput = screen.getByLabelText("Direction 1 frame 1 ID");
 	expect(frameKeyInput).toHaveProperty("maxLength", 512);
 	fireEvent.change(frameKeyInput, { target: { value: frameKey } });
 
-	const saveButton = screen.getByRole("button", { name: "İncelemeyi kaydet" });
+	const saveButton = screen.getByRole("button", { name: "Save review" });
 	await waitFor(() => expect(saveButton).toBeEnabled());
 	fireEvent.click(saveButton);
 	await waitFor(() => {
@@ -304,17 +304,15 @@ test("accepts and preserves exact 512-character Gameplay Metadata frame keys", a
 test("shows metadata loading and read failures instead of treating them as empty events", () => {
 	const onRetry = vi.fn();
 	renderEditor(vi.fn(), [], "loading", onRetry);
-	expect(screen.getByText("Olay bağlantıları yükleniyor…")).toBeInTheDocument();
+	expect(screen.getByText("Loading event links…")).toBeInTheDocument();
 
 	cleanup();
 	renderEditor(vi.fn(), [], "error", onRetry);
 	const alert = screen.getByRole("alert");
-	expect(alert).toHaveTextContent("Olay bilgileri okunamadı");
-	expect(alert).toHaveTextContent("Olay olmadığı varsayılmadı");
-	expect(alert).not.toHaveTextContent("Seçili kareler için zaman bilgisi");
-	fireEvent.click(
-		screen.getByRole("button", { name: "Olay bilgilerini yeniden yükle" })
-	);
+	expect(alert).toHaveTextContent("Could not load event details");
+	expect(alert).toHaveTextContent("The absence of events was not assumed");
+	expect(alert).not.toHaveTextContent("timed event links");
+	fireEvent.click(screen.getByRole("button", { name: "Reload event details" }));
 	expect(onRetry).toHaveBeenCalledOnce();
 });
 
@@ -331,25 +329,31 @@ test("requires the user to choose a result before saving a new review", async ()
 		/>
 	);
 
-	const result = screen.getByLabelText("İnceleme sonucu");
+	const result = screen.getByLabelText("Review result");
 	expect(result).toHaveValue("");
 
-	fireEvent.change(screen.getByLabelText("Animasyon adı"), {
+	fireEvent.change(screen.getByLabelText("Animation name"), {
 		target: { value: "Walk cycle" },
 	});
 	for (let direction = 1; direction <= 4; direction += 1) {
-		fireEvent.change(screen.getByLabelText(`Yön ${direction} kare 1 kimliği`), {
-			target: { value: `walk-${direction}-0` },
-		});
-		fireEvent.change(screen.getByLabelText(`Yön ${direction} kare 1 sürümü`), {
-			target: { value: version.id },
-		});
+		fireEvent.change(
+			screen.getByLabelText(`Direction ${direction} frame 1 ID`),
+			{
+				target: { value: `walk-${direction}-0` },
+			}
+		);
+		fireEvent.change(
+			screen.getByLabelText(`Direction ${direction} frame 1 version`),
+			{
+				target: { value: version.id },
+			}
+		);
 	}
-	fireEvent.change(screen.getByLabelText("Gerekçe"), {
+	fireEvent.change(screen.getByLabelText("Rationale"), {
 		target: { value: "All directions were reviewed." },
 	});
 
-	const saveButton = screen.getByRole("button", { name: "İncelemeyi kaydet" });
+	const saveButton = screen.getByRole("button", { name: "Save review" });
 	await waitFor(() => expect(saveButton).toBeDisabled());
 
 	fireEvent.change(result, { target: { value: "consistent" } });
@@ -370,19 +374,23 @@ test("keeps each frame duration independent and does not require a phase templat
 	renderEditor(onSave);
 
 	await waitFor(() =>
-		expect(
-			screen.getByRole("button", { name: "İncelemeyi kaydet" })
-		).toBeEnabled()
+		expect(screen.getByRole("button", { name: "Save review" })).toBeEnabled()
 	);
-	expect(screen.getByLabelText("Animasyon adı")).toHaveValue("Walk cycle");
-	expect(screen.getByLabelText("Yön 1 kare 1 süre (ms)")).toHaveValue(80);
-	expect(screen.getByLabelText("Yön 1 kare 2 süre (ms)")).toHaveValue(220);
-	expect(screen.getByLabelText("Yön 1 kare 1 hareket evresi")).toHaveValue(
+	expect(screen.getByLabelText("Animation name")).toHaveValue("Walk cycle");
+	expect(
+		screen.getByLabelText("Direction 1 frame 1 duration (ms)")
+	).toHaveValue(80);
+	expect(
+		screen.getByLabelText("Direction 1 frame 2 duration (ms)")
+	).toHaveValue(220);
+	expect(screen.getByLabelText("Direction 1 frame 1 motion phase")).toHaveValue(
 		"Contact"
 	);
-	expect(screen.getByLabelText("Yön 1 kare 2 hareket evresi")).toHaveValue("");
+	expect(screen.getByLabelText("Direction 1 frame 2 motion phase")).toHaveValue(
+		""
+	);
 
-	fireEvent.click(screen.getByRole("button", { name: "İncelemeyi kaydet" }));
+	fireEvent.click(screen.getByRole("button", { name: "Save review" }));
 	await waitFor(() => expect(onSave).toHaveBeenCalledWith(review));
 });
 
@@ -402,15 +410,15 @@ test("keeps saved review fields read-only while allowing playback inspection", a
 	await waitFor(() =>
 		expect(screen.getByRole("button", { name: "Play together" })).toBeEnabled()
 	);
-	expect(screen.getByLabelText("Animasyon adı")).toBeDisabled();
-	expect(screen.getByLabelText("Oynatma hızı")).toBeDisabled();
+	expect(screen.getByLabelText("Animation name")).toBeDisabled();
+	expect(screen.getByLabelText("Playback speed")).toBeDisabled();
 	expect(
-		screen.getByRole("checkbox", { name: "Döngüde oynat" })
+		screen.getByRole("checkbox", { name: "Loop playback" })
 	).toHaveAttribute("aria-disabled", "true");
-	expect(screen.getByLabelText("İnceleme sonucu")).toBeDisabled();
-	expect(screen.getByLabelText("Gerekçe")).toBeDisabled();
-	expect(screen.getByLabelText("Oynatma konumu (ms)")).toBeEnabled();
-	expect(screen.getByLabelText("Yakınlaştırma")).toBeEnabled();
+	expect(screen.getByLabelText("Review result")).toBeDisabled();
+	expect(screen.getByLabelText("Rationale")).toBeDisabled();
+	expect(screen.getByLabelText("Playback position (ms)")).toBeEnabled();
+	expect(screen.getByLabelText("Zoom")).toBeEnabled();
 });
 
 test("advances every direction on one clock and stops at pause and reset", async () => {
@@ -428,21 +436,21 @@ test("advances every direction on one clock and stops at pause and reset", async
 	await waitFor(() =>
 		expect(screen.getByRole("button", { name: "Play together" })).toBeEnabled()
 	);
-	fireEvent.change(screen.getByLabelText("Oynatma hızı"), {
+	fireEvent.change(screen.getByLabelText("Playback speed"), {
 		target: { value: "2" },
 	});
 
 	fireEvent.click(screen.getByRole("button", { name: "Play together" }));
 	act(() => tick(1000));
 	act(() => tick(1150));
-	expect(screen.getByLabelText("Oynatma konumu (ms)")).toHaveValue(300);
+	expect(screen.getByLabelText("Playback position (ms)")).toHaveValue(300);
 	expect(screen.getByTestId("preview-south")).toHaveTextContent("300ms");
 	expect(screen.getByTestId("preview-west")).toHaveTextContent("300ms");
 
 	fireEvent.click(screen.getByRole("button", { name: "Pause" }));
 	expect(cancel).toHaveBeenCalledWith(1);
 	fireEvent.click(screen.getByRole("button", { name: "Restart" }));
-	expect(screen.getByLabelText("Oynatma konumu (ms)")).toHaveValue(0);
+	expect(screen.getByLabelText("Playback position (ms)")).toHaveValue(0);
 });
 
 test("toggles a frame sprite sheet region from the keyboard and edits its bounds", async () => {
@@ -450,10 +458,10 @@ test("toggles a frame sprite sheet region from the keyboard and edits its bounds
 	renderEditor();
 
 	const region = screen.getByRole("checkbox", {
-		name: "Yön 1 kare 1 sprite sheet alanı",
+		name: "Direction 1 frame 1 sprite sheet region",
 	});
 	const regionWidth = () =>
-		screen.queryByRole("spinbutton", { name: "Yön 1 kare 1 width" });
+		screen.queryByRole("spinbutton", { name: "Direction 1 frame 1 width" });
 	expect(region).toHaveAttribute("aria-checked", "false");
 	expect(regionWidth()).not.toBeInTheDocument();
 
@@ -485,4 +493,21 @@ test("when the system already reduces motion nothing plays until Play together i
 	expect(screen.getByRole("note")).toHaveTextContent("reduced motion");
 	fireEvent.click(screen.getByRole("button", { name: "Play together" }));
 	expect(screen.getByRole("button", { name: "Pause" })).toBeInTheDocument();
+});
+
+test("explains duplicate direction names and clears the error when corrected", async () => {
+	const user = userEvent.setup();
+	renderEditor();
+	const direction = screen.getByLabelText("Direction name 2");
+	await user.clear(direction);
+	await user.type(direction, "south");
+	expect(screen.getByRole("alert")).toHaveTextContent(
+		"Choose four or eight distinct directions."
+	);
+	expect(screen.getByRole("button", { name: "Save review" })).toBeDisabled();
+	await user.clear(direction);
+	await user.type(direction, "west");
+	expect(
+		screen.queryByText("Choose four or eight distinct directions.")
+	).not.toBeInTheDocument();
 });

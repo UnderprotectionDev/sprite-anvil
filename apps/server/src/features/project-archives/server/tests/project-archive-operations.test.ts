@@ -1,49 +1,17 @@
 import { expect, test } from "bun:test";
 import type { BackgroundOperation } from "@sprite-anvil/api/background-operations";
-import { emptyDeliveryRecords } from "@sprite-anvil/api/project-archive-delivery";
-import { emptyHistoryRecords } from "@sprite-anvil/api/project-archive-history";
-import type { ProjectArchiveSource } from "@sprite-anvil/api/project-archives";
 import type { Database } from "@sprite-anvil/db";
 import { createProjectArchiveOperations } from "../project-archive-operations";
 import type { StoredProjectArchiveRequest } from "../project-archive-storage";
 import { createProjectArchiveStore } from "../project-archive-store";
 import { createMemoryProjectArchiveStorage } from "./memory-project-archive-storage";
+import { foundationSource } from "./project-archive-fixtures";
 
 const userId = "user-1";
 const projectId = "7a1f0f0e-8f4e-4c36-9a53-0b0b6a2f2a01";
 const snapshotId = "88888888-8888-4888-8888-888888888801";
 
-const emptySource: ProjectArchiveSource = {
-	delivery: emptyDeliveryRecords(),
-	files: [
-		{
-			assetRecordId: null,
-			assetVersionId: null,
-			byteSize: 10,
-			contentType: null,
-			fileName: "work.aseprite",
-			kind: "working_file",
-			objectKey: "k",
-			sha256: "c".repeat(64),
-			sourceId: snapshotId,
-		},
-	],
-	history: emptyHistoryRecords(),
-	records: {
-		assetFamilies: [],
-		assetRecords: [],
-		assetVersions: [],
-		canonicalDesigns: [],
-		compositeVersions: [],
-		compositionMemberships: [],
-		contextRevisions: [],
-		referenceHistory: [],
-		references: [],
-		relationships: [],
-		subjectIdentities: [],
-		unitVersions: [],
-	},
-};
+const emptySource = foundationSource();
 
 function setup() {
 	const archives = createMemoryProjectArchiveStorage();

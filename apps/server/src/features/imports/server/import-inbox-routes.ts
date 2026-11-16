@@ -1,6 +1,11 @@
 import { assetSourceFileNameSchema } from "@sprite-anvil/api/asset-record-tracking";
 import type { ImportInboxStore } from "@sprite-anvil/api/import-inbox";
 import { importInboxSourceContentTypeSchema } from "@sprite-anvil/api/import-inbox";
+import {
+	type ProductMeasurementBoundary,
+	type ProductMeasurementRecorder,
+	recordProductBoundary,
+} from "@sprite-anvil/api/measurement-workflows";
 import type { Context, Hono } from "hono";
 import z from "zod";
 import type { createStorage } from "../../../cloudflare";
@@ -40,6 +45,10 @@ export interface ImportInboxRouteDependencies {
 	) => Promise<{ id: string } | null>;
 	getSession: (headers: Headers) => Promise<ImportInboxSession | null>;
 	importInboxStore: ImportInboxStore;
+	measurementSurface?: (
+		headers: Headers
+	) => ProductMeasurementBoundary["surface"] | undefined;
+	productMeasurementRecorder?: ProductMeasurementRecorder;
 }
 
 type ProjectAccess =
@@ -277,6 +286,25 @@ async function uploadImportInboxEntry(
 		if (result.kind === "existing") {
 			await storage.delete(objectKey);
 			objectStored = false;
+		}
+		if (result.kind === "created") {
+			await recordProductBoundary(
+				{
+					productMeasurementRecorder: dependencies.productMeasurementRecorder,
+					surface: dependencies.measurementSurface?.(c.req.raw.headers),
+				},
+				{
+					userId,
+					projectId,
+					workflowId: result.value.id,
+					eventFamily: "import_mapping",
+					eventName: "import_entry_accepted",
+					phase: "start",
+					recordKind: "import_batch",
+					outcomeClass: "workflow_started",
+					counters: {},
+				}
+			);
 		}
 		c.header("Cache-Control", "private, no-store");
 		return c.json(result.value, result.kind === "created" ? 201 : 200);

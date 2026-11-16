@@ -4,6 +4,7 @@ import {
 	backgroundOperationListInputSchema,
 	backgroundOperationListSchema,
 	backgroundOperationSchema,
+	backgroundOperationSummarySchema,
 } from "../background-operations";
 import type { Context } from "../context";
 import { protectedProcedure } from "../index";
@@ -18,6 +19,19 @@ function requireStore(context: Context) {
 }
 
 export const backgroundOperationsRouter = {
+	summary: protectedProcedure
+		.input(backgroundOperationListInputSchema)
+		.output(backgroundOperationSummarySchema)
+		.handler(async ({ context, input }) => {
+			const summary = await requireStore(context).summary(
+				context.session.user.id,
+				input.projectId
+			);
+			if (!summary) {
+				throw new ORPCError("NOT_FOUND", { message: "Project not found" });
+			}
+			return summary;
+		}),
 	list: protectedProcedure
 		.input(backgroundOperationListInputSchema)
 		.output(backgroundOperationListSchema)

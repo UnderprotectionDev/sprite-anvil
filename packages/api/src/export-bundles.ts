@@ -11,6 +11,94 @@ export const exportBundleListInputSchema = z
 	.object({ projectId: idSchema })
 	.strict();
 
+export const exportBundlePreviewInputSchema = z
+	.object({
+		projectId: idSchema,
+		assetFamilyIds: z
+			.array(idSchema)
+			.min(1)
+			.max(50)
+			.refine((ids) => new Set(ids).size === ids.length),
+	})
+	.strict();
+export type ExportBundlePreview =
+	| { status: "family_unavailable"; assetFamilyIds: string[] }
+	| {
+			status: "resolved";
+			context: { revisionId: string; revisionNumber: number };
+			families: {
+				assetFamilyId: string;
+				assetFamilyName: string;
+				requiredSet: {
+					revisionId: string;
+					revisionNumber: number;
+					items: { id: string; name: string; disposition: string }[];
+				};
+				selections: { itemId: string; assetVersionIds: string[] }[];
+			}[];
+			assetVersions: {
+				id: string;
+				assetRecordId: string;
+				versionNumber: number;
+			}[];
+			blockers: { assetFamilyId: string; itemId: string; codes: string[] }[];
+	  };
+export const exportBundlePreviewSchema: z.ZodType<ExportBundlePreview> =
+	z.discriminatedUnion("status", [
+		z
+			.object({
+				status: z.literal("family_unavailable"),
+				assetFamilyIds: z.array(z.string().min(1)),
+			})
+			.strict(),
+		z
+			.object({
+				status: z.literal("resolved"),
+				context: z.object({
+					revisionId: z.string().min(1),
+					revisionNumber: z.number().int().nonnegative(),
+				}),
+				families: z.array(
+					z.object({
+						assetFamilyId: z.string().min(1),
+						assetFamilyName: z.string(),
+						requiredSet: z.object({
+							revisionId: z.string().min(1),
+							revisionNumber: z.number().int().positive(),
+							items: z.array(
+								z.object({
+									id: z.string().min(1),
+									name: z.string(),
+									disposition: z.string(),
+								})
+							),
+						}),
+						selections: z.array(
+							z.object({
+								itemId: z.string().min(1),
+								assetVersionIds: z.array(z.string().min(1)),
+							})
+						),
+					})
+				),
+				assetVersions: z.array(
+					z.object({
+						id: z.string().min(1),
+						assetRecordId: z.string().min(1),
+						versionNumber: z.number().int().positive(),
+					})
+				),
+				blockers: z.array(
+					z.object({
+						assetFamilyId: z.string().min(1),
+						itemId: z.string().min(1),
+						codes: z.array(z.string()),
+					})
+				),
+			})
+			.strict(),
+	]);
+
 export const exportBundleGetInputSchema = z
 	.object({ bundleId: idSchema, projectId: idSchema })
 	.strict();

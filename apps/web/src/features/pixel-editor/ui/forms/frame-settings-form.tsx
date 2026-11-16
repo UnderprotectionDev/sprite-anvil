@@ -119,6 +119,11 @@ export function FrameSettingsForm({
 										onChange={(event) => field.handleChange(event.target.value)}
 										value={field.state.value}
 									/>
+									{field.state.meta.errors.length > 0 ? (
+										<span role="alert">
+											Use whole numbers within the allowed range.
+										</span>
+									) : null}
 								</Label>
 							)}
 						</form.Field>

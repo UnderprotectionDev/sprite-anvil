@@ -233,11 +233,10 @@ afterEach(() => {
 	errorToast.mockClear();
 });
 
-const reviewSection = "Gameplay kimlik ve yön incelemesi";
-const animationTimingReviewSection =
-	"Gameplay animasyon zamanlaması incelemesi";
+const reviewSection = "Gameplay identity and direction review";
+const animationTimingReviewSection = "Gameplay animation timing review";
 const characterActivationPrompt =
-	"Ana Tasarım seçin ve karakter Özel Profil Sözleşmesini etkinleştirin.";
+	"Select a Master Design and activate the character Special Profile Contract.";
 
 function renderFamiliesView() {
 	const queryClient = createQueryClient();
@@ -288,11 +287,13 @@ test("hides the character directional review until the character contract is act
 	stageGameplayFamily();
 	renderFamiliesView();
 	fireEvent.click(
-		await screen.findByRole("button", { name: "Sürüm ve bağımlılık işlemleri" })
+		await screen.findByRole("button", {
+			name: "Version and dependency operations",
+		})
 	);
 	expect(
 		await screen.findByRole("heading", {
-			name: "Varlık Sürümleri ve inceleme",
+			name: "Asset Versions and review",
 		})
 	).toBeVisible();
 	expect(
@@ -317,7 +318,7 @@ test("shows the character directional review once the character contract is acti
 	];
 	renderFamiliesView();
 	fireEvent.click(
-		await screen.findByRole("button", { name: "Profil incelemeleri" })
+		await screen.findByRole("button", { name: "Profile reviews" })
 	);
 	expect(
 		await screen.findByRole("region", { name: reviewSection })
@@ -396,15 +397,17 @@ test("routes Varlık Sürümü yükle to the owning Asset Record detail", async 
 	);
 
 	fireEvent.click(
-		await screen.findByRole("button", { name: "Sürüm ve bağımlılık işlemleri" })
+		await screen.findByRole("button", {
+			name: "Version and dependency operations",
+		})
 	);
 	expect(
 		await screen.findByRole("heading", {
-			name: "Varlık Sürümleri ve inceleme",
+			name: "Asset Versions and review",
 		})
 	).toBeVisible();
 	const uploadLink = await screen.findByRole("link", {
-		name: "Varlık Sürümü yükle",
+		name: "Upload Asset Version",
 	});
 	expect(uploadLink).toHaveAttribute(
 		"data-to",

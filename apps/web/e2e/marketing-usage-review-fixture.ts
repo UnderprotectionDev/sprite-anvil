@@ -12,7 +12,7 @@ export const marketingUsageFixture = {
 	identityName: "Anvil identity",
 	familyName: "Anvil marketing",
 	useContext: "Store promotion",
-	categoryLabel: "Portreler, logolar ve tanıtım görselleri",
+	categoryLabel: "Portraits, logos, and marketing images",
 	records: [{ name: "Anvil logo", uploadNote: "Authored marketing fixture." }],
 };
 export function readMarketingPreviewPresentation() {

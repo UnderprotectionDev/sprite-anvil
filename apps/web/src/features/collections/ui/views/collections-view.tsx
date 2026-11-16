@@ -62,33 +62,33 @@ function PageHeader({
 					className="text-muted-foreground text-sm underline underline-offset-4"
 					to="/projects"
 				>
-					Oyun projelerine dön
+					Back to projects
 				</Link>
 				<Link
 					className={`${buttonVariants({ variant: "outline" })} min-h-11`}
 					params={{ projectId }}
 					to="/projects/$projectId/assets"
 				>
-					Varlık kayıtları
+					Asset Records
 				</Link>
 				<Link
 					className={`${buttonVariants({ variant: "outline" })} min-h-11`}
 					params={{ projectId }}
 					to="/projects/$projectId/asset-families"
 				>
-					Varlık Aileleri
+					Asset Families
 				</Link>
 			</div>
 			<header className="space-y-2">
 				<p className="font-mono text-primary text-xs uppercase tracking-[0.16em]">
-					Varlık kütüphanesi / {projectName ?? "Oyun projesi"}
+					Asset library / {projectName ?? "Oyun projesi"}
 				</p>
 				<h1 className="font-medium font-serif text-4xl tracking-tight">
-					Koleksiyonlar
+					Collections
 				</h1>
 				<p className="max-w-2xl text-muted-foreground">
-					Farklı Varlık Ailelerindeki Varlık Kayıtlarını çalışma düzeninize göre
-					bir araya getirin.
+					Bring Asset Records from different Asset Families together to suit
+					your workflow.
 				</p>
 			</header>
 		</div>

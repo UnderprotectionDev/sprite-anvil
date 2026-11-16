@@ -55,9 +55,9 @@ describe("Texture repetition surface equivalence", () => {
 		await $("input[name='email']").setValue(fixture.email);
 		await $("input[name='password']").setValue(fixture.password);
 		await $("form button[type='submit']").click();
-		await $("h1=Oyun projeleri").waitForDisplayed();
+		await $("h1=Game projects").waitForDisplayed();
 		await browser.url(`${origin}${result.familyPath}`);
-		await openWorkspaceTask("Profil incelemeleri");
+		await openWorkspaceTask("Profile reviews");
 		await $("h3=Texture repetition · Grass textures").waitForDisplayed({
 			timeout: 20_000,
 		});
@@ -100,7 +100,7 @@ describe("Texture repetition surface equivalence", () => {
 		await review.$("button=Save texture review").click();
 		await review.$("p=Texture review saved.").waitForDisplayed();
 		await browser.refresh();
-		await openWorkspaceTask("Profil incelemeleri");
+		await openWorkspaceTask("Profile reviews");
 		await $("h3=Texture repetition · Grass textures").waitForDisplayed({
 			timeout: 20_000,
 		});

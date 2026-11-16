@@ -12,6 +12,7 @@ import {
 } from "../delivery-planning-outputs";
 import type { DeliveryTargetDraftSaveFailureReason } from "../delivery-planning-store";
 import { protectedProcedure } from "../index";
+import { recordProductBoundary } from "../measurement-workflows";
 
 function getDeliveryTargetStore(context: Context) {
 	if (!context.deliveryTargetStore) {
@@ -58,6 +59,17 @@ export const deliveryPlanningRouter = {
 						"The Delivery Target revision number was taken repeatedly; try activating again.",
 				});
 			}
+			await recordProductBoundary(context, {
+				userId: context.session.user.id,
+				projectId: input.projectId,
+				workflowId: result.revision.id,
+				eventFamily: "export_delivery",
+				eventName: "delivery_target_activated",
+				phase: "start",
+				recordKind: "delivery_target",
+				outcomeClass: "workflow_started",
+				counters: {},
+			});
 			return result.revision;
 		}),
 	list: protectedProcedure

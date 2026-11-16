@@ -47,7 +47,7 @@ export function VfxAppearanceReviewManager({
 			onSuccess: async (record) => {
 				setSelected(record);
 				setPendingId(null);
-				setMessage("İnceleme kalıcı kayıttan doğrulandı.");
+				setMessage("Review verified from the saved record.");
 				await queryClient.invalidateQueries({
 					queryKey: orpc.vfxAppearanceReviews.list.queryKey({
 						input: { projectId, assetFamilyId },
@@ -119,12 +119,12 @@ export function VfxAppearanceReviewManager({
 			);
 			if (!isWriteOutcomeUncertain(error)) {
 				setPendingId(null);
-				setMessage(getErrorMessage(error, "Efekt incelemesi kaydedilemedi."));
+				setMessage(getErrorMessage(error, "Could not save effect review."));
 				return;
 			}
 			setUncertain(true);
 			setMessage(
-				"Kaydetme sonucu doğrulanamadı. Güncel kayıtları kontrol edin; aynı incelemeyi yeniden göndermeyin."
+				"Could not verify the save result. Check current records; do not resubmit the same review."
 			);
 		}
 	};
@@ -139,17 +139,17 @@ export function VfxAppearanceReviewManager({
 			setPendingId(null);
 			setUncertain(false);
 			setSupportReference("");
-			setMessage("İnceleme kalıcı kayıttan doğrulandı.");
+			setMessage("Review verified from the saved record.");
 		}
 	};
-	const statusMessage = saving ? "İnceleme kaydediliyor…" : message;
+	const statusMessage = saving ? "Saving review…" : message;
 	return (
 		<section
 			aria-label={`${familyName} VFX appearance review`}
 			className="space-y-4 rounded border p-4"
 		>
 			<h3 className="font-semibold text-xl">
-				{familyName} · Efekt Görünümünü ve Taşmasını Sınama
+				{familyName} · Test Effect Appearance and Overflow
 			</h3>
 			{query.isError ? (
 				<div className="space-y-2">
@@ -159,10 +159,10 @@ export function VfxAppearanceReviewManager({
 							: {})}
 						tone="error"
 					>
-						İncelemeler okunamadı.
+						Could not load reviews.
 					</StatusMessage>
 					<Button onClick={() => query.refetch()} type="button">
-						Kayıtları yeniden oku
+						Reload records
 					</Button>
 				</div>
 			) : null}
@@ -177,7 +177,7 @@ export function VfxAppearanceReviewManager({
 				onClick={checkCurrentRecords}
 				type="button"
 			>
-				Güncel kayıtları kontrol et
+				Check current records
 			</Button>
 			<ul>
 				{query.data?.map((record) => (
@@ -194,7 +194,7 @@ export function VfxAppearanceReviewManager({
 							}}
 							type="button"
 						>
-							{new Date(record.createdAt).toLocaleString("tr-TR")} ·{" "}
+							{new Date(record.createdAt).toLocaleString("en-US")} ·{" "}
 							{record.name} · {record.frames.length} frames · {record.outcome}
 						</Button>
 					</li>
@@ -202,7 +202,7 @@ export function VfxAppearanceReviewManager({
 			</ul>
 			{selected ? (
 				<>
-					<p>Kaydedilmiş inceleme · {selected.rationale}</p>
+					<p>Saved review · {selected.rationale}</p>
 					<Button
 						disabled={controlsLocked}
 						onClick={() => {
@@ -216,7 +216,7 @@ export function VfxAppearanceReviewManager({
 						}}
 						type="button"
 					>
-						Yeni inceleme
+						New review
 					</Button>
 				</>
 			) : null}

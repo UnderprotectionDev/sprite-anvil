@@ -167,6 +167,7 @@ function setup(
 		session: { user: { id: userId } },
 	} as unknown as Context;
 	return {
+		context,
 		create: (input: Record<string, unknown> = {}) =>
 			call(
 				appRouter.exportBundles.create,
@@ -611,4 +612,44 @@ test("Godot output is not found when the user cannot access the project", async 
 	await expect(
 		godotOutput("11111111-1111-4111-8111-111111111111")
 	).rejects.toMatchObject({ code: "NOT_FOUND" });
+});
+
+test("previews the current Context, Required Set and Asset Version inputs without creating a bundle", async () => {
+	const { context, list } = setup();
+	const preview = await call(
+		appRouter.exportBundles.preview,
+		{ projectId, assetFamilyIds: [familyId] },
+		{ context }
+	);
+	expect(preview.status).toBe("resolved");
+	if (preview.status !== "resolved") {
+		throw new Error("Expected resolved preview");
+	}
+	expect(preview.context).toEqual({ revisionId: "ctx-1", revisionNumber: 1 });
+	expect(preview.families[0]?.requiredSet.revisionId).toBe("rs-1");
+	expect(preview.assetVersions[0]?.id).toBe("av-1");
+	expect((await list()).bundles).toHaveLength(0);
+	await expect(
+		call(
+			appRouter.exportBundles.preview,
+			{ projectId: crypto.randomUUID(), assetFamilyIds: [familyId] },
+			{ context }
+		)
+	).rejects.toMatchObject({ code: "NOT_FOUND" });
+});
+
+test("creation resolves current source again after a preview", async () => {
+	const source = resolvedSource();
+	const { context, create } = setup({ source });
+	const preview = await call(
+		appRouter.exportBundles.preview,
+		{ projectId, assetFamilyIds: [familyId] },
+		{ context }
+	);
+	expect(preview.status === "resolved" && preview.context.revisionId).toBe(
+		"ctx-1"
+	);
+	source.context = { revisionId: "ctx-new", revisionNumber: 2 };
+	const created = await create();
+	expect(created.bundle.manifest.context.revisionId).toBe("ctx-new");
 });

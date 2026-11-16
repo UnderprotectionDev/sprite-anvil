@@ -40,6 +40,13 @@ Tamamlanma kanıtı: Aynı girdiler aynı paketi üretir; web ve masaüstünde y
 
 ## Testing Decisions
 
+- Paket oluşturma önizlemesi aynı yetkili kaynak okuyucudan güncel adayları gösterir; oluşturma bunları yeniden çözer ve değişmez manifesti sonra sabitler. `export-bundles.test.ts` önizleme ile oluşturma arasındaki değişikliği sınar.
+- Paket listesindeki ayrıntı denetimi, indirme öncesi saklanmış manifestten Context Revision, Required Set ve Asset Version sabitlerini gösterir; `export-creation-panel.test.tsx` bu kalıcı ayrıntı okuma yolunu sınar.
+
+- Oluşturma paneli seam’i: belirsiz yazma hatasında alanlar kilitlenir; profil ve paket tekrarında aynı kimlikler kullanılır.
+
+- Profil düzenleyicisi seam’i: `export-creation-panel.test.tsx` metadata eşlemesinin kayda aktarımını, yinelenen hedefin reddini ve mevcut sürümün düzenleyiciye yüklenmesini sınar.
+
 - **Birincil test seam’i:** Aynı kesin girdi ve Export Profile ile iki paket üretip manifest ve checksum eşitliğini, sonra bozuk dosyayı Workbench ile ayrı çevrimdışı doğrulayıcıda aynı red sonucuyla sınama.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.
 - Dışa Aktarım Profili seam’i: [`export-profiles.test.ts`](../../../apps/server/src/features/export-profiles/server/tests/export-profiles.test.ts) `exportProfiles` router’ını bellek içi storage ile sınar: kalıcı kayıttan yeniden okuma, aynı tanımın aynı özeti, yeni sürüm ekleme (eski sürüm değişmez), aynı `revisionId` ile tekrar ve çakışma, bilinmeyen ana sürüm, bilinmeyen zorunlu alan, isteğe bağlı `extensions` korunumu, başka projedeki profil kimliği ve erişimsiz proje.
@@ -72,4 +79,4 @@ Paket proje arşivi veya oyun motoru projesi değildir; çalıştırılabilir ku
 
 - [8.1](../../prd/10-acceptance-scenarios.md)
 - [YAS-03](../../prd/10-acceptance-scenarios.md)
-- Mevcut uygulama yalnız temel web/masaüstü kabuğu ve sınırlı sunucu yükleme yolunu içeriyor; bu spec teslim edilmiş ürün iddiası değildir. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.
+- PRD ve bu spec hedef davranışı tanımlar; mevcut sözleşmeler ve testler tek başına tüm kabul senaryolarının tamamlandığını göstermez. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.

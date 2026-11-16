@@ -14,8 +14,8 @@ import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { type RefObject, useRef, useState } from "react";
+import { ProviderGenerationRecordForm } from "@/components/provider-generation-record-form";
 import { StatusMessage } from "@/components/status-message";
-import { ProviderGenerationRecordForm } from "@/features/asset-versions/ui/components/provider-generation-record-form";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { mutationMeta } from "@/utils/mutation-meta";
@@ -131,7 +131,7 @@ function ManualImportPackageForm({
 	if (isLoading) {
 		return (
 			<p aria-live="polite" className="mt-4 text-muted-foreground text-sm">
-				Üretim Paketleri yükleniyor…
+				Loading Generation Packages…
 			</p>
 		);
 	}
@@ -139,7 +139,7 @@ function ManualImportPackageForm({
 		return (
 			<div className="mt-4 space-y-2">
 				<StatusMessage tone="error">
-					Üretim Paketleri yüklenemedi.
+					Could not load Generation Packages.
 				</StatusMessage>
 				<Button
 					disabled={isSaving}
@@ -147,7 +147,7 @@ function ManualImportPackageForm({
 					type="button"
 					variant="outline"
 				>
-					Yeniden yükle
+					Reload
 				</Button>
 			</div>
 		);
@@ -155,8 +155,8 @@ function ManualImportPackageForm({
 	if (packages.length === 0) {
 		return (
 			<p className="mt-4 text-muted-foreground text-sm">
-				Bu Varlık Kaydı için henüz Üretim Paketi yok. Önce Üretim Paketi
-				bölümünden bir paket oluşturun.
+				This Asset Record has no Generation Packages yet. Create one in the
+				Generation Package section first.
 			</p>
 		);
 	}
@@ -178,15 +178,14 @@ function ManualImportPackageForm({
 							disabled={locked}
 							onCheckedChange={(checked) => field.handleChange(checked)}
 						/>
-						<span>Başka bir sağlayıcının arayüzünden alındı</span>
+						<span>Obtained through another provider's interface</span>
 					</Label>
 				)}
 			</form.Field>
 			{values.isProviderResult ? (
 				<p className="text-muted-foreground text-sm">
-					Dosya ve Elle İçe Aktarma Kanıtı kaydedildikten sonra, sağlayıcı
-					ekranında gördüğünüz ayrıntıları kullanıcı bildirimi olarak
-					girebilirsiniz.
+					After saving the file and Manual Import Evidence, you can enter
+					details seen in the provider interface as a user declaration.
 				</p>
 			) : null}
 			<form.Field name="file">
@@ -196,7 +195,7 @@ function ManualImportPackageForm({
 							className="block space-y-1 text-sm leading-normal"
 							htmlFor="manual-import-file"
 						>
-							<span>Sonuç dosyası</span>
+							<span>Result file</span>
 							<Input
 								accept="image/png,image/webp"
 								disabled={locked}
@@ -209,7 +208,7 @@ function ManualImportPackageForm({
 							/>
 						</Label>
 						<Button
-							aria-label="Sonuç dosyasını seçin, yapıştırın veya bırakın"
+							aria-label="Select, paste, or drop the result file"
 							className="h-auto w-full justify-start whitespace-normal p-2 text-left text-muted-foreground text-sm"
 							disabled={locked}
 							onClick={() => fileInputRef.current?.click()}
@@ -231,12 +230,11 @@ function ManualImportPackageForm({
 							type="button"
 							variant="ghost"
 						>
-							PNG veya WebP dosyasını buraya sürükleyin ya da yapıştırın; dosya
-							seçmek için tıklayın.
+							Drag or paste a PNG or WebP file here, or click to select a file.
 						</Button>
 						{field.state.value ? (
 							<p className="text-sm" role="status">
-								Seçilen dosya: {field.state.value.name}
+								Selected file: {field.state.value.name}
 							</p>
 						) : null}
 					</div>
@@ -244,7 +242,7 @@ function ManualImportPackageForm({
 			</form.Field>
 			{file && !fileIsSupported ? (
 				<StatusMessage tone="error">
-					5 MB’a kadar PNG veya WebP dosyası seçin.
+					Select a PNG or WebP file up to 5 MB.
 				</StatusMessage>
 			) : null}
 			<form.Field name="generationPackageId">
@@ -253,7 +251,7 @@ function ManualImportPackageForm({
 						className="block space-y-1 text-sm leading-normal"
 						htmlFor="manual-import-generation-package"
 					>
-						<span>Üretim Paketi</span>
+						<span>Generation Package</span>
 						<NativeSelect
 							className="w-full"
 							disabled={locked}
@@ -262,7 +260,7 @@ function ManualImportPackageForm({
 							required
 							value={field.state.value}
 						>
-							<NativeSelectOption value="">Paket seçin</NativeSelectOption>
+							<NativeSelectOption value="">Select a package</NativeSelectOption>
 							{packages.map((generationPackage) => (
 								<NativeSelectOption
 									key={generationPackage.id}
@@ -283,7 +281,7 @@ function ManualImportPackageForm({
 						className="block space-y-1 text-sm leading-normal"
 						htmlFor="manual-import-surface"
 					>
-						<span>Üretim yüzeyi</span>
+						<span>Production surface</span>
 						<Input
 							autoComplete="off"
 							disabled={locked}
@@ -302,7 +300,7 @@ function ManualImportPackageForm({
 						className="block space-y-1 text-sm leading-normal"
 						htmlFor="manual-import-generation-instruction"
 					>
-						<span>Gerçek üretim talimatı</span>
+						<span>Actual production instruction</span>
 						<Textarea
 							className="min-h-28 w-full"
 							disabled={locked}
@@ -323,7 +321,7 @@ function ManualImportPackageForm({
 				}
 				type="submit"
 			>
-				{isSaving ? "Kaydediliyor…" : "Kanıtla birlikte aday sürümü kaydet"}
+				{isSaving ? "Saving…" : "Save Candidate Version with evidence"}
 			</Button>
 		</form>
 	);
@@ -400,7 +398,7 @@ export function ManualImportEvidenceForm({
 			setErrorMessage(
 				getErrorMessage(
 					error,
-					"Sonuç dosyası okunamadı. Dosyayı yeniden seçip deneyin."
+					"Could not read the result file. Select it again and retry."
 				)
 			);
 			return;
@@ -445,17 +443,17 @@ export function ManualImportEvidenceForm({
 			await onRefresh();
 			resetForm();
 			setStatusMessage(
-				"Elle İçe Aktarma Kanıtı kaydedildi; dosya Aday Sürüm olarak oluşturuldu."
+				"Manual Import Evidence saved; the file was created as a Candidate Version."
 			);
 		} catch (error) {
 			if (isWriteOutcomeUncertain(error)) {
 				setWriteOutcomeUncertain(true);
 				setErrorMessage(
-					"Kayıt sonucu doğrulanamadı. Güncel durumu kontrol edin veya aynı bilgilerle yeniden deneyin."
+					"Could not verify the save result. Check the current state or retry with the same information."
 				);
 			} else {
 				setErrorMessage(
-					getErrorMessage(error, "Elle İçe Aktarma Kanıtı kaydedilemedi.")
+					getErrorMessage(error, "Could not save Manual Import Evidence.")
 				);
 			}
 		} finally {
@@ -478,16 +476,18 @@ export function ManualImportEvidenceForm({
 				resetForm();
 				setErrorMessage(null);
 				setStatusMessage(
-					"Elle İçe Aktarma Kanıtı kaydedildi; dosya Aday Sürüm olarak oluşturuldu."
+					"Manual Import Evidence saved; the file was created as a Candidate Version."
 				);
 				return;
 			}
 			setWriteOutcomeUncertain(false);
 			setErrorMessage(
-				"Kayıt henüz görünmüyor. Aynı bilgilerle yeniden deneyebilirsiniz."
+				"The record is not visible yet. You can retry with the same information."
 			);
 		} catch (error) {
-			setErrorMessage(getErrorMessage(error, "Güncel durum okunamadı."));
+			setErrorMessage(
+				getErrorMessage(error, "Could not read the current state.")
+			);
 		} finally {
 			setIsSaving(false);
 		}
@@ -511,12 +511,12 @@ export function ManualImportEvidenceForm({
 			await onRefresh();
 			setProviderRecordVersionId(null);
 			setStatusMessage(
-				"Sağlayıcı Üretim Kaydı kullanıcı bildirimi olarak kaydedildi."
+				"Provider Generation Record saved as a user declaration."
 			);
 			return true;
 		} catch (error) {
 			setErrorMessage(
-				getErrorMessage(error, "Sağlayıcı Üretim Kaydı kaydedilemedi.")
+				getErrorMessage(error, "Could not save Provider Generation Record.")
 			);
 			return false;
 		} finally {
@@ -530,11 +530,12 @@ export function ManualImportEvidenceForm({
 			className="rounded-lg border p-4"
 		>
 			<h3 className="font-medium" id="manual-import-evidence-heading">
-				Elle İçe Aktarma Kanıtı
+				Manual Import Evidence
 			</h3>
 			<p className="mt-1 text-muted-foreground text-sm">
-				Manuel sonucu Üretim Paketi, kullandığınız yüzey, gerçek talimat ve
-				sonuç dosyasıyla birlikte kaydedin. Tam konuşma arşivi gerekmez.
+				Save the manual result with the Generation Package, surface used, actual
+				instruction, and result file. A full conversation archive is not
+				required.
 			</p>
 			{errorMessage ? (
 				<StatusMessage className="mt-3" tone="error">
@@ -554,7 +555,7 @@ export function ManualImportEvidenceForm({
 					type="button"
 					variant="outline"
 				>
-					{isSaving ? "Durum kontrol ediliyor…" : "Durumu kontrol et"}
+					{isSaving ? "Checking status…" : "Check status"}
 				</Button>
 			) : null}
 

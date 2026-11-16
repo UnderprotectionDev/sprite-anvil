@@ -1,5 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
+	bigint,
+	boolean,
 	check,
 	index,
 	integer,
@@ -176,6 +178,41 @@ export const projectArchiveRestoreRequests = pgTable(
 	]
 );
 
+/** A private staged portable ZIP and its authenticated operation scope. */
+export const projectArchiveImportRequests = pgTable(
+	"project_archive_import_requests",
+	{
+		id: text("id").primaryKey(),
+		projectId: text("project_id")
+			.notNull()
+			.references(() => project.id, { onDelete: "cascade" }),
+		requestedByUserId: text("requested_by_user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		idempotencyKey: text("idempotency_key").notNull(),
+		requestDigest: text("request_digest").notNull(),
+		projectName: text("project_name").notNull(),
+		stagedObjectKey: text("staged_object_key").notNull(),
+		zipByteSize: bigint("zip_byte_size", { mode: "number" }).notNull(),
+		zipSha256: text("zip_sha256").notNull(),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+	},
+	(table) => [
+		uniqueIndex("project_archive_import_requests_project_id_id_idx").on(
+			table.projectId,
+			table.id
+		),
+		check(
+			"project_archive_import_requests_size_check",
+			sql`${table.zipByteSize} > 0`
+		),
+		check(
+			"project_archive_import_requests_sha256_check",
+			sql`${table.zipSha256} ~ '^[a-f0-9]{64}$'`
+		),
+	]
+);
+
 /**
  * One restore of a Project Archive into an independent project. The restored
  * project is its own row; the source archive is only read. `archiveId` and
@@ -190,6 +227,10 @@ export const projectArchiveRestores = pgTable(
 			.notNull()
 			.references(() => project.id, { onDelete: "cascade" }),
 		sourceProjectId: text("source_project_id").notNull(),
+		/** Null for managed restores; imported restores are visible only in this operation scope. */
+		operationProjectId: text("operation_project_id"),
+		/** Existing restores predate readback; newly restored projects are marked only after verification. */
+		canonicalVerified: boolean("canonical_verified").notNull().default(true),
 		archiveId: text("archive_id").notNull(),
 		/** Digest of the archive manifest the restore verified. */
 		manifestDigest: text("manifest_digest").notNull(),
@@ -202,6 +243,10 @@ export const projectArchiveRestores = pgTable(
 	(table) => [
 		uniqueIndex("project_archive_restores_restored_project_idx").on(
 			table.restoredProjectId
+		),
+		index("project_archive_restores_operation_scope_idx").on(
+			table.operationProjectId,
+			table.createdAt
 		),
 		index("project_archive_restores_source_idx").on(
 			table.sourceProjectId,

@@ -14,6 +14,11 @@ import { orpc } from "@/utils/orpc";
 import { useApplyDelivery } from "../../hooks/use-apply-delivery";
 import { useIdempotencyKey } from "../../hooks/use-idempotency-key";
 import { directoryAttributes } from "../../lib/directory-attributes";
+import {
+	chooseNativeDeliveryFolder,
+	isDesktopDelivery,
+	writeNativeBundle,
+} from "../../lib/native-delivery-desktop";
 import { chooseFolder, readWrittenFiles } from "../../lib/read-target-folder";
 import { firstApplyFormSchema } from "../../schemas";
 import { LockPanel } from "../components/lock-panel";
@@ -60,10 +65,20 @@ export function FirstApplyForm({ projectId }: { projectId: string }) {
 				return;
 			}
 			try {
-				const { missing, written } = await readWrittenFiles(
-					folder.files,
-					bundle.files.map((file) => file.path)
-				);
+				const { missing, written } = folder.nativeRoot
+					? {
+							missing: [],
+							written: await writeNativeBundle({
+								bundle,
+								projectId,
+								folder,
+								paths: bundle.files.map((file) => file.path),
+							}),
+						}
+					: await readWrittenFiles(
+							folder.files,
+							bundle.files.map((file) => file.path)
+						);
 				if (missing.length > 0) {
 					setFailure(
 						`The folder is not complete: ${missing.join(", ")} ${missing.length === 1 ? "is" : "are"} missing. Every file of the Export Bundle must be written before a lock is made.`
@@ -118,9 +133,10 @@ export function FirstApplyForm({ projectId }: { projectId: string }) {
 			<h2 className="font-semibold text-lg">First delivery</h2>
 			<p className="text-muted-foreground text-sm">
 				Apply an Export Bundle to a destination for the first time. Write the
-				bundle's files to a folder yourself, then choose that folder here. Only
-				the bundle's own paths are read, on this device, and the lock records
-				exactly those.
+				bundle's files to a folder yourself in the browser, then choose that
+				folder here. On desktop, choose a destination and the application writes
+				and verifies the files. Only the bundle's own paths are read, on this
+				device, and the lock records exactly those.
 			</p>
 			<div className="grid gap-4 sm:grid-cols-2">
 				<div className="space-y-1 text-sm">
@@ -184,19 +200,46 @@ export function FirstApplyForm({ projectId }: { projectId: string }) {
 				<form.Field name="folder">
 					{(field) => (
 						<>
-							<Input
-								{...directoryAttributes}
-								id="first-apply-folder"
-								multiple
-								onChange={(event) => {
-									field.handleChange(
-										chooseFolder([...(event.target.files ?? [])])
-									);
-									apply.reset();
-									setFailure(null);
-								}}
-								type="file"
-							/>
+							{isDesktopDelivery() ? (
+								<Button
+									disabled={!bundle || apply.isPending}
+									onClick={async () => {
+										try {
+											const folder = await chooseNativeDeliveryFolder(
+												bundle?.files.map((file) => file.path) ?? []
+											);
+											if (folder) {
+												field.handleChange(folder);
+												apply.reset();
+												setFailure(null);
+											}
+										} catch (error) {
+											setFailure(
+												error instanceof Error
+													? error.message
+													: "The destination could not be opened."
+											);
+										}
+									}}
+									type="button"
+								>
+									Choose destination folder
+								</Button>
+							) : (
+								<Input
+									{...directoryAttributes}
+									id="first-apply-folder"
+									multiple
+									onChange={(event) => {
+										field.handleChange(
+											chooseFolder([...(event.target.files ?? [])])
+										);
+										apply.reset();
+										setFailure(null);
+									}}
+									type="file"
+								/>
+							)}
 							<FieldErrors errors={field.state.meta.errors} />
 						</>
 					)}

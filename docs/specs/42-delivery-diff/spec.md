@@ -37,7 +37,7 @@ Tamamlanma kanıtı: Eklenen, çıkarılan ve değişen Varlık Sürümleri; ba�
 
 - **Birincil test seam’i:** YAS-01 örneklerinde kesin girdiyi kullanıcı eyleminden kalıcı kayda ve yeniden okumaya taşıyan sunucu/API yolunu sınama; web ve masaüstü görünür sonuçlarını karşılaştırma.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.
-- Bugün repoda bu faza ait ürün sözleşmesi bulunmuyor. Mevcut sunucu ve yüzey test örnekleri: [`project-routes.test.ts`](../../../apps/server/src/features/projects/server/tests/project-routes.test.ts), [`app-shell.spec.ts` (web)](../../../apps/web/e2e/app-shell.spec.ts) ve [`app-shell.spec.ts` (desktop)](../../../apps/web/desktop-e2e/app-shell.spec.ts). Bunlar bu özelliğin test edildiği anlamına gelmez.
+- Kanıt karşılaştırmasının yardımcı testi [`delivery-evidence-diff.test.ts`](../../../apps/server/src/features/delivery-fulfilment/server/tests/delivery-evidence-diff.test.ts), public router testi [`delivery-fulfilment-diff.test.ts`](../../../apps/server/src/features/delivery-fulfilment/server/tests/delivery-fulfilment-diff.test.ts) ve görünür sonuç testi [`delivery-diff-view.test.tsx`](../../../apps/web/src/features/delivery-fulfilment/ui/views/delivery-diff-view.test.tsx) içindedir. Mevcut API sözleşmesi: [`delivery-diff.ts`](../../../packages/api/src/delivery-diff.ts).
 - Fazın özgül başarı ve red kanıtı: Eklenen, çıkarılan ve değişen Varlık Sürümleri; bağlam, kalite, istisna, hak, çalışma zamanı kanıtı ve paket eşlemeleri ayrı gösterilir. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Fark görünümü geçmiş Teslim Edildi durumunu kendiliğinden geçersiz kılmaz.
 - Kabul örnekleri: YAS-01. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
 
@@ -60,4 +60,4 @@ Fark görünümü geçmiş Teslim Edildi durumunu kendiliğinden geçersiz kılm
 **Kabul izlenebilirliği**
 
 - [YAS-01](../../prd/10-acceptance-scenarios.md)
-- Mevcut uygulama yalnız temel web/masaüstü kabuğu ve sınırlı sunucu yükleme yolunu içeriyor; bu spec teslim edilmiş ürün iddiası değildir. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.
+- PRD ve bu spec hedef davranışı tanımlar; mevcut sözleşmeler ve testler tek başına tüm kabul senaryolarının tamamlandığını göstermez. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.

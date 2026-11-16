@@ -22,6 +22,11 @@ import { useRefreshReview } from "../../hooks/use-refresh-review";
 import { directoryAttributes } from "../../lib/directory-attributes";
 import { downloadJson } from "../../lib/download-text";
 import {
+	chooseNativeDeliveryFolder,
+	isDesktopDelivery,
+	writeNativeBundle,
+} from "../../lib/native-delivery-desktop";
+import {
 	type ChosenFolder,
 	chooseFolder,
 	readWrittenFiles,
@@ -59,10 +64,17 @@ export function RefreshDeliveryForm({ projectId }: { projectId: string }) {
 			}
 			setRecordError(null);
 			try {
-				const { written } = await readWrittenFiles(
-					value.updated.files,
-					review.plan.applied
-				);
+				const written =
+					value.target?.nativeRoot && review.bundle
+						? await writeNativeBundle({
+								bundle: review.bundle,
+								projectId,
+								folder: value.target,
+								paths: review.plan.applied,
+								observed: review.observation,
+							})
+						: (await readWrittenFiles(value.updated.files, review.plan.applied))
+								.written;
 				refresh.mutate({
 					bundleId: value.bundleId,
 					decisions: review.decisions,
@@ -199,20 +211,50 @@ export function RefreshDeliveryForm({ projectId }: { projectId: string }) {
 			<div className="space-y-1 text-sm">
 				<Label htmlFor="destination-folder">Destination folder</Label>
 				<form.Field name="target">
-					{(field) => (
-						<Input
-							{...directoryAttributes}
-							id="destination-folder"
-							multiple
-							onChange={(event) => {
-								field.handleChange(
-									chooseFolder([...(event.target.files ?? [])])
-								);
-								startOver();
-							}}
-							type="file"
-						/>
-					)}
+					{(field) =>
+						isDesktopDelivery() ? (
+							<Button
+								disabled={!(lock && bundle) || refresh.isPending}
+								onClick={async () => {
+									try {
+										const folder = await chooseNativeDeliveryFolder([
+											...new Set([
+												...(lock?.files.map((file) => file.path) ?? []),
+												...(bundle?.files.map((file) => file.path) ?? []),
+											]),
+										]);
+										if (folder) {
+											field.handleChange(folder);
+											form.setFieldValue("updated", folder);
+											startOver();
+										}
+									} catch (error) {
+										setRecordError(
+											error instanceof Error
+												? error.message
+												: "The destination could not be opened."
+										);
+									}
+								}}
+								type="button"
+							>
+								Choose destination folder
+							</Button>
+						) : (
+							<Input
+								{...directoryAttributes}
+								id="destination-folder"
+								multiple
+								onChange={(event) => {
+									field.handleChange(
+										chooseFolder([...(event.target.files ?? [])])
+									);
+									startOver();
+								}}
+								type="file"
+							/>
+						)
+					}
 				</form.Field>
 				<p className="text-muted-foreground text-xs">
 					Only the paths the lock and the bundle name are read, on this device.
@@ -268,32 +310,38 @@ export function RefreshDeliveryForm({ projectId }: { projectId: string }) {
 							holds no files and nothing executable; copy the listed files from
 							the bundle yourself.
 						</p>
-						<div className="space-y-1 text-sm">
-							<Label htmlFor="updated-folder">Updated destination folder</Label>
-							<form.Field name="updated">
-								{(field) => (
-									<Input
-										{...directoryAttributes}
-										id="updated-folder"
-										multiple
-										onChange={(event) => {
-											field.handleChange(
-												chooseFolder([...(event.target.files ?? [])])
-											);
-											setRecordError(null);
-											refresh.reset();
-										}}
-										type="file"
-									/>
-								)}
-							</form.Field>
-						</div>
+						{!isDesktopDelivery() && (
+							<div className="space-y-1 text-sm">
+								<Label htmlFor="updated-folder">
+									Updated destination folder
+								</Label>
+								<form.Field name="updated">
+									{(field) => (
+										<Input
+											{...directoryAttributes}
+											id="updated-folder"
+											multiple
+											onChange={(event) => {
+												field.handleChange(
+													chooseFolder([...(event.target.files ?? [])])
+												);
+												setRecordError(null);
+												refresh.reset();
+											}}
+											type="file"
+										/>
+									)}
+								</form.Field>
+							</div>
+						)}
 						<Button
 							className="min-h-11"
 							disabled={values.updated === null || refresh.isPending}
 							type="submit"
 						>
-							Record refresh
+							{isDesktopDelivery()
+								? "Apply and record refresh"
+								: "Record refresh"}
 						</Button>
 					</div>
 					{recordError ? (

@@ -38,18 +38,18 @@ export function ProjectSetupForm({
 		<section className="context-panel project-setup">
 			<div className="panel-heading">
 				<div>
-					<p className="panel-index">PROJE TEMELİ</p>
-					<h2>{onCancel ? "Yeni proje" : "İlk projeyi oluşturun"}</h2>
+					<p className="panel-index">PROJECT FOUNDATION</p>
+					<h2>{onCancel ? "New project" : "Create your first project"}</h2>
 				</div>
 				{onCancel ? (
 					<Button className="quiet-button" onClick={onCancel} type="button">
-						Vazgeç
+						Cancel
 					</Button>
 				) : null}
 			</div>
 			<p className="panel-copy">
-				Bir proje adı ve genel sanat yaklaşımı başlangıç için yeterlidir. Bu
-				adım boş bir taban sürüm oluşturur; kuralı etkinleştirmez.
+				A project name and art direction are enough to get started. This step
+				creates an empty base revision; it does not activate a rule.
 			</p>
 			<form
 				className="context-form"
@@ -62,7 +62,7 @@ export function ProjectSetupForm({
 				<form.Field name="name">
 					{(field) => (
 						<Label className="context-field">
-							<span>Proje adı</span>
+							<span>Project name</span>
 							<Input
 								autoComplete="off"
 								disabled={isPending || isOutcomeUncertain}
@@ -70,7 +70,7 @@ export function ProjectSetupForm({
 								name={field.name}
 								onBlur={field.handleBlur}
 								onChange={(event) => field.handleChange(event.target.value)}
-								placeholder="Örn. Moonlit Vale"
+								placeholder="e.g. Moonlit Vale"
 								required
 								value={field.state.value}
 							/>
@@ -80,14 +80,14 @@ export function ProjectSetupForm({
 				<form.Field name="generalArtDirection">
 					{(field) => (
 						<Label className="context-field">
-							<span>Genel sanat yaklaşımı</span>
+							<span>Art direction</span>
 							<Textarea
 								disabled={isPending || isOutcomeUncertain}
 								maxLength={1000}
 								name={field.name}
 								onBlur={field.handleBlur}
 								onChange={(event) => field.handleChange(event.target.value)}
-								placeholder="Oyunun görsel dünyasını birkaç cümleyle tanımlayın."
+								placeholder="Describe the visual world of the game in a few sentences."
 								required
 								rows={3}
 								value={field.state.value}
@@ -102,9 +102,7 @@ export function ProjectSetupForm({
 						onClick={onCheckOutcome}
 						type="button"
 					>
-						{isCheckingOutcome
-							? "Durum kontrol ediliyor…"
-							: "Durumu kontrol et"}
+						{isCheckingOutcome ? "Checking status…" : "Check status"}
 					</Button>
 				) : null}
 				<Button
@@ -112,7 +110,7 @@ export function ProjectSetupForm({
 					disabled={isPending || isOutcomeUncertain}
 					type="submit"
 				>
-					{isPending ? "Oluşturuluyor…" : "Projeyi oluştur"}
+					{isPending ? "Creating…" : "Create project"}
 				</Button>
 			</form>
 		</section>

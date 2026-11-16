@@ -48,7 +48,7 @@ export function AssetFamilyManagementForms({
 					recordName:
 						catalog.assetRecords.find(
 							(record) => record.id === selectedCanonicalDesign.assetRecordId
-						)?.name ?? "Varlık Kaydı",
+						)?.name ?? "Asset Record",
 					versionNumber: selectedCanonicalVersion.versionNumber,
 				}
 			: null;
@@ -57,11 +57,11 @@ export function AssetFamilyManagementForms({
 		<section aria-labelledby="asset-family-setup" className="space-y-4">
 			<div>
 				<h2 className="font-semibold text-2xl" id="asset-family-setup">
-					İlişkileri kurun
+					Set up relationships
 				</h2>
 				<p className="mt-1 text-muted-foreground text-sm">
-					Aynı konu farklı bir Görsel Dünya veya kullanım bağlamındaysa yeni bir
-					Varlık Ailesi oluşturun.
+					Create a new Asset Family when the same subject has a different Visual
+					World or usage context.
 				</p>
 			</div>
 			<div className="grid gap-4 md:grid-cols-2">
@@ -83,13 +83,13 @@ export function AssetFamilyManagementForms({
 			</div>
 			{isScopeLoaded && visualWorlds.length === 0 ? (
 				<p className="rounded-lg border border-dashed p-4 text-sm">
-					Varlık Ailesi oluşturmak için önce bir Görsel Dünya tanımlayın.{" "}
+					Define a Visual World before creating an Asset Family.{" "}
 					<Link
 						className="underline underline-offset-4"
 						search={{ projectId }}
 						to="/context-proposals"
 					>
-						Proje Bağlamı sayfasına gidin
+						Go to Project Context
 					</Link>
 				</p>
 			) : null}

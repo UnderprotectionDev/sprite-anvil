@@ -15,20 +15,21 @@ import {
 import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
+import { WindowVirtualList } from "@sprite-anvil/ui/components/window-virtual-list";
 import { useForm, useStore } from "@tanstack/react-form";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { type ReactNode, useRef, useState } from "react";
 import { toast } from "sonner";
+import { AnimationMetadataPackagePanel } from "@/components/animation-metadata-package-panel";
+import { AssetRecordSearchPanel } from "@/components/asset-record-search-panel";
+import { GameplayMetadataPanel } from "@/components/gameplay-metadata-panel";
+import { GenerationPackagePanel } from "@/components/generation-package-panel";
+import { ReferenceBoardView } from "@/components/reference-board-view";
+import { RightsLineagePanel } from "@/components/rights-lineage-panel";
+import { RightsRecordPanel } from "@/components/rights-record-panel";
 import { StatusMessage } from "@/components/status-message";
 import { TaskWorkspace } from "@/components/task-workspace";
-import { AssetRecordSearchPanel } from "@/features/asset-discovery/ui/components/asset-record-search-panel";
-import { AnimationMetadataPackagePanel } from "@/features/character-animation-profile/ui/components/animation-metadata-package-panel";
-import { GameplayMetadataPanel } from "@/features/gameplay-metadata/ui/views/gameplay-metadata-panel";
-import { GenerationPackagePanel } from "@/features/generation-packages/ui/views/generation-package-panel";
-import { ReferenceBoardView } from "@/features/reference-production/ui/views/reference-board-view";
-import { RightsLineagePanel } from "@/features/rights-evidence/ui/components/rights-lineage-panel";
-import { RightsRecordPanel } from "@/features/rights-evidence/ui/components/rights-record-panel";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { mutationMeta } from "@/utils/mutation-meta";
@@ -46,19 +47,19 @@ import { ManualImportEvidenceForm } from "../forms/manual-import-evidence-form";
 const identityOptions = [
 	{
 		value: "independent_product_meaning",
-		label: "Bağımsız ürün anlamı",
+		label: "Independent product meaning",
 		description:
-			"Oyunda kendi kimliği ve amacı olan karakter, nesne veya görsel.",
+			"A character, object, or visual with its own identity and purpose in the game.",
 	},
 	{
 		value: "independent_lifecycle",
-		label: "Bağımsız yaşam döngüsü",
-		description: "Kendi kararlarıyla ayrı değişen veya gelişen varlık.",
+		label: "Independent lifecycle",
+		description: "An asset that changes or evolves independently.",
 	},
 	{
 		value: "delivery_identity",
-		label: "Teslimat kimliği",
-		description: "Oyuna ayrı bir varlık olarak teslim edilen içerik.",
+		label: "Delivery identity",
+		description: "Content delivered to the game as a separate asset.",
 	},
 ] as const;
 type IdentityCriterion = (typeof identityOptions)[number]["value"];
@@ -72,7 +73,134 @@ function getIdentityLabel(value: string) {
 function getIdentitySummary(identityCriteria: readonly string[]) {
 	return identityCriteria.length > 0
 		? identityCriteria.map(getIdentityLabel).join(" · ")
-		: "Gerekçe kaydedilmemiş";
+		: "No rationale saved";
+}
+
+function isNotFound(error: unknown) {
+	return (
+		typeof error === "object" &&
+		error !== null &&
+		"code" in error &&
+		error.code === "NOT_FOUND"
+	);
+}
+
+function AssetRecordList({
+	recordsQuery,
+	projectId,
+	offset,
+	setPage,
+	onOpenRecord,
+}: {
+	recordsQuery: import("@tanstack/react-query").UseQueryResult<
+		import("@sprite-anvil/api/asset-records").AssetRecordSearchResponse,
+		Error
+	>;
+	projectId: string;
+	offset: number;
+	setPage: (page: { projectId: string; offset: number }) => void;
+	onOpenRecord: (assetRecordId: string) => void;
+}) {
+	const records = recordsQuery.data?.records.map(({ record }) => record) ?? [];
+	let recordsState: ReactNode = null;
+	if (recordsQuery.isPending) {
+		recordsState = <p aria-live="polite">Loading Asset Records…</p>;
+	} else if (recordsQuery.isError) {
+		recordsState = (
+			<div className="space-y-3">
+				<StatusMessage tone="error">
+					Could not load Asset Records.
+				</StatusMessage>
+				<Button
+					onClick={() => void recordsQuery.refetch()}
+					type="button"
+					variant="outline"
+				>
+					Try again
+				</Button>
+			</div>
+		);
+	} else if (records.length === 0) {
+		recordsState = (
+			<div>
+				<p className="rounded-lg border border-dashed p-5 text-muted-foreground">
+					{offset > 0
+						? "No records on this page."
+						: "This project has no Asset Records yet. Use New Asset Record to get started."}
+				</p>
+				{offset > 0 ? (
+					<Button
+						onClick={() =>
+							setPage({ projectId, offset: Math.max(0, offset - 50) })
+						}
+						type="button"
+						variant="outline"
+					>
+						Previous
+					</Button>
+				) : null}
+			</div>
+		);
+	} else {
+		recordsState = (
+			<div className="space-y-3">
+				<WindowVirtualList
+					getItemKey={(record) => record.id}
+					items={records}
+					renderItem={(record) => (
+						<div className="flex flex-col justify-between gap-3 rounded-lg border p-4 sm:flex-row sm:items-center">
+							<div>
+								<h3 className="font-medium">{record.name}</h3>
+								<p className="text-muted-foreground text-sm">
+									{getIdentitySummary(record.identityCriteria)}
+								</p>
+								<p className="text-muted-foreground text-sm">
+									Record status · {getAvailabilityLabel(record.availability)}
+								</p>
+							</div>
+							<Button
+								aria-label={`${record.name} open record`}
+								onClick={() => onOpenRecord(record.id)}
+								variant="outline"
+							>
+								Open record
+							</Button>
+						</div>
+					)}
+				/>
+				<div className="flex gap-2">
+					<Button
+						disabled={offset === 0 || recordsQuery.isFetching}
+						onClick={() =>
+							setPage({ projectId, offset: Math.max(0, offset - 50) })
+						}
+						type="button"
+						variant="outline"
+					>
+						Previous
+					</Button>
+					<Button
+						disabled={
+							typeof recordsQuery.data?.nextOffset !== "number" ||
+							recordsQuery.isFetching
+						}
+						onClick={() =>
+							setPage({
+								projectId,
+								offset: recordsQuery.data?.nextOffset ?? offset,
+							})
+						}
+						type="button"
+						variant="outline"
+					>
+						Next
+					</Button>
+				</div>
+			</div>
+		);
+	}
+
+	return recordsState;
 }
 
 export function AssetRecordsView({
@@ -88,8 +216,11 @@ export function AssetRecordsView({
 	const projectQuery = useQuery({
 		...projectQueryOptions,
 	});
-	const recordsQueryOptions = orpc.assetRecords.list.queryOptions({
-		input: { projectId },
+	const queryClient = useQueryClient();
+	const [page, setPage] = useState({ projectId, offset: 0 });
+	const offset = page.projectId === projectId ? page.offset : 0;
+	const recordsQueryOptions = orpc.assetRecords.listPage.queryOptions({
+		input: { projectId, pagination: { limit: 50, offset } },
 	});
 	const recordsQuery = useQuery({
 		...recordsQueryOptions,
@@ -120,27 +251,28 @@ export function AssetRecordsView({
 	async function checkWriteOutcome() {
 		setIsCheckingWriteOutcome(true);
 		try {
-			const result = await recordsQuery.refetch();
-			if (result.isError) {
-				return;
-			}
-
 			const expectedId = pendingCreate.current?.id;
-			const existingRecord = result.data?.find(
-				(record) => record.id === expectedId
-			);
-			if (existingRecord) {
-				setWriteOutcomeUncertain(false);
-				setStatusMessage("Varlık kaydı bulundu.");
-				pendingCreate.current = null;
-				onOpenRecord(existingRecord.id);
+			if (!expectedId) {
 				return;
 			}
-
-			setWriteOutcomeUncertain(false);
-			setStatusMessage(
-				"Kayıt listesi yenilendi. Aynı kimlikle yeniden deneyebilirsiniz."
-			);
+			try {
+				const record = await queryClient.fetchQuery({
+					...orpc.assetRecords.get.queryOptions({
+						input: { projectId, assetRecordId: expectedId },
+					}),
+					staleTime: 0,
+					retry: false,
+				});
+				setWriteOutcomeUncertain(false);
+				setStatusMessage("Asset Record found.");
+				pendingCreate.current = null;
+				onOpenRecord(record.id);
+			} catch (error) {
+				if (isNotFound(error)) {
+					setWriteOutcomeUncertain(false);
+					setStatusMessage("Record not found. You can retry with the same ID.");
+				}
+			}
 		} finally {
 			setIsCheckingWriteOutcome(false);
 		}
@@ -187,7 +319,7 @@ export function AssetRecordsView({
 			toast.error(
 				getErrorMessage(
 					error,
-					"Varlık kaydının sonucu doğrulanamadı. Mevcut durumu kontrol edin."
+					"Could not verify the Asset Record result. Check the current state."
 				)
 			);
 		} finally {
@@ -195,67 +327,11 @@ export function AssetRecordsView({
 		}
 	}
 
-	const records = recordsQuery.data ?? [];
 	let projectState: ReactNode = null;
 	if (projectQuery.isPending) {
-		projectState = <p aria-live="polite">Proje yükleniyor…</p>;
+		projectState = <p aria-live="polite">Loading project…</p>;
 	} else if (projectQuery.isError) {
 		projectState = null;
-	}
-
-	let recordsState: ReactNode = null;
-	if (recordsQuery.isPending) {
-		recordsState = <p aria-live="polite">Varlık kayıtları yükleniyor…</p>;
-	} else if (recordsQuery.isError) {
-		recordsState = (
-			<div className="space-y-3">
-				<StatusMessage tone="error">
-					Varlık kayıtları yüklenemedi.
-				</StatusMessage>
-				<Button
-					onClick={() => void recordsQuery.refetch()}
-					type="button"
-					variant="outline"
-				>
-					Yeniden dene
-				</Button>
-			</div>
-		);
-	} else if (records.length === 0) {
-		recordsState = (
-			<p className="rounded-lg border border-dashed p-5 text-muted-foreground">
-				Bu projede henüz varlık kaydı yok. Başlamak için Yeni varlık kaydı
-				düğmesini kullanın.
-			</p>
-		);
-	} else {
-		recordsState = (
-			<ul className="space-y-3">
-				{records.map((record) => (
-					<li
-						className="flex flex-col justify-between gap-3 rounded-lg border p-4 sm:flex-row sm:items-center"
-						key={record.id}
-					>
-						<div>
-							<h3 className="font-medium">{record.name}</h3>
-							<p className="text-muted-foreground text-sm">
-								{getIdentitySummary(record.identityCriteria)}
-							</p>
-							<p className="text-muted-foreground text-sm">
-								Kayıt durumu · {getAvailabilityLabel(record.availability)}
-							</p>
-						</div>
-						<Button
-							aria-label={`${record.name} kaydını aç`}
-							onClick={() => onOpenRecord(record.id)}
-							variant="outline"
-						>
-							Kaydı aç
-						</Button>
-					</li>
-				))}
-			</ul>
-		);
 	}
 
 	return (
@@ -265,12 +341,12 @@ export function AssetRecordsView({
 					className="inline-flex min-h-11 items-center text-muted-foreground text-sm underline underline-offset-4"
 					to="/projects"
 				>
-					Oyun projelerine dön
+					Back to projects
 				</Link>
 				<div className="flex flex-wrap items-start justify-between gap-3">
 					<div className="space-y-2">
 						<p className="font-mono text-primary text-xs uppercase tracking-[0.16em]">
-							Varlık kayıtları
+							Asset Records
 						</p>
 						<h1 className="font-medium font-serif text-4xl tracking-tight">
 							{projectQuery.data?.name ?? "Oyun projesi"}
@@ -281,19 +357,19 @@ export function AssetRecordsView({
 						onClick={() => setIsCreateOpen(true)}
 						type="button"
 					>
-						Yeni varlık kaydı
+						New Asset Record
 					</Button>
 					<Link
 						className={`${buttonVariants({ variant: "outline" })} min-h-11`}
 						params={{ projectId }}
 						to="/projects/$projectId/import-inbox"
 					>
-						İçe Aktarma Gelen Kutusu
+						Import Inbox
 					</Link>
 				</div>
 				<p className="max-w-2xl text-muted-foreground">
-					Bağımsız ürün anlamı, yaşam döngüsü veya teslimat kimliği olan
-					görselleri aynı Varlık Kaydı altında izleyin.
+					Track visuals with independent product meaning, lifecycle, or delivery
+					identity under one Asset Record.
 				</p>
 			</header>
 
@@ -312,21 +388,21 @@ export function AssetRecordsView({
 					showCloseButton={!(isSaving || writeOutcomeUncertain)}
 				>
 					<DialogHeader>
-						<DialogTitle>Yeni varlık kaydı</DialogTitle>
+						<DialogTitle>New Asset Record</DialogTitle>
 						<DialogDescription>
-							Bağımsız kimliği olan yeni bir varlık oluşturun. Dosyaları mevcut
-							kayda sürüm olarak ekleyebilirsiniz.
+							Create a new asset with an independent identity. You can add files
+							as versions to an existing record.
 						</DialogDescription>
 					</DialogHeader>
 
 					<section
-						aria-label="Varlık kaydı oluşturma"
+						aria-label="Create Asset Record"
 						className="space-y-4 rounded-lg border p-5"
 					>
 						<div>
 							<p className="mt-1 text-muted-foreground text-sm">
-								Farklı bir dosya veya düzenlenebilir kare olması tek başına yeni
-								kayıt gerekçesi değildir.
+								A different file or editable frame alone does not justify a new
+								record.
 							</p>
 						</div>
 						<form
@@ -344,7 +420,7 @@ export function AssetRecordsView({
 											className="font-medium text-sm leading-normal"
 											htmlFor="asset-record-name"
 										>
-											Varlık adı
+											Asset name
 										</Label>
 										<Input
 											disabled={writeOutcomeUncertain || isSaving}
@@ -366,7 +442,7 @@ export function AssetRecordsView({
 								disabled={writeOutcomeUncertain || isSaving}
 							>
 								<FieldLegend className="mb-2">
-									Bu kaydın bağımsız kimliği
+									This record's independent identity
 								</FieldLegend>
 								<form.Field name="identityCriteria">
 									{(field) =>
@@ -411,8 +487,8 @@ export function AssetRecordsView({
 									className="text-muted-foreground text-sm"
 									id="asset-record-identity-help"
 								>
-									En az bir kimlik nedeni seçin. Ayrı düzenlenebilmek tek başına
-									yeterli değildir.
+									Select at least one identity reason. Independent editing alone
+									is not sufficient.
 								</p>
 							</FieldSet>
 							{writeOutcomeUncertain ? (
@@ -422,9 +498,7 @@ export function AssetRecordsView({
 									type="button"
 									variant="outline"
 								>
-									{isCheckingWriteOutcome
-										? "Durum kontrol ediliyor…"
-										: "Durumu kontrol et"}
+									{isCheckingWriteOutcome ? "Checking status…" : "Check status"}
 								</Button>
 							) : null}
 							{statusMessage ? (
@@ -436,7 +510,7 @@ export function AssetRecordsView({
 								disabled={isSaving || writeOutcomeUncertain || !draftIsComplete}
 								type="submit"
 							>
-								{isSaving ? "Kaydediliyor…" : "Varlık kaydı oluştur"}
+								{isSaving ? "Saving…" : "Create Asset Record"}
 							</Button>
 						</form>
 					</section>
@@ -444,16 +518,17 @@ export function AssetRecordsView({
 			</Dialog>
 
 			<TaskWorkspace
-				label="Kütüphane görünümü"
+				label="Library view"
 				sections={[
 					{
 						id: "search",
-						label: "Bul ve filtrele",
+						label: "Search and filter",
 						description:
-							"Ad, kategori, dünya, tema, ölçü ve etiketlerle kayıtları bulun. Sonuçtan kaydı veya eşleşen sürümü açın.",
+							"Find records by name, category, world, theme, dimensions, and tags. Open a record or matching version from the results.",
 						content: (
 							<>
 								<AssetRecordSearchPanel
+									key={projectId}
 									onOpenRecord={onOpenRecord}
 									projectId={projectId}
 								/>
@@ -462,9 +537,9 @@ export function AssetRecordsView({
 					},
 					{
 						id: "all",
-						label: "Tüm kayıtlar",
+						label: "All records",
 						description:
-							"Projedeki varlık kayıtlarını ve kayıt durumlarını inceleyin.",
+							"Review the project's Asset Records and their statuses.",
 						content: (
 							<>
 								<section
@@ -476,14 +551,20 @@ export function AssetRecordsView({
 											className="font-semibold text-xl"
 											id="asset-records-heading"
 										>
-											Varlık kayıtları
+											Asset Records
 										</h2>
 										<p className="mt-1 text-muted-foreground text-sm">
-											Kayıt kimliği; dosyalardan, sürümlerden ve ayrı
-											değiştirilebilir birimlerden bağımsızdır.
+											Record identity is independent of files, versions, and
+											separately replaceable units.
 										</p>
 									</div>
-									{recordsState}
+									<AssetRecordList
+										offset={offset}
+										onOpenRecord={onOpenRecord}
+										projectId={projectId}
+										recordsQuery={recordsQuery}
+										setPage={setPage}
+									/>
 								</section>
 							</>
 						),
@@ -524,13 +605,13 @@ export function AssetRecordDetailView({
 	if (recordQuery.isPending) {
 		recordHeading = (
 			<h1 className="font-medium font-serif text-4xl tracking-tight">
-				Varlık kaydı yükleniyor…
+				Loading Asset Record…
 			</h1>
 		);
 	} else if (recordQuery.isError) {
 		recordHeading = (
 			<h1 className="font-medium font-serif text-4xl tracking-tight">
-				Varlık kaydı açılamadı
+				Could not open Asset Record
 			</h1>
 		);
 	} else if (record) {
@@ -577,9 +658,9 @@ export function AssetRecordDetailView({
 				)}
 				{record.availability === "erased" ? (
 					<section className="rounded-lg border p-5">
-						<h2 className="font-semibold text-xl">Görsel ölçüleri</h2>
+						<h2 className="font-semibold text-xl">Image dimensions</h2>
 						<p className="mt-2 text-muted-foreground text-sm">
-							Silinmiş kaydın ölçüleri görüntülenemez veya değiştirilemez.
+							An erased record's dimensions cannot be viewed or changed.
 						</p>
 					</section>
 				) : (
@@ -614,14 +695,14 @@ export function AssetRecordDetailView({
 				{trackingQuery.isError ? (
 					<div>
 						<StatusMessage tone="error">
-							Referanslara ait kayıt bilgisi yüklenemedi.
+							Could not load record information for references.
 						</StatusMessage>
 						<Button
 							onClick={() => void trackingQuery.refetch()}
 							type="button"
 							variant="outline"
 						>
-							Yeniden dene
+							Try again
 						</Button>
 					</div>
 				) : null}
@@ -652,10 +733,10 @@ export function AssetRecordDetailView({
 					params={{ projectId }}
 					to="/projects/$projectId/assets"
 				>
-					Varlık kayıtlarına dön
+					Back to Asset Records
 				</Link>
 				<p className="font-mono text-primary text-xs uppercase tracking-[0.16em]">
-					Varlık kütüphanesi / {projectQuery.data?.name ?? "Oyun projesi"}
+					Asset library / {projectQuery.data?.name ?? "Oyun projesi"}
 				</p>
 				{recordHeading}
 			</header>
@@ -663,14 +744,14 @@ export function AssetRecordDetailView({
 			{recordQuery.isError ? (
 				<div className="space-y-3">
 					<StatusMessage tone="error">
-						Kayıt yüklenemedi. Yeniden deneyin veya varlık kayıtlarına dönün.
+						Could not load the record. Try again or return to Asset Records.
 					</StatusMessage>
 					<Button
 						onClick={() => void recordQuery.refetch()}
 						type="button"
 						variant="outline"
 					>
-						Yeniden dene
+						Try again
 					</Button>
 				</div>
 			) : null}
@@ -678,30 +759,30 @@ export function AssetRecordDetailView({
 				<TaskWorkspace
 					initialSection="versions"
 					key={record.id}
-					label="Varlık çalışma alanları"
+					label="Asset workspaces"
 					sections={[
 						{
 							id: "versions",
-							label: "Sürümler ve dosyalar",
+							label: "Versions and files",
 							description:
-								"Onaylı sürümü, alternatifleri ve kayıt geçmişini inceleyin; yeni aday sürüm ekleyin.",
+								"Review the Approved Version, alternatives, and record history; add a new Candidate Version.",
 							content: (
 								<>
 									{trackingPanel}
 									{trackingQuery.isPending ? (
-										<p role="status">Sürüm geçmişi yükleniyor…</p>
+										<p role="status">Loading version history…</p>
 									) : null}
 									{trackingQuery.isError ? (
 										<div>
 											<StatusMessage tone="error">
-												Sürüm geçmişi yüklenemedi.
+												Could not load version history.
 											</StatusMessage>
 											<Button
 												onClick={() => void trackingQuery.refetch()}
 												type="button"
 												variant="outline"
 											>
-												Yeniden dene
+												Try again
 											</Button>
 										</div>
 									) : null}
@@ -710,16 +791,16 @@ export function AssetRecordDetailView({
 						},
 						{
 							id: "information",
-							label: "Kayıt bilgileri",
+							label: "Record details",
 							description:
-								"Kategori, etiket, görsel kapsam, ölçüler ve kayıt durumunu düzenleyin.",
+								"Edit category, tags, visual scope, dimensions, and record status.",
 							content: renderRecordInformation(),
 						},
 						{
 							id: "gameplay",
-							label: "Oyun İçi Bilgiler",
+							label: "Gameplay Metadata",
 							description:
-								"Kesin sürüm ve karelere bağlı oyun içi bilgileri ve animasyon metadata paketlerini yönetin.",
+								"Manage Gameplay Metadata and animation metadata packages linked to exact versions and frames.",
 							content: (
 								<>
 									{record.availability === "erased" ? null : (
@@ -737,16 +818,16 @@ export function AssetRecordDetailView({
 						},
 						{
 							id: "production",
-							label: "Üretim ve içe aktarma",
+							label: "Production and import",
 							description:
-								"Referanslarla üretim paketi hazırlayın veya dışarıda üretilen sonucun kanıtını kaydedin.",
+								"Prepare a Generation Package with references or record evidence of an externally produced result.",
 							content: renderRecordProduction(),
 						},
 						{
 							id: "rights",
-							label: "Hak Kayıtları",
+							label: "Rights Records",
 							description:
-								"Bu kaydın hak kanıtını ve bağımlı kaynakların ayrı hak geçmişini inceleyin.",
+								"Review this record's rights evidence and the separate rights history of dependent sources.",
 							content: (
 								<>
 									{record.availability === "erased" ? null : (

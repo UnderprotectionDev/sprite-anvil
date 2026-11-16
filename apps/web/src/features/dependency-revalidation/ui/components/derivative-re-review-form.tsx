@@ -9,8 +9,8 @@ import {
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useId } from "react";
+import { AssetVersionPreview } from "@/components/asset-version-preview";
 import { ENV } from "@/env";
-import { AssetVersionPreview } from "@/features/asset-versions/ui/components/asset-version-preview";
 import { derivativeReReviewFormSchema } from "../../schemas";
 
 const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
@@ -95,7 +95,7 @@ export function DerivativeReReviewForm({
 		>
 			<FieldSet className="space-y-3 rounded border p-4" disabled={disabled}>
 				<FieldLegend className="font-semibold">
-					{label} — Güncel Türetilmiş Varlığı Yeniden İnceleme
+					{label} — Re-review Current Derived Asset
 				</FieldLegend>
 				<div className="flex flex-wrap gap-4">
 					{previewUrl ? (
@@ -107,7 +107,7 @@ export function DerivativeReReviewForm({
 					) : null}
 					{canonicalPreviewUrl && canonicalVersionNumber ? (
 						<AssetVersionPreview
-							recordName={`Ana Tasarım: ${canonicalLabel}`}
+							recordName={`Canonical Design: ${canonicalLabel}`}
 							url={`${serverUrl}${canonicalPreviewUrl}`}
 							versionNumber={canonicalVersionNumber}
 						/>
@@ -117,7 +117,7 @@ export function DerivativeReReviewForm({
 					{(field) => (
 						<>
 							<Label className="block" htmlFor={`${identifier}-context`}>
-								İncelenen Bağlam Sürümü
+								Reviewed Context Revision
 							</Label>
 							<NativeSelect
 								className="w-full"
@@ -127,11 +127,11 @@ export function DerivativeReReviewForm({
 								value={field.state.value}
 							>
 								<NativeSelectOption value="">
-									Etkin Bağlam Sürümünü seçin
+									Select the Active Context Revision
 								</NativeSelectOption>
 								{contextRevisionId ? (
 									<NativeSelectOption value={contextRevisionId}>
-										Bağlam Sürümü {contextRevisionNumber} (etkin)
+										Context Revision {contextRevisionNumber} (active)
 									</NativeSelectOption>
 								) : null}
 							</NativeSelect>
@@ -142,7 +142,7 @@ export function DerivativeReReviewForm({
 					{(field) => (
 						<>
 							<Label className="block" htmlFor={`${identifier}-canonical`}>
-								İncelenen Ana Tasarım
+								Reviewed Canonical Design
 							</Label>
 							<NativeSelect
 								className="w-full"
@@ -152,7 +152,7 @@ export function DerivativeReReviewForm({
 								value={field.state.value}
 							>
 								<NativeSelectOption value="">
-									Ailenin güncel Ana Tasarımını seçin
+									Select the family's current Canonical Design
 								</NativeSelectOption>
 								{canonicalDesignVersionId ? (
 									<NativeSelectOption value={canonicalDesignVersionId}>
@@ -165,15 +165,15 @@ export function DerivativeReReviewForm({
 				</form.Field>
 				{contextRevisionId && canonicalDesignVersionId ? null : (
 					<p>
-						Yeniden inceleme için etkin Bağlam Sürümü ve ailenin güncel Ana
-						Tasarımı gereklidir.
+						Re-review requires the Active Context Revision and the family's
+						current Canonical Design.
 					</p>
 				)}
 				<form.Field name="rationale">
 					{(field) => (
 						<>
 							<Label className="block" htmlFor={`${identifier}-rationale`}>
-								Yeniden inceleme gerekçesi
+								Re-review rationale
 							</Label>
 							<Textarea
 								className="w-full"
@@ -188,13 +188,13 @@ export function DerivativeReReviewForm({
 					)}
 				</form.Field>
 				<p className="text-muted-foreground text-sm">
-					Geçmiş onay ve kalite kanıtları korunur. Kalite İstisnası güncel
-					uygunluk yerine geçmez. İçerik değişikliği yeni Birim veya Birleşik
-					Sürüm gerektirir.
+					Historical approval and quality evidence are preserved. A Quality
+					Waiver does not replace current applicability. Content changes require
+					a new Unit or Composite Version.
 				</p>
 				<div className="flex flex-wrap gap-2">
 					<Button disabled={!ready} type="submit">
-						Güncel Uygunluğu Onayla
+						Confirm Current Applicability
 					</Button>
 					<Button
 						disabled={!ready}
@@ -202,14 +202,14 @@ export function DerivativeReReviewForm({
 						type="button"
 						variant="outline"
 					>
-						İçerik Düzeltmesi Gerekli
+						Content Correction Required
 					</Button>
 				</div>
 				<a
 					className="underline underline-offset-4"
 					href="#asset-version-controls-heading"
 				>
-					Birim veya Birleşik Sürüm Hazırla
+					Prepare Unit or Composite Version
 				</a>
 			</FieldSet>
 		</form>

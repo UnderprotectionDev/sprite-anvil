@@ -47,7 +47,7 @@ export function DirectionalReviewManager({
 			onSuccess: async (record) => {
 				setSelected(record);
 				setPendingId(null);
-				setMessage("İnceleme kalıcı kayıttan doğrulandı.");
+				setMessage("Review verified from the saved record.");
 				await queryClient.invalidateQueries({
 					queryKey: orpc.directionalReviews.list.queryKey({
 						input: { projectId, assetFamilyId },
@@ -74,12 +74,12 @@ export function DirectionalReviewManager({
 		} catch (error) {
 			if (!isWriteOutcomeUncertain(error)) {
 				setPendingId(null);
-				setMessage(getErrorMessage(error, "İnceleme kaydedilemedi."));
+				setMessage(getErrorMessage(error, "Could not save review."));
 				return;
 			}
 			setUncertain(true);
 			setMessage(
-				"Kaydetme sonucu doğrulanamadı. Güncel kayıtları kontrol edin; aynı incelemeyi yeniden göndermeyin."
+				"Could not verify the save result. Check current records; do not resubmit the same review."
 			);
 		}
 	};
@@ -90,7 +90,7 @@ export function DirectionalReviewManager({
 			setSelected(saved);
 			setPendingId(null);
 			setUncertain(false);
-			setMessage("İnceleme kalıcı kayıttan doğrulandı.");
+			setMessage("Review verified from the saved record.");
 		}
 	};
 	const designId = selected?.canonicalDesignId ?? canonical?.id;
@@ -101,17 +101,17 @@ export function DirectionalReviewManager({
 		selected?.contractRevisionId ?? activation?.contractRevisionId;
 	return (
 		<section
-			aria-label={`${familyName} kimlik ve yön incelemesi`}
+			aria-label={`${familyName} identity and direction review`}
 			className="space-y-4 rounded border p-4"
 		>
 			<h3 className="font-semibold text-xl">
-				{familyName} · Kimlik ve Yön Tutarlılığını İnceleme
+				{familyName} · Review Identity and Direction Consistency
 			</h3>
 			{query.isError ? (
 				<div className="space-y-2">
-					<StatusMessage tone="error">İncelemeler okunamadı.</StatusMessage>
+					<StatusMessage tone="error">Could not load reviews.</StatusMessage>
 					<Button onClick={() => query.refetch()} type="button">
-						Kayıtları yeniden oku
+						Reload records
 					</Button>
 				</div>
 			) : null}
@@ -121,7 +121,7 @@ export function DirectionalReviewManager({
 				onClick={checkCurrentRecords}
 				type="button"
 			>
-				Güncel kayıtları kontrol et
+				Check current records
 			</Button>
 			<ul>
 				{query.data?.map((record) => (
@@ -133,16 +133,18 @@ export function DirectionalReviewManager({
 							}}
 							type="button"
 						>
-							{new Date(record.createdAt).toLocaleString("tr-TR")} ·{" "}
-							{record.directions.length} yön ·{" "}
-							{record.outcome === "consistent" ? "Tutarlı" : "Takip gerekli"}
+							{new Date(record.createdAt).toLocaleString("en-US")} ·{" "}
+							{record.directions.length} directions ·{" "}
+							{record.outcome === "consistent"
+								? "Consistent"
+								: "Needs follow-up"}
 						</Button>
 					</li>
 				))}
 			</ul>
 			{selected ? (
 				<>
-					<p>Kaydedilmiş inceleme · {selected.rationale}</p>
+					<p>Saved review · {selected.rationale}</p>
 					<Button
 						onClick={() => {
 							setSelected(null);
@@ -151,7 +153,7 @@ export function DirectionalReviewManager({
 						}}
 						type="button"
 					>
-						Yeni inceleme
+						New review
 					</Button>
 				</>
 			) : null}
@@ -178,7 +180,8 @@ export function DirectionalReviewManager({
 				/>
 			) : (
 				<p>
-					Ana Tasarım seçin ve karakter Özel Profil Sözleşmesini etkinleştirin.
+					Select a Canonical Design and activate the character Specialized
+					Profile Contract.
 				</p>
 			)}
 		</section>

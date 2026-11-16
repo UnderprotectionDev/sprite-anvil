@@ -5,6 +5,7 @@ import {
 	importInboxListInputSchema,
 } from "../import-inbox";
 import { protectedProcedure } from "../index";
+import { recordProductBoundary } from "../measurement-workflows";
 import {
 	type SourceMetadataMappingProposal,
 	type SourceMetadataMappingProposalStore,
@@ -150,6 +151,17 @@ export const importsRouter = {
 				userId,
 			});
 			if (result.ok) {
+				await recordProductBoundary(context, {
+					userId,
+					projectId,
+					workflowId: entryId,
+					eventFamily: "import_mapping",
+					eventName: "import_mapping_finalized",
+					phase: "finish",
+					recordKind: "import_batch",
+					outcomeClass: "completed",
+					counters: {},
+				});
 				return result.finalization;
 			}
 			switch (result.reason) {

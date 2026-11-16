@@ -4,6 +4,7 @@ import type {
 	ProjectArchiveCreateInput,
 	ProjectArchiveRejection,
 	ProjectArchiveSource,
+	ProjectArchiveWorkingFiles,
 } from "./project-archives";
 
 export type ProjectArchiveCreateResult =
@@ -17,6 +18,20 @@ export interface ProjectArchiveSourceReader {
 		userId: string,
 		projectId: string
 	) => Promise<ProjectArchiveSource | null>;
+	readWorkingFiles?: (
+		projectId: string,
+		cursor?: string
+	) => Promise<{
+		files: {
+			id: string;
+			assetVersionId: string;
+			fileName: string;
+			byteSize: number;
+			objectKey: string;
+			sha256: string;
+		}[];
+		nextCursor: string | null;
+	}>;
 }
 
 /** Authorized, project-scoped access to immutable Project Archives. */
@@ -37,4 +52,9 @@ export interface ProjectArchiveStore {
 		userId: string,
 		projectId: string
 	) => Promise<ProjectArchiveCatalog | null>;
+	listWorkingFiles: (
+		userId: string,
+		projectId: string,
+		cursor?: string
+	) => Promise<ProjectArchiveWorkingFiles | null>;
 }

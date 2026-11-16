@@ -40,7 +40,8 @@ class MemoryProjectContextStore implements ProjectContextStore {
 		userId: string,
 		input: Parameters<ProjectContextStore["createProject"]>[1]
 	) {
-		const id = "project-ash-knight";
+		const id =
+			this.projects.size === 0 ? "project-ash-knight" : crypto.randomUUID();
 		const currentContextRevision: ContextRevision = {
 			id: crypto.randomUUID(),
 			projectId: id,
@@ -1391,4 +1392,178 @@ test("structured controls reject unsupported rule keys and value types", async (
 			{ context }
 		)
 	).rejects.toMatchObject({ code: "BAD_REQUEST" });
+});
+
+test("groups style rules and copies an independent proposal into another authorized project", async () => {
+	const store = new MemoryProjectContextStore();
+	const context = makeContext(store, "user-1");
+	const source = await store.createProject("user-1", {
+		name: "Source",
+		generalArtDirection: "Pixel",
+	});
+	const target = await store.createProject("user-1", {
+		name: "Target",
+		generalArtDirection: "Pixel",
+	});
+	const sourceRevision = {
+		...source.currentContextRevision,
+		isActive: true,
+		rules: [projectScopedRule(source.id, "outline", "dark")],
+	};
+	store.addRevisionForTest(sourceRevision);
+	const group = await call(
+		appRouter.contextProposals.createStyleModule,
+		{
+			projectId: source.id,
+			baseContextRevisionId: sourceRevision.id,
+			name: "Ink",
+			rules: [{ ruleId: "outline", scope: { kind: "project", id: source.id } }],
+		},
+		{ context }
+	);
+	expect(
+		(await store.listProjects("user-1"))[0]?.currentContextRevision.rules[0]
+			?.styleModule
+	).toBeUndefined();
+	const activated = await call(
+		appRouter.contextProposals.activate,
+		{
+			projectId: source.id,
+			proposalId: group.id,
+			expectedCurrentRevisionId: sourceRevision.id,
+		},
+		{ context }
+	);
+	const sourceModule = activated.rules[0]?.styleModule;
+	if (!sourceModule) {
+		throw new Error("Style Module missing");
+	}
+	expect(sourceModule.name).toBe("Ink");
+	const foreign = await store.createProject("other", {
+		name: "Foreign",
+		generalArtDirection: "Pixel",
+	});
+	await expect(
+		call(
+			appRouter.contextProposals.copyStyleModule,
+			{
+				sourceProjectId: source.id,
+				sourceRevisionId: activated.id,
+				moduleId: sourceModule.id,
+				projectId: foreign.id,
+				baseContextRevisionId: foreign.currentContextRevision.id,
+			},
+			{ context }
+		)
+	).rejects.toMatchObject({ code: "NOT_FOUND" });
+	await expect(
+		call(
+			appRouter.contextProposals.copyStyleModule,
+			{
+				sourceProjectId: foreign.id,
+				sourceRevisionId: foreign.currentContextRevision.id,
+				moduleId: sourceModule.id,
+				projectId: target.id,
+				baseContextRevisionId: target.currentContextRevision.id,
+			},
+			{ context }
+		)
+	).rejects.toMatchObject({ code: "NOT_FOUND" });
+	const copied = await call(
+		appRouter.contextProposals.copyStyleModule,
+		{
+			sourceProjectId: source.id,
+			sourceRevisionId: activated.id,
+			moduleId: sourceModule.id,
+			projectId: target.id,
+			baseContextRevisionId: target.currentContextRevision.id,
+		},
+		{ context }
+	);
+	expect(
+		(await store.listProjects("user-1"))[1]?.currentContextRevision.rules
+	).toHaveLength(0);
+	expect((await store.listProposals("user-1", target.id))[0]?.id).toBe(
+		copied.id
+	);
+	const review = await call(
+		appRouter.contextProposals.review,
+		{ projectId: target.id, proposalId: copied.id },
+		{ context }
+	);
+	expect(review.activationAllowed).toBe(true);
+	const targetRevision = await call(
+		appRouter.contextProposals.activate,
+		{
+			projectId: target.id,
+			proposalId: copied.id,
+			expectedCurrentRevisionId: target.currentContextRevision.id,
+		},
+		{ context }
+	);
+	expect(targetRevision.rules[0]?.value).toEqual({
+		type: "text",
+		value: "dark",
+	});
+	expect(targetRevision.rules[0]?.styleModule?.id).not.toBe(
+		activated.rules[0]?.styleModule?.id
+	);
+	const edit = await call(
+		appRouter.contextProposals.create,
+		proposalInput(source.id, activated.id, [
+			{
+				operation: "replace",
+				ruleId: "outline",
+				scope: { kind: "project", id: source.id },
+				value: { type: "text", value: "bright" },
+				rationale: "Update ink",
+				evidence: [{ kind: "user_decision", statement: "Update outline" }],
+			},
+		]),
+		{ context }
+	);
+	const edited = await call(
+		appRouter.contextProposals.activate,
+		{
+			projectId: source.id,
+			proposalId: edit.id,
+			expectedCurrentRevisionId: activated.id,
+		},
+		{ context }
+	);
+	expect(edited.rules[0]?.styleModule?.version).toBe(2);
+	expect(
+		(await store.getRevision("user-1", target.id, targetRevision.id))?.rules[0]
+			?.value
+	).toEqual({ type: "text", value: "dark" });
+	const conflicting = await call(
+		appRouter.contextProposals.copyStyleModule,
+		{
+			sourceProjectId: source.id,
+			sourceRevisionId: edited.id,
+			moduleId: sourceModule.id,
+			projectId: target.id,
+			baseContextRevisionId: targetRevision.id,
+		},
+		{ context }
+	);
+	const conflictReview = await call(
+		appRouter.contextProposals.review,
+		{ projectId: target.id, proposalId: conflicting.id },
+		{ context }
+	);
+	expect(conflictReview.activationAllowed).toBe(false);
+	await expect(
+		call(
+			appRouter.contextProposals.copyStyleModule,
+			{
+				sourceProjectId: source.id,
+				sourceRevisionId: activated.id,
+				moduleId: sourceModule.id,
+				projectId: target.id,
+				baseContextRevisionId: targetRevision.id,
+			},
+			{ context: makeContext(store, "other") }
+		)
+	).rejects.toThrow();
 });

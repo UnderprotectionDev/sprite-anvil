@@ -2,6 +2,7 @@ import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 import type { Context } from "../context";
 import { protectedProcedure } from "../index";
+import { recordProductBoundary } from "../measurement-workflows";
 import { withPublicationErrors } from "../record-publication";
 import {
 	runtimeValidationEvidenceSchema,
@@ -120,6 +121,17 @@ export const runtimeValidationRouter = {
 								: "The Runtime Validation Record to supersede was not found in this project.",
 					});
 				}
+				await recordProductBoundary(context, {
+					userId: context.session.user.id,
+					projectId: input.projectId,
+					workflowId: result.record.id,
+					eventFamily: "runtime_validation",
+					eventName: "runtime_validation_prepared",
+					phase: "start",
+					recordKind: "runtime_validation",
+					outcomeClass: "workflow_started",
+					counters: {},
+				});
 				return result;
 			})
 		),
@@ -197,14 +209,31 @@ export const runtimeValidationRouter = {
 		.input(runtimeValidationFinalizeOutcomeInputSchema)
 		.output(runtimeValidationDecisionResultSchema)
 		.handler(({ context, input }) =>
-			withPublicationErrors(async () =>
-				decisionOrThrow(
+			withPublicationErrors(async () => {
+				const result = decisionOrThrow(
 					await getRuntimeValidationStore(context).finalizeOutcome(
 						context.session.user.id,
 						input
 					)
-				)
-			)
+				);
+				const outcomeClass = {
+					pass: "confirmed",
+					fail: "failed",
+					inconclusive: "abandoned",
+				} as const;
+				await recordProductBoundary(context, {
+					userId: context.session.user.id,
+					projectId: input.projectId,
+					workflowId: input.recordId,
+					eventFamily: "runtime_validation",
+					eventName: "runtime_validation_finalized",
+					phase: "finish",
+					recordKind: "runtime_validation",
+					outcomeClass: outcomeClass[input.outcome],
+					counters: {},
+				});
+				return result;
+			})
 		),
 	get: protectedProcedure
 		.input(runtimeValidationRecordGetInputSchema)

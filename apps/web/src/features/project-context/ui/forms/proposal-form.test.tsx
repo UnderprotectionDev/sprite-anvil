@@ -16,7 +16,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { ProposalForm } from "./proposal-form";
 
-const overrideName = /Bağlam Kuralı İstisnası/;
+const overrideName = /Context Override/;
 const projectId = "project-lantern-vale";
 const worldId = "world-gameplay";
 
@@ -118,78 +118,81 @@ test("submits every drafted rule change, then resets the draft after saving", as
 	mocked.createProposal.mockResolvedValue({});
 	const { onRefresh } = renderForm();
 
-	fireEvent.change(screen.getByLabelText("Öneri özeti"), {
+	fireEvent.change(screen.getByLabelText("Proposal summary"), {
 		target: { value: "Sadeleştirme" },
 	});
 	fireEvent.click(
-		screen.getByRole("button", { name: "Başka kural değişikliği ekle" })
+		screen.getByRole("button", { name: "Add another rule change" })
 	);
 	fireEvent.click(
-		screen.getByRole("button", { name: "Başka kural değişikliği ekle" })
+		screen.getByRole("button", { name: "Add another rule change" })
 	);
-	expect(screen.getByText("3 değişiklik")).toBeVisible();
+	expect(screen.getByText("3 changes")).toBeVisible();
 	expect(cards()).toHaveLength(3);
 
 	fireEvent.change(
-		screen.getByRole("combobox", { name: "Değişiklik 1 işlemi" }),
+		screen.getByRole("combobox", { name: "Change 1 operation" }),
 		{
 			target: { value: "replace" },
 		}
 	);
-	expect(
-		screen.getByRole("combobox", { name: "Değişiklik 1 kuralı" })
-	).toHaveValue("palette");
-	fireEvent.change(screen.getByLabelText("Değişiklik 1 kural değeri"), {
+	expect(screen.getByRole("combobox", { name: "Change 1 rule" })).toHaveValue(
+		"palette"
+	);
+	fireEvent.change(screen.getByLabelText("Change 1 rule value"), {
 		target: { value: " moss \n\n stone " },
 	});
 	fireEvent.change(
 		within(cards()[0] as HTMLElement).getByLabelText(
-			"Bu değişikliğin gerekçesi"
+			"Rationale for this change"
 		),
 		{
 			target: { value: "Daha az renk" },
 		}
 	);
 	fireEvent.change(
-		screen.getByRole("combobox", { name: "Değişiklik 1 dayanak türü" }),
+		screen.getByRole("combobox", { name: "Change 1 evidence type" }),
 		{
 			target: { value: "observed_change" },
 		}
 	);
-	fireEvent.change(within(cards()[0] as HTMLElement).getByLabelText("Kanıt"), {
-		target: { value: "Ekranda görüldü" },
-	});
+	fireEvent.change(
+		within(cards()[0] as HTMLElement).getByLabelText("Evidence"),
+		{
+			target: { value: "Ekranda görüldü" },
+		}
+	);
 
 	fireEvent.click(
 		within(cards()[1] as HTMLElement).getByRole("button", {
-			name: "Değişikliği kaldır",
+			name: "Remove change",
 		})
 	);
-	expect(screen.getByText("2 değişiklik")).toBeVisible();
+	expect(screen.getByText("2 changes")).toBeVisible();
 
-	fireEvent.change(
-		screen.getByRole("combobox", { name: "Değişiklik 2 kuralı" }),
-		{
-			target: { value: "outline.width" },
-		}
-	);
-	const numberValue = screen.getByLabelText("Değişiklik 2 kural değeri");
+	fireEvent.change(screen.getByRole("combobox", { name: "Change 2 rule" }), {
+		target: { value: "outline.width" },
+	});
+	const numberValue = screen.getByLabelText("Change 2 rule value");
 	expect(numberValue).toHaveAttribute("type", "number");
 	fireEvent.change(numberValue, { target: { value: "2" } });
 	fireEvent.change(
 		within(cards()[1] as HTMLElement).getByLabelText(
-			"Bu değişikliğin gerekçesi"
+			"Rationale for this change"
 		),
 		{
 			target: { value: "İnce kontur" },
 		}
 	);
-	fireEvent.change(within(cards()[1] as HTMLElement).getByLabelText("Kanıt"), {
-		target: { value: "Karar" },
-	});
+	fireEvent.change(
+		within(cards()[1] as HTMLElement).getByLabelText("Evidence"),
+		{
+			target: { value: "Karar" },
+		}
+	);
 
 	fireEvent.click(
-		screen.getByRole("button", { name: "Bağlam Önerisini kaydet" })
+		screen.getByRole("button", { name: "Save Context Proposal" })
 	);
 
 	await waitFor(() => expect(mocked.createProposal).toHaveBeenCalledOnce());
@@ -221,37 +224,29 @@ test("submits every drafted rule change, then resets the draft after saving", as
 		],
 	});
 	await waitFor(() =>
-		expect(mocked.toastSuccess).toHaveBeenCalledWith(
-			"Bağlam Önerisi kaydedildi."
-		)
+		expect(mocked.toastSuccess).toHaveBeenCalledWith("Context Proposal saved.")
 	);
 	expect(onRefresh).toHaveBeenCalledOnce();
-	expect(screen.getByLabelText("Öneri özeti")).toHaveValue("");
-	expect(screen.getByText("1 değişiklik")).toBeVisible();
+	expect(screen.getByLabelText("Proposal summary")).toHaveValue("");
+	expect(screen.getByText("1 change")).toBeVisible();
+	expect(screen.getByRole("combobox", { name: "Change 1 rule" })).toHaveValue(
+		"perspective"
+	);
 	expect(
-		screen.getByRole("combobox", { name: "Değişiklik 1 kuralı" })
-	).toHaveValue("perspective");
-	expect(
-		screen.queryByRole("button", { name: "Değişikliği kaldır" })
+		screen.queryByRole("button", { name: "Remove change" })
 	).not.toBeInTheDocument();
 });
 
-test("a Context Rule Override checkbox supersedes the inherited rule", async () => {
+test("a Context Override checkbox supersedes the inherited rule", async () => {
 	mocked.createProposal.mockResolvedValue({});
 	renderForm();
 
-	fireEvent.change(
-		screen.getByRole("combobox", { name: "Değişiklik 1 kapsamı" }),
-		{
-			target: { value: `visual_world:${worldId}` },
-		}
-	);
-	fireEvent.change(
-		screen.getByRole("combobox", { name: "Değişiklik 1 kuralı" }),
-		{
-			target: { value: "palette" },
-		}
-	);
+	fireEvent.change(screen.getByRole("combobox", { name: "Change 1 scope" }), {
+		target: { value: `visual_world:${worldId}` },
+	});
+	fireEvent.change(screen.getByRole("combobox", { name: "Change 1 rule" }), {
+		target: { value: "palette" },
+	});
 	const override = screen.getByRole("checkbox", {
 		name: overrideName,
 	});
@@ -265,20 +260,20 @@ test("a Context Rule Override checkbox supersedes the inherited rule", async () 
 	fireEvent.click(override);
 	expect(override).toBeChecked();
 
-	fireEvent.change(screen.getByLabelText("Öneri özeti"), {
+	fireEvent.change(screen.getByLabelText("Proposal summary"), {
 		target: { value: "Dünya paleti" },
 	});
-	fireEvent.change(screen.getByLabelText("Değişiklik 1 kural değeri"), {
+	fireEvent.change(screen.getByLabelText("Change 1 rule value"), {
 		target: { value: "ember" },
 	});
-	fireEvent.change(screen.getByLabelText("Bu değişikliğin gerekçesi"), {
+	fireEvent.change(screen.getByLabelText("Rationale for this change"), {
 		target: { value: "Ayrı palet" },
 	});
-	fireEvent.change(screen.getByLabelText("Kanıt"), {
+	fireEvent.change(screen.getByLabelText("Evidence"), {
 		target: { value: "Karar" },
 	});
 	fireEvent.click(
-		screen.getByRole("button", { name: "Bağlam Önerisini kaydet" })
+		screen.getByRole("button", { name: "Save Context Proposal" })
 	);
 
 	await waitFor(() => expect(mocked.createProposal).toHaveBeenCalledOnce());
@@ -301,33 +296,33 @@ test("an uncertain save keeps the draft and locks saving until the state is chec
 	mocked.createProposal.mockRejectedValue(new TypeError("Load failed"));
 	const { onCheckCurrentState } = renderForm();
 
-	fireEvent.change(screen.getByLabelText("Öneri özeti"), {
+	fireEvent.change(screen.getByLabelText("Proposal summary"), {
 		target: { value: "Taslak" },
 	});
-	fireEvent.change(screen.getByLabelText("Değişiklik 1 kural değeri"), {
+	fireEvent.change(screen.getByLabelText("Change 1 rule value"), {
 		target: { value: "izometrik" },
 	});
-	fireEvent.change(screen.getByLabelText("Bu değişikliğin gerekçesi"), {
+	fireEvent.change(screen.getByLabelText("Rationale for this change"), {
 		target: { value: "Gerekçe" },
 	});
-	fireEvent.change(screen.getByLabelText("Kanıt"), {
+	fireEvent.change(screen.getByLabelText("Evidence"), {
 		target: { value: "Karar" },
 	});
 	const submit = screen.getByRole("button", {
-		name: "Bağlam Önerisini kaydet",
+		name: "Save Context Proposal",
 	});
 	fireEvent.click(submit);
 
 	await waitFor(() => expect(submit).toBeDisabled());
-	expect(screen.getByLabelText("Öneri özeti")).toHaveValue("Taslak");
+	expect(screen.getByLabelText("Proposal summary")).toHaveValue("Taslak");
 	fireEvent.submit(submit.closest("form") as HTMLFormElement);
 	expect(mocked.createProposal).toHaveBeenCalledOnce();
 
-	fireEvent.click(screen.getByRole("button", { name: "Durumu kontrol et" }));
+	fireEvent.click(screen.getByRole("button", { name: "Check status" }));
 	await waitFor(() => expect(submit).toBeEnabled());
 	expect(onCheckCurrentState).toHaveBeenCalledOnce();
 	expect(screen.getByRole("status")).toHaveTextContent(
-		"Öneri listesi yenilendi. Kaydı kontrol edin."
+		"Proposal list refreshed. Check the record."
 	);
-	expect(screen.getByLabelText("Öneri özeti")).toHaveValue("Taslak");
+	expect(screen.getByLabelText("Proposal summary")).toHaveValue("Taslak");
 });

@@ -12,7 +12,7 @@ import {
 import { afterEach, expect, test, vi } from "vitest";
 import { DirectionalReviewManager } from "./directional-review-manager";
 
-const uncertainMessage = /Kaydetme sonucu doğrulanamadı/;
+const uncertainMessage = /Could not verify the save result/;
 const mocks = vi.hoisted(() => ({ save: vi.fn(), list: vi.fn() }));
 vi.mock("@/utils/orpc", async () => {
 	const { createTanstackQueryUtils } = await import("@orpc/tanstack-query");
@@ -102,7 +102,9 @@ test("an uncertain save resolves only when its exact record is read back", async
 	const uncertainStatus = (await screen.findByText(uncertainMessage)).closest(
 		'[role="status"]'
 	);
-	expect(uncertainStatus).toHaveTextContent("Warning: Kaydetme sonucu");
+	expect(uncertainStatus).toHaveTextContent(
+		"Warning: Could not verify the save result"
+	);
 	expect(uncertainStatus).not.toHaveTextContent("kaydedilmedi");
 	expect(screen.getByText("Save test review")).toBeDisabled();
 	mocks.list.mockResolvedValue([
@@ -118,7 +120,7 @@ test("an uncertain save resolves only when its exact record is read back", async
 			contractRevisionId: "contract",
 		},
 	]);
-	fireEvent.click(screen.getByText("Güncel kayıtları kontrol et"));
-	await screen.findByText("İnceleme kalıcı kayıttan doğrulandı.");
+	fireEvent.click(screen.getByText("Check current records"));
+	await screen.findByText("Review verified from the saved record.");
 	expect(screen.getByText("Save test review")).toBeDisabled();
 });

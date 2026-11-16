@@ -19,7 +19,7 @@ export const assetRecordSearchDraftSchema = z
 		if (Boolean(width) !== Boolean(height)) {
 			context.addIssue({
 				code: "custom",
-				message: "Ölçü aramak için genişlik ve yüksekliği birlikte girin.",
+				message: "Enter both width and height to search by dimensions.",
 			});
 			return;
 		}
@@ -39,7 +39,7 @@ export const assetRecordSearchDraftSchema = z
 		) {
 			context.addIssue({
 				code: "custom",
-				message: "Genişlik ve yükseklik 1–100.000 px arasında tam sayı olmalı.",
+				message: "Width and height must be integers from 1 to 100,000 px.",
 			});
 		}
 	});

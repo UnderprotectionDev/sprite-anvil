@@ -43,25 +43,25 @@ type Version = Pick<
 type Item = MarketingUsageReviewInput["items"][number];
 const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
 const geometryLabels = {
-	crop: "Kırpma",
-	safeArea: "Güvenli alan",
-	displaySize: "Küçük kullanım ölçüsü",
+	crop: "Crop",
+	safeArea: "Safe area",
+	displaySize: "Small usage size",
 };
 const observationLabels = {
-	readability: "Küçük boyutta okunurluk",
-	safeArea: "Güvenli alan sonucu",
-	crop: "Kırpma sonucu",
+	readability: "Readability at small size",
+	safeArea: "Safe area result",
+	crop: "Crop result",
 };
 const outcomeLabels = {
-	passed: "Geçti",
-	failed: "Başarısız",
-	inconclusive: "Sonuçsuz",
+	passed: "Pass",
+	failed: "Fail",
+	inconclusive: "Inconclusive",
 };
 const purposeLabels = {
 	logo: "Logo",
-	opening: "Açılış",
-	store: "Mağaza",
-	marketing: "Tanıtım",
+	opening: "Splash",
+	store: "Store",
+	marketing: "Marketing",
 };
 function initialItem(version: Version): Item {
 	const size = version.sourceImageDimensions ?? { width: 1, height: 1 };
@@ -152,10 +152,10 @@ export function MarketingUsageReviewManager({
 			result.data?.some((record) => record.id === uncertainId)
 		) {
 			setUncertainId(null);
-			setMessage("İnceleme kalıcı kayıttan doğrulandı.");
+			setMessage("Review verified from the saved record.");
 		} else {
 			setMessage(
-				"Sonuç henüz doğrulanamadı. Aynı incelemeyi göndermeden güncel kayıtları tekrar kontrol edin."
+				"The result could not yet be verified. Check current records before resubmitting the same review."
 			);
 		}
 	}
@@ -170,13 +170,11 @@ export function MarketingUsageReviewManager({
 			items: [item],
 		});
 		if (!result.success) {
-			setMessage(
-				result.error.issues[0]?.message ?? "Kullanım bilgilerini kontrol edin."
-			);
+			setMessage(result.error.issues[0]?.message ?? "Check usage details.");
 			return;
 		}
 		if (readyKey !== previewKey) {
-			setMessage("Önizlemelerin yüklenmesini bekleyin.");
+			setMessage("Wait for previews to load.");
 			return;
 		}
 		setSaving(true);
@@ -190,18 +188,18 @@ export function MarketingUsageReviewManager({
 			) {
 				setUncertainId(result.data.id);
 				setMessage(
-					"İnceleme kaydedildi; yeniden okuma doğrulanamadı. Güncel kayıtları kontrol edin."
+					"Review saved, but reloading could not be verified. Check current records."
 				);
 			} else {
-				setMessage("İnceleme kalıcı kayıttan doğrulandı.");
+				setMessage("Review verified from the saved record.");
 			}
 		} catch (error) {
 			if (isWriteOutcomeUncertain(error)) {
 				showErrorToast(error, { kind: "mutation" });
 				setUncertainId(result.data.id);
-				setMessage("Kaydetme sonucu belirsiz. Güncel kayıtları kontrol edin.");
+				setMessage("Save result is uncertain. Check current records.");
 			} else {
-				setMessage(getErrorMessage(error, "İnceleme kaydedilemedi."));
+				setMessage(getErrorMessage(error, "Could not save review."));
 			}
 		} finally {
 			setSaving(false);
@@ -210,12 +208,12 @@ export function MarketingUsageReviewManager({
 	return (
 		<section className="space-y-4 rounded-md border p-4">
 			<h3 className="font-semibold">
-				Logo ve Tanıtım Kullanımlarını Sınama · {family.name}
+				Test Logo and Marketing Uses · {family.name}
 			</h3>
 			<p className="text-muted-foreground text-sm">
-				Kırpma ve güvenli alan kaynak görselin sol üst köşesinden piksel olarak
-				ölçülür. Küçük kullanım sonucunu siz değerlendirirsiniz; oyun içi piksel
-				ölçeği uygulanmaz. Portre ifade incelemesi ayrı tutulur.
+				Crop and safe area are measured in pixels from the source image’s
+				top-left corner. You assess small usage; in-game pixel scale is not
+				applied. Portrait expression review is separate.
 			</p>
 			<form
 				className="space-y-4"
@@ -253,19 +251,19 @@ export function MarketingUsageReviewManager({
 						}
 						type="submit"
 					>
-						{saving ? "Kaydediliyor…" : "Kullanım incelemesini kaydet"}
+						{saving ? "Kaydediliyor…" : "Save usage review"}
 					</Button>
 				</FieldSet>
 			</form>
 			<WriteOutcomeMessage message={message} uncertain={uncertainId !== null} />
 			{uncertainId ? (
 				<Button onClick={checkRecords} type="button" variant="outline">
-					Güncel kayıtları kontrol et
+					Check current records
 				</Button>
 			) : null}
 			{query.isError ? (
 				<div className="space-y-2">
-					<StatusMessage tone="error">İncelemeler okunamadı.</StatusMessage>
+					<StatusMessage tone="error">Could not load reviews.</StatusMessage>
 					<Button onClick={() => query.refetch()} type="button">
 						Retry
 					</Button>
@@ -274,17 +272,17 @@ export function MarketingUsageReviewManager({
 			<ul className="space-y-3">
 				{query.data?.map((record) => (
 					<li className="rounded border p-3" key={record.id}>
-						<p>{new Date(record.createdAt).toLocaleString("tr-TR")}</p>
+						<p>{new Date(record.createdAt).toLocaleString("en-US")}</p>
 						{record.items.map((usage) => (
 							<div key={JSON.stringify(usage)}>
 								<p>
 									{purposeLabels[usage.usePurpose]} · {usage.displaySize.width}{" "}
 									× {usage.displaySize.height} px ·{" "}
-									{usage.presentation === "opaque" ? "Opak" : "Şeffaf"}
+									{usage.presentation === "opaque" ? "Opak" : "Transparent"}
 								</p>
 								{usage.observations.map((observation) => (
 									<p key={observation.background}>
-										{observation.background === "light" ? "Açık" : "Koyu"}:{" "}
+										{observation.background === "light" ? "Light" : "Dark"}:{" "}
 										{outcomeLabels[observation.readability]} /{" "}
 										{outcomeLabels[observation.safeArea]} /{" "}
 										{outcomeLabels[observation.crop]} · {observation.notes}
@@ -314,7 +312,7 @@ export function MarketingUsageReviewManager({
 							type="button"
 							variant="outline"
 						>
-							Kullanım kanıtını indir
+							Download usage evidence
 						</Button>
 					</li>
 				))}
@@ -355,9 +353,9 @@ function MarketingUsageItemFields({
 	return (
 		<>
 			<Label className="block">
-				Varlık Sürümü
+				Asset Version
 				<NativeSelect
-					aria-label="Varlık Sürümü"
+					aria-label="Asset Version"
 					className="block w-full"
 					onChange={(event) => {
 						const selected = versions.find(
@@ -372,15 +370,15 @@ function MarketingUsageItemFields({
 				>
 					{versions.map((candidate) => (
 						<NativeSelectOption key={candidate.id} value={candidate.id}>
-							Sürüm {candidate.versionNumber} · {candidate.id.slice(0, 8)}
+							Version {candidate.versionNumber} · {candidate.id.slice(0, 8)}
 						</NativeSelectOption>
 					))}
 				</NativeSelect>
 			</Label>
 			<Label className="block">
-				Kullanım amacı
+				Usage purpose
 				<NativeSelect
-					aria-label="Kullanım amacı"
+					aria-label="Usage purpose"
 					className="block"
 					onChange={(event) =>
 						update({
@@ -439,15 +437,17 @@ function MarketingUsageItemFields({
 					}
 					value={item.presentation}
 				>
-					<NativeSelectOption value="transparent">Şeffaf</NativeSelectOption>
+					<NativeSelectOption value="transparent">
+						Transparent
+					</NativeSelectOption>
 					<NativeSelectOption value="opaque">Opak</NativeSelectOption>
 				</NativeSelect>
 			</Label>
 			{item.presentation === "opaque" ? (
 				<Label className="block">
-					Opak zemin rengi
+					Opaque background color
 					<Input
-						aria-label="Opak zemin rengi"
+						aria-label="Opaque background color"
 						className="block h-auto w-auto"
 						onChange={(event) => update({ opaqueColor: event.target.value })}
 						type="color"
@@ -465,7 +465,7 @@ function MarketingUsageItemFields({
 				/>
 			) : (
 				<StatusMessage tone="error">
-					Kırpma ve güvenli alanı kaynak ölçüleri içinde tutun.
+					Keep the crop and safe area within the source dimensions.
 				</StatusMessage>
 			)}
 			{item.observations.map((observation, index) => (
@@ -475,8 +475,8 @@ function MarketingUsageItemFields({
 				>
 					<FieldLegend>
 						{observation.background === "light"
-							? "Açık zemin değerlendirmesi"
-							: "Koyu zemin değerlendirmesi"}
+							? "Light background assessment"
+							: "Dark background assessment"}
 					</FieldLegend>
 					{(["readability", "safeArea", "crop"] as const).map((key) => (
 						<Label
@@ -512,7 +512,7 @@ function MarketingUsageItemFields({
 					))}
 					<div>
 						<Label className="block" htmlFor={`${prefix}-${index}-notes`}>
-							Gözlem
+							Observation
 						</Label>
 						<Textarea
 							className="block w-full"

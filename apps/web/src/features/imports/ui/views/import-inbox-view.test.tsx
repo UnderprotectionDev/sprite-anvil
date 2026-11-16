@@ -27,9 +27,9 @@ const fakeApi = vi.hoisted(() => ({
 	listProposals: vi.fn(),
 	createProposal: vi.fn(),
 }));
-const unresolvedStatusPattern = /İlişkilendirme bekliyor/;
-const uncertainUploadPattern = /Yükleme sonucu doğrulanamadı/;
-const supportReferencePattern = /Destek Referansı:/;
+const unresolvedStatusPattern = /Awaiting linking/;
+const uncertainUploadPattern = /Could not verify the upload result/;
+const supportReferencePattern = /Support reference:/;
 const opaqueSidecarPattern = /opaque-sidecar/;
 const textureMetadataPattern = /texture-metadata/;
 const pivotProposalPattern = /Pivot · walk\.png/;
@@ -37,7 +37,7 @@ const pivotDecisionPattern = /Pivot · walk.png/;
 const halfPivotPattern = /0\.5/;
 const quarterPivotPattern = /0\.25/;
 const changedPivotValuesPattern =
-	/Değişti: Pivot · walk\.png · .*"x":0\.5.* → .*"x":0\.75/;
+	/Changed: Pivot · walk\.png · .*"x":0\.5.* → .*"x":0\.75/;
 
 vi.mock("@/utils/orpc", async () => {
 	const { createTanstackQueryUtils } = await import("@orpc/tanstack-query");
@@ -121,7 +121,7 @@ test("uploads a source file and shows the persisted unresolved Import Inbox Entr
 		</QueryClientProvider>
 	);
 
-	await screen.findByText("Henüz ilişkilendirme bekleyen dosya yok.");
+	await screen.findByText("No files await linking yet.");
 	const file = new File(
 		[new Uint8Array([65, 83, 69, 80, 82, 73, 84, 69])],
 		"hero source.aseprite",
@@ -131,13 +131,13 @@ test("uploads a source file and shows the persisted unresolved Import Inbox Entr
 		target: { files: [file] },
 	});
 	fireEvent.click(
-		screen.getByRole("button", { name: "Dosyaları Gelen Kutusuna Al" })
+		screen.getByRole("button", { name: "Add files to Import Inbox" })
 	);
 
 	expect(await screen.findByText("hero source.aseprite")).toBeInTheDocument();
 	expect(screen.getByText(unresolvedStatusPattern)).toBeInTheDocument();
 	fireEvent.click(screen.getByRole("button", { name: "Bekleyen dosyalar" }));
-	expect(screen.getByRole("link", { name: "Dosyayı indir" })).toHaveAttribute(
+	expect(screen.getByRole("link", { name: "Download file" })).toHaveAttribute(
 		"href",
 		"http://localhost:3000/api/projects/" +
 			projectId +
@@ -184,7 +184,7 @@ test("uploads and rereads an empty source file", async () => {
 		</QueryClientProvider>
 	);
 
-	await screen.findByText("Henüz ilişkilendirme bekleyen dosya yok.");
+	await screen.findByText("No files await linking yet.");
 	const file = new File([], "empty source.aseprite", {
 		type: "application/octet-stream",
 	});
@@ -192,7 +192,7 @@ test("uploads and rereads an empty source file", async () => {
 		target: { files: [file] },
 	});
 	fireEvent.click(
-		screen.getByRole("button", { name: "Dosyaları Gelen Kutusuna Al" })
+		screen.getByRole("button", { name: "Add files to Import Inbox" })
 	);
 
 	expect(await screen.findByText("empty source.aseprite")).toBeInTheDocument();
@@ -234,7 +234,7 @@ test("shows a support reference and checks the inbox after an uncertain server r
 			<ImportInboxView projectId={projectId} />
 		</QueryClientProvider>
 	);
-	await screen.findByText("Henüz ilişkilendirme bekleyen dosya yok.");
+	await screen.findByText("No files await linking yet.");
 	const file = new File(
 		[new Uint8Array([65, 83, 69, 80, 82, 73, 84, 69])],
 		"hero source.aseprite",
@@ -244,16 +244,16 @@ test("shows a support reference and checks the inbox after an uncertain server r
 		target: { files: [file] },
 	});
 	fireEvent.click(
-		screen.getByRole("button", { name: "Dosyaları Gelen Kutusuna Al" })
+		screen.getByRole("button", { name: "Add files to Import Inbox" })
 	);
 
 	expect(await screen.findByText(uncertainUploadPattern)).toBeInTheDocument();
 	expect(
-		screen.getByText(`Destek Referansı: ${supportReference}`)
+		screen.getByText(`Support reference: ${supportReference}`)
 	).toBeInTheDocument();
 	expect(await screen.findByText("hero source.aseprite")).toBeInTheDocument();
 	expect(
-		screen.getByRole("button", { name: "Dosyaları Gelen Kutusuna Al" })
+		screen.getByRole("button", { name: "Add files to Import Inbox" })
 	).toBeDisabled();
 	expect(uploadCount).toBe(1);
 });
@@ -274,7 +274,7 @@ test("does not retry an upload when the connection result is unknown", async () 
 			<ImportInboxView projectId={projectId} />
 		</QueryClientProvider>
 	);
-	await screen.findByText("Henüz ilişkilendirme bekleyen dosya yok.");
+	await screen.findByText("No files await linking yet.");
 	const file = new File(
 		[new Uint8Array([65, 83, 69, 80, 82, 73, 84, 69])],
 		"hero source.aseprite",
@@ -284,13 +284,13 @@ test("does not retry an upload when the connection result is unknown", async () 
 		target: { files: [file] },
 	});
 	fireEvent.click(
-		screen.getByRole("button", { name: "Dosyaları Gelen Kutusuna Al" })
+		screen.getByRole("button", { name: "Add files to Import Inbox" })
 	);
 
 	expect(await screen.findByText(uncertainUploadPattern)).toBeInTheDocument();
 	expect(screen.queryByText(supportReferencePattern)).not.toBeInTheDocument();
 	expect(
-		screen.getByRole("button", { name: "Dosyaları Gelen Kutusuna Al" })
+		screen.getByRole("button", { name: "Add files to Import Inbox" })
 	).toBeDisabled();
 });
 
@@ -322,15 +322,15 @@ test("shows the support reference for a failed inbox read and retries the query"
 	);
 
 	expect(
-		await screen.findByText("Gelen kutusu yüklenemedi.")
+		await screen.findByText("Could not load Import Inbox.")
 	).toBeInTheDocument();
 	expect(
-		screen.getByText(`Destek Referansı: ${supportReference}`)
+		screen.getByText(`Support reference: ${supportReference}`)
 	).toBeInTheDocument();
 	fireEvent.click(screen.getByRole("button", { name: "Bekleyen dosyalar" }));
-	fireEvent.click(screen.getByRole("button", { name: "Yeniden dene" }));
+	fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 	expect(
-		await screen.findByText("Henüz ilişkilendirme bekleyen dosya yok.")
+		await screen.findByText("No files await linking yet.")
 	).toBeInTheDocument();
 	expect(readCount).toBe(2);
 });
@@ -489,12 +489,12 @@ test("creates and rereads a source metadata proposal from explicitly selected si
 	fireEvent.click(screen.getByRole("button", { name: "Bekleyen dosyalar" }));
 	const sourcePanel = within(
 		screen.getByRole("region", {
-			name: "sheet.png için Kaynak Metadata Eşleme Önerisi",
+			name: "Source Metadata Mapping Proposal for sheet.png",
 		})
 	);
 	expect(
 		sourcePanel.getByText(
-			"En fazla 10 sidecar seçin. Her dosya 5 MiB, toplam boyut 8 MiB ile sınırlıdır."
+			"Select up to 10 sidecars. Each file is limited to 5 MiB and the total to 8 MiB."
 		)
 	).toBeInTheDocument();
 	fireEvent.click(
@@ -505,52 +505,48 @@ test("creates and rereads a source metadata proposal from explicitly selected si
 	);
 	fireEvent.click(
 		screen.getByRole("button", {
-			name: "Kaynak Metadata Eşleme Önerisi oluştur: sheet.png",
+			name: "Create Source Metadata Mapping Proposal: sheet.png",
 		})
 	);
 	await waitFor(() => expect(fakeApi.createProposal).toHaveBeenCalledTimes(1));
 	expect(screen.getByText("source-metadata-mapping/1.1.0")).toBeInTheDocument();
 	expect(
-		screen.getByText(
-			"Varlık Ailesi bağlantısı: Bilinmiyor · kaynak kanıtı yok."
-		)
+		screen.getByText("Asset Family link: Unknown · no source evidence.")
 	).toBeInTheDocument();
 	expect(
-		screen.getByText(
-			"Gerekli Öğeler Listesi bağlantısı: Bilinmiyor · kaynak kanıtı yok."
-		)
+		screen.getByText("Required Set link: Unknown · no source evidence.")
 	).toBeInTheDocument();
 	expect(
-		screen.getByText("Oyun İçi Bilgiler: Bilinmiyor · proje bağlamı gerekli.")
+		screen.getByText("Gameplay Metadata: Unknown · project context required.")
 	).toBeInTheDocument();
 	expect(screen.getAllByText("Pivot · walk.png")).toHaveLength(2);
-	expect(screen.getByText("Süre · walk.png")).toBeInTheDocument();
+	expect(screen.getByText("Duration · walk.png")).toBeInTheDocument();
 	expect(
 		within(
-			screen.getByRole("list", { name: "Önerilen kaynak alanları" })
+			screen.getByRole("list", { name: "Proposed source fields" })
 		).getAllByText(pivotProposalPattern)
 	).toHaveLength(2);
 	expect(
 		within(
-			screen.getByRole("list", { name: "Önerilen kaynak alanları" })
+			screen.getByRole("list", { name: "Proposed source fields" })
 		).getAllByText(halfPivotPattern)
 	).toHaveLength(1);
 	expect(
 		within(
-			screen.getByRole("list", { name: "Önerilen kaynak alanları" })
+			screen.getByRole("list", { name: "Proposed source fields" })
 		).getAllByText(quarterPivotPattern)
 	).toHaveLength(1);
 	expect(screen.getByText("c".repeat(64))).toBeInTheDocument();
 	expect(
-		screen.getByText("1 alan çakışması var; öneri henüz kesinleşmedi.")
+		screen.getByText("Field conflicts: 1. The proposal is not finalized.")
 	).toBeInTheDocument();
-	expect(screen.getAllByText("Çakışma")).toHaveLength(2);
+	expect(screen.getAllByText("Conflict")).toHaveLength(2);
 	expect(
 		screen.getByRole("combobox", { name: pivotDecisionPattern })
 	).toHaveValue("");
 	expect(
 		screen.getByRole("button", {
-			name: "Eşlemeyi kesinleştir ve Aday Sürüm oluştur",
+			name: "Finalize mapping and create Candidate Version",
 		})
 	).toBeDisabled();
 	expect(createInput).toEqual({
@@ -574,15 +570,13 @@ test("creates and rereads a source metadata proposal from explicitly selected si
 	};
 	fireEvent.click(
 		screen.getByRole("button", {
-			name: "Kaynak Metadata Eşleme Önerisi oluştur: sheet.png",
+			name: "Create Source Metadata Mapping Proposal: sheet.png",
 		})
 	);
 	expect(
-		await screen.findByText("Önceki öneriye göre fark")
+		await screen.findByText("Changes since previous proposal")
 	).toBeInTheDocument();
-	expect(
-		screen.getByText("JSON sidecar kaynakları değişti.")
-	).toBeInTheDocument();
+	expect(screen.getByText("JSON sidecar sources changed.")).toBeInTheDocument();
 	expect(screen.getByText(changedPivotValuesPattern)).toBeInTheDocument();
 	const legacyProposal = {
 		...proposal,
@@ -594,7 +588,7 @@ test("creates and rereads a source metadata proposal from explicitly selected si
 	nextProposal = legacyProposal;
 	fireEvent.click(
 		screen.getByRole("button", {
-			name: "Kaynak Metadata Eşleme Önerisi oluştur: sheet.png",
+			name: "Create Source Metadata Mapping Proposal: sheet.png",
 		})
 	);
 	expect(
@@ -607,7 +601,7 @@ test("creates and rereads a source metadata proposal from explicitly selected si
 	};
 	fireEvent.click(
 		screen.getByRole("button", {
-			name: "Güncel sözleşmeyle yeni öneri oluştur",
+			name: "Create proposal with current contract",
 		})
 	);
 	await waitFor(() => expect(savedProposals).toHaveLength(4));

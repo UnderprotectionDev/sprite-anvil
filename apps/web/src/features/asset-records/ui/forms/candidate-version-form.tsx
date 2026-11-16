@@ -61,7 +61,7 @@ export function CandidateVersionForm({
 						className="block space-y-1 text-sm leading-normal"
 						htmlFor="asset-version-file"
 					>
-						<span>PNG veya WebP dosyası</span>
+						<span>PNG or WebP file</span>
 						<Input
 							accept="image/png,image/webp"
 							id="asset-version-file"
@@ -80,13 +80,13 @@ export function CandidateVersionForm({
 						className="block space-y-1 text-sm leading-normal"
 						htmlFor="asset-version-missing-history"
 					>
-						<span>Bilinmeyen üretim geçmişi</span>
+						<span>Unknown production history</span>
 						<Textarea
 							className="min-h-20 w-full"
 							id="asset-version-missing-history"
 							maxLength={1000}
 							onChange={(event) => field.handleChange(event.target.value)}
-							placeholder="Bilinmeyen üretim bilgilerini belirtin."
+							placeholder="Describe the unknown production information."
 							required
 							value={field.state.value}
 						/>
@@ -99,7 +99,7 @@ export function CandidateVersionForm({
 						className="block space-y-1 text-sm leading-normal"
 						htmlFor="asset-version-source"
 					>
-						<span>Bilinen kaynak</span>
+						<span>Known source</span>
 						<Input
 							id="asset-version-source"
 							onChange={(event) => field.handleChange(event.target.value)}
@@ -114,7 +114,7 @@ export function CandidateVersionForm({
 						className="block space-y-1 text-sm leading-normal"
 						htmlFor="asset-version-relationship"
 					>
-						<span>Varlıkla ilişkiniz</span>
+						<span>Your relationship to the asset</span>
 						<NativeSelect
 							className="w-full"
 							id="asset-version-relationship"
@@ -125,17 +125,15 @@ export function CandidateVersionForm({
 							}
 							value={field.state.value}
 						>
-							<NativeSelectOption value="unknown">
-								Bilinmiyor
-							</NativeSelectOption>
+							<NativeSelectOption value="unknown">Unknown</NativeSelectOption>
 							<NativeSelectOption value="created_by_user">
-								Ben oluşturdum
+								I created it
 							</NativeSelectOption>
 							<NativeSelectOption value="received_from_team">
-								Ekipten aldım
+								Received from team
 							</NativeSelectOption>
 							<NativeSelectOption value="licensed_third_party">
-								Lisanslı üçüncü taraf
+								Licensed third party
 							</NativeSelectOption>
 						</NativeSelect>
 					</Label>
@@ -147,7 +145,7 @@ export function CandidateVersionForm({
 						className="block space-y-1 text-sm leading-normal"
 						htmlFor="asset-version-evidence"
 					>
-						<span>Destekleyici kanıt</span>
+						<span>Supporting evidence</span>
 						<Textarea
 							className="min-h-20 w-full"
 							id="asset-version-evidence"
@@ -158,13 +156,13 @@ export function CandidateVersionForm({
 				)}
 			</form.Field>
 			<p className="text-muted-foreground text-xs">
-				Eski üretim geçmişi bilinmiyor olarak kaydedilecek.
+				Legacy production history will be recorded as unknown.
 			</p>
 			<Button
 				disabled={busy || !candidateVersionFormSchema.safeParse(values).success}
 				type="submit"
 			>
-				{saving ? "Kaydediliyor…" : "Aday sürümü kaydet"}
+				{saving ? "Saving…" : "Save Candidate Version"}
 			</Button>
 		</form>
 	);

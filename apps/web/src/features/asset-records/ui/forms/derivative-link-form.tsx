@@ -18,11 +18,11 @@ type DependencyFacet = (typeof dependencyFacets)[number];
 const dependencyFacetLabels: Record<DependencyFacet, string> = {
 	equipment: "Ekipman",
 	identity: "Kimlik",
-	other: "Diğer",
-	palette: "Palet",
+	other: "Other",
+	palette: "Palette",
 	perspective: "Perspektif",
-	silhouette: "Siluet",
-	theme: "Tema",
+	silhouette: "Silhouette",
+	theme: "Theme",
 	timing: "Zamanlama",
 };
 
@@ -71,7 +71,7 @@ export function DerivativeLinkForm({
 						className="block space-y-1 text-sm leading-normal"
 						htmlFor="derivative-record"
 					>
-						<span>Türetilmiş Asset Record</span>
+						<span>Derived Asset Record</span>
 						<NativeSelect
 							className="w-full"
 							id="derivative-record"
@@ -79,7 +79,7 @@ export function DerivativeLinkForm({
 							required
 							value={field.state.value}
 						>
-							<NativeSelectOption value="">Kayıt seçin</NativeSelectOption>
+							<NativeSelectOption value="">Select a record</NativeSelectOption>
 							{options.map((option) => (
 								<NativeSelectOption key={option.id} value={option.id}>
 									{option.name}
@@ -92,7 +92,7 @@ export function DerivativeLinkForm({
 			<form.Field name="dependencyFacets">
 				{(field) => (
 					<FieldSet className="gap-0 space-y-2">
-						<FieldLegend className="mb-0">Bağımlılık Tanımı</FieldLegend>
+						<FieldLegend className="mb-0">Dependency Declaration</FieldLegend>
 						<div className="grid gap-2 sm:grid-cols-2">
 							{dependencyFacets.map((facet) => (
 								<Label className="text-sm leading-normal" key={facet}>
@@ -117,7 +117,7 @@ export function DerivativeLinkForm({
 				disabled={busy || !derivativeLinkFormSchema.safeParse(values).success}
 				type="submit"
 			>
-				Türevi bağla
+				Link derivative
 			</Button>
 		</form>
 	);

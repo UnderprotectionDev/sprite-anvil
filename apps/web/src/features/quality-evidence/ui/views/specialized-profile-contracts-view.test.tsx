@@ -117,18 +117,19 @@ test("activates one project profile and displays the persisted revision", async 
 		return Promise.resolve(fakeApi.activation);
 	});
 	renderContracts();
-	fireEvent.click(await screen.findByRole("button", { name: "İkon" }));
+	fireEvent.click(await screen.findByRole("button", { name: "Icon" }));
 
-	const iconCard = await screen.findByRole("article", { name: "İkon" });
-	const detailsButton = within(iconCard).getByText("Sözleşme ayrıntıları");
+	const iconCard = await screen.findByRole("article", { name: "Icon" });
+	const detailsButton = within(iconCard).getByText("Contract details");
 	fireEvent.click(detailsButton);
 	expect(within(iconCard).getByText("icon.metadata_roundtrip")).toBeVisible();
+	expect(within(iconCard).getByText("Usage variant · Required")).toBeVisible();
 	expect(
-		within(iconCard).getByText("Metadata alanları ve dışa aktarım eşlemeleri")
+		within(iconCard).getByText("Metadata fields and export mappings")
 	).toBeVisible();
 
 	fireEvent.click(
-		within(iconCard).getByRole("button", { name: "Sözleşmeyi etkinleştir" })
+		within(iconCard).getByRole("button", { name: "Activate contract" })
 	);
 
 	await waitFor(() => {
@@ -139,19 +140,17 @@ test("activates one project profile and displays the persisted revision", async 
 		expect(fakeApi.list).toHaveBeenCalledTimes(2);
 	});
 	expect(
-		await screen.findByText(
-			"İkon 1.0.0 sürümü etkinleştirildi ve yeniden okundu."
-		)
+		await screen.findByText("Icon 1.0.0 version activated and reread.")
 	).toBeVisible();
 	expect(
-		within(iconCard).getByRole("button", { name: "Etkin" })
+		within(iconCard).getByRole("button", { name: "Active" })
 	).toBeDisabled();
 	fireEvent.click(
-		screen.getByRole("button", { name: "Arka plan ve katmanlı kaydırma" })
+		screen.getByRole("button", { name: "Background and parallax" })
 	);
 	expect(
 		within(
-			screen.getByRole("article", { name: "Arka plan ve katmanlı kaydırma" })
-		).getByText("Bu projede henüz etkin değil")
+			screen.getByRole("article", { name: "Background and parallax" })
+		).getByText("Not active in this project yet")
 	).toBeVisible();
 });

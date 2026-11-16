@@ -28,19 +28,19 @@ function TargetMapping({
 		...orpc.deliveryFulfilment.listMappings.queryOptions({
 			input: { deliveryTargetId, projectId },
 		}),
-		meta: { suppressGlobalErrorToast: true },
+		meta: { errorPresentation: "inline" },
 	});
 	const fulfilments = useQuery({
 		...orpc.deliveryFulfilment.listFulfilments.queryOptions({
 			input: { deliveryTargetId, projectId },
 		}),
-		meta: { suppressGlobalErrorToast: true },
+		meta: { errorPresentation: "inline" },
 	});
 	const notices = useQuery({
 		...orpc.historicalRiskNotices.list.queryOptions({
 			input: { deliveryTargetId, projectId },
 		}),
-		meta: { suppressGlobalErrorToast: true },
+		meta: { errorPresentation: "inline" },
 	});
 	const prepare = usePrepareFulfilmentMapping();
 	const { failure, submit } = useIdempotentSubmit(
@@ -144,7 +144,7 @@ export function FulfilmentMappingView({
 }) {
 	const catalog = useQuery({
 		...orpc.deliveryPlanning.list.queryOptions({ input: { projectId } }),
-		meta: { suppressGlobalErrorToast: true },
+		meta: { errorPresentation: "inline" },
 	});
 	const targets = catalog.data?.deliveryTargets ?? [];
 	const selected =

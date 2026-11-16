@@ -1,0 +1,1775 @@
+// @vitest-environment jsdom
+
+import {
+	act,
+	cleanup,
+	fireEvent,
+	render,
+	screen,
+	waitFor,
+	within,
+} from "@testing-library/react";
+import "@testing-library/jest-dom/vitest";
+import type { FamilyReadiness } from "@sprite-anvil/api/family-readiness";
+import type { SpecializedProfileContractsListOutput } from "@sprite-anvil/api/specialized-profile-contracts";
+import { specializedProfileContractCatalog } from "@sprite-anvil/api/specialized-profile-contracts";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { afterEach, expect, test, vi } from "vitest";
+import { FamilyReadinessManager } from "@/components/family-readiness-manager";
+import { createQueryClient } from "@/utils/query-client";
+
+const usageTestIdLabel = /^Usage test ID/;
+
+const fakeApi = vi.hoisted(() => ({
+	recordEvidence: vi.fn(),
+	saveDraft: vi.fn(),
+	readiness: null as unknown,
+}));
+
+const mutationOf = vi.hoisted(
+	() => (mutationFn: (input: never) => unknown) => ({
+		mutationOptions: (options?: object) => ({ ...options, mutationFn }),
+	})
+);
+
+vi.mock("@/utils/orpc", () => ({
+	client: {
+		familyReadiness: {
+			recordEvidence: fakeApi.recordEvidence,
+			saveDraft: fakeApi.saveDraft,
+		},
+	},
+	orpc: {
+		familyReadiness: {
+			activate: mutationOf(() => Promise.reject(new Error("unexpected write"))),
+			recordEvidence: mutationOf((input: unknown) =>
+				fakeApi.recordEvidence(input)
+			),
+			saveDraft: mutationOf((input: unknown) => fakeApi.saveDraft(input)),
+			list: {
+				queryOptions: ({
+					input,
+				}: {
+					input: { projectId: string; assetFamilyId: string };
+				}) => ({
+					queryKey: ["family-readiness", input.assetFamilyId],
+					queryFn: async () => fakeApi.readiness,
+				}),
+			},
+		},
+	},
+}));
+
+const readiness = {
+	projectId: "project-1",
+	assetFamilyId: "family-1",
+	status: "incomplete",
+	activeRevision: {
+		id: "revision-1",
+		projectId: "project-1",
+		assetFamilyId: "family-1",
+		revisionNumber: 1,
+		items: [
+			{
+				id: "east-facing",
+				kind: "direction",
+				name: "East-facing sprite",
+				disposition: "required",
+				assetRecordIds: ["asset-record-1"],
+			},
+		],
+		createdAt: "2026-09-29T10:00:00.000Z",
+		createdByUserId: "user-1",
+		isActive: true,
+		wasActivated: true,
+	},
+	revisions: [],
+	items: [
+		{
+			item: {
+				id: "east-facing",
+				kind: "direction",
+				name: "East-facing sprite",
+				disposition: "required",
+				assetRecordIds: ["asset-record-1"],
+			},
+			status: "incomplete",
+			blockers: ["applicability", "quality", "quality_contract"],
+			currentAssetVersionIds: ["asset-version-1"],
+			qualityReadiness: "not_assessed",
+			qualityRequirements: [
+				{
+					id: "general.asset_support",
+					name: "General Asset Support",
+					class: "general_asset_support",
+					required: true,
+					waiverEligible: false,
+					result: "not_assessed",
+					isCurrent: false,
+				},
+			],
+			humanReviewRequirements: [],
+			usageRequirements: [],
+			latestEvidence: [],
+		},
+	],
+} satisfies FamilyReadiness;
+
+afterEach(() => {
+	cleanup();
+	vi.restoreAllMocks();
+	fakeApi.recordEvidence.mockReset();
+	fakeApi.saveDraft.mockReset();
+	fakeApi.readiness = null;
+});
+
+test("records quality evidence for the active Required Set item through labeled controls", async () => {
+	fakeApi.readiness = readiness;
+	fakeApi.recordEvidence.mockResolvedValue(readiness);
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	render(
+		<QueryClientProvider client={queryClient}>
+			<FamilyReadinessManager
+				assetFamilyId="family-1"
+				assetRecords={[
+					{
+						assetCategory: null,
+						id: "asset-record-1",
+						name: "East-facing sprite",
+					},
+				]}
+				familyName="Combat sprite"
+				profileContracts={null}
+				projectId="project-1"
+			/>
+		</QueryClientProvider>
+	);
+
+	const qualityForm = within(
+		(
+			await screen.findByRole("heading", {
+				name: "General Asset Support · General Asset Support",
+			})
+		).closest("form") as HTMLFormElement
+	);
+	fireEvent.change(qualityForm.getByRole("textbox", { name: "Method" }), {
+		target: { value: "Measured the submitted version at native scale." },
+	});
+	fireEvent.change(
+		qualityForm.getByRole("textbox", { name: "Rationale or observation" }),
+		{
+			target: { value: "The observed dimensions match the rule." },
+		}
+	);
+	fireEvent.submit(
+		qualityForm
+			.getByRole("button", { name: "Save evidence" })
+			.closest("form") as HTMLFormElement
+	);
+
+	await waitFor(() => expect(fakeApi.recordEvidence).toHaveBeenCalledOnce());
+	expect(fakeApi.recordEvidence).toHaveBeenCalledWith({
+		projectId: "project-1",
+		assetFamilyId: "family-1",
+		revisionId: "revision-1",
+		itemId: "east-facing",
+		kind: "quality",
+		result: "passed",
+		ruleId: "general.asset_support",
+		method: "Measured the submitted version at native scale.",
+		rationale: "The observed dimensions match the rule.",
+	});
+});
+
+test("clears a usage test id when changing the Required Set item kind", async () => {
+	const { activeRevision } = readiness;
+	if (!activeRevision) {
+		return;
+	}
+	const usageTestItem = {
+		id: "target-size-backgrounds",
+		kind: "usage_test",
+		name: "Target sizes and backgrounds",
+		disposition: "required",
+		assetRecordIds: ["asset-record-1"],
+		testId: "target_size_backgrounds",
+	} satisfies FamilyReadiness["items"][number]["item"];
+	fakeApi.readiness = {
+		...readiness,
+		activeRevision: { ...activeRevision, items: [usageTestItem] },
+	} satisfies FamilyReadiness;
+	fakeApi.saveDraft.mockResolvedValue({});
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	render(
+		<QueryClientProvider client={queryClient}>
+			<FamilyReadinessManager
+				assetFamilyId="family-1"
+				assetRecords={[
+					{
+						assetCategory: "icon",
+						id: "asset-record-1",
+						name: "Icon",
+					},
+				]}
+				familyName="Combat sprite"
+				profileContracts={null}
+				projectId="project-1"
+			/>
+		</QueryClientProvider>
+	);
+
+	const kindSelect = await screen.findByRole("combobox", { name: "Item type" });
+	fireEvent.change(kindSelect, { target: { value: "direction" } });
+	fireEvent.submit(kindSelect.closest("form") as HTMLFormElement);
+
+	await waitFor(() => expect(fakeApi.saveDraft).toHaveBeenCalledOnce());
+	expect(fakeApi.saveDraft).toHaveBeenCalledWith({
+		projectId: "project-1",
+		assetFamilyId: "family-1",
+		items: [
+			{
+				id: "target-size-backgrounds",
+				kind: "direction",
+				name: "Target sizes and backgrounds",
+				disposition: "required",
+				assetRecordIds: [],
+			},
+		],
+	});
+});
+
+test("records a measured value for a Specialized Profile Contract measurement", async () => {
+	const template = specializedProfileContractCatalog.find(
+		(contract) => contract.profileId === "icon"
+	);
+	const [itemResult] = readiness.items;
+	if (!(template && itemResult)) {
+		return;
+	}
+	const profileContracts = {
+		profiles: specializedProfileContractCatalog.map((definition) => ({
+			definition,
+			activeContract:
+				definition.profileId === template.profileId
+					? {
+							activatedAt: "2026-09-29T10:00:00.000Z",
+							activatedByUserId: "user-1",
+							contract: definition,
+							contractRevisionId: `${definition.profileId}@${definition.version}`,
+							projectId: "project-1",
+						}
+					: null,
+		})),
+	} satisfies SpecializedProfileContractsListOutput;
+	fakeApi.readiness = {
+		...readiness,
+		items: [
+			{
+				...itemResult,
+				qualityRequirements: template.rules.map((rule) => ({
+					id: rule.id,
+					name: rule.input,
+					class: rule.class,
+					required: rule.class !== "quality_advisory",
+					waiverEligible: rule.waiverEligibility,
+					result: "not_assessed" as const,
+					isCurrent: false,
+				})),
+			},
+		],
+	} satisfies FamilyReadiness;
+	fakeApi.recordEvidence.mockResolvedValue(readiness);
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	render(
+		<QueryClientProvider client={queryClient}>
+			<FamilyReadinessManager
+				assetFamilyId="family-1"
+				assetRecords={[
+					{
+						assetCategory: "icon",
+						id: "asset-record-1",
+						name: "East-facing sprite",
+					},
+				]}
+				familyName="Combat sprite"
+				profileContracts={profileContracts}
+				projectId="project-1"
+			/>
+		</QueryClientProvider>
+	);
+
+	const measuredRule = template.rules.find(
+		(rule) => rule.class === "waivable_requirement"
+	);
+	if (!measuredRule) {
+		return;
+	}
+	const qualityForm = within(
+		(
+			await screen.findByRole("heading", {
+				name: `${measuredRule.input} · Waivable Requirement`,
+			})
+		).closest("form") as HTMLFormElement
+	);
+	const observedValue = qualityForm.getByRole("textbox", {
+		name: "Observed value",
+	});
+	expect(observedValue).toBeRequired();
+	expect(
+		qualityForm.queryByRole("option", { name: "Grant Quality Waiver" })
+	).not.toBeInTheDocument();
+	fireEvent.change(observedValue, { target: { value: "96%" } });
+	fireEvent.change(qualityForm.getByRole("textbox", { name: "Method" }), {
+		target: { value: "Compared against the declared tolerance." },
+	});
+	fireEvent.change(
+		qualityForm.getByRole("textbox", { name: "Rationale or observation" }),
+		{ target: { value: "The measured value is within the declared limit." } }
+	);
+	fireEvent.submit(
+		qualityForm
+			.getByRole("button", { name: "Save evidence" })
+			.closest("form") as HTMLFormElement
+	);
+
+	await waitFor(() => expect(fakeApi.recordEvidence).toHaveBeenCalledOnce());
+	expect(fakeApi.recordEvidence).toHaveBeenCalledWith(
+		expect.objectContaining({
+			kind: "quality",
+			result: "passed",
+			ruleId: measuredRule.id,
+			observedValue: "96%",
+		})
+	);
+});
+
+function renderQualityWaiverMeasurement(isCurrent = true) {
+	const template = specializedProfileContractCatalog.find(
+		(contract) => contract.profileId === "icon"
+	);
+	const measuredRule = template?.rules.find(
+		(rule) => rule.class === "waivable_requirement"
+	);
+	const [itemResult] = readiness.items;
+	if (!(template && measuredRule && itemResult)) {
+		throw new Error("The icon measurement fixtures are required.");
+	}
+	const measurement = {
+		id: "measurement-1",
+		projectId: "project-1",
+		assetFamilyId: "family-1",
+		revisionId: "revision-1",
+		itemId: "east-facing",
+		kind: "quality" as const,
+		result: "failed" as const,
+		assetVersionIds: ["asset-version-1"],
+		profileContractRevisionIds: [`icon@${template.version}`],
+		contextRevisionId: "context-1",
+		visualWorldId: "world-1",
+		useContext: "combat",
+		canonicalDesignVersionId: "canonical-version-1",
+		ruleId: measuredRule.id,
+		ruleClass: "waivable_requirement" as const,
+		testId: null,
+		usageTestContext: null,
+		usageVariant: null,
+		targetDimensions: null,
+		grayscaleReviewed: null,
+		observedValue: "96%",
+		versionTarget: { kind: "unit" as const, id: "unit-version-1" },
+		method: "Measured at native scale.",
+		rationale: "The observed padding exceeds the declared limit.",
+		createdAt: "2026-09-29T10:00:00.000Z",
+		createdByUserId: "user-1",
+		isCurrent,
+	};
+	const measuredReadiness = {
+		...readiness,
+		items: [
+			{
+				...itemResult,
+				qualityReadiness: "blocked" as const,
+				qualityRequirements: [
+					{
+						id: measuredRule.id,
+						name: measuredRule.input,
+						class: measuredRule.class,
+						required: true,
+						waiverEligible: true,
+						result: "failed" as const,
+						isCurrent,
+					},
+				],
+				latestEvidence: [measurement],
+				qualityVersionTargets: [{ kind: "unit", id: "unit-version-1" }],
+			},
+		],
+	} satisfies FamilyReadiness;
+	fakeApi.readiness = measuredReadiness;
+	const profileContracts = {
+		profiles: specializedProfileContractCatalog.map((definition) => ({
+			definition,
+			activeContract:
+				definition.profileId === "icon"
+					? {
+							activatedAt: "2026-09-29T10:00:00.000Z",
+							activatedByUserId: "user-1",
+							contract: definition,
+							contractRevisionId: `icon@${definition.version}`,
+							projectId: "project-1",
+						}
+					: null,
+		})),
+	} satisfies SpecializedProfileContractsListOutput;
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	render(
+		<QueryClientProvider client={queryClient}>
+			<FamilyReadinessManager
+				assetFamilyId="family-1"
+				assetRecords={[
+					{
+						assetCategory: "icon",
+						id: "asset-record-1",
+						name: "East-facing sprite",
+					},
+				]}
+				familyName="Combat sprite"
+				profileContracts={profileContracts}
+				projectId="project-1"
+			/>
+		</QueryClientProvider>
+	);
+	return { measuredRule, measurement, measuredReadiness };
+}
+
+test("grants a reasoned Quality Waiver for the displayed immutable measurement and reads it back", async () => {
+	const { measuredRule, measurement, measuredReadiness } =
+		renderQualityWaiverMeasurement();
+	const rationale = "The intentional overflow is accepted only for combat.";
+	fakeApi.recordEvidence.mockImplementation(() => {
+		const persisted = {
+			...measuredReadiness,
+			items: measuredReadiness.items.map((itemResult) => ({
+				...itemResult,
+				qualityReadiness: "exceptions_ready" as const,
+				qualityRequirements: itemResult.qualityRequirements.map(
+					(requirement) => ({ ...requirement, result: "waived" as const })
+				),
+				latestEvidence: [
+					{
+						...measurement,
+						id: "waiver-1",
+						result: "waived" as const,
+						rationale,
+					},
+				],
+			})),
+		};
+		fakeApi.readiness = persisted;
+		return Promise.resolve(persisted);
+	});
+	const form = (
+		await screen.findByRole("heading", {
+			name: `${measuredRule.input} · Waivable Requirement`,
+		})
+	).closest("form") as HTMLFormElement;
+	const controls = within(form);
+	fireEvent.change(controls.getByRole("combobox", { name: "Result" }), {
+		target: { value: "waived" },
+	});
+	const scope = controls.getByRole("group", {
+		name: "Quality Waiver scope",
+	});
+	for (const value of [
+		"measurement-1",
+		"asset-version-1",
+		"context-1",
+		"world-1",
+		"combat",
+		"canonical-version-1",
+		measurement.profileContractRevisionIds[0],
+	]) {
+		expect(within(scope).getByText(value)).toBeVisible();
+	}
+	expect(
+		controls.getByRole("textbox", { name: "Observed value" })
+	).toHaveAttribute("readonly");
+	expect(controls.getByRole("textbox", { name: "Observed value" })).toHaveValue(
+		"96%"
+	);
+	expect(controls.getByRole("textbox", { name: "Method" })).toHaveAttribute(
+		"readonly"
+	);
+	expect(
+		controls.getByRole("textbox", { name: "Rationale or observation" })
+	).toBeRequired();
+	fireEvent.change(
+		controls.getByRole("textbox", { name: "Rationale or observation" }),
+		{ target: { value: rationale } }
+	);
+	fireEvent.submit(form);
+	await waitFor(() =>
+		expect(fakeApi.recordEvidence).toHaveBeenCalledWith({
+			projectId: "project-1",
+			assetFamilyId: "family-1",
+			revisionId: "revision-1",
+			itemId: "east-facing",
+			kind: "quality",
+			result: "waived",
+			ruleId: measuredRule.id,
+			method: measurement.method,
+			observedValue: measurement.observedValue,
+			waiverEvidenceId: measurement.id,
+			versionTarget: measurement.versionTarget,
+			rationale,
+		})
+	);
+	expect(await screen.findByText("Ready with Waivers")).toBeVisible();
+	expect(screen.getByText(rationale, { selector: "dd" })).toBeInTheDocument();
+	expect(
+		screen.getByText("unit-version-1", { selector: "dd" })
+	).toBeInTheDocument();
+	expect(screen.getByText("user-1", { selector: "dd" })).toBeInTheDocument();
+	expect(
+		screen.getByText(measurement.createdAt, { selector: "dd" })
+	).toBeInTheDocument();
+});
+
+test("does not offer a Quality Waiver for a stale measurement", async () => {
+	const { measuredRule } = renderQualityWaiverMeasurement(false);
+	const form = (
+		await screen.findByRole("heading", {
+			name: `${measuredRule.input} · Waivable Requirement`,
+		})
+	).closest("form") as HTMLFormElement;
+	expect(
+		within(form).queryByRole("option", { name: "Grant Quality Waiver" })
+	).not.toBeInTheDocument();
+	expect(fakeApi.recordEvidence).not.toHaveBeenCalled();
+});
+
+test("pins a selected Unit Version when recording a measurable rule", async () => {
+	const { measuredRule, measurement, measuredReadiness } =
+		renderQualityWaiverMeasurement();
+	fakeApi.recordEvidence.mockResolvedValue(measuredReadiness);
+	const form = (
+		await screen.findByRole("heading", {
+			name: `${measuredRule.input} · Waivable Requirement`,
+		})
+	).closest("form") as HTMLFormElement;
+	const controls = within(form);
+	fireEvent.change(
+		controls.getByRole("combobox", {
+			name: "Unit Version or Composite Version",
+		}),
+		{ target: { value: JSON.stringify(measurement.versionTarget) } }
+	);
+	fireEvent.change(controls.getByRole("textbox", { name: "Observed value" }), {
+		target: { value: "96%" },
+	});
+	fireEvent.change(controls.getByRole("textbox", { name: "Method" }), {
+		target: { value: "Measured at native scale." },
+	});
+	fireEvent.change(
+		controls.getByRole("textbox", { name: "Rationale or observation" }),
+		{
+			target: { value: "The rule was measured for the selected Unit Version." },
+		}
+	);
+	fireEvent.submit(form);
+	await waitFor(() =>
+		expect(fakeApi.recordEvidence).toHaveBeenCalledWith(
+			expect.objectContaining({
+				kind: "quality",
+				result: "passed",
+				ruleId: measuredRule.id,
+				versionTarget: measurement.versionTarget,
+			})
+		)
+	);
+});
+
+test("requires a pinned version target when recording a waivable requirement", async () => {
+	const { measuredRule, measuredReadiness } = renderQualityWaiverMeasurement();
+	fakeApi.recordEvidence.mockResolvedValue(measuredReadiness);
+	const form = (
+		await screen.findByRole("heading", {
+			name: `${measuredRule.input} · Waivable Requirement`,
+		})
+	).closest("form") as HTMLFormElement;
+	const controls = within(form);
+	const versionTargetSelect = controls.getByRole("combobox", {
+		name: "Unit Version or Composite Version",
+	});
+	expect(versionTargetSelect).toBeRequired();
+	fireEvent.change(controls.getByRole("textbox", { name: "Observed value" }), {
+		target: { value: "96%" },
+	});
+	fireEvent.change(controls.getByRole("textbox", { name: "Method" }), {
+		target: { value: "Measured at native scale." },
+	});
+	fireEvent.change(
+		controls.getByRole("textbox", { name: "Rationale or observation" }),
+		{ target: { value: "Measured without pinning a version." } }
+	);
+	fireEvent.submit(form);
+	await waitFor(() => expect(fakeApi.recordEvidence).not.toHaveBeenCalled());
+});
+
+test("preserves the waiver rationale and blocked readiness when the API rejects the decision", async () => {
+	const { measuredRule } = renderQualityWaiverMeasurement();
+	fakeApi.recordEvidence.mockRejectedValue(
+		new Error(
+			"The measurement scope changed. Refresh before granting a waiver."
+		)
+	);
+	const form = (
+		await screen.findByRole("heading", {
+			name: `${measuredRule.input} · Waivable Requirement`,
+		})
+	).closest("form") as HTMLFormElement;
+	const controls = within(form);
+	fireEvent.change(controls.getByRole("combobox", { name: "Result" }), {
+		target: { value: "waived" },
+	});
+	const rationale = "This exception is needed only for combat.";
+	fireEvent.change(
+		controls.getByRole("textbox", { name: "Rationale or observation" }),
+		{ target: { value: rationale } }
+	);
+	fireEvent.submit(form);
+	expect(
+		await screen.findByText(
+			"The measurement scope changed. Refresh before granting a waiver."
+		)
+	).toBeVisible();
+	expect(
+		controls.getByRole("textbox", { name: "Rationale or observation" })
+	).toHaveValue(rationale);
+	expect(screen.queryByText("Ready with Waivers")).not.toBeInTheDocument();
+	expect(
+		controls.getByRole("button", { name: "Grant Quality Waiver" })
+	).toBeEnabled();
+});
+
+test("records a human review separately without offering a quality waiver", async () => {
+	const template = specializedProfileContractCatalog.find(
+		(contract) => contract.profileId === "icon"
+	);
+	const [itemResult] = readiness.items;
+	const humanReview = template?.humanReviews[0];
+	if (!(template && itemResult && humanReview)) {
+		throw new Error(
+			"Missing required icon profile human review test fixtures."
+		);
+	}
+	const profileContracts = {
+		profiles: specializedProfileContractCatalog.map((definition) => ({
+			definition,
+			activeContract:
+				definition.profileId === template.profileId
+					? {
+							activatedAt: "2026-09-29T10:00:00.000Z",
+							activatedByUserId: "user-1",
+							contract: definition,
+							contractRevisionId: `${definition.profileId}@${definition.version}`,
+							projectId: "project-1",
+						}
+					: null,
+		})),
+	} satisfies SpecializedProfileContractsListOutput;
+	fakeApi.readiness = {
+		...readiness,
+		items: [
+			{
+				...itemResult,
+				qualityRequirements: template.rules.map((rule) => ({
+					id: rule.id,
+					name: rule.input,
+					class: rule.class,
+					required: rule.class !== "quality_advisory",
+					waiverEligible: rule.waiverEligibility,
+					result: "not_assessed",
+					isCurrent: false,
+				})),
+				humanReviewRequirements: [
+					{
+						id: humanReview.id,
+						name: humanReview.label,
+						required: true,
+						result: "not_assessed",
+						isCurrent: false,
+					},
+				],
+			},
+		],
+	};
+	fakeApi.recordEvidence.mockResolvedValue(readiness);
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	render(
+		<QueryClientProvider client={queryClient}>
+			<FamilyReadinessManager
+				assetFamilyId="family-1"
+				assetRecords={[
+					{
+						assetCategory: "icon",
+						id: "asset-record-1",
+						name: "East-facing sprite",
+					},
+				]}
+				familyName="Combat sprite"
+				profileContracts={profileContracts}
+				projectId="project-1"
+			/>
+		</QueryClientProvider>
+	);
+
+	const humanReviewForm = within(
+		(
+			await screen.findByRole("heading", {
+				name: `${humanReview.label} · Zorunlu insan incelemesi`,
+			})
+		).closest("form") as HTMLFormElement
+	);
+	expect(
+		humanReviewForm.queryByRole("option", { name: "Grant Quality Waiver" })
+	).not.toBeInTheDocument();
+	expect(
+		humanReviewForm.queryByRole("textbox", { name: "Observed value" })
+	).not.toBeInTheDocument();
+	fireEvent.change(humanReviewForm.getByRole("combobox", { name: "Result" }), {
+		target: { value: "failed" },
+	});
+	fireEvent.change(humanReviewForm.getByRole("textbox", { name: "Method" }), {
+		target: { value: "Compared the icon at target size on both backgrounds." },
+	});
+	fireEvent.change(
+		humanReviewForm.getByRole("textbox", { name: "Rationale or observation" }),
+		{ target: { value: "The silhouette is not clear at the smallest size." } }
+	);
+	fireEvent.submit(
+		humanReviewForm
+			.getByRole("button", { name: "Save evidence" })
+			.closest("form") as HTMLFormElement
+	);
+
+	await waitFor(() => expect(fakeApi.recordEvidence).toHaveBeenCalledOnce());
+	expect(fakeApi.recordEvidence).toHaveBeenCalledWith({
+		projectId: "project-1",
+		assetFamilyId: "family-1",
+		revisionId: "revision-1",
+		itemId: "east-facing",
+		kind: "quality",
+		result: "failed",
+		ruleId: humanReview.id,
+		method: "Compared the icon at target size on both backgrounds.",
+		rationale: "The silhouette is not clear at the smallest size.",
+	});
+});
+
+test("uses unique DOM ids when different families share Required Set item ids", async () => {
+	fakeApi.readiness = readiness;
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	const assetRecords = [
+		{
+			assetCategory: null,
+			id: "asset-record-1",
+			name: "East-facing sprite",
+		},
+	];
+	render(
+		<QueryClientProvider client={queryClient}>
+			<div>
+				<FamilyReadinessManager
+					assetFamilyId="family-1"
+					assetRecords={assetRecords}
+					familyName="Combat sprite"
+					profileContracts={null}
+					projectId="project-1"
+				/>
+				<FamilyReadinessManager
+					assetFamilyId="family-2"
+					assetRecords={assetRecords}
+					familyName="Magic sprite"
+					profileContracts={null}
+					projectId="project-1"
+				/>
+			</div>
+		</QueryClientProvider>
+	);
+
+	await screen.findAllByRole("heading", { name: "Active Version 1" });
+	const ids = [...document.querySelectorAll("[id]")].map(
+		(element) => element.id
+	);
+	expect(new Set(ids).size).toBe(ids.length);
+});
+
+test("offers applicability and quality evidence on a required usage test item", async () => {
+	const [sourceItemResult] = readiness.items;
+	if (!sourceItemResult) {
+		return;
+	}
+	const usageTestItem: FamilyReadiness["items"][number]["item"] = {
+		id: "scene-transition",
+		kind: "usage_test",
+		name: "Scene transition",
+		disposition: "required",
+		assetRecordIds: ["asset-record-1"],
+		testId: "scene_transition",
+	};
+	fakeApi.readiness = {
+		...readiness,
+		activeRevision: readiness.activeRevision
+			? { ...readiness.activeRevision, items: [usageTestItem] }
+			: null,
+		items: [
+			{
+				...sourceItemResult,
+				item: usageTestItem,
+			},
+		],
+	} satisfies FamilyReadiness;
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	render(
+		<QueryClientProvider client={queryClient}>
+			<FamilyReadinessManager
+				assetFamilyId="family-1"
+				assetRecords={[
+					{
+						assetCategory: null,
+						id: "asset-record-1",
+						name: "East-facing sprite",
+					},
+				]}
+				familyName="Combat sprite"
+				profileContracts={null}
+				projectId="project-1"
+			/>
+		</QueryClientProvider>
+	);
+
+	expect(
+		await screen.findByRole("heading", {
+			name: "Context Applicability evaluation",
+		})
+	).toBeInTheDocument();
+	expect(
+		screen.getByRole("heading", {
+			name: "General Asset Support · General Asset Support",
+		})
+	).toBeInTheDocument();
+	expect(
+		screen.getByRole("heading", { name: "Usage test result" })
+	).toBeInTheDocument();
+});
+
+test("pins scene dimensions, an approved character, and two grounds to usage evidence", async () => {
+	const [sourceItemResult] = readiness.items;
+	const objectProfile = specializedProfileContractCatalog.find(
+		(contract) => contract.profileId === "object_weapon_equipment_states"
+	);
+	const sceneTestId = "object.approved_character_ground_scene";
+	if (!(sourceItemResult && objectProfile)) {
+		throw new Error("Missing object scene test fixtures.");
+	}
+	const sceneItem: FamilyReadiness["items"][number]["item"] = {
+		id: "placement-test",
+		kind: "usage_test",
+		name: "Approved character and ground scene",
+		disposition: "required",
+		assetRecordIds: ["object-record"],
+		testId: sceneTestId,
+	};
+	const sceneReadiness: FamilyReadiness = {
+		...readiness,
+		activeRevision: readiness.activeRevision
+			? { ...readiness.activeRevision, items: [sceneItem] }
+			: null,
+		items: [{ ...sourceItemResult, item: sceneItem, latestEvidence: [] }],
+	};
+	const context = {
+		cellDimensions: { width: 32, height: 48 },
+		approvedCharacterVersionId: "hero-version-3",
+		targetGroundVersionIds: ["grass-version-1", "stone-version-4"],
+	};
+	const persistedEvidence = {
+		id: "scene-evidence-1",
+		projectId: "project-1",
+		assetFamilyId: "family-1",
+		revisionId: "revision-1",
+		itemId: sceneItem.id,
+		kind: "usage_test",
+		result: "passed",
+		assetVersionIds: ["object-version-1"],
+		profileContractRevisionIds: ["object@1"],
+		contextRevisionId: "context-1",
+		visualWorldId: "world-1",
+		useContext: "combat",
+		canonicalDesignVersionId: null,
+		ruleId: null,
+		ruleClass: null,
+		testId: sceneTestId,
+		usageTestContext: context,
+		usageVariant: null,
+		targetDimensions: null,
+		grayscaleReviewed: null,
+		observedValue: null,
+		versionTarget: null,
+		method: "Placed the object next to the approved character on both grounds.",
+		rationale: "Scale and ground contact remain clear.",
+		createdAt: "2026-10-05T09:00:00.000Z",
+		createdByUserId: "user-1",
+		isCurrent: true,
+	} satisfies FamilyReadiness["items"][number]["latestEvidence"][number];
+	const [sceneItemResult] = sceneReadiness.items;
+	if (!sceneItemResult) {
+		throw new Error("Missing object scene item result.");
+	}
+	const persistedReadiness: FamilyReadiness = {
+		...sceneReadiness,
+		items: [{ ...sceneItemResult, latestEvidence: [persistedEvidence] }],
+	};
+	const profileContracts = {
+		profiles: specializedProfileContractCatalog.map((definition) => ({
+			definition,
+			activeContract:
+				definition.profileId === objectProfile.profileId
+					? {
+							activatedAt: "2026-10-05T09:00:00.000Z",
+							activatedByUserId: "user-1",
+							contract: definition,
+							contractRevisionId: "object@1",
+							projectId: "project-1",
+						}
+					: null,
+		})),
+	} satisfies SpecializedProfileContractsListOutput;
+	fakeApi.readiness = sceneReadiness;
+	fakeApi.recordEvidence.mockImplementation(() => {
+		fakeApi.readiness = persistedReadiness;
+		return Promise.resolve(persistedReadiness);
+	});
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	render(
+		<QueryClientProvider client={queryClient}>
+			<FamilyReadinessManager
+				assetFamilyId="family-1"
+				assetRecords={[
+					{
+						assetCategory: "object_weapon_equipment_states",
+						id: "object-record",
+						name: "Bronze chest",
+					},
+				]}
+				familyName="Bronze chest"
+				profileContracts={profileContracts}
+				projectId="project-1"
+				usageTestAssetRecords={[
+					{
+						assetCategory: "object_weapon_equipment_states",
+						id: "object-record",
+						name: "Bronze chest",
+					},
+					{
+						assetCategory: "character_creature_animation",
+						id: "hero-record",
+						name: "Approved Hero",
+					},
+					{
+						assetCategory: "tileset_terrain_texture",
+						id: "grass-record",
+						name: "Grass",
+					},
+					{
+						assetCategory: "tileset_terrain_texture",
+						id: "stone-record",
+						name: "Stone",
+					},
+				]}
+				usageTestAssetVersions={[
+					{
+						assetRecordId: "hero-record",
+						id: "hero-version-3",
+						reviewDisposition: "approved",
+						versionNumber: 3,
+					},
+					{
+						assetRecordId: "grass-record",
+						id: "grass-version-1",
+						reviewDisposition: "candidate",
+						versionNumber: 1,
+					},
+					{
+						assetRecordId: "stone-record",
+						id: "stone-version-4",
+						reviewDisposition: "candidate",
+						versionNumber: 4,
+					},
+				]}
+			/>
+		</QueryClientProvider>
+	);
+
+	const form = (
+		await screen.findByRole("heading", { name: "Usage test result" })
+	).closest("form") as HTMLFormElement;
+	const controls = within(form);
+	fireEvent.change(
+		controls.getByRole("spinbutton", { name: "Cell width (px)" }),
+		{
+			target: { value: "32" },
+		}
+	);
+	fireEvent.change(
+		controls.getByRole("spinbutton", { name: "Cell height (px)" }),
+		{
+			target: { value: "48" },
+		}
+	);
+	fireEvent.change(
+		controls.getByRole("combobox", { name: "Approved character version" }),
+		{
+			target: { value: "hero-version-3" },
+		}
+	);
+	fireEvent.change(
+		controls.getByRole("combobox", { name: "First ground version" }),
+		{
+			target: { value: "grass-version-1" },
+		}
+	);
+	fireEvent.change(
+		controls.getByRole("combobox", { name: "Second ground version" }),
+		{
+			target: { value: "stone-version-4" },
+		}
+	);
+	fireEvent.change(controls.getByRole("textbox", { name: "Method" }), {
+		target: { value: persistedEvidence.method },
+	});
+	fireEvent.change(
+		controls.getByRole("textbox", { name: "Rationale or observation" }),
+		{
+			target: { value: persistedEvidence.rationale },
+		}
+	);
+	fireEvent.submit(form);
+
+	await waitFor(() =>
+		expect(fakeApi.recordEvidence).toHaveBeenCalledWith(
+			expect.objectContaining({
+				kind: "usage_test",
+				testId: sceneTestId,
+				usageTestContext: context,
+			})
+		)
+	);
+	const evidenceSummary = await screen.findByText(
+		`${sceneTestId} · Passed · Current evidence`
+	);
+	fireEvent.click(evidenceSummary);
+	const evidenceDetails = evidenceSummary.closest("details");
+	if (!evidenceDetails) {
+		throw new Error("Persisted usage test evidence details are missing.");
+	}
+	const evidence = within(evidenceDetails);
+	expect(evidence.getByText("32 × 48 px")).toBeVisible();
+	expect(evidence.getByText("Approved Hero · v3")).toBeVisible();
+	expect(evidence.getByText("Grass · v1, Stone · v4")).toBeVisible();
+});
+
+test("previews the current icon version and requires a fresh grayscale review after it changes", async () => {
+	const iconItem: FamilyReadiness["items"][number]["item"] = {
+		id: "target-size-backgrounds",
+		kind: "usage_test",
+		name: "Target sizes and backgrounds",
+		disposition: "required",
+		assetRecordIds: ["asset-record-1"],
+		testId: "icon.light_dark_target_size",
+	};
+	const iconReadiness = {
+		...readiness,
+		activeRevision: readiness.activeRevision
+			? { ...readiness.activeRevision, items: [iconItem] }
+			: null,
+		items: [
+			{
+				item: iconItem,
+				status: "incomplete",
+				blockers: ["usage_test", "profile_contract_usage_test"],
+				currentAssetVersionIds: ["asset-version-1"],
+				qualityReadiness: "not_assessed",
+				qualityRequirements: [],
+				humanReviewRequirements: [],
+				usageRequirements: [
+					{
+						id: "icon.light_dark_target_size",
+						name: "Target size and backgrounds",
+						required: true,
+						result: "not_assessed",
+						isCurrent: false,
+					},
+				],
+				latestEvidence: [],
+			},
+		],
+	} satisfies FamilyReadiness;
+	fakeApi.readiness = iconReadiness;
+	fakeApi.recordEvidence.mockResolvedValue(fakeApi.readiness);
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	const assetRecords = [
+		{
+			assetCategory: "icon",
+			id: "asset-record-1",
+			name: "Inventory icon",
+			logicalResolution: { width: 24, height: 24 },
+		},
+	];
+	const firstAssetVersion = {
+		assetRecordId: "asset-record-1",
+		assetFamilyId: "family-1",
+		contentDigest: "a".repeat(64),
+		contentLength: 1024,
+		contentType: "image/png" as const,
+		createdAt: "2026-09-29T10:00:00.000Z",
+		id: "asset-version-1",
+		integrityVerified: true,
+		productionEvidence: {
+			evidenceLevel: "unknown" as const,
+			managedSnapshots: [],
+			manualImportEvidence: null,
+			sourceKind: "unknown" as const,
+		},
+		projectId: "project-1",
+		reviewDisposition: "candidate" as const,
+		reviewEvents: [],
+		sourceKind: "unknown" as const,
+		versionNumber: 1,
+		sourceImageDimensions: { width: 64, height: 64 },
+		previewUrl:
+			"/api/projects/project-1/asset-versions/asset-version-1/preview",
+	};
+	const secondAssetVersion = {
+		...firstAssetVersion,
+		id: "asset-version-2",
+		versionNumber: 2,
+		sourceImageDimensions: { width: 96, height: 48 },
+		previewUrl:
+			"/api/projects/project-1/asset-versions/asset-version-2/preview",
+	};
+	function managerView(
+		assetVersions: (typeof firstAssetVersion)[],
+		records = assetRecords
+	) {
+		return (
+			<QueryClientProvider client={queryClient}>
+				<FamilyReadinessManager
+					assetFamilyId="family-1"
+					assetRecords={records}
+					assetVersions={assetVersions}
+					familyName="Icons"
+					profileContracts={null}
+					projectId="project-1"
+				/>
+			</QueryClientProvider>
+		);
+	}
+	const { rerender } = render(managerView([firstAssetVersion]));
+
+	const usageForm = within(
+		(await screen.findByRole("heading", { name: "Usage test result" })).closest(
+			"form"
+		) as HTMLFormElement
+	);
+	expect(
+		usageForm.getByRole("region", { name: "Icon usage size preview" })
+	).toBeInTheDocument();
+	expect(
+		usageForm.getByText(
+			"At each size, review silhouette recognition, small-size readability, and whether internal gaps close on light and dark backgrounds."
+		)
+	).toBeInTheDocument();
+	const previews = [
+		{
+			label: "Inventory icon · source 64 × 64 · light background",
+			width: 64,
+			height: 64,
+			background: "#fafafa",
+		},
+		{
+			label: "Inventory icon · source 64 × 64 · dark background",
+			width: 64,
+			height: 64,
+			background: "#18181b",
+		},
+		{
+			label: "Inventory icon · logical 24 × 24 · light background",
+			width: 24,
+			height: 24,
+			background: "#fafafa",
+		},
+		{
+			label: "Inventory icon · logical 24 × 24 · dark background",
+			width: 24,
+			height: 24,
+			background: "#18181b",
+		},
+	];
+	for (const preview of previews) {
+		const image = usageForm.getByRole("img", { name: preview.label });
+		expect(image).toHaveAttribute(
+			"src",
+			"/api/projects/project-1/asset-versions/asset-version-1/preview"
+		);
+		expect(image).toHaveAttribute("width", String(preview.width));
+		expect(image).toHaveAttribute("height", String(preview.height));
+		expect(image).toHaveStyle({
+			width: `${preview.width}px`,
+			height: `${preview.height}px`,
+		});
+		expect(image.parentElement).toHaveStyle({
+			backgroundColor: preview.background,
+		});
+	}
+
+	fireEvent.change(
+		usageForm.getByRole("spinbutton", { name: "Cell width (px)" }),
+		{ target: { value: "32" } }
+	);
+	fireEvent.change(
+		usageForm.getByRole("spinbutton", { name: "Cell height (px)" }),
+		{ target: { value: "32" } }
+	);
+	const usageVariant = usageForm.getByRole("textbox", {
+		name: "Usage variant",
+	});
+	fireEvent.change(usageVariant, { target: { value: "   " } });
+	fireEvent.change(
+		usageForm.getByRole("spinbutton", { name: "Target width" }),
+		{
+			target: { value: "16" },
+		}
+	);
+	fireEvent.change(
+		usageForm.getByRole("spinbutton", { name: "Target height" }),
+		{
+			target: { value: "24" },
+		}
+	);
+	for (const preview of [
+		{
+			label: "Inventory icon · target 16 × 24 · light background",
+			background: "#fafafa",
+		},
+		{
+			label: "Inventory icon · target 16 × 24 · dark background",
+			background: "#18181b",
+		},
+		{
+			label: "Inventory icon · target grayscale 16 × 24 · light background",
+			background: "#fafafa",
+		},
+		{
+			label: "Inventory icon · target grayscale 16 × 24 · dark background",
+			background: "#18181b",
+		},
+	]) {
+		const image = usageForm.getByRole("img", { name: preview.label });
+		expect(image).toHaveAttribute(
+			"src",
+			"/api/projects/project-1/asset-versions/asset-version-1/preview"
+		);
+		expect(image).toHaveAttribute("width", "16");
+		expect(image).toHaveAttribute("height", "24");
+		expect(image).toHaveStyle({
+			width: "16px",
+			height: "24px",
+			objectFit: "contain",
+		});
+		expect(image.parentElement).toHaveStyle({
+			backgroundColor: preview.background,
+		});
+	}
+	expect(
+		usageForm.getByRole("img", {
+			name: "Inventory icon · target grayscale 16 × 24 · dark background",
+		})
+	).toHaveStyle({ filter: "grayscale(1)" });
+	const grayscaleReviewed = usageForm.getByRole("checkbox", {
+		name: "I reviewed grayscale",
+	});
+	fireEvent.click(grayscaleReviewed);
+	fireEvent.change(
+		usageForm.getByRole("spinbutton", { name: "Target width" }),
+		{ target: { value: "32" } }
+	);
+	expect(grayscaleReviewed).not.toBeChecked();
+	fireEvent.change(
+		usageForm.getByRole("spinbutton", { name: "Target width" }),
+		{ target: { value: "16" } }
+	);
+	fireEvent.click(grayscaleReviewed);
+	fireEvent.change(
+		usageForm.getByRole("spinbutton", { name: "Target height" }),
+		{ target: { value: "32" } }
+	);
+	expect(grayscaleReviewed).not.toBeChecked();
+	fireEvent.change(
+		usageForm.getByRole("spinbutton", { name: "Target height" }),
+		{ target: { value: "24" } }
+	);
+	fireEvent.click(grayscaleReviewed);
+	expect(grayscaleReviewed).toBeChecked();
+	fireEvent.change(usageVariant, { target: { value: "Inventory item" } });
+	expect(grayscaleReviewed).not.toBeChecked();
+	fireEvent.click(grayscaleReviewed);
+	expect(grayscaleReviewed).toBeChecked();
+	const changedLogicalResolution = assetRecords.map((record) => ({
+		...record,
+		logicalResolution: { width: 32, height: 24 },
+	}));
+	rerender(managerView([firstAssetVersion], changedLogicalResolution));
+	expect(
+		usageForm.getByRole("img", {
+			name: "Inventory icon · logical 32 × 24 · light background",
+		})
+	).toHaveAttribute(
+		"src",
+		"/api/projects/project-1/asset-versions/asset-version-1/preview"
+	);
+	expect(grayscaleReviewed).not.toBeChecked();
+	rerender(managerView([firstAssetVersion]));
+	expect(grayscaleReviewed).not.toBeChecked();
+	fireEvent.click(grayscaleReviewed);
+	expect(grayscaleReviewed).toBeChecked();
+	fireEvent.change(usageVariant, { target: { value: "Hotbar slot" } });
+	expect(grayscaleReviewed).not.toBeChecked();
+	fireEvent.change(usageVariant, { target: { value: "Inventory item" } });
+	expect(grayscaleReviewed).not.toBeChecked();
+	fireEvent.click(grayscaleReviewed);
+	expect(grayscaleReviewed).toBeChecked();
+	queryClient.setQueryData(["family-readiness", "family-1"], {
+		...iconReadiness,
+		items: iconReadiness.items.map((itemResult) =>
+			itemResult.item.id === iconItem.id
+				? {
+						...itemResult,
+						currentAssetVersionIds: ["asset-version-2"],
+					}
+				: itemResult
+		),
+	});
+	rerender(managerView([firstAssetVersion, secondAssetVersion]));
+	expect(
+		usageForm.getByRole("img", {
+			name: "Inventory icon · target grayscale 16 × 24 · dark background",
+		})
+	).toHaveAttribute(
+		"src",
+		"/api/projects/project-1/asset-versions/asset-version-2/preview"
+	);
+	expect(
+		usageForm.getByRole("img", {
+			name: "Inventory icon · source 96 × 48 · dark background",
+		})
+	).toHaveAttribute(
+		"src",
+		"/api/projects/project-1/asset-versions/asset-version-2/preview"
+	);
+	expect(grayscaleReviewed).not.toBeChecked();
+	fireEvent.click(grayscaleReviewed);
+	fireEvent.change(usageVariant, { target: { value: "   " } });
+	expect(grayscaleReviewed).not.toBeChecked();
+	fireEvent.change(usageForm.getByRole("textbox", { name: "Method" }), {
+		target: { value: "Compared the icon on light and dark backgrounds." },
+	});
+	fireEvent.change(
+		usageForm.getByRole("textbox", { name: "Rationale or observation" }),
+		{ target: { value: "The silhouette remains readable at target size." } }
+	);
+	fireEvent.submit(
+		usageForm
+			.getByRole("button", { name: "Save evidence" })
+			.closest("form") as HTMLFormElement
+	);
+	expect(await usageForm.findByRole("alert")).toHaveTextContent(
+		"Error: Usage variant cannot consist only of whitespace."
+	);
+	expect(fakeApi.recordEvidence).not.toHaveBeenCalled();
+
+	fireEvent.change(usageVariant, { target: { value: "Inventory item" } });
+	expect(grayscaleReviewed).not.toBeChecked();
+	fireEvent.click(grayscaleReviewed);
+	expect(grayscaleReviewed).toBeChecked();
+	fireEvent.submit(
+		usageForm
+			.getByRole("button", { name: "Save evidence" })
+			.closest("form") as HTMLFormElement
+	);
+
+	await waitFor(() => expect(fakeApi.recordEvidence).toHaveBeenCalledOnce());
+	expect(fakeApi.recordEvidence).toHaveBeenCalledWith({
+		projectId: "project-1",
+		assetFamilyId: "family-1",
+		revisionId: "revision-1",
+		itemId: "target-size-backgrounds",
+		kind: "usage_test",
+		result: "passed",
+		testId: "icon.light_dark_target_size",
+		method: "Compared the icon on light and dark backgrounds.",
+		rationale: "The silhouette remains readable at target size.",
+		usageVariant: "Inventory item",
+		usageTestContext: { cellDimensions: { width: 32, height: 32 } },
+		targetDimensions: { width: 16, height: 24 },
+		grayscaleReviewed: true,
+	});
+});
+
+function renderDraftManager(readinessValue: FamilyReadiness = readiness) {
+	fakeApi.readiness = readinessValue;
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	return render(
+		<QueryClientProvider client={queryClient}>
+			<FamilyReadinessManager
+				assetFamilyId="family-1"
+				assetRecords={[
+					{
+						assetCategory: null,
+						id: "asset-record-1",
+						name: "East-facing sprite",
+					},
+					{
+						assetCategory: null,
+						id: "asset-record-2",
+						name: "West-facing sprite",
+					},
+				]}
+				familyName="Combat sprite"
+				profileContracts={null}
+				projectId="project-1"
+			/>
+		</QueryClientProvider>
+	);
+}
+
+test("adds, edits, and removes draft Required Set items before saving the draft", async () => {
+	fakeApi.saveDraft.mockResolvedValue({});
+	renderDraftManager();
+	await screen.findAllByRole("group", { name: "Required item" });
+	fireEvent.click(screen.getByRole("button", { name: "Add item" }));
+	const editors = screen.getAllByRole("group", { name: "Required item" });
+	expect(editors).toHaveLength(2);
+	const added = within(editors[1] as HTMLElement);
+	expect(added.getByRole("textbox", { name: "Item ID" })).toHaveAttribute(
+		"pattern",
+		"[a-z][a-z0-9._-]*"
+	);
+	expect(added.getByRole("textbox", { name: "Item name" })).toBeRequired();
+	expect(added.getByRole("combobox", { name: "Item type" })).toHaveValue(
+		"direction"
+	);
+	expect(added.getByRole("combobox", { name: "Asset Record" })).toBeRequired();
+	fireEvent.change(added.getByRole("textbox", { name: "Item ID" }), {
+		target: { value: "west-facing" },
+	});
+	fireEvent.change(added.getByRole("textbox", { name: "Item name" }), {
+		target: { value: "West-facing sprite" },
+	});
+	fireEvent.change(added.getByRole("combobox", { name: "Status" }), {
+		target: { value: "optional" },
+	});
+	expect(
+		added.getByRole("combobox", { name: "Asset Record" })
+	).not.toBeRequired();
+	fireEvent.change(added.getByRole("combobox", { name: "Asset Record" }), {
+		target: { value: "asset-record-2" },
+	});
+	fireEvent.click(
+		within(editors[0] as HTMLElement).getByRole("button", {
+			name: "Remove item",
+		})
+	);
+	expect(screen.getAllByRole("group", { name: "Required item" })).toHaveLength(
+		1
+	);
+	fireEvent.submit(
+		screen
+			.getByRole("button", { name: "Save draft version" })
+			.closest("form") as HTMLFormElement
+	);
+
+	await waitFor(() => expect(fakeApi.saveDraft).toHaveBeenCalledOnce());
+	expect(fakeApi.saveDraft).toHaveBeenCalledWith({
+		projectId: "project-1",
+		assetFamilyId: "family-1",
+		items: [
+			{
+				id: "west-facing",
+				kind: "direction",
+				name: "West-facing sprite",
+				disposition: "optional",
+				assetRecordIds: ["asset-record-2"],
+			},
+		],
+	});
+	expect(
+		await screen.findByText("New list version saved as a draft.")
+	).toBeVisible();
+});
+
+test("selects usage test Asset Records with labeled checkboxes in the draft", async () => {
+	fakeApi.saveDraft.mockResolvedValue({});
+	renderDraftManager();
+	const kind = await screen.findByRole("combobox", { name: "Item type" });
+	fireEvent.change(kind, { target: { value: "usage_test" } });
+	const testId = screen.getByLabelText(usageTestIdLabel);
+	expect(testId).toBeRequired();
+	expect(
+		screen.getByText("Enter a stable test ID for General Asset Support.")
+	).toBeVisible();
+	fireEvent.change(testId, { target: { value: "scene.readability" } });
+	const east = screen.getByRole("checkbox", { name: "East-facing sprite" });
+	const west = screen.getByRole("checkbox", { name: "West-facing sprite" });
+	expect(east).not.toBeChecked();
+	fireEvent.click(west);
+	fireEvent.click(east);
+	expect(east).toBeChecked();
+	fireEvent.click(west);
+	expect(west).not.toBeChecked();
+	fireEvent.submit(kind.closest("form") as HTMLFormElement);
+
+	await waitFor(() => expect(fakeApi.saveDraft).toHaveBeenCalledOnce());
+	expect(fakeApi.saveDraft).toHaveBeenCalledWith({
+		projectId: "project-1",
+		assetFamilyId: "family-1",
+		items: [
+			{
+				id: "east-facing",
+				kind: "usage_test",
+				name: "East-facing sprite",
+				disposition: "required",
+				assetRecordIds: ["asset-record-1"],
+				testId: "scene.readability",
+			},
+		],
+	});
+});
+
+test("records applicability evidence and disables writes while saving", async () => {
+	let resolveWrite: (value: unknown) => void = () => undefined;
+	fakeApi.recordEvidence.mockReturnValue(
+		new Promise((resolve) => {
+			resolveWrite = resolve;
+		})
+	);
+	renderDraftManager();
+	const form = (
+		await screen.findByRole("heading", {
+			name: "Context Applicability evaluation",
+		})
+	).closest("form") as HTMLFormElement;
+	const controls = within(form);
+	expect(controls.queryByRole("textbox", { name: "Method" })).toBeNull();
+	expect(
+		controls.getByRole("textbox", { name: "Rationale or observation" })
+	).toBeRequired();
+	fireEvent.change(controls.getByRole("combobox", { name: "Result" }), {
+		target: { value: "inapplicable" },
+	});
+	fireEvent.change(
+		controls.getByRole("textbox", { name: "Rationale or observation" }),
+		{ target: { value: "Not used in combat." } }
+	);
+	fireEvent.submit(form);
+	await waitFor(() => expect(fakeApi.recordEvidence).toHaveBeenCalledOnce());
+	expect(fakeApi.recordEvidence).toHaveBeenCalledWith({
+		projectId: "project-1",
+		assetFamilyId: "family-1",
+		revisionId: "revision-1",
+		itemId: "east-facing",
+		kind: "applicability",
+		result: "inapplicable",
+		rationale: "Not used in combat.",
+	});
+	expect(
+		controls.getByRole("button", { name: "Save evidence" })
+	).toBeDisabled();
+	expect(screen.getByRole("button", { name: "Kaydediliyor…" })).toBeDisabled();
+	resolveWrite({});
+	expect(
+		await screen.findByText("Evidence saved and current state recalculated.")
+	).toBeVisible();
+	expect(controls.getByRole("button", { name: "Save evidence" })).toBeEnabled();
+	expect(
+		controls.getByRole("textbox", { name: "Rationale or observation" })
+	).toHaveValue("Not used in combat.");
+});
+
+function usageTestReadiness(testId: string): FamilyReadiness {
+	const [sourceItemResult] = readiness.items;
+	if (!(sourceItemResult && readiness.activeRevision)) {
+		throw new Error("Missing usage test fixtures.");
+	}
+	const usageItem: FamilyReadiness["items"][number]["item"] = {
+		id: "usage-item",
+		kind: "usage_test",
+		name: "Usage item",
+		disposition: "required",
+		assetRecordIds: ["asset-record-1"],
+		testId,
+	};
+	return {
+		...readiness,
+		activeRevision: { ...readiness.activeRevision, items: [usageItem] },
+		items: [
+			{
+				...sourceItemResult,
+				item: usageItem,
+				qualityRequirements: [],
+				latestEvidence: [],
+			},
+		],
+	};
+}
+
+async function submitAndSettle(form: HTMLFormElement) {
+	await act(async () => {
+		fireEvent.submit(form);
+		await new Promise((resolve) => setTimeout(resolve, 0));
+	});
+}
+
+test("requires whole positive cell dimensions before recording usage evidence", async () => {
+	fakeApi.recordEvidence.mockResolvedValue({});
+	renderDraftManager(usageTestReadiness("scene.readability"));
+	const form = (
+		await screen.findByRole("heading", { name: "Usage test result" })
+	).closest("form") as HTMLFormElement;
+	const controls = within(form);
+	const width = controls.getByRole("spinbutton", {
+		name: "Cell width (px)",
+	});
+	const height = controls.getByRole("spinbutton", {
+		name: "Cell height (px)",
+	});
+	expect(width).toBeRequired();
+	expect(width).toHaveAttribute("min", "1");
+	expect(width).toHaveAttribute("max", "4096");
+	fireEvent.change(controls.getByRole("textbox", { name: "Method" }), {
+		target: { value: "Placed in a scene." },
+	});
+	fireEvent.change(
+		controls.getByRole("textbox", { name: "Rationale or observation" }),
+		{ target: { value: "Readable." } }
+	);
+	fireEvent.change(width, { target: { value: "1.5" } });
+	fireEvent.change(height, { target: { value: "32" } });
+	await submitAndSettle(form);
+	fireEvent.change(width, { target: { value: "0" } });
+	await submitAndSettle(form);
+	fireEvent.change(width, { target: { value: "32" } });
+	fireEvent.change(height, { target: { value: "" } });
+	await submitAndSettle(form);
+	expect(fakeApi.recordEvidence).not.toHaveBeenCalled();
+	fireEvent.change(height, { target: { value: "48" } });
+	await submitAndSettle(form);
+	await waitFor(() => expect(fakeApi.recordEvidence).toHaveBeenCalledOnce());
+	expect(fakeApi.recordEvidence).toHaveBeenCalledWith({
+		projectId: "project-1",
+		assetFamilyId: "family-1",
+		revisionId: "revision-1",
+		itemId: "usage-item",
+		kind: "usage_test",
+		result: "passed",
+		testId: "scene.readability",
+		method: "Placed in a scene.",
+		rationale: "Readable.",
+		usageTestContext: { cellDimensions: { width: 32, height: 48 } },
+	});
+});
+
+test("shows the blank usage variant error until a non-blank variant is entered and requires whole target sizes", async () => {
+	fakeApi.recordEvidence.mockResolvedValue({});
+	renderDraftManager(usageTestReadiness("icon.light_dark_target_size"));
+	const form = (
+		await screen.findByRole("heading", { name: "Usage test result" })
+	).closest("form") as HTMLFormElement;
+	const controls = within(form);
+	fireEvent.change(
+		controls.getByRole("spinbutton", { name: "Cell width (px)" }),
+		{ target: { value: "32" } }
+	);
+	fireEvent.change(
+		controls.getByRole("spinbutton", { name: "Cell height (px)" }),
+		{ target: { value: "32" } }
+	);
+	fireEvent.change(controls.getByRole("textbox", { name: "Method" }), {
+		target: { value: "Compared backgrounds." },
+	});
+	fireEvent.change(
+		controls.getByRole("textbox", { name: "Rationale or observation" }),
+		{ target: { value: "Readable." } }
+	);
+	const variant = controls.getByRole("textbox", { name: "Usage variant" });
+	expect(controls.queryByRole("alert")).toBeNull();
+	expect(variant).not.toHaveAttribute("aria-invalid");
+	fireEvent.change(variant, { target: { value: "  " } });
+	expect(controls.queryByRole("alert")).toBeNull();
+	await submitAndSettle(form);
+	expect(await controls.findByRole("alert")).toHaveTextContent(
+		"Error: Usage variant cannot consist only of whitespace."
+	);
+	expect(variant).toHaveAttribute("aria-invalid", "true");
+	expect(variant).toHaveAccessibleDescription(
+		"Error: Usage variant cannot consist only of whitespace."
+	);
+	fireEvent.change(variant, { target: { value: "   " } });
+	expect(controls.getByRole("alert")).toHaveTextContent(
+		"Error: Usage variant cannot consist only of whitespace."
+	);
+	fireEvent.change(variant, { target: { value: " Hotbar " } });
+	expect(controls.queryByRole("alert")).toBeNull();
+	expect(variant).not.toHaveAttribute("aria-invalid");
+	const targetWidth = controls.getByRole("spinbutton", {
+		name: "Target width",
+	});
+	const targetHeight = controls.getByRole("spinbutton", {
+		name: "Target height",
+	});
+	fireEvent.change(targetWidth, { target: { value: "16.5" } });
+	fireEvent.change(targetHeight, { target: { value: "16" } });
+	const grayscale = controls.getByRole("checkbox", {
+		name: "I reviewed grayscale",
+	});
+	fireEvent.click(grayscale);
+	await submitAndSettle(form);
+	fireEvent.change(targetWidth, { target: { value: "0" } });
+	fireEvent.click(grayscale);
+	await submitAndSettle(form);
+	expect(fakeApi.recordEvidence).not.toHaveBeenCalled();
+	fireEvent.change(targetWidth, { target: { value: "16" } });
+	await submitAndSettle(form);
+	expect(fakeApi.recordEvidence).not.toHaveBeenCalled();
+	fireEvent.click(grayscale);
+	await submitAndSettle(form);
+	await waitFor(() => expect(fakeApi.recordEvidence).toHaveBeenCalledOnce());
+	expect(fakeApi.recordEvidence).toHaveBeenCalledWith(
+		expect.objectContaining({
+			usageVariant: "Hotbar",
+			targetDimensions: { width: 16, height: 16 },
+			grayscaleReviewed: true,
+			usageTestContext: { cellDimensions: { width: 32, height: 32 } },
+		})
+	);
+});

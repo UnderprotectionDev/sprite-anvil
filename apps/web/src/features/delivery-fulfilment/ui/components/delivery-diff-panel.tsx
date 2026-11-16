@@ -1,5 +1,6 @@
 import type {
 	DeliveryDiff,
+	DeliveryEvidenceSection,
 	NotRecordedSectionKey,
 } from "@sprite-anvil/api/delivery-diff";
 import type { ReactNode } from "react";
@@ -182,10 +183,38 @@ export function DeliveryDiffPanel({ diff }: { diff: DeliveryDiff }) {
 			<ContextSection context={diff.context} />
 			{notRecordedSections.map(({ key, title }) => (
 				<Section key={key} title={title}>
-					<NotRecorded reason={diff[key].reason} />
+					<EvidenceChanges section={diff[key]} />
 				</Section>
 			))}
 			<BundleMappingsSection bundleMappings={diff.bundleMappings} />
 		</div>
+	);
+}
+
+function EvidenceChanges({ section }: { section: DeliveryEvidenceSection }) {
+	if (section.status === "not_recorded") {
+		return <NotRecorded reason={section.reason} />;
+	}
+	return (
+		<>
+			<p className="text-sm">
+				{section.unchangedCount} unchanged evidence records.
+			</p>
+			{section.changes.length === 0 ? (
+				<p className="text-muted-foreground text-sm">
+					No evidence differences.
+				</p>
+			) : (
+				<ul className="space-y-2 text-sm">
+					{section.changes.map((change) => (
+						<li key={change.key}>
+							<strong>{change.kind}</strong>:{" "}
+							{change.from?.label ?? "No previous evidence"} →{" "}
+							{change.to?.label ?? "No evidence on this side"}
+						</li>
+					))}
+				</ul>
+			)}
+		</>
 	);
 }

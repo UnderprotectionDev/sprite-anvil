@@ -3,6 +3,11 @@ import {
 	assetVersionContentTypeSchema,
 	assetVersionFileNameSchema,
 } from "@sprite-anvil/api/asset-record-tracking";
+import {
+	AssetVersionContentLengthError,
+	AssetVersionIntegrityError,
+	type CreateAssetVersionIntegrityTransform,
+} from "@sprite-anvil/api/asset-version-integrity";
 import type {
 	ReferenceBoardUploadInput,
 	ReferenceProductionStore,
@@ -16,11 +21,6 @@ import z from "zod";
 import type { TwoDVisualAssetStorage } from "../../../cloudflare";
 import { createProjectReferenceBoardObjectKey } from "../../../cloudflare";
 import { serializePublicApiError } from "../../../output-contracts";
-import {
-	AssetVersionContentLengthError,
-	AssetVersionIntegrityError,
-	createAssetVersionIntegrityTransform,
-} from "../../asset-versions/server/asset-version-integrity";
 
 const projectIdSchema = z.uuid();
 const assetRecordIdSchema = z.uuid();
@@ -37,6 +37,7 @@ export interface ReferenceBoardSession {
 }
 
 export interface ReferenceProductionRouteDependencies {
+	createAssetVersionIntegrityTransform: CreateAssetVersionIntegrityTransform;
 	createId?: () => string;
 	createStorage: () => TwoDVisualAssetStorage;
 	getProjectForUser: (
@@ -256,7 +257,7 @@ async function uploadReferenceImage(
 		uploadHeaders.id,
 		uploadAttemptId
 	);
-	const integrity = createAssetVersionIntegrityTransform(
+	const integrity = dependencies.createAssetVersionIntegrityTransform(
 		uploadHeaders.contentType,
 		uploadHeaders.contentLength
 	);

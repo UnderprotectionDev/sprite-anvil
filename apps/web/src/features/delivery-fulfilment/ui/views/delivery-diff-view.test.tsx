@@ -238,3 +238,64 @@ test("shows a retryable error when the comparison fails", async () => {
 		await screen.findByText("The comparison could not be loaded.")
 	).toBeInTheDocument();
 });
+
+test("renders recorded evidence changes and distinguishes unchanged from unavailable", async () => {
+	const pin = (key: string, label: string) => ({
+		key,
+		label,
+		contentDigest: key,
+	});
+	fakeApi.compare.mockResolvedValue({
+		...diff,
+		qualityEvidence: {
+			status: "recorded",
+			unchangedCount: 2,
+			changes: [
+				{ key: "a", kind: "added", from: null, to: pin("a", "Added evidence") },
+				{
+					key: "b",
+					kind: "removed",
+					from: pin("b", "Removed evidence"),
+					to: null,
+				},
+				{
+					key: "c",
+					kind: "changed",
+					from: pin("c", "Old evidence"),
+					to: pin("c", "New evidence"),
+				},
+			],
+		},
+		qualityWaiver: { status: "recorded", unchangedCount: 1, changes: [] },
+	});
+	renderView();
+	await userEvent.selectOptions(
+		await screen.findByLabelText("Compare from"),
+		firstId
+	);
+	await userEvent.selectOptions(screen.getByLabelText("Compare to"), secondId);
+	const quality = within(
+		await screen.findByRole("region", { name: "Quality evidence" })
+	);
+	for (const label of [
+		"Added evidence",
+		"Removed evidence",
+		"Old evidence",
+		"New evidence",
+	]) {
+		expect(quality.getByText(new RegExp(label))).toBeInTheDocument();
+	}
+	expect(
+		quality.getByText("2 unchanged evidence records.")
+	).toBeInTheDocument();
+	expect(
+		within(screen.getByRole("region", { name: "Quality Waiver" })).getByText(
+			"No evidence differences."
+		)
+	).toBeInTheDocument();
+	expect(
+		within(screen.getByRole("region", { name: "Rights" })).getByText(
+			notRecordedText
+		)
+	).toBeInTheDocument();
+});

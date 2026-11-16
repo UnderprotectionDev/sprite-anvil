@@ -120,10 +120,8 @@ jobs:
       - name: Run server integration tests
         working-directory: apps/server
         run: bun test src
-      # Neon-driver (createDb) tests through the local proxy. Non-blocking until the failures they
-      # surfaced after running skipped for weeks are fixed; results stay visible in the job log.
-      - name: Run Neon-driver integration tests (non-blocking)
-        continue-on-error: true
+      # Production-driver tests are a required gate; failures cannot be hidden by ci-ok.
+      - name: Run Neon-driver integration tests
         working-directory: apps/server
         env:
           CONTEXT_TEST_DATABASE_URL: ${{ env.NEON_PROXY_TEST_DATABASE_URL }}
@@ -180,10 +178,35 @@ jobs:
           path: apps/web/desktop-e2e-results
           retention-days: 7
 
+  godot-golden:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        godot: ['4.3', '4.4', '4.5']
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - name: Download the supported official Godot binary
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GODOT_VERSION: ${{ matrix.godot }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/godot"
+          gh release download "$GODOT_VERSION-stable" --repo godotengine/godot-builds --pattern "Godot_v$GODOT_VERSION-stable_linux.x86_64.zip" --dir "$RUNNER_TEMP/godot"
+          unzip "$RUNNER_TEMP/godot/Godot_v$GODOT_VERSION-stable_linux.x86_64.zip" -d "$RUNNER_TEMP/godot"
+          chmod +x "$RUNNER_TEMP/godot/Godot_v$GODOT_VERSION-stable_linux.x86_64"
+          echo "GODOT_BIN=$RUNNER_TEMP/godot/Godot_v$GODOT_VERSION-stable_linux.x86_64" >> "$GITHUB_ENV"
+      - name: Load the golden output in Godot
+        run: bun test packages/api/src/godot-golden.test.ts --timeout 120000
+
   # The single check to require on `main`: passes when every needed job passed or was skipped.
   ci-ok:
     if: always()
-    needs: [changes, docs, quality, integration, web-e2e, desktop-webdriver]
+    needs: [changes, docs, quality, integration, web-e2e, desktop-webdriver, godot-golden]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

@@ -11,12 +11,12 @@ import {
 } from "../../schemas";
 
 export const scopeOptions: { label: string; scope: ContextAgentScope }[] = [
-	{ label: "Proje Bağlamı'nı okuma", scope: "project_context:read" },
-	{ label: "Bağlam Önerisi hazırlama", scope: "context_proposals:write" },
+	{ label: "Read Project Context", scope: "project_context:read" },
+	{ label: "Prepare Context Proposals", scope: "context_proposals:write" },
 ];
 
 const defaultContextAgentPermissionForm: ContextAgentPermissionFormValues = {
-	purpose: "Proje Bağlamı için öneri hazırlama",
+	purpose: "Prepare proposals for Project Context",
 	scopes: ["project_context:read", "context_proposals:write"],
 };
 
@@ -58,7 +58,7 @@ export function ContextAgentPermissionForm({
 			<form.Field name="purpose">
 				{(field) => (
 					<div className="space-y-2">
-						<Label htmlFor="context-agent-purpose">Amaç</Label>
+						<Label htmlFor="context-agent-purpose">Purpose</Label>
 						<Input
 							disabled={writeOutcomeUncertain}
 							id="context-agent-purpose"
@@ -77,7 +77,7 @@ export function ContextAgentPermissionForm({
 			<form.Field name="scopes">
 				{(field) => (
 					<FieldSet className="space-y-3" disabled={writeOutcomeUncertain}>
-						<FieldLegend className="font-medium">Erişim kapsamı</FieldLegend>
+						<FieldLegend className="font-medium">Access scope</FieldLegend>
 						{scopeOptions.map(({ label, scope }) => {
 							const id = `scope-${scope.replaceAll(":", "-")}`;
 							return (
@@ -119,7 +119,7 @@ export function ContextAgentPermissionForm({
 						}
 						type="submit"
 					>
-						{isSaving ? "Kaydediliyor…" : "Bağlam Ajanı izni ver"}
+						{isSaving ? "Saving…" : "Grant Context Agent permission"}
 					</Button>
 				)}
 			</form.Subscribe>

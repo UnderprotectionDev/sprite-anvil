@@ -18,6 +18,8 @@ import {
 	projectArchiveGetInputSchema,
 	projectArchiveListInputSchema,
 	projectArchiveSchema,
+	projectArchiveWorkingFilesInputSchema,
+	projectArchiveWorkingFilesSchema,
 } from "../project-archives";
 import { withPublicationErrors } from "../record-publication";
 
@@ -47,6 +49,12 @@ function restoreRejectionMessage(
 	switch (rejection.reason) {
 		case "archive_invalid":
 			return "The Project Archive failed verification, so no project was restored.";
+		case "file_storage_limit":
+			return "A file exceeds the Project Archive storage limit. No project was restored.";
+		case "unsupported_version":
+			return "This Project Archive version lacks data required for restore. No project was created.";
+		case "unsupported_content":
+			return "This Project Archive contains records that cannot yet be restored. No project was created.";
 		case "restore_inconsistent":
 			return "The restored records could not be kept consistent, so no project was restored.";
 		case "duplicate_key":
@@ -74,6 +82,8 @@ function rejectionMessage(rejection: ProjectArchiveRejection): string {
 			return "The archive would carry credential-like fields and was not created.";
 		case "inconsistent_records":
 			return "The project records are inconsistent, so the archive was not created.";
+		case "file_storage_limit":
+			return "A file exceeds the Project Archive storage limit.";
 		case "file_unverifiable":
 			return "Some files could not be verified against their recorded digest, so the archive was not created.";
 		default:
@@ -82,6 +92,20 @@ function rejectionMessage(rejection: ProjectArchiveRejection): string {
 }
 
 export const projectArchivesRouter = {
+	listWorkingFiles: protectedProcedure
+		.input(projectArchiveWorkingFilesInputSchema)
+		.output(projectArchiveWorkingFilesSchema)
+		.handler(async ({ context, input }) => {
+			const page = await getProjectArchiveStore(context).listWorkingFiles(
+				context.session.user.id,
+				input.projectId,
+				input.cursor
+			);
+			if (!page) {
+				throw new ORPCError("NOT_FOUND", { message: projectNotFound });
+			}
+			return page;
+		}),
 	create: protectedProcedure
 		.input(projectArchiveCreateInputSchema)
 		.output(

@@ -75,7 +75,7 @@ export function useAssetFamilyForms({
 					subjectIdentityForm.setFieldValue("name", "");
 					assetFamilyForm.setFieldValue("subjectIdentityId", record.id);
 				},
-				"Varlık Kimliği kaydedildi."
+				"Subject Identity saved."
 			),
 		validators: { onSubmit: subjectIdentityFormSchema },
 	});
@@ -107,7 +107,7 @@ export function useAssetFamilyForms({
 					assetRecordForm.setFieldValue("assetFamilyId", record.id);
 					relationshipForm.setFieldValue("assetFamilyId", record.id);
 				},
-				"Varlık Ailesi kaydedildi."
+				"Asset Family saved."
 			),
 		validators: { onSubmit: assetFamilyFormSchema },
 	});
@@ -138,7 +138,7 @@ export function useAssetFamilyForms({
 					relationshipForm.setFieldValue("sourceAssetRecordId", record.id);
 					relationshipForm.setFieldValue("targetAssetRecordId", "");
 				},
-				"Varlık Kaydı kaydedildi."
+				"Asset Record saved."
 			),
 		validators: { onSubmit: assetRecordFormSchema },
 	});
@@ -195,7 +195,7 @@ export function useAssetFamilyForms({
 						...(sourceAssetVersionId ? { sourceAssetVersionId } : {}),
 					}),
 				() => undefined,
-				"İlişki kaydedildi."
+				"Relationship saved."
 			);
 		},
 	});

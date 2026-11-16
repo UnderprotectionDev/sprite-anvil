@@ -20,8 +20,8 @@ vi.mock("@/env", () => ({
 }));
 
 const previewSources = vi.fn();
-const directionLabel = /Yön adı/;
-const humanMessage = /Otomatik sanatsal hüküm/;
+const directionLabel = /Direction name/;
+const humanMessage = /No automatic artistic judgment/;
 afterEach(() => {
 	cleanup();
 	vi.restoreAllMocks();
@@ -44,12 +44,10 @@ test("shows four views and native scale, accepts eight directions and requires h
 		/>
 	);
 	expect(screen.getAllByLabelText(directionLabel)).toHaveLength(4);
-	expect(screen.getByLabelText("Yakınlaştırma")).toHaveValue("1");
-	await user.selectOptions(screen.getByLabelText("Yön sayısı"), "8");
+	expect(screen.getByLabelText("Zoom")).toHaveValue("1");
+	await user.selectOptions(screen.getByLabelText("Direction count"), "8");
 	expect(screen.getAllByLabelText(directionLabel)).toHaveLength(8);
-	expect(
-		screen.getByRole("button", { name: "İncelemeyi kaydet" })
-	).toBeDisabled();
+	expect(screen.getByRole("button", { name: "Save review" })).toBeDisabled();
 	expect(screen.getByText(humanMessage)).toBeInTheDocument();
 });
 
@@ -79,7 +77,7 @@ const review: DirectionalReviewInput = {
 		silhouette: "Outline",
 		proportions: "Proportions",
 		equipmentSide: "Right",
-		palette: "Palette",
+		palette: "Palettete",
 		perspective: "Side",
 		scale: "32 pixels",
 		groundContact: "Different",
@@ -133,12 +131,12 @@ test("compares varying frame durations at shared elapsed time and saves exact hu
 	await waitFor(() =>
 		expect(screen.getByRole("button", { name: "Play together" })).toBeEnabled()
 	);
-	fireEvent.change(screen.getByLabelText("Oynatma konumu (ms)"), {
+	fireEvent.change(screen.getByLabelText("Playback position (ms)"), {
 		target: { value: "150" },
 	});
-	expect(screen.getByText("south · Kare 2")).toBeInTheDocument();
-	expect(screen.getByText("west · Kare 1")).toBeInTheDocument();
-	const canvas = screen.getByRole("img", { name: "south piksel önizlemesi" });
+	expect(screen.getByText("south · Frame 2")).toBeInTheDocument();
+	expect(screen.getByText("west · Frame 1")).toBeInTheDocument();
+	const canvas = screen.getByRole("img", { name: "south pixel preview" });
 	expect(canvas).toHaveAttribute("width", "32");
 	expect(canvas).toHaveStyle({ width: "32px", height: "32px" });
 	expect(draw).toHaveBeenCalledWith(
@@ -152,10 +150,10 @@ test("compares varying frame durations at shared elapsed time and saves exact hu
 		32,
 		32
 	);
-	await user.selectOptions(screen.getByLabelText("Yakınlaştırma"), "4");
+	await user.selectOptions(screen.getByLabelText("Zoom"), "4");
 	expect(canvas).toHaveStyle({ width: "128px" });
 	expect(canvas).toHaveAttribute("width", "32");
-	await user.click(screen.getByRole("button", { name: "İncelemeyi kaydet" }));
+	await user.click(screen.getByRole("button", { name: "Save review" }));
 	expect(onSave).toHaveBeenCalledWith(review);
 });
 test("advances all directions on one clock and stops at pause and reset", async () => {
@@ -177,28 +175,26 @@ test("advances all directions on one clock and stops at pause and reset", async 
 	fireEvent.click(screen.getByRole("button", { name: "Play together" }));
 	act(() => tick(1000));
 	act(() => tick(1150));
-	expect(screen.getByLabelText("Oynatma konumu (ms)")).toHaveValue(150);
-	expect(screen.getByText("south · Kare 2")).toBeInTheDocument();
-	expect(screen.getByText("east · Kare 1")).toBeInTheDocument();
+	expect(screen.getByLabelText("Playback position (ms)")).toHaveValue(150);
+	expect(screen.getByText("south · Frame 2")).toBeInTheDocument();
+	expect(screen.getByText("east · Frame 1")).toBeInTheDocument();
 	fireEvent.click(screen.getByRole("button", { name: "Pause" }));
 	expect(cancel).toHaveBeenCalledWith(1);
 	fireEvent.click(screen.getByRole("button", { name: "Restart" }));
-	expect(screen.getByLabelText("Oynatma konumu (ms)")).toHaveValue(0);
+	expect(screen.getByLabelText("Playback position (ms)")).toHaveValue(0);
 });
 test("blocks saving a crop outside the pinned image", async () => {
 	preparePreview();
 	renderReview();
-	fireEvent.change(screen.getByLabelText("Yön 1 kare 1 width"), {
+	fireEvent.change(screen.getByLabelText("Direction 1 frame 1 width"), {
 		target: { value: "65" },
 	});
 	await waitFor(() =>
 		expect(
-			screen.getByText("Kare alanı görsel sınırlarının dışında.")
+			screen.getByText("The frame region is outside the image bounds.")
 		).toBeInTheDocument()
 	);
-	expect(
-		screen.getByRole("button", { name: "İncelemeyi kaydet" })
-	).toBeDisabled();
+	expect(screen.getByRole("button", { name: "Save review" })).toBeDisabled();
 });
 
 test("loads authenticated previews from the configured API origin", async () => {
@@ -218,23 +214,23 @@ test("toggles a frame sprite sheet region from the keyboard and edits its bounds
 	renderReview();
 
 	const [region] = screen.getAllByRole("checkbox", {
-		name: "Sprite sheet alanı",
+		name: "Sprite sheet region",
 	});
 	expect(region).toHaveAttribute("aria-checked", "true");
 	expect(
-		screen.getByRole("spinbutton", { name: "Yön 1 kare 1 width" })
+		screen.getByRole("spinbutton", { name: "Direction 1 frame 1 width" })
 	).toHaveValue(32);
 
 	region.focus();
 	await user.keyboard(" ");
 	expect(region).toHaveAttribute("aria-checked", "false");
 	expect(
-		screen.queryByRole("spinbutton", { name: "Yön 1 kare 1 width" })
+		screen.queryByRole("spinbutton", { name: "Direction 1 frame 1 width" })
 	).not.toBeInTheDocument();
 	await user.keyboard(" ");
 	expect(region).toHaveAttribute("aria-checked", "true");
 	expect(
-		screen.getByRole("spinbutton", { name: "Yön 1 kare 1 width" })
+		screen.getByRole("spinbutton", { name: "Direction 1 frame 1 width" })
 	).toHaveValue(32);
 });
 
@@ -294,4 +290,22 @@ test("playback pauses when the system turns reduced motion on", async () => {
 	expect(
 		screen.getByRole("button", { name: "Play together" })
 	).toBeInTheDocument();
+});
+
+test("explains duplicate direction names and clears the error when corrected", async () => {
+	const user = userEvent.setup();
+	preparePreview();
+	renderReview();
+	const direction = screen.getByLabelText("Direction name 2");
+	await user.clear(direction);
+	await user.type(direction, "south");
+	expect(screen.getByRole("alert")).toHaveTextContent(
+		"Choose four or eight distinct directions."
+	);
+	expect(screen.getByRole("button", { name: "Save review" })).toBeDisabled();
+	await user.clear(direction);
+	await user.type(direction, "west");
+	expect(
+		screen.queryByText("Choose four or eight distinct directions.")
+	).not.toBeInTheDocument();
 });

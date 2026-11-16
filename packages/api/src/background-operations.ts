@@ -144,6 +144,16 @@ export const backgroundOperationListSchema = z
 	.object({ operations: z.array(backgroundOperationSchema) })
 	.strict();
 
+export const backgroundOperationSummarySchema = z
+	.object({
+		active: z.number().int().nonnegative(),
+		failed: z.number().int().nonnegative(),
+	})
+	.strict();
+export type BackgroundOperationSummary = z.infer<
+	typeof backgroundOperationSummarySchema
+>;
+
 export type CancelRequestResult =
 	| { operation: BackgroundOperation; outcome: "accepted" }
 	| { operation: BackgroundOperation; outcome: "finished" }
@@ -161,4 +171,8 @@ export interface BackgroundOperationStore {
 		projectId: string,
 		backgroundOperationId: string
 	) => Promise<CancelRequestResult>;
+	summary: (
+		userId: string,
+		projectId: string
+	) => Promise<BackgroundOperationSummary | null>;
 }

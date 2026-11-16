@@ -45,12 +45,12 @@ function unwrapTrackingResult<T>(
 	if (result.reason === "context_override_required") {
 		throw new ORPCError("PRECONDITION_FAILED", {
 			message:
-				"Ana Tasarım kimliğini aşmak için Bağlam Kuralı İstisnası gerekçesi kaydedin.",
+				"Record a Context Rule Exception rationale to depart from the Canonical Design identity.",
 		});
 	}
 	if (result.reason === "storage_unavailable") {
 		throw new ORPCError("PRECONDITION_FAILED", {
-			message: "Varlık Sürümü saklama alanı yapılandırılmamış.",
+			message: "Asset Version storage is not configured.",
 		});
 	}
 	throw new ORPCError("PRECONDITION_FAILED", { message: blockedMessage });
@@ -68,7 +68,7 @@ export const assetRecordTrackingRouter = {
 			);
 			if (!detail) {
 				throw new ORPCError("NOT_FOUND", {
-					message: "Varlık kaydı bulunamadı.",
+					message: "Asset Record not found.",
 				});
 			}
 			return assetRecordTrackingDetailSchema.parse(detail);
@@ -82,9 +82,9 @@ export const assetRecordTrackingRouter = {
 					context.session.user.id,
 					input
 				),
-				"Varlık kaydı bulunamadı.",
-				"Bu kimlik farklı içerik için kullanılmış.",
-				"Aday Sürüm oluşturulamadı."
+				"Asset Record not found.",
+				"This ID has already been used for different content.",
+				"Candidate Version could not be created."
 			)
 		),
 	createManualImportVersion: protectedProcedure
@@ -96,9 +96,9 @@ export const assetRecordTrackingRouter = {
 					context.session.user.id,
 					input
 				),
-				"Varlık kaydı veya Üretim Paketi bulunamadı.",
-				"Bu kimlik farklı içerik için kullanılmış.",
-				"Aday Sürüm oluşturulamadı."
+				"Asset Record or Generation Package not found.",
+				"This ID has already been used for different content.",
+				"Candidate Version could not be created."
 			)
 		),
 	recordReview: protectedProcedure
@@ -110,9 +110,9 @@ export const assetRecordTrackingRouter = {
 					context.session.user.id,
 					input
 				),
-				"Varlık Sürümü bulunamadı.",
-				"Bu karar kimliği farklı bir inceleme için kullanılmış.",
-				"Onay için dosya bütünlüğü ve gerekli üretim kanıtı gerekir."
+				"Asset Version not found.",
+				"This decision ID has already been used for a different review.",
+				"Approval requires verified file integrity and the required production evidence."
 			)
 		),
 	createFamily: protectedProcedure
@@ -124,9 +124,9 @@ export const assetRecordTrackingRouter = {
 					context.session.user.id,
 					input
 				),
-				"Kayıt, Görsel Dünya veya onaylı Varlık Sürümü bulunamadı.",
-				"Varlık kaydı zaten başka bir aileye bağlı veya aile adı kullanımda.",
-				"Ana Tasarım olarak yalnız Onaylı Sürüm seçilebilir."
+				"Asset Record, Visual World, or approved Asset Version not found.",
+				"The Asset Record belongs to another family or the family name is already in use.",
+				"Only an Approved Version can be selected as the Canonical Design."
 			)
 		),
 	createDerivative: protectedProcedure
@@ -138,9 +138,9 @@ export const assetRecordTrackingRouter = {
 					context.session.user.id,
 					input
 				),
-				"Varlık kaydı veya aile bulunamadı.",
-				"Türetilmiş kayıt başka bir aileye bağlı veya ilişki kimliği kullanılmış.",
-				"Türetilmiş Varlık onaylı Ana Tasarıma bağlanmalıdır."
+				"Asset Record or Asset Family not found.",
+				"The derived record belongs to another family or the relationship ID is already in use.",
+				"The Derived Asset must be linked to an approved Canonical Design."
 			)
 		),
 	createReference: protectedProcedure
@@ -152,8 +152,8 @@ export const assetRecordTrackingRouter = {
 					context.session.user.id,
 					input
 				),
-				"Varlık kaydı veya Referans Sürümü bulunamadı.",
-				"Referans kimliği farklı içerik için kullanılmış.",
+				"Asset Record or Reference Version not found.",
+				"This reference ID has already been used for different content.",
 				"Referans kaydedilemedi."
 			)
 		),
@@ -166,9 +166,9 @@ export const assetRecordTrackingRouter = {
 					context.session.user.id,
 					input
 				),
-				"Varlık kaydı veya Referans Sürümü bulunamadı.",
-				"Referans değişti. Güncel durumu yeniden yükleyip tekrar deneyin.",
-				"Referans kuralları kaydedilemedi."
+				"Asset Record or Reference Version not found.",
+				"The reference changed. Reload the current state and try again.",
+				"Reference rules could not be saved."
 			)
 		),
 };

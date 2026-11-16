@@ -193,30 +193,30 @@ function getMetadataMessage({
 	status: AnimationTimingMetadataStatus;
 }) {
 	if (status === "loading") {
-		return "Olay bağlantıları yükleniyor…";
+		return "Loading event links…";
 	}
 	if (status === "error") {
-		return "Olay bilgileri okunamadı; zaman çizgisinde görünen olaylar eksik olabilir.";
+		return "Could not load event details; the timeline may be incomplete.";
 	}
 	if (!hasSelectedFrames) {
-		return "Olay bağlantılarını görmek için kare kimliği ve Varlık Sürümü seçin.";
+		return "Select a frame ID and Asset Version to see event links.";
 	}
 	if (eventFields.length === 0) {
-		return "Seçili kareler ve sözleşme revizyonu için olay bağlantısı kaydı bulunamadı.";
+		return "No event link record was found for the selected frames and contract revision.";
 	}
 	if (parsedFields.some((field) => field.invalidCount > 0)) {
-		return "Olay bağlantısı verilerinin biçimi veya zaman bilgisi geçersiz; bu kayıtlar çizilmedi.";
+		return "Event link format or timing is invalid; these records were not drawn.";
 	}
 	if (tracks.some((track) => track.events.length > 0)) {
 		return null;
 	}
 	if (parsedFields.every((field) => field.unspecified)) {
-		return "Seçili karelerde olay bağlantısı belirtilmemiş.";
+		return "No event links were specified for the selected frames.";
 	}
 	if (parsedFields.every((field) => field.explicitlyEmpty)) {
-		return "Seçili karelerde olay bağlantısı yok.";
+		return "There are no event links on the selected frames.";
 	}
-	return "Seçili kareler için zaman bilgisi olan olay bağlantısı bulunamadı.";
+	return "No timed event links were found for the selected frames.";
 }
 
 export function AnimationTimingEventTimeline({
@@ -261,9 +261,9 @@ export function AnimationTimingEventTimeline({
 	if (gameplayMetadataStatus === "error") {
 		metadataNotice = (
 			<StatusMessage className="flex flex-wrap items-center gap-2" tone="error">
-				{message} Olay olmadığı varsayılmadı.
+				{message} The absence of events was not assumed.
 				<Button onClick={onRetryGameplayMetadata} type="button">
-					Olay bilgilerini yeniden yükle
+					Reload event details
 				</Button>
 			</StatusMessage>
 		);
@@ -280,14 +280,14 @@ export function AnimationTimingEventTimeline({
 
 	return (
 		<section
-			aria-label="Olay zaman çizgisi"
+			aria-label="Event timeline"
 			className="space-y-3 rounded border p-3"
 		>
 			<div>
-				<h4 className="font-medium">Olay zaman çizgisi</h4>
+				<h4 className="font-medium">Event timeline</h4>
 				<p className="text-muted-foreground text-sm">
-					Klip başlangıcından geçen süre (ms). Her olay, bağlı olduğu karenin
-					önceki süreleri eklenmeden kendi zamanında yer alır.
+					Elapsed time from the start of the clip (ms). Each event appears at
+					its own time without adding previous frame durations.
 				</p>
 			</div>
 			{metadataNotice}

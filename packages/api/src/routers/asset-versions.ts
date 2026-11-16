@@ -18,6 +18,8 @@ import {
 import { previewBatchReview } from "../batch-version-review";
 import type { Context } from "../context";
 import { protectedProcedure } from "../index";
+import { recordRepairedReview } from "../measurement-review-lineage";
+import { recordProductBoundary } from "../measurement-workflows";
 import {
 	manualImportEvidenceInputSchema,
 	manualImportEvidenceSummarySchema,
@@ -62,8 +64,8 @@ function assertApprovalEvidenceComplete(
 		throw new ORPCError("BAD_REQUEST", {
 			message:
 				version.productionEvidence.sourceKind === "external_working_file_edit"
-					? "Onaydan önce düzenlenebilir çalışma dosyasının Yönetilen Kopyasını kaydedin."
-					: "Onaydan önce Elle İçe Aktarma Kanıtı için Üretim Paketi, gerçek talimat ve kaynak yüzeyini kaydedin.",
+					? "Save a Managed Snapshot of the editable working file before approval."
+					: "Record the Generation Package, actual instruction, and source surface for Manual Import Evidence before approval.",
 		});
 	}
 	if (
@@ -99,7 +101,8 @@ export const assetVersionsRouter = {
 			);
 			if (existing === "conflict") {
 				throw new ORPCError("CONFLICT", {
-					message: "Bu toplu inceleme isteği farklı kararlar için kullanılmış.",
+					message:
+						"This batch review request was already used for different decisions.",
 				});
 			}
 			if (existing) {
@@ -122,13 +125,13 @@ export const assetVersionsRouter = {
 				)
 			) {
 				throw new ORPCError("CONFLICT", {
-					message: "İnceleme kararları değişti. Önizlemeyi yeniden yükleyin.",
+					message: "Review decisions changed. Reload the preview.",
 				});
 			}
 			const blocked = preview.items.filter((item) => item.blockers.length > 0);
 			if (blocked.length > 0) {
 				throw new ORPCError("BAD_REQUEST", {
-					message: `Hiçbir İnceleme Kaydı yazılmadı: ${blocked.map((item) => `${item.assetVersionId}: ${item.blockers.join(", ")}`).join("; ")}`,
+					message: `No Review Event was written: ${blocked.map((item) => `${item.assetVersionId}: ${item.blockers.join(", ")}`).join("; ")}`,
 				});
 			}
 			const events = await context.assetVersionStore.recordBatchReviewEvents(
@@ -137,9 +140,17 @@ export const assetVersionsRouter = {
 			);
 			if (!events) {
 				throw new ORPCError("CONFLICT", {
-					message: "Toplu inceleme tamamlanamadı. Önizlemeyi yeniden yükleyin.",
+					message: "Batch review could not be completed. Reload the preview.",
 				});
 			}
+			await Promise.all(
+				events.map((event) =>
+					recordRepairedReview(context, input.projectId, catalog, {
+						kind: "asset",
+						id: event.assetVersionId,
+					})
+				)
+			);
 			return { reviewEvents: events };
 		}),
 	list: protectedProcedure
@@ -188,19 +199,19 @@ export const assetVersionsRouter = {
 			);
 			if (!result) {
 				throw new ORPCError("NOT_FOUND", {
-					message: "Proje veya Varlık Kaydı bulunamadı.",
+					message: "Project or Asset Record not found.",
 				});
 			}
 			if (result.kind === "invalid-unit-versions") {
 				throw new ORPCError("BAD_REQUEST", {
 					message:
-						"Seçilen Birim Sürümleri bu Varlık Kaydına ait değil veya aynı bileşim yuvasını birden fazla kez seçiyor.",
+						"Selected Unit Versions do not belong to this Asset Record or select the same composition slot more than once.",
 				});
 			}
 			if (result.kind === "idempotency-conflict") {
 				throw new ORPCError("CONFLICT", {
 					message:
-						"Bu Birleşik Sürüm oluşturma anahtarı farklı bir üyelik kümesiyle kullanılmış.",
+						"This Composite Version creation key was already used with different members.",
 				});
 			}
 			return compositeVersionSchema.parse(result.compositeVersion);
@@ -228,12 +239,13 @@ export const assetVersionsRouter = {
 			);
 			if (!compositeVersion) {
 				throw new ORPCError("NOT_FOUND", {
-					message: "Birleşik Sürüm bulunamadı.",
+					message: "Composite Version not found.",
 				});
 			}
 			if (compositeVersion.reviewDisposition === input.decision) {
 				throw new ORPCError("BAD_REQUEST", {
-					message: "Birleşik Sürümün güncel inceleme kararı zaten bu.",
+					message:
+						"This is already the current Composite Version review decision.",
 				});
 			}
 			const event = await withPublicationErrors(() =>
@@ -245,9 +257,13 @@ export const assetVersionsRouter = {
 			if (!event) {
 				throw new ORPCError("CONFLICT", {
 					message:
-						"Birleşik Sürüm bu sırada incelenmiş. Güncel durumu yeniden yükleyin.",
+						"The Composite Version was reviewed in the meantime. Reload the current state.",
 				});
 			}
+			await recordRepairedReview(context, input.projectId, catalog, {
+				kind: "composite",
+				id: input.compositeVersionId,
+			});
 			return compositeVersionReviewEventSchema.parse(event);
 		}),
 	review: protectedProcedure
@@ -271,12 +287,12 @@ export const assetVersionsRouter = {
 			);
 			if (!version) {
 				throw new ORPCError("NOT_FOUND", {
-					message: "Varlık Sürümü bulunamadı.",
+					message: "Asset Version not found.",
 				});
 			}
 			if (version.reviewDisposition === input.decision) {
 				throw new ORPCError("BAD_REQUEST", {
-					message: "Varlık Sürümünün güncel inceleme kararı zaten bu.",
+					message: "This is already the current Asset Version review decision.",
 				});
 			}
 			assertApprovalEvidenceComplete(input.decision, version);
@@ -286,7 +302,7 @@ export const assetVersionsRouter = {
 			) {
 				throw new ORPCError("BAD_REQUEST", {
 					message:
-						"Bütünlük doğrulaması tamamlanmamış bir Varlık Sürümü onaylanamaz.",
+						"An Asset Version cannot be approved before integrity verification completes.",
 				});
 			}
 			if (
@@ -311,7 +327,7 @@ export const assetVersionsRouter = {
 				if (evidenceRequired && !hasEvidence) {
 					throw new ORPCError("BAD_REQUEST", {
 						message:
-							"Elle İçe Aktarma Kanıtı tamamlanmadan Aday Sürüm onaylanamaz.",
+							"A Candidate Version cannot be approved until Manual Import Evidence is complete.",
 					});
 				}
 			}
@@ -325,7 +341,7 @@ export const assetVersionsRouter = {
 			) {
 				throw new ORPCError("BAD_REQUEST", {
 					message:
-						"Saklanan Varlık Sürümü bütünlük doğrulamasından geçmediği için onaylanamaz.",
+						"The stored Asset Version cannot be approved because integrity verification failed.",
 				});
 			}
 			const event = await withPublicationErrors(() =>
@@ -337,14 +353,18 @@ export const assetVersionsRouter = {
 			if (!event) {
 				throw new ORPCError("CONFLICT", {
 					message:
-						"Varlık Sürümü bu sırada incelenmiş. Güncel durumu yeniden yükleyin.",
+						"The Asset Version was reviewed in the meantime. Reload the current state.",
 				});
 			}
 			if ("kind" in event && event.kind === "approval-blocked") {
 				throw new ORPCError("BAD_REQUEST", {
-					message: `Onay için zorunlu kalite kanıtını tamamlayın: ${event.blockers.join(", ")}`,
+					message: `Complete the required quality evidence for approval: ${event.blockers.join(", ")}`,
 				});
 			}
+			await recordRepairedReview(context, input.projectId, catalog, {
+				kind: "asset",
+				id: input.assetVersionId,
+			});
 			return assetVersionReviewEventSchema.parse(event);
 		}),
 	saveManualImportEvidence: protectedProcedure
@@ -357,33 +377,46 @@ export const assetVersionsRouter = {
 			);
 			if (result.kind === "not-found") {
 				throw new ORPCError("NOT_FOUND", {
-					message: "Aday Varlık Sürümü veya Proje bulunamadı.",
+					message: "Candidate Asset Version or Project not found.",
 				});
 			}
 			if (result.kind === "not-manual-import") {
 				throw new ORPCError("BAD_REQUEST", {
 					message:
-						"Elle İçe Aktarma Kanıtı yalnız elle içe aktarılan sürüme eklenebilir.",
+						"Manual Import Evidence can only be added to a manually imported version.",
 				});
 			}
 			if (result.kind === "not-candidate") {
 				throw new ORPCError("PRECONDITION_FAILED", {
 					message:
-						"Elle İçe Aktarma Kanıtı yalnız Aday Sürüm için güncellenebilir.",
+						"Manual Import Evidence can only be updated for a Candidate Version.",
 				});
 			}
 			if (result.kind === "package-not-found") {
 				throw new ORPCError("BAD_REQUEST", {
-					message: "Seçilen Üretim Paketi bu Varlık Kaydına ait değil.",
+					message:
+						"The selected Generation Package does not belong to this Asset Record.",
 				});
 			}
 			if (result.kind === "conflict") {
 				throw new ORPCError("CONFLICT", {
 					message:
-						"Kanıt aynı anda değişti. Sürüm durumunu yenileyip tekrar deneyin.",
+						"The evidence changed concurrently. Reload the version state and try again.",
 				});
 			}
-			return manualImportEvidenceSummarySchema.parse(result.evidence);
+			const evidence = manualImportEvidenceSummarySchema.parse(result.evidence);
+			await recordProductBoundary(context, {
+				userId: context.session.user.id,
+				projectId: input.projectId,
+				workflowId: input.generationPackageId,
+				eventFamily: "production_workflow",
+				eventName: "candidate_preview_reached",
+				phase: "finish",
+				recordKind: "asset_version",
+				outcomeClass: "preview_reached",
+				counters: {},
+			});
+			return evidence;
 		}),
 	selectCanonicalDesign: protectedProcedure
 		.input(assetFamilyCanonicalDesignInputSchema)
@@ -399,7 +432,7 @@ export const assetVersionsRouter = {
 				)
 			) {
 				throw new ORPCError("NOT_FOUND", {
-					message: "Bu Projede Varlık Ailesi bulunamadı.",
+					message: "Asset Family not found in this Project.",
 				});
 			}
 			const version = versionCatalog.assetVersions.find(
@@ -408,13 +441,13 @@ export const assetVersionsRouter = {
 			if (!version || version.assetFamilyId !== input.assetFamilyId) {
 				throw new ORPCError("BAD_REQUEST", {
 					message:
-						"Ana Tasarım olarak yalnız aynı Varlık Ailesindeki bir Varlık Sürümü seçilebilir.",
+						"Only an Asset Version in the same Asset Family can be selected as the Canonical Design.",
 				});
 			}
 			if (version.reviewDisposition !== "approved") {
 				throw new ORPCError("BAD_REQUEST", {
 					message:
-						"Ana Tasarım olarak yalnız onaylanmış bir Varlık Sürümü seçilebilir.",
+						"Only an approved Asset Version can be selected as the Canonical Design.",
 				});
 			}
 			if (
@@ -430,7 +463,7 @@ export const assetVersionsRouter = {
 			) {
 				throw new ORPCError("BAD_REQUEST", {
 					message:
-						"Bütünlüğü doğrulanmamış bir Varlık Sürümü Ana Tasarım olamaz.",
+						"An Asset Version without verified integrity cannot be the Canonical Design.",
 				});
 			}
 			const selection = await context.assetVersionStore.selectCanonicalDesign(
@@ -440,7 +473,7 @@ export const assetVersionsRouter = {
 			if (!selection) {
 				throw new ORPCError("CONFLICT", {
 					message:
-						"Ana Tasarım seçimi bu sırada değişti. Güncel durumu yeniden yükleyin.",
+						"The Canonical Design selection changed. Reload the current state.",
 				});
 			}
 			return assetFamilyCanonicalDesignSchema.parse(selection);

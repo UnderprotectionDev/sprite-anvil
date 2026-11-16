@@ -11,10 +11,24 @@ export function createMemoryProjectArchiveRestoreStorage() {
 		find: (sourceProjectId, restoreId) => {
 			const found = restores.get(restoreId);
 			return Promise.resolve(
-				found?.restore.sourceProjectId === sourceProjectId
+				found &&
+					(found.restore.operationProjectId ??
+						found.restore.sourceProjectId) === sourceProjectId
 					? structuredClone(found)
 					: null
 			);
+		},
+		markVerified: (sourceProjectId, restoreId) => {
+			const found = restores.get(restoreId);
+			if (
+				!found ||
+				(found.restore.operationProjectId ?? found.restore.sourceProjectId) !==
+					sourceProjectId
+			) {
+				return Promise.reject(new Error("Restore not found"));
+			}
+			found.restore.canonicalVerified = true;
+			return Promise.resolve();
 		},
 		insert: (record) => {
 			if (
@@ -34,7 +48,12 @@ export function createMemoryProjectArchiveRestoreStorage() {
 			Promise.resolve(
 				[...restores.values()]
 					.map((entry) => entry.restore)
-					.filter((restore) => restore.sourceProjectId === sourceProjectId)
+					.filter(
+						(restore) =>
+							restore.canonicalVerified !== false &&
+							(restore.operationProjectId ?? restore.sourceProjectId) ===
+								sourceProjectId
+					)
 			),
 		withdraw: (restoreId) => {
 			const found = restores.get(restoreId);

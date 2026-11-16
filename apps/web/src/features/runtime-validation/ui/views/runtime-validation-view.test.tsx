@@ -417,3 +417,30 @@ test("the decision and evidence forms mark their invalid fields too", async () =
 		document.getElementById(text.getAttribute("aria-describedby") ?? "")
 	).toHaveTextContent("Write the observation.");
 });
+
+test("excluded archive evidence displays its identity without offering a broken download", async () => {
+	fakeApi.records = [
+		record([
+			{
+				id: "55555555-5555-4555-8555-555555555555",
+				createdAt: "2026-11-16T00:00:00Z",
+				kind: "recording",
+				source: "manual",
+				text: null,
+				fileAvailability: "unavailable",
+				file: {
+					fileName: "archived-run.mp4",
+					byteSize: 12,
+					sha256: "b".repeat(64),
+				},
+			},
+		]),
+	];
+	renderView();
+	expect(
+		await screen.findByText("File unavailable: archived-run.mp4")
+	).toBeVisible();
+	expect(
+		screen.queryByRole("link", { name: "archived-run.mp4" })
+	).not.toBeInTheDocument();
+});

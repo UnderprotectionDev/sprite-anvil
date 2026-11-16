@@ -115,6 +115,7 @@ export interface RuntimeValidationFileEvidenceInput {
 }
 
 export const runtimeValidationEvidenceSchema = z.object({
+	fileAvailability: z.enum(["available", "unavailable"]).optional(),
 	createdAt: z.iso.datetime(),
 	/** Exactly one of `file` and `text` is set. */
 	file: runtimeValidationEvidenceFileSchema.nullable(),

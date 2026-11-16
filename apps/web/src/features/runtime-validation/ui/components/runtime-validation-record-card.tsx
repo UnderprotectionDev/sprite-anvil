@@ -117,17 +117,21 @@ export function RuntimeValidationRecordCard({
 								) : null}
 								{item.file ? (
 									<p>
-										<a
-											className="underline underline-offset-4"
-											download={item.file.fileName}
-											href={runtimeValidationEvidenceDownloadUrl(
-												record.projectId,
-												record.id,
-												item.id
-											)}
-										>
-											{item.file.fileName}
-										</a>{" "}
+										{item.fileAvailability === "unavailable" ? (
+											<span>File unavailable: {item.file.fileName}</span>
+										) : (
+											<a
+												className="underline underline-offset-4"
+												download={item.file.fileName}
+												href={runtimeValidationEvidenceDownloadUrl(
+													record.projectId,
+													record.id,
+													item.id
+												)}
+											>
+												{item.file.fileName}
+											</a>
+										)}{" "}
 										<span className="break-all text-muted-foreground">
 											({item.file.byteSize} bytes, SHA-256 {item.file.sha256})
 										</span>

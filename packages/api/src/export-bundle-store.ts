@@ -1,8 +1,10 @@
+import type { z } from "zod";
 import type { ExportBundleSource } from "./export-bundle-manifest";
 import type {
 	ExportBundle,
 	ExportBundleCatalog,
 	ExportBundleCreateInput,
+	exportBundlePreviewSchema,
 } from "./export-bundles";
 
 export type ExportBundleRejection =
@@ -53,4 +55,8 @@ export interface ExportBundleStore {
 		userId: string,
 		projectId: string
 	) => Promise<ExportBundleCatalog | null>;
+	preview: (
+		userId: string,
+		input: { projectId: string; assetFamilyIds: string[] }
+	) => Promise<z.infer<typeof exportBundlePreviewSchema> | null>;
 }

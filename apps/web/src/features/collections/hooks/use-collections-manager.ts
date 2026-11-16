@@ -115,7 +115,7 @@ export function useCollectionsManager(projectId: string) {
 			toast.error(
 				getErrorMessage(
 					error,
-					"İşlemin sonucu doğrulanamadı. Koleksiyon listesini kontrol edin."
+					"Could not verify the result. Check the Collection list."
 				)
 			);
 		} finally {
@@ -138,7 +138,7 @@ export function useCollectionsManager(projectId: string) {
 				collectionForm.reset();
 				setSelectedCollectionId(collection.id);
 			},
-			"Koleksiyon oluşturuldu."
+			"Collection created."
 		);
 	}
 
@@ -156,7 +156,7 @@ export function useCollectionsManager(projectId: string) {
 				});
 				membershipForm.reset();
 			},
-			"Varlık Kaydı Koleksiyona eklendi."
+			"Asset Record added to Collection."
 		);
 	}
 
@@ -172,7 +172,7 @@ export function useCollectionsManager(projectId: string) {
 					collectionId: selectedCollection.id,
 					assetRecordId,
 				}),
-			"Varlık Kaydı Koleksiyondan kaldırıldı."
+			"Asset Record removed from Collection."
 		);
 	}
 
@@ -188,9 +188,7 @@ export function useCollectionsManager(projectId: string) {
 				return;
 			}
 			setWriteOutcomeUncertain(false);
-			setStatusMessage(
-				"Koleksiyonlar yenilendi. İşlem sonucunu listedeki kayıtlarda kontrol edin."
-			);
+			setStatusMessage("Collections refreshed. Check the list for the result.");
 		} finally {
 			setIsCheckingOutcome(false);
 		}

@@ -17,9 +17,11 @@ const referenceRoute = `/api/projects/${projectId}/asset-records/${assetRecordId
 function createTestServer(
 	owner = true,
 	simulateDatabaseError = false,
-	allowedReferenceId: string | null = null
+	allowedReferenceId: string | null = null,
+	unavailable = false
 ) {
 	let savedRecord: RightsRecord | null = null;
+	let storageGets = 0;
 	let storedObject: {
 		body: Uint8Array;
 		contentLength: number;
@@ -34,6 +36,7 @@ function createTestServer(
 			return Promise.resolve();
 		},
 		get(key: string) {
+			storageGets += 1;
 			if (storedObject?.key !== key) {
 				return Promise.resolve(null);
 			}
@@ -108,6 +111,15 @@ function createTestServer(
 			if (simulateDatabaseError) {
 				throw new Error("Database is temporarily unavailable");
 			}
+			if (unavailable) {
+				return Promise.resolve({
+					objectKey: null,
+					fileName: "license.pdf",
+					contentLength: 10,
+					sha256: "a".repeat(64),
+					sourceContentType: "application/pdf",
+				});
+			}
 			if (
 				userId !== "owner-user" ||
 				!savedRecord ||
@@ -141,6 +153,7 @@ function createTestServer(
 				storedObject.body[0] = (storedObject.body[0] ?? 0) === 0 ? 1 : 0;
 			}
 		},
+		getStorageGets: () => storageGets,
 		getSavedRecord: () => savedRecord,
 		getStoredObject: () => storedObject,
 	};
@@ -374,4 +387,13 @@ test("keeps an uploaded object when the database write outcome is unknown", asyn
 
 	expect(uploadResponse.status).toBe(500);
 	expect(server.getStoredObject()).not.toBeNull();
+});
+
+test("excluded archived evidence returns 404 without reading object storage", async () => {
+	const { app, getStorageGets } = createTestServer(true, false, null, true);
+	const response = await app.request(route, {
+		headers: { Authorization: "Bearer owner" },
+	});
+	expect(response.status).toBe(404);
+	expect(getStorageGets()).toBe(0);
 });

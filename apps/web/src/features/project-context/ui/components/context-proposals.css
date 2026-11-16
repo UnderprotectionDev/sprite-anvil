@@ -1,40 +1,19 @@
 .context-page {
-	--context-canvas: #f0efe7;
-	--context-ink: #182329;
-	--context-muted: #5d6a68;
-	--context-panel: #f9f8f2;
-	--context-line: #cdd2c8;
-	--context-deep: #e3e7dc;
-	--context-signal: #a46708;
-	--context-signal-ink: #fff;
-	--context-signal-soft: #f2dba9;
-	--context-danger: #8e3726;
-	--context-patina: #1f7460;
+	--context-canvas: var(--background);
+	--context-ink: var(--foreground);
+	--context-muted: var(--muted-foreground);
+	--context-panel: var(--card);
+	--context-line: var(--border);
+	--context-deep: var(--muted);
+	--context-signal: var(--signal);
+	--context-signal-ink: var(--signal-foreground);
+	--context-signal-soft: var(--muted);
+	--context-danger: var(--status-danger);
+	--context-patina: var(--status-success);
 	min-height: 100%;
 	padding: clamp(1.25rem, 4vw, 3.5rem) clamp(1rem, 4vw, 4rem);
 	color: var(--context-ink);
-	background:
-		linear-gradient(
-			90deg,
-			transparent 49px,
-			color-mix(in srgb, var(--context-line) 22%, transparent) 50px,
-			transparent 51px
-		),
-		var(--context-canvas);
-}
-
-.dark .context-page {
-	--context-canvas: #111a1e;
-	--context-ink: #edf1e8;
-	--context-muted: #a2b2ad;
-	--context-panel: #1a272b;
-	--context-line: #3b5152;
-	--context-deep: #202e30;
-	--context-signal: #f0bd55;
-	--context-signal-ink: #182329;
-	--context-signal-soft: #47391e;
-	--context-danger: #ff9c81;
-	--context-patina: #9bd4c2;
+	background: var(--context-canvas);
 }
 
 .context-dialog-body {
@@ -80,7 +59,7 @@
 .panel-index,
 .stamp-label {
 	margin: 0;
-	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-family: var(--font-mono);
 	font-size: 0.68rem;
 	font-weight: 700;
 	color: var(--context-patina);
@@ -89,7 +68,7 @@
 
 .context-heading h1 {
 	margin: 0.5rem 0 0.35rem;
-	font-family: "Iowan Old Style", "Palatino Linotype", ui-serif, Georgia, serif;
+	font-family: var(--font-display);
 	font-size: clamp(2.2rem, 5vw, 4rem);
 	font-weight: 500;
 	line-height: 1;
@@ -140,7 +119,7 @@
 
 .stamp-version {
 	align-self: start;
-	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-family: var(--font-mono);
 	font-size: 0.7rem;
 	color: var(--context-signal);
 }
@@ -184,6 +163,12 @@
 	transition:
 		border-color 120ms ease,
 		box-shadow 120ms ease;
+}
+
+.project-select select {
+	height: auto;
+	min-height: 2.8rem;
+	padding-right: 2rem;
 }
 
 .context-field textarea {
@@ -247,7 +232,7 @@
 
 .scope-registry-count {
 	padding: 0.4rem 0.55rem;
-	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-family: var(--font-mono);
 	font-size: 0.66rem;
 	color: var(--context-muted);
 	border: 1px solid var(--context-line);
@@ -378,7 +363,7 @@
 .panel-heading h2,
 .ledger-header h2 {
 	margin: 0.25rem 0 0;
-	font-family: "Iowan Old Style", "Palatino Linotype", ui-serif, Georgia, serif;
+	font-family: var(--font-display);
 	font-size: 1.65rem;
 	font-weight: 500;
 	letter-spacing: -0.035em;
@@ -393,7 +378,7 @@
 }
 
 .panel-copy code {
-	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-family: var(--font-mono);
 	font-size: 0.82em;
 	color: var(--context-ink);
 }
@@ -413,7 +398,7 @@
 	place-items: center;
 	width: 2.55rem;
 	height: 2.55rem;
-	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-family: var(--font-mono);
 	font-size: 0.75rem;
 	font-weight: 700;
 	color: var(--context-signal);
@@ -422,7 +407,7 @@
 
 .base-state {
 	margin-left: auto;
-	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-family: var(--font-mono);
 	font-size: 0.64rem;
 	color: var(--context-muted);
 	text-transform: uppercase;
@@ -486,7 +471,7 @@
 
 .rule-card-number {
 	margin-right: 0.4rem;
-	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-family: var(--font-mono);
 	font-size: 0.68rem;
 	color: var(--context-signal);
 }
@@ -549,7 +534,7 @@
 	place-items: center;
 	width: 2rem;
 	height: 2rem;
-	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-family: var(--font-mono);
 	font-size: 0.75rem;
 	color: var(--context-signal);
 	border: 1px solid var(--context-line);
@@ -590,7 +575,7 @@
 	gap: 0.5rem;
 	align-items: center;
 	justify-content: space-between;
-	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-family: var(--font-mono);
 	font-size: 0.62rem;
 	color: var(--context-muted);
 }
@@ -612,7 +597,7 @@
 
 .proposal-record h3 {
 	margin: 0.75rem 0 0.5rem;
-	font-family: "Iowan Old Style", "Palatino Linotype", ui-serif, Georgia, serif;
+	font-family: var(--font-display);
 	font-size: 1.2rem;
 	font-weight: 550;
 	line-height: 1.2;
@@ -640,7 +625,7 @@
 }
 
 .proposal-changes strong {
-	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-family: var(--font-mono);
 	font-size: 0.69rem;
 }
 
@@ -722,7 +707,7 @@
 
 .review-revisions dd {
 	margin-top: 0.15rem;
-	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-family: var(--font-mono);
 	font-size: 0.78rem;
 	font-weight: 700;
 }
@@ -767,7 +752,7 @@
 }
 
 .review-conflicts li strong {
-	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-family: var(--font-mono);
 	font-size: 0.67rem;
 }
 
@@ -785,7 +770,7 @@
 }
 
 .effective-rules li strong {
-	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-family: var(--font-mono);
 	font-size: 0.68rem;
 	overflow-wrap: anywhere;
 }
@@ -808,7 +793,7 @@
 .context-copy-details pre {
 	padding: 0.7rem;
 	margin: 0.6rem 0 0;
-	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-family: var(--font-mono);
 	font-size: 0.65rem;
 	line-height: 1.5;
 	word-break: break-word;
@@ -832,7 +817,7 @@
 
 .ledger-empty h3 {
 	margin: 0.65rem 0 0.35rem;
-	font-family: "Iowan Old Style", "Palatino Linotype", ui-serif, Georgia, serif;
+	font-family: var(--font-display);
 	font-size: 1.1rem;
 	font-weight: 550;
 	color: var(--context-ink);

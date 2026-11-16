@@ -82,7 +82,7 @@ function loadAndAssess() {
 	for (const img of screen.getAllByRole("img")) {
 		fireEvent.load(img);
 	}
-	for (const field of screen.getAllByLabelText("Gözlem")) {
+	for (const field of screen.getAllByLabelText("Observation")) {
 		fireEvent.change(field, {
 			target: { value: "Lettering needs more space." },
 		});
@@ -91,7 +91,7 @@ function loadAndAssess() {
 test("requires loaded previews, saves observations and confirms authoritative reread", async () => {
 	show();
 	const save = screen.getByRole("button", {
-		name: "Kullanım incelemesini kaydet",
+		name: "Save usage review",
 	});
 	expect(save).toBeDisabled();
 	loadAndAssess();
@@ -102,7 +102,7 @@ test("requires loaded previews, saves observations and confirms authoritative re
 	});
 	await waitFor(() => expect(save).toBeEnabled());
 	fireEvent.click(save);
-	await screen.findByText("İnceleme kalıcı kayıttan doğrulandı.");
+	await screen.findByText("Review verified from the saved record.");
 	expect(mocks.save).toHaveBeenCalledWith(
 		expect.objectContaining({
 			visualWorldId: "world",
@@ -130,15 +130,11 @@ test("blocks another write after an uncertain result and offers an actual reread
 	mocks.save.mockRejectedValue(new TypeError("Failed to fetch"));
 	await waitFor(() =>
 		expect(
-			screen.getByRole("button", { name: "Kullanım incelemesini kaydet" })
+			screen.getByRole("button", { name: "Save usage review" })
 		).toBeEnabled()
 	);
-	fireEvent.click(
-		screen.getByRole("button", { name: "Kullanım incelemesini kaydet" })
-	);
-	await screen.findByText(
-		"Kaydetme sonucu belirsiz. Güncel kayıtları kontrol edin."
-	);
+	fireEvent.click(screen.getByRole("button", { name: "Save usage review" }));
+	await screen.findByText("Save result is uncertain. Check current records.");
 	await waitFor(() => expect(mocks.errorToast).toHaveBeenCalledOnce());
 	const [, options] = mocks.errorToast.mock.calls[0];
 	render(options.description);
@@ -146,11 +142,11 @@ test("blocks another write after an uncertain result and offers an actual reread
 	expect(screen.getByText(uncertainResultMessage)).toBeVisible();
 	expect(options.action).toBeUndefined();
 	expect(
-		screen.getByRole("button", { name: "Kullanım incelemesini kaydet" })
+		screen.getByRole("button", { name: "Save usage review" })
 	).toBeDisabled();
 	const before = mocks.list.mock.calls.length;
 	fireEvent.click(
-		screen.getByRole("button", { name: "Güncel kayıtları kontrol et" })
+		screen.getByRole("button", { name: "Check current records" })
 	);
 	await waitFor(() =>
 		expect(mocks.list.mock.calls.length).toBeGreaterThan(before)
@@ -169,13 +165,11 @@ test("shows the server support reference without exposing private details or ret
 		})
 	);
 	const save = screen.getByRole("button", {
-		name: "Kullanım incelemesini kaydet",
+		name: "Save usage review",
 	});
 	await waitFor(() => expect(save).toBeEnabled());
 	fireEvent.click(save);
-	await screen.findByText(
-		"Kaydetme sonucu belirsiz. Güncel kayıtları kontrol edin."
-	);
+	await screen.findByText("Save result is uncertain. Check current records.");
 	await waitFor(() => expect(mocks.errorToast).toHaveBeenCalledOnce());
 	const [title, options] = mocks.errorToast.mock.calls[0];
 	expect(title).toBe("This action could not be completed.");
@@ -186,10 +180,10 @@ test("shows the server support reference without exposing private details or ret
 	expect(options.action).toBeUndefined();
 	expect(save).toBeDisabled();
 	fireEvent.click(
-		screen.getByRole("button", { name: "Güncel kayıtları kontrol et" })
+		screen.getByRole("button", { name: "Check current records" })
 	);
 	await screen.findByText(
-		"Sonuç henüz doğrulanamadı. Aynı incelemeyi göndermeden güncel kayıtları tekrar kontrol edin."
+		"The result could not yet be verified. Check current records before resubmitting the same review."
 	);
 	expect(mocks.save).toHaveBeenCalledOnce();
 });
@@ -200,7 +194,7 @@ test("invalidates inspected previews after geometry changes and handles failed i
 		target: { value: "77" },
 	});
 	expect(
-		screen.getByRole("button", { name: "Kullanım incelemesini kaydet" })
+		screen.getByRole("button", { name: "Save usage review" })
 	).toBeDisabled();
 	const [firstImage] = screen.getAllByRole("img");
 	if (!firstImage) {
@@ -208,24 +202,24 @@ test("invalidates inspected previews after geometry changes and handles failed i
 	}
 	fireEvent.error(firstImage);
 	expect(
-		screen.getByRole("button", { name: "Kullanım incelemesini kaydet" })
+		screen.getByRole("button", { name: "Save usage review" })
 	).toBeDisabled();
 });
 test("submits the chosen purpose, opaque presentation color, and observation outcomes", async () => {
 	show();
-	fireEvent.change(screen.getByLabelText("Kullanım amacı"), {
+	fireEvent.change(screen.getByLabelText("Usage purpose"), {
 		target: { value: "store" },
 	});
-	expect(screen.queryByLabelText("Opak zemin rengi")).toBeNull();
+	expect(screen.queryByLabelText("Opaque background color")).toBeNull();
 	fireEvent.change(screen.getByLabelText("Sunum"), {
 		target: { value: "opaque" },
 	});
-	const color = screen.getByLabelText("Opak zemin rengi");
+	const color = screen.getByLabelText("Opaque background color");
 	expect(color).toHaveValue("#ffffff");
 	fireEvent.change(color, { target: { value: "#ffcc00" } });
-	const [lightSafeArea] = screen.getAllByLabelText("Güvenli alan sonucu");
+	const [lightSafeArea] = screen.getAllByLabelText("Safe area result");
 	const [, darkReadability] = screen.getAllByLabelText(
-		"Küçük boyutta okunurluk"
+		"Readability at small size"
 	);
 	if (!(lightSafeArea && darkReadability)) {
 		throw new Error("Missing observation selects");
@@ -242,11 +236,11 @@ test("submits the chosen purpose, opaque presentation color, and observation out
 		return Promise.resolve(record);
 	});
 	const save = screen.getByRole("button", {
-		name: "Kullanım incelemesini kaydet",
+		name: "Save usage review",
 	});
 	await waitFor(() => expect(save).toBeEnabled());
 	fireEvent.click(save);
-	await screen.findByText("İnceleme kalıcı kayıttan doğrulandı.");
+	await screen.findByText("Review verified from the saved record.");
 	expect(mocks.save).toHaveBeenCalledWith(
 		expect.objectContaining({
 			items: [
@@ -278,28 +272,28 @@ test("shows the geometry alert for out-of-bounds crops and locks controls after 
 		target: { value: "500" },
 	});
 	expect(screen.getByRole("alert")).toHaveTextContent(
-		"Kırpma ve güvenli alanı kaynak ölçüleri içinde tutun."
+		"Keep the crop and safe area within the source dimensions."
 	);
 	expect(screen.queryAllByRole("img")).toHaveLength(0);
 	fireEvent.change(screen.getByLabelText("crop width"), {
 		target: { value: "301" },
 	});
 	expect(
-		screen.queryByText("Kırpma ve güvenli alanı kaynak ölçüleri içinde tutun.")
+		screen.queryByText(
+			"Keep the crop and safe area within the source dimensions."
+		)
 	).toBeNull();
 	loadAndAssess();
 	mocks.save.mockRejectedValue(new TypeError("Failed to fetch"));
 	const save = screen.getByRole("button", {
-		name: "Kullanım incelemesini kaydet",
+		name: "Save usage review",
 	});
 	await waitFor(() => expect(save).toBeEnabled());
 	fireEvent.click(save);
-	await screen.findByText(
-		"Kaydetme sonucu belirsiz. Güncel kayıtları kontrol edin."
-	);
-	expect(screen.getByLabelText("Kullanım amacı")).toBeDisabled();
+	await screen.findByText("Save result is uncertain. Check current records.");
+	expect(screen.getByLabelText("Usage purpose")).toBeDisabled();
 	expect(screen.getByLabelText("crop x")).toBeDisabled();
-	for (const notes of screen.getAllByLabelText("Gözlem")) {
+	for (const notes of screen.getAllByLabelText("Observation")) {
 		expect(notes).toBeDisabled();
 		expect(notes).toBeRequired();
 	}

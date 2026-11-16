@@ -26,36 +26,39 @@ test("creates and rereads the shared source metadata mapping proposal through th
 	await page.goto("/context-proposals");
 	await page.getByLabel("Proje adı").fill(fixture.projectName);
 	await page
-		.getByLabel("Genel sanat yaklaşımı")
+		.getByLabel("General art direction")
 		.fill(fixture.generalArtDirection);
 	await page.getByRole("button", { name: "Projeyi oluştur" }).click();
 	await page
-		.getByRole("button", { name: "Görsel Dünyalar ve Temalar", exact: true })
+		.getByRole("button", { name: "Visual Worlds and Themes", exact: true })
 		.click();
-	await page.getByLabel("Görsel Dünya adı").fill(visualWorldName);
-	await page.getByRole("button", { name: "Görsel Dünya ekle" }).click();
+	await page.getByLabel("Visual World name").fill(visualWorldName);
+	await page.getByRole("button", { name: "Add Visual World" }).click();
 	await page.goto("/projects");
-	await page.getByRole("link", { name: "Varlık Aileleri" }).click();
+	await page.getByRole("link", { name: "Asset Families" }).click();
 	await page
-		.getByRole("button", { name: "Aile ve temsil ilişkileri", exact: true })
+		.getByRole("button", {
+			name: "Family and representation relationships",
+			exact: true,
+		})
 		.click();
-	await page.getByLabel("Varlık Kimliği adı").fill(identityName);
-	await page.getByRole("button", { name: "Varlık Kimliği oluştur" }).click();
-	await page.getByLabel("Varlık Ailesi adı").fill(familyName);
+	await page.getByLabel("Subject Identity name").fill(identityName);
+	await page.getByRole("button", { name: "Create Subject Identity" }).click();
+	await page.getByLabel("Asset Family name").fill(familyName);
 	await page
-		.getByLabel("Görsel Dünya")
+		.getByLabel("Visual World")
 		.selectOption({ label: visualWorldName });
-	await page.getByLabel("Kullanım bağlamı").fill("Walking animation");
-	await page.getByRole("button", { name: "Varlık Ailesi oluştur" }).click();
-	await page.getByLabel("Varlık Kaydı adı").fill(fixture.name);
-	await page.getByRole("button", { name: "Varlık Kaydı ekle" }).click();
+	await page.getByLabel("Usage context").fill("Walking animation");
+	await page.getByRole("button", { name: "Create Asset Family" }).click();
+	await page.getByLabel("Asset Record name").fill(fixture.name);
+	await page.getByRole("button", { name: "Add Asset Record" }).click();
 	await page.goto("/projects");
 	await page
 		.getByRole("link", {
 			name: `${fixture.projectName} varlık kayıtlarını aç`,
 		})
 		.click();
-	await page.getByRole("link", { name: "İçe Aktarma Gelen Kutusu" }).click();
+	await page.getByRole("link", { name: "Import Inbox" }).click();
 
 	await page.getByLabel("Dosyalar").setInputFiles([
 		{
@@ -74,15 +77,13 @@ test("creates and rereads the shared source metadata mapping proposal through th
 			buffer: sourceMetadataMappingFixture.texturePacker.bytes,
 		},
 	]);
-	await page
-		.getByRole("button", { name: "Dosyaları Gelen Kutusuna Al" })
-		.click();
+	await page.getByRole("button", { name: "Add files to Import Inbox" }).click();
 
 	await page
 		.getByRole("button", { name: "Bekleyen dosyalar", exact: true })
 		.click();
 	const sourcePanel = page.getByRole("region", {
-		name: `${sourceMetadataMappingFixture.source.fileName} için Kaynak Metadata Eşleme Önerisi`,
+		name: `Source Metadata Mapping Proposal for ${sourceMetadataMappingFixture.source.fileName}`,
 	});
 	await sourcePanel
 		.getByRole("checkbox", {
@@ -96,13 +97,13 @@ test("creates and rereads the shared source metadata mapping proposal through th
 		.check();
 	await sourcePanel
 		.getByRole("button", {
-			name: `Kaynak Metadata Eşleme Önerisi oluştur: ${sourceMetadataMappingFixture.source.fileName}`,
+			name: `Create Source Metadata Mapping Proposal: ${sourceMetadataMappingFixture.source.fileName}`,
 		})
 		.click();
 
 	const proposalSummary = page
 		.locator("summary")
-		.filter({ hasText: "Kaynak Metadata Eşleme Önerisi" });
+		.filter({ hasText: "Source Metadata Mapping Proposal" });
 	await expect(proposalSummary).toBeVisible();
 	await proposalSummary.click();
 	const proposalDetails = page
@@ -140,13 +141,13 @@ test("creates and rereads the shared source metadata mapping proposal through th
 	).toBeVisible();
 	await expect(
 		proposalDetails.getByText(
-			"Varlık Ailesi bağlantısı: Bilinmiyor · kaynak kanıtı yok.",
+			"Asset Family link: Unknown · no source evidence.",
 			{ exact: true }
 		)
 	).toBeVisible();
 	await expect(
 		proposalDetails.getByText(
-			"Gerekli Öğeler Listesi bağlantısı: Bilinmiyor · kaynak kanıtı yok.",
+			"Required Set link: Unknown · no source evidence.",
 			{ exact: true }
 		)
 	).toBeVisible();
@@ -158,31 +159,33 @@ test("creates and rereads the shared source metadata mapping proposal through th
 	).toBeVisible();
 	await expect(
 		proposalDetails.getByText(
-			"Oyun İçi Bilgiler: Bilinmiyor · proje bağlamı gerekli.",
+			"Gameplay Metadata: Unknown · project context required.",
 			{ exact: true }
 		)
 	).toBeVisible();
 	await expect(
 		proposalDetails
-			.getByRole("list", { name: "Önerilen kaynak alanları" })
+			.getByRole("list", { name: "Proposed source fields" })
 			.getByText("Pivot · walk-0", { exact: true })
 	).toHaveCount(2);
 	await proposalDetails
-		.getByLabel("Hedef Varlık Kaydı")
+		.getByLabel("Target Asset Record")
 		.selectOption({ label: fixture.name });
 	await expect(
 		proposalDetails.getByRole("button", {
-			name: "Eşlemeyi kesinleştir ve Aday Sürüm oluştur",
+			name: "Finalize mapping and create Candidate Version",
 		})
 	).toBeDisabled();
 	await proposalDetails
 		.getByLabel("Kare · walk-0 (zorunlu)")
 		.selectOption({ index: 1 });
 	await proposalDetails
-		.getByRole("button", { name: "Eşlemeyi kesinleştir ve Aday Sürüm oluştur" })
+		.getByRole("button", {
+			name: "Finalize mapping and create Candidate Version",
+		})
 		.click();
 	await expect(
-		proposalDetails.getByText("Kesin ilişki · Aday Sürüm oluşturuldu")
+		proposalDetails.getByText("Confirmed link · Candidate Version created")
 	).toBeVisible();
 	await expect(
 		proposalDetails.getByText("Pivot · walk-0: Bilinmiyor")
@@ -194,14 +197,16 @@ test("creates and rereads the shared source metadata mapping proposal through th
 		.click();
 	const rereadProposalSummary = page
 		.locator("summary")
-		.filter({ hasText: "Kaynak Metadata Eşleme Önerisi" });
+		.filter({ hasText: "Source Metadata Mapping Proposal" });
 	await expect(rereadProposalSummary).toBeVisible();
 	await rereadProposalSummary.click();
 	const rereadProposalDetails = page
 		.locator("details")
 		.filter({ hasText: "source-metadata-mapping/1.1.0" });
 	await expect(
-		rereadProposalDetails.getByText("Kesin ilişki · Aday Sürüm oluşturuldu")
+		rereadProposalDetails.getByText(
+			"Confirmed link · Candidate Version created"
+		)
 	).toBeVisible();
 	await expect(
 		rereadProposalDetails.getByText("Tag · walk", { exact: true })
@@ -210,7 +215,7 @@ test("creates and rereads the shared source metadata mapping proposal through th
 		rereadProposalDetails.getByText("Süre · walk-0", { exact: true })
 	).toBeVisible();
 	await rereadProposalDetails
-		.getByRole("link", { name: "Aday Sürümü aç" })
+		.getByRole("link", { name: "Open Candidate Version" })
 		.click();
 	await expect(
 		page.getByText(

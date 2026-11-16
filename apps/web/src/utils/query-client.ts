@@ -5,7 +5,7 @@ export function createQueryClient() {
 	return new QueryClient({
 		queryCache: new QueryCache({
 			onError: (error, query) => {
-				if (query.meta?.suppressGlobalErrorToast === true) {
+				if (query.meta?.errorPresentation === "inline") {
 					return;
 				}
 				showErrorToast(error, {
@@ -18,7 +18,7 @@ export function createQueryClient() {
 		}),
 		mutationCache: new MutationCache({
 			onError: (error, _variables, _context, mutation) => {
-				if (mutation.meta?.suppressGlobalErrorToast === true) {
+				if (mutation.meta?.errorPresentation === "inline") {
 					return;
 				}
 				if (mutation.meta?.errorOperationKind === "query") {

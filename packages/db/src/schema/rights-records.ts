@@ -23,7 +23,7 @@ type RightsRecordState =
 export interface StoredRightsRecordEvidenceFile {
 	contentLength: number;
 	fileName: string;
-	objectKey: string;
+	objectKey: string | null;
 	sha256: string;
 	sourceContentType: string;
 }

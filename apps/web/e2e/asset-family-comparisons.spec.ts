@@ -23,28 +23,30 @@ test("compares current versions from two Asset Records and reopens the persisted
 	await comparison
 		.getByRole("checkbox", { name: openCrateCheckboxName })
 		.check();
-	await comparison.getByLabel("Ölçek gözlemi").fill(scaleObservation);
-	await comparison.getByLabel("Perspektif gözlemi").fill("Perspektif tutarlı.");
+	await comparison.getByLabel("Scale observation").fill(scaleObservation);
 	await comparison
-		.getByLabel("Malzeme dili gözlemi")
+		.getByLabel("Perspective observation")
+		.fill("Perspektif tutarlı.");
+	await comparison
+		.getByLabel("Material language observation")
 		.fill("Malzeme dili aynı ahşap.");
 	await comparison
-		.getByLabel("Durum ve yön ayrışması gözlemi")
+		.getByLabel("State and direction distinction observation")
 		.fill("Kapalı ve açık durumlar net ayrışıyor.");
 
 	const saveButton = comparison.getByRole("button", {
-		name: "Karşılaştırmayı kaydet",
+		name: "Save comparison",
 	});
 	await expect(saveButton).toBeEnabled();
 	await saveButton.click();
 	await expect(
-		comparison.getByText("Karşılaştırma kalıcı kayıttan doğrulandı.")
+		comparison.getByText("Comparison verified from the saved record.")
 	).toBeVisible();
 	await expect(comparison.getByText(scaleObservation)).toBeVisible();
 
 	await page.reload();
 	await page
-		.getByRole("button", { name: "Profil incelemeleri", exact: true })
+		.getByRole("button", { name: "Profile reviews", exact: true })
 		.click();
 	const persistedRecord = comparison.getByRole("button", {
 		name: persistedRecordButtonName,
@@ -58,15 +60,15 @@ test("compares current versions from two Asset Records and reopens the persisted
 		comparison.getByRole("heading", { name: "Açık sandık · Varlık Sürümü 1" })
 	).toBeVisible();
 	await expect(
-		comparison.getByRole("button", { name: "Karşılaştırmayı kaydet" })
+		comparison.getByRole("button", { name: "Save comparison" })
 	).toHaveCount(0);
 
-	await comparison.getByRole("button", { name: "Yeni karşılaştırma" }).click();
+	await comparison.getByRole("button", { name: "New comparison" }).click();
 	await expect(
 		comparison.getByRole("checkbox", { name: closedCrateCheckboxName })
 	).not.toBeChecked();
 	await expect(
 		comparison.getByRole("checkbox", { name: openCrateCheckboxName })
 	).not.toBeChecked();
-	await expect(comparison.getByLabel("Ölçek gözlemi")).toHaveValue("");
+	await expect(comparison.getByLabel("Scale observation")).toHaveValue("");
 });

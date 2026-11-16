@@ -9,6 +9,10 @@ import {
 	visualWorldRecordSchema,
 } from "@sprite-anvil/api/context-scopes";
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import {
+	assetFamilies,
+	assetRecords,
+} from "@sprite-anvil/db/schema/asset-records";
 import { themes, visualWorlds } from "@sprite-anvil/db/schema/context-scopes";
 import { and, asc, eq } from "drizzle-orm";
 
@@ -50,7 +54,7 @@ export function createProjectContextScopeStore(
 			if (!ownedProject) {
 				return null;
 			}
-			const [worldRows, themeRows] = await Promise.all([
+			const [worldRows, themeRows, familyRows, recordRows] = await Promise.all([
 				db
 					.select()
 					.from(visualWorlds)
@@ -61,11 +65,39 @@ export function createProjectContextScopeStore(
 					.from(themes)
 					.where(eq(themes.projectId, projectId))
 					.orderBy(asc(themes.name)),
+				db
+					.select({
+						id: assetFamilies.id,
+						projectId: assetFamilies.projectId,
+						visualWorldId: assetFamilies.visualWorldId,
+					})
+					.from(assetFamilies)
+					.where(eq(assetFamilies.projectId, projectId)),
+				db
+					.select({
+						assetRecordId: assetRecords.id,
+						assetFamilyId: assetRecords.assetFamilyId,
+						themeId: assetRecords.themeId,
+					})
+					.from(assetRecords)
+					.where(eq(assetRecords.projectId, projectId)),
 			]);
 
 			return projectContextScopeCatalogSchema.parse({
 				visualWorlds: worldRows.map(toVisualWorldRecord),
 				themes: themeRows.map(toThemeRecord),
+				assetFamilies: familyRows,
+				assetRecordFamilies: recordRows.flatMap((record) =>
+					record.assetFamilyId
+						? [
+								{
+									assetRecordId: record.assetRecordId,
+									assetFamilyId: record.assetFamilyId,
+									themeId: record.themeId,
+								},
+							]
+						: []
+				),
 			});
 		},
 		async createVisualWorld(userId, input) {

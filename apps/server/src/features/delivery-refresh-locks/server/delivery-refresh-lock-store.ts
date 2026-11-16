@@ -5,6 +5,7 @@ import {
 	planDeliveryRefresh,
 	requiresDeliveryRefreshDecision,
 } from "@sprite-anvil/api/delivery-refresh-classification";
+import { deliveryRefreshLockDigest as lockDigestOf } from "@sprite-anvil/api/delivery-refresh-lock-digest";
 import type {
 	DeliveryRefreshLockRejection,
 	DeliveryRefreshLockStore,
@@ -50,31 +51,6 @@ interface StoredLock {
 }
 
 /** The digest a lock is checked against: its binding to the bundle and profile revision plus every owned file. */
-function lockDigestOf(
-	lock: Pick<
-		StoredDeliveryRefreshLock,
-		| "bundleId"
-		| "bundleManifestDigest"
-		| "contractVersion"
-		| "profileId"
-		| "profileRevisionId"
-	>,
-	files: StoredDeliveryRefreshLockFile[]
-): Promise<string> {
-	return exportBundleSha256(
-		JSON.stringify({
-			bundleId: lock.bundleId,
-			bundleManifestDigest: lock.bundleManifestDigest,
-			contractVersion: lock.contractVersion,
-			files: [...files]
-				.sort(byPath)
-				.map((file) => [file.path, file.sha256, file.byteSize]),
-			profileId: lock.profileId,
-			profileRevisionId: lock.profileRevisionId,
-		})
-	);
-}
-
 const sortedPairs = <T extends { path: string }>(
 	items: T[],
 	pair: (item: T) => (string | null)[]

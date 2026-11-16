@@ -54,6 +54,9 @@ const versionedEntrySchema = z
 	.strict();
 
 export const deliverySectionSchemas = {
+	exportBundleMarkers: z
+		.object({ id: idSchema, bundleId: idSchema, updatedAt: timestampSchema })
+		.strict(),
 	/**
 	 * A Delivery Diff is derived, never stored at the source: it compares two
 	 * consecutive Delivery Fulfilments of one Delivery Target. Verification
@@ -119,7 +122,7 @@ export const deliverySectionSchemas = {
 						bundleId: idSchema,
 						manifestDigest: sha256Schema,
 						position: z.number().int().nonnegative(),
-						/** The Required Items List revision; required item lists are not part of the archive, so this is provenance only. */
+						/** The pinned Required Items List revision. */
 						requiredSetRevisionId: z.string().min(1),
 						resolution: resolutionSchema,
 					})
@@ -162,7 +165,7 @@ export const deliverySectionSchemas = {
 					.object({
 						assetFamilyId: idSchema,
 						position: z.number().int().nonnegative(),
-						/** Required item lists are not part of the archive, so this is provenance only. */
+						/** The pinned Required Items List revision. */
 						requiredSetRevisionId: z.string().min(1),
 					})
 					.strict()
@@ -231,7 +234,7 @@ export const deliverySectionSchemas = {
 					.object({
 						assetVersionId: idSchema.nullable(),
 						byteSize: z.number().int().positive(),
-						/** Kept only for the manifest file; asset files are reached through their Asset Version. */
+						/** Generated verification files retain their exact text; binary assets are reached through their Asset Version. */
 						content: z.string().nullable(),
 						path: z.string().min(1),
 						sha256: sha256Schema,
@@ -541,6 +544,13 @@ function profileAndBundleFailures(
 		}
 	}
 	const bundles = new Map(delivery.exportBundles.map((b) => [b.id, b]));
+	for (const marker of delivery.exportBundleMarkers) {
+		if (!bundles.has(marker.bundleId)) {
+			failures.push(
+				`Export Bundle marker ${marker.id} points at a missing bundle.`
+			);
+		}
+	}
 	for (const bundle of delivery.exportBundles) {
 		const revision = revisions.get(bundle.profileRevisionId);
 		const ok =
@@ -578,9 +588,12 @@ function profileAndBundleFailures(
 function fulfilmentFailures(
 	delivery: DeliveryRecords,
 	foundation: DeliveryFoundation,
-	history: Pick<HistoryRecords, "rightsRecords">
+	history: Pick<HistoryRecords, "rightsRecords" | "requiredSetRevisions">
 ) {
 	const failures: string[] = [];
+	const requiredSets = new Map(
+		history.requiredSetRevisions.map((revision) => [revision.id, revision])
+	);
 	const targets = idSet(delivery.deliveryTargets);
 	const drafts = new Map(delivery.deliveryTargetDrafts.map((d) => [d.id, d]));
 	const revisions = new Map(
@@ -595,7 +608,12 @@ function fulfilmentFailures(
 		const ok =
 			targets.has(draft.deliveryTargetId) &&
 			contexts.has(draft.contextRevisionId) &&
-			draft.families.every((family) => families.has(family.assetFamilyId));
+			draft.families.every(
+				(family) =>
+					families.has(family.assetFamilyId) &&
+					requiredSets.get(family.requiredSetRevisionId)?.assetFamilyId ===
+						family.assetFamilyId
+			);
 		if (!ok) {
 			failures.push(
 				`Delivery Target draft ${draft.id} points at a missing record.`
@@ -621,6 +639,14 @@ function fulfilmentFailures(
 			revision?.deliveryTargetId === fulfilment.deliveryTargetId &&
 			revision.revisionNumber === fulfilment.revisionNumber &&
 			fulfilment.requirements.every((requirement) => {
+				const requiredSet = requiredSets.get(requirement.requiredSetRevisionId);
+				if (
+					!requiredSet ||
+					requiredSet.assetFamilyId !== requirement.assetFamilyId ||
+					!requiredSet.items.some((item) => item.id === requirement.itemId)
+				) {
+					return false;
+				}
 				const bundle = bundles.get(requirement.bundleId);
 				return (
 					bundle?.manifestDigest === requirement.manifestDigest &&
@@ -744,7 +770,7 @@ function validationFailures(
 export async function deliveryRelationFailures(
 	delivery: DeliveryRecords,
 	foundation: DeliveryFoundation,
-	history: Pick<HistoryRecords, "rightsRecords">,
+	history: Pick<HistoryRecords, "rightsRecords" | "requiredSetRevisions">,
 	files: Pick<
 		ProjectArchiveFileEntry,
 		"byteSize" | "kind" | "sha256" | "sourceId"

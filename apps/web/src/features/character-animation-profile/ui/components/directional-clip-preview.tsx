@@ -41,7 +41,7 @@ export function DirectionalClipPreview({
 							(candidate) => candidate.id === frame.assetVersionId
 						);
 						if (!version) {
-							reject(new Error("Önce bir sürüm seçin."));
+							reject(new Error("Select a version first."));
 							return;
 						}
 						const image = new Image();
@@ -54,7 +54,9 @@ export function DirectionalClipPreview({
 								(region.x + region.width > image.naturalWidth ||
 									region.y + region.height > image.naturalHeight)
 							) {
-								reject(new Error("Kare alanı görsel sınırlarının dışında."));
+								reject(
+									new Error("The frame region is outside the image bounds.")
+								);
 								return;
 							}
 							resolve(image);
@@ -62,7 +64,7 @@ export function DirectionalClipPreview({
 						image.onerror = () =>
 							reject(
 								new Error(
-									"Önizleme yüklenemedi. Sürüm ve bağlantıyı kontrol edin."
+									"Could not load preview. Check the version and connection."
 								)
 							);
 						image.src = `${serverUrl}${version.previewUrl}`;
@@ -79,7 +81,9 @@ export function DirectionalClipPreview({
 			(failure) => {
 				if (active) {
 					setError(
-						failure instanceof Error ? failure.message : "Önizleme yüklenemedi."
+						failure instanceof Error
+							? failure.message
+							: "Could not load preview."
 					);
 				}
 			}
@@ -131,7 +135,7 @@ export function DirectionalClipPreview({
 		const drawing = canvas.current.getContext("2d");
 		if (!drawing) {
 			onStatus(statusKey, false);
-			setError("Piksel önizlemesi bu ortamda kullanılamıyor.");
+			setError("Pixel preview is unavailable in this environment.");
 			return;
 		}
 		drawing.imageSmoothingEnabled = false;
@@ -151,14 +155,14 @@ export function DirectionalClipPreview({
 	return (
 		<figure className="min-w-0 space-y-2">
 			<figcaption>
-				{label} · Kare {frameIndex + 1}
+				{label} · Frame {frameIndex + 1}
 			</figcaption>
 			<div
 				className="overflow-auto border bg-muted p-2"
 				style={{ maxHeight: 420 }}
 			>
 				<canvas
-					aria-label={`${label} piksel önizlemesi`}
+					aria-label={`${label} pixel preview`}
 					ref={canvas}
 					role="img"
 					style={{

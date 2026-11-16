@@ -1,8 +1,19 @@
+import {
+	Sidebar,
+	SidebarContent,
+	SidebarFooter,
+	SidebarHeader,
+	SidebarMenu,
+	SidebarMenuButton,
+	SidebarMenuItem,
+} from "@sprite-anvil/ui/components/sidebar";
 import { Link, useParams, useSearch } from "@tanstack/react-router";
 import UserMenu from "@/features/account-access/ui/components/user-menu";
 import { authClient } from "@/lib/auth-client";
 import { ModeToggle } from "./mode-toggle";
+import { OperationsDock } from "./operations-dock";
 import { ProjectNavigation } from "./project-navigation";
+import { WorkbenchSearch } from "./workbench-search";
 
 export default function Header() {
 	const { data: session } = authClient.useSession();
@@ -10,65 +21,53 @@ export default function Header() {
 	const search = useSearch({ strict: false });
 	const projectId =
 		params.projectId ?? ("projectId" in search ? search.projectId : undefined);
-	const links = [
-		{ to: "/projects", label: "Projeler" },
-		{ to: "/context-proposals", label: "Proje Bağlamı" },
-	] as const;
-
+	if (!session) {
+		return null;
+	}
 	return (
-		<>
-			<header className="border-b bg-card/90">
-				<div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-2 sm:px-6">
-					<Link
-						aria-label="Sprite Anvil"
-						className="inline-flex min-h-11 items-center gap-3 font-semibold tracking-tight"
-						to="/projects"
-					>
-						<span
-							aria-hidden="true"
-							className="grid size-9 place-items-center rounded-lg bg-primary font-bold font-mono text-primary-foreground"
-						>
-							S
-						</span>
-						Sprite Anvil
-					</Link>
-					{session ? (
-						<nav
-							aria-label="Ana gezinme"
-							className="order-3 flex w-full items-center gap-1 text-sm sm:order-none sm:ml-6 sm:w-auto"
-						>
-							{links
-								.filter(
-									(link) => !projectId || link.to !== "/context-proposals"
-								)
-								.map(({ to, label }) => (
-									<Link
-										activeProps={{
-											className: "bg-accent text-accent-foreground",
-										}}
-										className="inline-flex min-h-11 items-center rounded-md px-3 font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-										key={to}
-										search={
-											to === "/context-proposals" && projectId
-												? { projectId }
-												: {}
-										}
-										to={to}
-									>
-										{label}
-									</Link>
-								))}
-						</nav>
-					) : null}
-					<div className="ml-auto flex items-center gap-2">
-						<ModeToggle />
-						<UserMenu />
-					</div>
+		<Sidebar>
+			<SidebarHeader>
+				<Link className="dither-ink px-2 py-3 font-semibold" to="/projects">
+					Sprite Anvil
+				</Link>
+				{projectId ? <WorkbenchSearch projectId={projectId} /> : null}
+				<SidebarMenu>
+					<SidebarMenuItem>
+						<SidebarMenuButton render={<Link to="/projects" />}>
+							Projects
+						</SidebarMenuButton>
+					</SidebarMenuItem>
+					<SidebarMenuItem>
+						<SidebarMenuButton render={<Link to="/measurements" />}>
+							Measurements
+						</SidebarMenuButton>
+					</SidebarMenuItem>
+				</SidebarMenu>
+			</SidebarHeader>
+			<SidebarContent>
+				{projectId ? (
+					<ProjectNavigation key={projectId} projectId={projectId} />
+				) : (
+					<SidebarMenu>
+						<SidebarMenuItem>
+							<SidebarMenuButton
+								render={<Link search={{}} to="/context-proposals" />}
+							>
+								Context Proposals
+							</SidebarMenuButton>
+						</SidebarMenuItem>
+					</SidebarMenu>
+				)}
+			</SidebarContent>
+			<SidebarFooter>
+				{projectId ? (
+					<OperationsDock projectId={projectId} userId={session.user.id} />
+				) : null}
+				<div className="flex items-center gap-2">
+					<ModeToggle />
+					<UserMenu />
 				</div>
-			</header>
-			{session && projectId ? (
-				<ProjectNavigation key={projectId} projectId={projectId} />
-			) : null}
-		</>
+			</SidebarFooter>
+		</Sidebar>
 	);
 }

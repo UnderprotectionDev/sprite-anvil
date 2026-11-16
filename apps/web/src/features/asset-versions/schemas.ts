@@ -95,17 +95,17 @@ function readProviderParameters(value: string): ProviderParametersResult {
 
 const dimensionMessages = {
 	actual: {
-		pair: "Gerçekleşen ölçünün genişlik ve yükseklik değerlerini birlikte girin.",
-		range: "Gerçekleşen ölçü 1 ile 100000 arasında tam sayı olmalıdır.",
+		pair: "Enter both width and height for actual dimensions.",
+		range: "Actual dimensions must be integers from 1 to 100000.",
 	},
 	requested: {
-		pair: "İstenen ölçünün genişlik ve yükseklik değerlerini birlikte girin.",
-		range: "İstenen ölçü 1 ile 100000 arasında tam sayı olmalıdır.",
+		pair: "Enter both width and height for requested dimensions.",
+		range: "Requested dimensions must be integers from 1 to 100000.",
 	},
 } as const;
 
 const providerParametersMessage =
-	"Sağlayıcıya özgü parametreler geçerli bir JSON nesnesi olmalı ve 50.000 UTF-8 baytı aşmamalıdır.";
+	"Provider-specific parameters must be a valid JSON object and no larger than 50,000 UTF-8 bytes.";
 
 /**
  * Validates the provider generation record form and maps it to the record
@@ -184,13 +184,13 @@ export function unitVersionCorrectionFormSchema(
 	sourceAssetVersionIds: ReadonlySet<string>
 ) {
 	return z.object({
-		file: z.instanceof(File, { message: "Düzeltilmiş dosyayı seçin." }),
+		file: z.instanceof(File, { message: "Select the corrected file." }),
 		sourceAssetVersionId: z
 			.string()
 			.refine((id) => sourceAssetVersionIds.has(id), {
-				message: "Kaynak sürümü seçin.",
+				message: "Select the source version.",
 			}),
-		unitKey: z.string().trim().min(1, "Birim adını girin."),
+		unitKey: z.string().trim().min(1, "Enter a unit name."),
 		unitType: z.enum(unitVersionTypes),
 	});
 }
@@ -208,7 +208,7 @@ export function compositeVersionFormSchema(
 			.refine(
 				(selected) =>
 					Object.values(selected).some((id) => unitVersionIds.has(id)),
-				{ message: "En az bir Birim Sürümü seçin." }
+				{ message: "Select at least one Unit Version." }
 			),
 		sourceCompositeVersionId: z.string(),
 	});

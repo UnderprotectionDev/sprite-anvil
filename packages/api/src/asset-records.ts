@@ -40,8 +40,7 @@ export const assetRecordTagsSchema = z
 	.max(30)
 	.refine(
 		(tags) =>
-			new Set(tags.map((tag) => tag.toLocaleLowerCase("tr-TR"))).size ===
-			tags.length,
+			new Set(tags.map((tag) => tag.toLowerCase())).size === tags.length,
 		"Tags must be unique ignoring case."
 	);
 export const visibleContentBoundsCoordinateSpaces = [
@@ -102,7 +101,7 @@ export const assetRecordMeasurementsSchema = z
 					code: "custom",
 					path: ["visibleContentBounds", state, "width"],
 					message:
-						"Görünür İçerik Sınırı seçilen koordinat temelinin genişliğini aşamaz.",
+						"The Visible Content Boundary cannot exceed the width of its coordinate basis.",
 				});
 			}
 			if (bounds.y + bounds.height > dimensions.height) {
@@ -110,7 +109,7 @@ export const assetRecordMeasurementsSchema = z
 					code: "custom",
 					path: ["visibleContentBounds", state, "height"],
 					message:
-						"Görünür İçerik Sınırı seçilen koordinat temelinin yüksekliğini aşamaz.",
+						"The Visible Content Boundary cannot exceed the height of its coordinate basis.",
 				});
 			}
 		}
@@ -170,12 +169,20 @@ export const assetRecordCreateInputSchema = z
 	})
 	.strict();
 
+export const assetRecordPaginationSchema = z
+	.object({
+		limit: z.number().int().min(1).max(100),
+		offset: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+	})
+	.strict();
+
 export const assetRecordListInputSchema = z
 	.object({ projectId: projectIdSchema })
 	.strict();
 
 export const assetRecordSearchInputSchema = z
 	.object({
+		pagination: assetRecordPaginationSchema.optional(),
 		assetCategory: assetRecordCategorySchema.optional(),
 		availability: z.enum(assetRecordAvailabilityValues).optional(),
 		name: z.string().trim().min(1).max(120).optional(),
@@ -245,6 +252,7 @@ export const assetRecordSearchResponseSchema = z
 				.strict()
 		),
 		totalCount: z.number().int().nonnegative(),
+		nextOffset: z.number().int().nonnegative().nullable().optional(),
 	})
 	.strict();
 

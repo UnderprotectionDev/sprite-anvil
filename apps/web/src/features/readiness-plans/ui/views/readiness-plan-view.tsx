@@ -31,7 +31,7 @@ function PlanSection({
 		...orpc.readinessPlans.get.queryOptions({
 			input: { deliveryTargetId, projectId },
 		}),
-		meta: { suppressGlobalErrorToast: true },
+		meta: { errorPresentation: "inline" },
 	});
 	if (query.isPending) {
 		return (
@@ -77,7 +77,7 @@ export function ReadinessPlanView({
 }) {
 	const catalog = useQuery({
 		...orpc.deliveryPlanning.list.queryOptions({ input: { projectId } }),
-		meta: { suppressGlobalErrorToast: true },
+		meta: { errorPresentation: "inline" },
 	});
 	const targets = catalog.data?.deliveryTargets ?? [];
 	const selected =

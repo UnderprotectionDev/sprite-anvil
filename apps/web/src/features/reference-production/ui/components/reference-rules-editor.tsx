@@ -22,7 +22,7 @@ export function ReferenceRulesEditor({
 	return (
 		<details className="border-t pt-3">
 			<summary className="cursor-pointer font-medium text-sm">
-				Kuralları düzenle
+				Edit rules
 			</summary>
 			<div className="mt-3 space-y-3">
 				{children}
@@ -38,7 +38,7 @@ export function ReferenceRulesEditor({
 					</p>
 				) : null}
 				<Button disabled={saving} onClick={onSave} type="button">
-					{saving ? "Kaydediliyor…" : "Kuralları kaydet"}
+					{saving ? "Saving…" : "Save rules"}
 				</Button>
 			</div>
 		</details>

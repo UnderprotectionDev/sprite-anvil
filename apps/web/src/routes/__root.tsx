@@ -2,6 +2,11 @@ import { createORPCClient } from "@orpc/client";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import type { AppRouterClient } from "@sprite-anvil/api/routers/index";
 import { Button } from "@sprite-anvil/ui/components/button";
+import {
+	SidebarInset,
+	SidebarProvider,
+	SidebarTrigger,
+} from "@sprite-anvil/ui/components/sidebar";
 import { Toaster } from "@sprite-anvil/ui/components/sonner";
 import type { QueryClient } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
@@ -17,7 +22,9 @@ import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { useState } from "react";
 
 import Header from "@/components/header";
+import { OpenRecordTabs } from "@/components/open-record-tabs";
 import { ThemeProvider } from "@/components/theme-provider";
+import { authClient } from "@/lib/auth-client";
 import { link, type orpc } from "@/utils/orpc";
 
 import "../index.css";
@@ -52,6 +59,7 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 });
 
 function RootComponent() {
+	const { data: session } = authClient.useSession();
 	const [client] = useState<AppRouterClient>(() => createORPCClient(link));
 	const [_orpcUtils] = useState(() => createTanstackQueryUtils(client));
 
@@ -64,15 +72,31 @@ function RootComponent() {
 				disableTransitionOnChange
 				storageKey="vite-ui-theme"
 			>
-				<div className="flex min-h-svh min-w-0 flex-col">
+				<SidebarProvider
+					style={{ "--sidebar-width": "308px" } as React.CSSProperties}
+				>
 					<a className="skip-link" href="#workspace-content">
-						İçeriğe geç
+						Skip to content
 					</a>
 					<Header />
-					<div className="min-w-0 flex-1" id="workspace-content" tabIndex={-1}>
-						<Outlet />
-					</div>
-				</div>
+					<SidebarInset>
+						{session ? <OpenRecordTabs userId={session.user.id} /> : null}
+						{session ? (
+							<SidebarTrigger />
+						) : (
+							<header className="border-b p-4">
+								<Link to="/projects">Sprite Anvil</Link>
+							</header>
+						)}
+						<div
+							className="min-w-0 flex-1"
+							id="workspace-content"
+							tabIndex={-1}
+						>
+							<Outlet />
+						</div>
+					</SidebarInset>
+				</SidebarProvider>
 				<Toaster richColors />
 			</ThemeProvider>
 			{import.meta.env.DEV ? (
@@ -88,16 +112,16 @@ function RootComponent() {
 function MissingPage() {
 	return (
 		<main className="mx-auto max-w-3xl space-y-4 px-4 py-12">
-			<h1 className="font-semibold text-3xl">Sayfa bulunamadı</h1>
+			<h1 className="font-semibold text-3xl">Page not found</h1>
 			<p>
-				Bu bağlantı mevcut bir çalışma alanına gitmiyor. Oyun projenizi açarak
-				devam edin.
+				This link does not lead to an existing workspace. Open your game project
+				to continue.
 			</p>
 			<Link
 				className="inline-flex min-h-11 items-center underline"
 				to="/projects"
 			>
-				Oyun projelerine dön
+				Back to projects
 			</Link>
 		</main>
 	);
@@ -110,20 +134,20 @@ function WorkspaceError({ reset }: ErrorComponentProps) {
 	}
 	return (
 		<main className="mx-auto max-w-3xl space-y-4 px-4 py-12">
-			<h1 className="font-semibold text-3xl">Ekran açılamadı</h1>
+			<h1 className="font-semibold text-3xl">Could not open screen</h1>
 			<StatusMessage tone="error">
-				Bu ekran gösterilirken bir sorun oluştu. Yeniden deneyin veya projenize
-				listeden dönün.
+				Something went wrong while displaying this screen. Try again or return
+				to your project from the list.
 			</StatusMessage>
 			<div className="flex flex-wrap items-center gap-4">
 				<Button onClick={() => void retryScreen()} type="button">
-					Yeniden dene
+					Try again
 				</Button>
 				<Link
 					className="inline-flex min-h-11 items-center underline"
 					to="/projects"
 				>
-					Oyun projelerine dön
+					Back to projects
 				</Link>
 			</div>
 		</main>

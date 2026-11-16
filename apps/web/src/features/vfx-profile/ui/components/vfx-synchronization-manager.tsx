@@ -220,7 +220,7 @@ export function VfxSynchronizationManager({
 							type="button"
 						>
 							{record.name} ·{" "}
-							{new Date(record.createdAt).toLocaleString("tr-TR")}
+							{new Date(record.createdAt).toLocaleString("en-US")}
 						</Button>
 					</li>
 				))}

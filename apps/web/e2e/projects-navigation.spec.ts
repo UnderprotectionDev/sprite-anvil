@@ -79,7 +79,7 @@ test("sign in opens projects instead of the placeholder dashboard", async ({
 	await page.getByRole("button", { name: "Sign In", exact: true }).click();
 	await expect(page).toHaveURL(projectsUrlPattern);
 	await expect(
-		page.getByRole("heading", { name: "Oyun projeleri" })
+		page.getByRole("heading", { name: "Game projects" })
 	).toBeVisible();
 });
 
@@ -100,7 +100,7 @@ test("sign up opens the project workspace", async ({ page }) => {
 	await page.getByRole("button", { name: "Sign Up", exact: true }).click();
 	await expect(page).toHaveURL(projectsUrlPattern);
 	await expect(
-		page.getByRole("heading", { name: "Oyun projeleri" })
+		page.getByRole("heading", { name: "Game projects" })
 	).toBeVisible();
 });
 
@@ -109,11 +109,11 @@ test("opens and dismisses project creation without losing the project list", asy
 }) => {
 	await page.goto("/projects");
 	await expect(page.getByRole("heading", { name: project.name })).toBeVisible();
-	const trigger = page.getByRole("button", { name: "Yeni oyun projesi" });
+	const trigger = page.getByRole("button", { name: "New game project" });
 	await trigger.click();
-	const dialog = page.getByRole("dialog", { name: "Yeni oyun projesi" });
+	const dialog = page.getByRole("dialog", { name: "New game project" });
 	await expect(dialog).toBeVisible();
-	await dialog.getByLabel("Oyun projesi adı").fill("Another game");
+	await dialog.getByLabel("Game project name").fill("Another game");
 	await page.keyboard.press("Escape");
 	await expect(dialog).toHaveCount(0);
 	await expect(trigger).toBeFocused();
@@ -143,19 +143,21 @@ test("opens Project Context for the selected project", async ({ page }) => {
 	);
 	await page.goto("/projects");
 	await page
-		.getByRole("link", { name: "Second game proje bağlamını aç" })
+		.getByRole("link", { name: "Second game open Project Context" })
 		.click();
 	await expect
 		.poll(() => new URL(page.url()).searchParams.get("projectId"))
 		.toBe(secondProject.id);
-	await expect(page.getByRole("combobox", { name: "Proje" })).toHaveValue(
+	await expect(page.getByRole("combobox", { name: "Project" })).toHaveValue(
 		secondProject.id
 	);
-	await page.getByRole("button", { name: "Yeni proje" }).click();
-	await expect(page.getByRole("dialog", { name: "Yeni proje" })).toBeVisible();
+	await page.getByRole("button", { name: "New project" }).click();
+	await expect(page.getByRole("dialog", { name: "New project" })).toBeVisible();
 	await page.keyboard.press("Escape");
-	await expect(page.getByRole("dialog", { name: "Yeni proje" })).toHaveCount(0);
-	await expect(page.getByRole("combobox", { name: "Proje" })).toHaveValue(
+	await expect(page.getByRole("dialog", { name: "New project" })).toHaveCount(
+		0
+	);
+	await expect(page.getByRole("combobox", { name: "Project" })).toHaveValue(
 		secondProject.id
 	);
 });
@@ -191,15 +193,13 @@ test("shows a project created in Project Context on the Projects screen", async 
 		route.fulfill({ json: { json: [] } })
 	);
 	await page.goto("/context-proposals");
-	await page.getByLabel("Proje adı").fill(created.name);
-	await page
-		.getByLabel("Genel sanat yaklaşımı")
-		.fill(created.generalArtDirection);
-	await page.getByRole("button", { name: "Projeyi oluştur" }).click();
-	await expect(page.getByRole("combobox", { name: "Proje" })).toHaveValue(
+	await page.getByLabel("Project name").fill(created.name);
+	await page.getByLabel("Art direction").fill(created.generalArtDirection);
+	await page.getByRole("button", { name: "Create project" }).click();
+	await expect(page.getByRole("combobox", { name: "Project" })).toHaveValue(
 		created.id
 	);
-	await page.getByRole("link", { name: "Projelere dön" }).click();
+	await page.getByRole("link", { name: "Back to projects" }).click();
 	await expect(page.getByRole("heading", { name: created.name })).toBeVisible();
 });
 
@@ -210,20 +210,26 @@ test("does not silently open another Project Context from an invalid project lin
 		route.fulfill({ json: { json: [asContextProject(project)] } })
 	);
 	await page.goto("/context-proposals?projectId=not-a-uuid");
-	await expect(page.getByRole("alert")).toContainText("Bu proje bulunamadı");
-	await expect(page.getByRole("combobox", { name: "Proje" })).toHaveCount(0);
+	await expect(page.getByRole("alert")).toContainText(
+		"This project was not found"
+	);
+	await expect(page.getByRole("combobox", { name: "Project" })).toHaveCount(0);
 
 	await page.goto("/context-proposals?projectId=");
-	await expect(page.getByRole("alert")).toContainText("Bu proje bulunamadı");
-	await expect(page.getByRole("combobox", { name: "Proje" })).toHaveCount(0);
+	await expect(page.getByRole("alert")).toContainText(
+		"This project was not found"
+	);
+	await expect(page.getByRole("combobox", { name: "Project" })).toHaveCount(0);
 
 	await page.goto(
 		"/context-proposals?projectId=00000000-0000-4000-8000-000000000099"
 	);
-	await expect(page.getByRole("alert")).toContainText("Bu proje bulunamadı");
-	await expect(page.getByRole("combobox", { name: "Proje" })).toHaveCount(0);
+	await expect(page.getByRole("alert")).toContainText(
+		"This project was not found"
+	);
+	await expect(page.getByRole("combobox", { name: "Project" })).toHaveCount(0);
 	await expect(
-		page.getByRole("link", { name: "Projelere dön" }).last()
+		page.getByRole("link", { name: "Back to projects" }).last()
 	).toBeVisible();
 });
 
@@ -242,18 +248,16 @@ test("creates a project and shows it in the list", async ({ page }) => {
 		return route.fulfill({ json: { json: created } });
 	});
 	await page.goto("/projects");
-	await page.getByRole("button", { name: "Yeni oyun projesi" }).click();
-	const dialog = page.getByRole("dialog", { name: "Yeni oyun projesi" });
-	await dialog.getByLabel("Oyun projesi adı").fill("Second game");
-	await dialog.getByLabel("Genel sanat yaklaşımı").fill("Muted pixel art");
-	await dialog.getByRole("button", { name: "Proje oluştur" }).click();
+	await page.getByRole("button", { name: "New game project" }).click();
+	const dialog = page.getByRole("dialog", { name: "New game project" });
+	await dialog.getByLabel("Game project name").fill("Second game");
+	await dialog.getByLabel("General art direction").fill("Muted pixel art");
+	await dialog.getByRole("button", { name: "Create project" }).click();
 	await expect(dialog).toHaveCount(0);
 	await expect(
 		page.getByRole("heading", { name: "Second game" })
 	).toBeVisible();
-	await expect(page.getByRole("status")).toContainText(
-		"Oyun projesi kaydedildi."
-	);
+	await expect(page.getByRole("status")).toContainText("Game project saved.");
 });
 
 test("keeps a saved project visible when the list refresh fails", async ({
@@ -278,15 +282,15 @@ test("keeps a saved project visible when the list refresh fails", async ({
 		})
 	);
 	await page.goto("/projects");
-	await page.getByRole("button", { name: "Yeni oyun projesi" }).click();
-	const dialog = page.getByRole("dialog", { name: "Yeni oyun projesi" });
-	await dialog.getByLabel("Oyun projesi adı").fill("Saved offline");
-	await dialog.getByLabel("Genel sanat yaklaşımı").fill("Soft colors");
-	await dialog.getByRole("button", { name: "Proje oluştur" }).click();
+	await page.getByRole("button", { name: "New game project" }).click();
+	const dialog = page.getByRole("dialog", { name: "New game project" });
+	await dialog.getByLabel("Game project name").fill("Saved offline");
+	await dialog.getByLabel("General art direction").fill("Soft colors");
+	await dialog.getByRole("button", { name: "Create project" }).click();
 	await expect(
 		page.getByRole("heading", { name: "Saved offline" })
 	).toBeVisible();
-	await expect(page.getByRole("alert")).toContainText("son bilinen durumu", {
+	await expect(page.getByRole("alert")).toContainText("last known state", {
 		timeout: 15_000,
 	});
 });
@@ -299,10 +303,12 @@ test("shows a retry action when Project Context projects fail to load", async ({
 	);
 	await page.goto("/context-proposals");
 	await expect(
-		page.getByRole("heading", { name: "Proje Bağlamı" })
+		page.getByRole("heading", { name: "Project Context" })
 	).toBeVisible();
-	await expect(page.getByRole("button", { name: "Yeniden dene" })).toBeVisible({
+	await expect(page.getByRole("button", { name: "Try again" })).toBeVisible({
 		timeout: 15_000,
 	});
-	await expect(page.getByRole("link", { name: "Projelere dön" })).toBeVisible();
+	await expect(
+		page.getByRole("link", { name: "Back to projects" })
+	).toBeVisible();
 });

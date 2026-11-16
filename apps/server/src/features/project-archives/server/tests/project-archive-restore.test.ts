@@ -1,7 +1,21 @@
 import { expect, test } from "bun:test";
+import {
+	sha256Hex,
+	verifyExportBundle,
+} from "@sprite-anvil/api/export-bundle-verification";
 import { verifyRestoredRecords } from "@sprite-anvil/api/project-archive-restore";
-import { deliveryIds } from "./project-archive-delivery-fixtures";
-import { ids, projectId } from "./project-archive-fixtures";
+import { z } from "zod";
+import {
+	assetVersionObjectKeySchema,
+	importInboxObjectKeySchema,
+	referenceBoardObjectKeySchema,
+} from "../../../../cloudflare";
+import {
+	deliveryIds,
+	deliverySource,
+} from "./project-archive-delivery-fixtures";
+import { digest, ids, projectId } from "./project-archive-fixtures";
+import { historyIds, historySource } from "./project-archive-history-fixtures";
 import { restoreSetup } from "./project-archive-restore-fixtures";
 
 const input = (archiveId: string, extra: Record<string, unknown> = {}) => ({
@@ -55,7 +69,7 @@ test("a restore builds an independent project whose records hold new cloud ids a
 	).toEqual([]);
 });
 
-test("the restored delivery group keeps its bundle digests and re-derives its diffs under the new ids", async () => {
+test("the restored delivery group rebases verifiable bundle copies and re-derives its diffs under the new ids", async () => {
 	const setup = restoreSetup();
 	const { archive } = await setup.createArchive();
 	const { restore } = await setup.restore(input(archive.id));
@@ -67,8 +81,45 @@ test("the restored delivery group keeps its bundle digests and re-derives its di
 	const archived = archive.sections.find(
 		(s) => s.group === "delivery" && s.name === "exportBundles"
 	)?.records as { manifestDigest: string }[];
-	expect(section("exportBundles").map((b) => b.manifestDigest)).toEqual(
-		archived.map((b) => b.manifestDigest)
+	const restoredBundles = section("exportBundles") as {
+		manifestDigest: string;
+		contextRevisionId: string;
+		files: {
+			path: string;
+			content: string | null;
+			sha256: string;
+			byteSize: number;
+		}[];
+	}[];
+	expect(restoredBundles.map((bundle) => bundle.manifestDigest)).not.toEqual(
+		archived.map((bundle) => bundle.manifestDigest)
+	);
+	await Promise.all(
+		restoredBundles.map(async (bundle) => {
+			const manifest = bundle.files.find(
+				(file) => file.path === "manifest.json"
+			);
+			if (!manifest?.content) {
+				throw new Error("Missing restored manifest");
+			}
+			expect(await sha256Hex(new TextEncoder().encode(manifest.content))).toBe(
+				bundle.manifestDigest
+			);
+			expect(JSON.parse(manifest.content).context.revisionId).toBe(
+				bundle.contextRevisionId
+			);
+			expect(
+				await verifyExportBundle(
+					bundle.files.map((file) => ({
+						path: file.path,
+						bytes: new TextEncoder().encode(file.content ?? ""),
+						...(file.content === null
+							? { recorded: { byteSize: file.byteSize, sha256: file.sha256 } }
+							: {}),
+					}))
+				)
+			).toMatchObject({ ok: true });
+		})
 	);
 	const [diff] = section("deliveryDiffs") as {
 		fromFulfilmentId: string;
@@ -92,7 +143,14 @@ test("included files are verified and copied to new object keys; excluded files 
 	expect(setup.copies).toHaveLength(included.length);
 	for (const copy of setup.copies) {
 		expect(copy.to).not.toBe(copy.from);
-		expect(copy.to).toContain(restore.id);
+		expect(copy.to).toContain(restore.restoredProjectId);
+		expect(
+			[
+				assetVersionObjectKeySchema,
+				importInboxObjectKeySchema,
+				referenceBoardObjectKeySchema,
+			].some((schema) => schema.safeParse(copy.to).success)
+		).toBe(true);
 	}
 	const excluded = restore.files.filter((file) => file.presence === "excluded");
 	expect(excluded.map((file) => file.kind)).toContain("working_file");
@@ -340,4 +398,412 @@ test("an unknown archive or a project the user cannot open is not found", async 
 	await expect(
 		denied.restore(input("11111111-1111-4111-8111-1111111111ff"))
 	).rejects.toMatchObject({ code: "NOT_FOUND" });
+});
+
+test("does not restore a 1.0 archive missing required world evidence", async () => {
+	const setup = restoreSetup();
+	const { archive } = await setup.createArchive();
+	await setup.setArchiveVersion(archive, "project-archive/1.0.0");
+	const result = await setup.projectArchiveRestoreStore.restore(
+		"user-1",
+		input(archive.id) as never
+	);
+	expect(result).toMatchObject({
+		status: "rejected",
+		reason: "unsupported_version",
+	});
+	expect(setup.memory.projects.size).toBe(0);
+	expect(setup.copies).toHaveLength(0);
+});
+
+test("refuses unsupported record families before copying files", async () => {
+	const setup = restoreSetup({
+		wrapRestoreStorage: (storage) => ({
+			...storage,
+			canMaterialize: () => false,
+		}),
+	});
+	const { archive } = await setup.createArchive();
+	const result = await setup.projectArchiveRestoreStore.restore(
+		"user-1",
+		input(archive.id) as never
+	);
+	expect(result).toMatchObject({
+		status: "rejected",
+		reason: "unsupported_content",
+	});
+	expect(setup.copies).toHaveLength(0);
+	expect(setup.memory.projects.size).toBe(0);
+});
+
+test("preserves the canonical global Profile Contract ID in restore mapping and review references", async () => {
+	const setup = restoreSetup();
+	const { archive } = await setup.createArchive();
+	const { restore } = await setup.restore(input(archive.id));
+	expect(
+		restore.ids.find(
+			(entry) =>
+				entry.group === "history" &&
+				entry.name === "contractRevisions" &&
+				entry.sourceId === historyIds.contractRevision
+		)?.restoredId
+	).toBe(historyIds.contractRevision);
+	const stored = setup.memory.restores.get(restore.id);
+	const reviews = stored?.sections.find(
+		(section) => section.group === "history" && section.name === "reviews"
+	)?.records as { contractRevisionId: string }[];
+	expect(reviews[0]?.contractRevisionId).toBe(historyIds.contractRevision);
+});
+
+test("restores Import Inbox and Reference Board file keys at their normal boundaries", async () => {
+	const source = deliverySource();
+	const createdAt = "2026-11-01T10:00:00.000Z";
+	const inboxId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+	const imageId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+	source.records.importInboxEntries.push({
+		id: inboxId,
+		createdAt,
+		fileName: "source.json",
+		sourceContentType: "image/png",
+		contentLength: 42,
+		sha256: digest("a"),
+	});
+	source.records.referenceBoardImages.push({
+		id: imageId,
+		assetRecordId: ids.record,
+		createdAt,
+		updatedAt: createdAt,
+		fileName: "ref.png",
+		contentType: "image/png",
+		contentLength: 20,
+		sha256: digest("b"),
+		role: "style",
+		customPurpose: null,
+		transferredFeatures: ["style"],
+		forbiddenFeatures: [],
+		contextOverrideRationale: null,
+		notes: null,
+		sortOrder: 0,
+		revision: 1,
+	});
+	source.files.push({
+		kind: "import_inbox_file",
+		sourceId: inboxId,
+		assetRecordId: null,
+		assetVersionId: null,
+		byteSize: 42,
+		sha256: digest("a"),
+		fileName: "source.json",
+		contentType: "image/png",
+		objectKey: "private/inbox",
+	});
+	source.files.push({
+		kind: "reference_board_file",
+		sourceId: imageId,
+		assetRecordId: ids.record,
+		assetVersionId: null,
+		byteSize: 20,
+		sha256: digest("b"),
+		fileName: "ref.png",
+		contentType: "image/png",
+		objectKey: "private/board",
+	});
+	let inboxContentType: string | null | undefined;
+	const setup = restoreSetup({
+		source,
+		copyFile: (file) => {
+			if (file.from === "private/inbox") {
+				inboxContentType = file.contentType;
+			}
+			return Promise.resolve();
+		},
+	});
+	const { archive } = await setup.createArchive();
+	const result = await setup.restore(input(archive.id));
+	const inbox = setup.copies.find((copy) => copy.from === "private/inbox");
+	const image = setup.copies.find((copy) => copy.from === "private/board");
+	expect(inbox && importInboxObjectKeySchema.safeParse(inbox.to).success).toBe(
+		true
+	);
+	expect(
+		image && referenceBoardObjectKeySchema.safeParse(image.to).success
+	).toBe(true);
+	expect(result.status).toBe("created");
+	expect(inboxContentType).toBe(null);
+});
+
+test("rewrites the project identity inside immutable package snapshots", async () => {
+	const setup = restoreSetup({ source: historySource() });
+	const { archive } = await setup.createArchive();
+	const { restore } = await setup.restore(input(archive.id));
+	const stored = setup.memory.restores.get(restore.id);
+	const entries = stored?.sections.find(
+		(section) =>
+			section.group === "history" && section.name === "generationPackages"
+	)?.records as { snapshot: { projectId: string; instruction: string } }[];
+	expect(entries[0]?.snapshot.projectId).toBe(restore.restoredProjectId);
+	expect(entries[0]?.snapshot.instruction).toBe(projectId);
+});
+
+test("rejects a Profile Contract whose definition disagrees with its canonical ID", async () => {
+	const setup = restoreSetup();
+	const { archive } = await setup.createArchive();
+	await setup.forgeArchive(archive, (sections) => {
+		const contract = sections.find(
+			(section) =>
+				section.group === "history" && section.name === "contractRevisions"
+		)?.records[0] as { id: string };
+		contract.id = "icon@9.9.9";
+		const reviews = sections.find(
+			(section) => section.group === "history" && section.name === "reviews"
+		)?.records as { contractRevisionId: string }[];
+		for (const review of reviews) {
+			review.contractRevisionId = contract.id;
+		}
+		const activations = sections.find(
+			(section) =>
+				section.group === "history" && section.name === "contractActivations"
+		)?.records as { id: string; contractRevisionId: string }[];
+		for (const activation of activations) {
+			activation.id = contract.id;
+			activation.contractRevisionId = contract.id;
+		}
+	});
+	await expect(setup.restore(input(archive.id))).rejects.toMatchObject({
+		code: "BAD_REQUEST",
+		data: { reason: "archive_invalid" },
+	});
+	expect(setup.memory.projects.size).toBe(0);
+	expect(setup.copies).toHaveLength(0);
+});
+
+test("preserves Required Set item keys while remapping project-owned revision and record IDs", async () => {
+	const source = historySource();
+	source.history.metadataProposals = [];
+	source.history.metadataDecisions = [];
+	source.history.requiredSetRevisions = [
+		{
+			id: "revision-one",
+			assetFamilyId: ids.family,
+			revisionNumber: 1,
+			items: [
+				{
+					id: "idle",
+					name: "Idle",
+					kind: "animation",
+					disposition: "required",
+					assetRecordIds: [ids.record],
+				},
+			],
+			createdAt: "2026-11-01T00:00:00.000Z",
+		},
+	];
+	const setup = restoreSetup({ source });
+	const { archive } = await setup.createArchive();
+	const { restore } = await setup.restore(input(archive.id));
+	const stored = setup.memory.restores.get(restore.id);
+	const records = stored?.sections.find(
+		(section) => section.name === "requiredSetRevisions"
+	)?.records as {
+		id: string;
+		items: { id: string; assetRecordIds: string[] }[];
+	}[];
+	expect(records[0]?.id).not.toBe("revision-one");
+	expect(records[0]?.items[0]?.id).toBe("idle");
+	expect(records[0]?.items[0]?.assetRecordIds[0]).not.toBe(ids.record);
+});
+
+test("maps the latest bundle marker to the restored project in both records and ID inventory", async () => {
+	const setup = restoreSetup();
+	const { archive } = await setup.createArchive();
+	const { restore } = await setup.restore(input(archive.id));
+	const marker = restore.ids.find(
+		(entry) =>
+			entry.group === "delivery" && entry.name === "exportBundleMarkers"
+	);
+	expect(marker).toMatchObject({
+		sourceId: projectId,
+		restoredId: restore.restoredProjectId,
+	});
+	const stored = setup.memory.restores.get(restore.id);
+	const entries = stored?.sections.find(
+		(section) => section.name === "exportBundleMarkers"
+	)?.records as { id: string }[];
+	expect(entries[0]?.id).toBe(restore.restoredProjectId);
+});
+
+test("restores a supplied archive when its source project is unavailable and replays once", async () => {
+	const setup = restoreSetup();
+	const { archive } = await setup.createArchive();
+	const stored = await setup.archives.find(projectId, archive.id);
+	if (!stored) {
+		throw new Error("Missing archive");
+	}
+	const scope = "7a1f0f0e-8f4e-4c36-9a53-0b0b6a2f2a02";
+	const request = {
+		projectId: scope,
+		archiveId: archive.id,
+		idempotencyKey: "portable-key",
+		name: "Portable restore",
+	};
+	const first = await setup.projectArchiveRestoreStore.restoreFromArchive(
+		"user-1",
+		request,
+		stored
+	);
+	const again = await setup.projectArchiveRestoreStore.restoreFromArchive(
+		"user-1",
+		request,
+		stored
+	);
+	expect(first).toMatchObject({
+		status: "created",
+		restore: { sourceProjectId: projectId },
+	});
+	expect(again).toMatchObject({ status: "replayed" });
+	expect(setup.memory.projects.size).toBe(1);
+	if (!first || first.status === "rejected") {
+		throw new Error("Restore failed");
+	}
+	expect(
+		await setup.projectArchiveRestoreStore.get(
+			"user-1",
+			scope,
+			first.restore.id
+		)
+	).toMatchObject({ id: first.restore.id });
+	expect(
+		(await setup.projectArchiveRestoreStore.list("user-1", projectId))?.restores
+	).toEqual([]);
+});
+
+test("preserves tied Review Event ID order while mapping independent identities", async () => {
+	const source = historySource();
+	const at = "2026-11-01T00:00:00.000Z";
+	source.history.assetVersionReviews = [
+		{
+			id: "10000000-0000-4000-8000-000000000001",
+			assetRecordId: ids.record,
+			versionId: ids.version2,
+			decision: "approved",
+			rationale: "approved first",
+			createdAt: at,
+		},
+		{
+			id: "90000000-0000-4000-8000-000000000001",
+			assetRecordId: ids.record,
+			versionId: ids.version2,
+			decision: "rejected",
+			rationale: "rejected second",
+			createdAt: at,
+		},
+	];
+	const setup = restoreSetup({ source });
+	const { archive } = await setup.createArchive();
+	const { restore } = await setup.restore(input(archive.id));
+	const mapped = new Map(
+		restore.ids.map((entry) => [entry.sourceId, entry.restoredId])
+	);
+	const first = mapped.get(source.history.assetVersionReviews[0]?.id ?? "");
+	const second = mapped.get(source.history.assetVersionReviews[1]?.id ?? "");
+	expect(first).toBeDefined();
+	expect(second).toBeDefined();
+	expect(
+		first === undefined || second === undefined ? false : first < second
+	).toBe(true);
+	expect(first).not.toBe(source.history.assetVersionReviews[0]?.id);
+	expect(z.uuid().safeParse(first).success).toBe(true);
+	expect(z.uuid().safeParse(second).success).toBe(true);
+	const replay = await setup.restore(input(archive.id));
+	expect(
+		replay.restore.ids.find(
+			(entry) => entry.sourceId === source.history.assetVersionReviews[0]?.id
+		)?.restoredId
+	).toBe(first);
+	const another = await setup.restore(
+		input(archive.id, { idempotencyKey: "another-review-restore" })
+	);
+	expect(
+		another.restore.ids.find(
+			(entry) => entry.sourceId === source.history.assetVersionReviews[0]?.id
+		)?.restoredId
+	).not.toBe(first);
+});
+
+test("withdraws copied files and does not publish when a restored object fails readback", async () => {
+	const setup = restoreSetup({
+		verifyFile: ({ objectKey }) =>
+			Promise.resolve(!objectKey.includes("/asset-records/")),
+	});
+	const { archive } = await setup.createArchive();
+	await expect(setup.restore(input(archive.id))).rejects.toThrow();
+	expect(setup.memory.projects.size).toBe(0);
+	expect(setup.removed).toHaveLength(1);
+});
+
+test("withdraws a restore when canonical record readback disagrees", async () => {
+	const setup = restoreSetup({
+		verifyCanonical: () => Promise.resolve(["Missing Asset Record"]),
+	});
+	const { archive } = await setup.createArchive();
+	await expect(setup.restore(input(archive.id))).rejects.toThrow();
+	expect(setup.memory.projects.size).toBe(0);
+	expect(setup.removed.length).toBeGreaterThan(0);
+});
+
+test("a failed canonical read cannot be replayed as a completed restore", async () => {
+	let checks = 0;
+	const setup = restoreSetup({
+		verifyCanonical: () => {
+			checks += 1;
+			return checks === 1
+				? Promise.reject(new Error("read unavailable"))
+				: Promise.resolve([]);
+		},
+	});
+	const { archive } = await setup.createArchive();
+	await expect(setup.restore(input(archive.id))).rejects.toThrow();
+	const retry = await setup.restore(input(archive.id));
+	expect(checks).toBe(2);
+	expect(retry.status).toBe("created");
+	expect(setup.memory.projects.size).toBe(1);
+});
+
+test("an unverified restore stays hidden and is rechecked before replay", async () => {
+	let attempts = 0;
+	let checks = 0;
+	const setup = restoreSetup({
+		verifyCanonical: () => {
+			checks += 1;
+			return Promise.resolve([]);
+		},
+		wrapRestoreStorage: (storage) => ({
+			...storage,
+			markVerified: (scope, id) => {
+				attempts += 1;
+				return attempts === 1
+					? Promise.reject(new Error("write unavailable"))
+					: storage.markVerified(scope, id);
+			},
+		}),
+	});
+	const { archive } = await setup.createArchive();
+	await expect(setup.restore(input(archive.id))).rejects.toThrow();
+	const [pending] = setup.memory.restores.values();
+	if (!pending) {
+		throw new Error("Missing pending restore");
+	}
+	expect(pending.restore.canonicalVerified).toBe(false);
+	expect(
+		await setup.projectArchiveRestoreStore.get(
+			"user-1",
+			projectId,
+			pending.restore.id
+		)
+	).toBeNull();
+	expect((await setup.listRestores()).restores).toEqual([]);
+	const retry = await setup.restore(input(archive.id));
+	expect(retry.status).toBe("replayed");
+	expect(checks).toBe(2);
+	expect((await setup.listRestores()).restores).toHaveLength(1);
 });

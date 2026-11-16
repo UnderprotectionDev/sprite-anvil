@@ -17,6 +17,7 @@ import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ReducedMotionNotice } from "@/components/reduced-motion-notice";
+import { StatusMessage } from "@/components/status-message";
 import { AnimationTimingClipPreview } from "./animation-timing-clip-preview";
 import {
 	AnimationTimingEventTimeline,
@@ -225,23 +226,22 @@ export function AnimationTimingReviewEditor({
 	return (
 		<div className="space-y-4">
 			<p>
-				Kare geçişleri ve hareket evreleri kullanıcı incelemesidir. Otomatik
-				sanatsal hüküm verilmez.
+				Frame transitions and motion phases are reviewed by the user. No
+				automatic artistic judgment is made.
 			</p>
 			<p>
-				Kare süreleri bağımsızdır. Hareket evresi serbest metindir ve boş
-				bırakılabilir.
+				Frame durations are independent. Motion phase is optional free text.
 			</p>
 			<div className="flex flex-wrap items-end gap-4">
 				<Label className="block space-y-1 text-sm">
-					Yakınlaştırma
+					Zoom
 					<NativeSelect
-						aria-label="Yakınlaştırma"
+						aria-label="Zoom"
 						className="min-h-11"
 						onChange={(event) => setZoom(Number(event.target.value))}
 						value={zoom}
 					>
-						<NativeSelectOption value={1}>1× (doğal)</NativeSelectOption>
+						<NativeSelectOption value={1}>1× (native)</NativeSelectOption>
 						<NativeSelectOption value={2}>2×</NativeSelectOption>
 						<NativeSelectOption value={4}>4×</NativeSelectOption>
 					</NativeSelect>
@@ -264,9 +264,9 @@ export function AnimationTimingReviewEditor({
 					Restart
 				</Button>
 				<Label className="block space-y-1 text-sm">
-					Oynatma konumu (ms)
+					Playback position (ms)
 					<Input
-						aria-label="Oynatma konumu (ms)"
+						aria-label="Playback position (ms)"
 						className="min-h-11 w-40"
 						min={0}
 						onChange={(event) => {
@@ -289,11 +289,11 @@ export function AnimationTimingReviewEditor({
 			>
 				<div className="flex flex-wrap items-end gap-4">
 					<Label className="block space-y-1 text-sm">
-						Animasyon adı
+						Animation name
 						<form.Field name="animationName">
 							{(field) => (
 								<Input
-									aria-label="Animasyon adı"
+									aria-label="Animation name"
 									className="min-h-11 w-64"
 									disabled={disabled}
 									maxLength={120}
@@ -306,11 +306,11 @@ export function AnimationTimingReviewEditor({
 						</form.Field>
 					</Label>
 					<Label className="block space-y-1 text-sm">
-						Yön sayısı
+						Direction count
 						<form.Field name={"directions"}>
 							{(field) => (
 								<NativeSelect
-									aria-label="Yön sayısı"
+									aria-label="Direction count"
 									className="min-h-11"
 									disabled={disabled}
 									onBlur={field.handleBlur}
@@ -338,11 +338,11 @@ export function AnimationTimingReviewEditor({
 						</form.Field>
 					</Label>
 					<Label className="block space-y-1 text-sm">
-						Oynatma hızı
+						Playback speed
 						<form.Field name="playbackSpeed">
 							{(field) => (
 								<Input
-									aria-label="Oynatma hızı"
+									aria-label="Playback speed"
 									className="min-h-11 w-32"
 									disabled={disabled}
 									max={4}
@@ -368,13 +368,13 @@ export function AnimationTimingReviewEditor({
 								/>
 							)}
 						</form.Field>
-						Döngüde oynat
+						Loop playback
 					</Label>
 				</div>
 				<p>
-					Bütün yönler aynı milisaniye saatini kullanır. Soluk kareler önceki ve
-					sıradaki kareyi gösterir; döngü sınırında ilk ve son kare
-					karşılaştırılır.
+					All directions use the same millisecond clock. Faded frames show the
+					previous and next frames; the first and last frames are compared at
+					the loop boundary.
 				</p>
 				<AnimationTimingEventTimeline
 					contractRevisionId={contractRevisionId}
@@ -391,13 +391,13 @@ export function AnimationTimingReviewEditor({
 							disabled={disabled}
 							key={direction.clientId}
 						>
-							<FieldLegend>Yön {index + 1}</FieldLegend>
+							<FieldLegend>Direction {index + 1}</FieldLegend>
 							<Label className="block space-y-1 text-sm">
-								Yön adı
+								Direction name
 								<form.Field name={`directions[${index}].direction`}>
 									{(field) => (
 										<Input
-											aria-label={`Yön adı ${index + 1}`}
+											aria-label={`Direction name ${index + 1}`}
 											className="min-h-11 w-full"
 											maxLength={80}
 											onBlur={field.handleBlur}
@@ -412,26 +412,30 @@ export function AnimationTimingReviewEditor({
 								</form.Field>
 							</Label>
 							<AnimationTimingClipPreview
+								contractRevisionId={contractRevisionId}
 								elapsedMs={elapsedMs}
 								frames={previewDirections[index]?.frames ?? []}
-								label={direction.direction || `Yön ${index + 1}`}
+								gameplayMetadataRecords={gameplayMetadataRecords}
+								gameplayMetadataStatus={gameplayMetadataStatus}
+								label={direction.direction || `Direction ${index + 1}`}
 								looping={looping}
 								onStatus={onStatus}
+								projectId={projectId}
 								statusKey={`${index}:${JSON.stringify(previewDirections[index]?.frames)}`}
 								versions={versions}
 								zoom={zoom}
 							/>
 							{direction.frames.map((frame, frameIndex) => (
 								<div className="space-y-3 border-t pt-3" key={frame.clientId}>
-									<p>Kare {frameIndex + 1}</p>
+									<p>Frame {frameIndex + 1}</p>
 									<Label className="block space-y-1 text-sm">
-										Kare kimliği
+										Frame ID
 										<form.Field
 											name={`directions[${index}].frames[${frameIndex}].frameKey`}
 										>
 											{(field) => (
 												<Input
-													aria-label={`Yön ${index + 1} kare ${frameIndex + 1} kimliği`}
+													aria-label={`Direction ${index + 1} frame ${frameIndex + 1} ID`}
 													className="min-h-11 w-full"
 													maxLength={512}
 													onBlur={field.handleBlur}
@@ -446,13 +450,13 @@ export function AnimationTimingReviewEditor({
 										</form.Field>
 									</Label>
 									<Label className="block space-y-1 text-sm">
-										Varlık Sürümü
+										Asset Version
 										<form.Field
 											name={`directions[${index}].frames[${frameIndex}].assetVersionId`}
 										>
 											{(field) => (
 												<NativeSelect
-													aria-label={`Yön ${index + 1} kare ${frameIndex + 1} sürümü`}
+													aria-label={`Direction ${index + 1} frame ${frameIndex + 1} version`}
 													className="min-h-11 max-w-full"
 													onBlur={field.handleBlur}
 													onChange={(event) => {
@@ -462,15 +466,15 @@ export function AnimationTimingReviewEditor({
 													value={field.state.value}
 												>
 													<NativeSelectOption value="">
-														Sürüm seçin
+														Select a version
 													</NativeSelectOption>
 													{versions.map((version) => (
 														<NativeSelectOption
 															key={version.id}
 															value={version.id}
 														>
-															{recordNames[version.assetRecordId] ?? "Varlık"} ·
-															Sürüm {version.versionNumber}
+															{recordNames[version.assetRecordId] ?? "Asset"} ·
+															Version {version.versionNumber}
 														</NativeSelectOption>
 													))}
 												</NativeSelect>
@@ -478,13 +482,13 @@ export function AnimationTimingReviewEditor({
 										</form.Field>
 									</Label>
 									<Label className="block space-y-1 text-sm">
-										Süre (ms)
+										Duration (ms)
 										<form.Field
 											name={`directions[${index}].frames[${frameIndex}].durationMs`}
 										>
 											{(field) => (
 												<Input
-													aria-label={`Yön ${index + 1} kare ${frameIndex + 1} süre (ms)`}
+													aria-label={`Direction ${index + 1} frame ${frameIndex + 1} duration (ms)`}
 													className="min-h-11 w-full"
 													max={60_000}
 													min={1}
@@ -500,13 +504,13 @@ export function AnimationTimingReviewEditor({
 										</form.Field>
 									</Label>
 									<Label className="block space-y-1 text-sm">
-										Hareket evresi (isteğe bağlı)
+										Motion phase (optional)
 										<form.Field
 											name={`directions[${index}].frames[${frameIndex}].motionPhase`}
 										>
 											{(field) => (
 												<Input
-													aria-label={`Yön ${index + 1} kare ${frameIndex + 1} hareket evresi`}
+													aria-label={`Direction ${index + 1} frame ${frameIndex + 1} motion phase`}
 													className="min-h-11 w-full"
 													maxLength={120}
 													onBlur={field.handleBlur}
@@ -538,13 +542,13 @@ export function AnimationTimingReviewEditor({
 												/>
 											)}
 										</form.Field>
-										Sprite sheet alanı
+										Sprite sheet region
 									</Label>
 									<span
 										className="sr-only"
 										id={`region-${frame.clientId}-name`}
 									>
-										{`Yön ${index + 1} kare ${frameIndex + 1} sprite sheet alanı`}
+										{`Direction ${index + 1} frame ${frameIndex + 1} sprite sheet region`}
 									</span>
 									{frame.region ? (
 										<div className="flex flex-wrap gap-2">
@@ -556,7 +560,7 @@ export function AnimationTimingReviewEditor({
 													>
 														{(regionField) => (
 															<Input
-																aria-label={`Yön ${index + 1} kare ${frameIndex + 1} ${field}`}
+																aria-label={`Direction ${index + 1} frame ${frameIndex + 1} ${field}`}
 																className="min-h-11 w-20"
 																min={field === "x" || field === "y" ? 0 : 1}
 																onBlur={regionField.handleBlur}
@@ -593,7 +597,7 @@ export function AnimationTimingReviewEditor({
 											}
 											type="button"
 										>
-											Kareyi yukarı taşı
+											Move frame up
 										</Button>
 										<Button
 											disabled={frameIndex === direction.frames.length - 1}
@@ -609,7 +613,7 @@ export function AnimationTimingReviewEditor({
 											}
 											type="button"
 										>
-											Kareyi aşağı taşı
+											Move frame down
 										</Button>
 										<Button
 											disabled={direction.frames.length <= 1}
@@ -623,7 +627,7 @@ export function AnimationTimingReviewEditor({
 											}
 											type="button"
 										>
-											Kareyi kaldır
+											Remove frame
 										</Button>
 									</div>
 								</div>
@@ -637,17 +641,17 @@ export function AnimationTimingReviewEditor({
 								}
 								type="button"
 							>
-								Kare ekle
+								Add frame
 							</Button>
 						</FieldSet>
 					))}
 				</div>
 				<Label className="block space-y-1 text-sm">
-					İnceleme sonucu
+					Review result
 					<form.Field name="outcome">
 						{(field) => (
 							<NativeSelect
-								aria-label="İnceleme sonucu"
+								aria-label="Review result"
 								className="min-h-11 max-w-full"
 								disabled={disabled}
 								onBlur={field.handleBlur}
@@ -662,23 +666,25 @@ export function AnimationTimingReviewEditor({
 								required
 								value={field.state.value}
 							>
-								<NativeSelectOption value="">Sonuç seçin</NativeSelectOption>
+								<NativeSelectOption value="">
+									Select a result
+								</NativeSelectOption>
 								<NativeSelectOption value="consistent">
-									Tutarlı
+									Consistent
 								</NativeSelectOption>
 								<NativeSelectOption value="needs_follow_up">
-									Takip gerekli
+									Needs follow-up
 								</NativeSelectOption>
 							</NativeSelect>
 						)}
 					</form.Field>
 				</Label>
 				<Label className="block space-y-1 text-sm">
-					Gerekçe
+					Rationale
 					<form.Field name="rationale">
 						{(field) => (
 							<Textarea
-								aria-label="Gerekçe"
+								aria-label="Rationale"
 								className="min-h-24"
 								disabled={disabled}
 								maxLength={2000}
@@ -690,8 +696,15 @@ export function AnimationTimingReviewEditor({
 						)}
 					</form.Field>
 				</Label>
+				{!validation.success && (
+					<StatusMessage tone="error">
+						{[
+							...new Set(validation.error.issues.map((issue) => issue.message)),
+						].join(" ")}
+					</StatusMessage>
+				)}
 				<Button disabled={disabled || !canSave} type="submit">
-					İncelemeyi kaydet
+					Save review
 				</Button>
 			</form>
 		</div>

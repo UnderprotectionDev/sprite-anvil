@@ -25,28 +25,30 @@ export function CollectionPageStatus({
 	return (
 		<div className="space-y-3">
 			{projectMissing ? (
-				<StatusMessage tone="error">Bu Proje bulunamadı.</StatusMessage>
+				<StatusMessage tone="error">Project not found.</StatusMessage>
 			) : null}
 			{projectsPending ? (
 				<p aria-live="polite" role="status">
-					Projeler yükleniyor…
+					Loading projects…
 				</p>
 			) : null}
 			{catalogPending ? (
 				<p aria-live="polite" role="status">
-					Koleksiyonlar yükleniyor…
+					Loading Collections…
 				</p>
 			) : null}
 			{catalogError ? (
 				<div className="space-y-2">
-					<StatusMessage tone="error">Koleksiyonlar yüklenemedi.</StatusMessage>
+					<StatusMessage tone="error">
+						Could not load Collections.
+					</StatusMessage>
 					<Button
 						className="min-h-11"
 						onClick={onRetry}
 						type="button"
 						variant="outline"
 					>
-						Yeniden dene
+						Try again
 					</Button>
 				</div>
 			) : null}
@@ -63,7 +65,7 @@ export function CollectionPageStatus({
 					type="button"
 					variant="outline"
 				>
-					{isCheckingOutcome ? "Durum kontrol ediliyor…" : "Durumu kontrol et"}
+					{isCheckingOutcome ? "Checking status…" : "Check status"}
 				</Button>
 			) : null}
 		</div>

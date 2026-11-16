@@ -47,7 +47,7 @@ export function CreateProjectForm({
 				{(field) => (
 					<div className="space-y-2">
 						<Label className="text-sm" htmlFor="project-name">
-							Oyun projesi adı
+							Game project name
 						</Label>
 						<Input
 							autoComplete="off"
@@ -68,7 +68,7 @@ export function CreateProjectForm({
 				{(field) => (
 					<div className="space-y-2">
 						<Label className="text-sm" htmlFor="project-art-direction">
-							Genel sanat yaklaşımı
+							General art direction
 						</Label>
 						<Textarea
 							className="field-sizing-fixed min-h-32 w-full resize-y rounded-md border bg-background px-3 py-2 text-sm md:text-sm"
@@ -95,7 +95,7 @@ export function CreateProjectForm({
 						disabled={isSaving || writeOutcomeUncertain || !isComplete}
 						type="submit"
 					>
-						{isSaving ? "Kaydediliyor…" : "Proje oluştur"}
+						{isSaving ? "Saving…" : "Create project"}
 					</Button>
 				)}
 			</form.Subscribe>

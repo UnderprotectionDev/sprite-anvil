@@ -104,7 +104,7 @@ test("queries with an inline error surface do not produce duplicate toasts", asy
 			queryFn: () => {
 				throw failure;
 			},
-			meta: { suppressGlobalErrorToast: true },
+			meta: { errorPresentation: "inline" },
 			retry: false,
 		})
 	).rejects.toBe(failure);
@@ -116,12 +116,35 @@ test("mutations with an inline error surface do not produce duplicate toasts", a
 	const queryClient = createQueryClient();
 	const failure = internalServerError();
 	const mutation = queryClient.getMutationCache().build(queryClient, {
-		meta: { suppressGlobalErrorToast: true },
+		meta: { errorPresentation: "inline" },
 		mutationFn: () => {
 			throw failure;
 		},
 	});
 
+	await expect(mutation.execute(undefined)).rejects.toBe(failure);
+	expect(errorToast).not.toHaveBeenCalled();
+});
+
+test("inline presentation suppresses query and mutation notifications", async () => {
+	const client = createQueryClient();
+	const failure = internalServerError();
+	await expect(
+		client.fetchQuery({
+			queryKey: ["inline-presentation"],
+			queryFn: () => {
+				throw failure;
+			},
+			retry: false,
+			meta: { errorPresentation: "inline" },
+		})
+	).rejects.toBe(failure);
+	const mutation = client.getMutationCache().build(client, {
+		meta: { errorPresentation: "inline" },
+		mutationFn: () => {
+			throw failure;
+		},
+	});
 	await expect(mutation.execute(undefined)).rejects.toBe(failure);
 	expect(errorToast).not.toHaveBeenCalled();
 });

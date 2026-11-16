@@ -1,7 +1,7 @@
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
 
 export const reviewDispositionLabels = {
-	candidate: "Aday",
-	approved: "Onaylandı",
-	rejected: "Reddedildi",
+	candidate: "Candidate",
+	approved: "Approved",
+	rejected: "Rejected",
 } satisfies Record<AssetVersion["reviewDisposition"], string>;

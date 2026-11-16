@@ -100,7 +100,8 @@ export const runtimeValidationEvidence = pgTable(
 		),
 		check(
 			"runtime_validation_evidence_content_check",
-			sql`(${table.text} is not null and ${table.fileName} is null and ${table.byteSize} is null and ${table.sha256} is null and ${table.objectKey} is null) or (${table.text} is null and ${table.fileName} is not null and ${table.byteSize} > 0 and ${table.sha256} is not null and ${table.objectKey} is not null)`
+			// Restored evidence may retain its identity and digest when the archive explicitly excluded its bytes. Normal uploads still require a managed object key.
+			sql`(${table.text} is not null and ${table.fileName} is null and ${table.byteSize} is null and ${table.sha256} is null and ${table.objectKey} is null) or (${table.text} is null and ${table.fileName} is not null and ${table.byteSize} > 0 and ${table.sha256} is not null and ${table.objectKey} is not null) or (${table.text} is null and ${table.fileName} is not null and ${table.byteSize} > 0 and ${table.sha256} is not null and ${table.objectKey} is null)`
 		),
 	]
 );

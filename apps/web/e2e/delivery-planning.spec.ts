@@ -155,14 +155,14 @@ test("activates a Delivery Target, re-versions it with evidence policies and ope
 	).toBeVisible();
 
 	// Activating a Delivery Target revision did not replace either family's Required Items List.
-	await page.getByRole("link", { name: "Varlık Aileleri" }).click();
+	await page.getByRole("link", { name: "Asset Families" }).click();
 	for (const family of fixture.families) {
 		// biome-ignore lint/performance/noAwaitInLoops: Each family is selected and read in turn.
 		await page
-			.getByRole("button", { name: "Tamamlanma ve kanıtlar", exact: true })
+			.getByRole("button", { name: "Completion and evidence", exact: true })
 			.click();
 		await page
-			.getByLabel("İnceleme ve tamamlanma için aile")
+			.getByLabel("Family for review and completion")
 			.selectOption({ label: family.familyName });
 		await expect(
 			page.getByRole("heading", { name: familyListRevisionOne })

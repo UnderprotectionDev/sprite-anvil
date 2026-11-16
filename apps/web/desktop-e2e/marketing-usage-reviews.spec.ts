@@ -60,11 +60,11 @@ describe("Marketing usage surface equivalence", () => {
 		await $("input[name='email']").setValue(fixture.email);
 		await $("input[name='password']").setValue(fixture.password);
 		await $("form button[type='submit']").click();
-		await $("h1=Oyun projeleri").waitForDisplayed();
+		await $("h1=Game projects").waitForDisplayed();
 		await browser.url(`${origin}${result.familyPath}`);
-		await openWorkspaceTask("Profil incelemeleri");
+		await openWorkspaceTask("Profile reviews");
 		const review = await $(
-			"h3=Logo ve Tanıtım Kullanımlarını Sınama · Anvil marketing"
+			"h3=Test Logo and Marketing Uses · Anvil marketing"
 		).$("..");
 		await review.waitForDisplayed({ timeout: 20_000 });
 		await review.$("input[aria-label='displaySize width']").setValue("77");
@@ -77,7 +77,7 @@ describe("Marketing usage surface equivalence", () => {
 		await review.$("input[aria-label='crop y']").setValue("5");
 		await review.$("input[aria-label='crop width']").setValue("281");
 		await review.$("input[aria-label='crop height']").setValue("189");
-		await selectOption("Kullanım amacı", "store");
+		await selectOption("Usage purpose", "store");
 		await selectOption("Sunum", "opaque");
 		await browser.execute(() => {
 			const input = document.querySelector("input[type='color']");
@@ -99,23 +99,24 @@ describe("Marketing usage surface equivalence", () => {
 		);
 		await notes[1]?.setValue("Small logo remains legible on dark background.");
 		await browser.waitUntil(
-			async () =>
-				await review.$("button=Kullanım incelemesini kaydet").isEnabled(),
+			async () => await review.$("button=Save usage review").isEnabled(),
 			{ timeout: 20_000 }
 		);
 		expect(await browser.execute(readMarketingPreviewPresentation)).toEqual(
 			result.previews
 		);
-		await review.$("button=Kullanım incelemesini kaydet").click();
-		await review.$("p=İnceleme kalıcı kayıttan doğrulandı.").waitForDisplayed();
+		await review.$("button=Save usage review").click();
+		await review
+			.$("p=Review verified from the saved record.")
+			.waitForDisplayed();
 		await browser.refresh();
-		await openWorkspaceTask("Profil incelemeleri");
+		await openWorkspaceTask("Profile reviews");
 		const refreshed = await $(
-			"h3=Logo ve Tanıtım Kullanımlarını Sınama · Anvil marketing"
+			"h3=Test Logo and Marketing Uses · Anvil marketing"
 		).$("..");
 		await browser.waitUntil(
 			async () =>
-				(await refreshed.$$("button=Kullanım kanıtını indir")).length === 3,
+				(await refreshed.$$("button=Download usage evidence")).length === 3,
 			{ timeout: 20_000 }
 		);
 		await refreshed.scrollIntoView();
@@ -128,7 +129,7 @@ describe("Marketing usage surface equivalence", () => {
 				HTMLAnchorElement.prototype.click = click;
 			};
 		});
-		await refreshed.$("button=Kullanım kanıtını indir").click();
+		await refreshed.$("button=Download usage evidence").click();
 		const filename = await browser.execute(
 			() => Reflect.get(window, "marketingDownloadFilename") as string
 		);

@@ -46,11 +46,15 @@ Tamamlanma kanıtı: Kullanıcı onayıyla oluşan etkin sürüm, çakışmasız
 
 ## Testing Decisions
 
+- Varlık Ailesi kapsamı mevcut üyelik ve Görsel Dünya ilişkilerinden çözülür; ailedeki Tema kurallarıyla açık istisna ve eski öneri çatışması `asset-family-context.test.ts` üzerinden sınanır.
+
 - **Görünür görev ayrımı:** Ortak TaskWorkspace görünüm testi taslak korumasını; context-scope-registry görünüm testi kapsam düzenlemeye geçişi; workspace-usability Playwright testi proje seçiminin URL/gezinme bağını sınar. API taklitleri bağlam etkinleştirmenin kalıcılık kanıtı değildir.
+
+- Style Module üyeliği ve sürümü Context Revision kurallarında saklanır; başka projeye kopya bağımsız, kullanıcı etkinleştirmesine bağlı Context Proposal üretir. `context-proposals.test.ts` yetki, yeniden okuma ve etkinleştirme sınırını; `style-modules.test.tsx` kural seçimini sınar.
 
 - **Birincil test seam’i:** 8.1 örneklerinde kesin girdiyi kullanıcı eyleminden kalıcı kayda ve yeniden okumaya taşıyan sunucu/API yolunu sınama; web ve masaüstü görünür sonuçlarını karşılaştırma.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.
-- Bugün repoda bu faza ait ürün sözleşmesi bulunmuyor. Mevcut sunucu ve yüzey test örnekleri: [`project-routes.test.ts`](../../../apps/server/src/features/projects/server/tests/project-routes.test.ts), [`app-shell.spec.ts` (web)](../../../apps/web/e2e/app-shell.spec.ts) ve [`app-shell.spec.ts` (desktop)](../../../apps/web/desktop-e2e/app-shell.spec.ts). Bunlar bu özelliğin test edildiği anlamına gelmez.
+- Mevcut sözleşme ve ilgili test yolu: [`project-context.ts`](../../../packages/api/src/project-context.ts), [`context-proposals.spec.ts`](../../../apps/web/e2e/context-proposals.spec.ts). Bu bağlantılar tüm kabul kapsamının tamamlandığını göstermez.
 - Fazın özgül başarı ve red kanıtı: Kullanıcı onayıyla oluşan etkin sürüm, çakışmasız kural zincirini ve üretime alınacak bağlam kopyasını aynı anlamla verir. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Ajan öneriyi etkinleştiremez; ham context.md metni kullanıcıya yetkili kural düzenleme yolu olarak açılmaz.
 - Kabul örnekleri: 8.1. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
 
@@ -77,4 +81,4 @@ Ajan öneriyi etkinleştiremez; ham context.md metni kullanıcıya yetkili kural
 **Kabul izlenebilirliği**
 
 - [8.1](../../prd/10-acceptance-scenarios.md)
-- Mevcut uygulama yalnız temel web/masaüstü kabuğu ve sınırlı sunucu yükleme yolunu içeriyor; bu spec teslim edilmiş ürün iddiası değildir. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.
+- PRD ve bu spec hedef davranışı tanımlar; mevcut sözleşmeler ve testler tek başına tüm kabul senaryolarının tamamlandığını göstermez. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.

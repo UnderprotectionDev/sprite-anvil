@@ -5,9 +5,9 @@ import {
 import z from "zod";
 
 export const documentedEvidenceError =
-	"Belgelendi durumunda destekleyici kanıt gerekir.";
+	"Documented status requires supporting evidence.";
 export const restrictedRestrictionsError =
-	"Kısıtlı durumunda bilinen en az bir kısıt gerekir.";
+	"Restricted status requires at least one known restriction.";
 
 export const rightsRecordDraftSchema = z.object({
 	assertedScope: z.string(),
@@ -90,9 +90,11 @@ export function rightsRecordRequiredFieldSchema(
 
 export const rightsRecordEvidenceFileSchema = z
 	.instanceof(File)
-	.refine((file) => file.size > 0, { message: "Kanıt dosyası boş olamaz." })
+	.refine((file) => file.size > 0, {
+		message: "The evidence file cannot be empty.",
+	})
 	.refine((file) => file.size <= rightsRecordEvidenceFileLimitBytes, {
-		message: "Kanıt dosyası 5 MiB sınırını aşıyor.",
+		message: "The evidence file exceeds the 5 MiB limit.",
 	});
 
 export function rightsRecordEvidenceFileError(file: File | null) {

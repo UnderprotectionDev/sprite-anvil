@@ -45,6 +45,7 @@ function publicEvidenceFile(file: RightsRecordStoredEvidenceFile | null) {
 		return null;
 	}
 	return {
+		...(file.objectKey === null ? { availability: "excluded" as const } : {}),
 		contentLength: file.contentLength,
 		fileName: file.fileName,
 		sha256: file.sha256,

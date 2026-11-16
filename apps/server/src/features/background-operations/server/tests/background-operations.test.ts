@@ -605,3 +605,38 @@ test("a stalled Cancel Requested operation out of attempts fails instead of canc
 	expect(record).toMatchObject({ status: "failed" });
 	expect(cancelOutcome(record)).toBe("failed_after_request");
 });
+
+test("operation summary is project scoped and reports the complete active and failed counts", async () => {
+	const context = {
+		session: { user: { id: userId } },
+		backgroundOperationStore: {
+			summary: (user: string, project: string) =>
+				Promise.resolve(
+					user === userId && project === projectId
+						? { active: 104, failed: 7 }
+						: null
+				),
+		},
+	} as unknown as Context;
+	expect(
+		await call(
+			appRouter.backgroundOperations.summary,
+			{ projectId },
+			{ context }
+		)
+	).toEqual({ active: 104, failed: 7 });
+	await expect(
+		call(
+			appRouter.backgroundOperations.summary,
+			{ projectId: "foreign" },
+			{ context }
+		)
+	).rejects.toMatchObject({ code: "NOT_FOUND" });
+	await expect(
+		call(
+			appRouter.backgroundOperations.summary,
+			{ projectId },
+			{ context: { ...context, session: null } }
+		)
+	).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+});

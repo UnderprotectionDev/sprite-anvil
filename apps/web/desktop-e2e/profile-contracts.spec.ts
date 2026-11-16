@@ -15,15 +15,15 @@ describe("Specialized Profile Contracts", () => {
 		await (await $("input[name='email']")).setValue(fixture.email);
 		await (await $("input[name='password']")).setValue(fixture.password);
 		await (await $("button=Sign Up")).click();
-		await (await $("h1=Oyun projeleri")).waitForDisplayed();
+		await (await $("h1=Game projects")).waitForDisplayed();
 
 		await (await $("a=Projeler")).click();
-		await openWorkspaceTask("Yeni oyun projesi");
+		await openWorkspaceTask("New game project");
 		await (await $("input#project-name")).setValue(fixture.projectName);
 		await (await $("textarea#project-art-direction")).setValue(
 			fixture.generalArtDirection
 		);
-		await (await $("button=Proje oluştur")).click();
+		await (await $("button=Create project")).click();
 		const projectContractsLink = await $(
 			`a[aria-label="${fixture.projectName} özel profil sözleşmelerini yönet"]`
 		);
@@ -33,21 +33,21 @@ describe("Specialized Profile Contracts", () => {
 		await (
 			await $(`h1=${fixture.projectName} · Özel Profil Sözleşmeleri`)
 		).waitForDisplayed();
-		await openWorkspaceTask("İkon");
+		await openWorkspaceTask("Icon");
 		const iconProfile = await $('article[aria-labelledby="icon-heading"]');
 		await (await iconProfile.$("summary")).click();
 		await (
 			await iconProfile.$("h5=icon.metadata_roundtrip")
 		).waitForDisplayed();
-		await (await iconProfile.$("button=Sözleşmeyi etkinleştir")).click();
+		await (await iconProfile.$("button=Activate contract")).click();
 		await (
-			await $("p=İkon 1.0.0 sürümü etkinleştirildi ve yeniden okundu.")
+			await $("p=Icon 1.0.0 version activated and reread.")
 		).waitForDisplayed();
 
 		await browser.refresh();
-		await openWorkspaceTask("İkon");
+		await openWorkspaceTask("Icon");
 		await (
-			await iconProfile.$("p=Bu projede etkin · 1.0.0")
+			await iconProfile.$("p=Active in this project · 1.0.0")
 		).waitForDisplayed();
 		await expect(await iconProfile.$("button=Etkin")).toBeDisabled();
 	});

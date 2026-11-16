@@ -1,6 +1,7 @@
 import {
 	type ObjectReader,
-	readVerifiedObjectBytes,
+	verifiedObjectStream,
+	verifyObject,
 } from "./object-file-bytes";
 
 type StoredContentType =
@@ -38,26 +39,32 @@ export function createObjectFileCopier(storage: ObjectStorage) {
 		sha256: string;
 		to: string;
 	}): Promise<void> => {
-		const read = await readVerifiedObjectBytes(storage, file.from, file);
-		if (read.status === "missing") {
-			throw new Error(`The archived file ${file.from} is missing.`);
-		}
-		if (read.status === "mismatch") {
+		if (!(await verifyObject(storage, file.from, file))) {
 			throw new Error(
-				`The archived file ${file.from} no longer matches its digest.`
+				"The archived file is missing or no longer matches its digest."
 			);
 		}
-		const { bytes } = read;
-		const { body } = new Response(bytes);
-		if (!body) {
-			throw new Error("The restored file could not be streamed.");
-		}
-		await storage.put(
-			file.to,
-			body,
-			storedContentType(file.contentType),
-			bytes.byteLength
+		const { body, isComplete, cancel } = verifiedObjectStream(
+			storage,
+			file.from,
+			file
 		);
+		try {
+			await storage.put(
+				file.to,
+				body,
+				storedContentType(file.contentType),
+				file.byteSize
+			);
+			if (!isComplete()) {
+				throw new Error(
+					"The restored file stream did not complete verification."
+				);
+			}
+		} catch (error) {
+			await cancel().catch(() => undefined);
+			throw error;
+		}
 	};
 }
 

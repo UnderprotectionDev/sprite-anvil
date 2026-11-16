@@ -83,6 +83,11 @@ export function SlicingForm({
 									onChange={(event) => field.handleChange(event.target.value)}
 									value={field.state.value}
 								/>
+								{field.state.meta.errors.length > 0 ? (
+									<span role="alert">
+										Use whole numbers within the allowed range.
+									</span>
+								) : null}
 							</Label>
 						)}
 					</form.Field>
@@ -126,6 +131,9 @@ export function SlicingForm({
 						const parsed = slicingFormSchema.safeParse(form.state.values);
 						if (parsed.success) {
 							onPreview(parsed.data);
+						} else {
+							form.validateAllFields("submit");
+							form.validate("submit");
 						}
 					}}
 					size="sm"

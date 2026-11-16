@@ -44,6 +44,9 @@ export interface RuntimeValidationStoreOptions {
 
 function toEvidence(row: StoredRuntimeValidationEvidence) {
 	return runtimeValidationEvidenceSchema.parse({
+		...(row.fileName !== null && row.objectKey === null
+			? { fileAvailability: "unavailable" }
+			: {}),
 		createdAt: row.createdAt.toISOString(),
 		file:
 			row.fileName === null

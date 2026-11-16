@@ -15,11 +15,11 @@ export function PlatformEquivalenceReportView({
 }) {
 	const overview = useQuery({
 		...orpc.platformEquivalence.overview.queryOptions({ input: { projectId } }),
-		meta: { suppressGlobalErrorToast: true },
+		meta: { errorPresentation: "inline" },
 	});
 	const bundles = useQuery({
 		...orpc.exportBundles.list.queryOptions({ input: { projectId } }),
-		meta: { suppressGlobalErrorToast: true },
+		meta: { errorPresentation: "inline" },
 	});
 	const supportSummary = usePlatformSupportSummary();
 

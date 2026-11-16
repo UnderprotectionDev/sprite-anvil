@@ -31,12 +31,9 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
 	};
 });
 
-vi.mock(
-	"@/features/asset-versions/ui/components/asset-version-controls",
-	() => ({
-		AssetVersionControls: () => null,
-	})
-);
+vi.mock("@/components/asset-version-controls", () => ({
+	AssetVersionControls: () => null,
+}));
 
 function queryOptions<T>(key: string, data: T) {
 	return {
@@ -221,17 +218,21 @@ async function openSetup() {
 	);
 	const user = userEvent.setup();
 	await user.click(
-		await screen.findByRole("button", { name: "Aile ve temsil ilişkileri" })
+		await screen.findByRole("button", {
+			name: "Family and representation relationships",
+		})
 	);
-	await screen.findByRole("textbox", { name: "Varlık Kimliği adı" });
+	await screen.findByRole("textbox", { name: "Subject Identity name" });
 	return user;
 }
 
 test("creates a Subject Identity with the typed name and clears the draft", async () => {
 	const user = await openSetup();
-	const submit = screen.getByRole("button", { name: "Varlık Kimliği oluştur" });
+	const submit = screen.getByRole("button", {
+		name: "Create Subject Identity",
+	});
 	expect(submit).toBeDisabled();
-	const name = screen.getByRole("textbox", { name: "Varlık Kimliği adı" });
+	const name = screen.getByRole("textbox", { name: "Subject Identity name" });
 	await user.type(name, "   ");
 	expect(submit).toBeDisabled();
 	await user.clear(name);
@@ -245,31 +246,31 @@ test("creates a Subject Identity with the typed name and clears the draft", asyn
 			projectId: "project-1",
 		})
 	);
-	expect(await screen.findByText("Varlık Kimliği kaydedildi.")).toBeVisible();
+	expect(await screen.findByText("Subject Identity saved.")).toBeVisible();
 	expect(name).toHaveValue("");
 });
 
 test("keeps the Subject Identity draft and reports a failed save", async () => {
 	fakeApi.createSubjectIdentity.mockRejectedValue(new Error("Boom"));
 	const user = await openSetup();
-	const name = screen.getByRole("textbox", { name: "Varlık Kimliği adı" });
+	const name = screen.getByRole("textbox", { name: "Subject Identity name" });
 	await user.type(name, "Moss Golem");
 	await user.click(
-		screen.getByRole("button", { name: "Varlık Kimliği oluştur" })
+		screen.getByRole("button", { name: "Create Subject Identity" })
 	);
 
 	await waitFor(() => expect(errorToast).toHaveBeenCalled());
 	expect(name).toHaveValue("Moss Golem");
-	expect(screen.queryByText("Varlık Kimliği kaydedildi.")).toBeNull();
+	expect(screen.queryByText("Subject Identity saved.")).toBeNull();
 });
 
 test("creates an Asset Family from the selected identity and Visual World", async () => {
 	const user = await openSetup();
-	const submit = screen.getByRole("button", { name: "Varlık Ailesi oluştur" });
-	const familyName = screen.getByRole("textbox", { name: "Varlık Ailesi adı" });
-	const useContext = screen.getByRole("textbox", { name: "Kullanım bağlamı" });
-	const identity = screen.getByRole("combobox", { name: "Varlık Kimliği" });
-	const world = screen.getByRole("combobox", { name: "Görsel Dünya" });
+	const submit = screen.getByRole("button", { name: "Create Asset Family" });
+	const familyName = screen.getByRole("textbox", { name: "Asset Family name" });
+	const useContext = screen.getByRole("textbox", { name: "Usage context" });
+	const identity = screen.getByRole("combobox", { name: "Subject Identity" });
+	const world = screen.getByRole("combobox", { name: "Visual World" });
 	expect(identity).toHaveValue("subject-1");
 	expect(world).toHaveValue("world-1");
 	expect(submit).toBeDisabled();
@@ -292,46 +293,43 @@ test("creates an Asset Family from the selected identity and Visual World", asyn
 			visualWorldId: "world-2",
 		})
 	);
-	expect(await screen.findByText("Varlık Ailesi kaydedildi.")).toBeVisible();
+	expect(await screen.findByText("Asset Family saved.")).toBeVisible();
 	expect(familyName).toHaveValue("");
 	expect(useContext).toHaveValue("");
-	expect(screen.getByRole("combobox", { name: "Varlık Kimliği" })).toHaveValue(
-		"subject-2"
-	);
+	expect(
+		screen.getByRole("combobox", { name: "Subject Identity" })
+	).toHaveValue("subject-2");
 });
 
 test("blocks a duplicate Asset Family name for the same identity ignoring case", async () => {
 	const user = await openSetup();
 	await user.type(
-		screen.getByRole("textbox", { name: "Varlık Ailesi adı" }),
+		screen.getByRole("textbox", { name: "Asset Family name" }),
 		"  gameplay "
 	);
-	await user.type(
-		screen.getByRole("textbox", { name: "Kullanım bağlamı" }),
-		"x"
-	);
+	await user.type(screen.getByRole("textbox", { name: "Usage context" }), "x");
 	expect(
-		screen.getByRole("button", { name: "Varlık Ailesi oluştur" })
+		screen.getByRole("button", { name: "Create Asset Family" })
 	).toBeDisabled();
 	await user.selectOptions(
-		screen.getByRole("combobox", { name: "Varlık Kimliği" }),
+		screen.getByRole("combobox", { name: "Subject Identity" }),
 		"subject-2"
 	);
 	expect(
-		screen.getByRole("button", { name: "Varlık Ailesi oluştur" })
+		screen.getByRole("button", { name: "Create Asset Family" })
 	).toBeEnabled();
 });
 
 test("creates an Asset Record with the chosen identity criteria", async () => {
 	const user = await openSetup();
-	const submit = screen.getByRole("button", { name: "Varlık Kaydı ekle" });
-	const name = screen.getByRole("textbox", { name: "Varlık Kaydı adı" });
+	const submit = screen.getByRole("button", { name: "Add Asset Record" });
+	const name = screen.getByRole("textbox", { name: "Asset Record name" });
 	const independent = screen.getByRole("checkbox", {
-		name: "Bağımsız ürün anlamı",
+		name: "Independent product meaning",
 	});
-	const delivery = screen.getByRole("checkbox", { name: "Teslimat kimliği" });
+	const delivery = screen.getByRole("checkbox", { name: "Delivery identity" });
 	const [recordFamily] = screen.getAllByRole("combobox", {
-		name: "Varlık Ailesi",
+		name: "Asset Family",
 	});
 	expect(recordFamily).toHaveValue("family-1");
 	await user.type(name, "Jump");
@@ -353,7 +351,7 @@ test("creates an Asset Record with the chosen identity criteria", async () => {
 			projectId: "project-1",
 		})
 	);
-	expect(await screen.findByText("Varlık Kaydı kaydedildi.")).toBeVisible();
+	expect(await screen.findByText("Asset Record saved.")).toBeVisible();
 	expect(name).toHaveValue("");
 	expect(independent).not.toBeChecked();
 	expect(delivery).not.toBeChecked();
@@ -362,7 +360,7 @@ test("creates an Asset Record with the chosen identity criteria", async () => {
 test("toggles an identity criterion with the Space key", async () => {
 	const user = await openSetup();
 	const criterion = screen.getByRole("checkbox", {
-		name: "Bağımsız yaşam döngüsü",
+		name: "Independent lifecycle",
 	});
 	criterion.focus();
 	await user.keyboard(" ");
@@ -374,24 +372,24 @@ test("toggles an identity criterion with the Space key", async () => {
 test("blocks a duplicate Asset Record name inside the selected family", async () => {
 	const user = await openSetup();
 	await user.type(
-		screen.getByRole("textbox", { name: "Varlık Kaydı adı" }),
+		screen.getByRole("textbox", { name: "Asset Record name" }),
 		" idle "
 	);
-	await user.click(screen.getByRole("checkbox", { name: "Teslimat kimliği" }));
+	await user.click(screen.getByRole("checkbox", { name: "Delivery identity" }));
 	expect(
-		screen.getByRole("button", { name: "Varlık Kaydı ekle" })
+		screen.getByRole("button", { name: "Add Asset Record" })
 	).toBeDisabled();
 });
 
 test("creates a relationship between two records of the selected family", async () => {
 	const user = await openSetup();
-	const submit = screen.getByRole("button", { name: "İlişki ekle" });
-	const source = screen.getByRole("combobox", { name: "Kaynak Varlık Kaydı" });
-	const target = screen.getByRole("combobox", { name: "İlgili Varlık Kaydı" });
+	const submit = screen.getByRole("button", { name: "Add relationship" });
+	const source = screen.getByRole("combobox", { name: "Source Asset Record" });
+	const target = screen.getByRole("combobox", { name: "Related Asset Record" });
 	expect(source).toHaveValue("record-1");
 	expect(target).toHaveValue("record-2");
 	await user.selectOptions(
-		screen.getByRole("combobox", { name: "İlişki türü" }),
+		screen.getByRole("combobox", { name: "Relationship type" }),
 		"animation"
 	);
 	await user.click(submit);
@@ -405,29 +403,37 @@ test("creates a relationship between two records of the selected family", async 
 			type: "animation",
 		})
 	);
-	expect(await screen.findByText("İlişki kaydedildi.")).toBeVisible();
+	expect(await screen.findByText("Relationship saved.")).toBeVisible();
 });
 
 test("disables the relationship form for a family with fewer than two records", async () => {
 	const user = await openSetup();
 	const [, relationshipFamily] = screen.getAllByRole("combobox", {
-		name: "Varlık Ailesi",
+		name: "Asset Family",
 	});
 	await user.selectOptions(relationshipFamily as HTMLElement, "family-2");
-	expect(screen.getByRole("button", { name: "İlişki ekle" })).toBeDisabled();
 	expect(
-		screen.getByRole("combobox", { name: "Kaynak Varlık Kaydı" })
+		screen.getByRole("button", { name: "Add relationship" })
+	).toBeDisabled();
+	expect(
+		screen.getByRole("combobox", { name: "Source Asset Record" })
 	).toBeDisabled();
 	await user.selectOptions(relationshipFamily as HTMLElement, "family-1");
-	expect(screen.getByRole("button", { name: "İlişki ekle" })).toBeEnabled();
+	expect(
+		screen.getByRole("button", { name: "Add relationship" })
+	).toBeEnabled();
 });
 
 test("shows the canonical design as the fixed source of a derivative relationship", async () => {
 	const user = await openSetup();
 	await user.selectOptions(
-		screen.getByRole("combobox", { name: "İlişki türü" }),
+		screen.getByRole("combobox", { name: "Relationship type" }),
 		"derivative"
 	);
-	expect(screen.getByText("Önce onaylı bir Ana Tasarım seçin.")).toBeVisible();
-	expect(screen.getByRole("button", { name: "İlişki ekle" })).toBeDisabled();
+	expect(
+		screen.getByText("Select an approved Canonical Design first.")
+	).toBeVisible();
+	expect(
+		screen.getByRole("button", { name: "Add relationship" })
+	).toBeDisabled();
 });

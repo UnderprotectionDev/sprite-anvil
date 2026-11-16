@@ -29,33 +29,33 @@ describe("Animation Timing and Transition Review", () => {
 			await $("input[name='email']").setValue(fixture.email);
 			await $("input[name='password']").setValue(fixture.password);
 			await (await $("button=Sign Up")).click();
-			await $("h1=Oyun projeleri").waitForDisplayed();
+			await $("h1=Game projects").waitForDisplayed();
 
-			await (await $("a=Proje Bağlamı")).click();
-			await $("//label[span[text()='Proje adı']]/input").setValue(
+			await (await $("a=Context Proposals")).click();
+			await $("//label[span[text()='Project name']]/input").setValue(
 				fixture.projectName
 			);
-			await $(
-				"//label[span[text()='Genel sanat yaklaşımı']]/textarea"
-			).setValue(fixture.generalArtDirection);
-			await (await $("button=Projeyi oluştur")).click();
-			await openWorkspaceTask("Görsel Dünyalar ve Temalar");
-			await $("input[placeholder='Örn. Yüksek yaylalar']").setValue(
+			await $("//label[span[text()='Art direction']]/textarea").setValue(
+				fixture.generalArtDirection
+			);
+			await (await $("button=Create project")).click();
+			await openWorkspaceTask("Visual Worldlar ve Temalar");
+			await $("input[placeholder='e.g. High plateaus']").setValue(
 				fixture.visualWorldName
 			);
-			await (await $("button=Görsel Dünya ekle")).click();
+			await (await $("button=Visual World ekle")).click();
 			await $(`strong=${fixture.visualWorldName}`).waitForDisplayed();
 
 			await (await $("a=Projeler")).click();
-			await (await $("a=Varlık Aileleri")).click();
-			await openWorkspaceTask("Aile ve temsil ilişkileri");
+			await (await $("a=Asset Families")).click();
+			await openWorkspaceTask("Family and representation relationships");
 			await $("input[id='subject-identity-name']").setValue(
 				fixture.identityName
 			);
-			await (await $("button=Varlık Kimliği oluştur")).click();
-			await openWorkspaceTask("Aile kataloğu");
+			await (await $("button=Asset Identity oluştur")).click();
+			await openWorkspaceTask("Family catalog");
 			await $(`h2=${fixture.identityName}`).waitForDisplayed();
-			await openWorkspaceTask("Aile ve temsil ilişkileri");
+			await openWorkspaceTask("Family and representation relationships");
 			await $("input[id='asset-family-name']").setValue(fixture.familyName);
 			await $("#asset-family-visual-world").selectByVisibleText(
 				fixture.visualWorldName
@@ -63,36 +63,39 @@ describe("Animation Timing and Transition Review", () => {
 			await $("input[id='asset-family-use-context']").setValue(
 				fixture.useContext
 			);
-			await (await $("button=Varlık Ailesi oluştur")).click();
-			await openWorkspaceTask("Aile kataloğu");
+			await (await $("button=Create Asset Family")).click();
+			await openWorkspaceTask("Family catalog");
 			await $(`h3=${fixture.familyName}`).waitForDisplayed();
 
-			await openWorkspaceTask("Aile ve temsil ilişkileri");
+			await openWorkspaceTask("Family and representation relationships");
 			await $("input[id='asset-record-name']").setValue(fixture.sourceName);
-			await (await $("button=Varlık Kaydı ekle")).click();
-			await openWorkspaceTask("Sürüm ve bağımlılık işlemleri");
+			await (await $("button=Add Asset Record")).click();
+			await openWorkspaceTask("Version and dependency operations");
 			await $(
 				"input[aria-label='" +
 					fixture.sourceName +
 					" için Varlık Sürümü dosyası']"
 			).setValue(pngPath);
-			await $("p=Sürüm 1 · Aday").waitForDisplayed();
+			await $("p=Version 1 · Candidate").waitForDisplayed();
 			await $("textarea[id^='review-rationale-']").setValue(
 				"The sprite is suitable for timing review."
 			);
 			await (await $("button=Onayla")).click();
-			await $("p=Sürüm 1 · Onaylandı").waitForDisplayed();
-			await (await $("button=Ana Tasarım olarak seç")).click();
+			await $("p=Sürüm 1 · Approved").waitForDisplayed();
+			await (await $("button=Select as Canonical Design")).click();
 			await $(
-				`p=Ana Tasarım: ${fixture.sourceName} · Sürüm 1`
+				`p=Canonical Design: ${fixture.sourceName} · Version 1`
 			).waitForDisplayed();
 
-			await activateFamilyProfile("Karakter, yaratık ve animasyon", "1.0.1");
+			await activateFamilyProfile(
+				"Character, creature, and animation",
+				"1.0.1"
+			);
 
 			let review = await $(
 				"section[aria-label='" +
 					fixture.familyName +
-					" animasyon zamanlaması incelemesi']"
+					" animation timing review']"
 			);
 			await review.waitForDisplayed({ timeout: 20_000 });
 			const directionNames = ["south", "west", "north", "east"];
@@ -107,33 +110,33 @@ describe("Animation Timing and Transition Review", () => {
 					throw new Error("Expected four direction editors.");
 				}
 				const number = index + 1;
-				const firstKey = `Yön ${number} kare 1`;
-				const secondKey = `Yön ${number} kare 2`;
+				const firstKey = `Direction ${number} frame 1`;
+				const secondKey = `Direction ${number} frame 2`;
 				// biome-ignore lint/performance/noAwaitInLoops: Desktop interactions within each direction must occur in order.
 				await direction
-					.$(`input[aria-label='${firstKey} kimliği']`)
+					.$(`input[aria-label='${firstKey} ID']`)
 					.setValue(`${directionNames[index]}-contact`);
 				await direction
-					.$(`select[aria-label='${firstKey} sürümü']`)
-					.selectByVisibleText(`${fixture.sourceName} · Sürüm 1`);
+					.$(`select[aria-label='${firstKey} version']`)
+					.selectByVisibleText(`${fixture.sourceName} · Version 1`);
 				await direction
-					.$(`input[aria-label='${firstKey} süre (ms)']`)
+					.$(`input[aria-label='${firstKey} duration (ms)']`)
 					.setValue(String(firstDurations[index]));
 				await direction
-					.$(`input[aria-label='${firstKey} hareket evresi']`)
+					.$(`input[aria-label='${firstKey} motion phase']`)
 					.setValue(firstPhases[index] ?? "");
-				await (await direction.$("button=Kare ekle")).click();
+				await (await direction.$("button=Add frame")).click();
 				await direction
-					.$(`input[aria-label='${secondKey} kimliği']`)
+					.$(`input[aria-label='${secondKey} ID']`)
 					.setValue(`${directionNames[index]}-recovery`);
 				await direction
-					.$(`select[aria-label='${secondKey} sürümü']`)
-					.selectByVisibleText(`${fixture.sourceName} · Sürüm 1`);
+					.$(`select[aria-label='${secondKey} version']`)
+					.selectByVisibleText(`${fixture.sourceName} · Version 1`);
 				await direction
-					.$(`input[aria-label='${secondKey} süre (ms)']`)
+					.$(`input[aria-label='${secondKey} duration (ms)']`)
 					.setValue(String(secondDurations[index]));
 				await direction
-					.$(`input[aria-label='${secondKey} hareket evresi']`)
+					.$(`input[aria-label='${secondKey} motion phase']`)
 					.setValue(secondPhases[index] ?? "");
 			}
 
@@ -141,96 +144,96 @@ describe("Animation Timing and Transition Review", () => {
 			if (!north) {
 				throw new Error("Expected the north direction editor.");
 			}
-			const moveUpButtons = await north.$$("button=Kareyi yukarı taşı");
+			const moveUpButtons = await north.$$("button=Move frame up");
 			const [, moveSecondFrameUp] = moveUpButtons;
 			if (!moveSecondFrameUp) {
 				throw new Error("Expected the second-frame reorder control.");
 			}
 			await moveSecondFrameUp.click();
-			await review.$("input[aria-label='Oynatma hızı']").setValue("2");
+			await review.$("input[aria-label='Playback speed']").setValue("2");
 			const playhead = await review.$(
-				"input[aria-label='Oynatma konumu (ms)']"
+				"input[aria-label='Playback position (ms)']"
 			);
 			await playhead.setValue("110");
 			await expect(await playhead.getValue()).toBe("110");
 			await expect(await directions[0]?.$("figure").getText()).toContain(
-				"south · Kare 2 · south-recovery · 220 ms · Recovery"
+				"south · Frame 2 · south-recovery · 220 ms · Recovery"
 			);
 			await expect(await directions[1]?.$("figure").getText()).toContain(
-				"west · Kare 1 · west-contact · 120 ms · Wind-up"
+				"west · Frame 1 · west-contact · 120 ms · Wind-up"
 			);
 			await expect(await directions[2]?.$("figure").getText()).toContain(
-				"north · Kare 1 · north-recovery · 200 ms · Recovery"
+				"north · Frame 1 · north-recovery · 200 ms · Recovery"
 			);
 
 			await playhead.setValue("310");
-			const looping = await review.$("input[aria-label='Döngüde oynat']");
+			const looping = await review.$("input[aria-label='Loop playback']");
 			await looping.click();
 			await expect(await looping.isSelected()).toBe(false);
 			await expect(await directions[0]?.$("figure").getText()).toContain(
-				"south · Kare 2 · south-recovery · 220 ms · Recovery"
+				"south · Frame 2 · south-recovery · 220 ms · Recovery"
 			);
 			await expect(await directions[0]?.getText()).not.toContain(
-				"Döngü sınırı · son kare → ilk kare"
+				"Loop boundary."
 			);
 			await looping.click();
 			await expect(await looping.isSelected()).toBe(true);
 			await expect(await directions[0]?.$("figure").getText()).toContain(
-				"south · Kare 1 · south-contact · 80 ms · Contact"
+				"south · Frame 1 · south-contact · 80 ms · Contact"
 			);
-			await expect(await directions[0]?.getText()).toContain(
-				"Döngü sınırı · son kare → ilk kare"
-			);
+			await expect(await directions[0]?.getText()).toContain("Loop boundary.");
 
 			await (await review.$("button=Başa dön")).click();
 			await expect(await playhead.getValue()).toBe("0");
 			await review
-				.$("input[aria-label='Animasyon adı']")
+				.$("input[aria-label='Animation name']")
 				.setValue("Walk cycle");
 			await (
-				await review.$("input[aria-label='İnceleme sonucu']")
+				await review.$("input[aria-label='Review result']")
 			).selectByAttribute("value", "needs_follow_up");
 			await review
-				.$("textarea[aria-label='Gerekçe']")
+				.$("textarea[aria-label='Rationale']")
 				.setValue(
 					"The directions reach their recovery frames at different times."
 				);
-			await (await review.$("button=İncelemeyi kaydet")).click();
+			await (await review.$("button=Save review")).click();
 			await review
-				.$("p=İnceleme kalıcı kayıttan doğrulandı.")
+				.$("p=Review verified from the saved record.")
 				.waitForDisplayed();
 
 			await browser.refresh();
-			await openWorkspaceTask("Profil incelemeleri");
+			await openWorkspaceTask("Profile reviews");
 			review = await $(
 				"section[aria-label='" +
 					fixture.familyName +
-					" animasyon zamanlaması incelemesi']"
+					" animation timing review']"
 			);
 			await review.waitForDisplayed({ timeout: 20_000 });
 			await (
 				await review.$(
-					"xpath=.//button[contains(normalize-space(.), 'Walk cycle · 4 yön · Takip gerekli')]"
+					"xpath=.//button[contains(normalize-space(.), 'Walk cycle · 4 directions · Needs follow-up')]"
 				)
 			).click();
 			await expect(
-				await review.$("input[aria-label='Yön 1 kare 2 süre (ms)']").getValue()
+				await review
+					.$("input[aria-label='Direction 1 frame 2 duration (ms)']")
+					.getValue()
 			).toBe("220");
 			await expect(
-				await review.$("input[aria-label='Yön 3 kare 1 kimliği']").getValue()
+				await review.$("input[aria-label='Direction 3 frame 1 ID']").getValue()
 			).toBe("north-recovery");
 			await expect(
 				await review
-					.$("input[aria-label='Yön 4 kare 2 hareket evresi']")
+					.$("input[aria-label='Direction 4 frame 2 motion phase']")
 					.getValue()
 			).toBe("");
 			await expect(
-				await review.$("textarea[aria-label='Gerekçe']").getValue()
+				await review.$("textarea[aria-label='Rationale']").getValue()
 			).toBe("The directions reach their recovery frames at different times.");
 			await expect(
-				await review.$("input[aria-label='Oynatma hızı']").getValue()
+				await review.$("input[aria-label='Playback speed']").getValue()
 			).toBe("2");
-			await expect(await review.$("button=İncelemeyi kaydet").isEnabled()).toBe(
+			await expect(await review.$("button=Save review").isEnabled()).toBe(
 				false
 			);
 		} finally {

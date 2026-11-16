@@ -40,25 +40,25 @@ function createErrorMessage(error: unknown) {
 	const status = errorStatus(error);
 	const message = error instanceof Error ? error.message : undefined;
 	if (status === 401) {
-		return "Oturumunuz sona ermiş. Yeniden giriş yapın.";
+		return "Your session has expired. Sign in again.";
 	}
 	if (status === 404) {
-		return "Kaynak veya sidecar girdisi Gelen Kutusunda bulunamadı.";
+		return "The source or sidecar entry was not found in the Import Inbox.";
 	}
 	if (status === 422) {
 		return message === "Unsupported source metadata format"
-			? "Seçilen dosyalarda desteklenen Aseprite veya TexturePacker JSON bulunamadı."
-			: "Seçilen JSON sidecar geçerli bir eşleme önerisi içermiyor.";
+			? "No supported Aseprite or TexturePacker JSON was found in the selected files."
+			: "The selected JSON sidecar does not contain a valid mapping proposal.";
 	}
 	if (status === 400) {
-		return "Sidecar seçimini kontrol edip yeniden deneyin.";
+		return "Check the sidecar selection and try again.";
 	}
 	if (status === 413) {
 		return message === "Source metadata sidecars exceed the maximum size"
-			? "Sidecar dosyaları dosya başına 5 MiB ve toplam 8 MiB sınırını aşıyor."
-			: "Öneri isteği 8 KiB boyut sınırını aşıyor.";
+			? "Sidecar files exceed the 5 MiB per-file or 8 MiB total limit."
+			: "The proposal request exceeds the 8 KiB limit.";
 	}
-	return "Öneri oluşturma sonucu doğrulanamadı. Kayıtlı önerileri kontrol edin.";
+	return "Could not verify proposal creation. Check saved proposals.";
 }
 
 function proposalConflictKeys(proposal: SourceMetadataMappingProposal) {
@@ -118,17 +118,17 @@ function ProposalDetails({
 			onToggle={(event) => setIsOpen(event.currentTarget.open)}
 		>
 			<summary className="min-h-11 cursor-pointer py-2 font-medium">
-				Kaynak Metadata Eşleme Önerisi ·{" "}
+				Source Metadata Mapping Proposal ·{" "}
 				{new Date(proposal.createdAt).toLocaleString("tr-TR")}
 			</summary>
 			<div className="space-y-4 pt-2">
 				{previousProposal ? (
 					<section
-						aria-label="Önceki öneriye göre fark"
+						aria-label="Changes since previous proposal"
 						className="rounded-md border p-3"
 					>
-						<h3 className="font-medium">Önceki öneriye göre fark</h3>
-						{sidecarsChanged ? <p>JSON sidecar kaynakları değişti.</p> : null}
+						<h3 className="font-medium">Changes since previous proposal</h3>
+						{sidecarsChanged ? <p>JSON sidecar sources changed.</p> : null}
 						{fieldChanges.length > 0 ? (
 							<ul>
 								{fieldChanges.map((change) => (
@@ -136,20 +136,20 @@ function ProposalDetails({
 								))}
 							</ul>
 						) : (
-							<p>Tanınan alanlarda fark yok.</p>
+							<p>No changes in recognized fields.</p>
 						)}
 					</section>
 				) : null}
 				<dl className="grid gap-x-3 gap-y-2 sm:grid-cols-[auto_1fr]">
 					<dt className="text-muted-foreground">
-						Kaynak Metadata Eşleme sözleşmesi
+						Source Metadata Mapping contract
 					</dt>
 					<dd className="font-mono text-xs">{proposal.contractVersion}</dd>
-					<dt className="text-muted-foreground">Kaynak SHA-256</dt>
+					<dt className="text-muted-foreground">Source SHA-256</dt>
 					<dd className="break-all font-mono text-xs">
 						{proposal.source.sha256}
 					</dd>
-					<dt className="text-muted-foreground">JSON sidecar kaynakları</dt>
+					<dt className="text-muted-foreground">JSON sidecar sources</dt>
 					<dd>
 						<ul className="space-y-2">
 							{proposal.sidecars.map((sidecar) => (
@@ -166,62 +166,64 @@ function ProposalDetails({
 						</ul>
 					</dd>
 				</dl>
-				<section aria-label="Önerilen ilişkiler ve Oyun İçi Bilgiler">
+				<section aria-label="Proposed relationships and Gameplay Metadata">
 					<h3 className="font-medium">
-						Önerilen ilişkiler ve Oyun İçi Bilgiler
+						Proposed relationships and Gameplay Metadata
 					</h3>
 					<ul className="mt-2 space-y-2">
-						<li>Varlık Ailesi bağlantısı: Bilinmiyor · kaynak kanıtı yok.</li>
-						<li>
-							Gerekli Öğeler Listesi bağlantısı: Bilinmiyor · kaynak kanıtı yok.
-						</li>
+						<li>Asset Family link: Unknown · no source evidence.</li>
+						<li>Required Set link: Unknown · no source evidence.</li>
 					</ul>
 					<p className="mt-2 text-muted-foreground">
-						Oyun İçi Bilgiler: Bilinmiyor · proje bağlamı gerekli.
+						Gameplay Metadata: Unknown · project context required.
 					</p>
 				</section>
 				{proposal.conflicts.length > 0 && !finalization ? (
 					<p className="font-medium" role="status">
-						{proposal.conflicts.length} alan çakışması var; öneri henüz
-						kesinleşmedi.
+						Field conflicts: {proposal.conflicts.length}. The proposal is not
+						finalized.
 					</p>
 				) : null}
 				{proposal.contractVersion ===
 				sourceMetadataMappingContractVersion ? null : (
 					<section className="space-y-2 rounded-md border p-3">
 						<p>
-							Bu öneri eski bir Kaynak Metadata Eşleme sözleşmesini kullanıyor.
-							Kaynak dosyaları korunarak güncel sözleşmeyle yeni öneri
-							oluşturun.
+							This proposal uses an older Source Metadata Mapping contract.
+							Create a new proposal with the current contract while preserving
+							source files.
 						</p>
 						<Button disabled={isCreating} onClick={onRecreate} type="button">
-							Güncel sözleşmeyle yeni öneri oluştur
+							Create proposal with current contract
 						</Button>
 					</section>
 				)}
 				{isOpen && finalizationQuery.isPending ? (
-					<p role="status">Kesin ilişki okunuyor…</p>
+					<p role="status">Loading confirmed link…</p>
 				) : null}
 				{finalizationQuery.isError ? (
 					<div className="space-y-2">
-						<StatusMessage tone="error">Kesin ilişki okunamadı.</StatusMessage>
+						<StatusMessage tone="error">
+							Could not load confirmed link.
+						</StatusMessage>
 						<Button
 							onClick={() => void finalizationQuery.refetch()}
 							type="button"
 							variant="outline"
 						>
-							Yeniden dene
+							Try again
 						</Button>
 					</div>
 				) : null}
 				{finalization ? (
 					<section
-						aria-label="Kesin ilişki"
+						aria-label="Confirmed link"
 						className="space-y-2 rounded-md border p-3"
 					>
-						<p className="font-medium">Kesin ilişki · Aday Sürüm oluşturuldu</p>
+						<p className="font-medium">
+							Confirmed link · Candidate Version created
+						</p>
 						<p>
-							Hedef kayıt:{" "}
+							Target record:{" "}
 							{recordsQuery.data?.assetRecords.find(
 								(record) => record.id === finalization.assetRecordId
 							)?.name ?? finalization.assetRecordId}
@@ -238,7 +240,7 @@ function ProposalDetails({
 													field.sourceEntryId === decision.sourceEntryId &&
 													field.sourcePath === decision.sourcePath
 											)?.sourceFileName ?? decision.sourceEntryId)
-										: "Bilinmiyor"}
+										: "Unknown"}
 								</li>
 							))}
 						</ul>
@@ -246,7 +248,7 @@ function ProposalDetails({
 							params={{ projectId, assetRecordId: finalization.assetRecordId }}
 							to="/projects/$projectId/assets/$assetRecordId"
 						>
-							Aday Sürümü aç
+							Open Candidate Version
 						</Link>
 					</section>
 				) : null}
@@ -262,7 +264,7 @@ function ProposalDetails({
 						recordsError={recordsQuery.isError}
 					/>
 				)}
-				<ul aria-label="Önerilen kaynak alanları" className="space-y-3">
+				<ul aria-label="Proposed source fields" className="space-y-3">
 					{proposal.fields.map((field) => {
 						const conflict = conflictKeys.has(
 							`${field.field}\u0000${field.key}`
@@ -275,7 +277,7 @@ function ProposalDetails({
 								<p className="font-medium">
 									{fieldLabel(field.field)} · {field.key}
 									{conflict ? (
-										<span className="ml-2 text-destructive">Çakışma</span>
+										<span className="ml-2 text-destructive">Conflict</span>
 									) : null}
 								</p>
 								<p className="text-muted-foreground text-xs">
@@ -290,7 +292,7 @@ function ProposalDetails({
 				</ul>
 				{proposal.diagnostics.length > 0 ? (
 					<ul
-						aria-label="Metadata tanılamaları"
+						aria-label="Metadata diagnostics"
 						className="list-disc space-y-1 pl-5"
 					>
 						{proposal.diagnostics.map((diagnostic) => (
@@ -377,8 +379,7 @@ export function SourceMetadataMappingPanel({
 				return;
 			}
 			setCreateError({
-				message:
-					"Öneri oluşturma sonucu doğrulanamadı. Kayıtlı önerileri kontrol edin.",
+				message: "Could not verify proposal creation. Check saved proposals.",
 			});
 			await invalidateProposals();
 		}
@@ -386,27 +387,29 @@ export function SourceMetadataMappingPanel({
 
 	return (
 		<section
-			aria-label={`${entry.fileName} için Kaynak Metadata Eşleme Önerisi`}
+			aria-label={`Source Metadata Mapping Proposal for ${entry.fileName}`}
 			className="space-y-3 border-t pt-3"
 		>
 			<div>
-				<h4 className="font-medium text-sm">Kaynak Metadata Eşleme Önerisi</h4>
+				<h4 className="font-medium text-sm">
+					Source Metadata Mapping Proposal
+				</h4>
 				<p className="mt-1 text-muted-foreground text-sm">
-					{entry.fileName} için bir veya daha fazla sidecar seçin. Öneri kaynak
-					değerlerini gösterir; ilişkiyi kesinleştirmez.
+					Select one or more sidecars for {entry.fileName}. The proposal shows
+					source values; it does not finalize the link.
 				</p>
 			</div>
 			<FieldSet className="space-y-2" disabled={isCreating}>
 				<FieldLegend className="font-medium text-sm" variant="label">
-					JSON sidecar girdileri
+					JSON sidecar entries
 				</FieldLegend>
 				<p className="text-muted-foreground text-sm">
-					En fazla {sourceMetadataMappingSidecarLimits.count} sidecar seçin. Her
-					dosya 5 MiB, toplam boyut 8 MiB ile sınırlıdır.
+					Select up to {sourceMetadataMappingSidecarLimits.count} sidecars. Each
+					file is limited to 5 MiB and the total to 8 MiB.
 				</p>
 				{sidecarEntries.length === 0 ? (
 					<p className="text-muted-foreground text-sm">
-						Önce JSON sidecar dosyasını Gelen Kutusuna ekleyin.
+						Add the JSON sidecar to the Import Inbox first.
 					</p>
 				) : (
 					<ul className="space-y-2">
@@ -432,36 +435,36 @@ export function SourceMetadataMappingPanel({
 				)}
 			</FieldSet>
 			<Button
-				aria-label={`Kaynak Metadata Eşleme Önerisi oluştur: ${entry.fileName}`}
+				aria-label={`Create Source Metadata Mapping Proposal: ${entry.fileName}`}
 				className="min-h-11"
 				disabled={isCreating || selectedSidecarEntryIds.length === 0}
 				onClick={() => void createProposal()}
 				type="button"
 			>
 				{isCreating
-					? "Öneri oluşturuluyor…"
-					: "Kaynak Metadata Eşleme Önerisi oluştur"}
+					? "Creating proposal…"
+					: "Create Source Metadata Mapping Proposal"}
 			</Button>
 			{createError ? (
 				<div>
 					<StatusMessage tone="error">{createError.message}</StatusMessage>
 					{createError.supportReference ? (
-						<p>Destek Referansı: {createError.supportReference}</p>
+						<p>Support reference: {createError.supportReference}</p>
 					) : null}
 				</div>
 			) : null}
 			{proposalsQuery.isPending ? (
 				<p aria-live="polite" role="status">
-					Öneriler okunuyor…
+					Loading proposals…
 				</p>
 			) : null}
 			{proposalsQuery.isError ? (
 				<div className="space-y-2">
 					<StatusMessage tone="error">
-						Kaynak Metadata Eşleme Önerileri okunamadı.
+						Could not load Source Metadata Mapping Proposals.
 					</StatusMessage>
 					{supportReferenceOf(proposalsQuery.error) ? (
-						<p>Destek Referansı: {supportReferenceOf(proposalsQuery.error)}</p>
+						<p>Support reference: {supportReferenceOf(proposalsQuery.error)}</p>
 					) : null}
 					<Button
 						className="min-h-11"
@@ -469,7 +472,7 @@ export function SourceMetadataMappingPanel({
 						type="button"
 						variant="outline"
 					>
-						Yeniden dene
+						Try again
 					</Button>
 				</div>
 			) : null}

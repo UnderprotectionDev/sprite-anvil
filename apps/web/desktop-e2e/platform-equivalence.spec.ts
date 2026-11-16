@@ -15,16 +15,16 @@ describe("Platform Equivalence", () => {
 		await $("input[name='email']").setValue(fixture.email);
 		await $("input[name='password']").setValue(fixture.password);
 		await (await $("button=Sign Up")).click();
-		await $("h1=Oyun projeleri").waitForDisplayed({ timeout: 30_000 });
+		await $("h1=Game projects").waitForDisplayed({ timeout: 30_000 });
 
-		await (await $("a=Proje Bağlamı")).click();
-		await $("//label[span[text()='Proje adı']]/input").setValue(
+		await (await $("a=Context Proposals")).click();
+		await $("//label[span[text()='Project name']]/input").setValue(
 			fixture.projectName
 		);
-		await $("//label[span[text()='Genel sanat yaklaşımı']]/textarea").setValue(
+		await $("//label[span[text()='General art direction']]/textarea").setValue(
 			fixture.generalArtDirection
 		);
-		await (await $("button=Projeyi oluştur")).click();
+		await (await $("button=Create project")).click();
 
 		await (await $("a=Platform Equivalence")).click();
 		await $("h1=Platform Equivalence").waitForDisplayed();

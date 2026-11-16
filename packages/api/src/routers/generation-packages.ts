@@ -30,7 +30,7 @@ export const generationPackagesRouter = {
 			);
 			if (!packages) {
 				throw new ORPCError("NOT_FOUND", {
-					message: "Varlık kaydı veya proje bulunamadı.",
+					message: "Asset Record or Project not found.",
 				});
 			}
 			return packages.map((generationPackage) =>

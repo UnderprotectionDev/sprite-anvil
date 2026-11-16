@@ -208,9 +208,18 @@ export function serializeProjectQueueMessage(key: string) {
 	});
 }
 
+export const operationQueueMessageSchema = z
+	.object({
+		version: z.literal(3),
+		kind: z.literal("background-operation"),
+		backgroundOperationId: z.string().min(1),
+	})
+	.strict();
+
 export const queueMessageSchema = z.discriminatedUnion("version", [
 	legacyQueueMessageSchema,
 	projectQueueMessageSchema,
+	operationQueueMessageSchema,
 ]);
 
 export interface R2Config {
@@ -332,10 +341,29 @@ export function createStorage(
 				})
 			);
 		},
-		async get(key: string) {
+		async get(key: string, range?: { offset: number; length: number }) {
+			if (
+				range &&
+				(!(
+					Number.isSafeInteger(range.offset) &&
+					Number.isSafeInteger(range.length)
+				) ||
+					range.offset < 0 ||
+					range.length <= 0)
+			) {
+				throw new Error("Invalid object byte range");
+			}
 			try {
 				const result = await client.send(
-					new GetObjectCommand({ Bucket: config.R2_BUCKET, Key: key })
+					new GetObjectCommand({
+						Bucket: config.R2_BUCKET,
+						Key: key,
+						...(range
+							? {
+									Range: `bytes=${range.offset}-${range.offset + range.length - 1}`,
+								}
+							: {}),
+					})
 				);
 				if (!result.Body) {
 					return null;
@@ -415,6 +443,15 @@ export function createQueue(
 			const message = serializeProjectQueueMessage(key);
 			await request("", {
 				body: message,
+			});
+		},
+		async sendOperation(backgroundOperationId: string) {
+			await request("", {
+				body: operationQueueMessageSchema.parse({
+					version: 3,
+					kind: "background-operation",
+					backgroundOperationId,
+				}),
 			});
 		},
 		async pull() {

@@ -1,9 +1,15 @@
+import { checkReviewApproval } from "@sprite-anvil/api/asset-version-review-approval";
 import type {
 	AffectedVersion,
 	ChangeFacetInput,
 	DependencyLink,
 	DependencyRevalidationStore,
 } from "@sprite-anvil/api/dependency-revalidation";
+import {
+	readDependencyCatalog,
+	toChangeImpact,
+	toDependencyLink,
+} from "@sprite-anvil/api/dependency-revalidation-catalog";
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
 import {
 	assetFamilyCanonicalDesigns,
@@ -19,12 +25,6 @@ import {
 } from "@sprite-anvil/db/schema/dependency-revalidation";
 import { contextRevisions } from "@sprite-anvil/db/schema/project-context";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
-import { checkReviewApproval } from "../../asset-versions/server/asset-version-store";
-import {
-	readDependencyCatalog,
-	toChangeImpact,
-	toDependencyLink,
-} from "./dependency-revalidation-catalog";
 import {
 	historicalCompositionOptions,
 	listHistoricalCompositions,

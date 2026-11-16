@@ -22,19 +22,22 @@ const relationshipOptions: {
 	label: string;
 	value: AssetFamilyRelationshipType;
 }[] = [
-	{ label: "Yön", value: "direction" },
+	{ label: "Direction", value: "direction" },
 	{ label: "Animasyon", value: "animation" },
-	{ label: "Durum", value: "state" },
-	{ label: "Türetilmiş Varlık", value: "derivative" },
+	{ label: "State", value: "state" },
+	{ label: "Derived Asset", value: "derivative" },
 ];
 
 const identityCriterionOptions: {
 	label: string;
 	value: AssetRecordIdentityCriterion;
 }[] = [
-	{ label: "Bağımsız ürün anlamı", value: "independent_product_meaning" },
-	{ label: "Bağımsız yaşam döngüsü", value: "independent_lifecycle" },
-	{ label: "Teslimat kimliği", value: "delivery_identity" },
+	{
+		label: "Independent product meaning",
+		value: "independent_product_meaning",
+	},
+	{ label: "Independent lifecycle", value: "independent_lifecycle" },
+	{ label: "Delivery identity", value: "delivery_identity" },
 ];
 
 function submitWith(form: { handleSubmit: () => Promise<unknown> }) {
@@ -64,14 +67,14 @@ export function SubjectIdentityForm({
 				01 / Kimlik
 			</p>
 			<h3 className="font-semibold font-serif text-xl">
-				Varlık Kimliği oluştur
+				Create Subject Identity
 			</h3>
 			<p className="text-muted-foreground text-sm">
-				Aynı karakteri veya konuyu farklı Varlık Ailelerinde bu kimlikle
-				bağlayın.
+				Use this identity to link the same character or subject across Asset
+				Families.
 			</p>
 			<div className="space-y-2">
-				<Label htmlFor="subject-identity-name">Varlık Kimliği adı</Label>
+				<Label htmlFor="subject-identity-name">Subject Identity name</Label>
 				<form.Field name="name">
 					{(field) => (
 						<Input
@@ -88,7 +91,7 @@ export function SubjectIdentityForm({
 				</form.Field>
 			</div>
 			<Button disabled={disabled || name.trim().length === 0} type="submit">
-				{isSaving ? "Kaydediliyor…" : "Varlık Kimliği oluştur"}
+				{isSaving ? "Saving…" : "Create Subject Identity"}
 			</Button>
 		</form>
 	);
@@ -121,17 +124,15 @@ export function AssetFamilyForm({
 			onSubmit={submitWith(form)}
 		>
 			<p className="font-mono text-primary text-xs uppercase tracking-widest">
-				02 / Aile
+				02 / Family
 			</p>
-			<h3 className="font-semibold font-serif text-xl">
-				Varlık Ailesi oluştur
-			</h3>
+			<h3 className="font-semibold font-serif text-xl">Create Asset Family</h3>
 			<p className="text-muted-foreground text-sm">
-				Her aile tek bir Görsel Dünya ve kullanım bağlamında kalır. Ayrı tasarım
-				soylarını aynı kimlik altında farklı ailelerde tutabilirsiniz.
+				Each family belongs to one Visual World and usage context. Keep separate
+				design lineages in different families under the same identity.
 			</p>
 			<div className="space-y-2">
-				<Label htmlFor="asset-family-subject-identity">Varlık Kimliği</Label>
+				<Label htmlFor="asset-family-subject-identity">Subject Identity</Label>
 				<form.Field name="subjectIdentityId">
 					{(field) => (
 						<NativeSelect
@@ -154,7 +155,7 @@ export function AssetFamilyForm({
 				</form.Field>
 			</div>
 			<div className="space-y-2">
-				<Label htmlFor="asset-family-name">Varlık Ailesi adı</Label>
+				<Label htmlFor="asset-family-name">Asset Family name</Label>
 				<form.Field name="name">
 					{(field) => (
 						<Input
@@ -171,7 +172,7 @@ export function AssetFamilyForm({
 				</form.Field>
 			</div>
 			<div className="space-y-2">
-				<Label htmlFor="asset-family-visual-world">Görsel Dünya</Label>
+				<Label htmlFor="asset-family-visual-world">Visual World</Label>
 				<form.Field name="visualWorldId">
 					{(field) => (
 						<NativeSelect
@@ -194,7 +195,7 @@ export function AssetFamilyForm({
 				</form.Field>
 			</div>
 			<div className="space-y-2">
-				<Label htmlFor="asset-family-use-context">Kullanım bağlamı</Label>
+				<Label htmlFor="asset-family-use-context">Usage context</Label>
 				<form.Field name="useContext">
 					{(field) => (
 						<Input
@@ -204,7 +205,7 @@ export function AssetFamilyForm({
 							name={field.name}
 							onBlur={field.handleBlur}
 							onChange={(event) => field.handleChange(event.target.value)}
-							placeholder="Örn. oyun içi sprite"
+							placeholder="e.g. in-game sprite"
 							required
 							value={field.state.value}
 						/>
@@ -226,7 +227,7 @@ export function AssetFamilyForm({
 				}
 				type="submit"
 			>
-				{isSaving ? "Kaydediliyor…" : "Varlık Ailesi oluştur"}
+				{isSaving ? "Saving…" : "Create Asset Family"}
 			</Button>
 		</form>
 	);
@@ -258,14 +259,15 @@ export function AssetRecordForm({
 			onSubmit={submitWith(form)}
 		>
 			<p className="font-mono text-primary text-xs uppercase tracking-widest">
-				03 / Kayıt
+				03 / Record
 			</p>
-			<h3 className="font-semibold font-serif text-xl">Varlık Kaydı ekle</h3>
+			<h3 className="font-semibold font-serif text-xl">Add Asset Record</h3>
 			<p className="text-muted-foreground text-sm">
-				Teknik dosya bölünmesi tek başına yeni Varlık Kaydı oluşturmaz.
+				Splitting a file for technical reasons alone does not create a new Asset
+				Record.
 			</p>
 			<div className="space-y-2">
-				<Label htmlFor="asset-record-family">Varlık Ailesi</Label>
+				<Label htmlFor="asset-record-family">Asset Family</Label>
 				<form.Field name="assetFamilyId">
 					{(field) => (
 						<NativeSelect
@@ -288,7 +290,7 @@ export function AssetRecordForm({
 				</form.Field>
 			</div>
 			<div className="space-y-2">
-				<Label htmlFor="asset-record-name">Varlık Kaydı adı</Label>
+				<Label htmlFor="asset-record-name">Asset Record name</Label>
 				<form.Field name="name">
 					{(field) => (
 						<Input
@@ -306,7 +308,7 @@ export function AssetRecordForm({
 			</div>
 			<FieldSet className="gap-2">
 				<FieldLegend className="mb-0 font-medium text-sm">
-					Kayıt gerekçesi
+					Record rationale
 				</FieldLegend>
 				<form.Field name="identityCriteria">
 					{(field) =>
@@ -348,7 +350,7 @@ export function AssetRecordForm({
 				}
 				type="submit"
 			>
-				{isSaving ? "Kaydediliyor…" : "Varlık Kaydı ekle"}
+				{isSaving ? "Saving…" : "Add Asset Record"}
 			</Button>
 		</form>
 	);
@@ -406,15 +408,17 @@ export function AssetFamilyRelationshipForm({
 			onSubmit={submitWith(form)}
 		>
 			<p className="font-mono text-primary text-xs uppercase tracking-widest">
-				04 / İlişki
+				04 / Relationship
 			</p>
-			<h3 className="font-semibold font-serif text-xl">Aile içi ilişki ekle</h3>
+			<h3 className="font-semibold font-serif text-xl">
+				Add family relationship
+			</h3>
 			<p className="text-muted-foreground text-sm">
-				Yön, animasyon, durum ve Türetilmiş Varlık ilişkileri aynı Varlık
-				Ailesinde kalır.
+				Direction, animation, state, and Derived Asset relationships stay within
+				the same Asset Family.
 			</p>
 			<div className="space-y-2">
-				<Label htmlFor="relationship-family">Varlık Ailesi</Label>
+				<Label htmlFor="relationship-family">Asset Family</Label>
 				<form.Field name="assetFamilyId">
 					{(field) => (
 						<NativeSelect
@@ -441,12 +445,12 @@ export function AssetFamilyRelationshipForm({
 				</form.Field>
 			</div>
 			<div className="space-y-2">
-				<Label htmlFor="relationship-source">Kaynak Varlık Kaydı</Label>
+				<Label htmlFor="relationship-source">Source Asset Record</Label>
 				{type === "derivative" ? (
 					<p className="min-h-10 rounded-md border bg-muted/40 px-3 py-2 text-sm">
 						{canonicalDesign
-							? `${canonicalDesign.recordName} · Ana Tasarım Sürüm ${canonicalDesign.versionNumber}`
-							: "Önce onaylı bir Ana Tasarım seçin."}
+							? `${canonicalDesign.recordName} · Canonical Design Version ${canonicalDesign.versionNumber}`
+							: "Select an approved Canonical Design first."}
 					</p>
 				) : (
 					<form.Field name="sourceAssetRecordId">
@@ -475,7 +479,7 @@ export function AssetFamilyRelationshipForm({
 				)}
 			</div>
 			<div className="space-y-2">
-				<Label htmlFor="relationship-type">İlişki türü</Label>
+				<Label htmlFor="relationship-type">Relationship type</Label>
 				<form.Field name="type">
 					{(field) => (
 						<NativeSelect
@@ -501,7 +505,7 @@ export function AssetFamilyRelationshipForm({
 				</form.Field>
 			</div>
 			<div className="space-y-2">
-				<Label htmlFor="relationship-target">İlgili Varlık Kaydı</Label>
+				<Label htmlFor="relationship-target">Related Asset Record</Label>
 				<form.Field name="targetAssetRecordId">
 					{(field) => (
 						<NativeSelect
@@ -533,7 +537,7 @@ export function AssetFamilyRelationshipForm({
 				}
 				type="submit"
 			>
-				{isSaving ? "Kaydediliyor…" : "İlişki ekle"}
+				{isSaving ? "Saving…" : "Add relationship"}
 			</Button>
 		</form>
 	);

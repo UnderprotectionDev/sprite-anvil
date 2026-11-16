@@ -24,6 +24,8 @@ import {
 	previewContextProposalActivation,
 	projectContextCreateInputSchema,
 	projectContextSchema,
+	styleModuleCopyInputSchema,
+	styleModuleCreateInputSchema,
 	validateContextProposal,
 } from "../project-context";
 import { animationMetadataPackageRouter } from "./animation-metadata-package";
@@ -71,6 +73,52 @@ import { tilesetAdjacencyReviewsRouter } from "./tileset-adjacency-reviews";
 import { uiStateComparisonsRouter } from "./ui-state-comparisons";
 import { vfxAppearanceReviewsRouter } from "./vfx-appearance-reviews";
 import { vfxSynchronizationRouter } from "./vfx-synchronization";
+
+async function createStyleProposal(
+	context: Context,
+	projectId: string,
+	base: import("../project-context").ContextRevision,
+	summary: string,
+	changes: import("../project-context").ContextRuleChange[]
+) {
+	const userId = context.session?.user.id;
+	if (!userId) {
+		throw new ORPCError("UNAUTHORIZED");
+	}
+	const catalog = await context.projectContextScopeStore.list(
+		userId,
+		projectId
+	);
+	if (!catalog) {
+		throw new ORPCError("NOT_FOUND", { message: "Project Context not found" });
+	}
+	const createdAt = new Date().toISOString();
+	const proposal = contextProposalSchema.parse({
+		id: crypto.randomUUID(),
+		projectId,
+		baseContextRevisionId: base.id,
+		contractVersion: "context-agent/1.0.0",
+		ruleContractVersion: base.ruleContractVersion,
+		summary,
+		source: {
+			kind: "structured_control",
+			controlId: "context-proposal-form",
+			controlVersion: "1.0.0",
+		},
+		changes,
+		validation: validateContextProposal(
+			projectId,
+			base,
+			changes,
+			createdAt,
+			catalog
+		),
+		activationAllowed: false,
+		createdAt,
+	});
+	await context.projectContextStore.createProposal(userId, proposal);
+	return proposal;
+}
 
 async function readContextProposalReview(
 	context: Context,
@@ -218,7 +266,8 @@ export const appRouter = {
 						});
 					}
 					throw new ORPCError("CONFLICT", {
-						message: "Bu Projede aynı adda bir Görsel Dünya zaten var.",
+						message:
+							"A Visual World with this name already exists in this Project.",
 					});
 				}
 				return visualWorldRecordSchema.parse(visualWorld);
@@ -247,11 +296,12 @@ export const appRouter = {
 						)
 					) {
 						throw new ORPCError("NOT_FOUND", {
-							message: "Bu Proje Bağlamı içinde Görsel Dünya bulunamadı.",
+							message: "Visual World not found in this Project Context.",
 						});
 					}
 					throw new ORPCError("CONFLICT", {
-						message: "Bu Görsel Dünya içinde aynı adda bir Tema zaten var.",
+						message:
+							"A Theme with this name already exists in this Visual World.",
 					});
 				}
 				return themeRecordSchema.parse(theme);
@@ -316,13 +366,13 @@ export const appRouter = {
 					throw new ORPCError("BAD_REQUEST", {
 						message:
 							review.conflicts[0]?.message ??
-							"Çakışmalar çözülmeden Bağlam Önerisi etkinleştirilemez.",
+							"Resolve conflicts before activating the Context Proposal.",
 					});
 				}
 				if (review.currentRevisionId !== input.expectedCurrentRevisionId) {
 					throw new ORPCError("CONFLICT", {
 						message:
-							"Etkin Bağlam Sürümü değişti. Etkinleştirmeden önce öneriyi yeniden inceleyin.",
+							"The active Context Revision changed. Review the proposal again before activation.",
 					});
 				}
 				const revision = await context.projectContextStore.activateProposal({
@@ -336,10 +386,148 @@ export const appRouter = {
 				if (!revision) {
 					throw new ORPCError("CONFLICT", {
 						message:
-							"Etkin Bağlam Sürümü değişti. Etkinleştirmeden önce öneriyi yeniden inceleyin.",
+							"The active Context Revision changed. Review the proposal again before activation.",
 					});
 				}
 				return revision;
+			}),
+		createStyleModule: protectedProcedure
+			.input(styleModuleCreateInputSchema)
+			.handler(async ({ context, input }) => {
+				const userId = context.session.user.id;
+				const base = await context.projectContextStore.getRevision(
+					userId,
+					input.projectId,
+					input.baseContextRevisionId
+				);
+				if (!base) {
+					throw new ORPCError("NOT_FOUND", {
+						message: "Base Context Revision not found",
+					});
+				}
+				const module = {
+					id: crypto.randomUUID(),
+					name: input.name,
+					version: 1,
+				};
+				const rules = input.rules.map(({ ruleId, scope }) =>
+					base.rules.find(
+						(rule) =>
+							rule.id === ruleId &&
+							rule.scope.kind === scope.kind &&
+							rule.scope.id === scope.id
+					)
+				);
+				if (
+					rules.some(
+						(rule) =>
+							!rule ||
+							rule.styleModule ||
+							rule.scope.kind !== rules[0]?.scope.kind ||
+							rule.scope.id !== rules[0]?.scope.id
+					) ||
+					new Set(
+						input.rules.map(
+							(rule) => `${rule.scope.kind}:${rule.scope.id}:${rule.ruleId}`
+						)
+					).size !== input.rules.length
+				) {
+					throw new ORPCError("BAD_REQUEST", {
+						message:
+							"Select existing rules that do not already belong to a Style Module.",
+					});
+				}
+				const changes = rules.flatMap((rule) =>
+					rule
+						? [
+								{
+									operation: "replace" as const,
+									ruleId: rule.id,
+									scope: rule.scope,
+									value: rule.value,
+									precedenceChain: rule.precedenceChain,
+									supersedesRuleId: rule.supersedesRuleId,
+									rationale: rule.rationale,
+									styleModule: module,
+									evidence: [
+										{
+											kind: "user_decision" as const,
+											statement: "Group these rules into a Style Module.",
+										},
+									],
+								},
+							]
+						: []
+				);
+				return createStyleProposal(
+					context,
+					input.projectId,
+					base,
+					`Style Module: ${input.name}`,
+					changes
+				);
+			}),
+		copyStyleModule: protectedProcedure
+			.input(styleModuleCopyInputSchema)
+			.handler(async ({ context, input }) => {
+				const userId = context.session.user.id;
+				if (input.sourceProjectId === input.projectId) {
+					throw new ORPCError("BAD_REQUEST", {
+						message: "Choose another project.",
+					});
+				}
+				const [source, base] = await Promise.all([
+					context.projectContextStore.getRevision(
+						userId,
+						input.sourceProjectId,
+						input.sourceRevisionId
+					),
+					context.projectContextStore.getRevision(
+						userId,
+						input.projectId,
+						input.baseContextRevisionId
+					),
+				]);
+				if (!(source && base)) {
+					throw new ORPCError("NOT_FOUND", {
+						message: "Project Context not found",
+					});
+				}
+				const rules = source.rules.filter(
+					(rule) => rule.styleModule?.id === input.moduleId
+				);
+				if (!(rules.length && rules[0]?.styleModule)) {
+					throw new ORPCError("NOT_FOUND", {
+						message: "Style Module not found",
+					});
+				}
+				const module = {
+					id: crypto.randomUUID(),
+					name: rules[0].styleModule.name,
+					version: 1,
+				};
+				const scope = { kind: "project" as const, id: input.projectId };
+				const changes = rules.map((rule) => ({
+					operation: "add" as const,
+					ruleId: rule.id,
+					scope,
+					value: rule.value,
+					rationale: rule.rationale,
+					styleModule: module,
+					evidence: [
+						{
+							kind: "user_decision" as const,
+							statement: `Copy Style Module from ${input.sourceProjectId}.`,
+						},
+					],
+				}));
+				return createStyleProposal(
+					context,
+					input.projectId,
+					base,
+					`Copy Style Module: ${module.name}`,
+					changes
+				);
 			}),
 		create: protectedProcedure
 			.input(contextProposalInputSchema)

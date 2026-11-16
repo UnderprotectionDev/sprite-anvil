@@ -3,7 +3,8 @@ import { Button } from "@sprite-anvil/ui/components/button";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { StatusMessage } from "@/components/status-message";
-import { assetCategoryLabels } from "@/features/asset-records/lib/category-labels";
+import { builtinProfilePresentation } from "@/utils/builtin-profile-labels";
+import { assetCategoryLabels } from "@/utils/category-labels";
 import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
 
@@ -25,18 +26,18 @@ const profileLabels = {
 >;
 
 const ruleClassLabels = {
-	integrity_gate: "Bütünlük Denetimi",
-	waivable_requirement: "İstisna Verilebilir Gereksinim",
-	quality_advisory: "Kalite Uyarısı",
+	integrity_gate: "Integrity Gate",
+	waivable_requirement: "Waivable Requirement",
+	quality_advisory: "Quality Advisory",
 } as const;
 
 const metadataTypeLabels = {
-	identifier: "tanımlayıcı",
-	text: "metin",
-	text_list: "metin listesi",
-	integer: "tam sayı",
-	number: "sayı",
-	boolean: "doğru/yanlış",
+	identifier: "identifier",
+	text: "text",
+	text_list: "text list",
+	integer: "integer",
+	number: "number",
+	boolean: "boolean",
 	json: "JSON",
 } as const;
 
@@ -71,14 +72,14 @@ export function SpecializedProfileContractManager({
 			await queryClient.invalidateQueries();
 			setMessage(
 				result.isError
-					? "Sözleşme etkinleştirildi; görünüm yenilenemedi. Sayfayı yenileyin."
-					: "Özel Profil Sözleşmesi etkinleştirildi ve kayıttan yeniden okundu."
+					? "Contract activated, but the view could not be refreshed. Refresh the page."
+					: "Specialized Profile Contract activated and reread from the record."
 			);
 		} catch (error) {
 			setMessage(
 				error instanceof Error
 					? error.message
-					: "Sözleşme etkinleştirilemedi. Yeniden deneyin."
+					: "Could not activate the contract. Try again."
 			);
 		} finally {
 			setIsSaving(false);
@@ -89,18 +90,18 @@ export function SpecializedProfileContractManager({
 		<section aria-labelledby="profile-contracts-heading" className="space-y-4">
 			<div>
 				<h3 className="font-semibold text-xl" id="profile-contracts-heading">
-					Özel Profil Sözleşmeleri
+					Specialized Profile Contracts
 				</h3>
 				<p className="mt-1 text-muted-foreground text-sm">
-					Sözleşme revizyonu; metadata alanlarını, kalite kural sınıflarını,
-					kullanım testlerini ve dışa aktarım eşlemelerini sabitler. Sözleşmesiz
-					profil aileyi tamamlayamaz.
+					A contract revision pins metadata fields, quality rule classes, usage
+					tests, and export mappings. A profile without a contract cannot
+					complete the family.
 				</p>
 			</div>
-			{query.isPending ? <p>Sözleşmeler yükleniyor…</p> : null}
+			{query.isPending ? <p>Loading contracts…</p> : null}
 			{query.isError ? (
 				<StatusMessage tone="error">
-					Özel Profil Sözleşmeleri yüklenemedi.
+					Could not load Specialized Profile Contracts.
 				</StatusMessage>
 			) : null}
 			{message ? (
@@ -116,7 +117,9 @@ export function SpecializedProfileContractManager({
 							activeContract,
 							definition: { profileId },
 						} = profile;
-						const displayedContract = activeContract?.contract ?? definition;
+						const displayedContract = builtinProfilePresentation(
+							activeContract?.contract ?? definition
+						);
 						const needsActivation =
 							activeContract?.contract.version !== definition.version;
 						return (
@@ -126,8 +129,8 @@ export function SpecializedProfileContractManager({
 										<h4 className="font-medium">{profileLabels[profileId]}</h4>
 										<p className="text-muted-foreground text-sm">
 											{activeContract
-												? `Etkin sözleşme v${activeContract.contract.version}`
-												: "Etkin sözleşme yok"}
+												? `Active contract v${activeContract.contract.version}`
+												: "No active contract"}
 										</p>
 									</div>
 									{needsActivation ? (
@@ -137,30 +140,29 @@ export function SpecializedProfileContractManager({
 											type="button"
 											variant="outline"
 										>
-											Sözleşme v{definition.version}’i etkinleştir
+											Activate contract v{definition.version}
 										</Button>
 									) : null}
 								</div>
 								<p className="text-muted-foreground text-xs">
-									{displayedContract.metadataFields.length} metadata alanı ·{" "}
-									{displayedContract.rules.length} kalite kuralı ·{" "}
-									{displayedContract.usageTests.length} kullanım testi ·{" "}
-									{displayedContract.exportMappings.length} dışa aktarım
-									eşlemesi
+									{displayedContract.metadataFields.length} metadata fields ·{" "}
+									{displayedContract.rules.length} quality rules ·{" "}
+									{displayedContract.usageTests.length} usage tests ·{" "}
+									{displayedContract.exportMappings.length} export mappings
 								</p>
 								<details className="text-sm">
 									<summary className="cursor-pointer underline underline-offset-4">
-										Sözleşme ayrıntıları
+										Contract details
 									</summary>
 									<div className="mt-3 space-y-3">
 										<div>
-											<h5 className="font-medium">Metadata alanları</h5>
+											<h5 className="font-medium">Metadata fields</h5>
 											<ul className="list-inside list-disc text-muted-foreground">
 												{displayedContract.metadataFields.map((field) => (
 													<li key={field.id}>
 														{field.label} · {field.id} ·{" "}
 														{metadataTypeLabels[field.type]}
-														{field.required ? " · Gerekli" : " · İsteğe bağlı"}
+														{field.required ? " · Required" : " · Optional"}
 														<p className="ml-5 text-xs">
 															{field.description} · {field.scope}
 														</p>
@@ -169,36 +171,36 @@ export function SpecializedProfileContractManager({
 											</ul>
 										</div>
 										<div>
-											<h5 className="font-medium">Kalite kuralları</h5>
+											<h5 className="font-medium">Quality rules</h5>
 											<ul className="list-inside list-disc text-muted-foreground">
 												{displayedContract.rules.map((rule) => (
 													<li key={rule.id}>
 														{rule.id} · {ruleClassLabels[rule.class]}
 														<dl className="ml-5 grid gap-x-2 text-xs sm:grid-cols-[max-content_1fr]">
-															<dt>Kimlik</dt>
+															<dt>ID</dt>
 															<dd>{rule.id}</dd>
-															<dt>Girdi</dt>
+															<dt>Input</dt>
 															<dd>{rule.input}</dd>
-															<dt>Başarı koşulu</dt>
+															<dt>Success condition</dt>
 															<dd>{rule.successResult}</dd>
-															<dt>Başarısızlık koşulu</dt>
+															<dt>Failure condition</dt>
 															<dd>{rule.failureResult}</dd>
-															<dt>Gerekli kanıt</dt>
+															<dt>Required evidence</dt>
 															<dd>{rule.evidence}</dd>
-															<dt>Varlık kapsamı</dt>
+															<dt>Asset scope</dt>
 															<dd>{rule.scope}</dd>
-															<dt>Dışa aktarım etkisi</dt>
+															<dt>Export effect</dt>
 															<dd>{rule.exportEffect}</dd>
-															<dt>Durum</dt>
+															<dt>Status</dt>
 															<dd>
 																{rule.class === "quality_advisory"
-																	? "Uyarı"
-																	: "Gerekli"}
+																	? "Advisory"
+																	: "Required"}
 															</dd>
 															{rule.waiverEligibility ? (
 																<>
-																	<dt>İstisna</dt>
-																	<dd>Gerekçeli istisnaya izin verilir</dd>
+																	<dt>Waiver</dt>
+																	<dd>A waiver with rationale is allowed</dd>
 																</>
 															) : null}
 														</dl>
@@ -207,39 +209,39 @@ export function SpecializedProfileContractManager({
 											</ul>
 										</div>
 										<div>
-											<h5 className="font-medium">Kullanım testleri</h5>
+											<h5 className="font-medium">Usage tests</h5>
 											<ul className="list-inside list-disc text-muted-foreground">
 												{displayedContract.usageTests.map((usageTest) => (
 													<li key={usageTest.id}>
 														{usageTest.label} · {usageTest.id}
 														<dl className="ml-5 grid gap-x-2 text-xs sm:grid-cols-[max-content_1fr]">
-															<dt>Ortam</dt>
+															<dt>Environment</dt>
 															<dd>{usageTest.input}</dd>
-															<dt>Geçme ölçütü</dt>
+															<dt>Pass criteria</dt>
 															<dd>{usageTest.successResult}</dd>
-															<dt>Gerekli kanıt</dt>
+															<dt>Required evidence</dt>
 															<dd>{usageTest.evidence}</dd>
-															<dt>Durum</dt>
-															<dd>Gerekli</dd>
+															<dt>Status</dt>
+															<dd>Required</dd>
 														</dl>
 													</li>
 												))}
 											</ul>
 										</div>
 										<div>
-											<h5 className="font-medium">Dışa aktarım eşlemeleri</h5>
+											<h5 className="font-medium">Export mappings</h5>
 											<ul className="list-inside list-disc text-muted-foreground">
 												{displayedContract.exportMappings.map((mapping) => (
 													<li key={mapping.id}>
 														{mapping.fieldId} → {mapping.targetPath}
 														<dl className="ml-5 grid gap-x-2 text-xs sm:grid-cols-[max-content_1fr]">
-															<dt>Birim</dt>
-															<dd>{mapping.unit ?? "Yok"}</dd>
+															<dt>Unit</dt>
+															<dd>{mapping.unit ?? "None"}</dd>
 															<dt>Koordinat sistemi</dt>
-															<dd>{mapping.coordinateSystem ?? "Yok"}</dd>
-															<dt>Varsayılan davranış</dt>
+															<dd>{mapping.coordinateSystem ?? "None"}</dd>
+															<dt>Default behavior</dt>
 															<dd>{mapping.absentBehavior}</dd>
-															<dt>Geri okuma denetimi</dt>
+															<dt>Reread check</dt>
 															<dd>{mapping.readbackCheck}</dd>
 														</dl>
 													</li>

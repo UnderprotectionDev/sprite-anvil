@@ -14,12 +14,12 @@ import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { AssetVersionPreview } from "@/components/asset-version-preview";
 import {
 	StatusMessage,
 	WriteOutcomeMessage,
 } from "@/components/status-message";
 import { ENV } from "@/env";
-import { AssetVersionPreview } from "@/features/asset-versions/ui/components/asset-version-preview";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { orpc } from "@/utils/orpc";
@@ -44,10 +44,10 @@ interface ComparisonFormValues {
 }
 
 const observationLabels = {
-	scale: "Ölçek gözlemi",
-	perspective: "Perspektif gözlemi",
-	materialLanguage: "Malzeme dili gözlemi",
-	stateDirectionDistinction: "Durum ve yön ayrışması gözlemi",
+	scale: "Scale observation",
+	perspective: "Perspective observation",
+	materialLanguage: "Material language observation",
+	stateDirectionDistinction: "State and direction distinction observation",
 } as const;
 
 type FamilyRecord = AssetFamilyCatalog["assetRecords"][number] &
@@ -173,7 +173,7 @@ export function AssetFamilyComparisonManager({
 			const record = await saveComparison.mutateAsync(input);
 			setSelected(record);
 			setPendingId(null);
-			setMessage("Karşılaştırma kalıcı kayıttan doğrulandı.");
+			setMessage("Comparison verified from the saved record.");
 			await queryClient.invalidateQueries({
 				queryKey: orpc.assetFamilyComparisons.list.queryKey({
 					input: { projectId, assetFamilyId },
@@ -182,12 +182,12 @@ export function AssetFamilyComparisonManager({
 		} catch (error) {
 			if (!isWriteOutcomeUncertain(error)) {
 				setPendingId(null);
-				setMessage(getErrorMessage(error, "Karşılaştırma kaydedilemedi."));
+				setMessage(getErrorMessage(error, "Could not save comparison."));
 				return;
 			}
 			setUncertain(true);
 			setMessage(
-				"Kaydetme sonucu doğrulanamadı. Güncel kayıtları kontrol edin; aynı karşılaştırmayı yeniden göndermeyin."
+				"Could not verify the save result. Check current records; do not resubmit the same comparison."
 			);
 		} finally {
 			setSaving(false);
@@ -207,38 +207,38 @@ export function AssetFamilyComparisonManager({
 			setSelected(saved);
 			setPendingId(null);
 			setUncertain(false);
-			setMessage("Karşılaştırma kalıcı kayıttan doğrulandı.");
+			setMessage("Comparison verified from the saved record.");
 			return;
 		}
 		setPendingId(null);
 		setUncertain(false);
 		setMessage(
-			"Karşılaştırma kayıtlar arasında bulunamadı. Bilgileri yeniden seçip kaydedin."
+			"Comparison was not found in the records. Select the information again and save."
 		);
 	}
 
 	return (
 		<section
-			aria-label={`${familyName} durum ve yön ailesi karşılaştırması`}
+			aria-label={`${familyName} state and direction family comparison`}
 			className="space-y-4 rounded border p-4"
 		>
 			<header className="space-y-1">
 				<h3 className="font-semibold text-xl">
-					{familyName} · Durum ve Yön Ailesini Karşılaştırma
+					{familyName} · Compare State and Direction Family
 				</h3>
 				<p className="text-muted-foreground text-sm">
-					En az iki ayrı Varlık Kaydının güncel Varlık Sürümlerini yan yana
-					inceleyin. Bu kayıt yalnız kullanıcı gözlemlerini saklar; otomatik
-					uyumluluk kararı üretmez.
+					Review current Asset Versions from at least two Asset Records side by
+					side. This record stores user observations only; it does not make an
+					automatic compatibility decision.
 				</p>
 			</header>
 			{query.isError ? (
 				<div className="space-y-2">
 					<StatusMessage tone="error">
-						Karşılaştırmalar okunamadı.
+						Could not load comparisons.
 					</StatusMessage>
 					<Button onClick={() => void query.refetch()} type="button">
-						Kayıtları yeniden oku
+						Reload records
 					</Button>
 				</div>
 			) : null}
@@ -249,7 +249,7 @@ export function AssetFamilyComparisonManager({
 					onClick={() => void checkCurrentRecords()}
 					type="button"
 				>
-					Güncel karşılaştırmaları kontrol et
+					Check current comparisons
 				</Button>
 			) : null}
 			<ul className="space-y-1">
@@ -268,7 +268,7 @@ export function AssetFamilyComparisonManager({
 							variant="outline"
 						>
 							{new Date(record.createdAt).toLocaleString("tr-TR")} ·{" "}
-							{record.versionPins.length} Varlık Sürümü
+							{record.versionPins.length} Asset Version
 						</Button>
 					</li>
 				))}
@@ -305,7 +305,7 @@ export function AssetFamilyComparisonManager({
 						}}
 						type="button"
 					>
-						Yeni karşılaştırma
+						New comparison
 					</Button>
 				</>
 			) : (
@@ -321,7 +321,7 @@ export function AssetFamilyComparisonManager({
 				>
 					<FieldSet className="space-y-3" disabled={saving || uncertain}>
 						<FieldLegend className="font-medium">
-							Karşılaştırılacak güncel sürümler
+							Current versions to compare
 						</FieldLegend>
 						<form.Field name="selectedRecordIds">
 							{(field) =>
@@ -355,8 +355,8 @@ export function AssetFamilyComparisonManager({
 												<span className="block font-medium">{record.name}</span>
 												<span className="text-muted-foreground text-sm">
 													{version
-														? `Güncel Varlık Sürümü ${version.versionNumber}`
-														: "Karşılaştırılabilir güncel sürüm yok"}
+														? `Current Asset Version ${version.versionNumber}`
+														: "No comparable current versions"}
 												</span>
 											</span>
 										</Label>
@@ -411,10 +411,10 @@ export function AssetFamilyComparisonManager({
 						))}
 					</div>
 					<p className="text-muted-foreground text-sm">
-						Gerekli durumları Gerekli Öğeler Listesi’nde izlemeye devam edin.
+						Continue tracking required states in the Required Set.
 					</p>
 					<Button disabled={!canSave} type="submit">
-						{saving ? "Kaydediliyor…" : "Karşılaştırmayı kaydet"}
+						{saving ? "Kaydediliyor…" : "Save comparison"}
 					</Button>
 				</form>
 			)}
@@ -441,7 +441,7 @@ function VersionCard({
 	return (
 		<article className="space-y-2 rounded border p-3">
 			<h4 className="font-medium">
-				{name} · Varlık Sürümü {versionNumber}
+				{name} · Asset Version {versionNumber}
 			</h4>
 			{version ? (
 				<AssetVersionPreview
@@ -451,7 +451,7 @@ function VersionCard({
 				/>
 			) : (
 				<p className="text-muted-foreground text-sm">
-					Bu sürüm artık görüntülenemiyor.
+					This version can no longer be displayed.
 				</p>
 			)}
 			{unitVersions.length ? (
@@ -463,7 +463,7 @@ function VersionCard({
 								`${unitVersion.unitType}:${unitVersion.unitKey}`
 							}
 						>
-							{unitVersion.unitType} · {unitVersion.unitKey} · Birim Sürümü{" "}
+							{unitVersion.unitType} · {unitVersion.unitKey} · Unit Version{" "}
 							{unitVersion.versionNumber}
 						</li>
 					))}

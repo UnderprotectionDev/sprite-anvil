@@ -27,8 +27,7 @@ export function referenceConstraintFormSchema(hasCanonicalDesign: boolean) {
 			context.issues.push({
 				code: "custom",
 				input: draft,
-				message:
-					"En az bir özelliği aktarılabilir veya kaçınılacak olarak seçin.",
+				message: "Select at least one feature as transferable or avoided.",
 			});
 			return;
 		}
@@ -36,7 +35,7 @@ export function referenceConstraintFormSchema(hasCanonicalDesign: boolean) {
 			context.issues.push({
 				code: "custom",
 				input: draft,
-				message: "Özel kullanım amacını yazın.",
+				message: "Enter the custom usage purpose.",
 			});
 			return;
 		}
@@ -50,7 +49,7 @@ export function referenceConstraintFormSchema(hasCanonicalDesign: boolean) {
 				code: "custom",
 				input: draft,
 				message:
-					"Ana Tasarım kimlik sınırını aşmak için Bağlam Kuralı İstisnası gerekçesi yazın.",
+					"Enter a Context Override rationale to exceed the Canonical Design identity boundary.",
 			});
 		}
 	});
@@ -67,5 +66,5 @@ export function referenceConstraintError(
 }
 
 export const referenceVersionLinkFormSchema = z.object({
-	selectedVersionId: z.string().min(1, "Bağlanacak Varlık Sürümünü seçin."),
+	selectedVersionId: z.string().min(1, "Select an Asset Version to link."),
 });

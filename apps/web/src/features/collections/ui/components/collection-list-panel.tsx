@@ -28,20 +28,20 @@ export function CollectionListPanel({
 		>
 			<header className="space-y-1">
 				<h2 className="font-semibold text-xl" id="collections-heading">
-					Koleksiyonlarınız
+					Your Collections
 				</h2>
 				<p className="text-muted-foreground text-sm">
-					Koleksiyonlar kayıtları düzenler; aile veya teslimat ilişkisi
-					oluşturmaz.
+					Collections organize records; they do not create family or delivery
+					relationships.
 				</p>
 			</header>
 
 			{collections.length === 0 ? (
 				<p className="rounded-lg border border-dashed p-4 text-muted-foreground text-sm">
-					Henüz Koleksiyon yok. Adını yazarak ilk Koleksiyonunuzu oluşturun.
+					No Collections yet. Enter a name to create your first Collection.
 				</p>
 			) : (
-				<ul aria-label="Koleksiyonlar" className="space-y-2">
+				<ul aria-label="Collections" className="space-y-2">
 					{collections.map((collection) => {
 						const memberCount = memberships.filter(
 							(membership) => membership.collectionId === collection.id
@@ -60,7 +60,7 @@ export function CollectionListPanel({
 										{collection.name}
 									</span>
 									<span className="shrink-0 text-muted-foreground text-sm">
-										{memberCount} kayıt
+										{memberCount} records
 									</span>
 								</Button>
 							</li>
@@ -73,7 +73,7 @@ export function CollectionListPanel({
 				open={collections.length === 0}
 			>
 				<summary className="min-h-11 cursor-pointer py-3 font-medium focus-visible:outline-2 focus-visible:outline-ring">
-					Yeni Koleksiyon
+					New Collection
 				</summary>
 				<form
 					className="space-y-3"
@@ -90,7 +90,7 @@ export function CollectionListPanel({
 									className="font-medium text-sm"
 									htmlFor="collection-name"
 								>
-									Koleksiyon adı
+									Collection name
 								</Label>
 								<Input
 									autoComplete="off"
@@ -113,8 +113,8 @@ export function CollectionListPanel({
 								type="submit"
 							>
 								{savingOperation === "create"
-									? "Koleksiyon oluşturuluyor…"
-									: "Koleksiyon oluştur"}
+									? "Creating Collection…"
+									: "Create Collection"}
 							</Button>
 						)}
 					</collectionForm.Subscribe>

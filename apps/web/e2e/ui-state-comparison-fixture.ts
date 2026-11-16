@@ -10,7 +10,7 @@ export const uiStateComparisonFixture = {
 	identityName: "Inventory UI",
 	familyName: "Inventory UI Components",
 	useContext: "Inventory screen",
-	categoryLabel: "Arayüz ekranları ve bileşenleri",
+	categoryLabel: "UI screens and components",
 	records: [
 		{ name: "Inventory screen", uploadNote: "UI screen comparison fixture." },
 		{

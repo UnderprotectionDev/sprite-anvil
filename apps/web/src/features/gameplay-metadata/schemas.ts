@@ -41,7 +41,7 @@ function getFieldFailure(
 	sourcePivot: GameplayMetadataFormSelection["sourcePivot"]
 ) {
 	if (!gameplayMetadataFieldIds.some((id) => id === definition.id)) {
-		return "Desteklenmeyen alan.";
+		return "Unsupported field.";
 	}
 	if (definition.id === "pivot" && sourcePivot) {
 		return null;
@@ -51,7 +51,7 @@ function getFieldFailure(
 		return `${definition.label} zorunludur.`;
 	}
 	if (text && !isJson(text)) {
-		return "Alanlara geçerli JSON girin; boş isteğe bağlı alanlar Bilinmiyor kalır.";
+		return "Enter valid JSON in the fields; empty optional fields remain Unknown.";
 	}
 	return null;
 }
@@ -61,10 +61,10 @@ function getSelectionFailure(
 	{ contract, frame, sourcePivot }: GameplayMetadataFormSelection
 ) {
 	if (!(frame && contract && values.useContext.trim())) {
-		return "Kare, etkin profil ve kullanım bağlamı seçin.";
+		return "Select a frame, active profile, and usage context.";
 	}
 	if (values.sourcePivot && !sourcePivot) {
-		return "Seçili kaynak artık kullanılamıyor. Dönüş noktası kaynağını yeniden seçin.";
+		return "The selected source is no longer available. Select the pivot source again.";
 	}
 	return null;
 }

@@ -46,7 +46,7 @@ Tamamlanma kanıtı: Onaylanan kopyalar ve seçilen bütün kapsayıcılar etkin
 
 - **Birincil test seam’i:** Silme Etki Dökümü, kullanıcı onayı, bütün kapsayıcı silme ve içeriksiz makbuz yolunu YAS-04 fixture’ında yeniden okuma; değişen dökümle eski onayı reddetme.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.
-- Bugün repoda bu faza ait ürün sözleşmesi bulunmuyor. Mevcut sunucu ve yüzey test örnekleri: [`project-routes.test.ts`](../../../apps/server/src/features/projects/server/tests/project-routes.test.ts), [`app-shell.spec.ts` (web)](../../../apps/web/e2e/app-shell.spec.ts) ve [`app-shell.spec.ts` (desktop)](../../../apps/web/desktop-e2e/app-shell.spec.ts). Bunlar bu özelliğin test edildiği anlamına gelmez.
+- Mevcut sözleşme ve ilgili test yolu: [`permanent-erasure.ts`](../../../packages/api/src/permanent-erasure.ts), [`permanent-erasure-view.test.tsx`](../../../apps/web/src/features/permanent-erasure/ui/views/permanent-erasure-view.test.tsx). Bu bağlantılar tüm kabul kapsamının tamamlandığını göstermez.
 - Fazın özgül başarı ve red kanıtı: Onaylanan kopyalar ve seçilen bütün kapsayıcılar etkin depodan ve yayımlanan takvim içinde yedeklerden temizlenir; kapsam dışı içerik açıkça belirtilir ve içeriksiz makbuzla sonuç doğrulanır. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Harici kopyalar geri çağrılmış gibi sunulmaz; değişmez paket veya arşiv tek varlık için kısmen yazılmaz.
 - Kabul örnekleri: YAS-04. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
 
@@ -73,4 +73,4 @@ Harici kopyalar geri çağrılmış gibi sunulmaz; değişmez paket veya arşiv 
 **Kabul izlenebilirliği**
 
 - [YAS-04](../../prd/10-acceptance-scenarios.md)
-- Mevcut uygulama yalnız temel web/masaüstü kabuğu ve sınırlı sunucu yükleme yolunu içeriyor; bu spec teslim edilmiş ürün iddiası değildir. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.
+- PRD ve bu spec hedef davranışı tanımlar; mevcut sözleşmeler ve testler tek başına tüm kabul senaryolarının tamamlandığını göstermez. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.

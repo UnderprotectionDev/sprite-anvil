@@ -8,7 +8,8 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "check-types": "tsc -b"
+    "check-types": "tsc -b",
+    "test": "bun test src"
   },
   "dependencies": {
     "@orpc/client": "catalog:",
@@ -17,6 +18,7 @@
     "@orpc/zod": "catalog:",
     "@sprite-anvil/auth": "workspace:*",
     "@sprite-anvil/db": "workspace:*",
+    "drizzle-orm": "catalog:",
     "fflate": "catalog:",
     "zod": "catalog:"
   },

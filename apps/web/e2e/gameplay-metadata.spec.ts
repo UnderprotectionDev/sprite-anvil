@@ -228,7 +228,7 @@ for (const outcome of ["confirmed", "uncertain", "conflicted"] as const) {
 								message:
 									failure instanceof Error
 										? failure.message
-										: "Bütünlük hatası",
+										: "Integrity error",
 							},
 						},
 					});
@@ -239,53 +239,49 @@ for (const outcome of ["confirmed", "uncertain", "conflicted"] as const) {
 		});
 		await page.goto(`/projects/${projectId}/assets/${assetRecordId}`);
 		await page
-			.getByRole("button", { name: "Oyun İçi Bilgiler", exact: true })
+			.getByRole("button", { name: "Gameplay Metadata", exact: true })
 			.click();
 		const panel = page.getByRole("region", {
-			name: "Oyun İçi Bilgileri",
+			name: "Gameplay Metadata",
 			exact: true,
 		});
-		await panel.getByLabel("Kullanım bağlamı").fill("walk east");
-		await panel.getByLabel("Dönüş noktası (JSON)").fill("{");
-		await panel
-			.getByRole("button", { name: "Oyun içi bilgileri kaydet" })
-			.click();
+		await panel.getByLabel("Usage context").fill("walk east");
+		await panel.getByLabel("Pivot (JSON)").fill("{");
+		await panel.getByRole("button", { name: "Save Gameplay Metadata" }).click();
 		await expect(panel.getByRole("alert")).toContainText(
-			"Alanlara geçerli JSON girin; boş isteğe bağlı alanlar Bilinmiyor kalır."
+			"Enter valid JSON in the fields; empty optional fields remain Unknown."
 		);
 		expect(request).toBeNull();
-		await panel.getByLabel("Dönüş noktası (JSON)").fill('{"x":12,"y":24}');
+		await panel.getByLabel("Pivot (JSON)").fill('{"x":12,"y":24}');
 		await panel
-			.getByLabel("Olay bağlantıları (JSON)")
+			.getByLabel("Event links (JSON)")
 			.fill('[{"id":"strike","frameKey":"walk-0","time":90}]');
-		await panel
-			.getByRole("button", { name: "Oyun içi bilgileri kaydet" })
-			.click();
+		await panel.getByRole("button", { name: "Save Gameplay Metadata" }).click();
 		if (outcome === "uncertain") {
-			await expect(panel.getByLabel("Kullanım bağlamı")).toBeDisabled();
-			await panel.getByRole("button", { name: "Kaydı kontrol et" }).click();
+			await expect(panel.getByLabel("Usage context")).toBeDisabled();
+			await panel.getByRole("button", { name: "Check record" }).click();
 			await expect(panel.getByRole("status")).toHaveText(
-				"Oyun içi bilgiler kalıcı kayıttan yeniden okundu."
+				"Gameplay Metadata reread from the saved record."
 			);
-			await expect(panel.getByLabel("Kullanım bağlamı")).toBeEnabled();
+			await expect(panel.getByLabel("Usage context")).toBeEnabled();
 		} else if (outcome === "conflicted") {
-			await expect(panel.getByLabel("Kullanım bağlamı")).toBeDisabled();
-			await panel.getByRole("button", { name: "Kaydı kontrol et" }).click();
+			await expect(panel.getByLabel("Usage context")).toBeDisabled();
+			await panel.getByRole("button", { name: "Check record" }).click();
 			await expect(panel.getByRole("alert")).toContainText(
-				"Kayıt henüz görünmüyor. Aynı işlemi yeniden deneyin; yeni kayıt oluşturulmaz."
+				"The record is not visible yet. Retry the same operation; no new record will be created."
 			);
-			await expect(panel.getByLabel("Kullanım bağlamı")).toBeDisabled();
+			await expect(panel.getByLabel("Usage context")).toBeDisabled();
 			await panel
-				.getByRole("button", { name: "Aynı işlemi yeniden dene" })
+				.getByRole("button", { name: "Retry the same operation" })
 				.click();
 			await expect(panel.getByRole("alert")).toContainText(
 				"The selected Specialized Profile Contract revision changed. Reload and select the active contract."
 			);
-			await expect(panel.getByLabel("Kullanım bağlamı")).toBeEnabled();
+			await expect(panel.getByLabel("Usage context")).toBeEnabled();
 			return;
 		} else {
 			await expect(panel.getByRole("status")).toHaveText(
-				"Oyun içi bilgiler kaydedildi ve yeniden okundu."
+				"Gameplay Metadata saved and reread."
 			);
 		}
 		expect(request).toMatchObject({
@@ -302,198 +298,198 @@ for (const outcome of ["confirmed", "uncertain", "conflicted"] as const) {
 		});
 		await page.reload();
 		await page
-			.getByRole("button", { name: "Oyun İçi Bilgiler", exact: true })
+			.getByRole("button", { name: "Gameplay Metadata", exact: true })
 			.click();
 		await expect(
 			panel.getByText("walk-0 — walk east", { exact: true })
 		).toBeVisible();
 		await expect(
-			panel.getByText('{"x":12,"y":24} · Kullanıcı girdisi', { exact: true })
+			panel.getByText('{"x":12,"y":24} · User input', { exact: true })
 		).toBeVisible();
 		await expect(
-			panel.getByText("Bilinmiyor · Bilinmiyor", { exact: true })
+			panel.getByText("Unknown · Unknown", { exact: true })
 		).not.toHaveCount(0);
 		if (outcome === "confirmed") {
 			await panel
-				.getByRole("button", { name: "Bilgileri incele", exact: true })
+				.getByRole("button", { name: "Review metadata", exact: true })
 				.click();
 			const review = panel.getByRole("region", {
-				name: "Bilgileri İnceleme ve Koruma",
+				name: "Review and Preserve Metadata",
 			});
 			await expect(review.getByRole("img")).toBeVisible();
 			await expect(
-				review.getByRole("note", { name: "Olay bağlantıları görsel katmanı" })
+				review.getByRole("note", { name: "Event links visual overlay" })
 			).toContainText("strike");
 			await review
-				.getByRole("checkbox", { name: "Olay bağlantıları", exact: true })
+				.getByRole("checkbox", { name: "Event links", exact: true })
 				.uncheck();
 			await expect(
-				review.getByRole("note", { name: "Olay bağlantıları görsel katmanı" })
+				review.getByRole("note", { name: "Event links visual overlay" })
 			).toHaveCount(0);
 			await review
-				.getByRole("checkbox", { name: "Olay bağlantıları", exact: true })
+				.getByRole("checkbox", { name: "Event links", exact: true })
 				.check();
 			await expect(
-				review.getByRole("button", { name: "İncelemeyi kaydet" })
+				review.getByRole("button", { name: "Save review" })
 			).toBeEnabled();
 			const visiblePivot = await review.getByRole("img").screenshot();
 			await review
-				.getByRole("checkbox", { name: "Dönüş noktası", exact: true })
+				.getByRole("checkbox", { name: "Pivot", exact: true })
 				.uncheck();
 			await expect(
-				review.getByRole("button", { name: "İncelemeyi kaydet" })
+				review.getByRole("button", { name: "Save review" })
 			).toBeEnabled();
 			expect(await review.getByRole("img").screenshot()).not.toEqual(
 				visiblePivot
 			);
 			await review
-				.getByRole("checkbox", { name: "Dönüş noktası", exact: true })
+				.getByRole("checkbox", { name: "Pivot", exact: true })
 				.check();
-			await review.getByRole("button", { name: "İncelemeyi kaydet" }).click();
-			await expect(
-				review.getByText("İncelendi", { exact: true })
-			).toBeVisible();
+			await review.getByRole("button", { name: "Save review" }).click();
+			await expect(review.getByText("Reviewed", { exact: true })).toBeVisible();
 			const downloaded = page.waitForEvent("download");
 			await review
-				.getByRole("button", { name: "Oyun içi bilgiler paketini indir" })
+				.getByRole("button", { name: "Download Gameplay Metadata package" })
 				.click();
 			const download = await downloaded;
 			const path = await download.path();
 			if (!path) {
 				throw new Error("Package file was not downloaded");
 			}
-			await review.getByLabel("Paketi yeniden oku").setInputFiles(path);
+			await review.getByLabel("Reread package").setInputFiles(path);
 			await expect(review.getByRole("status")).toHaveText(
-				"Paket yeniden okundu; incelenmiş alanlar, kare ve kesin sürüm korunuyor."
+				"Package reread; reviewed fields, frame, and exact version are preserved."
 			);
 			if (process.env.GAMEPLAY_E2E_SCREENSHOT) {
 				await page.setViewportSize({ width: 1440, height: 1600 });
 				await review.screenshot({ path: process.env.GAMEPLAY_E2E_SCREENSHOT });
 			}
-			await review.getByLabel("Paketi yeniden oku").setInputFiles({
+			await review.getByLabel("Reread package").setInputFiles({
 				name: "broken.json",
 				mimeType: "application/json",
 				buffer: Buffer.from('{"schemaVersion":"99.0.0"}'),
 			});
-			await expect(review.getByRole("alert")).toContainText("Bütünlük hatası");
+			await expect(review.getByRole("alert")).toContainText("Integrity error");
 			await panel
-				.getByRole("button", { name: "Bilgileri düzenle", exact: true })
+				.getByRole("button", { name: "Edit metadata", exact: true })
 				.first()
 				.click();
-			await panel.getByLabel("Dönüş noktası (JSON)").fill('{"x":13,"y":24}');
-			await panel.getByRole("button", { name: "Düzenlemeyi iptal et" }).click();
+			await panel.getByLabel("Pivot (JSON)").fill('{"x":13,"y":24}');
+			await panel.getByRole("button", { name: "Cancel edit" }).click();
 			await expect(
 				review.getByText('{"x":12,"y":24}', { exact: true })
 			).toBeVisible();
 			await panel
-				.getByRole("button", { name: "Bilgileri düzenle", exact: true })
+				.getByRole("button", { name: "Edit metadata", exact: true })
 				.first()
 				.click();
-			await panel.getByLabel("Dönüş noktası (JSON)").fill('{"x":13,"y":24}');
+			await panel.getByLabel("Pivot (JSON)").fill('{"x":13,"y":24}');
 			await panel
-				.getByRole("button", { name: "Oyun içi bilgileri kaydet" })
+				.getByRole("button", { name: "Save Gameplay Metadata" })
 				.click();
 			await page.reload();
 			await page
-				.getByRole("button", { name: "Oyun İçi Bilgiler", exact: true })
+				.getByRole("button", { name: "Gameplay Metadata", exact: true })
 				.click();
 			await expect(
-				panel.getByText('{"x":13,"y":24} · Kullanıcı girdisi', { exact: true })
+				panel.getByText('{"x":13,"y":24} · User input', { exact: true })
 			).toBeVisible();
-			await expect(panel.getByText("İncelendi", { exact: true })).toBeVisible();
+			await expect(panel.getByText("Reviewed", { exact: true })).toBeVisible();
 			await panel
-				.getByRole("button", { name: "Bilgileri incele", exact: true })
+				.getByRole("button", { name: "Review metadata", exact: true })
 				.first()
 				.click();
 			await expect(
-				review.getByText("Henüz incelenmedi", { exact: true })
+				review.getByText("Not reviewed yet", { exact: true })
 			).toBeVisible();
 			await expect(
-				review.getByRole("button", { name: "Oyun içi bilgiler paketini indir" })
+				review.getByRole("button", {
+					name: "Download Gameplay Metadata package",
+				})
 			).toHaveCount(0);
 			await expect(
-				review.getByRole("button", { name: "İncelemeyi kaydet" })
+				review.getByRole("button", { name: "Save review" })
 			).toBeEnabled();
 			let nestedPayload: unknown = Array.from({ length: 7900 }, () => 0);
 			for (let depth = 0; depth < 100; depth += 1) {
 				nestedPayload = [nestedPayload];
 			}
 			await panel
-				.getByRole("button", { name: "Bilgileri düzenle", exact: true })
+				.getByRole("button", { name: "Edit metadata", exact: true })
 				.first()
 				.click();
 			await panel
-				.getByLabel("Olay bağlantıları (JSON)")
+				.getByLabel("Event links (JSON)")
 				.fill(
 					JSON.stringify([
 						{ id: "strike", extension: { payload: nestedPayload } },
 					])
 				);
 			await panel
-				.getByRole("button", { name: "Oyun içi bilgileri kaydet" })
+				.getByRole("button", { name: "Save Gameplay Metadata" })
 				.click();
 			await expect(panel.getByRole("status")).toHaveText(
-				"Oyun içi bilgiler kaydedildi ve yeniden okundu."
+				"Gameplay Metadata saved and reread."
 			);
 			await panel
-				.getByRole("button", { name: "Bilgileri incele", exact: true })
+				.getByRole("button", { name: "Review metadata", exact: true })
 				.first()
 				.click();
 			await expect(
-				review.getByRole("note", { name: "Olay bağlantıları görsel katmanı" })
+				review.getByRole("note", { name: "Event links visual overlay" })
 			).toContainText("payload");
-			await review.getByRole("button", { name: "İncelemeyi kaydet" }).click();
+			await review.getByRole("button", { name: "Save review" }).click();
 			const deepDownloaded = page.waitForEvent("download");
 			await review
-				.getByRole("button", { name: "Oyun içi bilgiler paketini indir" })
+				.getByRole("button", { name: "Download Gameplay Metadata package" })
 				.click();
 			const deepPath = await (await deepDownloaded).path();
 			if (!deepPath) {
 				throw new Error("Nested metadata package was not downloaded");
 			}
-			await review.getByLabel("Paketi yeniden oku").setInputFiles(deepPath);
+			await review.getByLabel("Reread package").setInputFiles(deepPath);
 			await expect(review.getByRole("status")).toHaveText(
-				"Paket yeniden okundu; incelenmiş alanlar, kare ve kesin sürüm korunuyor."
+				"Package reread; reviewed fields, frame, and exact version are preserved."
 			);
 			await page.route("**/gameplay-preview.png", (route) =>
 				route.abort("failed")
 			);
 			await page.reload();
 			await page
-				.getByRole("button", { name: "Oyun İçi Bilgiler", exact: true })
+				.getByRole("button", { name: "Gameplay Metadata", exact: true })
 				.click();
 			await panel
-				.getByRole("button", { name: "Bilgileri incele", exact: true })
+				.getByRole("button", { name: "Review metadata", exact: true })
 				.nth(1)
 				.click();
 			await expect(review.getByRole("alert")).toContainText(
-				"görseli yüklenemedi"
+				"Could not load the exact version's image"
 			);
 			await expect(
-				review.getByRole("button", { name: "İncelemeyi kaydet" })
+				review.getByRole("button", { name: "Save review" })
 			).toBeDisabled();
 			frames.splice(0);
 			await page.reload();
 			await page
-				.getByRole("button", { name: "Oyun İçi Bilgiler", exact: true })
+				.getByRole("button", { name: "Gameplay Metadata", exact: true })
 				.click();
 			await panel
-				.getByRole("button", { name: "Bilgileri incele", exact: true })
+				.getByRole("button", { name: "Review metadata", exact: true })
 				.nth(1)
 				.click();
 			await expect(review.getByRole("alert")).toContainText(
-				"Kare kimliği veya kesin sürüm bağlantısı kayboldu"
+				"The frame ID or exact version link was lost"
 			);
 			await expect(
-				review.getByRole("button", { name: "İncelemeyi kaydet" })
+				review.getByRole("button", { name: "Save review" })
 			).toBeDisabled();
 			await panel
-				.getByRole("button", { name: "Bilgileri düzenle", exact: true })
+				.getByRole("button", { name: "Edit metadata", exact: true })
 				.first()
 				.click();
 			await expect(
 				panel.getByText(
-					"Bütünlük hatası: düzenlenen kaydın kare veya kesin sürüm bağlantısı kayboldu."
+					"Integrity error: the edited record's frame or exact version link was lost."
 				)
 			).toBeVisible();
 		}

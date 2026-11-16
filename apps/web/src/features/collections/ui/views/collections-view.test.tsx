@@ -185,29 +185,29 @@ test("creates a Collection and moves Asset Records across family boundaries", as
 	);
 
 	renderView();
-	fireEvent.change(screen.getByLabelText("Koleksiyon adı"), {
+	fireEvent.change(screen.getByLabelText("Collection name"), {
 		target: { value: "Field Notes" },
 	});
-	fireEvent.click(screen.getByRole("button", { name: "Koleksiyon oluştur" }));
+	fireEvent.click(screen.getByRole("button", { name: "Create Collection" }));
 	await screen.findByRole("heading", { name: "Field Notes" });
 
-	fireEvent.change(screen.getByLabelText("Varlık Kaydı"), {
+	fireEvent.change(screen.getByLabelText("Asset Record"), {
 		target: { value: characterRecord.id },
 	});
-	fireEvent.click(screen.getByRole("button", { name: "Koleksiyona ekle" }));
+	fireEvent.click(screen.getByRole("button", { name: "Add to Collection" }));
 	await screen.findByRole("heading", { name: "Idle animation" });
 
-	fireEvent.change(screen.getByLabelText("Varlık Kaydı"), {
+	fireEvent.change(screen.getByLabelText("Asset Record"), {
 		target: { value: propRecord.id },
 	});
-	fireEvent.click(screen.getByRole("button", { name: "Koleksiyona ekle" }));
+	fireEvent.click(screen.getByRole("button", { name: "Add to Collection" }));
 	await screen.findByRole("heading", { name: "Inventory icon" });
 	expect(screen.getByText("Ash Knight")).toBeInTheDocument();
 	expect(screen.getByText("Iron Key")).toBeInTheDocument();
 
 	fireEvent.click(
 		screen.getByRole("button", {
-			name: "Idle animation Varlık Kaydını Koleksiyondan kaldır",
+			name: "Idle animation Remove Asset Record from Collection",
 		})
 	);
 	await waitFor(() =>
@@ -232,10 +232,10 @@ test("shows a write failure without hiding the Collection state", async () => {
 	renderView();
 	await screen.findByRole("heading", { name: "Field Notes" });
 
-	fireEvent.change(screen.getByLabelText("Varlık Kaydı"), {
+	fireEvent.change(screen.getByLabelText("Asset Record"), {
 		target: { value: characterRecord.id },
 	});
-	fireEvent.click(screen.getByRole("button", { name: "Koleksiyona ekle" }));
+	fireEvent.click(screen.getByRole("button", { name: "Add to Collection" }));
 
 	await waitFor(() => expect(errorToast).toHaveBeenCalledOnce());
 	expect(screen.getByRole("heading", { name: "Field Notes" })).toBeVisible();
@@ -254,9 +254,9 @@ test("gates Collection creation on a non-blank name and sends the trimmed name",
 		return collection;
 	});
 	renderView();
-	const nameInput = screen.getByLabelText("Koleksiyon adı");
+	const nameInput = screen.getByLabelText("Collection name");
 	const createButton = screen.getByRole("button", {
-		name: "Koleksiyon oluştur",
+		name: "Create Collection",
 	});
 	expect(nameInput).toHaveAttribute("maxLength", "120");
 	expect(nameInput).toHaveAttribute("name", "name");
@@ -277,7 +277,7 @@ test("gates Collection creation on a non-blank name and sends the trimmed name",
 		name: "Field Notes",
 		projectId,
 	});
-	expect(screen.getByLabelText("Koleksiyon adı")).toHaveValue("");
+	expect(screen.getByLabelText("Collection name")).toHaveValue("");
 	expect(
 		screen.getByRole("button", { name: fieldNotesButtonName })
 	).toHaveAttribute("aria-pressed", "true");
@@ -286,16 +286,16 @@ test("gates Collection creation on a non-blank name and sends the trimmed name",
 test("keeps the Collection name draft when creation fails", async () => {
 	fakeApi.create.mockRejectedValue(new Error("Write failed"));
 	renderView();
-	fireEvent.change(screen.getByLabelText("Koleksiyon adı"), {
+	fireEvent.change(screen.getByLabelText("Collection name"), {
 		target: { value: "Field Notes" },
 	});
-	fireEvent.click(screen.getByRole("button", { name: "Koleksiyon oluştur" }));
+	fireEvent.click(screen.getByRole("button", { name: "Create Collection" }));
 
 	await waitFor(() => expect(errorToast).toHaveBeenCalledOnce());
-	expect(screen.getByLabelText("Koleksiyon adı")).toHaveValue("Field Notes");
+	expect(screen.getByLabelText("Collection name")).toHaveValue("Field Notes");
 	await waitFor(() =>
 		expect(
-			screen.getByRole("button", { name: "Koleksiyon oluştur" })
+			screen.getByRole("button", { name: "Create Collection" })
 		).toBeEnabled()
 	);
 });
@@ -330,12 +330,12 @@ test("gates membership on a selected Asset Record and resets it per Collection",
 	renderView();
 	await screen.findByRole("heading", { name: "Field Notes" });
 	const addButton = () =>
-		screen.getByRole("button", { name: "Koleksiyona ekle" });
-	const recordSelect = () => screen.getByLabelText("Varlık Kaydı");
+		screen.getByRole("button", { name: "Add to Collection" });
+	const recordSelect = () => screen.getByLabelText("Asset Record");
 	expect(recordSelect()).toHaveAttribute("name", "assetRecordId");
 	expect(recordSelect()).toHaveValue("");
 	expect(
-		screen.getByRole("option", { name: "Varlık Kaydı seçin" })
+		screen.getByRole("option", { name: "Select an Asset Record" })
 	).toBeInTheDocument();
 	expect(
 		screen.getByRole("option", { name: "Idle animation · Ash Knight" })
@@ -376,16 +376,16 @@ test("keeps the selected Asset Record when adding it fails", async () => {
 	fakeApi.addAssetRecord.mockRejectedValue(new Error("Write failed"));
 	renderView();
 	await screen.findByRole("heading", { name: "Field Notes" });
-	fireEvent.change(screen.getByLabelText("Varlık Kaydı"), {
+	fireEvent.change(screen.getByLabelText("Asset Record"), {
 		target: { value: characterRecord.id },
 	});
-	fireEvent.click(screen.getByRole("button", { name: "Koleksiyona ekle" }));
+	fireEvent.click(screen.getByRole("button", { name: "Add to Collection" }));
 
 	await waitFor(() => expect(errorToast).toHaveBeenCalledOnce());
-	expect(screen.getByLabelText("Varlık Kaydı")).toHaveValue(characterRecord.id);
+	expect(screen.getByLabelText("Asset Record")).toHaveValue(characterRecord.id);
 	await waitFor(() =>
 		expect(
-			screen.getByRole("button", { name: "Koleksiyona ekle" })
+			screen.getByRole("button", { name: "Add to Collection" })
 		).toBeEnabled()
 	);
 });

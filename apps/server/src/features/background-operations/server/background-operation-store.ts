@@ -5,7 +5,7 @@ import {
 } from "@sprite-anvil/api/background-operations";
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
 import { backgroundOperations } from "@sprite-anvil/db/schema/background-operations";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { requestOperationCancel } from "./operation-cancellation";
 import type { OperationStorage } from "./operation-storage";
 
@@ -51,6 +51,22 @@ export function createBackgroundOperationStore(
 	storage: OperationStorage
 ): BackgroundOperationStore {
 	return {
+		async summary(userId, projectId) {
+			if (!(await getProjectForUser(db, userId, projectId))) {
+				return null;
+			}
+			const [row] = await db
+				.select({
+					active: sql<number>`count(*) filter (where ${backgroundOperations.status} in ('pending', 'running', 'cancel_requested'))::int`,
+					failed: sql<number>`count(*) filter (where ${backgroundOperations.status} = 'failed')::int`,
+				})
+				.from(backgroundOperations)
+				.where(eq(backgroundOperations.projectId, projectId));
+			if (!row) {
+				throw new Error("Background Operation summary was not returned.");
+			}
+			return { active: row.active, failed: row.failed };
+		},
 		async requestCancel(userId, projectId, backgroundOperationId) {
 			if (!(await getProjectForUser(db, userId, projectId))) {
 				return { outcome: "not_found" };

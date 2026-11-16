@@ -20,6 +20,7 @@ import {
 	sourceMetadataMappingLegacyContractVersion,
 	sourceMetadataMappingProposalSchema,
 } from "@sprite-anvil/api/source-metadata-mapping";
+import { createTestAssetVersionIntegrityTransform } from "@sprite-anvil/api/test-support/asset-version-integrity";
 import { Hono } from "hono";
 import sharp from "sharp";
 import { serializePublicApiError } from "../../../../output-contracts";
@@ -213,6 +214,13 @@ class MemorySourceMetadataMappingProposalStore
 }
 
 function mountTestApp() {
+	const measurementEvents: unknown[] = [];
+	const productMeasurementRecorder = {
+		record: (input: unknown) => {
+			measurementEvents.push(input);
+			return Promise.resolve();
+		},
+	};
 	const store = new MemoryImportInboxStore();
 	const sourceMetadataMappingProposalStore =
 		new MemorySourceMetadataMappingProposalStore();
@@ -290,6 +298,8 @@ function mountTestApp() {
 		},
 	});
 	mountImportInboxRoutes(app, {
+		productMeasurementRecorder,
+		measurementSurface: () => "web",
 		importInboxStore: store,
 		createId,
 		createStorage: createStorage as never,
@@ -303,6 +313,8 @@ function mountTestApp() {
 				: null,
 	});
 	const mappingDependencies = {
+		createAssetVersionIntegrityTransform:
+			createTestAssetVersionIntegrityTransform,
 		assetVersionStore,
 		createId,
 		createStorage: createStorage as never,
@@ -311,6 +323,8 @@ function mountTestApp() {
 	};
 	function createContext(session: { user: { id: string } } | null) {
 		return {
+			productMeasurementRecorder,
+			surface: "web",
 			createSourceMetadataMappingProposal:
 				createSourceMetadataMappingProposalCreator(mappingDependencies),
 			finalizeSourceMetadataMapping:
@@ -353,6 +367,7 @@ function mountTestApp() {
 	});
 
 	return {
+		measurementEvents,
 		anonymousClient,
 		app,
 		client,
@@ -394,7 +409,7 @@ function uploadRequest(
 }
 
 test("stores an opaque .aseprite file as an Import Inbox Entry and rereads the managed bytes", async () => {
-	const { app, client, objects } = mountTestApp();
+	const { app, client, objects, measurementEvents } = mountTestApp();
 	const response = await app.request(
 		`/api/projects/${projectId}/import-inbox`,
 		uploadRequest("hero source.aseprite", opaqueAsepriteFile)
@@ -402,6 +417,15 @@ test("stores an opaque .aseprite file as an Import Inbox Entry and rereads the m
 
 	expect(response.status).toBe(201);
 	const created = importInboxEntrySchema.parse(await response.json());
+	expect(measurementEvents).toContainEqual(
+		expect.objectContaining({
+			eventFamily: "import_mapping",
+			phase: "start",
+			workflowId: created.id,
+			outcomeClass: "workflow_started",
+			counters: {},
+		})
+	);
 	expect(created.fileName).toBe("hero source.aseprite");
 	expect(created.sourceContentType).toBe("application/octet-stream");
 	expect(created.contentLength).toBe(opaqueAsepriteFile.byteLength);
@@ -1111,6 +1135,7 @@ test("allows an optional nine-slice conflict to remain unknown when the frame is
 
 test("finalizes a source metadata mapping into one rereadable Candidate Version", async () => {
 	const {
+		measurementEvents,
 		anonymousClient,
 		app,
 		client,
@@ -1242,6 +1267,14 @@ test("finalizes a source metadata mapping into one rereadable Candidate Version"
 		...location,
 		input,
 	});
+	expect(measurementEvents).toContainEqual(
+		expect.objectContaining({
+			eventFamily: "import_mapping",
+			phase: "finish",
+			workflowId: sourceId,
+			outcomeClass: "completed",
+		})
+	);
 	expect(result).toMatchObject({
 		proposalId: proposal.id,
 		assetRecordId: targetAssetRecordId,

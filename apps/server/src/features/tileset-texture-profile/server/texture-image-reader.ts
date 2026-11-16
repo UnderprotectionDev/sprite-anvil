@@ -1,15 +1,19 @@
+import type { VerifyAssetVersionStream } from "@sprite-anvil/api/asset-version-integrity";
 import type { Context } from "@sprite-anvil/api/context";
 import { assetVersionObjectKeySchema } from "../../../cloudflare";
 import {
 	assetVersionStore,
 	createServerAssetVersionStorage,
 } from "../../../services";
-import { verifyAssetVersionStream } from "../../asset-versions/server/asset-version-integrity";
 import { checkTextureImageEdges } from "./texture-edge-check";
+import { checkTilesetImageSeam } from "./tileset-seam-check";
 
-export const checkTextureEdges: NonNullable<
-	Context["checkTextureEdges"]
-> = async (userId, projectId, assetVersionId, region, axes) => {
+async function readVerifiedImage(
+	verifyAssetVersionStream: VerifyAssetVersionStream,
+	userId: string,
+	projectId: string,
+	assetVersionId: string
+): Promise<Uint8Array | null> {
 	const file = await assetVersionStore.getFileRecord(
 		userId,
 		projectId,
@@ -37,9 +41,64 @@ export const checkTextureEdges: NonNullable<
 			file.contentLength,
 			file.contentDigest
 		).body;
-		const bytes = new Uint8Array(await new Response(stream).arrayBuffer());
-		return await checkTextureImageEdges(bytes, region, axes);
+		return new Uint8Array(await new Response(stream).arrayBuffer());
 	} catch {
 		return null;
 	}
-};
+}
+
+export const createTextureEdgeChecker =
+	(
+		verifyAssetVersionStream: VerifyAssetVersionStream
+	): NonNullable<Context["checkTextureEdges"]> =>
+	async (userId, projectId, assetVersionId, region, axes) => {
+		const bytes = await readVerifiedImage(
+			verifyAssetVersionStream,
+			userId,
+			projectId,
+			assetVersionId
+		);
+		if (!bytes) {
+			return null;
+		}
+		try {
+			return await checkTextureImageEdges(bytes, region, axes);
+		} catch {
+			return null;
+		}
+	};
+
+export const createTilesetSeamChecker =
+	(
+		verifyAssetVersionStream: VerifyAssetVersionStream
+	): NonNullable<Context["checkTilesetSeam"]> =>
+	async (userId, projectId, first, second, direction) => {
+		const [a, b] = await Promise.all([
+			readVerifiedImage(
+				verifyAssetVersionStream,
+				userId,
+				projectId,
+				first.versionId
+			),
+			readVerifiedImage(
+				verifyAssetVersionStream,
+				userId,
+				projectId,
+				second.versionId
+			),
+		]);
+		if (!(a && b)) {
+			return null;
+		}
+		try {
+			return await checkTilesetImageSeam(
+				a,
+				first.region,
+				b,
+				second.region,
+				direction
+			);
+		} catch {
+			return null;
+		}
+	};

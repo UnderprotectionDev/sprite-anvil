@@ -2,9 +2,10 @@ import type { AssetFamilyStore } from "@sprite-anvil/api/asset-families";
 import type { AssetRecordStore } from "@sprite-anvil/api/asset-records";
 import type { AssetVersionStore } from "@sprite-anvil/api/asset-versions";
 import type { ProjectArchiveSourceReader } from "@sprite-anvil/api/project-archive-store";
-import type {
-	FoundationRecords,
-	ProjectArchiveSourceFile,
+import {
+	type FoundationRecords,
+	foundationSectionSchemas,
+	type ProjectArchiveSourceFile,
 } from "@sprite-anvil/api/project-archives";
 import type { Database } from "@sprite-anvil/db";
 import { managedSnapshots } from "@sprite-anvil/db/schema/asset-production-history";
@@ -12,9 +13,22 @@ import {
 	assetRecordReferenceHistory,
 	assetRecordReferences,
 } from "@sprite-anvil/db/schema/asset-record-references";
+import {
+	assetFamilies as assetFamilyRows,
+	assetRecords as assetRecordRows,
+} from "@sprite-anvil/db/schema/asset-records";
 import { assetVersions } from "@sprite-anvil/db/schema/asset-versions";
-import { contextRevisions } from "@sprite-anvil/db/schema/project-context";
-import { asc, eq } from "drizzle-orm";
+import { themes, visualWorlds } from "@sprite-anvil/db/schema/context-scopes";
+import { importInboxEntries } from "@sprite-anvil/db/schema/import-inbox";
+import {
+	contextProposals,
+	contextRevisions,
+} from "@sprite-anvil/db/schema/project-context";
+import {
+	referenceBoardImageHistory,
+	referenceBoardImages,
+} from "@sprite-anvil/db/schema/reference-production";
+import { and, asc, eq, gt } from "drizzle-orm";
 import { iso } from "./iso";
 import { readProjectArchiveDelivery } from "./project-archive-delivery-reader";
 import { readProjectArchiveHistory } from "./project-archive-history-reader";
@@ -38,6 +52,31 @@ export function createProjectArchiveSourceReader(
 ): ProjectArchiveSourceReader {
 	const { db } = dependencies;
 	return {
+		async readWorkingFiles(projectId, cursor) {
+			const rows = await db
+				.select({
+					id: managedSnapshots.id,
+					assetVersionId: managedSnapshots.assetVersionId,
+					fileName: managedSnapshots.fileName,
+					byteSize: managedSnapshots.byteSize,
+					objectKey: managedSnapshots.objectKey,
+					sha256: managedSnapshots.sha256,
+				})
+				.from(managedSnapshots)
+				.where(
+					and(
+						eq(managedSnapshots.projectId, projectId),
+						cursor ? gt(managedSnapshots.id, cursor) : undefined
+					)
+				)
+				.orderBy(asc(managedSnapshots.id))
+				.limit(51);
+			const files = rows.slice(0, 50);
+			return {
+				files,
+				nextCursor: rows.length > 50 ? (files.at(-1)?.id ?? null) : null,
+			};
+		},
 		async read(userId, projectId) {
 			const [families, records, versions] = await Promise.all([
 				dependencies.assetFamilies.list(userId, projectId),
@@ -47,41 +86,163 @@ export function createProjectArchiveSourceReader(
 			if (!(families && records && versions)) {
 				return null;
 			}
-			const [revisionRows, referenceRows, historyRows, fileRows, snapshotRows] =
-				await Promise.all([
-					db
-						.select()
-						.from(contextRevisions)
-						.where(eq(contextRevisions.projectId, projectId))
-						.orderBy(asc(contextRevisions.revisionNumber)),
-					db
-						.select()
-						.from(assetRecordReferences)
-						.where(eq(assetRecordReferences.projectId, projectId)),
-					db
-						.select()
-						.from(assetRecordReferenceHistory)
-						.where(eq(assetRecordReferenceHistory.projectId, projectId)),
-					db
-						.select({
-							fileName: assetVersions.fileName,
-							id: assetVersions.id,
-							objectKey: assetVersions.objectKey,
-							sha256: assetVersions.sha256,
-						})
-						.from(assetVersions)
-						.where(eq(assetVersions.projectId, projectId)),
-					db
-						.select()
-						.from(managedSnapshots)
-						.where(eq(managedSnapshots.projectId, projectId)),
-				]);
+			const [
+				revisionRows,
+				referenceRows,
+				historyRows,
+				fileRows,
+				worldRows,
+				themeRows,
+				snapshotRows,
+				canonicalRows,
+				inboxRows,
+				boardRows,
+				boardHistoryRows,
+				proposalRows,
+				recordScopeRows,
+			] = await Promise.all([
+				db
+					.select()
+					.from(contextRevisions)
+					.where(eq(contextRevisions.projectId, projectId))
+					.orderBy(asc(contextRevisions.revisionNumber)),
+				db
+					.select()
+					.from(assetRecordReferences)
+					.where(eq(assetRecordReferences.projectId, projectId)),
+				db
+					.select()
+					.from(assetRecordReferenceHistory)
+					.where(eq(assetRecordReferenceHistory.projectId, projectId)),
+				db
+					.select()
+					.from(assetVersions)
+					.where(eq(assetVersions.projectId, projectId)),
+				db
+					.select()
+					.from(visualWorlds)
+					.where(eq(visualWorlds.projectId, projectId)),
+				db.select().from(themes).where(eq(themes.projectId, projectId)),
+				db
+					.select()
+					.from(managedSnapshots)
+					.where(eq(managedSnapshots.projectId, projectId)),
+				db
+					.select({
+						id: assetFamilyRows.id,
+						canonicalVersionId: assetFamilyRows.canonicalVersionId,
+					})
+					.from(assetFamilyRows)
+					.where(eq(assetFamilyRows.projectId, projectId)),
+				db
+					.select()
+					.from(importInboxEntries)
+					.where(eq(importInboxEntries.projectId, projectId)),
+				db
+					.select()
+					.from(referenceBoardImages)
+					.where(eq(referenceBoardImages.projectId, projectId)),
+				db
+					.select()
+					.from(referenceBoardImageHistory)
+					.where(eq(referenceBoardImageHistory.projectId, projectId)),
+				db
+					.select()
+					.from(contextProposals)
+					.where(eq(contextProposals.projectId, projectId)),
+				db
+					.select({
+						id: assetRecordRows.id,
+						visualWorldId: assetRecordRows.visualWorldId,
+					})
+					.from(assetRecordRows)
+					.where(eq(assetRecordRows.projectId, projectId)),
+			]);
 
+			const canonicalByFamily = new Map(
+				canonicalRows.map((row) => [row.id, row.canonicalVersionId])
+			);
 			const familyOfRecord = new Map(
 				families.assetRecords.map((record) => [record.id, record.assetFamilyId])
 			);
+			const recordScopes = new Map(
+				recordScopeRows.map((row) => [row.id, row.visualWorldId])
+			);
 			const foundation: FoundationRecords = {
+				contextProposals: proposalRows.map((row) => ({
+					id: row.id,
+					baseContextRevisionId: row.baseContextRevisionId,
+					contractVersion: row.contractVersion,
+					sourceKind: row.sourceKind,
+					proposal:
+						foundationSectionSchemas.contextProposals.shape.proposal.parse(
+							row.proposal
+						),
+					createdAt: iso(row.createdAt),
+				})),
+				managedSnapshots: snapshotRows.map((row) => ({
+					id: row.id,
+					assetRecordId: row.assetRecordId,
+					assetVersionId: row.assetVersionId,
+					fileName: row.fileName,
+					byteSize: row.byteSize,
+					sha256: row.sha256,
+					createdAt: iso(row.createdAt),
+				})),
+				importInboxEntries: inboxRows.map((row) => ({
+					id: row.id,
+					createdAt: iso(row.createdAt),
+					fileName: row.fileName,
+					sourceContentType: row.sourceContentType,
+					contentLength: row.contentLength,
+					sha256: row.sha256,
+				})),
+				referenceBoardImages: boardRows.map((row) => ({
+					id: row.id,
+					assetRecordId: row.assetRecordId,
+					createdAt: iso(row.createdAt),
+					updatedAt: iso(row.updatedAt),
+					fileName: row.fileName,
+					contentType: row.contentType,
+					contentLength: row.contentLength,
+					sha256: row.sha256,
+					role: row.role,
+					customPurpose: row.customPurpose,
+					transferredFeatures: row.transferredFeatures,
+					forbiddenFeatures: row.forbiddenFeatures,
+					contextOverrideRationale: row.contextOverrideRationale,
+					notes: row.notes,
+					sortOrder: row.sortOrder,
+					revision: row.revision,
+				})),
+				referenceBoardImageHistory: boardHistoryRows.map((row) => ({
+					id: row.id,
+					assetRecordId: row.assetRecordId,
+					referenceId: row.referenceId,
+					revision: row.revision,
+					role: row.role,
+					customPurpose: row.customPurpose,
+					transferredFeatures: row.transferredFeatures,
+					forbiddenFeatures: row.forbiddenFeatures,
+					contextOverrideRationale: row.contextOverrideRationale,
+					notes: row.notes,
+					recordedAt: iso(row.recordedAt),
+				})),
+				visualWorlds: worldRows.map((row) => ({
+					id: row.id,
+					name: row.name,
+					description: row.description,
+					createdAt: iso(row.createdAt),
+				})),
+				themes: themeRows.map((row) => ({
+					id: row.id,
+					visualWorldId: row.visualWorldId,
+					name: row.name,
+					description: row.description,
+					createdAt: iso(row.createdAt),
+				})),
 				assetFamilies: families.assetFamilies.map((family) => ({
+					canonicalVersionId: canonicalByFamily.get(family.id) ?? null,
 					createdAt: family.createdAt,
 					id: family.id,
 					name: family.name,
@@ -89,28 +250,39 @@ export function createProjectArchiveSourceReader(
 					useContext: family.useContext,
 					visualWorldId: family.visualWorldId,
 				})),
-				assetRecords: records.flatMap((record) => {
-					const assetFamilyId = familyOfRecord.get(record.id);
-					if (!assetFamilyId) {
-						return [];
-					}
+				assetRecords: records.map((record) => {
 					const { projectId: _projectId, ...rest } = record;
-					return [{ ...rest, assetFamilyId }];
+					if (!recordScopes.has(record.id)) {
+						throw new Error("Asset Record scope is unavailable.");
+					}
+					return {
+						...rest,
+						visualWorldId: recordScopes.get(record.id) ?? null,
+						assetFamilyId: familyOfRecord.get(record.id) ?? null,
+					};
 				}),
-				assetVersions: versions.assetVersions.map((version) => ({
-					assetFamilyId: version.assetFamilyId,
-					assetRecordId: version.assetRecordId,
-					byteSize: version.contentLength,
-					contentDigest: version.contentDigest,
-					contentType: version.contentType,
-					createdAt: version.createdAt,
-					id: version.id,
-					integrityVerified: version.integrityVerified,
-					productionSource: version.productionSource ?? "unknown",
-					sourceImageDimensions: version.sourceImageDimensions ?? null,
-					sourceKind: version.sourceKind ?? "unknown",
-					versionNumber: version.versionNumber,
-				})),
+				assetVersions: fileRows.map((version) =>
+					foundationSectionSchemas.assetVersions.parse({
+						assetFamilyId: version.assetFamilyId,
+						assetRecordId: version.assetRecordId,
+						byteSize: version.byteSize,
+						contentDigest: version.contentDigest,
+						contentType: version.contentType,
+						createdAt: iso(version.createdAt),
+						id: version.id,
+						integrityVerified: version.integrityVerified,
+						productionSource: version.productionSource,
+						sourceImageDimensions:
+							version.sourceImageWidth && version.sourceImageHeight
+								? {
+										width: version.sourceImageWidth,
+										height: version.sourceImageHeight,
+									}
+								: null,
+						sourceKind: version.sourceKind,
+						versionNumber: version.versionNumber,
+					})
+				),
 				canonicalDesigns: versions.canonicalDesigns.map((design) => ({
 					assetFamilyId: design.assetFamilyId,
 					assetRecordId: design.assetRecordId,
@@ -199,25 +371,44 @@ export function createProjectArchiveSourceReader(
 			};
 
 			const historySource = await readProjectArchiveHistory(db, projectId);
-			const fileLocation = new Map(fileRows.map((row) => [row.id, row]));
+
 			const files: ProjectArchiveSourceFile[] = [
-				...versions.assetVersions.flatMap((version) => {
-					const location = fileLocation.get(version.id);
-					// A version without a digest stays out of the files; the
-					// builder refuses the archive because its record lacks one.
-					if (!(location && version.contentDigest)) {
+				...inboxRows.map((row) => ({
+					kind: "import_inbox_file" as const,
+					sourceId: row.id,
+					assetRecordId: null,
+					assetVersionId: null,
+					byteSize: row.contentLength,
+					sha256: row.sha256,
+					fileName: row.fileName,
+					contentType: row.sourceContentType,
+					objectKey: row.objectKey,
+				})),
+				...boardRows.map((row) => ({
+					kind: "reference_board_file" as const,
+					sourceId: row.id,
+					assetRecordId: row.assetRecordId,
+					assetVersionId: null,
+					byteSize: row.contentLength,
+					sha256: row.sha256,
+					fileName: row.fileName,
+					contentType: row.contentType,
+					objectKey: row.objectKey,
+				})),
+				...fileRows.flatMap((version) => {
+					if (!(version.sha256 && version.contentDigest)) {
 						return [];
 					}
 					return [
 						{
 							assetRecordId: version.assetRecordId,
 							assetVersionId: version.id,
-							byteSize: version.contentLength,
+							byteSize: version.byteSize,
 							contentType: version.contentType,
-							fileName: location.fileName,
+							fileName: version.fileName,
 							kind: "asset_version_file" as const,
-							objectKey: location.objectKey,
-							sha256: version.contentDigest,
+							objectKey: version.objectKey,
+							sha256: version.sha256,
 							sourceId: version.id,
 						},
 					];

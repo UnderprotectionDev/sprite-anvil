@@ -40,7 +40,7 @@ Tamamlanma kanıtı: Çözümlenmemiş izin-yasak çelişkisi görünür olur ve
 
 - **Birincil test seam’i:** 8.1 örneklerinde kesin girdiyi kullanıcı eyleminden kalıcı kayda ve yeniden okumaya taşıyan sunucu/API yolunu sınama; web ve masaüstü görünür sonuçlarını karşılaştırma.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.
-- Bugün repoda bu faza ait ürün sözleşmesi bulunmuyor. Mevcut sunucu ve yüzey test örnekleri: [`project-routes.test.ts`](../../../apps/server/src/features/projects/server/tests/project-routes.test.ts), [`app-shell.spec.ts` (web)](../../../apps/web/e2e/app-shell.spec.ts) ve [`app-shell.spec.ts` (desktop)](../../../apps/web/desktop-e2e/app-shell.spec.ts). Bunlar bu özelliğin test edildiği anlamına gelmez.
+- Mevcut sözleşme ve ilgili test yolu: [`generation-packages.ts`](../../../packages/api/src/generation-packages.ts), [`generation-packages.spec.ts`](../../../apps/web/desktop-e2e/generation-packages.spec.ts). Bu bağlantılar tüm kabul kapsamının tamamlandığını göstermez.
 - Fazın özgül başarı ve red kanıtı: Sunucu/API yolunda bir referans özelliğe izin verilirken aynı özellik yasaklandığında pano çelişkiyi gösterir, paket oluşturma isteği başarısız olur ve yeniden okunan paket listesi değişmez. Kullanıcı kurallardan birini düzenleyip çelişkiyi giderdikten sonra yeni paket oluşturup yeniden okur; paket ve Üretim Bağlamı Kopyası sonradan değişmez. Web ve masaüstü görünür uyarı ve paket sonucunda aynı anlamı verir. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Kullanıcı doğal dil talimatını ChatGPT veya başka üretim yüzeyinde yazar; manuel yol geçerlidir. Workbench kendi görsel üretim modelini veya zorunlu üretim API'sini sunmaz.
 - Kabul örnekleri: 8.1. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
 
@@ -64,4 +64,4 @@ Kullanıcı doğal dil talimatını ChatGPT veya başka üretim yüzeyinde yazar
 **Kabul izlenebilirliği**
 
 - [8.1](../../prd/10-acceptance-scenarios.md)
-- Mevcut uygulama yalnız temel web/masaüstü kabuğu ve sınırlı sunucu yükleme yolunu içeriyor; bu spec teslim edilmiş ürün iddiası değildir. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.
+- PRD ve bu spec hedef davranışı tanımlar; mevcut sözleşmeler ve testler tek başına tüm kabul senaryolarının tamamlandığını göstermez. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.

@@ -19,6 +19,10 @@ import { useForm, useStore } from "@tanstack/react-form";
 import { useId, useState } from "react";
 import { StatusMessage } from "@/components/status-message";
 import {
+	builtinProfileItemText,
+	builtinProfileName,
+} from "@/utils/builtin-profile-labels";
+import {
 	type GameplayMetadataFormValues,
 	gameplayMetadataFormSchema,
 } from "../../schemas";
@@ -141,7 +145,7 @@ export function GameplayMetadataForm({
 				setError(
 					failure instanceof Error
 						? failure.message
-						: "Oyun içi bilgiler kaydedilemedi."
+						: "Could not save Gameplay Metadata."
 				);
 			}
 		},
@@ -180,7 +184,7 @@ export function GameplayMetadataForm({
 				<form.Field name="frame">
 					{(field) => (
 						<Label className="block space-y-1" htmlFor={`${formId}-frame`}>
-							<span>Kare ve kesin sürüm</span>
+							<span>Frame and exact version</span>
 							<NativeSelect
 								className="w-full"
 								disabled={Boolean(initialRecord)}
@@ -191,7 +195,7 @@ export function GameplayMetadataForm({
 								}}
 								value={field.state.value}
 							>
-								<NativeSelectOption value="">Kare seçin</NativeSelectOption>
+								<NativeSelectOption value="">Select a frame</NativeSelectOption>
 								{frames.map((candidate) => (
 									<NativeSelectOption
 										key={`${candidate.assetVersionId}:${candidate.frameKey}`}
@@ -207,7 +211,7 @@ export function GameplayMetadataForm({
 				<form.Field name="contractRevision">
 					{(field) => (
 						<Label className="block space-y-1" htmlFor={`${formId}-profile`}>
-							<span>Etkin özel profil</span>
+							<span>Active specialized profile</span>
 							<NativeSelect
 								className="w-full"
 								disabled={Boolean(initialRecord)}
@@ -218,13 +222,16 @@ export function GameplayMetadataForm({
 								}}
 								value={field.state.value}
 							>
-								<NativeSelectOption value="">Profil seçin</NativeSelectOption>
+								<NativeSelectOption value="">
+									Select a profile
+								</NativeSelectOption>
 								{contracts.map((definition) => (
 									<NativeSelectOption
 										key={definition.contractRevisionId}
 										value={definition.contractRevisionId}
 									>
-										{definition.name} {definition.version}
+										{builtinProfileName(definition.profileId, definition.name)}{" "}
+										{definition.version}
 									</NativeSelectOption>
 								))}
 							</NativeSelect>
@@ -234,7 +241,7 @@ export function GameplayMetadataForm({
 				<form.Field name="useContext">
 					{(field) => (
 						<Label className="block space-y-1" htmlFor={`${formId}-context`}>
-							<span>Kullanım bağlamı</span>
+							<span>Usage context</span>
 							<Input
 								className="w-full"
 								id={`${formId}-context`}
@@ -255,20 +262,22 @@ export function GameplayMetadataForm({
 									className="block space-y-1"
 									htmlFor={`${formId}-source-pivot`}
 								>
-									<span>Dönüş noktası kaynağı</span>
+									<span>Pivot source</span>
 									<NativeSelect
 										className="w-full"
 										id={`${formId}-source-pivot`}
 										onChange={(event) => field.handleChange(event.target.value)}
 										value={field.state.value}
 									>
-										<NativeSelectOption value="">Elle yaz</NativeSelectOption>
+										<NativeSelectOption value="">
+											Enter manually
+										</NativeSelectOption>
 										{frame?.sourcePivots.map((pivot) => (
 											<NativeSelectOption
 												key={pivotIdentity(pivot)}
 												value={pivotIdentity(pivot)}
 											>
-												Kesinleştirilmiş kaynak: {JSON.stringify(pivot.value)}
+												Confirmed source: {JSON.stringify(pivot.value)}
 											</NativeSelectOption>
 										))}
 									</NativeSelect>
@@ -279,7 +288,16 @@ export function GameplayMetadataForm({
 				{definitions.map((definition) => (
 					<div className="space-y-1" key={definition.id}>
 						<Label className="block" htmlFor={`${formId}-${definition.id}`}>
-							{definition.label} (JSON)
+							{contract
+								? builtinProfileItemText(
+										contract,
+										"metadataFields",
+										definition.id,
+										"label",
+										definition.label
+									)
+								: definition.label}{" "}
+							(JSON)
 						</Label>
 						<form.Field name={`fieldValues.${definition.id}`}>
 							{(field) => (
@@ -305,35 +323,34 @@ export function GameplayMetadataForm({
 							className="text-muted-foreground text-sm"
 							id={`${formId}-${definition.id}-help`}
 						>
-							{definition.required ? "Zorunlu" : "Boş bırakılırsa Bilinmiyor"} ·{" "}
-							{definition.unit ?? "birimsiz"} ·{" "}
-							{definition.coordinateSystem ?? "koordinat sistemi yok"}
+							{definition.required ? "Required" : "Unknown if left blank"} ·{" "}
+							{definition.unit ?? "unitless"} ·{" "}
+							{definition.coordinateSystem ?? "no coordinate system"}
 						</p>
 						{contract?.exportMappings
 							.filter((mapping) => mapping.fieldId === definition.id)
 							.map((mapping) => (
 								<p className="text-muted-foreground text-sm" key={mapping.id}>
-									Dışa aktarım: {mapping.targetPath} · Eksik değer:{" "}
-									{mapping.absentBehavior} · Yeniden okuma:{" "}
-									{mapping.readbackCheck}
+									Export: {mapping.targetPath} · Missing value:{" "}
+									{mapping.absentBehavior} · Reread: {mapping.readbackCheck}
 								</p>
 							))}
 					</div>
 				))}
 				<p className="text-muted-foreground text-sm">
-					Vuruş alanı (hitbox), hasar alma alanı (hurtbox) ve çarpışma
-					bilgilerini Çarpışma alanları içinde açıkça yazın. Görsel şeffaflıktan
-					oyun fiziği üretilmez. Nokta örneği: {'{"x":12,"y":24}'}.
+					Explicitly enter hitbox, hurtbox, and collision information in
+					collision fields. Game physics are not derived from image
+					transparency. Point example: {'{"x":12,"y":24}'}.
 				</p>
 				<Button disabled={!(frame && contract)} type="submit">
-					Oyun içi bilgileri kaydet
+					Save Gameplay Metadata
 				</Button>
 			</FieldSet>
 			{Boolean(error) && <StatusMessage tone="error">{error}</StatusMessage>}
 			{Boolean(initialRecord) && !frame && (
 				<StatusMessage tone="error">
-					Bütünlük hatası: düzenlenen kaydın kare veya kesin sürüm bağlantısı
-					kayboldu.
+					Integrity error: the edited record's frame or exact version link was
+					lost.
 				</StatusMessage>
 			)}
 		</form>

@@ -1,9 +1,12 @@
+import { createFamilyReadinessStore } from "@sprite-anvil/api/family-readiness-store";
 import { createAuth } from "@sprite-anvil/auth";
 import { createDb } from "@sprite-anvil/db";
 import { createLocalTestDb } from "@sprite-anvil/db/testing";
 import {
+	createQueue,
 	createStorage,
 	getR2StorageConfig,
+	requireCloudflareConfig,
 	requireR2Config,
 } from "./cloudflare";
 import { desktopOrigins, ENV } from "./env.server";
@@ -33,7 +36,6 @@ import { createExportBundleSourceReader } from "./features/export-bundles/server
 import { createExportBundleStore } from "./features/export-bundles/server/export-bundle-store";
 import { createDatabaseExportProfileStorage } from "./features/export-profiles/server/database-export-profile-storage";
 import { createExportProfileStore } from "./features/export-profiles/server/export-profile-store";
-import { createFamilyReadinessStore } from "./features/family-readiness/server/family-readiness-store";
 import { createGameplayMetadataStore } from "./features/gameplay-metadata/server/gameplay-metadata-store";
 import { createGenerationPackageStore } from "./features/generation-packages/server/generation-package-store";
 import { createDatabaseHistoricalRiskNoticeStorage } from "./features/historical-rights-risk/server/database-historical-risk-notice-storage";
@@ -60,16 +62,22 @@ import { createMeasurementDefinitionStore } from "./features/product-measurement
 import { createMeasurementEventStore } from "./features/product-measurement/server/measurement-event-store";
 import { createMeasurementMeasureStore } from "./features/product-measurement/server/measurement-measure-store";
 import { createMeasurementPseudonymizer } from "./features/product-measurement/server/measurement-pseudonym";
+import { createProductMeasurementRecorder } from "./features/product-measurement/server/measurement-workflows";
 import { createProductionExperimentStore } from "./features/production-experiments/server/production-experiment-store";
 import { createManagedSnapshotStore } from "./features/production-provenance/server/managed-snapshot-store";
 import { createProductionRecipeStore } from "./features/production-recipes/server/production-recipe-store";
-import { createDatabaseProjectArchiveRestoreStorage } from "./features/project-archives/server/database-project-archive-restore-storage";
+import {
+	createDatabaseProjectArchiveRestoreRequestStorage,
+	createDatabaseProjectArchiveRestoreStorage,
+} from "./features/project-archives/server/database-project-archive-restore-storage";
 import { createDatabaseProjectArchiveStorage } from "./features/project-archives/server/database-project-archive-storage";
 import {
 	createObjectFileCopier,
 	createObjectFileRemover,
 } from "./features/project-archives/server/object-file-copier";
 import { createObjectFileVerifier } from "./features/project-archives/server/object-file-verifier";
+import { createProjectArchiveCanonicalVerifier } from "./features/project-archives/server/project-archive-canonical-verification";
+import { createDatabaseArchiveImportRequestStorage } from "./features/project-archives/server/project-archive-import-storage";
 import { createProjectArchiveRestoreStore } from "./features/project-archives/server/project-archive-restore-store";
 import { createProjectArchiveSourceReader } from "./features/project-archives/server/project-archive-source-reader";
 import { createProjectArchiveStore } from "./features/project-archives/server/project-archive-store";
@@ -90,6 +98,7 @@ import { createUiStateComparisonStore } from "./features/ui-profile/server/ui-st
 import { createVfxAppearanceReviewStore } from "./features/vfx-profile/server/vfx-appearance-review-store";
 import { createVfxSynchronizationStore } from "./features/vfx-profile/server/vfx-synchronization-store";
 import { createProjectContextScopeStore } from "./features/visual-worlds/server/project-context-scope-store";
+import { createManagedOperationServices } from "./operation-services";
 
 function usesLoopbackTestDatabase(databaseUrl: string): boolean {
 	if (ENV.NODE_ENV !== "test") {
@@ -147,6 +156,11 @@ export const measurementMeasureStore = createMeasurementMeasureStore({
 	eventStorage: measurementEventStorage,
 	pseudonymize: measurementPseudonymize,
 });
+export const productMeasurementRecorder = createProductMeasurementRecorder({
+	definitionStore: measurementDefinitionStore,
+	eventStore: measurementEventStore,
+	storage: measurementEventStorage,
+});
 export const assetFamilyStore = createAssetFamilyStore(db);
 export const assetFamilyComparisonStore = createAssetFamilyComparisonStore(db);
 export const familyReadinessStore = createFamilyReadinessStore(db);
@@ -157,13 +171,7 @@ export const deliveryTargetStore = createDeliveryTargetStore(
 export const dependencyRevalidationStore =
 	createDependencyRevalidationStore(db);
 const deliveryFulfilmentStorage = createDatabaseDeliveryFulfilmentStorage(db);
-export const readinessPlanStore = createReadinessPlanStore({
-	deliveryTargets: deliveryTargetStore,
-	dependencies: dependencyRevalidationStore,
-	familyReadiness: familyReadinessStore,
-	fulfilments: deliveryFulfilmentStorage,
-	storage: createDatabaseReadinessPlanStorage(db),
-});
+
 export const exportProfileStore = createExportProfileStore(
 	db,
 	createDatabaseExportProfileStorage(db)
@@ -200,6 +208,20 @@ export function createServerAssetVersionStorage() {
 export const projectContextStore = createProjectContextStore(db);
 export const referenceProductionStore = createReferenceProductionStore(db);
 const persistedRightsRecordStore = createRightsRecordStore(db);
+export const readinessPlanStore = createReadinessPlanStore({
+	deliveryTargets: deliveryTargetStore,
+	policyEvidence: {
+		assetVersions: assetVersionStore,
+		generationPackages: generationPackageStore,
+		tracking: assetRecordTrackingStore,
+		rights: persistedRightsRecordStore,
+		references: referenceProductionStore,
+	},
+	dependencies: dependencyRevalidationStore,
+	familyReadiness: familyReadinessStore,
+	fulfilments: deliveryFulfilmentStorage,
+	storage: createDatabaseReadinessPlanStorage(db),
+});
 export const exportBundleStore = createExportBundleStore(db, {
 	profiles: exportProfileStore,
 	sourceReader: createExportBundleSourceReader({
@@ -215,13 +237,6 @@ export const exportBundleStore = createExportBundleStore(db, {
 	}),
 	storage: createDatabaseExportBundleStorage(db),
 });
-/**
- * Deletion Receipts are read here. The erasure approval (`approveErasure`) and
- * the Deletion Job executor are not wired: they need the live Background
- * Operation lifecycle and an object remover, which production does not run
- * yet, like the archive executors. Until then `approveErasure` answers
- * "unavailable" and no Deletion Job can start.
- */
 export const deletionReceiptStore = createDeletionReceiptStore({
 	db,
 	storage: createDatabaseErasureDeletionStorage(db),
@@ -233,8 +248,15 @@ export const erasureImpactStore = createErasureImpactStore({
 	storage: createDatabaseErasureImpactStorage(db),
 });
 const credentialNamePattern = /SECRET|TOKEN|KEY|PASSWORD/i;
-const archiveObjectStorage =
+export const archiveObjectStorage =
 	testAssetVersionStorage ?? (r2Config ? createStorage(r2Config) : null);
+export const projectArchiveStorage = createDatabaseProjectArchiveStorage(db);
+const projectArchiveSourceReader = createProjectArchiveSourceReader({
+	assetFamilies: assetFamilyStore,
+	assetRecords: assetRecordStore,
+	assetVersions: assetVersionStore,
+	db,
+});
 export const projectArchiveStore = createProjectArchiveStore(db, {
 	/** Every configured credential value; an archive holding one is refused. */
 	secretValues: () =>
@@ -244,21 +266,30 @@ export const projectArchiveStore = createProjectArchiveStore(db, {
 					credentialNamePattern.test(name) && typeof value === "string"
 			)
 			.map(([, value]) => value as string),
-	sourceReader: createProjectArchiveSourceReader({
-		assetFamilies: assetFamilyStore,
-		assetRecords: assetRecordStore,
-		assetVersions: assetVersionStore,
-		db,
-	}),
-	storage: createDatabaseProjectArchiveStorage(db),
+	sourceReader: projectArchiveSourceReader,
+	storage: projectArchiveStorage,
+	fileAvailable: async (objectKey) => {
+		if (!archiveObjectStorage) {
+			return false;
+		}
+		const object = await archiveObjectStorage.get(objectKey);
+		if (!object?.body) {
+			return false;
+		}
+		await object.body.cancel();
+		return true;
+	},
 	verifyFile: archiveObjectStorage
 		? createObjectFileVerifier(archiveObjectStorage)
-		: undefined,
+		: () => Promise.resolve(false),
 });
 /** Restoring copies files, so it needs object storage; without it restore is unavailable. */
 export const projectArchiveRestoreStore = archiveObjectStorage
 	? createProjectArchiveRestoreStore(db, {
 			archives: createDatabaseProjectArchiveStorage(db),
+			verifyCanonical: createProjectArchiveCanonicalVerifier(
+				projectArchiveSourceReader
+			),
 			files: {
 				copy: createObjectFileCopier(archiveObjectStorage),
 				remove: createObjectFileRemover(archiveObjectStorage),
@@ -285,6 +316,10 @@ export const fulfilmentMappingStore = createFulfilmentMappingStore({
 	storage: fulfilmentMappingStorage,
 });
 export const deliveryFulfilmentStore = createDeliveryFulfilmentStore({
+	evidence: {
+		bundles: exportBundleStore,
+		runtimeValidation: runtimeValidationStore,
+	},
 	deliveryTargets: deliveryTargetStore,
 	drafts: fulfilmentMappingStorage,
 	readinessPlans: readinessPlanStore,
@@ -318,3 +353,57 @@ export const backgroundScrollingTestStore =
 
 export const sceneQaStore = createSceneQaStore(db);
 export const marketingUsageReviewStore = createMarketingUsageReviewStore(db);
+
+/** Creates the configured API or worker composition against the same durable records. */
+const archiveManifestLimit = Number(
+	ENV.PROJECT_ARCHIVE_IMPORT_MANIFEST_MAX_BYTES
+);
+export const projectArchiveImportManifestLimit =
+	Number.isSafeInteger(archiveManifestLimit) && archiveManifestLimit > 0
+		? archiveManifestLimit
+		: undefined;
+
+export function createServerOperationServices(
+	transport: import("./features/background-operations/server/operation-storage").OperationTransport
+) {
+	return createManagedOperationServices({
+		db,
+		storage: createDatabaseOperationStorage(db),
+		transport,
+		restoreOptions: projectArchiveRestoreStore
+			? {
+					requests: createDatabaseProjectArchiveRestoreRequestStorage(db),
+					store: projectArchiveRestoreStore,
+				}
+			: undefined,
+		importOptions:
+			archiveObjectStorage && projectArchiveRestoreStore
+				? {
+						requests: createDatabaseArchiveImportRequestStorage(db),
+						maxManifestBytes: projectArchiveImportManifestLimit,
+						objects: archiveObjectStorage,
+						store: projectArchiveRestoreStore,
+					}
+				: undefined,
+		erasureOptions: archiveObjectStorage
+			? {
+					db,
+					impactStore: erasureImpactStore,
+					sourceReader: createErasureImpactSourceReader(db),
+					storage: createDatabaseErasureDeletionStorage(db),
+					objects: createServerAssetVersionStorage(),
+				}
+			: undefined,
+	});
+}
+function configuredOperationServices() {
+	let config: ReturnType<typeof requireCloudflareConfig>;
+	try {
+		config = requireCloudflareConfig(ENV);
+	} catch {
+		return;
+	}
+	const queue = createQueue(config);
+	return createServerOperationServices({ send: queue.sendOperation });
+}
+export const managedOperationServices = configuredOperationServices();

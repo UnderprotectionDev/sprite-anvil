@@ -74,7 +74,7 @@ export function BatchReviewControls({
 			setRequestKey(crypto.randomUUID());
 		} catch (error) {
 			toast.error(
-				getErrorMessage(error, "Toplu inceleme önizlemesi yüklenemedi.")
+				getErrorMessage(error, "Could not load the batch review preview.")
 			);
 		} finally {
 			setBusy(false);
@@ -116,8 +116,8 @@ export function BatchReviewControls({
 		<FieldSet className="space-y-3 rounded-lg border p-4" disabled={disabled}>
 			<FieldLegend>Toplu inceleme</FieldLegend>
 			<p className="text-sm">
-				Her seçili kesin sürüm için ayrı İnceleme Kaydı yazılır. Engelli öğe
-				varsa hiçbir karar kaydedilmez.
+				A separate Review Record is written for each selected exact version. If
+				an item is blocked, no decisions are saved.
 			</p>
 			<form.Field name="selected">
 				{(field) =>
@@ -155,7 +155,7 @@ export function BatchReviewControls({
 				className="block space-y-1 text-sm"
 				htmlFor="batch-review-decision"
 			>
-				<span>Toplu inceleme kararı</span>
+				<span>Batch review decision</span>
 				<form.Field name="decision">
 					{(field) => (
 						<NativeSelect
@@ -175,10 +175,10 @@ export function BatchReviewControls({
 							}}
 							value={field.state.value}
 						>
-							<NativeSelectOption value="approved">Onayla</NativeSelectOption>
-							<NativeSelectOption value="rejected">Reddet</NativeSelectOption>
+							<NativeSelectOption value="approved">Approve</NativeSelectOption>
+							<NativeSelectOption value="rejected">Reject</NativeSelectOption>
 							<NativeSelectOption value="candidate">
-								Aday yap
+								Make candidate
 							</NativeSelectOption>
 						</NativeSelect>
 					)}
@@ -188,7 +188,7 @@ export function BatchReviewControls({
 				className="block space-y-1 text-sm"
 				htmlFor="batch-review-rationale"
 			>
-				<span>Toplu inceleme gerekçesi</span>
+				<span>Batch review rationale</span>
 				<form.Field name="rationale">
 					{(field) => (
 						<Textarea
@@ -211,7 +211,7 @@ export function BatchReviewControls({
 				onClick={() => void loadPreview()}
 				type="button"
 			>
-				Uygunluk ve engelleri göster
+				Show eligibility and blockers
 			</Button>
 			{preview ? (
 				<div aria-live="polite" className="space-y-2">
@@ -226,7 +226,7 @@ export function BatchReviewControls({
 										))}
 									</ul>
 								) : (
-									<span> — Karar için uygun</span>
+									<span> — Eligible for decision</span>
 								)}
 							</li>
 						))}
@@ -238,10 +238,10 @@ export function BatchReviewControls({
 						onClick={() => void confirm()}
 						type="button"
 					>
-						Kararları kaydet
+						Save decisions
 					</Button>
 					<Button onClick={resetPreview} type="button" variant="outline">
-						Önizlemeyi iptal et
+						Cancel preview
 					</Button>
 				</div>
 			) : null}

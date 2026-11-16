@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-const startLink = "Başlamak için giriş yap";
+const startLink = "Sign in to get started";
 
 async function transitionSeconds(
 	page: import("@playwright/test").Page,

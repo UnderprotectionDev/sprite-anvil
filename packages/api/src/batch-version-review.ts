@@ -10,16 +10,16 @@ function productionBlockers(
 ) {
 	const blockers: string[] = [];
 	if (!(version.integrityVerified && version.contentDigest)) {
-		blockers.push("Dosya bütünlüğü doğrulanmadı.");
+		blockers.push("File integrity has not been verified.");
 	}
 	if (version.productionEvidence.evidenceLevel === "incomplete") {
-		blockers.push("Zorunlu üretim kanıtı eksik.");
+		blockers.push("Required production evidence is missing.");
 	}
 	if (
 		version.productionSource === "connected_provider" &&
 		!version.providerGenerationRecord
 	) {
-		blockers.push("Sağlayıcı Üretim Kaydı eksik.");
+		blockers.push("Provider Generation Record is missing.");
 	}
 	return blockers;
 }
@@ -41,12 +41,14 @@ export async function previewBatchReview(
 			);
 			if (!version) {
 				throw new ORPCError("NOT_FOUND", {
-					message: "Varlık Sürümü bulunamadı.",
+					message: "Asset Version not found.",
 				});
 			}
 			const blockers: string[] = [];
 			if (version.reviewDisposition === input.decision) {
-				blockers.push("Varlık Sürümünün güncel inceleme kararı zaten bu.");
+				blockers.push(
+					"This is already the current Asset Version review decision."
+				);
 			}
 			if (input.decision === "approved") {
 				blockers.push(...productionBlockers(version));
@@ -57,7 +59,7 @@ export async function previewBatchReview(
 						assetVersionId
 					))
 				) {
-					blockers.push("Saklanan dosya bütünlük doğrulamasından geçmedi.");
+					blockers.push("The stored file failed integrity verification.");
 				}
 				const qualityBlockers =
 					await context.assetVersionStore.readReviewBlockers(
@@ -65,7 +67,9 @@ export async function previewBatchReview(
 						input.projectId,
 						assetVersionId
 					);
-				blockers.push(...(qualityBlockers ?? ["Kalite kanıtı okunamadı."]));
+				blockers.push(
+					...(qualityBlockers ?? ["Quality evidence could not be read."])
+				);
 			}
 			return {
 				assetVersionId,

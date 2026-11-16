@@ -5,13 +5,13 @@ import { Label } from "@sprite-anvil/ui/components/label";
 import { useId } from "react";
 
 const facetLabels = [
-	["identity", "Kimlik"],
-	["silhouette", "Siluet"],
-	["equipment", "Ekipman"],
-	["palette", "Palet"],
-	["theme", "Tema"],
-	["perspective", "Perspektif"],
-	["timing", "Zamanlama"],
+	["identity", "Identity"],
+	["silhouette", "Silhouette"],
+	["equipment", "Equipment"],
+	["palette", "Palette"],
+	["theme", "Theme"],
+	["perspective", "Perspective"],
+	["timing", "Timing"],
 ] as const;
 
 interface ValueField<T> {
@@ -55,7 +55,7 @@ export function DependencyFacets({
 				))}
 			</div>
 			<Label className="block space-y-1" htmlFor={otherId}>
-				<span>Diğer özellik</span>
+				<span>Other feature</span>
 				<Input
 					className="w-full"
 					id={otherId}

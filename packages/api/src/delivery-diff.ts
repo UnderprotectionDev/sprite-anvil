@@ -66,6 +66,33 @@ const notRecordedSectionSchema = z
 	.object({ reason: z.string(), status: z.literal("not_recorded") })
 	.strict();
 
+export const deliveryEvidencePinSchema = z
+	.object({ key: z.string(), label: z.string(), contentDigest: z.string() })
+	.strict();
+export type DeliveryEvidencePin = z.infer<typeof deliveryEvidencePinSchema>;
+export const deliveryEvidenceSectionSchema = z.discriminatedUnion("status", [
+	notRecordedSectionSchema,
+	z
+		.object({
+			status: z.literal("recorded"),
+			unchangedCount: z.number().int().nonnegative(),
+			changes: z.array(
+				z
+					.object({
+						kind: z.enum(["added", "removed", "changed"]),
+						key: z.string(),
+						from: deliveryEvidencePinSchema.nullable(),
+						to: deliveryEvidencePinSchema.nullable(),
+					})
+					.strict()
+			),
+		})
+		.strict(),
+]);
+export type DeliveryEvidenceSection = z.infer<
+	typeof deliveryEvidenceSectionSchema
+>;
+
 export const deliveryDiffSchema = z
 	.object({
 		assetVersions: z
@@ -110,10 +137,10 @@ export const deliveryDiffSchema = z
 			notRecordedSectionSchema,
 		]),
 		from: fulfilmentSummarySchema,
-		qualityEvidence: notRecordedSectionSchema,
-		qualityWaiver: notRecordedSectionSchema,
-		rights: notRecordedSectionSchema,
-		runtimeEvidence: notRecordedSectionSchema,
+		qualityEvidence: deliveryEvidenceSectionSchema,
+		qualityWaiver: deliveryEvidenceSectionSchema,
+		rights: deliveryEvidenceSectionSchema,
+		runtimeEvidence: deliveryEvidenceSectionSchema,
 		to: fulfilmentSummarySchema,
 	})
 	.strict();

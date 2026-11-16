@@ -7,10 +7,10 @@ import type { AssetVersionCatalog } from "@sprite-anvil/api/asset-versions";
 import { Link } from "@tanstack/react-router";
 
 const relationshipLabels = {
-	direction: "Yön",
+	direction: "Direction",
 	animation: "Animasyon",
-	state: "Durum",
-	derivative: "Türetilmiş Varlık",
+	state: "State",
+	derivative: "Derived Asset",
 } as const;
 
 export function AssetFamilyCatalogView({
@@ -38,7 +38,7 @@ export function AssetFamilyCatalogView({
 	if (catalog.subjectIdentities.length === 0) {
 		return (
 			<p className="rounded-lg border border-dashed p-5 text-muted-foreground">
-				Henüz Varlık Kimliği yok. Önce bir kimlik oluşturun.
+				No Subject Identity yet. Create one first.
 			</p>
 		);
 	}
@@ -56,14 +56,14 @@ export function AssetFamilyCatalogView({
 						key={identity.id}
 					>
 						<p className="font-mono text-primary text-xs uppercase tracking-widest">
-							Varlık Kimliği
+							Subject Identity
 						</p>
 						<h2 className="mt-1 font-semibold font-serif text-2xl">
 							{identity.name}
 						</h2>
 						{families.length === 0 ? (
 							<p className="mt-3 text-muted-foreground text-sm">
-								Bu Varlık Kimliği için henüz Varlık Ailesi yok.
+								This Subject Identity has no Asset Families yet.
 							</p>
 						) : (
 							<ul className="mt-4 ml-2 space-y-3 border-border border-l pl-4">
@@ -126,24 +126,24 @@ function FamilyCatalogItem({
 	return (
 		<li className="border-b pb-4 last:border-b-0" key={family.id}>
 			<p className="font-mono text-muted-foreground text-xs uppercase tracking-wider">
-				Varlık Ailesi
+				Asset Family
 			</p>
 			<h3 className="font-medium">{family.name}</h3>
 			<p className="mt-2 text-sm">
-				<strong>Ana Tasarım:</strong>{" "}
+				<strong>Canonical Design:</strong>{" "}
 				{canonicalDesign && canonicalRecord && canonicalVersion
-					? `${canonicalRecord.name} · Sürüm ${canonicalVersion.versionNumber}`
-					: "Henüz seçilmedi"}
+					? `${canonicalRecord.name} · Version ${canonicalVersion.versionNumber}`
+					: "Not selected yet"}
 			</p>
 			<p className="mt-2 flex flex-wrap items-center gap-2 text-sm">
 				<span className="rounded-sm border px-2 py-1">
-					{visualWorldName ?? "Görsel Dünya bulunamadı"}
+					{visualWorldName ?? "Visual World not found"}
 				</span>
 				<span className="rounded-sm border border-primary/40 px-2 py-1 text-primary">
 					{family.useContext}
 				</span>
 			</p>
-			<h4 className="mt-4 font-medium text-sm">Varlık Kayıtları</h4>
+			<h4 className="mt-4 font-medium text-sm">Asset Records</h4>
 			{familyRecords.length > 0 ? (
 				<ul className="mt-1 list-inside list-disc text-sm">
 					{familyRecords.map((assetRecord) => (
@@ -163,12 +163,12 @@ function FamilyCatalogItem({
 				</ul>
 			) : (
 				<p className="mt-1 text-muted-foreground text-sm">
-					Henüz Varlık Kaydı yok.
+					No Asset Records yet.
 				</p>
 			)}
 			{familyRelationships.length > 0 ? (
 				<>
-					<h4 className="mt-4 font-medium text-sm">Aile içi ilişkiler</h4>
+					<h4 className="mt-4 font-medium text-sm">Family relationships</h4>
 					<ul className="mt-1 space-y-1 text-sm">
 						{familyRelationships.map((relationship) => (
 							<RelationshipLine
@@ -205,9 +205,9 @@ function RelationshipLine({
 		const versionNumber = assetVersionsById.get(
 			relationship.sourceAssetVersionId
 		)?.versionNumber;
-		sourceVersionLabel = ` · Sürüm ${versionNumber ?? "bilinmiyor"}`;
+		sourceVersionLabel = ` · Version ${versionNumber ?? "unknown"}`;
 	} else if (relationship.type === "derivative") {
-		sourceVersionLabel = " · kaynak sürümü eski kayıtta belirtilmemiş";
+		sourceVersionLabel = " · source version not specified in the older record";
 	}
 
 	return (

@@ -113,7 +113,7 @@ Test yaklaşımı kullanıcı tarafından 2026-11-16 tarihinde onaylandı: mevcu
 | R10 · Production Recipes UI | F02; spec 31 | Oluşturma/kullanma/bağımsız copy | none |
 | R11 · Archive UI ve restore | F07; spec 44 | Oluşturma/portable download/bağımsız durable restore | R05 |
 | R12 · Erasure UI ve executor | F08; spec 45 | Impact/onay/job/receipt ve yönetilen object removal | R05 |
-| R13 · Measurement akışı | F09; spec 46 | Gerçek olay, definition activation ve sonuç UI | Ürün eylemleriyle birlikte |
+| R13 · Measurement akışı | F09; spec 46 | Gerçek olay, definition activation ve sonuç UI; çevrimdışı doğrulamada yalnız bağlantılı koşular sunucu başlangıç/bitiş zamanı ile ölçülür, tamamen çevrimdışı koşu ölçülmez ve telemetri yokluğu doğrulamayı bozmaz | Ürün eylemleriyle birlikte |
 | R14 · Native delivery yazma | F10; spec 40 | İzinli, divergence-safe yazma ve readback | R07 |
 | R15 · Animation metadata | F11; spec 20 | Aynı kare yüzeyinde mekânsal metadata/ground/loop | R01 |
 | R16 · Shared Shell | A04 | Paper kabuğu ve gerçek navigasyon bağlantıları | Yeni UI ile birlikte |
@@ -127,14 +127,27 @@ Test yaklaşımı kullanıcı tarafından 2026-11-16 tarihinde onaylandı: mevcu
 | R24 · Erişilebilirlik kanıtı | K47 | Gerçek reader/OS/build/sonuç; çalıştırılamayan açık | UI tamamlandıktan sonra |
 | R25 · Platform/operasyon kapısı | K48 | Kanıtlı Supported Platform Matrix, RAS/YAS ve OV sonuçları | R05–R24 |
 | R26 · Style Module kapsamı | Y03 | “Gruplanabilir/copy” mevcut normatif davranışla uzlaştırılır; kararsız seçim görünür | Karar gerekirse kullanıcı |
+| R30 · Etiket normalizasyonu | Gerçek DB arama testinde bulundu; spec 07 | Inventory kaydı inventory aramasında bulunur; API/client/server locale bağımsız aynı normalizasyonu uygular | R18/R21 |
+| R29 · Project Archive gerçek kayıt geri yüklemesi | R11 entegrasyonunda bulundu; spec 44, ADR 0007 | Kaynak verisi eksiksiz sürümlü arşiv ve normal servislerden okunabilir, atomik bağımsız restore; eksik tarihsel arşivler açık red | R11 |
+| R28 · Kesin sürüm kalite kanıtı | Entegrasyon regresyonunda bulundu; spec 16 | Daha yeni başka sürümün kanıtı eski sürümün geçerli kalite kanıtını gölgelemez | R06/R21 |
 | R27 · Tileset kenar kapsamı | Y24 | Connector ve exact-pixel kapsamı normatif davranışla uzlaştırılır | Karar gerekirse kullanıcı |
+
+### R29 · Restore envanteri ile canlı kayıtlar arasındaki boşluk
+
+[Restore transaction](../apps/server/src/features/project-archives/server/database-project-archive-restore-storage.ts) yalnız Project, Project Context revisions ve restore envanterini yazar; [Asset Record](../apps/server/src/features/asset-records/server/asset-record-store.ts) ve [Asset Version](../apps/server/src/features/asset-versions/server/asset-version-store.ts) normal okumaları kendi tablolarını kullanır ve restore envanterini okumaz. Bu yüzden bu envanterin başarılı yazılması, uygulamada kullanılabilir bağımsız proje kanıtı değildir. ZIP upload bu sınır çözülmeden başarı olarak sunulmamalıdır.
+
+Mevcut [arşiv sözleşmesi](../packages/api/src/project-archives.ts) Visual World veya Theme kayıtlarını taşımaz; oysa [şema](../packages/db/src/schema/asset-records.ts) Asset Family için Visual World FK ister ve [Visual World/Theme](../packages/db/src/schema/context-scopes.ts) adları zorunludur. [Kaynak okuyucu](../apps/server/src/features/project-archives/server/project-archive-source-reader.ts) ayrıca Family bağı olmayan Asset Record kayıtlarını atlar. Eski arşivlerde bulunmayan isimleri veya kayıtları uydurmadan eksiksiz restore mümkün değildir. Yeni formatın kaynak kapsamı, mevcut arşiv sürümüyle uyumluluk ve eksik veri durumunda açık red ele alınmalıdır.
+
+Canlı tablolara geri kurma, transaction ve FK sırasıyla şu kayıt ailelerini kapsar: foundation (`assetFamilies`, `assetRecords`, `assetVersions`, `canonicalDesigns`, `compositeVersions`, `compositionMemberships`, `contextRevisions`, `referenceHistory`, `references`, `relationships`, `subjectIdentities`, `unitVersions`); history (`contractRevisions`, `experimentTrials`, `experiments`, `gameplayMetadata`, `generationPackages`, `legacyAttestations`, `manualImportEvidence`, `metadataDecisions`, `metadataProposals`, `providerGenerationRecords`, `recipeVersions`, `recipes`, `reviews`, `rightsRecords`); delivery (`deliveryDiffs`, `deliveryFulfilments`, `deliveryRefreshLocks`, `deliveryTargetDrafts`, `deliveryTargetRevisions`, `deliveryTargets`, `exportBundles`, `exportProfileRevisions`, `exportProfiles`, `historicalRiskNotices`, `runtimeValidations`). Kayıt sözleşmesinde eksik bağımlılıklar da ayrıca kapsanmalıdır.
+
+**Test seam:** Kaynak proje ve nesneleri kaldırıldıktan sonra indirilen arşivi restore et; normal Project Context, Asset Record/Version, ilişki, history ve delivery servislerinden yeni projeyi yeniden okuyup kimlik/ilişki/dosya özetlerini karşılaştır. Eksik/eski sürüm, bozuk içerik, yetkisiz giriş, publication hatası ve aynı anahtarla tekrar yolunda hiçbir yarım veya ikinci proje oluşmadığını doğrula. ZIP doğrulama ve uzun işlem kabulü spec 44 ile OPS-01/02 sınırlarını izler.
 
 ### Sahiplik ve yönelim
 
 - Kanonik adlar: [repository glossary](CONTEXT.md). İlgili teknik adlar: Candidate Version, Production Experiment, Production Recipe, Export Profile, Export Bundle, Background Operation, Readiness Plan, Delivery Diff, Project Archive, Deletion Job, Measurement Definition ve Gameplay Metadata.
 - Ürün davranışı owning PRD ve aşağıdaki uygulama spec'lerinde kalır; bu belge bu gereksinimleri değiştirmez. Test seam'i owning spec'in Testing Decisions bölümüdür.
 - [Stack](tech-stack.md), [placement/boundaries](../structure.md), [interface areas](interface-areas.md), [migration/issue workflow](agents/issue-tracker.md), [acceptance scenarios](prd/10-acceptance-scenarios.md) bağlayıcıdır.
-- Denetim kaynakları workspace'in `.context/spec-audit/REPORT.md` ve `.context/architecture-audit/REPORT.md` çıktılarıdır; yayımlanmış issue'nun kapsamı bu belgedeki R01–R27 kayıtlarıdır, ignored dosyalara bağımlı değildir.
+- Denetim kaynakları workspace'in `.context/spec-audit/REPORT.md` ve `.context/architecture-audit/REPORT.md` çıktılarıdır; yayımlanmış issue'nun kapsamı bu belgedeki R01–R31 kayıtlarıdır, ignored dosyalara bağımlı değildir.
 - Yayımlama öncesi açık/kapalı GitHub kayıtları kontrol edildi; mevcut teslim ticket'ları kapalı. Bu çalışma eski ticket'ı teslim edilmiş varsaymaz; ayrı audit remediation kapsamıdır. Seçili issue veya canonical attachment sağlanmadı.
 - Test seam'i kullanıcı tarafından onaylandı. Gerçek dış ortam kısıtları bağımsız uygulama işini durdurmaz.
 
@@ -164,3 +177,7 @@ Test yaklaşımı kullanıcı tarafından 2026-11-16 tarihinde onaylandı: mevcu
 | 48 | PLT-01, OPS-04, OPS-05 · [14-validation-phases.md](prd/14-validation-phases.md), [08-platform-and-operations.md](prd/08-platform-and-operations.md), [08-platform-and-operations.md](prd/08-platform-and-operations.md), [08-platform-and-operations.md](prd/08-platform-and-operations.md) | [48-platform-equivalence](specs/48-platform-equivalence/spec.md) | [phase-context](workflow/48-platform-equivalence/phase-context.md) | [0003-require-web-and-desktop-product-surfaces.md](adr/0003-require-web-and-desktop-product-surfaces.md), [0021-keep-repeat-delivery-one-way-divergence-safe-and-static.md](adr/0021-keep-repeat-delivery-one-way-divergence-safe-and-static.md) |
 
 Ortak form/tema/shell ve CI işleri ayrıca stack/structure/AGENTS kurallarına dayanır; bu mekanik düzeltmeler için yeni PRD davranışı veya ADR yoktur (`none`). Authentication/private data alanlarında OPS-03 ve ilgili owning privacy/permission hükümleri uygulanır.
+
+### R31 · Native build capability isolation
+
+R14/R25 gerçek masaüstü derleme kontrolünde normal derlemenin test-only `wdio:default` iznini doğrulamaya çalıştığı ve isteğe bağlı WebDriver eklentisi olmadan başarısız olduğu görüldü. Normal derleme yalnız `default` capability kaynağını işler; `webdriver` feature etkinse test capability dosyası da işlenir. Owning gereksinim PLT-01/OPS-03/OPS-04 ([platform PRD](prd/08-platform-and-operations.md)), [spec 48](specs/48-platform-equivalence/spec.md), [workflow](workflow/48-platform-equivalence/phase-context.md), [ADR 0003](adr/0003-require-web-and-desktop-product-surfaces.md) sınırı korunur. Kanonik terim Supported Platform Matrix ([sözlük](CONTEXT.md)); yeni domain terimi yoktur. Test seam'i gerçek `cargo check` normal ve WebDriver feature derlemeleridir; bu derleme kanıtı gerçek reader veya native dosya akışı kabulü sayılmaz.

@@ -1,5 +1,6 @@
 import {
 	type ProjectArchiveRestore,
+	type ProjectArchiveRestoreInput,
 	type ProjectArchiveRestorePlan,
 	planProjectArchiveRestore,
 	projectArchiveRestoreCatalogSchema,
@@ -16,6 +17,7 @@ import {
 	type ProjectArchive,
 	projectArchiveSchemaVersion,
 } from "@sprite-anvil/api/project-archives";
+import { recordContentDigest } from "@sprite-anvil/api/record-content-digest";
 import {
 	idempotentRecordId,
 	RecordIntegrityError,
@@ -24,6 +26,12 @@ import {
 	verifyPublishedRecord,
 } from "@sprite-anvil/api/record-publication";
 import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import {
+	createProjectAssetVersionObjectKey,
+	createProjectImportInboxObjectKey,
+	createProjectManagedSnapshotObjectKey,
+	createProjectReferenceBoardObjectKey,
+} from "../../../cloudflare";
 import type {
 	ProjectArchiveRestoreStorage,
 	StoredProjectArchiveRestore,
@@ -63,6 +71,9 @@ export interface ProjectArchiveRestoreStoreOptions {
 	getProjectForUser?: (userId: string, projectId: string) => Promise<unknown>;
 	now?: () => Date;
 	storage: ProjectArchiveRestoreStorage;
+	verifyCanonical?: (
+		record: StoredProjectArchiveRestoreRecord
+	) => Promise<string[]>;
 }
 
 function toSummary(restore: StoredProjectArchiveRestore) {
@@ -152,8 +163,51 @@ function readArchive(
 function restoredObjectKey(
 	restoredProjectId: string,
 	restoreId: string,
-	file: { kind: string; restoredId: string }
+	file: {
+		kind: string;
+		restoredId: string;
+		assetRecordId: string | null;
+		assetVersionId: string | null;
+	}
 ) {
+	if (
+		file.kind === "asset_version_file" &&
+		file.assetRecordId &&
+		file.assetVersionId
+	) {
+		return createProjectAssetVersionObjectKey(
+			restoredProjectId,
+			file.assetRecordId,
+			file.assetVersionId
+		);
+	}
+	if (file.kind === "import_inbox_file") {
+		return createProjectImportInboxObjectKey(
+			restoredProjectId,
+			file.restoredId,
+			restoreId
+		);
+	}
+	if (file.kind === "reference_board_file" && file.assetRecordId) {
+		return createProjectReferenceBoardObjectKey(
+			restoredProjectId,
+			file.assetRecordId,
+			file.restoredId,
+			restoreId
+		);
+	}
+	if (
+		file.kind === "working_file" &&
+		file.assetRecordId &&
+		file.assetVersionId
+	) {
+		return createProjectManagedSnapshotObjectKey(
+			restoredProjectId,
+			file.assetRecordId,
+			file.assetVersionId,
+			file.restoredId
+		);
+	}
 	return `projects/${restoredProjectId}/restores/${restoreId}/${file.kind}/${file.restoredId}`;
 }
 
@@ -189,7 +243,7 @@ async function copyRestoredFiles(
 	plan: ProjectArchiveRestorePlan,
 	locations: Map<string, string>,
 	files: ProjectArchiveRestoreFiles,
-	newKey: (file: { kind: string; restoredId: string }) => string,
+	newKey: (file: ProjectArchiveRestorePlan["files"][number]) => string,
 	copied: string[]
 ): Promise<StoredRestoredFile[]> {
 	const restored: StoredRestoredFile[] = [];
@@ -203,12 +257,21 @@ async function copyRestoredFiles(
 		// biome-ignore lint/performance/noAwaitInLoops: Files are copied one at a time to bound memory.
 		await files.copy({
 			byteSize: file.byteSize,
-			contentType: file.contentType,
+			contentType: file.kind === "import_inbox_file" ? null : file.contentType,
 			from,
 			sha256: file.sha256,
 			to,
 		});
 		copied.push(to);
+		if (
+			!(await files.verify({
+				objectKey: to,
+				byteSize: file.byteSize,
+				sha256: file.sha256,
+			}))
+		) {
+			throw new Error("Restored file failed verification.");
+		}
 		restored.push({ ...file, objectKey: to });
 	}
 	return restored;
@@ -241,7 +304,13 @@ async function removeUnownedCopies(
 export function createProjectArchiveRestoreStore(
 	db: Database,
 	options: ProjectArchiveRestoreStoreOptions
-): ProjectArchiveRestoreStore {
+): ProjectArchiveRestoreStore & {
+	restoreFromArchive: (
+		userId: string,
+		input: ProjectArchiveRestoreInput,
+		archive: StoredProjectArchiveRecord
+	) => Promise<ProjectArchiveRestoreResult | null>;
+} {
 	const { archives, files, storage } = options;
 	const lookupProject =
 		options.getProjectForUser ??
@@ -249,13 +318,197 @@ export function createProjectArchiveRestoreStore(
 			getProjectForUser(db, userId, projectId));
 	const now = options.now ?? (() => new Date());
 
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Publication and cleanup stay together.
+	async function restoreArchive(
+		userId: string,
+		input: ProjectArchiveRestoreInput,
+		provided?: StoredProjectArchiveRecord
+	): Promise<ProjectArchiveRestoreResult | null> {
+		if ((await lookupProject(userId, input.projectId)) === null) {
+			return null;
+		}
+		const restoreId = await idempotentRecordId(
+			{
+				kind: "project-archive-restore",
+				projectId: input.projectId,
+				targetId: input.archiveId,
+				userId,
+			},
+			input.idempotencyKey
+		);
+		const requestDigest = provided
+			? await recordContentDigest({
+					input,
+					manifestDigest: provided.archive.manifestDigest,
+				})
+			: await projectArchiveRestoreRequestDigest(input);
+		const sourceProjectId = provided?.archive.projectId ?? input.projectId;
+		const verifyRecord = async (record: StoredProjectArchiveRestoreRecord) => {
+			const failure = await integrityFailure(record);
+			if (failure || record.restore.canonicalVerified !== false) {
+				return failure;
+			}
+			if (!options.verifyCanonical) {
+				return "Canonical verification is unavailable.";
+			}
+			let canonicalFailures: string[];
+			try {
+				canonicalFailures = await options.verifyCanonical(record);
+			} catch {
+				return "Canonical readback is unavailable.";
+			}
+			if (canonicalFailures.length) {
+				return `Restored project failed canonical readback: ${canonicalFailures.join(" ")}`;
+			}
+			await storage.markVerified(input.projectId, restoreId);
+			return null;
+		};
+		const replay = () =>
+			replayPublishedRecord({
+				differs: (row) => row.restore.requestDigest !== requestDigest,
+				integrityFailure: verifyRecord,
+				label: "Project Archive restore",
+				read: () => storage.find(input.projectId, restoreId),
+				toResult: toRestore,
+			});
+		const replayed = await replay();
+		if (replayed) {
+			return { restore: replayed, status: "replayed" };
+		}
+
+		const stored =
+			provided ?? (await archives.find(input.projectId, input.archiveId));
+		if (!stored) {
+			return null;
+		}
+		if (stored.archive.id !== input.archiveId) {
+			return {
+				failures: ["Archive identity does not match the request."],
+				reason: "archive_invalid",
+				status: "rejected",
+			};
+		}
+		if (stored.archive.schemaVersion !== projectArchiveSchemaVersion) {
+			return { reason: "unsupported_version", status: "rejected" };
+		}
+		const read = readArchive(stored);
+		if ("failures" in read) {
+			return {
+				failures: read.failures,
+				reason: "archive_invalid",
+				status: "rejected",
+			};
+		}
+		const restoredProjectId = await idempotentRecordId(
+			{
+				kind: "project-archive-restored-project",
+				projectId: input.projectId,
+				targetId: input.archiveId,
+				userId,
+			},
+			input.idempotencyKey
+		);
+		// Digests and relations are checked, and ids mapped, before anything is written.
+		const planned = await planProjectArchiveRestore(read.archive, {
+			restoredProjectId,
+			restoreId,
+		});
+		if (!planned.ok) {
+			const { ok: _ok, ...rejection } = planned;
+			return {
+				...rejection,
+				status: "rejected",
+			} as ProjectArchiveRestoreResult;
+		}
+		const { plan } = planned;
+		if (storage.canMaterialize?.(plan) === false) {
+			return { reason: "unsupported_content", status: "rejected" };
+		}
+		const locations = new Map(
+			stored.files.flatMap((file) =>
+				file.sourceObjectKey
+					? [[`${file.kind}:${file.sourceId}`, file.sourceObjectKey] as const]
+					: []
+			)
+		);
+		const unverifiable = await unverifiableFiles(plan, locations, files);
+		if (unverifiable.length > 0) {
+			return {
+				reason: "file_unverifiable",
+				sourceIds: unverifiable,
+				status: "rejected",
+			};
+		}
+
+		// Object keys are derived, so a concurrent or earlier attempt for the same
+		// key owns these exact keys; only a restore that left no record may undo them.
+		const copied: string[] = [];
+		let inserted: Awaited<ReturnType<typeof storage.insert>>;
+		try {
+			const restoredFiles = await copyRestoredFiles(
+				plan,
+				locations,
+				files,
+				(file) => restoredObjectKey(restoredProjectId, restoreId, file),
+				copied
+			);
+			inserted = await storage.insert({
+				files: restoredFiles,
+				ids: plan.ids,
+				projectName: input.name,
+				restore: {
+					archiveId: input.archiveId,
+					createdAt: now(),
+					createdByUserId: userId,
+					id: restoreId,
+					manifestDigest: plan.sourceManifestDigest,
+					requestDigest,
+					restoredProjectId,
+					sourceProjectId,
+					operationProjectId: provided ? input.projectId : null,
+					canonicalVerified: !options.verifyCanonical,
+				},
+				sections: plan.sections,
+			});
+		} catch (error) {
+			await removeUnownedCopies(copied, files, () =>
+				storage.find(input.projectId, restoreId)
+			);
+			throw error;
+		}
+		if (inserted.status === "conflict") {
+			// A concurrent request with the same key won; its record is the answer.
+			const winner = await replay();
+			if (!winner) {
+				throw new RetryablePublicationError("Project Archive restore");
+			}
+			return { restore: winner, status: "replayed" };
+		}
+		let verified: ProjectArchiveRestore;
+		try {
+			verified = await verifyPublishedRecord({
+				integrityFailure: verifyRecord,
+				label: "Project Archive restore",
+				read: () => storage.find(input.projectId, restoreId),
+				toResult: toRestore,
+				withdraw: () => storage.withdraw(restoreId),
+			});
+		} catch (error) {
+			await removeUnownedCopies(copied, files, () =>
+				storage.find(input.projectId, restoreId)
+			);
+			throw error;
+		}
+		return { restore: verified, status: "created" };
+	}
+
 	return {
 		async get(userId, projectId, restoreId) {
 			if ((await lookupProject(userId, projectId)) === null) {
 				return null;
 			}
 			const record = await storage.find(projectId, restoreId);
-			if (!record) {
+			if (!record || record.restore.canonicalVerified === false) {
 				return null;
 			}
 			const failure = await integrityFailure(record);
@@ -274,132 +527,8 @@ export function createProjectArchiveRestoreStore(
 			});
 		},
 
-		async restore(userId, input) {
-			if ((await lookupProject(userId, input.projectId)) === null) {
-				return null;
-			}
-			const restoreId = await idempotentRecordId(
-				{
-					kind: "project-archive-restore",
-					projectId: input.projectId,
-					targetId: input.archiveId,
-					userId,
-				},
-				input.idempotencyKey
-			);
-			const requestDigest = await projectArchiveRestoreRequestDigest(input);
-			const replay = () =>
-				replayPublishedRecord({
-					differs: (row) => row.restore.requestDigest !== requestDigest,
-					integrityFailure,
-					label: "Project Archive restore",
-					read: () => storage.find(input.projectId, restoreId),
-					toResult: toRestore,
-				});
-			const replayed = await replay();
-			if (replayed) {
-				return { restore: replayed, status: "replayed" };
-			}
-
-			const stored = await archives.find(input.projectId, input.archiveId);
-			if (!stored) {
-				return null;
-			}
-			const read = readArchive(stored);
-			if ("failures" in read) {
-				return {
-					failures: read.failures,
-					reason: "archive_invalid",
-					status: "rejected",
-				};
-			}
-			// Digests and relations are checked, and ids mapped, before anything is written.
-			const planned = await planProjectArchiveRestore(read.archive, {
-				restoreId,
-			});
-			if (!planned.ok) {
-				const { ok: _ok, ...rejection } = planned;
-				return {
-					...rejection,
-					status: "rejected",
-				} as ProjectArchiveRestoreResult;
-			}
-			const { plan } = planned;
-			const locations = new Map(
-				stored.files.flatMap((file) =>
-					file.sourceObjectKey
-						? [[`${file.kind}:${file.sourceId}`, file.sourceObjectKey] as const]
-						: []
-				)
-			);
-			const unverifiable = await unverifiableFiles(plan, locations, files);
-			if (unverifiable.length > 0) {
-				return {
-					reason: "file_unverifiable",
-					sourceIds: unverifiable,
-					status: "rejected",
-				};
-			}
-
-			const restoredProjectId = await idempotentRecordId(
-				{
-					kind: "project-archive-restored-project",
-					projectId: input.projectId,
-					targetId: input.archiveId,
-					userId,
-				},
-				input.idempotencyKey
-			);
-			// Object keys are derived, so a concurrent or earlier attempt for the same
-			// key owns these exact keys; only a restore that left no record may undo them.
-			const copied: string[] = [];
-			let inserted: Awaited<ReturnType<typeof storage.insert>>;
-			try {
-				const restoredFiles = await copyRestoredFiles(
-					plan,
-					locations,
-					files,
-					(file) => restoredObjectKey(restoredProjectId, restoreId, file),
-					copied
-				);
-				inserted = await storage.insert({
-					files: restoredFiles,
-					ids: plan.ids,
-					projectName: input.name,
-					restore: {
-						archiveId: input.archiveId,
-						createdAt: now(),
-						createdByUserId: userId,
-						id: restoreId,
-						manifestDigest: plan.sourceManifestDigest,
-						requestDigest,
-						restoredProjectId,
-						sourceProjectId: input.projectId,
-					},
-					sections: plan.sections,
-				});
-			} catch (error) {
-				await removeUnownedCopies(copied, files, () =>
-					storage.find(input.projectId, restoreId)
-				);
-				throw error;
-			}
-			if (inserted.status === "conflict") {
-				// A concurrent request with the same key won; its record is the answer.
-				const winner = await replay();
-				if (!winner) {
-					throw new RetryablePublicationError("Project Archive restore");
-				}
-				return { restore: winner, status: "replayed" };
-			}
-			const verified = await verifyPublishedRecord({
-				integrityFailure,
-				label: "Project Archive restore",
-				read: () => storage.find(input.projectId, restoreId),
-				toResult: toRestore,
-				withdraw: () => storage.withdraw(restoreId),
-			});
-			return { restore: verified, status: "created" };
-		},
+		restore: (userId, input) => restoreArchive(userId, input),
+		restoreFromArchive: (userId, input, archive) =>
+			restoreArchive(userId, input, archive),
 	};
 }

@@ -1,4 +1,3 @@
-import { exportBundleManifestPath } from "@sprite-anvil/api/export-bundle-manifest";
 import {
 	type DeliveryRecords,
 	deriveDeliveryDiffs,
@@ -22,6 +21,7 @@ import {
 } from "@sprite-anvil/db/schema/delivery-refresh-locks";
 import {
 	exportBundleFiles,
+	exportBundleMarkers,
 	exportBundles,
 } from "@sprite-anvil/db/schema/export-bundles";
 import {
@@ -46,6 +46,7 @@ export interface DeliveryRows {
 	fulfilments: (typeof deliveryFulfilments.$inferSelect)[];
 	lockFiles: (typeof deliveryRefreshLockFiles.$inferSelect)[];
 	locks: (typeof deliveryRefreshLocks.$inferSelect)[];
+	markers?: (typeof exportBundleMarkers.$inferSelect)[];
 	notices: (typeof historicalRiskNotices.$inferSelect)[];
 	profileRevisions: (typeof exportProfileRevisions.$inferSelect)[];
 	profiles: (typeof exportProfiles.$inferSelect)[];
@@ -90,6 +91,11 @@ export function mapDeliveryRows(rows: DeliveryRows): {
 	const decisions = groupBy(rows.validationDecisions, (row) => row.recordId);
 
 	const delivery: DeliveryRecords = {
+		exportBundleMarkers: (rows.markers ?? []).map((row) => ({
+			id: row.projectId,
+			bundleId: row.bundleId,
+			updatedAt: iso(row.updatedAt),
+		})),
 		deliveryDiffs: [],
 		deliveryFulfilments: rows.fulfilments.map((row) => ({
 			createdAt: iso(row.createdAt),
@@ -174,7 +180,7 @@ export function mapDeliveryRows(rows: DeliveryRows): {
 				.map((file) => ({
 					assetVersionId: file.assetVersionId,
 					byteSize: file.byteSize,
-					content: file.path === exportBundleManifestPath ? file.content : null,
+					content: file.assetVersionId === null ? file.content : null,
 					path: file.path,
 					sha256: file.sha256,
 				}))
@@ -267,7 +273,7 @@ export function mapDeliveryRows(rows: DeliveryRows): {
 
 	const files: ProjectArchiveSourceFile[] = rows.validationEvidence.flatMap(
 		(item) =>
-			item.sha256 && item.byteSize && item.fileName && item.objectKey
+			item.sha256 && item.byteSize && item.fileName
 				? [
 						{
 							assetRecordId: null,
@@ -292,6 +298,7 @@ export async function readProjectArchiveDelivery(
 	projectId: string
 ): Promise<{ delivery: DeliveryRecords; files: ProjectArchiveSourceFile[] }> {
 	const [
+		markers,
 		bundles,
 		draftFamilies,
 		drafts,
@@ -306,6 +313,10 @@ export async function readProjectArchiveDelivery(
 		validationEvidence,
 		validations,
 	] = await Promise.all([
+		db
+			.select()
+			.from(exportBundleMarkers)
+			.where(eq(exportBundleMarkers.projectId, projectId)),
 		db
 			.select()
 			.from(exportBundles)
@@ -383,6 +394,7 @@ export async function readProjectArchiveDelivery(
 			.where(eq(deliveryRefreshLocks.projectId, projectId)),
 	]);
 	return mapDeliveryRows({
+		markers,
 		bundleFiles: bundleFiles.map((row) => row.file),
 		bundles,
 		draftFamilies,

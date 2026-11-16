@@ -13,14 +13,14 @@ import {
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm, useStore } from "@tanstack/react-form";
+import { AssetVersionPreview } from "@/components/asset-version-preview";
 import { ENV } from "@/env";
-import type { useAssetVersionWrites } from "../../hooks/use-asset-version-writes";
+import type { useAssetVersionWrites } from "@/utils/use-asset-version-writes";
 import { reviewDispositionLabels } from "../../lib/review-disposition-labels";
 import {
 	compositeVersionFormSchema,
 	reviewRationaleFormSchema,
 } from "../../schemas";
-import { AssetVersionPreview } from "./asset-version-preview";
 import { unitTypeLabels } from "./unit-version-correction-form";
 
 const selectWrapperClassName =
@@ -140,18 +140,18 @@ export function CompositeVersionControls({
 		>
 			<div>
 				<h5 className="font-medium" id={`${formId}-heading`}>
-					Birleşik Sürümleri
+					Composite Versions
 				</h5>
 				<p className="text-muted-foreground text-sm">
-					Yeni sürümde kullanılacak kesin Birim Sürümlerini seçin. Önceki
-					Birleşik Sürümler ve kullanılmayan birimler korunur.
+					Select the exact Unit Versions for the new revision. Previous
+					Composite Versions and unused units are preserved.
 				</p>
 			</div>
 
 			{unitVersions.length === 0 ? (
 				<p className="text-muted-foreground text-sm">
-					Önce Birim Sürümleri oluşturun. Seçici düzeltme formu bu kayda ait
-					birimleri burada listeler.
+					Create Unit Versions first. The selective correction form lists this
+					record's units here.
 				</p>
 			) : (
 				<form
@@ -168,7 +168,7 @@ export function CompositeVersionControls({
 								className="block space-y-1 text-sm"
 								htmlFor={`${formId}-source`}
 							>
-								<span className="block">Başlangıç Birleşik Sürümü</span>
+								<span className="block">Starting Composite Version</span>
 								<NativeSelect
 									className={selectWrapperClassName}
 									disabled={
@@ -183,14 +183,14 @@ export function CompositeVersionControls({
 									value={field.state.value}
 								>
 									<NativeSelectOption value="">
-										Boş seçimle başla
+										Start with an empty selection
 									</NativeSelectOption>
 									{compositeVersions.map((compositeVersion) => (
 										<NativeSelectOption
 											key={compositeVersion.id}
 											value={compositeVersion.id}
 										>
-											Birleşik Sürüm {compositeVersion.versionNumber} ·{" "}
+											Composite Version {compositeVersion.versionNumber} ·{" "}
 											{
 												reviewDispositionLabels[
 													compositeVersion.reviewDisposition
@@ -205,10 +205,11 @@ export function CompositeVersionControls({
 
 					<FieldSet className="space-y-3">
 						<FieldLegend className="mb-0">
-							Yeni Birleşik Sürümün Birim Sürümleri
+							Unit Versions for the new Composite Version
 						</FieldLegend>
 						<p className="text-muted-foreground text-sm">
-							Aynı birim için bir sürüm seçin veya bu birimi bileşime almayın.
+							Select one version per unit, or omit the unit from the
+							composition.
 						</p>
 						<div className="grid gap-3 sm:grid-cols-2">
 							{slots.map((slot, index) => {
@@ -240,7 +241,7 @@ export function CompositeVersionControls({
 													value={field.state.value[key] ?? ""}
 												>
 													<NativeSelectOption value="">
-														Bileşime ekleme
+														Do not add to composition
 													</NativeSelectOption>
 													{slot.unitVersions.map((unitVersion) => {
 														const assetVersion = assetVersionsById.get(
@@ -251,9 +252,9 @@ export function CompositeVersionControls({
 																key={unitVersion.id}
 																value={unitVersion.id}
 															>
-																Birim Sürümü {unitVersion.versionNumber}
+																Unit Version {unitVersion.versionNumber}
 																{assetVersion
-																	? ` · Varlık Sürümü ${assetVersion.versionNumber} · ${reviewDispositionLabels[assetVersion.reviewDisposition]}`
+																	? ` · Asset Version ${assetVersion.versionNumber} · ${reviewDispositionLabels[assetVersion.reviewDisposition]}`
 																	: ""}
 															</NativeSelectOption>
 														);
@@ -273,7 +274,7 @@ export function CompositeVersionControls({
 						}
 						type="submit"
 					>
-						Yeni Birleşik Sürüm kaydet
+						Save new Composite Version
 					</Button>
 				</form>
 			)}
@@ -295,7 +296,7 @@ export function CompositeVersionControls({
 			) : null}
 			{selectedSource ? (
 				<p aria-live="polite" className="sr-only">
-					Birleşik Sürüm {selectedSource.versionNumber} üyelikleri seçildi.
+					Composite Version {selectedSource.versionNumber} memberships selected.
 				</p>
 			) : null}
 		</section>
@@ -319,16 +320,16 @@ function CompositeVersionHistoryItem({
 		<article className="space-y-3 border-t pt-3">
 			<div>
 				<h6 className="font-medium">
-					Birleşik Sürüm {compositeVersion.versionNumber} ·{" "}
+					Composite Version {compositeVersion.versionNumber} ·{" "}
 					{reviewDispositionLabels[compositeVersion.reviewDisposition]}
 				</h6>
 				<p className="text-muted-foreground text-sm">
-					Bu sürüm kendi inceleme kararını taşır.
+					This version has its own review decision.
 				</p>
 			</div>
 			{compositeVersion.compositionMemberships.length === 0 ? (
 				<p className="text-muted-foreground text-sm">
-					Bu Birleşik Sürümde Birim Sürümü yok.
+					This Composite Version has no Unit Versions.
 				</p>
 			) : (
 				<ol className="grid gap-3 sm:grid-cols-2">
@@ -352,11 +353,11 @@ function CompositeVersionHistoryItem({
 								<div className="text-sm">
 									<p>
 										{unitTypeLabels[membership.unitType]} · {membership.unitKey}{" "}
-										· Birim Sürümü {unitVersion?.versionNumber ?? "—"}
+										· Unit Version {unitVersion?.versionNumber ?? "—"}
 									</p>
 									{assetVersion ? (
 										<p className="text-muted-foreground">
-											Varlık Sürümü {assetVersion.versionNumber} ·{" "}
+											Asset Version {assetVersion.versionNumber} ·{" "}
 											{reviewDispositionLabels[assetVersion.reviewDisposition]}
 										</p>
 									) : null}
@@ -370,13 +371,13 @@ function CompositeVersionHistoryItem({
 				{compositeVersion.reviewEvents.map((reviewEvent) => (
 					<li key={reviewEvent.id}>
 						{reviewEvent.type === "candidate"
-							? "Aday olarak kaydedildi"
-							: `İnceleme ile ${reviewDispositionLabels[reviewEvent.type].toLowerCase()}`}{" "}
+							? "Saved as candidate"
+							: `Through review: ${reviewDispositionLabels[reviewEvent.type].toLowerCase()}`}{" "}
 						<time dateTime={reviewEvent.createdAt}>
 							{new Date(reviewEvent.createdAt).toLocaleString("tr-TR")}
 						</time>
 						{reviewEvent.rationale
-							? ` — Gerekçe: ${reviewEvent.rationale}`
+							? ` — Rationale: ${reviewEvent.rationale}`
 							: ""}
 					</li>
 				))}
@@ -415,7 +416,7 @@ function CompositeVersionReviewControls({
 				htmlFor={`composite-review-rationale-${compositeVersion.id}`}
 			>
 				<span>
-					Birleşik Sürüm {compositeVersion.versionNumber} inceleme gerekçesi
+					Composite Version {compositeVersion.versionNumber} review rationale
 				</span>
 				<form.Field name="rationale">
 					{(field) => (
@@ -441,7 +442,7 @@ function CompositeVersionReviewControls({
 						onClick={() => review("approved")}
 						type="button"
 					>
-						Onayla
+						Approve
 					</Button>
 				)}
 				{compositeVersion.reviewDisposition === "rejected" ? null : (
@@ -451,7 +452,7 @@ function CompositeVersionReviewControls({
 						type="button"
 						variant="outline"
 					>
-						Reddet
+						Reject
 					</Button>
 				)}
 				{compositeVersion.reviewDisposition === "candidate" ? null : (
@@ -461,7 +462,7 @@ function CompositeVersionReviewControls({
 						type="button"
 						variant="outline"
 					>
-						Aday yap
+						Make candidate
 					</Button>
 				)}
 			</div>

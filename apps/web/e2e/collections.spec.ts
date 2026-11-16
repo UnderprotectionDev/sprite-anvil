@@ -24,11 +24,11 @@ test("persists Collection membership changes through the web flow", async ({
 		})
 		.click();
 	await page
-		.getByRole("button", { name: "Yeni varlık kaydı", exact: true })
+		.getByRole("button", { name: "New Asset Record", exact: true })
 		.click();
-	await page.getByLabel("Varlık adı").fill(fixture.name);
+	await page.getByLabel("Asset name").fill(fixture.name);
 	await page.getByRole("checkbox", { name: identityCheckboxName }).check();
-	await page.getByRole("button", { name: "Varlık kaydı oluştur" }).click();
+	await page.getByRole("button", { name: "Create Asset Record" }).click();
 	await expect(page.getByRole("heading", { name: fixture.name })).toBeVisible();
 
 	await page.getByRole("link", { name: "Projeler" }).click();
@@ -38,16 +38,16 @@ test("persists Collection membership changes through the web flow", async ({
 		})
 		.click();
 	const collectionName = `Planning ${fixture.name}`;
-	await page.getByLabel("Koleksiyon adı").fill(collectionName);
-	await page.getByRole("button", { name: "Koleksiyon oluştur" }).click();
+	await page.getByLabel("Collection name").fill(collectionName);
+	await page.getByRole("button", { name: "Create Collection" }).click();
 	await expect(
 		page.getByRole("heading", { name: collectionName, level: 2 })
 	).toBeVisible();
 
 	await page
-		.getByLabel("Varlık Kaydı")
+		.getByLabel("Asset Record")
 		.selectOption({ label: `${fixture.name} · Varlık Ailesi atanmamış` });
-	await page.getByRole("button", { name: "Koleksiyona ekle" }).click();
+	await page.getByRole("button", { name: "Add to Collection" }).click();
 	await expect(
 		page.getByRole("heading", { name: fixture.name, level: 3 })
 	).toBeVisible();
@@ -62,7 +62,7 @@ test("persists Collection membership changes through the web flow", async ({
 		})
 		.click();
 	await expect(
-		page.getByText("Bu Koleksiyonda henüz Varlık Kaydı yok.", {
+		page.getByText("This Collection has no Asset Records yet.", {
 			exact: true,
 		})
 	).toBeVisible();
@@ -71,7 +71,7 @@ test("persists Collection membership changes through the web flow", async ({
 		page.getByRole("heading", { name: collectionName, level: 2 })
 	).toBeVisible();
 	await expect(
-		page.getByText("Bu Koleksiyonda henüz Varlık Kaydı yok.", {
+		page.getByText("This Collection has no Asset Records yet.", {
 			exact: true,
 		})
 	).toBeVisible();

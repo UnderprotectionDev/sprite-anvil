@@ -1,7 +1,11 @@
 import type { Context as ApiContext } from "@sprite-anvil/api/context";
 import type { Context as HonoContext } from "hono";
 import { assetVersionObjectKeySchema } from "./cloudflare";
-import { verifyAssetVersionStream } from "./features/asset-versions/server/asset-version-integrity";
+import { desktopOrigins, ENV } from "./env.server";
+import {
+	createAssetVersionIntegrityTransform,
+	verifyAssetVersionStream,
+} from "./features/asset-versions/server/asset-version-integrity";
 import { readAnimationMetadataPackageTarget } from "./features/character-animation-profile/server/animation-metadata-package-target";
 import { readGameplayMetadataPackageTarget } from "./features/gameplay-metadata/server/gameplay-metadata-package-target";
 import { reviewGameplayMetadata } from "./features/gameplay-metadata/server/gameplay-metadata-review";
@@ -10,7 +14,10 @@ import {
 	createSourceMetadataMappingProposalCreator,
 } from "./features/imports/server/source-metadata-mapping-procedures";
 import { createDraftCoordinateSpaceReader } from "./features/pixel-editor/server/draft-coordinate-space";
-import { checkTextureEdges } from "./features/tileset-texture-profile/server/texture-image-reader";
+import {
+	createTextureEdgeChecker,
+	createTilesetSeamChecker,
+} from "./features/tileset-texture-profile/server/texture-image-reader";
 import { decodeVfxFrame } from "./features/vfx-profile/server/vfx-frame-decoder";
 import { readVfxImageDimensions } from "./features/vfx-profile/server/vfx-image-dimensions";
 import {
@@ -43,6 +50,7 @@ import {
 	historicalRiskNoticeStore,
 	iconFamilyReviewStore,
 	importInboxStore,
+	managedOperationServices,
 	marketingUsageReviewStore,
 	measurementDefinitionStore,
 	measurementEventStore,
@@ -53,6 +61,7 @@ import {
 	portraitIdentityReviewStore,
 	productionExperimentStore,
 	productionRecipeStore,
+	productMeasurementRecorder,
 	projectAccess,
 	projectArchiveRestoreStore,
 	projectArchiveStore,
@@ -75,6 +84,7 @@ import {
 } from "./services";
 
 const sourceMetadataMappingDependencies = {
+	createAssetVersionIntegrityTransform,
 	assetVersionStore,
 	createStorage: createServerAssetVersionStorage,
 	importInboxStore,
@@ -103,6 +113,8 @@ export async function createContext({
 		headers: context.req.raw.headers,
 	});
 	return {
+		productMeasurementRecorder,
+		surface: measurementSurface(context.req.header("origin")),
 		sceneQaStore,
 		vfxSynchronizationStore,
 		readVfxImageDimensions,
@@ -115,6 +127,10 @@ export async function createContext({
 		deliveryRefreshLockStore,
 		deliveryTargetStore,
 		erasureImpactStore,
+		erasureApprovalOperations:
+			managedOperationServices?.erasureApprovalOperations,
+		projectArchiveRestoreOperations:
+			managedOperationServices?.projectArchiveRestoreOperations,
 		exportBundleStore,
 		platformEquivalenceStore,
 		projectArchiveRestoreStore,
@@ -146,7 +162,8 @@ export async function createContext({
 		measurementEventStore,
 		measurementMeasureStore,
 		textureRepetitionReviewStore,
-		checkTextureEdges,
+		checkTextureEdges: createTextureEdgeChecker(verifyAssetVersionStream),
+		checkTilesetSeam: createTilesetSeamChecker(verifyAssetVersionStream),
 		tilesetAdjacencyReviewStore,
 		directionalReviewStore,
 		readAnimationMetadataPackageTarget,
@@ -239,3 +256,15 @@ export async function createContext({
 }
 
 export type Context = Awaited<ReturnType<typeof createContext>>;
+
+export function measurementSurface(
+	origin: string | undefined
+): "web" | "desktop" | undefined {
+	if (!origin) {
+		return undefined;
+	}
+	if (desktopOrigins.includes(origin)) {
+		return "desktop";
+	}
+	return origin === ENV.CORS_ORIGIN ? "web" : undefined;
+}

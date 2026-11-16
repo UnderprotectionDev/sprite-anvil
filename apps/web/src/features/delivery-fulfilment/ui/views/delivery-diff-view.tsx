@@ -61,7 +61,7 @@ function Comparison({
 		...orpc.deliveryFulfilment.compareFulfilments.queryOptions({
 			input: { fromFulfilmentId, projectId, toFulfilmentId },
 		}),
-		meta: { suppressGlobalErrorToast: true },
+		meta: { errorPresentation: "inline" },
 	});
 	if (comparison.isPending) {
 		return (
@@ -93,7 +93,7 @@ function TargetComparison({
 		...orpc.deliveryFulfilment.listFulfilments.queryOptions({
 			input: { deliveryTargetId, projectId },
 		}),
-		meta: { suppressGlobalErrorToast: true },
+		meta: { errorPresentation: "inline" },
 	});
 	const [fromId, setFromId] = useState("");
 	const [toId, setToId] = useState("");
@@ -168,7 +168,7 @@ export function DeliveryDiffView({
 }) {
 	const catalog = useQuery({
 		...orpc.deliveryPlanning.list.queryOptions({ input: { projectId } }),
-		meta: { suppressGlobalErrorToast: true },
+		meta: { errorPresentation: "inline" },
 	});
 	const targets = catalog.data?.deliveryTargets ?? [];
 	const selected =

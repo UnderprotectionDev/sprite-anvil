@@ -6,77 +6,126 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@font-face {
+	font-family: "IBM Plex Sans";
+	src: url("./fonts/IBMPlexSans.ttf") format("truetype");
+	font-style: normal;
+	font-weight: 100 700;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: "IBM Plex Mono";
+	src: url("./fonts/IBMPlexMono.ttf") format("truetype");
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: "Jersey 10";
+	src: url("./fonts/Jersey10.ttf") format("truetype");
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+}
+
+@font-face {
+	font-family: "Pixelify Sans";
+	src: url("./fonts/PixelifySans.ttf") format("truetype");
+	font-style: normal;
+	font-weight: 400 700;
+	font-display: swap;
+}
+
 :root {
-	--background: oklch(1 0 0);
-	--foreground: oklch(0.145 0 0);
-	--card: oklch(1 0 0);
-	--card-foreground: oklch(0.145 0 0);
-	--popover: oklch(1 0 0);
-	--popover-foreground: oklch(0.145 0 0);
-	--primary: oklch(0.205 0 0);
-	--primary-foreground: oklch(0.985 0 0);
-	--secondary: oklch(0.97 0 0);
-	--secondary-foreground: oklch(0.205 0 0);
-	--muted: oklch(0.97 0 0);
-	--muted-foreground: oklch(0.556 0 0);
-	--accent: oklch(0.97 0 0);
-	--accent-foreground: oklch(0.205 0 0);
-	--destructive: oklch(0.58 0.22 27);
-	--border: oklch(0.922 0 0);
-	--input: oklch(0.922 0 0);
-	--ring: oklch(0.708 0 0);
-	--chart-1: oklch(0.809 0.105 251.813);
-	--chart-2: oklch(0.623 0.214 259.815);
-	--chart-3: oklch(0.546 0.245 262.881);
-	--chart-4: oklch(0.488 0.243 264.376);
-	--chart-5: oklch(0.424 0.199 265.638);
-	--radius: 0.625rem;
-	--sidebar: oklch(0.985 0 0);
-	--sidebar-foreground: oklch(0.145 0 0);
-	--sidebar-primary: oklch(0.205 0 0);
-	--sidebar-primary-foreground: oklch(0.985 0 0);
-	--sidebar-accent: oklch(0.97 0 0);
-	--sidebar-accent-foreground: oklch(0.205 0 0);
-	--sidebar-border: oklch(0.922 0 0);
-	--sidebar-ring: oklch(0.708 0 0);
+	--font-mono: "IBM Plex Mono", monospace;
+	--font-display: "Jersey 10", sans-serif;
+	--background: #eeede7;
+	--foreground: #161616;
+	--card: #faf9f5;
+	--card-foreground: #161616;
+	--popover: #faf9f5;
+	--popover-foreground: #161616;
+	--primary: #d9794e;
+	--primary-foreground: #161616;
+	--secondary: #e7e4dc;
+	--secondary-foreground: #161616;
+	--muted: #e7e4dc;
+	--muted-foreground: #5e5d61;
+	--accent: #d8d5cd;
+	--accent-foreground: #161616;
+	--destructive: #ad302b;
+	--border: #c8c4ba;
+	--input: #756f66;
+	--ring: #161616;
+	--chart-1: #293b85;
+	--chart-2: #a84b2c;
+	--chart-3: #2f6b57;
+	--chart-4: #8a5b1d;
+	--chart-5: #45637b;
+	--radius: 0px;
+	--sidebar: #faf9f5;
+	--sidebar-foreground: #161616;
+	--sidebar-primary: #293b85;
+	--sidebar-primary-foreground: #ffffff;
+	--sidebar-accent: #e7e4dc;
+	--sidebar-accent-foreground: #161616;
+	--sidebar-border: #c8c4ba;
+	--sidebar-ring: #161616;
+	--status-success: #2f6b57;
+	--status-danger: #ad302b;
+	--selection: #293b85;
+	--signal: #a84b2c;
+	--signal-foreground: #ffffff;
 }
 
 .dark {
-	--background: oklch(0.145 0 0);
-	--foreground: oklch(0.985 0 0);
-	--card: oklch(0.205 0 0);
-	--card-foreground: oklch(0.985 0 0);
-	--popover: oklch(0.205 0 0);
-	--popover-foreground: oklch(0.985 0 0);
-	--primary: oklch(0.87 0 0);
-	--primary-foreground: oklch(0.205 0 0);
-	--secondary: oklch(0.269 0 0);
-	--secondary-foreground: oklch(0.985 0 0);
-	--muted: oklch(0.269 0 0);
-	--muted-foreground: oklch(0.708 0 0);
-	--accent: oklch(0.371 0 0);
-	--accent-foreground: oklch(0.985 0 0);
-	--destructive: oklch(0.704 0.191 22.216);
-	--border: oklch(1 0 0 / 10%);
-	--input: oklch(1 0 0 / 15%);
-	--ring: oklch(0.556 0 0);
-	--chart-1: oklch(0.809 0.105 251.813);
-	--chart-2: oklch(0.623 0.214 259.815);
-	--chart-3: oklch(0.546 0.245 262.881);
-	--chart-4: oklch(0.488 0.243 264.376);
-	--chart-5: oklch(0.424 0.199 265.638);
-	--sidebar: oklch(0.205 0 0);
-	--sidebar-foreground: oklch(0.985 0 0);
-	--sidebar-primary: oklch(0.488 0.243 264.376);
-	--sidebar-primary-foreground: oklch(0.985 0 0);
-	--sidebar-accent: oklch(0.269 0 0);
-	--sidebar-accent-foreground: oklch(0.985 0 0);
-	--sidebar-border: oklch(1 0 0 / 10%);
-	--sidebar-ring: oklch(0.556 0 0);
+	--background: #141311;
+	--foreground: #eeeae3;
+	--card: #201f24;
+	--card-foreground: #eeeae3;
+	--popover: #1d1d20;
+	--popover-foreground: #eeeae3;
+	--primary: #d9794e;
+	--primary-foreground: #161616;
+	--secondary: #2a292f;
+	--secondary-foreground: #eeeae3;
+	--muted: #2a292f;
+	--muted-foreground: #a6a19a;
+	--accent: #38383b;
+	--accent-foreground: #eeeae3;
+	--destructive: #e87870;
+	--border: #484541;
+	--input: #756f66;
+	--ring: #eeeae3;
+	--chart-1: #4d69d4;
+	--chart-2: #d9794e;
+	--chart-3: #82b39d;
+	--chart-4: #d7a453;
+	--chart-5: #83b7db;
+	--sidebar: #1d1b18;
+	--sidebar-foreground: #eeeae3;
+	--sidebar-primary: #4d69d4;
+	--sidebar-primary-foreground: #ffffff;
+	--sidebar-accent: #2a292f;
+	--sidebar-accent-foreground: #eeeae3;
+	--sidebar-border: #484541;
+	--sidebar-ring: #eeeae3;
+	--status-success: #82b39d;
+	--status-danger: #e87870;
+	--selection: #4d69d4;
+	--signal: #d9794e;
+	--signal-foreground: #161616;
 }
 
 @theme inline {
-	--font-sans: "Inter Variable", sans-serif;
+	--font-sans: "IBM Plex Sans", sans-serif;
+	--font-mono: "IBM Plex Mono", monospace;
+	--font-display: "Jersey 10", sans-serif;
+	--font-pixel: "Pixelify Sans", sans-serif;
+	--radius-control: 0px;
+	--radius-preview: 0px;
 	--color-sidebar-ring: var(--sidebar-ring);
 	--color-sidebar-border: var(--sidebar-border);
 	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -108,13 +157,13 @@
 	--color-card: var(--card);
 	--color-foreground: var(--foreground);
 	--color-background: var(--background);
-	--radius-sm: calc(var(--radius) - 4px);
-	--radius-md: calc(var(--radius) - 2px);
+	--radius-sm: 0px;
+	--radius-md: 0px;
 	--radius-lg: var(--radius);
-	--radius-xl: calc(var(--radius) + 4px);
-	--radius-2xl: calc(var(--radius) + 8px);
-	--radius-3xl: calc(var(--radius) + 12px);
-	--radius-4xl: calc(var(--radius) + 16px);
+	--radius-xl: 0px;
+	--radius-2xl: 0px;
+	--radius-3xl: 0px;
+	--radius-4xl: 0px;
 }
 
 @layer base {

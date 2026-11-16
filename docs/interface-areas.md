@@ -2,8 +2,8 @@
 
 Paper'da hangi artboard'ların çizileceğinin listesi. Ekranın içinde ne olacağını bu belge değil, [PRD](prd/README.md) ve ilgili [iş akışı aşaması](workflow/) belirler; tablolardaki **İş akışı** sütunu o aşamanın numarasıdır.
 
-- **Paper dosyası:** [Sprite Anvil · Product](https://app.paper.design/file/01M4ASVM4ATF4HHXQSJ96CWVFY). Başlamadan önce `Start Here` sayfasını okuyun.
-- **Görsel kararlar:** `Design Language` (renk, yazı, boşluk, bileşenler) sayfası. Ortak ekran kabuğu `00 · Shared Shell` sayfasındaki `00.0 · Shared screen template` bölümüdür; ekranın yerleşimi kabuğun içerik alanında, içeriğine göre kurulur.
+- **Paper dosyası:** [Sprite Anvil · Product](https://app.paper.design/file/01M4ASVM4ATF4HHXQSJ96CWVFY). Başlamadan önce bu dosyadaki `Start Here` sayfasını okuyun.
+- **Görsel kararlar:** [Design System](https://app.paper.design/file/01M74QMGC2SVEEBSHR28BCNDGY) ayrı dosyadadır. Ortak ekran kabuğu ayrı [Shared Shell](https://app.paper.design/file/01M74Q7ABFEGBXZ1WSZTQAHSXJ) dosyasındaki `3L15-0` artboard’udur; ekranın yerleşimi kabuğun içerik alanında, içeriğine göre kurulur.
 - Kaynaklar çelişirse uygulamadan önce açıklanır.
 
 ## Kurallar
@@ -22,15 +22,15 @@ Paper'da hangi artboard'ların çizileceğinin listesi. Ekranın içinde ne olac
 
 ## 00 · Ortak çerçeve
 
-Paper sayfası: `00 · Shared Shell`
+Paper dosyası: [Shared Shell](https://app.paper.design/file/01M74Q7ABFEGBXZ1WSZTQAHSXJ), artboard `3L15-0`.
 
 | Kimlik | Ekran | İçerik | İş akışı |
 | --- | --- | --- | --- |
-| 00.0 | Ortak ekran şablonu | 00.1–00.5'in bir arada görünen kabuğu: solda proje rayı ve alan sütunu, ortada içerik alanı, sağda etkinlik şeridi. Diğer bölümlerin ekranları bu kabuğun 00.2 İçerik alanına çizilir. | — |
-| 00.1 | Proje ve gezinme | Proje rayı: projeler, seçili proje, 01.2 Projeler'e dönüş ve 00.5 hesap menüsü girişi. Alan sütunu: seçili proje adı ve proje değiştirme; Kütüphane (03.1), Teslimat (06.1) ve Proje Bağlamı (02.1) geçişleri, açık alanın seçili görünümü; proje ayarlarına giriş proje değiştirici menüsündeki Proje ayarları bölümündedir; bölümde Proje Arşivi (01.4), Bağlantılar ve izinler (02.3) ve Proje ayrıntıları (01.5) bulunur. Proje açılınca Kütüphane (03.1) Varlıklar görünümüyle açılır ve proje için son açık kayıt sekmeleri geri yüklenir; ayrı bir proje özet ekranı yoktur. Üretim, etkinlik şeridindeki (00.3) Üretim düğmesinden 00.3.1 özetiyle açılır; tam sayfa 04.2'dir. İnceleme ekranları sürümden açılır (03.2.2, 03.2.2.3). | 01 |
+| 00.0 | Ortak ekran şablonu | 308 px sol kenar çubuğu: proje değiştirici, arama, Library, Context, Delivery, attention ve hesap dock alanı; sağda kayıt sekmeleri ve çalışma alanı. Sağ etkinlik şeridi boş plan alanıdır. Diğer bölümlerin ekranları bu kabuğun 00.2 İçerik alanına çizilir. | — |
+| 00.1 | Proje ve gezinme | 308 px sol kenar çubuğu: projeler, seçili proje, 01.2 Projeler'e dönüş ve 00.5 hesap menüsü girişi; arama ve seçili proje adı ve proje değiştirme; Kütüphane (03.1), Teslimat (06.1) ve Proje Bağlamı (02.1) geçişleri, açık alanın seçili görünümü; proje ayarlarına giriş proje değiştirici menüsündeki Proje ayarları bölümündedir; bölümde Proje Arşivi (01.4), Bağlantılar ve izinler (02.3) ve Proje ayrıntıları (01.5) bulunur. Proje açılınca Kütüphane (03.1) Varlıklar görünümüyle açılır ve proje için son açık kayıt sekmeleri geri yüklenir; ayrı bir proje özet ekranı yoktur. Planlanan etkinlik şeridinde (00.3) Üretim düğmesi 00.3.1 özetini açar; tam sayfa 04.2'dir. İnceleme ekranları sürümden açılır (03.2.2, 03.2.2.3). | 01 |
 | 00.1.1 | Komut paleti | Ctrl K ile açılır; proje, alan, kayıt ve komut arama; sonuçları klavyeyle seçip açma; Esc ile kapanır. | 01 |
 | 00.2 | İçerik alanı | Açık kayıt sekmeleri (kapatılabilir); ekran başlığı, seçili kaydın adı ve konum yolu; ana içerik; kayda ait işlem kontrolleri; alt ekran geçişleri; üst kayda veya listeye dönüş; kaydın süreç adımları için yuva (adımları kaydı sahiplenen bölüm belirler). | — |
-| 00.3 | Durum alanı | Etkinlik şeridi: Üretim, İşlem ve Destek düğmeleri ile bağlantı durumu (çevrimdışıyken 08.2.4). İşlem düğmesi devam eden işlemleri sağ panelde açar (08.2.7 › İşlem ilerlemesi); işlem seçilince 07.2 açılır. Üretim düğmesi 00.3.1'i, Destek düğmesi 00.4'ü açar. Görünümler: Şerit · İşlemler paneli. | 32, 34 |
+| 00.3 | Durum alanı | Planlanan etkinlik şeridi (Shared Shell artboard’unda şu anda boş): Üretim, İşlem ve Destek düğmeleri ile bağlantı durumu (çevrimdışıyken 08.2.4). İşlem düğmesi devam eden işlemleri sağ panelde açar (08.2.7 › İşlem ilerlemesi); işlem seçilince 07.2 açılır. Üretim düğmesi 00.3.1'i, Destek düğmesi 00.4'ü açar. Görünümler: Şerit · İşlemler paneli. | 32, 34 |
 | 00.3.1 | Üretim özeti | Üretim kuyruğu özeti: hazırlanan paketler, girdisi eksik ve sırada bekleyen varlıklar, bekleyen girdi sayısı; tam sayfa için 04.2 İçe Aktarma Gelen Kutusu geçişi. | 12 |
 | 00.4 | Destek ve sınır bilgileri | Desteklenen tarayıcı, masaüstü, motor sürümü ve proje boyutu; yayımlanmış işlem/depolama sınırları ve destek değişikliği duyuruları; duyurudan 00.4.1 geçişi. Desteklenmeyen tarayıcıyla girişte 08.1 yerine 00.4 açılır. Görünümler: Yayımlanmış · Henüz yayımlanmamış (değeri yayımlanmamış parametrede “destek iddiası kapalı”, sınırsız anlamına gelmez). Yeni duyuru Destek düğmesinde yalnız işaretle belirir, çalışmayı kesmez. | 48 |
 | 00.4.1 | Destek kaldırma duyurusu ve dışa aktarma | Desteği kaldırılacak platform veya sürüm için önceden duyuru ve verileri dışa aktarma yolu (Verileri dışa aktar → 01.4 Proje Arşivi › Arşiv oluşturma); 00.4'e dönüş. | 48 |

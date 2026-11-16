@@ -11,6 +11,7 @@ import {
 	requiredSetSaveInputSchema,
 } from "../family-readiness";
 import { protectedProcedure } from "../index";
+import { recordProductBoundary } from "../measurement-workflows";
 
 function getFamilyReadinessStore(context: Context) {
 	if (!context.familyReadinessStore) {
@@ -32,7 +33,7 @@ async function readFamilyReadiness(
 		assetFamilyId
 	);
 	if (!readiness) {
-		throw new ORPCError("NOT_FOUND", { message: "Varlık Ailesi bulunamadı." });
+		throw new ORPCError("NOT_FOUND", { message: "Asset Family not found." });
 	}
 	return familyReadinessSchema.parse(readiness);
 }
@@ -42,12 +43,12 @@ function evidenceRejectionMessage(
 	input: ReadinessEvidenceInput
 ) {
 	if (reason === "invalid_usage_test_context") {
-		return "Obje sahne kanıtı, aynı projedeki en son inceleme kararı onaylı bir karakter sürümünü ve farklı Varlık Kayıtlarına bağlı en az iki zemin sürümünü sabitlemelidir. Kanıtı güncel sürümlerle yeniden kaydedin.";
+		return "Object scene evidence must pin an approved character version in the same Project and at least two ground versions from different Asset Records. Record the evidence again with current versions.";
 	}
 	if (input.kind === "quality" && input.result === "waived") {
-		return "Kalite İstisnası için aynı kural, gözlenen değer, yöntem ve kesin kapsama ait güncel ölçüm kanıtı gerekir. Değerlendirmeyi yenileyin; bütünlük, zorunlu insan incelemesi ve kullanım testi istisna alamaz.";
+		return "A Quality Waiver requires current measurement evidence for the same rule, observed value, method, and exact scope. Refresh the evaluation; integrity, required human reviews, and usage tests cannot be waived.";
 	}
-	return "Kanıt için etkin Gerekli Öğeler Listesi, güncel Varlık Sürümleri ve Bağlam Sürümü gerekir; kalite kuralı, zorunlu insan incelemesi veya kullanım testi etkin Özel Profil Sözleşmesiyle eşleşmelidir.";
+	return "Evidence requires an active Required Set, current Asset Versions, and a Context Revision; the quality rule, required human review, or usage test must match the active Specialized Profile Contract.";
 }
 
 export const familyReadinessRouter = {
@@ -78,12 +79,12 @@ export const familyReadinessRouter = {
 				)
 			) {
 				throw new ORPCError("NOT_FOUND", {
-					message: "Varlık Ailesi bulunamadı.",
+					message: "Asset Family not found.",
 				});
 			}
 			throw new ORPCError("BAD_REQUEST", {
 				message:
-					"Liste öğeleri aynı Varlık Ailesindeki Varlık Kayıtlarına bağlanmalı; çakışan sürüm numarası varsa yeniden deneyin.",
+					"Required Set items must reference Asset Records in the same Asset Family. Retry if the version number conflicts.",
 			});
 		}),
 	activate: protectedProcedure
@@ -96,8 +97,7 @@ export const familyReadinessRouter = {
 			);
 			if (!readiness) {
 				throw new ORPCError("NOT_FOUND", {
-					message:
-						"Etkinleştirilecek Gerekli Öğeler Listesi sürümü bulunamadı.",
+					message: "Required Set revision to activate was not found.",
 				});
 			}
 			return familyReadinessSchema.parse(readiness);
@@ -115,6 +115,27 @@ export const familyReadinessRouter = {
 					message: evidenceRejectionMessage(result.reason, input),
 				});
 			}
-			return familyReadinessSchema.parse(result.readiness);
+			const readiness = familyReadinessSchema.parse(result.readiness);
+			if (
+				input.kind === "quality" &&
+				input.result === "failed" &&
+				input.versionTarget
+			) {
+				await recordProductBoundary(context, {
+					userId: context.session.user.id,
+					projectId: input.projectId,
+					workflowId: input.versionTarget.id,
+					eventFamily: "review_and_repair",
+					eventName: "review_issue_recorded",
+					phase: "start",
+					recordKind:
+						input.versionTarget.kind === "unit"
+							? "unit_version"
+							: "composite_version",
+					outcomeClass: "workflow_started",
+					counters: {},
+				});
+			}
+			return readiness;
 		}),
 };

@@ -5,14 +5,18 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { StatusMessage } from "@/components/status-message";
 import { TaskWorkspace } from "@/components/task-workspace";
+import {
+	builtinProfileName,
+	builtinProfilePresentation,
+} from "@/utils/builtin-profile-labels";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { orpc } from "@/utils/orpc";
 
 const ruleClassLabels = {
-	integrity_gate: "Bütünlük Denetimi",
-	waivable_requirement: "İstisna Verilebilir Gereksinim",
-	quality_advisory: "Kalite Uyarısı",
+	integrity_gate: "Integrity Gate",
+	waivable_requirement: "Waivable Requirement",
+	quality_advisory: "Quality Advisory",
 } as const;
 
 export function SpecializedProfileContractsView({
@@ -40,21 +44,18 @@ export function SpecializedProfileContractsView({
 				const result = await contractsQuery.refetch();
 				if (result.isError) {
 					setStatusMessage(
-						`${activation.contract.name} etkinleştirildi. Proje durumunu yeniden yükleyin.`
+						`${builtinProfileName(activation.contract.profileId, activation.contract.name)} activated. Reload the project state.`
 					);
 					return;
 				}
 				setStatusMessage(
-					`${activation.contract.name} ${activation.contract.version} sürümü etkinleştirildi ve yeniden okundu.`
+					`${builtinProfileName(activation.contract.profileId, activation.contract.name)} ${activation.contract.version} version activated and reread.`
 				);
 			},
 			onError: (error) => {
 				setStatusMessage(null);
 				setErrorMessage(
-					getErrorMessage(
-						error,
-						"Sözleşme etkinleştirilemedi. Yeniden deneyin."
-					)
+					getErrorMessage(error, "Could not activate the contract. Try again.")
 				);
 				if (isWriteOutcomeUncertain(error)) {
 					setWriteOutcomeUncertain(true);
@@ -81,8 +82,8 @@ export function SpecializedProfileContractsView({
 			);
 			setStatusMessage(
 				matchingRevision
-					? `${matchingRevision.definition.name} sözleşmesi projede etkin.`
-					: "Proje durumu yeniden okundu. Etkinleştirme görünmüyor; işlemi yeniden deneyebilirsiniz."
+					? `${builtinProfileName(matchingRevision.definition.profileId, matchingRevision.definition.name)} contract is active in this project.`
+					: "Project state reloaded. Activation is not visible; you can retry."
 			);
 		} finally {
 			setIsCheckingWriteOutcome(false);
@@ -100,28 +101,27 @@ export function SpecializedProfileContractsView({
 					params={{ projectId }}
 					to="/projects/$projectId/assets"
 				>
-					Varlık kayıtlarına dön
+					Back to Asset Records
 				</Link>
 				<div className="max-w-3xl space-y-2">
 					<p className="font-mono text-primary text-xs uppercase tracking-[0.16em]">
-						Kalite kanıtı
+						Quality evidence
 					</p>
 					<h1 className="font-semibold text-3xl sm:text-4xl">
 						{projectQuery.data?.name
-							? `${projectQuery.data.name} · Özel Profil Sözleşmeleri`
-							: "Özel Profil Sözleşmeleri"}
+							? `${projectQuery.data.name} · Specialized Profile Contracts`
+							: "Specialized Profile Contracts"}
 					</h1>
 					<p className="text-muted-foreground leading-relaxed">
-						Bir sözleşmenin etkinleştirilmesi yalnız bu projeyi etkiler. Etkin
-						sözleşme sürümlüdür; her profilin kurallarını, gerekli
-						incelemelerini, kullanım testlerini ve dışa aktarım eşlemelerini
-						tanımlar.
+						Activating a contract affects only this project. The active contract
+						is versioned and defines each profile's rules, required reviews,
+						usage tests, and export mappings.
 					</p>
 					<p className="text-muted-foreground text-sm leading-relaxed">
-						Bu ekran tek kalite puanı veya otomatik sanatsal kabul kararı
-						üretmez. Harici Görsel Analiz izni proje ve kategori için ayrı
-						yönetilir; izin olmadığında yerel denetimler ve insan incelemesi
-						sürer.
+						This screen does not produce one quality score or automatic artistic
+						acceptance. External Visual Analysis permission is managed
+						separately by project and category; local checks and human review
+						continue without it.
 					</p>
 				</div>
 			</header>
@@ -141,27 +141,25 @@ export function SpecializedProfileContractsView({
 					type="button"
 					variant="outline"
 				>
-					{isCheckingWriteOutcome
-						? "Durum kontrol ediliyor…"
-						: "Durumu kontrol et"}
+					{isCheckingWriteOutcome ? "Checking status…" : "Check status"}
 				</Button>
 			) : null}
 
 			{contractsQuery.isPending ? (
-				<p aria-live="polite">Profil sözleşmeleri yükleniyor…</p>
+				<p aria-live="polite">Loading profile contracts…</p>
 			) : null}
 			{contractsQuery.isError ? (
 				<div className="space-y-3 rounded-lg border p-5">
 					<StatusMessage tone="error">
-						Profil sözleşmeleri yüklenemedi. Proje erişimini kontrol edip
-						yeniden deneyin.
+						Could not load profile contracts. Check project access and try
+						again.
 					</StatusMessage>
 					<Button
 						onClick={() => void contractsQuery.refetch()}
 						type="button"
 						variant="outline"
 					>
-						Yeniden dene
+						Try again
 					</Button>
 				</div>
 			) : null}
@@ -176,19 +174,19 @@ export function SpecializedProfileContractsView({
 							className="font-semibold text-2xl"
 							id="specialized-profiles-heading"
 						>
-							Özel profiller
+							Specialized profiles
 						</h2>
 						<p className="text-muted-foreground text-sm">
-							Etkinleştirilen revizyon, yalnız bu projenin kalite kanıtında
-							kullanılır.
+							The activated revision is used only in this project's quality
+							evidence.
 						</p>
 					</div>
 					<TaskWorkspace
-						label="Özel profil seçimi"
+						label="Specialized profile selection"
 						sections={profiles.map(({ activeContract, definition }) => ({
 							id: definition.profileId,
-							label: definition.name,
-							description: `${definition.name} sözleşmesini inceleyin ve bu projede kullanmak için etkinleştirin.`,
+							label: builtinProfileName(definition.profileId, definition.name),
+							description: `${builtinProfileName(definition.profileId, definition.name)}: review the contract and activate it for use in this project.`,
 							content: (
 								<div
 									className="min-w-0 space-y-4 rounded-xl border bg-card p-5 shadow-sm"
@@ -201,19 +199,23 @@ export function SpecializedProfileContractsView({
 													className="font-semibold text-xl"
 													id={`${definition.profileId}-heading`}
 												>
-													{definition.name}
+													{builtinProfileName(
+														definition.profileId,
+														definition.name
+													)}
 												</h3>
 												<p className="text-muted-foreground text-sm">
-													Sözleşme sürümü {definition.version} · Şema{" "}
+													Contract version {definition.version} · Schema{" "}
 													{definition.contractSchemaVersion}
 												</p>
 												{activeContract ? (
 													<p className="font-medium text-sm" role="status">
-														Bu projede etkin · {activeContract.contract.version}
+														Active in this project ·{" "}
+														{activeContract.contract.version}
 													</p>
 												) : (
 													<p className="text-muted-foreground text-sm">
-														Bu projede henüz etkin değil
+														Not active in this project yet
 													</p>
 												)}
 											</div>
@@ -236,12 +238,14 @@ export function SpecializedProfileContractsView({
 											>
 												{activeContract?.contractRevisionId ===
 												`${definition.profileId}@${definition.version}`
-													? "Etkin"
-													: "Sözleşmeyi etkinleştir"}
+													? "Active"
+													: "Activate contract"}
 											</Button>
 										</div>
 
-										<ContractDetails contract={definition} />
+										<ContractDetails
+											contract={builtinProfilePresentation(definition)}
+										/>
 									</article>
 								</div>
 							),
@@ -261,16 +265,14 @@ function ContractDetails({
 	return (
 		<details className="border-t pt-3">
 			<summary className="w-fit cursor-pointer rounded-sm font-medium text-sm underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4">
-				Sözleşme ayrıntıları
+				Contract details
 			</summary>
 			<div className="mt-4 grid gap-6 lg:grid-cols-2">
 				<section
-					aria-label="Metadata alanları ve dışa aktarım eşlemeleri"
+					aria-label="Metadata fields and export mappings"
 					className="space-y-3"
 				>
-					<h4 className="font-semibold">
-						Metadata alanları ve dışa aktarım eşlemeleri
-					</h4>
+					<h4 className="font-semibold">Metadata fields and export mappings</h4>
 					<ul className="space-y-3">
 						{contract.metadataFields.map((field) => {
 							const mapping = contract.exportMappings.find(
@@ -279,31 +281,29 @@ function ContractDetails({
 							return (
 								<li className="rounded-md border p-3 text-sm" key={field.id}>
 									<h5 className="font-medium">
-										{field.label} ·{" "}
-										{field.required ? "Zorunlu" : "İsteğe bağlı"}
+										{field.label} · {field.required ? "Required" : "Optional"}
 									</h5>
 									<p className="mt-1 text-muted-foreground">
 										{field.description}
 									</p>
-									<p className="mt-1">Kapsam: {field.scope}</p>
-									<p className="mt-1">Tür: {field.type}</p>
+									<p className="mt-1">Scope: {field.scope}</p>
+									<p className="mt-1">Type: {field.type}</p>
 									<p className="mt-1">
-										Dışa aktarım hedefi:{" "}
-										{mapping?.targetPath ?? field.exportPath}
-										{mapping?.unit ? ` · Birim: ${mapping.unit}` : ""}
+										Export target: {mapping?.targetPath ?? field.exportPath}
+										{mapping?.unit ? ` · Unit: ${mapping.unit}` : ""}
 										{mapping?.coordinateSystem
-											? ` · Koordinat: ${mapping.coordinateSystem}`
+											? ` · Coordinate system: ${mapping.coordinateSystem}`
 											: ""}
 									</p>
 									<p className="mt-1 text-muted-foreground">
-										Alan yoksa:{" "}
+										If missing:{" "}
 										{mapping?.absentBehavior === "stop_export"
-											? "dışa aktarım durur"
-											: "bilinmeyen değer korunur"}
+											? "export stops"
+											: "unknown value is preserved"}
 									</p>
 									{mapping ? (
 										<p className="mt-1 text-muted-foreground">
-											Yeniden okuma denetimi: {mapping.readbackCheck}
+											Reread check: {mapping.readbackCheck}
 										</p>
 									) : null}
 								</li>
@@ -312,8 +312,8 @@ function ContractDetails({
 					</ul>
 				</section>
 
-				<section aria-label="Kalite kuralları" className="space-y-3">
-					<h4 className="font-semibold">Kalite kuralları</h4>
+				<section aria-label="Quality rules" className="space-y-3">
+					<h4 className="font-semibold">Quality rules</h4>
 					<ul className="space-y-3">
 						{contract.rules.map((rule) => (
 							<li className="rounded-md border p-3 text-sm" key={rule.id}>
@@ -322,24 +322,22 @@ function ContractDetails({
 									{ruleClassLabels[rule.class]}
 								</p>
 								<dl className="mt-2 grid gap-1">
-									<Definition label="Girdi" value={rule.input} />
+									<Definition label="Input" value={rule.input} />
 									<Definition
-										label="Başarı sonucu"
+										label="Success result"
 										value={rule.successResult}
 									/>
 									<Definition
-										label="Başarısızlık sonucu"
+										label="Failure result"
 										value={rule.failureResult}
 									/>
-									<Definition label="Kanıt" value={rule.evidence} />
-									<Definition label="Kapsam" value={rule.scope} />
-									<Definition
-										label="Dışa aktarım etkisi"
-										value={rule.exportEffect}
-									/>
+									<Definition label="Evidence" value={rule.evidence} />
+									<Definition label="Scope" value={rule.scope} />
+									<Definition label="Export effect" value={rule.exportEffect} />
 								</dl>
 								<p className="mt-2 text-muted-foreground">
-									İstisna uygunluğu: {rule.waiverEligibility ? "izinli" : "yok"}
+									Waiver eligibility:{" "}
+									{rule.waiverEligibility ? "allowed" : "none"}
 								</p>
 							</li>
 						))}
@@ -348,11 +346,11 @@ function ContractDetails({
 
 				<ContractEvidenceSection
 					items={contract.humanReviews}
-					label="Zorunlu insan incelemeleri"
+					label="Required human reviews"
 				/>
 				<ContractEvidenceSection
 					items={contract.usageTests}
-					label="Zorunlu kullanım testleri"
+					label="Required usage tests"
 				/>
 			</div>
 		</details>
@@ -385,18 +383,12 @@ function ContractEvidenceSection({
 					<li className="rounded-md border p-3 text-sm" key={item.id}>
 						<h5 className="font-medium">{item.label}</h5>
 						<dl className="mt-2 grid gap-1">
-							<Definition label="Girdi" value={item.input} />
-							<Definition label="Başarı sonucu" value={item.successResult} />
-							<Definition
-								label="Başarısızlık sonucu"
-								value={item.failureResult}
-							/>
-							<Definition label="Kanıt" value={item.evidence} />
-							<Definition label="Kapsam" value={item.scope} />
-							<Definition
-								label="Dışa aktarım etkisi"
-								value={item.exportEffect}
-							/>
+							<Definition label="Input" value={item.input} />
+							<Definition label="Success result" value={item.successResult} />
+							<Definition label="Failure result" value={item.failureResult} />
+							<Definition label="Evidence" value={item.evidence} />
+							<Definition label="Scope" value={item.scope} />
+							<Definition label="Export effect" value={item.exportEffect} />
 						</dl>
 					</li>
 				))}

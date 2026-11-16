@@ -9,6 +9,7 @@ import type {
 	ReadinessPlan,
 	ReadinessWorkItem,
 } from "@sprite-anvil/api/readiness-plans";
+import type { ReadinessPolicyEvidence } from "./readiness-policy-evidence";
 
 type FamilyScope = DeliveryTargetRevision["families"][number];
 type PinnedItem = FamilyScope["requiredItems"][number];
@@ -24,6 +25,7 @@ export interface ReadinessPlanSources {
 	familyReadiness: Map<string, FamilyReadiness | null>;
 	/** Whether a Delivery Fulfilment exists for this revision; Readiness never decides it. */
 	hasFulfilment: boolean;
+	policyEvidence?: ReadinessPolicyEvidence;
 	revision: DeliveryTargetRevision;
 	/** The user's saved order, if any. */
 	savedOrder: string[] | null;
@@ -264,13 +266,17 @@ function policyRequirement(
 }
 
 /** Policies the plan cannot judge yet are blockers: a target is never Ready on evidence nobody checked. */
-function policyWork(revision: DeliveryTargetRevision): DraftWork[] {
+function policyWork(
+	revision: DeliveryTargetRevision,
+	evidence?: ReadinessPolicyEvidence
+): DraftWork[] {
 	const production = revision.families.flatMap((family) => {
 		const requirement =
 			revision.productionEvidencePolicy.familyRequirements.find(
 				(entry) => entry.assetFamilyId === family.assetFamilyId
 			)?.requirement ?? revision.productionEvidencePolicy.defaultRequirement;
-		return requirement === "advisory"
+		const failures = evidence?.production.get(family.assetFamilyId);
+		return requirement === "advisory" || failures?.length === 0
 			? []
 			: [
 					standaloneWork(
@@ -278,22 +284,31 @@ function policyWork(revision: DeliveryTargetRevision): DraftWork[] {
 							assetFamilyId: family.assetFamilyId,
 							assetFamilyName: family.assetFamilyName,
 							id: `production_evidence_policy:${family.assetFamilyId}`,
-							kind: "production_evidence_policy_not_evaluated",
+							kind: failures
+								? "production_evidence_policy_unmet"
+								: "production_evidence_policy_not_evaluated",
 						}),
-						`Production Evidence Policy (${requirement.replaceAll("_", " ")}) for ${family.assetFamilyName} is not evaluated yet`,
+						failures
+							? `Production Evidence Policy for ${family.assetFamilyName}: ${failures.join(" ")}`
+							: `Production Evidence Policy (${requirement.replaceAll("_", " ")}) for ${family.assetFamilyName} is not evaluated yet`,
 						policyRequirement("production_evidence_policy")
 					),
 				];
 	});
 	const rights =
-		revision.rightsEvidencePolicy.requireRecordFor.length > 0
+		revision.rightsEvidencePolicy.requireRecordFor.length > 0 &&
+		evidence?.rights.length !== 0
 			? [
 					standaloneWork(
 						blockerOf({
 							id: "rights_evidence_policy",
-							kind: "rights_evidence_policy_not_evaluated",
+							kind: evidence
+								? "rights_evidence_policy_unmet"
+								: "rights_evidence_policy_not_evaluated",
 						}),
-						`Rights Evidence Policy (records for ${revision.rightsEvidencePolicy.requireRecordFor.join(" and ")}) is not evaluated yet`,
+						evidence
+							? `Rights Evidence Policy: ${evidence.rights.join(" ")}`
+							: `Rights Evidence Policy (records for ${revision.rightsEvidencePolicy.requireRecordFor.join(" and ")}) is not evaluated yet`,
 						policyRequirement("rights_evidence_policy")
 					),
 				]
@@ -420,7 +435,7 @@ export function buildReadinessPlan(
 		...revision.families.flatMap((family) =>
 			familyWork(family, sources.familyReadiness.get(family.assetFamilyId))
 		),
-		...policyWork(revision),
+		...policyWork(revision, sources.policyEvidence),
 	];
 	const opensByWork = new Map<string, string[]>(
 		work.map((entry) => [

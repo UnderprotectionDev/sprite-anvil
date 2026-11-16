@@ -48,16 +48,14 @@ export function AssetFamilyForm({
 				form.handleSubmit();
 			}}
 		>
-			<h4 className="font-medium text-sm">
-				Türetilmiş varlıklar için aile oluştur
-			</h4>
+			<h4 className="font-medium text-sm">Create family for Derived Assets</h4>
 			<form.Field name="familyName">
 				{(field) => (
 					<Label
 						className="block space-y-1 text-sm leading-normal"
 						htmlFor="family-name"
 					>
-						<span>Aile adı</span>
+						<span>Family name</span>
 						<Input
 							id="family-name"
 							onChange={(event) => field.handleChange(event.target.value)}
@@ -73,7 +71,7 @@ export function AssetFamilyForm({
 						className="block space-y-1 text-sm leading-normal"
 						htmlFor="family-world"
 					>
-						<span>Görsel Dünya</span>
+						<span>Visual World</span>
 						<NativeSelect
 							className="w-full"
 							id="family-world"
@@ -82,7 +80,7 @@ export function AssetFamilyForm({
 							value={field.state.value}
 						>
 							<NativeSelectOption value="">
-								Görsel Dünya seçin
+								Select a Visual World
 							</NativeSelectOption>
 							{visualWorlds.map((world) => (
 								<NativeSelectOption key={world.id} value={world.id}>
@@ -99,7 +97,7 @@ export function AssetFamilyForm({
 						className="block space-y-1 text-sm leading-normal"
 						htmlFor="family-use-context"
 					>
-						<span>Kullanım bağlamı</span>
+						<span>Usage context</span>
 						<Input
 							id="family-use-context"
 							onChange={(event) => field.handleChange(event.target.value)}
@@ -110,13 +108,14 @@ export function AssetFamilyForm({
 				)}
 			</form.Field>
 			<p className="text-muted-foreground text-xs">
-				Ana Tasarım olarak Onaylı Sürüm kullanılacak: {approvedFileName}.
+				The Approved Version will be used as the Canonical Design:{" "}
+				{approvedFileName}.
 			</p>
 			<Button
 				disabled={busy || !assetFamilyFormSchema.safeParse(values).success}
 				type="submit"
 			>
-				Aileyi oluştur
+				Create family
 			</Button>
 		</form>
 	);

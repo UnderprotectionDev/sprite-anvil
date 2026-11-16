@@ -1,4 +1,5 @@
 import { ORPCError } from "@orpc/server";
+import { z } from "zod";
 import type { Context } from "../context";
 import { protectedProcedure } from "../index";
 import type { MeasurementEventRejectionReason } from "../measurement-event-store";
@@ -55,7 +56,55 @@ const rejections: Record<
 	},
 };
 
+const verificationBoundaryInputSchema = z.discriminatedUnion("phase", [
+	z
+		.object({
+			projectId: z.uuid(),
+			workflowId: z.uuid(),
+			phase: z.literal("start"),
+		})
+		.strict(),
+	z
+		.object({
+			projectId: z.uuid(),
+			workflowId: z.uuid(),
+			phase: z.literal("finish"),
+			outcome: z.enum(["verified", "failed"]),
+		})
+		.strict(),
+]);
 export const measurementEventsRouter = {
+	recordVerificationBoundary: protectedProcedure
+		.input(verificationBoundaryInputSchema)
+		.output(z.object({ accepted: z.literal(true) }).strict())
+		.handler(async ({ context, input }) => {
+			const userId = context.session.user.id;
+			if (!(await context.projectAccess.getProject(userId, input.projectId))) {
+				throw new ORPCError("NOT_FOUND", { message: "Project not found." });
+			}
+			if (!(context.productMeasurementRecorder && context.surface)) {
+				throw new ORPCError("SERVICE_UNAVAILABLE", {
+					message: "Measurement unavailable.",
+				});
+			}
+			await context.productMeasurementRecorder.record({
+				userId,
+				projectId: input.projectId,
+				workflowId: input.workflowId,
+				eventFamily: "offline_verification",
+				eventName:
+					input.phase === "start"
+						? "bundle_verification_started"
+						: "bundle_verification_finished",
+				phase: input.phase,
+				recordKind: "offline_verification",
+				outcomeClass:
+					input.phase === "start" ? "workflow_started" : input.outcome,
+				surface: context.surface,
+				counters: {},
+			});
+			return { accepted: true as const };
+		}),
 	record: protectedProcedure
 		.input(measurementEventRecordInputSchema)
 		.output(measurementEventSchema)

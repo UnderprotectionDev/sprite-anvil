@@ -6,7 +6,7 @@ describe("Tauri application shell", () => {
 		await brandLink.waitForDisplayed();
 		await expect(brandLink).toBeDisplayed();
 
-		const startHeading = await $("h1=Oyun görsellerinizi tek yerde yönetin.");
+		const startHeading = await $("h1=Manage your game visuals in one place.");
 		await startHeading.waitForDisplayed();
 	});
 });

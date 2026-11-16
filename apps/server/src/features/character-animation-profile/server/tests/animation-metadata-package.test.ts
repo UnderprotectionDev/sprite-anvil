@@ -387,7 +387,7 @@ test("rejects an Animation Metadata Package larger than 512 KiB", async () => {
 		)
 	).rejects.toMatchObject({
 		code: "BAD_REQUEST",
-		message: "Animasyon Metadata Paketi 512 KiB sınırını aşıyor.",
+		message: "Animation Metadata Package exceeds the 512 KiB limit.",
 	});
 });
 

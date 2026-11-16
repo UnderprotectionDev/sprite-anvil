@@ -207,6 +207,6 @@ test("reports that the Visual World metadata scope is invalid", async () => {
 		)
 	).rejects.toMatchObject({
 		code: "BAD_REQUEST",
-		message: "Tema veya Görsel Dünya seçilen proje kapsamında olmalıdır.",
+		message: "The Theme or Visual World must belong to the selected Project.",
 	});
 });

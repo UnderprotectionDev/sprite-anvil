@@ -40,6 +40,8 @@ Tamamlanma kanıtı: Kesinti ve yinelenen teslim altında her iş tek kesin sonu
 
 ## Testing Decisions
 
+- Kabuktaki işlem alanı, yetkili proje kapsamındaki etkin ve başarısız Background Operation sayılarını gösterir; `operations-dock.test.tsx` yükleme ve hata durumlarını, `background-operations.test.ts` özetin yetki ve tam sayım sözleşmesini sınar.
+
 - **Birincil test seam’i:** YAS-03, YAS-04 örneklerinde kesin girdiyi kullanıcı eyleminden kalıcı kayda ve yeniden okumaya taşıyan sunucu/API yolunu sınama; web ve masaüstü görünür sonuçlarını karşılaştırma.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.
 - Bu faza ait sözleşme [`background-operations.ts`](../../../packages/api/src/background-operations.ts) dosyasındadır ve test seam’i sunucu/API yoludur: [`background-operations.test.ts`](../../../apps/server/src/features/background-operations/server/tests/background-operations.test.ts) (kalıcı Bekleyen kayıt, tamamlanma, yinelenen ve eşzamanlı teslimde tek sonuç, geçici ve kalıcı hata ile yeniden deneme sınırı, ilerleme, yayımlanmamış outbox kaydının yeniden teslimi, takılmış işin uzlaştırılması, proje yalıtımı, güvenli iptal ve geri döndürülemez sınırdan sonra tamamlanan işin iptal sayılmaması) ve [`background-operations.test.ts`](../../../packages/api/src/background-operations.test.ts) (ortak sözleşme). Web yüzeyi [`background-operations-view.test.tsx`](../../../apps/web/src/features/background-operations/ui/views/background-operations-view.test.tsx) bileşen testiyle ve [`background-operations.spec.ts` (web)](../../../apps/web/e2e/background-operations.spec.ts) uçtan uca akışıyla sınanır: ilerleme, hata ve deneme sayısı, yeniden okuma, Bekleyen ve Çalışan işin iptali, iptal sayılmayan tamamlanma. Hiçbir ekran veya genel API Arka Plan İşlemi oluşturmadığından web e2e kaydı taklit eder; [`background-operations.spec.ts` (desktop)](../../../apps/web/desktop-e2e/background-operations.spec.ts) yalnız gerçek bulutta yeni projenin boş kaydını okuyan ekranı sınar. Genel yüzey örnekleri [`app-shell.spec.ts` (web)](../../../apps/web/e2e/app-shell.spec.ts) ve [`app-shell.spec.ts` (desktop)](../../../apps/web/desktop-e2e/app-shell.spec.ts) bu özelliğin kanıtı değildir.
@@ -67,4 +69,4 @@ Kuyruk veya worker sağlayıcısı kendi başına ürün fazı değildir; taşı
 
 - [YAS-03](../../prd/10-acceptance-scenarios.md)
 - [YAS-04](../../prd/10-acceptance-scenarios.md)
-- Mevcut uygulama yalnız temel web/masaüstü kabuğu ve sınırlı sunucu yükleme yolunu içeriyor; bu spec teslim edilmiş ürün iddiası değildir. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.
+- PRD ve bu spec hedef davranışı tanımlar; mevcut sözleşmeler ve testler tek başına tüm kabul senaryolarının tamamlandığını göstermez. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.

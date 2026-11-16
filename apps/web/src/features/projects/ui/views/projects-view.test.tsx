@@ -76,12 +76,12 @@ function renderProjects() {
 
 async function openCreateDialog() {
 	fireEvent.click(
-		await screen.findByRole("button", { name: "Yeni oyun projesi" })
+		await screen.findByRole("button", { name: "New game project" })
 	);
 	return {
-		artDirection: await screen.findByLabelText("Genel sanat yaklaşımı"),
-		name: screen.getByLabelText("Oyun projesi adı"),
-		submit: screen.getByRole("button", { name: "Proje oluştur" }),
+		artDirection: await screen.findByLabelText("General art direction"),
+		name: screen.getByLabelText("Game project name"),
+		submit: screen.getByRole("button", { name: "Create project" }),
 	};
 }
 
@@ -95,7 +95,7 @@ test("creates a project from trimmed fields and closes the dialog", async () => 
 	);
 	renderProjects();
 	await screen.findByText(
-		"Henüz bir oyun projeniz yok. İlk projenizi oluşturarak başlayın."
+		"You have no game projects yet. Create your first project to get started."
 	);
 
 	const { artDirection, name, submit } = await openCreateDialog();
@@ -112,14 +112,14 @@ test("creates a project from trimmed fields and closes the dialog", async () => 
 	fireEvent.click(submit);
 
 	expect(await screen.findByRole("status")).toHaveTextContent(
-		"Oyun projesi kaydedildi."
+		"Game project saved."
 	);
 	expect(fakeStore.create).toHaveBeenCalledExactlyOnceWith({
 		name: "Moonlit Vale",
 		generalArtDirection: "Soft light.",
 	});
 	await waitFor(() =>
-		expect(screen.queryByLabelText("Oyun projesi adı")).not.toBeInTheDocument()
+		expect(screen.queryByLabelText("Game project name")).not.toBeInTheDocument()
 	);
 
 	const reopened = await openCreateDialog();
@@ -135,7 +135,7 @@ test("keeps the draft when the dialog is closed and reopened", async () => {
 
 	fireEvent.keyDown(name, { key: "Escape" });
 	await waitFor(() =>
-		expect(screen.queryByLabelText("Oyun projesi adı")).not.toBeInTheDocument()
+		expect(screen.queryByLabelText("Game project name")).not.toBeInTheDocument()
 	);
 
 	const reopened = await openCreateDialog();
@@ -157,7 +157,7 @@ test("an uncertain create locks the form until the saved project is found", asyn
 	fireEvent.click(submit);
 
 	const check = await screen.findByRole("button", {
-		name: "Durumu kontrol et",
+		name: "Check status",
 	});
 	expect(name).toBeDisabled();
 	expect(artDirection).toBeDisabled();
@@ -168,10 +168,10 @@ test("an uncertain create locks the form until the saved project is found", asyn
 	fireEvent.click(check);
 
 	expect(await screen.findByRole("status")).toHaveTextContent(
-		"Oyun projesi kaydedildi."
+		"Game project saved."
 	);
 	await waitFor(() =>
-		expect(screen.queryByLabelText("Oyun projesi adı")).not.toBeInTheDocument()
+		expect(screen.queryByLabelText("Game project name")).not.toBeInTheDocument()
 	);
 	const reopened = await openCreateDialog();
 	expect(reopened.name).toHaveValue("");
@@ -185,12 +185,10 @@ test("an uncertain create that is not found keeps the draft for review", async (
 	fireEvent.change(artDirection, { target: { value: "Unknown." } });
 	fireEvent.click(submit);
 
-	fireEvent.click(
-		await screen.findByRole("button", { name: "Durumu kontrol et" })
-	);
+	fireEvent.click(await screen.findByRole("button", { name: "Check status" }));
 
 	expect(await screen.findByRole("status")).toHaveTextContent(
-		"Proje listesi yenilendi; kayıt görünmüyor. Yeniden göndermeden önce durumu kontrol edin."
+		"Project list refreshed; the record is not visible. Check the status before resubmitting."
 	);
 	expect(name).toHaveValue("Lost");
 	await waitFor(() => expect(name).toBeEnabled());

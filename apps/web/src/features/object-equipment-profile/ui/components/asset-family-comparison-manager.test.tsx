@@ -14,8 +14,8 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { AssetFamilyComparisonManager } from "./asset-family-comparison-manager";
 
-const uncertainMessage = /Kaydetme sonucu doğrulanamadı/;
-const existingRecordButtonName = /· 2 Varlık Sürümü/;
+const uncertainMessage = /Could not verify the save result/;
+const existingRecordButtonName = /· 2 Asset Version/;
 const closedCrateCheckboxName = /Kapalı sandık/;
 const openCrateCheckboxName = /Açık sandık/;
 const brokenCrateCheckboxName = /Kırık sandık/;
@@ -190,18 +190,21 @@ async function fillComparisonForm() {
 	fireEvent.click(
 		screen.getByRole("checkbox", { name: openCrateCheckboxName })
 	);
-	fireEvent.change(screen.getByLabelText("Ölçek gözlemi"), {
+	fireEvent.change(screen.getByLabelText("Scale observation"), {
 		target: { value: "Her iki sürüm aynı oyun içi ölçeği kullanıyor." },
 	});
-	fireEvent.change(screen.getByLabelText("Perspektif gözlemi"), {
+	fireEvent.change(screen.getByLabelText("Perspective observation"), {
 		target: { value: "Perspektif düşük kuşbakışı." },
 	});
-	fireEvent.change(screen.getByLabelText("Malzeme dili gözlemi"), {
+	fireEvent.change(screen.getByLabelText("Material language observation"), {
 		target: { value: "Malzeme dili aynı." },
 	});
-	fireEvent.change(screen.getByLabelText("Durum ve yön ayrışması gözlemi"), {
-		target: { value: "Durumlar ayrışıyor." },
-	});
+	fireEvent.change(
+		screen.getByLabelText("State and direction distinction observation"),
+		{
+			target: { value: "Durumlar ayrışıyor." },
+		}
+	);
 }
 
 test("an uncertain save cannot be bypassed by opening an older comparison", async () => {
@@ -210,14 +213,14 @@ test("an uncertain save cannot be bypassed by opening an older comparison", asyn
 
 	await fillComparisonForm();
 	const saveButton = screen.getByRole("button", {
-		name: "Karşılaştırmayı kaydet",
+		name: "Save comparison",
 	});
 	await waitFor(() => expect(saveButton).toBeEnabled());
 	fireEvent.click(saveButton);
 	await screen.findByText(uncertainMessage);
 
 	expect(
-		screen.getByRole("button", { name: "Karşılaştırmayı kaydet" })
+		screen.getByRole("button", { name: "Save comparison" })
 	).toBeDisabled();
 	const existingRecordButton = screen.getByRole("button", {
 		name: existingRecordButtonName,
@@ -225,10 +228,10 @@ test("an uncertain save cannot be bypassed by opening an older comparison", asyn
 	expect(existingRecordButton).toBeDisabled();
 	fireEvent.click(existingRecordButton);
 	expect(
-		screen.queryByRole("button", { name: "Yeni karşılaştırma" })
+		screen.queryByRole("button", { name: "New comparison" })
 	).not.toBeInTheDocument();
 	expect(
-		screen.getByRole("button", { name: "Güncel karşılaştırmaları kontrol et" })
+		screen.getByRole("button", { name: "Check current comparisons" })
 	).toBeEnabled();
 
 	const pendingInput = mocks.save.mock.calls[0]?.[0] as { id: string };
@@ -237,12 +240,10 @@ test("an uncertain save cannot be bypassed by opening an older comparison", asyn
 		savedRecord("existing"),
 	]);
 	fireEvent.click(
-		screen.getByRole("button", { name: "Güncel karşılaştırmaları kontrol et" })
+		screen.getByRole("button", { name: "Check current comparisons" })
 	);
-	await screen.findByText("Karşılaştırma kalıcı kayıttan doğrulandı.");
-	expect(
-		screen.getByRole("button", { name: "Yeni karşılaştırma" })
-	).toBeEnabled();
+	await screen.findByText("Comparison verified from the saved record.");
+	expect(screen.getByRole("button", { name: "New comparison" })).toBeEnabled();
 });
 
 test("starts a new comparison with cleared selections and observations", async () => {
@@ -251,27 +252,29 @@ test("starts a new comparison with cleared selections and observations", async (
 
 	await fillComparisonForm();
 	const saveButton = screen.getByRole("button", {
-		name: "Karşılaştırmayı kaydet",
+		name: "Save comparison",
 	});
 	await waitFor(() => expect(saveButton).toBeEnabled());
 	fireEvent.click(saveButton);
-	await screen.findByText("Karşılaştırma kalıcı kayıttan doğrulandı.");
+	await screen.findByText("Comparison verified from the saved record.");
 
-	fireEvent.click(screen.getByRole("button", { name: "Yeni karşılaştırma" }));
+	fireEvent.click(screen.getByRole("button", { name: "New comparison" }));
 	expect(
 		screen.getByRole("checkbox", { name: closedCrateCheckboxName })
 	).not.toBeChecked();
 	expect(
 		screen.getByRole("checkbox", { name: openCrateCheckboxName })
 	).not.toBeChecked();
-	expect(screen.getByLabelText("Ölçek gözlemi")).toHaveValue("");
-	expect(screen.getByLabelText("Perspektif gözlemi")).toHaveValue("");
-	expect(screen.getByLabelText("Malzeme dili gözlemi")).toHaveValue("");
-	expect(screen.getByLabelText("Durum ve yön ayrışması gözlemi")).toHaveValue(
+	expect(screen.getByLabelText("Scale observation")).toHaveValue("");
+	expect(screen.getByLabelText("Perspective observation")).toHaveValue("");
+	expect(screen.getByLabelText("Material language observation")).toHaveValue(
 		""
 	);
 	expect(
-		screen.getByRole("button", { name: "Karşılaştırmayı kaydet" })
+		screen.getByLabelText("State and direction distinction observation")
+	).toHaveValue("");
+	expect(
+		screen.getByRole("button", { name: "Save comparison" })
 	).toBeDisabled();
 });
 
@@ -281,11 +284,11 @@ test("saves the selected current versions and observations as one comparison", a
 
 	await fillComparisonForm();
 	const saveButton = screen.getByRole("button", {
-		name: "Karşılaştırmayı kaydet",
+		name: "Save comparison",
 	});
 	await waitFor(() => expect(saveButton).toBeEnabled());
 	fireEvent.click(saveButton);
-	await screen.findByText("Karşılaştırma kalıcı kayıttan doğrulandı.");
+	await screen.findByText("Comparison verified from the saved record.");
 
 	expect(mocks.save).toHaveBeenCalledTimes(1);
 	expect(mocks.save.mock.calls[0]?.[0]).toEqual({
@@ -313,15 +316,15 @@ test("keeps save disabled until two versions and every observation are present",
 	mount();
 	await fillComparisonForm();
 	const saveButton = screen.getByRole("button", {
-		name: "Karşılaştırmayı kaydet",
+		name: "Save comparison",
 	});
 	await waitFor(() => expect(saveButton).toBeEnabled());
 
-	fireEvent.change(screen.getByLabelText("Perspektif gözlemi"), {
+	fireEvent.change(screen.getByLabelText("Perspective observation"), {
 		target: { value: "   " },
 	});
 	expect(saveButton).toBeDisabled();
-	fireEvent.change(screen.getByLabelText("Perspektif gözlemi"), {
+	fireEvent.change(screen.getByLabelText("Perspective observation"), {
 		target: { value: "Perspektif düşük kuşbakışı." },
 	});
 	expect(saveButton).toBeEnabled();
@@ -364,7 +367,7 @@ test("toggles a version with the keyboard and disables records without a current
 	expect(isUnavailable(broken)).toBe(true);
 	expect(broken).not.toBeChecked();
 	expect(
-		screen.getByText("Karşılaştırılabilir güncel sürüm yok")
+		screen.getByText("No comparable current versions")
 	).toBeInTheDocument();
 });
 
@@ -373,7 +376,7 @@ test("locks version choices and observations while a save outcome is uncertain",
 	mount();
 	await fillComparisonForm();
 	const saveButton = screen.getByRole("button", {
-		name: "Karşılaştırmayı kaydet",
+		name: "Save comparison",
 	});
 	await waitFor(() => expect(saveButton).toBeEnabled());
 	fireEvent.click(saveButton);
@@ -384,5 +387,5 @@ test("locks version choices and observations while a save outcome is uncertain",
 	});
 	expect(isUnavailable(closed)).toBe(true);
 	expect(closed).toBeChecked();
-	expect(screen.getByLabelText("Ölçek gözlemi")).toBeDisabled();
+	expect(screen.getByLabelText("Scale observation")).toBeDisabled();
 });

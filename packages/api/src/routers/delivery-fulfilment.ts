@@ -17,6 +17,7 @@ import {
 	fulfilmentFinalizeInputSchema,
 } from "../delivery-fulfilment-records";
 import { protectedProcedure } from "../index";
+import { recordProductBoundary } from "../measurement-workflows";
 import { withPublicationErrors } from "../record-publication";
 
 function requireStore<Store>(store: Store | undefined): Store {
@@ -112,6 +113,32 @@ export const deliveryFulfilmentRouter = {
 						result.reason === "invalid_selection" ? "BAD_REQUEST" : "CONFLICT",
 						{ message: finalizeRejections[result.reason] }
 					);
+				}
+				if (result.status === "created") {
+					try {
+						const stored = await getFulfilmentStore(context).get(
+							context.session.user.id,
+							{
+								fulfilmentId: result.fulfilment.id,
+								projectId: input.projectId,
+							}
+						);
+						if (stored) {
+							await recordProductBoundary(context, {
+								userId: context.session.user.id,
+								projectId: stored.projectId,
+								workflowId: stored.revisionId,
+								eventFamily: "export_delivery",
+								eventName: "delivery_target_delivered",
+								phase: "finish",
+								recordKind: "delivery_target",
+								outcomeClass: "delivered",
+								counters: {},
+							});
+						}
+					} catch {
+						console.error("product_measurement_boundary_failed");
+					}
 				}
 				return result;
 			})

@@ -32,33 +32,33 @@ describe("UI State Comparison", () => {
 			await $("input[name='password']").setValue(fixture.password);
 			await (await $("button=Sign Up")).click();
 			// The first webview navigation after signup can be slow on a cold start.
-			await $("h1=Oyun projeleri").waitForDisplayed({ timeout: 30_000 });
+			await $("h1=Game projects").waitForDisplayed({ timeout: 30_000 });
 
-			await (await $("a=Proje Bağlamı")).click();
-			await $("//label[span[text()='Proje adı']]/input").setValue(
+			await (await $("a=Context Proposals")).click();
+			await $("//label[span[text()='Project name']]/input").setValue(
 				fixture.projectName
 			);
 			await $(
-				"//label[span[text()='Genel sanat yaklaşımı']]/textarea"
+				"//label[span[text()='General art direction']]/textarea"
 			).setValue(fixture.generalArtDirection);
-			await (await $("button=Projeyi oluştur")).click();
-			await openWorkspaceTask("Görsel Dünyalar ve Temalar");
-			await $("input[placeholder='Örn. Yüksek yaylalar']").setValue(
+			await (await $("button=Create project")).click();
+			await openWorkspaceTask("Visual Worldlar ve Temalar");
+			await $("input[placeholder='e.g. High plateaus']").setValue(
 				fixture.visualWorldName
 			);
-			await (await $("button=Görsel Dünya ekle")).click();
+			await (await $("button=Visual World ekle")).click();
 			await $(`strong=${fixture.visualWorldName}`).waitForDisplayed();
 
 			await (await $("a=Projeler")).click();
-			await (await $("a=Varlık Aileleri")).click();
-			await openWorkspaceTask("Aile ve temsil ilişkileri");
+			await (await $("a=Asset Families")).click();
+			await openWorkspaceTask("Family and representation relationships");
 			await $("input[id='subject-identity-name']").setValue(
 				fixture.identityName
 			);
-			await (await $("button=Varlık Kimliği oluştur")).click();
-			await openWorkspaceTask("Aile kataloğu");
+			await (await $("button=Asset Identity oluştur")).click();
+			await openWorkspaceTask("Family catalog");
 			await $(`h2=${fixture.identityName}`).waitForDisplayed();
-			await openWorkspaceTask("Aile ve temsil ilişkileri");
+			await openWorkspaceTask("Family and representation relationships");
 			await $("input[id='asset-family-name']").setValue(fixture.familyName);
 			await $("#asset-family-visual-world").selectByVisibleText(
 				fixture.visualWorldName
@@ -66,38 +66,38 @@ describe("UI State Comparison", () => {
 			await $("input[id='asset-family-use-context']").setValue(
 				fixture.useContext
 			);
-			await (await $("button=Varlık Ailesi oluştur")).click();
-			await openWorkspaceTask("Aile kataloğu");
+			await (await $("button=Create Asset Family")).click();
+			await openWorkspaceTask("Family catalog");
 			await $(`h3=${fixture.familyName}`).waitForDisplayed();
 
 			for (const record of fixture.records) {
 				// biome-ignore lint/performance/noAwaitInLoops: Desktop interactions within each record setup must occur in order.
-				await openWorkspaceTask("Aile ve temsil ilişkileri");
+				await openWorkspaceTask("Family and representation relationships");
 				const criterion = await $(
-					"//label[contains(normalize-space(.), 'Bağımsız ürün anlamı')]/input"
+					"//label[contains(normalize-space(.), 'Independent product meaning')]/input"
 				);
 				if (!(await criterion.isSelected())) {
 					await criterion.click();
 				}
 				await $("input[id='asset-record-name']").setValue(record.name);
-				await (await $("button=Varlık Kaydı ekle")).click();
-				await openWorkspaceTask("Sürüm ve bağımlılık işlemleri");
+				await (await $("button=Asset Record ekle")).click();
+				await openWorkspaceTask("Version and dependency operations");
 				const recordItem = await $(
-					`//section[@aria-label='Sürüm ve bağımlılık işlemleri']//li[h4[normalize-space(.)='${record.name}']]`
+					`//section[@aria-label='Version and dependency operations']//li[h4[normalize-space(.)='${record.name}']]`
 				);
 				await recordItem
-					.$("p=Henüz sürüm kaydedilmedi.")
+					.$("p=No versions saved yet.")
 					.waitForDisplayed({ timeout: 20_000 });
 
-				await (await recordItem.$("a=Varlık Sürümü yükle")).click();
-				await openWorkspaceTask("Kayıt bilgileri");
+				await (await recordItem.$("a=Asset Version yükle")).click();
+				await openWorkspaceTask("Record details");
 				await $("#asset-record-metadata-category").selectByVisibleText(
 					fixture.categoryLabel
 				);
-				await (await $("button=Metadata’yı kaydet")).click();
-				await $("p=Varlık kaydı metadata’sı kaydedildi.").waitForDisplayed();
+				await (await $("button=Save metadata")).click();
+				await $("p=Asset Record metadata saved.").waitForDisplayed();
 
-				await openWorkspaceTask("Sürümler ve dosyalar");
+				await openWorkspaceTask("Versions and files");
 				await $("#asset-version-file").setValue(pngPath);
 				await $("#asset-version-missing-history").setValue(record.uploadNote);
 				await $("#asset-version-source").setValue(
@@ -107,23 +107,23 @@ describe("UI State Comparison", () => {
 					"value",
 					"created_by_user"
 				);
-				await (await $("button=Aday sürümü kaydet")).click();
-				await $("p=Aday Sürüm kaydedildi.").waitForDisplayed();
+				await (await $("button=Save Candidate Version")).click();
+				await $("p=Candidate Version saved.").waitForDisplayed();
 
-				await (await $("a=Varlık Aileleri")).click();
-				await openWorkspaceTask("Sürüm ve bağımlılık işlemleri");
+				await (await $("a=Asset Families")).click();
+				await openWorkspaceTask("Version and dependency operations");
 				await (
 					await $(
-						`//section[@aria-label='Sürüm ve bağımlılık işlemleri']//li[h4[normalize-space(.)='${record.name}']]`
+						`//section[@aria-label='Version and dependency operations']//li[h4[normalize-space(.)='${record.name}']]`
 					)
 				)
-					.$("p=Sürüm 1 · Aday")
+					.$("p=Version 1 · Candidate")
 					.waitForDisplayed({ timeout: 20_000 });
 			}
 
-			await activateFamilyProfile("Arayüz ekranı ve bileşeni", "1.0.0");
+			await activateFamilyProfile("UI screen and component", "1.0.0");
 			const comparison = await $(
-				`//section[h3[normalize-space(.)='${fixture.familyName} · Ekran ve Bileşen Durumlarını Karşılaştırma']]`
+				`//section[h3[normalize-space(.)='${fixture.familyName} · Compare Screen and Component States']]`
 			);
 			await comparison.waitForDisplayed();
 			await comparison.$("input[id$='-name']").setValue("Inventory controls");
@@ -183,7 +183,7 @@ describe("UI State Comparison", () => {
 				.$("p=Comparison verified from persistent storage.")
 				.waitForDisplayed();
 			await browser.refresh();
-			await openWorkspaceTask("Profil incelemeleri");
+			await openWorkspaceTask("Profile reviews");
 			await $("h5=Inventory controls").waitForDisplayed();
 			await $("p=Consistent inventory borders.").waitForDisplayed();
 			await $("summary=Show comparison details").click();

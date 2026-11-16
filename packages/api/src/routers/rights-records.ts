@@ -31,12 +31,12 @@ export const rightsRecordsRouter = {
 			if (!result.ok) {
 				if (result.reason === "not_found") {
 					throw new ORPCError("NOT_FOUND", {
-						message: "Varlık Kaydı bulunamadı.",
+						message: "Asset Record not found.",
 					});
 				}
 				throw new ORPCError("CONFLICT", {
 					message:
-						"Yeni Hak Kaydı sürümü oluşturulamadı. Geçmişi yenileyip yeniden deneyin.",
+						"The new Rights Record version could not be created. Refresh the history and try again.",
 				});
 			}
 			return rightsRecordSchema.parse(result.record);
@@ -53,7 +53,7 @@ export const rightsRecordsRouter = {
 			);
 			if (!records) {
 				throw new ORPCError("NOT_FOUND", {
-					message: "Varlık Kaydı bulunamadı.",
+					message: "Asset Record not found.",
 				});
 			}
 			return records.map((record) => rightsRecordSchema.parse(record));

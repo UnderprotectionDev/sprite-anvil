@@ -1,21 +1,10 @@
 import { createHash } from "node:crypto";
+import {
+	AssetVersionContentLengthError,
+	type AssetVersionContentType,
+	AssetVersionIntegrityError,
+} from "@sprite-anvil/api/asset-version-integrity";
 import sharp from "sharp";
-
-type AssetVersionContentType = "image/png" | "image/webp";
-
-export class AssetVersionIntegrityError extends Error {
-	constructor() {
-		super("Asset Version content failed integrity validation");
-		this.name = "AssetVersionIntegrityError";
-	}
-}
-
-export class AssetVersionContentLengthError extends Error {
-	constructor() {
-		super("Asset Version content length mismatch");
-		this.name = "AssetVersionContentLengthError";
-	}
-}
 
 function invalidImage(): never {
 	throw new AssetVersionIntegrityError();

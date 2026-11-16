@@ -25,34 +25,34 @@ describe("Asset Records", () => {
 			assetRecordFixture.password
 		);
 		await (await $("button=Sign Up")).click();
-		await (await $("h1=Oyun projeleri")).waitForDisplayed();
+		await (await $("h1=Game projects")).waitForDisplayed();
 
 		await (await $("a=Projeler")).click();
-		await openWorkspaceTask("Yeni oyun projesi");
+		await openWorkspaceTask("New game project");
 		await (await $("input#project-name")).setValue(
 			assetRecordFixture.projectName
 		);
 		await (await $("textarea#project-art-direction")).setValue(
 			assetRecordFixture.generalArtDirection
 		);
-		await (await $("button=Proje oluştur")).click();
+		await (await $("button=Create project")).click();
 
 		const projectLink = await $(
 			`a[aria-label="${assetRecordFixture.projectName} varlık kayıtlarını aç"]`
 		);
 		await projectLink.waitForClickable();
 		await projectLink.click();
-		await (await $("button=Yeni varlık kaydı")).waitForDisplayed();
+		await (await $("button=New Asset Record")).waitForDisplayed();
 		const assetRecordsUrl = await browser.getUrl();
 		for (const scenario of assetRecordMeasurementScenarios) {
 			// biome-ignore lint/performance/noAwaitInLoops: Each scenario reuses one desktop window and must finish before navigating to the next record.
 			await browser.url(assetRecordsUrl);
-			await openWorkspaceTask("Yeni varlık kaydı");
+			await openWorkspaceTask("New Asset Record");
 			await (await $("input#asset-record-name")).setValue(scenario.name);
 			await (await $("input[type='checkbox']")).click();
-			await (await $("button=Varlık kaydı oluştur")).click();
+			await (await $("button=Create Asset Record")).click();
 			await (await $(`h1=${scenario.name}`)).waitForDisplayed();
-			await openWorkspaceTask("Kayıt bilgileri");
+			await openWorkspaceTask("Record details");
 			await Promise.all(
 				scenario.inputs.map(async ({ id, kind, value }) => {
 					if (kind === "select") {
@@ -62,13 +62,13 @@ describe("Asset Records", () => {
 					await (await $(`input#${id}`)).setValue(value);
 				})
 			);
-			await (await $("button=Ölçüleri kaydet")).click();
-			await expect(await $("p=Ölçüler kaydedildi.")).toBeDisplayed();
-			await expect(await $("p*=Kayıt oluşturuldu")).toBeDisplayed();
+			await (await $("button=Save dimensions")).click();
+			await expect(await $("p=Dimensions saved.")).toBeDisplayed();
+			await expect(await $("p*=Record created")).toBeDisplayed();
 			await browser.refresh();
 			await (await $(`h1=${scenario.name}`)).waitForDisplayed();
-			await openWorkspaceTask("Kayıt bilgileri");
-			await expect(await $("p*=Kayıt oluşturuldu")).toBeDisplayed();
+			await openWorkspaceTask("Record details");
+			await expect(await $("p*=Record created")).toBeDisplayed();
 			await Promise.all(
 				scenario.inputs.map(async ({ id, kind, value }) => {
 					const selector = kind === "select" ? `select#${id}` : `input#${id}`;
@@ -91,24 +91,24 @@ describe("Asset Records", () => {
 		await (await $("input[name='email']")).setValue(versionFixture.email);
 		await (await $("input[name='password']")).setValue(versionFixture.password);
 		await (await $("button=Sign Up")).click();
-		await (await $("h1=Oyun projeleri")).waitForDisplayed();
+		await (await $("h1=Game projects")).waitForDisplayed();
 		await (await $("a=Projeler")).click();
-		await openWorkspaceTask("Yeni oyun projesi");
+		await openWorkspaceTask("New game project");
 		await (await $("input#project-name")).setValue(versionFixture.projectName);
 		await (await $("textarea#project-art-direction")).setValue(
 			versionFixture.generalArtDirection
 		);
-		await (await $("button=Proje oluştur")).click();
+		await (await $("button=Create project")).click();
 
 		const projectLink = await $(
 			`a[aria-label="${versionFixture.projectName} varlık kayıtlarını aç"]`
 		);
 		await projectLink.waitForClickable();
 		await projectLink.click();
-		await openWorkspaceTask("Yeni varlık kaydı");
+		await openWorkspaceTask("New Asset Record");
 		await (await $("input#asset-record-name")).setValue(versionFixture.name);
 		await (await $("input[type='checkbox']")).click();
-		await (await $("button=Varlık kaydı oluştur")).click();
+		await (await $("button=Create Asset Record")).click();
 		await (await $(`h1=${versionFixture.name}`)).waitForDisplayed();
 
 		const tempDirectory = mkdtempSync(
@@ -135,28 +135,28 @@ describe("Asset Records", () => {
 			await (await $("textarea#asset-version-evidence")).setValue(
 				"Owner attested to the source and relationship."
 			);
-			await (await $("button=Aday sürümü kaydet")).click();
-			await (await $("p*=Aday Sürüm kaydedildi.")).waitForDisplayed();
+			await (await $("button=Save Candidate Version")).click();
+			await (await $("p*=Candidate Version saved.")).waitForDisplayed();
 			await (
-				await $("p*=Dosya biçim imzası eşleşti (1 sürüm).")
+				await $("p*=File format signature matched (1 version).")
 			).waitForDisplayed();
 
 			await (await $("textarea#review-rationale")).setValue(
 				"Reviewed through the desktop flow."
 			);
 			await (await $("button=Onayla")).click();
-			await (await $("p*=Onaylı Sürüm kaydedildi.")).waitForDisplayed();
+			await (await $("p*=Approved Version saved.")).waitForDisplayed();
 			await (await $("p*=ash-knight.png · Sürüm 1")).waitForDisplayed();
 			await (await $("p*=Created for version tracking")).waitForDisplayed();
 			await (
 				await $(
-					"p*=Bilinmeyen üretim geçmişi: The original generation instruction is unavailable."
+					"p*=Unknown production history: The original generation instruction is unavailable."
 				)
 			).waitForDisplayed();
 			await (
 				await $("p*=Owner attested to the source and relationship.")
 			).waitForDisplayed();
-			await (await $("p*=Kullanıcı oluşturdu")).waitForDisplayed();
+			await (await $("p*=Created by user")).waitForDisplayed();
 			await (
 				await $("p*=Reviewed through the desktop flow.")
 			).waitForDisplayed();
@@ -184,46 +184,46 @@ describe("Asset Records", () => {
 			await (await $("textarea#asset-version-evidence")).setValue(
 				"Team handoff note."
 			);
-			await (await $("button=Aday sürümü kaydet")).click();
-			await (await $("p*=Aday Sürüm kaydedildi.")).waitForDisplayed();
+			await (await $("button=Save Candidate Version")).click();
+			await (await $("p*=Candidate Version saved.")).waitForDisplayed();
 			await (
-				await $("p*=ash-knight-alt.png · Sürüm 2 · Aday")
+				await $("p*=ash-knight-alt.png · Version 2 · Candidate")
 			).waitForDisplayed();
 			await (
 				await $(
-					"p*=Bilinmeyen üretim geçmişi: The alternative sketch instructions are unavailable."
+					"p*=Unknown production history: The alternative sketch instructions are unavailable."
 				)
 			).waitForDisplayed();
 			await (
-				await $("p*=Dosya biçim imzası eşleşti (2 sürüm).")
+				await $("p*=File format signature matched (2 version).")
 			).waitForDisplayed();
 
 			await browser.refresh();
 			await (await $("p*=ash-knight.png · Sürüm 1")).waitForDisplayed();
 			await (
-				await $("p*=ash-knight-alt.png · Sürüm 2 · Aday")
+				await $("p*=ash-knight-alt.png · Version 2 · Candidate")
 			).waitForDisplayed();
 			await (
 				await $(
-					"p*=Bilinmeyen üretim geçmişi: The original generation instruction is unavailable."
+					"p*=Unknown production history: The original generation instruction is unavailable."
 				)
 			).waitForDisplayed();
 			await (
 				await $(
-					"p*=Bilinmeyen üretim geçmişi: The alternative sketch instructions are unavailable."
+					"p*=Unknown production history: The alternative sketch instructions are unavailable."
 				)
 			).waitForDisplayed();
 			await (
-				await $("p*=Dosya biçim imzası eşleşti (2 sürüm).")
+				await $("p*=File format signature matched (2 version).")
 			).waitForDisplayed();
 			await (await $("p*=Created for version tracking")).waitForDisplayed();
 			await (await $("p*=Alternative sketch")).waitForDisplayed();
 			await (await $("p*=Team handoff note.")).waitForDisplayed();
-			await (await $("p*=Ekipten alındı")).waitForDisplayed();
+			await (await $("p*=Received from team")).waitForDisplayed();
 			await (
 				await $("p*=Owner attested to the source and relationship.")
 			).waitForDisplayed();
-			await (await $("p*=Kullanıcı oluşturdu")).waitForDisplayed();
+			await (await $("p*=Created by user")).waitForDisplayed();
 			await (
 				await $("p*=Reviewed through the desktop flow.")
 			).waitForDisplayed();
@@ -245,37 +245,37 @@ describe("Asset Records", () => {
 		await (await $("input[name='email']")).setValue(fixture.email);
 		await (await $("input[name='password']")).setValue(fixture.password);
 		await (await $("button=Sign Up")).click();
-		await (await $("h1=Oyun projeleri")).waitForDisplayed();
+		await (await $("h1=Game projects")).waitForDisplayed();
 		await (await $("a=Projeler")).click();
-		await openWorkspaceTask("Yeni oyun projesi");
+		await openWorkspaceTask("New game project");
 		await (await $("input#project-name")).setValue(fixture.projectName);
 		await (await $("textarea#project-art-direction")).setValue(
 			fixture.generalArtDirection
 		);
-		await (await $("button=Proje oluştur")).click();
+		await (await $("button=Create project")).click();
 
 		const projectLink = await $(
 			`a[aria-label="${fixture.projectName} varlık kayıtlarını aç"]`
 		);
 		await projectLink.waitForClickable();
 		await projectLink.click();
-		await openWorkspaceTask("Yeni varlık kaydı");
+		await openWorkspaceTask("New Asset Record");
 		await (await $("input#asset-record-name")).setValue(fixture.name);
 		await (await $("input[type='checkbox']")).click();
-		await (await $("button=Varlık kaydı oluştur")).click();
+		await (await $("button=Create Asset Record")).click();
 		await (await $(`h1=${fixture.name}`)).waitForDisplayed();
 
-		await openWorkspaceTask("Kayıt bilgileri");
-		await (await $("button=Kaydı arşivle")).click();
-		await (await $("p=Arşivlenmiş")).waitForDisplayed();
+		await openWorkspaceTask("Record details");
+		await (await $("button=Archive record")).click();
+		await (await $("p=Archived")).waitForDisplayed();
 		await browser.refresh();
-		await openWorkspaceTask("Kayıt bilgileri");
-		await (await $("p=Arşivlenmiş")).waitForDisplayed();
+		await openWorkspaceTask("Record details");
+		await (await $("p=Archived")).waitForDisplayed();
 
-		await (await $("button=Kaydı yeniden etkinleştir")).click();
+		await (await $("button=Reactivate record")).click();
 		await (await $("p=Etkin")).waitForDisplayed();
 		await browser.refresh();
-		await openWorkspaceTask("Kayıt bilgileri");
+		await openWorkspaceTask("Record details");
 		await (await $("p=Etkin")).waitForDisplayed();
 	});
 });

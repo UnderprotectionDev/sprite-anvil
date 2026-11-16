@@ -1,0 +1,1 @@
+ALTER TABLE "project_archive_restores" ADD COLUMN "canonical_verified" boolean DEFAULT true NOT NULL;

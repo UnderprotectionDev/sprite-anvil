@@ -73,38 +73,38 @@ interface ComparisonDraft {
 type ComparisonsDraft = Record<ComparisonKey, ComparisonDraft>;
 
 const comparisonFields = [
-	{ key: "objectScale", label: "Nesne ölçeği" },
-	{ key: "lightingDirection", label: "Işık yönü" },
-	{ key: "outline", label: "Kontur" },
-	{ key: "detailDensity", label: "Ayrıntı yoğunluğu" },
-	{ key: "stateOrRarityColor", label: "Durum veya nadirlik rengi" },
+	{ key: "objectScale", label: "Object scale" },
+	{ key: "lightingDirection", label: "Light direction" },
+	{ key: "outline", label: "Outline" },
+	{ key: "detailDensity", label: "Detail density" },
+	{ key: "stateOrRarityColor", label: "State or rarity color" },
 ] as const satisfies readonly { key: ComparisonKey; label: string }[];
 
 const assessmentOptions: Record<ComparisonKey, readonly [string, string][]> = {
 	detailDensity: [
-		["consistent", "Tutarlı"],
-		["needs_follow_up", "Takip gerekli"],
-		["inconclusive", "Sonuçsuz"],
+		["consistent", "Consistent"],
+		["needs_follow_up", "Needs follow-up"],
+		["inconclusive", "Inconclusive"],
 	],
 	lightingDirection: [
-		["consistent", "Tutarlı"],
-		["needs_follow_up", "Takip gerekli"],
-		["inconclusive", "Sonuçsuz"],
+		["consistent", "Consistent"],
+		["needs_follow_up", "Needs follow-up"],
+		["inconclusive", "Inconclusive"],
 	],
 	objectScale: [
-		["consistent", "Tutarlı"],
-		["needs_follow_up", "Takip gerekli"],
-		["inconclusive", "Sonuçsuz"],
+		["consistent", "Consistent"],
+		["needs_follow_up", "Needs follow-up"],
+		["inconclusive", "Inconclusive"],
 	],
 	outline: [
-		["consistent", "Tutarlı"],
-		["needs_follow_up", "Takip gerekli"],
-		["inconclusive", "Sonuçsuz"],
+		["consistent", "Consistent"],
+		["needs_follow_up", "Needs follow-up"],
+		["inconclusive", "Inconclusive"],
 	],
 	stateOrRarityColor: [
-		["identity_preserved", "Kimlik korundu"],
-		["identity_changed", "Kimlik değişti"],
-		["inconclusive", "Sonuçsuz"],
+		["identity_preserved", "Identity preserved"],
+		["identity_changed", "Identity changed"],
+		["inconclusive", "Inconclusive"],
 	],
 };
 
@@ -166,27 +166,27 @@ function SavedIconFamilyReview({
 	return (
 		<li className="space-y-2 rounded-md border p-3">
 			<p className="font-medium">
-				{new Date(record.createdAt).toLocaleString("tr-TR")} ·{" "}
-				{record.outcome === "consistent" ? "Tutarlı" : "Takip gerekli"}
+				{new Date(record.createdAt).toLocaleString("en-US")} ·{" "}
+				{record.outcome === "consistent" ? "Consistent" : "Needs follow-up"}
 			</p>
 			<p className="text-muted-foreground text-sm">
 				{record.versionPins
 					.map(
 						(pin) =>
-							`${pin.assetRecordName} · Sürüm ${pin.versionNumber} · ${pin.contentDigest.slice(0, 12)}`
+							`${pin.assetRecordName} · Version ${pin.versionNumber} · ${pin.contentDigest.slice(0, 12)}`
 					)
 					.join(" / ")}
 			</p>
 			<details className="space-y-3 text-sm">
 				<summary className="cursor-pointer font-medium">
-					İnceleme ayrıntılarını göster
+					Show review details
 				</summary>
 				<div className="space-y-3">
 					<p>
-						<strong>İnceleme gerekçesi:</strong> {record.rationale}
+						<strong>Review rationale:</strong> {record.rationale}
 					</p>
 					<div>
-						<h5 className="font-medium">Karşılaştırılan ikon sürümleri</h5>
+						<h5 className="font-medium">Compared icon versions</h5>
 						<ul className="mt-1 space-y-2">
 							{record.items.map((item) => {
 								const pin = record.versionPins.find(
@@ -203,7 +203,7 @@ function SavedIconFamilyReview({
 										</p>
 										{pin ? (
 											<p className="break-all text-muted-foreground">
-												Varlık Sürümü: {pin.assetVersionId} · Sürüm{" "}
+												Asset Version: {pin.assetVersionId} · Version{" "}
 												{pin.versionNumber} · {pin.contentType} ·{" "}
 												{pin.contentLength} bayt · SHA-256 {pin.contentDigest}
 											</p>
@@ -214,7 +214,7 @@ function SavedIconFamilyReview({
 						</ul>
 					</div>
 					<div>
-						<h5 className="font-medium">Aile karşılaştırmaları</h5>
+						<h5 className="font-medium">Family comparisons</h5>
 						<dl className="mt-1 space-y-2">
 							{comparisonFields.map(({ key, label }) => {
 								const comparison = record.comparisons[key];
@@ -234,9 +234,9 @@ function SavedIconFamilyReview({
 					<p>
 						Arka planlar:{" "}
 						{record.testedBackgrounds
-							.map((background) => (background === "light" ? "Açık" : "Koyu"))
+							.map((background) => (background === "light" ? "Light" : "Dark"))
 							.join(", ")}
-						· Gri tonlama karşılaştırıldı
+						· Grayscale compared
 					</p>
 				</div>
 			</details>
@@ -245,7 +245,7 @@ function SavedIconFamilyReview({
 				type="button"
 				variant="outline"
 			>
-				JSON arşivini indir
+				Download JSON archive
 			</Button>
 		</li>
 	);
@@ -305,17 +305,14 @@ export function IconFamilyReviewManager({
 		},
 		onSubmitInvalid: ({ formApi }) => {
 			const issue = formApi.state.errorMap.onSubmit;
-			setMessage(
-				typeof issue === "string" ? issue : "İnceleme bilgilerini kontrol edin."
-			);
+			setMessage(typeof issue === "string" ? issue : "Check review details.");
 		},
 		validators: {
 			onSubmit: ({ value }) => {
 				const result = reviewSchema.safeParse(value);
 				return result.success
 					? undefined
-					: (result.error.issues[0]?.message ??
-							"İnceleme bilgilerini kontrol edin.");
+					: (result.error.issues[0]?.message ?? "Check review details.");
 			},
 		},
 	});
@@ -371,13 +368,13 @@ export function IconFamilyReviewManager({
 				if (refreshed?.status === "error" || !persisted) {
 					setUncertain(true);
 					setMessage(
-						"İnceleme kaydedildi; ancak kalıcı kayıt yeniden okunamadı. Güncel kayıtları kontrol edin."
+						"Review saved, but the saved record could not be reloaded. Check current records."
 					);
 					return;
 				}
 				setPendingId(null);
 				setUncertain(false);
-				setMessage("İnceleme kalıcı kayıttan doğrulandı.");
+				setMessage("Review verified from the saved record.");
 			},
 		})
 	);
@@ -404,13 +401,13 @@ export function IconFamilyReviewManager({
 			setPendingId(null);
 			setUncertain(false);
 			setPendingInput(null);
-			setMessage("İnceleme kalıcı kayıttan doğrulandı.");
+			setMessage("Review verified from the saved record.");
 			return;
 		}
 		setMessage(
 			result.isError
-				? "Kayıtlar yeniden okunamadı. Aynı incelemeyi göndermeden önce tekrar kontrol edin."
-				: "İnceleme kalıcı listede görünmüyor. Sonuç belirsiz kaldı; aynı incelemeyi yeniden gönderebilir veya kayıtları tekrar kontrol edebilirsiniz."
+				? "Could not reload records. Check again before resubmitting the same review."
+				: "The review is not visible in the saved list. The result is uncertain; you can resubmit the same review or check records again."
 		);
 	}
 
@@ -425,12 +422,12 @@ export function IconFamilyReviewManager({
 				setPendingId(null);
 				setUncertain(false);
 				setPendingInput(null);
-				setMessage(getErrorMessage(error, "İnceleme kaydedilemedi."));
+				setMessage(getErrorMessage(error, "Could not save review."));
 				return;
 			}
 			setUncertain(true);
 			setMessage(
-				"Kaydetme sonucu doğrulanamadı. Güncel kayıtları kontrol edin; kayıt yoksa aynı incelemeyi yeniden gönderebilirsiniz."
+				"Could not verify the save result. Check current records; you can resubmit if the record is missing."
 			);
 		}
 	}
@@ -453,9 +450,9 @@ export function IconFamilyReviewManager({
 			anchor.download = `icon-family-review-${record.id}.json`;
 			anchor.click();
 			setTimeout(() => URL.revokeObjectURL(url), 1000);
-			setMessage("İkon ailesi inceleme JSON arşivi indirildi.");
+			setMessage("Icon family review JSON archive downloaded.");
 		} catch {
-			setMessage("İkon ailesi inceleme JSON arşivi oluşturulamadı.");
+			setMessage("Could not create icon family review JSON archive.");
 		}
 	}
 
@@ -466,23 +463,23 @@ export function IconFamilyReviewManager({
 		>
 			<div>
 				<h3 className="font-semibold text-xl" id={`${idPrefix}-heading`}>
-					{familyName} · İkon Ailesi Tutarlılığını İnceleme
+					{familyName} · Review Icon Family Consistency
 				</h3>
 				<p className="mt-1 text-muted-foreground text-sm">
-					Kesin ikon sürümlerini kullanım çeşidi ve mantıksal ölçüyle yan yana
-					karşılaştırın. Açık, koyu ve gri tonlama önizlemeleri ekranda görünür;
-					indirilen JSON inceleme kaydını, sürüm kimliklerini ve özetlerini
-					taşır, görsel dosyalarını içermez.
+					Compare exact icon versions side by side by usage variant and logical
+					size. Light, dark, and grayscale previews appear on screen; the
+					downloaded JSON contains the review record, version IDs, and
+					summaries, but no image files.
 				</p>
 			</div>
 			{reviewQuery.isPending ? (
 				<p aria-live="polite" role="status">
-					İkon aile incelemeleri yükleniyor…
+					Loading icon family reviews…
 				</p>
 			) : null}
 			{reviewQuery.isError ? (
 				<StatusMessage tone="error">
-					İkon aile incelemeleri okunamadı. Kayıtları yeniden okuyun.
+					Could not load icon family reviews. Reload records.
 				</StatusMessage>
 			) : null}
 			{message ? (
@@ -497,7 +494,7 @@ export function IconFamilyReviewManager({
 						onClick={() => void checkCurrentRecords()}
 						type="button"
 					>
-						Güncel kayıtları kontrol et
+						Check current records
 					</Button>
 					{pendingInput ? (
 						<Button
@@ -506,14 +503,14 @@ export function IconFamilyReviewManager({
 							type="button"
 							variant="outline"
 						>
-							Aynı incelemeyi yeniden gönder
+							Resubmit the same review
 						</Button>
 					) : null}
 				</div>
 			) : null}
 			{reviewQuery.data?.length ? (
-				<section aria-label="Kaydedilmiş ikon ailesi incelemeleri">
-					<h4 className="font-medium">Kaydedilmiş incelemeler</h4>
+				<section aria-label="Saved icon family reviews">
+					<h4 className="font-medium">Saved reviews</h4>
 					<ul className="mt-2 space-y-3">
 						{reviewQuery.data.map((record) => (
 							<SavedIconFamilyReview
@@ -538,18 +535,18 @@ export function IconFamilyReviewManager({
 					{(itemsField) => (
 						<FieldSet className="space-y-3">
 							<FieldLegend className="font-medium">
-								Karşılaştırma öğeleri
+								Comparison items
 							</FieldLegend>
 							{itemsField.state.value.map((item, index) => {
 								const rowId = `${idPrefix}-item-${index}`;
 								return (
 									<FieldSet
-										aria-label={`Karşılaştırma öğesi ${index + 1}`}
+										aria-label={`Comparison item ${index + 1}`}
 										className="space-y-3 rounded-md border p-3"
 										key={item.key}
 									>
 										<FieldLegend className="px-1 font-medium text-sm">
-											Karşılaştırma öğesi {index + 1}
+											Comparison item {index + 1}
 										</FieldLegend>
 										<div className="grid gap-3 sm:grid-cols-2">
 											<form.Field name={`items[${index}].assetRecordId`}>
@@ -558,7 +555,7 @@ export function IconFamilyReviewManager({
 														className="block space-y-1 text-sm"
 														htmlFor={`${rowId}-record`}
 													>
-														<span>Varlık Kaydı</span>
+														<span>Asset Record</span>
 														<NativeSelect
 															className="w-full"
 															id={`${rowId}-record`}
@@ -592,7 +589,7 @@ export function IconFamilyReviewManager({
 														className="block space-y-1 text-sm"
 														htmlFor={`${rowId}-version`}
 													>
-														<span>Varlık Sürümü</span>
+														<span>Asset Version</span>
 														<NativeSelect
 															className="w-full"
 															id={`${rowId}-version`}
@@ -609,7 +606,7 @@ export function IconFamilyReviewManager({
 																	key={option.id}
 																	value={option.id}
 																>
-																	Sürüm {option.versionNumber} ·{" "}
+																	Version {option.versionNumber} ·{" "}
 																	{option.contentDigest?.slice(0, 12)}
 																</NativeSelectOption>
 															))}
@@ -623,7 +620,7 @@ export function IconFamilyReviewManager({
 														className="block space-y-1 text-sm"
 														htmlFor={`${rowId}-variant`}
 													>
-														<span>Kullanım çeşidi</span>
+														<span>Usage variant</span>
 														<Input
 															id={`${rowId}-variant`}
 															maxLength={100}
@@ -643,7 +640,7 @@ export function IconFamilyReviewManager({
 														className="block space-y-1 text-sm"
 														htmlFor={`${rowId}-width`}
 													>
-														<span>Mantıksal genişlik (px)</span>
+														<span>Logical width (px)</span>
 														<Input
 															id={`${rowId}-width`}
 															max={4096}
@@ -665,7 +662,7 @@ export function IconFamilyReviewManager({
 														className="block space-y-1 text-sm"
 														htmlFor={`${rowId}-height`}
 													>
-														<span>Mantıksal yükseklik (px)</span>
+														<span>Logical height (px)</span>
 														<Input
 															id={`${rowId}-height`}
 															max={4096}
@@ -684,7 +681,7 @@ export function IconFamilyReviewManager({
 										</div>
 										{itemsField.state.value.length > 2 ? (
 											<Button
-												aria-label={`Karşılaştırma öğesi ${index + 1} satırını kaldır`}
+												aria-label={`Comparison item ${index + 1} remove row`}
 												onClick={() => {
 													setItemsTouched(true);
 													itemsField.removeValue(index);
@@ -692,7 +689,7 @@ export function IconFamilyReviewManager({
 												type="button"
 												variant="outline"
 											>
-												Satırı kaldır
+												Remove row
 											</Button>
 										) : null}
 									</FieldSet>
@@ -712,7 +709,7 @@ export function IconFamilyReviewManager({
 								type="button"
 								variant="outline"
 							>
-								Kullanım çeşidi ekle
+								Add usage variant
 							</Button>
 						</FieldSet>
 					)}
@@ -726,16 +723,16 @@ export function IconFamilyReviewManager({
 							className="font-medium"
 							id={`${idPrefix}-family-comparison-heading`}
 						>
-							İkon ailesini yan yana karşılaştırma
+							Compare icon family side by side
 						</h4>
 						<p className="mt-1 text-muted-foreground text-sm">
-							Seçili kesin ikon sürümleri; kullanım çeşidi, mantıksal ölçü, açık
-							ve koyu arka plan ile gri tonlamada birlikte görünür.
+							Selected exact icon versions appear together by usage variant and
+							logical size on light and dark backgrounds and in grayscale.
 						</p>
 					</div>
 					<div className="overflow-x-auto pb-1">
 						<div
-							aria-label="İkon ailesi karşılaştırma ızgarası"
+							aria-label="Icon family comparison grid"
 							className="grid gap-3"
 							role="group"
 							style={{
@@ -748,10 +745,9 @@ export function IconFamilyReviewManager({
 								const version = versionsById.get(item.assetVersionId);
 								const logicalWidth = Number(item.width) || 24;
 								const logicalHeight = Number(item.height) || 24;
-								const itemName =
-									record?.name ?? `Karşılaştırma öğesi ${index + 1}`;
+								const itemName = record?.name ?? `Comparison item ${index + 1}`;
 								const usageVariant =
-									item.usageVariant || "Kullanım çeşidi belirtilmedi";
+									item.usageVariant || "Usage variant not specified";
 								return (
 									<article
 										aria-label={`${itemName} · ${usageVariant} · ${logicalWidth} × ${logicalHeight} px`}
@@ -790,8 +786,8 @@ export function IconFamilyReviewManager({
 											</div>
 										) : (
 											<p className="text-muted-foreground text-sm">
-												Bu Varlık Kaydı için bütünlüğü doğrulanmış ikon sürümü
-												yok.
+												No integrity-verified icon version exists for this Asset
+												Record.
 											</p>
 										)}
 									</article>
@@ -802,9 +798,7 @@ export function IconFamilyReviewManager({
 				</section>
 
 				<FieldSet className="space-y-3">
-					<FieldLegend className="font-medium">
-						Aile karşılaştırmaları
-					</FieldLegend>
+					<FieldLegend className="font-medium">Family comparisons</FieldLegend>
 					<div className="grid gap-3 sm:grid-cols-2">
 						{comparisonFields.map(({ key, label }) => (
 							<div className="space-y-2" key={key}>
@@ -814,7 +808,7 @@ export function IconFamilyReviewManager({
 											className="block space-y-1 text-sm"
 											htmlFor={`${idPrefix}-${key}-assessment`}
 										>
-											<span>{label} değerlendirmesi</span>
+											<span>{label} assessment</span>
 											<NativeSelect
 												className="w-full"
 												id={`${idPrefix}-${key}-assessment`}
@@ -838,7 +832,7 @@ export function IconFamilyReviewManager({
 											className="block space-y-1 text-sm"
 											htmlFor={`${idPrefix}-${key}-notes`}
 										>
-											<span>{label} notu</span>
+											<span>{label} notes</span>
 											<Textarea
 												className="min-h-20"
 												id={`${idPrefix}-${key}-notes`}
@@ -864,7 +858,7 @@ export function IconFamilyReviewManager({
 								className="block space-y-1 text-sm"
 								htmlFor={`${idPrefix}-outcome`}
 							>
-								<span>İnceleme sonucu</span>
+								<span>Review result</span>
 								<NativeSelect
 									className="w-full"
 									id={`${idPrefix}-outcome`}
@@ -878,10 +872,10 @@ export function IconFamilyReviewManager({
 									value={field.state.value}
 								>
 									<NativeSelectOption value="consistent">
-										Tutarlı
+										Consistent
 									</NativeSelectOption>
 									<NativeSelectOption value="needs_follow_up">
-										Takip gerekli
+										Needs follow-up
 									</NativeSelectOption>
 								</NativeSelect>
 							</Label>
@@ -893,7 +887,7 @@ export function IconFamilyReviewManager({
 								className="block space-y-1 text-sm"
 								htmlFor={`${idPrefix}-rationale`}
 							>
-								<span>İnceleme gerekçesi</span>
+								<span>Review rationale</span>
 								<Textarea
 									className="min-h-20"
 									id={`${idPrefix}-rationale`}
@@ -909,8 +903,8 @@ export function IconFamilyReviewManager({
 					</form.Field>
 				</div>
 				<p className="text-muted-foreground text-sm">
-					Tek bir ışık veya nadirlik rengi proje genelinde yeni bir sanat kuralı
-					oluşturmaz.
+					A single lighting or rarity color does not create a new project-wide
+					art rule.
 				</p>
 				<Button
 					disabled={
@@ -922,7 +916,7 @@ export function IconFamilyReviewManager({
 					}
 					type="submit"
 				>
-					{saving ? "İnceleme kaydediliyor…" : "İncelemeyi kaydet"}
+					{saving ? "Saving review…" : "Save review"}
 				</Button>
 			</form>
 		</section>
@@ -945,7 +939,7 @@ function IconPreview({
 	const { imageClass, label, stageClass } = {
 		dark: {
 			imageClass: "",
-			label: "Koyu arka plan",
+			label: "Dark background",
 			stageClass: "bg-zinc-900",
 		},
 		grayscale: {
@@ -955,14 +949,14 @@ function IconPreview({
 		},
 		light: {
 			imageClass: "",
-			label: "Açık arka plan",
+			label: "Light background",
 			stageClass: "bg-white",
 		},
 	}[background];
 	const renderBound = 80;
 	const scaledNote =
 		width > renderBound || height > renderBound
-			? ` · ${renderBound} px'e ölçeklendi`
+			? ` · ${renderBound} scaled to px`
 			: "";
 	const imageSize = (size: number) =>
 		`${Math.min(Math.max(size, 1), renderBound)}px`;

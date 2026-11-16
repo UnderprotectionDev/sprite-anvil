@@ -63,6 +63,24 @@ export async function honoPostJson(
 	);
 }
 
+/** Uploads a File directly; the browser streams it without a second in-memory byte copy. */
+export async function honoPostFileJson(
+	url: string,
+	file: File,
+	headers: Record<string, string>,
+	fallback: string
+) {
+	return readJsonOrThrow(
+		await fetch(url, {
+			method: "POST",
+			credentials: "include",
+			headers,
+			body: file,
+		}),
+		fallback
+	);
+}
+
 /** The bytes of a verified file served by an authenticated Hono route. */
 export async function honoGetBytes(
 	url: string,

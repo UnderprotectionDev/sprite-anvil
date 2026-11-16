@@ -311,3 +311,25 @@ export function inspectTilesetAdjacency(
 	const tiles = new Map(input.tiles.map((tile) => [tile.unitVersionId, tile]));
 	return input.maps.flatMap((map) => inspectMapAdjacency(map, tiles));
 }
+
+export const tilesetSeamInputSchema = tilesetAdjacencyReviewListInputSchema
+	.extend({
+		compositeVersionId: id,
+		contractRevisionId: id,
+		tiles: z.array(tilesetTileSchema).min(1).max(256),
+		maps: z
+			.array(mapSchema.extend({ notes: z.string().max(2000) }))
+			.length(tilesetMapScenarios.length),
+		id: z.uuid(),
+		scenario: z.enum(tilesetMapScenarios),
+		cellIndex: z.number().int().nonnegative(),
+		neighborIndex: z.number().int().nonnegative(),
+	})
+	.strict();
+export const tilesetSeamResultSchema = z.object({
+	length: z.number().int().positive(),
+	mismatchCount: z.number().int().nonnegative(),
+	firstMismatch: z.number().int().nonnegative().nullable(),
+	mismatchOffsets: z.array(z.number().int().nonnegative()).max(4096),
+});
+export type TilesetSeamResult = z.infer<typeof tilesetSeamResultSchema>;

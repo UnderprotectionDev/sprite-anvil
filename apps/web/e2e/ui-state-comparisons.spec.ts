@@ -17,7 +17,7 @@ test("compares all UI states with a screen, panel and item slot and reopens exac
 		uiStateComparisonFixture
 	);
 	const comparison = page.getByRole("region", {
-		name: `${familyName} · Ekran ve Bileşen Durumlarını Karşılaştırma`,
+		name: `${familyName} · Compare Screen and Component States`,
 	});
 	await comparison.getByLabel("Comparison name").fill("Inventory controls");
 	await comparison
@@ -79,7 +79,7 @@ test("compares all UI states with a screen, panel and item slot and reopens exac
 	).toBeVisible();
 	await page.reload();
 	await page
-		.getByRole("button", { name: "Profil incelemeleri", exact: true })
+		.getByRole("button", { name: "Profile reviews", exact: true })
 		.click();
 	await expect(
 		comparison.getByRole("heading", { name: "Inventory controls", exact: true })
