@@ -6,6 +6,15 @@ const dropColumnPattern = /^ALTER TABLE "([^"]+)" DROP COLUMN "([^"]+)";$/;
 
 interface Entity {
 	entityType?: string;
+	identity?: {
+		name: string;
+		startWith: string | null;
+		increment: string | null;
+		minValue: string | null;
+		maxValue: string | null;
+		cache: number | null;
+		cycle: boolean | null;
+	} | null;
 	name?: string;
 	schema?: string;
 	table?: string;
@@ -45,6 +54,28 @@ export function projectRequiredCatalog(
 			.filter((entry) => entry.entityType === "enums")
 			.map((entry) => JSON.stringify([entry.schema, entry.name]))
 	);
+	// Identity sequences live on column entities in Drizzle's snapshot. Match
+	// every catalog option so unrelated sequences and changed settings stay drift.
+	const sequences = new Set(
+		ddl.flatMap((entry) => {
+			const { identity } = entry;
+			return entry.entityType === "columns" && identity
+				? [
+						JSON.stringify([
+							"sequence",
+							entry.schema,
+							identity.name,
+							identity.startWith,
+							identity.increment,
+							identity.minValue,
+							identity.maxValue,
+							String(identity.cache),
+							identity.cycle,
+						]),
+					]
+				: [];
+		})
+	);
 	return actual.filter((entry) => {
 		if (historical.includes(entry)) {
 			return true;
@@ -69,6 +100,9 @@ export function projectRequiredCatalog(
 		}
 		if (object[0] === "enum") {
 			return enums.has(JSON.stringify(object.slice(1, 3)));
+		}
+		if (object[0] === "sequence") {
+			return sequences.has(JSON.stringify(object));
 		}
 		return false;
 	});
