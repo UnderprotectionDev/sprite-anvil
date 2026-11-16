@@ -240,6 +240,47 @@ export function redefinedChecks(
 	);
 }
 
+const createTablePattern = /^CREATE TABLE "([^"]+)" \(/;
+const tableEvolutionPattern =
+	/^ALTER TABLE "([^"]+)" (?:ADD COLUMN |ALTER COLUMN |ADD CONSTRAINT "[^"]+" CHECK )/;
+
+/**
+ * Drizzle's push diff creates a table in its final shape, while pending SQL
+ * may create it and alter it in later migrations. For a table the pending SQL
+ * creates and then evolves, compare only that the CREATE is proposed; the
+ * ALTERs are absorbed into it. The final table definition is verified inside
+ * the migration transaction before COMMIT.
+ */
+function foldPendingTableEvolution(
+	statements: string[],
+	pending: string[]
+): { statements: string[]; pending: string[] } {
+	const created = new Set(
+		pending.flatMap((statement) => {
+			const name = createTablePattern.exec(statement.trim())?.[1];
+			return name ? [name] : [];
+		})
+	);
+	const evolved = new Set(
+		pending.flatMap((statement) => {
+			const name = tableEvolutionPattern.exec(statement.trim())?.[1];
+			return name && created.has(name) ? [name] : [];
+		})
+	);
+	const marker = (statement: string) => {
+		const name = createTablePattern.exec(statement.trim())?.[1];
+		return name && evolved.has(name) ? `CREATE TABLE "${name}";` : statement;
+	};
+	const absorbed = (statement: string) => {
+		const name = tableEvolutionPattern.exec(statement.trim())?.[1];
+		return name !== undefined && evolved.has(name);
+	};
+	return {
+		statements: statements.map(marker),
+		pending: pending.filter((statement) => !absorbed(statement)).map(marker),
+	};
+}
+
 export function checkSharedSchemaDiff(
 	statements: string[],
 	pending: string[],
@@ -249,6 +290,7 @@ export function checkSharedSchemaDiff(
 	foreign: boolean,
 	widenedEnums: Set<string> = new Set()
 ): void {
+	const folded = foldPendingTableEvolution(statements, pending);
 	const allowed = new Set(historical.map(normalizeMigrationSql));
 	const actualSet = new Set(actual);
 	for (const entry of required) {
@@ -266,7 +308,7 @@ export function checkSharedSchemaDiff(
 	}
 	const extra = extraEntries.map((entry) => JSON.parse(entry) as unknown[]);
 	const actualObjects = actual.map((entry) => JSON.parse(entry) as unknown[]);
-	const remaining = statements.filter(
+	const remaining = folded.statements.filter(
 		(statement) =>
 			!(
 				allowed.has(normalizeMigrationSql(statement)) ||
@@ -279,7 +321,7 @@ export function checkSharedSchemaDiff(
 			.filter(executable)
 			.map(normalizeMigrationSql)
 			.sort((left, right) => left.localeCompare(right));
-	const expectedPlan = normalized(pending);
+	const expectedPlan = normalized(folded.pending);
 	if (JSON.stringify(normalized(remaining)) === JSON.stringify(expectedPlan)) {
 		return;
 	}
