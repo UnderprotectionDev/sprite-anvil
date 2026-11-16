@@ -60,6 +60,11 @@ export interface ProjectArchiveRestoreStorage {
 	/** Oldest first. */
 	list: (sourceProjectId: string) => Promise<StoredProjectArchiveRestore[]>;
 	markVerified: (sourceProjectId: string, restoreId: string) => Promise<void>;
+	verifyAndMark?: (
+		sourceProjectId: string,
+		restoreId: string,
+		record: StoredProjectArchiveRestoreRecord
+	) => Promise<void>;
 	/** Removes a restore and its new project; only for a restore that failed its own verification. */
 	withdraw: (restoreId: string) => Promise<void>;
 }

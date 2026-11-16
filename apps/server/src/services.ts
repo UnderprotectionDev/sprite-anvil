@@ -1,7 +1,9 @@
 import { createFamilyReadinessStore } from "@sprite-anvil/api/family-readiness-store";
 import { createAuth } from "@sprite-anvil/auth";
 import { createDb } from "@sprite-anvil/db";
+import { project } from "@sprite-anvil/db/schema/project";
 import { createLocalTestDb } from "@sprite-anvil/db/testing";
+import { eq } from "drizzle-orm";
 import {
 	createQueue,
 	createStorage,
@@ -9,6 +11,7 @@ import {
 	requireCloudflareConfig,
 	requireR2Config,
 } from "./cloudflare";
+import { createDatabaseManagedObjectReservations } from "./database-managed-object-reservations";
 import { desktopOrigins, ENV } from "./env.server";
 import { createAssetFamilyStore } from "./features/asset-families/server/asset-family-store";
 import { createAssetRecordStore } from "./features/asset-records/server/asset-record-store";
@@ -98,6 +101,7 @@ import { createUiStateComparisonStore } from "./features/ui-profile/server/ui-st
 import { createVfxAppearanceReviewStore } from "./features/vfx-profile/server/vfx-appearance-review-store";
 import { createVfxSynchronizationStore } from "./features/vfx-profile/server/vfx-synchronization-store";
 import { createProjectContextScopeStore } from "./features/visual-worlds/server/project-context-scope-store";
+import { createManagedObjectLegacyGuard } from "./managed-object-legacy-guard";
 import { createManagedOperationServices } from "./operation-services";
 
 function usesLoopbackTestDatabase(databaseUrl: string): boolean {
@@ -286,6 +290,7 @@ export const projectArchiveStore = createProjectArchiveStore(db, {
 /** Restoring copies files, so it needs object storage; without it restore is unavailable. */
 export const projectArchiveRestoreStore = archiveObjectStorage
 	? createProjectArchiveRestoreStore(db, {
+			reservations: createDatabaseManagedObjectReservations(db),
 			archives: createDatabaseProjectArchiveStorage(db),
 			verifyCanonical: createProjectArchiveCanonicalVerifier(
 				projectArchiveSourceReader
@@ -295,7 +300,18 @@ export const projectArchiveRestoreStore = archiveObjectStorage
 				remove: createObjectFileRemover(archiveObjectStorage),
 				verify: createObjectFileVerifier(archiveObjectStorage),
 			},
-			storage: createDatabaseProjectArchiveRestoreStorage(db),
+			storage: createDatabaseProjectArchiveRestoreStorage(
+				db,
+				(transaction, record) =>
+					createProjectArchiveCanonicalVerifier(
+						createProjectArchiveSourceReader({
+							db: transaction,
+							assetFamilies: createAssetFamilyStore(transaction),
+							assetRecords: createAssetRecordStore(transaction),
+							assetVersions: createAssetVersionStore(transaction),
+						})
+					)(record)
+			),
 		})
 	: undefined;
 export const platformEquivalenceStore = createPlatformEquivalenceStore(db, {
@@ -380,6 +396,7 @@ export function createServerOperationServices(
 			archiveObjectStorage && projectArchiveRestoreStore
 				? {
 						requests: createDatabaseArchiveImportRequestStorage(db),
+						reservations: createDatabaseManagedObjectReservations(db),
 						maxManifestBytes: projectArchiveImportManifestLimit,
 						objects: archiveObjectStorage,
 						store: projectArchiveRestoreStore,
@@ -387,6 +404,19 @@ export function createServerOperationServices(
 				: undefined,
 		erasureOptions: archiveObjectStorage
 			? {
+					managedObjects: createDatabaseManagedObjectReservations(db),
+					registerHistoricalImports: createManagedObjectLegacyGuard({
+						listOwner: createDatabaseManagedObjectReservations(db).listOwner,
+						reserve: createDatabaseManagedObjectReservations(db).reserve,
+						listOwnerProjectIds: async (ownerUserId) =>
+							(
+								await db
+									.select({ id: project.id })
+									.from(project)
+									.where(eq(project.ownerUserId, ownerUserId))
+							).map((row) => row.id),
+						listObjects: (prefix) => archiveObjectStorage.list(prefix),
+					}),
 					db,
 					impactStore: erasureImpactStore,
 					sourceReader: createErasureImpactSourceReader(db),

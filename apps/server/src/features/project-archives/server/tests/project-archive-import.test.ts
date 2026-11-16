@@ -35,6 +35,14 @@ async function fixture(config: { enabled?: boolean; limit?: number } = {}) {
 	};
 	const requests = new Map<string, ArchiveImportRequest>();
 	const requestStorage: ArchiveImportRequestStorage = {
+		complete: (_scope, id, summary) => {
+			const entry = requests.get(id);
+			if (!entry) {
+				throw new Error("missing request");
+			}
+			entry.completedSummary = summary;
+			return Promise.resolve();
+		},
 		find: (scope, id) =>
 			Promise.resolve(
 				requests.get(id)?.projectId === scope
@@ -50,11 +58,35 @@ async function fixture(config: { enabled?: boolean; limit?: number } = {}) {
 			return Promise.resolve({ status: "inserted" });
 		},
 	};
+	const owned = new Map<
+		string,
+		import("../../../../managed-object-reservations").ManagedObjectReservation
+	>();
+	const reservations = {
+		reserve: (
+			entry: import("../../../../managed-object-reservations").ManagedObjectReservation
+		) => {
+			owned.set(entry.objectKey, entry);
+			return Promise.resolve();
+		},
+		markSettled: (_key: string) => Promise.resolve(),
+		release: (key: string) => {
+			owned.delete(key);
+			return Promise.resolve();
+		},
+		listOwner: (ownerUserId: string) =>
+			Promise.resolve(
+				[...owned.values()]
+					.filter((entry) => entry.ownerUserId === ownerUserId)
+					.map((entry) => ({ ...entry, writeSettled: true }))
+			),
+	};
 	const restore = restoreSetup();
 	let sourceAccess = false;
 	let enqueuedId = "";
 	const operations = createProjectArchiveImportOperations({} as never, {
 		requests: requestStorage,
+		reservations,
 		maxManifestBytes: 1_000_000,
 		objects: storage,
 		store: restore.projectArchiveRestoreStore,
@@ -114,6 +146,7 @@ async function fixture(config: { enabled?: boolean; limit?: number } = {}) {
 		objects,
 		storage,
 		requestStorage,
+		reservations,
 		restore,
 		getSourceAccess: () => sourceAccess,
 		getEnqueuedId: () => enqueuedId,
@@ -128,6 +161,9 @@ test("uploads and durably restores an exact ZIP without access to its source pro
 		operation: { projectId: otherProjectId, scopeTargetId: id },
 	});
 	expect(result).toContain("created");
+	expect(
+		[...f.objects.keys()].filter((key) => key.endsWith("/archive.zip"))
+	).toEqual([]);
 	expect(f.getSourceAccess()).toBe(false);
 	expect(f.restore.memory.projects.size).toBe(1);
 	const [restored] = f.restore.memory.restores.values();
@@ -182,7 +218,7 @@ test("a ZIP with corrupt embedded file never publishes a restored project", asyn
 		})
 	).rejects.toBeInstanceOf(TestPermanentFailure);
 	expect(f.restore.memory.projects.size).toBe(0);
-	expect([...f.objects.keys()]).toHaveLength(1);
+	expect([...f.objects.keys()]).toHaveLength(0);
 });
 
 test("does not accept a ZIP when the manifest limit is not configured", async () => {
@@ -197,6 +233,7 @@ test("a worker without the configured limit leaves staged requests retryable", a
 	expect((await f.send()).status).toBe(202);
 	const worker = createProjectArchiveImportOperations({} as never, {
 		requests: f.requestStorage,
+		reservations: f.reservations,
 		objects: f.storage,
 		store: f.restore.projectArchiveRestoreStore,
 		getProjectForUser: () => Promise.resolve({ id: otherProjectId }),
@@ -213,4 +250,66 @@ test("a worker without the configured limit leaves staged requests retryable", a
 	).rejects.toThrow("Project Archive import is not configured");
 	expect(f.objects.size).toBe(1);
 	expect(f.restore.memory.projects.size).toBe(0);
+});
+
+test("retains ownership when the ZIP write result is uncertain", async () => {
+	const f = await fixture();
+	f.storage.put = (key, _body) => {
+		f.objects.set(key, new Uint8Array([1]));
+		return Promise.reject(new Error("write outcome unknown"));
+	};
+	expect((await f.send()).status).toBe(503);
+	const owned = await f.reservations.listOwner("user-1");
+	expect(owned).toHaveLength(1);
+	expect(f.objects.has(owned[0]?.objectKey ?? "")).toBe(true);
+});
+
+test("retries acknowledged ZIP cleanup before replaying a completed restore", async () => {
+	const f = await fixture();
+	expect((await f.send()).status).toBe(202);
+	const id = f.getEnqueuedId();
+	const remove = f.storage.delete;
+	let fail = true;
+	f.storage.delete = (key) => {
+		if (key.endsWith("/archive.zip") && fail) {
+			fail = false;
+			return Promise.reject(new Error("delete unavailable"));
+		}
+		return remove(key);
+	};
+	const operation = { projectId: otherProjectId, scopeTargetId: id };
+	await expect(f.operations.execute({ operation })).rejects.toThrow(
+		"delete unavailable"
+	);
+	expect(
+		(await f.reservations.listOwner("user-1")).some(
+			(entry) => entry.purpose === "archive_import_zip"
+		)
+	).toBe(true);
+	expect(await f.operations.execute({ operation })).toContain("replayed");
+	expect(
+		(await f.reservations.listOwner("user-1")).some(
+			(entry) => entry.purpose === "archive_import_zip"
+		)
+	).toBe(false);
+	expect(f.restore.memory.projects.size).toBe(1);
+});
+
+test("never deletes an upload whose settled acknowledgement is missing", async () => {
+	const f = await fixture();
+	expect((await f.send()).status).toBe(202);
+	const list = f.reservations.listOwner;
+	f.reservations.listOwner = async (owner) =>
+		(await list(owner)).map((item) => ({ ...item, writeSettled: false }));
+	await expect(
+		f.operations.execute({
+			operation: {
+				projectId: otherProjectId,
+				scopeTargetId: f.getEnqueuedId(),
+			},
+		})
+	).rejects.toThrow("upload outcome is unknown");
+	expect(
+		[...f.objects.keys()].some((key) => key.endsWith("/archive.zip"))
+	).toBe(true);
 });

@@ -12,6 +12,7 @@ export function createOperationWorker(options: {
 		settle: (acks: string[], retries: string[]) => Promise<void>;
 	};
 	handleUpload: (key: string) => Promise<void>;
+	reconcileManagedObjects?: () => Promise<void>;
 }) {
 	return {
 		async poll() {
@@ -41,6 +42,7 @@ export function createOperationWorker(options: {
 			if (acks.length || retries.length) {
 				await options.queue.settle(acks, retries);
 			}
+			await options.reconcileManagedObjects?.();
 		},
 	};
 }

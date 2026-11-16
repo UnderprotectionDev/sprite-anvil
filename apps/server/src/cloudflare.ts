@@ -3,6 +3,7 @@ import {
 	DeleteObjectCommand,
 	GetObjectCommand,
 	HeadObjectCommand,
+	ListObjectsV2Command,
 	PutObjectCommand,
 	S3Client,
 } from "@aws-sdk/client-s3";
@@ -379,6 +380,32 @@ export function createStorage(
 				}
 				throw error;
 			}
+		},
+		async list(prefix: string) {
+			const keys: string[] = [];
+			let continuationToken: string | undefined;
+			do {
+				// biome-ignore lint/performance/noAwaitInLoops: Each continuation token comes from the previous page.
+				const page = await client.send(
+					new ListObjectsV2Command({
+						Bucket: config.R2_BUCKET,
+						Prefix: prefix,
+						ContinuationToken: continuationToken,
+					})
+				);
+				keys.push(
+					...(page.Contents ?? []).flatMap((item) =>
+						item.Key ? [item.Key] : []
+					)
+				);
+				if (page.IsTruncated && !page.NextContinuationToken) {
+					throw new Error("Object listing is incomplete.");
+				}
+				continuationToken = page.IsTruncated
+					? page.NextContinuationToken
+					: undefined;
+			} while (continuationToken);
+			return keys;
 		},
 		async delete(key: string) {
 			await client.send(

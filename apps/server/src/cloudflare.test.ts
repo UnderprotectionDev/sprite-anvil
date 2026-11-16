@@ -247,3 +247,35 @@ it("R2 range reads send the exact byte interval", async () => {
 		);
 	}
 });
+
+it("lists all pages under the requested managed prefix", async () => {
+	const queries: string[] = [];
+	const server = createServer((request, response) => {
+		const url = new URL(request.url ?? "/", "http://localhost");
+		queries.push(url.searchParams.get("prefix") ?? "");
+		const next = url.searchParams.has("continuation-token");
+		response.writeHead(200, { "Content-Type": "application/xml" });
+		response.end(
+			next
+				? "<ListBucketResult><IsTruncated>false</IsTruncated><Contents><Key>projects/p/imports/b</Key></Contents></ListBucketResult>"
+				: "<ListBucketResult><IsTruncated>true</IsTruncated><NextContinuationToken>next</NextContinuationToken><Contents><Key>projects/p/imports/a</Key></Contents></ListBucketResult>"
+		);
+	});
+	await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+	const address = server.address();
+	if (!address || typeof address === "string") {
+		throw new Error("Missing server address");
+	}
+	try {
+		const storage = createStorage(config, `http://127.0.0.1:${address.port}`);
+		expect(await storage.list("projects/p/imports/")).toEqual([
+			"projects/p/imports/a",
+			"projects/p/imports/b",
+		]);
+		expect(queries).toEqual(["projects/p/imports/", "projects/p/imports/"]);
+	} finally {
+		await new Promise<void>((resolve, reject) =>
+			server.close((error) => (error ? reject(error) : resolve()))
+		);
+	}
+});

@@ -244,8 +244,35 @@ async function insertFoundation(
 	}
 }
 
+async function verifyNewRestore(
+	tx: Parameters<Parameters<Database["transaction"]>[0]>[0],
+	record: StoredProjectArchiveRestoreRecord,
+	verifyCanonical?: (
+		db: Database,
+		record: StoredProjectArchiveRestoreRecord
+	) => Promise<string[]>
+) {
+	if (!verifyCanonical) {
+		return;
+	}
+	await tx
+		.update(projectArchiveRestores)
+		.set({ canonicalVerified: true })
+		.where(eq(projectArchiveRestores.id, record.restore.id));
+	const failures = await verifyCanonical(tx as unknown as Database, record);
+	if (failures.length) {
+		throw new Error(
+			`Restored project failed canonical readback: ${failures.join(" ")}`
+		);
+	}
+}
+
 export function createDatabaseProjectArchiveRestoreStorage(
-	db: Database
+	db: Database,
+	verifyCanonical?: (
+		db: Database,
+		record: StoredProjectArchiveRestoreRecord
+	) => Promise<string[]>
 ): ProjectArchiveRestoreStorage {
 	return {
 		async find(sourceProjectId, restoreId) {
@@ -417,7 +444,7 @@ export function createDatabaseProjectArchiveRestoreStorage(
 						restoredProjectId: restore.restoredProjectId,
 						sourceProjectId: restore.sourceProjectId,
 						operationProjectId: restore.operationProjectId ?? null,
-						canonicalVerified: restore.canonicalVerified ?? true,
+						canonicalVerified: false,
 					});
 					// The Project Context travels as live revisions, so the new project opens with its own context.
 					for (const rows of chunks(revisions)) {
@@ -499,6 +526,7 @@ export function createDatabaseProjectArchiveRestoreStorage(
 							}))
 						);
 					}
+					await verifyNewRestore(tx, record, verifyCanonical);
 				});
 				return { status: "inserted" };
 			} catch (error) {
@@ -509,29 +537,66 @@ export function createDatabaseProjectArchiveRestoreStorage(
 			}
 		},
 
-		async markVerified(sourceProjectId, restoreId) {
-			const [updated] = await db
-				.update(projectArchiveRestores)
-				.set({ canonicalVerified: true })
-				.where(
-					and(
-						eq(projectArchiveRestores.id, restoreId),
-						or(
-							eq(projectArchiveRestores.operationProjectId, sourceProjectId),
-							and(
-								isNull(projectArchiveRestores.operationProjectId),
-								eq(projectArchiveRestores.sourceProjectId, sourceProjectId)
-							)
-						)
-					)
+		...(verifyCanonical
+			? {
+					async verifyAndMark(
+						sourceProjectId: string,
+						restoreId: string,
+						record: StoredProjectArchiveRestoreRecord
+					) {
+						await db.transaction(async (tx) => {
+							const [updated] = await tx
+								.update(projectArchiveRestores)
+								.set({ canonicalVerified: true })
+								.where(
+									and(
+										eq(projectArchiveRestores.id, restoreId),
+										eq(
+											projectArchiveRestores.restoredProjectId,
+											record.restore.restoredProjectId
+										),
+										or(
+											eq(
+												projectArchiveRestores.operationProjectId,
+												sourceProjectId
+											),
+											and(
+												isNull(projectArchiveRestores.operationProjectId),
+												eq(
+													projectArchiveRestores.sourceProjectId,
+													sourceProjectId
+												)
+											)
+										)
+									)
+								)
+								.returning({ id: projectArchiveRestores.id });
+							if (!updated) {
+								throw new Error(
+									"Project Archive restore could not be verified."
+								);
+							}
+							const failures = await verifyCanonical(
+								tx as unknown as Database,
+								record
+							);
+							if (failures.length) {
+								throw new Error(
+									`Restored project failed canonical readback: ${failures.join(" ")}`
+								);
+							}
+						});
+					},
+				}
+			: {}),
+		markVerified() {
+			return Promise.reject(
+				new Error(
+					"Canonical verification must run in the publication transaction."
 				)
-				.returning({ id: projectArchiveRestores.id });
-			if (!updated) {
-				throw new Error(
-					"Project Archive restore could not be marked verified."
-				);
-			}
+			);
 		},
+
 		async list(sourceProjectId) {
 			const rows = await db
 				.select()

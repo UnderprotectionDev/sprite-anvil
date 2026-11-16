@@ -12,6 +12,10 @@ import {
 } from "@sprite-anvil/api/record-publication";
 import type { Database } from "@sprite-anvil/db";
 import { getProjectForUser } from "@sprite-anvil/db";
+import type {
+	ManagedObjectErasureGate,
+	ManagedObjectReservations,
+} from "../../../managed-object-reservations";
 import { verifyObject } from "./object-file-bytes";
 import {
 	PortableArchiveFormatError,
@@ -54,6 +58,8 @@ export interface ArchiveImportOptions {
 	operations: Enqueuer;
 	permanentFailure: (message: string) => Error;
 	requests: ArchiveImportRequestStorage;
+	reservations: ManagedObjectReservations &
+		Pick<ManagedObjectErasureGate, "listOwner">;
 	store: Pick<
 		ReturnType<typeof createProjectArchiveRestoreStore>,
 		"restoreFromArchive"
@@ -88,6 +94,38 @@ export function createProjectArchiveImportOperations(
 	db: Database,
 	options: ArchiveImportOptions
 ) {
+	async function deleteReserved(key: string) {
+		await options.objects.delete(key);
+		await options.reservations.release(key);
+	}
+	async function cleanupImport(request: ArchiveImportRequest) {
+		const entries = await options.reservations.listOwner(
+			request.requestedByUserId
+		);
+		for (const entry of entries) {
+			if (
+				entry.operationId === request.id &&
+				entry.projectId === request.projectId &&
+				entry.purpose === "archive_import_zip" &&
+				entry.objectKey === request.stagedObjectKey
+			) {
+				if (!entry.writeSettled) {
+					throw new Error(
+						"The archive upload outcome is unknown; storage must be verified before cleanup."
+					);
+				}
+				// biome-ignore lint/performance/noAwaitInLoops: Retryable deletion must finish before ownership is released.
+				await deleteReserved(entry.objectKey);
+			}
+		}
+	}
+	async function rejectImport(
+		request: ArchiveImportRequest,
+		message: string
+	): Promise<never> {
+		await cleanupImport(request);
+		throw options.permanentFailure(message);
+	}
 	const lookup =
 		options.getProjectForUser ??
 		((userId: string, projectId: string) =>
@@ -157,8 +195,16 @@ export function createProjectArchiveImportOperations(
 				return enqueue(existing);
 			}
 			const key = `projects/${encodeURIComponent(input.projectId)}/project-archive-imports/${id}/${crypto.randomUUID()}/archive.zip`;
+			await options.reservations.reserve({
+				ownerUserId: userId,
+				projectId: input.projectId,
+				objectKey: key,
+				operationId: id,
+				purpose: "archive_import_zip",
+			});
 			const verified = verifiedUpload(input.byteSize, input.sha256);
 			let insertStarted = false;
+			let writeSettled = false;
 			try {
 				await options.objects.put(
 					key,
@@ -166,6 +212,8 @@ export function createProjectArchiveImportOperations(
 					"application/octet-stream",
 					input.byteSize
 				);
+				await options.reservations.markSettled(key);
+				writeSettled = true;
 				const sha256 = verified.digest();
 				if (!sha256) {
 					throw new Error("Upload did not finish verification");
@@ -185,7 +233,7 @@ export function createProjectArchiveImportOperations(
 					createdAt: new Date(),
 				});
 				if (saved.status === "existing") {
-					await options.objects.delete(key).catch(() => undefined);
+					await deleteReserved(key);
 					if (saved.existing.requestDigest !== requestDigest) {
 						throw new IdempotencyConflictError("Project Archive import");
 					}
@@ -204,8 +252,8 @@ export function createProjectArchiveImportOperations(
 					createdAt: new Date(),
 				});
 			} catch (error) {
-				if (!insertStarted) {
-					await options.objects.delete(key).catch(() => undefined);
+				if (!insertStarted && writeSettled) {
+					await deleteReserved(key);
 				}
 				throw error;
 			}
@@ -235,8 +283,16 @@ export function createProjectArchiveImportOperations(
 					"Project Archive import request not found."
 				);
 			}
+			if (request.completedSummary) {
+				await cleanupImport(request);
+				return request.completedSummary.replace(
+					" created from ",
+					" replayed from "
+				);
+			}
 			if (!(await lookup(request.requestedByUserId, request.projectId))) {
-				throw options.permanentFailure(
+				return await rejectImport(
+					request,
 					"Project access is no longer available."
 				);
 			}
@@ -246,7 +302,8 @@ export function createProjectArchiveImportOperations(
 					sha256: request.zipSha256,
 				}))
 			) {
-				throw options.permanentFailure(
+				return await rejectImport(
+					request,
 					"Uploaded Project Archive failed verification."
 				);
 			}
@@ -265,14 +322,16 @@ export function createProjectArchiveImportOperations(
 				});
 			} catch (error) {
 				if (error instanceof PortableArchiveFormatError) {
-					throw options.permanentFailure(
+					return await rejectImport(
+						request,
 						"Uploaded Project Archive is invalid."
 					);
 				}
 				throw error;
 			}
 			if (portable.archive.schemaVersion !== projectArchiveSchemaVersion) {
-				throw options.permanentFailure(
+				return await rejectImport(
+					request,
 					"Project Archive version lacks required restore data."
 				);
 			}
@@ -280,7 +339,8 @@ export function createProjectArchiveImportOperations(
 				portable.archive.projectId !==
 				portable.archive.manifest.source.projectId
 			) {
-				throw options.permanentFailure(
+				return await rejectImport(
+					request,
 					"Project Archive source identity is inconsistent."
 				);
 			}
@@ -289,7 +349,8 @@ export function createProjectArchiveImportOperations(
 					(file) => file.byteSize > projectArchiveFileStorageLimit
 				)
 			) {
-				throw options.permanentFailure(
+				return await rejectImport(
+					request,
 					"Project Archive file exceeds the storage limit."
 				);
 			}
@@ -299,16 +360,25 @@ export function createProjectArchiveImportOperations(
 			try {
 				for (const entry of portable.files) {
 					const key = `projects/${encodeURIComponent(request.projectId)}/project-archive-imports/${request.id}/${attempt}/files/${entry.file.kind}/${Buffer.from(entry.file.sourceId).toString("hex")}`;
-					cleanup.push(key);
-					// biome-ignore lint/performance/noAwaitInLoops: Each file is streamed and verified before starting the next.
+					// biome-ignore lint/performance/noAwaitInLoops: Reserve each file before writing its bytes.
+					await options.reservations.reserve({
+						ownerUserId: request.requestedByUserId,
+						projectId: request.projectId,
+						objectKey: key,
+						operationId: request.id,
+						purpose: "archive_import_file",
+					});
 					await options.objects.put(
 						key,
 						await portable.openFile(entry),
 						"application/octet-stream",
 						entry.file.byteSize
 					);
+					await options.reservations.markSettled(key);
+					cleanup.push(key);
 					if (!(await verifyObject(options.objects, key, entry.file))) {
-						throw options.permanentFailure(
+						return await rejectImport(
+							request,
 							"Project Archive file failed verification."
 						);
 					}
@@ -356,22 +426,34 @@ export function createProjectArchiveImportOperations(
 					}
 				);
 				if (!result || result.status === "rejected") {
-					throw options.permanentFailure(
+					return await rejectImport(
+						request,
 						"Uploaded Project Archive could not be restored."
 					);
 				}
-				return `Project ${result.restore.restoredProjectId} ${result.status} from uploaded Project Archive ${archive.id}.`;
+				const summary = `Project ${result.restore.restoredProjectId} ${result.status} from uploaded Project Archive ${archive.id}.`;
+				await options.requests.complete(request.projectId, request.id, summary);
+				return summary;
 			} catch (error) {
 				if (error instanceof PortableArchiveFormatError) {
-					throw options.permanentFailure(
+					return await rejectImport(
+						request,
 						"Uploaded Project Archive file is invalid."
 					);
 				}
 				throw error;
 			} finally {
-				await Promise.allSettled(
-					cleanup.map((key) => options.objects.delete(key))
+				for (const key of cleanup) {
+					// biome-ignore lint/performance/noAwaitInLoops: Cleanup must complete before releasing durable ownership.
+					await deleteReserved(key);
+				}
+				const latest = await options.requests.find(
+					request.projectId,
+					request.id
 				);
+				if (latest?.completedSummary) {
+					await cleanupImport(request);
+				}
 			}
 		},
 	};

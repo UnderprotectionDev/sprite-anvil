@@ -12,6 +12,7 @@ import {
 	rightsRecordStoredEvidenceFileSchema,
 } from "@sprite-anvil/api/rights-records";
 import type { Database } from "@sprite-anvil/db";
+import { publishedProjectPredicate } from "@sprite-anvil/db";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
 import { project } from "@sprite-anvil/db/schema/project";
 import { referenceBoardImages } from "@sprite-anvil/db/schema/reference-production";
@@ -132,7 +133,7 @@ async function canAccessAssetRecord(
 			and(
 				eq(assetRecords.projectId, projectId),
 				eq(assetRecords.id, assetRecordId),
-				eq(project.ownerUserId, userId)
+				and(eq(project.ownerUserId, userId), publishedProjectPredicate())
 			)
 		)
 		.limit(1);
@@ -333,7 +334,7 @@ export function createRightsRecordStore(db: Database): RightsRecordStore {
 					and(
 						eq(rightsRecords.id, rightsRecordId),
 						rightsRecordTargetFilter(projectId, assetRecordId, referenceId),
-						eq(project.ownerUserId, userId),
+						and(eq(project.ownerUserId, userId), publishedProjectPredicate()),
 						ne(assetRecords.availability, "erased")
 					)
 				)

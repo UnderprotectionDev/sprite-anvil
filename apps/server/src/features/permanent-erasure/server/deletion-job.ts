@@ -4,6 +4,7 @@ import {
 	buildDeletionReceipt,
 	deletionReceiptDigest,
 } from "@sprite-anvil/api/permanent-erasure-deletion";
+import type { ManagedObjectErasureGate } from "../../../managed-object-reservations";
 import {
 	type ErasureDeletionStorage,
 	ErasureScopeChangedError,
@@ -23,6 +24,12 @@ export type DeletionJobOptions = ProjectLookupOptions & {
 	proof: ErasureScopeProof;
 	removal: ReturnType<typeof createErasureObjectRemoval>;
 	storage: ErasureDeletionStorage;
+	managedObjects: Pick<
+		ManagedObjectErasureGate,
+		"beginErasure" | "endErasure" | "listOwner"
+	>;
+	transientFailure: (message: string) => Error;
+	registerHistoricalImports: (ownerUserId: string) => Promise<void>;
 };
 
 /**
@@ -163,27 +170,62 @@ export function createDeletionJob(options: DeletionJobOptions) {
 			}
 			const done = await storage.findReceipt(approval.projectId, approval.id);
 			if (done) {
+				await options.managedObjects.endErasure(
+					approval.approvedByUserId,
+					operation.id
+				);
 				return `Deletion Receipt ${done.id} replayed.`;
 			}
 
 			const scope = await proveApprovedScope(approval);
-			const objectKeys = await removal.objectKeysToRemove(approval, scope);
-
-			// The last point where the work can still stop safely: once removal
-			// started, even in an earlier attempt, the operation reports its real
-			// result, never Cancelled.
-			if (!(await storage.removalStarted(approval.projectId, approval.id))) {
-				await context.checkpoint();
-				await storage.markRemovalStarted({
-					approvalId: approval.id,
-					projectId: approval.projectId,
-					startedAt: now(),
-				});
+			try {
+				await options.registerHistoricalImports(approval.approvedByUserId);
+			} catch (error) {
+				const failure = options.transientFailure(
+					"Archive import storage could not be inventoried. Erasure remains blocked until it can be verified."
+				);
+				failure.cause = error;
+				throw failure;
 			}
-			await removal.removeObjects(objectKeys);
+			if (
+				!(await options.managedObjects.beginErasure(
+					approval.approvedByUserId,
+					operation.id
+				))
+			) {
+				const pending = await options.managedObjects.listOwner(
+					approval.approvedByUserId
+				);
+				throw options.transientFailure(
+					pending.some((item) => !item.writeSettled)
+						? "A temporary object's write outcome is unknown. Erasure is blocked until storage is verified and cleaned up."
+						: "Temporary objects are still in use by an import or restore. Retry after they are cleaned up."
+				);
+			}
+			try {
+				const objectKeys = await removal.objectKeysToRemove(approval, scope);
 
-			const finalized = await finalize(approval, operation.id, scope);
-			return `Deletion Receipt ${approval.id} ${finalized.status === "finalized" ? "created" : "replayed"}.`;
+				// The last point where the work can still stop safely: once removal
+				// started, even in an earlier attempt, the operation reports its real
+				// result, never Cancelled.
+				if (!(await storage.removalStarted(approval.projectId, approval.id))) {
+					await context.checkpoint();
+					await storage.markRemovalStarted({
+						approvalId: approval.id,
+						projectId: approval.projectId,
+						startedAt: now(),
+					});
+				}
+				await removal.removeObjects(objectKeys);
+
+				const finalized = await finalize(approval, operation.id, scope);
+				return `Deletion Receipt ${approval.id} ${finalized.status === "finalized" ? "created" : "replayed"}.`;
+			} finally {
+				await options.managedObjects.endErasure(
+					approval.approvedByUserId,
+					operation.id
+				);
+			}
 		},
 	};
 }

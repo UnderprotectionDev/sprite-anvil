@@ -32,6 +32,7 @@ import {
 	createProjectManagedSnapshotObjectKey,
 	createProjectReferenceBoardObjectKey,
 } from "../../../cloudflare";
+import type { ManagedObjectReservations } from "../../../managed-object-reservations";
 import type {
 	ProjectArchiveRestoreStorage,
 	StoredProjectArchiveRestore,
@@ -70,6 +71,7 @@ export interface ProjectArchiveRestoreStoreOptions {
 	/** Resolves a project the user owns; defaults to the shared project access lookup. */
 	getProjectForUser?: (userId: string, projectId: string) => Promise<unknown>;
 	now?: () => Date;
+	reservations: ManagedObjectReservations;
 	storage: ProjectArchiveRestoreStorage;
 	verifyCanonical?: (
 		record: StoredProjectArchiveRestoreRecord
@@ -159,10 +161,10 @@ function readArchive(
 	}
 }
 
-/** Where a restored file lives in the independent project; derived, so a retry writes the same place. */
+/** Each attempt owns distinct object keys within the independent project's normal key shapes. */
 function restoredObjectKey(
 	restoredProjectId: string,
-	restoreId: string,
+	attemptId: string,
 	file: {
 		kind: string;
 		restoredId: string;
@@ -178,14 +180,14 @@ function restoredObjectKey(
 		return createProjectAssetVersionObjectKey(
 			restoredProjectId,
 			file.assetRecordId,
-			file.assetVersionId
+			crypto.randomUUID()
 		);
 	}
 	if (file.kind === "import_inbox_file") {
 		return createProjectImportInboxObjectKey(
 			restoredProjectId,
 			file.restoredId,
-			restoreId
+			attemptId
 		);
 	}
 	if (file.kind === "reference_board_file" && file.assetRecordId) {
@@ -193,7 +195,7 @@ function restoredObjectKey(
 			restoredProjectId,
 			file.assetRecordId,
 			file.restoredId,
-			restoreId
+			attemptId
 		);
 	}
 	if (
@@ -205,10 +207,10 @@ function restoredObjectKey(
 			restoredProjectId,
 			file.assetRecordId,
 			file.assetVersionId,
-			file.restoredId
+			crypto.randomUUID()
 		);
 	}
-	return `projects/${restoredProjectId}/restores/${restoreId}/${file.kind}/${file.restoredId}`;
+	return `projects/${restoredProjectId}/restores/${attemptId}/${file.kind}/${file.restoredId}`;
 }
 
 /** Source ids of included files that no longer match their archived digest; none when every one verifies. */
@@ -244,6 +246,8 @@ async function copyRestoredFiles(
 	locations: Map<string, string>,
 	files: ProjectArchiveRestoreFiles,
 	newKey: (file: ProjectArchiveRestorePlan["files"][number]) => string,
+	reserve: (key: string) => Promise<void>,
+	markSettled: (key: string) => Promise<void>,
 	copied: string[]
 ): Promise<StoredRestoredFile[]> {
 	const restored: StoredRestoredFile[] = [];
@@ -254,7 +258,8 @@ async function copyRestoredFiles(
 			continue;
 		}
 		const to = newKey(file);
-		// biome-ignore lint/performance/noAwaitInLoops: Files are copied one at a time to bound memory.
+		// biome-ignore lint/performance/noAwaitInLoops: Reserve each object before writing it.
+		await reserve(to);
 		await files.copy({
 			byteSize: file.byteSize,
 			contentType: file.kind === "import_inbox_file" ? null : file.contentType,
@@ -262,6 +267,7 @@ async function copyRestoredFiles(
 			sha256: file.sha256,
 			to,
 		});
+		await markSettled(to);
 		copied.push(to);
 		if (
 			!(await files.verify({
@@ -277,28 +283,17 @@ async function copyRestoredFiles(
 	return restored;
 }
 
-/**
- * Best-effort cleanup of the objects one failed attempt copied. Nothing is
- * deleted when a restore record for the key exists, since the keys are the
- * same ones that record owns; a failed delete never hides the original error.
- */
-async function removeUnownedCopies(
+async function removeCopies(
 	copied: string[],
 	files: ProjectArchiveRestoreFiles,
-	find: () => Promise<unknown>
+	reservations: ManagedObjectReservations
 ) {
-	if (copied.length === 0) {
-		return;
-	}
-	try {
-		if (await find()) {
-			return;
-		}
-	} catch {
-		// Ownership is unknown; keeping a possible orphan is safer than deleting owned files.
-		return;
-	}
-	await Promise.allSettled(copied.map((key) => files.remove(key)));
+	await Promise.all(
+		copied.map(async (key) => {
+			await files.remove(key);
+			await reservations.release(key);
+		})
+	);
 }
 
 export function createProjectArchiveRestoreStore(
@@ -311,7 +306,7 @@ export function createProjectArchiveRestoreStore(
 		archive: StoredProjectArchiveRecord
 	) => Promise<ProjectArchiveRestoreResult | null>;
 } {
-	const { archives, files, storage } = options;
+	const { archives, files, reservations, storage } = options;
 	const lookupProject =
 		options.getProjectForUser ??
 		((userId: string, projectId: string) =>
@@ -345,8 +340,16 @@ export function createProjectArchiveRestoreStore(
 		const sourceProjectId = provided?.archive.projectId ?? input.projectId;
 		const verifyRecord = async (record: StoredProjectArchiveRestoreRecord) => {
 			const failure = await integrityFailure(record);
-			if (failure || record.restore.canonicalVerified !== false) {
+			if (failure || record.restore.canonicalVerified === true) {
 				return failure;
+			}
+			if (storage.verifyAndMark) {
+				try {
+					await storage.verifyAndMark(input.projectId, restoreId, record);
+					return null;
+				} catch {
+					return "Canonical readback is unavailable.";
+				}
 			}
 			if (!options.verifyCanonical) {
 				return "Canonical verification is unavailable.";
@@ -373,6 +376,14 @@ export function createProjectArchiveRestoreStore(
 			});
 		const replayed = await replay();
 		if (replayed) {
+			const published = await storage.find(input.projectId, restoreId);
+			if (published) {
+				await Promise.all(
+					published.files.flatMap((file) =>
+						file.objectKey ? [reservations.release(file.objectKey)] : []
+					)
+				);
+			}
 			return { restore: replayed, status: "replayed" };
 		}
 
@@ -440,18 +451,29 @@ export function createProjectArchiveRestoreStore(
 			};
 		}
 
-		// Object keys are derived, so a concurrent or earlier attempt for the same
-		// key owns these exact keys; only a restore that left no record may undo them.
+		// The record identity is deterministic, while each attempt owns its own files.
+		const attemptId = crypto.randomUUID();
 		const copied: string[] = [];
+		let insertionStarted = false;
 		let inserted: Awaited<ReturnType<typeof storage.insert>>;
 		try {
 			const restoredFiles = await copyRestoredFiles(
 				plan,
 				locations,
 				files,
-				(file) => restoredObjectKey(restoredProjectId, restoreId, file),
+				(file) => restoredObjectKey(restoredProjectId, attemptId, file),
+				(objectKey) =>
+					reservations.reserve({
+						ownerUserId: userId,
+						projectId: input.projectId,
+						objectKey,
+						operationId: attemptId,
+						purpose: "archive_restore_copy",
+					}),
+				(objectKey) => reservations.markSettled(objectKey),
 				copied
 			);
+			insertionStarted = true;
 			inserted = await storage.insert({
 				files: restoredFiles,
 				ids: plan.ids,
@@ -471,9 +493,13 @@ export function createProjectArchiveRestoreStore(
 				sections: plan.sections,
 			});
 		} catch (error) {
-			await removeUnownedCopies(copied, files, () =>
-				storage.find(input.projectId, restoreId)
-			);
+			if (!insertionStarted) {
+				try {
+					await removeCopies(copied, files, reservations);
+				} catch {
+					// Keep reservations for cleanup that could not be confirmed.
+				}
+			}
 			throw error;
 		}
 		if (inserted.status === "conflict") {
@@ -482,23 +508,25 @@ export function createProjectArchiveRestoreStore(
 			if (!winner) {
 				throw new RetryablePublicationError("Project Archive restore");
 			}
+			const owned = await storage.find(input.projectId, restoreId);
+			if (owned) {
+				const winnerKeys = new Set(owned.files.map((file) => file.objectKey));
+				await removeCopies(
+					copied.filter((key) => !winnerKeys.has(key)),
+					files,
+					reservations
+				);
+			}
 			return { restore: winner, status: "replayed" };
 		}
-		let verified: ProjectArchiveRestore;
-		try {
-			verified = await verifyPublishedRecord({
-				integrityFailure: verifyRecord,
-				label: "Project Archive restore",
-				read: () => storage.find(input.projectId, restoreId),
-				toResult: toRestore,
-				withdraw: () => storage.withdraw(restoreId),
-			});
-		} catch (error) {
-			await removeUnownedCopies(copied, files, () =>
-				storage.find(input.projectId, restoreId)
-			);
-			throw error;
-		}
+		const verified = await verifyPublishedRecord({
+			integrityFailure: verifyRecord,
+			label: "Project Archive restore",
+			read: () => storage.find(input.projectId, restoreId),
+			toResult: toRestore,
+			withdraw: () => storage.withdraw(restoreId),
+		});
+		await Promise.all(copied.map((key) => reservations.release(key)));
 		return { restore: verified, status: "created" };
 	}
 
@@ -508,7 +536,7 @@ export function createProjectArchiveRestoreStore(
 				return null;
 			}
 			const record = await storage.find(projectId, restoreId);
-			if (!record || record.restore.canonicalVerified === false) {
+			if (record?.restore.canonicalVerified !== true) {
 				return null;
 			}
 			const failure = await integrityFailure(record);

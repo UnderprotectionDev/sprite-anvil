@@ -6,6 +6,15 @@ const dropColumnPattern = /^ALTER TABLE "([^"]+)" DROP COLUMN "([^"]+)";$/;
 
 interface Entity {
 	entityType?: string;
+	identity?: {
+		cache: number | null;
+		cycle: boolean | null;
+		increment: string | null;
+		maxValue: string | null;
+		minValue: string | null;
+		name: string;
+		startWith: string | null;
+	} | null;
 	name?: string;
 	schema?: string;
 	table?: string;
@@ -16,6 +25,27 @@ export function projectRequiredCatalog(
 	actual: string[],
 	historical: string[]
 ): string[] {
+	const identitySequences = new Set(
+		ddl.flatMap((entry) => {
+			if (entry.entityType !== "columns" || !entry.identity) {
+				return [];
+			}
+			const { identity } = entry;
+			return [
+				JSON.stringify([
+					"sequence",
+					entry.schema,
+					identity.name,
+					identity.startWith,
+					identity.increment,
+					identity.minValue,
+					identity.maxValue,
+					String(identity.cache),
+					identity.cycle,
+				]),
+			];
+		})
+	);
 	const tables = new Set(
 		ddl
 			.filter((entry) => entry.entityType === "tables")
@@ -50,6 +80,9 @@ export function projectRequiredCatalog(
 			return true;
 		}
 		const object = JSON.parse(entry) as unknown[];
+		if (object[0] === "sequence") {
+			return identitySequences.has(JSON.stringify(object));
+		}
 		if (object[0] === "relation") {
 			return tables.has(JSON.stringify(object.slice(1, 3)));
 		}

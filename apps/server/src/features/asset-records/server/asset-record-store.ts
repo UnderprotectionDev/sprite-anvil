@@ -7,7 +7,11 @@ import type {
 	AssetRecordSearchResponse,
 	AssetRecordStore,
 } from "@sprite-anvil/api/asset-records";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import {
+	type Database,
+	getProjectForUser,
+	publishedProjectPredicate,
+} from "@sprite-anvil/db";
 import { assetRecordMeasurements } from "@sprite-anvil/db/schema/asset-record-measurements";
 import {
 	assetFamilies,
@@ -45,7 +49,7 @@ function getSearchConditions(
 ) {
 	const conditions: (SQL | undefined)[] = [
 		eq(assetRecords.projectId, input.projectId),
-		eq(project.ownerUserId, userId),
+		and(eq(project.ownerUserId, userId), publishedProjectPredicate()),
 		input.name
 			? ilike(assetRecords.name, `%${input.name.replace(/[\\%_]/g, "\\$&")}%`)
 			: undefined,
@@ -200,7 +204,7 @@ export function createAssetRecordStore(db: Database): AssetRecordStore {
 					and(
 						eq(assetRecords.id, assetRecordId),
 						eq(assetRecords.projectId, projectId),
-						eq(project.ownerUserId, userId)
+						and(eq(project.ownerUserId, userId), publishedProjectPredicate())
 					)
 				)
 				.limit(1);
@@ -239,7 +243,7 @@ export function createAssetRecordStore(db: Database): AssetRecordStore {
 				.where(
 					and(
 						eq(assetRecords.projectId, projectId),
-						eq(project.ownerUserId, userId)
+						and(eq(project.ownerUserId, userId), publishedProjectPredicate())
 					)
 				)
 				.orderBy(desc(assetRecords.createdAt), asc(assetRecords.name));
@@ -342,7 +346,7 @@ export function createAssetRecordStore(db: Database): AssetRecordStore {
 					and(
 						eq(assetRecords.id, input.assetRecordId),
 						eq(assetRecords.projectId, input.projectId),
-						eq(project.ownerUserId, userId)
+						and(eq(project.ownerUserId, userId), publishedProjectPredicate())
 					)
 				)
 				.limit(1);

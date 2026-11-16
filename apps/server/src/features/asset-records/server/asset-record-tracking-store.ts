@@ -30,7 +30,11 @@ import {
 	analyzeReferenceTransferConstraints,
 	indexReferenceConflictFeaturesById,
 } from "@sprite-anvil/api/reference-production";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import {
+	type Database,
+	getProjectForUser,
+	publishedProjectPredicate,
+} from "@sprite-anvil/db";
 import {
 	legacyAssetAttestations,
 	managedSnapshots,
@@ -438,7 +442,7 @@ async function getOwnedAssetRecord(
 			and(
 				eq(assetRecords.id, assetRecordId),
 				eq(assetRecords.projectId, projectId),
-				eq(project.ownerUserId, userId)
+				and(eq(project.ownerUserId, userId), publishedProjectPredicate())
 			)
 		)
 		.limit(1);
@@ -1399,7 +1403,7 @@ export function createAssetRecordTrackingStore(
 					and(
 						eq(assetVersions.projectId, input.projectId),
 						eq(assetVersions.id, input.targetVersionId),
-						eq(project.ownerUserId, userId),
+						and(eq(project.ownerUserId, userId), publishedProjectPredicate()),
 						eq(assetRecords.availability, "active")
 					)
 				)

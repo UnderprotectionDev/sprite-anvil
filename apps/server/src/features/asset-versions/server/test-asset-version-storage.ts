@@ -40,6 +40,11 @@ export function createTestAssetVersionStorage() {
 				contentType: object.contentType,
 			});
 		},
+		list(prefix: string) {
+			return Promise.resolve(
+				[...objects.keys()].filter((key) => key.startsWith(prefix))
+			);
+		},
 		delete(key: string) {
 			return Promise.resolve().then(() => {
 				objects.delete(key);

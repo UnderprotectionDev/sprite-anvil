@@ -147,7 +147,7 @@ Canlı tablolara geri kurma, transaction ve FK sırasıyla şu kayıt ailelerini
 - Kanonik adlar: [repository glossary](CONTEXT.md). İlgili teknik adlar: Candidate Version, Production Experiment, Production Recipe, Export Profile, Export Bundle, Background Operation, Readiness Plan, Delivery Diff, Project Archive, Deletion Job, Measurement Definition ve Gameplay Metadata.
 - Ürün davranışı owning PRD ve aşağıdaki uygulama spec'lerinde kalır; bu belge bu gereksinimleri değiştirmez. Test seam'i owning spec'in Testing Decisions bölümüdür.
 - [Stack](tech-stack.md), [placement/boundaries](../structure.md), [interface areas](interface-areas.md), [migration/issue workflow](agents/issue-tracker.md), [acceptance scenarios](prd/10-acceptance-scenarios.md) bağlayıcıdır.
-- Denetim kaynakları workspace'in `.context/spec-audit/REPORT.md` ve `.context/architecture-audit/REPORT.md` çıktılarıdır; yayımlanmış issue'nun kapsamı bu belgedeki R01–R31 kayıtlarıdır, ignored dosyalara bağımlı değildir.
+- Denetim kaynakları workspace'in `.context/spec-audit/REPORT.md` ve `.context/architecture-audit/REPORT.md` çıktılarıdır; yayımlanmış issue'nun kapsamı bu belgedeki R01–R32 kayıtlarıdır, ignored dosyalara bağımlı değildir.
 - Yayımlama öncesi açık/kapalı GitHub kayıtları kontrol edildi; mevcut teslim ticket'ları kapalı. Bu çalışma eski ticket'ı teslim edilmiş varsaymaz; ayrı audit remediation kapsamıdır. Seçili issue veya canonical attachment sağlanmadı.
 - Test seam'i kullanıcı tarafından onaylandı. Gerçek dış ortam kısıtları bağımsız uygulama işini durdurmaz.
 
@@ -181,3 +181,7 @@ Ortak form/tema/shell ve CI işleri ayrıca stack/structure/AGENTS kurallarına 
 ### R31 · Native build capability isolation
 
 R14/R25 gerçek masaüstü derleme kontrolünde normal derlemenin test-only `wdio:default` iznini doğrulamaya çalıştığı ve isteğe bağlı WebDriver eklentisi olmadan başarısız olduğu görüldü. Normal derleme yalnız `default` capability kaynağını işler; `webdriver` feature etkinse test capability dosyası da işlenir. Owning gereksinim PLT-01/OPS-03/OPS-04 ([platform PRD](prd/08-platform-and-operations.md)), [spec 48](specs/48-platform-equivalence/spec.md), [workflow](workflow/48-platform-equivalence/phase-context.md), [ADR 0003](adr/0003-require-web-and-desktop-product-surfaces.md) sınırı korunur. Kanonik terim Supported Platform Matrix ([sözlük](CONTEXT.md)); yeni domain terimi yoktur. Test seam'i gerçek `cargo check` normal ve WebDriver feature derlemeleridir; bu derleme kanıtı gerçek reader veya native dosya akışı kabulü sayılmaz.
+
+### R32 · Kaynakta tanımlı identity sequence doğrulaması
+
+Son DB teslim kontrolü, mevcut `runtime_validation_decisions.sequence` identity sütununun kaynaktaki dizisini beklenmeyen nesne sayıyordu. Bu bakım düzeltmesinin sahibi `packages/db/scripts/shared-schema-policy.ts` ve veritabanı teslim kuralı [issue tracker](agents/issue-tracker.md#schema-migrations-across-parallel-issues); yeni ürün davranışı veya şema değişikliği yoktur. Kaynak identity tanımının dizi adı, schema, başlangıç, artış, alt/üst sınır, cache ve cycle değerlerinin tamamı eşleşirse dizi kabul edilir. Sahipsiz veya farklı ayarlı dizi kabul edilmez. Test sınırı mevcut `shared-schema-policy.test.ts`: gerçek `db:validate` hatası ve önce başarısız sonra geçen pozitif/negatif katalog testi; DB üzerinde hiçbir otomatik onarım uygulanmaz.

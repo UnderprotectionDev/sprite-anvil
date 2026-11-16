@@ -11,6 +11,7 @@ import {
 import { recordContentDigest } from "@sprite-anvil/api/record-content-digest";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import type { Database } from "@sprite-anvil/db";
+import type { ManagedObjectReservations } from "../../../../managed-object-reservations";
 import { createProjectArchiveRestoreStore } from "../project-archive-restore-store";
 import type {
 	ProjectArchiveStorage,
@@ -61,6 +62,7 @@ export function restoreSetup(
 	options: {
 		source?: ProjectArchiveSource;
 		verifyCanonical?: () => Promise<string[]>;
+		reservations?: ManagedObjectReservations;
 		copyFile?: (file: {
 			from: string;
 			to: string;
@@ -111,6 +113,11 @@ export function restoreSetup(
 		{} as Database,
 		{
 			archives: archiveStorage,
+			reservations: options.reservations ?? {
+				markSettled: () => Promise.resolve(),
+				reserve: () => Promise.resolve(),
+				release: () => Promise.resolve(),
+			},
 			files: {
 				copy: async (file) => {
 					await options.copyFile?.(file);

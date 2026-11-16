@@ -10,6 +10,7 @@ import {
 	verifyPublishedRecord,
 } from "@sprite-anvil/api/record-publication";
 import type { Database } from "@sprite-anvil/db";
+import { publishedProjectPredicate } from "@sprite-anvil/db";
 import {
 	productionRecipes,
 	productionRecipeVersions,
@@ -61,7 +62,12 @@ async function isOwnedProject(db: Database, userId: string, projectId: string) {
 	const [owned] = await db
 		.select({ id: project.id })
 		.from(project)
-		.where(and(eq(project.id, projectId), eq(project.ownerUserId, userId)))
+		.where(
+			and(
+				eq(project.id, projectId),
+				and(eq(project.ownerUserId, userId), publishedProjectPredicate())
+			)
+		)
 		.limit(1);
 	return Boolean(owned);
 }
@@ -74,7 +80,7 @@ async function readOwnedRecipeRows(
 ) {
 	const conditions = [
 		eq(productionRecipes.projectId, projectId),
-		eq(project.ownerUserId, userId),
+		and(eq(project.ownerUserId, userId), publishedProjectPredicate()),
 	];
 	if (recipeId) {
 		conditions.push(eq(productionRecipes.id, recipeId));

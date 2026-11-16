@@ -11,6 +11,7 @@ import {
 	projectContextSchema,
 } from "@sprite-anvil/api/project-context";
 import type { Database } from "@sprite-anvil/db";
+import { publishedProjectPredicate } from "@sprite-anvil/db";
 import { project as projectTable } from "@sprite-anvil/db/schema/project";
 import {
 	contextProposals,
@@ -67,7 +68,9 @@ export function createProjectContextStore(db: Database): ProjectContextStore {
 						)
 					)
 				)
-				.where(eq(projectTable.ownerUserId, userId))
+				.where(
+					and(eq(projectTable.ownerUserId, userId), publishedProjectPredicate())
+				)
 				.orderBy(
 					asc(projectTable.createdAt),
 					desc(
@@ -176,7 +179,10 @@ export function createProjectContextStore(db: Database): ProjectContextStore {
 					and(
 						eq(contextRevisions.id, revisionId),
 						eq(contextRevisions.projectId, projectId),
-						eq(projectTable.ownerUserId, userId)
+						and(
+							eq(projectTable.ownerUserId, userId),
+							publishedProjectPredicate()
+						)
 					)
 				)
 				.limit(1);
@@ -200,7 +206,10 @@ export function createProjectContextStore(db: Database): ProjectContextStore {
 					and(
 						eq(contextRevisions.sourceProposalId, proposalId),
 						eq(contextRevisions.projectId, projectId),
-						eq(projectTable.ownerUserId, userId)
+						and(
+							eq(projectTable.ownerUserId, userId),
+							publishedProjectPredicate()
+						)
 					)
 				)
 				.limit(1);
@@ -220,7 +229,10 @@ export function createProjectContextStore(db: Database): ProjectContextStore {
 					and(
 						eq(contextProposals.id, proposalId),
 						eq(contextProposals.projectId, projectId),
-						eq(projectTable.ownerUserId, userId)
+						and(
+							eq(projectTable.ownerUserId, userId),
+							publishedProjectPredicate()
+						)
 					)
 				)
 				.limit(1);
@@ -376,7 +388,10 @@ export function createProjectContextStore(db: Database): ProjectContextStore {
 						eq(contextRevisions.projectId, input.projectId),
 						eq(contextRevisions.sourceProposalId, input.proposalId),
 						eq(contextRevisions.state, "active"),
-						eq(projectTable.ownerUserId, input.userId)
+						and(
+							eq(projectTable.ownerUserId, input.userId),
+							publishedProjectPredicate()
+						)
 					)
 				)
 				.limit(1);
@@ -395,7 +410,10 @@ export function createProjectContextStore(db: Database): ProjectContextStore {
 				.where(
 					and(
 						eq(contextProposals.projectId, projectId),
-						eq(projectTable.ownerUserId, userId)
+						and(
+							eq(projectTable.ownerUserId, userId),
+							publishedProjectPredicate()
+						)
 					)
 				)
 				.orderBy(desc(contextProposals.createdAt));

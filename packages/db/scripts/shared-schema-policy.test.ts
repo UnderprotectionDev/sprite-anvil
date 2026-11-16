@@ -275,3 +275,63 @@ test("pending same-name CHECK redefinitions are verified after application, not 
 		)
 	).toHaveLength(1);
 });
+
+test("recognizes only the exact sequence declared by an identity column", () => {
+	const identity = {
+		name: "decisions_sequence_seq",
+		startWith: "1",
+		increment: "1",
+		minValue: "1",
+		maxValue: "9223372036854775807",
+		cache: 1,
+		cycle: false,
+	};
+	const declared = JSON.stringify([
+		"sequence",
+		"public",
+		identity.name,
+		"1",
+		"1",
+		"1",
+		identity.maxValue,
+		"1",
+		false,
+	]);
+	const changed = JSON.stringify([
+		"sequence",
+		"public",
+		identity.name,
+		"1",
+		"2",
+		"1",
+		identity.maxValue,
+		"1",
+		false,
+	]);
+	const unknown = JSON.stringify([
+		"sequence",
+		"public",
+		"unowned_seq",
+		"1",
+		"1",
+		"1",
+		identity.maxValue,
+		"1",
+		false,
+	]);
+	const ddl = [
+		{
+			entityType: "columns",
+			schema: "public",
+			table: "decisions",
+			name: "sequence",
+			identity,
+		},
+	];
+	expect(projectRequiredCatalog(ddl, [declared, changed, unknown], [])).toEqual(
+		[declared]
+	);
+	expect(
+		projectRequiredCatalog([{ ...ddl[0], identity: undefined }], [declared], [])
+	).toEqual([]);
+});

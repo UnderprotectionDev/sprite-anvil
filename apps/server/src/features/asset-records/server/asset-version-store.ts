@@ -11,7 +11,11 @@ import {
 	assetVersionSummarySchema,
 } from "@sprite-anvil/api/asset-record-tracking";
 import { createVersionProductionEvidence } from "@sprite-anvil/api/production-provenance";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import {
+	type Database,
+	getProjectForUser,
+	publishedProjectPredicate,
+} from "@sprite-anvil/db";
 import {
 	legacyAssetAttestations,
 	manualImportEvidence,
@@ -470,7 +474,7 @@ async function createVersion(
 			and(
 				eq(assetRecords.id, input.assetRecordId),
 				eq(assetRecords.projectId, input.projectId),
-				eq(project.ownerUserId, userId)
+				and(eq(project.ownerUserId, userId), publishedProjectPredicate())
 			)
 		)
 		.limit(1);

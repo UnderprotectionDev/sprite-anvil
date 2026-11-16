@@ -76,3 +76,27 @@ test("retries a lease when delivery fails and preserves upload handling", async 
 	await worker.poll();
 	expect(settled).toEqual([{ acks: [], retries: ["failed", "invalid"] }]);
 });
+
+test("retries settled import cleanup before reporting a successful worker poll", async () => {
+	let failure = true;
+	let published = 0;
+	const worker = createOperationWorker({
+		lifecycle: {
+			reconcile: () => Promise.resolve(),
+			publishOutbox: () => {
+				published += 1;
+				return Promise.resolve();
+			},
+			deliver: () => Promise.resolve(),
+		},
+		reconcileManagedObjects: () =>
+			failure ? Promise.reject(new Error("cleanup failed")) : Promise.resolve(),
+		queue: { pull: () => Promise.resolve([]), settle: () => Promise.resolve() },
+		handleUpload: () => Promise.resolve(),
+	});
+	await expect(worker.poll()).rejects.toThrow("cleanup failed");
+	expect(published).toBe(1);
+	failure = false;
+	await worker.poll();
+	expect(published).toBe(2);
+});

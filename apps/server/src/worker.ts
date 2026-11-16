@@ -3,9 +3,12 @@ import {
 	createStorage,
 	requireCloudflareConfig,
 } from "./cloudflare";
+import { createDatabaseManagedObjectCleanupCandidates } from "./database-managed-object-cleanup";
+import { createDatabaseManagedObjectReservations } from "./database-managed-object-reservations";
 import { ENV } from "./env.server";
+import { createManagedObjectCleanup } from "./managed-object-cleanup";
 import { createOperationWorker } from "./operation-worker";
-import { createServerOperationServices } from "./services";
+import { createServerOperationServices, db } from "./services";
 
 const config = requireCloudflareConfig(ENV);
 const queue = createQueue(config);
@@ -17,6 +20,11 @@ const worker = createOperationWorker({
 	lifecycle,
 	queue,
 	handleUpload: storage.exists,
+	reconcileManagedObjects: createManagedObjectCleanup({
+		listCandidates: createDatabaseManagedObjectCleanupCandidates(db),
+		deleteObject: storage.delete,
+		release: createDatabaseManagedObjectReservations(db).release,
+	}),
 });
 
 while (true) {

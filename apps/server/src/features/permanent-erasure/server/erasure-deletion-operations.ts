@@ -2,6 +2,7 @@ import type {
 	ErasureImpactSourceReader,
 	ErasureImpactStore,
 } from "@sprite-anvil/api/permanent-erasure-store";
+import type { ManagedObjectErasureGate } from "../../../managed-object-reservations";
 import { createDeletionJob } from "./deletion-job";
 import {
 	createErasureApproval,
@@ -17,6 +18,11 @@ import type { ProjectLookupOptions } from "./project-lookup";
 
 export type ErasureDeletionOperationsOptions = ProjectLookupOptions & {
 	impactStore: ErasureImpactStore;
+	registerHistoricalImports: (ownerUserId: string) => Promise<void>;
+	managedObjects: Pick<
+		ManagedObjectErasureGate,
+		"beginErasure" | "endErasure" | "listOwner"
+	>;
 	now?: () => Date;
 	objects: ErasureObjectRemover;
 	operations: DeletionJobEnqueuer;

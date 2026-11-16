@@ -4,7 +4,11 @@ import {
 	sourceMetadataMappingFinalizationSchema,
 	sourceMetadataMappingProposalSchema,
 } from "@sprite-anvil/api/source-metadata-mapping";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import {
+	type Database,
+	getProjectForUser,
+	publishedProjectPredicate,
+} from "@sprite-anvil/db";
 import { importInboxEntries } from "@sprite-anvil/db/schema/import-inbox";
 import { project } from "@sprite-anvil/db/schema/project";
 import {
@@ -136,7 +140,7 @@ export function createSourceMetadataMappingProposalStore(
 				.where(
 					and(
 						eq(importInboxEntries.projectId, projectId),
-						eq(project.ownerUserId, userId),
+						and(eq(project.ownerUserId, userId), publishedProjectPredicate()),
 						inArray(importInboxEntries.id, [...entryIds])
 					)
 				);
@@ -167,7 +171,7 @@ export function createSourceMetadataMappingProposalStore(
 					and(
 						eq(importInboxEntries.id, sourceEntryId),
 						eq(importInboxEntries.projectId, projectId),
-						eq(project.ownerUserId, userId)
+						and(eq(project.ownerUserId, userId), publishedProjectPredicate())
 					)
 				)
 				.limit(1);

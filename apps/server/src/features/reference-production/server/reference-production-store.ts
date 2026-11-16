@@ -9,7 +9,11 @@ import {
 	referenceBoardImageSchema,
 	referenceBoardUploadInputSchema,
 } from "@sprite-anvil/api/reference-production";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import {
+	type Database,
+	getProjectForUser,
+	publishedProjectPredicate,
+} from "@sprite-anvil/db";
 import {
 	assetFamilies,
 	assetRecords,
@@ -94,7 +98,7 @@ async function getOwnedTarget(
 			and(
 				eq(assetRecords.id, assetRecordId),
 				eq(assetRecords.projectId, projectId),
-				eq(project.ownerUserId, userId),
+				and(eq(project.ownerUserId, userId), publishedProjectPredicate()),
 				...(requireActive ? [eq(assetRecords.availability, "active")] : [])
 			)
 		)

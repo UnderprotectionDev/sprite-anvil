@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { foundationSectionSchemas } from "@sprite-anvil/api/project-archives";
 import { createDb } from "@sprite-anvil/db";
 import { user } from "@sprite-anvil/db/schema/auth";
+import { project } from "@sprite-anvil/db/schema/project";
 import { createLocalTestDb } from "@sprite-anvil/db/testing";
 import { eq } from "drizzle-orm";
 import {
@@ -231,13 +232,37 @@ test.skipIf(!databaseUrl)(
 				"reference_board_file",
 			].includes(file.kind)
 		);
-		const storage = createDatabaseProjectArchiveRestoreStorage(db);
+		const storage = createDatabaseProjectArchiveRestoreStorage(
+			db,
+			(transaction, current) =>
+				createProjectArchiveCanonicalVerifier(
+					createProjectArchiveSourceReader({
+						db: transaction,
+						assetFamilies: createAssetFamilyStore(transaction),
+						assetRecords: createAssetRecordStore(transaction),
+						assetVersions: createAssetVersionStore(transaction),
+					})
+				)(current)
+		);
 		await db.insert(user).values({
 			id: userId,
 			name: "Archive restore integration",
 			email: `${userId}@example.test`,
 		});
 		try {
+			const failingStorage = createDatabaseProjectArchiveRestoreStorage(
+				db,
+				() => Promise.resolve(["missing record"])
+			);
+			await expect(failingStorage.insert(record)).rejects.toThrow(
+				"missing record"
+			);
+			expect(
+				await db
+					.select({ id: project.id })
+					.from(project)
+					.where(eq(project.id, restore.restoredProjectId))
+			).toEqual([]);
 			expect(await storage.insert(record)).toEqual({ status: "inserted" });
 			const canonicalReader = createProjectArchiveSourceReader({
 				db,

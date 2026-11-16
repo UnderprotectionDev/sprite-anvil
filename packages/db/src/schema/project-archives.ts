@@ -193,6 +193,7 @@ export const projectArchiveImportRequests = pgTable(
 		requestDigest: text("request_digest").notNull(),
 		projectName: text("project_name").notNull(),
 		stagedObjectKey: text("staged_object_key").notNull(),
+		completedSummary: text("completed_summary"),
 		zipByteSize: bigint("zip_byte_size", { mode: "number" }).notNull(),
 		zipSha256: text("zip_sha256").notNull(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -229,8 +230,8 @@ export const projectArchiveRestores = pgTable(
 		sourceProjectId: text("source_project_id").notNull(),
 		/** Null for managed restores; imported restores are visible only in this operation scope. */
 		operationProjectId: text("operation_project_id"),
-		/** Existing restores predate readback; newly restored projects are marked only after verification. */
-		canonicalVerified: boolean("canonical_verified").notNull().default(true),
+		/** Both legacy and new restores require canonical readback before publication. */
+		canonicalVerified: boolean("canonical_verified").notNull().default(false),
 		archiveId: text("archive_id").notNull(),
 		/** Digest of the archive manifest the restore verified. */
 		manifestDigest: text("manifest_digest").notNull(),

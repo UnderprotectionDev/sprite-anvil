@@ -16,6 +16,7 @@ import {
 	verifyPublishedRecord,
 } from "@sprite-anvil/api/record-publication";
 import type { Database } from "@sprite-anvil/db";
+import { publishedProjectPredicate } from "@sprite-anvil/db";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
 import { generationPackages } from "@sprite-anvil/db/schema/generation-packages";
 import { project } from "@sprite-anvil/db/schema/project";
@@ -53,7 +54,7 @@ async function getOwnedAssetRecord(
 			and(
 				eq(assetRecords.projectId, projectId),
 				eq(assetRecords.id, assetRecordId),
-				eq(project.ownerUserId, userId)
+				and(eq(project.ownerUserId, userId), publishedProjectPredicate())
 			)
 		)
 		.limit(1);

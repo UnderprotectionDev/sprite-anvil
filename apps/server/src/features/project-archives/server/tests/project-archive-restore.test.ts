@@ -334,8 +334,24 @@ test("a write that fails halfway leaves no partial project", async () => {
 	expect((await setup.listRestores()).restores).toEqual([]);
 });
 
-test("a write that fails after the files were copied removes the copies it made", async () => {
+test("an uncertain write retains its copies until ownership can be determined", async () => {
+	const reserved = new Set<string>();
 	const setup = restoreSetup({
+		reservations: {
+			markSettled: () => Promise.resolve(),
+			reserve: ({ objectKey }) => {
+				reserved.add(objectKey);
+				return Promise.resolve();
+			},
+			release: (key) => {
+				reserved.delete(key);
+				return Promise.resolve();
+			},
+		},
+		copyFile: ({ to }) => {
+			expect(reserved.has(to)).toBe(true);
+			return Promise.resolve();
+		},
 		wrapRestoreStorage: (storage) => ({
 			...storage,
 			insert: () => Promise.reject(new Error("connection lost")),
@@ -345,9 +361,37 @@ test("a write that fails after the files were copied removes the copies it made"
 
 	await expect(setup.restore(input(archive.id))).rejects.toThrow();
 	expect(setup.copies.length).toBeGreaterThan(0);
-	expect(new Set(setup.removed)).toEqual(
-		new Set(setup.copies.map((copy) => copy.to))
-	);
+	expect(setup.removed).toEqual([]);
+	expect(reserved.size).toBe(setup.copies.length);
+});
+
+test("replay releases reservations after an uncertain commit is found published", async () => {
+	const held = new Set<string>();
+	const setup = restoreSetup({
+		reservations: {
+			markSettled: () => Promise.resolve(),
+			reserve: ({ objectKey }) => {
+				held.add(objectKey);
+				return Promise.resolve();
+			},
+			release: (key) => {
+				held.delete(key);
+				return Promise.resolve();
+			},
+		},
+		wrapRestoreStorage: (storage) => ({
+			...storage,
+			insert: async (record) => {
+				await storage.insert(record);
+				throw new Error("lost acknowledgement");
+			},
+		}),
+	});
+	const { archive } = await setup.createArchive();
+	await expect(setup.restore(input(archive.id))).rejects.toThrow();
+	expect(held.size).toBeGreaterThan(0);
+	expect((await setup.restore(input(archive.id))).status).toBe("replayed");
+	expect(held.size).toBe(0);
 });
 
 test("a copy that fails halfway removes the files already copied", async () => {
@@ -365,6 +409,84 @@ test("a copy that fails halfway removes the files already copied", async () => {
 	await expect(setup.restore(input(archive.id))).rejects.toThrow();
 	expect(setup.removed).toEqual(setup.copies.map((copy) => copy.to));
 	expect(setup.removed.length).toBe(1);
+});
+
+test("reservation failure prevents copying and a failed delete retains its reservation", async () => {
+	const held = new Set<string>();
+	let count = 0;
+	const setup = restoreSetup({
+		reservations: {
+			markSettled: () => Promise.resolve(),
+			reserve: ({ objectKey }) => {
+				count += 1;
+				if (count === 2) {
+					return Promise.reject(new Error("erasure active"));
+				}
+				held.add(objectKey);
+				return Promise.resolve();
+			},
+			release: (key) => {
+				held.delete(key);
+				return Promise.resolve();
+			},
+		},
+		removeFile: () => Promise.reject(new Error("delete failed")),
+	});
+	const { archive } = await setup.createArchive();
+	await expect(setup.restore(input(archive.id))).rejects.toThrow();
+	expect(setup.copies).toHaveLength(1);
+	expect(held.has(setup.copies[0]?.to ?? "")).toBe(true);
+});
+
+test("marks only acknowledged copies settled and preserves uncertain writes", async () => {
+	const reserved = new Set<string>();
+	const settled = new Set<string>();
+	let writes = 0;
+	const setup = restoreSetup({
+		reservations: {
+			reserve: ({ objectKey }) => {
+				reserved.add(objectKey);
+				return Promise.resolve();
+			},
+			markSettled: (key) => {
+				settled.add(key);
+				return Promise.resolve();
+			},
+			release: (key) => {
+				reserved.delete(key);
+				return Promise.resolve();
+			},
+		},
+		copyFile: () => {
+			writes += 1;
+			return writes === 2
+				? Promise.reject(new Error("unknown PUT"))
+				: Promise.resolve();
+		},
+	});
+	const { archive } = await setup.createArchive();
+	await expect(setup.restore(input(archive.id))).rejects.toThrow();
+	expect(settled.size).toBe(1);
+	expect(reserved.size).toBe(1);
+	expect([...reserved].every((key) => !settled.has(key))).toBe(true);
+});
+
+test("fails and can replay when published reservation release fails", async () => {
+	let fail = true;
+	const setup = restoreSetup({
+		reservations: {
+			reserve: () => Promise.resolve(),
+			markSettled: () => Promise.resolve(),
+			release: () =>
+				fail
+					? Promise.reject(new Error("release unavailable"))
+					: Promise.resolve(),
+		},
+	});
+	const { archive } = await setup.createArchive();
+	await expect(setup.restore(input(archive.id))).rejects.toThrow();
+	fail = false;
+	expect((await setup.restore(input(archive.id))).status).toBe("replayed");
 });
 
 test("a lost race keeps the files the winning restore owns", async () => {
@@ -385,6 +507,110 @@ test("a lost race keeps the files the winning restore owns", async () => {
 	expect(result.status).toBe("replayed");
 	expect(setup.copies.length).toBeGreaterThan(0);
 	expect(setup.removed).toEqual([]);
+});
+
+test("overlapping attempts never delete the other attempt's verified files", async () => {
+	const objects = new Set<string>();
+	const targets = new Set<string>();
+	let insertCount = 0;
+	const attemptKeys: string[][] = [];
+	let firstReady!: () => void;
+	let secondReady!: () => void;
+	let releaseSecond!: () => void;
+	const firstAtInsert = new Promise<void>((resolve) => {
+		firstReady = resolve;
+	});
+	const secondAtInsert = new Promise<void>((resolve) => {
+		secondReady = resolve;
+	});
+	const secondMayInsert = new Promise<void>((resolve) => {
+		releaseSecond = resolve;
+	});
+	const setup = restoreSetup({
+		copyFile: ({ to }) => {
+			targets.add(to);
+			objects.add(to);
+			return Promise.resolve();
+		},
+		removeFile: (key) => {
+			objects.delete(key);
+			return Promise.resolve();
+		},
+		verifyFile: ({ objectKey }) =>
+			Promise.resolve(!targets.has(objectKey) || objects.has(objectKey)),
+		wrapRestoreStorage: (storage) => ({
+			...storage,
+			insert: async (record) => {
+				attemptKeys.push(
+					record.files.flatMap((file) =>
+						file.objectKey ? [file.objectKey] : []
+					)
+				);
+				insertCount += 1;
+				if (insertCount === 1) {
+					firstReady();
+					await secondAtInsert;
+					throw new Error("uncertain commit");
+				}
+				secondReady();
+				await secondMayInsert;
+				for (const file of record.files) {
+					if (file.objectKey && !objects.has(file.objectKey)) {
+						throw new Error("winner file deleted");
+					}
+				}
+				return storage.insert(record);
+			},
+		}),
+	});
+	const { archive } = await setup.createArchive();
+	const first = setup.restore(input(archive.id));
+	await firstAtInsert;
+	const second = setup.restore(input(archive.id));
+	await expect(first).rejects.toThrow();
+	releaseSecond();
+	expect((await second).status).toBe("created");
+	expect(attemptKeys).toHaveLength(2);
+	expect(attemptKeys[0]?.some((key) => attemptKeys[1]?.includes(key))).toBe(
+		false
+	);
+});
+
+test("a losing concurrent attempt removes only its own copies", async () => {
+	let calls = 0;
+	let firstReady!: () => void;
+	let releaseFirst!: () => void;
+	const firstAtInsert = new Promise<void>((resolve) => {
+		firstReady = resolve;
+	});
+	const firstMayInsert = new Promise<void>((resolve) => {
+		releaseFirst = resolve;
+	});
+	const setup = restoreSetup({
+		wrapRestoreStorage: (storage) => ({
+			...storage,
+			insert: async (record) => {
+				calls += 1;
+				if (calls === 1) {
+					firstReady();
+					await firstMayInsert;
+				}
+				return storage.insert(record);
+			},
+		}),
+	});
+	const { archive } = await setup.createArchive();
+	const first = setup.restore(input(archive.id));
+	await firstAtInsert;
+	const winner = await setup.restore(input(archive.id));
+	releaseFirst();
+	expect((await first).status).toBe("replayed");
+	const stored = setup.memory.restores.get(winner.restore.id);
+	const winnerKeys = new Set(
+		stored?.files.flatMap((file) => (file.objectKey ? [file.objectKey] : []))
+	);
+	expect(setup.removed.length).toBeGreaterThan(0);
+	expect(setup.removed.some((key) => winnerKeys.has(key))).toBe(false);
 });
 
 test("an unknown archive or a project the user cannot open is not found", async () => {
@@ -748,7 +974,7 @@ test("withdraws a restore when canonical record readback disagrees", async () =>
 	const { archive } = await setup.createArchive();
 	await expect(setup.restore(input(archive.id))).rejects.toThrow();
 	expect(setup.memory.projects.size).toBe(0);
-	expect(setup.removed.length).toBeGreaterThan(0);
+	expect(setup.removed).toEqual([]);
 });
 
 test("a failed canonical read cannot be replayed as a completed restore", async () => {
@@ -806,4 +1032,25 @@ test("an unverified restore stays hidden and is rechecked before replay", async 
 	expect(retry.status).toBe("replayed");
 	expect(checks).toBe(2);
 	expect((await setup.listRestores()).restores).toHaveLength(1);
+});
+
+test("a legacy unverified restore fails closed until canonical recovery succeeds", async () => {
+	let available = true;
+	const setup = restoreSetup({
+		verifyCanonical: () =>
+			available ? Promise.resolve([]) : Promise.resolve(["missing record"]),
+	});
+	const { archive } = await setup.createArchive();
+	const completed = await setup.restore(input(archive.id));
+	const stored = setup.memory.restores.get(completed.restore.id);
+	if (!stored) {
+		throw new Error("Missing restore fixture");
+	}
+	stored.restore.canonicalVerified = false;
+	available = false;
+	await expect(setup.restore(input(archive.id))).rejects.toThrow();
+	expect(stored.restore.canonicalVerified).toBe(false);
+	available = true;
+	expect((await setup.restore(input(archive.id))).status).toBe("replayed");
+	expect(stored.restore.canonicalVerified).toBe(true);
 });

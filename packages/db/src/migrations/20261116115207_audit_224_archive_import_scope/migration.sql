@@ -1,2 +1,0 @@
-ALTER TABLE "project_archive_restores" ADD COLUMN "operation_project_id" text;--> statement-breakpoint
-CREATE INDEX "project_archive_restores_operation_scope_idx" ON "project_archive_restores" ("operation_project_id","created_at");
