@@ -43,6 +43,8 @@ Tamamlanma kanıtı: Aynı paket ve bağdaştırıcı sürümü aynı Godot çı
 - Fazın özgül başarı ve red kanıtı: Aynı paket ve bağdaştırıcı sürümü aynı Godot çıktısını üretir; yayımlanan desteklenen motor sürümleri sürdürülen referans proje sözleşmesini geçer. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Godot projesi Workbench’in kaynak gerçeği değildir; Unity doğrulaması bu ilk zorunlu bağdaştırıcının kapsamına girmez.
 - Kabul örnekleri: 8.1, RAS-01, RAS-05, RAS-07. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
 
+- `godot-golden` CI matrisi resmî 4.3, 4.4 ve 4.5 Linux binary’leriyle mevcut golden projeyi yükler; başarısız matris koşusu `ci-ok` kapısını engeller. Bu çalışmada aynı testler macOS arm64 üzerinde resmî stable binary’lerle çalıştırıldı; CI Linux sonucu çalıştırılmadan geçmiş kabul edilmez.
+
 ## Out of Scope
 
 Godot projesi Workbench’in kaynak gerçeği değildir; Unity doğrulaması bu ilk zorunlu bağdaştırıcının kapsamına girmez.
@@ -65,4 +67,4 @@ Godot projesi Workbench’in kaynak gerçeği değildir; Unity doğrulaması bu 
 - [RAS-01](../../prd/10-acceptance-scenarios.md)
 - [RAS-05](../../prd/10-acceptance-scenarios.md)
 - [RAS-07](../../prd/10-acceptance-scenarios.md)
-- Mevcut uygulama yalnız temel web/masaüstü kabuğu ve sınırlı sunucu yükleme yolunu içeriyor; bu spec teslim edilmiş ürün iddiası değildir. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.
+- PRD ve bu spec hedef davranışı tanımlar; mevcut sözleşmeler ve testler tek başına tüm kabul senaryolarının tamamlandığını göstermez. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.

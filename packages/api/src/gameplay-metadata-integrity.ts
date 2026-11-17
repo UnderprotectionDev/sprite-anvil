@@ -54,10 +54,12 @@ export function getGameplayMetadataIntegrityErrors(
 			candidate.frameKey === record.frameKey
 	);
 	if (!frame) {
-		errors.push("Kare kimliği veya kesin sürüm bağlantısı kayboldu.");
+		errors.push("The frame ID or exact version link was lost.");
 	}
 	if (!contract || contract.profileId !== record.profileId) {
-		errors.push("Kesin özel profil sözleşmesi yeniden okunamadı.");
+		errors.push(
+			"The exact Specialized Profile Contract could not be read back."
+		);
 		return errors;
 	}
 	const definitions = getGameplayMetadataFields(contract);
@@ -65,7 +67,7 @@ export function getGameplayMetadataIntegrityErrors(
 		new Set(record.fields.map((field) => field.fieldId)).size !==
 		record.fields.length
 	) {
-		errors.push("Oyun içi bilgi alan kimlikleri yineleniyor.");
+		errors.push("Gameplay Metadata field IDs are duplicated.");
 	}
 	for (const definition of definitions) {
 		const field = record.fields.find(
@@ -77,16 +79,16 @@ export function getGameplayMetadataIntegrityErrors(
 			field.coordinateSystem !== definition.coordinateSystem
 		) {
 			errors.push(
-				`${definition.label}: alan veya zorunlu bağlantı korunamadı.`
+				`${definition.id}: the field or required link could not be preserved.`
 			);
 		}
 	}
 	for (const field of record.fields) {
 		if (!definitions.some((definition) => definition.id === field.fieldId)) {
-			errors.push(`${field.fieldId}: sözleşme alanı bulunamadı.`);
+			errors.push(`${field.fieldId}: contract field not found.`);
 		}
 		if ((field.value === null) !== (field.source.kind === "unknown")) {
-			errors.push(`${field.fieldId}: değer ve kaynak bilgisi çelişiyor.`);
+			errors.push(`${field.fieldId}: value and source information conflict.`);
 		}
 		if (field.source.kind === "finalized_source") {
 			const { source } = field;
@@ -102,9 +104,7 @@ export function getGameplayMetadataIntegrityErrors(
 				canonicalGameplayMetadataJson(pivot.value) !==
 					canonicalGameplayMetadataJson(field.value)
 			) {
-				errors.push(
-					`${field.fieldId}: kesinleştirilmiş kaynak bağlantısı kayboldu.`
-				);
+				errors.push(`${field.fieldId}: the finalized source link was lost.`);
 			}
 		}
 	}
@@ -122,7 +122,7 @@ export function getGameplayMetadataReviewSourceErrors(
 		(candidate) => candidate.id === record.review?.sourceRecordId
 	);
 	if (!source || source.review) {
-		return ["İncelemenin kaynak kayıt bağlantısı korunamadı."];
+		return ["The review's source record link could not be preserved."];
 	}
 	const {
 		id: _reviewId,
@@ -144,7 +144,7 @@ export function getGameplayMetadataReviewSourceErrors(
 			canonicalGameplayMetadataJson(sourceSnapshot) !==
 				canonicalGameplayMetadataJson(snapshot))
 	) {
-		return ["İncelemenin kaynak kayıt bağlantısı korunamadı."];
+		return ["The review's source record link could not be preserved."];
 	}
 	return [];
 }

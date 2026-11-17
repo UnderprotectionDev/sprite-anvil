@@ -41,6 +41,10 @@ import type { MeasurementDefinitionStore } from "./measurement-definition-store"
 import type { MeasurementEventStore } from "./measurement-event-store";
 import type { MeasurementMeasureStore } from "./measurement-measure-store";
 import type {
+	ProductMeasurementBoundary,
+	ProductMeasurementRecorder,
+} from "./measurement-workflows";
+import type {
 	DeletionReceiptStore,
 	ErasureApprovalOperations,
 } from "./permanent-erasure-deletion-store";
@@ -53,6 +57,7 @@ import type { ProjectAccessStore } from "./project-access-store";
 import type { ProjectArchiveRestoreInput } from "./project-archive-restore";
 import type { ProjectArchiveRestoreStore } from "./project-archive-restore-store";
 import type { ProjectArchiveStore } from "./project-archive-store";
+import type { ProjectArchiveCreateInput } from "./project-archives";
 import type { ProjectContextStore } from "./project-context";
 import type { ProviderGenerationRecordStore } from "./provider-generation-records";
 import type { ReadinessPlanStore } from "./readiness-plans";
@@ -96,6 +101,19 @@ export interface Context {
 		region: TextureAtlasRegion,
 		axes: ("x" | "y")[]
 	) => Promise<TextureEdgeCheck | null>;
+	checkTilesetSeam?: (
+		userId: string,
+		projectId: string,
+		first: {
+			versionId: string;
+			region: import("./texture-repetition-reviews").TextureAtlasRegion;
+		},
+		second: {
+			versionId: string;
+			region: import("./texture-repetition-reviews").TextureAtlasRegion;
+		},
+		direction: "north" | "east" | "south" | "west"
+	) => Promise<import("./tileset-adjacency-reviews").TilesetSeamResult | null>;
 	collectionStore: CollectionStore;
 	createSourceMetadataMappingProposal?: SourceMetadataMappingProposalCreator;
 	db: Database;
@@ -126,7 +144,14 @@ export interface Context {
 	portraitIdentityReviewStore?: PortraitIdentityReviewStore;
 	productionExperimentStore?: ProductionExperimentStore;
 	productionRecipeStore?: ProductionRecipeStore;
+	productMeasurementRecorder?: ProductMeasurementRecorder;
 	projectAccess: ProjectAccessStore;
+	projectArchiveOperations?: {
+		request: (
+			userId: string,
+			input: ProjectArchiveCreateInput
+		) => Promise<BackgroundOperation | null>;
+	};
 	/** Records a restore as a Background Operation; null when the project is not found. */
 	projectArchiveRestoreOperations?: {
 		request: (
@@ -161,6 +186,7 @@ export interface Context {
 	session: Session | null;
 	sourceMetadataMappingProposalStore?: SourceMetadataMappingProposalStore;
 	specializedProfileContractStore?: SpecializedProfileContractStore;
+	surface?: ProductMeasurementBoundary["surface"];
 	textureRepetitionReviewStore?: TextureRepetitionReviewStore;
 	tilesetAdjacencyReviewStore?: TilesetAdjacencyReviewStore;
 	uiStateComparisonStore?: UiStateComparisonStore;

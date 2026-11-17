@@ -45,6 +45,8 @@ Tamamlanma kanıtı: Kullanıcı sonucu ve hata kaynağını kesinleştirir; ger
 - Fazın özgül başarı ve red kanıtı: Kullanıcı sonucu ve hata kaynağını kesinleştirir; gerekiyorsa hedef hazır olma koşulu yalnız geçerli güncel doğrulamayla sağlanır. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Oyun projesi Workbench için yetkili girdi veya sürekli eşitleme kaynağı olmaz.
 - Kabul örnekleri: YAS-01. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
 
+- Arşivden dışlanan kanıt dosyası, özgün kimlik/boyut/özet bilgisiyle fakat depolama anahtarı olmadan geri yüklenebilir. API `fileAvailability: unavailable` döndürür; görünüm bozuk indirme bağlantısı sunmaz. `runtime-validation.test.ts` ve `runtime-validation-view.test.tsx` bu metadata/bytes ayrımını sınar; normal yükleme sınırı yine gerçek yönetilen nesne anahtarı gerektirir.
+
 ## Out of Scope
 
 Oyun projesi Workbench için yetkili girdi veya sürekli eşitleme kaynağı olmaz.

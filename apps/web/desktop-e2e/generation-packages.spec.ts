@@ -19,69 +19,70 @@ describe("Generation Packages", () => {
 		await (await $("input[name='email']")).setValue(fixture.email);
 		await (await $("input[name='password']")).setValue(fixture.password);
 		await (await $("button=Sign Up")).click();
-		await (await $("h1=Oyun projeleri")).waitForDisplayed();
+		await (await $("h1=Game projects")).waitForDisplayed();
 
-		await (await $("a=Proje Bağlamı")).click();
-		await (await $("h2=İlk projeyi oluşturun")).waitForDisplayed();
-		await (await $('//label[span[text()="Proje adı"]]/input')).setValue(
+		await (await $("a=Context Proposals")).click();
+		await (await $("h2=Create your first project")).waitForDisplayed();
+		await (await $('//label[span[text()="Project name"]]/input')).setValue(
 			fixture.projectName
 		);
-		await (
-			await $('//label[span[text()="Genel sanat yaklaşımı"]]/textarea')
-		).setValue(fixture.generalArtDirection);
-		await (await $("button=Projeyi oluştur")).click();
-		await openWorkspaceTask("Görsel Dünyalar ve Temalar");
-		await (await $('//label[span[text()="Görsel Dünya adı"]]/input')).setValue(
+		await (await $('//label[span[text()="Art direction"]]/textarea')).setValue(
+			fixture.generalArtDirection
+		);
+		await (await $("button=Create project")).click();
+		await openWorkspaceTask("Visual Worlds and Themes");
+		await (await $('//label[span[text()="Visual World name"]]/input')).setValue(
 			"Sunken coast"
 		);
-		await (await $("button=Görsel Dünya ekle")).click();
+		await (await $("button=Add Visual World")).click();
 		await (await $("strong=Sunken coast")).waitForDisplayed();
-		await (await $('//label[span[text()="Tema adı"]]/input')).setValue(
+		await (await $('//label[span[text()="Theme name"]]/input')).setValue(
 			"Blue lanterns"
 		);
-		await (await $("button=Tema ekle")).click();
+		await (await $("button=Add Theme")).click();
 		await (await $("strong=Blue lanterns")).waitForDisplayed();
 
-		await openWorkspaceTask("Kural önerisi hazırla");
-		await (
-			await $('select[aria-label="Değişiklik 1 kapsamı"]')
-		).selectByVisibleText("Tema · Sunken coast / Blue lanterns");
+		await openWorkspaceTask("Propose a rule change");
+		await (await $('select[aria-label="Change 1 scope"]')).selectByVisibleText(
+			"Theme · Sunken coast / Blue lanterns"
+		);
 		await (await $('input[maxlength="240"]')).setValue(
 			projectContextFixture.summary
 		);
-		await (
-			await $('select[aria-label="Değişiklik 1 kuralı"]')
-		).selectByAttribute("value", projectContextFixture.ruleId);
-		await (await $('input[aria-label="Değişiklik 1 kural değeri"]')).setValue(
+		await (await $('select[aria-label="Change 1 rule"]')).selectByAttribute(
+			"value",
+			projectContextFixture.ruleId
+		);
+		await (await $('input[aria-label="Change 1 rule value"]')).setValue(
 			projectContextFixture.value
 		);
 		await (await $('textarea[maxlength="2000"]')).setValue(
 			projectContextFixture.rationale
 		);
-		await (await $('//label[span[text()="Kanıt"]]/textarea')).setValue(
+		await (await $('//label[span[text()="Evidence"]]/textarea')).setValue(
 			projectContextFixture.evidence
 		);
-		await (await $("button=Bağlam Önerisini kaydet")).click();
-		await openWorkspaceTask("Önerileri incele");
+		await (await $("button=Save Context Proposal")).click();
+		await openWorkspaceTask("Review proposals");
 		await $(`h3=${projectContextFixture.summary}`).waitForDisplayed();
-		await (await $("button=Öneriyi incele")).click();
-		await $("h4=Etkinleştirme özeti · R1").waitForDisplayed();
-		await (await $("button=R1 sürümünü etkinleştir")).click();
+		await (await $("button=Review proposal")).click();
+		await $("h4=Activation summary · R1").waitForDisplayed();
+		await (await $("button=Activate R1")).click();
 		await $(
-			"p=Bu öneri Etkin Bağlam Sürümü R1 olarak kaydedildi."
+			"p=This proposal was saved as Active Context Revision R1."
 		).waitForDisplayed();
 
-		await (await $("a=Projeler")).click();
+		await (await $("a=Projects")).click();
 
 		const projectLink = await $(
-			`a[aria-label="${fixture.projectName} varlık kayıtlarını aç"]`
+			`a[aria-label="${fixture.projectName} open Asset Records"]`
 		);
 		await projectLink.waitForClickable();
 		await projectLink.click();
-		await openWorkspaceTask("Yeni varlık kaydı");
+		await openWorkspaceTask("New Asset Record");
 		await (await $("input#asset-record-name")).setValue(fixture.name);
 		await (await $("input[type='checkbox']")).click();
-		await (await $("button=Varlık kaydı oluştur")).click();
+		await (await $("button=Create Asset Record")).click();
 		await (await $(`h1=${fixture.name}`)).waitForDisplayed();
 
 		const directory = mkdtempSync(
@@ -98,25 +99,25 @@ describe("Generation Packages", () => {
 		} finally {
 			rmSync(directory, { force: true, recursive: true });
 		}
-		await openWorkspaceTask("Üretim ve içe aktarma");
+		await openWorkspaceTask("Production and import");
 		await $("input#reference-upload-file").setValue(uploadedPath);
 		const forbiddenFeatures = await $(
-			'//fieldset[legend[normalize-space()="Kaçınılacak özellikler"]]'
+			'//fieldset[legend[normalize-space()="Avoided features"]]'
 		);
 		await (
 			await forbiddenFeatures.$('.//label[span[normalize-space()="Poz"]]/input')
 		).click();
-		await (await $("button=Görseli yükle")).click();
-		await $("p*=Referans görseli panoya eklendi.").waitForDisplayed();
+		await (await $("button=Upload image")).click();
+		await $("p*=Reference image added to the board.").waitForDisplayed();
 
 		const conflictAlert = await $(
-			'//div[@role="alert" and .//h4[normalize-space()="Çözülmemiş aktarım çelişkileri"]]'
+			'//div[@role="alert" and .//h4[normalize-space()="Unresolved transfer conflicts"]]'
 		);
 		await conflictAlert.waitForDisplayed();
 		await expect(conflictAlert).toHaveTextContaining("Poz");
 		await expect(conflictAlert).toHaveTextContaining("conflicting-pose.png");
 
-		await (await $("h2=Üretim Paketleri")).waitForDisplayed();
+		await (await $("h2=Generation Packages")).waitForDisplayed();
 		await expect(await $("input#generation-target-width")).toHaveValue("");
 		await expect(await $("input#generation-target-height")).toHaveValue("");
 		await (await $("textarea#generation-target-task")).setValue(
@@ -127,41 +128,43 @@ describe("Generation Packages", () => {
 		await (await $("textarea#generation-expected-output")).setValue(
 			"A four-frame PNG sprite sheet."
 		);
-		const pinPackageButton = await $("button=Üretim Paketini sabitle");
+		const pinPackageButton = await $("button=Pin Generation Package");
 		await pinPackageButton.waitForClickable();
 		await pinPackageButton.click();
 		await $(
-			"p*=Referans aktarım kurallarındaki izin-yasak çelişkileri çözülmeden Üretim Paketi oluşturulamaz."
+			"p*=Resolve allow and prohibit conflicts in the reference carryover rules before creating a Generation Package."
 		).waitForDisplayed();
-		await $("p=Bu Varlık Kaydında henüz Üretim Paketi yok.").waitForDisplayed();
+		await $(
+			"p=This Asset Record has no Generation Packages yet."
+		).waitForDisplayed();
 
 		const referenceCard = await $(
-			'//article[.//img[@alt="conflicting-pose.png adlı referans görseli"]]'
+			'//article[.//img[@alt="conflicting-pose.png reference"]]'
 		);
-		await (await referenceCard.$("summary=Kuralları düzenle")).click();
+		await (await referenceCard.$("summary=Edit rules")).click();
 		const forbiddenReferenceFeatures = await referenceCard.$(
-			'.//fieldset[legend[normalize-space()="Kaçınılacak özellikler"]]'
+			'.//fieldset[legend[normalize-space()="Avoided features"]]'
 		);
 		await (
 			await forbiddenReferenceFeatures.$(
 				'.//label[span[normalize-space()="Poz"]]/input'
 			)
 		).click();
-		await (await referenceCard.$("button=Kuralları kaydet")).click();
+		await (await referenceCard.$("button=Save rules")).click();
 		await referenceCard
-			.$("p=Referans kuralları ve notu kaydedildi.")
+			.$("p=Reference rules and note saved.")
 			.waitForDisplayed();
 		await conflictAlert.waitForDisplayed({ reverse: true });
 
 		await pinPackageButton.click();
-		await $("p=Üretim Paketi oluşturuldu ve kaydedildi.").waitForDisplayed();
+		await $("p=Generation Package created and saved.").waitForDisplayed();
 
 		const savedPackage = await $(
 			"summary*=Create one four-frame attack animation."
 		);
 		await savedPackage.waitForDisplayed();
 		await savedPackage.click();
-		await $("h3=Üretim Bağlamı Kopyası").waitForDisplayed();
+		await $("h3=Production Context Snapshot").waitForDisplayed();
 		await $(
 			"p*=Readable silhouettes with restrained highlights"
 		).waitForDisplayed();
@@ -169,20 +172,20 @@ describe("Generation Packages", () => {
 		await $("p=A four-frame PNG sprite sheet.").waitForDisplayed();
 		const savedReferenceRule = await $("li*=conflicting-pose.png");
 		await expect(await savedReferenceRule.getText()).toContain(
-			"Aktarılabilir: Poz"
+			"Transferable: Pose or motion"
 		);
 		await expect(await savedReferenceRule.getText()).not.toContain(
-			"Kaçınılacak: Poz"
+			"Avoided: Pose or motion"
 		);
 
 		await browser.refresh();
-		await openWorkspaceTask("Üretim ve içe aktarma");
+		await openWorkspaceTask("Production and import");
 		const reloadedPackage = await $(
 			"summary*=Create one four-frame attack animation."
 		);
 		await reloadedPackage.waitForDisplayed();
 		await reloadedPackage.click();
-		await $("h3=Üretim Bağlamı Kopyası").waitForDisplayed();
+		await $("h3=Production Context Snapshot").waitForDisplayed();
 		await $(
 			"p*=Readable silhouettes with restrained highlights"
 		).waitForDisplayed();
@@ -190,10 +193,10 @@ describe("Generation Packages", () => {
 		await $("p=A four-frame PNG sprite sheet.").waitForDisplayed();
 		const reloadedReferenceRule = await $("li*=conflicting-pose.png");
 		await expect(await reloadedReferenceRule.getText()).toContain(
-			"Aktarılabilir: Poz"
+			"Transferable: Pose or motion"
 		);
 		await expect(await reloadedReferenceRule.getText()).not.toContain(
-			"Kaçınılacak: Poz"
+			"Avoided: Pose or motion"
 		);
 	});
 });

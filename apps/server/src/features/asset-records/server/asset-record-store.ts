@@ -7,7 +7,11 @@ import type {
 	AssetRecordSearchResponse,
 	AssetRecordStore,
 } from "@sprite-anvil/api/asset-records";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import {
+	type Database,
+	getProjectForUser,
+	publishedProjectPredicate,
+} from "@sprite-anvil/db";
 import { assetRecordMeasurements } from "@sprite-anvil/db/schema/asset-record-measurements";
 import {
 	assetFamilies,
@@ -19,10 +23,11 @@ import { project } from "@sprite-anvil/db/schema/project";
 import type { SQL } from "drizzle-orm";
 import {
 	and,
-	arrayContains,
 	asc,
+	count,
 	desc,
 	eq,
+	exists,
 	ilike,
 	inArray,
 	ne,
@@ -32,16 +37,18 @@ import { toAssetRecord } from "./asset-record-mapper";
 
 function normalizeTags(tags: readonly string[]) {
 	return [
-		...new Set(
-			tags.map((tag) => tag.trim().toLocaleLowerCase("tr-TR")).filter(Boolean)
-		),
+		...new Set(tags.map((tag) => tag.trim().toLowerCase()).filter(Boolean)),
 	].sort((left, right) => left.localeCompare(right, "tr-TR"));
 }
 
-function getSearchConditions(userId: string, input: AssetRecordSearchInput) {
+export function getSearchConditions(
+	db: Database,
+	userId: string,
+	input: AssetRecordSearchInput
+) {
 	const conditions: (SQL | undefined)[] = [
 		eq(assetRecords.projectId, input.projectId),
-		eq(project.ownerUserId, userId),
+		and(eq(project.ownerUserId, userId), publishedProjectPredicate()),
 		input.name
 			? ilike(assetRecords.name, `%${input.name.replace(/[\\%_]/g, "\\$&")}%`)
 			: undefined,
@@ -53,7 +60,24 @@ function getSearchConditions(userId: string, input: AssetRecordSearchInput) {
 			? sql`coalesce(${assetRecords.visualWorldId}, ${assetFamilies.visualWorldId}) = ${input.visualWorldId}`
 			: undefined,
 		input.tag
-			? arrayContains(assetRecords.tags, [input.tag.toLocaleLowerCase("tr-TR")])
+			? sql`exists (select 1 from unnest(${assetRecords.tags}) as stored_tag(value)
+					where replace(translate(lower(stored_tag.value), 'ı', 'i'), ${"\u0307"}, '') = ${input.tag.toLowerCase().replaceAll("ı", "i").replaceAll("\u0307", "")})`
+			: undefined,
+		input.sourceImageWidth !== undefined &&
+		input.sourceImageHeight !== undefined
+			? exists(
+					db
+						.select({ id: assetVersions.id })
+						.from(assetVersions)
+						.where(
+							and(
+								eq(assetVersions.projectId, assetRecords.projectId),
+								eq(assetVersions.assetRecordId, assetRecords.id),
+								eq(assetVersions.sourceImageWidth, input.sourceImageWidth),
+								eq(assetVersions.sourceImageHeight, input.sourceImageHeight)
+							)
+						)
+				)
 			: undefined,
 		input.availability
 			? eq(assetRecords.availability, input.availability)
@@ -64,6 +88,66 @@ function getSearchConditions(userId: string, input: AssetRecordSearchInput) {
 			(condition): condition is SQL => condition !== undefined
 		)
 	);
+}
+
+async function readMatchingVersions(
+	db: Database,
+	input: AssetRecordSearchInput,
+	recordIds: string[]
+) {
+	let matchingVersionsByRecord = new Map<
+		string,
+		AssetRecordSearchResponse["records"][number]["matchingVersions"]
+	>();
+	if (
+		input.sourceImageWidth !== undefined &&
+		input.sourceImageHeight !== undefined &&
+		recordIds.length > 0
+	) {
+		const versionRows = await db
+			.select({
+				assetRecordId: assetVersions.assetRecordId,
+				fileName: assetVersions.fileName,
+				id: assetVersions.id,
+				sourceImageHeight: assetVersions.sourceImageHeight,
+				sourceImageWidth: assetVersions.sourceImageWidth,
+				versionNumber: assetVersions.versionNumber,
+			})
+			.from(assetVersions)
+			.where(
+				and(
+					eq(assetVersions.projectId, input.projectId),
+					eq(assetVersions.sourceImageWidth, input.sourceImageWidth),
+					eq(assetVersions.sourceImageHeight, input.sourceImageHeight),
+					inArray(assetVersions.assetRecordId, recordIds)
+				)
+			)
+			.orderBy(
+				asc(assetVersions.assetRecordId),
+				desc(assetVersions.versionNumber)
+			);
+		matchingVersionsByRecord = new Map();
+		for (const version of versionRows) {
+			if (
+				version.sourceImageWidth === null ||
+				version.sourceImageHeight === null
+			) {
+				continue;
+			}
+			const matchingVersions =
+				matchingVersionsByRecord.get(version.assetRecordId) ?? [];
+			matchingVersions.push({
+				fileName: version.fileName,
+				id: version.id,
+				sourceImageHeight: version.sourceImageHeight,
+				sourceImageWidth: version.sourceImageWidth,
+				versionNumber: version.versionNumber,
+			});
+			matchingVersionsByRecord.set(version.assetRecordId, matchingVersions);
+		}
+	}
+
+	return matchingVersionsByRecord;
 }
 
 export function createAssetRecordStore(db: Database): AssetRecordStore {
@@ -120,7 +204,7 @@ export function createAssetRecordStore(db: Database): AssetRecordStore {
 					and(
 						eq(assetRecords.id, assetRecordId),
 						eq(assetRecords.projectId, projectId),
-						eq(project.ownerUserId, userId)
+						and(eq(project.ownerUserId, userId), publishedProjectPredicate())
 					)
 				)
 				.limit(1);
@@ -159,7 +243,7 @@ export function createAssetRecordStore(db: Database): AssetRecordStore {
 				.where(
 					and(
 						eq(assetRecords.projectId, projectId),
-						eq(project.ownerUserId, userId)
+						and(eq(project.ownerUserId, userId), publishedProjectPredicate())
 					)
 				)
 				.orderBy(desc(assetRecords.createdAt), asc(assetRecords.name));
@@ -176,7 +260,7 @@ export function createAssetRecordStore(db: Database): AssetRecordStore {
 				return null;
 			}
 
-			const rows = await db
+			const rowsQuery = db
 				.select({
 					record: assetRecords,
 					familyVisualWorldId: assetFamilies.visualWorldId,
@@ -190,76 +274,55 @@ export function createAssetRecordStore(db: Database): AssetRecordStore {
 						eq(assetFamilies.projectId, assetRecords.projectId)
 					)
 				)
-				.where(getSearchConditions(userId, input))
-				.orderBy(desc(assetRecords.createdAt), asc(assetRecords.name));
-
-			let matchingVersionsByRecord = new Map<
-				string,
-				AssetRecordSearchResponse["records"][number]["matchingVersions"]
-			>();
-			let matchingRecordIds: Set<string> | null = null;
-			if (
-				input.sourceImageWidth !== undefined &&
-				input.sourceImageHeight !== undefined &&
-				rows.length > 0
-			) {
-				const versionRows = await db
-					.select({
-						assetRecordId: assetVersions.assetRecordId,
-						fileName: assetVersions.fileName,
-						id: assetVersions.id,
-						sourceImageHeight: assetVersions.sourceImageHeight,
-						sourceImageWidth: assetVersions.sourceImageWidth,
-						versionNumber: assetVersions.versionNumber,
-					})
-					.from(assetVersions)
-					.where(
-						and(
-							eq(assetVersions.projectId, input.projectId),
-							eq(assetVersions.sourceImageWidth, input.sourceImageWidth),
-							eq(assetVersions.sourceImageHeight, input.sourceImageHeight),
-							inArray(
-								assetVersions.assetRecordId,
-								rows.map((row) => row.record.id)
+				.where(getSearchConditions(db, userId, input))
+				.orderBy(
+					desc(assetRecords.createdAt),
+					asc(assetRecords.name),
+					asc(assetRecords.id)
+				)
+				.$dynamic();
+			const rows = await (input.pagination
+				? rowsQuery
+						.limit(input.pagination.limit)
+						.offset(input.pagination.offset)
+				: rowsQuery);
+			const [countRow] = input.pagination
+				? await db
+						.select({ value: count() })
+						.from(assetRecords)
+						.innerJoin(project, eq(project.id, assetRecords.projectId))
+						.leftJoin(
+							assetFamilies,
+							and(
+								eq(assetFamilies.id, assetRecords.assetFamilyId),
+								eq(assetFamilies.projectId, assetRecords.projectId)
 							)
 						)
-					)
-					.orderBy(
-						asc(assetVersions.assetRecordId),
-						desc(assetVersions.versionNumber)
-					);
-				matchingVersionsByRecord = new Map();
-				for (const version of versionRows) {
-					if (
-						version.sourceImageWidth === null ||
-						version.sourceImageHeight === null
-					) {
-						continue;
-					}
-					const matchingVersions =
-						matchingVersionsByRecord.get(version.assetRecordId) ?? [];
-					matchingVersions.push({
-						fileName: version.fileName,
-						id: version.id,
-						sourceImageHeight: version.sourceImageHeight,
-						sourceImageWidth: version.sourceImageWidth,
-						versionNumber: version.versionNumber,
-					});
-					matchingVersionsByRecord.set(version.assetRecordId, matchingVersions);
-				}
-				matchingRecordIds = new Set(matchingVersionsByRecord.keys());
-			}
+						.where(getSearchConditions(db, userId, input))
+				: [{ value: rows.length }];
 
-			const records = rows
-				.filter(
-					({ record }) =>
-						matchingRecordIds === null || matchingRecordIds.has(record.id)
-				)
-				.map(({ record, familyVisualWorldId }) => ({
-					matchingVersions: matchingVersionsByRecord.get(record.id) ?? [],
-					record: toAssetRecord(record, familyVisualWorldId),
-				}));
-			return { records, totalCount: records.length };
+			const matchingVersionsByRecord = await readMatchingVersions(
+				db,
+				input,
+				rows.map(({ record }) => record.id)
+			);
+			const records = rows.map(({ record, familyVisualWorldId }) => ({
+				matchingVersions: matchingVersionsByRecord.get(record.id) ?? [],
+				record: toAssetRecord(record, familyVisualWorldId),
+			}));
+			const totalCount = input.pagination
+				? (countRow?.value ?? 0)
+				: records.length;
+			return input.pagination
+				? {
+						records,
+						totalCount,
+						nextOffset:
+							input.pagination.offset + records.length < totalCount
+								? input.pagination.offset + records.length
+								: null,
+					}
+				: { records, totalCount };
 		},
 		async updateMetadata(
 			userId: string,
@@ -283,7 +346,7 @@ export function createAssetRecordStore(db: Database): AssetRecordStore {
 					and(
 						eq(assetRecords.id, input.assetRecordId),
 						eq(assetRecords.projectId, input.projectId),
-						eq(project.ownerUserId, userId)
+						and(eq(project.ownerUserId, userId), publishedProjectPredicate())
 					)
 				)
 				.limit(1);

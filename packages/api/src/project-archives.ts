@@ -23,11 +23,15 @@ import {
 	historyRelationFailures,
 	historySectionSchemas,
 } from "./project-archive-history";
+import { contextProposalSchema } from "./project-context";
 import { recordContentDigest } from "./record-content-digest";
 import { idempotencyKeySchema } from "./record-publication";
 
 /** The portable file format of a Project Archive; a later record group adds sections, never reshapes these. */
-export const projectArchiveSchemaVersion = "project-archive/1.0.0";
+export const projectArchiveSchemaVersion = "project-archive/1.1.0";
+/** Existing archive file tables store byte sizes as PostgreSQL signed integers. */
+export const projectArchiveFileStorageLimit = 2_147_483_647;
+export const legacyProjectArchiveSchemaVersion = "project-archive/1.0.0";
 
 const idSchema = z.string().trim().min(1).max(128);
 const uuidSchema = z.uuid();
@@ -41,8 +45,96 @@ export const archiveSha256Schema = z.string().regex(/^[a-f0-9]{64}$/);
 const unitTypeSchema = z.enum(["frame", "direction", "tile", "state"]);
 
 export const foundationSectionSchemas = {
+	contextProposals: z
+		.object({
+			id: idSchema,
+			baseContextRevisionId: idSchema,
+			contractVersion: z.string(),
+			sourceKind: z.enum([
+				"structured_control",
+				"agent",
+				"production_experiment",
+			]),
+			proposal: contextProposalSchema,
+			createdAt: timestampSchema,
+		})
+		.strict(),
+	managedSnapshots: z
+		.object({
+			id: idSchema,
+			assetRecordId: idSchema,
+			assetVersionId: idSchema,
+			fileName: z.string(),
+			byteSize: z.number().int().positive(),
+			sha256: archiveSha256Schema,
+			createdAt: timestampSchema,
+		})
+		.strict(),
+	importInboxEntries: z
+		.object({
+			id: idSchema,
+			createdAt: timestampSchema,
+			fileName: z.string(),
+			sourceContentType: z.string(),
+			contentLength: z.number().int().positive(),
+			sha256: archiveSha256Schema,
+		})
+		.strict(),
+	referenceBoardImages: z
+		.object({
+			id: idSchema,
+			assetRecordId: idSchema,
+			createdAt: timestampSchema,
+			updatedAt: timestampSchema,
+			fileName: z.string(),
+			contentType: z.enum(["image/png", "image/webp"]),
+			contentLength: z.number().int().positive(),
+			sha256: archiveSha256Schema,
+			role: referenceRoleSchema,
+			customPurpose: z.string().nullable(),
+			transferredFeatures: z.array(referenceFeatureSchema),
+			forbiddenFeatures: z.array(referenceFeatureSchema),
+			contextOverrideRationale: z.string().nullable(),
+			notes: z.string().nullable(),
+			sortOrder: z.number().int(),
+			revision: z.number().int().positive(),
+		})
+		.strict(),
+	referenceBoardImageHistory: z
+		.object({
+			id: idSchema,
+			assetRecordId: idSchema,
+			referenceId: idSchema,
+			revision: z.number().int().positive(),
+			role: referenceRoleSchema,
+			customPurpose: z.string().nullable(),
+			transferredFeatures: z.array(referenceFeatureSchema),
+			forbiddenFeatures: z.array(referenceFeatureSchema),
+			contextOverrideRationale: z.string().nullable(),
+			notes: z.string().nullable(),
+			recordedAt: timestampSchema,
+		})
+		.strict(),
+	visualWorlds: z
+		.object({
+			id: idSchema,
+			name: z.string(),
+			description: z.string(),
+			createdAt: timestampSchema,
+		})
+		.strict(),
+	themes: z
+		.object({
+			id: idSchema,
+			visualWorldId: idSchema,
+			name: z.string(),
+			description: z.string(),
+			createdAt: timestampSchema,
+		})
+		.strict(),
 	assetFamilies: z
 		.object({
+			canonicalVersionId: idSchema.nullable().optional(),
 			createdAt: timestampSchema,
 			id: idSchema,
 			name: z.string(),
@@ -54,7 +146,7 @@ export const foundationSectionSchemas = {
 	assetRecords: z
 		.object({
 			assetCategory: assetRecordCategorySchema.nullable().optional(),
-			assetFamilyId: idSchema,
+			assetFamilyId: idSchema.nullable(),
 			availability: z.enum(assetRecordAvailabilityValues),
 			createdAt: timestampSchema,
 			id: idSchema,
@@ -69,7 +161,7 @@ export const foundationSectionSchemas = {
 		.strict(),
 	assetVersions: z
 		.object({
-			assetFamilyId: idSchema,
+			assetFamilyId: idSchema.nullable(),
 			assetRecordId: idSchema,
 			byteSize: z.number().int().positive(),
 			contentDigest: archiveSha256Schema.nullable(),
@@ -217,6 +309,8 @@ export const foundationGroup = "foundation";
 /** Kinds of file an archive accounts for. A later record group adds its own kinds. */
 export const projectArchiveFileKinds = [
 	"asset_version_file",
+	"import_inbox_file",
+	"reference_board_file",
 	"rights_evidence_file",
 	"runtime_evidence_file",
 	"working_file",
@@ -261,7 +355,10 @@ export const projectArchiveManifestSchema = z
 	.object({
 		contents: z.array(projectArchiveContentSchema),
 		files: z.array(projectArchiveFileEntrySchema),
-		schemaVersion: z.literal(projectArchiveSchemaVersion),
+		schemaVersion: z.enum([
+			legacyProjectArchiveSchemaVersion,
+			projectArchiveSchemaVersion,
+		]),
 		source: z.object({ projectId: idSchema }).strict(),
 	})
 	.strict();
@@ -307,6 +404,29 @@ export const projectArchiveListInputSchema = z
 	.object({ projectId: uuidSchema })
 	.strict();
 
+export const projectArchiveWorkingFilesInputSchema = z
+	.object({ projectId: uuidSchema, cursor: uuidSchema.optional() })
+	.strict();
+export const projectArchiveWorkingFilesSchema = z
+	.object({
+		files: z.array(
+			z
+				.object({
+					id: uuidSchema,
+					assetVersionId: uuidSchema,
+					fileName: z.string(),
+					byteSize: z.number().int().positive(),
+					available: z.boolean(),
+				})
+				.strict()
+		),
+		nextCursor: uuidSchema.nullable(),
+	})
+	.strict();
+export type ProjectArchiveWorkingFiles = z.infer<
+	typeof projectArchiveWorkingFilesSchema
+>;
+
 export const projectArchiveGetInputSchema = z
 	.object({ archiveId: uuidSchema, projectId: uuidSchema })
 	.strict();
@@ -341,7 +461,7 @@ export type ProjectArchiveCreateInput = z.infer<
 export interface ProjectArchiveSourceFile
 	extends Omit<ProjectArchiveFileEntry, "exclusionReason" | "presence"> {
 	/** Cloud storage location; kept beside the archive, never in the portable manifest. */
-	objectKey: string;
+	objectKey: string | null;
 }
 
 export interface ProjectArchiveSource {
@@ -356,6 +476,7 @@ export interface ProjectArchiveSource {
 export type ProjectArchiveRejection =
 	| { assetVersionIds: string[]; reason: "asset_digest_missing" }
 	| { failures: string[]; reason: "inconsistent_records" }
+	| { sourceIds: string[]; reason: "file_storage_limit" }
 	| { paths: string[]; reason: "secret_detected" }
 	| { reason: "file_unverifiable"; sourceIds: string[] }
 	| { reason: "working_file_unavailable"; workingFileIds: string[] };
@@ -405,15 +526,257 @@ function byId(left: { id: string }, right: { id: string }) {
 	return Number(left.id > right.id) - Number(left.id < right.id);
 }
 
+function canonicalRelationFailures(records: FoundationRecords): string[] {
+	return records.assetFamilies.flatMap((family) => {
+		if (family.canonicalVersionId === undefined) {
+			return [
+				`Asset Family ${family.id} is missing its canonical version state.`,
+			];
+		}
+		if (
+			family.canonicalVersionId &&
+			!records.assetVersions.some(
+				(version) =>
+					version.id === family.canonicalVersionId &&
+					version.assetFamilyId === family.id
+			)
+		) {
+			return [
+				`Asset Family ${family.id} points at a missing canonical Asset Version.`,
+			];
+		}
+		return [];
+	});
+}
+
+function contextProposalProjectFailures(
+	records: FoundationRecords,
+	projectId: string
+): string[] {
+	return (records.contextProposals ?? [])
+		.filter((row) => row.proposal.projectId !== projectId)
+		.map((row) => `Context Proposal ${row.id} references another project.`);
+}
+
+function contextProposalFailures(records: FoundationRecords): string[] {
+	const revisions = new Set(records.contextRevisions.map((row) => row.id));
+	const proposals = new Set(
+		(records.contextProposals ?? []).map((row) => row.id)
+	);
+	const inconsistent = (records.contextProposals ?? [])
+		.filter(
+			(row) =>
+				row.proposal.id !== row.id ||
+				row.proposal.baseContextRevisionId !== row.baseContextRevisionId ||
+				row.proposal.contractVersion !== row.contractVersion ||
+				row.proposal.source.kind !== row.sourceKind
+		)
+		.map((row) => `Context Proposal ${row.id} has inconsistent identity.`);
+	return [
+		...inconsistent,
+		...(records.contextProposals ?? [])
+			.filter((row) => !revisions.has(row.baseContextRevisionId))
+			.map(
+				(row) => `Context Proposal ${row.id} references a missing revision.`
+			),
+		...records.contextRevisions
+			.filter(
+				(row) => row.sourceProposalId && !proposals.has(row.sourceProposalId)
+			)
+			.map(
+				(row) => `Context Revision ${row.id} references a missing proposal.`
+			),
+	];
+}
+
+function contextRelationFailures(records: FoundationRecords): string[] {
+	const failures: string[] = [];
+	const worlds = new Set((records.visualWorlds ?? []).map((world) => world.id));
+	const themes = new Map(
+		(records.themes ?? []).map((theme) => [theme.id, theme])
+	);
+	for (const theme of records.themes ?? []) {
+		if (!worlds.has(theme.visualWorldId)) {
+			failures.push(`Theme ${theme.id} points at a missing Visual World.`);
+		}
+	}
+	for (const family of records.assetFamilies) {
+		if (!worlds.has(family.visualWorldId)) {
+			failures.push(
+				`Asset Family ${family.id} points at a missing Visual World.`
+			);
+		}
+	}
+	for (const record of records.assetRecords) {
+		if (record.visualWorldId && !worlds.has(record.visualWorldId)) {
+			failures.push(
+				`Asset Record ${record.id} points at a missing Visual World.`
+			);
+		}
+		if (
+			record.themeId &&
+			themes.get(record.themeId)?.visualWorldId !== record.visualWorldId
+		) {
+			failures.push(`Asset Record ${record.id} points at a missing Theme.`);
+		}
+	}
+	return failures;
+}
+
+function snapshotRelationFailures(
+	records: FoundationRecords,
+	files: Pick<
+		ProjectArchiveFileEntry,
+		| "kind"
+		| "sourceId"
+		| "assetRecordId"
+		| "assetVersionId"
+		| "byteSize"
+		| "sha256"
+	>[]
+): string[] {
+	const failures: string[] = [];
+	const assets = new Set(records.assetRecords.map((item) => item.id));
+	const versions = new Set(records.assetVersions.map((version) => version.id));
+	for (const snapshot of records.managedSnapshots ?? []) {
+		const file = files.find(
+			(item) => item.kind === "working_file" && item.sourceId === snapshot.id
+		);
+		if (
+			!(
+				assets.has(snapshot.assetRecordId) &&
+				versions.has(snapshot.assetVersionId) &&
+				file
+			) ||
+			file.assetRecordId !== snapshot.assetRecordId ||
+			file.assetVersionId !== snapshot.assetVersionId ||
+			file.byteSize !== snapshot.byteSize ||
+			file.sha256 !== snapshot.sha256
+		) {
+			failures.push(
+				`Managed Snapshot ${snapshot.id} has inconsistent file or version.`
+			);
+		}
+	}
+	for (const file of files) {
+		if (
+			file.kind === "working_file" &&
+			!(records.managedSnapshots ?? []).some(
+				(snapshot) => snapshot.id === file.sourceId
+			)
+		) {
+			failures.push(
+				`Working file ${file.sourceId} has no Managed Snapshot record.`
+			);
+		}
+	}
+	return failures;
+}
+
+function inboxFileRelationFailures(
+	records: FoundationRecords,
+	files: Pick<
+		ProjectArchiveFileEntry,
+		"kind" | "sourceId" | "byteSize" | "sha256"
+	>[]
+): string[] {
+	const failures: string[] = [];
+	for (const entry of records.importInboxEntries ?? []) {
+		const file = files.find(
+			(item) => item.kind === "import_inbox_file" && item.sourceId === entry.id
+		);
+		if (
+			!file ||
+			file.byteSize !== entry.contentLength ||
+			file.sha256 !== entry.sha256
+		) {
+			failures.push(`Import Inbox entry ${entry.id} has inconsistent file.`);
+		}
+	}
+	for (const file of files) {
+		if (
+			file.kind === "import_inbox_file" &&
+			!(records.importInboxEntries ?? []).some(
+				(entry) => entry.id === file.sourceId
+			)
+		) {
+			failures.push(`Import Inbox file ${file.sourceId} has no entry record.`);
+		}
+	}
+	return failures;
+}
+
+function managedFileRelationFailures(
+	records: FoundationRecords,
+	files: Pick<
+		ProjectArchiveFileEntry,
+		"kind" | "sourceId" | "assetRecordId" | "byteSize" | "sha256"
+	>[]
+): string[] {
+	const failures: string[] = [];
+	const assets = new Set(records.assetRecords.map((item) => item.id));
+	const images = new Map(
+		(records.referenceBoardImages ?? []).map((item) => [item.id, item])
+	);
+	for (const image of images.values()) {
+		const file = files.find(
+			(item) =>
+				item.kind === "reference_board_file" && item.sourceId === image.id
+		);
+		if (
+			!(assets.has(image.assetRecordId) && file) ||
+			file.assetRecordId !== image.assetRecordId ||
+			file.byteSize !== image.contentLength ||
+			file.sha256 !== image.sha256
+		) {
+			failures.push(
+				`Reference Board image ${image.id} has inconsistent file or record.`
+			);
+		}
+	}
+	for (const history of records.referenceBoardImageHistory ?? []) {
+		if (
+			images.get(history.referenceId)?.assetRecordId !== history.assetRecordId
+		) {
+			failures.push(
+				`Reference Board history ${history.id} points at a missing image.`
+			);
+		}
+	}
+	for (const file of files) {
+		if (file.kind === "reference_board_file" && !images.has(file.sourceId)) {
+			failures.push(
+				`Reference Board file ${file.sourceId} has no image record.`
+			);
+		}
+	}
+	return failures;
+}
+
 /** The relations that must hold inside the foundation group: every link points at a record the archive holds. */
 export function foundationRelationFailures(
 	records: FoundationRecords,
 	files: Pick<
 		ProjectArchiveFileEntry,
-		"assetRecordId" | "assetVersionId" | "kind" | "sourceId"
-	>[]
+		| "assetRecordId"
+		| "assetVersionId"
+		| "kind"
+		| "sourceId"
+		| "byteSize"
+		| "sha256"
+	>[],
+	options: { skipContext?: boolean } = {}
 ): string[] {
-	const failures: string[] = [];
+	const failures: string[] = options.skipContext
+		? []
+		: [
+				...contextRelationFailures(records),
+				...contextProposalFailures(records),
+				...canonicalRelationFailures(records),
+				...managedFileRelationFailures(records, files),
+				...inboxFileRelationFailures(records, files),
+				...snapshotRelationFailures(records, files),
+			];
 	const idSet = (list: { id: string }[]) => new Set(list.map((r) => r.id));
 	const families = idSet(records.assetFamilies);
 	const subjects = idSet(records.subjectIdentities);
@@ -435,11 +798,23 @@ export function foundationRelationFailures(
 	}
 	for (const record of records.assetRecords) {
 		expect(
-			families.has(record.assetFamilyId),
+			record.assetFamilyId === null || families.has(record.assetFamilyId),
 			`Asset Record ${record.id} points at a missing Asset Family.`
 		);
 	}
 	for (const version of records.assetVersions) {
+		expect(
+			files.some(
+				(file) =>
+					file.kind === "asset_version_file" &&
+					file.sourceId === version.id &&
+					file.assetVersionId === version.id &&
+					file.assetRecordId === version.assetRecordId &&
+					file.byteSize === version.byteSize &&
+					file.sha256 === version.contentDigest
+			),
+			`Asset Version ${version.id} has no matching file.`
+		);
 		expect(
 			assetRecords.has(version.assetRecordId),
 			`Asset Version ${version.id} points at a missing Asset Record.`
@@ -527,6 +902,12 @@ export async function buildProjectArchive(
 	| { archive: BuiltProjectArchive; ok: true }
 	| ({ ok: false } & ProjectArchiveRejection)
 > {
+	const oversized = source.files
+		.filter((file) => file.byteSize > projectArchiveFileStorageLimit)
+		.map((file) => file.sourceId);
+	if (oversized.length) {
+		return { ok: false, reason: "file_storage_limit", sourceIds: oversized };
+	}
 	const workingFiles = new Set(
 		source.files
 			.filter((file) => file.kind === "working_file")
@@ -636,6 +1017,7 @@ export async function buildProjectArchive(
 	}
 
 	const failures = [
+		...contextProposalProjectFailures(source.records, options.projectId),
 		...foundationRelationFailures(source.records, files),
 		...historyRelationFailures(source.history, source.records, files),
 		...(await deliveryRelationFailures(
@@ -668,15 +1050,32 @@ export async function buildProjectArchive(
 			.filter((file) => file.presence === "included")
 			.map((file) => `${file.kind}:${file.sourceId}`)
 	);
+	const missingLocations = source.files
+		.filter(
+			(file) =>
+				includedKeys.has(`${file.kind}:${file.sourceId}`) && !file.objectKey
+		)
+		.map((file) => file.sourceId);
+	if (missingLocations.length) {
+		return {
+			ok: false,
+			reason: "file_unverifiable",
+			sourceIds: missingLocations,
+		};
+	}
 	return {
 		archive: {
-			fileLocations: source.files
-				.filter((file) => includedKeys.has(`${file.kind}:${file.sourceId}`))
-				.map((file) => ({
-					kind: file.kind,
-					objectKey: file.objectKey,
-					sourceId: file.sourceId,
-				})),
+			fileLocations: source.files.flatMap((file) =>
+				includedKeys.has(`${file.kind}:${file.sourceId}`) && file.objectKey
+					? [
+							{
+								kind: file.kind,
+								objectKey: file.objectKey,
+								sourceId: file.sourceId,
+							},
+						]
+					: []
+			),
 			manifest,
 			manifestDigest: await recordContentDigest(manifest),
 			sections,
@@ -685,7 +1084,27 @@ export async function buildProjectArchive(
 	};
 }
 
+function duplicateSectionFailures(archive: {
+	sections: ProjectArchiveSection[];
+	manifest: ProjectArchiveManifest;
+}): string[] {
+	const sectionKeys = archive.sections.map((section) =>
+		JSON.stringify([section.group, section.name])
+	);
+	const contentKeys = archive.manifest.contents.map((content) =>
+		JSON.stringify([content.group, content.name])
+	);
+	if (
+		new Set(sectionKeys).size !== sectionKeys.length ||
+		new Set(contentKeys).size !== contentKeys.length
+	) {
+		return ["The archive repeats a section or manifest entry."];
+	}
+	return [];
+}
+
 /** Failure texts when a re-read archive no longer matches its own manifest and record relations; empty when sound. */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Verification checks each archive group and its relationships together.
 export async function verifyProjectArchive(archive: {
 	manifest: ProjectArchiveManifest;
 	manifestDigest: string;
@@ -697,6 +1116,7 @@ export async function verifyProjectArchive(archive: {
 	) {
 		failures.push("The manifest digest does not match the record.");
 	}
+	failures.push(...duplicateSectionFailures(archive));
 	const manifestKeys = new Set(
 		archive.manifest.contents.map((entry) => `${entry.group}/${entry.name}`)
 	);
@@ -743,11 +1163,44 @@ export async function verifyProjectArchive(archive: {
 			.filter((section) => section.group === foundationGroup)
 			.map((section) => [section.name, section.records])
 	) as unknown as FoundationRecords;
-	if (
-		Object.keys(foundationSectionSchemas).every((name) => name in foundation)
-	) {
+	const legacy =
+		archive.manifest.schemaVersion === legacyProjectArchiveSchemaVersion;
+	const requiredFoundation = Object.keys(foundationSectionSchemas).filter(
+		(name) =>
+			!(
+				legacy &&
+				[
+					"visualWorlds",
+					"themes",
+					"importInboxEntries",
+					"referenceBoardImages",
+					"referenceBoardImageHistory",
+					"managedSnapshots",
+					"contextProposals",
+				].includes(name)
+			)
+	);
+	for (const name of requiredFoundation) {
+		if (!(name in foundation)) {
+			failures.push(`Required section ${foundationGroup}/${name} is missing.`);
+		}
+	}
+	const foundationComplete = requiredFoundation.every(
+		(name) => name in foundation
+	);
+	if (foundationComplete) {
 		failures.push(
-			...foundationRelationFailures(foundation, archive.manifest.files)
+			...(legacy
+				? []
+				: contextProposalProjectFailures(
+						foundation,
+						archive.manifest.source.projectId
+					))
+		);
+		failures.push(
+			...foundationRelationFailures(foundation, archive.manifest.files, {
+				skipContext: legacy,
+			})
 		);
 	}
 	const history = Object.fromEntries(
@@ -755,13 +1208,15 @@ export async function verifyProjectArchive(archive: {
 			.filter((section) => section.group === historyGroup)
 			.map((section) => [section.name, section.records])
 	) as unknown as HistoryRecords;
+	for (const name of Object.keys(historySectionSchemas)) {
+		if (!(name in history)) {
+			failures.push(`Required section ${historyGroup}/${name} is missing.`);
+		}
+	}
 	const historyComplete = Object.keys(historySectionSchemas).every(
 		(name) => name in history
 	);
-	if (
-		historyComplete &&
-		Object.keys(foundationSectionSchemas).every((name) => name in foundation)
-	) {
+	if (historyComplete && foundationComplete) {
 		failures.push(
 			...historyRelationFailures(history, foundation, archive.manifest.files)
 		);
@@ -771,10 +1226,15 @@ export async function verifyProjectArchive(archive: {
 			.filter((section) => section.group === deliveryGroup)
 			.map((section) => [section.name, section.records])
 	) as unknown as DeliveryRecords;
+	for (const name of Object.keys(deliverySectionSchemas)) {
+		if (!(name in delivery)) {
+			failures.push(`Required section ${deliveryGroup}/${name} is missing.`);
+		}
+	}
 	if (
 		historyComplete &&
 		Object.keys(deliverySectionSchemas).every((name) => name in delivery) &&
-		Object.keys(foundationSectionSchemas).every((name) => name in foundation)
+		foundationComplete
 	) {
 		failures.push(
 			...(await deliveryRelationFailures(

@@ -41,10 +41,7 @@ await withDisposablePostgres(async ({ url }) => {
 	environment.MIGRATION_DATABASE_URL = undefined;
 	await run(["run", "--cwd", "packages/db", "db:push"], environment);
 	await run(
-		[
-			"test",
-			"apps/server/src/features/tileset-texture-profile/server/tileset-adjacency-review.integration.test.ts",
-		],
+		["test", "apps/server/src/tileset-adjacency-review.integration.test.ts"],
 		environment
 	);
 });

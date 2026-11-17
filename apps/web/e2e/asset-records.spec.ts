@@ -10,8 +10,8 @@ import {
 	signUpWithFixture,
 } from "./project-workflow";
 
-const identityCheckboxName = /Bağımsız ürün anlamı/;
-const secondVersionCandidate = /ash-knight-alt\.png.*Sürüm 2.*Aday/;
+const identityCheckboxName = /Independent product meaning/;
+const secondVersionCandidate = /ash-knight-alt\.png.*Version 2.*Candidate/;
 
 test("persists an Asset Record created through the web flow", async ({
 	page,
@@ -26,25 +26,25 @@ test("persists an Asset Record created through the web flow", async ({
 
 	await page
 		.getByRole("link", {
-			name: `${assetRecordFixture.projectName} varlık kayıtlarını aç`,
+			name: `${assetRecordFixture.projectName} open Asset Records`,
 		})
 		.click();
-	await page.getByRole("button", { name: "Yeni varlık kaydı" }).waitFor();
+	await page.getByRole("button", { name: "New Asset Record" }).waitFor();
 	const assetRecordsUrl = page.url();
 	for (const scenario of assetRecordMeasurementScenarios) {
 		// biome-ignore lint/performance/noAwaitInLoops: Each scenario reuses one page and must finish before navigating to the next record.
 		await page.goto(assetRecordsUrl);
 		await page
-			.getByRole("button", { name: "Yeni varlık kaydı", exact: true })
+			.getByRole("button", { name: "New Asset Record", exact: true })
 			.click();
-		await page.getByLabel("Varlık adı").fill(scenario.name);
+		await page.getByLabel("Asset name").fill(scenario.name);
 		await page.getByRole("checkbox", { name: identityCheckboxName }).check();
-		await page.getByRole("button", { name: "Varlık kaydı oluştur" }).click();
+		await page.getByRole("button", { name: "Create Asset Record" }).click();
 		await expect(
 			page.getByRole("heading", { name: scenario.name })
 		).toBeVisible();
 		await page
-			.getByRole("button", { name: "Kayıt bilgileri", exact: true })
+			.getByRole("button", { name: "Record details", exact: true })
 			.click();
 		await Promise.all(
 			scenario.inputs.map(({ accessibleName, kind, value }) =>
@@ -53,23 +53,23 @@ test("persists an Asset Record created through the web flow", async ({
 					: page.getByLabel(accessibleName).fill(value)
 			)
 		);
-		await page.getByRole("button", { name: "Ölçüleri kaydet" }).click();
+		await page.getByRole("button", { name: "Save dimensions" }).click();
 		await expect(
-			page.getByText("Ölçüler kaydedildi.", { exact: true })
+			page.getByText("Dimensions saved.", { exact: true })
 		).toBeVisible();
 		if (scenario.name === assetRecordFixture.name) {
 			await expect(
-				page.getByText("Bağımsız ürün anlamı", { exact: true })
+				page.getByText("Independent product meaning", { exact: true })
 			).toBeVisible();
 		}
 		await page.reload();
 		await page
-			.getByRole("button", { name: "Kayıt bilgileri", exact: true })
+			.getByRole("button", { name: "Record details", exact: true })
 			.click();
 		await expect(
 			page.getByRole("heading", { name: scenario.name })
 		).toBeVisible();
-		await expect(page.getByText("Kayıt oluşturuldu")).toBeVisible();
+		await expect(page.getByText("Record created")).toBeVisible();
 		await Promise.all(
 			scenario.inputs.map(({ accessibleName, value }) =>
 				expect(page.getByLabel(accessibleName)).toHaveValue(value)
@@ -91,15 +91,15 @@ test("persists an Asset Version, review, quality result, and legacy history", as
 	await createProjectFromProjectsView(page, versionFixture);
 	await page
 		.getByRole("link", {
-			name: `${versionFixture.projectName} varlık kayıtlarını aç`,
+			name: `${versionFixture.projectName} open Asset Records`,
 		})
 		.click();
 	await page
-		.getByRole("button", { name: "Yeni varlık kaydı", exact: true })
+		.getByRole("button", { name: "New Asset Record", exact: true })
 		.click();
-	await page.getByLabel("Varlık adı").fill(versionFixture.name);
+	await page.getByLabel("Asset name").fill(versionFixture.name);
 	await page.getByRole("checkbox", { name: identityCheckboxName }).check();
-	await page.getByRole("button", { name: "Varlık kaydı oluştur" }).click();
+	await page.getByRole("button", { name: "Create Asset Record" }).click();
 	await expect(
 		page.getByRole("heading", { name: versionFixture.name })
 	).toBeVisible();
@@ -110,39 +110,41 @@ test("persists an Asset Version, review, quality result, and legacy history", as
 		buffer: Buffer.from(versionFixture.assetVersionPngBase64, "base64"),
 	});
 	await page
-		.getByLabel("Bilinmeyen üretim geçmişi")
+		.getByLabel("Unknown production history")
 		.fill("The original generation instruction is unavailable.");
-	await page.getByLabel("Bilinen kaynak").fill("Created for version tracking");
-	await page.getByLabel("Varlıkla ilişkiniz").selectOption("created_by_user");
+	await page.getByLabel("Known source").fill("Created for version tracking");
 	await page
-		.getByLabel("Destekleyici kanıt")
+		.getByLabel("Your relationship to the asset")
+		.selectOption("created_by_user");
+	await page
+		.getByLabel("Supporting evidence")
 		.fill("Owner attested to the source and relationship.");
-	await page.getByRole("button", { name: "Aday sürümü kaydet" }).click();
+	await page.getByRole("button", { name: "Save Candidate Version" }).click();
 	await expect(page.getByRole("status")).toContainText(
-		"Aday Sürüm kaydedildi."
+		"Candidate Version saved."
 	);
 	await expect(
-		page.getByText("Dosya biçim imzası eşleşti (1 sürüm).")
+		page.getByText("File format signature matched (1 version).")
 	).toBeVisible();
 
 	await page
-		.getByLabel("İnceleme gerekçesi (isteğe bağlı)")
+		.getByLabel("Review rationale (optional)")
 		.fill("Reviewed through the web flow.");
-	await page.getByRole("button", { name: "Onayla" }).click();
+	await page.getByRole("button", { name: "Approve" }).click();
 	await expect(page.getByRole("status")).toContainText(
-		"Onaylı Sürüm kaydedildi."
+		"Approved Version saved."
 	);
-	await expect(page.getByText("ash-knight.png · Sürüm 1")).toBeVisible();
+	await expect(page.getByText("ash-knight.png · Version 1")).toBeVisible();
 	await expect(page.getByText("Created for version tracking")).toBeVisible();
 	await expect(
 		page.getByText(
-			"Bilinmeyen üretim geçmişi: The original generation instruction is unavailable."
+			"Unknown production history: The original generation instruction is unavailable."
 		)
 	).toBeVisible();
 	await expect(
 		page.getByText("Owner attested to the source and relationship.")
 	).toBeVisible();
-	await expect(page.getByText("Kullanıcı oluşturdu")).toBeVisible();
+	await expect(page.getByText("Created by user")).toBeVisible();
 	await expect(page.getByText("Reviewed through the web flow.")).toBeVisible();
 
 	await page.locator("#asset-version-file").setInputFiles({
@@ -151,46 +153,46 @@ test("persists an Asset Version, review, quality result, and legacy history", as
 		buffer: Buffer.from(versionFixture.assetVersionPngBase64, "base64"),
 	});
 	await page
-		.getByLabel("Bilinmeyen üretim geçmişi")
+		.getByLabel("Unknown production history")
 		.fill("The alternative sketch instructions are unavailable.");
-	await page.getByLabel("Bilinen kaynak").fill("Alternative sketch");
+	await page.getByLabel("Known source").fill("Alternative sketch");
 	await page
-		.getByLabel("Varlıkla ilişkiniz")
+		.getByLabel("Your relationship to the asset")
 		.selectOption("received_from_team");
-	await page.getByLabel("Destekleyici kanıt").fill("Team handoff note.");
-	await page.getByRole("button", { name: "Aday sürümü kaydet" }).click();
+	await page.getByLabel("Supporting evidence").fill("Team handoff note.");
+	await page.getByRole("button", { name: "Save Candidate Version" }).click();
 	await expect(page.getByRole("status")).toContainText(
-		"Aday Sürüm kaydedildi."
+		"Candidate Version saved."
 	);
 	await expect(page.getByText(secondVersionCandidate)).toBeVisible();
 	await expect(
-		page.getByText("Dosya biçim imzası eşleşti (2 sürüm).")
+		page.getByText("File format signature matched (2 version).")
 	).toBeVisible();
 
 	await page.reload();
-	await expect(page.getByText("ash-knight.png · Sürüm 1")).toBeVisible();
+	await expect(page.getByText("ash-knight.png · Version 1")).toBeVisible();
 	await expect(page.getByText(secondVersionCandidate)).toBeVisible();
 	await expect(
-		page.getByText("Dosya biçim imzası eşleşti (2 sürüm).")
+		page.getByText("File format signature matched (2 version).")
 	).toBeVisible();
 	await expect(page.getByText("Created for version tracking")).toBeVisible();
 	await expect(
 		page.getByText(
-			"Bilinmeyen üretim geçmişi: The original generation instruction is unavailable."
+			"Unknown production history: The original generation instruction is unavailable."
 		)
 	).toBeVisible();
 	await expect(page.getByText("Alternative sketch")).toBeVisible();
 	await expect(
 		page.getByText(
-			"Bilinmeyen üretim geçmişi: The alternative sketch instructions are unavailable."
+			"Unknown production history: The alternative sketch instructions are unavailable."
 		)
 	).toBeVisible();
 	await expect(page.getByText("Team handoff note.")).toBeVisible();
 	await expect(
 		page.getByText("Owner attested to the source and relationship.")
 	).toBeVisible();
-	await expect(page.getByText("Kullanıcı oluşturdu")).toBeVisible();
-	await expect(page.getByText("Ekipten alındı")).toBeVisible();
+	await expect(page.getByText("Created by user")).toBeVisible();
+	await expect(page.getByText("Received from team")).toBeVisible();
 	await expect(page.getByText("Reviewed through the web flow.")).toBeVisible();
 });
 
@@ -207,33 +209,33 @@ test("archives and restores an Asset Record through the web flow", async ({
 	await createProjectFromProjectsView(page, fixture);
 	await page
 		.getByRole("link", {
-			name: `${fixture.projectName} varlık kayıtlarını aç`,
+			name: `${fixture.projectName} open Asset Records`,
 		})
 		.click();
 	await page
-		.getByRole("button", { name: "Yeni varlık kaydı", exact: true })
+		.getByRole("button", { name: "New Asset Record", exact: true })
 		.click();
-	await page.getByLabel("Varlık adı").fill(fixture.name);
+	await page.getByLabel("Asset name").fill(fixture.name);
 	await page.getByRole("checkbox", { name: identityCheckboxName }).check();
-	await page.getByRole("button", { name: "Varlık kaydı oluştur" }).click();
+	await page.getByRole("button", { name: "Create Asset Record" }).click();
 	await expect(page.getByRole("heading", { name: fixture.name })).toBeVisible();
 
 	await page
-		.getByRole("button", { name: "Kayıt bilgileri", exact: true })
+		.getByRole("button", { name: "Record details", exact: true })
 		.click();
-	await page.getByRole("button", { name: "Kaydı arşivle" }).click();
-	await expect(page.getByText("Arşivlenmiş", { exact: true })).toBeVisible();
+	await page.getByRole("button", { name: "Archive record" }).click();
+	await expect(page.getByText("Archived", { exact: true })).toBeVisible();
 	await page.reload();
 	await page
-		.getByRole("button", { name: "Kayıt bilgileri", exact: true })
+		.getByRole("button", { name: "Record details", exact: true })
 		.click();
-	await expect(page.getByText("Arşivlenmiş", { exact: true })).toBeVisible();
+	await expect(page.getByText("Archived", { exact: true })).toBeVisible();
 
-	await page.getByRole("button", { name: "Kaydı yeniden etkinleştir" }).click();
-	await expect(page.getByText("Etkin", { exact: true })).toBeVisible();
+	await page.getByRole("button", { name: "Reactivate record" }).click();
+	await expect(page.getByText("Active", { exact: true })).toBeVisible();
 	await page.reload();
 	await page
-		.getByRole("button", { name: "Kayıt bilgileri", exact: true })
+		.getByRole("button", { name: "Record details", exact: true })
 		.click();
-	await expect(page.getByText("Etkin", { exact: true })).toBeVisible();
+	await expect(page.getByText("Active", { exact: true })).toBeVisible();
 });

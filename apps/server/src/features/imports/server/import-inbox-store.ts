@@ -9,7 +9,11 @@ import {
 	importInboxEntrySchema,
 	importInboxUploadInputSchema,
 } from "@sprite-anvil/api/import-inbox";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import {
+	type Database,
+	getProjectForUser,
+	publishedProjectPredicate,
+} from "@sprite-anvil/db";
 import { importInboxEntries } from "@sprite-anvil/db/schema/import-inbox";
 import { project } from "@sprite-anvil/db/schema/project";
 import { and, desc, eq } from "drizzle-orm";
@@ -121,7 +125,7 @@ export function createImportInboxStore(db: Database): ImportInboxStore {
 					and(
 						eq(importInboxEntries.id, entryId),
 						eq(importInboxEntries.projectId, projectIdInput),
-						eq(project.ownerUserId, userId)
+						and(eq(project.ownerUserId, userId), publishedProjectPredicate())
 					)
 				)
 				.limit(1);

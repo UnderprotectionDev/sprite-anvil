@@ -9,7 +9,7 @@ test("the landing page is reachable by keyboard with visible focus", async ({
 	page,
 }) => {
 	await page.goto("/");
-	const start = page.getByRole("link", { name: "Başlamak için giriş yap" });
+	const start = page.getByRole("link", { name: "Sign in to get started" });
 	await tabTo(page, start);
 	await expectAccessibleName(start);
 	await expectVisibleFocus(start);

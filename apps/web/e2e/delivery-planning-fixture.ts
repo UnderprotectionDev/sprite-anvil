@@ -27,7 +27,7 @@ export const deliveryPlanningFixture = {
 	],
 } as const;
 
-const recordSelectName = /^Varlık Kaydı/;
+const recordSelectName = /^Asset Record/;
 
 type DeliveryPlanningFixture = typeof deliveryPlanningFixture;
 
@@ -36,29 +36,37 @@ export async function createFamiliesWithRequiredLists(
 	fixture: DeliveryPlanningFixture = deliveryPlanningFixture
 ) {
 	await page.goto("/projects");
-	await page.getByRole("link", { name: "Varlık Aileleri" }).click();
+	await page.getByRole("link", { name: "Asset Families" }).click();
 	await page
-		.getByRole("button", { name: "Aile ve temsil ilişkileri", exact: true })
+		.getByRole("button", {
+			name: "Family and representation relationships",
+			exact: true,
+		})
 		.click();
-	await page.getByLabel("Varlık Kimliği adı").fill(fixture.identityName);
-	await page.getByRole("button", { name: "Varlık Kimliği oluştur" }).click();
+	await page.getByLabel("Subject Identity name").fill(fixture.identityName);
+	await page.getByRole("button", { name: "Create Subject Identity" }).click();
 
 	for (const family of fixture.families) {
 		// biome-ignore lint/performance/noAwaitInLoops: Browser interactions within each family setup must occur in order.
 		await page
-			.getByRole("button", { name: "Aile ve temsil ilişkileri", exact: true })
+			.getByRole("button", {
+				name: "Family and representation relationships",
+				exact: true,
+			})
 			.click();
-		await page.getByLabel("Varlık Ailesi adı").fill(family.familyName);
+		await page.getByLabel("Asset Family name").fill(family.familyName);
 		await page
-			.getByLabel("Görsel Dünya")
+			.getByLabel("Visual World")
 			.selectOption({ label: fixture.visualWorldName });
-		await page.getByLabel("Kullanım bağlamı").fill(fixture.useContext);
-		await page.getByRole("button", { name: "Varlık Ailesi oluştur" }).click();
-		await page.getByLabel("Bağımsız ürün anlamı", { exact: true }).check();
-		await page.getByLabel("Varlık Kaydı adı").fill(family.recordName);
-		await page.getByRole("button", { name: "Varlık Kaydı ekle" }).click();
+		await page.getByLabel("Usage context").fill(fixture.useContext);
+		await page.getByRole("button", { name: "Create Asset Family" }).click();
 		await page
-			.getByRole("button", { name: "Aile kataloğu", exact: true })
+			.getByLabel("Independent product meaning", { exact: true })
+			.check();
+		await page.getByLabel("Asset Record name").fill(family.recordName);
+		await page.getByRole("button", { name: "Add Asset Record" }).click();
+		await page
+			.getByRole("button", { name: "Family catalog", exact: true })
 			.click();
 		await expect(
 			page.getByRole("heading", { name: family.familyName, exact: true })
@@ -68,30 +76,28 @@ export async function createFamiliesWithRequiredLists(
 	for (const family of fixture.families) {
 		// biome-ignore lint/performance/noAwaitInLoops: Each family's list is saved and activated before the next.
 		await page
-			.getByRole("button", { name: "Tamamlanma ve kanıtlar", exact: true })
+			.getByRole("button", { name: "Completion and evidence", exact: true })
 			.click();
 		await page
-			.getByLabel("İnceleme ve tamamlanma için aile")
+			.getByLabel("Family for review and completion")
 			.selectOption({ label: family.familyName });
 		const readiness = page.getByRole("region", {
-			name: "Tamamlanma ve kanıtlar",
+			name: "Completion and evidence",
 		});
-		await readiness.getByRole("button", { name: "Öğe ekle" }).click();
-		await readiness.getByLabel("Öğe adı").fill(family.itemName);
+		await readiness.getByRole("button", { name: "Add item" }).click();
+		await readiness.getByLabel("Item name").fill(family.itemName);
 		await readiness
 			.getByRole("combobox", { name: recordSelectName })
 			.selectOption({ label: family.recordName });
-		await readiness
-			.getByRole("button", { name: "Taslak sürümü kaydet" })
-			.click();
+		await readiness.getByRole("button", { name: "Save draft version" }).click();
 		await expect(
-			readiness.getByText("Yeni liste sürümü taslak olarak kaydedildi.")
+			readiness.getByText("New list version saved as a draft.")
 		).toBeVisible();
 		await readiness
-			.getByRole("button", { name: "Bu sürümü etkinleştir" })
+			.getByRole("button", { name: "Activate this version" })
 			.click();
 		await expect(
-			readiness.getByText("Gerekli Öğeler Listesi sürümü etkinleştirildi.")
+			readiness.getByText("Required Set version activated.")
 		).toBeVisible();
 	}
 }
@@ -103,16 +109,14 @@ export async function prepareDeliveryPlanningWorkspace(
 ) {
 	await signUpWithFixture(page, fixture);
 	await page.goto("/context-proposals");
-	await page.getByLabel("Proje adı").fill(fixture.projectName);
+	await page.getByLabel("Project name").fill(fixture.projectName);
+	await page.getByLabel("Art direction").fill(fixture.generalArtDirection);
+	await page.getByRole("button", { name: "Create project" }).click();
 	await page
-		.getByLabel("Genel sanat yaklaşımı")
-		.fill(fixture.generalArtDirection);
-	await page.getByRole("button", { name: "Projeyi oluştur" }).click();
-	await page
-		.getByRole("button", { name: "Görsel Dünyalar ve Temalar", exact: true })
+		.getByRole("button", { name: "Visual Worlds and Themes", exact: true })
 		.click();
-	await page.getByLabel("Görsel Dünya adı").fill(fixture.visualWorldName);
-	await page.getByRole("button", { name: "Görsel Dünya ekle" }).click();
+	await page.getByLabel("Visual World name").fill(fixture.visualWorldName);
+	await page.getByRole("button", { name: "Add Visual World" }).click();
 	await expect(
 		page.locator(".scope-record-list").getByText(fixture.visualWorldName)
 	).toBeVisible();

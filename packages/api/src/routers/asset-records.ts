@@ -86,7 +86,7 @@ export const assetRecordsRouter = {
 			);
 			if (!record) {
 				throw new ORPCError("NOT_FOUND", {
-					message: "Varlık kaydı bulunamadı.",
+					message: "Asset Record not found.",
 				});
 			}
 			return assetRecordSchema.parse(record);
@@ -122,6 +122,24 @@ export const assetRecordsRouter = {
 			}
 			return records.map((record) => assetRecordSchema.parse(record));
 		}),
+	listPage: protectedProcedure
+		.input(
+			assetRecordSearchInputSchema.refine(
+				(input) => input.pagination !== undefined
+			)
+		)
+		.output(assetRecordSearchResponseSchema)
+		.handler(async ({ context, input }) => {
+			const result = await context.assetRecordStore.search(
+				context.session.user.id,
+				input
+			);
+			if (!result) {
+				throw new ORPCError("NOT_FOUND", { message: "Project not found" });
+			}
+			return assetRecordSearchResponseSchema.parse(result);
+		}),
+
 	search: protectedProcedure
 		.input(assetRecordSearchInputSchema)
 		.output(assetRecordSearchResponseSchema)
@@ -155,17 +173,18 @@ export const assetRecordsRouter = {
 			}
 			if (result.reason === "invalid_scope") {
 				throw new ORPCError("BAD_REQUEST", {
-					message: "Tema veya Görsel Dünya seçilen proje kapsamında olmalıdır.",
+					message:
+						"The Theme or Visual World must belong to the selected Project.",
 				});
 			}
 			if (result.reason === "erased") {
 				throw new ORPCError("CONFLICT", {
-					message: "Silinmiş Varlık Kaydının metadata’sı değiştirilemez.",
+					message: "Metadata of an erased Asset Record cannot be changed.",
 				});
 			}
 			throw new ORPCError("CONFLICT", {
 				message:
-					"Varlık Ailesine bağlı Varlık Kaydının Görsel Dünyası değiştirilemez.",
+					"The Visual World of an Asset Record linked to an Asset Family cannot be changed.",
 			});
 		}),
 	restore: protectedProcedure

@@ -188,3 +188,18 @@ test("building the archive leaves the source records unchanged", async () => {
 	await create();
 	expect(source).toEqual(before);
 });
+
+test("rearchives excluded Rights evidence metadata without requiring an object key", async () => {
+	const source = historySource();
+	source.files = source.files.map((file) =>
+		file.kind === "rights_evidence_file" ? { ...file, objectKey: null } : file
+	);
+	const { archive } = await setup({ source }).create();
+	expect(archive.manifest.files).toContainEqual(
+		expect.objectContaining({
+			kind: "rights_evidence_file",
+			presence: "excluded",
+			sourceId: historyIds.rights,
+		})
+	);
+});

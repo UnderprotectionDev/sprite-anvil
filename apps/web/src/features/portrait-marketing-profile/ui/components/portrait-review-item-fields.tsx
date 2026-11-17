@@ -39,9 +39,9 @@ export function PortraitReviewItemFields({
 	const valid = portraitReviewItemSchema.safeParse(item).success;
 	return (
 		<FieldSet className="space-y-3 rounded-md border p-3" disabled={disabled}>
-			<FieldLegend>İfade {index + 1}</FieldLegend>
+			<FieldLegend>Expression {index + 1}</FieldLegend>
 			<Label className="grid gap-1">
-				Portre sürümü
+				Portrait version
 				<NativeSelect
 					className="w-full"
 					onChange={(e) => {
@@ -61,13 +61,13 @@ export function PortraitReviewItemFields({
 				>
 					{versions.map((v) => (
 						<NativeSelectOption key={v.id} value={v.id}>
-							{names.get(v.assetRecordId)} · Sürüm {v.versionNumber}
+							{names.get(v.assetRecordId)} · Version {v.versionNumber}
 						</NativeSelectOption>
 					))}
 				</NativeSelect>
 			</Label>
 			<Label className="grid gap-1">
-				İfade adı
+				Expression name
 				<Input
 					maxLength={100}
 					onChange={(e) =>
@@ -78,7 +78,7 @@ export function PortraitReviewItemFields({
 				/>
 			</Label>
 			<Label className="grid gap-1">
-				Kullanım amacı
+				Usage purpose
 				<NativeSelect
 					className="w-full"
 					onChange={(e) =>
@@ -89,17 +89,17 @@ export function PortraitReviewItemFields({
 					}
 					value={item.usagePurpose}
 				>
-					<NativeSelectOption value="dialogue">Diyalog</NativeSelectOption>
-					<NativeSelectOption value="ui">Arayüz</NativeSelectOption>
+					<NativeSelectOption value="dialogue">Dialogue</NativeSelectOption>
+					<NativeSelectOption value="ui">UI</NativeSelectOption>
 				</NativeSelect>
 			</Label>
 			<div className="grid grid-cols-2 gap-2">
 				{(
 					[
-						["x", "Kırpma X"],
-						["y", "Kırpma Y"],
-						["width", "Kırpma genişliği"],
-						["height", "Kırpma yüksekliği"],
+						["x", "Crop X"],
+						["y", "Crop Y"],
+						["width", "Crop width"],
+						["height", "Crop height"],
 					] as const
 				).map(([key, label]) => (
 					<Label className="grid gap-1" key={key}>
@@ -122,8 +122,8 @@ export function PortraitReviewItemFields({
 				))}
 				{(
 					[
-						["width", "Kullanım genişliği"],
-						["height", "Kullanım yüksekliği"],
+						["width", "Usage width"],
+						["height", "Usage height"],
 					] as const
 				).map(([key, label]) => (
 					<Label className="grid gap-1" key={key}>
@@ -163,33 +163,35 @@ export function PortraitReviewItemFields({
 					}
 					value={item.background}
 				>
-					<NativeSelectOption value="light">Açık</NativeSelectOption>
-					<NativeSelectOption value="dark">Koyu</NativeSelectOption>
-					<NativeSelectOption value="transparent">Şeffaf</NativeSelectOption>
+					<NativeSelectOption value="light">Light</NativeSelectOption>
+					<NativeSelectOption value="dark">Dark</NativeSelectOption>
+					<NativeSelectOption value="transparent">
+						Transparent
+					</NativeSelectOption>
 				</NativeSelect>
 			</Label>
 			<p className="text-muted-foreground text-sm">
-				Kaynak: {item.naturalSize.width} × {item.naturalSize.height} px. Kırpma
-				kaynak görselin sol üstünden piksel cinsindendir. Önizleme kesin
-				kullanım ölçüsündedir.
+				Source: {item.naturalSize.width} × {item.naturalSize.height} px. Crop is
+				measured in pixels from the source image’s top-left corner. The preview
+				is shown at the exact usage size.
 			</p>
 			{valid ? null : (
 				<StatusMessage tone="error">
-					İfade adı, kullanım ölçüsü ve kaynak sınırları içindeki kırpma
-					gereklidir.
+					Expression name, usage size, and a crop within the source bounds are
+					required.
 				</StatusMessage>
 			)}
 			{valid && version ? (
 				<PortraitUsagePreview
 					item={item}
 					key={JSON.stringify(item)}
-					label={names.get(item.assetRecordId) ?? "Portre"}
+					label={names.get(item.assetRecordId) ?? "Portrait"}
 					onReady={onReady}
 					previewUrl={version.previewUrl}
 				/>
 			) : null}
 			<Button onClick={onRemove} type="button" variant="outline">
-				İfadeyi kaldır
+				Remove expression
 			</Button>
 		</FieldSet>
 	);

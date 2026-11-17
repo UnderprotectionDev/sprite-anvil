@@ -5,7 +5,9 @@ import {
 	deliveryRelationFailures,
 	deliverySectionSchemas,
 	deriveDeliveryDiffs,
+	emptyDeliveryRecords,
 } from "./project-archive-delivery";
+import { rebaseArchiveDelivery } from "./project-archive-delivery-rebase";
 import {
 	type HistoryRecords,
 	historyGroup,
@@ -19,12 +21,14 @@ import {
 	foundationRelationFailures,
 	type ProjectArchive,
 	type ProjectArchiveFileEntry,
+	projectArchiveFileStorageLimit,
 	projectArchiveSectionRegistry,
 	sectionDigest,
 	verifyProjectArchive,
 } from "./project-archives";
 import { recordContentDigest } from "./record-content-digest";
 import { idempotencyKeySchema, idempotentRecordId } from "./record-publication";
+import { specializedProfileContractSchema } from "./specialized-profile-contracts";
 
 const idSchema = z.string().trim().min(1).max(128);
 const uuidSchema = z.uuid();
@@ -128,6 +132,9 @@ export type ProjectArchiveRestoreCatalog = z.infer<
 export type ProjectArchiveRestoreRejection =
 	| { failures: string[]; reason: "archive_invalid" }
 	| { failures: string[]; reason: "restore_inconsistent" }
+	| { reason: "unsupported_content" }
+	| { reason: "unsupported_version" }
+	| { reason: "file_storage_limit"; sourceIds: string[] }
 	| { keys: string[]; reason: "duplicate_key" }
 	| { paths: string[]; reason: "secret_detected" }
 	| { reason: "file_unverifiable"; sourceIds: string[] };
@@ -221,18 +228,67 @@ export function restoredRecordId(restoreId: string, sourceId: string) {
 	);
 }
 
-function rewrite(value: unknown, map: ReadonlyMap<string, string>): unknown {
+const semanticFields = new Set([
+	"itemId",
+	"unitKey",
+	"frameKey",
+	"ruleId",
+	"fieldId",
+	"name",
+	"title",
+	"description",
+	"notes",
+	"note",
+	"rationale",
+	"observation",
+	"observations",
+	"instruction",
+	"actualInstruction",
+	"instructionSkeleton",
+	"expectedOutputStructure",
+	"label",
+	"message",
+	"purpose",
+	"reason",
+	"source",
+	"evidence",
+	"restrictions",
+	"uncertainty",
+	"knownSource",
+	"supportingEvidence",
+	"unknownHistoryDetails",
+	"generationInstruction",
+	"sourceSurface",
+	"outcomeNote",
+	"observedValue",
+	"method",
+	"customPurpose",
+	"sha256",
+	"contentDigest",
+	"manifestDigest",
+	"digest",
+	"sourceDigest",
+	"content",
+]);
+
+function rewrite(
+	value: unknown,
+	map: ReadonlyMap<string, string>,
+	field?: string
+): unknown {
 	if (typeof value === "string") {
-		return map.get(value) ?? value;
+		return field && semanticFields.has(field)
+			? value
+			: (map.get(value) ?? value);
 	}
 	if (Array.isArray(value)) {
-		return value.map((member) => rewrite(member, map));
+		return value.map((member) => rewrite(member, map, field));
 	}
 	if (value && typeof value === "object") {
 		return Object.fromEntries(
 			Object.entries(value as Record<string, unknown>).map(([key, member]) => [
 				map.get(key) ?? key,
-				rewrite(member, map),
+				rewrite(member, map, key),
 			])
 		);
 	}
@@ -404,7 +460,15 @@ function sourceIdsOf(
 			});
 		}
 	}
-	return found;
+	const seen = new Set<string>();
+	return found.filter((entry) => {
+		const key = JSON.stringify([entry.group, entry.name, entry.sourceId]);
+		if (seen.has(key)) {
+			return false;
+		}
+		seen.add(key);
+		return true;
+	});
 }
 
 async function issueIds(
@@ -414,12 +478,52 @@ async function issueIds(
 ) {
 	const found = sourceIdsOf(sections, files);
 	const distinct = [...new Set(found.map((entry) => entry.sourceId))];
+	const globalContracts = new Set(
+		sections
+			.filter(
+				(section) =>
+					section.group === "history" && section.name === "contractRevisions"
+			)
+			.flatMap((section) => section.records.map((record) => String(record.id)))
+	);
 	const issued = await Promise.all(
-		distinct.map((sourceId) => restoredRecordId(restoreId, sourceId))
+		distinct.map((sourceId) =>
+			globalContracts.has(sourceId)
+				? Promise.resolve(sourceId)
+				: restoredRecordId(restoreId, sourceId)
+		)
 	);
 	const idMap = new Map(
 		distinct.map((sourceId, index) => [sourceId, issued[index] as string])
 	);
+	// These tables use (createdAt, id) as their ordering. One shared rank
+	// namespace preserves order even when source IDs occur in different sections.
+	const orderedNames = new Set([
+		"assetVersionReviews",
+		"compositeVersionReviews",
+		"familyReadinessEvidence",
+	]);
+	const originalIds = [
+		...new Set(
+			sections
+				.filter(
+					(section) =>
+						section.group === historyGroup && orderedNames.has(section.name)
+				)
+				.flatMap((section) => section.records.map((row) => String(row.id)))
+		),
+	].sort();
+	if (originalIds.length > 0xff_ff_ff_ff_ff_ff) {
+		throw new Error("Archive has too many ordered history records");
+	}
+	const prefix = (await restoredRecordId(restoreId, "ordered:history")).slice(
+		0,
+		24
+	);
+	originalIds.forEach((id, index) => {
+		idMap.set(id, `${prefix}${index.toString(16).padStart(12, "0")}`);
+	});
+
 	const ids: RestoreIdEntry[] = found.map(({ group, name, sourceId }) => ({
 		group,
 		name,
@@ -427,6 +531,33 @@ async function issueIds(
 		sourceId,
 	}));
 	return { idMap, ids };
+}
+
+function rewriteSectionRecords(
+	group: string,
+	name: string,
+	source: Record<string, unknown>[],
+	ids: ReadonlyMap<string, string>
+) {
+	return source.map((original) => {
+		const mapped = rewrite(original, ids) as Record<string, unknown>;
+		// Required Set item IDs are scoped semantic keys, not cloud identities.
+		if (
+			group === historyGroup &&
+			name === "requiredSetRevisions" &&
+			Array.isArray(original.items) &&
+			Array.isArray(mapped.items)
+		) {
+			mapped.items = mapped.items.map((item, index) => ({
+				...item,
+				id: (original.items as { id: string }[])[index]?.id,
+			}));
+		}
+		if (group === historyGroup && name === "familyReadinessEvidence") {
+			mapped.itemId = original.itemId;
+		}
+		return mapped;
+	});
 }
 
 /** The sections with every id rewritten; Delivery Diffs are re-derived from the restored Fulfilments. */
@@ -449,7 +580,16 @@ async function restoreSections(
 		}
 		const records = isDiffs(entry)
 			? []
-			: (z.array(schema).parse(rewrite(section.records, idMap)) as unknown[]);
+			: (z
+					.array(schema)
+					.parse(
+						rewriteSectionRecords(
+							entry.group,
+							entry.name,
+							section.records,
+							idMap
+						)
+					) as unknown[]);
 		restored.push({
 			digest: "",
 			group: entry.group,
@@ -458,6 +598,21 @@ async function restoreSections(
 			records,
 			sourceDigest: entry.digest,
 		});
+	}
+	try {
+		await rebaseArchiveDelivery(
+			{
+				...emptyDeliveryRecords(),
+				...recordsOfGroup(restored, deliveryGroup),
+			} as DeliveryRecords,
+			idMap
+		);
+	} catch {
+		return {
+			failures: [
+				"An archived Export Bundle is missing valid generated verification content.",
+			],
+		};
 	}
 	const diffs = restored.find(isDiffs);
 	if (diffs) {
@@ -504,13 +659,42 @@ function restoredFiles(
  * every relation to those ids and proves the rewritten records still hold
  * together. Pure: it writes nothing, and the archive is never changed.
  */
+function invalidProfileRevision(sections: Sections): string | undefined {
+	for (const section of sections) {
+		if (section.group !== "history" || section.name !== "contractRevisions") {
+			continue;
+		}
+		for (const revision of section.records) {
+			const definition = specializedProfileContractSchema.safeParse(
+				revision.definition
+			);
+			if (
+				!definition.success ||
+				revision.id !== `${revision.profileId}@${revision.contractVersion}` ||
+				definition.data.profileId !== revision.profileId ||
+				definition.data.version !== revision.contractVersion ||
+				definition.data.contractSchemaVersion !== revision.contractSchemaVersion
+			) {
+				return `Profile Contract ${revision.id} has an invalid canonical identity or definition.`;
+			}
+		}
+	}
+	return undefined;
+}
+
 export async function planProjectArchiveRestore(
 	archive: Pick<ProjectArchive, "manifest" | "manifestDigest" | "sections">,
-	options: { restoreId: string }
+	options: { restoreId: string; restoredProjectId: string }
 ): Promise<
 	| { ok: true; plan: ProjectArchiveRestorePlan }
 	| ({ ok: false } & ProjectArchiveRestoreRejection)
 > {
+	const oversized = archive.manifest.files
+		.filter((file) => file.byteSize > projectArchiveFileStorageLimit)
+		.map((file) => file.sourceId);
+	if (oversized.length) {
+		return { ok: false, reason: "file_storage_limit", sourceIds: oversized };
+	}
 	const verification = [
 		...(await verifyProjectArchive(archive)),
 		...completenessFailures(archive),
@@ -519,6 +703,10 @@ export async function planProjectArchiveRestore(
 		return { failures: verification, ok: false, reason: "archive_invalid" };
 	}
 	const sections = sectionRecords(archive);
+	const invalidProfile = invalidProfileRevision(sections);
+	if (invalidProfile) {
+		return { failures: [invalidProfile], ok: false, reason: "archive_invalid" };
+	}
 	const keys = repeatedKeys(sections, archive.manifest.files);
 	if (keys.length > 0) {
 		return { keys, ok: false, reason: "duplicate_key" };
@@ -541,6 +729,18 @@ export async function planProjectArchiveRestore(
 		sections,
 		archive.manifest.files
 	);
+	idMap.set(archive.manifest.source.projectId, options.restoredProjectId);
+	for (const entry of ids) {
+		if (entry.sourceId === archive.manifest.source.projectId) {
+			entry.restoredId = options.restoredProjectId;
+		}
+	}
+	ids.push({
+		group: "foundation",
+		name: "project",
+		sourceId: archive.manifest.source.projectId,
+		restoredId: options.restoredProjectId,
+	});
 	const restored = await restoreSections(archive, sections, idMap);
 	if ("failures" in restored) {
 		return {

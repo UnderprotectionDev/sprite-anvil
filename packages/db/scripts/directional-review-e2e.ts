@@ -37,8 +37,7 @@ const {
 			"ui_state_comparison_web_test",
 			"ui_state_comparison_desktop_test",
 		] as readonly [string, string, string],
-		integrationTest:
-			"src/features/ui-profile/server/ui-state-comparison.integration.test.ts",
+		integrationTest: "src/ui-state-comparison.integration.test.ts",
 		integrationDatabaseEnvironmentVariable:
 			"UI_STATE_COMPARISON_TEST_DATABASE_URL",
 		webE2ESpec: "e2e/ui-state-comparisons.spec.ts",
@@ -64,8 +63,7 @@ const {
 			"asset_family_comparison_web_test",
 			"asset_family_comparison_desktop_test",
 		] as readonly [string, string, string],
-		integrationTest:
-			"src/features/object-equipment-profile/server/asset-family-comparison.integration.test.ts",
+		integrationTest: "src/asset-family-comparison.integration.test.ts",
 		integrationDatabaseEnvironmentVariable:
 			"ASSET_FAMILY_COMPARISON_TEST_DATABASE_URL",
 		webE2ESpec: "e2e/asset-family-comparisons.spec.ts",

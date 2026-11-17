@@ -13,260 +13,305 @@ test("uploads and rereads exact Asset and Composite Version lineage", async ({
 	await signUpWithFixture(page, fixture);
 
 	await page.goto("/context-proposals");
-	await page.getByLabel("Proje adı").fill(fixture.projectName);
+	await page.getByLabel("Project name").fill(fixture.projectName);
+	await page.getByLabel("Art direction").fill(fixture.generalArtDirection);
+	await page.getByRole("button", { name: "Create project" }).click();
 	await page
-		.getByLabel("Genel sanat yaklaşımı")
-		.fill(fixture.generalArtDirection);
-	await page.getByRole("button", { name: "Projeyi oluştur" }).click();
-	await page
-		.getByRole("button", { name: "Görsel Dünyalar ve Temalar", exact: true })
+		.getByRole("button", { name: "Visual Worlds and Themes", exact: true })
 		.click();
-	await page.getByLabel("Görsel Dünya adı").fill(fixture.visualWorldName);
-	await page.getByRole("button", { name: "Görsel Dünya ekle" }).click();
+	await page.getByLabel("Visual World name").fill(fixture.visualWorldName);
+	await page.getByRole("button", { name: "Add Visual World" }).click();
 	await expect(
 		page.locator(".scope-record-list").getByText(fixture.visualWorldName)
 	).toBeVisible();
 
 	await page.goto("/projects");
-	await page.getByRole("link", { name: "Varlık Aileleri" }).click();
+	await page.getByRole("link", { name: "Asset Families" }).click();
 	await page
-		.getByRole("button", { name: "Aile ve temsil ilişkileri", exact: true })
+		.getByRole("button", {
+			name: "Family and representation relationships",
+			exact: true,
+		})
 		.click();
-	await page.getByLabel("Varlık Kimliği adı").fill(fixture.identityName);
-	await page.getByRole("button", { name: "Varlık Kimliği oluştur" }).click();
+	await page.getByLabel("Subject Identity name").fill(fixture.identityName);
+	await page.getByRole("button", { name: "Create Subject Identity" }).click();
 	await page
-		.getByRole("button", { name: "Aile kataloğu", exact: true })
+		.getByRole("button", { name: "Family catalog", exact: true })
 		.click();
 	await expect(
 		page.getByRole("heading", { name: fixture.identityName })
 	).toBeVisible();
 	await page
-		.getByRole("button", { name: "Aile ve temsil ilişkileri", exact: true })
+		.getByRole("button", {
+			name: "Family and representation relationships",
+			exact: true,
+		})
 		.click();
-	await page.getByLabel("Varlık Ailesi adı").fill(fixture.familyName);
-	await page.getByLabel("Görsel Dünya").selectOption({
+	await page.getByLabel("Asset Family name").fill(fixture.familyName);
+	await page.getByLabel("Visual World").selectOption({
 		label: fixture.visualWorldName,
 	});
-	await page.getByLabel("Kullanım bağlamı").fill(fixture.useContext);
-	await page.getByRole("button", { name: "Varlık Ailesi oluştur" }).click();
+	await page.getByLabel("Usage context").fill(fixture.useContext);
+	await page.getByRole("button", { name: "Create Asset Family" }).click();
 	await page
-		.getByRole("button", { name: "Aile kataloğu", exact: true })
+		.getByRole("button", { name: "Family catalog", exact: true })
 		.click();
 	await expect(
 		page.getByText(fixture.familyName, { exact: true })
 	).toBeVisible();
 
 	await page
-		.getByRole("button", { name: "Aile ve temsil ilişkileri", exact: true })
+		.getByRole("button", {
+			name: "Family and representation relationships",
+			exact: true,
+		})
 		.click();
-	await page.getByLabel("Varlık Kaydı adı").fill(fixture.sourceName);
-	await page.getByRole("button", { name: "Varlık Kaydı ekle" }).click();
-	await page.getByLabel("Varlık Kaydı adı").fill(fixture.derivativeName);
-	await page.getByRole("button", { name: "Varlık Kaydı ekle" }).click();
+	await page.getByLabel("Asset Record name").fill(fixture.sourceName);
+	await page.getByRole("button", { name: "Add Asset Record" }).click();
+	await page.getByLabel("Asset Record name").fill(fixture.derivativeName);
+	await page.getByRole("button", { name: "Add Asset Record" }).click();
 	await page
-		.getByRole("button", { name: "Aile kataloğu", exact: true })
+		.getByRole("button", { name: "Family catalog", exact: true })
 		.click();
 	await expect(
 		page.getByText(fixture.derivativeName, { exact: true })
 	).toBeVisible();
 
 	await page
-		.getByRole("button", { name: "Sürüm ve bağımlılık işlemleri", exact: true })
+		.getByRole("button", {
+			name: "Version and dependency operations",
+			exact: true,
+		})
 		.click();
+	const familyUrl = page.url();
 	await page
-		.getByLabel(`${fixture.sourceName} için Varlık Sürümü dosyası`)
-		.setInputFiles({
-			name: "ash-knight.png",
-			mimeType: "image/png",
-			buffer: fixture.png,
-		});
-	await expect(page.getByText("Sürüm 1 · Aday")).toBeVisible();
+		.locator("li", {
+			has: page.getByRole("heading", { name: fixture.sourceName, exact: true }),
+		})
+		.getByRole("link", { name: "Upload Asset Version" })
+		.click();
+	await page.getByLabel("PNG or WebP file").setInputFiles({
+		name: "ash-knight.png",
+		mimeType: "image/png",
+		buffer: fixture.png,
+	});
+	await page
+		.getByLabel("Unknown production history")
+		.fill("Test image created for the disposable review fixture.");
+	await page.getByLabel("Known source").fill("Asset version browser fixture");
+	await page
+		.getByLabel("Your relationship to the asset")
+		.selectOption("created_by_user");
+	await page.getByRole("button", { name: "Save Candidate Version" }).click();
+	await expect(page.getByText("Candidate Version saved.")).toBeVisible();
+	await page.goto(familyUrl);
+	await page
+		.getByRole("button", {
+			name: "Version and dependency operations",
+			exact: true,
+		})
+		.click();
+	await expect(page.getByText("Version 1 · Candidate")).toBeVisible();
 	const reviewRationale = "The silhouette matches the family design.";
-	await page.getByLabel("İnceleme gerekçesi").fill(reviewRationale);
-	await page.getByRole("button", { name: "Onayla" }).click();
-	await expect(page.getByText("Sürüm 1 · Onaylandı")).toBeVisible();
-	await expect(page.getByText(`— Gerekçe: ${reviewRationale}`)).toBeVisible();
+	await page.getByLabel("Review rationale").fill(reviewRationale);
+	await page.getByRole("button", { name: "Approve" }).click();
+	await expect(page.getByText("Version 1 · Approved")).toBeVisible();
+	await expect(page.getByText(`— Rationale: ${reviewRationale}`)).toBeVisible();
 	await expect(page.locator("time[datetime]").first()).toBeVisible();
-	await page.getByRole("button", { name: "Ana Tasarım olarak seç" }).click();
+	await page
+		.getByRole("button", { name: "Select as Canonical Design" })
+		.click();
 	await expect(
-		page.getByText("Ana Tasarım: Ash Knight base · Sürüm 1")
+		page.getByText("Canonical Design: Ash Knight base · Version 1")
 	).toBeVisible();
 
 	await page
-		.getByRole("button", { name: "Aile ve temsil ilişkileri", exact: true })
+		.getByRole("button", {
+			name: "Family and representation relationships",
+			exact: true,
+		})
 		.click();
-	await page.getByLabel("İlişki türü").selectOption("derivative");
+	await page.getByLabel("Relationship type").selectOption("derivative");
 	await expect(
-		page.getByText("Ash Knight base · Ana Tasarım Sürüm 1")
+		page.getByText("Ash Knight base · Canonical Design Version 1")
 	).toBeVisible();
 	await page
-		.getByLabel("İlgili Varlık Kaydı")
+		.getByLabel("Related Asset Record")
 		.selectOption({ label: fixture.derivativeName });
-	await page.getByRole("button", { name: "İlişki ekle" }).click();
+	await page.getByRole("button", { name: "Add relationship" }).click();
 	await page
-		.getByRole("button", { name: "Aile kataloğu", exact: true })
+		.getByRole("button", { name: "Family catalog", exact: true })
 		.click();
 	await expect(page.getByText(fixture.visibleLineage)).toBeVisible();
 	await page
-		.getByRole("button", { name: "Sürüm ve bağımlılık işlemleri", exact: true })
+		.getByRole("button", {
+			name: "Version and dependency operations",
+			exact: true,
+		})
 		.click();
 
 	const sourceRecord = page
 		.getByRole("heading", { name: fixture.sourceName })
 		.locator("xpath=ancestor::li[1]");
-	const unitCorrectionType = sourceRecord.getByLabel("Birim türü");
-	const unitCorrectionKey = sourceRecord.getByLabel("Birim adı");
-	const unitCorrectionSource = sourceRecord.getByLabel("Kaynak Varlık Sürümü");
-	const unitCorrectionFile = sourceRecord.getByLabel(
-		"Düzeltilmiş PNG veya WebP"
-	);
+	const unitCorrectionType = sourceRecord.getByLabel("Unit type");
+	const unitCorrectionKey = sourceRecord.getByLabel("Unit name");
+	const unitCorrectionSource = sourceRecord.getByLabel("Source Asset Version");
+	const unitCorrectionFile = sourceRecord.getByLabel("Corrected PNG or WebP");
 	await unitCorrectionType.selectOption("frame");
 	await unitCorrectionKey.fill("attack/frame-3");
-	await unitCorrectionSource.selectOption({ label: "Sürüm 1 · Onaylandı" });
+	await unitCorrectionSource.selectOption({ label: "Version 1 · Approved" });
 	await unitCorrectionFile.setInputFiles({
 		name: "attack-frame-3-v1.png",
 		mimeType: "image/png",
 		buffer: fixture.png,
 	});
-	await page.getByRole("button", { name: "Birim düzeltmesini kaydet" }).click();
+	await page.getByRole("button", { name: "Save unit correction" }).click();
 	await expect(
-		page.getByText("Kare · attack/frame-3 · Birim Sürümü 1")
+		page.getByText("Frame · attack/frame-3 · Unit Version 1")
 	).toBeVisible();
 
 	await unitCorrectionType.selectOption("direction");
 	await unitCorrectionKey.fill("north");
-	await unitCorrectionSource.selectOption({ label: "Sürüm 1 · Onaylandı" });
+	await unitCorrectionSource.selectOption({ label: "Version 1 · Approved" });
 	await unitCorrectionFile.setInputFiles({
 		name: "north-direction-v1.png",
 		mimeType: "image/png",
 		buffer: fixture.png,
 	});
-	await page.getByRole("button", { name: "Birim düzeltmesini kaydet" }).click();
-	await expect(page.getByText("Yön · north · Birim Sürümü 1")).toBeVisible();
+	await page.getByRole("button", { name: "Save unit correction" }).click();
+	await expect(
+		page.getByText("Direction · north · Unit Version 1")
+	).toBeVisible();
 
-	await sourceRecord.getByLabel("Kare · attack/frame-3").selectOption({
-		label: "Birim Sürümü 1 · Varlık Sürümü 2 · Aday",
+	await sourceRecord.getByLabel("Frame · attack/frame-3").selectOption({
+		label: "Unit Version 1 · Asset Version 2 · Candidate",
 	});
-	await sourceRecord.getByLabel("Yön · north").selectOption({
-		label: "Birim Sürümü 1 · Varlık Sürümü 3 · Aday",
+	await sourceRecord.getByLabel("Direction · north").selectOption({
+		label: "Unit Version 1 · Asset Version 3 · Candidate",
 	});
 	await page
-		.getByRole("button", { name: "Yeni Birleşik Sürüm kaydet" })
+		.getByRole("button", { name: "Save new Composite Version" })
 		.click();
 	await expect(
-		page.getByRole("heading", { name: "Birleşik Sürüm 1 · Aday" })
+		page.getByRole("heading", { name: "Composite Version 1 · Candidate" })
 	).toBeVisible();
 
 	const firstCompositeHeading = page.getByRole("heading", {
-		name: "Birleşik Sürüm 1 · Aday",
+		name: "Composite Version 1 · Candidate",
 	});
 	const firstComposite = firstCompositeHeading.locator(
 		"xpath=ancestor::article[1]"
 	);
 	await firstComposite
-		.getByLabel("Birleşik Sürüm 1 inceleme gerekçesi")
+		.getByLabel("Composite Version 1 review rationale")
 		.fill("The initial frame and direction were reviewed together.");
-	await firstComposite.getByRole("button", { name: "Onayla" }).click();
+	await firstComposite.getByRole("button", { name: "Approve" }).click();
 	await expect(
-		page.getByRole("heading", { name: "Birleşik Sürüm 1 · Onaylandı" })
+		page.getByRole("heading", { name: "Composite Version 1 · Approved" })
 	).toBeVisible();
 
 	await unitCorrectionType.selectOption("frame");
 	await unitCorrectionKey.fill("attack/frame-3");
-	await unitCorrectionSource.selectOption({ label: "Sürüm 2 · Aday" });
+	await unitCorrectionSource.selectOption({ label: "Version 2 · Candidate" });
 	await unitCorrectionFile.setInputFiles({
 		name: "attack-frame-3-v2.png",
 		mimeType: "image/png",
 		buffer: fixture.png,
 	});
-	await page.getByRole("button", { name: "Birim düzeltmesini kaydet" }).click();
+	await page.getByRole("button", { name: "Save unit correction" }).click();
 	await expect(
-		page.getByText("Kare · attack/frame-3 · Birim Sürümü 2")
+		page.getByText("Frame · attack/frame-3 · Unit Version 2")
 	).toBeVisible();
 
 	const correctedAssetVersion = sourceRecord
-		.getByText("Sürüm 4 · Aday", { exact: true })
+		.getByText("Version 4 · Candidate", { exact: true })
 		.locator("xpath=ancestor::li[1]");
 	await correctedAssetVersion
-		.getByLabel("İnceleme gerekçesi")
+		.getByLabel("Review rationale")
 		.fill("The corrected frame is ready for composition.");
-	await correctedAssetVersion.getByRole("button", { name: "Onayla" }).click();
+	await correctedAssetVersion.getByRole("button", { name: "Approve" }).click();
 	await expect(
-		correctedAssetVersion.getByText("Sürüm 4 · Onaylandı", { exact: true })
+		correctedAssetVersion.getByText("Version 4 · Approved", { exact: true })
 	).toBeVisible();
 
 	await page;
 	sourceRecord
-		.getByLabel("Başlangıç Birleşik Sürümü")
-		.selectOption({ label: "Birleşik Sürüm 1 · Onaylandı" });
-	await sourceRecord.getByLabel("Kare · attack/frame-3").selectOption({
-		label: "Birim Sürümü 2 · Varlık Sürümü 4 · Onaylandı",
+		.getByLabel("Starting Composite Version")
+		.selectOption({ label: "Composite Version 1 · Approved" });
+	await sourceRecord.getByLabel("Frame · attack/frame-3").selectOption({
+		label: "Unit Version 2 · Asset Version 4 · Approved",
 	});
 	await page
-		.getByRole("button", { name: "Yeni Birleşik Sürüm kaydet" })
+		.getByRole("button", { name: "Save new Composite Version" })
 		.click();
 	await expect(
-		page.getByRole("heading", { name: "Birleşik Sürüm 2 · Aday" })
+		page.getByRole("heading", { name: "Composite Version 2 · Candidate" })
 	).toBeVisible();
 	await expect(
-		page.getByRole("heading", { name: "Birleşik Sürüm 1 · Onaylandı" })
+		page.getByRole("heading", { name: "Composite Version 1 · Approved" })
 	).toBeVisible();
 
 	const secondComposite = page
-		.getByRole("heading", { name: "Birleşik Sürüm 2 · Aday" })
+		.getByRole("heading", { name: "Composite Version 2 · Candidate" })
 		.locator("xpath=ancestor::article[1]");
 	await expect(
-		secondComposite.getByText("Kare · attack/frame-3 · Birim Sürümü 2")
+		secondComposite.getByText("Frame · attack/frame-3 · Unit Version 2")
 	).toBeVisible();
 	await expect(
-		secondComposite.getByText("Yön · north · Birim Sürümü 1")
+		secondComposite.getByText("Direction · north · Unit Version 1")
 	).toBeVisible();
 	await expect(
-		secondComposite.getByText("Varlık Sürümü 4 · Onaylandı")
+		secondComposite.getByText("Asset Version 4 · Approved")
 	).toBeVisible();
 
 	await page.reload();
 	await page
-		.getByRole("button", { name: "Sürüm ve bağımlılık işlemleri", exact: true })
+		.getByRole("button", {
+			name: "Version and dependency operations",
+			exact: true,
+		})
 		.click();
-	await expect(page.getByText("Sürüm 1 · Onaylandı")).toBeVisible();
-	await expect(page.getByText(`— Gerekçe: ${reviewRationale}`)).toBeVisible();
+	await expect(page.getByText("Version 1 · Approved")).toBeVisible();
+	await expect(page.getByText(`— Rationale: ${reviewRationale}`)).toBeVisible();
 	await expect(page.locator("time[datetime]").first()).toBeVisible();
 	await page
-		.getByRole("button", { name: "Aile kataloğu", exact: true })
+		.getByRole("button", { name: "Family catalog", exact: true })
 		.click();
 	await expect(page.getByText(fixture.visibleLineage)).toBeVisible();
 	await page
-		.getByRole("button", { name: "Sürüm ve bağımlılık işlemleri", exact: true })
+		.getByRole("button", {
+			name: "Version and dependency operations",
+			exact: true,
+		})
 		.click();
 	await expect(
-		page.getByRole("heading", { name: "Birleşik Sürüm 1 · Onaylandı" })
+		page.getByRole("heading", { name: "Composite Version 1 · Approved" })
 	).toBeVisible();
 	await expect(
-		page.getByRole("heading", { name: "Birleşik Sürüm 2 · Aday" })
-	).toBeVisible();
-	await expect(
-		page
-			.getByRole("heading", { name: "Birleşik Sürüm 1 · Onaylandı" })
-			.locator("xpath=ancestor::article[1]")
-			.getByText("Kare · attack/frame-3 · Birim Sürümü 1")
+		page.getByRole("heading", { name: "Composite Version 2 · Candidate" })
 	).toBeVisible();
 	await expect(
 		page
-			.getByRole("heading", { name: "Birleşik Sürüm 1 · Onaylandı" })
+			.getByRole("heading", { name: "Composite Version 1 · Approved" })
 			.locator("xpath=ancestor::article[1]")
-			.getByText("Yön · north · Birim Sürümü 1")
+			.getByText("Frame · attack/frame-3 · Unit Version 1")
 	).toBeVisible();
 	await expect(
 		page
-			.getByRole("heading", { name: "Birleşik Sürüm 2 · Aday" })
+			.getByRole("heading", { name: "Composite Version 1 · Approved" })
 			.locator("xpath=ancestor::article[1]")
-			.getByText("Kare · attack/frame-3 · Birim Sürümü 2")
+			.getByText("Direction · north · Unit Version 1")
 	).toBeVisible();
 	await expect(
 		page
-			.getByRole("heading", { name: "Birleşik Sürüm 2 · Aday" })
+			.getByRole("heading", { name: "Composite Version 2 · Candidate" })
 			.locator("xpath=ancestor::article[1]")
-			.getByText("Varlık Sürümü 4 · Onaylandı")
+			.getByText("Frame · attack/frame-3 · Unit Version 2")
+	).toBeVisible();
+	await expect(
+		page
+			.getByRole("heading", { name: "Composite Version 2 · Candidate" })
+			.locator("xpath=ancestor::article[1]")
+			.getByText("Asset Version 4 · Approved")
 	).toBeVisible();
 });

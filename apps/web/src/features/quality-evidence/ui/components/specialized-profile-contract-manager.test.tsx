@@ -94,21 +94,21 @@ test("activates a project's current immutable profile contract and reads it back
 	);
 
 	const iconCard = within(
-		(await screen.findByRole("heading", { name: "İkonlar" })).closest(
+		(await screen.findByRole("heading", { name: "Icons" })).closest(
 			"li"
 		) as HTMLLIElement
 	);
 	fireEvent.click(
 		iconCard.getByRole("button", {
-			name: "Sözleşme v1.0.0’i etkinleştir",
+			name: "Activate contract v1.0.0",
 		})
 	);
 
 	await waitFor(() => expect(fakeApi.activate).toHaveBeenCalledOnce());
-	expect(await iconCard.findByText("Etkin sözleşme v1.0.0")).toBeVisible();
+	expect(await iconCard.findByText("Active contract v1.0.0")).toBeVisible();
 	expect(
 		await screen.findByText(
-			"Özel Profil Sözleşmesi etkinleştirildi ve kayıttan yeniden okundu."
+			"Specialized Profile Contract activated and reread from the record."
 		)
 	).toBeVisible();
 });

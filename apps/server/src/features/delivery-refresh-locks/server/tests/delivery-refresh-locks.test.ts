@@ -161,6 +161,7 @@ function setup(
 		);
 	const bundles = new Map<string, ExportBundle>();
 	const bundleStore: ExportBundleStore = {
+		preview: () => Promise.resolve(null),
 		create: () => Promise.resolve(null),
 		get: (_userId, requestedProjectId, requestedBundleId) =>
 			Promise.resolve(

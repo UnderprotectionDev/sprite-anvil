@@ -17,9 +17,9 @@ interface AvailabilityRefreshResult {
 }
 
 const availabilityLabels: Record<AssetRecord["availability"], string> = {
-	active: "Etkin",
-	archived: "Arşivlenmiş",
-	erased: "Silinmiş",
+	active: "Active",
+	archived: "Archived",
+	erased: "Erased",
 };
 
 export function getAvailabilityLabel(
@@ -33,12 +33,12 @@ function getAvailabilityMessage(
 	expectedAvailability: MutableAssetRecordAvailability
 ) {
 	if (currentAvailability !== expectedAvailability) {
-		return `Güncel kayıt durumu: ${getAvailabilityLabel(currentAvailability)}.`;
+		return `Current record status: ${getAvailabilityLabel(currentAvailability)}.`;
 	}
 	if (expectedAvailability === "archived") {
-		return "Kayıt arşivlendi.";
+		return "Record archived.";
 	}
-	return "Kayıt yeniden etkinleştirildi.";
+	return "Record reactivated.";
 }
 
 export function AssetRecordAvailabilityControl({
@@ -90,7 +90,7 @@ export function AssetRecordAvailabilityControl({
 				setPendingAvailability(availability);
 				if (!result.isError) {
 					toast.error(
-						"İşlem tamamlandı ancak güncel kayıt durumu doğrulanamadı. Mevcut durumu kontrol edin."
+						"The operation completed, but the current record status could not be verified. Check the current state."
 					);
 				}
 				return;
@@ -105,7 +105,7 @@ export function AssetRecordAvailabilityControl({
 			toast.error(
 				getErrorMessage(
 					error,
-					"Kayıt durumu doğrulanamadı. Mevcut durumu kontrol edin."
+					"Could not verify the record status. Check the current state."
 				)
 			);
 		} finally {
@@ -123,7 +123,7 @@ export function AssetRecordAvailabilityControl({
 			const result = await onRefresh();
 			if (result.isError || !result.data) {
 				if (!result.isError) {
-					toast.error("Güncel kayıt durumu okunamadı. Yeniden deneyin.");
+					toast.error("Could not read the current record status. Try again.");
 				}
 				return;
 			}
@@ -147,7 +147,7 @@ export function AssetRecordAvailabilityControl({
 			className="rounded-lg border p-5"
 		>
 			<h2 className="font-semibold" id="record-availability">
-				Kayıt durumu
+				Record status
 			</h2>
 			<p className="mt-1">{getAvailabilityLabel(record.availability)}</p>
 			{record.availability === "active" ? (
@@ -158,7 +158,7 @@ export function AssetRecordAvailabilityControl({
 					type="button"
 					variant="outline"
 				>
-					{isUpdatingAvailability ? "Güncelleniyor…" : "Kaydı arşivle"}
+					{isUpdatingAvailability ? "Updating…" : "Archive record"}
 				</Button>
 			) : null}
 			{record.availability === "archived" ? (
@@ -169,9 +169,7 @@ export function AssetRecordAvailabilityControl({
 					type="button"
 					variant="outline"
 				>
-					{isUpdatingAvailability
-						? "Güncelleniyor…"
-						: "Kaydı yeniden etkinleştir"}
+					{isUpdatingAvailability ? "Updating…" : "Reactivate record"}
 				</Button>
 			) : null}
 			{pendingAvailability ? (
@@ -182,9 +180,7 @@ export function AssetRecordAvailabilityControl({
 					type="button"
 					variant="outline"
 				>
-					{isCheckingAvailability
-						? "Durum kontrol ediliyor…"
-						: "Durumu kontrol et"}
+					{isCheckingAvailability ? "Checking status…" : "Check status"}
 				</Button>
 			) : null}
 			{availabilityMessage ? (
@@ -193,10 +189,10 @@ export function AssetRecordAvailabilityControl({
 				</p>
 			) : null}
 			<p className="mt-2 text-muted-foreground text-sm">
-				Genel Varlık Desteği · Özel profil kanıtı yok
+				General Asset Support · No specialized profile evidence
 			</p>
 			<p className="mt-2 text-muted-foreground text-sm">
-				Kayıt oluşturuldu ·{" "}
+				Record created ·{" "}
 				<time dateTime={record.createdAt}>
 					{new Intl.DateTimeFormat("tr-TR", {
 						dateStyle: "medium",

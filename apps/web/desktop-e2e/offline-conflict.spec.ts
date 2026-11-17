@@ -87,17 +87,17 @@ describe("Offline conflict", () => {
 		await (await $("input[name='email']")).setValue(fixture.email);
 		await (await $("input[name='password']")).setValue(fixture.password);
 		await (await $("button=Sign Up")).click();
-		await (await $("h1=Oyun projeleri")).waitForDisplayed();
+		await (await $("h1=Game projects")).waitForDisplayed();
 
-		await (await $("a=Projeler")).click();
-		await openWorkspaceTask("Yeni oyun projesi");
+		await (await $("a=Projects")).click();
+		await openWorkspaceTask("New game project");
 		await (await $("input#project-name")).setValue(fixture.projectName);
 		await (await $("textarea#project-art-direction")).setValue(
 			fixture.generalArtDirection
 		);
-		await (await $("button=Proje oluştur")).click();
+		await (await $("button=Create project")).click();
 		const projectLink = await $(
-			`a[aria-label="${fixture.projectName} varlık kayıtlarını aç"]`
+			`a[aria-label="${fixture.projectName} open Asset Records"]`
 		);
 		await projectLink.waitForClickable();
 		await projectLink.click();

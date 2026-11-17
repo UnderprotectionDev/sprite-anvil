@@ -37,7 +37,7 @@ Tamamlanma kanıtı: Değişmez Tarihsel Risk Bildirimi riskli kaynağı, yeni h
 
 - **Birincil test seam’i:** YAS-01 örneklerinde kesin girdiyi kullanıcı eyleminden kalıcı kayda ve yeniden okumaya taşıyan sunucu/API yolunu sınama; web ve masaüstü görünür sonuçlarını karşılaştırma.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.
-- Bugün repoda bu faza ait ürün sözleşmesi bulunmuyor. Mevcut sunucu ve yüzey test örnekleri: [`project-routes.test.ts`](../../../apps/server/src/features/projects/server/tests/project-routes.test.ts), [`app-shell.spec.ts` (web)](../../../apps/web/e2e/app-shell.spec.ts) ve [`app-shell.spec.ts` (desktop)](../../../apps/web/desktop-e2e/app-shell.spec.ts). Bunlar bu özelliğin test edildiği anlamına gelmez.
+- Mevcut sözleşme ve ilgili test yolu: [`historical-risk-notices.ts`](../../../packages/api/src/historical-risk-notices.ts), [`historical-risk-notice.test.ts`](../../../apps/server/src/features/historical-rights-risk/server/tests/historical-risk-notice.test.ts). Bu bağlantılar tüm kabul kapsamının tamamlandığını göstermez.
 - Fazın özgül başarı ve red kanıtı: Değişmez Tarihsel Risk Bildirimi riskli kaynağı, yeni hak sürümünü, etkilenen kullanımı ve saptama zamanını gösterir; yeni hedef güncel politikayla değerlendirilir. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Hak riskini ürün hukuken hükme bağlamaz; geçmiş teslimat kendiliğinden geri alınmaz.
 - Kabul örnekleri: YAS-01. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
 
@@ -61,4 +61,4 @@ Hak riskini ürün hukuken hükme bağlamaz; geçmiş teslimat kendiliğinden ge
 **Kabul izlenebilirliği**
 
 - [YAS-01](../../prd/10-acceptance-scenarios.md)
-- Mevcut uygulama yalnız temel web/masaüstü kabuğu ve sınırlı sunucu yükleme yolunu içeriyor; bu spec teslim edilmiş ürün iddiası değildir. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.
+- PRD ve bu spec hedef davranışı tanımlar; mevcut sözleşmeler ve testler tek başına tüm kabul senaryolarının tamamlandığını göstermez. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.

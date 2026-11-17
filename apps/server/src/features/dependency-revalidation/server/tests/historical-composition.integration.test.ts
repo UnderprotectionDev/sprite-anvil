@@ -850,7 +850,7 @@ test.skipIf(!databaseUrl)(
 				(entry) =>
 					entry.code === "dependency" &&
 					entry.targetId === versionId &&
-					entry.message.startsWith("Bağımlılık Bağlantısı eksik")
+					entry.message.startsWith("The Dependency Link is missing")
 			);
 			expect(missingLinkBlockers).toHaveLength(1);
 			expect(missingLinkBlockers[0]?.message).toContain("Ash Knight idle · v2");

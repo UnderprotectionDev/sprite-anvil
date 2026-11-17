@@ -1,8 +1,15 @@
+import { emptyHistoryRecords } from "@sprite-anvil/api/project-archive-history";
 import type { ProjectArchiveSource } from "@sprite-anvil/api/project-archives";
-import { digest, foundationSource, ids } from "./project-archive-fixtures";
+import { getSpecializedProfileContract } from "@sprite-anvil/api/specialized-profile-contracts";
+import {
+	digest,
+	foundationSource,
+	ids,
+	projectId,
+} from "./project-archive-fixtures";
 
 export const historyIds = {
-	contractRevision: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbb01",
+	contractRevision: "icon@1.0.0",
 	experiment: "cccccccc-cccc-4ccc-8ccc-cccccccccc01",
 	generationPackage: "dddddddd-dddd-4ddd-8ddd-dddddddddd01",
 	manualEvidence: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeee01",
@@ -18,14 +25,23 @@ export const historyIds = {
 export function historySource(): ProjectArchiveSource {
 	const source = foundationSource();
 	source.history = {
+		...emptyHistoryRecords(),
+		contractActivations: [
+			{
+				id: historyIds.contractRevision,
+				profileId: "icon",
+				contractRevisionId: historyIds.contractRevision,
+				activatedAt: "2026-11-01T08:00:00.000Z",
+			},
+		],
 		contractRevisions: [
 			{
 				contractSchemaVersion: "asset-profile/1.0.0",
 				contractVersion: "1.0.0",
 				createdAt: "2026-11-01T08:00:00.000Z",
-				definition: { rules: ["eight directions"] },
+				definition: getSpecializedProfileContract("icon") ?? {},
 				id: historyIds.contractRevision,
-				profileId: "character",
+				profileId: "icon",
 			},
 		],
 		experimentTrials: [
@@ -58,7 +74,7 @@ export function historySource(): ProjectArchiveSource {
 				assetRecordId: ids.record,
 				createdAt: "2026-11-03T07:00:00.000Z",
 				id: historyIds.generationPackage,
-				snapshot: { instruction: "hero idle, side view" },
+				snapshot: { instruction: projectId, projectId },
 			},
 		],
 		legacyAttestations: [],
@@ -153,6 +169,25 @@ export function historySource(): ProjectArchiveSource {
 			},
 		],
 	};
+	source.records.importInboxEntries.push({
+		id: "inbox-entry-1",
+		createdAt: "2026-11-03T12:00:00.000Z",
+		fileName: "source.png",
+		sourceContentType: "image/png",
+		contentLength: 10,
+		sha256: digest("a"),
+	});
+	source.files.push({
+		kind: "import_inbox_file",
+		sourceId: "inbox-entry-1",
+		assetRecordId: null,
+		assetVersionId: null,
+		byteSize: 10,
+		sha256: digest("a"),
+		fileName: "source.png",
+		contentType: "image/png",
+		objectKey: "projects/p/inbox/source",
+	});
 	source.files.push({
 		assetRecordId: ids.record,
 		assetVersionId: null,

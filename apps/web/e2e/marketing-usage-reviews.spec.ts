@@ -28,7 +28,7 @@ test("persists separate logo/store evidence with crop, safe area, background mod
 	});
 	const review = page
 		.getByRole("heading", {
-			name: "Logo ve Tanıtım Kullanımlarını Sınama · Anvil marketing",
+			name: "Test Logo and Marketing Uses · Anvil marketing",
 		})
 		.locator("..");
 	await expect(review.getByRole("img")).toHaveCount(2);
@@ -43,56 +43,52 @@ test("persists separate logo/store evidence with crop, safe area, background mod
 	await review.getByLabel("crop width").fill("281");
 	await review.getByLabel("crop height").fill("189");
 	await review
-		.getByLabel("Gözlem")
+		.getByLabel("Observation")
 		.nth(0)
 		.fill("Lettering crosses the safe area on light background.");
 	await review
-		.getByLabel("Gözlem")
+		.getByLabel("Observation")
 		.nth(1)
 		.fill("Small logo remains legible on dark background.");
-	await review.getByLabel("Güvenli alan sonucu").nth(0).selectOption("failed");
+	await review.getByLabel("Safe area result").nth(0).selectOption("failed");
 	await review
-		.getByLabel("Küçük boyutta okunurluk")
+		.getByLabel("Readability at small size")
 		.nth(1)
 		.selectOption("passed");
 	await expect(
-		review.getByRole("button", { name: "Kullanım incelemesini kaydet" })
+		review.getByRole("button", { name: "Save usage review" })
 	).toBeEnabled();
-	await review
-		.getByRole("button", { name: "Kullanım incelemesini kaydet" })
-		.click();
+	await review.getByRole("button", { name: "Save usage review" }).click();
 	await expect(
-		review.getByText("İnceleme kalıcı kayıttan doğrulandı.")
+		review.getByText("Review verified from the saved record.")
 	).toBeVisible();
-	await review.getByLabel("Kullanım amacı").selectOption("store");
+	await review.getByLabel("Usage purpose").selectOption("store");
 	await review.getByLabel("Sunum", { exact: true }).selectOption("opaque");
-	await review.getByLabel("Opak zemin rengi").fill("#ffcc00");
+	await review.getByLabel("Opaque background color").fill("#ffcc00");
 	await expect(
-		review.getByRole("button", { name: "Kullanım incelemesini kaydet" })
+		review.getByRole("button", { name: "Save usage review" })
 	).toBeEnabled();
 	const previews = await page.evaluate(readMarketingPreviewPresentation);
 	expect(
 		previews.every((preview) => preview.ready && preview.rendering === "auto")
 	).toBe(true);
-	await review
-		.getByRole("button", { name: "Kullanım incelemesini kaydet" })
-		.click();
+	await review.getByRole("button", { name: "Save usage review" }).click();
 	await expect(
-		review.getByRole("button", { name: "Kullanım kanıtını indir" })
+		review.getByRole("button", { name: "Download usage evidence" })
 	).toHaveCount(2);
 	await review.screenshot({
 		path: "../../.context/marketing-usage-browser.png",
 	});
 	await page.reload();
 	await page
-		.getByRole("button", { name: "Profil incelemeleri", exact: true })
+		.getByRole("button", { name: "Profile reviews", exact: true })
 		.click();
 	await expect(
-		review.getByRole("button", { name: "Kullanım kanıtını indir" })
+		review.getByRole("button", { name: "Download usage evidence" })
 	).toHaveCount(2);
 	const downloadPromise = page.waitForEvent("download");
 	await review
-		.getByRole("button", { name: "Kullanım kanıtını indir" })
+		.getByRole("button", { name: "Download usage evidence" })
 		.first()
 		.click();
 	const download = await downloadPromise;

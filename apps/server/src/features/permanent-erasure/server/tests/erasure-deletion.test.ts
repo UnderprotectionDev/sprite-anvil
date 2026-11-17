@@ -35,9 +35,12 @@ interface Options {
 	failDelete?: boolean;
 	/** Object keys whose removal fails once, then succeeds. */
 	failOnce?: string[];
+	importActive?: boolean;
+	legacyImportPresent?: boolean;
 	/** Runs after each successful object removal, e.g. to change the records while the removal is under way. */
 	onDelete?: (state: { source: ErasureImpactSource }) => void;
 	retention?: typeof retention | null;
+	uncertainWrite?: boolean;
 }
 
 function setup(options: Options = {}) {
@@ -67,6 +70,29 @@ function setup(options: Options = {}) {
 	const operations = createErasureDeletionOperations({
 		getProjectForUser: accessCheck,
 		impactStore,
+		registerHistoricalImports: () =>
+			options.legacyImportPresent
+				? Promise.reject(new Error("unmanaged archive import"))
+				: Promise.resolve(),
+		managedObjects: {
+			beginErasure: () => Promise.resolve(!options.importActive),
+			endErasure: () => Promise.resolve(),
+			listOwner: () =>
+				Promise.resolve(
+					options.uncertainWrite
+						? [
+								{
+									objectKey: "private",
+									operationId: "import",
+									ownerUserId: userId,
+									projectId,
+									purpose: "archive_import_zip" as const,
+									writeSettled: false,
+								},
+							]
+						: []
+				),
+		},
 		now: clock,
 		objects: {
 			delete: (key) => {
@@ -616,4 +642,28 @@ test("a report missing for an approved job is named as missing, not as an access
 
 	expect((failure as Error).message).toContain("was not found");
 	expect(ctx.deletedObjects).toEqual([]);
+});
+
+test("does not remove objects or issue a receipt while an import owns temporary bytes", async () => {
+	const ctx = setup({ importActive: true });
+	await approve(ctx);
+	await expect(run(ctx.operations)).rejects.toThrow("Temporary objects");
+	expect(ctx.deletedObjects).toEqual([]);
+	expect(ctx.deletion.receipts.size).toBe(0);
+});
+
+test("does not issue a receipt when a historical import object lacks managed ownership", async () => {
+	const ctx = setup({ legacyImportPresent: true });
+	await approve(ctx);
+	await expect(run(ctx.operations)).rejects.toThrow("could not be inventoried");
+	expect(ctx.deletedObjects).toEqual([]);
+	expect(ctx.deletion.receipts.size).toBe(0);
+});
+
+test("reports an uncertain object write as blocked without issuing a receipt", async () => {
+	const ctx = setup({ importActive: true, uncertainWrite: true });
+	await approve(ctx);
+	await expect(run(ctx.operations)).rejects.toThrow("write outcome is unknown");
+	expect(ctx.deletedObjects).toEqual([]);
+	expect(ctx.deletion.receipts.size).toBe(0);
 });

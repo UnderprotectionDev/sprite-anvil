@@ -1,6 +1,7 @@
 import { ORPCError } from "@orpc/server";
 import type { Context } from "../context";
 import { protectedProcedure } from "../index";
+import { recordProductBoundary } from "../measurement-workflows";
 import {
 	type ReadinessPlanReorderFailureReason,
 	readinessPlanGetInputSchema,
@@ -49,6 +50,19 @@ export const readinessPlansRouter = {
 			const result = orThrow(
 				await getReadinessPlanStore(context).get(context.session.user.id, input)
 			);
+			if (result.plan.targetReadiness === "ready") {
+				await recordProductBoundary(context, {
+					userId: context.session.user.id,
+					projectId: input.projectId,
+					workflowId: result.plan.revisionId,
+					eventFamily: "export_delivery",
+					eventName: "delivery_target_ready",
+					phase: "finish",
+					recordKind: "delivery_target",
+					outcomeClass: "ready",
+					counters: {},
+				});
+			}
 			return result.plan;
 		}),
 	reorder: protectedProcedure

@@ -14,6 +14,10 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { useForm, useStore } from "@tanstack/react-form";
+import {
+	builtinProfileItemText,
+	builtinProfileName,
+} from "@/utils/builtin-profile-labels";
 import { sceneQaPlacementFormSchema } from "../../schemas";
 
 const roleLayers = {
@@ -175,7 +179,15 @@ export function SceneQaAddPlacement({
 					>
 						{activation?.contract.usageTests.map((t) => (
 							<NativeSelectOption key={t.id} value={t.id}>
-								{t.label}
+								{activation
+									? builtinProfileItemText(
+											activation.contract,
+											"usageTests",
+											t.id,
+											"label",
+											t.label
+										)
+									: t.label}
 							</NativeSelectOption>
 						))}
 					</NativeSelect>
@@ -189,7 +201,11 @@ export function SceneQaAddPlacement({
 				</Button>
 				{!!activation && (
 					<p className="text-muted-foreground text-sm sm:col-span-2">
-						{activation.contract.name} · {activation.contract.version} ·{" "}
+						{builtinProfileName(
+							activation.contract.profileId,
+							activation.contract.name
+						)}{" "}
+						· {activation.contract.version} ·{" "}
 						{
 							activation.contract.usageTests.find(
 								(t) =>

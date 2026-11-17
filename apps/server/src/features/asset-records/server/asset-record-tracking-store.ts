@@ -14,15 +14,27 @@ import {
 	referenceSummarySchema,
 } from "@sprite-anvil/api/asset-record-tracking";
 import {
+	hasManualImportEvidence,
+	isManualImportEvidenceRequired,
+} from "@sprite-anvil/api/manual-import-evidence-gate";
+import {
 	createVersionProductionEvidence,
 	type ManagedSnapshot,
 	type ManualImportEvidence,
 } from "@sprite-anvil/api/production-provenance";
 import {
+	toManagedSnapshot,
+	toManualImportEvidence,
+} from "@sprite-anvil/api/production-provenance-mapper";
+import {
 	analyzeReferenceTransferConstraints,
 	indexReferenceConflictFeaturesById,
 } from "@sprite-anvil/api/reference-production";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import {
+	type Database,
+	getProjectForUser,
+	publishedProjectPredicate,
+} from "@sprite-anvil/db";
 import {
 	legacyAssetAttestations,
 	managedSnapshots,
@@ -47,19 +59,11 @@ import { visualWorlds } from "@sprite-anvil/db/schema/context-scopes";
 import { generationPackages } from "@sprite-anvil/db/schema/generation-packages";
 import { project } from "@sprite-anvil/db/schema/project";
 import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
-import {
-	toManagedSnapshot,
-	toManualImportEvidence,
-} from "../../production-provenance/server/production-provenance-mapper";
 import { toAssetRecord } from "./asset-record-mapper";
 import {
 	type AssetVersionObjectStorage,
 	createAssetVersionWriter,
 } from "./asset-version-store";
-import {
-	hasManualImportEvidence,
-	isManualImportEvidenceRequired,
-} from "./manual-import-evidence-gate";
 
 function toISOString(value: Date | string) {
 	return value instanceof Date
@@ -438,7 +442,7 @@ async function getOwnedAssetRecord(
 			and(
 				eq(assetRecords.id, assetRecordId),
 				eq(assetRecords.projectId, projectId),
-				eq(project.ownerUserId, userId)
+				and(eq(project.ownerUserId, userId), publishedProjectPredicate())
 			)
 		)
 		.limit(1);
@@ -1399,7 +1403,7 @@ export function createAssetRecordTrackingStore(
 					and(
 						eq(assetVersions.projectId, input.projectId),
 						eq(assetVersions.id, input.targetVersionId),
-						eq(project.ownerUserId, userId),
+						and(eq(project.ownerUserId, userId), publishedProjectPredicate()),
 						eq(assetRecords.availability, "active")
 					)
 				)

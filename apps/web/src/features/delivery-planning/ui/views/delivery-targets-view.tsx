@@ -15,7 +15,7 @@ type FormState =
 export function DeliveryTargetsView({ projectId }: { projectId: string }) {
 	const catalog = useQuery({
 		...orpc.deliveryPlanning.list.queryOptions({ input: { projectId } }),
-		meta: { suppressGlobalErrorToast: true },
+		meta: { errorPresentation: "inline" },
 	});
 	const [formState, setFormState] = useState<FormState>({ kind: "closed" });
 	const targets = catalog.data?.deliveryTargets ?? [];

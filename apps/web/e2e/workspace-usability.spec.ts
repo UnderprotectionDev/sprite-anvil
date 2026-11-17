@@ -4,7 +4,7 @@ import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { specializedProfileContractCatalog } from "@sprite-anvil/api/specialized-profile-contracts";
 
-const loadingCopy = /yükleniyor/;
+const loadingCopy = /Loading/;
 
 const projectId = "00000000-0000-4000-8000-000000000001";
 const recordId = "00000000-0000-4000-8000-000000000002";
@@ -80,10 +80,16 @@ test.beforeEach(async ({ page }) => {
 		const responses: Record<string, unknown> = {
 			"projects/list": [project],
 			"projects/get": project,
+			"backgroundOperations/summary": { active: 0, failed: 0 },
 			"projectContexts/list": [project],
 			"contextScopes/list": { visualWorlds: [], themes: [] },
 			"contextProposals/list": [],
 			"assetRecords/list": [record],
+			"assetRecords/listPage": {
+				records: [{ record, matchingVersions: [] }],
+				totalCount: 1,
+				hasMore: false,
+			},
 			"assetRecords/get": record,
 			"assetRecords/search": {
 				records: [{ record, matchingVersions: [] }],
@@ -163,22 +169,22 @@ test("keeps the selected project across all delivered project screens", async ({
 	const errors: string[] = [];
 	page.on("pageerror", (error) => errors.push(error.message));
 	await page.goto(`/projects/${projectId}/assets`);
-	const nav = page.getByRole("navigation", { name: "Proje gezinmesi" });
+	const nav = page.getByRole("navigation", { name: "Project navigation" });
 	await expect(nav).toBeVisible();
 	for (const label of [
-		"Koleksiyonlar",
-		"Varlık Aileleri",
-		"İçe aktarma",
-		"Proje Bağlamı",
-		"Özel profil sözleşmeleri",
-		"İzinler",
-		"Varlık kayıtları",
+		"Collections",
+		"Asset Families",
+		"Import Inbox",
+		"Context Proposals",
+		"Profile Contracts",
+		"Access",
+		"Asset Records",
 	]) {
 		await nav.getByRole("link", { name: label, exact: true }).click();
 		await expect(
 			nav.getByRole("link", { name: label, exact: true })
 		).toHaveAttribute("aria-current", "page");
-		await expect(page.locator("main")).toBeVisible();
+		await expect(page.locator("#workspace-content main")).toBeVisible();
 		await expect(
 			page.getByText("Moonlit Vale", { exact: true }).first()
 		).toBeVisible();
@@ -191,51 +197,51 @@ test("separates finding, creating and editing without losing a draft", async ({
 }) => {
 	await page.goto(`/projects/${projectId}/assets`);
 	await expect(
-		page.getByRole("button", { name: "Ash Knight kaydını aç" })
+		page.getByRole("button", { name: "Ash Knight open record" })
 	).toBeVisible();
-	await expect(page.getByLabel("Varlık adı", { exact: true })).toHaveCount(0);
+	await expect(page.getByLabel("Asset name", { exact: true })).toHaveCount(0);
 	await page
-		.getByRole("button", { name: "Yeni varlık kaydı", exact: true })
+		.getByRole("button", { name: "New Asset Record", exact: true })
 		.click();
-	const dialog = page.getByRole("dialog", { name: "Yeni varlık kaydı" });
-	await dialog.getByLabel("Varlık adı", { exact: true }).fill("Draft Knight");
+	const dialog = page.getByRole("dialog", { name: "New Asset Record" });
+	await dialog.getByLabel("Asset name", { exact: true }).fill("Draft Knight");
 	await page.keyboard.press("Escape");
 	await expect(dialog).toHaveCount(0);
 	await expect(
-		page.getByRole("button", { name: "Yeni varlık kaydı", exact: true })
+		page.getByRole("button", { name: "New Asset Record", exact: true })
 	).toBeFocused();
-	await page.getByRole("button", { name: "Ash Knight kaydını aç" }).click();
+	await page.getByRole("button", { name: "Ash Knight open record" }).click();
 	await expect(
 		page.getByRole("heading", { name: "Ash Knight", exact: true })
 	).toBeVisible();
 	await expect(
-		page.getByRole("button", { name: "Görseli yükle", exact: true })
+		page.getByRole("button", { name: "Upload image", exact: true })
 	).toBeHidden();
 	await page
-		.getByRole("button", { name: "Üretim ve içe aktarma", exact: true })
+		.getByRole("button", { name: "Production and import", exact: true })
 		.click();
 	await expect(
-		page.getByRole("button", { name: "Görseli yükle", exact: true })
+		page.getByRole("button", { name: "Upload image", exact: true })
 	).toBeVisible();
 	await page
-		.getByRole("button", { name: "Kayıt bilgileri", exact: true })
+		.getByRole("button", { name: "Record details", exact: true })
 		.click();
-	await page.getByLabel("Etiketler", { exact: true }).fill("unfinished-edit");
+	await page.getByLabel("Tags", { exact: true }).fill("unfinished-edit");
 	await page
-		.getByRole("button", { name: "Sürümler ve dosyalar", exact: true })
+		.getByRole("button", { name: "Versions and files", exact: true })
 		.click();
-	await expect(page.getByLabel("Etiketler", { exact: true })).toBeHidden();
+	await expect(page.getByLabel("Tags", { exact: true })).toBeHidden();
 	await page
-		.getByRole("button", { name: "Kayıt bilgileri", exact: true })
+		.getByRole("button", { name: "Record details", exact: true })
 		.click();
-	await expect(page.getByLabel("Etiketler", { exact: true })).toHaveValue(
+	await expect(page.getByLabel("Tags", { exact: true })).toHaveValue(
 		"unfinished-edit"
 	);
 	await page
-		.getByRole("link", { name: "Varlık kayıtlarına dön", exact: true })
+		.getByRole("link", { name: "Back to Asset Records", exact: true })
 		.click();
 	await expect(
-		page.getByRole("button", { name: "Ash Knight kaydını aç" })
+		page.getByRole("button", { name: "Ash Knight open record" })
 	).toBeVisible();
 });
 
@@ -256,18 +262,20 @@ test("shows a recovery action for failed record loading", async ({ page }) => {
 	);
 	await page.goto(`/projects/${projectId}/assets/${recordId}`);
 	await expect(
-		page.getByRole("heading", { name: "Varlık kaydı açılamadı" })
+		page.getByRole("heading", { name: "Could not open Asset Record" })
 	).toBeVisible({ timeout: 15_000 });
 	await expect(
-		page.locator("main").getByRole("button", { name: "Yeniden dene" })
+		page
+			.locator("#workspace-content main")
+			.getByRole("button", { name: "Try again" })
 	).toBeVisible();
 	await expect(
-		page.getByRole("link", { name: "Varlık kayıtlarına dön", exact: true })
+		page.getByRole("link", { name: "Back to Asset Records", exact: true })
 	).toBeVisible();
 	await page.unroute("**/rpc/assetRecords/get*");
 	await page
-		.locator("main")
-		.getByRole("button", { name: "Yeniden dene" })
+		.locator("#workspace-content main")
+		.getByRole("button", { name: "Try again" })
 		.click();
 	await expect(
 		page.getByRole("heading", { name: "Ash Knight", exact: true })
@@ -296,11 +304,22 @@ test("keeps controls reachable at desktop and narrow sizes and captures actual s
 		await page.setViewportSize({ width, height: 900 });
 		for (const screen of screens) {
 			await page.goto(screen.url);
-			await expect(page.locator("main")).toBeVisible();
+			await expect(page.locator("#workspace-content main")).toBeVisible();
+			if (width === 390) {
+				await page.getByRole("button", { name: "Toggle Sidebar" }).click();
+			}
 			await expect(
-				page.getByRole("navigation", { name: "Ana gezinme" })
+				page.getByRole("link", { name: "Projects", exact: true })
 			).toBeVisible();
-			await expect(page.locator("main").getByText(loadingCopy)).toHaveCount(0);
+			if (width === 390) {
+				await page.keyboard.press("Escape");
+				await expect(
+					page.getByRole("link", { name: "Projects", exact: true })
+				).toBeHidden();
+			}
+			await expect(
+				page.locator("#workspace-content main").getByText(loadingCopy)
+			).toHaveCount(0);
 			await expect
 				.poll(() =>
 					page.evaluate(
@@ -310,7 +329,7 @@ test("keeps controls reachable at desktop and narrow sizes and captures actual s
 				.toBe(true);
 			expect(
 				await page
-					.locator("main")
+					.locator("#workspace-content main")
 					.evaluate((el) => getComputedStyle(el).overflowY)
 			).not.toBe("auto");
 			await page.screenshot({
@@ -326,16 +345,17 @@ test("reveals detailed filters without crowding the first search", async ({
 	page,
 }) => {
 	await page.goto(`/projects/${projectId}/assets`);
-	await expect(page.getByLabel("Ada göre ara")).toBeVisible();
-	await expect(page.getByLabel("Kaynak Görsel genişliği (px)")).toBeHidden();
-	await page.getByText("Diğer filtreler", { exact: true }).click();
-	await expect(page.getByLabel("Kaynak Görsel genişliği (px)")).toBeVisible();
-	await page.getByLabel("Kaynak Görsel genişliği (px)").fill("64");
-	await page.getByText("Diğer filtreler", { exact: true }).click();
+	await expect(page.getByLabel("Search by name")).toBeVisible();
+	await expect(page.getByLabel("Source image width (px)")).toBeHidden();
+	await page.getByText("More filters", { exact: true }).click();
+	await expect(page.getByLabel("Source image width (px)")).toBeVisible();
+	await page.getByLabel("Source image width (px)").fill("64");
+	await page.getByText("More filters", { exact: true }).click();
 	await page
-		.getByRole("button", { name: "Varlık kayıtlarını ara", exact: true })
+		.getByRole("region", { name: "Search and filter" })
+		.getByRole("button", { name: "Search Asset Records", exact: true })
 		.click();
-	await expect(page.getByText("1 varlık kaydı bulundu.")).toBeVisible();
+	await expect(page.getByText("1 Asset Records found.")).toBeVisible();
 });
 
 test("makes implicit context selection explicit in navigation", async ({
@@ -344,19 +364,19 @@ test("makes implicit context selection explicit in navigation", async ({
 	await page.goto("/context-proposals");
 	await expect(page).toHaveURL(`/context-proposals?projectId=${projectId}`);
 	await expect(
-		page.getByRole("navigation", { name: "Proje gezinmesi" })
+		page.getByRole("navigation", { name: "Project navigation" })
 	).toBeVisible();
 });
 test("returns from an unknown page to the project list", async ({ page }) => {
 	await page.goto("/missing-workspace-page");
 	await expect(
-		page.getByRole("heading", { name: "Sayfa bulunamadı", exact: true })
+		page.getByRole("heading", { name: "Page not found", exact: true })
 	).toBeVisible();
 	await page
-		.getByRole("link", { name: "Oyun projelerine dön", exact: true })
+		.getByRole("link", { name: "Back to projects", exact: true })
 		.click();
 	await expect(
-		page.getByRole("heading", { name: "Oyun projeleri", exact: true })
+		page.getByRole("heading", { name: "Game projects", exact: true })
 	).toBeVisible();
 });
 
@@ -366,19 +386,19 @@ test("offers recovery when a screen cannot render", async ({ page }) => {
 	);
 	await page.goto(`/projects/${projectId}/asset-families`);
 	await expect(
-		page.getByRole("heading", { name: "Ekran açılamadı", exact: true })
+		page.getByRole("heading", { name: "Could not open screen", exact: true })
 	).toBeVisible();
 	await expect(
-		page.getByRole("button", { name: "Yeniden dene", exact: true })
+		page.getByRole("button", { name: "Try again", exact: true })
 	).toBeVisible();
 	await expect(
-		page.getByRole("link", { name: "Oyun projelerine dön", exact: true })
+		page.getByRole("link", { name: "Back to projects", exact: true })
 	).toBeVisible();
 	await page.unroute("**/rpc/assetFamilies/list*");
-	await page.getByRole("button", { name: "Yeniden dene", exact: true }).click();
+	await page.getByRole("button", { name: "Try again", exact: true }).click();
 	await expect(
 		page.getByRole("heading", {
-			name: "Varlık Kimliği ve Aileler",
+			name: "Subject Identity and Families",
 			exact: true,
 		})
 	).toBeVisible();
@@ -478,13 +498,13 @@ test("opens family records and focuses evidence on the selected family", async (
 		fullPage: true,
 	});
 	await page
-		.getByRole("button", { name: "Tamamlanma ve kanıtlar", exact: true })
+		.getByRole("button", { name: "Completion and evidence", exact: true })
 		.click();
 	await expect(
 		page.getByRole("heading", { name: "Game Sprite", exact: true })
 	).toBeVisible();
 	await page
-		.getByLabel("İnceleme ve tamamlanma için aile")
+		.getByLabel("Family for review and completion")
 		.selectOption(secondFamilyId);
 	await expect(
 		page.getByRole("heading", { name: "Painted Portrait", exact: true })
@@ -497,7 +517,7 @@ test("opens family records and focuses evidence on the selected family", async (
 		fullPage: true,
 	});
 	await page
-		.getByRole("button", { name: "Aile kataloğu", exact: true })
+		.getByRole("button", { name: "Family catalog", exact: true })
 		.click();
 	await page.getByRole("link", { name: "Ash Knight", exact: true }).click();
 	await expect(
@@ -540,4 +560,26 @@ test("keeps every task panel reachable in a narrow window", async ({
 		}
 	}
 	expect(errors).toEqual([]);
+});
+
+test("keeps the Project selector text inside its control on a narrow screen", async ({
+	page,
+}) => {
+	await page.setViewportSize({ width: 390, height: 900 });
+	await page.goto(`/context-proposals?projectId=${projectId}`);
+	const selector = page.getByRole("combobox", { name: "Project", exact: true });
+	await expect(selector).toHaveValue(projectId);
+	const dimensions = await selector.evaluate((element) => {
+		const style = getComputedStyle(element);
+		return {
+			height: element.getBoundingClientRect().height,
+			required:
+				Number.parseFloat(style.lineHeight) +
+				Number.parseFloat(style.paddingTop) +
+				Number.parseFloat(style.paddingBottom) +
+				Number.parseFloat(style.borderTopWidth) +
+				Number.parseFloat(style.borderBottomWidth),
+		};
+	});
+	expect(dimensions.height).toBeGreaterThanOrEqual(dimensions.required);
 });

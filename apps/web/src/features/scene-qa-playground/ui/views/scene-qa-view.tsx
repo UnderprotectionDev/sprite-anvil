@@ -138,8 +138,8 @@ export function SceneQaView({ projectId }: { projectId: string }) {
 			<header className="space-y-2">
 				<h1 className="font-semibold text-2xl">Scene QA Playground</h1>
 				<p className="text-muted-foreground">
-					Sahne Kalite Kontrol Alanı: kesin varlık sürümlerini birlikte deneyin;
-					kullanım kanıtını ve sanat kararınızı ayrı tutun.
+					Scene QA: try exact Asset Versions together; keep usage evidence and
+					artistic judgment separate.
 				</p>
 				<p className="text-muted-foreground text-sm">
 					Lightweight visual usage test. No scripting, level editing, physics

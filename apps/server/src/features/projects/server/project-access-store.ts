@@ -11,7 +11,11 @@ import {
 	externalVisualAnalysisPurposeByCategory,
 } from "@sprite-anvil/api/project-access-store";
 import type { ProjectContextStore } from "@sprite-anvil/api/project-context";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import {
+	type Database,
+	getProjectForUser,
+	publishedProjectPredicate,
+} from "@sprite-anvil/db";
 import { externalVisualAnalysisPermission } from "@sprite-anvil/db/schema/external-visual-analysis";
 import { project } from "@sprite-anvil/db/schema/project";
 import { toolAccessPermission } from "@sprite-anvil/db/schema/project-access";
@@ -92,7 +96,9 @@ export function createProjectAccessStore(
 			const records = await db
 				.select()
 				.from(project)
-				.where(eq(project.ownerUserId, ownerId))
+				.where(
+					and(eq(project.ownerUserId, ownerId), publishedProjectPredicate())
+				)
 				.orderBy(desc(project.createdAt));
 			return records.map(toProjectRecord);
 		},
@@ -179,7 +185,7 @@ export function createProjectAccessStore(
 				.innerJoin(project, eq(project.id, toolAccessPermission.projectId))
 				.where(
 					and(
-						eq(project.ownerUserId, ownerId),
+						and(eq(project.ownerUserId, ownerId), publishedProjectPredicate()),
 						eq(project.id, projectId),
 						eq(toolAccessPermission.id, permissionId),
 						eq(toolAccessPermission.principal, "context_agent")
@@ -217,7 +223,7 @@ export function createProjectAccessStore(
 				)
 				.where(
 					and(
-						eq(project.ownerUserId, ownerId),
+						and(eq(project.ownerUserId, ownerId), publishedProjectPredicate()),
 						eq(project.id, projectId),
 						eq(externalVisualAnalysisPermission.id, permissionId)
 					)

@@ -24,14 +24,14 @@ test("configures background layers, rejects unsafe cropping, and rereads exact s
 			identityName: "Forest",
 			familyName: "Forest Background",
 			useContext: "gameplay background",
-			categoryLabel: "Arka planlar ve katmanlı kaydırma",
+			categoryLabel: "Backgrounds and parallax",
 			records: [
 				{ name: "Sky", uploadNote: "Sky background fixture." },
 				{ name: "Trees", uploadNote: "Trees background fixture." },
 				{
 					name: "Player",
 					uploadNote: "Exact player silhouette.",
-					categoryLabel: "Karakterler, yaratıklar ve animasyonlar",
+					categoryLabel: "Characters, creatures, and animations",
 					png: readFileSync(
 						new URL("./fixtures/background-player.png", import.meta.url)
 					),
@@ -130,7 +130,7 @@ test("configures background layers, rejects unsafe cropping, and rereads exact s
 	});
 	await page.reload();
 	await page
-		.getByRole("button", { name: "Profil incelemeleri", exact: true })
+		.getByRole("button", { name: "Profile reviews", exact: true })
 		.click();
 	await expect(
 		layout.getByText("sky · Sky · v1", { exact: true })
@@ -174,7 +174,7 @@ test("recovers a lost save response using the same operation without duplicating
 			...assetFamilyWorkspaceFixture,
 			email: `background-recovery-${crypto.randomUUID()}@example.test`,
 			familyName: "Forest Background",
-			categoryLabel: "Arka planlar ve katmanlı kaydırma",
+			categoryLabel: "Backgrounds and parallax",
 			records: [{ name: "Sky", uploadNote: "Background recovery fixture." }],
 		},
 		"1.0.1"
@@ -230,7 +230,7 @@ test("recovers a lost save response using the same operation without duplicating
 	expect(inputs[1]).toEqual(inputs[0]);
 	await page.reload();
 	await page
-		.getByRole("button", { name: "Profil incelemeleri", exact: true })
+		.getByRole("button", { name: "Profile reviews", exact: true })
 		.click();
 	await expect(layout.getByText("sky · Sky · v1", { exact: true })).toHaveCount(
 		1

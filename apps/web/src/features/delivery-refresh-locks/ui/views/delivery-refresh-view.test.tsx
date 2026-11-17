@@ -30,6 +30,17 @@ const re11 = /First delivery lock/;
 const re12 = /not complete/;
 const re13 = /no longer ships/;
 
+const native = vi.hoisted(() => ({
+	desktop: false,
+	choose: vi.fn(),
+	write: vi.fn(),
+}));
+vi.mock("../../lib/native-delivery-desktop", () => ({
+	isDesktopDelivery: () => native.desktop,
+	chooseNativeDeliveryFolder: (...args: unknown[]) => native.choose(...args),
+	writeNativeBundle: (...args: unknown[]) => native.write(...args),
+}));
+
 const projectId = "11111111-1111-4111-8111-111111111111";
 const lockId = "22222222-2222-4222-8222-222222222221";
 const bundleId = "33333333-3333-4333-8333-333333333332";
@@ -219,6 +230,9 @@ let downloaded: Blob[] = [];
 
 beforeEach(() => {
 	downloaded = [];
+	native.desktop = false;
+	native.choose.mockReset();
+	native.write.mockReset();
 	vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(
 		() => undefined
 	);
@@ -565,4 +579,49 @@ test("a folder that lacks a bundle file is not applied and no lock is requested"
 
 	expect(await screen.findByRole("alert")).toHaveTextContent(re12);
 	expect(api.apply).not.toHaveBeenCalled();
+});
+
+test("desktop records no lock when native write/readback fails", async () => {
+	await arrange();
+	native.desktop = true;
+	native.choose.mockResolvedValue({
+		files: new Map(),
+		nativeRoot: "/chosen",
+		token: 900,
+	});
+	native.write.mockRejectedValue(
+		new Error("Delivery readback failed: update.json")
+	);
+	renderView();
+	await screen.findByRole("option", { name: re10 });
+	const first = screen.getByRole("form", {
+		name: "Apply an Export Bundle for the first time",
+	});
+	await userEvent.selectOptions(
+		await within(first).findByLabelText("Bundle to apply"),
+		bundleId
+	);
+	await userEvent.type(
+		within(first).getByLabelText("Destination label"),
+		"Desktop game"
+	);
+	await userEvent.click(
+		within(first).getByRole("button", { name: "Choose destination folder" })
+	);
+	await userEvent.click(
+		within(first).getByRole("button", { name: "Apply bundle and lock" })
+	);
+	expect(await within(first).findByRole("alert")).toHaveTextContent(
+		"Delivery readback failed"
+	);
+	expect(api.apply).not.toHaveBeenCalled();
+	native.write.mockResolvedValue([
+		{ path: "update.json", sha256: await digestOf("v2") },
+	]);
+	api.apply.mockResolvedValue({ status: "created", lock: api.lock });
+	await userEvent.click(
+		within(first).getByRole("button", { name: "Apply bundle and lock" })
+	);
+	await waitFor(() => expect(api.apply).toHaveBeenCalledOnce());
+	expect(JSON.stringify(api.apply.mock.calls[0]?.[0])).not.toContain("/chosen");
 });

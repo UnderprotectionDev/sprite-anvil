@@ -13,10 +13,10 @@ import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/status-message";
+import { assetCategoryLabels } from "@/utils/category-labels";
 import { QueryRetryButton } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { orpc } from "@/utils/orpc";
-import { assetCategoryLabels } from "../../lib/category-labels";
 import { assetRecordMetadataFormSchema } from "../../schemas";
 
 function metadataDefaults(record: AssetRecord, familyWorldId: string | null) {
@@ -46,7 +46,7 @@ export function AssetRecordMetadataForm({
 	const updateMetadata = useMutation(
 		orpc.assetRecords.updateMetadata.mutationOptions({
 			onSuccess: async () => {
-				setStatusMessage("Varlık kaydı metadata’sı kaydedildi.");
+				setStatusMessage("Asset Record metadata saved.");
 				await Promise.all([
 					queryClient.invalidateQueries({
 						queryKey: orpc.assetRecords.search.queryKey({
@@ -107,22 +107,22 @@ export function AssetRecordMetadataForm({
 					className="font-semibold text-xl"
 					id="asset-record-metadata-heading"
 				>
-					Varlık kaydı metadata’sı
+					Asset Record metadata
 				</h2>
 				<p className="mt-1 text-muted-foreground text-sm">
-					Kategori ve etiketler bu kayda aittir. Tema ve Görsel Dünya proje
-					kapsam kayıtlarından seçilir.
+					Category and tags belong to this record. Theme and Visual World are
+					selected from project scope records.
 				</p>
 			</div>
 			{scopeQuery.isPending ? (
-				<p aria-live="polite">Tema ve Görsel Dünya kayıtları yükleniyor…</p>
+				<p aria-live="polite">Loading Theme and Visual World records…</p>
 			) : null}
 			{scopeQuery.isError ? (
 				<div className="space-y-2">
 					<StatusMessage tone="error">
 						{getErrorMessage(
 							scopeQuery.error,
-							"Tema ve Görsel Dünya kayıtları yüklenemedi.",
+							"Could not load Theme and Visual World records.",
 							"query"
 						)}
 					</StatusMessage>
@@ -146,7 +146,7 @@ export function AssetRecordMetadataForm({
 								className="block space-y-1 text-sm leading-normal"
 								htmlFor="asset-record-metadata-category"
 							>
-								<span>Varlık kategorisi</span>
+								<span>Asset category</span>
 								<NativeSelect
 									className="w-full"
 									id="asset-record-metadata-category"
@@ -158,7 +158,7 @@ export function AssetRecordMetadataForm({
 									value={field.state.value}
 								>
 									<NativeSelectOption value="">
-										Kategori atanmamış
+										No category assigned
 									</NativeSelectOption>
 									{assetRecordCategoryValues.map((category) => (
 										<NativeSelectOption key={category} value={category}>
@@ -175,7 +175,7 @@ export function AssetRecordMetadataForm({
 								className="block space-y-1 text-sm leading-normal"
 								htmlFor="asset-record-metadata-world"
 							>
-								<span>Görsel Dünya</span>
+								<span>Visual World</span>
 								<NativeSelect
 									className="w-full"
 									disabled={Boolean(familyWorldId)}
@@ -187,7 +187,7 @@ export function AssetRecordMetadataForm({
 									value={field.state.value}
 								>
 									<NativeSelectOption value="">
-										Görsel Dünya seçilmedi
+										No Visual World selected
 									</NativeSelectOption>
 									{scopes.visualWorlds.map((world) => (
 										<NativeSelectOption key={world.id} value={world.id}>
@@ -204,7 +204,7 @@ export function AssetRecordMetadataForm({
 								className="block space-y-1 text-sm leading-normal"
 								htmlFor="asset-record-metadata-theme"
 							>
-								<span>Tema</span>
+								<span>Theme</span>
 								<NativeSelect
 									className="w-full"
 									disabled={!visualWorldId}
@@ -213,7 +213,7 @@ export function AssetRecordMetadataForm({
 									value={field.state.value}
 								>
 									<NativeSelectOption value="">
-										Tema seçilmedi
+										No Theme selected
 									</NativeSelectOption>
 									{availableThemes.map((theme) => (
 										<NativeSelectOption key={theme.id} value={theme.id}>
@@ -230,12 +230,12 @@ export function AssetRecordMetadataForm({
 								className="block space-y-1 text-sm leading-normal"
 								htmlFor="asset-record-metadata-tags"
 							>
-								<span>Etiketler</span>
+								<span>Tags</span>
 								<Input
 									id="asset-record-metadata-tags"
 									maxLength={1258}
 									onChange={(event) => field.handleChange(event.target.value)}
-									placeholder="Örn. envanter, nadir"
+									placeholder="e.g. inventory, rare"
 									value={field.state.value}
 								/>
 							</Label>
@@ -243,15 +243,15 @@ export function AssetRecordMetadataForm({
 					</form.Field>
 					{familyWorldId ? (
 						<p className="text-muted-foreground text-sm">
-							Varlık Ailesine bağlı bu kaydın Görsel Dünyası aile kapsamıyla
-							sabittir.
+							This Asset Record's Visual World is fixed by its Asset Family
+							scope.
 						</p>
 					) : null}
 					{updateMetadata.isError ? (
 						<StatusMessage tone="error">
 							{getErrorMessage(
 								updateMetadata.error,
-								"Varlık kaydı metadata’sı kaydedilemedi."
+								"Could not save Asset Record metadata."
 							)}
 						</StatusMessage>
 					) : null}
@@ -264,7 +264,7 @@ export function AssetRecordMetadataForm({
 						disabled={updateMetadata.isPending || scopeQuery.isPending}
 						type="submit"
 					>
-						{updateMetadata.isPending ? "Kaydediliyor…" : "Metadata’yı kaydet"}
+						{updateMetadata.isPending ? "Saving…" : "Save metadata"}
 					</Button>
 				</form>
 			)}

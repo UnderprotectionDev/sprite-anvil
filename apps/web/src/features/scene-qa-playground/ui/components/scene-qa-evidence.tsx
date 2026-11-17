@@ -1,6 +1,7 @@
 import type { SceneQaRecord } from "@sprite-anvil/api/scene-qa";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useState } from "react";
+import { builtinProfileName } from "@/utils/builtin-profile-labels";
 import { sceneQaObservationLabels as observationLabels } from "./scene-qa-observations";
 import { SceneQaPreview } from "./scene-qa-preview";
 export function SceneQaEvidence({
@@ -44,7 +45,7 @@ export function SceneQaEvidence({
 						{record.profilePins
 							.map(
 								(pin) =>
-									`${pin.contractSnapshot.name} ${pin.contractSnapshot.version} (${pin.contractRevisionId})`
+									`${builtinProfileName(pin.contractSnapshot.profileId, pin.contractSnapshot.name)} ${pin.contractSnapshot.version} (${pin.contractRevisionId})`
 							)
 							.join(", ")}
 					</p>

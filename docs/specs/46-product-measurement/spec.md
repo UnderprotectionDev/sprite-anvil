@@ -46,9 +46,14 @@ Tamamlanma kanıtı: Süre, başarı ve koruma ölçüleri gizlilik zarfını ko
   - **Tanımlar** ([`measurement-definitions.test.ts`](../../../apps/server/src/features/product-measurement/server/tests/measurement-definitions.test.ts)): sürümlü etkinleştirme, idempotans/çakışma, desteklenmeyen sözleşme ana sürümü, tanımların birbirine sızmaması.
   - **Olaylar** ([`measurement-events.test.ts`](../../../apps/server/src/features/product-measurement/server/tests/measurement-events.test.ts)): sunucu saati ve olay sürümü, takma adlı zarf, katı gizlilik zarfı (sır görünümlü değerler reddedilir, zararsız sayaç adları kabul edilir), tanıma ve kapsamın (yüzey, kullanıcı, proje) yazma anında uygulanması, idempotans.
   - **Ölçüler** ([`measurement-measures.test.ts`](../../../apps/server/src/features/product-measurement/server/tests/measurement-measures.test.ts)): süre, başarı ve koruma sayıları, bırakma, yinelenen ve sıra dışı bitiş olayları, eşit zaman damgası, pencere ve hariç tutma, tanım ve sözleşme sürümlerinin ayrı kalması, yüzde iddiası olmaması.
-  - Yüzey ve ekran sınaması bu fazın teslim edilen kapsamında yoktur; mevcut örnekler: [`project-routes.test.ts`](../../../apps/server/src/features/projects/server/tests/project-routes.test.ts), [`app-shell.spec.ts` (web)](../../../apps/web/e2e/app-shell.spec.ts), [`app-shell.spec.ts` (desktop)](../../../apps/web/desktop-e2e/app-shell.spec.ts). Bunlar bu özelliğin test edildiği anlamına gelmez.
+  - Ölçüm ekranı tanım listesi, etkinleştirme doğrulaması ve hesaplama hatasını `apps/web/src/features/product-measurement/ui/views/measurement-view.test.tsx` üzerinden sınar. Diğer mevcut yüzey örnekleri: [`project-routes.test.ts`](../../../apps/server/src/features/projects/server/tests/project-routes.test.ts), [`app-shell.spec.ts` (web)](../../../apps/web/e2e/app-shell.spec.ts), [`app-shell.spec.ts` (desktop)](../../../apps/web/desktop-e2e/app-shell.spec.ts). Bunlar bu özelliğin test edildiği anlamına gelmez.
 - Fazın özgül başarı ve red kanıtı: Süre, başarı ve koruma ölçüleri gizlilik zarfını koruyarak hesaplanır; tanımsız veya yarım akışlar yanlış başarı serisine katılmaz. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Ölçüm olayları görsel içerik ve ham üretim talimatı taşımaz; baseline olmadan keyfî başarı yüzdesi ilan edilmez.
 - Kabul örnekleri: YAS-01. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
+
+- Kayıt sınırı, katalogdaki gerçek olay adını tanımın aynı fazdaki adıyla eşleştirir; Ready ve Delivered ayrı bitişlerdir. `measurement-workflows.test.ts` ayrı metriklerin erken bitmemesini ve `measurement-view.test.tsx` seçilen aileye uygun önerileri sınar.
+- `review_and_repair` başlangıcı kesin hedefli kalıcı kalite hatası veya düzeltme işaretinden, bitişi yalnız doğrulanmış kaynak sürüm bağı olan yeni sürüm incelemesinden gelir; `measurement-callers.test.ts` kaynak, yetki, belirsiz soy ve hata yollarını, `measurement-workflows.test.ts` ilk zamanın korunmasını sınar.
+- Kullanıcı kararı: tamamen çevrimdışı doğrulama yerel çalışır ve ölçülmez; yalnız sunucuya bağlı doğrulama sunucu zamanı ile ölçülür. `verify-with-measurement.test.ts` bağlantısız, eşleşen olay, süre sınırı ve okuma hatası yollarını; `measurement-callers.test.ts` yetkili kapalı telemetri sözleşmesini sınar.
+- Gerçek kullanıcı eylemi bağlantıları: `packages/api/src/measurement-callers.test.ts` üretim, Runtime Validation ve Delivery Target/fulfilment sınırlarını; `apps/server/src/features/imports/server/tests/import-inbox.test.ts` dosyanın kabulünden kullanıcı eşleme kesinleştirmesine kadar ayrı başlangıç ve bitişi sınar. Kaydedici hatası ürün işlemini başarısız yapmaz.
 
 ## Out of Scope
 
@@ -70,4 +75,4 @@ Tamamlanma kanıtı: Süre, başarı ve koruma ölçüleri gizlilik zarfını ko
 **Kabul izlenebilirliği**
 
 - [YAS-01](../../prd/10-acceptance-scenarios.md)
-- Mevcut uygulama yalnız temel web/masaüstü kabuğu ve sınırlı sunucu yükleme yolunu içeriyor; bu spec teslim edilmiş ürün iddiası değildir. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.
+- PRD ve bu spec hedef davranışı tanımlar; mevcut sözleşmeler ve testler tek başına tüm kabul senaryolarının tamamlandığını göstermez. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.

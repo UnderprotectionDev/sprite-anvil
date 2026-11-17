@@ -123,6 +123,35 @@ vi.mock("@/utils/orpc", () => ({
 		},
 	},
 	orpc: {
+		backgroundOperations: {
+			summary: {
+				queryOptions: ({ input }: { input: { projectId: string } }) => ({
+					queryKey: ["operation-summary", input.projectId],
+					queryFn: () =>
+						input.projectId === projectId
+							? Promise.resolve({ active: 0, failed: 0 })
+							: Promise.reject(new Error("Unexpected project")),
+				}),
+			},
+		},
+		assetRecords: {
+			search: {
+				queryOptions: () => ({
+					queryKey: ["closed-search"],
+					queryFn: () =>
+						Promise.reject(new Error("Closed search must not query")),
+				}),
+			},
+			get: {
+				queryOptions: () => ({
+					queryKey: ["unselected-record"],
+					queryFn: () =>
+						Promise.reject(
+							new Error("An unrelated screen must not read an Asset Record")
+						),
+				}),
+			},
+		},
 		projects: {
 			create: {
 				mutationOptions: (options?: object) => ({
@@ -312,44 +341,46 @@ test("a user can grant, refetch, and revoke purpose-scoped Context Agent access"
 	expect(
 		await screen.findByRole("heading", { name: "Forest Quest" })
 	).toBeVisible();
-	expect(screen.getByText("Sağlayıcı seçilmedi")).toBeVisible();
-	expect(screen.getAllByText("Kullanılamıyor")).toHaveLength(4);
+	expect(screen.getByText("No provider selected")).toBeVisible();
+	expect(screen.getAllByText("Unavailable")).toHaveLength(4);
 
 	fireEvent.click(
-		screen.getByRole("button", { name: "Bağlam Ajanı izni ver" })
+		screen.getByRole("button", { name: "Grant Context Agent permission" })
 	);
 
 	await waitFor(() =>
-		expect(screen.getByText("Bağlam Ajanı izni kaydedildi.")).toBeVisible()
+		expect(screen.getByText("Context Agent permission saved.")).toBeVisible()
 	);
-	expect(screen.getByText("Etkin")).toBeVisible();
+	expect(screen.getByText("Active")).toBeVisible();
 	expect(fakeStore.permissions[0]).toMatchObject({
-		purpose: "Proje Bağlamı için öneri hazırlama",
+		purpose: "Prepare proposals for Project Context",
 		scopes: ["project_context:read", "context_proposals:write"],
 	});
 
 	fireEvent.click(
 		screen.getByRole("button", {
-			name: "Proje Bağlamı için öneri hazırlama iznini geri al",
+			name: "Prepare proposals for Project Context revoke permission",
 		})
 	);
 
 	await waitFor(() =>
 		expect(screen.getByRole("status")).toHaveTextContent(
-			"İzin geri alındı. Yeni erişim istekleri reddedilir."
+			"Permission revoked. New access requests will be rejected."
 		)
 	);
-	expect(screen.getByText("Geri alındı")).toBeVisible();
+	expect(screen.getByText("Revoked")).toBeVisible();
 
-	const identityConsent = await screen.findByRole("group", { name: "Kimlik" });
-	expect(within(identityConsent).getByText("Kullanılamıyor")).toBeVisible();
-	expect(screen.getByText("Sağlayıcı: seçilmedi")).toBeVisible();
-	expect(screen.getByText("Saklama koşulları: bilinmiyor")).toBeVisible();
-	for (const category of ["Kimlik", "Tema", "Stil"]) {
+	const identityConsent = await screen.findByRole("group", {
+		name: "Identity",
+	});
+	expect(within(identityConsent).getByText("Unavailable")).toBeVisible();
+	expect(screen.getByText("Provider: not selected")).toBeVisible();
+	expect(screen.getByText("Retention terms: unknown")).toBeVisible();
+	for (const category of ["Identity", "Theme", "Style"]) {
 		const consent = screen.getByRole("group", { name: category });
 		expect(
 			within(consent).getByRole("button", {
-				name: `${category} analizi için izin ver`,
+				name: `Grant ${category} analysis permission`,
 			})
 		).toBeDisabled();
 	}
@@ -385,17 +416,19 @@ test("keeps a granted permission form locked until the refreshed state arrives",
 	);
 
 	await screen.findByRole("heading", { name: "Forest Quest" });
-	await screen.findByText("Bu projede kayıtlı Bağlam Ajanı izni yok.");
+	await screen.findByText(
+		"No Context Agent permissions have been saved for this project."
+	);
 	fakeStore.nextPermissionRead = () => {
 		startHeldRead();
 		return heldRead;
 	};
 
 	const grantButton = screen.getByRole("button", {
-		name: "Bağlam Ajanı izni ver",
+		name: "Grant Context Agent permission",
 	});
 	fireEvent.click(grantButton);
-	await screen.findByText("Bağlam Ajanı izni kaydedildi.");
+	await screen.findByText("Context Agent permission saved.");
 	await heldReadStarted;
 	expect(grantButton).toBeDisabled();
 
@@ -428,26 +461,28 @@ test("keeps permission grants disabled after a failed refresh until Retry succee
 	);
 
 	await screen.findByRole("heading", { name: "Forest Quest" });
-	await screen.findByText("Bu projede kayıtlı Bağlam Ajanı izni yok.");
+	await screen.findByText(
+		"No Context Agent permissions have been saved for this project."
+	);
 	fakeStore.nextPermissionRead = () => {
 		startHeldRead();
 		return Promise.reject(new TypeError("Failed to fetch"));
 	};
 
 	const grantButton = screen.getByRole("button", {
-		name: "Bağlam Ajanı izni ver",
+		name: "Grant Context Agent permission",
 	});
 	fireEvent.click(grantButton);
-	await screen.findByText("Bağlam Ajanı izni kaydedildi.");
+	await screen.findByText("Context Agent permission saved.");
 	await heldReadStarted;
 	await waitFor(() => expect(errorToast).toHaveBeenCalledOnce());
 	expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 	expect(grantButton).toBeDisabled();
-	expect(grantButton).toHaveTextContent("Bağlam Ajanı izni ver");
+	expect(grantButton).toHaveTextContent("Grant Context Agent permission");
 
 	const retry = errorToast.mock.calls[0]?.[1]?.action?.onClick as () => void;
 	retry();
-	await screen.findByText("Proje Bağlamı için öneri hazırlama");
+	await screen.findByText("Prepare proposals for Project Context");
 	await waitFor(() => expect(grantButton).toBeEnabled());
 });
 
@@ -473,7 +508,7 @@ test("uncertain permission writes stay locked until the permission state is refr
 
 	await screen.findByRole("heading", { name: "Forest Quest" });
 	const grantButton = screen.getByRole("button", {
-		name: "Bağlam Ajanı izni ver",
+		name: "Grant Context Agent permission",
 	});
 	fireEvent.click(grantButton);
 	await waitFor(() => expect(grantButton).toBeDisabled());
@@ -485,12 +520,12 @@ test("uncertain permission writes stay locked until the permission state is refr
 		)
 	).toBeNull();
 
-	fireEvent.click(screen.getByRole("button", { name: "Durumu kontrol et" }));
+	fireEvent.click(screen.getByRole("button", { name: "Check status" }));
 
 	await waitFor(() => expect(grantButton).toBeEnabled());
-	expect(screen.getByText("Etkin")).toBeVisible();
+	expect(screen.getByText("Active")).toBeVisible();
 	expect(screen.getByRole("status")).toHaveTextContent(
-		"İzin listesi yenilendi."
+		"Permissions refreshed."
 	);
 });
 
@@ -521,7 +556,9 @@ test("permission query failures provide a Sonner Retry action", async () => {
 	retry();
 
 	expect(
-		await screen.findByText("Bu projede kayıtlı Bağlam Ajanı izni yok.")
+		await screen.findByText(
+			"No Context Agent permissions have been saved for this project."
+		)
 	).toBeVisible();
 });
 
@@ -542,7 +579,7 @@ test("the generated project route opens access from the authenticated project li
 	);
 
 	const manageAccessLink = await screen.findByRole("link", {
-		name: "Forest Quest izinlerini yönet",
+		name: "Forest Quest manage permissions",
 	});
 	expect(manageAccessLink).toHaveAttribute(
 		"href",
@@ -554,11 +591,11 @@ test("the generated project route opens access from the authenticated project li
 		expect(router.state.location.pathname).toBe(`/projects/${projectId}/access`)
 	);
 	expect(
-		await screen.findByRole("link", { name: "Oyun projelerine dön" })
+		await screen.findByRole("link", { name: "Back to projects" })
 	).toBeVisible();
-	expect(screen.getByRole("heading", { name: "Bağlam Ajanı" })).toBeVisible();
-	expect(screen.getByText("Sağlayıcı seçilmedi")).toBeVisible();
-	expect(screen.getByRole("group", { name: "Kimlik" })).toBeVisible();
-	expect(screen.getByRole("group", { name: "Tema" })).toBeVisible();
-	expect(screen.getByRole("group", { name: "Stil" })).toBeVisible();
+	expect(screen.getByRole("heading", { name: "Context Agent" })).toBeVisible();
+	expect(screen.getByText("No provider selected")).toBeVisible();
+	expect(screen.getByRole("group", { name: "Identity" })).toBeVisible();
+	expect(screen.getByRole("group", { name: "Theme" })).toBeVisible();
+	expect(screen.getByRole("group", { name: "Style" })).toBeVisible();
 }, 15_000);

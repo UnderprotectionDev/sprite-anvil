@@ -163,6 +163,7 @@ function AnnotationAdder({
 									>
 										<span>{label}</span>
 										<Input
+											aria-invalid={field.state.meta.errors.length > 0}
 											id={`annotation-${name}`}
 											inputMode="numeric"
 											onChange={(event) =>
@@ -170,6 +171,11 @@ function AnnotationAdder({
 											}
 											value={field.state.value}
 										/>
+										{field.state.meta.errors.length > 0 ? (
+											<span role="alert">
+												Use whole numbers within the allowed range.
+											</span>
+										) : null}
 									</Label>
 								)}
 							</form.Field>

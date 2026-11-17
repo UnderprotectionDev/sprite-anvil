@@ -18,9 +18,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
+import { ScopeRegistryPanel } from "@/components/context-scope-registry";
 import { StatusMessage } from "@/components/status-message";
 import { TaskWorkspace } from "@/components/task-workspace";
-import { ScopeRegistryPanel } from "@/features/visual-worlds/ui/components/context-scope-registry";
 import { orpc } from "@/utils/orpc";
 import {
 	type EvidenceKind,
@@ -63,9 +63,9 @@ export function ContextWorkspace({
 		<>
 			<div className="context-toolbar">
 				<Label className="project-select leading-[inherit]">
-					<span>Proje</span>
+					<span>Project</span>
 					<NativeSelect
-						aria-label="Proje"
+						aria-label="Project"
 						className="w-full"
 						onChange={(event) => {
 							const selected = projects.find(
@@ -86,18 +86,18 @@ export function ContextWorkspace({
 				</Label>
 				<Button className="quiet-button" onClick={onNewProject} type="button">
 					<Plus aria-hidden="true" size={16} />
-					Yeni proje
+					New project
 				</Button>
 			</div>
 			<TaskWorkspace
 				key={project.id}
-				label="Proje Bağlamı çalışma alanları"
+				label="Project Context workspaces"
 				sections={[
 					{
 						id: "proposals",
-						label: "Önerileri incele",
+						label: "Review proposals",
 						description:
-							"Kaydedilmiş önerileri, dayanaklarını ve etkinleştirme durumunu inceleyin.",
+							"Review saved proposals, their evidence, and activation status.",
 						content: (
 							<>
 								<ProposalLedger
@@ -113,9 +113,9 @@ export function ContextWorkspace({
 					},
 					{
 						id: "create",
-						label: "Kural önerisi hazırla",
+						label: "Propose a rule change",
 						description:
-							"Yeni kurallar üretimde kullanılmadan önce öneri olarak kaydedilir ve sizin tarafınızdan etkinleştirilir.",
+							"New rules are saved as proposals and activated by you before use in production.",
 						content: (
 							<>
 								<ProposalForm
@@ -130,9 +130,9 @@ export function ContextWorkspace({
 					},
 					{
 						id: "scopes",
-						label: "Görsel Dünyalar ve Temalar",
+						label: "Visual Worlds and Themes",
 						description:
-							"Kural kapsamlarını ve ailelerde kullanılacak Görsel Dünyaları tanımlayın.",
+							"Define rule scopes and Visual Worlds for use in families.",
 						content: (
 							<>
 								<ScopeRegistryPanel
@@ -171,15 +171,15 @@ function ProposalLedger({
 	if (isPending) {
 		content = (
 			<p className="ledger-empty" role="status">
-				Öneriler yükleniyor…
+				Loading proposals…
 			</p>
 		);
 	} else if (isError) {
 		content = (
 			<div className="ledger-empty">
-				<StatusMessage tone="error">Öneriler yüklenemedi.</StatusMessage>
+				<StatusMessage tone="error">Could not load proposals.</StatusMessage>
 				<Button className="quiet-button" onClick={onRetry} type="button">
-					Yeniden dene
+					Try again
 				</Button>
 			</div>
 		);
@@ -204,8 +204,8 @@ function ProposalLedger({
 		<aside aria-labelledby="saved-proposals-title" className="context-ledger">
 			<div className="ledger-header">
 				<div>
-					<p className="panel-index">KALICI KAYIT</p>
-					<h2 id="saved-proposals-title">Öneriler</h2>
+					<p className="panel-index">SAVED RECORD</p>
+					<h2 id="saved-proposals-title">Proposals</h2>
 				</div>
 				<span className="ledger-count">{proposals.length}</span>
 			</div>
@@ -238,7 +238,7 @@ function ProposalRecord({
 	const activateProposal = useMutation(
 		orpc.contextProposals.activate.mutationOptions({
 			onSuccess: () => {
-				toast.success("Etkin Bağlam Sürümü oluşturuldu.");
+				toast.success("Active Context Revision created.");
 				void queryClient.invalidateQueries({
 					queryKey: orpc.projectContexts.list.queryKey(),
 				});
@@ -261,7 +261,7 @@ function ProposalRecord({
 	return (
 		<article className="proposal-record">
 			<div className="proposal-record-top">
-				<span>{new Date(proposal.createdAt).toLocaleString("tr-TR")}</span>
+				<span>{new Date(proposal.createdAt).toLocaleString("en-US")}</span>
 				<span
 					className={
 						isCurrent || proposal.validation.isValid
@@ -273,10 +273,10 @@ function ProposalRecord({
 				</span>
 			</div>
 			<h3>{proposal.summary}</h3>
-			<p className="proposal-source">Kaynak: {source}</p>
+			<p className="proposal-source">Source: {source}</p>
 			<p className="proposal-base">
-				Dayanak sürüm, incelemede güncel Etkin Bağlam Sürümü ile
-				karşılaştırılır.
+				The base revision is compared with the current Active Context Revision
+				during review.
 			</p>
 			<ul className="proposal-changes">
 				{withOccurrenceKeys(proposal.changes, ruleChangeKey).map(
@@ -286,11 +286,11 @@ function ProposalRecord({
 								{operationLabel(change.operation)} · {change.ruleId}
 							</strong>
 							<small>
-								Kapsam:{" "}
+								Scope:{" "}
 								{contextScopeLabel(change.scope, scopeCatalog, project.name)}
 							</small>
 							{"value" in change ? (
-								<p>Önerilen değer: {formatRuleValue(change.value)}</p>
+								<p>Proposed value: {formatRuleValue(change.value)}</p>
 							) : null}
 							<p>{change.rationale}</p>
 							{withOccurrenceKeys(change.evidence, evidenceKey).map(
@@ -342,16 +342,16 @@ function ProposalRecord({
 
 function proposalStatusLabel(isCurrent: boolean, wasValid: boolean) {
 	if (isCurrent) {
-		return "Etkin";
+		return "Active";
 	}
-	return wasValid ? "İlk kontrolde temiz" : "İlk kontrolde çakışma";
+	return wasValid ? "Valid on initial check" : "Conflict on initial check";
 }
 
 function reviewButtonLabel(isPending: boolean, hasReview: boolean) {
 	if (isPending) {
-		return "Güncel sürüm denetleniyor…";
+		return "Checking current revision…";
 	}
-	return hasReview ? "İncelemeyi yenile" : "Öneriyi incele";
+	return hasReview ? "Refresh review" : "Review proposal";
 }
 
 function ProposalReviewPanel({
@@ -382,7 +382,7 @@ function ProposalReviewPanel({
 		>
 			<div className="review-heading">
 				<div>
-					<p className="panel-index">GÜNCEL İNCELEME</p>
+					<p className="panel-index">CURRENT REVIEW</p>
 					<h4 id={`review-${review.proposalId}`}>
 						{reviewHeadingLabel(isCurrent, review)}
 					</h4>
@@ -399,33 +399,33 @@ function ProposalReviewPanel({
 			</div>
 			<dl className="review-revisions">
 				<div>
-					<dt>Dayanak</dt>
+					<dt>Base</dt>
 					<dd>R{review.baseRevisionNumber}</dd>
 				</div>
 				<div>
-					<dt>Güncel</dt>
+					<dt>Current</dt>
 					<dd>R{review.currentRevisionNumber}</dd>
 				</div>
 				<div>
-					<dt>{wasActivated ? "Etkinleşti" : "Oluşacak"}</dt>
+					<dt>{wasActivated ? "Activated" : "Result"}</dt>
 					<dd>R{activationRevisionNumber}</dd>
 				</div>
 			</dl>
 			{!wasActivated && review.isRebased ? (
 				<p className="review-rebase" role="status">
-					Öneri R{review.baseRevisionNumber} sürümünden hazırlanmış. Çakışmayan
-					güncel kurallar yeni sürümde korunuyor.
+					This proposal was prepared from R{review.baseRevisionNumber}. Current
+					rules without conflicts are preserved in the new revision.
 				</p>
 			) : null}
 			{isStale ? (
 				<p className="review-rebase" role="status">
-					Etkin Bağlam Sürümü değişti. Etkinleştirmeden önce incelemeyi
-					yenileyin.
+					The Active Context Revision changed. Refresh the review before
+					activation.
 				</p>
 			) : null}
 			{!isStale && review.conflicts.length > 0 ? (
 				<div className="review-conflicts" role="alert">
-					<h5>Etkinleştirme engelleri</h5>
+					<h5>Activation blockers</h5>
 					<ul>
 						{withOccurrenceKeys(review.conflicts, conflictKey).map(
 							({ item: conflict, key }) => (
@@ -440,12 +440,12 @@ function ProposalReviewPanel({
 			) : null}
 			{!(wasActivated || isStale) && review.conflicts.length === 0 ? (
 				<p className="review-ready" role="status">
-					Kapsam önceliği, istisnalar ve çakışmalar denetlendi. Bu sürüm
-					yalnızca onayınızla etkinleşir.
+					Scope precedence, overrides, and conflicts have been checked. This
+					revision activates only with your approval.
 				</p>
 			) : null}
 			<div className="effective-rules">
-				<h5>Sürümün kural zinciri · {review.candidateRules.length} kural</h5>
+				<h5>Revision rule chain · {review.candidateRules.length} rules</h5>
 				{review.candidateRules.length ? (
 					<ul>
 						{withOccurrenceKeys(review.candidateRules, contextRuleKey).map(
@@ -459,7 +459,7 @@ function ProposalReviewPanel({
 									</div>
 									<p>{formatRuleValue(rule.value)}</p>
 									<small>
-										Öncelik:{" "}
+										Precedence:{" "}
 										{rule.precedenceChain
 											.map((scope) =>
 												contextScopeLabel(scope, scopeCatalog, projectName)
@@ -467,22 +467,20 @@ function ProposalReviewPanel({
 											.join(" → ")}
 									</small>
 									{rule.supersedesRuleId ? (
-										<small>
-											İstisna: {rule.supersedesRuleId} kuralını geçersiz kılar
-										</small>
+										<small>Overrides rule: {rule.supersedesRuleId}</small>
 									) : null}
-									<small>Kaynak: {contextRuleSourceLabel(rule.source)}</small>
-									<small>Gerekçe: {rule.rationale}</small>
+									<small>Source: {contextRuleSourceLabel(rule.source)}</small>
+									<small>Rationale: {rule.rationale}</small>
 								</li>
 							)
 						)}
 					</ul>
 				) : (
-					<p className="field-hint">Etkin kural bulunmuyor.</p>
+					<p className="field-hint">No active rules.</p>
 				)}
 			</div>
 			<details className="context-copy-details">
-				<summary>Üretim Bağlamı Kopyası</summary>
+				<summary>Production Context Snapshot</summary>
 				<pre>{review.contextCopy}</pre>
 			</details>
 			<ProposalActivationOutcome
@@ -502,12 +500,12 @@ function reviewHeadingLabel(isCurrent: boolean, review: ContextProposalReview) {
 	if (isCurrent) {
 		const revisionNumber =
 			review.activatedRevisionNumber ?? review.currentRevisionNumber;
-		return `Etkin sürüm · R${revisionNumber}`;
+		return `Active revision · R${revisionNumber}`;
 	}
 	if (review.activatedRevisionNumber !== null) {
-		return `Önceki etkinleştirme · R${review.activatedRevisionNumber}`;
+		return `Previous activation · R${review.activatedRevisionNumber}`;
 	}
-	return `Etkinleştirme özeti · R${review.targetRevisionNumber}`;
+	return `Activation summary · R${review.targetRevisionNumber}`;
 }
 
 function ProposalActivationOutcome({
@@ -530,16 +528,16 @@ function ProposalActivationOutcome({
 	if (isCurrent) {
 		return (
 			<p className="review-ready" role="status">
-				Bu öneri Etkin Bağlam Sürümü R{activationRevisionNumber} olarak
-				kaydedildi.
+				This proposal was saved as Active Context Revision R
+				{activationRevisionNumber}.
 			</p>
 		);
 	}
 	if (review.activatedRevisionNumber !== null) {
 		return (
 			<p className="review-rebase" role="status">
-				Bu öneri R{activationRevisionNumber} sürümünü oluşturdu. Güncel Etkin
-				Bağlam Sürümü R{currentRevisionNumber}.
+				This proposal created R{activationRevisionNumber}. The current Active
+				Context Revision is R{currentRevisionNumber}.
 			</p>
 		);
 	}
@@ -551,8 +549,8 @@ function ProposalActivationOutcome({
 			type="button"
 		>
 			{isActivating
-				? "Etkinleştiriliyor…"
-				: `R${review.targetRevisionNumber} sürümünü etkinleştir`}
+				? "Activating…"
+				: `Activate R${review.targetRevisionNumber}`}
 		</Button>
 	);
 }
@@ -563,17 +561,17 @@ function reviewStatusLabel(
 	review: ContextProposalReview
 ) {
 	if (isCurrent) {
-		return "Etkin";
+		return "Active";
 	}
 	if (review.activatedRevisionNumber !== null) {
-		return "Daha önce etkinleştirildi";
+		return "Previously activated";
 	}
 	if (isStale) {
-		return "Yeniden inceleme gerekli";
+		return "Review required again";
 	}
 	return review.activationAllowed
-		? "Etkinleştirilebilir"
-		: `${review.conflicts.length} engel`;
+		? "Ready to activate"
+		: `${review.conflicts.length} blockers`;
 }
 
 function conflictKey(conflict: ContextProposalReview["conflicts"][number]) {
@@ -590,15 +588,15 @@ function contextScopeLabel(
 	projectName: string
 ) {
 	if (scope.kind === "project") {
-		return `Proje · ${projectName}`;
+		return `Project · ${projectName}`;
 	}
 	if (scope.kind === "visual_world") {
 		const visualWorld = scopeCatalog.visualWorlds.find(
 			(record) => record.id === scope.id
 		);
 		return visualWorld
-			? `Görsel Dünya · ${visualWorld.name}`
-			: `Görsel Dünya · bulunamadı (${scope.id})`;
+			? `Visual World · ${visualWorld.name}`
+			: `Visual World · not found (${scope.id})`;
 	}
 	if (scope.kind === "theme") {
 		const theme = scopeCatalog.themes.find((record) => record.id === scope.id);
@@ -606,21 +604,21 @@ function contextScopeLabel(
 			(record) => record.id === theme?.visualWorldId
 		);
 		return theme && visualWorld
-			? `Tema · ${visualWorld.name} / ${theme.name}`
-			: `Tema · bulunamadı (${scope.id})`;
+			? `Theme · ${visualWorld.name} / ${theme.name}`
+			: `Theme · not found (${scope.id})`;
 	}
 	const labels = {
-		asset_family: "Varlık Ailesi",
-		asset: "Varlık",
-		operation: "İşlem",
+		asset_family: "Asset Family",
+		asset: "Asset",
+		operation: "Operation",
 	};
 	return `${labels[scope.kind]} · ${scope.id}`;
 }
 
 function contextRuleSourceLabel(source: ContextRule["source"]) {
 	return source.kind === "project_setup"
-		? "Proje kurulumu"
-		: `Bağlam Önerisi ${source.proposalId}`;
+		? "Project setup"
+		: `Context Proposal ${source.proposalId}`;
 }
 
 function EmptyProposalLedger() {
@@ -631,14 +629,14 @@ function EmptyProposalLedger() {
 				<span />
 				<span />
 			</div>
-			<h3>Henüz öneri yok</h3>
-			<p>Kaydettiğiniz öneriler, dayanak ve kanıtlarıyla burada görünür.</p>
+			<h3>No proposals yet</h3>
+			<p>Saved proposals appear here with their rationale and evidence.</p>
 		</div>
 	);
 }
 
 function evidenceLabel(kind: EvidenceKind) {
-	return kind === "user_decision" ? "Kullanıcı kararı" : "Gözlenen değişiklik";
+	return kind === "user_decision" ? "User decision" : "Observed change";
 }
 
 function formatRuleValue(value: ContextRuleValue) {
@@ -646,7 +644,7 @@ function formatRuleValue(value: ContextRuleValue) {
 		return value.value.join(", ");
 	}
 	if (value.type === "boolean") {
-		return value.value ? "Evet" : "Hayır";
+		return value.value ? "Yes" : "No";
 	}
 	return String(value.value);
 }

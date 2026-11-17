@@ -9,6 +9,7 @@ import type {
 } from "@sprite-anvil/api/reference-production";
 import { referenceBoardImageSchema } from "@sprite-anvil/api/reference-production";
 import { appRouter } from "@sprite-anvil/api/routers/index";
+import { createTestAssetVersionIntegrityTransform } from "@sprite-anvil/api/test-support/asset-version-integrity";
 import { Hono } from "hono";
 import sharp from "sharp";
 import { mountReferenceProductionRoutes } from "../reference-production-routes";
@@ -139,6 +140,8 @@ function mountTestApp(store: MemoryReferenceProductionStore) {
 	>();
 	const app = new Hono();
 	mountReferenceProductionRoutes(app, {
+		createAssetVersionIntegrityTransform:
+			createTestAssetVersionIntegrityTransform,
 		referenceProductionStore: store,
 		createId: () => "e786b516-370c-4877-b102-a51ba1aadf30",
 		createStorage: () => ({

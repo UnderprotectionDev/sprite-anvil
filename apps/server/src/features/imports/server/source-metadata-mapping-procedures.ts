@@ -1,3 +1,4 @@
+import type { CreateAssetVersionIntegrityTransform } from "@sprite-anvil/api/asset-version-integrity";
 import type { AssetVersionStore } from "@sprite-anvil/api/asset-versions";
 import type {
 	ImportInboxFileRecord,
@@ -39,6 +40,7 @@ export interface SourceMetadataMappingDependencies {
 		AssetVersionStore,
 		"createCandidateVersion" | "getAssetRecordForUpload"
 	>;
+	createAssetVersionIntegrityTransform: CreateAssetVersionIntegrityTransform;
 	createId?: () => string;
 	createStorage: () => Storage;
 	importInboxStore: ImportInboxStore;
@@ -92,7 +94,10 @@ async function parseSidecarEntries(
 	userId: string,
 	projectId: string,
 	sidecarEntryIds: string[],
-	dependencies: SourceMetadataMappingDependencies
+	dependencies: Omit<
+		SourceMetadataMappingDependencies,
+		"createAssetVersionIntegrityTransform"
+	>
 ): Promise<ParsedSidecarsResult> {
 	const files: Array<{ entryId: string; file: ImportInboxFileRecord }> = [];
 	let totalBytes = 0;
@@ -146,7 +151,10 @@ async function parseSidecarEntries(
 }
 
 export function createSourceMetadataMappingProposalCreator(
-	dependencies: SourceMetadataMappingDependencies
+	dependencies: Omit<
+		SourceMetadataMappingDependencies,
+		"createAssetVersionIntegrityTransform"
+	>
 ): SourceMetadataMappingProposalCreator {
 	return async ({ input, projectId, sourceEntryId, userId }) => {
 		const source = await dependencies.importInboxStore.getFileRecord(
@@ -266,6 +274,8 @@ export function createSourceMetadataMappingFinalizer(
 				contentType,
 				storage: dependencies.createStorage(),
 				versionStore: assetVersionStore,
+				createAssetVersionIntegrityTransform:
+					dependencies.createAssetVersionIntegrityTransform,
 			});
 		} catch (error) {
 			if (isInvalidSourceImageError(error)) {

@@ -14,6 +14,7 @@ import { Label } from "@sprite-anvil/ui/components/label";
 import { useMutation } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { StatusMessage } from "@/components/status-message";
+import { builtinProfilePresentation } from "@/utils/builtin-profile-labels";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
@@ -66,7 +67,7 @@ export function GameplayMetadataReview({
 		try {
 			await action();
 		} catch (failure) {
-			setError(getErrorMessage(failure, "Oyun içi bilgiler doğrulanamadı."));
+			setError(getErrorMessage(failure, "Could not verify Gameplay Metadata."));
 		} finally {
 			setPending(false);
 		}
@@ -94,14 +95,14 @@ export function GameplayMetadataReview({
 			anchor.download = `gameplay-metadata-${record.id}.json`;
 			anchor.click();
 			setTimeout(() => URL.revokeObjectURL(url), 1000);
-			setMessage("İncelenmiş oyun içi bilgiler paketi indirildi.");
+			setMessage("Reviewed Gameplay Metadata package downloaded.");
 		});
 	}
 
 	async function reread(file: File) {
 		await act(async () => {
 			if (file.size > 524_288) {
-				throw new Error("Paket 512 KiB sınırını aşıyor.");
+				throw new Error("The package exceeds the 512 KiB limit.");
 			}
 			const input = gameplayMetadataPackageReadInputSchema.parse({
 				...target,
@@ -109,29 +110,29 @@ export function GameplayMetadataReview({
 			});
 			await readPackageMutation.mutateAsync(input);
 			setMessage(
-				"Paket yeniden okundu; incelenmiş alanlar, kare ve kesin sürüm korunuyor."
+				"Package reread; reviewed fields, frame, and exact version are preserved."
 			);
 		});
 	}
 
 	return (
 		<section
-			aria-label="Bilgileri İnceleme ve Koruma"
+			aria-label="Review and Preserve Metadata"
 			className="space-y-3 rounded border p-4"
 		>
-			<h3 className="font-medium text-lg">Bilgileri İnceleme ve Koruma</h3>
+			<h3 className="font-medium text-lg">Review and Preserve Metadata</h3>
 			<p>
 				{record.frameKey} · {record.assetVersionId} · {record.useContext}
 			</p>
-			<p>{record.review ? "İncelendi" : "Henüz incelenmedi"}</p>
+			<p>{record.review ? "Reviewed" : "Not reviewed yet"}</p>
 			{errors.map((failure) => (
 				<StatusMessage key={failure} tone="error">
-					Bütünlük hatası: {failure}
+					Integrity error: {failure}
 				</StatusMessage>
 			))}
 			{!previewUrl && (
 				<StatusMessage tone="error">
-					Kesin sürümün doğrulanmış görseli bulunamadı.
+					No verified image was found for the exact version.
 				</StatusMessage>
 			)}
 			{previewUrl && !errors.length && (
@@ -145,14 +146,15 @@ export function GameplayMetadataReview({
 				{record.fields.map((field) => (
 					<div key={field.fieldId}>
 						<dt>
-							{contract?.metadataFields.find(
+							{(contract
+								? builtinProfilePresentation(contract)
+								: undefined
+							)?.metadataFields.find(
 								(definition) => definition.id === field.fieldId
 							)?.label ?? field.fieldId}
 						</dt>
 						<dd className="break-all font-mono text-sm">
-							{field.value === null
-								? "Bilinmiyor"
-								: JSON.stringify(field.value)}
+							{field.value === null ? "Unknown" : JSON.stringify(field.value)}
 						</dd>
 					</div>
 				))}
@@ -163,7 +165,7 @@ export function GameplayMetadataReview({
 					onClick={review}
 					type="button"
 				>
-					İncelemeyi kaydet
+					Save review
 				</Button>
 			)}
 			{Boolean(record.review) && (
@@ -173,10 +175,10 @@ export function GameplayMetadataReview({
 						onClick={download}
 						type="button"
 					>
-						Oyun içi bilgiler paketini indir
+						Download Gameplay Metadata package
 					</Button>
 					<Label className="block" htmlFor={fileInputId}>
-						Paketi yeniden oku
+						Reread package
 					</Label>
 					<Input
 						accept=".json,application/json"
@@ -192,9 +194,9 @@ export function GameplayMetadataReview({
 						type="file"
 					/>
 					<p className="text-muted-foreground text-sm">
-						Bu paket yalnız oyun içi bilgileri taşır; görsel dosyaları ve tam
-						Dışa Aktarım Paketi değildir. Yeniden okuma kalıcı inceleme kaydıyla
-						karşılaştırır ve veriyi değiştirmez.
+						This package contains only Gameplay Metadata; it is not image files
+						or a full Export Bundle. Rereading compares it with the saved review
+						record and does not change data.
 					</p>
 				</div>
 			)}

@@ -17,30 +17,30 @@ test("persists a Specialized Profile Contract activation through the web flow", 
 	await createProjectFromProjectsView(page, fixture);
 	await page
 		.getByRole("link", {
-			name: `${fixture.projectName} özel profil sözleşmelerini yönet`,
+			name: `${fixture.projectName} manage Specialized Profile Contracts`,
 		})
 		.click();
 
 	await expect(
 		page.getByRole("heading", {
-			name: `${fixture.projectName} · Özel Profil Sözleşmeleri`,
+			name: `${fixture.projectName} · Specialized Profile Contracts`,
 		})
 	).toBeVisible();
-	await page.getByRole("button", { name: "İkon", exact: true }).click();
-	const iconProfile = page.getByRole("article", { name: "İkon" });
-	await iconProfile.getByText("Sözleşme ayrıntıları").click();
+	await page.getByRole("button", { name: "Icon", exact: true }).click();
+	const iconProfile = page.getByRole("article", { name: "Icon" });
+	await iconProfile.getByText("Contract details").click();
 	await expect(iconProfile.getByText("icon.metadata_roundtrip")).toBeVisible();
-	await iconProfile
-		.getByRole("button", { name: "Sözleşmeyi etkinleştir" })
-		.click();
+	await iconProfile.getByRole("button", { name: "Activate contract" }).click();
 	await expect(
-		page.getByText("İkon 1.0.0 sürümü etkinleştirildi ve yeniden okundu.")
+		page.getByText("Icon 1.0.0 version activated and reread.")
 	).toBeVisible();
 
 	await page.reload();
-	await page.getByRole("button", { name: "İkon", exact: true }).click();
-	await expect(iconProfile.getByText("Bu projede etkin · 1.0.0")).toBeVisible();
+	await page.getByRole("button", { name: "Icon", exact: true }).click();
 	await expect(
-		iconProfile.getByRole("button", { name: "Etkin" })
+		iconProfile.getByText("Active in this project · 1.0.0")
+	).toBeVisible();
+	await expect(
+		iconProfile.getByRole("button", { name: "Active" })
 	).toBeDisabled();
 });

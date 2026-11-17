@@ -42,9 +42,11 @@ Tamamlanma kanıtı: İlk uygulama kesin paketle bağlı kilit üretir; tekrar t
 
 - **Birincil test seam’i:** Sahip olunan, tanınmayan ve ayrışmış hedef yollarını aynı Delivery Refresh Lock ile sınıflandırma; web değişiklik paketi ve masaüstü izinli uygulama sonucunu YAS-03 üzerinden karşılaştırma.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.
-- Bugün repoda bu faza ait ürün sözleşmesi bulunmuyor. Mevcut sunucu ve yüzey test örnekleri: [`project-routes.test.ts`](../../../apps/server/src/features/projects/server/tests/project-routes.test.ts), [`app-shell.spec.ts` (web)](../../../apps/web/e2e/app-shell.spec.ts) ve [`app-shell.spec.ts` (desktop)](../../../apps/web/desktop-e2e/app-shell.spec.ts). Bunlar bu özelliğin test edildiği anlamına gelmez.
+- Mevcut sözleşme ve ilgili test yolu: [`delivery-refresh-locks.ts`](../../../packages/api/src/delivery-refresh-locks.ts), [`delivery-refresh-view.test.tsx`](../../../apps/web/src/features/delivery-refresh-locks/ui/views/delivery-refresh-view.test.tsx). Bu bağlantılar tüm kabul kapsamının tamamlandığını göstermez.
 - Fazın özgül başarı ve red kanıtı: İlk uygulama kesin paketle bağlı kilit üretir; tekrar teslimde hedefte değişen sahipli dosya karar bekler, tanınmayan dosya korunur ve izinli yenileme sonucu web ile masaüstünde aynı anlamı taşır. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Sürekli çift yönlü motor eşitlemesi ve ayrı Tüketim Makbuzu oluşturulmaz.
 - Kabul örnekleri: YAS-03. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
+
+- Masaüstü yazma seam’i: `native-delivery.test.ts` seçilen klasörde yalnız izinli yolların yazımını, tüm yolların ön kontrolünü, symlink/traversal reddini, SHA-256 readback ve başarısız yazımın geri alınmasını sınar. `delivery-refresh-view.test.tsx` native readback başarısızken kilit API’sinin çağrılmadığını doğrular. Gerçek Tauri izin diyaloğu ve platform dosya sistemi kabul kanıtı ayrıca çalıştırılır.
 
 ## Out of Scope
 
@@ -66,4 +68,4 @@ Sürekli çift yönlü motor eşitlemesi ve ayrı Tüketim Makbuzu oluşturulmaz
 **Kabul izlenebilirliği**
 
 - [YAS-03](../../prd/10-acceptance-scenarios.md)
-- Mevcut uygulama yalnız temel web/masaüstü kabuğu ve sınırlı sunucu yükleme yolunu içeriyor; bu spec teslim edilmiş ürün iddiası değildir. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.
+- PRD ve bu spec hedef davranışı tanımlar; mevcut sözleşmeler ve testler tek başına tüm kabul senaryolarının tamamlandığını göstermez. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.

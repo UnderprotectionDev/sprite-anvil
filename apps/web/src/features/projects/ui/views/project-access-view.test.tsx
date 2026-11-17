@@ -31,10 +31,9 @@ vi.mock("sonner", () => ({
 	toast: { dismiss: vi.fn(), error: vi.fn(), success: vi.fn() },
 }));
 
-vi.mock(
-	"@/features/external-visual-analysis/ui/components/external-visual-analysis-consent",
-	() => ({ ExternalVisualAnalysisConsent: () => null })
-);
+vi.mock("@/components/external-visual-analysis-consent", () => ({
+	ExternalVisualAnalysisConsent: () => null,
+}));
 
 vi.mock("@/utils/orpc", () => ({
 	client: {},
@@ -101,14 +100,18 @@ async function renderAccess() {
 			<RouterProvider router={router} />
 		</QueryClientProvider>
 	);
-	await screen.findByText("Bu projede kayıtlı Bağlam Ajanı izni yok.");
+	await screen.findByText(
+		"No Context Agent permissions have been saved for this project."
+	);
 	return {
 		proposals: screen.getByRole("checkbox", {
-			name: "Bağlam Önerisi hazırlama",
+			name: "Prepare Context Proposals",
 		}),
-		purpose: screen.getByLabelText("Amaç"),
-		read: screen.getByRole("checkbox", { name: "Proje Bağlamı'nı okuma" }),
-		submit: screen.getByRole("button", { name: "Bağlam Ajanı izni ver" }),
+		purpose: screen.getByLabelText("Purpose"),
+		read: screen.getByRole("checkbox", { name: "Read Project Context" }),
+		submit: screen.getByRole("button", {
+			name: "Grant Context Agent permission",
+		}),
 	};
 }
 
@@ -116,7 +119,7 @@ test("grant stays unavailable until the purpose has three characters and a scope
 	fakeStore.grant.mockResolvedValue({});
 	const { proposals, purpose, read, submit } = await renderAccess();
 
-	expect(purpose).toHaveValue("Proje Bağlamı için öneri hazırlama");
+	expect(purpose).toHaveValue("Prepare proposals for Project Context");
 	expect(purpose).toBeRequired();
 	expect(read).toBeChecked();
 	expect(proposals).toBeChecked();
@@ -156,7 +159,7 @@ test("an uncertain grant locks the purpose and scopes", async () => {
 
 	fireEvent.click(submit);
 
-	await screen.findByRole("button", { name: "Durumu kontrol et" });
+	await screen.findByRole("button", { name: "Check status" });
 	expect(purpose).toBeDisabled();
 	expect(submit).toBeDisabled();
 	const user = userEvent.setup();

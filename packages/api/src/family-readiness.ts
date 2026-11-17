@@ -70,7 +70,7 @@ export const usageTestContextSchema = z
 				code: "custom",
 				path: ["targetGroundVersionIds"],
 				message:
-					"Her zemin sürümü kullanım testi içinde yalnızca bir kez seçilebilir.",
+					"Each ground version may be selected only once in a usage test.",
 			});
 		}
 	});
@@ -105,7 +105,7 @@ export const requiredSetItemSchema = z
 			context.addIssue({
 				code: "custom",
 				path: ["assetRecordIds"],
-				message: "Aynı Varlık Kaydı bir öğede yalnızca bir kez seçilebilir.",
+				message: "An Asset Record may be selected only once per item.",
 			});
 		}
 		if (
@@ -119,8 +119,8 @@ export const requiredSetItemSchema = z
 				path: ["assetRecordIds"],
 				message:
 					item.kind === "usage_test"
-						? "Gerekli kullanım testi en az bir Varlık Kaydına bağlanmalıdır."
-						: "Gerekli öğe tam olarak bir Varlık Kaydına bağlanmalıdır.",
+						? "A required usage test must be linked to at least one Asset Record."
+						: "A required item must be linked to exactly one Asset Record.",
 			});
 		}
 		if (
@@ -132,14 +132,14 @@ export const requiredSetItemSchema = z
 				code: "custom",
 				path: ["testId"],
 				message:
-					"Gerekli kullanım testi etkin sözleşmedeki bir test kimliğini belirtmelidir.",
+					"A required usage test must identify a test in the active contract.",
 			});
 		}
 		if (item.kind !== "usage_test" && item.testId) {
 			context.addIssue({
 				code: "custom",
 				path: ["testId"],
-				message: "Yalnız kullanım testi öğeleri test kimliği taşıyabilir.",
+				message: "Only usage test items can carry a test ID.",
 			});
 		}
 	});
@@ -175,8 +175,7 @@ export const requiredSetSaveInputSchema = z
 			context.addIssue({
 				code: "custom",
 				path: ["items"],
-				message:
-					"Gerekli Öğeler Listesi içinde öğe kimlikleri benzersiz olmalıdır.",
+				message: "Required Set item IDs must be unique.",
 			});
 		}
 	});
@@ -223,7 +222,7 @@ export const readinessEvidenceInputSchema = z.discriminatedUnion("kind", [
 					code: "custom",
 					path: ["versionTarget"],
 					message:
-						"Kalite İstisnası için kesin Birim Sürümü veya Birleşik Sürüm gerekir.",
+						"A Quality Waiver requires an exact Unit Version or Composite Version.",
 				});
 			}
 			if ((input.result === "waived") !== Boolean(input.waiverEvidenceId)) {
@@ -231,14 +230,14 @@ export const readinessEvidenceInputSchema = z.discriminatedUnion("kind", [
 					code: "custom",
 					path: ["waiverEvidenceId"],
 					message:
-						"Kalite İstisnası yalnız incelenen ölçüm kanıtına bağlanabilir.",
+						"A Quality Waiver can only reference reviewed measurement evidence.",
 				});
 			}
 			if (input.result === "waived" && !input.observedValue) {
 				context.addIssue({
 					code: "custom",
 					path: ["observedValue"],
-					message: "Kalite İstisnası için gözlenen değer gereklidir.",
+					message: "A Quality Waiver requires an observed value.",
 				});
 			}
 		}),
@@ -275,8 +274,8 @@ export const readinessEvidenceInputSchema = z.discriminatedUnion("kind", [
 					code: "custom",
 					path: ["usageTestContext"],
 					message: requiresSceneContext
-						? "Obje sahne testi hücre ölçüsünü, onaylı karakter sürümünü ve en az iki zemin sürümünü sabitlemelidir."
-						: "Onaylı karakter ve zemin sürümleri yalnız obje sahne testinde sabitlenebilir.",
+						? "The object scene test must pin the cell size, an approved character version, and at least two ground versions."
+						: "Approved character and ground versions can only be pinned in an object scene test.",
 				});
 			}
 			if (input.testId === iconLightDarkTargetSizeTestId) {
@@ -284,21 +283,21 @@ export const readinessEvidenceInputSchema = z.discriminatedUnion("kind", [
 					context.addIssue({
 						code: "custom",
 						path: ["usageVariant"],
-						message: "İkon kullanım çeşidi gereklidir.",
+						message: "Icon usage variant is required.",
 					});
 				}
 				if (!input.targetDimensions) {
 					context.addIssue({
 						code: "custom",
 						path: ["targetDimensions"],
-						message: "İkon hedef ölçüsü gereklidir.",
+						message: "Icon target size is required.",
 					});
 				}
 				if (input.grayscaleReviewed !== true) {
 					context.addIssue({
 						code: "custom",
 						path: ["grayscaleReviewed"],
-						message: "İkon gri tonlamada incelenmelidir.",
+						message: "The icon must be reviewed in grayscale.",
 					});
 				}
 				return;
@@ -314,7 +313,7 @@ export const readinessEvidenceInputSchema = z.discriminatedUnion("kind", [
 						code: "custom",
 						path: [field],
 						message:
-							"Bu kanıt alanı yalnız ikon hedef boyutu testinde kullanılabilir.",
+							"This evidence field is only available for the icon target size test.",
 					});
 				}
 			}

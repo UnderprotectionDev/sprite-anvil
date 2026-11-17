@@ -43,7 +43,7 @@ export const reviewGameplayMetadata: GameplayMetadataReviewHandler = async ({
 		];
 		if (errors.length) {
 			throw new ORPCError("BAD_REQUEST", {
-				message: `Bütünlük hatası: ${errors.join(" ")}`,
+				message: `Integrity error: ${errors.join(" ")}`,
 			});
 		}
 		return existing;
@@ -76,7 +76,7 @@ export const reviewGameplayMetadata: GameplayMetadataReviewHandler = async ({
 	);
 	if (errors.length) {
 		throw new ORPCError("BAD_REQUEST", {
-			message: `Bütünlük hatası: ${errors.join(" ")}`,
+			message: `Integrity error: ${errors.join(" ")}`,
 		});
 	}
 	const reviewedAt = new Date().toISOString();

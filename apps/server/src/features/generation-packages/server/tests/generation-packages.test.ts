@@ -514,6 +514,14 @@ function createCorrectionInput() {
 
 test("prepares a selective correction Production Package and rereads it unchanged", async () => {
 	const { context, state } = createTestContext();
+	const boundaries: unknown[] = [];
+	context.surface = "web";
+	context.productMeasurementRecorder = {
+		record: (event) => {
+			boundaries.push(event);
+			return Promise.resolve();
+		},
+	};
 	state.unitVersions = [lockedUnit, targetUnit];
 	const input = createCorrectionInput();
 
@@ -537,6 +545,16 @@ test("prepares a selective correction Production Package and rereads it unchange
 		}),
 	});
 	expect(created.lockedUnits.map((unit) => unit.id)).toEqual([unitVersionId]);
+	expect(boundaries).toContainEqual(
+		expect.objectContaining({
+			eventFamily: "review_and_repair",
+			eventName: "review_issue_recorded",
+			workflowId: targetUnitVersionId,
+			recordKind: "unit_version",
+			phase: "start",
+		})
+	);
+	expect(JSON.stringify(boundaries)).not.toContain(input.correction.issueNote);
 
 	const reread = await call(
 		appRouter.generationPackages.list,

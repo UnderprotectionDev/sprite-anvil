@@ -10,6 +10,10 @@ import type {
 } from "@sprite-anvil/api/readiness-plans";
 import { buildReadinessPlan } from "./readiness-plan-builder";
 import type { ReadinessPlanStorage } from "./readiness-plan-storage";
+import {
+	type ReadinessPolicyDependencies,
+	readReadinessPolicyEvidence,
+} from "./readiness-policy-evidence";
 
 export interface ReadinessPlanStoreDependencies {
 	deliveryTargets: DeliveryTargetStore;
@@ -18,6 +22,7 @@ export interface ReadinessPlanStoreDependencies {
 	/** Delivery Status reads only whether a Fulfilment exists for the revision. */
 	fulfilments: DeliveredRevisionLookup;
 	now?: () => Date;
+	policyEvidence?: ReadinessPolicyDependencies;
 	storage: ReadinessPlanStorage;
 }
 
@@ -93,6 +98,15 @@ export function createReadinessPlanStore(
 			return null;
 		}
 		return buildReadinessPlan({
+			policyEvidence: deps.policyEvidence
+				? await readReadinessPolicyEvidence(
+						deps.policyEvidence,
+						userId,
+						projectId,
+						revision,
+						familyReadiness
+					)
+				: undefined,
 			deliveryTargetId: target.id,
 			dependencies,
 			familyReadiness,

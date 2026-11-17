@@ -2,6 +2,7 @@ import { call } from "@orpc/server";
 import type { Context } from "@sprite-anvil/api/context";
 import type { DeliveryTarget } from "@sprite-anvil/api/delivery-planning-outputs";
 import { appRouter } from "@sprite-anvil/api/routers/index";
+import type { DeliveryEvidenceDependencies } from "../delivery-evidence-diff";
 import { createDeliveryFulfilmentStore } from "../delivery-fulfilment-store";
 import { createFulfilmentMappingStore } from "../fulfilment-mapping-store";
 import { createMemoryDeliveryFulfilmentStorage } from "./memory-delivery-fulfilment-storage";
@@ -95,6 +96,7 @@ export const conflictingBundles = () => [
 export function setup(
 	options: {
 		bundles?: ReturnType<typeof fullBundle>[];
+		evidence?: DeliveryEvidenceDependencies;
 		hasAccess?: boolean;
 	} = {}
 ) {
@@ -173,6 +175,7 @@ export function setup(
 	});
 	const storage = createMemoryDeliveryFulfilmentStorage();
 	const store = createDeliveryFulfilmentStore({
+		evidence: options.evidence,
 		deliveryTargets,
 		drafts: mappingStorage,
 		now,

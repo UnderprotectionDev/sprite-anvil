@@ -142,3 +142,26 @@ test("inline error copy keeps the support reference but never exposes an interna
 	expect(message).not.toContain("This action could not be completed.");
 	expect(message).not.toContain("private database connection details");
 });
+
+test("preserves retryable publication conflicts but not idempotency conflicts", () => {
+	expect(
+		isWriteOutcomeUncertain(
+			Object.assign(
+				new Error(
+					"The record was not published because another change happened at the same time. Retry with the same idempotency key."
+				),
+				{ code: "CONFLICT", status: 409 }
+			)
+		)
+	).toBe(true);
+	expect(
+		isWriteOutcomeUncertain(
+			Object.assign(
+				new Error(
+					"This idempotency key was already used with different content. Use a new idempotency key for different content."
+				),
+				{ code: "CONFLICT", status: 409 }
+			)
+		)
+	).toBe(false);
+});

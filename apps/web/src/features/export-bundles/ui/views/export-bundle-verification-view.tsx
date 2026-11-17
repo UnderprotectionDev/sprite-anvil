@@ -8,6 +8,7 @@ import {
 	type ExportBundleReading,
 	readExportBundle,
 } from "../../lib/read-export-bundle";
+import { verifyWithMeasurement } from "../../lib/verify-with-measurement";
 
 const directoryAttributes = { webkitdirectory: "" } as Record<string, string>;
 
@@ -80,9 +81,11 @@ function VerificationResult({ reading }: { reading: ExportBundleReading }) {
 
 export function ExportBundleVerificationView({
 	children,
+	projectId,
 }: {
 	/** Further sections of the Export Bundles screen, shown above the offline check. */
 	children?: ReactNode;
+	projectId?: string;
 }) {
 	const [reading, setReading] = useState<ExportBundleReading | null>(null);
 	const [readError, setReadError] = useState<string | null>(null);
@@ -95,7 +98,19 @@ export function ExportBundleVerificationView({
 		setIsReading(true);
 		setReadError(null);
 		try {
-			setReading(await readExportBundle(files));
+			setReading(
+				await verifyWithMeasurement({
+					projectId,
+					online: () => navigator.onLine,
+					record: async (input, signal) =>
+						(
+							await import("@/utils/orpc")
+						).client.measurementEvents.recordVerificationBoundary(input, {
+							signal,
+						}),
+					read: () => readExportBundle(files),
+				})
+			);
 		} catch (error) {
 			setReading(null);
 			setReadError(

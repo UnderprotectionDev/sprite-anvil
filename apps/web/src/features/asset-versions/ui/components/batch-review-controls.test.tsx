@@ -61,16 +61,16 @@ test("confirms the previewed versions and retains the same request key after an 
 	await user.click(screen.getByRole("checkbox", { name: "Knight · Sürüm 1" }));
 	await user.click(screen.getByRole("checkbox", { name: "Shield · Sürüm 2" }));
 	await user.type(
-		screen.getByLabelText("Toplu inceleme gerekçesi"),
+		screen.getByLabelText("Batch review rationale"),
 		"Reviewed both versions"
 	);
 	await user.click(
-		screen.getByRole("button", { name: "Uygunluk ve engelleri göster" })
+		screen.getByRole("button", { name: "Show eligibility and blockers" })
 	);
 	await user.click(
-		await screen.findByRole("button", { name: "Kararları kaydet" })
+		await screen.findByRole("button", { name: "Save decisions" })
 	);
-	await user.click(screen.getByRole("button", { name: "Kararları kaydet" }));
+	await user.click(screen.getByRole("button", { name: "Save decisions" }));
 	expect(onReview.mock.calls[1]?.[0]).toEqual(onReview.mock.calls[0]?.[0]);
 	expect(onReview.mock.calls[0]?.[0]).toMatchObject({
 		projectId: "project",
@@ -113,19 +113,17 @@ test("shows every selected version and blocks confirmation without silently skip
 	await user.click(screen.getByRole("checkbox", { name: "Knight · Sürüm 1" }));
 	await user.click(screen.getByRole("checkbox", { name: "Shield · Sürüm 2" }));
 	await user.type(
-		screen.getByLabelText("Toplu inceleme gerekçesi"),
+		screen.getByLabelText("Batch review rationale"),
 		"Reviewed both versions"
 	);
 	await user.click(
-		screen.getByRole("button", { name: "Uygunluk ve engelleri göster" })
+		screen.getByRole("button", { name: "Show eligibility and blockers" })
 	);
 	expect(
 		await screen.findByText("Required evidence missing")
 	).toBeInTheDocument();
-	expect(
-		screen.getByRole("button", { name: "Kararları kaydet" })
-	).toBeDisabled();
-	await user.click(screen.getByRole("button", { name: "Önizlemeyi iptal et" }));
+	expect(screen.getByRole("button", { name: "Save decisions" })).toBeDisabled();
+	await user.click(screen.getByRole("button", { name: "Cancel preview" }));
 	expect(reviewBatch).not.toHaveBeenCalled();
 });
 
@@ -149,21 +147,21 @@ test("toggles versions from the keyboard and clears the preview when the decisio
 	);
 	const knight = screen.getByRole("checkbox", { name: "Knight · Sürüm 1" });
 	const showPreview = screen.getByRole("button", {
-		name: "Uygunluk ve engelleri göster",
+		name: "Show eligibility and blockers",
 	});
 	expect(knight).not.toBeChecked();
 	knight.focus();
 	expect(knight).toHaveFocus();
 	await user.keyboard(" ");
 	expect(knight).toBeChecked();
-	await user.type(screen.getByLabelText("Toplu inceleme gerekçesi"), "   ");
+	await user.type(screen.getByLabelText("Batch review rationale"), "   ");
 	expect(showPreview).toBeDisabled();
-	await user.type(screen.getByLabelText("Toplu inceleme gerekçesi"), "ok");
+	await user.type(screen.getByLabelText("Batch review rationale"), "ok");
 	expect(showPreview).toBeEnabled();
 
 	await user.click(showPreview);
 	expect(
-		await screen.findByRole("button", { name: "Kararları kaydet" })
+		await screen.findByRole("button", { name: "Save decisions" })
 	).toBeInTheDocument();
 	expect(previewBatchReview).toHaveBeenCalledWith(
 		{
@@ -175,12 +173,12 @@ test("toggles versions from the keyboard and clears the preview when the decisio
 	);
 
 	await user.selectOptions(
-		screen.getByLabelText("Toplu inceleme kararı"),
+		screen.getByLabelText("Batch review decision"),
 		"rejected"
 	);
-	expect(screen.queryByRole("button", { name: "Kararları kaydet" })).toBeNull();
+	expect(screen.queryByRole("button", { name: "Save decisions" })).toBeNull();
 	await user.click(showPreview);
-	await screen.findByRole("button", { name: "Kararları kaydet" });
+	await screen.findByRole("button", { name: "Save decisions" });
 	expect(previewBatchReview).toHaveBeenLastCalledWith(
 		{
 			projectId: "project",
@@ -194,7 +192,7 @@ test("toggles versions from the keyboard and clears the preview when the decisio
 	knight.focus();
 	await user.keyboard(" ");
 	expect(knight).not.toBeChecked();
-	expect(screen.queryByRole("button", { name: "Kararları kaydet" })).toBeNull();
+	expect(screen.queryByRole("button", { name: "Save decisions" })).toBeNull();
 });
 
 test("disables every batch review control while writes are disabled", () => {
@@ -209,8 +207,8 @@ test("disables every batch review control while writes are disabled", () => {
 	expect(
 		screen.getByRole("checkbox", { name: "Knight · Sürüm 1" })
 	).toHaveAttribute("aria-disabled", "true");
-	expect(screen.getByLabelText("Toplu inceleme kararı")).toBeDisabled();
-	expect(screen.getByLabelText("Toplu inceleme gerekçesi")).toBeDisabled();
+	expect(screen.getByLabelText("Batch review decision")).toBeDisabled();
+	expect(screen.getByLabelText("Batch review rationale")).toBeDisabled();
 	expect(
 		screen.getByRole("group", { name: "Toplu inceleme" })
 	).toBeInTheDocument();

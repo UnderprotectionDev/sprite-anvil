@@ -75,7 +75,7 @@ test("stretches exact UI states at multiple sizes, preserves corners and rereads
 		visualWorldName: "Inventory UI",
 		identityName: "Inventory panel",
 		familyName: "Inventory panels",
-		categoryLabel: "Arayüz ekranları ve bileşenleri",
+		categoryLabel: "UI screens and components",
 		png: readFileSync(new URL("./fixtures/ui-panel.png", import.meta.url)),
 		records: [
 			{ name: "Normal panel", uploadNote: "Nine slice fixture." },
@@ -192,7 +192,7 @@ test("stretches exact UI states at multiple sizes, preserves corners and rereads
 	).toBeVisible();
 	await page.reload();
 	await page
-		.getByRole("button", { name: "Profil incelemeleri", exact: true })
+		.getByRole("button", { name: "Profile reviews", exact: true })
 		.click();
 	await expect(
 		manager.getByText("panel · normal · 8 × 7 px · failed · geometry failed", {

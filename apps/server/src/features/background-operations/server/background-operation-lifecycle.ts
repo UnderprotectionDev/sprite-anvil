@@ -280,7 +280,21 @@ export function createBackgroundOperationLifecycle(options: LifecycleOptions) {
 		try {
 			summary = await handler({
 				checkpoint: async () => {
-					if ((await storage.get(claimed.id))?.status === "cancel_requested") {
+					const current = await storage.get(claimed.id);
+					if (
+						current?.status !== "running" ||
+						current.attemptCount !== claimed.attemptCount
+					) {
+						throw new OperationCancelledSignal();
+					}
+					if (
+						!(await storage.reportProgress(
+							claimed.id,
+							claimed.attemptCount,
+							{ percent: current.progressPercent, step: current.progressStep },
+							now()
+						))
+					) {
 						throw new OperationCancelledSignal();
 					}
 				},

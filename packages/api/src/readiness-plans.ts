@@ -38,6 +38,8 @@ export const readinessBlockerKindSchema = z.enum([
 	"family_readiness_unavailable",
 	"production_evidence_policy_not_evaluated",
 	"rights_evidence_policy_not_evaluated",
+	"production_evidence_policy_unmet",
+	"rights_evidence_policy_unmet",
 ]);
 export type ReadinessBlockerKind = z.infer<typeof readinessBlockerKindSchema>;
 

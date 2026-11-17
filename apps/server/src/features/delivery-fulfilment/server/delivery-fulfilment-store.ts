@@ -15,6 +15,11 @@ import {
 	RecordIntegrityError,
 } from "@sprite-anvil/api/record-publication";
 import { diffFulfilments } from "./delivery-diff";
+import {
+	compareDeliveryEvidence,
+	type DeliveryEvidenceDependencies,
+	readDeliveryEvidence,
+} from "./delivery-evidence-diff";
 import type {
 	DeliveryFulfilmentStorage,
 	StoredDeliveryFulfilment,
@@ -31,6 +36,7 @@ export interface DeliveryFulfilmentStoreOptions {
 	deliveryTargets: Pick<DeliveryTargetStore, "list">;
 	/** Reads the persisted mapping draft the user resolved. */
 	drafts: Pick<FulfilmentMappingStorage, "findDraft">;
+	evidence?: DeliveryEvidenceDependencies;
 	now?: () => Date;
 	readinessPlans: Pick<ReadinessPlanStore, "get">;
 	storage: DeliveryFulfilmentStorage;
@@ -216,7 +222,15 @@ export function createDeliveryFulfilmentStore(
 			if (!(from && to)) {
 				return null;
 			}
-			return diffFulfilments(from, to, catalog);
+			const diff = diffFulfilments(from, to, catalog);
+			if (!options.evidence) {
+				return diff;
+			}
+			const [fromEvidence, toEvidence] = await Promise.all([
+				readDeliveryEvidence(options.evidence, userId, from),
+				readDeliveryEvidence(options.evidence, userId, to),
+			]);
+			return { ...diff, ...compareDeliveryEvidence(fromEvidence, toEvidence) };
 		},
 		async finalize(userId, input): Promise<FulfilmentFinalizeResult | null> {
 			const target = await readTarget(userId, input);

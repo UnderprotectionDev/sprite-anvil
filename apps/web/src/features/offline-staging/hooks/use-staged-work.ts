@@ -16,7 +16,7 @@ export function useStagedWork(projectId: string) {
 
 	const projectQuery = useQuery({
 		...orpc.projects.get.queryOptions({ input: { projectId } }),
-		meta: { errorPresentation: "inline", suppressGlobalErrorToast: true },
+		meta: { errorPresentation: "inline" },
 		retry: false,
 	});
 	const staged = useQuery({

@@ -31,7 +31,7 @@ export function PortraitUsagePreview({
 		<figure className="space-y-2">
 			<figcaption>
 				{label} · {item.expression} ·{" "}
-				{item.usagePurpose === "dialogue" ? "Diyalog" : "Arayüz"} ·{" "}
+				{item.usagePurpose === "dialogue" ? "Dialogue" : "UI"} ·{" "}
 				{item.targetSize.width} × {item.targetSize.height} px
 			</figcaption>
 			<div className="max-w-full overflow-auto p-2">
@@ -79,7 +79,7 @@ export function PortraitUsagePreview({
 			</div>
 			{failed ? (
 				<StatusMessage tone="error">
-					Görsel yüklenemedi veya kaynak ölçüsü uyuşmuyor. Yeniden yükleyin.
+					Could not load the image or source dimensions do not match. Reload it.
 				</StatusMessage>
 			) : null}
 		</figure>

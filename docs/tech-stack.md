@@ -62,7 +62,8 @@ Each responsibility is built with its technology, not with the substitute beside
 - Neon PostgreSQL
 - Drizzle ORM
 - Drizzle Kit
-  - Exception (pending user approval, not yet approved): the guarded Review Event insert (`apps/server/src/features/asset-versions/server/review-event-publication.ts`) is a raw SQL `INSERT ... SELECT ... WHERE` sent through the Neon client in one Serializable transaction that also verifies the written row. Drizzle's `insert().select()` needs a `FROM` source and cannot express an insert of literal values guarded by two latest-event subqueries, and the Neon HTTP driver only offers Serializable isolation through `$client.transaction`. All other queries use Drizzle.
+  - Exception (pending user approval, not yet approved): the guarded Review Event insert (`apps/server/src/features/asset-versions/server/review-event-publication.ts`) is a raw SQL `INSERT ... SELECT ... WHERE` sent through the Neon client in one Serializable transaction that also verifies the written row. Drizzle's `insert().select()` needs a `FROM` source and cannot express an insert of literal values guarded by two latest-event subqueries.
+  - Approved Serializable transaction exception: managed object reservation and erasure gates (`apps/server/src/database-managed-object-reservations.ts`) and atomic Batch Review Event publication (`packages/api/src/batch-review-events.ts`) may use the Neon client transaction API. The installed Drizzle Neon HTTP driver does not expose Serializable transaction isolation; these two operations require it to preserve their concurrency guarantees. Keep their queries built with Drizzle and use Drizzle for other queries.
 - Cloudflare Queues (background work)
 
 ## Authentication
@@ -85,9 +86,9 @@ Each responsibility is built with its technology, not with the substitute beside
 - Testing Library
 - Playwright
 - Opt-in database integration tests
-  - CI runs them in the `integration` job against a PostgreSQL service: profile tests use their own loopback databases cloned from a `db:push` schema template, and `createDb` (neon-http) tests go through the local Neon HTTP proxy in a non-blocking step until their known failures are fixed (`ghcr.io/timowilhelm/local-neon-http-proxy`, pinned by digest). `createDb` routes only the reserved host `db.localtest.me` to the proxy (`packages/db/src/local-neon-proxy.ts`).
+  - CI runs them in the `integration` job against a PostgreSQL service: profile tests use their own loopback databases cloned from a `db:push` schema template, and `createDb` (neon-http) tests go through the local Neon HTTP proxy in a required blocking step (`ghcr.io/timowilhelm/local-neon-http-proxy`, pinned by digest). `createDb` routes only the reserved host `db.localtest.me` to the proxy (`packages/db/src/local-neon-proxy.ts`).
 - Tauri WebDriver
-- Godot 4.x stable, 4.3 to 4.5 (user-approved platform dependency): the Godot Verified Engine Adapter targets this range, and the golden-project contract (`packages/api/src/godot-golden.test.ts`) runs headless Godot against `GODOT_BIN` (or `godot`/`godot4` on PATH). Without a binary the headless check is skipped and says so; the static golden-output checks always run. Unity is not a supported target.
+- Godot 4.x stable, 4.3 to 4.5 (user-approved platform dependency): the Godot Verified Engine Adapter targets this range, and the golden-project contract (`packages/api/src/godot-golden.test.ts`) runs headless Godot against `GODOT_BIN` (or `godot`/`godot4` on PATH). The required CI `godot-golden` matrix downloads and runs the official 4.3, 4.4 and 4.5 Linux binaries. Local runs without a binary skip the headless check and say so; the static golden-output checks always run. Unity is not a supported target.
 
 ## Tooling and CI
 

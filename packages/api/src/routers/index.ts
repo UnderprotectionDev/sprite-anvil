@@ -1,5 +1,6 @@
 import type { RouterClient } from "@orpc/server";
 import { ORPCError } from "@orpc/server";
+import { isUniqueViolation } from "@sprite-anvil/db/unique-violation";
 import type { Context } from "../context";
 import {
 	projectContextScopeCatalogSchema,
@@ -24,8 +25,16 @@ import {
 	previewContextProposalActivation,
 	projectContextCreateInputSchema,
 	projectContextSchema,
+	styleModuleCopyInputSchema,
+	styleModuleCreateInputSchema,
 	validateContextProposal,
 } from "../project-context";
+import { recordContentDigest } from "../record-content-digest";
+import {
+	IdempotencyConflictError,
+	resolveRecordId,
+	withPublicationErrors,
+} from "../record-publication";
 import { animationMetadataPackageRouter } from "./animation-metadata-package";
 import { animationTimingReviewsRouter } from "./animation-timing-reviews";
 import { assetFamiliesRouter } from "./asset-families";
@@ -71,6 +80,97 @@ import { tilesetAdjacencyReviewsRouter } from "./tileset-adjacency-reviews";
 import { uiStateComparisonsRouter } from "./ui-state-comparisons";
 import { vfxAppearanceReviewsRouter } from "./vfx-appearance-reviews";
 import { vfxSynchronizationRouter } from "./vfx-synchronization";
+
+async function createStyleProposal(
+	context: Context,
+	projectId: string,
+	base: import("../project-context").ContextRevision,
+	summary: string,
+	changes: import("../project-context").ContextRuleChange[],
+	id: string,
+	keyed: boolean
+) {
+	const userId = context.session?.user.id;
+	if (!userId) {
+		throw new ORPCError("UNAUTHORIZED");
+	}
+	const catalog = await context.projectContextScopeStore.list(
+		userId,
+		projectId
+	);
+	if (!catalog) {
+		throw new ORPCError("NOT_FOUND", { message: "Project Context not found" });
+	}
+	const createdAt = new Date().toISOString();
+	const proposal = contextProposalSchema.parse({
+		id,
+		projectId,
+		baseContextRevisionId: base.id,
+		contractVersion: "context-agent/1.0.0",
+		ruleContractVersion: base.ruleContractVersion,
+		summary,
+		source: {
+			kind: "structured_control",
+			controlId: "context-proposal-form",
+			controlVersion: "1.0.0",
+		},
+		changes,
+		validation: validateContextProposal(
+			projectId,
+			base,
+			changes,
+			createdAt,
+			catalog
+		),
+		activationAllowed: false,
+		createdAt,
+	});
+	const replay = async () => {
+		const existing = await context.projectContextStore.getProposal(
+			userId,
+			projectId,
+			id
+		);
+		if (!existing) {
+			return null;
+		}
+		const payload = (value: typeof proposal) => ({
+			baseContextRevisionId: value.baseContextRevisionId,
+			changes: value.changes,
+			contractVersion: value.contractVersion,
+			ruleContractVersion: value.ruleContractVersion,
+			source: value.source,
+			summary: value.summary,
+		});
+		if (
+			(await recordContentDigest(payload(existing))) !==
+			(await recordContentDigest(payload(proposal)))
+		) {
+			throw new IdempotencyConflictError("Context Proposal");
+		}
+		return existing;
+	};
+	return withPublicationErrors(async () => {
+		if (keyed) {
+			const existing = await replay();
+			if (existing) {
+				return existing;
+			}
+		}
+		try {
+			await context.projectContextStore.createProposal(userId, proposal);
+		} catch (error) {
+			if (keyed && isUniqueViolation(error)) {
+				const existing = await replay();
+				if (existing) {
+					return existing;
+				}
+			}
+			throw error;
+		}
+		return proposal;
+	});
+}
 
 async function readContextProposalReview(
 	context: Context,
@@ -130,7 +230,8 @@ async function readContextProposalReview(
 import { textureRepetitionReviewsRouter } from "./texture-repetition-reviews";
 
 import { uiStretchTestsRouter } from "./ui-stretch-tests";
-export const appRouter = {
+
+const featureRouters = {
 	sceneQa: sceneQaRouter,
 	uiStretchTests: uiStretchTestsRouter,
 	uiStateComparisons: uiStateComparisonsRouter,
@@ -182,6 +283,9 @@ export const appRouter = {
 	rightsRecords: rightsRecordsRouter,
 	runtimeValidation: runtimeValidationRouter,
 	specializedProfileContracts: specializedProfileContractsRouter,
+};
+
+const contextRouters = {
 	contextScopes: {
 		list: protectedProcedure
 			.input(projectContextScopeListInputSchema)
@@ -218,7 +322,8 @@ export const appRouter = {
 						});
 					}
 					throw new ORPCError("CONFLICT", {
-						message: "Bu Projede aynı adda bir Görsel Dünya zaten var.",
+						message:
+							"A Visual World with this name already exists in this Project.",
 					});
 				}
 				return visualWorldRecordSchema.parse(visualWorld);
@@ -247,11 +352,12 @@ export const appRouter = {
 						)
 					) {
 						throw new ORPCError("NOT_FOUND", {
-							message: "Bu Proje Bağlamı içinde Görsel Dünya bulunamadı.",
+							message: "Visual World not found in this Project Context.",
 						});
 					}
 					throw new ORPCError("CONFLICT", {
-						message: "Bu Görsel Dünya içinde aynı adda bir Tema zaten var.",
+						message:
+							"A Theme with this name already exists in this Visual World.",
 					});
 				}
 				return themeRecordSchema.parse(theme);
@@ -316,13 +422,13 @@ export const appRouter = {
 					throw new ORPCError("BAD_REQUEST", {
 						message:
 							review.conflicts[0]?.message ??
-							"Çakışmalar çözülmeden Bağlam Önerisi etkinleştirilemez.",
+							"Resolve conflicts before activating the Context Proposal.",
 					});
 				}
 				if (review.currentRevisionId !== input.expectedCurrentRevisionId) {
 					throw new ORPCError("CONFLICT", {
 						message:
-							"Etkin Bağlam Sürümü değişti. Etkinleştirmeden önce öneriyi yeniden inceleyin.",
+							"The active Context Revision changed. Review the proposal again before activation.",
 					});
 				}
 				const revision = await context.projectContextStore.activateProposal({
@@ -336,10 +442,178 @@ export const appRouter = {
 				if (!revision) {
 					throw new ORPCError("CONFLICT", {
 						message:
-							"Etkin Bağlam Sürümü değişti. Etkinleştirmeden önce öneriyi yeniden inceleyin.",
+							"The active Context Revision changed. Review the proposal again before activation.",
 					});
 				}
 				return revision;
+			}),
+		createStyleModule: protectedProcedure
+			.input(styleModuleCreateInputSchema)
+			.handler(async ({ context, input }) => {
+				const userId = context.session.user.id;
+				const recordScope = {
+					kind: "style-module-create",
+					projectId: input.projectId,
+					userId,
+				};
+				const proposalId = await resolveRecordId(
+					recordScope,
+					input.idempotencyKey
+				);
+				const moduleId = await resolveRecordId(
+					{ ...recordScope, kind: "style-module-create-module" },
+					input.idempotencyKey
+				);
+				const base = await context.projectContextStore.getRevision(
+					userId,
+					input.projectId,
+					input.baseContextRevisionId
+				);
+				if (!base) {
+					throw new ORPCError("NOT_FOUND", {
+						message: "Base Context Revision not found",
+					});
+				}
+				const module = {
+					id: moduleId,
+					name: input.name,
+					version: 1,
+				};
+				const rules = input.rules.map(({ ruleId, scope }) =>
+					base.rules.find(
+						(rule) =>
+							rule.id === ruleId &&
+							rule.scope.kind === scope.kind &&
+							rule.scope.id === scope.id
+					)
+				);
+				if (
+					rules.some(
+						(rule) =>
+							!rule ||
+							rule.styleModule ||
+							rule.scope.kind !== rules[0]?.scope.kind ||
+							rule.scope.id !== rules[0]?.scope.id
+					) ||
+					new Set(
+						input.rules.map(
+							(rule) => `${rule.scope.kind}:${rule.scope.id}:${rule.ruleId}`
+						)
+					).size !== input.rules.length
+				) {
+					throw new ORPCError("BAD_REQUEST", {
+						message:
+							"Select existing rules that do not already belong to a Style Module.",
+					});
+				}
+				const changes = rules.flatMap((rule) =>
+					rule
+						? [
+								{
+									operation: "replace" as const,
+									ruleId: rule.id,
+									scope: rule.scope,
+									value: rule.value,
+									precedenceChain: rule.precedenceChain,
+									supersedesRuleId: rule.supersedesRuleId,
+									rationale: rule.rationale,
+									styleModule: module,
+									evidence: [
+										{
+											kind: "user_decision" as const,
+											statement: "Group these rules into a Style Module.",
+										},
+									],
+								},
+							]
+						: []
+				);
+				return createStyleProposal(
+					context,
+					input.projectId,
+					base,
+					`Style Module: ${input.name}`,
+					changes,
+					proposalId,
+					Boolean(input.idempotencyKey)
+				);
+			}),
+		copyStyleModule: protectedProcedure
+			.input(styleModuleCopyInputSchema)
+			.handler(async ({ context, input }) => {
+				const userId = context.session.user.id;
+				const recordScope = {
+					kind: "style-module-copy",
+					projectId: input.projectId,
+					userId,
+				};
+				const proposalId = await resolveRecordId(
+					recordScope,
+					input.idempotencyKey
+				);
+				const moduleId = await resolveRecordId(
+					{ ...recordScope, kind: "style-module-copy-module" },
+					input.idempotencyKey
+				);
+				if (input.sourceProjectId === input.projectId) {
+					throw new ORPCError("BAD_REQUEST", {
+						message: "Choose another project.",
+					});
+				}
+				const [source, base] = await Promise.all([
+					context.projectContextStore.getRevision(
+						userId,
+						input.sourceProjectId,
+						input.sourceRevisionId
+					),
+					context.projectContextStore.getRevision(
+						userId,
+						input.projectId,
+						input.baseContextRevisionId
+					),
+				]);
+				if (!(source && base)) {
+					throw new ORPCError("NOT_FOUND", {
+						message: "Project Context not found",
+					});
+				}
+				const rules = source.rules.filter(
+					(rule) => rule.styleModule?.id === input.moduleId
+				);
+				if (!(rules.length && rules[0]?.styleModule)) {
+					throw new ORPCError("NOT_FOUND", {
+						message: "Style Module not found",
+					});
+				}
+				const module = {
+					id: moduleId,
+					name: rules[0].styleModule.name,
+					version: 1,
+				};
+				const targetScope = { kind: "project" as const, id: input.projectId };
+				const changes = rules.map((rule) => ({
+					operation: "add" as const,
+					ruleId: rule.id,
+					scope: targetScope,
+					value: rule.value,
+					rationale: rule.rationale,
+					styleModule: module,
+					evidence: [
+						{
+							kind: "user_decision" as const,
+							statement: `Copy Style Module from ${input.sourceProjectId}.`,
+						},
+					],
+				}));
+				return createStyleProposal(
+					context,
+					input.projectId,
+					base,
+					`Copy Style Module: ${module.name}`,
+					changes,
+					proposalId,
+					Boolean(input.idempotencyKey)
+				);
 			}),
 		create: protectedProcedure
 			.input(contextProposalInputSchema)
@@ -396,6 +670,10 @@ export const appRouter = {
 				return proposal;
 			}),
 	},
+};
+export const appRouter: typeof featureRouters & typeof contextRouters = {
+	...featureRouters,
+	...contextRouters,
 };
 export type AppRouter = typeof appRouter;
 export type AppRouterClient = RouterClient<typeof appRouter>;

@@ -14,13 +14,16 @@ import {
 	createStorage,
 	requireCloudflareConfig,
 } from "./cloudflare";
-import { createContext } from "./context";
+import { createContext, measurementSurface } from "./context";
 import { desktopOrigins, ENV } from "./env.server";
+import { createAssetVersionIntegrityTransform } from "./features/asset-versions/server/asset-version-integrity";
 import { mountAssetVersionRoutes } from "./features/asset-versions/server/asset-version-routes";
 import { mountImportInboxRoutes } from "./features/imports/server/import-inbox-routes";
 import { mountImportInboxRpcGuards } from "./features/imports/server/import-inbox-rpc-guards";
 import { mountPixelEditorRoutes } from "./features/pixel-editor/server/pixel-editor-routes";
 import { mountManagedSnapshotRoutes } from "./features/production-provenance/server/managed-snapshot-routes";
+import { mountProjectArchiveDownloadRoutes } from "./features/project-archives/server/project-archive-download-routes";
+import { mountProjectArchiveImportRoutes } from "./features/project-archives/server/project-archive-import-routes";
 import { mountProjectRoutes } from "./features/projects/server/project-routes";
 import { mountReferenceProductionRoutes } from "./features/reference-production/server/reference-production-routes";
 import { mountRightsRecordEvidenceRoutes } from "./features/rights-evidence/server/rights-record-evidence-routes";
@@ -31,14 +34,19 @@ import {
 	serializeRpcInternalServerError,
 } from "./output-contracts";
 import {
+	archiveObjectStorage,
 	assetVersionStore,
 	auth,
 	createServerAssetVersionStorage,
 	db,
 	importInboxStore,
+	managedOperationServices,
 	managedSnapshotStore,
 	offlineConflictStore,
 	pixelEditorStore,
+	productMeasurementRecorder,
+	projectArchiveImportManifestLimit,
+	projectArchiveStorage,
 	referenceProductionStore,
 	rightsRecordStore,
 	runtimeValidationStore,
@@ -90,6 +98,9 @@ app.use(
 			"X-Unit-Version-Type",
 			"X-Unit-Version-Key",
 			"Idempotency-Key",
+			"X-Project-Archive-SHA256",
+			"X-Project-Archive-Size",
+			"X-Project-Archive-Name",
 		],
 		credentials: true,
 	})
@@ -127,6 +138,20 @@ mountPixelEditorRoutes(app, {
 	createStorage: createServerAssetVersionStorage,
 });
 
+mountProjectArchiveImportRoutes(app, {
+	operations: managedOperationServices?.projectArchiveImportOperations,
+	enabled: projectArchiveImportManifestLimit !== undefined,
+	getSession: (headers) => auth.api.getSession({ headers }),
+});
+
+mountProjectArchiveDownloadRoutes(app, {
+	archives: projectArchiveStorage,
+	objects: archiveObjectStorage,
+	getSession: (headers) => auth.api.getSession({ headers }),
+	getProjectForUser: (userId, projectId) =>
+		getProjectForUser(db, userId, projectId),
+});
+
 mountManagedSnapshotRoutes(app, {
 	managedSnapshotStore,
 	getSession: (headers) => auth.api.getSession({ headers }),
@@ -136,6 +161,7 @@ mountManagedSnapshotRoutes(app, {
 });
 
 mountReferenceProductionRoutes(app, {
+	createAssetVersionIntegrityTransform,
 	referenceProductionStore,
 	getSession: (headers) => auth.api.getSession({ headers }),
 	getProjectForUser: async (userId, projectId) =>
@@ -146,6 +172,9 @@ mountReferenceProductionRoutes(app, {
 mountImportInboxRpcGuards(app);
 
 mountImportInboxRoutes(app, {
+	productMeasurementRecorder,
+	measurementSurface: (headers) =>
+		measurementSurface(headers.get("origin") ?? undefined),
 	importInboxStore,
 	getSession: (headers) => auth.api.getSession({ headers }),
 	getProjectForUser: async (userId, projectId) =>

@@ -245,6 +245,17 @@ export function createMemoryOperationStorage() {
 
 	/** Reads like the API store does: authoritative record only, project-scoped. */
 	const readStore: BackgroundOperationStore = {
+		summary: (_userId, projectId) => {
+			const rows = [...operations.values()].filter(
+				(operation) => operation.projectId === projectId
+			);
+			return Promise.resolve({
+				active: rows.filter((row) =>
+					["pending", "running", "cancel_requested"].includes(row.status)
+				).length,
+				failed: rows.filter((row) => row.status === "failed").length,
+			});
+		},
 		requestCancel: async (_userId, projectId, backgroundOperationId) => {
 			if (operations.get(backgroundOperationId)?.projectId !== projectId) {
 				return { outcome: "not_found" };

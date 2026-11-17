@@ -7,6 +7,8 @@ import {
 	exportBundleCreateInputSchema,
 	exportBundleGetInputSchema,
 	exportBundleListInputSchema,
+	exportBundlePreviewInputSchema,
+	exportBundlePreviewSchema,
 	exportBundleSchema,
 } from "../export-bundles";
 import {
@@ -72,6 +74,19 @@ function godotRejectionMessage(rejection: GodotOutputRejection): string {
 }
 
 export const exportBundlesRouter = {
+	preview: protectedProcedure
+		.input(exportBundlePreviewInputSchema)
+		.output(exportBundlePreviewSchema)
+		.handler(async ({ context, input }) => {
+			const result = await getExportBundleStore(context).preview(
+				context.session.user.id,
+				input
+			);
+			if (!result) {
+				throw new ORPCError("NOT_FOUND", { message: projectNotFound });
+			}
+			return exportBundlePreviewSchema.parse(result);
+		}),
 	create: protectedProcedure
 		.input(exportBundleCreateInputSchema)
 		.output(

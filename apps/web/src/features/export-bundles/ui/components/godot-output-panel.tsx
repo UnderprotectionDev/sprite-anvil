@@ -9,10 +9,11 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { LoadErrorAlert } from "@/components/load-error-alert";
 import { StatusMessage } from "@/components/status-message";
+import { downloadZip } from "@/utils/download-zip";
 import { getSupportReference } from "@/utils/error-notification";
 import { mutationMeta } from "@/utils/mutation-meta";
 import { client, orpc } from "@/utils/orpc";
-import { downloadZip, packGodotOutput } from "../../lib/pack-godot-output";
+import { packGodotOutput } from "../../lib/pack-godot-output";
 import { describeError } from "../../lib/read-export-bundle";
 
 function BundleRow({
@@ -76,7 +77,7 @@ function CreatedStatus({ output }: { output: GodotOutput }) {
 export function GodotOutputPanel({ projectId }: { projectId: string }) {
 	const catalog = useQuery({
 		...orpc.exportBundles.list.queryOptions({ input: { projectId } }),
-		meta: { suppressGlobalErrorToast: true },
+		meta: { errorPresentation: "inline" },
 	});
 	const create = useMutation({
 		...mutationMeta,

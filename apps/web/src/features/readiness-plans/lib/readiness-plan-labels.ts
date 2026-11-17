@@ -12,6 +12,8 @@ export const blockerKindLabels: Record<ReadinessBlockerKind, string> = {
 		"Production Evidence Policy not evaluated",
 	required_item_incomplete: "Required item incomplete",
 	rights_evidence_policy_not_evaluated: "Rights Evidence Policy not evaluated",
+	production_evidence_policy_unmet: "Production Evidence Policy not met",
+	rights_evidence_policy_unmet: "Rights Evidence Policy not met",
 };
 
 export const targetReadinessLabels: Record<

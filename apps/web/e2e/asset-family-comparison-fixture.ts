@@ -9,7 +9,7 @@ export async function prepareAssetFamilyComparisonWorkspace(page: Page) {
 	return {
 		familyName: result.familyName,
 		comparison: page.getByRole("region", {
-			name: `${result.familyName} durum ve yön ailesi karşılaştırması`,
+			name: `${result.familyName} state and direction family comparison`,
 		}),
 	};
 }

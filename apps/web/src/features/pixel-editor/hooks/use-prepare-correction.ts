@@ -35,7 +35,7 @@ export function usePrepareCorrection(projectId: string, draft: PixelDraft) {
 	const pendingKey = usePendingIdempotencyKey();
 	const mutation = useMutation(
 		orpc.generationPackages.create.mutationOptions({
-			meta: { suppressGlobalErrorToast: true },
+			meta: { errorPresentation: "inline" },
 		})
 	);
 	return {

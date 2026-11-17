@@ -26,7 +26,7 @@ export const readGameplayMetadataPackageTarget: GameplayMetadataPackageTargetRea
 		) {
 			throw new ORPCError("BAD_REQUEST", {
 				message:
-					"Bütünlük hatası: kayıt proje veya varlık bağlantısı korunamadı.",
+					"Integrity error: the record's Project or Asset link could not be preserved.",
 			});
 		}
 		const errors = getGameplayMetadataReviewSourceErrors(
@@ -35,7 +35,7 @@ export const readGameplayMetadataPackageTarget: GameplayMetadataPackageTargetRea
 		);
 		if (errors.length) {
 			throw new ORPCError("BAD_REQUEST", {
-				message: `Bütünlük hatası: ${errors.join(" ")}`,
+				message: `Integrity error: ${errors.join(" ")}`,
 			});
 		}
 		return { record, frames: catalog.frames };

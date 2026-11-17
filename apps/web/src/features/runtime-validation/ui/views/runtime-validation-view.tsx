@@ -9,11 +9,11 @@ import { RuntimeValidationRecordForm } from "../forms/runtime-validation-record-
 export function RuntimeValidationView({ projectId }: { projectId: string }) {
 	const records = useQuery({
 		...orpc.runtimeValidation.list.queryOptions({ input: { projectId } }),
-		meta: { suppressGlobalErrorToast: true },
+		meta: { errorPresentation: "inline" },
 	});
 	const bundles = useQuery({
 		...orpc.exportBundles.list.queryOptions({ input: { projectId } }),
-		meta: { suppressGlobalErrorToast: true },
+		meta: { errorPresentation: "inline" },
 	});
 	const recordList = records.data?.records ?? [];
 

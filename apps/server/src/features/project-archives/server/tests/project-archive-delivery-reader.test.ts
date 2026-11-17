@@ -64,6 +64,14 @@ test("source rows become archive records without the user who made them, a reque
 		bundleFiles: [
 			{
 				assetVersionId: null,
+				byteSize: 9,
+				bundleId: "bundle-1",
+				content: "checksums",
+				path: "checksums.txt",
+				sha256: d("8"),
+			},
+			{
+				assetVersionId: null,
 				byteSize: 30,
 				bundleId: "bundle-1",
 				content: "{}",
@@ -172,6 +180,7 @@ test("source rows become archive records without the user who made them, a reque
 	expect(text).not.toContain(d("2"));
 	expect(delivery.exportBundles[0]?.files).toEqual([
 		expect.objectContaining({ content: null, path: "a.txt" }),
+		expect.objectContaining({ content: "checksums", path: "checksums.txt" }),
 		expect.objectContaining({ content: "{}", path: "manifest.json" }),
 	]);
 	expect(delivery.deliveryDiffs).toMatchObject([
@@ -181,6 +190,37 @@ test("source rows become archive records without the user who made them, a reque
 		{
 			kind: "runtime_evidence_file",
 			objectKey: "projects/p/runtime/run",
+			sha256: d("e"),
+			sourceId: "ev-1",
+		},
+	]);
+});
+
+test("rearchives excluded runtime evidence without requiring an object key", () => {
+	const { files } = mapDeliveryRows({
+		...empty,
+		validationEvidence: [
+			{
+				id: "ev-1",
+				projectId: "p",
+				recordId: "val-1",
+				kind: "recording",
+				source: "manual",
+				text: null,
+				fileName: "run.mp4",
+				byteSize: 5000,
+				sha256: d("e"),
+				objectKey: null,
+				requestDigest: d("3"),
+				createdByUserId: "user-1",
+				createdAt: at,
+			},
+		],
+	});
+	expect(files).toMatchObject([
+		{
+			kind: "runtime_evidence_file",
+			objectKey: null,
 			sha256: d("e"),
 			sourceId: "ev-1",
 		},

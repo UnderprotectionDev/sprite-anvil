@@ -1,3 +1,4 @@
+import { requiredSetItemSchema } from "@sprite-anvil/api/family-readiness";
 import type {
 	HistoryRecords,
 	reviewKinds,
@@ -10,9 +11,20 @@ import {
 	legacyAssetAttestations,
 	manualImportEvidence,
 } from "@sprite-anvil/db/schema/asset-production-history";
+import {
+	assetVersionQualityEvidence,
+	assetVersionReviewEvents,
+	compositeVersionReviewEvents,
+} from "@sprite-anvil/db/schema/asset-versions";
 import { backgroundLayerLayouts } from "@sprite-anvil/db/schema/background-layer-layouts";
 import { backgroundScrollingTests } from "@sprite-anvil/db/schema/background-scrolling-tests";
 import { directionalReviews } from "@sprite-anvil/db/schema/directional-reviews";
+import {
+	familyReadinessEvidence,
+	familyRequiredSetActivations,
+	familyRequiredSetHeads,
+	familyRequiredSetRevisions,
+} from "@sprite-anvil/db/schema/family-readiness";
 import { gameplayMetadataRecords } from "@sprite-anvil/db/schema/gameplay-metadata";
 import { generationPackages } from "@sprite-anvil/db/schema/generation-packages";
 import { iconFamilyReviews } from "@sprite-anvil/db/schema/icon-family-reviews";
@@ -33,7 +45,10 @@ import {
 	sourceMetadataMappingFinalizations,
 	sourceMetadataMappingProposals,
 } from "@sprite-anvil/db/schema/source-metadata-mapping";
-import { specializedProfileContractRevisions } from "@sprite-anvil/db/schema/specialized-profile-contracts";
+import {
+	projectSpecializedProfileContracts,
+	specializedProfileContractRevisions,
+} from "@sprite-anvil/db/schema/specialized-profile-contracts";
 import { textureRepetitionReviews } from "@sprite-anvil/db/schema/texture-repetition-reviews";
 import { tilesetAdjacencyReviews } from "@sprite-anvil/db/schema/tileset-adjacency-reviews";
 import { uiStateComparisons } from "@sprite-anvil/db/schema/ui-state-comparisons";
@@ -56,9 +71,14 @@ export interface ReviewRow {
 }
 
 export interface HistoryRows {
+	assetVersionQuality?: (typeof assetVersionQualityEvidence.$inferSelect)[];
+	assetVersionReviews?: (typeof assetVersionReviewEvents.$inferSelect)[];
 	attestations: (typeof legacyAssetAttestations.$inferSelect)[];
+	compositeVersionReviews?: (typeof compositeVersionReviewEvents.$inferSelect)[];
+	contractActivations?: (typeof projectSpecializedProfileContracts.$inferSelect)[];
 	contractRevisions: (typeof specializedProfileContractRevisions.$inferSelect)[];
 	experiments: (typeof productionExperiments.$inferSelect)[];
+	familyReadinessEvidence?: (typeof familyReadinessEvidence.$inferSelect)[];
 	finalizations: (typeof sourceMetadataMappingFinalizations.$inferSelect)[];
 	gameplayMetadata: (typeof gameplayMetadataRecords.$inferSelect)[];
 	generationPackages: (typeof generationPackages.$inferSelect)[];
@@ -67,6 +87,9 @@ export interface HistoryRows {
 	providerRecords: (typeof providerGenerationRecords.$inferSelect)[];
 	recipes: (typeof productionRecipes.$inferSelect)[];
 	recipeVersions: (typeof productionRecipeVersions.$inferSelect)[];
+	requiredSetActivations?: (typeof familyRequiredSetActivations.$inferSelect)[];
+	requiredSetHeads?: (typeof familyRequiredSetHeads.$inferSelect)[];
+	requiredSetRevisions?: (typeof familyRequiredSetRevisions.$inferSelect)[];
 	reviews: { kind: ReviewKind; rows: ReviewRow[] }[];
 	rights: (typeof rightsRecords.$inferSelect)[];
 	trials: (typeof productionExperimentTrials.$inferSelect)[];
@@ -85,6 +108,58 @@ export function mapHistoryRows(rows: HistoryRows): {
 	history: HistoryRecords;
 } {
 	const history: HistoryRecords = {
+		compositeVersionReviews: (rows.compositeVersionReviews ?? []).map(
+			({ projectId: _project, createdByUserId: _user, createdAt, ...row }) => ({
+				...row,
+				createdAt: iso(createdAt),
+			})
+		),
+		requiredSetRevisions: (rows.requiredSetRevisions ?? []).map(
+			({ projectId: _project, createdByUserId: _user, createdAt, ...row }) => ({
+				...row,
+				items: requiredSetItemSchema.array().parse(row.items),
+				createdAt: iso(createdAt),
+			})
+		),
+		requiredSetHeads: (rows.requiredSetHeads ?? []).map(
+			({ projectId: _project, updatedAt, ...row }) => ({
+				...row,
+				id: row.assetFamilyId,
+				updatedAt: iso(updatedAt),
+			})
+		),
+		requiredSetActivations: (rows.requiredSetActivations ?? []).map(
+			({
+				projectId: _project,
+				activatedByUserId: _user,
+				activatedAt,
+				...row
+			}) => ({ ...row, activatedAt: iso(activatedAt) })
+		),
+		assetVersionReviews: (rows.assetVersionReviews ?? []).map(
+			({ projectId: _project, createdByUserId: _user, createdAt, ...row }) => ({
+				...row,
+				createdAt: iso(createdAt),
+			})
+		),
+		assetVersionQuality: (rows.assetVersionQuality ?? []).map(
+			({ projectId: _project, createdByUserId: _user, createdAt, ...row }) => ({
+				...row,
+				createdAt: iso(createdAt),
+			})
+		),
+		familyReadinessEvidence: (rows.familyReadinessEvidence ?? []).map(
+			({ projectId: _project, createdByUserId: _user, createdAt, ...row }) => ({
+				...row,
+				createdAt: iso(createdAt),
+			})
+		),
+		contractActivations: (rows.contractActivations ?? []).map((row) => ({
+			id: row.contractRevisionId,
+			profileId: row.profileId,
+			contractRevisionId: row.contractRevisionId,
+			activatedAt: iso(row.activatedAt),
+		})),
 		contractRevisions: rows.contractRevisions.map((row) => ({
 			contractSchemaVersion: row.contractSchemaVersion,
 			contractVersion: row.contractVersion,
@@ -291,6 +366,14 @@ export async function readProjectArchiveHistory(
 		}))
 	);
 	const [
+		compositeVersionReviews,
+		requiredSetRevisions,
+		requiredSetHeads,
+		requiredSetActivations,
+		assetVersionReviews,
+		assetVersionQuality,
+		readinessEvidence,
+		contractActivations,
 		attestations,
 		experiments,
 		finalizations,
@@ -304,6 +387,38 @@ export async function readProjectArchiveHistory(
 		rights,
 		trials,
 	] = await Promise.all([
+		db
+			.select()
+			.from(compositeVersionReviewEvents)
+			.where(eq(compositeVersionReviewEvents.projectId, projectId)),
+		db
+			.select()
+			.from(familyRequiredSetRevisions)
+			.where(eq(familyRequiredSetRevisions.projectId, projectId)),
+		db
+			.select()
+			.from(familyRequiredSetHeads)
+			.where(eq(familyRequiredSetHeads.projectId, projectId)),
+		db
+			.select()
+			.from(familyRequiredSetActivations)
+			.where(eq(familyRequiredSetActivations.projectId, projectId)),
+		db
+			.select()
+			.from(assetVersionReviewEvents)
+			.where(eq(assetVersionReviewEvents.projectId, projectId)),
+		db
+			.select()
+			.from(assetVersionQualityEvidence)
+			.where(eq(assetVersionQualityEvidence.projectId, projectId)),
+		db
+			.select()
+			.from(familyReadinessEvidence)
+			.where(eq(familyReadinessEvidence.projectId, projectId)),
+		db
+			.select()
+			.from(projectSpecializedProfileContracts)
+			.where(eq(projectSpecializedProfileContracts.projectId, projectId)),
 		db
 			.select()
 			.from(legacyAssetAttestations)
@@ -362,6 +477,10 @@ export async function readProjectArchiveHistory(
 				)
 			),
 			...gameplayMetadata.map((row) => row.contractRevisionId),
+			...contractActivations.map((row) => row.contractRevisionId),
+			...readinessEvidence.flatMap((row) =>
+				row.profileContractRevisionIds.filter((id): id is string => id !== null)
+			),
 		]),
 	];
 	const contractRevisions =
@@ -372,7 +491,15 @@ export async function readProjectArchiveHistory(
 					.from(specializedProfileContractRevisions)
 					.where(inArray(specializedProfileContractRevisions.id, contractIds));
 	return mapHistoryRows({
+		compositeVersionReviews,
+		requiredSetRevisions,
+		requiredSetHeads,
+		requiredSetActivations,
+		assetVersionReviews,
+		assetVersionQuality,
+		familyReadinessEvidence: readinessEvidence,
 		attestations,
+		contractActivations,
 		contractRevisions,
 		experiments,
 		finalizations,

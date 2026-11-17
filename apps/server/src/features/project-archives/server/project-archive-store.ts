@@ -6,6 +6,7 @@ import type {
 import {
 	type BuiltProjectArchive,
 	buildProjectArchive,
+	legacyProjectArchiveSchemaVersion,
 	type ProjectArchive,
 	projectArchiveCatalogSchema,
 	projectArchiveRequestDigest,
@@ -29,6 +30,12 @@ import type {
 } from "./project-archive-storage";
 
 export interface ProjectArchiveStoreOptions {
+	/**
+	 * Confirms an included file still exists in storage under its recorded
+	 * digest and size. Without it the recorded digests are trusted.
+	 */
+	/** Checks existence for catalog display without downloading file contents. */
+	fileAvailable?: (objectKey: string) => Promise<boolean>;
 	/** Resolves a project the user owns; defaults to the shared project access lookup. */
 	getProjectForUser?: (userId: string, projectId: string) => Promise<unknown>;
 	now?: () => Date;
@@ -36,10 +43,6 @@ export interface ProjectArchiveStoreOptions {
 	secretValues?: () => readonly string[];
 	sourceReader: ProjectArchiveSourceReader;
 	storage: ProjectArchiveStorage;
-	/**
-	 * Confirms an included file still exists in storage under its recorded
-	 * digest and size. Without it the recorded digests are trusted.
-	 */
 	verifyFile?: (file: {
 		byteSize: number;
 		objectKey: string;
@@ -93,10 +96,14 @@ export function toArchive(stored: StoredProjectArchiveRecord): ProjectArchive {
 }
 
 /** Failure text when the stored archive no longer matches its own manifest, else null. */
-async function integrityFailure(
+export async function integrityFailure(
 	stored: StoredProjectArchiveRecord
 ): Promise<string | null> {
-	if (stored.archive.schemaVersion !== projectArchiveSchemaVersion) {
+	if (
+		![legacyProjectArchiveSchemaVersion, projectArchiveSchemaVersion].includes(
+			stored.archive.schemaVersion
+		)
+	) {
 		return "The Project Archive uses a schema version this build does not read.";
 	}
 	let archive: ProjectArchive;
@@ -156,6 +163,31 @@ export function createProjectArchiveStore(
 	const now = options.now ?? (() => new Date());
 
 	return {
+		async listWorkingFiles(userId, projectId, cursor) {
+			if ((await lookupProject(userId, projectId)) === null) {
+				return null;
+			}
+			const page = (await sourceReader.readWorkingFiles?.(
+				projectId,
+				cursor
+			)) ?? { files: [], nextCursor: null };
+			const files = await Promise.all(
+				page.files.map(async ({ objectKey, sha256, ...file }) => {
+					let available = false;
+					if (options.fileAvailable) {
+						available = await options.fileAvailable(objectKey);
+					} else if (options.verifyFile) {
+						available = await options.verifyFile({
+							objectKey,
+							sha256,
+							byteSize: file.byteSize,
+						});
+					}
+					return { ...file, available };
+				})
+			);
+			return { files, nextCursor: page.nextCursor };
+		},
 		async create(userId, input) {
 			if ((await lookupProject(userId, input.projectId)) === null) {
 				return null;

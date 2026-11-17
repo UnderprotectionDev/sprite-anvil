@@ -79,8 +79,42 @@ export function foundationSource(): ProjectArchiveSource {
 		delivery: emptyDeliveryRecords(),
 		history: emptyHistoryRecords(),
 		records: {
+			contextProposals: [],
+			managedSnapshots: [
+				{
+					id: ids.workingA,
+					assetRecordId: ids.record,
+					assetVersionId: ids.version2,
+					fileName: "hero.aseprite",
+					byteSize: 9_000_000,
+					sha256: digest("c"),
+					createdAt: "2026-11-02T10:00:00.000Z",
+				},
+				{
+					id: ids.workingB,
+					assetRecordId: ids.record,
+					assetVersionId: ids.version2,
+					fileName: "hero-alt.aseprite",
+					byteSize: 8_000_000,
+					sha256: digest("d"),
+					createdAt: "2026-11-02T10:00:00.000Z",
+				},
+			],
+			importInboxEntries: [],
+			referenceBoardImages: [],
+			referenceBoardImageHistory: [],
+			visualWorlds: [
+				{
+					id: ids.world,
+					name: "World",
+					description: "",
+					createdAt: "2026-11-01T10:00:00.000Z",
+				},
+			],
+			themes: [],
 			assetFamilies: [
 				{
+					canonicalVersionId: null,
 					createdAt: "2026-11-01T10:00:00.000Z",
 					id: ids.family,
 					name: "Hero",
@@ -212,6 +246,26 @@ export function setup(
 		return new Date(Date.UTC(2026, 10, 10, 10, 0, tick));
 	};
 	const sourceReader: ProjectArchiveSourceReader = {
+		readWorkingFiles: (_requested) =>
+			Promise.resolve({
+				files: (options.source ?? foundationSource()).files
+					.filter(
+						(file) =>
+							file.kind === "working_file" &&
+							file.assetVersionId &&
+							file.fileName &&
+							file.objectKey
+					)
+					.map((file) => ({
+						id: file.sourceId,
+						assetVersionId: file.assetVersionId ?? "",
+						fileName: file.fileName ?? "",
+						byteSize: file.byteSize,
+						objectKey: file.objectKey ?? "",
+						sha256: file.sha256,
+					})),
+				nextCursor: null,
+			}),
 		read: (_userId, requested) =>
 			Promise.resolve(
 				requested === projectId ? (options.source ?? foundationSource()) : null
@@ -230,7 +284,7 @@ export function setup(
 			now,
 			secretValues: () => options.secretValues ?? [],
 			sourceReader,
-			verifyFile: options.verifyFile,
+			verifyFile: options.verifyFile ?? (() => Promise.resolve(true)),
 			storage: options.wrapStorage ? options.wrapStorage(storage) : storage,
 		}),
 		session: { user: { id: userId } },
@@ -251,6 +305,12 @@ export function setup(
 			call(
 				appRouter.projectArchives.get,
 				{ archiveId, projectId: id },
+				{ context }
+			),
+		listWorkingFiles: () =>
+			call(
+				appRouter.projectArchives.listWorkingFiles,
+				{ projectId },
 				{ context }
 			),
 		list: (id = projectId) =>

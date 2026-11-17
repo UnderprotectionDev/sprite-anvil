@@ -29,31 +29,31 @@ describe("Reference Transfer Constraints", () => {
 			await (await $("input[name='email']")).setValue(fixture.email);
 			await (await $("input[name='password']")).setValue(fixture.password);
 			await (await $("button=Sign Up")).click();
-			await (await $("h1=Oyun projeleri")).waitForDisplayed();
-			await (await $("a=Projeler")).click();
-			await openWorkspaceTask("Yeni oyun projesi");
+			await (await $("h1=Game projects")).waitForDisplayed();
+			await (await $("a=Projects")).click();
+			await openWorkspaceTask("New game project");
 			await (await $("input#project-name")).setValue(fixture.projectName);
 			await (await $("textarea#project-art-direction")).setValue(
 				fixture.generalArtDirection
 			);
-			await (await $("button=Proje oluştur")).click();
+			await (await $("button=Create project")).click();
 
 			const projectLink = await $(
-				`a[aria-label="${fixture.projectName} varlık kayıtlarını aç"]`
+				`a[aria-label="${fixture.projectName} open Asset Records"]`
 			);
 			await projectLink.waitForClickable();
 			await projectLink.click();
-			await openWorkspaceTask("Yeni varlık kaydı");
+			await openWorkspaceTask("New Asset Record");
 			await (await $("input#asset-record-name")).setValue(fixture.name);
 			await (await $("input[type='checkbox']")).click();
-			await (await $("button=Varlık kaydı oluştur")).click();
+			await (await $("button=Create Asset Record")).click();
 			await (await $(`h1=${fixture.name}`)).waitForDisplayed();
 
 			const uploadedPath = await browser.uploadFile(imagePath);
-			await openWorkspaceTask("Üretim ve içe aktarma");
+			await openWorkspaceTask("Production and import");
 			await (await $("input#reference-upload-file")).setValue(uploadedPath);
 			const forbiddenFeatures = await $(
-				'//fieldset[legend[normalize-space()="Kaçınılacak özellikler"]]'
+				'//fieldset[legend[normalize-space()="Avoided features"]]'
 			);
 			await (
 				await forbiddenFeatures.$(
@@ -61,16 +61,16 @@ describe("Reference Transfer Constraints", () => {
 				)
 			).click();
 			await (
-				await $('//label[span[normalize-space()="Referans notu"]]/textarea')
+				await $('//label[span[normalize-space()="Reference note"]]/textarea')
 			).setValue("Use the pose only.");
-			await (await $("button=Görseli yükle")).click();
-			await $("p*=Referans görseli panoya eklendi.").waitForDisplayed();
+			await (await $("button=Upload image")).click();
+			await $("p*=Reference image added to the board.").waitForDisplayed();
 
 			let card = await $(
-				'//article[.//img[@alt="walking-pose.png adlı referans görseli"]]'
+				'//article[.//img[@alt="walking-pose.png reference"]]'
 			);
 			await card.$("p*=Use the pose only.").waitForDisplayed();
-			await (await card.$("summary=Kuralları düzenle")).click();
+			await (await card.$("summary=Edit rules")).click();
 			await (await card.$("select[id$='-role']")).selectByAttribute(
 				"value",
 				"custom"
@@ -81,23 +81,19 @@ describe("Reference Transfer Constraints", () => {
 			await (await card.$("textarea[id$='-notes']")).setValue(
 				"Timing cue only."
 			);
-			await (await card.$("button=Kuralları kaydet")).click();
-			await card
-				.$("p*=Referans kuralları ve notu kaydedildi.")
-				.waitForDisplayed();
-			await (await card.$("summary=Kural geçmişi")).click();
-			await card.$("p*=Revizyon 1").waitForDisplayed();
-			await card.$("p*=Revizyon 2").waitForDisplayed();
+			await (await card.$("button=Save rules")).click();
+			await card.$("p*=Reference rules and note saved.").waitForDisplayed();
+			await (await card.$("summary=Rule history")).click();
+			await card.$("p*=Revision 1").waitForDisplayed();
+			await card.$("p*=Revision 2").waitForDisplayed();
 
 			await browser.refresh();
-			await openWorkspaceTask("Üretim ve içe aktarma");
-			card = await $(
-				'//article[.//img[@alt="walking-pose.png adlı referans görseli"]]'
-			);
-			await card.$("p*=Animation timing cue · Revizyon 2").waitForDisplayed();
-			await card.$("summary=Kural geçmişi").click();
-			await card.$("p*=Revizyon 1").waitForDisplayed();
-			await card.$("p*=Revizyon 2").waitForDisplayed();
+			await openWorkspaceTask("Production and import");
+			card = await $('//article[.//img[@alt="walking-pose.png reference"]]');
+			await card.$("p*=Animation timing cue · Revision 2").waitForDisplayed();
+			await card.$("summary=Rule history").click();
+			await card.$("p*=Revision 1").waitForDisplayed();
+			await card.$("p*=Revision 2").waitForDisplayed();
 		} finally {
 			rmSync(directory, { force: true, recursive: true });
 		}

@@ -10,6 +10,7 @@ import type {
 } from "@sprite-anvil/api/family-readiness";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { createReadinessPlanStore } from "../readiness-plan-store";
+import type { ReadinessPolicyDependencies } from "../readiness-policy-evidence";
 import { createMemoryReadinessPlanStorage } from "./memory-readiness-plan-storage";
 
 const scorePattern = /score/i;
@@ -164,6 +165,7 @@ function readinessOf(
 function setup(
 	options: {
 		hasAccess?: boolean;
+		policyEvidence?: ReadinessPolicyDependencies;
 		revision?: Record<string, unknown> | null;
 		session?: boolean;
 	} = {}
@@ -282,6 +284,7 @@ function setup(
 	const context = {
 		readinessPlanStore: createReadinessPlanStore({
 			deliveryTargets,
+			policyEvidence: options.policyEvidence,
 			dependencies,
 			familyReadiness,
 			fulfilments: {
@@ -656,4 +659,78 @@ test("an unavailable dependency catalog is an error and not an empty one", async
 	await expect(reorder([approval, quality, usageTest])).rejects.toMatchObject({
 		code: "NOT_FOUND",
 	});
+});
+
+test("configured policy evidence evaluates real package history through the API", async () => {
+	let packagesPresent = true;
+	const policyEvidence = {
+		assetVersions: {
+			list: () =>
+				Promise.resolve({
+					assetVersions: [
+						{
+							id: "version-east",
+							projectId,
+							assetFamilyId: knight,
+							assetRecordId: "record-east",
+							versionNumber: 1,
+							productionEvidence: {
+								manualImportEvidence: { generationPackageId: "package-east" },
+							},
+						},
+						{
+							id: "version-idle",
+							projectId,
+							assetFamilyId: slime,
+							assetRecordId: "record-idle",
+							versionNumber: 1,
+							productionEvidence: {
+								manualImportEvidence: { generationPackageId: "package-idle" },
+							},
+						},
+					],
+					unitVersions: [],
+					compositeVersions: [],
+				}),
+		},
+		generationPackages: {
+			list: (_user: string, _project: string, record: string) =>
+				Promise.resolve(
+					packagesPresent
+						? [
+								{
+									id:
+										record === "record-east" ? "package-east" : "package-idle",
+									projectId,
+									assetRecordId: record,
+									referenceRoles: [],
+								},
+							]
+						: []
+				),
+		},
+		tracking: { getTracking: () => Promise.resolve(null) },
+		references: { listImages: () => Promise.resolve([]) },
+		rights: { list: () => Promise.resolve([]) },
+	} as unknown as ReadinessPolicyDependencies;
+	const { get, state } = setup({
+		policyEvidence,
+		revision: revisionScope({
+			productionEvidencePolicy: {
+				defaultRequirement: "full_generation_package_history",
+				familyRequirements: [],
+			},
+		}),
+	});
+	state.knight = [
+		{ blockers: [], id: "east-facing", versions: ["version-east"] },
+		{ blockers: [], id: "ground-scene", versions: ["version-east"] },
+	];
+	expect((await get()).targetReadiness).toBe("ready");
+	packagesPresent = false;
+	const blocked = await get();
+	expect(blocked.targetReadiness).toBe("blocked");
+	expect(blocked.blockers.map((blocker) => blocker.kind)).toContain(
+		"production_evidence_policy_unmet"
+	);
 });

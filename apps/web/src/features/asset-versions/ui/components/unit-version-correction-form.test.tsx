@@ -134,16 +134,18 @@ test("uploads one corrected unit from an exact source while retaining the previo
 		</>
 	);
 
-	await user.type(screen.getByLabelText("Birim adı"), "attack/frame-3");
-	const sourceSelect = screen.getByLabelText("Kaynak Varlık Sürümü");
-	expect(screen.queryByRole("option", { name: "Sürüm 3 · Aday" })).toBeNull();
+	await user.type(screen.getByLabelText("Unit name"), "attack/frame-3");
+	const sourceSelect = screen.getByLabelText("Source Asset Version");
+	expect(
+		screen.queryByRole("option", { name: "Version 3 · Candidate" })
+	).toBeNull();
 	await user.selectOptions(sourceSelect, "version-frame-1");
-	const fileInput = screen.getByLabelText("Düzeltilmiş PNG veya WebP");
+	const fileInput = screen.getByLabelText("Corrected PNG or WebP");
 	await user.upload(fileInput, correctedFile);
 	expect((sourceSelect as HTMLSelectElement).value).toBe("version-frame-1");
 	expect((fileInput as HTMLInputElement).files).toHaveLength(1);
 	const submit = screen.getByRole("button", {
-		name: "Birim düzeltmesini kaydet",
+		name: "Save unit correction",
 	});
 	expect((submit as HTMLButtonElement).disabled).toBe(false);
 	await user.click(submit);
@@ -156,10 +158,10 @@ test("uploads one corrected unit from an exact source while retaining the previo
 		},
 	});
 	expect(
-		screen.getByText("Kare · attack/frame-3 · Birim Sürümü 1")
+		screen.getByText("Frame · attack/frame-3 · Unit Version 1")
 	).toBeTruthy();
 	expect(
-		screen.getByText("Karo · grass/inner-corner · Birim Sürümü 1")
+		screen.getByText("Karo · grass/inner-corner · Unit Version 1")
 	).toBeTruthy();
 });
 
@@ -182,29 +184,33 @@ test("keeps the save disabled until a unit name, source, and file are present, a
 		/>
 	);
 	const submit = screen.getByRole("button", {
-		name: "Birim düzeltmesini kaydet",
+		name: "Save unit correction",
 	});
-	const typeSelect = screen.getByLabelText("Birim türü");
-	const sourceSelect = screen.getByLabelText("Kaynak Varlık Sürümü");
+	const typeSelect = screen.getByLabelText("Unit type");
+	const sourceSelect = screen.getByLabelText("Source Asset Version");
 	expect(typeSelect).toHaveValue("frame");
 	expect(submit).toBeDisabled();
 
-	await user.type(screen.getByLabelText("Birim adı"), "   ");
+	await user.type(screen.getByLabelText("Unit name"), "   ");
 	await user.selectOptions(sourceSelect, "version-source");
 	await user.upload(
-		screen.getByLabelText("Düzeltilmiş PNG veya WebP"),
+		screen.getByLabelText("Corrected PNG or WebP"),
 		correctedFile
 	);
 	expect(submit).toBeDisabled();
 
-	await user.clear(screen.getByLabelText("Birim adı"));
-	await user.type(screen.getByLabelText("Birim adı"), " grass/inner-corner ");
-	expect(screen.queryByRole("option", { name: "Sürüm 3 · Aday" })).toBeNull();
+	await user.clear(screen.getByLabelText("Unit name"));
+	await user.type(screen.getByLabelText("Unit name"), " grass/inner-corner ");
+	expect(
+		screen.queryByRole("option", { name: "Version 3 · Candidate" })
+	).toBeNull();
 	await user.selectOptions(typeSelect, "tile");
 	expect(
-		screen.getByRole("option", { name: "Sürüm 3 · Aday" })
+		screen.getByRole("option", { name: "Version 3 · Candidate" })
 	).toBeInTheDocument();
-	expect(screen.queryByRole("option", { name: "Sürüm 2 · Aday" })).toBeNull();
+	expect(
+		screen.queryByRole("option", { name: "Version 2 · Candidate" })
+	).toBeNull();
 	expect(sourceSelect).toHaveValue("version-source");
 	expect(submit).toBeEnabled();
 
@@ -221,7 +227,7 @@ test("keeps the save disabled until a unit name, source, and file are present, a
 	await user.click(submit);
 	expect(upload).toHaveBeenCalledTimes(2);
 	expect(submit).toBeDisabled();
-	expect(screen.getByLabelText("Birim adı")).toHaveValue(
+	expect(screen.getByLabelText("Unit name")).toHaveValue(
 		" grass/inner-corner "
 	);
 	expect(sourceSelect).toHaveValue("version-source");
@@ -237,13 +243,13 @@ test("drops a selected source that no longer matches the unit and disables write
 			writes={{ upload: vi.fn(), writesDisabled: false } as never}
 		/>
 	);
-	await user.type(screen.getByLabelText("Birim adı"), "attack/frame-3");
+	await user.type(screen.getByLabelText("Unit name"), "attack/frame-3");
 	await user.selectOptions(
-		screen.getByLabelText("Kaynak Varlık Sürümü"),
+		screen.getByLabelText("Source Asset Version"),
 		"version-frame-1"
 	);
-	await user.selectOptions(screen.getByLabelText("Birim türü"), "direction");
-	expect(screen.getByLabelText("Kaynak Varlık Sürümü")).toHaveValue("");
+	await user.selectOptions(screen.getByLabelText("Unit type"), "direction");
+	expect(screen.getByLabelText("Source Asset Version")).toHaveValue("");
 
 	rerender(
 		<UnitVersionCorrectionForm
@@ -254,14 +260,14 @@ test("drops a selected source that no longer matches the unit and disables write
 		/>
 	);
 	for (const label of [
-		"Birim türü",
-		"Birim adı",
-		"Kaynak Varlık Sürümü",
-		"Düzeltilmiş PNG veya WebP",
+		"Unit type",
+		"Unit name",
+		"Source Asset Version",
+		"Corrected PNG or WebP",
 	]) {
 		expect(screen.getByLabelText(label)).toBeDisabled();
 	}
 	expect(
-		screen.getByRole("button", { name: "Birim düzeltmesini kaydet" })
+		screen.getByRole("button", { name: "Save unit correction" })
 	).toBeDisabled();
 });

@@ -11,7 +11,7 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { useForm, useStore } from "@tanstack/react-form";
-import type { useAssetVersionWrites } from "../../hooks/use-asset-version-writes";
+import type { useAssetVersionWrites } from "@/utils/use-asset-version-writes";
 import { reviewDispositionLabels } from "../../lib/review-disposition-labels";
 import {
 	unitVersionCorrectionFormSchema,
@@ -19,10 +19,10 @@ import {
 } from "../../schemas";
 
 export const unitTypeLabels: Record<UnitVersionType, string> = {
-	frame: "Kare",
-	direction: "Yön",
+	frame: "Frame",
+	direction: "Direction",
 	tile: "Karo",
-	state: "Durum",
+	state: "State",
 };
 
 const labelClassName = "block space-y-1 text-sm";
@@ -98,15 +98,14 @@ export function UnitVersionCorrectionForm({
 
 	return (
 		<div className="space-y-3 rounded-md border p-3">
-			<h5 className="font-medium">Birim Sürümünü seçici düzelt</h5>
+			<h5 className="font-medium">Selectively correct Unit Version</h5>
 			<p className="text-muted-foreground text-sm">
-				Düzeltilmiş tek birim dosyasını yükleyin. Aynı birimde sonraki
-				düzeltmeleri sürdürmek için aynı birim adını kullanın; kaynak ve diğer
-				birimler korunur.
+				Upload the corrected single-unit file. Use the same unit name for later
+				corrections to that unit; the source and other units are preserved.
 			</p>
 			{assetVersions.length === 0 ? (
 				<p className="text-muted-foreground text-sm">
-					Önce kaynak olarak kullanılacak bir Varlık Sürümü yükleyin.
+					Upload an Asset Version to use as the source first.
 				</p>
 			) : null}
 			<form
@@ -120,7 +119,7 @@ export function UnitVersionCorrectionForm({
 				<form.Field name="unitType">
 					{(field) => (
 						<Label className={labelClassName} htmlFor={`${formId}-type`}>
-							<span className="block">Birim türü</span>
+							<span className="block">Unit type</span>
 							<NativeSelect
 								className={selectWrapperClassName}
 								disabled={writes.writesDisabled}
@@ -146,7 +145,7 @@ export function UnitVersionCorrectionForm({
 				<form.Field name="unitKey">
 					{(field) => (
 						<Label className={labelClassName} htmlFor={`${formId}-key`}>
-							<span className="block">Birim adı</span>
+							<span className="block">Unit name</span>
 							<Input
 								className={controlClassName}
 								disabled={writes.writesDisabled}
@@ -156,7 +155,7 @@ export function UnitVersionCorrectionForm({
 								onChange={(event) =>
 									field.handleChange(event.currentTarget.value)
 								}
-								placeholder="Örn. saldırı/kare-3"
+								placeholder="e.g. attack/frame-3"
 								required
 								value={field.state.value}
 							/>
@@ -166,7 +165,7 @@ export function UnitVersionCorrectionForm({
 				<form.Field name="sourceAssetVersionId">
 					{(field) => (
 						<Label className={labelClassName} htmlFor={`${formId}-source`}>
-							<span className="block">Kaynak Varlık Sürümü</span>
+							<span className="block">Source Asset Version</span>
 							<NativeSelect
 								className={selectWrapperClassName}
 								disabled={writes.writesDisabled || sourceVersions.length === 0}
@@ -179,11 +178,11 @@ export function UnitVersionCorrectionForm({
 								value={selectedSource?.id ?? ""}
 							>
 								<NativeSelectOption value="">
-									Kaynak sürümü seçin
+									Select source version
 								</NativeSelectOption>
 								{sourceVersions.map((version) => (
 									<NativeSelectOption key={version.id} value={version.id}>
-										Sürüm {version.versionNumber} ·{" "}
+										Version {version.versionNumber} ·{" "}
 										{reviewDispositionLabels[version.reviewDisposition]}
 									</NativeSelectOption>
 								))}
@@ -194,7 +193,7 @@ export function UnitVersionCorrectionForm({
 				<form.Field name="file">
 					{(field) => (
 						<Label className={labelClassName} htmlFor={`${formId}-file`}>
-							<span className="block">Düzeltilmiş PNG veya WebP</span>
+							<span className="block">Corrected PNG or WebP</span>
 							<Input
 								accept="image/png,image/webp"
 								className="block h-auto min-h-11 w-full rounded-md border px-3 py-2 text-sm file:mr-3 md:text-sm"
@@ -219,7 +218,7 @@ export function UnitVersionCorrectionForm({
 						}
 						type="submit"
 					>
-						Birim düzeltmesini kaydet
+						Save unit correction
 					</Button>
 				</div>
 			</form>
@@ -240,10 +239,10 @@ export function UnitVersionHistory({
 
 	return (
 		<div className="space-y-2">
-			<h5 className="font-medium">Birim Sürümleri</h5>
+			<h5 className="font-medium">Unit Versions</h5>
 			{unitVersions.length === 0 ? (
 				<p className="text-muted-foreground text-sm">
-					Henüz Birim Sürümü kaydedilmedi.
+					No Unit Versions saved yet.
 				</p>
 			) : (
 				<ol className="list-inside list-disc space-y-1 text-sm">
@@ -254,13 +253,13 @@ export function UnitVersionHistory({
 							<li key={unitVersion.id}>
 								<span>
 									{unitTypeLabels[unitVersion.unitType]} · {unitVersion.unitKey}{" "}
-									· Birim Sürümü {unitVersion.versionNumber}
+									· Unit Version {unitVersion.versionNumber}
 								</span>
 								{version && source ? (
 									<span className="text-muted-foreground">
 										{" "}
-										— Aday Sürüm {version.versionNumber}; kaynak Varlık Sürümü{" "}
-										{source.versionNumber}
+										— Candidate Version {version.versionNumber}; source Asset
+										Version {source.versionNumber}
 									</span>
 								) : null}
 							</li>

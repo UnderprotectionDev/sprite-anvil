@@ -33,7 +33,7 @@ function TargetReadiness({
 		...orpc.runtimeValidation.deliveryTargetReadiness.queryOptions({
 			input: { bundleId, projectId, revisionId },
 		}),
-		meta: { suppressGlobalErrorToast: true },
+		meta: { errorPresentation: "inline" },
 	});
 	return (
 		<li className="space-y-2 rounded border p-3">
@@ -93,7 +93,7 @@ export function RuntimeValidationReadinessPanel({
 	const [bundleId, setBundleId] = useState(bundles[0]?.id ?? "");
 	const catalog = useQuery({
 		...orpc.deliveryPlanning.list.queryOptions({ input: { projectId } }),
-		meta: { suppressGlobalErrorToast: true },
+		meta: { errorPresentation: "inline" },
 	});
 	const requiring = (catalog.data?.deliveryTargets ?? []).flatMap((target) =>
 		target.activeRevision?.runtimeValidationCriterion

@@ -84,7 +84,7 @@ export const animationMetadataPackageSchema = payloadSchema
 		(value) =>
 			new TextEncoder().encode(JSON.stringify(value)).length <=
 			animationMetadataPackageSizeLimit,
-		"Animasyon Metadata Paketi 512 KiB sınırını aşıyor."
+		"Animation Metadata Package exceeds the 512 KiB limit."
 	);
 
 const packageJsonSchema = z
@@ -93,7 +93,7 @@ const packageJsonSchema = z
 		(value) =>
 			new TextEncoder().encode(JSON.stringify(value)).length <=
 			animationMetadataPackageSizeLimit,
-		"Animasyon Metadata Paketi 512 KiB sınırını aşıyor."
+		"Animation Metadata Package exceeds the 512 KiB limit."
 	);
 
 export const animationMetadataPackageReadInputSchema =
@@ -138,7 +138,7 @@ function getCompositionMembershipIntegrityErrors(
 			membershipIds.has(membership.unitVersionId) ||
 			membershipSlots.has(slot)
 		) {
-			errors.push("Bileşim Üyeliği yineleniyor.");
+			errors.push("Composition Membership is duplicated.");
 		}
 		membershipIds.add(membership.unitVersionId);
 		membershipSlots.add(slot);
@@ -152,7 +152,7 @@ function getCompositionMembershipIntegrityErrors(
 			unitVersion.unitType !== membership.unitType ||
 			unitVersion.unitKey !== membership.unitKey
 		) {
-			errors.push("Birim Sürümü ve Bileşim Üyeliği eşleşmiyor.");
+			errors.push("Unit Version and Composition Membership do not match.");
 		}
 	}
 
@@ -160,7 +160,9 @@ function getCompositionMembershipIntegrityErrors(
 		unitVersionCount !== composite.compositionMemberships.length ||
 		membershipIds.size !== unitVersionCount
 	) {
-		errors.push("Birleşik Sürümün kesin Birim Sürümleri korunamadı.");
+		errors.push(
+			"The exact Unit Versions of the Composite Version could not be preserved."
+		);
 	}
 	return errors;
 }
@@ -173,18 +175,20 @@ function getAssetVersionPinIntegrityErrors(
 	const assetVersionPinIds = new Set<string>();
 	for (const pin of target.assetVersionPins) {
 		if (assetVersionPinIds.has(pin.id)) {
-			errors.push("Asset Version kimliği yineleniyor.");
+			errors.push("Asset Version ID is duplicated.");
 		}
 		assetVersionPinIds.add(pin.id);
 		if (pin.assetRecordId !== target.compositeVersion.assetRecordId) {
-			errors.push("Asset Version başka bir Varlık Kaydına bağlı.");
+			errors.push("Asset Version belongs to a different Asset Record.");
 		}
 	}
 	if (
 		assetVersionPinIds.size !== assetVersionIds.size ||
 		[...assetVersionIds].some((id) => !assetVersionPinIds.has(id))
 	) {
-		errors.push("Birleşik Sürümün kesin Asset Version kimlikleri korunamadı.");
+		errors.push(
+			"The exact Asset Version IDs of the Composite Version could not be preserved."
+		);
 	}
 	return errors;
 }
@@ -206,19 +210,21 @@ function getFrameMetadataIntegrityErrors(
 	for (const frame of target.frames) {
 		const frames = framesByAssetVersion.get(frame.assetVersionId) ?? [];
 		if (frames.some((candidate) => candidate.frameKey === frame.frameKey)) {
-			errors.push("Kare kimliği yineleniyor.");
+			errors.push("Frame ID is duplicated.");
 		}
 		frames.push(frame);
 		framesByAssetVersion.set(frame.assetVersionId, frames);
 		if (!assetVersionIds.has(frame.assetVersionId)) {
-			errors.push("Kare, seçili Birleşik Sürümün dışında kalıyor.");
+			errors.push("The frame is outside the selected Composite Version.");
 		}
 		if (
 			!selectedFrameIdentities.has(
 				JSON.stringify([frame.assetVersionId, frame.frameKey])
 			)
 		) {
-			errors.push("Kare metadata'sı seçili Kare Birim Sürümüne bağlı değil.");
+			errors.push(
+				"Frame metadata is not linked to the selected Frame Unit Version."
+			);
 		}
 	}
 
@@ -229,7 +235,9 @@ function getFrameMetadataIntegrityErrors(
 				.get(unitVersion.assetVersionId)
 				?.some((frame) => frame.frameKey === unitVersion.unitKey)
 		) {
-			errors.push("Kare Birim Sürümünün kesin kare metadata'sı bulunamadı.");
+			errors.push(
+				"The exact frame metadata for the Frame Unit Version was not found."
+			);
 		}
 	}
 	return errors;
@@ -246,7 +254,9 @@ function getGameplayRecordIntegrityErrors(
 			record.assetRecordId !== target.compositeVersion.assetRecordId ||
 			!assetVersionIds.has(record.assetVersionId)
 		) {
-			errors.push("Oyun İçi Bilgi kaydı seçili Birleşik Sürümün dışında.");
+			errors.push(
+				"The Gameplay Metadata record is outside the selected Composite Version."
+			);
 		}
 		errors.push(...getGameplayMetadataIntegrityErrors(record, target.frames));
 		errors.push(
@@ -265,7 +275,7 @@ function getAnimationMetadataIntegrityErrors(
 	const assetVersionIds = new Set<string>();
 	for (const unitVersion of target.unitVersions) {
 		if (unitVersions.has(unitVersion.id)) {
-			errors.push("Birim Sürümü kimliği yineleniyor.");
+			errors.push("Unit Version ID is duplicated.");
 		}
 		unitVersions.set(unitVersion.id, unitVersion);
 		assetVersionIds.add(unitVersion.assetVersionId);
@@ -294,14 +304,14 @@ function getAnimationMetadataPackageSnapshotErrors(
 		canonicalGameplayMetadataJson(snapshot.compositeVersion) !==
 		canonicalGameplayMetadataJson(current.compositeVersion)
 	) {
-		errors.push("Seçili Composite Version değişti.");
+		errors.push("The selected Composite Version changed.");
 	}
 	if (
 		canonicalGameplayMetadataJson(snapshot.unitVersions) !==
 		canonicalGameplayMetadataJson(current.unitVersions)
 	) {
 		errors.push(
-			"Seçili Composite Version'ın kesin Unit Version pinleri değişti."
+			"The exact Unit Version pins for the selected Composite Version changed."
 		);
 	}
 	if (
@@ -309,7 +319,7 @@ function getAnimationMetadataPackageSnapshotErrors(
 		canonicalGameplayMetadataJson(current.assetVersionPins)
 	) {
 		errors.push(
-			"Seçili Composite Version'ın kesin Asset Version pinleri değişti."
+			"The exact Asset Version pins for the selected Composite Version changed."
 		);
 	}
 
@@ -337,7 +347,7 @@ function getAnimationMetadataPackageSnapshotErrors(
 			)
 		) {
 			errors.push(
-				"Paketin kare metadata'sı artık aynı Asset Version'a bağlı değil."
+				"The package frame metadata is no longer linked to the same Asset Version."
 			);
 			break;
 		}
@@ -354,7 +364,7 @@ function getAnimationMetadataPackageSnapshotErrors(
 				canonicalGameplayMetadataJson(record)
 		) {
 			errors.push(
-				"Paketin Gameplay Metadata kaydı artık değişmez kaynağıyla eşleşmiyor."
+				"The package Gameplay Metadata record no longer matches its immutable source."
 			);
 			break;
 		}
@@ -378,7 +388,7 @@ export async function createAnimationMetadataPackage(
 	const parsedTarget = animationMetadataPackageTargetSchema.parse(target);
 	const errors = getAnimationMetadataIntegrityErrors(parsedTarget);
 	if (errors.length) {
-		throw new Error(`Bütünlük hatası: ${[...new Set(errors)].join(" ")}`);
+		throw new Error(`Integrity error: ${[...new Set(errors)].join(" ")}`);
 	}
 	const payload = payloadSchema.parse({
 		...parsedTarget,
@@ -398,13 +408,13 @@ export async function readAnimationMetadataPackage(
 	const parsed = animationMetadataPackageSchema.safeParse(value);
 	if (!parsed.success) {
 		throw new Error(
-			"Bütünlük hatası: Animasyon Metadata Paketi biçimi, sürüm kimliği veya boyutu geçersiz."
+			"Integrity error: Animation Metadata Package format, version ID, or size is invalid."
 		);
 	}
 	const { contentDigest, ...payload } = parsed.data;
 	if ((await digest(payload)) !== contentDigest) {
 		throw new Error(
-			"Bütünlük hatası: Animasyon Metadata Paketi özeti içerikle eşleşmiyor."
+			"Integrity error: The Animation Metadata Package digest does not match its content."
 		);
 	}
 	const snapshot = animationMetadataPackageTargetSchema.parse({
@@ -417,7 +427,7 @@ export async function readAnimationMetadataPackage(
 	const integrityErrors = getAnimationMetadataIntegrityErrors(snapshot);
 	if (integrityErrors.length) {
 		throw new Error(
-			`Bütünlük hatası: ${[...new Set(integrityErrors)].join(" ")}`
+			`Integrity error: ${[...new Set(integrityErrors)].join(" ")}`
 		);
 	}
 	const snapshotErrors = getAnimationMetadataPackageSnapshotErrors(
@@ -425,7 +435,7 @@ export async function readAnimationMetadataPackage(
 		target
 	);
 	if (snapshotErrors.length) {
-		throw new Error(`Bütünlük hatası: ${snapshotErrors.join(" ")}`);
+		throw new Error(`Integrity error: ${snapshotErrors.join(" ")}`);
 	}
 	return parsed.data;
 }

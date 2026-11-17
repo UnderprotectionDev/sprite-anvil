@@ -592,3 +592,129 @@ test("rejects a passed terrain fill without a declared terrain identity", async 
 	).rejects.toMatchObject({ code: "BAD_REQUEST" });
 	expect(records).toHaveLength(0);
 });
+
+test("inspects the exact selected neighboring tile edges independently of connector labels", async () => {
+	const { context } = setup();
+	const checkTilesetSeam = async () => ({
+		length: 16,
+		mismatchCount: 1,
+		firstMismatch: 2,
+		mismatchOffsets: [2],
+	});
+	const result = await invoke(
+		"inspectSeam",
+		{ ...input, scenario: "inner_corner", cellIndex: 0, neighborIndex: 1 },
+		{ ...context, checkTilesetSeam }
+	);
+	expect(result).toEqual({
+		length: 16,
+		mismatchCount: 1,
+		firstMismatch: 2,
+		mismatchOffsets: [2],
+	});
+	await expect(
+		invoke(
+			"inspectSeam",
+			{ ...input, scenario: "inner_corner", cellIndex: 0, neighborIndex: 3 },
+			{ ...context, checkTilesetSeam }
+		)
+	).rejects.toThrow();
+});
+
+test("rejects unauthorized, stale, foreign, out-of-bounds and unpainted seam targets", async () => {
+	const { context } = setup();
+	const request = {
+		...input,
+		scenario: "inner_corner",
+		cellIndex: 0,
+		neighborIndex: 1,
+	};
+	const checkTilesetSeam = async () => ({
+		length: 16,
+		mismatchCount: 0,
+		firstMismatch: null,
+		mismatchOffsets: [],
+	});
+	const active = { ...context, checkTilesetSeam };
+	await expect(
+		invoke("inspectSeam", request, { ...active, session: null })
+	).rejects.toThrow();
+	await expect(
+		invoke("inspectSeam", { ...request, contractRevisionId: "old" }, active)
+	).rejects.toThrow();
+	await expect(
+		invoke("inspectSeam", { ...request, compositeVersionId: "foreign" }, active)
+	).rejects.toThrow();
+	await expect(
+		invoke(
+			"inspectSeam",
+			{
+				...request,
+				tiles: [{ ...input.tiles[0], unitVersionId: "foreign-unit" }],
+				maps: input.maps.map((map) => ({
+					...map,
+					cells: [
+						"foreign-unit",
+						"foreign-unit",
+						"foreign-unit",
+						"foreign-unit",
+					],
+				})),
+			},
+			active
+		)
+	).rejects.toThrow();
+	await expect(
+		invoke(
+			"inspectSeam",
+			{
+				...request,
+				tiles: [
+					{ ...input.tiles[0], region: { x: 30, y: 0, width: 16, height: 16 } },
+				],
+			},
+			active
+		)
+	).rejects.toThrow();
+	await expect(
+		invoke(
+			"inspectSeam",
+			{
+				...request,
+				maps: input.maps.map((map) => ({
+					...map,
+					cells: ["unit", null, "unit", "unit"],
+				})),
+			},
+			active
+		)
+	).rejects.toThrow();
+});
+
+test("measures actual source pixels through the public seam procedure", async () => {
+	const { default: sharp } = await import("sharp");
+	const { checkTilesetImageSeam } = await import("../tileset-seam-check");
+	const { context } = setup();
+	const pixels = Buffer.alloc(32 * 16 * 4, 255);
+	pixels[(2 * 32 + 15) * 4] = 0;
+	const bytes = await sharp(pixels, {
+		raw: { width: 32, height: 16, channels: 4 },
+	})
+		.png()
+		.toBuffer();
+	const checkTilesetSeam: NonNullable<
+		import("@sprite-anvil/api/context").Context["checkTilesetSeam"]
+	> = (_user, _project, a, b, direction) =>
+		checkTilesetImageSeam(bytes, a.region, bytes, b.region, direction);
+	const result = await invoke(
+		"inspectSeam",
+		{ ...input, scenario: "inner_corner", cellIndex: 0, neighborIndex: 1 },
+		{ ...context, checkTilesetSeam }
+	);
+	expect(result).toEqual({
+		length: 16,
+		mismatchCount: 1,
+		firstMismatch: 2,
+		mismatchOffsets: [2],
+	});
+});

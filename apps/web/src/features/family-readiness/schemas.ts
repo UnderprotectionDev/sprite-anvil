@@ -3,7 +3,7 @@ import { z } from "zod";
 export const usageVariantSchema = z
 	.string()
 	.trim()
-	.min(1, "Kullanım çeşidi boşluklardan oluşamaz.");
+	.min(1, "Usage variant cannot consist only of whitespace.");
 
 export const cellDimensionSchema = z
 	.string()

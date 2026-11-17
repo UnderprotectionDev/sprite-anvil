@@ -16,56 +16,56 @@ describe("Collections", () => {
 		await (await $("input[name='email']")).setValue(fixture.email);
 		await (await $("input[name='password']")).setValue(fixture.password);
 		await (await $("button=Sign Up")).click();
-		await (await $("h1=Oyun projeleri")).waitForDisplayed();
+		await (await $("h1=Game projects")).waitForDisplayed();
 
-		await (await $("a=Projeler")).click();
-		await openWorkspaceTask("Yeni oyun projesi");
+		await (await $("a=Projects")).click();
+		await openWorkspaceTask("New game project");
 		await (await $("input#project-name")).setValue(fixture.projectName);
 		await (await $("textarea#project-art-direction")).setValue(
 			fixture.generalArtDirection
 		);
-		await (await $("button=Proje oluştur")).click();
+		await (await $("button=Create project")).click();
 		await (
-			await $(`a[aria-label="${fixture.projectName} varlık kayıtlarını aç"]`)
+			await $(`a[aria-label="${fixture.projectName} open Asset Records"]`)
 		).waitForClickable();
 		await (
-			await $(`a[aria-label="${fixture.projectName} varlık kayıtlarını aç"]`)
+			await $(`a[aria-label="${fixture.projectName} open Asset Records"]`)
 		).click();
 
-		await openWorkspaceTask("Yeni varlık kaydı");
+		await openWorkspaceTask("New Asset Record");
 		await (await $("input#asset-record-name")).setValue(fixture.name);
 		await (await $("input[type='checkbox']")).click();
-		await (await $("button=Varlık kaydı oluştur")).click();
+		await (await $("button=Create Asset Record")).click();
 		await (await $(`h1=${fixture.name}`)).waitForDisplayed();
 
-		await (await $("a=Projeler")).click();
+		await (await $("a=Projects")).click();
 		await (
-			await $(`a[aria-label="${fixture.projectName} koleksiyonlarını düzenle"]`)
+			await $(`a[aria-label="${fixture.projectName} manage Collections"]`)
 		).waitForClickable();
 		await (
-			await $(`a[aria-label="${fixture.projectName} koleksiyonlarını düzenle"]`)
+			await $(`a[aria-label="${fixture.projectName} manage Collections"]`)
 		).click();
 
 		const collectionName = `Planning ${fixture.name}`;
 		await (await $("input#collection-name")).setValue(collectionName);
-		await (await $("button=Koleksiyon oluştur")).click();
+		await (await $("button=Create Collection")).click();
 		await (await $(`h2=${collectionName}`)).waitForDisplayed();
 		await (await $("select#collection-asset-record")).selectByVisibleText(
-			`${fixture.name} · Varlık Ailesi atanmamış`
+			`${fixture.name} · No Asset Family assigned`
 		);
-		await (await $("button=Koleksiyona ekle")).click();
+		await (await $("button=Add to Collection")).click();
 		await (await $(`h3=${fixture.name}`)).waitForDisplayed();
 		await browser.refresh();
 		await (await $(`h3=${fixture.name}`)).waitForDisplayed();
 
 		await (
 			await $(
-				`button[aria-label="${fixture.name} Varlık Kaydını Koleksiyondan kaldır"]`
+				`button[aria-label="${fixture.name} Remove Asset Record from Collection"]`
 			)
 		).click();
-		await $("p=Bu Koleksiyonda henüz Varlık Kaydı yok.").waitForDisplayed();
+		await $("p=This Collection has no Asset Records yet.").waitForDisplayed();
 		await browser.refresh();
 		await (await $(`h2=${collectionName}`)).waitForDisplayed();
-		await $("p=Bu Koleksiyonda henüz Varlık Kaydı yok.").waitForDisplayed();
+		await $("p=This Collection has no Asset Records yet.").waitForDisplayed();
 	});
 });

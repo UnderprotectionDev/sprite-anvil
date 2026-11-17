@@ -7,7 +7,7 @@ import {
 import z from "zod";
 
 export const measurementsSaveFailureMessage =
-	"Ölçüler kaydedilemedi. Değerleri kontrol edip yeniden deneyin.";
+	"Could not save dimensions. Check the values and try again.";
 
 export type MeasurementKey =
 	| "sourceImageDimensions"
@@ -47,7 +47,7 @@ function readNumber(
 		(integer && !Number.isInteger(number))
 	) {
 		throw new Error(
-			`${label} geçerli bir ${integer ? "tam sayı" : "sayı"} olmalı.`
+			`${label} must be a valid ${integer ? "integer" : "number"}.`
 		);
 	}
 	return number;
@@ -73,7 +73,7 @@ function readPixelDimensions(
 		return null;
 	}
 	if (width === null || height === null) {
-		throw new Error(`${label} için genişlik ve yükseklik birlikte girilmeli.`);
+		throw new Error(`Enter both width and height for ${label}.`);
 	}
 	return { height, width };
 }
@@ -90,7 +90,7 @@ function readVisibleContentBounds(
 		"x",
 		0,
 		true,
-		"Görünür İçerik Sınırı"
+		"Visible Content Bounds"
 	);
 	const y = readNumber(
 		draft,
@@ -99,7 +99,7 @@ function readVisibleContentBounds(
 		"y",
 		0,
 		true,
-		"Görünür İçerik Sınırı"
+		"Visible Content Bounds"
 	);
 	const width = readNumber(
 		draft,
@@ -108,7 +108,7 @@ function readVisibleContentBounds(
 		"width",
 		1,
 		true,
-		"Görünür İçerik Sınırı"
+		"Visible Content Bounds"
 	);
 	const height = readNumber(
 		draft,
@@ -117,14 +117,14 @@ function readVisibleContentBounds(
 		"height",
 		1,
 		true,
-		"Görünür İçerik Sınırı"
+		"Visible Content Bounds"
 	);
 	if (x === null && y === null && width === null && height === null) {
 		return null;
 	}
 	if (x === null || y === null || width === null || height === null) {
 		throw new Error(
-			"Görünür İçerik Sınırı için X, Y, genişlik ve yükseklik birlikte girilmeli."
+			"Enter X, Y, width, and height together for Visible Content Bounds."
 		);
 	}
 	const coordinateSpace =
@@ -133,7 +133,7 @@ function readVisibleContentBounds(
 		coordinateSpace !== "logicalResolution" &&
 		coordinateSpace !== "cellDimensions"
 	) {
-		throw new Error("Görünür İçerik Sınırı için koordinat temeli seçilmeli.");
+		throw new Error("Select a coordinate space for Visible Content Bounds.");
 	}
 	return {
 		coordinateSpace: coordinateSpace as "logicalResolution" | "cellDimensions",
@@ -152,7 +152,7 @@ function readDisplayScale(draft: MeasurementDraft, state: MeasurementState) {
 		"value",
 		Number.MIN_VALUE,
 		false,
-		"Gösterim Ölçeği"
+		"Display Scale"
 	);
 }
 
@@ -163,13 +163,13 @@ function readMeasurements(draft: MeasurementDraft): AssetRecordMeasurements {
 				draft,
 				"atlasDimensions",
 				"confirmed",
-				"Atlas Ölçüsü"
+				"Atlas Dimensions"
 			),
 			proposal: readPixelDimensions(
 				draft,
 				"atlasDimensions",
 				"proposal",
-				"Atlas Ölçüsü"
+				"Atlas Dimensions"
 			),
 		},
 		cellDimensions: {
@@ -177,13 +177,13 @@ function readMeasurements(draft: MeasurementDraft): AssetRecordMeasurements {
 				draft,
 				"cellDimensions",
 				"confirmed",
-				"Hücre Ölçüsü"
+				"Cell Dimensions"
 			),
 			proposal: readPixelDimensions(
 				draft,
 				"cellDimensions",
 				"proposal",
-				"Hücre Ölçüsü"
+				"Cell Dimensions"
 			),
 		},
 		displayScale: {
@@ -195,13 +195,13 @@ function readMeasurements(draft: MeasurementDraft): AssetRecordMeasurements {
 				draft,
 				"logicalResolution",
 				"confirmed",
-				"Mantıksal Çözünürlük"
+				"Logical Resolution"
 			),
 			proposal: readPixelDimensions(
 				draft,
 				"logicalResolution",
 				"proposal",
-				"Mantıksal Çözünürlük"
+				"Logical Resolution"
 			),
 		},
 		sourceImageDimensions: {
@@ -209,13 +209,13 @@ function readMeasurements(draft: MeasurementDraft): AssetRecordMeasurements {
 				draft,
 				"sourceImageDimensions",
 				"confirmed",
-				"Kaynak Görsel Ölçüsü"
+				"Source Image Dimensions"
 			),
 			proposal: readPixelDimensions(
 				draft,
 				"sourceImageDimensions",
 				"proposal",
-				"Kaynak Görsel Ölçüsü"
+				"Source Image Dimensions"
 			),
 		},
 		visibleContentBounds: {
@@ -243,7 +243,7 @@ export const measurementsDraftFormSchema = z.object({
 				code: "custom",
 				message:
 					parsed.error.issues[0]?.message ??
-					"Görsel ölçü değerlerini kontrol edip yeniden deneyin.",
+					"Check the image dimensions and try again.",
 			});
 			return z.NEVER;
 		}
@@ -259,7 +259,7 @@ export const assetRecordMetadataFormSchema = z.object({
 				.split(",")
 				.map((tag) => tag.trim())
 				.filter(Boolean)
-				.map((tag) => [tag.toLocaleLowerCase("tr-TR"), tag] as const)
+				.map((tag) => [tag.toLowerCase(), tag] as const)
 		).values(),
 	]),
 	themeId: z.string(),

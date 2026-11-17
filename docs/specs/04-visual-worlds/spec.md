@@ -38,8 +38,8 @@ Tamamlanma kanıtı: Bir projede birden fazla Görsel Dünya ve bunların Temala
 ## Testing Decisions
 
 - **Birincil test seam’i:** [`context-proposals.test.ts`](../../../apps/server/src/features/project-context/server/tests/context-proposals.test.ts) üzerinden oRPC/API oluşturma ve listeleme yolunu çalıştır; aynı Proje içindeki birden fazla Görsel Dünya ve Tema kaydının kapsam ilişkilerini yeniden okumada doğrula.
-- Kalıcı veritabanı kanıtı için [`context-proposals.integration.test.ts`](../../../apps/server/src/features/project-context/server/tests/context-proposals.integration.test.ts) Neon/Drizzle turunu `CONTEXT_TEST_DATABASE_URL` bulunduğunda çalıştırır. Görsel Dünya ve Tema kayıtları aynı API girdisinden oluşturulur ve katalog yeniden okunur.
-- Paylaşılan ekran kanıtı [`context-scope-registry.test.tsx`](../../../apps/web/src/features/visual-worlds/ui/components/context-scope-registry.test.tsx) içinde aynı adlı Temaların iki Görsel Dünya altında ayrı görünmesini, Tema oluşturmanın seçili Görsel Dünya kimliğini göndermesini ve öneri kapsam zincirinin doğru üst kaydı göstermesini sınar. Web ve masaüstü aynı React ekranını kullanır; RAS-08'in daha geniş görsel ve dışa aktarım karşılaştırması bu dar kapsamlı testlerin yerine geçmez.
+- Kalıcı veritabanı kanıtı için [`context-proposals.integration.test.ts`](../../../apps/server/src/context-proposals.integration.test.ts) Neon/Drizzle turunu `CONTEXT_TEST_DATABASE_URL` bulunduğunda çalıştırır. Görsel Dünya ve Tema kayıtları aynı API girdisinden oluşturulur ve katalog yeniden okunur.
+- Paylaşılan ekran kanıtı [`context-scope-registry.test.tsx`](../../../apps/web/src/components/context-scope-registry.test.tsx) içinde aynı adlı Temaların iki Görsel Dünya altında ayrı görünmesini, Tema oluşturmanın seçili Görsel Dünya kimliğini göndermesini ve öneri kapsam zincirinin doğru üst kaydı göstermesini sınar. Web ve masaüstü aynı React ekranını kullanır; RAS-08'in daha geniş görsel ve dışa aktarım karşılaştırması bu dar kapsamlı testlerin yerine geçmez.
 - Başarısız/eksik yolları da sınama: aynı Görsel Dünya içinde yinelenen ad, kayıtlı olmayan veya kullanıcıya ait olmayan Proje/Görsel Dünya ve başka bir Görsel Dünya'ya bağlanan geçersiz öncelik zinciri reddedilmelidir. İç yardımcıların çağrılma sırasını test etme.
 - Fazın özgül başarı ve red kanıtı: Bir projede birden fazla Görsel Dünya ve bunların Temaları tutulur; bir dünyaya ait kural başka dünyaya sessizce uygulanmaz. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Görsel Dünya bir Varlık Ailesi veya Ana Tasarım değildir; tema başka dünyaya kendiliğinden taşınmaz.
 - Kabul örnekleri: RAS-08. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
@@ -64,4 +64,4 @@ Görsel Dünya bir Varlık Ailesi veya Ana Tasarım değildir; tema başka düny
 **Kabul izlenebilirliği**
 
 - [RAS-08](../../prd/10-acceptance-scenarios.md)
-- Mevcut uygulama yalnız temel web/masaüstü kabuğu ve sınırlı sunucu yükleme yolunu içeriyor; bu spec teslim edilmiş ürün iddiası değildir. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.
+- PRD ve bu spec hedef davranışı tanımlar; mevcut sözleşmeler ve testler tek başına tüm kabul senaryolarının tamamlandığını göstermez. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.

@@ -25,7 +25,11 @@ export class HonoApiError extends Error {
 	}
 }
 
-async function readJsonOrThrow(response: Response, fallback: string) {
+async function readJsonOrThrow(
+	response: Response,
+	fallback: string,
+	uncertainWrite = false
+) {
 	if (!response.ok) {
 		const parsed = pixelEditorErrorSchema.safeParse(
 			await response.json().catch(() => null)
@@ -37,7 +41,17 @@ async function readJsonOrThrow(response: Response, fallback: string) {
 			response.status
 		);
 	}
-	return (await response.json()) as unknown;
+	try {
+		return (await response.json()) as unknown;
+	} catch (cause) {
+		if (!uncertainWrite) {
+			throw cause;
+		}
+		throw Object.assign(
+			new Error("The successful response could not be read."),
+			{ status: 500, cause }
+		);
+	}
 }
 
 export async function honoGetJson(url: string, fallback: string) {
@@ -60,6 +74,25 @@ export async function honoPostJson(
 			body: JSON.stringify(body ?? {}),
 		}),
 		fallback
+	);
+}
+
+/** Uploads a File directly; the browser streams it without a second in-memory byte copy. */
+export async function honoPostFileJson(
+	url: string,
+	file: File,
+	headers: Record<string, string>,
+	fallback: string
+) {
+	return readJsonOrThrow(
+		await fetch(url, {
+			method: "POST",
+			credentials: "include",
+			headers,
+			body: file,
+		}),
+		fallback,
+		true
 	);
 }
 

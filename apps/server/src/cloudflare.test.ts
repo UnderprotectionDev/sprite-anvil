@@ -212,3 +212,70 @@ describe("Cloudflare R2 HTTP transport", () => {
 		}
 	});
 });
+
+it("R2 range reads send the exact byte interval", async () => {
+	let receivedRange = "";
+	const server = createServer((request, response) => {
+		receivedRange = String(request.headers.range ?? "");
+		response.writeHead(206, {
+			"Content-Length": "3",
+			"Content-Range": "bytes 2-4/10",
+		});
+		response.end("234");
+	});
+	await new Promise<void>((resolve, reject) => {
+		server.once("error", reject);
+		server.listen(0, "127.0.0.1", () => {
+			server.off("error", reject);
+			resolve();
+		});
+	});
+	const address = server.address();
+	if (!address || typeof address === "string") {
+		throw new Error("Missing server address");
+	}
+	try {
+		const storage = createStorage(config, `http://127.0.0.1:${address.port}`);
+		const result = await storage.get("private.zip", { offset: 2, length: 3 });
+		expect(result?.body && (await new Response(result.body).text())).toBe(
+			"234"
+		);
+		expect(receivedRange).toBe("bytes=2-4");
+	} finally {
+		await new Promise<void>((resolve, reject) =>
+			server.close((error) => (error ? reject(error) : resolve()))
+		);
+	}
+});
+
+it("lists all pages under the requested managed prefix", async () => {
+	const queries: string[] = [];
+	const server = createServer((request, response) => {
+		const url = new URL(request.url ?? "/", "http://localhost");
+		queries.push(url.searchParams.get("prefix") ?? "");
+		const next = url.searchParams.has("continuation-token");
+		response.writeHead(200, { "Content-Type": "application/xml" });
+		response.end(
+			next
+				? "<ListBucketResult><IsTruncated>false</IsTruncated><Contents><Key>projects/p/imports/b</Key></Contents></ListBucketResult>"
+				: "<ListBucketResult><IsTruncated>true</IsTruncated><NextContinuationToken>next</NextContinuationToken><Contents><Key>projects/p/imports/a</Key></Contents></ListBucketResult>"
+		);
+	});
+	await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+	const address = server.address();
+	if (!address || typeof address === "string") {
+		throw new Error("Missing server address");
+	}
+	try {
+		const storage = createStorage(config, `http://127.0.0.1:${address.port}`);
+		expect(await storage.list("projects/p/imports/")).toEqual([
+			"projects/p/imports/a",
+			"projects/p/imports/b",
+		]);
+		expect(queries).toEqual(["projects/p/imports/", "projects/p/imports/"]);
+	} finally {
+		await new Promise<void>((resolve, reject) =>
+			server.close((error) => (error ? reject(error) : resolve()))
+		);
+	}
+});

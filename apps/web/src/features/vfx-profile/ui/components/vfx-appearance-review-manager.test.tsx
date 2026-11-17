@@ -16,7 +16,7 @@ import { VfxAppearanceReviewManager } from "./vfx-appearance-review-manager";
 configure({ asyncUtilTimeout: 10_000 });
 const mocks = vi.hoisted(() => ({ save: vi.fn(), list: vi.fn() }));
 const oldBurst = /Old burst/;
-const uncertainMessage = /Kaydetme sonucu doğrulanamadı/;
+const uncertainMessage = /Could not verify the save result/;
 vi.mock("@/utils/orpc", async () => {
 	const { createTanstackQueryUtils } = await import("@orpc/tanstack-query");
 	const client = {
@@ -90,7 +90,7 @@ test("locks an uncertain save until its exact review is recovered from current r
 	).toBeDisabled();
 	expect(screen.getByRole("button", { name: oldBurst })).toBeDisabled();
 	fireEvent.click(
-		screen.getByRole("button", { name: "Güncel kayıtları kontrol et" })
+		screen.getByRole("button", { name: "Check current records" })
 	);
 	await waitFor(() => expect(mocks.list).toHaveBeenCalledTimes(2));
 	expect(
@@ -98,19 +98,19 @@ test("locks an uncertain save until its exact review is recovered from current r
 	).toBeDisabled();
 	await waitFor(() =>
 		expect(
-			screen.getByRole("button", { name: "Güncel kayıtları kontrol et" })
+			screen.getByRole("button", { name: "Check current records" })
 		).toBeEnabled()
 	);
 	mocks.list.mockResolvedValue([
 		{ ...existing, id: "pending", name: "New burst" },
 	]);
 	fireEvent.click(
-		screen.getByRole("button", { name: "Güncel kayıtları kontrol et" })
+		screen.getByRole("button", { name: "Check current records" })
 	);
-	await screen.findByText("İnceleme kalıcı kayıttan doğrulandı.");
+	await screen.findByText("Review verified from the saved record.");
 	expect(screen.getByRole("button", { name: "Stored review" })).toBeDisabled();
 	expect(mocks.save).toHaveBeenCalledTimes(1);
-	fireEvent.click(screen.getByRole("button", { name: "Yeni inceleme" }));
+	fireEvent.click(screen.getByRole("button", { name: "New review" }));
 	expect(
 		screen.getByRole("button", { name: "Save test review" })
 	).toBeEnabled();
@@ -141,9 +141,9 @@ test("shows the server support reference on an uncertain save and clears it afte
 	).toBeDisabled();
 	mocks.list.mockResolvedValue([{ ...existing, id: "pending" }]);
 	fireEvent.click(
-		screen.getByRole("button", { name: "Güncel kayıtları kontrol et" })
+		screen.getByRole("button", { name: "Check current records" })
 	);
-	await screen.findByText("İnceleme kalıcı kayıttan doğrulandı.");
+	await screen.findByText("Review verified from the saved record.");
 	expect(screen.queryByText(supportReference)).not.toBeInTheDocument();
 	expect(mocks.save).toHaveBeenCalledTimes(1);
 });
@@ -153,9 +153,7 @@ test("shows the read error support reference and safely retries the query", asyn
 	mount();
 	expect(await screen.findByRole("alert")).toHaveTextContent(supportReference);
 	expect(screen.queryByText("Private server details")).not.toBeInTheDocument();
-	fireEvent.click(
-		screen.getByRole("button", { name: "Kayıtları yeniden oku" })
-	);
+	fireEvent.click(screen.getByRole("button", { name: "Reload records" }));
 	await screen.findByRole("button", { name: oldBurst });
 	expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 	expect(mocks.list).toHaveBeenCalledTimes(2);
@@ -188,13 +186,11 @@ test("announces a pending save and replaces progress with its confirmed result",
 		).toBeEnabled()
 	);
 	fireEvent.click(screen.getByRole("button", { name: "Save test review" }));
-	expect(screen.getByRole("status")).toHaveTextContent(
-		"İnceleme kaydediliyor…"
-	);
+	expect(screen.getByRole("status")).toHaveTextContent("Saving review…");
 	expect(
 		screen.getByRole("button", { name: "Save test review" })
 	).toBeDisabled();
 	pending.resolve({ ...existing, id: "pending" });
-	await screen.findByText("İnceleme kalıcı kayıttan doğrulandı.");
-	expect(screen.queryByText("İnceleme kaydediliyor…")).not.toBeInTheDocument();
+	await screen.findByText("Review verified from the saved record.");
+	expect(screen.queryByText("Saving review…")).not.toBeInTheDocument();
 });

@@ -13,7 +13,7 @@ export const assetVersionFixture = {
 	sourceName: "Ash Knight base",
 	derivativeName: "Ash Knight east",
 	visibleLineage:
-		"Ash Knight base · Sürüm 1 — Türetilmiş Varlık — Ash Knight east",
+		"Ash Knight base · Version 1 — Derived Asset — Ash Knight east",
 	png: Buffer.from(
 		"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/lR0AAAAASUVORK5CYII=",
 		"base64"

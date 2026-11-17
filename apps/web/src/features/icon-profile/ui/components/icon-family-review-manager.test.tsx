@@ -164,9 +164,7 @@ test("shows selected icon versions together in a side-by-side family comparison"
 
 	mount();
 	await waitFor(() =>
-		expect(
-			screen.getByRole("button", { name: "İncelemeyi kaydet" })
-		).toBeEnabled()
+		expect(screen.getByRole("button", { name: "Save review" })).toBeEnabled()
 	);
 
 	for (const [index, variant] of [
@@ -176,18 +174,18 @@ test("shows selected icon versions together in a side-by-side family comparison"
 		fireEvent.change(
 			within(
 				screen.getByRole("group", {
-					name: `Karşılaştırma öğesi ${index + 1}`,
+					name: `Comparison item ${index + 1}`,
 				})
-			).getByLabelText("Kullanım çeşidi"),
+			).getByLabelText("Usage variant"),
 			{ target: { value: variant } }
 		);
 	}
 
 	const familyComparison = screen.getByRole("region", {
-		name: "İkon ailesini yan yana karşılaştırma",
+		name: "Compare icon family side by side",
 	});
 	const comparisonGrid = within(familyComparison).getByRole("group", {
-		name: "İkon ailesi karşılaştırma ızgarası",
+		name: "Icon family comparison grid",
 	});
 	expect(comparisonGrid).toHaveStyle({
 		gridTemplateColumns: "repeat(2, minmax(12rem, 1fr))",
@@ -200,7 +198,7 @@ test("shows selected icon versions together in a side-by-side family comparison"
 		name: "Mana potion · ability-wheel · 64 × 64 px",
 	});
 
-	for (const label of ["Açık arka plan", "Koyu arka plan", "Gri tonlama"]) {
+	for (const label of ["Light background", "Dark background", "Gri tonlama"]) {
 		expect(
 			within(healthComparison).getByRole("img", {
 				name: `Health potion · ${label}`,
@@ -232,58 +230,54 @@ test("saves the icon review and downloads its exact-version JSON archive without
 
 	mount();
 	await waitFor(() =>
-		expect(
-			screen.getByRole("button", { name: "İncelemeyi kaydet" })
-		).toBeEnabled()
+		expect(screen.getByRole("button", { name: "Save review" })).toBeEnabled()
 	);
 
 	const firstItem = screen.getByRole("group", {
-		name: "Karşılaştırma öğesi 1",
+		name: "Comparison item 1",
 	});
 	const secondItem = screen.getByRole("group", {
-		name: "Karşılaştırma öğesi 2",
+		name: "Comparison item 2",
 	});
-	fireEvent.change(within(firstItem).getByLabelText("Kullanım çeşidi"), {
+	fireEvent.change(within(firstItem).getByLabelText("Usage variant"), {
 		target: { value: "inventory-slot" },
 	});
-	fireEvent.change(within(secondItem).getByLabelText("Kullanım çeşidi"), {
+	fireEvent.change(within(secondItem).getByLabelText("Usage variant"), {
 		target: { value: "ability-wheel" },
 	});
 
-	for (const label of [
-		"Nesne ölçeği notu",
-		"Işık yönü notu",
-		"Kontur notu",
-		"Ayrıntı yoğunluğu notu",
-		"Durum veya nadirlik rengi notu",
+	for (const [label, value] of [
+		["Object scale notes", "Nesne ölçeği notu gözlemi"],
+		["Light direction notes", "Işık yönü notu gözlemi"],
+		["Outline notes", "Kontur notu gözlemi"],
+		["Detail density notes", "Ayrıntı yoğunluğu notu gözlemi"],
+		["State or rarity color notes", "Durum veya nadirlik rengi notu gözlemi"],
 	]) {
 		fireEvent.change(screen.getByLabelText(label), {
-			target: { value: `${label} gözlemi` },
+			target: { value },
 		});
 	}
-	fireEvent.change(screen.getByLabelText("İnceleme gerekçesi"), {
+	fireEvent.change(screen.getByLabelText("Review rationale"), {
 		target: { value: "Küçük ölçekte health silueti zayıflıyor." },
 	});
 
 	for (const label of [
-		"Health potion · Açık arka plan",
-		"Health potion · Koyu arka plan",
+		"Health potion · Light background",
+		"Health potion · Dark background",
 		"Health potion · Gri tonlama",
-		"Mana potion · Açık arka plan",
-		"Mana potion · Koyu arka plan",
+		"Mana potion · Light background",
+		"Mana potion · Dark background",
 		"Mana potion · Gri tonlama",
 	]) {
 		expect(screen.getByRole("img", { name: label })).toBeInTheDocument();
 	}
 
-	fireEvent.click(screen.getByRole("button", { name: "İncelemeyi kaydet" }));
-	await screen.findByText("İnceleme kalıcı kayıttan doğrulandı.");
+	fireEvent.click(screen.getByRole("button", { name: "Save review" }));
+	await screen.findByText("Review verified from the saved record.");
 	const savedReviews = screen.getByRole("region", {
-		name: "Kaydedilmiş ikon ailesi incelemeleri",
+		name: "Saved icon family reviews",
 	});
-	fireEvent.click(
-		within(savedReviews).getByText("İnceleme ayrıntılarını göster")
-	);
+	fireEvent.click(within(savedReviews).getByText("Show review details"));
 	expect(
 		within(savedReviews).getByText("Küçük ölçekte health silueti zayıflıyor.")
 	).toBeInTheDocument();
@@ -315,7 +309,9 @@ test("saves the icon review and downloads its exact-version JSON archive without
 		})
 	);
 
-	fireEvent.click(screen.getByRole("button", { name: "JSON arşivini indir" }));
+	fireEvent.click(
+		screen.getByRole("button", { name: "Download JSON archive" })
+	);
 	await waitFor(() => expect(createObjectURL).toHaveBeenCalledOnce());
 	expect(downloadClick).toHaveBeenCalledOnce();
 	const [archiveBlob] = createObjectURL.mock.calls[0] ?? [];
@@ -360,9 +356,7 @@ test("offers a fresh read when saving succeeds but the persisted list cannot be 
 
 	mount();
 	await waitFor(() =>
-		expect(
-			screen.getByRole("button", { name: "İncelemeyi kaydet" })
-		).toBeEnabled()
+		expect(screen.getByRole("button", { name: "Save review" })).toBeEnabled()
 	);
 
 	for (const [index, variant] of [
@@ -372,37 +366,37 @@ test("offers a fresh read when saving succeeds but the persisted list cannot be 
 		fireEvent.change(
 			within(
 				screen.getByRole("group", {
-					name: `Karşılaştırma öğesi ${index + 1}`,
+					name: `Comparison item ${index + 1}`,
 				})
-			).getByLabelText("Kullanım çeşidi"),
+			).getByLabelText("Usage variant"),
 			{ target: { value: variant } }
 		);
 	}
-	for (const label of [
-		"Nesne ölçeği notu",
-		"Işık yönü notu",
-		"Kontur notu",
-		"Ayrıntı yoğunluğu notu",
-		"Durum veya nadirlik rengi notu",
+	for (const [label, value] of [
+		["Object scale notes", "Nesne ölçeği notu gözlemi"],
+		["Light direction notes", "Işık yönü notu gözlemi"],
+		["Outline notes", "Kontur notu gözlemi"],
+		["Detail density notes", "Ayrıntı yoğunluğu notu gözlemi"],
+		["State or rarity color notes", "Durum veya nadirlik rengi notu gözlemi"],
 	]) {
 		fireEvent.change(screen.getByLabelText(label), {
-			target: { value: `${label} gözlemi` },
+			target: { value },
 		});
 	}
-	fireEvent.change(screen.getByLabelText("İnceleme gerekçesi"), {
+	fireEvent.change(screen.getByLabelText("Review rationale"), {
 		target: { value: "Kesin sürüm karşılaştırması." },
 	});
 
-	fireEvent.click(screen.getByRole("button", { name: "İncelemeyi kaydet" }));
+	fireEvent.click(screen.getByRole("button", { name: "Save review" }));
 	await screen.findByText(
-		"İnceleme kaydedildi; ancak kalıcı kayıt yeniden okunamadı. Güncel kayıtları kontrol edin."
+		"Review saved, but the saved record could not be reloaded. Check current records."
 	);
 
 	const rereadButton = screen.getByRole("button", {
-		name: "Güncel kayıtları kontrol et",
+		name: "Check current records",
 	});
 	fireEvent.click(rereadButton);
-	await screen.findByText("İnceleme kalıcı kayıttan doğrulandı.");
+	await screen.findByText("Review verified from the saved record.");
 	expect(mocks.save).toHaveBeenCalledOnce();
 });
 
@@ -424,9 +418,7 @@ test("offers an identical-id resend when an uncertain save never persisted", asy
 
 	mount();
 	await waitFor(() =>
-		expect(
-			screen.getByRole("button", { name: "İncelemeyi kaydet" })
-		).toBeEnabled()
+		expect(screen.getByRole("button", { name: "Save review" })).toBeEnabled()
 	);
 
 	for (const [index, variant] of [
@@ -436,48 +428,46 @@ test("offers an identical-id resend when an uncertain save never persisted", asy
 		fireEvent.change(
 			within(
 				screen.getByRole("group", {
-					name: `Karşılaştırma öğesi ${index + 1}`,
+					name: `Comparison item ${index + 1}`,
 				})
-			).getByLabelText("Kullanım çeşidi"),
+			).getByLabelText("Usage variant"),
 			{ target: { value: variant } }
 		);
 	}
-	for (const label of [
-		"Nesne ölçeği notu",
-		"Işık yönü notu",
-		"Kontur notu",
-		"Ayrıntı yoğunluğu notu",
-		"Durum veya nadirlik rengi notu",
+	for (const [label, value] of [
+		["Object scale notes", "Nesne ölçeği notu gözlemi"],
+		["Light direction notes", "Işık yönü notu gözlemi"],
+		["Outline notes", "Kontur notu gözlemi"],
+		["Detail density notes", "Ayrıntı yoğunluğu notu gözlemi"],
+		["State or rarity color notes", "Durum veya nadirlik rengi notu gözlemi"],
 	]) {
 		fireEvent.change(screen.getByLabelText(label), {
-			target: { value: `${label} gözlemi` },
+			target: { value },
 		});
 	}
-	fireEvent.change(screen.getByLabelText("İnceleme gerekçesi"), {
+	fireEvent.change(screen.getByLabelText("Review rationale"), {
 		target: { value: "Belirsiz kaydetme sonrası yeniden gönderim." },
 	});
 
-	fireEvent.click(screen.getByRole("button", { name: "İncelemeyi kaydet" }));
+	fireEvent.click(screen.getByRole("button", { name: "Save review" }));
 	await screen.findByText(
-		"Kaydetme sonucu doğrulanamadı. Güncel kayıtları kontrol edin; kayıt yoksa aynı incelemeyi yeniden gönderebilirsiniz."
+		"Could not verify the save result. Check current records; you can resubmit if the record is missing."
 	);
 
 	fireEvent.click(
-		screen.getByRole("button", { name: "Güncel kayıtları kontrol et" })
+		screen.getByRole("button", { name: "Check current records" })
 	);
 	await screen.findByText(
-		"İnceleme kalıcı listede görünmüyor. Sonuç belirsiz kaldı; aynı incelemeyi yeniden gönderebilir veya kayıtları tekrar kontrol edebilirsiniz."
+		"The review is not visible in the saved list. The result is uncertain; you can resubmit the same review or check records again."
 	);
 
 	const resendButton = screen.getByRole("button", {
-		name: "Aynı incelemeyi yeniden gönder",
+		name: "Resubmit the same review",
 	});
 	expect(resendButton).toBeEnabled();
-	expect(
-		screen.getByRole("button", { name: "İncelemeyi kaydet" })
-	).toBeDisabled();
+	expect(screen.getByRole("button", { name: "Save review" })).toBeDisabled();
 	fireEvent.click(resendButton);
-	await screen.findByText("İnceleme kalıcı kayıttan doğrulandı.");
+	await screen.findByText("Review verified from the saved record.");
 
 	expect(mocks.save).toHaveBeenCalledTimes(2);
 	const first = mocks.save.mock.calls[0]?.[0] as IconFamilyReviewInput;
@@ -503,9 +493,7 @@ test("re-enables the form when the resent review fails with a definitive error",
 
 	mount();
 	await waitFor(() =>
-		expect(
-			screen.getByRole("button", { name: "İncelemeyi kaydet" })
-		).toBeEnabled()
+		expect(screen.getByRole("button", { name: "Save review" })).toBeEnabled()
 	);
 
 	for (const [index, variant] of [
@@ -515,49 +503,47 @@ test("re-enables the form when the resent review fails with a definitive error",
 		fireEvent.change(
 			within(
 				screen.getByRole("group", {
-					name: `Karşılaştırma öğesi ${index + 1}`,
+					name: `Comparison item ${index + 1}`,
 				})
-			).getByLabelText("Kullanım çeşidi"),
+			).getByLabelText("Usage variant"),
 			{ target: { value: variant } }
 		);
 	}
-	for (const label of [
-		"Nesne ölçeği notu",
-		"Işık yönü notu",
-		"Kontur notu",
-		"Ayrıntı yoğunluğu notu",
-		"Durum veya nadirlik rengi notu",
+	for (const [label, value] of [
+		["Object scale notes", "Nesne ölçeği notu gözlemi"],
+		["Light direction notes", "Işık yönü notu gözlemi"],
+		["Outline notes", "Kontur notu gözlemi"],
+		["Detail density notes", "Ayrıntı yoğunluğu notu gözlemi"],
+		["State or rarity color notes", "Durum veya nadirlik rengi notu gözlemi"],
 	]) {
 		fireEvent.change(screen.getByLabelText(label), {
-			target: { value: `${label} gözlemi` },
+			target: { value },
 		});
 	}
-	fireEvent.change(screen.getByLabelText("İnceleme gerekçesi"), {
+	fireEvent.change(screen.getByLabelText("Review rationale"), {
 		target: { value: "Kesin sürüm karşılaştırması." },
 	});
 
-	fireEvent.click(screen.getByRole("button", { name: "İncelemeyi kaydet" }));
+	fireEvent.click(screen.getByRole("button", { name: "Save review" }));
 	await screen.findByText(
-		"Kaydetme sonucu doğrulanamadı. Güncel kayıtları kontrol edin; kayıt yoksa aynı incelemeyi yeniden gönderebilirsiniz."
+		"Could not verify the save result. Check current records; you can resubmit if the record is missing."
 	);
 	fireEvent.click(
-		screen.getByRole("button", { name: "Güncel kayıtları kontrol et" })
+		screen.getByRole("button", { name: "Check current records" })
 	);
 	await screen.findByText(
-		"İnceleme kalıcı listede görünmüyor. Sonuç belirsiz kaldı; aynı incelemeyi yeniden gönderebilir veya kayıtları tekrar kontrol edebilirsiniz."
+		"The review is not visible in the saved list. The result is uncertain; you can resubmit the same review or check records again."
 	);
 
 	fireEvent.click(
-		screen.getByRole("button", { name: "Aynı incelemeyi yeniden gönder" })
+		screen.getByRole("button", { name: "Resubmit the same review" })
 	);
 	await screen.findByText(
 		"Specialized Profile Contract changed. Reload before reviewing."
 	);
+	expect(screen.getByRole("button", { name: "Save review" })).toBeEnabled();
 	expect(
-		screen.getByRole("button", { name: "İncelemeyi kaydet" })
-	).toBeEnabled();
-	expect(
-		screen.queryByRole("button", { name: "Aynı incelemeyi yeniden gönder" })
+		screen.queryByRole("button", { name: "Resubmit the same review" })
 	).toBeNull();
 });
 
@@ -566,49 +552,43 @@ test("marks previews that are scaled down from the requested logical size", asyn
 
 	mount();
 	await waitFor(() =>
-		expect(
-			screen.getByRole("button", { name: "İncelemeyi kaydet" })
-		).toBeEnabled()
+		expect(screen.getByRole("button", { name: "Save review" })).toBeEnabled()
 	);
 
 	const firstItem = screen.getByRole("group", {
-		name: "Karşılaştırma öğesi 1",
+		name: "Comparison item 1",
 	});
-	fireEvent.change(
-		within(firstItem).getByLabelText("Mantıksal genişlik (px)"),
-		{
-			target: { value: "512" },
-		}
-	);
-	fireEvent.change(
-		within(firstItem).getByLabelText("Mantıksal yükseklik (px)"),
-		{ target: { value: "512" } }
-	);
+	fireEvent.change(within(firstItem).getByLabelText("Logical width (px)"), {
+		target: { value: "512" },
+	});
+	fireEvent.change(within(firstItem).getByLabelText("Logical height (px)"), {
+		target: { value: "512" },
+	});
 
 	const familyComparison = screen.getByRole("region", {
-		name: "İkon ailesini yan yana karşılaştırma",
+		name: "Compare icon family side by side",
 	});
 	const comparisonGrid = within(familyComparison).getByRole("group", {
-		name: "İkon ailesi karşılaştırma ızgarası",
+		name: "Icon family comparison grid",
 	});
 	const healthComparison = within(comparisonGrid).getByRole("article", {
-		name: "Health potion · Kullanım çeşidi belirtilmedi · 512 × 512 px",
+		name: "Health potion · Usage variant not specified · 512 × 512 px",
 	});
 	const manaComparison = within(comparisonGrid).getByRole("article", {
-		name: "Mana potion · Kullanım çeşidi belirtilmedi · 64 × 64 px",
+		name: "Mana potion · Usage variant not specified · 64 × 64 px",
 	});
 
 	expect(
 		within(healthComparison).getByRole("img", {
-			name: "Health potion · Açık arka plan · 80 px'e ölçeklendi",
+			name: "Health potion · Light background · 80 scaled to px",
 		})
 	).toBeInTheDocument();
 	expect(
-		within(healthComparison).getByText("Gri tonlama · 80 px'e ölçeklendi")
+		within(healthComparison).getByText("Gri tonlama · 80 scaled to px")
 	).toBeInTheDocument();
 	expect(
 		within(manaComparison).getByRole("img", {
-			name: "Mana potion · Koyu arka plan",
+			name: "Mana potion · Dark background",
 		})
 	).toBeInTheDocument();
 });
@@ -622,13 +602,13 @@ test("loads comparison defaults when asset records arrive after the profile acti
 	await waitFor(() => {
 		expect(
 			within(
-				screen.getByRole("group", { name: "Karşılaştırma öğesi 1" })
-			).getByLabelText("Varlık Sürümü")
+				screen.getByRole("group", { name: "Comparison item 1" })
+			).getByLabelText("Asset Version")
 		).toHaveValue("version-health");
 		expect(
 			within(
-				screen.getByRole("group", { name: "Karşılaştırma öğesi 2" })
-			).getByLabelText("Varlık Sürümü")
+				screen.getByRole("group", { name: "Comparison item 2" })
+			).getByLabelText("Asset Version")
 		).toHaveValue("version-mana");
 	});
 });
@@ -641,24 +621,24 @@ function fillRequiredReviewFields() {
 		fireEvent.change(
 			within(
 				screen.getByRole("group", {
-					name: `Karşılaştırma öğesi ${index + 1}`,
+					name: `Comparison item ${index + 1}`,
 				})
-			).getByLabelText("Kullanım çeşidi"),
+			).getByLabelText("Usage variant"),
 			{ target: { value: variant } }
 		);
 	}
-	for (const label of [
-		"Nesne ölçeği notu",
-		"Işık yönü notu",
-		"Kontur notu",
-		"Ayrıntı yoğunluğu notu",
-		"Durum veya nadirlik rengi notu",
+	for (const [label, value] of [
+		["Object scale notes", "Nesne ölçeği notu gözlemi"],
+		["Light direction notes", "Işık yönü notu gözlemi"],
+		["Outline notes", "Kontur notu gözlemi"],
+		["Detail density notes", "Ayrıntı yoğunluğu notu gözlemi"],
+		["State or rarity color notes", "Durum veya nadirlik rengi notu gözlemi"],
 	]) {
 		fireEvent.change(screen.getByLabelText(label), {
-			target: { value: `${label} gözlemi` },
+			target: { value },
 		});
 	}
-	fireEvent.change(screen.getByLabelText("İnceleme gerekçesi"), {
+	fireEvent.change(screen.getByLabelText("Review rationale"), {
 		target: { value: "Aile karşılaştırması gerekçesi." },
 	});
 }
@@ -668,42 +648,36 @@ test("shows the first review validation issue and does not save an invalid revie
 
 	mount();
 	await waitFor(() =>
-		expect(
-			screen.getByRole("button", { name: "İncelemeyi kaydet" })
-		).toBeEnabled()
+		expect(screen.getByRole("button", { name: "Save review" })).toBeEnabled()
 	);
 	fillRequiredReviewFields();
 	const secondItem = screen.getByRole("group", {
-		name: "Karşılaştırma öğesi 2",
+		name: "Comparison item 2",
 	});
-	fireEvent.change(within(secondItem).getByLabelText("Varlık Kaydı"), {
+	fireEvent.change(within(secondItem).getByLabelText("Asset Record"), {
 		target: { value: "record-health" },
 	});
-	expect(within(secondItem).getByLabelText("Varlık Sürümü")).toHaveValue(
+	expect(within(secondItem).getByLabelText("Asset Version")).toHaveValue(
 		"version-health"
 	);
 
-	fireEvent.click(screen.getByRole("button", { name: "İncelemeyi kaydet" }));
+	fireEvent.click(screen.getByRole("button", { name: "Save review" }));
 
 	expect(
 		await screen.findByText("Compare at least two distinct icon Asset Records.")
 	).toHaveAttribute("role", "status");
 	expect(mocks.save).not.toHaveBeenCalled();
 
-	fireEvent.change(within(secondItem).getByLabelText("Varlık Kaydı"), {
+	fireEvent.change(within(secondItem).getByLabelText("Asset Record"), {
 		target: { value: "record-mana" },
 	});
-	fireEvent.change(
-		within(secondItem).getByLabelText("Mantıksal genişlik (px)"),
-		{
-			target: { value: "24" },
-		}
-	);
-	fireEvent.change(
-		within(secondItem).getByLabelText("Mantıksal yükseklik (px)"),
-		{ target: { value: "24" } }
-	);
-	fireEvent.click(screen.getByRole("button", { name: "İncelemeyi kaydet" }));
+	fireEvent.change(within(secondItem).getByLabelText("Logical width (px)"), {
+		target: { value: "24" },
+	});
+	fireEvent.change(within(secondItem).getByLabelText("Logical height (px)"), {
+		target: { value: "24" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Save review" }));
 	expect(
 		await screen.findByText("Compare at least two distinct logical sizes.")
 	).toBeInTheDocument();
@@ -721,56 +695,50 @@ test("saves added usage rows, removed rows, assessments, and the chosen outcome"
 
 	mount();
 	await waitFor(() =>
-		expect(
-			screen.getByRole("button", { name: "İncelemeyi kaydet" })
-		).toBeEnabled()
+		expect(screen.getByRole("button", { name: "Save review" })).toBeEnabled()
 	);
 	expect(
 		screen.queryByRole("button", {
-			name: "Karşılaştırma öğesi 1 satırını kaldır",
+			name: "Comparison item 1 remove row",
 		})
 	).not.toBeInTheDocument();
-	fireEvent.click(screen.getByRole("button", { name: "Kullanım çeşidi ekle" }));
-	fireEvent.click(screen.getByRole("button", { name: "Kullanım çeşidi ekle" }));
+	fireEvent.click(screen.getByRole("button", { name: "Add usage variant" }));
+	fireEvent.click(screen.getByRole("button", { name: "Add usage variant" }));
 	const thirdItem = screen.getByRole("group", {
-		name: "Karşılaştırma öğesi 3",
+		name: "Comparison item 3",
 	});
-	expect(within(thirdItem).getByLabelText("Varlık Kaydı")).toHaveValue(
+	expect(within(thirdItem).getByLabelText("Asset Record")).toHaveValue(
 		"record-health"
 	);
-	expect(
-		within(thirdItem).getByLabelText("Mantıksal genişlik (px)")
-	).toHaveValue(48);
+	expect(within(thirdItem).getByLabelText("Logical width (px)")).toHaveValue(
+		48
+	);
 	fireEvent.click(
 		screen.getByRole("button", {
-			name: "Karşılaştırma öğesi 4 satırını kaldır",
+			name: "Comparison item 4 remove row",
 		})
 	);
 	expect(
-		screen.queryByRole("group", { name: "Karşılaştırma öğesi 4" })
+		screen.queryByRole("group", { name: "Comparison item 4" })
 	).not.toBeInTheDocument();
 
 	fillRequiredReviewFields();
-	fireEvent.change(within(thirdItem).getByLabelText("Kullanım çeşidi"), {
+	fireEvent.change(within(thirdItem).getByLabelText("Usage variant"), {
 		target: { value: "tooltip" },
 	});
-	fireEvent.change(
-		within(thirdItem).getByLabelText("Mantıksal yükseklik (px)"),
-		{
-			target: { value: "32" },
-		}
-	);
-	fireEvent.change(screen.getByLabelText("Kontur değerlendirmesi"), {
+	fireEvent.change(within(thirdItem).getByLabelText("Logical height (px)"), {
+		target: { value: "32" },
+	});
+	fireEvent.change(screen.getByLabelText("Outline assessment"), {
 		target: { value: "needs_follow_up" },
 	});
-	fireEvent.change(
-		screen.getByLabelText("Durum veya nadirlik rengi değerlendirmesi"),
-		{ target: { value: "identity_changed" } }
-	);
-	fireEvent.change(screen.getByLabelText("İnceleme sonucu"), {
+	fireEvent.change(screen.getByLabelText("State or rarity color assessment"), {
+		target: { value: "identity_changed" },
+	});
+	fireEvent.change(screen.getByLabelText("Review result"), {
 		target: { value: "consistent" },
 	});
-	fireEvent.click(screen.getByRole("button", { name: "İncelemeyi kaydet" }));
+	fireEvent.click(screen.getByRole("button", { name: "Save review" }));
 
 	await waitFor(() => expect(mocks.save).toHaveBeenCalledOnce());
 	expect(mocks.save).toHaveBeenCalledWith({
@@ -823,6 +791,6 @@ test("saves added usage rows, removed rows, assessments, and the chosen outcome"
 		testedBackgrounds: ["light", "dark"],
 	});
 	expect(
-		await screen.findByRole("button", { name: "İncelemeyi kaydet" })
+		await screen.findByRole("button", { name: "Save review" })
 	).toBeInTheDocument();
 });

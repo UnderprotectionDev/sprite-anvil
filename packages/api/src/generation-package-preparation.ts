@@ -8,6 +8,7 @@ import {
 	generationPackageSchema,
 	resolveCorrectionCoordinateSpace,
 } from "./generation-packages";
+import { recordProductBoundary } from "./measurement-workflows";
 import {
 	checkProductionRecipeRoles,
 	type ProductionRecipeContent,
@@ -18,20 +19,20 @@ import { analyzeReferenceTransferConstraints } from "./reference-production";
 function throwIfInvalidCorrection(error: Error) {
 	if (error.message === correctionErrors.draftUnavailable) {
 		throw new ORPCError("NOT_FOUND", {
-			message: "Düzeltmenin Çalışma Taslağı bulunamadı.",
+			message: "The correction's Working Draft was not found.",
 			cause: error,
 		});
 	}
 	if (error.message === correctionErrors.draftStale) {
 		throw new ORPCError("CONFLICT", {
 			message:
-				"Çalışma Taslağı işaretlemeden sonra değişti; düzeltmeyi yeniden hazırlayın.",
+				"The Working Draft changed after markup; prepare the correction again.",
 			cause: error,
 		});
 	}
 	if (Object.values<string>(correctionErrors).includes(error.message)) {
 		throw new ORPCError("BAD_REQUEST", {
-			message: "Düzeltme işaretleri veya hedef birim geçersiz.",
+			message: "Correction marks or target unit are invalid.",
 			cause: error,
 		});
 	}
@@ -64,7 +65,7 @@ function throwSnapshotError(error: unknown): never {
 			error.message === "A locked Unit Version does not belong to this record."
 		) {
 			throw new ORPCError("BAD_REQUEST", {
-				message: "Seçilen Birim Sürümleri bu Varlık Kaydına ait değil.",
+				message: "Selected Unit Versions do not belong to this Asset Record.",
 				cause: error,
 			});
 		}
@@ -74,7 +75,7 @@ function throwSnapshotError(error: unknown): never {
 		) {
 			throw new ORPCError("PRECONDITION_FAILED", {
 				message:
-					"Güncel Ana Tasarım sürümü bulunamadı. Ana Tasarımı düzeltip tekrar deneyin.",
+					"The current Canonical Design Version was not found. Correct the Canonical Design and try again.",
 				cause: error,
 			});
 		}
@@ -82,7 +83,8 @@ function throwSnapshotError(error: unknown): never {
 			error.message === "The Asset Record context scope could not be resolved."
 		) {
 			throw new ORPCError("PRECONDITION_FAILED", {
-				message: "Varlık Kaydının Görsel Dünya veya Tema kapsamı bulunamadı.",
+				message:
+					"The Asset Record's Visual World or Theme scope was not found.",
 				cause: error,
 			});
 		}
@@ -171,19 +173,20 @@ export async function prepareGenerationPackage(
 		)
 	) {
 		throw new ORPCError("NOT_FOUND", {
-			message: "Varlık kaydı veya proje bulunamadı.",
+			message: "Asset Record or Project not found.",
 		});
 	}
 	if (assetRecord.availability !== "active") {
 		throw new ORPCError("PRECONDITION_FAILED", {
-			message: "Üretim Paketi yalnız etkin Varlık Kaydı için oluşturulabilir.",
+			message:
+				"A Generation Package can only be created for an active Asset Record.",
 		});
 	}
 
 	const activeRevision = projectContext.currentContextRevision;
 	if (!activeRevision.isActive) {
 		throw new ORPCError("PRECONDITION_FAILED", {
-			message: "Üretim Paketi için etkin Bağlam Sürümü gerekir.",
+			message: "A Generation Package requires an active Context Revision.",
 		});
 	}
 
@@ -199,7 +202,7 @@ export async function prepareGenerationPackage(
 	if (referenceAnalysis.conflicts.length > 0) {
 		throw new ORPCError("CONFLICT", {
 			message:
-				"Referans aktarım kurallarındaki izin-yasak çelişkileri çözülmeden Üretim Paketi oluşturulamaz.",
+				"Resolve allow and prohibit conflicts in the reference carryover rules before creating a Generation Package.",
 		});
 	}
 
@@ -230,8 +233,37 @@ export async function prepareGenerationPackage(
 	);
 	if (!generationPackage) {
 		throw new ORPCError("NOT_FOUND", {
-			message: "Varlık kaydı veya proje bulunamadı.",
+			message: "Asset Record or Project not found.",
 		});
 	}
-	return generationPackageSchema.parse(generationPackage);
+	const parsed = generationPackageSchema.parse(generationPackage);
+	await recordProductBoundary(context, {
+		userId,
+		projectId: input.projectId,
+		workflowId: parsed.id,
+		eventFamily: "production_workflow",
+		eventName: "generation_package_prepared",
+		phase: "start",
+		recordKind: "generation_package",
+		outcomeClass: "workflow_started",
+		counters: {},
+	});
+	if (parsed.correction) {
+		await recordProductBoundary(context, {
+			userId,
+			projectId: input.projectId,
+			workflowId:
+				parsed.correction.targetUnitVersionId ??
+				parsed.correction.sourceAssetVersionId,
+			eventFamily: "review_and_repair",
+			eventName: "review_issue_recorded",
+			phase: "start",
+			recordKind: parsed.correction.targetUnitVersionId
+				? "unit_version"
+				: "asset_version",
+			outcomeClass: "workflow_started",
+			counters: {},
+		});
+	}
+	return parsed;
 }

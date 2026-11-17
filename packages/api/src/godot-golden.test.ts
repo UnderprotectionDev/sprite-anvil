@@ -167,7 +167,9 @@ test.skipIf(godotBinary === null)(
 			const { godot: _godot, ...report } = JSON.parse(
 				(line as string).slice("GOLDEN_REPORT:".length)
 			);
-			expect(report).toEqual(expectedReport);
+			expect(report, `${checked.stdout}\n${checked.stderr}`).toEqual(
+				expectedReport
+			);
 		} finally {
 			rmSync(project, { force: true, recursive: true });
 		}

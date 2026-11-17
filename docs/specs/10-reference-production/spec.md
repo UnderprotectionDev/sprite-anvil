@@ -39,7 +39,7 @@ Tamamlanma kanıtı: Her referansın amacı ve izinli veya yasak aktarımı üre
 
 - **Birincil test seam’i:** 8.1 örneklerinde kesin girdiyi kullanıcı eyleminden kalıcı kayda ve yeniden okumaya taşıyan sunucu/API yolunu sınama; web ve masaüstü görünür sonuçlarını karşılaştırma.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.
-- Bugün repoda bu faza ait ürün sözleşmesi bulunmuyor. Mevcut sunucu ve yüzey test örnekleri: [`project-routes.test.ts`](../../../apps/server/src/features/projects/server/tests/project-routes.test.ts), [`app-shell.spec.ts` (web)](../../../apps/web/e2e/app-shell.spec.ts) ve [`app-shell.spec.ts` (desktop)](../../../apps/web/desktop-e2e/app-shell.spec.ts). Bunlar bu özelliğin test edildiği anlamına gelmez.
+- Mevcut sözleşme ve ilgili test yolu: [`reference-production.ts`](../../../packages/api/src/reference-production.ts), [`reference-production.spec.ts`](../../../apps/web/e2e/reference-production.spec.ts). Bu bağlantılar tüm kabul kapsamının tamamlandığını göstermez.
 - Fazın özgül başarı ve red kanıtı: Sunucu/API yolunda bir özellik için izin ve yasak birlikte kaydedildiğinde referans panosu ilgili kuralları çelişki olarak döndürür, Üretim Paketi isteği `CONFLICT` ile reddedilir ve paket kaydı oluşmaz. Kullanıcı kuralı düzenleyip izin-yasak örtüşmesini kaldırdığında yeni paket oluşturulur ve yeniden okunduğunda çözülmüş sınırlar sabit kalır. Web ve masaüstü aynı uyarıyı ve kayıt davranışını gösterir. Referansın eklenme sırası sonucu değiştirmez; aktarım kurallarını kaydetmek tek başına Üretim Paketi oluşturmaz.
 - Kabul örnekleri: 8.1. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
 
@@ -62,4 +62,4 @@ Referansın eklenme sırası veya üretim modelinin yorumu çözümlenmemiş çe
 **Kabul izlenebilirliği**
 
 - [8.1](../../prd/10-acceptance-scenarios.md)
-- Mevcut uygulama yalnız temel web/masaüstü kabuğu ve sınırlı sunucu yükleme yolunu içeriyor; bu spec teslim edilmiş ürün iddiası değildir. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.
+- PRD ve bu spec hedef davranışı tanımlar; mevcut sözleşmeler ve testler tek başına tüm kabul senaryolarının tamamlandığını göstermez. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.

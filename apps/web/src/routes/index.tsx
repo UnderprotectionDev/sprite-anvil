@@ -11,35 +11,35 @@ function HomeComponent() {
 			<header className="max-w-3xl space-y-5">
 				<p className="font-mono text-primary text-sm">Sprite Anvil</p>
 				<h1 className="font-semibold text-4xl leading-tight sm:text-5xl">
-					Oyun görsellerinizi tek yerde yönetin.
+					Manage your game visuals in one place.
 				</h1>
 				<p className="text-lg text-muted-foreground">
-					Bir oyun projesi seçin; görsel kurallarını belirleyin, varlıkları
-					bulun ve sürümlerini inceleyin.
+					Choose a game project, define visual rules, find assets, and review
+					their versions.
 				</p>
 				{session ? (
 					<Link className={`${buttonVariants()} min-h-11`} to="/projects">
-						Oyun projelerini aç
+						Open game projects
 					</Link>
 				) : (
 					<Link className={`${buttonVariants()} min-h-11`} to="/login">
-						Başlamak için giriş yap
+						Sign in to get started
 					</Link>
 				)}
 			</header>
 			<ol className="grid gap-4 sm:grid-cols-3">
 				{[
 					[
-						"1 · Projenizi açın",
-						"Yeni bir oyun projesi oluşturun veya mevcut projenize devam edin.",
+						"1 · Open your project",
+						"Create a game project or continue an existing one.",
 					],
 					[
-						"2 · Varlıklarınızı bulun",
-						"Kayıtları arayın, koleksiyonlarda düzenleyin veya dosyaları içe aktarın.",
+						"2 · Find your assets",
+						"Search records, organize them in Collections, or import files.",
 					],
 					[
-						"3 · Çalışmayı sürdürün",
-						"Bir kaydı açarak sürümlerine, üretim paketlerine ve inceleme kanıtlarına ulaşın.",
+						"3 · Continue your work",
+						"Open a record to access its versions, Generation Packages, and review evidence.",
 					],
 				].map(([title, description]) => (
 					<li className="space-y-3 rounded-lg border bg-card p-6" key={title}>

@@ -46,11 +46,15 @@ export type RightsRecordEvidenceFile = z.infer<
 
 export const rightsRecordStoredEvidenceFileSchema =
 	rightsRecordEvidenceFileSchema
-		.extend({ objectKey: z.string().min(1) })
+		.extend({ objectKey: z.string().min(1).nullable() })
 		.strict();
 export type RightsRecordStoredEvidenceFile = z.infer<
 	typeof rightsRecordStoredEvidenceFileSchema
 >;
+
+const rightsRecordPublicEvidenceFileSchema = rightsRecordEvidenceFileSchema
+	.extend({ availability: z.literal("excluded").optional() })
+	.strict();
 
 export const rightsRecordFieldsSchema = z
 	.object({
@@ -87,14 +91,14 @@ function validateRightsRecordState(
 		context.addIssue({
 			code: "custom",
 			path: ["evidence"],
-			message: "Belgelendi durumunda destekleyici kanıt gerekir.",
+			message: "Documented status requires supporting evidence.",
 		});
 	}
 	if (record.state === "restricted" && !record.restrictions) {
 		context.addIssue({
 			code: "custom",
 			path: ["restrictions"],
-			message: "Kısıtlı durumunda bilinen en az bir kısıt gerekir.",
+			message: "Restricted status requires at least one known restriction.",
 		});
 	}
 }
@@ -105,7 +109,7 @@ export const rightsRecordSchema = z
 		assertedScope: rightsRecordTextSchema,
 		createdAt: z.iso.datetime(),
 		evidence: rightsRecordTextSchema,
-		evidenceFile: rightsRecordEvidenceFileSchema.nullable(),
+		evidenceFile: rightsRecordPublicEvidenceFileSchema.nullable(),
 		id: rightsRecordIdSchema,
 		projectId: projectIdSchema,
 		referenceId: rightsRecordIdSchema.nullable().optional(),

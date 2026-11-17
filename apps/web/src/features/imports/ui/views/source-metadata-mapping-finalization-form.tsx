@@ -92,19 +92,21 @@ export function ProposalFinalizationForm({
 				if (error instanceof ORPCError) {
 					if (error.status === 422 || error.status === 400) {
 						setFinalizeError(
-							"Zorunlu kare çakışmalarını çözün ve kaynak dosyayı kontrol edin."
+							"Resolve required frame conflicts and check the source file."
 						);
 					} else if (error.status === 409) {
-						setFinalizeError("Bu öneri başka bir kararla kesinleştirilmiş.");
+						setFinalizeError(
+							"This proposal was finalized by another decision."
+						);
 					} else {
 						setFinalizeError(
-							"Eşleme kesinleştirilemedi. Kayıtlı sonucu kontrol edin."
+							"Could not finalize the mapping. Check the saved result."
 						);
 					}
 					return;
 				}
 				setFinalizeError(
-					"Kesinleştirme sonucu doğrulanamadı. Kayıtlı sonucu kontrol edin."
+					"Could not verify the finalization result. Check the saved result."
 				);
 				await invalidateFinalization();
 			}
@@ -113,19 +115,19 @@ export function ProposalFinalizationForm({
 	});
 	return (
 		<section
-			aria-label="Eşlemeyi kesinleştir"
+			aria-label="Finalize mapping"
 			className="space-y-3 rounded-md border p-3"
 		>
 			<form.Field name="assetRecordId">
 				{(field) => (
 					<Label className="block text-sm leading-normal">
-						Hedef Varlık Kaydı
+						Target Asset Record
 						<NativeSelect
 							className="mt-1 w-full"
 							onChange={(event) => field.handleChange(event.target.value)}
 							value={field.state.value}
 						>
-							<NativeSelectOption value="">Kayıt seçin</NativeSelectOption>
+							<NativeSelectOption value="">Select a record</NativeSelectOption>
 							{records?.map((record) => (
 								<NativeSelectOption key={record.id} value={record.id}>
 									{record.name}
@@ -137,16 +139,16 @@ export function ProposalFinalizationForm({
 			</form.Field>
 			{records?.length === 0 ? (
 				<p>
-					Önce{" "}
+					First{" "}
 					<Link params={{ projectId }} to="/projects/$projectId/asset-families">
-						Varlık Aileleri
+						Asset Families
 					</Link>{" "}
-					ekranında hedef Varlık Kaydı oluşturun.
+					create the target Asset Record on the Asset Families screen.
 				</p>
 			) : null}
 			{recordsError ? (
 				<StatusMessage tone="error">
-					Hedef Varlık Kayıtları okunamadı.
+					Could not load target Asset Records.
 				</StatusMessage>
 			) : null}
 			<form.Field name="decisions">
@@ -156,7 +158,7 @@ export function ProposalFinalizationForm({
 						return (
 							<Label className="block text-sm leading-normal" key={key}>
 								{fieldLabel(conflict.field)} · {conflict.key}{" "}
-								{conflict.field === "frame" ? "(zorunlu)" : "(isteğe bağlı)"}
+								{conflict.field === "frame" ? "(required)" : "(optional)"}
 								<NativeSelect
 									className="mt-1 w-full"
 									onChange={(event) =>
@@ -168,7 +170,7 @@ export function ProposalFinalizationForm({
 									value={field.state.value[key] ?? ""}
 								>
 									<NativeSelectOption value="">
-										{conflict.field === "frame" ? "Kaynak seçin" : "Bilinmiyor"}
+										{conflict.field === "frame" ? "Select a source" : "Unknown"}
 									</NativeSelectOption>
 									{conflict.candidates.map((candidate) => (
 										<NativeSelectOption
@@ -205,8 +207,8 @@ export function ProposalFinalizationForm({
 						type="button"
 					>
 						{isFinalizing
-							? "Kesinleştiriliyor…"
-							: "Eşlemeyi kesinleştir ve Aday Sürüm oluştur"}
+							? "Finalizing…"
+							: "Finalize mapping and create Candidate Version"}
 					</Button>
 				)}
 			</form.Subscribe>

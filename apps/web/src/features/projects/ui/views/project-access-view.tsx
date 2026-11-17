@@ -6,7 +6,7 @@ import { Button } from "@sprite-anvil/ui/components/button";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { ExternalVisualAnalysisConsent } from "@/features/external-visual-analysis/ui/components/external-visual-analysis-consent";
+import { ExternalVisualAnalysisConsent } from "@/components/external-visual-analysis-consent";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { orpc } from "@/utils/orpc";
 import {
@@ -16,9 +16,9 @@ import {
 } from "../forms/context-agent-permission-form";
 
 const connectionScopes = [
-	"Proje Bağlamı'nı okuma",
-	"Seçilen referanslara erişme",
-	"Sonuç dosyasını Aday Sürüm olarak geri yazma",
+	"Read Project Context",
+	"Access selected references",
+	"Write the result file back as a Candidate Version",
 ];
 
 export function ProjectAccessScreen({ projectId }: { projectId: string }) {
@@ -43,7 +43,7 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 	const grantPermission = useMutation(
 		orpc.projects.access.grantContextAgent.mutationOptions({
 			onSuccess: async () => {
-				setStatusMessage("Bağlam Ajanı izni kaydedildi.");
+				setStatusMessage("Context Agent permission saved.");
 				await queryClient.invalidateQueries({
 					queryKey: permissionsQueryOptions.queryKey,
 				});
@@ -58,7 +58,9 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 	const revokePermission = useMutation(
 		orpc.projects.access.revoke.mutationOptions({
 			onSuccess: async () => {
-				setStatusMessage("İzin geri alındı. Yeni erişim istekleri reddedilir.");
+				setStatusMessage(
+					"Permission revoked. New access requests will be rejected."
+				);
 				await queryClient.invalidateQueries({
 					queryKey: permissionsQueryOptions.queryKey,
 				});
@@ -87,7 +89,7 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 			if (writeOutcomeUncertain) {
 				setWriteOutcomeUncertain(false);
 				setStatusMessage(
-					"İzin listesi yenilendi. İşlemi yeniden göndermeden önce mevcut durumu kontrol edin."
+					"Permissions refreshed. Check the current state before resubmitting."
 				);
 			}
 		} finally {
@@ -124,7 +126,7 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 					className="text-muted-foreground text-sm underline underline-offset-4"
 					to="/projects"
 				>
-					Oyun projelerine dön
+					Back to projects
 				</Link>
 				<ProjectAccessHeader
 					isError={projectQuery.isError}
@@ -145,9 +147,7 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 					type="button"
 					variant="outline"
 				>
-					{isCheckingWriteOutcome
-						? "Durum kontrol ediliyor…"
-						: "Durumu kontrol et"}
+					{isCheckingWriteOutcome ? "Checking status…" : "Check status"}
 				</Button>
 			) : null}
 
@@ -158,15 +158,16 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 				<div className="space-y-2">
 					<div className="flex flex-wrap items-center justify-between gap-2">
 						<h2 className="font-semibold text-xl" id="context-agent-heading">
-							Bağlam Ajanı
+							Context Agent
 						</h2>
 						<span className="rounded-full border px-2.5 py-1 font-medium text-xs">
-							Proje izni gerekir
+							Project permission required
 						</span>
 					</div>
 					<p className="text-muted-foreground text-sm">
-						Ajan yalnız aşağıda seçtiğiniz amaç ve kapsamda çalışabilir. Öneri
-						hazırlamak Bağlam Sürümü'nü etkinleştirme yetkisi vermez.
+						The agent can work only within the purpose and scope selected below.
+						Preparing a proposal does not grant permission to activate a Context
+						Revision.
 					</p>
 				</div>
 
@@ -193,18 +194,18 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 			>
 				<div className="flex flex-wrap items-center justify-between gap-2">
 					<h2 className="font-semibold text-xl" id="connection-heading">
-						Dış Araç Bağlantısı
+						External Tool Connection
 					</h2>
 					<span className="rounded-full border px-2.5 py-1 font-medium text-xs">
-						Sağlayıcı seçilmedi
+						No provider selected
 					</span>
 				</div>
 				<p className="text-muted-foreground text-sm">
-					Amaç: Proje Bağlamı'nı ve seçilen referansları okumak, sonuç dosyasını
-					Aday Sürüm olarak geri yazmak.
+					Purpose: read Project Context and selected references, and write the
+					result file back as a Candidate Version.
 				</p>
 				<div>
-					<p className="font-medium text-sm">Erişim kapsamı</p>
+					<p className="font-medium text-sm">Access scope</p>
 					<ul className="mt-2 list-inside list-disc space-y-1 text-muted-foreground text-sm">
 						{connectionScopes.map((scope) => (
 							<li key={scope}>{scope}</li>
@@ -212,17 +213,17 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 					</ul>
 				</div>
 				<p className="rounded-md bg-muted p-3 text-sm">
-					Belirli bir sağlayıcı seçilene kadar bağlantı izni verilemez ve her
-					erişim isteği reddedilir.
+					Connection permission cannot be granted until a provider is selected,
+					and every access request is rejected.
 				</p>
 			</section>
 
 			<ExternalVisualAnalysisConsent projectId={projectId} />
 
 			<p className="text-muted-foreground text-sm">
-				Dış araç izinleri Bağlam Sürümü'nü etkinleştirme, İnceleme Kaydı
-				oluşturma, Kalite İstisnası verme veya proje içeriğini silme yetkisi
-				vermez.
+				External tool permissions do not authorize activating a Context
+				Revision, creating a Review Record, granting a Quality Waiver, or
+				deleting project content.
 			</p>
 		</main>
 	);
@@ -238,7 +239,7 @@ function ProjectAccessHeader({
 	projectName?: string;
 }) {
 	if (isPending) {
-		return <p aria-live="polite">Proje yükleniyor…</p>;
+		return <p aria-live="polite">Loading project…</p>;
 	}
 	if (isError) {
 		return null;
@@ -246,13 +247,14 @@ function ProjectAccessHeader({
 	return (
 		<header className="space-y-2">
 			<p className="font-mono text-primary text-xs uppercase tracking-[0.16em]">
-				İzinleri yönet / Dış araç erişimi
+				Manage permissions / External tool access
 			</p>
 			<h1 className="font-medium font-serif text-4xl tracking-tight">
 				{projectName}
 			</h1>
 			<p className="max-w-2xl text-muted-foreground">
-				Her araç için amacı ve erişebileceği proje bilgilerini ayrı belirleyin.
+				Set the purpose and accessible project information separately for each
+				tool.
 			</p>
 		</header>
 	);
@@ -274,7 +276,7 @@ function ContextAgentPermissionHistory({
 	writeOutcomeUncertain: boolean;
 }) {
 	if (isPending) {
-		return <p aria-live="polite">İzinler yükleniyor…</p>;
+		return <p aria-live="polite">Loading permissions…</p>;
 	}
 	if (isError) {
 		return null;
@@ -282,12 +284,12 @@ function ContextAgentPermissionHistory({
 	if (permissions.length === 0) {
 		return (
 			<p className="rounded-lg border border-dashed p-4 text-muted-foreground text-sm">
-				Bu projede kayıtlı Bağlam Ajanı izni yok.
+				No Context Agent permissions have been saved for this project.
 			</p>
 		);
 	}
 	return (
-		<ul aria-label="Bağlam Ajanı izin kayıtları" className="space-y-3">
+		<ul aria-label="Context Agent permission records" className="space-y-3">
 			{permissions.map((permission) => (
 				<ContextAgentPermissionRecord
 					key={permission.id}
@@ -318,7 +320,7 @@ function ContextAgentPermissionRecord({
 			<div className="flex flex-wrap items-center justify-between gap-2">
 				<p className="font-medium">{permission.purpose}</p>
 				<span className="rounded-full border px-2.5 py-1 text-xs">
-					{isActive ? "Etkin" : "Geri alındı"}
+					{isActive ? "Active" : "Revoked"}
 				</span>
 			</div>
 			<ul className="list-inside list-disc space-y-1 text-muted-foreground text-sm">
@@ -330,19 +332,19 @@ function ContextAgentPermissionRecord({
 				))}
 			</ul>
 			<p className="text-muted-foreground text-xs">
-				Verilme: {new Date(permission.createdAt).toLocaleString()}
+				Granted: {new Date(permission.createdAt).toLocaleString()}
 				{permission.revokedAt
 					? ` · Geri alma: ${new Date(permission.revokedAt).toLocaleString()}`
 					: ""}
 			</p>
 			{isActive ? (
 				<Button
-					aria-label={`${permission.purpose} iznini geri al`}
+					aria-label={`${permission.purpose} revoke permission`}
 					disabled={revokingId !== null || writeOutcomeUncertain}
 					onClick={() => onRevoke(permission.id)}
 					variant="destructive"
 				>
-					{revokingId === permission.id ? "Geri alınıyor…" : "İzni geri al"}
+					{revokingId === permission.id ? "Revoking…" : "Revoke permission"}
 				</Button>
 			) : null}
 		</li>

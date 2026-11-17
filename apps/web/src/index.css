@@ -31,3 +31,10 @@ main :where(h1, h2, h3, p, dd, summary) {
 	outline: 2px solid var(--foreground);
 	outline-offset: 2px;
 }
+
+/* Static 2px ink fade for media surfaces that opt in. */
+.dither-ink {
+	background-image: url("../../../packages/ui/src/styles/images/dither.svg");
+	background-repeat: repeat-x;
+	background-position: bottom;
+}

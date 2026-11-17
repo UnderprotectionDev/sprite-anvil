@@ -21,21 +21,29 @@ export function createTestAssetVersionStorage() {
 			}
 			objects.set(key, { bytes, contentLength: length, contentType });
 		},
-		get(key: string) {
+		get(key: string, range?: { offset: number; length: number }) {
 			const object = objects.get(key);
 			if (!object) {
 				return Promise.resolve(null);
 			}
+			const bytes = range
+				? object.bytes.slice(range.offset, range.offset + range.length)
+				: object.bytes.slice();
 			return Promise.resolve({
 				body: new ReadableStream<Uint8Array>({
 					start(controller) {
-						controller.enqueue(object.bytes.slice());
+						controller.enqueue(bytes);
 						controller.close();
 					},
 				}),
-				contentLength: object.contentLength,
+				contentLength: bytes.length,
 				contentType: object.contentType,
 			});
+		},
+		list(prefix: string) {
+			return Promise.resolve(
+				[...objects.keys()].filter((key) => key.startsWith(prefix))
+			);
 		},
 		delete(key: string) {
 			return Promise.resolve().then(() => {

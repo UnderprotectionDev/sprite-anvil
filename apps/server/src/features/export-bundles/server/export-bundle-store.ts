@@ -157,6 +157,22 @@ export function createExportBundleStore(
 	const now = options.now ?? (() => new Date());
 
 	return {
+		async preview(userId, input) {
+			if (!(await lookupProject(userId, input.projectId))) {
+				return null;
+			}
+			const result = await sourceReader.read(userId, input);
+			if (!result || result.status === "family_unavailable") {
+				return result;
+			}
+			return {
+				status: "resolved",
+				context: result.source.context,
+				families: result.source.families,
+				assetVersions: result.source.assetVersions,
+				blockers: result.source.blockers,
+			};
+		},
 		async create(userId, input) {
 			if ((await lookupProject(userId, input.projectId)) === null) {
 				return null;

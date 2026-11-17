@@ -21,7 +21,7 @@ Ownership rules for application code: where each kind of code lives and what may
 ## Workspaces
 
 - `apps/web`: Vite + TanStack Router interface, Tauri shell (`src-tauri/`), end-to-end tests.
-- `apps/server`: Cloudflare worker, service wiring, per-feature server code.
+- `apps/server`: Bun/Hono Railway app, Cloudflare Queue HTTP worker, service wiring, per-feature server code.
 - `apps/fumadocs`: documentation site.
 - `packages/api`, `packages/db`, `packages/auth`, `packages/ui`, `packages/config`: contracts and routers, database, authentication, interface primitives, shared TypeScript configuration (see Packages).
 
@@ -134,6 +134,7 @@ A test belongs to the feature that owns the code it covers and moves or is delet
 | Route test | Next to the route file in `routes/`, with a leading `-` so TanStack does not register it as a route | `-*.test.tsx` |
 | Server unit | `server/tests/` of the feature | `*.test.ts` |
 | Server integration (database or other infrastructure) | `server/tests/` of the feature | `*.integration.test.ts` |
+| Multi-feature server composition integration | `apps/server/src/` | `*.integration.test.ts` |
 | Test helper or fixture | Beside the tests that use it; used by two features, it goes to the owning `packages/` directory | any name without `.test.` |
 | Package test | Next to the file it covers inside that package | `*.test.ts` |
 | Browser end-to-end | `apps/web/e2e/`, one spec per feature or flow, named after it | `<feature>.spec.ts` |

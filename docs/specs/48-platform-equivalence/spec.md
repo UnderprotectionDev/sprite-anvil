@@ -45,6 +45,8 @@ Tamamlanma kanıtı: Aşama 3 çekirdek akış karşılaştırması ara kanıt o
 
 ## Testing Decisions
 
+- Native capability derlemesi: [`build.rs`](../../../apps/web/src-tauri/build.rs), normal derlemede yalnız normal izinleri; `webdriver` feature ile test izinlerini de işler. Her iki `cargo check` koşusu derlenebilirliği doğrular. Test izni normal uygulamaya eklenmez; bu kontrol gerçek masaüstü akışı veya ekran okuyucu kabulünün yerine geçmez.
+
 - **Gezinme ve yerleşim seam’i:** app-shell, projects-navigation ve workspace-usability Playwright testleri başlangıç, oturum yönlendirmesi, proje bağlamı, dönüş, yükleme hatası, bilinmeyen route ve 1440/390 px pencere erişimini gerçek web renderer üzerinde taklit API ile sınar. Native masaüstü, canlı DB, destek matrisi, ekran okuyucu ve operasyonel kapasite doğrulaması ayrıca gerekir.
 
 - **Aşama 3 test seam’i:** Aynı Çekirdek Üretim Akışı girdisini web ve masaüstünde çalıştırıp yetkili kayıt, kalite kanıtı ve motor bağımsız paket anlamını karşılaştırma; farkları ara kanıt olarak saklama.
@@ -92,4 +94,4 @@ Ekranların birebir aynı olması, telefon/tablet veya tam çevrimdışı çalı
 - [YAS-02](../../prd/10-acceptance-scenarios.md)
 - [YAS-03](../../prd/10-acceptance-scenarios.md)
 - [YAS-04](../../prd/10-acceptance-scenarios.md)
-- Mevcut uygulama yalnız temel web/masaüstü kabuğu ve sınırlı sunucu yükleme yolunu içeriyor; bu spec teslim edilmiş ürün iddiası değildir. Yeni bağımlılık veya platform sınırı bu belgeyle seçilmez; Aşama 3 ara kanıtının depolaması yukarıdaki “Platform Eşdeğerlik Çalıştırması ve Raporu” kararıyla seçilmiştir.
+- PRD ve bu spec hedef davranışı tanımlar; mevcut sözleşmeler ve testler tüm kabul senaryolarının tamamlandığını göstermez. Yeni bağımlılık veya platform sınırı bu belgeyle seçilmez; Aşama 3 ara kanıtının depolaması yukarıdaki “Platform Eşdeğerlik Çalıştırması ve Raporu” kararıyla seçilmiştir.

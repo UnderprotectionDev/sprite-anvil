@@ -1,44 +1,45 @@
 import {
 	createQueue,
 	createStorage,
-	queueMessageSchema,
 	requireCloudflareConfig,
 } from "./cloudflare";
+import { createDatabaseManagedObjectCleanupCandidates } from "./database-managed-object-cleanup";
+import { createDatabaseManagedObjectReservations } from "./database-managed-object-reservations";
 import { ENV } from "./env.server";
+import { createManagedObjectCleanup } from "./managed-object-cleanup";
+import { createOperationWorker } from "./operation-worker";
+import { createServerOperationServices, db } from "./services";
 
 const config = requireCloudflareConfig(ENV);
 const queue = createQueue(config);
 const storage = createStorage(config);
-const pollIntervalMs = 2000;
+const { lifecycle } = createServerOperationServices({
+	send: queue.sendOperation,
+});
+const worker = createOperationWorker({
+	lifecycle,
+	queue,
+	handleUpload: storage.exists,
+	reconcileManagedObjects: createManagedObjectCleanup({
+		listCandidates: createDatabaseManagedObjectCleanupCandidates(db),
+		deleteObject: storage.delete,
+		release: createDatabaseManagedObjectReservations(db).release,
+	}),
+});
 
-while (true) {
-	try {
-		// biome-ignore lint/performance/noAwaitInLoops: The next poll must wait for the current batch.
-		const messages = await queue.pull();
-		const acks: string[] = [];
-		const retries: string[] = [];
-
-		for (const message of messages) {
-			try {
-				const body: unknown =
-					typeof message.body === "string"
-						? JSON.parse(message.body)
-						: message.body;
-				const command = queueMessageSchema.parse(body);
-				// biome-ignore lint/performance/noAwaitInLoops: Verify each leased object before acknowledging it.
-				await storage.exists(command.key);
-				acks.push(message.lease_id);
-			} catch {
-				retries.push(message.lease_id);
-			}
+async function runLoop(action: () => Promise<void>, label: string) {
+	while (true) {
+		try {
+			// biome-ignore lint/performance/noAwaitInLoops: Each loop waits for its previous iteration.
+			await action();
+		} catch {
+			console.error(`${label} failed`);
 		}
-
-		if (acks.length > 0 || retries.length > 0) {
-			await queue.settle(acks, retries);
-		}
-	} catch {
-		console.error("Queue poll failed");
+		await new Promise((resolve) => setTimeout(resolve, 2000));
 	}
-
-	await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
 }
+
+await Promise.all([
+	runLoop(worker.maintain, "Operation maintenance"),
+	runLoop(worker.consume, "Queue poll"),
+]);

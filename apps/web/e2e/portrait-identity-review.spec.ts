@@ -28,7 +28,7 @@ test("reviews portrait expressions in dialogue and rereads exact crop and user j
 			familyName: "Hero portraits",
 			visualWorldName: "Illustrated portraits",
 			useContext: "Dialogue",
-			categoryLabel: "Portreler, logolar ve tanıtım görselleri",
+			categoryLabel: "Portraits, logos, and marketing images",
 			records: [
 				{ name: "Neutral portrait", uploadNote: "Neutral portrait source." },
 				{ name: "Happy portrait", uploadNote: "Happy portrait source." },
@@ -38,99 +38,107 @@ test("reviews portrait expressions in dialogue and rereads exact crop and user j
 		false
 	);
 	await page
-		.getByRole("button", { name: "Sürüm ve bağımlılık işlemleri", exact: true })
+		.getByRole("button", {
+			name: "Version and dependency operations",
+			exact: true,
+		})
 		.click();
 	const neutral = page.getByRole("listitem").filter({
 		has: page.getByRole("heading", { name: "Neutral portrait", exact: true }),
 	});
 	await neutral
-		.getByLabel("İnceleme gerekçesi")
+		.getByLabel("Review rationale")
 		.fill("Approved portrait identity.");
 	const approvalResponse = page.waitForResponse((response) =>
 		response.url().includes("assetVersions/review")
 	);
-	await neutral.getByRole("button", { name: "Onayla", exact: true }).click();
+	await neutral.getByRole("button", { name: "Approve", exact: true }).click();
 	const approval = await approvalResponse;
 	expect(approval.ok(), await approval.text()).toBe(true);
 	await expect(
-		neutral.getByRole("paragraph").filter({ hasText: "Sürüm 1 · Onaylandı" })
+		neutral.getByRole("paragraph").filter({ hasText: "Version 1 · Approved" })
 	).toBeVisible();
-	await neutral.getByRole("button", { name: "Ana Tasarım olarak seç" }).click();
-	await expect(
-		page.getByText("Ana Tasarım seçildi.", { exact: true })
-	).toBeVisible();
-	await page
-		.getByRole("button", { name: "Aile ve temsil ilişkileri", exact: true })
+	await neutral
+		.getByRole("button", { name: "Select as Canonical Design" })
 		.click();
-	await page.getByLabel("İlişki türü").selectOption("derivative");
-	await page
-		.getByLabel("İlgili Varlık Kaydı")
-		.selectOption({ label: "Happy portrait" });
-	await page.getByRole("button", { name: "İlişki ekle", exact: true }).click();
 	await expect(
-		page.getByText("İlişki kaydedildi.", { exact: true })
+		page.getByText("Canonical Design selected.", { exact: true })
+	).toBeVisible();
+	await page
+		.getByRole("button", {
+			name: "Family and representation relationships",
+			exact: true,
+		})
+		.click();
+	await page.getByLabel("Relationship type").selectOption("derivative");
+	await page
+		.getByLabel("Related Asset Record")
+		.selectOption({ label: "Happy portrait" });
+	await page
+		.getByRole("button", { name: "Add relationship", exact: true })
+		.click();
+	await expect(
+		page.getByText("Relationship saved.", { exact: true })
 	).toBeVisible();
 	await activateFamilyProfile(
 		page,
-		"Portre, logo ve tanıtım görseli",
+		"Portrait, logo, and marketing image",
 		familyUrl,
 		"1.0.0"
 	);
 	await page
-		.getByRole("button", { name: "Profil incelemeleri", exact: true })
+		.getByRole("button", { name: "Profile reviews", exact: true })
 		.click();
 	const review = page.getByRole("region", {
-		name: "Portre Kimliğini ve Kırpmayı İnceleme",
+		name: "Review Portrait Identity and Crop",
 	});
 	await review
-		.getByLabel("Portre sürümü")
+		.getByLabel("Portrait version")
 		.nth(0)
-		.selectOption({ label: "Neutral portrait · Sürüm 1" });
+		.selectOption({ label: "Neutral portrait · Version 1" });
 	await review
-		.getByLabel("Portre sürümü")
+		.getByLabel("Portrait version")
 		.nth(1)
-		.selectOption({ label: "Happy portrait · Sürüm 1" });
-	await review.getByLabel("İfade adı").nth(0).fill("Neutral");
-	await review.getByLabel("İfade adı").nth(1).fill("Happy");
-	await review.getByLabel("Kırpma X").nth(0).fill("8");
+		.selectOption({ label: "Happy portrait · Version 1" });
+	await review.getByLabel("Expression name").nth(0).fill("Neutral");
+	await review.getByLabel("Expression name").nth(1).fill("Happy");
+	await review.getByLabel("Crop X").nth(0).fill("8");
 	await expect(
-		review.getByRole("button", { name: "Portre incelemesini kaydet" })
+		review.getByRole("button", { name: "Save portrait review" })
 	).toBeDisabled();
-	await review.getByLabel("Kırpma genişliği").nth(0).fill("24");
-	await review.getByLabel("Kullanım genişliği").nth(0).fill("137");
-	await review.getByLabel("Kullanım yüksekliği").nth(0).fill("181");
+	await review.getByLabel("Crop width").nth(0).fill("24");
+	await review.getByLabel("Usage width").nth(0).fill("137");
+	await review.getByLabel("Usage height").nth(0).fill("181");
 	await review
-		.getByLabel("Kimlik tutarlılığı", { exact: true })
+		.getByLabel("Identity consistency", { exact: true })
 		.selectOption("passed");
 	await review
-		.getByLabel("İfade tutarlılığı", { exact: true })
+		.getByLabel("Expression consistency", { exact: true })
 		.selectOption("passed");
 	await review
-		.getByLabel("Kırpma ve yüz görünürlüğü", { exact: true })
+		.getByLabel("Crop and face visibility", { exact: true })
 		.selectOption("failed");
 	await review
-		.getByLabel("Kimlik tutarlılığı notu")
+		.getByLabel("Identity consistency notes")
 		.fill("Same Hero identity.");
 	await review
-		.getByLabel("İfade tutarlılığı notu")
+		.getByLabel("Expression consistency notes")
 		.fill("Neutral and Happy remain distinct.");
 	await review
-		.getByLabel("Kırpma ve yüz görünürlüğü notu")
+		.getByLabel("Crop and face visibility notes")
 		.fill("Face is clipped in dialogue.");
 	await review
-		.getByLabel("İnceleme gerekçesi")
+		.getByLabel("Review rationale")
 		.fill("Dialogue crop needs follow-up.");
 	await expect(
 		review.getByRole("img", { name: "Neutral portrait Neutral" })
 	).toBeVisible();
 	await expect(
-		review.getByRole("button", { name: "Portre incelemesini kaydet" })
+		review.getByRole("button", { name: "Save portrait review" })
 	).toBeEnabled();
-	await review
-		.getByRole("button", { name: "Portre incelemesini kaydet" })
-		.click();
+	await review.getByRole("button", { name: "Save portrait review" }).click();
 	await expect(
-		review.getByText("Portre incelemesi kaydedildi.", { exact: true })
+		review.getByText("Portrait review saved.", { exact: true })
 	).toBeVisible();
 	await review.screenshot({ path: "../../.context/portrait-review.png" });
 	if (process.env.PORTRAIT_REVIEW_RESULT_PATH) {
@@ -146,23 +154,21 @@ test("reviews portrait expressions in dialogue and rereads exact crop and user j
 	}
 	await page.reload();
 	await page
-		.getByRole("button", { name: "Profil incelemeleri", exact: true })
+		.getByRole("button", { name: "Profile reviews", exact: true })
 		.click();
 	await expect(
 		review.getByText("Dialogue crop needs follow-up.", { exact: true })
 	).toBeVisible();
-	await review
-		.getByText("İnceleme ayrıntılarını göster", { exact: true })
-		.click();
+	await review.getByText("Show review details", { exact: true }).click();
 	await expect(
 		review.getByText(
-			"Kırpma ve yüz görünürlüğü: Başarısız · Face is clipped in dialogue.",
+			"Crop and face visibility: Fail · Face is clipped in dialogue.",
 			{ exact: true }
 		)
 	).toBeVisible();
 	await expect(
 		review.getByText(
-			"Neutral portrait · Neutral · Diyalog · 137 × 181 px · Kırpma: 8, 0, 24 × 32 · Açık",
+			"Neutral portrait · Neutral · Dialogue · 137 × 181 px · Crop: 8, 0, 24 × 32 · Light",
 			{ exact: true }
 		)
 	).toBeVisible();

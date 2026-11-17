@@ -35,17 +35,17 @@ export function VisualWorldForm({
 				form.handleSubmit();
 			}}
 		>
-			<h3>Görsel Dünya ekleyin</h3>
+			<h3>Add a Visual World</h3>
 			<form.Field name="name">
 				{(field) => (
 					<Label className={fieldLabelClass}>
-						<span>Görsel Dünya adı</span>
+						<span>Visual World name</span>
 						<Input
 							maxLength={120}
 							name={field.name}
 							onBlur={field.handleBlur}
 							onChange={(event) => field.handleChange(event.target.value)}
-							placeholder="Örn. Yüksek yaylalar"
+							placeholder="e.g. High plateaus"
 							required
 							value={field.state.value}
 						/>
@@ -55,13 +55,13 @@ export function VisualWorldForm({
 			<form.Field name="description">
 				{(field) => (
 					<Label className={fieldLabelClass}>
-						<span>Açıklama</span>
+						<span>Description</span>
 						<Textarea
 							maxLength={1000}
 							name={field.name}
 							onBlur={field.handleBlur}
 							onChange={(event) => field.handleChange(event.target.value)}
-							placeholder="Bu dünyanın ayırt edici bağlamını açıklayın."
+							placeholder="Describe this world's distinctive context."
 							rows={2}
 							value={field.state.value}
 						/>
@@ -73,7 +73,7 @@ export function VisualWorldForm({
 				disabled={isPending || isError}
 				type="submit"
 			>
-				{isPending ? "Kaydediliyor…" : "Görsel Dünya ekle"}
+				{isPending ? "Saving…" : "Add Visual World"}
 			</Button>
 		</form>
 	);
@@ -99,11 +99,11 @@ export function ThemeForm({
 				form.handleSubmit();
 			}}
 		>
-			<h3>Tema ekleyin</h3>
+			<h3>Add a Theme</h3>
 			<form.Field name="visualWorldId">
 				{(field) => (
 					<Label className={fieldLabelClass}>
-						<span>Görsel Dünya</span>
+						<span>Visual World</span>
 						<NativeSelect
 							className="w-full"
 							name={field.name}
@@ -117,7 +117,7 @@ export function ThemeForm({
 						>
 							{visualWorlds.length ? null : (
 								<NativeSelectOption value="">
-									Önce bir Görsel Dünya ekleyin
+									Add a Visual World first
 								</NativeSelectOption>
 							)}
 							{visualWorlds.map((visualWorld) => (
@@ -132,13 +132,13 @@ export function ThemeForm({
 			<form.Field name="name">
 				{(field) => (
 					<Label className={fieldLabelClass}>
-						<span>Tema adı</span>
+						<span>Theme name</span>
 						<Input
 							maxLength={120}
 							name={field.name}
 							onBlur={field.handleBlur}
 							onChange={(event) => field.handleChange(event.target.value)}
-							placeholder="Örn. Kış pazarı"
+							placeholder="e.g. Winter market"
 							required
 							value={field.state.value}
 						/>
@@ -148,13 +148,13 @@ export function ThemeForm({
 			<form.Field name="description">
 				{(field) => (
 					<Label className={fieldLabelClass}>
-						<span>Açıklama</span>
+						<span>Description</span>
 						<Textarea
 							maxLength={1000}
 							name={field.name}
 							onBlur={field.handleBlur}
 							onChange={(event) => field.handleChange(event.target.value)}
-							placeholder="Bu temanın ayırt edici bağlamını açıklayın."
+							placeholder="Describe this theme's distinctive context."
 							rows={2}
 							value={field.state.value}
 						/>
@@ -172,7 +172,7 @@ export function ThemeForm({
 						}
 						type="submit"
 					>
-						{isPending ? "Kaydediliyor…" : "Tema ekle"}
+						{isPending ? "Saving…" : "Add Theme"}
 					</Button>
 				)}
 			</form.Subscribe>

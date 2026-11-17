@@ -4,6 +4,7 @@ import type { ProjectProfileContractActivation } from "@sprite-anvil/api/special
 import type {
 	TilesetAdjacencyReviewInput,
 	TilesetAdjacencyReviewRecord,
+	TilesetSeamResult,
 	TilesetTestMap,
 	TilesetTile,
 } from "@sprite-anvil/api/tileset-adjacency-reviews";
@@ -99,11 +100,26 @@ export function TilesetAdjacencyReviewManager({
 	const saveMutation = useMutation(
 		orpc.tilesetAdjacencyReviews.save.mutationOptions(mutationMeta)
 	);
+	const seamMutation = useMutation(
+		orpc.tilesetAdjacencyReviews.inspectSeam.mutationOptions()
+	);
+	const [seamResult, setSeamResult] = useState<{
+		key: string;
+		result: TilesetSeamResult;
+	} | null>(null);
 	const [saving, setSaving] = useState(false);
 	const [pending, setPending] = useState<TilesetAdjacencyReviewInput | null>(
 		null
 	);
 	const map = maps[scenarioIndex];
+	const seamKey = JSON.stringify({
+		compositeId,
+		tiles,
+		map,
+		cellIndex,
+		neighborIndex,
+		contractRevisionId: activation.contractRevisionId,
+	});
 	const automaticIssues = inspectTilesetAdjacency({ tiles, maps });
 	const locked = saving || pending !== null;
 	function resetEditor(nextBrush: string | null, inspection: boolean) {
@@ -206,6 +222,34 @@ export function TilesetAdjacencyReviewManager({
 		}
 		return parsed.data;
 	}
+	async function inspectSeam() {
+		if (!(map && neighborIndex)) {
+			setStatus("Choose a neighboring cell to inspect.");
+			return;
+		}
+		setSeamResult(null);
+		try {
+			const result = await seamMutation.mutateAsync({
+				id: crypto.randomUUID(),
+				projectId,
+				assetFamilyId,
+				compositeVersionId: compositeId,
+				contractRevisionId: activation.contractRevisionId,
+				tiles: tiles.map(
+					({ tileId: _tileId, assetVersionId: _assetVersionId, ...tile }) =>
+						tile
+				),
+				maps,
+				scenario: map.scenario,
+				cellIndex,
+				neighborIndex: Number(neighborIndex) - 1,
+			});
+			setSeamResult({ key: seamKey, result });
+			setStatus("");
+		} catch (error) {
+			setStatus(getErrorMessage(error, "Pixel seam inspection failed."));
+		}
+	}
 	async function saveReview() {
 		const request = pending ?? createReviewRequest();
 		if (!request) {
@@ -248,7 +292,7 @@ export function TilesetAdjacencyReviewManager({
 	return (
 		<section className="space-y-4 rounded-lg border p-4">
 			<h3 className="font-semibold text-lg">
-				Karo Komşuluklarını Test Haritasında Sınama · {familyName}
+				Test Tile Adjacencies on a Test Map · {familyName}
 			</h3>
 			<p className="text-muted-foreground text-sm">
 				Paint small usage examples and inspect tile connections. Visual
@@ -278,7 +322,7 @@ export function TilesetAdjacencyReviewManager({
 			</div>
 			<FieldSet className="block space-y-4" disabled={locked}>
 				<Label className={labelClass} htmlFor={`${prefix}-composition`}>
-					Birleşik Sürüm
+					Composite Version
 					<NativeSelect
 						className={selectClass}
 						id={`${prefix}-composition`}
@@ -302,8 +346,8 @@ export function TilesetAdjacencyReviewManager({
 				</Label>
 				{composites.length === 0 ? (
 					<p>
-						Bu ailede önce karo Birim Sürümlerini ve bir Birleşik Sürüm
-						oluşturun.
+						First create tile Unit Versions and a Composite Version in this
+						family.
 					</p>
 				) : null}
 				<div className="grid gap-4 xl:grid-cols-2">
@@ -462,6 +506,51 @@ export function TilesetAdjacencyReviewManager({
 										value={neighborIndex}
 									/>
 								</Label>
+								<Button
+									disabled={seamMutation.isPending || !neighborIndex}
+									onClick={() => void inspectSeam()}
+									type="button"
+									variant="outline"
+								>
+									Inspect pixel seam
+								</Button>
+								{seamResult?.key === seamKey ? (
+									<div aria-label="Pixel seam result" role="region">
+										<p>
+											Exact RGBA edge comparison:{" "}
+											{seamResult.result.mismatchCount} of{" "}
+											{seamResult.result.length} pixels differ
+											{seamResult.result.firstMismatch === null
+												? "."
+												: `; first difference at offset ${seamResult.result.firstMismatch}.`}
+										</p>
+										<div
+											aria-label="Difference preview"
+											className="flex max-w-full overflow-auto"
+											role="img"
+										>
+											{Array.from(
+												{ length: seamResult.result.length },
+												(_, offset) => (
+													<span
+														aria-hidden="true"
+														className={
+															seamResult.result.mismatchOffsets.includes(offset)
+																? "h-4 min-w-1 bg-red-600"
+																: "h-4 min-w-1 bg-green-600"
+														}
+														// biome-ignore lint/suspicious/noArrayIndexKey: Offset is the stable coordinate along the measured edge.
+														key={offset}
+													/>
+												)
+											)}
+										</div>
+										<p>
+											Red marks differing pixels; green marks matching pixels.
+											This measurement does not replace visual review.
+										</p>
+									</div>
+								) : null}
 								<Label className={labelClass} htmlFor={`${prefix}-issue`}>
 									Tile or connection issue
 									<Textarea

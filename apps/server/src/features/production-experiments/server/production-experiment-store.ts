@@ -4,6 +4,7 @@ import type {
 } from "@sprite-anvil/api/production-experiments";
 import { productionExperimentSchema } from "@sprite-anvil/api/production-experiments";
 import type { Database } from "@sprite-anvil/db";
+import { publishedProjectPredicate } from "@sprite-anvil/db";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
 import {
 	productionExperiments,
@@ -65,7 +66,7 @@ async function isOwnedAssetRecord(
 			and(
 				eq(assetRecords.projectId, projectId),
 				eq(assetRecords.id, assetRecordId),
-				eq(project.ownerUserId, userId)
+				and(eq(project.ownerUserId, userId), publishedProjectPredicate())
 			)
 		)
 		.limit(1);
@@ -80,7 +81,7 @@ async function readOwnedExperiments(
 ) {
 	const conditions = [
 		eq(productionExperiments.projectId, projectId),
-		eq(project.ownerUserId, userId),
+		and(eq(project.ownerUserId, userId), publishedProjectPredicate()),
 	];
 	if (filter.assetRecordId) {
 		conditions.push(

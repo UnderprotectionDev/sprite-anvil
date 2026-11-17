@@ -1,7 +1,4 @@
-import {
-	type ObjectReader,
-	readVerifiedObjectBytes,
-} from "./object-file-bytes";
+import { type ObjectReader, verifyObject } from "./object-file-bytes";
 
 /**
  * Confirms a stored file still has the recorded size and SHA-256 before it
@@ -13,7 +10,5 @@ export function createObjectFileVerifier(storage: ObjectReader) {
 		byteSize: number;
 		objectKey: string;
 		sha256: string;
-	}): Promise<boolean> =>
-		(await readVerifiedObjectBytes(storage, file.objectKey, file)).status ===
-		"ok";
+	}): Promise<boolean> => await verifyObject(storage, file.objectKey, file);
 }

@@ -106,7 +106,7 @@ export const assetFamilyRelationshipCreateInputSchema = z
 		if (input.type === "derivative" && !input.sourceAssetVersionId) {
 			context.addIssue({
 				code: "custom",
-				message: "Türetilmiş Varlık için Kaynak Varlık Sürümü seçilmelidir.",
+				message: "A Source Asset Version must be selected for a Derived Asset.",
 				path: ["sourceAssetVersionId"],
 			});
 		}
@@ -114,7 +114,7 @@ export const assetFamilyRelationshipCreateInputSchema = z
 			context.addIssue({
 				code: "custom",
 				message:
-					"Kaynak Varlık Sürümü yalnız Türetilmiş Varlık için seçilebilir.",
+					"A Source Asset Version can only be selected for a Derived Asset.",
 				path: ["sourceAssetVersionId"],
 			});
 		}

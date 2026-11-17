@@ -11,13 +11,13 @@ import { useMutation } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { useAssetVersionWrites } from "@/features/asset-versions/hooks/use-asset-version-writes";
-import { LiveFileLinkPanel } from "@/features/production-provenance/ui/components/live-file-link-panel";
-import { VersionProductionEvidencePanel } from "@/features/production-provenance/ui/components/version-production-evidence-panel";
+import { LiveFileLinkPanel } from "@/components/live-file-link-panel";
+import { VersionProductionEvidencePanel } from "@/components/version-production-evidence-panel";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
+import { useAssetVersionWrites } from "@/utils/use-asset-version-writes";
 import { trackingReviewRationaleFormSchema } from "../../schemas";
 import {
 	AssetFamilyForm,
@@ -36,21 +36,21 @@ import {
 } from "../forms/derivative-link-form";
 
 const userRelationshipLabels = {
-	created_by_user: "Kullanıcı oluşturdu",
-	received_from_team: "Ekipten alındı",
-	licensed_third_party: "Lisanslı üçüncü taraf",
-	unknown: "Bilinmiyor",
+	created_by_user: "Created by user",
+	received_from_team: "Received from team",
+	licensed_third_party: "Licensed third party",
+	unknown: "Unknown",
 } as const;
 
 function displayFileName(fileName: string | null) {
-	return fileName ?? "Dosya adı bilinmiyor";
+	return fileName ?? "Filename unknown";
 }
 
 function getVersionLabel(version: {
 	fileName: string | null;
 	versionNumber: number;
 }) {
-	return `${displayFileName(version.fileName)} · Sürüm ${version.versionNumber}`;
+	return `${displayFileName(version.fileName)} · Version ${version.versionNumber}`;
 }
 
 interface PendingWrite {
@@ -88,7 +88,7 @@ function FamilyAndDerivativeSection({
 		familyControls = (
 			<DerivativeLinkForm
 				busy={busy}
-				familyLabel={`Varlık Ailesi: ${tracking.family.name} · ${tracking.family.visualWorldName}`}
+				familyLabel={`Asset Family: ${tracking.family.name} · ${tracking.family.visualWorldName}`}
 				form={derivativeForm}
 				options={tracking.availableRecords.filter(
 					(option) =>
@@ -102,12 +102,12 @@ function FamilyAndDerivativeSection({
 		familyControls = (
 			<div className="mt-4 space-y-2 border-t pt-3 text-sm">
 				<p>
-					Varlık Ailesi: {tracking.family.name} ·{" "}
+					Asset Family: {tracking.family.name} ·{" "}
 					{tracking.family.visualWorldName}
 				</p>
 				<p className="text-muted-foreground text-xs" role="status">
-					Bu eski Varlık Ailesinde Ana Tasarım Sürümü kayıtlı değil. Türetilmiş
-					varlık bağlantısı için seçim kullanıcı tarafından yapılmalıdır.
+					This older Asset Family has no recorded Canonical Design Version. The
+					user must select it for a Derived Asset link.
 				</p>
 			</div>
 		);
@@ -123,8 +123,8 @@ function FamilyAndDerivativeSection({
 	} else if (tracking.approvedVersion) {
 		familyControls = (
 			<p className="mt-3 text-muted-foreground text-xs">
-				Önce bir Görsel Dünya oluşturun; Ana Tasarım ve kullanım bağlamı
-				kullanıcı tarafından belirlenir.
+				Create a Visual World first; the user sets the Canonical Design and
+				usage context.
 			</p>
 		);
 	}
@@ -135,25 +135,25 @@ function FamilyAndDerivativeSection({
 			className="rounded-lg border p-4"
 		>
 			<h3 className="font-medium" id="derivatives-heading">
-				Türetilmiş varlıklar
+				Derived Assets
 			</h3>
 			{tracking.derivatives.length > 0 ? (
 				<ul className="mt-2 space-y-2 text-sm">
 					{tracking.derivatives.map((derivative) => (
 						<li key={derivative.id}>
-							{derivative.assetRecordName} · Ana Tasarım Sürümü{" "}
+							{derivative.assetRecordName} · Canonical Design Version{" "}
 							{tracking.availableVersions.find(
 								(version) => version.id === derivative.canonicalVersionId
 							)?.versionNumber ?? "?"}
 							{derivative.familyStatus === "unassigned"
-								? " · Aile bağı yeniden doğrulanmalı"
+								? " · Family link must be revalidated"
 								: ""}
 						</li>
 					))}
 				</ul>
 			) : (
 				<p className="mt-2 text-muted-foreground text-sm">
-					Bu kayda bağlı türetilmiş varlık yok.
+					No Derived Assets are linked to this record.
 				</p>
 			)}
 			{familyControls}
@@ -243,10 +243,10 @@ export function AssetRecordTrackingPanel({
 				pendingWrite.current = { check, message: label };
 				setWriteOutcomeUncertain(true);
 				toast.error(
-					"İşlemin kaydedilip kaydedilmediği doğrulanamadı. Güncel durumu kontrol edin."
+					"Could not verify whether the operation was saved. Check the current state."
 				);
 			} else {
-				toast.error(getErrorMessage(error, "Değişiklik kaydedilemedi."));
+				toast.error(getErrorMessage(error, "Could not save the change."));
 			}
 		} finally {
 			setActiveWrite(null);
@@ -254,7 +254,7 @@ export function AssetRecordTrackingPanel({
 	}
 
 	async function checkWriteOutcome() {
-		setActiveWrite("Durum kontrol ediliyor…");
+		setActiveWrite("Checking status…");
 		try {
 			const result = await onRefresh();
 			if (
@@ -281,11 +281,13 @@ export function AssetRecordTrackingPanel({
 				return;
 			}
 			toast.error(
-				"Kayıt henüz görünmüyor. Aynı bilgiyle yeniden deneyebilirsiniz."
+				"The record is not visible yet. You can retry with the same information."
 			);
 			setWriteOutcomeUncertain(false);
 		} catch (error) {
-			toast.error(getErrorMessage(error, "Güncel durum okunamadı.", "query"));
+			toast.error(
+				getErrorMessage(error, "Could not read the current state.", "query")
+			);
 		} finally {
 			setActiveWrite(null);
 		}
@@ -334,7 +336,7 @@ export function AssetRecordTrackingPanel({
 			userRelationship,
 		};
 		await runWrite(
-			"Aday Sürüm kaydedildi.",
+			"Candidate Version saved.",
 			(refreshed) => {
 				const version = refreshed.tracking.availableVersions.find(
 					(availableVersion) => availableVersion.id === input.id
@@ -371,8 +373,8 @@ export function AssetRecordTrackingPanel({
 		const request = reviewRequest.current;
 		await runWrite(
 			decision === "approved"
-				? "Onaylı Sürüm kaydedildi."
-				: "İnceleme Kaydı eklendi.",
+				? "Approved Version saved."
+				: "Review Record added.",
 			(refreshed) =>
 				refreshed.tracking.reviewEvents.some(
 					(event) => event.id === request.id
@@ -409,7 +411,7 @@ export function AssetRecordTrackingPanel({
 		}
 		const request = familyRequest.current;
 		await runWrite(
-			"Varlık Ailesi kaydedildi.",
+			"Asset Family saved.",
 			(refreshed) => refreshed.tracking.family?.id === request.id,
 			() =>
 				createFamilyMutation.mutateAsync({
@@ -447,7 +449,7 @@ export function AssetRecordTrackingPanel({
 		}
 		const request = derivativeRequest.current;
 		await runWrite(
-			"Türetilmiş Varlık bağlantısı kaydedildi.",
+			"Derived Asset link saved.",
 			(refreshed) =>
 				refreshed.tracking.derivatives.some((entry) => entry.id === request.id),
 			() =>
@@ -463,8 +465,8 @@ export function AssetRecordTrackingPanel({
 	}
 
 	const reviewDispositionLabel = {
-		candidate: "Aday",
-		approved: "Onaylı",
+		candidate: "Candidate",
+		approved: "Approved",
 		rejected: "Reddedildi",
 	} as const;
 
@@ -486,9 +488,9 @@ export function AssetRecordTrackingPanel({
 			manualImportEvidenceMissing ||
 			managedSnapshotIncomplete;
 		const decisions = [
-			{ decision: "approved", label: "Onayla" },
+			{ decision: "approved", label: "Approve" },
 			{ decision: "rejected", label: "Reddet" },
-			{ decision: "candidate", label: "Aday yap" },
+			{ decision: "candidate", label: "Make candidate" },
 		] as const;
 		return (
 			<div className="space-y-2">
@@ -513,12 +515,12 @@ export function AssetRecordTrackingPanel({
 				</div>
 				{manualEvidenceIncomplete || manualImportEvidenceMissing ? (
 					<p className="text-muted-foreground text-xs" role="status">
-						Onay için Elle İçe Aktarma Kanıtı gerekir.
+						Manual Import Evidence is required for approval.
 					</p>
 				) : null}
 				{managedSnapshotIncomplete ? (
 					<p className="text-muted-foreground text-xs" role="status">
-						Onaydan önce çalışma dosyasının Yönetilen Kopyasını kaydedin.
+						Save a Managed Snapshot of the working file before approval.
 					</p>
 				) : null}
 			</div>
@@ -529,11 +531,11 @@ export function AssetRecordTrackingPanel({
 		<section aria-labelledby="record-tracking-heading" className="space-y-4">
 			<div>
 				<h2 className="font-semibold text-xl" id="record-tracking-heading">
-					Kayıt izleme
+					Record tracking
 				</h2>
 				<p className="mt-1 text-muted-foreground text-sm">
-					Onay, kalite ve üretim kanıtı ayrı kayıtlardır. Onay tek başına Dışa
-					Aktarıma Hazır sonucu değildir.
+					Approval, quality, and production evidence are separate records.
+					Approval alone does not establish Export Ready status.
 				</p>
 			</div>
 			{statusMessage ? (
@@ -543,19 +545,19 @@ export function AssetRecordTrackingPanel({
 			) : null}
 			{matchingVersion ? (
 				<div
-					aria-label={`Aradığınız sürüm: ${getVersionLabel(matchingVersion)}.`}
+					aria-label={`Requested version: ${getVersionLabel(matchingVersion)}.`}
 					className="space-y-1 rounded-lg border border-primary p-4"
 					ref={matchingVersionRef}
 					role="status"
 					tabIndex={-1}
 				>
-					<p className="font-medium">Aradığınız sürüm</p>
+					<p className="font-medium">Requested version</p>
 					<p className="text-sm">{getVersionLabel(matchingVersion)}</p>
 					<a
 						className="text-sm underline underline-offset-4"
 						href="#production-history-heading"
 					>
-						Üretim geçmişine git
+						Go to production history
 					</a>
 				</div>
 			) : null}
@@ -566,7 +568,7 @@ export function AssetRecordTrackingPanel({
 					type="button"
 					variant="outline"
 				>
-					{activeWrite ?? "Durumu kontrol et"}
+					{activeWrite ?? "Check status"}
 				</Button>
 			) : null}
 
@@ -576,12 +578,12 @@ export function AssetRecordTrackingPanel({
 					className="rounded-lg border p-4"
 				>
 					<h3 className="font-medium" id="approved-version-heading">
-						Onaylı sürüm
+						Approved version
 					</h3>
 					{tracking.approvedVersion ? (
 						<div className="mt-2 space-y-2 text-sm">
 							<p>
-								{displayFileName(tracking.approvedVersion.fileName)} · Sürüm{" "}
+								{displayFileName(tracking.approvedVersion.fileName)} · Version{" "}
 								{tracking.approvedVersion.versionNumber}
 							</p>
 							<VersionProductionEvidencePanel
@@ -596,7 +598,7 @@ export function AssetRecordTrackingPanel({
 						</div>
 					) : (
 						<p className="mt-2 text-muted-foreground text-sm">
-							Henüz onaylı sürüm yok.
+							No approved version yet.
 						</p>
 					)}
 				</section>
@@ -613,7 +615,7 @@ export function AssetRecordTrackingPanel({
 							{tracking.alternatives.map((version) => (
 								<li className="space-y-1" key={version.id}>
 									<p>
-										{displayFileName(version.fileName)} · Sürüm{" "}
+										{displayFileName(version.fileName)} · Version{" "}
 										{version.versionNumber} ·{" "}
 										{reviewDispositionLabel[version.reviewDisposition]}
 									</p>
@@ -631,14 +633,14 @@ export function AssetRecordTrackingPanel({
 						</ul>
 					) : (
 						<p className="mt-2 text-muted-foreground text-sm">
-							Henüz alternatif sürüm yok.
+							No alternative versions yet.
 						</p>
 					)}
 					<Label
 						className="mt-3 block space-y-1 text-sm leading-normal"
 						htmlFor="review-rationale"
 					>
-						<span>İnceleme gerekçesi (isteğe bağlı)</span>
+						<span>Review rationale (optional)</span>
 						<reviewForm.Field name="rationale">
 							{(field) => (
 								<Textarea
@@ -654,7 +656,7 @@ export function AssetRecordTrackingPanel({
 					</Label>
 					{tracking.reviewEvents.length > 0 ? (
 						<div className="mt-4 border-t pt-3">
-							<h4 className="font-medium text-sm">İnceleme geçmişi</h4>
+							<h4 className="font-medium text-sm">Review history</h4>
 							<ul className="mt-2 space-y-2 text-xs">
 								{tracking.reviewEvents.map((event) => {
 									const version = [
@@ -664,7 +666,7 @@ export function AssetRecordTrackingPanel({
 									return (
 										<li key={event.id}>
 											<p>
-												{version?.fileName ?? "Sürüm"} ·{" "}
+												{version?.fileName ?? "Version"} ·{" "}
 												{reviewDispositionLabel[event.decision]} ·{" "}
 												{new Date(event.createdAt).toLocaleString()}
 											</p>
@@ -697,12 +699,12 @@ export function AssetRecordTrackingPanel({
 					</h3>
 					<p className="mt-2 text-sm">
 						{tracking.quality.integrityStatus === "format_signature_matched"
-							? `Dosya biçim imzası eşleşti (${tracking.quality.verifiedVersionCount} sürüm).`
-							: "Dosya bütünlüğü kanıtı yok."}
+							? `File format signature matched (${tracking.quality.verifiedVersionCount} version).`
+							: "No file integrity evidence."}
 					</p>
 					<p className="mt-1 text-muted-foreground text-xs">
-						Genel Varlık Desteği · Özel profil kalite kanıtı yok. Bu biçim
-						kontrolü Dışa Aktarıma Hazır sonucu değildir.
+						General Asset Support · No specialized profile quality evidence.
+						This format check does not establish Export Ready status.
 					</p>
 				</section>
 
@@ -711,32 +713,32 @@ export function AssetRecordTrackingPanel({
 					className="rounded-lg border p-4"
 				>
 					<h3 className="font-medium" id="production-history-heading">
-						Üretim geçmişi
+						Production history
 					</h3>
 					{tracking.productionHistory.length > 0 ? (
 						<ul className="mt-2 space-y-2 text-sm">
 							{tracking.productionHistory.map((entry) => (
 								<li key={entry.id}>
 									<p>
-										Sürüm {entry.versionNumber} ·{" "}
-										{entry.knownSource ?? "Kaynak bilinmiyor"}
+										Version {entry.versionNumber} ·{" "}
+										{entry.knownSource ?? "Source unknown"}
 									</p>
 									<p className="text-muted-foreground">
-										Geçmiş bilinmiyor ·{" "}
+										History unknown ·{" "}
 										{userRelationshipLabels[entry.userRelationship]}
 									</p>
 									{entry.unknownHistoryDetails ? (
 										<p>
-											Bilinmeyen üretim geçmişi: {entry.unknownHistoryDetails}
+											Unknown production history: {entry.unknownHistoryDetails}
 										</p>
 									) : (
 										<p className="text-muted-foreground">
-											Bu kayıtta hangi üretim bilgilerinin bilinmediği
-											belirtilmemiş.
+											This record does not specify which production information
+											is unknown.
 										</p>
 									)}
 									<p className="text-muted-foreground">
-										Beyan tarihi:{" "}
+										Attestation date:{" "}
 										<time dateTime={entry.createdAt}>
 											{new Intl.DateTimeFormat("tr-TR", {
 												dateStyle: "medium",
@@ -745,33 +747,33 @@ export function AssetRecordTrackingPanel({
 										</time>
 									</p>
 									{entry.supportingEvidence ? (
-										<p>Destekleyici kanıt: {entry.supportingEvidence}</p>
+										<p>Supporting evidence: {entry.supportingEvidence}</p>
 									) : null}
 								</li>
 							))}
 						</ul>
 					) : (
 						<p className="mt-2 text-muted-foreground text-sm">
-							Henüz üretim geçmişi yok.
+							No production history yet.
 						</p>
 					)}
 					<div className="mt-4 border-t pt-3">
-						<h4 className="font-medium text-sm">Elle İçe Aktarma Kanıtı</h4>
+						<h4 className="font-medium text-sm">Manual Import Evidence</h4>
 						{tracking.manualImportEvidence?.length ? (
 							<ul className="mt-2 space-y-3 text-sm">
 								{tracking.manualImportEvidence.map((entry) => (
 									<li className="space-y-1" key={entry.id}>
 										<p>
-											{entry.fileName} · Sürüm {entry.versionNumber} ·{" "}
+											{entry.fileName} · Version {entry.versionNumber} ·{" "}
 											{entry.sourceSurface}
 										</p>
 										<p className="text-muted-foreground text-xs">
-											Üretim Paketi {entry.generationPackageId} · SHA-256{" "}
+											Generation Package {entry.generationPackageId} · SHA-256{" "}
 											{entry.sha256}
 										</p>
 										<details>
 											<summary className="cursor-pointer text-xs underline underline-offset-4">
-												Gerçek üretim talimatını görüntüle
+												View actual production instruction
 											</summary>
 											<p className="mt-2 whitespace-pre-wrap text-sm">
 												{entry.generationInstruction}
@@ -782,7 +784,7 @@ export function AssetRecordTrackingPanel({
 							</ul>
 						) : (
 							<p className="mt-2 text-muted-foreground text-sm">
-								Henüz Elle İçe Aktarma Kanıtı yok.
+								No Manual Import Evidence yet.
 							</p>
 						)}
 					</div>
@@ -809,16 +811,17 @@ export function AssetRecordTrackingPanel({
 				className="rounded-lg border p-4"
 			>
 				<h3 className="font-medium" id="asset-version-create-heading">
-					Aday sürüm oluştur
+					Create Candidate Version
 				</h3>
 				<p className="mt-1 text-muted-foreground text-sm">
-					Dosya R2’de değişmez Varlık Sürümü olarak saklanır. Bu akış eski
-					varlık beyanı alır; bilinmeyen üretim geçmişini tahmin etmez.
+					The file is stored in R2 as an immutable Asset Version. This flow
+					records legacy asset declarations; it does not infer unknown
+					production history.
 				</p>
 				<CandidateVersionForm
 					busy={activeWrite !== null || writeOutcomeUncertain}
 					form={candidateVersionForm}
-					saving={activeWrite === "Aday Sürüm kaydedildi."}
+					saving={activeWrite === "Candidate Version saved."}
 				/>
 			</section>
 		</section>

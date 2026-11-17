@@ -29,6 +29,28 @@ export const projectContextScopeCatalogSchema = z
 	.object({
 		visualWorlds: z.array(visualWorldRecordSchema),
 		themes: z.array(themeRecordSchema),
+		assetFamilies: z
+			.array(
+				z
+					.object({
+						id: recordIdSchema,
+						projectId: recordIdSchema,
+						visualWorldId: recordIdSchema,
+					})
+					.strict()
+			)
+			.optional(),
+		assetRecordFamilies: z
+			.array(
+				z
+					.object({
+						assetRecordId: recordIdSchema,
+						assetFamilyId: recordIdSchema,
+						themeId: recordIdSchema.nullable().optional(),
+					})
+					.strict()
+			)
+			.optional(),
 	})
 	.strict();
 

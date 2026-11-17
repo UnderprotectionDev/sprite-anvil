@@ -45,35 +45,35 @@ describe("Source Metadata Mapping Proposals", () => {
 			await (await $("input[name='email']")).setValue(fixture.email);
 			await (await $("input[name='password']")).setValue(fixture.password);
 			await (await $("button=Sign Up")).click();
-			await (await $("h1=Oyun projeleri")).waitForDisplayed();
+			await (await $("h1=Game projects")).waitForDisplayed();
 
 			const visualWorldName = `${fixture.name} world`;
 			const identityName = `${fixture.name} identity`;
 			const familyName = `${fixture.name} family`;
-			await (await $("a=Proje Bağlamı")).click();
-			await (await $('//label[span[text()="Proje adı"]]/input')).setValue(
+			await (await $("a=Context Proposals")).click();
+			await (await $('//label[span[text()="Project name"]]/input')).setValue(
 				fixture.projectName
 			);
 			await (
-				await $('//label[span[text()="Genel sanat yaklaşımı"]]/textarea')
+				await $('//label[span[text()="Art direction"]]/textarea')
 			).setValue(fixture.generalArtDirection);
-			await (await $("button=Projeyi oluştur")).click();
-			await openWorkspaceTask("Görsel Dünyalar ve Temalar");
-			await (await $("input[placeholder='Örn. Yüksek yaylalar']")).setValue(
+			await (await $("button=Create project")).click();
+			await openWorkspaceTask("Visual Worlds and Themes");
+			await (await $("input[placeholder='e.g. High plateaus']")).setValue(
 				visualWorldName
 			);
-			await (await $("button=Görsel Dünya ekle")).click();
+			await (await $("button=Add Visual World")).click();
 			await (await $(`strong=${visualWorldName}`)).waitForDisplayed();
-			await (await $("a=Projeler")).click();
-			await (await $("a=Varlık Aileleri")).click();
-			await openWorkspaceTask("Aile ve temsil ilişkileri");
+			await (await $("a=Projects")).click();
+			await (await $("a=Asset Families")).click();
+			await openWorkspaceTask("Family and representation relationships");
 			await (await $("input[id='subject-identity-name']")).setValue(
 				identityName
 			);
-			await (await $("button=Varlık Kimliği oluştur")).click();
-			await openWorkspaceTask("Aile kataloğu");
+			await (await $("button=Create Subject Identity")).click();
+			await openWorkspaceTask("Family catalog");
 			await (await $(`h2=${identityName}`)).waitForDisplayed();
-			await openWorkspaceTask("Aile ve temsil ilişkileri");
+			await openWorkspaceTask("Family and representation relationships");
 			await (await $("input[id='asset-family-name']")).setValue(familyName);
 			await (await $("#asset-family-visual-world")).selectByVisibleText(
 				visualWorldName
@@ -81,20 +81,20 @@ describe("Source Metadata Mapping Proposals", () => {
 			await (await $("input[id='asset-family-use-context']")).setValue(
 				"Walking animation"
 			);
-			await (await $("button=Varlık Ailesi oluştur")).click();
-			await openWorkspaceTask("Aile kataloğu");
+			await (await $("button=Create Asset Family")).click();
+			await openWorkspaceTask("Family catalog");
 			await (await $(`h3=${familyName}`)).waitForDisplayed();
-			await openWorkspaceTask("Aile ve temsil ilişkileri");
+			await openWorkspaceTask("Family and representation relationships");
 			await (await $("input[id='asset-record-name']")).setValue(fixture.name);
-			await (await $("button=Varlık Kaydı ekle")).click();
-			await openWorkspaceTask("Sürüm ve bağımlılık işlemleri");
-			await (await $("a=Projeler")).click();
+			await (await $("button=Add Asset Record")).click();
+			await openWorkspaceTask("Version and dependency operations");
+			await (await $("a=Projects")).click();
 			const projectLink = await $(
-				`a[aria-label="${fixture.projectName} varlık kayıtlarını aç"]`
+				`a[aria-label="${fixture.projectName} open Asset Records"]`
 			);
 			await projectLink.waitForClickable();
 			await projectLink.click();
-			await (await $("a=İçe Aktarma Gelen Kutusu")).click();
+			await (await $("a=Import Inbox")).click();
 
 			const uploadedPaths = await Promise.all(
 				[sourcePath, asepritePath, texturePackerPath].map((path) =>
@@ -104,11 +104,11 @@ describe("Source Metadata Mapping Proposals", () => {
 			await (await $("input#import-inbox-files")).setValue(
 				uploadedPaths.join("\n")
 			);
-			await (await $("button=Dosyaları Gelen Kutusuna Al")).click();
+			await (await $("button=Add files to Import Inbox")).click();
 			await openWorkspaceTask("Bekleyen dosyalar");
 
 			const sourcePanel = await $(
-				`section[aria-label="${sourceMetadataMappingFixture.source.fileName} için Kaynak Metadata Eşleme Önerisi"]`
+				`section[aria-label="Source Metadata Mapping Proposal for ${sourceMetadataMappingFixture.source.fileName}"]`
 			);
 			await sourcePanel.waitForDisplayed();
 			await (
@@ -122,14 +122,14 @@ describe("Source Metadata Mapping Proposals", () => {
 				)
 			).click();
 			await (
-				await sourcePanel.$("button*=Kaynak Metadata Eşleme Önerisi oluştur")
+				await sourcePanel.$("button*=Create Source Metadata Mapping Proposal")
 			).click();
 
-			const proposal = await $("summary*=Kaynak Metadata Eşleme Önerisi");
+			const proposal = await $("summary*=Source Metadata Mapping Proposal");
 			await proposal.waitForDisplayed();
 			await proposal.click();
 			await $(
-				"p*=alan çakışması var; öneri henüz kesinleşmedi."
+				"p*=field conflicts; the proposal is not finalized."
 			).waitForDisplayed();
 			await $("dd=source-metadata-mapping/1.1.0").waitForDisplayed();
 			await $(
@@ -142,46 +142,50 @@ describe("Source Metadata Mapping Proposals", () => {
 				`dd=${sourceMetadataMappingFixtureHash(sourceMetadataMappingFixture.texturePacker.bytes)}`
 			).waitForDisplayed();
 			await $(
-				"li=Varlık Ailesi bağlantısı: Bilinmiyor · kaynak kanıtı yok."
+				"li=Asset Family link: Unknown · no source evidence."
 			).waitForDisplayed();
 			await $(
-				"li=Gerekli Öğeler Listesi bağlantısı: Bilinmiyor · kaynak kanıtı yok."
+				"li=Required Set link: Unknown · no source evidence."
 			).waitForDisplayed();
 			await $(
-				"p=Oyun İçi Bilgiler: Bilinmiyor · proje bağlamı gerekli."
+				"p=Gameplay Metadata: Unknown · project context required."
 			).waitForDisplayed();
 			await $("p=Pivot · walk-0").waitForDisplayed();
 			await $("p=Tag · walk").waitForDisplayed();
-			await $("p=Süre · walk-0").waitForDisplayed();
-			const finalization = await $(
-				'section[aria-label="Eşlemeyi kesinleştir"]'
-			);
+			await $("p=Duration · walk-0").waitForDisplayed();
+			const finalization = await $('section[aria-label="Finalize mapping"]');
 			await finalization.waitForDisplayed();
 			const selects = await finalization.$$("label select");
 			await selects[0]?.selectByVisibleText(fixture.name);
 			const finalizeButton = await finalization.$(
-				"button*=Eşlemeyi kesinleştir ve Aday Sürüm oluştur"
+				"button*=Finalize mapping and create Candidate Version"
 			);
 			expect(await finalizeButton.isEnabled()).toBe(false);
 			await selects[1]?.selectByIndex(1);
 			await finalizeButton.click();
-			await $("p=Kesin ilişki · Aday Sürüm oluşturuldu").waitForDisplayed();
+			await $(
+				"p=Confirmed link · Candidate Version created"
+			).waitForDisplayed();
 			await $("li=Pivot · walk-0: Bilinmiyor").waitForDisplayed();
 
 			await browser.refresh();
 			await openWorkspaceTask("Bekleyen dosyalar");
-			const rereadProposal = await $("summary*=Kaynak Metadata Eşleme Önerisi");
+			const rereadProposal = await $(
+				"summary*=Source Metadata Mapping Proposal"
+			);
 			await rereadProposal.waitForDisplayed();
 			await rereadProposal.click();
-			await $("p=Kesin ilişki · Aday Sürüm oluşturuldu").waitForDisplayed();
 			await $(
-				"p=Oyun İçi Bilgiler: Bilinmiyor · proje bağlamı gerekli."
+				"p=Confirmed link · Candidate Version created"
+			).waitForDisplayed();
+			await $(
+				"p=Gameplay Metadata: Unknown · project context required."
 			).waitForDisplayed();
 			await $("p=Pivot · walk-0").waitForDisplayed();
-			await $("p=Süre · walk-0").waitForDisplayed();
-			await (await $("a=Aday Sürümü aç")).click();
+			await $("p=Duration · walk-0").waitForDisplayed();
+			await (await $("a=Open Candidate Version")).click();
 			await $(
-				`p=${sourceMetadataMappingFixture.source.fileName} · Sürüm 1 · Aday`
+				`p=${sourceMetadataMappingFixture.source.fileName} · Version 1 · Candidate`
 			).waitForDisplayed();
 		} finally {
 			rmSync(directory, { force: true, recursive: true });

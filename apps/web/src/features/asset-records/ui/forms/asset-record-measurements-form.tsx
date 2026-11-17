@@ -28,50 +28,50 @@ import {
 const measurementDefinitions = [
 	{
 		fields: [
-			{ key: "width", label: "Genişlik (px)" },
-			{ key: "height", label: "Yükseklik (px)" },
+			{ key: "width", label: "Width (px)" },
+			{ key: "height", label: "Height (px)" },
 		],
 		key: "sourceImageDimensions",
-		label: "Kaynak Görsel Ölçüsü",
+		label: "Source Image Dimensions",
 	},
 	{
 		fields: [
-			{ key: "width", label: "Genişlik (px)" },
-			{ key: "height", label: "Yükseklik (px)" },
+			{ key: "width", label: "Width (px)" },
+			{ key: "height", label: "Height (px)" },
 		],
 		key: "logicalResolution",
-		label: "Mantıksal Çözünürlük",
+		label: "Logical Resolution",
 	},
 	{
 		fields: [
-			{ key: "width", label: "Genişlik (px)" },
-			{ key: "height", label: "Yükseklik (px)" },
+			{ key: "width", label: "Width (px)" },
+			{ key: "height", label: "Height (px)" },
 		],
 		key: "cellDimensions",
-		label: "Hücre Ölçüsü",
+		label: "Cell Dimensions",
 	},
 	{
 		fields: [
 			{ key: "x", label: "X (px)" },
 			{ key: "y", label: "Y (px)" },
-			{ key: "width", label: "Genişlik (px)" },
-			{ key: "height", label: "Yükseklik (px)" },
+			{ key: "width", label: "Width (px)" },
+			{ key: "height", label: "Height (px)" },
 		],
 		key: "visibleContentBounds",
-		label: "Görünür İçerik Sınırı",
+		label: "Visible Content Bounds",
 	},
 	{
-		fields: [{ key: "value", label: "Ölçek" }],
+		fields: [{ key: "value", label: "Scale" }],
 		key: "displayScale",
-		label: "Gösterim Ölçeği",
+		label: "Display Scale",
 	},
 	{
 		fields: [
-			{ key: "width", label: "Genişlik (px)" },
-			{ key: "height", label: "Yükseklik (px)" },
+			{ key: "width", label: "Width (px)" },
+			{ key: "height", label: "Height (px)" },
 		],
 		key: "atlasDimensions",
-		label: "Atlas Ölçüsü",
+		label: "Atlas Dimensions",
 	},
 ] as const;
 
@@ -79,8 +79,8 @@ const measurementStates: readonly {
 	key: MeasurementState;
 	label: string;
 }[] = [
-	{ key: "proposal", label: "Öneri" },
-	{ key: "confirmed", label: "Doğrulanmış değer" },
+	{ key: "proposal", label: "Proposal" },
+	{ key: "confirmed", label: "Confirmed value" },
 ];
 
 function draftFromMeasurements(
@@ -187,12 +187,12 @@ function FieldGroup({
 							""
 						}
 					>
-						<NativeSelectOption value="">Seçin</NativeSelectOption>
+						<NativeSelectOption value="">Select</NativeSelectOption>
 						<NativeSelectOption value="logicalResolution">
-							Mantıksal Çözünürlük
+							Logical Resolution
 						</NativeSelectOption>
 						<NativeSelectOption value="cellDimensions">
-							Hücre Ölçüsü
+							Cell Dimensions
 						</NativeSelectOption>
 					</NativeSelect>
 				</Label>
@@ -234,11 +234,11 @@ export function AssetRecordMeasurementsForm({
 				const refreshed = await onRefresh();
 				if (refreshed.isError) {
 					setErrorMessage(
-						"Ölçüler kaydedildi ancak kayıt yeniden okunamadı. Sayfayı yenileyerek durumu kontrol edin."
+						"Dimensions saved, but the record could not be reloaded. Refresh the page to check the state."
 					);
 					return;
 				}
-				setStatusMessage("Ölçüler kaydedildi.");
+				setStatusMessage("Dimensions saved.");
 			} catch (error) {
 				setErrorMessage(getErrorMessage(error, measurementsSaveFailureMessage));
 			}
@@ -260,15 +260,15 @@ export function AssetRecordMeasurementsForm({
 					className="font-semibold text-xl"
 					id="asset-record-measurements-heading"
 				>
-					Görsel ölçüleri
+					Image dimensions
 				</h2>
 				<p
 					className="text-muted-foreground text-sm"
 					id="asset-record-measurements-help"
 				>
-					Öneri ve doğrulanmış değer ayrı saklanır. Dosya veya sidecar ölçüsü
-					tek başına Mantıksal Çözünürlük değildir. Özel kare ve dikdörtgen
-					ölçüler kullanabilirsiniz.
+					Proposed and confirmed values are stored separately. File or sidecar
+					dimensions alone do not establish Logical Resolution. You can use
+					custom square and rectangular dimensions.
 				</p>
 			</header>
 			<form.Subscribe selector={(state) => state.values.draft}>
@@ -284,9 +284,8 @@ export function AssetRecordMeasurementsForm({
 						);
 					}) ? (
 						<p className="text-sm" role="status">
-							Piksel sanatında doğal sayı olmayan Gösterim Ölçeği keskinliği
-							bozabilir. Yüksek çözünürlüklü illüstrasyonlar bu kurala
-							zorlanmaz.
+							A non-integer Display Scale can reduce pixel art sharpness.
+							High-resolution illustrations are not subject to this rule.
 						</p>
 					) : null
 				}
@@ -360,7 +359,7 @@ export function AssetRecordMeasurementsForm({
 				<form.Subscribe selector={(state) => state.isSubmitting}>
 					{(isSaving) => (
 						<Button className="min-h-11" disabled={isSaving} type="submit">
-							{isSaving ? "Kaydediliyor…" : "Ölçüleri kaydet"}
+							{isSaving ? "Saving…" : "Save dimensions"}
 						</Button>
 					)}
 				</form.Subscribe>

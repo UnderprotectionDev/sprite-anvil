@@ -164,10 +164,10 @@ test("shows separate families under one Subject Identity and keeps relations in 
 	expect(screen.getByText("gameplay")).toBeTruthy();
 	expect(screen.getByText("marketing")).toBeTruthy();
 	expect(
-		screen.getByText("Ash Knight base — Yön — Ash Knight east")
+		screen.getByText("Ash Knight base — Direction — Ash Knight east")
 	).toBeTruthy();
 	expect(
-		screen.queryByText("Ash Knight base — Yön — Ash Knight portrait")
+		screen.queryByText("Ash Knight base — Direction — Ash Knight portrait")
 	).toBeNull();
 });
 
@@ -197,13 +197,13 @@ test("shows the exact Asset Version selected as Canonical Design and used by a d
 		/>
 	);
 
-	expect(screen.getByText("Ash Knight base · Sürüm 1")).toBeTruthy();
+	expect(screen.getByText("Ash Knight base · Version 1")).toBeTruthy();
 	expect(
 		screen
 			.getAllByRole("listitem")
 			.some((item) =>
 				item.textContent?.includes(
-					"Ash Knight base · Sürüm 1 — Türetilmiş Varlık — Ash Knight east"
+					"Ash Knight base · Version 1 — Derived Asset — Ash Knight east"
 				)
 			)
 	).toBe(true);

@@ -8,27 +8,27 @@ import {
 import { type QueryKey, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { AnimationTimingReviewManager } from "@/components/animation-timing-review-manager";
+import { AssetFamilyComparisonSections } from "@/components/asset-family-comparison-sections";
+import { AssetVersionControls } from "@/components/asset-version-controls";
+import { BackgroundLayerLayoutSections } from "@/components/background-layer-layout-sections";
+import { DependencyRevalidationManager } from "@/components/dependency-revalidation-manager";
+import { DirectionalReviewSections } from "@/components/directional-review-sections";
+import { FamilyReadinessManager } from "@/components/family-readiness-manager";
+import { HistoricalCompositionManager } from "@/components/historical-composition-manager";
+import { IconFamilyReviewSections } from "@/components/icon-family-review-sections";
+import { MarketingUsageReviewSections } from "@/components/marketing-usage-review-sections";
+import { PortraitIdentityReviewSections } from "@/components/portrait-identity-review-manager";
 import { StatusMessage } from "@/components/status-message";
 import { TaskWorkspace } from "@/components/task-workspace";
-import { useAssetVersionWrites } from "@/features/asset-versions/hooks/use-asset-version-writes";
-import { AssetVersionControls } from "@/features/asset-versions/ui/components/asset-version-controls";
-import { BackgroundLayerLayoutSections } from "@/features/background-parallax-profile/ui/components/background-layer-layout-sections";
-import { AnimationTimingReviewManager } from "@/features/character-animation-profile/ui/components/animation-timing-review-manager";
-import { DirectionalReviewSections } from "@/features/character-animation-profile/ui/components/directional-review-sections";
-import { DependencyRevalidationManager } from "@/features/dependency-revalidation/ui/components/dependency-revalidation-manager";
-import { HistoricalCompositionManager } from "@/features/dependency-revalidation/ui/components/historical-composition-manager";
-import { FamilyReadinessManager } from "@/features/family-readiness/ui/components/family-readiness-manager";
-import { IconFamilyReviewSections } from "@/features/icon-profile/ui/components/icon-family-review-sections";
-import { AssetFamilyComparisonSections } from "@/features/object-equipment-profile/ui/components/asset-family-comparison-sections";
-import { MarketingUsageReviewSections } from "@/features/portrait-marketing-profile/ui/components/marketing-usage-review-sections";
-import { PortraitIdentityReviewSections } from "@/features/portrait-marketing-profile/ui/components/portrait-identity-review-manager";
-import { TextureRepetitionReviewSections } from "@/features/tileset-texture-profile/ui/components/texture-repetition-review-sections";
-import { TilesetAdjacencyReviewSections } from "@/features/tileset-texture-profile/ui/components/tileset-adjacency-review-sections";
-import { UiStateComparisonSections } from "@/features/ui-profile/ui/components/ui-state-comparison-sections";
-import { UiStretchTestSections } from "@/features/ui-profile/ui/components/ui-stretch-test-sections";
-import { VfxAppearanceSections } from "@/features/vfx-profile/ui/components/vfx-appearance-sections";
-import { VfxSynchronizationSections } from "@/features/vfx-profile/ui/components/vfx-synchronization-sections";
+import { TextureRepetitionReviewSections } from "@/components/texture-repetition-review-sections";
+import { TilesetAdjacencyReviewSections } from "@/components/tileset-adjacency-review-sections";
+import { UiStateComparisonSections } from "@/components/ui-state-comparison-sections";
+import { UiStretchTestSections } from "@/components/ui-stretch-test-sections";
+import { VfxAppearanceSections } from "@/components/vfx-appearance-sections";
+import { VfxSynchronizationSections } from "@/components/vfx-synchronization-sections";
 import { orpc } from "@/utils/orpc";
+import { useAssetVersionWrites } from "@/utils/use-asset-version-writes";
 import { useAssetFamilyForms } from "../../hooks/use-asset-family-forms";
 import { useAssetFamilyWrites } from "../../hooks/use-asset-family-writes";
 import { AssetFamilyCatalogView } from "../components/asset-family-catalog";
@@ -196,7 +196,7 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 				{catalog.assetFamilies.length > 0 ? (
 					<Label className="block space-y-2 text-sm">
 						<span className="font-medium">
-							İnceleme ve tamamlanma için aile
+							Family for review and completion
 						</span>
 						<NativeSelect
 							className="w-full [&>select]:min-h-11"
@@ -212,18 +212,18 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 					</Label>
 				) : (
 					<p className="rounded-lg border border-dashed p-5">
-						Henüz Varlık Ailesi yok. Aile ve temsil ilişkileri alanından
-						başlayın.
+						No Asset Families yet. Start in Family and representation
+						relationships.
 					</p>
 				)}
 				<TaskWorkspace
-					label="Aile çalışma alanları"
+					label="Family workspaces"
 					sections={[
 						{
 							id: "catalog",
-							label: "Aile kataloğu",
+							label: "Family catalog",
 							description:
-								"Varlık Kimliğine göre aileleri, üyelerini ve Ana Tasarımlarını bulun.",
+								"Find families, members, and Canonical Designs by Subject Identity.",
 							content: (
 								<>
 									<section
@@ -235,11 +235,11 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 												className="font-semibold text-2xl"
 												id="asset-family-catalog-heading"
 											>
-												Kaydedilmiş Varlık Aileleri
+												Saved Asset Families
 											</h2>
 											<p className="mt-1 text-muted-foreground text-sm">
-												Aynı Varlık Kimliği altındaki aileler burada ayrı ayrı
-												görünür.
+												Families under the same Subject Identity appear
+												separately here.
 											</p>
 										</div>
 										<AssetFamilyCatalogView
@@ -253,9 +253,9 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 						},
 						{
 							id: "relationships",
-							label: "Aile ve temsil ilişkileri",
+							label: "Family and representation relationships",
 							description:
-								"Önce Varlık Kimliği ve Görsel Dünya belirleyin; ardından aileyi, kayıtlarını ve ilişkilerini oluşturun.",
+								"Choose a Subject Identity and Visual World, then create the family, records, and relationships.",
 							content: (
 								<>
 									<AssetFamilyManagementForms
@@ -274,9 +274,9 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 						},
 						{
 							id: "readiness",
-							label: "Tamamlanma ve kanıtlar",
+							label: "Completion and evidence",
 							description:
-								"Aşağıdaki aile seçimi için Gerekli Öğeler Listesini ve tamamlanma kanıtlarını yönetin.",
+								"Manage the Required Set and completion evidence for the selected family.",
 							content: (
 								<>
 									<section
@@ -288,12 +288,12 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 												className="font-semibold text-2xl"
 												id="family-readiness-heading"
 											>
-												Aile Tamamlanması ve Kanıtlar
+												Family Completion and Evidence
 											</h2>
 											<p className="mt-1 text-muted-foreground text-sm">
-												Her aile için sürümlü bir Gerekli Öğeler Listesi
-												hazırlayın; kanıtlar güncel Varlık Sürümlerine ve etkin
-												Bağlam Sürümüne sabitlenir.
+												Prepare a versioned Required Set for each family;
+												evidence is pinned to current Asset Versions and the
+												Active Context Revision.
 											</p>
 										</div>
 										<Link
@@ -301,7 +301,7 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 											params={{ projectId }}
 											to="/projects/$projectId/profile-contracts"
 										>
-											Özel profil sözleşmelerini yönet
+											Manage Specialized Profile Contracts
 										</Link>
 										{reviewFamilies.map((family) => (
 											<FamilyReadinessManager
@@ -334,9 +334,9 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 						},
 						{
 							id: "reviews",
-							label: "Profil incelemeleri",
+							label: "Profile reviews",
 							description:
-								"Seçili ailenin etkin Özel Profil Sözleşmelerine bağlı kullanım testlerini açın.",
+								"Open usage tests tied to the selected family's active Specialized Profile Contracts.",
 							content: (
 								<>
 									<Link
@@ -344,12 +344,12 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 										params={{ projectId }}
 										to="/projects/$projectId/profile-contracts"
 									>
-										Özel profil sözleşmelerini aç
+										Open Specialized Profile Contracts
 									</Link>
 									<p className="text-muted-foreground text-sm">
-										İnceleme kontrolleri ilgili profil etkinleştirildiğinde
-										görünür. Henüz aile yoksa Aile ve temsil ilişkileri
-										alanından oluşturun.
+										Review controls appear when the relevant profile is
+										activated. If there is no family yet, create one in Family
+										and representation relationships.
 									</p>
 									{assetVersionQuery.data ? (
 										<>
@@ -487,9 +487,9 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 						},
 						{
 							id: "versions",
-							label: "Sürüm ve bağımlılık işlemleri",
+							label: "Version and dependency operations",
 							description:
-								"Proje genelindeki kesin sürümleri, bileşimleri ve değişiklik etkilerini yönetin. Bir kayda görsel yüklemek için kaydın ayrıntısını açın.",
+								"Manage exact versions, compositions, and change impacts across the project. Open a record's details to upload an image.",
 							content: (
 								<>
 									{assetVersionQuery.data ? (
@@ -552,10 +552,10 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 			<PageHeader projectName={project?.name} />
 			<QueryLoadingState
 				isPending={projectsQuery.isPending}
-				loadingMessage="Projeler yükleniyor…"
+				loadingMessage="Loading projects…"
 			/>
 			{projectsQuery.isSuccess && !project ? (
-				<StatusMessage tone="error">Bu Proje bulunamadı.</StatusMessage>
+				<StatusMessage tone="error">Project not found.</StatusMessage>
 			) : null}
 			{writes.statusMessage ? (
 				<p aria-live="polite" role="status">
@@ -569,65 +569,62 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 					type="button"
 					variant="outline"
 				>
-					{writes.isCheckingOutcome
-						? "Durum kontrol ediliyor…"
-						: "Durumu kontrol et"}
+					{writes.isCheckingOutcome ? "Checking status…" : "Check status"}
 				</Button>
 			) : null}
 
 			<QueryLoadingState
 				isPending={catalogQuery.isPending}
-				loadingMessage="Varlık Aileleri yükleniyor…"
+				loadingMessage="Loading Asset Families…"
 			/>
 			<QueryLoadingState
 				isPending={assetVersionQuery.isPending}
-				loadingMessage="Varlık Sürümleri yükleniyor…"
+				loadingMessage="Loading Asset Versions…"
 			/>
 			<QueryLoadingState
 				isPending={scopeQuery.isPending}
-				loadingMessage="Görsel Dünyalar yükleniyor…"
+				loadingMessage="Loading Visual Worlds…"
 			/>
 
 			{catalogQuery.isError ? (
 				<div className="space-y-3">
 					<StatusMessage tone="error">
-						Varlık Aileleri yüklenemedi.
+						Could not load Asset Families.
 					</StatusMessage>
 					<Button
 						onClick={() => void catalogQuery.refetch()}
 						type="button"
 						variant="outline"
 					>
-						Aileleri yeniden yükle
+						Reload families
 					</Button>
 				</div>
 			) : null}
 			{assetVersionQuery.isError ? (
 				<div>
 					<StatusMessage tone="error">
-						Varlık Sürümleri yüklenemedi. İnceleme için sürümleri yeniden
-						yükleyin.
+						Could not load Asset Versions. Reload versions for review.
 					</StatusMessage>
 					<Button
 						onClick={() => void assetVersionQuery.refetch()}
 						type="button"
 						variant="outline"
 					>
-						Sürümleri yeniden yükle
+						Reload versions
 					</Button>
 				</div>
 			) : null}
 			{profileContractsQuery.isError ? (
 				<div>
 					<StatusMessage tone="error">
-						Özel profil sözleşmeleri yüklenemedi.
+						Could not load Specialized Profile Contracts.
 					</StatusMessage>
 					<Button
 						onClick={() => void profileContractsQuery.refetch()}
 						type="button"
 						variant="outline"
 					>
-						Sözleşmeleri yeniden yükle
+						Reload contracts
 					</Button>
 				</div>
 			) : null}
@@ -643,18 +640,18 @@ function PageHeader({ projectName }: { projectName?: string }) {
 				className="text-muted-foreground text-sm underline underline-offset-4"
 				to="/projects"
 			>
-				Oyun projelerine dön
+				Back to projects
 			</Link>
 			<header className="space-y-2">
 				<p className="font-mono text-primary text-xs uppercase tracking-[0.16em]">
-					Varlık kütüphanesi / {projectName ?? "Oyun projesi"}
+					Asset library / {projectName ?? "Oyun projesi"}
 				</p>
 				<h1 className="font-medium font-serif text-4xl tracking-tight">
-					Varlık Kimliği ve Aileler
+					Subject Identity and Families
 				</h1>
 				<p className="text-muted-foreground">
-					{projectName ?? "Oyun projesi"} içindeki temsilleri ortak kimliklere
-					bağlayın ve aile sınırlarını koruyun.
+					{projectName ?? "Oyun projesi"} Link representations to shared
+					identities and preserve family boundaries.
 				</p>
 			</header>
 		</div>

@@ -45,10 +45,10 @@ test("shows reread provider facts and the versioned parameter snapshot", () => {
 	);
 
 	expect(
-		screen.getByRole("heading", { name: "Sağlayıcı Üretim Kaydı" })
+		screen.getByRole("heading", { name: "Provider Generation Record" })
 	).toBeInTheDocument();
 	expect(
-		screen.getByText("Sağlayıcı bağlantısından kaydedildi.")
+		screen.getByText("Recorded through a provider connection.")
 	).toBeInTheDocument();
 	expect(screen.getByText("Example Provider")).toBeInTheDocument();
 	expect(screen.getByText("Images API v2")).toBeInTheDocument();
@@ -62,7 +62,7 @@ test("shows reread provider facts and the versioned parameter snapshot", () => {
 	expect(screen.getByText(parameterSchemaVersionPattern)).toBeInTheDocument();
 	expect(
 		screen.getByText(
-			"Bu kayıt aynı görselin yeniden üretileceğini garanti etmez."
+			"This record does not guarantee reproduction of the same image."
 		)
 	).toBeInTheDocument();
 });
@@ -77,7 +77,7 @@ test("labels manually entered provider facts as user-reported", () => {
 
 	expect(
 		screen.getByText(
-			"Kullanıcı tarafından bildirildi; sağlayıcı bağlantısıyla doğrulanmadı."
+			"Reported by the user; not verified through a provider connection."
 		)
 	).toBeInTheDocument();
 });
@@ -91,7 +91,7 @@ test("explains when a connected-provider result is waiting for its record", () =
 	);
 
 	expect(screen.getByRole("status")).toHaveTextContent(
-		"Sağlayıcı Üretim Kaydı bekleniyor"
+		"Provider Generation Record is pending"
 	);
 });
 
@@ -109,9 +109,7 @@ test("shows provider parameters as unknown when the user leaves them blank", () 
 		/>
 	);
 
-	expect(
-		screen.getByText("Bilinmiyor", { selector: "pre" })
-	).toBeInTheDocument();
+	expect(screen.getByText("Unknown", { selector: "pre" })).toBeInTheDocument();
 });
 
 test("shows unavailable provider facts as unknown without implying a record exists", () => {
@@ -123,8 +121,8 @@ test("shows unavailable provider facts as unknown without implying a record exis
 	);
 
 	expect(
-		screen.getByRole("heading", { name: "Üretim ayrıntıları" })
+		screen.getByRole("heading", { name: "Production details" })
 	).toBeInTheDocument();
-	expect(screen.getAllByText("Bilinmiyor").length).toBeGreaterThan(1);
+	expect(screen.getAllByText("Unknown").length).toBeGreaterThan(1);
 	expect(screen.queryByRole("status")).not.toBeInTheDocument();
 });

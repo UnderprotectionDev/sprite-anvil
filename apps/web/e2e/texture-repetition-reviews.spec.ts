@@ -8,7 +8,7 @@ import {
 	readTexturePreviewPresentation,
 } from "./texture-repetition-review-fixture";
 
-const profileLabel = "Karo setleri, arazi ve kesintisiz dokular";
+const profileLabel = "Tilesets, terrain, and seamless textures";
 
 test("reviews exact texture edges and all three arrangements, then rereads metadata after reload", async ({
 	page,
@@ -20,85 +20,91 @@ test("reviews exact texture edges and all three arrangements, then rereads metad
 	test.setTimeout(240_000);
 	await signUpWithFixture(page, fixture);
 	await page.goto("/context-proposals");
-	await page.getByLabel("Proje adı").fill("Texture review project");
+	await page.getByLabel("Project name").fill("Texture review project");
+	await page.getByLabel("Art direction").fill("Seamless pixel surfaces");
+	await page.getByRole("button", { name: "Create project" }).click();
 	await page
-		.getByLabel("Genel sanat yaklaşımı")
-		.fill("Seamless pixel surfaces");
-	await page.getByRole("button", { name: "Projeyi oluştur" }).click();
-	await page
-		.getByRole("button", { name: "Görsel Dünyalar ve Temalar", exact: true })
+		.getByRole("button", { name: "Visual Worlds and Themes", exact: true })
 		.click();
-	await page.getByLabel("Görsel Dünya adı").fill("Texture world");
-	await page.getByRole("button", { name: "Görsel Dünya ekle" }).click();
+	await page.getByLabel("Visual World name").fill("Texture world");
+	await page.getByRole("button", { name: "Add Visual World" }).click();
 	await expect(
 		page.locator(".scope-record-list").getByText("Texture world")
 	).toBeVisible();
 	await page.goto("/projects");
-	await page.getByRole("link", { name: "Varlık Aileleri" }).click();
+	await page.getByRole("link", { name: "Asset Families" }).click();
 	await page
-		.getByRole("button", { name: "Aile ve temsil ilişkileri", exact: true })
+		.getByRole("button", {
+			name: "Family and representation relationships",
+			exact: true,
+		})
 		.click();
-	await page.getByLabel("Varlık Kimliği adı").fill("Grass surface");
-	await page.getByRole("button", { name: "Varlık Kimliği oluştur" }).click();
+	await page.getByLabel("Subject Identity name").fill("Grass surface");
+	await page.getByRole("button", { name: "Create Subject Identity" }).click();
 	await page
-		.getByRole("button", { name: "Aile kataloğu", exact: true })
+		.getByRole("button", { name: "Family catalog", exact: true })
 		.click();
 	await expect(
 		page.getByRole("heading", { name: "Grass surface" })
 	).toBeVisible();
 	await page
-		.getByRole("button", { name: "Aile ve temsil ilişkileri", exact: true })
+		.getByRole("button", {
+			name: "Family and representation relationships",
+			exact: true,
+		})
 		.click();
-	await page.getByLabel("Varlık Ailesi adı").fill("Grass textures");
+	await page.getByLabel("Asset Family name").fill("Grass textures");
 	await page
-		.getByLabel("Görsel Dünya")
+		.getByLabel("Visual World")
 		.selectOption({ label: "Texture world" });
-	await page.getByLabel("Kullanım bağlamı").fill("Repeated terrain surface");
-	await page.getByRole("button", { name: "Varlık Ailesi oluştur" }).click();
+	await page.getByLabel("Usage context").fill("Repeated terrain surface");
+	await page.getByRole("button", { name: "Create Asset Family" }).click();
 	await page
-		.getByRole("button", { name: "Aile kataloğu", exact: true })
+		.getByRole("button", { name: "Family catalog", exact: true })
 		.click();
 	await expect(
 		page
-			.getByRole("region", { name: "Kaydedilmiş Varlık Aileleri" })
+			.getByRole("region", { name: "Saved Asset Families" })
 			.getByRole("heading", { name: "Grass textures", exact: true })
 	).toBeVisible();
 	const familyUrl = page.url();
 	await page
-		.getByRole("button", { name: "Aile ve temsil ilişkileri", exact: true })
+		.getByRole("button", {
+			name: "Family and representation relationships",
+			exact: true,
+		})
 		.click();
-	await page.getByLabel("Bağımsız ürün anlamı", { exact: true }).check();
-	await page.getByLabel("Varlık Kaydı adı").fill("Grass texture");
-	await page.getByRole("button", { name: "Varlık Kaydı ekle" }).click();
+	await page.getByLabel("Independent product meaning", { exact: true }).check();
+	await page.getByLabel("Asset Record name").fill("Grass texture");
+	await page.getByRole("button", { name: "Add Asset Record" }).click();
 	await page
-		.getByRole("button", { name: "Sürüm ve bağımlılık işlemleri", exact: true })
+		.getByRole("button", {
+			name: "Version and dependency operations",
+			exact: true,
+		})
 		.click();
-	await page.getByRole("link", { name: "Varlık Sürümü yükle" }).click();
+	await page.getByRole("link", { name: "Upload Asset Version" }).click();
 	await page
-		.getByRole("button", { name: "Kayıt bilgileri", exact: true })
+		.getByRole("button", { name: "Record details", exact: true })
 		.click();
 	const metadataForm = page.getByRole("region", {
-		name: "Varlık kaydı metadata’sı",
+		name: "Asset Record metadata",
 	});
 	await expect(
-		metadataForm.getByLabel("Görsel Dünya").locator("option:checked")
+		metadataForm.getByLabel("Visual World").locator("option:checked")
 	).toHaveText("Texture world");
-	await expect(metadataForm.getByLabel("Görsel Dünya")).toBeDisabled();
-	await page
-		.getByLabel("Varlık kategorisi")
-		.selectOption({ label: profileLabel });
-	await page.getByRole("button", { name: "Metadata’yı kaydet" }).click();
+	await expect(metadataForm.getByLabel("Visual World")).toBeDisabled();
+	await page.getByLabel("Asset category").selectOption({ label: profileLabel });
+	await page.getByRole("button", { name: "Save metadata" }).click();
+	await expect(page.getByText("Asset Record metadata saved.")).toBeVisible();
 	await expect(
-		page.getByText("Varlık kaydı metadata’sı kaydedildi.")
-	).toBeVisible();
-	await expect(
-		page.getByRole("button", { name: "Metadata’yı kaydet" })
+		page.getByRole("button", { name: "Save metadata" })
 	).toBeEnabled();
-	await expect(page.getByLabel("Varlık kategorisi")).toHaveValue(
+	await expect(page.getByLabel("Asset category")).toHaveValue(
 		"tileset_terrain_texture"
 	);
 	await page
-		.getByRole("button", { name: "Sürümler ve dosyalar", exact: true })
+		.getByRole("button", { name: "Versions and files", exact: true })
 		.click();
 	const file = {
 		name: "grass.png",
@@ -107,41 +113,49 @@ test("reviews exact texture edges and all three arrangements, then rereads metad
 			new URL("./fixtures/texture-repetition.png", import.meta.url)
 		),
 	};
-	await page.getByLabel("PNG veya WebP dosyası").setInputFiles(file);
+	await page.getByLabel("PNG or WebP file").setInputFiles(file);
 	await page
-		.getByLabel("Bilinmeyen üretim geçmişi")
+		.getByLabel("Unknown production history")
 		.fill("Browser texture fixture");
 	await page
-		.getByLabel("Bilinen kaynak", { exact: true })
+		.getByLabel("Known source", { exact: true })
 		.fill("Authored fixture");
-	await page.getByLabel("Varlıkla ilişkiniz").selectOption("created_by_user");
 	await page
-		.getByRole("button", { name: "Aday sürümü kaydet", exact: true })
+		.getByLabel("Your relationship to the asset")
+		.selectOption("created_by_user");
+	await page
+		.getByRole("button", { name: "Save Candidate Version", exact: true })
 		.click();
 	await expect(
-		page.getByText("Aday Sürüm kaydedildi.", { exact: true })
+		page.getByText("Candidate Version saved.", { exact: true })
 	).toBeVisible();
 	await page.goto(familyUrl);
 	await page
-		.getByRole("button", { name: "Sürüm ve bağımlılık işlemleri", exact: true })
+		.getByRole("button", {
+			name: "Version and dependency operations",
+			exact: true,
+		})
 		.click();
-	await page.getByLabel("Birim türü").selectOption("tile");
-	await page.getByLabel("Birim adı").fill("grass");
+	await page.getByLabel("Unit type").selectOption("tile");
+	await page.getByLabel("Unit name").fill("grass");
 	await page
-		.getByLabel("Kaynak Varlık Sürümü")
-		.selectOption({ label: "Sürüm 1 · Aday" });
-	await page.getByLabel("Düzeltilmiş PNG veya WebP").setInputFiles(file);
-	await page.getByRole("button", { name: "Birim düzeltmesini kaydet" }).click();
+		.getByLabel("Source Asset Version")
+		.selectOption({ label: "Version 1 · Candidate" });
+	await page.getByLabel("Corrected PNG or WebP").setInputFiles(file);
+	await page.getByRole("button", { name: "Save unit correction" }).click();
 	await expect(
-		page.getByText("grass · Birim Sürümü 1", { exact: false })
+		page.getByText("grass · Unit Version 1", { exact: false })
 	).toBeVisible();
 	await page.goto(familyUrl);
 	await page
-		.getByRole("button", { name: "Sürüm ve bağımlılık işlemleri", exact: true })
+		.getByRole("button", {
+			name: "Version and dependency operations",
+			exact: true,
+		})
 		.click();
 	await activateFamilyProfile(
 		page,
-		"Karo seti, arazi ve kesintisiz doku",
+		"Tileset, terrain, and seamless texture",
 		familyUrl,
 		"1.0.0"
 	);
@@ -181,7 +195,7 @@ test("reviews exact texture edges and all three arrangements, then rereads metad
 	});
 	await page.reload();
 	await page
-		.getByRole("button", { name: "Profil incelemeleri", exact: true })
+		.getByRole("button", { name: "Profile reviews", exact: true })
 		.click();
 	await expect(
 		review.getByText(

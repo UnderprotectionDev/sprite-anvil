@@ -27,7 +27,7 @@ export const readAnimationMetadataPackageTarget: AnimationMetadataPackageTargetR
 		if (record.assetCategory !== "character_creature_animation") {
 			throw new ORPCError("BAD_REQUEST", {
 				message:
-					"Animasyon Metadata Paketi yalnız karakter, yaratık ve animasyon varlık kategorisinde kullanılabilir.",
+					"Animation Metadata Packages are available only for the character, creature, and animation asset category.",
 			});
 		}
 
@@ -65,7 +65,7 @@ export const readAnimationMetadataPackageTarget: AnimationMetadataPackageTargetR
 				) {
 					throw new ORPCError("BAD_REQUEST", {
 						message:
-							"Bütünlük hatası: Composite Version üyeliğinin kesin Unit Version kaydı bulunamadı.",
+							"Integrity error: the exact Unit Version for the Composite Version membership was not found.",
 					});
 				}
 				return unitVersion;
@@ -74,7 +74,7 @@ export const readAnimationMetadataPackageTarget: AnimationMetadataPackageTargetR
 		if (!unitVersions.length) {
 			throw new ORPCError("BAD_REQUEST", {
 				message:
-					"Bütünlük hatası: Composite Version içinde paketlenecek Unit Version bulunamadı.",
+					"Integrity error: no Unit Version was found in the Composite Version for packaging.",
 			});
 		}
 
@@ -94,7 +94,7 @@ export const readAnimationMetadataPackageTarget: AnimationMetadataPackageTargetR
 		) {
 			throw new ORPCError("BAD_REQUEST", {
 				message:
-					"Bütünlük hatası: Composite Version içindeki kesin Asset Version kaydı bulunamadı.",
+					"Integrity error: the exact Asset Version in the Composite Version was not found.",
 			});
 		}
 		const assetVersionPins = selectedAssetVersions.map((version) => ({
@@ -141,7 +141,7 @@ export const readAnimationMetadataPackageTarget: AnimationMetadataPackageTargetR
 		if (familyIds.size !== 1) {
 			throw new ORPCError("BAD_REQUEST", {
 				message:
-					"Bütünlük hatası: Composite Version, tek bir Asset Family içindeki sürümleri içermelidir.",
+					"Integrity error: Composite Version members must belong to one Asset Family.",
 			});
 		}
 

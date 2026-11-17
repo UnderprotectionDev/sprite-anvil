@@ -14,7 +14,7 @@ const contract = {
 	contractRevisionId: "character@1",
 };
 
-const requiredPrefix = /^Zorunlu ·/;
+const requiredPrefix = /^Required ·/;
 
 test("editing keeps the exact frame and untouched optional fields while changing a pivot", async () => {
 	const user = userEvent.setup();
@@ -55,12 +55,12 @@ test("editing keeps the exact frame and untouched optional fields while changing
 			onSave={onSave}
 		/>
 	);
-	expect(screen.getByLabelText("Kare ve kesin sürüm")).toBeDisabled();
-	await user.clear(screen.getByLabelText("Dönüş noktası (JSON)"));
-	await user.click(screen.getByLabelText("Dönüş noktası (JSON)"));
+	expect(screen.getByLabelText("Frame and exact version")).toBeDisabled();
+	await user.clear(screen.getByLabelText("Pivot (JSON)"));
+	await user.click(screen.getByLabelText("Pivot (JSON)"));
 	await user.paste('{"x":13,"y":24}');
 	await user.click(
-		screen.getByRole("button", { name: "Oyun içi bilgileri kaydet" })
+		screen.getByRole("button", { name: "Save Gameplay Metadata" })
 	);
 	expect(onSave).toHaveBeenCalledWith(
 		expect.objectContaining({
@@ -100,12 +100,12 @@ test("shows the field export contract and submits the revision the user saw", as
 	);
 	expect(
 		screen.getByText(
-			`Dışa aktarım: ${pivot?.targetPath} · Eksik değer: ${pivot?.absentBehavior} · Yeniden okuma: ${pivot?.readbackCheck}`
+			`Export: ${pivot?.targetPath} · Missing value: ${pivot?.absentBehavior} · Reread: ${pivot?.readbackCheck}`
 		)
 	).toBeInTheDocument();
-	await user.type(screen.getByLabelText("Kullanım bağlamı"), "walk east");
+	await user.type(screen.getByLabelText("Usage context"), "walk east");
 	await user.click(
-		screen.getByRole("button", { name: "Oyun içi bilgileri kaydet" })
+		screen.getByRole("button", { name: "Save Gameplay Metadata" })
 	);
 	expect(onSave).toHaveBeenCalledWith(
 		expect.objectContaining({ contractRevisionId: "character@1" })
@@ -130,12 +130,12 @@ test("keeps the exact selected frame when the catalog order changes", async () =
 		disabled: false,
 	};
 	const view = render(<GameplayMetadataForm {...props} />);
-	await user.type(screen.getByLabelText("Kullanım bağlamı"), "walk east");
+	await user.type(screen.getByLabelText("Usage context"), "walk east");
 	view.rerender(
 		<GameplayMetadataForm {...props} frames={[otherFrame, ...frames]} />
 	);
 	await user.click(
-		screen.getByRole("button", { name: "Oyun içi bilgileri kaydet" })
+		screen.getByRole("button", { name: "Save Gameplay Metadata" })
 	);
 	expect(onSave).toHaveBeenCalledWith(
 		expect.objectContaining({ assetVersionId: "version-1", frameKey: "walk-0" })
@@ -153,11 +153,11 @@ test("submits the user's pivot with an exact frame and use context", async () =>
 			onSave={onSave}
 		/>
 	);
-	await user.type(screen.getByLabelText("Kullanım bağlamı"), "walk east");
-	await user.click(screen.getByLabelText("Dönüş noktası (JSON)"));
+	await user.type(screen.getByLabelText("Usage context"), "walk east");
+	await user.click(screen.getByLabelText("Pivot (JSON)"));
 	await user.paste('{"x":12,"y":24}');
 	await user.click(
-		screen.getByRole("button", { name: "Oyun içi bilgileri kaydet" })
+		screen.getByRole("button", { name: "Save Gameplay Metadata" })
 	);
 	expect(onSave).toHaveBeenCalledWith(
 		expect.objectContaining({
@@ -186,14 +186,14 @@ test("keeps malformed JSON out of the saved metadata", async () => {
 			onSave={onSave}
 		/>
 	);
-	await user.type(screen.getByLabelText("Kullanım bağlamı"), "walk east");
-	await user.click(screen.getByLabelText("Dönüş noktası (JSON)"));
+	await user.type(screen.getByLabelText("Usage context"), "walk east");
+	await user.click(screen.getByLabelText("Pivot (JSON)"));
 	await user.paste("{invalid");
 	await user.click(
-		screen.getByRole("button", { name: "Oyun içi bilgileri kaydet" })
+		screen.getByRole("button", { name: "Save Gameplay Metadata" })
 	);
 	expect(onSave).not.toHaveBeenCalled();
-	expect(screen.getByRole("alert")).toHaveTextContent("geçerli JSON");
+	expect(screen.getByRole("alert")).toHaveTextContent("valid JSON");
 });
 
 test("keeps the finalized source selection when the source catalog is reordered", async () => {
@@ -214,11 +214,11 @@ test("keeps the finalized source selection when the source catalog is reordered"
 			onSave={onSave}
 		/>
 	);
-	await user.type(screen.getByLabelText("Kullanım bağlamı"), "walk east");
+	await user.type(screen.getByLabelText("Usage context"), "walk east");
 	await user.selectOptions(
-		screen.getByLabelText("Dönüş noktası kaynağı"),
+		screen.getByLabelText("Pivot source"),
 		screen.getByRole("option", {
-			name: 'Kesinleştirilmiş kaynak: {"x":3,"y":17}',
+			name: 'Confirmed source: {"x":3,"y":17}',
 		})
 	);
 	view.rerender(
@@ -241,9 +241,9 @@ test("keeps the finalized source selection when the source catalog is reordered"
 			onSave={onSave}
 		/>
 	);
-	expect(screen.getByLabelText("Dönüş noktası (JSON)")).toBeDisabled();
+	expect(screen.getByLabelText("Pivot (JSON)")).toBeDisabled();
 	await user.click(
-		screen.getByRole("button", { name: "Oyun içi bilgileri kaydet" })
+		screen.getByRole("button", { name: "Save Gameplay Metadata" })
 	);
 	expect(onSave).toHaveBeenCalledWith(
 		expect.objectContaining({
@@ -273,20 +273,20 @@ test("requires a frame, active profile and non-blank use context before saving",
 			onSave={onSave}
 		/>
 	);
-	await user.type(screen.getByLabelText("Kullanım bağlamı"), "   ");
+	await user.type(screen.getByLabelText("Usage context"), "   ");
 	await user.click(
-		screen.getByRole("button", { name: "Oyun içi bilgileri kaydet" })
+		screen.getByRole("button", { name: "Save Gameplay Metadata" })
 	);
 	expect(onSave).not.toHaveBeenCalled();
 	expect(screen.getByRole("alert")).toHaveTextContent(
-		"Kare, etkin profil ve kullanım bağlamı seçin."
+		"Select a frame, active profile, and usage context."
 	);
-	await user.type(screen.getByLabelText("Kullanım bağlamı"), "walk east  ");
+	await user.type(screen.getByLabelText("Usage context"), "walk east  ");
 	expect(screen.getByRole("alert")).toHaveTextContent(
-		"Kare, etkin profil ve kullanım bağlamı seçin."
+		"Select a frame, active profile, and usage context."
 	);
 	await user.click(
-		screen.getByRole("button", { name: "Oyun içi bilgileri kaydet" })
+		screen.getByRole("button", { name: "Save Gameplay Metadata" })
 	);
 	expect(onSave).toHaveBeenCalledWith(
 		expect.objectContaining({ useContext: "walk east" })
@@ -305,14 +305,15 @@ test("disables saving until a frame and profile are chosen", async () => {
 		/>
 	);
 	const save = screen.getByRole("button", {
-		name: "Oyun içi bilgileri kaydet",
+		name: "Save Gameplay Metadata",
 	});
 	expect(save).toBeEnabled();
-	await user.selectOptions(screen.getByLabelText("Etkin özel profil"), "");
+	await user.selectOptions(
+		screen.getByLabelText("Active specialized profile"),
+		""
+	);
 	expect(save).toBeDisabled();
-	expect(
-		screen.queryByLabelText("Dönüş noktası (JSON)")
-	).not.toBeInTheDocument();
+	expect(screen.queryByLabelText("Pivot (JSON)")).not.toBeInTheDocument();
 });
 
 test("names a required field left blank", async () => {
@@ -332,13 +333,13 @@ test("names a required field left blank", async () => {
 			onSave={onSave}
 		/>
 	);
-	await user.type(screen.getByLabelText("Kullanım bağlamı"), "walk east");
+	await user.type(screen.getByLabelText("Usage context"), "walk east");
 	await user.click(
-		screen.getByRole("button", { name: "Oyun içi bilgileri kaydet" })
+		screen.getByRole("button", { name: "Save Gameplay Metadata" })
 	);
 	expect(onSave).not.toHaveBeenCalled();
 	expect(screen.getByRole("alert")).toHaveTextContent(
-		"Dönüş noktası zorunludur."
+		"Dönüş noktası is required."
 	);
 	expect(screen.getByText(requiredPrefix)).toBeInTheDocument();
 });
@@ -359,16 +360,16 @@ test("changing the frame clears drafted field values", async () => {
 			onSave={onSave}
 		/>
 	);
-	await user.click(screen.getByLabelText("Dönüş noktası (JSON)"));
+	await user.click(screen.getByLabelText("Pivot (JSON)"));
 	await user.paste('{"x":1,"y":2}');
 	await user.selectOptions(
-		screen.getByLabelText("Kare ve kesin sürüm"),
+		screen.getByLabelText("Frame and exact version"),
 		screen.getByRole("option", { name: "attack-0 — version-2" })
 	);
-	expect(screen.getByLabelText("Dönüş noktası (JSON)")).toHaveValue("");
-	await user.type(screen.getByLabelText("Kullanım bağlamı"), "attack");
+	expect(screen.getByLabelText("Pivot (JSON)")).toHaveValue("");
+	await user.type(screen.getByLabelText("Usage context"), "attack");
 	await user.click(
-		screen.getByRole("button", { name: "Oyun içi bilgileri kaydet" })
+		screen.getByRole("button", { name: "Save Gameplay Metadata" })
 	);
 	expect(onSave).toHaveBeenCalledWith(
 		expect.objectContaining({
@@ -397,11 +398,11 @@ test("reports a finalized source that disappeared from the catalog", async () =>
 			onSave={onSave}
 		/>
 	);
-	await user.type(screen.getByLabelText("Kullanım bağlamı"), "walk east");
+	await user.type(screen.getByLabelText("Usage context"), "walk east");
 	await user.selectOptions(
-		screen.getByLabelText("Dönüş noktası kaynağı"),
+		screen.getByLabelText("Pivot source"),
 		screen.getByRole("option", {
-			name: 'Kesinleştirilmiş kaynak: {"x":3,"y":17}',
+			name: 'Confirmed source: {"x":3,"y":17}',
 		})
 	);
 	view.rerender(
@@ -418,11 +419,11 @@ test("reports a finalized source that disappeared from the catalog", async () =>
 		/>
 	);
 	await user.click(
-		screen.getByRole("button", { name: "Oyun içi bilgileri kaydet" })
+		screen.getByRole("button", { name: "Save Gameplay Metadata" })
 	);
 	expect(onSave).not.toHaveBeenCalled();
 	expect(screen.getByRole("alert")).toHaveTextContent(
-		"Seçili kaynak artık kullanılamıyor. Dönüş noktası kaynağını yeniden seçin."
+		"The selected source is no longer available. Select the pivot source again."
 	);
 });
 
@@ -440,9 +441,9 @@ test("shows a save failure and the fallback for a non-error failure", async () =
 			onSave={onSave}
 		/>
 	);
-	await user.type(screen.getByLabelText("Kullanım bağlamı"), "walk east");
+	await user.type(screen.getByLabelText("Usage context"), "walk east");
 	const save = screen.getByRole("button", {
-		name: "Oyun içi bilgileri kaydet",
+		name: "Save Gameplay Metadata",
 	});
 	await user.click(save);
 	expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -450,9 +451,9 @@ test("shows a save failure and the fallback for a non-error failure", async () =
 	);
 	await user.click(save);
 	expect(await screen.findByRole("alert")).toHaveTextContent(
-		"Oyun içi bilgiler kaydedilemedi."
+		"Could not save Gameplay Metadata."
 	);
-	expect(screen.getByLabelText("Kullanım bağlamı")).toHaveValue("walk east");
+	expect(screen.getByLabelText("Usage context")).toHaveValue("walk east");
 });
 
 test("disables every control while the parent write is unavailable", () => {
@@ -464,9 +465,9 @@ test("disables every control while the parent write is unavailable", () => {
 			onSave={vi.fn()}
 		/>
 	);
-	expect(screen.getByLabelText("Kullanım bağlamı")).toBeDisabled();
-	expect(screen.getByLabelText("Dönüş noktası (JSON)")).toBeDisabled();
+	expect(screen.getByLabelText("Usage context")).toBeDisabled();
+	expect(screen.getByLabelText("Pivot (JSON)")).toBeDisabled();
 	expect(
-		screen.getByRole("button", { name: "Oyun içi bilgileri kaydet" })
+		screen.getByRole("button", { name: "Save Gameplay Metadata" })
 	).toBeDisabled();
 });

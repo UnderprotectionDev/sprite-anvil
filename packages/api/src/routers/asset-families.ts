@@ -43,7 +43,7 @@ export const assetFamiliesRouter = {
 			);
 			if (!identity) {
 				throw new ORPCError("CONFLICT", {
-					message: "Bu Projede aynı Varlık Kimliği zaten var.",
+					message: "This Asset Identity already exists in the Project.",
 				});
 			}
 			return subjectIdentityRecordSchema.parse(identity);
@@ -65,7 +65,7 @@ export const assetFamiliesRouter = {
 				)
 			) {
 				throw new ORPCError("NOT_FOUND", {
-					message: "Bu Projede Varlık Kimliği bulunamadı.",
+					message: "Asset Identity not found in this Project.",
 				});
 			}
 			if (!scopes) {
@@ -75,7 +75,7 @@ export const assetFamiliesRouter = {
 				!scopes.visualWorlds.some((item) => item.id === input.visualWorldId)
 			) {
 				throw new ORPCError("NOT_FOUND", {
-					message: "Bu Projede Görsel Dünya bulunamadı.",
+					message: "Visual World not found in this Project.",
 				});
 			}
 			const family = await context.assetFamilyStore.createAssetFamily(
@@ -85,7 +85,7 @@ export const assetFamiliesRouter = {
 			if (!family) {
 				throw new ORPCError("CONFLICT", {
 					message:
-						"Bu Varlık Kimliğinde aynı adda bir Varlık Ailesi zaten var.",
+						"An Asset Family with this name already exists under this Asset Identity.",
 				});
 			}
 			return assetFamilyRecordSchema.parse(family);
@@ -99,7 +99,7 @@ export const assetFamiliesRouter = {
 				!catalog.assetFamilies.some((item) => item.id === input.assetFamilyId)
 			) {
 				throw new ORPCError("NOT_FOUND", {
-					message: "Bu Projede Varlık Ailesi bulunamadı.",
+					message: "Asset Family not found in this Project.",
 				});
 			}
 			const assetRecord = await context.assetFamilyStore.createAssetRecord(
@@ -108,7 +108,8 @@ export const assetFamiliesRouter = {
 			);
 			if (!assetRecord) {
 				throw new ORPCError("CONFLICT", {
-					message: "Bu Varlık Ailesinde aynı adda bir Varlık Kaydı zaten var.",
+					message:
+						"An Asset Record with this name already exists in this Asset Family.",
 				});
 			}
 			return assetRecordSchema.parse(assetRecord);
@@ -122,7 +123,7 @@ export const assetFamiliesRouter = {
 				!catalog.assetFamilies.some((item) => item.id === input.assetFamilyId)
 			) {
 				throw new ORPCError("NOT_FOUND", {
-					message: "Bu Projede Varlık Ailesi bulunamadı.",
+					message: "Asset Family not found in this Project.",
 				});
 			}
 			const source = catalog.assetRecords.find(
@@ -133,7 +134,7 @@ export const assetFamiliesRouter = {
 			);
 			if (!(source && target)) {
 				throw new ORPCError("NOT_FOUND", {
-					message: "İlişki için seçilen Varlık Kaydı bulunamadı.",
+					message: "Asset Record selected for the relationship was not found.",
 				});
 			}
 			if (
@@ -143,7 +144,7 @@ export const assetFamiliesRouter = {
 			) {
 				throw new ORPCError("BAD_REQUEST", {
 					message:
-						"İlişkinin iki Varlık Kaydı da aynı Varlık Ailesinde olmalı ve farklı kayıtlar seçilmelidir.",
+						"Choose two different Asset Records in the same Asset Family for the relationship.",
 				});
 			}
 			if (input.type === "derivative") {
@@ -171,7 +172,7 @@ export const assetFamiliesRouter = {
 				) {
 					throw new ORPCError("BAD_REQUEST", {
 						message:
-							"Türetilmiş Varlık için seçilen kaynak, aynı ailedeki onaylı Ana Tasarım Sürümü olmalıdır.",
+							"The source for a Derived Asset must be the approved Canonical Design Version in the same family.",
 					});
 				}
 				if (
@@ -183,7 +184,7 @@ export const assetFamiliesRouter = {
 				) {
 					throw new ORPCError("BAD_REQUEST", {
 						message:
-							"Türetilmiş Varlık için Ana Tasarım Sürümünün bütünlüğü doğrulanmalıdır.",
+							"The Canonical Design Version must pass integrity verification for a Derived Asset.",
 					});
 				}
 			}
@@ -193,7 +194,7 @@ export const assetFamiliesRouter = {
 			);
 			if (!relationship) {
 				throw new ORPCError("CONFLICT", {
-					message: "Bu ilişki Varlık Ailesinde zaten kayıtlı.",
+					message: "This relationship already exists in the Asset Family.",
 				});
 			}
 			return assetFamilyRelationshipSchema.parse(relationship);

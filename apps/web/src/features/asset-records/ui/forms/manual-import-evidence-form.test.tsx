@@ -153,22 +153,28 @@ test("saves the exact manual result and evidence against its Generation Package"
 	Object.defineProperty(file, "arrayBuffer", {
 		value: async () => new Uint8Array([1, 2, 3]).buffer,
 	});
-	await screen.findByLabelText("Sonuç dosyası");
-	await user.upload(screen.getByLabelText("Sonuç dosyası"), file);
+	await screen.findByLabelText("Result file");
+	await user.upload(screen.getByLabelText("Result file"), file);
 	await user.selectOptions(
-		screen.getByLabelText("Üretim Paketi"),
+		screen.getByLabelText("Generation Package"),
 		generationPackageId
 	);
-	await user.type(screen.getByLabelText("Üretim yüzeyi"), "ComfyUI 0.3.22");
+	await user.type(
+		screen.getByLabelText("Production surface"),
+		"ComfyUI 0.3.22"
+	);
 	const instruction =
 		"Preserve the silhouette.\nChange only the cape material.";
-	await user.type(screen.getByLabelText("Gerçek üretim talimatı"), instruction);
+	await user.type(
+		screen.getByLabelText("Actual production instruction"),
+		instruction
+	);
 	expect(
-		(screen.getByLabelText("Sonuç dosyası") as HTMLInputElement).files
+		(screen.getByLabelText("Result file") as HTMLInputElement).files
 	).toHaveLength(1);
 	const form = screen
 		.getByRole("button", {
-			name: "Kanıtla birlikte aday sürümü kaydet",
+			name: "Save Candidate Version with evidence",
 		})
 		.closest("form") as HTMLFormElement;
 	fireEvent.submit(form);
@@ -189,7 +195,7 @@ test("saves the exact manual result and evidence against its Generation Package"
 	);
 	expect(onRefresh).toHaveBeenCalledOnce();
 	expect(screen.getByRole("status")).toHaveTextContent(
-		"Elle İçe Aktarma Kanıtı kaydedildi"
+		"Manual Import Evidence saved"
 	);
 });
 
@@ -217,25 +223,28 @@ test("records provider details after saving the manual result and its required e
 	Object.defineProperty(file, "arrayBuffer", {
 		value: async () => new Uint8Array([1, 2, 3]).buffer,
 	});
-	await screen.findByLabelText("Sonuç dosyası");
-	await user.upload(screen.getByLabelText("Sonuç dosyası"), file);
+	await screen.findByLabelText("Result file");
+	await user.upload(screen.getByLabelText("Result file"), file);
 	await user.click(
 		screen.getByRole("checkbox", {
-			name: "Başka bir sağlayıcının arayüzünden alındı",
+			name: "Obtained through another provider's interface",
 		})
 	);
 	await user.selectOptions(
-		screen.getByLabelText("Üretim Paketi"),
+		screen.getByLabelText("Generation Package"),
 		generationPackageId
 	);
-	await user.type(screen.getByLabelText("Üretim yüzeyi"), "Example Provider");
 	await user.type(
-		screen.getByLabelText("Gerçek üretim talimatı"),
+		screen.getByLabelText("Production surface"),
+		"Example Provider"
+	);
+	await user.type(
+		screen.getByLabelText("Actual production instruction"),
 		"Generate a pixel-art knight."
 	);
 	fireEvent.submit(
 		screen
-			.getByRole("button", { name: "Kanıtla birlikte aday sürümü kaydet" })
+			.getByRole("button", { name: "Save Candidate Version with evidence" })
 			.closest("form") as HTMLFormElement
 	);
 
@@ -244,13 +253,10 @@ test("records provider details after saving the manual result and its required e
 			expect.objectContaining({ productionSource: "user_reported_provider" })
 		)
 	);
-	await user.type(
-		await screen.findByLabelText("Sağlayıcı"),
-		"Example Provider"
-	);
+	await user.type(await screen.findByLabelText("Provider"), "Example Provider");
 	await user.click(
 		screen.getByRole("button", {
-			name: "Sağlayıcı üretim kaydını kaydet",
+			name: "Save Provider Generation Record",
 		})
 	);
 	await waitFor(() =>
@@ -264,7 +270,7 @@ test("records provider details after saving the manual result and its required e
 	);
 	expect(onRefresh).toHaveBeenCalledTimes(2);
 	expect(screen.getByRole("status")).toHaveTextContent(
-		"Sağlayıcı Üretim Kaydı kullanıcı bildirimi olarak kaydedildi"
+		"Provider Generation Record saved as a user declaration"
 	);
 });
 
@@ -284,7 +290,7 @@ test("accepts a pasted image in the result file area", async () => {
 		type: "image/png",
 	});
 	const area = await screen.findByRole("button", {
-		name: "Sonuç dosyasını seçin, yapıştırın veya bırakın",
+		name: "Select, paste, or drop the result file",
 	});
 	fireFileTransfer(area, "paste", file);
 
@@ -309,7 +315,7 @@ test("accepts a dropped image in the result file area", async () => {
 		type: "image/webp",
 	});
 	const area = await screen.findByRole("button", {
-		name: "Sonuç dosyasını seçin, yapıştırın veya bırakın",
+		name: "Select, paste, or drop the result file",
 	});
 	fireFileTransfer(area, "drop", file);
 
@@ -337,25 +343,25 @@ test("reports a result file that cannot be read", async () => {
 	Object.defineProperty(file, "arrayBuffer", {
 		value: () => Promise.reject(new Error("File read failed")),
 	});
-	await user.upload(await screen.findByLabelText("Sonuç dosyası"), file);
+	await user.upload(await screen.findByLabelText("Result file"), file);
 	await user.selectOptions(
-		screen.getByLabelText("Üretim Paketi"),
+		screen.getByLabelText("Generation Package"),
 		generationPackageId
 	);
 	const form = screen
 		.getByRole("button", {
-			name: "Kanıtla birlikte aday sürümü kaydet",
+			name: "Save Candidate Version with evidence",
 		})
 		.closest("form") as HTMLFormElement;
 	fireEvent.submit(form);
 
 	expect(await screen.findByRole("alert")).toHaveTextContent(
-		"Sonuç dosyası okunamadı"
+		"Could not read the result file"
 	);
 	expect(fakeApi.createManualImportVersion).not.toHaveBeenCalled();
 });
 
-const selectedFileText = /Seçilen dosya:/;
+const selectedFileText = /Selected file:/;
 
 function renderManualImportForm(
 	onRefresh = vi.fn().mockResolvedValue(undefined)
@@ -382,14 +388,14 @@ async function fillManualImport(
 	user: ReturnType<typeof userEvent.setup>,
 	file: File
 ) {
-	await user.upload(await screen.findByLabelText("Sonuç dosyası"), file);
+	await user.upload(await screen.findByLabelText("Result file"), file);
 	await user.selectOptions(
-		screen.getByLabelText("Üretim Paketi"),
+		screen.getByLabelText("Generation Package"),
 		generationPackageId
 	);
-	await user.type(screen.getByLabelText("Üretim yüzeyi"), "ComfyUI");
+	await user.type(screen.getByLabelText("Production surface"), "ComfyUI");
 	await user.type(
-		screen.getByLabelText("Gerçek üretim talimatı"),
+		screen.getByLabelText("Actual production instruction"),
 		"Keep the cape."
 	);
 }
@@ -399,26 +405,29 @@ test("keeps the manual import save disabled until every required value is usable
 	fakeApi.packages = [generationPackage];
 	renderManualImportForm();
 	const submitButton = await screen.findByRole("button", {
-		name: "Kanıtla birlikte aday sürümü kaydet",
+		name: "Save Candidate Version with evidence",
 	});
 	expect(submitButton).toBeDisabled();
-	fireEvent.change(screen.getByLabelText("Sonuç dosyası"), {
+	fireEvent.change(screen.getByLabelText("Result file"), {
 		target: { files: [readableFile("result.gif", "image/gif")] },
 	});
 	expect(screen.getByRole("alert")).toHaveTextContent(
-		"5 MB’a kadar PNG veya WebP dosyası seçin."
+		"Select a PNG or WebP file up to 5 MB."
 	);
 	await user.selectOptions(
-		screen.getByLabelText("Üretim Paketi"),
+		screen.getByLabelText("Generation Package"),
 		generationPackageId
 	);
-	await user.type(screen.getByLabelText("Üretim yüzeyi"), "   ");
-	await user.type(screen.getByLabelText("Gerçek üretim talimatı"), "Keep.");
+	await user.type(screen.getByLabelText("Production surface"), "   ");
+	await user.type(
+		screen.getByLabelText("Actual production instruction"),
+		"Keep."
+	);
 	expect(submitButton).toBeDisabled();
-	await user.clear(screen.getByLabelText("Üretim yüzeyi"));
-	await user.type(screen.getByLabelText("Üretim yüzeyi"), "ComfyUI");
+	await user.clear(screen.getByLabelText("Production surface"));
+	await user.type(screen.getByLabelText("Production surface"), "ComfyUI");
 	expect(submitButton).toBeDisabled();
-	fireEvent.change(screen.getByLabelText("Sonuç dosyası"), {
+	fireEvent.change(screen.getByLabelText("Result file"), {
 		target: { files: [readableFile("result.png")] },
 	});
 	expect(screen.queryByRole("alert")).not.toBeInTheDocument();
@@ -435,29 +444,31 @@ test("clears the manual import draft after a confirmed save", async () => {
 	await fillManualImport(user, readableFile("result.png"));
 	await user.click(
 		screen.getByRole("checkbox", {
-			name: "Başka bir sağlayıcının arayüzünden alındı",
+			name: "Obtained through another provider's interface",
 		})
 	);
 	await user.click(
-		screen.getByRole("button", { name: "Kanıtla birlikte aday sürümü kaydet" })
+		screen.getByRole("button", { name: "Save Candidate Version with evidence" })
 	);
 
 	expect(await screen.findByRole("status")).toHaveTextContent(
-		"Elle İçe Aktarma Kanıtı kaydedildi"
+		"Manual Import Evidence saved"
 	);
-	expect(screen.getByLabelText("Üretim yüzeyi")).toHaveValue("");
-	expect(screen.getByLabelText("Gerçek üretim talimatı")).toHaveValue("");
-	expect(screen.getByLabelText("Üretim Paketi")).toHaveValue("");
+	expect(screen.getByLabelText("Production surface")).toHaveValue("");
+	expect(screen.getByLabelText("Actual production instruction")).toHaveValue(
+		""
+	);
+	expect(screen.getByLabelText("Generation Package")).toHaveValue("");
 	expect(
 		screen.getByRole("checkbox", {
-			name: "Başka bir sağlayıcının arayüzünden alındı",
+			name: "Obtained through another provider's interface",
 		})
 	).not.toBeChecked();
 	expect(screen.queryByText(selectedFileText)).not.toBeInTheDocument();
-	expect(
-		(screen.getByLabelText("Sonuç dosyası") as HTMLInputElement).value
-	).toBe("");
-	expect(await screen.findByLabelText("Sağlayıcı")).toBeVisible();
+	expect((screen.getByLabelText("Result file") as HTMLInputElement).value).toBe(
+		""
+	);
+	expect(await screen.findByLabelText("Provider")).toBeVisible();
 });
 
 test("keeps the manual import draft and request identity when saving fails", async () => {
@@ -469,21 +480,21 @@ test("keeps the manual import draft and request identity when saving fails", asy
 	renderManualImportForm();
 	await fillManualImport(user, readableFile("result.png"));
 	await user.click(
-		screen.getByRole("button", { name: "Kanıtla birlikte aday sürümü kaydet" })
+		screen.getByRole("button", { name: "Save Candidate Version with evidence" })
 	);
 
 	expect(await screen.findByRole("alert")).toHaveTextContent(
-		"Elle İçe Aktarma Kanıtı kaydedilemedi."
+		"Could not save Manual Import Evidence."
 	);
-	expect(screen.getByLabelText("Üretim yüzeyi")).toHaveValue("ComfyUI");
-	expect(screen.getByLabelText("Gerçek üretim talimatı")).toHaveValue(
+	expect(screen.getByLabelText("Production surface")).toHaveValue("ComfyUI");
+	expect(screen.getByLabelText("Actual production instruction")).toHaveValue(
 		"Keep the cape."
 	);
 	expect(screen.getByRole("status")).toHaveTextContent(
-		"Seçilen dosya: result.png"
+		"Selected file: result.png"
 	);
 	await user.click(
-		screen.getByRole("button", { name: "Kanıtla birlikte aday sürümü kaydet" })
+		screen.getByRole("button", { name: "Save Candidate Version with evidence" })
 	);
 	await waitFor(() =>
 		expect(fakeApi.createManualImportVersion).toHaveBeenCalledTimes(2)
@@ -501,26 +512,26 @@ test("opens the file picker from the drop area and locks it during an uncertain 
 	);
 	renderManualImportForm();
 	const fileInput = (await screen.findByLabelText(
-		"Sonuç dosyası"
+		"Result file"
 	)) as HTMLInputElement;
 	const pickerClick = vi.spyOn(fileInput, "click");
 	const area = screen.getByRole("button", {
-		name: "Sonuç dosyasını seçin, yapıştırın veya bırakın",
+		name: "Select, paste, or drop the result file",
 	});
 	await user.click(area);
 	expect(pickerClick).toHaveBeenCalled();
 	await fillManualImport(user, readableFile("result.png"));
 	await user.click(
-		screen.getByRole("button", { name: "Kanıtla birlikte aday sürümü kaydet" })
+		screen.getByRole("button", { name: "Save Candidate Version with evidence" })
 	);
 
 	expect(await screen.findByRole("alert")).toHaveTextContent(
-		"Kayıt sonucu doğrulanamadı."
+		"Could not verify the save result."
 	);
 	expect(area).toBeDisabled();
-	expect(screen.getByLabelText("Üretim yüzeyi")).toBeDisabled();
+	expect(screen.getByLabelText("Production surface")).toBeDisabled();
 	expect(
-		screen.getByRole("button", { name: "Kanıtla birlikte aday sürümü kaydet" })
+		screen.getByRole("button", { name: "Save Candidate Version with evidence" })
 	).toBeDisabled();
 });
 
@@ -529,7 +540,7 @@ test("toggles the provider result checkbox with the keyboard", async () => {
 	fakeApi.packages = [generationPackage];
 	renderManualImportForm();
 	const checkbox = await screen.findByRole("checkbox", {
-		name: "Başka bir sağlayıcının arayüzünden alındı",
+		name: "Obtained through another provider's interface",
 	});
 	await user.tab();
 	checkbox.focus();

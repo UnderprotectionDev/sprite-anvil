@@ -1,0 +1,662 @@
+// @vitest-environment jsdom
+
+import type {
+	RightsRecord,
+	RightsRecordCreateInput,
+} from "@sprite-anvil/api/rights-records";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import "@testing-library/jest-dom/vitest";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { afterEach, expect, test, vi } from "vitest";
+import { RightsRecordPanel } from "@/components/rights-record-panel";
+import { createQueryClient } from "@/utils/query-client";
+
+const projectId = "00c1bc3a-8c39-436a-892e-0c3a6d37aed2";
+const assetRecordId = "a7301990-3d79-49c8-887a-c1fa9a468f85";
+const referenceId = "fcd2bb54-60fd-4555-bc6f-a30a1c2e4dd4";
+const evidenceFieldName = /Evidence supporting the Rights Record/;
+const selectedFileText = /Seçilen dosya/;
+const restrictionsFieldName = /Known restrictions/;
+
+const fakeApi = vi.hoisted(() => ({
+	create: vi.fn(),
+	records: [] as RightsRecord[],
+}));
+
+function rightsRecordQueryKey(input: {
+	assetRecordId: string;
+	projectId: string;
+	referenceId?: string | null;
+}) {
+	return [
+		"rights-records",
+		input.projectId,
+		input.assetRecordId,
+		input.referenceId ?? null,
+	];
+}
+
+vi.mock("@/utils/orpc", () => ({
+	orpc: {
+		rightsRecords: {
+			create: {
+				mutationOptions: (options: Record<string, unknown>) => ({
+					...options,
+					mutationFn: (input: RightsRecordCreateInput) => fakeApi.create(input),
+				}),
+			},
+			list: {
+				queryKey: ({
+					input,
+				}: {
+					input: {
+						assetRecordId: string;
+						projectId: string;
+						referenceId?: string | null;
+					};
+				}) => rightsRecordQueryKey(input),
+				queryOptions: ({
+					input,
+				}: {
+					input: {
+						assetRecordId: string;
+						projectId: string;
+						referenceId?: string | null;
+					};
+				}) => ({
+					queryKey: rightsRecordQueryKey(input),
+					queryFn: async () =>
+						fakeApi.records.filter(
+							(record) =>
+								record.assetRecordId === input.assetRecordId &&
+								record.projectId === input.projectId &&
+								(record.referenceId ?? null) === (input.referenceId ?? null)
+						),
+				}),
+			},
+		},
+	},
+}));
+
+vi.mock("@/env", () => ({
+	ENV: { VITE_SERVER_URL: "https://api.example.test" },
+}));
+
+afterEach(() => {
+	cleanup();
+	vi.restoreAllMocks();
+	fakeApi.create.mockReset();
+	fakeApi.records = [];
+});
+
+function renderPanel(selectedReferenceId?: string, referenceName?: string) {
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	return render(
+		<QueryClientProvider client={queryClient}>
+			<RightsRecordPanel
+				assetRecordId={assetRecordId}
+				projectId={projectId}
+				referenceId={selectedReferenceId}
+				referenceName={referenceName}
+			/>
+		</QueryClientProvider>
+	);
+}
+
+test("creates a Rights Record and rereads its persisted declaration and evidence", async () => {
+	const user = userEvent.setup();
+	fakeApi.create.mockImplementation((input: RightsRecordCreateInput) => {
+		const record: RightsRecord = {
+			...input,
+			createdAt: "2026-09-29T10:00:00.000Z",
+			evidenceFile: null,
+			versionNumber: 1,
+		};
+		fakeApi.records = [record];
+		return Promise.resolve(record);
+	});
+
+	renderPanel();
+	await screen.findByRole("heading", { name: "Rights Record" });
+	await user.type(
+		screen.getByLabelText("Source"),
+		"https://example.test/source"
+	);
+	await user.type(
+		screen.getByLabelText("Rights holder or provider"),
+		"Example Studio"
+	);
+	await user.type(
+		screen.getByLabelText("Declared permission scope"),
+		"Paid game releases"
+	);
+	await user.type(
+		screen.getByLabelText("Evidence supporting the Rights Record"),
+		"License reference: https://example.test/license"
+	);
+	await user.type(
+		screen.getByLabelText("Known restrictions"),
+		"Do not resell the source file."
+	);
+	await user.type(
+		screen.getByLabelText("Uncertainty"),
+		"Merchandising is not covered."
+	);
+	await user.selectOptions(
+		screen.getByLabelText("Declared rights status"),
+		"documented"
+	);
+	await user.click(
+		screen.getByRole("button", { name: "Create new Rights Record revision" })
+	);
+
+	await waitFor(() => expect(fakeApi.create).toHaveBeenCalledTimes(1));
+	expect(fakeApi.create).toHaveBeenCalledWith(
+		expect.objectContaining({
+			assetRecordId,
+			assertedScope: "Paid game releases",
+			evidence: "License reference: https://example.test/license",
+			projectId,
+			restrictions: "Do not resell the source file.",
+			rightsHolderOrProvider: "Example Studio",
+			source: "https://example.test/source",
+			state: "documented",
+			uncertainty: "Merchandising is not covered.",
+		})
+	);
+	await screen.findByText("Revision 1");
+	expect(screen.getByRole("listitem")).toHaveTextContent("Documented");
+	expect(screen.getByRole("listitem")).toHaveTextContent(
+		"License reference: https://example.test/license"
+	);
+
+	cleanup();
+	renderPanel();
+	await screen.findByText("Revision 1");
+	expect(screen.getByLabelText("Declared permission scope")).toHaveValue(
+		"Paid game releases"
+	);
+});
+
+test("creates a Rights Record scoped to the selected reference image", async () => {
+	const user = userEvent.setup();
+	fakeApi.create.mockImplementation((input: RightsRecordCreateInput) => {
+		const record: RightsRecord = {
+			...input,
+			createdAt: "2026-09-29T10:00:00.000Z",
+			evidenceFile: null,
+			versionNumber: 1,
+		};
+		fakeApi.records = [record];
+		return Promise.resolve(record);
+	});
+	renderPanel(referenceId, "stance.png");
+
+	await screen.findByRole("heading", { name: "Rights Record · stance.png" });
+	await user.click(
+		screen.getByRole("button", { name: "Create new Rights Record revision" })
+	);
+
+	await waitFor(() => expect(fakeApi.create).toHaveBeenCalledTimes(1));
+	expect(fakeApi.create).toHaveBeenCalledWith(
+		expect.objectContaining({ assetRecordId, projectId, referenceId })
+	);
+	await screen.findByText("Revision 1");
+});
+
+test("uses a unique accessible history heading for each reference image", async () => {
+	const queryClient = createQueryClient();
+	queryClient.setDefaultOptions({ queries: { retry: false } });
+	const otherReferenceId = "0bd26556-4860-4bad-b404-17f45005ee9c";
+	render(
+		<QueryClientProvider client={queryClient}>
+			<div>
+				<RightsRecordPanel
+					assetRecordId={assetRecordId}
+					projectId={projectId}
+					referenceId={referenceId}
+					referenceName="stance.png"
+				/>
+				<RightsRecordPanel
+					assetRecordId={assetRecordId}
+					projectId={projectId}
+					referenceId={otherReferenceId}
+					referenceName="idle.png"
+				/>
+			</div>
+		</QueryClientProvider>
+	);
+
+	const headings = await screen.findAllByRole("heading", {
+		name: "Version history",
+	});
+	const headingIds = headings.map((heading) => heading.id);
+
+	expect(new Set(headingIds).size).toBe(2);
+	for (const heading of headings) {
+		expect(heading.closest("section")).toHaveAttribute(
+			"aria-labelledby",
+			heading.id
+		);
+	}
+});
+
+test("describes an empty history for its selected reference image", async () => {
+	renderPanel(referenceId, "stance.png");
+
+	expect(
+		await screen.findByText(
+			"stance.png reference image has no Rights Records yet."
+		)
+	).toBeInTheDocument();
+});
+
+test("requires evidence before the user can declare a Rights Record Documented", async () => {
+	const user = userEvent.setup();
+	renderPanel();
+
+	await user.selectOptions(
+		screen.getByLabelText("Declared rights status"),
+		"documented"
+	);
+	await user.click(
+		screen.getByRole("button", { name: "Create new Rights Record revision" })
+	);
+
+	expect(await screen.findByRole("alert")).toHaveTextContent(
+		"Documented status requires supporting evidence."
+	);
+	expect(fakeApi.create).not.toHaveBeenCalled();
+});
+
+test("requires a restriction before the user can declare a Rights Record Restricted", async () => {
+	const user = userEvent.setup();
+	renderPanel();
+
+	await user.selectOptions(
+		screen.getByLabelText("Declared rights status"),
+		"restricted"
+	);
+	await user.click(
+		screen.getByRole("button", { name: "Create new Rights Record revision" })
+	);
+
+	expect(await screen.findByRole("alert")).toHaveTextContent(
+		"Restricted status requires at least one known restriction."
+	);
+	expect(fakeApi.create).not.toHaveBeenCalled();
+});
+
+test("creates a Documented Rights Record with an uploaded evidence file", async () => {
+	const user = userEvent.setup();
+	const uploadedRecord: RightsRecord = {
+		assetRecordId,
+		assertedScope: "Paid game releases",
+		createdAt: "2026-09-29T10:00:00.000Z",
+		evidence: null,
+		evidenceFile: {
+			contentLength: 12,
+			fileName: "license.pdf",
+			sha256: "a".repeat(64),
+			sourceContentType: "application/pdf",
+		},
+		id: "3d9d07a4-37af-43d6-8583-e2256baf0a58",
+		projectId,
+		referenceId,
+		restrictions: null,
+		rightsHolderOrProvider: null,
+		source: null,
+		state: "documented",
+		uncertainty: null,
+		versionNumber: 1,
+	};
+	const fetchMock = vi.fn().mockResolvedValue(
+		new Response(JSON.stringify(uploadedRecord), {
+			headers: { "Content-Type": "application/json" },
+			status: 201,
+		})
+	);
+	fakeApi.records = [uploadedRecord];
+	vi.stubGlobal("fetch", fetchMock);
+
+	renderPanel(referenceId, "stance.png");
+	await user.upload(
+		screen.getByLabelText("Add evidence file"),
+		new File(["license text"], "license.pdf", { type: "application/pdf" })
+	);
+	await screen.findByText("Selected file: license.pdf");
+	await user.type(
+		screen.getByLabelText("Declared permission scope"),
+		"Paid game releases"
+	);
+	await user.type(
+		screen.getByLabelText("Evidence supporting the Rights Record"),
+		"License reference: https://example.test/license"
+	);
+	await user.selectOptions(
+		screen.getByLabelText("Declared rights status"),
+		"documented"
+	);
+	await user.click(
+		screen.getByRole("button", { name: "Create new Rights Record revision" })
+	);
+
+	await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+	expect(fetchMock.mock.calls[0]?.[0]).toContain(
+		`/references/${referenceId}/rights-records/`
+	);
+	await screen.findByRole("link", { name: "license.pdf" });
+	expect(fakeApi.create).not.toHaveBeenCalled();
+	const uploadedForm = fetchMock.mock.calls[0]?.[1]?.body;
+	expect(uploadedForm).toBeInstanceOf(FormData);
+	expect(
+		JSON.parse((uploadedForm as FormData).get("rightsRecord") as string)
+	).toMatchObject({
+		evidence: "License reference: https://example.test/license",
+		referenceId,
+		state: "documented",
+	});
+});
+
+test("blocks submission while an oversized evidence file is selected", async () => {
+	const user = userEvent.setup();
+	const fetchMock = vi.fn();
+	vi.stubGlobal("fetch", fetchMock);
+	fakeApi.create.mockResolvedValue({});
+
+	renderPanel();
+	await user.type(
+		screen.getByLabelText("Evidence supporting the Rights Record"),
+		"License reference"
+	);
+	await user.selectOptions(
+		screen.getByLabelText("Declared rights status"),
+		"documented"
+	);
+	await user.upload(
+		screen.getByLabelText("Add evidence file"),
+		new File([new Uint8Array(5 * 1024 * 1024 + 1)], "oversized.pdf", {
+			type: "application/pdf",
+		})
+	);
+	await user.click(
+		screen.getByRole("button", { name: "Create new Rights Record revision" })
+	);
+
+	expect(await screen.findByRole("alert")).toHaveTextContent(
+		"The evidence file exceeds the 5 MiB limit."
+	);
+	expect(fakeApi.create).not.toHaveBeenCalled();
+	expect(fetchMock).not.toHaveBeenCalled();
+});
+
+test("starts a new revision from the latest Rights Record without changing history", async () => {
+	const user = userEvent.setup();
+	const previousRevision: RightsRecord = {
+		assetRecordId,
+		assertedScope: "Paid game releases",
+		createdAt: "2026-09-29T09:00:00.000Z",
+		evidence: "License reference",
+		evidenceFile: null,
+		id: "3d9d07a4-37af-43d6-8583-e2256baf0a58",
+		projectId,
+		restrictions: "Do not resell the source file.",
+		rightsHolderOrProvider: "Example Studio",
+		source: "https://example.test/source",
+		state: "documented",
+		uncertainty: "Merchandising is not covered.",
+		versionNumber: 1,
+	};
+	fakeApi.records = [previousRevision];
+	fakeApi.create.mockImplementation((input: RightsRecordCreateInput) => {
+		const nextRevision: RightsRecord = {
+			...input,
+			createdAt: "2026-09-29T10:00:00.000Z",
+			evidenceFile: null,
+			versionNumber: 2,
+		};
+		fakeApi.records = [nextRevision, previousRevision];
+		return Promise.resolve(nextRevision);
+	});
+
+	renderPanel();
+	await waitFor(() =>
+		expect(screen.getByLabelText("Source")).toHaveValue(
+			"https://example.test/source"
+		)
+	);
+	await user.selectOptions(
+		screen.getByLabelText("Declared rights status"),
+		"restricted"
+	);
+	await user.clear(
+		screen.getByRole("textbox", { name: restrictionsFieldName })
+	);
+	await user.type(
+		screen.getByRole("textbox", { name: restrictionsFieldName }),
+		"Game use only."
+	);
+	await user.click(
+		screen.getByRole("button", { name: "Create new Rights Record revision" })
+	);
+
+	expect(fakeApi.create).toHaveBeenCalledWith(
+		expect.objectContaining({
+			assetRecordId,
+			assertedScope: "Paid game releases",
+			evidence: "License reference",
+			projectId,
+			restrictions: "Game use only.",
+			rightsHolderOrProvider: "Example Studio",
+			source: "https://example.test/source",
+			state: "restricted",
+			uncertainty: "Merchandising is not covered.",
+		})
+	);
+	await screen.findByText("Revision 2");
+	expect(screen.getAllByRole("listitem")[1]).toHaveTextContent(
+		"Do not resell the source file."
+	);
+});
+
+test("carries the latest evidence file into a new Rights Record revision", async () => {
+	const user = userEvent.setup();
+	const previousRevision: RightsRecord = {
+		assetRecordId,
+		assertedScope: "Paid game releases",
+		createdAt: "2026-09-29T09:00:00.000Z",
+		evidence: null,
+		evidenceFile: {
+			contentLength: 12,
+			fileName: "license.pdf",
+			sha256: "a".repeat(64),
+			sourceContentType: "application/pdf",
+		},
+		id: "3d9d07a4-37af-43d6-8583-e2256baf0a58",
+		projectId,
+		restrictions: null,
+		rightsHolderOrProvider: "Example Studio",
+		source: "https://example.test/source",
+		state: "documented",
+		uncertainty: "Merchandising is not covered.",
+		versionNumber: 1,
+	};
+	fakeApi.records = [previousRevision];
+	fakeApi.create.mockImplementation((input: RightsRecordCreateInput) => {
+		const nextRevision: RightsRecord = {
+			...input,
+			createdAt: "2026-09-29T10:00:00.000Z",
+			evidenceFile: previousRevision.evidenceFile,
+			versionNumber: 2,
+		};
+		fakeApi.records = [nextRevision, previousRevision];
+		return Promise.resolve(nextRevision);
+	});
+
+	renderPanel();
+	await screen.findByRole("link", { name: "license.pdf" });
+	expect(
+		screen.getByText("Current evidence file: license.pdf")
+	).toBeInTheDocument();
+	const evidenceField = screen.getByLabelText(
+		"Evidence supporting the Rights Record"
+	);
+	expect(evidenceField).not.toBeRequired();
+	await user.click(evidenceField);
+	await user.tab();
+	expect(evidenceField).toHaveAttribute("aria-invalid", "false");
+	expect(
+		screen.queryByText("Documented status requires supporting evidence.")
+	).not.toBeInTheDocument();
+	await user.type(
+		screen.getByLabelText("Uncertainty"),
+		" New information is pending."
+	);
+	await user.click(
+		screen.getByRole("button", { name: "Create new Rights Record revision" })
+	);
+
+	expect(fakeApi.create).toHaveBeenCalledWith(
+		expect.objectContaining({
+			evidenceFileSourceRecordId: previousRevision.id,
+			uncertainty: "Merchandising is not covered. New information is pending.",
+		})
+	);
+	await screen.findByText("Revision 2");
+	expect(screen.getAllByRole("link", { name: "license.pdf" })).toHaveLength(2);
+});
+
+test("removing a carried evidence file only changes the new revision", async () => {
+	const user = userEvent.setup();
+	const previousRevision: RightsRecord = {
+		assetRecordId,
+		assertedScope: "Paid game releases",
+		createdAt: "2026-09-29T09:00:00.000Z",
+		evidence: "License reference",
+		evidenceFile: {
+			contentLength: 12,
+			fileName: "license.pdf",
+			sha256: "a".repeat(64),
+			sourceContentType: "application/pdf",
+		},
+		id: "3d9d07a4-37af-43d6-8583-e2256baf0a58",
+		projectId,
+		restrictions: null,
+		rightsHolderOrProvider: "Example Studio",
+		source: "https://example.test/source",
+		state: "documented",
+		uncertainty: null,
+		versionNumber: 1,
+	};
+	fakeApi.records = [previousRevision];
+	fakeApi.create.mockImplementation((input: RightsRecordCreateInput) => {
+		const nextRevision: RightsRecord = {
+			...input,
+			createdAt: "2026-09-29T10:00:00.000Z",
+			evidenceFile: null,
+			versionNumber: 2,
+		};
+		fakeApi.records = [nextRevision, previousRevision];
+		return Promise.resolve(nextRevision);
+	});
+
+	renderPanel();
+	await user.click(
+		await screen.findByRole("button", {
+			name: "Remove current evidence file",
+		})
+	);
+	expect(
+		screen.queryByText("Current evidence file: license.pdf")
+	).not.toBeInTheDocument();
+	await user.click(
+		screen.getByRole("button", { name: "Create new Rights Record revision" })
+	);
+
+	expect(fakeApi.create).toHaveBeenCalledWith(
+		expect.objectContaining({ evidenceFileSourceRecordId: null })
+	);
+	await screen.findByText("Revision 2");
+	expect(screen.getAllByRole("link", { name: "license.pdf" })).toHaveLength(1);
+});
+
+test("validates the evidence field on blur and clears its message when edited", async () => {
+	const user = userEvent.setup();
+	renderPanel();
+	await user.selectOptions(
+		screen.getByLabelText("Declared rights status"),
+		"documented"
+	);
+	const evidence = screen.getByLabelText(evidenceFieldName);
+	expect(evidence).toBeRequired();
+	expect(evidence).toHaveAttribute("aria-invalid", "false");
+
+	await user.click(evidence);
+	await user.tab();
+
+	const alert = await screen.findByRole("alert");
+	expect(alert).toHaveTextContent(
+		"Documented status requires supporting evidence."
+	);
+	expect(evidence).toHaveAttribute("aria-invalid", "true");
+	expect(evidence).toHaveAccessibleDescription(
+		"Error: Documented status requires supporting evidence."
+	);
+
+	await user.type(evidence, "License");
+	expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+	expect(evidence).toHaveAttribute("aria-invalid", "false");
+});
+
+test("validates the restrictions field on blur and clears every message when the state changes", async () => {
+	const user = userEvent.setup();
+	renderPanel();
+	await user.selectOptions(
+		screen.getByLabelText("Declared rights status"),
+		"restricted"
+	);
+
+	await user.click(screen.getByLabelText(restrictionsFieldName));
+	await user.tab();
+	expect(await screen.findByRole("alert")).toHaveTextContent(
+		"Restricted status requires at least one known restriction."
+	);
+
+	await user.selectOptions(
+		screen.getByLabelText("Declared rights status"),
+		"unknown"
+	);
+	expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
+test("a supporting evidence file satisfies the Documented requirement", async () => {
+	const user = userEvent.setup();
+	renderPanel();
+	await user.selectOptions(
+		screen.getByLabelText("Declared rights status"),
+		"documented"
+	);
+	await user.upload(
+		screen.getByLabelText("Add evidence file"),
+		new File(["license"], "license.pdf", { type: "application/pdf" })
+	);
+
+	expect(screen.getByLabelText(evidenceFieldName)).not.toBeRequired();
+});
+
+test("rejects an empty evidence file with its message", async () => {
+	const user = userEvent.setup();
+	renderPanel();
+
+	await user.upload(
+		screen.getByLabelText("Add evidence file"),
+		new File([], "empty.pdf", { type: "application/pdf" })
+	);
+
+	expect(await screen.findByRole("alert")).toHaveTextContent(
+		"The evidence file cannot be empty."
+	);
+	expect(screen.queryByText(selectedFileText)).not.toBeInTheDocument();
+});

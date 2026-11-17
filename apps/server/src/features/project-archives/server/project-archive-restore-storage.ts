@@ -6,10 +6,12 @@ import type {
 
 export interface StoredProjectArchiveRestore {
 	archiveId: string;
+	canonicalVerified?: boolean;
 	createdAt: Date;
 	createdByUserId: string;
 	id: string;
 	manifestDigest: string;
+	operationProjectId?: string | null;
 	/** Digest of the restore request, so a repeated key with other content is a conflict. */
 	requestDigest: string;
 	restoredProjectId: string;
@@ -37,6 +39,12 @@ export type InsertProjectArchiveRestoreResult =
 
 /** The persistent side of Project Archive restores. Restores and their rows are only ever inserted. */
 export interface ProjectArchiveRestoreStorage {
+	canMaterialize?: (
+		plan: Pick<
+			import("@sprite-anvil/api/project-archive-restore").ProjectArchiveRestorePlan,
+			"sections" | "files"
+		>
+	) => boolean;
 	find: (
 		sourceProjectId: string,
 		restoreId: string
@@ -51,6 +59,12 @@ export interface ProjectArchiveRestoreStorage {
 	) => Promise<InsertProjectArchiveRestoreResult>;
 	/** Oldest first. */
 	list: (sourceProjectId: string) => Promise<StoredProjectArchiveRestore[]>;
+	markVerified: (sourceProjectId: string, restoreId: string) => Promise<void>;
+	verifyAndMark?: (
+		sourceProjectId: string,
+		restoreId: string,
+		record: StoredProjectArchiveRestoreRecord
+	) => Promise<void>;
 	/** Removes a restore and its new project; only for a restore that failed its own verification. */
 	withdraw: (restoreId: string) => Promise<void>;
 }

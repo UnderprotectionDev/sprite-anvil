@@ -55,6 +55,7 @@
         "@sprite-anvil/db": "workspace:*",
         "better-auth": "catalog:",
         "drizzle-orm": "catalog:",
+        "fflate": "catalog:",
         "hono": "^4.13.7",
         "sharp": "^0.35.4",
         "varlock": "catalog:",
@@ -144,6 +145,7 @@
         "@orpc/zod": "catalog:",
         "@sprite-anvil/auth": "workspace:*",
         "@sprite-anvil/db": "workspace:*",
+        "drizzle-orm": "catalog:",
         "fflate": "catalog:",
         "zod": "catalog:",
       },
@@ -191,6 +193,7 @@
       "dependencies": {
         "@base-ui/react": "^1.8.0",
         "@shadcn/react": "^0.3.1",
+        "@tanstack/react-virtual": "^3.14.13",
         "class-variance-authority": "^0.7.1",
         "cmdk": "^1.1.1",
         "cn": "^0.2.5",

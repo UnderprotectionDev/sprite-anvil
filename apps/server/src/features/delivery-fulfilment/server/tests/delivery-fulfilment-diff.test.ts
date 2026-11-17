@@ -25,8 +25,8 @@ const notRecordedKeys = [
 ] as const;
 
 /** Fulfilment 1 on revision 1, then revision 2 (new context, "run" dropped, "jump" added) fulfilled by another bundle. */
-async function twoRevisionEnv() {
-	const env = setup();
+async function twoRevisionEnv(options: Parameters<typeof setup>[0] = {}) {
+	const env = setup(options);
 	const first = await env.finalize({
 		draftId: (await env.prepare()).draft.id,
 	});
@@ -255,4 +255,71 @@ test("the same Asset Versions in another order or with a repeated id are not a d
 	);
 	expect(diff.assetVersions.changed).toEqual([]);
 	expect(diff.assetVersions.unchangedCount).toBe(1);
+});
+
+test("public comparison reads four evidence families at each historical cutoff and rejects a missing manifest", async () => {
+	let missing = false;
+	let futureId = "future";
+	const evidence = {
+		bundles: {
+			get: (_user: string, _project: string, id: string) =>
+				Promise.resolve(
+					missing
+						? null
+						: ({
+								id,
+								manifestDigest: id.slice(-2).repeat(32),
+								manifest: {
+									qualityEvidence: [{ evidenceId: id, result: "passed" }],
+									waivers: [{ evidenceId: id, rationale: "Accepted" }],
+									rightsEvidence: [
+										{
+											assetRecordId: "record",
+											rightsRecordId: id,
+											state: "documented",
+											versionNumber: 1,
+										},
+									],
+								},
+							} as never)
+				),
+		},
+		runtimeValidation: {
+			list: (_user: string, _project: string, id = bundleA) =>
+				Promise.resolve({
+					records: [
+						{
+							id: "runtime",
+							projectId,
+							bundleId: id,
+							manifestDigest: id.slice(-2).repeat(32),
+							createdAt: "2026-11-01T00:00:00.000Z",
+							decisions: [],
+							evidence: [
+								{ id: futureId, createdAt: "2026-12-01T00:00:00.000Z" },
+							],
+						},
+					] as never,
+				}),
+		},
+	};
+	const { env, first, second } = await twoRevisionEnv({ evidence });
+	const input = { fromFulfilmentId: first.id, toFulfilmentId: second.id };
+	const diff = await env.compare(input);
+	for (const key of notRecordedKeys) {
+		expect(diff[key].status).toBe("recorded");
+	}
+	expect(diff.runtimeEvidence).toMatchObject({
+		status: "recorded",
+		changes: [{ kind: "changed" }],
+	});
+	futureId = "different-future";
+	expect((await env.compare(input)).runtimeEvidence).toEqual(
+		diff.runtimeEvidence
+	);
+	missing = true;
+	const unavailable = await env.compare(input);
+	for (const key of notRecordedKeys) {
+		expect(unavailable[key].status).toBe("not_recorded");
+	}
 });

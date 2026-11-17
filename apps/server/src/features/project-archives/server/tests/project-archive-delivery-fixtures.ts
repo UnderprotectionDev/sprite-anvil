@@ -1,5 +1,27 @@
+import { createHash } from "node:crypto";
+import {
+	exportBundleManifestSchema,
+	renderExportBundleChecksums,
+	renderExportBundleManifest,
+} from "@sprite-anvil/api/export-bundle-manifest";
+import { emptyDeliveryRecords } from "@sprite-anvil/api/project-archive-delivery";
+import { buildFixtureBundleFiles } from "@sprite-anvil/api/test-support/export-bundle-verification-fixture";
+
+const templateFiles = await buildFixtureBundleFiles();
+const templateManifestFile = templateFiles.find(
+	(file) => file.path === "manifest.json"
+);
+if (!templateManifestFile) {
+	throw new Error("Missing fixture manifest");
+}
+const templateManifest = exportBundleManifestSchema.parse(
+	JSON.parse(new TextDecoder().decode(templateManifestFile.bytes))
+);
+const hashText = (text: string) =>
+	createHash("sha256").update(text).digest("hex");
+
 import type { ProjectArchiveSource } from "@sprite-anvil/api/project-archives";
-import { digest, ids } from "./project-archive-fixtures";
+import { digest, ids, projectId } from "./project-archive-fixtures";
 import { historyIds, historySource } from "./project-archive-history-fixtures";
 
 export const deliveryIds = {
@@ -37,29 +59,101 @@ const requirement = (
 	resolution: "only_bundle" as const,
 });
 
-function bundle(id: string, manifestDigest: string, versionId: string) {
+function bundle(id: string, _manifestDigest: string, versionId: string) {
+	const manifest = structuredClone(templateManifest);
+	manifest.context = { revisionId: ids.contextRevision, revisionNumber: 1 };
+	manifest.deliveryTargetRevisionId = deliveryIds.revision;
+	manifest.profile = {
+		...manifest.profile,
+		profileId: deliveryIds.profile,
+		revisionId: deliveryIds.profileRevision,
+		revisionNumber: 1,
+	};
+	manifest.families = [
+		{
+			...manifest.families[0],
+			assetFamilyId: ids.family,
+			assetFamilyName: "Hero",
+			profileContractRevisionIds: [],
+			support: "general_asset_support",
+		},
+	];
+	manifest.files = [
+		{
+			assetFamilyId: ids.family,
+			assetRecordId: ids.record,
+			assetVersionId: versionId,
+			byteSize: 120,
+			contentType: "image/png",
+			itemId: "item-idle",
+			path: "images/hero.png",
+			sha256: digest("a"),
+		},
+	];
+	manifest.requiredSets = [
+		{
+			assetFamilyId: ids.family,
+			revisionId: "required-set-1",
+			revisionNumber: 1,
+			items: [
+				{
+					assetRecordIds: [ids.record],
+					disposition: "required",
+					id: "item-idle",
+					kind: "asset_record",
+					name: "Hero idle",
+					testId: null,
+				},
+			],
+		},
+	];
+	manifest.productionEvidence = [
+		{
+			assetVersionId: versionId,
+			evidenceDigest: digest("b"),
+			providerGenerationRecordId: null,
+		},
+	];
+	manifest.rightsEvidence = [];
+	const manifestText = renderExportBundleManifest(manifest);
+	const manifestDigest = hashText(manifestText);
+	const checksumsText = renderExportBundleChecksums([
+		...manifest.files,
+		{ path: "manifest.json", sha256: manifestDigest },
+	]);
+	const textFile = (path: string, content: string) => ({
+		path,
+		content,
+		assetVersionId: null,
+		byteSize: new TextEncoder().encode(content).length,
+		sha256: hashText(content),
+	});
+	const files = [
+		{
+			assetVersionId: versionId,
+			byteSize: 120,
+			content: null,
+			path: "images/hero.png",
+			sha256: digest("a"),
+		},
+		textFile("manifest.json", manifestText),
+		textFile("checksums.txt", checksumsText),
+		textFile("verification-kit/checksums.txt", checksumsText),
+		...templateFiles
+			.filter(
+				(file) =>
+					file.path.startsWith("verification-kit/") &&
+					file.path !== "verification-kit/checksums.txt"
+			)
+			.map((file) => textFile(file.path, new TextDecoder().decode(file.bytes))),
+	];
 	return {
 		adapterVersion: null,
 		contextRevisionId: ids.contextRevision,
-		contractVersion: "1.0.0",
+		contractVersion: manifest.contractVersion,
 		createdAt: "2026-11-07T07:00:00.000Z",
 		deliveryTargetRevisionId: deliveryIds.revision,
-		files: [
-			{
-				assetVersionId: versionId,
-				byteSize: 120,
-				content: null,
-				path: "images/hero.png",
-				sha256: digest("a"),
-			},
-			{
-				assetVersionId: null,
-				byteSize: 300,
-				content: '{"files":["images/hero.png"]}',
-				path: "manifest.json",
-				sha256: digest("7"),
-			},
-		],
+		files,
 		id,
 		manifestDigest,
 		profileId: deliveryIds.profile,
@@ -70,7 +164,32 @@ function bundle(id: string, manifestDigest: string, versionId: string) {
 /** A history source plus a populated delivery and validation group. */
 export function deliverySource(): ProjectArchiveSource {
 	const source = historySource();
+	source.history.requiredSetRevisions = [
+		{
+			id: "required-set-1",
+			assetFamilyId: ids.family,
+			revisionNumber: 1,
+			items: [
+				{
+					id: "item-idle",
+					kind: "animation",
+					name: "Hero idle",
+					disposition: "required",
+					assetRecordIds: [ids.record],
+				},
+			],
+			createdAt: "2026-11-06T05:00:00.000Z",
+		},
+	];
 	source.delivery = {
+		...emptyDeliveryRecords(),
+		exportBundleMarkers: [
+			{
+				id: projectId,
+				bundleId: deliveryIds.bundle2,
+				updatedAt: "2026-11-08T00:00:00.000Z",
+			},
+		],
 		deliveryDiffs: [
 			{
 				assetVersions: {
@@ -313,5 +432,14 @@ export function deliverySource(): ProjectArchiveSource {
 		sha256: digest("e"),
 		sourceId: deliveryIds.evidence,
 	});
+	const [first, second] = source.delivery.exportBundles;
+	if (!(first && second)) {
+		throw new Error("Missing fixture bundles");
+	}
+	source.delivery = JSON.parse(
+		JSON.stringify(source.delivery)
+			.replaceAll(digest("1"), first.manifestDigest)
+			.replaceAll(digest("2"), second.manifestDigest)
+	);
 	return source;
 }

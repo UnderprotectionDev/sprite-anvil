@@ -33,7 +33,7 @@ async function readCatalog(
 ) {
 	const catalog = await getStore(context).list(userId, projectId);
 	if (!catalog) {
-		throw new ORPCError("NOT_FOUND", { message: "Proje bulunamadı." });
+		throw new ORPCError("NOT_FOUND", { message: "Project not found." });
 	}
 	return catalog;
 }
@@ -47,7 +47,7 @@ export const dependencyRevalidationRouter = {
 				input.projectId
 			);
 			if (!options) {
-				throw new ORPCError("NOT_FOUND", { message: "Proje bulunamadı." });
+				throw new ORPCError("NOT_FOUND", { message: "Project not found." });
 			}
 			return options;
 		}),
@@ -60,7 +60,7 @@ export const dependencyRevalidationRouter = {
 				input.projectId
 			);
 			if (!pins) {
-				throw new ORPCError("NOT_FOUND", { message: "Proje bulunamadı." });
+				throw new ORPCError("NOT_FOUND", { message: "Project not found." });
 			}
 			return { pins };
 		}),
@@ -81,18 +81,18 @@ export const dependencyRevalidationRouter = {
 					)
 			);
 			if (!result) {
-				throw new ORPCError("NOT_FOUND", { message: "Proje bulunamadı." });
+				throw new ORPCError("NOT_FOUND", { message: "Project not found." });
 			}
 			if (result.kind === "idempotency-conflict") {
 				throw new ORPCError("CONFLICT", {
 					message:
-						"Bu işlem kimliği farklı bir tarihsel seçim için kullanılmış.",
+						"This operation ID has already been used for a different historical selection.",
 				});
 			}
 			if (result.kind === "invalid-selection") {
 				throw new ORPCError("BAD_REQUEST", {
 					message:
-						"Tarihsel seçimdeki kayıtlar bu Projedeki kesin bileşime ait olmalıdır.",
+						"Historical selection records must belong to the exact composition in this Project.",
 				});
 			}
 			return result.pin;
@@ -109,7 +109,7 @@ export const dependencyRevalidationRouter = {
 			if (!review) {
 				throw new ORPCError("BAD_REQUEST", {
 					message:
-						"Yeniden inceleme için etkilenen Türetilmiş Varlık, etkin Bağlam Sürümü, ailenin güncel Ana Tasarımı ve tüm değişiklik etkileri güncel olmalıdır. Olumlu yeniden inceleme mevcut onayı yeniler; onaysız sürümler normal onay denetimlerinden geçmelidir.",
+						"Revalidation requires the affected Derived Asset, active Context Revision, current family Canonical Design, and all change impacts to be current. A positive revalidation renews an existing approval; unapproved versions must pass normal approval checks.",
 				});
 			}
 			return review;
@@ -132,7 +132,7 @@ export const dependencyRevalidationRouter = {
 			if (!link) {
 				throw new ORPCError("BAD_REQUEST", {
 					message:
-						"Bağımlılık Bağlantısı aynı Projedeki farklı sürümleri bağlamalı, hedefi bir Türetilmiş Varlık Sürümü olmalı ve daha önce kaydedilmemiş olmalıdır.",
+						"A Dependency Link must connect different versions in the same Project, target a Derived Asset Version, and not already exist.",
 				});
 			}
 			return link;
@@ -149,7 +149,7 @@ export const dependencyRevalidationRouter = {
 			if (!impact) {
 				throw new ORPCError("BAD_REQUEST", {
 					message:
-						"Değişiklik Tanımı bu Projedeki bir Bağlam Sürümüne veya seçilmiş Ana Tasarıma ait olmalıdır.",
+						"The Change Description must belong to a Context Revision or selected Canonical Design in this Project.",
 				});
 			}
 			return impact;

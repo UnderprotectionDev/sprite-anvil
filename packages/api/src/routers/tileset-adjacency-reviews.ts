@@ -8,6 +8,8 @@ import {
 	tilesetAdjacencyReviewInputSchema,
 	tilesetAdjacencyReviewListInputSchema,
 	tilesetAdjacencyReviewRecordSchema,
+	tilesetSeamInputSchema,
+	tilesetSeamResultSchema,
 } from "../tileset-adjacency-reviews";
 import { getTilesetReviewEvidenceError } from "../tileset-scenario-evidence";
 
@@ -16,6 +18,24 @@ function getStore(context: Context) {
 		throw new ORPCError("INTERNAL_SERVER_ERROR");
 	}
 	return context.tilesetAdjacencyReviewStore;
+}
+function seamDirection(a: number, b: number, width: number, count: number) {
+	if (a >= count || b >= count) {
+		return null;
+	}
+	if (b === a + 1 && a % width < width - 1) {
+		return "east";
+	}
+	if (b === a - 1 && a % width > 0) {
+		return "west";
+	}
+	if (b === a + width) {
+		return "south";
+	}
+	if (b === a - width) {
+		return "north";
+	}
+	return null;
 }
 export const tilesetAdjacencyReviewsRouter = {
 	list: protectedProcedure
@@ -33,6 +53,145 @@ export const tilesetAdjacencyReviewsRouter = {
 				});
 			}
 			return records;
+		}),
+	inspectSeam: protectedProcedure
+		.input(tilesetSeamInputSchema)
+		.output(tilesetSeamResultSchema)
+		.handler(async ({ context, input }) => {
+			const userId = context.session.user.id;
+			const store = getStore(context);
+			if (!(await store.list(userId, input.projectId, input.assetFamilyId))) {
+				throw new ORPCError("NOT_FOUND", {
+					message: "Asset Family not found.",
+				});
+			}
+			const activation =
+				await context.specializedProfileContractStore?.getActive(
+					userId,
+					input.projectId,
+					"tileset_terrain_texture"
+				);
+			if (
+				!activation ||
+				activation.contractRevisionId !== input.contractRevisionId
+			) {
+				throw new ORPCError("CONFLICT", {
+					message: "Activate the current tileset profile contract.",
+				});
+			}
+			const map = input.maps.find((item) => item.scenario === input.scenario);
+			const a = input.cellIndex;
+			const b = input.neighborIndex;
+			const direction = map
+				? seamDirection(a, b, map.width, map.cells.length)
+				: null;
+			const first = input.tiles.find(
+				(tile) => tile.unitVersionId === map?.cells[a]
+			);
+			const second = input.tiles.find(
+				(tile) => tile.unitVersionId === map?.cells[b]
+			);
+			if (
+				!(
+					map &&
+					map.cells.length === map.width * map.height &&
+					direction &&
+					first &&
+					second
+				)
+			) {
+				throw new ORPCError("BAD_REQUEST", {
+					message: "Choose two painted adjacent cells.",
+				});
+			}
+			if (
+				direction === "east" || direction === "west"
+					? first.region.height !== second.region.height
+					: first.region.width !== second.region.width
+			) {
+				throw new ORPCError("BAD_REQUEST", {
+					message: "The selected edges must have the same length.",
+				});
+			}
+			const [catalog, records, accessible] = await Promise.all([
+				context.assetVersionStore.list(userId, input.projectId),
+				context.assetRecordStore.list(userId, input.projectId),
+				store.listAccessibleVersionIds(
+					userId,
+					input.projectId,
+					input.assetFamilyId
+				),
+			]);
+			const composite = catalog?.compositeVersions.find(
+				(item) => item.id === input.compositeVersionId
+			);
+			const record = records?.find(
+				(item) => item.id === composite?.assetRecordId
+			);
+			if (
+				!(
+					composite &&
+					record?.assetCategory === "tileset_terrain_texture" &&
+					record.availability !== "erased"
+				)
+			) {
+				throw new ORPCError("BAD_REQUEST", {
+					message: "Choose a tileset Composite Version in this family.",
+				});
+			}
+			const targets = [first, second].map((tile) => {
+				const member = composite.compositionMemberships.find(
+					(item) =>
+						item.unitVersionId === tile.unitVersionId &&
+						item.unitType === "tile"
+				);
+				const unit = catalog?.unitVersions.find(
+					(item) =>
+						item.id === member?.unitVersionId &&
+						item.unitType === "tile" &&
+						item.assetRecordId === composite.assetRecordId
+				);
+				const version = catalog?.assetVersions.find(
+					(item) =>
+						item.id === unit?.assetVersionId &&
+						item.assetRecordId === composite.assetRecordId &&
+						item.assetFamilyId === input.assetFamilyId
+				);
+				const dimensions = version?.sourceImageDimensions;
+				if (
+					!(
+						version?.integrityVerified &&
+						version.contentDigest &&
+						accessible?.has(version.id) &&
+						dimensions &&
+						tile.region.x + tile.region.width <= dimensions.width &&
+						tile.region.y + tile.region.height <= dimensions.height
+					)
+				) {
+					throw new ORPCError("BAD_REQUEST", {
+						message:
+							"Choose intact tile versions and atlas regions in this composition.",
+					});
+				}
+				return { versionId: version.id, region: tile.region };
+			});
+			const [targetA, targetB] = targets;
+			if (!(targetA && targetB)) {
+				throw new ORPCError("BAD_REQUEST");
+			}
+			const result = await context.checkTilesetSeam?.(
+				userId,
+				input.projectId,
+				targetA,
+				targetB,
+				direction
+			);
+			if (!result) {
+				throw new ORPCError("BAD_REQUEST", {
+					message: "Source image bytes could not be verified or decoded.",
+				});
+			}
+			return result;
 		}),
 	save: protectedProcedure
 		.input(tilesetAdjacencyReviewInputSchema)

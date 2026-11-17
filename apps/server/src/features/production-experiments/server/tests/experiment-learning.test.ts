@@ -477,3 +477,62 @@ test("rejects open, unknown, unowned, and unauthenticated transfers", async () =
 	).rejects.toMatchObject({ code: "NOT_FOUND" });
 	expect(proposals).toHaveLength(0);
 });
+
+test("transfers learning to the actual Asset Family and rejects a foreign family", async () => {
+	const { context } = createContext();
+	const familyId = "cae44a22-bf95-4582-a7d1-52fa111fbfc0";
+	const originalList = context.projectContextScopeStore.list;
+	context.projectContextScopeStore.list = async (user, project) => {
+		const catalog = await originalList(user, project);
+		return (
+			catalog && {
+				...catalog,
+				assetFamilies: [{ id: familyId, projectId, visualWorldId }],
+				assetRecordFamilies: [
+					{ assetRecordId, assetFamilyId: familyId, themeId },
+				],
+			}
+		);
+	};
+	const experiment = await concludedExperiment(context);
+	const input = learningInput(experiment.id, {
+		changes: [
+			{
+				operation: "add",
+				ruleId: "outline",
+				scope: { kind: "asset_family", id: familyId },
+				value: { type: "text", value: "dark" },
+				rationale: "Keep",
+				evidence: [{ kind: "user_decision", statement: "Clearer" }],
+			},
+		],
+	});
+	const proposal = await call(
+		appRouter.productionExperiments.transferLearning,
+		input,
+		{ context }
+	);
+	expect(proposal.validation.isValid).toBe(true);
+	expect(proposal.changes[0]?.precedenceChain).toEqual([
+		{ kind: "asset_family", id: familyId },
+		{ kind: "visual_world", id: visualWorldId },
+		{ kind: "project", id: projectId },
+	]);
+	const [change] = input.changes;
+	if (!change) {
+		throw new Error("Expected rule change");
+	}
+	await expect(
+		call(
+			appRouter.productionExperiments.transferLearning,
+			{
+				...input,
+				changes: [
+					{ ...change, scope: { kind: "asset_family", id: unknownId } },
+				],
+				widenScope: true,
+			},
+			{ context }
+		)
+	).rejects.toMatchObject({ code: "BAD_REQUEST" });
+});

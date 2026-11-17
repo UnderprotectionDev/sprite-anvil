@@ -1,0 +1,250 @@
+// @vitest-environment jsdom
+
+import type { AssetFamilyCatalog } from "@sprite-anvil/api/asset-families";
+import type { AssetVersionCatalog } from "@sprite-anvil/api/asset-versions";
+import { QueryClientProvider } from "@tanstack/react-query";
+import {
+	render as baseRender,
+	cleanup,
+	fireEvent,
+	screen,
+} from "@testing-library/react";
+import "@testing-library/jest-dom/vitest";
+import userEvent from "@testing-library/user-event";
+import type { ReactElement, ReactNode } from "react";
+import { afterEach, expect, test, vi } from "vitest";
+import { AssetVersionControls } from "@/components/asset-version-controls";
+import { createQueryClient } from "@/utils/query-client";
+import type { useAssetVersionWrites } from "@/utils/use-asset-version-writes";
+
+vi.mock("@/utils/orpc", async () => {
+	const { createTanstackQueryUtils } = await import("@orpc/tanstack-query");
+	const client = { assetVersions: { previewBatchReview: vi.fn() } };
+	return { client, orpc: createTanstackQueryUtils(client as never) };
+});
+
+vi.mock(
+	"@/features/asset-versions/ui/components/composite-version-controls",
+	() => ({
+		CompositeVersionControls: () => null,
+	})
+);
+
+vi.mock("@tanstack/react-router", () => ({
+	Link: ({
+		children,
+		params,
+		to,
+	}: {
+		children: ReactNode;
+		params?: Record<string, string>;
+		to: string;
+	}) => (
+		<a data-params={JSON.stringify(params)} href={to}>
+			{children}
+		</a>
+	),
+}));
+
+vi.mock(
+	"@/features/asset-versions/ui/components/unit-version-correction-form",
+	() => ({
+		UnitVersionCorrectionForm: () => null,
+		UnitVersionHistory: () => null,
+	})
+);
+
+vi.mock("@/components/version-production-evidence-panel", () => ({
+	VersionProductionEvidencePanel: () => null,
+}));
+
+const queryClient = createQueryClient();
+function render(node: ReactElement) {
+	return baseRender(
+		<QueryClientProvider client={queryClient}>{node}</QueryClientProvider>
+	);
+}
+
+afterEach(cleanup);
+
+const projectId = "project-ash-knight";
+const assetFamilyId = "family-ash-knight";
+const assetRecordId = "record-ash-knight";
+const assetVersionId = "provider-version-id";
+const createdAt = "2026-09-28T12:00:00.000Z";
+
+const catalog = {
+	assetFamilies: [
+		{
+			createdAt,
+			id: assetFamilyId,
+			name: "Ash Knight",
+			projectId,
+			subjectIdentityId: "identity-ash-knight",
+			useContext: "Gameplay sprite",
+			visualWorldId: "visual-world-pixel-art",
+		},
+	],
+	assetRecords: [
+		{
+			assetFamilyId,
+			createdAt,
+			id: assetRecordId,
+			name: "Ash Knight idle",
+			projectId,
+		},
+	],
+	relationships: [],
+	subjectIdentities: [
+		{
+			createdAt,
+			id: "identity-ash-knight",
+			name: "Ash Knight",
+			projectId,
+		},
+	],
+} satisfies AssetFamilyCatalog;
+
+const writes = (
+	overrides: Partial<ReturnType<typeof useAssetVersionWrites>> = {}
+) =>
+	({
+		activeAction: null,
+		checkWriteOutcome: vi.fn(),
+		createCompositeVersion: vi.fn().mockResolvedValue(true),
+		isCheckingOutcome: false,
+		recordProviderGeneration: vi.fn().mockResolvedValue(true),
+		refreshCatalogs: vi.fn().mockResolvedValue({ isError: false }),
+		review: vi.fn().mockResolvedValue(true),
+		reviewBatch: vi.fn().mockResolvedValue(true),
+		reviewCompositeVersion: vi.fn().mockResolvedValue(true),
+		selectCanonicalDesign: vi.fn().mockResolvedValue(true),
+		statusMessage: null,
+		upload: vi.fn().mockResolvedValue(true),
+		writeOutcomeUncertain: false,
+		writesDisabled: false,
+		...overrides,
+	}) satisfies ReturnType<typeof useAssetVersionWrites>;
+
+const emptyAssetVersionCatalog = {
+	assetVersions: [],
+	canonicalDesigns: [],
+	compositeVersions: [],
+	unitVersions: [],
+} satisfies AssetVersionCatalog;
+
+test("paired web import writes an external edit Candidate Version with its Managed Snapshot", async () => {
+	const user = userEvent.setup();
+	const versionWrites = writes();
+	const candidateFile = new File(
+		[new Uint8Array([5, 6, 7])],
+		"ash-knight.webp",
+		{ type: "image/webp" }
+	);
+	const sourceFile = new File(
+		[new Uint8Array([1, 2, 3, 4])],
+		"Ash Knight.aseprite",
+		{ type: "application/octet-stream" }
+	);
+
+	render(
+		<AssetVersionControls
+			assetVersionCatalog={emptyAssetVersionCatalog}
+			catalog={catalog}
+			writes={versionWrites}
+		/>
+	);
+
+	fireEvent.change(screen.getByLabelText("PNG/WebP export"), {
+		target: { files: [candidateFile] },
+	});
+	fireEvent.change(screen.getByLabelText("Editable working file"), {
+		target: { files: [sourceFile] },
+	});
+	await user.click(
+		screen.getByRole("button", {
+			name: "Save Candidate Version and Managed Snapshot",
+		})
+	);
+
+	expect(versionWrites.upload).toHaveBeenCalledWith(
+		assetRecordId,
+		candidateFile,
+		{
+			managedSnapshot: sourceFile,
+			sourceKind: "external_working_file_edit",
+		}
+	);
+});
+
+test("renders and saves user-reported provider details without blocking approval", async () => {
+	const user = userEvent.setup();
+	const recordProviderGeneration = vi.fn().mockResolvedValue(true);
+	const versionWrites = writes({ recordProviderGeneration });
+	const assetVersionCatalog: AssetVersionCatalog = {
+		assetVersions: [
+			{
+				assetFamilyId,
+				assetRecordId,
+				contentDigest: "a".repeat(64),
+				contentLength: 128,
+				contentType: "image/png",
+				createdAt,
+				id: assetVersionId,
+				integrityVerified: true,
+				previewUrl: `/api/projects/${projectId}/asset-versions/${assetVersionId}/preview`,
+				productionEvidence: {
+					evidenceLevel: "unknown",
+					managedSnapshots: [],
+					manualImportEvidence: null,
+					sourceKind: "unknown",
+				},
+				productionSource: "user_reported_provider",
+				providerGenerationRecord: null,
+				projectId,
+				reviewDisposition: "candidate",
+				reviewEvents: [],
+				versionNumber: 1,
+			},
+		],
+		canonicalDesigns: [],
+		compositeVersions: [],
+		unitVersions: [],
+	};
+
+	render(
+		<AssetVersionControls
+			assetVersionCatalog={assetVersionCatalog}
+			catalog={catalog}
+			writes={versionWrites}
+		/>
+	);
+
+	expect(screen.getByRole("status")).toHaveTextContent(
+		"You can save details seen in the provider interface as user declarations"
+	);
+	const approvalButton = screen.getByRole("button", { name: "Approve" });
+	expect(approvalButton).toBeDisabled();
+	await user.type(
+		screen.getByLabelText("Review rationale"),
+		"Görüntü manuel olarak incelendi."
+	);
+	expect(approvalButton).toBeEnabled();
+	await user.type(screen.getByLabelText("Provider"), "Example Provider");
+	await user.click(
+		screen.getByRole("button", { name: "Save Provider Generation Record" })
+	);
+
+	expect(recordProviderGeneration).toHaveBeenCalledWith(assetVersionId, {
+		actualDimensions: null,
+		interface: null,
+		model: null,
+		modelVersion: null,
+		palette: [],
+		provider: "Example Provider",
+		providerParameters: {},
+		referenceIds: [],
+		requestedDimensions: null,
+		seed: null,
+	});
+});

@@ -15,6 +15,7 @@ import {
 } from "../production-experiments";
 import {
 	contextProposalSchema,
+	expectedScopeChain,
 	narrowestScopeChain,
 	sameContextScope,
 	validateContextProposal,
@@ -335,7 +336,12 @@ export const productionExperimentsRouter = {
 							: "The proposal must stay in the narrowest meaningful scope; widening it is the user's decision.",
 					});
 				}
-				return { ...change, precedenceChain: chain.slice(index) };
+				return {
+					...change,
+					precedenceChain:
+						expectedScopeChain(input.projectId, change.scope, catalog) ??
+						chain.slice(index),
+				};
 			});
 			const scopeWidenedByUser = changes.some(
 				(change) => !sameContextScope(change.scope, narrowestScope)

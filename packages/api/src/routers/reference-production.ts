@@ -15,17 +15,17 @@ function unwrapImageWriteResult(result: ReferenceBoardWriteResult) {
 	}
 	if (result.reason === "not_found") {
 		throw new ORPCError("NOT_FOUND", {
-			message: "Referans görseli veya Varlık Kaydı bulunamadı.",
+			message: "Reference image or Asset Record not found.",
 		});
 	}
 	if (result.reason === "context_override_required") {
 		throw new ORPCError("PRECONDITION_FAILED", {
 			message:
-				"Ana Tasarım kimliğini aşmak için Bağlam Kuralı İstisnası gerekçesi kaydedin.",
+				"Record a Context Rule Exception rationale to depart from the Canonical Design identity.",
 		});
 	}
 	throw new ORPCError("CONFLICT", {
-		message: "Referans değişti. Güncel durumu yeniden yükleyip tekrar deneyin.",
+		message: "The reference changed. Reload the current state and try again.",
 	});
 }
 
@@ -54,7 +54,7 @@ export const referenceProductionRouter = {
 			]);
 			if (!(tracking && imageReferences)) {
 				throw new ORPCError("NOT_FOUND", {
-					message: "Varlık kaydı bulunamadı.",
+					message: "Asset Record not found.",
 				});
 			}
 

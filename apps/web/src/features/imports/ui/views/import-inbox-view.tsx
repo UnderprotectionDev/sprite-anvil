@@ -52,7 +52,7 @@ class ImportInboxUploadError extends Error {
 }
 
 const uncertainUploadMessage =
-	"Yükleme sonucu doğrulanamadı. Gelen Kutusunu yenileyip güncel durumu kontrol edin.";
+	"Could not verify the upload result. Refresh the Import Inbox and check the current state.";
 
 function formatContentLength(contentLength: number) {
 	if (contentLength === 0) {
@@ -82,19 +82,19 @@ function formatCreatedAt(value: string) {
 
 function uploadErrorMessage(status: number) {
 	if (status === 400) {
-		return "Dosya bilgileri okunamadı. Dosyayı yeniden seçip tekrar deneyin.";
+		return "Could not read file information. Select the file again and retry.";
 	}
 	if (status === 401) {
-		return "Oturumunuz sona ermiş. Yeniden giriş yapın.";
+		return "Your session has expired. Sign in again.";
 	}
 	if (status === 404) {
-		return "Bu oyun projesi açılamadı.";
+		return "Could not open this game project.";
 	}
 	if (status === 409) {
-		return "Bu yükleme başka bir dosya için kullanılmış. Dosyayı yeniden seçin.";
+		return "This upload was used for another file. Select the file again.";
 	}
 	if (status === 415) {
-		return "Bu dosya yüklenemedi. Dosyayı yeniden seçin.";
+		return "Could not upload this file. Select it again.";
 	}
 	return null;
 }
@@ -242,8 +242,8 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 			if (savedCount > 0) {
 				setStatusMessage(
 					savedCount === 1
-						? "Dosya İçe Aktarma Gelen Kutusuna alındı."
-						: `${savedCount} dosya İçe Aktarma Gelen Kutusuna alındı.`
+						? "File added to the Import Inbox."
+						: `${savedCount} files added to the Import Inbox.`
 				);
 			}
 		} finally {
@@ -264,31 +264,31 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 					params={{ projectId }}
 					to="/projects/$projectId/assets"
 				>
-					Varlık kayıtlarına dön
+					Back to Asset Records
 				</Link>
 				<div className="space-y-2">
 					<p className="font-mono text-primary text-xs uppercase tracking-[0.16em]">
-						İçe aktarma
+						Import
 					</p>
 					<h1 className="font-medium font-serif text-4xl tracking-tight">
-						İçe Aktarma Gelen Kutusu
+						Import Inbox
 					</h1>
 					<p className="max-w-2xl text-muted-foreground">
-						Hedefi henüz belli olmayan dosyaları Yönetilen Kopya olarak
-						saklayın. Bu dosyalar Varlık Kaydı veya Aday Sürüm değildir;
-						ilişkilendirilene kadar onaylanamaz ve dışa aktarılamaz.
+						Store files without a known target as Managed Snapshots. They are
+						not Asset Records or Candidate Versions and cannot be approved or
+						exported until linked.
 					</p>
 				</div>
 			</header>
 
 			<TaskWorkspace
-				label="İçe aktarma çalışma alanları"
+				label="Import workspaces"
 				sections={[
 					{
 						id: "upload",
-						label: "Dosya ekle",
+						label: "Add files",
 						description:
-							"Hedefi henüz belli olmayan dosyaları seçin ve Gelen Kutusuna alın.",
+							"Select files without a known target and add them to the Import Inbox.",
 						content: (
 							<>
 								<section
@@ -300,11 +300,11 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 											className="font-semibold text-xl"
 											id="import-inbox-upload-heading"
 										>
-											Dosya ekle
+											Add files
 										</h2>
 										<p className="mt-1 text-muted-foreground text-sm">
-											Özgün dosya ve adı korunur. Dosya içeriğinden üretim
-											geçmişi çıkarılmaz.
+											The original file and name are preserved. Production
+											history is not inferred from file contents.
 										</p>
 									</div>
 									<div className="space-y-2">
@@ -312,7 +312,7 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 											className="font-medium text-sm"
 											htmlFor="import-inbox-files"
 										>
-											Dosyalar
+											Files
 										</Label>
 										<Input
 											aria-describedby="import-inbox-file-help"
@@ -327,14 +327,13 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 											className="text-muted-foreground text-sm"
 											id="import-inbox-file-help"
 										>
-											Bir veya daha fazla dosya seçebilirsiniz. Dosyalar ayrı
-											ayrı yüklenir; güvenle yeniden denenebilenler seçili
-											kalır.
+											You can select one or more files. Files upload separately;
+											those safe to retry remain selected.
 										</p>
 									</div>
 									{selectedFiles.length > 0 ? (
 										<ul
-											aria-label="Seçilen dosyalar"
+											aria-label="Selected files"
 											className="space-y-1 text-sm"
 										>
 											{selectedFiles.map((file) => (
@@ -346,12 +345,12 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 									) : null}
 									{isUploading && uploadingFileName ? (
 										<p aria-live="polite" role="status">
-											Yükleniyor: {uploadingFileName}
+											Uploading: {uploadingFileName}
 										</p>
 									) : null}
 									{uploadErrors.length > 0 ? (
 										<ul
-											aria-label="Yükleme hataları"
+											aria-label="Upload errors"
 											className="space-y-1"
 											role="alert"
 										>
@@ -360,7 +359,7 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 													{failure.file.name}: {failure.message}
 													{failure.supportReference ? (
 														<span className="block">
-															Destek Referansı: {failure.supportReference}
+															Support reference: {failure.supportReference}
 														</span>
 													) : null}
 												</li>
@@ -379,8 +378,8 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 										type="button"
 									>
 										{isUploading
-											? "Dosyalar alınıyor…"
-											: "Dosyaları Gelen Kutusuna Al"}
+											? "Receiving files…"
+											: "Add files to Import Inbox"}
 									</Button>
 								</section>
 							</>
@@ -388,9 +387,9 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 					},
 					{
 						id: "entries",
-						label: "Bekleyen dosyalar",
+						label: "Pending files",
 						description:
-							"Dosyaları bulun, kaynak bilgilerini inceleyin ve varsa kaynak metadata eşlemesini hazırlayın.",
+							"Find files, review source information, and prepare Source Metadata Mapping when available.",
 						content: (
 							<>
 								<section
@@ -402,25 +401,25 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 											className="font-semibold text-xl"
 											id="import-inbox-entries-heading"
 										>
-											İlişkilendirme bekleyen dosyalar
+											Files awaiting linking
 										</h2>
 										<p className="mt-1 text-muted-foreground text-sm">
-											Bu listede yalnızca hedefi kesinleşmemiş İçe Aktarma Gelen
-											Kutusu Girdileri bulunur.
+											This list contains only Import Inbox Entries without a
+											confirmed target.
 										</p>
 									</div>
 									{entriesQuery.isPending ? (
 										<p aria-live="polite" role="status">
-											Gelen kutusu yükleniyor…
+											Loading Import Inbox…
 										</p>
 									) : null}
 									{entriesQuery.isError ? (
 										<div className="space-y-2">
 											<StatusMessage tone="error">
-												Gelen kutusu yüklenemedi.
+												Could not load Import Inbox.
 											</StatusMessage>
 											{supportReference ? (
-												<p>Destek Referansı: {supportReference}</p>
+												<p>Support reference: {supportReference}</p>
 											) : null}
 											<Button
 												className="min-h-11"
@@ -428,20 +427,17 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 												type="button"
 												variant="outline"
 											>
-												Yeniden dene
+												Try again
 											</Button>
 										</div>
 									) : null}
 									{entriesQuery.isSuccess && entriesQuery.data.length === 0 ? (
 										<p className="rounded-lg border border-dashed p-6 text-muted-foreground text-sm">
-											Henüz ilişkilendirme bekleyen dosya yok.
+											No files await linking yet.
 										</p>
 									) : null}
 									{entriesQuery.isSuccess && entriesQuery.data.length > 0 ? (
-										<ul
-											aria-label="İçe Aktarma Gelen Kutusu Girdileri"
-											className="space-y-3"
-										>
+										<ul aria-label="Import Inbox Entries" className="space-y-3">
 											{entriesQuery.data.map((entry) => (
 												<ImportInboxEntryCard
 													entries={entriesQuery.data}
@@ -477,7 +473,7 @@ function ImportInboxEntryCard({
 				<div className="min-w-0 space-y-1">
 					<h3 className="break-words font-medium">{entry.fileName}</h3>
 					<p className="text-muted-foreground text-sm">
-						İlişkilendirme bekliyor · {formatContentLength(entry.contentLength)}
+						Awaiting linking · {formatContentLength(entry.contentLength)}
 					</p>
 				</div>
 				<a
@@ -485,19 +481,19 @@ function ImportInboxEntryCard({
 					download={entry.fileName}
 					href={importInboxFileUrl(projectId, entry.id)}
 				>
-					Dosyayı indir
+					Download file
 				</a>
 			</div>
 			<details className="text-sm">
 				<summary className="min-h-11 cursor-pointer py-3 font-medium">
-					Kaynak bilgileri
+					Source information
 				</summary>
 				<dl className="grid gap-x-3 gap-y-2 sm:grid-cols-[auto_1fr]">
-					<dt className="text-muted-foreground">Kaynak türü</dt>
+					<dt className="text-muted-foreground">Source type</dt>
 					<dd className="break-all">{entry.sourceContentType}</dd>
-					<dt className="text-muted-foreground">Dosya boyutu</dt>
+					<dt className="text-muted-foreground">File size</dt>
 					<dd>{formatContentLength(entry.contentLength)}</dd>
-					<dt className="text-muted-foreground">Eklenme zamanı</dt>
+					<dt className="text-muted-foreground">Added at</dt>
 					<dd>{formatCreatedAt(entry.createdAt)}</dd>
 					<dt className="text-muted-foreground">SHA-256</dt>
 					<dd className="break-all font-mono text-xs">{entry.sha256}</dd>

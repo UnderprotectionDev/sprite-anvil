@@ -62,4 +62,4 @@ Dış araca amaç ve kapsamla erişim verme, ayrı kullanıcı izin akışıdır
 
 - Bu uygulama diliminin kanıtı: [`project-access.test.ts`](../../../apps/server/src/features/projects/server/tests/project-access.test.ts), [`api-output-contracts.test.ts`](../../../apps/server/src/api-output-contracts.test.ts) ve [`cloudflare.test.ts`](../../../apps/server/src/cloudflare.test.ts).
 - [YAS-04](../../prd/10-acceptance-scenarios.md) çevrimdışı çakışma ve kalıcı silme senaryosudur; secret-safe serileştirme sözleşmesi için kabul kanıtı sayılmaz.
-- Mevcut uygulama yalnız temel web/masaüstü kabuğu ve sınırlı sunucu yükleme yolunu içeriyor; bu spec teslim edilmiş ürün iddiası değildir. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.
+- PRD ve bu spec hedef davranışı tanımlar; mevcut sözleşmeler ve testler tek başına tüm kabul senaryolarının tamamlandığını göstermez. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.

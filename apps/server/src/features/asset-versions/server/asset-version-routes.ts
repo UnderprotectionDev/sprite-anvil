@@ -1,4 +1,8 @@
 import { assetVersionFileNameSchema } from "@sprite-anvil/api/asset-record-tracking";
+import {
+	AssetVersionContentLengthError,
+	AssetVersionIntegrityError,
+} from "@sprite-anvil/api/asset-version-integrity";
 import type { AssetVersionStore } from "@sprite-anvil/api/asset-versions";
 import {
 	type UnitVersionCorrectionInput,
@@ -21,8 +25,6 @@ import {
 	serializeUnitVersionCorrectionUploadResponse,
 } from "../../../output-contracts";
 import {
-	AssetVersionContentLengthError,
-	AssetVersionIntegrityError,
 	createAssetVersionIntegrityTransform,
 	verifyAssetVersionStream,
 } from "./asset-version-integrity";

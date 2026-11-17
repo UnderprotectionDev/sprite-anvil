@@ -43,11 +43,10 @@ export function CollectionMembershipPanel({
 	) : (
 		<div className="space-y-2">
 			<h2 className="font-semibold text-xl" id="collection-members-heading">
-				Koleksiyon üyeliği
+				Collection membership
 			</h2>
 			<p className="text-muted-foreground text-sm">
-				Bir Koleksiyon oluşturduğunuzda Varlık Kayıtlarını burada
-				düzenleyebilirsiniz.
+				After creating a Collection, you can organize Asset Records here.
 			</p>
 		</div>
 	);
@@ -84,7 +83,7 @@ function CollectionMembers({
 	const memberContent =
 		memberships.length === 0 ? (
 			<p className="rounded-lg border border-dashed p-4 text-muted-foreground text-sm">
-				Bu Koleksiyonda henüz Varlık Kaydı yok.
+				This Collection has no Asset Records yet.
 			</p>
 		) : (
 			<ul className="space-y-3">
@@ -105,7 +104,7 @@ function CollectionMembers({
 		<>
 			<header className="space-y-1">
 				<p className="font-mono text-primary text-xs uppercase tracking-[0.16em]">
-					Koleksiyon
+					Collection
 				</p>
 				<h2
 					className="font-medium font-serif text-3xl tracking-tight"
@@ -114,7 +113,7 @@ function CollectionMembers({
 					{collection.name}
 				</h2>
 				<p className="text-muted-foreground text-sm">
-					Farklı Varlık Ailelerindeki kayıtları birlikte tutabilirsiniz.
+					You can keep records from different Asset Families together.
 				</p>
 			</header>
 
@@ -133,7 +132,7 @@ function CollectionMembers({
 								className="font-medium text-sm"
 								htmlFor="collection-asset-record"
 							>
-								Varlık Kaydı
+								Asset Record
 							</Label>
 							<NativeSelect
 								className="w-full [&>select]:h-11"
@@ -144,7 +143,7 @@ function CollectionMembers({
 								value={field.state.value}
 							>
 								<NativeSelectOption value="">
-									Varlık Kaydı seçin
+									Select an Asset Record
 								</NativeSelectOption>
 								{availableAssetRecords.map((assetRecord) => (
 									<NativeSelectOption
@@ -154,7 +153,7 @@ function CollectionMembers({
 										{assetRecord.name}
 										{assetRecord.assetFamilyName
 											? ` · ${assetRecord.assetFamilyName}`
-											: " · Varlık Ailesi atanmamış"}
+											: " · No Asset Family assigned"}
 									</NativeSelectOption>
 								))}
 							</NativeSelect>
@@ -170,7 +169,7 @@ function CollectionMembers({
 							disabled={writesDisabled || !selectedAssetRecordId}
 							type="submit"
 						>
-							{savingOperation === "add" ? "Ekleniyor…" : "Koleksiyona ekle"}
+							{savingOperation === "add" ? "Adding…" : "Add to Collection"}
 						</Button>
 					)}
 				</membershipForm.Subscribe>
@@ -178,7 +177,7 @@ function CollectionMembers({
 
 			{availableAssetRecords.length === 0 ? (
 				<p className="text-muted-foreground text-sm">
-					Bu Koleksiyona eklenebilecek başka Varlık Kaydı yok.
+					No other Asset Records can be added to this Collection.
 				</p>
 			) : null}
 			{memberContent}
@@ -199,7 +198,7 @@ function CollectionMemberItem({
 	savingOperation: string | null;
 	writesDisabled: boolean;
 }) {
-	const recordName = assetRecord?.name ?? "Silinmiş Varlık Kaydı";
+	const recordName = assetRecord?.name ?? "Erased Asset Record";
 	const isRemoving = savingOperation === `remove-${membership.assetRecordId}`;
 
 	return (
@@ -207,18 +206,18 @@ function CollectionMemberItem({
 			<div className="min-w-0">
 				<h3 className="truncate font-medium">{recordName}</h3>
 				<p className="text-muted-foreground text-sm">
-					{assetRecord?.assetFamilyName ?? "Varlık Ailesi belirtilmemiş"}
+					{assetRecord?.assetFamilyName ?? "Asset Family not specified"}
 				</p>
 			</div>
 			<Button
-				aria-label={`${recordName} Varlık Kaydını Koleksiyondan kaldır`}
+				aria-label={`${recordName} Remove Asset Record from Collection`}
 				className="min-h-11"
 				disabled={writesDisabled}
 				onClick={() => onRemove(membership.assetRecordId)}
 				type="button"
 				variant="outline"
 			>
-				{isRemoving ? "Kaldırılıyor…" : "Kaldır"}
+				{isRemoving ? "Removing…" : "Remove"}
 			</Button>
 		</li>
 	);

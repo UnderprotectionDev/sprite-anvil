@@ -19,22 +19,22 @@ describe("Portrait identity surface equivalence", () => {
 		await $("input[name='email']").setValue(result.email);
 		await $("input[name='password']").setValue(result.password);
 		await $("form button[type='submit']").click();
-		await $("h1=Oyun projeleri").waitForDisplayed({ timeout: 30_000 });
+		await $("h1=Game projects").waitForDisplayed({ timeout: 30_000 });
 		await browser.url(`${origin}${result.familyPath}`);
-		await openWorkspaceTask("Profil incelemeleri");
+		await openWorkspaceTask("Profile reviews");
 		const review = await $(
-			"section[aria-label='Portre Kimliğini ve Kırpmayı İnceleme']"
+			"section[aria-label='Review Portrait Identity and Crop']"
 		);
 		await review.waitForDisplayed({ timeout: 20_000 });
-		await review.$("summary=İnceleme ayrıntılarını göster").click();
+		await review.$("summary=Show review details").click();
 		await expect(
 			await review.$(
-				"li=Neutral portrait · Neutral · Diyalog · 137 × 181 px · Kırpma: 8, 0, 24 × 32 · Açık"
+				"li=Neutral portrait · Neutral · Dialogue · 137 × 181 px · Crop: 8, 0, 24 × 32 · Light"
 			)
 		).toBeDisplayed();
 		await expect(
 			await review.$(
-				"p=Kırpma ve yüz görünürlüğü: Başarısız · Face is clipped in dialogue."
+				"p=Crop and face visibility: Fail · Face is clipped in dialogue."
 			)
 		).toBeDisplayed();
 		const expressions = await review.$$("input[maxlength='100']");
@@ -42,16 +42,16 @@ describe("Portrait identity surface equivalence", () => {
 		await expressions[1]?.setValue("Happy");
 		const firstExpression = await review.$("fieldset");
 		await firstExpression
-			.$(".//label[contains(text(), 'Kırpma X')]/input")
+			.$(".//label[contains(text(), 'Crop X')]/input")
 			.setValue("8");
 		await firstExpression
-			.$(".//label[contains(text(), 'Kırpma genişliği')]/input")
+			.$(".//label[contains(text(), 'Crop width')]/input")
 			.setValue("24");
 		await firstExpression
-			.$(".//label[contains(text(), 'Kullanım genişliği')]/input")
+			.$(".//label[contains(text(), 'Usage width')]/input")
 			.setValue("137");
 		await firstExpression
-			.$(".//label[contains(text(), 'Kullanım yüksekliği')]/input")
+			.$(".//label[contains(text(), 'Usage height')]/input")
 			.setValue("181");
 		await review
 			.$("select[id$='-identity']")
@@ -65,14 +65,14 @@ describe("Portrait identity surface equivalence", () => {
 		await notes[1]?.setValue("Neutral and Happy remain distinct on desktop.");
 		await notes[2]?.setValue("Face visibility needs follow-up on desktop.");
 		await notes[3]?.setValue("Desktop portrait crop review.");
-		const save = await review.$("button=Portre incelemesini kaydet");
+		const save = await review.$("button=Save portrait review");
 		await browser.waitUntil(async () => await save.isEnabled(), {
 			timeout: 20_000,
 		});
 		await save.click();
-		await review.$("p=Portre incelemesi kaydedildi.").waitForDisplayed();
+		await review.$("p=Portrait review saved.").waitForDisplayed();
 		await browser.refresh();
-		await openWorkspaceTask("Profil incelemeleri");
+		await openWorkspaceTask("Profile reviews");
 		await expect(
 			await review.$("p=Desktop portrait crop review.")
 		).toBeDisplayed();

@@ -37,7 +37,7 @@ export const collectionsRouter = {
 			);
 			if (!collection) {
 				throw new ORPCError("CONFLICT", {
-					message: "Koleksiyon oluşturulamadı. Projeyi yeniden yükleyin.",
+					message: "Collection could not be created. Reload the Project.",
 				});
 			}
 			return collectionRecordSchema.parse(collection);
@@ -49,7 +49,7 @@ export const collectionsRouter = {
 			const catalog = await readCatalog(context, input.projectId);
 			if (!catalog.collections.some((item) => item.id === input.collectionId)) {
 				throw new ORPCError("NOT_FOUND", {
-					message: "Bu Projede Koleksiyon bulunamadı.",
+					message: "Collection not found in this Project.",
 				});
 			}
 			const assetRecord = catalog.assetRecords.find(
@@ -57,12 +57,12 @@ export const collectionsRouter = {
 			);
 			if (!assetRecord) {
 				throw new ORPCError("NOT_FOUND", {
-					message: "Bu Projede Varlık Kaydı bulunamadı.",
+					message: "Asset Record not found in this Project.",
 				});
 			}
 			if (assetRecord.availability === "erased") {
 				throw new ORPCError("BAD_REQUEST", {
-					message: "Silinmiş Varlık Kaydı Koleksiyona eklenemez.",
+					message: "An erased Asset Record cannot be added to a Collection.",
 				});
 			}
 
@@ -73,7 +73,7 @@ export const collectionsRouter = {
 			if (!membership) {
 				throw new ORPCError("CONFLICT", {
 					message:
-						"Varlık Kaydı Koleksiyona eklenemedi. Koleksiyonu yeniden yükleyin.",
+						"Asset Record could not be added to the Collection. Reload the Collection.",
 				});
 			}
 			return collectionMembershipSchema.parse(membership);
@@ -91,7 +91,7 @@ export const collectionsRouter = {
 				)
 			) {
 				throw new ORPCError("NOT_FOUND", {
-					message: "Koleksiyon üyeliği bulunamadı.",
+					message: "Collection membership not found.",
 				});
 			}
 			const membership = await context.collectionStore.removeAssetRecord(
@@ -101,7 +101,7 @@ export const collectionsRouter = {
 			if (!membership) {
 				throw new ORPCError("CONFLICT", {
 					message:
-						"Koleksiyon üyeliği kaldırılamadı. Koleksiyonu yeniden yükleyin.",
+						"Collection membership could not be removed. Reload the Collection.",
 				});
 			}
 			return collectionMembershipSchema.parse(membership);

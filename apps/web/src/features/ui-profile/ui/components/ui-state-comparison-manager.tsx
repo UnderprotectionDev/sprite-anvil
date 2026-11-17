@@ -25,6 +25,7 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { StatusMessage } from "@/components/status-message";
+import { builtinProfileName } from "@/utils/builtin-profile-labels";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { orpc } from "@/utils/orpc";
@@ -251,7 +252,7 @@ export function UiStateComparisonManager(props: UiStateComparisonManagerProps) {
 			className="space-y-4 rounded-lg border p-4"
 		>
 			<h3 className="font-semibold text-xl" id={`${prefix}-heading`}>
-				{familyName} · Ekran ve Bileşen Durumlarını Karşılaştırma
+				{familyName} · Compare Screen and Component States
 			</h3>
 			<p className="text-muted-foreground text-sm">
 				Compare a screen and its component states in this Asset Family. Record
@@ -730,7 +731,10 @@ function SavedComparison({ record }: { record: UiStateComparisonRecord }) {
 					</div>
 					<p>
 						Profile revision: {record.contractRevisionId} ·{" "}
-						{record.contractSnapshot.name}
+						{builtinProfileName(
+							record.contractSnapshot.profileId,
+							record.contractSnapshot.name
+						)}
 					</p>
 				</div>
 			</details>

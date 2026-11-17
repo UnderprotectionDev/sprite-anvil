@@ -29,5 +29,5 @@ test("shows exact small-use crop on light and dark backgrounds with safe area an
 		imageRendering: "auto",
 		width: "82.775px",
 	});
-	expect(screen.getAllByLabelText("Güvenli alan")).toHaveLength(2);
+	expect(screen.getAllByLabelText("Safe area")).toHaveLength(2);
 });

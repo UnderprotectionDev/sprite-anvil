@@ -38,9 +38,11 @@ Tamamlanma kanıtı: Temel üretim akışı webde WCAG 2.2 AA, masaüstünde eş
 
 ## Testing Decisions
 
+- Native klavye kanıtı: mevcut embedded WebDriver `Tab` için sentetik `KeyboardEvent` gönderir; gerçek odak geçişini ve `:focus-visible` durumunu kanıtlamaz. [`keyboard-accessibility.spec.ts`](../../../apps/web/desktop-e2e/keyboard-accessibility.spec.ts) programatik odağı ayrı smoke testi olarak adlandırır, gerçek klavye testlerini açıkça atlar. Programatik fallback gerçek klavye başarısı sayılmaz. Chromium trusted klavye koşumu ayrı kanıttır; native klavye/reader kabulü elle veya güvenilir native girdiyle tamamlanmalıdır.
+
 - **Birincil test seam’i:** Gerçek web ve Tauri temel akışını klavye ve ekran okuyucu durumlarıyla dolaşma; durdurulabilir oynatma ve azaltılmış hareket örneklerini doğrulama.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.
-- Bugün repoda bu faza ait ürün sözleşmesi bulunmuyor. Mevcut sunucu ve yüzey test örnekleri: [`project-routes.test.ts`](../../../apps/server/src/features/projects/server/tests/project-routes.test.ts), [`app-shell.spec.ts` (web)](../../../apps/web/e2e/app-shell.spec.ts) ve [`app-shell.spec.ts` (desktop)](../../../apps/web/desktop-e2e/app-shell.spec.ts). Bunlar bu özelliğin test edildiği anlamına gelmez.
+- Mevcut sözleşme ve ilgili test yolu: [`project-navigation.tsx`](../../../apps/web/src/components/project-navigation.tsx), [`accessible-focus.spec.ts`](../../../apps/web/e2e/accessible-focus.spec.ts), [`reduced-motion.spec.ts`](../../../apps/web/e2e/reduced-motion.spec.ts). Bu bağlantılar tüm kabul kapsamının tamamlandığını göstermez.
 - Fazın özgül başarı ve red kanıtı: Temel üretim akışı webde WCAG 2.2 AA, masaüstünde eşdeğer klavye ve yardımcı teknoloji kabulünü geçer. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Erişilebilir görev yolu tam oyun erişilebilirliği sertifikası anlamına gelmez.
 - Masaüstü ekran okuyucu kabulü otomatikleştirilemez; elle kontrol listesi: [`screen-reader-checklist.md`](screen-reader-checklist.md).
 - Kabul örnekleri: 8.1. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
@@ -64,4 +66,4 @@ Erişilebilir görev yolu tam oyun erişilebilirliği sertifikası anlamına gel
 **Kabul izlenebilirliği**
 
 - [8.1](../../prd/10-acceptance-scenarios.md)
-- Mevcut uygulama yalnız temel web/masaüstü kabuğu ve sınırlı sunucu yükleme yolunu içeriyor; bu spec teslim edilmiş ürün iddiası değildir. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.
+- PRD ve bu spec hedef davranışı tanımlar; mevcut sözleşmeler ve testler tek başına tüm kabul senaryolarının tamamlandığını göstermez. Yeni bağımlılık, depolama veya platform sınırı bu belgeyle seçilmez.

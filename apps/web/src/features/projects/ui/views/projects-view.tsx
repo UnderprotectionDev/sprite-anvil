@@ -47,7 +47,7 @@ export function ProjectsView() {
 				);
 				createProjectForm.reset();
 				setIsCreateOpen(false);
-				setStatusMessage("Oyun projesi kaydedildi.");
+				setStatusMessage("Game project saved.");
 				await queryClient.invalidateQueries({
 					queryKey: projectsQueryOptions.queryKey,
 				});
@@ -81,10 +81,10 @@ export function ProjectsView() {
 				if (savedProject) {
 					createProjectForm.reset();
 					setIsCreateOpen(false);
-					setStatusMessage("Oyun projesi kaydedildi.");
+					setStatusMessage("Game project saved.");
 				} else {
 					setVerificationMessage(
-						"Proje listesi yenilendi; kayıt görünmüyor. Yeniden göndermeden önce durumu kontrol edin."
+						"Project list refreshed; the record is not visible. Check the status before resubmitting."
 					);
 				}
 			}
@@ -110,12 +110,11 @@ export function ProjectsView() {
 			<header className="mb-10 flex flex-wrap items-end justify-between gap-6">
 				<div className="max-w-3xl space-y-3">
 					<p className="font-mono text-primary text-xs uppercase tracking-[0.16em]">
-						Çalışma alanı
+						Workspace
 					</p>
-					<h1 className="font-semibold text-4xl sm:text-5xl">Oyun projeleri</h1>
+					<h1 className="font-semibold text-4xl sm:text-5xl">Game projects</h1>
 					<p className="text-base text-muted-foreground leading-relaxed">
-						Bir projeye devam edin veya yeni oyununuz için bir çalışma alanı
-						oluşturun.
+						Continue a project or create a workspace for your new game.
 					</p>
 				</div>
 				<Button
@@ -123,18 +122,18 @@ export function ProjectsView() {
 					onClick={() => setIsCreateOpen(true)}
 					type="button"
 				>
-					Yeni oyun projesi
+					New game project
 				</Button>
 			</header>
 			<div className="max-w-5xl">
 				<section aria-labelledby="projects-heading" className="space-y-5">
 					<div className="space-y-1">
 						<h2 className="font-semibold text-2xl" id="projects-heading">
-							Projeleriniz
+							Your projects
 						</h2>
 						<p className="text-muted-foreground text-sm">
-							Projenizi açarak varlıklarınıza, koleksiyonlarınıza ve
-							izinlerinize ulaşın.
+							Open your project to access its assets, collections, and
+							permissions.
 						</p>
 					</div>
 					<ProjectsList
@@ -164,10 +163,10 @@ export function ProjectsView() {
 					showCloseButton={!(createProject.isPending || writeOutcomeUncertain)}
 				>
 					<DialogHeader className="mb-2 gap-2">
-						<DialogTitle className="text-2xl">Yeni oyun projesi</DialogTitle>
+						<DialogTitle className="text-2xl">New game project</DialogTitle>
 						<DialogDescription className="text-sm">
-							Başlamak için ad ve genel sanat yaklaşımı yeterli. Proje
-							hesabınıza özel kaydedilir.
+							A name and general art direction are enough to get started. The
+							project is saved privately to your account.
 						</DialogDescription>
 					</DialogHeader>
 					<CreateProjectForm
@@ -182,9 +181,7 @@ export function ProjectsView() {
 							type="button"
 							variant="outline"
 						>
-							{isCheckingProjectState
-								? "Durum kontrol ediliyor…"
-								: "Durumu kontrol et"}
+							{isCheckingProjectState ? "Checking status…" : "Check status"}
 						</Button>
 					) : null}
 					{verificationMessage ? (
@@ -216,16 +213,16 @@ function ProjectsList({
 	projects: { id: string; name: string }[];
 }) {
 	if (isPending) {
-		return <p aria-live="polite">Projeler yükleniyor…</p>;
+		return <p aria-live="polite">Loading projects…</p>;
 	}
 	if (isError && projects.length === 0) {
 		return (
 			<div className="space-y-3 rounded-lg border p-5">
 				<StatusMessage tone="error">
-					Projeler yüklenemedi. Bağlantıyı kontrol edip yeniden deneyin.
+					Could not load projects. Check your connection and try again.
 				</StatusMessage>
 				<Button onClick={onRetry} type="button" variant="outline">
-					Yeniden dene
+					Try again
 				</Button>
 			</div>
 		);
@@ -234,7 +231,8 @@ function ProjectsList({
 		return (
 			<div className="space-y-4 rounded-xl border border-dashed bg-card p-8">
 				<p className="text-muted-foreground">
-					Henüz bir oyun projeniz yok. İlk projenizi oluşturarak başlayın.
+					You have no game projects yet. Create your first project to get
+					started.
 				</p>
 				<Button
 					className="min-h-11 text-sm"
@@ -242,7 +240,7 @@ function ProjectsList({
 					type="button"
 					variant="outline"
 				>
-					İlk projeyi oluştur
+					Create first project
 				</Button>
 			</div>
 		);
@@ -252,11 +250,11 @@ function ProjectsList({
 			{isError ? (
 				<div className="space-y-3 rounded-lg border p-5">
 					<StatusMessage tone="error">
-						Proje listesi yenilenemedi. Görünen kayıtlar son bilinen durumu
-						gösteriyor.
+						Could not refresh the project list. Visible records show the last
+						known state.
 					</StatusMessage>
 					<Button onClick={onRetry} type="button" variant="outline">
-						Yeniden dene
+						Try again
 					</Button>
 				</div>
 			) : null}
@@ -269,69 +267,69 @@ function ProjectsList({
 						<div className="flex min-w-0 flex-wrap items-center justify-between gap-4">
 							<div className="min-w-0">
 								<p className="font-mono text-muted-foreground text-xs uppercase tracking-wider">
-									Oyun projesi
+									Game project
 								</p>
 								<h3 className="mt-1 break-words font-semibold text-xl">
 									{project.name}
 								</h3>
 							</div>
 							<Link
-								aria-label={`${project.name} varlık kayıtlarını aç`}
+								aria-label={`${project.name} open Asset Records`}
 								className={`${buttonVariants({ variant: "default" })} !text-sm min-h-11`}
 								params={{ projectId: project.id }}
 								to="/projects/$projectId/assets"
 							>
-								Varlık kayıtlarını aç
+								Open Asset Records
 							</Link>
 						</div>
 						<div className="mt-5 grid gap-2 border-t pt-4 sm:grid-cols-2 lg:grid-cols-5">
 							<Link
-								aria-label={`${project.name} proje bağlamını aç`}
+								aria-label={`${project.name} open Project Context`}
 								className={`${buttonVariants({ variant: "outline" })} !text-sm min-h-11`}
 								search={{ projectId: project.id }}
 								to="/context-proposals"
 							>
-								Proje Bağlamı
+								Project Context
 							</Link>
 							<Link
-								aria-label={`${project.name} varlık ailelerini aç`}
+								aria-label={`${project.name} open Asset Families`}
 								className={`${buttonVariants({ variant: "outline" })} !text-sm min-h-11`}
 								params={{ projectId: project.id }}
 								to="/projects/$projectId/asset-families"
 							>
-								Varlık Aileleri
+								Asset Families
 							</Link>
 							<Link
-								aria-label={`${project.name} sahne kalite kontrol alanını aç`}
+								aria-label={`${project.name} open Scene QA`}
 								className={`${buttonVariants({ variant: "outline" })} !text-sm min-h-11`}
 								params={{ projectId: project.id }}
 								to="/projects/$projectId/scene-qa"
 							>
-								Sahne Kalite Kontrol Alanı
+								Scene QA
 							</Link>
 							<Link
-								aria-label={`${project.name} koleksiyonlarını düzenle`}
+								aria-label={`${project.name} manage Collections`}
 								className={`${buttonVariants({ variant: "outline" })} !text-sm min-h-11`}
 								params={{ projectId: project.id }}
 								to="/projects/$projectId/collections"
 							>
-								Koleksiyonlar
+								Collections
 							</Link>
 							<Link
-								aria-label={`${project.name} izinlerini yönet`}
+								aria-label={`${project.name} manage permissions`}
 								className={`${buttonVariants({ variant: "outline" })} !text-sm min-h-11`}
 								params={{ projectId: project.id }}
 								to="/projects/$projectId/access"
 							>
-								İzinleri yönet
+								Manage permissions
 							</Link>
 							<Link
-								aria-label={`${project.name} özel profil sözleşmelerini yönet`}
+								aria-label={`${project.name} manage Specialized Profile Contracts`}
 								className={`${buttonVariants({ variant: "outline" })} !text-sm min-h-11`}
 								params={{ projectId: project.id }}
 								to="/projects/$projectId/profile-contracts"
 							>
-								Özel profil sözleşmeleri
+								Specialized Profile Contracts
 							</Link>
 						</div>
 					</li>

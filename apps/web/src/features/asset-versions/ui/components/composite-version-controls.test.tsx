@@ -11,6 +11,16 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { CompositeVersionControls } from "./composite-version-controls";
 
+vi.mock("@/utils/orpc", () => ({
+	client: {
+		measurementEvents: {
+			recordCandidatePreviewBoundary: vi
+				.fn()
+				.mockResolvedValue({ accepted: true }),
+		},
+	},
+}));
+
 const assetRecordId = "record-knight";
 const projectId = "project-knight";
 const createdAt = "2026-09-27T12:00:00.000Z";
@@ -221,10 +231,10 @@ test("builds from one Composite Version, replaces one exact Unit Version, and re
 		/>
 	);
 
-	const sourceSelect = screen.getByLabelText("Başlangıç Birleşik Sürümü");
+	const sourceSelect = screen.getByLabelText("Starting Composite Version");
 	await user.selectOptions(sourceSelect, "composite-v1");
-	const frameSelect = screen.getByLabelText("Kare · attack/frame-3");
-	const directionSelect = screen.getByLabelText("Yön · north");
+	const frameSelect = screen.getByLabelText("Frame · attack/frame-3");
+	const directionSelect = screen.getByLabelText("Direction · north");
 	expect((frameSelect as HTMLSelectElement).value).toBe("unit-frame-v1");
 	expect((directionSelect as HTMLSelectElement).value).toBe(
 		"unit-direction-north-v1"
@@ -232,7 +242,7 @@ test("builds from one Composite Version, replaces one exact Unit Version, and re
 
 	await user.selectOptions(frameSelect, "unit-frame-v2");
 	await user.click(
-		screen.getByRole("button", { name: "Yeni Birleşik Sürüm kaydet" })
+		screen.getByRole("button", { name: "Save new Composite Version" })
 	);
 
 	expect(createCompositeVersion).toHaveBeenCalledWith(assetRecordId, [
@@ -240,21 +250,23 @@ test("builds from one Composite Version, replaces one exact Unit Version, and re
 		"unit-direction-north-v1",
 	]);
 	expect(
-		screen.getByRole("heading", { name: "Birleşik Sürüm 1 · Onaylandı" })
+		screen.getByRole("heading", { name: "Composite Version 1 · Approved" })
 	).toBeTruthy();
 	expect(
-		screen.getByRole("heading", { name: "Birleşik Sürüm 2 · Aday" })
+		screen.getByRole("heading", { name: "Composite Version 2 · Candidate" })
 	).toBeTruthy();
 	expect(
-		screen.getAllByText("Kare · attack/frame-3 · Birim Sürümü 2")
+		screen.getAllByText("Frame · attack/frame-3 · Unit Version 2")
 	).toHaveLength(1);
-	expect(screen.getAllByText("Yön · north · Birim Sürümü 1")).toHaveLength(2);
+	expect(
+		screen.getAllByText("Direction · north · Unit Version 1")
+	).toHaveLength(2);
 
 	await user.type(
-		screen.getByLabelText("Birleşik Sürüm 2 inceleme gerekçesi"),
+		screen.getByLabelText("Composite Version 2 review rationale"),
 		"The corrected frame works with the retained direction."
 	);
-	await user.click(screen.getByRole("button", { name: "Onayla" }));
+	await user.click(screen.getByRole("button", { name: "Approve" }));
 	expect(reviewCompositeVersion).toHaveBeenCalledWith(
 		"composite-v2",
 		"approved",
@@ -285,11 +297,11 @@ test("keeps the selection after a failed save and clears it after a successful s
 		/>
 	);
 	const save = screen.getByRole("button", {
-		name: "Yeni Birleşik Sürüm kaydet",
+		name: "Save new Composite Version",
 	});
-	const sourceSelect = screen.getByLabelText("Başlangıç Birleşik Sürümü");
-	const frameSelect = screen.getByLabelText("Kare · attack/frame-3");
-	const directionSelect = screen.getByLabelText("Yön · north");
+	const sourceSelect = screen.getByLabelText("Starting Composite Version");
+	const frameSelect = screen.getByLabelText("Frame · attack/frame-3");
+	const directionSelect = screen.getByLabelText("Direction · north");
 	expect(save).toBeDisabled();
 
 	await user.selectOptions(directionSelect, "unit-direction-north-v1");
@@ -297,7 +309,7 @@ test("keeps the selection after a failed save and clears it after a successful s
 	await user.selectOptions(sourceSelect, "composite-v2");
 	expect(frameSelect).toHaveValue("unit-frame-v2");
 	expect(
-		screen.getByText("Birleşik Sürüm 2 üyelikleri seçildi.")
+		screen.getByText("Composite Version 2 memberships selected.")
 	).toBeInTheDocument();
 	await user.selectOptions(directionSelect, "");
 
@@ -332,14 +344,14 @@ test("disables the composite controls while writes are disabled", () => {
 			}
 		/>
 	);
-	expect(screen.getByLabelText("Başlangıç Birleşik Sürümü")).toBeDisabled();
-	expect(screen.getByLabelText("Kare · attack/frame-3")).toBeDisabled();
+	expect(screen.getByLabelText("Starting Composite Version")).toBeDisabled();
+	expect(screen.getByLabelText("Frame · attack/frame-3")).toBeDisabled();
 	expect(
-		screen.getByLabelText("Birleşik Sürüm 2 inceleme gerekçesi")
+		screen.getByLabelText("Composite Version 2 review rationale")
 	).toBeDisabled();
 	expect(
 		screen.getByRole("group", {
-			name: "Yeni Birleşik Sürümün Birim Sürümleri",
+			name: "Unit Versions for the new Composite Version",
 		})
 	).toBeInTheDocument();
 });

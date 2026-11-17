@@ -29,7 +29,7 @@ export function MarketingUsagePreview({
 			{(["light", "dark"] as const).map((background) => (
 				<figure className="space-y-2" key={background}>
 					<figcaption>
-						{background === "light" ? "Açık zemin" : "Koyu zemin"} ·{" "}
+						{background === "light" ? "Light background" : "Dark background"} ·{" "}
 						{item.displaySize.width} × {item.displaySize.height} px
 					</figcaption>
 					<div
@@ -52,7 +52,7 @@ export function MarketingUsagePreview({
 						>
 							{/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: Image load/error reports source availability; no interaction handler. */}
 							<img
-								alt={`${name} · ${background === "light" ? "açık" : "koyu"} zemin`}
+								alt={`${name} · ${background === "light" ? "light" : "dark"} background`}
 								crossOrigin="use-credentials"
 								height={item.naturalSize.height}
 								onError={() => {
@@ -76,7 +76,7 @@ export function MarketingUsagePreview({
 								width={item.naturalSize.width}
 							/>
 							<div
-								aria-label="Güvenli alan"
+								aria-label="Safe area"
 								role="note"
 								style={{
 									position: "absolute",

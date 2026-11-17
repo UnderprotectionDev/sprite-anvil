@@ -38,7 +38,7 @@ export function useAssetFamilyWrites(
 			toast.error(
 				getErrorMessage(
 					error,
-					"İşlemin sonucu doğrulanamadı. Varlık Ailesi listesini kontrol edin."
+					"Could not verify the result. Check the Asset Family list."
 				)
 			);
 		} finally {
@@ -55,7 +55,7 @@ export function useAssetFamilyWrites(
 			}
 			setWriteOutcomeUncertain(false);
 			setStatusMessage(
-				"Varlık Ailesi listesi yenilendi. İşlem sonucunu kayıtlarınızda kontrol edin."
+				"Asset Family list refreshed. Check your records for the result."
 			);
 		} finally {
 			setIsCheckingOutcome(false);

@@ -69,10 +69,10 @@ export async function createGameplayMetadataPackage(
 ): Promise<GameplayMetadataPackage> {
 	const errors = getGameplayMetadataIntegrityErrors(record, frames);
 	if (!record.review) {
-		errors.push("Oyun içi bilgiler kullanıcı tarafından incelenmedi.");
+		errors.push("Gameplay Metadata has not been reviewed by the user.");
 	}
 	if (errors.length) {
-		throw new Error(`Bütünlük hatası: ${errors.join(" ")}`);
+		throw new Error(`Integrity error: ${errors.join(" ")}`);
 	}
 	const payload = payloadSchema.parse({
 		format: "sprite-anvil.gameplay-metadata",
@@ -90,7 +90,7 @@ export async function readGameplayMetadataPackage(
 	const parsed = gameplayMetadataPackageSchema.safeParse(value);
 	if (!parsed.success) {
 		throw new Error(
-			"Bütünlük hatası: paket biçimi, kare kimliği veya zorunlu bağlantı geçersiz."
+			"Integrity error: package format, frame ID, or required link is invalid."
 		);
 	}
 	const original = await createGameplayMetadataPackage(expected, frames);
@@ -99,7 +99,7 @@ export async function readGameplayMetadataPackage(
 		canonicalGameplayMetadataJson(original)
 	) {
 		throw new Error(
-			"Bütünlük hatası: incelenmiş alan, kaynak, kare veya kesin sürüm paket yeniden okumasında değişti."
+			"Integrity error: the reviewed field, source, frame, or exact version changed during package readback."
 		);
 	}
 	return parsed.data;

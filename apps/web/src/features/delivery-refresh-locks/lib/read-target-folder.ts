@@ -10,6 +10,8 @@ export type TargetFolder = Map<string, File>;
 /** A folder the user chose; the token tells one choice from the next. */
 export interface ChosenFolder {
 	files: TargetFolder;
+	/** Permission-granted desktop directory; kept on this device, never sent to the API. */
+	nativeRoot?: string;
 	token: number;
 }
 

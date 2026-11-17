@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { requiredSetItemSchema } from "./family-readiness";
 import type {
 	FoundationRecords,
 	ProjectArchiveFileEntry,
@@ -45,6 +46,123 @@ export const rightsRecordStates = [
 ] as const;
 
 export const historySectionSchemas = {
+	compositeVersionReviews: z
+		.object({
+			id: idSchema,
+			assetRecordId: idSchema,
+			compositeVersionId: idSchema,
+			decision: z.enum(["candidate", "approved", "rejected"]),
+			rationale: z.string().nullable(),
+			createdAt: timestampSchema,
+		})
+		.strict(),
+	requiredSetRevisions: z
+		.object({
+			id: idSchema,
+			assetFamilyId: idSchema,
+			revisionNumber: z.number().int().positive(),
+			items: requiredSetItemSchema.array().max(100),
+			createdAt: timestampSchema,
+		})
+		.strict(),
+	requiredSetHeads: z
+		.object({
+			id: idSchema,
+			assetFamilyId: idSchema,
+			activeRevisionId: idSchema.nullable(),
+			updatedAt: timestampSchema,
+		})
+		.strict()
+		.refine((row) => row.id === row.assetFamilyId),
+	requiredSetActivations: z
+		.object({
+			id: idSchema,
+			assetFamilyId: idSchema,
+			revisionId: idSchema,
+			activatedAt: timestampSchema,
+		})
+		.strict(),
+	assetVersionReviews: z
+		.object({
+			id: idSchema,
+			assetRecordId: idSchema,
+			versionId: idSchema,
+			decision: z.enum(["candidate", "approved", "rejected"]),
+			rationale: z.string().nullable(),
+			createdAt: timestampSchema,
+		})
+		.strict(),
+	assetVersionQuality: z
+		.object({
+			id: idSchema,
+			versionId: idSchema,
+			gate: z.literal("format_signature"),
+			result: z.literal("matched"),
+			sha256: sha256Schema,
+			byteSize: z.number().int().positive(),
+			createdAt: timestampSchema,
+		})
+		.strict(),
+	familyReadinessEvidence: z
+		.object({
+			id: idSchema,
+			assetFamilyId: idSchema,
+			revisionId: idSchema,
+			itemId: z.string(),
+			kind: z.enum(["applicability", "quality", "usage_test"]),
+			result: z.enum([
+				"applicable",
+				"inapplicable",
+				"passed",
+				"failed",
+				"inconclusive",
+				"waived",
+			]),
+			assetVersionIds: z.array(idSchema),
+			profileContractRevisionIds: z.array(idSchema.nullable()),
+			contextRevisionId: idSchema.nullable(),
+			visualWorldId: idSchema,
+			useContext: z.string(),
+			canonicalDesignVersionId: idSchema.nullable(),
+			ruleId: z.string().nullable(),
+			ruleClass: z
+				.enum([
+					"integrity_gate",
+					"waivable_requirement",
+					"quality_advisory",
+					"human_review",
+				])
+				.nullable(),
+			testId: z.string().nullable(),
+			usageTestContext: z
+				.object({
+					cellDimensions: z.object({ width: z.number(), height: z.number() }),
+					approvedCharacterVersionId: z.string().optional(),
+					targetGroundVersionIds: z.array(z.string()).optional(),
+				})
+				.strict()
+				.nullable(),
+			usageVariant: z.string().nullable(),
+			targetWidth: z.number().int().nullable(),
+			targetHeight: z.number().int().nullable(),
+			grayscaleReviewed: z.boolean().nullable(),
+			observedValue: z.string().nullable(),
+			unitVersionId: idSchema.nullable(),
+			compositeVersionId: idSchema.nullable(),
+			method: z.string().nullable(),
+			rationale: z.string(),
+			createdAt: timestampSchema,
+		})
+		.strict(),
+	contractActivations: z
+		.object({
+			id: idSchema,
+			profileId: z.string(),
+			contractRevisionId: idSchema,
+			activatedAt: timestampSchema,
+		})
+		.strict()
+		.refine((row) => row.id === row.contractRevisionId),
 	contractRevisions: z
 		.object({
 			contractSchemaVersion: z.string(),
@@ -269,7 +387,13 @@ export function emptyHistoryRecords(): HistoryRecords {
 /** The foundation ids the history group points into. */
 export type HistoryFoundation = Pick<
 	FoundationRecords,
-	"assetFamilies" | "assetRecords" | "assetVersions" | "canonicalDesigns"
+	| "assetFamilies"
+	| "assetRecords"
+	| "assetVersions"
+	| "canonicalDesigns"
+	| "compositeVersions"
+	| "importInboxEntries"
+	| "referenceBoardImages"
 >;
 
 interface RelationScope {
@@ -285,6 +409,16 @@ const idSet = (list: { id: string }[]) => new Set(list.map((r) => r.id));
 
 function reviewFailures(history: HistoryRecords, scope: RelationScope) {
 	const failures: string[] = [];
+	for (const activation of history.contractActivations) {
+		const revision = history.contractRevisions.find(
+			(item) => item.id === activation.contractRevisionId
+		);
+		if (!revision || revision.profileId !== activation.profileId) {
+			failures.push(
+				`Profile Contract activation ${activation.id} points at a missing or different profile revision.`
+			);
+		}
+	}
 	for (const review of history.reviews) {
 		const ok =
 			(review.assetFamilyId === null ||
@@ -407,6 +541,123 @@ function experimentFailures(history: HistoryRecords, scope: RelationScope) {
 	return failures;
 }
 
+function readinessEvidenceFailures(
+	history: HistoryRecords,
+	foundation: HistoryFoundation
+) {
+	const failures: string[] = [];
+	const revisions = new Map(
+		history.requiredSetRevisions.map((row) => [row.id, row])
+	);
+	const versions = new Set(foundation.assetVersions.map((row) => row.id));
+	const contracts = idSet(history.contractRevisions);
+	for (const evidence of history.familyReadinessEvidence) {
+		const revision = revisions.get(evidence.revisionId);
+		const hasItem = revision?.items.some(
+			(item) =>
+				typeof item === "object" &&
+				item !== null &&
+				"id" in item &&
+				item.id === evidence.itemId
+		);
+		if (
+			revision?.assetFamilyId !== evidence.assetFamilyId ||
+			!hasItem ||
+			evidence.assetVersionIds.some((id) => !versions.has(id)) ||
+			evidence.profileContractRevisionIds.some(
+				(id) => id !== null && !contracts.has(id)
+			)
+		) {
+			failures.push(
+				`Readiness evidence ${evidence.id} points at missing evidence targets.`
+			);
+		}
+	}
+	return failures;
+}
+
+function versionEvidenceFailures(
+	history: HistoryRecords,
+	foundation: HistoryFoundation
+) {
+	const failures: string[] = [];
+	const records = idSet(foundation.assetRecords);
+	const versions = new Map(
+		foundation.assetVersions.map((row) => [row.id, row.assetRecordId])
+	);
+	for (const review of history.assetVersionReviews) {
+		if (
+			!records.has(review.assetRecordId) ||
+			versions.get(review.versionId) !== review.assetRecordId
+		) {
+			failures.push(
+				`Asset Version review ${review.id} points at a missing version.`
+			);
+		}
+	}
+	for (const review of history.compositeVersionReviews) {
+		if (
+			!foundation.compositeVersions.some(
+				(row) =>
+					row.id === review.compositeVersionId &&
+					row.assetRecordId === review.assetRecordId
+			)
+		) {
+			failures.push(
+				`Composite Version review ${review.id} points at a missing version.`
+			);
+		}
+	}
+	for (const quality of history.assetVersionQuality) {
+		if (!versions.has(quality.versionId)) {
+			failures.push(
+				`Asset Version quality evidence ${quality.id} points at a missing version.`
+			);
+		}
+	}
+	return failures;
+}
+
+function readinessFailures(
+	history: HistoryRecords,
+	foundation: HistoryFoundation
+) {
+	const failures: string[] = [];
+	const families = idSet(foundation.assetFamilies);
+	const revisions = new Map(
+		history.requiredSetRevisions.map((row) => [row.id, row])
+	);
+	for (const revision of history.requiredSetRevisions) {
+		if (!families.has(revision.assetFamilyId)) {
+			failures.push(`Required Set ${revision.id} has a missing Asset Family.`);
+		}
+	}
+	for (const head of history.requiredSetHeads) {
+		if (
+			!families.has(head.assetFamilyId) ||
+			(head.activeRevisionId !== null &&
+				revisions.get(head.activeRevisionId)?.assetFamilyId !==
+					head.assetFamilyId)
+		) {
+			failures.push(
+				`Required Set head ${head.id} has a missing revision or family.`
+			);
+		}
+	}
+	for (const activation of history.requiredSetActivations) {
+		if (
+			revisions.get(activation.revisionId)?.assetFamilyId !==
+			activation.assetFamilyId
+		) {
+			failures.push(
+				`Required Set activation ${activation.id} has a missing revision.`
+			);
+		}
+	}
+
+	return failures;
+}
+
 function rightsFailures(
 	history: HistoryRecords,
 	scope: RelationScope,
@@ -463,6 +714,31 @@ export function historyRelationFailures(
 		"byteSize" | "kind" | "sha256" | "sourceId"
 	>[]
 ): string[] {
+	const inbox = idSet(foundation.importInboxEntries ?? []);
+	const images = new Map(
+		(foundation.referenceBoardImages ?? []).map((image) => [
+			image.id,
+			image.assetRecordId,
+		])
+	);
+	const foreignFailures = [
+		...history.metadataProposals
+			.filter((proposal) => !inbox.has(proposal.sourceEntryId))
+			.map(
+				(proposal) =>
+					`Metadata proposal ${proposal.id} has a missing Import Inbox source.`
+			),
+		...history.rightsRecords
+			.filter(
+				(rights) =>
+					rights.referenceId !== null &&
+					images.get(rights.referenceId) !== rights.assetRecordId
+			)
+			.map(
+				(rights) =>
+					`Rights record ${rights.id} has a missing Reference Board image.`
+			),
+	];
 	const scope: RelationScope = {
 		assetRecords: idSet(foundation.assetRecords),
 		contracts: idSet(history.contractRevisions),
@@ -472,7 +748,11 @@ export function historyRelationFailures(
 		versions: idSet(foundation.assetVersions),
 	};
 	return [
+		...foreignFailures,
 		...reviewFailures(history, scope),
+		...readinessFailures(history, foundation),
+		...readinessEvidenceFailures(history, foundation),
+		...versionEvidenceFailures(history, foundation),
 		...evidenceFailures(history, scope),
 		...experimentFailures(history, scope),
 		...rightsFailures(history, scope, files),

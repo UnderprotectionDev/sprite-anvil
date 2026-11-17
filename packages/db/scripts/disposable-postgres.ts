@@ -67,6 +67,8 @@ export async function withDisposablePostgres<Result>(
 				directory,
 				"-c",
 				"fsync=off",
+				"-c",
+				"timezone=UTC",
 			],
 			{ stdin: "ignore", stdout: "pipe", stderr: "pipe" }
 		);

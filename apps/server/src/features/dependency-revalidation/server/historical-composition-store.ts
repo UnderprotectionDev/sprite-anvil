@@ -164,12 +164,12 @@ function buildTargetLabels(
 	const targetLabels = new Map<string, string>(versionLabels);
 	targetLabels.set(
 		composite.id,
-		`${recordNames.get(composite.assetRecordId) ?? composite.assetRecordId} · Birleşik Sürüm v${composite.versionNumber}`
+		`${recordNames.get(composite.assetRecordId) ?? composite.assetRecordId} · Composite Version v${composite.versionNumber}`
 	);
 	for (const row of memberships) {
 		targetLabels.set(
 			row.unit_versions.id,
-			`${versionLabels.get(row.unit_versions.assetVersionId) ?? row.unit_versions.assetVersionId} · Birim ${row.unit_versions.unitKey}`
+			`${versionLabels.get(row.unit_versions.assetVersionId) ?? row.unit_versions.assetVersionId} · Unit ${row.unit_versions.unitKey}`
 		);
 	}
 	return targetLabels;

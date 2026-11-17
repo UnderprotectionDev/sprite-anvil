@@ -1,6 +1,9 @@
 import { call } from "@orpc/server";
 import type { Context } from "@sprite-anvil/api/context";
-import type { ProjectArchive } from "@sprite-anvil/api/project-archives";
+import type {
+	ProjectArchive,
+	ProjectArchiveSource,
+} from "@sprite-anvil/api/project-archives";
 import {
 	projectArchiveSchemaVersion,
 	sectionDigest,
@@ -8,6 +11,7 @@ import {
 import { recordContentDigest } from "@sprite-anvil/api/record-content-digest";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import type { Database } from "@sprite-anvil/db";
+import type { ManagedObjectReservations } from "../../../../managed-object-reservations";
 import { createProjectArchiveRestoreStore } from "../project-archive-restore-store";
 import type {
 	ProjectArchiveStorage,
@@ -56,7 +60,14 @@ export async function forge(
 
 export function restoreSetup(
 	options: {
-		copyFile?: (file: { from: string; to: string }) => Promise<void>;
+		source?: ProjectArchiveSource;
+		verifyCanonical?: () => Promise<string[]>;
+		reservations?: ManagedObjectReservations;
+		copyFile?: (file: {
+			from: string;
+			to: string;
+			contentType: string | null;
+		}) => Promise<void>;
 		hasAccess?: boolean;
 		removeFile?: (key: string) => Promise<void>;
 		verifyFile?: (file: { objectKey: string }) => Promise<boolean>;
@@ -90,7 +101,9 @@ export function restoreSetup(
 	const archiveStore = createProjectArchiveStore({} as Database, {
 		getProjectForUser,
 		now,
-		sourceReader: { read: () => Promise.resolve(deliverySource()) },
+		sourceReader: {
+			read: () => Promise.resolve(options.source ?? deliverySource()),
+		},
 		storage: archiveStorage,
 	});
 	const memory = createMemoryProjectArchiveRestoreStorage();
@@ -100,6 +113,11 @@ export function restoreSetup(
 		{} as Database,
 		{
 			archives: archiveStorage,
+			reservations: options.reservations ?? {
+				markSettled: () => Promise.resolve(),
+				reserve: () => Promise.resolve(),
+				release: () => Promise.resolve(),
+			},
 			files: {
 				copy: async (file) => {
 					await options.copyFile?.(file);
@@ -112,6 +130,7 @@ export function restoreSetup(
 				verify: (file) => options.verifyFile?.(file) ?? Promise.resolve(true),
 			},
 			getProjectForUser,
+			verifyCanonical: options.verifyCanonical,
 			now,
 			storage: options.wrapRestoreStorage
 				? options.wrapRestoreStorage(memory.storage)
@@ -125,6 +144,14 @@ export function restoreSetup(
 	} as unknown as Context;
 	return {
 		archiveStore,
+		setArchiveVersion: async (archive: ProjectArchive, version: string) => {
+			const stored = await archives.find(projectId, archive.id);
+			if (!stored) {
+				throw new Error("archive missing");
+			}
+			stored.archive.schemaVersion = version;
+			forged.set(archive.id, stored);
+		},
 		archives,
 		copies,
 		removed,

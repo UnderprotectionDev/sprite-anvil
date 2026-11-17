@@ -12,14 +12,13 @@ export const marketingUsageFixture = {
 	identityName: "Anvil identity",
 	familyName: "Anvil marketing",
 	useContext: "Store promotion",
-	categoryLabel: "Portreler, logolar ve tanıtım görselleri",
+	categoryLabel: "Portraits, logos, and marketing images",
 	records: [{ name: "Anvil logo", uploadNote: "Authored marketing fixture." }],
 };
 export function readMarketingPreviewPresentation() {
 	const heading = Array.from(document.querySelectorAll("h3")).find(
 		(element) =>
-			element.textContent ===
-			"Logo ve Tanıtım Kullanımlarını Sınama · Anvil marketing"
+			element.textContent === "Test Logo and Marketing Uses · Anvil marketing"
 	);
 	if (!heading?.parentElement) {
 		throw new Error("Marketing review was not found.");

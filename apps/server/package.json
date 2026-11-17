@@ -24,6 +24,7 @@
     "@sprite-anvil/db": "workspace:*",
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:",
+    "fflate": "catalog:",
     "hono": "^4.13.7",
     "sharp": "^0.35.4",
     "varlock": "catalog:",
