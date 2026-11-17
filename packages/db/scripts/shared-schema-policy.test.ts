@@ -1,4 +1,6 @@
 import { expect, test } from "bun:test";
+import { generateDrizzleJson } from "drizzle-kit/api-postgres";
+import { bigint, pgTable } from "drizzle-orm/pg-core";
 import {
 	checkSharedSchemaDiff,
 	normalizeMigrationSql,
@@ -28,6 +30,51 @@ const column = JSON.stringify([
 	"default",
 ]);
 const required = [table, column];
+test("source identity sequences are required with exact options, while unrelated or changed sequences fail closed", async () => {
+	const decisions = pgTable("runtime_validation_decisions", {
+		sequence: bigint("sequence", {
+			mode: "number",
+		}).generatedAlwaysAsIdentity(),
+	});
+	const snapshot = await generateDrizzleJson({ decisions });
+	const sequence = [
+		"sequence",
+		"public",
+		"runtime_validation_decisions_sequence_seq",
+		"1",
+		"1",
+		"1",
+		"9223372036854775807",
+		"1",
+		false,
+	];
+	const catalog = [JSON.stringify(sequence)];
+	const projected = projectRequiredCatalog(snapshot.ddl, catalog, []);
+	expect(projected).toEqual(catalog);
+	expect(() =>
+		checkSharedSchemaDiff([], [], [], projected, catalog, false)
+	).not.toThrow();
+	for (const [index, value] of [
+		[1, "other_schema"],
+		[2, "unrelated_sequence"],
+		[3, "2"],
+		[4, "2"],
+		[5, "0"],
+		[6, "100"],
+		[7, "2"],
+		[8, true],
+	] as const) {
+		const changed = [...sequence];
+		changed[index] = value;
+		const actual = [JSON.stringify(changed)];
+		const requiredCatalog = projectRequiredCatalog(snapshot.ddl, actual, []);
+		expect(requiredCatalog).toEqual([]);
+		expect(() =>
+			checkSharedSchemaDiff([], [], [], requiredCatalog, actual, false)
+		).toThrow("Unexpected");
+	}
+});
+
 test("pending schema plans must match reviewed SQL without accepting arbitrary repair statements", () => {
 	expect(() =>
 		checkSharedSchemaDiff(
@@ -276,62 +323,42 @@ test("pending same-name CHECK redefinitions are verified after application, not 
 	).toHaveLength(1);
 });
 
-test("recognizes only the exact sequence declared by an identity column", () => {
-	const identity = {
-		name: "decisions_sequence_seq",
-		startWith: "1",
-		increment: "1",
-		minValue: "1",
-		maxValue: "9223372036854775807",
-		cache: 1,
-		cycle: false,
-	};
-	const declared = JSON.stringify([
-		"sequence",
-		"public",
-		identity.name,
-		"1",
-		"1",
-		"1",
-		identity.maxValue,
-		"1",
-		false,
-	]);
-	const changed = JSON.stringify([
-		"sequence",
-		"public",
-		identity.name,
-		"1",
-		"2",
-		"1",
-		identity.maxValue,
-		"1",
-		false,
-	]);
-	const unknown = JSON.stringify([
-		"sequence",
-		"public",
-		"unowned_seq",
-		"1",
-		"1",
-		"1",
-		identity.maxValue,
-		"1",
-		false,
-	]);
-	const ddl = [
-		{
-			entityType: "columns",
-			schema: "public",
-			table: "decisions",
-			name: "sequence",
-			identity,
-		},
+test("a pending table created and later altered matches Drizzle's final-state CREATE, and nothing else", () => {
+	const pending = [
+		'CREATE TABLE "notes" (\n\t"id" text PRIMARY KEY,\n\t"title" text NOT NULL\n);',
+		'ALTER TABLE "notes" ADD COLUMN "label" text;',
+		'ALTER TABLE "notes" ALTER COLUMN "title" DROP NOT NULL;',
+		'ALTER TABLE "notes" ADD CONSTRAINT "notes_label_check" CHECK ("label" <> \'\');',
 	];
-	expect(projectRequiredCatalog(ddl, [declared, changed, unknown], [])).toEqual(
-		[declared]
-	);
-	expect(
-		projectRequiredCatalog([{ ...ddl[0], identity: undefined }], [declared], [])
-	).toEqual([]);
+	const finalCreate =
+		'CREATE TABLE "notes" (\n\t"id" text PRIMARY KEY,\n\t"title" text,\n\t"label" text,\n\tCONSTRAINT "notes_label_check" CHECK ("label" <> \'\')\n);';
+	expect(() =>
+		checkSharedSchemaDiff([finalCreate], pending, [], required, required, false)
+	).not.toThrow();
+	// A table the pending SQL does not create is still an unreviewed statement.
+	expect(() =>
+		checkSharedSchemaDiff(
+			[finalCreate, 'CREATE TABLE "other" (\n\t"id" text PRIMARY KEY\n);'],
+			pending,
+			[],
+			required,
+			required,
+			false
+		)
+	).toThrow("Shared schema differs from the reviewed pending SQL");
+	// An ALTER on an existing table is never folded away.
+	expect(() =>
+		checkSharedSchemaDiff(
+			[finalCreate],
+			[...pending, 'ALTER TABLE "records" ADD COLUMN "label" text;'],
+			[],
+			required,
+			required,
+			false
+		)
+	).toThrow("Shared schema differs from the reviewed pending SQL");
+	// A folded table that the diff never proposes is a mismatch too.
+	expect(() =>
+		checkSharedSchemaDiff([], pending, [], required, required, false)
+	).toThrow("Shared schema differs from the reviewed pending SQL");
 });

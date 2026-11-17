@@ -7,13 +7,13 @@ const dropColumnPattern = /^ALTER TABLE "([^"]+)" DROP COLUMN "([^"]+)";$/;
 interface Entity {
 	entityType?: string;
 	identity?: {
-		cache: number | null;
-		cycle: boolean | null;
-		increment: string | null;
-		maxValue: string | null;
-		minValue: string | null;
 		name: string;
 		startWith: string | null;
+		increment: string | null;
+		minValue: string | null;
+		maxValue: string | null;
+		cache: number | null;
+		cycle: boolean | null;
 	} | null;
 	name?: string;
 	schema?: string;
@@ -25,27 +25,6 @@ export function projectRequiredCatalog(
 	actual: string[],
 	historical: string[]
 ): string[] {
-	const identitySequences = new Set(
-		ddl.flatMap((entry) => {
-			if (entry.entityType !== "columns" || !entry.identity) {
-				return [];
-			}
-			const { identity } = entry;
-			return [
-				JSON.stringify([
-					"sequence",
-					entry.schema,
-					identity.name,
-					identity.startWith,
-					identity.increment,
-					identity.minValue,
-					identity.maxValue,
-					String(identity.cache),
-					identity.cycle,
-				]),
-			];
-		})
-	);
 	const tables = new Set(
 		ddl
 			.filter((entry) => entry.entityType === "tables")
@@ -75,14 +54,33 @@ export function projectRequiredCatalog(
 			.filter((entry) => entry.entityType === "enums")
 			.map((entry) => JSON.stringify([entry.schema, entry.name]))
 	);
+	// Identity sequences live on column entities in Drizzle's snapshot. Match
+	// every catalog option so unrelated sequences and changed settings stay drift.
+	const sequences = new Set(
+		ddl.flatMap((entry) => {
+			const { identity } = entry;
+			return entry.entityType === "columns" && identity
+				? [
+						JSON.stringify([
+							"sequence",
+							entry.schema,
+							identity.name,
+							identity.startWith,
+							identity.increment,
+							identity.minValue,
+							identity.maxValue,
+							String(identity.cache),
+							identity.cycle,
+						]),
+					]
+				: [];
+		})
+	);
 	return actual.filter((entry) => {
 		if (historical.includes(entry)) {
 			return true;
 		}
 		const object = JSON.parse(entry) as unknown[];
-		if (object[0] === "sequence") {
-			return identitySequences.has(JSON.stringify(object));
-		}
 		if (object[0] === "relation") {
 			return tables.has(JSON.stringify(object.slice(1, 3)));
 		}
@@ -102,6 +100,9 @@ export function projectRequiredCatalog(
 		}
 		if (object[0] === "enum") {
 			return enums.has(JSON.stringify(object.slice(1, 3)));
+		}
+		if (object[0] === "sequence") {
+			return sequences.has(JSON.stringify(object));
 		}
 		return false;
 	});
@@ -273,6 +274,47 @@ export function redefinedChecks(
 	);
 }
 
+const createTablePattern = /^CREATE TABLE "([^"]+)" \(/;
+const tableEvolutionPattern =
+	/^ALTER TABLE "([^"]+)" (?:ADD COLUMN |ALTER COLUMN |ADD CONSTRAINT "[^"]+" CHECK )/;
+
+/**
+ * Drizzle's push diff creates a table in its final shape, while pending SQL
+ * may create it and alter it in later migrations. For a table the pending SQL
+ * creates and then evolves, compare only that the CREATE is proposed; the
+ * ALTERs are absorbed into it. The final table definition is verified inside
+ * the migration transaction before COMMIT.
+ */
+function foldPendingTableEvolution(
+	statements: string[],
+	pending: string[]
+): { statements: string[]; pending: string[] } {
+	const created = new Set(
+		pending.flatMap((statement) => {
+			const name = createTablePattern.exec(statement.trim())?.[1];
+			return name ? [name] : [];
+		})
+	);
+	const evolved = new Set(
+		pending.flatMap((statement) => {
+			const name = tableEvolutionPattern.exec(statement.trim())?.[1];
+			return name && created.has(name) ? [name] : [];
+		})
+	);
+	const marker = (statement: string) => {
+		const name = createTablePattern.exec(statement.trim())?.[1];
+		return name && evolved.has(name) ? `CREATE TABLE "${name}";` : statement;
+	};
+	const absorbed = (statement: string) => {
+		const name = tableEvolutionPattern.exec(statement.trim())?.[1];
+		return name !== undefined && evolved.has(name);
+	};
+	return {
+		statements: statements.map(marker),
+		pending: pending.filter((statement) => !absorbed(statement)).map(marker),
+	};
+}
+
 export function checkSharedSchemaDiff(
 	statements: string[],
 	pending: string[],
@@ -282,6 +324,7 @@ export function checkSharedSchemaDiff(
 	foreign: boolean,
 	widenedEnums: Set<string> = new Set()
 ): void {
+	const folded = foldPendingTableEvolution(statements, pending);
 	const allowed = new Set(historical.map(normalizeMigrationSql));
 	const actualSet = new Set(actual);
 	for (const entry of required) {
@@ -299,7 +342,7 @@ export function checkSharedSchemaDiff(
 	}
 	const extra = extraEntries.map((entry) => JSON.parse(entry) as unknown[]);
 	const actualObjects = actual.map((entry) => JSON.parse(entry) as unknown[]);
-	const remaining = statements.filter(
+	const remaining = folded.statements.filter(
 		(statement) =>
 			!(
 				allowed.has(normalizeMigrationSql(statement)) ||
@@ -312,7 +355,7 @@ export function checkSharedSchemaDiff(
 			.filter(executable)
 			.map(normalizeMigrationSql)
 			.sort((left, right) => left.localeCompare(right));
-	const expectedPlan = normalized(pending);
+	const expectedPlan = normalized(folded.pending);
 	if (JSON.stringify(normalized(remaining)) === JSON.stringify(expectedPlan)) {
 		return;
 	}
