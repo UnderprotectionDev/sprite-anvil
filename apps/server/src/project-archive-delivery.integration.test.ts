@@ -2,7 +2,10 @@ import { expect, test } from "bun:test";
 import type { Database } from "@sprite-anvil/db";
 import { user } from "@sprite-anvil/db/schema/auth";
 import { project } from "@sprite-anvil/db/schema/project";
-import { createLocalTestDb } from "@sprite-anvil/db/testing";
+import {
+	createLocalTestDb,
+	isLoopbackTestDatabaseUrl,
+} from "@sprite-anvil/db/testing";
 import { createDatabaseExportProfileStorage } from "./features/export-profiles/server/database-export-profile-storage";
 import { insertArchiveDelivery } from "./features/project-archives/server/project-archive-delivery-materialization";
 import type { StoredProjectArchiveRestoreRecord } from "./features/project-archives/server/project-archive-restore-storage";
@@ -10,7 +13,7 @@ import { canonicalDatabaseVerifier } from "./project-archive-canonical-database-
 
 const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
 
-test.skipIf(!databaseUrl)(
+test.skipIf(!isLoopbackTestDatabaseUrl(databaseUrl))(
 	"restores an Export Profile readable by its normal storage in one transaction",
 	async () => {
 		if (!databaseUrl) {
@@ -76,7 +79,7 @@ test.skipIf(!databaseUrl)(
 	}
 );
 
-test.skipIf(!databaseUrl)(
+test.skipIf(!isLoopbackTestDatabaseUrl(databaseUrl))(
 	"restores Bundle, Target and excluded Runtime evidence into their normal stores",
 	async () => {
 		if (!databaseUrl) {

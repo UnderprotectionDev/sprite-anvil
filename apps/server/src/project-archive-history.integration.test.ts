@@ -5,7 +5,10 @@ import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
 import { user } from "@sprite-anvil/db/schema/auth";
 import { generationPackages } from "@sprite-anvil/db/schema/generation-packages";
 import { project } from "@sprite-anvil/db/schema/project";
-import { createLocalTestDb } from "@sprite-anvil/db/testing";
+import {
+	createLocalTestDb,
+	isLoopbackTestDatabaseUrl,
+} from "@sprite-anvil/db/testing";
 import { eq } from "drizzle-orm";
 import { insertArchiveHistory } from "./features/project-archives/server/project-archive-history-materialization";
 import type { StoredProjectArchiveRestoreRecord } from "./features/project-archives/server/project-archive-restore-storage";
@@ -15,7 +18,7 @@ import { canonicalDatabaseVerifier } from "./project-archive-canonical-database-
 
 const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
 
-test.skipIf(!databaseUrl)(
+test.skipIf(!isLoopbackTestDatabaseUrl(databaseUrl))(
 	"materializes profile activation and generation snapshot in one rollback-safe transaction",
 	async () => {
 		if (!databaseUrl) {
@@ -189,7 +192,7 @@ test.skipIf(!databaseUrl)(
 	}
 );
 
-test.skipIf(!databaseUrl)(
+test.skipIf(!isLoopbackTestDatabaseUrl(databaseUrl))(
 	"keeps the latest normal Asset Version disposition when archived review timestamps tie",
 	async () => {
 		if (!databaseUrl) {

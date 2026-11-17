@@ -28,6 +28,22 @@ interface LocalRawQuery extends PromiseLike<unknown> {
 	sql: string;
 }
 
+/** True when the URL targets a disposable loopback PostgreSQL that `createLocalTestDb` accepts. */
+export function isLoopbackTestDatabaseUrl(url: string | undefined): boolean {
+	if (!url) {
+		return false;
+	}
+	try {
+		const target = new URL(url);
+		return (
+			(target.protocol === "postgres:" || target.protocol === "postgresql:") &&
+			target.hostname === "127.0.0.1"
+		);
+	} catch {
+		return false;
+	}
+}
+
 export function createLocalTestDb(
 	env: DatabaseConfig
 ): Database & { close: () => Promise<void> } {

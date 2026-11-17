@@ -6,7 +6,10 @@ import type { Database } from "@sprite-anvil/db";
 import { user } from "@sprite-anvil/db/schema/auth";
 import { backgroundOperations } from "@sprite-anvil/db/schema/background-operations";
 import { project } from "@sprite-anvil/db/schema/project";
-import { createLocalTestDb } from "@sprite-anvil/db/testing";
+import {
+	createLocalTestDb,
+	isLoopbackTestDatabaseUrl,
+} from "@sprite-anvil/db/testing";
 import { createBackgroundOperationStore } from "../background-operation-store";
 import type { OperationStorage } from "../operation-storage";
 
@@ -27,7 +30,7 @@ function operationStatus(index: number) {
 }
 
 const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
-test.skipIf(!databaseUrl)(
+test.skipIf(!isLoopbackTestDatabaseUrl(databaseUrl))(
 	"summary counts every authorized project operation regardless of age",
 	async () => {
 		if (!databaseUrl) {

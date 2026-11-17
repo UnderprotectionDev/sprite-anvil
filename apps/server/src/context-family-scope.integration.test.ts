@@ -8,11 +8,14 @@ import {
 import { user } from "@sprite-anvil/db/schema/auth";
 import { themes, visualWorlds } from "@sprite-anvil/db/schema/context-scopes";
 import { project } from "@sprite-anvil/db/schema/project";
-import { createLocalTestDb } from "@sprite-anvil/db/testing";
+import {
+	createLocalTestDb,
+	isLoopbackTestDatabaseUrl,
+} from "@sprite-anvil/db/testing";
 import { createProjectContextScopeStore } from "./features/visual-worlds/server/project-context-scope-store";
 
 const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
-test.skipIf(!databaseUrl)(
+test.skipIf(!isLoopbackTestDatabaseUrl(databaseUrl))(
 	"reads actual family and Theme membership in the Project Context scope catalog",
 	async () => {
 		if (!databaseUrl) {

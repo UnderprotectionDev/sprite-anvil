@@ -7,14 +7,17 @@ import { user } from "@sprite-anvil/db/schema/auth";
 import { project } from "@sprite-anvil/db/schema/project";
 import { projectArchiveRestores } from "@sprite-anvil/db/schema/project-archives";
 import { contextRevisions } from "@sprite-anvil/db/schema/project-context";
-import { createLocalTestDb } from "@sprite-anvil/db/testing";
+import {
+	createLocalTestDb,
+	isLoopbackTestDatabaseUrl,
+} from "@sprite-anvil/db/testing";
 import { eq } from "drizzle-orm";
 import { createAssetRecordStore } from "./features/asset-records/server/asset-record-store";
 import { createProjectContextStore } from "./features/project-context/server/project-context-store";
 import { createProjectAccessStore } from "./features/projects/server/project-access-store";
 
 const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
-test.skipIf(!databaseUrl)(
+test.skipIf(!isLoopbackTestDatabaseUrl(databaseUrl))(
 	"unverified and legacy restored Projects are hidden until canonical verification",
 	async () => {
 		if (!databaseUrl) {

@@ -8,14 +8,17 @@ import {
 } from "@sprite-anvil/db/schema/managed-object-reservations";
 import { project } from "@sprite-anvil/db/schema/project";
 import { projectArchiveImportRequests } from "@sprite-anvil/db/schema/project-archives";
-import { createLocalTestDb } from "@sprite-anvil/db/testing";
+import {
+	createLocalTestDb,
+	isLoopbackTestDatabaseUrl,
+} from "@sprite-anvil/db/testing";
 import { eq, inArray } from "drizzle-orm";
 import { createDatabaseManagedObjectCleanupCandidates } from "./database-managed-object-cleanup";
 import { createDatabaseManagedObjectReservations } from "./database-managed-object-reservations";
 
 const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
 
-test.skipIf(!databaseUrl)(
+test.skipIf(!isLoopbackTestDatabaseUrl(databaseUrl))(
 	"serializes private object writers with erasure without blocking another owner",
 	async () => {
 		if (!databaseUrl) {
@@ -132,7 +135,7 @@ async function raceOnce(
 	await eraser.endErasure(reservation.ownerUserId, operationId);
 }
 
-test.skipIf(!databaseUrl)(
+test.skipIf(!isLoopbackTestDatabaseUrl(databaseUrl))(
 	"cleanup reclaims only settled terminal imports with matching ownership",
 	async () => {
 		if (!databaseUrl) {
