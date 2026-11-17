@@ -101,7 +101,7 @@ test("reviews four and eight directions with variable timing and persisted human
 		.getByLabel("Unknown production history")
 		.fill("Test image created for the disposable browser fixture.");
 	await page
-		.getByLabel("Bilinen kaynak", { exact: true })
+		.getByLabel("Known source", { exact: true })
 		.fill("Directional review browser fixture");
 	await page
 		.getByLabel("Your relationship to the asset")
@@ -121,21 +121,21 @@ test("reviews four and eight directions with variable timing and persisted human
 		.click();
 
 	await expect(
-		page.getByRole("paragraph").filter({ hasText: "Sürüm 1 · Aday" })
+		page.getByRole("paragraph").filter({ hasText: "Version 1 · Candidate" })
 	).toBeVisible();
 	const reviewRationale = "The silhouette matches the family design.";
 	await page.getByLabel("Review rationale").fill(reviewRationale);
 	await page.getByRole("button", { name: "Approve" }).click();
 	await expect(
-		page.getByRole("paragraph").filter({ hasText: "Sürüm 1 · Onaylandı" })
+		page.getByRole("paragraph").filter({ hasText: "Version 1 · Approved" })
 	).toBeVisible();
-	await expect(page.getByText(`— Gerekçe: ${reviewRationale}`)).toBeVisible();
+	await expect(page.getByText(`— Rationale: ${reviewRationale}`)).toBeVisible();
 	await expect(page.locator("time[datetime]").first()).toBeVisible();
 	await page
 		.getByRole("button", { name: "Select as Canonical Design" })
 		.click();
 	await expect(
-		page.getByText("Ana Tasarım: Ash Knight base · Sürüm 1")
+		page.getByText("Canonical Design: Ash Knight base · Version 1")
 	).toBeVisible();
 
 	await activateFamilyProfile(

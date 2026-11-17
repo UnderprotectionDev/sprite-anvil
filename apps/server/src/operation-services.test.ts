@@ -63,3 +63,54 @@ test("restore request is delivered once through the managed lifecycle", async ()
 		(await services.projectArchiveRestoreOperations?.request(userId, input))?.id
 	).toBe(operation.id);
 });
+
+test("archive request is delivered and read back through the managed lifecycle", async () => {
+	const setup = restoreSetup();
+	const rows = new Map<
+		string,
+		import("./features/project-archives/server/project-archive-storage").StoredProjectArchiveRequest
+	>();
+	const { storage } = createMemoryOperationStorage();
+	const sent: string[] = [];
+	const services = createManagedOperationServices({
+		db: {} as Database,
+		storage,
+		transport: {
+			send: (id) => {
+				sent.push(id);
+				return Promise.resolve();
+			},
+		},
+		archiveOptions: {
+			getProjectForUser: async () => ({ id: projectId }),
+			store: setup.archiveStore,
+			requests: {
+				find: async (_project, id) => rows.get(id) ?? null,
+				insert: (row) => {
+					const existing = rows.get(row.id);
+					if (existing) {
+						return Promise.resolve({ status: "existing" as const, existing });
+					}
+					rows.set(row.id, row);
+					return Promise.resolve({ status: "inserted" as const });
+				},
+			},
+		},
+	});
+	const operation = await services.projectArchiveOperations?.request(userId, {
+		projectId,
+		idempotencyKey: "archive-op",
+		workingFileIds: [],
+	});
+	if (!operation) {
+		throw new Error("Archive request was not created");
+	}
+	await services.lifecycle.publishOutbox();
+	expect(sent).toEqual([operation.id]);
+	await services.lifecycle.deliver(operation.id);
+	await services.lifecycle.deliver(operation.id);
+	expect((await storage.get(operation.id))?.status).toBe("completed");
+	expect(
+		(await setup.archiveStore.list(userId, projectId))?.archives
+	).toHaveLength(1);
+});

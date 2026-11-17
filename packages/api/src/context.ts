@@ -57,6 +57,7 @@ import type { ProjectAccessStore } from "./project-access-store";
 import type { ProjectArchiveRestoreInput } from "./project-archive-restore";
 import type { ProjectArchiveRestoreStore } from "./project-archive-restore-store";
 import type { ProjectArchiveStore } from "./project-archive-store";
+import type { ProjectArchiveCreateInput } from "./project-archives";
 import type { ProjectContextStore } from "./project-context";
 import type { ProviderGenerationRecordStore } from "./provider-generation-records";
 import type { ReadinessPlanStore } from "./readiness-plans";
@@ -145,6 +146,12 @@ export interface Context {
 	productionRecipeStore?: ProductionRecipeStore;
 	productMeasurementRecorder?: ProductMeasurementRecorder;
 	projectAccess: ProjectAccessStore;
+	projectArchiveOperations?: {
+		request: (
+			userId: string,
+			input: ProjectArchiveCreateInput
+		) => Promise<BackgroundOperation | null>;
+	};
 	/** Records a restore as a Background Operation; null when the project is not found. */
 	projectArchiveRestoreOperations?: {
 		request: (

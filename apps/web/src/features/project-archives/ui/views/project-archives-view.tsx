@@ -22,7 +22,7 @@ export function ProjectArchivesView({ projectId }: { projectId: string }) {
 	const options = orpc.projectArchives.list.queryOptions({
 		input: { projectId },
 	});
-	const archives = useQuery(options);
+	const archives = useQuery({ ...options, refetchInterval: 2000 });
 	const [pageCursors, setPageCursors] = useState<(string | undefined)[]>([
 		undefined,
 	]);
@@ -38,12 +38,16 @@ export function ProjectArchivesView({ projectId }: { projectId: string }) {
 		refetchOnReconnect: "always",
 	});
 	const create = useMutation(
-		orpc.projectArchives.create.mutationOptions({
+		orpc.projectArchives.requestArchive.mutationOptions({
 			meta: { errorPresentation: "inline" },
 			onSuccess: () => {
 				setUncertain(false);
 				setSubmitted(null);
-				void queryClient.invalidateQueries({ queryKey: options.queryKey });
+				void queryClient.invalidateQueries({
+					queryKey: orpc.backgroundOperations.list.queryOptions({
+						input: { projectId },
+					}).queryKey,
+				});
 			},
 			onError: (error) => setUncertain(isWriteOutcomeUncertain(error)),
 		})
@@ -77,6 +81,10 @@ export function ProjectArchivesView({ projectId }: { projectId: string }) {
 				}}
 				projectId={projectId}
 			/>
+			{!!create.data?.id &&
+				!operations.data?.operations.some(
+					(item) => item.id === create.data?.id
+				) && <p role="status">Background Operation: {create.data.status}.</p>}
 			{!!operations.error && <p role="alert">{operations.error.message}</p>}
 			{operations.data?.operations
 				.filter((item) => item.kind === "archive" || item.kind === "restore")

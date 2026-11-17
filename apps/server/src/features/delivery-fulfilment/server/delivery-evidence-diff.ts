@@ -34,6 +34,7 @@ const pin = async (
 	key,
 	label,
 	contentDigest: await recordContentDigest(value),
+	details: JSON.stringify(value, null, 2),
 });
 
 async function runtimePins(
@@ -117,7 +118,7 @@ export async function readDeliveryEvidence(
 					Promise.all(
 						manifest.rightsEvidence.map((e) =>
 							pin(
-								`${e.assetRecordId}:${e.rightsRecordId}`,
+								`${e.assetRecordId}:${e.rightsRecordId}:${e.versionNumber}`,
 								`Rights Record ${e.rightsRecordId}: ${e.state} (revision ${e.versionNumber})`,
 								e
 							)

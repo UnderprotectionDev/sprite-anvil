@@ -73,7 +73,10 @@ import {
 	createDatabaseProjectArchiveRestoreRequestStorage,
 	createDatabaseProjectArchiveRestoreStorage,
 } from "./features/project-archives/server/database-project-archive-restore-storage";
-import { createDatabaseProjectArchiveStorage } from "./features/project-archives/server/database-project-archive-storage";
+import {
+	createDatabaseProjectArchiveRequestStorage,
+	createDatabaseProjectArchiveStorage,
+} from "./features/project-archives/server/database-project-archive-storage";
 import {
 	createObjectFileCopier,
 	createObjectFileRemover,
@@ -386,6 +389,10 @@ export function createServerOperationServices(
 		db,
 		storage: createDatabaseOperationStorage(db),
 		transport,
+		archiveOptions: {
+			requests: createDatabaseProjectArchiveRequestStorage(db),
+			store: projectArchiveStore,
+		},
 		restoreOptions: projectArchiveRestoreStore
 			? {
 					requests: createDatabaseProjectArchiveRestoreRequestStorage(db),

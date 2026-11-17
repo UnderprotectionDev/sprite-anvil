@@ -6,6 +6,7 @@ import {
 	productionExperimentSeparabilities,
 	productionExperimentTrialSchema,
 } from "./production-experiment-trials";
+import { idempotencyKeySchema } from "./record-publication";
 
 const identifierSchema = z
 	.string()
@@ -156,6 +157,7 @@ export const styleModuleSchema = z
 	.strict();
 export const styleModuleCreateInputSchema = z
 	.object({
+		idempotencyKey: idempotencyKeySchema.optional(),
 		projectId: projectIdSchema,
 		baseContextRevisionId: z.uuid(),
 		name: z.string().trim().min(1).max(120),
@@ -171,6 +173,7 @@ export const styleModuleCreateInputSchema = z
 	.strict();
 export const styleModuleCopyInputSchema = z
 	.object({
+		idempotencyKey: idempotencyKeySchema.optional(),
 		sourceProjectId: projectIdSchema,
 		sourceRevisionId: z.uuid(),
 		moduleId: z.uuid(),

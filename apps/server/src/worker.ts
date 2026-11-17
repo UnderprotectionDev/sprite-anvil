@@ -27,12 +27,19 @@ const worker = createOperationWorker({
 	}),
 });
 
-while (true) {
-	try {
-		// biome-ignore lint/performance/noAwaitInLoops: Polls must not overlap.
-		await worker.poll();
-	} catch {
-		console.error("Queue poll failed");
+async function runLoop(action: () => Promise<void>, label: string) {
+	while (true) {
+		try {
+			// biome-ignore lint/performance/noAwaitInLoops: Each loop waits for its previous iteration.
+			await action();
+		} catch {
+			console.error(`${label} failed`);
+		}
+		await new Promise((resolve) => setTimeout(resolve, 2000));
 	}
-	await new Promise((resolve) => setTimeout(resolve, 2000));
 }
+
+await Promise.all([
+	runLoop(worker.maintain, "Operation maintenance"),
+	runLoop(worker.consume, "Queue poll"),
+]);

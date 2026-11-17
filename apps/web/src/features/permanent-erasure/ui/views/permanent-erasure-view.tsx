@@ -25,10 +25,13 @@ export function PermanentErasureView({ projectId }: { projectId: string }) {
 	const records = useQuery(
 		orpc.assetRecords.list.queryOptions({ input: { projectId } })
 	);
-	const prepare = useMutation(
-		orpc.permanentErasure.prepareImpactReport.mutationOptions()
-	);
 	const key = useRef<{ input: string; key: string } | null>(null);
+	const prepare = useMutation({
+		...orpc.permanentErasure.prepareImpactReport.mutationOptions(),
+		onSuccess: () => {
+			key.current = null;
+		},
+	});
 	const form = useForm({
 		defaultValues: { assetRecordId: "" },
 		onSubmit: ({ value }) => {

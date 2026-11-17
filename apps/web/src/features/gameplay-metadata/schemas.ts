@@ -48,7 +48,7 @@ function getFieldFailure(
 	}
 	const text = values.fieldValues[definition.id]?.trim();
 	if (!text && definition.required) {
-		return `${definition.label} zorunludur.`;
+		return `${definition.label} is required.`;
 	}
 	if (text && !isJson(text)) {
 		return "Enter valid JSON in the fields; empty optional fields remain Unknown.";

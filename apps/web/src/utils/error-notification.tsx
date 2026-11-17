@@ -73,6 +73,9 @@ export function isWriteOutcomeUncertain(error: unknown): boolean {
 	const status = getErrorProperty(error, "status");
 	return (
 		code === "INTERNAL_SERVER_ERROR" ||
+		(code === "CONFLICT" &&
+			error instanceof Error &&
+			error.message.endsWith("Retry with the same idempotency key.")) ||
 		(typeof status === "number" && status >= 500) ||
 		isConnectionError(error)
 	);

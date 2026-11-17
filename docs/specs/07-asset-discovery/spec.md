@@ -42,6 +42,8 @@ Tamamlanma kanıtı: Kullanıcı belirtilen alanlarla aradığı kaydı ve iliş
 
 ## Testing Decisions
 
+- **Eski etiket seam’i:** Eski Türkçe küçük harf dönüşümünden gelen noktalı ve noktasız `i` biçimleri aramada eşdeğer kabul edilir. API/Drizzle entegrasyon testi eski ve güncel etiketlerin büyük ve küçük harfli sorgularda bulunduğunu ve ilgisiz etiketlerin eşleşmediğini doğrular; bu eşdeğerlik farklı etiketlerin birlikte dönmesine neden olabilir.
+
 - **Sayfalama seam’i:** Arama ve katalog ilk istekte en fazla 50 kayıt alır; sonraki ve önceki sayfalar ile filtre değişince ilk sayfaya dönüş görünüm testinde sınanır. Workbench Search en fazla 20 kayıt ister. Neon/Drizzle entegrasyon testi boyut filtresinin sayfa sınırından önce uygulanmasını, toplamı, sayfa sırasını ve erişim sınırını doğrular; önceki sayfasız çağrılar tüm sonuçları korur.
 
 - **Filtre erişimi seam’i:** Görünüm testi kesin filtre girdisini API sınırında kontrol eder. workspace-usability Playwright testi ayrıntılı filtrelerin açılıp kapanmasını ve aramaya devam edilmesini sınar. Dar pencere testi yatay taşmayı kontrol eder; yüksek kayıt sayısı performans kabulü değildir.

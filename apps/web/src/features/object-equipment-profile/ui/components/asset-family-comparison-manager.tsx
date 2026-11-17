@@ -445,6 +445,8 @@ function VersionCard({
 			</h4>
 			{version ? (
 				<AssetVersionPreview
+					assetVersionId={version.id}
+					projectId={version.projectId}
 					recordName={name}
 					url={`${serverUrl}${version.previewUrl}`}
 					versionNumber={versionNumber}

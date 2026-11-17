@@ -118,7 +118,7 @@ test("reviews exact texture edges and all three arrangements, then rereads metad
 		.getByLabel("Unknown production history")
 		.fill("Browser texture fixture");
 	await page
-		.getByLabel("Bilinen kaynak", { exact: true })
+		.getByLabel("Known source", { exact: true })
 		.fill("Authored fixture");
 	await page
 		.getByLabel("Your relationship to the asset")
@@ -140,11 +140,11 @@ test("reviews exact texture edges and all three arrangements, then rereads metad
 	await page.getByLabel("Unit name").fill("grass");
 	await page
 		.getByLabel("Source Asset Version")
-		.selectOption({ label: "Sürüm 1 · Aday" });
+		.selectOption({ label: "Version 1 · Candidate" });
 	await page.getByLabel("Corrected PNG or WebP").setInputFiles(file);
 	await page.getByRole("button", { name: "Save unit correction" }).click();
 	await expect(
-		page.getByText("grass · Birim Sürümü 1", { exact: false })
+		page.getByText("grass · Unit Version 1", { exact: false })
 	).toBeVisible();
 	await page.goto(familyUrl);
 	await page

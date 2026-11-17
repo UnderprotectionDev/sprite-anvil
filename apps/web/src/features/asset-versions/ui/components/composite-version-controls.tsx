@@ -345,6 +345,8 @@ function CompositeVersionHistoryItem({
 							>
 								{assetVersion ? (
 									<AssetVersionPreview
+										assetVersionId={assetVersion.id}
+										projectId={assetVersion.projectId}
 										recordName={assetRecordName}
 										url={`${serverUrl}${assetVersion.previewUrl}`}
 										versionNumber={assetVersion.versionNumber}

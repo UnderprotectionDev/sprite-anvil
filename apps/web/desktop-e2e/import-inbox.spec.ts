@@ -55,7 +55,7 @@ describe("Source Metadata Mapping Proposals", () => {
 				fixture.projectName
 			);
 			await (
-				await $('//label[span[text()="General art direction"]]/textarea')
+				await $('//label[span[text()="Art direction"]]/textarea')
 			).setValue(fixture.generalArtDirection);
 			await (await $("button=Create project")).click();
 			await openWorkspaceTask("Visual Worlds and Themes");
@@ -64,7 +64,7 @@ describe("Source Metadata Mapping Proposals", () => {
 			);
 			await (await $("button=Add Visual World")).click();
 			await (await $(`strong=${visualWorldName}`)).waitForDisplayed();
-			await (await $("a=Projeler")).click();
+			await (await $("a=Projects")).click();
 			await (await $("a=Asset Families")).click();
 			await openWorkspaceTask("Family and representation relationships");
 			await (await $("input[id='subject-identity-name']")).setValue(
@@ -88,9 +88,9 @@ describe("Source Metadata Mapping Proposals", () => {
 			await (await $("input[id='asset-record-name']")).setValue(fixture.name);
 			await (await $("button=Add Asset Record")).click();
 			await openWorkspaceTask("Version and dependency operations");
-			await (await $("a=Projeler")).click();
+			await (await $("a=Projects")).click();
 			const projectLink = await $(
-				`a[aria-label="${fixture.projectName} varlık kayıtlarını aç"]`
+				`a[aria-label="${fixture.projectName} open Asset Records"]`
 			);
 			await projectLink.waitForClickable();
 			await projectLink.click();
@@ -142,7 +142,7 @@ describe("Source Metadata Mapping Proposals", () => {
 				`dd=${sourceMetadataMappingFixtureHash(sourceMetadataMappingFixture.texturePacker.bytes)}`
 			).waitForDisplayed();
 			await $(
-				"li=Varlık Ailesi bağlantısı: Bilinmiyor · kaynak kanıtı yok."
+				"li=Asset Family link: Unknown · no source evidence."
 			).waitForDisplayed();
 			await $(
 				"li=Required Set link: Unknown · no source evidence."
@@ -152,7 +152,7 @@ describe("Source Metadata Mapping Proposals", () => {
 			).waitForDisplayed();
 			await $("p=Pivot · walk-0").waitForDisplayed();
 			await $("p=Tag · walk").waitForDisplayed();
-			await $("p=Süre · walk-0").waitForDisplayed();
+			await $("p=Duration · walk-0").waitForDisplayed();
 			const finalization = await $('section[aria-label="Finalize mapping"]');
 			await finalization.waitForDisplayed();
 			const selects = await finalization.$$("label select");
@@ -182,10 +182,10 @@ describe("Source Metadata Mapping Proposals", () => {
 				"p=Gameplay Metadata: Unknown · project context required."
 			).waitForDisplayed();
 			await $("p=Pivot · walk-0").waitForDisplayed();
-			await $("p=Süre · walk-0").waitForDisplayed();
+			await $("p=Duration · walk-0").waitForDisplayed();
 			await (await $("a=Open Candidate Version")).click();
 			await $(
-				`p=${sourceMetadataMappingFixture.source.fileName} · Sürüm 1 · Aday`
+				`p=${sourceMetadataMappingFixture.source.fileName} · Version 1 · Candidate`
 			).waitForDisplayed();
 		} finally {
 			rmSync(directory, { force: true, recursive: true });

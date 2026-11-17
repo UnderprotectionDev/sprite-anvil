@@ -88,6 +88,7 @@ vi.mock("@/utils/orpc", () => ({
 					queryKey: ["records"],
 					queryFn: async () => [
 						{ id: "44444444-4444-4444-8444-444444444444", name: "Hero" },
+						{ id: "88888888-8888-4888-8888-888888888888", name: "Tree" },
 					],
 				}),
 			},
@@ -200,6 +201,7 @@ test("selects a unit version for recipe use", async () => {
 	expect(fixtures.use).toHaveBeenCalledWith(
 		expect.objectContaining({
 			lockedUnitVersionIds: ["33333333-3333-4333-8333-333333333333"],
+			versionNumber: 1,
 		}),
 		expect.anything()
 	);
@@ -366,4 +368,98 @@ test("reports copy and use errors", async () => {
 	await userEvent.type(screen.getByLabelText("Target height"), "32");
 	await userEvent.click(screen.getByRole("button", { name: "Use recipe" }));
 	expect(await screen.findByText("Use failed")).toBeInTheDocument();
+});
+
+test("shows copy validation and clears locked versions when target changes", async () => {
+	fixtures.recipes = [
+		{
+			id: "11111111-1111-4111-8111-111111111111",
+			title: "Example",
+			versions: [
+				{
+					versionNumber: 1,
+					content: {
+						fields: [],
+						referenceRoles: [],
+						instructionSkeleton: "Draw",
+						expectedOutputStructure: "PNG",
+					},
+				},
+			],
+		},
+	];
+	fixtures.use.mockResolvedValue({});
+	render(
+		<QueryClientProvider
+			client={
+				new QueryClient({ defaultOptions: { queries: { retry: false } } })
+			}
+		>
+			<ProductionRecipesView projectId="55555555-5555-4555-8555-555555555555" />
+		</QueryClientProvider>
+	);
+	await screen.findByLabelText("Copy to project");
+	await userEvent.click(screen.getByRole("button", { name: "Copy recipe" }));
+	expect(await screen.findByText("Choose a project.")).toBeInTheDocument();
+	await userEvent.selectOptions(
+		screen.getByLabelText("Target Asset Record"),
+		"44444444-4444-4444-8444-444444444444"
+	);
+	await userEvent.click(
+		await screen.findByRole("checkbox", { name: idlePattern })
+	);
+	await userEvent.selectOptions(
+		screen.getByLabelText("Target Asset Record"),
+		"88888888-8888-4888-8888-888888888888"
+	);
+	await userEvent.type(screen.getByLabelText("Target width"), "32");
+	await userEvent.type(screen.getByLabelText("Target height"), "32");
+	await userEvent.click(screen.getByRole("button", { name: "Use recipe" }));
+	await screen.findByText("Generation Package created.");
+	expect(fixtures.use).toHaveBeenLastCalledWith(
+		expect.objectContaining({ lockedUnitVersionIds: [] }),
+		expect.anything()
+	);
+});
+
+test("preserves the editing draft and base when recipes refresh", async () => {
+	const version = {
+		versionNumber: 1,
+		content: {
+			fields: [],
+			referenceRoles: [],
+			instructionSkeleton: "Draw",
+			expectedOutputStructure: "PNG",
+		},
+	};
+	fixtures.recipes = [
+		{
+			id: "11111111-1111-4111-8111-111111111111",
+			title: "Example",
+			versions: [version],
+		},
+	];
+	const client = new QueryClient({
+		defaultOptions: { queries: { retry: false } },
+	});
+	render(
+		<QueryClientProvider client={client}>
+			<ProductionRecipesView projectId="55555555-5555-4555-8555-555555555555" />
+		</QueryClientProvider>
+	);
+	const input = await screen.findByLabelText("Instruction skeleton");
+	await userEvent.type(input, " draft");
+	client.setQueryData(
+		["recipes"],
+		[
+			{
+				...fixtures.recipes[0],
+				versions: [version, { ...version, versionNumber: 2 }],
+			},
+		]
+	);
+	expect(await screen.findByText("Editing version 1")).toBeInTheDocument();
+	expect(screen.getByLabelText("Instruction skeleton")).toHaveValue(
+		"Draw draft"
+	);
 });

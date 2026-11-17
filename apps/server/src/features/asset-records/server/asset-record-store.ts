@@ -23,7 +23,6 @@ import { project } from "@sprite-anvil/db/schema/project";
 import type { SQL } from "drizzle-orm";
 import {
 	and,
-	arrayContains,
 	asc,
 	count,
 	desc,
@@ -42,7 +41,7 @@ function normalizeTags(tags: readonly string[]) {
 	].sort((left, right) => left.localeCompare(right, "tr-TR"));
 }
 
-function getSearchConditions(
+export function getSearchConditions(
 	db: Database,
 	userId: string,
 	input: AssetRecordSearchInput
@@ -61,7 +60,8 @@ function getSearchConditions(
 			? sql`coalesce(${assetRecords.visualWorldId}, ${assetFamilies.visualWorldId}) = ${input.visualWorldId}`
 			: undefined,
 		input.tag
-			? arrayContains(assetRecords.tags, [input.tag.toLowerCase()])
+			? sql`exists (select 1 from unnest(${assetRecords.tags}) as stored_tag(value)
+					where replace(translate(lower(stored_tag.value), 'ı', 'i'), ${"\u0307"}, '') = ${input.tag.toLowerCase().replaceAll("ı", "i").replaceAll("\u0307", "")})`
 			: undefined,
 		input.sourceImageWidth !== undefined &&
 		input.sourceImageHeight !== undefined

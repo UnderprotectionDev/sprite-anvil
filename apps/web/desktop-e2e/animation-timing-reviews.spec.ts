@@ -6,6 +6,7 @@ import { animationTimingFixture as fixture } from "../e2e/animation-timing-revie
 import {
 	activateFamilyProfile,
 	openWorkspaceTask,
+	uploadFamilyCandidate,
 } from "./workspace-navigation";
 
 describe("Animation Timing and Transition Review", () => {
@@ -39,20 +40,20 @@ describe("Animation Timing and Transition Review", () => {
 				fixture.generalArtDirection
 			);
 			await (await $("button=Create project")).click();
-			await openWorkspaceTask("Visual Worldlar ve Temalar");
+			await openWorkspaceTask("Visual Worlds and Themes");
 			await $("input[placeholder='e.g. High plateaus']").setValue(
 				fixture.visualWorldName
 			);
-			await (await $("button=Visual World ekle")).click();
+			await (await $("button=Add Visual World")).click();
 			await $(`strong=${fixture.visualWorldName}`).waitForDisplayed();
 
-			await (await $("a=Projeler")).click();
+			await (await $("a=Projects")).click();
 			await (await $("a=Asset Families")).click();
 			await openWorkspaceTask("Family and representation relationships");
 			await $("input[id='subject-identity-name']").setValue(
 				fixture.identityName
 			);
-			await (await $("button=Asset Identity oluştur")).click();
+			await (await $("button=Create Subject Identity")).click();
 			await openWorkspaceTask("Family catalog");
 			await $(`h2=${fixture.identityName}`).waitForDisplayed();
 			await openWorkspaceTask("Family and representation relationships");
@@ -71,17 +72,13 @@ describe("Animation Timing and Transition Review", () => {
 			await $("input[id='asset-record-name']").setValue(fixture.sourceName);
 			await (await $("button=Add Asset Record")).click();
 			await openWorkspaceTask("Version and dependency operations");
-			await $(
-				"input[aria-label='" +
-					fixture.sourceName +
-					" için Varlık Sürümü dosyası']"
-			).setValue(pngPath);
+			await uploadFamilyCandidate(fixture.sourceName, pngPath);
 			await $("p=Version 1 · Candidate").waitForDisplayed();
 			await $("textarea[id^='review-rationale-']").setValue(
 				"The sprite is suitable for timing review."
 			);
-			await (await $("button=Onayla")).click();
-			await $("p=Sürüm 1 · Approved").waitForDisplayed();
+			await (await $("button=Approve")).click();
+			await $("p=Version 1 · Approved").waitForDisplayed();
 			await (await $("button=Select as Canonical Design")).click();
 			await $(
 				`p=Canonical Design: ${fixture.sourceName} · Version 1`
@@ -183,7 +180,7 @@ describe("Animation Timing and Transition Review", () => {
 			);
 			await expect(await directions[0]?.getText()).toContain("Loop boundary.");
 
-			await (await review.$("button=Başa dön")).click();
+			await (await review.$("button=Restart")).click();
 			await expect(await playhead.getValue()).toBe("0");
 			await review
 				.$("input[aria-label='Animation name']")

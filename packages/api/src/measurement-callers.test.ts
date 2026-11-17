@@ -75,7 +75,7 @@ test("finalizing each runtime outcome records its matching boundary and rejects 
 	expect(events).toHaveLength(3);
 });
 
-test("manual import evidence records preview only after a successful save", async () => {
+test("saving manual import evidence does not record a preview", async () => {
 	const events: unknown[] = [];
 	let fail = false;
 	const input = {
@@ -115,25 +115,12 @@ test("manual import evidence records preview only after a successful save", asyn
 		} as never,
 	});
 	await client.assetVersions.saveManualImportEvidence(input);
-	expect(events).toEqual([
-		{
-			userId: "user-id",
-			projectId,
-			workflowId: recordId,
-			eventFamily: "production_workflow",
-			eventName: "candidate_preview_reached",
-			surface: "web",
-			phase: "finish",
-			recordKind: "asset_version",
-			outcomeClass: "preview_reached",
-			counters: {},
-		},
-	]);
+	expect(events).toEqual([]);
 	fail = true;
 	await expect(
 		client.assetVersions.saveManualImportEvidence(input)
 	).rejects.toThrow();
-	expect(events).toHaveLength(1);
+	expect(events).toHaveLength(0);
 });
 
 test("runtime validation creation records start only on success", async () => {
@@ -871,6 +858,59 @@ test("verification boundary authorizes project and accepts only its closed telem
 			workflowId: recordId,
 			phase: "finish",
 			outcome: "verified",
+		})
+	).rejects.toThrow();
+	expect(events).toHaveLength(1);
+});
+
+test("candidate preview derives its workflow from authorized version provenance", async () => {
+	const events: unknown[] = [];
+	let allowed = true;
+	const client = createRouterClient(appRouter, {
+		context: {
+			session: { user: { id: "user-id" } },
+			surface: "web",
+			projectAccess: {
+				getProject: async () => (allowed ? { id: projectId } : null),
+			},
+			assetVersionStore: {
+				list: async () => ({
+					assetVersions: [
+						{
+							id: recordId,
+							assetRecordId: recordId,
+							reviewDisposition: "candidate",
+							productionEvidence: {
+								manualImportEvidence: { generationPackageId: recordId },
+							},
+						},
+					],
+				}),
+			},
+			generationPackageStore: { list: async () => [{ id: recordId }] },
+			productMeasurementRecorder: {
+				record: (event: unknown) => {
+					events.push(event);
+					return Promise.resolve();
+				},
+			},
+		} as never,
+	});
+	await client.measurementEvents.recordCandidatePreviewBoundary({
+		projectId,
+		assetVersionId: recordId,
+	});
+	expect(events).toHaveLength(1);
+	expect(events[0]).toMatchObject({
+		workflowId: recordId,
+		eventName: "candidate_preview_reached",
+		outcomeClass: "preview_reached",
+	});
+	allowed = false;
+	await expect(
+		client.measurementEvents.recordCandidatePreviewBoundary({
+			projectId,
+			assetVersionId: recordId,
 		})
 	).rejects.toThrow();
 	expect(events).toHaveLength(1);

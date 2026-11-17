@@ -8,7 +8,7 @@ import { Link } from "@tanstack/react-router";
 
 const relationshipLabels = {
 	direction: "Direction",
-	animation: "Animasyon",
+	animation: "Animation",
 	state: "State",
 	derivative: "Derived Asset",
 } as const;

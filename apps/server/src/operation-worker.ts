@@ -14,14 +14,17 @@ export function createOperationWorker(options: {
 	handleUpload: (key: string) => Promise<void>;
 	reconcileManagedObjects?: () => Promise<void>;
 }) {
-	return {
-		async poll() {
-			await options.lifecycle.reconcile();
-			await options.lifecycle.publishOutbox();
-			const messages = await options.queue.pull();
-			const acks: string[] = [];
-			const retries: string[] = [];
-			for (const message of messages) {
+	async function maintain() {
+		await options.lifecycle.reconcile();
+		await options.lifecycle.publishOutbox();
+		await options.reconcileManagedObjects?.();
+	}
+
+	async function consume() {
+		const messages = await options.queue.pull();
+		await Promise.all(
+			messages.map(async (message) => {
+				let succeeded = false;
 				try {
 					const body: unknown =
 						typeof message.body === "string"
@@ -29,20 +32,28 @@ export function createOperationWorker(options: {
 							: message.body;
 					const command = queueMessageSchema.parse(body);
 					if (command.kind === "background-operation") {
-						// biome-ignore lint/performance/noAwaitInLoops: Settle each leased delivery before processing the next.
 						await options.lifecycle.deliver(command.backgroundOperationId);
 					} else {
 						await options.handleUpload(command.key);
 					}
-					acks.push(message.lease_id);
+					succeeded = true;
 				} catch {
-					retries.push(message.lease_id);
+					// Failed deliveries are returned to the queue.
 				}
-			}
-			if (acks.length || retries.length) {
-				await options.queue.settle(acks, retries);
-			}
-			await options.reconcileManagedObjects?.();
+				await options.queue.settle(
+					succeeded ? [message.lease_id] : [],
+					succeeded ? [] : [message.lease_id]
+				);
+			})
+		);
+	}
+
+	return {
+		maintain,
+		consume,
+		async poll() {
+			await maintain();
+			await consume();
 		},
 	};
 }

@@ -74,7 +74,10 @@ test("retries a lease when delivery fails and preserves upload handling", async 
 		handleUpload: () => Promise.resolve(),
 	});
 	await worker.poll();
-	expect(settled).toEqual([{ acks: [], retries: ["failed", "invalid"] }]);
+	expect(settled).toEqual([
+		{ acks: [], retries: ["invalid"] },
+		{ acks: [], retries: ["failed"] },
+	]);
 });
 
 test("retries settled import cleanup before reporting a successful worker poll", async () => {
@@ -99,4 +102,81 @@ test("retries settled import cleanup before reporting a successful worker poll",
 	failure = false;
 	await worker.poll();
 	expect(published).toBe(2);
+});
+
+test("maintenance continues while a delivery is stuck", async () => {
+	let reconciliations = 0;
+	const worker = createOperationWorker({
+		lifecycle: {
+			reconcile: () => {
+				reconciliations += 1;
+				return Promise.resolve();
+			},
+			publishOutbox: () => Promise.resolve(),
+			deliver: () =>
+				new Promise(() => {
+					/* Intentionally stalled delivery. */
+				}),
+		},
+		queue: {
+			pull: async () => [
+				{
+					lease_id: "stuck",
+					body: {
+						version: 3,
+						kind: "background-operation",
+						backgroundOperationId: "op",
+					},
+				},
+			],
+			settle: () => Promise.resolve(),
+		},
+		handleUpload: () => Promise.resolve(),
+	});
+	void worker.consume();
+	await worker.maintain();
+	await worker.maintain();
+	expect(reconciliations).toBe(2);
+});
+
+test("settles a later completed lease while an earlier delivery is stuck", async () => {
+	const settled: string[] = [];
+	let signal: () => void = () => {
+		/* Assigned by the promise. */
+	};
+	const done = new Promise<void>((resolve) => {
+		signal = resolve;
+	});
+	const worker = createOperationWorker({
+		lifecycle: {
+			reconcile: () => Promise.resolve(),
+			publishOutbox: () => Promise.resolve(),
+			deliver: (id) =>
+				id === "stuck"
+					? new Promise(() => {
+							/* Intentionally stalled delivery. */
+						})
+					: Promise.resolve(),
+		},
+		queue: {
+			pull: async () =>
+				["stuck", "fast"].map((id) => ({
+					lease_id: id,
+					body: {
+						version: 3,
+						kind: "background-operation",
+						backgroundOperationId: id,
+					},
+				})),
+			settle: (acks) => {
+				settled.push(...acks);
+				signal();
+				return Promise.resolve();
+			},
+		},
+		handleUpload: () => Promise.resolve(),
+	});
+	void worker.poll();
+	await Promise.race([done, new Promise((resolve) => setTimeout(resolve, 50))]);
+	expect(settled).toEqual(["fast"]);
 });

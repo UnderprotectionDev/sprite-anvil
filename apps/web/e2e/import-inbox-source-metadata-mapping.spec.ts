@@ -7,7 +7,7 @@ import {
 } from "./source-metadata-mapping-fixture";
 
 const unresolvedConflictStatusPattern =
-	/alan çakışması var; öneri henüz kesinleşmedi\./;
+	/Field conflicts: 1\. The proposal is not finalized\./;
 
 test("creates and rereads the shared source metadata mapping proposal through the web flow", async ({
 	page,
@@ -24,11 +24,9 @@ test("creates and rereads the shared source metadata mapping proposal through th
 	const identityName = `${fixture.name} identity`;
 	const familyName = `${fixture.name} family`;
 	await page.goto("/context-proposals");
-	await page.getByLabel("Proje adı").fill(fixture.projectName);
-	await page
-		.getByLabel("General art direction")
-		.fill(fixture.generalArtDirection);
-	await page.getByRole("button", { name: "Projeyi oluştur" }).click();
+	await page.getByLabel("Project name").fill(fixture.projectName);
+	await page.getByLabel("Art direction").fill(fixture.generalArtDirection);
+	await page.getByRole("button", { name: "Create project" }).click();
 	await page
 		.getByRole("button", { name: "Visual Worlds and Themes", exact: true })
 		.click();
@@ -55,7 +53,7 @@ test("creates and rereads the shared source metadata mapping proposal through th
 	await page.goto("/projects");
 	await page
 		.getByRole("link", {
-			name: `${fixture.projectName} varlık kayıtlarını aç`,
+			name: `${fixture.projectName} open Asset Records`,
 		})
 		.click();
 	await page.getByRole("link", { name: "Import Inbox" }).click();
@@ -155,7 +153,7 @@ test("creates and rereads the shared source metadata mapping proposal through th
 		proposalDetails.getByText("Tag · walk", { exact: true })
 	).toBeVisible();
 	await expect(
-		proposalDetails.getByText("Süre · walk-0", { exact: true })
+		proposalDetails.getByText("Duration · walk-0", { exact: true })
 	).toBeVisible();
 	await expect(
 		proposalDetails.getByText(
@@ -177,7 +175,7 @@ test("creates and rereads the shared source metadata mapping proposal through th
 		})
 	).toBeDisabled();
 	await proposalDetails
-		.getByLabel("Kare · walk-0 (zorunlu)")
+		.getByLabel("Frame · walk-0 (zorunlu)")
 		.selectOption({ index: 1 });
 	await proposalDetails
 		.getByRole("button", {
@@ -212,14 +210,14 @@ test("creates and rereads the shared source metadata mapping proposal through th
 		rereadProposalDetails.getByText("Tag · walk", { exact: true })
 	).toBeVisible();
 	await expect(
-		rereadProposalDetails.getByText("Süre · walk-0", { exact: true })
+		rereadProposalDetails.getByText("Duration · walk-0", { exact: true })
 	).toBeVisible();
 	await rereadProposalDetails
 		.getByRole("link", { name: "Open Candidate Version" })
 		.click();
 	await expect(
 		page.getByText(
-			`${sourceMetadataMappingFixture.source.fileName} · Sürüm 1 · Aday`
+			`${sourceMetadataMappingFixture.source.fileName} · Version 1 · Candidate`
 		)
 	).toBeVisible();
 });

@@ -18,8 +18,7 @@ export const marketingUsageFixture = {
 export function readMarketingPreviewPresentation() {
 	const heading = Array.from(document.querySelectorAll("h3")).find(
 		(element) =>
-			element.textContent ===
-			"Logo ve Tanıtım Kullanımlarını Sınama · Anvil marketing"
+			element.textContent === "Test Logo and Marketing Uses · Anvil marketing"
 	);
 	if (!heading?.parentElement) {
 		throw new Error("Marketing review was not found.");

@@ -6,8 +6,8 @@ import {
 
 const readinessPlanUrl = /\/readiness-plan\?deliveryTargetId=/;
 const moveDownName = /^Move .* down$/;
-const familyListRevisionOne = /^Etkin Sürüm 1$/;
-const familyListRevisionTwo = /Sürüm 2/;
+const familyListRevisionOne = /^Active Version 1$/;
+const familyListRevisionTwo = /Version 2/;
 const rationaleTerms = [
 	"Target requirement",
 	"Work opened",

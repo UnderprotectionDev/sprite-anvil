@@ -30,7 +30,7 @@ describe("Delivery Planning", () => {
 		await $("//label[span[text()='Project name']]/input").setValue(
 			fixture.projectName
 		);
-		await $("//label[span[text()='General art direction']]/textarea").setValue(
+		await $("//label[span[text()='Art direction']]/textarea").setValue(
 			fixture.generalArtDirection
 		);
 		await (await $("button=Create project")).click();
@@ -41,7 +41,7 @@ describe("Delivery Planning", () => {
 		await (await $("button=Add Visual World")).click();
 		await $(`strong=${fixture.visualWorldName}`).waitForDisplayed();
 
-		await (await $("a=Projeler")).click();
+		await (await $("a=Projects")).click();
 		await (await $("a=Asset Families")).click();
 		await openWorkspaceTask("Family and representation relationships");
 		await $("input[id='subject-identity-name']").setValue(fixture.identityName);
@@ -74,7 +74,7 @@ describe("Delivery Planning", () => {
 				"//label[span[normalize-space()='Family for review and completion']]//select"
 			).selectByVisibleText(family.familyName);
 			await (await $("button=Add item")).click();
-			await $("//label[span[normalize-space()='Öğe adı']]//input").setValue(
+			await $("//label[span[normalize-space()='Item name']]//input").setValue(
 				family.itemName
 			);
 			await $(

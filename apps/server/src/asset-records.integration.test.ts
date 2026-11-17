@@ -567,6 +567,42 @@ test.skipIf(!databaseUrl)(
 				],
 				totalCount: 1,
 			});
+			// A legacy row keeps the Turkish-locale normalization used by older writes.
+			const legacyTagId = crypto.randomUUID();
+			await db.insert(assetRecords).values({
+				id: legacyTagId,
+				projectId,
+				createdByUserId: userId,
+				name: "Legacy tag",
+				identityCriteria: ["delivery_identity"],
+				supportLevel: "general",
+				availability: "active",
+				tags: ["ınventory"],
+			});
+			const tagSearch = await call(
+				appRouter.assetRecords.search,
+				{ projectId, tag: "INVENTORY", pagination: { limit: 10, offset: 0 } },
+				{ context: rereadContext }
+			);
+			expect(tagSearch.records.map(({ record }) => record.id).sort()).toEqual(
+				[created.id, legacyTagId].sort()
+			);
+			expect(tagSearch.totalCount).toBe(2);
+			const lowercaseTagSearch = await call(
+				appRouter.assetRecords.search,
+				{ projectId, tag: "inventory" },
+				{ context: rereadContext }
+			);
+			expect(
+				lowercaseTagSearch.records.map(({ record }) => record.id).sort()
+			).toEqual([created.id, legacyTagId].sort());
+			const missingTag = await call(
+				appRouter.assetRecords.search,
+				{ projectId, tag: "UNRELATED" },
+				{ context: rereadContext }
+			);
+			expect(missingTag.records).toEqual([]);
+			await db.delete(assetRecords).where(eq(assetRecords.id, legacyTagId));
 			// Newer records without matching dimensions must not consume a page slot.
 			const nonMatchingId = crypto.randomUUID();
 			await db.insert(assetRecords).values({

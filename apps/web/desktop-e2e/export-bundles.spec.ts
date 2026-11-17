@@ -34,7 +34,7 @@ describe("Export Bundles", () => {
 		await $("//label[span[text()='Project name']]/input").setValue(
 			fixture.projectName
 		);
-		await $("//label[span[text()='General art direction']]/textarea").setValue(
+		await $("//label[span[text()='Art direction']]/textarea").setValue(
 			fixture.generalArtDirection
 		);
 		await (await $("button=Create project")).click();

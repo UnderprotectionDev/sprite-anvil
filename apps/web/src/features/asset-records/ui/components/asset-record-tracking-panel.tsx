@@ -738,7 +738,7 @@ export function AssetRecordTrackingPanel({
 										</p>
 									)}
 									<p className="text-muted-foreground">
-										Beyan tarihi:{" "}
+										Attestation date:{" "}
 										<time dateTime={entry.createdAt}>
 											{new Intl.DateTimeFormat("tr-TR", {
 												dateStyle: "medium",

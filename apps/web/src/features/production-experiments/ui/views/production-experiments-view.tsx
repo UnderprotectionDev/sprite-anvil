@@ -329,10 +329,20 @@ function ExperimentDetail({
 				</div>
 			))}
 			{experiment.conclusion ? (
-				<p>
-					Conclusion: {experiment.conclusion.outcome}{" "}
-					{experiment.conclusion.note}
-				</p>
+				<div>
+					<p>
+						Conclusion: {experiment.conclusion.outcome}{" "}
+						{experiment.conclusion.note}
+					</p>
+					{!!experiment.conclusion.selectedTrialId && (
+						<p>
+							Selected trial:{" "}
+							{experiment.trials.find(
+								(trial) => trial.id === experiment.conclusion?.selectedTrialId
+							)?.label ?? experiment.conclusion.selectedTrialId}
+						</p>
+					)}
+				</div>
 			) : (
 				<>
 					<h3>Conclude</h3>

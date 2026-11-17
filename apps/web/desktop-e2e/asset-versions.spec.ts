@@ -3,7 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { $, browser } from "@wdio/globals";
 import { assetVersionFixture as fixture } from "../e2e/asset-version-fixture";
-import { openWorkspaceTask } from "./workspace-navigation";
+import {
+	openWorkspaceTask,
+	uploadFamilyCandidate,
+} from "./workspace-navigation";
 
 describe("Asset and Composite Version lineage", () => {
 	it("persists the same exact composition in the desktop flow", async function () {
@@ -75,7 +78,7 @@ describe("Asset and Composite Version lineage", () => {
 				fixture.projectName
 			);
 			await (
-				await $('//label[span[text()="General art direction"]]/textarea')
+				await $('//label[span[text()="Art direction"]]/textarea')
 			).setValue(fixture.generalArtDirection);
 			await (await $("button=Create project")).click();
 			await openWorkspaceTask("Visual Worlds and Themes");
@@ -85,7 +88,7 @@ describe("Asset and Composite Version lineage", () => {
 			await (await $("button=Add Visual World")).click();
 			await (await $(`strong=${fixture.visualWorldName}`)).waitForDisplayed();
 
-			await (await $("a=Projeler")).click();
+			await (await $("a=Projects")).click();
 			await (await $("a=Asset Families")).click();
 			await openWorkspaceTask("Family and representation relationships");
 			await (await $("input[id='subject-identity-name']")).setValue(
@@ -126,23 +129,19 @@ describe("Asset and Composite Version lineage", () => {
 				)
 			).waitForDisplayed();
 
-			await (
-				await $(
-					`input[aria-label='${fixture.sourceName} için Varlık Sürümü dosyası']`
-				)
-			).setValue(pngPath);
+			await uploadFamilyCandidate(fixture.sourceName, pngPath);
 			await (await $("p=Version 1 · Candidate")).waitForDisplayed();
 			const reviewRationale = "The silhouette matches the family design.";
 			await (await $("textarea[id^='review-rationale-']")).setValue(
 				reviewRationale
 			);
-			await (await $("button=Onayla")).click();
-			await (await $("p=Sürüm 1 · Approved")).waitForDisplayed();
-			await $(`li*=— Gerekçe: ${reviewRationale}`).waitForDisplayed();
+			await (await $("button=Approve")).click();
+			await (await $("p=Version 1 · Approved")).waitForDisplayed();
+			await $(`li*=— Rationale: ${reviewRationale}`).waitForDisplayed();
 			await (await $("time[datetime]")).waitForDisplayed();
 			await (await $("button=Select as Canonical Design")).click();
 			await $(
-				"p=Canonical Design: Ash Knight base · Sürüm 1"
+				"p=Canonical Design: Ash Knight base · Version 1"
 			).waitForDisplayed();
 
 			await openWorkspaceTask("Family and representation relationships");
@@ -156,7 +155,7 @@ describe("Asset and Composite Version lineage", () => {
 			await (await $("#relationship-target")).selectByVisibleText(
 				fixture.derivativeName
 			);
-			await (await $("button=İlişki ekle")).click();
+			await (await $("button=Add relationship")).click();
 			await openWorkspaceTask("Family catalog");
 			const lineage = await $(`li*=${fixture.visibleLineage}`);
 			await lineage.waitForDisplayed();
@@ -165,36 +164,38 @@ describe("Asset and Composite Version lineage", () => {
 			await uploadUnitCorrection({
 				filePath: frameV1Path,
 				key: "attack/frame-3",
-				sourceVersion: "Sürüm 1 · Onaylandı",
+				sourceVersion: "Version 1 · Approved",
 				type: "frame",
 			});
 			await (
-				await $("li*=Kare · attack/frame-3 · Birim Sürümü 1")
+				await $("li*=Frame · attack/frame-3 · Unit Version 1")
 			).waitForDisplayed();
 
 			await uploadUnitCorrection({
 				filePath: directionPath,
 				key: "north",
-				sourceVersion: "Sürüm 1 · Onaylandı",
+				sourceVersion: "Version 1 · Approved",
 				type: "direction",
 			});
-			await (await $("li*=Yön · north · Birim Sürümü 1")).waitForDisplayed();
+			await (
+				await $("li*=Direction · north · Unit Version 1")
+			).waitForDisplayed();
 
 			const sourceRecord = await getSourceRecord();
 			await (
 				await sourceRecord.$(
-					'xpath=.//label[span[text()="Kare · attack/frame-3"]]/select'
+					'xpath=.//label[span[text()="Frame · attack/frame-3"]]/select'
 				)
-			).selectByVisibleText("Birim Sürümü 1 · Varlık Sürümü 2 · Aday");
+			).selectByVisibleText("Unit Version 1 · Asset Version 2 · Candidate");
 			await (
 				await sourceRecord.$(
-					'xpath=.//label[span[text()="Yön · north"]]/select'
+					'xpath=.//label[span[text()="Direction · north"]]/select'
 				)
-			).selectByVisibleText("Birim Sürümü 1 · Varlık Sürümü 3 · Aday");
+			).selectByVisibleText("Unit Version 1 · Asset Version 3 · Candidate");
 			await (await $("button=Save new Composite Version")).click();
-			await (await $("h6=Composite Version 1 · Aday")).waitForDisplayed();
+			await (await $("h6=Composite Version 1 · Candidate")).waitForDisplayed();
 
-			const firstComposite = await $("h6=Composite Version 1 · Aday").$(
+			const firstComposite = await $("h6=Composite Version 1 · Candidate").$(
 				"xpath=ancestor::article[1]"
 			);
 			await (
@@ -202,29 +203,29 @@ describe("Asset and Composite Version lineage", () => {
 					'xpath=.//label[span[text()="Composite Version 1 review rationale"]]/textarea'
 				)
 			).setValue("The initial frame and direction were reviewed together.");
-			await (await firstComposite.$("button=Onayla")).click();
+			await (await firstComposite.$("button=Approve")).click();
 			await (await $("h6=Composite Version 1 · Approved")).waitForDisplayed();
 
 			await uploadUnitCorrection({
 				filePath: frameV2Path,
 				key: "attack/frame-3",
-				sourceVersion: "Sürüm 2 · Aday",
+				sourceVersion: "Version 2 · Candidate",
 				type: "frame",
 			});
 			await (
-				await $("li*=Kare · attack/frame-3 · Birim Sürümü 2")
+				await $("li*=Frame · attack/frame-3 · Unit Version 2")
 			).waitForDisplayed();
 
 			const correctedAssetVersion = await sourceRecord.$(
-				"xpath=.//p[normalize-space(.)='Sürüm 4 · Aday']/ancestor::li[1]"
+				"xpath=.//p[normalize-space(.)='Version 4 · Candidate']/ancestor::li[1]"
 			);
 			await (
 				await correctedAssetVersion.$(
 					'xpath=.//label[span[text()="Review rationale"]]/textarea'
 				)
 			).setValue("The corrected frame is ready for composition.");
-			await (await correctedAssetVersion.$("button=Onayla")).click();
-			await (await $("p=Sürüm 4 · Approved")).waitForDisplayed();
+			await (await correctedAssetVersion.$("button=Approve")).click();
+			await (await $("p=Version 4 · Approved")).waitForDisplayed();
 
 			const latestSourceRecord = await getSourceRecord();
 			await (
@@ -234,19 +235,19 @@ describe("Asset and Composite Version lineage", () => {
 			).selectByVisibleText("Composite Version 1 · Approved");
 			await (
 				await latestSourceRecord.$(
-					'xpath=.//label[span[text()="Kare · attack/frame-3"]]/select'
+					'xpath=.//label[span[text()="Frame · attack/frame-3"]]/select'
 				)
-			).selectByVisibleText("Birim Sürümü 2 · Varlık Sürümü 4 · Onaylandı");
+			).selectByVisibleText("Unit Version 2 · Asset Version 4 · Approved");
 			await (await $("button=Save new Composite Version")).click();
-			await (await $("h6=Composite Version 2 · Aday")).waitForDisplayed();
-			const secondComposite = await $("h6=Composite Version 2 · Aday").$(
+			await (await $("h6=Composite Version 2 · Candidate")).waitForDisplayed();
+			const secondComposite = await $("h6=Composite Version 2 · Candidate").$(
 				"xpath=ancestor::article[1]"
 			);
 			await (
-				await secondComposite.$("p=Kare · attack/frame-3 · Unit Version 2")
+				await secondComposite.$("p=Frame · attack/frame-3 · Unit Version 2")
 			).waitForDisplayed();
 			await (
-				await secondComposite.$("p=Yön · north · Unit Version 1")
+				await secondComposite.$("p=Direction · north · Unit Version 1")
 			).waitForDisplayed();
 			await (
 				await secondComposite.$("p=Asset Version 4 · Approved")
@@ -256,37 +257,37 @@ describe("Asset and Composite Version lineage", () => {
 			).$("xpath=ancestor::article[1]");
 			await (
 				await firstCompositeAfterEdit.$(
-					"p=Kare · attack/frame-3 · Unit Version 1"
+					"p=Frame · attack/frame-3 · Unit Version 1"
 				)
 			).waitForDisplayed();
 
 			await browser.refresh();
 			await openWorkspaceTask("Version and dependency operations");
-			await (await $("p=Sürüm 1 · Approved")).waitForDisplayed();
-			await $(`li*=— Gerekçe: ${reviewRationale}`).waitForDisplayed();
+			await (await $("p=Version 1 · Approved")).waitForDisplayed();
+			await $(`li*=— Rationale: ${reviewRationale}`).waitForDisplayed();
 			await (await $("time[datetime]")).waitForDisplayed();
 			await (await $(`li*=${fixture.visibleLineage}`)).waitForDisplayed();
 			await (await $("h6=Composite Version 1 · Approved")).waitForDisplayed();
-			await (await $("h6=Composite Version 2 · Aday")).waitForDisplayed();
+			await (await $("h6=Composite Version 2 · Candidate")).waitForDisplayed();
 			const persistedFirstComposite = await $(
 				"h6=Composite Version 1 · Approved"
 			).$("xpath=ancestor::article[1]");
 			await (
 				await persistedFirstComposite.$(
-					"p=Kare · attack/frame-3 · Unit Version 1"
+					"p=Frame · attack/frame-3 · Unit Version 1"
 				)
 			).waitForDisplayed();
 			await (
-				await persistedFirstComposite.$("p=Yön · north · Unit Version 1")
+				await persistedFirstComposite.$("p=Direction · north · Unit Version 1")
 			).waitForDisplayed();
-			const persistedComposite = await $("h6=Composite Version 2 · Aday").$(
-				"xpath=ancestor::article[1]"
-			);
+			const persistedComposite = await $(
+				"h6=Composite Version 2 · Candidate"
+			).$("xpath=ancestor::article[1]");
 			await (
-				await persistedComposite.$("p=Kare · attack/frame-3 · Unit Version 2")
+				await persistedComposite.$("p=Frame · attack/frame-3 · Unit Version 2")
 			).waitForDisplayed();
 			await (
-				await persistedComposite.$("p=Yön · north · Unit Version 1")
+				await persistedComposite.$("p=Direction · north · Unit Version 1")
 			).waitForDisplayed();
 			await (
 				await persistedComposite.$("p=Asset Version 4 · Approved")

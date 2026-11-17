@@ -19,7 +19,7 @@ export async function signUpWithFixture(page: Page, fixture: AccountFixture) {
 	await page.getByLabel("Password").fill(fixture.password);
 	await page.getByRole("button", { name: "Sign Up" }).click();
 	await expect(
-		page.getByRole("heading", { name: "Oyun projeleri" })
+		page.getByRole("heading", { name: "Game projects" })
 	).toBeVisible({ timeout: 30_000 });
 }
 
@@ -27,14 +27,14 @@ export async function createProjectFromProjectsView(
 	page: Page,
 	fixture: ProjectFixture
 ) {
-	await page.getByRole("link", { name: "Projeler" }).click();
-	await page.getByRole("button", { name: "Yeni oyun projesi" }).click();
-	const dialog = page.getByRole("dialog", { name: "Yeni oyun projesi" });
-	await dialog.getByLabel("Oyun projesi adı").fill(fixture.projectName);
+	await page.getByRole("link", { name: "Projects" }).click();
+	await page.getByRole("button", { name: "New game project" }).click();
+	const dialog = page.getByRole("dialog", { name: "New game project" });
+	await dialog.getByLabel("Game project name").fill(fixture.projectName);
 	await dialog
-		.getByLabel("Genel sanat yaklaşımı")
+		.getByLabel("General art direction")
 		.fill(fixture.generalArtDirection);
-	await dialog.getByRole("button", { name: "Proje oluştur" }).click();
+	await dialog.getByRole("button", { name: "Create project" }).click();
 	await expect(dialog).toHaveCount(0);
 	await expect(
 		page.getByRole("heading", { name: fixture.projectName })

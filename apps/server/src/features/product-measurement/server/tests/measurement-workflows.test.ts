@@ -73,6 +73,12 @@ test("boundaries replay, preserve started versions and reject private content", 
 	await activate(second);
 	await recorder.record({
 		...input,
+		eventName: "generation_package_prepared",
+		phase: "start",
+	});
+	expect(events.rows().map((event) => event.definitionId)).toEqual([first]);
+	await recorder.record({
+		...input,
 		phase: "finish",
 		eventName: "candidate_preview_reached",
 		outcomeClass: "preview_reached",

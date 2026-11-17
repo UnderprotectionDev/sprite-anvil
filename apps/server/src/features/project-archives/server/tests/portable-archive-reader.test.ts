@@ -180,3 +180,23 @@ test("rejects a manifest above the configured limit before reading its bytes", a
 	).rejects.toThrow("manifest exceeds");
 	expect(requestedOffsets).not.toContain(manifestOffset);
 });
+
+test("rejects an archive missing a required section even when its manifest agrees", async () => {
+	const { archive } = await portableArchiveFixture();
+	const section = archive.sections.find((item) => item.group === "foundation");
+	if (!section) {
+		throw new Error("Missing foundation section");
+	}
+	archive.sections = archive.sections.filter((item) => item !== section);
+	archive.manifest.contents = archive.manifest.contents.filter(
+		(item) => !(item.group === section.group && item.name === section.name)
+	);
+	const { recordContentDigest } = await import(
+		"@sprite-anvil/api/record-content-digest"
+	);
+	archive.manifestDigest = await recordContentDigest(archive.manifest);
+	const { verifyProjectArchive } = await import(
+		"@sprite-anvil/api/project-archives"
+	);
+	expect(await verifyProjectArchive(archive)).not.toEqual([]);
+});

@@ -10,8 +10,8 @@ import {
 	signUpWithFixture,
 } from "./project-workflow";
 
-const identityCheckboxName = /Bağımsız ürün anlamı/;
-const secondVersionCandidate = /ash-knight-alt\.png.*Sürüm 2.*Aday/;
+const identityCheckboxName = /Independent product meaning/;
+const secondVersionCandidate = /ash-knight-alt\.png.*Version 2.*Candidate/;
 
 test("persists an Asset Record created through the web flow", async ({
 	page,
@@ -26,7 +26,7 @@ test("persists an Asset Record created through the web flow", async ({
 
 	await page
 		.getByRole("link", {
-			name: `${assetRecordFixture.projectName} varlık kayıtlarını aç`,
+			name: `${assetRecordFixture.projectName} open Asset Records`,
 		})
 		.click();
 	await page.getByRole("button", { name: "New Asset Record" }).waitFor();
@@ -69,7 +69,7 @@ test("persists an Asset Record created through the web flow", async ({
 		await expect(
 			page.getByRole("heading", { name: scenario.name })
 		).toBeVisible();
-		await expect(page.getByText("Kayıt oluşturuldu")).toBeVisible();
+		await expect(page.getByText("Record created")).toBeVisible();
 		await Promise.all(
 			scenario.inputs.map(({ accessibleName, value }) =>
 				expect(page.getByLabel(accessibleName)).toHaveValue(value)
@@ -91,7 +91,7 @@ test("persists an Asset Version, review, quality result, and legacy history", as
 	await createProjectFromProjectsView(page, versionFixture);
 	await page
 		.getByRole("link", {
-			name: `${versionFixture.projectName} varlık kayıtlarını aç`,
+			name: `${versionFixture.projectName} open Asset Records`,
 		})
 		.click();
 	await page
@@ -112,7 +112,7 @@ test("persists an Asset Version, review, quality result, and legacy history", as
 	await page
 		.getByLabel("Unknown production history")
 		.fill("The original generation instruction is unavailable.");
-	await page.getByLabel("Bilinen kaynak").fill("Created for version tracking");
+	await page.getByLabel("Known source").fill("Created for version tracking");
 	await page
 		.getByLabel("Your relationship to the asset")
 		.selectOption("created_by_user");
@@ -124,7 +124,7 @@ test("persists an Asset Version, review, quality result, and legacy history", as
 		"Candidate Version saved."
 	);
 	await expect(
-		page.getByText("Dosya biçim imzası eşleşti (1 sürüm).")
+		page.getByText("File format signature matched (1 version).")
 	).toBeVisible();
 
 	await page
@@ -134,11 +134,11 @@ test("persists an Asset Version, review, quality result, and legacy history", as
 	await expect(page.getByRole("status")).toContainText(
 		"Approved Version saved."
 	);
-	await expect(page.getByText("ash-knight.png · Sürüm 1")).toBeVisible();
+	await expect(page.getByText("ash-knight.png · Version 1")).toBeVisible();
 	await expect(page.getByText("Created for version tracking")).toBeVisible();
 	await expect(
 		page.getByText(
-			"Bilinmeyen üretim geçmişi: The original generation instruction is unavailable."
+			"Unknown production history: The original generation instruction is unavailable."
 		)
 	).toBeVisible();
 	await expect(
@@ -155,7 +155,7 @@ test("persists an Asset Version, review, quality result, and legacy history", as
 	await page
 		.getByLabel("Unknown production history")
 		.fill("The alternative sketch instructions are unavailable.");
-	await page.getByLabel("Bilinen kaynak").fill("Alternative sketch");
+	await page.getByLabel("Known source").fill("Alternative sketch");
 	await page
 		.getByLabel("Your relationship to the asset")
 		.selectOption("received_from_team");
@@ -166,25 +166,25 @@ test("persists an Asset Version, review, quality result, and legacy history", as
 	);
 	await expect(page.getByText(secondVersionCandidate)).toBeVisible();
 	await expect(
-		page.getByText("Dosya biçim imzası eşleşti (2 sürüm).")
+		page.getByText("File format signature matched (2 version).")
 	).toBeVisible();
 
 	await page.reload();
-	await expect(page.getByText("ash-knight.png · Sürüm 1")).toBeVisible();
+	await expect(page.getByText("ash-knight.png · Version 1")).toBeVisible();
 	await expect(page.getByText(secondVersionCandidate)).toBeVisible();
 	await expect(
-		page.getByText("Dosya biçim imzası eşleşti (2 sürüm).")
+		page.getByText("File format signature matched (2 version).")
 	).toBeVisible();
 	await expect(page.getByText("Created for version tracking")).toBeVisible();
 	await expect(
 		page.getByText(
-			"Bilinmeyen üretim geçmişi: The original generation instruction is unavailable."
+			"Unknown production history: The original generation instruction is unavailable."
 		)
 	).toBeVisible();
 	await expect(page.getByText("Alternative sketch")).toBeVisible();
 	await expect(
 		page.getByText(
-			"Bilinmeyen üretim geçmişi: The alternative sketch instructions are unavailable."
+			"Unknown production history: The alternative sketch instructions are unavailable."
 		)
 	).toBeVisible();
 	await expect(page.getByText("Team handoff note.")).toBeVisible();
@@ -209,7 +209,7 @@ test("archives and restores an Asset Record through the web flow", async ({
 	await createProjectFromProjectsView(page, fixture);
 	await page
 		.getByRole("link", {
-			name: `${fixture.projectName} varlık kayıtlarını aç`,
+			name: `${fixture.projectName} open Asset Records`,
 		})
 		.click();
 	await page

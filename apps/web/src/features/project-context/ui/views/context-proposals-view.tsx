@@ -70,18 +70,13 @@ export function ContextProposalsView() {
 		orpc.contextProposals.copyStyleModule.mutationOptions()
 	);
 	async function styleProposal(action: () => Promise<unknown>) {
-		try {
-			await action();
-			await queryClient.invalidateQueries({
-				queryKey: proposalsQueryOptions.queryKey,
-			});
-			toast.success("Style Module proposal created.");
-		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : "Could not create proposal."
-			);
-		}
+		await action();
+		toast.success("Style Module proposal created.");
+		void queryClient.invalidateQueries({
+			queryKey: proposalsQueryOptions.queryKey,
+		});
 	}
+
 	const [projectFormOpen, setProjectFormOpen] = useState(false);
 	const [projectCreateOutcomeUncertain, setProjectCreateOutcomeUncertain] =
 		useState(false);

@@ -67,7 +67,12 @@ const notRecordedSectionSchema = z
 	.strict();
 
 export const deliveryEvidencePinSchema = z
-	.object({ key: z.string(), label: z.string(), contentDigest: z.string() })
+	.object({
+		key: z.string(),
+		label: z.string(),
+		contentDigest: z.string(),
+		details: z.string().optional(),
+	})
 	.strict();
 export type DeliveryEvidencePin = z.infer<typeof deliveryEvidencePinSchema>;
 export const deliveryEvidenceSectionSchema = z.discriminatedUnion("status", [

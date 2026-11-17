@@ -56,13 +56,13 @@ test("reviews portrait expressions in dialogue and rereads exact crop and user j
 	const approval = await approvalResponse;
 	expect(approval.ok(), await approval.text()).toBe(true);
 	await expect(
-		neutral.getByRole("paragraph").filter({ hasText: "Sürüm 1 · Onaylandı" })
+		neutral.getByRole("paragraph").filter({ hasText: "Version 1 · Approved" })
 	).toBeVisible();
 	await neutral
 		.getByRole("button", { name: "Select as Canonical Design" })
 		.click();
 	await expect(
-		page.getByText("Ana Tasarım seçildi.", { exact: true })
+		page.getByText("Canonical Design selected.", { exact: true })
 	).toBeVisible();
 	await page
 		.getByRole("button", {

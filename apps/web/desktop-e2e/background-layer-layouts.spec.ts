@@ -48,24 +48,24 @@ describe("Background Layer Layout", () => {
 			await $("//label[span[text()='Project name']]/input").setValue(
 				fixture.projectName
 			);
-			await $(
-				"//label[span[text()='General art direction']]/textarea"
-			).setValue(fixture.generalArtDirection);
+			await $("//label[span[text()='Art direction']]/textarea").setValue(
+				fixture.generalArtDirection
+			);
 			await (await $("button=Create project")).click();
-			await openWorkspaceTask("Visual Worldlar ve Temalar");
+			await openWorkspaceTask("Visual Worlds and Themes");
 			await $("input[placeholder='e.g. High plateaus']").setValue(
 				fixture.visualWorldName
 			);
-			await (await $("button=Visual World ekle")).click();
+			await (await $("button=Add Visual World")).click();
 			await $(`strong=${fixture.visualWorldName}`).waitForDisplayed();
 
-			await (await $("a=Projeler")).click();
+			await (await $("a=Projects")).click();
 			await (await $("a=Asset Families")).click();
 			await openWorkspaceTask("Family and representation relationships");
 			await $("input[id='subject-identity-name']").setValue(
 				fixture.identityName
 			);
-			await (await $("button=Asset Identity oluştur")).click();
+			await (await $("button=Create Subject Identity")).click();
 			await openWorkspaceTask("Family catalog");
 			await $(`h2=${fixture.identityName}`).waitForDisplayed();
 			await openWorkspaceTask("Family and representation relationships");
@@ -96,7 +96,7 @@ describe("Background Layer Layout", () => {
 					.$("p=No versions saved yet.")
 					.waitForDisplayed({ timeout: 20_000 });
 
-				await (await recordItem.$("a=Asset Version yükle")).click();
+				await (await recordItem.$("a=Upload Asset Version")).click();
 				await openWorkspaceTask("Record details");
 				await $("#asset-record-metadata-category").selectByVisibleText(
 					fixture.categoryLabel

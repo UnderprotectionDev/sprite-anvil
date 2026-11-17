@@ -1,12 +1,17 @@
 import { useState } from "react";
 import { StatusMessage } from "@/components/status-message";
+import { client } from "@/utils/orpc";
 
 export function AssetVersionPreview({
 	recordName,
+	projectId,
+	assetVersionId,
 	url,
 	versionNumber,
 }: {
 	recordName: string;
+	projectId?: string;
+	assetVersionId?: string;
 	url: string;
 	versionNumber: number;
 }) {
@@ -28,6 +33,15 @@ export function AssetVersionPreview({
 				height={128}
 				loading="lazy"
 				onError={() => setFailed(true)}
+				onLoad={() => {
+					if (projectId && assetVersionId && navigator.onLine) {
+						void client.measurementEvents
+							.recordCandidatePreviewBoundary({ projectId, assetVersionId })
+							.catch(() => {
+								// Measurement must not affect the preview.
+							});
+					}
+				}}
 				src={url}
 				width={128}
 			/>

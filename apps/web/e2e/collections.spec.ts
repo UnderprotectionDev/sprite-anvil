@@ -5,7 +5,7 @@ import {
 	signUpWithFixture,
 } from "./project-workflow";
 
-const identityCheckboxName = /Bağımsız ürün anlamı/;
+const identityCheckboxName = /Independent product meaning/;
 
 test("persists Collection membership changes through the web flow", async ({
 	page,
@@ -20,7 +20,7 @@ test("persists Collection membership changes through the web flow", async ({
 	await createProjectFromProjectsView(page, fixture);
 	await page
 		.getByRole("link", {
-			name: `${fixture.projectName} varlık kayıtlarını aç`,
+			name: `${fixture.projectName} open Asset Records`,
 		})
 		.click();
 	await page
@@ -31,10 +31,10 @@ test("persists Collection membership changes through the web flow", async ({
 	await page.getByRole("button", { name: "Create Asset Record" }).click();
 	await expect(page.getByRole("heading", { name: fixture.name })).toBeVisible();
 
-	await page.getByRole("link", { name: "Projeler" }).click();
+	await page.getByRole("link", { name: "Projects" }).click();
 	await page
 		.getByRole("link", {
-			name: `${fixture.projectName} koleksiyonlarını düzenle`,
+			name: `${fixture.projectName} manage Collections`,
 		})
 		.click();
 	const collectionName = `Planning ${fixture.name}`;
@@ -46,7 +46,7 @@ test("persists Collection membership changes through the web flow", async ({
 
 	await page
 		.getByLabel("Asset Record")
-		.selectOption({ label: `${fixture.name} · Varlık Ailesi atanmamış` });
+		.selectOption({ label: `${fixture.name} · No Asset Family assigned` });
 	await page.getByRole("button", { name: "Add to Collection" }).click();
 	await expect(
 		page.getByRole("heading", { name: fixture.name, level: 3 })
@@ -58,7 +58,7 @@ test("persists Collection membership changes through the web flow", async ({
 
 	await page
 		.getByRole("button", {
-			name: `${fixture.name} Varlık Kaydını Koleksiyondan kaldır`,
+			name: `${fixture.name} Remove Asset Record from Collection`,
 		})
 		.click();
 	await expect(

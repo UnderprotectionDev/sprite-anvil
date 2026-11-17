@@ -18,7 +18,7 @@ describe("Collections", () => {
 		await (await $("button=Sign Up")).click();
 		await (await $("h1=Game projects")).waitForDisplayed();
 
-		await (await $("a=Projeler")).click();
+		await (await $("a=Projects")).click();
 		await openWorkspaceTask("New game project");
 		await (await $("input#project-name")).setValue(fixture.projectName);
 		await (await $("textarea#project-art-direction")).setValue(
@@ -26,10 +26,10 @@ describe("Collections", () => {
 		);
 		await (await $("button=Create project")).click();
 		await (
-			await $(`a[aria-label="${fixture.projectName} varlık kayıtlarını aç"]`)
+			await $(`a[aria-label="${fixture.projectName} open Asset Records"]`)
 		).waitForClickable();
 		await (
-			await $(`a[aria-label="${fixture.projectName} varlık kayıtlarını aç"]`)
+			await $(`a[aria-label="${fixture.projectName} open Asset Records"]`)
 		).click();
 
 		await openWorkspaceTask("New Asset Record");
@@ -38,12 +38,12 @@ describe("Collections", () => {
 		await (await $("button=Create Asset Record")).click();
 		await (await $(`h1=${fixture.name}`)).waitForDisplayed();
 
-		await (await $("a=Projeler")).click();
+		await (await $("a=Projects")).click();
 		await (
-			await $(`a[aria-label="${fixture.projectName} koleksiyonlarını düzenle"]`)
+			await $(`a[aria-label="${fixture.projectName} manage Collections"]`)
 		).waitForClickable();
 		await (
-			await $(`a[aria-label="${fixture.projectName} koleksiyonlarını düzenle"]`)
+			await $(`a[aria-label="${fixture.projectName} manage Collections"]`)
 		).click();
 
 		const collectionName = `Planning ${fixture.name}`;
@@ -51,7 +51,7 @@ describe("Collections", () => {
 		await (await $("button=Create Collection")).click();
 		await (await $(`h2=${collectionName}`)).waitForDisplayed();
 		await (await $("select#collection-asset-record")).selectByVisibleText(
-			`${fixture.name} · Varlık Ailesi atanmamış`
+			`${fixture.name} · No Asset Family assigned`
 		);
 		await (await $("button=Add to Collection")).click();
 		await (await $(`h3=${fixture.name}`)).waitForDisplayed();
@@ -60,7 +60,7 @@ describe("Collections", () => {
 
 		await (
 			await $(
-				`button[aria-label="${fixture.name} Varlık Kaydını Koleksiyondan kaldır"]`
+				`button[aria-label="${fixture.name} Remove Asset Record from Collection"]`
 			)
 		).click();
 		await $("p=This Collection has no Asset Records yet.").waitForDisplayed();

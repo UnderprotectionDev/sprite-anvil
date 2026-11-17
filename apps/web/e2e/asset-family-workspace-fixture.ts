@@ -43,11 +43,9 @@ export async function prepareAssetFamilyWorkspace(
 	await signUpWithFixture(page, fixture);
 
 	await page.goto("/context-proposals");
-	await page.getByLabel("Proje adı").fill(fixture.projectName);
-	await page
-		.getByLabel("General art direction")
-		.fill(fixture.generalArtDirection);
-	await page.getByRole("button", { name: "Projeyi oluştur" }).click();
+	await page.getByLabel("Project name").fill(fixture.projectName);
+	await page.getByLabel("Art direction").fill(fixture.generalArtDirection);
+	await page.getByRole("button", { name: "Create project" }).click();
 	await page
 		.getByRole("button", { name: "Visual Worlds and Themes", exact: true })
 		.click();
@@ -158,7 +156,7 @@ export async function prepareAssetFamilyWorkspace(
 		});
 		await page.getByLabel("Unknown production history").fill(record.uploadNote);
 		await page
-			.getByLabel("Bilinen kaynak", { exact: true })
+			.getByLabel("Known source", { exact: true })
 			.fill("Asset family comparison browser fixture");
 		await page
 			.getByLabel("Your relationship to the asset")
@@ -214,7 +212,7 @@ export async function activateFamilyProfile(
 	contractVersion: string
 ) {
 	await page
-		.getByRole("link", { name: "Specialized Profile Contracts", exact: true })
+		.getByRole("link", { name: "Profile Contracts", exact: true })
 		.click();
 	await page.getByRole("button", { name: contractName, exact: true }).click();
 	const profile = page.getByRole("article", {

@@ -241,6 +241,8 @@ function AssetVersionEntry({
 	return (
 		<li className="grid gap-3 rounded-md border p-3 sm:grid-cols-[8rem_1fr]">
 			<AssetVersionPreview
+				assetVersionId={version.id}
+				projectId={version.projectId}
 				recordName={recordName}
 				url={`${serverUrl}${version.previewUrl}`}
 				versionNumber={version.versionNumber}

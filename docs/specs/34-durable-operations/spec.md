@@ -40,6 +40,8 @@ Tamamlanma kanıtı: Kesinti ve yinelenen teslim altında her iş tek kesin sonu
 
 ## Testing Decisions
 
+- **İlerleme kontrol noktası seam’i:** Çalışan denemenin kontrol noktası mevcut ilerlemeyi koruyarak heartbeat günceller; sonraki ilerleme durursa uzlaştırma işlemi yeniden dener. Değişen deneme veya iptal isteği eski yürütücünün kontrol noktasında durdurulur.
+
 - Kabuktaki işlem alanı, yetkili proje kapsamındaki etkin ve başarısız Background Operation sayılarını gösterir; `operations-dock.test.tsx` yükleme ve hata durumlarını, `background-operations.test.ts` özetin yetki ve tam sayım sözleşmesini sınar.
 
 - **Birincil test seam’i:** YAS-03, YAS-04 örneklerinde kesin girdiyi kullanıcı eyleminden kalıcı kayda ve yeniden okumaya taşıyan sunucu/API yolunu sınama; web ve masaüstü görünür sonuçlarını karşılaştırma.

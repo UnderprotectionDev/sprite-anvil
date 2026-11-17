@@ -36,9 +36,9 @@ describe("Asset Family Comparison", () => {
 			await $("//label[span[text()='Project name']]/input").setValue(
 				fixture.projectName
 			);
-			await $(
-				"//label[span[text()='General art direction']]/textarea"
-			).setValue(fixture.generalArtDirection);
+			await $("//label[span[text()='Art direction']]/textarea").setValue(
+				fixture.generalArtDirection
+			);
 			await (await $("button=Create project")).click();
 			await openWorkspaceTask("Visual Worlds and Themes");
 			await $("input[placeholder='e.g. High plateaus']").setValue(
@@ -47,7 +47,7 @@ describe("Asset Family Comparison", () => {
 			await (await $("button=Add Visual World")).click();
 			await $(`strong=${fixture.visualWorldName}`).waitForDisplayed();
 
-			await (await $("a=Projeler")).click();
+			await (await $("a=Projects")).click();
 			await (await $("a=Asset Families")).click();
 			await openWorkspaceTask("Family and representation relationships");
 			await $("input[id='subject-identity-name']").setValue(
@@ -118,7 +118,7 @@ describe("Asset Family Comparison", () => {
 				"1.0.0"
 			);
 
-			const section = `section[aria-label='${fixture.familyName} durum ve yön ailesi karşılaştırması']`;
+			const section = `section[aria-label='${fixture.familyName} state and direction family comparison']`;
 			let comparison = await $(section);
 			await comparison.waitForDisplayed({ timeout: 20_000 });
 			await (

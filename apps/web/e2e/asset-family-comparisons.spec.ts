@@ -4,7 +4,7 @@ import { prepareAssetFamilyComparisonWorkspace } from "./asset-family-comparison
 const scaleObservation = "Her iki sandık aynı ızgara ölçeğini kullanıyor.";
 const closedCrateCheckboxName = /Kapalı sandık/;
 const openCrateCheckboxName = /Açık sandık/;
-const persistedRecordButtonName = /· 2 Varlık Sürümü/;
+const persistedRecordButtonName = /· 2 Asset Version/;
 
 test("compares current versions from two Asset Records and reopens the persisted comparison", async ({
 	page,
@@ -54,10 +54,10 @@ test("compares current versions from two Asset Records and reopens the persisted
 	await persistedRecord.click();
 	await expect(comparison.getByText(scaleObservation)).toBeVisible();
 	await expect(
-		comparison.getByRole("heading", { name: "Kapalı sandık · Varlık Sürümü 1" })
+		comparison.getByRole("heading", { name: "Kapalı sandık · Asset Version 1" })
 	).toBeVisible();
 	await expect(
-		comparison.getByRole("heading", { name: "Açık sandık · Varlık Sürümü 1" })
+		comparison.getByRole("heading", { name: "Açık sandık · Asset Version 1" })
 	).toBeVisible();
 	await expect(
 		comparison.getByRole("button", { name: "Save comparison" })

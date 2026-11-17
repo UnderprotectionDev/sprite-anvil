@@ -19,6 +19,10 @@ import {
 	createProjectArchiveImportOperations,
 } from "./features/project-archives/server/project-archive-import-operations";
 import {
+	createProjectArchiveOperations,
+	type ProjectArchiveOperationsOptions,
+} from "./features/project-archives/server/project-archive-operations";
+import {
 	createProjectArchiveRestoreOperations,
 	type ProjectArchiveRestoreOperationsOptions,
 } from "./features/project-archives/server/project-archive-restore-operations";
@@ -32,6 +36,10 @@ export function createManagedOperationServices(options: {
 	db: Database;
 	storage: OperationStorage;
 	transport: OperationTransport;
+	archiveOptions?: Omit<
+		ProjectArchiveOperationsOptions,
+		"operations" | "permanentFailure"
+	>;
 	restoreOptions?: Omit<
 		ProjectArchiveRestoreOperationsOptions,
 		"operations" | "permanentFailure"
@@ -45,6 +53,13 @@ export function createManagedOperationServices(options: {
 	};
 	const permanentFailure = (message: string) =>
 		new PermanentOperationError(message);
+	const archive =
+		options.archiveOptions &&
+		createProjectArchiveOperations(options.db, {
+			...options.archiveOptions,
+			operations,
+			permanentFailure,
+		});
 	const restore =
 		options.restoreOptions &&
 		createProjectArchiveRestoreOperations(options.db, {
@@ -67,8 +82,12 @@ export function createManagedOperationServices(options: {
 			permanentFailure,
 			transientFailure: (message) => new TransientOperationError(message),
 		});
-	const handlers: Partial<Record<"restore" | "deletion", OperationHandler>> =
-		{};
+	const handlers: Partial<
+		Record<"archive" | "restore" | "deletion", OperationHandler>
+	> = {};
+	if (archive) {
+		handlers.archive = archive.execute;
+	}
 	if (restore || archiveImport) {
 		handlers.restore = async (context) => {
 			const { operation } = context;
@@ -98,6 +117,7 @@ export function createManagedOperationServices(options: {
 	});
 	return {
 		lifecycle,
+		projectArchiveOperations: archive,
 		projectArchiveRestoreOperations: restore,
 		projectArchiveImportOperations: archiveImport,
 		erasureApprovalOperations: erasure,

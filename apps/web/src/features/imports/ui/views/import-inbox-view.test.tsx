@@ -127,7 +127,7 @@ test("uploads a source file and shows the persisted unresolved Import Inbox Entr
 		"hero source.aseprite",
 		{ type: "application/octet-stream" }
 	);
-	fireEvent.change(screen.getByLabelText("Dosyalar"), {
+	fireEvent.change(screen.getByLabelText("Files"), {
 		target: { files: [file] },
 	});
 	fireEvent.click(
@@ -136,7 +136,7 @@ test("uploads a source file and shows the persisted unresolved Import Inbox Entr
 
 	expect(await screen.findByText("hero source.aseprite")).toBeInTheDocument();
 	expect(screen.getByText(unresolvedStatusPattern)).toBeInTheDocument();
-	fireEvent.click(screen.getByRole("button", { name: "Bekleyen dosyalar" }));
+	fireEvent.click(screen.getByRole("button", { name: "Pending files" }));
 	expect(screen.getByRole("link", { name: "Download file" })).toHaveAttribute(
 		"href",
 		"http://localhost:3000/api/projects/" +
@@ -188,7 +188,7 @@ test("uploads and rereads an empty source file", async () => {
 	const file = new File([], "empty source.aseprite", {
 		type: "application/octet-stream",
 	});
-	fireEvent.change(screen.getByLabelText("Dosyalar"), {
+	fireEvent.change(screen.getByLabelText("Files"), {
 		target: { files: [file] },
 	});
 	fireEvent.click(
@@ -240,7 +240,7 @@ test("shows a support reference and checks the inbox after an uncertain server r
 		"hero source.aseprite",
 		{ type: "application/octet-stream" }
 	);
-	fireEvent.change(screen.getByLabelText("Dosyalar"), {
+	fireEvent.change(screen.getByLabelText("Files"), {
 		target: { files: [file] },
 	});
 	fireEvent.click(
@@ -280,7 +280,7 @@ test("does not retry an upload when the connection result is unknown", async () 
 		"hero source.aseprite",
 		{ type: "application/octet-stream" }
 	);
-	fireEvent.change(screen.getByLabelText("Dosyalar"), {
+	fireEvent.change(screen.getByLabelText("Files"), {
 		target: { files: [file] },
 	});
 	fireEvent.click(
@@ -327,7 +327,7 @@ test("shows the support reference for a failed inbox read and retries the query"
 	expect(
 		screen.getByText(`Support reference: ${supportReference}`)
 	).toBeInTheDocument();
-	fireEvent.click(screen.getByRole("button", { name: "Bekleyen dosyalar" }));
+	fireEvent.click(screen.getByRole("button", { name: "Pending files" }));
 	fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 	expect(
 		await screen.findByText("No files await linking yet.")
@@ -486,7 +486,7 @@ test("creates and rereads a source metadata proposal from explicitly selected si
 	);
 
 	await screen.findByText("opaque-sidecar");
-	fireEvent.click(screen.getByRole("button", { name: "Bekleyen dosyalar" }));
+	fireEvent.click(screen.getByRole("button", { name: "Pending files" }));
 	const sourcePanel = within(
 		screen.getByRole("region", {
 			name: "Source Metadata Mapping Proposal for sheet.png",

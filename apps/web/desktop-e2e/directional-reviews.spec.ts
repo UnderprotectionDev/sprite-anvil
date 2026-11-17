@@ -6,6 +6,7 @@ import { assetVersionFixture as fixture } from "../e2e/asset-version-fixture";
 import {
 	activateFamilyProfile,
 	openWorkspaceTask,
+	uploadFamilyCandidate,
 } from "./workspace-navigation";
 
 describe("Directional Review", () => {
@@ -39,20 +40,20 @@ describe("Directional Review", () => {
 				await $('//label[span[text()="Art direction"]]/textarea')
 			).setValue(fixture.generalArtDirection);
 			await (await $("button=Create project")).click();
-			await openWorkspaceTask("Visual Worldlar ve Temalar");
+			await openWorkspaceTask("Visual Worlds and Themes");
 			await (await $("input[placeholder='e.g. High plateaus']")).setValue(
 				fixture.visualWorldName
 			);
-			await (await $("button=Visual World ekle")).click();
+			await (await $("button=Add Visual World")).click();
 			await (await $(`strong=${fixture.visualWorldName}`)).waitForDisplayed();
 
-			await (await $("a=Projeler")).click();
+			await (await $("a=Projects")).click();
 			await (await $("a=Asset Families")).click();
 			await openWorkspaceTask("Family and representation relationships");
 			await (await $("input[id='subject-identity-name']")).setValue(
 				fixture.identityName
 			);
-			await (await $("button=Asset Identity oluştur")).click();
+			await (await $("button=Create Subject Identity")).click();
 			await openWorkspaceTask("Family catalog");
 			await (await $(`h2=${fixture.identityName}`)).waitForDisplayed();
 			await openWorkspaceTask("Family and representation relationships");
@@ -83,21 +84,17 @@ describe("Directional Review", () => {
 			);
 			await (await $("button=Add Asset Record")).click();
 			await openWorkspaceTask("Version and dependency operations");
-			await (
-				await $(
-					`input[aria-label='${fixture.sourceName} için Varlık Sürümü dosyası']`
-				)
-			).setValue(pngPath);
+			await uploadFamilyCandidate(fixture.sourceName, pngPath);
 			await (await $("p=Version 1 · Candidate")).waitForDisplayed();
 			const reviewRationale = "The silhouette matches the family design.";
 			await (await $("textarea[id^='review-rationale-']")).setValue(
 				reviewRationale
 			);
-			await (await $("button=Onayla")).click();
-			await (await $("p=Sürüm 1 · Approved")).waitForDisplayed();
+			await (await $("button=Approve")).click();
+			await (await $("p=Version 1 · Approved")).waitForDisplayed();
 			await (await $("button=Select as Canonical Design")).click();
 			await $(
-				"p=Canonical Design: Ash Knight base · Sürüm 1"
+				"p=Canonical Design: Ash Knight base · Version 1"
 			).waitForDisplayed();
 
 			await activateFamilyProfile(

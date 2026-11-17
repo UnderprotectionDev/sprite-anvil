@@ -17,13 +17,13 @@ test("persists a Specialized Profile Contract activation through the web flow", 
 	await createProjectFromProjectsView(page, fixture);
 	await page
 		.getByRole("link", {
-			name: `${fixture.projectName} özel profil sözleşmelerini yönet`,
+			name: `${fixture.projectName} manage Specialized Profile Contracts`,
 		})
 		.click();
 
 	await expect(
 		page.getByRole("heading", {
-			name: `${fixture.projectName} · Özel Profil Sözleşmeleri`,
+			name: `${fixture.projectName} · Specialized Profile Contracts`,
 		})
 	).toBeVisible();
 	await page.getByRole("button", { name: "Icon", exact: true }).click();

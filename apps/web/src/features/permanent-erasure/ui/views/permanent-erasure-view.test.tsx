@@ -247,6 +247,9 @@ test("a changed report rejection unlocks preparation and a new digest resets ack
 	expect(screen.getByLabelText("Asset Record")).toBeEnabled();
 	await user.click(prepare);
 	await waitFor(() => expect(api.prepare).toHaveBeenCalledTimes(2));
+	expect(api.prepare.mock.calls[1][0].idempotencyKey).not.toBe(
+		api.prepare.mock.calls[0][0].idempotencyKey
+	);
 	await waitFor(() =>
 		expect(
 			screen.getByRole("checkbox", { name: "I confirm these counts" })

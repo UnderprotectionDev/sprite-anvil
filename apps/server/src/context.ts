@@ -129,6 +129,8 @@ export async function createContext({
 		erasureImpactStore,
 		erasureApprovalOperations:
 			managedOperationServices?.erasureApprovalOperations,
+		projectArchiveOperations:
+			managedOperationServices?.projectArchiveOperations,
 		projectArchiveRestoreOperations:
 			managedOperationServices?.projectArchiveRestoreOperations,
 		exportBundleStore,

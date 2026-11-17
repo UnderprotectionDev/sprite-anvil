@@ -19,7 +19,6 @@ import { previewBatchReview } from "../batch-version-review";
 import type { Context } from "../context";
 import { protectedProcedure } from "../index";
 import { recordRepairedReview } from "../measurement-review-lineage";
-import { recordProductBoundary } from "../measurement-workflows";
 import {
 	manualImportEvidenceInputSchema,
 	manualImportEvidenceSummarySchema,
@@ -405,17 +404,7 @@ export const assetVersionsRouter = {
 				});
 			}
 			const evidence = manualImportEvidenceSummarySchema.parse(result.evidence);
-			await recordProductBoundary(context, {
-				userId: context.session.user.id,
-				projectId: input.projectId,
-				workflowId: input.generationPackageId,
-				eventFamily: "production_workflow",
-				eventName: "candidate_preview_reached",
-				phase: "finish",
-				recordKind: "asset_version",
-				outcomeClass: "preview_reached",
-				counters: {},
-			});
+
 			return evidence;
 		}),
 	selectCanonicalDesign: protectedProcedure

@@ -8,7 +8,9 @@ import { Checkbox } from "@sprite-anvil/ui/components/checkbox";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { NativeSelect } from "@sprite-anvil/ui/components/native-select";
 import { useForm } from "@tanstack/react-form";
+import { useState } from "react";
 import type { z } from "zod";
+import { createPendingIdempotencyKey } from "@/utils/pending-idempotency-key";
 
 type CreateInput = z.infer<typeof styleModuleCreateInputSchema>;
 type CopyInput = z.infer<typeof styleModuleCopyInputSchema>;
@@ -23,6 +25,19 @@ export function StyleModules({
 	create: (input: CreateInput) => Promise<unknown>;
 	copy: (input: CopyInput) => Promise<unknown>;
 }) {
+	const [pendingKeys] = useState(
+		() => new Map<string, ReturnType<typeof createPendingIdempotencyKey>>()
+	);
+	function keyFor(operation: string, input: object) {
+		const fingerprint = `${operation}:${JSON.stringify(input)}`;
+		let pending = pendingKeys.get(fingerprint);
+		if (!pending) {
+			pending = createPendingIdempotencyKey();
+			pendingKeys.set(fingerprint, pending);
+		}
+		return { fingerprint, key: pending.keyFor(fingerprint) };
+	}
+	const [error, setError] = useState<string | null>(null);
 	const rules = project.currentContextRevision.rules.filter(
 		(rule) => !rule.styleModule
 	);
@@ -41,7 +56,7 @@ export function StyleModules({
 	const form = useForm({
 		defaultValues: { name: "", selected: [] as string[] },
 		onSubmit: async ({ value }) => {
-			await create({
+			const input = {
 				projectId: project.id,
 				baseContextRevisionId: project.currentContextRevision.id,
 				name: value.name,
@@ -52,7 +67,17 @@ export function StyleModules({
 						)
 					)
 					.map((rule) => ({ ruleId: rule.id, scope: rule.scope })),
-			});
+			};
+			try {
+				const pending = keyFor("create", input);
+				await create({ ...input, idempotencyKey: pending.key });
+				pendingKeys.delete(pending.fingerprint);
+				setError(null);
+			} catch (cause) {
+				setError(
+					cause instanceof Error ? cause.message : "Could not create proposal."
+				);
+			}
 		},
 	});
 	const copyForm = useForm({
@@ -60,19 +85,32 @@ export function StyleModules({
 		onSubmit: async ({ value }) => {
 			const source = sources.find((item) => item.module.id === value.selection);
 			if (source) {
-				await copy({
+				const input = {
 					projectId: project.id,
 					baseContextRevisionId: project.currentContextRevision.id,
 					sourceProjectId: source.project.id,
 					sourceRevisionId: source.project.currentContextRevision.id,
 					moduleId: source.module.id,
-				});
+				};
+				try {
+					const pending = keyFor("copy", input);
+					await copy({ ...input, idempotencyKey: pending.key });
+					pendingKeys.delete(pending.fingerprint);
+					setError(null);
+				} catch (cause) {
+					setError(
+						cause instanceof Error
+							? cause.message
+							: "Could not create proposal."
+					);
+				}
 			}
 		},
 	});
 	return (
 		<section>
 			<h2>Style Modules</h2>
+			{error ? <p role="alert">{error}</p> : null}
 			<p>
 				Group rules or copy a module into a proposal. Copies use the receiving
 				project scope. Activate the proposal to apply it.

@@ -211,6 +211,21 @@ function EvidenceChanges({ section }: { section: DeliveryEvidenceSection }) {
 							<strong>{change.kind}</strong>:{" "}
 							{change.from?.label ?? "No previous evidence"} →{" "}
 							{change.to?.label ?? "No evidence on this side"}
+							{change.kind === "changed" &&
+								change.from?.details &&
+								change.to?.details && (
+									<details>
+										<summary>Evidence details</summary>
+										<p>Before</p>
+										<pre className="overflow-auto whitespace-pre-wrap">
+											{change.from.details}
+										</pre>
+										<p>After</p>
+										<pre className="overflow-auto whitespace-pre-wrap">
+											{change.to.details}
+										</pre>
+									</details>
+								)}
 						</li>
 					))}
 				</ul>

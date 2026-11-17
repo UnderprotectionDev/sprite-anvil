@@ -72,10 +72,10 @@ describe("Generation Packages", () => {
 			"p=This proposal was saved as Active Context Revision R1."
 		).waitForDisplayed();
 
-		await (await $("a=Projeler")).click();
+		await (await $("a=Projects")).click();
 
 		const projectLink = await $(
-			`a[aria-label="${fixture.projectName} varlık kayıtlarını aç"]`
+			`a[aria-label="${fixture.projectName} open Asset Records"]`
 		);
 		await projectLink.waitForClickable();
 		await projectLink.click();
@@ -102,13 +102,13 @@ describe("Generation Packages", () => {
 		await openWorkspaceTask("Production and import");
 		await $("input#reference-upload-file").setValue(uploadedPath);
 		const forbiddenFeatures = await $(
-			'//fieldset[legend[normalize-space()="Kaçınılacak özellikler"]]'
+			'//fieldset[legend[normalize-space()="Avoided features"]]'
 		);
 		await (
 			await forbiddenFeatures.$('.//label[span[normalize-space()="Poz"]]/input')
 		).click();
 		await (await $("button=Upload image")).click();
-		await $("p*=Referans görseli panoya eklendi.").waitForDisplayed();
+		await $("p*=Reference image added to the board.").waitForDisplayed();
 
 		const conflictAlert = await $(
 			'//div[@role="alert" and .//h4[normalize-space()="Unresolved transfer conflicts"]]'
@@ -139,11 +139,11 @@ describe("Generation Packages", () => {
 		).waitForDisplayed();
 
 		const referenceCard = await $(
-			'//article[.//img[@alt="conflicting-pose.png adlı referans görseli"]]'
+			'//article[.//img[@alt="conflicting-pose.png reference"]]'
 		);
 		await (await referenceCard.$("summary=Edit rules")).click();
 		const forbiddenReferenceFeatures = await referenceCard.$(
-			'.//fieldset[legend[normalize-space()="Kaçınılacak özellikler"]]'
+			'.//fieldset[legend[normalize-space()="Avoided features"]]'
 		);
 		await (
 			await forbiddenReferenceFeatures.$(
@@ -172,10 +172,10 @@ describe("Generation Packages", () => {
 		await $("p=A four-frame PNG sprite sheet.").waitForDisplayed();
 		const savedReferenceRule = await $("li*=conflicting-pose.png");
 		await expect(await savedReferenceRule.getText()).toContain(
-			"Aktarılabilir: Poz"
+			"Transferable: Pose or motion"
 		);
 		await expect(await savedReferenceRule.getText()).not.toContain(
-			"Kaçınılacak: Poz"
+			"Avoided: Pose or motion"
 		);
 
 		await browser.refresh();
@@ -193,10 +193,10 @@ describe("Generation Packages", () => {
 		await $("p=A four-frame PNG sprite sheet.").waitForDisplayed();
 		const reloadedReferenceRule = await $("li*=conflicting-pose.png");
 		await expect(await reloadedReferenceRule.getText()).toContain(
-			"Aktarılabilir: Poz"
+			"Transferable: Pose or motion"
 		);
 		await expect(await reloadedReferenceRule.getText()).not.toContain(
-			"Kaçınılacak: Poz"
+			"Avoided: Pose or motion"
 		);
 	});
 });

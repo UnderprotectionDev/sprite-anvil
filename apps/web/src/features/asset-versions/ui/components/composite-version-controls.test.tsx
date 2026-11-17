@@ -11,6 +11,16 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { CompositeVersionControls } from "./composite-version-controls";
 
+vi.mock("@/utils/orpc", () => ({
+	client: {
+		measurementEvents: {
+			recordCandidatePreviewBoundary: vi
+				.fn()
+				.mockResolvedValue({ accepted: true }),
+		},
+	},
+}));
+
 const assetRecordId = "record-knight";
 const projectId = "project-knight";
 const createdAt = "2026-09-27T12:00:00.000Z";

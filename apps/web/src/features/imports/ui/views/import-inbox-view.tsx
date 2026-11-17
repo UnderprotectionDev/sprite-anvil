@@ -312,7 +312,7 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 											className="font-medium text-sm"
 											htmlFor="import-inbox-files"
 										>
-											Dosyalar
+											Files
 										</Label>
 										<Input
 											aria-describedby="import-inbox-file-help"
@@ -387,7 +387,7 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 					},
 					{
 						id: "entries",
-						label: "Bekleyen dosyalar",
+						label: "Pending files",
 						description:
 							"Find files, review source information, and prepare Source Metadata Mapping when available.",
 						content: (

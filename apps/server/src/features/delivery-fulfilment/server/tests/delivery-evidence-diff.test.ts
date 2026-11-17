@@ -118,3 +118,37 @@ test("does not read a different manifest or evidence written after delivery as h
 		"not_recorded"
 	);
 });
+
+test("preserves multiple revisions and exposes changed evidence content", async () => {
+	const current = bundle("rights");
+	const [first] = current.manifest.rightsEvidence;
+	if (!first) {
+		throw new Error("Missing Rights Record fixture");
+	}
+	current.manifest.rightsEvidence.push({
+		...first,
+		versionNumber: 2,
+	});
+	const deps = { bundles: { get: () => Promise.resolve(current) } };
+	const before = await readDeliveryEvidence(
+		deps,
+		"user",
+		fulfilment("2026-11-02T00:00:00.000Z")
+	);
+	current.manifest.rightsEvidence = [first];
+	const after = await readDeliveryEvidence(
+		deps,
+		"user",
+		fulfilment("2026-11-03T00:00:00.000Z")
+	);
+	expect(compareDeliveryEvidence(before, after).rights).toMatchObject({
+		status: "recorded",
+		unchangedCount: 1,
+		changes: [
+			{
+				kind: "removed",
+				from: { details: expect.stringContaining('"versionNumber": 2') },
+			},
+		],
+	});
+});

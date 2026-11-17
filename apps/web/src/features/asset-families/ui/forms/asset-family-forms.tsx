@@ -23,7 +23,7 @@ const relationshipOptions: {
 	value: AssetFamilyRelationshipType;
 }[] = [
 	{ label: "Direction", value: "direction" },
-	{ label: "Animasyon", value: "animation" },
+	{ label: "Animation", value: "animation" },
 	{ label: "State", value: "state" },
 	{ label: "Derived Asset", value: "derivative" },
 ];

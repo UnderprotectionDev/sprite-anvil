@@ -2,7 +2,7 @@ import { expect, type Page } from "@playwright/test";
 import { assetVersionFixture } from "./asset-version-fixture";
 import { signUpWithFixture } from "./project-workflow";
 
-const profileContractActivationName = /Sözleşme v.*etkinleştir/;
+const profileContractActivationName = /Activate contract v/;
 
 export const animationTimingFixture = {
 	...assetVersionFixture,
@@ -25,13 +25,11 @@ export async function prepareAnimationTimingReviewWorkspace(page: Page) {
 	await signUpWithFixture(page, fixture);
 
 	await page.goto("/context-proposals");
-	await page.getByLabel("Proje adı").fill(fixture.projectName);
-	await page
-		.getByLabel("General art direction")
-		.fill(fixture.generalArtDirection);
-	await page.getByRole("button", { name: "Projeyi oluştur" }).click();
+	await page.getByLabel("Project name").fill(fixture.projectName);
+	await page.getByLabel("Art direction").fill(fixture.generalArtDirection);
+	await page.getByRole("button", { name: "Create project" }).click();
 	await expect(
-		page.getByRole("heading", { name: "Bağlam Önerisi hazırlayın" })
+		page.getByRole("heading", { name: "Prepare a Context Proposal" })
 	).toBeVisible();
 	await page.getByLabel("Visual World name").fill(fixture.visualWorldName);
 	await page.getByRole("button", { name: "Add Visual World" }).click();
@@ -74,7 +72,7 @@ export async function prepareAnimationTimingReviewWorkspace(page: Page) {
 		.getByLabel("Unknown production history")
 		.fill("Test image created for the disposable animation timing fixture.");
 	await page
-		.getByLabel("Bilinen kaynak", { exact: true })
+		.getByLabel("Known source", { exact: true })
 		.fill("Animation timing review browser fixture");
 	await page
 		.getByLabel("Your relationship to the asset")
@@ -88,20 +86,20 @@ export async function prepareAnimationTimingReviewWorkspace(page: Page) {
 	await page.goto(familyUrl);
 
 	await expect(
-		page.getByRole("paragraph").filter({ hasText: "Sürüm 1 · Aday" })
+		page.getByRole("paragraph").filter({ hasText: "Version 1 · Candidate" })
 	).toBeVisible();
 	await page
 		.getByLabel("Review rationale")
 		.fill("The sprite is suitable for timing review.");
 	await page.getByRole("button", { name: "Approve" }).click();
 	await expect(
-		page.getByRole("paragraph").filter({ hasText: "Sürüm 1 · Onaylandı" })
+		page.getByRole("paragraph").filter({ hasText: "Version 1 · Approved" })
 	).toBeVisible();
 	await page
 		.getByRole("button", { name: "Select as Canonical Design" })
 		.click();
 	await expect(
-		page.getByText(`Ana Tasarım: ${fixture.sourceName} · Sürüm 1`)
+		page.getByText(`Canonical Design: ${fixture.sourceName} · Version 1`)
 	).toBeVisible();
 
 	const profile = page
@@ -114,14 +112,14 @@ export async function prepareAnimationTimingReviewWorkspace(page: Page) {
 		.getByRole("button", { name: profileContractActivationName })
 		.click();
 	await expect(
-		profile.getByText("Etkin sözleşme v1.0.1", { exact: true })
+		profile.getByText("Active contract v1.0.1", { exact: true })
 	).toBeVisible();
 
 	return {
 		familyName: fixture.familyName,
 		review: page.getByRole("region", {
-			name: `${fixture.familyName} animasyon zamanlaması incelemesi`,
+			name: `${fixture.familyName} animation timing review`,
 		}),
-		versionLabel: `${fixture.sourceName} · Sürüm 1`,
+		versionLabel: `${fixture.sourceName} · Version 1`,
 	};
 }

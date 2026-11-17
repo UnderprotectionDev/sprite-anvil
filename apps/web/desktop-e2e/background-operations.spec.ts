@@ -24,7 +24,7 @@ describe("Background Operations", () => {
 		await (await $("button=Sign Up")).click();
 		await (await $("h1=Game projects")).waitForDisplayed();
 
-		await (await $("a=Projeler")).click();
+		await (await $("a=Projects")).click();
 		await openWorkspaceTask("New game project");
 		await (await $("input#project-name")).setValue(fixture.projectName);
 		await (await $("textarea#project-art-direction")).setValue(
@@ -32,7 +32,7 @@ describe("Background Operations", () => {
 		);
 		await (await $("button=Create project")).click();
 		const projectLink = await $(
-			`a[aria-label="${fixture.projectName} varlık kayıtlarını aç"]`
+			`a[aria-label="${fixture.projectName} open Asset Records"]`
 		);
 		await projectLink.waitForClickable();
 		await projectLink.click();

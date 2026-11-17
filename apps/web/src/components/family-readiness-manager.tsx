@@ -81,9 +81,9 @@ const fieldLabelClass = "block space-y-1 text-sm leading-normal";
 
 const itemKindLabels: Record<DraftItem["kind"], string> = {
 	direction: "Direction",
-	animation: "Animasyon",
+	animation: "Animation",
 	state: "State",
-	variant: "Varyant",
+	variant: "Variant",
 	usage_test: "Usage test",
 };
 
@@ -120,7 +120,7 @@ const ruleClassLabels = {
 	integrity_gate: "Integrity Gate",
 	waivable_requirement: "Waivable Requirement",
 	quality_advisory: "Quality Advisory",
-	human_review: "Zorunlu insan incelemesi",
+	human_review: "Required human review",
 	general_asset_support: "General Asset Support",
 } as const;
 
@@ -596,7 +596,7 @@ function QualityEvaluationSummary({
 				and category permission.
 			</p>
 			<p className="text-sm">
-				Kalite durumu:{" "}
+				Quality status:{" "}
 				<strong>{qualityReadinessLabels[itemResult.qualityReadiness]}</strong>
 			</p>
 			{itemResult.qualityRequirements.length > 0 ? (
@@ -780,7 +780,7 @@ function ReadinessEvidenceDetails({
 				) : null}
 				{evidence.grayscaleReviewed === null ? null : (
 					<>
-						<dt>Gri tonlama incelemesi</dt>
+						<dt>Grayscale review</dt>
 						<dd>{evidence.grayscaleReviewed ? "Reviewed" : "Not reviewed"}</dd>
 					</>
 				)}
@@ -1136,7 +1136,7 @@ function ReadinessEvidenceForms({
 			{humanReviewRequirements.map((requirement) => (
 				<EvidenceForm
 					assetFamilyId={assetFamilyId}
-					description={`${requirement.name} · Zorunlu insan incelemesi`}
+					description={`${requirement.name} · Required human review`}
 					humanReviewRequirement={requirement}
 					initialResult="inconclusive"
 					isSaving={isSaving}

@@ -45,6 +45,8 @@ Tamamlanma kanıtı: Onaylanan kopyalar ve seçilen bütün kapsayıcılar etkin
 
 ## Testing Decisions
 
+- **Güncel döküm seam’i:** Başarılı hazırlama sonrasında aynı Asset Record için yeni hazırlama yeni bir idempotency anahtarıyla güncel kapsamı ister; başarısız veya belirsiz hazırlamanın tekrarı aynı anahtarı kullanır. Görünüm testi iki yolu ve değişen dökümde onayların sıfırlanmasını doğrular.
+
 - **Import ve silme yarışı seam’i:** Aynı sahibin geçici nesne rezervasyonu ile silme bariyeri atomik karşılıklı dışlama sağlar; farklı sahipler birbirini engellemez. Teyitsiz yazım ve geçmişte bulunmuş kayıtsız nesnede dosya silinmez ve makbuz üretilmez. Silme, depolama hatası veya iptal sonrasında teyitli geçici dosya temizliği yinelenir; teyitsiz yazım ancak yazıcılar durdurulup sonuç ve domain sahipliği operatörce doğrulandıktan sonra güvenle ele alınabilir.
 - **Birincil test seam’i:** Silme Etki Dökümü, kullanıcı onayı, bütün kapsayıcı silme ve içeriksiz makbuz yolunu YAS-04 fixture’ında yeniden okuma; değişen dökümle eski onayı reddetme.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.

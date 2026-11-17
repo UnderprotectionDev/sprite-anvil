@@ -43,6 +43,39 @@ export function createProductMeasurementRecorder({
 					},
 					`${definitionId}:${phase}`
 				);
+			const metricStartId = (metricId: string) =>
+				idempotentRecordId(
+					{
+						kind: "measurement-boundary",
+						userId: input.userId,
+						projectId: input.projectId,
+						targetId: input.workflowId,
+					},
+					`metric:${metricId}:start`
+				);
+			const hasLegacyStart = async (metricId: string) => {
+				const starts = await Promise.all(
+					family
+						.filter((item) => item.metricId === metricId)
+						.map(async (item) => storage.findById(await id(item.id, "start")))
+				);
+				return starts.some(Boolean);
+			};
+			const hasMatchingStart = async (
+				definition: (typeof family)[number],
+				stableStartId: string
+			) => {
+				const start =
+					(await storage.findById(await id(definition.id, "start"))) ??
+					(await storage.findById(stableStartId));
+				return Boolean(
+					start &&
+						start.definitionId === definition.id &&
+						start.workflowId === input.workflowId &&
+						start.surface === input.surface &&
+						start.eventName === definition.startEvent
+				);
+			};
 			await Promise.all(
 				Array.from(
 					input.phase === "start" ? latest.values() : family,
@@ -54,29 +87,28 @@ export function createProductMeasurementRecorder({
 						) {
 							return;
 						}
-						if (input.phase === "finish") {
-							const start = await storage.findById(
-								await id(definition.id, "start")
-							);
-							if (
-								!start ||
-								start.definitionId !== definition.id ||
-								start.workflowId !== input.workflowId ||
-								start.surface !== input.surface ||
-								start.eventName !== definition.startEvent
-							) {
-								return;
-							}
+						const stableStartId = await metricStartId(definition.metricId);
+						if (
+							input.phase === "start" &&
+							(await hasLegacyStart(definition.metricId))
+						) {
+							return;
+						}
+						if (
+							input.phase === "finish" &&
+							!(await hasMatchingStart(definition, stableStartId))
+						) {
+							return;
 						}
 						await eventStore.record(input.userId, {
-							id: await id(definition.id, input.phase),
+							id:
+								input.phase === "start"
+									? stableStartId
+									: await id(definition.id, input.phase),
 							projectId: input.projectId,
 							workflowId: input.workflowId,
 							definitionId: definition.id,
-							eventName:
-								input.phase === "start"
-									? definition.startEvent
-									: definition.endEvent,
+							eventName: input.eventName,
 							surface: input.surface,
 							recordKind: input.recordKind,
 							outcomeClass: input.outcomeClass,

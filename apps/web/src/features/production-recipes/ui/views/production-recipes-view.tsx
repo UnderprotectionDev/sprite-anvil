@@ -50,7 +50,6 @@ export function ProductionRecipesView({ projectId }: { projectId: string }) {
 					<h2>{recipe.title}</h2>
 					<p>Version {recipe.versions.at(-1)?.versionNumber}</p>
 					<EditRecipe
-						key={`${recipe.id}-${recipe.versions.at(-1)?.versionNumber}`}
 						onCreated={() => void recipes.refetch()}
 						projectId={projectId}
 						recipe={recipe}
@@ -72,7 +71,9 @@ function EditRecipe({
 	recipe: ProductionRecipe;
 	onCreated: () => void;
 }) {
-	const version = recipe.versions.at(-1) ?? recipe.versions[0];
+	const [version] = useState(() =>
+		structuredClone(recipe.versions.at(-1) ?? recipe.versions[0])
+	);
 	const id = useId();
 	const mutation = useMutation(
 		orpc.productionRecipes.createVersion.mutationOptions()
@@ -376,10 +377,16 @@ function CopyRecipe({
 	const projects = useQuery(orpc.projects.list.queryOptions());
 	const queryClient = useQueryClient();
 	const copy = useMutation(orpc.productionRecipes.copy.mutationOptions());
+	const [validation, setValidation] = useState("");
 	const form = useForm({
 		defaultValues: { targetProjectId: "" },
-		validators: { onSubmit: z.object({ targetProjectId: z.uuid() }) },
+
 		onSubmit: async ({ value }) => {
+			if (!z.uuid().safeParse(value.targetProjectId).success) {
+				setValidation("Choose a project.");
+				return;
+			}
+			setValidation("");
 			try {
 				await copy.mutateAsync({
 					sourceProjectId: projectId,
@@ -431,6 +438,7 @@ function CopyRecipe({
 			<Button disabled={copy.isPending} type="submit">
 				{copy.isPending ? "Copying…" : "Copy recipe"}
 			</Button>
+			{!!validation && <p role="alert">{validation}</p>}
 			{!!copy.isError && <p role="alert">{copy.error.message}</p>}
 			{!!copy.isSuccess && (
 				<p role="status">Independent copy created in the selected project.</p>
@@ -644,7 +652,7 @@ function UseRecipe({
 		orpc.assetVersions.list.queryOptions({ input: { projectId } })
 	);
 	const [validation, setValidation] = useState("");
-	const version = recipe.versions.at(-1);
+	const [version] = useState(() => structuredClone(recipe.versions.at(-1)));
 	const form = useForm({
 		defaultValues: {
 			assetRecordId: "",
@@ -661,6 +669,7 @@ function UseRecipe({
 			const parsed = productionRecipeUseInputSchema.safeParse({
 				projectId,
 				recipeId: recipe.id,
+				versionNumber: version?.versionNumber,
 				assetRecordId: value.assetRecordId,
 				fillIns: value.fillIns,
 				lockedUnitVersionIds: value.lockedUnitVersionIds,
@@ -695,13 +704,17 @@ function UseRecipe({
 			}}
 		>
 			<h3>Use Production Recipe</h3>
+			<p>Using version {version?.versionNumber}</p>
 			<form.Field name="assetRecordId">
 				{(field) => (
 					<label htmlFor={`${formId}-target`}>
 						Target Asset Record
 						<NativeSelect
 							id={`${formId}-target`}
-							onChange={(e) => field.handleChange(e.target.value)}
+							onChange={(e) => {
+								field.handleChange(e.target.value);
+								form.setFieldValue("lockedUnitVersionIds", []);
+							}}
 							value={field.state.value}
 						>
 							<NativeSelectOption value="">

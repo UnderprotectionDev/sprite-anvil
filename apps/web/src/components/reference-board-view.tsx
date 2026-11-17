@@ -900,7 +900,7 @@ export function ReferenceBoardView({
 				</p>
 			) : (
 				<div
-					aria-label="Yan yana referanslar"
+					aria-label="Side-by-side references"
 					className="grid min-w-0 gap-4 md:grid-cols-2"
 					role="list"
 				>

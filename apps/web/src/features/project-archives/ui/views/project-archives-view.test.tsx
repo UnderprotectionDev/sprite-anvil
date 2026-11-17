@@ -11,6 +11,7 @@ import {
 import { afterEach, expect, test, vi } from "vitest";
 import { ProjectArchivesView } from "./project-archives-view";
 
+const pendingOperationLabel = /Background Operation: pending/;
 const heroFileLabel = /hero\.aseprite/;
 const unavailableFileLabel = /missing\.aseprite/;
 const download = vi.hoisted(() => vi.fn());
@@ -72,7 +73,7 @@ vi.mock("@/utils/orpc", () => ({
 					queryFn: async () => ({ manifest: { files: [] } }),
 				}),
 			},
-			create: {
+			requestArchive: {
 				mutationOptions: (options: object) => ({
 					...options,
 					mutationFn: api.create,
@@ -244,4 +245,15 @@ test("creation waits for the working-file catalog", async () => {
 	).toBeDisabled();
 	expect(screen.getByText("Loading working files…")).toBeVisible();
 	expect(api.create).not.toHaveBeenCalled();
+});
+
+test("shows the accepted archive operation while readback catches up", async () => {
+	api.create.mockResolvedValue({
+		id: "op-new",
+		status: "pending",
+		progressPercent: null,
+	});
+	show();
+	fireEvent.click(await readyCreateButton());
+	expect(await screen.findByText(pendingOperationLabel)).toBeVisible();
 });

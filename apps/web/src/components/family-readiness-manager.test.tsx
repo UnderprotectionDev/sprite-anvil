@@ -732,7 +732,7 @@ test("records a human review separately without offering a quality waiver", asyn
 	const humanReviewForm = within(
 		(
 			await screen.findByRole("heading", {
-				name: `${humanReview.label} · Zorunlu insan incelemesi`,
+				name: `${humanReview.label} · Required human review`,
 			})
 		).closest("form") as HTMLFormElement
 	);

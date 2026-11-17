@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { prepareAnimationTimingReviewWorkspace } from "./animation-timing-review-fixture";
 
 const fourDirectionReviewName = /Walk cycle · 4 directions · Needs follow-up/;
-const eightDirectionReviewName = /Run cycle · 8 yön · Tutarlı/;
+const eightDirectionReviewName = /Run cycle · 8 directions · Consistent/;
 
 test("compares variable frame timing and persists four- and eight-direction reviews", async ({
 	page,
@@ -117,7 +117,7 @@ test("compares variable frame timing and persists four- and eight-direction revi
 		review.getByRole("group", { name: "Direction 2" })
 	).toContainText("west · Frame 2 · west-recovery · 280 ms · Impact");
 
-	await review.getByRole("button", { name: "Başa dön" }).click();
+	await review.getByRole("button", { name: "Restart" }).click();
 	await expect(playhead).toHaveValue("0");
 	await review.getByRole("button", { name: "Birlikte oynat" }).click();
 	await expect(review.getByRole("button", { name: "Duraklat" })).toBeVisible();
@@ -128,7 +128,7 @@ test("compares variable frame timing and persists four- and eight-direction revi
 	const pausedAt = await playhead.inputValue();
 	await page.waitForTimeout(100);
 	await expect(playhead).toHaveValue(pausedAt);
-	await review.getByRole("button", { name: "Başa dön" }).click();
+	await review.getByRole("button", { name: "Restart" }).click();
 
 	await review.getByLabel("Review result").selectOption("needs_follow_up");
 	await review

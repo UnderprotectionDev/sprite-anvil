@@ -14,12 +14,18 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useStore } from "@tanstack/react-store";
 import { strToU8, zipSync } from "fflate";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { z } from "zod";
+import { authClient } from "@/lib/auth-client";
 import { downloadZip } from "@/utils/download-zip";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { honoGetBytes, projectApiUrl } from "@/utils/hono-api";
 import { client, orpc } from "@/utils/orpc";
+import {
+	type PendingExport,
+	pendingExportKey,
+	pendingExportTable,
+} from "../../lib/pending-export-store";
 
 function pendingFor<T extends { signature: string }>(
 	current: T | null,
@@ -166,14 +172,139 @@ function BundlePreview({
 	);
 }
 
+function usePendingExports(userId: string | undefined, projectId: string) {
+	const [stored, setStored] = useState<PendingExport[]>([]);
+	const [storageError, setStorageError] = useState(false);
+	const [storageReady, setStorageReady] = useState(false);
+	useEffect(() => {
+		let active = true;
+		setStored([]);
+		setStorageReady(false);
+		if (!userId) {
+			return;
+		}
+		Promise.all(
+			(["profile", "bundle"] as const).map((kind) =>
+				pendingExportTable().get(pendingExportKey(userId, projectId, kind))
+			)
+		)
+			.then((rows) => {
+				if (active) {
+					setStored(rows.filter((row): row is PendingExport => Boolean(row)));
+					setStorageReady(true);
+					setStorageError(false);
+				}
+			})
+			.catch(() => {
+				if (active) {
+					setStorageError(true);
+				}
+			});
+		return () => {
+			active = false;
+		};
+	}, [userId, projectId]);
+	async function persist(request: PendingExport) {
+		try {
+			await pendingExportTable().put(request);
+		} catch (error) {
+			setStorageError(true);
+			throw error;
+		}
+		setStored((rows) => [
+			...rows.filter((row) => row.key !== request.key),
+			request,
+		]);
+	}
+	async function clearPending(kind: "profile" | "bundle") {
+		if (!userId) {
+			throw new Error("Session unavailable.");
+		}
+		const key = pendingExportKey(userId, projectId, kind);
+		await pendingExportTable().delete(key);
+		setStored((rows) => rows.filter((row) => row.key !== key));
+	}
+	return { stored, storageError, storageReady, persist, clearPending };
+}
+
+function PendingRequests({
+	stored,
+	userId,
+	projectId,
+	storageReady,
+	save,
+	create,
+}: {
+	stored: PendingExport[];
+	userId: string | undefined;
+	projectId: string;
+	storageReady: boolean;
+	save: {
+		isPending: boolean;
+		mutate: (
+			input: Extract<PendingExport, { kind: "profile" }>["input"]
+		) => void;
+	};
+	create: {
+		isPending: boolean;
+		mutate: (
+			input: Extract<PendingExport, { kind: "bundle" }>["input"]
+		) => void;
+	};
+}) {
+	return (
+		<>
+			{stored
+				.filter(
+					(request) =>
+						userId &&
+						request.key === pendingExportKey(userId, projectId, request.kind)
+				)
+				.map((request) => (
+					<div key={request.key}>
+						<p>Pending {request.kind} request</p>
+						<Button
+							disabled={!storageReady || save.isPending || create.isPending}
+							onClick={() => {
+								if (request.kind === "profile") {
+									save.mutate(request.input);
+								} else {
+									create.mutate(request.input);
+								}
+							}}
+							type="button"
+						>
+							Retry {request.kind}
+						</Button>
+					</div>
+				))}
+		</>
+	);
+}
+
+async function clearKnownRejection(
+	error: unknown,
+	clear: () => Promise<void>,
+	reset: () => void
+) {
+	if (!isWriteOutcomeUncertain(error)) {
+		await clear();
+		reset();
+	}
+}
+
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: The two related export forms coordinate their pending requests and validation in one panel.
 export function ExportCreationPanel({ projectId }: { projectId: string }) {
 	const formId = useId();
+	const { data: session } = authClient.useSession();
+	const userId = session?.user.id;
+	const { stored, storageError, storageReady, persist, clearPending } =
+		usePendingExports(userId, projectId);
 	const mappingIds = useRef<string[]>([]);
 	const qc = useQueryClient();
 	const profilePending = useRef<{
 		signature: string;
-		profileId: string;
-		revisionId: string;
+		input: Parameters<typeof client.exportProfiles.createRevision>[0];
 	} | null>(null);
 	const bundlePending = useRef<{
 		signature: string;
@@ -203,7 +334,16 @@ export function ExportCreationPanel({ projectId }: { projectId: string }) {
 			input: Parameters<typeof client.exportProfiles.createRevision>[0]
 		) => client.exportProfiles.createRevision(input),
 		meta: { errorPresentation: "inline" },
+		onError: (error) =>
+			clearKnownRejection(
+				error,
+				() => clearPending("profile"),
+				() => {
+					profilePending.current = null;
+				}
+			),
 		onSuccess: async () => {
+			await clearPending("profile");
 			profilePending.current = null;
 			await qc.invalidateQueries({
 				queryKey: orpc.exportProfiles.list.key({ input: { projectId } }),
@@ -214,7 +354,16 @@ export function ExportCreationPanel({ projectId }: { projectId: string }) {
 		mutationFn: (input: Parameters<typeof client.exportBundles.create>[0]) =>
 			client.exportBundles.create(input),
 		meta: { errorPresentation: "inline" },
+		onError: (error) =>
+			clearKnownRejection(
+				error,
+				() => clearPending("bundle"),
+				() => {
+					bundlePending.current = null;
+				}
+			),
 		onSuccess: async () => {
+			await clearPending("bundle");
 			bundlePending.current = null;
 			await qc.invalidateQueries({
 				queryKey: orpc.exportBundles.list.key({ input: { projectId } }),
@@ -289,30 +438,40 @@ export function ExportCreationPanel({ projectId }: { projectId: string }) {
 				signature,
 				() => ({
 					signature,
-					profileId: existing?.id ?? crypto.randomUUID(),
-					revisionId: crypto.randomUUID(),
+					input: {
+						projectId,
+						profileId: existing?.id ?? crypto.randomUUID(),
+						revisionId: crypto.randomUUID(),
+						name: existing?.name ?? value.name,
+						contractVersion: exportProfileContractVersion,
+						definition: exportProfileDefinitionSchema.parse({
+							...existing?.revisions.at(-1)?.definition,
+							layout: value.layout,
+							padding: value.padding,
+							trim: value.trim,
+							scale: value.scale,
+							namingTemplate: value.namingTemplate,
+							fileFormat: "png",
+							metadataMapping: value.metadataMapping,
+						}),
+					},
 				})
 			);
 			try {
-				await save.mutateAsync({
-					projectId,
-					profileId: profilePending.current.profileId,
-					revisionId: profilePending.current.revisionId,
-					name: existing?.name ?? value.name,
-					contractVersion: exportProfileContractVersion,
-					definition: exportProfileDefinitionSchema.parse({
-						...existing?.revisions.at(-1)?.definition,
-						layout: value.layout,
-						padding: value.padding,
-						trim: value.trim,
-						scale: value.scale,
-						namingTemplate: value.namingTemplate,
-						fileFormat: "png",
-						metadataMapping: value.metadataMapping,
-					}),
+				if (
+					!(userId && storageReady) ||
+					stored.some((row) => row.kind === "profile")
+				) {
+					throw new Error("Storage unavailable");
+				}
+				await persist({
+					key: pendingExportKey(userId, projectId, "profile"),
+					kind: "profile",
+					input: profilePending.current.input,
 				});
+				await save.mutateAsync(profilePending.current.input);
 			} catch {
-				/* Mutation displays the error. */
+				/* Storage or mutation failure is shown separately. */
 			}
 		},
 	});
@@ -320,8 +479,10 @@ export function ExportCreationPanel({ projectId }: { projectId: string }) {
 		defaultValues: { profileRevisionId: "", assetFamilyIds: [] as string[] },
 		validators: {
 			onSubmit: z.object({
-				profileRevisionId: z.uuid(),
-				assetFamilyIds: z.array(z.uuid()).min(1),
+				profileRevisionId: z.uuid({ error: "Choose a profile version." }),
+				assetFamilyIds: z
+					.array(z.uuid())
+					.min(1, "Choose at least one Asset Family."),
 			}),
 		},
 		onSubmit: async ({ value }) => {
@@ -335,13 +496,25 @@ export function ExportCreationPanel({ projectId }: { projectId: string }) {
 				})
 			);
 			try {
-				await create.mutateAsync({
+				if (
+					!(userId && storageReady) ||
+					stored.some((row) => row.kind === "bundle")
+				) {
+					throw new Error("Storage unavailable");
+				}
+				const input = {
 					...value,
 					projectId,
 					idempotencyKey: bundlePending.current.idempotencyKey,
 					adapterVersion: null,
 					deliveryTargetRevisionId: null,
+				};
+				await persist({
+					key: pendingExportKey(userId, projectId, "bundle"),
+					kind: "bundle",
+					input,
 				});
+				await create.mutateAsync(input);
 			} catch {
 				/* Mutation displays the error. */
 			}
@@ -354,14 +527,25 @@ export function ExportCreationPanel({ projectId }: { projectId: string }) {
 
 	return (
 		<section aria-label="Create Export Bundles" className="space-y-4">
+			{!!storageError && (
+				<p role="alert">
+					Pending export requests could not be stored on this device.
+				</p>
+			)}
+			<PendingRequests
+				create={create}
+				projectId={projectId}
+				save={save}
+				storageReady={storageReady}
+				stored={stored}
+				userId={userId}
+			/>
 			<h2>Export Profiles</h2>
 			{!!profiles.isPending && <p role="status">Loading Export Profiles…</p>}
 			{!!profiles.isError && (
 				<p role="alert">Export Profiles could not be loaded.</p>
 			)}
-			{profiles.isSuccess && profiles.data.profiles.length === 0 && (
-				<p>No Export Profiles yet.</p>
-			)}
+			{profiles.data?.profiles.length === 0 && <p>No Export Profiles yet.</p>}
 			<form
 				className="space-y-2"
 				onSubmit={(e) => {
@@ -600,7 +784,7 @@ export function ExportCreationPanel({ projectId }: { projectId: string }) {
 						}}
 					</profileForm.Subscribe>
 				</fieldset>
-				<Button disabled={save.isPending} type="submit">
+				<Button disabled={!storageReady || save.isPending} type="submit">
 					{save.isPending ? "Saving…" : "Save profile version"}
 				</Button>
 				{!!save.isError && <p role="alert">{save.error.message}</p>}
@@ -611,7 +795,7 @@ export function ExportCreationPanel({ projectId }: { projectId: string }) {
 			{!!families.isError && (
 				<p role="alert">Asset Families could not be loaded.</p>
 			)}
-			{families.isSuccess && families.data.assetFamilies.length === 0 && (
+			{families.data?.assetFamilies.length === 0 && (
 				<p>No Asset Families yet.</p>
 			)}
 			<form
@@ -674,12 +858,31 @@ export function ExportCreationPanel({ projectId }: { projectId: string }) {
 							</fieldset>
 						)}
 					</bundleForm.Field>
+					<bundleForm.Subscribe selector={(state) => state.errorMap}>
+						{(errors) =>
+							errors.onSubmit ? (
+								<div role="alert">
+									{Object.values(errors.onSubmit)
+										.flat()
+										.map((issue) => (
+											<p key={JSON.stringify(issue)}>
+												{typeof issue === "object" &&
+												issue &&
+												"message" in issue
+													? String(issue.message)
+													: String(issue)}
+											</p>
+										))}
+								</div>
+							) : null
+						}
+					</bundleForm.Subscribe>
 				</fieldset>
 				<BundlePreview
 					projectId={projectId}
 					selectedFamilies={selectedFamilies}
 				/>
-				<Button disabled={create.isPending} type="submit">
+				<Button disabled={!storageReady || create.isPending} type="submit">
 					{create.isPending ? "Creating…" : "Create bundle"}
 				</Button>
 				{!!create.isError && <p role="alert">{create.error.message}</p>}
@@ -688,7 +891,7 @@ export function ExportCreationPanel({ projectId }: { projectId: string }) {
 			<h2>Engine-Neutral Bundles</h2>
 			{!!bundles.isPending && <p role="status">Loading bundles…</p>}
 			{!!bundles.isError && <p role="alert">Bundles could not be loaded.</p>}
-			{bundles.isSuccess && bundles.data.bundles.length === 0 && (
+			{bundles.data?.bundles.length === 0 && (
 				<p>No Engine-Neutral Bundles yet.</p>
 			)}
 			{bundles.data?.bundles.map((bundle) => (

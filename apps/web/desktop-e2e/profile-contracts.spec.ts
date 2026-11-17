@@ -17,7 +17,7 @@ describe("Specialized Profile Contracts", () => {
 		await (await $("button=Sign Up")).click();
 		await (await $("h1=Game projects")).waitForDisplayed();
 
-		await (await $("a=Projeler")).click();
+		await (await $("a=Projects")).click();
 		await openWorkspaceTask("New game project");
 		await (await $("input#project-name")).setValue(fixture.projectName);
 		await (await $("textarea#project-art-direction")).setValue(
@@ -25,13 +25,13 @@ describe("Specialized Profile Contracts", () => {
 		);
 		await (await $("button=Create project")).click();
 		const projectContractsLink = await $(
-			`a[aria-label="${fixture.projectName} özel profil sözleşmelerini yönet"]`
+			`a[aria-label="${fixture.projectName} manage Specialized Profile Contracts"]`
 		);
 		await projectContractsLink.waitForClickable();
 		await projectContractsLink.click();
 
 		await (
-			await $(`h1=${fixture.projectName} · Özel Profil Sözleşmeleri`)
+			await $(`h1=${fixture.projectName} · Specialized Profile Contracts`)
 		).waitForDisplayed();
 		await openWorkspaceTask("Icon");
 		const iconProfile = await $('article[aria-labelledby="icon-heading"]');

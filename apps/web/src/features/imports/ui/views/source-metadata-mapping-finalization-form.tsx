@@ -158,7 +158,7 @@ export function ProposalFinalizationForm({
 						return (
 							<Label className="block text-sm leading-normal" key={key}>
 								{fieldLabel(conflict.field)} · {conflict.key}{" "}
-								{conflict.field === "frame" ? "(zorunlu)" : "(optional)"}
+								{conflict.field === "frame" ? "(required)" : "(optional)"}
 								<NativeSelect
 									className="mt-1 w-full"
 									onChange={(event) =>

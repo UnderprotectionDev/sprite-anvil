@@ -7,6 +7,7 @@ import {
 	measurementEventRecordInputSchema,
 	measurementEventSchema,
 } from "../measurement-events";
+import { recordProductBoundary } from "../measurement-workflows";
 
 function getMeasurementEventStore(context: Context) {
 	if (!context.measurementEventStore) {
@@ -74,6 +75,54 @@ const verificationBoundaryInputSchema = z.discriminatedUnion("phase", [
 		.strict(),
 ]);
 export const measurementEventsRouter = {
+	recordCandidatePreviewBoundary: protectedProcedure
+		.input(z.object({ projectId: z.uuid(), assetVersionId: z.uuid() }).strict())
+		.output(z.object({ accepted: z.literal(true) }).strict())
+		.handler(async ({ context, input }) => {
+			const userId = context.session.user.id;
+			if (!(await context.projectAccess.getProject(userId, input.projectId))) {
+				throw new ORPCError("NOT_FOUND", { message: "Project not found." });
+			}
+			const catalog = await context.assetVersionStore.list(
+				userId,
+				input.projectId
+			);
+			const version = catalog?.assetVersions.find(
+				(item) => item.id === input.assetVersionId
+			);
+			if (!version) {
+				throw new ORPCError("NOT_FOUND", {
+					message: "Asset Version not found.",
+				});
+			}
+			const packageId =
+				version.productionEvidence.manualImportEvidence?.generationPackageId;
+			if (
+				version.reviewDisposition === "candidate" &&
+				packageId &&
+				context.generationPackageStore
+			) {
+				const packages = await context.generationPackageStore.list(
+					userId,
+					input.projectId,
+					version.assetRecordId
+				);
+				if (packages?.some((item) => item.id === packageId)) {
+					await recordProductBoundary(context, {
+						userId,
+						projectId: input.projectId,
+						workflowId: packageId,
+						eventFamily: "production_workflow",
+						eventName: "candidate_preview_reached",
+						phase: "finish",
+						recordKind: "generation_package",
+						outcomeClass: "preview_reached",
+						counters: {},
+					});
+				}
+			}
+			return { accepted: true as const };
+		}),
 	recordVerificationBoundary: protectedProcedure
 		.input(verificationBoundaryInputSchema)
 		.output(z.object({ accepted: z.literal(true) }).strict())

@@ -27,7 +27,7 @@ export const deliveryPlanningFixture = {
 	],
 } as const;
 
-const recordSelectName = /^Varlık Kaydı/;
+const recordSelectName = /^Asset Record/;
 
 type DeliveryPlanningFixture = typeof deliveryPlanningFixture;
 
@@ -109,11 +109,9 @@ export async function prepareDeliveryPlanningWorkspace(
 ) {
 	await signUpWithFixture(page, fixture);
 	await page.goto("/context-proposals");
-	await page.getByLabel("Proje adı").fill(fixture.projectName);
-	await page
-		.getByLabel("General art direction")
-		.fill(fixture.generalArtDirection);
-	await page.getByRole("button", { name: "Projeyi oluştur" }).click();
+	await page.getByLabel("Project name").fill(fixture.projectName);
+	await page.getByLabel("Art direction").fill(fixture.generalArtDirection);
+	await page.getByRole("button", { name: "Create project" }).click();
 	await page
 		.getByRole("button", { name: "Visual Worlds and Themes", exact: true })
 		.click();

@@ -61,7 +61,7 @@ const unknownVersionProductionEvidence =
 	createVersionProductionEvidence("unknown");
 const userRelationshipLabel = /Received from team/;
 const unknownHistory = /History unknown/;
-const attestationDateLabel = /Beyan tarihi:/;
+const attestationDateLabel = /Attestation date:/;
 const legacyAttestationCreatedAt = "2026-09-25T08:01:00.000Z";
 const localizedLegacyAttestationDate = /^(?:24|25) Eyl 2026 \d{2}:\d{2}$/;
 const unknownCanonicalVersion = /no recorded Canonical Design Version/;

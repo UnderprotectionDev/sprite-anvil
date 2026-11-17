@@ -1469,9 +1469,11 @@ test("groups style rules and copies an independent proposal into another authori
 			{ context }
 		)
 	).rejects.toMatchObject({ code: "NOT_FOUND" });
+	const copyKey = crypto.randomUUID();
 	const copied = await call(
 		appRouter.contextProposals.copyStyleModule,
 		{
+			idempotencyKey: copyKey,
 			sourceProjectId: source.id,
 			sourceRevisionId: activated.id,
 			moduleId: sourceModule.id,
@@ -1480,6 +1482,19 @@ test("groups style rules and copies an independent proposal into another authori
 		},
 		{ context }
 	);
+	const copiedAgain = await call(
+		appRouter.contextProposals.copyStyleModule,
+		{
+			sourceProjectId: source.id,
+			sourceRevisionId: activated.id,
+			moduleId: sourceModule.id,
+			projectId: target.id,
+			baseContextRevisionId: target.currentContextRevision.id,
+			idempotencyKey: copyKey,
+		},
+		{ context }
+	);
+	expect(copiedAgain).toEqual(copied);
 	expect(
 		(await store.listProjects("user-1"))[1]?.currentContextRevision.rules
 	).toHaveLength(0);
@@ -1566,4 +1581,55 @@ test("groups style rules and copies an independent proposal into another authori
 			{ context: makeContext(store, "other") }
 		)
 	).rejects.toThrow();
+});
+
+test("replays a Style Module proposal when the same request is retried", async () => {
+	const store = new MemoryProjectContextStore();
+	const context = makeContext(store, "user-1");
+	const project = await store.createProject("user-1", {
+		name: "Retry project",
+		generalArtDirection: "Pixel",
+	});
+	const revision = {
+		...project.currentContextRevision,
+		isActive: true,
+		rules: [projectScopedRule(project.id, "outline", "dark")],
+	};
+	store.addRevisionForTest(revision);
+	const input = {
+		projectId: project.id,
+		baseContextRevisionId: revision.id,
+		name: "Ink",
+		rules: [
+			{
+				ruleId: "outline",
+				scope: { kind: "project" as const, id: project.id },
+			},
+		],
+		idempotencyKey: crypto.randomUUID(),
+	};
+	const createProposal = store.createProposal.bind(store);
+	store.createProposal = async (userId, proposal) => {
+		await createProposal(userId, proposal);
+		throw Object.assign(new Error("duplicate"), { code: "23505" });
+	};
+	const first = await call(
+		appRouter.contextProposals.createStyleModule,
+		input,
+		{ context }
+	);
+	const retry = await call(
+		appRouter.contextProposals.createStyleModule,
+		input,
+		{ context }
+	);
+	expect(retry).toEqual(first);
+	await expect(
+		call(
+			appRouter.contextProposals.createStyleModule,
+			{ ...input, name: "Other" },
+			{ context }
+		)
+	).rejects.toMatchObject({ code: "CONFLICT" });
+	expect(await store.listProposals("user-1", project.id)).toHaveLength(1);
 });

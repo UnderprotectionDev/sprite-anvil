@@ -13,11 +13,9 @@ test("uploads and rereads exact Asset and Composite Version lineage", async ({
 	await signUpWithFixture(page, fixture);
 
 	await page.goto("/context-proposals");
-	await page.getByLabel("Proje adı").fill(fixture.projectName);
-	await page
-		.getByLabel("General art direction")
-		.fill(fixture.generalArtDirection);
-	await page.getByRole("button", { name: "Projeyi oluştur" }).click();
+	await page.getByLabel("Project name").fill(fixture.projectName);
+	await page.getByLabel("Art direction").fill(fixture.generalArtDirection);
+	await page.getByRole("button", { name: "Create project" }).click();
 	await page
 		.getByRole("button", { name: "Visual Worlds and Themes", exact: true })
 		.click();
@@ -85,25 +83,46 @@ test("uploads and rereads exact Asset and Composite Version lineage", async ({
 			exact: true,
 		})
 		.click();
+	const familyUrl = page.url();
 	await page
-		.getByLabel(`${fixture.sourceName} için Varlık Sürümü dosyası`)
-		.setInputFiles({
-			name: "ash-knight.png",
-			mimeType: "image/png",
-			buffer: fixture.png,
-		});
-	await expect(page.getByText("Sürüm 1 · Aday")).toBeVisible();
+		.locator("li", {
+			has: page.getByRole("heading", { name: fixture.sourceName, exact: true }),
+		})
+		.getByRole("link", { name: "Upload Asset Version" })
+		.click();
+	await page.getByLabel("PNG or WebP file").setInputFiles({
+		name: "ash-knight.png",
+		mimeType: "image/png",
+		buffer: fixture.png,
+	});
+	await page
+		.getByLabel("Unknown production history")
+		.fill("Test image created for the disposable review fixture.");
+	await page.getByLabel("Known source").fill("Asset version browser fixture");
+	await page
+		.getByLabel("Your relationship to the asset")
+		.selectOption("created_by_user");
+	await page.getByRole("button", { name: "Save Candidate Version" }).click();
+	await expect(page.getByText("Candidate Version saved.")).toBeVisible();
+	await page.goto(familyUrl);
+	await page
+		.getByRole("button", {
+			name: "Version and dependency operations",
+			exact: true,
+		})
+		.click();
+	await expect(page.getByText("Version 1 · Candidate")).toBeVisible();
 	const reviewRationale = "The silhouette matches the family design.";
 	await page.getByLabel("Review rationale").fill(reviewRationale);
 	await page.getByRole("button", { name: "Approve" }).click();
-	await expect(page.getByText("Sürüm 1 · Onaylandı")).toBeVisible();
-	await expect(page.getByText(`— Gerekçe: ${reviewRationale}`)).toBeVisible();
+	await expect(page.getByText("Version 1 · Approved")).toBeVisible();
+	await expect(page.getByText(`— Rationale: ${reviewRationale}`)).toBeVisible();
 	await expect(page.locator("time[datetime]").first()).toBeVisible();
 	await page
 		.getByRole("button", { name: "Select as Canonical Design" })
 		.click();
 	await expect(
-		page.getByText("Ana Tasarım: Ash Knight base · Sürüm 1")
+		page.getByText("Canonical Design: Ash Knight base · Version 1")
 	).toBeVisible();
 
 	await page
@@ -114,7 +133,7 @@ test("uploads and rereads exact Asset and Composite Version lineage", async ({
 		.click();
 	await page.getByLabel("Relationship type").selectOption("derivative");
 	await expect(
-		page.getByText("Ash Knight base · Ana Tasarım Sürüm 1")
+		page.getByText("Ash Knight base · Canonical Design Version 1")
 	).toBeVisible();
 	await page
 		.getByLabel("Related Asset Record")
@@ -140,7 +159,7 @@ test("uploads and rereads exact Asset and Composite Version lineage", async ({
 	const unitCorrectionFile = sourceRecord.getByLabel("Corrected PNG or WebP");
 	await unitCorrectionType.selectOption("frame");
 	await unitCorrectionKey.fill("attack/frame-3");
-	await unitCorrectionSource.selectOption({ label: "Sürüm 1 · Onaylandı" });
+	await unitCorrectionSource.selectOption({ label: "Version 1 · Approved" });
 	await unitCorrectionFile.setInputFiles({
 		name: "attack-frame-3-v1.png",
 		mimeType: "image/png",
@@ -148,25 +167,27 @@ test("uploads and rereads exact Asset and Composite Version lineage", async ({
 	});
 	await page.getByRole("button", { name: "Save unit correction" }).click();
 	await expect(
-		page.getByText("Kare · attack/frame-3 · Birim Sürümü 1")
+		page.getByText("Frame · attack/frame-3 · Unit Version 1")
 	).toBeVisible();
 
 	await unitCorrectionType.selectOption("direction");
 	await unitCorrectionKey.fill("north");
-	await unitCorrectionSource.selectOption({ label: "Sürüm 1 · Onaylandı" });
+	await unitCorrectionSource.selectOption({ label: "Version 1 · Approved" });
 	await unitCorrectionFile.setInputFiles({
 		name: "north-direction-v1.png",
 		mimeType: "image/png",
 		buffer: fixture.png,
 	});
 	await page.getByRole("button", { name: "Save unit correction" }).click();
-	await expect(page.getByText("Yön · north · Birim Sürümü 1")).toBeVisible();
+	await expect(
+		page.getByText("Direction · north · Unit Version 1")
+	).toBeVisible();
 
-	await sourceRecord.getByLabel("Kare · attack/frame-3").selectOption({
-		label: "Birim Sürümü 1 · Varlık Sürümü 2 · Aday",
+	await sourceRecord.getByLabel("Frame · attack/frame-3").selectOption({
+		label: "Unit Version 1 · Asset Version 2 · Candidate",
 	});
-	await sourceRecord.getByLabel("Yön · north").selectOption({
-		label: "Birim Sürümü 1 · Varlık Sürümü 3 · Aday",
+	await sourceRecord.getByLabel("Direction · north").selectOption({
+		label: "Unit Version 1 · Asset Version 3 · Candidate",
 	});
 	await page
 		.getByRole("button", { name: "Save new Composite Version" })
@@ -191,7 +212,7 @@ test("uploads and rereads exact Asset and Composite Version lineage", async ({
 
 	await unitCorrectionType.selectOption("frame");
 	await unitCorrectionKey.fill("attack/frame-3");
-	await unitCorrectionSource.selectOption({ label: "Sürüm 2 · Aday" });
+	await unitCorrectionSource.selectOption({ label: "Version 2 · Candidate" });
 	await unitCorrectionFile.setInputFiles({
 		name: "attack-frame-3-v2.png",
 		mimeType: "image/png",
@@ -199,26 +220,26 @@ test("uploads and rereads exact Asset and Composite Version lineage", async ({
 	});
 	await page.getByRole("button", { name: "Save unit correction" }).click();
 	await expect(
-		page.getByText("Kare · attack/frame-3 · Birim Sürümü 2")
+		page.getByText("Frame · attack/frame-3 · Unit Version 2")
 	).toBeVisible();
 
 	const correctedAssetVersion = sourceRecord
-		.getByText("Sürüm 4 · Aday", { exact: true })
+		.getByText("Version 4 · Candidate", { exact: true })
 		.locator("xpath=ancestor::li[1]");
 	await correctedAssetVersion
 		.getByLabel("Review rationale")
 		.fill("The corrected frame is ready for composition.");
 	await correctedAssetVersion.getByRole("button", { name: "Approve" }).click();
 	await expect(
-		correctedAssetVersion.getByText("Sürüm 4 · Onaylandı", { exact: true })
+		correctedAssetVersion.getByText("Version 4 · Approved", { exact: true })
 	).toBeVisible();
 
 	await page;
 	sourceRecord
 		.getByLabel("Starting Composite Version")
 		.selectOption({ label: "Composite Version 1 · Approved" });
-	await sourceRecord.getByLabel("Kare · attack/frame-3").selectOption({
-		label: "Birim Sürümü 2 · Varlık Sürümü 4 · Onaylandı",
+	await sourceRecord.getByLabel("Frame · attack/frame-3").selectOption({
+		label: "Unit Version 2 · Asset Version 4 · Approved",
 	});
 	await page
 		.getByRole("button", { name: "Save new Composite Version" })
@@ -234,13 +255,13 @@ test("uploads and rereads exact Asset and Composite Version lineage", async ({
 		.getByRole("heading", { name: "Composite Version 2 · Candidate" })
 		.locator("xpath=ancestor::article[1]");
 	await expect(
-		secondComposite.getByText("Kare · attack/frame-3 · Birim Sürümü 2")
+		secondComposite.getByText("Frame · attack/frame-3 · Unit Version 2")
 	).toBeVisible();
 	await expect(
-		secondComposite.getByText("Yön · north · Birim Sürümü 1")
+		secondComposite.getByText("Direction · north · Unit Version 1")
 	).toBeVisible();
 	await expect(
-		secondComposite.getByText("Varlık Sürümü 4 · Onaylandı")
+		secondComposite.getByText("Asset Version 4 · Approved")
 	).toBeVisible();
 
 	await page.reload();
@@ -250,8 +271,8 @@ test("uploads and rereads exact Asset and Composite Version lineage", async ({
 			exact: true,
 		})
 		.click();
-	await expect(page.getByText("Sürüm 1 · Onaylandı")).toBeVisible();
-	await expect(page.getByText(`— Gerekçe: ${reviewRationale}`)).toBeVisible();
+	await expect(page.getByText("Version 1 · Approved")).toBeVisible();
+	await expect(page.getByText(`— Rationale: ${reviewRationale}`)).toBeVisible();
 	await expect(page.locator("time[datetime]").first()).toBeVisible();
 	await page
 		.getByRole("button", { name: "Family catalog", exact: true })
@@ -273,24 +294,24 @@ test("uploads and rereads exact Asset and Composite Version lineage", async ({
 		page
 			.getByRole("heading", { name: "Composite Version 1 · Approved" })
 			.locator("xpath=ancestor::article[1]")
-			.getByText("Kare · attack/frame-3 · Birim Sürümü 1")
+			.getByText("Frame · attack/frame-3 · Unit Version 1")
 	).toBeVisible();
 	await expect(
 		page
 			.getByRole("heading", { name: "Composite Version 1 · Approved" })
 			.locator("xpath=ancestor::article[1]")
-			.getByText("Yön · north · Birim Sürümü 1")
+			.getByText("Direction · north · Unit Version 1")
 	).toBeVisible();
 	await expect(
 		page
 			.getByRole("heading", { name: "Composite Version 2 · Candidate" })
 			.locator("xpath=ancestor::article[1]")
-			.getByText("Kare · attack/frame-3 · Birim Sürümü 2")
+			.getByText("Frame · attack/frame-3 · Unit Version 2")
 	).toBeVisible();
 	await expect(
 		page
 			.getByRole("heading", { name: "Composite Version 2 · Candidate" })
 			.locator("xpath=ancestor::article[1]")
-			.getByText("Varlık Sürümü 4 · Onaylandı")
+			.getByText("Asset Version 4 · Approved")
 	).toBeVisible();
 });

@@ -339,7 +339,7 @@ test("names a required field left blank", async () => {
 	);
 	expect(onSave).not.toHaveBeenCalled();
 	expect(screen.getByRole("alert")).toHaveTextContent(
-		"Dönüş noktası zorunludur."
+		"Dönüş noktası is required."
 	);
 	expect(screen.getByText(requiredPrefix)).toBeInTheDocument();
 });

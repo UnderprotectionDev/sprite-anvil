@@ -1104,6 +1104,7 @@ function duplicateSectionFailures(archive: {
 }
 
 /** Failure texts when a re-read archive no longer matches its own manifest and record relations; empty when sound. */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Verification checks each archive group and its relationships together.
 export async function verifyProjectArchive(archive: {
 	manifest: ProjectArchiveManifest;
 	manifestDigest: string;
@@ -1179,6 +1180,11 @@ export async function verifyProjectArchive(archive: {
 				].includes(name)
 			)
 	);
+	for (const name of requiredFoundation) {
+		if (!(name in foundation)) {
+			failures.push(`Required section ${foundationGroup}/${name} is missing.`);
+		}
+	}
 	const foundationComplete = requiredFoundation.every(
 		(name) => name in foundation
 	);
@@ -1202,6 +1208,11 @@ export async function verifyProjectArchive(archive: {
 			.filter((section) => section.group === historyGroup)
 			.map((section) => [section.name, section.records])
 	) as unknown as HistoryRecords;
+	for (const name of Object.keys(historySectionSchemas)) {
+		if (!(name in history)) {
+			failures.push(`Required section ${historyGroup}/${name} is missing.`);
+		}
+	}
 	const historyComplete = Object.keys(historySectionSchemas).every(
 		(name) => name in history
 	);
@@ -1215,6 +1226,11 @@ export async function verifyProjectArchive(archive: {
 			.filter((section) => section.group === deliveryGroup)
 			.map((section) => [section.name, section.records])
 	) as unknown as DeliveryRecords;
+	for (const name of Object.keys(deliverySectionSchemas)) {
+		if (!(name in delivery)) {
+			failures.push(`Required section ${deliveryGroup}/${name} is missing.`);
+		}
+	}
 	if (
 		historyComplete &&
 		Object.keys(deliverySectionSchemas).every((name) => name in delivery) &&

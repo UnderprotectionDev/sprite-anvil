@@ -1,5 +1,6 @@
 import type { RouterClient } from "@orpc/server";
 import { ORPCError } from "@orpc/server";
+import { isUniqueViolation } from "@sprite-anvil/db/unique-violation";
 import type { Context } from "../context";
 import {
 	projectContextScopeCatalogSchema,
@@ -28,6 +29,12 @@ import {
 	styleModuleCreateInputSchema,
 	validateContextProposal,
 } from "../project-context";
+import { recordContentDigest } from "../record-content-digest";
+import {
+	IdempotencyConflictError,
+	resolveRecordId,
+	withPublicationErrors,
+} from "../record-publication";
 import { animationMetadataPackageRouter } from "./animation-metadata-package";
 import { animationTimingReviewsRouter } from "./animation-timing-reviews";
 import { assetFamiliesRouter } from "./asset-families";
@@ -79,7 +86,9 @@ async function createStyleProposal(
 	projectId: string,
 	base: import("../project-context").ContextRevision,
 	summary: string,
-	changes: import("../project-context").ContextRuleChange[]
+	changes: import("../project-context").ContextRuleChange[],
+	id: string,
+	keyed: boolean
 ) {
 	const userId = context.session?.user.id;
 	if (!userId) {
@@ -94,7 +103,7 @@ async function createStyleProposal(
 	}
 	const createdAt = new Date().toISOString();
 	const proposal = contextProposalSchema.parse({
-		id: crypto.randomUUID(),
+		id,
 		projectId,
 		baseContextRevisionId: base.id,
 		contractVersion: "context-agent/1.0.0",
@@ -116,8 +125,51 @@ async function createStyleProposal(
 		activationAllowed: false,
 		createdAt,
 	});
-	await context.projectContextStore.createProposal(userId, proposal);
-	return proposal;
+	const replay = async () => {
+		const existing = await context.projectContextStore.getProposal(
+			userId,
+			projectId,
+			id
+		);
+		if (!existing) {
+			return null;
+		}
+		const payload = (value: typeof proposal) => ({
+			baseContextRevisionId: value.baseContextRevisionId,
+			changes: value.changes,
+			contractVersion: value.contractVersion,
+			ruleContractVersion: value.ruleContractVersion,
+			source: value.source,
+			summary: value.summary,
+		});
+		if (
+			(await recordContentDigest(payload(existing))) !==
+			(await recordContentDigest(payload(proposal)))
+		) {
+			throw new IdempotencyConflictError("Context Proposal");
+		}
+		return existing;
+	};
+	return withPublicationErrors(async () => {
+		if (keyed) {
+			const existing = await replay();
+			if (existing) {
+				return existing;
+			}
+		}
+		try {
+			await context.projectContextStore.createProposal(userId, proposal);
+		} catch (error) {
+			if (keyed && isUniqueViolation(error)) {
+				const existing = await replay();
+				if (existing) {
+					return existing;
+				}
+			}
+			throw error;
+		}
+		return proposal;
+	});
 }
 
 async function readContextProposalReview(
@@ -178,7 +230,8 @@ async function readContextProposalReview(
 import { textureRepetitionReviewsRouter } from "./texture-repetition-reviews";
 
 import { uiStretchTestsRouter } from "./ui-stretch-tests";
-export const appRouter = {
+
+const featureRouters = {
 	sceneQa: sceneQaRouter,
 	uiStretchTests: uiStretchTestsRouter,
 	uiStateComparisons: uiStateComparisonsRouter,
@@ -230,6 +283,9 @@ export const appRouter = {
 	rightsRecords: rightsRecordsRouter,
 	runtimeValidation: runtimeValidationRouter,
 	specializedProfileContracts: specializedProfileContractsRouter,
+};
+
+const contextRouters = {
 	contextScopes: {
 		list: protectedProcedure
 			.input(projectContextScopeListInputSchema)
@@ -395,6 +451,19 @@ export const appRouter = {
 			.input(styleModuleCreateInputSchema)
 			.handler(async ({ context, input }) => {
 				const userId = context.session.user.id;
+				const recordScope = {
+					kind: "style-module-create",
+					projectId: input.projectId,
+					userId,
+				};
+				const proposalId = await resolveRecordId(
+					recordScope,
+					input.idempotencyKey
+				);
+				const moduleId = await resolveRecordId(
+					{ ...recordScope, kind: "style-module-create-module" },
+					input.idempotencyKey
+				);
 				const base = await context.projectContextStore.getRevision(
 					userId,
 					input.projectId,
@@ -406,7 +475,7 @@ export const appRouter = {
 					});
 				}
 				const module = {
-					id: crypto.randomUUID(),
+					id: moduleId,
 					name: input.name,
 					version: 1,
 				};
@@ -464,13 +533,28 @@ export const appRouter = {
 					input.projectId,
 					base,
 					`Style Module: ${input.name}`,
-					changes
+					changes,
+					proposalId,
+					Boolean(input.idempotencyKey)
 				);
 			}),
 		copyStyleModule: protectedProcedure
 			.input(styleModuleCopyInputSchema)
 			.handler(async ({ context, input }) => {
 				const userId = context.session.user.id;
+				const recordScope = {
+					kind: "style-module-copy",
+					projectId: input.projectId,
+					userId,
+				};
+				const proposalId = await resolveRecordId(
+					recordScope,
+					input.idempotencyKey
+				);
+				const moduleId = await resolveRecordId(
+					{ ...recordScope, kind: "style-module-copy-module" },
+					input.idempotencyKey
+				);
 				if (input.sourceProjectId === input.projectId) {
 					throw new ORPCError("BAD_REQUEST", {
 						message: "Choose another project.",
@@ -502,15 +586,15 @@ export const appRouter = {
 					});
 				}
 				const module = {
-					id: crypto.randomUUID(),
+					id: moduleId,
 					name: rules[0].styleModule.name,
 					version: 1,
 				};
-				const scope = { kind: "project" as const, id: input.projectId };
+				const targetScope = { kind: "project" as const, id: input.projectId };
 				const changes = rules.map((rule) => ({
 					operation: "add" as const,
 					ruleId: rule.id,
-					scope,
+					scope: targetScope,
 					value: rule.value,
 					rationale: rule.rationale,
 					styleModule: module,
@@ -526,7 +610,9 @@ export const appRouter = {
 					input.projectId,
 					base,
 					`Copy Style Module: ${module.name}`,
-					changes
+					changes,
+					proposalId,
+					Boolean(input.idempotencyKey)
 				);
 			}),
 		create: protectedProcedure
@@ -584,6 +670,10 @@ export const appRouter = {
 				return proposal;
 			}),
 	},
+};
+export const appRouter: typeof featureRouters & typeof contextRouters = {
+	...featureRouters,
+	...contextRouters,
 };
 export type AppRouter = typeof appRouter;
 export type AppRouterClient = RouterClient<typeof appRouter>;

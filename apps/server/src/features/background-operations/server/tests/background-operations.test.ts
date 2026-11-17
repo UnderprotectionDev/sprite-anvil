@@ -640,3 +640,40 @@ test("operation summary is project scoped and reports the complete active and fa
 		)
 	).rejects.toMatchObject({ code: "UNAUTHORIZED" });
 });
+
+test("checkpoints keep an advancing attempt alive, but a stalled attempt is retried", async () => {
+	let advance: (() => void) | undefined;
+	let ready: (() => void) | undefined;
+	const started = new Promise<void>((resolve) => {
+		ready = resolve;
+	});
+	const checkpointGate = new Promise<void>((resolve) => {
+		advance = resolve;
+	});
+	const s = setup({
+		handler: async (context) => {
+			await context.reportProgress({ percent: 20, step: "Reading archive" });
+			ready?.();
+			await checkpointGate;
+			await context.checkpoint();
+			await new Promise<void>(() => {
+				// Simulate a stalled executor after the last checkpoint.
+			});
+			return "done";
+		},
+	});
+	const { id } = await s.lifecycle.enqueue(request);
+	void s.lifecycle.deliver(id);
+	await started;
+	s.clock.now = new Date(startedAt.getTime() + 50_000);
+	advance?.();
+	await flush();
+	s.clock.now = new Date(startedAt.getTime() + 70_000);
+	expect(await s.lifecycle.reconcile()).toMatchObject({ requeued: 0 });
+	expect(await s.read(id)).toMatchObject({
+		status: "running",
+		progressPercent: 20,
+	});
+	s.clock.now = new Date(startedAt.getTime() + 111_000);
+	expect(await s.lifecycle.reconcile()).toMatchObject({ requeued: 1 });
+});

@@ -132,6 +132,26 @@ export const projectArchivesRouter = {
 				return result;
 			})
 		),
+	requestArchive: protectedProcedure
+		.input(projectArchiveCreateInputSchema)
+		.output(backgroundOperationSchema)
+		.handler(({ context, input }) =>
+			withPublicationErrors(async () => {
+				if (!context.projectArchiveOperations) {
+					throw new ORPCError("INTERNAL_SERVER_ERROR", {
+						message: "Project Archive operations are unavailable.",
+					});
+				}
+				const operation = await context.projectArchiveOperations.request(
+					context.session.user.id,
+					input
+				);
+				if (!operation) {
+					throw new ORPCError("NOT_FOUND", { message: projectNotFound });
+				}
+				return operation;
+			})
+		),
 	get: protectedProcedure
 		.input(projectArchiveGetInputSchema)
 		.output(projectArchiveSchema)

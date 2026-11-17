@@ -8,9 +8,45 @@ import {
 	screen,
 	waitFor,
 } from "@testing-library/react";
-import { afterEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { ExportCreationPanel } from "./export-creation-panel";
 
+const storage = vi.hoisted(() => ({
+	rows: new Map<string, any>(),
+	fail: false,
+	user: "user-1",
+}));
+vi.mock("@/lib/auth-client", () => ({
+	authClient: { useSession: () => ({ data: { user: { id: storage.user } } }) },
+}));
+vi.mock("../../lib/pending-export-store", async (importOriginal) => {
+	const original =
+		await importOriginal<typeof import("../../lib/pending-export-store")>();
+	return {
+		...original,
+		pendingExportTable: () => ({
+			get: async (key: string) => storage.rows.get(key),
+			put: (row: any) => {
+				if (storage.fail) {
+					return Promise.reject(new Error("storage"));
+				}
+				storage.rows.set(row.key, row);
+				return Promise.resolve();
+			},
+			delete: (key: string) => {
+				storage.rows.delete(key);
+				return Promise.resolve();
+			},
+		}),
+	};
+});
+beforeEach(() => {
+	storage.rows.clear();
+	storage.fail = false;
+	storage.user = "user-1";
+	save.mockClear();
+	create.mockClear();
+});
 afterEach(cleanup);
 const save = vi.hoisted(() => vi.fn(async (_input: any) => ({})));
 const create = vi.hoisted(() => vi.fn(async (_input: any) => ({})));
@@ -106,6 +142,9 @@ test("saves metadata mappings and rejects duplicate target keys", async () => {
 	fireEvent.change(screen.getByLabelText("Target key"), {
 		target: { value: "tier" },
 	});
+	await waitFor(() =>
+		expect(screen.getByText("Save profile version")).toBeEnabled()
+	);
 	fireEvent.click(screen.getByText("Save profile version"));
 	await waitFor(() => expect(save).toHaveBeenCalled());
 	expect(save.mock.calls[0][0].definition).toEqual({
@@ -124,6 +163,9 @@ test("saves metadata mappings and rejects duplicate target keys", async () => {
 	fireEvent.change(screen.getAllByLabelText("Target key")[1], {
 		target: { value: "tier" },
 	});
+	await waitFor(() =>
+		expect(screen.getByText("Save profile version")).toBeEnabled()
+	);
 	fireEvent.click(screen.getByText("Save profile version"));
 	expect(
 		await screen.findByText("A metadata key can be mapped only once.")
@@ -179,6 +221,9 @@ test("shows missing mapping fields", async () => {
 		target: { value: "{name}" },
 	});
 	fireEvent.click(screen.getByText("Add metadata mapping"));
+	await waitFor(() =>
+		expect(screen.getByText("Save profile version")).toBeEnabled()
+	);
 	fireEvent.click(screen.getByText("Save profile version"));
 	expect(await screen.findByRole("alert")).toHaveTextContent("Too small");
 });
@@ -217,12 +262,15 @@ test("retries uncertain profile and bundle writes with the same identifiers", as
 	fireEvent.change(screen.getByLabelText("Naming template"), {
 		target: { value: "{name}" },
 	});
+	await waitFor(() =>
+		expect(screen.getByText("Save profile version")).toBeEnabled()
+	);
 	fireEvent.click(screen.getByText("Save profile version"));
 	await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
 	await waitFor(() =>
 		expect(screen.getByLabelText("Profile name")).toBeDisabled()
 	);
-	fireEvent.click(screen.getByText("Save profile version"));
+	fireEvent.click(await screen.findByText("Retry profile"));
 	await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
 	expect(save.mock.calls[1][0].profileId).toBe(save.mock.calls[0][0].profileId);
 	expect(save.mock.calls[1][0].revisionId).toBe(
@@ -232,12 +280,13 @@ test("retries uncertain profile and bundle writes with the same identifiers", as
 		target: { value: revisionId },
 	});
 	fireEvent.click(screen.getByRole("checkbox", { name: "Hero" }));
+	await waitFor(() => expect(screen.getByText("Create bundle")).toBeEnabled());
 	fireEvent.click(screen.getByText("Create bundle"));
 	await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
 	await waitFor(() =>
 		expect(screen.getByLabelText("Profile version")).toBeDisabled()
 	);
-	fireEvent.click(screen.getByText("Create bundle"));
+	fireEvent.click(await screen.findByText("Retry bundle"));
 	await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
 	expect(create.mock.calls[1][0].idempotencyKey).toBe(
 		create.mock.calls[0][0].idempotencyKey
@@ -262,11 +311,17 @@ test("uses new profile identifiers after a known rejection and corrected input",
 	fireEvent.change(screen.getByLabelText("Naming template"), {
 		target: { value: "{name}" },
 	});
+	await waitFor(() =>
+		expect(screen.getByText("Save profile version")).toBeEnabled()
+	);
 	fireEvent.click(screen.getByText("Save profile version"));
 	await screen.findByText("Invalid input");
 	fireEvent.change(screen.getByLabelText("Profile name"), {
 		target: { value: "Corrected" },
 	});
+	await waitFor(() =>
+		expect(screen.getByText("Save profile version")).toBeEnabled()
+	);
 	fireEvent.click(screen.getByText("Save profile version"));
 	await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
 	expect(save.mock.calls[1][0].profileId).not.toBe(
@@ -365,4 +420,157 @@ test("shows current source candidates before creating a bundle", async () => {
 	} finally {
 		catalog.profiles = [];
 	}
+});
+
+test("explains missing bundle selections", async () => {
+	create.mockClear();
+	render(
+		<QueryClientProvider client={new QueryClient()}>
+			<ExportCreationPanel projectId="7a1f0f0e-8f4e-4c36-9a53-0b0b6a2f2a01" />
+		</QueryClientProvider>
+	);
+	await waitFor(() => expect(screen.getByText("Create bundle")).toBeEnabled());
+	fireEvent.click(screen.getByText("Create bundle"));
+	expect(
+		await screen.findByText("Choose a profile version.")
+	).toBeInTheDocument();
+	expect(
+		screen.getByText("Choose at least one Asset Family.")
+	).toBeInTheDocument();
+	expect(create).not.toHaveBeenCalled();
+});
+
+test("retries the exact profile payload when the catalog changes", async () => {
+	save
+		.mockClear()
+		.mockRejectedValueOnce(
+			Object.assign(new Error("Server error"), { status: 500 })
+		);
+	const profile = {
+		id: "profile-1",
+		name: "Original",
+		revisions: [{ id: revisionId, revisionNumber: 1 }],
+	};
+	catalog.profiles = [profile];
+	try {
+		render(
+			<QueryClientProvider client={new QueryClient()}>
+				<ExportCreationPanel projectId="7a1f0f0e-8f4e-4c36-9a53-0b0b6a2f2a01" />
+			</QueryClientProvider>
+		);
+		await screen.findByText("Original");
+		fireEvent.change(screen.getByLabelText("Profile to version"), {
+			target: { value: "profile-1" },
+		});
+		fireEvent.change(screen.getByLabelText("Naming template"), {
+			target: { value: "{name}" },
+		});
+		await waitFor(() =>
+			expect(screen.getByText("Save profile version")).toBeEnabled()
+		);
+		fireEvent.click(screen.getByText("Save profile version"));
+		await screen.findByText("Server error");
+		profile.name = "Changed";
+		fireEvent.click(await screen.findByText("Retry profile"));
+		await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+		expect(save.mock.calls[1][0]).toEqual(save.mock.calls[0][0]);
+	} finally {
+		catalog.profiles = [];
+	}
+});
+
+test("does not send a profile when local pending storage is unavailable", async () => {
+	storage.fail = true;
+	const before = save.mock.calls.length;
+	render(
+		<QueryClientProvider
+			client={
+				new QueryClient({ defaultOptions: { queries: { retry: false } } })
+			}
+		>
+			<ExportCreationPanel projectId="storage-failure" />
+		</QueryClientProvider>
+	);
+	fireEvent.change(screen.getByLabelText("Profile name"), {
+		target: { value: "Profile" },
+	});
+	fireEvent.change(screen.getByLabelText("Naming template"), {
+		target: { value: "{name}" },
+	});
+	await waitFor(() =>
+		expect(screen.getByText("Save profile version")).toBeEnabled()
+	);
+	fireEvent.click(screen.getByText("Save profile version"));
+	await screen.findByText(
+		"Pending export requests could not be stored on this device."
+	);
+	expect(save.mock.calls.length).toBe(before);
+});
+
+test("retains an uncertain request across remount and isolates user and project", async () => {
+	save.mockRejectedValueOnce(
+		Object.assign(new Error("Server error"), { status: 500 })
+	);
+	const panel = (projectId: string) => (
+		<QueryClientProvider client={new QueryClient()}>
+			<ExportCreationPanel projectId={projectId} />
+		</QueryClientProvider>
+	);
+	const view = render(panel("project-a"));
+	fireEvent.change(screen.getByLabelText("Profile name"), {
+		target: { value: "Profile" },
+	});
+	fireEvent.change(screen.getByLabelText("Naming template"), {
+		target: { value: "{name}" },
+	});
+	await waitFor(() =>
+		expect(screen.getByText("Save profile version")).toBeEnabled()
+	);
+	fireEvent.click(screen.getByText("Save profile version"));
+	await screen.findByText("Retry profile");
+	await screen.findByText("Server error");
+	const [[input]] = save.mock.calls;
+	view.unmount();
+	storage.user = "user-2";
+	const other = render(panel("project-a"));
+	await screen.findByText("No Export Profiles yet.");
+	expect(screen.queryByText("Retry profile")).not.toBeInTheDocument();
+	other.unmount();
+	storage.user = "user-1";
+	const otherProject = render(panel("project-b"));
+	await screen.findByText("No Export Profiles yet.");
+	expect(screen.queryByText("Retry profile")).not.toBeInTheDocument();
+	otherProject.unmount();
+	render(panel("project-a"));
+	fireEvent.click(await screen.findByText("Retry profile"));
+	await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+	expect(save.mock.calls[1][0]).toEqual(input);
+});
+
+test("removes a definitively rejected pending request before remount", async () => {
+	save.mockRejectedValueOnce(
+		Object.assign(new Error("Invalid input"), { status: 400 })
+	);
+	const panel = () => (
+		<QueryClientProvider client={new QueryClient()}>
+			<ExportCreationPanel projectId="project-a" />
+		</QueryClientProvider>
+	);
+	const view = render(panel());
+	fireEvent.change(screen.getByLabelText("Profile name"), {
+		target: { value: "Profile" },
+	});
+	fireEvent.change(screen.getByLabelText("Naming template"), {
+		target: { value: "{name}" },
+	});
+	await waitFor(() =>
+		expect(screen.getByText("Save profile version")).toBeEnabled()
+	);
+	fireEvent.click(screen.getByText("Save profile version"));
+	await screen.findByText("Invalid input");
+	await waitFor(() => expect(storage.rows.size).toBe(0));
+	view.unmount();
+	render(panel());
+	await screen.findByText("No Export Profiles yet.");
+	expect(screen.queryByText("Retry profile")).not.toBeInTheDocument();
 });

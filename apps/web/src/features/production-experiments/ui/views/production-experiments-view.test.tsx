@@ -18,6 +18,7 @@ const f = vi.hoisted(() => ({
 	conclude: vi.fn(),
 	transfer: vi.fn(),
 	concluded: false,
+	selected: false,
 	scoped: false,
 	familyScoped: false,
 }));
@@ -102,9 +103,13 @@ vi.mock("@/utils/orpc", () => {
 						},
 					],
 					comparison: { statement: "Inputs differ", inputs: [] },
-					conclusion: f.concluded
-						? { outcome: "inconclusive", note: null }
-						: null,
+					conclusion: f.selected
+						? {
+								outcome: "selection_made",
+								selectedTrialId: f.trial,
+								note: null,
+							}
+						: f.concluded && { outcome: "inconclusive", note: null },
 				})),
 				create: { mutationOptions: () => ({ mutationFn: f.create }) },
 				conclude: { mutationOptions: () => ({ mutationFn: f.conclude }) },
@@ -123,6 +128,7 @@ afterEach(() => {
 	client.clear();
 	vi.clearAllMocks();
 	f.concluded = false;
+	f.selected = false;
 	f.scoped = false;
 	f.familyScoped = false;
 });
@@ -404,4 +410,12 @@ test("uses the registered Asset Family as the narrowest learning scope", async (
 			expect.anything()
 		)
 	);
+});
+
+test("shows the selected trial in the conclusion", async () => {
+	f.concluded = true;
+	f.selected = true;
+	const user = setup();
+	await openExperiment(user);
+	expect(screen.getByText("Selected trial: First")).toBeInTheDocument();
 });
