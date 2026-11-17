@@ -125,6 +125,11 @@ jobs:
         working-directory: apps/server
         env:
           CONTEXT_TEST_DATABASE_URL: ${{ env.NEON_PROXY_TEST_DATABASE_URL }}
+          # Tests that load the app-root composition read the validated server environment.
+          DATABASE_URL: ${{ env.NEON_PROXY_TEST_DATABASE_URL }}
+          BETTER_AUTH_SECRET: integration-test-secret-not-for-production-use
+          BETTER_AUTH_URL: http://localhost:3000
+          CORS_ORIGIN: http://localhost:3001
         run: bun test src --timeout 30000
 
   web-e2e:
