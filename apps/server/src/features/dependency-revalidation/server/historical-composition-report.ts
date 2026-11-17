@@ -360,7 +360,7 @@ export function assessHistoricalComposition(
 		blockers: uniqueBlockers.map((entry) => {
 			const label = facts.targetLabels.get(entry.targetId);
 			return label
-				? { ...entry, message: `${entry.message} (Hedef: ${label})` }
+				? { ...entry, message: `${entry.message} (Target: ${label})` }
 				: entry;
 		}),
 	};
