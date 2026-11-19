@@ -1,3 +1,4 @@
+import { compareCodeUnits } from "@sprite-anvil/api/compare-code-units";
 import type {
 	ReferenceBoardHistoryRecord,
 	ReferenceBoardImage,
@@ -29,8 +30,8 @@ function toISOString(value: Date | string) {
 }
 
 function sameStringSet(left: readonly string[], right: readonly string[]) {
-	const sortedLeft = [...left].sort();
-	const sortedRight = [...right].sort();
+	const sortedLeft = [...left].sort(compareCodeUnits);
+	const sortedRight = [...right].sort(compareCodeUnits);
 	return (
 		sortedLeft.length === sortedRight.length &&
 		sortedLeft.every((value, index) => value === sortedRight[index])

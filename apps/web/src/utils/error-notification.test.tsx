@@ -1,6 +1,8 @@
 import type { ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, expect, test, vi } from "vitest";
+import { isWriteOutcomeUncertain, showErrorToast } from "./error-notification";
+import { getErrorMessage } from "./get-error-message";
 
 const errorToast = vi.hoisted(() => vi.fn());
 const dismissToast = vi.hoisted(() => vi.fn());
@@ -8,9 +10,6 @@ const dismissToast = vi.hoisted(() => vi.fn());
 vi.mock("sonner", () => ({
 	toast: { dismiss: dismissToast, error: errorToast },
 }));
-
-import { isWriteOutcomeUncertain, showErrorToast } from "./error-notification";
-import { getErrorMessage } from "./get-error-message";
 
 const supportReference = "SUP-7CFB1C3A-A7A3-4BC2-B748-B5065AA2314A";
 

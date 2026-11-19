@@ -1,3 +1,4 @@
+// biome-ignore-all lint/style/noExcessiveClassesPerFile: ExpressionParser and ConstantFolder are private and share this file's token model, helpers and types; splitting would force exporting those internals of the migration safety check.
 // Decides whether a CHECK constraint can reject writes that older code makes.
 // The same expression appears in three spellings: Drizzle source
 // (`"status" IN ('a')`), pg_get_constraintdef (`= ANY (ARRAY['a'::text])`)
@@ -19,9 +20,9 @@ const listPattern = new RegExp(
 	String.raw`(\bNOT\s+)?\bIN\s*\(\s*(${literal}(?:\s*,\s*${literal})*)\s*\)` +
 		String.raw`|=\s*ANY\s*\(\s*ARRAY\s*\[([^\]]*)\]\s*\)` +
 		String.raw`|=\s*ANY\s*\(\s*(${literal})\s*::\s*[a-z ]+?\s*\[\s*\]\s*\)`,
-	"gi"
+	"giu"
 );
-const literalPattern = new RegExp(literal, "g");
+const literalPattern = new RegExp(literal, "gu");
 // Only `<column> <list>` may widen; a list inside NOT, CASE or comparisons can narrow.
 const plainListSkeleton =
 	/^[(\s]*(?:"(?:[^"]|"")+"|[A-Za-z_]\w*)(?:\s*\.\s*(?:"(?:[^"]|"")+"|[A-Za-z_]\w*))?\s*\)*(?:\s*::\s*[A-Za-z ]+)?\s*<list>[)\s]*$/u;

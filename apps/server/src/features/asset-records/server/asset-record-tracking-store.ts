@@ -13,6 +13,7 @@ import {
 	derivativeSummarySchema,
 	referenceSummarySchema,
 } from "@sprite-anvil/api/asset-record-tracking";
+import { compareCodeUnits } from "@sprite-anvil/api/compare-code-units";
 import {
 	hasManualImportEvidence,
 	isManualImportEvidenceRequired,
@@ -75,8 +76,8 @@ function hasDatabaseErrorCode(error: unknown, codes: readonly string[]) {
 }
 
 function sameStringSet(left: readonly string[], right: readonly string[]) {
-	const sortedLeft = [...left].sort();
-	const sortedRight = [...right].sort();
+	const sortedLeft = [...left].sort(compareCodeUnits);
+	const sortedRight = [...right].sort(compareCodeUnits);
 	return (
 		sortedLeft.length === sortedRight.length &&
 		sortedLeft.every((value, index) => value === sortedRight[index])

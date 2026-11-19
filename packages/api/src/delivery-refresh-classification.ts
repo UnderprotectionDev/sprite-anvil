@@ -222,7 +222,7 @@ export function planDeliveryRefresh(
 /** The lock contract major this build can refresh from. */
 export const supportedDeliveryRefreshLockMajor = 1;
 
-const lockVersionPattern = /^(\d+)\.\d+\.\d+$/u;
+const lockVersionPattern = /^(?<major>\d+)\.\d+\.\d+$/u;
 
 const lockContractShape = z.object({
 	bundleId: z.string().min(1),
@@ -258,7 +258,7 @@ export function checkDeliveryRefreshLockContract(
 		?.contractVersion;
 	const major =
 		typeof version === "string"
-			? lockVersionPattern.exec(version)?.[1]
+			? lockVersionPattern.exec(version)?.groups?.major
 			: undefined;
 	if (
 		major !== undefined &&

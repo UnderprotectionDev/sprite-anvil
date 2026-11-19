@@ -12,13 +12,13 @@ import type {
 	ErasureImpactSourceReader,
 	ErasureImpactStore,
 } from "@sprite-anvil/api/permanent-erasure-store";
+import { RecordIntegrityError } from "@sprite-anvil/api/record-integrity-error";
 import {
 	idempotentRecordId,
-	RecordIntegrityError,
-	RetryablePublicationError,
 	replayPublishedRecord,
 	verifyPublishedRecord,
 } from "@sprite-anvil/api/record-publication";
+import { RetryablePublicationError } from "@sprite-anvil/api/retryable-publication-error";
 import type {
 	ErasureImpactStorage,
 	StoredErasureImpactReport,

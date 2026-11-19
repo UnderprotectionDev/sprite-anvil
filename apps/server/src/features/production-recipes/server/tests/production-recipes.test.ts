@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
+import { compareCodeUnits } from "@sprite-anvil/api/compare-code-units";
 import type { Context } from "@sprite-anvil/api/context";
 import type {
 	ProductionExperiment,
@@ -269,7 +270,7 @@ test("never applies itself and never replaces the trial review decision", async 
 
 	expect(packageWrites()).toBe(0);
 	expect(experiment).toEqual(before);
-	expect(Object.keys(created).sort()).toEqual([
+	expect(Object.keys(created).sort(compareCodeUnits)).toEqual([
 		"createdAt",
 		"id",
 		"projectId",

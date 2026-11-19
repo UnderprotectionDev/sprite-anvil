@@ -217,7 +217,7 @@ export function selectVerifiedDatabaseTarget(
 
 const migrationHashPattern = /^[a-f0-9]{64}$/u;
 
-const aheadNamePattern = /^(\d{14})_[a-z0-9][a-z0-9_-]*$/u;
+const aheadNamePattern = /^(?<stamp>\d{14})_[a-z0-9][a-z0-9_-]*$/u;
 
 export function hasTimestampedIdentity(row: AppliedMigration): boolean {
 	const stamp = row.name ? aheadNamePattern.exec(row.name)?.[1] : undefined;

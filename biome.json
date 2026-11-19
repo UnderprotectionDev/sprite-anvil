@@ -53,6 +53,20 @@
     "rules": {
       "preset": "recommended",
       "a11y": {
+        "noLabelWithoutControl": {
+          "level": "error",
+          "options": {
+            "labelComponents": ["Label"],
+            "inputComponents": [
+              "Checkbox",
+              "Input",
+              "NativeSelect",
+              "Slider",
+              "Switch",
+              "Textarea"
+            ]
+          }
+        },
         "useSemanticElements": "off"
       },
       "complexity": {

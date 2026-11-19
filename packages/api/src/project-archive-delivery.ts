@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { compareCodeUnits } from "./compare-code-units";
 import type { HistoryRecords } from "./project-archive-history";
 import type {
 	FoundationRecords,
@@ -378,7 +379,8 @@ export function emptyDeliveryRecords(): DeliveryRecords {
 type Fulfilment = DeliveryRecords["deliveryFulfilments"][number];
 type Diff = DeliveryRecords["deliveryDiffs"][number];
 
-const uniqueSorted = (ids: string[]) => [...new Set(ids)].sort();
+const uniqueSorted = (ids: string[]) =>
+	[...new Set(ids)].sort(compareCodeUnits);
 const sameVersions = (left: string[], right: string[]) =>
 	uniqueSorted(left).join("\n") === uniqueSorted(right).join("\n");
 const requirementKey = (r: { assetFamilyId: string; itemId: string }) =>

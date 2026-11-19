@@ -10,6 +10,7 @@ import {
 } from "./pixel-editor-harness";
 
 type Harness = Awaited<ReturnType<typeof createHarness>>;
+// biome-ignore lint/suspicious/noExplicitAny: HTTP response bodies of many routes with differing shapes are asserted structurally; typing each would only duplicate the API contract schemas
 type Json = Record<string, any>;
 
 const green = "#00ff00ff";
@@ -494,7 +495,9 @@ test("racing resolutions with different keys never leave an unreferenced Candida
 		}),
 	]);
 	const resolution = harness.conflicts.get(id)?.resolution;
-	expect([create.status, keep.status].sort()).toEqual([201, 409]);
+	expect([create.status, keep.status].sort((a, b) => a - b)).toEqual([
+		201, 409,
+	]);
 	expect(harness.calls.candidates).toHaveLength(
 		resolution?.choice === "create-candidate" ? 1 : 0
 	);

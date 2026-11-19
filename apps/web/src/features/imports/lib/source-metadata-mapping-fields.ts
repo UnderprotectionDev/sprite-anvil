@@ -1,3 +1,4 @@
+import { compareCodeUnits } from "@sprite-anvil/api/compare-code-units";
 import type { SourceMetadataMappingProposal } from "@sprite-anvil/api/source-metadata-mapping";
 
 export function formatFieldValue(value: unknown) {
@@ -26,7 +27,7 @@ export function stableValue(value: unknown): string {
 	if (value !== null && typeof value === "object") {
 		const record = value as Record<string, unknown>;
 		return `{${Object.keys(record)
-			.sort()
+			.sort(compareCodeUnits)
 			.map((key) => `${JSON.stringify(key)}:${stableValue(record[key])}`)
 			.join(",")}}`;
 	}
@@ -40,7 +41,10 @@ function proposalFieldValues(proposal: SourceMetadataMappingProposal) {
 		grouped.set(key, [...(grouped.get(key) ?? []), stableValue(field.value)]);
 	}
 	return new Map(
-		[...grouped].map(([key, values]) => [key, [...new Set(values)].sort()])
+		[...grouped].map(([key, values]) => [
+			key,
+			[...new Set(values)].sort(compareCodeUnits),
+		])
 	);
 }
 
@@ -51,7 +55,7 @@ export function proposalFieldChanges(
 	const before = proposalFieldValues(previous);
 	const after = proposalFieldValues(current);
 	return [...new Set([...before.keys(), ...after.keys()])]
-		.sort()
+		.sort(compareCodeUnits)
 		.flatMap((key) => {
 			if (stableValue(before.get(key)) === stableValue(after.get(key))) {
 				return [];

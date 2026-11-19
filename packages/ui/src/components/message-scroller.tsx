@@ -2,16 +2,16 @@
 
 import { MessageScroller as MessageScrollerPrimitive } from "@shadcn/react/message-scroller";
 
+import { Button } from "@sprite-anvil/ui/components/button";
+import { cn } from "@sprite-anvil/ui/lib/utils";
+import { ArrowDownIcon } from "lucide-react";
+import type * as React from "react";
+
 export {
 	useMessageScroller,
 	useMessageScrollerScrollable,
 	useMessageScrollerVisibility,
 } from "@shadcn/react/message-scroller";
-
-import { Button } from "@sprite-anvil/ui/components/button";
-import { cn } from "@sprite-anvil/ui/lib/utils";
-import { ArrowDownIcon } from "lucide-react";
-import type * as React from "react";
 
 function MessageScrollerProvider(
 	props: React.ComponentProps<typeof MessageScrollerPrimitive.Provider>

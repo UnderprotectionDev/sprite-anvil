@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { compareCodeUnits } from "@sprite-anvil/api/compare-code-units";
 import {
 	buildDeletionReceipt,
 	deletionReceiptDigest,
@@ -304,7 +305,7 @@ async function bundleIdsOf(db: TestDatabase, projectId: string) {
 		.select({ id: exportBundles.id })
 		.from(exportBundles)
 		.where(eq(exportBundles.projectId, projectId));
-	return rows.map((row) => row.id).sort();
+	return rows.map((row) => row.id).sort(compareCodeUnits);
 }
 
 async function archiveIdsOf(db: TestDatabase, projectId: string) {
@@ -312,7 +313,7 @@ async function archiveIdsOf(db: TestDatabase, projectId: string) {
 		.select({ id: projectArchives.id })
 		.from(projectArchives)
 		.where(eq(projectArchives.projectId, projectId));
-	return rows.map((row) => row.id).sort();
+	return rows.map((row) => row.id).sort(compareCodeUnits);
 }
 
 async function nothingWasWritten(db: TestDatabase, seeded: Seeded) {
@@ -334,10 +335,10 @@ async function nothingWasWritten(db: TestDatabase, seeded: Seeded) {
 			.where(eq(erasureTombstones.projectId, seeded.projectId))
 	).toHaveLength(0);
 	expect(await bundleIdsOf(db, seeded.projectId)).toEqual(
-		[seeded.bundleId, seeded.unrelatedBundleId].sort()
+		[seeded.bundleId, seeded.unrelatedBundleId].sort(compareCodeUnits)
 	);
 	expect(await archiveIdsOf(db, seeded.projectId)).toEqual(
-		[seeded.archiveId, seeded.unrelatedArchiveId].sort()
+		[seeded.archiveId, seeded.unrelatedArchiveId].sort(compareCodeUnits)
 	);
 }
 
@@ -430,7 +431,7 @@ test.skipIf(!databaseUrl)(
 			});
 
 			expect(await bundleIdsOf(db, seeded.projectId)).toEqual(
-				[seeded.bundleId, seeded.unrelatedBundleId].sort()
+				[seeded.bundleId, seeded.unrelatedBundleId].sort(compareCodeUnits)
 			);
 			expect(await archiveIdsOf(db, seeded.projectId)).toEqual([
 				seeded.unrelatedArchiveId,

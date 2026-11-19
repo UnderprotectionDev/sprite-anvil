@@ -2,6 +2,8 @@ import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
 import type { Context } from "@sprite-anvil/api/context";
 import { appRouter } from "@sprite-anvil/api/routers/index";
+import type { SceneQaInput, SceneQaRecord } from "@sprite-anvil/api/scene-qa";
+import { specializedProfileContractCatalog } from "@sprite-anvil/api/specialized-profile-contracts";
 
 test("Scene QA Playground rejects unauthenticated and expired sessions", async () => {
 	await expect(
@@ -12,9 +14,6 @@ test("Scene QA Playground rejects unauthenticated and expired sessions", async (
 		)
 	).rejects.toMatchObject({ code: "UNAUTHORIZED" });
 });
-
-import type { SceneQaInput, SceneQaRecord } from "@sprite-anvil/api/scene-qa";
-import { specializedProfileContractCatalog } from "@sprite-anvil/api/specialized-profile-contracts";
 
 const contract = specializedProfileContractCatalog.find(
 	(c) => c.profileId === "object_weapon_equipment_states"

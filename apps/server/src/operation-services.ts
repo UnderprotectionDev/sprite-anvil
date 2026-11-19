@@ -3,15 +3,13 @@ import type {
 	EnqueueRequest,
 	OperationHandler,
 } from "./features/background-operations/server/background-operation-lifecycle";
-import {
-	createBackgroundOperationLifecycle,
-	PermanentOperationError,
-	TransientOperationError,
-} from "./features/background-operations/server/background-operation-lifecycle";
+import { createBackgroundOperationLifecycle } from "./features/background-operations/server/background-operation-lifecycle";
 import type {
 	OperationStorage,
 	OperationTransport,
 } from "./features/background-operations/server/operation-storage";
+import { PermanentOperationError } from "./features/background-operations/server/permanent-operation-error";
+import { TransientOperationError } from "./features/background-operations/server/transient-operation-error";
 import type { ErasureDeletionOperationsOptions } from "./features/permanent-erasure/server/erasure-deletion-operations";
 import { createErasureDeletionOperations } from "./features/permanent-erasure/server/erasure-deletion-operations";
 import type { ArchiveImportOptions } from "./features/project-archives/server/project-archive-import-operations";

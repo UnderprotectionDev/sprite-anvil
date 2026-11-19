@@ -3,14 +3,14 @@ import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { isTauri } from "@tauri-apps/api/core";
 import ReactDOM from "react-dom/client";
 
-if (import.meta.env.VITE_WDIO === "true" && isTauri()) {
-	void import("@wdio/tauri-plugin");
-}
-
 import Loader from "./components/loader";
 import { routeTree } from "./routeTree.gen";
 import { orpc } from "./utils/orpc";
 import { queryClient } from "./utils/query-client";
+
+if (import.meta.env.VITE_WDIO === "true" && isTauri()) {
+	void import("@wdio/tauri-plugin");
+}
 
 const router = createRouter({
 	routeTree,
@@ -31,7 +31,7 @@ declare module "@tanstack/react-router" {
 	}
 }
 
-const rootElement = document.getElementById("app");
+const rootElement = document.querySelector("#app");
 
 if (!rootElement) {
 	throw new Error("Root element not found");

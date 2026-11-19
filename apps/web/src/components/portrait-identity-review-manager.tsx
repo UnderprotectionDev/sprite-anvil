@@ -384,11 +384,12 @@ export function PortraitIdentityReviewManager({
 									)}
 								</form.Field>
 							</div>
-							<Label className="grid gap-1">
+							<Label className="grid gap-1" htmlFor={`${formId}-${key}-notes`}>
 								{label} notes
 								<form.Field name={`observations.${key}.notes`}>
 									{(field) => (
 										<Textarea
+											id={`${formId}-${key}-notes`}
 											maxLength={1000}
 											onChange={(e) => field.handleChange(e.target.value)}
 											required
@@ -399,11 +400,12 @@ export function PortraitIdentityReviewManager({
 							</Label>
 						</div>
 					))}
-					<Label className="grid gap-1">
+					<Label className="grid gap-1" htmlFor={`${formId}-rationale`}>
 						Review rationale
 						<form.Field name="rationale">
 							{(field) => (
 								<Textarea
+									id={`${formId}-rationale`}
 									maxLength={2000}
 									onChange={(e) => field.handleChange(e.target.value)}
 									required

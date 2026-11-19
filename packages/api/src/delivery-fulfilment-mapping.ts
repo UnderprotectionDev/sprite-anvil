@@ -1,3 +1,4 @@
+import { compareCodeUnits } from "./compare-code-units";
 import type {
 	FulfilmentBundleCheck,
 	FulfilmentCandidate,
@@ -52,7 +53,7 @@ function candidateFor(
 				)
 				.map((file) => file.assetVersionId)
 		),
-	].sort();
+	].sort(compareCodeUnits);
 	return sameList && assetVersionIds.length > 0
 		? {
 				assetVersionIds,

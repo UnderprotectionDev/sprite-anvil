@@ -1,3 +1,4 @@
+import { compareCodeUnits } from "@sprite-anvil/api/compare-code-units";
 import type { ErasureContainerRef } from "@sprite-anvil/api/permanent-erasure";
 import type {
 	ErasureDeletionStorage,
@@ -25,7 +26,8 @@ interface MemoryOptions {
 function sameIds(left: readonly string[], right: readonly string[]) {
 	return (
 		left.length === right.length &&
-		[...left].sort().join("\n") === [...right].sort().join("\n")
+		[...left].sort(compareCodeUnits).join("\n") ===
+			[...right].sort(compareCodeUnits).join("\n")
 	);
 }
 

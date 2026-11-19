@@ -1,10 +1,8 @@
 import { expect, test } from "bun:test";
+import { IdempotencyConflictError } from "@sprite-anvil/api/idempotency-conflict-error";
 import type { ErasureImpactSource } from "@sprite-anvil/api/permanent-erasure-scope";
 import type { ErasureImpactSourceReader } from "@sprite-anvil/api/permanent-erasure-store";
-import {
-	IdempotencyConflictError,
-	RecordIntegrityError,
-} from "@sprite-anvil/api/record-publication";
+import { RecordIntegrityError } from "@sprite-anvil/api/record-integrity-error";
 import { createErasureImpactStore } from "../erasure-impact-store";
 import {
 	archiveId,

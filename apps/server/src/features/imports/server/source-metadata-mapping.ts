@@ -1,3 +1,4 @@
+import { compareCodeUnits } from "@sprite-anvil/api/compare-code-units";
 import type {
 	SourceMetadataFieldProposal,
 	SourceMetadataMappingDiagnostic,
@@ -505,7 +506,7 @@ function stableJson(value: unknown): string {
 	}
 	if (isRecord(value)) {
 		return `{${Object.keys(value)
-			.sort()
+			.sort(compareCodeUnits)
 			.map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`)
 			.join(",")}}`;
 	}

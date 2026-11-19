@@ -1,3 +1,4 @@
+// biome-ignore-all lint/style/noExcessiveClassesPerFile: SnapshotChange and SqlReview are private to this migration safety check and share its SQL patterns, helpers and types; splitting would force exporting those internals.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
@@ -40,7 +41,8 @@ export interface ExpansionResult {
 
 const safeDeleteActions = new Set(["CASCADE", "SET NULL", "SET DEFAULT"]);
 const firstSnapshotParent = "00000000-0000-0000-0000-000000000000";
-const contractApproval = /^-- parallel-safety: contract\s+(\S.*?)\s*$/u;
+const contractApproval =
+	/^-- parallel-safety: contract\s+(?<approval>\S.*?)\s*$/u;
 const lineBreak = /\r?\n/u;
 
 const entitySchema = z
@@ -85,7 +87,8 @@ const tableName = (entity: SnapshotEntity) =>
 	qualified(entity.schema, entity.table);
 
 const stringLiteral = /'(?:''|[^'])*'/gu;
-const identifierToken = /"((?:[^"]|"")+)"|\b([A-Za-z_][\w$]*)\b/gu;
+const identifierToken =
+	/"(?<quoted>(?:[^"]|"")+)"|\b(?<bare>[A-Za-z_][\w$]*)\b/gu;
 
 function identifiersIn(expression: string): Set<string> {
 	const names = new Set<string>();
@@ -621,7 +624,7 @@ function snapshotViolations(change: SnapshotChange): string[] {
 }
 
 const sqlLexeme =
-	/--[^\n]*(?:\n|$)|\/\*[\s\S]*?(?:\*\/|$)|[eE]'(?:\\[\s\S]|''|[^'\\])*'?|'(?:''|[^'])*'?|"(?:""|[^"])*"?|\$([A-Za-z_][A-Za-z0-9_]*)?\$[\s\S]*?(?:\$\1\$|$)|;|(?:[^-/'"$;eE]|[eE](?!'))+|[\s\S]/gu;
+	/--[^\n]*(?:\n|$)|\/\*[\s\S]*?(?:\*\/|$)|[eE]'(?:\\[\s\S]|''|[^'\\])*'?|'(?:''|[^'])*'?|"(?:""|[^"])*"?|\$(?<tag>[A-Za-z_][A-Za-z0-9_]*)?\$[\s\S]*?(?:\$\k<tag>\$|$)|;|(?:[^-/'"$;eE]|[eE](?!'))+|[\s\S]/gu;
 const dollarQuote = /^\$(?:[A-Za-z_][A-Za-z0-9_]*)?\$/u;
 const escapeString = /^[eE]'/u;
 
@@ -706,7 +709,7 @@ const keywordRules: [RegExp, string][] = [
 	[/\bSET\s+SCHEMA\b/iu, "moves an object to another schema"],
 ];
 
-const pattern = (source: string) => new RegExp(source, "i");
+const pattern = (source: string) => new RegExp(source, "iu");
 const qualifiedTable = String.raw`(?:(${identifier})\s*\.\s*)?(${identifier})`;
 const sqlPatterns = {
 	createdObject: pattern(

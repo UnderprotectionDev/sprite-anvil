@@ -13,7 +13,7 @@ import { Label } from "@sprite-anvil/ui/components/label";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { AssetVersionPreview } from "@/components/asset-version-preview";
 import {
 	StatusMessage,
@@ -68,6 +68,7 @@ export function AssetFamilyComparisonManager({
 	familyName: string;
 	projectId: string;
 }) {
+	const formId = useId();
 	const queryClient = useQueryClient();
 	const saveComparison = useMutation(
 		orpc.assetFamilyComparisons.save.mutationOptions()
@@ -388,6 +389,7 @@ export function AssetFamilyComparisonManager({
 						).map((key) => (
 							<Label
 								className="block space-y-1 text-base leading-normal"
+								htmlFor={`${formId}-${key}`}
 								key={key}
 							>
 								<span className="text-sm font-medium">
@@ -399,6 +401,7 @@ export function AssetFamilyComparisonManager({
 											aria-label={observationLabels[key]}
 											className="min-h-24 w-full"
 											disabled={saving || uncertain}
+											id={`${formId}-${key}`}
 											maxLength={1000}
 											onChange={(event) =>
 												field.handleChange(event.target.value)

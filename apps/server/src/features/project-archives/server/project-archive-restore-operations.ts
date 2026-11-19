@@ -1,11 +1,9 @@
 import type { BackgroundOperation } from "@sprite-anvil/api/background-operations";
+import { IdempotencyConflictError } from "@sprite-anvil/api/idempotency-conflict-error";
 import type { ProjectArchiveRestoreInput } from "@sprite-anvil/api/project-archive-restore";
 import { projectArchiveRestoreRequestDigest } from "@sprite-anvil/api/project-archive-restore";
 import type { ProjectArchiveRestoreStore } from "@sprite-anvil/api/project-archive-restore-store";
-import {
-	IdempotencyConflictError,
-	idempotentRecordId,
-} from "@sprite-anvil/api/record-publication";
+import { idempotentRecordId } from "@sprite-anvil/api/record-publication";
 import type { Database } from "@sprite-anvil/db";
 import { getProjectForUser } from "@sprite-anvil/db";
 import type { ProjectArchiveRestoreRequestStorage } from "./project-archive-restore-storage";

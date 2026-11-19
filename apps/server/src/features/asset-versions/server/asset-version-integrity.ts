@@ -1,9 +1,7 @@
 import { createHash } from "node:crypto";
+import { AssetVersionContentLengthError } from "@sprite-anvil/api/asset-version-content-length-error";
 import type { AssetVersionContentType } from "@sprite-anvil/api/asset-version-integrity";
-import {
-	AssetVersionContentLengthError,
-	AssetVersionIntegrityError,
-} from "@sprite-anvil/api/asset-version-integrity";
+import { AssetVersionIntegrityError } from "@sprite-anvil/api/asset-version-integrity-error";
 import sharp from "sharp";
 
 function invalidImage(): never {

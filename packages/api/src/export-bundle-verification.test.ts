@@ -28,7 +28,8 @@ import {
 } from "./export-bundle-verification";
 import { exportBundleVerifierSource } from "./export-bundle-verifier-source";
 
-const forbiddenKitWords = /(install|agent|assistant|you must run|curl|sudo)/iu;
+const forbiddenKitWords =
+	/(?:install|agent|assistant|you must run|curl|sudo)/iu;
 
 async function failureCodes(files: ExportBundleVerificationFile[]) {
 	const result = await verifyExportBundle(files);

@@ -1,26 +1,11 @@
 import { ORPCError } from "@orpc/server";
 import { z } from "zod";
+import { IdempotencyConflictError } from "./idempotency-conflict-error";
+import { RecordIntegrityError } from "./record-integrity-error";
+import { RetryablePublicationError } from "./retryable-publication-error";
 
 /** Client-chosen key that makes a repeated final-record request return the first result. */
 export const idempotencyKeySchema = z.string().trim().min(1).max(128);
-
-/** The same idempotency key arrived with different content than the record it already produced. */
-export class IdempotencyConflictError extends Error {
-	constructor(record: string) {
-		super(
-			`${record} idempotency conflict: this key already produced a record with different content.`
-		);
-		this.name = "IdempotencyConflictError";
-	}
-}
-
-/** A published record failed its digest or relation check and was not reported as success. */
-export class RecordIntegrityError extends Error {
-	constructor(message: string, options?: ErrorOptions) {
-		super(message, options);
-		this.name = "RecordIntegrityError";
-	}
-}
 
 /** What one idempotency key is scoped to: another member, project, Asset Record or target never shares a key. */
 export interface RecordScope {
@@ -161,14 +146,6 @@ export async function verifyPublishedRecord<Row, Result>(
 		throw new RecordIntegrityError(failure);
 	}
 	return check.toResult(row);
-}
-
-/** A write lost to a concurrent change and can be sent again unchanged. */
-export class RetryablePublicationError extends Error {
-	constructor(record: string) {
-		super(`${record} was not published because of a concurrent change.`);
-		this.name = "RetryablePublicationError";
-	}
 }
 
 /** Maps a publication failure to a user-facing API error; other errors pass through. */

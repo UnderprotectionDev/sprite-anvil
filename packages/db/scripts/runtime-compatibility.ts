@@ -30,11 +30,11 @@ const unquote = (value: string) => {
 const identifierPattern = /^(?:"(?:[^"]|"")+"|[A-Za-z_][\w$]*)$/u;
 const indexKeysPattern = /\bUSING \w+ \(/u;
 const indexOrderPattern = /\s+(?:ASC|DESC|NULLS (?:FIRST|LAST))\b.*$/u;
-const indexPredicatePattern = / WHERE (.*)$/u;
+const indexPredicatePattern = / WHERE (?<predicate>.*)$/u;
 const keyListPattern =
 	/^(?:PRIMARY KEY|UNIQUE(?: NULLS NOT DISTINCT)?|FOREIGN KEY) \(/u;
 const referencePattern =
-	/ REFERENCES (?:((?:"(?:[^"]|"")+"|[A-Za-z_][\w$]*))\.)?((?:"(?:[^"]|"")+"|[A-Za-z_][\w$]*))\(/u;
+	/ REFERENCES (?:(?<schema>(?:"(?:[^"]|"")+"|[A-Za-z_][\w$]*))\.)?(?<table>(?:"(?:[^"]|"")+"|[A-Za-z_][\w$]*))\(/u;
 
 function ordinaryTable(object: CatalogObject): boolean {
 	return (

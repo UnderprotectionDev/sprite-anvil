@@ -1,8 +1,10 @@
 import { MigrationSafetyError } from "./migration-safety-error";
 
-const indexNamePattern = /CREATE (?:UNIQUE )?INDEX (?:"([^"]+)"|([^ ]+)) ON /u;
-const dropTablePattern = /^DROP TABLE "([^"]+)"(?: CASCADE)?;$/u;
-const dropColumnPattern = /^ALTER TABLE "([^"]+)" DROP COLUMN "([^"]+)";$/u;
+const indexNamePattern =
+	/CREATE (?:UNIQUE )?INDEX (?:"(?<quotedName>[^"]+)"|(?<bareName>[^ ]+)) ON /u;
+const dropTablePattern = /^DROP TABLE "(?<table>[^"]+)"(?: CASCADE)?;$/u;
+const dropColumnPattern =
+	/^ALTER TABLE "(?<table>[^"]+)" DROP COLUMN "(?<column>[^"]+)";$/u;
 
 interface Entity {
 	entityType?: string;
@@ -127,17 +129,17 @@ const executable = (statement: string) =>
 		return trimmed.length > 0 && !trimmed.startsWith("--");
 	});
 
-const dropIndexPattern = /^DROP INDEX "([^"]+)";$/u;
+const dropIndexPattern = /^DROP INDEX "(?<index>[^"]+)";$/u;
 const dropConstraintPattern =
-	/^ALTER TABLE "([^"]+)" DROP CONSTRAINT "([^"]+)";$/u;
-const dropTypePattern = /^DROP TYPE "([^"]+)";$/u;
-const createEnumPattern = /^CREATE TYPE "([^"]+)" AS ENUM\(.*\);$/u;
+	/^ALTER TABLE "(?<table>[^"]+)" DROP CONSTRAINT "(?<constraint>[^"]+)";$/u;
+const dropTypePattern = /^DROP TYPE "(?<type>[^"]+)";$/u;
+const createEnumPattern = /^CREATE TYPE "(?<type>[^"]+)" AS ENUM\(.*\);$/u;
 const retypeColumnPattern =
-	/^ALTER TABLE "([^"]+)" ALTER COLUMN "([^"]+)" SET DATA TYPE (?:text|"([^"]+)" USING "[^"]+"::"[^"]+");$/u;
-const alterTablePattern = /^ALTER TABLE "([^"]+)" (.*);$/su;
+	/^ALTER TABLE "(?<table>[^"]+)" ALTER COLUMN "(?<column>[^"]+)" SET DATA TYPE (?:text|"(?<toType>[^"]+)" USING "[^"]+"::"[^"]+");$/u;
+const alterTablePattern = /^ALTER TABLE "(?<table>[^"]+)" (?<actions>.*);$/su;
 const constraintActionPattern = /,\s*(?=(?:DROP|ADD) CONSTRAINT ")/u;
 const redefinitionPattern =
-	/^(?:DROP CONSTRAINT "([^"]+)"|ADD CONSTRAINT "([^"]+)" CHECK \(.*\))$/su;
+	/^(?:DROP CONSTRAINT "(?<dropped>[^"]+)"|ADD CONSTRAINT "(?<added>[^"]+)" CHECK \(.*\))$/su;
 
 /**
  * Drizzle's push diff (database -> source) proposes undoing everything another
@@ -274,9 +276,9 @@ export function redefinedChecks(
 	);
 }
 
-const createTablePattern = /^CREATE TABLE "([^"]+)" \(/u;
+const createTablePattern = /^CREATE TABLE "(?<table>[^"]+)" \(/u;
 const tableEvolutionPattern =
-	/^ALTER TABLE "([^"]+)" (?:ADD COLUMN |ALTER COLUMN |ADD CONSTRAINT "[^"]+" CHECK )/u;
+	/^ALTER TABLE "(?<table>[^"]+)" (?:ADD COLUMN |ALTER COLUMN |ADD CONSTRAINT "[^"]+" CHECK )/u;
 
 /**
  * Drizzle's push diff creates a table in its final shape, while pending SQL

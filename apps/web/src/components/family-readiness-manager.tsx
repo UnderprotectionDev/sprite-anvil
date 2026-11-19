@@ -1,4 +1,5 @@
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
+import { compareCodeUnits } from "@sprite-anvil/api/compare-code-units";
 import type {
 	FamilyReadiness,
 	QualityVersionTarget,
@@ -1278,7 +1279,7 @@ function iconUsageGrayscaleReviewKey(
 	const assetRecordIds = new Set(preview?.assetRecordIds ?? []);
 	const currentAssetVersionIds = [
 		...(preview?.currentAssetVersionIds ?? []),
-	].sort();
+	].sort(compareCodeUnits);
 	const currentAssetVersionIdSet = new Set(currentAssetVersionIds);
 	const assetRecords = (preview?.assetRecords ?? [])
 		.filter((record) => assetRecordIds.has(record.id))

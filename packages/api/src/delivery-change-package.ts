@@ -16,7 +16,7 @@ export const deliveryChangePackageFormat =
 	"sprite-anvil.delivery-change-package";
 export const deliveryChangePackageContractVersion = "1.0.0";
 const supportedChangePackageMajor = 1;
-const majorPattern = /^(\d+)\.\d+\.\d+$/u;
+const majorPattern = /^(?<major>\d+)\.\d+\.\d+$/u;
 
 const fileSchema = z
 	.object({
@@ -50,7 +50,7 @@ export const deliveryChangePackageSchema = z
 			.string()
 			.refine(
 				(version) =>
-					Number(majorPattern.exec(version)?.[1]) ===
+					Number(majorPattern.exec(version)?.groups?.major) ===
 					supportedChangePackageMajor,
 				"Unsupported change package contract version."
 			),

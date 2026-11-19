@@ -5,7 +5,7 @@ import {
 	deletionReceiptRecordSchema,
 } from "@sprite-anvil/api/permanent-erasure-deletion";
 import type { DeletionReceiptStore } from "@sprite-anvil/api/permanent-erasure-deletion-store";
-import { RecordIntegrityError } from "@sprite-anvil/api/record-publication";
+import { RecordIntegrityError } from "@sprite-anvil/api/record-integrity-error";
 import type { ErasureDeletionStorage } from "./erasure-deletion-storage";
 import type { ProjectLookupOptions } from "./project-lookup";
 import { resolveProjectLookup } from "./project-lookup";

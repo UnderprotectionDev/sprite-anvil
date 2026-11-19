@@ -8,7 +8,7 @@ import type { DeliveryRefreshDecision } from "./delivery-refresh-classification"
 import { classifyDeliveryRefreshPaths } from "./delivery-refresh-classification";
 
 const digest = (letter: string) => letter.repeat(64);
-const executableName = /\.(sh|bat|cmd|exe|ps1|js|ts|py|command)$/iu;
+const executableName = /\.(?:sh|bat|cmd|exe|ps1|js|ts|py|command)$/iu;
 const executableKeys = ["command", "exec", "install", "run", "script", "shell"];
 
 const previousFiles = [

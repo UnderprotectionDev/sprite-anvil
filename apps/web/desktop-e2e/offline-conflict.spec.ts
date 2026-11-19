@@ -2,7 +2,7 @@ import { $, browser, expect } from "@wdio/globals";
 import { createAssetRecordFixture } from "../e2e/asset-record-fixture";
 import { openWorkspaceTask } from "./workspace-navigation";
 
-const projectIdInUrl = /projects\/([0-9a-f-]{36})\//u;
+const projectIdInUrl = /projects\/(?<projectId>[0-9a-f-]{36})\//u;
 const draftId = "b17f5ff0-a50d-438f-8bf2-a0152b42c401";
 const sourceAssetVersionId = "b17f5ff0-a50d-438f-8bf2-a0152b42c301";
 
@@ -106,7 +106,8 @@ describe("Offline conflict", () => {
 		await stagingLink.waitForClickable();
 		await stagingLink.click();
 		await (await $("h1=Offline staging")).waitForDisplayed();
-		const projectId = (await browser.getUrl()).match(projectIdInUrl)?.[1];
+		const projectId = (await browser.getUrl()).match(projectIdInUrl)?.groups
+			?.projectId;
 		if (!projectId) {
 			throw new Error("The project id is not in the Offline staging URL.");
 		}

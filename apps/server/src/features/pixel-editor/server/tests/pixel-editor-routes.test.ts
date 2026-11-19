@@ -1,5 +1,9 @@
 // biome-ignore-all lint/performance/noAwaitInLoops: each request depends on the revision the previous one returned
 import { expect, test } from "bun:test";
+import type {
+	PixelDraft,
+	PixelDraftCommitResponse,
+} from "@sprite-anvil/api/pixel-editor";
 import {
 	assetRecordId,
 	blue,
@@ -27,7 +31,7 @@ async function openDraft(harness: Awaited<ReturnType<typeof createHarness>>) {
 test("opens a recoverable Working Draft from an Asset Version and reopens the same one", async () => {
 	const harness = await createHarness();
 	const first = await harness.open();
-	const draft = (await first.json()) as Record<string, any>;
+	const draft = (await first.json()) as PixelDraft;
 
 	expect(first.status).toBe(201);
 	expect(draft).toMatchObject({
@@ -64,7 +68,7 @@ test("pen edit is applied by the server, re-read from the record, and leaves the
 		size: 1,
 		points: [{ x: 0, y: 0 }],
 	});
-	const updated = (await response.json()) as Record<string, any>;
+	const updated = (await response.json()) as PixelDraft;
 
 	expect(response.status).toBe(200);
 	expect(updated).toMatchObject({
@@ -77,10 +81,7 @@ test("pen edit is applied by the server, re-read from the record, and leaves the
 		outOfPaletteColors: [{ color: green, pixelCount: 1 }],
 	});
 
-	const reread = (await (await harness.read(draft.id)).json()) as Record<
-		string,
-		any
-	>;
+	const reread = (await (await harness.read(draft.id)).json()) as PixelDraft;
 	expect(reread.operations).toHaveLength(1);
 	const pixels = await readPixels(await harness.preview(draft.id));
 	expect(pixels.pixel(0, 0)).toBe(green);
@@ -100,20 +101,14 @@ test("undo and redo act on the Working Draft and a new edit drops the redo tail"
 		points: [{ x: 0, y: 0 }],
 	});
 
-	const undone = (await (await harness.undo(draft.id, 1)).json()) as Record<
-		string,
-		any
-	>;
+	const undone = (await (await harness.undo(draft.id, 1)).json()) as PixelDraft;
 	expect(undone).toMatchObject({ canUndo: false, canRedo: true, revision: 2 });
 	expect(undone.diff.changedPixelCount).toBe(0);
 	expect((await readPixels(await harness.preview(draft.id))).pixel(0, 0)).toBe(
 		red
 	);
 
-	const redone = (await (await harness.redo(draft.id, 2)).json()) as Record<
-		string,
-		any
-	>;
+	const redone = (await (await harness.redo(draft.id, 2)).json()) as PixelDraft;
 	expect(redone).toMatchObject({ canUndo: true, canRedo: false });
 	expect(redone.diff.changedPixelCount).toBe(1);
 
@@ -124,14 +119,15 @@ test("undo and redo act on the Working Draft and a new edit drops the redo tail"
 			size: 1,
 			points: [{ x: 3, y: 0 }],
 		})
-	).json()) as Record<string, any>;
+	).json()) as PixelDraft;
 	expect(branched.canRedo).toBe(false);
 	expect(branched.operations).toHaveLength(1);
 	expect((await harness.undo(draft.id, 5)).status).toBe(200);
 	expect((await harness.undo(draft.id, 6)).status).toBe(409);
-	expect(((await (await harness.undo(draft.id, 6)).json()) as any).error).toBe(
-		"Nothing to undo"
-	);
+	expect(
+		((await (await harness.undo(draft.id, 6)).json()) as { error: string })
+			.error
+	).toBe("Nothing to undo");
 });
 
 test("exact-match fill, line, eraser and picker-free colour edits stay on the logical pixel grid", async () => {
@@ -144,7 +140,7 @@ test("exact-match fill, line, eraser and picker-free colour edits stay on the lo
 			color: green,
 			at: { x: 0, y: 0 },
 		})
-	).json()) as Record<string, any>;
+	).json()) as PixelDraft;
 	expect(filled.diff.changedPixelCount).toBe(8);
 	expect(filled.outOfPaletteColors).toEqual([{ color: green, pixelCount: 8 }]);
 
@@ -199,9 +195,9 @@ test("previews and applies bulk colour replacement with the affected pixel count
 		resultIsInPalette: true,
 	});
 	// The preview alone changes nothing.
-	expect(((await (await harness.read(draft.id)).json()) as any).revision).toBe(
-		1
-	);
+	expect(
+		((await (await harness.read(draft.id)).json()) as PixelDraft).revision
+	).toBe(1);
 
 	const replaced = (await (
 		await harness.apply(draft.id, 1, {
@@ -209,7 +205,7 @@ test("previews and applies bulk colour replacement with the affected pixel count
 			from: green,
 			to: red,
 		})
-	).json()) as Record<string, any>;
+	).json()) as PixelDraft;
 	expect(replaced.outOfPaletteColors).toEqual([]);
 	expect(replaced.diff.changedPixelCount).toBe(0);
 });
@@ -223,13 +219,13 @@ test("crop, canvas resize, nearest-neighbour scale, flip, rotate and move keep e
 			type: "crop",
 			rect: { x: 1, y: 1, width: 2, height: 2 },
 		})
-	).json()) as Record<string, any>;
+	).json()) as PixelDraft;
 	expect(cropped.size).toEqual({ width: 2, height: 2 });
 	expect(cropped.diff.sizeChanged).toBe(true);
 
 	const scaled = (await (
 		await harness.apply(draft.id, 1, { type: "scale", factor: 3 })
-	).json()) as Record<string, any>;
+	).json()) as PixelDraft;
 	expect(scaled.size).toEqual({ width: 6, height: 6 });
 	expect(scaled.outOfPaletteColors).toEqual([]);
 	const scaledPixels = await readPixels(await harness.preview(draft.id));
@@ -267,10 +263,7 @@ test("crop, canvas resize, nearest-neighbour scale, flip, rotate and move keep e
 		dx: 1,
 		dy: 1,
 	});
-	const final = (await (await harness.read(draft.id)).json()) as Record<
-		string,
-		any
-	>;
+	const final = (await (await harness.read(draft.id)).json()) as PixelDraft;
 	expect(final.operations).toHaveLength(6);
 	expect(final.outOfPaletteColors).toEqual([]);
 });
@@ -287,7 +280,7 @@ test("commit creates exactly one derived Candidate Version from the server-rende
 	const rendered = await harness.preview(draft.id);
 
 	const committed = await harness.commit(draft.id);
-	const body = (await committed.json()) as Record<string, any>;
+	const body = (await committed.json()) as PixelDraftCommitResponse;
 	expect(committed.status).toBe(201);
 	expect(body.created).toBe(true);
 	expect(body.draft).toMatchObject({
@@ -316,12 +309,12 @@ test("commit creates exactly one derived Candidate Version from the server-rende
 
 	const again = await harness.commit(draft.id);
 	expect(again.status).toBe(200);
-	expect(((await again.json()) as any).assetVersionId).toBe(
-		body.assetVersionId
-	);
+	expect(
+		((await again.json()) as PixelDraftCommitResponse).assetVersionId
+	).toBe(body.assetVersionId);
 	expect(harness.calls.candidates).toHaveLength(1);
 
-	const reread = (await (await harness.read(draft.id)).json()) as any;
+	const reread = (await (await harness.read(draft.id)).json()) as PixelDraft;
 	expect(reread.committedAssetVersionId).toBe(body.assetVersionId);
 	const after = await harness.apply(draft.id, reread.revision, {
 		type: "eraser",
@@ -329,7 +322,9 @@ test("commit creates exactly one derived Candidate Version from the server-rende
 		points: [{ x: 0, y: 0 }],
 	});
 	expect(after.status).toBe(409);
-	expect(((await after.json()) as any).error).toBe("Working Draft is not open");
+	expect(((await after.json()) as { error: string }).error).toBe(
+		"Working Draft is not open"
+	);
 });
 
 test("rejects a commit without changes and a discarded draft", async () => {
@@ -337,7 +332,7 @@ test("rejects a commit without changes and a discarded draft", async () => {
 	const draft = await openDraft(harness);
 	const empty = await harness.commit(draft.id);
 	expect(empty.status).toBe(400);
-	expect(((await empty.json()) as any).error).toBe(
+	expect(((await empty.json()) as { error: string }).error).toBe(
 		"Working Draft has no changes"
 	);
 	expect(harness.calls.candidates).toHaveLength(0);
@@ -347,7 +342,7 @@ test("rejects a commit without changes and a discarded draft", async () => {
 		{ method: "POST" }
 	);
 	expect(discarded.status).toBe(200);
-	expect(((await discarded.json()) as any).status).toBe("discarded");
+	expect(((await discarded.json()) as PixelDraft).status).toBe("discarded");
 	expect((await harness.commit(draft.id)).status).toBe(409);
 });
 
@@ -394,7 +389,7 @@ test("rejects stale revisions and invalid operations without changing the draft"
 
 	const stale = await harness.apply(draft.id, 0, pen);
 	expect(stale.status).toBe(409);
-	expect(((await stale.json()) as any).error).toBe(
+	expect(((await stale.json()) as { error: string }).error).toBe(
 		"Working Draft revision conflict"
 	);
 
@@ -466,7 +461,7 @@ test("copy, cut and paste a rectangular selection with exact colours", async () 
 	});
 	const pasted = (await (
 		await harness.apply(draft.id, 1, { type: "paste", x: 2, y: 2 })
-	).json()) as Record<string, any>;
+	).json()) as PixelDraft;
 	expect(pasted.outOfPaletteColors).toEqual([]);
 	const afterPaste = await readPixels(await harness.preview(draft.id));
 	expect(afterPaste.pixel(2, 2)).toBe(red);

@@ -20,7 +20,9 @@ const mocks = vi.hoisted(() => ({
 vi.mock("pixi.js", () => ({
 	Application: class {
 		canvas = document.createElement("canvas");
+		// biome-ignore lint/style/useThisInClassMethods: fake mirrors the pixi Application instance API
 		init = async () => undefined;
+		// biome-ignore lint/style/useThisInClassMethods: fake mirrors the pixi Application instance API
 		destroy = () => undefined;
 	},
 }));

@@ -2,14 +2,12 @@ import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
 import { cancelOutcome } from "@sprite-anvil/api/background-operations";
 import type { Context } from "@sprite-anvil/api/context";
-import { IdempotencyConflictError } from "@sprite-anvil/api/record-publication";
+import { IdempotencyConflictError } from "@sprite-anvil/api/idempotency-conflict-error";
 import { appRouter } from "@sprite-anvil/api/routers/index";
-import {
-	createBackgroundOperationLifecycle,
-	PermanentOperationError,
-	TransientOperationError,
-} from "../background-operation-lifecycle";
+import { createBackgroundOperationLifecycle } from "../background-operation-lifecycle";
 import type { OperationTransport } from "../operation-storage";
+import { PermanentOperationError } from "../permanent-operation-error";
+import { TransientOperationError } from "../transient-operation-error";
 import { createMemoryOperationStorage } from "./memory-operation-storage";
 
 const userId = "user-1";

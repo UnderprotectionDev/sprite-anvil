@@ -16,12 +16,11 @@ import {
 import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
 import { afterEach, expect, test, vi } from "vitest";
+import { TilesetAdjacencyReviewManager } from "./tileset-adjacency-review-manager";
 
 const openReviewPattern = /Open review/u;
 const pixelDifferencePattern = /1 of 16 pixels differ/u;
 const seamPattern = /Visible corner seam/u;
-
-import { TilesetAdjacencyReviewManager } from "./tileset-adjacency-review-manager";
 
 const api = vi.hoisted(() => ({
 	save: vi.fn(),

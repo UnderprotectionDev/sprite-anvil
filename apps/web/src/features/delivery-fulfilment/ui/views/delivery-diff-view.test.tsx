@@ -278,7 +278,7 @@ test("renders recorded evidence changes and distinguishes unchanged from unavail
 		await screen.findByRole("region", { name: "Quality evidence" })
 	);
 	for (const label of ["Added evidence", "Removed evidence", "Same evidence"]) {
-		expect(quality.getByText(new RegExp(label))).toBeInTheDocument();
+		expect(quality.getByText(new RegExp(label, "u"))).toBeInTheDocument();
 	}
 	await userEvent.click(quality.getByText("Evidence details"));
 	expect(quality.getByText("old rationale")).toBeVisible();

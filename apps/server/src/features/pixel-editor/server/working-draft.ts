@@ -1,3 +1,4 @@
+import { compareCodeUnits } from "@sprite-anvil/api/compare-code-units";
 import type {
 	PixelColorReplacePreview,
 	PixelDraft,
@@ -62,7 +63,7 @@ export function buildDraftView({
 	draft,
 	source,
 }: Pick<DraftContext, "applied" | "draft" | "source">): PixelDraft {
-	const palette = [...countColors(source).keys()].sort();
+	const palette = [...countColors(source).keys()].sort(compareCodeUnits);
 	const paletteSet = new Set(palette);
 	const used = countColors(applied);
 	const outOfPalette = new Set(

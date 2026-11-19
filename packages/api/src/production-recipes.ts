@@ -189,7 +189,7 @@ export interface ProductionRecipeStore {
 	) => Promise<ProductionRecipe[] | null>;
 }
 
-const placeholderPattern = /\{\{\s*([a-z][a-z0-9_]*)\s*\}\}/gu;
+const placeholderPattern = /\{\{\s*(?<key>[a-z][a-z0-9_]*)\s*\}\}/gu;
 
 /**
  * Checks the relations between the skeleton and its fields. Returns the first

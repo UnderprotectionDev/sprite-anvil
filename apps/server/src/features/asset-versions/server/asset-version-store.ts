@@ -35,6 +35,7 @@ import {
 	readBatchReviewEvents,
 	recordBatchReviewEvents,
 } from "@sprite-anvil/api/batch-review-events";
+import { compareCodeUnits } from "@sprite-anvil/api/compare-code-units";
 import type {
 	ManagedSnapshot,
 	ManualImportEvidence,
@@ -656,8 +657,10 @@ async function readExistingCompositeVersion(
 	const compositeVersion = await readCompositeVersion(db, existing);
 	const existingUnitVersionIds = compositeVersion.compositionMemberships
 		.map((membership) => membership.unitVersionId)
-		.sort();
-	const requestedUnitVersionIds = [...input.unitVersionIds].sort();
+		.sort(compareCodeUnits);
+	const requestedUnitVersionIds = [...input.unitVersionIds].sort(
+		compareCodeUnits
+	);
 	if (
 		existingUnitVersionIds.length !== requestedUnitVersionIds.length ||
 		existingUnitVersionIds.some(

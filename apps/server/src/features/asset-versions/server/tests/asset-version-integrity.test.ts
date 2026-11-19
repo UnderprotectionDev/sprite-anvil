@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { AssetVersionIntegrityError } from "@sprite-anvil/api/asset-version-integrity";
+import { AssetVersionIntegrityError } from "@sprite-anvil/api/asset-version-integrity-error";
 import sharp from "sharp";
 import { verifyAssetVersionStream } from "../asset-version-integrity";
 

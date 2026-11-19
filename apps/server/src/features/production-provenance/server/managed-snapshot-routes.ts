@@ -10,6 +10,8 @@ import {
 	managedSnapshotObjectKeySchema,
 } from "../../../cloudflare";
 import { serializePublicApiError } from "../../../output-contracts";
+import { ManagedSnapshotDigestError } from "./managed-snapshot-digest-error";
+import { ManagedSnapshotLengthError } from "./managed-snapshot-length-error";
 
 const projectIdSchema = z.string().min(1).max(200);
 const assetVersionIdSchema = z.string().uuid();
@@ -50,10 +52,6 @@ export interface ManagedSnapshotRouteDependencies {
 type ProjectAccess =
 	| { ok: true; userId: string }
 	| { ok: false; error: "Unauthorized" | "Not found"; status: 401 | 404 };
-
-class ManagedSnapshotLengthError extends Error {}
-
-class ManagedSnapshotDigestError extends Error {}
 
 function createSnapshotDigestTransform(
 	expectedByteSize: number,

@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
+import { compareCodeUnits } from "@sprite-anvil/api/compare-code-units";
 import type { Context } from "@sprite-anvil/api/context";
 import type { DeliveryRefreshDecision } from "@sprite-anvil/api/delivery-refresh-classification";
 import {
@@ -1038,12 +1039,9 @@ test("refresh stays one-way: no continuous sync, no Consumption Receipt and no d
 		written: report.written,
 	});
 
-	expect(Object.keys(appRouter.deliveryRefreshLocks).sort()).toEqual([
-		"apply",
-		"get",
-		"list",
-		"refresh",
-	]);
+	expect(
+		Object.keys(appRouter.deliveryRefreshLocks).sort(compareCodeUnits)
+	).toEqual(["apply", "get", "list", "refresh"]);
 	expect(
 		Object.keys(appRouter).filter((name) => outOfScopeRouterName.test(name))
 	).toEqual([]);

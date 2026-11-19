@@ -224,7 +224,7 @@ async function review() {
 }
 
 const sectionOf = (name: string) =>
-	screen.getByRole("region", { name: new RegExp(`^${name}`) });
+	screen.getByRole("region", { name: new RegExp(`^${name}`, "u") });
 
 let downloaded: Blob[] = [];
 

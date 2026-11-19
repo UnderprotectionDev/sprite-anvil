@@ -2,9 +2,9 @@ import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
 import type { BackgroundOperation } from "@sprite-anvil/api/background-operations";
 import type { Context } from "@sprite-anvil/api/context";
+import { IdempotencyConflictError } from "@sprite-anvil/api/idempotency-conflict-error";
 import type { ErasureApprovalInput } from "@sprite-anvil/api/permanent-erasure-deletion";
 import type { ErasureApprovalOperations } from "@sprite-anvil/api/permanent-erasure-deletion-store";
-import { IdempotencyConflictError } from "@sprite-anvil/api/record-publication";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { projectId } from "./erasure-impact-fixtures";
 

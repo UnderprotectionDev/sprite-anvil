@@ -3,6 +3,7 @@
 @import "fumadocs-ui/css/preset.css";
 
 html {
+  /* biome-ignore lint/suspicious/useBaseline: scrollbar-gutter is a progressive enhancement; browsers without it keep the default layout. */
   scrollbar-gutter: stable;
 }
 

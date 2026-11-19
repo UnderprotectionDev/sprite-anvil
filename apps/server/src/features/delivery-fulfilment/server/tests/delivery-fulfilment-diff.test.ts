@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { compareCodeUnits } from "@sprite-anvil/api/compare-code-units";
 import { diffFulfilments } from "../delivery-diff";
 import {
 	bundleA,
@@ -97,7 +98,12 @@ test("compares two Fulfilments into added, removed and changed Asset Versions, c
 	const byItem = new Map(
 		diff.bundleMappings.changes.map((entry) => [entry.itemId, entry])
 	);
-	expect([...byItem.keys()].sort()).toEqual(["idle", "jump", "run", "ut-1"]);
+	expect([...byItem.keys()].sort(compareCodeUnits)).toEqual([
+		"idle",
+		"jump",
+		"run",
+		"ut-1",
+	]);
 	expect(byItem.get("ut-1")?.from?.bundleId).toBe(bundleA);
 	expect(byItem.get("ut-1")?.to?.bundleId).toBe(bundleC);
 	expect(byItem.get("run")?.to).toBeNull();

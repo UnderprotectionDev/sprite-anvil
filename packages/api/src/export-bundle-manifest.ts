@@ -312,7 +312,7 @@ export type ExportBundleBuildResult =
 	| { ok: false; reason: "selection_unavailable"; assetVersionIds: string[] };
 
 const namingPlaceholders = ["family", "item", "version"] as const;
-const placeholderPattern = /\{([^{}]*)\}/gu;
+const placeholderPattern = /\{(?<name>[^{}]*)\}/gu;
 
 /** The major number of a `major.minor.patch` contract version. */
 export function exportBundleContractMajorOf(version: string): number {

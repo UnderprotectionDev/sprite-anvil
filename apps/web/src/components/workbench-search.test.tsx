@@ -10,12 +10,15 @@ import { afterEach, expect, test, vi } from "vitest";
 import { WorkbenchSearch } from "./workbench-search";
 
 globalThis.ResizeObserver = class {
+	// biome-ignore lint/style/useThisInClassMethods: fake mirrors the ResizeObserver instance API
 	observe() {
 		/* jsdom has no layout observer. */
 	}
+	// biome-ignore lint/style/useThisInClassMethods: fake mirrors the ResizeObserver instance API
 	unobserve() {
 		/* jsdom has no layout observer. */
 	}
+	// biome-ignore lint/style/useThisInClassMethods: fake mirrors the ResizeObserver instance API
 	disconnect() {
 		/* jsdom has no layout observer. */
 	}

@@ -262,7 +262,9 @@ test("staged work carries no approval, activation or export marker", async () =>
 	const store = createOfflineStagingStore(tables);
 	await store.stageWorkingDraft(draft, 1);
 	const [staged] = await store.listStagedDrafts(projectId);
-	expect(Object.keys(staged).sort()).toEqual(
-		["base", "draft", "id", "projectId", "stagedAt"].sort()
+	expect(Object.keys(staged).sort((a, b) => a.localeCompare(b))).toEqual(
+		["base", "draft", "id", "projectId", "stagedAt"].sort((a, b) =>
+			a.localeCompare(b)
+		)
 	);
 });

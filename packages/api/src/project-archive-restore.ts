@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { compareCodeUnits } from "./compare-code-units";
 import type { DeliveryRecords } from "./project-archive-delivery";
 import {
 	deliveryGroup,
@@ -427,7 +428,7 @@ function repeatedKeys(
 		);
 	}
 	note("file", files.map(fileKey));
-	return [...repeated].sort();
+	return [...repeated].sort(compareCodeUnits);
 }
 
 /** Every archived id a restore re-issues, in a fixed order, with the section it was found in. */
@@ -514,7 +515,7 @@ async function issueIds(
 				)
 				.flatMap((section) => section.records.map((row) => String(row.id)))
 		),
-	].sort();
+	].sort(compareCodeUnits);
 	if (originalIds.length > 0xff_ff_ff_ff_ff_ff) {
 		throw new Error("Archive has too many ordered history records");
 	}

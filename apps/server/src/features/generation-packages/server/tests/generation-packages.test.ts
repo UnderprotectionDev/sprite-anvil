@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
+import { compareCodeUnits } from "@sprite-anvil/api/compare-code-units";
 import type { Context } from "@sprite-anvil/api/context";
 import type { GenerationPackageCorrectionInput } from "@sprite-anvil/api/generation-packages";
 import { generationPackageCorrectionInputSchema } from "@sprite-anvil/api/generation-packages";
@@ -721,7 +722,9 @@ test("preparing a correction only reads asset versions and never writes pixels",
 
 test("keeps layers, full drawing and skeleton animation out of the correction contract", () => {
 	expect(
-		Object.keys(generationPackageCorrectionInputSchema.shape).sort()
+		Object.keys(generationPackageCorrectionInputSchema.shape).sort(
+			compareCodeUnits
+		)
 	).toEqual([
 		"annotations",
 		"draft",

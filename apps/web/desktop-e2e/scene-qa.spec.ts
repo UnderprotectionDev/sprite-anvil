@@ -192,7 +192,7 @@ async function selectNativeOption(id: string, value: string) {
 	await browser.waitUntil(async () =>
 		browser.execute(
 			(inputId, optionValue) => {
-				const select = document.getElementById(inputId);
+				const select = document.querySelector(`#${CSS.escape(inputId)}`);
 				return (
 					select instanceof HTMLSelectElement &&
 					Array.from(select.options).some(
@@ -206,7 +206,7 @@ async function selectNativeOption(id: string, value: string) {
 	);
 	await browser.execute(
 		(inputId, optionValue) => {
-			const select = document.getElementById(inputId);
+			const select = document.querySelector(`#${CSS.escape(inputId)}`);
 			if (!(select instanceof HTMLSelectElement)) {
 				throw new Error("Missing native select.");
 			}

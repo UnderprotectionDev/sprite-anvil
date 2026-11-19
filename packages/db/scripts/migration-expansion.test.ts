@@ -7,7 +7,7 @@ import {
 	generateMigration,
 } from "drizzle-kit/api-postgres";
 import { sql } from "drizzle-orm";
-import type { PgEnum } from "drizzle-orm/pg-core";
+import type { PgColumn, PgEnum } from "drizzle-orm/pg-core";
 import {
 	check,
 	foreignKey,
@@ -34,12 +34,24 @@ type KindEnum = PgEnum<[string, ...string[]]>;
 const kindValues: [string, ...string[]] = ["x", "y"];
 
 // Test builders compose Drizzle tables dynamically.
-type RecordColumns = any;
+type RecordTable = Record<
+	| "createdAt"
+	| "id"
+	| "label"
+	| "ownerId"
+	| "rank"
+	| "recordId"
+	| "referenceId"
+	| "reviewed"
+	| "state"
+	| "status",
+	PgColumn
+>;
 const recordsTable = pgTable as unknown as (
 	name: string,
-	columns: RecordColumns,
-	extra: (table: RecordColumns) => unknown[]
-) => RecordColumns;
+	columns: Record<string, unknown>,
+	extra: (table: RecordTable) => unknown[]
+) => RecordTable;
 
 interface RecordOptions {
 	extraColumns?: Record<
@@ -50,13 +62,13 @@ interface RecordOptions {
 	others?: Record<string, unknown>;
 	/** Options of the default status CHECK; `null` leaves the CHECK to `table`. */
 	status?: string[] | null;
-	table?: (table: RecordColumns) => unknown[];
+	table?: (table: RecordTable) => unknown[];
 }
 
 function schemaWith(options: RecordOptions = {}) {
 	const kindType: KindEnum = pgEnum("kind", options.kindValues ?? kindValues);
 	const status = options.status === undefined ? ["a", "b"] : options.status;
-	const columns: RecordColumns = {
+	const columns = {
 		...recordColumns(kindType),
 		...options.extraColumns,
 	};

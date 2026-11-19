@@ -1,8 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 
-vi.mock("@/utils/orpc", () => ({ orpc: {} }));
-
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MeasurementContent } from "./measurement-view";
 
@@ -49,8 +47,8 @@ describe("Measurement view", () => {
 		fireEvent.change(screen.getByLabelText("Event family"), {
 			target: { value: "export_delivery" },
 		});
-		const start = document.getElementById("measurement-start-events");
-		const end = document.getElementById("measurement-end-events");
+		const start = document.querySelector("#measurement-start-events");
+		const end = document.querySelector("#measurement-end-events");
 		expect(
 			start?.querySelector('option[value="delivery_target_activated"]')
 		).toBeTruthy();

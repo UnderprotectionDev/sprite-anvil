@@ -1,3 +1,4 @@
+// biome-ignore-all lint/a11y/noLabelWithoutControl: each Label wraps its Input/Select/Textarea inside a TanStack form.Field render prop, which Biome cannot see through.
 import type { AnimationTimingReviewInput } from "@sprite-anvil/api/animation-timing-reviews";
 import { animationTimingReviewInputSchema } from "@sprite-anvil/api/animation-timing-reviews";
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";

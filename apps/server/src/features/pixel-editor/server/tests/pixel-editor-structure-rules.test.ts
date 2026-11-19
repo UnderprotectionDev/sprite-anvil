@@ -23,6 +23,7 @@ async function sheetHarness() {
 
 type Harness = Awaited<ReturnType<typeof sheetHarness>>;
 interface Json {
+	// biome-ignore lint/suspicious/noExplicitAny: HTTP response bodies of many routes with differing shapes are asserted structurally; typing each would only duplicate the API contract schemas
 	[key: string]: any;
 }
 

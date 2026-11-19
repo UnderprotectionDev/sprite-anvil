@@ -2,6 +2,8 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, posix } from "node:path";
 import ts from "typescript";
 import { z } from "zod";
+import { ConventionsError } from "./conventions-error";
+import { SourceFiles } from "./source-files";
 
 // The rules live in structure.md and docs/tech-stack.md. This module reads
 // their parameters from those documents and fails closed when a passage it
@@ -46,8 +48,6 @@ export interface ConventionsResult {
 	violations: Violation[];
 }
 
-export class ConventionsError extends Error {}
-
 export const structureDocument = "structure.md";
 export const techStackDocument = "docs/tech-stack.md";
 export const baselinePath = "scripts/conventions-baseline.json";
@@ -71,20 +71,20 @@ const generatedFiles = new Set([
 ]);
 
 const lineBreak = /\r?\n/u;
-const headingLine = /^(#{1,6})\s+(.*?)\s*$/u;
-const tickedToken = /`([^`]+)`/gu;
+const headingLine = /^(?<hashes>#{1,6})\s+(?<text>.*?)\s*$/u;
+const tickedToken = /`(?<token>[^`]+)`/gu;
 const kebabCase = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const testFile = /\.test\.tsx?$/u;
 const sourceFile = /\.tsx?$/u;
-const testSuffix = /\.test(\.tsx?)$/u;
+const testSuffix = /\.test(?<extension>\.tsx?)$/u;
 const leadingPipe = /^\|/u;
 const trailingPipe = /\|$/u;
 const trailingSlash = /\/$/u;
-const stackCheck = /;\s*check `([a-z][a-z0-9-]*)`(.*)$/u;
+const stackCheck = /;\s*check `(?<check>[a-z][a-z0-9-]*)`(?<rest>.*)$/u;
 const byText = (left: string, right: string) => left.localeCompare(right);
 const barrelFile = /^index\.[cm]?[jt]sx?$/u;
 const exceptionMarker =
-	/conventions-exception:[ \t]*([a-z][a-z0-9-]*)(?:[ \t]+([^\r\n]*?))?[ \t]*(?:\*\/|-->|$)/gmu;
+	/conventions-exception:[ \t]*(?<check>[a-z][a-z0-9-]*)(?:[ \t]+(?<reason>[^\r\n]*?))?[ \t]*(?:\*\/|-->|$)/gmu;
 const minimumReasonLength = 10;
 const formChangeAttributes = new Set([
 	"onChange",
@@ -427,40 +427,6 @@ function childNames(root: string, directory: string) {
 		.map((entry) => ({ directory: entry.isDirectory(), name: entry.name }));
 }
 
-class SourceFiles {
-	readonly #root: string;
-	readonly #text = new Map<string, string>();
-	readonly #ast = new Map<string, ts.SourceFile>();
-
-	constructor(root: string) {
-		this.#root = root;
-	}
-
-	text(path: string): string {
-		let text = this.#text.get(path);
-		if (text === undefined) {
-			text = readFileSync(join(this.#root, path), "utf8");
-			this.#text.set(path, text);
-		}
-		return text;
-	}
-
-	ast(path: string): ts.SourceFile {
-		let ast = this.#ast.get(path);
-		if (!ast) {
-			ast = ts.createSourceFile(
-				path,
-				this.text(path),
-				ts.ScriptTarget.Latest,
-				true,
-				path.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS
-			);
-			this.#ast.set(path, ast);
-		}
-		return ast;
-	}
-}
-
 function lineOf(ast: ts.SourceFile, node: ts.Node): number {
 	return ast.getLineAndCharacterOfPosition(node.getStart(ast)).line + 1;
 }
@@ -612,7 +578,9 @@ function checkFeatureNames(context: Context): void {
 function isFeatureRootFile(conventions: Conventions, name: string): boolean {
 	return (
 		conventions.featureRootFiles.includes(name) ||
-		conventions.featureRootFiles.includes(name.replace(testSuffix, "$1"))
+		conventions.featureRootFiles.includes(
+			name.replace(testSuffix, "$<extension>")
+		)
 	);
 }
 

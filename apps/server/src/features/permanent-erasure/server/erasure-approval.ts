@@ -1,4 +1,5 @@
 import type { BackgroundOperation } from "@sprite-anvil/api/background-operations";
+import { IdempotencyConflictError } from "@sprite-anvil/api/idempotency-conflict-error";
 import type { ErasureApprovalInput } from "@sprite-anvil/api/permanent-erasure-deletion";
 import {
 	confirmedCountsMatch,
@@ -6,10 +7,7 @@ import {
 	unknownErasureContainerIds,
 } from "@sprite-anvil/api/permanent-erasure-deletion";
 import type { ErasureApprovalOperations } from "@sprite-anvil/api/permanent-erasure-deletion-store";
-import {
-	IdempotencyConflictError,
-	idempotentRecordId,
-} from "@sprite-anvil/api/record-publication";
+import { idempotentRecordId } from "@sprite-anvil/api/record-publication";
 import type { ErasureDeletionStorage } from "./erasure-deletion-storage";
 import type { ErasureScopeProof } from "./erasure-scope-proof";
 import type { ProjectLookupOptions } from "./project-lookup";

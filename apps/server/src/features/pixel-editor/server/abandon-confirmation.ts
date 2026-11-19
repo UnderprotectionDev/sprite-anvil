@@ -9,7 +9,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
  */
 
 const lifetimeMs = 10 * 60 * 1000;
-const tokenPattern = /^(\d+)\.([0-9a-f]{64})$/u;
+const tokenPattern = /^(?<expiresAt>\d+)\.(?<signature>[0-9a-f]{64})$/u;
 
 export interface AbandonConfirmationConfig {
 	abandonConfirmationSecret: string;
@@ -56,9 +56,9 @@ export function createAbandonConfirmations(config: AbandonConfirmationConfig) {
 			if (!match) {
 				return "invalid";
 			}
-			const expiresAt = Number(match[1]);
+			const expiresAt = Number(match.groups?.expiresAt);
 			const expected = Buffer.from(sign(binding, expiresAt));
-			const given = Buffer.from(match[2] ?? "");
+			const given = Buffer.from(match.groups?.signature ?? "");
 			if (
 				expected.length !== given.length ||
 				!timingSafeEqual(expected, given)

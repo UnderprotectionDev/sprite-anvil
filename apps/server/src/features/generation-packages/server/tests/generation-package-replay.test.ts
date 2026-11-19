@@ -1,9 +1,7 @@
 import { expect, test } from "bun:test";
 import { generationPackageSnapshotSchema } from "@sprite-anvil/api/generation-packages";
-import {
-	IdempotencyConflictError,
-	RecordIntegrityError,
-} from "@sprite-anvil/api/record-publication";
+import { IdempotencyConflictError } from "@sprite-anvil/api/idempotency-conflict-error";
+import { RecordIntegrityError } from "@sprite-anvil/api/record-integrity-error";
 import type { Database } from "@sprite-anvil/db";
 import { createGenerationPackageStore } from "../generation-package-store";
 

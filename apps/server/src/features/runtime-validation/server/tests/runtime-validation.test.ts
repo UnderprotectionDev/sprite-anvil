@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
+import { compareCodeUnits } from "@sprite-anvil/api/compare-code-units";
 import type { Context } from "@sprite-anvil/api/context";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import type { Database } from "@sprite-anvil/db";
@@ -397,7 +398,9 @@ test("a failure leaves the exported bundle unchanged and the game project is nev
 	await confirmFailureSource(record.id, { failureSource: "engine_adapter" });
 	expect(bundles).toEqual(bundlesBefore);
 	// evidence flows one way into records; there is no import, pull or sync operation
-	expect(Object.keys(appRouter.runtimeValidation).sort()).toEqual([
+	expect(
+		Object.keys(appRouter.runtimeValidation).sort(compareCodeUnits)
+	).toEqual([
 		"addTextEvidence",
 		"confirmFailureSource",
 		"create",

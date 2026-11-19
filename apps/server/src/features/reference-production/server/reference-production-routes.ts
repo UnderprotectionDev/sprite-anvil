@@ -3,11 +3,9 @@ import {
 	assetVersionContentTypeSchema,
 	assetVersionFileNameSchema,
 } from "@sprite-anvil/api/asset-record-tracking";
+import { AssetVersionContentLengthError } from "@sprite-anvil/api/asset-version-content-length-error";
 import type { CreateAssetVersionIntegrityTransform } from "@sprite-anvil/api/asset-version-integrity";
-import {
-	AssetVersionContentLengthError,
-	AssetVersionIntegrityError,
-} from "@sprite-anvil/api/asset-version-integrity";
+import { AssetVersionIntegrityError } from "@sprite-anvil/api/asset-version-integrity-error";
 import type {
 	ReferenceBoardUploadInput,
 	ReferenceProductionStore,

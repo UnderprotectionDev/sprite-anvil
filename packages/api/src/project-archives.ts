@@ -11,6 +11,7 @@ import {
 	assetRecordSupportLevels,
 	assetRecordTagsSchema,
 } from "./asset-records";
+import { compareCodeUnits } from "./compare-code-units";
 import type { DeliveryRecords } from "./project-archive-delivery";
 import {
 	deliveryGroup,
@@ -1255,6 +1256,6 @@ export function projectArchiveRequestDigest(input: {
 }) {
 	return recordContentDigest({
 		projectId: input.projectId,
-		workingFileIds: [...input.workingFileIds].sort(),
+		workingFileIds: [...input.workingFileIds].sort(compareCodeUnits),
 	});
 }

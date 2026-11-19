@@ -14,17 +14,17 @@ import {
 	importInboxObjectKeySchema,
 } from "../../../cloudflare";
 import { serializePublicApiError } from "../../../output-contracts";
+import { ImportInboxContentLengthError } from "./import-inbox-content-length-error";
 import {
 	createImportInboxIntegrityTransform,
-	ImportInboxContentLengthError,
-	ImportInboxIntegrityError,
 	verifyImportInboxStream,
 } from "./import-inbox-integrity";
+import { ImportInboxIntegrityError } from "./import-inbox-integrity-error";
 
 const projectIdSchema = z.uuid();
 const entryIdSchema = z.uuid();
 const idempotencyKeySchema = z.uuid();
-const uploadLengthPattern = /^(0|[1-9]\d*)$/u;
+const uploadLengthPattern = /^(?:0|[1-9]\d*)$/u;
 const uploadLengthHeader = "x-import-inbox-size";
 const fileNameHeader = "x-import-inbox-file-name";
 const sourceContentTypeHeader = "x-import-inbox-source-type";

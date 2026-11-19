@@ -24,13 +24,13 @@ import {
 import { exportBundleSha256 } from "@sprite-anvil/api/export-bundle-manifest";
 import type { ExportBundleStore } from "@sprite-anvil/api/export-bundle-store";
 import type { ExportBundle } from "@sprite-anvil/api/export-bundles";
+import { RecordIntegrityError } from "@sprite-anvil/api/record-integrity-error";
 import {
 	idempotentRecordId,
-	RecordIntegrityError,
-	RetryablePublicationError,
 	replayPublishedRecord,
 	verifyPublishedRecord,
 } from "@sprite-anvil/api/record-publication";
+import { RetryablePublicationError } from "@sprite-anvil/api/retryable-publication-error";
 import type { Database } from "@sprite-anvil/db";
 import { getProjectForUser } from "@sprite-anvil/db";
 import type {

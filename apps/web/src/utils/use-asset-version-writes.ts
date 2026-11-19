@@ -4,6 +4,7 @@ import type {
 	CompositeVersionReviewInput,
 	UnitVersionCorrectionInput,
 } from "@sprite-anvil/api/asset-versions";
+import { compareCodeUnits } from "@sprite-anvil/api/compare-code-units";
 import type { ProviderGenerationRecordCreateInput } from "@sprite-anvil/api/provider-generation-records";
 import { assetVersionProductionSourceHeader } from "@sprite-anvil/api/provider-generation-records";
 import { useMutation } from "@tanstack/react-query";
@@ -404,7 +405,7 @@ export function useAssetVersionWrites(
 		assetRecordId: string,
 		unitVersionIds: string[]
 	) {
-		const normalizedUnitVersionIds = [...unitVersionIds].sort();
+		const normalizedUnitVersionIds = [...unitVersionIds].sort(compareCodeUnits);
 		const fingerprint = [assetRecordId, ...normalizedUnitVersionIds].join(
 			"\u0000"
 		);

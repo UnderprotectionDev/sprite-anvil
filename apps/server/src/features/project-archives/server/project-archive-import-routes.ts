@@ -1,4 +1,4 @@
-import { IdempotencyConflictError } from "@sprite-anvil/api/record-publication";
+import { IdempotencyConflictError } from "@sprite-anvil/api/idempotency-conflict-error";
 import type { Hono } from "hono";
 import { z } from "zod";
 import { serializePublicApiError } from "../../../output-contracts";

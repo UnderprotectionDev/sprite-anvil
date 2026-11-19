@@ -8,7 +8,7 @@ import type {
 	ErasureImpactSourceReader,
 	ErasureImpactStore,
 } from "@sprite-anvil/api/permanent-erasure-store";
-import { RecordIntegrityError } from "@sprite-anvil/api/record-publication";
+import { RecordIntegrityError } from "@sprite-anvil/api/record-integrity-error";
 
 export type ErasureReportRead =
 	| { report: ErasureImpactReport; status: "found" }

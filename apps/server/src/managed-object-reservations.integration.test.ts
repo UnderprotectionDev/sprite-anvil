@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { compareCodeUnits } from "@sprite-anvil/api/compare-code-units";
 import type { Database } from "@sprite-anvil/db";
 import { user } from "@sprite-anvil/db/schema/auth";
 import { backgroundOperations } from "@sprite-anvil/db/schema/background-operations";
@@ -262,11 +263,11 @@ test.skipIf(!isLoopbackTestDatabaseUrl(databaseUrl))(
 					const keys = await createDatabaseManagedObjectCleanupCandidates(
 						tx as unknown as Database
 					)();
-					expect(keys.sort()).toEqual(
+					expect(keys.sort(compareCodeUnits)).toEqual(
 						cases
 							.slice(0, 3)
 							.map((item) => `test/${item.id}`)
-							.sort()
+							.sort(compareCodeUnits)
 					);
 					throw rollback;
 				})

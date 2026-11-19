@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { compareCodeUnits } from "./compare-code-units";
 import { contractVersionSupport } from "./contract-version";
 import { sha256Schema } from "./export-bundle-manifest";
 import type { ErasureImpactScope } from "./permanent-erasure";
@@ -109,7 +110,9 @@ export function erasureApprovalRequestDigest(input: ErasureApprovalInput) {
 		projectId: input.projectId,
 		reportDigest: input.reportDigest,
 		reportId: input.reportId,
-		selectedContainerIds: [...input.selectedContainerIds].sort(),
+		selectedContainerIds: [...input.selectedContainerIds].sort(
+			compareCodeUnits
+		),
 	});
 }
 

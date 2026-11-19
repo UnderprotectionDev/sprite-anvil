@@ -21,7 +21,7 @@ const kindLabels: Record<CorrectionAnnotation["kind"], string> = {
 	"ground-line": "Ground line",
 };
 
-function describe(mark: CorrectionAnnotation) {
+function summarizeAnnotation(mark: CorrectionAnnotation) {
 	switch (mark.kind) {
 		case "region":
 			return `Region ${mark.rect.width}×${mark.rect.height} at ${mark.rect.x},${mark.rect.y}`;
@@ -234,9 +234,9 @@ export function AnnotationEditor({
 				<ul aria-label="Annotations" className="space-y-1 text-xs">
 					{entries.map(({ id, mark }) => (
 						<li className="flex items-center justify-between gap-2" key={id}>
-							<span>{describe(mark)}</span>
+							<span>{summarizeAnnotation(mark)}</span>
 							<Button
-								aria-label={`Remove annotation: ${describe(mark)}`}
+								aria-label={`Remove annotation: ${summarizeAnnotation(mark)}`}
 								onClick={() => onRemove(id)}
 								size="sm"
 								type="button"

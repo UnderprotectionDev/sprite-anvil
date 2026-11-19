@@ -1,10 +1,8 @@
 import { exportBundleSha256 } from "@sprite-anvil/api/export-bundle-manifest";
-import {
-	IdempotencyConflictError,
-	idempotentRecordId,
-	RecordIntegrityError,
-	RetryablePublicationError,
-} from "@sprite-anvil/api/record-publication";
+import { IdempotencyConflictError } from "@sprite-anvil/api/idempotency-conflict-error";
+import { RecordIntegrityError } from "@sprite-anvil/api/record-integrity-error";
+import { idempotentRecordId } from "@sprite-anvil/api/record-publication";
+import { RetryablePublicationError } from "@sprite-anvil/api/retryable-publication-error";
 import type {
 	RuntimeValidationRecord,
 	RuntimeValidationRecordCreateInput,

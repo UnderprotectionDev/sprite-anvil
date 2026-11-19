@@ -6,6 +6,7 @@ import {
 	assetFamilyComparisonListInputSchema,
 	assetFamilyComparisonRecordSchema,
 } from "../asset-family-comparisons";
+import { compareCodeUnits } from "../compare-code-units";
 import type { Context } from "../context";
 import { protectedProcedure } from "../index";
 
@@ -19,8 +20,8 @@ function getStore(context: Context) {
 }
 
 function sameIds(left: string[], right: string[]) {
-	const sortedLeft = [...left].sort();
-	const sortedRight = [...right].sort();
+	const sortedLeft = [...left].sort(compareCodeUnits);
+	const sortedRight = [...right].sort(compareCodeUnits);
 	return (
 		sortedLeft.length === sortedRight.length &&
 		sortedLeft.every((id, index) => id === sortedRight[index])

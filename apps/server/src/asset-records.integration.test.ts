@@ -3,6 +3,7 @@ import { Buffer } from "node:buffer";
 import { call } from "@orpc/server";
 import type { AssetRecordMeasurements } from "@sprite-anvil/api/asset-records";
 import { createEmptyAssetRecordMeasurements } from "@sprite-anvil/api/asset-records";
+import { compareCodeUnits } from "@sprite-anvil/api/compare-code-units";
 import type { Context } from "@sprite-anvil/api/context";
 import { referenceBoardUploadInputSchema } from "@sprite-anvil/api/reference-production";
 import { appRouter } from "@sprite-anvil/api/routers/index";
@@ -582,9 +583,9 @@ test.skipIf(!databaseUrl)(
 				{ projectId, tag: "INVENTORY", pagination: { limit: 10, offset: 0 } },
 				{ context: rereadContext }
 			);
-			expect(tagSearch.records.map(({ record }) => record.id).sort()).toEqual(
-				[created.id, legacyTagId].sort()
-			);
+			expect(
+				tagSearch.records.map(({ record }) => record.id).sort(compareCodeUnits)
+			).toEqual([created.id, legacyTagId].sort(compareCodeUnits));
 			expect(tagSearch.totalCount).toBe(2);
 			const lowercaseTagSearch = await call(
 				appRouter.assetRecords.search,
@@ -592,8 +593,10 @@ test.skipIf(!databaseUrl)(
 				{ context: rereadContext }
 			);
 			expect(
-				lowercaseTagSearch.records.map(({ record }) => record.id).sort()
-			).toEqual([created.id, legacyTagId].sort());
+				lowercaseTagSearch.records
+					.map(({ record }) => record.id)
+					.sort(compareCodeUnits)
+			).toEqual([created.id, legacyTagId].sort(compareCodeUnits));
 			const missingTag = await call(
 				appRouter.assetRecords.search,
 				{ projectId, tag: "UNRELATED" },

@@ -5,7 +5,6 @@ import { join } from "node:path";
 import {
 	baselineGrowth,
 	baselinePath,
-	ConventionsError,
 	collectViolations,
 	compareWithBaseline,
 	formatBaseline,
@@ -14,6 +13,7 @@ import {
 	prunedBaseline,
 	readConventions,
 } from "./conventions";
+import { ConventionsError } from "./conventions-error";
 
 const root = join(import.meta.dir, "..");
 const baselineFile = join(root, baselinePath);

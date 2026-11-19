@@ -4,7 +4,7 @@ import type { ReactElement } from "react";
 import { toast } from "sonner";
 import { SupportReference } from "@/components/status-message";
 
-const connectionErrorPattern = /(fetch|network|connection|load failed)/iu;
+const connectionErrorPattern = /(?:fetch|network|connection|load failed)/iu;
 const nonRetryableQueryCodes = new Set([
 	"BAD_REQUEST",
 	"UNAUTHORIZED",
