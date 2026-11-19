@@ -14,11 +14,11 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { AssetFamilyComparisonManager } from "./asset-family-comparison-manager";
 
-const uncertainMessage = /Could not verify the save result/;
-const existingRecordButtonName = /· 2 Asset Version/;
-const closedCrateCheckboxName = /Kapalı sandık/;
-const openCrateCheckboxName = /Açık sandık/;
-const brokenCrateCheckboxName = /Kırık sandık/;
+const uncertainMessage = /Could not verify the save result/u;
+const existingRecordButtonName = /· 2 Asset Version/u;
+const closedCrateCheckboxName = /Kapalı sandık/u;
+const openCrateCheckboxName = /Açık sandık/u;
+const brokenCrateCheckboxName = /Kırık sandık/u;
 // A native checkbox reports `:disabled`; the design-system checkbox exposes
 // the same state as `aria-disabled`.
 function isUnavailable(element: HTMLElement) {

@@ -1,8 +1,6 @@
 import type { ErasureImpactReport } from "@sprite-anvil/api/permanent-erasure";
-import {
-	type ErasureApprovalInput,
-	selectedErasureCounts,
-} from "@sprite-anvil/api/permanent-erasure-deletion";
+import type { ErasureApprovalInput } from "@sprite-anvil/api/permanent-erasure-deletion";
+import { selectedErasureCounts } from "@sprite-anvil/api/permanent-erasure-deletion";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Checkbox } from "@sprite-anvil/ui/components/checkbox";
 import { useForm } from "@tanstack/react-form";

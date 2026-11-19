@@ -28,7 +28,7 @@ export function DeliveryTargetsView({ projectId }: { projectId: string }) {
 	return (
 		<main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
 			<header className="space-y-2">
-				<h1 className="font-semibold text-2xl">Delivery Targets</h1>
+				<h1 className="text-2xl font-semibold">Delivery Targets</h1>
 				<p className="text-muted-foreground text-sm">
 					A Delivery Target pins what a delivery needs across several Asset
 					Families: the Context Revision, each family's Required Items List

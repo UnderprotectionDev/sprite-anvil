@@ -3,7 +3,8 @@ import type {
 	AssetVersionReviewEvent,
 } from "@sprite-anvil/api/asset-versions";
 import { assetVersionReviewEventSchema } from "@sprite-anvil/api/asset-versions";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import { assetVersionReviewEvents } from "@sprite-anvil/db/schema/asset-versions";
 import { and, asc, eq, like, sql } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";

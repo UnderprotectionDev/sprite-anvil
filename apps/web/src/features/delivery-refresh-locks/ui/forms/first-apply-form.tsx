@@ -7,7 +7,8 @@ import {
 } from "@sprite-anvil/ui/components/native-select";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
-import { type SyntheticEvent, useState } from "react";
+import type { SyntheticEvent } from "react";
+import { useState } from "react";
 import { StatusMessage } from "@/components/status-message";
 import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
@@ -30,7 +31,7 @@ function FieldErrors({ errors }: { errors: unknown[] }) {
 			: []
 	);
 	return messages.length === 0 ? null : (
-		<ul className="space-y-1 text-destructive text-sm">
+		<ul className="text-destructive space-y-1 text-sm">
 			{messages.map((message) => (
 				<li key={message}>{message}</li>
 			))}
@@ -130,7 +131,7 @@ export function FirstApplyForm({ projectId }: { projectId: string }) {
 			className="space-y-4"
 			onSubmit={submit}
 		>
-			<h2 className="font-semibold text-lg">First delivery</h2>
+			<h2 className="text-lg font-semibold">First delivery</h2>
 			<p className="text-muted-foreground text-sm">
 				Apply an Export Bundle to a destination for the first time. Write the
 				bundle's files to a folder yourself in the browser, then choose that

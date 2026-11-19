@@ -19,17 +19,17 @@ import { createQueryClient } from "@/utils/query-client";
 const projectId = "c2edb5dc-a82f-42b2-84bb-a878ca20fabf";
 const assetRecordId = "7ea123f0-2bd0-4b38-ab57-29477a1366e6";
 const unitVersionId = "8c5f037c-b8cd-46f0-840a-890516e02f87";
-const unitVersionLabel = /idle-01.*Version 2/;
-const targetTaskLabel = /Create a four-frame attack animation\./;
+const unitVersionLabel = /idle-01.*Version 2/u;
+const targetTaskLabel = /Create a four-frame attack animation\./u;
 const referenceFeatureLabels =
-	/Transferable: Pose or motion · Avoided: Identity/;
-const projectScopeRuleLabel = /Scope: Project/;
-const themeScopeRuleLabel = /Scope: Theme/;
-const themePrecedenceRuleLabel = /Precedence chain: Theme/;
-const customPurposeLabel = /Usage purpose: Yalnızca gölge desenini kullanın\./;
+	/Transferable: Pose or motion · Avoided: Identity/u;
+const projectScopeRuleLabel = /Scope: Project/u;
+const themeScopeRuleLabel = /Scope: Theme/u;
+const themePrecedenceRuleLabel = /Precedence chain: Theme/u;
+const customPurposeLabel = /Usage purpose: Yalnızca gölge desenini kullanın\./u;
 const contextOverrideRationaleLabel =
-	/Context Override rationale: Kimlik özellikleri/;
-const rejectedOrFallback = /Rejected|Could not create/;
+	/Context Override rationale: Kimlik özellikleri/u;
+const rejectedOrFallback = /Rejected|Could not create/u;
 const fakeApi = vi.hoisted(() => ({
 	create: vi.fn(),
 	listPackages: vi.fn(),

@@ -10,9 +10,11 @@
  * not own yet, so the caller supplies them or the gate stays closed.
  */
 import { z } from "zod";
+import type {
+	PlatformEquivalenceComparison,
+	PlatformSurface,
+} from "./platform-equivalence-comparison";
 import {
-	type PlatformEquivalenceComparison,
-	type PlatformSurface,
 	platformEquivalenceComparisonSchema,
 	platformSurfaces,
 } from "./platform-equivalence-comparison";

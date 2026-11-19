@@ -1,7 +1,5 @@
-import {
-	TextureRepetitionReviewManager,
-	type TextureRepetitionReviewManagerProps,
-} from "@/features/tileset-texture-profile/ui/components/texture-repetition-review-manager";
+import type { TextureRepetitionReviewManagerProps } from "@/features/tileset-texture-profile/ui/components/texture-repetition-review-manager";
+import { TextureRepetitionReviewManager } from "@/features/tileset-texture-profile/ui/components/texture-repetition-review-manager";
 export function TextureRepetitionReviewSections({
 	families,
 	activation,

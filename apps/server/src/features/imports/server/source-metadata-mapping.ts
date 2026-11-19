@@ -16,7 +16,7 @@ type SourceMetadataField = SourceMetadataFieldProposal["field"];
 type SourceMetadataFormat = SourceMetadataMappingSidecar["format"];
 type FrameLayout = "array" | "hash";
 
-const wwwPrefixPattern = /^www\./;
+const wwwPrefixPattern = /^www\./u;
 const separatedFrameProperties = new Set([
 	"duration",
 	"filename",

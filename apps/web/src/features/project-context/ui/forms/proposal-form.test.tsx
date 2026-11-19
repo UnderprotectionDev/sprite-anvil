@@ -16,7 +16,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { ProposalForm } from "./proposal-form";
 
-const overrideName = /Context Override/;
+const overrideName = /Context Override/u;
 const projectId = "project-lantern-vale";
 const worldId = "world-gameplay";
 

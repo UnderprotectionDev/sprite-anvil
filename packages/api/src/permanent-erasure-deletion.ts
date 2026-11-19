@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { contractVersionSupport } from "./contract-version";
 import { sha256Schema } from "./export-bundle-manifest";
+import type { ErasureImpactScope } from "./permanent-erasure";
 import {
-	type ErasureImpactScope,
 	erasureContainerRefSchema,
 	erasureCountsSchema,
 	externalCopiesStatement,

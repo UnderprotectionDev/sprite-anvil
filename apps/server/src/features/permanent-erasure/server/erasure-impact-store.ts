@@ -1,15 +1,13 @@
+import type { ErasureImpactReport } from "@sprite-anvil/api/permanent-erasure";
 import {
-	type ErasureImpactReport,
 	erasureContractSupport,
 	erasureImpactDigest,
 	erasureImpactReportSchema,
 	erasureImpactRequestDigest,
 	erasureImpactScopeSchema,
 } from "@sprite-anvil/api/permanent-erasure";
-import {
-	buildErasureImpactScope,
-	type RetentionSchedule,
-} from "@sprite-anvil/api/permanent-erasure-scope";
+import type { RetentionSchedule } from "@sprite-anvil/api/permanent-erasure-scope";
+import { buildErasureImpactScope } from "@sprite-anvil/api/permanent-erasure-scope";
 import type {
 	ErasureImpactSourceReader,
 	ErasureImpactStore,
@@ -25,10 +23,8 @@ import type {
 	ErasureImpactStorage,
 	StoredErasureImpactReport,
 } from "./erasure-impact-storage";
-import {
-	type ProjectLookupOptions,
-	resolveProjectLookup,
-} from "./project-lookup";
+import type { ProjectLookupOptions } from "./project-lookup";
+import { resolveProjectLookup } from "./project-lookup";
 
 export type ErasureImpactStoreOptions = ProjectLookupOptions & {
 	now?: () => Date;

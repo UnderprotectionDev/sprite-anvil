@@ -1,8 +1,8 @@
 import { MigrationSafetyError } from "./migration-safety-error";
 
-const indexNamePattern = /CREATE (?:UNIQUE )?INDEX (?:"([^"]+)"|([^ ]+)) ON /;
-const dropTablePattern = /^DROP TABLE "([^"]+)"(?: CASCADE)?;$/;
-const dropColumnPattern = /^ALTER TABLE "([^"]+)" DROP COLUMN "([^"]+)";$/;
+const indexNamePattern = /CREATE (?:UNIQUE )?INDEX (?:"([^"]+)"|([^ ]+)) ON /u;
+const dropTablePattern = /^DROP TABLE "([^"]+)"(?: CASCADE)?;$/u;
+const dropColumnPattern = /^ALTER TABLE "([^"]+)" DROP COLUMN "([^"]+)";$/u;
 
 interface Entity {
 	entityType?: string;
@@ -112,7 +112,7 @@ export function projectRequiredCatalog(
 // stay exact: changing a default's spaces is a real behavior change.
 export function normalizeMigrationSql(statement: string): string {
 	const tokens =
-		statement.trim().match(/'(?:''|[^'])*'|"(?:""|[^"])*"|[^\s'";]+|;/g) ?? [];
+		statement.trim().match(/'(?:''|[^'])*'|"(?:""|[^"])*"|[^\s'";]+|;/gu) ?? [];
 	if (tokens.at(-1) === ";") {
 		tokens.pop();
 	}
@@ -127,17 +127,17 @@ const executable = (statement: string) =>
 		return trimmed.length > 0 && !trimmed.startsWith("--");
 	});
 
-const dropIndexPattern = /^DROP INDEX "([^"]+)";$/;
+const dropIndexPattern = /^DROP INDEX "([^"]+)";$/u;
 const dropConstraintPattern =
-	/^ALTER TABLE "([^"]+)" DROP CONSTRAINT "([^"]+)";$/;
-const dropTypePattern = /^DROP TYPE "([^"]+)";$/;
-const createEnumPattern = /^CREATE TYPE "([^"]+)" AS ENUM\(.*\);$/;
+	/^ALTER TABLE "([^"]+)" DROP CONSTRAINT "([^"]+)";$/u;
+const dropTypePattern = /^DROP TYPE "([^"]+)";$/u;
+const createEnumPattern = /^CREATE TYPE "([^"]+)" AS ENUM\(.*\);$/u;
 const retypeColumnPattern =
-	/^ALTER TABLE "([^"]+)" ALTER COLUMN "([^"]+)" SET DATA TYPE (?:text|"([^"]+)" USING "[^"]+"::"[^"]+");$/;
-const alterTablePattern = /^ALTER TABLE "([^"]+)" (.*);$/s;
-const constraintActionPattern = /,\s*(?=(?:DROP|ADD) CONSTRAINT ")/;
+	/^ALTER TABLE "([^"]+)" ALTER COLUMN "([^"]+)" SET DATA TYPE (?:text|"([^"]+)" USING "[^"]+"::"[^"]+");$/u;
+const alterTablePattern = /^ALTER TABLE "([^"]+)" (.*);$/su;
+const constraintActionPattern = /,\s*(?=(?:DROP|ADD) CONSTRAINT ")/u;
 const redefinitionPattern =
-	/^(?:DROP CONSTRAINT "([^"]+)"|ADD CONSTRAINT "([^"]+)" CHECK \(.*\))$/s;
+	/^(?:DROP CONSTRAINT "([^"]+)"|ADD CONSTRAINT "([^"]+)" CHECK \(.*\))$/su;
 
 /**
  * Drizzle's push diff (database -> source) proposes undoing everything another
@@ -274,9 +274,9 @@ export function redefinedChecks(
 	);
 }
 
-const createTablePattern = /^CREATE TABLE "([^"]+)" \(/;
+const createTablePattern = /^CREATE TABLE "([^"]+)" \(/u;
 const tableEvolutionPattern =
-	/^ALTER TABLE "([^"]+)" (?:ADD COLUMN |ALTER COLUMN |ADD CONSTRAINT "[^"]+" CHECK )/;
+	/^ALTER TABLE "([^"]+)" (?:ADD COLUMN |ALTER COLUMN |ADD CONSTRAINT "[^"]+" CHECK )/u;
 
 /**
  * Drizzle's push diff creates a table in its final shape, while pending SQL

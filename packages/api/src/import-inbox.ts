@@ -5,7 +5,7 @@ export const importInboxSourceContentTypeSchema = z
 	.string()
 	.min(1)
 	.max(127)
-	.regex(/^[a-z0-9][a-z0-9.+-]*\/[a-z0-9][a-z0-9.+-]*$/i);
+	.regex(/^[a-z0-9][a-z0-9.+-]*\/[a-z0-9][a-z0-9.+-]*$/iu);
 
 export const importInboxEntrySchema = z
 	.object({
@@ -14,7 +14,7 @@ export const importInboxEntrySchema = z
 		fileName: assetSourceFileNameSchema,
 		id: z.uuid(),
 		projectId: z.uuid(),
-		sha256: z.string().regex(/^[a-f0-9]{64}$/),
+		sha256: z.string().regex(/^[a-f0-9]{64}$/u),
 		sourceContentType: importInboxSourceContentTypeSchema,
 	})
 	.strict();
@@ -33,7 +33,7 @@ export const importInboxUploadInputSchema = z
 		id: z.uuid(),
 		objectKey: z.string().min(1),
 		projectId: z.uuid(),
-		sha256: z.string().regex(/^[a-f0-9]{64}$/),
+		sha256: z.string().regex(/^[a-f0-9]{64}$/u),
 		sourceContentType: importInboxSourceContentTypeSchema,
 	})
 	.strict();

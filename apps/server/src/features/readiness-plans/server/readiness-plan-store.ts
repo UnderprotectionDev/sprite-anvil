@@ -10,10 +10,8 @@ import type {
 } from "@sprite-anvil/api/readiness-plans";
 import { buildReadinessPlan } from "./readiness-plan-builder";
 import type { ReadinessPlanStorage } from "./readiness-plan-storage";
-import {
-	type ReadinessPolicyDependencies,
-	readReadinessPolicyEvidence,
-} from "./readiness-policy-evidence";
+import type { ReadinessPolicyDependencies } from "./readiness-policy-evidence";
+import { readReadinessPolicyEvidence } from "./readiness-policy-evidence";
 
 export interface ReadinessPlanStoreDependencies {
 	deliveryTargets: DeliveryTargetStore;

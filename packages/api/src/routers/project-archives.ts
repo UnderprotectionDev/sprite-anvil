@@ -3,8 +3,8 @@ import { z } from "zod";
 import { backgroundOperationSchema } from "../background-operations";
 import type { Context } from "../context";
 import { protectedProcedure } from "../index";
+import type { ProjectArchiveRestoreRejection } from "../project-archive-restore";
 import {
-	type ProjectArchiveRestoreRejection,
 	projectArchiveRestoreCatalogSchema,
 	projectArchiveRestoreGetInputSchema,
 	projectArchiveRestoreInputSchema,

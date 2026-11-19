@@ -1,8 +1,6 @@
 import { expect, test } from "bun:test";
-import {
-	type MeasurementDefinitionActivateInput,
-	measurementDefinitionActivateInputSchema,
-} from "@sprite-anvil/api/measurement-definitions";
+import type { MeasurementDefinitionActivateInput } from "@sprite-anvil/api/measurement-definitions";
+import { measurementDefinitionActivateInputSchema } from "@sprite-anvil/api/measurement-definitions";
 import { measurementEventRecordInputSchema } from "@sprite-anvil/api/measurement-events";
 import { measurementMeasureReportSchema } from "@sprite-anvil/api/measurement-measures";
 import { createMeasurementDefinitionStore } from "../measurement-definition-store";
@@ -21,7 +19,7 @@ const end = "candidate_preview_available";
 const t0 = new Date("2026-11-01T10:00:00.000Z");
 const asOf = new Date("2026-11-13T10:00:00.000Z");
 
-const ratioKey = /percent|^ratio$|^rate$|share|fraction/i;
+const ratioKey = /percent|^ratio$|^rate$|share|fraction/iu;
 
 function allKeys(value: unknown): string[] {
 	if (Array.isArray(value)) {

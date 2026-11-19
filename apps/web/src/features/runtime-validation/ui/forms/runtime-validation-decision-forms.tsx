@@ -9,7 +9,8 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { useForm } from "@tanstack/react-form";
-import { type SyntheticEvent, useRef, useState } from "react";
+import type { SyntheticEvent } from "react";
+import { useRef, useState } from "react";
 import { FieldErrors, fieldErrorAttributes } from "@/components/field-errors";
 import { StatusMessage } from "@/components/status-message";
 import { errorCodeOf } from "@/utils/error-code";

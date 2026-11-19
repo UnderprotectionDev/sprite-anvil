@@ -16,17 +16,15 @@ import {
 } from "@sprite-anvil/ui/components/native-select";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import type { ReactNode } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { ScopeRegistryPanel } from "@/components/context-scope-registry";
 import { StatusMessage } from "@/components/status-message";
 import { TaskWorkspace } from "@/components/task-workspace";
 import { orpc } from "@/utils/orpc";
-import {
-	type EvidenceKind,
-	operationLabel,
-	ProposalForm,
-} from "../forms/proposal-form";
+import type { EvidenceKind } from "../forms/proposal-form";
+import { operationLabel, ProposalForm } from "../forms/proposal-form";
 
 interface ContextWorkspaceProps {
 	isProposalsError: boolean;

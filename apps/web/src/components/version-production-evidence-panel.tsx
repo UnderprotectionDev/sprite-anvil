@@ -10,14 +10,12 @@ import {
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import {
-	type DragEvent,
-	type ClipboardEvent as ReactClipboardEvent,
-	type SyntheticEvent,
-	useId,
-	useRef,
-	useState,
+import type {
+	DragEvent,
+	ClipboardEvent as ReactClipboardEvent,
+	SyntheticEvent,
 } from "react";
+import { useId, useRef, useState } from "react";
 import { StatusMessage } from "@/components/status-message";
 import { ENV } from "@/env";
 import {
@@ -28,7 +26,7 @@ import { getErrorMessage } from "@/utils/get-error-message";
 import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
 
-const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
+const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/u, "") ?? "";
 
 const sourceKindLabels: Record<
 	VersionProductionEvidence["sourceKind"],
@@ -265,7 +263,7 @@ function ManagedSnapshotAttachments({
 
 	return (
 		<div className="space-y-2 border-t pt-3">
-			<p className="font-medium text-sm">Managed working file</p>
+			<p className="text-sm font-medium">Managed working file</p>
 			<p className="text-muted-foreground text-xs">
 				Select or drop a file here, or focus this area and paste a file. The
 				Managed Snapshot is portable source evidence; it does not grant approval
@@ -274,7 +272,7 @@ function ManagedSnapshotAttachments({
 			<Button
 				aria-describedby={dropHintId}
 				aria-label="Select, drop, or paste working file"
-				className="flex h-auto min-h-14 w-full flex-col items-start justify-center gap-2 border-dashed p-3 text-left font-normal text-sm"
+				className="flex h-auto min-h-14 w-full flex-col items-start justify-center gap-2 border-dashed p-3 text-left text-sm font-normal"
 				disabled={active}
 				onClick={() => fileInputRef.current?.click()}
 				onDragOver={(event) => event.preventDefault()}
@@ -309,7 +307,7 @@ function ManagedSnapshotAttachments({
 						<li className="rounded-md border p-2" key={snapshot.id}>
 							<p className="font-medium">{snapshot.fileName}</p>
 							<p>File size: {formatBytes(snapshot.byteSize)}</p>
-							<p className="break-all text-muted-foreground text-xs">
+							<p className="text-muted-foreground text-xs break-all">
 								SHA-256: {snapshot.sha256}
 							</p>
 							<Button
@@ -507,7 +505,7 @@ export function VersionProductionEvidencePanel({
 	return (
 		<section
 			aria-label="Production source and evidence"
-			className="space-y-3 rounded-md bg-muted/40 p-3"
+			className="bg-muted/40 space-y-3 rounded-md p-3"
 		>
 			<div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
 				<h4 className="font-medium">Production source and evidence</h4>

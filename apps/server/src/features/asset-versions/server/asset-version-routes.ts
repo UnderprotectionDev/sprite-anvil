@@ -3,11 +3,11 @@ import {
 	AssetVersionContentLengthError,
 	AssetVersionIntegrityError,
 } from "@sprite-anvil/api/asset-version-integrity";
-import type { AssetVersionStore } from "@sprite-anvil/api/asset-versions";
-import {
-	type UnitVersionCorrectionInput,
-	unitVersionCorrectionInputSchema,
+import type {
+	AssetVersionStore,
+	UnitVersionCorrectionInput,
 } from "@sprite-anvil/api/asset-versions";
+import { unitVersionCorrectionInputSchema } from "@sprite-anvil/api/asset-versions";
 import type { Context, Hono } from "hono";
 import z from "zod";
 import type {
@@ -43,7 +43,7 @@ const candidateSourceKindSchema = z.enum([
 	"manual_import",
 	"external_working_file_edit",
 ]);
-const uploadLengthPattern = /^[1-9]\d*$/;
+const uploadLengthPattern = /^[1-9]\d*$/u;
 
 type StoredObject = NonNullable<
 	Awaited<ReturnType<ReturnType<typeof createStorage>["get"]>>

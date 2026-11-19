@@ -185,7 +185,7 @@ const pinSchema = z
 		unitVersionId: id,
 		tileId: id,
 		assetVersionId: id,
-		contentDigest: z.string().regex(/^[a-f0-9]{64}$/),
+		contentDigest: z.string().regex(/^[a-f0-9]{64}$/u),
 		sourceImageDimensions: z
 			.object({
 				width: z.number().int().positive(),

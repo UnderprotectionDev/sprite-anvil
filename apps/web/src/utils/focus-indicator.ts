@@ -12,8 +12,8 @@ export interface FocusIndicatorStyle {
 	outlineWidth: number;
 }
 
-const lengthPattern = /(-?\d*\.?\d+)px/g;
-const shadowLayerSeparator = /,(?![^(]*\))/;
+const lengthPattern = /(-?\d*\.?\d+)px/gu;
+const shadowLayerSeparator = /,(?![^(]*\))/u;
 
 /**
  * Thickest solid ring in a computed box-shadow list. Computed values look like

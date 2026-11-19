@@ -1,4 +1,5 @@
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 
 type ProjectLookup = (userId: string, projectId: string) => Promise<unknown>;
 

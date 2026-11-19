@@ -5,16 +5,16 @@
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import {
-	buildExportBundle,
-	type ExportBundleProfilePin,
-	type ExportBundleSource,
-	exportBundleSha256,
+import type {
+	ExportBundleProfilePin,
+	ExportBundleSource,
 } from "../src/export-bundle-manifest";
 import {
-	type ExportBundleVerificationFile,
-	sha256Hex,
-} from "../src/export-bundle-verification";
+	buildExportBundle,
+	exportBundleSha256,
+} from "../src/export-bundle-manifest";
+import type { ExportBundleVerificationFile } from "../src/export-bundle-verification";
+import { sha256Hex } from "../src/export-bundle-verification";
 import { buildExportBundleVerificationKit } from "../src/export-bundle-verification-kit";
 import { exportBundleVerifierSource } from "../src/export-bundle-verifier-source";
 

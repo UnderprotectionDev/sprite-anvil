@@ -28,7 +28,7 @@ export const marketingUsageItemSchema = z
 		presentation: z.enum(["transparent", "opaque"]),
 		opaqueColor: z
 			.string()
-			.regex(/^#[a-fA-F0-9]{6}$/)
+			.regex(/^#[a-fA-F0-9]{6}$/u)
 			.nullable(),
 		observations: z
 			.array(

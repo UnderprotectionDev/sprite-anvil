@@ -19,7 +19,8 @@ import { WindowVirtualList } from "@sprite-anvil/ui/components/window-virtual-li
 import { useForm, useStore } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { type ReactNode, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { AnimationMetadataPackagePanel } from "@/components/animation-metadata-package-panel";
 import { AssetRecordSearchPanel } from "@/components/asset-record-search-panel";
@@ -123,7 +124,7 @@ function AssetRecordList({
 	} else if (records.length === 0) {
 		recordsState = (
 			<div>
-				<p className="rounded-lg border border-dashed p-5 text-muted-foreground">
+				<p className="text-muted-foreground rounded-lg border border-dashed p-5">
 					{offset > 0
 						? "No records on this page."
 						: "This project has no Asset Records yet. Use New Asset Record to get started."}
@@ -338,17 +339,17 @@ export function AssetRecordsView({
 		<main className="mx-auto w-full max-w-3xl space-y-8 px-4 py-8">
 			<header className="space-y-3">
 				<Link
-					className="inline-flex min-h-11 items-center text-muted-foreground text-sm underline underline-offset-4"
+					className="text-muted-foreground inline-flex min-h-11 items-center text-sm underline underline-offset-4"
 					to="/projects"
 				>
 					Back to projects
 				</Link>
 				<div className="flex flex-wrap items-start justify-between gap-3">
 					<div className="space-y-2">
-						<p className="font-mono text-primary text-xs uppercase tracking-[0.16em]">
+						<p className="text-primary font-mono text-xs tracking-[0.16em] uppercase">
 							Asset Records
 						</p>
-						<h1 className="font-medium font-serif text-4xl tracking-tight">
+						<h1 className="font-serif text-4xl font-medium tracking-tight">
 							{projectQuery.data?.name ?? "Oyun projesi"}
 						</h1>
 					</div>
@@ -367,7 +368,7 @@ export function AssetRecordsView({
 						Import Inbox
 					</Link>
 				</div>
-				<p className="max-w-2xl text-muted-foreground">
+				<p className="text-muted-foreground max-w-2xl">
 					Track visuals with independent product meaning, lifecycle, or delivery
 					identity under one Asset Record.
 				</p>
@@ -400,7 +401,7 @@ export function AssetRecordsView({
 						className="space-y-4 rounded-lg border p-5"
 					>
 						<div>
-							<p className="mt-1 text-muted-foreground text-sm">
+							<p className="text-muted-foreground mt-1 text-sm">
 								A different file or editable frame alone does not justify a new
 								record.
 							</p>
@@ -417,7 +418,7 @@ export function AssetRecordsView({
 								{(field) => (
 									<div className="space-y-2">
 										<Label
-											className="font-medium text-sm leading-normal"
+											className="text-sm leading-normal font-medium"
 											htmlFor="asset-record-name"
 										>
 											Asset name
@@ -448,7 +449,7 @@ export function AssetRecordsView({
 									{(field) =>
 										identityOptions.map((option) => (
 											<Label
-												className="cursor-pointer items-start gap-3 rounded-md border p-3 text-sm leading-normal has-checked:border-primary"
+												className="has-checked:border-primary cursor-pointer items-start gap-3 rounded-md border p-3 text-sm leading-normal"
 												key={option.value}
 											>
 												<Checkbox
@@ -472,10 +473,10 @@ export function AssetRecordsView({
 													}}
 												/>
 												<span>
-													<span className="block font-medium text-sm">
+													<span className="block text-sm font-medium">
 														{option.label}
 													</span>
-													<span className="block text-muted-foreground text-sm">
+													<span className="text-muted-foreground block text-sm">
 														{option.description}
 													</span>
 												</span>
@@ -548,12 +549,12 @@ export function AssetRecordsView({
 								>
 									<div>
 										<h2
-											className="font-semibold text-xl"
+											className="text-xl font-semibold"
 											id="asset-records-heading"
 										>
 											Asset Records
 										</h2>
-										<p className="mt-1 text-muted-foreground text-sm">
+										<p className="text-muted-foreground mt-1 text-sm">
 											Record identity is independent of files, versions, and
 											separately replaceable units.
 										</p>
@@ -604,20 +605,20 @@ export function AssetRecordDetailView({
 	let trackingPanel: ReactNode = null;
 	if (recordQuery.isPending) {
 		recordHeading = (
-			<h1 className="font-medium font-serif text-4xl tracking-tight">
+			<h1 className="font-serif text-4xl font-medium tracking-tight">
 				Loading Asset Record…
 			</h1>
 		);
 	} else if (recordQuery.isError) {
 		recordHeading = (
-			<h1 className="font-medium font-serif text-4xl tracking-tight">
+			<h1 className="font-serif text-4xl font-medium tracking-tight">
 				Could not open Asset Record
 			</h1>
 		);
 	} else if (record) {
 		recordHeading = (
 			<>
-				<h1 className="font-medium font-serif text-4xl tracking-tight">
+				<h1 className="font-serif text-4xl font-medium tracking-tight">
 					{record.name}
 				</h1>
 				<p className="text-muted-foreground">
@@ -658,8 +659,8 @@ export function AssetRecordDetailView({
 				)}
 				{record.availability === "erased" ? (
 					<section className="rounded-lg border p-5">
-						<h2 className="font-semibold text-xl">Image dimensions</h2>
-						<p className="mt-2 text-muted-foreground text-sm">
+						<h2 className="text-xl font-semibold">Image dimensions</h2>
+						<p className="text-muted-foreground mt-2 text-sm">
 							An erased record's dimensions cannot be viewed or changed.
 						</p>
 					</section>
@@ -735,7 +736,7 @@ export function AssetRecordDetailView({
 				>
 					Back to Asset Records
 				</Link>
-				<p className="font-mono text-primary text-xs uppercase tracking-[0.16em]">
+				<p className="text-primary font-mono text-xs tracking-[0.16em] uppercase">
 					Asset library / {projectQuery.data?.name ?? "Oyun projesi"}
 				</p>
 				{recordHeading}

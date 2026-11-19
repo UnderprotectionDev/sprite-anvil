@@ -1,8 +1,6 @@
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
-import {
-	type PortraitReviewItem,
-	portraitReviewItemSchema,
-} from "@sprite-anvil/api/portrait-identity-reviews";
+import type { PortraitReviewItem } from "@sprite-anvil/api/portrait-identity-reviews";
+import { portraitReviewItemSchema } from "@sprite-anvil/api/portrait-identity-reviews";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
 import { Input } from "@sprite-anvil/ui/components/input";

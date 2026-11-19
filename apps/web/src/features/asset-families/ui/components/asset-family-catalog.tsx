@@ -37,7 +37,7 @@ export function AssetFamilyCatalogView({
 
 	if (catalog.subjectIdentities.length === 0) {
 		return (
-			<p className="rounded-lg border border-dashed p-5 text-muted-foreground">
+			<p className="text-muted-foreground rounded-lg border border-dashed p-5">
 				No Subject Identity yet. Create one first.
 			</p>
 		);
@@ -52,21 +52,21 @@ export function AssetFamilyCatalogView({
 
 				return (
 					<li
-						className="rounded-lg border border-l-2 border-l-primary p-5"
+						className="border-l-primary rounded-lg border border-l-2 p-5"
 						key={identity.id}
 					>
-						<p className="font-mono text-primary text-xs uppercase tracking-widest">
+						<p className="text-primary font-mono text-xs tracking-widest uppercase">
 							Subject Identity
 						</p>
-						<h2 className="mt-1 font-semibold font-serif text-2xl">
+						<h2 className="mt-1 font-serif text-2xl font-semibold">
 							{identity.name}
 						</h2>
 						{families.length === 0 ? (
-							<p className="mt-3 text-muted-foreground text-sm">
+							<p className="text-muted-foreground mt-3 text-sm">
 								This Subject Identity has no Asset Families yet.
 							</p>
 						) : (
-							<ul className="mt-4 ml-2 space-y-3 border-border border-l pl-4">
+							<ul className="border-border mt-4 ml-2 space-y-3 border-l pl-4">
 								{families.map((family) => (
 									<FamilyCatalogItem
 										assetRecords={catalog.assetRecords}
@@ -125,7 +125,7 @@ function FamilyCatalogItem({
 
 	return (
 		<li className="border-b pb-4 last:border-b-0" key={family.id}>
-			<p className="font-mono text-muted-foreground text-xs uppercase tracking-wider">
+			<p className="text-muted-foreground font-mono text-xs tracking-wider uppercase">
 				Asset Family
 			</p>
 			<h3 className="font-medium">{family.name}</h3>
@@ -139,11 +139,11 @@ function FamilyCatalogItem({
 				<span className="rounded-sm border px-2 py-1">
 					{visualWorldName ?? "Visual World not found"}
 				</span>
-				<span className="rounded-sm border border-primary/40 px-2 py-1 text-primary">
+				<span className="border-primary/40 text-primary rounded-sm border px-2 py-1">
 					{family.useContext}
 				</span>
 			</p>
-			<h4 className="mt-4 font-medium text-sm">Asset Records</h4>
+			<h4 className="mt-4 text-sm font-medium">Asset Records</h4>
 			{familyRecords.length > 0 ? (
 				<ul className="mt-1 list-inside list-disc text-sm">
 					{familyRecords.map((assetRecord) => (
@@ -162,13 +162,13 @@ function FamilyCatalogItem({
 					))}
 				</ul>
 			) : (
-				<p className="mt-1 text-muted-foreground text-sm">
+				<p className="text-muted-foreground mt-1 text-sm">
 					No Asset Records yet.
 				</p>
 			)}
 			{familyRelationships.length > 0 ? (
 				<>
-					<h4 className="mt-4 font-medium text-sm">Family relationships</h4>
+					<h4 className="mt-4 text-sm font-medium">Family relationships</h4>
 					<ul className="mt-1 space-y-1 text-sm">
 						{familyRelationships.map((relationship) => (
 							<RelationshipLine

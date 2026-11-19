@@ -1,8 +1,6 @@
 import type { PlatformEquivalenceRun } from "@sprite-anvil/api/platform-equivalence";
-import {
-	type PlatformSurface,
-	platformSurfaces,
-} from "@sprite-anvil/api/platform-equivalence-comparison";
+import type { PlatformSurface } from "@sprite-anvil/api/platform-equivalence-comparison";
+import { platformSurfaces } from "@sprite-anvil/api/platform-equivalence-comparison";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Label } from "@sprite-anvil/ui/components/label";
 import {

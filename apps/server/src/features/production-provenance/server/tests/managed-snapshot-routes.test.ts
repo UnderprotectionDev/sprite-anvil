@@ -5,10 +5,8 @@ import type {
 } from "@sprite-anvil/api/production-provenance";
 import { managedSnapshotSummarySchema } from "@sprite-anvil/api/production-provenance";
 import { Hono } from "hono";
-import {
-	type ManagedSnapshotRouteDependencies,
-	mountManagedSnapshotRoutes,
-} from "../managed-snapshot-routes";
+import type { ManagedSnapshotRouteDependencies } from "../managed-snapshot-routes";
+import { mountManagedSnapshotRoutes } from "../managed-snapshot-routes";
 
 const projectId = "managed-snapshot-project";
 const assetVersionId = "a17f5ff0-a50d-438f-8bf2-a0152b42c301";

@@ -26,7 +26,7 @@ export const productionRecipeFieldSchema = z
 	.object({
 		key: z
 			.string()
-			.regex(/^[a-z][a-z0-9_]{0,39}$/, "Use lowercase letters, digits and _."),
+			.regex(/^[a-z][a-z0-9_]{0,39}$/u, "Use lowercase letters, digits and _."),
 		label: z.string().trim().min(1).max(60),
 		mode: z.enum(productionRecipeFieldModes),
 		value: z.string().trim().min(1).max(2000).nullable(),
@@ -115,7 +115,7 @@ export const productionRecipeListInputSchema = z
 	.strict();
 
 const fillInValuesSchema = z.record(
-	z.string().regex(/^[a-z][a-z0-9_]{0,39}$/),
+	z.string().regex(/^[a-z][a-z0-9_]{0,39}$/u),
 	z.string().max(2000)
 );
 
@@ -189,7 +189,7 @@ export interface ProductionRecipeStore {
 	) => Promise<ProductionRecipe[] | null>;
 }
 
-const placeholderPattern = /\{\{\s*([a-z][a-z0-9_]*)\s*\}\}/g;
+const placeholderPattern = /\{\{\s*([a-z][a-z0-9_]*)\s*\}\}/gu;
 
 /**
  * Checks the relations between the skeleton and its fields. Returns the first

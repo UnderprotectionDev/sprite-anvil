@@ -10,7 +10,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-
+import type { Violation } from "./conventions";
 import {
 	baselineGrowth,
 	ConventionsError,
@@ -21,7 +21,6 @@ import {
 	readConventions,
 	structureDocument,
 	techStackDocument,
-	type Violation,
 } from "./conventions";
 
 const repository = join(import.meta.dir, "..");

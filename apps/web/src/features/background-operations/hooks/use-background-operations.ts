@@ -1,7 +1,5 @@
-import {
-	type BackgroundOperation,
-	isBackgroundOperationActive,
-} from "@sprite-anvil/api/background-operations";
+import type { BackgroundOperation } from "@sprite-anvil/api/background-operations";
+import { isBackgroundOperationActive } from "@sprite-anvil/api/background-operations";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { orpc } from "@/utils/orpc";

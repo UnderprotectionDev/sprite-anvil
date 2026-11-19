@@ -29,7 +29,7 @@ import {
 } from "../../schemas";
 
 const profileId = "object_weapon_equipment_states";
-const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
+const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/u, "") ?? "";
 
 const emptyObservations = {
 	scale: "",
@@ -223,7 +223,7 @@ export function AssetFamilyComparisonManager({
 			className="space-y-4 rounded border p-4"
 		>
 			<header className="space-y-1">
-				<h3 className="font-semibold text-xl">
+				<h3 className="text-xl font-semibold">
 					{familyName} · Compare State and Direction Family
 				</h3>
 				<p className="text-muted-foreground text-sm">
@@ -390,7 +390,7 @@ export function AssetFamilyComparisonManager({
 								className="block space-y-1 text-base leading-normal"
 								key={key}
 							>
-								<span className="font-medium text-sm">
+								<span className="text-sm font-medium">
 									{observationLabels[key]}
 								</span>
 								<form.Field name={`observations.${key}`}>
@@ -486,7 +486,7 @@ function ObservationSummary({
 				Object.keys(observationLabels) as Array<keyof typeof observationLabels>
 			).map((key) => (
 				<div key={key}>
-					<dt className="font-medium text-sm">{observationLabels[key]}</dt>
+					<dt className="text-sm font-medium">{observationLabels[key]}</dt>
 					<dd className="text-muted-foreground text-sm">{observations[key]}</dd>
 				</div>
 			))}

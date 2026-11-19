@@ -1,7 +1,5 @@
-import {
-	type CancelRequestResult,
-	canRequestCancel,
-} from "@sprite-anvil/api/background-operations";
+import type { CancelRequestResult } from "@sprite-anvil/api/background-operations";
+import { canRequestCancel } from "@sprite-anvil/api/background-operations";
 import type { OperationStorage } from "./operation-storage";
 
 /** Thrown by a checkpoint when the user asked to cancel and the executor may stop safely. */

@@ -5,8 +5,8 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { AnnotationEditor } from "./annotation-editor";
 
-const fieldLabel = /^From x/;
-const numberError = /whole numbers/i;
+const fieldLabel = /^From x/u;
+const numberError = /whole numbers/iu;
 
 afterEach(cleanup);
 

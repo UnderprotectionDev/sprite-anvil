@@ -11,11 +11,8 @@ import {
 	assetVersionSummarySchema,
 } from "@sprite-anvil/api/asset-record-tracking";
 import { createVersionProductionEvidence } from "@sprite-anvil/api/production-provenance";
-import {
-	type Database,
-	getProjectForUser,
-	publishedProjectPredicate,
-} from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser, publishedProjectPredicate } from "@sprite-anvil/db";
 import {
 	legacyAssetAttestations,
 	manualImportEvidence,

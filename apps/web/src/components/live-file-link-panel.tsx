@@ -1,22 +1,23 @@
 import { Button } from "@sprite-anvil/ui/components/button";
 import { isTauri } from "@tauri-apps/api/core";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import { readFile, stat, type UnwatchFn, watch } from "@tauri-apps/plugin-fs";
+import type { UnwatchFn } from "@tauri-apps/plugin-fs";
+import { readFile, stat, watch } from "@tauri-apps/plugin-fs";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/status-message";
-import {
-	type LiveFileChangeDependencies,
-	type LiveFileInfo,
-	prepareLiveFileCandidate,
+import type {
+	LiveFileChangeDependencies,
+	LiveFileInfo,
 } from "@/features/production-provenance/lib/live-file-change";
-import {
-	getDefaultLiveFileLinkStore,
-	type LiveFileLinkStore,
-	type StoredLiveFileLink,
+import { prepareLiveFileCandidate } from "@/features/production-provenance/lib/live-file-change";
+import type {
+	LiveFileLinkStore,
+	StoredLiveFileLink,
 } from "@/features/production-provenance/lib/live-file-link-store";
+import { getDefaultLiveFileLinkStore } from "@/features/production-provenance/lib/live-file-link-store";
 
-const pathSeparatorPattern = /[\\/]/;
+const pathSeparatorPattern = /[\\/]/u;
 
 export interface LiveFileLinkAdapter extends LiveFileChangeDependencies {
 	chooseWorkingFile: () => Promise<string | null>;
@@ -278,7 +279,7 @@ export function LiveFileLinkPanel({
 				<h3 className="font-medium" id="live-file-link-heading">
 					Live working file
 				</h3>
-				<p className="mt-1 text-muted-foreground text-sm">
+				<p className="text-muted-foreground mt-1 text-sm">
 					The editable source file is monitored in this desktop app. The file
 					path stays on your device.
 				</p>

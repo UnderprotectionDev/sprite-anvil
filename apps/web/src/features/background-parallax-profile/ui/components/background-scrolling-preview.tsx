@@ -11,7 +11,7 @@ import { ENV } from "@/env";
 import type { BackgroundLayerMotion } from "../../lib/background-scrolling-scene";
 
 type Layer = BackgroundLayerLayoutInput["layers"][number];
-const trailingSlash = /\/$/;
+const trailingSlash = /\/$/u;
 async function loadBackgroundLayers(setup: {
 	layers: Layer[];
 	versions: { id: string; previewUrl: string }[];

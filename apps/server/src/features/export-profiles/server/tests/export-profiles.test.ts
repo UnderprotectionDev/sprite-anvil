@@ -25,7 +25,7 @@ const definition = {
 	trim: "transparent" as const,
 };
 
-const digestPattern = /^[0-9a-f]{64}$/;
+const digestPattern = /^[0-9a-f]{64}$/u;
 
 function setup(options: { hasAccess?: boolean } = {}) {
 	const context = {

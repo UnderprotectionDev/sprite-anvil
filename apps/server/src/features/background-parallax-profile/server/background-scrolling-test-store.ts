@@ -1,8 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
-import {
-	type BackgroundScrollingTestStore,
-	backgroundScrollingTestRecordSchema,
-} from "@sprite-anvil/api/background-scrolling-tests";
+import type { BackgroundScrollingTestStore } from "@sprite-anvil/api/background-scrolling-tests";
+import { backgroundScrollingTestRecordSchema } from "@sprite-anvil/api/background-scrolling-tests";
 import type { Database } from "@sprite-anvil/db";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
 import { assetVersions } from "@sprite-anvil/db/schema/asset-versions";

@@ -3,14 +3,13 @@ import type { DeliveryRefreshObservation } from "@sprite-anvil/api/delivery-refr
 import type { ExportBundle } from "@sprite-anvil/api/export-bundles";
 import { isTauri } from "@tauri-apps/api/core";
 import { honoGetBytes, projectApiUrl } from "@/utils/hono-api";
-import {
-	applyNativeDelivery,
-	type NativeDeliveryFileSystem,
-} from "./native-delivery";
-import { type ChosenFolder, chooseFolder } from "./read-target-folder";
+import type { NativeDeliveryFileSystem } from "./native-delivery";
+import { applyNativeDelivery } from "./native-delivery";
+import type { ChosenFolder } from "./read-target-folder";
+import { chooseFolder } from "./read-target-folder";
 
-const trailingSeparator = /[\\/]$/;
-const missingPath = /no such file|not found|os error [23]\b/i;
+const trailingSeparator = /[\\/]$/u;
+const missingPath = /no such file|not found|os error [23]\b/iu;
 export const isDesktopDelivery = () => isTauri();
 
 async function desktopFileSystem(): Promise<NativeDeliveryFileSystem> {

@@ -105,7 +105,7 @@ export const assetVersionSchema = z
 		contentLength: z.number().int().positive(),
 		contentDigest: z
 			.string()
-			.regex(/^[0-9a-f]{64}$/)
+			.regex(/^[0-9a-f]{64}$/u)
 			.nullable(),
 		sourceImageDimensions: pixelDimensionsSchema.nullable().optional(),
 		productionEvidence: versionProductionEvidenceSchema,

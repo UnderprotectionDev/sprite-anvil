@@ -8,10 +8,10 @@ import {
 	erasureImpactPrepareOutputSchema,
 	erasureImpactReportSchema,
 } from "../permanent-erasure";
+import type { ErasureApprovalRejection } from "../permanent-erasure-deletion";
 import {
 	deletionReceiptGetInputSchema,
 	deletionReceiptRecordSchema,
-	type ErasureApprovalRejection,
 	erasureApprovalInputSchema,
 } from "../permanent-erasure-deletion";
 import type { ErasureImpactRejection } from "../permanent-erasure-scope";

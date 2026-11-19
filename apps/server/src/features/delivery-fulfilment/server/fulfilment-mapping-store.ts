@@ -1,9 +1,9 @@
-import {
-	type FulfilmentMappingDraft,
-	type FulfilmentMappingPrepareResult,
-	type FulfilmentMappingStore,
-	fulfilmentMappingDraftSchema,
+import type {
+	FulfilmentMappingDraft,
+	FulfilmentMappingPrepareResult,
+	FulfilmentMappingStore,
 } from "@sprite-anvil/api/delivery-fulfilment";
+import { fulfilmentMappingDraftSchema } from "@sprite-anvil/api/delivery-fulfilment";
 import { buildFulfilmentMapping } from "@sprite-anvil/api/delivery-fulfilment-mapping";
 import type { DeliveryTargetStore } from "@sprite-anvil/api/delivery-planning-store";
 import { exportBundleSha256 } from "@sprite-anvil/api/export-bundle-manifest";

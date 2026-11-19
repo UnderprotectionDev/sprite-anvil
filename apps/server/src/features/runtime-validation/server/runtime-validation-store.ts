@@ -5,9 +5,11 @@ import {
 	RecordIntegrityError,
 	RetryablePublicationError,
 } from "@sprite-anvil/api/record-publication";
+import type {
+	RuntimeValidationRecord,
+	RuntimeValidationRecordCreateInput,
+} from "@sprite-anvil/api/runtime-validation";
 import {
-	type RuntimeValidationRecord,
-	type RuntimeValidationRecordCreateInput,
 	runtimeValidationEvidenceSchema,
 	runtimeValidationRecordListSchema,
 	runtimeValidationRecordSchema,
@@ -21,7 +23,8 @@ import type {
 	RuntimeValidationEvidenceResult,
 	RuntimeValidationStore,
 } from "@sprite-anvil/api/runtime-validation-store";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import type {
 	RuntimeValidationStorage,
 	StoredRuntimeValidationDecision,

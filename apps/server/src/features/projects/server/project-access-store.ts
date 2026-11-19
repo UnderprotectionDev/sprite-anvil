@@ -11,11 +11,8 @@ import {
 	externalVisualAnalysisPurposeByCategory,
 } from "@sprite-anvil/api/project-access-store";
 import type { ProjectContextStore } from "@sprite-anvil/api/project-context";
-import {
-	type Database,
-	getProjectForUser,
-	publishedProjectPredicate,
-} from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser, publishedProjectPredicate } from "@sprite-anvil/db";
 import { externalVisualAnalysisPermission } from "@sprite-anvil/db/schema/external-visual-analysis";
 import { project } from "@sprite-anvil/db/schema/project";
 import { toolAccessPermission } from "@sprite-anvil/db/schema/project-access";

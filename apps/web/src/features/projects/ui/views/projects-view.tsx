@@ -109,11 +109,11 @@ export function ProjectsView() {
 		<main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:py-12">
 			<header className="mb-10 flex flex-wrap items-end justify-between gap-6">
 				<div className="max-w-3xl space-y-3">
-					<p className="font-mono text-primary text-xs uppercase tracking-[0.16em]">
+					<p className="text-primary font-mono text-xs tracking-[0.16em] uppercase">
 						Workspace
 					</p>
-					<h1 className="font-semibold text-4xl sm:text-5xl">Game projects</h1>
-					<p className="text-base text-muted-foreground leading-relaxed">
+					<h1 className="text-4xl font-semibold sm:text-5xl">Game projects</h1>
+					<p className="text-muted-foreground text-base leading-relaxed">
 						Continue a project or create a workspace for your new game.
 					</p>
 				</div>
@@ -128,7 +128,7 @@ export function ProjectsView() {
 			<div className="max-w-5xl">
 				<section aria-labelledby="projects-heading" className="space-y-5">
 					<div className="space-y-1">
-						<h2 className="font-semibold text-2xl" id="projects-heading">
+						<h2 className="text-2xl font-semibold" id="projects-heading">
 							Your projects
 						</h2>
 						<p className="text-muted-foreground text-sm">
@@ -229,7 +229,7 @@ function ProjectsList({
 	}
 	if (projects.length === 0) {
 		return (
-			<div className="space-y-4 rounded-xl border border-dashed bg-card p-8">
+			<div className="bg-card space-y-4 rounded-xl border border-dashed p-8">
 				<p className="text-muted-foreground">
 					You have no game projects yet. Create your first project to get
 					started.
@@ -261,21 +261,21 @@ function ProjectsList({
 			<ul className="grid gap-4">
 				{projects.map((project) => (
 					<li
-						className="min-w-0 rounded-xl border bg-card p-5 shadow-sm"
+						className="bg-card min-w-0 rounded-xl border p-5 shadow-sm"
 						key={project.id}
 					>
 						<div className="flex min-w-0 flex-wrap items-center justify-between gap-4">
 							<div className="min-w-0">
-								<p className="font-mono text-muted-foreground text-xs uppercase tracking-wider">
+								<p className="text-muted-foreground font-mono text-xs tracking-wider uppercase">
 									Game project
 								</p>
-								<h3 className="mt-1 break-words font-semibold text-xl">
+								<h3 className="mt-1 text-xl font-semibold break-words">
 									{project.name}
 								</h3>
 							</div>
 							<Link
 								aria-label={`${project.name} open Asset Records`}
-								className={`${buttonVariants({ variant: "default" })} !text-sm min-h-11`}
+								className={`${buttonVariants({ variant: "default" })} min-h-11 !text-sm`}
 								params={{ projectId: project.id }}
 								to="/projects/$projectId/assets"
 							>
@@ -285,7 +285,7 @@ function ProjectsList({
 						<div className="mt-5 grid gap-2 border-t pt-4 sm:grid-cols-2 lg:grid-cols-5">
 							<Link
 								aria-label={`${project.name} open Project Context`}
-								className={`${buttonVariants({ variant: "outline" })} !text-sm min-h-11`}
+								className={`${buttonVariants({ variant: "outline" })} min-h-11 !text-sm`}
 								search={{ projectId: project.id }}
 								to="/context-proposals"
 							>
@@ -293,7 +293,7 @@ function ProjectsList({
 							</Link>
 							<Link
 								aria-label={`${project.name} open Asset Families`}
-								className={`${buttonVariants({ variant: "outline" })} !text-sm min-h-11`}
+								className={`${buttonVariants({ variant: "outline" })} min-h-11 !text-sm`}
 								params={{ projectId: project.id }}
 								to="/projects/$projectId/asset-families"
 							>
@@ -301,7 +301,7 @@ function ProjectsList({
 							</Link>
 							<Link
 								aria-label={`${project.name} open Scene QA`}
-								className={`${buttonVariants({ variant: "outline" })} !text-sm min-h-11`}
+								className={`${buttonVariants({ variant: "outline" })} min-h-11 !text-sm`}
 								params={{ projectId: project.id }}
 								to="/projects/$projectId/scene-qa"
 							>
@@ -309,7 +309,7 @@ function ProjectsList({
 							</Link>
 							<Link
 								aria-label={`${project.name} manage Collections`}
-								className={`${buttonVariants({ variant: "outline" })} !text-sm min-h-11`}
+								className={`${buttonVariants({ variant: "outline" })} min-h-11 !text-sm`}
 								params={{ projectId: project.id }}
 								to="/projects/$projectId/collections"
 							>
@@ -317,7 +317,7 @@ function ProjectsList({
 							</Link>
 							<Link
 								aria-label={`${project.name} manage permissions`}
-								className={`${buttonVariants({ variant: "outline" })} !text-sm min-h-11`}
+								className={`${buttonVariants({ variant: "outline" })} min-h-11 !text-sm`}
 								params={{ projectId: project.id }}
 								to="/projects/$projectId/access"
 							>
@@ -325,7 +325,7 @@ function ProjectsList({
 							</Link>
 							<Link
 								aria-label={`${project.name} manage Specialized Profile Contracts`}
-								className={`${buttonVariants({ variant: "outline" })} !text-sm min-h-11`}
+								className={`${buttonVariants({ variant: "outline" })} min-h-11 !text-sm`}
 								params={{ projectId: project.id }}
 								to="/projects/$projectId/profile-contracts"
 							>

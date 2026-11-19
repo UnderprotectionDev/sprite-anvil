@@ -2,18 +2,21 @@ import type {
 	ExportProfileRevisionCreateResult,
 	ExportProfileStore,
 } from "@sprite-anvil/api/export-profile-store";
+import type {
+	ExportProfile,
+	ExportProfileCatalog,
+	ExportProfileRevision,
+	ExportProfileRevisionCreateInput,
+} from "@sprite-anvil/api/export-profiles";
 import {
 	contractMajorOf,
-	type ExportProfile,
-	type ExportProfileCatalog,
-	type ExportProfileRevision,
-	type ExportProfileRevisionCreateInput,
 	exportProfileCatalogSchema,
 	exportProfileRevisionSchema,
 	supportedExportProfileContractMajor,
 } from "@sprite-anvil/api/export-profiles";
 import { recordContentDigest } from "@sprite-anvil/api/record-content-digest";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import type {
 	ExportProfileStorage,
 	StoredExportProfileRevision,

@@ -3,8 +3,8 @@ import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 import type { Context } from "../context";
 import { protectedProcedure } from "../index";
+import type { TextureRepetitionTarget } from "../texture-repetition-reviews";
 import {
-	type TextureRepetitionTarget,
 	textureEdgeCheckSchema,
 	textureRepetitionListInputSchema,
 	textureRepetitionReviewInputSchema,

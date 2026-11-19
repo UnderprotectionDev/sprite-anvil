@@ -1,8 +1,5 @@
-import {
-	type ObjectReader,
-	verifiedObjectStream,
-	verifyObject,
-} from "./object-file-bytes";
+import type { ObjectReader } from "./object-file-bytes";
+import { verifiedObjectStream, verifyObject } from "./object-file-bytes";
 
 type StoredContentType =
 	| "application/octet-stream"

@@ -1,12 +1,14 @@
 import { pixelEditorMaxOperations } from "@sprite-anvil/api/pixel-editor";
 import { expect, test } from "vitest";
+import type {
+	OfflineStagingTable,
+	StagedDraftRow,
+	StagedFileRow,
+	StagedProjectRow,
+} from "./offline-staging-store";
 import {
 	createOfflineStagingStore,
 	maxStagedFileBytes,
-	type OfflineStagingTable,
-	type StagedDraftRow,
-	type StagedFileRow,
-	type StagedProjectRow,
 } from "./offline-staging-store";
 
 function fakeTable<Row extends { projectId: string }>(

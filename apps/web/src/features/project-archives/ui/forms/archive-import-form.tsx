@@ -8,10 +8,8 @@ import { useId, useRef } from "react";
 import { z } from "zod";
 import { StatusMessage } from "@/components/status-message";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
-import {
-	type ArchiveImportAttempt,
-	uploadProjectArchive,
-} from "../../lib/upload-project-archive";
+import type { ArchiveImportAttempt } from "../../lib/upload-project-archive";
+import { uploadProjectArchive } from "../../lib/upload-project-archive";
 
 const inputSchema = z.object({
 	name: z.string().trim().min(1).max(120),

@@ -12,7 +12,7 @@ export function PlatformEquivalenceRunsPanel({
 }) {
 	return (
 		<section className="space-y-3 rounded-lg border p-4">
-			<h2 className="font-semibold text-xl">Runs</h2>
+			<h2 className="text-xl font-semibold">Runs</h2>
 			{runs.length === 0 ? (
 				<p className="text-muted-foreground">No run has been recorded yet.</p>
 			) : (

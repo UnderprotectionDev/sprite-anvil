@@ -1,9 +1,7 @@
 import { exportBundleHasEngineData } from "@sprite-anvil/api/export-bundle-manifest";
 import type { ExportBundleSummary } from "@sprite-anvil/api/export-bundles";
-import {
-	type GodotOutput,
-	godotSupportedEngineVersions,
-} from "@sprite-anvil/api/godot-output";
+import type { GodotOutput } from "@sprite-anvil/api/godot-output";
+import { godotSupportedEngineVersions } from "@sprite-anvil/api/godot-output";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
@@ -121,7 +119,7 @@ export function GodotOutputPanel({ projectId }: { projectId: string }) {
 	}
 	return (
 		<section aria-labelledby="godot-output-heading" className="space-y-3">
-			<h2 className="font-semibold text-lg" id="godot-output-heading">
+			<h2 className="text-lg font-semibold" id="godot-output-heading">
 				Godot output
 			</h2>
 			<p className="text-muted-foreground text-sm">

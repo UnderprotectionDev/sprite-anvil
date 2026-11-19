@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
+import type { LiveFileLinkRow } from "./live-file-link-store";
 import {
 	createLiveFileLinkStore,
-	type LiveFileLinkRow,
 	legacyLinkStorageKey,
 } from "./live-file-link-store";
 

@@ -1,6 +1,6 @@
 import { z } from "zod";
+import type { DeliveryRecords } from "./project-archive-delivery";
 import {
-	type DeliveryRecords,
 	deliveryGroup,
 	deliveryRelationFailures,
 	deliverySectionSchemas,
@@ -8,19 +8,21 @@ import {
 	emptyDeliveryRecords,
 } from "./project-archive-delivery";
 import { rebaseArchiveDelivery } from "./project-archive-delivery-rebase";
+import type { HistoryRecords } from "./project-archive-history";
 import {
-	type HistoryRecords,
 	historyGroup,
 	historyRelationFailures,
 } from "./project-archive-history";
+import type {
+	FoundationRecords,
+	ProjectArchive,
+	ProjectArchiveFileEntry,
+} from "./project-archives";
 import {
 	archiveSha256Schema,
-	type FoundationRecords,
 	findSecretKeyPaths,
 	foundationGroup,
 	foundationRelationFailures,
-	type ProjectArchive,
-	type ProjectArchiveFileEntry,
 	projectArchiveFileStorageLimit,
 	projectArchiveSectionRegistry,
 	sectionDigest,

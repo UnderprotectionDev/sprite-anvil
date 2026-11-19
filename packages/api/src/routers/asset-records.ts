@@ -1,6 +1,9 @@
 import { ORPCError } from "@orpc/server";
+import type {
+	AssetRecordStore,
+	MutableAssetRecordAvailability,
+} from "../asset-records";
 import {
-	type AssetRecordStore,
 	assetRecordCreateInputSchema,
 	assetRecordGetInputSchema,
 	assetRecordListInputSchema,
@@ -9,7 +12,6 @@ import {
 	assetRecordSchema,
 	assetRecordSearchInputSchema,
 	assetRecordSearchResponseSchema,
-	type MutableAssetRecordAvailability,
 } from "../asset-records";
 import { protectedProcedure } from "../index";
 import { assetRecordTrackingRouter } from "./asset-record-tracking";

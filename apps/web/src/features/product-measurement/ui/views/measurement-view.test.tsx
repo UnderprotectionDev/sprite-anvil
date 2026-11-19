@@ -10,7 +10,7 @@ vi.mock("@/utils/orpc", () => ({ orpc: {} }));
 
 afterEach(cleanup);
 
-const deliveryVersion = /delivery.*version 2/i;
+const deliveryVersion = /delivery.*version 2/iu;
 
 describe("Measurement view", () => {
 	it("lists activated versions", () => {

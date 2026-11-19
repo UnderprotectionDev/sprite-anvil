@@ -1,4 +1,5 @@
-import { expect, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { expect } from "@playwright/test";
 import { signUpWithFixture } from "./project-workflow";
 
 const objectProfileHeading = "Objects, weapons, equipment, and state families";

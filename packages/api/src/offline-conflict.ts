@@ -24,7 +24,7 @@ export const offlineConflictKnownFields = [
 	"local",
 ] as const;
 
-const versionPattern = /^offline-conflict\/(\d+)\.(\d+)\.(\d+)$/;
+const versionPattern = /^offline-conflict\/(\d+)\.(\d+)\.(\d+)$/u;
 
 const revisionSchema = z.number().int().min(0);
 const operationsSchema = z

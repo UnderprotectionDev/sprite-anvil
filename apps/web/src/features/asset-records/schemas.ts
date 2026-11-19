@@ -1,6 +1,6 @@
 import { dependencyFacetSchema } from "@sprite-anvil/api/asset-record-tracking";
+import type { AssetRecordMeasurements } from "@sprite-anvil/api/asset-records";
 import {
-	type AssetRecordMeasurements,
 	assetRecordCategoryValues,
 	assetRecordMeasurementsSchema,
 } from "@sprite-anvil/api/asset-records";

@@ -1,9 +1,9 @@
-import {
-	type CanvasAnchor,
-	type PixelOperation,
-	type PixelRect,
-	pixelEditorMaxDimension,
+import type {
+	CanvasAnchor,
+	PixelOperation,
+	PixelRect,
 } from "@sprite-anvil/api/pixel-editor";
+import { pixelEditorMaxDimension } from "@sprite-anvil/api/pixel-editor";
 
 /**
  * Deterministic, grid-preserving operations over an RGBA raster. Every
@@ -122,7 +122,7 @@ function lineCells(x0: number, y0: number, x1: number, y1: number) {
 	let error = dx + dy;
 	let x = x0;
 	let y = y0;
-	for (;;) {
+	while (true) {
 		cells.push([x, y]);
 		if (x === x1 && y === y1) {
 			return cells;

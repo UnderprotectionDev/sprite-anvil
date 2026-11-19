@@ -48,7 +48,7 @@ export function ReplaceColorForm({
 				form.handleSubmit();
 			}}
 		>
-			<p className="font-medium text-sm">Replace colour</p>
+			<p className="text-sm font-medium">Replace colour</p>
 			<form.Field name="from">
 				{(field) => (
 					<Label className="block space-y-1 text-xs" htmlFor="replace-from">

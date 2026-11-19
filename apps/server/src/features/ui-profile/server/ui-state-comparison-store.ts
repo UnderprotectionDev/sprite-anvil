@@ -1,9 +1,8 @@
 import { isDeepStrictEqual } from "node:util";
-import {
-	type UiStateComparisonStore,
-	uiStateComparisonRecordSchema,
-} from "@sprite-anvil/api/ui-state-comparisons";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { UiStateComparisonStore } from "@sprite-anvil/api/ui-state-comparisons";
+import { uiStateComparisonRecordSchema } from "@sprite-anvil/api/ui-state-comparisons";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import {
 	assetFamilies,
 	assetRecords,

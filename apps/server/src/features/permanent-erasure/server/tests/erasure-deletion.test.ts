@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import type { BackgroundOperation } from "@sprite-anvil/api/background-operations";
 import type { ErasureImpactReport } from "@sprite-anvil/api/permanent-erasure";
+import type { ErasureApprovalInput } from "@sprite-anvil/api/permanent-erasure-deletion";
 import {
-	type ErasureApprovalInput,
 	erasureApprovalInputSchema,
 	selectedErasureCounts,
 } from "@sprite-anvil/api/permanent-erasure-deletion";

@@ -1,10 +1,12 @@
 import type { UnitVersion } from "@sprite-anvil/api/asset-versions";
 import type { ProjectProfileContractActivation } from "@sprite-anvil/api/specialized-profile-contracts";
+import type {
+	TextureEdgeCheck,
+	TextureRepetitionReviewInput,
+	TextureRepetitionReviewRecord,
+} from "@sprite-anvil/api/texture-repetition-reviews";
 import {
 	createTextureRepetitionPackage,
-	type TextureEdgeCheck,
-	type TextureRepetitionReviewInput,
-	type TextureRepetitionReviewRecord,
 	textureRepetitionReviewInputSchema,
 } from "@sprite-anvil/api/texture-repetition-reviews";
 import { Button } from "@sprite-anvil/ui/components/button";

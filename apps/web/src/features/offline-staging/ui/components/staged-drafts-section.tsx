@@ -24,7 +24,7 @@ export function StagedDraftsSection({
 }) {
 	return (
 		<section aria-labelledby="offline-drafts" className="space-y-3">
-			<h2 className="font-medium text-lg" id="offline-drafts">
+			<h2 className="text-lg font-medium" id="offline-drafts">
 				Staged Working Drafts
 			</h2>
 			{drafts.length ? (

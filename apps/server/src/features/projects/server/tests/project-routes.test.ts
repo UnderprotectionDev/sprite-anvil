@@ -3,7 +3,8 @@ import { createDb, getProjectForUser } from "@sprite-anvil/db";
 import { user as userTable } from "@sprite-anvil/db/schema/auth";
 import { project as projectTable } from "@sprite-anvil/db/schema/project";
 import { betterAuth } from "better-auth";
-import { type MemoryDB, memoryAdapter } from "better-auth/adapters/memory";
+import type { MemoryDB } from "better-auth/adapters/memory";
+import { memoryAdapter } from "better-auth/adapters/memory";
 import { testUtils } from "better-auth/plugins";
 import { eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
@@ -13,15 +14,13 @@ import {
 	publicApiErrorSchema,
 	twoDVisualAssetAcceptedResponseSchema,
 } from "../../../../output-contracts";
-import {
-	mountProjectRoutes,
-	type ProjectRouteDependencies,
-} from "../project-routes";
+import type { ProjectRouteDependencies } from "../project-routes";
+import { mountProjectRoutes } from "../project-routes";
 
 const projectId = "00000000-0000-4000-8000-000000000001";
 const twoDVisualAssetId = "00000000-0000-4000-8000-000000000002";
 const secretMaterialPattern =
-	/X-Amz-|access[-_ ]?key|secret[-_ ]?key|access[-_ ]?token|encryption[-_ ]?key|server[-_ ]?secret|password|authorization|credential|token|https?:\/\//i;
+	/X-Amz-|access[-_ ]?key|secret[-_ ]?key|access[-_ ]?token|encryption[-_ ]?key|server[-_ ]?secret|password|authorization|credential|token|https?:\/\//iu;
 const cloudflareConfig: CloudflareConfig = {
 	CLOUDFLARE_ACCOUNT_ID: "test-account",
 	CLOUDFLARE_QUEUE_ID: "test-queue",

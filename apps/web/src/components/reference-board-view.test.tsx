@@ -16,7 +16,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { ReferenceBoardView } from "@/components/reference-board-view";
 import { createQueryClient } from "@/utils/query-client";
 
-const overrideRationaleLabel = /Context Override rationale/;
+const overrideRationaleLabel = /Context Override rationale/u;
 const projectId = "c2edb5dc-a82f-42b2-84bb-a878ca20fabf";
 const assetRecordId = "7ea123f0-2bd0-4b38-ab57-29477a1366e6";
 

@@ -1,9 +1,7 @@
 import { sha256Hex } from "@sprite-anvil/api/export-bundle-verification";
 import { expect, test } from "vitest";
-import {
-	applyNativeDelivery,
-	type NativeDeliveryFileSystem,
-} from "./native-delivery";
+import type { NativeDeliveryFileSystem } from "./native-delivery";
+import { applyNativeDelivery } from "./native-delivery";
 
 const bytes = (text: string) => new TextEncoder().encode(text);
 function fileSystem(initial: Record<string, string> = {}) {

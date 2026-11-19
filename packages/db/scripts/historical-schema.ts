@@ -10,7 +10,7 @@ const inventorySchema = z
 		reason: z.string().min(1),
 		sourceMigrationHashes: z.record(
 			z.string(),
-			z.string().regex(/^[a-f0-9]{64}$/)
+			z.string().regex(/^[a-f0-9]{64}$/u)
 		),
 		expectedOnly: z.array(z.string()),
 		replayedOnly: z.array(z.string()),

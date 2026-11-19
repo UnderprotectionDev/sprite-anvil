@@ -1,8 +1,10 @@
 import { expect, test } from "bun:test";
+import type {
+	ExportBundleProfilePin,
+	ExportBundleSource,
+} from "./export-bundle-manifest";
 import {
 	buildExportBundle,
-	type ExportBundleProfilePin,
-	type ExportBundleSource,
 	exportBundleHasEngineData,
 	exportBundleManifestSchema,
 } from "./export-bundle-manifest";
@@ -101,7 +103,7 @@ function source(
 	};
 }
 
-const timestampPattern = /\d{4}-\d{2}-\d{2}T/;
+const timestampPattern = /\d{4}-\d{2}-\d{2}T/u;
 
 const options = {
 	adapterVersion: null,

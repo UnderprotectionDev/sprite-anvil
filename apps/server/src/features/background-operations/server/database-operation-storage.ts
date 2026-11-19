@@ -3,6 +3,7 @@ import {
 	backgroundOperationOutbox,
 	backgroundOperations,
 } from "@sprite-anvil/db/schema/background-operations";
+import type { SQL } from "drizzle-orm";
 import {
 	and,
 	asc,
@@ -12,7 +13,6 @@ import {
 	lt,
 	notExists,
 	or,
-	type SQL,
 	sql,
 } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";

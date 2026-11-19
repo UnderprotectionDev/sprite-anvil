@@ -2,8 +2,8 @@ import type {
 	MeasurementDefinitionActivateResult,
 	MeasurementDefinitionStore,
 } from "@sprite-anvil/api/measurement-definition-store";
+import type { MeasurementDefinition } from "@sprite-anvil/api/measurement-definitions";
 import {
-	type MeasurementDefinition,
 	measurementDefinitionSchema,
 	supportedMeasurementContractMajor,
 } from "@sprite-anvil/api/measurement-definitions";

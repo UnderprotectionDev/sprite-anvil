@@ -3,7 +3,7 @@ import { useState } from "react";
 import { StatusMessage } from "@/components/status-message";
 import { ENV } from "@/env";
 
-const trailingSlash = /\/$/;
+const trailingSlash = /\/$/u;
 const previewBackgrounds = {
 	dark: "#171717",
 	light: "#fafafa",

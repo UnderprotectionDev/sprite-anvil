@@ -8,7 +8,8 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { useForm } from "@tanstack/react-form";
-import { type SyntheticEvent, useRef, useState } from "react";
+import type { SyntheticEvent } from "react";
+import { useRef, useState } from "react";
 import { FieldErrors, fieldErrorAttributes } from "@/components/field-errors";
 import { StatusMessage } from "@/components/status-message";
 import { errorCodeOf } from "@/utils/error-code";
@@ -97,7 +98,7 @@ export function RuntimeValidationRecordForm({
 			className="space-y-4 rounded-lg border p-4"
 			onSubmit={submit}
 		>
-			<h2 className="font-semibold text-xl">New Runtime Validation Record</h2>
+			<h2 className="text-xl font-semibold">New Runtime Validation Record</h2>
 			<p className="text-muted-foreground text-sm">
 				A record is evidence from testing one exact Export Bundle in a real game
 				build. It is saved as is and never changed; you add the evidence to it

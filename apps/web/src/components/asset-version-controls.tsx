@@ -24,7 +24,7 @@ import {
 } from "@/features/asset-versions/ui/components/unit-version-correction-form";
 import type { useAssetVersionWrites } from "@/utils/use-asset-version-writes";
 
-const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
+const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/u, "") ?? "";
 
 const reviewEventLabels = {
 	candidate: "Saved as candidate",
@@ -84,16 +84,16 @@ export function AssetVersionControls({
 		>
 			<div>
 				<h2
-					className="font-semibold text-2xl"
+					className="text-2xl font-semibold"
 					id="asset-version-controls-heading"
 				>
 					Asset Versions and review
 				</h2>
-				<p className="mt-1 text-muted-foreground text-sm">
+				<p className="text-muted-foreground mt-1 text-sm">
 					Upload PNG or WebP files, review Candidate Versions, and select the
 					approved version as the Canonical Design.
 				</p>
-				<p className="mt-1 text-muted-foreground text-sm">
+				<p className="text-muted-foreground mt-1 text-sm">
 					After uploading the result created in a provider interface, you can
 					enter visible fields manually in the Provider Generation Record form.
 				</p>
@@ -153,7 +153,7 @@ export function AssetVersionControls({
 											<div className="flex flex-wrap items-center justify-between gap-3">
 												<h4 className="font-medium">{record.name}</h4>
 												<Link
-													className="inline-flex min-h-11 items-center rounded-md border px-3 py-2 text-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+													className="focus-visible:ring-ring inline-flex min-h-11 items-center rounded-md border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-hidden"
 													params={{
 														assetRecordId: record.id,
 														projectId: family.projectId,
@@ -314,7 +314,7 @@ function AssetVersionReviewHistory({
 	reviewEvents: AssetVersionCatalog["assetVersions"][number]["reviewEvents"];
 }) {
 	return (
-		<ol className="list-inside list-disc text-muted-foreground text-sm">
+		<ol className="text-muted-foreground list-inside list-disc text-sm">
 			{reviewEvents.map((reviewEvent) => (
 				<li key={reviewEvent.id}>
 					<span>{reviewEventLabels[reviewEvent.type]}</span>{" "}
@@ -366,7 +366,7 @@ function AssetVersionReviewControls({
 				<form.Field name="rationale">
 					{(field) => (
 						<Textarea
-							className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm md:text-sm"
+							className="bg-background min-h-20 w-full rounded-md border px-3 py-2 text-sm md:text-sm"
 							id={`review-rationale-${version.id}`}
 							maxLength={2000}
 							onBlur={field.handleBlur}

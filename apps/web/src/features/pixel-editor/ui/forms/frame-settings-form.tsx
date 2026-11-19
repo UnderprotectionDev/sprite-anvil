@@ -72,7 +72,7 @@ export function FrameSettingsForm({
 
 	return (
 		<div className="space-y-3">
-			<p className="font-medium text-sm">Frame #{frame.index + 1} settings</p>
+			<p className="text-sm font-medium">Frame #{frame.index + 1} settings</p>
 			<div className="flex items-center gap-2">
 				<Checkbox
 					checked={frame.keep}

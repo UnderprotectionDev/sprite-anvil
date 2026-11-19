@@ -6,9 +6,11 @@ import {
 } from "../import-inbox";
 import { protectedProcedure } from "../index";
 import { recordProductBoundary } from "../measurement-workflows";
+import type {
+	SourceMetadataMappingProposal,
+	SourceMetadataMappingProposalStore,
+} from "../source-metadata-mapping";
 import {
-	type SourceMetadataMappingProposal,
-	type SourceMetadataMappingProposalStore,
 	sourceMetadataMappingFinalizationReadInputSchema,
 	sourceMetadataMappingFinalizationSchema,
 	sourceMetadataMappingFinalizeRequestSchema,

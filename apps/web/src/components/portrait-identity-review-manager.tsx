@@ -4,10 +4,12 @@ import type {
 } from "@sprite-anvil/api/asset-families";
 import type { AssetRecord } from "@sprite-anvil/api/asset-records";
 import type { AssetVersionCatalog } from "@sprite-anvil/api/asset-versions";
+import type {
+	PortraitIdentityReviewInput,
+	PortraitIdentityReviewRecord,
+	PortraitReviewItem,
+} from "@sprite-anvil/api/portrait-identity-reviews";
 import {
-	type PortraitIdentityReviewInput,
-	type PortraitIdentityReviewRecord,
-	type PortraitReviewItem,
 	portraitIdentityReviewInputSchema,
 	portraitReviewObservationSchema,
 } from "@sprite-anvil/api/portrait-identity-reviews";

@@ -13,7 +13,7 @@ export function LockPanel({
 			aria-labelledby={`lock-${lock.id}`}
 			className="space-y-2 border-t pt-4"
 		>
-			<h3 className="font-semibold text-base" id={`lock-${lock.id}`}>
+			<h3 className="text-base font-semibold" id={`lock-${lock.id}`}>
 				{heading}
 			</h3>
 			<dl className="grid grid-cols-[max-content_1fr] gap-x-4 text-sm">
@@ -26,7 +26,7 @@ export function LockPanel({
 				<dt className="text-muted-foreground">Lock digest</dt>
 				<dd className="font-mono">{lock.lockDigest.slice(0, 12)}</dd>
 			</dl>
-			<h4 className="font-medium text-sm">Owned paths ({lock.files.length})</h4>
+			<h4 className="text-sm font-medium">Owned paths ({lock.files.length})</h4>
 			<ul aria-label="Owned paths" className="font-mono text-sm">
 				{lock.files.map((file) => (
 					<li key={file.path}>{file.path}</li>

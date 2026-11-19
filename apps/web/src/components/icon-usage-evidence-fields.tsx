@@ -45,7 +45,7 @@ function IconUsageSizePreview({
 			aria-label="Icon usage size preview"
 			className="space-y-3 rounded-md border p-3"
 		>
-			<h6 className="font-medium text-sm">Icon usage size preview</h6>
+			<h6 className="text-sm font-medium">Icon usage size preview</h6>
 			<p className="text-muted-foreground text-sm">
 				At each size, review silhouette recognition, small-size readability, and
 				whether internal gaps close on light and dark backgrounds.
@@ -64,7 +64,7 @@ function IconUsageSizePreview({
 					if (!currentVersion) {
 						return (
 							<div className="space-y-2" key={record.id}>
-								<p className="font-medium text-sm">{record.name}</p>
+								<p className="text-sm font-medium">{record.name}</p>
 								<p className="text-muted-foreground text-sm">
 									No current Asset Version was found; an old version is not
 									previewed.
@@ -77,7 +77,7 @@ function IconUsageSizePreview({
 					const logicalDimensions = record.logicalResolution ?? null;
 					return (
 						<div className="space-y-3 border-t pt-3" key={record.id}>
-							<p className="font-medium text-sm">{record.name}</p>
+							<p className="text-sm font-medium">{record.name}</p>
 							<div className="grid gap-3 md:grid-cols-2">
 								{sourceDimensions ? (
 									<IconDimensionPreview
@@ -155,7 +155,7 @@ function IconDimensionPreview({
 	] as const;
 	return (
 		<figure className="space-y-2">
-			<figcaption className="font-medium text-sm">
+			<figcaption className="text-sm font-medium">
 				{kindLabel} · {formatIconPixelDimensions(dimensions)}
 			</figcaption>
 			<div className="grid grid-cols-2 gap-2">

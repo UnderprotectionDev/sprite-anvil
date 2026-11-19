@@ -5,8 +5,8 @@ import {
 	idempotencyKeySchema,
 	RetryablePublicationError,
 } from "@sprite-anvil/api/record-publication";
+import type { RuntimeValidationFileEvidenceInput } from "@sprite-anvil/api/runtime-validation";
 import {
-	type RuntimeValidationFileEvidenceInput,
 	runtimeValidationEvidenceFileLimitBytes,
 	runtimeValidationEvidenceSourceSchema,
 	runtimeValidationFileEvidenceKindSchema,
@@ -20,10 +20,8 @@ import {
 	createProjectRuntimeValidationEvidenceObjectKey,
 	runtimeValidationEvidenceObjectKeySchema,
 } from "../../../cloudflare";
-import {
-	type PublicApiError,
-	serializePublicApiError,
-} from "../../../output-contracts";
+import type { PublicApiError } from "../../../output-contracts";
+import { serializePublicApiError } from "../../../output-contracts";
 
 const idSchema = z.uuid();
 const opaqueStorageContentType = "application/octet-stream";

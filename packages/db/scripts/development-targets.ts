@@ -9,11 +9,11 @@ const declarationSchema = z
 	.array(
 		z
 			.object({
-				name: z.string().regex(/^[a-z][a-z0-9-]*$/),
-				connectionEnv: z.string().regex(/^[A-Z][A-Z0-9_]*$/),
+				name: z.string().regex(/^[a-z][a-z0-9-]*$/u),
+				connectionEnv: z.string().regex(/^[A-Z][A-Z0-9_]*$/u),
 				directConnectionEnv: z
 					.string()
-					.regex(/^[A-Z][A-Z0-9_]*$/)
+					.regex(/^[A-Z][A-Z0-9_]*$/u)
 					.optional(),
 				host: z.string().min(1),
 				database: z.string().min(1),

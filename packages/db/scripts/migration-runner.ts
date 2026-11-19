@@ -1,7 +1,6 @@
 import "varlock/auto-load";
-
+import type { PreparationResult } from "./database-preparation";
 import {
-	type PreparationResult,
 	prepareTargets,
 	validateSharedTargets,
 	withDevelopmentCompatibility,

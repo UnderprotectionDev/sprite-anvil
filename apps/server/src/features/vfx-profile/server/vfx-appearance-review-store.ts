@@ -1,9 +1,8 @@
 import { isDeepStrictEqual } from "node:util";
-import {
-	type VfxAppearanceReviewStore,
-	vfxAppearanceRecordSchema,
-} from "@sprite-anvil/api/vfx-appearance-reviews";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { VfxAppearanceReviewStore } from "@sprite-anvil/api/vfx-appearance-reviews";
+import { vfxAppearanceRecordSchema } from "@sprite-anvil/api/vfx-appearance-reviews";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import {
 	assetFamilies,
 	assetRecords,

@@ -1,5 +1,6 @@
 import type { PixelDraftCoordinateSpace } from "@sprite-anvil/api/generation-packages";
-import { type DraftDependencies, loadDraft } from "./pixel-editor-context";
+import type { DraftDependencies } from "./pixel-editor-context";
+import { loadDraft } from "./pixel-editor-context";
 
 /**
  * Reads the size and revision of a Working Draft from the persisted operations,

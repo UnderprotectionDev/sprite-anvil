@@ -1,9 +1,8 @@
 import { isDeepStrictEqual } from "node:util";
-import {
-	type TextureRepetitionReviewStore,
-	textureRepetitionReviewRecordSchema,
-} from "@sprite-anvil/api/texture-repetition-reviews";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { TextureRepetitionReviewStore } from "@sprite-anvil/api/texture-repetition-reviews";
+import { textureRepetitionReviewRecordSchema } from "@sprite-anvil/api/texture-repetition-reviews";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import {
 	assetFamilies,
 	assetRecords,

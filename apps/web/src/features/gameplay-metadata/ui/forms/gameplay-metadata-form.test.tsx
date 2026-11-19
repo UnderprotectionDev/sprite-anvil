@@ -14,7 +14,7 @@ const contract = {
 	contractRevisionId: "character@1",
 };
 
-const requiredPrefix = /^Required ·/;
+const requiredPrefix = /^Required ·/u;
 
 test("editing keeps the exact frame and untouched optional fields while changing a pivot", async () => {
 	const user = userEvent.setup();

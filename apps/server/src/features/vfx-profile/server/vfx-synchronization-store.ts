@@ -1,9 +1,8 @@
 import { isDeepStrictEqual } from "node:util";
-import {
-	type VfxSynchronizationStore,
-	vfxSynchronizationRecordSchema,
-} from "@sprite-anvil/api/vfx-synchronization";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { VfxSynchronizationStore } from "@sprite-anvil/api/vfx-synchronization";
+import { vfxSynchronizationRecordSchema } from "@sprite-anvil/api/vfx-synchronization";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import {
 	assetFamilies,
 	assetRecords,

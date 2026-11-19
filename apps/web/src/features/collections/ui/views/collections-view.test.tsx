@@ -68,8 +68,8 @@ const fakeApi = vi.hoisted(() => ({
 }));
 
 const errorToast = vi.hoisted(() => vi.fn());
-const fieldNotesButtonName = /^Field Notes/;
-const armoryButtonName = /^Armory/;
+const fieldNotesButtonName = /^Field Notes/u;
+const armoryButtonName = /^Armory/u;
 
 vi.mock("sonner", () => ({
 	toast: { dismiss: vi.fn(), error: errorToast },

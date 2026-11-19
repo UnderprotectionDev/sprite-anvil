@@ -291,7 +291,7 @@ export function TilesetAdjacencyReviewManager({
 	}
 	return (
 		<section className="space-y-4 rounded-lg border p-4">
-			<h3 className="font-semibold text-lg">
+			<h3 className="text-lg font-semibold">
 				Test Tile Adjacencies on a Test Map · {familyName}
 			</h3>
 			<p className="text-muted-foreground text-sm">

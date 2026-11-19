@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import type { ErasureImpactScope } from "./permanent-erasure";
+import type { ErasureApprovalInput } from "./permanent-erasure-deletion";
 import {
 	confirmedCountsMatch,
 	deletionReceiptContractSupport,
 	deletionReceiptContractVersion,
-	type ErasureApprovalInput,
 	erasureApprovalRequestDigest,
 	selectedErasureCounts,
 } from "./permanent-erasure-deletion";

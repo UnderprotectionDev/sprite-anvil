@@ -26,19 +26,19 @@ const draftId = "66666666-6666-4666-8666-666666666661";
 const revisionId = "77777777-7777-4777-8777-777777777771";
 
 const noTargetsText = "This project has no Delivery Targets yet.";
-const atLeastTwoText = /must cover at least two Asset Families/;
-const draftSavedHeading = /^Draft saved/;
-const choosePurposeText = /Choose a purpose\./;
+const atLeastTwoText = /must cover at least two Asset Families/u;
+const draftSavedHeading = /^Draft saved/u;
+const choosePurposeText = /Choose a purpose\./u;
 const chooseRequirementText =
-	/Choose a default Production Evidence requirement\./;
-const needsStateText = /needs at least one acceptable state/;
-const errorTakenRepeatedly = /^Error: .*revision number was taken repeatedly/;
+	/Choose a default Production Evidence requirement\./u;
+const needsStateText = /needs at least one acceptable state/u;
+const errorTakenRepeatedly = /^Error: .*revision number was taken repeatedly/u;
 const contextOneText = "Context Revision 1";
 const listRevisionOneText = "Required Items List revision 1";
-const nothingChangesText = /Target Readiness does not change/;
+const nothingChangesText = /Target Readiness does not change/u;
 const noListText = "Bone Bat has no Required Items List revision yet.";
 const diffHeading = "Scope diff against revision 1";
-const uuidPattern = /^[0-9a-f-]{36}$/;
+const uuidPattern = /^[0-9a-f-]{36}$/u;
 
 const fakeApi = vi.hoisted(() => ({
 	activate: vi.fn(),

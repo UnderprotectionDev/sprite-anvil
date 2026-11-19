@@ -18,12 +18,10 @@ import { useEffect, useRef, useState } from "react";
 import { RightsRecordPanel } from "@/components/rights-record-panel";
 import { StatusMessage } from "@/components/status-message";
 import { ENV } from "@/env";
+import type { ReferenceConstraintForm } from "@/features/reference-production/hooks/use-reference-constraint-form";
+import { useReferenceConstraintForm } from "@/features/reference-production/hooks/use-reference-constraint-form";
+import type { ReferenceConstraintDraft } from "@/features/reference-production/schemas";
 import {
-	type ReferenceConstraintForm,
-	useReferenceConstraintForm,
-} from "@/features/reference-production/hooks/use-reference-constraint-form";
-import {
-	type ReferenceConstraintDraft,
 	referenceConstraintError,
 	referenceVersionLinkFormSchema,
 } from "@/features/reference-production/schemas";
@@ -45,7 +43,7 @@ import {
 type Tracking = AssetRecordTrackingDetail["tracking"];
 type HistoryEntry = ReferenceBoardImage["history"][number];
 
-const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
+const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/u, "") ?? "";
 const maxUploadBytes = 5 * 1024 * 1024;
 const acceptedImageTypes = new Set(["image/png", "image/webp"]);
 
@@ -157,7 +155,7 @@ function ConflictSummary({
 	return (
 		<div
 			aria-labelledby="reference-conflict-heading"
-			className="rounded-md border border-destructive/60 p-3"
+			className="border-destructive/60 rounded-md border p-3"
 			role="alert"
 		>
 			<h4 className="font-medium" id="reference-conflict-heading">
@@ -198,7 +196,7 @@ function EffectiveTransferSummary({
 		return null;
 	}
 	return (
-		<div className="rounded-md bg-muted p-3 text-sm">
+		<div className="bg-muted rounded-md p-3 text-sm">
 			<p>
 				<strong>Active transfer:</strong>{" "}
 				{localizedFeatureList(transferredFeatures) || "none"}
@@ -233,7 +231,7 @@ function ReferenceUploadDropArea({
 		<div>
 			<Button
 				aria-label="Add reference image area"
-				className={`h-auto w-full flex-col items-stretch justify-start whitespace-normal border-dashed p-4 text-left font-normal ${isDragging ? "border-primary bg-muted" : ""}`}
+				className={`h-auto w-full flex-col items-stretch justify-start border-dashed p-4 text-left font-normal whitespace-normal ${isDragging ? "border-primary bg-muted" : ""}`}
 				onClick={() => fileInputRef.current?.click()}
 				onDragEnter={() => onDragStateChange(true)}
 				onDragLeave={(event) => {
@@ -251,8 +249,8 @@ function ReferenceUploadDropArea({
 				type="button"
 				variant="outline"
 			>
-				<span className="block font-medium text-sm">Add image</span>
-				<span className="mt-1 block text-muted-foreground text-sm">
+				<span className="block text-sm font-medium">Add image</span>
+				<span className="text-muted-foreground mt-1 block text-sm">
 					Drop a PNG or WebP file here, or paste an image from the clipboard
 					while this area has keyboard focus. Maximum 5 MB.
 				</span>
@@ -278,14 +276,14 @@ function ReferenceUploadDropArea({
 					{previewUrl ? (
 						<img
 							alt={`${file.name} upload preview`}
-							className="aspect-[4/3] max-h-48 w-full rounded-md border bg-muted object-contain"
+							className="bg-muted aspect-[4/3] max-h-48 w-full rounded-md border object-contain"
 							height={192}
 							src={previewUrl}
 							width={256}
 						/>
 					) : null}
 					<div className="min-w-0">
-						<p className="break-words font-medium">{file.name}</p>
+						<p className="font-medium break-words">{file.name}</p>
 						<p className="text-muted-foreground text-sm">
 							{Math.ceil(file.size / 1024)} KB · {file.type}
 						</p>
@@ -365,7 +363,7 @@ function ReferenceCard({
 		>
 			<img
 				alt={`${image.fileName} reference`}
-				className="aspect-[4/3] w-full rounded-md border bg-muted object-contain"
+				className="bg-muted aspect-[4/3] w-full rounded-md border object-contain"
 				crossOrigin="use-credentials"
 				height={300}
 				loading="lazy"
@@ -373,8 +371,8 @@ function ReferenceCard({
 				width={400}
 			/>
 			<div className="min-w-0">
-				<h4 className="break-words font-medium">{image.fileName}</h4>
-				<p className="mt-1 break-words text-muted-foreground text-sm">
+				<h4 className="font-medium break-words">{image.fileName}</h4>
+				<p className="text-muted-foreground mt-1 text-sm break-words">
 					{purposeLabel(image)} · Revision {image.revision}
 				</p>
 				<p className="mt-1 text-sm">
@@ -382,10 +380,10 @@ function ReferenceCard({
 					· Avoid: {localizedFeatureList(image.forbiddenFeatures) || "none"}
 				</p>
 				{image.notes ? (
-					<p className="mt-1 whitespace-pre-wrap text-sm">{image.notes}</p>
+					<p className="mt-1 text-sm whitespace-pre-wrap">{image.notes}</p>
 				) : null}
 				{image.conflictFeatures.length > 0 ? (
-					<p className="mt-2 text-destructive text-sm">
+					<p className="text-destructive mt-2 text-sm">
 						Unresolved conflict: {localizedFeatureList(image.conflictFeatures)}
 					</p>
 				) : null}
@@ -402,7 +400,7 @@ function ReferenceCard({
 				/>
 			</ReferenceRulesEditor>
 			<details className="border-t pt-3">
-				<summary className="cursor-pointer font-medium text-sm">
+				<summary className="cursor-pointer text-sm font-medium">
 					Rule history
 				</summary>
 				<HistoryList history={image.history} />
@@ -478,7 +476,7 @@ function AssetVersionReferenceCard({
 		>
 			<img
 				alt={`${reference.assetRecordName} reference`}
-				className="aspect-[4/3] w-full rounded-md border bg-muted object-contain"
+				className="bg-muted aspect-[4/3] w-full rounded-md border object-contain"
 				crossOrigin="use-credentials"
 				height={300}
 				loading="lazy"
@@ -486,10 +484,10 @@ function AssetVersionReferenceCard({
 				width={400}
 			/>
 			<div className="min-w-0">
-				<h4 className="break-words font-medium">
+				<h4 className="font-medium break-words">
 					{reference.assetRecordName} · Version {reference.versionNumber}
 				</h4>
-				<p className="mt-1 break-words text-muted-foreground text-sm">
+				<p className="text-muted-foreground mt-1 text-sm break-words">
 					{purposeLabel(reference)} · Revision {reference.revision ?? 1}
 				</p>
 				<p className="mt-1 text-sm">
@@ -498,7 +496,7 @@ function AssetVersionReferenceCard({
 					Avoid: {localizedFeatureList(reference.forbiddenFeatures) || "none"}
 				</p>
 				{reference.notes ? (
-					<p className="mt-1 whitespace-pre-wrap text-sm">{reference.notes}</p>
+					<p className="mt-1 text-sm whitespace-pre-wrap">{reference.notes}</p>
 				) : null}
 				{reference.contextOverrideRationale ? (
 					<p className="mt-1 text-sm">
@@ -506,7 +504,7 @@ function AssetVersionReferenceCard({
 					</p>
 				) : null}
 				{reference.conflictFeatures.length > 0 ? (
-					<p className="mt-2 text-destructive text-sm">
+					<p className="text-destructive mt-2 text-sm">
 						Unresolved conflict:{" "}
 						{localizedFeatureList(reference.conflictFeatures)}
 					</p>
@@ -524,7 +522,7 @@ function AssetVersionReferenceCard({
 				/>
 			</ReferenceRulesEditor>
 			<details className="border-t pt-3">
-				<summary className="cursor-pointer font-medium text-sm">
+				<summary className="cursor-pointer text-sm font-medium">
 					Rule history
 				</summary>
 				<HistoryList history={reference.history ?? []} />
@@ -536,7 +534,7 @@ function AssetVersionReferenceCard({
 function HistoryList({ history }: { history: readonly HistoryEntry[] }) {
 	if (history.length === 0) {
 		return (
-			<p className="mt-2 text-muted-foreground text-sm">No history yet.</p>
+			<p className="text-muted-foreground mt-2 text-sm">No history yet.</p>
 		);
 	}
 	return (
@@ -787,7 +785,7 @@ export function ReferenceBoardView({
 				<h3 className="font-medium" id="references-heading">
 					Reference board
 				</h3>
-				<p className="mt-1 text-muted-foreground text-sm">
+				<p className="text-muted-foreground mt-1 text-sm">
 					{assetRecordName} Compare images and record each reference transfer
 					boundary.
 				</p>
@@ -815,7 +813,7 @@ export function ReferenceBoardView({
 				setFile={setFile}
 			/>
 			<div className="rounded-md border p-3">
-				<h4 className="font-medium text-sm">New reference rules</h4>
+				<h4 className="text-sm font-medium">New reference rules</h4>
 				<div className="mt-3">
 					<ReferenceConstraintEditor
 						form={constraintForm}

@@ -104,7 +104,7 @@ export const iconFamilyReviewVersionSummarySchema = z
 		assetRecordId: id,
 		assetRecordName: z.string().trim().min(1).max(120),
 		assetVersionId: id,
-		contentDigest: z.string().regex(/^[a-f0-9]{64}$/),
+		contentDigest: z.string().regex(/^[a-f0-9]{64}$/u),
 		contentLength: z.number().int().positive(),
 		contentType: z.enum(["image/png", "image/webp"]),
 		versionNumber: z.number().int().positive(),

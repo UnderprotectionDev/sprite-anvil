@@ -6,10 +6,10 @@ import {
 
 vi.mock("@/env", () => ({ ENV: { VITE_SERVER_URL: "http://server.test" } }));
 
-const outcomeFinalPattern = /outcome is final/i;
-const uploadKeyPattern = /upload key/i;
-const keyReusedPattern = /upload key was already used/i;
-const tryAgainPattern = /try again/i;
+const outcomeFinalPattern = /outcome is final/iu;
+const uploadKeyPattern = /upload key/iu;
+const keyReusedPattern = /upload key was already used/iu;
+const tryAgainPattern = /try again/iu;
 
 const upload = () =>
 	uploadRuntimeValidationEvidenceFile({

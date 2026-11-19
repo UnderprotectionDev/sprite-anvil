@@ -65,7 +65,7 @@ export function RecordRunForm({
 			className="space-y-4 rounded-lg border p-4"
 			onSubmit={submit}
 		>
-			<h2 className="font-semibold text-xl">Record a run</h2>
+			<h2 className="text-xl font-semibold">Record a run</h2>
 			<p className="text-muted-foreground text-sm">
 				This records what the {surfaceLabels[surface]} derived from one stored
 				Export Bundle. The surface name comes from this app and the server does

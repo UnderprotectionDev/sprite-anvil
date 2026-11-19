@@ -6,7 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { PermanentErasureView } from "./permanent-erasure-view";
 
-const versionText = /version-1/;
+const versionText = /version-1/u;
 
 const api = vi.hoisted(() => ({ prepare: vi.fn(), approve: vi.fn() }));
 vi.mock("@/utils/orpc", () => ({

@@ -1,10 +1,6 @@
 import { useForm } from "@tanstack/react-form";
-import {
-	type ThemeFormValues,
-	themeFormSchema,
-	type VisualWorldFormValues,
-	visualWorldFormSchema,
-} from "../schemas";
+import type { ThemeFormValues, VisualWorldFormValues } from "../schemas";
+import { themeFormSchema, visualWorldFormSchema } from "../schemas";
 
 export function useVisualWorldForm(
 	onSubmit: (input: VisualWorldFormValues) => void

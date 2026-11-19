@@ -6,10 +6,10 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { DeletionJobHistory } from "./deletion-job-history";
 
-const assetPattern = /Asset A/;
-const otherPattern = /other/;
-const openPattern = /Open Deletion Receipt/;
-const digestPattern = /receipt-digest/;
+const assetPattern = /Asset A/u;
+const otherPattern = /other/u;
+const openPattern = /Open Deletion Receipt/u;
+const digestPattern = /receipt-digest/u;
 
 const api = vi.hoisted(() => ({ list: vi.fn(), receipt: vi.fn() }));
 vi.mock("@/utils/orpc", () => ({

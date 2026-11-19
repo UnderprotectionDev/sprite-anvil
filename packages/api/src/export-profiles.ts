@@ -7,7 +7,7 @@ const idSchema = z.uuid();
 export const exportProfileContractVersion = "1.0.0";
 export const supportedExportProfileContractMajor = 1;
 
-const contractVersionPattern = /^\d+\.\d+\.\d+$/;
+const contractVersionPattern = /^\d+\.\d+\.\d+$/u;
 const contractVersionSchema = z.string().regex(contractVersionPattern);
 
 /** The major number of a `major.minor.patch` contract version. */

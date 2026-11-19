@@ -15,10 +15,8 @@ import {
 	projectArchives,
 } from "@sprite-anvil/db/schema/project-archives";
 import { and, eq, inArray } from "drizzle-orm";
-import {
-	ErasureScopeChangedError,
-	type FinalizeErasureInput,
-} from "./erasure-deletion-storage";
+import type { FinalizeErasureInput } from "./erasure-deletion-storage";
+import { ErasureScopeChangedError } from "./erasure-deletion-storage";
 
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 

@@ -23,11 +23,13 @@ import { ENV } from "@/env";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { orpc } from "@/utils/orpc";
+import type {
+	UiStretchObservationDraft,
+	UiStretchStateDraft,
+} from "../../schemas";
 import {
 	createUiStretchConfigurationSchema,
 	createUiStretchStateSchema,
-	type UiStretchObservationDraft,
-	type UiStretchStateDraft,
 	uiStretchBoundsFields,
 } from "../../schemas";
 import { SavedUiStretchTest } from "./saved-ui-stretch-test";
@@ -76,7 +78,7 @@ const nativeSelectClass =
 	"block min-h-11 w-full rounded border bg-background p-2";
 const selectClass = "w-full [&_select]:min-h-11";
 const labelClass = "block text-base leading-normal";
-const trailingSlash = /\/$/;
+const trailingSlash = /\/$/u;
 const previewSource = (url: string) =>
 	url.startsWith("/")
 		? `${ENV.VITE_SERVER_URL?.replace(trailingSlash, "") ?? ""}${url}`

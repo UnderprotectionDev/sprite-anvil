@@ -17,9 +17,9 @@ import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
 import { afterEach, expect, test, vi } from "vitest";
 
-const openReviewPattern = /Open review/;
-const pixelDifferencePattern = /1 of 16 pixels differ/;
-const seamPattern = /Visible corner seam/;
+const openReviewPattern = /Open review/u;
+const pixelDifferencePattern = /1 of 16 pixels differ/u;
+const seamPattern = /Visible corner seam/u;
 
 import { TilesetAdjacencyReviewManager } from "./tileset-adjacency-review-manager";
 

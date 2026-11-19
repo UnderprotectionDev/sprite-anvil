@@ -1,9 +1,7 @@
 import { isDeepStrictEqual } from "node:util";
 import { ORPCError } from "@orpc/server";
-import {
-	type GameplayMetadataReviewHandler,
-	gameplayMetadataRecordSchema,
-} from "@sprite-anvil/api/gameplay-metadata";
+import type { GameplayMetadataReviewHandler } from "@sprite-anvil/api/gameplay-metadata";
+import { gameplayMetadataRecordSchema } from "@sprite-anvil/api/gameplay-metadata";
 import {
 	getGameplayMetadataIntegrityErrors,
 	getGameplayMetadataReviewSourceErrors,

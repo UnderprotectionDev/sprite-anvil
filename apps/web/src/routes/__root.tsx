@@ -11,9 +11,9 @@ import { Toaster } from "@sprite-anvil/ui/components/sonner";
 import type { QueryClient } from "@tanstack/react-query";
 import { useQueryClient } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import type { ErrorComponentProps } from "@tanstack/react-router";
 import {
 	createRootRouteWithContext,
-	type ErrorComponentProps,
 	HeadContent,
 	Link,
 	Outlet,
@@ -25,7 +25,8 @@ import Header from "@/components/header";
 import { OpenRecordTabs } from "@/components/open-record-tabs";
 import { ThemeProvider } from "@/components/theme-provider";
 import { authClient } from "@/lib/auth-client";
-import { link, type orpc } from "@/utils/orpc";
+import type { orpc } from "@/utils/orpc";
+import { link } from "@/utils/orpc";
 
 import "../index.css";
 import { StatusMessage } from "@/components/status-message";
@@ -112,7 +113,7 @@ function RootComponent() {
 function MissingPage() {
 	return (
 		<main className="mx-auto max-w-3xl space-y-4 px-4 py-12">
-			<h1 className="font-semibold text-3xl">Page not found</h1>
+			<h1 className="text-3xl font-semibold">Page not found</h1>
 			<p>
 				This link does not lead to an existing workspace. Open your game project
 				to continue.
@@ -134,7 +135,7 @@ function WorkspaceError({ reset }: ErrorComponentProps) {
 	}
 	return (
 		<main className="mx-auto max-w-3xl space-y-4 px-4 py-12">
-			<h1 className="font-semibold text-3xl">Could not open screen</h1>
+			<h1 className="text-3xl font-semibold">Could not open screen</h1>
 			<StatusMessage tone="error">
 				Something went wrong while displaying this screen. Try again or return
 				to your project from the list.

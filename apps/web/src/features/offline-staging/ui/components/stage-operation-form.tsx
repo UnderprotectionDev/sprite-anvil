@@ -65,7 +65,7 @@ export function StageOperationForm({
 				form.handleSubmit();
 			}}
 		>
-			<p className="font-medium text-sm">Add a pixel edit while offline</p>
+			<p className="text-sm font-medium">Add a pixel edit while offline</p>
 			<fieldset className="grid grid-cols-2 gap-2 sm:grid-cols-4">
 				<legend className="sr-only">Pixel edit</legend>
 				<form.Field name="tool">

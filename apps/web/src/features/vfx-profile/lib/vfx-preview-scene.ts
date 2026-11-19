@@ -1,9 +1,10 @@
+import type { VfxSynchronizationInput } from "@sprite-anvil/api/vfx-synchronization";
 import {
 	getVfxEffectTime,
 	getVfxFrameAt,
-	type VfxSynchronizationInput,
 } from "@sprite-anvil/api/vfx-synchronization";
-import { type Application, Rectangle, Sprite, Texture } from "pixi.js";
+import type { Application } from "pixi.js";
+import { Rectangle, Sprite, Texture } from "pixi.js";
 import { getVfxPreviewLayout } from "./vfx-preview-layout";
 export interface VfxPreviewState {
 	alone: boolean;

@@ -19,19 +19,19 @@ import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
 import { useAssetVersionWrites } from "@/utils/use-asset-version-writes";
 import { trackingReviewRationaleFormSchema } from "../../schemas";
+import type { AssetFamilyValues } from "../forms/asset-family-form";
 import {
 	AssetFamilyForm,
-	type AssetFamilyValues,
 	useAssetFamilyForm,
 } from "../forms/asset-family-form";
+import type { CandidateVersionValues } from "../forms/candidate-version-form";
 import {
 	CandidateVersionForm,
-	type CandidateVersionValues,
 	useCandidateVersionForm,
 } from "../forms/candidate-version-form";
+import type { DerivativeLinkValues } from "../forms/derivative-link-form";
 import {
 	DerivativeLinkForm,
-	type DerivativeLinkValues,
 	useDerivativeLinkForm,
 } from "../forms/derivative-link-form";
 
@@ -122,7 +122,7 @@ function FamilyAndDerivativeSection({
 		);
 	} else if (tracking.approvedVersion) {
 		familyControls = (
-			<p className="mt-3 text-muted-foreground text-xs">
+			<p className="text-muted-foreground mt-3 text-xs">
 				Create a Visual World first; the user sets the Canonical Design and
 				usage context.
 			</p>
@@ -152,7 +152,7 @@ function FamilyAndDerivativeSection({
 					))}
 				</ul>
 			) : (
-				<p className="mt-2 text-muted-foreground text-sm">
+				<p className="text-muted-foreground mt-2 text-sm">
 					No Derived Assets are linked to this record.
 				</p>
 			)}
@@ -530,10 +530,10 @@ export function AssetRecordTrackingPanel({
 	return (
 		<section aria-labelledby="record-tracking-heading" className="space-y-4">
 			<div>
-				<h2 className="font-semibold text-xl" id="record-tracking-heading">
+				<h2 className="text-xl font-semibold" id="record-tracking-heading">
 					Record tracking
 				</h2>
-				<p className="mt-1 text-muted-foreground text-sm">
+				<p className="text-muted-foreground mt-1 text-sm">
 					Approval, quality, and production evidence are separate records.
 					Approval alone does not establish Export Ready status.
 				</p>
@@ -546,7 +546,7 @@ export function AssetRecordTrackingPanel({
 			{matchingVersion ? (
 				<div
 					aria-label={`Requested version: ${getVersionLabel(matchingVersion)}.`}
-					className="space-y-1 rounded-lg border border-primary p-4"
+					className="border-primary space-y-1 rounded-lg border p-4"
 					ref={matchingVersionRef}
 					role="status"
 					tabIndex={-1}
@@ -597,7 +597,7 @@ export function AssetRecordTrackingPanel({
 							{reviewActions(tracking.approvedVersion)}
 						</div>
 					) : (
-						<p className="mt-2 text-muted-foreground text-sm">
+						<p className="text-muted-foreground mt-2 text-sm">
 							No approved version yet.
 						</p>
 					)}
@@ -632,7 +632,7 @@ export function AssetRecordTrackingPanel({
 							))}
 						</ul>
 					) : (
-						<p className="mt-2 text-muted-foreground text-sm">
+						<p className="text-muted-foreground mt-2 text-sm">
 							No alternative versions yet.
 						</p>
 					)}
@@ -656,7 +656,7 @@ export function AssetRecordTrackingPanel({
 					</Label>
 					{tracking.reviewEvents.length > 0 ? (
 						<div className="mt-4 border-t pt-3">
-							<h4 className="font-medium text-sm">Review history</h4>
+							<h4 className="text-sm font-medium">Review history</h4>
 							<ul className="mt-2 space-y-2 text-xs">
 								{tracking.reviewEvents.map((event) => {
 									const version = [
@@ -702,7 +702,7 @@ export function AssetRecordTrackingPanel({
 							? `File format signature matched (${tracking.quality.verifiedVersionCount} version).`
 							: "No file integrity evidence."}
 					</p>
-					<p className="mt-1 text-muted-foreground text-xs">
+					<p className="text-muted-foreground mt-1 text-xs">
 						General Asset Support · No specialized profile quality evidence.
 						This format check does not establish Export Ready status.
 					</p>
@@ -753,12 +753,12 @@ export function AssetRecordTrackingPanel({
 							))}
 						</ul>
 					) : (
-						<p className="mt-2 text-muted-foreground text-sm">
+						<p className="text-muted-foreground mt-2 text-sm">
 							No production history yet.
 						</p>
 					)}
 					<div className="mt-4 border-t pt-3">
-						<h4 className="font-medium text-sm">Manual Import Evidence</h4>
+						<h4 className="text-sm font-medium">Manual Import Evidence</h4>
 						{tracking.manualImportEvidence?.length ? (
 							<ul className="mt-2 space-y-3 text-sm">
 								{tracking.manualImportEvidence.map((entry) => (
@@ -775,7 +775,7 @@ export function AssetRecordTrackingPanel({
 											<summary className="cursor-pointer text-xs underline underline-offset-4">
 												View actual production instruction
 											</summary>
-											<p className="mt-2 whitespace-pre-wrap text-sm">
+											<p className="mt-2 text-sm whitespace-pre-wrap">
 												{entry.generationInstruction}
 											</p>
 										</details>
@@ -783,7 +783,7 @@ export function AssetRecordTrackingPanel({
 								))}
 							</ul>
 						) : (
-							<p className="mt-2 text-muted-foreground text-sm">
+							<p className="text-muted-foreground mt-2 text-sm">
 								No Manual Import Evidence yet.
 							</p>
 						)}
@@ -813,7 +813,7 @@ export function AssetRecordTrackingPanel({
 				<h3 className="font-medium" id="asset-version-create-heading">
 					Create Candidate Version
 				</h3>
-				<p className="mt-1 text-muted-foreground text-sm">
+				<p className="text-muted-foreground mt-1 text-sm">
 					The file is stored in R2 as an immutable Asset Version. This flow
 					records legacy asset declarations; it does not infer unknown
 					production history.

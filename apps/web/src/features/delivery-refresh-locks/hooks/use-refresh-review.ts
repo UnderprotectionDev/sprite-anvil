@@ -1,18 +1,18 @@
+import type {
+	DeliveryRefreshDecision,
+	DeliveryRefreshDecisionKind,
+} from "@sprite-anvil/api/delivery-refresh-classification";
 import {
 	checkDeliveryRefreshLockContract,
 	classifyDeliveryRefreshPaths,
-	type DeliveryRefreshDecision,
-	type DeliveryRefreshDecisionKind,
 	planDeliveryRefresh,
 } from "@sprite-anvil/api/delivery-refresh-classification";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
-import {
-	type ChosenFolder,
-	observeTargetFolder,
-} from "../lib/read-target-folder";
+import type { ChosenFolder } from "../lib/read-target-folder";
+import { observeTargetFolder } from "../lib/read-target-folder";
 
 /**
  * Reads the chosen lock and bundle, observes only the paths they name in the destination

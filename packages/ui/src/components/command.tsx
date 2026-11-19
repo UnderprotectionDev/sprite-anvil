@@ -23,7 +23,7 @@ function Command({
 	return (
 		<CommandPrimitive
 			className={cn(
-				"flex size-full flex-col overflow-hidden rounded-none bg-popover text-popover-foreground",
+				"bg-popover text-popover-foreground flex size-full flex-col overflow-hidden rounded-none",
 				className
 			)}
 			data-slot="command"
@@ -71,7 +71,7 @@ function CommandInput({
 }: React.ComponentProps<typeof CommandPrimitive.Input>) {
 	return (
 		<div className="border-b pb-0" data-slot="command-input-wrapper">
-			<InputGroup className="h-8 border-input/30 border-none bg-input/30 shadow-none! *:data-[slot=input-group-addon]:pl-2!">
+			<InputGroup className="border-input/30 bg-input/30 h-8 border-none shadow-none! *:data-[slot=input-group-addon]:pl-2!">
 				<CommandPrimitive.Input
 					className={cn(
 						"w-full text-xs outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
@@ -95,7 +95,7 @@ function CommandList({
 	return (
 		<CommandPrimitive.List
 			className={cn(
-				"no-scrollbar max-h-72 scroll-py-0 overflow-y-auto overflow-x-hidden outline-none",
+				"no-scrollbar max-h-72 scroll-py-0 overflow-x-hidden overflow-y-auto outline-none",
 				className
 			)}
 			data-slot="command-list"
@@ -124,7 +124,7 @@ function CommandGroup({
 	return (
 		<CommandPrimitive.Group
 			className={cn(
-				"overflow-hidden text-foreground **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-muted-foreground **:[[cmdk-group-heading]]:text-xs",
+				"text-foreground **:[[cmdk-group-heading]]:text-muted-foreground overflow-hidden **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs",
 				className
 			)}
 			data-slot="command-group"
@@ -139,7 +139,7 @@ function CommandSeparator({
 }: React.ComponentProps<typeof CommandPrimitive.Separator>) {
 	return (
 		<CommandPrimitive.Separator
-			className={cn("-mx-1 h-px bg-border", className)}
+			className={cn("bg-border -mx-1 h-px", className)}
 			data-slot="command-separator"
 			{...props}
 		/>
@@ -154,7 +154,7 @@ function CommandItem({
 	return (
 		<CommandPrimitive.Item
 			className={cn(
-				"group/command-item relative flex cursor-default select-none items-center gap-2 in-data-[slot=dialog-content]:rounded-none! rounded-none px-2 py-2 text-xs outline-hidden data-[disabled=true]:pointer-events-none data-selected:bg-muted data-selected:text-foreground data-[disabled=true]:opacity-50 [&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0 data-selected:*:[svg]:text-foreground",
+				"group/command-item data-selected:bg-muted data-selected:text-foreground data-selected:*:[svg]:text-foreground relative flex cursor-default items-center gap-2 rounded-none px-2 py-2 text-xs outline-hidden select-none in-data-[slot=dialog-content]:rounded-none! data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
 				className
 			)}
 			data-slot="command-item"
@@ -173,7 +173,7 @@ function CommandShortcut({
 	return (
 		<span
 			className={cn(
-				"ml-auto text-muted-foreground text-xs tracking-widest group-data-selected/command-item:text-foreground",
+				"text-muted-foreground group-data-selected/command-item:text-foreground ml-auto text-xs tracking-widest",
 				className
 			)}
 			data-slot="command-shortcut"

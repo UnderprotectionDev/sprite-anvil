@@ -30,7 +30,7 @@ export function DeliveryTargetCard({
 		>
 			<header className="space-y-2">
 				<div className="flex flex-wrap items-center gap-2">
-					<h2 className="font-semibold text-lg">{target.name}</h2>
+					<h2 className="text-lg font-semibold">{target.name}</h2>
 					<Badge variant="outline">{purposeLabels[target.purpose]}</Badge>
 					<Badge variant={active ? "secondary" : "outline"}>
 						{active

@@ -7,7 +7,7 @@ import {
 } from "./source-metadata-mapping-fixture";
 
 const unresolvedConflictStatusPattern =
-	/Field conflicts: 1\. The proposal is not finalized\./;
+	/Field conflicts: 1\. The proposal is not finalized\./u;
 
 test("creates and rereads the shared source metadata mapping proposal through the web flow", async ({
 	page,

@@ -127,7 +127,7 @@ function AnnotationAdder({
 	});
 	return (
 		<div className="space-y-2 rounded-md border p-2">
-			<p className="font-medium text-xs">Add an annotation</p>
+			<p className="text-xs font-medium">Add an annotation</p>
 			<form.Field name="kind">
 				{(field) => (
 					<Label className="block space-y-1 text-xs" htmlFor="annotation-kind">

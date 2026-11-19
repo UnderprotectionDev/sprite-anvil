@@ -4,9 +4,9 @@ import type { PixelOperation } from "@sprite-anvil/api/pixel-editor";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import type { PixelTool } from "../../store/pixel-editor-tool-store";
 import {
 	createPixelEditorToolStore,
-	type PixelTool,
 	patchToolState,
 } from "../../store/pixel-editor-tool-store";
 import { PixelCanvas } from "./pixel-canvas";

@@ -188,10 +188,10 @@ export function AssetRecordAvailabilityControl({
 					{availabilityMessage}
 				</p>
 			) : null}
-			<p className="mt-2 text-muted-foreground text-sm">
+			<p className="text-muted-foreground mt-2 text-sm">
 				General Asset Support · No specialized profile evidence
 			</p>
-			<p className="mt-2 text-muted-foreground text-sm">
+			<p className="text-muted-foreground mt-2 text-sm">
 				Record created ·{" "}
 				<time dateTime={record.createdAt}>
 					{new Intl.DateTimeFormat("tr-TR", {

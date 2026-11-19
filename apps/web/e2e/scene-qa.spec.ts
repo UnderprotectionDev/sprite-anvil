@@ -1,4 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import type { SceneQaInput, SceneQaRecord } from "@sprite-anvil/api/scene-qa";
 import { sceneQaRoleProfiles, sceneQaRoles } from "@sprite-anvil/api/scene-qa";
 import { specializedProfileContractCatalog } from "@sprite-anvil/api/specialized-profile-contracts";
@@ -129,8 +130,8 @@ async function prepare(
 		page.getByRole("heading", { name: "Scene QA Playground" })
 	).toBeVisible();
 }
-const walkPattern = /walk ·/;
-const completePattern = /idle · 4000 \/ 4000/;
+const walkPattern = /walk ·/u;
+const completePattern = /idle · 4000 \/ 4000/u;
 test("places six roles, plays movement and event transitions, saves observations and reopens exact evidence", async ({
 	page,
 }) => {

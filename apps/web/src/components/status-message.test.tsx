@@ -6,8 +6,8 @@ import { createRef } from "react";
 import { afterEach, expect, test } from "vitest";
 import { StatusMessage, WriteOutcomeMessage } from "./status-message";
 
-const blindRetryPattern = /not saved|try again/i;
-const savedExactly = /^Saved\.$/;
+const blindRetryPattern = /not saved|try again/iu;
+const savedExactly = /^Saved\.$/u;
 
 afterEach(cleanup);
 

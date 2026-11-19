@@ -1,6 +1,7 @@
 import { pixelEditorMaxDimension } from "@sprite-anvil/api/pixel-editor";
 import sharp from "sharp";
-import { PixelOperationError, type Raster } from "./pixel-operations";
+import type { Raster } from "./pixel-operations";
+import { PixelOperationError } from "./pixel-operations";
 
 /** Decodes a PNG or WebP into straight RGBA without resampling or colour conversion. */
 export async function readRasterFromPng(bytes: Uint8Array): Promise<Raster> {

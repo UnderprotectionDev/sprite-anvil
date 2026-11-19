@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
+import type { AssetVersionContentType } from "@sprite-anvil/api/asset-version-integrity";
 import {
 	AssetVersionContentLengthError,
-	type AssetVersionContentType,
 	AssetVersionIntegrityError,
 } from "@sprite-anvil/api/asset-version-integrity";
 import sharp from "sharp";

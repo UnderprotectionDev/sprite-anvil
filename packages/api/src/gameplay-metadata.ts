@@ -1,7 +1,9 @@
 import { z } from "zod";
+import type {
+	SpecializedProfileContract,
+	SpecializedProfileContractStore,
+} from "./specialized-profile-contracts";
 import {
-	type SpecializedProfileContract,
-	type SpecializedProfileContractStore,
 	specializedProfileContractSchema,
 	specializedProfileIdSchema,
 } from "./specialized-profile-contracts";

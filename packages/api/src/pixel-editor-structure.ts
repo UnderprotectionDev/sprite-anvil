@@ -48,7 +48,7 @@ export const sheetSlicingSchema = z
 
 export const frameKeySchema = z
 	.string()
-	.regex(/^frame-[1-9][0-9]{0,5}$/, "Use a frame-<number> key");
+	.regex(/^frame-[1-9][0-9]{0,5}$/u, "Use a frame-<number> key");
 
 export const frameOriginSchema = z.discriminatedUnion("kind", [
 	z.object({ kind: z.literal("cell"), cellIndex: z.number().int().min(0) }),
@@ -69,7 +69,7 @@ export const frameCommittedSchema = z
 	.object({
 		unitVersionId: z.string().min(1),
 		assetVersionId: z.string().min(1),
-		fingerprint: z.string().regex(/^[0-9a-f]{64}$/),
+		fingerprint: z.string().regex(/^[0-9a-f]{64}$/u),
 	})
 	.strict();
 

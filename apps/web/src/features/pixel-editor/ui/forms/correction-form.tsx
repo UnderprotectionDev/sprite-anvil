@@ -123,7 +123,7 @@ export function CorrectionForm({
 
 	return (
 		<section aria-label="Prepare Production Package" className="space-y-3">
-			<h3 className="font-medium text-sm">Prepare Production Package</h3>
+			<h3 className="text-sm font-medium">Prepare Production Package</h3>
 			<p className="text-muted-foreground text-xs">
 				Sends the region, note and preserved units to a new Production Package.
 				Annotations never change pixels, the source or the Working Draft. The
@@ -163,13 +163,13 @@ export function CorrectionForm({
 									onChange={(event) => field.handleChange(event.target.value)}
 									value={field.state.value}
 								/>
-								<span className="block text-muted-foreground">{hint}</span>
+								<span className="text-muted-foreground block">{hint}</span>
 							</Label>
 						)}
 					</form.Field>
 				))}
 				<fieldset className="space-y-2">
-					<legend className="font-medium text-xs">Redraw region (px)</legend>
+					<legend className="text-xs font-medium">Redraw region (px)</legend>
 					<div className="grid grid-cols-2 gap-2">
 						{regionFields.map(([name, label]) => (
 							<form.Field key={name} name={name}>
@@ -234,7 +234,7 @@ export function CorrectionForm({
 						const chosen = field.state.value ?? keptUnitIds;
 						return (
 							<fieldset className="space-y-1">
-								<legend className="font-medium text-xs">
+								<legend className="text-xs font-medium">
 									Preserve these Unit Versions
 								</legend>
 								{keptUnitIds.length > 0 ? (

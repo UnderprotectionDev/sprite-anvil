@@ -1,7 +1,9 @@
+import type {
+	OfflineConflictView,
+	OfflineReconcileInput,
+	OfflineReconcileResponse,
+} from "@sprite-anvil/api/offline-conflict";
 import {
-	type OfflineConflictView,
-	type OfflineReconcileInput,
-	type OfflineReconcileResponse,
 	offlineConflictContractVersion,
 	offlineConflictLocalSchema,
 } from "@sprite-anvil/api/offline-conflict";

@@ -1,9 +1,8 @@
 import { isDeepStrictEqual } from "node:util";
-import {
-	type IconFamilyReviewStore,
-	iconFamilyReviewRecordSchema,
-} from "@sprite-anvil/api/icon-family-reviews";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { IconFamilyReviewStore } from "@sprite-anvil/api/icon-family-reviews";
+import { iconFamilyReviewRecordSchema } from "@sprite-anvil/api/icon-family-reviews";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import {
 	assetFamilies,
 	assetRecords,

@@ -1,7 +1,5 @@
-import {
-	type RightsRecordState,
-	rightsRecordStateSchema,
-} from "@sprite-anvil/api/rights-records";
+import type { RightsRecordState } from "@sprite-anvil/api/rights-records";
+import { rightsRecordStateSchema } from "@sprite-anvil/api/rights-records";
 
 const rightsRecordStateLabels: Record<RightsRecordState, string> = {
 	assertion_only: "Assertion Only",

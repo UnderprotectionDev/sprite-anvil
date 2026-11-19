@@ -1,27 +1,21 @@
+import type { OfflineReconcileResponse } from "@sprite-anvil/api/offline-conflict";
 import {
-	type OfflineReconcileResponse,
 	offlineConflictContractVersion,
 	offlineReconcileInputSchema,
 	offlineReconcileResponseSchema,
 } from "@sprite-anvil/api/offline-conflict";
 import type { PixelDraftRecord } from "@sprite-anvil/api/pixel-editor";
+import type { OperationHistory } from "./offline-conflict-content";
 import {
 	appliedOperations,
 	buildView,
 	checkRequestContractVersion,
 	localDigest,
-	type OperationHistory,
 	readEntry,
 } from "./offline-conflict-content";
 import { replayOverSource } from "./offline-conflict-render";
-import {
-	failure,
-	newId,
-	type Outcome,
-	type Scope,
-	success,
-	updateFailure,
-} from "./pixel-editor-context";
+import type { Outcome, Scope } from "./pixel-editor-context";
+import { failure, newId, success, updateFailure } from "./pixel-editor-context";
 
 /**
  * Reconnect check of a staged Working Draft (PLT-02). While the cloud draft is

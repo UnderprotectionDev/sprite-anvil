@@ -15,7 +15,7 @@ export function OfflineProjectSection({
 }) {
 	return (
 		<section aria-labelledby="offline-project" className="space-y-2">
-			<h2 className="font-medium text-lg" id="offline-project">
+			<h2 className="text-lg font-medium" id="offline-project">
 				Project
 			</h2>
 			{name ? (

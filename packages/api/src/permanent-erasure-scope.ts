@@ -1,6 +1,8 @@
+import type {
+	ErasureContainerKind,
+	ErasureImpactScope,
+} from "./permanent-erasure";
 import {
-	type ErasureContainerKind,
-	type ErasureImpactScope,
 	erasureImpactContractVersion,
 	externalCopiesStatement,
 } from "./permanent-erasure";

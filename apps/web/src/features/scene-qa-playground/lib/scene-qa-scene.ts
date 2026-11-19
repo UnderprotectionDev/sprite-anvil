@@ -2,8 +2,8 @@ import type {
 	SceneQaPlacement,
 	SceneQaSetup,
 } from "@sprite-anvil/api/scene-qa";
+import type { Application } from "pixi.js";
 import {
-	type Application,
 	Container,
 	Graphics,
 	Rectangle,

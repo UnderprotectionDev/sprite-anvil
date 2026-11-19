@@ -69,12 +69,9 @@
         "noNamespaceImport": "off"
       },
       "nursery": {
-        "useSortedClasses": {
+        "useTailwindSortedClasses": {
           "level": "warn",
-          "fix": "safe",
-          "options": {
-            "functions": ["clsx", "cva", "cn"]
-          }
+          "fix": "safe"
         }
       },
       "style": {
@@ -119,5 +116,8 @@
     "ultracite/biome/type-aware",
     "ultracite/biome/react",
     "ultracite/biome/tanstack"
-  ]
+  ],
+  "markdown": { "formatter": { "enabled": false } },
+  "yaml": { "formatter": { "enabled": false } },
+  "tailwind": { "mergeFunctions": ["clsx", "cn"], "variantFunctions": ["cva"] }
 }

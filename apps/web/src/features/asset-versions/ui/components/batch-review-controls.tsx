@@ -159,7 +159,7 @@ export function BatchReviewControls({
 				<form.Field name="decision">
 					{(field) => (
 						<NativeSelect
-							className="w-fit [&_select]:rounded-md [&_select]:border [&_select]:bg-background [&_select]:p-2"
+							className="[&_select]:bg-background w-fit [&_select]:rounded-md [&_select]:border [&_select]:p-2"
 							id="batch-review-decision"
 							onBlur={field.handleBlur}
 							onChange={(event) => {
@@ -192,7 +192,7 @@ export function BatchReviewControls({
 				<form.Field name="rationale">
 					{(field) => (
 						<Textarea
-							className="min-h-20 w-full rounded-md border bg-background p-2"
+							className="bg-background min-h-20 w-full rounded-md border p-2"
 							id="batch-review-rationale"
 							maxLength={2000}
 							onBlur={field.handleBlur}

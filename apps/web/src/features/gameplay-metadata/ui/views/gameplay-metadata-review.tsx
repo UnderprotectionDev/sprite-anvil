@@ -120,7 +120,7 @@ export function GameplayMetadataReview({
 			aria-label="Review and Preserve Metadata"
 			className="space-y-3 rounded border p-4"
 		>
-			<h3 className="font-medium text-lg">Review and Preserve Metadata</h3>
+			<h3 className="text-lg font-medium">Review and Preserve Metadata</h3>
 			<p>
 				{record.frameKey} · {record.assetVersionId} · {record.useContext}
 			</p>
@@ -153,7 +153,7 @@ export function GameplayMetadataReview({
 								(definition) => definition.id === field.fieldId
 							)?.label ?? field.fieldId}
 						</dt>
-						<dd className="break-all font-mono text-sm">
+						<dd className="font-mono text-sm break-all">
 							{field.value === null ? "Unknown" : JSON.stringify(field.value)}
 						</dd>
 					</div>

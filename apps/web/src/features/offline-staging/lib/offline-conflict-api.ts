@@ -1,6 +1,8 @@
+import type {
+	OfflineConflictChoice,
+	OfflineReconcileInput,
+} from "@sprite-anvil/api/offline-conflict";
 import {
-	type OfflineConflictChoice,
-	type OfflineReconcileInput,
 	offlineAbandonConfirmationSchema,
 	offlineConflictContractVersion,
 	offlineConflictListSchema,

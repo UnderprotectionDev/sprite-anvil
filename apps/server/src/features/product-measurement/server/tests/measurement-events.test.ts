@@ -1,12 +1,8 @@
 import { expect, test } from "bun:test";
-import {
-	type MeasurementScope,
-	measurementDefinitionActivateInputSchema,
-} from "@sprite-anvil/api/measurement-definitions";
-import {
-	type MeasurementEventRecordInput,
-	measurementEventRecordInputSchema,
-} from "@sprite-anvil/api/measurement-events";
+import type { MeasurementScope } from "@sprite-anvil/api/measurement-definitions";
+import { measurementDefinitionActivateInputSchema } from "@sprite-anvil/api/measurement-definitions";
+import type { MeasurementEventRecordInput } from "@sprite-anvil/api/measurement-events";
+import { measurementEventRecordInputSchema } from "@sprite-anvil/api/measurement-events";
 import { createMeasurementDefinitionStore } from "../measurement-definition-store";
 import { createMeasurementEventStore } from "../measurement-event-store";
 import { createMeasurementPseudonymizer } from "../measurement-pseudonym";

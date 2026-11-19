@@ -254,7 +254,7 @@ export const erasureImpactStore = createErasureImpactStore({
 	sourceReader: createErasureImpactSourceReader(db),
 	storage: createDatabaseErasureImpactStorage(db),
 });
-const credentialNamePattern = /SECRET|TOKEN|KEY|PASSWORD/i;
+const credentialNamePattern = /SECRET|TOKEN|KEY|PASSWORD/iu;
 export const archiveObjectStorage =
 	testAssetVersionStorage ?? (r2Config ? createStorage(r2Config) : null);
 export const projectArchiveStorage = createDatabaseProjectArchiveStorage(db);

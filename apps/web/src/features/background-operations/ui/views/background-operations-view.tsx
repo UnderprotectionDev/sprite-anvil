@@ -9,7 +9,7 @@ export function BackgroundOperationsView({ projectId }: { projectId: string }) {
 	return (
 		<main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
 			<header className="space-y-2">
-				<h1 className="font-semibold text-2xl">Background operations</h1>
+				<h1 className="text-2xl font-semibold">Background operations</h1>
 				<p className="text-muted-foreground text-sm">
 					Archive, restore, export, verification and deletion runs that take
 					longer than a request. The record here is authoritative and stays

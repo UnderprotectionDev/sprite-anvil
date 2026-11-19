@@ -1,5 +1,5 @@
+import type { BackgroundOperation } from "@sprite-anvil/api/background-operations";
 import {
-	type BackgroundOperation,
 	cancelOutcome,
 	canRequestCancel,
 	shouldShowOperationProgress,

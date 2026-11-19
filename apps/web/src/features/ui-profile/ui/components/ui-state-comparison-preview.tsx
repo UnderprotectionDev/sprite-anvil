@@ -26,7 +26,7 @@ export const outcomeLabels = {
 	needs_follow_up: "Needs follow-up",
 	inconclusive: "Inconclusive",
 } as const;
-const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
+const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/u, "") ?? "";
 export function UiStateComparisonPreview({
 	name,
 	previewUrl,
@@ -61,7 +61,7 @@ export function UiStateComparisonPreview({
 				{name} · {bounds.width} × {bounds.height} px
 				{scale < 1 ? " · scaled preview" : " · 1×"}
 			</figcaption>
-			<div className="flex min-h-24 items-center justify-center rounded border bg-muted p-2">
+			<div className="bg-muted flex min-h-24 items-center justify-center rounded border p-2">
 				{failed ? (
 					<StatusMessage tone="error">
 						Image preview could not be loaded.

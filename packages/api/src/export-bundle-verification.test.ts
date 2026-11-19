@@ -16,9 +16,11 @@ import {
 	buildExportBundle,
 	exportBundleManifestSchema,
 } from "./export-bundle-manifest";
+import type {
+	ExportBundleIntegrityResult,
+	ExportBundleVerificationFile,
+} from "./export-bundle-verification";
 import {
-	type ExportBundleIntegrityResult,
-	type ExportBundleVerificationFile,
 	exportBundleManifestJsonSchema,
 	isSamePath,
 	sha256Hex,
@@ -26,7 +28,7 @@ import {
 } from "./export-bundle-verification";
 import { exportBundleVerifierSource } from "./export-bundle-verifier-source";
 
-const forbiddenKitWords = /(install|agent|assistant|you must run|curl|sudo)/i;
+const forbiddenKitWords = /(install|agent|assistant|you must run|curl|sudo)/iu;
 
 async function failureCodes(files: ExportBundleVerificationFile[]) {
 	const result = await verifyExportBundle(files);

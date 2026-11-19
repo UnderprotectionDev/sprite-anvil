@@ -30,11 +30,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { orpc } from "@/utils/orpc";
-import {
-	type ProposalChangeDraft,
-	type ProposalFormValues,
-	proposalFormSchema,
-} from "../../schemas";
+import type { ProposalChangeDraft, ProposalFormValues } from "../../schemas";
+import { proposalFormSchema } from "../../schemas";
 
 export type EvidenceKind = "user_decision" | "observed_change";
 type ValueType =

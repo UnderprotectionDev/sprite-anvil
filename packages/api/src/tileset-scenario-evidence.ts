@@ -1,8 +1,10 @@
+import type {
+	TilesetAdjacencyReviewInput,
+	TilesetTestMap,
+	TilesetTile,
+} from "./tileset-adjacency-reviews";
 import {
 	inspectTilesetAdjacency,
-	type TilesetAdjacencyReviewInput,
-	type TilesetTestMap,
-	type TilesetTile,
 	tilesetMapScenarioLabels,
 } from "./tileset-adjacency-reviews";
 

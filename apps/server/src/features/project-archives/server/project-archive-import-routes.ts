@@ -13,9 +13,9 @@ interface ImportDependencies {
 }
 const projectSchema = z.uuid();
 const keySchema = z.string().trim().min(1).max(128);
-const digestSchema = z.string().regex(/^[a-f0-9]{64}$/);
+const digestSchema = z.string().regex(/^[a-f0-9]{64}$/u);
 const nameSchema = z.string().trim().min(1).max(120);
-const sizePattern = /^[1-9]\d*$/;
+const sizePattern = /^[1-9]\d*$/u;
 
 export function mountProjectArchiveImportRoutes(
 	app: Hono,

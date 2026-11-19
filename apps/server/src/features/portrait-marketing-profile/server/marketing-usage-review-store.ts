@@ -1,9 +1,8 @@
 import { isDeepStrictEqual } from "node:util";
-import {
-	type MarketingUsageReviewStore,
-	marketingUsageReviewRecordSchema,
-} from "@sprite-anvil/api/marketing-usage-reviews";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { MarketingUsageReviewStore } from "@sprite-anvil/api/marketing-usage-reviews";
+import { marketingUsageReviewRecordSchema } from "@sprite-anvil/api/marketing-usage-reviews";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import {
 	assetFamilies,
 	assetRecords,

@@ -5,10 +5,8 @@ import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
 import { useForm } from "@tanstack/react-form";
-import {
-	type ContextAgentPermissionFormValues,
-	contextAgentPermissionFormSchema,
-} from "../../schemas";
+import type { ContextAgentPermissionFormValues } from "../../schemas";
+import { contextAgentPermissionFormSchema } from "../../schemas";
 
 export const scopeOptions: { label: string; scope: ContextAgentScope }[] = [
 	{ label: "Read Project Context", scope: "project_context:read" },

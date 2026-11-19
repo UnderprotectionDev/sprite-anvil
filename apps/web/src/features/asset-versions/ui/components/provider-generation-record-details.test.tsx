@@ -11,7 +11,8 @@ import { ProviderGenerationRecordDetails } from "./provider-generation-record-de
 
 afterEach(cleanup);
 
-const parameterSchemaVersionPattern = /provider-generation-parameters\/1\.0\.0/;
+const parameterSchemaVersionPattern =
+	/provider-generation-parameters\/1\.0\.0/u;
 
 const record: ProviderGenerationRecord = {
 	actualDimensions: { height: 96, width: 128 },

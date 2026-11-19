@@ -1,10 +1,8 @@
 import { expect, test } from "bun:test";
 import { Buffer } from "node:buffer";
 import { call } from "@orpc/server";
-import {
-	type AssetRecordMeasurements,
-	createEmptyAssetRecordMeasurements,
-} from "@sprite-anvil/api/asset-records";
+import type { AssetRecordMeasurements } from "@sprite-anvil/api/asset-records";
+import { createEmptyAssetRecordMeasurements } from "@sprite-anvil/api/asset-records";
 import type { Context } from "@sprite-anvil/api/context";
 import { referenceBoardUploadInputSchema } from "@sprite-anvil/api/reference-production";
 import { appRouter } from "@sprite-anvil/api/routers/index";

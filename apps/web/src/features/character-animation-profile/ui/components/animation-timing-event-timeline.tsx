@@ -1,7 +1,8 @@
 import type { AnimationTimingReviewInput } from "@sprite-anvil/api/animation-timing-reviews";
 import type { GameplayMetadataRecord } from "@sprite-anvil/api/gameplay-metadata";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { type ReactNode, useMemo } from "react";
+import type { ReactNode } from "react";
+import { useMemo } from "react";
 import { StatusMessage } from "@/components/status-message";
 
 export type AnimationTimingMetadataStatus = "loading" | "ready" | "error";
@@ -310,12 +311,12 @@ export function AnimationTimingEventTimeline({
 						</span>
 						<div
 							aria-label={`${track.direction} olay izi`}
-							className="relative min-h-10 border-y bg-muted/20"
+							className="bg-muted/20 relative min-h-10 border-y"
 							role="group"
 						>
 							<span
 								aria-hidden="true"
-								className="absolute top-1 bottom-1 left-0 bg-muted"
+								className="bg-muted absolute top-1 bottom-1 left-0"
 								style={{
 									width: `${(track.durationMs / maxDurationMs) * 100}%`,
 								}}
@@ -331,7 +332,7 @@ export function AnimationTimingEventTimeline({
 								>
 									<span
 										aria-hidden="true"
-										className="mx-auto block h-4 w-0.5 bg-primary"
+										className="bg-primary mx-auto block h-4 w-0.5"
 									/>
 									<span aria-hidden="true" className="whitespace-nowrap">
 										{event.id} · {formatMilliseconds(event.timeMs)} ms

@@ -3,11 +3,13 @@ import type {
 	ProjectArchiveSourceReader,
 	ProjectArchiveStore,
 } from "@sprite-anvil/api/project-archive-store";
+import type {
+	BuiltProjectArchive,
+	ProjectArchive,
+} from "@sprite-anvil/api/project-archives";
 import {
-	type BuiltProjectArchive,
 	buildProjectArchive,
 	legacyProjectArchiveSchemaVersion,
-	type ProjectArchive,
 	projectArchiveCatalogSchema,
 	projectArchiveRequestDigest,
 	projectArchiveSchema,
@@ -22,7 +24,8 @@ import {
 	replayPublishedRecord,
 	verifyPublishedRecord,
 } from "@sprite-anvil/api/record-publication";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import type {
 	ProjectArchiveStorage,
 	StoredProjectArchive,

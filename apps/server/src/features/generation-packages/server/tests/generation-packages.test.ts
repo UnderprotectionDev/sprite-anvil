@@ -1,10 +1,8 @@
 import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
 import type { Context } from "@sprite-anvil/api/context";
-import {
-	type GenerationPackageCorrectionInput,
-	generationPackageCorrectionInputSchema,
-} from "@sprite-anvil/api/generation-packages";
+import type { GenerationPackageCorrectionInput } from "@sprite-anvil/api/generation-packages";
+import { generationPackageCorrectionInputSchema } from "@sprite-anvil/api/generation-packages";
 import type {
 	ContextRevision,
 	ContextRule,

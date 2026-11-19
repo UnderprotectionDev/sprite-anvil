@@ -9,7 +9,7 @@ import { Hono } from "hono";
 import { serializeRpcInternalServerError } from "./output-contracts";
 
 const supportReferencePattern =
-	/^SUP-[0-9A-F]{8}(?:-[0-9A-F]{4}){3}-[0-9A-F]{12}$/;
+	/^SUP-[0-9A-F]{8}(?:-[0-9A-F]{4}){3}-[0-9A-F]{12}$/u;
 
 test("unexpected RPC failures return a support reference without exposing the exception", async () => {
 	const handler = new RPCHandler(appRouter);

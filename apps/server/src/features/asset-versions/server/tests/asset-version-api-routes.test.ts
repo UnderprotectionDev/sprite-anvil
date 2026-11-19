@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 import { Hono } from "hono";
 import sharp from "sharp";
-import {
-	type AssetVersionRouteDependencies,
-	type AssetVersionSession,
-	mountAssetVersionRoutes,
+import type {
+	AssetVersionRouteDependencies,
+	AssetVersionSession,
 } from "../asset-version-routes";
+import { mountAssetVersionRoutes } from "../asset-version-routes";
 
 const projectId = "asset-version-route-project";
 const assetRecordId = "a17f5ff0-a50d-438f-8bf2-a0152b42c3e9";

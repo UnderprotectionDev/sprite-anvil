@@ -10,10 +10,12 @@ import type {
 	DeliveryRefreshLockRejection,
 	DeliveryRefreshLockStore,
 } from "@sprite-anvil/api/delivery-refresh-lock-store";
+import type {
+	DeliveryRefreshLock,
+	DeliveryRefreshLockApplyInput,
+	DeliveryRefreshLockRefreshInput,
+} from "@sprite-anvil/api/delivery-refresh-locks";
 import {
-	type DeliveryRefreshLock,
-	type DeliveryRefreshLockApplyInput,
-	type DeliveryRefreshLockRefreshInput,
 	deliveryRefreshLockCatalogSchema,
 	deliveryRefreshLockContractVersion,
 	deliveryRefreshLockSchema,
@@ -29,7 +31,8 @@ import {
 	replayPublishedRecord,
 	verifyPublishedRecord,
 } from "@sprite-anvil/api/record-publication";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import type {
 	DeliveryRefreshLockStorage,
 	StoredDeliveryRefreshLock,

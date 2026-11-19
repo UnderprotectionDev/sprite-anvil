@@ -17,7 +17,7 @@ interface CatalogEntry {
 	object: CatalogObject;
 }
 
-const safeDeleteAction = /\bON DELETE (?:CASCADE|SET NULL|SET DEFAULT)\b/;
+const safeDeleteAction = /\bON DELETE (?:CASCADE|SET NULL|SET DEFAULT)\b/u;
 const tableKey = (schema: unknown, table: unknown) =>
 	JSON.stringify([schema, table]);
 const objectTable = (object: CatalogObject) => tableKey(object[1], object[2]);
@@ -27,14 +27,14 @@ const unquote = (value: string) => {
 		? trimmed.slice(1, -1).replaceAll('""', '"')
 		: trimmed;
 };
-const identifierPattern = /^(?:"(?:[^"]|"")+"|[A-Za-z_][\w$]*)$/;
-const indexKeysPattern = /\bUSING \w+ \(/;
-const indexOrderPattern = /\s+(?:ASC|DESC|NULLS (?:FIRST|LAST))\b.*$/;
-const indexPredicatePattern = / WHERE (.*)$/;
+const identifierPattern = /^(?:"(?:[^"]|"")+"|[A-Za-z_][\w$]*)$/u;
+const indexKeysPattern = /\bUSING \w+ \(/u;
+const indexOrderPattern = /\s+(?:ASC|DESC|NULLS (?:FIRST|LAST))\b.*$/u;
+const indexPredicatePattern = / WHERE (.*)$/u;
 const keyListPattern =
-	/^(?:PRIMARY KEY|UNIQUE(?: NULLS NOT DISTINCT)?|FOREIGN KEY) \(/;
+	/^(?:PRIMARY KEY|UNIQUE(?: NULLS NOT DISTINCT)?|FOREIGN KEY) \(/u;
 const referencePattern =
-	/ REFERENCES (?:((?:"(?:[^"]|"")+"|[A-Za-z_][\w$]*))\.)?((?:"(?:[^"]|"")+"|[A-Za-z_][\w$]*))\(/;
+	/ REFERENCES (?:((?:"(?:[^"]|"")+"|[A-Za-z_][\w$]*))\.)?((?:"(?:[^"]|"")+"|[A-Za-z_][\w$]*))\(/u;
 
 function ordinaryTable(object: CatalogObject): boolean {
 	return (

@@ -3,10 +3,8 @@ import { call } from "@orpc/server";
 import type { Context } from "@sprite-anvil/api/context";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { specializedProfileContractCatalog } from "@sprite-anvil/api/specialized-profile-contracts";
-import {
-	type VfxAppearanceInput,
-	vfxAppearanceRecordSchema,
-} from "@sprite-anvil/api/vfx-appearance-reviews";
+import type { VfxAppearanceInput } from "@sprite-anvil/api/vfx-appearance-reviews";
+import { vfxAppearanceRecordSchema } from "@sprite-anvil/api/vfx-appearance-reviews";
 import type { Database } from "@sprite-anvil/db";
 import {
 	assetFamilies,

@@ -1,5 +1,5 @@
+import type { DeliveryRecords } from "@sprite-anvil/api/project-archive-delivery";
 import {
-	type DeliveryRecords,
 	deriveDeliveryDiffs,
 	runtimeEvidenceFileKind,
 } from "@sprite-anvil/api/project-archive-delivery";

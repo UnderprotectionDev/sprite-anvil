@@ -2,7 +2,7 @@
 import { pixelEditorErrorSchema } from "@sprite-anvil/api/pixel-editor";
 import { ENV } from "@/env";
 
-const trailingSlashPattern = /\/$/;
+const trailingSlashPattern = /\/$/u;
 
 /** Base URL of the API server without a trailing slash. */
 export function serverUrl() {

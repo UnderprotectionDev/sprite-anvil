@@ -1,7 +1,7 @@
 import { ORPCError } from "@orpc/server";
 import { ZodError } from "zod";
+import type { AnimationMetadataPackage } from "../animation-metadata-package";
 import {
-	type AnimationMetadataPackage,
 	animationMetadataPackageInputSchema,
 	animationMetadataPackageReadInputSchema,
 	animationMetadataPackageSchema,

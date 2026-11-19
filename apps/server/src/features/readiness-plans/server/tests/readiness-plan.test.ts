@@ -13,7 +13,7 @@ import { createReadinessPlanStore } from "../readiness-plan-store";
 import type { ReadinessPolicyDependencies } from "../readiness-policy-evidence";
 import { createMemoryReadinessPlanStorage } from "./memory-readiness-plan-storage";
 
-const scorePattern = /score/i;
+const scorePattern = /score/iu;
 const userId = "user-1";
 const projectId = "7a1f0f0e-8f4e-4c36-9a53-0b0b6a2f2a01";
 const targetId = "6f1a3d62-3d2e-4b86-8a7c-0e6c2f0d1001";

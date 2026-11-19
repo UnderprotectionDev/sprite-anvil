@@ -15,8 +15,8 @@ import {
 	pixelDraftPreviewUrl,
 	pixelDraftSourceUrl,
 } from "../../lib/pixel-editor-api";
+import type { CompareMode } from "../../store/pixel-editor-tool-store";
 import {
-	type CompareMode,
 	compareModes,
 	createPixelEditorToolStore,
 	patchToolState,
@@ -85,7 +85,7 @@ export function PixelEditorView({
 					Back to Asset Records
 				</Link>
 				<div className="flex flex-wrap items-center gap-3">
-					<h1 className="font-semibold text-xl">Last-Mile Pixel Editor</h1>
+					<h1 className="text-xl font-semibold">Last-Mile Pixel Editor</h1>
 					<Badge variant={isOpen ? "secondary" : "outline"}>
 						{
 							{
@@ -98,19 +98,19 @@ export function PixelEditorView({
 				</div>
 				<dl className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
 					<div>
-						<dt className="inline text-muted-foreground">Source: </dt>
+						<dt className="text-muted-foreground inline">Source: </dt>
 						<dd className="inline font-mono text-xs">
 							{draft.sourceAssetVersionId}
 						</dd>
 					</div>
 					<div>
-						<dt className="inline text-muted-foreground">Logical size: </dt>
+						<dt className="text-muted-foreground inline">Logical size: </dt>
 						<dd className="inline">
 							{draft.size.width}×{draft.size.height}
 						</dd>
 					</div>
 					<div>
-						<dt className="inline text-muted-foreground">Zoom: </dt>
+						<dt className="text-muted-foreground inline">Zoom: </dt>
 						<dd className="inline">{state.zoom}×</dd>
 					</div>
 				</dl>

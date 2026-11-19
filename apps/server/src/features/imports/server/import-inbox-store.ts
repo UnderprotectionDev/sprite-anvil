@@ -9,11 +9,8 @@ import {
 	importInboxEntrySchema,
 	importInboxUploadInputSchema,
 } from "@sprite-anvil/api/import-inbox";
-import {
-	type Database,
-	getProjectForUser,
-	publishedProjectPredicate,
-} from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser, publishedProjectPredicate } from "@sprite-anvil/db";
 import { importInboxEntries } from "@sprite-anvil/db/schema/import-inbox";
 import { project } from "@sprite-anvil/db/schema/project";
 import { and, desc, eq } from "drizzle-orm";

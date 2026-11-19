@@ -4,7 +4,7 @@ import {
 	signUpWithFixture,
 } from "./project-workflow";
 
-const interimText = /Phase 3 interim evidence/;
+const interimText = /Phase 3 interim evidence/u;
 
 const fixture = {
 	email: `platform-equivalence-e2e-${crypto.randomUUID()}@example.test`,

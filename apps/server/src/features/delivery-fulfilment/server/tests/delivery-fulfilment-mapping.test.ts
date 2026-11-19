@@ -6,8 +6,8 @@ import { appRouter } from "@sprite-anvil/api/routers/index";
 import { createFulfilmentMappingStore } from "../fulfilment-mapping-store";
 import { createMemoryFulfilmentMappingStorage } from "./memory-fulfilment-mapping-storage";
 
-const deliveryStatusText = /delivered|deliveryStatus/;
-const noRequiredItemsText = /no required items/i;
+const deliveryStatusText = /delivered|deliveryStatus/u;
+const noRequiredItemsText = /no required items/iu;
 const userId = "user-1";
 const projectId = "7a1f0f0e-8f4e-4c36-9a53-0b0b6a2f2a01";
 const otherProjectId = "7a1f0f0e-8f4e-4c36-9a53-0b0b6a2f2a02";

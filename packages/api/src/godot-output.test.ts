@@ -15,8 +15,8 @@ import {
 	godotSupportedEngineVersions,
 } from "./godot-output";
 
-const invalidNumber = /Infinity|NaN/;
-const sha256Pattern = /^[0-9a-f]{64}$/;
+const invalidNumber = /Infinity|NaN/u;
+const sha256Pattern = /^[0-9a-f]{64}$/u;
 
 const engineData: ExportBundleEngineData = {
 	animations: [

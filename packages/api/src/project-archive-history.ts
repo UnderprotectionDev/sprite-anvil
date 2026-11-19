@@ -14,7 +14,7 @@ import type {
 
 const idSchema = z.string().trim().min(1).max(128);
 const timestampSchema = z.iso.datetime();
-const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/);
+const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/u);
 const jsonObjectSchema = z.record(z.string(), z.unknown());
 
 export const historyGroup = "history";

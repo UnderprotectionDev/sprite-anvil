@@ -49,7 +49,7 @@ function Version({
 		<figure className="space-y-2 rounded-md border p-3">
 			<img
 				alt={`${title} version preview`}
-				className="aspect-square w-full bg-muted object-contain [image-rendering:pixelated]"
+				className="bg-muted aspect-square w-full object-contain [image-rendering:pixelated]"
 				height={256}
 				src={conflictPreviewUrl(projectId, conflict.id, side)}
 				width={256}

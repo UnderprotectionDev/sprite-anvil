@@ -12,12 +12,8 @@ import type {
 } from "@sprite-anvil/api/pixel-editor";
 import z from "zod";
 import type { TwoDVisualAssetStorage } from "../../../cloudflare";
-import {
-	type EditState,
-	PixelOperationError,
-	type Raster,
-	replayOperations,
-} from "./pixel-operations";
+import type { EditState, Raster } from "./pixel-operations";
+import { PixelOperationError, replayOperations } from "./pixel-operations";
 import { readRasterFromPng } from "./pixel-raster-codec";
 import { SheetStructureError } from "./sheet-structure";
 

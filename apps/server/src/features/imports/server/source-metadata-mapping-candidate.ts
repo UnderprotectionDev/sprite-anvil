@@ -1,7 +1,7 @@
+import type { CreateAssetVersionIntegrityTransform } from "@sprite-anvil/api/asset-version-integrity";
 import {
 	AssetVersionContentLengthError,
 	AssetVersionIntegrityError,
-	type CreateAssetVersionIntegrityTransform,
 } from "@sprite-anvil/api/asset-version-integrity";
 import type {
 	AssetVersionFileRecord,

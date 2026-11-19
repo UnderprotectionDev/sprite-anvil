@@ -31,7 +31,7 @@ import {
 	createSourceMetadataMappingProposalCreator,
 } from "../source-metadata-mapping-procedures";
 
-const supportReferencePattern = /^SUP-/;
+const supportReferencePattern = /^SUP-/u;
 
 const userId = crypto.randomUUID();
 const projectId = crypto.randomUUID();

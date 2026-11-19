@@ -1,7 +1,8 @@
 import type { PixelRect } from "@sprite-anvil/api/pixel-editor";
 import type { PixelEditorToolState } from "../store/pixel-editor-tool-store";
 import { drawBackground, drawImageCrisp, strokeRect } from "./canvas-drawing";
-import { type Cell, hexToCss, moveRect, rectFromCells } from "./pixel-geometry";
+import type { Cell } from "./pixel-geometry";
+import { hexToCss, moveRect, rectFromCells } from "./pixel-geometry";
 
 export interface CanvasScene {
 	anchor: Cell | null;

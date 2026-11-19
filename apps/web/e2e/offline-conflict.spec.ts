@@ -1,4 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 const projectId = "00000000-0000-4000-8000-000000000001";
 const draftId = "b17f5ff0-a50d-438f-8bf2-a0152b42c401";
@@ -24,10 +25,10 @@ const onePixelPng = Buffer.from(
 	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==",
 	"base64"
 );
-const uuidText = /^[0-9a-f-]{36}$/;
-const conflictHeading = /Conflict: the cloud Working Draft changed/;
-const resolvedText = /Resolved: you created a separate Candidate Version/;
-const finalizedText = /was created from the staged Working Draft/;
+const uuidText = /^[0-9a-f-]{36}$/u;
+const conflictHeading = /Conflict: the cloud Working Draft changed/u;
+const resolvedText = /Resolved: you created a separate Candidate Version/u;
+const finalizedText = /was created from the staged Working Draft/u;
 const stagingUrl = `/projects/${projectId}/offline-staging`;
 
 interface ResolveRequest {

@@ -181,7 +181,7 @@ function AnimationMetadataPackagePanelContent({
 			className="space-y-4 rounded-lg border p-5"
 		>
 			<div className="space-y-2">
-				<h2 className="font-medium text-xl">Animation Metadata Package</h2>
+				<h2 className="text-xl font-medium">Animation Metadata Package</h2>
 				<p className="text-muted-foreground text-sm">
 					Download the selected Composite Version's composition metadata,
 					frame-linked Gameplay Metadata, and exact version IDs as JSON, or
@@ -212,7 +212,7 @@ function AnimationMetadataPackagePanelContent({
 				<div className="space-y-3">
 					<div className="space-y-2">
 						<Label
-							className="font-medium text-sm"
+							className="text-sm font-medium"
 							htmlFor={compositeVersionSelectId}
 						>
 							Composite Version
@@ -250,7 +250,7 @@ function AnimationMetadataPackagePanelContent({
 					</Button>
 					<div className="space-y-2">
 						<Label
-							className="block font-medium text-sm"
+							className="block text-sm font-medium"
 							htmlFor={packageFileInputId}
 						>
 							Reload animation metadata package

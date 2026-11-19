@@ -4,9 +4,9 @@ import type {
 } from "./managed-object-reservations";
 
 const uuidPattern =
-	/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-const fileKindPattern = /^[a-z_]+$/;
-const fileIdPattern = /^(?:[0-9a-f]{2})+$/;
+	/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u;
+const fileKindPattern = /^[a-z_]+$/u;
+const fileIdPattern = /^(?:[0-9a-f]{2})+$/u;
 
 function parseImportKey(prefix: string, key: string) {
 	if (!key.startsWith(prefix)) {

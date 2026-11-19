@@ -60,7 +60,7 @@ test.each([
 				};
 			},
 		});
-		const classes = [...html.matchAll(/class="([^"]+)"/g)].flatMap((match) =>
+		const classes = [...html.matchAll(/class="([^"]+)"/gu)].flatMap((match) =>
 			(match[1] ?? "").split(" ")
 		);
 		const browser = await chromium.launch({ headless: true });

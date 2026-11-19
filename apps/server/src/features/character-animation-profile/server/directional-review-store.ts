@@ -1,9 +1,8 @@
 import { isDeepStrictEqual } from "node:util";
-import {
-	type DirectionalReviewStore,
-	directionalReviewRecordSchema,
-} from "@sprite-anvil/api/directional-reviews";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { DirectionalReviewStore } from "@sprite-anvil/api/directional-reviews";
+import { directionalReviewRecordSchema } from "@sprite-anvil/api/directional-reviews";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import {
 	assetFamilies,
 	assetRecords,

@@ -21,8 +21,8 @@ import { downloadZip } from "@/utils/download-zip";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { honoGetBytes, projectApiUrl } from "@/utils/hono-api";
 import { client, orpc } from "@/utils/orpc";
+import type { PendingExport } from "../../lib/pending-export-store";
 import {
-	type PendingExport,
 	pendingExportKey,
 	pendingExportTable,
 } from "../../lib/pending-export-store";

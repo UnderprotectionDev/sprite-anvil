@@ -1,10 +1,7 @@
 import { expect, test } from "bun:test";
 import { classifyDevelopmentHistory } from "./development-history";
-import {
-	type AppliedMigration,
-	assertMigrationHistory,
-	type LocalMigration,
-} from "./migration-policy";
+import type { AppliedMigration, LocalMigration } from "./migration-policy";
+import { assertMigrationHistory } from "./migration-policy";
 
 const migration = (stamp: string, slug: string, hash: string) => ({
 	name: `${stamp}_${slug}`,

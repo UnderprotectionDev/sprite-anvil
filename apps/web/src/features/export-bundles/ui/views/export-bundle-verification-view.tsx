@@ -1,13 +1,13 @@
 import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
-import { type ReactNode, useState } from "react";
+import type { ReactNode } from "react";
+import { useState } from "react";
 import { StatusMessage } from "@/components/status-message";
-import {
-	describeError,
-	type ExportBundleManifestSummary,
-	type ExportBundleReading,
-	readExportBundle,
+import type {
+	ExportBundleManifestSummary,
+	ExportBundleReading,
 } from "../../lib/read-export-bundle";
+import { describeError, readExportBundle } from "../../lib/read-export-bundle";
 import { verifyWithMeasurement } from "../../lib/verify-with-measurement";
 
 const directoryAttributes = { webkitdirectory: "" } as Record<string, string>;
@@ -26,7 +26,7 @@ function ManifestSummary({
 	];
 	return (
 		<section aria-labelledby="bundle-manifest-heading" className="space-y-2">
-			<h2 className="font-semibold text-lg" id="bundle-manifest-heading">
+			<h2 className="text-lg font-semibold" id="bundle-manifest-heading">
 				Manifest
 			</h2>
 			<dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1 text-sm">
@@ -50,7 +50,7 @@ function VerificationResult({ reading }: { reading: ExportBundleReading }) {
 				className="space-y-2"
 				role="status"
 			>
-				<h2 className="font-semibold text-lg" id="bundle-result-heading">
+				<h2 className="text-lg font-semibold" id="bundle-result-heading">
 					Verification result
 				</h2>
 				{result.ok ? (
@@ -124,7 +124,7 @@ export function ExportBundleVerificationView({
 	return (
 		<main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
 			<header className="space-y-2">
-				<h1 className="font-semibold text-2xl">Export Bundles</h1>
+				<h1 className="text-2xl font-semibold">Export Bundles</h1>
 				<p className="text-muted-foreground text-sm">
 					Choose an Engine-Neutral Bundle directory to read its manifest and
 					check its integrity. Everything is checked on this device, offline,

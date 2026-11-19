@@ -9,11 +9,11 @@ function HomeComponent() {
 	return (
 		<main className="mx-auto w-full max-w-5xl space-y-10 px-4 py-12 sm:px-6">
 			<header className="max-w-3xl space-y-5">
-				<p className="font-mono text-primary text-sm">Sprite Anvil</p>
-				<h1 className="font-semibold text-4xl leading-tight sm:text-5xl">
+				<p className="text-primary font-mono text-sm">Sprite Anvil</p>
+				<h1 className="text-4xl leading-tight font-semibold sm:text-5xl">
 					Manage your game visuals in one place.
 				</h1>
-				<p className="text-lg text-muted-foreground">
+				<p className="text-muted-foreground text-lg">
 					Choose a game project, define visual rules, find assets, and review
 					their versions.
 				</p>
@@ -42,8 +42,8 @@ function HomeComponent() {
 						"Open a record to access its versions, Generation Packages, and review evidence.",
 					],
 				].map(([title, description]) => (
-					<li className="space-y-3 rounded-lg border bg-card p-6" key={title}>
-						<h2 className="font-semibold text-lg">{title}</h2>
+					<li className="bg-card space-y-3 rounded-lg border p-6" key={title}>
+						<h2 className="text-lg font-semibold">{title}</h2>
 						<p className="text-muted-foreground text-sm leading-relaxed">
 							{description}
 						</p>

@@ -1,8 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
-import {
-	type HistoryRecords,
-	historySectionSchemas,
-} from "@sprite-anvil/api/project-archive-history";
+import type { HistoryRecords } from "@sprite-anvil/api/project-archive-history";
+import { historySectionSchemas } from "@sprite-anvil/api/project-archive-history";
 import type { Database } from "@sprite-anvil/db";
 import { animationTimingReviews } from "@sprite-anvil/db/schema/animation-timing-reviews";
 import { assetFamilyComparisons } from "@sprite-anvil/db/schema/asset-family-comparisons";

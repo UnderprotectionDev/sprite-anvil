@@ -1,34 +1,35 @@
 import { createHash } from "node:crypto";
 import type { PixelOperation } from "@sprite-anvil/api/pixel-editor";
+import type {
+	FrameOperation,
+	FrameStructureCommitResponse,
+	SheetSlicingPreview,
+	SheetStructure,
+	SheetStructureView,
+} from "@sprite-anvil/api/pixel-editor-structure";
 import {
-	type FrameOperation,
-	type FrameStructureCommitResponse,
 	frameKeySchema,
 	frameOperationInputSchema,
 	frameStructureCommitInputSchema,
 	frameStructureCommitResponseSchema,
-	type SheetSlicingPreview,
-	type SheetStructure,
-	type SheetStructureView,
 	sheetSlicingApplyInputSchema,
 	sheetSlicingPreviewInputSchema,
 	sheetSlicingPreviewSchema,
 	sheetStructureViewSchema,
 } from "@sprite-anvil/api/pixel-editor-structure";
 import { storePngCandidate } from "./candidate-store";
+import type { DraftContext, Outcome, Scope } from "./pixel-editor-context";
 import {
-	type DraftContext,
 	failure,
 	loadDraft,
-	type Outcome,
 	readSourceRaster,
-	type Scope,
 	structureFailure,
 	success,
 	updateFailure,
 } from "./pixel-editor-context";
 import type { Raster } from "./pixel-operations";
 import { encodeRasterPng } from "./pixel-raster-codec";
+import type { RenderContext } from "./sheet-structure";
 import {
 	applyFrameOperation,
 	assertProtectedFramesUnchanged,
@@ -39,7 +40,6 @@ import {
 	geometryChangeOf,
 	orderChanged,
 	parseStructure,
-	type RenderContext,
 	remapStructure,
 	renderFrames,
 	resliceStructure,

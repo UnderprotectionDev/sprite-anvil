@@ -18,7 +18,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { FamilyReadinessManager } from "@/components/family-readiness-manager";
 import { createQueryClient } from "@/utils/query-client";
 
-const usageTestIdLabel = /^Usage test ID/;
+const usageTestIdLabel = /^Usage test ID/u;
 
 const fakeApi = vi.hoisted(() => ({
 	recordEvidence: vi.fn(),

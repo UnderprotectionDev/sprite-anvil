@@ -1,8 +1,6 @@
 import { ORPCError } from "@orpc/server";
-import {
-	type AnimationMetadataPackageTargetReader,
-	createAnimationMetadataPackageTarget,
-} from "@sprite-anvil/api/animation-metadata-package";
+import type { AnimationMetadataPackageTargetReader } from "@sprite-anvil/api/animation-metadata-package";
+import { createAnimationMetadataPackageTarget } from "@sprite-anvil/api/animation-metadata-package";
 
 function frameIdentity(assetVersionId: string, frameKey: string) {
 	return JSON.stringify([assetVersionId, frameKey]);

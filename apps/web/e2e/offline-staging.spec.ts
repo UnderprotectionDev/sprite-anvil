@@ -1,4 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 const projectId = "00000000-0000-4000-8000-000000000001";
 const project = {
@@ -61,11 +62,11 @@ async function mockCloud(page: Page) {
 	return cloud;
 }
 
-const cachedCopyText = /Moonlit Vale \(cached copy/;
-const stayStagedText = /staged file\(s\) stay staged/;
-const enteredInboxText = /entered the Import Inbox/;
-const uuidText = /^[0-9a-f-]{36}$/;
-const offlineText = /^Offline$/;
+const cachedCopyText = /Moonlit Vale \(cached copy/u;
+const stayStagedText = /staged file\(s\) stay staged/u;
+const enteredInboxText = /entered the Import Inbox/u;
+const uuidText = /^[0-9a-f-]{36}$/u;
+const offlineText = /^Offline$/u;
 const stagingUrl = `/projects/${projectId}/offline-staging`;
 
 async function stagePng(page: Page) {

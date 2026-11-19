@@ -9,11 +9,8 @@ import {
 	referenceBoardImageSchema,
 	referenceBoardUploadInputSchema,
 } from "@sprite-anvil/api/reference-production";
-import {
-	type Database,
-	getProjectForUser,
-	publishedProjectPredicate,
-} from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser, publishedProjectPredicate } from "@sprite-anvil/db";
 import {
 	assetFamilies,
 	assetRecords,

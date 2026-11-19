@@ -1,10 +1,12 @@
 import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
+import type {
+	AssetRecordCreateInput,
+	MutableAssetRecordAvailability,
+} from "@sprite-anvil/api/asset-records";
 import {
-	type AssetRecordCreateInput,
 	assetRecordMeasurementsUpdateInputSchema,
 	assetRecordSchema,
-	type MutableAssetRecordAvailability,
 } from "@sprite-anvil/api/asset-records";
 import type { Context } from "@sprite-anvil/api/context";
 import { appRouter } from "@sprite-anvil/api/routers/index";

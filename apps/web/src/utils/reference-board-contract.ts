@@ -48,7 +48,7 @@ export function defaultTransferredFeatures(role: ReferenceRole) {
 	return rolePresetFeatures[role] ? [...rolePresetFeatures[role]] : [];
 }
 
-const base64PaddingPattern = /[=]+$/;
+const base64PaddingPattern = /[=]+$/u;
 
 export function encodeMetadataHeader(value: unknown) {
 	const bytes = new TextEncoder().encode(JSON.stringify(value));

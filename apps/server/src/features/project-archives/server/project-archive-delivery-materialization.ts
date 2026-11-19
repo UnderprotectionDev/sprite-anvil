@@ -2,10 +2,8 @@ import {
 	productionEvidencePolicySchema,
 	rightsEvidencePolicySchema,
 } from "@sprite-anvil/api/delivery-planning-inputs";
-import {
-	type DeliveryRecords,
-	deliverySectionSchemas,
-} from "@sprite-anvil/api/project-archive-delivery";
+import type { DeliveryRecords } from "@sprite-anvil/api/project-archive-delivery";
+import { deliverySectionSchemas } from "@sprite-anvil/api/project-archive-delivery";
 import type { ProjectArchiveRestorePlan } from "@sprite-anvil/api/project-archive-restore";
 import { restoredRecordId } from "@sprite-anvil/api/project-archive-restore";
 import { recordContentDigest } from "@sprite-anvil/api/record-content-digest";

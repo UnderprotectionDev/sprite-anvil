@@ -1,7 +1,7 @@
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
+import type { MarketingUsageReviewInput } from "@sprite-anvil/api/marketing-usage-reviews";
 import {
 	createMarketingUsageReviewPackage,
-	type MarketingUsageReviewInput,
 	marketingUsageItemSchema,
 	marketingUsageReviewInputSchema,
 } from "@sprite-anvil/api/marketing-usage-reviews";
@@ -41,7 +41,7 @@ type Version = Pick<
 	| "sourceImageDimensions"
 >;
 type Item = MarketingUsageReviewInput["items"][number];
-const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
+const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/u, "") ?? "";
 const geometryLabels = {
 	crop: "Crop",
 	safeArea: "Safe area",

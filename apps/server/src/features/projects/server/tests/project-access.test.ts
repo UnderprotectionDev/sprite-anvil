@@ -15,7 +15,8 @@ import { appRouter } from "@sprite-anvil/api/routers/index";
 import type { Session } from "@sprite-anvil/auth";
 import { createDb } from "@sprite-anvil/db";
 import { betterAuth } from "better-auth";
-import { type MemoryDB, memoryAdapter } from "better-auth/adapters/memory";
+import type { MemoryDB } from "better-auth/adapters/memory";
+import { memoryAdapter } from "better-auth/adapters/memory";
 import { testUtils } from "better-auth/plugins";
 import { Hono } from "hono";
 

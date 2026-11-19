@@ -70,28 +70,28 @@ const generatedFiles = new Set([
 	`${serverSource}/env.ts`,
 ]);
 
-const lineBreak = /\r?\n/;
-const headingLine = /^(#{1,6})\s+(.*?)\s*$/;
-const tickedToken = /`([^`]+)`/g;
-const kebabCase = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const testFile = /\.test\.tsx?$/;
-const sourceFile = /\.tsx?$/;
-const testSuffix = /\.test(\.tsx?)$/;
-const leadingPipe = /^\|/;
-const trailingPipe = /\|$/;
-const trailingSlash = /\/$/;
-const stackCheck = /;\s*check `([a-z][a-z0-9-]*)`(.*)$/;
+const lineBreak = /\r?\n/u;
+const headingLine = /^(#{1,6})\s+(.*?)\s*$/u;
+const tickedToken = /`([^`]+)`/gu;
+const kebabCase = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
+const testFile = /\.test\.tsx?$/u;
+const sourceFile = /\.tsx?$/u;
+const testSuffix = /\.test(\.tsx?)$/u;
+const leadingPipe = /^\|/u;
+const trailingPipe = /\|$/u;
+const trailingSlash = /\/$/u;
+const stackCheck = /;\s*check `([a-z][a-z0-9-]*)`(.*)$/u;
 const byText = (left: string, right: string) => left.localeCompare(right);
-const barrelFile = /^index\.[cm]?[jt]sx?$/;
+const barrelFile = /^index\.[cm]?[jt]sx?$/u;
 const exceptionMarker =
-	/conventions-exception:[ \t]*([a-z][a-z0-9-]*)(?:[ \t]+([^\r\n]*?))?[ \t]*(?:\*\/|-->|$)/gm;
+	/conventions-exception:[ \t]*([a-z][a-z0-9-]*)(?:[ \t]+([^\r\n]*?))?[ \t]*(?:\*\/|-->|$)/gmu;
 const minimumReasonLength = 10;
 const formChangeAttributes = new Set([
 	"onChange",
 	"onCheckedChange",
 	"onValueChange",
 ]);
-const fieldApiHandler = /\.handleChange\b/;
+const fieldApiHandler = /\.handleChange\b/u;
 const fetchHosts = new Set(["globalThis", "self", "window"]);
 
 // --- Markdown reading -------------------------------------------------------

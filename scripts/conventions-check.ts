@@ -17,7 +17,7 @@ import {
 
 const root = join(import.meta.dir, "..");
 const baselineFile = join(root, baselinePath);
-const missingPath = /does not exist|exists on disk, but not in/;
+const missingPath = /does not exist|exists on disk, but not in/u;
 
 function optionValue(name: string): string | undefined {
 	const index = process.argv.indexOf(name);

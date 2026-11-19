@@ -100,7 +100,7 @@ export function ExternalWorkingFileEditUpload({
 	return (
 		<form className="w-full space-y-3 rounded-md border p-3" onSubmit={submit}>
 			<div>
-				<p className="font-medium text-sm">External working file edit</p>
+				<p className="text-sm font-medium">External working file edit</p>
 				<p className="text-muted-foreground text-xs">
 					Save the PNG/WebP export as a Candidate Version and the editable
 					source file as a Managed Snapshot together.
@@ -110,11 +110,11 @@ export function ExternalWorkingFileEditUpload({
 				<form.Field name="candidateFile">
 					{(field) => (
 						<div className="space-y-1">
-							<p className="font-medium text-sm">PNG/WebP export</p>
+							<p className="text-sm font-medium">PNG/WebP export</p>
 							<Button
 								aria-describedby={`${hintId}-candidate`}
 								aria-label="Select, drop, or paste PNG/WebP export"
-								className="min-h-11 w-full justify-start border-dashed px-3 py-2 text-left font-normal text-sm"
+								className="min-h-11 w-full justify-start border-dashed px-3 py-2 text-left text-sm font-normal"
 								disabled={disabled || busy}
 								onClick={() => candidateInputRef.current?.click()}
 								onDragOver={(event) => event.preventDefault()}
@@ -163,11 +163,11 @@ export function ExternalWorkingFileEditUpload({
 				<form.Field name="sourceFile">
 					{(field) => (
 						<div className="space-y-1">
-							<p className="font-medium text-sm">Editable working file</p>
+							<p className="text-sm font-medium">Editable working file</p>
 							<Button
 								aria-describedby={`${hintId}-source`}
 								aria-label="Select, drop, or paste editable working file"
-								className="min-h-11 w-full justify-start border-dashed px-3 py-2 text-left font-normal text-sm"
+								className="min-h-11 w-full justify-start border-dashed px-3 py-2 text-left text-sm font-normal"
 								disabled={disabled || busy}
 								onClick={() => sourceInputRef.current?.click()}
 								onDragOver={(event) => event.preventDefault()}

@@ -13,7 +13,7 @@ import { AssetVersionPreview } from "@/components/asset-version-preview";
 import { ENV } from "@/env";
 import { derivativeReReviewFormSchema } from "../../schemas";
 
-const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
+const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/u, "") ?? "";
 
 export function DerivativeReReviewForm({
 	projectId,

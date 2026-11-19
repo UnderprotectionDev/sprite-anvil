@@ -1,15 +1,14 @@
-import {
-	type PixelDraftRecord,
-	type PixelDraftUpdateResult,
-	type PixelEditorStore,
-	type PixelOperation,
-	pixelOperationSchema,
+import type {
+	PixelDraftRecord,
+	PixelDraftUpdateResult,
+	PixelEditorStore,
+	PixelOperation,
 } from "@sprite-anvil/api/pixel-editor";
-import {
-	type SheetStructure,
-	sheetStructureSchema,
-} from "@sprite-anvil/api/pixel-editor-structure";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import { pixelOperationSchema } from "@sprite-anvil/api/pixel-editor";
+import type { SheetStructure } from "@sprite-anvil/api/pixel-editor-structure";
+import { sheetStructureSchema } from "@sprite-anvil/api/pixel-editor-structure";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import { pixelEditorDrafts } from "@sprite-anvil/db/schema/pixel-editor";
 import { and, eq, sql } from "drizzle-orm";
 import z from "zod";

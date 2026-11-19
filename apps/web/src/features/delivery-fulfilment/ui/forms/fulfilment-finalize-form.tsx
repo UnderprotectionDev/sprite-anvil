@@ -1,7 +1,5 @@
-import {
-	type FulfilmentMappingDraft,
-	summarizeMappingDraft,
-} from "@sprite-anvil/api/delivery-fulfilment";
+import type { FulfilmentMappingDraft } from "@sprite-anvil/api/delivery-fulfilment";
+import { summarizeMappingDraft } from "@sprite-anvil/api/delivery-fulfilment";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Label } from "@sprite-anvil/ui/components/label";
 import {

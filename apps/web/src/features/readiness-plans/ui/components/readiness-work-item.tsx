@@ -15,7 +15,7 @@ function Rationale({
 }) {
 	return (
 		<div className="space-y-0.5">
-			<dt className="font-medium text-sm">{term}</dt>
+			<dt className="text-sm font-medium">{term}</dt>
 			<dd className="text-muted-foreground text-sm">{children}</dd>
 		</div>
 	);
@@ -51,7 +51,7 @@ export function ReadinessWorkItemCard({
 			<div className="flex flex-wrap items-start justify-between gap-3">
 				<div className="min-w-0 space-y-1">
 					<p className="text-muted-foreground text-xs">Step {item.position}</p>
-					<h3 className="break-words font-medium">{item.title}</h3>
+					<h3 className="font-medium break-words">{item.title}</h3>
 					{item.dependsOnWorkIds.length > 0 ? (
 						<p className="text-muted-foreground text-sm">
 							Waits for: {titlesOf(item.dependsOnWorkIds, titleById)}

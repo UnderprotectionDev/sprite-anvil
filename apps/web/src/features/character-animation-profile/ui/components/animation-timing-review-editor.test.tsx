@@ -16,9 +16,9 @@ import { useEffect } from "react";
 import { afterEach, expect, test, vi } from "vitest";
 import { AnimationTimingReviewEditor } from "./animation-timing-review-editor";
 
-const unusedEventName = /unused/;
-const brokenEventName = /broken/;
-const malformedTimeMessage = /timing is invalid/;
+const unusedEventName = /unused/u;
+const brokenEventName = /broken/u;
+const malformedTimeMessage = /timing is invalid/u;
 
 vi.mock("./animation-timing-clip-preview", () => ({
 	AnimationTimingClipPreview: ({

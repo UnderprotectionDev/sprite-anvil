@@ -16,7 +16,7 @@ export const projectSummaryResponseSchema = z
 		name: z.string(),
 		previewUrl: z
 			.string()
-			.regex(/^\/api\/projects\/[^/?#]+\/preview$/)
+			.regex(/^\/api\/projects\/[^/?#]+\/preview$/u)
 			.nullable(),
 	})
 	.strict();

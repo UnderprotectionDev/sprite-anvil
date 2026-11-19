@@ -12,7 +12,8 @@ import {
 } from "@sprite-anvil/ui/components/native-select";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
-import { type SyntheticEvent, useState } from "react";
+import type { SyntheticEvent } from "react";
+import { useState } from "react";
 import { StatusMessage } from "@/components/status-message";
 import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
@@ -26,11 +27,8 @@ import {
 	isDesktopDelivery,
 	writeNativeBundle,
 } from "../../lib/native-delivery-desktop";
-import {
-	type ChosenFolder,
-	chooseFolder,
-	readWrittenFiles,
-} from "../../lib/read-target-folder";
+import type { ChosenFolder } from "../../lib/read-target-folder";
+import { chooseFolder, readWrittenFiles } from "../../lib/read-target-folder";
 import { refreshSummary } from "../../lib/refresh-summary";
 import { refreshFormSchema } from "../../schemas";
 import { PathClassSections } from "../components/path-class-sections";
@@ -156,7 +154,7 @@ export function RefreshDeliveryForm({ projectId }: { projectId: string }) {
 			className="space-y-6"
 			onSubmit={submit}
 		>
-			<h2 className="font-semibold text-lg">Refresh a destination</h2>
+			<h2 className="text-lg font-semibold">Refresh a destination</h2>
 			<div className="grid gap-4 sm:grid-cols-2">
 				<div className="space-y-1 text-sm">
 					<Label htmlFor="previous-lock">Previous lock</Label>

@@ -1,4 +1,4 @@
-const idlePattern = /idle/;
+const idlePattern = /idle/u;
 
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";

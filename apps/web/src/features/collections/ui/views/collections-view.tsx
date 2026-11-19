@@ -80,13 +80,13 @@ function PageHeader({
 				</Link>
 			</div>
 			<header className="space-y-2">
-				<p className="font-mono text-primary text-xs uppercase tracking-[0.16em]">
+				<p className="text-primary font-mono text-xs tracking-[0.16em] uppercase">
 					Asset library / {projectName ?? "Oyun projesi"}
 				</p>
-				<h1 className="font-medium font-serif text-4xl tracking-tight">
+				<h1 className="font-serif text-4xl font-medium tracking-tight">
 					Collections
 				</h1>
-				<p className="max-w-2xl text-muted-foreground">
+				<p className="text-muted-foreground max-w-2xl">
 					Bring Asset Records from different Asset Families together to suit
 					your workflow.
 				</p>

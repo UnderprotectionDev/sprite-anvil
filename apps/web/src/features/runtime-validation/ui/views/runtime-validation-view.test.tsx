@@ -92,8 +92,8 @@ vi.mock("@/utils/orpc", () => ({
 vi.mock("sonner", () => ({ toast: { dismiss: vi.fn(), error: vi.fn() } }));
 
 const recordId = "33333333-3333-4333-8333-333333333333";
-const sourceUnknownBlocksPattern = /Source Unknown blocks any Delivery Target/;
-const revalidationRequiredPattern = /Revalidation Required for this use only/;
+const sourceUnknownBlocksPattern = /Source Unknown blocks any Delivery Target/u;
+const revalidationRequiredPattern = /Revalidation Required for this use only/u;
 
 function record(
 	evidence: unknown[] = [],

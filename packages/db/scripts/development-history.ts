@@ -1,12 +1,11 @@
+import type { AppliedMigration, LocalMigration } from "./migration-policy";
 import {
-	type AppliedMigration,
 	assertLocalIdentities,
 	hasTimestampedIdentity,
-	type LocalMigration,
 } from "./migration-policy";
 import { MigrationSafetyError } from "./migration-safety-error";
 
-const migrationHashPattern = /^[a-f0-9]{64}$/;
+const migrationHashPattern = /^[a-f0-9]{64}$/u;
 
 export interface DevelopmentHistory {
 	/** Shared records whose SQL hash no workspace migration has: other branches own them. */

@@ -1,9 +1,7 @@
 import { expect, test } from "bun:test";
 import { deliverySectionSchemas } from "@sprite-anvil/api/project-archive-delivery";
-import {
-	type DeliveryRows,
-	mapDeliveryRows,
-} from "../project-archive-delivery-reader";
+import type { DeliveryRows } from "../project-archive-delivery-reader";
+import { mapDeliveryRows } from "../project-archive-delivery-reader";
 
 const at = new Date("2026-11-07T09:00:00.000Z");
 const later = new Date("2026-11-08T09:00:00.000Z");

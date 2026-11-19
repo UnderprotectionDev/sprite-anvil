@@ -7,12 +7,12 @@ import {
 	generateMigration,
 } from "drizzle-kit/api-postgres";
 import { sql } from "drizzle-orm";
+import type { PgEnum } from "drizzle-orm/pg-core";
 import {
 	check,
 	foreignKey,
 	index,
 	integer,
-	type PgEnum,
 	pgEnum,
 	pgTable,
 	text,

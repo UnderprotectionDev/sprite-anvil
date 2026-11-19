@@ -14,7 +14,7 @@ const identifierSchema = z
 	.min(1)
 	.max(128)
 	.regex(
-		/^[a-z][a-z0-9._-]*$/,
+		/^[a-z][a-z0-9._-]*$/u,
 		"Use lowercase letters, numbers, periods, underscores, or hyphens."
 	);
 

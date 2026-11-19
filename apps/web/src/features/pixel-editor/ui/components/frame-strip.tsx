@@ -1,7 +1,7 @@
+import type { DragEndEvent } from "@dnd-kit/core";
 import {
 	closestCenter,
 	DndContext,
-	type DragEndEvent,
 	KeyboardSensor,
 	PointerSensor,
 	useSensor,
@@ -72,7 +72,7 @@ function FrameItem({
 			>
 				<img
 					alt=""
-					className="h-16 w-16 bg-muted object-contain [image-rendering:pixelated]"
+					className="bg-muted h-16 w-16 object-contain [image-rendering:pixelated]"
 					height={64}
 					src={frameImageUrl(view, frame)}
 					width={64}
@@ -136,7 +136,7 @@ export function FrameStrip({
 	return (
 		<section aria-label="Frame strip" className="space-y-2">
 			<div className="flex flex-wrap items-center gap-2">
-				<h3 className="font-medium text-sm">Frames</h3>
+				<h3 className="text-sm font-medium">Frames</h3>
 				<Button
 					disabled={disabled}
 					onClick={() => onEdit({ type: "add-blank" })}

@@ -8,7 +8,7 @@ const slugSchema = z
 	.string()
 	.trim()
 	.regex(
-		/^[a-z][a-z0-9_]{0,63}$/,
+		/^[a-z][a-z0-9_]{0,63}$/u,
 		"Use lowercase letters, digits and underscores, starting with a letter."
 	);
 
@@ -59,7 +59,7 @@ export const measurementRatioTermSchema = z
 export const measurementContractVersionSchema = z
 	.string()
 	.trim()
-	.regex(/^\d{1,4}\.\d{1,4}$/, "Use a major.minor contract version.");
+	.regex(/^\d{1,4}\.\d{1,4}$/u, "Use a major.minor contract version.");
 
 /** The fields a user fixes; the server adds the version number, the time source and the activation time. */
 const definitionFields = {

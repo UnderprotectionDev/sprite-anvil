@@ -11,8 +11,8 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { FrameSettingsForm } from "./frame-settings-form";
 
-const fieldLabel = /^Duration \(ms\)/;
-const numberError = /whole numbers/i;
+const fieldLabel = /^Duration \(ms\)/u;
+const numberError = /whole numbers/iu;
 
 afterEach(cleanup);
 

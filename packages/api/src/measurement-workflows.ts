@@ -75,7 +75,7 @@ export const productMeasurementBoundarySchema = z
 		eventName: z
 			.string()
 			.max(64)
-			.regex(/^[a-z0-9_]+$/)
+			.regex(/^[a-z0-9_]+$/u)
 			.optional(),
 		recordKind: z.enum([
 			"generation_package",

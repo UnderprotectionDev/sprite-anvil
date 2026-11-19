@@ -3,10 +3,10 @@ import {
 	assetVersionContentTypeSchema,
 	assetVersionFileNameSchema,
 } from "@sprite-anvil/api/asset-record-tracking";
+import type { CreateAssetVersionIntegrityTransform } from "@sprite-anvil/api/asset-version-integrity";
 import {
 	AssetVersionContentLengthError,
 	AssetVersionIntegrityError,
-	type CreateAssetVersionIntegrityTransform,
 } from "@sprite-anvil/api/asset-version-integrity";
 import type {
 	ReferenceBoardUploadInput,
@@ -28,8 +28,8 @@ const referenceIdSchema = z.uuid();
 const uploadLengthHeader = "x-reference-board-size";
 const fileNameHeader = "x-reference-board-file-name";
 const metadataHeader = "x-reference-board-metadata";
-const uploadLengthPattern = /^[1-9]\d*$/;
-const metadataEncodingPattern = /^[A-Za-z0-9_-]+$/;
+const uploadLengthPattern = /^[1-9]\d*$/u;
+const metadataEncodingPattern = /^[A-Za-z0-9_-]+$/u;
 const maxUploadBytes = 5 * 1024 * 1024;
 
 export interface ReferenceBoardSession {

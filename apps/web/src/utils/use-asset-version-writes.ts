@@ -7,7 +7,8 @@ import type {
 import type { ProviderGenerationRecordCreateInput } from "@sprite-anvil/api/provider-generation-records";
 import { assetVersionProductionSourceHeader } from "@sprite-anvil/api/provider-generation-records";
 import { useMutation } from "@tanstack/react-query";
-import { type SyntheticEvent, useRef, useState } from "react";
+import type { SyntheticEvent } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { ENV } from "@/env";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
@@ -16,7 +17,7 @@ import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
 import { usePendingIdempotencyKey } from "@/utils/pending-idempotency-key";
 
-const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
+const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/u, "") ?? "";
 
 interface RefreshResult {
 	isError: boolean;

@@ -20,11 +20,11 @@ const versionAId = "7bb6f7dc-a09d-4f02-b324-e247081e3974";
 const versionBId = "5d0c6a5b-1c1c-4b0b-9b1b-0a1b2c3d4e5f";
 const unknownId = "11111111-2222-4333-8444-555555555555";
 const timestamp = "2026-09-28T09:00:00.000Z";
-const placeholderMessage = /placeholder/i;
-const fixedValueMessage = /fixed/i;
-const staleMessage = /newer version/i;
-const trialMessage = /trial/i;
-const notFoundMessage = /not found/i;
+const placeholderMessage = /placeholder/iu;
+const fixedValueMessage = /fixed/iu;
+const staleMessage = /newer version/iu;
+const trialMessage = /trial/iu;
+const notFoundMessage = /not found/iu;
 
 const record = {
 	availability: "active",

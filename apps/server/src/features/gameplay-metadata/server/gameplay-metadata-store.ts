@@ -1,7 +1,9 @@
 import { isDeepStrictEqual } from "node:util";
+import type {
+	GameplayMetadataFrame,
+	GameplayMetadataStore,
+} from "@sprite-anvil/api/gameplay-metadata";
 import {
-	type GameplayMetadataFrame,
-	type GameplayMetadataStore,
 	gameplayMetadataCatalogSchema,
 	gameplayMetadataRecordSchema,
 } from "@sprite-anvil/api/gameplay-metadata";
@@ -13,7 +15,8 @@ import {
 	sourceMetadataMappingDecisionSchema,
 	sourceMetadataMappingProposalSchema,
 } from "@sprite-anvil/api/source-metadata-mapping";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
 import { unitVersions } from "@sprite-anvil/db/schema/asset-versions";
 import { gameplayMetadataRecords } from "@sprite-anvil/db/schema/gameplay-metadata";

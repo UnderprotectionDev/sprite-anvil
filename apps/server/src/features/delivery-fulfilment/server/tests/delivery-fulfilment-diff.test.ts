@@ -16,7 +16,7 @@ import {
 	unknownId,
 } from "./fulfilment-test-env";
 
-const sameFulfilmentText = /two different/i;
+const sameFulfilmentText = /two different/iu;
 const notRecordedKeys = [
 	"qualityEvidence",
 	"qualityWaiver",

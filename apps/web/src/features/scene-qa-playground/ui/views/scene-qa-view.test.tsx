@@ -41,7 +41,7 @@ vi.mock("@/utils/orpc", () => ({
 		},
 	},
 }));
-const missingDataPattern = /Import intact image versions/;
+const missingDataPattern = /Import intact image versions/u;
 afterEach(cleanup);
 test("Scene QA Playground explains missing data and keeps evidence saving unavailable", async () => {
 	render(

@@ -1,8 +1,8 @@
-import {
-	type GameplayMetadataRecord,
-	type GameplayMetadataWriteInput,
-	getGameplayMetadataFields,
+import type {
+	GameplayMetadataRecord,
+	GameplayMetadataWriteInput,
 } from "@sprite-anvil/api/gameplay-metadata";
+import { getGameplayMetadataFields } from "@sprite-anvil/api/gameplay-metadata";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
@@ -121,7 +121,7 @@ export function GameplayMetadataPanel({
 
 	return (
 		<section aria-label="Gameplay Metadata" className="space-y-4">
-			<h2 className="font-medium text-xl">Write and Map Gameplay Metadata</h2>
+			<h2 className="text-xl font-medium">Write and Map Gameplay Metadata</h2>
 			{catalogQuery.isPending || contractsQuery.isPending ? (
 				<p>Loading Gameplay Metadata…</p>
 			) : null}
@@ -233,7 +233,7 @@ export function GameplayMetadataPanel({
 								<p>
 									{record.frameKey} — {record.useContext}
 								</p>
-								<p className="break-all text-muted-foreground text-sm">
+								<p className="text-muted-foreground text-sm break-all">
 									Exact version: {record.assetVersionId} · Contract:{" "}
 									{record.contractRevisionId}
 								</p>
@@ -241,7 +241,7 @@ export function GameplayMetadataPanel({
 									{record.fields.map((field) => (
 										<div className="space-y-1" key={field.fieldId}>
 											<dt>{field.fieldId}</dt>
-											<dd className="break-all font-mono text-sm">
+											<dd className="font-mono text-sm break-all">
 												{field.value === null
 													? "Unknown"
 													: JSON.stringify(field.value)}{" "}

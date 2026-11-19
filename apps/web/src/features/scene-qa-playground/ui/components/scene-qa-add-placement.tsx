@@ -1,10 +1,7 @@
 import type { AssetRecord } from "@sprite-anvil/api/asset-records";
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
-import {
-	type SceneQaSetup,
-	sceneQaRoleProfiles,
-	sceneQaRoles,
-} from "@sprite-anvil/api/scene-qa";
+import type { SceneQaSetup } from "@sprite-anvil/api/scene-qa";
+import { sceneQaRoleProfiles, sceneQaRoles } from "@sprite-anvil/api/scene-qa";
 import type { SpecializedProfileContractsListOutput } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";

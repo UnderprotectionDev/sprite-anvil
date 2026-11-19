@@ -104,10 +104,10 @@ export function SpecializedProfileContractsView({
 					Back to Asset Records
 				</Link>
 				<div className="max-w-3xl space-y-2">
-					<p className="font-mono text-primary text-xs uppercase tracking-[0.16em]">
+					<p className="text-primary font-mono text-xs tracking-[0.16em] uppercase">
 						Quality evidence
 					</p>
-					<h1 className="font-semibold text-3xl sm:text-4xl">
+					<h1 className="text-3xl font-semibold sm:text-4xl">
 						{projectQuery.data?.name
 							? `${projectQuery.data.name} · Specialized Profile Contracts`
 							: "Specialized Profile Contracts"}
@@ -171,7 +171,7 @@ export function SpecializedProfileContractsView({
 				>
 					<div className="space-y-1">
 						<h2
-							className="font-semibold text-2xl"
+							className="text-2xl font-semibold"
 							id="specialized-profiles-heading"
 						>
 							Specialized profiles
@@ -189,14 +189,14 @@ export function SpecializedProfileContractsView({
 							description: `${builtinProfileName(definition.profileId, definition.name)}: review the contract and activate it for use in this project.`,
 							content: (
 								<div
-									className="min-w-0 space-y-4 rounded-xl border bg-card p-5 shadow-sm"
+									className="bg-card min-w-0 space-y-4 rounded-xl border p-5 shadow-sm"
 									key={definition.profileId}
 								>
 									<article aria-labelledby={`${definition.profileId}-heading`}>
 										<div className="flex flex-wrap items-start justify-between gap-4">
 											<div className="min-w-0 space-y-1">
 												<h3
-													className="font-semibold text-xl"
+													className="text-xl font-semibold"
 													id={`${definition.profileId}-heading`}
 												>
 													{builtinProfileName(
@@ -209,7 +209,7 @@ export function SpecializedProfileContractsView({
 													{definition.contractSchemaVersion}
 												</p>
 												{activeContract ? (
-													<p className="font-medium text-sm" role="status">
+													<p className="text-sm font-medium" role="status">
 														Active in this project ·{" "}
 														{activeContract.contract.version}
 													</p>
@@ -264,7 +264,7 @@ function ContractDetails({
 }) {
 	return (
 		<details className="border-t pt-3">
-			<summary className="w-fit cursor-pointer rounded-sm font-medium text-sm underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4">
+			<summary className="w-fit cursor-pointer rounded-sm text-sm font-medium underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4">
 				Contract details
 			</summary>
 			<div className="mt-4 grid gap-6 lg:grid-cols-2">
@@ -283,7 +283,7 @@ function ContractDetails({
 									<h5 className="font-medium">
 										{field.label} · {field.required ? "Required" : "Optional"}
 									</h5>
-									<p className="mt-1 text-muted-foreground">
+									<p className="text-muted-foreground mt-1">
 										{field.description}
 									</p>
 									<p className="mt-1">Scope: {field.scope}</p>
@@ -295,14 +295,14 @@ function ContractDetails({
 											? ` · Coordinate system: ${mapping.coordinateSystem}`
 											: ""}
 									</p>
-									<p className="mt-1 text-muted-foreground">
+									<p className="text-muted-foreground mt-1">
 										If missing:{" "}
 										{mapping?.absentBehavior === "stop_export"
 											? "export stops"
 											: "unknown value is preserved"}
 									</p>
 									{mapping ? (
-										<p className="mt-1 text-muted-foreground">
+										<p className="text-muted-foreground mt-1">
 											Reread check: {mapping.readbackCheck}
 										</p>
 									) : null}
@@ -318,7 +318,7 @@ function ContractDetails({
 						{contract.rules.map((rule) => (
 							<li className="rounded-md border p-3 text-sm" key={rule.id}>
 								<h5 className="font-medium">{rule.id}</h5>
-								<p className="mt-1 text-primary">
+								<p className="text-primary mt-1">
 									{ruleClassLabels[rule.class]}
 								</p>
 								<dl className="mt-2 grid gap-1">
@@ -335,7 +335,7 @@ function ContractDetails({
 									<Definition label="Scope" value={rule.scope} />
 									<Definition label="Export effect" value={rule.exportEffect} />
 								</dl>
-								<p className="mt-2 text-muted-foreground">
+								<p className="text-muted-foreground mt-2">
 									Waiver eligibility:{" "}
 									{rule.waiverEligibility ? "allowed" : "none"}
 								</p>
@@ -361,7 +361,7 @@ function Definition({ label, value }: { label: string; value: string }) {
 	return (
 		<div>
 			<dt className="inline font-medium">{label}: </dt>
-			<dd className="inline text-muted-foreground">{value}</dd>
+			<dd className="text-muted-foreground inline">{value}</dd>
 		</div>
 	);
 }

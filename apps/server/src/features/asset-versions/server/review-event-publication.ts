@@ -8,9 +8,9 @@ import {
 	compositeVersionReviewEventSchema,
 } from "@sprite-anvil/api/asset-versions";
 import { recordContentDigest } from "@sprite-anvil/api/record-content-digest";
+import type { RecordScope } from "@sprite-anvil/api/record-publication";
 import {
 	RecordIntegrityError,
-	type RecordScope,
 	RetryablePublicationError,
 	replayPublishedRecord,
 	resolveRecordId,

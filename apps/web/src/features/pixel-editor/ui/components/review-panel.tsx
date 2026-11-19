@@ -32,7 +32,7 @@ export function ReviewPanel({
 	return (
 		<div className="space-y-5">
 			<section aria-label="Difference from the source" className="space-y-1">
-				<h3 className="font-medium text-sm">Source and draft difference</h3>
+				<h3 className="text-sm font-medium">Source and draft difference</h3>
 				<p className="text-sm">
 					{diff.changedPixelCount} changed pixels
 					{diff.sizeChanged ? " (canvas size changed)" : ""}
@@ -45,13 +45,13 @@ export function ReviewPanel({
 			</section>
 
 			<section aria-label="Palette" className="space-y-2">
-				<h3 className="font-medium text-sm">Colours in use</h3>
+				<h3 className="text-sm font-medium">Colours in use</h3>
 				<p className="text-muted-foreground text-xs">
 					No project palette record exists yet, so the palette is the set of
 					colours in the source image.
 				</p>
 				{draft.outOfPaletteColors.length > 0 ? (
-					<p className="font-medium text-destructive text-sm" role="status">
+					<p className="text-destructive text-sm font-medium" role="status">
 						{draft.outOfPaletteColors.length} out-of-palette{" "}
 						{draft.outOfPaletteColors.length === 1 ? "colour" : "colours"} ·{" "}
 						{draft.outOfPaletteColors.reduce(

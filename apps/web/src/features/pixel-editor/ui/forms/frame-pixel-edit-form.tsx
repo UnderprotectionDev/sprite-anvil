@@ -75,7 +75,7 @@ export function FramePixelEditForm({
 				form.handleSubmit();
 			}}
 		>
-			<p className="font-medium text-sm">
+			<p className="text-sm font-medium">
 				Correct pixels of frame #{frame.index + 1}
 			</p>
 			<p className="text-muted-foreground text-xs">

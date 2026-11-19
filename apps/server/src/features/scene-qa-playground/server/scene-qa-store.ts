@@ -1,10 +1,11 @@
 import { isDeepStrictEqual } from "node:util";
+import type { SceneQaStore } from "@sprite-anvil/api/scene-qa";
 import {
-	type SceneQaStore,
 	sceneQaRecordSchema,
 	sceneQaRoleProfiles,
 } from "@sprite-anvil/api/scene-qa";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
 import { assetVersions } from "@sprite-anvil/db/schema/asset-versions";
 import { sceneQaPlaygrounds } from "@sprite-anvil/db/schema/scene-qa";

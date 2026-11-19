@@ -30,7 +30,7 @@ export function DeliveryTargetScope({ scope }: { scope: Scope }) {
 	);
 	return (
 		<div className="space-y-4">
-			<p className="font-medium text-sm">
+			<p className="text-sm font-medium">
 				Context Revision {scope.contextRevisionNumber}
 			</p>
 			<ul aria-label="Pinned Asset Families" className="space-y-3">

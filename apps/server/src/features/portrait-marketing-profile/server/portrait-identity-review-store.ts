@@ -1,9 +1,8 @@
 import { isDeepStrictEqual } from "node:util";
-import {
-	type PortraitIdentityReviewStore,
-	portraitIdentityReviewRecordSchema,
-} from "@sprite-anvil/api/portrait-identity-reviews";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { PortraitIdentityReviewStore } from "@sprite-anvil/api/portrait-identity-reviews";
+import { portraitIdentityReviewRecordSchema } from "@sprite-anvil/api/portrait-identity-reviews";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import {
 	assetFamilies,
 	assetRecords,

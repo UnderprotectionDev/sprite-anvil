@@ -11,9 +11,9 @@ import {
 import { afterEach, expect, test, vi } from "vitest";
 import { ProjectArchivesView } from "./project-archives-view";
 
-const pendingOperationLabel = /Background Operation: pending/;
-const heroFileLabel = /hero\.aseprite/;
-const unavailableFileLabel = /missing\.aseprite/;
+const pendingOperationLabel = /Background Operation: pending/u;
+const heroFileLabel = /hero\.aseprite/u;
+const unavailableFileLabel = /missing\.aseprite/u;
 const download = vi.hoisted(() => vi.fn());
 vi.mock("../../lib/download-project-archive", () => ({
 	downloadProjectArchive: download,

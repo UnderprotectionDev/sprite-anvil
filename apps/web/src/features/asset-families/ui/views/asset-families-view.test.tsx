@@ -25,7 +25,7 @@ const fakeApi = vi.hoisted(() => ({
 		definition: { profileId: string };
 	}[],
 }));
-const projectNamePattern = /Forest Quest/;
+const projectNamePattern = /Forest Quest/u;
 
 vi.mock("sonner", () => ({
 	toast: { dismiss: vi.fn(), error: errorToast },

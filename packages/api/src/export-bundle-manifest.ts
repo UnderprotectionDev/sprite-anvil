@@ -7,9 +7,9 @@
  * profile revision give the same manifest and checksums.
  */
 import { z } from "zod";
+import type { ExportBundleEngineData } from "./export-bundle-engine-data";
 import {
 	canonicalizeExportBundleEngineData,
-	type ExportBundleEngineData,
 	emptyExportBundleEngineData,
 	exportBundleEngineDataSchema,
 } from "./export-bundle-engine-data";
@@ -28,8 +28,8 @@ export const exportBundleDataStructureVersion = "1.0.0";
 export const exportBundleManifestPath = "manifest.json";
 export const exportBundleChecksumsPath = "checksums.txt";
 
-export const sha256Schema = z.string().regex(/^[0-9a-f]{64}$/);
-const versionSchema = z.string().regex(/^\d+\.\d+\.\d+$/);
+export const sha256Schema = z.string().regex(/^[0-9a-f]{64}$/u);
+const versionSchema = z.string().regex(/^\d+\.\d+\.\d+$/u);
 const idSchema = z.string().min(1);
 const versionTargetSchema = z
 	.object({ id: idSchema, kind: z.enum(["unit", "composite"]) })
@@ -312,7 +312,7 @@ export type ExportBundleBuildResult =
 	| { ok: false; reason: "selection_unavailable"; assetVersionIds: string[] };
 
 const namingPlaceholders = ["family", "item", "version"] as const;
-const placeholderPattern = /\{([^{}]*)\}/g;
+const placeholderPattern = /\{([^{}]*)\}/gu;
 
 /** The major number of a `major.minor.patch` contract version. */
 export function exportBundleContractMajorOf(version: string): number {
@@ -344,8 +344,8 @@ function slug(value: string): string {
 	return (
 		value
 			.toLowerCase()
-			.replace(/[^a-z0-9_-]+/g, "-")
-			.replace(/^-+|-+$/g, "") || "item"
+			.replace(/[^a-z0-9_-]+/gu, "-")
+			.replace(/^-+|-+$/gu, "") || "item"
 	);
 }
 

@@ -1,7 +1,5 @@
-import {
-	type AssetRecordSearchInput,
-	assetRecordCategoryValues,
-} from "@sprite-anvil/api/asset-records";
+import type { AssetRecordSearchInput } from "@sprite-anvil/api/asset-records";
+import { assetRecordCategoryValues } from "@sprite-anvil/api/asset-records";
 import type { ProjectContextScopeCatalog } from "@sprite-anvil/api/context-scopes";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
@@ -13,12 +11,11 @@ import {
 import { WindowVirtualList } from "@sprite-anvil/ui/components/window-virtual-list";
 import { useForm, useStore } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
-import { type ReactNode, useState } from "react";
+import type { ReactNode } from "react";
+import { useState } from "react";
 import { StatusMessage } from "@/components/status-message";
-import {
-	type AssetRecordSearchDraft,
-	assetRecordSearchDraftSchema,
-} from "@/features/asset-discovery/schemas";
+import type { AssetRecordSearchDraft } from "@/features/asset-discovery/schemas";
+import { assetRecordSearchDraftSchema } from "@/features/asset-discovery/schemas";
 import {
 	assetCategoryLabels,
 	assetRecordAvailabilityLabels,
@@ -168,7 +165,7 @@ export function AssetRecordSearchPanel({
 		resultsView = (
 			<div>
 				<p
-					className="rounded-lg border border-dashed p-4 text-muted-foreground"
+					className="text-muted-foreground rounded-lg border border-dashed p-4"
 					role="status"
 				>
 					{hasActiveFilters
@@ -299,10 +296,10 @@ export function AssetRecordSearchPanel({
 			className="space-y-4 rounded-lg border p-5"
 		>
 			<div>
-				<h2 className="font-semibold text-xl" id="asset-record-search-heading">
+				<h2 className="text-xl font-semibold" id="asset-record-search-heading">
 					Search Asset Records
 				</h2>
-				<p className="mt-1 text-muted-foreground text-sm">
+				<p className="text-muted-foreground mt-1 text-sm">
 					Dimension search checks immutable versions of the same record and
 					shows matching versions.
 				</p>
@@ -357,7 +354,7 @@ export function AssetRecordSearchPanel({
 					)}
 				</form.Field>
 				<details className="rounded-md border p-3 sm:col-span-2">
-					<summary className="cursor-pointer font-medium text-sm">
+					<summary className="cursor-pointer text-sm font-medium">
 						More filters
 					</summary>
 					<div className="mt-3 grid gap-3 sm:grid-cols-2">

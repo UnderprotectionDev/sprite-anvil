@@ -27,7 +27,7 @@ const coordinateSchema = z
 
 export const pixelColorSchema = z
 	.string()
-	.regex(/^#[0-9a-f]{8}$/, "Use a lowercase #rrggbbaa colour");
+	.regex(/^#[0-9a-f]{8}$/u, "Use a lowercase #rrggbbaa colour");
 
 export const pixelPointSchema = z
 	.object({ x: coordinateSchema, y: coordinateSchema })

@@ -25,9 +25,9 @@ const kitReadmePath = `${kitPrefix}README.md`;
 const kitChecksumsPath = `${kitPrefix}checksums.txt`;
 const kitSchemaPath = `${kitPrefix}schema/manifest.schema.json`;
 const kitVerifierPath = `${kitPrefix}verify.ts`;
-const kitExamplePattern = /^verification-kit\/examples\/[^/]+\.json$/;
-const driveLetterUrlPrefix = /^\/([A-Za-z]:)/;
-const leadingSeparators = /^[\\\\/]+/;
+const kitExamplePattern = /^verification-kit\/examples\/[^/]+\.json$/u;
+const driveLetterUrlPrefix = /^\/([A-Za-z]:)/u;
+const leadingSeparators = /^[\\\\/]+/u;
 const forbiddenExampleKeys = [
 	"command",
 	"exec",
@@ -1525,7 +1525,7 @@ function checkRecordLinks(manifest: JsonObject & Manifest): Failure[] {
 }
 
 const versionLinePattern =
-	/^(Manifest contract version|Profile contract version|Kit contract version): (\d+\.\d+\.\d+)$/gm;
+	/^(Manifest contract version|Profile contract version|Kit contract version): (\d+\.\d+\.\d+)$/gmu;
 
 function readmeVersions(readme: string): Map<string, string> {
 	const found = new Map<string, string>();

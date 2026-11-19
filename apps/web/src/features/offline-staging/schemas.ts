@@ -8,8 +8,8 @@ export const cachedProjectSchema = z.looseObject({
 
 export type CachedProject = z.infer<typeof cachedProjectSchema>;
 
-const wholeNumberPattern = /^\d+$/;
-const hexColorPattern = /^#[0-9a-f]{6}$/i;
+const wholeNumberPattern = /^\d+$/u;
+const hexColorPattern = /^#[0-9a-f]{6}$/iu;
 
 function coordinate(label: string, max: number) {
 	return z

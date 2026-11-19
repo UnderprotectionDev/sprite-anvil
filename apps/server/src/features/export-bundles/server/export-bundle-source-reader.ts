@@ -16,10 +16,8 @@ import type {
 import type { ProjectContextStore } from "@sprite-anvil/api/project-context";
 import { recordContentDigest } from "@sprite-anvil/api/record-content-digest";
 import type { RightsRecordStore } from "@sprite-anvil/api/rights-records";
-import {
-	type ExportBundleEngineDataDependencies,
-	readExportBundleEngineData,
-} from "./export-bundle-engine-data-reader";
+import type { ExportBundleEngineDataDependencies } from "./export-bundle-engine-data-reader";
+import { readExportBundleEngineData } from "./export-bundle-engine-data-reader";
 
 export interface ExportBundleSourceReaderDependencies
 	extends ExportBundleEngineDataDependencies {

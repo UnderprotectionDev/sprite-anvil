@@ -3,8 +3,8 @@ import type {
 	MeasurementEventRejectionReason,
 	MeasurementEventStore,
 } from "@sprite-anvil/api/measurement-event-store";
+import type { MeasurementEvent } from "@sprite-anvil/api/measurement-events";
 import {
-	type MeasurementEvent,
 	measurementEventRecordInputSchema,
 	measurementEventSchema,
 	measurementEventVersion,
@@ -15,7 +15,8 @@ import type {
 	StoredMeasurementEvent,
 } from "./measurement-event-storage";
 import type { Pseudonymize } from "./measurement-pseudonymize";
-import { createScopeCheck, type ScopeViolation } from "./measurement-scope";
+import type { ScopeViolation } from "./measurement-scope";
+import { createScopeCheck } from "./measurement-scope";
 
 export interface MeasurementEventStoreOptions {
 	definitionStorage: MeasurementDefinitionStorage;

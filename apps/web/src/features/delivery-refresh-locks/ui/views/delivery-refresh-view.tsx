@@ -5,7 +5,7 @@ export function DeliveryRefreshView({ projectId }: { projectId: string }) {
 	return (
 		<main className="mx-auto w-full max-w-3xl space-y-10 px-4 py-8">
 			<header className="space-y-2">
-				<h1 className="font-semibold text-2xl">Delivery Refresh</h1>
+				<h1 className="text-2xl font-semibold">Delivery Refresh</h1>
 				<p className="text-muted-foreground text-sm">
 					Deliver an Export Bundle to a destination folder, then refresh it from
 					a new bundle. Only files the previous Delivery Refresh Lock owns are

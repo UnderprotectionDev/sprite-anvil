@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { sha256Schema } from "./export-bundle-manifest";
 
-const windowsDrivePattern = /^[a-zA-Z]:/;
+const windowsDrivePattern = /^[a-zA-Z]:/u;
 
 /** A relative, forward-slash path inside the delivery destination; never absolute and never leaving it. */
 export const deliveryRelativePathSchema = z

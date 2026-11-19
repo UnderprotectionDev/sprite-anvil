@@ -8,13 +8,13 @@ const itemKeySchema = z
 	.trim()
 	.min(1)
 	.max(100)
-	.regex(/^[a-z][a-z0-9._-]*$/);
+	.regex(/^[a-z][a-z0-9._-]*$/u);
 const qualityRuleIdSchema = z
 	.string()
 	.trim()
 	.min(1)
 	.max(120)
-	.regex(/^[a-z][a-z0-9._-]*$/);
+	.regex(/^[a-z][a-z0-9._-]*$/u);
 const evidenceResultSchema = z.enum([
 	"passed",
 	"failed",

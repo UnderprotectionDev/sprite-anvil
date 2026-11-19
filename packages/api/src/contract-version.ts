@@ -3,7 +3,7 @@ export type ContractVersionSupport =
 	| { status: "unsupported_major"; major: number }
 	| { status: "malformed" };
 
-const digitsPattern = /^\d+$/;
+const digitsPattern = /^\d+$/u;
 
 /**
  * Whether a build can read a record written under `version`, a full

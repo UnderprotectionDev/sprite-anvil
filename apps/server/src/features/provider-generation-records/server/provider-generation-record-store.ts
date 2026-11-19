@@ -9,7 +9,8 @@ import {
 	providerGenerationParameterSnapshotSchemaVersion,
 	providerGenerationRecordSchema,
 } from "@sprite-anvil/api/provider-generation-records";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import { assetVersions } from "@sprite-anvil/db/schema/asset-versions";
 import { providerGenerationRecords } from "@sprite-anvil/db/schema/provider-generation-records";
 import { and, asc, eq } from "drizzle-orm";

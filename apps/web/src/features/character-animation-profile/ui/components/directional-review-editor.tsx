@@ -1,9 +1,9 @@
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
-import {
-	type DirectionalReviewInput,
-	type directionalReviewCriteria,
-	directionalReviewInputSchema,
+import type {
+	DirectionalReviewInput,
+	directionalReviewCriteria,
 } from "@sprite-anvil/api/directional-reviews";
+import { directionalReviewInputSchema } from "@sprite-anvil/api/directional-reviews";
 import type { SpecializedProfileContract } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Checkbox } from "@sprite-anvil/ui/components/checkbox";

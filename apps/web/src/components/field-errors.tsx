@@ -37,7 +37,7 @@ export function FieldErrors({
 	}
 	return (
 		<ul
-			className="space-y-1 text-destructive text-sm"
+			className="text-destructive space-y-1 text-sm"
 			id={errorListId(fieldId)}
 			role="alert"
 		>

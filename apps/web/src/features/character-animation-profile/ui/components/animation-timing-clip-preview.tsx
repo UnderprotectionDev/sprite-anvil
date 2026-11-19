@@ -1,13 +1,14 @@
 import type { AnimationTimingReviewFrame } from "@sprite-anvil/api/animation-timing-reviews";
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
 import type { GameplayMetadataRecord } from "@sprite-anvil/api/gameplay-metadata";
-import { type RefObject, useEffect, useRef, useState } from "react";
+import type { RefObject } from "react";
+import { useEffect, useRef, useState } from "react";
 import { StatusMessage } from "@/components/status-message";
 import { ENV } from "@/env";
 import { displayedPoint } from "../../lib/spatial-frame-geometry";
 import type { AnimationTimingMetadataStatus } from "./animation-timing-event-timeline";
 
-const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
+const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/u, "") ?? "";
 
 function getRegion(image: HTMLImageElement, frame: AnimationTimingReviewFrame) {
 	return (
@@ -617,7 +618,7 @@ export function AnimationTimingClipPreview({
 				{currentFrame?.motionPhase ? ` · ${currentFrame.motionPhase}` : ""}
 			</figcaption>
 			<div
-				className="overflow-auto border bg-muted p-2"
+				className="bg-muted overflow-auto border p-2"
 				style={{ maxHeight: 420 }}
 			>
 				<div

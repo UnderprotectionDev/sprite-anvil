@@ -1,8 +1,8 @@
-import {
-	type ErasureImpactReport,
-	type ErasureImpactScope,
-	erasureImpactDigest,
+import type {
+	ErasureImpactReport,
+	ErasureImpactScope,
 } from "@sprite-anvil/api/permanent-erasure";
+import { erasureImpactDigest } from "@sprite-anvil/api/permanent-erasure";
 import { buildErasureImpactScope } from "@sprite-anvil/api/permanent-erasure-scope";
 import type {
 	ErasureImpactSourceReader,

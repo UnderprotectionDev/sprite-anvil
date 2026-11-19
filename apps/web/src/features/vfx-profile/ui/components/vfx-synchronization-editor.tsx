@@ -1,9 +1,7 @@
 import type { AssetVersionCatalog } from "@sprite-anvil/api/asset-versions";
 import type { ReadinessEvidence } from "@sprite-anvil/api/family-readiness";
-import {
-	type VfxSynchronizationInput,
-	vfxBackgrounds,
-} from "@sprite-anvil/api/vfx-synchronization";
+import type { VfxSynchronizationInput } from "@sprite-anvil/api/vfx-synchronization";
+import { vfxBackgrounds } from "@sprite-anvil/api/vfx-synchronization";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Checkbox } from "@sprite-anvil/ui/components/checkbox";
 import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";

@@ -1,7 +1,7 @@
 import { supportReferenceSchema } from "@sprite-anvil/api/error-contract";
 import { ENV } from "@/env";
 
-const trailingSlashPattern = /\/$/;
+const trailingSlashPattern = /\/$/u;
 
 function importInboxBaseUrl(projectId: string) {
 	const serverUrl = ENV.VITE_SERVER_URL.replace(trailingSlashPattern, "");

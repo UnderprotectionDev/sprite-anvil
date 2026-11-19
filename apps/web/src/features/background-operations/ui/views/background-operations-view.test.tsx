@@ -9,8 +9,8 @@ import { createQueryClient } from "@/utils/query-client";
 import { BackgroundOperationsView } from "./background-operations-view";
 
 const projectId = "project-operations";
-const cancelButton = /^Cancel Export/;
-const triggerAndAttempt = /Requested from the export panel · Attempt 1 of 3/;
+const cancelButton = /^Cancel Export/u;
+const triggerAndAttempt = /Requested from the export panel · Attempt 1 of 3/u;
 
 function operation(overrides: Record<string, unknown>) {
 	return {

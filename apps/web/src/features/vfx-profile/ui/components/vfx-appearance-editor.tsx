@@ -1,7 +1,7 @@
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
+import type { VfxAppearanceInput } from "@sprite-anvil/api/vfx-appearance-reviews";
 import {
 	measureVfxOverflow,
-	type VfxAppearanceInput,
 	vfxAppearanceFrameSchema,
 } from "@sprite-anvil/api/vfx-appearance-reviews";
 import { Button } from "@sprite-anvil/ui/components/button";

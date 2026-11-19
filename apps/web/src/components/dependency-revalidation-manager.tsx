@@ -221,7 +221,7 @@ export function DependencyRevalidationManager({
 			aria-labelledby={`${identifier}-heading`}
 			className="space-y-5 rounded-lg border p-5"
 		>
-			<h2 className="font-semibold text-2xl" id={`${identifier}-heading`}>
+			<h2 className="text-2xl font-semibold" id={`${identifier}-heading`}>
 				Determine Change Impact
 			</h2>
 			<p className="text-muted-foreground text-sm">

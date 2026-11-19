@@ -73,8 +73,8 @@ function slug(value: string): string {
 	return (
 		value
 			.toLowerCase()
-			.replace(/[^a-z0-9_-]+/g, "-")
-			.replace(/^-+|-+$/g, "") || "item"
+			.replace(/[^a-z0-9_-]+/gu, "-")
+			.replace(/^-+|-+$/gu, "") || "item"
 	);
 }
 
@@ -126,7 +126,7 @@ function rect2(region: Region): string {
 	return `Rect2(${region.x}, ${region.y}, ${region.width}, ${region.height})`;
 }
 
-const imagesPrefix = /^images\//;
+const imagesPrefix = /^images\//u;
 
 function texturePath(manifestPath: string): string {
 	return `${godotOutputRoot}/textures/${manifestPath.replace(imagesPrefix, "")}`;

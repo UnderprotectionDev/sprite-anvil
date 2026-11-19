@@ -15,7 +15,7 @@ import { createHistoricalRiskNoticeStore } from "../historical-risk-notice-store
 import { withHistoricalRiskDetection } from "../rights-record-risk-detection";
 import { createMemoryHistoricalRiskNoticeStorage } from "./memory-historical-risk-notice-storage";
 
-const notFoundText = /not found/i;
+const notFoundText = /not found/iu;
 const userId = "user-1";
 const projectId = "7a1f0f0e-8f4e-4c36-9a53-0b0b6a2f2a01";
 const otherProjectId = "7a1f0f0e-8f4e-4c36-9a53-0b0b6a2f2a02";

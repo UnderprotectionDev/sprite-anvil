@@ -1,10 +1,8 @@
 import { expect, test } from "bun:test";
 import { deflateSync } from "node:zlib";
 import { call } from "@orpc/server";
-import {
-	type UnitVersionType,
-	unitVersionCorrectionUploadResponseSchema,
-} from "@sprite-anvil/api/asset-versions";
+import type { UnitVersionType } from "@sprite-anvil/api/asset-versions";
+import { unitVersionCorrectionUploadResponseSchema } from "@sprite-anvil/api/asset-versions";
 import type { Context } from "@sprite-anvil/api/context";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { createDb, getProjectForUser } from "@sprite-anvil/db";
@@ -27,7 +25,7 @@ import { createProviderGenerationRecordStore } from "./features/provider-generat
 import { createProjectContextScopeStore } from "./features/visual-worlds/server/project-context-scope-store";
 
 const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
-const sha256Pattern = /^[0-9a-f]{64}$/;
+const sha256Pattern = /^[0-9a-f]{64}$/u;
 
 function pngChunk(type: string, data: Buffer) {
 	const typeBytes = Buffer.from(type, "ascii");

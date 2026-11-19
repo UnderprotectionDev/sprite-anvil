@@ -1,9 +1,8 @@
 import { isDeepStrictEqual } from "node:util";
-import {
-	type UiStretchTestStore,
-	uiStretchTestRecordSchema,
-} from "@sprite-anvil/api/ui-stretch-tests";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { UiStretchTestStore } from "@sprite-anvil/api/ui-stretch-tests";
+import { uiStretchTestRecordSchema } from "@sprite-anvil/api/ui-stretch-tests";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import {
 	assetFamilies,
 	assetRecords,

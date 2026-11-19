@@ -27,17 +27,17 @@ const fakeApi = vi.hoisted(() => ({
 	listProposals: vi.fn(),
 	createProposal: vi.fn(),
 }));
-const unresolvedStatusPattern = /Awaiting linking/;
-const uncertainUploadPattern = /Could not verify the upload result/;
-const supportReferencePattern = /Support reference:/;
-const opaqueSidecarPattern = /opaque-sidecar/;
-const textureMetadataPattern = /texture-metadata/;
-const pivotProposalPattern = /Pivot · walk\.png/;
-const pivotDecisionPattern = /Pivot · walk.png/;
-const halfPivotPattern = /0\.5/;
-const quarterPivotPattern = /0\.25/;
+const unresolvedStatusPattern = /Awaiting linking/u;
+const uncertainUploadPattern = /Could not verify the upload result/u;
+const supportReferencePattern = /Support reference:/u;
+const opaqueSidecarPattern = /opaque-sidecar/u;
+const textureMetadataPattern = /texture-metadata/u;
+const pivotProposalPattern = /Pivot · walk\.png/u;
+const pivotDecisionPattern = /Pivot · walk.png/u;
+const halfPivotPattern = /0\.5/u;
+const quarterPivotPattern = /0\.25/u;
 const changedPivotValuesPattern =
-	/Changed: Pivot · walk\.png · .*"x":0\.5.* → .*"x":0\.75/;
+	/Changed: Pivot · walk\.png · .*"x":0\.5.* → .*"x":0\.75/u;
 
 vi.mock("@/utils/orpc", async () => {
 	const { createTanstackQueryUtils } = await import("@orpc/tanstack-query");

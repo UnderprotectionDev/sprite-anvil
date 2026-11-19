@@ -1,17 +1,21 @@
 import { z } from "zod";
 import type { AssetRecordStore } from "./asset-records";
-import {
-	type AssetVersionStore,
-	type CompositeVersion,
-	type CompositionMembership,
-	compositionMembershipSchema,
-	type UnitVersion,
-	unitVersionSchema,
+import type {
+	AssetVersionStore,
+	CompositeVersion,
+	CompositionMembership,
+	UnitVersion,
 } from "./asset-versions";
 import {
-	type GameplayMetadataFrame,
-	type GameplayMetadataRecord,
-	type GameplayMetadataStore,
+	compositionMembershipSchema,
+	unitVersionSchema,
+} from "./asset-versions";
+import type {
+	GameplayMetadataFrame,
+	GameplayMetadataRecord,
+	GameplayMetadataStore,
+} from "./gameplay-metadata";
+import {
 	gameplayMetadataFrameSchema,
 	gameplayMetadataRecordSchema,
 } from "./gameplay-metadata";
@@ -41,7 +45,7 @@ export const animationMetadataAssetVersionPinSchema = z
 		contentLength: z.number().int().positive(),
 		contentDigest: z
 			.string()
-			.regex(/^[0-9a-f]{64}$/)
+			.regex(/^[0-9a-f]{64}$/u)
 			.nullable(),
 		integrityVerified: z.boolean(),
 	})
@@ -77,7 +81,7 @@ const payloadSchema = animationMetadataPackageTargetSchema
 
 export const animationMetadataPackageSchema = payloadSchema
 	.extend({
-		contentDigest: z.string().regex(/^[0-9a-f]{64}$/),
+		contentDigest: z.string().regex(/^[0-9a-f]{64}$/u),
 	})
 	.strict()
 	.refine(

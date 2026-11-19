@@ -1,9 +1,8 @@
 import { isDeepStrictEqual } from "node:util";
-import {
-	type AssetFamilyComparisonStore,
-	assetFamilyComparisonRecordSchema,
-} from "@sprite-anvil/api/asset-family-comparisons";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { AssetFamilyComparisonStore } from "@sprite-anvil/api/asset-family-comparisons";
+import { assetFamilyComparisonRecordSchema } from "@sprite-anvil/api/asset-family-comparisons";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import { assetFamilyComparisons } from "@sprite-anvil/db/schema/asset-family-comparisons";
 import {
 	assetFamilies,

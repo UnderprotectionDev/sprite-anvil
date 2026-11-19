@@ -22,10 +22,12 @@ import {
 	requiredSetItemSchema,
 	requiredSetRevisionSchema,
 } from "@sprite-anvil/api/family-readiness";
+import type {
+	ProfileContractSnapshot,
+	ProjectProfileContracts,
+} from "@sprite-anvil/api/profile-contract-scope";
 import {
 	areContractPinsCompatible,
-	type ProfileContractSnapshot,
-	type ProjectProfileContracts,
 	readProjectProfileContracts,
 } from "@sprite-anvil/api/profile-contract-scope";
 import {
@@ -41,7 +43,8 @@ import {
 	isProfileQualityEvidenceValid,
 	specializedProfileIdSchema,
 } from "@sprite-anvil/api/specialized-profile-contracts";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import { assetFamilyCanonicalDesigns } from "@sprite-anvil/db/schema/asset-families";
 import {
 	assetFamilies,

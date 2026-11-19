@@ -1,11 +1,11 @@
 import type { ErasureContainerRef } from "@sprite-anvil/api/permanent-erasure";
-import {
-	type ErasureDeletionStorage,
-	ErasureScopeChangedError,
-	type ErasureTombstoneRow,
-	type StoredDeletionReceipt,
-	type StoredErasureApproval,
+import type {
+	ErasureDeletionStorage,
+	ErasureTombstoneRow,
+	StoredDeletionReceipt,
+	StoredErasureApproval,
 } from "../erasure-deletion-storage";
+import { ErasureScopeChangedError } from "../erasure-deletion-storage";
 
 /** What the database holds for the asset at the moment finalize re-checks it. */
 export interface LiveErasureScope {

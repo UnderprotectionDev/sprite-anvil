@@ -15,14 +15,14 @@ const draftId = "44444444-4444-4444-8444-444444444444";
 const bundleA = "55555555-5555-4555-8555-555555555551";
 const bundleB = "55555555-5555-4555-8555-555555555552";
 
-const noticeTitle = /Rights Record revision 2 \(Restricted\)/;
-const notDelivered = /A mapping draft is not a Delivery Fulfilment/;
-const readyNotDelivered = /Ready does not mean delivered/;
-const mustBeReady = /Only a Ready Delivery Target/;
-const oneConflict = /1 conflict/;
-const oneMissing = /1 missing/;
-const picksUser = /only you pick/i;
-const noActiveRevisionText = /has no activated revision/;
+const noticeTitle = /Rights Record revision 2 \(Restricted\)/u;
+const notDelivered = /A mapping draft is not a Delivery Fulfilment/u;
+const readyNotDelivered = /Ready does not mean delivered/u;
+const mustBeReady = /Only a Ready Delivery Target/u;
+const oneConflict = /1 conflict/u;
+const oneMissing = /1 missing/u;
+const picksUser = /only you pick/iu;
+const noActiveRevisionText = /has no activated revision/u;
 
 const fakeApi = vi.hoisted(() => ({
 	drafts: [] as unknown[],
@@ -296,10 +296,10 @@ const conflictOnlyDraft = {
 	requirements: draft.requirements.filter((entry) => entry.itemId !== "jump"),
 };
 
-const cannotFinalize = /cannot be finalized while 1 requirement is missing/;
-const pickBundle = /Pick an Export Bundle/;
-const noFulfilment = /No Delivery Fulfilment exists/;
-const staleRevision = /no longer the active revision/;
+const cannotFinalize = /cannot be finalized while 1 requirement is missing/u;
+const pickBundle = /Pick an Export Bundle/u;
+const noFulfilment = /No Delivery Fulfilment exists/u;
+const staleRevision = /no longer the active revision/u;
 
 function fulfilmentRecord(id: string, createdAt: string, isCurrent: boolean) {
 	return {

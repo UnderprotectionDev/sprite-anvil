@@ -17,16 +17,16 @@ import { ReadinessPlanView } from "./readiness-plan-view";
 const projectId = "11111111-1111-4111-8111-111111111111";
 const targetId = "22222222-2222-4222-8222-222222222222";
 const revisionId = "33333333-3333-4333-8333-333333333333";
-const oneWaiting = /1 version waiting for revalidation/;
-const twoAtRisk = /2 derivative versions at risk/;
-const nothingStarts = /Nothing starts automatically/;
-const paletteLimit = /Palette limit/;
-const readyNotDelivered = /Ready does not mean delivered/;
-const targetReadinessText = /Target Readiness/;
-const unlocksOne = /Unlocks 1 dependent work item/;
-const scoreText = /score/i;
+const oneWaiting = /1 version waiting for revalidation/u;
+const twoAtRisk = /2 derivative versions at risk/u;
+const nothingStarts = /Nothing starts automatically/u;
+const paletteLimit = /Palette limit/u;
+const readyNotDelivered = /Ready does not mean delivered/u;
+const targetReadinessText = /Target Readiness/u;
+const unlocksOne = /Unlocks 1 dependent work item/u;
+const scoreText = /score/iu;
 const noActiveRevisionText =
-	/has no activated revision, so it has no Readiness Plan yet/;
+	/has no activated revision, so it has no Readiness Plan yet/u;
 
 const fakeApi = vi.hoisted(() => ({
 	catalog: null as unknown,

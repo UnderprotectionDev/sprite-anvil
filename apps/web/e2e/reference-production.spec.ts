@@ -8,7 +8,7 @@ import {
 	signUpWithFixture,
 } from "./project-workflow";
 
-const identityCheckboxName = /Independent product meaning/;
+const identityCheckboxName = /Independent product meaning/u;
 
 test("persists reference transfer constraints through the web flow", async ({
 	page,

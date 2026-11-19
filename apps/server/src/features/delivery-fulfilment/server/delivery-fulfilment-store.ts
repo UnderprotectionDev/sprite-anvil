@@ -15,9 +15,9 @@ import {
 	RecordIntegrityError,
 } from "@sprite-anvil/api/record-publication";
 import { diffFulfilments } from "./delivery-diff";
+import type { DeliveryEvidenceDependencies } from "./delivery-evidence-diff";
 import {
 	compareDeliveryEvidence,
-	type DeliveryEvidenceDependencies,
 	readDeliveryEvidence,
 } from "./delivery-evidence-diff";
 import type {

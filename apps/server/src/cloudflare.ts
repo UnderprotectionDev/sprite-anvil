@@ -87,7 +87,7 @@ export const managedSnapshotObjectKeySchema = z
 
 export const legacyAssetKeySchema = z
 	.string()
-	.regex(/^users\/[a-zA-Z0-9-]+\/[a-zA-Z0-9-]+\.(png|webp)$/);
+	.regex(/^users\/[a-zA-Z0-9-]+\/[a-zA-Z0-9-]+\.(png|webp)$/u);
 
 export function createProjectTwoDVisualAssetKey(
 	projectId: string,

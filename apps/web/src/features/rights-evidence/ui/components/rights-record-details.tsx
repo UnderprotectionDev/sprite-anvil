@@ -25,7 +25,7 @@ export function RightsRecordDetails({
 			/>
 			{record.evidenceFile ? (
 				<div>
-					<dt className="font-medium text-sm">Evidence file</dt>
+					<dt className="text-sm font-medium">Evidence file</dt>
 					<dd className="mt-1 text-sm">
 						{record.evidenceFile.availability === "excluded" ? (
 							<span>
@@ -62,8 +62,8 @@ function HistoryField({
 }) {
 	return (
 		<div>
-			<dt className="font-medium text-sm">{label}</dt>
-			<dd className="mt-1 whitespace-pre-wrap break-words text-muted-foreground text-sm">
+			<dt className="text-sm font-medium">{label}</dt>
+			<dd className="text-muted-foreground mt-1 text-sm break-words whitespace-pre-wrap">
 				{value || "Belirtilmedi"}
 			</dd>
 		</div>

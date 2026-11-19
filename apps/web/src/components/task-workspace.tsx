@@ -1,5 +1,6 @@
 import { Button } from "@sprite-anvil/ui/components/button";
-import { type ReactNode, useId, useState } from "react";
+import type { ReactNode } from "react";
+import { useId, useState } from "react";
 
 export interface TaskSection {
 	content: ReactNode;
@@ -28,13 +29,13 @@ export function TaskWorkspace({
 		<div className="min-w-0 space-y-6">
 			<nav
 				aria-label={label}
-				className="flex flex-wrap gap-2 rounded-lg border bg-card p-2"
+				className="bg-card flex flex-wrap gap-2 rounded-lg border p-2"
 			>
 				{sections.map((section) => (
 					<Button
 						aria-controls={`${workspaceId}-${section.id}`}
 						aria-pressed={selected?.id === section.id}
-						className="min-h-11 whitespace-normal text-left"
+						className="min-h-11 text-left whitespace-normal"
 						key={section.id}
 						onClick={() => setSelectedId(section.id)}
 						type="button"

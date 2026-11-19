@@ -6,8 +6,8 @@ import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { revalidateLogic, useForm } from "@tanstack/react-form";
 import { useId } from "react";
 import { StatusMessage } from "@/components/status-message";
+import type { ProviderGenerationRecordFields } from "@/features/asset-versions/schemas";
 import {
-	type ProviderGenerationRecordFields,
 	providerGenerationRecordFormDefaults,
 	providerGenerationRecordFormSchema,
 } from "@/features/asset-versions/schemas";

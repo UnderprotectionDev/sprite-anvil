@@ -1,9 +1,10 @@
-import {
-	type BackgroundOperation,
-	type BackgroundOperationStore,
-	backgroundOperationSchema,
+import type {
+	BackgroundOperation,
+	BackgroundOperationStore,
 } from "@sprite-anvil/api/background-operations";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import { backgroundOperationSchema } from "@sprite-anvil/api/background-operations";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import { backgroundOperations } from "@sprite-anvil/db/schema/background-operations";
 import { desc, eq, sql } from "drizzle-orm";
 import { requestOperationCancel } from "./operation-cancellation";

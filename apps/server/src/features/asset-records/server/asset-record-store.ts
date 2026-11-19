@@ -7,11 +7,8 @@ import type {
 	AssetRecordSearchResponse,
 	AssetRecordStore,
 } from "@sprite-anvil/api/asset-records";
-import {
-	type Database,
-	getProjectForUser,
-	publishedProjectPredicate,
-} from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser, publishedProjectPredicate } from "@sprite-anvil/db";
 import { assetRecordMeasurements } from "@sprite-anvil/db/schema/asset-record-measurements";
 import {
 	assetFamilies,
@@ -50,7 +47,7 @@ export function getSearchConditions(
 		eq(assetRecords.projectId, input.projectId),
 		and(eq(project.ownerUserId, userId), publishedProjectPredicate()),
 		input.name
-			? ilike(assetRecords.name, `%${input.name.replace(/[\\%_]/g, "\\$&")}%`)
+			? ilike(assetRecords.name, `%${input.name.replace(/[\\%_]/gu, "\\$&")}%`)
 			: undefined,
 		input.assetCategory
 			? eq(assetRecords.assetCategory, input.assetCategory)

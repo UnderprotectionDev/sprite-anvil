@@ -89,10 +89,10 @@ export function SpecializedProfileContractManager({
 	return (
 		<section aria-labelledby="profile-contracts-heading" className="space-y-4">
 			<div>
-				<h3 className="font-semibold text-xl" id="profile-contracts-heading">
+				<h3 className="text-xl font-semibold" id="profile-contracts-heading">
 					Specialized Profile Contracts
 				</h3>
-				<p className="mt-1 text-muted-foreground text-sm">
+				<p className="text-muted-foreground mt-1 text-sm">
 					A contract revision pins metadata fields, quality rule classes, usage
 					tests, and export mappings. A profile without a contract cannot
 					complete the family.
@@ -157,7 +157,7 @@ export function SpecializedProfileContractManager({
 									<div className="mt-3 space-y-3">
 										<div>
 											<h5 className="font-medium">Metadata fields</h5>
-											<ul className="list-inside list-disc text-muted-foreground">
+											<ul className="text-muted-foreground list-inside list-disc">
 												{displayedContract.metadataFields.map((field) => (
 													<li key={field.id}>
 														{field.label} · {field.id} ·{" "}
@@ -172,7 +172,7 @@ export function SpecializedProfileContractManager({
 										</div>
 										<div>
 											<h5 className="font-medium">Quality rules</h5>
-											<ul className="list-inside list-disc text-muted-foreground">
+											<ul className="text-muted-foreground list-inside list-disc">
 												{displayedContract.rules.map((rule) => (
 													<li key={rule.id}>
 														{rule.id} · {ruleClassLabels[rule.class]}
@@ -210,7 +210,7 @@ export function SpecializedProfileContractManager({
 										</div>
 										<div>
 											<h5 className="font-medium">Usage tests</h5>
-											<ul className="list-inside list-disc text-muted-foreground">
+											<ul className="text-muted-foreground list-inside list-disc">
 												{displayedContract.usageTests.map((usageTest) => (
 													<li key={usageTest.id}>
 														{usageTest.label} · {usageTest.id}
@@ -230,7 +230,7 @@ export function SpecializedProfileContractManager({
 										</div>
 										<div>
 											<h5 className="font-medium">Export mappings</h5>
-											<ul className="list-inside list-disc text-muted-foreground">
+											<ul className="text-muted-foreground list-inside list-disc">
 												{displayedContract.exportMappings.map((mapping) => (
 													<li key={mapping.id}>
 														{mapping.fieldId} → {mapping.targetPath}

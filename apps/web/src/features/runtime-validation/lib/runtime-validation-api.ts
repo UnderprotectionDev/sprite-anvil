@@ -1,13 +1,13 @@
-import {
-	type RuntimeValidationEvidence,
-	type RuntimeValidationEvidenceKind,
-	type RuntimeValidationEvidenceSource,
-	runtimeValidationEvidenceSchema,
+import type {
+	RuntimeValidationEvidence,
+	RuntimeValidationEvidenceKind,
+	RuntimeValidationEvidenceSource,
 } from "@sprite-anvil/api/runtime-validation";
+import { runtimeValidationEvidenceSchema } from "@sprite-anvil/api/runtime-validation";
 import { z } from "zod";
 import { ENV } from "@/env";
 
-const trailingSlash = /\/$/;
+const trailingSlash = /\/$/u;
 const uploadResultSchema = z.object({
 	evidence: runtimeValidationEvidenceSchema,
 	status: z.enum(["created", "replayed"]),

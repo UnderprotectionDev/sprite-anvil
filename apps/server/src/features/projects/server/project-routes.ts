@@ -1,11 +1,12 @@
 import type { Context, Hono } from "hono";
 import z from "zod";
-
+import type {
+	CloudflareConfig,
+	createQueue,
+	createStorage,
+} from "../../../cloudflare";
 import {
-	type CloudflareConfig,
 	createProjectTwoDVisualAssetKey,
-	type createQueue,
-	type createStorage,
 	legacyAssetKeySchema,
 	twoDVisualAssetUploadContentTypeSchema,
 } from "../../../cloudflare";

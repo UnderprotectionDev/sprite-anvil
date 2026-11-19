@@ -2,7 +2,7 @@ import { $, browser, expect } from "@wdio/globals";
 import { createAssetRecordFixture } from "../e2e/asset-record-fixture";
 import { openWorkspaceTask } from "./workspace-navigation";
 
-const projectIdInUrl = /projects\/([0-9a-f-]{36})\//;
+const projectIdInUrl = /projects\/([0-9a-f-]{36})\//u;
 const draftId = "b17f5ff0-a50d-438f-8bf2-a0152b42c401";
 const sourceAssetVersionId = "b17f5ff0-a50d-438f-8bf2-a0152b42c301";
 

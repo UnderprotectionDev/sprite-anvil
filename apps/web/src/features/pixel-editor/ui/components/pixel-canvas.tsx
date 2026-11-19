@@ -1,18 +1,17 @@
 import type { PixelOperation, PixelRect } from "@sprite-anvil/api/pixel-editor";
 import { useStore } from "@tanstack/react-store";
-import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+import type { KeyboardEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { paintScene } from "../../lib/canvas-scene";
+import type { Cell } from "../../lib/pixel-geometry";
 import {
-	type Cell,
 	cellFromPoint,
 	moveRect,
 	rectFromCells,
 	rgbaToHex,
 } from "../../lib/pixel-geometry";
-import {
-	type PixelEditorToolStore,
-	patchToolState,
-} from "../../store/pixel-editor-tool-store";
+import type { PixelEditorToolStore } from "../../store/pixel-editor-tool-store";
+import { patchToolState } from "../../store/pixel-editor-tool-store";
 
 interface PixelCanvasProps {
 	changedBox?: PixelRect | null;
@@ -231,7 +230,7 @@ export function PixelCanvas({
 			{/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: The pixel canvas is a custom widget with its own arrow-key cursor model; application is the role for that. */}
 			<div
 				aria-label={`${label}. Arrow keys move the cursor, Enter applies the active tool, Escape cancels.`}
-				className="w-fit outline-none focus-visible:ring-2 focus-visible:ring-ring"
+				className="focus-visible:ring-ring w-fit outline-none focus-visible:ring-2"
 				onFocus={() => setHover((current) => current ?? { x: 0, y: 0 })}
 				onKeyDown={onKeyDown}
 				role="application"

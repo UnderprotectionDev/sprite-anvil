@@ -1,10 +1,10 @@
 import type { AssetRecord } from "@sprite-anvil/api/asset-records";
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
-import {
-	type BackgroundLayerLayoutInput,
-	type BackgroundLayerLayoutRecord,
-	backgroundLayerLayoutInputSchema,
+import type {
+	BackgroundLayerLayoutInput,
+	BackgroundLayerLayoutRecord,
 } from "@sprite-anvil/api/background-layer-layouts";
+import { backgroundLayerLayoutInputSchema } from "@sprite-anvil/api/background-layer-layouts";
 import type { ProjectProfileContractActivation } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
@@ -51,7 +51,7 @@ export interface BackgroundLayerLayoutManagerProps {
 	versions: LayoutVersion[];
 	visualWorldId: string;
 }
-const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
+const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/u, "") ?? "";
 const numericFields = [
 	["order", "Layer order"],
 	["ratioWidth", "Target ratio width"],

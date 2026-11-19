@@ -70,7 +70,7 @@ export const vfxAppearanceRecordSchema = vfxAppearanceInputSchema
 				z
 					.object({
 						assetVersionId: id,
-						contentDigest: z.string().regex(/^[a-f0-9]{64}$/),
+						contentDigest: z.string().regex(/^[a-f0-9]{64}$/u),
 					})
 					.strict()
 			)

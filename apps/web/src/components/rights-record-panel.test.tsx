@@ -15,9 +15,9 @@ import { createQueryClient } from "@/utils/query-client";
 const projectId = "00c1bc3a-8c39-436a-892e-0c3a6d37aed2";
 const assetRecordId = "a7301990-3d79-49c8-887a-c1fa9a468f85";
 const referenceId = "fcd2bb54-60fd-4555-bc6f-a30a1c2e4dd4";
-const evidenceFieldName = /Evidence supporting the Rights Record/;
-const selectedFileText = /Seçilen dosya/;
-const restrictionsFieldName = /Known restrictions/;
+const evidenceFieldName = /Evidence supporting the Rights Record/u;
+const selectedFileText = /Seçilen dosya/u;
+const restrictionsFieldName = /Known restrictions/u;
 
 const fakeApi = vi.hoisted(() => ({
 	create: vi.fn(),

@@ -1,7 +1,5 @@
-import {
-	evaluateUiStretchTest,
-	type UiStretchState,
-} from "@sprite-anvil/api/ui-stretch-tests";
+import type { UiStretchState } from "@sprite-anvil/api/ui-stretch-tests";
+import { evaluateUiStretchTest } from "@sprite-anvil/api/ui-stretch-tests";
 
 export function UiStretchPreview({
 	state,

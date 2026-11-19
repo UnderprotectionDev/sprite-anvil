@@ -1,10 +1,12 @@
 import type { DeliveryTargetDraftSaveInput } from "@sprite-anvil/api/delivery-planning-inputs";
+import type {
+	DeliveryTargetCatalog,
+	DeliveryTargetDraft,
+	DeliveryTargetFamilyScope,
+	DeliveryTargetRevision,
+	DeliveryTargetScopeDiff,
+} from "@sprite-anvil/api/delivery-planning-outputs";
 import {
-	type DeliveryTargetCatalog,
-	type DeliveryTargetDraft,
-	type DeliveryTargetFamilyScope,
-	type DeliveryTargetRevision,
-	type DeliveryTargetScopeDiff,
 	deliveryTargetDraftSchema,
 	deliveryTargetRevisionSchema,
 	deliveryTargetSchema,
@@ -15,7 +17,8 @@ import type {
 	DeliveryTargetStore,
 } from "@sprite-anvil/api/delivery-planning-store";
 import { requiredSetItemSchema } from "@sprite-anvil/api/family-readiness";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import { z } from "zod";
 import type {
 	ContextRevisionSnapshot,

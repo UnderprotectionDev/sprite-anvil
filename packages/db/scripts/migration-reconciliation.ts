@@ -5,10 +5,10 @@ import { spawn } from "bun";
 import type { AppliedMigration, LocalMigration } from "./migration-policy";
 import { MigrationSafetyError } from "./migration-safety-error";
 
-const migrationNamePattern = /^\d{14}_[a-z0-9][a-z0-9_-]*$/;
-const migrationHashPattern = /^[a-f0-9]{64}$/;
-const pullReferencePattern = /^refs\/remotes\/origin\/pull\/([1-9]\d*)$/;
-const commitHashPattern = /^[a-f0-9]{40,64}$/;
+const migrationNamePattern = /^\d{14}_[a-z0-9][a-z0-9_-]*$/u;
+const migrationHashPattern = /^[a-f0-9]{64}$/u;
+const pullReferencePattern = /^refs\/remotes\/origin\/pull\/([1-9]\d*)$/u;
+const commitHashPattern = /^[a-f0-9]{40,64}$/u;
 
 export async function refreshMigrationReferences(
 	directory: string

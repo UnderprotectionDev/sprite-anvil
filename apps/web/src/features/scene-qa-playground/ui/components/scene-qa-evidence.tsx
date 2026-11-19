@@ -14,7 +14,7 @@ export function SceneQaEvidence({
 	const [previewId, setPreviewId] = useState<string | null>(null);
 	return (
 		<section className="space-y-3">
-			<h2 className="font-semibold text-lg">Saved scene evidence</h2>
+			<h2 className="text-lg font-semibold">Saved scene evidence</h2>
 			{records?.length === 0 && <p>No scene evidence yet.</p>}
 			{records?.map((record) => (
 				<details className="rounded-lg border p-4" key={record.id}>

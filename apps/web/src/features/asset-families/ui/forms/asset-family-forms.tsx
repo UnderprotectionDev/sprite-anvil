@@ -60,13 +60,13 @@ export function SubjectIdentityForm({
 	const name = useStore(form.store, (state) => state.values.name);
 	return (
 		<form
-			className="space-y-3 rounded-lg border border-l-2 border-l-primary/70 p-4"
+			className="border-l-primary/70 space-y-3 rounded-lg border border-l-2 p-4"
 			onSubmit={submitWith(form)}
 		>
-			<p className="font-mono text-primary text-xs uppercase tracking-widest">
+			<p className="text-primary font-mono text-xs tracking-widest uppercase">
 				01 / Kimlik
 			</p>
-			<h3 className="font-semibold font-serif text-xl">
+			<h3 className="font-serif text-xl font-semibold">
 				Create Subject Identity
 			</h3>
 			<p className="text-muted-foreground text-sm">
@@ -120,13 +120,13 @@ export function AssetFamilyForm({
 	const useContext = useStore(form.store, (state) => state.values.useContext);
 	return (
 		<form
-			className="space-y-3 rounded-lg border border-l-2 border-l-primary/70 p-4"
+			className="border-l-primary/70 space-y-3 rounded-lg border border-l-2 p-4"
 			onSubmit={submitWith(form)}
 		>
-			<p className="font-mono text-primary text-xs uppercase tracking-widest">
+			<p className="text-primary font-mono text-xs tracking-widest uppercase">
 				02 / Family
 			</p>
-			<h3 className="font-semibold font-serif text-xl">Create Asset Family</h3>
+			<h3 className="font-serif text-xl font-semibold">Create Asset Family</h3>
 			<p className="text-muted-foreground text-sm">
 				Each family belongs to one Visual World and usage context. Keep separate
 				design lineages in different families under the same identity.
@@ -255,13 +255,13 @@ export function AssetRecordForm({
 	);
 	return (
 		<form
-			className="space-y-3 rounded-lg border border-l-2 border-l-primary/70 p-4"
+			className="border-l-primary/70 space-y-3 rounded-lg border border-l-2 p-4"
 			onSubmit={submitWith(form)}
 		>
-			<p className="font-mono text-primary text-xs uppercase tracking-widest">
+			<p className="text-primary font-mono text-xs tracking-widest uppercase">
 				03 / Record
 			</p>
-			<h3 className="font-semibold font-serif text-xl">Add Asset Record</h3>
+			<h3 className="font-serif text-xl font-semibold">Add Asset Record</h3>
 			<p className="text-muted-foreground text-sm">
 				Splitting a file for technical reasons alone does not create a new Asset
 				Record.
@@ -307,7 +307,7 @@ export function AssetRecordForm({
 				</form.Field>
 			</div>
 			<FieldSet className="gap-2">
-				<FieldLegend className="mb-0 font-medium text-sm">
+				<FieldLegend className="mb-0 text-sm font-medium">
 					Record rationale
 				</FieldLegend>
 				<form.Field name="identityCriteria">
@@ -404,13 +404,13 @@ export function AssetFamilyRelationshipForm({
 
 	return (
 		<form
-			className="space-y-3 rounded-lg border border-l-2 border-l-primary/70 p-4"
+			className="border-l-primary/70 space-y-3 rounded-lg border border-l-2 p-4"
 			onSubmit={submitWith(form)}
 		>
-			<p className="font-mono text-primary text-xs uppercase tracking-widest">
+			<p className="text-primary font-mono text-xs tracking-widest uppercase">
 				04 / Relationship
 			</p>
-			<h3 className="font-semibold font-serif text-xl">
+			<h3 className="font-serif text-xl font-semibold">
 				Add family relationship
 			</h3>
 			<p className="text-muted-foreground text-sm">
@@ -447,7 +447,7 @@ export function AssetFamilyRelationshipForm({
 			<div className="space-y-2">
 				<Label htmlFor="relationship-source">Source Asset Record</Label>
 				{type === "derivative" ? (
-					<p className="min-h-10 rounded-md border bg-muted/40 px-3 py-2 text-sm">
+					<p className="bg-muted/40 min-h-10 rounded-md border px-3 py-2 text-sm">
 						{canonicalDesign
 							? `${canonicalDesign.recordName} · Canonical Design Version ${canonicalDesign.versionNumber}`
 							: "Select an approved Canonical Design first."}

@@ -9,7 +9,7 @@ export const managedSnapshotSummarySchema = z
 		downloadUrl: z.string().min(1),
 		fileName: assetVersionFileNameSchema,
 		id: z.uuid(),
-		sha256: z.string().regex(/^[a-f0-9]{64}$/),
+		sha256: z.string().regex(/^[a-f0-9]{64}$/u),
 	})
 	.strict();
 export type ManagedSnapshot = z.infer<typeof managedSnapshotSummarySchema>;

@@ -9,7 +9,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
  */
 
 const lifetimeMs = 10 * 60 * 1000;
-const tokenPattern = /^(\d+)\.([0-9a-f]{64})$/;
+const tokenPattern = /^(\d+)\.([0-9a-f]{64})$/u;
 
 export interface AbandonConfirmationConfig {
 	abandonConfirmationSecret: string;

@@ -19,7 +19,7 @@ const secondDraftId = "6f1a3d62-3d2e-4b86-8a7c-0e6c2f0d2002";
 const revisionId = "6f1a3d62-3d2e-4b86-8a7c-0e6c2f0d3001";
 const secondRevisionId = "6f1a3d62-3d2e-4b86-8a7c-0e6c2f0d3002";
 
-const assetVersionPattern = /assetVersion/i;
+const assetVersionPattern = /assetVersion/iu;
 const knightFamily = "family-knight";
 const slimeFamily = "family-slime";
 

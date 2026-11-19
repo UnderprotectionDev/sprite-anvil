@@ -19,7 +19,7 @@ export function PathClassSection({
 			aria-labelledby={`path-class-${id}`}
 			className="space-y-2 border-t pt-4"
 		>
-			<h3 className="font-semibold text-base" id={`path-class-${id}`}>
+			<h3 className="text-base font-semibold" id={`path-class-${id}`}>
 				{title} ({count})
 			</h3>
 			<p className="text-muted-foreground text-sm">{description}</p>

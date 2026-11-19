@@ -94,7 +94,7 @@ const versionPin = z
 		assetRecordName: z.string().min(1).max(120),
 		assetVersionId: id,
 		versionNumber: z.number().int().positive(),
-		contentDigest: z.string().regex(/^[a-f0-9]{64}$/),
+		contentDigest: z.string().regex(/^[a-f0-9]{64}$/u),
 		contentLength: z.number().int().positive(),
 		contentType: z.enum(["image/png", "image/webp"]),
 		naturalSize: size,

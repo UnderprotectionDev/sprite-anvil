@@ -1,7 +1,7 @@
 import type { SceneQaSetup } from "@sprite-anvil/api/scene-qa";
 import { ENV } from "@/env";
 
-const trailingSlash = /\/$/;
+const trailingSlash = /\/$/u;
 export async function loadSceneQaImages(
 	setup: SceneQaSetup,
 	versions: { id: string; previewUrl: string }[]

@@ -17,7 +17,7 @@ type TargetMode = "migrate" | "deploy" | "push";
 type Environment = Record<string, string | undefined>;
 
 const loopbackHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
-const neonEndpointPattern = /^ep-[a-z0-9-]+\.[a-z0-9.-]+\.neon\.tech$/;
+const neonEndpointPattern = /^ep-[a-z0-9-]+\.[a-z0-9.-]+\.neon\.tech$/u;
 
 function parsePostgresUrl(value: string | undefined): URL {
 	if (!value) {
@@ -215,9 +215,9 @@ export function selectVerifiedDatabaseTarget(
 	return target;
 }
 
-const migrationHashPattern = /^[a-f0-9]{64}$/;
+const migrationHashPattern = /^[a-f0-9]{64}$/u;
 
-const aheadNamePattern = /^(\d{14})_[a-z0-9][a-z0-9_-]*$/;
+const aheadNamePattern = /^(\d{14})_[a-z0-9][a-z0-9_-]*$/u;
 
 export function hasTimestampedIdentity(row: AppliedMigration): boolean {
 	const stamp = row.name ? aheadNamePattern.exec(row.name)?.[1] : undefined;

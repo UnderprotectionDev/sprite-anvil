@@ -13,7 +13,8 @@ import {
 	collectionMembershipSchema,
 	collectionRecordSchema,
 } from "@sprite-anvil/api/collections";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import {
 	assetFamilies,
 	assetRecords,

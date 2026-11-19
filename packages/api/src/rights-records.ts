@@ -20,7 +20,7 @@ const rightsRecordEvidenceContentTypeSchema = z
 	.string()
 	.min(1)
 	.max(127)
-	.regex(/^[a-z0-9][a-z0-9.+-]*\/[a-z0-9][a-z0-9.+-]*$/i);
+	.regex(/^[a-z0-9][a-z0-9.+-]*\/[a-z0-9][a-z0-9.+-]*$/iu);
 const rightsRecordTextSchema = z
 	.string()
 	.trim()
@@ -36,7 +36,7 @@ export const rightsRecordEvidenceFileSchema = z
 			.positive()
 			.max(rightsRecordEvidenceFileLimitBytes),
 		fileName: assetSourceFileNameSchema,
-		sha256: z.string().regex(/^[a-f0-9]{64}$/),
+		sha256: z.string().regex(/^[a-f0-9]{64}$/u),
 		sourceContentType: rightsRecordEvidenceContentTypeSchema,
 	})
 	.strict();

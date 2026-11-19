@@ -1,7 +1,7 @@
 import { ORPCError } from "@orpc/client";
 import type { ImportInboxEntry } from "@sprite-anvil/api/import-inbox";
+import type { SourceMetadataMappingProposal } from "@sprite-anvil/api/source-metadata-mapping";
 import {
-	type SourceMetadataMappingProposal,
 	sourceMetadataMappingContractVersion,
 	sourceMetadataMappingSidecarLimits,
 } from "@sprite-anvil/api/source-metadata-mapping";
@@ -146,7 +146,7 @@ function ProposalDetails({
 					</dt>
 					<dd className="font-mono text-xs">{proposal.contractVersion}</dd>
 					<dt className="text-muted-foreground">Source SHA-256</dt>
-					<dd className="break-all font-mono text-xs">
+					<dd className="font-mono text-xs break-all">
 						{proposal.source.sha256}
 					</dd>
 					<dt className="text-muted-foreground">JSON sidecar sources</dt>
@@ -158,7 +158,7 @@ function ProposalDetails({
 										{sidecar.fileName} · {sidecar.format} {sidecar.version} ·{" "}
 										{sidecar.jsonLayout}
 									</p>
-									<p className="break-all font-mono text-xs">
+									<p className="font-mono text-xs break-all">
 										SHA-256: {sidecar.sha256}
 									</p>
 								</li>
@@ -174,7 +174,7 @@ function ProposalDetails({
 						<li>Asset Family link: Unknown · no source evidence.</li>
 						<li>Required Set link: Unknown · no source evidence.</li>
 					</ul>
-					<p className="mt-2 text-muted-foreground">
+					<p className="text-muted-foreground mt-2">
 						Gameplay Metadata: Unknown · project context required.
 					</p>
 				</section>
@@ -271,19 +271,19 @@ function ProposalDetails({
 						);
 						return (
 							<li
-								className="space-y-1 rounded-md bg-muted/40 p-3"
+								className="bg-muted/40 space-y-1 rounded-md p-3"
 								key={`${field.sourceEntryId}-${field.sourcePath}-${field.field}`}
 							>
 								<p className="font-medium">
 									{fieldLabel(field.field)} · {field.key}
 									{conflict ? (
-										<span className="ml-2 text-destructive">Conflict</span>
+										<span className="text-destructive ml-2">Conflict</span>
 									) : null}
 								</p>
 								<p className="text-muted-foreground text-xs">
 									{field.sourceFileName} · {field.sourcePath}
 								</p>
-								<pre className="overflow-x-auto whitespace-pre-wrap break-all font-mono text-xs">
+								<pre className="overflow-x-auto font-mono text-xs break-all whitespace-pre-wrap">
 									{formatFieldValue(field.value)}
 								</pre>
 							</li>
@@ -391,16 +391,16 @@ export function SourceMetadataMappingPanel({
 			className="space-y-3 border-t pt-3"
 		>
 			<div>
-				<h4 className="font-medium text-sm">
+				<h4 className="text-sm font-medium">
 					Source Metadata Mapping Proposal
 				</h4>
-				<p className="mt-1 text-muted-foreground text-sm">
+				<p className="text-muted-foreground mt-1 text-sm">
 					Select one or more sidecars for {entry.fileName}. The proposal shows
 					source values; it does not finalize the link.
 				</p>
 			</div>
 			<FieldSet className="space-y-2" disabled={isCreating}>
-				<FieldLegend className="font-medium text-sm" variant="label">
+				<FieldLegend className="text-sm font-medium" variant="label">
 					JSON sidecar entries
 				</FieldLegend>
 				<p className="text-muted-foreground text-sm">

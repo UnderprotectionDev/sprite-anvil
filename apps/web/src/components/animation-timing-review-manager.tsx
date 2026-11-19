@@ -134,7 +134,7 @@ export function AnimationTimingReviewManager({
 			aria-label={`${familyName} animation timing review`}
 			className="space-y-4 rounded border p-4"
 		>
-			<h3 className="font-semibold text-xl">
+			<h3 className="text-xl font-semibold">
 				{familyName} · Review Animation Timing and Transitions
 			</h3>
 			{query.isError ? (

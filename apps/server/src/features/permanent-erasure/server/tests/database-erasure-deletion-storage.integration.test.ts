@@ -3,10 +3,8 @@ import {
 	buildDeletionReceipt,
 	deletionReceiptDigest,
 } from "@sprite-anvil/api/permanent-erasure-deletion";
-import {
-	buildErasureImpactScope,
-	type ErasureImpactSource,
-} from "@sprite-anvil/api/permanent-erasure-scope";
+import type { ErasureImpactSource } from "@sprite-anvil/api/permanent-erasure-scope";
+import { buildErasureImpactScope } from "@sprite-anvil/api/permanent-erasure-scope";
 import { createDb } from "@sprite-anvil/db";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
 import { assetVersions } from "@sprite-anvil/db/schema/asset-versions";
@@ -29,10 +27,8 @@ import {
 import { createLocalTestDb } from "@sprite-anvil/db/testing";
 import { and, eq, inArray } from "drizzle-orm";
 import { createDatabaseErasureDeletionStorage } from "../database-erasure-deletion-storage";
-import {
-	ErasureScopeChangedError,
-	type FinalizeErasureInput,
-} from "../erasure-deletion-storage";
+import type { FinalizeErasureInput } from "../erasure-deletion-storage";
+import { ErasureScopeChangedError } from "../erasure-deletion-storage";
 
 const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
 

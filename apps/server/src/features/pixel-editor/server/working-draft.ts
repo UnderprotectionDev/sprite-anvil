@@ -1,9 +1,11 @@
+import type {
+	PixelColorReplacePreview,
+	PixelDraft,
+	PixelDraftCommitResponse,
+	PixelDraftRecord,
+	PixelOperation,
+} from "@sprite-anvil/api/pixel-editor";
 import {
-	type PixelColorReplacePreview,
-	type PixelDraft,
-	type PixelDraftCommitResponse,
-	type PixelDraftRecord,
-	type PixelOperation,
 	pixelColorReplacePreviewInputSchema,
 	pixelColorReplacePreviewSchema,
 	pixelDraftCommitInputSchema,
@@ -17,15 +19,13 @@ import {
 import z from "zod";
 import { storePngCandidate } from "./candidate-store";
 import { structureForSheetEdit } from "./frame-structure";
+import type { DraftContext, Outcome, Scope } from "./pixel-editor-context";
 import {
-	type DraftContext,
 	draftIdSchema,
 	failure,
 	loadDraft,
 	newId,
-	type Outcome,
 	readSourceRaster,
-	type Scope,
 	success,
 	updateFailure,
 } from "./pixel-editor-context";

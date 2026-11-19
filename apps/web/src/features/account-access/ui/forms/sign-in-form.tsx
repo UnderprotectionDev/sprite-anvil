@@ -56,7 +56,7 @@ export default function SignInForm({
 	return (
 		<div className="w-full space-y-6">
 			<div className="space-y-2">
-				<h2 className="font-semibold text-3xl">Welcome Back</h2>
+				<h2 className="text-3xl font-semibold">Welcome Back</h2>
 				<p className="text-muted-foreground text-sm">
 					Sign in to continue working on your projects.
 				</p>
@@ -116,7 +116,7 @@ export default function SignInForm({
 
 			<div className="text-center">
 				<Button
-					className="min-h-11 text-primary text-sm"
+					className="text-primary min-h-11 text-sm"
 					onClick={onSwitchToSignUp}
 					variant="link"
 				>

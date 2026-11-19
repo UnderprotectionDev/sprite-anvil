@@ -1,9 +1,9 @@
-import {
-	type DeliveryRefreshClassification,
-	type DeliveryRefreshDecisionKind,
-	type DeliveryRefreshPathClass,
-	deliveryRefreshPathClasses,
+import type {
+	DeliveryRefreshClassification,
+	DeliveryRefreshDecisionKind,
+	DeliveryRefreshPathClass,
 } from "@sprite-anvil/api/delivery-refresh-classification";
+import { deliveryRefreshPathClasses } from "@sprite-anvil/api/delivery-refresh-classification";
 import type { ReactNode } from "react";
 import { pathClassSections } from "../../lib/path-class-sections";
 import type { ChosenFolder } from "../../lib/read-target-folder";

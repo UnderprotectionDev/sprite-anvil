@@ -1,10 +1,12 @@
 import type { AssetRecord } from "@sprite-anvil/api/asset-records";
 import type { BackgroundLayerLayoutRecord } from "@sprite-anvil/api/background-layer-layouts";
+import type {
+	BackgroundScrollingTestInput,
+	BackgroundScrollingSetup as ScrollingSetup,
+} from "@sprite-anvil/api/background-scrolling-tests";
 import {
-	type BackgroundScrollingTestInput,
 	backgroundScrollingChecks,
 	backgroundScrollingTestInputSchema,
-	type BackgroundScrollingSetup as ScrollingSetup,
 } from "@sprite-anvil/api/background-scrolling-tests";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Checkbox } from "@sprite-anvil/ui/components/checkbox";

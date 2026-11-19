@@ -361,7 +361,7 @@ test("reports a result file that cannot be read", async () => {
 	expect(fakeApi.createManualImportVersion).not.toHaveBeenCalled();
 });
 
-const selectedFileText = /Selected file:/;
+const selectedFileText = /Selected file:/u;
 
 function renderManualImportForm(
 	onRefresh = vi.fn().mockResolvedValue(undefined)

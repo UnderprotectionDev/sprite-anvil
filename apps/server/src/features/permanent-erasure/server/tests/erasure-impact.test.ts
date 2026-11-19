@@ -39,7 +39,7 @@ function setup(
 	return { make, storage, store: make() };
 }
 
-const contractVersionMessage = /contract version/i;
+const contractVersionMessage = /contract version/iu;
 const input = { assetRecordId, idempotencyKey: "key-1", projectId };
 
 test("YAS-04 report separates copies, whole containers, fulfilments and external copies, and rereads from the stored record", async () => {
