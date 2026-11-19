@@ -15,6 +15,7 @@
       "!**/.nx",
       "!**/dev-dist",
       "!**/.zed",
+      "!**/.impeccable",
       "!**/.vscode",
       "!**/routeTree.gen.ts",
       "!packages/api/src/export-bundle-verifier-source.ts",
