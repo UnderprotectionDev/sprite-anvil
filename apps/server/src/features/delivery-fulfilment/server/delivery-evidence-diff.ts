@@ -1,3 +1,4 @@
+import { compareCodeUnits } from "@sprite-anvil/api/compare-code-units";
 import type {
 	DeliveryEvidencePin,
 	DeliveryEvidenceSection,
@@ -177,7 +178,9 @@ function compareSection(
 		{ status: "recorded" }
 	>["changes"] = [];
 	let unchangedCount = 0;
-	for (const key of [...new Set([...left.keys(), ...right.keys()])].sort()) {
+	for (const key of [...new Set([...left.keys(), ...right.keys()])].sort(
+		compareCodeUnits
+	)) {
 		const before = left.get(key) ?? null;
 		const after = right.get(key) ?? null;
 		if (before?.contentDigest === after?.contentDigest) {

@@ -1,7 +1,9 @@
+import type {
+	DependencyCatalog,
+	DependencyLink,
+} from "@sprite-anvil/api/dependency-revalidation";
 import {
 	changeImpactSchema,
-	type DependencyCatalog,
-	type DependencyLink,
 	dependencyLinkSchema,
 	derivativeReReviewSchema,
 } from "@sprite-anvil/api/dependency-revalidation";

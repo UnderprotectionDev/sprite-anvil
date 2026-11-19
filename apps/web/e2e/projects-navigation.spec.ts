@@ -4,7 +4,7 @@ const project = {
 	id: "00000000-0000-4000-8000-000000000001",
 	name: "Moonlit Vale",
 };
-const projectsUrlPattern = /\/projects$/;
+const projectsUrlPattern = /\/projects$/u;
 
 function asContextProject(item: { id: string; name: string }) {
 	return {

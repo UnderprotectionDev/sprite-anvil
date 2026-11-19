@@ -97,7 +97,7 @@ export const uiStateComparisonVersionPinSchema = z
 		assetVersionId: id,
 		assetRecordId: id,
 		assetRecordName: z.string().min(1).max(120),
-		contentDigest: z.string().regex(/^[a-f0-9]{64}$/),
+		contentDigest: z.string().regex(/^[a-f0-9]{64}$/u),
 		contentLength: z.number().int().positive(),
 		contentType: z.enum(["image/png", "image/webp"]),
 		versionNumber: z.number().int().positive(),
@@ -111,7 +111,7 @@ export const uiStateComparisonVersionPinSchema = z
 	.strict();
 export const uiStateComparisonRecordSchema = uiStateComparisonInputSchema
 	.extend({
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 		reviewedByUserId: id,
 		contractSnapshot: specializedProfileContractSchema,
 		versionPins: z.array(uiStateComparisonVersionPinSchema).min(1),

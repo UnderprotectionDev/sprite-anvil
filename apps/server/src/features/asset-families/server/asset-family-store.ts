@@ -16,7 +16,8 @@ import {
 	assetRecordSchema,
 	subjectIdentityRecordSchema,
 } from "@sprite-anvil/api/asset-families";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import {
 	assetFamilyCanonicalDesigns,
 	assetFamilyRelationships,

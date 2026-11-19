@@ -1,3 +1,5 @@
+// biome-ignore-all lint/style/noExcessiveClassesPerFile: the pixi.js test doubles must be declared together inside the vi.mock factory.
+// biome-ignore-all lint/style/useThisInClassMethods: the pixi.js doubles mirror the library's instance API, so their methods cannot be static.
 // @vitest-environment jsdom
 
 import "@testing-library/jest-dom/vitest";

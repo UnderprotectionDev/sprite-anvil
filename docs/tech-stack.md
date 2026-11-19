@@ -4,6 +4,7 @@
 
 - TypeScript (`strict`)
 - Bun (runtime ve package manager)
+- Node.js 22.12 or newer (platform floor in the root `engines`): Next.js and the Tailwind CSS PostCSS plugin run on Node, and Tailwind CSS 4.3.4+ loads an ESM-only dependency with `require()`
 - Bun Workspaces
 - Turborepo
 
@@ -16,6 +17,7 @@
 - TanStack Form
 - TanStack Store
 - TanStack Virtual
+- TanStack Table
 - Tailwind CSS 4
 - Base UI (through `@sprite-anvil/ui` components)
 - Lucide and Pixelarticons
@@ -36,6 +38,7 @@ Each responsibility is built with its technology, not with the substitute beside
 | Offline browser data | Dexie | The `indexedDB` API used directly; check `raw-indexeddb` |
 | State several components share | TanStack Store | A module-level mutable store, or a context used as one |
 | Long lists | TanStack Virtual | Hand-written windowing |
+| Tabular data (sorting, filtering, column state) | TanStack Table through a `@sprite-anvil/ui` data table | Hand-written sort/filter state over a raw `Table` or a CSS grid |
 | Drag and drop | dnd-kit | HTML drag events on sortable items |
 | Navigation | TanStack Router | `window.location` assignment, or `<a href>` to an app route |
 | Dithered fades and fills (ink fades, media surfaces) | Pre-generated static SVG images, a 2px cell and the ink colour from the Design Language, referenced as CSS images | A dither or noise library, a canvas or shader pass at runtime, or CSS gradients |
@@ -101,6 +104,20 @@ Each responsibility is built with its technology, not with the substitute beside
   - Shared Bun setup lives in `.github/actions/setup` and test database preparation in `.github/actions/test-database`; Bun, Playwright browser, desktop apt packages and Rust builds are cached.
   - React Doctor is advisory, runs only when `apps/web`, `apps/fumadocs` or `packages/ui` changes, and reports through its own check and PR comment.
   - The `Conventions` workflow runs `bun run check:conventions` on every pull request and `main` push, docs included; unlike the jobs above it is not skipped for docs-only changes.
+
+## Version constraints
+
+Deliberate holds from the 2026-11-19 dependency review. Revisit each one when its trigger is met; until then, keep the version below.
+
+| Dependency | Held at | Reason | Revisit when |
+|---|---|---|---|
+| oRPC | 1.x (1.16.4) | 2.0 is still beta and changes the wire format, `.route` metadata and package names | 2.0 ships a stable release |
+| Drizzle ORM / Drizzle Kit | 1.0.0-rc.4 | rc.5 moves migration snapshots from v8 to v9; `packages/db/scripts` migration checks read the v8 shape | Drizzle 1.0 is stable, or a dedicated migration-format task |
+| TypeScript | 6.0.3 | 7.0 has no programmatic compiler API, which `scripts/conventions.ts` uses | 7.1 ships the compiler API |
+| WebdriverIO | 9.x | `@wdio/tauri-service` supports WDIO 10 only in a 2.0 pre-release | `@wdio/tauri-service` 2.0 is stable |
+| jsdom | 30.x | 31 rewrites the CSS engine and changes focus behaviour that Base UI tests depend on | A dedicated test run passes on 31 |
+| Better Auth | 1.7.x | 1.8 is still beta | 1.8 is stable |
+| TanStack Table | not installed yet | Approved; install `^9.3.1` through the workspace catalog with its first data table | The first data table is implemented |
 
 ## Deployment
 

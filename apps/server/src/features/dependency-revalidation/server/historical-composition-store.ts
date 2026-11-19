@@ -1,12 +1,13 @@
 import { isDeepStrictEqual } from "node:util";
-import {
-	type HistoricalComposition,
-	type HistoricalCompositionInput,
-	type HistoricalCompositionPinResult,
-	historicalCompositionSchema,
+import type {
+	HistoricalComposition,
+	HistoricalCompositionInput,
+	HistoricalCompositionPinResult,
 } from "@sprite-anvil/api/historical-compositions";
+import { historicalCompositionSchema } from "@sprite-anvil/api/historical-compositions";
 import { specializedProfileContractSchema } from "@sprite-anvil/api/specialized-profile-contracts";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import { assetFamilyCanonicalDesigns } from "@sprite-anvil/db/schema/asset-families";
 import {
 	assetFamilies,

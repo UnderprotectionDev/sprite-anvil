@@ -1,12 +1,14 @@
 import { pixelEditorMaxOperations } from "@sprite-anvil/api/pixel-editor";
 import { expect, test } from "vitest";
+import type {
+	OfflineStagingTable,
+	StagedDraftRow,
+	StagedFileRow,
+	StagedProjectRow,
+} from "./offline-staging-store";
 import {
 	createOfflineStagingStore,
 	maxStagedFileBytes,
-	type OfflineStagingTable,
-	type StagedDraftRow,
-	type StagedFileRow,
-	type StagedProjectRow,
 } from "./offline-staging-store";
 
 function fakeTable<Row extends { projectId: string }>(
@@ -260,7 +262,9 @@ test("staged work carries no approval, activation or export marker", async () =>
 	const store = createOfflineStagingStore(tables);
 	await store.stageWorkingDraft(draft, 1);
 	const [staged] = await store.listStagedDrafts(projectId);
-	expect(Object.keys(staged).sort()).toEqual(
-		["base", "draft", "id", "projectId", "stagedAt"].sort()
+	expect(Object.keys(staged).sort((a, b) => a.localeCompare(b))).toEqual(
+		["base", "draft", "id", "projectId", "stagedAt"].sort((a, b) =>
+			a.localeCompare(b)
+		)
 	);
 });

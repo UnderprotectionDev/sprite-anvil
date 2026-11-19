@@ -38,7 +38,7 @@ export function FrameSourceForm({
 				form.handleSubmit();
 			}}
 		>
-			<p className="font-medium text-sm">Frame from another Asset Version</p>
+			<p className="text-sm font-medium">Frame from another Asset Version</p>
 			<form.Field name="assetVersionId">
 				{(field) => (
 					<Label className="block space-y-1 text-xs" htmlFor="frame-source-id">

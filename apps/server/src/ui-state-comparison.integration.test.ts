@@ -3,9 +3,9 @@ import { call } from "@orpc/server";
 import type { Context } from "@sprite-anvil/api/context";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { getSpecializedProfileContract } from "@sprite-anvil/api/specialized-profile-contracts";
+import type { UiStateComparisonInput } from "@sprite-anvil/api/ui-state-comparisons";
 import {
 	createUiStateComparisonArchive,
-	type UiStateComparisonInput,
 	uiComponentStates,
 	uiStateComparisonArchiveSchema,
 } from "@sprite-anvil/api/ui-state-comparisons";

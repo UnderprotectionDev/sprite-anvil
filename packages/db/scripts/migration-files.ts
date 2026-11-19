@@ -6,7 +6,7 @@ import type { LocalMigration } from "./migration-policy";
 import { MigrationSafetyError } from "./migration-safety-error";
 
 const firstSnapshotParent = "00000000-0000-0000-0000-000000000000";
-const migrationNamePattern = /^(\d{14})_[a-z0-9][a-z0-9_-]*$/;
+const migrationNamePattern = /^(?<stamp>\d{14})_[a-z0-9][a-z0-9_-]*$/u;
 const historicalSnapshotlessMigrations = new Set([
 	"20260925080000_legacy_asset_schema_bridge",
 	"20260925203212_asset_record_foreign_key_restore",

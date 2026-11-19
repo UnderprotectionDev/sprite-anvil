@@ -1,7 +1,7 @@
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
+import type { MarketingUsageReviewInput } from "@sprite-anvil/api/marketing-usage-reviews";
 import {
 	createMarketingUsageReviewPackage,
-	type MarketingUsageReviewInput,
 	marketingUsageItemSchema,
 	marketingUsageReviewInputSchema,
 } from "@sprite-anvil/api/marketing-usage-reviews";
@@ -15,7 +15,7 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import {
@@ -41,7 +41,7 @@ type Version = Pick<
 	| "sourceImageDimensions"
 >;
 type Item = MarketingUsageReviewInput["items"][number];
-const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
+const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/u, "") ?? "";
 const geometryLabels = {
 	crop: "Crop",
 	safeArea: "Safe area",
@@ -113,7 +113,7 @@ export function MarketingUsageReviewManager({
 		defaultValues,
 		onSubmit: () => submit(),
 	});
-	const item = useStore(form.store, (state) => state.values.item);
+	const item = useSelector(form.store, (state) => state.values.item);
 	const saveMutation = useMutation(
 		orpc.marketingUsageReviews.save.mutationOptions(mutationMeta)
 	);

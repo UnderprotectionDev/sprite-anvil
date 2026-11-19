@@ -2,7 +2,7 @@ import { deliveryRelativePathSchema } from "@sprite-anvil/api/delivery-path-sche
 import type { DeliveryRefreshObservation } from "@sprite-anvil/api/delivery-refresh-classification";
 import { sha256Hex } from "@sprite-anvil/api/export-bundle-verification";
 
-const trailingSeparator = /[\\/]$/;
+const trailingSeparator = /[\\/]$/u;
 export interface NativeDeliveryFileSystem {
 	info: (
 		path: string

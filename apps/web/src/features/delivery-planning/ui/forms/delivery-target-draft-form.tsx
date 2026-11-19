@@ -10,7 +10,8 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { useForm } from "@tanstack/react-form";
-import { type SyntheticEvent, useRef, useState } from "react";
+import type { SyntheticEvent } from "react";
+import { useRef, useState } from "react";
 import { StatusMessage } from "@/components/status-message";
 import { errorCodeOf } from "@/utils/error-code";
 import { useSaveDeliveryTargetDraft } from "../../hooks/use-delivery-target-writes";
@@ -21,11 +22,8 @@ import {
 	rightsStateLabels,
 	rightsSubjectLabels,
 } from "../../lib/delivery-planning-labels";
-import {
-	defaultFormValues,
-	type FamilyListChoice,
-	toSaveInput,
-} from "../../lib/delivery-target-form";
+import type { FamilyListChoice } from "../../lib/delivery-target-form";
+import { defaultFormValues, toSaveInput } from "../../lib/delivery-target-form";
 import { deliveryTargetFormSchema } from "../../schemas";
 
 const selectClassName = "w-full [&>select]:min-h-10";
@@ -49,7 +47,7 @@ function FieldErrors({ errors }: { errors: unknown[] }) {
 		return null;
 	}
 	return (
-		<ul className="space-y-1 text-destructive text-sm">
+		<ul className="text-destructive space-y-1 text-sm">
 			{messages.map((message) => (
 				<li key={message}>{message}</li>
 			))}
@@ -121,7 +119,7 @@ export function DeliveryTargetDraftForm({
 			className="space-y-6 rounded-lg border p-4"
 			onSubmit={submit}
 		>
-			<h2 className="font-semibold text-xl">
+			<h2 className="text-xl font-semibold">
 				{isRevision ? `New revision of ${target.name}` : "New Delivery Target"}
 			</h2>
 			<p className="text-muted-foreground text-sm">
@@ -181,7 +179,7 @@ export function DeliveryTargetDraftForm({
 			</div>
 
 			<div className="space-y-1">
-				<p className="font-medium text-sm">Context Revision</p>
+				<p className="text-sm font-medium">Context Revision</p>
 				<p className="text-sm">
 					Context Revision {contextRevision.revisionNumber} (current,{" "}
 					{contextRevision.isActive ? "active" : "not yet activated"})
@@ -229,7 +227,7 @@ export function DeliveryTargetDraftForm({
 									>
 										<form.Field name={`families[${index}].selected`}>
 											{(field) => (
-												<Label className="flex items-center gap-2 font-medium text-sm">
+												<Label className="flex items-center gap-2 text-sm font-medium">
 													<Checkbox
 														checked={field.state.value}
 														onCheckedChange={(checked) =>
@@ -369,7 +367,7 @@ export function DeliveryTargetDraftForm({
 						</div>
 					)}
 				</form.Field>
-				<p className="font-medium text-sm">Require Rights Records for</p>
+				<p className="text-sm font-medium">Require Rights Records for</p>
 				<form.Field name="requireRecordFor">
 					{(field) => (
 						<div className="space-y-2">

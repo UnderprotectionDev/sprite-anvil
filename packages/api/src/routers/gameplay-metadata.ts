@@ -1,9 +1,11 @@
 import { isDeepStrictEqual } from "node:util";
 import { ORPCError } from "@orpc/server";
 import type { Context } from "../context";
+import type {
+	GameplayMetadataRecord,
+	GameplayMetadataWriteInput,
+} from "../gameplay-metadata";
 import {
-	type GameplayMetadataRecord,
-	type GameplayMetadataWriteInput,
 	gameplayMetadataCatalogSchema,
 	gameplayMetadataListInputSchema,
 	gameplayMetadataRecordSchema,
@@ -12,9 +14,9 @@ import {
 	getGameplayMetadataFields,
 } from "../gameplay-metadata";
 import { isGameplayMetadataValueValid } from "../gameplay-metadata-integrity";
+import type { GameplayMetadataPackage } from "../gameplay-metadata-package";
 import {
 	createGameplayMetadataPackage,
-	type GameplayMetadataPackage,
 	gameplayMetadataPackageInputSchema,
 	gameplayMetadataPackageReadInputSchema,
 	gameplayMetadataPackageSchema,

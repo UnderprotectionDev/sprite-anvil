@@ -148,7 +148,7 @@ export function VfxAppearanceReviewManager({
 			aria-label={`${familyName} VFX appearance review`}
 			className="space-y-4 rounded border p-4"
 		>
-			<h3 className="font-semibold text-xl">
+			<h3 className="text-xl font-semibold">
 				{familyName} · Test Effect Appearance and Overflow
 			</h3>
 			{query.isError ? (

@@ -2,12 +2,10 @@ import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
 import { useEffect, useRef, useState } from "react";
 import { StatusMessage } from "@/components/status-message";
 import { ENV } from "@/env";
-import {
-	createVfxPlaybackRenderer,
-	type VfxPlayback,
-} from "../../lib/vfx-playback-renderer";
+import type { VfxPlayback } from "../../lib/vfx-playback-renderer";
+import { createVfxPlaybackRenderer } from "../../lib/vfx-playback-renderer";
 
-const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
+const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/u, "") ?? "";
 export function VfxAppearancePreview({
 	input,
 	versions,

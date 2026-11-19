@@ -157,10 +157,10 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 			>
 				<div className="space-y-2">
 					<div className="flex flex-wrap items-center justify-between gap-2">
-						<h2 className="font-semibold text-xl" id="context-agent-heading">
+						<h2 className="text-xl font-semibold" id="context-agent-heading">
 							Context Agent
 						</h2>
-						<span className="rounded-full border px-2.5 py-1 font-medium text-xs">
+						<span className="rounded-full border px-2.5 py-1 text-xs font-medium">
 							Project permission required
 						</span>
 					</div>
@@ -193,10 +193,10 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 				className="space-y-4 rounded-lg border p-5"
 			>
 				<div className="flex flex-wrap items-center justify-between gap-2">
-					<h2 className="font-semibold text-xl" id="connection-heading">
+					<h2 className="text-xl font-semibold" id="connection-heading">
 						External Tool Connection
 					</h2>
-					<span className="rounded-full border px-2.5 py-1 font-medium text-xs">
+					<span className="rounded-full border px-2.5 py-1 text-xs font-medium">
 						No provider selected
 					</span>
 				</div>
@@ -205,14 +205,14 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 					result file back as a Candidate Version.
 				</p>
 				<div>
-					<p className="font-medium text-sm">Access scope</p>
-					<ul className="mt-2 list-inside list-disc space-y-1 text-muted-foreground text-sm">
+					<p className="text-sm font-medium">Access scope</p>
+					<ul className="text-muted-foreground mt-2 list-inside list-disc space-y-1 text-sm">
 						{connectionScopes.map((scope) => (
 							<li key={scope}>{scope}</li>
 						))}
 					</ul>
 				</div>
-				<p className="rounded-md bg-muted p-3 text-sm">
+				<p className="bg-muted rounded-md p-3 text-sm">
 					Connection permission cannot be granted until a provider is selected,
 					and every access request is rejected.
 				</p>
@@ -246,13 +246,13 @@ function ProjectAccessHeader({
 	}
 	return (
 		<header className="space-y-2">
-			<p className="font-mono text-primary text-xs uppercase tracking-[0.16em]">
+			<p className="text-primary font-mono text-xs tracking-[0.16em] uppercase">
 				Manage permissions / External tool access
 			</p>
-			<h1 className="font-medium font-serif text-4xl tracking-tight">
+			<h1 className="font-serif text-4xl font-medium tracking-tight">
 				{projectName}
 			</h1>
-			<p className="max-w-2xl text-muted-foreground">
+			<p className="text-muted-foreground max-w-2xl">
 				Set the purpose and accessible project information separately for each
 				tool.
 			</p>
@@ -283,7 +283,7 @@ function ContextAgentPermissionHistory({
 	}
 	if (permissions.length === 0) {
 		return (
-			<p className="rounded-lg border border-dashed p-4 text-muted-foreground text-sm">
+			<p className="text-muted-foreground rounded-lg border border-dashed p-4 text-sm">
 				No Context Agent permissions have been saved for this project.
 			</p>
 		);
@@ -323,7 +323,7 @@ function ContextAgentPermissionRecord({
 					{isActive ? "Active" : "Revoked"}
 				</span>
 			</div>
-			<ul className="list-inside list-disc space-y-1 text-muted-foreground text-sm">
+			<ul className="text-muted-foreground list-inside list-disc space-y-1 text-sm">
 				{permission.scopes.map((scope) => (
 					<li key={scope}>
 						{scopeOptions.find((option) => option.scope === scope)?.label ??

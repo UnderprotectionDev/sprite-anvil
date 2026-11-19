@@ -10,10 +10,9 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-
+import type { Violation } from "./conventions";
 import {
 	baselineGrowth,
-	ConventionsError,
 	collectViolations,
 	compareWithBaseline,
 	fingerprint,
@@ -21,8 +20,8 @@ import {
 	readConventions,
 	structureDocument,
 	techStackDocument,
-	type Violation,
 } from "./conventions";
+import { ConventionsError } from "./conventions-error";
 
 const repository = join(import.meta.dir, "..");
 const feature = "apps/web/src/features/asset-records";
@@ -279,6 +278,7 @@ test("cross-feature imports are caught in web code, server code and tests", () =
 		`import { RecordPanel } from "@/features/asset-records/ui/components/record-panel";
 import type { RecordParams } from "@/features/asset-records/params";
 import { Header } from "@/components/header";
+import { ConventionsError } from "./conventions-error";
 export const View = () => <RecordPanel />;
 `
 	);

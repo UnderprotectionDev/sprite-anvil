@@ -39,13 +39,13 @@ const decisions: {
 function Side({ text, title }: { text: string | null; title: string }) {
 	return (
 		<div className="min-w-0 space-y-1">
-			<h5 className="font-medium text-xs">{title}</h5>
+			<h5 className="text-xs font-medium">{title}</h5>
 			{text === null ? (
 				<p className="text-muted-foreground text-xs">
 					Binary or unavailable: compared by digest only.
 				</p>
 			) : (
-				<pre className="overflow-x-auto whitespace-pre-wrap border p-2 text-xs">
+				<pre className="overflow-x-auto border p-2 text-xs whitespace-pre-wrap">
 					{text}
 				</pre>
 			)}

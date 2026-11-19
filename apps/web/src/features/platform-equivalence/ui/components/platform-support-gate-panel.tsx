@@ -15,7 +15,7 @@ export function PlatformSupportGatePanel({
 			aria-labelledby="platform-support-gate-heading"
 			className="space-y-4 rounded-lg border p-4"
 		>
-			<h2 className="font-semibold text-xl" id="platform-support-gate-heading">
+			<h2 className="text-xl font-semibold" id="platform-support-gate-heading">
 				Platform Support Gate
 			</h2>
 			<p className="text-muted-foreground text-sm">

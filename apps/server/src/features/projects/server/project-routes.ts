@@ -1,11 +1,12 @@
 import type { Context, Hono } from "hono";
 import z from "zod";
-
+import type {
+	CloudflareConfig,
+	createQueue,
+	createStorage,
+} from "../../../cloudflare";
 import {
-	type CloudflareConfig,
 	createProjectTwoDVisualAssetKey,
-	type createQueue,
-	type createStorage,
 	legacyAssetKeySchema,
 	twoDVisualAssetUploadContentTypeSchema,
 } from "../../../cloudflare";
@@ -16,7 +17,7 @@ import {
 } from "../../../output-contracts";
 
 const projectIdSchema = z.string().min(1).max(200);
-const twoDVisualAssetIdSchema = z.string().uuid();
+const twoDVisualAssetIdSchema = z.uuid();
 
 type StoredObject = NonNullable<
 	Awaited<ReturnType<ReturnType<typeof createStorage>["get"]>>

@@ -15,8 +15,8 @@ import {
 } from "drizzle-kit/api-postgres";
 import { z } from "zod";
 import { withDevelopmentCompatibility } from "./database-preparation";
+import type { Connection } from "./database-state";
 import {
-	type Connection,
 	catalogHash,
 	readDatabaseHistory,
 	readSchemaCatalog,
@@ -26,12 +26,11 @@ import { withDisposablePostgres } from "./disposable-postgres";
 import { runDrizzle } from "./drizzle-command";
 import { assertSourceCatalogMatches } from "./historical-schema";
 import { loadMigrations } from "./migration-files";
-import {
-	assertMigrationHistory,
-	type LocalMigration,
-} from "./migration-policy";
+import type { LocalMigration } from "./migration-policy";
+import { assertMigrationHistory } from "./migration-policy";
 import { MigrationSafetyError } from "./migration-safety-error";
-import { type CatalogContext, verifySharedCatalog } from "./shared-catalog";
+import type { CatalogContext } from "./shared-catalog";
+import { verifySharedCatalog } from "./shared-catalog";
 
 export interface SourceOptions {
 	historicalInventoryPath?: string;
@@ -43,8 +42,8 @@ export interface SourceOptions {
 const proofSchema = z.object({
 	version: z.literal(2),
 	catalog: z.array(z.string()),
-	fingerprint: z.string().regex(/^[a-f0-9]{64}$/),
-	prefixCatalogHashes: z.array(z.string().regex(/^[a-f0-9]{64}$/)).min(1),
+	fingerprint: z.string().regex(/^[a-f0-9]{64}$/u),
+	prefixCatalogHashes: z.array(z.string().regex(/^[a-f0-9]{64}$/u)).min(1),
 });
 
 export interface SourceCatalogContext extends CatalogContext {

@@ -3,11 +3,11 @@ import type { Context } from "../context";
 import { prepareGenerationPackage } from "../generation-package-preparation";
 import { generationPackageSchema } from "../generation-packages";
 import { protectedProcedure } from "../index";
+import type { ProductionRecipeContent } from "../production-recipes";
 import {
 	buildProductionRecipeUse,
 	copyProductionRecipeContent,
 	deriveProductionRecipeContent,
-	type ProductionRecipeContent,
 	productionRecipeCopyInputSchema,
 	productionRecipeCreateInputSchema,
 	productionRecipeCreateVersionInputSchema,

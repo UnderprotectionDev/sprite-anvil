@@ -45,7 +45,7 @@ vi.mock("./texture-repeat-preview", () => ({
 		return <div>{arrangement} preview</div>;
 	},
 }));
-const mismatchPattern = /mismatched pixels/;
+const mismatchPattern = /mismatched pixels/u;
 afterEach(() => {
 	cleanup();
 	vi.resetAllMocks();

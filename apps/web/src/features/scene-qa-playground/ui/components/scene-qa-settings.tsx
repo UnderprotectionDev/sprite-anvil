@@ -22,7 +22,7 @@ export function SceneQaSettings({
 	return (
 		<>
 			{" "}
-			<FieldLegend className="font-medium text-lg">Scene setup</FieldLegend>
+			<FieldLegend className="text-lg font-medium">Scene setup</FieldLegend>
 			<div>
 				<Label htmlFor="scene-name">Scene name</Label>
 				<Input

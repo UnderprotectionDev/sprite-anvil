@@ -88,7 +88,7 @@ export function ReadinessPlanView({
 	return (
 		<main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
 			<header className="space-y-2">
-				<h1 className="font-semibold text-2xl">Readiness Plan</h1>
+				<h1 className="text-2xl font-semibold">Readiness Plan</h1>
 				<p className="text-muted-foreground text-sm">
 					What stands between a Delivery Target and Ready, and the work each fix
 					opens. The plan explains; it does not start production, approve, or

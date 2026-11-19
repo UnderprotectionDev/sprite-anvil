@@ -12,7 +12,7 @@ import {
 import { afterEach, expect, test, vi } from "vitest";
 import { UiStretchTestManager } from "./ui-stretch-test-manager";
 
-const retrySame = /retry same/i;
+const retrySame = /retry same/iu;
 const mocks = vi.hoisted(() => ({
 	exportTest: vi.fn(),
 	list: vi.fn(),

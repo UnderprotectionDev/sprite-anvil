@@ -13,8 +13,8 @@ import {
 import { afterEach, expect, test, vi } from "vitest";
 import { AnimationTimingReviewManager } from "@/components/animation-timing-review-manager";
 
-const uncertainMessage = /Could not verify the save result/;
-const existingReviewButtonName = /Existing walk · 4 directions · Consistent/;
+const uncertainMessage = /Could not verify the save result/u;
+const existingReviewButtonName = /Existing walk · 4 directions · Consistent/u;
 const mocks = vi.hoisted(() => ({
 	save: vi.fn(),
 	list: vi.fn(),

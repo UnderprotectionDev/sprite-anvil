@@ -6,7 +6,8 @@ import type {
 	ManagedSnapshotStore,
 } from "@sprite-anvil/api/production-provenance";
 import { managedSnapshotSummarySchema } from "@sprite-anvil/api/production-provenance";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import { managedSnapshots } from "@sprite-anvil/db/schema/asset-production-history";
 import { assetVersions } from "@sprite-anvil/db/schema/asset-versions";
 import { and, asc, eq } from "drizzle-orm";

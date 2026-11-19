@@ -1,5 +1,3 @@
-const idlePattern = /idle/;
-
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -8,10 +6,12 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { ProductionRecipesView } from "./production-recipes-view";
 
+const idlePattern = /idle/u;
+
 afterEach(() => cleanup());
 
 const fixtures = vi.hoisted(() => ({
-	recipes: [] as any[],
+	recipes: [] as Record<string, unknown>[],
 	copy: vi.fn(),
 	create: vi.fn(),
 	createVersion: vi.fn(),

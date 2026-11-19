@@ -17,14 +17,14 @@ import {
 	userId,
 } from "./fulfilment-test-env";
 
-const notReadyText = /Ready/;
-const missingText = /no Export Bundle/;
-const conflictText = /conflicting/;
-const staleText = /no longer the active revision/;
-const noActiveText = /no activated revision/;
-const invalidSelectionText = /selection/i;
-const idempotencyText = /idempotency/i;
-const noRequirementsText = /no requirements/i;
+const notReadyText = /Ready/u;
+const missingText = /no Export Bundle/u;
+const conflictText = /conflicting/u;
+const staleText = /no longer the active revision/u;
+const noActiveText = /no activated revision/u;
+const invalidSelectionText = /selection/iu;
+const idempotencyText = /idempotency/iu;
+const noRequirementsText = /no requirements/iu;
 
 const selectIdle = (bundleId: string) => ({
 	assetFamilyId: "fam-a",

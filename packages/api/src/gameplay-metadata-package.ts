@@ -1,8 +1,10 @@
 import { z } from "zod";
+import type {
+	GameplayMetadataFrame,
+	GameplayMetadataRecord,
+	GameplayMetadataStore,
+} from "./gameplay-metadata";
 import {
-	type GameplayMetadataFrame,
-	type GameplayMetadataRecord,
-	type GameplayMetadataStore,
 	gameplayMetadataListInputSchema,
 	gameplayMetadataRecordSchema,
 } from "./gameplay-metadata";
@@ -38,7 +40,7 @@ const payloadSchema = z
 	.strict();
 export const gameplayMetadataPackageSchema = payloadSchema
 	.extend({
-		contentDigest: z.string().regex(/^[0-9a-f]{64}$/),
+		contentDigest: z.string().regex(/^[0-9a-f]{64}$/u),
 	})
 	.strict();
 export type GameplayMetadataPackage = z.infer<

@@ -13,15 +13,16 @@ import {
 	derivativeSummarySchema,
 	referenceSummarySchema,
 } from "@sprite-anvil/api/asset-record-tracking";
+import { compareCodeUnits } from "@sprite-anvil/api/compare-code-units";
 import {
 	hasManualImportEvidence,
 	isManualImportEvidenceRequired,
 } from "@sprite-anvil/api/manual-import-evidence-gate";
-import {
-	createVersionProductionEvidence,
-	type ManagedSnapshot,
-	type ManualImportEvidence,
+import type {
+	ManagedSnapshot,
+	ManualImportEvidence,
 } from "@sprite-anvil/api/production-provenance";
+import { createVersionProductionEvidence } from "@sprite-anvil/api/production-provenance";
 import {
 	toManagedSnapshot,
 	toManualImportEvidence,
@@ -30,11 +31,8 @@ import {
 	analyzeReferenceTransferConstraints,
 	indexReferenceConflictFeaturesById,
 } from "@sprite-anvil/api/reference-production";
-import {
-	type Database,
-	getProjectForUser,
-	publishedProjectPredicate,
-} from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser, publishedProjectPredicate } from "@sprite-anvil/db";
 import {
 	legacyAssetAttestations,
 	managedSnapshots,
@@ -60,10 +58,8 @@ import { generationPackages } from "@sprite-anvil/db/schema/generation-packages"
 import { project } from "@sprite-anvil/db/schema/project";
 import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { toAssetRecord } from "./asset-record-mapper";
-import {
-	type AssetVersionObjectStorage,
-	createAssetVersionWriter,
-} from "./asset-version-store";
+import type { AssetVersionObjectStorage } from "./asset-version-store";
+import { createAssetVersionWriter } from "./asset-version-store";
 
 function toISOString(value: Date | string) {
 	return value instanceof Date
@@ -80,8 +76,8 @@ function hasDatabaseErrorCode(error: unknown, codes: readonly string[]) {
 }
 
 function sameStringSet(left: readonly string[], right: readonly string[]) {
-	const sortedLeft = [...left].sort();
-	const sortedRight = [...right].sort();
+	const sortedLeft = [...left].sort(compareCodeUnits);
+	const sortedRight = [...right].sort(compareCodeUnits);
 	return (
 		sortedLeft.length === sortedRight.length &&
 		sortedLeft.every((value, index) => value === sortedRight[index])

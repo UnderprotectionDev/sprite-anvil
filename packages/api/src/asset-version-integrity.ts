@@ -1,19 +1,5 @@
 export type AssetVersionContentType = "image/png" | "image/webp";
 
-export class AssetVersionIntegrityError extends Error {
-	constructor() {
-		super("Asset Version content failed integrity validation");
-		this.name = "AssetVersionIntegrityError";
-	}
-}
-
-export class AssetVersionContentLengthError extends Error {
-	constructor() {
-		super("Asset Version content length mismatch");
-		this.name = "AssetVersionContentLengthError";
-	}
-}
-
 export type CreateAssetVersionIntegrityTransform = (
 	contentType: AssetVersionContentType,
 	expectedLength: number

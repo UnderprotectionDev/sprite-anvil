@@ -15,7 +15,7 @@ export const measurementEventVersion = 1;
  * (`skip_count`, `pkg_export_count`) is an ordinary word and stays valid.
  */
 const secretShape =
-	/[a-f0-9]{20,}|\d{10,}|^(?:sk|pk|rk)_(?:live|test)_|^gh[pousr]_[a-z0-9]{8,}|^xox[a-z]_?\d{6,}|^akia[a-z0-9]{12,}$|^eyj[a-z0-9_-]{10,}$/i;
+	/[a-f0-9]{20,}|\d{10,}|^(?:sk|pk|rk)_(?:live|test)_|^gh[pousr]_[a-z0-9]{8,}|^xox[a-z]_?\d{6,}|^akia[a-z0-9]{12,}$|^eyj[a-z0-9_-]{10,}$/iu;
 
 /**
  * A closed-vocabulary label: lowercase words joined by underscores. It cannot
@@ -25,7 +25,7 @@ const secretShape =
 const labelSchema = z
 	.string()
 	.regex(
-		/^[a-z][a-z0-9_]{0,63}$/,
+		/^[a-z][a-z0-9_]{0,63}$/u,
 		"Use a short lowercase label of letters, digits and underscores."
 	)
 	.refine(

@@ -5,17 +5,15 @@ import {
 	deletionReceiptDigest,
 } from "@sprite-anvil/api/permanent-erasure-deletion";
 import type { ManagedObjectErasureGate } from "../../../managed-object-reservations";
-import {
-	type ErasureDeletionStorage,
-	ErasureScopeChangedError,
-	type StoredErasureApproval,
+import type {
+	ErasureDeletionStorage,
+	StoredErasureApproval,
 } from "./erasure-deletion-storage";
+import { ErasureScopeChangedError } from "./erasure-deletion-storage";
 import type { createErasureObjectRemoval } from "./erasure-object-removal";
 import type { ErasureScopeProof } from "./erasure-scope-proof";
-import {
-	type ProjectLookupOptions,
-	resolveProjectLookup,
-} from "./project-lookup";
+import type { ProjectLookupOptions } from "./project-lookup";
+import { resolveProjectLookup } from "./project-lookup";
 
 export type DeletionJobOptions = ProjectLookupOptions & {
 	now?: () => Date;

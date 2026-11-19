@@ -11,22 +11,17 @@ import {
 } from "@sprite-anvil/api/offline-conflict";
 import type { AbandonConfirmations } from "./abandon-confirmation";
 import { storePngCandidate } from "./candidate-store";
+import type { ReadableEntry } from "./offline-conflict-content";
 import {
 	appliedOperations,
 	buildView,
 	checkRequestContractVersion,
 	isPendingResolution,
-	type ReadableEntry,
 } from "./offline-conflict-content";
 import { loadEntry } from "./offline-conflict-reads";
 import { renderVersion } from "./offline-conflict-render";
-import {
-	failure,
-	newId,
-	type Outcome,
-	type Scope,
-	success,
-} from "./pixel-editor-context";
+import type { Outcome, Scope } from "./pixel-editor-context";
+import { failure, newId, success } from "./pixel-editor-context";
 
 /**
  * Resolution of an Offline Conflict Record. The user's explicit choice is

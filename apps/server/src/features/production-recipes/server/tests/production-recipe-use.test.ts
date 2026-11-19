@@ -21,12 +21,12 @@ const referenceId = "e23f4089-ce39-45d6-bbcc-760a6f5260c2";
 const unknownId = "11111111-2222-4333-8444-555555555555";
 const timestamp = "2026-10-01T09:00:00.000Z";
 
-const missingFieldMessage = /target_task/;
-const unknownFieldMessage = /Unknown field/;
-const fixedFieldMessage = /fixed/;
-const rolesMissingMessage = /recipe roles/;
-const conflictMessage = /conflict/i;
-const differentProjectMessage = /different project/i;
+const missingFieldMessage = /target_task/u;
+const unknownFieldMessage = /Unknown field/u;
+const fixedFieldMessage = /fixed/u;
+const rolesMissingMessage = /recipe roles/u;
+const conflictMessage = /conflict/iu;
+const differentProjectMessage = /different project/iu;
 
 const revision: ContextRevision = {
 	createdAt: timestamp,

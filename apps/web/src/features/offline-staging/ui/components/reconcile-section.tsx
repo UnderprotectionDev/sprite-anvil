@@ -36,7 +36,7 @@ export function ReconcileSection({
 }) {
 	return (
 		<section aria-labelledby="offline-reconcile" className="space-y-4">
-			<h2 className="font-medium text-lg" id="offline-reconcile">
+			<h2 className="text-lg font-medium" id="offline-reconcile">
 				Reconnect check
 			</h2>
 			{message ? <p role="status">{message}</p> : null}

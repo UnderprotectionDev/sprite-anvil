@@ -52,7 +52,7 @@ export function CompareStage({
 	const showSource = mode === "source" || mode === "side-by-side";
 	return (
 		<>
-			<div className="flex max-h-[70vh] flex-wrap items-start gap-4 overflow-auto rounded-md border bg-muted/30 p-3">
+			<div className="bg-muted/30 flex max-h-[70vh] flex-wrap items-start gap-4 overflow-auto rounded-md border p-3">
 				{mode === "source" ? null : (
 					<PixelCanvas
 						changedBox={overlay ? draft.diff.boundingBox : null}

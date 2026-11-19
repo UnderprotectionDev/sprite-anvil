@@ -12,7 +12,7 @@ import {
 import { afterEach, expect, test, vi } from "vitest";
 import { DirectionalReviewManager } from "./directional-review-manager";
 
-const uncertainMessage = /Could not verify the save result/;
+const uncertainMessage = /Could not verify the save result/u;
 const mocks = vi.hoisted(() => ({ save: vi.fn(), list: vi.fn() }));
 vi.mock("@/utils/orpc", async () => {
 	const { createTanstackQueryUtils } = await import("@orpc/tanstack-query");

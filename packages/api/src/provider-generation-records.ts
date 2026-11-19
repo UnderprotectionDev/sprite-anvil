@@ -61,7 +61,7 @@ export const providerGenerationRecordSchema = z
 		provider: z.string().trim().min(1).max(200),
 		referenceIds: z.array(z.string().trim().min(1).max(500)).max(200),
 		requestedDimensions: nullableDimensionsSchema,
-		seed: z.union([z.string().max(256), z.number().finite()]).nullable(),
+		seed: z.union([z.string().max(256), z.number()]).nullable(),
 	})
 	.strict();
 
@@ -78,7 +78,7 @@ export const providerGenerationRecordCreateInputSchema = z
 		providerParameters: providerParametersInputSchema,
 		referenceIds: z.array(z.string().trim().min(1).max(500)).max(200),
 		requestedDimensions: nullableDimensionsSchema,
-		seed: z.union([z.string().max(256), z.number().finite()]).nullable(),
+		seed: z.union([z.string().max(256), z.number()]).nullable(),
 	})
 	.strict();
 

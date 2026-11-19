@@ -2,8 +2,8 @@ import { ORPCError } from "@orpc/server";
 import type { Context } from "../context";
 import { protectedProcedure } from "../index";
 import { recordProductBoundary } from "../measurement-workflows";
+import type { ReadinessPlanReorderFailureReason } from "../readiness-plans";
 import {
-	type ReadinessPlanReorderFailureReason,
 	readinessPlanGetInputSchema,
 	readinessPlanReorderInputSchema,
 	readinessPlanSchema,

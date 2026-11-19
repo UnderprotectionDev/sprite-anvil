@@ -1,8 +1,9 @@
-import { expect, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { expect } from "@playwright/test";
 import { assetVersionFixture } from "./asset-version-fixture";
 import { signUpWithFixture } from "./project-workflow";
 
-const profileContractActivationName = /Activate contract v/;
+const profileContractActivationName = /Activate contract v/u;
 
 export const animationTimingFixture = {
 	...assetVersionFixture,

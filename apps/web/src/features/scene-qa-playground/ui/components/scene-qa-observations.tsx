@@ -34,7 +34,7 @@ export function SceneQaObservations({
 							{sceneQaObservationLabels[key]}
 						</Label>
 						<Textarea
-							className="min-h-24 w-full rounded border bg-background p-3"
+							className="bg-background min-h-24 w-full rounded border p-3"
 							id={`scene-observation-${key}`}
 							maxLength={2000}
 							onChange={(e) =>

@@ -1,4 +1,5 @@
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
+import { compareCodeUnits } from "@sprite-anvil/api/compare-code-units";
 import type {
 	FamilyReadiness,
 	QualityVersionTarget,
@@ -19,7 +20,7 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import type {
@@ -347,10 +348,10 @@ export function FamilyReadinessManager({
 	return (
 		<article className="space-y-5 rounded-lg border p-5">
 			<header className="space-y-2">
-				<p className="font-mono text-muted-foreground text-xs uppercase tracking-wider">
+				<p className="text-muted-foreground font-mono text-xs tracking-wider uppercase">
 					Required Set
 				</p>
-				<h3 className="font-semibold text-xl">{familyName}</h3>
+				<h3 className="text-xl font-semibold">{familyName}</h3>
 				{query.data ? (
 					<p aria-live="polite" className="text-sm">
 						{familyStatusLabel(query.data.status)}
@@ -542,7 +543,7 @@ function FamilyReadinessItemCard({
 				</strong>
 			</div>
 			{itemResult.blockers.length > 0 ? (
-				<ul className="mt-2 list-inside list-disc text-muted-foreground text-sm">
+				<ul className="text-muted-foreground mt-2 list-inside list-disc text-sm">
 					{itemResult.blockers.map((blocker) => (
 						<li key={blocker}>{blockerLabels[blocker] ?? blocker}</li>
 					))}
@@ -600,7 +601,7 @@ function QualityEvaluationSummary({
 				<strong>{qualityReadinessLabels[itemResult.qualityReadiness]}</strong>
 			</p>
 			{itemResult.qualityRequirements.length > 0 ? (
-				<ul className="space-y-1 text-muted-foreground text-sm">
+				<ul className="text-muted-foreground space-y-1 text-sm">
 					{itemResult.qualityRequirements.map((requirement) => (
 						<li key={requirement.id}>
 							{requirement.name} · {requirement.id} ·{" "}
@@ -612,7 +613,7 @@ function QualityEvaluationSummary({
 				</ul>
 			) : null}
 			{itemResult.usageRequirements.length > 0 ? (
-				<ul className="space-y-1 text-muted-foreground text-sm">
+				<ul className="text-muted-foreground space-y-1 text-sm">
 					{itemResult.usageRequirements.map((requirement) => (
 						<li key={requirement.id}>
 							Usage test {requirement.name} · {requirement.id} ·{" "}
@@ -636,8 +637,8 @@ function HumanReviewSummary({
 	}
 	return (
 		<section aria-label="Required human reviews" className="mt-3 space-y-2">
-			<h5 className="font-medium text-sm">Required human reviews</h5>
-			<ul className="space-y-1 text-muted-foreground text-sm">
+			<h5 className="text-sm font-medium">Required human reviews</h5>
+			<ul className="text-muted-foreground space-y-1 text-sm">
 				{requirements.map((requirement) => (
 					<li key={requirement.id}>
 						{requirement.name} · {requirement.id} ·{" "}
@@ -711,7 +712,7 @@ function ReadinessEvidenceDetails({
 }) {
 	return (
 		<details className="mt-2 text-xs">
-			<summary className="cursor-pointer text-muted-foreground">
+			<summary className="text-muted-foreground cursor-pointer">
 				{evidence.ruleId ??
 					evidence.testId ??
 					evidenceKindLabels[evidence.kind]}{" "}
@@ -1278,7 +1279,7 @@ function iconUsageGrayscaleReviewKey(
 	const assetRecordIds = new Set(preview?.assetRecordIds ?? []);
 	const currentAssetVersionIds = [
 		...(preview?.currentAssetVersionIds ?? []),
-	].sort();
+	].sort(compareCodeUnits);
 	const currentAssetVersionIdSet = new Set(currentAssetVersionIds);
 	const assetRecords = (preview?.assetRecords ?? [])
 		.filter((record) => assetRecordIds.has(record.id))
@@ -2004,7 +2005,7 @@ function EvidenceForm({
 		targetWidth,
 		usageVariant,
 		versionTarget,
-	} = useStore(form.store, (state) => state.values);
+	} = useSelector(form.store, (state) => state.values);
 	const [grayscaleReviewedScopeKey, setGrayscaleReviewedScopeKey] = useState<
 		string | null
 	>(null);
@@ -2135,14 +2136,14 @@ function EvidenceForm({
 
 	return (
 		<form
-			className="space-y-2 rounded-md bg-muted/30 p-3"
+			className="bg-muted/30 space-y-2 rounded-md p-3"
 			onSubmit={(event) => {
 				event.preventDefault();
 				event.stopPropagation();
 				form.handleSubmit();
 			}}
 		>
-			<h6 className="font-medium text-sm">{description}</h6>
+			<h6 className="text-sm font-medium">{description}</h6>
 			<form.Field
 				listeners={{
 					onChange: ({ value }) => {

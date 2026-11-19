@@ -12,7 +12,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { ExportCreationPanel } from "./export-creation-panel";
 
 const storage = vi.hoisted(() => ({
-	rows: new Map<string, any>(),
+	rows: new Map<string, { key: string }>(),
 	fail: false,
 	user: "user-1",
 }));
@@ -26,7 +26,7 @@ vi.mock("../../lib/pending-export-store", async (importOriginal) => {
 		...original,
 		pendingExportTable: () => ({
 			get: async (key: string) => storage.rows.get(key),
-			put: (row: any) => {
+			put: (row: { key: string }) => {
 				if (storage.fail) {
 					return Promise.reject(new Error("storage"));
 				}
@@ -48,13 +48,17 @@ beforeEach(() => {
 	create.mockClear();
 });
 afterEach(cleanup);
-const save = vi.hoisted(() => vi.fn(async (_input: any) => ({})));
-const create = vi.hoisted(() => vi.fn(async (_input: any) => ({})));
+const save = vi.hoisted(() =>
+	vi.fn(async (_input: Record<string, unknown>) => ({}))
+);
+const create = vi.hoisted(() =>
+	vi.fn(async (_input: Record<string, unknown>) => ({}))
+);
 const familyId = "d55304bf-e278-4cef-93ab-638a2dd651c3";
 const revisionId = "2eeab681-0813-4c6b-a0d2-d0129a8b8474";
 const catalog = vi.hoisted(() => ({
-	profiles: [] as any[],
-	bundles: [] as any[],
+	profiles: [] as unknown[],
+	bundles: [] as unknown[],
 	getBundle: vi.fn(),
 }));
 vi.mock("@/utils/orpc", async () => {

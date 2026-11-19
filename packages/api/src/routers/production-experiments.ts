@@ -1,10 +1,12 @@
 import { ORPCError } from "@orpc/server";
 import type { Context } from "../context";
 import { protectedProcedure } from "../index";
+import type {
+	ComparableTrial,
+	ProductionExperiment,
+} from "../production-experiments";
 import {
-	type ComparableTrial,
 	compareProductionExperimentTrials,
-	type ProductionExperiment,
 	productionExperimentConcludeInputSchema,
 	productionExperimentCreateInputSchema,
 	productionExperimentDetailSchema,

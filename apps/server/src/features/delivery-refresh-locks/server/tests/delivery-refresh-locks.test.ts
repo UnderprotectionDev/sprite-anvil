@@ -1,16 +1,15 @@
 import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
+import { compareCodeUnits } from "@sprite-anvil/api/compare-code-units";
 import type { Context } from "@sprite-anvil/api/context";
+import type { DeliveryRefreshDecision } from "@sprite-anvil/api/delivery-refresh-classification";
 import {
 	classifyDeliveryRefreshPaths,
-	type DeliveryRefreshDecision,
 	planDeliveryRefresh,
 } from "@sprite-anvil/api/delivery-refresh-classification";
 import type { DeliveryRefreshLock } from "@sprite-anvil/api/delivery-refresh-locks";
-import {
-	buildExportBundle,
-	type ExportBundleSource,
-} from "@sprite-anvil/api/export-bundle-manifest";
+import type { ExportBundleSource } from "@sprite-anvil/api/export-bundle-manifest";
+import { buildExportBundle } from "@sprite-anvil/api/export-bundle-manifest";
 import type { ExportBundleStore } from "@sprite-anvil/api/export-bundle-store";
 import type { ExportBundle } from "@sprite-anvil/api/export-bundles";
 import { appRouter } from "@sprite-anvil/api/routers/index";
@@ -28,9 +27,9 @@ const familyId = "9c3b4e73-4e3f-4c97-9b8d-1f7d3a1e2001";
 const bundleId = "9c3b4e73-4e3f-4c97-9b8d-1f7d3a1e2002";
 const secondBundleId = "9c3b4e73-4e3f-4c97-9b8d-1f7d3a1e2003";
 const missingId = "9c3b4e73-4e3f-4c97-9b8d-1f7d3a1e2999";
-const unsafePathPattern = /\\|\.\.|^[a-z]:/i;
-const forbiddenContent = /consumption|receipt|sync/i;
-const outOfScopeRouterName = /receipt|consumption|bidirectional|continuous/i;
+const unsafePathPattern = /\\|\.\.|^[a-z]:/iu;
+const forbiddenContent = /consumption|receipt|sync/iu;
+const outOfScopeRouterName = /receipt|consumption|bidirectional|continuous/iu;
 
 const source: ExportBundleSource = {
 	assetVersions: [
@@ -1040,12 +1039,9 @@ test("refresh stays one-way: no continuous sync, no Consumption Receipt and no d
 		written: report.written,
 	});
 
-	expect(Object.keys(appRouter.deliveryRefreshLocks).sort()).toEqual([
-		"apply",
-		"get",
-		"list",
-		"refresh",
-	]);
+	expect(
+		Object.keys(appRouter.deliveryRefreshLocks).sort(compareCodeUnits)
+	).toEqual(["apply", "get", "list", "refresh"]);
 	expect(
 		Object.keys(appRouter).filter((name) => outOfScopeRouterName.test(name))
 	).toEqual([]);

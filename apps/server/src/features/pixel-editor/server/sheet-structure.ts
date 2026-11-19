@@ -1,20 +1,22 @@
 import { createHash } from "node:crypto";
 import type { PixelOperation } from "@sprite-anvil/api/pixel-editor";
+import type {
+	FrameOperation,
+	SheetCell,
+	SheetFrameRecord,
+	SheetSlicing,
+	SheetStructure,
+} from "@sprite-anvil/api/pixel-editor-structure";
 import {
-	type FrameOperation,
 	pixelEditorMaxFrameEdits,
 	pixelEditorMaxFrames,
-	type SheetCell,
-	type SheetFrameRecord,
-	type SheetSlicing,
-	type SheetStructure,
 	sheetStructureSchema,
 } from "@sprite-anvil/api/pixel-editor-structure";
+import type { Raster } from "./pixel-operations";
 import {
 	anchorOffset,
 	createRaster,
 	PixelOperationError,
-	type Raster,
 	replayOperations,
 } from "./pixel-operations";
 

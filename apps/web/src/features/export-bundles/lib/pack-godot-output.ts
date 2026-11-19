@@ -1,7 +1,5 @@
-import {
-	buildGodotOutputZip,
-	type GodotOutput,
-} from "@sprite-anvil/api/godot-output";
+import type { GodotOutput } from "@sprite-anvil/api/godot-output";
+import { buildGodotOutputZip } from "@sprite-anvil/api/godot-output";
 import { honoGetBytes, projectApiUrl } from "@/utils/hono-api";
 
 /**

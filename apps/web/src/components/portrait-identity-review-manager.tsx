@@ -4,10 +4,12 @@ import type {
 } from "@sprite-anvil/api/asset-families";
 import type { AssetRecord } from "@sprite-anvil/api/asset-records";
 import type { AssetVersionCatalog } from "@sprite-anvil/api/asset-versions";
+import type {
+	PortraitIdentityReviewInput,
+	PortraitIdentityReviewRecord,
+	PortraitReviewItem,
+} from "@sprite-anvil/api/portrait-identity-reviews";
 import {
-	type PortraitIdentityReviewInput,
-	type PortraitIdentityReviewRecord,
-	type PortraitReviewItem,
 	portraitIdentityReviewInputSchema,
 	portraitReviewObservationSchema,
 } from "@sprite-anvil/api/portrait-identity-reviews";
@@ -20,7 +22,7 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { StatusMessage } from "@/components/status-message";
@@ -185,7 +187,7 @@ export function PortraitIdentityReviewManager({
 		onSubmit: ({ value }) => submit(value),
 		validators: { onSubmit: portraitIdentityReviewFormSchema },
 	});
-	const values = useStore(form.store, (state) => state.values);
+	const values = useSelector(form.store, (state) => state.values);
 	const { items, observations, rationale } = values;
 	const input = portraitIdentityReviewInputSchema.safeParse({
 		id: crypto.randomUUID(),
@@ -382,11 +384,12 @@ export function PortraitIdentityReviewManager({
 									)}
 								</form.Field>
 							</div>
-							<Label className="grid gap-1">
+							<Label className="grid gap-1" htmlFor={`${formId}-${key}-notes`}>
 								{label} notes
 								<form.Field name={`observations.${key}.notes`}>
 									{(field) => (
 										<Textarea
+											id={`${formId}-${key}-notes`}
 											maxLength={1000}
 											onChange={(e) => field.handleChange(e.target.value)}
 											required
@@ -397,11 +400,12 @@ export function PortraitIdentityReviewManager({
 							</Label>
 						</div>
 					))}
-					<Label className="grid gap-1">
+					<Label className="grid gap-1" htmlFor={`${formId}-rationale`}>
 						Review rationale
 						<form.Field name="rationale">
 							{(field) => (
 								<Textarea
+									id={`${formId}-rationale`}
 									maxLength={2000}
 									onChange={(e) => field.handleChange(e.target.value)}
 									required

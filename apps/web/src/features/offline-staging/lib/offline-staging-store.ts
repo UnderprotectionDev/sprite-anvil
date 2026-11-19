@@ -1,10 +1,13 @@
+import type {
+	PixelDraft,
+	PixelOperation,
+} from "@sprite-anvil/api/pixel-editor";
 import {
-	type PixelDraft,
-	type PixelOperation,
 	pixelEditorMaxOperations,
 	pixelOperationSchema,
 } from "@sprite-anvil/api/pixel-editor";
-import Dexie, { type Table } from "dexie";
+import type { Table } from "dexie";
+import Dexie from "dexie";
 import type { CachedProject } from "../schemas";
 
 /** Largest PNG accepted into Offline Staged Work (browser storage is quota-bound). */

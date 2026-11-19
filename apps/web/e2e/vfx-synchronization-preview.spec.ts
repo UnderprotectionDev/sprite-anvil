@@ -22,7 +22,7 @@ test("renders the owner event on four backgrounds and submits exact user review 
 	await expect(play)
 		.toBeEnabled({ timeout: 60_000 })
 		.catch(async (error) => {
-			console.log(await page.locator("body").innerText());
+			console.log(await page.locator("body").textContent());
 			throw error;
 		});
 	const canvas = page.getByRole("img", {
@@ -77,7 +77,7 @@ test("renders the owner event on four backgrounds and submits exact user review 
 	await expect(save).toBeEnabled();
 	await save.click();
 	const submitted = JSON.parse(
-		await page.getByLabel("Submitted review").innerText()
+		(await page.getByLabel("Submitted review").textContent()) ?? ""
 	);
 	expect(submitted.event).toEqual({ id: "spell-release", timeMs: 150 });
 	expect(

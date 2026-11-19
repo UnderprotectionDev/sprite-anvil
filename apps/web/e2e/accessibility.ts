@@ -1,10 +1,11 @@
-import { expect, type Locator, type Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
+import { expect } from "@playwright/test";
 import {
 	hasVisibleFocusIndicator,
 	minimumFocusThickness,
 } from "../src/utils/focus-indicator";
 
-const nonEmpty = /\S/;
+const nonEmpty = /\S/u;
 
 /**
  * Shared keyboard and accessibility helpers for web end-to-end specs.

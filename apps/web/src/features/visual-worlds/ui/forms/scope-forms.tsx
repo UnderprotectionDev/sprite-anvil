@@ -10,10 +10,8 @@ import type {
 	ThemeFormApi,
 	VisualWorldFormApi,
 } from "../../hooks/use-scope-forms";
-import {
-	resolveSelectedVisualWorldId,
-	type VisualWorlds,
-} from "../../lib/selected-visual-world";
+import type { VisualWorlds } from "../../lib/selected-visual-world";
+import { resolveSelectedVisualWorldId } from "../../lib/selected-visual-world";
 
 const fieldLabelClass = "context-field leading-[inherit]";
 

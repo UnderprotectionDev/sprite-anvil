@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { StatusMessage } from "@/components/status-message";
 import { ENV } from "@/env";
 
-const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
+const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/u, "") ?? "";
 
 export function DirectionalClipPreview({
 	label,
@@ -158,7 +158,7 @@ export function DirectionalClipPreview({
 				{label} · Frame {frameIndex + 1}
 			</figcaption>
 			<div
-				className="overflow-auto border bg-muted p-2"
+				className="bg-muted overflow-auto border p-2"
 				style={{ maxHeight: 420 }}
 			>
 				<canvas

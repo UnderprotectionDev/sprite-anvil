@@ -15,20 +15,20 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { createQueryClient } from "@/utils/query-client";
 import { DeliveryRefreshView } from "./delivery-refresh-view";
 
-const re0 = /Test game folder/;
-const re1 = /Bundle created/;
-const re2 = /^Unchanged/;
-const re3 = /never read, changed or deleted/;
-const re4 = /^Diverged/;
-const re5 = /Refresh halted/;
-const re6 = /^Refresh result/;
-const re7 = /Partial refresh/;
-const re8 = /Delivery completed/;
-const re9 = /cannot refresh from/;
-const re10 = /Export Bundle of/;
-const re11 = /First delivery lock/;
-const re12 = /not complete/;
-const re13 = /no longer ships/;
+const re0 = /Test game folder/u;
+const re1 = /Bundle created/u;
+const re2 = /^Unchanged/u;
+const re3 = /never read, changed or deleted/u;
+const re4 = /^Diverged/u;
+const re5 = /Refresh halted/u;
+const re6 = /^Refresh result/u;
+const re7 = /Partial refresh/u;
+const re8 = /Delivery completed/u;
+const re9 = /cannot refresh from/u;
+const re10 = /Export Bundle of/u;
+const re11 = /First delivery lock/u;
+const re12 = /not complete/u;
+const re13 = /no longer ships/u;
 
 const native = vi.hoisted(() => ({
 	desktop: false,
@@ -224,7 +224,7 @@ async function review() {
 }
 
 const sectionOf = (name: string) =>
-	screen.getByRole("region", { name: new RegExp(`^${name}`) });
+	screen.getByRole("region", { name: new RegExp(`^${name}`, "u") });
 
 let downloaded: Blob[] = [];
 

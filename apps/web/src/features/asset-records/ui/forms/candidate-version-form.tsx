@@ -6,7 +6,7 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import {
 	candidateVersionFormSchema,
 	candidateVersionSubmitSchema,
@@ -45,7 +45,7 @@ export function CandidateVersionForm({
 	form: ReturnType<typeof useCandidateVersionForm>;
 	saving: boolean;
 }) {
-	const values = useStore(form.store, (state) => state.values);
+	const values = useSelector(form.store, (state) => state.values);
 	return (
 		<form
 			className="mt-4 space-y-3"

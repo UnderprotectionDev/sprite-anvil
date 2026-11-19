@@ -10,6 +10,7 @@ import {
 	visualWorldCreateInputSchema,
 	visualWorldRecordSchema,
 } from "../context-scopes";
+import { IdempotencyConflictError } from "../idempotency-conflict-error";
 import { protectedProcedure, publicProcedure } from "../index";
 import {
 	serializePrivateDataResponse,
@@ -30,11 +31,7 @@ import {
 	validateContextProposal,
 } from "../project-context";
 import { recordContentDigest } from "../record-content-digest";
-import {
-	IdempotencyConflictError,
-	resolveRecordId,
-	withPublicationErrors,
-} from "../record-publication";
+import { resolveRecordId, withPublicationErrors } from "../record-publication";
 import { animationMetadataPackageRouter } from "./animation-metadata-package";
 import { animationTimingReviewsRouter } from "./animation-timing-reviews";
 import { assetFamiliesRouter } from "./asset-families";
@@ -76,8 +73,10 @@ import { rightsRecordsRouter } from "./rights-records";
 import { runtimeValidationRouter } from "./runtime-validation";
 import { sceneQaRouter } from "./scene-qa";
 import { specializedProfileContractsRouter } from "./specialized-profile-contracts";
+import { textureRepetitionReviewsRouter } from "./texture-repetition-reviews";
 import { tilesetAdjacencyReviewsRouter } from "./tileset-adjacency-reviews";
 import { uiStateComparisonsRouter } from "./ui-state-comparisons";
+import { uiStretchTestsRouter } from "./ui-stretch-tests";
 import { vfxAppearanceReviewsRouter } from "./vfx-appearance-reviews";
 import { vfxSynchronizationRouter } from "./vfx-synchronization";
 
@@ -226,10 +225,6 @@ async function readContextProposalReview(
 		)
 	);
 }
-
-import { textureRepetitionReviewsRouter } from "./texture-repetition-reviews";
-
-import { uiStretchTestsRouter } from "./ui-stretch-tests";
 
 const featureRouters = {
 	sceneQa: sceneQaRouter,

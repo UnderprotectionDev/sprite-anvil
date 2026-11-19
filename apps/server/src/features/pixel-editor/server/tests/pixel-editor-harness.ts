@@ -10,11 +10,11 @@ import type {
 } from "@sprite-anvil/api/pixel-editor";
 import { Hono } from "hono";
 import sharp from "sharp";
-import {
-	mountPixelEditorRoutes,
-	type PixelEditorRouteDependencies,
-	type PixelEditorSession,
+import type {
+	PixelEditorRouteDependencies,
+	PixelEditorSession,
 } from "../pixel-editor-routes";
+import { mountPixelEditorRoutes } from "../pixel-editor-routes";
 
 export const projectId = "pixel-editor-project";
 export const otherProjectId = "pixel-editor-other-project";

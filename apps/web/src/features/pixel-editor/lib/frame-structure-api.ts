@@ -1,8 +1,10 @@
+import type {
+	FrameOperation,
+	SheetSlicing,
+	SheetStructureView,
+} from "@sprite-anvil/api/pixel-editor-structure";
 import {
-	type FrameOperation,
 	frameStructureCommitResponseSchema,
-	type SheetSlicing,
-	type SheetStructureView,
 	sheetSlicingPreviewSchema,
 	sheetStructureViewSchema,
 } from "@sprite-anvil/api/pixel-editor-structure";

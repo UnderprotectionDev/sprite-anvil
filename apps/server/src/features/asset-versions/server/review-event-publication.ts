@@ -8,14 +8,14 @@ import {
 	compositeVersionReviewEventSchema,
 } from "@sprite-anvil/api/asset-versions";
 import { recordContentDigest } from "@sprite-anvil/api/record-content-digest";
+import { RecordIntegrityError } from "@sprite-anvil/api/record-integrity-error";
+import type { RecordScope } from "@sprite-anvil/api/record-publication";
 import {
-	RecordIntegrityError,
-	type RecordScope,
-	RetryablePublicationError,
 	replayPublishedRecord,
 	resolveRecordId,
 	verifyPublishedRecord,
 } from "@sprite-anvil/api/record-publication";
+import { RetryablePublicationError } from "@sprite-anvil/api/retryable-publication-error";
 import type { Database } from "@sprite-anvil/db";
 import {
 	assetVersionReviewEvents,

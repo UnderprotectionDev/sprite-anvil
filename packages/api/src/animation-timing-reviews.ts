@@ -28,7 +28,7 @@ export const animationTimingReviewListInputSchema = z
 export const animationTimingReviewInputSchema =
 	animationTimingReviewListInputSchema
 		.extend({
-			id: z.string().uuid(),
+			id: z.uuid(),
 			contractRevisionId: id,
 			animationName: z.string().trim().min(1).max(120),
 			playbackSpeed: z.number().min(0.1).max(4),
@@ -57,14 +57,14 @@ export const animationTimingReviewInputSchema =
 export const animationTimingReviewRecordSchema =
 	animationTimingReviewInputSchema
 		.extend({
-			createdAt: z.string().datetime(),
+			createdAt: z.iso.datetime(),
 			reviewedByUserId: id,
 			versionPins: z
 				.array(
 					z
 						.object({
 							assetVersionId: id,
-							contentDigest: z.string().regex(/^[a-f0-9]{64}$/),
+							contentDigest: z.string().regex(/^[a-f0-9]{64}$/u),
 						})
 						.strict()
 				)

@@ -1,11 +1,12 @@
+import { compareCodeUnits } from "@sprite-anvil/api/compare-code-units";
 import type { ErasureContainerRef } from "@sprite-anvil/api/permanent-erasure";
-import {
-	type ErasureDeletionStorage,
-	ErasureScopeChangedError,
-	type ErasureTombstoneRow,
-	type StoredDeletionReceipt,
-	type StoredErasureApproval,
+import type {
+	ErasureDeletionStorage,
+	ErasureTombstoneRow,
+	StoredDeletionReceipt,
+	StoredErasureApproval,
 } from "../erasure-deletion-storage";
+import { ErasureScopeChangedError } from "../erasure-deletion-storage";
 
 /** What the database holds for the asset at the moment finalize re-checks it. */
 export interface LiveErasureScope {
@@ -25,7 +26,8 @@ interface MemoryOptions {
 function sameIds(left: readonly string[], right: readonly string[]) {
 	return (
 		left.length === right.length &&
-		[...left].sort().join("\n") === [...right].sort().join("\n")
+		[...left].sort(compareCodeUnits).join("\n") ===
+			[...right].sort(compareCodeUnits).join("\n")
 	);
 }
 

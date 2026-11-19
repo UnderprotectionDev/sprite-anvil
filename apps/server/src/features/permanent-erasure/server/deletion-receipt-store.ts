@@ -1,16 +1,14 @@
+import type { DeletionReceiptRecord } from "@sprite-anvil/api/permanent-erasure-deletion";
 import {
-	type DeletionReceiptRecord,
 	deletionReceiptContractSupport,
 	deletionReceiptDigest,
 	deletionReceiptRecordSchema,
 } from "@sprite-anvil/api/permanent-erasure-deletion";
 import type { DeletionReceiptStore } from "@sprite-anvil/api/permanent-erasure-deletion-store";
-import { RecordIntegrityError } from "@sprite-anvil/api/record-publication";
+import { RecordIntegrityError } from "@sprite-anvil/api/record-integrity-error";
 import type { ErasureDeletionStorage } from "./erasure-deletion-storage";
-import {
-	type ProjectLookupOptions,
-	resolveProjectLookup,
-} from "./project-lookup";
+import type { ProjectLookupOptions } from "./project-lookup";
+import { resolveProjectLookup } from "./project-lookup";
 
 export type DeletionReceiptStoreOptions = ProjectLookupOptions & {
 	storage: Pick<ErasureDeletionStorage, "findReceipt">;

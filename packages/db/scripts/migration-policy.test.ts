@@ -1,9 +1,7 @@
 import { expect, test } from "bun:test";
-
+import type { AppliedMigration, LocalMigration } from "./migration-policy";
 import {
-	type AppliedMigration,
 	assertMigrationHistory,
-	type LocalMigration,
 	selectDatabaseTarget,
 	selectVerifiedDatabaseTarget,
 } from "./migration-policy";

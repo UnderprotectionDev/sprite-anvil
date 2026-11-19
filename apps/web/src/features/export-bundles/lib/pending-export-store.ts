@@ -1,4 +1,5 @@
-import Dexie, { type EntityTable } from "dexie";
+import type { EntityTable } from "dexie";
+import Dexie from "dexie";
 import type { client } from "@/utils/orpc";
 
 type ProfileInput = Parameters<typeof client.exportProfiles.createRevision>[0];

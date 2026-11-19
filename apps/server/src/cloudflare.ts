@@ -22,7 +22,8 @@ export const twoDVisualAssetKeySchema = z
 	.string()
 	.regex(
 		new RegExp(
-			`^projects/${projectKeySegmentPattern}/2d-visual-assets/${uuidPattern}$`
+			`^projects/${projectKeySegmentPattern}/2d-visual-assets/${uuidPattern}$`,
+			"u"
 		)
 	);
 
@@ -31,10 +32,12 @@ export const assetVersionObjectKeySchema = z
 	.refine((key) =>
 		[
 			new RegExp(
-				`^projects/${projectKeySegmentPattern}/asset-records/${uuidPattern}/versions/${uuidPattern}$`
+				`^projects/${projectKeySegmentPattern}/asset-records/${uuidPattern}/versions/${uuidPattern}$`,
+				"u"
 			),
 			new RegExp(
-				`^projects/${projectKeySegmentPattern}/asset-versions/${uuidPattern}/[a-f0-9]{64}$`
+				`^projects/${projectKeySegmentPattern}/asset-versions/${uuidPattern}/[a-f0-9]{64}$`,
+				"u"
 			),
 		].some((pattern) => pattern.test(key))
 	);
@@ -43,7 +46,8 @@ export const referenceBoardObjectKeySchema = z
 	.string()
 	.regex(
 		new RegExp(
-			`^projects/${projectKeySegmentPattern}/asset-records/${uuidPattern}/reference-board/${uuidPattern}/${uuidPattern}$`
+			`^projects/${projectKeySegmentPattern}/asset-records/${uuidPattern}/reference-board/${uuidPattern}/${uuidPattern}$`,
+			"u"
 		)
 	);
 
@@ -57,7 +61,8 @@ export const importInboxObjectKeySchema = z
 				uuidPattern +
 				"/" +
 				uuidPattern +
-				"$"
+				"$",
+			"u"
 		)
 	);
 
@@ -65,7 +70,8 @@ export const rightsRecordEvidenceObjectKeySchema = z
 	.string()
 	.regex(
 		new RegExp(
-			`^projects/${projectKeySegmentPattern}/asset-records/${uuidPattern}/rights-records/${uuidPattern}/evidence/[a-f0-9]{64}$`
+			`^projects/${projectKeySegmentPattern}/asset-records/${uuidPattern}/rights-records/${uuidPattern}/evidence/[a-f0-9]{64}$`,
+			"u"
 		)
 	);
 
@@ -73,7 +79,8 @@ export const runtimeValidationEvidenceObjectKeySchema = z
 	.string()
 	.regex(
 		new RegExp(
-			`^projects/${projectKeySegmentPattern}/runtime-validation-records/${uuidPattern}/evidence/${uuidPattern}$`
+			`^projects/${projectKeySegmentPattern}/runtime-validation-records/${uuidPattern}/evidence/${uuidPattern}$`,
+			"u"
 		)
 	);
 
@@ -81,13 +88,14 @@ export const managedSnapshotObjectKeySchema = z
 	.string()
 	.regex(
 		new RegExp(
-			`^projects/${projectKeySegmentPattern}/asset-records/${uuidPattern}/versions/${uuidPattern}/managed-snapshots/${uuidPattern}$`
+			`^projects/${projectKeySegmentPattern}/asset-records/${uuidPattern}/versions/${uuidPattern}/managed-snapshots/${uuidPattern}$`,
+			"u"
 		)
 	);
 
 export const legacyAssetKeySchema = z
 	.string()
-	.regex(/^users\/[a-zA-Z0-9-]+\/[a-zA-Z0-9-]+\.(png|webp)$/);
+	.regex(/^users\/[a-zA-Z0-9-]+\/[a-zA-Z0-9-]+\.(?:png|webp)$/u);
 
 export function createProjectTwoDVisualAssetKey(
 	projectId: string,
@@ -422,7 +430,7 @@ export type TwoDVisualAssetStorage = Pick<
 	put: (
 		key: string,
 		body: ReadableStream<Uint8Array>,
-		contentType: (typeof twoDVisualAssetUploadContentTypeSchema)["_output"],
+		contentType: z.output<typeof twoDVisualAssetUploadContentTypeSchema>,
 		contentLength: number
 	) => Promise<void>;
 };

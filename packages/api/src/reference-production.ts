@@ -1,8 +1,8 @@
 import { z } from "zod";
+import type { ReferenceFeature } from "./asset-record-tracking";
 import {
 	assetVersionContentTypeSchema,
 	assetVersionFileNameSchema,
-	type ReferenceFeature,
 	referenceFeatureSchema,
 	referenceFeatures,
 	referenceRoleSchema,
@@ -52,7 +52,7 @@ export const referenceBoardImageSchema = z
 		history: z.array(referenceBoardHistoryEntrySchema),
 		id: idSchema,
 		revision: z.number().int().positive(),
-		sha256: z.string().regex(/^[a-f0-9]{64}$/),
+		sha256: z.string().regex(/^[a-f0-9]{64}$/u),
 		sortOrder: z.number().int().nonnegative(),
 		updatedAt: z.iso.datetime(),
 	})
@@ -91,7 +91,7 @@ export const referenceBoardUploadInputSchema = z
 			.positive()
 			.max(5 * 1024 * 1024),
 		contentType: assetVersionContentTypeSchema,
-		contentDigest: z.string().regex(/^[a-f0-9]{64}$/),
+		contentDigest: z.string().regex(/^[a-f0-9]{64}$/u),
 		fileName: assetVersionFileNameSchema,
 		id: idSchema,
 		objectKey: z.string().min(1).max(500),

@@ -64,7 +64,7 @@ const contextScopeLabels: Record<ContextScope["kind"], string> = {
 
 type GenerationPackageFormValues = z.infer<typeof generationPackageFormSchema>;
 
-const newlinePattern = /\r?\n/;
+const newlinePattern = /\r?\n/u;
 
 function formatContextRuleValue(rule: ContextRule) {
 	switch (rule.value.type) {
@@ -243,7 +243,7 @@ function ConstraintField({
 }) {
 	return (
 		<div className="space-y-2">
-			<Label className="font-medium text-sm leading-normal" htmlFor={id}>
+			<Label className="text-sm leading-normal font-medium" htmlFor={id}>
 				{label}
 			</Label>
 			<Textarea
@@ -514,7 +514,7 @@ export function GenerationPackagePanel({
 			className="space-y-5 rounded-lg border p-5"
 		>
 			<header className="space-y-2">
-				<h2 className="font-semibold text-xl" id="generation-packages-heading">
+				<h2 className="text-xl font-semibold" id="generation-packages-heading">
 					Generation Packages
 				</h2>
 				<p className="text-muted-foreground text-sm">
@@ -543,7 +543,7 @@ export function GenerationPackagePanel({
 						{(field) => (
 							<div className="space-y-2">
 								<Label
-									className="font-medium text-sm leading-normal"
+									className="text-sm leading-normal font-medium"
 									htmlFor="generation-target-task"
 								>
 									Production target
@@ -574,7 +574,7 @@ export function GenerationPackagePanel({
 								{(field) => (
 									<div className="space-y-2">
 										<Label
-											className="font-medium text-sm leading-normal"
+											className="text-sm leading-normal font-medium"
 											htmlFor="generation-target-width"
 										>
 											Target width (px)
@@ -599,7 +599,7 @@ export function GenerationPackagePanel({
 								{(field) => (
 									<div className="space-y-2">
 										<Label
-											className="font-medium text-sm leading-normal"
+											className="text-sm leading-normal font-medium"
 											htmlFor="generation-target-height"
 										>
 											Target height (px)
@@ -661,7 +661,7 @@ export function GenerationPackagePanel({
 						{(field) => (
 							<div className="space-y-2">
 								<Label
-									className="font-medium text-sm leading-normal"
+									className="text-sm leading-normal font-medium"
 									htmlFor="generation-expected-output"
 								>
 									Expected output structure
@@ -703,7 +703,7 @@ export function GenerationPackagePanel({
 
 				{errorMessage ? (
 					<StatusMessage
-						className="rounded-md border border-destructive p-3"
+						className="border-destructive rounded-md border p-3"
 						tone="error"
 					>
 						{errorMessage}

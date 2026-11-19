@@ -1,3 +1,4 @@
+// biome-ignore-all lint/style/noExcessiveClassesPerFile: ExpressionParser and ConstantFolder are private and share this file's token model, helpers and types; splitting would force exporting those internals of the migration safety check.
 // Decides whether a CHECK constraint can reject writes that older code makes.
 // The same expression appears in three spellings: Drizzle source
 // (`"status" IN ('a')`), pg_get_constraintdef (`= ANY (ARRAY['a'::text])`)
@@ -12,19 +13,19 @@ type ExpressionNode =
 	| { kind: "atom"; tokens: string[] };
 
 const tokenPattern =
-	/'(?:''|[^'])*'|"(?:""|[^"])*"|::|<>|!=|>=|<=|\|\||[A-Za-z_][\w$]*|\d+(?:\.\d+)?|\S/g;
+	/'(?:''|[^'])*'|"(?:""|[^"])*"|::|<>|!=|>=|<=|\|\||[A-Za-z_][\w$]*|\d+(?:\.\d+)?|\S/gu;
 const literal = "'(?:''|[^'])*'";
-const startsWord = /^[A-Za-z_]/;
+const startsWord = /^[A-Za-z_]/u;
 const listPattern = new RegExp(
 	String.raw`(\bNOT\s+)?\bIN\s*\(\s*(${literal}(?:\s*,\s*${literal})*)\s*\)` +
 		String.raw`|=\s*ANY\s*\(\s*ARRAY\s*\[([^\]]*)\]\s*\)` +
 		String.raw`|=\s*ANY\s*\(\s*(${literal})\s*::\s*[a-z ]+?\s*\[\s*\]\s*\)`,
-	"gi"
+	"giu"
 );
-const literalPattern = new RegExp(literal, "g");
+const literalPattern = new RegExp(literal, "gu");
 // Only `<column> <list>` may widen; a list inside NOT, CASE or comparisons can narrow.
 const plainListSkeleton =
-	/^[(\s]*(?:"(?:[^"]|"")+"|[A-Za-z_]\w*)(?:\s*\.\s*(?:"(?:[^"]|"")+"|[A-Za-z_]\w*))?\s*\)*(?:\s*::\s*[A-Za-z ]+)?\s*<list>[)\s]*$/;
+	/^[(\s]*(?:"(?:[^"]|"")+"|[A-Za-z_]\w*)(?:\s*\.\s*(?:"(?:[^"]|"")+"|[A-Za-z_]\w*))?\s*\)*(?:\s*::\s*[A-Za-z ]+)?\s*<list>[)\s]*$/u;
 // Constructs that can turn a NULL operand into TRUE or FALSE.
 const nullTolerant = new Set([
 	"ARRAY",
@@ -715,8 +716,8 @@ function applyCast(
 	return undefined;
 }
 
-const literalNumber = /^\d+$/;
-const numericLiteral = /^\d+(?:\.\d+)?$/;
+const literalNumber = /^\d+$/u;
+const numericLiteral = /^\d+(?:\.\d+)?$/u;
 
 class ConstantFolder {
 	private position = 0;
@@ -837,7 +838,7 @@ class ConstantFolder {
 		}
 		this.position += 1;
 		const elements: ConstantValue[] = [];
-		for (;;) {
+		while (true) {
 			const value = this.parseAdditive();
 			if (!value) {
 				return undefined;
@@ -874,7 +875,7 @@ class ConstantFolder {
 
 	private parseAdditive(): ConstantValue | undefined {
 		let left = this.parseMultiplicative();
-		for (;;) {
+		while (true) {
 			const operator = this.peek();
 			if (operator !== "+" && operator !== "-") {
 				return left;
@@ -886,7 +887,7 @@ class ConstantFolder {
 
 	private parseMultiplicative(): ConstantValue | undefined {
 		let left = this.parseUnary();
-		for (;;) {
+		while (true) {
 			const operator = this.peek();
 			if (operator !== "*" && operator !== "/" && operator !== "%") {
 				return left;
@@ -960,7 +961,7 @@ class ConstantFolder {
 		}
 		this.position += 1;
 		const elements: ConstantValue[] = [];
-		for (;;) {
+		while (true) {
 			const value = this.parseAdditive();
 			if (!value) {
 				return undefined;

@@ -59,7 +59,7 @@ export default function SignUpForm({
 	return (
 		<div className="w-full space-y-6">
 			<div className="space-y-2">
-				<h2 className="font-semibold text-3xl">Create Account</h2>
+				<h2 className="text-3xl font-semibold">Create Account</h2>
 				<p className="text-muted-foreground text-sm">
 					Set up your private project workspace.
 				</p>
@@ -131,7 +131,7 @@ export default function SignUpForm({
 
 			<div className="text-center">
 				<Button
-					className="min-h-11 text-primary text-sm"
+					className="text-primary min-h-11 text-sm"
 					onClick={onSwitchToSignIn}
 					variant="link"
 				>

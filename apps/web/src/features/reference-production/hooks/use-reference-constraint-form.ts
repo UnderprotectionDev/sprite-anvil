@@ -1,8 +1,6 @@
 import { useForm } from "@tanstack/react-form";
-import {
-	type ReferenceConstraintDraft,
-	referenceConstraintFormSchema,
-} from "../schemas";
+import type { ReferenceConstraintDraft } from "../schemas";
+import { referenceConstraintFormSchema } from "../schemas";
 
 export function useReferenceConstraintForm({
 	defaultValues,

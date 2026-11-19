@@ -4,11 +4,8 @@ import {
 	inspectDevelopmentCompatibility,
 	withDevelopmentCompatibility,
 } from "./database-preparation";
-import {
-	type Connection,
-	readSchemaFingerprint,
-	verifyDatabaseLease,
-} from "./database-state";
+import type { Connection } from "./database-state";
+import { readSchemaFingerprint, verifyDatabaseLease } from "./database-state";
 import type { DevelopmentTarget } from "./development-targets";
 import { MigrationSafetyError } from "./migration-safety-error";
 import type { ValidatedSource } from "./migration-source";

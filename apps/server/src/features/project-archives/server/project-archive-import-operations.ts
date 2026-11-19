@@ -1,15 +1,13 @@
 import { createHash } from "node:crypto";
 import type { BackgroundOperation } from "@sprite-anvil/api/background-operations";
+import { IdempotencyConflictError } from "@sprite-anvil/api/idempotency-conflict-error";
 import type { ProjectArchiveRestoreInput } from "@sprite-anvil/api/project-archive-restore";
 import {
 	projectArchiveFileStorageLimit,
 	projectArchiveSchemaVersion,
 } from "@sprite-anvil/api/project-archives";
 import { recordContentDigest } from "@sprite-anvil/api/record-content-digest";
-import {
-	IdempotencyConflictError,
-	idempotentRecordId,
-} from "@sprite-anvil/api/record-publication";
+import { idempotentRecordId } from "@sprite-anvil/api/record-publication";
 import type { Database } from "@sprite-anvil/db";
 import { getProjectForUser } from "@sprite-anvil/db";
 import type {

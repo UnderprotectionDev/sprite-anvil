@@ -3,9 +3,11 @@ import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 import type { Context } from "../context";
 import { protectedProcedure } from "../index";
+import type {
+	VfxSynchronizationInput,
+	VfxSynchronizationRecord,
+} from "../vfx-synchronization";
 import {
-	type VfxSynchronizationInput,
-	type VfxSynchronizationRecord,
 	vfxSynchronizationInputSchema,
 	vfxSynchronizationListInputSchema,
 	vfxSynchronizationRecordSchema,
@@ -200,7 +202,7 @@ const vfxEvidencePackageSchema = z
 		schemaVersion: z.literal("1.0.0"),
 		record: vfxSynchronizationRecordSchema,
 		profileManifest: vfxProfileManifestSchema,
-		contentDigest: z.string().regex(/^[a-f0-9]{64}$/),
+		contentDigest: z.string().regex(/^[a-f0-9]{64}$/u),
 	})
 	.strict();
 async function makeVfxEvidencePackage(record: VfxSynchronizationRecord) {

@@ -27,7 +27,7 @@ export function CollectionListPanel({
 			className="space-y-5 rounded-lg border p-5"
 		>
 			<header className="space-y-1">
-				<h2 className="font-semibold text-xl" id="collections-heading">
+				<h2 className="text-xl font-semibold" id="collections-heading">
 					Your Collections
 				</h2>
 				<p className="text-muted-foreground text-sm">
@@ -37,7 +37,7 @@ export function CollectionListPanel({
 			</header>
 
 			{collections.length === 0 ? (
-				<p className="rounded-lg border border-dashed p-4 text-muted-foreground text-sm">
+				<p className="text-muted-foreground rounded-lg border border-dashed p-4 text-sm">
 					No Collections yet. Enter a name to create your first Collection.
 				</p>
 			) : (
@@ -50,16 +50,16 @@ export function CollectionListPanel({
 							<li key={collection.id}>
 								<Button
 									aria-pressed={selectedCollectionId === collection.id}
-									className="h-auto min-h-11 w-full justify-between gap-3 whitespace-normal px-3 py-2 text-left"
+									className="h-auto min-h-11 w-full justify-between gap-3 px-3 py-2 text-left whitespace-normal"
 									disabled={savingOperation !== null}
 									onClick={() => onSelectCollection(collection.id)}
 									type="button"
 									variant="outline"
 								>
-									<span className="min-w-0 break-words font-medium">
+									<span className="min-w-0 font-medium break-words">
 										{collection.name}
 									</span>
-									<span className="shrink-0 text-muted-foreground text-sm">
+									<span className="text-muted-foreground shrink-0 text-sm">
 										{memberCount} records
 									</span>
 								</Button>
@@ -72,7 +72,7 @@ export function CollectionListPanel({
 				className="rounded-lg border p-3"
 				open={collections.length === 0}
 			>
-				<summary className="min-h-11 cursor-pointer py-3 font-medium focus-visible:outline-2 focus-visible:outline-ring">
+				<summary className="focus-visible:outline-ring min-h-11 cursor-pointer py-3 font-medium focus-visible:outline-2">
 					New Collection
 				</summary>
 				<form
@@ -87,7 +87,7 @@ export function CollectionListPanel({
 						{(field) => (
 							<div className="space-y-2">
 								<Label
-									className="font-medium text-sm"
+									className="text-sm font-medium"
 									htmlFor="collection-name"
 								>
 									Collection name

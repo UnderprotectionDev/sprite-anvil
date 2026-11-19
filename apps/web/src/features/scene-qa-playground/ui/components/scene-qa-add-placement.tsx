@@ -1,10 +1,7 @@
 import type { AssetRecord } from "@sprite-anvil/api/asset-records";
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
-import {
-	type SceneQaSetup,
-	sceneQaRoleProfiles,
-	sceneQaRoles,
-} from "@sprite-anvil/api/scene-qa";
+import type { SceneQaSetup } from "@sprite-anvil/api/scene-qa";
+import { sceneQaRoleProfiles, sceneQaRoles } from "@sprite-anvil/api/scene-qa";
 import type { SpecializedProfileContractsListOutput } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
@@ -13,7 +10,7 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import {
 	builtinProfileItemText,
 	builtinProfileName,
@@ -54,7 +51,7 @@ export function SceneQaAddPlacement({
 			}
 		},
 	});
-	const { role, usageTestId, versionId } = useStore(
+	const { role, usageTestId, versionId } = useSelector(
 		form.store,
 		(state) => state.values
 	);

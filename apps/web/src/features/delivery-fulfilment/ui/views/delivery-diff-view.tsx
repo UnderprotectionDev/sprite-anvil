@@ -177,7 +177,7 @@ export function DeliveryDiffView({
 	return (
 		<main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
 			<header className="space-y-2">
-				<h1 className="font-semibold text-2xl">Delivery Diff</h1>
+				<h1 className="text-2xl font-semibold">Delivery Diff</h1>
 				<p className="text-muted-foreground text-sm">
 					Compares two immutable Delivery Fulfilments of a Delivery Target.
 					Comparing is read-only: it creates no Delivery Fulfilment and never

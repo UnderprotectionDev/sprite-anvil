@@ -12,7 +12,7 @@ export const profileRuleClasses = [
 	"quality_advisory",
 ] as const;
 
-const stableIdSchema = z.string().regex(/^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$/);
+const stableIdSchema = z.string().regex(/^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$/u);
 const descriptionSchema = z.string().trim().min(1).max(1200);
 
 const profileMetadataFieldSchema = z
@@ -102,7 +102,7 @@ const specializedProfileContractBaseSchema = z
 		rules: z.array(profileRuleSchema).min(3),
 		supportedAssetCategories: z.array(specializedProfileIdSchema).min(1),
 		usageTests: z.array(usageTestSchema).min(1),
-		version: z.string().regex(/^\d+\.\d+\.\d+$/),
+		version: z.string().regex(/^\d+\.\d+\.\d+$/u),
 	})
 	.strict();
 

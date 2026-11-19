@@ -228,11 +228,11 @@ export function GameplayMetadataOverlay({
 					!error && (
 						<div
 							aria-label="Event links visual overlay"
-							className="absolute inset-x-0 bottom-0 max-h-16 overflow-auto bg-black/80 p-1 text-white text-xs"
+							className="absolute inset-x-0 bottom-0 max-h-16 overflow-auto bg-black/80 p-1 text-xs text-white"
 							role="note"
 						>
 							<p>Event links · {record.frameKey}</p>
-							<p className="break-all font-mono">
+							<p className="font-mono break-all">
 								{JSON.stringify(events.value)}
 							</p>
 						</div>

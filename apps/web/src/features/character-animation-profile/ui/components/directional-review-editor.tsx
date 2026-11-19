@@ -1,9 +1,10 @@
+// biome-ignore-all lint/a11y/noLabelWithoutControl: each Label wraps its Input/Select/Textarea inside a TanStack form.Field render prop, which Biome cannot see through.
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
-import {
-	type DirectionalReviewInput,
-	type directionalReviewCriteria,
-	directionalReviewInputSchema,
+import type {
+	DirectionalReviewInput,
+	directionalReviewCriteria,
 } from "@sprite-anvil/api/directional-reviews";
+import { directionalReviewInputSchema } from "@sprite-anvil/api/directional-reviews";
 import type { SpecializedProfileContract } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Checkbox } from "@sprite-anvil/ui/components/checkbox";
@@ -15,7 +16,7 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ReducedMotionNotice } from "@/components/reduced-motion-notice";
 import { StatusMessage } from "@/components/status-message";
@@ -154,7 +155,7 @@ export function DirectionalReviewEditor({
 			}
 		},
 	});
-	const values = useStore(form.store, (state) => state.values);
+	const values = useSelector(form.store, (state) => state.values);
 	const { directions } = values;
 	const setDirections = (
 		change:

@@ -92,8 +92,8 @@ vi.mock("@/utils/orpc", () => ({
 vi.mock("sonner", () => ({ toast: { dismiss: vi.fn(), error: vi.fn() } }));
 
 const recordId = "33333333-3333-4333-8333-333333333333";
-const sourceUnknownBlocksPattern = /Source Unknown blocks any Delivery Target/;
-const revalidationRequiredPattern = /Revalidation Required for this use only/;
+const sourceUnknownBlocksPattern = /Source Unknown blocks any Delivery Target/u;
+const revalidationRequiredPattern = /Revalidation Required for this use only/u;
 
 function record(
 	evidence: unknown[] = [],
@@ -381,7 +381,7 @@ test("an invalid field is marked invalid and points at its error message", async
 	expect(build).toHaveAttribute("aria-invalid", "true");
 	const errorId = build.getAttribute("aria-describedby");
 	expect(errorId).toBeTruthy();
-	expect(document.getElementById(errorId ?? "")).toHaveTextContent(
+	expect(document.querySelector(`[id="${errorId ?? ""}"]`)).toHaveTextContent(
 		"Enter the game build."
 	);
 	expect(screen.getByLabelText("Export Bundle")).toHaveAttribute(
@@ -407,14 +407,18 @@ test("the decision and evidence forms mark their invalid fields too", async () =
 	});
 	expect(outcome).toHaveAttribute("aria-invalid", "true");
 	expect(
-		document.getElementById(outcome.getAttribute("aria-describedby") ?? "")
+		document.querySelector(
+			`[id="${outcome.getAttribute("aria-describedby") ?? ""}"]`
+		)
 	).toHaveTextContent("Choose the outcome of this test.");
 
 	await user.click(screen.getByRole("button", { name: "Add evidence" }));
 	const text = await screen.findByLabelText("Observation or test result text");
 	expect(text).toHaveAttribute("aria-invalid", "true");
 	expect(
-		document.getElementById(text.getAttribute("aria-describedby") ?? "")
+		document.querySelector(
+			`[id="${text.getAttribute("aria-describedby") ?? ""}"]`
+		)
 	).toHaveTextContent("Write the observation.");
 });
 

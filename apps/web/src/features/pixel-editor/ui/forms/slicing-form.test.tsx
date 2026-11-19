@@ -5,8 +5,8 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { SlicingForm } from "./slicing-form";
 
-const fieldLabel = /^Cell width \(px\)/;
-const numberError = /Use whole numbers/i;
+const fieldLabel = /^Cell width \(px\)/u;
+const numberError = /Use whole numbers/iu;
 
 afterEach(cleanup);
 

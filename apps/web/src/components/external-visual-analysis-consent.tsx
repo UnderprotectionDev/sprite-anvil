@@ -112,10 +112,10 @@ export function ExternalVisualAnalysisConsent({
 		>
 			<header className="space-y-2">
 				<div className="flex flex-wrap items-center justify-between gap-2">
-					<h2 className="font-semibold text-xl" id="external-analysis-heading">
+					<h2 className="text-xl font-semibold" id="external-analysis-heading">
 						External Visual Analysis
 					</h2>
-					<span className="rounded-full border px-2.5 py-1 font-medium text-xs">
+					<span className="rounded-full border px-2.5 py-1 text-xs font-medium">
 						Unavailable
 					</span>
 				</div>
@@ -125,7 +125,7 @@ export function ExternalVisualAnalysisConsent({
 				</p>
 			</header>
 
-			<div className="space-y-2 rounded-md bg-muted p-4 text-sm">
+			<div className="bg-muted space-y-2 rounded-md p-4 text-sm">
 				<p className="font-medium">Current status</p>
 				<p>Provider: not selected</p>
 				<p>Data to send: no image is selected on this screen.</p>

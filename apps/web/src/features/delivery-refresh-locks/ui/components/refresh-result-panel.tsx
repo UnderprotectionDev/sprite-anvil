@@ -3,7 +3,7 @@ import type { DeliveryRefreshLockRefreshResult } from "@sprite-anvil/api/deliver
 function Paths({ label, paths }: { label: string; paths: string[] }) {
 	return (
 		<div className="space-y-1">
-			<h4 className="font-medium text-sm">{label}</h4>
+			<h4 className="text-sm font-medium">{label}</h4>
 			{paths.length === 0 ? (
 				<p className="text-sm">None.</p>
 			) : (
@@ -38,7 +38,7 @@ export function RefreshResultPanel({
 			aria-labelledby="refresh-result-heading"
 			className="space-y-3 border-t pt-4"
 		>
-			<h3 className="font-semibold text-base" id="refresh-result-heading">
+			<h3 className="text-base font-semibold" id="refresh-result-heading">
 				Refresh result
 			</h3>
 			<p>{headline(result)}</p>

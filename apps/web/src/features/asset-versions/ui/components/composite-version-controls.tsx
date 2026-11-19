@@ -12,7 +12,7 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { AssetVersionPreview } from "@/components/asset-version-preview";
 import { ENV } from "@/env";
 import type { useAssetVersionWrites } from "@/utils/use-asset-version-writes";
@@ -26,7 +26,7 @@ import { unitTypeLabels } from "./unit-version-correction-form";
 const selectWrapperClassName =
 	"w-full [&_select]:min-h-11 [&_select]:rounded-md [&_select]:border [&_select]:bg-background [&_select]:px-3 [&_select]:text-sm";
 
-const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
+const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/u, "") ?? "";
 
 function getSlotKey(unitType: UnitVersionType, unitKey: string) {
 	return `${unitType}\u0000${unitKey}`;
@@ -99,7 +99,7 @@ export function CompositeVersionControls({
 			}
 		},
 	});
-	const { selectedUnitVersionIds, sourceCompositeVersionId } = useStore(
+	const { selectedUnitVersionIds, sourceCompositeVersionId } = useSelector(
 		form.store,
 		(state) => state.values
 	);
@@ -369,7 +369,7 @@ function CompositeVersionHistoryItem({
 					})}
 				</ol>
 			)}
-			<ol className="list-inside list-disc text-muted-foreground text-sm">
+			<ol className="text-muted-foreground list-inside list-disc text-sm">
 				{compositeVersion.reviewEvents.map((reviewEvent) => (
 					<li key={reviewEvent.id}>
 						{reviewEvent.type === "candidate"
@@ -403,7 +403,7 @@ function CompositeVersionReviewControls({
 		defaultValues: { rationale: "" },
 		validators: { onChange: reviewRationaleFormSchema },
 	});
-	const rationale = useStore(form.store, (state) => state.values.rationale);
+	const rationale = useSelector(form.store, (state) => state.values.rationale);
 	const review = (decision: "approved" | "candidate" | "rejected") =>
 		void writes.reviewCompositeVersion(
 			compositeVersion.id,
@@ -423,7 +423,7 @@ function CompositeVersionReviewControls({
 				<form.Field name="rationale">
 					{(field) => (
 						<Textarea
-							className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm md:text-sm"
+							className="bg-background min-h-20 w-full rounded-md border px-3 py-2 text-sm md:text-sm"
 							disabled={writes.writesDisabled}
 							id={`composite-review-rationale-${compositeVersion.id}`}
 							maxLength={2000}

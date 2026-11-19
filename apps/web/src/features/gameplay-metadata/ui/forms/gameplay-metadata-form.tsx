@@ -1,7 +1,9 @@
+import type {
+	GameplayMetadataFrame,
+	GameplayMetadataRecord,
+	GameplayMetadataWriteInput,
+} from "@sprite-anvil/api/gameplay-metadata";
 import {
-	type GameplayMetadataFrame,
-	type GameplayMetadataRecord,
-	type GameplayMetadataWriteInput,
 	gameplayMetadataFieldIds,
 	getGameplayMetadataFields,
 } from "@sprite-anvil/api/gameplay-metadata";
@@ -15,17 +17,15 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useId, useState } from "react";
 import { StatusMessage } from "@/components/status-message";
 import {
 	builtinProfileItemText,
 	builtinProfileName,
 } from "@/utils/builtin-profile-labels";
-import {
-	type GameplayMetadataFormValues,
-	gameplayMetadataFormSchema,
-} from "../../schemas";
+import type { GameplayMetadataFormValues } from "../../schemas";
+import { gameplayMetadataFormSchema } from "../../schemas";
 
 type Draft = Omit<
 	GameplayMetadataWriteInput,
@@ -158,7 +158,7 @@ export function GameplayMetadataForm({
 				schema.safeParse(value).error?.issues[0]?.message,
 		},
 	});
-	const values = useStore(form.store, (state) => state.values);
+	const values = useSelector(form.store, (state) => state.values);
 	const { frame, contract, definitions, sourcePivot } = resolve(values);
 	const selectedSourcePivot = values.sourcePivot;
 

@@ -1,7 +1,9 @@
+import type {
+	RightsRecord,
+	RightsRecordCreateInput,
+	RightsRecordState,
+} from "@sprite-anvil/api/rights-records";
 import {
-	type RightsRecord,
-	type RightsRecordCreateInput,
-	type RightsRecordState,
 	rightsRecordSchema,
 	rightsRecordStates,
 } from "@sprite-anvil/api/rights-records";
@@ -13,16 +15,19 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type SyntheticEvent, useEffect, useRef, useState } from "react";
+import type { SyntheticEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { StatusMessage } from "@/components/status-message";
 import { rightsRecordEvidenceFileUrl } from "@/features/rights-evidence/lib/rights-record-api";
+import type {
+	RightsRecordDraft,
+	RightsRecordValidationField,
+} from "@/features/rights-evidence/schemas";
 import {
 	documentedEvidenceError,
 	isRightsRecordFieldRequired,
-	type RightsRecordDraft,
-	type RightsRecordValidationField,
 	restrictedRestrictionsError,
 	rightsRecordEvidenceFileError,
 	rightsRecordFormErrors,
@@ -385,7 +390,7 @@ function RightsRecordHistory({
 							/>
 						))
 					) : (
-						<li className="rounded-lg border border-dashed p-4 text-muted-foreground text-sm">
+						<li className="text-muted-foreground rounded-lg border border-dashed p-4 text-sm">
 							{emptyMessage}
 						</li>
 					)}
@@ -450,7 +455,7 @@ export function RightsRecordPanel({
 			},
 		},
 	});
-	const draft = useStore(form.store, (state) => state.values);
+	const draft = useSelector(form.store, (state) => state.values);
 	const { evidenceFile } = draft;
 	const queryInput = { assetRecordId, projectId, referenceId };
 	const historyQuery = useQuery({
@@ -685,7 +690,7 @@ export function RightsRecordPanel({
 			className="space-y-5 rounded-lg border p-5"
 		>
 			<header className="space-y-2">
-				<h2 className="font-semibold text-xl" id={headingId}>
+				<h2 className="text-xl font-semibold" id={headingId}>
 					Rights Record{referenceName ? ` · ${referenceName}` : ""}
 				</h2>
 				<p className="text-muted-foreground text-sm">
@@ -801,7 +806,7 @@ export function RightsRecordPanel({
 											: evidenceFileHelpId
 									}
 									aria-invalid={Boolean(evidenceFileError)}
-									className="min-h-11 w-full text-sm file:mr-3 file:rounded-sm file:bg-muted file:px-3 file:py-1"
+									className="file:bg-muted min-h-11 w-full text-sm file:mr-3 file:rounded-sm file:px-3 file:py-1"
 									disabled={formDisabled}
 									id={evidenceFileInputId}
 									onChange={(event) =>

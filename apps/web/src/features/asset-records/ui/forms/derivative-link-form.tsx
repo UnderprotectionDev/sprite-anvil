@@ -7,7 +7,7 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import {
 	derivativeLinkFormSchema,
 	derivativeLinkSubmitSchema,
@@ -54,7 +54,7 @@ export function DerivativeLinkForm({
 	form: ReturnType<typeof useDerivativeLinkForm>;
 	options: readonly { id: string; name: string }[];
 }) {
-	const values = useStore(form.store, (state) => state.values);
+	const values = useSelector(form.store, (state) => state.values);
 	return (
 		<form
 			className="mt-4 space-y-3 border-t pt-3"

@@ -25,9 +25,9 @@ const kitReadmePath = `${kitPrefix}README.md`;
 const kitChecksumsPath = `${kitPrefix}checksums.txt`;
 const kitSchemaPath = `${kitPrefix}schema/manifest.schema.json`;
 const kitVerifierPath = `${kitPrefix}verify.ts`;
-const kitExamplePattern = /^verification-kit\/examples\/[^/]+\.json$/;
-const driveLetterUrlPrefix = /^\/([A-Za-z]:)/;
-const leadingSeparators = /^[\\\\/]+/;
+const kitExamplePattern = /^verification-kit\/examples\/[^/]+\.json$/u;
+const driveLetterUrlPrefix = /^\/(?<drive>[A-Za-z]:)/u;
+const leadingSeparators = /^[\\\\/]+/u;
 const forbiddenExampleKeys = [
 	"command",
 	"exec",
@@ -1067,7 +1067,7 @@ function checkString(
 	}
 	if (
 		typeof schema.pattern === "string" &&
-		!new RegExp(schema.pattern).test(value)
+		!new RegExp(schema.pattern, "u").test(value)
 	) {
 		return `${pointer} does not match its pattern`;
 	}
@@ -1122,7 +1122,9 @@ function validateObject(
 			errors.push(`${pointer}/${String(name)} is required`);
 		}
 	}
-	for (const name of Object.keys(value).sort()) {
+	for (const name of Object.keys(value).sort(
+		(a, b) => Number(a > b) - Number(a < b)
+	)) {
 		const member = properties[name];
 		if (isObject(member)) {
 			validateSchema(value[name], member, `${pointer}/${name}`, errors);
@@ -1525,7 +1527,7 @@ function checkRecordLinks(manifest: JsonObject & Manifest): Failure[] {
 }
 
 const versionLinePattern =
-	/^(Manifest contract version|Profile contract version|Kit contract version): (\d+\.\d+\.\d+)$/gm;
+	/^(?<label>Manifest contract version|Profile contract version|Kit contract version): (?<version>\d+\.\d+\.\d+)$/gmu;
 
 function readmeVersions(readme: string): Map<string, string> {
 	const found = new Map<string, string>();

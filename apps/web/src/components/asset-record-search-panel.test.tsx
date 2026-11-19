@@ -265,7 +265,7 @@ test.each([
 	expect(fakeApi.search).toHaveBeenCalledOnce();
 });
 
-const longRecordPattern = /Record \d+ open record/;
+const longRecordPattern = /Record \d+ open record/u;
 
 test("bounds a long result list and opens a visible record", async () => {
 	const onOpenRecord = vi.fn();

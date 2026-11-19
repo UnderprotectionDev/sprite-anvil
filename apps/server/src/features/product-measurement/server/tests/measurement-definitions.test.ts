@@ -1,8 +1,6 @@
 import { expect, test } from "bun:test";
-import {
-	type MeasurementDefinitionActivateInput,
-	measurementDefinitionActivateInputSchema,
-} from "@sprite-anvil/api/measurement-definitions";
+import type { MeasurementDefinitionActivateInput } from "@sprite-anvil/api/measurement-definitions";
+import { measurementDefinitionActivateInputSchema } from "@sprite-anvil/api/measurement-definitions";
 import { createMeasurementDefinitionStore } from "../measurement-definition-store";
 import { createMemoryMeasurementDefinitionStorage } from "./memory-measurement-definition-storage";
 

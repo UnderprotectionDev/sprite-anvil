@@ -5,16 +5,18 @@
  * The scenario inputs here are synthetic stand-ins built from the Export
  * Bundle fixture, not the RAS/YAS scenario data. Never imported by product code.
  */
+import type { PlatformEquivalenceEvidence } from "../src/platform-equivalence-comparison";
 import {
 	compareEquivalenceEvidence,
 	deriveEquivalenceEvidence,
-	type PlatformEquivalenceEvidence,
 } from "../src/platform-equivalence-comparison";
+import type {
+	AcceptanceScenarioId,
+	PlatformSupportInput,
+} from "../src/platform-support-gate";
 import {
-	type AcceptanceScenarioId,
 	acceptanceScenarioIds,
 	ops04EvidenceSources,
-	type PlatformSupportInput,
 } from "../src/platform-support-gate";
 import {
 	fixtureExportBundle,

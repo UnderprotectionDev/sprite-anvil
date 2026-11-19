@@ -3,9 +3,8 @@ import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 import type { Context } from "../context";
 import { protectedProcedure } from "../index";
+import type { SceneQaInput, SceneQaRecord } from "../scene-qa";
 import {
-	type SceneQaInput,
-	type SceneQaRecord,
 	sceneQaInputSchema,
 	sceneQaListInputSchema,
 	sceneQaRecordSchema,

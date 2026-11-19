@@ -42,7 +42,7 @@ export function CollectionMembershipPanel({
 		/>
 	) : (
 		<div className="space-y-2">
-			<h2 className="font-semibold text-xl" id="collection-members-heading">
+			<h2 className="text-xl font-semibold" id="collection-members-heading">
 				Collection membership
 			</h2>
 			<p className="text-muted-foreground text-sm">
@@ -82,7 +82,7 @@ function CollectionMembers({
 }) {
 	const memberContent =
 		memberships.length === 0 ? (
-			<p className="rounded-lg border border-dashed p-4 text-muted-foreground text-sm">
+			<p className="text-muted-foreground rounded-lg border border-dashed p-4 text-sm">
 				This Collection has no Asset Records yet.
 			</p>
 		) : (
@@ -103,11 +103,11 @@ function CollectionMembers({
 	return (
 		<>
 			<header className="space-y-1">
-				<p className="font-mono text-primary text-xs uppercase tracking-[0.16em]">
+				<p className="text-primary font-mono text-xs tracking-[0.16em] uppercase">
 					Collection
 				</p>
 				<h2
-					className="font-medium font-serif text-3xl tracking-tight"
+					className="font-serif text-3xl font-medium tracking-tight"
 					id="collection-members-heading"
 				>
 					{collection.name}
@@ -129,7 +129,7 @@ function CollectionMembers({
 					{(field) => (
 						<div className="min-w-0 flex-1 space-y-2">
 							<Label
-								className="font-medium text-sm"
+								className="text-sm font-medium"
 								htmlFor="collection-asset-record"
 							>
 								Asset Record

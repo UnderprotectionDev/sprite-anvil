@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { prepareAnimationTimingReviewWorkspace } from "./animation-timing-review-fixture";
 
-const fourDirectionReviewName = /Walk cycle · 4 directions · Needs follow-up/;
-const eightDirectionReviewName = /Run cycle · 8 directions · Consistent/;
+const fourDirectionReviewName = /Walk cycle · 4 directions · Needs follow-up/u;
+const eightDirectionReviewName = /Run cycle · 8 directions · Consistent/u;
 
 test("compares variable frame timing and persists four- and eight-direction reviews", async ({
 	page,

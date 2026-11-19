@@ -597,7 +597,7 @@ export function RightsLineagePanel({
 			className="space-y-5 rounded-lg border p-5"
 		>
 			<header className="space-y-2">
-				<h2 className="font-semibold text-xl" id="rights-lineage-heading">
+				<h2 className="text-xl font-semibold" id="rights-lineage-heading">
 					Rights Lineage
 				</h2>
 				<p className="text-muted-foreground text-sm">
@@ -895,7 +895,7 @@ function RightsRecordHistory({
 	);
 	if (history.length === 0) {
 		return (
-			<p className="rounded-md border border-dashed p-3 text-muted-foreground text-sm">
+			<p className="text-muted-foreground rounded-md border border-dashed p-3 text-sm">
 				No Rights Records for this source yet.
 			</p>
 		);

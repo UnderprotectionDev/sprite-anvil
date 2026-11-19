@@ -111,7 +111,7 @@ export function FrameAlignmentCanvas({
 
 	return (
 		<section aria-label="Frame alignment" className="space-y-2">
-			<h3 className="font-medium text-sm">Alignment: onion skin and pivots</h3>
+			<h3 className="text-sm font-medium">Alignment: onion skin and pivots</h3>
 			<Label className="flex w-72 items-center gap-2 text-xs">
 				<span className="shrink-0">Onion skin opacity</span>
 				<Slider
@@ -135,7 +135,7 @@ export function FrameAlignmentCanvas({
 				role="img"
 				width={width}
 			/>
-			<ul className="space-y-0.5 text-muted-foreground text-xs">
+			<ul className="text-muted-foreground space-y-0.5 text-xs">
 				<li>
 					Dashed line: ground line at this frame's pivot height ({frame.pivotY}{" "}
 					px).

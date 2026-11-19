@@ -22,7 +22,7 @@ export function StagedFilesSection({
 }) {
 	return (
 		<section aria-labelledby="offline-files" className="space-y-3">
-			<h2 className="font-medium text-lg" id="offline-files">
+			<h2 className="text-lg font-medium" id="offline-files">
 				Staged files
 			</h2>
 			<div className="space-y-2">

@@ -12,7 +12,7 @@ import {
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { useState } from "react";
 import { orpc } from "@/utils/orpc";
 
@@ -107,7 +107,7 @@ function ExperimentList({
 			}
 		},
 	});
-	const trials = useStore(form.store, (state) => state.values.trials);
+	const trials = useSelector(form.store, (state) => state.values.trials);
 	const [validation, setValidation] = useState<string | null>(null);
 	return (
 		<section className="space-y-3">
@@ -548,12 +548,15 @@ function LearningForm({
 			}
 		},
 	});
-	const selectedType = useStore(form.store, (state) => state.values.valueType);
-	const selectedOperation = useStore(
+	const selectedType = useSelector(
+		form.store,
+		(state) => state.values.valueType
+	);
+	const selectedOperation = useSelector(
 		form.store,
 		(state) => state.values.operation
 	);
-	const selectedScopeIndex = useStore(
+	const selectedScopeIndex = useSelector(
 		form.store,
 		(state) => state.values.scopeIndex
 	);

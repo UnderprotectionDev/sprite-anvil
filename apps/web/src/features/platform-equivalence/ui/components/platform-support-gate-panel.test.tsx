@@ -5,9 +5,9 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach, expect, test } from "vitest";
 import { PlatformSupportGatePanel } from "./platform-support-gate-panel";
 
-const supportedPattern = /: Supported$/;
-const openPattern = /^Open:/;
-const publishedPattern = /^Published:/;
+const supportedPattern = /: Supported$/u;
+const openPattern = /^Open:/u;
+const publishedPattern = /^Published:/u;
 
 afterEach(cleanup);
 

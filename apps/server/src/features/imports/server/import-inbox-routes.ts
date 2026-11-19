@@ -1,11 +1,11 @@
 import { assetSourceFileNameSchema } from "@sprite-anvil/api/asset-record-tracking";
 import type { ImportInboxStore } from "@sprite-anvil/api/import-inbox";
 import { importInboxSourceContentTypeSchema } from "@sprite-anvil/api/import-inbox";
-import {
-	type ProductMeasurementBoundary,
-	type ProductMeasurementRecorder,
-	recordProductBoundary,
+import type {
+	ProductMeasurementBoundary,
+	ProductMeasurementRecorder,
 } from "@sprite-anvil/api/measurement-workflows";
+import { recordProductBoundary } from "@sprite-anvil/api/measurement-workflows";
 import type { Context, Hono } from "hono";
 import z from "zod";
 import type { createStorage } from "../../../cloudflare";
@@ -14,17 +14,17 @@ import {
 	importInboxObjectKeySchema,
 } from "../../../cloudflare";
 import { serializePublicApiError } from "../../../output-contracts";
+import { ImportInboxContentLengthError } from "./import-inbox-content-length-error";
 import {
 	createImportInboxIntegrityTransform,
-	ImportInboxContentLengthError,
-	ImportInboxIntegrityError,
 	verifyImportInboxStream,
 } from "./import-inbox-integrity";
+import { ImportInboxIntegrityError } from "./import-inbox-integrity-error";
 
 const projectIdSchema = z.uuid();
 const entryIdSchema = z.uuid();
 const idempotencyKeySchema = z.uuid();
-const uploadLengthPattern = /^(0|[1-9]\d*)$/;
+const uploadLengthPattern = /^(?:0|[1-9]\d*)$/u;
 const uploadLengthHeader = "x-import-inbox-size";
 const fileNameHeader = "x-import-inbox-file-name";
 const sourceContentTypeHeader = "x-import-inbox-source-type";
@@ -203,7 +203,7 @@ function uploadFailureResponse(c: Context, error: unknown) {
 }
 
 function encodeDownloadFileName(fileName: string) {
-	return encodeURIComponent(fileName).replace(/[!'()*]/g, (character) => {
+	return encodeURIComponent(fileName).replace(/[!'()*]/gu, (character) => {
 		const codePoint = character.codePointAt(0);
 		return codePoint === undefined
 			? character

@@ -12,9 +12,9 @@ import {
 import { afterEach, expect, test, vi } from "vitest";
 import { MarketingUsageReviewManager } from "./marketing-usage-review-manager";
 
-const supportReferenceLabel = /Support reference:/;
-const uncertainResultMessage = /The result could not be confirmed/;
-const privateErrorDetails = /private database connection details/;
+const supportReferenceLabel = /Support reference:/u;
+const uncertainResultMessage = /The result could not be confirmed/u;
+const privateErrorDetails = /private database connection details/u;
 const mocks = vi.hoisted(() => ({
 	list: vi.fn(),
 	save: vi.fn(),

@@ -1,8 +1,6 @@
 import { z } from "zod";
-import {
-	type VfxSynchronizationRecord,
-	vfxFrameSchema,
-} from "./vfx-synchronization";
+import type { VfxSynchronizationRecord } from "./vfx-synchronization";
+import { vfxFrameSchema } from "./vfx-synchronization";
 
 const exportedFrame = z
 	.object({

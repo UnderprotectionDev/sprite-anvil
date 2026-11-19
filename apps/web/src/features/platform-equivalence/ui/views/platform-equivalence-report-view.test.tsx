@@ -70,10 +70,10 @@ vi.mock("@/utils/orpc", () => ({
 vi.mock("sonner", () => ({ toast: { dismiss: vi.fn(), error: vi.fn() } }));
 
 const section = { differences: [], result: "not_compared" };
-const webRunPattern = /Web application ·/;
-const reportNamePattern = /Platform Equivalence Report/;
-const interimPattern = /Phase 3 interim evidence/;
-const openPattern = /^Open:/;
+const webRunPattern = /Web application ·/u;
+const reportNamePattern = /Platform Equivalence Report/u;
+const interimPattern = /Phase 3 interim evidence/u;
+const openPattern = /^Open:/u;
 
 const runInput = {
 	adapterVersion: null,

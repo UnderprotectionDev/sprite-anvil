@@ -160,7 +160,7 @@ export const sceneQaVersionPinSchema = z
 		assetFamilyId: id,
 		assetRecordName: z.string(),
 		versionNumber: z.number().int().positive(),
-		contentDigest: z.string().regex(/^[a-f0-9]{64}$/),
+		contentDigest: z.string().regex(/^[a-f0-9]{64}$/u),
 		width: z.number().int().positive(),
 		height: z.number().int().positive(),
 	})

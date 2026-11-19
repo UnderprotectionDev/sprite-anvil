@@ -1,8 +1,6 @@
 import { expect, test } from "bun:test";
-import {
-	RecordIntegrityError,
-	RetryablePublicationError,
-} from "@sprite-anvil/api/record-publication";
+import { RecordIntegrityError } from "@sprite-anvil/api/record-integrity-error";
+import { RetryablePublicationError } from "@sprite-anvil/api/retryable-publication-error";
 import {
 	publishAssetVersionReviewEvent,
 	publishCompositeVersionReviewEvent,

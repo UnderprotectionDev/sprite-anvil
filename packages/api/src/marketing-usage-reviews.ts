@@ -28,7 +28,7 @@ export const marketingUsageItemSchema = z
 		presentation: z.enum(["transparent", "opaque"]),
 		opaqueColor: z
 			.string()
-			.regex(/^#[a-fA-F0-9]{6}$/)
+			.regex(/^#[a-fA-F0-9]{6}$/u)
 			.nullable(),
 		observations: z
 			.array(
@@ -98,7 +98,7 @@ export const marketingUsageReviewRecordSchema = marketingUsageReviewInputSchema
 	.extend({
 		canonicalAssetVersionId: id.nullable(),
 		contractSnapshot: specializedProfileContractSchema,
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 		reviewedByUserId: id,
 		versionPins: z
 			.array(

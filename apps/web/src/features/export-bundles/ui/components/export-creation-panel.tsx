@@ -12,7 +12,7 @@ import {
 } from "@sprite-anvil/ui/components/native-select";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { strToU8, zipSync } from "fflate";
 import { useEffect, useId, useRef, useState } from "react";
 import { z } from "zod";
@@ -21,8 +21,8 @@ import { downloadZip } from "@/utils/download-zip";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { honoGetBytes, projectApiUrl } from "@/utils/hono-api";
 import { client, orpc } from "@/utils/orpc";
+import type { PendingExport } from "../../lib/pending-export-store";
 import {
-	type PendingExport,
 	pendingExportKey,
 	pendingExportTable,
 } from "../../lib/pending-export-store";
@@ -520,7 +520,7 @@ export function ExportCreationPanel({ projectId }: { projectId: string }) {
 			}
 		},
 	});
-	const selectedFamilies = useStore(
+	const selectedFamilies = useSelector(
 		bundleForm.store,
 		(state) => state.values.assetFamilyIds
 	);

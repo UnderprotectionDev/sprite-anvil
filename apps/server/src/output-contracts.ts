@@ -16,7 +16,7 @@ export const projectSummaryResponseSchema = z
 		name: z.string(),
 		previewUrl: z
 			.string()
-			.regex(/^\/api\/projects\/[^/?#]+\/preview$/)
+			.regex(/^\/api\/projects\/[^/?#]+\/preview$/u)
 			.nullable(),
 	})
 	.strict();
@@ -34,7 +34,7 @@ export function serializeProjectSummaryResponse(project: {
 }
 
 export const twoDVisualAssetAcceptedResponseSchema = z
-	.object({ twoDVisualAssetId: z.string().uuid() })
+	.object({ twoDVisualAssetId: z.uuid() })
 	.strict();
 
 export function serializeTwoDVisualAssetAcceptedResponse(

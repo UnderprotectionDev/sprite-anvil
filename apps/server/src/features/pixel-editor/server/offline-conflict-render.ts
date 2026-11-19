@@ -1,17 +1,9 @@
 import type { AssetVersionFileRecord } from "@sprite-anvil/api/asset-versions";
 import type { PixelOperation } from "@sprite-anvil/api/pixel-editor";
-import {
-	failure,
-	type Outcome,
-	readSourceRaster,
-	type Scope,
-	success,
-} from "./pixel-editor-context";
-import {
-	PixelOperationError,
-	type Raster,
-	replayOperations,
-} from "./pixel-operations";
+import type { Outcome, Scope } from "./pixel-editor-context";
+import { failure, readSourceRaster, success } from "./pixel-editor-context";
+import type { Raster } from "./pixel-operations";
+import { PixelOperationError, replayOperations } from "./pixel-operations";
 import { encodeRasterPng } from "./pixel-raster-codec";
 
 /** Replays operations over a source Asset Version; never writes. */

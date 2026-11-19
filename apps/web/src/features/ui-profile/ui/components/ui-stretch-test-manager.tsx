@@ -15,7 +15,7 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { StatusMessage } from "@/components/status-message";
@@ -23,11 +23,13 @@ import { ENV } from "@/env";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { orpc } from "@/utils/orpc";
+import type {
+	UiStretchObservationDraft,
+	UiStretchStateDraft,
+} from "../../schemas";
 import {
 	createUiStretchConfigurationSchema,
 	createUiStretchStateSchema,
-	type UiStretchObservationDraft,
-	type UiStretchStateDraft,
 	uiStretchBoundsFields,
 } from "../../schemas";
 import { SavedUiStretchTest } from "./saved-ui-stretch-test";
@@ -76,7 +78,7 @@ const nativeSelectClass =
 	"block min-h-11 w-full rounded border bg-background p-2";
 const selectClass = "w-full [&_select]:min-h-11";
 const labelClass = "block text-base leading-normal";
-const trailingSlash = /\/$/;
+const trailingSlash = /\/$/u;
 const previewSource = (url: string) =>
 	url.startsWith("/")
 		? `${ENV.VITE_SERVER_URL?.replace(trailingSlash, "") ?? ""}${url}`
@@ -131,7 +133,7 @@ export function UiStretchTestManager({
 		defaultValues,
 		onSubmit: ({ value }) => save(value),
 	});
-	const values = useStore(form.store, (state) => state.values);
+	const values = useSelector(form.store, (state) => state.values);
 	const { drafts, targets, screenVersion, sampleText, observations } = values;
 	const [error, setError] = useState("");
 	const [message, setMessage] = useState("");

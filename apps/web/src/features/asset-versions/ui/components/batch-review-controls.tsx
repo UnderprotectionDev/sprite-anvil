@@ -11,7 +11,7 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -39,9 +39,9 @@ export function BatchReviewControls({
 		},
 		validators: { onChange: batchReviewFormSchema },
 	});
-	const selected = useStore(form.store, (state) => state.values.selected);
-	const decision = useStore(form.store, (state) => state.values.decision);
-	const rationale = useStore(form.store, (state) => state.values.rationale);
+	const selected = useSelector(form.store, (state) => state.values.selected);
+	const decision = useSelector(form.store, (state) => state.values.decision);
+	const rationale = useSelector(form.store, (state) => state.values.rationale);
 	const [preview, setPreview] = useState<AssetVersionBatchReviewPreview | null>(
 		null
 	);
@@ -159,7 +159,7 @@ export function BatchReviewControls({
 				<form.Field name="decision">
 					{(field) => (
 						<NativeSelect
-							className="w-fit [&_select]:rounded-md [&_select]:border [&_select]:bg-background [&_select]:p-2"
+							className="[&_select]:bg-background w-fit [&_select]:rounded-md [&_select]:border [&_select]:p-2"
 							id="batch-review-decision"
 							onBlur={field.handleBlur}
 							onChange={(event) => {
@@ -192,7 +192,7 @@ export function BatchReviewControls({
 				<form.Field name="rationale">
 					{(field) => (
 						<Textarea
-							className="min-h-20 w-full rounded-md border bg-background p-2"
+							className="bg-background min-h-20 w-full rounded-md border p-2"
 							id="batch-review-rationale"
 							maxLength={2000}
 							onBlur={field.handleBlur}

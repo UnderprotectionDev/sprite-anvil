@@ -5,7 +5,7 @@ import {
 } from "@sprite-anvil/ui/components/native-select";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { createStore } from "@tanstack/store";
 import { useCallback, useRef, useState } from "react";
 import { orpc } from "@/utils/orpc";
@@ -13,7 +13,7 @@ import { ErasureApprovalPanel } from "../components/erasure-approval-panel";
 
 export function PermanentErasureView({ projectId }: { projectId: string }) {
 	const [lockStore] = useState(() => createStore(false));
-	const writeLocked = useStore(lockStore, (locked) => locked);
+	const writeLocked = useSelector(lockStore, (locked) => locked);
 	const onWriteLockChange = useCallback(
 		(locked: boolean) => {
 			lockStore.setState((previous) =>

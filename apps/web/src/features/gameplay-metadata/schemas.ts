@@ -1,8 +1,8 @@
-import {
-	type GameplayMetadataFrame,
-	gameplayMetadataFieldIds,
-	type getGameplayMetadataFields,
+import type {
+	GameplayMetadataFrame,
+	getGameplayMetadataFields,
 } from "@sprite-anvil/api/gameplay-metadata";
+import { gameplayMetadataFieldIds } from "@sprite-anvil/api/gameplay-metadata";
 import z from "zod";
 
 export interface GameplayMetadataFormSelection {

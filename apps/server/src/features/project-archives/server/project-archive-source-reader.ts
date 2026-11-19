@@ -2,11 +2,11 @@ import type { AssetFamilyStore } from "@sprite-anvil/api/asset-families";
 import type { AssetRecordStore } from "@sprite-anvil/api/asset-records";
 import type { AssetVersionStore } from "@sprite-anvil/api/asset-versions";
 import type { ProjectArchiveSourceReader } from "@sprite-anvil/api/project-archive-store";
-import {
-	type FoundationRecords,
-	foundationSectionSchemas,
-	type ProjectArchiveSourceFile,
+import type {
+	FoundationRecords,
+	ProjectArchiveSourceFile,
 } from "@sprite-anvil/api/project-archives";
+import { foundationSectionSchemas } from "@sprite-anvil/api/project-archives";
 import type { Database } from "@sprite-anvil/db";
 import { managedSnapshots } from "@sprite-anvil/db/schema/asset-production-history";
 import {

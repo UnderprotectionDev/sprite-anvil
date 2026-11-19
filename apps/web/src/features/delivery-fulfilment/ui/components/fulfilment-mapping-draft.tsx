@@ -1,7 +1,5 @@
-import {
-	type FulfilmentMappingDraft,
-	summarizeMappingDraft,
-} from "@sprite-anvil/api/delivery-fulfilment";
+import type { FulfilmentMappingDraft } from "@sprite-anvil/api/delivery-fulfilment";
+import { summarizeMappingDraft } from "@sprite-anvil/api/delivery-fulfilment";
 import {
 	requirementStatusHints,
 	requirementStatusLabels,
@@ -55,7 +53,7 @@ export function FulfilmentMappingDraftPanel({
 	return (
 		<section aria-label="Mapping draft" className="space-y-4">
 			<div className="space-y-1">
-				<h2 className="font-semibold text-lg">
+				<h2 className="text-lg font-semibold">
 					Mapping draft for revision {draft.revisionNumber}
 				</h2>
 				<p className="text-muted-foreground text-sm">

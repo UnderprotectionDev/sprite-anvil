@@ -13,9 +13,9 @@ import { ExportBundleVerificationView } from "./export-bundle-verification-view"
 
 afterEach(cleanup);
 
-const verifiedText = /Bundle verified/;
-const failedText = /Integrity check failed/;
-const manifestErrorText = /The manifest could not be summarized: .*JSON/;
+const verifiedText = /Bundle verified/u;
+const failedText = /Integrity check failed/u;
+const manifestErrorText = /The manifest could not be summarized: .*JSON/u;
 
 function directoryFiles(files: ExportBundleVerificationFile[]): File[] {
 	return files.map((entry) => {

@@ -7,13 +7,13 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useId } from "react";
 import { AssetVersionPreview } from "@/components/asset-version-preview";
 import { ENV } from "@/env";
 import { derivativeReReviewFormSchema } from "../../schemas";
 
-const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
+const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/u, "") ?? "";
 
 export function DerivativeReReviewForm({
 	projectId,
@@ -77,7 +77,7 @@ export function DerivativeReReviewForm({
 		},
 		validators: { onSubmit: schema },
 	});
-	const values = useStore(form.store, (state) => state.values);
+	const values = useSelector(form.store, (state) => state.values);
 	const ready = !disabled && schema.safeParse(values).success;
 	function review(decision: DerivativeReReviewInput["decision"]) {
 		if (!ready) {

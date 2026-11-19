@@ -20,9 +20,9 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { DependencyRevalidationManager } from "@/components/dependency-revalidation-manager";
 
-const reviewedPalettePattern = /Palet güncel Ana Tasarımla uyumlu\./;
+const reviewedPalettePattern = /Palet güncel Ana Tasarımla uyumlu\./u;
 const correctionSavedPattern =
-	/Candidate review record saved for content correction/;
+	/Candidate review record saved for content correction/u;
 
 const transport = vi.hoisted(() => ({
 	catalog: {

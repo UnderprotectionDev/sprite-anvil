@@ -5,7 +5,8 @@ import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { type ChangeEvent, useRef, useState } from "react";
+import type { ChangeEvent } from "react";
+import { useRef, useState } from "react";
 import { StatusMessage } from "@/components/status-message";
 import { TaskWorkspace } from "@/components/task-workspace";
 import { buildErrorNotification } from "@/utils/error-notification";
@@ -267,13 +268,13 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 					Back to Asset Records
 				</Link>
 				<div className="space-y-2">
-					<p className="font-mono text-primary text-xs uppercase tracking-[0.16em]">
+					<p className="text-primary font-mono text-xs tracking-[0.16em] uppercase">
 						Import
 					</p>
-					<h1 className="font-medium font-serif text-4xl tracking-tight">
+					<h1 className="font-serif text-4xl font-medium tracking-tight">
 						Import Inbox
 					</h1>
-					<p className="max-w-2xl text-muted-foreground">
+					<p className="text-muted-foreground max-w-2xl">
 						Store files without a known target as Managed Snapshots. They are
 						not Asset Records or Candidate Versions and cannot be approved or
 						exported until linked.
@@ -297,26 +298,26 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 								>
 									<div>
 										<h2
-											className="font-semibold text-xl"
+											className="text-xl font-semibold"
 											id="import-inbox-upload-heading"
 										>
 											Add files
 										</h2>
-										<p className="mt-1 text-muted-foreground text-sm">
+										<p className="text-muted-foreground mt-1 text-sm">
 											The original file and name are preserved. Production
 											history is not inferred from file contents.
 										</p>
 									</div>
 									<div className="space-y-2">
 										<Label
-											className="font-medium text-sm"
+											className="text-sm font-medium"
 											htmlFor="import-inbox-files"
 										>
 											Files
 										</Label>
 										<Input
 											aria-describedby="import-inbox-file-help"
-											className="block h-auto min-h-11 rounded-md bg-background px-3 py-2 text-sm file:mr-3 file:min-h-9 file:cursor-pointer file:rounded-md file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:font-medium"
+											className="bg-background file:bg-secondary block h-auto min-h-11 rounded-md px-3 py-2 text-sm file:mr-3 file:min-h-9 file:cursor-pointer file:rounded-md file:border-0 file:px-3 file:py-1.5 file:font-medium"
 											disabled={isUploading}
 											id="import-inbox-files"
 											multiple
@@ -398,12 +399,12 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 								>
 									<div>
 										<h2
-											className="font-semibold text-xl"
+											className="text-xl font-semibold"
 											id="import-inbox-entries-heading"
 										>
 											Files awaiting linking
 										</h2>
-										<p className="mt-1 text-muted-foreground text-sm">
+										<p className="text-muted-foreground mt-1 text-sm">
 											This list contains only Import Inbox Entries without a
 											confirmed target.
 										</p>
@@ -432,7 +433,7 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 										</div>
 									) : null}
 									{entriesQuery.isSuccess && entriesQuery.data.length === 0 ? (
-										<p className="rounded-lg border border-dashed p-6 text-muted-foreground text-sm">
+										<p className="text-muted-foreground rounded-lg border border-dashed p-6 text-sm">
 											No files await linking yet.
 										</p>
 									) : null}
@@ -471,13 +472,13 @@ function ImportInboxEntryCard({
 		<li className="space-y-3 rounded-lg border p-4">
 			<div className="flex flex-wrap items-start justify-between gap-3">
 				<div className="min-w-0 space-y-1">
-					<h3 className="break-words font-medium">{entry.fileName}</h3>
+					<h3 className="font-medium break-words">{entry.fileName}</h3>
 					<p className="text-muted-foreground text-sm">
 						Awaiting linking · {formatContentLength(entry.contentLength)}
 					</p>
 				</div>
 				<a
-					className="inline-flex min-h-11 items-center rounded-md border px-3 py-2 text-sm underline-offset-4 hover:bg-accent hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+					className="hover:bg-accent focus-visible:ring-ring inline-flex min-h-11 items-center rounded-md border px-3 py-2 text-sm underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-hidden"
 					download={entry.fileName}
 					href={importInboxFileUrl(projectId, entry.id)}
 				>
@@ -496,7 +497,7 @@ function ImportInboxEntryCard({
 					<dt className="text-muted-foreground">Added at</dt>
 					<dd>{formatCreatedAt(entry.createdAt)}</dd>
 					<dt className="text-muted-foreground">SHA-256</dt>
-					<dd className="break-all font-mono text-xs">{entry.sha256}</dd>
+					<dd className="font-mono text-xs break-all">{entry.sha256}</dd>
 				</dl>
 			</details>
 			{entry.sourceContentType.startsWith("image/") ? (

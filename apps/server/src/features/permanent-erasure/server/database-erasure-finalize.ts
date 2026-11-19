@@ -1,3 +1,4 @@
+import { compareCodeUnits } from "@sprite-anvil/api/compare-code-units";
 import type { ErasureContainerRef } from "@sprite-anvil/api/permanent-erasure";
 import type { Database } from "@sprite-anvil/db";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
@@ -15,17 +16,16 @@ import {
 	projectArchives,
 } from "@sprite-anvil/db/schema/project-archives";
 import { and, eq, inArray } from "drizzle-orm";
-import {
-	ErasureScopeChangedError,
-	type FinalizeErasureInput,
-} from "./erasure-deletion-storage";
+import type { FinalizeErasureInput } from "./erasure-deletion-storage";
+import { ErasureScopeChangedError } from "./erasure-deletion-storage";
 
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
 function sameIds(left: readonly string[], right: readonly string[]) {
 	return (
 		left.length === right.length &&
-		[...left].sort().join("\n") === [...right].sort().join("\n")
+		[...left].sort(compareCodeUnits).join("\n") ===
+			[...right].sort(compareCodeUnits).join("\n")
 	);
 }
 

@@ -24,7 +24,7 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { StatusMessage } from "@/components/status-message";
@@ -84,7 +84,7 @@ export function TilesetAdjacencyReviewManager({
 	const form = useForm({
 		defaultValues: { compositeId: "", ...tilesetIssueFormDefaults },
 	});
-	const { compositeId, issueNotes, neighborIndex } = useStore(
+	const { compositeId, issueNotes, neighborIndex } = useSelector(
 		form.store,
 		(state) => state.values
 	);
@@ -291,7 +291,7 @@ export function TilesetAdjacencyReviewManager({
 	}
 	return (
 		<section className="space-y-4 rounded-lg border p-4">
-			<h3 className="font-semibold text-lg">
+			<h3 className="text-lg font-semibold">
 				Test Tile Adjacencies on a Test Map · {familyName}
 			</h3>
 			<p className="text-muted-foreground text-sm">

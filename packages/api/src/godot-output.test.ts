@@ -5,6 +5,7 @@ import {
 	fixtureProfile,
 	fixtureSource,
 } from "../test-support/export-bundle-verification-fixture";
+import { compareCodeUnits } from "./compare-code-units";
 import type { ExportBundleEngineData } from "./export-bundle-engine-data";
 import { buildExportBundle } from "./export-bundle-manifest";
 import type { ExportBundle } from "./export-bundles";
@@ -15,8 +16,8 @@ import {
 	godotSupportedEngineVersions,
 } from "./godot-output";
 
-const invalidNumber = /Infinity|NaN/;
-const sha256Pattern = /^[0-9a-f]{64}$/;
+const invalidNumber = /Infinity|NaN/u;
+const sha256Pattern = /^[0-9a-f]{64}$/u;
 
 const engineData: ExportBundleEngineData = {
 	animations: [
@@ -141,7 +142,7 @@ test("the same bundle and adapter version give the same output", async () => {
 	const second = await output(await bundleWith(engineData));
 	expect(second).toEqual(first);
 	expect(first.files.map((file) => file.path)).toEqual(
-		[...first.files.map((file) => file.path)].sort()
+		[...first.files.map((file) => file.path)].sort(compareCodeUnits)
 	);
 	expect(first.adapterVersion).toBe(godotAdapterVersion);
 	expect(first.outputDigest).toMatch(sha256Pattern);
@@ -330,7 +331,7 @@ test("the zip is deterministic and carries every file at its path", async () => 
 	const second = buildGodotOutputZip(built, textures);
 	expect(first).toEqual(second);
 	const entries = unzipSync(first);
-	expect(Object.keys(entries).sort()).toEqual(
+	expect(Object.keys(entries).sort(compareCodeUnits)).toEqual(
 		built.files.map((file) => file.path)
 	);
 	expect([...(entries["sprite_anvil/textures/hero_walk.png"] ?? [])]).toEqual([

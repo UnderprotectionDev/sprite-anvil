@@ -1,10 +1,8 @@
 import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
+import { IdempotencyConflictError } from "@sprite-anvil/api/idempotency-conflict-error";
 import { createVersionProductionEvidence } from "@sprite-anvil/api/production-provenance";
-import {
-	IdempotencyConflictError,
-	RecordIntegrityError,
-} from "@sprite-anvil/api/record-publication";
+import { RecordIntegrityError } from "@sprite-anvil/api/record-integrity-error";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 
 const projectId = "project-replay";

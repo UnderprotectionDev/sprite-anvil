@@ -9,7 +9,7 @@ import { shortId } from "../../lib/short-id";
 function Section({ children, title }: { children: ReactNode; title: string }) {
 	return (
 		<section aria-label={title} className="space-y-2 rounded border p-3">
-			<h2 className="font-semibold text-lg">{title}</h2>
+			<h2 className="text-lg font-semibold">{title}</h2>
 			{children}
 		</section>
 	);

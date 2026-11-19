@@ -4,10 +4,11 @@ import type {
 	TilesetTile,
 } from "@sprite-anvil/api/tileset-adjacency-reviews";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { type KeyboardEvent, useRef } from "react";
+import type { KeyboardEvent } from "react";
+import { useRef } from "react";
 import { ENV } from "@/env";
 
-const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
+const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/u, "") ?? "";
 export function TileImage({
 	tile,
 	version,
@@ -139,7 +140,7 @@ export function TilesetMap({
 				return (
 					<Button
 						aria-label={`Cell ${index + 1}: ${tile?.tileId ?? "Empty"}`}
-						className="relative block border-0 bg-transparent p-0 hover:bg-transparent focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:ring-0 active:not-aria-[haspopup]:translate-y-0"
+						className="focus-visible:outline-primary relative block border-0 bg-transparent p-0 hover:bg-transparent focus-visible:z-10 focus-visible:ring-0 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-solid active:not-aria-[haspopup]:translate-y-0"
 						// biome-ignore lint/suspicious/noArrayIndexKey: Grid coordinates identify fixed cells; painting never reorders them.
 						key={`${Math.floor(index / map.width)}-${index % map.width}`}
 						onClick={() => {

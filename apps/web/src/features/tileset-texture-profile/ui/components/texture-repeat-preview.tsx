@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/status-message";
 import { ENV } from "@/env";
 
-const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
+const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/u, "") ?? "";
 function cropTexture(image: HTMLImageElement, region: TextureAtlasRegion) {
 	if (
 		region.x < 0 ||

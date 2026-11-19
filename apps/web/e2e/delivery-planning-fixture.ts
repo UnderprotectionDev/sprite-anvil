@@ -1,4 +1,5 @@
-import { expect, type Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { expect } from "@playwright/test";
 import { signUpWithFixture } from "./project-workflow";
 
 export const deliveryPlanningFixture = {
@@ -27,7 +28,7 @@ export const deliveryPlanningFixture = {
 	],
 } as const;
 
-const recordSelectName = /^Asset Record/;
+const recordSelectName = /^Asset Record/u;
 
 type DeliveryPlanningFixture = typeof deliveryPlanningFixture;
 

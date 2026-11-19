@@ -35,18 +35,20 @@ import {
 	readBatchReviewEvents,
 	recordBatchReviewEvents,
 } from "@sprite-anvil/api/batch-review-events";
-import {
-	createVersionProductionEvidence,
-	type ManagedSnapshot,
-	type ManualImportEvidence,
-	type ManualImportEvidenceInput,
-	type VersionProductionEvidence,
+import { compareCodeUnits } from "@sprite-anvil/api/compare-code-units";
+import type {
+	ManagedSnapshot,
+	ManualImportEvidence,
+	ManualImportEvidenceInput,
+	VersionProductionEvidence,
 } from "@sprite-anvil/api/production-provenance";
+import { createVersionProductionEvidence } from "@sprite-anvil/api/production-provenance";
 import {
 	toManagedSnapshot,
 	toManualImportEvidence,
 } from "@sprite-anvil/api/production-provenance-mapper";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import { assetFamilyCanonicalDesigns } from "@sprite-anvil/db/schema/asset-families";
 import {
 	legacyAssetAttestations,
@@ -75,7 +77,7 @@ import {
 	replayCompositeVersionReviewEvent,
 } from "./review-event-publication";
 
-const contentDigestPattern = /^[0-9a-f]{64}$/;
+const contentDigestPattern = /^[0-9a-f]{64}$/u;
 
 function toISOString(value: Date | string) {
 	return value instanceof Date
@@ -655,8 +657,10 @@ async function readExistingCompositeVersion(
 	const compositeVersion = await readCompositeVersion(db, existing);
 	const existingUnitVersionIds = compositeVersion.compositionMemberships
 		.map((membership) => membership.unitVersionId)
-		.sort();
-	const requestedUnitVersionIds = [...input.unitVersionIds].sort();
+		.sort(compareCodeUnits);
+	const requestedUnitVersionIds = [...input.unitVersionIds].sort(
+		compareCodeUnits
+	);
 	if (
 		existingUnitVersionIds.length !== requestedUnitVersionIds.length ||
 		existingUnitVersionIds.some(

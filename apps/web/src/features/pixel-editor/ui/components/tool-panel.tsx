@@ -7,11 +7,13 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { opaqueHex } from "../../lib/pixel-geometry";
+import type {
+	PixelEditorToolStore,
+	PixelTool,
+} from "../../store/pixel-editor-tool-store";
 import {
-	type PixelEditorToolStore,
-	type PixelTool,
 	patchToolState,
 	pixelTools,
 } from "../../store/pixel-editor-tool-store";
@@ -47,18 +49,18 @@ export function ToolPanel({
 	size: { height: number; width: number };
 	store: PixelEditorToolStore;
 }) {
-	const state = useStore(store, (current) => current);
+	const state = useSelector(store, (current) => current);
 	const selection: PixelRect | null = state.selection;
 
 	return (
 		<div className="space-y-5">
 			<section aria-label="Tools" className="space-y-2">
-				<h3 className="font-medium text-sm">Tools</h3>
+				<h3 className="text-sm font-medium">Tools</h3>
 				<div className="grid grid-cols-2 gap-1">
 					{pixelTools.map((tool) => (
 						<Button
 							aria-pressed={state.tool === tool}
-							className="justify-start whitespace-normal text-left"
+							className="justify-start text-left whitespace-normal"
 							key={tool}
 							onClick={() => patchToolState(store, { tool })}
 							size="sm"
@@ -108,7 +110,7 @@ export function ToolPanel({
 			</section>
 
 			<section aria-label="Selection and orientation" className="space-y-2">
-				<h3 className="font-medium text-sm">
+				<h3 className="text-sm font-medium">
 					{selection
 						? `Selection ${selection.width}×${selection.height}`
 						: "Whole canvas"}

@@ -3,8 +3,8 @@ import { activateFamilyProfile } from "./asset-family-workspace-fixture";
 import { assetVersionFixture as fixture } from "./asset-version-fixture";
 import { signUpWithFixture } from "./project-workflow";
 
-const fourDirectionHistory = /4 directions · Needs follow-up/;
-const eightDirectionHistory = /8 directions · Consistent/;
+const fourDirectionHistory = /4 directions · Needs follow-up/u;
+const eightDirectionHistory = /8 directions · Consistent/u;
 
 test("reviews four and eight directions with variable timing and persisted human observations", async ({
 	page,

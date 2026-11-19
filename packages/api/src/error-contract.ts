@@ -2,7 +2,7 @@ import z from "zod";
 
 export const supportReferenceSchema = z
 	.string()
-	.regex(/^SUP-[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/);
+	.regex(/^SUP-[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/u);
 
 export const internalServerErrorDataSchema = z
 	.object({ supportReference: supportReferenceSchema })

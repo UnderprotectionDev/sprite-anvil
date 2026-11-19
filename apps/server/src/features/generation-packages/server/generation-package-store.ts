@@ -8,13 +8,13 @@ import {
 	generationPackageSnapshotSchema,
 } from "@sprite-anvil/api/generation-packages";
 import { recordContentDigest } from "@sprite-anvil/api/record-content-digest";
+import { RecordIntegrityError } from "@sprite-anvil/api/record-integrity-error";
 import {
-	RecordIntegrityError,
-	RetryablePublicationError,
 	replayPublishedRecord,
 	resolveRecordId,
 	verifyPublishedRecord,
 } from "@sprite-anvil/api/record-publication";
+import { RetryablePublicationError } from "@sprite-anvil/api/retryable-publication-error";
 import type { Database } from "@sprite-anvil/db";
 import { publishedProjectPredicate } from "@sprite-anvil/db";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";

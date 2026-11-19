@@ -1,8 +1,8 @@
 import type { SheetStructureView } from "@sprite-anvil/api/pixel-editor-structure";
 import { expect, test } from "vitest";
+import type { CorrectionPackageValues } from "./correction-package";
 import {
 	buildCorrectionPackageInput,
-	type CorrectionPackageValues,
 	defaultExpectedOutputStructure,
 	defaultPreserveConstraint,
 	defaultPreservedUnitIds,

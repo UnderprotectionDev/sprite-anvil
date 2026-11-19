@@ -3,10 +3,8 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
-import {
-	type LiveFileLinkAdapter,
-	LiveFileLinkPanel,
-} from "@/components/live-file-link-panel";
+import type { LiveFileLinkAdapter } from "@/components/live-file-link-panel";
+import { LiveFileLinkPanel } from "@/components/live-file-link-panel";
 import type {
 	LiveFileLinkStore,
 	StoredLiveFileLink,
@@ -18,7 +16,7 @@ const sourcePath = "/Users/example/Art/Ash Knight.aseprite";
 const exportPath = "/Users/example/Art/exports/ash-knight.webp";
 const sourceBytes = new Uint8Array([1, 2, 3, 4]);
 const exportBytes = new Uint8Array([5, 6, 7, 8]);
-const changedStatusPattern = /The working file changed/;
+const changedStatusPattern = /The working file changed/u;
 
 afterEach(() => {
 	cleanup();

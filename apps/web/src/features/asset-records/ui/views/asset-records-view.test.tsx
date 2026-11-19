@@ -40,33 +40,33 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
 });
 
 const projectId = "c2edb5dc-a82f-42b2-84bb-a878ca20fabf";
-const identityCheckboxName = /^Independent product meaning/;
-const deliveryIdentityCheckboxName = /^Delivery identity/;
-const archivedRecordStatus = /Record status · Archived/;
-const archivedPackageSummary = /Archived attack package/;
+const identityCheckboxName = /^Independent product meaning/u;
+const deliveryIdentityCheckboxName = /^Delivery identity/u;
+const archivedRecordStatus = /Record status · Archived/u;
+const archivedPackageSummary = /Archived attack package/u;
 const fileBoundaryCopy =
-	/different file or editable frame alone does not justify a new record/i;
+	/different file or editable frame alone does not justify a new record/iu;
 const generalSupportCopy =
 	"General Asset Support · No specialized profile evidence";
-const recordCreatedCopy = /Record created/;
-const versionFileName = /ash-knight\.png/;
-const alternativeFileName = /ash-knight-alt\.png/;
-const derivativeName = /Ash Knight idle/;
-const referenceName = /Skeleton Warrior/;
-const referenceNote = /Use the stance only\./;
-const referenceHistoryRevision = /Revision 1/;
-const productionSource = /Imported from the project archive/;
-const productionEvidence = /Archive manifest entry/;
+const recordCreatedCopy = /Record created/u;
+const versionFileName = /ash-knight\.png/u;
+const alternativeFileName = /ash-knight-alt\.png/u;
+const derivativeName = /Ash Knight idle/u;
+const referenceName = /Skeleton Warrior/u;
+const referenceNote = /Use the stance only\./u;
+const referenceHistoryRevision = /Revision 1/u;
+const productionSource = /Imported from the project archive/u;
+const productionEvidence = /Archive manifest entry/u;
 const unknownVersionProductionEvidence =
 	createVersionProductionEvidence("unknown");
-const userRelationshipLabel = /Received from team/;
-const unknownHistory = /History unknown/;
-const attestationDateLabel = /Attestation date:/;
+const userRelationshipLabel = /Received from team/u;
+const unknownHistory = /History unknown/u;
+const attestationDateLabel = /Attestation date:/u;
 const legacyAttestationCreatedAt = "2026-09-25T08:01:00.000Z";
-const localizedLegacyAttestationDate = /^(?:24|25) Eyl 2026 \d{2}:\d{2}$/;
-const unknownCanonicalVersion = /no recorded Canonical Design Version/;
+const localizedLegacyAttestationDate = /^(?:24|25) Eyl 2026 \d{2}:\d{2}$/u;
+const unknownCanonicalVersion = /no recorded Canonical Design Version/u;
 const unresolvedSourceAssetVersion =
-	/Source Asset Version was not found in the catalog\./;
+	/Source Asset Version was not found in the catalog\./u;
 const emptyAssetRecordMeasurements = {
 	atlasDimensions: { confirmed: null, proposal: null },
 	cellDimensions: { confirmed: null, proposal: null },
@@ -75,9 +75,9 @@ const emptyAssetRecordMeasurements = {
 	sourceImageDimensions: { confirmed: null, proposal: null },
 	visibleContentBounds: { confirmed: null, proposal: null },
 };
-const fractionalScaleWarning = /non-integer Display Scale/;
+const fractionalScaleWarning = /non-integer Display Scale/u;
 const illustrationScaleHint =
-	/High-resolution illustrations are not subject to this rule/;
+	/High-resolution illustrations are not subject to this rule/u;
 const assetRecord = {
 	availability: "active" as const,
 	createdAt: "2026-09-25T08:00:00.000Z",

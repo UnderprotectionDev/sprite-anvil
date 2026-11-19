@@ -42,7 +42,7 @@ export const sourceMetadataMappingSidecarSchema = z
 		fileName: assetSourceFileNameSchema,
 		format: sourceMetadataFormatSchema,
 		jsonLayout: sourceMetadataJsonLayoutSchema,
-		sha256: z.string().regex(/^[a-f0-9]{64}$/),
+		sha256: z.string().regex(/^[a-f0-9]{64}$/u),
 		version: z.string().min(1).max(128),
 	})
 	.strict();
@@ -54,7 +54,7 @@ export const sourceMetadataMappingSourceSchema = z
 	.object({
 		entryId: z.uuid(),
 		fileName: assetSourceFileNameSchema,
-		sha256: z.string().regex(/^[a-f0-9]{64}$/),
+		sha256: z.string().regex(/^[a-f0-9]{64}$/u),
 	})
 	.strict();
 

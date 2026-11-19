@@ -1,12 +1,11 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import { createQueryClient } from "./query-client";
 
 const errorToast = vi.hoisted(() => vi.fn());
 
 vi.mock("sonner", () => ({
 	toast: { dismiss: vi.fn(), error: errorToast },
 }));
-
-import { createQueryClient } from "./query-client";
 
 const supportReference = "SUP-7CFB1C3A-A7A3-4BC2-B748-B5065AA2314A";
 

@@ -94,7 +94,7 @@ function TargetMapping({
 				</>
 			) : null}
 			<section aria-label="Delivery Fulfilments" className="space-y-3">
-				<h2 className="font-semibold text-lg">Delivery Fulfilments</h2>
+				<h2 className="text-lg font-semibold">Delivery Fulfilments</h2>
 				{fulfilments.isPending ? (
 					<p aria-live="polite" role="status">
 						Loading Delivery Fulfilments…
@@ -112,7 +112,7 @@ function TargetMapping({
 				) : null}
 			</section>
 			<section aria-label="Historical Risk Notices" className="space-y-3">
-				<h2 className="font-semibold text-lg">Historical Risk Notices</h2>
+				<h2 className="text-lg font-semibold">Historical Risk Notices</h2>
 				{notices.isPending ? (
 					<p aria-live="polite" role="status">
 						Loading Historical Risk Notices…
@@ -155,7 +155,7 @@ export function FulfilmentMappingView({
 	return (
 		<main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
 			<header className="space-y-2">
-				<h1 className="font-semibold text-2xl">Fulfilment mapping</h1>
+				<h1 className="text-2xl font-semibold">Fulfilment mapping</h1>
 				<p className="text-muted-foreground text-sm">
 					Maps each required item of a Ready Delivery Target to the exact Export
 					Bundles and Asset Versions that meet it. Missing and conflicting items

@@ -1,6 +1,6 @@
 import { ENV } from "@/env";
 
-const trailingSlash = /\/$/;
+const trailingSlash = /\/$/u;
 
 function rightsRecordBaseUrl(projectId: string, assetRecordId: string) {
 	const serverUrl = ENV.VITE_SERVER_URL.replace(trailingSlash, "");

@@ -13,7 +13,7 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import type z from "zod";
@@ -111,8 +111,8 @@ export function DependencyRevalidationManager({
 		},
 		validators: { onSubmit: changeFacetFormSchema },
 	});
-	const link = useStore(linkForm.store, (state) => state.values);
-	const change = useStore(changeForm.store, (state) => state.values);
+	const link = useSelector(linkForm.store, (state) => state.values);
+	const change = useSelector(changeForm.store, (state) => state.values);
 	const linkKind: DependencyLinkInput["source"]["kind"] = link.kind;
 	const changeKind: ChangeFacetInput["source"]["kind"] = change.kind;
 	const [busy, setBusy] = useState(false);
@@ -221,7 +221,7 @@ export function DependencyRevalidationManager({
 			aria-labelledby={`${identifier}-heading`}
 			className="space-y-5 rounded-lg border p-5"
 		>
-			<h2 className="font-semibold text-2xl" id={`${identifier}-heading`}>
+			<h2 className="text-2xl font-semibold" id={`${identifier}-heading`}>
 				Determine Change Impact
 			</h2>
 			<p className="text-muted-foreground text-sm">

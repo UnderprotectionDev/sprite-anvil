@@ -1,7 +1,7 @@
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
+import type { VfxAppearanceInput } from "@sprite-anvil/api/vfx-appearance-reviews";
 import {
 	measureVfxOverflow,
-	type VfxAppearanceInput,
 	vfxAppearanceFrameSchema,
 } from "@sprite-anvil/api/vfx-appearance-reviews";
 import { Button } from "@sprite-anvil/ui/components/button";
@@ -14,7 +14,7 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { ReducedMotionNotice } from "@/components/reduced-motion-notice";
 import { vfxAppearanceFormSchema, vfxReviewResultSchema } from "../../schemas";
@@ -96,7 +96,7 @@ export function VfxAppearanceEditor({
 		},
 		validators: { onSubmit: vfxAppearanceFormSchema },
 	});
-	const draft = useStore(form.store, (state) => state.values);
+	const draft = useSelector(form.store, (state) => state.values);
 	const total = draft.frames.reduce((sum, frame) => sum + frame.durationMs, 0);
 	const { frames, cell, looping, opacity, sceneAssetVersionId } = draft;
 	const playback = useMemo(

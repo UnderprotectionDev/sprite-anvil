@@ -1,3 +1,4 @@
+// biome-ignore-all lint/style/noExcessiveClassesPerFile: SnapshotChange and SqlReview are private to this migration safety check and share its SQL patterns, helpers and types; splitting would force exporting those internals.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
@@ -40,12 +41,13 @@ export interface ExpansionResult {
 
 const safeDeleteActions = new Set(["CASCADE", "SET NULL", "SET DEFAULT"]);
 const firstSnapshotParent = "00000000-0000-0000-0000-000000000000";
-const contractApproval = /^-- parallel-safety: contract\s+(\S.*?)\s*$/;
-const lineBreak = /\r?\n/;
+const contractApproval =
+	/^-- parallel-safety: contract\s+(?<approval>\S.*?)\s*$/u;
+const lineBreak = /\r?\n/u;
 
 const entitySchema = z
 	.object({ entityType: z.string(), name: z.string() })
-	.passthrough();
+	.loose();
 const snapshotSchema = z.object({
 	id: z.string(),
 	prevIds: z.array(z.string()).min(1),
@@ -84,8 +86,9 @@ const qualified = (schema: unknown, name: unknown) =>
 const tableName = (entity: SnapshotEntity) =>
 	qualified(entity.schema, entity.table);
 
-const stringLiteral = /'(?:''|[^'])*'/g;
-const identifierToken = /"((?:[^"]|"")+)"|\b([A-Za-z_][\w$]*)\b/g;
+const stringLiteral = /'(?:''|[^'])*'/gu;
+const identifierToken =
+	/"(?<quoted>(?:[^"]|"")+)"|\b(?<bare>[A-Za-z_][\w$]*)\b/gu;
 
 function identifiersIn(expression: string): Set<string> {
 	const names = new Set<string>();
@@ -283,7 +286,7 @@ function indexColumns(entity: SnapshotEntity): {
 	};
 }
 
-const generatedUniqueDefault = /^gen_random_uuid\(\)$/;
+const generatedUniqueDefault = /^gen_random_uuid\(\)$/u;
 
 // Older code writes rows without the columns this migration adds: they stay
 // NULL or take their default. A constraint is safe when such rows always pass.
@@ -621,9 +624,9 @@ function snapshotViolations(change: SnapshotChange): string[] {
 }
 
 const sqlLexeme =
-	/--[^\n]*(?:\n|$)|\/\*[\s\S]*?(?:\*\/|$)|[eE]'(?:\\[\s\S]|''|[^'\\])*'?|'(?:''|[^'])*'?|"(?:""|[^"])*"?|\$([A-Za-z_][A-Za-z0-9_]*)?\$[\s\S]*?(?:\$\1\$|$)|;|(?:[^-/'"$;eE]|[eE](?!'))+|[\s\S]/g;
-const dollarQuote = /^\$(?:[A-Za-z_][A-Za-z0-9_]*)?\$/;
-const escapeString = /^[eE]'/;
+	/--[^\n]*(?:\n|$)|\/\*[\s\S]*?(?:\*\/|$)|[eE]'(?:\\[\s\S]|''|[^'\\])*'?|'(?:''|[^'])*'?|"(?:""|[^"])*"?|\$(?<tag>[A-Za-z_][A-Za-z0-9_]*)?\$[\s\S]*?(?:\$\k<tag>\$|$)|;|(?:[^-/'"$;eE]|[eE](?!'))+|[\s\S]/gu;
+const dollarQuote = /^\$(?:[A-Za-z_][A-Za-z0-9_]*)?\$/u;
+const escapeString = /^[eE]'/u;
 
 // Drop comments, blank string and dollar-quoted literals, and split on
 // semicolons outside quoted identifiers.
@@ -684,29 +687,29 @@ function splitTopLevel(text: string): string[] {
 
 const keywordRules: [RegExp, string][] = [
 	[
-		/^CREATE\s+(?:OR\s+REPLACE\s+)?(?:CONSTRAINT\s+)?TRIGGER\b/i,
+		/^CREATE\s+(?:OR\s+REPLACE\s+)?(?:CONSTRAINT\s+)?TRIGGER\b/iu,
 		"adds a trigger",
 	],
-	[/^CREATE\s+(?:OR\s+REPLACE\s+)?RULE\b/i, "adds a rule"],
+	[/^CREATE\s+(?:OR\s+REPLACE\s+)?RULE\b/iu, "adds a rule"],
 	[
-		/^DO\b/i,
+		/^DO\b/iu,
 		"runs an anonymous DO block that this check cannot inspect (use the contract approval line if it is intended)",
 	],
-	[/^(?:CREATE|ALTER)\s+POLICY\b/i, "adds a row-level security policy"],
+	[/^(?:CREATE|ALTER)\s+POLICY\b/iu, "adds a row-level security policy"],
 	[
-		/\b(?:ENABLE|FORCE)\s+ROW\s+LEVEL\s+SECURITY\b/i,
+		/\b(?:ENABLE|FORCE)\s+ROW\s+LEVEL\s+SECURITY\b/iu,
 		"enables row-level security",
 	],
-	[/\bRENAME\b/i, "renames an object"],
-	[/^TRUNCATE\b/i, "truncates a table"],
+	[/\bRENAME\b/iu, "renames an object"],
+	[/^TRUNCATE\b/iu, "truncates a table"],
 	[
-		/^DROP\s+(?:MATERIALIZED\s+VIEW|VIEW|SCHEMA|SEQUENCE|FUNCTION|PROCEDURE|DOMAIN)\b/i,
+		/^DROP\s+(?:MATERIALIZED\s+VIEW|VIEW|SCHEMA|SEQUENCE|FUNCTION|PROCEDURE|DOMAIN)\b/iu,
 		"drops a view, schema, sequence, function or domain",
 	],
-	[/\bSET\s+SCHEMA\b/i, "moves an object to another schema"],
+	[/\bSET\s+SCHEMA\b/iu, "moves an object to another schema"],
 ];
 
-const pattern = (source: string) => new RegExp(source, "i");
+const pattern = (source: string) => new RegExp(source, "iu");
 const qualifiedTable = String.raw`(?:(${identifier})\s*\.\s*)?(${identifier})`;
 const sqlPatterns = {
 	createdObject: pattern(
@@ -715,7 +718,7 @@ const sqlPatterns = {
 	droppedObject: pattern(
 		String.raw`^DROP\s+(?:MATERIALIZED\s+)?(VIEW|SEQUENCE|FUNCTION|PROCEDURE|DOMAIN)\s+(?:IF\s+EXISTS\s+)?${qualifiedIdentifier}`
 	),
-	quotedIdentifier: /"(?:[^"]|"")*"/g,
+	quotedIdentifier: /"(?:[^"]|"")*"/gu,
 	dropTable: pattern(
 		String.raw`^DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?([\s\S]*?)(?:\s+(?:CASCADE|RESTRICT))?$`
 	),
@@ -737,7 +740,7 @@ const sqlPatterns = {
 	),
 	addConstraint: pattern(String.raw`^ADD\s+CONSTRAINT\s+(${identifier})`),
 	addUnnamedConstraint:
-		/^ADD\s+(?:PRIMARY\s+KEY|UNIQUE|CHECK|FOREIGN\s+KEY|EXCLUDE)\b/i,
+		/^ADD\s+(?:PRIMARY\s+KEY|UNIQUE|CHECK|FOREIGN\s+KEY|EXCLUDE)\b/iu,
 	addColumn: pattern(
 		String.raw`^ADD\s+(?:COLUMN\s+)?(?:IF\s+NOT\s+EXISTS\s+)?(${identifier})([\s\S]*)$`
 	),
@@ -747,13 +750,13 @@ const sqlPatterns = {
 	alterColumn: pattern(
 		String.raw`^ALTER\s+(?:COLUMN\s+)?(${identifier})\s+([\s\S]+)$`
 	),
-	notNull: /\bNOT\s+NULL\b/i,
-	defaulted: /\b(?:DEFAULT|GENERATED)\b/i,
+	notNull: /\bNOT\s+NULL\b/iu,
+	defaulted: /\b(?:DEFAULT|GENERATED)\b/iu,
 	reference: pattern(String.raw`\bREFERENCES\s+${qualifiedIdentifier}`),
-	safeDelete: /\bON\s+DELETE\s+(?:CASCADE|SET\s+NULL|SET\s+DEFAULT)\b/i,
-	setType: /^(?:SET\s+DATA\s+)?TYPE\b/i,
-	setNotNull: /^SET\s+NOT\s+NULL\b/i,
-	dropDefault: /^DROP\s+(?:DEFAULT|IDENTITY|EXPRESSION)\b/i,
+	safeDelete: /\bON\s+DELETE\s+(?:CASCADE|SET\s+NULL|SET\s+DEFAULT)\b/iu,
+	setType: /^(?:SET\s+DATA\s+)?TYPE\b/iu,
+	setNotNull: /^SET\s+NOT\s+NULL\b/iu,
+	dropDefault: /^DROP\s+(?:DEFAULT|IDENTITY|EXPRESSION)\b/iu,
 };
 const constraintTypes = ["checks", "fks", "uniques", "pks"];
 const tableSchema = (schema: string | undefined) =>

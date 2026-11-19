@@ -1,6 +1,6 @@
+import type { ErrorOperationKind } from "./error-notification";
 import {
 	buildErrorNotification,
-	type ErrorOperationKind,
 	isWriteOutcomeUncertain,
 } from "./error-notification";
 

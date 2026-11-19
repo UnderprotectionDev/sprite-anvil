@@ -1,3 +1,4 @@
+import { compareCodeUnits } from "@sprite-anvil/api/compare-code-units";
 import type {
 	ReferenceBoardHistoryRecord,
 	ReferenceBoardImage,
@@ -9,11 +10,8 @@ import {
 	referenceBoardImageSchema,
 	referenceBoardUploadInputSchema,
 } from "@sprite-anvil/api/reference-production";
-import {
-	type Database,
-	getProjectForUser,
-	publishedProjectPredicate,
-} from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser, publishedProjectPredicate } from "@sprite-anvil/db";
 import {
 	assetFamilies,
 	assetRecords,
@@ -32,8 +30,8 @@ function toISOString(value: Date | string) {
 }
 
 function sameStringSet(left: readonly string[], right: readonly string[]) {
-	const sortedLeft = [...left].sort();
-	const sortedRight = [...right].sort();
+	const sortedLeft = [...left].sort(compareCodeUnits);
+	const sortedRight = [...right].sort(compareCodeUnits);
 	return (
 		sortedLeft.length === sortedRight.length &&
 		sortedLeft.every((value, index) => value === sortedRight[index])

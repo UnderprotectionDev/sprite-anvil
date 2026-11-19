@@ -1,9 +1,11 @@
 import { createHash } from "node:crypto";
 import { assetSourceFileNameSchema } from "@sprite-anvil/api/asset-record-tracking";
-import type { RightsRecordStore } from "@sprite-anvil/api/rights-records";
+import type {
+	RightsRecordEvidenceFile,
+	RightsRecordEvidenceFileCreateInput,
+	RightsRecordStore,
+} from "@sprite-anvil/api/rights-records";
 import {
-	type RightsRecordEvidenceFile,
-	type RightsRecordEvidenceFileCreateInput,
 	rightsRecordEvidenceFileCreateInputSchema,
 	rightsRecordEvidenceFileLimitBytes,
 	rightsRecordEvidenceFileSchema,
@@ -127,7 +129,7 @@ function evidenceObjectFingerprint(file: {
 }
 
 function encodeDownloadFileName(fileName: string) {
-	return encodeURIComponent(fileName).replace(/[!'()*]/g, (character) => {
+	return encodeURIComponent(fileName).replace(/[!'()*]/gu, (character) => {
 		const codePoint = character.codePointAt(0);
 		return codePoint === undefined
 			? character

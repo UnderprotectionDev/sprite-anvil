@@ -108,7 +108,7 @@ export function RuntimeValidationReadinessPanel({
 			aria-label="Delivery Target readiness"
 			className="space-y-3 rounded-lg border p-4"
 		>
-			<h2 className="font-semibold text-xl">Delivery Target readiness</h2>
+			<h2 className="text-xl font-semibold">Delivery Target readiness</h2>
 			<p className="text-muted-foreground text-sm">
 				A Delivery Target that requires runtime validation is satisfied only by
 				a current Pass you finalized for the exact Export Bundle and

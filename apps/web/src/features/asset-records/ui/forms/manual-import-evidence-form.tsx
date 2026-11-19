@@ -11,9 +11,10 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { type RefObject, useRef, useState } from "react";
+import type { RefObject } from "react";
+import { useRef, useState } from "react";
 import { ProviderGenerationRecordForm } from "@/components/provider-generation-record-form";
 import { StatusMessage } from "@/components/status-message";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
@@ -124,13 +125,13 @@ function ManualImportPackageForm({
 	selectedPackageExists,
 	writeOutcomeUncertain,
 }: ManualImportPackageFormProps) {
-	const values = useStore(form.store, (state) => state.values);
+	const values = useSelector(form.store, (state) => state.values);
 	const { file } = values;
 	const fileIsSupported = isSupportedManualImportFile(file);
 	const locked = isSaving || writeOutcomeUncertain;
 	if (isLoading) {
 		return (
-			<p aria-live="polite" className="mt-4 text-muted-foreground text-sm">
+			<p aria-live="polite" className="text-muted-foreground mt-4 text-sm">
 				Loading Generation Packages…
 			</p>
 		);
@@ -154,7 +155,7 @@ function ManualImportPackageForm({
 	}
 	if (packages.length === 0) {
 		return (
-			<p className="mt-4 text-muted-foreground text-sm">
+			<p className="text-muted-foreground mt-4 text-sm">
 				This Asset Record has no Generation Packages yet. Create one in the
 				Generation Package section first.
 			</p>
@@ -209,7 +210,7 @@ function ManualImportPackageForm({
 						</Label>
 						<Button
 							aria-label="Select, paste, or drop the result file"
-							className="h-auto w-full justify-start whitespace-normal p-2 text-left text-muted-foreground text-sm"
+							className="text-muted-foreground h-auto w-full justify-start p-2 text-left text-sm whitespace-normal"
 							disabled={locked}
 							onClick={() => fileInputRef.current?.click()}
 							onDragOver={(event) => event.preventDefault()}
@@ -356,7 +357,7 @@ export function ManualImportEvidenceForm({
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
 	const form = useManualImportForm(submit);
-	const generationPackageId = useStore(
+	const generationPackageId = useSelector(
 		form.store,
 		(state) => state.values.generationPackageId
 	);
@@ -532,7 +533,7 @@ export function ManualImportEvidenceForm({
 			<h3 className="font-medium" id="manual-import-evidence-heading">
 				Manual Import Evidence
 			</h3>
-			<p className="mt-1 text-muted-foreground text-sm">
+			<p className="text-muted-foreground mt-1 text-sm">
 				Save the manual result with the Generation Package, surface used, actual
 				instruction, and result file. A full conversation archive is not
 				required.

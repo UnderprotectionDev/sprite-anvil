@@ -1,4 +1,5 @@
-import { type ObjectReader, verifyObject } from "./object-file-bytes";
+import type { ObjectReader } from "./object-file-bytes";
+import { verifyObject } from "./object-file-bytes";
 
 /**
  * Confirms a stored file still has the recorded size and SHA-256 before it

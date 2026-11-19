@@ -6,7 +6,7 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { assetFamilyFormSchema, assetFamilySubmitSchema } from "../../schemas";
 
 const assetFamilyDefaults = {
@@ -38,7 +38,7 @@ export function AssetFamilyForm({
 	form: ReturnType<typeof useAssetFamilyForm>;
 	visualWorlds: AssetRecordTrackingDetail["tracking"]["visualWorlds"];
 }) {
-	const values = useStore(form.store, (state) => state.values);
+	const values = useSelector(form.store, (state) => state.values);
 	return (
 		<form
 			className="mt-4 space-y-3 border-t pt-3"
@@ -48,7 +48,7 @@ export function AssetFamilyForm({
 				form.handleSubmit();
 			}}
 		>
-			<h4 className="font-medium text-sm">Create family for Derived Assets</h4>
+			<h4 className="text-sm font-medium">Create family for Derived Assets</h4>
 			<form.Field name="familyName">
 				{(field) => (
 					<Label

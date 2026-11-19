@@ -4,10 +4,10 @@ import {
 	prepareDeliveryPlanningWorkspace,
 } from "./delivery-planning-fixture";
 
-const readinessPlanUrl = /\/readiness-plan\?deliveryTargetId=/;
-const moveDownName = /^Move .* down$/;
-const familyListRevisionOne = /^Active Version 1$/;
-const familyListRevisionTwo = /Version 2/;
+const readinessPlanUrl = /\/readiness-plan\?deliveryTargetId=/u;
+const moveDownName = /^Move .* down$/u;
+const familyListRevisionOne = /^Active Version 1$/u;
+const familyListRevisionTwo = /Version 2/u;
 const rationaleTerms = [
 	"Target requirement",
 	"Work opened",

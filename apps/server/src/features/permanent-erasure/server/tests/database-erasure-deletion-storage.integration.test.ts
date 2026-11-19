@@ -1,12 +1,11 @@
 import { expect, test } from "bun:test";
+import { compareCodeUnits } from "@sprite-anvil/api/compare-code-units";
 import {
 	buildDeletionReceipt,
 	deletionReceiptDigest,
 } from "@sprite-anvil/api/permanent-erasure-deletion";
-import {
-	buildErasureImpactScope,
-	type ErasureImpactSource,
-} from "@sprite-anvil/api/permanent-erasure-scope";
+import type { ErasureImpactSource } from "@sprite-anvil/api/permanent-erasure-scope";
+import { buildErasureImpactScope } from "@sprite-anvil/api/permanent-erasure-scope";
 import { createDb } from "@sprite-anvil/db";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
 import { assetVersions } from "@sprite-anvil/db/schema/asset-versions";
@@ -29,10 +28,8 @@ import {
 import { createLocalTestDb } from "@sprite-anvil/db/testing";
 import { and, eq, inArray } from "drizzle-orm";
 import { createDatabaseErasureDeletionStorage } from "../database-erasure-deletion-storage";
-import {
-	ErasureScopeChangedError,
-	type FinalizeErasureInput,
-} from "../erasure-deletion-storage";
+import type { FinalizeErasureInput } from "../erasure-deletion-storage";
+import { ErasureScopeChangedError } from "../erasure-deletion-storage";
 
 const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
 
@@ -308,7 +305,7 @@ async function bundleIdsOf(db: TestDatabase, projectId: string) {
 		.select({ id: exportBundles.id })
 		.from(exportBundles)
 		.where(eq(exportBundles.projectId, projectId));
-	return rows.map((row) => row.id).sort();
+	return rows.map((row) => row.id).sort(compareCodeUnits);
 }
 
 async function archiveIdsOf(db: TestDatabase, projectId: string) {
@@ -316,7 +313,7 @@ async function archiveIdsOf(db: TestDatabase, projectId: string) {
 		.select({ id: projectArchives.id })
 		.from(projectArchives)
 		.where(eq(projectArchives.projectId, projectId));
-	return rows.map((row) => row.id).sort();
+	return rows.map((row) => row.id).sort(compareCodeUnits);
 }
 
 async function nothingWasWritten(db: TestDatabase, seeded: Seeded) {
@@ -338,10 +335,10 @@ async function nothingWasWritten(db: TestDatabase, seeded: Seeded) {
 			.where(eq(erasureTombstones.projectId, seeded.projectId))
 	).toHaveLength(0);
 	expect(await bundleIdsOf(db, seeded.projectId)).toEqual(
-		[seeded.bundleId, seeded.unrelatedBundleId].sort()
+		[seeded.bundleId, seeded.unrelatedBundleId].sort(compareCodeUnits)
 	);
 	expect(await archiveIdsOf(db, seeded.projectId)).toEqual(
-		[seeded.archiveId, seeded.unrelatedArchiveId].sort()
+		[seeded.archiveId, seeded.unrelatedArchiveId].sort(compareCodeUnits)
 	);
 }
 
@@ -434,7 +431,7 @@ test.skipIf(!databaseUrl)(
 			});
 
 			expect(await bundleIdsOf(db, seeded.projectId)).toEqual(
-				[seeded.bundleId, seeded.unrelatedBundleId].sort()
+				[seeded.bundleId, seeded.unrelatedBundleId].sort(compareCodeUnits)
 			);
 			expect(await archiveIdsOf(db, seeded.projectId)).toEqual([
 				seeded.unrelatedArchiveId,

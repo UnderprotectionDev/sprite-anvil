@@ -4,7 +4,8 @@ import type {
 	OfflineConflictResolutionRow,
 	OfflineConflictStore,
 } from "@sprite-anvil/api/offline-conflict";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import {
 	offlineConflictRecords,
 	offlineConflictResolutions,

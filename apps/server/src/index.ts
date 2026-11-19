@@ -1,3 +1,4 @@
+import { serveStatic } from "@hono/bun";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { RPCHandler } from "@orpc/server/fetch";
@@ -6,7 +7,6 @@ import { createSupportReference } from "@sprite-anvil/api/error-contract";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { getProjectForUser } from "@sprite-anvil/db";
 import { Hono } from "hono";
-import { serveStatic } from "hono/bun";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import {

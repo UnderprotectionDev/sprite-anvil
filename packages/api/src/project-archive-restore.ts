@@ -1,6 +1,7 @@
 import { z } from "zod";
+import { compareCodeUnits } from "./compare-code-units";
+import type { DeliveryRecords } from "./project-archive-delivery";
 import {
-	type DeliveryRecords,
 	deliveryGroup,
 	deliveryRelationFailures,
 	deliverySectionSchemas,
@@ -8,19 +9,21 @@ import {
 	emptyDeliveryRecords,
 } from "./project-archive-delivery";
 import { rebaseArchiveDelivery } from "./project-archive-delivery-rebase";
+import type { HistoryRecords } from "./project-archive-history";
 import {
-	type HistoryRecords,
 	historyGroup,
 	historyRelationFailures,
 } from "./project-archive-history";
+import type {
+	FoundationRecords,
+	ProjectArchive,
+	ProjectArchiveFileEntry,
+} from "./project-archives";
 import {
 	archiveSha256Schema,
-	type FoundationRecords,
 	findSecretKeyPaths,
 	foundationGroup,
 	foundationRelationFailures,
-	type ProjectArchive,
-	type ProjectArchiveFileEntry,
 	projectArchiveFileStorageLimit,
 	projectArchiveSectionRegistry,
 	sectionDigest,
@@ -425,7 +428,7 @@ function repeatedKeys(
 		);
 	}
 	note("file", files.map(fileKey));
-	return [...repeated].sort();
+	return [...repeated].sort(compareCodeUnits);
 }
 
 /** Every archived id a restore re-issues, in a fixed order, with the section it was found in. */
@@ -512,7 +515,7 @@ async function issueIds(
 				)
 				.flatMap((section) => section.records.map((row) => String(row.id)))
 		),
-	].sort();
+	].sort(compareCodeUnits);
 	if (originalIds.length > 0xff_ff_ff_ff_ff_ff) {
 		throw new Error("Archive has too many ordered history records");
 	}

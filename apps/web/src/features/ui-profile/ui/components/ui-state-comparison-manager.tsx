@@ -4,10 +4,12 @@ import type {
 	UnitVersion,
 } from "@sprite-anvil/api/asset-versions";
 import type { ProjectProfileContractActivation } from "@sprite-anvil/api/specialized-profile-contracts";
+import type {
+	UiStateComparisonInput,
+	UiStateComparisonRecord,
+} from "@sprite-anvil/api/ui-state-comparisons";
 import {
 	createUiStateComparisonArchive,
-	type UiStateComparisonInput,
-	type UiStateComparisonRecord,
 	uiComponentKinds,
 	uiComponentStates,
 	uiStateComparisonInputSchema,
@@ -29,10 +31,8 @@ import { builtinProfileName } from "@/utils/builtin-profile-labels";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { orpc } from "@/utils/orpc";
-import {
-	createUiStateComparisonSubmitSchema,
-	type UiStateComparisonDraftItem,
-} from "../../schemas";
+import type { UiStateComparisonDraftItem } from "../../schemas";
+import { createUiStateComparisonSubmitSchema } from "../../schemas";
 import {
 	kindLabels,
 	outcomeLabels,
@@ -251,7 +251,7 @@ export function UiStateComparisonManager(props: UiStateComparisonManagerProps) {
 			aria-labelledby={`${prefix}-heading`}
 			className="space-y-4 rounded-lg border p-4"
 		>
-			<h3 className="font-semibold text-xl" id={`${prefix}-heading`}>
+			<h3 className="text-xl font-semibold" id={`${prefix}-heading`}>
 				{familyName} · Compare Screen and Component States
 			</h3>
 			<p className="text-muted-foreground text-sm">
@@ -718,7 +718,7 @@ function SavedComparison({ record }: { record: UiStateComparisonRecord }) {
 											region={item.region}
 										/>
 									) : null}
-									<p className="break-all text-muted-foreground text-xs">
+									<p className="text-muted-foreground text-xs break-all">
 										{pin?.assetRecordName} · Version {pin?.versionNumber} ·
 										SHA-256 {pin?.contentDigest}
 										{item.unitVersionId

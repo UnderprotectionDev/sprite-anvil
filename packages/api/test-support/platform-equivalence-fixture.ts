@@ -3,10 +3,8 @@
  * so the comparison tests on both surfaces start from one exact input. Never
  * imported by product code.
  */
-import {
-	buildExportBundle,
-	type ExportBundleSource,
-} from "../src/export-bundle-manifest";
+import type { ExportBundleSource } from "../src/export-bundle-manifest";
+import { buildExportBundle } from "../src/export-bundle-manifest";
 import type { ExportBundle } from "../src/export-bundles";
 import { fixtureProfile } from "./export-bundle-verification-fixture";
 

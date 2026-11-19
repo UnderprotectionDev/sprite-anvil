@@ -1,4 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
 const projectId = "00000000-0000-4000-8000-000000000001";
 const project = {
@@ -15,8 +16,8 @@ const restoreScope = "Restore Forest Quest";
 const cancelRequestedText =
 	"Cancel requested. Waiting for the operation to stop safely.";
 const cancelledText = "Cancelled. The operation stopped before it finished.";
-const completedDespiteText = /so it completed\. This is not a cancel\./;
-const cancelButtonText = /^Cancel/;
+const completedDespiteText = /so it completed\. This is not a cancel\./u;
+const cancelButtonText = /^Cancel/u;
 
 type OperationStatus =
 	| "cancel_requested"

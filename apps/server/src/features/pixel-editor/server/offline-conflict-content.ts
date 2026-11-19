@@ -1,20 +1,18 @@
 import { createHash } from "node:crypto";
+import type {
+	OfflineConflictContent,
+	OfflineConflictEntry,
+	OfflineConflictResolutionRow,
+	OfflineConflictView,
+} from "@sprite-anvil/api/offline-conflict";
 import {
 	checkOfflineConflictContractVersion,
-	type OfflineConflictContent,
-	type OfflineConflictEntry,
-	type OfflineConflictResolutionRow,
-	type OfflineConflictView,
 	offlineConflictViewSchema,
 	parseOfflineConflictContent,
 } from "@sprite-anvil/api/offline-conflict";
 import type { PixelOperation } from "@sprite-anvil/api/pixel-editor";
-import {
-	type Failure,
-	failure,
-	type Outcome,
-	success,
-} from "./pixel-editor-context";
+import type { Failure, Outcome } from "./pixel-editor-context";
+import { failure, success } from "./pixel-editor-context";
 
 /**
  * Reading an Offline Conflict Record: its stored content, the digest of the

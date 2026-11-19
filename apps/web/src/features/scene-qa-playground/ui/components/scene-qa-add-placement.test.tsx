@@ -14,7 +14,7 @@ import {
 import { afterEach, expect, test, vi } from "vitest";
 import { SceneQaAddPlacement } from "./scene-qa-add-placement";
 
-const inHandText = /In hand/;
+const inHandText = /In hand/u;
 const setup: SceneQaSetup = {
 	width: 640,
 	height: 360,

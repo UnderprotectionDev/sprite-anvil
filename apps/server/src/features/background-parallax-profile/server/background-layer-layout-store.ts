@@ -1,9 +1,8 @@
 import { isDeepStrictEqual } from "node:util";
-import {
-	type BackgroundLayerLayoutStore,
-	backgroundLayerLayoutRecordSchema,
-} from "@sprite-anvil/api/background-layer-layouts";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { BackgroundLayerLayoutStore } from "@sprite-anvil/api/background-layer-layouts";
+import { backgroundLayerLayoutRecordSchema } from "@sprite-anvil/api/background-layer-layouts";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import {
 	assetFamilies,
 	assetRecords,

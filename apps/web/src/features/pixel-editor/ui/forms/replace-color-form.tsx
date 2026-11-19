@@ -5,7 +5,7 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useColorReplacePreview } from "../../hooks/use-pixel-draft";
 import { replaceColorFormSchema } from "../../schemas";
 import { ColorSwatch } from "../components/color-swatch";
@@ -31,7 +31,7 @@ export function ReplaceColorForm({
 		validators: { onSubmit: replaceColorFormSchema },
 		onSubmit: ({ value }) => onApply(replaceColorFormSchema.parse(value)),
 	});
-	const values = useStore(form.store, (state) => state.values);
+	const values = useSelector(form.store, (state) => state.values);
 	const preview = useColorReplacePreview(
 		projectId,
 		draft,
@@ -48,7 +48,7 @@ export function ReplaceColorForm({
 				form.handleSubmit();
 			}}
 		>
-			<p className="font-medium text-sm">Replace colour</p>
+			<p className="text-sm font-medium">Replace colour</p>
 			<form.Field name="from">
 				{(field) => (
 					<Label className="block space-y-1 text-xs" htmlFor="replace-from">

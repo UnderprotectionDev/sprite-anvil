@@ -113,10 +113,10 @@ export const textureRepetitionReviewRecordSchema =
 	textureRepetitionReviewInputSchema
 		.safeExtend({
 			unitSnapshot: unitVersionSchema,
-			contentDigest: z.string().regex(/^[a-f0-9]{64}$/),
+			contentDigest: z.string().regex(/^[a-f0-9]{64}$/u),
 			contractSnapshot: specializedProfileContractSchema,
 			edgeCheck: textureEdgeCheckSchema,
-			createdAt: z.string().datetime(),
+			createdAt: z.iso.datetime(),
 			reviewedByUserId: id,
 		})
 		.superRefine((record, ctx) => {

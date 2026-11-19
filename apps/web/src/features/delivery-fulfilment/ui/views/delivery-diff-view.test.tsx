@@ -13,17 +13,17 @@ const targetId = "22222222-2222-4222-8222-222222222222";
 const firstId = "66666666-6666-4666-8666-666666666661";
 const secondId = "66666666-6666-4666-8666-666666666662";
 
-const needTwo = /Pick two Delivery Fulfilments/;
-const noFulfilments = /fewer than two Delivery Fulfilments/;
-const notRecordedText = /not recorded/i;
-const addedText = /Added/;
-const jumpText = /v-jump/;
-const removedText = /Removed/;
-const runText = /v-run/;
-const changedText = /Changed/;
-const idleTwoText = /v-idle-2/;
-const ctxTwoText = /ctx-2/;
-const itemIdleText = /Item idle/;
+const needTwo = /Pick two Delivery Fulfilments/u;
+const noFulfilments = /fewer than two Delivery Fulfilments/u;
+const notRecordedText = /not recorded/iu;
+const addedText = /Added/u;
+const jumpText = /v-jump/u;
+const removedText = /Removed/u;
+const runText = /v-run/u;
+const changedText = /Changed/u;
+const idleTwoText = /v-idle-2/u;
+const ctxTwoText = /ctx-2/u;
+const itemIdleText = /Item idle/u;
 
 const fakeApi = vi.hoisted(() => ({
 	compare: vi.fn(),
@@ -278,7 +278,7 @@ test("renders recorded evidence changes and distinguishes unchanged from unavail
 		await screen.findByRole("region", { name: "Quality evidence" })
 	);
 	for (const label of ["Added evidence", "Removed evidence", "Same evidence"]) {
-		expect(quality.getByText(new RegExp(label))).toBeInTheDocument();
+		expect(quality.getByText(new RegExp(label, "u"))).toBeInTheDocument();
 	}
 	await userEvent.click(quality.getByText("Evidence details"));
 	expect(quality.getByText("old rationale")).toBeVisible();

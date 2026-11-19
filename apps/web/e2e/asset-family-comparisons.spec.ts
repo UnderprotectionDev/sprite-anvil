@@ -2,9 +2,9 @@ import { expect, test } from "@playwright/test";
 import { prepareAssetFamilyComparisonWorkspace } from "./asset-family-comparison-fixture";
 
 const scaleObservation = "Her iki sandık aynı ızgara ölçeğini kullanıyor.";
-const closedCrateCheckboxName = /Kapalı sandık/;
-const openCrateCheckboxName = /Açık sandık/;
-const persistedRecordButtonName = /· 2 Asset Version/;
+const closedCrateCheckboxName = /Kapalı sandık/u;
+const openCrateCheckboxName = /Açık sandık/u;
+const persistedRecordButtonName = /· 2 Asset Version/u;
 
 test("compares current versions from two Asset Records and reopens the persisted comparison", async ({
 	page,

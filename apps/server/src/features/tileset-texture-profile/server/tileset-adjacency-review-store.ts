@@ -1,9 +1,8 @@
 import { isDeepStrictEqual } from "node:util";
-import {
-	type TilesetAdjacencyReviewStore,
-	tilesetAdjacencyReviewRecordSchema,
-} from "@sprite-anvil/api/tileset-adjacency-reviews";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { TilesetAdjacencyReviewStore } from "@sprite-anvil/api/tileset-adjacency-reviews";
+import { tilesetAdjacencyReviewRecordSchema } from "@sprite-anvil/api/tileset-adjacency-reviews";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import {
 	assetFamilies,
 	assetRecords,

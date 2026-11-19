@@ -7,7 +7,7 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 import type {
 	ReferenceFeature,
 	ReferenceRole,
@@ -94,8 +94,8 @@ export function ReferenceConstraintEditor({
 	idPrefix: string;
 	readOnly?: boolean;
 }) {
-	const role = useStore(form.store, (state) => state.values.role);
-	const needsOverride = useStore(
+	const role = useSelector(form.store, (state) => state.values.role);
+	const needsOverride = useSelector(
 		form.store,
 		({ values }) =>
 			hasCanonicalDesign &&

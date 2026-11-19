@@ -219,7 +219,7 @@ const versionPin = reference
 	.extend({
 		assetRecordName: z.string().min(1).max(120),
 		versionNumber: z.number().int().positive(),
-		contentDigest: z.string().regex(/^[a-f0-9]{64}$/),
+		contentDigest: z.string().regex(/^[a-f0-9]{64}$/u),
 		contentLength: z.number().int().positive(),
 		contentType: z.enum(["image/png", "image/webp"]),
 		naturalSize: size,
@@ -229,7 +229,7 @@ export const uiStretchTestRecordSchema = uiStretchTestInputSchema
 	.extend({
 		contractVersion: z.literal("ui-stretch-test/1.0.0"),
 		contractSnapshot: specializedProfileContractSchema,
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 		createdByUserId: id,
 		versionPins: z.array(versionPin).min(1).max(25),
 		evaluations: z.array(evaluation).min(1).max(288),

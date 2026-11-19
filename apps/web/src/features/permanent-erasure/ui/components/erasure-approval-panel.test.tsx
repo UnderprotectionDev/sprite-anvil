@@ -6,8 +6,8 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 import { ErasureApprovalPanel } from "./erasure-approval-panel";
 
-const receiptPattern = /receipt-digest/;
-const datePattern = /2030-01-01/;
+const receiptPattern = /receipt-digest/u;
+const datePattern = /2030-01-01/u;
 
 const api = vi.hoisted(() => ({ approve: vi.fn(), receipt: vi.fn() }));
 vi.mock("@/utils/orpc", () => ({

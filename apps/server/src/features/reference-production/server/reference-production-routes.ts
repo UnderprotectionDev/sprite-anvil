@@ -3,11 +3,9 @@ import {
 	assetVersionContentTypeSchema,
 	assetVersionFileNameSchema,
 } from "@sprite-anvil/api/asset-record-tracking";
-import {
-	AssetVersionContentLengthError,
-	AssetVersionIntegrityError,
-	type CreateAssetVersionIntegrityTransform,
-} from "@sprite-anvil/api/asset-version-integrity";
+import { AssetVersionContentLengthError } from "@sprite-anvil/api/asset-version-content-length-error";
+import type { CreateAssetVersionIntegrityTransform } from "@sprite-anvil/api/asset-version-integrity";
+import { AssetVersionIntegrityError } from "@sprite-anvil/api/asset-version-integrity-error";
 import type {
 	ReferenceBoardUploadInput,
 	ReferenceProductionStore,
@@ -28,8 +26,8 @@ const referenceIdSchema = z.uuid();
 const uploadLengthHeader = "x-reference-board-size";
 const fileNameHeader = "x-reference-board-file-name";
 const metadataHeader = "x-reference-board-metadata";
-const uploadLengthPattern = /^[1-9]\d*$/;
-const metadataEncodingPattern = /^[A-Za-z0-9_-]+$/;
+const uploadLengthPattern = /^[1-9]\d*$/u;
+const metadataEncodingPattern = /^[A-Za-z0-9_-]+$/u;
 const maxUploadBytes = 5 * 1024 * 1024;
 
 export interface ReferenceBoardSession {
@@ -107,7 +105,7 @@ function parseMetadata(value: string | undefined) {
 type UploadHeadersResult =
 	| {
 			contentLength: number;
-			contentType: (typeof assetVersionContentTypeSchema)["_output"];
+			contentType: z.output<typeof assetVersionContentTypeSchema>;
 			fileName: string;
 			id: string;
 			metadata: ReturnType<typeof referenceBoardMetadataSchema.parse>;

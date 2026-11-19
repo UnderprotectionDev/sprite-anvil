@@ -4,10 +4,8 @@ import type {
 } from "@sprite-anvil/api/permanent-erasure-store";
 import type { ManagedObjectErasureGate } from "../../../managed-object-reservations";
 import { createDeletionJob } from "./deletion-job";
-import {
-	createErasureApproval,
-	type DeletionJobEnqueuer,
-} from "./erasure-approval";
+import type { DeletionJobEnqueuer } from "./erasure-approval";
+import { createErasureApproval } from "./erasure-approval";
 import type {
 	ErasureDeletionStorage,
 	ErasureObjectRemover,

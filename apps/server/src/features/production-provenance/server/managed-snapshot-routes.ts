@@ -1,9 +1,7 @@
 import { createHash } from "node:crypto";
 import { assetVersionFileNameSchema } from "@sprite-anvil/api/asset-file-contracts";
-import {
-	type ManagedSnapshotStore,
-	managedSnapshotSummarySchema,
-} from "@sprite-anvil/api/production-provenance";
+import type { ManagedSnapshotStore } from "@sprite-anvil/api/production-provenance";
+import { managedSnapshotSummarySchema } from "@sprite-anvil/api/production-provenance";
 import type { Context, Hono } from "hono";
 import z from "zod";
 import type { createStorage } from "../../../cloudflare";
@@ -12,14 +10,16 @@ import {
 	managedSnapshotObjectKeySchema,
 } from "../../../cloudflare";
 import { serializePublicApiError } from "../../../output-contracts";
+import { ManagedSnapshotDigestError } from "./managed-snapshot-digest-error";
+import { ManagedSnapshotLengthError } from "./managed-snapshot-length-error";
 
 const projectIdSchema = z.string().min(1).max(200);
-const assetVersionIdSchema = z.string().uuid();
-const managedSnapshotIdSchema = z.string().uuid();
+const assetVersionIdSchema = z.uuid();
+const managedSnapshotIdSchema = z.uuid();
 const idempotencyKeySchema = z.string().trim().min(1).max(128);
 const managedSnapshotSizeHeader = "x-managed-snapshot-size";
 const managedSnapshotFileNameHeader = "x-managed-snapshot-file-name";
-const uploadLengthPattern = /^[1-9]\d*$/;
+const uploadLengthPattern = /^[1-9]\d*$/u;
 const maxManagedSnapshotBytes = 100 * 1024 * 1024;
 
 type SnapshotStorage = Pick<
@@ -52,10 +52,6 @@ export interface ManagedSnapshotRouteDependencies {
 type ProjectAccess =
 	| { ok: true; userId: string }
 	| { ok: false; error: "Unauthorized" | "Not found"; status: 401 | 404 };
-
-class ManagedSnapshotLengthError extends Error {}
-
-class ManagedSnapshotDigestError extends Error {}
 
 function createSnapshotDigestTransform(
 	expectedByteSize: number,
@@ -189,7 +185,7 @@ function managedSnapshotUploadErrorResponse(c: Context, error: unknown) {
 
 function safeDownloadFileName(fileName: string) {
 	return encodeURIComponent(fileName).replace(
-		/['()*]/g,
+		/['()*]/gu,
 		(character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`
 	);
 }

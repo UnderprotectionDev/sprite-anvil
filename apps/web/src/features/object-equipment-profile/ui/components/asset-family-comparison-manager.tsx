@@ -11,9 +11,9 @@ import { Checkbox } from "@sprite-anvil/ui/components/checkbox";
 import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
 import { Label } from "@sprite-anvil/ui/components/label";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { AssetVersionPreview } from "@/components/asset-version-preview";
 import {
 	StatusMessage,
@@ -29,7 +29,7 @@ import {
 } from "../../schemas";
 
 const profileId = "object_weapon_equipment_states";
-const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
+const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/u, "") ?? "";
 
 const emptyObservations = {
 	scale: "",
@@ -68,6 +68,7 @@ export function AssetFamilyComparisonManager({
 	familyName: string;
 	projectId: string;
 }) {
+	const formId = useId();
 	const queryClient = useQueryClient();
 	const saveComparison = useMutation(
 		orpc.assetFamilyComparisons.save.mutationOptions()
@@ -85,7 +86,7 @@ export function AssetFamilyComparisonManager({
 		validators: { onChange: assetFamilyComparisonFormSchema },
 		onSubmit: ({ value }) => save(value),
 	});
-	const { selectedRecordIds, observations } = useStore(
+	const { selectedRecordIds, observations } = useSelector(
 		form.store,
 		(state) => state.values
 	);
@@ -223,7 +224,7 @@ export function AssetFamilyComparisonManager({
 			className="space-y-4 rounded border p-4"
 		>
 			<header className="space-y-1">
-				<h3 className="font-semibold text-xl">
+				<h3 className="text-xl font-semibold">
 					{familyName} · Compare State and Direction Family
 				</h3>
 				<p className="text-muted-foreground text-sm">
@@ -388,9 +389,10 @@ export function AssetFamilyComparisonManager({
 						).map((key) => (
 							<Label
 								className="block space-y-1 text-base leading-normal"
+								htmlFor={`${formId}-${key}`}
 								key={key}
 							>
-								<span className="font-medium text-sm">
+								<span className="text-sm font-medium">
 									{observationLabels[key]}
 								</span>
 								<form.Field name={`observations.${key}`}>
@@ -399,6 +401,7 @@ export function AssetFamilyComparisonManager({
 											aria-label={observationLabels[key]}
 											className="min-h-24 w-full"
 											disabled={saving || uncertain}
+											id={`${formId}-${key}`}
 											maxLength={1000}
 											onChange={(event) =>
 												field.handleChange(event.target.value)
@@ -486,7 +489,7 @@ function ObservationSummary({
 				Object.keys(observationLabels) as Array<keyof typeof observationLabels>
 			).map((key) => (
 				<div key={key}>
-					<dt className="font-medium text-sm">{observationLabels[key]}</dt>
+					<dt className="text-sm font-medium">{observationLabels[key]}</dt>
 					<dd className="text-muted-foreground text-sm">{observations[key]}</dd>
 				</div>
 			))}

@@ -9,7 +9,8 @@ import {
 	projectProfileContractActivationSchema,
 	specializedProfileContractSchema,
 } from "@sprite-anvil/api/specialized-profile-contracts";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import {
 	projectSpecializedProfileContracts,
 	specializedProfileContractRevisions,

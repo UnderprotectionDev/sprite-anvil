@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
+import { compareCodeUnits } from "@sprite-anvil/api/compare-code-units";
 import type { Context } from "@sprite-anvil/api/context";
 import { createFamilyReadinessStore } from "@sprite-anvil/api/family-readiness-store";
 import { appRouter } from "@sprite-anvil/api/routers/index";
@@ -321,13 +322,15 @@ test.skipIf(!databaseUrl)(
 				readinessBefore.items[0]?.qualityReadiness
 			);
 			expect(
-				impact.affectedVersions.map((version) => version.assetVersionId).sort()
+				impact.affectedVersions
+					.map((version) => version.assetVersionId)
+					.sort(compareCodeUnits)
 			).toEqual(
 				[
 					fixtureId(versionIds, 1),
 					fixtureId(versionIds, 2),
 					fixtureId(versionIds, 4),
-				].sort()
+				].sort(compareCodeUnits)
 			);
 			expect(
 				impact.affectedVersions.find(
@@ -398,13 +401,15 @@ test.skipIf(!databaseUrl)(
 					{ context: rereadContext }
 				);
 				expect(catalog.changeImpacts).toEqual([impact, incompleteImpact]);
-				expect(catalog.revalidationRequiredVersionIds.sort()).toEqual(
+				expect(
+					catalog.revalidationRequiredVersionIds.sort(compareCodeUnits)
+				).toEqual(
 					[
 						fixtureId(versionIds, 1),
 						fixtureId(versionIds, 2),
 						fixtureId(versionIds, 4),
 						orphanVersionId,
-					].sort()
+					].sort(compareCodeUnits)
 				);
 			} finally {
 				await rereadPool.close();
@@ -435,14 +440,14 @@ test.skipIf(!databaseUrl)(
 			expect(
 				contextImpact.affectedVersions
 					.map((version) => version.assetVersionId)
-					.sort()
+					.sort(compareCodeUnits)
 			).toEqual(
 				[
 					fixtureId(versionIds, 1),
 					fixtureId(versionIds, 2),
 					fixtureId(versionIds, 4),
 					orphanVersionId,
-				].sort()
+				].sort(compareCodeUnits)
 			);
 			const otherContextRevisionId = crypto.randomUUID();
 			await database.insert(contextRevisions).values({
@@ -466,13 +471,13 @@ test.skipIf(!databaseUrl)(
 			expect(
 				unrelatedContextImpact.affectedVersions
 					.map((version) => version.assetVersionId)
-					.sort()
+					.sort(compareCodeUnits)
 			).toEqual(
 				[
 					fixtureId(versionIds, 2),
 					fixtureId(versionIds, 4),
 					orphanVersionId,
-				].sort()
+				].sort(compareCodeUnits)
 			);
 			await expect(
 				call(

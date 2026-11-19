@@ -101,6 +101,7 @@ import { createSceneQaStore } from "./features/scene-qa-playground/server/scene-
 import { createTextureRepetitionReviewStore } from "./features/tileset-texture-profile/server/texture-repetition-review-store";
 import { createTilesetAdjacencyReviewStore } from "./features/tileset-texture-profile/server/tileset-adjacency-review-store";
 import { createUiStateComparisonStore } from "./features/ui-profile/server/ui-state-comparison-store";
+import { createUiStretchTestStore } from "./features/ui-profile/server/ui-stretch-test-store";
 import { createVfxAppearanceReviewStore } from "./features/vfx-profile/server/vfx-appearance-review-store";
 import { createVfxSynchronizationStore } from "./features/vfx-profile/server/vfx-synchronization-store";
 import { createProjectContextScopeStore } from "./features/visual-worlds/server/project-context-scope-store";
@@ -134,7 +135,6 @@ export const textureRepetitionReviewStore =
 export const tilesetAdjacencyReviewStore =
 	createTilesetAdjacencyReviewStore(db);
 
-import { createUiStretchTestStore } from "./features/ui-profile/server/ui-stretch-test-store";
 export const uiStretchTestStore = createUiStretchTestStore(db);
 export const backgroundLayerLayoutStore = createBackgroundLayerLayoutStore(db);
 export const portraitIdentityReviewStore =
@@ -254,7 +254,7 @@ export const erasureImpactStore = createErasureImpactStore({
 	sourceReader: createErasureImpactSourceReader(db),
 	storage: createDatabaseErasureImpactStorage(db),
 });
-const credentialNamePattern = /SECRET|TOKEN|KEY|PASSWORD/i;
+const credentialNamePattern = /SECRET|TOKEN|KEY|PASSWORD/iu;
 export const archiveObjectStorage =
 	testAssetVersionStorage ?? (r2Config ? createStorage(r2Config) : null);
 export const projectArchiveStorage = createDatabaseProjectArchiveStorage(db);

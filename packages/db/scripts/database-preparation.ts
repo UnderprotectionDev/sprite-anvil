@@ -3,17 +3,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SQL } from "bun";
 import { describeConnectionFailure } from "./database-connection-error";
+import type { Connection } from "./database-state";
 import {
-	type Connection,
 	catalogHash,
 	readDatabaseHistory,
 	readSchemaCatalog,
 	verifyDatabaseLease,
 } from "./database-state";
-import {
-	classifyDevelopmentHistory,
-	type DevelopmentHistory,
-} from "./development-history";
+import type { DevelopmentHistory } from "./development-history";
+import { classifyDevelopmentHistory } from "./development-history";
 import { applyDevelopmentMigrations } from "./development-migrator";
 import type { DevelopmentTarget } from "./development-targets";
 import { runDrizzle } from "./drizzle-command";

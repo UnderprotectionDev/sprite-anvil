@@ -29,7 +29,7 @@ export function PlatformEquivalenceReportView({
 	return (
 		<main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
 			<header className="space-y-2">
-				<h1 className="font-semibold text-2xl">Platform Equivalence</h1>
+				<h1 className="text-2xl font-semibold">Platform Equivalence</h1>
 				<p className="text-muted-foreground text-sm">
 					Phase 3 interim evidence: the Web application and the Desktop
 					application each record what they derived from an Export Bundle, and a
@@ -78,7 +78,7 @@ export function PlatformEquivalenceReportView({
 
 			{overview.isSuccess ? (
 				<section className="space-y-4">
-					<h2 className="font-semibold text-xl">Reports</h2>
+					<h2 className="text-xl font-semibold">Reports</h2>
 					{reports.length === 0 ? (
 						<p className="text-muted-foreground">
 							This project has no Platform Equivalence Report yet.

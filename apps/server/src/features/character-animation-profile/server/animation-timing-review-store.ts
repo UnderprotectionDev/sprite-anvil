@@ -1,9 +1,8 @@
 import { isDeepStrictEqual } from "node:util";
-import {
-	type AnimationTimingReviewStore,
-	animationTimingReviewRecordSchema,
-} from "@sprite-anvil/api/animation-timing-reviews";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { AnimationTimingReviewStore } from "@sprite-anvil/api/animation-timing-reviews";
+import { animationTimingReviewRecordSchema } from "@sprite-anvil/api/animation-timing-reviews";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import { animationTimingReviews } from "@sprite-anvil/db/schema/animation-timing-reviews";
 import {
 	assetFamilies,

@@ -86,7 +86,7 @@ export const assetFamilyComparisonVersionPinSchema = z
 		assetRecordId: id,
 		assetRecordName: z.string().trim().min(1).max(120),
 		assetVersionId: id,
-		contentDigest: z.string().regex(/^[a-f0-9]{64}$/),
+		contentDigest: z.string().regex(/^[a-f0-9]{64}$/u),
 		unitVersions: z.array(assetFamilyComparisonUnitVersionSchema).max(128),
 		versionNumber: z.number().int().positive(),
 	})
@@ -95,7 +95,7 @@ export const assetFamilyComparisonVersionPinSchema = z
 export const assetFamilyComparisonRecordSchema =
 	assetFamilyComparisonInputSchema
 		.extend({
-			createdAt: z.string().datetime(),
+			createdAt: z.iso.datetime(),
 			contractSnapshot: specializedProfileContractSchema,
 			reviewedByUserId: id,
 			versionPins: z

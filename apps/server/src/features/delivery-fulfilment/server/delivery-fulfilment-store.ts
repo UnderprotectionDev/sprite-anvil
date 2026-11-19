@@ -8,16 +8,14 @@ import type {
 import { deliveryFulfilmentSchema } from "@sprite-anvil/api/delivery-fulfilment-records";
 import type { DeliveryTargetStore } from "@sprite-anvil/api/delivery-planning-store";
 import { exportBundleSha256 } from "@sprite-anvil/api/export-bundle-manifest";
+import { IdempotencyConflictError } from "@sprite-anvil/api/idempotency-conflict-error";
 import type { ReadinessPlanStore } from "@sprite-anvil/api/readiness-plans";
-import {
-	IdempotencyConflictError,
-	idempotentRecordId,
-	RecordIntegrityError,
-} from "@sprite-anvil/api/record-publication";
+import { RecordIntegrityError } from "@sprite-anvil/api/record-integrity-error";
+import { idempotentRecordId } from "@sprite-anvil/api/record-publication";
 import { diffFulfilments } from "./delivery-diff";
+import type { DeliveryEvidenceDependencies } from "./delivery-evidence-diff";
 import {
 	compareDeliveryEvidence,
-	type DeliveryEvidenceDependencies,
 	readDeliveryEvidence,
 } from "./delivery-evidence-diff";
 import type {

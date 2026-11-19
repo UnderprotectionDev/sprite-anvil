@@ -38,7 +38,7 @@ export function OfflineStagingView({ projectId }: { projectId: string }) {
 	return (
 		<main className="mx-auto w-full max-w-3xl space-y-8 px-4 py-8">
 			<header className="space-y-2">
-				<h1 className="font-semibold text-2xl">Offline staging</h1>
+				<h1 className="text-2xl font-semibold">Offline staging</h1>
 				<p className="text-muted-foreground text-sm">
 					Staged work lives only in this browser. The cloud record stays
 					authoritative; nothing staged is approved, activated or exported.

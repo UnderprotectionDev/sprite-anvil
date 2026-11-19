@@ -1,3 +1,4 @@
+// biome-ignore-all lint/style/noExcessiveClassesPerFile: in-memory store doubles for this suite share fixtures and are only meaningful beside the tests that use them
 import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
 import { createRouterClient } from "@orpc/server";
@@ -31,7 +32,7 @@ import {
 	createSourceMetadataMappingProposalCreator,
 } from "../source-metadata-mapping-procedures";
 
-const supportReferencePattern = /^SUP-/;
+const supportReferencePattern = /^SUP-/u;
 
 const userId = crypto.randomUUID();
 const projectId = crypto.randomUUID();

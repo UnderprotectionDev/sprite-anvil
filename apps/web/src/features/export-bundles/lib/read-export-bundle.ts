@@ -1,9 +1,9 @@
 import { exportBundleManifestSchema } from "@sprite-anvil/api/export-bundle-manifest";
-import {
-	type ExportBundleIntegrityResult,
-	type ExportBundleVerificationFile,
-	verifyExportBundle,
+import type {
+	ExportBundleIntegrityResult,
+	ExportBundleVerificationFile,
 } from "@sprite-anvil/api/export-bundle-verification";
+import { verifyExportBundle } from "@sprite-anvil/api/export-bundle-verification";
 
 export interface ExportBundleManifestSummary {
 	contextRevisionNumber: number;

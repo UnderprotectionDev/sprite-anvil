@@ -15,6 +15,7 @@
       "!**/.nx",
       "!**/dev-dist",
       "!**/.zed",
+      "!**/.impeccable",
       "!**/.vscode",
       "!**/routeTree.gen.ts",
       "!packages/api/src/export-bundle-verifier-source.ts",
@@ -53,6 +54,20 @@
     "rules": {
       "preset": "recommended",
       "a11y": {
+        "noLabelWithoutControl": {
+          "level": "error",
+          "options": {
+            "labelComponents": ["Label"],
+            "inputComponents": [
+              "Checkbox",
+              "Input",
+              "NativeSelect",
+              "Slider",
+              "Switch",
+              "Textarea"
+            ]
+          }
+        },
         "useSemanticElements": "off"
       },
       "complexity": {
@@ -69,12 +84,9 @@
         "noNamespaceImport": "off"
       },
       "nursery": {
-        "useSortedClasses": {
+        "useTailwindSortedClasses": {
           "level": "warn",
-          "fix": "safe",
-          "options": {
-            "functions": ["clsx", "cva", "cn"]
-          }
+          "fix": "safe"
         }
       },
       "style": {
@@ -119,5 +131,8 @@
     "ultracite/biome/type-aware",
     "ultracite/biome/react",
     "ultracite/biome/tanstack"
-  ]
+  ],
+  "markdown": { "formatter": { "enabled": false } },
+  "yaml": { "formatter": { "enabled": false } },
+  "tailwind": { "mergeFunctions": ["clsx", "cn"], "variantFunctions": ["cva"] }
 }

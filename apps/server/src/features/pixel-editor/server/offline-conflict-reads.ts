@@ -1,25 +1,22 @@
+import type {
+	OfflineConflictContent,
+	OfflineConflictList,
+	OfflineConflictView,
+} from "@sprite-anvil/api/offline-conflict";
 import {
-	type OfflineConflictContent,
-	type OfflineConflictList,
-	type OfflineConflictView,
 	offlineConflictListSchema,
 	offlineConflictSides,
 } from "@sprite-anvil/api/offline-conflict";
 import type { PixelOperation } from "@sprite-anvil/api/pixel-editor";
+import type { ReadableEntry } from "./offline-conflict-content";
 import {
 	appliedOperations,
 	buildView,
-	type ReadableEntry,
 	readEntry,
 } from "./offline-conflict-content";
 import { renderVersion } from "./offline-conflict-render";
-import {
-	draftIdSchema,
-	failure,
-	type Outcome,
-	type Scope,
-	success,
-} from "./pixel-editor-context";
+import type { Outcome, Scope } from "./pixel-editor-context";
+import { draftIdSchema, failure, success } from "./pixel-editor-context";
 
 /** Read side of Offline Conflict Records: one record, the list and the version previews. */
 

@@ -1,4 +1,5 @@
-import { type NeonConfig, neonConfig } from "@neondatabase/serverless";
+import type { NeonConfig } from "@neondatabase/serverless";
+import { neonConfig } from "@neondatabase/serverless";
 
 /**
  * Reserved host for the local Neon HTTP proxy used by CI database integration

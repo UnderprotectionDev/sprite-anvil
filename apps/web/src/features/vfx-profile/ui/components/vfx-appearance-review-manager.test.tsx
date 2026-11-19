@@ -15,8 +15,8 @@ import { VfxAppearanceReviewManager } from "./vfx-appearance-review-manager";
 
 configure({ asyncUtilTimeout: 10_000 });
 const mocks = vi.hoisted(() => ({ save: vi.fn(), list: vi.fn() }));
-const oldBurst = /Old burst/;
-const uncertainMessage = /Could not verify the save result/;
+const oldBurst = /Old burst/u;
+const uncertainMessage = /Could not verify the save result/u;
 vi.mock("@/utils/orpc", async () => {
 	const { createTanstackQueryUtils } = await import("@orpc/tanstack-query");
 	const client = {

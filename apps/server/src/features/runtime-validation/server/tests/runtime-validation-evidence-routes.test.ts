@@ -1,9 +1,7 @@
 import { expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import {
-	type RuntimeValidationEvidence,
-	runtimeValidationEvidenceFileLimitBytes,
-} from "@sprite-anvil/api/runtime-validation";
+import type { RuntimeValidationEvidence } from "@sprite-anvil/api/runtime-validation";
+import { runtimeValidationEvidenceFileLimitBytes } from "@sprite-anvil/api/runtime-validation";
 import type { Database } from "@sprite-anvil/db";
 import { Hono } from "hono";
 import { mountRuntimeValidationEvidenceRoutes } from "../runtime-validation-evidence-routes";

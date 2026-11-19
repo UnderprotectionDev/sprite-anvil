@@ -7,7 +7,7 @@ import {
 } from "./source-metadata-mapping-fixture";
 
 const unresolvedConflictStatusPattern =
-	/Field conflicts: 1\. The proposal is not finalized\./;
+	/Field conflicts: 1\. The proposal is not finalized\./u;
 
 test("creates and rereads the shared source metadata mapping proposal through the web flow", async ({
 	page,
@@ -85,12 +85,15 @@ test("creates and rereads the shared source metadata mapping proposal through th
 	});
 	await sourcePanel
 		.getByRole("checkbox", {
-			name: new RegExp(sourceMetadataMappingFixture.aseprite.fileName),
+			name: new RegExp(sourceMetadataMappingFixture.aseprite.fileName, "u"),
 		})
 		.check();
 	await sourcePanel
 		.getByRole("checkbox", {
-			name: new RegExp(sourceMetadataMappingFixture.texturePacker.fileName),
+			name: new RegExp(
+				sourceMetadataMappingFixture.texturePacker.fileName,
+				"u"
+			),
 		})
 		.check();
 	await sourcePanel

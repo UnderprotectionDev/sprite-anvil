@@ -28,7 +28,7 @@ const toneConfig = {
 /** A Support Reference shown as copyable text. */
 export function SupportReference({ value }: { value: string }) {
 	return (
-		<p className="break-all font-mono text-xs">
+		<p className="font-mono text-xs break-all">
 			Support reference: <code>{value}</code>
 		</p>
 	);

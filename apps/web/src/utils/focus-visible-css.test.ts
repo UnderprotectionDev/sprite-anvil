@@ -2,11 +2,11 @@ import { readFileSync } from "node:fs";
 import { expect, test } from "vitest";
 import { minimumFocusThickness } from "./focus-indicator";
 
-const outlineWidthPattern = /outline:\s*(\d+(?:\.\d+)?)px solid/;
+const outlineWidthPattern = /outline:\s*(?<width>\d+(?:\.\d+)?)px solid/u;
 const css = readFileSync(
 	new URL("../index.css", import.meta.url),
 	"utf8"
-).replace(/\/\*[\s\S]*?\*\//g, "");
+).replace(/\/\*[\s\S]*?\*\//gu, "");
 
 /** Declarations of rules that sit at the top level, outside any `@layer` block. */
 function topLevelRules(source: string) {
@@ -42,5 +42,7 @@ test("the focus-visible rule is unlayered so primitive outline-none and ring-1 u
 	);
 	expect(rule, ":focus-visible must sit outside every @layer").toBeDefined();
 	const width = rule?.declarations.match(outlineWidthPattern);
-	expect(Number(width?.[1])).toBeGreaterThanOrEqual(minimumFocusThickness);
+	expect(Number(width?.groups?.width)).toBeGreaterThanOrEqual(
+		minimumFocusThickness
+	);
 });

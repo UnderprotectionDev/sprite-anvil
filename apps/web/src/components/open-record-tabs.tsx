@@ -6,13 +6,10 @@ import {
 	useParams,
 	useSearch,
 } from "@tanstack/react-router";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { useEffect } from "react";
-import {
-	type OpenRecordStore,
-	openRecordStore,
-	rememberOpenRecord,
-} from "@/utils/open-records";
+import type { OpenRecordStore } from "@/utils/open-records";
+import { openRecordStore, rememberOpenRecord } from "@/utils/open-records";
 import { orpc } from "@/utils/orpc";
 
 export function OpenRecordTabs({
@@ -29,7 +26,7 @@ export function OpenRecordTabs({
 			? search.versionId
 			: undefined;
 	const navigate = useNavigate();
-	const allTabs = useStore(store, (state) => state);
+	const allTabs = useSelector(store, (state) => state);
 	const tabs = allTabs.filter(
 		(tab) => tab.userId === userId && tab.projectId === projectId
 	);
@@ -96,7 +93,7 @@ export function OpenRecordTabs({
 	return (
 		<nav
 			aria-label="Open Asset Records"
-			className="flex min-w-0 flex-wrap gap-1 border-b bg-card p-2"
+			className="bg-card flex min-w-0 flex-wrap gap-1 border-b p-2"
 		>
 			{tabs.map((tab) => (
 				<div
@@ -107,7 +104,7 @@ export function OpenRecordTabs({
 						aria-current={
 							assetRecordId === tab.assetRecordId ? "page" : undefined
 						}
-						className="inline-flex min-h-11 items-center px-3 text-sm aria-[current=page]:bg-accent"
+						className="aria-[current=page]:bg-accent inline-flex min-h-11 items-center px-3 text-sm"
 						params={{ projectId, assetRecordId: tab.assetRecordId }}
 						search={tab.versionId ? { versionId: tab.versionId } : {}}
 						to="/projects/$projectId/assets/$assetRecordId"

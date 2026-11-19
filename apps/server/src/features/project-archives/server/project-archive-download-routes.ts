@@ -1,7 +1,8 @@
 import { strToU8, Zip, ZipPassThrough } from "fflate";
 import type { Hono } from "hono";
 import { serializePublicApiError } from "../../../output-contracts";
-import { type ObjectReader, verifiedObjectChunks } from "./object-file-bytes";
+import type { ObjectReader } from "./object-file-bytes";
+import { verifiedObjectChunks } from "./object-file-bytes";
 import type {
 	ProjectArchiveStorage,
 	StoredProjectArchiveFile,

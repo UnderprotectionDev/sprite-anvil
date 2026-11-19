@@ -30,7 +30,7 @@ export const unitVersionKeySchema = z.string().trim().min(1).max(120);
 
 export const unitVersionCorrectionInputSchema = z
 	.object({
-		sourceAssetVersionId: z.string().uuid(),
+		sourceAssetVersionId: z.uuid(),
 		unitType: unitVersionTypeSchema,
 		unitKey: unitVersionKeySchema,
 	})
@@ -46,7 +46,7 @@ export const unitVersionSchema = z
 		unitType: unitVersionTypeSchema,
 		unitKey: unitVersionKeySchema,
 		versionNumber: z.number().int().positive(),
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 	})
 	.strict();
 
@@ -80,7 +80,7 @@ export const assetVersionReviewEventSchema = z
 		assetVersionId: idSchema,
 		type: assetVersionReviewEventTypeSchema,
 		rationale: z.string().nullable(),
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 	})
 	.strict();
 
@@ -90,7 +90,7 @@ export const compositeVersionReviewEventSchema = z
 		compositeVersionId: idSchema,
 		type: assetVersionReviewEventTypeSchema,
 		rationale: z.string().nullable(),
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 	})
 	.strict();
 
@@ -105,7 +105,7 @@ export const assetVersionSchema = z
 		contentLength: z.number().int().positive(),
 		contentDigest: z
 			.string()
-			.regex(/^[0-9a-f]{64}$/)
+			.regex(/^[0-9a-f]{64}$/u)
 			.nullable(),
 		sourceImageDimensions: pixelDimensionsSchema.nullable().optional(),
 		productionEvidence: versionProductionEvidenceSchema,
@@ -118,7 +118,7 @@ export const assetVersionSchema = z
 			.optional(),
 		reviewDisposition: assetVersionReviewDispositionSchema,
 		reviewEvents: z.array(assetVersionReviewEventSchema),
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 	})
 	.strict();
 
@@ -129,7 +129,7 @@ export const assetFamilyCanonicalDesignSchema = z
 		assetFamilyId: idSchema,
 		assetRecordId: idSchema,
 		assetVersionId: idSchema,
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 	})
 	.strict();
 
@@ -142,7 +142,7 @@ export const compositionMembershipSchema = z
 		unitVersionId: idSchema,
 		unitType: unitVersionTypeSchema,
 		unitKey: unitVersionKeySchema,
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 	})
 	.strict();
 
@@ -155,7 +155,7 @@ export const compositeVersionSchema = z
 		reviewDisposition: assetVersionReviewDispositionSchema,
 		reviewEvents: z.array(compositeVersionReviewEventSchema),
 		compositionMemberships: z.array(compositionMembershipSchema),
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 	})
 	.strict();
 

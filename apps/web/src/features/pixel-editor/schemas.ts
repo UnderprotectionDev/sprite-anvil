@@ -11,7 +11,7 @@ import {
 } from "@sprite-anvil/api/pixel-editor-structure";
 import z from "zod";
 
-const wholeNumberPattern = /^\d+$/;
+const wholeNumberPattern = /^\d+$/u;
 
 export function wholeNumber(min: number, max: number, label: string) {
 	return z
@@ -27,7 +27,7 @@ export function wholeNumber(min: number, max: number, label: string) {
 		);
 }
 
-const signedWholeNumberPattern = /^-?\d+$/;
+const signedWholeNumberPattern = /^-?\d+$/u;
 
 export function signedWholeNumber(min: number, max: number, label: string) {
 	return z
@@ -85,7 +85,7 @@ export const framePixelEditFormSchema = z.object({
 	tool: z.enum(["pen", "eraser", "fill"]),
 	x: wholeNumber(0, pixelEditorMaxDimension, "Pixel x"),
 	y: wholeNumber(0, pixelEditorMaxDimension, "Pixel y"),
-	color: z.string().regex(/^#[0-9a-f]{6}$/i, "Choose a colour"),
+	color: z.string().regex(/^#[0-9a-f]{6}$/iu, "Choose a colour"),
 });
 
 export const replaceColorFormSchema = z
@@ -96,7 +96,10 @@ export const replaceColorFormSchema = z
 	});
 
 export const frameSourceFormSchema = z.object({
-	assetVersionId: z.string().trim().uuid("Enter a valid Asset Version ID"),
+	assetVersionId: z
+		.string()
+		.trim()
+		.pipe(z.uuid("Enter a valid Asset Version ID")),
 });
 
 const gridCoordinate = (label: string) => wholeNumber(0, 100_000, label);

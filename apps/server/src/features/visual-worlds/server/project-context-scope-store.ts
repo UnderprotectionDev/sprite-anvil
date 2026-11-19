@@ -8,7 +8,8 @@ import {
 	themeRecordSchema,
 	visualWorldRecordSchema,
 } from "@sprite-anvil/api/context-scopes";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import {
 	assetFamilies,
 	assetRecords,

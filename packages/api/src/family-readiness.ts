@@ -8,13 +8,13 @@ const itemKeySchema = z
 	.trim()
 	.min(1)
 	.max(100)
-	.regex(/^[a-z][a-z0-9._-]*$/);
+	.regex(/^[a-z][a-z0-9._-]*$/u);
 const qualityRuleIdSchema = z
 	.string()
 	.trim()
 	.min(1)
 	.max(120)
-	.regex(/^[a-z][a-z0-9._-]*$/);
+	.regex(/^[a-z][a-z0-9._-]*$/u);
 const evidenceResultSchema = z.enum([
 	"passed",
 	"failed",
@@ -151,7 +151,7 @@ export const requiredSetRevisionSchema = z
 		assetFamilyId: idSchema,
 		revisionNumber: z.number().int().positive(),
 		items: z.array(requiredSetItemSchema).max(100),
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 		createdByUserId: idSchema,
 		isActive: z.boolean(),
 		wasActivated: z.boolean(),
@@ -353,7 +353,7 @@ export const readinessEvidenceSchema = z
 		versionTarget: qualityVersionTargetSchema.nullish(),
 		method: z.string().nullable(),
 		rationale: z.string(),
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 		createdByUserId: idSchema,
 		isCurrent: z.boolean(),
 	})

@@ -48,14 +48,14 @@ export const sheetSlicingSchema = z
 
 export const frameKeySchema = z
 	.string()
-	.regex(/^frame-[1-9][0-9]{0,5}$/, "Use a frame-<number> key");
+	.regex(/^frame-[1-9][0-9]{0,5}$/u, "Use a frame-<number> key");
 
 export const frameOriginSchema = z.discriminatedUnion("kind", [
 	z.object({ kind: z.literal("cell"), cellIndex: z.number().int().min(0) }),
 	z.object({ kind: z.literal("blank") }),
 	z.object({
 		kind: z.literal("asset-version"),
-		assetVersionId: z.string().uuid(),
+		assetVersionId: z.uuid(),
 	}),
 ]);
 
@@ -69,7 +69,7 @@ export const frameCommittedSchema = z
 	.object({
 		unitVersionId: z.string().min(1),
 		assetVersionId: z.string().min(1),
-		fingerprint: z.string().regex(/^[0-9a-f]{64}$/),
+		fingerprint: z.string().regex(/^[0-9a-f]{64}$/u),
 	})
 	.strict();
 
@@ -153,7 +153,7 @@ export const frameOperationSchema = z.discriminatedUnion("type", [
 	z
 		.object({
 			type: z.literal("add-from-asset-version"),
-			assetVersionId: z.string().uuid(),
+			assetVersionId: z.uuid(),
 			at: insertAt,
 		})
 		.strict(),
@@ -169,7 +169,7 @@ export const frameOperationSchema = z.discriminatedUnion("type", [
 		.object({
 			type: z.literal("replace"),
 			...frameKeyOperation,
-			assetVersionId: z.string().uuid(),
+			assetVersionId: z.uuid(),
 		})
 		.strict(),
 	z
@@ -263,7 +263,7 @@ export const sheetFrameViewSchema = z
 
 export const sheetStructureViewSchema = z
 	.object({
-		draftId: z.string().uuid(),
+		draftId: z.uuid(),
 		draftRevision: z.number().int().min(0),
 		sheetSize: z
 			.object({ width: sheetDimensionSchema, height: sheetDimensionSchema })

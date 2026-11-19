@@ -1,7 +1,8 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect, type Page, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import {
 	buildFixtureBundleFiles,
 	replaceFile,
@@ -12,8 +13,8 @@ import {
 	signUpWithFixture,
 } from "./project-workflow";
 
-const verifiedText = /Bundle verified/;
-const corruptedPathText = /images\/hero_idle\.png/;
+const verifiedText = /Bundle verified/u;
+const corruptedPathText = /images\/hero_idle\.png/u;
 
 const fixture = {
 	email: `export-bundles-e2e-${crypto.randomUUID()}@example.test`,

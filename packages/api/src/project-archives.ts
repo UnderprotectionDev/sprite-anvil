@@ -11,14 +11,15 @@ import {
 	assetRecordSupportLevels,
 	assetRecordTagsSchema,
 } from "./asset-records";
+import { compareCodeUnits } from "./compare-code-units";
+import type { DeliveryRecords } from "./project-archive-delivery";
 import {
-	type DeliveryRecords,
 	deliveryGroup,
 	deliveryRelationFailures,
 	deliverySectionSchemas,
 } from "./project-archive-delivery";
+import type { HistoryRecords } from "./project-archive-history";
 import {
-	type HistoryRecords,
 	historyGroup,
 	historyRelationFailures,
 	historySectionSchemas,
@@ -36,7 +37,7 @@ export const legacyProjectArchiveSchemaVersion = "project-archive/1.0.0";
 const idSchema = z.string().trim().min(1).max(128);
 const uuidSchema = z.uuid();
 const timestampSchema = z.iso.datetime();
-export const archiveSha256Schema = z.string().regex(/^[a-f0-9]{64}$/);
+export const archiveSha256Schema = z.string().regex(/^[a-f0-9]{64}$/u);
 
 // ---------------------------------------------------------------------------
 // Foundation record group
@@ -490,7 +491,7 @@ export interface BuiltProjectArchive {
 }
 
 const secretKeyPattern =
-	/secret|token|password|passphrase|credential|api[-_]?key|private[-_]?key|encryption[-_]?key|authorization/i;
+	/secret|token|password|passphrase|credential|api[-_]?key|private[-_]?key|encryption[-_]?key|authorization/iu;
 
 /** Key paths whose name looks like a credential; values are never reported. */
 export function findSecretKeyPaths(value: unknown, path = ""): string[] {
@@ -1255,6 +1256,6 @@ export function projectArchiveRequestDigest(input: {
 }) {
 	return recordContentDigest({
 		projectId: input.projectId,
-		workingFileIds: [...input.workingFileIds].sort(),
+		workingFileIds: [...input.workingFileIds].sort(compareCodeUnits),
 	});
 }

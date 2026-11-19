@@ -4,7 +4,7 @@ import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { specializedProfileContractCatalog } from "@sprite-anvil/api/specialized-profile-contracts";
 
-const loadingCopy = /Loading/;
+const loadingCopy = /Loading/u;
 
 const projectId = "00000000-0000-4000-8000-000000000001";
 const recordId = "00000000-0000-4000-8000-000000000002";

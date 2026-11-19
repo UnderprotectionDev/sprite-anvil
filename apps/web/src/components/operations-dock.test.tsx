@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
+import { OperationsDock } from "./operations-dock";
 
 const fetchSummary = vi.fn();
 vi.mock("@/utils/orpc", () => ({
@@ -26,8 +26,6 @@ vi.mock("@tanstack/react-router", () => ({
 		params: { projectId: string };
 	}) => <a href={`/projects/${params.projectId}/operations`}>{children}</a>,
 }));
-
-import { OperationsDock } from "./operations-dock";
 
 afterEach(() => {
 	cleanup();

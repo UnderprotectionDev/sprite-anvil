@@ -1,3 +1,4 @@
+import { compareCodeUnits } from "@sprite-anvil/api/compare-code-units";
 import type {
 	DeliveryDiff,
 	NotRecordedSectionKey,
@@ -31,7 +32,8 @@ const notRecordedReasons: Record<NotRecordedSectionKey, string> = {
 		"A Delivery Fulfilment does not record runtime validation evidence, so no difference can be shown.",
 };
 
-const uniqueSorted = (ids: string[]) => [...new Set(ids)].sort();
+const uniqueSorted = (ids: string[]) =>
+	[...new Set(ids)].sort(compareCodeUnits);
 
 const sameVersions = (left: string[], right: string[]) =>
 	uniqueSorted(left).join("\n") === uniqueSorted(right).join("\n");

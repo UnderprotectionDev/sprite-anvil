@@ -1,9 +1,7 @@
 import type { MeasurementDefinitionStore } from "@sprite-anvil/api/measurement-definition-store";
 import type { MeasurementEventStore } from "@sprite-anvil/api/measurement-event-store";
-import {
-	type ProductMeasurementRecorder,
-	productMeasurementBoundarySchema,
-} from "@sprite-anvil/api/measurement-workflows";
+import type { ProductMeasurementRecorder } from "@sprite-anvil/api/measurement-workflows";
+import { productMeasurementBoundarySchema } from "@sprite-anvil/api/measurement-workflows";
 import { idempotentRecordId } from "@sprite-anvil/api/record-publication";
 import type { MeasurementEventStorage } from "./measurement-event-storage";
 

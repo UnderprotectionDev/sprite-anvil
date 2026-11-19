@@ -10,10 +10,10 @@ afterEach(() => {
 	vi.restoreAllMocks();
 	vi.unstubAllGlobals();
 });
-const missingGround = /Ground metadata unavailable/;
-const tolerance = /Tolerance is not declared/i;
-const firstPivot = /pivot · .*x.*1/;
-const secondPivot = /pivot · .*x.*2/;
+const missingGround = /Ground metadata unavailable/u;
+const tolerance = /Tolerance is not declared/iu;
+const firstPivot = /pivot · .*x.*1/u;
+const secondPivot = /pivot · .*x.*2/u;
 
 test("shows the exact current frame metadata as playback changes", () => {
 	const frames = [

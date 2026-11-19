@@ -1,8 +1,6 @@
 import { expect, test } from "bun:test";
-import {
-	areContractPinsCompatible,
-	type ProjectProfileContracts,
-} from "@sprite-anvil/api/profile-contract-scope";
+import type { ProjectProfileContracts } from "@sprite-anvil/api/profile-contract-scope";
+import { areContractPinsCompatible } from "@sprite-anvil/api/profile-contract-scope";
 import { specializedProfileContractCatalog } from "@sprite-anvil/api/specialized-profile-contracts";
 
 test("a contract revision change preserves unchanged rule evidence and stales changed rules", () => {

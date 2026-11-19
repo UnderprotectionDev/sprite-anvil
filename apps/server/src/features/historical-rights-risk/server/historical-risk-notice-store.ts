@@ -15,10 +15,8 @@ import type {
 	HistoricalRiskNoticeStore,
 } from "@sprite-anvil/api/historical-risk-notices";
 import { historicalRiskNoticeViewSchema } from "@sprite-anvil/api/historical-risk-notices";
-import {
-	idempotentRecordId,
-	RecordIntegrityError,
-} from "@sprite-anvil/api/record-publication";
+import { RecordIntegrityError } from "@sprite-anvil/api/record-integrity-error";
+import { idempotentRecordId } from "@sprite-anvil/api/record-publication";
 import type {
 	RightsRecord,
 	RightsRecordState,

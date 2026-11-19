@@ -5,7 +5,8 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
-import { type QueryKey, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { QueryKey } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { AnimationTimingReviewManager } from "@/components/animation-timing-review-manager";
@@ -232,12 +233,12 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 									>
 										<div>
 											<h2
-												className="font-semibold text-2xl"
+												className="text-2xl font-semibold"
 												id="asset-family-catalog-heading"
 											>
 												Saved Asset Families
 											</h2>
-											<p className="mt-1 text-muted-foreground text-sm">
+											<p className="text-muted-foreground mt-1 text-sm">
 												Families under the same Subject Identity appear
 												separately here.
 											</p>
@@ -285,12 +286,12 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 									>
 										<div>
 											<h2
-												className="font-semibold text-2xl"
+												className="text-2xl font-semibold"
 												id="family-readiness-heading"
 											>
 												Family Completion and Evidence
 											</h2>
-											<p className="mt-1 text-muted-foreground text-sm">
+											<p className="text-muted-foreground mt-1 text-sm">
 												Prepare a versioned Required Set for each family;
 												evidence is pinned to current Asset Versions and the
 												Active Context Revision.
@@ -643,10 +644,10 @@ function PageHeader({ projectName }: { projectName?: string }) {
 				Back to projects
 			</Link>
 			<header className="space-y-2">
-				<p className="font-mono text-primary text-xs uppercase tracking-[0.16em]">
+				<p className="text-primary font-mono text-xs tracking-[0.16em] uppercase">
 					Asset library / {projectName ?? "Oyun projesi"}
 				</p>
-				<h1 className="font-medium font-serif text-4xl tracking-tight">
+				<h1 className="font-serif text-4xl font-medium tracking-tight">
 					Subject Identity and Families
 				</h1>
 				<p className="text-muted-foreground">

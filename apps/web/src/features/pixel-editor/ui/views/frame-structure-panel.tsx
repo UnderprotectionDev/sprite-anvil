@@ -63,7 +63,7 @@ export function FrameStructurePanel({
 
 	return (
 		<section aria-label="Frames and sprite sheet" className="space-y-4">
-			<h2 className="font-semibold text-lg">Frames and sprite sheet</h2>
+			<h2 className="text-lg font-semibold">Frames and sprite sheet</h2>
 			<p className="text-muted-foreground text-sm">
 				Slicing never changes the source Asset Version. Each frame becomes a
 				Unit Version only when it changed; a new Composite Version pins them and

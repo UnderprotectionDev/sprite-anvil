@@ -1,10 +1,10 @@
 import type { AssetRecord } from "@sprite-anvil/api/asset-records";
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
-import {
-	type BackgroundLayerLayoutInput,
-	type BackgroundLayerLayoutRecord,
-	backgroundLayerLayoutInputSchema,
+import type {
+	BackgroundLayerLayoutInput,
+	BackgroundLayerLayoutRecord,
 } from "@sprite-anvil/api/background-layer-layouts";
+import { backgroundLayerLayoutInputSchema } from "@sprite-anvil/api/background-layer-layouts";
 import type { ProjectProfileContractActivation } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
@@ -14,7 +14,7 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import {
@@ -51,7 +51,7 @@ export interface BackgroundLayerLayoutManagerProps {
 	versions: LayoutVersion[];
 	visualWorldId: string;
 }
-const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
+const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/u, "") ?? "";
 const numericFields = [
 	["order", "Layer order"],
 	["ratioWidth", "Target ratio width"],
@@ -186,7 +186,7 @@ export function BackgroundLayerLayoutManager({
 			await save(value.layers);
 		},
 	});
-	const layers = useStore(form.store, (state) => state.values.layers);
+	const layers = useSelector(form.store, (state) => state.values.layers);
 	const [message, setMessage] = useState("");
 	const [error, setError] = useState("");
 	const saveMutation = useMutation(

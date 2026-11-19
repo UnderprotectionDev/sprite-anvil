@@ -12,7 +12,7 @@ const idsSchema = idSchema
 export const historicalCompositionInputSchema = z
 	.object({
 		projectId: idSchema,
-		idempotencyKey: z.string().uuid(),
+		idempotencyKey: z.uuid(),
 		compositeVersionId: idSchema,
 		contextRevisionId: idSchema,
 		canonicalDesignVersionId: idSchema,
@@ -54,7 +54,7 @@ export const historicalCompositionSchema = z
 		unitVersionIds: idsSchema,
 		assetVersionIds: idsSchema,
 		report: historicalCompositionReportSchema,
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 	})
 	.strict();
 
@@ -74,7 +74,7 @@ export const historicalCompositionOptionsSchema = z
 				assetVersionIds: idsSchema,
 				versionTargetId: idSchema.nullable(),
 				profileContractRevisionIds: idSchema.nullable().array(),
-				createdAt: z.string().datetime(),
+				createdAt: z.iso.datetime(),
 			})
 			.strict()
 			.array(),

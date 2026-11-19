@@ -3,10 +3,8 @@ import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm } from "@tanstack/react-form";
-import {
-	type CreateProjectFormValues,
-	createProjectFormSchema,
-} from "../../schemas";
+import type { CreateProjectFormValues } from "../../schemas";
+import { createProjectFormSchema } from "../../schemas";
 
 const emptyCreateProjectForm: CreateProjectFormValues = {
 	name: "",
@@ -40,6 +38,12 @@ export function CreateProjectForm({
 			onSubmit={(event) => {
 				event.preventDefault();
 				event.stopPropagation();
+				// A locked form must not start a submit: handleSubmit validates
+				// asynchronously, so a pending submit could otherwise read values
+				// after the form has been reset.
+				if (isSaving || writeOutcomeUncertain) {
+					return;
+				}
 				form.handleSubmit();
 			}}
 		>
@@ -71,7 +75,7 @@ export function CreateProjectForm({
 							General art direction
 						</Label>
 						<Textarea
-							className="field-sizing-fixed min-h-32 w-full resize-y rounded-md border bg-background px-3 py-2 text-sm md:text-sm"
+							className="bg-background field-sizing-fixed min-h-32 w-full resize-y rounded-md border px-3 py-2 text-sm md:text-sm"
 							disabled={isSaving || writeOutcomeUncertain}
 							id="project-art-direction"
 							maxLength={1000}

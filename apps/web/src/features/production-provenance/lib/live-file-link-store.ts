@@ -1,4 +1,5 @@
-import Dexie, { type EntityTable } from "dexie";
+import type { EntityTable } from "dexie";
+import Dexie from "dexie";
 
 export interface StoredLiveFileLink {
 	modifiedAt: number | null;

@@ -10,7 +10,8 @@ import {
 	toChangeImpact,
 	toDependencyLink,
 } from "@sprite-anvil/api/dependency-revalidation-catalog";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import {
 	assetFamilyCanonicalDesigns,
 	assetFamilyRelationships,

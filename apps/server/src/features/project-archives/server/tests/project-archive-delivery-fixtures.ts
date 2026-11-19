@@ -5,7 +5,10 @@ import {
 	renderExportBundleManifest,
 } from "@sprite-anvil/api/export-bundle-manifest";
 import { emptyDeliveryRecords } from "@sprite-anvil/api/project-archive-delivery";
+import type { ProjectArchiveSource } from "@sprite-anvil/api/project-archives";
 import { buildFixtureBundleFiles } from "@sprite-anvil/api/test-support/export-bundle-verification-fixture";
+import { digest, ids, projectId } from "./project-archive-fixtures";
+import { historyIds, historySource } from "./project-archive-history-fixtures";
 
 const templateFiles = await buildFixtureBundleFiles();
 const templateManifestFile = templateFiles.find(
@@ -19,10 +22,6 @@ const templateManifest = exportBundleManifestSchema.parse(
 );
 const hashText = (text: string) =>
 	createHash("sha256").update(text).digest("hex");
-
-import type { ProjectArchiveSource } from "@sprite-anvil/api/project-archives";
-import { digest, ids, projectId } from "./project-archive-fixtures";
-import { historyIds, historySource } from "./project-archive-history-fixtures";
 
 export const deliveryIds = {
 	bundle1: "a1000000-0000-4000-8000-000000000001",

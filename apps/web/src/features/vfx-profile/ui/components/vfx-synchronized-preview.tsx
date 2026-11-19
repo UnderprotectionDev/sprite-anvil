@@ -1,8 +1,6 @@
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
-import {
-	type VfxSynchronizationInput,
-	vfxBackgrounds,
-} from "@sprite-anvil/api/vfx-synchronization";
+import type { VfxSynchronizationInput } from "@sprite-anvil/api/vfx-synchronization";
+import { vfxBackgrounds } from "@sprite-anvil/api/vfx-synchronization";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Label } from "@sprite-anvil/ui/components/label";
 import {
@@ -17,7 +15,7 @@ import { StatusMessage } from "@/components/status-message";
 import { ENV } from "@/env";
 import { getVfxPreviewLayout } from "../../lib/vfx-preview-layout";
 
-const trailingSlash = /\/$/;
+const trailingSlash = /\/$/u;
 const backgroundColors = {
 	light: "#f8fafc",
 	dark: "#0f172a",

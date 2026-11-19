@@ -25,13 +25,13 @@ const sensitiveKeyNames = new Set([
 	"token",
 ]);
 const temporaryUrlKeyPattern =
-	/(?:access|asset|download|file|image|output|preview|result|signed|temporary)(?:[a-z0-9]*)(?:url|uri)$/;
-const standaloneAuthValuePattern = /^(?:bearer|basic)\s+\S+$/i;
+	/(?:access|asset|download|file|image|output|preview|result|signed|temporary)(?:[a-z0-9]*)(?:url|uri)$/u;
+const standaloneAuthValuePattern = /^(?:bearer|basic)\s+\S+$/iu;
 const inlineSensitiveHeaderPattern =
-	/(?:^|[\r\n,;{])\s*["']?(?:authorization|proxy-authorization|cookie|set-cookie|[a-z0-9-]*(?:api-key|access-token|auth-token|security-token|session-token))["']?\s*:\s*["']?\S+/i;
+	/(?:^|[\r\n,;{])\s*["']?(?:authorization|proxy-authorization|cookie|set-cookie|[a-z0-9-]*(?:api-key|access-token|auth-token|security-token|session-token))["']?\s*:\s*["']?\S+/iu;
 
 function isSensitiveKey(key: string) {
-	const normalized = key.toLowerCase().replaceAll(/[^a-z0-9]/g, "");
+	const normalized = key.toLowerCase().replaceAll(/[^a-z0-9]/gu, "");
 	return (
 		sensitiveKeyNames.has(normalized) ||
 		normalized.includes("accesskey") ||
@@ -60,7 +60,7 @@ function isSensitiveKey(key: string) {
 }
 
 function isTemporaryUrlKey(key: string) {
-	const normalized = key.toLowerCase().replaceAll(/[^a-z0-9]/g, "");
+	const normalized = key.toLowerCase().replaceAll(/[^a-z0-9]/gu, "");
 	return temporaryUrlKeyPattern.test(normalized);
 }
 
@@ -74,7 +74,7 @@ function isTemporaryAccessUrl(value: string) {
 			return true;
 		}
 		for (const key of url.searchParams.keys()) {
-			const normalized = key.toLowerCase().replaceAll(/[^a-z0-9]/g, "");
+			const normalized = key.toLowerCase().replaceAll(/[^a-z0-9]/gu, "");
 			if (
 				normalized.includes("signature") ||
 				normalized.includes("credential") ||

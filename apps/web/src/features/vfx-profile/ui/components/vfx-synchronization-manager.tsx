@@ -1,10 +1,10 @@
 import type { AssetVersionCatalog } from "@sprite-anvil/api/asset-versions";
 import type { ProjectProfileContractActivation } from "@sprite-anvil/api/specialized-profile-contracts";
-import {
-	type VfxSynchronizationInput,
-	type VfxSynchronizationRecord,
-	vfxSynchronizationInputSchema,
+import type {
+	VfxSynchronizationInput,
+	VfxSynchronizationRecord,
 } from "@sprite-anvil/api/vfx-synchronization";
+import { vfxSynchronizationInputSchema } from "@sprite-anvil/api/vfx-synchronization";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -176,7 +176,7 @@ export function VfxSynchronizationManager({
 			aria-label={`${familyName} VFX synchronization`}
 			className="space-y-4 rounded border p-4"
 		>
-			<h3 className="font-semibold text-xl">
+			<h3 className="text-xl font-semibold">
 				{familyName} · VFX owner and event synchronization
 			</h3>
 			<WriteOutcomeMessage

@@ -90,14 +90,14 @@ export const backgroundScrollingTestRecordSchema =
 					assetVersionId: id,
 					assetRecordId: id,
 					assetRecordName: z.string().min(1).max(120),
-					contentDigest: z.string().regex(/^[a-f0-9]{64}$/),
+					contentDigest: z.string().regex(/^[a-f0-9]{64}$/u),
 					versionNumber: z.number().int().positive(),
 					width: z.number().int().positive(),
 					height: z.number().int().positive(),
 				})
 				.strict(),
 			outcome,
-			createdAt: z.string().datetime(),
+			createdAt: z.iso.datetime(),
 			createdByUserId: id,
 		})
 		.superRefine((record, ctx) => {

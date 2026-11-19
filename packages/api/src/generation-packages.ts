@@ -1,6 +1,6 @@
 import { z } from "zod";
+import type { AssetRecordTracking } from "./asset-record-tracking";
 import {
-	type AssetRecordTracking,
 	referenceFeatureSchema,
 	referenceRoleSchema,
 } from "./asset-record-tracking";
@@ -41,7 +41,7 @@ const referenceRoleSnapshotSchema = z
 		assetVersionId: idSchema.nullable(),
 		contentDigest: z
 			.string()
-			.regex(/^[a-f0-9]{64}$/)
+			.regex(/^[a-f0-9]{64}$/u)
 			.nullable(),
 		contentType: z.enum(["image/png", "image/webp"]).nullable(),
 		contextOverrideRationale: z.string().nullable(),
@@ -65,7 +65,7 @@ const canonicalDesignSnapshotSchema = z
 		canonicalDesignId: idSchema,
 		contentDigest: z
 			.string()
-			.regex(/^[a-f0-9]{64}$/)
+			.regex(/^[a-f0-9]{64}$/u)
 			.nullable(),
 		contentType: z.enum(["image/png", "image/webp"]),
 		versionNumber: z.number().int().positive(),

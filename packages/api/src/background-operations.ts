@@ -80,11 +80,11 @@ export const backgroundOperationSchema = z
 		progressStep: z.string().max(200).nullable(),
 		resultSummary: z.string().max(1000).nullable(),
 		failureSummary: z.string().max(1000).nullable(),
-		createdAt: z.string().datetime(),
-		updatedAt: z.string().datetime(),
-		startedAt: z.string().datetime().nullable(),
-		finishedAt: z.string().datetime().nullable(),
-		cancelRequestedAt: z.string().datetime().nullable(),
+		createdAt: z.iso.datetime(),
+		updatedAt: z.iso.datetime(),
+		startedAt: z.iso.datetime().nullable(),
+		finishedAt: z.iso.datetime().nullable(),
+		cancelRequestedAt: z.iso.datetime().nullable(),
 	})
 	.strict();
 

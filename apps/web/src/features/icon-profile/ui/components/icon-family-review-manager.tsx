@@ -1,10 +1,10 @@
 import type { AssetRecord } from "@sprite-anvil/api/asset-records";
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
-import {
-	createIconFamilyReviewArchive,
-	type IconFamilyReviewInput,
-	type IconFamilyReviewRecord,
+import type {
+	IconFamilyReviewInput,
+	IconFamilyReviewRecord,
 } from "@sprite-anvil/api/icon-family-reviews";
+import { createIconFamilyReviewArchive } from "@sprite-anvil/api/icon-family-reviews";
 import type { ProjectProfileContractActivation } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
@@ -15,15 +15,13 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useState } from "react";
 import { StatusMessage } from "@/components/status-message";
 import { ENV } from "@/env";
-import {
-	type IconFamilyReviewFormValues,
-	iconFamilyReviewFormSchema,
-} from "@/features/icon-profile/schemas";
+import type { IconFamilyReviewFormValues } from "@/features/icon-profile/schemas";
+import { iconFamilyReviewFormSchema } from "@/features/icon-profile/schemas";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { mutationMeta } from "@/utils/mutation-meta";
@@ -108,7 +106,7 @@ const assessmentOptions: Record<ComparisonKey, readonly [string, string][]> = {
 	],
 };
 
-const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/, "") ?? "";
+const serverUrl = ENV.VITE_SERVER_URL?.replace(/\/$/u, "") ?? "";
 
 function makeComparisonDrafts(): ComparisonsDraft {
 	return {
@@ -202,7 +200,7 @@ function SavedIconFamilyReview({
 											{item.logicalSize.height} px
 										</p>
 										{pin ? (
-											<p className="break-all text-muted-foreground">
+											<p className="text-muted-foreground break-all">
 												Asset Version: {pin.assetVersionId} · Version{" "}
 												{pin.versionNumber} · {pin.contentType} ·{" "}
 												{pin.contentLength} bayt · SHA-256 {pin.contentDigest}
@@ -316,7 +314,7 @@ export function IconFamilyReviewManager({
 			},
 		},
 	});
-	const items = useStore(form.store, (state) => state.values.items);
+	const items = useSelector(form.store, (state) => state.values.items);
 	const [itemsTouched, setItemsTouched] = useState(false);
 	const [initializedItemCatalog, setInitializedItemCatalog] =
 		useState(itemCatalogSignature);
@@ -462,10 +460,10 @@ export function IconFamilyReviewManager({
 			className="space-y-4 rounded-lg border p-4"
 		>
 			<div>
-				<h3 className="font-semibold text-xl" id={`${idPrefix}-heading`}>
+				<h3 className="text-xl font-semibold" id={`${idPrefix}-heading`}>
 					{familyName} · Review Icon Family Consistency
 				</h3>
-				<p className="mt-1 text-muted-foreground text-sm">
+				<p className="text-muted-foreground mt-1 text-sm">
 					Compare exact icon versions side by side by usage variant and logical
 					size. Light, dark, and grayscale previews appear on screen; the
 					downloaded JSON contains the review record, version IDs, and
@@ -545,7 +543,7 @@ export function IconFamilyReviewManager({
 										className="space-y-3 rounded-md border p-3"
 										key={item.key}
 									>
-										<FieldLegend className="px-1 font-medium text-sm">
+										<FieldLegend className="px-1 text-sm font-medium">
 											Comparison item {index + 1}
 										</FieldLegend>
 										<div className="grid gap-3 sm:grid-cols-2">
@@ -725,7 +723,7 @@ export function IconFamilyReviewManager({
 						>
 							Compare icon family side by side
 						</h4>
-						<p className="mt-1 text-muted-foreground text-sm">
+						<p className="text-muted-foreground mt-1 text-sm">
 							Selected exact icon versions appear together by usage variant and
 							logical size on light and dark backgrounds and in grayscale.
 						</p>

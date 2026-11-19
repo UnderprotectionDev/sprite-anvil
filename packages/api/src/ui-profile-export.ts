@@ -1,9 +1,7 @@
 import { JSON_SCHEMA_REGISTRY } from "@orpc/zod/zod4";
 import { z } from "zod";
-import {
-	type UiStretchTestRecord,
-	uiStretchTestRecordSchema,
-} from "./ui-stretch-tests";
+import type { UiStretchTestRecord } from "./ui-stretch-tests";
+import { uiStretchTestRecordSchema } from "./ui-stretch-tests";
 
 /** Static profile metadata; this does not start an Export Bundle or emit runtime UI code. */
 export function makeUiProfileManifest(input: UiStretchTestRecord) {

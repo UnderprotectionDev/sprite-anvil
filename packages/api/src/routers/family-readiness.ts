@@ -1,9 +1,11 @@
 import { ORPCError } from "@orpc/server";
 import type { Context } from "../context";
+import type {
+	ReadinessEvidenceInput,
+	RecordEvidenceFailureReason,
+} from "../family-readiness";
 import {
 	familyReadinessSchema,
-	type ReadinessEvidenceInput,
-	type RecordEvidenceFailureReason,
 	readinessEvidenceInputSchema,
 	requiredSetActivateInputSchema,
 	requiredSetListInputSchema,

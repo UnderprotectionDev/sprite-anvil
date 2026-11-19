@@ -16,9 +16,9 @@ import { unzipSync } from "fflate";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { GodotOutputPanel } from "./godot-output-panel";
 
-const legacyText = /created before engine data was pinned/i;
-const supportedText = /Godot 4\.3, 4\.4, 4\.5/;
-const sourceText = /never a source of truth/i;
+const legacyText = /created before engine data was pinned/iu;
+const supportedText = /Godot 4\.3, 4\.4, 4\.5/u;
+const sourceText = /never a source of truth/iu;
 const projectId = "7a1f0f0e-8f4e-4c36-9a53-0b0b6a2f2a01";
 const bundleId = "11111111-1111-4111-8111-111111111111";
 const legacyBundleId = "22222222-2222-4222-8222-222222222222";

@@ -12,8 +12,8 @@ export interface FocusIndicatorStyle {
 	outlineWidth: number;
 }
 
-const lengthPattern = /(-?\d*\.?\d+)px/g;
-const shadowLayerSeparator = /,(?![^(]*\))/;
+const lengthPattern = /(?<length>-?\d*\.?\d+)px/gu;
+const shadowLayerSeparator = /,(?![^(]*\))/u;
 
 /**
  * Thickest solid ring in a computed box-shadow list. Computed values look like
@@ -27,7 +27,7 @@ export function shadowRingThickness(boxShadow: string) {
 	let thickest = 0;
 	for (const layer of boxShadow.split(shadowLayerSeparator)) {
 		const [, , , spread = 0] = [...layer.matchAll(lengthPattern)].map((match) =>
-			Number.parseFloat(match[1] ?? "0")
+			Number.parseFloat(match.groups?.length ?? "0")
 		);
 		thickest = Math.max(thickest, Number(spread));
 	}

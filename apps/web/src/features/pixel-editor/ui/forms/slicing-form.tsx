@@ -1,8 +1,8 @@
-import {
-	type SheetReadingOrder,
-	type SheetSlicing,
-	sheetReadingOrders,
+import type {
+	SheetReadingOrder,
+	SheetSlicing,
 } from "@sprite-anvil/api/pixel-editor-structure";
+import { sheetReadingOrders } from "@sprite-anvil/api/pixel-editor-structure";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
@@ -69,7 +69,7 @@ export function SlicingForm({
 				form.handleSubmit();
 			}}
 		>
-			<p className="font-medium text-sm">Sprite sheet slicing</p>
+			<p className="text-sm font-medium">Sprite sheet slicing</p>
 			<div className="grid grid-cols-2 gap-2">
 				{numberFields.map(([name, label]) => (
 					<form.Field key={name} name={name}>

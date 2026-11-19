@@ -10,7 +10,7 @@ export const visualWorldRecordSchema = z
 		projectId: recordIdSchema,
 		name: nameSchema,
 		description: descriptionSchema,
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 	})
 	.strict();
 
@@ -21,7 +21,7 @@ export const themeRecordSchema = z
 		visualWorldId: recordIdSchema,
 		name: nameSchema,
 		description: descriptionSchema,
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 	})
 	.strict();
 

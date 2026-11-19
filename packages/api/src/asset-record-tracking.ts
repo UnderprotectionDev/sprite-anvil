@@ -74,7 +74,7 @@ export const assetVersionSummarySchema = z
 		reviewDisposition: assetVersionReviewDispositionSchema,
 		sha256: z
 			.string()
-			.regex(/^[a-f0-9]{64}$/)
+			.regex(/^[a-f0-9]{64}$/u)
 			.nullable(),
 		sourceImageHeight: z
 			.number()
@@ -150,7 +150,7 @@ export const manualImportEvidenceSummarySchema = z
 		generationPackageId: z.uuid(),
 		id: z.uuid(),
 		revision: z.number().int().positive().optional(),
-		sha256: z.string().regex(/^[a-f0-9]{64}$/),
+		sha256: z.string().regex(/^[a-f0-9]{64}$/u),
 		sourceSurface: z.string().min(1).max(255),
 		versionNumber: z.number().int().positive(),
 	})

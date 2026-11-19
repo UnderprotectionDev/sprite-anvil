@@ -1,11 +1,10 @@
+import type { SceneQaInput, SceneQaSetup } from "@sprite-anvil/api/scene-qa";
 import {
-	type SceneQaInput,
-	type SceneQaSetup,
 	sceneQaInputSchema,
 	sceneQaSetupSchema,
 } from "@sprite-anvil/api/scene-qa";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { StatusMessage } from "@/components/status-message";
@@ -61,7 +60,7 @@ export function SceneQaView({ projectId }: { projectId: string }) {
 		},
 		onSubmit: ({ value }) => save(value),
 	});
-	const { name, setup, observations } = useStore(
+	const { name, setup, observations } = useSelector(
 		form.store,
 		(state) => state.values
 	);
@@ -136,7 +135,7 @@ export function SceneQaView({ projectId }: { projectId: string }) {
 	return (
 		<main className="mx-auto max-w-6xl space-y-6 p-4 md:p-8">
 			<header className="space-y-2">
-				<h1 className="font-semibold text-2xl">Scene QA Playground</h1>
+				<h1 className="text-2xl font-semibold">Scene QA Playground</h1>
 				<p className="text-muted-foreground">
 					Scene QA: try exact Asset Versions together; keep usage evidence and
 					artistic judgment separate.
@@ -219,7 +218,7 @@ export function SceneQaView({ projectId }: { projectId: string }) {
 				</p>
 			)}
 			<fieldset className="space-y-3" disabled={pending || uncertain}>
-				<legend className="font-medium text-lg">Usage observations</legend>
+				<legend className="text-lg font-medium">Usage observations</legend>
 				<SceneQaObservations
 					observations={observations}
 					onChange={(next) => form.setFieldValue("observations", next)}

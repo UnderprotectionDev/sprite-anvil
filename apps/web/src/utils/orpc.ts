@@ -5,7 +5,7 @@ import type { AppRouterClient } from "@sprite-anvil/api/routers/index";
 import { ENV } from "../env";
 
 export const link = new RPCLink({
-	url: `${ENV.VITE_SERVER_URL.replace(/\/$/, "")}/rpc`,
+	url: `${ENV.VITE_SERVER_URL.replace(/\/$/u, "")}/rpc`,
 	// conventions-exception: raw-fetch This is the oRPC link's own transport, which every query uses.
 	fetch(_url, options) {
 		return fetch(_url, {

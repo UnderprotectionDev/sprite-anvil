@@ -46,8 +46,8 @@ function requireContract() {
 	return value;
 }
 const contract = requireContract();
-const gameplayText = /Hero gameplay/;
-const savedText = /Hero portraits · Inconclusive/;
+const gameplayText = /Hero gameplay/u;
+const savedText = /Hero portraits · Inconclusive/u;
 const versions = ["neutral", "happy"].map((name) => ({
 	id: `${name}-version`,
 	assetRecordId: name,

@@ -1,9 +1,10 @@
 import { createHash } from "node:crypto";
 import type { UnitVersionCorrectionInput } from "@sprite-anvil/api/asset-versions";
 import { createProjectAssetVersionObjectKey } from "../../../cloudflare";
-import { type ErrorName, newId, type Scope } from "./pixel-editor-context";
+import type { ErrorName, Scope } from "./pixel-editor-context";
+import { newId } from "./pixel-editor-context";
 
-const fileExtensionPattern = /\.[^.]+$/;
+const fileExtensionPattern = /\.[^.]+$/u;
 
 export type StoredCandidate =
 	| {

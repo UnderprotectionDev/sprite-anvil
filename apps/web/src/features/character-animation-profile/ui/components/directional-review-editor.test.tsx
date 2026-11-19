@@ -20,8 +20,8 @@ vi.mock("@/env", () => ({
 }));
 
 const previewSources = vi.fn();
-const directionLabel = /Direction name/;
-const humanMessage = /No automatic artistic judgment/;
+const directionLabel = /Direction name/u;
+const humanMessage = /No automatic artistic judgment/u;
 afterEach(() => {
 	cleanup();
 	vi.restoreAllMocks();

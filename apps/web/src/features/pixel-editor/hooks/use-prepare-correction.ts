@@ -2,9 +2,9 @@ import type { PixelDraft } from "@sprite-anvil/api/pixel-editor";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { orpc } from "@/utils/orpc";
 import { usePendingIdempotencyKey } from "@/utils/pending-idempotency-key";
+import type { CorrectionPackageValues } from "../lib/correction-package";
 import {
 	buildCorrectionPackageInput,
-	type CorrectionPackageValues,
 	defaultPreservedUnitIds,
 } from "../lib/correction-package";
 import { readFrameStructure } from "../lib/frame-structure-api";

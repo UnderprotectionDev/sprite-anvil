@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
 import { call } from "@orpc/server";
-import {
-	type AssetRecord,
-	type AssetRecordMetadataUpdateInput,
-	type AssetRecordSearchInput,
-	type AssetRecordSearchResponse,
-	createEmptyAssetRecordMeasurements,
+import type {
+	AssetRecord,
+	AssetRecordMetadataUpdateInput,
+	AssetRecordSearchInput,
+	AssetRecordSearchResponse,
 } from "@sprite-anvil/api/asset-records";
+import { createEmptyAssetRecordMeasurements } from "@sprite-anvil/api/asset-records";
 import type { Context } from "@sprite-anvil/api/context";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 

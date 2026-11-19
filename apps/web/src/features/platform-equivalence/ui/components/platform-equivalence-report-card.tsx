@@ -20,7 +20,7 @@ export function PlatformEquivalenceReportCard({
 			className="space-y-4 rounded-lg border p-4"
 		>
 			<header className="space-y-1">
-				<h3 className="font-semibold text-lg">
+				<h3 className="text-lg font-semibold">
 					Report from {new Date(report.createdAt).toLocaleString()}
 				</h3>
 				<p className="font-medium">

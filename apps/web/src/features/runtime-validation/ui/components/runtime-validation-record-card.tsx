@@ -33,7 +33,7 @@ export function RuntimeValidationRecordCard({
 			aria-label={`Runtime Validation Record for build ${record.gameBuild}`}
 			className="space-y-4 rounded-lg border p-4"
 		>
-			<h3 className="font-semibold text-lg">
+			<h3 className="text-lg font-semibold">
 				{record.gameBuild} on {record.engineVersion}
 			</h3>
 			<dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1 text-sm">
@@ -108,7 +108,7 @@ export function RuntimeValidationRecordCard({
 							<li className="space-y-1 rounded border p-2" key={item.id}>
 								<p className="font-medium">
 									{evidenceKindLabels[item.kind]} ·{" "}
-									<span className="font-normal text-muted-foreground">
+									<span className="text-muted-foreground font-normal">
 										{evidenceSourceLabels[item.source]}
 									</span>
 								</p>
@@ -132,7 +132,7 @@ export function RuntimeValidationRecordCard({
 												{item.file.fileName}
 											</a>
 										)}{" "}
-										<span className="break-all text-muted-foreground">
+										<span className="text-muted-foreground break-all">
 											({item.file.byteSize} bytes, SHA-256 {item.file.sha256})
 										</span>
 									</p>

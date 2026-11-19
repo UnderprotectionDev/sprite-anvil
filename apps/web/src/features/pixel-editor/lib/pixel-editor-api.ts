@@ -1,7 +1,9 @@
+import type {
+	PixelColorReplacePreview,
+	PixelDraft,
+	PixelOperation,
+} from "@sprite-anvil/api/pixel-editor";
 import {
-	type PixelColorReplacePreview,
-	type PixelDraft,
-	type PixelOperation,
 	pixelColorReplacePreviewSchema,
 	pixelDraftCommitResponseSchema,
 	pixelDraftSchema,

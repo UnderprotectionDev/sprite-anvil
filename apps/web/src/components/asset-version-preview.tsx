@@ -28,7 +28,7 @@ export function AssetVersionPreview({
 			{/* biome-ignore lint/a11y/noNoninteractiveElementInteractions: Image load failures switch to the accessible error message above. */}
 			<img
 				alt={`${recordName}, Version ${versionNumber} preview`}
-				className="aspect-square w-32 rounded border bg-muted object-contain"
+				className="bg-muted aspect-square w-32 rounded border object-contain"
 				crossOrigin="use-credentials"
 				height={128}
 				loading="lazy"

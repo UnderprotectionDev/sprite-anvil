@@ -10,10 +10,8 @@ import {
 	resolveOfflineConflict,
 } from "../lib/offline-conflict-api";
 import type { OfflineStagingStore } from "../lib/offline-staging-store";
-import {
-	type ReconcileEntry,
-	reconcileStagedDrafts,
-} from "../lib/reconcile-staged-drafts";
+import type { ReconcileEntry } from "../lib/reconcile-staged-drafts";
+import { reconcileStagedDrafts } from "../lib/reconcile-staged-drafts";
 import { createResolutionKeys } from "../lib/resolution-keys";
 
 export interface AbandonConfirmationInput {

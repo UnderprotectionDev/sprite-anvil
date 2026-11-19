@@ -1,13 +1,11 @@
 import { assetVersionFileNameSchema } from "@sprite-anvil/api/asset-record-tracking";
-import {
-	AssetVersionContentLengthError,
-	AssetVersionIntegrityError,
-} from "@sprite-anvil/api/asset-version-integrity";
-import type { AssetVersionStore } from "@sprite-anvil/api/asset-versions";
-import {
-	type UnitVersionCorrectionInput,
-	unitVersionCorrectionInputSchema,
+import { AssetVersionContentLengthError } from "@sprite-anvil/api/asset-version-content-length-error";
+import { AssetVersionIntegrityError } from "@sprite-anvil/api/asset-version-integrity-error";
+import type {
+	AssetVersionStore,
+	UnitVersionCorrectionInput,
 } from "@sprite-anvil/api/asset-versions";
+import { unitVersionCorrectionInputSchema } from "@sprite-anvil/api/asset-versions";
 import type { Context, Hono } from "hono";
 import z from "zod";
 import type {
@@ -30,8 +28,8 @@ import {
 } from "./asset-version-integrity";
 
 const projectIdSchema = z.string().min(1).max(200);
-const assetRecordIdSchema = z.string().uuid();
-const assetVersionIdSchema = z.string().uuid();
+const assetRecordIdSchema = z.uuid();
+const assetVersionIdSchema = z.uuid();
 const uploadLengthHeader = "x-asset-version-size";
 const fileNameHeader = "x-asset-version-file-name";
 const idempotencyKeySchema = z.string().trim().min(1).max(128);
@@ -43,7 +41,7 @@ const candidateSourceKindSchema = z.enum([
 	"manual_import",
 	"external_working_file_edit",
 ]);
-const uploadLengthPattern = /^[1-9]\d*$/;
+const uploadLengthPattern = /^[1-9]\d*$/u;
 
 type StoredObject = NonNullable<
 	Awaited<ReturnType<ReturnType<typeof createStorage>["get"]>>

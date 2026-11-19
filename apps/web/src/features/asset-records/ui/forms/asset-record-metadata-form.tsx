@@ -1,7 +1,5 @@
-import {
-	type AssetRecord,
-	assetRecordCategoryValues,
-} from "@sprite-anvil/api/asset-records";
+import type { AssetRecord } from "@sprite-anvil/api/asset-records";
+import { assetRecordCategoryValues } from "@sprite-anvil/api/asset-records";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
@@ -9,7 +7,7 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/status-message";
@@ -79,7 +77,7 @@ export function AssetRecordMetadataForm({
 		},
 		validators: { onSubmit: assetRecordMetadataFormSchema },
 	});
-	const visualWorldId = useStore(
+	const visualWorldId = useSelector(
 		form.store,
 		(state) => state.values.visualWorldId
 	);
@@ -104,12 +102,12 @@ export function AssetRecordMetadataForm({
 		>
 			<div>
 				<h2
-					className="font-semibold text-xl"
+					className="text-xl font-semibold"
 					id="asset-record-metadata-heading"
 				>
 					Asset Record metadata
 				</h2>
-				<p className="mt-1 text-muted-foreground text-sm">
+				<p className="text-muted-foreground mt-1 text-sm">
 					Category and tags belong to this record. Theme and Visual World are
 					selected from project scope records.
 				</p>

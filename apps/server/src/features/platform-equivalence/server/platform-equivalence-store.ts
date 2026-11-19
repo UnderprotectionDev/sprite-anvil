@@ -1,15 +1,17 @@
 import type { ExportBundle } from "@sprite-anvil/api/export-bundles";
+import type {
+	PlatformEquivalenceReport,
+	PlatformEquivalenceRun,
+} from "@sprite-anvil/api/platform-equivalence";
 import {
-	type PlatformEquivalenceReport,
-	type PlatformEquivalenceRun,
 	platformEquivalenceOverviewSchema,
 	platformEquivalenceReportSchema,
 	platformEquivalenceRunSchema,
 } from "@sprite-anvil/api/platform-equivalence";
+import type { PlatformEquivalenceEvidence } from "@sprite-anvil/api/platform-equivalence-comparison";
 import {
 	compareEquivalenceEvidence,
 	deriveEquivalenceEvidence,
-	type PlatformEquivalenceEvidence,
 	platformEquivalenceEvidenceSchema,
 	platformEquivalenceNotEvaluated,
 } from "@sprite-anvil/api/platform-equivalence-comparison";
@@ -18,14 +20,15 @@ import type {
 	PlatformEquivalenceStore,
 } from "@sprite-anvil/api/platform-equivalence-store";
 import { recordContentDigest } from "@sprite-anvil/api/record-content-digest";
+import { RecordIntegrityError } from "@sprite-anvil/api/record-integrity-error";
 import {
 	idempotentRecordId,
-	RecordIntegrityError,
-	RetryablePublicationError,
 	replayPublishedRecord,
 	verifyPublishedRecord,
 } from "@sprite-anvil/api/record-publication";
-import { type Database, getProjectForUser } from "@sprite-anvil/db";
+import { RetryablePublicationError } from "@sprite-anvil/api/retryable-publication-error";
+import type { Database } from "@sprite-anvil/db";
+import { getProjectForUser } from "@sprite-anvil/db";
 import type {
 	PlatformEquivalenceStorage,
 	StoredPlatformEquivalenceReport,

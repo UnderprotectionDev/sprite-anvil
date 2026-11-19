@@ -11,7 +11,7 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { StatusMessage } from "@/components/status-message";
@@ -125,7 +125,7 @@ export function HistoricalCompositionManager({
 		onSubmit: ({ value }) => save(value),
 		validators: { onSubmit: historicalCompositionFormSchema },
 	});
-	const selection = useStore(form.store, (state) => state.values);
+	const selection = useSelector(form.store, (state) => state.values);
 	const [pending, setPending] = useState<HistoricalCompositionInput | null>(
 		null
 	);

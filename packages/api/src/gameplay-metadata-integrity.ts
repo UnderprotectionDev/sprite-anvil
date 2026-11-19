@@ -1,9 +1,9 @@
 import { z } from "zod";
-import {
-	type GameplayMetadataFrame,
-	type GameplayMetadataRecord,
-	getGameplayMetadataFields,
+import type {
+	GameplayMetadataFrame,
+	GameplayMetadataRecord,
 } from "./gameplay-metadata";
+import { getGameplayMetadataFields } from "./gameplay-metadata";
 import type { SpecializedProfileContract } from "./specialized-profile-contracts";
 
 export function canonicalGameplayMetadataJson(value: unknown): string {

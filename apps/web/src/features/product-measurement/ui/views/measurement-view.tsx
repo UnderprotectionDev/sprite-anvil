@@ -1,6 +1,8 @@
+import type {
+	MeasurementDefinition,
+	MeasurementDefinitionActivateInput,
+} from "@sprite-anvil/api/measurement-definitions";
 import {
-	type MeasurementDefinition,
-	type MeasurementDefinitionActivateInput,
 	measurementDefinitionActivateInputSchema,
 	measurementEventFamilySchema,
 } from "@sprite-anvil/api/measurement-definitions";

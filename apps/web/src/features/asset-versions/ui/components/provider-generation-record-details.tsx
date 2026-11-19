@@ -40,7 +40,7 @@ export function ProviderGenerationRecordDetails({
 		if (productionSource === "connected_provider") {
 			return (
 				<p
-					className="rounded-md border border-warning/50 bg-warning/10 p-3 text-sm"
+					className="border-warning/50 bg-warning/10 rounded-md border p-3 text-sm"
 					role="status"
 				>
 					A Provider Generation Record is pending. This version cannot be
@@ -159,7 +159,7 @@ export function ProviderGenerationRecordDetails({
 				<summary className="cursor-pointer font-medium">
 					Provider-specific parameters
 				</summary>
-				<pre className="mt-2 max-h-80 overflow-auto rounded-md bg-muted p-3 text-xs">
+				<pre className="bg-muted mt-2 max-h-80 overflow-auto rounded-md p-3 text-xs">
 					{Object.keys(providerGenerationRecord.parameterSnapshot.parameters)
 						.length > 0
 						? JSON.stringify(

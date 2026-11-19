@@ -10,8 +10,8 @@ import {
 	signUpWithFixture,
 } from "./project-workflow";
 
-const identityCheckboxName = /Independent product meaning/;
-const secondVersionCandidate = /ash-knight-alt\.png.*Version 2.*Candidate/;
+const identityCheckboxName = /Independent product meaning/u;
+const secondVersionCandidate = /ash-knight-alt\.png.*Version 2.*Candidate/u;
 
 test("persists an Asset Record created through the web flow", async ({
 	page,

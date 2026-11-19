@@ -1,18 +1,6 @@
 import { createHash } from "node:crypto";
-
-export class ImportInboxContentLengthError extends Error {
-	constructor() {
-		super("Import Inbox file content length does not match its declaration");
-		this.name = "ImportInboxContentLengthError";
-	}
-}
-
-export class ImportInboxIntegrityError extends Error {
-	constructor() {
-		super("Import Inbox file checksum does not match its managed record");
-		this.name = "ImportInboxIntegrityError";
-	}
-}
+import { ImportInboxContentLengthError } from "./import-inbox-content-length-error";
+import { ImportInboxIntegrityError } from "./import-inbox-integrity-error";
 
 export function createImportInboxIntegrityTransform(expectedLength: number) {
 	let contentLength = 0;

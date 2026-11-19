@@ -10,7 +10,8 @@ import type { ProjectContextStore } from "@sprite-anvil/api/project-context";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { createDb } from "@sprite-anvil/db";
 import { betterAuth } from "better-auth";
-import { type MemoryDB, memoryAdapter } from "better-auth/adapters/memory";
+import type { MemoryDB } from "better-auth/adapters/memory";
+import { memoryAdapter } from "better-auth/adapters/memory";
 import { testUtils } from "better-auth/plugins";
 import { Hono } from "hono";
 import {
@@ -20,7 +21,7 @@ import {
 
 const createdAt = new Date("2026-09-23T10:00:00.000Z");
 const secretFieldPattern =
-	/accessToken|refreshToken|encryptionKey|provider-access-token|project-encryption-key/i;
+	/accessToken|refreshToken|encryptionKey|provider-access-token|project-encryption-key/iu;
 const unusedProjectContextStore = {
 	createProject: () => {
 		throw new Error("Unexpected Project Context access in this test");

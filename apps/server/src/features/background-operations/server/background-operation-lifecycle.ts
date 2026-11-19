@@ -2,29 +2,13 @@ import type {
 	BackgroundOperation,
 	BackgroundOperationKind,
 } from "@sprite-anvil/api/background-operations";
+import { IdempotencyConflictError } from "@sprite-anvil/api/idempotency-conflict-error";
 import { recordContentDigest } from "@sprite-anvil/api/record-content-digest";
-import {
-	IdempotencyConflictError,
-	resolveRecordId,
-} from "@sprite-anvil/api/record-publication";
+import { resolveRecordId } from "@sprite-anvil/api/record-publication";
 import { OperationCancelledSignal } from "./operation-cancellation";
 import type { OperationStorage, OperationTransport } from "./operation-storage";
-
-/** A failure worth another attempt; `message` is shown to the user. */
-export class TransientOperationError extends Error {
-	constructor(message: string, options?: ErrorOptions) {
-		super(message, options);
-		this.name = "TransientOperationError";
-	}
-}
-
-/** A failure another attempt cannot fix; `message` is shown to the user. */
-export class PermanentOperationError extends Error {
-	constructor(message: string, options?: ErrorOptions) {
-		super(message, options);
-		this.name = "PermanentOperationError";
-	}
-}
+import { PermanentOperationError } from "./permanent-operation-error";
+import { TransientOperationError } from "./transient-operation-error";
 
 const unexpectedFailureMessage = "The operation failed unexpectedly.";
 const stalledMessage = "The operation stopped reporting progress.";

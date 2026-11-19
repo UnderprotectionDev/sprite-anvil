@@ -1,7 +1,5 @@
-import {
-	assetVersionReviewDispositionSchema,
-	type UnitVersionType,
-} from "@sprite-anvil/api/asset-versions";
+import type { UnitVersionType } from "@sprite-anvil/api/asset-versions";
+import { assetVersionReviewDispositionSchema } from "@sprite-anvil/api/asset-versions";
 import type { ProviderGenerationRecordCreateInput } from "@sprite-anvil/api/provider-generation-records";
 import { providerGenerationRecordCreateInputSchema } from "@sprite-anvil/api/provider-generation-records";
 import z from "zod";
@@ -30,7 +28,7 @@ type ProviderGenerationRecordFormValues =
 	typeof providerGenerationRecordFormDefaults;
 
 const maxDimension = 100_000;
-const listSeparatorPattern = /[\r\n,]/;
+const listSeparatorPattern = /[\r\n,]/u;
 
 function optionalText(value: string) {
 	const normalized = value.trim();

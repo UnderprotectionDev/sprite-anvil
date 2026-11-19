@@ -1,8 +1,8 @@
-import {
-	type CanvasAnchor,
-	canvasAnchorSchema,
-	type PixelOperation,
+import type {
+	CanvasAnchor,
+	PixelOperation,
 } from "@sprite-anvil/api/pixel-editor";
+import { canvasAnchorSchema } from "@sprite-anvil/api/pixel-editor";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
@@ -56,7 +56,7 @@ export function ResizeCanvasForm({
 				form.handleSubmit();
 			}}
 		>
-			<p className="font-medium text-sm">Canvas size</p>
+			<p className="text-sm font-medium">Canvas size</p>
 			<div className="grid grid-cols-2 gap-2">
 				<form.Field name="width">
 					{(field) => (
@@ -139,7 +139,7 @@ export function ScaleForm({
 				form.handleSubmit();
 			}}
 		>
-			<p className="font-medium text-sm">Integer scale</p>
+			<p className="text-sm font-medium">Integer scale</p>
 			<form.Field name="factor">
 				{(field) => (
 					<Label className="block space-y-1 text-xs" htmlFor="scale-factor">

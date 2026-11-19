@@ -56,10 +56,10 @@ export function AssetFamilyManagementForms({
 	return (
 		<section aria-labelledby="asset-family-setup" className="space-y-4">
 			<div>
-				<h2 className="font-semibold text-2xl" id="asset-family-setup">
+				<h2 className="text-2xl font-semibold" id="asset-family-setup">
 					Set up relationships
 				</h2>
-				<p className="mt-1 text-muted-foreground text-sm">
+				<p className="text-muted-foreground mt-1 text-sm">
 					Create a new Asset Family when the same subject has a different Visual
 					World or usage context.
 				</p>

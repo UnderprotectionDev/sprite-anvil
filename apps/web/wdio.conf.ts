@@ -1,4 +1,5 @@
-import { type ChildProcess, spawn } from "node:child_process";
+import type { ChildProcess } from "node:child_process";
+import { spawn } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { setTimeout as delay } from "node:timers/promises";
 import { browser } from "@wdio/globals";
@@ -108,7 +109,7 @@ export const config: Options.Testrunner = {
 		if (passed) {
 			return;
 		}
-		const name = `${test.parent} ${test.title}`.replace(/[^a-z0-9]+/gi, "-");
+		const name = `${test.parent} ${test.title}`.replace(/[^a-z0-9]+/giu, "-");
 		await browser.saveScreenshot(`${resultsDirectory}/${name}.png`);
 	},
 	onComplete: () => {

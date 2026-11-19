@@ -17,10 +17,9 @@ import { StatusMessage } from "@/components/status-message";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
+import type { MeasurementDraft, MeasurementState } from "../../schemas";
 import {
 	draftKey,
-	type MeasurementDraft,
-	type MeasurementState,
 	measurementsDraftFormSchema,
 	measurementsSaveFailureMessage,
 } from "../../schemas";
@@ -257,7 +256,7 @@ export function AssetRecordMeasurementsForm({
 		>
 			<header className="space-y-2">
 				<h2
-					className="font-semibold text-xl"
+					className="text-xl font-semibold"
 					id="asset-record-measurements-heading"
 				>
 					Image dimensions

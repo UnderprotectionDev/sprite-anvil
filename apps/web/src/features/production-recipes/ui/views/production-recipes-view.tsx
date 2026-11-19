@@ -2,8 +2,8 @@ import {
 	referenceFeatures,
 	referenceRoles,
 } from "@sprite-anvil/api/asset-record-tracking";
+import type { ProductionRecipe } from "@sprite-anvil/api/production-recipes";
 import {
-	type ProductionRecipe,
 	productionRecipeCreateInputSchema,
 	productionRecipeCreateVersionInputSchema,
 	productionRecipeUseInputSchema,
@@ -30,7 +30,7 @@ export function ProductionRecipesView({ projectId }: { projectId: string }) {
 	});
 	return (
 		<main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
-			<h1 className="font-semibold text-2xl">Production Recipes</h1>
+			<h1 className="text-2xl font-semibold">Production Recipes</h1>
 			<CreateRecipe
 				onCreated={() => void recipes.refetch()}
 				projectId={projectId}

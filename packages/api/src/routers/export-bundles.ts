@@ -11,9 +11,9 @@ import {
 	exportBundlePreviewSchema,
 	exportBundleSchema,
 } from "../export-bundles";
+import type { GodotOutputRejection } from "../godot-output";
 import {
 	buildGodotOutput,
-	type GodotOutputRejection,
 	godotAdapterVersion,
 	godotOutputGetInputSchema,
 	godotOutputSchema,

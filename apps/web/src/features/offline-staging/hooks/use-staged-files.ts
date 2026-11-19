@@ -1,10 +1,5 @@
-import {
-	type ChangeEvent,
-	useCallback,
-	useEffect,
-	useRef,
-	useState,
-} from "react";
+import type { ChangeEvent } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { uploadStagedFileToImportInbox } from "../lib/offline-staging-api";
 import type { OfflineStagingStore } from "../lib/offline-staging-store";
 import { sendStagedFiles } from "../lib/send-staged-files";

@@ -56,7 +56,7 @@ export function TransitionCompare({
 					you press Start transition. You can also switch by hand.
 				</p>
 			) : null}
-			<div className="flex max-h-[70vh] items-start overflow-auto rounded-md border bg-muted/30 p-3">
+			<div className="bg-muted/30 flex max-h-[70vh] items-start overflow-auto rounded-md border p-3">
 				<PixelCanvas
 					disabled
 					image={showingSource ? sourceImage : draftImage}

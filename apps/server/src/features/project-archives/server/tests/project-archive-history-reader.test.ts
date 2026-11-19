@@ -1,9 +1,7 @@
 import { expect, test } from "bun:test";
 import { historySectionSchemas } from "@sprite-anvil/api/project-archive-history";
-import {
-	type HistoryRows,
-	mapHistoryRows,
-} from "../project-archive-history-reader";
+import type { HistoryRows } from "../project-archive-history-reader";
+import { mapHistoryRows } from "../project-archive-history-reader";
 
 const at = new Date("2026-11-02T09:00:00.000Z");
 const empty: HistoryRows = {

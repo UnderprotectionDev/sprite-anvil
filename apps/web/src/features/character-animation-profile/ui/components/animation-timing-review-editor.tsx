@@ -1,7 +1,6 @@
-import {
-	type AnimationTimingReviewInput,
-	animationTimingReviewInputSchema,
-} from "@sprite-anvil/api/animation-timing-reviews";
+// biome-ignore-all lint/a11y/noLabelWithoutControl: each Label wraps its Input/Select/Textarea inside a TanStack form.Field render prop, which Biome cannot see through.
+import type { AnimationTimingReviewInput } from "@sprite-anvil/api/animation-timing-reviews";
+import { animationTimingReviewInputSchema } from "@sprite-anvil/api/animation-timing-reviews";
 import type { AssetVersion } from "@sprite-anvil/api/asset-versions";
 import type { GameplayMetadataRecord } from "@sprite-anvil/api/gameplay-metadata";
 import { Button } from "@sprite-anvil/ui/components/button";
@@ -14,15 +13,13 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ReducedMotionNotice } from "@/components/reduced-motion-notice";
 import { StatusMessage } from "@/components/status-message";
 import { AnimationTimingClipPreview } from "./animation-timing-clip-preview";
-import {
-	AnimationTimingEventTimeline,
-	type AnimationTimingMetadataStatus,
-} from "./animation-timing-event-timeline";
+import type { AnimationTimingMetadataStatus } from "./animation-timing-event-timeline";
+import { AnimationTimingEventTimeline } from "./animation-timing-event-timeline";
 
 const noOperation = () => undefined;
 
@@ -144,7 +141,7 @@ export function AnimationTimingReviewEditor({
 			}
 		},
 	});
-	const values = useStore(form.store, (state) => state.values);
+	const values = useSelector(form.store, (state) => state.values);
 	const { directions, playbackSpeed, looping } = values;
 	const setDirections = (
 		change: (previous: EditorDirection[]) => EditorDirection[]

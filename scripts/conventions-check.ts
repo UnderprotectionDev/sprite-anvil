@@ -5,7 +5,6 @@ import { join } from "node:path";
 import {
 	baselineGrowth,
 	baselinePath,
-	ConventionsError,
 	collectViolations,
 	compareWithBaseline,
 	formatBaseline,
@@ -14,10 +13,11 @@ import {
 	prunedBaseline,
 	readConventions,
 } from "./conventions";
+import { ConventionsError } from "./conventions-error";
 
 const root = join(import.meta.dir, "..");
 const baselineFile = join(root, baselinePath);
-const missingPath = /does not exist|exists on disk, but not in/;
+const missingPath = /does not exist|exists on disk, but not in/u;
 
 function optionValue(name: string): string | undefined {
 	const index = process.argv.indexOf(name);

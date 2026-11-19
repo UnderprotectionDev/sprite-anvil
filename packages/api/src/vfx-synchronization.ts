@@ -89,7 +89,7 @@ export const vfxVersionPinSchema = z
 		assetVersionId: id,
 		assetRecordId: id,
 		assetFamilyId: id,
-		contentDigest: z.string().regex(/^[a-f0-9]{64}$/),
+		contentDigest: z.string().regex(/^[a-f0-9]{64}$/u),
 		hasAlpha: z.boolean(),
 		width: z.number().int().positive(),
 		height: z.number().int().positive(),

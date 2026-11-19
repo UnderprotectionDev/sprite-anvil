@@ -1,9 +1,7 @@
 import type { AssetVersionCatalog } from "@sprite-anvil/api/asset-versions";
 import type { ReadinessEvidence } from "@sprite-anvil/api/family-readiness";
-import {
-	type VfxSynchronizationInput,
-	vfxBackgrounds,
-} from "@sprite-anvil/api/vfx-synchronization";
+import type { VfxSynchronizationInput } from "@sprite-anvil/api/vfx-synchronization";
+import { vfxBackgrounds } from "@sprite-anvil/api/vfx-synchronization";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Checkbox } from "@sprite-anvil/ui/components/checkbox";
 import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
@@ -14,7 +12,7 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useCallback, useId, useState } from "react";
 import {
 	vfxReviewResultSchema,
@@ -85,7 +83,7 @@ export function VfxSynchronizationEditor({
 			}
 		},
 	});
-	const input = useStore(form.store, (state) => state.values);
+	const input = useSelector(form.store, (state) => state.values);
 	const validation = vfxSynchronizationFormSchema.safeParse(input);
 	const effectVersionIds = new Set(
 		catalog.assetVersions

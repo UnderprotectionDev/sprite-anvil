@@ -23,7 +23,7 @@ const unknownId = "11111111-2222-4333-8444-555555555555";
 const visualWorldId = "3f1c8a52-7d41-4c0e-9a0b-6a7d2f1e5b01";
 const themeId = "a2b4c6d8-1e3f-4a5b-8c7d-9e0f1a2b3c4d";
 const timestamp = "2026-09-28T09:00:00.000Z";
-const causalWording = /\bcaused\b|\bbecause\b/i;
+const causalWording = /\bcaused\b|\bbecause\b/iu;
 
 const record = {
 	availability: "active",

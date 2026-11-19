@@ -30,7 +30,7 @@ function BlockerList({ plan }: { plan: ReadinessPlan }) {
 					<p className="text-muted-foreground text-xs">
 						{blockerKindLabels[blocker.kind]}
 					</p>
-					<p className="break-words font-medium">
+					<p className="font-medium break-words">
 						{blocker.itemName ?? "Whole target"}
 					</p>
 					{blocker.assetFamilyName ? (
@@ -104,7 +104,7 @@ export function ReadinessPlanPanel({
 					Summary
 				</h2>
 				<div className="flex flex-wrap items-center gap-2">
-					<p className="font-semibold text-lg">
+					<p className="text-lg font-semibold">
 						Target Readiness: {targetReadinessLabels[plan.targetReadiness]}
 					</p>
 					<Badge variant="outline">Revision {plan.revisionNumber}</Badge>
@@ -138,14 +138,14 @@ export function ReadinessPlanPanel({
 			) : null}
 
 			<section aria-labelledby="blockers-heading" className="space-y-3">
-				<h2 className="font-medium text-lg" id="blockers-heading">
+				<h2 className="text-lg font-medium" id="blockers-heading">
 					Blockers
 				</h2>
 				<BlockerList plan={plan} />
 			</section>
 
 			<section aria-labelledby="work-heading" className="space-y-3">
-				<h2 className="font-medium text-lg" id="work-heading">
+				<h2 className="text-lg font-medium" id="work-heading">
 					Dependent work
 				</h2>
 				<p className="text-muted-foreground text-sm">

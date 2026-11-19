@@ -185,7 +185,7 @@ const pinSchema = z
 		unitVersionId: id,
 		tileId: id,
 		assetVersionId: id,
-		contentDigest: z.string().regex(/^[a-f0-9]{64}$/),
+		contentDigest: z.string().regex(/^[a-f0-9]{64}$/u),
 		sourceImageDimensions: z
 			.object({
 				width: z.number().int().positive(),
@@ -215,7 +215,7 @@ export const tilesetAdjacencyReviewRecordSchema =
 		adjacencyIssues: z.array(adjacencyIssueSchema),
 		contractSnapshot: specializedProfileContractSchema,
 		reviewedByUserId: id,
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 	});
 export type TilesetTile = z.infer<typeof tilesetTileSchema>;
 export type TilesetAdjacencyReviewInput = z.infer<

@@ -17,7 +17,7 @@ export const subjectIdentityRecordSchema = z
 		id: idSchema,
 		projectId: idSchema,
 		name: nameSchema,
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 	})
 	.strict();
 
@@ -29,7 +29,7 @@ export const assetFamilyRecordSchema = z
 		name: nameSchema,
 		visualWorldId: idSchema,
 		useContext: useContextSchema,
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 	})
 	.strict();
 
@@ -39,7 +39,7 @@ export const assetRecordSchema = z
 		projectId: idSchema,
 		assetFamilyId: idSchema,
 		name: nameSchema,
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 	})
 	.strict();
 
@@ -52,7 +52,7 @@ export const assetFamilyRelationshipSchema = z
 		sourceAssetVersionId: idSchema.nullable(),
 		targetAssetRecordId: idSchema,
 		type: assetFamilyRelationshipTypeSchema,
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 	})
 	.strict();
 

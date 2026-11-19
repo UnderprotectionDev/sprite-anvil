@@ -1,5 +1,5 @@
 const maxSnapshotBytes = 100 * 1024 * 1024;
-const pathSeparatorPattern = /[\\/]/;
+const pathSeparatorPattern = /[\\/]/u;
 
 export interface LiveFileInfo {
 	isFile: boolean;
