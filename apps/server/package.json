@@ -15,7 +15,7 @@
     "worker": "bun run src/worker.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1138.0",
+    "@aws-sdk/client-s3": "^3.1172.0",
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
     "@orpc/zod": "catalog:",
@@ -25,8 +25,8 @@
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:",
     "fflate": "catalog:",
-    "hono": "^4.13.7",
-    "sharp": "^0.35.4",
+    "hono": "^4.13.19",
+    "sharp": "^0.35.5",
     "varlock": "catalog:",
     "zod": "catalog:"
   },
@@ -34,7 +34,7 @@
     "@orpc/client": "catalog:",
     "@sprite-anvil/config": "workspace:*",
     "@types/bun": "catalog:",
-    "tsdown": "^0.23.0",
+    "tsdown": "^0.23.7",
     "typescript": "catalog:"
   }
 }
