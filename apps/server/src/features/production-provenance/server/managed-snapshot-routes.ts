@@ -14,8 +14,8 @@ import { ManagedSnapshotDigestError } from "./managed-snapshot-digest-error";
 import { ManagedSnapshotLengthError } from "./managed-snapshot-length-error";
 
 const projectIdSchema = z.string().min(1).max(200);
-const assetVersionIdSchema = z.string().uuid();
-const managedSnapshotIdSchema = z.string().uuid();
+const assetVersionIdSchema = z.uuid();
+const managedSnapshotIdSchema = z.uuid();
 const idempotencyKeySchema = z.string().trim().min(1).max(128);
 const managedSnapshotSizeHeader = "x-managed-snapshot-size";
 const managedSnapshotFileNameHeader = "x-managed-snapshot-file-name";

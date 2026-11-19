@@ -47,7 +47,7 @@ const lineBreak = /\r?\n/u;
 
 const entitySchema = z
 	.object({ entityType: z.string(), name: z.string() })
-	.passthrough();
+	.loose();
 const snapshotSchema = z.object({
 	id: z.string(),
 	prevIds: z.array(z.string()).min(1),

@@ -105,7 +105,7 @@ function parseMetadata(value: string | undefined) {
 type UploadHeadersResult =
 	| {
 			contentLength: number;
-			contentType: (typeof assetVersionContentTypeSchema)["_output"];
+			contentType: z.output<typeof assetVersionContentTypeSchema>;
 			fileName: string;
 			id: string;
 			metadata: ReturnType<typeof referenceBoardMetadataSchema.parse>;

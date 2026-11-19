@@ -23,7 +23,7 @@ import { SheetStructureError } from "./sheet-structure";
  * in pixel-editor-http.ts turn it into a response.
  */
 
-export const draftIdSchema = z.string().uuid();
+export const draftIdSchema = z.uuid();
 
 export interface PixelEditorSession {
 	user: { id: string };

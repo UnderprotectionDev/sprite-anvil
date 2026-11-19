@@ -111,7 +111,7 @@ export const uiStateComparisonVersionPinSchema = z
 	.strict();
 export const uiStateComparisonRecordSchema = uiStateComparisonInputSchema
 	.extend({
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 		reviewedByUserId: id,
 		contractSnapshot: specializedProfileContractSchema,
 		versionPins: z.array(uiStateComparisonVersionPinSchema).min(1),

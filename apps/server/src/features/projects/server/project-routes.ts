@@ -17,7 +17,7 @@ import {
 } from "../../../output-contracts";
 
 const projectIdSchema = z.string().min(1).max(200);
-const twoDVisualAssetIdSchema = z.string().uuid();
+const twoDVisualAssetIdSchema = z.uuid();
 
 type StoredObject = NonNullable<
 	Awaited<ReturnType<ReturnType<typeof createStorage>["get"]>>

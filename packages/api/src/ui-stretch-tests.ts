@@ -229,7 +229,7 @@ export const uiStretchTestRecordSchema = uiStretchTestInputSchema
 	.extend({
 		contractVersion: z.literal("ui-stretch-test/1.0.0"),
 		contractSnapshot: specializedProfileContractSchema,
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 		createdByUserId: id,
 		versionPins: z.array(versionPin).min(1).max(25),
 		evaluations: z.array(evaluation).min(1).max(288),

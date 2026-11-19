@@ -150,7 +150,7 @@ export const pixelDraftStatusSchema = z.enum([
 ]);
 
 export const pixelDraftOpenInputSchema = z
-	.object({ sourceAssetVersionId: z.string().uuid() })
+	.object({ sourceAssetVersionId: z.uuid() })
 	.strict();
 
 export const pixelDraftOperationInputSchema = z
@@ -187,10 +187,10 @@ const colorUsageSchema = z
 
 export const pixelDraftSchema = z
 	.object({
-		id: z.string().uuid(),
+		id: z.uuid(),
 		projectId: z.string().min(1),
 		assetRecordId: z.string().min(1),
-		sourceAssetVersionId: z.string().uuid(),
+		sourceAssetVersionId: z.uuid(),
 		status: pixelDraftStatusSchema,
 		revision: z.number().int().min(0),
 		operations: z.array(pixelOperationSchema),
@@ -220,15 +220,15 @@ export const pixelDraftSchema = z
 		outOfPaletteColors: z.array(colorUsageSchema),
 		sourcePreviewUrl: z.string().min(1),
 		previewUrl: z.string().min(1),
-		committedAssetVersionId: z.string().uuid().nullable(),
-		updatedAt: z.string().datetime(),
+		committedAssetVersionId: z.uuid().nullable(),
+		updatedAt: z.iso.datetime(),
 	})
 	.strict();
 
 export const pixelDraftCommitResponseSchema = z
 	.object({
 		draft: pixelDraftSchema,
-		assetVersionId: z.string().uuid(),
+		assetVersionId: z.uuid(),
 		created: z.boolean(),
 	})
 	.strict();

@@ -151,7 +151,7 @@ export const requiredSetRevisionSchema = z
 		assetFamilyId: idSchema,
 		revisionNumber: z.number().int().positive(),
 		items: z.array(requiredSetItemSchema).max(100),
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 		createdByUserId: idSchema,
 		isActive: z.boolean(),
 		wasActivated: z.boolean(),
@@ -353,7 +353,7 @@ export const readinessEvidenceSchema = z
 		versionTarget: qualityVersionTargetSchema.nullish(),
 		method: z.string().nullable(),
 		rationale: z.string(),
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 		createdByUserId: idSchema,
 		isCurrent: z.boolean(),
 	})

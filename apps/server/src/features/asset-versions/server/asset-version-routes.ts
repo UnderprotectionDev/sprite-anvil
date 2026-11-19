@@ -28,8 +28,8 @@ import {
 } from "./asset-version-integrity";
 
 const projectIdSchema = z.string().min(1).max(200);
-const assetRecordIdSchema = z.string().uuid();
-const assetVersionIdSchema = z.string().uuid();
+const assetRecordIdSchema = z.uuid();
+const assetVersionIdSchema = z.uuid();
 const uploadLengthHeader = "x-asset-version-size";
 const fileNameHeader = "x-asset-version-file-name";
 const idempotencyKeySchema = z.string().trim().min(1).max(128);

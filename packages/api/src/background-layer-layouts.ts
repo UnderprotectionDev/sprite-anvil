@@ -104,7 +104,7 @@ export const backgroundLayerLayoutRecordSchema =
 	backgroundLayerLayoutInputSchema
 		.extend({
 			contractSnapshot: specializedProfileContractSchema,
-			createdAt: z.string().datetime(),
+			createdAt: z.iso.datetime(),
 			createdByUserId: id,
 			versionPins: z.array(versionPin).min(1).max(24),
 		})

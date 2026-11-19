@@ -5,9 +5,7 @@ import { AssetRecordDetailView } from "@/features/asset-records/ui/views/asset-r
 export const Route = createFileRoute(
 	"/_auth/projects_/$projectId/assets_/$assetRecordId"
 )({
-	validateSearch: z
-		.object({ versionId: z.string().uuid().optional() })
-		.catch({}),
+	validateSearch: z.object({ versionId: z.uuid().optional() }).catch({}),
 	component: AssetRecordDetailRoute,
 });
 

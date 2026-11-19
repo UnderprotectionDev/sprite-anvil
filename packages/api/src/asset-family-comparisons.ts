@@ -95,7 +95,7 @@ export const assetFamilyComparisonVersionPinSchema = z
 export const assetFamilyComparisonRecordSchema =
 	assetFamilyComparisonInputSchema
 		.extend({
-			createdAt: z.string().datetime(),
+			createdAt: z.iso.datetime(),
 			contractSnapshot: specializedProfileContractSchema,
 			reviewedByUserId: id,
 			versionPins: z

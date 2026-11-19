@@ -57,7 +57,7 @@ export const animationMetadataCompositeVersionSchema = z
 		projectId: identifier,
 		assetRecordId: identifier,
 		versionNumber: z.number().int().positive(),
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 		compositionMemberships: z.array(compositionMembershipSchema),
 	})
 	.strict();

@@ -430,7 +430,7 @@ export type TwoDVisualAssetStorage = Pick<
 	put: (
 		key: string,
 		body: ReadableStream<Uint8Array>,
-		contentType: (typeof twoDVisualAssetUploadContentTypeSchema)["_output"],
+		contentType: z.output<typeof twoDVisualAssetUploadContentTypeSchema>,
 		contentLength: number
 	) => Promise<void>;
 };

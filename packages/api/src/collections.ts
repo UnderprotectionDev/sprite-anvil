@@ -8,7 +8,7 @@ export const collectionRecordSchema = z
 		id: idSchema,
 		projectId: idSchema,
 		name: nameSchema,
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 	})
 	.strict();
 
@@ -17,7 +17,7 @@ export const collectionMembershipSchema = z
 		projectId: idSchema,
 		collectionId: idSchema,
 		assetRecordId: idSchema,
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 	})
 	.strict();
 

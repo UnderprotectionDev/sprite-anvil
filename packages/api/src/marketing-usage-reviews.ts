@@ -98,7 +98,7 @@ export const marketingUsageReviewRecordSchema = marketingUsageReviewInputSchema
 	.extend({
 		canonicalAssetVersionId: id.nullable(),
 		contractSnapshot: specializedProfileContractSchema,
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 		reviewedByUserId: id,
 		versionPins: z
 			.array(

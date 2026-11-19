@@ -97,7 +97,7 @@ export const backgroundScrollingTestRecordSchema =
 				})
 				.strict(),
 			outcome,
-			createdAt: z.string().datetime(),
+			createdAt: z.iso.datetime(),
 			createdByUserId: id,
 		})
 		.superRefine((record, ctx) => {

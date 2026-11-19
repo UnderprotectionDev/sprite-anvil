@@ -34,7 +34,7 @@ export function serializeProjectSummaryResponse(project: {
 }
 
 export const twoDVisualAssetAcceptedResponseSchema = z
-	.object({ twoDVisualAssetId: z.string().uuid() })
+	.object({ twoDVisualAssetId: z.uuid() })
 	.strict();
 
 export function serializeTwoDVisualAssetAcceptedResponse(

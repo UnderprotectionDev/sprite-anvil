@@ -114,7 +114,7 @@ export const iconFamilyReviewVersionSummarySchema = z
 export const iconFamilyReviewRecordSchema = iconFamilyReviewInputSchema
 	.extend({
 		contractSnapshot: specializedProfileContractSchema,
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 		reviewedByUserId: id,
 		versionPins: z
 			.array(iconFamilyReviewVersionSummarySchema)
@@ -157,7 +157,7 @@ export const iconFamilyReviewRecordSchema = iconFamilyReviewInputSchema
 export const iconFamilyReviewArchiveSchema = z
 	.object({
 		archiveType: z.literal("sprite-anvil.icon-family-review"),
-		exportedAt: z.string().datetime(),
+		exportedAt: z.iso.datetime(),
 		record: iconFamilyReviewRecordSchema,
 		schemaVersion: z.literal(1),
 	})

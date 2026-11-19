@@ -128,7 +128,7 @@ const contextRuleValueSchema = z.discriminatedUnion("type", [
 			value: z.string().trim().min(1).max(2000),
 		})
 		.strict(),
-	z.object({ type: z.literal("number"), value: z.number().finite() }).strict(),
+	z.object({ type: z.literal("number"), value: z.number() }).strict(),
 	z.object({ type: z.literal("boolean"), value: z.boolean() }).strict(),
 	z
 		.object({
@@ -143,7 +143,7 @@ const contextRuleSourceSchema = z.discriminatedUnion("kind", [
 	z
 		.object({
 			kind: z.literal("context_proposal"),
-			proposalId: z.string().uuid(),
+			proposalId: z.uuid(),
 		})
 		.strict(),
 ]);
@@ -191,7 +191,7 @@ export const contextRuleSchema = z
 		value: contextRuleValueSchema,
 		source: contextRuleSourceSchema,
 		rationale: z.string().trim().min(1).max(2000),
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 		supersedesRuleId: identifierSchema.optional(),
 		precedenceChain: z.array(contextScopeSchema).min(1).max(6),
 	})
@@ -199,14 +199,14 @@ export const contextRuleSchema = z
 
 export const contextRevisionSchema = z
 	.object({
-		id: z.string().uuid(),
+		id: z.uuid(),
 		projectId: projectIdSchema,
 		revisionNumber: z.number().int().nonnegative(),
-		sourceProposalId: z.string().uuid().nullable(),
+		sourceProposalId: z.uuid().nullable(),
 		ruleContractVersion: z.literal("context-rule/1.0.0"),
 		isActive: z.boolean(),
 		rules: z.array(contextRuleSchema),
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 	})
 	.strict();
 
@@ -216,7 +216,7 @@ export const projectContextSchema = z
 		name: z.string().trim().min(1).max(120),
 		generalArtDirection: z.string().trim().max(1000),
 		currentContextRevision: contextRevisionSchema,
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 	})
 	.strict();
 
@@ -265,7 +265,7 @@ export const contextRuleChangeSchema = z.discriminatedUnion("operation", [
 export const contextProposalInputSchema = z
 	.object({
 		projectId: projectIdSchema,
-		baseContextRevisionId: z.string().uuid(),
+		baseContextRevisionId: z.uuid(),
 		summary: z.string().trim().min(1).max(240),
 		changes: z.array(contextRuleChangeSchema).min(1).max(50),
 	})
@@ -349,16 +349,16 @@ export const contextProposalConflictSchema = z
 
 export const contextProposalReviewSchema = z
 	.object({
-		proposalId: z.string().uuid(),
-		baseContextRevisionId: z.string().uuid(),
+		proposalId: z.uuid(),
+		baseContextRevisionId: z.uuid(),
 		baseRevisionNumber: z.number().int().nonnegative(),
-		currentRevisionId: z.string().uuid(),
+		currentRevisionId: z.uuid(),
 		currentRevisionNumber: z.number().int().nonnegative(),
 		targetRevisionNumber: z.number().int().positive(),
 		activatedRevisionNumber: z.number().int().positive().nullable(),
 		isRebased: z.boolean(),
 		activationAllowed: z.boolean(),
-		checkedAt: z.string().datetime(),
+		checkedAt: z.iso.datetime(),
 		conflicts: z.array(contextProposalConflictSchema),
 		candidateRules: z.array(contextRuleSchema),
 		contextCopy: z.string(),
@@ -416,9 +416,9 @@ export const contextProposalSourceSchema = z.discriminatedUnion("kind", [
 
 export const contextProposalSchema = z
 	.object({
-		id: z.string().uuid(),
+		id: z.uuid(),
 		projectId: projectIdSchema,
-		baseContextRevisionId: z.string().uuid(),
+		baseContextRevisionId: z.uuid(),
 		contractVersion: z.literal("context-agent/1.0.0"),
 		ruleContractVersion: z.literal("context-rule/1.0.0"),
 		summary: z.string().min(1).max(240),
@@ -427,12 +427,12 @@ export const contextProposalSchema = z
 		validation: z
 			.object({
 				isValid: z.boolean(),
-				checkedAt: z.string().datetime(),
+				checkedAt: z.iso.datetime(),
 				conflicts: z.array(contextProposalConflictSchema),
 			})
 			.strict(),
 		activationAllowed: z.literal(false),
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 	})
 	.strict();
 
@@ -443,15 +443,15 @@ export const contextProposalListInputSchema = z
 export const contextProposalReviewInputSchema = z
 	.object({
 		projectId: projectIdSchema,
-		proposalId: z.string().uuid(),
+		proposalId: z.uuid(),
 	})
 	.strict();
 
 export const contextProposalActivationInputSchema = z
 	.object({
 		projectId: projectIdSchema,
-		proposalId: z.string().uuid(),
-		expectedCurrentRevisionId: z.string().uuid(),
+		proposalId: z.uuid(),
+		expectedCurrentRevisionId: z.uuid(),
 	})
 	.strict();
 

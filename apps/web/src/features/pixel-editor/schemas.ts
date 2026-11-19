@@ -96,7 +96,10 @@ export const replaceColorFormSchema = z
 	});
 
 export const frameSourceFormSchema = z.object({
-	assetVersionId: z.string().trim().uuid("Enter a valid Asset Version ID"),
+	assetVersionId: z
+		.string()
+		.trim()
+		.pipe(z.uuid("Enter a valid Asset Version ID")),
 });
 
 const gridCoordinate = (label: string) => wholeNumber(0, 100_000, label);

@@ -61,7 +61,7 @@ export const vfxAppearanceInputSchema = vfxAppearanceListInputSchema
 	.strict();
 export const vfxAppearanceRecordSchema = vfxAppearanceInputSchema
 	.extend({
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 		reviewedByUserId: id,
 		measuredOverflowPx: z.number().int().nonnegative(),
 		contractSnapshot: specializedProfileContractSchema,

@@ -94,7 +94,7 @@ export const portraitIdentityReviewRecordSchema =
 	portraitIdentityReviewInputSchema
 		.extend({
 			contractSnapshot: specializedProfileContractSchema,
-			createdAt: z.string().datetime(),
+			createdAt: z.iso.datetime(),
 			reviewedByUserId: id,
 			canonicalAssetVersionId: id,
 			familyName: z.string().min(1).max(120),

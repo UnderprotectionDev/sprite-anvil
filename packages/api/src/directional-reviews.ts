@@ -31,7 +31,7 @@ export const directionalReviewListInputSchema = z
 	.strict();
 export const directionalReviewInputSchema = directionalReviewListInputSchema
 	.extend({
-		id: z.string().uuid(),
+		id: z.uuid(),
 		canonicalDesignId: id,
 		contractRevisionId: id,
 		directions: z
@@ -67,7 +67,7 @@ export const directionalReviewInputSchema = directionalReviewListInputSchema
 	.strict();
 export const directionalReviewRecordSchema = directionalReviewInputSchema
 	.extend({
-		createdAt: z.string().datetime(),
+		createdAt: z.iso.datetime(),
 		reviewedByUserId: id,
 		canonicalAssetVersionId: id,
 		versionPins: z

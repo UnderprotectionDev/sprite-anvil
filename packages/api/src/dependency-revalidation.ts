@@ -28,7 +28,7 @@ export const dependencyLinkInputSchema = z
 	.strict();
 export const dependencyLinkSchema = dependencyLinkInputSchema.extend({
 	id: idSchema,
-	createdAt: z.string().datetime(),
+	createdAt: z.iso.datetime(),
 });
 export const changeFacetInputSchema = z
 	.object({
@@ -56,7 +56,7 @@ export const affectedVersionSchema = z
 	.strict();
 export const changeImpactSchema = changeFacetInputSchema.extend({
 	id: idSchema,
-	createdAt: z.string().datetime(),
+	createdAt: z.iso.datetime(),
 	affectedVersions: affectedVersionSchema.array(),
 });
 export const dependencyCatalogInputSchema = z
@@ -82,7 +82,7 @@ export const derivativeReReviewInputSchema = z
 	.strict();
 export const derivativeReReviewSchema = derivativeReReviewInputSchema.extend({
 	id: idSchema,
-	createdAt: z.string().datetime(),
+	createdAt: z.iso.datetime(),
 });
 export const dependencyCatalogSchema = z
 	.object({
