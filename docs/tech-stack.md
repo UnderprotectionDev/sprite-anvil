@@ -4,6 +4,7 @@
 
 - TypeScript (`strict`)
 - Bun (runtime ve package manager)
+- Node.js 22.12 or newer (platform floor in the root `engines`): Next.js and the Tailwind CSS PostCSS plugin run on Node, and Tailwind CSS 4.3.4+ loads an ESM-only dependency with `require()`
 - Bun Workspaces
 - Turborepo
 
