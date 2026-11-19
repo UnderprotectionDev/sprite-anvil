@@ -15,7 +15,7 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useState } from "react";
 import { StatusMessage } from "@/components/status-message";
@@ -314,7 +314,7 @@ export function IconFamilyReviewManager({
 			},
 		},
 	});
-	const items = useStore(form.store, (state) => state.values.items);
+	const items = useSelector(form.store, (state) => state.values.items);
 	const [itemsTouched, setItemsTouched] = useState(false);
 	const [initializedItemCatalog, setInitializedItemCatalog] =
 		useState(itemCatalogSignature);

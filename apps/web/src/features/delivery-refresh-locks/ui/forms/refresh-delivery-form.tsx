@@ -10,7 +10,7 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import type { SyntheticEvent } from "react";
 import { useState } from "react";
@@ -92,7 +92,7 @@ export function RefreshDeliveryForm({ projectId }: { projectId: string }) {
 		},
 		validators: { onSubmit: refreshFormSchema },
 	});
-	const values = useStore(form.store, (state) => state.values);
+	const values = useSelector(form.store, (state) => state.values);
 	const review = useRefreshReview({
 		bundleId: values.bundleId,
 		decided: values.decided,

@@ -12,7 +12,7 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
-import { useStore } from "@tanstack/react-form";
+import { useSelector } from "@tanstack/react-form";
 import type { SyntheticEvent } from "react";
 import type { AssetFamilyForms } from "../../hooks/use-asset-family-forms";
 
@@ -57,7 +57,7 @@ export function SubjectIdentityForm({
 	form: AssetFamilyForms["subjectIdentityForm"];
 	isSaving: boolean;
 }) {
-	const name = useStore(form.store, (state) => state.values.name);
+	const name = useSelector(form.store, (state) => state.values.name);
 	return (
 		<form
 			className="border-l-primary/70 space-y-3 rounded-lg border border-l-2 p-4"
@@ -116,8 +116,11 @@ export function AssetFamilyForm({
 	subjectIdentities: AssetFamilyCatalog["subjectIdentities"];
 	visualWorlds: { id: string; name: string }[];
 }) {
-	const name = useStore(form.store, (state) => state.values.name);
-	const useContext = useStore(form.store, (state) => state.values.useContext);
+	const name = useSelector(form.store, (state) => state.values.name);
+	const useContext = useSelector(
+		form.store,
+		(state) => state.values.useContext
+	);
 	return (
 		<form
 			className="border-l-primary/70 space-y-3 rounded-lg border border-l-2 p-4"
@@ -248,8 +251,8 @@ export function AssetRecordForm({
 	isSaving: boolean;
 	selectedAssetFamilyId: string;
 }) {
-	const name = useStore(form.store, (state) => state.values.name);
-	const identityCriteria = useStore(
+	const name = useSelector(form.store, (state) => state.values.name);
+	const identityCriteria = useSelector(
 		form.store,
 		(state) => state.values.identityCriteria
 	);
@@ -382,7 +385,7 @@ export function AssetFamilyRelationshipForm({
 	selectedSourceId: string;
 	selectedTargetId: string;
 }) {
-	const type = useStore(form.store, (state) => state.values.type);
+	const type = useSelector(form.store, (state) => state.values.type);
 	const familyRecords = assetRecords.filter(
 		(assetRecord) => assetRecord.assetFamilyId === selectedAssetFamilyId
 	);

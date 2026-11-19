@@ -7,7 +7,7 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { opaqueHex } from "../../lib/pixel-geometry";
 import type {
 	PixelEditorToolStore,
@@ -49,7 +49,7 @@ export function ToolPanel({
 	size: { height: number; width: number };
 	store: PixelEditorToolStore;
 }) {
-	const state = useStore(store, (current) => current);
+	const state = useSelector(store, (current) => current);
 	const selection: PixelRect | null = state.selection;
 
 	return (

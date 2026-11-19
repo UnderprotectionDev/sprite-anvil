@@ -20,7 +20,7 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import type {
@@ -2005,7 +2005,7 @@ function EvidenceForm({
 		targetWidth,
 		usageVariant,
 		versionTarget,
-	} = useStore(form.store, (state) => state.values);
+	} = useSelector(form.store, (state) => state.values);
 	const [grayscaleReviewedScopeKey, setGrayscaleReviewedScopeKey] = useState<
 		string | null
 	>(null);

@@ -1,7 +1,7 @@
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { useEffect, useRef } from "react";
 import { drawBackground, drawImageCrisp } from "../../lib/canvas-drawing";
 import { opaqueHex } from "../../lib/pixel-geometry";
@@ -35,7 +35,7 @@ export function ComparePreview({
 	sourceImage: HTMLImageElement | null;
 	store: PixelEditorToolStore;
 }) {
-	const state = useStore(store, (current) => current);
+	const state = useSelector(store, (current) => current);
 	const scale = state.previewScale;
 	return (
 		<section aria-label="Real-size preview" className="space-y-3">

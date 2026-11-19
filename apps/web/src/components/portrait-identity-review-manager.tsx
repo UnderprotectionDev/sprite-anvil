@@ -22,7 +22,7 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { StatusMessage } from "@/components/status-message";
@@ -187,7 +187,7 @@ export function PortraitIdentityReviewManager({
 		onSubmit: ({ value }) => submit(value),
 		validators: { onSubmit: portraitIdentityReviewFormSchema },
 	});
-	const values = useStore(form.store, (state) => state.values);
+	const values = useSelector(form.store, (state) => state.values);
 	const { items, observations, rationale } = values;
 	const input = portraitIdentityReviewInputSchema.safeParse({
 		id: crypto.randomUUID(),

@@ -6,7 +6,7 @@ import {
 	CommandItem,
 	CommandList,
 } from "@sprite-anvil/ui/components/command";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
@@ -16,7 +16,7 @@ export function WorkbenchSearch({ projectId }: { projectId: string }) {
 	const [open, setOpen] = useState(false);
 	const navigate = useNavigate();
 	const form = useForm({ defaultValues: { name: "" } });
-	const name = useStore(form.store, (state) => state.values.name).trim();
+	const name = useSelector(form.store, (state) => state.values.name).trim();
 	const query = useQuery({
 		...orpc.assetRecords.search.queryOptions({
 			input: {

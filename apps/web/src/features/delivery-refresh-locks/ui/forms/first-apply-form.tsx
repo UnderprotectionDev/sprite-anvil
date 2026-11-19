@@ -5,7 +5,7 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import type { SyntheticEvent } from "react";
 import { useState } from "react";
@@ -103,7 +103,7 @@ export function FirstApplyForm({ projectId }: { projectId: string }) {
 		},
 		validators: { onSubmit: firstApplyFormSchema },
 	});
-	const values = useStore(form.store, (state) => state.values);
+	const values = useSelector(form.store, (state) => state.values);
 	const bundle = useQuery({
 		...orpc.exportBundles.get.queryOptions({
 			input: { bundleId: values.bundleId, projectId },

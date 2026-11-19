@@ -12,7 +12,7 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { AssetVersionPreview } from "@/components/asset-version-preview";
 import { ENV } from "@/env";
 import type { useAssetVersionWrites } from "@/utils/use-asset-version-writes";
@@ -99,7 +99,7 @@ export function CompositeVersionControls({
 			}
 		},
 	});
-	const { selectedUnitVersionIds, sourceCompositeVersionId } = useStore(
+	const { selectedUnitVersionIds, sourceCompositeVersionId } = useSelector(
 		form.store,
 		(state) => state.values
 	);
@@ -403,7 +403,7 @@ function CompositeVersionReviewControls({
 		defaultValues: { rationale: "" },
 		validators: { onChange: reviewRationaleFormSchema },
 	});
-	const rationale = useStore(form.store, (state) => state.values.rationale);
+	const rationale = useSelector(form.store, (state) => state.values.rationale);
 	const review = (decision: "approved" | "candidate" | "rejected") =>
 		void writes.reviewCompositeVersion(
 			compositeVersion.id,

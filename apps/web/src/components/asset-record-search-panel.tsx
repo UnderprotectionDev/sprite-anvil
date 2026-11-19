@@ -9,7 +9,7 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { WindowVirtualList } from "@sprite-anvil/ui/components/window-virtual-list";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useState } from "react";
@@ -126,11 +126,11 @@ export function AssetRecordSearchPanel({
 		},
 		validators: { onSubmit: validateSearchDraft },
 	});
-	const selectedVisualWorldId = useStore(
+	const selectedVisualWorldId = useSelector(
 		form.store,
 		(state) => state.values.visualWorldId
 	);
-	const validationMessage = useStore(
+	const validationMessage = useSelector(
 		form.store,
 		(state) => state.errorMap.onSubmit
 	);

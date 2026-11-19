@@ -4,7 +4,7 @@ import type {
 } from "@sprite-anvil/api/asset-families";
 import type { AssetRecordIdentityCriterion } from "@sprite-anvil/api/asset-records";
 import type { AssetVersionCatalog } from "@sprite-anvil/api/asset-versions";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
@@ -200,9 +200,15 @@ export function useAssetFamilyForms({
 		},
 	});
 
-	const familyDraft = useStore(assetFamilyForm.store, (state) => state.values);
-	const recordDraft = useStore(assetRecordForm.store, (state) => state.values);
-	const relationshipDraft = useStore(
+	const familyDraft = useSelector(
+		assetFamilyForm.store,
+		(state) => state.values
+	);
+	const recordDraft = useSelector(
+		assetRecordForm.store,
+		(state) => state.values
+	);
+	const relationshipDraft = useSelector(
 		relationshipForm.store,
 		(state) => state.values
 	);

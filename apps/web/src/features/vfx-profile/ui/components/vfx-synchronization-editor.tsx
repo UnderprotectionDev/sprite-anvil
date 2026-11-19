@@ -12,7 +12,7 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useCallback, useId, useState } from "react";
 import {
 	vfxReviewResultSchema,
@@ -83,7 +83,7 @@ export function VfxSynchronizationEditor({
 			}
 		},
 	});
-	const input = useStore(form.store, (state) => state.values);
+	const input = useSelector(form.store, (state) => state.values);
 	const validation = vfxSynchronizationFormSchema.safeParse(input);
 	const effectVersionIds = new Set(
 		catalog.assetVersions

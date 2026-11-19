@@ -18,7 +18,7 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import {
@@ -165,7 +165,7 @@ export function TextureRepetitionReviewManager({
 			await save(value);
 		},
 	});
-	const values = useStore(form.store, (state) => state.values);
+	const values = useSelector(form.store, (state) => state.values);
 	const unitId = getSelectedUnitId(reviewable, values.unitId);
 	const previousUnitId = useRef(unitId);
 	const unit = reviewable.find((item) => item.id === unitId);

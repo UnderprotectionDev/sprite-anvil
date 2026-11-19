@@ -6,7 +6,7 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Link } from "@tanstack/react-router";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { useState } from "react";
 import { StatusMessage } from "@/components/status-message";
 import { useLoadedImage } from "../../hooks/use-loaded-image";
@@ -45,7 +45,7 @@ export function PixelEditorView({
 	sourceAssetVersionId: string;
 }) {
 	const [store] = useState(createPixelEditorToolStore);
-	const state = useStore(store, (current) => current);
+	const state = useSelector(store, (current) => current);
 	const { commit, discard, draft, draftQuery, history, isBusy, operation } =
 		usePixelDraft(projectId, sourceAssetVersionId);
 	const draftImage = useLoadedImage(draft ? pixelDraftPreviewUrl(draft) : null);

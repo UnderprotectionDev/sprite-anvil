@@ -1,6 +1,6 @@
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import type {
 	DragEvent,
 	ClipboardEvent as ReactClipboardEvent,
@@ -71,8 +71,8 @@ export function ExternalWorkingFileEditUpload({
 		},
 		validators: { onSubmit: externalWorkingFileEditFormSchema },
 	});
-	const busy = useStore(form.store, (state) => state.isSubmitting);
-	const values = useStore(form.store, (state) => state.values);
+	const busy = useSelector(form.store, (state) => state.isSubmitting);
+	const values = useSelector(form.store, (state) => state.values);
 
 	function selectFile(
 		file: File | null,

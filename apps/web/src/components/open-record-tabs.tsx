@@ -6,7 +6,7 @@ import {
 	useParams,
 	useSearch,
 } from "@tanstack/react-router";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import { useEffect } from "react";
 import type { OpenRecordStore } from "@/utils/open-records";
 import { openRecordStore, rememberOpenRecord } from "@/utils/open-records";
@@ -26,7 +26,7 @@ export function OpenRecordTabs({
 			? search.versionId
 			: undefined;
 	const navigate = useNavigate();
-	const allTabs = useStore(store, (state) => state);
+	const allTabs = useSelector(store, (state) => state);
 	const tabs = allTabs.filter(
 		(tab) => tab.userId === userId && tab.projectId === projectId
 	);

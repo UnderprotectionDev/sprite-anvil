@@ -15,7 +15,7 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { StatusMessage } from "@/components/status-message";
@@ -133,7 +133,7 @@ export function UiStretchTestManager({
 		defaultValues,
 		onSubmit: ({ value }) => save(value),
 	});
-	const values = useStore(form.store, (state) => state.values);
+	const values = useSelector(form.store, (state) => state.values);
 	const { drafts, targets, screenVersion, sampleText, observations } = values;
 	const [error, setError] = useState("");
 	const [message, setMessage] = useState("");

@@ -16,7 +16,7 @@ import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
 import { WindowVirtualList } from "@sprite-anvil/ui/components/window-virtual-list";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
@@ -244,7 +244,7 @@ export function AssetRecordsView({
 		onSubmit: ({ value }) => handleCreateRecord(value),
 		validators: { onSubmit: assetRecordCreateFormSchema },
 	});
-	const draftIsComplete = useStore(
+	const draftIsComplete = useSelector(
 		form.store,
 		(state) => assetRecordCreateFormSchema.safeParse(state.values).success
 	);

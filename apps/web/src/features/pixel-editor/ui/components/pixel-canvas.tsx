@@ -1,5 +1,5 @@
 import type { PixelOperation, PixelRect } from "@sprite-anvil/api/pixel-editor";
-import { useStore } from "@tanstack/react-store";
+import { useSelector } from "@tanstack/react-store";
 import type { KeyboardEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { paintScene } from "../../lib/canvas-scene";
@@ -61,7 +61,7 @@ export function PixelCanvas({
 	store,
 	underlay,
 }: PixelCanvasProps) {
-	const state = useStore(store, (current) => current);
+	const state = useSelector(store, (current) => current);
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const [anchor, setAnchor] = useState<Cell | null>(null);
 	const [hover, setHover] = useState<Cell | null>(null);

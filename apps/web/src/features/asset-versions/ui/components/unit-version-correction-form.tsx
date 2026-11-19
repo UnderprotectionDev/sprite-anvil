@@ -10,7 +10,7 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import type { useAssetVersionWrites } from "@/utils/use-asset-version-writes";
 import { reviewDispositionLabels } from "../../lib/review-disposition-labels";
 import {
@@ -73,7 +73,7 @@ export function UnitVersionCorrectionForm({
 			}
 		},
 	});
-	const values = useStore(form.store, (state) => state.values);
+	const values = useSelector(form.store, (state) => state.values);
 	const normalizedUnitKey = values.unitKey.trim();
 
 	function sourceVersionsFor(unitType: UnitVersionType, unitKey: string) {

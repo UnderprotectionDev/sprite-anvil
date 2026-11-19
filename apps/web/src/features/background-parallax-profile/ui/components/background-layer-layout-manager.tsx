@@ -14,7 +14,7 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import {
@@ -186,7 +186,7 @@ export function BackgroundLayerLayoutManager({
 			await save(value.layers);
 		},
 	});
-	const layers = useStore(form.store, (state) => state.values.layers);
+	const layers = useSelector(form.store, (state) => state.values.layers);
 	const [message, setMessage] = useState("");
 	const [error, setError] = useState("");
 	const saveMutation = useMutation(

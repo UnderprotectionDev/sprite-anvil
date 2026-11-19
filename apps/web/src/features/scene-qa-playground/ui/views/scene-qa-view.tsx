@@ -4,7 +4,7 @@ import {
 	sceneQaSetupSchema,
 } from "@sprite-anvil/api/scene-qa";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { StatusMessage } from "@/components/status-message";
@@ -60,7 +60,7 @@ export function SceneQaView({ projectId }: { projectId: string }) {
 		},
 		onSubmit: ({ value }) => save(value),
 	});
-	const { name, setup, observations } = useStore(
+	const { name, setup, observations } = useSelector(
 		form.store,
 		(state) => state.values
 	);

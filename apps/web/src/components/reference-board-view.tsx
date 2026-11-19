@@ -11,7 +11,7 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { ClipboardEvent } from "react";
 import { useEffect, useRef, useState } from "react";
@@ -120,7 +120,7 @@ function useValidationError(
 	form: ReferenceConstraintForm,
 	hasCanonicalDesign: boolean
 ) {
-	return useStore(form.store, (state) =>
+	return useSelector(form.store, (state) =>
 		referenceConstraintError(state.values, hasCanonicalDesign)
 	);
 }
@@ -620,7 +620,7 @@ export function ReferenceBoardView({
 		},
 		validators: { onSubmit: referenceVersionLinkFormSchema },
 	});
-	const selectedVersionId = useStore(
+	const selectedVersionId = useSelector(
 		versionLinkForm.store,
 		(state) => state.values.selectedVersionId
 	);

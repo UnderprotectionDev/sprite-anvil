@@ -11,7 +11,7 @@ import { Checkbox } from "@sprite-anvil/ui/components/checkbox";
 import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
 import { Label } from "@sprite-anvil/ui/components/label";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { AssetVersionPreview } from "@/components/asset-version-preview";
@@ -86,7 +86,7 @@ export function AssetFamilyComparisonManager({
 		validators: { onChange: assetFamilyComparisonFormSchema },
 		onSubmit: ({ value }) => save(value),
 	});
-	const { selectedRecordIds, observations } = useStore(
+	const { selectedRecordIds, observations } = useSelector(
 		form.store,
 		(state) => state.values
 	);

@@ -15,7 +15,7 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { SyntheticEvent } from "react";
 import { useEffect, useRef, useState } from "react";
@@ -455,7 +455,7 @@ export function RightsRecordPanel({
 			},
 		},
 	});
-	const draft = useStore(form.store, (state) => state.values);
+	const draft = useSelector(form.store, (state) => state.values);
 	const { evidenceFile } = draft;
 	const queryInput = { assetRecordId, projectId, referenceId };
 	const historyQuery = useQuery({

@@ -10,7 +10,7 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import {
 	builtinProfileItemText,
 	builtinProfileName,
@@ -51,7 +51,7 @@ export function SceneQaAddPlacement({
 			}
 		},
 	});
-	const { role, usageTestId, versionId } = useStore(
+	const { role, usageTestId, versionId } = useSelector(
 		form.store,
 		(state) => state.values
 	);

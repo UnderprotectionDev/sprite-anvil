@@ -11,7 +11,7 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { RefObject } from "react";
 import { useRef, useState } from "react";
@@ -125,7 +125,7 @@ function ManualImportPackageForm({
 	selectedPackageExists,
 	writeOutcomeUncertain,
 }: ManualImportPackageFormProps) {
-	const values = useStore(form.store, (state) => state.values);
+	const values = useSelector(form.store, (state) => state.values);
 	const { file } = values;
 	const fileIsSupported = isSupportedManualImportFile(file);
 	const locked = isSaving || writeOutcomeUncertain;
@@ -357,7 +357,7 @@ export function ManualImportEvidenceForm({
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
 	const form = useManualImportForm(submit);
-	const generationPackageId = useStore(
+	const generationPackageId = useSelector(
 		form.store,
 		(state) => state.values.generationPackageId
 	);

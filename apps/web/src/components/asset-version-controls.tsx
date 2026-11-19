@@ -6,7 +6,7 @@ import type {
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Label } from "@sprite-anvil/ui/components/label";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
-import { useForm, useStore } from "@tanstack/react-form";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { Link } from "@tanstack/react-router";
 import { AssetVersionPreview } from "@/components/asset-version-preview";
 import { ExternalWorkingFileEditUpload } from "@/components/external-working-file-edit-upload";
@@ -341,7 +341,7 @@ function AssetVersionReviewControls({
 		defaultValues: { rationale: "" },
 		validators: { onChange: reviewRationaleFormSchema },
 	});
-	const rationale = useStore(form.store, (state) => state.values.rationale);
+	const rationale = useSelector(form.store, (state) => state.values.rationale);
 	const providerGenerationRecordMissing =
 		version.productionSource === "connected_provider" &&
 		!version.providerGenerationRecord;
