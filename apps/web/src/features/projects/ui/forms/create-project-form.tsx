@@ -40,6 +40,12 @@ export function CreateProjectForm({
 			onSubmit={(event) => {
 				event.preventDefault();
 				event.stopPropagation();
+				// A locked form must not start a submit: handleSubmit validates
+				// asynchronously, so a pending submit could otherwise read values
+				// after the form has been reset.
+				if (isSaving || writeOutcomeUncertain) {
+					return;
+				}
 				form.handleSubmit();
 			}}
 		>
