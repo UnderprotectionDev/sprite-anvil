@@ -6,10 +6,8 @@ import {
 	CommandItem,
 	CommandList,
 } from "@sprite-anvil/ui/components/command";
-import {
-	createDialogHandle,
-	DialogTrigger,
-} from "@sprite-anvil/ui/components/dialog";
+import { DialogTrigger } from "@sprite-anvil/ui/components/dialog";
+import { createDialogHandle } from "@sprite-anvil/ui/lib/dialog-handle";
 import { useForm, useSelector } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";

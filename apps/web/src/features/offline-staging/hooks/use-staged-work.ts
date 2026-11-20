@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect } from "react";
 import { orpc } from "@/utils/orpc";
+import { offlineStagingQueryKey } from "../lib/offline-staging-query-key";
 import {
 	getOfflineStagingStore,
 	hasUnassignedOfflineStorage,
@@ -22,7 +23,7 @@ export function useStagedWork(projectId: string, userId: string) {
 		retry: false,
 	});
 	const staged = useQuery({
-		queryKey: ["offline-staging", userId, projectId],
+		queryKey: offlineStagingQueryKey(userId, projectId),
 		queryFn: async () => ({
 			cachedProject: await store.readCachedProject(projectId),
 			drafts: await store.listStagedDrafts(projectId),
@@ -36,7 +37,7 @@ export function useStagedWork(projectId: string, userId: string) {
 	const refresh = useCallback(
 		() =>
 			queryClient.invalidateQueries({
-				queryKey: ["offline-staging", userId, projectId],
+				queryKey: offlineStagingQueryKey(userId, projectId),
 			}),
 		[queryClient, userId, projectId]
 	);
@@ -51,5 +52,23 @@ export function useStagedWork(projectId: string, userId: string) {
 		}
 	}, [projectQuery.data, projectId, refresh, store]);
 
-	return { projectQuery, refresh, staged, store };
+	const cachedProject = staged.data?.cachedProject;
+	const cached = cachedProjectSchema.safeParse(cachedProject?.project);
+	const projectName =
+		projectQuery.data?.name ?? (cached.success ? cached.data.name : null);
+	const cachedAt =
+		!projectQuery.data && cached.success
+			? (cachedProject?.cachedAt ?? null)
+			: null;
+
+	return {
+		cachedAt,
+		drafts: staged.data?.drafts ?? [],
+		files: staged.data?.files ?? [],
+		hasUnassignedStorage: staged.data?.unassignedStorage,
+		isProjectPending: projectQuery.isPending,
+		projectName,
+		refresh,
+		store,
+	};
 }

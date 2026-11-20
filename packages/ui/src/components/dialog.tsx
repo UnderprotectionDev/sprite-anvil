@@ -6,8 +6,6 @@ import { cn } from "cn";
 import { XIcon } from "lucide-react";
 import type * as React from "react";
 
-export const createDialogHandle = DialogPrimitive.createHandle;
-
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
 	return <DialogPrimitive.Root data-slot="dialog" {...props} />;
 }

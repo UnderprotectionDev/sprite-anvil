@@ -548,14 +548,12 @@ test("keeps every task panel reachable in a narrow window", async ({
 		await page.goto(url);
 		const tasks = page.locator("main nav button[role=tab][aria-controls]");
 		await expect(tasks.first()).toBeVisible();
+		await expect(
+			page.getByRole("button", { name: "Open TanStack Router Devtools" })
+		).toHaveCount(0);
 		const taskCount = await tasks.count();
 		for (let index = 0; index < taskCount; index += 1) {
 			const task = tasks.nth(index);
-			// Centre the tab so the dev-only Router devtools button at the
-			// viewport's bottom edge cannot cover it.
-			await task.evaluate((element) =>
-				element.scrollIntoView({ block: "center" })
-			);
 			await task.click();
 			await expect(task).toHaveAttribute("aria-selected", "true");
 			const panelId = await task.getAttribute("aria-controls");

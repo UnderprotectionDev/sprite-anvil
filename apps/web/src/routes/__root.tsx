@@ -125,7 +125,7 @@ function RootComponent() {
 				</SidebarProvider>
 				<Toaster richColors />
 			</ThemeProvider>
-			{import.meta.env.DEV ? (
+			{import.meta.env.DEV && import.meta.env.MODE !== "e2e" ? (
 				<>
 					<TanStackRouterDevtools position="bottom-left" />
 					<ReactQueryDevtools buttonPosition="bottom-right" position="bottom" />

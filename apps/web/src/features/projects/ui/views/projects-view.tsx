@@ -1,7 +1,6 @@
 import type { ProjectContextCreateInput } from "@sprite-anvil/api/project-context";
 import { Button, buttonVariants } from "@sprite-anvil/ui/components/button";
 import {
-	createDialogHandle,
 	Dialog,
 	DialogContent,
 	DialogDescription,
@@ -9,6 +8,7 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "@sprite-anvil/ui/components/dialog";
+import { createDialogHandle } from "@sprite-anvil/ui/lib/dialog-handle";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useRef } from "react";
