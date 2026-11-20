@@ -13,8 +13,7 @@
     "@better-auth/drizzle-adapter": "1.7.26",
     "@sprite-anvil/db": "workspace:*",
     "better-auth": "catalog:",
-    "drizzle-orm": "catalog:",
-    "zod": "catalog:"
+    "drizzle-orm": "catalog:"
   },
   "devDependencies": {
     "@sprite-anvil/config": "workspace:*",

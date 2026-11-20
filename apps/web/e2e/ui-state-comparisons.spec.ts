@@ -78,9 +78,7 @@ test("compares all UI states with a screen, panel and item slot and reopens exac
 		comparison.getByText("Comparison verified from persistent storage.")
 	).toBeVisible();
 	await page.reload();
-	await page
-		.getByRole("button", { name: "Profile reviews", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Profile reviews", exact: true }).click();
 	await expect(
 		comparison.getByRole("heading", { name: "Inventory controls", exact: true })
 	).toBeVisible();

@@ -80,9 +80,7 @@ test("persists separate logo/store evidence with crop, safe area, background mod
 		path: "../../.context/marketing-usage-browser.png",
 	});
 	await page.reload();
-	await page
-		.getByRole("button", { name: "Profile reviews", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Profile reviews", exact: true }).click();
 	await expect(
 		review.getByRole("button", { name: "Download usage evidence" })
 	).toHaveCount(2);

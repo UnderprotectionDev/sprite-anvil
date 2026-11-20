@@ -1,3 +1,4 @@
+import { StatusMessage } from "@/components/status-message";
 import { useOfflineReconcile } from "../../hooks/use-offline-reconcile";
 import { useOnlineStatus } from "../../hooks/use-online-status";
 import { useStagedFiles } from "../../hooks/use-staged-files";
@@ -8,9 +9,18 @@ import { ReconcileSection } from "../components/reconcile-section";
 import { StagedDraftsSection } from "../components/staged-drafts-section";
 import { StagedFilesSection } from "../components/staged-files-section";
 
-export function OfflineStagingView({ projectId }: { projectId: string }) {
+export function OfflineStagingView({
+	projectId,
+	userId,
+}: {
+	projectId: string;
+	userId: string;
+}) {
 	const online = useOnlineStatus();
-	const { projectQuery, refresh, staged, store } = useStagedWork(projectId);
+	const { projectQuery, refresh, staged, store } = useStagedWork(
+		projectId,
+		userId
+	);
 	const files = staged.data?.files ?? [];
 	const drafts = staged.data?.drafts ?? [];
 	const stagedFiles = useStagedFiles({
@@ -26,6 +36,7 @@ export function OfflineStagingView({ projectId }: { projectId: string }) {
 		refresh,
 		stagedDraftCount: drafts.length,
 		store,
+		userId,
 	});
 
 	const cached = cachedProjectSchema.safeParse(
@@ -45,6 +56,13 @@ export function OfflineStagingView({ projectId }: { projectId: string }) {
 				</p>
 				<p role="status">{online ? "Online" : "Offline"}</p>
 			</header>
+
+			{staged.data?.unassignedStorage ? (
+				<StatusMessage tone="info">
+					This browser has offline storage from an earlier version. It stays
+					separate because it has no account information.
+				</StatusMessage>
+			) : null}
 
 			<OfflineProjectSection
 				cachedAt={

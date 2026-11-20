@@ -4,7 +4,7 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { useQuery } from "@tanstack/react-query";
-import { useId, useState } from "react";
+import { useId } from "react";
 import { LoadErrorAlert } from "@/components/load-error-alert";
 import { getSupportReference } from "@/utils/error-notification";
 import { orpc } from "@/utils/orpc";
@@ -13,6 +13,11 @@ import { DeliveryDiffPanel } from "../components/delivery-diff-panel";
 
 const fulfilmentLabel = (fulfilment: DeliveryFulfilment) =>
 	`Revision ${fulfilment.revisionNumber} · ${new Date(fulfilment.createdAt).toLocaleString()} · ${shortId(fulfilment.id)}${fulfilment.isCurrent ? " (current)" : ""}`;
+
+interface ComparisonSelection {
+	fromId?: string;
+	toId?: string;
+}
 
 function FulfilmentSelect({
 	fulfilments,
@@ -83,10 +88,14 @@ function Comparison({
 }
 
 function TargetComparison({
+	comparison,
 	deliveryTargetId,
+	onSelect,
 	projectId,
 }: {
+	comparison: ComparisonSelection;
 	deliveryTargetId: string;
+	onSelect: (next: ComparisonSelection) => void;
 	projectId: string;
 }) {
 	const fulfilments = useQuery({
@@ -95,8 +104,6 @@ function TargetComparison({
 		}),
 		meta: { errorPresentation: "inline" },
 	});
-	const [fromId, setFromId] = useState("");
-	const [toId, setToId] = useState("");
 
 	if (fulfilments.isPending) {
 		return (
@@ -123,6 +130,8 @@ function TargetComparison({
 			</p>
 		);
 	}
+	const fromId = list.find(({ id }) => id === comparison.fromId)?.id ?? "";
+	const toId = list.find(({ id }) => id === comparison.toId)?.id ?? "";
 	const ready = fromId !== "" && toId !== "" && fromId !== toId;
 	let hint = "Pick two Delivery Fulfilments to compare.";
 	if (fromId !== "" && fromId === toId) {
@@ -134,13 +143,17 @@ function TargetComparison({
 				<FulfilmentSelect
 					fulfilments={list}
 					label="Compare from"
-					onChange={setFromId}
+					onChange={(id) =>
+						onSelect({ fromId: id || undefined, toId: toId || undefined })
+					}
 					value={fromId}
 				/>
 				<FulfilmentSelect
 					fulfilments={list}
 					label="Compare to"
-					onChange={setToId}
+					onChange={(id) =>
+						onSelect({ fromId: fromId || undefined, toId: id || undefined })
+					}
 					value={toId}
 				/>
 			</div>
@@ -158,11 +171,15 @@ function TargetComparison({
 }
 
 export function DeliveryDiffView({
+	comparison,
 	deliveryTargetId,
+	onSelectComparison,
 	onSelectTarget,
 	projectId,
 }: {
+	comparison: ComparisonSelection;
 	deliveryTargetId: string | undefined;
+	onSelectComparison: (targetId: string, next: ComparisonSelection) => void;
 	onSelectTarget: (deliveryTargetId: string) => void;
 	projectId: string;
 }) {
@@ -221,8 +238,14 @@ export function DeliveryDiffView({
 						</NativeSelect>
 					</div>
 					<TargetComparison
+						comparison={
+							selected.id === deliveryTargetId || !deliveryTargetId
+								? comparison
+								: {}
+						}
 						deliveryTargetId={selected.id}
 						key={selected.id}
+						onSelect={(next) => onSelectComparison(selected.id, next)}
 						projectId={projectId}
 					/>
 				</div>

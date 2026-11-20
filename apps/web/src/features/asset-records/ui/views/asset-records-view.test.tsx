@@ -17,8 +17,10 @@ import {
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom/vitest";
 import { QueryClientProvider } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
+import { useState } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
+import type { AssetRecordSearchDraft } from "@/features/asset-discovery/schemas";
 import { createQueryClient } from "@/utils/query-client";
 import { AssetRecordDetailView, AssetRecordsView } from "./asset-records-view";
 
@@ -281,12 +283,17 @@ vi.mock("@/utils/orpc", () => ({
 				fakeApi.updateMeasurements(input)
 			),
 			search: {
+				queryKey: () => ["asset-record-search"],
 				queryOptions: ({ input }: { input: Record<string, unknown> }) => ({
 					queryKey: ["asset-record-search", input],
 					queryFn: () => fakeApi.search(input),
 				}),
 			},
 			get: {
+				queryKey: ({ input }: { input: { assetRecordId: string } }) => [
+					"asset-record",
+					input.assetRecordId,
+				],
 				queryOptions: ({ input }: { input: { assetRecordId: string } }) => ({
 					queryKey: ["asset-record", input.assetRecordId],
 					queryFn: () => {
@@ -312,6 +319,7 @@ vi.mock("@/utils/orpc", () => ({
 				}),
 			},
 			tracking: {
+				queryKey: () => ["asset-record-detail", assetRecord.id],
 				queryOptions: () => ({
 					queryKey: ["asset-record-detail", assetRecord.id],
 					queryFn: () => {
@@ -349,6 +357,7 @@ vi.mock("@/utils/orpc", () => ({
 				}),
 			},
 			listPage: {
+				queryKey: () => ["asset-records-page", projectId],
 				queryOptions: ({
 					input,
 				}: {
@@ -510,7 +519,10 @@ test("filters Asset Records together and opens the matching version history", as
 	};
 	fakeApi.search.mockResolvedValue(fakeApi.searchResults);
 	renderWithQueryClient(
-		<AssetRecordsView onOpenRecord={onOpenRecord} projectId={projectId} />
+		<AssetRecordsViewFixture
+			onOpenRecord={onOpenRecord}
+			projectId={projectId}
+		/>
 	);
 
 	await screen.findByRole("heading", { name: "Forest Quest" });
@@ -592,12 +604,17 @@ test("opens a measured legacy version when its file name is unknown", async () =
 	};
 	fakeApi.search.mockResolvedValue(fakeApi.searchResults);
 	renderWithQueryClient(
-		<AssetRecordsView onOpenRecord={onOpenRecord} projectId={projectId} />
+		<AssetRecordsViewFixture
+			onOpenRecord={onOpenRecord}
+			projectId={projectId}
+		/>
 	);
 
 	await screen.findByRole("heading", { name: "Forest Quest" });
 	fireEvent.click(screen.getByRole("button", { name: "Search Asset Records" }));
-	expect(await screen.findByText("Version 3 · 32 × 48 px")).toBeVisible();
+	await waitFor(() =>
+		expect(screen.getByText("Version 3 · 32 × 48 px")).toBeVisible()
+	);
 	fireEvent.click(
 		screen.getByRole("button", { name: "open version 3 history" })
 	);
@@ -612,7 +629,7 @@ test("shows the Generation Package workflow on an active Asset Record", async ()
 		/>
 	);
 	fireEvent.click(
-		await screen.findByRole("button", {
+		await screen.findByRole("tab", {
 			name: "Production and import",
 		})
 	);
@@ -634,9 +651,7 @@ test("shows Rights Record versioning on an active Asset Record", async () => {
 			projectId={projectId}
 		/>
 	);
-	fireEvent.click(
-		await screen.findByRole("button", { name: "Rights Records" })
-	);
+	fireEvent.click(await screen.findByRole("tab", { name: "Rights Records" }));
 
 	expect(
 		await screen.findByRole("heading", { name: "Rights Record" })
@@ -759,9 +774,7 @@ test("keeps dependent source rights visible when a linked package cannot load", 
 			projectId={projectId}
 		/>
 	);
-	fireEvent.click(
-		await screen.findByRole("button", { name: "Rights Records" })
-	);
+	fireEvent.click(await screen.findByRole("tab", { name: "Rights Records" }));
 
 	const lineage = await screen.findByRole("region", { name: "Rights Lineage" });
 	expect(
@@ -1163,9 +1176,7 @@ test("shows a result's separate Rights Lineage and each source's versioned decla
 			projectId={projectId}
 		/>
 	);
-	fireEvent.click(
-		await screen.findByRole("button", { name: "Rights Records" })
-	);
+	fireEvent.click(await screen.findByRole("tab", { name: "Rights Records" }));
 
 	const lineage = await screen.findByRole("region", { name: "Rights Lineage" });
 	const resultRightsRecord = screen.getByRole("region", {
@@ -1283,9 +1294,7 @@ test("starts a clean Rights Record draft when the detail view switches records",
 			projectId={projectId}
 		/>
 	);
-	fireEvent.click(
-		await screen.findByRole("button", { name: "Rights Records" })
-	);
+	fireEvent.click(await screen.findByRole("tab", { name: "Rights Records" }));
 
 	await waitFor(() =>
 		expect(screen.getByLabelText("Source")).toHaveValue(
@@ -1300,9 +1309,7 @@ test("starts a clean Rights Record draft when the detail view switches records",
 	};
 	fakeApi.record = secondAssetRecord;
 	queryClient.setQueryData(["asset-record", assetRecord.id], secondAssetRecord);
-	fireEvent.click(
-		await screen.findByRole("button", { name: "Rights Records" })
-	);
+	fireEvent.click(await screen.findByRole("tab", { name: "Rights Records" }));
 
 	await waitFor(() => expect(screen.getByLabelText("Source")).toHaveValue(""));
 });
@@ -1347,7 +1354,7 @@ test("shows saved Generation Packages on archived Asset Records without enabling
 		/>
 	);
 	fireEvent.click(
-		await screen.findByRole("button", {
+		await screen.findByRole("tab", {
 			name: "Production and import",
 		})
 	);
@@ -1392,15 +1399,13 @@ test("edits record metadata and limits Theme choices to the selected Visual Worl
 		themeId,
 		visualWorldId,
 	});
-	renderWithQueryClient(
+	const { queryClient } = renderWithQueryClient(
 		<AssetRecordDetailView
 			assetRecordId={assetRecord.id}
 			projectId={projectId}
 		/>
 	);
-	fireEvent.click(
-		await screen.findByRole("button", { name: "Record details" })
-	);
+	fireEvent.click(await screen.findByRole("tab", { name: "Record details" }));
 
 	await screen.findByRole("heading", { name: "Ash Knight" });
 	fireEvent.change(screen.getByLabelText("Asset category"), {
@@ -1436,6 +1441,13 @@ test("edits record metadata and limits Theme choices to the selected Visual Worl
 	expect(await screen.findByRole("status")).toHaveTextContent(
 		"Asset Record metadata saved."
 	);
+	expect(
+		queryClient.getQueryData(["asset-record", assetRecord.id])
+	).toMatchObject({
+		tags: ["inventory"],
+		themeId,
+		visualWorldId,
+	});
 });
 
 test("shows a failed Asset Record list load only in Sonner", async () => {
@@ -1447,10 +1459,10 @@ test("shows a failed Asset Record list load only in Sonner", async () => {
 	queryClient.setDefaultOptions({ queries: { retry: false } });
 	render(
 		<QueryClientProvider client={queryClient}>
-			<AssetRecordsView onOpenRecord={vi.fn()} projectId={projectId} />
+			<AssetRecordsViewFixture onOpenRecord={vi.fn()} projectId={projectId} />
 		</QueryClientProvider>
 	);
-	fireEvent.click(await screen.findByRole("button", { name: "All records" }));
+	fireEvent.click(await screen.findByRole("tab", { name: "All records" }));
 
 	await waitFor(() => expect(errorToast).toHaveBeenCalledTimes(1));
 	expect(errorToast.mock.calls[0]?.[0]).toBe("Data could not be loaded.");
@@ -1474,7 +1486,10 @@ test("creates a durable Asset Record from its independent product identity", asy
 	const onOpenRecord = vi.fn();
 	fakeApi.create.mockResolvedValue(assetRecord);
 	renderWithQueryClient(
-		<AssetRecordsView onOpenRecord={onOpenRecord} projectId={projectId} />
+		<AssetRecordsViewFixture
+			onOpenRecord={onOpenRecord}
+			projectId={projectId}
+		/>
 	);
 	fireEvent.click(
 		await screen.findByRole("button", {
@@ -1507,7 +1522,10 @@ test("uncertain creates require a confirmed list check and reuse the same identi
 		.mockRejectedValueOnce(new TypeError("Failed to fetch"))
 		.mockResolvedValueOnce(assetRecord);
 	renderWithQueryClient(
-		<AssetRecordsView onOpenRecord={onOpenRecord} projectId={projectId} />
+		<AssetRecordsViewFixture
+			onOpenRecord={onOpenRecord}
+			projectId={projectId}
+		/>
 	);
 	fireEvent.click(
 		await screen.findByRole("button", {
@@ -1546,9 +1564,12 @@ test("archived Asset Records remain findable in the project list", async () => {
 	const onOpenRecord = vi.fn();
 	fakeApi.records = [{ ...assetRecord, availability: "archived" }];
 	renderWithQueryClient(
-		<AssetRecordsView onOpenRecord={onOpenRecord} projectId={projectId} />
+		<AssetRecordsViewFixture
+			onOpenRecord={onOpenRecord}
+			projectId={projectId}
+		/>
 	);
-	fireEvent.click(await screen.findByRole("button", { name: "All records" }));
+	fireEvent.click(await screen.findByRole("tab", { name: "All records" }));
 
 	expect(await screen.findByText(archivedRecordStatus)).toBeVisible();
 	fireEvent.click(
@@ -1658,9 +1679,7 @@ test("shows persisted versions, derivatives, references, quality, and provenance
 	expect(await screen.findByText(versionFileName)).toBeVisible();
 	expect(screen.getByText(alternativeFileName)).toBeVisible();
 	expect(screen.getByText(derivativeName)).toBeVisible();
-	fireEvent.click(
-		screen.getByRole("button", { name: "Production and import" })
-	);
+	fireEvent.click(screen.getByRole("tab", { name: "Production and import" }));
 	expect(screen.getByText(referenceName)).toBeVisible();
 	expect(
 		screen
@@ -1675,13 +1694,13 @@ test("shows persisted versions, derivatives, references, quality, and provenance
 	expect(
 		within(historyDisclosure).getByText(referenceHistoryRevision)
 	).toBeVisible();
-	fireEvent.click(screen.getByRole("button", { name: "Versions and files" }));
+	fireEvent.click(screen.getByRole("tab", { name: "Versions and files" }));
 	expect(
 		screen.getByText("File format signature matched (2 version).")
 	).toBeVisible();
-	fireEvent.click(screen.getByRole("button", { name: "Record details" }));
+	fireEvent.click(screen.getByRole("tab", { name: "Record details" }));
 	expect(screen.getByText(generalSupportCopy)).toBeVisible();
-	fireEvent.click(screen.getByRole("button", { name: "Versions and files" }));
+	fireEvent.click(screen.getByRole("tab", { name: "Versions and files" }));
 	expect(screen.getByText(productionSource)).toBeVisible();
 	expect(screen.getByText(productionEvidence)).toBeVisible();
 	expect(
@@ -1699,7 +1718,7 @@ test("shows persisted versions, derivatives, references, quality, and provenance
 	expect(attestationTime).toHaveTextContent(localizedLegacyAttestationDate);
 	expect(screen.getAllByText(userRelationshipLabel)[0]).toBeVisible();
 	expect(screen.getByText(unknownHistory)).toBeVisible();
-	fireEvent.click(screen.getByRole("button", { name: "Record details" }));
+	fireEvent.click(screen.getByRole("tab", { name: "Record details" }));
 	expect(screen.getByText(recordCreatedCopy)).toBeVisible();
 });
 
@@ -1914,9 +1933,7 @@ test("saves proposed and confirmed dimensions independently on an Asset Record",
 			projectId={projectId}
 		/>
 	);
-	fireEvent.click(
-		await screen.findByRole("button", { name: "Record details" })
-	);
+	fireEvent.click(await screen.findByRole("tab", { name: "Record details" }));
 
 	await screen.findByRole("heading", { name: "Ash Knight" });
 	for (const heading of [
@@ -1983,9 +2000,7 @@ test("requires a Visible Content Bounds coordinate space and keeps bounds inside
 			projectId={projectId}
 		/>
 	);
-	fireEvent.click(
-		await screen.findByRole("button", { name: "Record details" })
-	);
+	fireEvent.click(await screen.findByRole("tab", { name: "Record details" }));
 
 	await screen.findByRole("heading", { name: "Ash Knight" });
 
@@ -2051,9 +2066,7 @@ test("requires a complete pair when a dimension value is started", async () => {
 			projectId={projectId}
 		/>
 	);
-	fireEvent.click(
-		await screen.findByRole("button", { name: "Record details" })
-	);
+	fireEvent.click(await screen.findByRole("tab", { name: "Record details" }));
 
 	await screen.findByRole("heading", { name: "Ash Knight" });
 	const width = screen.getByLabelText(
@@ -2079,9 +2092,7 @@ test("retains dimension inputs and offers retry context when saving fails", asyn
 			projectId={projectId}
 		/>
 	);
-	fireEvent.click(
-		await screen.findByRole("button", { name: "Record details" })
-	);
+	fireEvent.click(await screen.findByRole("tab", { name: "Record details" }));
 
 	await screen.findByRole("heading", { name: "Ash Knight" });
 	const width = screen.getByLabelText(
@@ -2106,9 +2117,7 @@ test("shows a conditional crispness notice for fractional display scale", async 
 			projectId={projectId}
 		/>
 	);
-	fireEvent.click(
-		await screen.findByRole("button", { name: "Record details" })
-	);
+	fireEvent.click(await screen.findByRole("tab", { name: "Record details" }));
 
 	await screen.findByRole("heading", { name: "Ash Knight" });
 	fireEvent.change(screen.getByLabelText("Display Scale — Proposal — Scale"), {
@@ -2137,9 +2146,7 @@ test("uses the canonical Erased availability value and Turkish label", async () 
 			projectId={projectId}
 		/>
 	);
-	fireEvent.click(
-		await screen.findByRole("button", { name: "Record details" })
-	);
+	fireEvent.click(await screen.findByRole("tab", { name: "Record details" }));
 
 	expect(await screen.findByText("Erased")).toBeVisible();
 	expect(
@@ -2180,9 +2187,7 @@ test("archives and restores an Asset Record without losing its detail view", asy
 			projectId={projectId}
 		/>
 	);
-	fireEvent.click(
-		await screen.findByRole("button", { name: "Record details" })
-	);
+	fireEvent.click(await screen.findByRole("tab", { name: "Record details" }));
 
 	fireEvent.click(
 		await screen.findByRole("button", { name: "Archive record" })
@@ -2228,16 +2233,14 @@ test("keeps Asset Record availability available when tracking details fail", asy
 			projectId={projectId}
 		/>
 	);
-	fireEvent.click(
-		await screen.findByRole("button", { name: "Record details" })
-	);
+	fireEvent.click(await screen.findByRole("tab", { name: "Record details" }));
 
 	expect(
 		await screen.findByRole("heading", { name: "Ash Knight" })
 	).toBeVisible();
 	expect(screen.getByRole("button", { name: "Archive record" })).toBeEnabled();
 	await waitFor(() => expect(errorToast).toHaveBeenCalledOnce());
-	fireEvent.click(screen.getByRole("button", { name: "Rights Records" }));
+	fireEvent.click(screen.getByRole("tab", { name: "Rights Records" }));
 	expect(
 		within(
 			screen.getByRole("region", { name: "Rights Lineage", hidden: true })
@@ -2249,7 +2252,7 @@ test("keeps Asset Record availability available when tracking details fail", asy
 			.find({ queryKey: ["asset-record-detail", assetRecord.id] })?.meta
 	).toBeUndefined();
 
-	fireEvent.click(screen.getByRole("button", { name: "Record details" }));
+	fireEvent.click(screen.getByRole("tab", { name: "Record details" }));
 	fireEvent.click(screen.getByRole("button", { name: "Archive record" }));
 	expect(await screen.findByText("Archived")).toBeVisible();
 	expect(await screen.findByRole("status")).toHaveTextContent(
@@ -2271,9 +2274,7 @@ test("checks the current Availability before allowing an uncertain archive retry
 			projectId={projectId}
 		/>
 	);
-	fireEvent.click(
-		await screen.findByRole("button", { name: "Record details" })
-	);
+	fireEvent.click(await screen.findByRole("tab", { name: "Record details" }));
 
 	fireEvent.click(
 		await screen.findByRole("button", { name: "Archive record" })
@@ -2297,7 +2298,7 @@ test("labels legacy Asset Records whose identity criteria were not recorded", as
 		/>
 	);
 	fireEvent.click(
-		await screen.findByRole("button", { name: "Versions and files" })
+		await screen.findByRole("tab", { name: "Versions and files" })
 	);
 
 	expect(await screen.findByText("No rationale saved")).toBeVisible();
@@ -2540,15 +2541,13 @@ test("keeps an unsaved metadata draft when switching workspace sections", async 
 			projectId={projectId}
 		/>
 	);
-	fireEvent.click(
-		await screen.findByRole("button", { name: "Record details" })
-	);
+	fireEvent.click(await screen.findByRole("tab", { name: "Record details" }));
 	await screen.findByRole("heading", { name: "Asset Record metadata" });
 	fireEvent.change(screen.getByLabelText("Tags"), {
 		target: { value: "unfinished-edit" },
 	});
-	fireEvent.click(screen.getByRole("button", { name: "Versions and files" }));
-	fireEvent.click(screen.getByRole("button", { name: "Record details" }));
+	fireEvent.click(screen.getByRole("tab", { name: "Versions and files" }));
+	fireEvent.click(screen.getByRole("tab", { name: "Record details" }));
 
 	expect(screen.getByLabelText("Tags")).toHaveValue("unfinished-edit");
 	expect(fakeApi.updateMetadata).not.toHaveBeenCalled();
@@ -2562,9 +2561,7 @@ test("sends normalized unique metadata tags and keeps the draft when saving fail
 			projectId={projectId}
 		/>
 	);
-	fireEvent.click(
-		await screen.findByRole("button", { name: "Record details" })
-	);
+	fireEvent.click(await screen.findByRole("tab", { name: "Record details" }));
 	await screen.findByRole("heading", { name: "Asset Record metadata" });
 	fireEvent.change(screen.getByLabelText("Tags"), {
 		target: { value: " Envanter, nadir ,envanter,, " },
@@ -2597,9 +2594,7 @@ test("clears a measurement validation error as soon as a value changes", async (
 			projectId={projectId}
 		/>
 	);
-	fireEvent.click(
-		await screen.findByRole("button", { name: "Record details" })
-	);
+	fireEvent.click(await screen.findByRole("tab", { name: "Record details" }));
 	await screen.findByRole("heading", { name: "Ash Knight" });
 	for (const [label, value] of [
 		["Logical Resolution — Proposal — Width (px)", "32"],
@@ -2635,9 +2630,7 @@ test("shows the generic measurement error for an incomplete pair without sending
 			projectId={projectId}
 		/>
 	);
-	fireEvent.click(
-		await screen.findByRole("button", { name: "Record details" })
-	);
+	fireEvent.click(await screen.findByRole("tab", { name: "Record details" }));
 	await screen.findByRole("heading", { name: "Ash Knight" });
 	fireEvent.change(
 		screen.getByLabelText("Atlas Dimensions — Confirmed value — Width (px)"),
@@ -2660,7 +2653,10 @@ test("requires a non-blank name and an identity criterion before creating an Ass
 	const onOpenRecord = vi.fn();
 	fakeApi.create.mockResolvedValue(assetRecord);
 	renderWithQueryClient(
-		<AssetRecordsView onOpenRecord={onOpenRecord} projectId={projectId} />
+		<AssetRecordsViewFixture
+			onOpenRecord={onOpenRecord}
+			projectId={projectId}
+		/>
 	);
 	fireEvent.click(
 		await screen.findByRole("button", { name: "New Asset Record" })
@@ -2707,7 +2703,7 @@ test("locks the Asset Record draft while an uncertain create is unresolved", asy
 	const user = userEvent.setup();
 	fakeApi.create.mockRejectedValueOnce(new TypeError("Failed to fetch"));
 	renderWithQueryClient(
-		<AssetRecordsView onOpenRecord={vi.fn()} projectId={projectId} />
+		<AssetRecordsViewFixture onOpenRecord={vi.fn()} projectId={projectId} />
 	);
 	fireEvent.click(
 		await screen.findByRole("button", { name: "New Asset Record" })
@@ -2737,9 +2733,9 @@ test("pages the Asset Record catalog without dropping later records", async () =
 		name: `Catalog ${index}`,
 	}));
 	renderWithQueryClient(
-		<AssetRecordsView onOpenRecord={vi.fn()} projectId={projectId} />
+		<AssetRecordsViewFixture onOpenRecord={vi.fn()} projectId={projectId} />
 	);
-	fireEvent.click(await screen.findByRole("button", { name: "All records" }));
+	fireEvent.click(await screen.findByRole("tab", { name: "All records" }));
 	expect(await screen.findByText("Catalog 0")).toBeVisible();
 	fireEvent.click(screen.getByRole("button", { name: "Next" }));
 	expect(await screen.findByText("Catalog 50")).toBeVisible();
@@ -2756,7 +2752,10 @@ test("checks an uncertain create by its identity even when the record is beyond 
 	}));
 	fakeApi.create.mockRejectedValueOnce(new TypeError("Failed to fetch"));
 	renderWithQueryClient(
-		<AssetRecordsView onOpenRecord={onOpenRecord} projectId={projectId} />
+		<AssetRecordsViewFixture
+			onOpenRecord={onOpenRecord}
+			projectId={projectId}
+		/>
 	);
 	fireEvent.click(
 		await screen.findByRole("button", { name: "New Asset Record" })
@@ -2772,3 +2771,23 @@ test("checks an uncertain create by its identity even when the record is beyond 
 	fireEvent.click(screen.getByRole("button", { name: "Check status" }));
 	await waitFor(() => expect(onOpenRecord).toHaveBeenCalledWith(id));
 });
+
+function AssetRecordsViewFixture(
+	props: Omit<
+		ComponentProps<typeof AssetRecordsView>,
+		"filters" | "searchOffset" | "onChangeSearch"
+	>
+) {
+	const [search, setSearch] = useState<{
+		filters?: AssetRecordSearchDraft;
+		offset: number;
+	}>({ offset: 0 });
+	return (
+		<AssetRecordsView
+			{...props}
+			filters={search.filters}
+			onChangeSearch={(filters, offset) => setSearch({ filters, offset })}
+			searchOffset={search.offset}
+		/>
+	);
+}

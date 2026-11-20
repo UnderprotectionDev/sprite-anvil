@@ -78,7 +78,6 @@
         "@dnd-kit/sortable": "^10.0.0",
         "@dnd-kit/utilities": "^3.2.2",
         "@orpc/client": "catalog:",
-        "@orpc/server": "catalog:",
         "@orpc/tanstack-query": "catalog:",
         "@sprite-anvil/api": "workspace:*",
         "@sprite-anvil/ui": "workspace:*",
@@ -87,7 +86,6 @@
         "@tanstack/react-query": "^5.108.0",
         "@tanstack/react-router": "^1.170.46",
         "@tanstack/react-store": "^0.11.2",
-        "@tanstack/react-virtual": "catalog:",
         "@tanstack/store": "^0.11.2",
         "@tauri-apps/api": "^2.12.5",
         "@tauri-apps/plugin-dialog": "^2.8.4",
@@ -98,7 +96,6 @@
         "dexie": "^4.4.7",
         "lucide-react": "catalog:",
         "next-themes": "catalog:",
-        "pixelarticons": "^2.4.2",
         "pixi.js": "^8.23.0",
         "react": "catalog:",
         "react-dom": "catalog:",
@@ -130,7 +127,6 @@
         "@wdio/types": "^9.33.1",
         "fflate": "catalog:",
         "jsdom": "^30.1.3",
-        "postcss": "catalog:",
         "tailwindcss": "catalog:",
         "typescript": "catalog:",
         "vite": "^8.3.8",
@@ -140,8 +136,7 @@
     "packages/api": {
       "name": "@sprite-anvil/api",
       "dependencies": {
-        "@orpc/client": "catalog:",
-        "@orpc/openapi": "catalog:",
+        "@orpc/contract": "catalog:",
         "@orpc/server": "catalog:",
         "@orpc/zod": "catalog:",
         "@sprite-anvil/auth": "workspace:*",
@@ -162,7 +157,6 @@
         "@sprite-anvil/db": "workspace:*",
         "better-auth": "catalog:",
         "drizzle-orm": "catalog:",
-        "zod": "catalog:",
       },
       "devDependencies": {
         "@sprite-anvil/config": "workspace:*",
@@ -198,7 +192,6 @@
         "class-variance-authority": "^0.7.1",
         "cmdk": "^1.1.1",
         "cn": "catalog:",
-        "date-fns": "^4.4.0",
         "embla-carousel-react": "^8.6.0",
         "input-otp": "^1.5.0",
         "lucide-react": "catalog:",
@@ -224,6 +217,7 @@
   },
   "catalog": {
     "@orpc/client": "^1.16.4",
+    "@orpc/contract": "^1.16.4",
     "@orpc/openapi": "^1.16.4",
     "@orpc/server": "^1.16.4",
     "@orpc/tanstack-query": "^1.16.4",
@@ -2191,8 +2185,6 @@
     "picocolors": ["picocolors@1.1.1", "", {}, "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA=="],
 
     "picomatch": ["picomatch@4.0.7", "", {}, "sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA=="],
-
-    "pixelarticons": ["pixelarticons@2.4.2", "", { "peerDependencies": { "react": ">=16" }, "bin": { "pixelarticons": "bin/upgrade.js" } }, "sha512-BZKSU5ckLuioZCzES4fEmdQfnI8XEiQlHljdIVk+N6+KH7vTBQJNtMs+V0LQF7nC7cZbKT0qBXFOsT35sl8uhg=="],
 
     "pixi.js": ["pixi.js@8.23.0", "", { "dependencies": { "@types/earcut": "^3.0.0", "@webgpu/types": "^0.1.69", "@xmldom/xmldom": "^0.8.15", "colord": "^2.11.0", "earcut": "^3.0.2", "eventemitter3": "^5.0.1", "gifuct-js": "^2.1.2", "ismobilejs": "^1.1.1", "parse-svg-path": "^0.2.0", "tiny-lru": "^11.4.7" } }, "sha512-RkWSwo+mAR0d7MKnJ20IjKkWGPdFh1C0adBRYYLa+SGdxTfbrr6RnQyZZRwjBaG/bDAIQqgBcTBbiNsN6iKFVQ=="],
 

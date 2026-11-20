@@ -117,7 +117,7 @@ test("activates one project profile and displays the persisted revision", async 
 		return Promise.resolve(fakeApi.activation);
 	});
 	renderContracts();
-	fireEvent.click(await screen.findByRole("button", { name: "Icon" }));
+	fireEvent.click(await screen.findByRole("tab", { name: "Icon" }));
 
 	const iconCard = await screen.findByRole("article", { name: "Icon" });
 	const detailsButton = within(iconCard).getByText("Contract details");
@@ -145,9 +145,7 @@ test("activates one project profile and displays the persisted revision", async 
 	expect(
 		within(iconCard).getByRole("button", { name: "Active" })
 	).toBeDisabled();
-	fireEvent.click(
-		screen.getByRole("button", { name: "Background and parallax" })
-	);
+	fireEvent.click(screen.getByRole("tab", { name: "Background and parallax" }));
 	expect(
 		within(
 			screen.getByRole("article", { name: "Background and parallax" })

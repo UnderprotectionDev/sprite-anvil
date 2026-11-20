@@ -1,4 +1,5 @@
-import { ORPCError, os } from "@orpc/server";
+import type { AnyContractRouter } from "@orpc/contract";
+import { implement, ORPCError, os } from "@orpc/server";
 
 import type { Context } from "./context";
 import {
@@ -48,4 +49,14 @@ const requireAuth = o.middleware(async ({ context, next }) => {
 	});
 });
 
-export const protectedProcedure = publicProcedure.use(requireAuth);
+const protectedMiddleware = attachSupportReference.concat(requireAuth);
+
+export const protectedProcedure = o.use(protectedMiddleware);
+
+export function implementProtected<TContract extends AnyContractRouter>(
+	contract: TContract
+) {
+	return implement({ routes: contract })
+		.$context<Context>()
+		.use(protectedMiddleware).routes;
+}

@@ -76,12 +76,12 @@ export function createDatabaseExportBundleStorage(
 		},
 		async insertBundle(bundle, files) {
 			try {
-				await db.transaction(async (tx) => {
-					await tx.insert(exportBundles).values(bundle);
-					await tx
+				await db.batch([
+					db.insert(exportBundles).values(bundle),
+					db
 						.insert(exportBundleFiles)
-						.values(files.map((file) => ({ ...file, bundleId: bundle.id })));
-					await tx
+						.values(files.map((file) => ({ ...file, bundleId: bundle.id }))),
+					db
 						.insert(exportBundleMarkers)
 						.values({
 							bundleId: bundle.id,
@@ -91,8 +91,8 @@ export function createDatabaseExportBundleStorage(
 						.onConflictDoUpdate({
 							set: { bundleId: bundle.id, updatedAt: bundle.createdAt },
 							target: exportBundleMarkers.projectId,
-						});
-				});
+						}),
+				]);
 				return { status: "inserted" };
 			} catch (error) {
 				if (hasErrorCode(error, uniqueViolationCode)) {

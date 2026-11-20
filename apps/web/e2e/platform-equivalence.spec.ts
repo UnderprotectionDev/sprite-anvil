@@ -24,7 +24,14 @@ test("the web app shows interim evidence, and offers no report without a run", a
 	await signUpWithFixture(page, fixture);
 	await createProjectFromProjectsView(page, fixture);
 
-	await page.getByRole("link", { name: "Platform Equivalence" }).click();
+	await page
+		.getByRole("link", {
+			name: `${fixture.projectName} open Asset Records`,
+		})
+		.click();
+	await page
+		.getByRole("link", { name: "Platform Equivalence", exact: true })
+		.click();
 
 	await expect(
 		page.getByRole("heading", { name: "Platform Equivalence", level: 1 })

@@ -26,16 +26,16 @@ test("shows one task at a time and preserves unfinished input across tasks", () 
 	);
 	expect(screen.getByText("Saved versions")).toBeVisible();
 	expect(screen.getByLabelText("Name")).not.toBeVisible();
-	fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+	fireEvent.click(screen.getByRole("tab", { name: "Edit" }));
 	fireEvent.change(screen.getByLabelText("Name"), {
 		target: { value: "Knight draft" },
 	});
-	fireEvent.click(screen.getByRole("button", { name: "Inspect" }));
+	fireEvent.click(screen.getByRole("tab", { name: "Inspect" }));
 	expect(screen.getByLabelText("Name")).not.toBeVisible();
-	fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+	fireEvent.click(screen.getByRole("tab", { name: "Edit" }));
 	expect(screen.getByLabelText("Name")).toHaveValue("Knight draft");
-	expect(screen.getByRole("button", { name: "Edit" })).toHaveAttribute(
-		"aria-pressed",
+	expect(screen.getByRole("tab", { name: "Edit" })).toHaveAttribute(
+		"aria-selected",
 		"true"
 	);
 });

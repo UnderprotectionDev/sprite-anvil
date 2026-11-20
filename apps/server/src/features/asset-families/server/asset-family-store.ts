@@ -1,4 +1,5 @@
 import type {
+	AssetFamilyCatalogScope,
 	AssetFamilyCreateInput,
 	AssetFamilyRecord,
 	AssetFamilyRelationship,
@@ -32,7 +33,7 @@ import {
 	assetVersions,
 } from "@sprite-anvil/db/schema/asset-versions";
 import { visualWorlds } from "@sprite-anvil/db/schema/context-scopes";
-import { and, asc, desc, eq, inArray, isNotNull } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNotNull, or } from "drizzle-orm";
 
 function toISOString(value: Date | string) {
 	return value instanceof Date
@@ -175,42 +176,137 @@ async function isApprovedCanonicalSource(
 	);
 }
 
+function readIdentities(
+	db: Database,
+	projectId: string,
+	scope?: Extract<AssetFamilyCatalogScope, { kind: "identity-page" }>,
+	identityId?: string
+) {
+	const after = scope?.after;
+	const identities = db
+		.select()
+		.from(subjectIdentities)
+		.where(
+			and(
+				eq(subjectIdentities.projectId, projectId),
+				identityId ? eq(subjectIdentities.id, identityId) : undefined,
+				after
+					? or(
+							gt(subjectIdentities.name, after.name),
+							and(
+								eq(subjectIdentities.name, after.name),
+								gt(subjectIdentities.id, after.id)
+							)
+						)
+					: undefined
+			)
+		)
+		.orderBy(asc(subjectIdentities.name), asc(subjectIdentities.id));
+	return scope ? identities.limit(scope.limit) : identities;
+}
+
+function readFamilyRows(
+	db: Database,
+	projectId: string,
+	scope?: { identityIds: string[] } | { familyId: string }
+) {
+	return db
+		.select()
+		.from(assetFamilies)
+		.where(
+			and(
+				eq(assetFamilies.projectId, projectId),
+				scope &&
+					("identityIds" in scope
+						? inArray(assetFamilies.subjectIdentityId, scope.identityIds)
+						: eq(assetFamilies.id, scope.familyId))
+			)
+		)
+		.orderBy(asc(assetFamilies.createdAt), asc(assetFamilies.id));
+}
+
+async function readScopedFamilyRows(
+	db: Database,
+	projectId: string,
+	scope: AssetFamilyCatalogScope
+) {
+	if (scope.kind === "family") {
+		const families = await readFamilyRows(db, projectId, {
+			familyId: scope.familyId,
+		});
+		const identityId = families[0]?.subjectIdentityId;
+		return identityId
+			? ([
+					await readIdentities(db, projectId, undefined, identityId),
+					families,
+				] as const)
+			: ([[], []] as const);
+	}
+	const identities = await readIdentities(db, projectId, scope);
+	const families = await readFamilyRows(db, projectId, {
+		identityIds: identities.map(({ id }) => id),
+	});
+	return [identities, families] as const;
+}
+
+function readFamilyMembers(
+	db: Database,
+	projectId: string,
+	familyIds?: string[]
+) {
+	return Promise.all([
+		db
+			.select()
+			.from(assetRecords)
+			.where(
+				and(
+					eq(assetRecords.projectId, projectId),
+					familyIds
+						? inArray(assetRecords.assetFamilyId, familyIds)
+						: isNotNull(assetRecords.assetFamilyId)
+				)
+			)
+			.orderBy(asc(assetRecords.name)),
+		db
+			.select()
+			.from(assetFamilyRelationships)
+			.where(
+				and(
+					eq(assetFamilyRelationships.projectId, projectId),
+					familyIds
+						? inArray(assetFamilyRelationships.assetFamilyId, familyIds)
+						: undefined
+				)
+			)
+			.orderBy(asc(assetFamilyRelationships.type)),
+	]);
+}
+
 export function createAssetFamilyStore(db: Database): AssetFamilyStore {
 	return {
-		async list(userId, projectId) {
+		async list(userId, projectId, scope) {
 			const ownedProject = await getProjectForUser(db, userId, projectId);
 			if (!ownedProject) {
 				return null;
 			}
 
-			const [identityRows, familyRows, assetRows, relationshipRows] =
-				await Promise.all([
-					db
-						.select()
-						.from(subjectIdentities)
-						.where(eq(subjectIdentities.projectId, projectId))
-						.orderBy(asc(subjectIdentities.name)),
-					db
-						.select()
-						.from(assetFamilies)
-						.where(eq(assetFamilies.projectId, projectId))
-						.orderBy(asc(assetFamilies.createdAt)),
-					db
-						.select()
-						.from(assetRecords)
-						.where(
-							and(
-								eq(assetRecords.projectId, projectId),
-								isNotNull(assetRecords.assetFamilyId)
-							)
+			const identityAndFamilyRows = scope
+				? readScopedFamilyRows(db, projectId, scope)
+				: Promise.all([
+						readIdentities(db, projectId),
+						readFamilyRows(db, projectId),
+					]);
+			const memberRows = scope
+				? identityAndFamilyRows.then(([, families]) =>
+						readFamilyMembers(
+							db,
+							projectId,
+							families.map(({ id }) => id)
 						)
-						.orderBy(asc(assetRecords.name)),
-					db
-						.select()
-						.from(assetFamilyRelationships)
-						.where(eq(assetFamilyRelationships.projectId, projectId))
-						.orderBy(asc(assetFamilyRelationships.type)),
-				]);
+					)
+				: readFamilyMembers(db, projectId);
+			const [[identityRows, familyRows], [assetRows, relationshipRows]] =
+				await Promise.all([identityAndFamilyRows, memberRows]);
 
 			return assetFamilyCatalogSchema.parse({
 				subjectIdentities: identityRows.map(toSubjectIdentityRecord),

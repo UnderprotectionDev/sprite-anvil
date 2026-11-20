@@ -127,6 +127,15 @@ test("creates a project from trimmed fields and closes the dialog", async () => 
 	expect(reopened.artDirection).toHaveValue("");
 });
 
+test("blocks project data outside the shared RPC input limits", async () => {
+	renderProjects();
+	const { artDirection, name, submit } = await openCreateDialog();
+	fireEvent.change(name, { target: { value: "Moonlit Vale" } });
+	fireEvent.change(artDirection, { target: { value: "a".repeat(1001) } });
+	expect(submit).toBeDisabled();
+	expect(fakeStore.create).not.toHaveBeenCalled();
+});
+
 test("keeps the draft when the dialog is closed and reopened", async () => {
 	renderProjects();
 	const { artDirection, name } = await openCreateDialog();

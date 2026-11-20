@@ -71,8 +71,20 @@ export function AssetFamilyComparisonManager({
 	const formId = useId();
 	const queryClient = useQueryClient();
 	const saveComparison = useMutation(
-		orpc.assetFamilyComparisons.save.mutationOptions()
+		orpc.assetFamilyComparisons.save.mutationOptions({
+			onSuccess: async (record) => {
+				setSelected(record);
+				setPendingId(null);
+				setMessage("Comparison verified from the saved record.");
+				await queryClient.invalidateQueries({
+					queryKey: orpc.assetFamilyComparisons.list.queryKey({
+						input: { projectId, assetFamilyId },
+					}),
+				});
+			},
+		})
 	);
+	const saving = saveComparison.isPending;
 	const query = useQuery(
 		orpc.assetFamilyComparisons.list.queryOptions({
 			input: { projectId, assetFamilyId },
@@ -93,7 +105,6 @@ export function AssetFamilyComparisonManager({
 	const [selected, setSelected] = useState<AssetFamilyComparisonRecord | null>(
 		null
 	);
-	const [saving, setSaving] = useState(false);
 	const [pendingId, setPendingId] = useState<string | null>(null);
 	const [uncertain, setUncertain] = useState(false);
 	const [message, setMessage] = useState("");
@@ -167,19 +178,10 @@ export function AssetFamilyComparisonManager({
 			})),
 			observations: values.observations,
 		};
-		setSaving(true);
 		setMessage("");
 		setPendingId(input.id);
 		try {
-			const record = await saveComparison.mutateAsync(input);
-			setSelected(record);
-			setPendingId(null);
-			setMessage("Comparison verified from the saved record.");
-			await queryClient.invalidateQueries({
-				queryKey: orpc.assetFamilyComparisons.list.queryKey({
-					input: { projectId, assetFamilyId },
-				}),
-			});
+			await saveComparison.mutateAsync(input);
 		} catch (error) {
 			if (!isWriteOutcomeUncertain(error)) {
 				setPendingId(null);
@@ -190,8 +192,6 @@ export function AssetFamilyComparisonManager({
 			setMessage(
 				"Could not verify the save result. Check current records; do not resubmit the same comparison."
 			);
-		} finally {
-			setSaving(false);
 		}
 	}
 

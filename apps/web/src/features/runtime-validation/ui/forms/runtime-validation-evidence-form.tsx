@@ -12,10 +12,11 @@ import {
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm } from "@tanstack/react-form";
 import type { SyntheticEvent } from "react";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { FieldErrors, fieldErrorAttributes } from "@/components/field-errors";
 import { StatusMessage } from "@/components/status-message";
 import { errorCodeOf } from "@/utils/error-code";
+import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import {
 	useAddRuntimeValidationTextEvidence,
 	useUploadRuntimeValidationEvidenceFile,
@@ -38,7 +39,11 @@ export function RuntimeValidationEvidenceForm({
 	const addText = useAddRuntimeValidationTextEvidence();
 	const upload = useUploadRuntimeValidationEvidenceFile();
 	const fileInput = useRef<HTMLInputElement>(null);
-	const [failure, setFailure] = useState<string | null>(null);
+	const writeError = addText.error ?? upload.error;
+	const failure = writeError
+		? (errorMessageOf(writeError) ??
+			"The evidence could not be saved. Try again.")
+		: null;
 	const idempotencyKey = useRef(crypto.randomUUID());
 
 	const form = useForm({
@@ -49,7 +54,8 @@ export function RuntimeValidationEvidenceForm({
 			text: "",
 		},
 		onSubmit: async ({ value }) => {
-			setFailure(null);
+			addText.reset();
+			upload.reset();
 			try {
 				if (value.file) {
 					// An observation with a file never reaches here: the form schema refuses it with a message.
@@ -81,15 +87,13 @@ export function RuntimeValidationEvidenceForm({
 				}
 			} catch (error) {
 				const settled =
-					errorCodeOf(error) !== undefined ||
+					(errorCodeOf(error) !== undefined &&
+						!isWriteOutcomeUncertain(error)) ||
 					(error instanceof RuntimeValidationUploadError &&
 						!error.outcomeUncertain);
 				if (settled) {
 					idempotencyKey.current = crypto.randomUUID();
 				}
-				setFailure(
-					errorMessageOf(error) ?? "The evidence could not be saved. Try again."
-				);
 			}
 		},
 		validators: { onSubmit: runtimeValidationEvidenceFormSchema },

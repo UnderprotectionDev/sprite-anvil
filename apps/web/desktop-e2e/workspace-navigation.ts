@@ -1,7 +1,9 @@
 import { $, browser, expect } from "@wdio/globals";
 
 export async function openWorkspaceTask(label: string) {
-	const button = await $(`button=${label}`);
+	const button = await $(
+		`//button[(not(@role) or @role="tab") and normalize-space(.)="${label}"]`
+	);
 	await button.waitForClickable();
 	await button.click();
 }

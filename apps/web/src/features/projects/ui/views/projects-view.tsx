@@ -1,18 +1,21 @@
+import type { ProjectContextCreateInput } from "@sprite-anvil/api/project-context";
 import { Button, buttonVariants } from "@sprite-anvil/ui/components/button";
 import {
+	createDialogHandle,
 	Dialog,
 	DialogContent,
 	DialogDescription,
 	DialogHeader,
 	DialogTitle,
+	DialogTrigger,
 } from "@sprite-anvil/ui/components/dialog";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { StatusMessage } from "@/components/status-message";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
+import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
-import type { CreateProjectFormValues } from "../../schemas";
 import {
 	CreateProjectForm,
 	useCreateProjectForm,
@@ -25,13 +28,9 @@ export function ProjectsView() {
 		...projectsQueryOptions,
 	});
 	const createProjectForm = useCreateProjectForm(handleCreateProject);
-	const [statusMessage, setStatusMessage] = useState<string | null>(null);
-	const [verificationMessage, setVerificationMessage] = useState<string | null>(
-		null
-	);
-	const [isCreateOpen, setIsCreateOpen] = useState(false);
-	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
-	const [isCheckingProjectState, setIsCheckingProjectState] = useState(false);
+	const dialogHandleRef = useRef<ReturnType<typeof createDialogHandle>>(null);
+	dialogHandleRef.current ??= createDialogHandle();
+	const dialogHandle = dialogHandleRef.current;
 	const projectIdsBeforeCreate = useRef<Set<string>>(new Set());
 	const createProject = useMutation(
 		orpc.projects.create.mutationOptions({
@@ -46,8 +45,7 @@ export function ProjectsView() {
 					}
 				);
 				createProjectForm.reset();
-				setIsCreateOpen(false);
-				setStatusMessage("Game project saved.");
+				dialogHandle.close();
 				await queryClient.invalidateQueries({
 					queryKey: projectsQueryOptions.queryKey,
 				});
@@ -55,50 +53,43 @@ export function ProjectsView() {
 					queryKey: orpc.projectContexts.list.queryKey(),
 				});
 			},
-			onError: (error) => {
-				if (isWriteOutcomeUncertain(error)) {
-					setWriteOutcomeUncertain(true);
-				}
-			},
 		})
 	);
 
-	async function refreshProjects() {
-		setIsCheckingProjectState(true);
-		try {
+	const verifyProject = useMutation({
+		...mutationMeta,
+		mutationFn: async () => {
 			const result = await projectsQuery.refetch();
 			if (result.isError) {
-				return;
+				throw result.error;
 			}
-
-			if (writeOutcomeUncertain) {
-				setWriteOutcomeUncertain(false);
-				const savedProject = result.data?.find(
+			return Boolean(
+				result.data?.some(
 					(project) =>
-						project.name === createProjectForm.state.values.name.trim() &&
+						project.name === createProject.variables?.name &&
 						!projectIdsBeforeCreate.current.has(project.id)
-				);
-				if (savedProject) {
-					createProjectForm.reset();
-					setIsCreateOpen(false);
-					setStatusMessage("Game project saved.");
-				} else {
-					setVerificationMessage(
-						"Project list refreshed; the record is not visible. Check the status before resubmitting."
-					);
-				}
+				)
+			);
+		},
+		onSuccess: (found) => {
+			createProject.reset();
+			if (found) {
+				createProjectForm.reset();
+				dialogHandle.close();
 			}
-		} finally {
-			setIsCheckingProjectState(false);
-		}
-	}
+		},
+	});
+	const writeOutcomeUncertain =
+		createProject.isError && isWriteOutcomeUncertain(createProject.error);
+	const editorLocked =
+		createProject.isPending || writeOutcomeUncertain || verifyProject.isPending;
+	const saved = createProject.isSuccess || verifyProject.data === true;
 
-	function handleCreateProject(input: CreateProjectFormValues) {
-		if (writeOutcomeUncertain || createProject.isPending) {
+	function handleCreateProject(input: ProjectContextCreateInput) {
+		if (editorLocked) {
 			return;
 		}
-		setStatusMessage(null);
-		setVerificationMessage(null);
+		verifyProject.reset();
 		projectIdsBeforeCreate.current = new Set(
 			projectsQuery.data?.map((project) => project.id) ?? []
 		);
@@ -117,13 +108,12 @@ export function ProjectsView() {
 						Continue a project or create a workspace for your new game.
 					</p>
 				</div>
-				<Button
-					className="min-h-11 text-sm"
-					onClick={() => setIsCreateOpen(true)}
-					type="button"
+				<DialogTrigger
+					handle={dialogHandle}
+					render={<Button className="min-h-11 text-sm" type="button" />}
 				>
 					New game project
-				</Button>
+				</DialogTrigger>
 			</header>
 			<div className="max-w-5xl">
 				<section aria-labelledby="projects-heading" className="space-y-5">
@@ -137,30 +127,30 @@ export function ProjectsView() {
 						</p>
 					</div>
 					<ProjectsList
+						createHandle={dialogHandle}
 						isError={projectsQuery.isError || projectsQuery.isRefetchError}
 						isPending={projectsQuery.isPending}
-						onCreate={() => setIsCreateOpen(true)}
 						onRetry={() => void projectsQuery.refetch()}
 						projects={projectsQuery.data ?? []}
 					/>
 				</section>
-				{statusMessage ? (
+				{saved ? (
 					<p aria-live="polite" className="mt-5 text-sm" role="status">
-						{statusMessage}
+						Game project saved.
 					</p>
 				) : null}
 			</div>
 			<Dialog
-				onOpenChange={(open) => {
-					if (!(createProject.isPending || writeOutcomeUncertain)) {
-						setIsCreateOpen(open);
+				handle={dialogHandle}
+				onOpenChange={(_open, details) => {
+					if (editorLocked && details.reason !== "imperative-action") {
+						details.cancel();
 					}
 				}}
-				open={isCreateOpen}
 			>
 				<DialogContent
 					className="max-h-[calc(100dvh-2rem)] overflow-y-auto p-6 sm:max-w-lg"
-					showCloseButton={!(createProject.isPending || writeOutcomeUncertain)}
+					showCloseButton={!editorLocked}
 				>
 					<DialogHeader className="mb-2 gap-2">
 						<DialogTitle className="text-2xl">New game project</DialogTitle>
@@ -176,21 +166,22 @@ export function ProjectsView() {
 					/>
 					{writeOutcomeUncertain ? (
 						<Button
-							disabled={isCheckingProjectState}
-							onClick={() => void refreshProjects()}
+							disabled={verifyProject.isPending}
+							onClick={() => verifyProject.mutate()}
 							type="button"
 							variant="outline"
 						>
-							{isCheckingProjectState ? "Checking status…" : "Check status"}
+							{verifyProject.isPending ? "Checking status…" : "Check status"}
 						</Button>
 					) : null}
-					{verificationMessage ? (
+					{verifyProject.data === false ? (
 						<p
 							aria-live="polite"
 							className="text-muted-foreground text-sm"
 							role="status"
 						>
-							{verificationMessage}
+							Project list refreshed; the record is not visible. Check the
+							status before resubmitting.
 						</p>
 					) : null}
 				</DialogContent>
@@ -202,13 +193,13 @@ export function ProjectsView() {
 function ProjectsList({
 	isError,
 	isPending,
-	onCreate,
+	createHandle,
 	onRetry,
 	projects,
 }: {
 	isError: boolean;
 	isPending: boolean;
-	onCreate: () => void;
+	createHandle: ReturnType<typeof createDialogHandle>;
 	onRetry: () => void;
 	projects: { id: string; name: string }[];
 }) {
@@ -234,14 +225,18 @@ function ProjectsList({
 					You have no game projects yet. Create your first project to get
 					started.
 				</p>
-				<Button
-					className="min-h-11 text-sm"
-					onClick={onCreate}
-					type="button"
-					variant="outline"
+				<DialogTrigger
+					handle={createHandle}
+					render={
+						<Button
+							className="min-h-11 text-sm"
+							type="button"
+							variant="outline"
+						/>
+					}
 				>
 					Create first project
-				</Button>
+				</DialogTrigger>
 			</div>
 		);
 	}

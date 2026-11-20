@@ -3,14 +3,19 @@ import type { BackgroundScrollingSetup } from "@sprite-anvil/api/background-scro
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
+import { useCreateStore, useSelector } from "@tanstack/react-store";
 import type { Application, Texture } from "pixi.js";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { ReducedMotionNotice } from "@/components/reduced-motion-notice";
 import { StatusMessage } from "@/components/status-message";
 import { ENV } from "@/env";
+import { usePlaybackClock } from "@/utils/use-playback-clock";
 import type { BackgroundLayerMotion } from "../../lib/background-scrolling-scene";
 
 type Layer = BackgroundLayerLayoutInput["layers"][number];
+type PreviewState =
+	| { status: "loading" | "ready" }
+	| { status: "failed"; error: string };
 const trailingSlash = /\/$/u;
 async function loadBackgroundLayers(setup: {
 	layers: Layer[];
@@ -102,13 +107,27 @@ export function BackgroundScrollingPreview({
 }) {
 	const host = useRef<HTMLDivElement>(null);
 	const renderer = useRef<((elapsed: number) => void) | null>(null);
-	const [ready, setReady] = useState(false);
-	const [error, setError] = useState("");
-	const [playing, setPlaying] = useState(false);
-	const [time, setTime] = useState(0);
+	const load = useCreateStore<PreviewState>({ status: "loading" });
+	const previewState = useSelector(load, (state) => state);
+	const ready = previewState.status === "ready";
+	const error = previewState.status === "failed" ? previewState.error : "";
 	const playedMs = useRef(0);
 	const callback = useRef(onPlayback);
 	callback.current = onPlayback;
+	const {
+		elapsedMs: time,
+		playing,
+		setElapsedMs: setTime,
+		setPlaying,
+	} = usePlaybackClock({
+		durationMs,
+		enabled: ready,
+		maxFrameDeltaMs: 100,
+		onAdvance: (delta) => {
+			playedMs.current = Math.min(durationMs, playedMs.current + delta);
+			callback.current(playedMs.current);
+		},
+	});
 	const config = JSON.stringify({
 		layers,
 		motions,
@@ -121,21 +140,21 @@ export function BackgroundScrollingPreview({
 		let app: Application | undefined;
 		let initialized = false;
 		const textures: Texture[] = [];
-		setReady(false);
+		load.setState(() => ({ status: "loading" }));
 		setPlaying(false);
 		setTime(0);
-		setError("");
 		playedMs.current = 0;
 		callback.current(0);
 		function reportFailure(failure: unknown) {
 			if (!disposed) {
 				renderer.current = null;
-				setError(
-					failure instanceof Error
-						? failure.message
-						: "Could not load the scrolling preview."
-				);
-				setReady(false);
+				load.setState(() => ({
+					status: "failed",
+					error:
+						failure instanceof Error
+							? failure.message
+							: "Could not load the scrolling preview.",
+				}));
 				setPlaying(false);
 				playedMs.current = 0;
 				callback.current(0);
@@ -192,7 +211,7 @@ export function BackgroundScrollingPreview({
 				instance.canvas.style.imageRendering = "pixelated";
 				host.current?.appendChild(instance.canvas);
 				renderer.current(0);
-				setReady(true);
+				load.setState(() => ({ status: "ready" }));
 			} catch (failure) {
 				reportFailure(failure);
 			}
@@ -208,32 +227,11 @@ export function BackgroundScrollingPreview({
 				texture.destroy();
 			}
 		};
-	}, [config]);
+	}, [config, load, setPlaying, setTime]);
 	useEffect(() => {
 		renderer.current?.(time);
 	}, [time]);
-	useEffect(() => {
-		if (!(playing && ready)) {
-			return;
-		}
-		let handle = 0;
-		let previous = performance.now();
-		const tick = (now: number) => {
-			const delta = Math.min(now - previous, 100);
-			previous = now;
-			playedMs.current = Math.min(durationMs, playedMs.current + delta);
-			callback.current(playedMs.current);
-			setTime((current) => Math.min(durationMs, current + delta));
-			handle = requestAnimationFrame(tick);
-		};
-		handle = requestAnimationFrame(tick);
-		return () => cancelAnimationFrame(handle);
-	}, [playing, ready, durationMs]);
-	useEffect(() => {
-		if (time >= durationMs) {
-			setPlaying(false);
-		}
-	}, [time, durationMs]);
+
 	const width = layers[0]?.crop.width ?? 1;
 	return (
 		<section aria-label="Background scrolling playback" className="space-y-3">

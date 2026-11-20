@@ -21,7 +21,6 @@ export const assetFamilyWorkspaceFixture = {
 	],
 	categoryLabel: objectProfileHeading,
 	// A 32×32 PNG that passes the server's strict sharp decode; the shared
-	// 1×1 asset-version fixture PNG trips the warning-failing libpng read.
 	png: Buffer.from(
 		"iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAACXBIWXMAAAsTAAALEwEAmpwYAAAAWUlEQVRYhWNgGAVDDeR3zviPD48sBzw9XoGCRx2QP+LSQP5gdEA+rR2UTy8H5JNo0agD8kejoHM0Ec4YzYb/h3dBxECkI8m2EB2MOiB/NAo6R3oiHAUMdAIApRlBiwhnmmsAAAAASUVORK5CYII=",
 		"base64"
@@ -48,7 +47,7 @@ export async function prepareAssetFamilyWorkspace(
 	await page.getByLabel("Art direction").fill(fixture.generalArtDirection);
 	await page.getByRole("button", { name: "Create project" }).click();
 	await page
-		.getByRole("button", { name: "Visual Worlds and Themes", exact: true })
+		.getByRole("tab", { name: "Visual Worlds and Themes", exact: true })
 		.click();
 	await page.getByLabel("Visual World name").fill(fixture.visualWorldName);
 	await page.getByRole("button", { name: "Add Visual World" }).click();
@@ -59,21 +58,22 @@ export async function prepareAssetFamilyWorkspace(
 	await page.goto("/projects");
 	await page.getByRole("link", { name: "Asset Families" }).click();
 	await page
-		.getByRole("button", {
+		.getByRole("tab", {
 			name: "Family and representation relationships",
 			exact: true,
 		})
 		.click();
 	await page.getByLabel("Subject Identity name").fill(fixture.identityName);
 	await page.getByRole("button", { name: "Create Subject Identity" }).click();
-	await page
-		.getByRole("button", { name: "Family catalog", exact: true })
-		.click();
+	await expect(
+		page.getByText("Subject Identity saved.", { exact: true })
+	).toBeVisible();
+	await page.getByRole("tab", { name: "Family catalog", exact: true }).click();
 	await expect(
 		page.getByRole("heading", { name: fixture.identityName })
 	).toBeVisible();
 	await page
-		.getByRole("button", {
+		.getByRole("tab", {
 			name: "Family and representation relationships",
 			exact: true,
 		})
@@ -84,9 +84,10 @@ export async function prepareAssetFamilyWorkspace(
 	});
 	await page.getByLabel("Usage context").fill(fixture.useContext);
 	await page.getByRole("button", { name: "Create Asset Family" }).click();
-	await page
-		.getByRole("button", { name: "Family catalog", exact: true })
-		.click();
+	await expect(
+		page.getByText("Asset Family saved.", { exact: true })
+	).toBeVisible();
+	await page.getByRole("tab", { name: "Family catalog", exact: true }).click();
 	await expect(
 		page
 			.getByRole("region", { name: "Saved Asset Families" })
@@ -97,18 +98,21 @@ export async function prepareAssetFamilyWorkspace(
 	for (const record of fixture.records) {
 		// biome-ignore lint/performance/noAwaitInLoops: Browser interactions within each record setup must occur in order.
 		await page
-			.getByRole("button", {
+			.getByRole("tab", {
 				name: "Family and representation relationships",
 				exact: true,
 			})
 			.click();
 		await page
-			.getByLabel("Independent product meaning", { exact: true })
+			.getByRole("checkbox", {
+				name: "Independent product meaning",
+				exact: true,
+			})
 			.check();
 		await page.getByLabel("Asset Record name").fill(record.name);
 		await page.getByRole("button", { name: "Add Asset Record" }).click();
 		await page
-			.getByRole("button", {
+			.getByRole("tab", {
 				name: "Version and dependency operations",
 				exact: true,
 			})
@@ -127,7 +131,7 @@ export async function prepareAssetFamilyWorkspace(
 			.click();
 
 		await page
-			.getByRole("button", { name: "Record details", exact: true })
+			.getByRole("tab", { name: "Record details", exact: true })
 			.click();
 		// Scope hydration can reset the form's initial metadata. Select only once
 		// the record and its family world have finished loading.
@@ -148,7 +152,7 @@ export async function prepareAssetFamilyWorkspace(
 		await expect(page.getByText("Asset Record metadata saved.")).toBeVisible();
 
 		await page
-			.getByRole("button", { name: "Versions and files", exact: true })
+			.getByRole("tab", { name: "Versions and files", exact: true })
 			.click();
 		await page.getByLabel("PNG or WebP file").setInputFiles({
 			name: `${record.name}.png`,
@@ -171,7 +175,7 @@ export async function prepareAssetFamilyWorkspace(
 
 		await page.goto(familyUrl);
 		await page
-			.getByRole("button", {
+			.getByRole("tab", {
 				name: "Version and dependency operations",
 				exact: true,
 			})
@@ -215,7 +219,7 @@ export async function activateFamilyProfile(
 	await page
 		.getByRole("link", { name: "Profile Contracts", exact: true })
 		.click();
-	await page.getByRole("button", { name: contractName, exact: true }).click();
+	await page.getByRole("tab", { name: contractName, exact: true }).click();
 	const profile = page.getByRole("article", {
 		name: contractName,
 		exact: true,
@@ -225,7 +229,5 @@ export async function activateFamilyProfile(
 		profile.getByText(`Active in this project · ${contractVersion}`)
 	).toBeVisible();
 	await page.goto(familyUrl);
-	await page
-		.getByRole("button", { name: "Profile reviews", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Profile reviews", exact: true }).click();
 }

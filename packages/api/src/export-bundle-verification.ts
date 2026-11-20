@@ -1916,7 +1916,7 @@ export function isSamePath(left: string, right: string): boolean {
 }
 
 const runtime = globalThis as unknown as {
-	process?: { argv: string[]; exitCode?: number };
+	process?: { argv?: string[]; exitCode?: number };
 };
 
 /** Whether this module is the script being run, resolving a symlinked prefix such as /var against /private/var. */
@@ -1933,13 +1933,14 @@ async function isEntryPoint(script: string): Promise<boolean> {
 	}
 }
 
-const entryScript = runtime.process?.argv[1];
-if (runtime.process && entryScript) {
-	const host = runtime.process;
+const host = runtime.process;
+const commandLine = host?.argv;
+const entryScript = commandLine?.[1];
+if (host && commandLine && entryScript) {
 	isEntryPoint(entryScript).then(async (isEntry) => {
 		if (isEntry) {
 			// Set the exit code instead of exiting so a piped result is fully written.
-			host.exitCode = await runExportBundleVerifier(host.argv.slice(2));
+			host.exitCode = await runExportBundleVerifier(commandLine.slice(2));
 		}
 	});
 }

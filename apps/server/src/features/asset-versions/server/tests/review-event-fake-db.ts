@@ -1,4 +1,5 @@
 import type { Database } from "@sprite-anvil/db";
+import { createDb } from "@sprite-anvil/db";
 
 export interface RecordedStatement {
 	params: unknown[];
@@ -24,7 +25,13 @@ export function fakeReviewEventDb(options: {
 	transactionError?: Error;
 }): FakeReviewEventDb {
 	const transactions: FakeReviewEventDb["transactions"] = [];
+	const builders = createDb({
+		DATABASE_URL: "postgresql://postgres:postgres@localhost/test",
+	});
 	const db = {
+		insert: builders.insert.bind(builders),
+		$with: builders.$with.bind(builders),
+		with: builders.with.bind(builders),
 		$client: {
 			query: (sql: string, params: unknown[]) => ({ params, sql }),
 			transaction: (

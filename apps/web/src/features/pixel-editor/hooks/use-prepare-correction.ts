@@ -1,13 +1,10 @@
+import type { GenerationPackageCreateInput } from "@sprite-anvil/api/generation-packages";
 import type { PixelDraft } from "@sprite-anvil/api/pixel-editor";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { orpc } from "@/utils/orpc";
 import { usePendingIdempotencyKey } from "@/utils/pending-idempotency-key";
-import type { CorrectionPackageValues } from "../lib/correction-package";
-import {
-	buildCorrectionPackageInput,
-	defaultPreservedUnitIds,
-} from "../lib/correction-package";
-import { readFrameStructure } from "../lib/frame-structure-api";
+import { defaultPreservedUnitIds } from "../lib/correction-package";
+import { frameStructureOptions } from "../lib/frame-structure-api";
 
 /** Creates a Production Package for a selective correction; never touches the draft. */
 export function usePrepareCorrection(projectId: string, draft: PixelDraft) {
@@ -15,17 +12,9 @@ export function usePrepareCorrection(projectId: string, draft: PixelDraft) {
 		orpc.assetVersions.list.queryOptions({ input: { projectId } })
 	);
 	// Same key as useFrameStructure, so the panel and this form share one read.
-	const structure = useQuery({
-		queryKey: [
-			"pixel-editor",
-			projectId,
-			"structure",
-			draft.id,
-			draft.revision,
-		],
-		queryFn: () => readFrameStructure(projectId, draft.id),
-		retry: false,
-	});
+	const structure = useQuery(
+		frameStructureOptions(projectId, draft.id, draft.revision)
+	);
 	const units = (versions.data?.unitVersions ?? [])
 		.filter((unit) => unit.assetRecordId === draft.assetRecordId)
 		.map((unit) => ({
@@ -42,11 +31,11 @@ export function usePrepareCorrection(projectId: string, draft: PixelDraft) {
 		units,
 		keptUnitIds: defaultPreservedUnitIds(structure.data),
 		prepare: {
+			data: mutation.data,
 			error: mutation.error,
 			isError: mutation.isError,
 			isPending: mutation.isPending,
-			mutateAsync: async (values: CorrectionPackageValues) => {
-				const request = buildCorrectionPackageInput(draft, projectId, values);
+			mutateAsync: async (request: GenerationPackageCreateInput) => {
 				// A retry of the same correction reuses the key, so a lost response cannot add a second package.
 				const result = await mutation.mutateAsync({
 					...request,

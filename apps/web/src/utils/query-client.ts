@@ -39,3 +39,25 @@ export function createQueryClient() {
 }
 
 export const queryClient = createQueryClient();
+
+let privateSession:
+	| { client: QueryClient; sessionId: string; userId: string }
+	| undefined;
+
+export function resetSessionQueryClient() {
+	privateSession?.client.clear();
+	privateSession = undefined;
+}
+
+export function getSessionQueryClient(userId: string, sessionId: string) {
+	if (
+		privateSession?.userId === userId &&
+		privateSession.sessionId === sessionId
+	) {
+		return privateSession.client;
+	}
+	resetSessionQueryClient();
+	const client = createQueryClient();
+	privateSession = { client, sessionId, userId };
+	return client;
+}

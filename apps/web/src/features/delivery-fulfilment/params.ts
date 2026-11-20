@@ -1,6 +1,8 @@
 import { z } from "zod";
 
-/** Search parameters of the Delivery Diff page: the Delivery Target whose Fulfilments are compared. */
+/** Persist the Delivery Target and the exact Fulfilments selected for comparison. */
 export const deliveryDiffSearchSchema = z.object({
 	deliveryTargetId: z.string().optional(),
+	fromId: z.uuid().optional().catch(undefined),
+	toId: z.uuid().optional().catch(undefined),
 });

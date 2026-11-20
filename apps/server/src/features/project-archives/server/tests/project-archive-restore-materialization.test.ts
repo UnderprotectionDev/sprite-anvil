@@ -170,7 +170,10 @@ test("the restore transaction materializes Visual Worlds and Themes using restor
 				}),
 			}),
 	};
-	const storage = createDatabaseProjectArchiveRestoreStorage(db as never);
+	const storage = createDatabaseProjectArchiveRestoreStorage(
+		db as never,
+		db as never
+	);
 	await expect(storage.insert(fullRecord)).rejects.toThrow(
 		"cannot yet materialize"
 	);

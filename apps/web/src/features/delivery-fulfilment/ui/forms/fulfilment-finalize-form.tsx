@@ -9,6 +9,7 @@ import {
 import { useForm } from "@tanstack/react-form";
 import type { SyntheticEvent } from "react";
 import { StatusMessage } from "@/components/status-message";
+import { getErrorMessage } from "@/utils/get-error-message";
 import { useFinalizeFulfilment } from "../../hooks/use-finalize-fulfilment";
 import { useIdempotentSubmit } from "../../hooks/use-idempotent-submit";
 import { shortId } from "../../lib/short-id";
@@ -34,9 +35,13 @@ export function FulfilmentFinalizeForm({
 	draft: FulfilmentMappingDraft;
 }) {
 	const finalize = useFinalizeFulfilment();
-	const { failure, submit } = useIdempotentSubmit(
-		"The Delivery Fulfilment could not be created. Try again."
-	);
+	const submit = useIdempotentSubmit();
+	const failure = finalize.isError
+		? getErrorMessage(
+				finalize.error,
+				"The Delivery Fulfilment could not be created. Try again."
+			)
+		: null;
 	const conflicts = draft.requirements.filter(
 		(entry) => entry.status === "conflict"
 	);
@@ -44,20 +49,21 @@ export function FulfilmentFinalizeForm({
 
 	const form = useForm({
 		defaultValues: { bundleIds: conflicts.map(() => "") },
-		onSubmit: ({ value }) =>
-			submit((idempotencyKey) =>
-				finalize.mutateAsync({
-					deliveryTargetId,
-					draftId: draft.id,
-					idempotencyKey,
-					projectId: draft.projectId,
-					selections: conflicts.map((requirement, index) => ({
-						assetFamilyId: requirement.assetFamilyId,
-						bundleId: value.bundleIds[index] ?? "",
-						itemId: requirement.itemId,
-					})),
-				})
-			),
+		onSubmit: ({ value }) => {
+			const input = {
+				deliveryTargetId,
+				draftId: draft.id,
+				projectId: draft.projectId,
+				selections: conflicts.map((requirement, index) => ({
+					assetFamilyId: requirement.assetFamilyId,
+					bundleId: value.bundleIds[index] ?? "",
+					itemId: requirement.itemId,
+				})),
+			};
+			return submit(input, (idempotencyKey) =>
+				finalize.mutateAsync({ ...input, idempotencyKey })
+			);
+		},
 		validators: { onSubmit: fulfilmentFinalizeFormSchema },
 	});
 

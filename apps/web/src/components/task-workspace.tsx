@@ -1,6 +1,10 @@
-import { Button } from "@sprite-anvil/ui/components/button";
+import {
+	Tabs,
+	TabsContent,
+	TabsList,
+	TabsTrigger,
+} from "@sprite-anvil/ui/components/tabs";
 import type { ReactNode } from "react";
-import { useId, useState } from "react";
 
 export interface TaskSection {
 	content: ReactNode;
@@ -9,7 +13,7 @@ export interface TaskSection {
 	label: string;
 }
 
-/** App workspace navigation. Keep panels mounted so unsaved drafts survive task changes. */
+/** Keep panels mounted so unsaved drafts survive task changes. */
 export function TaskWorkspace({
 	label,
 	sections,
@@ -19,46 +23,36 @@ export function TaskWorkspace({
 	sections: TaskSection[];
 	initialSection?: string;
 }) {
-	const workspaceId = useId();
-	const [selectedId, setSelectedId] = useState(
-		initialSection ?? sections[0]?.id
-	);
 	const selected =
-		sections.find((section) => section.id === selectedId) ?? sections[0];
+		sections.find(({ id }) => id === initialSection) ?? sections[0];
 	return (
-		<div className="min-w-0 space-y-6">
-			<nav
-				aria-label={label}
-				className="bg-card flex flex-wrap gap-2 rounded-lg border p-2"
-			>
-				{sections.map((section) => (
-					<Button
-						aria-controls={`${workspaceId}-${section.id}`}
-						aria-pressed={selected?.id === section.id}
-						className="min-h-11 text-left whitespace-normal"
-						key={section.id}
-						onClick={() => setSelectedId(section.id)}
-						type="button"
-						variant={selected?.id === section.id ? "default" : "ghost"}
-					>
-						{section.label}
-					</Button>
-				))}
+		<Tabs className="min-w-0 gap-6" defaultValue={selected?.id}>
+			<nav aria-label={label}>
+				<TabsList
+					aria-label={label}
+					className="bg-card flex h-auto w-full flex-wrap justify-start gap-2 rounded-lg border p-2"
+				>
+					{sections.map((section) => (
+						<TabsTrigger
+							className="min-h-11 flex-none px-3 text-left whitespace-normal"
+							key={section.id}
+							value={section.id}
+						>
+							{section.label}
+						</TabsTrigger>
+					))}
+				</TabsList>
 			</nav>
 			{sections.map((section) => (
-				<section
-					aria-label={section.label}
-					className="min-w-0 space-y-6"
-					hidden={selected?.id !== section.id}
-					id={`${workspaceId}-${section.id}`}
-					key={section.id}
-				>
-					<p className="text-muted-foreground text-sm leading-relaxed">
-						{section.description}
-					</p>
-					{section.content}
-				</section>
+				<TabsContent keepMounted key={section.id} value={section.id}>
+					<section aria-label={section.label} className="min-w-0 space-y-4">
+						<p className="text-muted-foreground text-sm leading-relaxed">
+							{section.description}
+						</p>
+						{section.content}
+					</section>
+				</TabsContent>
 			))}
-		</div>
+		</Tabs>
 	);
 }

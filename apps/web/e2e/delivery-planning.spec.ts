@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import {
 	deliveryPlanningFixture as fixture,
 	prepareDeliveryPlanningWorkspace,
+	selectReviewFamily,
 } from "./delivery-planning-fixture";
 
 const readinessPlanUrl = /\/readiness-plan\?deliveryTargetId=/u;
@@ -159,11 +160,9 @@ test("activates a Delivery Target, re-versions it with evidence policies and ope
 	for (const family of fixture.families) {
 		// biome-ignore lint/performance/noAwaitInLoops: Each family is selected and read in turn.
 		await page
-			.getByRole("button", { name: "Completion and evidence", exact: true })
+			.getByRole("tab", { name: "Completion and evidence", exact: true })
 			.click();
-		await page
-			.getByLabel("Family for review and completion")
-			.selectOption({ label: family.familyName });
+		await selectReviewFamily(page, family.familyName);
 		await expect(
 			page.getByRole("heading", { name: familyListRevisionOne })
 		).toBeVisible();

@@ -13,7 +13,7 @@ import type { Database } from "@sprite-anvil/db";
 import { getProjectForUser, publishedProjectPredicate } from "@sprite-anvil/db";
 import { importInboxEntries } from "@sprite-anvil/db/schema/import-inbox";
 import { project } from "@sprite-anvil/db/schema/project";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 
 function toISOString(value: Date | string) {
 	return value instanceof Date
@@ -91,16 +91,28 @@ export function createImportInboxStore(db: Database): ImportInboxStore {
 			return { ok: true, kind: "existing", value: toEntry(existing) };
 		},
 
-		async listEntries(userId, projectIdInput) {
+		async listEntries(userId, projectIdInput, page) {
 			const ownedProject = await getProjectForUser(db, userId, projectIdInput);
 			if (!ownedProject) {
 				return null;
 			}
-			const rows = await db
+			const cursor = page?.beforeId
+				? sql`(${importInboxEntries.createdAt}, ${importInboxEntries.id}) < (
+					select ${importInboxEntries.createdAt}, ${importInboxEntries.id}
+					from ${importInboxEntries}
+					where ${importInboxEntries.projectId} = ${projectIdInput}
+						and ${importInboxEntries.id} = ${page.beforeId}
+				)`
+				: undefined;
+			const query = db
 				.select()
 				.from(importInboxEntries)
-				.where(eq(importInboxEntries.projectId, projectIdInput))
-				.orderBy(desc(importInboxEntries.createdAt));
+				.where(and(eq(importInboxEntries.projectId, projectIdInput), cursor))
+				.orderBy(
+					desc(importInboxEntries.createdAt),
+					desc(importInboxEntries.id)
+				);
+			const rows = await (page ? query.limit(page.size) : query);
 			return rows.map(toEntry);
 		},
 

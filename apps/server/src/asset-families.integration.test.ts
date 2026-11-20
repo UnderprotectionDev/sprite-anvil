@@ -4,7 +4,7 @@ import type { Context } from "@sprite-anvil/api/context";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { createDb } from "@sprite-anvil/db";
 import { user } from "@sprite-anvil/db/schema/auth";
-import { eq } from "drizzle-orm";
+import { removeAssetCatalogFixture } from "./asset-catalog-integration-fixture";
 import { createAssetFamilyStore } from "./features/asset-families/server/asset-family-store";
 import { createAssetRecordStore } from "./features/asset-records/server/asset-record-store";
 import { createAssetRecordTrackingStore } from "./features/asset-records/server/asset-record-tracking-store";
@@ -141,7 +141,7 @@ test.skipIf(!databaseUrl)(
 			expect(catalog.relationships).toContainEqual(relationship);
 		} finally {
 			if (insertedUser) {
-				await db.delete(user).where(eq(user.id, userId));
+				await removeAssetCatalogFixture(db, userId);
 			}
 		}
 	}

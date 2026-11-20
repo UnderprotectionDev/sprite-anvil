@@ -1,6 +1,7 @@
 import type { DeletionReceipt } from "@sprite-anvil/api/permanent-erasure-deletion";
 import type { Database } from "@sprite-anvil/db";
 import { hasErrorCode } from "@sprite-anvil/db/error-codes";
+import type { InteractiveDatabase } from "@sprite-anvil/db/interactive-database";
 import { assetVersions } from "@sprite-anvil/db/schema/asset-versions";
 import {
 	deletionReceipts,
@@ -39,7 +40,8 @@ function toApproval(
 }
 
 export function createDatabaseErasureDeletionStorage(
-	db: Database
+	db: Database,
+	interactiveDb: InteractiveDatabase
 ): ErasureDeletionStorage {
 	async function findReceipt(
 		projectId: string,
@@ -108,7 +110,7 @@ export function createDatabaseErasureDeletionStorage(
 
 		async finalize(input) {
 			try {
-				return await finalizeErasure(db, input);
+				return await finalizeErasure(interactiveDb, input);
 			} catch (error) {
 				// A unique violation only means "already finalized" when that approval's receipt is there.
 				if (

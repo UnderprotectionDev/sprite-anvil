@@ -45,7 +45,7 @@ test("persists Collection membership changes through the web flow", async ({
 	).toBeVisible();
 
 	await page
-		.getByLabel("Asset Record")
+		.getByRole("combobox", { name: "Asset Record", exact: true })
 		.selectOption({ label: `${fixture.name} · No Asset Family assigned` });
 	await page.getByRole("button", { name: "Add to Collection" }).click();
 	await expect(

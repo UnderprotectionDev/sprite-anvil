@@ -1,4 +1,6 @@
 import type { Database } from "@sprite-anvil/db";
+import { hasErrorCode } from "@sprite-anvil/db/error-codes";
+import type { InteractiveDatabase } from "@sprite-anvil/db/interactive-database";
 import {
 	exportProfileRevisions,
 	exportProfiles,
@@ -11,14 +13,6 @@ import type {
 } from "./export-profile-storage";
 
 const uniqueViolationCode = "23505";
-
-function hasErrorCode(error: unknown, expected: string): boolean {
-	if (typeof error !== "object" || error === null) {
-		return false;
-	}
-	const { cause, code } = error as { cause?: unknown; code?: unknown };
-	return code === expected || hasErrorCode(cause, expected);
-}
 
 function toRevision(
 	row: typeof exportProfileRevisions.$inferSelect
@@ -37,7 +31,8 @@ function toRevision(
 }
 
 export function createDatabaseExportProfileStorage(
-	db: Database
+	db: Pick<Database, "select">,
+	interactiveDb: InteractiveDatabase
 ): ExportProfileStorage {
 	return {
 		async findProfile(projectId, profileId) {
@@ -71,7 +66,7 @@ export function createDatabaseExportProfileStorage(
 		},
 		async insertRevision(profile, revision) {
 			try {
-				return await db.transaction(async (tx) => {
+				return await interactiveDb.transaction(async (tx) => {
 					const inserted = await tx
 						.insert(exportProfiles)
 						.values(profile)

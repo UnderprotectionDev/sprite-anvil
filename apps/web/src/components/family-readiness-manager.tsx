@@ -1567,6 +1567,7 @@ interface EvidenceFormValues {
 	cellHeight: string;
 	cellWidth: string;
 	firstGroundVersionId: string;
+	grayscaleReviewedScopeKey: string | null;
 	method: string;
 	observedValue: string;
 	rationale: string;
@@ -1585,6 +1586,7 @@ function useEvidenceForm(
 	return useForm({
 		defaultValues: {
 			approvedCharacterVersionId: "",
+			grayscaleReviewedScopeKey: null,
 			cellHeight: "",
 			cellWidth: "",
 			firstGroundVersionId: "",
@@ -1998,6 +2000,7 @@ function EvidenceForm({
 	const form = useEvidenceForm(initialResult, submit);
 	const {
 		firstGroundVersionId,
+		grayscaleReviewedScopeKey,
 		method,
 		observedValue,
 		result,
@@ -2006,9 +2009,6 @@ function EvidenceForm({
 		usageVariant,
 		versionTarget,
 	} = useSelector(form.store, (state) => state.values);
-	const [grayscaleReviewedScopeKey, setGrayscaleReviewedScopeKey] = useState<
-		string | null
-	>(null);
 	const formId = `${assetFamilyId}-${kind}-${item.id}-${evidenceRequirementId(qualityRequirement, humanReviewRequirement, testId)}`;
 	const isObjectSceneTest =
 		kind === "usage_test" && testId === objectSceneUsageTestId;
@@ -2049,11 +2049,16 @@ function EvidenceForm({
 	);
 	const grayscaleReviewed =
 		grayscaleReviewedScopeKey === currentGrayscaleReviewScopeKey;
+	// A source version or its dimensions can change outside the form.
 	useEffect(() => {
-		setGrayscaleReviewedScopeKey((scopeKey) =>
-			scopeKey === currentGrayscaleReviewScopeKey ? scopeKey : null
-		);
-	}, [currentGrayscaleReviewScopeKey]);
+		const reviewedScope = form.getFieldValue("grayscaleReviewedScopeKey");
+		if (
+			reviewedScope !== null &&
+			reviewedScope !== currentGrayscaleReviewScopeKey
+		) {
+			form.setFieldValue("grayscaleReviewedScopeKey", null);
+		}
+	}, [form, currentGrayscaleReviewScopeKey]);
 	const requiresVersionTarget =
 		kind === "quality" &&
 		!isWaiver &&
@@ -2184,11 +2189,14 @@ function EvidenceForm({
 				isIconTargetSizeTest={isIconTargetSizeTest}
 				kind={kind}
 				onGrayscaleReviewedChange={(reviewed) =>
-					setGrayscaleReviewedScopeKey(
+					form.setFieldValue(
+						"grayscaleReviewedScopeKey",
 						reviewed ? currentGrayscaleReviewScopeKey : null
 					)
 				}
-				onScopeInputChange={() => setGrayscaleReviewedScopeKey(null)}
+				onScopeInputChange={() =>
+					form.setFieldValue("grayscaleReviewedScopeKey", null)
+				}
 				targetDimensions={targetDimensions}
 				testId={testId}
 				usageVariant={usageVariant}

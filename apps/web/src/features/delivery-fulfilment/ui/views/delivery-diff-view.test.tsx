@@ -4,6 +4,7 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { QueryClientProvider } from "@tanstack/react-query";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { createQueryClient } from "@/utils/query-client";
 import { DeliveryDiffView } from "./delivery-diff-view";
@@ -154,14 +155,27 @@ const diff = {
 	to: summary(secondId, 2),
 };
 
-function renderView() {
+function StatefulDeliveryDiff({
+	initial,
+}: {
+	initial: { fromId?: string; toId?: string };
+}) {
+	const [comparison, setComparison] = useState(initial);
+	return (
+		<DeliveryDiffView
+			comparison={comparison}
+			deliveryTargetId={undefined}
+			onSelectComparison={(_target, next) => setComparison(next)}
+			onSelectTarget={vi.fn()}
+			projectId={projectId}
+		/>
+	);
+}
+
+function renderView(initial: { fromId?: string; toId?: string } = {}) {
 	return render(
 		<QueryClientProvider client={createQueryClient()}>
-			<DeliveryDiffView
-				deliveryTargetId={undefined}
-				onSelectTarget={vi.fn()}
-				projectId={projectId}
-			/>
+			<StatefulDeliveryDiff initial={initial} />
 		</QueryClientProvider>
 	);
 }
@@ -174,6 +188,18 @@ beforeEach(() => {
 	];
 });
 afterEach(cleanup);
+
+test("loads the exact comparison selected in the URL", async () => {
+	fakeApi.compare.mockResolvedValue(diff);
+	renderView({ fromId: firstId, toId: secondId });
+	expect(await screen.findByLabelText("Compare from")).toHaveValue(firstId);
+	expect(screen.getByLabelText("Compare to")).toHaveValue(secondId);
+	expect(fakeApi.compare).toHaveBeenCalledWith({
+		fromFulfilmentId: firstId,
+		projectId,
+		toFulfilmentId: secondId,
+	});
+});
 
 test("shows each difference section separately, with unrecorded sections explicit", async () => {
 	fakeApi.compare.mockResolvedValue(diff);

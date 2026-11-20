@@ -267,6 +267,7 @@ vi.mock("@/lib/auth-client", () => ({
 					name: "Test Player",
 					email: "player@example.com",
 				},
+				session: { id: "session-1" },
 			},
 			isPending: false,
 		}),

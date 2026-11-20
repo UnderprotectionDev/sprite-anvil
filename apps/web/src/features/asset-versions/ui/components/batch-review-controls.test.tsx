@@ -213,3 +213,33 @@ test("disables every batch review control while writes are disabled", () => {
 		screen.getByRole("group", { name: "Toplu inceleme" })
 	).toBeInTheDocument();
 });
+
+test("never offers a previous project's preview for confirmation", async () => {
+	const user = userEvent.setup();
+	const onReview = vi.fn();
+	const versions = [{ id: "one", name: "Knight" }];
+	previewBatchReview.mockResolvedValue({
+		items: [
+			{ assetVersionId: "one", expectedReviewEventId: null, blockers: [] },
+		],
+	});
+	const controls = (projectId: string) => (
+		<QueryClientProvider client={queryClient}>
+			<BatchReviewControls
+				onReview={onReview}
+				projectId={projectId}
+				versions={versions}
+				writesDisabled={false}
+			/>
+		</QueryClientProvider>
+	);
+	const { rerender } = baseRender(controls("first"));
+	await user.click(screen.getByRole("checkbox", { name: "Knight" }));
+	await user.type(screen.getByLabelText("Batch review rationale"), "Reviewed");
+	await user.click(
+		screen.getByRole("button", { name: "Show eligibility and blockers" })
+	);
+	await screen.findByRole("button", { name: "Save decisions" });
+	rerender(controls("second"));
+	expect(screen.queryByRole("button", { name: "Save decisions" })).toBeNull();
+});

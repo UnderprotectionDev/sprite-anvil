@@ -20,6 +20,7 @@ import { useForm, useSelector } from "@tanstack/react-form";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ReducedMotionNotice } from "@/components/reduced-motion-notice";
 import { StatusMessage } from "@/components/status-message";
+import { usePendingIdempotencyKey } from "@/utils/pending-idempotency-key";
 import { DirectionalClipPreview } from "./directional-clip-preview";
 
 const reviewCriteriaLabels: Record<
@@ -125,9 +126,10 @@ export function DirectionalReviewEditor({
 				frames: [newFrame()],
 			}))
 	);
-	const [operationId] = useState(() => crypto.randomUUID());
+	const operationKey = usePendingIdempotencyKey();
 	const toCandidate = (value: EditorValues) => ({
-		id: initial?.id ?? operationId,
+		// The real identifier is allocated only on the first valid submission.
+		id: initial?.id ?? "00000000-0000-0000-0000-000000000000",
 		projectId,
 		assetFamilyId,
 		canonicalDesignId,
@@ -151,7 +153,10 @@ export function DirectionalReviewEditor({
 			const parsed = directionalReviewInputSchema.safeParse(toCandidate(value));
 			if (parsed.success) {
 				setPlaying(false);
-				await onSave(toCandidate(value));
+				await onSave({
+					...parsed.data,
+					id: initial?.id ?? operationKey.keyFor(JSON.stringify(parsed.data)),
+				});
 			}
 		},
 	});

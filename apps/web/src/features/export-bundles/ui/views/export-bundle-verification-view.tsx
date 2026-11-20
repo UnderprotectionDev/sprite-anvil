@@ -1,8 +1,9 @@
 import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
+import { useMutation } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { useState } from "react";
 import { StatusMessage } from "@/components/status-message";
+import { mutationMeta } from "@/utils/mutation-meta";
 import type {
 	ExportBundleManifestSummary,
 	ExportBundleReading,
@@ -87,39 +88,23 @@ export function ExportBundleVerificationView({
 	children?: ReactNode;
 	projectId?: string;
 }) {
-	const [reading, setReading] = useState<ExportBundleReading | null>(null);
-	const [readError, setReadError] = useState<string | null>(null);
-	const [isReading, setIsReading] = useState(false);
-
-	async function choose(files: File[]) {
-		if (files.length === 0) {
-			return;
-		}
-		setIsReading(true);
-		setReadError(null);
-		try {
-			setReading(
-				await verifyWithMeasurement({
-					projectId,
-					online: () => navigator.onLine,
-					record: async (input, signal) =>
-						(
-							await import("@/utils/orpc")
-						).client.measurementEvents.recordVerificationBoundary(input, {
-							signal,
-						}),
-					read: () => readExportBundle(files),
-				})
-			);
-		} catch (error) {
-			setReading(null);
-			setReadError(
-				`The chosen directory could not be read: ${describeError(error)}`
-			);
-		} finally {
-			setIsReading(false);
-		}
-	}
+	const verification = useMutation({
+		...mutationMeta,
+		gcTime: 0,
+		networkMode: "always",
+		mutationFn: (files: File[]) =>
+			verifyWithMeasurement({
+				projectId,
+				online: () => navigator.onLine,
+				record: async (input, signal) =>
+					(
+						await import("@/utils/orpc")
+					).client.measurementEvents.recordVerificationBoundary(input, {
+						signal,
+					}),
+				read: () => readExportBundle(files),
+			}),
+	});
 
 	return (
 		<main className="mx-auto w-full max-w-3xl space-y-6 px-4 py-8">
@@ -138,19 +123,29 @@ export function ExportBundleVerificationView({
 					{...directoryAttributes}
 					id="bundle-directory"
 					multiple
-					onChange={(event) => void choose([...(event.target.files ?? [])])}
+					onChange={(event) => {
+						const files = Array.from(event.currentTarget.files ?? []);
+						if (files.length > 0) {
+							verification.mutate(files);
+						}
+					}}
 					type="file"
 				/>
 			</div>
-			{isReading ? (
+			{verification.isPending ? (
 				<p aria-live="polite" role="status">
 					Verifying bundle…
 				</p>
 			) : null}
-			{readError ? (
-				<StatusMessage tone="error">{readError}</StatusMessage>
+			{verification.isError ? (
+				<StatusMessage tone="error">
+					The chosen directory could not be read:{" "}
+					{describeError(verification.error)}
+				</StatusMessage>
 			) : null}
-			{reading && !isReading ? <VerificationResult reading={reading} /> : null}
+			{verification.isSuccess ? (
+				<VerificationResult reading={verification.data} />
+			) : null}
 		</main>
 	);
 }

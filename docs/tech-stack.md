@@ -20,7 +20,7 @@
 - TanStack Table
 - Tailwind CSS 4
 - Base UI (through `@sprite-anvil/ui` components)
-- Lucide and Pixelarticons
+- Lucide
 - dnd-kit
 - Fumadocs
 
@@ -35,12 +35,16 @@ Each responsibility is built with its technology, not with the substitute beside
 | Form state, validation and submission | TanStack Form with Zod | A `<form>` whose controls keep their own `useState` or prop callbacks; check `form-state` |
 | Interface controls | Base UI through `@sprite-anvil/ui` | A raw `<button>`, `<input>`, `<select>` or `<textarea>` where `@sprite-anvil/ui` has the primitive; check `raw-control`, exception with a reason |
 | Server data in the web app | oRPC client with TanStack Query | A `fetch` call in `apps/web/src`; check `raw-fetch`, exception with a reason |
+| Application JSON in the web app | oRPC procedures | Importing `honoGetJson` or `honoPostJson` from the shared Hono API module; check `hono-json-helper` |
+| A single oRPC mutation | oRPC TanStack Query `mutationOptions` | A `useMutation` callback that only forwards its input to a procedure on the shared oRPC client; check `orpc-mutation-options` |
+| Imperative reads through the web Query client | TanStack Query via `queryClient.query` | A direct `fetchQuery` call on a local `useQueryClient()` or `new QueryClient()` binding in web production source; check `deprecated-query-fetch` |
 | Offline browser data | Dexie | The `indexedDB` API used directly; check `raw-indexeddb` |
 | State several components share | TanStack Store | A module-level mutable store, or a context used as one |
 | Long lists | TanStack Virtual | Hand-written windowing |
 | Tabular data (sorting, filtering, column state) | TanStack Table through a `@sprite-anvil/ui` data table | Hand-written sort/filter state over a raw `Table` or a CSS grid |
 | Drag and drop | dnd-kit | HTML drag events on sortable items |
 | Navigation | TanStack Router | `window.location` assignment, or `<a href>` to an app route |
+| Route registration state | TanStack Router search or the owning feature | A direct React `useState` or `useReducer` call in a web route registration; check `route-react-state` |
 | Dithered fades and fills (ink fades, media surfaces) | Pre-generated static SVG images, a 2px cell and the ink colour from the Design Language, referenced as CSS images | A dither or noise library, a canvas or shader pass at runtime, or CSS gradients |
 
 ## Pixel Editor
@@ -65,8 +69,8 @@ Each responsibility is built with its technology, not with the substitute beside
 - Neon PostgreSQL
 - Drizzle ORM
 - Drizzle Kit
-  - Exception (pending user approval, not yet approved): the guarded Review Event insert (`apps/server/src/features/asset-versions/server/review-event-publication.ts`) is a raw SQL `INSERT ... SELECT ... WHERE` sent through the Neon client in one Serializable transaction that also verifies the written row. Drizzle's `insert().select()` needs a `FROM` source and cannot express an insert of literal values guarded by two latest-event subqueries.
-  - Approved Serializable transaction exception: managed object reservation and erasure gates (`apps/server/src/database-managed-object-reservations.ts`) and atomic Batch Review Event publication (`packages/api/src/batch-review-events.ts`) may use the Neon client transaction API. The installed Drizzle Neon HTTP driver does not expose Serializable transaction isolation; these two operations require it to preserve their concurrency guarantees. Keep their queries built with Drizzle and use Drizzle for other queries.
+  - Runtime queries and write batches use Drizzle with Neon HTTP. Operations whose writes depend on a read or row lock within the same transaction use Drizzle with Bun SQL over a pooled client. The app and worker share this configuration through the database package and connect to the same application database.
+  - Serializable transaction exception: managed object reservation and erasure gates, Batch Review Event publication, and guarded Review Event publication use the Neon client transaction API to set isolation. Build their statements with Drizzle. Guarded Review Event publication keeps the latest-event check, insert, and stored-row verification in one statement. The guarded publication decision is recorded in [the technology-stack audit](audits/tech-stack-usage.md#guarded-review-event-transaction).
 - Cloudflare Queues (background work)
 
 ## Authentication
@@ -89,7 +93,7 @@ Each responsibility is built with its technology, not with the substitute beside
 - Testing Library
 - Playwright
 - Opt-in database integration tests
-  - CI runs them in the `integration` job against a PostgreSQL service: profile tests use their own loopback databases cloned from a `db:push` schema template, and `createDb` (neon-http) tests go through the local Neon HTTP proxy in a required blocking step (`ghcr.io/timowilhelm/local-neon-http-proxy`, pinned by digest). `createDb` routes only the reserved host `db.localtest.me` to the proxy (`packages/db/src/local-neon-proxy.ts`).
+  - CI runs them in the `integration` job against a PostgreSQL service: profile tests use their own loopback databases cloned from a `db:push` schema template, and the required atomic write tests use Bun SQL for interactive transactions and `createDb` (neon-http) through the local Neon HTTP proxy for batches (`ghcr.io/timowilhelm/local-neon-http-proxy`, pinned by digest). `createDb` routes only the reserved host `db.localtest.me` to the proxy (`packages/db/src/local-neon-proxy.ts`).
 - Tauri WebDriver
 - Godot 4.x stable, 4.3 to 4.5 (user-approved platform dependency): the Godot Verified Engine Adapter targets this range, and the golden-project contract (`packages/api/src/godot-golden.test.ts`) runs headless Godot against `GODOT_BIN` (or `godot`/`godot4` on PATH). The required CI `godot-golden` matrix downloads and runs the official 4.3, 4.4 and 4.5 Linux binaries. Local runs without a binary skip the headless check and say so; the static golden-output checks always run. Unity is not a supported target.
 

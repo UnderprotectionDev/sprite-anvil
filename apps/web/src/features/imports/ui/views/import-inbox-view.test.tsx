@@ -90,6 +90,51 @@ beforeEach(() => {
 	fakeApi.listProposals.mockResolvedValue([]);
 });
 
+test("clears the selected source files when the project changes", async () => {
+	const queryClient = createQueryClient();
+	const inbox = (id: string) => (
+		<QueryClientProvider client={queryClient}>
+			<ImportInboxView projectId={id} />
+		</QueryClientProvider>
+	);
+	const { rerender } = render(inbox(projectId));
+	const input = await screen.findByLabelText("Files");
+	fireEvent.change(input, {
+		target: { files: [new File([new Uint8Array([1])], "old-project.png")] },
+	});
+	expect(
+		screen.getByRole("list", { name: "Selected files" })
+	).toBeInTheDocument();
+	rerender(inbox(crypto.randomUUID()));
+	expect(screen.queryByRole("list", { name: "Selected files" })).toBeNull();
+});
+
+test("keeps the same upload ID for a file the server explicitly rejected", async () => {
+	fakeApi.fetch.mockResolvedValue(new Response(null, { status: 400 }));
+	vi.stubGlobal("fetch", fakeApi.fetch);
+	render(
+		<QueryClientProvider client={createQueryClient()}>
+			<ImportInboxView projectId={projectId} />
+		</QueryClientProvider>
+	);
+	fireEvent.change(await screen.findByLabelText("Files"), {
+		target: { files: [new File([new Uint8Array([1])], "retry.png")] },
+	});
+	const submit = screen.getByRole("button", {
+		name: "Add files to Import Inbox",
+	});
+	fireEvent.click(submit);
+	await screen.findByRole("alert", { name: "Upload errors" });
+	fireEvent.click(submit);
+	await waitFor(() => expect(fakeApi.fetch).toHaveBeenCalledTimes(2));
+	const [first, second] = fakeApi.fetch.mock.calls;
+	expect(first?.[1]?.headers).toHaveProperty(
+		"Idempotency-Key",
+		expect.any(String)
+	);
+	expect(second?.[1]?.headers).toEqual(first?.[1]?.headers);
+});
+
 test("uploads a source file and shows the persisted unresolved Import Inbox Entry", async () => {
 	fakeApi.fetch.mockImplementation(
 		(_input: RequestInfo | URL, init?: RequestInit) => {
@@ -136,7 +181,7 @@ test("uploads a source file and shows the persisted unresolved Import Inbox Entr
 
 	expect(await screen.findByText("hero source.aseprite")).toBeInTheDocument();
 	expect(screen.getByText(unresolvedStatusPattern)).toBeInTheDocument();
-	fireEvent.click(screen.getByRole("button", { name: "Pending files" }));
+	fireEvent.click(screen.getByRole("tab", { name: "Pending files" }));
 	expect(screen.getByRole("link", { name: "Download file" })).toHaveAttribute(
 		"href",
 		"http://localhost:3000/api/projects/" +
@@ -327,7 +372,7 @@ test("shows the support reference for a failed inbox read and retries the query"
 	expect(
 		screen.getByText(`Support reference: ${supportReference}`)
 	).toBeInTheDocument();
-	fireEvent.click(screen.getByRole("button", { name: "Pending files" }));
+	fireEvent.click(screen.getByRole("tab", { name: "Pending files" }));
 	fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 	expect(
 		await screen.findByText("No files await linking yet.")
@@ -486,7 +531,7 @@ test("creates and rereads a source metadata proposal from explicitly selected si
 	);
 
 	await screen.findByText("opaque-sidecar");
-	fireEvent.click(screen.getByRole("button", { name: "Pending files" }));
+	fireEvent.click(screen.getByRole("tab", { name: "Pending files" }));
 	const sourcePanel = within(
 		screen.getByRole("region", {
 			name: "Source Metadata Mapping Proposal for sheet.png",
@@ -609,4 +654,38 @@ test("creates and rereads a source metadata proposal from explicitly selected si
 		sidecarEntryIds: [sidecarEntryId, secondSidecarEntryId],
 	});
 	expect(screen.getByText("source-metadata-mapping/1.0.0")).toBeInTheDocument();
+});
+
+test("requests a bounded Import Inbox page and loads older entries on demand", async () => {
+	const firstPage = Array.from({ length: 40 }, (_, index) => ({
+		id: crypto.randomUUID(),
+		projectId,
+		fileName: `Source ${index}.aseprite`,
+		createdAt: "2026-09-28T09:00:00.000Z",
+		contentLength: 10,
+		sha256: "a".repeat(64),
+		sourceContentType: "application/octet-stream",
+	}));
+	fakeApi.listEntries.mockResolvedValueOnce(firstPage);
+	render(
+		<QueryClientProvider client={createQueryClient()}>
+			<ImportInboxView projectId={projectId} />
+		</QueryClientProvider>
+	);
+	fireEvent.click(await screen.findByRole("tab", { name: "Pending files" }));
+	const load = await screen.findByRole("button", {
+		name: "Load older entries",
+	});
+	expect(fakeApi.listEntries).toHaveBeenLastCalledWith({
+		projectId,
+		pageSize: 40,
+	});
+	fireEvent.click(load);
+	await waitFor(() =>
+		expect(fakeApi.listEntries).toHaveBeenLastCalledWith({
+			projectId,
+			pageSize: 40,
+			beforeId: firstPage.at(-1)?.id,
+		})
+	);
 });

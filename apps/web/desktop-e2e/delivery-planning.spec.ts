@@ -70,9 +70,11 @@ describe("Delivery Planning", () => {
 		for (const family of fixture.families) {
 			// biome-ignore lint/performance/noAwaitInLoops: Each family's list is saved and activated before the next.
 			await openWorkspaceTask("Completion and evidence");
-			await $(
-				"//label[span[normalize-space()='Family for review and completion']]//select"
-			).selectByVisibleText(family.familyName);
+			const familyPicker = await $(
+				"//input[@role='combobox' and @placeholder='Search Asset Families']"
+			);
+			await familyPicker.setValue(family.familyName);
+			await familyPicker.keys(["ArrowDown", "Enter"]);
 			await (await $("button=Add item")).click();
 			await $("//label[span[normalize-space()='Item name']]//input").setValue(
 				family.itemName

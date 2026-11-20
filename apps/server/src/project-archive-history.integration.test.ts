@@ -1,14 +1,13 @@
 import { expect, test } from "bun:test";
 import { getSpecializedProfileContract } from "@sprite-anvil/api/specialized-profile-contracts";
 import type { Database } from "@sprite-anvil/db";
+import { createInteractiveDatabase } from "@sprite-anvil/db/interactive-database";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
 import { user } from "@sprite-anvil/db/schema/auth";
 import { generationPackages } from "@sprite-anvil/db/schema/generation-packages";
 import { project } from "@sprite-anvil/db/schema/project";
-import {
-	createLocalTestDb,
-	isLoopbackTestDatabaseUrl,
-} from "@sprite-anvil/db/testing";
+import { specializedProfileContractRevisions } from "@sprite-anvil/db/schema/specialized-profile-contracts";
+import { isLoopbackTestDatabaseUrl } from "@sprite-anvil/db/testing";
 import { eq } from "drizzle-orm";
 import { insertArchiveHistory } from "./features/project-archives/server/project-archive-history-materialization";
 import type { StoredProjectArchiveRestoreRecord } from "./features/project-archives/server/project-archive-restore-storage";
@@ -24,7 +23,7 @@ test.skipIf(!isLoopbackTestDatabaseUrl(databaseUrl))(
 		if (!databaseUrl) {
 			throw new Error("CONTEXT_TEST_DATABASE_URL required");
 		}
-		const db = createLocalTestDb({ DATABASE_URL: databaseUrl });
+		const db = createInteractiveDatabase({ DATABASE_URL: databaseUrl });
 		const definition = getSpecializedProfileContract("icon");
 		if (!definition) {
 			throw new Error("Icon profile contract missing");
@@ -144,6 +143,17 @@ test.skipIf(!isLoopbackTestDatabaseUrl(databaseUrl))(
 						supportLevel: "general",
 						availability: "active",
 					});
+					await tx
+						.insert(specializedProfileContractRevisions)
+						.values({
+							id: contractId,
+							profileId: definition.profileId,
+							contractSchemaVersion: definition.contractSchemaVersion,
+							contractVersion: definition.version,
+							definition,
+							createdAt: new Date("2025-01-01T00:00:00.000Z"),
+						})
+						.onConflictDoNothing();
 					await insertArchiveHistory(tx, record);
 					expect(
 						await canonicalDatabaseVerifier(tx as unknown as Database)(record)
@@ -187,7 +197,7 @@ test.skipIf(!isLoopbackTestDatabaseUrl(databaseUrl))(
 				})
 			).rejects.toBe(rollback);
 		} finally {
-			await db.close();
+			await db.$client.close();
 		}
 	}
 );
@@ -260,7 +270,7 @@ test.skipIf(!isLoopbackTestDatabaseUrl(databaseUrl))(
 			}
 			return value;
 		};
-		const db = createLocalTestDb({ DATABASE_URL: databaseUrl });
+		const db = createInteractiveDatabase({ DATABASE_URL: databaseUrl });
 		const projectId = crypto.randomUUID();
 		const userId = crypto.randomUUID();
 		const worldId = crypto.randomUUID();
@@ -352,7 +362,7 @@ test.skipIf(!isLoopbackTestDatabaseUrl(databaseUrl))(
 				})
 			).rejects.toBe(rollback);
 		} finally {
-			await db.close();
+			await db.$client.close();
 		}
 	}
 );

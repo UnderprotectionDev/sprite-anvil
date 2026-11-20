@@ -74,6 +74,7 @@ const rightsEvidencePolicy: RightsEvidencePolicy = {
 function seed() {
 	return {
 		contextRevisions: [
+			{ id: "context-baseline", revisionNumber: 0 },
 			{ id: "context-1", revisionNumber: 1 },
 			{ id: "context-2", revisionNumber: 2 },
 		],
@@ -204,6 +205,22 @@ test("a saved draft is reviewable with its pinned scope and changes nothing offi
 	expect(saved.families[0]?.requiredSetRevisionNumber).toBe(1);
 	// The draft does not replace or alter the family-level Required Items Lists.
 	expect(seeded).toEqual(before);
+});
+
+test("a new project's baseline context can be pinned and activated", async () => {
+	const { activate, list, saveDraft } = setup();
+	const draft = await saveDraft({ contextRevisionId: "context-baseline" });
+	expect(draft.contextRevisionNumber).toBe(0);
+	const revision = await activate({ draftId: draft.id, id: revisionId });
+	expect(revision.contextRevisionNumber).toBe(0);
+	const [target] = (await list()).deliveryTargets;
+	expect(target?.activeRevision?.contextRevisionNumber).toBe(0);
+	await saveDraft({ id: secondDraftId, contextRevisionId: "context-1" });
+	const next = await activate({ draftId: secondDraftId, id: secondRevisionId });
+	expect(next.scopeDiff?.contextChange).toMatchObject({
+		fromRevisionNumber: 0,
+		toRevisionNumber: 1,
+	});
 });
 
 test("activating a draft creates a revision that is reread from storage", async () => {

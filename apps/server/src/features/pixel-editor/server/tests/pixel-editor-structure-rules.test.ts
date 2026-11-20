@@ -93,7 +93,7 @@ test("a frame offset change makes a new Unit Version, including for a blank fram
 	expect(moved.body.frames[3].status).toBe("changed");
 	expect(moved.body.affectedFrameKeys).toEqual(["frame-4"]);
 	const second = await commit(harness, id);
-	expect(second.response.status).toBe(201);
+	expect(second.response.status).toBe(200);
 	expect(second.body.createdUnitVersionIds).toHaveLength(1);
 });
 
@@ -150,7 +150,7 @@ test("no move can cross a kept frame, whichever frame is moved", async () => {
 	]) {
 		const { response, body } = await frameOp(harness, id, operation);
 		expect(response.status).toBe(409);
-		expect(body.error).toBe("Protected frame");
+		expect(body.message).toContain("Protected frame");
 	}
 	expect(await readStructure(harness, id)).toEqual(before);
 
@@ -237,7 +237,7 @@ test("blank and Asset Version frames take pixel edits of their own; cell and kep
 		operation: pen,
 	});
 	expect(kept.response.status).toBe(409);
-	expect(kept.body.error).toBe("Protected frame");
+	expect(kept.body.message).toContain("Protected frame");
 });
 
 test("scale carries the frame structure by the integer factor and undo restores it", async () => {
@@ -282,7 +282,7 @@ test("scale is refused with a reason while a kept frame or a frame from another 
 	});
 	const kept = await sheetOp(harness, id, { type: "scale", factor: 2 });
 	expect(kept.response.status).toBe(409);
-	expect(kept.body.error).toBe("Protected frame");
+	expect(kept.body.message).toContain("Protected frame");
 	await frameOp(harness, id, {
 		type: "set-keep",
 		frameKey: "frame-1",
@@ -294,7 +294,7 @@ test("scale is refused with a reason while a kept frame or a frame from another 
 	});
 	const foreign = await sheetOp(harness, id, { type: "scale", factor: 2 });
 	expect(foreign.response.status).toBe(422);
-	expect(foreign.body.detail).toContain("frame-4");
+	expect(foreign.body.message).toContain("frame-4");
 });
 
 test("resize-canvas moves the grid with the cells and keeps kept frames pinned; a crop that cuts the grid is refused", async () => {
@@ -327,7 +327,7 @@ test("resize-canvas moves the grid with the cells and keeps kept frames pinned; 
 		rect: { x: 0, y: 0, width: 5, height: 3 },
 	});
 	expect(cut.response.status).toBe(422);
-	expect(cut.body.detail).toBeTruthy();
+	expect(cut.body.message).toBeTruthy();
 
 	const trim = await sheetOp(harness, id, {
 		type: "crop",
@@ -354,21 +354,21 @@ test("a failed unit write cleans up its object and a retry adopts the units alre
 
 	harness.faults.failPut = true;
 	const storageDown = await commit(harness, id);
-	expect(storageDown.response.status).toBe(503);
-	expect(storageDown.body.error).toBe("Frame structure commit failed");
+	expect(storageDown.response.status).toBe(500);
+	expect(storageDown.body.data.supportReference).toContain("SUP-");
 	expect(harness.objects.size).toBe(objectsBefore);
 	harness.faults.failPut = false;
 
 	harness.faults.failCandidateOnCall = 2;
 	const partial = await commit(harness, id);
-	expect(partial.response.status).toBe(503);
+	expect(partial.response.status).toBe(500);
 	expect(harness.calls.composites).toHaveLength(0);
 	const draftAfterFailure = await readStructure(harness, id);
 	expect(draftAfterFailure.lastCommit).toBeNull();
 	harness.faults.failCandidateOnCall = null;
 
 	const retry = await commit(harness, id);
-	expect(retry.response.status).toBe(201);
+	expect(retry.response.status).toBe(200);
 	expect(retry.body.createdUnitVersionIds).toHaveLength(3);
 	expect(harness.calls.composites).toHaveLength(1);
 	// frame-1 was built by the failed attempt; the retry adopted it by idempotency key.

@@ -3,6 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { getSpecializedProfileContract } from "@sprite-anvil/api/specialized-profile-contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
+	act,
 	cleanup,
 	fireEvent,
 	render,
@@ -48,12 +49,11 @@ function show() {
 		throw new Error("Missing marketing contract");
 	}
 	mocks.list.mockResolvedValue([]);
+	const queryClient = new QueryClient({
+		defaultOptions: { queries: { retry: false } },
+	});
 	render(
-		<QueryClientProvider
-			client={
-				new QueryClient({ defaultOptions: { queries: { retry: false } } })
-			}
-		>
+		<QueryClientProvider client={queryClient}>
 			<MarketingUsageReviewManager
 				activation={{
 					projectId: "project",
@@ -77,6 +77,7 @@ function show() {
 			/>
 		</QueryClientProvider>
 	);
+	return queryClient;
 }
 function loadAndAssess() {
 	for (const img of screen.getAllByRole("img")) {
@@ -89,19 +90,29 @@ function loadAndAssess() {
 	}
 }
 test("requires loaded previews, saves observations and confirms authoritative reread", async () => {
-	show();
+	const queryClient = show();
 	const save = screen.getByRole("button", {
 		name: "Save usage review",
 	});
 	expect(save).toBeDisabled();
 	loadAndAssess();
+	let finishReread: () => void = () => undefined;
+	let rereading = false;
 	mocks.save.mockImplementation((input) => {
 		const record = { ...input, createdAt: "2026-10-13T00:00:00.000Z" };
-		mocks.list.mockResolvedValue([record]);
+		mocks.list.mockImplementationOnce(() => {
+			rereading = true;
+			return new Promise((resolve) => {
+				finishReread = () => resolve([record]);
+			});
+		});
 		return Promise.resolve(record);
 	});
 	await waitFor(() => expect(save).toBeEnabled());
 	fireEvent.click(save);
+	await waitFor(() => expect(rereading).toBe(true));
+	expect(queryClient.isMutating()).toBe(1);
+	await act(async () => finishReread());
 	await screen.findByText("Review verified from the saved record.");
 	expect(mocks.save).toHaveBeenCalledWith(
 		expect.objectContaining({

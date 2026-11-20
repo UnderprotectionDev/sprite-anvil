@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { assetSourceFileNameSchema } from "./asset-record-tracking";
+import { pageSizeSchema } from "./pagination";
 
 export const importInboxSourceContentTypeSchema = z
 	.string()
@@ -23,8 +24,16 @@ export type ImportInboxEntry = z.infer<typeof importInboxEntrySchema>;
 export const importInboxEntriesSchema = z.array(importInboxEntrySchema);
 
 export const importInboxListInputSchema = z
-	.object({ projectId: z.string() })
-	.strict();
+	.object({
+		projectId: z.string(),
+		pageSize: pageSizeSchema.optional(),
+		beforeId: z.uuid().optional(),
+	})
+	.strict()
+	.refine((input) => !input.beforeId || input.pageSize !== undefined, {
+		message: "A cursor requires a page size.",
+		path: ["beforeId"],
+	});
 
 export const importInboxUploadInputSchema = z
 	.object({
@@ -71,6 +80,7 @@ export interface ImportInboxStore {
 	) => Promise<ImportInboxFileRecord | null>;
 	listEntries: (
 		userId: string,
-		projectId: string
+		projectId: string,
+		page?: { size: number; beforeId?: string }
 	) => Promise<ImportInboxEntry[] | null>;
 }

@@ -1,7 +1,7 @@
 import type { PixelOperation, PixelRect } from "@sprite-anvil/api/pixel-editor";
-import { useSelector } from "@tanstack/react-store";
+import { useCreateStore, useSelector } from "@tanstack/react-store";
 import type { KeyboardEvent } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { paintScene } from "../../lib/canvas-scene";
 import type { Cell } from "../../lib/pixel-geometry";
 import {
@@ -23,6 +23,13 @@ interface PixelCanvasProps {
 	size: { height: number; width: number };
 	store: PixelEditorToolStore;
 	underlay?: HTMLImageElement | null;
+}
+
+interface CanvasInteraction {
+	anchor: Cell | null;
+	hover: Cell | null;
+	notice: string;
+	path: Cell[];
 }
 
 const cursorSteps: Record<string, Cell> = {
@@ -63,10 +70,16 @@ export function PixelCanvas({
 }: PixelCanvasProps) {
 	const state = useSelector(store, (current) => current);
 	const canvasRef = useRef<HTMLCanvasElement>(null);
-	const [anchor, setAnchor] = useState<Cell | null>(null);
-	const [hover, setHover] = useState<Cell | null>(null);
-	const [path, setPath] = useState<Cell[]>([]);
-	const [notice, setNotice] = useState("");
+	const interaction = useCreateStore<CanvasInteraction>({
+		anchor: null,
+		hover: null,
+		path: [],
+		notice: "",
+	});
+	const { anchor, hover, path, notice } = useSelector(
+		interaction,
+		(current) => current
+	);
 	const { zoom } = state;
 	const width = size.width * zoom;
 	const height = size.height * zoom;
@@ -99,13 +112,12 @@ export function PixelCanvas({
 	]);
 
 	function reset() {
-		setAnchor(null);
-		setPath([]);
+		interaction.setState((current) => ({ ...current, anchor: null, path: [] }));
 	}
 
 	function cancel() {
 		if (anchor) {
-			setNotice("Cancelled.");
+			interaction.setState((current) => ({ ...current, notice: "Cancelled." }));
 		}
 		reset();
 	}
@@ -126,12 +138,18 @@ export function PixelCanvas({
 			return;
 		}
 		if (state.tool === "move" && !state.selection) {
-			setNotice("Select an area first with the Select tool, then use Move.");
+			interaction.setState((current) => ({
+				...current,
+				notice: "Select an area first with the Select tool, then use Move.",
+			}));
 			return;
 		}
-		setNotice("");
-		setAnchor(cell);
-		setPath(state.tool === "pen" || state.tool === "eraser" ? [cell] : []);
+		interaction.setState((current) => ({
+			...current,
+			notice: "",
+			anchor: cell,
+			path: state.tool === "pen" || state.tool === "eraser" ? [cell] : [],
+		}));
 	}
 
 	function complete(cell: Cell) {
@@ -182,16 +200,20 @@ export function PixelCanvas({
 	}
 
 	function moveCursor(step: Cell) {
-		const current = hover ?? { x: 0, y: 0 };
+		const cursor = hover ?? { x: 0, y: 0 };
 		const next = {
-			x: Math.min(Math.max(current.x + step.x, 0), size.width - 1),
-			y: Math.min(Math.max(current.y + step.y, 0), size.height - 1),
+			x: Math.min(Math.max(cursor.x + step.x, 0), size.width - 1),
+			y: Math.min(Math.max(cursor.y + step.y, 0), size.height - 1),
 		};
-		setNotice("");
-		setHover(next);
-		if (anchor && (state.tool === "pen" || state.tool === "eraser")) {
-			setPath((previous) => [...previous, next]);
-		}
+		interaction.setState((current) => ({
+			...current,
+			notice: "",
+			hover: next,
+			path:
+				current.anchor && (state.tool === "pen" || state.tool === "eraser")
+					? [...current.path, next]
+					: current.path,
+		}));
 	}
 
 	function onKeyDown(event: KeyboardEvent<HTMLElement>) {
@@ -231,7 +253,12 @@ export function PixelCanvas({
 			<div
 				aria-label={`${label}. Arrow keys move the cursor, Enter applies the active tool, Escape cancels.`}
 				className="focus-visible:ring-ring w-fit outline-none focus-visible:ring-2"
-				onFocus={() => setHover((current) => current ?? { x: 0, y: 0 })}
+				onFocus={() =>
+					interaction.setState((current) => ({
+						...current,
+						hover: current.hover ?? { x: 0, y: 0 },
+					}))
+				}
 				onKeyDown={onKeyDown}
 				role="application"
 				// biome-ignore lint/a11y/noNoninteractiveTabindex: Keyboard focus is how the custom pixel cursor receives arrow keys.
@@ -244,13 +271,13 @@ export function PixelCanvas({
 						event.currentTarget.setPointerCapture(event.pointerId);
 						const cell = toCell(event.clientX, event.clientY);
 						if (cell) {
-							setHover(cell);
+							interaction.setState((current) => ({ ...current, hover: cell }));
 							begin(cell);
 						}
 					}}
 					onPointerLeave={() => {
 						if (!anchor) {
-							setHover(null);
+							interaction.setState((current) => ({ ...current, hover: null }));
 						}
 					}}
 					onPointerMove={(event) => {
@@ -258,14 +285,18 @@ export function PixelCanvas({
 						if (!cell) {
 							return;
 						}
-						setHover(cell);
-						if (
-							anchor &&
-							(state.tool === "pen" || state.tool === "eraser") &&
-							(path.at(-1)?.x !== cell.x || path.at(-1)?.y !== cell.y)
-						) {
-							setPath((previous) => [...previous, cell]);
-						}
+						interaction.setState((current) => {
+							const last = current.path.at(-1);
+							const extendsStroke =
+								current.anchor &&
+								(state.tool === "pen" || state.tool === "eraser") &&
+								(last?.x !== cell.x || last?.y !== cell.y);
+							return {
+								...current,
+								hover: cell,
+								path: extendsStroke ? [...current.path, cell] : current.path,
+							};
+						});
 					}}
 					onPointerUp={(event) => {
 						const cell = toCell(event.clientX, event.clientY);

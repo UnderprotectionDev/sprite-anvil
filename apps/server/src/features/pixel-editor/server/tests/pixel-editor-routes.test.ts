@@ -33,7 +33,7 @@ test("opens a recoverable Working Draft from an Asset Version and reopens the sa
 	const first = await harness.open();
 	const draft = (await first.json()) as PixelDraft;
 
-	expect(first.status).toBe(201);
+	expect(first.status).toBe(200);
 	expect(draft).toMatchObject({
 		status: "open",
 		revision: 0,
@@ -125,8 +125,8 @@ test("undo and redo act on the Working Draft and a new edit drops the redo tail"
 	expect((await harness.undo(draft.id, 5)).status).toBe(200);
 	expect((await harness.undo(draft.id, 6)).status).toBe(409);
 	expect(
-		((await (await harness.undo(draft.id, 6)).json()) as { error: string })
-			.error
+		((await (await harness.undo(draft.id, 6)).json()) as { message: string })
+			.message
 	).toBe("Nothing to undo");
 });
 
@@ -180,14 +180,12 @@ test("previews and applies bulk colour replacement with the affected pixel count
 		points: [{ x: 0, y: 0 }],
 	});
 
-	const preview = await harness.app.request(
-		`${harness.base}/${draft.id}/color-replace-preview`,
-		{
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ from: green, to: red }),
-		}
-	);
+	const preview = await harness.rpc("workingDrafts/previewColorReplace", {
+		projectId,
+		draftId: draft.id,
+		from: green,
+		to: red,
+	});
 	expect(await preview.json()).toEqual({
 		from: green,
 		to: red,
@@ -281,7 +279,7 @@ test("commit creates exactly one derived Candidate Version from the server-rende
 
 	const committed = await harness.commit(draft.id);
 	const body = (await committed.json()) as PixelDraftCommitResponse;
-	expect(committed.status).toBe(201);
+	expect(committed.status).toBe(200);
 	expect(body.created).toBe(true);
 	expect(body.draft).toMatchObject({
 		status: "committed",
@@ -322,7 +320,7 @@ test("commit creates exactly one derived Candidate Version from the server-rende
 		points: [{ x: 0, y: 0 }],
 	});
 	expect(after.status).toBe(409);
-	expect(((await after.json()) as { error: string }).error).toBe(
+	expect(((await after.json()) as { message: string }).message).toBe(
 		"Working Draft is not open"
 	);
 });
@@ -332,15 +330,12 @@ test("rejects a commit without changes and a discarded draft", async () => {
 	const draft = await openDraft(harness);
 	const empty = await harness.commit(draft.id);
 	expect(empty.status).toBe(400);
-	expect(((await empty.json()) as { error: string }).error).toBe(
+	expect(((await empty.json()) as { message: string }).message).toBe(
 		"Working Draft has no changes"
 	);
 	expect(harness.calls.candidates).toHaveLength(0);
 
-	const discarded = await harness.app.request(
-		`${harness.base}/${draft.id}/discard`,
-		{ method: "POST" }
-	);
+	const discarded = await harness.discard(draft.id);
 	expect(discarded.status).toBe(200);
 	expect(((await discarded.json()) as PixelDraft).status).toBe("discarded");
 	expect((await harness.commit(draft.id)).status).toBe(409);
@@ -356,15 +351,7 @@ test("denies access without a session, for another project, other users and unkn
 		404
 	);
 	expect((await harness.open(unknownVersionId)).status).toBe(404);
-	expect(
-		(
-			await harness.app.request(`${harness.base}`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ sourceAssetVersionId: "not-a-uuid" }),
-			})
-		).status
-	).toBe(400);
+	expect((await harness.open("not-a-uuid")).status).toBe(400);
 
 	const draft = await openDraft(harness);
 	const stranger = harness.drafts.get(draft.id);
@@ -389,7 +376,7 @@ test("rejects stale revisions and invalid operations without changing the draft"
 
 	const stale = await harness.apply(draft.id, 0, pen);
 	expect(stale.status).toBe(409);
-	expect(((await stale.json()) as { error: string }).error).toBe(
+	expect(((await stale.json()) as { message: string }).message).toBe(
 		"Working Draft revision conflict"
 	);
 
@@ -434,12 +421,12 @@ test("does not offer layers, free-angle rotation, smoothing or other out-of-scop
 			const response = await harness.apply(draft.id, 0, operation);
 			return {
 				status: response.status,
-				error: ((await response.json()) as { error: string }).error,
+				error: ((await response.json()) as { message: string }).message,
 			};
 		})
 	);
 	expect(results).toEqual(
-		outOfScope.map(() => ({ status: 400, error: "Invalid pixel operation" }))
+		outOfScope.map(() => ({ status: 400, error: "Input validation failed" }))
 	);
 	expect(harness.drafts.get(draft.id)?.revision).toBe(0);
 });

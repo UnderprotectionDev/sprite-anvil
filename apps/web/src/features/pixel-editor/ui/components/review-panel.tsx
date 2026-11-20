@@ -1,7 +1,7 @@
 import type { PixelDraft } from "@sprite-anvil/api/pixel-editor";
 import { Badge } from "@sprite-anvil/ui/components/badge";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useState } from "react";
+import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { ReplaceColorForm } from "../forms/replace-color-form";
 import { ColorSwatch } from "./color-swatch";
 
@@ -18,7 +18,8 @@ export function ReviewPanel({
 	onReplaceColor: (values: { from: string; to: string }) => void;
 	projectId: string;
 }) {
-	const [replaceFrom, setReplaceFrom] = useState<string | null>(null);
+	const replacement = useCreateStore<string | null>(null);
+	const replaceFrom = useSelector(replacement, (color) => color);
 	const { diff } = draft;
 	const outOfPalette = new Set(
 		draft.outOfPaletteColors.map((usage) => usage.color)
@@ -86,7 +87,7 @@ export function ReviewPanel({
 								<>
 									<Badge variant="destructive">Out of palette</Badge>
 									<Button
-										onClick={() => setReplaceFrom(usage.color)}
+										onClick={() => replacement.setState(() => usage.color)}
 										size="xs"
 										type="button"
 										variant="ghost"

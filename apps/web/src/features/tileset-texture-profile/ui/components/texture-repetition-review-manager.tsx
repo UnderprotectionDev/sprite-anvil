@@ -212,7 +212,6 @@ export function TextureRepetitionReviewManager({
 		terrainId: terrainId.trim() || null,
 	};
 	const displayed = getDisplayedReviews(saved, query.data);
-	const pendingInput = useRef<TextureRepetitionReviewInput | null>(null);
 	const [previewReady, setPreviewReady] = useState<Record<string, boolean>>({});
 	const onPreviewStatus = useCallback((key: string, ready: boolean) => {
 		setPreviewReady((previous) => ({ ...previous, [key]: ready }));
@@ -263,7 +262,6 @@ export function TextureRepetitionReviewManager({
 		await persist(parsed.data);
 	}
 	async function persist(input: TextureRepetitionReviewInput) {
-		pendingInput.current = input;
 		try {
 			const record = await saveMutation.mutateAsync(input);
 			setSaved(record);
@@ -331,9 +329,9 @@ export function TextureRepetitionReviewManager({
 						message={message}
 						uncertain={uncertain}
 					/>
-					{uncertain && pendingInput.current ? (
+					{uncertain && saveMutation.variables ? (
 						<TextureUncertainReviewActions
-							input={pendingInput.current}
+							input={saveMutation.variables}
 							load={() => query.refetch()}
 							onConfirmed={(record) => {
 								setSaved(record);

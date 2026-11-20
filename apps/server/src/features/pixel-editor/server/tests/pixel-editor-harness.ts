@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { RPCHandler } from "@orpc/server/fetch";
+import type { Context } from "@sprite-anvil/api/context";
 import type {
 	OfflineConflictEntry,
 	OfflineConflictStore,
@@ -8,13 +10,18 @@ import type {
 	PixelDraftUpdateResult,
 	PixelEditorStore,
 } from "@sprite-anvil/api/pixel-editor";
+import { appRouter } from "@sprite-anvil/api/routers/index";
 import { Hono } from "hono";
 import sharp from "sharp";
 import type {
 	PixelEditorRouteDependencies,
 	PixelEditorSession,
+} from "../pixel-editor-context";
+import {
+	guardPixelEditorRpcRequest,
+	mountPixelEditorRoutes,
 } from "../pixel-editor-routes";
-import { mountPixelEditorRoutes } from "../pixel-editor-routes";
+import { createPixelEditorOperations } from "../pixel-editor-rpc";
 
 export const projectId = "pixel-editor-project";
 export const otherProjectId = "pixel-editor-other-project";
@@ -502,14 +509,40 @@ export async function createHarness(
 	};
 	const app = new Hono();
 	mountPixelEditorRoutes(app, dependencies);
+	const handler = new RPCHandler(appRouter);
+	const context = {
+		session,
+		pixelEditorOperations: createPixelEditorOperations(dependencies),
+	} as Context;
+	app.use("/rpc/*", (c) =>
+		guardPixelEditorRpcRequest(c, Boolean(session), async () => {
+			const result = await handler.handle(c.req.raw, {
+				context,
+				prefix: "/rpc",
+			});
+			if (result.matched) {
+				c.res = c.newResponse(result.response.body, result.response);
+			}
+		})
+	);
 
 	const base = `/api/projects/${projectId}/pixel-editor/drafts`;
-	const json = (path: string, body: unknown, project = projectId) =>
-		app.request(path.replace(projectId, project), {
+	async function rpc(path: string, input: unknown) {
+		const response = await app.request(`/rpc/${path}`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(body),
+			body: JSON.stringify({ json: input }),
 		});
+		return {
+			status: response.status,
+			json: async () => {
+				const body = (await response.json()) as { json?: unknown };
+				return "json" in body ? body.json : body;
+			},
+		};
+	}
+	const callDraft = (method: string, draftId: string, input = {}) =>
+		rpc(`workingDrafts/${method}`, { projectId, draftId, ...input });
 	return {
 		app,
 		calls,
@@ -517,43 +550,49 @@ export async function createHarness(
 		conflicts,
 		faults,
 		drafts,
+		dependencies,
 		objects,
 		sourceKey,
 		sourcePng,
 		base,
+		rpc,
 		open: (id = sourceVersionId, project = projectId) =>
-			json(base, { sourceAssetVersionId: id }, project),
-		apply: (draftId: string, revision: number, operation: unknown) =>
-			json(`${base}/${draftId}/operations`, {
-				expectedRevision: revision,
-				operation,
+			rpc("workingDrafts/open", {
+				projectId: project,
+				sourceAssetVersionId: id,
 			}),
+		apply: (draftId: string, revision: number, operation: unknown) =>
+			callDraft("apply", draftId, { expectedRevision: revision, operation }),
 		undo: (draftId: string, revision: number) =>
-			json(`${base}/${draftId}/undo`, { expectedRevision: revision }),
+			callDraft("moveHistory", draftId, {
+				direction: "undo",
+				expectedRevision: revision,
+			}),
 		redo: (draftId: string, revision: number) =>
-			json(`${base}/${draftId}/redo`, { expectedRevision: revision }),
+			callDraft("moveHistory", draftId, {
+				direction: "redo",
+				expectedRevision: revision,
+			}),
 		commit: (draftId: string, revision?: number) =>
-			json(`${base}/${draftId}/commit`, {
+			callDraft("commit", draftId, {
 				expectedRevision: revision ?? drafts.get(draftId)?.revision ?? 0,
 			}),
+		discard: (draftId: string) => callDraft("discard", draftId),
 		slicingPreview: (draftId: string, slicing: unknown) =>
-			json(`${base}/${draftId}/slicing-preview`, { slicing }),
+			callDraft("previewSlicing", draftId, { slicing }),
 		slice: (draftId: string, revision: number, slicing: unknown) =>
-			json(`${base}/${draftId}/structure/slicing`, {
+			callDraft("applySlicing", draftId, {
 				expectedRevision: revision,
 				slicing,
 			}),
 		frameOp: (draftId: string, revision: number, operation: unknown) =>
-			json(`${base}/${draftId}/structure/operations`, {
+			callDraft("applyFrameOperation", draftId, {
 				expectedRevision: revision,
 				operation,
 			}),
 		commitStructure: (draftId: string, revision: number) =>
-			json(`${base}/${draftId}/structure/commit`, {
-				expectedRevision: revision,
-			}),
-		readStructure: (draftId: string) =>
-			app.request(`${base}/${draftId}/structure`),
+			callDraft("commitStructure", draftId, { expectedRevision: revision }),
+		readStructure: (draftId: string) => callDraft("readStructure", draftId),
 		framePreview: async (draftId: string, frameKey: string) =>
 			new Uint8Array(
 				await (
@@ -562,7 +601,7 @@ export async function createHarness(
 					)
 				).arrayBuffer()
 			),
-		read: (draftId: string) => app.request(`${base}/${draftId}`),
+		read: (draftId: string) => callDraft("read", draftId),
 		conflictBase: `${base.replace("/drafts", "/offline-conflicts")}`,
 		preview: async (draftId: string) =>
 			new Uint8Array(

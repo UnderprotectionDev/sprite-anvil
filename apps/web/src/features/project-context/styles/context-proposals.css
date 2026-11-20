@@ -1,3 +1,4 @@
+/* conventions-exception: feature-entry Context Proposals uses a feature-owned stylesheet shared by its view and controls. */
 .context-page {
 	--context-canvas: var(--background);
 	--context-ink: var(--foreground);

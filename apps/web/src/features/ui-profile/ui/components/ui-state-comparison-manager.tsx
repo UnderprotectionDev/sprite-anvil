@@ -126,7 +126,6 @@ export function UiStateComparisonManager(props: UiStateComparisonManagerProps) {
 			void save(parsed.data);
 		},
 	});
-	const [saving, setSaving] = useState(false);
 	const [pending, setPending] = useState<UiStateComparisonInput | null>(null);
 	const [retryAllowed, setRetryAllowed] = useState(false);
 	const [message, setMessage] = useState("");
@@ -148,8 +147,33 @@ export function UiStateComparisonManager(props: UiStateComparisonManagerProps) {
 	);
 	const queryClient = useQueryClient();
 	const saveComparison = useMutation(
-		orpc.uiStateComparisons.save.mutationOptions()
+		orpc.uiStateComparisons.save.mutationOptions({
+			onSuccess: async (saved, input) => {
+				setPending(input);
+				await queryClient.invalidateQueries({ queryKey: listKey });
+				const refreshed =
+					queryClient.getQueryData<UiStateComparisonRecord[]>(listKey);
+				const refreshFailed =
+					queryClient.getQueryState(listKey)?.status === "error";
+				const persisted = refreshed?.find((record) => record.id === saved.id);
+				if (
+					!refreshFailed &&
+					persisted &&
+					JSON.stringify(
+						uiStateComparisonInputSchema.strip().parse(persisted)
+					) === JSON.stringify(input)
+				) {
+					setPending(null);
+					setMessage("Comparison verified from persistent storage.");
+				} else {
+					setMessage(
+						"Save result is uncertain. Check saved comparisons before retrying."
+					);
+				}
+			},
+		})
 	);
+	const saving = saveComparison.isPending;
 	const listKey = orpc.uiStateComparisons.list.queryKey({
 		input: { projectId, assetFamilyId },
 	});
@@ -193,32 +217,10 @@ export function UiStateComparisonManager(props: UiStateComparisonManagerProps) {
 		);
 	}
 	async function save(input: UiStateComparisonInput) {
-		setSaving(true);
 		setMessage("");
 		setRetryAllowed(false);
 		try {
-			const saved = await saveComparison.mutateAsync(input);
-			setPending(input);
-			await queryClient.invalidateQueries({ queryKey: listKey });
-			const refreshed =
-				queryClient.getQueryData<UiStateComparisonRecord[]>(listKey);
-			const refreshFailed =
-				queryClient.getQueryState(listKey)?.status === "error";
-			const persisted = refreshed?.find((record) => record.id === saved.id);
-			if (
-				!refreshFailed &&
-				persisted &&
-				JSON.stringify(
-					uiStateComparisonInputSchema.strip().parse(persisted)
-				) === JSON.stringify(input)
-			) {
-				setPending(null);
-				setMessage("Comparison verified from persistent storage.");
-			} else {
-				setMessage(
-					"Save result is uncertain. Check saved comparisons before retrying."
-				);
-			}
+			await saveComparison.mutateAsync(input);
 		} catch (error) {
 			if (isWriteOutcomeUncertain(error)) {
 				setPending(input);
@@ -229,8 +231,6 @@ export function UiStateComparisonManager(props: UiStateComparisonManagerProps) {
 				setPending(null);
 				setMessage(getErrorMessage(error, "Comparison could not be saved."));
 			}
-		} finally {
-			setSaving(false);
 		}
 	}
 	function versionOptions() {

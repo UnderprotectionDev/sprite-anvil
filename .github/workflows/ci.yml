@@ -120,9 +120,30 @@ jobs:
       - name: Run server integration tests
         working-directory: apps/server
         run: bun test src
+      - name: Verify atomic writes with the production database adapters
+        working-directory: apps/server
+        env:
+          ARCHIVE_BATCH_TEST_DATABASE_URL: ${{ env.NEON_PROXY_TEST_DATABASE_URL }}
+          CONTEXT_TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/context_test
+        run: >-
+          bun test
+          src/features/project-archives/server/tests/project-archive-batch.integration.test.ts
+          src/project-archive-foundation.integration.test.ts
+          src/project-archive-delivery.integration.test.ts
+          src/project-archive-history.integration.test.ts
+          src/features/permanent-erasure/server/tests/database-erasure-deletion-storage.integration.test.ts
+          --timeout 30000
+      - name: Verify Review Event publication with Neon HTTP
+        working-directory: apps/server
+        env:
+          CONTEXT_TEST_DATABASE_URL: ${{ env.NEON_PROXY_TEST_DATABASE_URL }}
+        run: >-
+          bun test
+          src/version-review.integration.test.ts
+          src/batch-version-review.integration.test.ts
+          --timeout 30000
       # Neon-driver (createDb) tests through the local proxy. Non-blocking until the failures they
-      # surface are fixed (interactive db.transaction calls the neon-http driver rejects, timeouts,
-      # and cleanup ordering); results stay visible in the job log.
+      # surface are fixed, including timeouts and cleanup ordering. Results stay visible in the job log.
       - name: Run Neon-driver integration tests (non-blocking)
         continue-on-error: true
         working-directory: apps/server

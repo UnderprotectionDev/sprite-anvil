@@ -12,6 +12,7 @@ import { Skeleton } from "@sprite-anvil/ui/components/skeleton";
 import { Link, useNavigate } from "@tanstack/react-router";
 
 import { authClient } from "@/lib/auth-client";
+import { resetSessionQueryClient } from "@/utils/query-client";
 
 export default function UserMenu() {
 	const navigate = useNavigate();
@@ -44,6 +45,7 @@ export default function UserMenu() {
 							authClient.signOut({
 								fetchOptions: {
 									onSuccess: () => {
+										resetSessionQueryClient();
 										navigate({
 											to: "/login",
 										});

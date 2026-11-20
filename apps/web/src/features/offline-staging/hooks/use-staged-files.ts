@@ -1,5 +1,7 @@
+import { useMutation } from "@tanstack/react-query";
 import type { ChangeEvent } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { mutationMeta } from "@/utils/mutation-meta";
 import { uploadStagedFileToImportInbox } from "../lib/offline-staging-api";
 import type { OfflineStagingStore } from "../lib/offline-staging-store";
 import { sendStagedFiles } from "../lib/send-staged-files";
@@ -23,38 +25,46 @@ export function useStagedFiles({
 	stagedFileCount: number;
 	store: OfflineStagingStore;
 }) {
-	const [message, setMessage] = useState<string | null>(null);
-	const [isSending, setIsSending] = useState(false);
 	const sending = useRef(false);
+	const sendWork = useMutation({
+		...mutationMeta,
+		networkMode: "always",
+		mutationFn: () =>
+			sendStagedFiles({
+				projectId,
+				store,
+				upload: uploadStagedFileToImportInbox(projectId),
+			}),
+		onSuccess: refresh,
+	});
+	const stage = useMutation({
+		...mutationMeta,
+		networkMode: "always",
+		gcTime: 0,
+		mutationFn: async (file: File) => {
+			const result = await store.stageFile(projectId, {
+				name: file.name,
+				data: file,
+			});
+			return result.ok
+				? `${file.name} is staged in this browser. It enters the Import Inbox when you are online.`
+				: refusalText[result.reason];
+		},
+		onSuccess: refresh,
+	});
+	const { mutateAsync: sendBatch } = sendWork;
 
 	const send = useCallback(async () => {
 		if (sending.current) {
 			return;
 		}
 		sending.current = true;
-		setIsSending(true);
 		try {
-			const result = await sendStagedFiles({
-				projectId,
-				store,
-				upload: uploadStagedFileToImportInbox(projectId),
-			});
-			if (result.sent.length > 0) {
-				setMessage(
-					`${result.sent.length} staged file(s) entered the Import Inbox. Nothing is approved.`
-				);
-			}
-			if (result.failed.length > 0) {
-				setMessage(
-					`${result.failed.length} staged file(s) stay staged: ${result.failed[0]?.message}`
-				);
-			}
-			await refresh();
+			await sendBatch();
 		} finally {
 			sending.current = false;
-			setIsSending(false);
 		}
-	}, [projectId, refresh, store]);
+	}, [sendBatch]);
 
 	// Reconnecting hands staged files to the Import Inbox; the staged id keeps retries idempotent.
 	const wasOnline = useRef(online);
@@ -65,23 +75,13 @@ export function useStagedFiles({
 		wasOnline.current = online;
 	}, [online, stagedFileCount, send]);
 
-	async function stageFile(event: ChangeEvent<HTMLInputElement>) {
+	function stageFile(event: ChangeEvent<HTMLInputElement>) {
 		const input = event.currentTarget;
 		const file = input.files?.[0];
 		input.value = "";
-		if (!file) {
-			return;
+		if (file) {
+			stage.mutate(file);
 		}
-		const result = await store.stageFile(projectId, {
-			name: file.name,
-			data: file,
-		});
-		setMessage(
-			result.ok
-				? `${file.name} is staged in this browser. It enters the Import Inbox when you are online.`
-				: refusalText[result.reason]
-		);
-		await refresh();
 	}
 
 	async function removeFile(id: string) {
@@ -89,5 +89,28 @@ export function useStagedFiles({
 		await refresh();
 	}
 
-	return { isSending, message, removeFile, send, stageFile };
+	const result = sendWork.data;
+	let sendMessage: string | null = null;
+	if (result?.failed.length) {
+		sendMessage = `${result.failed.length} staged file(s) stay staged: ${result.failed[0]?.message}`;
+	} else if (result?.sent.length) {
+		sendMessage = `${result.sent.length} staged file(s) entered the Import Inbox. Nothing is approved.`;
+	} else if (sendWork.isError) {
+		sendMessage =
+			"Staged files could not be sent. Check the Import Inbox and try again.";
+	}
+	const stageMessage = stage.isError
+		? "The file could not be staged in this browser."
+		: (stage.data ?? null);
+	const message =
+		sendWork.submittedAt >= stage.submittedAt && sendMessage
+			? sendMessage
+			: stageMessage;
+	return {
+		isSending: sendWork.isPending,
+		message,
+		removeFile,
+		send,
+		stageFile,
+	};
 }

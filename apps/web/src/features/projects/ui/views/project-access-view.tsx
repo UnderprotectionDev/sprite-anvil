@@ -5,9 +5,9 @@ import type {
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
 import { ExternalVisualAnalysisConsent } from "@/components/external-visual-analysis-consent";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
+import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
 import {
 	ContextAgentPermissionForm,
@@ -36,84 +36,76 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 		...permissionsQueryOptions,
 	});
 	const grantForm = useContextAgentPermissionForm(handleGrantPermission);
-	const [revokingId, setRevokingId] = useState<string | null>(null);
-	const [statusMessage, setStatusMessage] = useState<string | null>(null);
-	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
-	const [isCheckingWriteOutcome, setIsCheckingWriteOutcome] = useState(false);
+	const invalidatePermissions = () => {
+		void queryClient.invalidateQueries({
+			queryKey: permissionsQueryOptions.queryKey,
+		});
+	};
 	const grantPermission = useMutation(
 		orpc.projects.access.grantContextAgent.mutationOptions({
-			onSuccess: async () => {
-				setStatusMessage("Context Agent permission saved.");
-				await queryClient.invalidateQueries({
-					queryKey: permissionsQueryOptions.queryKey,
-				});
-			},
-			onError: (error) => {
-				if (isWriteOutcomeUncertain(error)) {
-					setWriteOutcomeUncertain(true);
-				}
-			},
+			onSuccess: invalidatePermissions,
 		})
 	);
 	const revokePermission = useMutation(
 		orpc.projects.access.revoke.mutationOptions({
-			onSuccess: async () => {
-				setStatusMessage(
-					"Permission revoked. New access requests will be rejected."
-				);
-				await queryClient.invalidateQueries({
-					queryKey: permissionsQueryOptions.queryKey,
-				});
-			},
-			onError: (error) => {
-				if (isWriteOutcomeUncertain(error)) {
-					setWriteOutcomeUncertain(true);
-				}
-			},
-			onSettled: () => setRevokingId(null),
+			onSuccess: invalidatePermissions,
 		})
 	);
-	const isPermissionStateUnavailable =
-		permissionsQuery.isFetching || permissionsQuery.isError;
-	const isGrantingLocked =
-		grantPermission.isPending || isPermissionStateUnavailable;
-
-	async function refreshPermissionState() {
-		setIsCheckingWriteOutcome(true);
-		try {
+	const writeOutcomeUncertain =
+		isWriteOutcomeUncertain(grantPermission.error) ||
+		isWriteOutcomeUncertain(revokePermission.error);
+	const verify = useMutation({
+		...mutationMeta,
+		mutationFn: async () => {
 			const result = await permissionsQuery.refetch();
 			if (result.isError) {
-				return;
+				throw result.error;
 			}
-
-			if (writeOutcomeUncertain) {
-				setWriteOutcomeUncertain(false);
-				setStatusMessage(
-					"Permissions refreshed. Check the current state before resubmitting."
-				);
-			}
-		} finally {
-			setIsCheckingWriteOutcome(false);
-		}
+		},
+		onSuccess: () => {
+			grantPermission.reset();
+			revokePermission.reset();
+		},
+	});
+	let statusMessage: string | null = null;
+	if (verify.isSuccess) {
+		statusMessage =
+			"Permissions refreshed. Check the current state before resubmitting.";
+	} else if (grantPermission.isSuccess) {
+		statusMessage = "Context Agent permission saved.";
+	} else if (revokePermission.isSuccess) {
+		statusMessage = "Permission revoked. New access requests will be rejected.";
 	}
+	const isPermissionStateUnavailable =
+		permissionsQuery.isFetching || permissionsQuery.isError;
+	const isWriting = grantPermission.isPending || revokePermission.isPending;
+	const writesDisabled =
+		isWriting ||
+		isPermissionStateUnavailable ||
+		writeOutcomeUncertain ||
+		verify.isPending;
+	const revokingId = revokePermission.isPending
+		? revokePermission.variables.permissionId
+		: null;
 
 	function handleGrantPermission(input: {
 		purpose: string;
 		scopes: ContextAgentScope[];
 	}) {
-		if (writeOutcomeUncertain || isGrantingLocked) {
+		if (writesDisabled) {
 			return;
 		}
-		setStatusMessage(null);
+		verify.reset();
+		revokePermission.reset();
 		grantPermission.mutate({ projectId, ...input });
 	}
 
 	function handleRevokePermission(permissionId: string) {
-		if (writeOutcomeUncertain || revokePermission.isPending) {
+		if (writesDisabled) {
 			return;
 		}
-		setStatusMessage(null);
-		setRevokingId(permissionId);
+		verify.reset();
+		grantPermission.reset();
 		revokePermission.mutate({ projectId, permissionId });
 	}
 
@@ -142,12 +134,12 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 			) : null}
 			{writeOutcomeUncertain ? (
 				<Button
-					disabled={isCheckingWriteOutcome}
-					onClick={() => void refreshPermissionState()}
+					disabled={verify.isPending}
+					onClick={() => verify.mutate()}
 					type="button"
 					variant="outline"
 				>
-					{isCheckingWriteOutcome ? "Checking status…" : "Check status"}
+					{verify.isPending ? "Checking status…" : "Check status"}
 				</Button>
 			) : null}
 
@@ -173,7 +165,7 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 
 				<ContextAgentPermissionForm
 					form={grantForm}
-					isDisabled={isPermissionStateUnavailable}
+					isDisabled={writesDisabled}
 					isSaving={grantPermission.isPending}
 					writeOutcomeUncertain={writeOutcomeUncertain}
 				/>
@@ -184,7 +176,7 @@ export function ProjectAccessScreen({ projectId }: { projectId: string }) {
 					onRevoke={handleRevokePermission}
 					permissions={permissions}
 					revokingId={revokingId}
-					writeOutcomeUncertain={writeOutcomeUncertain}
+					writesDisabled={writesDisabled}
 				/>
 			</section>
 
@@ -266,14 +258,14 @@ function ContextAgentPermissionHistory({
 	onRevoke,
 	permissions,
 	revokingId,
-	writeOutcomeUncertain,
+	writesDisabled,
 }: {
 	isError: boolean;
 	isPending: boolean;
 	onRevoke: (permissionId: string) => void;
 	permissions: ToolAccessPermission[];
 	revokingId: string | null;
-	writeOutcomeUncertain: boolean;
+	writesDisabled: boolean;
 }) {
 	if (isPending) {
 		return <p aria-live="polite">Loading permissions…</p>;
@@ -296,7 +288,7 @@ function ContextAgentPermissionHistory({
 					onRevoke={onRevoke}
 					permission={permission}
 					revokingId={revokingId}
-					writeOutcomeUncertain={writeOutcomeUncertain}
+					writesDisabled={writesDisabled}
 				/>
 			))}
 		</ul>
@@ -307,12 +299,12 @@ function ContextAgentPermissionRecord({
 	onRevoke,
 	permission,
 	revokingId,
-	writeOutcomeUncertain,
+	writesDisabled,
 }: {
 	onRevoke: (permissionId: string) => void;
 	permission: ToolAccessPermission;
 	revokingId: string | null;
-	writeOutcomeUncertain: boolean;
+	writesDisabled: boolean;
 }) {
 	const isActive = permission.revokedAt === null;
 	return (
@@ -340,7 +332,7 @@ function ContextAgentPermissionRecord({
 			{isActive ? (
 				<Button
 					aria-label={`${permission.purpose} revoke permission`}
-					disabled={revokingId !== null || writeOutcomeUncertain}
+					disabled={writesDisabled}
 					onClick={() => onRevoke(permission.id)}
 					variant="destructive"
 				>

@@ -1,9 +1,5 @@
 {
   "version": 1,
   "reason": "Deviations merged before the conventions check (2026-10-21). The list only shrinks; a new deviation is fixed or given a stated exception.",
-  "violations": [
-    "raw-control apps/web/src/features/ui-profile/ui/components/ui-stretch-test-manager.tsx <select>",
-    "raw-control apps/web/src/features/ui-profile/ui/components/ui-stretch-test-manager.tsx <select>",
-    "ui-placement apps/web/src/features/project-context/ui/components/context-proposals.css file renders no JSX"
-  ]
+  "violations": []
 }

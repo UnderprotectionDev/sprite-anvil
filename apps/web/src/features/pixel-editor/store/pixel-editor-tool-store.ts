@@ -43,19 +43,21 @@ export interface PixelEditorToolState {
 	zoom: number;
 }
 
+export const initialPixelEditorToolState: PixelEditorToolState = {
+	background: "checker",
+	brushSize: 1,
+	color: "#000000ff",
+	compareMode: "draft",
+	contrastColor: "#ff00ffff",
+	previewScale: 1,
+	selection: null,
+	showGrid: true,
+	tool: "pen",
+	zoom: 16,
+};
+
 export function createPixelEditorToolStore() {
-	return createStore<PixelEditorToolState>({
-		background: "checker",
-		brushSize: 1,
-		color: "#000000ff",
-		compareMode: "draft",
-		contrastColor: "#ff00ffff",
-		previewScale: 1,
-		selection: null,
-		showGrid: true,
-		tool: "pen",
-		zoom: 16,
-	});
+	return createStore(initialPixelEditorToolState);
 }
 
 export type PixelEditorToolStore = ReturnType<

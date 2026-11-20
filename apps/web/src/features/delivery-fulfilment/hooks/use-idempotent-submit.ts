@@ -1,31 +1,28 @@
-import { useRef, useState } from "react";
 import { errorCodeOf } from "@/utils/error-code";
+import { isWriteOutcomeUncertain } from "@/utils/error-notification";
+import { usePendingIdempotencyKey } from "@/utils/pending-idempotency-key";
 
 /**
  * Runs one write with a stable idempotency key. A success or a server-coded
  * rejection rotates the key, since the next attempt is a new act; a transport
  * failure keeps it so a retry replays the first attempt.
  */
-export function useIdempotentSubmit(fallbackMessage: string) {
-	const [failure, setFailure] = useState<string | null>(null);
-	const idempotencyKey = useRef(crypto.randomUUID());
+export function useIdempotentSubmit() {
+	const pendingKey = usePendingIdempotencyKey();
 
-	async function submit(write: (idempotencyKey: string) => Promise<unknown>) {
-		setFailure(null);
+	async function submit(
+		input: object,
+		write: (idempotencyKey: string) => Promise<unknown>
+	) {
 		try {
-			await write(idempotencyKey.current);
-			idempotencyKey.current = crypto.randomUUID();
+			await write(pendingKey.keyFor(JSON.stringify(input)));
+			pendingKey.clear();
 		} catch (error) {
-			if (errorCodeOf(error)) {
-				idempotencyKey.current = crypto.randomUUID();
+			if (errorCodeOf(error) && !isWriteOutcomeUncertain(error)) {
+				pendingKey.clear();
 			}
-			setFailure(
-				error instanceof Error && error.message
-					? error.message
-					: fallbackMessage
-			);
 		}
 	}
 
-	return { failure, submit };
+	return submit;
 }

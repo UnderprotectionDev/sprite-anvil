@@ -482,6 +482,9 @@ test("project access controls require an authenticated owner", async () => {
 	);
 
 	await expect(
+		anonymousClient.projects.create({ name: "", generalArtDirection: "" })
+	).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+	await expect(
 		anonymousClient.projects.access.listExternalVisualAnalysis({
 			projectId: crypto.randomUUID(),
 		})
@@ -506,6 +509,9 @@ test("project access controls reject expired sessions", async () => {
 		code: "UNAUTHORIZED",
 	});
 	await expect(
+		client.projects.create({ name: "", generalArtDirection: "" })
+	).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+	await expect(
 		client.projects.access.checkExternalVisualAnalysis({
 			projectId: crypto.randomUUID(),
 			category: "identity",
@@ -525,6 +531,12 @@ test("project access controls fail closed when session lookup fails", async () =
 	await expect(client.projects.list()).rejects.toMatchObject({
 		code: "INTERNAL_SERVER_ERROR",
 	});
+	await expect(
+		client.projects.create({
+			name: "Private Project",
+			generalArtDirection: "Pixel art",
+		})
+	).rejects.toMatchObject({ code: "INTERNAL_SERVER_ERROR" });
 	await expect(
 		client.projects.access.checkExternalVisualAnalysis({
 			projectId: crypto.randomUUID(),

@@ -1,6 +1,3 @@
-import { createORPCClient } from "@orpc/client";
-import { createTanstackQueryUtils } from "@orpc/tanstack-query";
-import type { AppRouterClient } from "@sprite-anvil/api/routers/index";
 import { Button } from "@sprite-anvil/ui/components/button";
 import {
 	SidebarInset,
@@ -9,7 +6,7 @@ import {
 } from "@sprite-anvil/ui/components/sidebar";
 import { Toaster } from "@sprite-anvil/ui/components/sonner";
 import type { QueryClient } from "@tanstack/react-query";
-import { useQueryClient } from "@tanstack/react-query";
+import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import type { ErrorComponentProps } from "@tanstack/react-router";
 import {
@@ -17,16 +14,18 @@ import {
 	HeadContent,
 	Link,
 	Outlet,
+	useMatches,
+	useRouter,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
-import { useState } from "react";
+import { useEffect } from "react";
 
 import Header from "@/components/header";
 import { OpenRecordTabs } from "@/components/open-record-tabs";
 import { ThemeProvider } from "@/components/theme-provider";
 import { authClient } from "@/lib/auth-client";
 import type { orpc } from "@/utils/orpc";
-import { link } from "@/utils/orpc";
+import { resetSessionQueryClient } from "@/utils/query-client";
 
 import "../index.css";
 import { StatusMessage } from "@/components/status-message";
@@ -59,13 +58,37 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 	}),
 });
 
+function useAuthRouteContext() {
+	return useMatches({
+		select: (matches) =>
+			matches.find((match) => match.routeId === "/_auth")?.context,
+	});
+}
+
 function RootComponent() {
-	const { data: session } = authClient.useSession();
-	const [client] = useState<AppRouterClient>(() => createORPCClient(link));
-	const [_orpcUtils] = useState(() => createTanstackQueryUtils(client));
+	const { data: session, error, isPending } = authClient.useSession();
+	const router = useRouter();
+	const authContext = useAuthRouteContext();
+	const publicClient = useQueryClient();
+	const client = authContext?.queryClient ?? publicClient;
+	const routeUserId = authContext?.session?.user.id;
+	const routeSessionId = authContext?.session?.session.id;
+	const sessionChanged =
+		Boolean(routeUserId) &&
+		!(isPending || error) &&
+		(session?.user.id !== routeUserId ||
+			session?.session.id !== routeSessionId);
+
+	// Better Auth refreshes its session in response to sign-out in other tabs.
+	useEffect(() => {
+		if (sessionChanged) {
+			resetSessionQueryClient();
+			void router.invalidate();
+		}
+	}, [router, sessionChanged]);
 
 	return (
-		<>
+		<QueryClientProvider client={client}>
 			<HeadContent />
 			<ThemeProvider
 				attribute="class"
@@ -79,9 +102,11 @@ function RootComponent() {
 					<a className="skip-link" href="#workspace-content">
 						Skip to content
 					</a>
-					<Header />
+					{sessionChanged ? null : <Header />}
 					<SidebarInset>
-						{session ? <OpenRecordTabs userId={session.user.id} /> : null}
+						{session && !sessionChanged && routeUserId === session.user.id ? (
+							<OpenRecordTabs key={routeSessionId} userId={session.user.id} />
+						) : null}
 						{session ? (
 							<SidebarTrigger />
 						) : (
@@ -94,7 +119,7 @@ function RootComponent() {
 							id="workspace-content"
 							tabIndex={-1}
 						>
-							<Outlet />
+							{sessionChanged ? null : <Outlet key={routeSessionId} />}
 						</div>
 					</SidebarInset>
 				</SidebarProvider>
@@ -106,7 +131,7 @@ function RootComponent() {
 					<ReactQueryDevtools buttonPosition="bottom-right" position="bottom" />
 				</>
 			) : null}
-		</>
+		</QueryClientProvider>
 	);
 }
 
@@ -128,7 +153,9 @@ function MissingPage() {
 	);
 }
 function WorkspaceError({ reset }: ErrorComponentProps) {
-	const queryClient = useQueryClient();
+	const authContext = useAuthRouteContext();
+	const publicClient = useQueryClient();
+	const queryClient = authContext?.queryClient ?? publicClient;
 	async function retryScreen() {
 		await queryClient.resetQueries();
 		reset();

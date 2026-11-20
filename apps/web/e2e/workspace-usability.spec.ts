@@ -218,22 +218,18 @@ test("separates finding, creating and editing without losing a draft", async ({
 		page.getByRole("button", { name: "Upload image", exact: true })
 	).toBeHidden();
 	await page
-		.getByRole("button", { name: "Production and import", exact: true })
+		.getByRole("tab", { name: "Production and import", exact: true })
 		.click();
 	await expect(
 		page.getByRole("button", { name: "Upload image", exact: true })
 	).toBeVisible();
-	await page
-		.getByRole("button", { name: "Record details", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Record details", exact: true }).click();
 	await page.getByLabel("Tags", { exact: true }).fill("unfinished-edit");
 	await page
-		.getByRole("button", { name: "Versions and files", exact: true })
+		.getByRole("tab", { name: "Versions and files", exact: true })
 		.click();
 	await expect(page.getByLabel("Tags", { exact: true })).toBeHidden();
-	await page
-		.getByRole("button", { name: "Record details", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Record details", exact: true }).click();
 	await expect(page.getByLabel("Tags", { exact: true })).toHaveValue(
 		"unfinished-edit"
 	);
@@ -498,27 +494,36 @@ test("opens family records and focuses evidence on the selected family", async (
 		fullPage: true,
 	});
 	await page
-		.getByRole("button", { name: "Completion and evidence", exact: true })
+		.getByRole("tab", { name: "Completion and evidence", exact: true })
 		.click();
+	const evidence = page.getByRole("tabpanel", {
+		name: "Completion and evidence",
+	});
 	await expect(
-		page.getByRole("heading", { name: "Game Sprite", exact: true })
+		evidence.getByRole("heading", { name: "Game Sprite", exact: true })
 	).toBeVisible();
+	const familyPicker = page.getByRole("combobox", {
+		name: "Family for review and completion",
+		exact: true,
+	});
+	await familyPicker.fill("Painted");
 	await page
-		.getByLabel("Family for review and completion")
-		.selectOption(secondFamilyId);
+		.getByRole("option", { name: "Painted Portrait", exact: true })
+		.click();
+	await expect
+		.poll(() => new URL(page.url()).searchParams.get("familyId"))
+		.toBe(secondFamilyId);
 	await expect(
-		page.getByRole("heading", { name: "Painted Portrait", exact: true })
+		evidence.getByRole("heading", { name: "Painted Portrait", exact: true })
 	).toBeVisible();
 	await expect(
-		page.getByRole("heading", { name: "Game Sprite", exact: true })
+		evidence.getByRole("heading", { name: "Game Sprite", exact: true })
 	).toHaveCount(0);
 	await page.screenshot({
 		path: path.join(screenshots, "ui-family-readiness-selected.png"),
 		fullPage: true,
 	});
-	await page
-		.getByRole("button", { name: "Family catalog", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Family catalog", exact: true }).click();
 	await page.getByRole("link", { name: "Ash Knight", exact: true }).click();
 	await expect(
 		page.getByRole("heading", { name: "Ash Knight", exact: true })
@@ -541,13 +546,13 @@ test("keeps every task panel reachable in a narrow window", async ({
 		`/projects/${projectId}/profile-contracts`,
 	]) {
 		await page.goto(url);
-		const tasks = page.locator("main nav button[aria-controls][aria-pressed]");
+		const tasks = page.locator("main nav button[role=tab][aria-controls]");
 		await expect(tasks.first()).toBeVisible();
 		const taskCount = await tasks.count();
 		for (let index = 0; index < taskCount; index += 1) {
 			const task = tasks.nth(index);
 			await task.click();
-			await expect(task).toHaveAttribute("aria-pressed", "true");
+			await expect(task).toHaveAttribute("aria-selected", "true");
 			const panelId = await task.getAttribute("aria-controls");
 			await expect(page.locator(`[id="${panelId}"]`)).toBeVisible();
 			await expect

@@ -42,10 +42,10 @@ test("publishes a Review Event as one guarded, verified Serializable statement a
 		isolationLevel: "Serializable",
 	});
 	const statement = transactions[0]?.statements[0];
-	expect(statement?.sql).toContain("INSERT INTO asset_version_review_events");
+	expect(statement?.sql).toContain('insert into "asset_version_review_events"');
 	expect(statement?.sql).toContain("IS NOT DISTINCT FROM");
 	// The same statement checks the stored row, so a failed check rolls the write back.
-	expect(statement?.sql).toContain("length(id) / 0");
+	expect(statement?.sql).toContain('length("id") / 0');
 	expect(statement?.params).toContain("event-0");
 	expect(statement?.params).toContain("Ready.");
 	expect(event).toEqual({
@@ -164,7 +164,7 @@ test("publishes a Composite Version Review Event through the same guarded statem
 	});
 	expect(transactions[0]?.statements).toHaveLength(1);
 	expect(transactions[0]?.statements[0]?.sql).toContain(
-		"INSERT INTO composite_version_review_events"
+		'insert into "composite_version_review_events"'
 	);
 	expect(event).toEqual({
 		id: "composite-event-1",

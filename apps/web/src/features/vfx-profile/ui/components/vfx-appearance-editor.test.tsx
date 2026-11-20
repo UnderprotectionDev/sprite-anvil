@@ -168,6 +168,11 @@ test("keeps the one-shot playhead at the end and rejects invalid preview duratio
 });
 
 test("names the playback slider and pauses playback when the user scrubs it", async () => {
+	vi.stubGlobal(
+		"requestAnimationFrame",
+		vi.fn(() => 1)
+	);
+	vi.stubGlobal("cancelAnimationFrame", vi.fn());
 	mount();
 	await waitFor(() =>
 		expect(screen.getByRole("button", { name: "Play" })).toBeEnabled()

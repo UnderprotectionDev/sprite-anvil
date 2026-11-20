@@ -52,12 +52,14 @@ function toDraft(reference: {
 	customPurpose?: string | null;
 	forbiddenFeatures: ReferenceFeature[];
 	notes: string | null;
+	revision?: number;
 	role: ReferenceConstraintDraft["role"];
 	transferredFeatures: ReferenceFeature[];
 }): ReferenceConstraintDraft {
 	return {
 		contextOverrideRationale: reference.contextOverrideRationale ?? "",
 		customPurpose: reference.customPurpose ?? "",
+		expectedRevision: reference.revision ?? 1,
 		forbiddenFeatures: [...reference.forbiddenFeatures],
 		notes: reference.notes ?? "",
 		role: reference.role,
@@ -315,7 +317,6 @@ function ReferenceCard({
 	image: ReferenceBoardImage;
 	projectId: string;
 }) {
-	const [saving, setSaving] = useState(false);
 	const updateImageMutation = useMutation(
 		orpc.referenceProduction.updateImage.mutationOptions(mutationMeta)
 	);
@@ -329,30 +330,28 @@ function ReferenceCard({
 			setError(referenceConstraintError(invalid, hasCanonicalDesign)),
 	});
 	const validationError = useValidationError(form, hasCanonicalDesign);
+	const saving = useSelector(form.store, (state) => state.isSubmitting);
 	const preview = imageUrl(projectId, assetRecordId, image.id);
 
-	useEffect(() => {
-		form.reset(toDraft(image));
-	}, [form, image]);
-
-	async function save(draft: ReferenceConstraintDraft) {
-		setSaving(true);
+	async function save(
+		draft: ReferenceConstraintDraft,
+		reset: (draft: ReferenceConstraintDraft) => void
+	) {
 		setError(null);
 		setSaved(null);
 		try {
-			await updateImageMutation.mutateAsync({
+			const updated = await updateImageMutation.mutateAsync({
 				assetRecordId,
-				expectedRevision: image.revision,
+				expectedRevision: draft.expectedRevision ?? 1,
 				id: image.id,
 				projectId,
 				...normalizedRules(draft),
 			});
 			await boardRefresh();
+			reset(toDraft(updated));
 			setSaved("Reference rules and note saved.");
 		} catch (caught) {
 			setError(getErrorMessage(caught, "Could not save reference changes."));
-		} finally {
-			setSaving(false);
 		}
 	}
 
@@ -428,7 +427,6 @@ function AssetVersionReferenceCard({
 	projectId: string;
 	reference: ReferenceSummary;
 }) {
-	const [saving, setSaving] = useState(false);
 	const updateReferenceMutation = useMutation(
 		orpc.assetRecords.updateReference.mutationOptions(mutationMeta)
 	);
@@ -442,30 +440,28 @@ function AssetVersionReferenceCard({
 			setError(referenceConstraintError(invalid, hasCanonicalDesign)),
 	});
 	const validationError = useValidationError(form, hasCanonicalDesign);
+	const saving = useSelector(form.store, (state) => state.isSubmitting);
 	const preview = versionPreviewUrl(projectId, reference.versionId);
 
-	useEffect(() => {
-		form.reset(toDraft(reference));
-	}, [form, reference]);
-
-	async function save(draft: ReferenceConstraintDraft) {
-		setSaving(true);
+	async function save(
+		draft: ReferenceConstraintDraft,
+		reset: (draft: ReferenceConstraintDraft) => void
+	) {
 		setError(null);
 		setSaved(null);
 		try {
-			await updateReferenceMutation.mutateAsync({
+			const updated = await updateReferenceMutation.mutateAsync({
 				assetRecordId,
-				expectedRevision: reference.revision ?? 1,
+				expectedRevision: draft.expectedRevision ?? 1,
 				id: reference.id,
 				projectId,
 				...normalizedRules(draft),
 			});
 			await boardRefresh();
+			reset(toDraft(updated));
 			setSaved("Reference rules and note saved.");
 		} catch (caught) {
 			setError(getErrorMessage(caught, "Could not save reference changes."));
-		} finally {
-			setSaving(false);
 		}
 	}
 

@@ -12,8 +12,8 @@ import { useState } from "react";
 import { StatusMessage } from "@/components/status-message";
 import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
+import { usePendingIdempotencyKey } from "@/utils/pending-idempotency-key";
 import { useApplyDelivery } from "../../hooks/use-apply-delivery";
-import { useIdempotencyKey } from "../../hooks/use-idempotency-key";
 import { directoryAttributes } from "../../lib/directory-attributes";
 import {
 	chooseNativeDeliveryFolder,
@@ -46,6 +46,7 @@ function FieldErrors({ errors }: { errors: unknown[] }) {
  */
 export function FirstApplyForm({ projectId }: { projectId: string }) {
 	const apply = useApplyDelivery(projectId);
+	const pendingKey = usePendingIdempotencyKey();
 	const [failure, setFailure] = useState<string | null>(null);
 	const bundles = useQuery({
 		...orpc.exportBundles.list.queryOptions({ input: { projectId } }),
@@ -89,7 +90,15 @@ export function FirstApplyForm({ projectId }: { projectId: string }) {
 				await apply.mutateAsync({
 					bundleId: value.bundleId,
 					destinationLabel: value.destinationLabel,
-					idempotencyKey,
+					idempotencyKey: pendingKey.keyFor(
+						JSON.stringify([
+							projectId,
+							value.bundleId,
+							value.destinationLabel,
+							folder.token,
+							written,
+						])
+					),
 					projectId,
 					written,
 				});
@@ -111,13 +120,6 @@ export function FirstApplyForm({ projectId }: { projectId: string }) {
 		enabled: values.bundleId !== "",
 		...mutationMeta,
 	}).data;
-	const idempotencyKey = useIdempotencyKey(
-		JSON.stringify([
-			values.bundleId,
-			values.destinationLabel,
-			values.folder?.token,
-		])
-	);
 
 	const submit = (event: SyntheticEvent<HTMLFormElement>) => {
 		event.preventDefault();

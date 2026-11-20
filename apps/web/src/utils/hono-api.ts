@@ -1,4 +1,4 @@
-// conventions-exception: raw-fetch Authenticated Hono project routes (Working Drafts, Offline Conflict Records) render and store PNG bytes through the verifying Asset Version storage; the oRPC context carries no object storage.
+// conventions-exception: raw-fetch Authenticated files are streamed to and from the Hono byte endpoints, outside the oRPC JSON transport.
 import { pixelEditorErrorSchema } from "@sprite-anvil/api/pixel-editor";
 import { ENV } from "@/env";
 
@@ -52,29 +52,6 @@ async function readJsonOrThrow(
 			{ status: 500, cause }
 		);
 	}
-}
-
-export async function honoGetJson(url: string, fallback: string) {
-	return readJsonOrThrow(
-		await fetch(url, { credentials: "include" }),
-		fallback
-	);
-}
-
-export async function honoPostJson(
-	url: string,
-	body: unknown,
-	fallback: string
-) {
-	return readJsonOrThrow(
-		await fetch(url, {
-			method: "POST",
-			credentials: "include",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(body ?? {}),
-		}),
-		fallback
-	);
 }
 
 /** Uploads a File directly; the browser streams it without a second in-memory byte copy. */

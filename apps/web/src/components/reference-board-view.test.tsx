@@ -2,6 +2,7 @@
 
 import type { ReferenceBoard } from "@sprite-anvil/api/reference-production";
 import {
+	act,
 	cleanup,
 	fireEvent,
 	render,
@@ -16,6 +17,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { ReferenceBoardView } from "@/components/reference-board-view";
 import { createQueryClient } from "@/utils/query-client";
 
+const revisionTwo = /Revision 2/u;
 const overrideRationaleLabel = /Context Override rationale/u;
 const projectId = "c2edb5dc-a82f-42b2-84bb-a878ca20fabf";
 const assetRecordId = "7ea123f0-2bd0-4b38-ab57-29477a1366e6";
@@ -96,7 +98,7 @@ function renderBoard({
 } = {}) {
 	const queryClient = createQueryClient();
 	queryClient.setDefaultOptions({ queries: { retry: false } });
-	return render(
+	render(
 		<QueryClientProvider client={queryClient}>
 			<ReferenceBoardView
 				assetRecordId={assetRecordId}
@@ -109,6 +111,7 @@ function renderBoard({
 			/>
 		</QueryClientProvider>
 	);
+	return queryClient;
 }
 
 test("accepts a dropped reference image and uploads it with its transfer rules", async () => {
@@ -216,7 +219,7 @@ test("edits an uploaded Reference and preserves failed-save retry feedback", asy
 			},
 		],
 	};
-	renderBoard();
+	const queryClient = renderBoard();
 
 	const cards = await screen.findAllByRole("listitem");
 	expect(cards).toHaveLength(1);
@@ -225,12 +228,36 @@ test("edits an uploaded Reference and preserves failed-save retry feedback", asy
 	fireEvent.change(card.getByLabelText("Reference note"), {
 		target: { value: "Keep only the pose." },
 	});
+	const updatedElsewhere = {
+		...fakeApi.board.imageReferences[0],
+		notes: "Another editor changed this.",
+		revision: 2,
+	};
+	act(() => {
+		queryClient.setQueryData(
+			["reference-board", { assetRecordId, projectId }],
+			{
+				...fakeApi.board,
+				imageReferences: [updatedElsewhere],
+			}
+		);
+	});
+	await card.findByText(revisionTwo);
+	expect(card.getByLabelText("Reference note")).toHaveValue(
+		"Keep only the pose."
+	);
 	fakeApi.updateImage.mockRejectedValueOnce(new Error("Save unavailable"));
 	fireEvent.click(card.getByRole("button", { name: "Save rules" }));
 	expect(await card.findByRole("alert")).toHaveTextContent(
 		"Could not save reference changes."
 	);
-	fakeApi.updateImage.mockResolvedValueOnce(undefined);
+	const savedImage = {
+		...updatedElsewhere,
+		notes: "Keep only the pose.",
+		revision: 3,
+	};
+	fakeApi.board = { ...fakeApi.board, imageReferences: [savedImage] };
+	fakeApi.updateImage.mockResolvedValueOnce(savedImage);
 	fireEvent.click(card.getByRole("button", { name: "Save rules" }));
 	expect(await card.findByRole("status")).toHaveTextContent(
 		"Reference rules and note saved."

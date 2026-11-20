@@ -2,7 +2,7 @@
 
 import { assetVersionProductionSourceHeader } from "@sprite-anvil/api/provider-generation-records";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, renderHook } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, expect, test, vi } from "vitest";
 import { createQueryClient } from "@/utils/query-client";
@@ -366,4 +366,33 @@ test("sends one idempotency key per review decision, reuses it on retry and star
 	expect(keys[0]).toBeTruthy();
 	expect(keys[1]).toBe(keys[0]);
 	expect(keys[2]).not.toBe(keys[0]);
+});
+
+test("the Asset Version write remains pending in Query until its reread finishes", async () => {
+	reviewMock.mockResolvedValueOnce({});
+	const queryKey = ["asset-version-write", projectId];
+	let completeRefresh: () => void = () => undefined;
+	const refreshCatalogs = vi.fn(
+		() =>
+			new Promise<{ isError: boolean }>((resolve) => {
+				completeRefresh = () => resolve({ isError: false });
+			})
+	);
+	const { result } = renderHook(
+		() => useAssetVersionWrites(projectId, refreshCatalogs),
+		{ wrapper }
+	);
+	let review: Promise<boolean> | undefined;
+	act(() => {
+		review = result.current.review(assetVersionId, "approved", "Reviewed.");
+	});
+	await waitFor(() => expect(refreshCatalogs).toHaveBeenCalledOnce());
+	expect(result.current.writesDisabled).toBe(true);
+	expect(queryClient.isMutating({ mutationKey: queryKey })).toBe(1);
+	await act(async () => {
+		completeRefresh();
+		await review;
+	});
+	expect(queryClient.isMutating({ mutationKey: queryKey })).toBe(0);
+	await waitFor(() => expect(result.current.writesDisabled).toBe(false));
 });

@@ -10,6 +10,7 @@ export const Route = createFileRoute(
 
 function PixelEditorRoute() {
 	const { assetVersionId, projectId } = Route.useParams();
+	const { session } = Route.useRouteContext();
 	return (
 		<>
 			<PixelEditorView
@@ -19,6 +20,7 @@ function PixelEditorRoute() {
 			<StageWorkingDraftPanel
 				projectId={projectId}
 				sourceAssetVersionId={assetVersionId}
+				userId={session.user.id}
 			/>
 		</>
 	);

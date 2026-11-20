@@ -9,7 +9,6 @@ import {
 } from "@sprite-anvil/ui/components/native-select";
 import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
 import { StatusMessage } from "@/components/status-message";
 import { assetCategoryLabels } from "@/utils/category-labels";
 import { QueryRetryButton } from "@/utils/error-notification";
@@ -40,12 +39,21 @@ export function AssetRecordMetadataForm({
 		...orpc.contextScopes.list.queryOptions({ input: { projectId } }),
 		meta: { errorPresentation: "inline" },
 	});
-	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 	const updateMetadata = useMutation(
 		orpc.assetRecords.updateMetadata.mutationOptions({
-			onSuccess: async () => {
-				setStatusMessage("Asset Record metadata saved.");
+			onSuccess: async (saved) => {
+				queryClient.setQueryData(
+					orpc.assetRecords.get.queryKey({
+						input: { projectId, assetRecordId: record.id },
+					}),
+					saved
+				);
 				await Promise.all([
+					queryClient.invalidateQueries({
+						queryKey: orpc.assetRecords.listPage.queryKey({
+							input: { projectId },
+						}),
+					}),
 					queryClient.invalidateQueries({
 						queryKey: orpc.assetRecords.search.queryKey({
 							input: { projectId },
@@ -63,10 +71,9 @@ export function AssetRecordMetadataForm({
 
 	const form = useForm({
 		defaultValues: metadataDefaults(record, familyWorldId),
-		onSubmit: ({ value }) => {
-			setStatusMessage(null);
+		onSubmit: async ({ value, formApi }) => {
 			const metadata = assetRecordMetadataFormSchema.parse(value);
-			updateMetadata.mutate({
+			const saved = await updateMetadata.mutateAsync({
 				assetCategory: metadata.assetCategory || null,
 				assetRecordId: record.id,
 				projectId,
@@ -74,6 +81,7 @@ export function AssetRecordMetadataForm({
 				themeId: metadata.themeId || null,
 				visualWorldId: metadata.visualWorldId || null,
 			});
+			formApi.reset(metadataDefaults(saved, familyWorldId));
 		},
 		validators: { onSubmit: assetRecordMetadataFormSchema },
 	});
@@ -81,14 +89,6 @@ export function AssetRecordMetadataForm({
 		form.store,
 		(state) => state.values.visualWorldId
 	);
-
-	useEffect(() => {
-		const defaults = metadataDefaults(record, familyWorldId);
-		form.setFieldValue("assetCategory", defaults.assetCategory);
-		form.setFieldValue("visualWorldId", defaults.visualWorldId);
-		form.setFieldValue("themeId", defaults.themeId);
-		form.setFieldValue("tags", defaults.tags);
-	}, [familyWorldId, form, record]);
 
 	const scopes = scopeQuery.data ?? { themes: [], visualWorlds: [] };
 	const availableThemes = scopes.themes.filter(
@@ -135,7 +135,7 @@ export function AssetRecordMetadataForm({
 					onSubmit={(event) => {
 						event.preventDefault();
 						event.stopPropagation();
-						form.handleSubmit();
+						void form.handleSubmit().catch(() => undefined);
 					}}
 				>
 					<form.Field name="assetCategory">
@@ -253,9 +253,9 @@ export function AssetRecordMetadataForm({
 							)}
 						</StatusMessage>
 					) : null}
-					{statusMessage ? (
+					{updateMetadata.isSuccess ? (
 						<p aria-live="polite" role="status">
-							{statusMessage}
+							Asset Record metadata saved.
 						</p>
 					) : null}
 					<Button

@@ -1,4 +1,5 @@
 import { ORPCError } from "@orpc/server";
+import type { AssetFamilyCatalogScope } from "../asset-families";
 import {
 	assetFamilyCatalogSchema,
 	assetFamilyCreateInputSchema,
@@ -14,10 +15,15 @@ import {
 import type { Context } from "../context";
 import { protectedProcedure } from "../index";
 
-async function readCatalog(context: Context, projectId: string) {
+async function readCatalog(
+	context: Context,
+	projectId: string,
+	scope?: AssetFamilyCatalogScope
+) {
 	const catalog = await context.assetFamilyStore.list(
 		context.session?.user.id ?? "",
-		projectId
+		projectId,
+		scope
 	);
 	if (!catalog) {
 		throw new ORPCError("NOT_FOUND", { message: "Project not found" });
@@ -30,7 +36,7 @@ export const assetFamiliesRouter = {
 		.input(assetFamilyListInputSchema)
 		.output(assetFamilyCatalogSchema)
 		.handler(async ({ context, input }) =>
-			readCatalog(context, input.projectId)
+			readCatalog(context, input.projectId, input.scope)
 		),
 	createSubjectIdentity: protectedProcedure
 		.input(subjectIdentityCreateInputSchema)

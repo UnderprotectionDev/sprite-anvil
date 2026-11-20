@@ -1,4 +1,5 @@
 import type { Context as ApiContext } from "@sprite-anvil/api/context";
+import { getProjectForUser } from "@sprite-anvil/db";
 import type { Context as HonoContext } from "hono";
 import { assetVersionObjectKeySchema } from "./cloudflare";
 import { desktopOrigins, ENV } from "./env.server";
@@ -14,6 +15,7 @@ import {
 	createSourceMetadataMappingProposalCreator,
 } from "./features/imports/server/source-metadata-mapping-procedures";
 import { createDraftCoordinateSpaceReader } from "./features/pixel-editor/server/draft-coordinate-space";
+import { createPixelEditorOperations } from "./features/pixel-editor/server/pixel-editor-rpc";
 import {
 	createTextureEdgeChecker,
 	createTilesetSeamChecker,
@@ -90,6 +92,20 @@ const sourceMetadataMappingDependencies = {
 	importInboxStore,
 	sourceMetadataMappingProposalStore,
 };
+export const pixelEditorDependencies = {
+	abandonConfirmationSecret: ENV.BETTER_AUTH_SECRET,
+	assetVersionStore,
+	offlineConflictStore,
+	pixelEditorStore,
+	getSession: (headers: Headers) => auth.api.getSession({ headers }),
+	getProjectForUser: (userId: string, projectId: string) =>
+		getProjectForUser(db, userId, projectId),
+	createStorage: createServerAssetVersionStorage,
+};
+const pixelEditorOperations = createPixelEditorOperations(
+	pixelEditorDependencies
+);
+
 const readPixelDraftCoordinateSpace = createDraftCoordinateSpaceReader({
 	assetVersionStore,
 	createStorage: createServerAssetVersionStorage,
@@ -149,6 +165,7 @@ export async function createContext({
 		backgroundOperationStore,
 		collectionStore,
 		generationPackageStore,
+		pixelEditorOperations,
 		readPixelDraftCoordinateSpace,
 		productionExperimentStore,
 		productionRecipeStore,

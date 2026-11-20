@@ -2,6 +2,10 @@ import { expect, test } from "@playwright/test";
 import { assetVersionFixture as fixture } from "./asset-version-fixture";
 import { signUpWithFixture } from "./project-workflow";
 
+const versionOneApproved = /^Version 1 · Approved$/u;
+const versionFourCandidate = /^Version 4 · Candidate$/u;
+const versionFourApproved = /^Version 4 · Approved$/u;
+
 test("uploads and rereads exact Asset and Composite Version lineage", async ({
 	page,
 }) => {
@@ -17,7 +21,7 @@ test("uploads and rereads exact Asset and Composite Version lineage", async ({
 	await page.getByLabel("Art direction").fill(fixture.generalArtDirection);
 	await page.getByRole("button", { name: "Create project" }).click();
 	await page
-		.getByRole("button", { name: "Visual Worlds and Themes", exact: true })
+		.getByRole("tab", { name: "Visual Worlds and Themes", exact: true })
 		.click();
 	await page.getByLabel("Visual World name").fill(fixture.visualWorldName);
 	await page.getByRole("button", { name: "Add Visual World" }).click();
@@ -28,21 +32,19 @@ test("uploads and rereads exact Asset and Composite Version lineage", async ({
 	await page.goto("/projects");
 	await page.getByRole("link", { name: "Asset Families" }).click();
 	await page
-		.getByRole("button", {
+		.getByRole("tab", {
 			name: "Family and representation relationships",
 			exact: true,
 		})
 		.click();
 	await page.getByLabel("Subject Identity name").fill(fixture.identityName);
 	await page.getByRole("button", { name: "Create Subject Identity" }).click();
-	await page
-		.getByRole("button", { name: "Family catalog", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Family catalog", exact: true }).click();
 	await expect(
 		page.getByRole("heading", { name: fixture.identityName })
 	).toBeVisible();
 	await page
-		.getByRole("button", {
+		.getByRole("tab", {
 			name: "Family and representation relationships",
 			exact: true,
 		})
@@ -53,32 +55,38 @@ test("uploads and rereads exact Asset and Composite Version lineage", async ({
 	});
 	await page.getByLabel("Usage context").fill(fixture.useContext);
 	await page.getByRole("button", { name: "Create Asset Family" }).click();
-	await page
-		.getByRole("button", { name: "Family catalog", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Family catalog", exact: true }).click();
 	await expect(
-		page.getByText(fixture.familyName, { exact: true })
+		page
+			.getByRole("tabpanel", { name: "Family catalog" })
+			.getByRole("heading", { name: fixture.familyName, exact: true })
 	).toBeVisible();
 
 	await page
-		.getByRole("button", {
+		.getByRole("tab", {
 			name: "Family and representation relationships",
 			exact: true,
 		})
 		.click();
 	await page.getByLabel("Asset Record name").fill(fixture.sourceName);
+	await page
+		.getByRole("checkbox", { name: "Independent product meaning", exact: true })
+		.check();
 	await page.getByRole("button", { name: "Add Asset Record" }).click();
 	await page.getByLabel("Asset Record name").fill(fixture.derivativeName);
-	await page.getByRole("button", { name: "Add Asset Record" }).click();
 	await page
-		.getByRole("button", { name: "Family catalog", exact: true })
-		.click();
+		.getByRole("checkbox", { name: "Independent product meaning", exact: true })
+		.check();
+	await page.getByRole("button", { name: "Add Asset Record" }).click();
+	await page.getByRole("tab", { name: "Family catalog", exact: true }).click();
 	await expect(
-		page.getByText(fixture.derivativeName, { exact: true })
+		page
+			.getByRole("tabpanel", { name: "Family catalog" })
+			.getByRole("link", { name: fixture.derivativeName, exact: true })
 	).toBeVisible();
 
 	await page
-		.getByRole("button", {
+		.getByRole("tab", {
 			name: "Version and dependency operations",
 			exact: true,
 		})
@@ -106,27 +114,32 @@ test("uploads and rereads exact Asset and Composite Version lineage", async ({
 	await expect(page.getByText("Candidate Version saved.")).toBeVisible();
 	await page.goto(familyUrl);
 	await page
-		.getByRole("button", {
+		.getByRole("tab", {
 			name: "Version and dependency operations",
 			exact: true,
 		})
 		.click();
-	await expect(page.getByText("Version 1 · Candidate")).toBeVisible();
+	await expect(
+		page.getByRole("paragraph").filter({ hasText: "Version 1 · Candidate" })
+	).toBeVisible();
 	const reviewRationale = "The silhouette matches the family design.";
-	await page.getByLabel("Review rationale").fill(reviewRationale);
+	await page.locator('textarea[id^="review-rationale-"]').fill(reviewRationale);
 	await page.getByRole("button", { name: "Approve" }).click();
-	await expect(page.getByText("Version 1 · Approved")).toBeVisible();
+	await expect(
+		page.getByRole("paragraph").filter({ hasText: "Version 1 · Approved" })
+	).toBeVisible();
 	await expect(page.getByText(`— Rationale: ${reviewRationale}`)).toBeVisible();
 	await expect(page.locator("time[datetime]").first()).toBeVisible();
 	await page
 		.getByRole("button", { name: "Select as Canonical Design" })
 		.click();
+	await page.getByRole("tab", { name: "Family catalog", exact: true }).click();
 	await expect(
 		page.getByText("Canonical Design: Ash Knight base · Version 1")
 	).toBeVisible();
 
 	await page
-		.getByRole("button", {
+		.getByRole("tab", {
 			name: "Family and representation relationships",
 			exact: true,
 		})
@@ -139,12 +152,10 @@ test("uploads and rereads exact Asset and Composite Version lineage", async ({
 		.getByLabel("Related Asset Record")
 		.selectOption({ label: fixture.derivativeName });
 	await page.getByRole("button", { name: "Add relationship" }).click();
-	await page
-		.getByRole("button", { name: "Family catalog", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Family catalog", exact: true }).click();
 	await expect(page.getByText(fixture.visibleLineage)).toBeVisible();
 	await page
-		.getByRole("button", {
+		.getByRole("tab", {
 			name: "Version and dependency operations",
 			exact: true,
 		})
@@ -157,6 +168,12 @@ test("uploads and rereads exact Asset and Composite Version lineage", async ({
 	const unitCorrectionKey = sourceRecord.getByLabel("Unit name");
 	const unitCorrectionSource = sourceRecord.getByLabel("Source Asset Version");
 	const unitCorrectionFile = sourceRecord.getByLabel("Corrected PNG or WebP");
+	const saveUnitCorrection = sourceRecord.getByRole("button", {
+		name: "Save unit correction",
+	});
+	const saveComposite = sourceRecord.getByRole("button", {
+		name: "Save new Composite Version",
+	});
 	await unitCorrectionType.selectOption("frame");
 	await unitCorrectionKey.fill("attack/frame-3");
 	await unitCorrectionSource.selectOption({ label: "Version 1 · Approved" });
@@ -165,7 +182,7 @@ test("uploads and rereads exact Asset and Composite Version lineage", async ({
 		mimeType: "image/png",
 		buffer: fixture.png,
 	});
-	await page.getByRole("button", { name: "Save unit correction" }).click();
+	await saveUnitCorrection.click();
 	await expect(
 		page.getByText("Frame · attack/frame-3 · Unit Version 1")
 	).toBeVisible();
@@ -178,7 +195,7 @@ test("uploads and rereads exact Asset and Composite Version lineage", async ({
 		mimeType: "image/png",
 		buffer: fixture.png,
 	});
-	await page.getByRole("button", { name: "Save unit correction" }).click();
+	await saveUnitCorrection.click();
 	await expect(
 		page.getByText("Direction · north · Unit Version 1")
 	).toBeVisible();
@@ -189,9 +206,7 @@ test("uploads and rereads exact Asset and Composite Version lineage", async ({
 	await sourceRecord.getByLabel("Direction · north").selectOption({
 		label: "Unit Version 1 · Asset Version 3 · Candidate",
 	});
-	await page
-		.getByRole("button", { name: "Save new Composite Version" })
-		.click();
+	await saveComposite.click();
 	await expect(
 		page.getByRole("heading", { name: "Composite Version 1 · Candidate" })
 	).toBeVisible();
@@ -218,32 +233,30 @@ test("uploads and rereads exact Asset and Composite Version lineage", async ({
 		mimeType: "image/png",
 		buffer: fixture.png,
 	});
-	await page.getByRole("button", { name: "Save unit correction" }).click();
+	await saveUnitCorrection.click();
 	await expect(
 		page.getByText("Frame · attack/frame-3 · Unit Version 2")
 	).toBeVisible();
 
 	const correctedAssetVersion = sourceRecord
-		.getByText("Version 4 · Candidate", { exact: true })
+		.getByRole("paragraph")
+		.filter({ hasText: versionFourCandidate })
 		.locator("xpath=ancestor::li[1]");
 	await correctedAssetVersion
 		.getByLabel("Review rationale")
 		.fill("The corrected frame is ready for composition.");
 	await correctedAssetVersion.getByRole("button", { name: "Approve" }).click();
 	await expect(
-		correctedAssetVersion.getByText("Version 4 · Approved", { exact: true })
+		sourceRecord.getByRole("paragraph").filter({ hasText: versionFourApproved })
 	).toBeVisible();
 
-	await page;
-	sourceRecord
+	await sourceRecord
 		.getByLabel("Starting Composite Version")
 		.selectOption({ label: "Composite Version 1 · Approved" });
 	await sourceRecord.getByLabel("Frame · attack/frame-3").selectOption({
 		label: "Unit Version 2 · Asset Version 4 · Approved",
 	});
-	await page
-		.getByRole("button", { name: "Save new Composite Version" })
-		.click();
+	await saveComposite.click();
 	await expect(
 		page.getByRole("heading", { name: "Composite Version 2 · Candidate" })
 	).toBeVisible();
@@ -266,20 +279,20 @@ test("uploads and rereads exact Asset and Composite Version lineage", async ({
 
 	await page.reload();
 	await page
-		.getByRole("button", {
+		.getByRole("tab", {
 			name: "Version and dependency operations",
 			exact: true,
 		})
 		.click();
-	await expect(page.getByText("Version 1 · Approved")).toBeVisible();
+	await expect(
+		page.getByRole("paragraph").filter({ hasText: versionOneApproved })
+	).toBeVisible();
 	await expect(page.getByText(`— Rationale: ${reviewRationale}`)).toBeVisible();
 	await expect(page.locator("time[datetime]").first()).toBeVisible();
-	await page
-		.getByRole("button", { name: "Family catalog", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Family catalog", exact: true }).click();
 	await expect(page.getByText(fixture.visibleLineage)).toBeVisible();
 	await page
-		.getByRole("button", {
+		.getByRole("tab", {
 			name: "Version and dependency operations",
 			exact: true,
 		})

@@ -35,7 +35,7 @@ test("persists reference transfer constraints through the web flow", async ({
 	await expect(page.getByRole("heading", { name: fixture.name })).toBeVisible();
 
 	await page
-		.getByRole("button", { name: "Production and import", exact: true })
+		.getByRole("tab", { name: "Production and import", exact: true })
 		.click();
 	await page.locator("#reference-upload-file").setInputFiles({
 		name: "walking-pose.png",
@@ -43,7 +43,7 @@ test("persists reference transfer constraints through the web flow", async ({
 		buffer: Buffer.from(fixture.assetVersionPngBase64, "base64"),
 	});
 	await page
-		.getByRole("group", { name: "Features to avoid" })
+		.getByRole("group", { name: "Avoided features" })
 		.getByRole("checkbox", { name: "Identity" })
 		.check();
 	await page.getByLabel("Reference note").fill("Use the pose only.");
@@ -52,16 +52,25 @@ test("persists reference transfer constraints through the web flow", async ({
 		"Reference image added to the board."
 	);
 
-	let card = page.getByRole("article").filter({
-		has: page.getByRole("img", {
-			name: "walking-pose.png reference",
-		}),
-	});
-	await expect(card.getByText("Use the pose only.")).toBeVisible();
+	let card = page
+		.getByRole("list", { name: "Side-by-side references" })
+		.getByRole("listitem")
+		.filter({
+			has: page.getByRole("img", {
+				name: "walking-pose.png reference",
+			}),
+		});
+	await expect(
+		card.getByRole("paragraph").filter({ hasText: "Use the pose only." })
+	).toBeVisible();
 	await card.getByText("Edit rules").click();
 	await card.getByLabel("Reference usage purpose").selectOption("custom");
-	await card.getByLabel("Custom usage purpose").fill("Animation timing cue");
-	await card.getByLabel("Reference note").fill("Timing cue only.");
+	await card
+		.getByRole("textbox", { name: "Custom usage purpose", exact: true })
+		.fill("Animation timing cue");
+	await card
+		.getByRole("textbox", { name: "Reference note", exact: true })
+		.fill("Timing cue only.");
 	await card.getByRole("button", { name: "Save rules" }).click();
 	await expect(card.getByRole("status")).toContainText(
 		"Reference rules and note saved."
@@ -72,15 +81,22 @@ test("persists reference transfer constraints through the web flow", async ({
 
 	await page.reload();
 	await page
-		.getByRole("button", { name: "Production and import", exact: true })
+		.getByRole("tab", { name: "Production and import", exact: true })
 		.click();
-	card = page.getByRole("article").filter({
-		has: page.getByRole("img", {
-			name: "walking-pose.png reference",
-		}),
-	});
-	await expect(card.getByText("Animation timing cue")).toBeVisible();
-	await expect(card.getByText("Timing cue only.")).toBeVisible();
+	card = page
+		.getByRole("list", { name: "Side-by-side references" })
+		.getByRole("listitem")
+		.filter({
+			has: page.getByRole("img", {
+				name: "walking-pose.png reference",
+			}),
+		});
+	await expect(
+		card.getByRole("paragraph").filter({ hasText: "Animation timing cue" })
+	).toBeVisible();
+	await expect(
+		card.getByRole("paragraph").filter({ hasText: "Timing cue only." })
+	).toBeVisible();
 	await card.getByText("Rule history").click();
 	await expect(card.getByText("Revision 1 ·", { exact: false })).toBeVisible();
 	await expect(card.getByText("Revision 2 ·", { exact: false })).toBeVisible();

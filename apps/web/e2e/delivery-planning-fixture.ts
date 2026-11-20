@@ -39,7 +39,7 @@ export async function createFamiliesWithRequiredLists(
 	await page.goto("/projects");
 	await page.getByRole("link", { name: "Asset Families" }).click();
 	await page
-		.getByRole("button", {
+		.getByRole("tab", {
 			name: "Family and representation relationships",
 			exact: true,
 		})
@@ -50,7 +50,7 @@ export async function createFamiliesWithRequiredLists(
 	for (const family of fixture.families) {
 		// biome-ignore lint/performance/noAwaitInLoops: Browser interactions within each family setup must occur in order.
 		await page
-			.getByRole("button", {
+			.getByRole("tab", {
 				name: "Family and representation relationships",
 				exact: true,
 			})
@@ -62,12 +62,15 @@ export async function createFamiliesWithRequiredLists(
 		await page.getByLabel("Usage context").fill(fixture.useContext);
 		await page.getByRole("button", { name: "Create Asset Family" }).click();
 		await page
-			.getByLabel("Independent product meaning", { exact: true })
+			.getByRole("checkbox", {
+				name: "Independent product meaning",
+				exact: true,
+			})
 			.check();
 		await page.getByLabel("Asset Record name").fill(family.recordName);
 		await page.getByRole("button", { name: "Add Asset Record" }).click();
 		await page
-			.getByRole("button", { name: "Family catalog", exact: true })
+			.getByRole("tab", { name: "Family catalog", exact: true })
 			.click();
 		await expect(
 			page.getByRole("heading", { name: family.familyName, exact: true })
@@ -77,11 +80,9 @@ export async function createFamiliesWithRequiredLists(
 	for (const family of fixture.families) {
 		// biome-ignore lint/performance/noAwaitInLoops: Each family's list is saved and activated before the next.
 		await page
-			.getByRole("button", { name: "Completion and evidence", exact: true })
+			.getByRole("tab", { name: "Completion and evidence", exact: true })
 			.click();
-		await page
-			.getByLabel("Family for review and completion")
-			.selectOption({ label: family.familyName });
+		await selectReviewFamily(page, family.familyName);
 		const readiness = page.getByRole("region", {
 			name: "Completion and evidence",
 		});
@@ -114,7 +115,7 @@ export async function prepareDeliveryPlanningWorkspace(
 	await page.getByLabel("Art direction").fill(fixture.generalArtDirection);
 	await page.getByRole("button", { name: "Create project" }).click();
 	await page
-		.getByRole("button", { name: "Visual Worlds and Themes", exact: true })
+		.getByRole("tab", { name: "Visual Worlds and Themes", exact: true })
 		.click();
 	await page.getByLabel("Visual World name").fill(fixture.visualWorldName);
 	await page.getByRole("button", { name: "Add Visual World" }).click();
@@ -127,4 +128,15 @@ export async function prepareDeliveryPlanningWorkspace(
 	await expect(
 		page.getByRole("heading", { name: "Delivery Targets", level: 1 })
 	).toBeVisible();
+}
+
+export async function selectReviewFamily(page: Page, name: string) {
+	const picker = page.getByRole("combobox", {
+		name: "Family for review and completion",
+	});
+	if ((await picker.inputValue()) === name) {
+		return;
+	}
+	await picker.fill(name);
+	await page.getByRole("option", { name, exact: true }).click();
 }

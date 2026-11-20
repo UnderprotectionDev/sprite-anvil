@@ -115,14 +115,18 @@ test("the real documents yield every rule the check reads", () => {
 		)
 	).toEqual([
 		"barrel",
+		"deprecated-query-fetch",
 		"feature-entry",
 		"feature-folder-name",
 		"feature-import",
 		"feature-name",
 		"form-state",
+		"hono-json-helper",
+		"orpc-mutation-options",
 		"raw-control",
 		"raw-fetch",
 		"raw-indexeddb",
+		"route-react-state",
 		"server-test-placement",
 		"ui-placement",
 		"web-server-import",
@@ -145,6 +149,43 @@ test("a form that keeps per-input state is caught", () => {
 	write(`${feature}/ui/forms/asset-record-note-form.tsx`, perInputStateForm);
 	expect(found()).toEqual([
 		`form-state ${feature}/ui/forms/asset-record-note-form.tsx onChange on <Input>`,
+	]);
+});
+
+test("flags oRPC writes that are only wrapped by an inline mutation function", () => {
+	const path = `${feature}/hooks/use-record.ts`;
+	write(
+		path,
+		`
+		import { useMutation as mutate } from "@tanstack/react-query";
+		import { client as rpc, orpc } from "@/utils/orpc";
+		export function useSave() {
+			mutate({ mutationFn: (input) => rpc.assetRecords.update(input) });
+			mutate({ mutationFn: async function (input) { return await rpc.assetRecords.update(input); } });
+			mutate(orpc.assetRecords.update.mutationOptions());
+			mutate({ mutationFn: async (input) => { await saveLocal(input); return rpc.assetRecords.update(input); } });
+			mutate({ mutationFn: (input) => rpc.assetRecords.update(toInput(input)) });
+		}
+	`
+	);
+	expect(found("orpc-mutation-options")).toEqual([
+		`orpc-mutation-options ${path} assetRecords.update`,
+		`orpc-mutation-options ${path} assetRecords.update`,
+	]);
+});
+
+test("flags raw application JSON helpers while retaining byte API imports", () => {
+	const path = `${feature}/lib/records.ts`;
+	write(
+		path,
+		`
+		import { honoGetJson as read, honoPostJson, honoUpload } from "@/utils/hono-api";
+		import { honoGetJson } from "./other";
+	`
+	);
+	expect(found("hono-json-helper")).toEqual([
+		`hono-json-helper ${path} honoGetJson`,
+		`hono-json-helper ${path} honoPostJson`,
 	]);
 });
 
@@ -420,4 +461,51 @@ test("the baseline only shrinks", () => {
 	expect(baselineGrowth(previous, [fingerprint(importViolation("a"))])).toEqual(
 		[]
 	);
+});
+
+test("flags the deprecated QueryClient.fetchQuery call in web production", () => {
+	const path = "apps/web/src/utils/refresh-record.ts";
+	write(
+		path,
+		`import { useQueryClient as useClient } from "@tanstack/react-query";
+export function useRefresh() {
+	const cache = useClient();
+	return () => cache.fetchQuery({});
+}
+export function refreshOtherClient(cache: { fetchQuery: () => void }) {
+	cache.fetchQuery();
+}
+`
+	);
+	write(
+		"apps/web/src/utils/refresh-record.test.ts",
+		`import { QueryClient } from "@tanstack/react-query";
+const cache = new QueryClient();
+cache.fetchQuery({});
+`
+	);
+	expect(found("deprecated-query-fetch")).toEqual([
+		`deprecated-query-fetch ${path} QueryClient.fetchQuery`,
+	]);
+});
+
+test("route registrations keep React state in their owning feature", () => {
+	const route = "apps/web/src/routes/preferences.tsx";
+	write(
+		route,
+		`import { useState as state } from "react";
+import * as React from "react";
+state(0);
+React.useReducer(() => 0, 0);
+function useLocal(state: (value: number) => void) { state(0); }
+`
+	);
+	write(
+		"apps/web/src/components/feature.tsx",
+		`import { useState } from "react"; useState(0);`
+	);
+	expect(found("route-react-state")).toEqual([
+		`route-react-state ${route} React.useState`,
+		`route-react-state ${route} React.useReducer`,
+	]);
 });

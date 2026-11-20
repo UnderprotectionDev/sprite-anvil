@@ -1,19 +1,18 @@
 import { ORPCError } from "@orpc/server";
 import { prepareGenerationPackage } from "../generation-package-preparation";
 import {
-	generationPackageCreateInputSchema,
+	generationPackageCreateContract,
 	generationPackageListInputSchema,
 	generationPackageSchema,
 } from "../generation-packages";
-import { protectedProcedure } from "../index";
+import { implementProtected, protectedProcedure } from "../index";
 
 export const generationPackagesRouter = {
-	create: protectedProcedure
-		.input(generationPackageCreateInputSchema)
-		.output(generationPackageSchema)
-		.handler(({ context, input }) =>
-			prepareGenerationPackage(context, context.session.user.id, input)
-		),
+	create: implementProtected({
+		create: generationPackageCreateContract,
+	}).create.handler(({ context, input }) =>
+		prepareGenerationPackage(context, context.session.user.id, input)
+	),
 	list: protectedProcedure
 		.input(generationPackageListInputSchema)
 		.output(generationPackageSchema.array())

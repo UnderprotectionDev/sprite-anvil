@@ -14,7 +14,7 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSelector } from "@tanstack/react-store";
 import { strToU8, zipSync } from "fflate";
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { z } from "zod";
 import { authClient } from "@/lib/auth-client";
 import { downloadZip } from "@/utils/download-zip";
@@ -173,58 +173,56 @@ function BundlePreview({
 }
 
 function usePendingExports(userId: string | undefined, projectId: string) {
-	const [stored, setStored] = useState<PendingExport[]>([]);
-	const [storageError, setStorageError] = useState(false);
-	const [storageReady, setStorageReady] = useState(false);
-	useEffect(() => {
-		let active = true;
-		setStored([]);
-		setStorageReady(false);
-		if (!userId) {
-			return;
-		}
-		Promise.all(
-			(["profile", "bundle"] as const).map((kind) =>
-				pendingExportTable().get(pendingExportKey(userId, projectId, kind))
-			)
-		)
-			.then((rows) => {
-				if (active) {
-					setStored(rows.filter((row): row is PendingExport => Boolean(row)));
-					setStorageReady(true);
-					setStorageError(false);
-				}
-			})
-			.catch(() => {
-				if (active) {
-					setStorageError(true);
-				}
-			});
-		return () => {
-			active = false;
-		};
-	}, [userId, projectId]);
-	async function persist(request: PendingExport) {
-		try {
-			await pendingExportTable().put(request);
-		} catch (error) {
-			setStorageError(true);
-			throw error;
-		}
-		setStored((rows) => [
-			...rows.filter((row) => row.key !== request.key),
-			request,
-		]);
-	}
+	const queryClient = useQueryClient();
+	const queryKey = ["pending-exports", userId, projectId] as const;
+	const requests = useQuery({
+		queryKey,
+		queryFn: async () => {
+			if (!userId) {
+				return [];
+			}
+			const rows = await Promise.all(
+				(["profile", "bundle"] as const).map((kind) =>
+					pendingExportTable().get(pendingExportKey(userId, projectId, kind))
+				)
+			);
+			return rows.filter((row): row is PendingExport => Boolean(row));
+		},
+		enabled: Boolean(userId),
+		networkMode: "always",
+		retry: false,
+		meta: { errorPresentation: "inline" },
+	});
+	const saveRequest = useMutation({
+		mutationFn: (request: PendingExport) => pendingExportTable().put(request),
+		networkMode: "always",
+		meta: { errorPresentation: "inline" },
+		onSuccess: (_result, request) => {
+			queryClient.setQueryData<PendingExport[]>(queryKey, (rows) => [
+				...(rows ?? []).filter((row) => row.key !== request.key),
+				request,
+			]);
+		},
+	});
+
 	async function clearPending(kind: "profile" | "bundle") {
 		if (!userId) {
 			throw new Error("Session unavailable.");
 		}
 		const key = pendingExportKey(userId, projectId, kind);
 		await pendingExportTable().delete(key);
-		setStored((rows) => rows.filter((row) => row.key !== key));
+		queryClient.setQueryData<PendingExport[]>(queryKey, (rows) =>
+			rows?.filter((row) => row.key !== key)
+		);
 	}
-	return { stored, storageError, storageReady, persist, clearPending };
+
+	return {
+		stored: requests.data ?? [],
+		storageError: requests.isError || saveRequest.isError,
+		storageReady: requests.isSuccess,
+		persist: saveRequest.mutateAsync,
+		clearPending,
+	};
 }
 
 function PendingRequests({
@@ -329,47 +327,46 @@ export function ExportCreationPanel({ projectId }: { projectId: string }) {
 		})
 	);
 
-	const save = useMutation({
-		mutationFn: (
-			input: Parameters<typeof client.exportProfiles.createRevision>[0]
-		) => client.exportProfiles.createRevision(input),
-		meta: { errorPresentation: "inline" },
-		onError: (error) =>
-			clearKnownRejection(
-				error,
-				() => clearPending("profile"),
-				() => {
-					profilePending.current = null;
-				}
-			),
-		onSuccess: async () => {
-			await clearPending("profile");
-			profilePending.current = null;
-			await qc.invalidateQueries({
-				queryKey: orpc.exportProfiles.list.key({ input: { projectId } }),
-			});
-		},
-	});
-	const create = useMutation({
-		mutationFn: (input: Parameters<typeof client.exportBundles.create>[0]) =>
-			client.exportBundles.create(input),
-		meta: { errorPresentation: "inline" },
-		onError: (error) =>
-			clearKnownRejection(
-				error,
-				() => clearPending("bundle"),
-				() => {
-					bundlePending.current = null;
-				}
-			),
-		onSuccess: async () => {
-			await clearPending("bundle");
-			bundlePending.current = null;
-			await qc.invalidateQueries({
-				queryKey: orpc.exportBundles.list.key({ input: { projectId } }),
-			});
-		},
-	});
+	const save = useMutation(
+		orpc.exportProfiles.createRevision.mutationOptions({
+			meta: { errorPresentation: "inline" },
+			onError: (error) =>
+				clearKnownRejection(
+					error,
+					() => clearPending("profile"),
+					() => {
+						profilePending.current = null;
+					}
+				),
+			onSuccess: async () => {
+				await clearPending("profile");
+				profilePending.current = null;
+				await qc.invalidateQueries({
+					queryKey: orpc.exportProfiles.list.key({ input: { projectId } }),
+				});
+			},
+		})
+	);
+	const create = useMutation(
+		orpc.exportBundles.create.mutationOptions({
+			meta: { errorPresentation: "inline" },
+			onError: (error) =>
+				clearKnownRejection(
+					error,
+					() => clearPending("bundle"),
+					() => {
+						bundlePending.current = null;
+					}
+				),
+			onSuccess: async () => {
+				await clearPending("bundle");
+				bundlePending.current = null;
+				await qc.invalidateQueries({
+					queryKey: orpc.exportBundles.list.key({ input: { projectId } }),
+				});
+			},
+		})
+	);
 	const download = useMutation({
 		meta: { errorPresentation: "inline" },
 		mutationFn: async (bundleId: string) => {

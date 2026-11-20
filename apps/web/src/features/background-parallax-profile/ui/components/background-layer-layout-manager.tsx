@@ -71,9 +71,12 @@ interface LayerDraft extends Record<NumericField, string> {
 	id: string;
 	key: string;
 }
-function newLayer(order: number): LayerDraft {
+function newLayer(
+	order: number,
+	key: string = crypto.randomUUID()
+): LayerDraft {
 	return {
-		key: crypto.randomUUID(),
+		key,
 		id: "",
 		assetVersionId: "",
 		order: String(order),
@@ -89,6 +92,7 @@ function newLayer(order: number): LayerDraft {
 		safeHeight: "",
 	};
 }
+const initialLayers = [newLayer(0, "initial-layer")];
 function layerInput(draft: LayerDraft, version: LayoutVersion | undefined) {
 	return {
 		id: draft.id,
@@ -179,7 +183,6 @@ export function BackgroundLayerLayoutManager({
 	});
 	const [scrollingLayout, setScrollingLayout] =
 		useState<BackgroundLayerLayoutRecord | null>(null);
-	const [initialLayers] = useState<LayerDraft[]>(() => [newLayer(0)]);
 	const form = useForm({
 		defaultValues: { layers: initialLayers },
 		onSubmit: async ({ value }) => {
@@ -190,13 +193,22 @@ export function BackgroundLayerLayoutManager({
 	const [message, setMessage] = useState("");
 	const [error, setError] = useState("");
 	const saveMutation = useMutation(
-		orpc.backgroundLayerLayouts.save.mutationOptions(mutationMeta)
+		orpc.backgroundLayerLayouts.save.mutationOptions({
+			...mutationMeta,
+			onSuccess: async (_saved, input) => {
+				await confirmLayout(input);
+			},
+		})
 	);
-	const [saving, setSaving] = useState(false);
+	const saving = saveMutation.isPending;
 	const [uncertain, setUncertain] = useState(false);
 	const [pendingInput, setPendingInput] =
 		useState<BackgroundLayerLayoutInput | null>(null);
-	const [checking, setChecking] = useState(false);
+	const verifyLayout = useMutation({
+		...mutationMeta,
+		mutationFn: confirmLayout,
+	});
+	const checking = verifyLayout.isPending;
 	const errorRef = useRef<HTMLDivElement>(null);
 	const available = versions.filter(
 		(v) =>
@@ -257,13 +269,11 @@ export function BackgroundLayerLayoutManager({
 		if (saving || checking) {
 			return;
 		}
-		setSaving(true);
 		setPendingInput(input);
 		setMessage("");
 		setError("");
 		try {
 			await saveMutation.mutateAsync(input);
-			await confirmLayout(input);
 		} catch (failure) {
 			setError(getErrorMessage(failure, "Could not save the layer layout."));
 			const outcomeUncertain = uncertain || isWriteOutcomeUncertain(failure);
@@ -271,20 +281,13 @@ export function BackgroundLayerLayoutManager({
 			if (!outcomeUncertain) {
 				setPendingInput(null);
 			}
-		} finally {
-			setSaving(false);
 		}
 	}
 	async function checkCurrentLayouts() {
 		if (!pendingInput || saving || checking) {
 			return;
 		}
-		setChecking(true);
-		try {
-			await confirmLayout(pendingInput);
-		} finally {
-			setChecking(false);
-		}
+		await verifyLayout.mutateAsync(pendingInput);
 	}
 	async function save(drafts: LayerDraft[]) {
 		if (saving || uncertain || checking) {

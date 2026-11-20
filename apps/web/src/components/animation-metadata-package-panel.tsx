@@ -11,6 +11,7 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
+import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { StatusMessage } from "@/components/status-message";
@@ -61,9 +62,11 @@ function AnimationMetadataPackagePanelContent({
 }) {
 	const compositeVersionSelectId = useId();
 	const packageFileInputId = useId();
-	const [selectedCompositeVersionId, setSelectedCompositeVersionId] =
-		useState("");
-	const [rereading, setRereading] = useState(false);
+	const selection = useForm({ defaultValues: { compositeVersionId: "" } });
+	const selectedCompositeVersionId = useSelector(
+		selection.store,
+		(state) => state.values.compositeVersionId
+	);
 	const createPackageMutation = useMutation(
 		orpc.animationMetadataPackage.createPackage.mutationOptions({
 			...mutationMeta,
@@ -76,7 +79,12 @@ function AnimationMetadataPackagePanelContent({
 			...mutationMeta,
 		})
 	);
-	const pending = createPackageMutation.isPending || rereading;
+	const rereadFile = useMutation({
+		...mutationMeta,
+		networkMode: "always",
+		mutationFn: readPackageFile,
+	});
+	const pending = createPackageMutation.isPending || rereadFile.isPending;
 	const [error, setError] = useState<string | null>(null);
 	const [message, setMessage] = useState<string | null>(null);
 	const versionsQuery = useQuery(
@@ -131,35 +139,38 @@ function AnimationMetadataPackagePanelContent({
 		}
 	}
 
+	async function readPackageFile(file: File) {
+		if (file.size > animationMetadataPackageSizeLimit) {
+			throw createPackageInputError(
+				"The animation metadata package exceeds the 512 KiB limit."
+			);
+		}
+		if (!selectedCompositeVersion) {
+			throw createPackageInputError("Select a Composite Version first.");
+		}
+		let packageContents: unknown;
+		try {
+			packageContents = JSON.parse(await file.text());
+		} catch (cause) {
+			throw createPackageInputError(
+				"The animation metadata package is not valid JSON.",
+				{ cause }
+			);
+		}
+		const input = animationMetadataPackageReadInputSchema.parse({
+			projectId,
+			assetRecordId: record.id,
+			compositeVersionId: selectedCompositeVersion.id,
+			package: packageContents,
+		});
+		await readPackageMutation.mutateAsync(input);
+	}
+
 	async function rereadPackage(file: File) {
-		setRereading(true);
 		setError(null);
 		setMessage(null);
 		try {
-			if (file.size > animationMetadataPackageSizeLimit) {
-				throw createPackageInputError(
-					"The animation metadata package exceeds the 512 KiB limit."
-				);
-			}
-			if (!selectedCompositeVersion) {
-				throw createPackageInputError("Select a Composite Version first.");
-			}
-			let packageContents: unknown;
-			try {
-				packageContents = JSON.parse(await file.text());
-			} catch (cause) {
-				throw createPackageInputError(
-					"The animation metadata package is not valid JSON.",
-					{ cause }
-				);
-			}
-			const input = animationMetadataPackageReadInputSchema.parse({
-				projectId,
-				assetRecordId: record.id,
-				compositeVersionId: selectedCompositeVersion.id,
-				package: packageContents,
-			});
-			await readPackageMutation.mutateAsync(input);
+			await rereadFile.mutateAsync(file);
 			setMessage(
 				"Package reloaded; metadata and exact versions match the selected Composite Version."
 			);
@@ -170,8 +181,6 @@ function AnimationMetadataPackagePanelContent({
 					"Could not reload the animation metadata package."
 				)
 			);
-		} finally {
-			setRereading(false);
 		}
 	}
 
@@ -222,7 +231,10 @@ function AnimationMetadataPackagePanelContent({
 							disabled={pending}
 							id={compositeVersionSelectId}
 							onChange={(event) => {
-								setSelectedCompositeVersionId(event.target.value);
+								selection.setFieldValue(
+									"compositeVersionId",
+									event.target.value
+								);
 								setMessage(null);
 								setError(null);
 							}}

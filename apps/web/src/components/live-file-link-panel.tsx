@@ -1,4 +1,5 @@
 import { Button } from "@sprite-anvil/ui/components/button";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { isTauri } from "@tauri-apps/api/core";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import type { UnwatchFn } from "@tauri-apps/plugin-fs";
@@ -104,45 +105,12 @@ function errorForPreparedCandidate(
 	}
 }
 
-export function LiveFileLinkPanel({
-	assetRecordId,
-	disabled = false,
-	hasAssetFamily,
-	linkStore: injectedLinkStore,
-	onCheckWriteOutcome,
-	onImport,
-	projectId,
-	writeOutcomeUncertain = false,
-	adapter = nativeFileAdapter,
-}: LiveFileLinkPanelProps) {
-	const linkStore = injectedLinkStore ?? getDefaultLiveFileLinkStore();
-	const [linkedFile, setLinkedFile] = useState<StoredLiveFileLink | null>(null);
-	const [linkLoaded, setLinkLoaded] = useState(false);
-	const [changed, setChanged] = useState(false);
-	const [busy, setBusy] = useState(false);
-	const [error, setError] = useState<string | null>(null);
-	const [status, setStatus] = useState<string | null>(null);
-
-	useEffect(() => {
-		let disposed = false;
-		setLinkLoaded(false);
-		setLinkedFile(null);
-		setChanged(false);
-		setError(null);
-		linkStore
-			.read(projectId, assetRecordId)
-			.catch(() => null)
-			.then((stored) => {
-				if (!disposed) {
-					setLinkedFile(stored);
-					setLinkLoaded(true);
-				}
-			});
-		return () => {
-			disposed = true;
-		};
-	}, [assetRecordId, linkStore, projectId]);
-
+function useLiveFileWatch(
+	adapter: LiveFileLinkAdapter,
+	linkedFile: StoredLiveFileLink | null,
+	onChanged: (changed: boolean) => void,
+	onError: (message: string) => void
+) {
 	useEffect(() => {
 		if (!(adapter.isAvailable && linkedFile)) {
 			return;
@@ -153,18 +121,18 @@ export function LiveFileLinkPanel({
 			.stat(linkedFile.path)
 			.then((info) => {
 				if (!(disposed || (info.isFile && sameVersion(linkedFile, info)))) {
-					setChanged(true);
+					onChanged(true);
 				}
 			})
 			.catch(() => {
 				if (!disposed) {
-					setError("Cannot access the working file. Select the link again.");
+					onError("Cannot access the working file. Select the link again.");
 				}
 			});
 		void adapter
 			.watch(linkedFile.path, () => {
 				if (!disposed) {
-					setChanged(true);
+					onChanged(true);
 				}
 			})
 			.then((stop) => {
@@ -176,14 +144,52 @@ export function LiveFileLinkPanel({
 			})
 			.catch(() => {
 				if (!disposed) {
-					setError("Cannot monitor the working file. Select the link again.");
+					onError("Cannot monitor the working file. Select the link again.");
 				}
 			});
 		return () => {
 			disposed = true;
 			unwatch?.();
 		};
-	}, [adapter, linkedFile]);
+	}, [adapter, linkedFile, onChanged, onError]);
+}
+
+export function LiveFileLinkPanel(props: LiveFileLinkPanelProps) {
+	return (
+		<ScopedLiveFileLinkPanel
+			key={JSON.stringify([props.projectId, props.assetRecordId])}
+			{...props}
+		/>
+	);
+}
+
+function ScopedLiveFileLinkPanel({
+	assetRecordId,
+	disabled = false,
+	hasAssetFamily,
+	linkStore = getDefaultLiveFileLinkStore(),
+	onCheckWriteOutcome,
+	onImport,
+	projectId,
+	writeOutcomeUncertain = false,
+	adapter = nativeFileAdapter,
+}: LiveFileLinkPanelProps) {
+	const queryClient = useQueryClient();
+	const queryKey = ["live-file-link", projectId, assetRecordId] as const;
+	const linkQuery = useQuery({
+		queryKey,
+		queryFn: () => linkStore.read(projectId, assetRecordId).catch(() => null),
+		enabled: adapter.isAvailable,
+		networkMode: "always",
+	});
+	const linkedFile = linkQuery.data ?? null;
+	const linkLoaded = !linkQuery.isPending;
+	const [changed, setChanged] = useState(false);
+	const [busy, setBusy] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+	const [status, setStatus] = useState<string | null>(null);
+
+	useLiveFileWatch(adapter, linkedFile, setChanged, setError);
 
 	async function connectWorkingFile() {
 		setBusy(true);
@@ -205,7 +211,7 @@ export function LiveFileLinkPanel({
 				modifiedAt: info.mtime?.getTime() ?? null,
 			};
 			await linkStore.write(projectId, assetRecordId, link);
-			setLinkedFile(link);
+			queryClient.setQueryData(queryKey, link);
 			setChanged(false);
 			setStatus("Working file linked to this desktop app.");
 		} catch {
@@ -253,7 +259,7 @@ export function LiveFileLinkPanel({
 					modifiedAt: prepared.sourceModifiedAt,
 				};
 				await linkStore.write(projectId, assetRecordId, baseline);
-				setLinkedFile(baseline);
+				queryClient.setQueryData(queryKey, baseline);
 				const current = await adapter.stat(linkedFile.path).catch(() => null);
 				const stillChanged = current ? !sameVersion(baseline, current) : true;
 				setChanged(stillChanged);

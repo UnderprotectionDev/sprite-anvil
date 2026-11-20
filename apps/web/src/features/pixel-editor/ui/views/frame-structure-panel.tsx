@@ -1,9 +1,5 @@
 import type { PixelDraft } from "@sprite-anvil/api/pixel-editor";
-import type {
-	SheetSlicing,
-	SheetSlicingPreview,
-} from "@sprite-anvil/api/pixel-editor-structure";
-import { useState } from "react";
+import type { SheetSlicing } from "@sprite-anvil/api/pixel-editor-structure";
 import { StatusMessage } from "@/components/status-message";
 import { useFrameStructure } from "../../hooks/use-frame-structure";
 import { FrameEditor } from "../components/frame-editor";
@@ -40,7 +36,10 @@ export function FrameStructurePanel({
 	sheetImage: HTMLImageElement | null;
 }) {
 	const frames = useFrameStructure(projectId, draft.id, draft.revision);
-	const [previewed, setPreviewed] = useState<SheetSlicingPreview | null>(null);
+	const previewed =
+		frames.preview.variables?.draftId === draft.id
+			? frames.preview.data
+			: undefined;
 	const { structure } = frames;
 	const busy = disabled || frames.isBusy;
 
@@ -75,11 +74,17 @@ export function FrameStructurePanel({
 					initial={initial}
 					key={JSON.stringify(initial)}
 					onApply={(slicing) => {
-						setPreviewed(null);
-						frames.slice.mutate(slicing);
+						frames.preview.reset();
+						frames.slice.mutate({
+							projectId,
+							draftId: draft.id,
+							expectedRevision:
+								frames.structure?.draftRevision ?? draft.revision,
+							slicing,
+						});
 					}}
 					onPreview={(slicing) =>
-						frames.preview.mutate(slicing, { onSuccess: setPreviewed })
+						frames.preview.mutate({ projectId, draftId: draft.id, slicing })
 					}
 				/>
 				<div className="max-h-[28rem] min-w-0 overflow-auto">
@@ -99,7 +104,13 @@ export function FrameStructurePanel({
 			{structure ? (
 				<FrameEditor
 					busy={busy}
-					onCommit={() => frames.commit.mutate()}
+					onCommit={() =>
+						frames.commit.mutate({
+							projectId,
+							draftId: draft.id,
+							expectedRevision: structure.draftRevision,
+						})
+					}
 					onEdit={(operations) => frames.edit.mutate(operations)}
 					structure={structure}
 				/>

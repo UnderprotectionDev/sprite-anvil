@@ -13,6 +13,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ReducedMotionNotice } from "@/components/reduced-motion-notice";
 import { StatusMessage } from "@/components/status-message";
 import { ENV } from "@/env";
+import { usePlaybackClock } from "@/utils/use-playback-clock";
 import { getVfxPreviewLayout } from "../../lib/vfx-preview-layout";
 
 const trailingSlash = /\/$/u;
@@ -77,11 +78,28 @@ export function VfxSynchronizedPreview({
 	const host = useRef<HTMLDivElement>(null);
 	const [error, setError] = useState("");
 	const [ready, setReady] = useState(false);
-	const [playing, setPlaying] = useState(false);
-	const [elapsedMs, setElapsedMs] = useState(0);
 	const [background, setBackground] = useState<Background>("transparent");
 	const [alone, setAlone] = useState(false);
 	const [zoom, setZoom] = useState(2);
+	const effectDuration = input.effect.frames.reduce(
+		(s, f) => s + f.durationMs,
+		0
+	);
+	const looping = alone
+		? input.effect.looping
+		: input.owner.looping || input.effect.looping;
+	const duration = alone
+		? effectDuration
+		: Math.max(
+				input.owner.frames.reduce((s, f) => s + f.durationMs, 0),
+				input.event.timeMs + effectDuration
+			);
+
+	const { elapsedMs, playing, setElapsedMs, setPlaying } = usePlaybackClock({
+		durationMs: duration,
+		enabled: ready,
+		looping,
+	});
 	const controls = useRef({ elapsedMs, background, alone });
 	controls.current = { elapsedMs, background, alone };
 	const renderer = useRef<(() => void) | null>(null);
@@ -181,46 +199,12 @@ export function VfxSynchronizedPreview({
 			}
 			destroyScene?.();
 		};
-	}, [configuration, versionUrls, onReady]);
+	}, [configuration, versionUrls, onReady, setElapsedMs, setPlaying]);
 	useEffect(() => {
 		controls.current = { elapsedMs, background, alone };
 		renderer.current?.();
 	}, [elapsedMs, background, alone]);
-	const effectDuration = input.effect.frames.reduce(
-		(s, f) => s + f.durationMs,
-		0
-	);
-	const looping = alone
-		? input.effect.looping
-		: input.owner.looping || input.effect.looping;
-	const duration = alone
-		? effectDuration
-		: Math.max(
-				input.owner.frames.reduce((s, f) => s + f.durationMs, 0),
-				input.event.timeMs + effectDuration
-			);
-	useEffect(() => {
-		if (!(playing && ready)) {
-			return;
-		}
-		let handle = 0;
-		let previous = performance.now();
-		const tick = (now: number) => {
-			const delta = now - previous;
-			previous = now;
-			setElapsedMs((time) =>
-				looping ? time + delta : Math.min(time + delta, duration)
-			);
-			handle = requestAnimationFrame(tick);
-		};
-		handle = requestAnimationFrame(tick);
-		return () => cancelAnimationFrame(handle);
-	}, [playing, ready, duration, looping]);
-	useEffect(() => {
-		if (!looping && elapsedMs >= duration) {
-			setPlaying(false);
-		}
-	}, [elapsedMs, duration, looping]);
+
 	return (
 		<section aria-label="VFX playback" className="space-y-3">
 			<div className="flex flex-wrap gap-3">

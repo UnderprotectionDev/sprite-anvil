@@ -28,6 +28,7 @@ import {
 	selectedDependencyFacets,
 } from "@/features/dependency-revalidation/ui/components/dependency-facets";
 import { DerivativeReReviewForm } from "@/features/dependency-revalidation/ui/components/derivative-re-review-form";
+import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
 
 interface Props {
@@ -115,7 +116,11 @@ export function DependencyRevalidationManager({
 	const change = useSelector(changeForm.store, (state) => state.values);
 	const linkKind: DependencyLinkInput["source"]["kind"] = link.kind;
 	const changeKind: ChangeFacetInput["source"]["kind"] = change.kind;
-	const [busy, setBusy] = useState(false);
+	const workflow = useMutation({
+		...mutationMeta,
+		mutationFn: (execute: () => Promise<void>) => execute(),
+	});
+	const busy = workflow.isPending;
 	const [uncertain, setUncertain] = useState(false);
 	const [message, setMessage] = useState("");
 	const disabled = busy || uncertain || !query.isSuccess || query.isError;
@@ -164,55 +169,53 @@ export function DependencyRevalidationManager({
 		if (disabled) {
 			return;
 		}
-		setBusy(true);
 		setMessage("");
 		try {
-			await operation();
-			let rereadFailed = false;
-			try {
-				await queryClient.invalidateQueries(
-					{
-						queryKey: orpc.dependencyRevalidation.list.queryKey({
-							input: { projectId },
-						}),
-					},
-					{ throwOnError: true }
-				);
-			} catch {
-				rereadFailed = true;
-			}
-			await onImpactSaved?.();
-			if (rereadFailed) {
-				setUncertain(true);
-				setMessage(
-					"Record saved, but the result could not be reread. Check the status."
-				);
-			} else {
-				setMessage(successMessage);
-			}
+			await workflow.mutateAsync(async () => {
+				await operation();
+				let rereadFailed = false;
+				try {
+					await queryClient.invalidateQueries(
+						{
+							queryKey: orpc.dependencyRevalidation.list.queryKey({
+								input: { projectId },
+							}),
+						},
+						{ throwOnError: true }
+					);
+				} catch {
+					rereadFailed = true;
+				}
+				await onImpactSaved?.();
+				if (rereadFailed) {
+					setUncertain(true);
+					setMessage(
+						"Record saved, but the result could not be reread. Check the status."
+					);
+				} else {
+					setMessage(successMessage);
+				}
+			});
 		} catch {
 			setUncertain(true);
 			setMessage(
 				"The operation could not be completed or verified. Check the status before saving again."
 			);
-		} finally {
-			setBusy(false);
 		}
 	}
 
 	async function checkStatus() {
-		setBusy(true);
 		try {
-			const result = await query.refetch();
-			await onImpactSaved?.();
-			if (!result.isError) {
-				setUncertain(false);
-				setMessage("Saved records reread. Check the result before saving.");
-			}
+			await workflow.mutateAsync(async () => {
+				const result = await query.refetch();
+				await onImpactSaved?.();
+				if (!result.isError) {
+					setUncertain(false);
+					setMessage("Saved records reread. Check the result before saving.");
+				}
+			});
 		} catch {
 			setMessage("Could not reread records. Check the status again.");
-		} finally {
-			setBusy(false);
 		}
 	}
 

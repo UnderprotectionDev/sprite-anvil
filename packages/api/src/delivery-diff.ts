@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { idSchema } from "./delivery-fulfilment-shared";
 import { requiredSetItemKindSchema } from "./family-readiness";
+import { contextRevisionSchema } from "./project-context";
 
 /**
  * Compares two Delivery Fulfilments of one project, `from` against `to`. It
@@ -57,7 +58,7 @@ const bundleMappingSchema = z
 const contextSideSchema = z
 	.object({
 		contextRevisionId: z.string(),
-		contextRevisionNumber: z.number().int().positive(),
+		contextRevisionNumber: contextRevisionSchema.shape.revisionNumber,
 	})
 	.strict();
 

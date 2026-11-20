@@ -1,8 +1,9 @@
 import type { DeliveryTargetDraft } from "@sprite-anvil/api/delivery-planning-outputs";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useState } from "react";
 import { StatusMessage } from "@/components/status-message";
 import { errorCodeOf } from "@/utils/error-code";
+import { isWriteOutcomeUncertain } from "@/utils/error-notification";
+import { usePendingIdempotencyKey } from "@/utils/pending-idempotency-key";
 import { useActivateDeliveryTarget } from "../../hooks/use-delivery-target-writes";
 import { DeliveryTargetScope } from "./delivery-target-scope";
 
@@ -10,6 +11,13 @@ const activationFailures: Record<string, string> = {
 	CONFLICT: "The revision number was taken repeatedly. Try activating again.",
 	NOT_FOUND: "This draft was not found. Reload the Delivery Targets.",
 };
+
+function activationFailure(error: unknown) {
+	return isWriteOutcomeUncertain(error)
+		? "The activation result could not be confirmed. Retry the same revision."
+		: (activationFailures[errorCodeOf(error) ?? ""] ??
+				"The revision could not be activated. Try again.");
+}
 
 /** A draft shown for review; only the user's Activate revision turns it into a revision. */
 export function DeliveryDraftReview({
@@ -20,24 +28,21 @@ export function DeliveryDraftReview({
 	projectId: string;
 }) {
 	const activate = useActivateDeliveryTarget(projectId);
-	const [failure, setFailure] = useState<string | null>(null);
-	// Keeps a retry after an uncertain outcome idempotent for this draft.
-	const [revisionId, setRevisionId] = useState(() => crypto.randomUUID());
+	const activationKey = usePendingIdempotencyKey();
+	const failure = activate.isError ? activationFailure(activate.error) : null;
 
 	const onActivate = () => {
-		setFailure(null);
 		activate.mutate(
-			{ draftId: draft.id, id: revisionId, projectId },
+			{
+				draftId: draft.id,
+				id: activationKey.keyFor(JSON.stringify([projectId, draft.id])),
+				projectId,
+			},
 			{
 				onError: (error) => {
-					const code = errorCodeOf(error);
-					if (code) {
-						setRevisionId(crypto.randomUUID());
+					if (!isWriteOutcomeUncertain(error)) {
+						activationKey.clear();
 					}
-					setFailure(
-						activationFailures[code ?? ""] ??
-							"The revision could not be activated. Try again."
-					);
 				},
 			}
 		);

@@ -31,6 +31,7 @@ import { RightsLineagePanel } from "@/components/rights-lineage-panel";
 import { RightsRecordPanel } from "@/components/rights-record-panel";
 import { StatusMessage } from "@/components/status-message";
 import { TaskWorkspace } from "@/components/task-workspace";
+import type { AssetRecordSearchDraft } from "@/features/asset-discovery/schemas";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { mutationMeta } from "@/utils/mutation-meta";
@@ -205,9 +206,18 @@ function AssetRecordList({
 }
 
 export function AssetRecordsView({
+	filters,
+	searchOffset,
+	onChangeSearch,
 	onOpenRecord,
 	projectId,
 }: {
+	filters?: AssetRecordSearchDraft;
+	searchOffset: number;
+	onChangeSearch: (
+		filters: AssetRecordSearchDraft | undefined,
+		offset: number
+	) => void;
 	onOpenRecord: (assetRecordId: string, versionId?: string) => void;
 	projectId: string;
 }) {
@@ -228,12 +238,22 @@ export function AssetRecordsView({
 	});
 	const pendingCreate = useRef<AssetRecordCreateInput | null>(null);
 	const [isCreateOpen, setIsCreateOpen] = useState(false);
-	const [isSaving, setIsSaving] = useState(false);
 	const createRecord = useMutation(
 		orpc.assetRecords.create.mutationOptions(mutationMeta)
 	);
 	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
-	const [isCheckingWriteOutcome, setIsCheckingWriteOutcome] = useState(false);
+	const checkCreate = useMutation({
+		...mutationMeta,
+		mutationFn: (assetRecordId: string) =>
+			queryClient.query({
+				...orpc.assetRecords.get.queryOptions({
+					input: { projectId, assetRecordId },
+				}),
+				staleTime: 0,
+				retry: false,
+			}),
+	});
+	const isCheckingWriteOutcome = checkCreate.isPending;
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
 	const form = useForm({
@@ -249,33 +269,24 @@ export function AssetRecordsView({
 		(state) => assetRecordCreateFormSchema.safeParse(state.values).success
 	);
 
+	const isSaving = createRecord.isPending;
+
 	async function checkWriteOutcome() {
-		setIsCheckingWriteOutcome(true);
+		const expectedId = pendingCreate.current?.id;
+		if (!expectedId) {
+			return;
+		}
 		try {
-			const expectedId = pendingCreate.current?.id;
-			if (!expectedId) {
-				return;
-			}
-			try {
-				const record = await queryClient.fetchQuery({
-					...orpc.assetRecords.get.queryOptions({
-						input: { projectId, assetRecordId: expectedId },
-					}),
-					staleTime: 0,
-					retry: false,
-				});
+			const record = await checkCreate.mutateAsync(expectedId);
+			setWriteOutcomeUncertain(false);
+			setStatusMessage("Asset Record found.");
+			pendingCreate.current = null;
+			onOpenRecord(record.id);
+		} catch (error) {
+			if (isNotFound(error)) {
 				setWriteOutcomeUncertain(false);
-				setStatusMessage("Asset Record found.");
-				pendingCreate.current = null;
-				onOpenRecord(record.id);
-			} catch (error) {
-				if (isNotFound(error)) {
-					setWriteOutcomeUncertain(false);
-					setStatusMessage("Record not found. You can retry with the same ID.");
-				}
+				setStatusMessage("Record not found. You can retry with the same ID.");
 			}
-		} finally {
-			setIsCheckingWriteOutcome(false);
 		}
 	}
 
@@ -305,7 +316,6 @@ export function AssetRecordsView({
 			} satisfies AssetRecordCreateInput);
 		pendingCreate.current = input;
 		setStatusMessage(null);
-		setIsSaving(true);
 		try {
 			const record = await createRecord.mutateAsync(input);
 			pendingCreate.current = null;
@@ -323,8 +333,6 @@ export function AssetRecordsView({
 					"Could not verify the Asset Record result. Check the current state."
 				)
 			);
-		} finally {
-			setIsSaving(false);
 		}
 	}
 
@@ -529,7 +537,10 @@ export function AssetRecordsView({
 						content: (
 							<>
 								<AssetRecordSearchPanel
-									key={projectId}
+									filters={filters}
+									key={JSON.stringify([projectId, filters])}
+									offset={searchOffset}
+									onChangeSearch={onChangeSearch}
 									onOpenRecord={onOpenRecord}
 									projectId={projectId}
 								/>
@@ -653,6 +664,7 @@ export function AssetRecordDetailView({
 						familyWorldId={
 							trackingQuery.data?.tracking.family?.visualWorldId ?? null
 						}
+						key={`metadata:${record.id}`}
 						projectId={projectId}
 						record={record}
 					/>
@@ -666,6 +678,7 @@ export function AssetRecordDetailView({
 					</section>
 				) : (
 					<AssetRecordMeasurementsForm
+						key={`measurements:${record.id}`}
 						onRefresh={() => recordQuery.refetch()}
 						record={record}
 					/>

@@ -22,7 +22,6 @@ import {
 	compositeVersionReviewEvents,
 } from "@sprite-anvil/db/schema/asset-versions";
 import { and, desc, eq, sql } from "drizzle-orm";
-import { PgDialect } from "drizzle-orm/pg-core";
 import type { z } from "zod";
 
 type ReviewDecision = z.infer<typeof assetVersionReviewDispositionSchema>;
@@ -60,9 +59,7 @@ function toISOString(value: Date | string) {
 }
 
 /** What differs between Asset Version and Composite Version Review Events: table, target column, copy. */
-interface EventKind<Row extends EventRow, Event> {
-	/** Stored column name of the target, interpolated only from these constants. */
-	column: string;
+interface EventKind<Row extends EventRow, Event> extends EventTable {
 	label: string;
 	/** Latest event of a target: the single owner of "what is current". */
 	readLatest: (
@@ -73,13 +70,13 @@ interface EventKind<Row extends EventRow, Event> {
 	readRow: (db: Database, projectId: string, id: string) => Promise<Row | null>;
 	/** Record kind in the idempotency scope. */
 	recordKind: string;
-	tableName: string;
 	targetOf: (row: Row) => string;
 	toEvent: (row: Row) => Event;
 }
 
 const assetKind: EventKind<AssetEventRow, AssetVersionReviewEvent> = {
-	column: "version_id",
+	table: assetVersionReviewEvents,
+	targetColumn: assetVersionReviewEvents.versionId,
 	label: "Review Event",
 	readLatest: async (db, projectId, targetId) => {
 		const [latest] = await db
@@ -115,7 +112,6 @@ const assetKind: EventKind<AssetEventRow, AssetVersionReviewEvent> = {
 		return row ?? null;
 	},
 	recordKind: "asset-version-review-event",
-	tableName: "asset_version_review_events",
 	targetOf: (row) => row.versionId,
 	toEvent: (row) =>
 		assetVersionReviewEventSchema.parse({
@@ -129,7 +125,8 @@ const assetKind: EventKind<AssetEventRow, AssetVersionReviewEvent> = {
 
 const compositeKind: EventKind<CompositeEventRow, CompositeVersionReviewEvent> =
 	{
-		column: "composite_version_id",
+		table: compositeVersionReviewEvents,
+		targetColumn: compositeVersionReviewEvents.compositeVersionId,
 		label: "Composite Version Review Event",
 		readLatest: async (db, projectId, targetId) => {
 			const [latest] = await db
@@ -165,7 +162,6 @@ const compositeKind: EventKind<CompositeEventRow, CompositeVersionReviewEvent> =
 			return row ?? null;
 		},
 		recordKind: "composite-version-review-event",
-		tableName: "composite_version_review_events",
 		targetOf: (row) => row.compositeVersionId,
 		toEvent: (row) =>
 			compositeVersionReviewEventSchema.parse({
@@ -177,11 +173,14 @@ const compositeKind: EventKind<CompositeEventRow, CompositeVersionReviewEvent> =
 			}),
 	};
 
-/** What the raw guarded INSERT needs to know about a kind. */
-type EventTable = Pick<
-	EventKind<EventRow, unknown>,
-	"column" | "label" | "tableName"
->;
+/** What the guarded write needs to know about a Review Event kind. */
+interface EventTable {
+	label: string;
+	table: typeof assetVersionReviewEvents | typeof compositeVersionReviewEvents;
+	targetColumn:
+		| typeof assetVersionReviewEvents.versionId
+		| typeof compositeVersionReviewEvents.compositeVersionId;
+}
 
 /** A Review Event request with its target resolved: the Asset Version or Composite Version it reviews. */
 type ReviewEventRequest = PublicationBase & { targetId: string };
@@ -289,34 +288,104 @@ const verificationFailedCode = "22012";
  * from the request. Nothing is deleted after commit.
  */
 function guardedInsertStatement(
+	db: Database,
 	kind: EventTable,
 	request: ReviewEventRequest,
 	id: string
 ) {
 	const rationale = request.rationale.trim();
-	const table = sql.raw(kind.tableName);
-	const column = sql.raw(kind.column);
-	const latest = (
-		field: string
-	) => sql`(SELECT event.${sql.raw(field)} FROM ${table} event
-		WHERE event.project_id = ${request.projectId} AND event.${column} = ${request.targetId}
-		ORDER BY event.created_at DESC, event.id DESC LIMIT 1)`;
-	return new PgDialect().sqlToQuery(sql`
-		WITH written AS (
-			INSERT INTO ${table} (id, project_id, asset_record_id, ${column}, decision, rationale, created_by_user_id)
-			SELECT ${id}, ${request.projectId}, ${request.assetRecordId}, ${request.targetId}, ${request.decision}, ${rationale}, ${request.userId}
-			WHERE ${latest("id")} IS NOT DISTINCT FROM ${request.expectedLatestEventId ?? null}::text
-			AND ${latest("decision")} IS DISTINCT FROM ${request.decision}
-			RETURNING id, project_id, asset_record_id, ${column} AS target_id, decision, rationale, created_by_user_id
-		)
-		SELECT id, CASE
-			WHEN project_id = ${request.projectId} AND asset_record_id = ${request.assetRecordId}
-				AND target_id = ${request.targetId} AND decision = ${request.decision}
-				AND rationale = ${rationale} AND created_by_user_id = ${request.userId}
-			THEN true
-			ELSE length(id) / 0 > 0
-		END AS verified FROM written
-	`);
+	const { table, targetColumn } = kind;
+	const latest = (field: typeof table.id | typeof table.decision) =>
+		db
+			.with()
+			.select({ field })
+			.from(table)
+			.where(
+				and(
+					eq(table.projectId, request.projectId),
+					eq(targetColumn, request.targetId)
+				)
+			)
+			.orderBy(desc(table.createdAt), desc(table.id))
+			.limit(1);
+	const guard = and(
+		sql`(${latest(table.id)}) IS NOT DISTINCT FROM ${request.expectedLatestEventId ?? null}::text`,
+		sql`(${latest(table.decision)}) IS DISTINCT FROM ${request.decision}::text`
+	);
+	const shared = {
+		id: sql<string>`${id}::text`.as("id"),
+		projectId: sql<string>`${request.projectId}::text`.as("project_id"),
+		assetRecordId: sql<string>`${request.assetRecordId}::text`.as(
+			"asset_record_id"
+		),
+	};
+	const decision = {
+		decision: sql<ReviewDecision>`${request.decision}::text`.as("decision"),
+		rationale: sql<string>`${rationale}::text`.as("rationale"),
+		createdByUserId: sql<string>`${request.userId}::text`.as(
+			"created_by_user_id"
+		),
+	};
+	const from = sql`(values (1)) as publication_input(singleton)`;
+	const returning = {
+		id: table.id,
+		projectId: table.projectId,
+		assetRecordId: table.assetRecordId,
+		targetId: sql<string>`${targetColumn}`.as("target_id"),
+		decision: table.decision,
+		rationale: table.rationale,
+		createdByUserId: table.createdByUserId,
+	};
+	const insert =
+		table === assetVersionReviewEvents
+			? db
+					.insert(assetVersionReviewEvents)
+					.select(
+						db
+							.with()
+							.select({
+								...shared,
+								versionId: sql<string>`${request.targetId}::text`.as(
+									"version_id"
+								),
+								...decision,
+							})
+							.from(from)
+							.where(guard)
+					)
+					.returning(returning)
+			: db
+					.insert(compositeVersionReviewEvents)
+					.select(
+						db
+							.with()
+							.select({
+								...shared,
+								compositeVersionId: sql<string>`${request.targetId}::text`.as(
+									"composite_version_id"
+								),
+								...decision,
+							})
+							.from(from)
+							.where(guard)
+					)
+					.returning(returning);
+	const written = db.$with("written").as(insert);
+	return db
+		.with(written)
+		.select({
+			id: written.id,
+			verified: sql<boolean>`case when
+			${written.projectId} = ${request.projectId}
+			and ${written.assetRecordId} = ${request.assetRecordId}
+			and ${written.targetId} = ${request.targetId}
+			and ${written.decision} = ${request.decision}
+			and ${written.rationale} = ${rationale}
+			and ${written.createdByUserId} = ${request.userId}
+			then true else length(${written.id}) / 0 > 0 end`,
+		})
+		.from(written)
+		.toSQL();
 }
 
 type WriteOutcome = "duplicate" | "rejected" | "serialization" | "written";
@@ -327,7 +396,7 @@ async function writeGuarded(
 	request: ReviewEventRequest,
 	id: string
 ): Promise<WriteOutcome> {
-	const query = guardedInsertStatement(kind, request, id);
+	const query = guardedInsertStatement(db, kind, request, id);
 	try {
 		const [result] = await db.$client.transaction(
 			[db.$client.query(query.sql, query.params)],

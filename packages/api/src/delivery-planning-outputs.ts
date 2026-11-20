@@ -4,6 +4,7 @@ import {
 	pinnedEvidencePolicyFields,
 } from "./delivery-planning-inputs";
 import { requiredSetItemSchema } from "./family-readiness";
+import { contextRevisionSchema } from "./project-context";
 import { runtimeValidationCriterionSchema } from "./runtime-validation-readiness";
 
 const idSchema = z.uuid();
@@ -25,7 +26,7 @@ export type DeliveryTargetFamilyScope = z.infer<
 
 const scopeFields = {
 	contextRevisionId: z.string(),
-	contextRevisionNumber: z.number().int().positive(),
+	contextRevisionNumber: contextRevisionSchema.shape.revisionNumber,
 	families: z.array(deliveryTargetFamilyScopeSchema),
 	...pinnedEvidencePolicyFields,
 	/** Null for a target without a runtime validation acceptance criterion. */
@@ -47,7 +48,14 @@ const familyRefFields = {
 /** What a revision's base changed against the target's previous revision. */
 export const deliveryTargetScopeDiffSchema = z
 	.object({
-		contextChange: z.object(revisionRefFields).strict().nullable(),
+		contextChange: z
+			.object({
+				...revisionRefFields,
+				fromRevisionNumber: contextRevisionSchema.shape.revisionNumber,
+				toRevisionNumber: contextRevisionSchema.shape.revisionNumber,
+			})
+			.strict()
+			.nullable(),
 		familiesAdded: z.array(z.object(familyRefFields).strict()),
 		familiesRemoved: z.array(z.object(familyRefFields).strict()),
 		previousRevisionId: idSchema,
