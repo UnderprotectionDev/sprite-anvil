@@ -24,7 +24,7 @@ test("reviews exact texture edges and all three arrangements, then rereads metad
 	await page.getByLabel("Art direction").fill("Seamless pixel surfaces");
 	await page.getByRole("button", { name: "Create project" }).click();
 	await page
-		.getByRole("button", { name: "Visual Worlds and Themes", exact: true })
+		.getByRole("tab", { name: "Visual Worlds and Themes", exact: true })
 		.click();
 	await page.getByLabel("Visual World name").fill("Texture world");
 	await page.getByRole("button", { name: "Add Visual World" }).click();
@@ -34,21 +34,19 @@ test("reviews exact texture edges and all three arrangements, then rereads metad
 	await page.goto("/projects");
 	await page.getByRole("link", { name: "Asset Families" }).click();
 	await page
-		.getByRole("button", {
+		.getByRole("tab", {
 			name: "Family and representation relationships",
 			exact: true,
 		})
 		.click();
 	await page.getByLabel("Subject Identity name").fill("Grass surface");
 	await page.getByRole("button", { name: "Create Subject Identity" }).click();
-	await page
-		.getByRole("button", { name: "Family catalog", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Family catalog", exact: true }).click();
 	await expect(
 		page.getByRole("heading", { name: "Grass surface" })
 	).toBeVisible();
 	await page
-		.getByRole("button", {
+		.getByRole("tab", {
 			name: "Family and representation relationships",
 			exact: true,
 		})
@@ -59,9 +57,7 @@ test("reviews exact texture edges and all three arrangements, then rereads metad
 		.selectOption({ label: "Texture world" });
 	await page.getByLabel("Usage context").fill("Repeated terrain surface");
 	await page.getByRole("button", { name: "Create Asset Family" }).click();
-	await page
-		.getByRole("button", { name: "Family catalog", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Family catalog", exact: true }).click();
 	await expect(
 		page
 			.getByRole("region", { name: "Saved Asset Families" })
@@ -69,24 +65,24 @@ test("reviews exact texture edges and all three arrangements, then rereads metad
 	).toBeVisible();
 	const familyUrl = page.url();
 	await page
-		.getByRole("button", {
+		.getByRole("tab", {
 			name: "Family and representation relationships",
 			exact: true,
 		})
 		.click();
-	await page.getByLabel("Independent product meaning", { exact: true }).check();
+	await page
+		.getByRole("checkbox", { name: "Independent product meaning", exact: true })
+		.check();
 	await page.getByLabel("Asset Record name").fill("Grass texture");
 	await page.getByRole("button", { name: "Add Asset Record" }).click();
 	await page
-		.getByRole("button", {
+		.getByRole("tab", {
 			name: "Version and dependency operations",
 			exact: true,
 		})
 		.click();
 	await page.getByRole("link", { name: "Upload Asset Version" }).click();
-	await page
-		.getByRole("button", { name: "Record details", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Record details", exact: true }).click();
 	const metadataForm = page.getByRole("region", {
 		name: "Asset Record metadata",
 	});
@@ -104,7 +100,7 @@ test("reviews exact texture edges and all three arrangements, then rereads metad
 		"tileset_terrain_texture"
 	);
 	await page
-		.getByRole("button", { name: "Versions and files", exact: true })
+		.getByRole("tab", { name: "Versions and files", exact: true })
 		.click();
 	const file = {
 		name: "grass.png",
@@ -131,7 +127,7 @@ test("reviews exact texture edges and all three arrangements, then rereads metad
 	).toBeVisible();
 	await page.goto(familyUrl);
 	await page
-		.getByRole("button", {
+		.getByRole("tab", {
 			name: "Version and dependency operations",
 			exact: true,
 		})
@@ -148,7 +144,7 @@ test("reviews exact texture edges and all three arrangements, then rereads metad
 	).toBeVisible();
 	await page.goto(familyUrl);
 	await page
-		.getByRole("button", {
+		.getByRole("tab", {
 			name: "Version and dependency operations",
 			exact: true,
 		})
@@ -194,9 +190,7 @@ test("reviews exact texture edges and all three arrangements, then rereads metad
 		path: "../../.context/texture-repetition-browser.png",
 	});
 	await page.reload();
-	await page
-		.getByRole("button", { name: "Profile reviews", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Profile reviews", exact: true }).click();
 	await expect(
 		review.getByText(
 			"shifted: passed — Uniform color repeats without a visible motif."

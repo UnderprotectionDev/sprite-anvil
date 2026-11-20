@@ -1,7 +1,8 @@
 import type { SheetStructureView } from "@sprite-anvil/api/pixel-editor-structure";
 import { Label } from "@sprite-anvil/ui/components/label";
 import { Slider } from "@sprite-anvil/ui/components/slider";
-import { useEffect, useRef, useState } from "react";
+import { useCreateStore, useSelector } from "@tanstack/react-store";
+import { useEffect, useRef } from "react";
 import { useLoadedImage } from "../../hooks/use-loaded-image";
 import { frameImageUrl } from "../../lib/frame-structure-api";
 
@@ -50,7 +51,8 @@ export function FrameAlignmentCanvas({
 	view: SheetStructureView;
 }) {
 	const canvasRef = useRef<HTMLCanvasElement>(null);
-	const [onion, setOnion] = useState(40);
+	const onionOpacity = useCreateStore(40);
+	const onion = useSelector(onionOpacity, (opacity) => opacity);
 	const current = useLoadedImage(frameImageUrl(view, frame));
 	const before = useLoadedImage(
 		previous ? frameImageUrl(view, previous) : null
@@ -120,7 +122,9 @@ export function FrameAlignmentCanvas({
 					max={80}
 					min={0}
 					onValueChange={(value) =>
-						setOnion(Array.isArray(value) ? (value[0] ?? 0) : value)
+						onionOpacity.setState(() =>
+							Array.isArray(value) ? (value[0] ?? 0) : value
+						)
 					}
 					step={10}
 					value={[onion]}

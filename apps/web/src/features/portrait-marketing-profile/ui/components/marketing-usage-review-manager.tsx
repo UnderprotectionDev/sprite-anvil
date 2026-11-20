@@ -115,9 +115,25 @@ export function MarketingUsageReviewManager({
 	});
 	const item = useSelector(form.store, (state) => state.values.item);
 	const saveMutation = useMutation(
-		orpc.marketingUsageReviews.save.mutationOptions(mutationMeta)
+		orpc.marketingUsageReviews.save.mutationOptions({
+			...mutationMeta,
+			onSuccess: async (_saved, input) => {
+				const reread = await query.refetch();
+				if (
+					reread.isError ||
+					!reread.data?.some((record) => record.id === input.id)
+				) {
+					setUncertainId(input.id);
+					setMessage(
+						"Review saved, but reloading could not be verified. Check current records."
+					);
+				} else {
+					setMessage("Review verified from the saved record.");
+				}
+			},
+		})
 	);
-	const [saving, setSaving] = useState(false);
+	const saving = saveMutation.isPending;
 	const [uncertainId, setUncertainId] = useState<string | null>(null);
 	const [message, setMessage] = useState("");
 	const [readyKey, setReadyKey] = useState<string | null>(null);
@@ -177,22 +193,9 @@ export function MarketingUsageReviewManager({
 			setMessage("Wait for previews to load.");
 			return;
 		}
-		setSaving(true);
 		setMessage("");
 		try {
 			await saveMutation.mutateAsync(result.data);
-			const reread = await query.refetch();
-			if (
-				reread.isError ||
-				!reread.data?.some((record) => record.id === result.data.id)
-			) {
-				setUncertainId(result.data.id);
-				setMessage(
-					"Review saved, but reloading could not be verified. Check current records."
-				);
-			} else {
-				setMessage("Review verified from the saved record.");
-			}
 		} catch (error) {
 			if (isWriteOutcomeUncertain(error)) {
 				showErrorToast(error, { kind: "mutation" });
@@ -201,8 +204,6 @@ export function MarketingUsageReviewManager({
 			} else {
 				setMessage(getErrorMessage(error, "Could not save review."));
 			}
-		} finally {
-			setSaving(false);
 		}
 	}
 	return (

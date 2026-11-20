@@ -45,9 +45,7 @@ test("compares current versions from two Asset Records and reopens the persisted
 	await expect(comparison.getByText(scaleObservation)).toBeVisible();
 
 	await page.reload();
-	await page
-		.getByRole("button", { name: "Profile reviews", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Profile reviews", exact: true }).click();
 	const persistedRecord = comparison.getByRole("button", {
 		name: persistedRecordButtonName,
 	});

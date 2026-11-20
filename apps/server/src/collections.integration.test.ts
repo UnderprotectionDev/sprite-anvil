@@ -12,6 +12,7 @@ import {
 } from "@sprite-anvil/db/schema/asset-versions";
 import { user } from "@sprite-anvil/db/schema/auth";
 import { eq } from "drizzle-orm";
+import { removeAssetCatalogFixture } from "./asset-catalog-integration-fixture";
 import { createAssetFamilyStore } from "./features/asset-families/server/asset-family-store";
 import { createAssetRecordStore } from "./features/asset-records/server/asset-record-store";
 import { createAssetRecordTrackingStore } from "./features/asset-records/server/asset-record-tracking-store";
@@ -376,7 +377,7 @@ test.skipIf(!databaseUrl)(
 			expect(trackingAfter).toEqual(trackingBefore);
 		} finally {
 			if (insertedUser) {
-				await db.delete(user).where(eq(user.id, userId));
+				await removeAssetCatalogFixture(db, userId);
 			}
 		}
 	}

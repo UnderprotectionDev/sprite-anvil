@@ -1,11 +1,13 @@
 import { expect, test } from "bun:test";
 import type { Database } from "@sprite-anvil/db";
+import { createInteractiveDatabase } from "@sprite-anvil/db/interactive-database";
 import { user } from "@sprite-anvil/db/schema/auth";
 import { project } from "@sprite-anvil/db/schema/project";
 import {
 	createLocalTestDb,
 	isLoopbackTestDatabaseUrl,
 } from "@sprite-anvil/db/testing";
+import { eq } from "drizzle-orm";
 import { createDatabaseExportProfileStorage } from "./features/export-profiles/server/database-export-profile-storage";
 import { insertArchiveDelivery } from "./features/project-archives/server/project-archive-delivery-materialization";
 import type { StoredProjectArchiveRestoreRecord } from "./features/project-archives/server/project-archive-restore-storage";
@@ -19,7 +21,7 @@ test.skipIf(!isLoopbackTestDatabaseUrl(databaseUrl))(
 		if (!databaseUrl) {
 			throw new Error("CONTEXT_TEST_DATABASE_URL required");
 		}
-		const db = createLocalTestDb({ DATABASE_URL: databaseUrl });
+		const db = createInteractiveDatabase({ DATABASE_URL: databaseUrl });
 		const projectId = crypto.randomUUID();
 		const userId = crypto.randomUUID();
 		const profileId = crypto.randomUUID();
@@ -67,14 +69,15 @@ test.skipIf(!isLoopbackTestDatabaseUrl(databaseUrl))(
 					).toEqual([]);
 					expect(
 						await createDatabaseExportProfileStorage(
-							tx as unknown as Database
+							tx as unknown as Database,
+							db
 						).findProfile(projectId, profileId)
 					).toMatchObject({ id: profileId, name: "Desktop", projectId });
 					throw rollback;
 				})
 			).rejects.toBe(rollback);
 		} finally {
-			await db.close();
+			await db.$client.close();
 		}
 	}
 );
@@ -113,7 +116,12 @@ test.skipIf(!isLoopbackTestDatabaseUrl(databaseUrl))(
 			"@sprite-anvil/db/schema/project-context"
 		);
 		const source = deliverySource();
-		const db = createLocalTestDb({ DATABASE_URL: databaseUrl });
+		for (const validation of source.delivery.runtimeValidations) {
+			for (const decision of validation.decisions) {
+				decision.sequence += 10_000;
+			}
+		}
+		const db = createInteractiveDatabase({ DATABASE_URL: databaseUrl });
 		const projectId = crypto.randomUUID();
 		const userId = crypto.randomUUID();
 		const at = "2026-01-01T00:00:00.000Z";
@@ -269,7 +277,69 @@ test.skipIf(!isLoopbackTestDatabaseUrl(databaseUrl))(
 				})
 			).rejects.toBe(rollback);
 		} finally {
-			await db.close();
+			await db.$client.close();
+		}
+	}
+);
+
+test.skipIf(!isLoopbackTestDatabaseUrl(databaseUrl))(
+	"an Export Profile retains its revision after a duplicate insert conflicts",
+	async () => {
+		if (!databaseUrl) {
+			throw new Error("CONTEXT_TEST_DATABASE_URL required");
+		}
+		const db = createLocalTestDb({ DATABASE_URL: databaseUrl });
+		const interactiveDb = createInteractiveDatabase({
+			DATABASE_URL: databaseUrl,
+		});
+		const userId = crypto.randomUUID();
+		const projectId = crypto.randomUUID();
+		const profile = {
+			createdByUserId: userId,
+			id: crypto.randomUUID(),
+			name: "Desktop",
+			projectId,
+		};
+		const revision = {
+			contentDigest: "digest",
+			contractVersion: "1.0.0",
+			createdAt: new Date(),
+			createdByUserId: userId,
+			definition: {},
+			id: crypto.randomUUID(),
+			profileId: profile.id,
+			projectId,
+		};
+		try {
+			await db.insert(user).values({
+				email: `${userId}@example.test`,
+				id: userId,
+				name: "Export Profile owner",
+			});
+			await db.insert(project).values({
+				id: projectId,
+				name: "Export Profile project",
+				ownerUserId: userId,
+			});
+			const storage = createDatabaseExportProfileStorage(db, interactiveDb);
+			expect(await storage.insertRevision(profile, revision)).toMatchObject({
+				revision: { id: revision.id, revisionNumber: 1 },
+				status: "inserted",
+			});
+			expect(await storage.insertRevision(profile, revision)).toEqual({
+				status: "conflict",
+			});
+			expect(await storage.listRevisions(projectId)).toMatchObject([
+				{ id: revision.id, revisionNumber: 1 },
+			]);
+		} finally {
+			await interactiveDb.$client.close();
+			try {
+				await db.delete(project).where(eq(project.id, projectId));
+				await db.delete(user).where(eq(user.id, userId));
+			} finally {
+				await db.close();
+			}
 		}
 	}
 );

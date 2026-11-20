@@ -14,9 +14,11 @@ import {
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm, useSelector } from "@tanstack/react-form";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ReducedMotionNotice } from "@/components/reduced-motion-notice";
 import { StatusMessage } from "@/components/status-message";
+import { usePendingIdempotencyKey } from "@/utils/pending-idempotency-key";
+import { usePlaybackClock } from "@/utils/use-playback-clock";
 import { AnimationTimingClipPreview } from "./animation-timing-clip-preview";
 import type { AnimationTimingMetadataStatus } from "./animation-timing-event-timeline";
 import { AnimationTimingEventTimeline } from "./animation-timing-event-timeline";
@@ -95,9 +97,10 @@ export function AnimationTimingReviewEditor({
 	initial?: AnimationTimingReviewInput;
 	recordNames?: Record<string, string>;
 }) {
-	const [operationId] = useState(() => crypto.randomUUID());
+	const operationKey = usePendingIdempotencyKey();
 	const toCandidate = (value: EditorValues) => ({
-		id: initial?.id ?? operationId,
+		// The real identifier is allocated only on the first valid submission.
+		id: initial?.id ?? "00000000-0000-0000-0000-000000000000",
 		projectId,
 		assetFamilyId,
 		contractRevisionId,
@@ -137,7 +140,10 @@ export function AnimationTimingReviewEditor({
 				toCandidate(value)
 			);
 			if (parsed.success) {
-				await onSave(parsed.data);
+				await onSave({
+					...parsed.data,
+					id: initial?.id ?? operationKey.keyFor(JSON.stringify(parsed.data)),
+				});
 			}
 		},
 	});
@@ -147,8 +153,6 @@ export function AnimationTimingReviewEditor({
 		change: (previous: EditorDirection[]) => EditorDirection[]
 	) => form.setFieldValue("directions", change);
 	const [zoom, setZoom] = useState(1);
-	const [playing, setPlaying] = useState(false);
-	const [elapsedMs, setElapsedMs] = useState(0);
 	const [ready, setReady] = useState<Record<string, boolean>>({});
 	const onStatus = useCallback(
 		(key: string, value: boolean) =>
@@ -171,29 +175,12 @@ export function AnimationTimingReviewEditor({
 			direction.frames.reduce((total, frame) => total + frame.durationMs, 0)
 		)
 	);
-	useEffect(() => {
-		if (!playing) {
-			return;
-		}
-		let animation = 0;
-		let previous: number | null = null;
-		const tick = (timestamp: number) => {
-			if (previous !== null) {
-				const deltaMs = timestamp - previous;
-				setElapsedMs((value) => value + deltaMs * playbackSpeed);
-			}
-			previous = timestamp;
-			animation = requestAnimationFrame(tick);
-		};
-		animation = requestAnimationFrame(tick);
-		return () => cancelAnimationFrame(animation);
-	}, [playing, playbackSpeed]);
-	useEffect(() => {
-		if (playing && !looping && elapsedMs >= maxTimelineMs) {
-			setElapsedMs(maxTimelineMs);
-			setPlaying(false);
-		}
-	}, [elapsedMs, looping, maxTimelineMs, playing]);
+	const { elapsedMs, playing, setElapsedMs, setPlaying } = usePlaybackClock({
+		durationMs: maxTimelineMs,
+		looping,
+		playbackRate: playbackSpeed,
+		startOnFirstFrame: true,
+	});
 
 	const resetPlayback = () => {
 		setPlaying(false);

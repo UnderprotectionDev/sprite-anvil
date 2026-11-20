@@ -104,9 +104,26 @@ export function useAssetVersionWrites(
 	const selectCanonicalDesignMutation = useMutation(
 		orpc.assetVersions.selectCanonicalDesign.mutationOptions(mutationMeta)
 	);
-	const [activeAction, setActiveAction] = useState<string | null>(null);
+	const actionMutation = useMutation({
+		...mutationMeta,
+		mutationKey: ["asset-version-write", projectId],
+		networkMode: "always",
+		mutationFn: ({
+			execute,
+		}: {
+			action: string;
+			execute: () => Promise<boolean>;
+		}) => execute(),
+	});
+	const activeAction = actionMutation.isPending
+		? actionMutation.variables.action
+		: null;
 	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
-	const [isCheckingOutcome, setIsCheckingOutcome] = useState(false);
+	const checkOutcome = useMutation({
+		...mutationMeta,
+		mutationFn: refreshCatalogs,
+	});
+	const isCheckingOutcome = checkOutcome.isPending;
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
 	async function refreshAfterWrite(successMessage: string) {
@@ -114,45 +131,59 @@ export function useAssetVersionWrites(
 		setStatusMessage(successMessage);
 	}
 
-	async function runAction(
+	function runAction(
 		action: string,
 		write: () => Promise<unknown>,
 		successMessage: string
 	) {
 		if (writeOutcomeUncertain) {
-			return false;
+			return Promise.resolve(false);
 		}
-		setActiveAction(action);
 		setStatusMessage(null);
-		try {
-			await write();
-			await refreshAfterWrite(successMessage);
-			return true;
-		} catch (error) {
-			if (isWriteOutcomeUncertain(error)) {
-				setWriteOutcomeUncertain(true);
-			}
-			toast.error(
-				getErrorMessage(
-					error,
-					"Could not verify the Asset Version operation. Check the list."
-				)
-			);
-			return false;
-		} finally {
-			setActiveAction(null);
-		}
+		return actionMutation.mutateAsync({
+			action,
+			execute: async () => {
+				try {
+					await write();
+					await refreshAfterWrite(successMessage);
+					return true;
+				} catch (error) {
+					if (isWriteOutcomeUncertain(error)) {
+						setWriteOutcomeUncertain(true);
+					}
+					toast.error(
+						getErrorMessage(
+							error,
+							"Could not verify the Asset Version operation. Check the list."
+						)
+					);
+					return false;
+				}
+			},
+		});
 	}
 
-	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Upload outcome recovery keeps uncertain writes and retries tied to one idempotency key.
-	async function upload(
+	function upload(
 		assetRecordId: string,
 		file: File,
 		options: UploadOptions = {}
 	) {
 		if (writeOutcomeUncertain) {
-			return false;
+			return Promise.resolve(false);
 		}
+		setStatusMessage(null);
+		return actionMutation.mutateAsync({
+			action: `upload:${assetRecordId}`,
+			execute: () => uploadAndRefresh(assetRecordId, file, options),
+		});
+	}
+
+	// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: Upload outcome recovery keeps uncertain writes and retries tied to one idempotency key.
+	async function uploadAndRefresh(
+		assetRecordId: string,
+		file: File,
+		options: UploadOptions
+	) {
 		const {
 			managedSnapshot,
 			productionSource: requestedProductionSource,
@@ -163,8 +194,6 @@ export function useAssetVersionWrites(
 		if (unitCorrection && productionSource !== "unknown") {
 			return false;
 		}
-		setActiveAction(`upload:${assetRecordId}`);
-		setStatusMessage(null);
 		let responseReceived = false;
 		let responseStatus: number | undefined;
 		let writeConfirmed = false;
@@ -344,8 +373,6 @@ export function useAssetVersionWrites(
 				)
 			);
 			return false;
-		} finally {
-			setActiveAction(null);
 		}
 	}
 
@@ -477,19 +504,14 @@ export function useAssetVersionWrites(
 
 	async function checkWriteOutcome(event?: SyntheticEvent<HTMLFormElement>) {
 		event?.preventDefault();
-		setIsCheckingOutcome(true);
-		try {
-			const result = await refreshCatalogs();
-			if (result.isError) {
-				return;
-			}
-			setWriteOutcomeUncertain(false);
-			setStatusMessage(
-				"Asset Versions list refreshed. Check the records for the result."
-			);
-		} finally {
-			setIsCheckingOutcome(false);
+		const result = await checkOutcome.mutateAsync();
+		if (result.isError) {
+			return;
 		}
+		setWriteOutcomeUncertain(false);
+		setStatusMessage(
+			"Asset Versions list refreshed. Check the records for the result."
+		);
 	}
 
 	return {

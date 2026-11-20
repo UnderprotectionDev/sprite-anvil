@@ -239,7 +239,7 @@ for (const outcome of ["confirmed", "uncertain", "conflicted"] as const) {
 		});
 		await page.goto(`/projects/${projectId}/assets/${assetRecordId}`);
 		await page
-			.getByRole("button", { name: "Gameplay Metadata", exact: true })
+			.getByRole("tab", { name: "Gameplay Metadata", exact: true })
 			.click();
 		const panel = page.getByRole("region", {
 			name: "Gameplay Metadata",
@@ -298,7 +298,7 @@ for (const outcome of ["confirmed", "uncertain", "conflicted"] as const) {
 		});
 		await page.reload();
 		await page
-			.getByRole("button", { name: "Gameplay Metadata", exact: true })
+			.getByRole("tab", { name: "Gameplay Metadata", exact: true })
 			.click();
 		await expect(
 			panel.getByText("walk-0 — walk east", { exact: true })
@@ -389,7 +389,7 @@ for (const outcome of ["confirmed", "uncertain", "conflicted"] as const) {
 				.click();
 			await page.reload();
 			await page
-				.getByRole("button", { name: "Gameplay Metadata", exact: true })
+				.getByRole("tab", { name: "Gameplay Metadata", exact: true })
 				.click();
 			await expect(
 				panel.getByText('{"x":13,"y":24} · User input', { exact: true })
@@ -456,7 +456,7 @@ for (const outcome of ["confirmed", "uncertain", "conflicted"] as const) {
 			);
 			await page.reload();
 			await page
-				.getByRole("button", { name: "Gameplay Metadata", exact: true })
+				.getByRole("tab", { name: "Gameplay Metadata", exact: true })
 				.click();
 			await panel
 				.getByRole("button", { name: "Review metadata", exact: true })
@@ -471,7 +471,7 @@ for (const outcome of ["confirmed", "uncertain", "conflicted"] as const) {
 			frames.splice(0);
 			await page.reload();
 			await page
-				.getByRole("button", { name: "Gameplay Metadata", exact: true })
+				.getByRole("tab", { name: "Gameplay Metadata", exact: true })
 				.click();
 			await panel
 				.getByRole("button", { name: "Review metadata", exact: true })

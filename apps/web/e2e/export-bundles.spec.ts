@@ -17,7 +17,6 @@ const verifiedText = /Bundle verified/u;
 const corruptedPathText = /images\/hero_idle\.png/u;
 
 const fixture = {
-	email: `export-bundles-e2e-${crypto.randomUUID()}@example.test`,
 	generalArtDirection: "Readable pixel silhouettes for a chapter demo",
 	password: "ExportBundlesE2E-Password-1",
 	projectName: "Export Bundles Project",
@@ -25,9 +24,17 @@ const fixture = {
 };
 
 async function openExportBundles(page: Page) {
-	await signUpWithFixture(page, fixture);
+	await signUpWithFixture(page, {
+		...fixture,
+		email: `export-bundles-e2e-${crypto.randomUUID()}@example.test`,
+	});
 	await createProjectFromProjectsView(page, fixture);
-	await page.getByRole("link", { name: "Export Bundles" }).click();
+	await page
+		.getByRole("link", {
+			name: `${fixture.projectName} open Asset Records`,
+		})
+		.click();
+	await page.getByRole("link", { name: "Export Bundles", exact: true }).click();
 	await expect(
 		page.getByRole("heading", { name: "Export Bundles", level: 1 })
 	).toBeVisible();

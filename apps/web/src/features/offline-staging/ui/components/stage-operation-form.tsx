@@ -6,8 +6,9 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { useForm } from "@tanstack/react-form";
-import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { StatusMessage } from "@/components/status-message";
+import { mutationMeta } from "@/utils/mutation-meta";
 import type {
 	OfflineStagingStore,
 	StageableDraft,
@@ -37,22 +38,23 @@ export function StageOperationForm({
 	onAdded: () => Promise<unknown>;
 	store: Pick<OfflineStagingStore, "addStagedOperation">;
 }) {
-	const [message, setMessage] = useState<string | null>(null);
+	const save = useMutation({
+		...mutationMeta,
+		networkMode: "always",
+		mutationFn: async (operation: ReturnType<typeof toStagedOperation>) => {
+			const result = await store.addStagedOperation(draft.id, operation);
+			return result === "added"
+				? `Edit saved in this browser (${draft.appliedOperationCount + 1} operation(s) now).`
+				: refusalText[result];
+		},
+		onSuccess: onAdded,
+	});
 	const form = useForm({
 		defaultValues: { tool: "pen" as Tool, x: "0", y: "0", color: "#000000" },
 		validators: { onSubmit: stagedOperationFormSchema(draft.size) },
 		onSubmit: async ({ value }) => {
 			const parsed = stagedOperationFormSchema(draft.size).parse(value);
-			const result = await store.addStagedOperation(
-				draft.id,
-				toStagedOperation(parsed)
-			);
-			setMessage(
-				result === "added"
-					? `Edit saved in this browser (${draft.appliedOperationCount + 1} operation(s) now).`
-					: refusalText[result]
-			);
-			await onAdded();
+			await save.mutateAsync(toStagedOperation(parsed)).catch(() => undefined);
 		},
 	});
 	const idPrefix = `stage-edit-${draft.id}`;
@@ -129,10 +131,21 @@ export function StageOperationForm({
 					</form.Field>
 				))}
 			</fieldset>
-			<Button size="sm" type="submit" variant="outline">
+			<Button
+				disabled={save.isPending}
+				size="sm"
+				type="submit"
+				variant="outline"
+			>
 				Add edit to the staged draft
 			</Button>
-			{message ? <p role="status">{message}</p> : null}
+			{save.isSuccess ? <p role="status">{save.data}</p> : null}
+			{save.isError ? (
+				<StatusMessage tone="error">
+					{save.error.message ||
+						"The edit could not be stored in this browser."}
+				</StatusMessage>
+			) : null}
 		</form>
 	);
 }

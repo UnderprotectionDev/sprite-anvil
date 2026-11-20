@@ -124,7 +124,7 @@ test("rejects slicing that leaves the sheet or has invalid numbers", async () =>
 		columns: 4,
 	});
 	expect(tooWide.status).toBe(422);
-	expect(((await tooWide.json()) as Json).error).toBe(
+	expect(((await tooWide.json()) as Json).message).toContain(
 		"Invalid slicing parameters"
 	);
 
@@ -330,7 +330,7 @@ test("rejects invalid frame operations without changing the record", async () =>
 		type: "add-blank",
 	});
 	expect(stale.status).toBe(409);
-	expect(((await stale.json()) as Json).error).toBe(
+	expect(((await stale.json()) as Json).message).toBe(
 		"Working Draft revision conflict"
 	);
 
@@ -369,7 +369,7 @@ test("protected frames cannot be silently changed, deleted or moved until keep i
 	for (const operation of blocked) {
 		const { response, body } = await frameOp(harness, id, operation);
 		expect(response.status).toBe(409);
-		expect(body.error).toBe("Protected frame");
+		expect(body.message).toContain("Protected frame");
 	}
 	expect(await readStructure(harness, id)).toEqual(before);
 
@@ -397,7 +397,9 @@ test("protected frames cannot be silently changed, deleted or moved until keep i
 		points: [{ x: 2, y: 0 }],
 	});
 	expect(intoKept.status).toBe(409);
-	expect(((await intoKept.json()) as Json).error).toBe("Protected frame");
+	expect(((await intoKept.json()) as Json).message).toContain(
+		"Protected frame"
+	);
 	const crop = await harness.apply(id, revision, {
 		type: "crop",
 		rect: { x: 0, y: 0, width: 4, height: 2 },
@@ -438,7 +440,7 @@ test("commit versions only affected frames and pins them in a new Composite Vers
 	const { id } = await openSlicedDraft(harness);
 
 	const first = await commit(harness, id);
-	expect(first.response.status).toBe(201);
+	expect(first.response.status).toBe(200);
 	expect(first.body.createdUnitVersionIds).toHaveLength(3);
 	expect(first.body.reusedUnitVersionIds).toHaveLength(0);
 	expect(first.body.structure.frames.map((f: Json) => f.status)).toEqual([
@@ -468,7 +470,7 @@ test("commit versions only affected frames and pins them in a new Composite Vers
 
 	const noChange = await commit(harness, id);
 	expect(noChange.response.status).toBe(400);
-	expect(noChange.body.error).toBe("Frame structure has no changes");
+	expect(noChange.body.message).toBe("Frame structure has no changes");
 
 	// Only the frame whose duration changed is rebuilt.
 	const edited = await frameOp(harness, id, {
@@ -484,7 +486,7 @@ test("commit versions only affected frames and pins them in a new Composite Vers
 	]);
 
 	const second = await commit(harness, id);
-	expect(second.response.status).toBe(201);
+	expect(second.response.status).toBe(200);
 	expect(second.body.createdUnitVersionIds).toHaveLength(1);
 	expect(second.body.reusedUnitVersionIds).toEqual([
 		baselineUnits[0],
@@ -528,7 +530,7 @@ test("reorder-only and delete-only changes pin a new Composite Version without r
 	expect(reordered.body.orderChanged).toBe(true);
 	expect(reordered.body.affectedFrameKeys).toEqual([]);
 	const second = await commit(harness, id);
-	expect(second.response.status).toBe(201);
+	expect(second.response.status).toBe(200);
 	expect(second.body.createdUnitVersionIds).toEqual([]);
 	expect(second.body.structure.lastCommit.frameKeys).toEqual([
 		"frame-3",
@@ -542,7 +544,7 @@ test("reorder-only and delete-only changes pin a new Composite Version without r
 
 	await frameOp(harness, id, { type: "delete", frameKey: "frame-1" });
 	const third = await commit(harness, id);
-	expect(third.response.status).toBe(201);
+	expect(third.response.status).toBe(200);
 	expect(third.body.createdUnitVersionIds).toEqual([]);
 	expect(harness.calls.composites[2]?.unitVersionIds).toEqual([
 		units[2],
@@ -565,12 +567,18 @@ test("requires a session, project membership and ownership for every structure r
 
 	const harness = await sheetHarness();
 	const { id } = await openSlicedDraft(harness);
-	const wrongProject = `/api/projects/${otherProjectId}/pixel-editor/drafts/${id}/structure`;
-	expect((await harness.app.request(wrongProject)).status).toBe(404);
+	expect(
+		(
+			await harness.rpc("workingDrafts/readStructure", {
+				projectId: otherProjectId,
+				draftId: id,
+			})
+		).status
+	).toBe(404);
 	const foreign = await sheetHarness({ user: { id: otherUserId } });
 	expect((await foreign.readStructure(id)).status).toBe(404);
 	expect((await foreign.slicingPreview(id, slicing)).status).toBe(404);
-	expect((await harness.readStructure("not-a-uuid")).status).toBe(404);
+	expect((await harness.readStructure("not-a-uuid")).status).toBe(400);
 });
 
 test("a stale commit revision conflicts and a discarded draft is read-only", async () => {
@@ -579,9 +587,7 @@ test("a stale commit revision conflicts and a discarded draft is read-only", asy
 	expect((await harness.commitStructure(id, 0)).status).toBe(409);
 	expect(harness.calls.composites).toHaveLength(0);
 
-	await harness.app.request(`${harness.base}/${id}/discard`, {
-		method: "POST",
-	});
+	await harness.discard(id);
 	const closed = await harness.frameOp(id, 99, { type: "add-blank" });
 	expect(closed.status).toBe(409);
 });

@@ -257,25 +257,35 @@ function dexieTable<Row extends { projectId: string }>(
 	};
 }
 
-let defaultStore: OfflineStagingStore | undefined;
+const accountStores = new Map<string, OfflineStagingStore>();
 
-export function getDefaultOfflineStagingStore(): OfflineStagingStore {
-	if (!defaultStore) {
-		const database = new Dexie("sprite-anvil-offline-staging") as Dexie & {
-			drafts: Table<StagedDraftRow, string>;
-			files: Table<StagedFileRow, string>;
-			projects: Table<StagedProjectRow, string>;
-		};
-		database.version(1).stores({
-			projects: "projectId",
-			files: "id, projectId",
-			drafts: "id, projectId",
-		});
-		defaultStore = createOfflineStagingStore({
-			projects: dexieTable(database.projects),
-			files: dexieTable(database.files),
-			drafts: dexieTable(database.drafts),
-		});
+export function hasUnassignedOfflineStorage() {
+	return Dexie.exists("sprite-anvil-offline-staging");
+}
+
+export function getOfflineStagingStore(userId: string): OfflineStagingStore {
+	const accountStore = accountStores.get(userId);
+	if (accountStore) {
+		return accountStore;
 	}
-	return defaultStore;
+	// Legacy databases have no owner metadata and cannot safely be claimed.
+	const database = new Dexie(
+		`sprite-anvil-offline-staging-account:${userId}`
+	) as Dexie & {
+		drafts: Table<StagedDraftRow, string>;
+		files: Table<StagedFileRow, string>;
+		projects: Table<StagedProjectRow, string>;
+	};
+	database.version(1).stores({
+		projects: "projectId",
+		files: "id, projectId",
+		drafts: "id, projectId",
+	});
+	const store = createOfflineStagingStore({
+		projects: dexieTable(database.projects),
+		files: dexieTable(database.files),
+		drafts: dexieTable(database.drafts),
+	});
+	accountStores.set(userId, store);
+	return store;
 }

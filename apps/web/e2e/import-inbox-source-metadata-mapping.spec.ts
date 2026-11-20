@@ -7,7 +7,7 @@ import {
 } from "./source-metadata-mapping-fixture";
 
 const unresolvedConflictStatusPattern =
-	/Field conflicts: 1\. The proposal is not finalized\./u;
+	/Field conflicts: 2\. The proposal is not finalized\./u;
 
 test("creates and rereads the shared source metadata mapping proposal through the web flow", async ({
 	page,
@@ -28,14 +28,14 @@ test("creates and rereads the shared source metadata mapping proposal through th
 	await page.getByLabel("Art direction").fill(fixture.generalArtDirection);
 	await page.getByRole("button", { name: "Create project" }).click();
 	await page
-		.getByRole("button", { name: "Visual Worlds and Themes", exact: true })
+		.getByRole("tab", { name: "Visual Worlds and Themes", exact: true })
 		.click();
 	await page.getByLabel("Visual World name").fill(visualWorldName);
 	await page.getByRole("button", { name: "Add Visual World" }).click();
 	await page.goto("/projects");
 	await page.getByRole("link", { name: "Asset Families" }).click();
 	await page
-		.getByRole("button", {
+		.getByRole("tab", {
 			name: "Family and representation relationships",
 			exact: true,
 		})
@@ -49,6 +49,9 @@ test("creates and rereads the shared source metadata mapping proposal through th
 	await page.getByLabel("Usage context").fill("Walking animation");
 	await page.getByRole("button", { name: "Create Asset Family" }).click();
 	await page.getByLabel("Asset Record name").fill(fixture.name);
+	await page
+		.getByRole("checkbox", { name: "Independent product meaning" })
+		.check();
 	await page.getByRole("button", { name: "Add Asset Record" }).click();
 	await page.goto("/projects");
 	await page
@@ -56,9 +59,12 @@ test("creates and rereads the shared source metadata mapping proposal through th
 			name: `${fixture.projectName} open Asset Records`,
 		})
 		.click();
-	await page.getByRole("link", { name: "Import Inbox" }).click();
+	await page
+		.getByRole("navigation", { name: "Project navigation" })
+		.getByRole("link", { name: "Import Inbox", exact: true })
+		.click();
 
-	await page.getByLabel("Dosyalar").setInputFiles([
+	await page.getByLabel("Files", { exact: true }).setInputFiles([
 		{
 			name: sourceMetadataMappingFixture.source.fileName,
 			mimeType: sourceMetadataMappingFixture.source.contentType,
@@ -77,9 +83,7 @@ test("creates and rereads the shared source metadata mapping proposal through th
 	]);
 	await page.getByRole("button", { name: "Add files to Import Inbox" }).click();
 
-	await page
-		.getByRole("button", { name: "Bekleyen dosyalar", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Pending files", exact: true }).click();
 	const sourcePanel = page.getByRole("region", {
 		name: `Source Metadata Mapping Proposal for ${sourceMetadataMappingFixture.source.fileName}`,
 	});
@@ -110,9 +114,11 @@ test("creates and rereads the shared source metadata mapping proposal through th
 	const proposalDetails = page
 		.locator("details")
 		.filter({ hasText: "source-metadata-mapping/1.1.0" });
-	await expect(proposalDetails.getByRole("status")).toContainText(
-		unresolvedConflictStatusPattern
-	);
+	await expect(
+		proposalDetails
+			.getByRole("status")
+			.filter({ hasText: unresolvedConflictStatusPattern })
+	).toBeVisible();
 	await expect(
 		proposalDetails.getByText("source-metadata-mapping/1.1.0")
 	).toBeVisible();
@@ -126,17 +132,17 @@ test("creates and rereads the shared source metadata mapping proposal through th
 	).toBeVisible();
 	await expect(
 		proposalDetails.getByText(
-			sourceMetadataMappingFixtureHash(
+			`SHA-256: ${sourceMetadataMappingFixtureHash(
 				sourceMetadataMappingFixture.aseprite.bytes
-			),
+			)}`,
 			{ exact: true }
 		)
 	).toBeVisible();
 	await expect(
 		proposalDetails.getByText(
-			sourceMetadataMappingFixtureHash(
+			`SHA-256: ${sourceMetadataMappingFixtureHash(
 				sourceMetadataMappingFixture.texturePacker.bytes
-			),
+			)}`,
 			{ exact: true }
 		)
 	).toBeVisible();
@@ -167,7 +173,7 @@ test("creates and rereads the shared source metadata mapping proposal through th
 	await expect(
 		proposalDetails
 			.getByRole("list", { name: "Proposed source fields" })
-			.getByText("Pivot · walk-0", { exact: true })
+			.getByText("Pivot · walk-0")
 	).toHaveCount(2);
 	await proposalDetails
 		.getByLabel("Target Asset Record")
@@ -178,7 +184,7 @@ test("creates and rereads the shared source metadata mapping proposal through th
 		})
 	).toBeDisabled();
 	await proposalDetails
-		.getByLabel("Frame · walk-0 (zorunlu)")
+		.getByLabel("Frame · walk-0 (required)")
 		.selectOption({ index: 1 });
 	await proposalDetails
 		.getByRole("button", {
@@ -189,13 +195,11 @@ test("creates and rereads the shared source metadata mapping proposal through th
 		proposalDetails.getByText("Confirmed link · Candidate Version created")
 	).toBeVisible();
 	await expect(
-		proposalDetails.getByText("Pivot · walk-0: Bilinmiyor")
+		proposalDetails.getByText("Pivot · walk-0: Unknown")
 	).toBeVisible();
 
 	await page.reload();
-	await page
-		.getByRole("button", { name: "Bekleyen dosyalar", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Pending files", exact: true }).click();
 	const rereadProposalSummary = page
 		.locator("summary")
 		.filter({ hasText: "Source Metadata Mapping Proposal" });

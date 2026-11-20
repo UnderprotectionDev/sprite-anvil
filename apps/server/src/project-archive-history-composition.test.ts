@@ -1,12 +1,13 @@
 import { expect, test } from "bun:test";
 import { getSpecializedProfileContract } from "@sprite-anvil/api/specialized-profile-contracts";
 import type { Database } from "@sprite-anvil/db";
+import type { InteractiveTransaction } from "@sprite-anvil/db/interactive-database";
 import { getTableName } from "drizzle-orm";
 import { insertArchiveHistory } from "./features/project-archives/server/project-archive-history-materialization";
 import type { StoredProjectArchiveRestoreRecord } from "./features/project-archives/server/project-archive-restore-storage";
 import { createSpecializedProfileContractStore } from "./features/quality-evidence/server/specialized-profile-contract-store";
 
-type Tx = Parameters<Parameters<Database["transaction"]>[0]>[0];
+type Tx = InteractiveTransaction;
 
 test("restored canonical profile activation is readable through the normal profile store", async () => {
 	const definition = getSpecializedProfileContract("icon");

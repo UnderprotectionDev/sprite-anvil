@@ -129,9 +129,7 @@ test("configures background layers, rejects unsafe cropping, and rereads exact s
 		path: "../../.context/background-layer-layout.png",
 	});
 	await page.reload();
-	await page
-		.getByRole("button", { name: "Profile reviews", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Profile reviews", exact: true }).click();
 	await expect(
 		layout.getByText("sky · Sky · v1", { exact: true })
 	).toBeVisible();
@@ -229,9 +227,7 @@ test("recovers a lost save response using the same operation without duplicating
 	expect(inputs).toHaveLength(2);
 	expect(inputs[1]).toEqual(inputs[0]);
 	await page.reload();
-	await page
-		.getByRole("button", { name: "Profile reviews", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Profile reviews", exact: true }).click();
 	await expect(layout.getByText("sky · Sky · v1", { exact: true })).toHaveCount(
 		1
 	);

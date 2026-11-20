@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useCreateStore, useSelector } from "@tanstack/react-store";
+import { useEffect } from "react";
 
 export const transitionIntervalMs = 800;
 
@@ -11,33 +12,48 @@ export type TransitionPhase = "source" | "draft";
  * the system preference turns on; the manual toggle always works.
  */
 export function useTransitionCompare(reducedMotion: boolean) {
-	const [phase, setPhase] = useState<TransitionPhase>("draft");
-	const [started, setStarted] = useState(false);
-	const running = started;
+	const comparison = useCreateStore<{
+		phase: TransitionPhase;
+		running: boolean;
+	}>({ phase: "draft", running: false });
+	const { phase, running } = useSelector(comparison, (value) => value);
 
 	useEffect(() => {
 		if (reducedMotion) {
-			setStarted(false);
+			comparison.setState((current) => ({ ...current, running: false }));
 		}
-	}, [reducedMotion]);
+	}, [comparison, reducedMotion]);
 
 	useEffect(() => {
 		if (!running) {
 			return;
 		}
 		const timer = setInterval(
-			() => setPhase((current) => (current === "draft" ? "source" : "draft")),
+			() => togglePhase(comparison),
 			transitionIntervalMs
 		);
 		return () => clearInterval(timer);
-	}, [running]);
+	}, [comparison, running]);
 
 	return {
 		phase,
 		running,
-		start: () => setStarted(true),
-		stop: () => setStarted(false),
-		toggle: () =>
-			setPhase((current) => (current === "draft" ? "source" : "draft")),
+		start: () =>
+			comparison.setState((current) => ({ ...current, running: true })),
+		stop: () =>
+			comparison.setState((current) => ({ ...current, running: false })),
+		toggle: () => togglePhase(comparison),
 	};
+}
+
+function togglePhase(
+	comparison: import("@tanstack/react-store").Store<{
+		phase: TransitionPhase;
+		running: boolean;
+	}>
+) {
+	comparison.setState((current) => ({
+		...current,
+		phase: current.phase === "draft" ? "source" : "draft",
+	}));
 }

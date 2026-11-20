@@ -1,14 +1,26 @@
+import type {
+	AssetFamilyCatalog,
+	AssetFamilyRecord,
+} from "@sprite-anvil/api/asset-families";
 import type { SpecializedProfileContractsListOutput } from "@sprite-anvil/api/specialized-profile-contracts";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { Label } from "@sprite-anvil/ui/components/label";
 import {
-	NativeSelect,
-	NativeSelectOption,
-} from "@sprite-anvil/ui/components/native-select";
+	Combobox,
+	ComboboxContent,
+	ComboboxEmpty,
+	ComboboxInput,
+	ComboboxItem,
+	ComboboxList,
+} from "@sprite-anvil/ui/components/combobox";
+import { Label } from "@sprite-anvil/ui/components/label";
 import type { QueryKey } from "@tanstack/react-query";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+	useInfiniteQuery,
+	useQuery,
+	useQueryClient,
+} from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useId } from "react";
 import { AnimationTimingReviewManager } from "@/components/animation-timing-review-manager";
 import { AssetFamilyComparisonSections } from "@/components/asset-family-comparison-sections";
 import { AssetVersionControls } from "@/components/asset-version-controls";
@@ -41,6 +53,32 @@ const emptyAssetVersionCatalog = {
 	unitVersions: [],
 	compositeVersions: [],
 };
+const identitiesPerPage = 25;
+
+function distinctById<T extends { id: string }>(items: T[]) {
+	return [...new Map(items.map((item) => [item.id, item])).values()];
+}
+
+function combineCatalogs(
+	pages: AssetFamilyCatalog[],
+	selected: AssetFamilyCatalog | undefined
+): AssetFamilyCatalog {
+	const catalogs = selected ? [...pages, selected] : pages;
+	return {
+		subjectIdentities: distinctById(
+			catalogs.flatMap(({ subjectIdentities }) => subjectIdentities)
+		),
+		assetFamilies: distinctById(
+			catalogs.flatMap(({ assetFamilies }) => assetFamilies)
+		),
+		assetRecords: distinctById(
+			catalogs.flatMap(({ assetRecords }) => assetRecords)
+		),
+		relationships: distinctById(
+			catalogs.flatMap(({ relationships }) => relationships)
+		),
+	};
+}
 
 function getActiveProfileContract(
 	data: SpecializedProfileContractsListOutput | undefined,
@@ -52,14 +90,61 @@ function getActiveProfileContract(
 	);
 }
 
-export function AssetFamiliesView({ projectId }: { projectId: string }) {
+function useAssetFamilyCatalog(projectId: string, familyId?: string) {
+	const catalogQuery = useInfiniteQuery(
+		orpc.assetFamilies.list.infiniteOptions({
+			input: (after: { id: string; name: string } | null) => ({
+				projectId,
+				scope: {
+					kind: "identity-page",
+					limit: identitiesPerPage,
+					...(after ? { after } : {}),
+				},
+			}),
+			initialPageParam: null as { id: string; name: string } | null,
+			getNextPageParam: (page) => {
+				const last = page.subjectIdentities.at(-1);
+				return page.subjectIdentities.length === identitiesPerPage && last
+					? { id: last.id, name: last.name }
+					: undefined;
+			},
+		})
+	);
+	const pages = catalogQuery.data?.pages;
+	const selectedFamilyQuery = useQuery({
+		...orpc.assetFamilies.list.queryOptions({
+			input: { projectId, scope: { kind: "family", familyId: familyId ?? "" } },
+		}),
+		enabled: Boolean(
+			familyId &&
+				pages &&
+				!pages.some((page) =>
+					page.assetFamilies.some(({ id }) => id === familyId)
+				)
+		),
+	});
+	return {
+		catalog: pages
+			? combineCatalogs(pages, selectedFamilyQuery.data)
+			: undefined,
+		catalogQuery,
+	};
+}
+
+export function AssetFamiliesView({
+	projectId,
+	familyId,
+	onSelectFamily,
+}: {
+	projectId: string;
+	familyId?: string;
+	onSelectFamily?: (id: string) => void;
+}) {
 	const queryClient = useQueryClient();
 	const projectsQuery = useQuery({
 		...orpc.projectContexts.list.queryOptions(),
 	});
-	const catalogQuery = useQuery({
-		...orpc.assetFamilies.list.queryOptions({ input: { projectId } }),
-	});
+	const { catalog, catalogQuery } = useAssetFamilyCatalog(projectId, familyId);
 	const assetVersionQuery = useQuery({
 		...orpc.assetVersions.list.queryOptions({ input: { projectId } }),
 	});
@@ -75,10 +160,8 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 		}),
 	});
 	const project = projectsQuery.data?.find((item) => item.id === projectId);
-	const catalog = catalogQuery.data;
-	const [selectedFamilyId, setSelectedFamilyId] = useState("");
 	const selectedFamily =
-		catalog?.assetFamilies.find((family) => family.id === selectedFamilyId) ??
+		catalog?.assetFamilies.find((family) => family.id === familyId) ??
 		catalog?.assetFamilies[0];
 	const reviewFamilies = selectedFamily ? [selectedFamily] : [];
 	const reviewCatalog = catalog
@@ -156,7 +239,7 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 		profileContractsQuery.data,
 		"tileset_terrain_texture"
 	);
-	const catalogKey = orpc.assetFamilies.list.queryKey({ input: { projectId } });
+	const catalogKey = orpc.assetFamilies.list.key({ input: { projectId } });
 	const assetVersionKey = orpc.assetVersions.list.queryKey({
 		input: { projectId },
 	});
@@ -167,8 +250,11 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 			keys.map((queryKey) => queryClient.invalidateQueries({ queryKey }))
 		);
 		return {
-			isError: keys.some(
-				(queryKey) => queryClient.getQueryState(queryKey)?.status === "error"
+			isError: keys.some((queryKey) =>
+				queryClient
+					.getQueryCache()
+					.findAll({ queryKey, type: "active" })
+					.some((query) => query.state.status === "error")
 			),
 		};
 	};
@@ -189,32 +275,22 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 	const writesDisabled =
 		writes.writesDisabled || assetVersionWrites.writesDisabled;
 	function renderFamilyWorkspace() {
-		if (!catalog || catalogQuery.isError) {
+		if (!catalog) {
 			return null;
 		}
 		return (
 			<>
-				{catalog.assetFamilies.length > 0 ? (
-					<Label className="block space-y-2 text-sm">
-						<span className="font-medium">
-							Family for review and completion
-						</span>
-						<NativeSelect
-							className="w-full [&>select]:min-h-11"
-							onChange={(event) => setSelectedFamilyId(event.target.value)}
-							value={selectedFamily?.id ?? ""}
-						>
-							{catalog.assetFamilies.map((family) => (
-								<NativeSelectOption key={family.id} value={family.id}>
-									{family.name}
-								</NativeSelectOption>
-							))}
-						</NativeSelect>
-					</Label>
+				{selectedFamily ? (
+					<FamilyReviewPicker
+						families={catalog.assetFamilies}
+						onSelectFamily={onSelectFamily}
+						selected={selectedFamily}
+					/>
 				) : (
 					<p className="rounded-lg border border-dashed p-5">
-						No Asset Families yet. Start in Family and representation
-						relationships.
+						{catalogQuery.hasNextPage
+							? "No Asset Families on the loaded pages."
+							: "No Asset Families yet. Start in Family and representation relationships."}
 					</p>
 				)}
 				<TaskWorkspace
@@ -629,8 +705,62 @@ export function AssetFamiliesView({ projectId }: { projectId: string }) {
 					</Button>
 				</div>
 			) : null}
+			{catalogQuery.hasNextPage ? (
+				<Button
+					disabled={catalogQuery.isFetchingNextPage}
+					onClick={() => void catalogQuery.fetchNextPage()}
+					type="button"
+					variant="outline"
+				>
+					{catalogQuery.isFetchingNextPage
+						? "Loading Subject Identities…"
+						: "Load more Subject Identities"}
+				</Button>
+			) : null}
 			{renderFamilyWorkspace()}
 		</main>
+	);
+}
+
+function FamilyReviewPicker({
+	families,
+	selected,
+	onSelectFamily,
+}: {
+	families: AssetFamilyRecord[];
+	selected: AssetFamilyRecord;
+	onSelectFamily?: (id: string) => void;
+}) {
+	const fieldId = useId();
+	return (
+		<div className="space-y-2">
+			<Label htmlFor={fieldId}>Family for review and completion</Label>
+			<Combobox
+				isItemEqualToValue={(item, value) => item.id === value.id}
+				items={families}
+				itemToStringLabel={(family: AssetFamilyRecord) => family.name}
+				itemToStringValue={(family: AssetFamilyRecord) => family.id}
+				limit={50}
+				onValueChange={(family) => {
+					if (family) {
+						onSelectFamily?.(family.id);
+					}
+				}}
+				value={selected}
+			>
+				<ComboboxInput id={fieldId} placeholder="Search Asset Families" />
+				<ComboboxContent>
+					<ComboboxEmpty>No Asset Families match.</ComboboxEmpty>
+					<ComboboxList>
+						{(family: AssetFamilyRecord) => (
+							<ComboboxItem key={family.id} value={family}>
+								{family.name}
+							</ComboboxItem>
+						)}
+					</ComboboxList>
+				</ComboboxContent>
+			</Combobox>
+		</div>
 	);
 }
 

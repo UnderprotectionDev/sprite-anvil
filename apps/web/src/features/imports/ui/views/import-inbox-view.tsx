@@ -3,10 +3,15 @@ import { importInboxEntrySchema } from "@sprite-anvil/api/import-inbox";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { WindowVirtualList } from "@sprite-anvil/ui/components/window-virtual-list";
+import { useForm, useSelector } from "@tanstack/react-form";
+import {
+	useInfiniteQuery,
+	useMutation,
+	useQueryClient,
+} from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type { ChangeEvent } from "react";
-import { useRef, useState } from "react";
 import { StatusMessage } from "@/components/status-message";
 import { TaskWorkspace } from "@/components/task-workspace";
 import { buildErrorNotification } from "@/utils/error-notification";
@@ -18,20 +23,20 @@ import {
 } from "../../lib/import-inbox-api";
 import { SourceMetadataMappingPanel } from "./source-metadata-mapping-panel";
 
-interface UploadFailure {
+interface PendingUpload {
+	entryId: string;
 	file: File;
-	message: string;
-	supportReference?: string;
 }
+
 type UploadResult =
-	| { file: File; ok: true }
+	| { ok: true }
 	| {
-			file: File;
 			message: string;
 			ok: false;
 			outcome: "rejected" | "unknown";
 			retryable: boolean;
 			supportReference?: string;
+			upload: PendingUpload;
 	  };
 
 class ImportInboxUploadError extends Error {
@@ -100,32 +105,52 @@ function uploadErrorMessage(status: number) {
 	return null;
 }
 
-export function ImportInboxView({ projectId }: { projectId: string }) {
-	const queryClient = useQueryClient();
-	const pendingEntryIds = useRef(new Map<File, string>());
-	const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-	const [uploadErrors, setUploadErrors] = useState<UploadFailure[]>([]);
-	const [isUploading, setIsUploading] = useState(false);
-	const [uploadingFileName, setUploadingFileName] = useState<string | null>(
-		null
-	);
-	const [statusMessage, setStatusMessage] = useState<string | null>(null);
-	const entriesQueryOptions = orpc.imports.listEntries.queryOptions({
-		input: { projectId },
+function useProjectImportUpload(
+	projectId: string,
+	refreshEntries: () => Promise<unknown>
+) {
+	const uploadOne = useMutation({ gcTime: 0, mutationFn: uploadSelectedFile });
+	const uploadBatch = useMutation({
+		gcTime: 0,
+		mutationFn: uploadSelectedFiles,
+		onSuccess: async ({ failures, savedCount }) => {
+			form.setFieldValue(
+				"files",
+				failures
+					.filter((failure) => failure.retryable)
+					.map(({ upload }) => upload)
+			);
+			if (
+				savedCount > 0 ||
+				failures.some(({ outcome }) => outcome === "unknown")
+			) {
+				await refreshEntries();
+			}
+		},
+		onSettled: () => uploadOne.reset(),
 	});
-	const entriesQuery = useQuery(entriesQueryOptions);
+	const form = useForm({ defaultValues: { files: [] as PendingUpload[] } });
+	const selectedFiles = useSelector(form.store, (state) => state.values.files);
+	const isUploading = uploadBatch.isPending;
+	const uploadingFileName = uploadOne.variables?.file.name;
+	const uploadErrors = uploadBatch.data?.failures ?? [];
+	const uploadedCount = uploadBatch.data?.savedCount ?? 0;
+	let statusMessage: string | null = null;
+	if (uploadedCount > 0) {
+		statusMessage =
+			uploadedCount === 1
+				? "File added to the Import Inbox."
+				: `${uploadedCount} files added to the Import Inbox.`;
+	}
 
 	function selectFiles(event: ChangeEvent<HTMLInputElement>) {
-		const files = Array.from(event.currentTarget.files ?? []);
-		for (const failure of uploadErrors) {
-			pendingEntryIds.current.delete(failure.file);
-		}
-		for (const file of files) {
-			pendingEntryIds.current.set(file, crypto.randomUUID());
-		}
-		setSelectedFiles(files);
-		setUploadErrors([]);
-		setStatusMessage(null);
+		const files = Array.from(event.currentTarget.files ?? [], (file) => ({
+			entryId: crypto.randomUUID(),
+			file,
+		}));
+		form.setFieldValue("files", files);
+		uploadOne.reset();
+		uploadBatch.reset();
 		event.currentTarget.value = "";
 	}
 
@@ -163,18 +188,17 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 		return importInboxEntrySchema.parse(await response.json());
 	}
 
-	async function uploadSelectedFile(file: File): Promise<UploadResult> {
-		setUploadingFileName(file.name);
-		const entryId = pendingEntryIds.current.get(file) ?? crypto.randomUUID();
-		pendingEntryIds.current.set(file, entryId);
+	async function uploadSelectedFile(
+		upload: PendingUpload
+	): Promise<UploadResult> {
+		const { file, entryId } = upload;
 		try {
 			await uploadFile(file, entryId);
-			pendingEntryIds.current.delete(file);
-			return { file, ok: true };
+			return { ok: true };
 		} catch (error) {
 			if (error instanceof ImportInboxUploadError) {
 				return {
-					file,
+					upload,
 					message: error.message,
 					ok: false,
 					outcome: error.outcome,
@@ -185,7 +209,7 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 				};
 			}
 			return {
-				file,
+				upload,
 				message: uncertainUploadMessage,
 				ok: false,
 				outcome: "unknown",
@@ -194,64 +218,61 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 		}
 	}
 
-	async function uploadSelectedFiles(files: File[]) {
+	async function uploadSelectedFiles(files: PendingUpload[]) {
 		const results: UploadResult[] = [];
 		for (const file of files) {
 			// biome-ignore lint/performance/noAwaitInLoops: Sequential uploads keep large source files from competing for memory and preserve per-file progress.
-			results.push(await uploadSelectedFile(file));
+			results.push(await uploadOne.mutateAsync(file));
 		}
-		return results;
+		const failures = results.filter((result) => !result.ok);
+		return { failures, savedCount: results.length - failures.length };
 	}
 
-	async function handleUpload() {
+	function handleUpload() {
 		if (isUploading || selectedFiles.length === 0) {
 			return;
 		}
-		setIsUploading(true);
-		setUploadErrors([]);
-		setStatusMessage(null);
-		try {
-			const results = await uploadSelectedFiles(selectedFiles);
-			const uploadFailures = results.flatMap((result) =>
-				result.ok ? [] : [result]
-			);
-			const failures = uploadFailures.map(
-				({
-					file: failedFile,
-					message: failureMessage,
-					supportReference: failureReference,
-				}) => ({
-					file: failedFile,
-					message: failureMessage,
-					...(failureReference ? { supportReference: failureReference } : {}),
-				})
-			);
-			const retryableFiles = uploadFailures
-				.filter((failure) => failure.retryable)
-				.map((failure) => failure.file);
-			const hasUnknownOutcome = uploadFailures.some(
-				(failure) => failure.outcome === "unknown"
-			);
-			const savedCount = results.filter((result) => result.ok).length;
-			setSelectedFiles(retryableFiles);
-			setUploadErrors(failures);
-			if (savedCount > 0 || hasUnknownOutcome) {
-				await queryClient.invalidateQueries({
-					queryKey: entriesQueryOptions.queryKey,
-				});
-			}
-			if (savedCount > 0) {
-				setStatusMessage(
-					savedCount === 1
-						? "File added to the Import Inbox."
-						: `${savedCount} files added to the Import Inbox.`
-				);
-			}
-		} finally {
-			setUploadingFileName(null);
-			setIsUploading(false);
-		}
+		uploadOne.reset();
+		uploadBatch.mutate(selectedFiles);
 	}
+	return {
+		handleUpload,
+		isUploading,
+		selectedFiles,
+		selectFiles,
+		statusMessage,
+		uploadErrors,
+		uploadingFileName,
+	};
+}
+
+export function ImportInboxView({ projectId }: { projectId: string }) {
+	return <ProjectImportInbox key={projectId} projectId={projectId} />;
+}
+
+function ProjectImportInbox({ projectId }: { projectId: string }) {
+	const queryClient = useQueryClient();
+	const pageSize = 40;
+	const entriesQueryOptions = orpc.imports.listEntries.infiniteOptions({
+		input: (beforeId: string | null) =>
+			beforeId ? { projectId, pageSize, beforeId } : { projectId, pageSize },
+		initialPageParam: null as string | null,
+		getNextPageParam: (lastPage) =>
+			lastPage.length === pageSize ? lastPage.at(-1)?.id : undefined,
+	});
+	const entriesQuery = useInfiniteQuery(entriesQueryOptions);
+	const entries = entriesQuery.data?.pages.flat() ?? [];
+	const {
+		handleUpload,
+		isUploading,
+		selectedFiles,
+		selectFiles,
+		statusMessage,
+		uploadErrors,
+		uploadingFileName,
+	} = useProjectImportUpload(projectId, () =>
+		queryClient.invalidateQueries({ queryKey: entriesQueryOptions.queryKey })
+	);
 
 	const supportReference = entriesQuery.isError
 		? buildErrorNotification(entriesQuery.error, "query").supportReference
@@ -337,8 +358,8 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 											aria-label="Selected files"
 											className="space-y-1 text-sm"
 										>
-											{selectedFiles.map((file) => (
-												<li key={pendingEntryIds.current.get(file)}>
+											{selectedFiles.map(({ entryId, file }) => (
+												<li key={entryId}>
 													{file.name} · {formatContentLength(file.size)}
 												</li>
 											))}
@@ -356,8 +377,8 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 											role="alert"
 										>
 											{uploadErrors.map((failure) => (
-												<li key={pendingEntryIds.current.get(failure.file)}>
-													{failure.file.name}: {failure.message}
+												<li key={failure.upload.entryId}>
+													{failure.upload.file.name}: {failure.message}
 													{failure.supportReference ? (
 														<span className="block">
 															Support reference: {failure.supportReference}
@@ -375,7 +396,7 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 									<Button
 										className="min-h-11"
 										disabled={isUploading || selectedFiles.length === 0}
-										onClick={() => void handleUpload()}
+										onClick={handleUpload}
 										type="button"
 									>
 										{isUploading
@@ -432,22 +453,37 @@ export function ImportInboxView({ projectId }: { projectId: string }) {
 											</Button>
 										</div>
 									) : null}
-									{entriesQuery.isSuccess && entriesQuery.data.length === 0 ? (
+									{entriesQuery.isSuccess && entries.length === 0 ? (
 										<p className="text-muted-foreground rounded-lg border border-dashed p-6 text-sm">
 											No files await linking yet.
 										</p>
 									) : null}
-									{entriesQuery.isSuccess && entriesQuery.data.length > 0 ? (
-										<ul aria-label="Import Inbox Entries" className="space-y-3">
-											{entriesQuery.data.map((entry) => (
+									{entries.length > 0 ? (
+										<WindowVirtualList
+											ariaLabel="Import Inbox Entries"
+											getItemKey={(entry) => entry.id}
+											items={entries}
+											renderItem={(entry) => (
 												<ImportInboxEntryCard
-													entries={entriesQuery.data}
+													entries={entries}
 													entry={entry}
-													key={entry.id}
 													projectId={projectId}
 												/>
-											))}
-										</ul>
+											)}
+										/>
+									) : null}
+									{entriesQuery.hasNextPage ||
+									entriesQuery.isFetchNextPageError ? (
+										<Button
+											disabled={entriesQuery.isFetching}
+											onClick={() => void entriesQuery.fetchNextPage()}
+											type="button"
+											variant="outline"
+										>
+											{entriesQuery.isFetchingNextPage
+												? "Loading entries…"
+												: "Load older entries"}
+										</Button>
 									) : null}
 								</section>
 							</>
@@ -469,7 +505,7 @@ function ImportInboxEntryCard({
 	projectId: string;
 }) {
 	return (
-		<li className="space-y-3 rounded-lg border p-4">
+		<article className="space-y-3 rounded-lg border p-4">
 			<div className="flex flex-wrap items-start justify-between gap-3">
 				<div className="min-w-0 space-y-1">
 					<h3 className="font-medium break-words">{entry.fileName}</h3>
@@ -507,6 +543,6 @@ function ImportInboxEntryCard({
 					projectId={projectId}
 				/>
 			) : null}
-		</li>
+		</article>
 	);
 }

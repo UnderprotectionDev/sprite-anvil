@@ -4,6 +4,7 @@ import type {
 } from "@sprite-anvil/api/asset-families";
 import type { AssetVersionCatalog } from "@sprite-anvil/api/asset-versions";
 
+import { WindowVirtualList } from "@sprite-anvil/ui/components/window-virtual-list";
 import { Link } from "@tanstack/react-router";
 
 const relationshipLabels = {
@@ -44,17 +45,17 @@ export function AssetFamilyCatalogView({
 	}
 
 	return (
-		<ul className="space-y-5">
-			{catalog.subjectIdentities.map((identity) => {
+		<WindowVirtualList
+			ariaLabel="Subject Identities"
+			getItemKey={(identity) => identity.id}
+			items={catalog.subjectIdentities}
+			renderItem={(identity) => {
 				const families = catalog.assetFamilies.filter(
 					(family) => family.subjectIdentityId === identity.id
 				);
 
 				return (
-					<li
-						className="border-l-primary rounded-lg border border-l-2 p-5"
-						key={identity.id}
-					>
+					<section className="border-l-primary rounded-lg border border-l-2 p-5">
 						<p className="text-primary font-mono text-xs tracking-widest uppercase">
 							Subject Identity
 						</p>
@@ -83,10 +84,10 @@ export function AssetFamilyCatalogView({
 								))}
 							</ul>
 						)}
-					</li>
+					</section>
 				);
-			})}
-		</ul>
+			}}
+		/>
 	);
 }
 

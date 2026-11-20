@@ -12,8 +12,7 @@
     "test": "bun test src"
   },
   "dependencies": {
-    "@orpc/client": "catalog:",
-    "@orpc/openapi": "catalog:",
+    "@orpc/contract": "catalog:",
     "@orpc/server": "catalog:",
     "@orpc/zod": "catalog:",
     "@sprite-anvil/auth": "workspace:*",

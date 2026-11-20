@@ -10,12 +10,16 @@ export function useReferenceConstraintForm({
 }: {
 	defaultValues: ReferenceConstraintDraft;
 	hasCanonicalDesign: boolean;
-	onSubmit: (draft: ReferenceConstraintDraft) => Promise<void> | void;
+	onSubmit: (
+		draft: ReferenceConstraintDraft,
+		reset: (draft: ReferenceConstraintDraft) => void
+	) => Promise<void> | void;
 	onSubmitInvalid?: (draft: ReferenceConstraintDraft) => void;
 }) {
 	return useForm({
 		defaultValues,
-		onSubmit: ({ value }) => onSubmit(value),
+		onSubmit: ({ formApi, value }) =>
+			onSubmit(value, (draft) => formApi.reset(draft)),
 		onSubmitInvalid: ({ value }) => onSubmitInvalid?.(value),
 		validators: { onSubmit: referenceConstraintFormSchema(hasCanonicalDesign) },
 	});

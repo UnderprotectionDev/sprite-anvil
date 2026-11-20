@@ -9,10 +9,11 @@ import {
 } from "@sprite-anvil/ui/components/native-select";
 import { useForm } from "@tanstack/react-form";
 import type { SyntheticEvent } from "react";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { FieldErrors, fieldErrorAttributes } from "@/components/field-errors";
 import { StatusMessage } from "@/components/status-message";
 import { errorCodeOf } from "@/utils/error-code";
+import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { useCreateRuntimeValidationRecord } from "../../hooks/use-runtime-validation-writes";
 import { errorMessageOf } from "../../lib/runtime-validation-labels";
 import { runtimeValidationRecordFormSchema } from "../../schemas";
@@ -47,7 +48,10 @@ export function RuntimeValidationRecordForm({
 			(record.outcome === "fail" && record.failureSource !== "source_unknown")
 	);
 	const create = useCreateRuntimeValidationRecord();
-	const [failure, setFailure] = useState<string | null>(null);
+	const failure = create.isError
+		? (errorMessageOf(create.error) ??
+			"The Runtime Validation Record could not be saved. Try again.")
+		: null;
 	// The key makes a retry after an uncertain outcome idempotent; a server verdict ends it.
 	const idempotencyKey = useRef(crypto.randomUUID());
 
@@ -60,7 +64,6 @@ export function RuntimeValidationRecordForm({
 			supersedesRecordId: "",
 		},
 		onSubmit: async ({ value }) => {
-			setFailure(null);
 			try {
 				await create.mutateAsync({
 					adapterVersion: value.adapterVersion.trim() || null,
@@ -74,13 +77,9 @@ export function RuntimeValidationRecordForm({
 				idempotencyKey.current = crypto.randomUUID();
 				form.reset();
 			} catch (error) {
-				if (errorCodeOf(error)) {
+				if (errorCodeOf(error) && !isWriteOutcomeUncertain(error)) {
 					idempotencyKey.current = crypto.randomUUID();
 				}
-				setFailure(
-					errorMessageOf(error) ??
-						"The Runtime Validation Record could not be saved. Try again."
-				);
 			}
 		},
 		validators: { onSubmit: runtimeValidationRecordFormSchema },

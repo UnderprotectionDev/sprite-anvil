@@ -17,7 +17,7 @@ import { useState } from "react";
 import { StatusMessage } from "@/components/status-message";
 import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
-import { useIdempotencyKey } from "../../hooks/use-idempotency-key";
+import { usePendingIdempotencyKey } from "@/utils/pending-idempotency-key";
 import { useRefreshDelivery } from "../../hooks/use-refresh-delivery";
 import { useRefreshReview } from "../../hooks/use-refresh-review";
 import { directoryAttributes } from "../../lib/directory-attributes";
@@ -38,6 +38,7 @@ import { RefreshResultPanel } from "../components/refresh-result-panel";
 export function RefreshDeliveryForm({ projectId }: { projectId: string }) {
 	const [recordError, setRecordError] = useState<string | null>(null);
 	const refresh = useRefreshDelivery(projectId);
+	const pendingKey = usePendingIdempotencyKey();
 	const locks = useQuery({
 		...orpc.deliveryRefreshLocks.list.queryOptions({ input: { projectId } }),
 		...mutationMeta,
@@ -76,7 +77,18 @@ export function RefreshDeliveryForm({ projectId }: { projectId: string }) {
 				refresh.mutate({
 					bundleId: value.bundleId,
 					decisions: review.decisions,
-					idempotencyKey,
+					idempotencyKey: pendingKey.keyFor(
+						JSON.stringify([
+							projectId,
+							value.lockId,
+							value.bundleId,
+							value.target?.token,
+							value.updated.token,
+							review.decisions,
+							review.observation,
+							written,
+						])
+					),
 					observed: review.observation,
 					previousLockId: value.lockId,
 					projectId,
@@ -102,17 +114,9 @@ export function RefreshDeliveryForm({ projectId }: { projectId: string }) {
 		viewed: values.viewed,
 	});
 	const { bundle, classification, contract, decisions, lock, plan } = review;
-	const idempotencyKey = useIdempotencyKey(
-		JSON.stringify([
-			values.lockId,
-			values.bundleId,
-			values.target?.token,
-			values.updated?.token,
-			decisions,
-		])
-	);
 
 	function startOver() {
+		pendingKey.clear();
 		form.setFieldValue("decided", {});
 		form.setFieldValue("viewed", {});
 		setRecordError(null);

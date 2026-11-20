@@ -6,7 +6,6 @@ import type {
 import { externalVisualAnalysisCategories } from "@sprite-anvil/api/project-access-store";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
 
 import { orpc } from "@/utils/orpc";
 
@@ -57,35 +56,36 @@ export function ExternalVisualAnalysisConsent({
 			input: { projectId },
 		}),
 	});
-	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 	const permissions = permissionsQuery.data ?? [];
 	const providerPolicyVerified =
 		isExternalVisualAnalysisProviderPolicyVerified();
 	const grantPermissionMutation = useMutation(
 		orpc.projects.access.grantExternalVisualAnalysis.mutationOptions({
-			onSuccess: async (_permission, { category }) => {
-				setStatusMessage(
-					`${categoryDetails[category].label} analysis permission saved.`
-				);
+			onSuccess: async () => {
 				await permissionsQuery.refetch();
 			},
 		})
 	);
 	const revokePermissionMutation = useMutation(
 		orpc.projects.access.revokeExternalVisualAnalysis.mutationOptions({
-			onSuccess: async (_result, { permissionId }) => {
-				const revoked = permissions.find(
-					(permission) => permission.id === permissionId
-				);
-				setStatusMessage(
-					revoked
-						? `${categoryDetails[revoked.category].label} analysis permission revoked.`
-						: "Analysis permission revoked."
-				);
+			onSuccess: async () => {
 				await permissionsQuery.refetch();
 			},
 		})
 	);
+	let statusMessage: string | null = null;
+	if (grantPermissionMutation.isSuccess) {
+		const { label } =
+			categoryDetails[grantPermissionMutation.variables.category];
+		statusMessage = `${label} analysis permission saved.`;
+	} else if (revokePermissionMutation.isSuccess) {
+		const revoked = permissions.find(
+			({ id }) => id === revokePermissionMutation.variables.permissionId
+		);
+		statusMessage = revoked
+			? `${categoryDetails[revoked.category].label} analysis permission revoked.`
+			: "Analysis permission revoked.";
+	}
 	const isSaving =
 		grantPermissionMutation.isPending || revokePermissionMutation.isPending;
 	const revokingId = revokePermissionMutation.isPending
@@ -93,12 +93,12 @@ export function ExternalVisualAnalysisConsent({
 		: null;
 
 	function grantPermission(category: ExternalVisualAnalysisCategory) {
-		setStatusMessage(null);
+		revokePermissionMutation.reset();
 		grantPermissionMutation.mutate({ projectId, category });
 	}
 
 	function revokePermission(permission: ExternalVisualAnalysisPermission) {
-		setStatusMessage(null);
+		grantPermissionMutation.reset();
 		revokePermissionMutation.mutate({
 			projectId,
 			permissionId: permission.id,

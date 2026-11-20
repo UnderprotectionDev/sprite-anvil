@@ -1,6 +1,9 @@
 import { compareCodeUnits } from "@sprite-anvil/api/compare-code-units";
 import type { ErasureContainerRef } from "@sprite-anvil/api/permanent-erasure";
-import type { Database } from "@sprite-anvil/db";
+import type {
+	InteractiveDatabase,
+	InteractiveTransaction,
+} from "@sprite-anvil/db/interactive-database";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
 import { assetVersions } from "@sprite-anvil/db/schema/asset-versions";
 import {
@@ -19,8 +22,6 @@ import { and, eq, inArray } from "drizzle-orm";
 import type { FinalizeErasureInput } from "./erasure-deletion-storage";
 import { ErasureScopeChangedError } from "./erasure-deletion-storage";
 
-type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
-
 function sameIds(left: readonly string[], right: readonly string[]) {
 	return (
 		left.length === right.length &&
@@ -38,7 +39,10 @@ const idsOfKind = (
 		.map((container) => container.id);
 
 /** Locks the Asset Record's row, so a second delivery of the same job waits for the first one's write. */
-async function lockAssetRecord(tx: Transaction, input: FinalizeErasureInput) {
+async function lockAssetRecord(
+	tx: InteractiveTransaction,
+	input: FinalizeErasureInput
+) {
 	const [record] = await tx
 		.select({ availability: assetRecords.availability })
 		.from(assetRecords)
@@ -52,7 +56,10 @@ async function lockAssetRecord(tx: Transaction, input: FinalizeErasureInput) {
 	return record;
 }
 
-async function receiptExists(tx: Transaction, input: FinalizeErasureInput) {
+async function receiptExists(
+	tx: InteractiveTransaction,
+	input: FinalizeErasureInput
+) {
 	const [found] = await tx
 		.select({ id: deletionReceipts.id })
 		.from(deletionReceipts)
@@ -72,7 +79,7 @@ async function receiptExists(tx: Transaction, input: FinalizeErasureInput) {
  * proof named.
  */
 async function assertScopeStillHolds(
-	tx: Transaction,
+	tx: InteractiveTransaction,
 	input: FinalizeErasureInput,
 	record: { availability: string } | undefined
 ) {
@@ -136,7 +143,10 @@ async function assertScopeStillHolds(
 }
 
 /** Writes the receipt, the tombstones, the erased availability, the redacted names and the container removals. */
-async function writeErasure(tx: Transaction, input: FinalizeErasureInput) {
+async function writeErasure(
+	tx: InteractiveTransaction,
+	input: FinalizeErasureInput
+) {
 	await tx.insert(deletionReceipts).values({
 		backgroundOperationId: input.receipt.receipt.operationId,
 		contractVersion: input.receipt.receipt.contractVersion,
@@ -213,7 +223,7 @@ async function writeErasure(tx: Transaction, input: FinalizeErasureInput) {
  * proof throws `ErasureScopeChangedError` and nothing was written either.
  */
 export async function finalizeErasure(
-	db: Database,
+	db: InteractiveDatabase,
 	input: FinalizeErasureInput
 ): Promise<{ status: "existing" } | { status: "finalized" }> {
 	let alreadyFinalized = false;

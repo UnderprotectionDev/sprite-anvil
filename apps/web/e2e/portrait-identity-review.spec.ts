@@ -38,7 +38,7 @@ test("reviews portrait expressions in dialogue and rereads exact crop and user j
 		false
 	);
 	await page
-		.getByRole("button", {
+		.getByRole("tab", {
 			name: "Version and dependency operations",
 			exact: true,
 		})
@@ -65,7 +65,7 @@ test("reviews portrait expressions in dialogue and rereads exact crop and user j
 		page.getByText("Canonical Design selected.", { exact: true })
 	).toBeVisible();
 	await page
-		.getByRole("button", {
+		.getByRole("tab", {
 			name: "Family and representation relationships",
 			exact: true,
 		})
@@ -86,9 +86,7 @@ test("reviews portrait expressions in dialogue and rereads exact crop and user j
 		familyUrl,
 		"1.0.0"
 	);
-	await page
-		.getByRole("button", { name: "Profile reviews", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Profile reviews", exact: true }).click();
 	const review = page.getByRole("region", {
 		name: "Review Portrait Identity and Crop",
 	});
@@ -153,9 +151,7 @@ test("reviews portrait expressions in dialogue and rereads exact crop and user j
 		);
 	}
 	await page.reload();
-	await page
-		.getByRole("button", { name: "Profile reviews", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Profile reviews", exact: true }).click();
 	await expect(
 		review.getByText("Dialogue crop needs follow-up.", { exact: true })
 	).toBeVisible();

@@ -735,10 +735,12 @@ test("keeps layers, full drawing and skeleton animation out of the correction co
 	]);
 });
 
-test("rejects unauthenticated correction preparation", async () => {
+test("rejects unauthenticated correction preparation before validating input", async () => {
 	const { context, storedPackages } = createTestContext();
+	const input = createCorrectionInput();
+	input.correction.issueNote = "";
 	await expect(
-		call(appRouter.generationPackages.create, createCorrectionInput(), {
+		call(appRouter.generationPackages.create, input, {
 			context: { ...context, session: null } as unknown as Context,
 		})
 	).rejects.toMatchObject({ code: "UNAUTHORIZED" });

@@ -1,3 +1,4 @@
+import type { GenerationPackage } from "@sprite-anvil/api/generation-packages";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
@@ -6,11 +7,16 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { useForm } from "@tanstack/react-form";
-import type {
-	AnnotationEntry,
-	CorrectionAnnotation,
-} from "../../hooks/use-correction-annotations";
 import { correctionAnnotationFormSchema } from "../../schemas";
+
+type CorrectionAnnotation = NonNullable<
+	GenerationPackage["correction"]
+>["annotations"][number];
+
+export interface AnnotationEntry {
+	id: string;
+	mark: CorrectionAnnotation;
+}
 
 const kindLabels: Record<CorrectionAnnotation["kind"], string> = {
 	arrow: "Arrow",

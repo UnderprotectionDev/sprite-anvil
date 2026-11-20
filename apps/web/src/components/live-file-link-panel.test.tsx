@@ -1,7 +1,14 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+	cleanup,
+	render as renderInDom,
+	screen,
+	waitFor,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactElement } from "react";
 import { afterEach, expect, test, vi } from "vitest";
 import type { LiveFileLinkAdapter } from "@/components/live-file-link-panel";
 import { LiveFileLinkPanel } from "@/components/live-file-link-panel";
@@ -21,6 +28,12 @@ const changedStatusPattern = /The working file changed/u;
 afterEach(() => {
 	cleanup();
 });
+
+function render(component: ReactElement, queryClient = new QueryClient()) {
+	return renderInDom(
+		<QueryClientProvider client={queryClient}>{component}</QueryClientProvider>
+	);
+}
 
 function createMemoryStore(initial?: StoredLiveFileLink) {
 	const links = new Map<string, StoredLiveFileLink>();
@@ -215,6 +228,7 @@ test("a link stored earlier is restored on mount and watched without reconnectin
 		path: sourcePath,
 		size: sourceBytes.length,
 	});
+	const queryClient = new QueryClient();
 	render(
 		<LiveFileLinkPanel
 			adapter={adapter}
@@ -223,10 +237,14 @@ test("a link stored earlier is restored on mount and watched without reconnectin
 			linkStore={linkStore}
 			onImport={vi.fn().mockResolvedValue(true)}
 			projectId={projectId}
-		/>
+		/>,
+		queryClient
 	);
 
 	expect(await screen.findByText("Ash Knight.aseprite")).toBeTruthy();
+	expect(
+		queryClient.getQueryData(["live-file-link", projectId, assetRecordId])
+	).toEqual({ path: sourcePath, modifiedAt: 1000, size: sourceBytes.length });
 	expect(
 		screen.getByRole("button", {
 			name: "Refresh working file link",

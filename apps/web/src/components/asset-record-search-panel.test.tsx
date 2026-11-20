@@ -10,8 +10,11 @@ import {
 } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { QueryClientProvider } from "@tanstack/react-query";
+import type { ComponentProps } from "react";
+import { useState } from "react";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { AssetRecordSearchPanel } from "@/components/asset-record-search-panel";
+import type { AssetRecordSearchDraft } from "@/features/asset-discovery/schemas";
 import { createQueryClient } from "@/utils/query-client";
 
 const projectId = "project-discovery";
@@ -95,7 +98,10 @@ function renderPanel() {
 	queryClient.setDefaultOptions({ queries: { retry: false } });
 	render(
 		<QueryClientProvider client={queryClient}>
-			<AssetRecordSearchPanel onOpenRecord={vi.fn()} projectId={projectId} />
+			<AssetRecordSearchPanelFixture
+				onOpenRecord={vi.fn()}
+				projectId={projectId}
+			/>
 		</QueryClientProvider>
 	);
 }
@@ -284,7 +290,7 @@ test("bounds a long result list and opens a visible record", async () => {
 	const queryClient = createQueryClient();
 	render(
 		<QueryClientProvider client={queryClient}>
-			<AssetRecordSearchPanel
+			<AssetRecordSearchPanelFixture
 				onOpenRecord={onOpenRecord}
 				projectId={projectId}
 			/>
@@ -339,3 +345,23 @@ test("requests the next bounded page and resets to the first page when filters c
 		})
 	);
 });
+
+function AssetRecordSearchPanelFixture(
+	props: Omit<
+		ComponentProps<typeof AssetRecordSearchPanel>,
+		"filters" | "offset" | "onChangeSearch"
+	>
+) {
+	const [search, setSearch] = useState<{
+		filters?: AssetRecordSearchDraft;
+		offset: number;
+	}>({ offset: 0 });
+	return (
+		<AssetRecordSearchPanel
+			{...props}
+			filters={search.filters}
+			offset={search.offset}
+			onChangeSearch={(filters, offset) => setSearch({ filters, offset })}
+		/>
+	);
+}

@@ -1,3 +1,4 @@
+import { oc } from "@orpc/contract";
 import { z } from "zod";
 import type { AssetRecordTracking } from "./asset-record-tracking";
 import {
@@ -10,6 +11,7 @@ import type { AssetVersionCatalog } from "./asset-versions";
 import { unitVersionSchema } from "./asset-versions";
 import type { ProjectContextScopeCatalog } from "./context-scopes";
 import { themeRecordSchema, visualWorldRecordSchema } from "./context-scopes";
+import { internalServerErrorMap } from "./error-contract";
 import { pixelRectSchema } from "./pixel-editor";
 import type { ProjectContext } from "./project-context";
 import { projectContextSchema } from "./project-context";
@@ -223,6 +225,11 @@ export const generationPackageCreateInputSchema = z
 export const generationPackageListInputSchema = z
 	.object({ assetRecordId: idSchema, projectId: idSchema })
 	.strict();
+
+export const generationPackageCreateContract = oc
+	.errors(internalServerErrorMap)
+	.input(generationPackageCreateInputSchema)
+	.output(generationPackageSchema);
 
 export type GenerationPackageCorrectionInput = z.infer<
 	typeof generationPackageCorrectionInputSchema

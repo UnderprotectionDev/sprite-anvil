@@ -1,3 +1,5 @@
+import { assetVersionFixture } from "./asset-version-fixture";
+
 const hasAssetVersionStorage = [
 	"CLOUDFLARE_ACCOUNT_ID",
 	"R2_ACCESS_KEY_ID",
@@ -7,8 +9,7 @@ const hasAssetVersionStorage = [
 export function createAssetRecordFixture() {
 	const runId = crypto.randomUUID();
 	return {
-		assetVersionPngBase64:
-			"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/ZpUAAAAASUVORK5CYII=",
+		assetVersionPngBase64: assetVersionFixture.png.toString("base64"),
 		userName: "Asset Record E2E",
 		email: `asset-record-e2e-${runId}@example.test`,
 		password: "AssetRecordE2E-Password-1",
@@ -271,9 +272,22 @@ export const assetRecordMeasurementScenarios = [
 	inputs: readonly AssetRecordMeasurementInput[];
 }[];
 
-export const assetVersionE2eEnabled = Boolean(
-	process.env.CONTEXT_TEST_DATABASE_URL &&
-		process.env.ASSET_RECORDS_E2E_VERSION_STORAGE === "1" &&
-		process.env.CONTEXT_TEST_R2_BUCKET &&
-		hasAssetVersionStorage
-);
+const testDatabaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
+const useExternalApi = process.env.E2E_EXTERNAL_API_SERVER === "true";
+// The Playwright-managed server accepts only isolated loopback databases and uses in-memory objects.
+const useLocalObjectStorage =
+	!useExternalApi &&
+	process.env.CONTEXT_TEST_R2_MODE === "memory" &&
+	testDatabaseUrl !== undefined &&
+	URL.canParse(testDatabaseUrl) &&
+	new URL(testDatabaseUrl).hostname === "127.0.0.1";
+
+export const assetVersionE2eEnabled =
+	useLocalObjectStorage ||
+	Boolean(
+		testDatabaseUrl &&
+			useExternalApi &&
+			process.env.ASSET_RECORDS_E2E_VERSION_STORAGE === "1" &&
+			process.env.CONTEXT_TEST_R2_BUCKET &&
+			hasAssetVersionStorage
+	);

@@ -59,9 +59,31 @@ export function useCollectionsManager(projectId: string) {
 	const [selectedCollectionId, setSelectedCollectionId] = useState<
 		string | null
 	>(null);
-	const [savingOperation, setSavingOperation] = useState<string | null>(null);
 	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
-	const [isCheckingOutcome, setIsCheckingOutcome] = useState(false);
+	const verify = useMutation({
+		...mutationMeta,
+		mutationFn: () =>
+			queryClient.invalidateQueries(
+				{ queryKey: catalogKey },
+				{ throwOnError: true }
+			),
+	});
+	const write = useMutation({
+		...mutationMeta,
+		mutationFn: async ({
+			execute,
+		}: {
+			operation: string;
+			execute: () => Promise<unknown>;
+		}) => {
+			await execute();
+			await queryClient.invalidateQueries(
+				{ queryKey: catalogKey },
+				{ throwOnError: true }
+			);
+		},
+	});
+	const savingOperation = write.isPending ? write.variables.operation : null;
 	const [statusMessage, setStatusMessage] = useState<string | null>(null);
 	const project = projectsQuery.data?.find((item) => item.id === projectId);
 	const catalog = catalogQuery.data;
@@ -99,14 +121,9 @@ export function useCollectionsManager(projectId: string) {
 		if (writesDisabled) {
 			return;
 		}
-		setSavingOperation(operation);
 		setStatusMessage(null);
 		try {
-			await action();
-			await queryClient.invalidateQueries(
-				{ queryKey: catalogKey },
-				{ throwOnError: true }
-			);
+			await write.mutateAsync({ operation, execute: action });
 			setStatusMessage(successMessage);
 		} catch (error) {
 			if (isWriteOutcomeUncertain(error)) {
@@ -118,8 +135,6 @@ export function useCollectionsManager(projectId: string) {
 					"Could not verify the result. Check the Collection list."
 				)
 			);
-		} finally {
-			setSavingOperation(null);
 		}
 	}
 
@@ -177,21 +192,13 @@ export function useCollectionsManager(projectId: string) {
 	}
 
 	async function checkWriteOutcome() {
-		setIsCheckingOutcome(true);
 		try {
-			try {
-				await queryClient.invalidateQueries(
-					{ queryKey: catalogKey },
-					{ throwOnError: true }
-				);
-			} catch {
-				return;
-			}
-			setWriteOutcomeUncertain(false);
-			setStatusMessage("Collections refreshed. Check the list for the result.");
-		} finally {
-			setIsCheckingOutcome(false);
+			await verify.mutateAsync();
+		} catch {
+			return;
 		}
+		setWriteOutcomeUncertain(false);
+		setStatusMessage("Collections refreshed. Check the list for the result.");
 	}
 
 	function selectCollection(collectionId: string) {
@@ -209,7 +216,7 @@ export function useCollectionsManager(projectId: string) {
 		checkWriteOutcome,
 		collectionForm,
 		collections,
-		isCheckingOutcome,
+		isCheckingOutcome: verify.isPending,
 		membershipForm,
 		memberships,
 		project,

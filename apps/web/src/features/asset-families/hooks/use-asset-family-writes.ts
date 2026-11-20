@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { getErrorMessage } from "@/utils/get-error-message";
+import { mutationMeta } from "@/utils/mutation-meta";
 
 interface RefreshCatalogResult {
 	isError: boolean;
@@ -10,10 +11,36 @@ interface RefreshCatalogResult {
 export function useAssetFamilyWrites(
 	refreshCatalog: () => Promise<RefreshCatalogResult>
 ) {
-	const [savingOperation, setSavingOperation] = useState<string | null>(null);
-	const [writeOutcomeUncertain, setWriteOutcomeUncertain] = useState(false);
-	const [isCheckingOutcome, setIsCheckingOutcome] = useState(false);
-	const [statusMessage, setStatusMessage] = useState<string | null>(null);
+	const write = useMutation({
+		...mutationMeta,
+		mutationFn: async ({
+			execute,
+		}: {
+			operation: string;
+			execute: () => Promise<void>;
+			successMessage: string;
+		}) => {
+			await execute();
+			return refreshCatalog();
+		},
+	});
+	const verify = useMutation({
+		...mutationMeta,
+		mutationFn: refreshCatalog,
+	});
+	const savingOperation = write.isPending ? write.variables.operation : null;
+	const writeOutcomeUncertain =
+		write.data?.isError === true ||
+		(write.isError && isWriteOutcomeUncertain(write.error));
+	let statusMessage: string | null = null;
+	if (verify.isSuccess && !verify.data.isError) {
+		statusMessage =
+			"Asset Family list refreshed. Check your records for the result.";
+	} else if (write.isSuccess) {
+		statusMessage = write.data.isError
+			? "The write completed. Check the Asset Family list before continuing."
+			: write.variables.successMessage;
+	}
 
 	async function save<T>(
 		operation: string,
@@ -24,47 +51,34 @@ export function useAssetFamilyWrites(
 		if (writeOutcomeUncertain) {
 			return;
 		}
-		setStatusMessage(null);
-		setSavingOperation(operation);
+		verify.reset();
 		try {
-			const record = await action();
-			onSuccess(record);
-			await refreshCatalog();
-			setStatusMessage(successMessage);
+			await write.mutateAsync({
+				operation,
+				execute: async () => onSuccess(await action()),
+				successMessage,
+			});
 		} catch (error) {
-			if (isWriteOutcomeUncertain(error)) {
-				setWriteOutcomeUncertain(true);
-			}
 			toast.error(
 				getErrorMessage(
 					error,
 					"Could not verify the result. Check the Asset Family list."
 				)
 			);
-		} finally {
-			setSavingOperation(null);
 		}
 	}
 
 	async function checkWriteOutcome() {
-		setIsCheckingOutcome(true);
-		try {
-			const result = await refreshCatalog();
-			if (result.isError) {
-				return;
-			}
-			setWriteOutcomeUncertain(false);
-			setStatusMessage(
-				"Asset Family list refreshed. Check your records for the result."
-			);
-		} finally {
-			setIsCheckingOutcome(false);
+		const result = await verify.mutateAsync().catch(() => undefined);
+		if (!result || result.isError) {
+			return;
 		}
+		write.reset();
 	}
 
 	return {
 		checkWriteOutcome,
-		isCheckingOutcome,
+		isCheckingOutcome: verify.isPending,
 		save,
 		savingOperation,
 		statusMessage,

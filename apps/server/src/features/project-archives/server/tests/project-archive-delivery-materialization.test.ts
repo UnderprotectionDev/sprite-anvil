@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import type { Database } from "@sprite-anvil/db";
+import type { InteractiveTransaction } from "@sprite-anvil/db/interactive-database";
 import { getTableName } from "drizzle-orm";
 import { insertArchiveDelivery } from "../project-archive-delivery-materialization";
 import type { StoredProjectArchiveRestoreRecord } from "../project-archive-restore-storage";
 
-type Tx = Parameters<Parameters<Database["transaction"]>[0]>[0];
+type Tx = InteractiveTransaction;
 
 test("materializes an Export Profile under the independent project", async () => {
 	const record: StoredProjectArchiveRestoreRecord = {

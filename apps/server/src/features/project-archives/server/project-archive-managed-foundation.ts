@@ -1,5 +1,5 @@
 import type { FoundationRecords } from "@sprite-anvil/api/project-archives";
-import type { Database } from "@sprite-anvil/db";
+import type { InteractiveTransaction } from "@sprite-anvil/db/interactive-database";
 import { managedSnapshots } from "@sprite-anvil/db/schema/asset-production-history";
 import { importInboxEntries } from "@sprite-anvil/db/schema/import-inbox";
 import {
@@ -8,7 +8,7 @@ import {
 } from "@sprite-anvil/db/schema/reference-production";
 import type { StoredProjectArchiveRestoreRecord } from "./project-archive-restore-storage";
 
-type Tx = Parameters<Parameters<Database["transaction"]>[0]>[0];
+type Tx = InteractiveTransaction;
 function chunks<T>(records: T[]) {
 	const result: T[][] = [];
 	for (let index = 0; index < records.length; index += 500) {

@@ -7,6 +7,8 @@ import {
 import type { ErasureImpactSource } from "@sprite-anvil/api/permanent-erasure-scope";
 import { buildErasureImpactScope } from "@sprite-anvil/api/permanent-erasure-scope";
 import { createDb } from "@sprite-anvil/db";
+import type { InteractiveDatabase } from "@sprite-anvil/db/interactive-database";
+import { createInteractiveDatabase } from "@sprite-anvil/db/interactive-database";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
 import { assetVersions } from "@sprite-anvil/db/schema/asset-versions";
 import { user } from "@sprite-anvil/db/schema/auth";
@@ -191,6 +193,7 @@ async function seed(db: TestDatabase, userId: string): Promise<Seeded> {
 async function withSeededProject(
 	body: (setup: {
 		db: TestDatabase;
+		interactiveDb: InteractiveDatabase;
 		seeded: Seeded;
 		userId: string;
 	}) => Promise<void>
@@ -199,6 +202,9 @@ async function withSeededProject(
 		throw new Error("CONTEXT_TEST_DATABASE_URL is required for this test.");
 	}
 	const db = createTestDb(databaseUrl);
+	const interactiveDb = createInteractiveDatabase({
+		DATABASE_URL: databaseUrl,
+	});
 	const userId = crypto.randomUUID();
 	let seeded: Seeded | null = null;
 	try {
@@ -208,8 +214,9 @@ async function withSeededProject(
 			name: "Erasure Deletion Integration Test",
 		});
 		seeded = await seed(db, userId);
-		await body({ db, seeded, userId });
+		await body({ db, interactiveDb, seeded, userId });
 	} finally {
+		await interactiveDb.$client.close();
 		if (seeded) {
 			await db
 				.delete(assetVersions)
@@ -345,8 +352,8 @@ async function nothingWasWritten(db: TestDatabase, seeded: Seeded) {
 test.skipIf(!databaseUrl)(
 	"finalize writes the receipt, tombstones, erased availability and redacted name, and removes the selected whole containers with their files",
 	async () => {
-		await withSeededProject(async ({ db, seeded, userId }) => {
-			const storage = createDatabaseErasureDeletionStorage(db);
+		await withSeededProject(async ({ db, interactiveDb, seeded, userId }) => {
+			const storage = createDatabaseErasureDeletionStorage(db, interactiveDb);
 			const input = await finalizeInputOf(seeded, userId);
 
 			expect(await storage.finalize(input)).toEqual({ status: "finalized" });
@@ -419,8 +426,8 @@ test.skipIf(!databaseUrl)(
 test.skipIf(!databaseUrl)(
 	"a container left out of the selection keeps all its rows",
 	async () => {
-		await withSeededProject(async ({ db, seeded, userId }) => {
-			const storage = createDatabaseErasureDeletionStorage(db);
+		await withSeededProject(async ({ db, interactiveDb, seeded, userId }) => {
+			const storage = createDatabaseErasureDeletionStorage(db, interactiveDb);
 			const input = await finalizeInputOf(seeded, userId);
 
 			await storage.finalize({
@@ -441,14 +448,19 @@ test.skipIf(!databaseUrl)(
 );
 
 test.skipIf(!databaseUrl)(
-	"finalizing the same approval again reports the existing receipt and writes nothing twice",
+	"concurrent finalization of the same approval writes one receipt",
 	async () => {
-		await withSeededProject(async ({ db, seeded, userId }) => {
-			const storage = createDatabaseErasureDeletionStorage(db);
+		await withSeededProject(async ({ db, interactiveDb, seeded, userId }) => {
+			const storage = createDatabaseErasureDeletionStorage(db, interactiveDb);
 			const input = await finalizeInputOf(seeded, userId);
-			await storage.finalize(input);
-
-			expect(await storage.finalize(input)).toEqual({ status: "existing" });
+			const results = await Promise.all([
+				storage.finalize(input),
+				storage.finalize(input),
+			]);
+			expect(results.map(({ status }) => status).sort()).toEqual([
+				"existing",
+				"finalized",
+			]);
 
 			expect(
 				await db
@@ -469,8 +481,8 @@ test.skipIf(!databaseUrl)(
 test.skipIf(!databaseUrl)(
 	"a unique violation that is not an existing receipt is thrown, not reported as existing, and rolls everything back",
 	async () => {
-		await withSeededProject(async ({ db, seeded, userId }) => {
-			const storage = createDatabaseErasureDeletionStorage(db);
+		await withSeededProject(async ({ db, interactiveDb, seeded, userId }) => {
+			const storage = createDatabaseErasureDeletionStorage(db, interactiveDb);
 			const input = await finalizeInputOf(seeded, userId);
 			// A tombstone already stands for the version, but no receipt exists for this approval.
 			await db.insert(erasureTombstones).values({
@@ -500,8 +512,8 @@ test.skipIf(!databaseUrl)(
 test.skipIf(!databaseUrl)(
 	"a container that embeds the asset after the scope was proven fails the finalize and writes nothing",
 	async () => {
-		await withSeededProject(async ({ db, seeded, userId }) => {
-			const storage = createDatabaseErasureDeletionStorage(db);
+		await withSeededProject(async ({ db, interactiveDb, seeded, userId }) => {
+			const storage = createDatabaseErasureDeletionStorage(db, interactiveDb);
 			const input = await finalizeInputOf(seeded, userId);
 			// A bundle made after the proof, while objects were being removed.
 			await db.insert(exportBundleFiles).values({
@@ -524,8 +536,8 @@ test.skipIf(!databaseUrl)(
 test.skipIf(!databaseUrl)(
 	"a version that appears after the scope was proven fails the finalize and writes nothing",
 	async () => {
-		await withSeededProject(async ({ db, seeded, userId }) => {
-			const storage = createDatabaseErasureDeletionStorage(db);
+		await withSeededProject(async ({ db, interactiveDb, seeded, userId }) => {
+			const storage = createDatabaseErasureDeletionStorage(db, interactiveDb);
 			const input = await finalizeInputOf(seeded, userId);
 			await db.insert(assetVersions).values({
 				assetRecordId: seeded.assetRecordId,
@@ -552,8 +564,8 @@ test.skipIf(!databaseUrl)(
 test.skipIf(!databaseUrl)(
 	"an Asset Record erased or missing at finalize time gets no receipt",
 	async () => {
-		await withSeededProject(async ({ db, seeded, userId }) => {
-			const storage = createDatabaseErasureDeletionStorage(db);
+		await withSeededProject(async ({ db, interactiveDb, seeded, userId }) => {
+			const storage = createDatabaseErasureDeletionStorage(db, interactiveDb);
 			const input = await finalizeInputOf(seeded, userId);
 			await db
 				.update(assetRecords)
@@ -578,8 +590,8 @@ test.skipIf(!databaseUrl)(
 test.skipIf(!databaseUrl)(
 	"the removal start is recorded once, per approval, and read back",
 	async () => {
-		await withSeededProject(async ({ db, seeded }) => {
-			const storage = createDatabaseErasureDeletionStorage(db);
+		await withSeededProject(async ({ db, interactiveDb, seeded }) => {
+			const storage = createDatabaseErasureDeletionStorage(db, interactiveDb);
 			const approvalId = crypto.randomUUID();
 			expect(await storage.removalStarted(seeded.projectId, approvalId)).toBe(
 				false
@@ -616,8 +628,8 @@ test.skipIf(!databaseUrl)(
 test.skipIf(!databaseUrl)(
 	"approvals are inserted once: a repeated id returns the first row",
 	async () => {
-		await withSeededProject(async ({ seeded, userId, db }) => {
-			const storage = createDatabaseErasureDeletionStorage(db);
+		await withSeededProject(async ({ seeded, userId, db, interactiveDb }) => {
+			const storage = createDatabaseErasureDeletionStorage(db, interactiveDb);
 			const row = {
 				approvedByUserId: userId,
 				confirmed: {
@@ -653,8 +665,8 @@ test.skipIf(!databaseUrl)(
 test.skipIf(!databaseUrl)(
 	"object keys: the managed copies, and only the included archive files that hold the erased versions",
 	async () => {
-		await withSeededProject(async ({ db, seeded }) => {
-			const storage = createDatabaseErasureDeletionStorage(db);
+		await withSeededProject(async ({ db, interactiveDb, seeded }) => {
+			const storage = createDatabaseErasureDeletionStorage(db, interactiveDb);
 
 			expect(
 				await storage.objectKeys(seeded.projectId, [seeded.versionId])

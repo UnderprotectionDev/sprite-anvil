@@ -1,11 +1,14 @@
+import { oc, type as outputType } from "@orpc/contract";
 import { z } from "zod";
 import type { ProjectContextScopeCatalog } from "./context-scopes";
+import { internalServerErrorMap } from "./error-contract";
 import {
 	productionExperimentComparedInputs,
 	productionExperimentOutcomes,
 	productionExperimentSeparabilities,
 	productionExperimentTrialSchema,
 } from "./production-experiment-trials";
+import type { ProjectRecord } from "./project-access-store";
 import { idempotencyKeySchema } from "./record-publication";
 
 const identifierSchema = z
@@ -220,12 +223,24 @@ export const projectContextSchema = z
 	})
 	.strict();
 
+export const projectNameMaxLength = 120;
+export const projectArtDirectionMaxLength = 1000;
+
 export const projectContextCreateInputSchema = z
 	.object({
-		name: z.string().trim().min(1).max(120),
-		generalArtDirection: z.string().trim().min(1).max(1000),
+		name: z.string().trim().min(1).max(projectNameMaxLength),
+		generalArtDirection: z
+			.string()
+			.trim()
+			.min(1)
+			.max(projectArtDirectionMaxLength),
 	})
 	.strict();
+
+export const projectCreateContract = oc
+	.errors(internalServerErrorMap)
+	.input(projectContextCreateInputSchema)
+	.output(outputType<ProjectRecord>());
 
 const evidenceSchema = z
 	.object({

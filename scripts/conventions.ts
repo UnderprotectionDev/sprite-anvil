@@ -53,7 +53,11 @@ export const techStackDocument = "docs/tech-stack.md";
 export const baselinePath = "scripts/conventions-baseline.json";
 
 export const stackChecks = new Set([
+	"route-react-state",
+	"deprecated-query-fetch",
 	"form-state",
+	"hono-json-helper",
+	"orpc-mutation-options",
 	"raw-control",
 	"raw-fetch",
 	"raw-indexeddb",
@@ -823,6 +827,147 @@ function checkBrowserApis(
 	});
 }
 
+function localTypeChecker(ast: ts.SourceFile) {
+	// Only local bindings matter. No workspace dependency or library resolution is needed.
+	const options = { noLib: true, noResolve: true };
+	const host = ts.createCompilerHost(options);
+	host.getSourceFile = (file) => (file === ast.fileName ? ast : undefined);
+	return ts.createProgram([ast.fileName], options, host).getTypeChecker();
+}
+
+function checkDeprecatedQueryFetch(
+	context: Context,
+	path: string,
+	ast: ts.SourceFile
+): void {
+	const receivers: ts.Identifier[] = [];
+	visit(ast, (node) => {
+		if (
+			ts.isCallExpression(node) &&
+			ts.isPropertyAccessExpression(node.expression) &&
+			node.expression.name.text === "fetchQuery" &&
+			ts.isIdentifier(node.expression.expression)
+		) {
+			receivers.push(node.expression.expression);
+		}
+	});
+	if (!receivers.length) {
+		return;
+	}
+
+	const checker = localTypeChecker(ast);
+	for (const receiver of receivers) {
+		const declaration = checker.getSymbolAtLocation(receiver)?.valueDeclaration;
+		const initializer =
+			declaration && ts.isVariableDeclaration(declaration)
+				? declaration.initializer
+				: undefined;
+		if (
+			!(
+				initializer &&
+				(ts.isCallExpression(initializer) || ts.isNewExpression(initializer))
+			)
+		) {
+			continue;
+		}
+		const imported = checker.getSymbolAtLocation(initializer.expression)
+			?.declarations?.[0];
+		if (!(imported && ts.isImportSpecifier(imported))) {
+			continue;
+		}
+		const module = imported.parent.parent.parent.moduleSpecifier;
+		const name = (imported.propertyName ?? imported.name).text;
+		if (
+			ts.isStringLiteral(module) &&
+			module.text === "@tanstack/react-query" &&
+			name ===
+				(ts.isNewExpression(initializer) ? "QueryClient" : "useQueryClient")
+		) {
+			context.report({
+				check: "deprecated-query-fetch",
+				detail: "QueryClient.fetchQuery",
+				line: lineOf(ast, receiver),
+				path,
+			});
+		}
+	}
+}
+
+const reactStateHooks = new Set(["useState", "useReducer"]);
+const reactStateHookName = /\buse(?:State|Reducer)\b/u;
+
+function reactStateHook(
+	callee: ts.Expression,
+	checker: ts.TypeChecker
+): string | undefined {
+	if (ts.isIdentifier(callee)) {
+		const binding = checker.getSymbolAtLocation(callee)?.declarations?.[0];
+		if (binding && ts.isImportSpecifier(binding)) {
+			const origin = binding.parent.parent.parent.moduleSpecifier;
+			if (ts.isStringLiteral(origin) && origin.text === "react") {
+				return (binding.propertyName ?? binding.name).text;
+			}
+		}
+		return;
+	}
+	if (
+		!(
+			ts.isPropertyAccessExpression(callee) &&
+			ts.isIdentifier(callee.expression)
+		)
+	) {
+		return;
+	}
+	const binding = checker.getSymbolAtLocation(callee.expression)
+		?.declarations?.[0];
+	const origin = namespaceImportOrigin(binding);
+	if (origin && ts.isStringLiteral(origin) && origin.text === "react") {
+		return callee.name.text;
+	}
+}
+
+function namespaceImportOrigin(binding: ts.Declaration | undefined) {
+	if (!binding) {
+		return;
+	}
+	if (ts.isNamespaceImport(binding)) {
+		return binding.parent.parent.moduleSpecifier;
+	}
+	if (ts.isImportClause(binding)) {
+		return binding.parent.moduleSpecifier;
+	}
+}
+
+function checkRouteReactState(
+	context: Context,
+	path: string,
+	ast: ts.SourceFile
+) {
+	if (
+		!(
+			path.startsWith(`${webSource}/routes/`) &&
+			reactStateHookName.test(ast.text)
+		)
+	) {
+		return;
+	}
+	const checker = localTypeChecker(ast);
+	visit(ast, (node) => {
+		if (!ts.isCallExpression(node)) {
+			return;
+		}
+		const name = reactStateHook(node.expression, checker);
+		if (name && reactStateHooks.has(name)) {
+			context.report({
+				check: "route-react-state",
+				detail: `React.${name}`,
+				line: lineOf(ast, node),
+				path,
+			});
+		}
+	});
+}
+
 function checkWebSource(context: Context): void {
 	for (const path of context.files) {
 		if (
@@ -835,7 +980,175 @@ function checkWebSource(context: Context): void {
 		checkFormState(path, ast, context.report);
 		checkRawControls(context, path, ast);
 		checkBrowserApis(context, path, ast);
+		checkDeprecatedQueryFetch(context, path, ast);
+		checkRouteReactState(context, path, ast);
+		checkHonoJsonImports(context, path, ast);
+		checkOrpcMutationOptions(context, path, ast);
 	}
+}
+
+const honoJsonHelpers = new Set(["honoGetJson", "honoPostJson"]);
+
+function checkHonoJsonImports(
+	context: Context,
+	path: string,
+	ast: ts.SourceFile
+) {
+	for (const statement of ast.statements) {
+		if (
+			!(
+				ts.isImportDeclaration(statement) &&
+				ts.isStringLiteral(statement.moduleSpecifier)
+			) ||
+			statement.moduleSpecifier.text !== "@/utils/hono-api"
+		) {
+			continue;
+		}
+		const bindings = statement.importClause?.namedBindings;
+		if (!(bindings && ts.isNamedImports(bindings))) {
+			continue;
+		}
+		for (const binding of bindings.elements) {
+			const name = (binding.propertyName ?? binding.name).text;
+			if (honoJsonHelpers.has(name)) {
+				context.report({
+					check: "hono-json-helper",
+					detail: name,
+					line: lineOf(ast, binding),
+					path,
+				});
+			}
+		}
+	}
+}
+
+function isNamedImport(
+	checker: ts.TypeChecker,
+	expression: ts.Expression,
+	module: string,
+	name: string
+) {
+	const binding = checker.getSymbolAtLocation(expression)?.declarations?.[0];
+	if (!(binding && ts.isImportSpecifier(binding))) {
+		return false;
+	}
+	const origin = binding.parent.parent.parent.moduleSpecifier;
+	return (
+		ts.isStringLiteral(origin) &&
+		origin.text === module &&
+		(binding.propertyName ?? binding.name).text === name
+	);
+}
+
+function forwardedMutationCall(
+	callback: ts.Expression
+): ts.CallExpression | undefined {
+	if (!(ts.isArrowFunction(callback) || ts.isFunctionExpression(callback))) {
+		return;
+	}
+	const [parameter] = callback.parameters;
+	if (
+		callback.parameters.length !== 1 ||
+		!parameter ||
+		parameter.initializer ||
+		parameter.dotDotDotToken ||
+		!ts.isIdentifier(parameter.name)
+	) {
+		return;
+	}
+	let body: ts.Expression | undefined;
+	const { body: functionBody } = callback;
+	if (ts.isBlock(functionBody)) {
+		const [statement] = functionBody.statements;
+		if (
+			functionBody.statements.length !== 1 ||
+			!statement ||
+			!ts.isReturnStatement(statement)
+		) {
+			return;
+		}
+		body = statement.expression;
+	} else {
+		body = functionBody;
+	}
+	if (body && ts.isAwaitExpression(body)) {
+		body = body.expression;
+	}
+	if (!(body && ts.isCallExpression(body))) {
+		return;
+	}
+	const [argument] = body.arguments;
+	if (
+		body.arguments.length === 1 &&
+		argument &&
+		ts.isIdentifier(argument) &&
+		argument.text === parameter.name.text
+	) {
+		return body;
+	}
+}
+
+function checkOrpcMutationOptions(
+	context: Context,
+	path: string,
+	ast: ts.SourceFile
+) {
+	if (!(ast.text.includes("mutationFn") && ast.text.includes("@/utils/orpc"))) {
+		return;
+	}
+	const checker = localTypeChecker(ast);
+	visit(ast, (node) => {
+		if (
+			!(
+				ts.isCallExpression(node) &&
+				isNamedImport(
+					checker,
+					node.expression,
+					"@tanstack/react-query",
+					"useMutation"
+				)
+			)
+		) {
+			return;
+		}
+		const [options] = node.arguments;
+		if (!(options && ts.isObjectLiteralExpression(options))) {
+			return;
+		}
+		const callback = options.properties.find(
+			(property) =>
+				ts.isPropertyAssignment(property) &&
+				(ts.isIdentifier(property.name) || ts.isStringLiteral(property.name)) &&
+				property.name.text === "mutationFn"
+		);
+		const write =
+			callback && ts.isPropertyAssignment(callback)
+				? forwardedMutationCall(callback.initializer)
+				: undefined;
+		if (!write) {
+			return;
+		}
+		const procedure: string[] = [];
+		let receiver = write.expression;
+		for (
+			;
+			ts.isPropertyAccessExpression(receiver);
+			receiver = receiver.expression
+		) {
+			procedure.unshift(receiver.name.text);
+		}
+		if (
+			procedure.length > 0 &&
+			isNamedImport(checker, receiver, "@/utils/orpc", "client")
+		) {
+			context.report({
+				check: "orpc-mutation-options",
+				detail: procedure.join("."),
+				line: lineOf(ast, write),
+				path,
+			});
+		}
+	});
 }
 
 // --- Exceptions -------------------------------------------------------------
@@ -913,7 +1226,19 @@ const checkRunners: [string[], (context: Context) => void][] = [
 	[["barrel"], checkBarrels],
 	[["feature-import", "web-server-import"], checkImports],
 	[["server-test-placement"], checkServerTests],
-	[["form-state", "raw-control", "raw-fetch", "raw-indexeddb"], checkWebSource],
+	[
+		[
+			"deprecated-query-fetch",
+			"form-state",
+			"hono-json-helper",
+			"orpc-mutation-options",
+			"raw-control",
+			"raw-fetch",
+			"raw-indexeddb",
+			"route-react-state",
+		],
+		checkWebSource,
+	],
 ];
 
 export function collectViolations(

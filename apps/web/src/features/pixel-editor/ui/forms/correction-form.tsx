@@ -1,4 +1,5 @@
-import type { GenerationPackage } from "@sprite-anvil/api/generation-packages";
+import { requireContractInput } from "@sprite-anvil/api/contract-input";
+import { generationPackageCreateContract } from "@sprite-anvil/api/generation-packages";
 import type { PixelDraft, PixelRect } from "@sprite-anvil/api/pixel-editor";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Checkbox } from "@sprite-anvil/ui/components/checkbox";
@@ -10,16 +11,23 @@ import {
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm } from "@tanstack/react-form";
-import { useState } from "react";
 import { StatusMessage } from "@/components/status-message";
-import { useCorrectionAnnotations } from "../../hooks/use-correction-annotations";
 import { usePrepareCorrection } from "../../hooks/use-prepare-correction";
 import {
+	buildCorrectionPackageInput,
 	defaultExpectedOutputStructure,
 	defaultPreserveConstraint,
 } from "../../lib/correction-package";
-import { correctionFormSchema } from "../../schemas";
+import type { AnnotationEntry } from "./annotation-editor";
 import { AnnotationEditor } from "./annotation-editor";
+
+const wholeNumberPattern = /^\d+$/u;
+const correctionInput = requireContractInput(generationPackageCreateContract);
+
+function readCoordinate(value: string) {
+	const text = value.trim();
+	return wholeNumberPattern.test(text) ? Number(text) : Number.NaN;
+}
 
 const regionFields = [
 	["regionX", "Left (x)"],
@@ -71,50 +79,66 @@ export function CorrectionForm({
 	projectId: string;
 	selection: PixelRect | null;
 }) {
-	const annotations = useCorrectionAnnotations();
-	const [prepared, setPrepared] = useState<GenerationPackage | null>(null);
 	const { keptUnitIds, prepare, units } = usePrepareCorrection(
 		projectId,
 		draft
 	);
+	const prepared = prepare.data;
+	const defaultValues = {
+		annotations: [] as AnnotationEntry[],
+		issueNote: "",
+		regionX: String(selection?.x ?? 0),
+		regionY: String(selection?.y ?? 0),
+		regionWidth: String(selection?.width ?? draft.size.width),
+		regionHeight: String(selection?.height ?? draft.size.height),
+		targetUnitVersionId: "",
+		preservedUnitVersionIds: null as string[] | null,
+		targetTask: "",
+		changeInstruction: "",
+		expectedOutputStructure: "",
+		preserveConstraints: "",
+		avoidConstraints: "",
+	};
+	const toRequest = (value: typeof defaultValues) =>
+		buildCorrectionPackageInput(draft, projectId, {
+			annotations: value.annotations.map(({ mark }) => mark),
+			avoidConstraints: value.avoidConstraints,
+			changeInstruction: value.changeInstruction,
+			expectedOutputStructure: value.expectedOutputStructure,
+			issueNote: value.issueNote.trim(),
+			preserveConstraints: value.preserveConstraints,
+			preservedUnitVersionIds: value.preservedUnitVersionIds ?? keptUnitIds,
+			redrawRegion: {
+				x: readCoordinate(value.regionX),
+				y: readCoordinate(value.regionY),
+				width: readCoordinate(value.regionWidth),
+				height: readCoordinate(value.regionHeight),
+			},
+			targetTask: value.targetTask,
+			targetUnitVersionId: value.targetUnitVersionId || null,
+		});
 	const form = useForm({
-		defaultValues: {
-			issueNote: "",
-			regionX: String(selection?.x ?? 0),
-			regionY: String(selection?.y ?? 0),
-			regionWidth: String(selection?.width ?? draft.size.width),
-			regionHeight: String(selection?.height ?? draft.size.height),
-			targetUnitVersionId: "",
-			preservedUnitVersionIds: null as string[] | null,
-			targetTask: "",
-			changeInstruction: "",
-			expectedOutputStructure: "",
-			preserveConstraints: "",
-			avoidConstraints: "",
-		},
-		validators: { onSubmit: correctionFormSchema },
-		onSubmit: async ({ value }) => {
-			const v = correctionFormSchema.parse(value);
-			try {
-				setPrepared(
-					await prepare.mutateAsync({
-						annotations: annotations.marks,
-						avoidConstraints: v.avoidConstraints,
-						changeInstruction: v.changeInstruction,
-						expectedOutputStructure: v.expectedOutputStructure,
-						issueNote: v.issueNote,
-						preserveConstraints: v.preserveConstraints,
-						preservedUnitVersionIds: v.preservedUnitVersionIds ?? keptUnitIds,
-						redrawRegion: {
-							x: v.regionX,
-							y: v.regionY,
-							width: v.regionWidth,
-							height: v.regionHeight,
-						},
-						targetTask: v.targetTask,
-						targetUnitVersionId: v.targetUnitVersionId || null,
-					})
+		defaultValues,
+		validators: {
+			onSubmitAsync: async ({ value }) => {
+				const result = await correctionInput["~standard"].validate(
+					toRequest(value)
 				);
+				const issue = result.issues?.[0];
+				if (issue) {
+					if (!value.issueNote.trim()) {
+						return "Describe the issue.";
+					}
+					const [section, field] = issue.path ?? [];
+					return section === "correction" && field === "redrawRegion"
+						? "Enter whole numbers within the allowed redraw region limits."
+						: issue.message;
+				}
+			},
+		},
+		onSubmit: async ({ value }) => {
+			try {
+				await prepare.mutateAsync(toRequest(value));
 			} catch {
 				// The mutation error is rendered below.
 			}
@@ -270,11 +294,26 @@ export function CorrectionForm({
 						);
 					}}
 				</form.Field>
-				<AnnotationEditor
-					entries={annotations.entries}
-					onAdd={annotations.add}
-					onRemove={annotations.remove}
-				/>
+				<form.Field mode="array" name="annotations">
+					{(field) => (
+						<AnnotationEditor
+							entries={field.state.value}
+							onAdd={(mark) =>
+								field.pushValue({ id: crypto.randomUUID(), mark })
+							}
+							onRemove={(id) =>
+								field.setValue((entries) =>
+									entries.filter((entry) => entry.id !== id)
+								)
+							}
+						/>
+					)}
+				</form.Field>
+				<form.Subscribe selector={(state) => state.errorMap.onSubmit}>
+					{(error) =>
+						error ? <StatusMessage tone="error">{error}</StatusMessage> : null
+					}
+				</form.Subscribe>
 				<Button disabled={disabled || prepare.isPending} type="submit">
 					Prepare Production Package
 				</Button>

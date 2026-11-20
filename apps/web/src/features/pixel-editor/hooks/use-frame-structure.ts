@@ -1,16 +1,11 @@
-import type {
-	FrameOperation,
-	SheetSlicing,
-} from "@sprite-anvil/api/pixel-editor-structure";
+import { ORPCError } from "@orpc/client";
+import type { FrameOperation } from "@sprite-anvil/api/pixel-editor-structure";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { HonoApiError } from "@/utils/hono-api";
+import { orpc } from "@/utils/orpc";
 import {
 	applyFrameOperation,
-	applySheetSlicing,
-	commitFrameStructure,
-	previewSheetSlicing,
-	readFrameStructure,
+	frameStructureOptions,
 } from "../lib/frame-structure-api";
 
 function errorText(error: unknown) {
@@ -24,40 +19,33 @@ export function useFrameStructure(
 	draftRevision: number
 ) {
 	const queryClient = useQueryClient();
-	const structureQuery = useQuery({
-		queryKey: ["pixel-editor", projectId, "structure", draftId, draftRevision],
-		queryFn: () => readFrameStructure(projectId, draftId),
-		retry: false,
-	});
+	const structureQuery = useQuery(
+		frameStructureOptions(projectId, draftId, draftRevision)
+	);
 	const structure = structureQuery.data;
 	// A 409 means the draft has no slicing yet, which is a normal empty state.
 	const hasNoStructure =
-		structureQuery.error instanceof HonoApiError &&
-		structureQuery.error.status === 409;
+		structureQuery.error instanceof ORPCError &&
+		structureQuery.error.code === "CONFLICT";
 
 	const refresh = () =>
-		queryClient.invalidateQueries({ queryKey: ["pixel-editor", projectId] });
+		queryClient.invalidateQueries({ queryKey: orpc.workingDrafts.key() });
 	const onError = (error: unknown) => {
 		toast.error(errorText(error));
 		refresh();
 	};
 
-	const preview = useMutation({
-		mutationFn: (slicing: SheetSlicing) =>
-			previewSheetSlicing(projectId, draftId, slicing),
-		onError: (error) => toast.error(errorText(error)),
-	});
-	const slice = useMutation({
-		mutationFn: (slicing: SheetSlicing) =>
-			applySheetSlicing(
-				projectId,
-				draftId,
-				structure?.draftRevision ?? draftRevision,
-				slicing
-			),
-		onSuccess: refresh,
-		onError,
-	});
+	const preview = useMutation(
+		orpc.workingDrafts.previewSlicing.mutationOptions({
+			onError: (error) => toast.error(errorText(error)),
+		})
+	);
+	const slice = useMutation(
+		orpc.workingDrafts.applySlicing.mutationOptions({
+			onSuccess: refresh,
+			onError,
+		})
+	);
 	const edit = useMutation({
 		mutationFn: async (operations: FrameOperation | FrameOperation[]) => {
 			if (!structure) {
@@ -74,21 +62,17 @@ export function useFrameStructure(
 		onSuccess: refresh,
 		onError,
 	});
-	const commit = useMutation({
-		mutationFn: () => {
-			if (!structure) {
-				throw new Error("The frame structure is not loaded yet");
-			}
-			return commitFrameStructure(projectId, structure);
-		},
-		onSuccess: (result) => {
-			refresh();
-			toast.success(
-				`Composite Version created: ${result.createdUnitVersionIds.length} Unit Version(s) rebuilt, ${result.reusedUnitVersionIds.length} kept.`
-			);
-		},
-		onError,
-	});
+	const commit = useMutation(
+		orpc.workingDrafts.commitStructure.mutationOptions({
+			onSuccess: async (result) => {
+				await refresh();
+				toast.success(
+					`Composite Version created: ${result.createdUnitVersionIds.length} Unit Version(s) rebuilt, ${result.reusedUnitVersionIds.length} kept.`
+				);
+			},
+			onError,
+		})
+	);
 
 	return {
 		commit,

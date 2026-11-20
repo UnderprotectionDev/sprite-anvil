@@ -50,11 +50,10 @@ if (contextTestDatabaseUrl && process.env.E2E_EXTERNAL_API_SERVER !== "true") {
 }
 
 webServer.push({
-	command: `bun x vite --host 127.0.0.1 --port ${webPort}`,
+	// Use a dedicated server so devtools cannot cover application controls.
+	command: `bun x vite --mode e2e --host 127.0.0.1 --port ${webPort}`,
 	url: webUrl,
-	reuseExistingServer: !(
-		process.env.CI || process.env.DIRECTIONAL_E2E_API_PORT
-	),
+	reuseExistingServer: false,
 	env: { VITE_SERVER_URL: apiUrl, WEB_PORT: String(webPort) },
 });
 

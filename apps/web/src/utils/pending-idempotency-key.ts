@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef } from "react";
 
 /** One idempotency key per user action: a retry of the same action reuses it, a new action gets a new one. */
 export interface PendingIdempotencyKey {
@@ -24,5 +24,9 @@ export function createPendingIdempotencyKey(): PendingIdempotencyKey {
 }
 
 export function usePendingIdempotencyKey() {
-	return useState(createPendingIdempotencyKey)[0];
+	const pending = useRef<PendingIdempotencyKey | null>(null);
+	if (!pending.current) {
+		pending.current = createPendingIdempotencyKey();
+	}
+	return pending.current;
 }

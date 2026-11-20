@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { assetRecordIdentityCriteriaSchema } from "./asset-records";
+import { pageSizeSchema } from "./pagination";
 
 const idSchema = z.string().trim().min(1).max(128);
 const nameSchema = z.string().trim().min(1).max(120);
@@ -65,8 +66,26 @@ export const assetFamilyCatalogSchema = z
 	})
 	.strict();
 
+export const assetFamilyCatalogScopeSchema = z.discriminatedUnion("kind", [
+	z.object({ kind: z.literal("family"), familyId: idSchema }).strict(),
+	z
+		.object({
+			kind: z.literal("identity-page"),
+			after: z.object({ id: idSchema, name: nameSchema }).strict().optional(),
+			limit: pageSizeSchema,
+		})
+		.strict(),
+]);
+
+export type AssetFamilyCatalogScope = z.infer<
+	typeof assetFamilyCatalogScopeSchema
+>;
+
 export const assetFamilyListInputSchema = z
-	.object({ projectId: idSchema })
+	.object({
+		projectId: idSchema,
+		scope: assetFamilyCatalogScopeSchema.optional(),
+	})
 	.strict();
 
 export const subjectIdentityCreateInputSchema = z
@@ -162,6 +181,7 @@ export interface AssetFamilyStore {
 	) => Promise<SubjectIdentityRecord | null>;
 	list: (
 		userId: string,
-		projectId: string
+		projectId: string,
+		scope?: AssetFamilyCatalogScope
 	) => Promise<AssetFamilyCatalog | null>;
 }

@@ -1,7 +1,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect } from "react";
 import { orpc } from "@/utils/orpc";
-import { getDefaultOfflineStagingStore } from "../lib/offline-staging-store";
+import { offlineStagingQueryKey } from "../lib/offline-staging-query-key";
+import {
+	getOfflineStagingStore,
+	hasUnassignedOfflineStorage,
+} from "../lib/offline-staging-store";
 import { cachedProjectSchema } from "../schemas";
 
 /**
@@ -9,10 +13,9 @@ import { cachedProjectSchema } from "../schemas";
  * store, plus the project itself while online. A visit while online refreshes
  * the cached project that offline viewing reads.
  */
-export function useStagedWork(projectId: string) {
-	const store = getDefaultOfflineStagingStore();
+export function useStagedWork(projectId: string, userId: string) {
+	const store = getOfflineStagingStore(userId);
 	const queryClient = useQueryClient();
-	const stagedKey = useMemo(() => ["offline-staging", projectId], [projectId]);
 
 	const projectQuery = useQuery({
 		...orpc.projects.get.queryOptions({ input: { projectId } }),
@@ -20,19 +23,23 @@ export function useStagedWork(projectId: string) {
 		retry: false,
 	});
 	const staged = useQuery({
-		queryKey: stagedKey,
+		queryKey: offlineStagingQueryKey(userId, projectId),
 		queryFn: async () => ({
 			cachedProject: await store.readCachedProject(projectId),
 			drafts: await store.listStagedDrafts(projectId),
 			files: await store.listStagedFiles(projectId),
+			unassignedStorage: await hasUnassignedOfflineStorage().catch(() => false),
 		}),
 		networkMode: "always",
 		staleTime: 0,
 	});
 
 	const refresh = useCallback(
-		() => queryClient.invalidateQueries({ queryKey: stagedKey }),
-		[queryClient, stagedKey]
+		() =>
+			queryClient.invalidateQueries({
+				queryKey: offlineStagingQueryKey(userId, projectId),
+			}),
+		[queryClient, userId, projectId]
 	);
 
 	useEffect(() => {
@@ -45,5 +52,23 @@ export function useStagedWork(projectId: string) {
 		}
 	}, [projectQuery.data, projectId, refresh, store]);
 
-	return { projectQuery, refresh, staged, store };
+	const cachedProject = staged.data?.cachedProject;
+	const cached = cachedProjectSchema.safeParse(cachedProject?.project);
+	const projectName =
+		projectQuery.data?.name ?? (cached.success ? cached.data.name : null);
+	const cachedAt =
+		!projectQuery.data && cached.success
+			? (cachedProject?.cachedAt ?? null)
+			: null;
+
+	return {
+		cachedAt,
+		drafts: staged.data?.drafts ?? [],
+		files: staged.data?.files ?? [],
+		hasUnassignedStorage: staged.data?.unassignedStorage,
+		isProjectPending: projectQuery.isPending,
+		projectName,
+		refresh,
+		store,
+	};
 }

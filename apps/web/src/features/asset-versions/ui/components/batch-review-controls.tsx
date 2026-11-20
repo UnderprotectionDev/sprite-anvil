@@ -1,7 +1,4 @@
-import type {
-	AssetVersionBatchReviewInput,
-	AssetVersionBatchReviewPreview,
-} from "@sprite-anvil/api/asset-versions";
+import type { AssetVersionBatchReviewInput } from "@sprite-anvil/api/asset-versions";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Checkbox } from "@sprite-anvil/ui/components/checkbox";
 import { FieldLegend, FieldSet } from "@sprite-anvil/ui/components/field";
@@ -13,11 +10,11 @@ import {
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm, useSelector } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
-import { useState } from "react";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
+import { usePendingIdempotencyKey } from "@/utils/pending-idempotency-key";
 import { batchReviewFormSchema } from "../../schemas";
 
 export function BatchReviewControls({
@@ -31,6 +28,20 @@ export function BatchReviewControls({
 	writesDisabled: boolean;
 	onReview: (input: AssetVersionBatchReviewInput) => Promise<boolean>;
 }) {
+	const pendingKey = usePendingIdempotencyKey();
+	const previewBatchReview = useMutation(
+		orpc.assetVersions.previewBatchReview.mutationOptions({
+			...mutationMeta,
+		})
+	);
+	const preview =
+		previewBatchReview.variables?.projectId === projectId
+			? previewBatchReview.data
+			: undefined;
+	const resetPreview = () => {
+		previewBatchReview.reset();
+		pendingKey.clear();
+	};
 	const form = useForm({
 		defaultValues: {
 			decision: "approved" as AssetVersionBatchReviewInput["decision"],
@@ -38,77 +49,54 @@ export function BatchReviewControls({
 			selected: [] as string[],
 		},
 		validators: { onChange: batchReviewFormSchema },
+		onSubmit: async ({ value, formApi }) => {
+			if (!preview || preview.items.some((item) => item.blockers.length > 0)) {
+				return;
+			}
+			const targets = preview.items.map(
+				({ assetVersionId, expectedReviewEventId }) => ({
+					assetVersionId,
+					expectedReviewEventId,
+				})
+			);
+			const review = {
+				projectId,
+				decision: value.decision,
+				rationale: value.rationale,
+				targets,
+			};
+			if (
+				await onReview({
+					...review,
+					idempotencyKey: pendingKey.keyFor(JSON.stringify(review)),
+				})
+			) {
+				resetPreview();
+				formApi.setFieldValue("selected", []);
+				formApi.setFieldValue("rationale", "");
+			}
+		},
 	});
 	const selected = useSelector(form.store, (state) => state.values.selected);
 	const decision = useSelector(form.store, (state) => state.values.decision);
 	const rationale = useSelector(form.store, (state) => state.values.rationale);
-	const [preview, setPreview] = useState<AssetVersionBatchReviewPreview | null>(
-		null
-	);
-	const [requestKey, setRequestKey] = useState<string | null>(null);
-	// A button-triggered preview that must always hit the server and is never
-	// cached, so it is a mutation rather than a cached query.
-	const previewBatchReview = useMutation(
-		orpc.assetVersions.previewBatchReview.mutationOptions({
-			...mutationMeta,
-		})
-	);
-	const [busy, setBusy] = useState(false);
-	const disabled = writesDisabled || busy;
+	const isSubmitting = useSelector(form.store, (state) => state.isSubmitting);
+	const disabled =
+		writesDisabled || isSubmitting || previewBatchReview.isPending;
 	const names = new Map(versions.map((version) => [version.id, version.name]));
-	const resetPreview = () => {
-		setPreview(null);
-		setRequestKey(null);
-	};
 
 	async function loadPreview() {
-		setBusy(true);
 		resetPreview();
 		try {
-			const result = await previewBatchReview.mutateAsync({
+			await previewBatchReview.mutateAsync({
 				projectId,
 				assetVersionIds: selected,
 				decision,
 			});
-			setPreview(result);
-			setRequestKey(crypto.randomUUID());
 		} catch (error) {
 			toast.error(
 				getErrorMessage(error, "Could not load the batch review preview.")
 			);
-		} finally {
-			setBusy(false);
-		}
-	}
-
-	async function confirm() {
-		if (
-			!(preview && requestKey) ||
-			preview.items.some((item) => item.blockers.length > 0)
-		) {
-			return;
-		}
-		setBusy(true);
-		try {
-			const saved = await onReview({
-				projectId,
-				decision,
-				rationale,
-				idempotencyKey: requestKey,
-				targets: preview.items.map(
-					({ assetVersionId, expectedReviewEventId }) => ({
-						assetVersionId,
-						expectedReviewEventId,
-					})
-				),
-			});
-			if (saved) {
-				resetPreview();
-				form.setFieldValue("selected", []);
-				form.setFieldValue("rationale", "");
-			}
-		} finally {
-			setBusy(false);
 		}
 	}
 
@@ -235,7 +223,7 @@ export function BatchReviewControls({
 						disabled={
 							disabled || preview.items.some((item) => item.blockers.length > 0)
 						}
-						onClick={() => void confirm()}
+						onClick={() => void form.handleSubmit()}
 						type="button"
 					>
 						Save decisions

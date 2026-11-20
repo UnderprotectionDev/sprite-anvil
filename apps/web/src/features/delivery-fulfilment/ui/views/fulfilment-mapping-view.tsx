@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { LoadErrorAlert } from "@/components/load-error-alert";
 import { StatusMessage } from "@/components/status-message";
 import { getSupportReference } from "@/utils/error-notification";
+import { getErrorMessage } from "@/utils/get-error-message";
 import { orpc } from "@/utils/orpc";
 import { useIdempotentSubmit } from "../../hooks/use-idempotent-submit";
 import { usePrepareFulfilmentMapping } from "../../hooks/use-prepare-fulfilment-mapping";
@@ -43,15 +44,21 @@ function TargetMapping({
 		meta: { errorPresentation: "inline" },
 	});
 	const prepare = usePrepareFulfilmentMapping();
-	const { failure, submit } = useIdempotentSubmit(
-		`The mapping for ${name} could not be prepared. Try again.`
-	);
+	const submit = useIdempotentSubmit();
+	const failure = prepare.isError
+		? getErrorMessage(
+				prepare.error,
+				`The mapping for ${name} could not be prepared. Try again.`
+			)
+		: null;
 	const latest = drafts.data?.drafts[0];
 
-	const onPrepare = () =>
-		submit((idempotencyKey) =>
-			prepare.mutateAsync({ deliveryTargetId, idempotencyKey, projectId })
+	const onPrepare = () => {
+		const input = { deliveryTargetId, projectId };
+		return submit(input, (idempotencyKey) =>
+			prepare.mutateAsync({ ...input, idempotencyKey })
 		);
+	};
 
 	return (
 		<div className="space-y-6">

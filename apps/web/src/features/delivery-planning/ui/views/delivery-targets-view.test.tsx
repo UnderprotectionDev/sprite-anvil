@@ -761,3 +761,23 @@ test("re-versioning keeps the target, pins the evidence policies and shows the s
 	const history = screen.getByRole("list", { name: "Revisions" });
 	expect(within(history).getAllByRole("listitem")).toHaveLength(2);
 });
+
+test("reuses the revision identifier when activation has an uncertain server outcome", async () => {
+	const user = userEvent.setup();
+	fakeApi.catalog = { deliveryTargets: [target({ drafts: [draft()] })] };
+	fakeApi.activate.mockRejectedValue(
+		orpcError("INTERNAL_SERVER_ERROR", "Write outcome unknown")
+	);
+	renderView();
+
+	const activate = await screen.findByRole("button", {
+		name: "Activate revision",
+	});
+	await user.click(activate);
+	await screen.findByRole("alert");
+	await user.click(activate);
+	await waitFor(() => expect(fakeApi.activate).toHaveBeenCalledTimes(2));
+	expect(fakeApi.activate.mock.calls[1]?.[0]).toEqual(
+		fakeApi.activate.mock.calls[0]?.[0]
+	);
+});

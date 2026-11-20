@@ -9,5 +9,12 @@ export const Route = createFileRoute(
 
 function OfflineStagingRoute() {
 	const { projectId } = Route.useParams();
-	return <OfflineStagingView projectId={projectId} />;
+	const { session } = Route.useRouteContext();
+	return (
+		<OfflineStagingView
+			key={JSON.stringify([session.user.id, projectId])}
+			projectId={projectId}
+			userId={session.user.id}
+		/>
+	);
 }

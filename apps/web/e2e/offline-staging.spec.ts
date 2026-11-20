@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { BrowserContext, Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 
 const projectId = "00000000-0000-4000-8000-000000000001";
@@ -20,18 +20,29 @@ interface Upload {
 }
 
 // The cloud is mocked; `cloud.reachable = false` stands in for lost connectivity.
-async function mockCloud(page: Page) {
-	const cloud = { reachable: true, uploads: [] as Upload[] };
+async function mockCloud(page: BrowserContext | Page) {
+	const cloud = {
+		reachable: true,
+		uploads: [] as Upload[],
+		userId: "test-user",
+		signedOut: false,
+	};
 	await page.route("**/api/auth/get-session", (route) =>
 		route.fulfill({
-			json: {
-				session: {
-					id: "test-session",
-					userId: "test-user",
-					expiresAt: "2099-01-01T00:00:00.000Z",
-				},
-				user: { id: "test-user", name: "Test User", email: "test@example.com" },
-			},
+			json: cloud.signedOut
+				? null
+				: {
+						session: {
+							id: cloud.userId,
+							userId: cloud.userId,
+							expiresAt: "2099-01-01T00:00:00.000Z",
+						},
+						user: {
+							id: cloud.userId,
+							name: "Test User",
+							email: "test@example.com",
+						},
+					},
 		})
 	);
 	await page.route("**/rpc/**", (route) => {
@@ -67,6 +78,7 @@ const stayStagedText = /staged file\(s\) stay staged/u;
 const enteredInboxText = /entered the Import Inbox/u;
 const uuidText = /^[0-9a-f-]{36}$/u;
 const offlineText = /^Offline$/u;
+const loginPath = /\/login$/u;
 const stagingUrl = `/projects/${projectId}/offline-staging`;
 
 async function stagePng(page: Page) {
@@ -76,6 +88,35 @@ async function stagePng(page: Page) {
 		buffer: pngBytes,
 	});
 }
+
+test("warns about unassigned offline data without showing its contents", async ({
+	page,
+}) => {
+	await mockCloud(page);
+	await page.goto(stagingUrl);
+	await page.evaluate(
+		() =>
+			new Promise<void>((resolve, reject) => {
+				const request = indexedDB.open("sprite-anvil-offline-staging", 1);
+				request.onupgradeneeded = () => {
+					request.result.createObjectStore("drafts", { keyPath: "id" }).put({
+						id: "older-draft",
+						title: "Private older draft",
+					});
+				};
+				request.onerror = () => reject(request.error);
+				request.onsuccess = () => {
+					request.result.close();
+					resolve();
+				};
+			})
+	);
+	await page.reload();
+	await expect(
+		page.getByText("This browser has offline storage from an earlier version.")
+	).toBeVisible();
+	await expect(page.getByText("Private older draft")).toHaveCount(0);
+});
 
 test("a cached project and a staged PNG survive a reload without the cloud", async ({
 	context,
@@ -155,4 +196,49 @@ test("a file that is not a PNG is refused and not staged", async ({ page }) => {
 	});
 	await expect(page.getByText("Only PNG files can be staged.")).toBeVisible();
 	await expect(page.getByText("No staged files.")).toBeVisible();
+});
+
+test("only the account that staged a PNG can see it after an account change", async ({
+	page,
+}) => {
+	const cloud = await mockCloud(page);
+	await page.goto(stagingUrl);
+	await stagePng(page);
+	await expect(page.getByText("ash-knight.png", { exact: true })).toBeVisible();
+
+	cloud.userId = "another-test-user";
+	await page.reload();
+	await expect(page.getByText("No staged files.")).toBeVisible();
+
+	cloud.userId = "test-user";
+	await page.reload();
+	await expect(page.getByText("ash-knight.png", { exact: true })).toBeVisible();
+});
+
+test("successful sign out in another tab closes the private workspace", async ({
+	context,
+	page,
+}) => {
+	const cloud = await mockCloud(context);
+	await context.route("**/api/auth/sign-out", (route) => {
+		cloud.signedOut = true;
+		return route.fulfill({ json: { success: true } });
+	});
+	await page.goto(stagingUrl);
+	await stagePng(page);
+	await expect(page.getByText("ash-knight.png", { exact: true })).toBeVisible();
+
+	const otherTab = await context.newPage();
+	await otherTab.goto(stagingUrl);
+	await otherTab
+		.getByRole("button", { name: "Test User", exact: true })
+		.press("Enter");
+	await otherTab
+		.getByRole("menuitem", { name: "Sign Out", exact: true })
+		.click();
+	await expect(otherTab).toHaveURL(loginPath);
+	await expect(page.getByText("ash-knight.png", { exact: true })).toHaveCount(
+		0
+	);
+	await expect(page).toHaveURL(loginPath);
 });

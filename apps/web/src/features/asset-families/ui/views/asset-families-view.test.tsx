@@ -18,6 +18,7 @@ import { AssetFamiliesView } from "./asset-families-view";
 const errorToast = vi.hoisted(() => vi.fn());
 const fakeApi = vi.hoisted(() => ({
 	catalog: null as AssetFamilyCatalog | null,
+	nextCatalog: null as AssetFamilyCatalog | null,
 	projectError: null as Error | null,
 	projects: [] as { id: string; name: string }[],
 	profiles: [] as {
@@ -124,9 +125,20 @@ vi.mock("@/utils/orpc", () => ({
 			createRelationship: unusedMutation,
 			createSubjectIdentity: unusedMutation,
 			list: {
-				queryKey: () => ["asset-families"],
+				key: () => ["asset-families"],
+				infiniteOptions: (options: object) => ({
+					...options,
+					queryKey: ["asset-families", "pages"],
+					queryFn: async ({ pageParam }: { pageParam: unknown }) =>
+						(pageParam ? fakeApi.nextCatalog : fakeApi.catalog) ?? {
+							assetFamilies: [],
+							assetRecords: [],
+							relationships: [],
+							subjectIdentities: [],
+						},
+				}),
 				queryOptions: () => ({
-					queryKey: ["asset-families"],
+					queryKey: ["asset-families", "selected"],
 					queryFn: async () =>
 						fakeApi.catalog ?? {
 							assetFamilies: [],
@@ -228,6 +240,7 @@ afterEach(() => {
 	vi.restoreAllMocks();
 	fakeApi.projectError = null;
 	fakeApi.catalog = null;
+	fakeApi.nextCatalog = null;
 	fakeApi.projects = [];
 	fakeApi.profiles = [];
 	errorToast.mockClear();
@@ -283,11 +296,45 @@ function stageGameplayFamily() {
 	};
 }
 
+test("loads the next page before offering its families in the review picker", async () => {
+	stageGameplayFamily();
+	const nextCatalog = fakeApi.catalog;
+	if (!nextCatalog) {
+		throw new Error("Expected a staged family catalog");
+	}
+	fakeApi.nextCatalog = nextCatalog;
+	fakeApi.catalog = {
+		assetFamilies: [],
+		assetRecords: [],
+		relationships: [],
+		subjectIdentities: Array.from({ length: 25 }, (_, position) => ({
+			id: `prior-identity-${position}`,
+			projectId: "project-1",
+			name: `Subject ${position + 1}`,
+			createdAt: "2026-09-28T12:00:00.000Z",
+		})),
+	};
+	renderFamiliesView();
+	const loadMore = await screen.findByRole("button", {
+		name: "Load more Subject Identities",
+	});
+	expect(
+		screen.queryByLabelText("Family for review and completion")
+	).toBeNull();
+	fireEvent.click(loadMore);
+	expect(
+		await screen.findByLabelText("Family for review and completion")
+	).toBeInstanceOf(HTMLInputElement);
+	expect(
+		screen.queryByRole("button", { name: "Load more Subject Identities" })
+	).toBeNull();
+});
+
 test("hides the character directional review until the character contract is active", async () => {
 	stageGameplayFamily();
 	renderFamiliesView();
 	fireEvent.click(
-		await screen.findByRole("button", {
+		await screen.findByRole("tab", {
 			name: "Version and dependency operations",
 		})
 	);
@@ -317,9 +364,7 @@ test("shows the character directional review once the character contract is acti
 		},
 	];
 	renderFamiliesView();
-	fireEvent.click(
-		await screen.findByRole("button", { name: "Profile reviews" })
-	);
+	fireEvent.click(await screen.findByRole("tab", { name: "Profile reviews" }));
 	expect(
 		await screen.findByRole("region", { name: reviewSection })
 	).toBeVisible();
@@ -397,7 +442,7 @@ test("routes Varlık Sürümü yükle to the owning Asset Record detail", async 
 	);
 
 	fireEvent.click(
-		await screen.findByRole("button", {
+		await screen.findByRole("tab", {
 			name: "Version and dependency operations",
 		})
 	);

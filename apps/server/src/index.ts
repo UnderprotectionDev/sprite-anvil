@@ -14,13 +14,20 @@ import {
 	createStorage,
 	requireCloudflareConfig,
 } from "./cloudflare";
-import { createContext, measurementSurface } from "./context";
+import {
+	createContext,
+	measurementSurface,
+	pixelEditorDependencies,
+} from "./context";
 import { desktopOrigins, ENV } from "./env.server";
 import { createAssetVersionIntegrityTransform } from "./features/asset-versions/server/asset-version-integrity";
 import { mountAssetVersionRoutes } from "./features/asset-versions/server/asset-version-routes";
 import { mountImportInboxRoutes } from "./features/imports/server/import-inbox-routes";
 import { mountImportInboxRpcGuards } from "./features/imports/server/import-inbox-rpc-guards";
-import { mountPixelEditorRoutes } from "./features/pixel-editor/server/pixel-editor-routes";
+import {
+	guardPixelEditorRpcRequest,
+	mountPixelEditorRoutes,
+} from "./features/pixel-editor/server/pixel-editor-routes";
 import { mountManagedSnapshotRoutes } from "./features/production-provenance/server/managed-snapshot-routes";
 import { mountProjectArchiveDownloadRoutes } from "./features/project-archives/server/project-archive-download-routes";
 import { mountProjectArchiveImportRoutes } from "./features/project-archives/server/project-archive-import-routes";
@@ -42,8 +49,6 @@ import {
 	importInboxStore,
 	managedOperationServices,
 	managedSnapshotStore,
-	offlineConflictStore,
-	pixelEditorStore,
 	productMeasurementRecorder,
 	projectArchiveImportManifestLimit,
 	projectArchiveStorage,
@@ -127,16 +132,7 @@ mountAssetVersionRoutes(app, {
 	createStorage: createServerAssetVersionStorage,
 });
 
-mountPixelEditorRoutes(app, {
-	abandonConfirmationSecret: ENV.BETTER_AUTH_SECRET,
-	assetVersionStore,
-	offlineConflictStore,
-	pixelEditorStore,
-	getSession: (headers) => auth.api.getSession({ headers }),
-	getProjectForUser: async (userId, projectId) =>
-		getProjectForUser(db, userId, projectId),
-	createStorage: createServerAssetVersionStorage,
-});
+mountPixelEditorRoutes(app, pixelEditorDependencies);
 
 mountProjectArchiveImportRoutes(app, {
 	operations: managedOperationServices?.projectArchiveImportOperations,
@@ -205,27 +201,47 @@ export const apiHandler = new OpenAPIHandler(appRouter, {
 export const rpcHandler = new RPCHandler(appRouter);
 
 app.use("/*", async (c, next) => {
+	const { path } = c.req;
+	if (
+		!(
+			path === "/rpc" ||
+			path.startsWith("/rpc/") ||
+			path === "/api-reference" ||
+			path.startsWith("/api-reference/")
+		)
+	) {
+		await next();
+		return;
+	}
 	const context = await createContext({ context: c });
 
-	const rpcResult = await rpcHandler.handle(c.req.raw, {
-		prefix: "/rpc",
-		context,
-	});
+	return guardPixelEditorRpcRequest(
+		c,
+		Boolean(context.session?.user),
+		async () => {
+			const rpcResult = await rpcHandler.handle(c.req.raw, {
+				prefix: "/rpc",
+				context,
+			});
 
-	if (rpcResult.matched) {
-		return c.newResponse(rpcResult.response.body, rpcResult.response);
-	}
+			if (rpcResult.matched) {
+				c.res = c.newResponse(rpcResult.response.body, rpcResult.response);
+				return;
+			}
 
-	const apiResult = await apiHandler.handle(c.req.raw, {
-		prefix: "/api-reference",
-		context,
-	});
+			const apiResult = await apiHandler.handle(c.req.raw, {
+				prefix: "/api-reference",
+				context,
+			});
 
-	if (apiResult.matched) {
-		return c.newResponse(apiResult.response.body, apiResult.response);
-	}
+			if (apiResult.matched) {
+				c.res = c.newResponse(apiResult.response.body, apiResult.response);
+				return;
+			}
 
-	await next();
+			await next();
+		}
+	);
 });
 
 app.use("/*", serveStatic({ root: "../web/dist" }));

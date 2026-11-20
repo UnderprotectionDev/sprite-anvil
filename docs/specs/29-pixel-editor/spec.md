@@ -48,7 +48,7 @@ Tamamlanma kanıtı: Kullanıcı bir piksel veya kare kusurunu kaynak ve ilgisiz
 
 - **Birincil test seam’i:** 8.1, RAS-01 örneklerinde kesin girdiyi kullanıcı eyleminden kalıcı kayda ve yeniden okumaya taşıyan sunucu/API yolunu sınama; web ve masaüstü görünür sonuçlarını karşılaştırma.
 - Davranışı mümkün olan en yüksek kullanıcı yolunda doğrula: aynı kesin girdiyi oluştur, kullanıcı eylemini uygula, kalıcı sonucu yeniden oku ve başarısız/eksik yolu ayrıca sınama. İç yardımcıların çağrılma sırasını test etme.
-- Mevcut sözleşme ve ilgili test yolu: [`pixel-editor.ts`](../../../packages/api/src/pixel-editor.ts), [`pixel-editor-routes.test.ts`](../../../apps/server/src/features/pixel-editor/server/tests/pixel-editor-routes.test.ts). Bu bağlantılar tüm kabul kapsamının tamamlandığını göstermez.
+- Working Draft oRPC sözleşmesi [pixel-editor-rpc.ts](../../../packages/api/src/pixel-editor-rpc.ts) dosyasındadır. [Sunucu senaryoları](../../../apps/server/src/features/pixel-editor/server/tests/pixel-editor-routes.test.ts) ve [kare yapısı senaryoları](../../../apps/server/src/features/pixel-editor/server/tests/pixel-editor-structure.test.ts) üretimdeki RPCHandler üzerinden giriş, sonuç ve hata yollarını sınar. PNG önizlemeleri Hono üzerinden sınanır.
 - Fazın özgül başarı ve red kanıtı: Kullanıcı bir piksel veya kare kusurunu kaynak ve ilgisiz birimleri değiştirmeden düzeltir; üretime yönlendirdiği onarım yeni paket ve aday döngüsüne girer. Kapsam dışı davranışın yanlışlıkla oluşmadığını sınama: Tam çizim paketi, katman birleştirme veya iskelet animasyonu bu çalışma alanının sonucu değildir.
 - Kabul örnekleri: 8.1, RAS-01. Görsel veya öznel hükümler kullanıcı incelemesi olarak kalır; deterministik bütünlük ve sözleşme kontrolleri ayrı kanıtlanır.
 

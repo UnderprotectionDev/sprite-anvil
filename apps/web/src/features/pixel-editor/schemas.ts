@@ -104,22 +104,6 @@ export const frameSourceFormSchema = z.object({
 
 const gridCoordinate = (label: string) => wholeNumber(0, 100_000, label);
 
-export const correctionFormSchema = z.object({
-	issueNote: z.string().trim().min(1, "Describe the issue").max(2000),
-	regionX: gridCoordinate("Region x"),
-	regionY: gridCoordinate("Region y"),
-	regionWidth: wholeNumber(1, pixelEditorMaxDimension, "Region width"),
-	regionHeight: wholeNumber(1, pixelEditorMaxDimension, "Region height"),
-	targetUnitVersionId: z.string(),
-	/** null until the user changes the list; then frames marked keep are proposed. */
-	preservedUnitVersionIds: z.array(z.string()).nullable(),
-	targetTask: z.string().trim().max(2000),
-	changeInstruction: z.string().trim().max(2000),
-	expectedOutputStructure: z.string().trim().max(2000),
-	preserveConstraints: z.string().max(15_000),
-	avoidConstraints: z.string().max(15_000),
-});
-
 export const correctionAnnotationKinds = [
 	"arrow",
 	"line",

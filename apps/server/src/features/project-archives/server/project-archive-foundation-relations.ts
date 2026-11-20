@@ -1,5 +1,5 @@
 import type { FoundationRecords } from "@sprite-anvil/api/project-archives";
-import type { Database } from "@sprite-anvil/db";
+import type { InteractiveTransaction } from "@sprite-anvil/db/interactive-database";
 import {
 	assetFamilyCanonicalDesigns,
 	assetFamilyRelationships,
@@ -15,7 +15,7 @@ import {
 } from "@sprite-anvil/db/schema/asset-versions";
 import type { StoredProjectArchiveRestoreRecord } from "./project-archive-restore-storage";
 
-type Tx = Parameters<Parameters<Database["transaction"]>[0]>[0];
+type Tx = InteractiveTransaction;
 
 function chunks<T>(records: T[]): T[][] {
 	const result: T[][] = [];

@@ -12,7 +12,6 @@ import { WindowVirtualList } from "@sprite-anvil/ui/components/window-virtual-li
 import { useForm, useSelector } from "@tanstack/react-form";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { useState } from "react";
 import { StatusMessage } from "@/components/status-message";
 import type { AssetRecordSearchDraft } from "@/features/asset-discovery/schemas";
 import { assetRecordSearchDraftSchema } from "@/features/asset-discovery/schemas";
@@ -107,23 +106,25 @@ function validateSearchDraft({ value }: { value: AssetRecordSearchDraft }) {
 }
 
 export function AssetRecordSearchPanel({
+	filters,
+	offset,
+	onChangeSearch,
 	onOpenRecord,
 	projectId,
 }: {
+	filters?: AssetRecordSearchDraft;
+	offset: number;
+	onChangeSearch: (
+		filters: AssetRecordSearchDraft | undefined,
+		offset: number
+	) => void;
 	onOpenRecord: (assetRecordId: string, versionId?: string) => void;
 	projectId: string;
 }) {
-	const [submitted, setSubmitted] = useState<AssetRecordSearchInput>({
-		projectId,
-	});
-	const [page, setPage] = useState({ projectId, offset: 0 });
-	const offset = page.projectId === projectId ? page.offset : 0;
+	const submitted = buildSearchInput(projectId, filters ?? emptyDraft);
 	const form = useForm({
-		defaultValues: emptyDraft,
-		onSubmit: ({ value }) => {
-			setSubmitted(buildSearchInput(projectId, value));
-			setPage({ projectId, offset: 0 });
-		},
+		defaultValues: filters ?? emptyDraft,
+		onSubmit: ({ value }) => onChangeSearch(value, 0),
 		validators: { onSubmit: validateSearchDraft },
 	});
 	const selectedVisualWorldId = useSelector(
@@ -141,7 +142,7 @@ export function AssetRecordSearchPanel({
 	const searchQuery = useQuery({
 		...orpc.assetRecords.search.queryOptions({
 			input: {
-				...(submitted.projectId === projectId ? submitted : { projectId }),
+				...submitted,
 				pagination: { limit: 50, offset },
 			},
 		}),
@@ -174,9 +175,7 @@ export function AssetRecordSearchPanel({
 				</p>
 				{offset > 0 ? (
 					<Button
-						onClick={() =>
-							setPage({ projectId, offset: Math.max(0, offset - 50) })
-						}
+						onClick={() => onChangeSearch(filters, Math.max(0, offset - 50))}
 						type="button"
 						variant="outline"
 					>
@@ -261,9 +260,7 @@ export function AssetRecordSearchPanel({
 				<div className="flex gap-2">
 					<Button
 						disabled={offset === 0 || searchQuery.isFetching}
-						onClick={() =>
-							setPage({ projectId, offset: Math.max(0, offset - 50) })
-						}
+						onClick={() => onChangeSearch(filters, Math.max(0, offset - 50))}
 						type="button"
 						variant="outline"
 					>
@@ -275,10 +272,7 @@ export function AssetRecordSearchPanel({
 							searchQuery.isFetching
 						}
 						onClick={() =>
-							setPage({
-								projectId,
-								offset: searchQuery.data.nextOffset ?? offset,
-							})
+							onChangeSearch(filters, searchQuery.data.nextOffset ?? offset)
 						}
 						type="button"
 						variant="outline"

@@ -1,5 +1,5 @@
-import { pixelDraftSchema } from "@sprite-anvil/api/pixel-editor";
-import { honoPostJson, projectApiUrl } from "@/utils/hono-api";
+import { projectApiUrl } from "@/utils/hono-api";
+import { client } from "@/utils/orpc";
 import type { StagedFileUpload } from "./send-staged-files";
 
 /** Sends a staged PNG through the existing Import Inbox upload route. */
@@ -28,15 +28,9 @@ export const uploadStagedFileToImportInbox =
 	};
 
 /** Opens (or recovers) the Working Draft of a source Asset Version for staging. */
-export async function fetchWorkingDraftForStaging(
+export function fetchWorkingDraftForStaging(
 	projectId: string,
 	sourceAssetVersionId: string
 ) {
-	return pixelDraftSchema.parse(
-		await honoPostJson(
-			`${projectApiUrl(projectId)}/pixel-editor/drafts`,
-			{ sourceAssetVersionId },
-			"The Working Draft could not be opened"
-		)
-	);
+	return client.workingDrafts.open({ projectId, sourceAssetVersionId });
 }

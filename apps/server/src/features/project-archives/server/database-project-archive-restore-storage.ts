@@ -3,6 +3,10 @@ import { historySectionSchemas } from "@sprite-anvil/api/project-archive-history
 import type { FoundationRecords } from "@sprite-anvil/api/project-archives";
 import type { Database } from "@sprite-anvil/db";
 import { hasErrorCode } from "@sprite-anvil/db/error-codes";
+import type {
+	InteractiveDatabase,
+	InteractiveTransaction,
+} from "@sprite-anvil/db/interactive-database";
 import {
 	assetFamilyCanonicalDesigns,
 	assetFamilyRelationships,
@@ -45,15 +49,15 @@ import {
 import { and, asc, eq, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import {
+	archiveDeliveryDeleteQueries,
 	canMaterializeArchiveDelivery,
 	insertArchiveDelivery,
-	withdrawArchiveDelivery,
 } from "./project-archive-delivery-materialization";
 import { insertFoundationRelations } from "./project-archive-foundation-relations";
 import {
+	archiveHistoryDeleteQueries,
 	canMaterializeArchiveHistory,
 	insertArchiveHistory,
-	withdrawArchiveHistory,
 } from "./project-archive-history-materialization";
 import { insertManagedFoundation } from "./project-archive-managed-foundation";
 import type {
@@ -109,7 +113,7 @@ function toRequest(
 }
 
 async function insertFoundation(
-	tx: Parameters<Parameters<Database["transaction"]>[0]>[0],
+	tx: InteractiveTransaction,
 	record: StoredProjectArchiveRestoreRecord
 ) {
 	const { restore } = record;
@@ -245,7 +249,7 @@ async function insertFoundation(
 }
 
 async function verifyNewRestore(
-	tx: Parameters<Parameters<Database["transaction"]>[0]>[0],
+	tx: InteractiveTransaction,
 	record: StoredProjectArchiveRestoreRecord,
 	verifyCanonical?: (
 		db: Database,
@@ -269,6 +273,7 @@ async function verifyNewRestore(
 
 export function createDatabaseProjectArchiveRestoreStorage(
 	db: Database,
+	interactiveDb: InteractiveDatabase,
 	verifyCanonical?: (
 		db: Database,
 		record: StoredProjectArchiveRestoreRecord
@@ -425,7 +430,7 @@ export function createDatabaseProjectArchiveRestoreStorage(
 					section.group === "foundation" && section.name === "contextRevisions"
 			)?.records ?? []) as FoundationRecords["contextRevisions"];
 			try {
-				await db.transaction(async (tx) => {
+				await interactiveDb.transaction(async (tx) => {
 					await tx.insert(project).values({
 						id: restore.restoredProjectId,
 						name: record.projectName,
@@ -544,7 +549,7 @@ export function createDatabaseProjectArchiveRestoreStorage(
 						restoreId: string,
 						record: StoredProjectArchiveRestoreRecord
 					) {
-						await db.transaction(async (tx) => {
+						await interactiveDb.transaction(async (tx) => {
 							const [updated] = await tx
 								.update(projectArchiveRestores)
 								.set({ canonicalVerified: true })
@@ -626,60 +631,56 @@ export function createDatabaseProjectArchiveRestoreStorage(
 				.from(projectArchiveRestores)
 				.where(eq(projectArchiveRestores.id, restoreId));
 			if (row) {
-				await db.transaction(async (tx) => {
-					const restoredId = row.restoredProjectId;
-					await withdrawArchiveDelivery(tx, restoredId);
-					await withdrawArchiveHistory(tx, restoredId);
-					await tx
+				const restoredId = row.restoredProjectId;
+				await db.batch([
+					...archiveDeliveryDeleteQueries(db, restoredId),
+					...archiveHistoryDeleteQueries(db, restoredId),
+					db
 						.delete(managedSnapshots)
-						.where(eq(managedSnapshots.projectId, restoredId));
-					await tx
+						.where(eq(managedSnapshots.projectId, restoredId)),
+					db
 						.delete(referenceBoardImageHistory)
-						.where(eq(referenceBoardImageHistory.projectId, restoredId));
-					await tx
+						.where(eq(referenceBoardImageHistory.projectId, restoredId)),
+					db
 						.delete(referenceBoardImages)
-						.where(eq(referenceBoardImages.projectId, restoredId));
-					await tx
+						.where(eq(referenceBoardImages.projectId, restoredId)),
+					db
 						.delete(importInboxEntries)
-						.where(eq(importInboxEntries.projectId, restoredId));
-					await tx
+						.where(eq(importInboxEntries.projectId, restoredId)),
+					db
 						.delete(assetRecordReferenceHistory)
-						.where(eq(assetRecordReferenceHistory.projectId, restoredId));
-					await tx
+						.where(eq(assetRecordReferenceHistory.projectId, restoredId)),
+					db
 						.delete(assetRecordReferences)
-						.where(eq(assetRecordReferences.projectId, restoredId));
-					await tx
+						.where(eq(assetRecordReferences.projectId, restoredId)),
+					db
 						.delete(assetFamilyRelationships)
-						.where(eq(assetFamilyRelationships.projectId, restoredId));
-					await tx
+						.where(eq(assetFamilyRelationships.projectId, restoredId)),
+					db
 						.delete(assetFamilyCanonicalDesigns)
-						.where(eq(assetFamilyCanonicalDesigns.projectId, restoredId));
-					await tx
+						.where(eq(assetFamilyCanonicalDesigns.projectId, restoredId)),
+					db
 						.delete(compositionMemberships)
-						.where(eq(compositionMemberships.projectId, restoredId));
-					await tx
+						.where(eq(compositionMemberships.projectId, restoredId)),
+					db
 						.delete(compositeVersions)
-						.where(eq(compositeVersions.projectId, restoredId));
-					await tx
-						.delete(unitVersions)
-						.where(eq(unitVersions.projectId, restoredId));
-					await tx
+						.where(eq(compositeVersions.projectId, restoredId)),
+					db.delete(unitVersions).where(eq(unitVersions.projectId, restoredId)),
+					db
 						.delete(assetVersions)
-						.where(eq(assetVersions.projectId, restoredId));
-					await tx
+						.where(eq(assetVersions.projectId, restoredId)),
+					db
 						.delete(assetRecordMeasurements)
-						.where(eq(assetRecordMeasurements.projectId, restoredId));
-					await tx
-						.delete(assetRecords)
-						.where(eq(assetRecords.projectId, restoredId));
-					await tx
+						.where(eq(assetRecordMeasurements.projectId, restoredId)),
+					db.delete(assetRecords).where(eq(assetRecords.projectId, restoredId)),
+					db
 						.delete(assetFamilies)
-						.where(eq(assetFamilies.projectId, restoredId));
-					await tx
+						.where(eq(assetFamilies.projectId, restoredId)),
+					db
 						.delete(subjectIdentities)
-						.where(eq(subjectIdentities.projectId, restoredId));
-					await tx.delete(project).where(eq(project.id, restoredId));
-				});
+						.where(eq(subjectIdentities.projectId, restoredId)),
+					db.delete(project).where(eq(project.id, restoredId)),
+				]);
 			}
 		},
 	};

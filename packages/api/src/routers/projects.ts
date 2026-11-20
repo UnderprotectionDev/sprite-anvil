@@ -2,7 +2,7 @@ import { ORPCError } from "@orpc/server";
 import { z } from "zod";
 
 import { isExternalVisualAnalysisProviderPolicyVerified } from "../external-visual-analysis-policy";
-import { protectedProcedure } from "../index";
+import { implementProtected, protectedProcedure } from "../index";
 import { assertProjectAccess } from "../project-access-policy";
 import type { ProjectAccessStore } from "../project-access-store";
 import {
@@ -10,9 +10,10 @@ import {
 	contextAgentScopes,
 	externalVisualAnalysisCategories,
 } from "../project-access-store";
-import { projectContextCreateInputSchema } from "../project-context";
+import { projectCreateContract } from "../project-context";
 
-const projectIdSchema = z.string().min(1).max(200);
+import { projectIdSchema } from "../project-id";
+
 const purposeSchema = z.string().trim().min(3).max(160);
 
 const projectIdInputSchema = z.object({ projectId: projectIdSchema });
@@ -65,11 +66,10 @@ export const projectsRouter = {
 	list: protectedProcedure.handler(({ context }) =>
 		context.projectAccess.listProjects(context.session.user.id)
 	),
-	create: protectedProcedure
-		.input(projectContextCreateInputSchema)
-		.handler(({ context, input }) =>
+	create: implementProtected({ create: projectCreateContract }).create.handler(
+		({ context, input }) =>
 			context.projectAccess.createProject(context.session.user.id, input)
-		),
+	),
 	get: protectedProcedure
 		.input(projectIdInputSchema)
 		.handler(({ context, input }) =>

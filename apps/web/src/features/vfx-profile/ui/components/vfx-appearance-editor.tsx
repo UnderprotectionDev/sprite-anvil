@@ -15,8 +15,9 @@ import {
 } from "@sprite-anvil/ui/components/native-select";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm, useSelector } from "@tanstack/react-form";
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useId, useMemo, useState } from "react";
 import { ReducedMotionNotice } from "@/components/reduced-motion-notice";
+import { usePlaybackClock } from "@/utils/use-playback-clock";
 import { vfxAppearanceFormSchema, vfxReviewResultSchema } from "../../schemas";
 import { VfxAppearancePlaybackControls } from "./vfx-appearance-playback-controls";
 import { VfxAppearancePreview } from "./vfx-appearance-preview";
@@ -85,8 +86,6 @@ export function VfxAppearanceEditor({
 			}
 	);
 	const [ready, setReady] = useState(false);
-	const [playing, setPlaying] = useState(false);
-	const [elapsed, setElapsed] = useState(0);
 	const form = useForm({
 		defaultValues: defaults,
 		onSubmit: async ({ value }) => {
@@ -98,6 +97,12 @@ export function VfxAppearanceEditor({
 	});
 	const draft = useSelector(form.store, (state) => state.values);
 	const total = draft.frames.reduce((sum, frame) => sum + frame.durationMs, 0);
+	const {
+		elapsedMs: elapsed,
+		playing,
+		setElapsedMs: setElapsed,
+		setPlaying,
+	} = usePlaybackClock({ durationMs: total, looping: draft.looping });
 	const { frames, cell, looping, opacity, sceneAssetVersionId } = draft;
 	const playback = useMemo(
 		() => ({
@@ -115,32 +120,15 @@ export function VfxAppearanceEditor({
 		draft.frames.map(() => crypto.randomUUID())
 	);
 
-	const onReady = useCallback((value: boolean) => {
-		setReady(value);
-		setPlaying(false);
-		setElapsed(0);
-	}, []);
-	useEffect(() => {
-		if (!playing) {
-			return;
-		}
-		let request = 0;
-		let previous = performance.now();
-		const tick = (now: number) => {
-			const delta = now - previous;
-			previous = now;
-			setElapsed((value) => value + delta);
-			request = requestAnimationFrame(tick);
-		};
-		request = requestAnimationFrame(tick);
-		return () => cancelAnimationFrame(request);
-	}, [playing]);
-	useEffect(() => {
-		if (!draft.looping && elapsed >= total) {
+	const onReady = useCallback(
+		(value: boolean) => {
+			setReady(value);
 			setPlaying(false);
-			setElapsed(total);
-		}
-	}, [draft.looping, elapsed, total]);
+			setElapsed(0);
+		},
+		[setElapsed, setPlaying]
+	);
+
 	const markPreviewStale = () => {
 		setReady(false);
 		setPlaying(false);

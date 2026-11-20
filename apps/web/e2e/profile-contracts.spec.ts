@@ -26,7 +26,7 @@ test("persists a Specialized Profile Contract activation through the web flow", 
 			name: `${fixture.projectName} · Specialized Profile Contracts`,
 		})
 	).toBeVisible();
-	await page.getByRole("button", { name: "Icon", exact: true }).click();
+	await page.getByRole("tab", { name: "Icon", exact: true }).click();
 	const iconProfile = page.getByRole("article", { name: "Icon" });
 	await iconProfile.getByText("Contract details").click();
 	await expect(iconProfile.getByText("icon.metadata_roundtrip")).toBeVisible();
@@ -36,7 +36,7 @@ test("persists a Specialized Profile Contract activation through the web flow", 
 	).toBeVisible();
 
 	await page.reload();
-	await page.getByRole("button", { name: "Icon", exact: true }).click();
+	await page.getByRole("tab", { name: "Icon", exact: true }).click();
 	await expect(
 		iconProfile.getByText("Active in this project · 1.0.0")
 	).toBeVisible();

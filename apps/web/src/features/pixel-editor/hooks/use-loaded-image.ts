@@ -1,40 +1,42 @@
-import { useEffect, useState } from "react";
+import { useCreateStore, useSelector } from "@tanstack/react-store";
+import { useEffect } from "react";
+
+interface ImageLoadState {
+	failedUrl: string | null;
+	loaded: { image: HTMLImageElement; url: string } | null;
+}
 
 /** Loads a credentialed image so its pixels can be drawn and read on a canvas. */
 export function useLoadedImage(url: string | null) {
-	const [loaded, setLoaded] = useState<{
-		image: HTMLImageElement;
-		url: string;
-	} | null>(null);
-	const [failedUrl, setFailedUrl] = useState<string | null>(null);
+	const imageLoad = useCreateStore<ImageLoadState>({
+		failedUrl: null,
+		loaded: null,
+	});
+	const { failedUrl, loaded } = useSelector(imageLoad, (state) => state);
 
 	useEffect(() => {
 		if (!url) {
 			return;
 		}
-		let cancelled = false;
 		const image = new Image();
 		image.crossOrigin = "use-credentials";
 		image.onload = () => {
-			if (!cancelled) {
-				setLoaded({ image, url });
-			}
+			imageLoad.setState(() => ({ failedUrl: null, loaded: { image, url } }));
 		};
 		image.onerror = () => {
-			if (!cancelled) {
-				setFailedUrl(url);
-			}
+			imageLoad.setState((state) => ({ ...state, failedUrl: url }));
 		};
 		image.src = url;
 		return () => {
-			cancelled = true;
+			image.onload = null;
+			image.onerror = null;
 		};
-	}, [url]);
+	}, [imageLoad, url]);
 
 	return {
 		// Keep the previous frame on screen until the next revision has loaded.
 		image: loaded?.image ?? null,
 		isCurrent: loaded?.url === url,
-		failed: failedUrl === url,
+		failed: url !== null && failedUrl === url,
 	};
 }

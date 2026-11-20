@@ -68,12 +68,12 @@ export function createDatabaseDeliveryRefreshLockStorage(
 		},
 		async insertLock(lock, files) {
 			try {
-				await db.transaction(async (tx) => {
-					await tx.insert(deliveryRefreshLocks).values(lock);
-					await tx
+				await db.batch([
+					db.insert(deliveryRefreshLocks).values(lock),
+					db
 						.insert(deliveryRefreshLockFiles)
-						.values(files.map((file) => ({ ...file, lockId: lock.id })));
-				});
+						.values(files.map((file) => ({ ...file, lockId: lock.id }))),
+				]);
 				return { status: "inserted" };
 			} catch (error) {
 				if (hasErrorCode(error, uniqueViolationCode)) {

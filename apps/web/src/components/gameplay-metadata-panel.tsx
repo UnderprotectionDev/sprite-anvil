@@ -52,15 +52,26 @@ export function GameplayMetadataPanel({
 			version.assetRecordId === assetRecordId &&
 			version.integrityVerified
 	);
-	const [pending, setPending] = useState(false);
 	const [uncertain, setUncertain] = useState<GameplayMetadataWriteInput | null>(
 		null
 	);
 	const [message, setMessage] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const writeMutation = useMutation(
-		orpc.gameplayMetadata.write.mutationOptions(mutationMeta)
+		orpc.gameplayMetadata.write.mutationOptions({
+			...mutationMeta,
+			onSuccess: async () => {
+				setUncertain(null);
+				const result = await catalogQuery.refetch();
+				setMessage(
+					result.isError
+						? "Record saved; the list could not be reread. Reload records."
+						: "Gameplay Metadata saved and reread."
+				);
+			},
+		})
 	);
+	const pending = writeMutation.isPending;
 	const contracts =
 		contractsQuery.data?.profiles.flatMap((profile) =>
 			profile.activeContract &&
@@ -75,18 +86,10 @@ export function GameplayMetadataPanel({
 		) ?? [];
 
 	async function save(input: GameplayMetadataWriteInput) {
-		setPending(true);
 		setMessage(null);
 		setError(null);
 		try {
 			await writeMutation.mutateAsync(input);
-			setUncertain(null);
-			const result = await catalogQuery.refetch();
-			setMessage(
-				result.isError
-					? "Record saved; the list could not be reread. Reload records."
-					: "Gameplay Metadata saved and reread."
-			);
 			return true;
 		} catch (failure) {
 			setError(getErrorMessage(failure, "Could not save Gameplay Metadata."));
@@ -98,8 +101,6 @@ export function GameplayMetadataPanel({
 				setUncertain(null);
 			}
 			return false;
-		} finally {
-			setPending(false);
 		}
 	}
 

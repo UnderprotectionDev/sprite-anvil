@@ -121,7 +121,18 @@ vi.mock("@/utils/orpc", () => ({
 			createSubjectIdentity: mutation((input) =>
 				fakeApi.createSubjectIdentity(input)
 			),
-			list: queryOptions("asset-families", catalog),
+			list: {
+				key: () => ["asset-families"],
+				infiniteOptions: (options: object) => ({
+					...options,
+					queryKey: ["asset-families", "pages"],
+					queryFn: async () => catalog,
+				}),
+				queryOptions: () => ({
+					queryKey: ["asset-families", "selected"],
+					queryFn: async () => catalog,
+				}),
+			},
 		},
 		assetRecords: { list: queryOptions("asset-records", []) },
 		assetVersions: {
@@ -218,7 +229,7 @@ async function openSetup() {
 	);
 	const user = userEvent.setup();
 	await user.click(
-		await screen.findByRole("button", {
+		await screen.findByRole("tab", {
 			name: "Family and representation relationships",
 		})
 	);

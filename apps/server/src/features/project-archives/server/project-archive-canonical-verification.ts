@@ -1,10 +1,27 @@
 import { deliverySectionSchemas } from "@sprite-anvil/api/project-archive-delivery";
+import { historySectionSchemas } from "@sprite-anvil/api/project-archive-history";
 import type { ProjectArchiveSourceReader } from "@sprite-anvil/api/project-archive-store";
 import type { ProjectArchiveSource } from "@sprite-anvil/api/project-archives";
 import { recordContentDigest } from "@sprite-anvil/api/record-content-digest";
 import type { StoredProjectArchiveRestoreRecord } from "./project-archive-restore-storage";
 
 function comparableRecord(group: string, name: string, value: unknown) {
+	if (group === "history" && name === "contractRevisions") {
+		// Global revisions can already exist with a different local insertion date.
+		const { createdAt: _createdAt, ...contract } =
+			historySectionSchemas.contractRevisions.parse(value);
+		return contract;
+	}
+	if (group === "delivery" && name === "runtimeValidations") {
+		const validation = deliverySectionSchemas.runtimeValidations.parse(value);
+		// A restore allocates fresh database identities while preserving decision order.
+		return {
+			...validation,
+			decisions: validation.decisions
+				.toSorted((left, right) => left.sequence - right.sequence)
+				.map(({ sequence: _sequence, ...decision }) => decision),
+		};
+	}
 	if (group !== "delivery" || name !== "exportBundles") {
 		return value;
 	}

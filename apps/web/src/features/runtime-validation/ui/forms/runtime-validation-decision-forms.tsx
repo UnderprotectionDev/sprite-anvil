@@ -10,10 +10,11 @@ import {
 } from "@sprite-anvil/ui/components/native-select";
 import { useForm } from "@tanstack/react-form";
 import type { SyntheticEvent } from "react";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { FieldErrors, fieldErrorAttributes } from "@/components/field-errors";
 import { StatusMessage } from "@/components/status-message";
 import { errorCodeOf } from "@/utils/error-code";
+import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import {
 	useConfirmRuntimeValidationFailureSource,
 	useFinalizeRuntimeValidationOutcome,
@@ -45,7 +46,10 @@ export function RuntimeValidationOutcomeForm({
 	recordId: string;
 }) {
 	const finalize = useFinalizeRuntimeValidationOutcome();
-	const [failure, setFailure] = useState<string | null>(null);
+	const failure = finalize.isError
+		? (errorMessageOf(finalize.error) ??
+			"The outcome could not be saved. Try again.")
+		: null;
 	const idempotencyKey = useRef(crypto.randomUUID());
 
 	const form = useForm({
@@ -53,7 +57,6 @@ export function RuntimeValidationOutcomeForm({
 			outcome: "" as "" | (typeof runtimeValidationOutcomes)[number],
 		},
 		onSubmit: async ({ value }) => {
-			setFailure(null);
 			if (value.outcome === "") {
 				return;
 			}
@@ -65,12 +68,9 @@ export function RuntimeValidationOutcomeForm({
 					recordId,
 				});
 			} catch (error) {
-				if (errorCodeOf(error)) {
+				if (errorCodeOf(error) && !isWriteOutcomeUncertain(error)) {
 					idempotencyKey.current = crypto.randomUUID();
 				}
-				setFailure(
-					errorMessageOf(error) ?? "The outcome could not be saved. Try again."
-				);
 			}
 		},
 		validators: { onSubmit: runtimeValidationOutcomeFormSchema },
@@ -134,7 +134,10 @@ export function RuntimeValidationFailureSourceForm({
 	recordId: string;
 }) {
 	const confirm = useConfirmRuntimeValidationFailureSource();
-	const [failure, setFailure] = useState<string | null>(null);
+	const failure = confirm.isError
+		? (errorMessageOf(confirm.error) ??
+			"The failure source could not be saved. Try again.")
+		: null;
 	const idempotencyKey = useRef(crypto.randomUUID());
 
 	const form = useForm({
@@ -144,7 +147,6 @@ export function RuntimeValidationFailureSourceForm({
 				| (typeof runtimeValidationConfirmedFailureSources)[number],
 		},
 		onSubmit: async ({ value }) => {
-			setFailure(null);
 			if (value.failureSource === "") {
 				return;
 			}
@@ -158,13 +160,9 @@ export function RuntimeValidationFailureSourceForm({
 				idempotencyKey.current = crypto.randomUUID();
 				form.reset();
 			} catch (error) {
-				if (errorCodeOf(error)) {
+				if (errorCodeOf(error) && !isWriteOutcomeUncertain(error)) {
 					idempotencyKey.current = crypto.randomUUID();
 				}
-				setFailure(
-					errorMessageOf(error) ??
-						"The failure source could not be saved. Try again."
-				);
 			}
 		},
 		validators: { onSubmit: runtimeValidationFailureSourceFormSchema },

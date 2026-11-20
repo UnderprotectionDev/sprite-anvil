@@ -74,6 +74,11 @@ function mount(previewVersions = versions) {
 }
 
 test("names the timeline and pauses playback when the user scrubs it", async () => {
+	vi.stubGlobal(
+		"requestAnimationFrame",
+		vi.fn(() => 1)
+	);
+	vi.stubGlobal("cancelAnimationFrame", vi.fn());
 	const onReady = mount();
 	await waitFor(() => expect(onReady).toHaveBeenLastCalledWith(true));
 	// Base UI keeps the thumb visibility:hidden until it can measure layout, which jsdom never does,

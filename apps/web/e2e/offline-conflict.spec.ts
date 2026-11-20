@@ -1,6 +1,8 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
 
+const pixelEditorRequest =
+	/\/(?:pixel-editor\/|rpc\/(?:offlineConflicts|workingDrafts)\/)/u;
 const projectId = "00000000-0000-4000-8000-000000000001";
 const draftId = "b17f5ff0-a50d-438f-8bf2-a0152b42c401";
 const sourceAssetVersionId = "b17f5ff0-a50d-438f-8bf2-a0152b42c301";
@@ -94,102 +96,101 @@ async function mockCloud(page: Page) {
 			json: { json: rpc === "projects/get" ? project : [] },
 		});
 	});
-	await page.route("**/pixel-editor/**", (route) => {
+	await page.route(pixelEditorRequest, (route) => {
 		if (!cloud.reachable) {
 			return route.abort("internetdisconnected");
 		}
 		const request = route.request();
 		const { pathname } = new URL(request.url());
+		const rpcInput = () => request.postDataJSON().json;
+		const rpcSuccess = (json: unknown) => route.fulfill({ json: { json } });
 		if (pathname.endsWith("/reconcile")) {
 			cloud.reconciles += 1;
-			cloud.reconcileRequests.push(request.postDataJSON());
-			return route.fulfill({
-				status: cloud.baseCurrent ? 200 : 201,
-				json: cloud.baseCurrent
+			cloud.reconcileRequests.push(rpcInput().reconcile);
+			return rpcSuccess(
+				cloud.baseCurrent
 					? {
 							outcome: "base-current",
-							// The cloud took the staged operations and bumped the revision.
 							draft: { id: draftId, revision: 2, sourceAssetVersionId },
 						}
-					: { outcome: "conflict", conflict: conflictView() },
-			});
+					: { outcome: "conflict", conflict: conflictView() }
+			);
 		}
 		if (pathname.includes("/preview/")) {
 			return route.fulfill({ contentType: "image/png", body: onePixelPng });
 		}
-		if (pathname.endsWith("/abandon-confirmation")) {
+		if (pathname.endsWith("/requestAbandonConfirmation")) {
 			cloud.abandonConfirmations += 1;
-			return route.fulfill({
-				json: {
-					conflictId,
-					localDigest,
-					operationCount: 1,
-					appliedOperationCount: 1,
-					operations: [{ type: "pen", count: 1 }],
-					confirmationToken: abandonToken,
-					expiresAt: "2026-11-06T10:15:00.000Z",
-				},
+			return rpcSuccess({
+				conflictId,
+				localDigest,
+				operationCount: 1,
+				appliedOperationCount: 1,
+				operations: [{ type: "pen", count: 1 }],
+				confirmationToken: abandonToken,
+				expiresAt: "2026-11-06T10:15:00.000Z",
 			});
 		}
 		if (pathname.endsWith("/resolve")) {
-			const body = request.postDataJSON() as ResolveRequest;
+			const body = rpcInput() as ResolveRequest;
 			cloud.resolves.push(body);
 			if (cloud.failNextResolve) {
 				cloud.failNextResolve = false;
 				return route.fulfill({
 					status: 503,
-					json: { error: "Working Draft commit failed" },
+					json: {
+						json: {
+							defined: false,
+							code: "SERVICE_UNAVAILABLE",
+							status: 503,
+							message: "Working Draft commit failed",
+						},
+					},
 				});
 			}
-			return route.fulfill({
-				status: 201,
-				json: {
-					created: true,
-					conflict: conflictView({
-						id: resolutionId,
-						choice: body.choice,
-						resolvedAt: "2026-11-06T10:05:00.000Z",
-						resolvedByUserId: "test-user",
-						resultAssetVersionId:
-							body.choice === "create-candidate" ? candidateId : null,
-						idempotencyKey: body.idempotencyKey,
-					}),
-				},
+			return rpcSuccess({
+				created: true,
+				conflict: conflictView({
+					id: resolutionId,
+					choice: body.choice,
+					resolvedAt: "2026-11-06T10:05:00.000Z",
+					resolvedByUserId: "test-user",
+					resultAssetVersionId:
+						body.choice === "create-candidate" ? candidateId : null,
+					idempotencyKey: body.idempotencyKey,
+				}),
 			});
 		}
 		if (pathname.endsWith("/commit")) {
-			cloud.commits.push(request.postDataJSON());
-			return route.fulfill({
-				status: 201,
-				json: {
-					assetVersionId: candidateId,
-					created: true,
-					draft: {
-						id: draftId,
-						projectId,
-						assetRecordId: "record-1",
-						sourceAssetVersionId,
-						status: "committed",
-						revision: 2,
-						operations: [pen],
-						appliedOperationCount: 1,
-						canUndo: true,
-						canRedo: false,
-						sourceSize: { width: 4, height: 4 },
-						size: { width: 4, height: 4 },
-						diff: {
-							changedPixelCount: 1,
-							boundingBox: { x: 0, y: 0, width: 1, height: 1 },
-							sizeChanged: false,
-						},
-						palette: { origin: "source-image", colors: ["#ff0000ff"] },
-						usedColors: [],
-						outOfPaletteColors: [],
-						sourcePreviewUrl: "/p",
-						previewUrl: "/p",
-						committedAssetVersionId: candidateId,
-						updatedAt: "2026-11-06T10:06:00.000Z",
+			cloud.commits.push({ expectedRevision: rpcInput().expectedRevision });
+			return rpcSuccess({
+				assetVersionId: candidateId,
+				created: true,
+				draft: {
+					id: draftId,
+					projectId,
+					assetRecordId: "record-1",
+					sourceAssetVersionId,
+					status: "committed",
+					revision: 2,
+					operations: [pen],
+					appliedOperationCount: 1,
+					canUndo: true,
+					canRedo: false,
+					sourceSize: { width: 4, height: 4 },
+					size: { width: 4, height: 4 },
+					diff: {
+						changedPixelCount: 1,
+						boundingBox: { x: 0, y: 0, width: 1, height: 1 },
+						sizeChanged: false,
 					},
+					palette: { origin: "source-image", colors: ["#ff0000ff"] },
+					usedColors: [],
+					outOfPaletteColors: [],
+					sourcePreviewUrl: "/p",
+					previewUrl: "/p",
+					committedAssetVersionId: candidateId,
+					updatedAt: "2026-11-06T10:06:00.000Z",
 				},
 			});
 		}
@@ -209,7 +210,9 @@ async function seedStagedDraft(page: Page) {
 	await page.evaluate(
 		async ({ draft, project: projectKey, source }) => {
 			const db = await new Promise<IDBDatabase>((resolve, reject) => {
-				const request = indexedDB.open("sprite-anvil-offline-staging");
+				const request = indexedDB.open(
+					"sprite-anvil-offline-staging-account:test-user"
+				);
 				request.onsuccess = () => resolve(request.result);
 				request.onerror = () => reject(request.error);
 			});

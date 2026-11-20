@@ -98,8 +98,25 @@ export function TilesetAdjacencyReviewManager({
 	const [previewReady, setPreviewReady] = useState<Record<string, boolean>>({});
 	const [status, setStatus] = useState("");
 	const saveMutation = useMutation(
-		orpc.tilesetAdjacencyReviews.save.mutationOptions(mutationMeta)
+		orpc.tilesetAdjacencyReviews.save.mutationOptions({
+			...mutationMeta,
+			onSuccess: async (_saved, request) => {
+				const readback = await reviews.refetch();
+				if (
+					readback.isError ||
+					!readback.data?.some((item) => item.id === request.id)
+				) {
+					setStatus(
+						"Saved review could not be reloaded. Retry the same review to check its saved result."
+					);
+					return;
+				}
+				setPending(null);
+				setStatus("Tileset adjacency review saved.");
+			},
+		})
 	);
+	const saving = saveMutation.isPending;
 	const seamMutation = useMutation(
 		orpc.tilesetAdjacencyReviews.inspectSeam.mutationOptions()
 	);
@@ -107,7 +124,6 @@ export function TilesetAdjacencyReviewManager({
 		key: string;
 		result: TilesetSeamResult;
 	} | null>(null);
-	const [saving, setSaving] = useState(false);
 	const [pending, setPending] = useState<TilesetAdjacencyReviewInput | null>(
 		null
 	);
@@ -256,21 +272,8 @@ export function TilesetAdjacencyReviewManager({
 			return;
 		}
 		setPending(request);
-		setSaving(true);
 		try {
 			await saveMutation.mutateAsync(request);
-			const readback = await reviews.refetch();
-			if (
-				readback.isError ||
-				!readback.data?.some((item) => item.id === request.id)
-			) {
-				setStatus(
-					"Saved review could not be reloaded. Retry the same review to check its saved result."
-				);
-				return;
-			}
-			setPending(null);
-			setStatus("Tileset adjacency review saved.");
 		} catch (error) {
 			if (isWriteOutcomeUncertain(error)) {
 				setStatus(
@@ -285,8 +288,6 @@ export function TilesetAdjacencyReviewManager({
 					)
 				);
 			}
-		} finally {
-			setSaving(false);
 		}
 	}
 	return (

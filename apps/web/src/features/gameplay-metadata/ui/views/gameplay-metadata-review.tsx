@@ -18,6 +18,7 @@ import { builtinProfilePresentation } from "@/utils/builtin-profile-labels";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
+import { usePendingIdempotencyKey } from "@/utils/pending-idempotency-key";
 import { GameplayMetadataOverlay } from "../components/gameplay-metadata-overlay";
 
 export function GameplayMetadataReview({
@@ -37,8 +38,7 @@ export function GameplayMetadataReview({
 }) {
 	const fileInputId = useId();
 	const [ready, setReady] = useState(false);
-	const [pending, setPending] = useState(false);
-	const [decisionId] = useState(() => crypto.randomUUID());
+	const decisionKey = usePendingIdempotencyKey();
 	const [error, setError] = useState<string | null>(null);
 	const [message, setMessage] = useState<string | null>(null);
 	const reviewMutation = useMutation(
@@ -60,16 +60,20 @@ export function GameplayMetadataReview({
 		recordId: record.id,
 	};
 
+	const actionMutation = useMutation({
+		...mutationMeta,
+		networkMode: "always",
+		mutationFn: (action: () => Promise<void>) => action(),
+	});
+	const pending = actionMutation.isPending;
+
 	async function act(action: () => Promise<void>) {
-		setPending(true);
 		setError(null);
 		setMessage(null);
 		try {
-			await action();
+			await actionMutation.mutateAsync(action);
 		} catch (failure) {
 			setError(getErrorMessage(failure, "Could not verify Gameplay Metadata."));
-		} finally {
-			setPending(false);
 		}
 	}
 
@@ -77,7 +81,7 @@ export function GameplayMetadataReview({
 		await act(async () => {
 			const reviewed = await reviewMutation.mutateAsync({
 				...target,
-				id: decisionId,
+				id: decisionKey.keyFor(JSON.stringify(target)),
 			});
 			await onReviewed(reviewed);
 		});

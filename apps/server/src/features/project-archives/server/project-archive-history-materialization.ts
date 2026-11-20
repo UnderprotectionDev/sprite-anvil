@@ -2,6 +2,7 @@ import { isDeepStrictEqual } from "node:util";
 import type { HistoryRecords } from "@sprite-anvil/api/project-archive-history";
 import { historySectionSchemas } from "@sprite-anvil/api/project-archive-history";
 import type { Database } from "@sprite-anvil/db";
+import type { InteractiveTransaction } from "@sprite-anvil/db/interactive-database";
 import { animationTimingReviews } from "@sprite-anvil/db/schema/animation-timing-reviews";
 import { assetFamilyComparisons } from "@sprite-anvil/db/schema/asset-family-comparisons";
 import {
@@ -55,7 +56,7 @@ import { vfxSynchronizationReviews } from "@sprite-anvil/db/schema/vfx-synchroni
 import { and, eq } from "drizzle-orm";
 import type { StoredProjectArchiveRestoreRecord } from "./project-archive-restore-storage";
 
-type Tx = Parameters<Parameters<Database["transaction"]>[0]>[0];
+type Tx = Pick<InteractiveTransaction, "insert" | "select">;
 
 async function insertBatches<T>(
 	rows: T[],
@@ -549,7 +550,10 @@ export async function insertArchiveHistory(
 }
 
 /** Reverses history inserts before foundation deletion after failed verification. */
-export async function withdrawArchiveHistory(tx: Tx, projectId: string) {
+export function archiveHistoryDeleteQueries(
+	db: Pick<Database, "delete">,
+	projectId: string
+) {
 	const tables = [
 		sourceMetadataMappingFinalizations,
 		sourceMetadataMappingProposals,
@@ -576,8 +580,7 @@ export async function withdrawArchiveHistory(tx: Tx, projectId: string) {
 		generationPackages,
 		projectSpecializedProfileContracts,
 	];
-	for (const table of tables) {
-		// biome-ignore lint/performance/noAwaitInLoops: Deletion follows foreign-key dependency order in this transaction.
-		await tx.delete(table).where(eq(table.projectId, projectId));
-	}
+	return tables.map((table) =>
+		db.delete(table).where(eq(table.projectId, projectId))
+	);
 }

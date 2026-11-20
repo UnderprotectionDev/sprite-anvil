@@ -40,9 +40,10 @@ describe("Offline staging", () => {
 		);
 
 		try {
-			const signInLink = await $("a=Sign In");
+			const signInLink = await $("a=Sign in to get started");
 			await signInLink.waitForClickable();
 			await signInLink.click();
+			await (await $("button=Need an account? Sign Up")).click();
 			await (await $("input[name='name']")).setValue(fixture.userName);
 			await (await $("input[name='email']")).setValue(fixture.email);
 			await (await $("input[name='password']")).setValue(fixture.password);

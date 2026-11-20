@@ -1,6 +1,7 @@
 import { createFamilyReadinessStore } from "@sprite-anvil/api/family-readiness-store";
 import { createAuth } from "@sprite-anvil/auth";
 import { createDb } from "@sprite-anvil/db";
+import { createInteractiveDatabase } from "@sprite-anvil/db/interactive-database";
 import { project } from "@sprite-anvil/db/schema/project";
 import { createLocalTestDb } from "@sprite-anvil/db/testing";
 import { eq } from "drizzle-orm";
@@ -126,6 +127,7 @@ function usesLoopbackTestDatabase(databaseUrl: string): boolean {
 export const db = usesLoopbackTestDatabase(ENV.DATABASE_URL)
 	? createLocalTestDb(ENV)
 	: createDb(ENV);
+const interactiveDb = createInteractiveDatabase(ENV);
 export const vfxSynchronizationStore = createVfxSynchronizationStore(db);
 export const vfxAppearanceReviewStore = createVfxAppearanceReviewStore(db);
 export const animationTimingReviewStore = createAnimationTimingReviewStore(db);
@@ -181,7 +183,7 @@ const deliveryFulfilmentStorage = createDatabaseDeliveryFulfilmentStorage(db);
 
 export const exportProfileStore = createExportProfileStore(
 	db,
-	createDatabaseExportProfileStorage(db)
+	createDatabaseExportProfileStorage(db, interactiveDb)
 );
 export const collectionStore = createCollectionStore(db);
 export const backgroundOperationStore = createBackgroundOperationStore(
@@ -246,7 +248,7 @@ export const exportBundleStore = createExportBundleStore(db, {
 });
 export const deletionReceiptStore = createDeletionReceiptStore({
 	db,
-	storage: createDatabaseErasureDeletionStorage(db),
+	storage: createDatabaseErasureDeletionStorage(db, interactiveDb),
 });
 /** No backup retention schedule is published yet (OV-08), so reports claim no clean-up time. */
 export const erasureImpactStore = createErasureImpactStore({
@@ -305,6 +307,7 @@ export const projectArchiveRestoreStore = archiveObjectStorage
 			},
 			storage: createDatabaseProjectArchiveRestoreStorage(
 				db,
+				interactiveDb,
 				(transaction, record) =>
 					createProjectArchiveCanonicalVerifier(
 						createProjectArchiveSourceReader({
@@ -427,7 +430,7 @@ export function createServerOperationServices(
 					db,
 					impactStore: erasureImpactStore,
 					sourceReader: createErasureImpactSourceReader(db),
-					storage: createDatabaseErasureDeletionStorage(db),
+					storage: createDatabaseErasureDeletionStorage(db, interactiveDb),
 					objects: createServerAssetVersionStorage(),
 				}
 			: undefined,

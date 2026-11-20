@@ -49,6 +49,7 @@ import type {
 	ErasureApprovalOperations,
 } from "./permanent-erasure-deletion-store";
 import type { ErasureImpactStore } from "./permanent-erasure-store";
+import type { PixelEditorOperations } from "./pixel-editor-rpc";
 import type { PlatformEquivalenceStore } from "./platform-equivalence-store";
 import type { PortraitIdentityReviewStore } from "./portrait-identity-reviews";
 import type { ProductionExperimentStore } from "./production-experiments";
@@ -84,6 +85,7 @@ import type {
 	VfxAppearanceReviewStore,
 } from "./vfx-appearance-reviews";
 import type { VfxSynchronizationStore } from "./vfx-synchronization";
+
 export interface Context {
 	animationTimingReviewStore?: AnimationTimingReviewStore;
 	assetFamilyComparisonStore?: AssetFamilyComparisonStore;
@@ -140,6 +142,7 @@ export interface Context {
 	measurementDefinitionStore?: MeasurementDefinitionStore;
 	measurementEventStore?: MeasurementEventStore;
 	measurementMeasureStore?: MeasurementMeasureStore;
+	pixelEditorOperations?: PixelEditorOperations;
 	platformEquivalenceStore?: PlatformEquivalenceStore;
 	portraitIdentityReviewStore?: PortraitIdentityReviewStore;
 	productionExperimentStore?: ProductionExperimentStore;

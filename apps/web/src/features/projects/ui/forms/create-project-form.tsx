@@ -1,23 +1,39 @@
+import { requireContractInput } from "@sprite-anvil/api/contract-input";
+import type { ProjectContextCreateInput } from "@sprite-anvil/api/project-context";
+import {
+	projectArtDirectionMaxLength,
+	projectCreateContract,
+	projectNameMaxLength,
+} from "@sprite-anvil/api/project-context";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
 import { Textarea } from "@sprite-anvil/ui/components/textarea";
 import { useForm } from "@tanstack/react-form";
-import type { CreateProjectFormValues } from "../../schemas";
-import { createProjectFormSchema } from "../../schemas";
 
-const emptyCreateProjectForm: CreateProjectFormValues = {
+const emptyCreateProjectForm: ProjectContextCreateInput = {
 	name: "",
 	generalArtDirection: "",
 };
 
+const projectInput = requireContractInput(projectCreateContract);
+
 export function useCreateProjectForm(
-	onSubmit: (input: CreateProjectFormValues) => void
+	onSubmit: (input: ProjectContextCreateInput) => void
 ) {
 	return useForm({
 		defaultValues: emptyCreateProjectForm,
-		onSubmit: ({ value }) => onSubmit(createProjectFormSchema.parse(value)),
-		validators: { onSubmit: createProjectFormSchema },
+		onSubmit: async ({ value }) => {
+			const result = await projectInput["~standard"].validate(value);
+			if (!result.issues) {
+				onSubmit(result.value);
+			}
+		},
+		validators: {
+			onChange: projectInput,
+			onMount: projectInput,
+			onSubmit: projectInput,
+		},
 	});
 }
 
@@ -58,7 +74,7 @@ export function CreateProjectForm({
 							className="min-h-11 text-sm md:text-sm"
 							disabled={isSaving || writeOutcomeUncertain}
 							id="project-name"
-							maxLength={120}
+							maxLength={projectNameMaxLength}
 							name={field.name}
 							onBlur={field.handleBlur}
 							onChange={(event) => field.handleChange(event.target.value)}
@@ -78,7 +94,7 @@ export function CreateProjectForm({
 							className="bg-background field-sizing-fixed min-h-32 w-full resize-y rounded-md border px-3 py-2 text-sm md:text-sm"
 							disabled={isSaving || writeOutcomeUncertain}
 							id="project-art-direction"
-							maxLength={1000}
+							maxLength={projectArtDirectionMaxLength}
 							name={field.name}
 							onBlur={field.handleBlur}
 							onChange={(event) => field.handleChange(event.target.value)}
@@ -89,9 +105,7 @@ export function CreateProjectForm({
 				)}
 			</form.Field>
 			<form.Subscribe
-				selector={(state) =>
-					createProjectFormSchema.safeParse(state.values).success
-				}
+				selector={(state) => state.isValid && !state.isSubmitting}
 			>
 				{(isComplete) => (
 					<Button

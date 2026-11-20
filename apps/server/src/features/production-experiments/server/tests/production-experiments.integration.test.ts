@@ -7,7 +7,8 @@ import { createDb } from "@sprite-anvil/db";
 import { user } from "@sprite-anvil/db/schema/auth";
 import { generationPackages } from "@sprite-anvil/db/schema/generation-packages";
 import { productionExperiments } from "@sprite-anvil/db/schema/production-experiments";
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import { removeAssetCatalogFixture } from "../../../../asset-catalog-integration-fixture";
 import { createProductionExperimentStore } from "../production-experiment-store";
 
 const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
@@ -236,7 +237,8 @@ test.skipIf(!databaseUrl)(
 				await db
 					.delete(productionExperiments)
 					.where(eq(productionExperiments.createdByUserId, userId));
-				await db.delete(user).where(inArray(user.id, [userId, otherUserId]));
+				await removeAssetCatalogFixture(db, userId);
+				await db.delete(user).where(eq(user.id, otherUserId));
 			}
 		}
 	}

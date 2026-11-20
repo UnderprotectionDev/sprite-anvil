@@ -44,15 +44,13 @@ test("persists an Asset Record created through the web flow", async ({
 			page.getByRole("heading", { name: scenario.name })
 		).toBeVisible();
 		await page
-			.getByRole("button", { name: "Record details", exact: true })
+			.getByRole("tab", { name: "Record details", exact: true })
 			.click();
-		await Promise.all(
-			scenario.inputs.map(({ accessibleName, kind, value }) =>
-				kind === "select"
-					? page.getByLabel(accessibleName).selectOption(value)
-					: page.getByLabel(accessibleName).fill(value)
-			)
-		);
+		for (const { accessibleName, kind, value } of scenario.inputs) {
+			const field = page.getByLabel(accessibleName, { exact: true });
+			// biome-ignore lint/performance/noAwaitInLoops: Each field must finish before the next field gets browser focus.
+			await (kind === "select" ? field.selectOption(value) : field.fill(value));
+		}
 		await page.getByRole("button", { name: "Save dimensions" }).click();
 		await expect(
 			page.getByText("Dimensions saved.", { exact: true })
@@ -64,7 +62,7 @@ test("persists an Asset Record created through the web flow", async ({
 		}
 		await page.reload();
 		await page
-			.getByRole("button", { name: "Record details", exact: true })
+			.getByRole("tab", { name: "Record details", exact: true })
 			.click();
 		await expect(
 			page.getByRole("heading", { name: scenario.name })
@@ -142,10 +140,17 @@ test("persists an Asset Version, review, quality result, and legacy history", as
 		)
 	).toBeVisible();
 	await expect(
-		page.getByText("Owner attested to the source and relationship.")
+		page.getByText(
+			"Supporting evidence: Owner attested to the source and relationship.",
+			{ exact: true }
+		)
 	).toBeVisible();
 	await expect(page.getByText("Created by user")).toBeVisible();
-	await expect(page.getByText("Reviewed through the web flow.")).toBeVisible();
+	await expect(
+		page
+			.getByRole("paragraph")
+			.filter({ hasText: "Reviewed through the web flow." })
+	).toBeVisible();
 
 	await page.locator("#asset-version-file").setInputFiles({
 		name: "ash-knight-alt.png",
@@ -181,19 +186,32 @@ test("persists an Asset Version, review, quality result, and legacy history", as
 			"Unknown production history: The original generation instruction is unavailable."
 		)
 	).toBeVisible();
-	await expect(page.getByText("Alternative sketch")).toBeVisible();
+	await expect(
+		page.getByText("Version 2 · Alternative sketch", { exact: true })
+	).toBeVisible();
 	await expect(
 		page.getByText(
 			"Unknown production history: The alternative sketch instructions are unavailable."
 		)
 	).toBeVisible();
-	await expect(page.getByText("Team handoff note.")).toBeVisible();
 	await expect(
-		page.getByText("Owner attested to the source and relationship.")
+		page.getByText("Supporting evidence: Team handoff note.", { exact: true })
+	).toBeVisible();
+	await expect(
+		page.getByText(
+			"Supporting evidence: Owner attested to the source and relationship.",
+			{ exact: true }
+		)
 	).toBeVisible();
 	await expect(page.getByText("Created by user")).toBeVisible();
-	await expect(page.getByText("Received from team")).toBeVisible();
-	await expect(page.getByText("Reviewed through the web flow.")).toBeVisible();
+	await expect(
+		page.getByText("History unknown · Received from team", { exact: true })
+	).toBeVisible();
+	await expect(
+		page
+			.getByRole("paragraph")
+			.filter({ hasText: "Reviewed through the web flow." })
+	).toBeVisible();
 });
 
 test("archives and restores an Asset Record through the web flow", async ({
@@ -220,22 +238,16 @@ test("archives and restores an Asset Record through the web flow", async ({
 	await page.getByRole("button", { name: "Create Asset Record" }).click();
 	await expect(page.getByRole("heading", { name: fixture.name })).toBeVisible();
 
-	await page
-		.getByRole("button", { name: "Record details", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Record details", exact: true }).click();
 	await page.getByRole("button", { name: "Archive record" }).click();
 	await expect(page.getByText("Archived", { exact: true })).toBeVisible();
 	await page.reload();
-	await page
-		.getByRole("button", { name: "Record details", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Record details", exact: true }).click();
 	await expect(page.getByText("Archived", { exact: true })).toBeVisible();
 
 	await page.getByRole("button", { name: "Reactivate record" }).click();
 	await expect(page.getByText("Active", { exact: true })).toBeVisible();
 	await page.reload();
-	await page
-		.getByRole("button", { name: "Record details", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Record details", exact: true }).click();
 	await expect(page.getByText("Active", { exact: true })).toBeVisible();
 });

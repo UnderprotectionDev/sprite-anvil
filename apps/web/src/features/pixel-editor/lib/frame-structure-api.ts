@@ -1,89 +1,38 @@
 import type {
 	FrameOperation,
-	SheetSlicing,
 	SheetStructureView,
 } from "@sprite-anvil/api/pixel-editor-structure";
-import {
-	frameStructureCommitResponseSchema,
-	sheetSlicingPreviewSchema,
-	sheetStructureViewSchema,
-} from "@sprite-anvil/api/pixel-editor-structure";
-import {
-	draftsUrl,
-	pixelEditorGetJson,
-	pixelEditorPost,
-	pixelEditorServerUrl,
-} from "./pixel-editor-api";
-
-function structureUrl(projectId: string, draftId: string) {
-	return `${draftsUrl(projectId)}/${draftId}/structure`;
-}
+import { serverUrl } from "@/utils/hono-api";
+import { client, orpc } from "@/utils/orpc";
 
 export function frameImageUrl(
 	view: SheetStructureView,
 	frame: SheetStructureView["frames"][number]
 ) {
-	return `${pixelEditorServerUrl()}${frame.previewUrl}?revision=${view.draftRevision}`;
+	return `${serverUrl()}${frame.previewUrl}?revision=${view.draftRevision}`;
 }
 
-export async function previewSheetSlicing(
+export function frameStructureOptions(
 	projectId: string,
 	draftId: string,
-	slicing: SheetSlicing
+	draftRevision: number
 ) {
-	return sheetSlicingPreviewSchema.parse(
-		await pixelEditorPost(
-			`${draftsUrl(projectId)}/${draftId}/slicing-preview`,
-			{
-				slicing,
-			}
-		)
-	);
+	const options = orpc.workingDrafts.readStructure.queryOptions({
+		input: { projectId, draftId },
+		retry: false,
+	});
+	return { ...options, queryKey: [...options.queryKey, draftRevision] };
 }
 
-export async function readFrameStructure(projectId: string, draftId: string) {
-	return sheetStructureViewSchema.parse(
-		await pixelEditorGetJson(structureUrl(projectId, draftId))
-	);
-}
-
-export async function applySheetSlicing(
-	projectId: string,
-	draftId: string,
-	expectedRevision: number,
-	slicing: SheetSlicing
-) {
-	return sheetStructureViewSchema.parse(
-		await pixelEditorPost(`${structureUrl(projectId, draftId)}/slicing`, {
-			expectedRevision,
-			slicing,
-		})
-	);
-}
-
-export async function applyFrameOperation(
+export function applyFrameOperation(
 	projectId: string,
 	view: SheetStructureView,
 	operation: FrameOperation
 ) {
-	return sheetStructureViewSchema.parse(
-		await pixelEditorPost(
-			`${structureUrl(projectId, view.draftId)}/operations`,
-			{
-				expectedRevision: view.draftRevision,
-				operation,
-			}
-		)
-	);
-}
-
-export async function commitFrameStructure(
-	projectId: string,
-	view: SheetStructureView
-) {
-	return frameStructureCommitResponseSchema.parse(
-		await pixelEditorPost(`${structureUrl(projectId, view.draftId)}/commit`, {
-			expectedRevision: view.draftRevision,
-		})
-	);
+	return client.workingDrafts.applyFrameOperation({
+		projectId,
+		draftId: view.draftId,
+		expectedRevision: view.draftRevision,
+		operation,
+	});
 }

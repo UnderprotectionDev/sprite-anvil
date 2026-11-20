@@ -1,43 +1,66 @@
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import type { ReactNode } from "react";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useRef, useSyncExternalStore } from "react";
 import { Button } from "./button";
 
 interface Props<T> {
+	ariaLabel?: string;
 	getItemKey: (item: T) => string;
 	items: readonly T[];
 	renderItem: (item: T) => ReactNode;
 }
 
 export function WindowVirtualList<T>({
+	ariaLabel,
 	items,
 	getItemKey,
 	renderItem,
 }: Props<T>) {
 	const listRef = useRef<HTMLUListElement>(null);
-	const [scrollMargin, setScrollMargin] = useState(0);
-	useLayoutEffect(() => {
-		const update = () =>
-			setScrollMargin(
-				(listRef.current?.getBoundingClientRect().top ?? 0) + window.scrollY
-			);
-		update();
-		window.addEventListener("resize", update);
+	const offset = useRef(0);
+	const subscribeToLayout = useCallback((update: () => void) => {
+		let frame = 0;
+		const measure = () => {
+			const node = listRef.current;
+			const margin = node
+				? node.getBoundingClientRect().top + window.scrollY
+				: 0;
+			if (offset.current !== margin) {
+				offset.current = margin;
+				update();
+			}
+		};
+		const scheduleMeasure = () => {
+			cancelAnimationFrame(frame);
+			frame = requestAnimationFrame(measure);
+		};
+		window.addEventListener("resize", scheduleMeasure);
 		const observer =
-			typeof ResizeObserver === "undefined" ? null : new ResizeObserver(update);
-		if (listRef.current?.parentElement) {
-			observer?.observe(listRef.current.parentElement);
+			typeof ResizeObserver === "undefined"
+				? null
+				: new ResizeObserver(scheduleMeasure);
+		const parent = listRef.current?.parentElement;
+		if (parent) {
+			observer?.observe(parent);
 		}
+		measure();
 		return () => {
-			window.removeEventListener("resize", update);
+			window.removeEventListener("resize", scheduleMeasure);
 			observer?.disconnect();
+			cancelAnimationFrame(frame);
 		};
 	}, []);
+	const scrollMargin = useSyncExternalStore(
+		subscribeToLayout,
+		() => offset.current,
+		() => 0
+	);
 	const virtualizer = useWindowVirtualizer({
 		count: items.length,
 		estimateSize: () => 160,
 		getItemKey: (index) => getItemKey(items[index] as T),
 		overscan: 5,
+		useAnimationFrameWithResizeObserver: true,
 		initialRect: { width: 1024, height: 800 },
 		scrollMargin,
 	});
@@ -60,6 +83,7 @@ export function WindowVirtualList<T>({
 				</Button>
 			)}
 			<ul
+				aria-label={ariaLabel}
 				ref={listRef}
 				style={{ height: virtualizer.getTotalSize(), position: "relative" }}
 			>

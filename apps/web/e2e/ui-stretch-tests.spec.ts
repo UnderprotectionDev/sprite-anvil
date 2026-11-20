@@ -192,9 +192,7 @@ test("stretches exact UI states at multiple sizes, preserves corners and rereads
 		manager.getByText("Stretch test saved.", { exact: true })
 	).toBeVisible();
 	await page.reload();
-	await page
-		.getByRole("button", { name: "Profile reviews", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Profile reviews", exact: true }).click();
 	await expect(
 		manager.getByText("panel · normal · 8 × 7 px · failed · geometry failed", {
 			exact: true,

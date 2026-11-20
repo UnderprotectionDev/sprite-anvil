@@ -2,13 +2,16 @@ import type {
 	OfflineAbandonConfirmation,
 	OfflineConflictChoice,
 } from "@sprite-anvil/api/offline-conflict";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { offlineConflictContractVersion } from "@sprite-anvil/api/offline-conflict";
 import {
-	finalizeStagedDraft,
-	reconcileStagedDraft,
-	requestAbandonConfirmation,
-	resolveOfflineConflict,
-} from "../lib/offline-conflict-api";
+	skipToken,
+	useMutation,
+	useQuery,
+	useQueryClient,
+} from "@tanstack/react-query";
+import { useCallback, useEffect, useRef } from "react";
+import { mutationMeta } from "@/utils/mutation-meta";
+import { orpc } from "@/utils/orpc";
 import type { OfflineStagingStore } from "../lib/offline-staging-store";
 import type { ReconcileEntry } from "../lib/reconcile-staged-drafts";
 import { reconcileStagedDrafts } from "../lib/reconcile-staged-drafts";
@@ -34,44 +37,87 @@ export function useOfflineReconcile({
 	refresh,
 	stagedDraftCount,
 	store,
+	userId,
 }: {
 	online: boolean;
 	projectId: string;
 	refresh: () => Promise<unknown>;
 	stagedDraftCount: number;
 	store: OfflineStagingStore;
+	userId: string;
 }) {
-	const [reconciled, setReconciled] = useState<ReconcileEntry[]>([]);
-	const [isChecking, setIsChecking] = useState(false);
-	const [message, setMessage] = useState<string | null>(null);
-	const checking = useRef(false);
-	const [resolutionKeys] = useState(createResolutionKeys);
-
-	const checkDrafts = useCallback(async () => {
-		if (checking.current) {
-			return;
-		}
-		checking.current = true;
-		setIsChecking(true);
-		try {
+	const resolutionKeysRef =
+		useRef<ReturnType<typeof createResolutionKeys>>(null);
+	resolutionKeysRef.current ??= createResolutionKeys();
+	const resolutionKeys = resolutionKeysRef.current;
+	const queryClient = useQueryClient();
+	const reconcileKey = [
+		"offline-staging-reconciliation",
+		userId,
+		projectId,
+	] as const;
+	const checkedEntries = useQuery<ReconcileEntry[]>({
+		queryKey: reconcileKey,
+		queryFn: skipToken,
+		gcTime: 0,
+	});
+	const reconciliation = useMutation({
+		...mutationMeta,
+		networkMode: "always",
+		mutationFn: async () => {
 			const drafts = await store.listStagedDrafts(projectId);
-			setReconciled(
-				await reconcileStagedDrafts({
-					drafts,
-					reconcile: reconcileStagedDraft(projectId),
-				})
-			);
-		} finally {
-			checking.current = false;
-			setIsChecking(false);
-		}
-	}, [projectId, store]);
+			return reconcileStagedDrafts({
+				drafts,
+				reconcile: (reconcile) =>
+					orpc.offlineConflicts.reconcile.call({ projectId, reconcile }),
+			});
+		},
+		onSuccess: (result) => {
+			queryClient.setQueryData(reconcileKey, result);
+		},
+	});
+	const inFlight = useRef<Promise<unknown> | null>(null);
+	const { mutateAsync: reconcileDrafts } = reconciliation;
+	const checkDrafts = useCallback(() => {
+		inFlight.current ??= reconcileDrafts()
+			.catch(() => undefined)
+			.finally(() => {
+				inFlight.current = null;
+			});
+		return inFlight.current;
+	}, [reconcileDrafts]);
+
+	const finalize = useMutation(
+		orpc.workingDrafts.commit.mutationOptions({
+			...mutationMeta,
+			networkMode: "always",
+			onSuccess: async (_result, { draftId }) => {
+				await store.removeStagedDraft(draftId);
+				queryClient.setQueryData<ReconcileEntry[]>(reconcileKey, (current) =>
+					current?.filter((entry) => entry.draftId !== draftId)
+				);
+				await refresh();
+			},
+		})
+	);
+	const confirmationMutation = useMutation(
+		orpc.offlineConflicts.requestAbandonConfirmation.mutationOptions({
+			...mutationMeta,
+			networkMode: "always",
+		})
+	);
+	const resolution = useMutation(
+		orpc.offlineConflicts.resolve.mutationOptions({
+			...mutationMeta,
+			networkMode: "always",
+		})
+	);
 
 	// Reconnecting compares every staged Working Draft with the cloud before anything is finalized.
 	const checkedOnline = useRef(online);
 	useEffect(() => {
 		if (online && !checkedOnline.current && stagedDraftCount > 0) {
-			checkDrafts().catch(() => undefined);
+			void checkDrafts();
 		}
 		checkedOnline.current = online;
 	}, [online, stagedDraftCount, checkDrafts]);
@@ -86,7 +132,10 @@ export function useOfflineReconcile({
 		try {
 			return {
 				ok: true,
-				confirmation: await requestAbandonConfirmation(projectId, conflict.id),
+				confirmation: await confirmationMutation.mutateAsync({
+					projectId,
+					conflictId: conflict.id,
+				}),
 			};
 		} catch (error) {
 			return {
@@ -102,14 +151,17 @@ export function useOfflineReconcile({
 		confirmation?: AbandonConfirmationInput
 	) {
 		try {
-			const result = await resolveOfflineConflict(projectId, conflict.id, {
+			const result = await resolution.mutateAsync({
+				projectId,
+				conflictId: conflict.id,
+				contractVersion: offlineConflictContractVersion,
 				choice,
 				idempotencyKey: resolutionKeys.keyFor(conflict.id, choice),
 				...confirmation,
 			});
 			resolutionKeys.settle(conflict.id);
-			setReconciled((entries) =>
-				entries.map((entry) =>
+			queryClient.setQueryData<ReconcileEntry[]>(reconcileKey, (entries) =>
+				entries?.map((entry) =>
 					entry.kind === "conflict" && entry.conflict.id === conflict.id
 						? { ...entry, conflict: result.conflict }
 						: entry
@@ -130,28 +182,27 @@ export function useOfflineReconcile({
 		}
 	}
 
-	async function finalizeDraft(draftId: string, revision: number) {
-		try {
-			const result = await finalizeStagedDraft(projectId, draftId, revision);
-			await store.removeStagedDraft(draftId);
-			setReconciled((entries) =>
-				entries.filter((entry) => entry.draftId !== draftId)
-			);
-			setMessage(
-				`Candidate Version ${result.assetVersionId} was created from the staged Working Draft. Nothing is approved.`
-			);
-			await refresh();
-		} catch (error) {
-			setMessage(messageOf(error, "Finalizing the draft failed."));
-		}
+	let message: string | null = null;
+	if (finalize.isError) {
+		message = messageOf(finalize.error, "Finalizing the draft failed.");
+	} else if (finalize.data) {
+		message = `Candidate Version ${finalize.data.assetVersionId} was created from the staged Working Draft. Nothing is approved.`;
+	} else if (reconciliation.isError) {
+		message = messageOf(
+			reconciliation.error,
+			"The staged drafts could not be checked."
+		);
 	}
 
 	return {
 		checkDrafts,
-		finalizeDraft,
-		isChecking,
+		finalizeDraft: (draftId: string, revision: number) =>
+			finalize
+				.mutateAsync({ projectId, draftId, expectedRevision: revision })
+				.catch(() => undefined),
+		isChecking: reconciliation.isPending,
 		message,
-		reconciled,
+		reconciled: checkedEntries.data ?? [],
 		requestAbandon,
 		resolveConflict,
 	};

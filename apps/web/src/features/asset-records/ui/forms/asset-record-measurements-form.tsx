@@ -12,7 +12,7 @@ import {
 } from "@sprite-anvil/ui/components/native-select";
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { StatusMessage } from "@/components/status-message";
 import { getErrorMessage } from "@/utils/get-error-message";
 import { mutationMeta } from "@/utils/mutation-meta";
@@ -226,10 +226,7 @@ export function AssetRecordMeasurementsForm({
 					measurements,
 					projectId: record.projectId,
 				});
-				formApi.setFieldValue(
-					"draft",
-					draftFromMeasurements(saved.measurements)
-				);
+				formApi.reset({ draft: draftFromMeasurements(saved.measurements) });
 				const refreshed = await onRefresh();
 				if (refreshed.isError) {
 					setErrorMessage(
@@ -244,10 +241,6 @@ export function AssetRecordMeasurementsForm({
 		},
 		validators: { onSubmit: measurementsDraftFormSchema },
 	});
-
-	useEffect(() => {
-		form.setFieldValue("draft", draftFromMeasurements(record.measurements));
-	}, [form, record.measurements]);
 
 	return (
 		<section

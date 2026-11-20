@@ -9,6 +9,7 @@ import { restoredRecordId } from "@sprite-anvil/api/project-archive-restore";
 import { recordContentDigest } from "@sprite-anvil/api/record-content-digest";
 import { runtimeValidationCriterionSchema } from "@sprite-anvil/api/runtime-validation-readiness";
 import type { Database } from "@sprite-anvil/db";
+import type { InteractiveTransaction } from "@sprite-anvil/db/interactive-database";
 import {
 	deliveryFulfilmentRequirements,
 	deliveryFulfilments,
@@ -41,7 +42,7 @@ import {
 import { eq } from "drizzle-orm";
 import type { StoredProjectArchiveRestoreRecord } from "./project-archive-restore-storage";
 
-type Tx = Parameters<Parameters<Database["transaction"]>[0]>[0];
+type Tx = Pick<InteractiveTransaction, "insert">;
 
 async function insertBatches<T>(
 	rows: T[],
@@ -372,9 +373,11 @@ export async function insertArchiveDelivery(
 	}
 }
 
-export async function withdrawArchiveDelivery(tx: Tx, projectId: string) {
+export function archiveDeliveryDeleteQueries(
+	db: Pick<Database, "delete">,
+	projectId: string
+) {
 	const tables = [
-		runtimeValidationDecisions,
 		runtimeValidationEvidence,
 		runtimeValidationRecords,
 		historicalRiskNotices,
@@ -389,8 +392,12 @@ export async function withdrawArchiveDelivery(tx: Tx, projectId: string) {
 		exportProfileRevisions,
 		exportProfiles,
 	];
-	for (const table of tables) {
-		// biome-ignore lint/performance/noAwaitInLoops: FK-ordered deletion stays in one transaction.
-		await tx.delete(table).where(eq(table.projectId, projectId));
-	}
+	return [
+		db
+			.delete(runtimeValidationDecisions)
+			.where(eq(runtimeValidationDecisions.projectId, projectId)),
+		...tables.map((table) =>
+			db.delete(table).where(eq(table.projectId, projectId))
+		),
+	] as const;
 }

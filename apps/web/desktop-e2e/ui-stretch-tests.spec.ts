@@ -144,7 +144,7 @@ describe("UI Stretch Test", () => {
 				.setValue("normal");
 			await manager
 				.$(
-					"xpath=.//label[contains(normalize-space(.), 'Exact version')]/select"
+					"xpath=.//label[contains(normalize-space(.), 'Exact version')]//select"
 				)
 				.selectByVisibleText("Normal panel · v1");
 			for (const [label, value] of [
@@ -168,7 +168,7 @@ describe("UI Stretch Test", () => {
 				.$("svg[aria-label='panel normal at 64 × 40 px']")
 				.waitForDisplayed();
 			await manager
-				.$("xpath=.//label[contains(normalize-space(.),'Test result')]/select")
+				.$("xpath=.//label[contains(normalize-space(.),'Test result')]//select")
 				.selectByAttribute("value", "passed");
 			await manager
 				.$("xpath=.//label[normalize-space(.)='Observation']/textarea")

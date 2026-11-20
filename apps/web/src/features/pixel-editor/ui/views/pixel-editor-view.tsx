@@ -6,8 +6,7 @@ import {
 	NativeSelectOption,
 } from "@sprite-anvil/ui/components/native-select";
 import { Link } from "@tanstack/react-router";
-import { useSelector } from "@tanstack/react-store";
-import { useState } from "react";
+import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { StatusMessage } from "@/components/status-message";
 import { useLoadedImage } from "../../hooks/use-loaded-image";
 import { usePixelDraft } from "../../hooks/use-pixel-draft";
@@ -18,7 +17,7 @@ import {
 import type { CompareMode } from "../../store/pixel-editor-tool-store";
 import {
 	compareModes,
-	createPixelEditorToolStore,
+	initialPixelEditorToolState,
 	patchToolState,
 } from "../../store/pixel-editor-tool-store";
 import { ComparePreview } from "../components/compare-preview";
@@ -44,7 +43,7 @@ export function PixelEditorView({
 	projectId: string;
 	sourceAssetVersionId: string;
 }) {
-	const [store] = useState(createPixelEditorToolStore);
+	const store = useCreateStore(initialPixelEditorToolState);
 	const state = useSelector(store, (current) => current);
 	const { commit, discard, draft, draftQuery, history, isBusy, operation } =
 		usePixelDraft(projectId, sourceAssetVersionId);
@@ -117,7 +116,14 @@ export function PixelEditorView({
 				<div className="flex flex-wrap items-center gap-2">
 					<Button
 						disabled={locked || !draft.canUndo}
-						onClick={() => history.mutate("undo")}
+						onClick={() =>
+							history.mutate({
+								projectId,
+								draftId: draft.id,
+								expectedRevision: draft.revision,
+								direction: "undo",
+							})
+						}
 						size="sm"
 						type="button"
 						variant="outline"
@@ -126,7 +132,14 @@ export function PixelEditorView({
 					</Button>
 					<Button
 						disabled={locked || !draft.canRedo}
-						onClick={() => history.mutate("redo")}
+						onClick={() =>
+							history.mutate({
+								projectId,
+								draftId: draft.id,
+								expectedRevision: draft.revision,
+								direction: "redo",
+							})
+						}
 						size="sm"
 						type="button"
 						variant="outline"
@@ -135,7 +148,7 @@ export function PixelEditorView({
 					</Button>
 					<Button
 						disabled={locked}
-						onClick={() => discard.mutate()}
+						onClick={() => discard.mutate({ projectId, draftId: draft.id })}
 						size="sm"
 						type="button"
 						variant="ghost"
@@ -144,7 +157,13 @@ export function PixelEditorView({
 					</Button>
 					<Button
 						disabled={locked || draft.appliedOperationCount === 0}
-						onClick={() => commit.mutate()}
+						onClick={() =>
+							commit.mutate({
+								projectId,
+								draftId: draft.id,
+								expectedRevision: draft.revision,
+							})
+						}
 						type="button"
 					>
 						Finish and create Candidate Version
@@ -175,7 +194,14 @@ export function PixelEditorView({
 					<ToolPanel
 						canPaste={canPaste}
 						disabled={locked}
-						onOperation={(next) => operation.mutate(next)}
+						onOperation={(next) =>
+							operation.mutate({
+								projectId,
+								draftId: draft.id,
+								expectedRevision: draft.revision,
+								operation: next,
+							})
+						}
 						size={draft.size}
 						store={store}
 					/>
@@ -234,7 +260,14 @@ export function PixelEditorView({
 						draft={draft}
 						draftImage={draftImage.image}
 						mode={state.compareMode}
-						onOperation={(next) => operation.mutate(next)}
+						onOperation={(next) =>
+							operation.mutate({
+								projectId,
+								draftId: draft.id,
+								expectedRevision: draft.revision,
+								operation: next,
+							})
+						}
 						sourceImage={sourceImage.image}
 						store={store}
 					/>
@@ -251,7 +284,12 @@ export function PixelEditorView({
 						draft={draft}
 						onPickColor={(color) => patchToolState(store, { color })}
 						onReplaceColor={(values) =>
-							operation.mutate({ type: "replace-color", ...values })
+							operation.mutate({
+								projectId,
+								draftId: draft.id,
+								expectedRevision: draft.revision,
+								operation: { type: "replace-color", ...values },
+							})
 						}
 						projectId={projectId}
 					/>

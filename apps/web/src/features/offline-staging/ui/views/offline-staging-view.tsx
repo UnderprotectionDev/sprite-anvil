@@ -1,18 +1,31 @@
+import { StatusMessage } from "@/components/status-message";
 import { useOfflineReconcile } from "../../hooks/use-offline-reconcile";
 import { useOnlineStatus } from "../../hooks/use-online-status";
 import { useStagedFiles } from "../../hooks/use-staged-files";
 import { useStagedWork } from "../../hooks/use-staged-work";
-import { cachedProjectSchema } from "../../schemas";
 import { OfflineProjectSection } from "../components/offline-project-section";
 import { ReconcileSection } from "../components/reconcile-section";
 import { StagedDraftsSection } from "../components/staged-drafts-section";
 import { StagedFilesSection } from "../components/staged-files-section";
 
-export function OfflineStagingView({ projectId }: { projectId: string }) {
+export function OfflineStagingView({
+	projectId,
+	userId,
+}: {
+	projectId: string;
+	userId: string;
+}) {
 	const online = useOnlineStatus();
-	const { projectQuery, refresh, staged, store } = useStagedWork(projectId);
-	const files = staged.data?.files ?? [];
-	const drafts = staged.data?.drafts ?? [];
+	const {
+		cachedAt,
+		drafts,
+		files,
+		hasUnassignedStorage,
+		isProjectPending,
+		projectName,
+		refresh,
+		store,
+	} = useStagedWork(projectId, userId);
 	const stagedFiles = useStagedFiles({
 		online,
 		projectId,
@@ -26,14 +39,8 @@ export function OfflineStagingView({ projectId }: { projectId: string }) {
 		refresh,
 		stagedDraftCount: drafts.length,
 		store,
+		userId,
 	});
-
-	const cached = cachedProjectSchema.safeParse(
-		staged.data?.cachedProject?.project
-	);
-	const projectName =
-		projectQuery.data?.name ?? (cached.success ? cached.data.name : null);
-	const usingCache = !projectQuery.data && cached.success;
 
 	return (
 		<main className="mx-auto w-full max-w-3xl space-y-8 px-4 py-8">
@@ -46,11 +53,16 @@ export function OfflineStagingView({ projectId }: { projectId: string }) {
 				<p role="status">{online ? "Online" : "Offline"}</p>
 			</header>
 
+			{hasUnassignedStorage ? (
+				<StatusMessage tone="info">
+					This browser has offline storage from an earlier version. It stays
+					separate because it has no account information.
+				</StatusMessage>
+			) : null}
+
 			<OfflineProjectSection
-				cachedAt={
-					usingCache ? (staged.data?.cachedProject?.cachedAt ?? null) : null
-				}
-				isPending={projectQuery.isPending}
+				cachedAt={cachedAt}
+				isPending={isProjectPending}
 				name={projectName}
 				projectId={projectId}
 			/>

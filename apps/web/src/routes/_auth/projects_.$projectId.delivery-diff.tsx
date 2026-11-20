@@ -11,11 +11,15 @@ export const Route = createFileRoute(
 
 function ProjectDeliveryDiffRoute() {
 	const { projectId } = Route.useParams();
-	const { deliveryTargetId } = Route.useSearch();
+	const { deliveryTargetId, fromId, toId } = Route.useSearch();
 	const navigate = useNavigate({ from: Route.fullPath });
 	return (
 		<DeliveryDiffView
+			comparison={{ fromId, toId }}
 			deliveryTargetId={deliveryTargetId}
+			onSelectComparison={(targetId, next) =>
+				void navigate({ search: { deliveryTargetId: targetId, ...next } })
+			}
 			onSelectTarget={(id) =>
 				void navigate({ search: { deliveryTargetId: id } })
 			}

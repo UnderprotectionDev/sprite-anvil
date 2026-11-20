@@ -1,7 +1,6 @@
 import { pixelEditorErrorSchema } from "@sprite-anvil/api/pixel-editor";
+import { projectIdSchema } from "@sprite-anvil/api/project-id";
 import type { Context } from "hono";
-import type { JSONValue } from "hono/utils/types";
-import z from "zod";
 import type {
 	Access,
 	ErrorName,
@@ -11,9 +10,7 @@ import type {
 	Scope,
 } from "./pixel-editor-context";
 
-/** Hono adapters: session and project access, JSON bodies and response mapping. */
-
-const projectIdSchema = z.string().min(1).max(200);
+/** Hono previews share the same session and project access checks. */
 
 export function fail(
 	c: Context,
@@ -26,18 +23,6 @@ export function fail(
 		pixelEditorErrorSchema.parse({ error, ...(detail ? { detail } : {}) }),
 		status
 	);
-}
-
-/** JSON response that must never be cached: Working Draft state is private and mutable. */
-export function noStoreJson(
-	c: Context,
-	body: JSONValue,
-	status: 200 | 201 = 200
-) {
-	return c.body(JSON.stringify(body), status, {
-		"Cache-Control": "private, no-store",
-		"Content-Type": "application/json",
-	});
 }
 
 export async function resolveAccess(
@@ -62,14 +47,6 @@ export async function resolveAccess(
 	return { ok: true, projectId: projectId.data, userId: session.user.id };
 }
 
-export async function readJson(c: Context): Promise<unknown> {
-	try {
-		return await c.req.json();
-	} catch {
-		return null;
-	}
-}
-
 async function runScoped<T>(
 	c: Context,
 	dependencies: PixelEditorRouteDependencies,
@@ -85,19 +62,7 @@ async function runScoped<T>(
 	});
 }
 
-/** Runs a behavior function for an authorised request and maps its Outcome to JSON. */
-export async function handleJson<T extends JSONValue>(
-	c: Context,
-	dependencies: PixelEditorRouteDependencies,
-	run: (scope: Scope) => Promise<Outcome<T>>
-) {
-	const outcome = await runScoped(c, dependencies, run);
-	return outcome.ok
-		? noStoreJson(c, outcome.value, outcome.status)
-		: fail(c, outcome.error, outcome.status, outcome.detail);
-}
-
-/** Same as handleJson for a PNG body. */
+/** Serves a private PNG after verifying the session and project scope. */
 export async function handlePng(
 	c: Context,
 	dependencies: PixelEditorRouteDependencies,

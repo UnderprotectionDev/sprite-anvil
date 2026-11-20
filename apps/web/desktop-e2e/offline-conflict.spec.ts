@@ -19,14 +19,32 @@ async function setCloudReachable(reachable: boolean) {
 
 /** Puts a staged Working Draft, pinned to its base, into the webview store the page reads. */
 async function seedStagedDraft(projectId: string) {
+	const apiPort = Number(process.env.DIRECTIONAL_E2E_API_PORT ?? 3000);
+	const userId = await browser.execute(async (port: number) => {
+		const response = await fetch(
+			`http://127.0.0.1:${port}/api/auth/get-session`,
+			{
+				credentials: "include",
+			}
+		);
+		const session = await response.json();
+		return session?.user?.id as string | undefined;
+	}, apiPort);
+	if (!userId) {
+		throw new Error("The Offline staging test requires a signed-in account.");
+	}
+
 	await browser.executeAsync(
 		(
 			draft: string,
 			project: string,
 			source: string,
+			accountId: string,
 			done: (error: string | null) => void
 		) => {
-			const request = indexedDB.open("sprite-anvil-offline-staging");
+			const request = indexedDB.open(
+				`sprite-anvil-offline-staging-account:${accountId}`
+			);
 			request.onerror = () => done(String(request.error));
 			request.onsuccess = () => {
 				const db = request.result;
@@ -62,7 +80,8 @@ async function seedStagedDraft(projectId: string) {
 		},
 		draftId,
 		projectId,
-		sourceAssetVersionId
+		sourceAssetVersionId,
+		userId
 	);
 }
 
@@ -80,9 +99,10 @@ describe("Offline conflict", () => {
 			this.skip();
 		}
 
-		const signInLink = await $("a=Sign In");
+		const signInLink = await $("a=Sign in to get started");
 		await signInLink.waitForClickable();
 		await signInLink.click();
+		await (await $("button=Need an account? Sign Up")).click();
 		await (await $("input[name='name']")).setValue(fixture.userName);
 		await (await $("input[name='email']")).setValue(fixture.email);
 		await (await $("input[name='password']")).setValue(fixture.password);

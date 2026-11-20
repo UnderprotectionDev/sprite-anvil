@@ -72,10 +72,6 @@ const newState = (): UiStretchStateDraft => ({
 	height: "",
 });
 const fieldClass = "block min-h-11 w-full";
-// The desktop e2e specs address these selects as `label/select`, so they stay
-// direct label children instead of using the NativeSelect wrapper.
-const nativeSelectClass =
-	"block min-h-11 w-full rounded border bg-background p-2";
 const selectClass = "w-full [&_select]:min-h-11";
 const labelClass = "block text-base leading-normal";
 const trailingSlash = /\/$/u;
@@ -408,8 +404,8 @@ export function UiStretchTestManager({
 												{(field) => (
 													<Label className={labelClass}>
 														Exact version
-														<select
-															className={nativeSelectClass}
+														<NativeSelect
+															className={selectClass}
 															onChange={(e) => {
 																field.handleChange(e.target.value);
 																changeDraft();
@@ -421,7 +417,7 @@ export function UiStretchTestManager({
 																Select a version
 															</NativeSelectOption>
 															{options}
-														</select>
+														</NativeSelect>
 													</Label>
 												)}
 											</form.Field>
@@ -629,8 +625,8 @@ export function UiStretchTestManager({
 													<>
 														<Label className={labelClass}>
 															Test result
-															<select
-																className={nativeSelectClass}
+															<NativeSelect
+																className={selectClass}
 																onChange={(e) => {
 																	const result = e.target.value;
 																	if (
@@ -655,7 +651,7 @@ export function UiStretchTestManager({
 																<NativeSelectOption value="failed">
 																	Failed
 																</NativeSelectOption>
-															</select>
+															</NativeSelect>
 														</Label>
 														<Label className={labelClass}>
 															Observation

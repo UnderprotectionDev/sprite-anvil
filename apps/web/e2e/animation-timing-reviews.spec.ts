@@ -95,7 +95,7 @@ test("compares variable frame timing and persists four- and eight-direction revi
 	).toContainText("north · Frame 1 · north-recovery · 200 ms · Recovery");
 
 	await playhead.fill("310");
-	await review.getByLabel("Loop playback").uncheck();
+	await review.getByRole("checkbox", { name: "Loop playback" }).uncheck();
 	await expect(
 		review.getByRole("group", { name: "Direction 1" })
 	).toContainText("south · Frame 2 · south-recovery · 220 ms · Recovery");
@@ -104,7 +104,7 @@ test("compares variable frame timing and persists four- and eight-direction revi
 			.getByRole("group", { name: "Direction 1" })
 			.getByText("Loop boundary.")
 	).toHaveCount(0);
-	await review.getByLabel("Loop playback").check();
+	await review.getByRole("checkbox", { name: "Loop playback" }).check();
 	await expect(
 		review.getByRole("group", { name: "Direction 1" })
 	).toContainText("south · Frame 1 · south-contact · 80 ms · Contact");
@@ -119,12 +119,12 @@ test("compares variable frame timing and persists four- and eight-direction revi
 
 	await review.getByRole("button", { name: "Restart" }).click();
 	await expect(playhead).toHaveValue("0");
-	await review.getByRole("button", { name: "Birlikte oynat" }).click();
-	await expect(review.getByRole("button", { name: "Duraklat" })).toBeVisible();
+	await review.getByRole("button", { name: "Play together" }).click();
+	await expect(review.getByRole("button", { name: "Pause" })).toBeVisible();
 	await expect
 		.poll(async () => Number(await playhead.inputValue()), { timeout: 3000 })
 		.toBeGreaterThan(0);
-	await review.getByRole("button", { name: "Duraklat" }).click();
+	await review.getByRole("button", { name: "Pause" }).click();
 	const pausedAt = await playhead.inputValue();
 	await page.waitForTimeout(100);
 	await expect(playhead).toHaveValue(pausedAt);
@@ -142,15 +142,15 @@ test("compares variable frame timing and persists four- and eight-direction revi
 	).toBeVisible();
 
 	await page.reload();
-	await page
-		.getByRole("button", { name: "Profile reviews", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Profile reviews", exact: true }).click();
 	const fourDirectionRecord = review.getByRole("button", {
 		name: fourDirectionReviewName,
 	});
 	await fourDirectionRecord.click();
 	await expect(review.getByLabel("Playback speed")).toHaveValue("2");
-	await expect(review.getByLabel("Loop playback")).toBeChecked();
+	await expect(
+		review.getByRole("checkbox", { name: "Loop playback" })
+	).toBeChecked();
 	await expect(
 		review.getByLabel("Direction 1 frame 2 duration (ms)")
 	).toHaveValue("220");
@@ -209,9 +209,7 @@ test("compares variable frame timing and persists four- and eight-direction revi
 		review.getByText("Review verified from the saved record.")
 	).toBeVisible();
 	await page.reload();
-	await page
-		.getByRole("button", { name: "Profile reviews", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Profile reviews", exact: true }).click();
 	await review.getByRole("button", { name: eightDirectionReviewName }).click();
 	await expect(review.getByLabel("Direction count")).toHaveValue("8");
 	await expect(review.getByLabel("Direction 8 frame 1 ID")).toHaveValue(

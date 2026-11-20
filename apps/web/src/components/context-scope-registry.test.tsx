@@ -378,9 +378,7 @@ test("choosing another project from the workspace selects that project", () => {
 
 test("keeps each Theme rule scope attached to the selected Visual World", () => {
 	renderWorkspace();
-	fireEvent.click(
-		screen.getByRole("button", { name: "Propose a rule change" })
-	);
+	fireEvent.click(screen.getByRole("tab", { name: "Propose a rule change" }));
 
 	expect(screen.getByRole("combobox", { name: "Project" })).toHaveValue(
 		projectId

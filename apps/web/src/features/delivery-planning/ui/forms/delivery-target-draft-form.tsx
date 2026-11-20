@@ -11,9 +11,10 @@ import {
 } from "@sprite-anvil/ui/components/native-select";
 import { useForm } from "@tanstack/react-form";
 import type { SyntheticEvent } from "react";
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { StatusMessage } from "@/components/status-message";
 import { errorCodeOf } from "@/utils/error-code";
+import { isWriteOutcomeUncertain } from "@/utils/error-notification";
 import { useSaveDeliveryTargetDraft } from "../../hooks/use-delivery-target-writes";
 import {
 	errorMessageOf,
@@ -69,7 +70,10 @@ export function DeliveryTargetDraftForm({
 	target: DeliveryTarget | null;
 }) {
 	const saveDraft = useSaveDeliveryTargetDraft(projectId);
-	const [failure, setFailure] = useState<string | null>(null);
+	const failure = saveDraft.isError
+		? (errorMessageOf(saveDraft.error) ??
+			"The draft could not be saved. Try again.")
+		: null;
 	// The ids make a retry after an uncertain outcome idempotent; a server verdict ends them.
 	const ids = useRef({
 		deliveryTargetId: target?.id ?? crypto.randomUUID(),
@@ -83,7 +87,6 @@ export function DeliveryTargetDraftForm({
 			revision: target?.activeRevision ?? null,
 		}),
 		onSubmit: async ({ value }) => {
-			setFailure(null);
 			try {
 				await saveDraft.mutateAsync(
 					toSaveInput(value, {
@@ -95,12 +98,9 @@ export function DeliveryTargetDraftForm({
 				);
 				onClose();
 			} catch (error) {
-				if (errorCodeOf(error)) {
+				if (errorCodeOf(error) && !isWriteOutcomeUncertain(error)) {
 					ids.current.draftId = crypto.randomUUID();
 				}
-				setFailure(
-					errorMessageOf(error) ?? "The draft could not be saved. Try again."
-				);
 			}
 		},
 		validators: { onSubmit: deliveryTargetFormSchema },

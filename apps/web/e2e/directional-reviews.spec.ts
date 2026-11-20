@@ -17,6 +17,7 @@ test("reviews four and eight directions with variable timing and persisted human
 	test.setTimeout(90_000);
 	await signUpWithFixture(page, {
 		...fixture,
+		email: `directional-review-e2e-${crypto.randomUUID()}@example.test`,
 		projectName: "Direction Review Knight",
 	});
 
@@ -25,7 +26,7 @@ test("reviews four and eight directions with variable timing and persisted human
 	await page.getByLabel("Art direction").fill(fixture.generalArtDirection);
 	await page.getByRole("button", { name: "Create project" }).click();
 	await page
-		.getByRole("button", { name: "Visual Worlds and Themes", exact: true })
+		.getByRole("tab", { name: "Visual Worlds and Themes", exact: true })
 		.click();
 	await page.getByLabel("Visual World name").fill(fixture.visualWorldName);
 	await page.getByRole("button", { name: "Add Visual World" }).click();
@@ -36,21 +37,19 @@ test("reviews four and eight directions with variable timing and persisted human
 	await page.goto("/projects");
 	await page.getByRole("link", { name: "Asset Families" }).click();
 	await page
-		.getByRole("button", {
+		.getByRole("tab", {
 			name: "Family and representation relationships",
 			exact: true,
 		})
 		.click();
 	await page.getByLabel("Subject Identity name").fill(fixture.identityName);
 	await page.getByRole("button", { name: "Create Subject Identity" }).click();
-	await page
-		.getByRole("button", { name: "Family catalog", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Family catalog", exact: true }).click();
 	await expect(
 		page.getByRole("heading", { name: fixture.identityName })
 	).toBeVisible();
 	await page
-		.getByRole("button", {
+		.getByRole("tab", {
 			name: "Family and representation relationships",
 			exact: true,
 		})
@@ -61,9 +60,7 @@ test("reviews four and eight directions with variable timing and persisted human
 	});
 	await page.getByLabel("Usage context").fill(fixture.useContext);
 	await page.getByRole("button", { name: "Create Asset Family" }).click();
-	await page
-		.getByRole("button", { name: "Family catalog", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Family catalog", exact: true }).click();
 	await expect(
 		page
 			.getByRole("region", { name: "Saved Asset Families" })
@@ -71,17 +68,19 @@ test("reviews four and eight directions with variable timing and persisted human
 	).toBeVisible();
 
 	await page
-		.getByRole("button", {
+		.getByRole("tab", {
 			name: "Family and representation relationships",
 			exact: true,
 		})
 		.click();
-	await page.getByLabel("Independent product meaning", { exact: true }).check();
+	await page
+		.getByRole("checkbox", { name: "Independent product meaning", exact: true })
+		.check();
 	await page.getByLabel("Asset Record name").fill(fixture.sourceName);
 	await page.getByRole("button", { name: "Add Asset Record" }).click();
 	const familyUrl = page.url();
 	await page
-		.getByRole("button", {
+		.getByRole("tab", {
 			name: "Version and dependency operations",
 			exact: true,
 		})
@@ -114,7 +113,7 @@ test("reviews four and eight directions with variable timing and persisted human
 	).toBeVisible();
 	await page.goto(familyUrl);
 	await page
-		.getByRole("button", {
+		.getByRole("tab", {
 			name: "Version and dependency operations",
 			exact: true,
 		})
@@ -124,7 +123,7 @@ test("reviews four and eight directions with variable timing and persisted human
 		page.getByRole("paragraph").filter({ hasText: "Version 1 · Candidate" })
 	).toBeVisible();
 	const reviewRationale = "The silhouette matches the family design.";
-	await page.getByLabel("Review rationale").fill(reviewRationale);
+	await page.locator('textarea[id^="review-rationale-"]').fill(reviewRationale);
 	await page.getByRole("button", { name: "Approve" }).click();
 	await expect(
 		page.getByRole("paragraph").filter({ hasText: "Version 1 · Approved" })
@@ -134,6 +133,7 @@ test("reviews four and eight directions with variable timing and persisted human
 	await page
 		.getByRole("button", { name: "Select as Canonical Design" })
 		.click();
+	await page.getByRole("tab", { name: "Family catalog", exact: true }).click();
 	await expect(
 		page.getByText("Canonical Design: Ash Knight base · Version 1")
 	).toBeVisible();
@@ -194,9 +194,7 @@ test("reviews four and eight directions with variable timing and persisted human
 		review.getByText("Review verified from the saved record.")
 	).toBeVisible();
 	await page.reload();
-	await page
-		.getByRole("button", { name: "Profile reviews", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Profile reviews", exact: true }).click();
 	await review.getByRole("button", { name: fourDirectionHistory }).click();
 	await expect(review.getByLabel("Rationale", { exact: true })).toHaveValue(
 		"Four directions inspected by a human"
@@ -240,9 +238,7 @@ test("reviews four and eight directions with variable timing and persisted human
 		review.getByText("Review verified from the saved record.")
 	).toBeVisible();
 	await page.reload();
-	await page
-		.getByRole("button", { name: "Profile reviews", exact: true })
-		.click();
+	await page.getByRole("tab", { name: "Profile reviews", exact: true }).click();
 	await review.getByRole("button", { name: eightDirectionHistory }).click();
 	await expect(review.getByLabel("Rationale", { exact: true })).toHaveValue(
 		"Eight directions inspected"

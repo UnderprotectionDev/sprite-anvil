@@ -166,6 +166,39 @@ test.skipIf(!databaseUrl)(
 				})
 			).toEqual([created]);
 
+			// Same-time rows must not repeat or disappear across cursor pages.
+			const olderIds = [crypto.randomUUID(), crypto.randomUUID()].sort(
+				(left, right) => right.localeCompare(left)
+			);
+			await db.insert(importInboxEntries).values(
+				olderIds.map((id) => ({
+					id,
+					projectId,
+					createdByUserId: userId,
+					createdAt: new Date("2026-01-01T00:00:00.000Z"),
+					fileName: "older.aseprite",
+					contentLength: sourceBytes.length,
+					objectKey: `integration/${id}`,
+					sha256: created.sha256,
+					sourceContentType: created.sourceContentType,
+				}))
+			);
+			const { imports } = createTestClient(rereadDb, userId, objects);
+			const firstPage = await imports.listEntries({ projectId, pageSize: 1 });
+			expect(firstPage.map((entry) => entry.id)).toEqual([created.id]);
+			const secondPage = await imports.listEntries({
+				projectId,
+				pageSize: 1,
+				beforeId: created.id,
+			});
+			expect(secondPage.map((entry) => entry.id)).toEqual(olderIds.slice(0, 1));
+			const thirdPage = await imports.listEntries({
+				projectId,
+				pageSize: 1,
+				beforeId: olderIds[0],
+			});
+			expect(thirdPage.map((entry) => entry.id)).toEqual(olderIds.slice(1));
+
 			const rereadFile = await rereadApp.request(
 				`/api/projects/${projectId}/import-inbox/${entryId}/file`,
 				{ headers: { authorization: `Bearer ${userId}` } }

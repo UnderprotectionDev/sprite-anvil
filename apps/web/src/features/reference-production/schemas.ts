@@ -7,6 +7,7 @@ import z from "zod";
 export const referenceConstraintDraftSchema = z.object({
 	contextOverrideRationale: z.string(),
 	customPurpose: z.string(),
+	expectedRevision: z.number().int().positive().optional(),
 	forbiddenFeatures: z.array(referenceFeatureSchema),
 	notes: z.string(),
 	role: referenceRoleSchema,

@@ -24,7 +24,8 @@ vi.mock("@/utils/orpc", () => ({
 				}),
 			},
 			save: {
-				mutationOptions: () => ({
+				mutationOptions: (options?: object) => ({
+					...options,
 					mutationFn: (input: unknown) => mocks.save(input),
 				}),
 			},

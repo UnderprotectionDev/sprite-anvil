@@ -1,12 +1,15 @@
+import { summarizePlatformSupport } from "@sprite-anvil/api/platform-support-gate";
+import { publishedPlatformSupport } from "@sprite-anvil/api/platform-support-published";
 import { useQuery } from "@tanstack/react-query";
 import { LoadErrorAlert } from "@/components/load-error-alert";
 import { getSupportReference } from "@/utils/error-notification";
 import { orpc } from "@/utils/orpc";
-import { usePlatformSupportSummary } from "../../hooks/use-platform-support-summary";
 import { PlatformEquivalenceReportCard } from "../components/platform-equivalence-report-card";
 import { PlatformEquivalenceRunsPanel } from "../components/platform-equivalence-runs-panel";
 import { PlatformSupportGatePanel } from "../components/platform-support-gate-panel";
 import { RecordRunForm } from "../forms/record-run-form";
+
+const supportSummary = summarizePlatformSupport(publishedPlatformSupport);
 
 export function PlatformEquivalenceReportView({
 	projectId,
@@ -21,7 +24,6 @@ export function PlatformEquivalenceReportView({
 		...orpc.exportBundles.list.queryOptions({ input: { projectId } }),
 		meta: { errorPresentation: "inline" },
 	});
-	const supportSummary = usePlatformSupportSummary();
 
 	const runs = overview.data?.runs ?? [];
 	const reports = overview.data?.reports ?? [];

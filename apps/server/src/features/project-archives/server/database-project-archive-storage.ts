@@ -106,10 +106,13 @@ export function createDatabaseProjectArchiveStorage(
 		},
 		async insert(record) {
 			try {
-				await db.transaction(async (tx) => {
-					await tx.insert(projectArchives).values(record.archive);
-					if (record.sections.length > 0) {
-						await tx.insert(projectArchiveSections).values(
+				type BatchQuery = Parameters<Database["batch"]>[0][number];
+				const queries: [BatchQuery, ...BatchQuery[]] = [
+					db.insert(projectArchives).values(record.archive),
+				];
+				if (record.sections.length > 0) {
+					queries.push(
+						db.insert(projectArchiveSections).values(
 							record.sections.map((section) => ({
 								archiveId: record.archive.id,
 								digest: section.digest,
@@ -118,17 +121,20 @@ export function createDatabaseProjectArchiveStorage(
 								recordGroup: section.group,
 								records: section.records,
 							}))
-						);
-					}
-					if (record.files.length > 0) {
-						await tx.insert(projectArchiveFiles).values(
+						)
+					);
+				}
+				if (record.files.length > 0) {
+					queries.push(
+						db.insert(projectArchiveFiles).values(
 							record.files.map((file) => ({
 								...file,
 								archiveId: record.archive.id,
 							}))
-						);
-					}
-				});
+						)
+					);
+				}
+				await db.batch(queries);
 				return { status: "inserted" };
 			} catch (error) {
 				if (hasErrorCode(error, uniqueViolationCode)) {

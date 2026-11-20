@@ -61,6 +61,7 @@ import { measurementDefinitionsRouter } from "./measurement-definitions";
 import { measurementEventsRouter } from "./measurement-events";
 import { measurementMeasuresRouter } from "./measurement-measures";
 import { permanentErasureRouter } from "./permanent-erasure";
+import { offlineConflictsRouter, workingDraftsRouter } from "./pixel-editor";
 import { platformEquivalenceRouter } from "./platform-equivalence";
 import { portraitIdentityReviewsRouter } from "./portrait-identity-reviews";
 import { productionExperimentsRouter } from "./production-experiments";
@@ -666,9 +667,20 @@ const contextRouters = {
 			}),
 	},
 };
-export const appRouter: typeof featureRouters & typeof contextRouters = {
+const pixelEditorRouters: {
+	offlineConflicts: typeof offlineConflictsRouter;
+	workingDrafts: typeof workingDraftsRouter;
+} = {
+	offlineConflicts: offlineConflictsRouter,
+	workingDrafts: workingDraftsRouter,
+};
+
+export const appRouter: typeof featureRouters &
+	typeof contextRouters &
+	typeof pixelEditorRouters = {
 	...featureRouters,
 	...contextRouters,
+	...pixelEditorRouters,
 };
 export type AppRouter = typeof appRouter;
 export type AppRouterClient = RouterClient<typeof appRouter>;

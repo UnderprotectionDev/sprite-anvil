@@ -226,7 +226,10 @@ export const importsRouter = {
 			const projectId = await requireProject(context, userId, input.projectId);
 			const entries = await context.importInboxStore.listEntries(
 				userId,
-				projectId
+				projectId,
+				input.pageSize === undefined
+					? undefined
+					: { size: input.pageSize, beforeId: input.beforeId }
 			);
 			if (!entries) {
 				throw notFound();

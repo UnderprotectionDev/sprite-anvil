@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { foundationSectionSchemas } from "@sprite-anvil/api/project-archives";
 import { createDb } from "@sprite-anvil/db";
+import { createInteractiveDatabase } from "@sprite-anvil/db/interactive-database";
 import { user } from "@sprite-anvil/db/schema/auth";
 import { project } from "@sprite-anvil/db/schema/project";
 import { createLocalTestDb } from "@sprite-anvil/db/testing";
@@ -29,6 +30,7 @@ import { createProjectContextStore } from "./features/project-context/server/pro
 import { createReferenceProductionStore } from "./features/reference-production/server/reference-production-store";
 
 const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
+const proxyDatabaseUrl = process.env.ARCHIVE_BATCH_TEST_DATABASE_URL;
 
 test.skipIf(!databaseUrl)(
 	"restored foundation is readable through the normal asset stores",
@@ -37,9 +39,12 @@ test.skipIf(!databaseUrl)(
 			throw new Error("CONTEXT_TEST_DATABASE_URL is required");
 		}
 		const db =
-			new URL(databaseUrl).hostname === "127.0.0.1"
-				? createLocalTestDb({ DATABASE_URL: databaseUrl })
-				: createDb({ DATABASE_URL: databaseUrl });
+			proxyDatabaseUrl || new URL(databaseUrl).hostname !== "127.0.0.1"
+				? createDb({ DATABASE_URL: proxyDatabaseUrl ?? databaseUrl })
+				: createLocalTestDb({ DATABASE_URL: databaseUrl });
+		const interactiveDb = createInteractiveDatabase({
+			DATABASE_URL: databaseUrl,
+		});
 		const userId = crypto.randomUUID();
 		const fixture = restoreSetup();
 		const { archive } = await fixture.createArchive();
@@ -234,6 +239,7 @@ test.skipIf(!databaseUrl)(
 		);
 		const storage = createDatabaseProjectArchiveRestoreStorage(
 			db,
+			interactiveDb,
 			(transaction, current) =>
 				createProjectArchiveCanonicalVerifier(
 					createProjectArchiveSourceReader({
@@ -252,6 +258,7 @@ test.skipIf(!databaseUrl)(
 		try {
 			const failingStorage = createDatabaseProjectArchiveRestoreStorage(
 				db,
+				interactiveDb,
 				() => Promise.resolve(["missing record"])
 			);
 			await expect(failingStorage.insert(record)).rejects.toThrow(
@@ -366,8 +373,12 @@ test.skipIf(!databaseUrl)(
 				expect.objectContaining({ assetRecordId: recordId })
 			);
 		} finally {
-			await storage.withdraw(restore.id);
-			await db.delete(user).where(eq(user.id, userId));
+			try {
+				await storage.withdraw(restore.id);
+				await db.delete(user).where(eq(user.id, userId));
+			} finally {
+				await interactiveDb.$client.close();
+			}
 		}
 	}
 );

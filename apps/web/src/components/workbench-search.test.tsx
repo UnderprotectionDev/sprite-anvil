@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import "@testing-library/jest-dom/vitest";
 import {
 	cleanup,
 	fireEvent,
@@ -86,4 +87,18 @@ test("shows search errors inline", async () => {
 		target: { value: "Knight" },
 	});
 	expect(await screen.findByRole("alert")).toBeTruthy();
+});
+
+test("the keyboard shortcut opens and closes the search without mounting a closed query", async () => {
+	mocks.options.mockReturnValue({});
+	mocks.query.mockReturnValue({});
+	render(<WorkbenchSearch projectId="p1" />);
+	expect(mocks.query).not.toHaveBeenCalled();
+
+	fireEvent.keyDown(document, { key: "k", metaKey: true });
+	expect(await screen.findByRole("combobox")).toBeVisible();
+	fireEvent.keyDown(document, { key: "k", metaKey: true });
+	await waitFor(() =>
+		expect(screen.queryByRole("combobox")).not.toBeInTheDocument()
+	);
 });

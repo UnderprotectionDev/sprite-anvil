@@ -3,7 +3,7 @@ import type {
 	SheetStructureView,
 } from "@sprite-anvil/api/pixel-editor-structure";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { useState } from "react";
+import { useCreateStore, useSelector } from "@tanstack/react-store";
 import { FramePixelEditForm } from "../forms/frame-pixel-edit-form";
 import { FrameSettingsForm } from "../forms/frame-settings-form";
 import { FrameSourceForm } from "../forms/frame-source-form";
@@ -22,7 +22,8 @@ export function FrameEditor({
 	onEdit: (operations: FrameOperation | FrameOperation[]) => void;
 	structure: SheetStructureView;
 }) {
-	const [selectedKey, setSelectedKey] = useState<string | null>(null);
+	const selection = useCreateStore<string | null>(null);
+	const selectedKey = useSelector(selection, (key) => key);
 	const selected =
 		structure.frames.find((frame) => frame.key === selectedKey) ??
 		structure.frames[0] ??
@@ -39,7 +40,7 @@ export function FrameEditor({
 			<FrameStrip
 				disabled={busy}
 				onEdit={onEdit}
-				onSelect={setSelectedKey}
+				onSelect={(key) => selection.setState(() => key)}
 				selectedKey={selected?.key ?? null}
 				view={structure}
 			/>
