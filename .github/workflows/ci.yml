@@ -55,6 +55,25 @@ jobs:
           args: --config lychee.toml './**/*.md'
           jobSummary: true
 
+  conventions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+      - run: bun test ./scripts
+      - name: Check conventions
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ -n "$BASE_REF" ]; then
+            bun run check:conventions --base "origin/$BASE_REF"
+          else
+            bun run check:conventions
+          fi
+
   quality:
     needs: changes
     if: needs.changes.outputs.code == 'true'
@@ -73,7 +92,7 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
       # Install the browser revision required by the web workspace's locked Playwright.
       - run: bun run --cwd apps/web e2e:install --with-deps
-      - run: bun run test
+      - run: bun run test:workspaces
 
   # Database-backed tests: disposable migration checks plus server integration tests against PostgreSQL.
   integration:
@@ -81,6 +100,15 @@ jobs:
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      PROJECT_ARCHIVE_ATOMIC_SUITES: >-
+        ./src/features/project-archives/server/tests/project-archive-batch.integration.test.ts
+        ./src/project-archive-foundation.integration.test.ts
+        ./src/project-archive-delivery.integration.test.ts
+        ./src/project-archive-history.integration.test.ts
+      NEON_HTTP_REVIEW_SUITES: >-
+        ./src/version-review.integration.test.ts
+        ./src/batch-version-review.integration.test.ts
     services:
       postgres:
         image: postgres:17
@@ -105,6 +133,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
       - uses: ./.github/actions/test-database
+        id: test-database
       - name: Verify migrations with disposable PostgreSQL
         env:
           DB_TEST_POSTGRES: "true"
@@ -125,36 +154,77 @@ jobs:
         env:
           ARCHIVE_BATCH_TEST_DATABASE_URL: ${{ env.NEON_PROXY_TEST_DATABASE_URL }}
           CONTEXT_TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/context_test
-        run: >-
-          bun test
-          src/features/project-archives/server/tests/project-archive-batch.integration.test.ts
-          src/project-archive-foundation.integration.test.ts
-          src/project-archive-delivery.integration.test.ts
-          src/project-archive-history.integration.test.ts
-          src/features/permanent-erasure/server/tests/database-erasure-deletion-storage.integration.test.ts
-          --timeout 30000
+        run: |
+          read -ra suites <<< "$PROJECT_ARCHIVE_ATOMIC_SUITES"
+          for suite in "${suites[@]}"; do
+            test -f "$suite"
+          done
+          # Permanent Erasure also runs with Neon HTTP in the broad step.
+          bun test "${suites[@]}" \
+            ./src/features/permanent-erasure/server/tests/database-erasure-deletion-storage.integration.test.ts \
+            --timeout 30000
       - name: Verify Review Event publication with Neon HTTP
         working-directory: apps/server
         env:
           CONTEXT_TEST_DATABASE_URL: ${{ env.NEON_PROXY_TEST_DATABASE_URL }}
-        run: >-
-          bun test
-          src/version-review.integration.test.ts
-          src/batch-version-review.integration.test.ts
-          --timeout 120000
-      # Neon-driver (createDb) tests through the local proxy. Non-blocking until the failures they
-      # surface are fixed, including timeouts and cleanup ordering. Results stay visible in the job log.
-      - name: Run Neon-driver integration tests (non-blocking)
-        continue-on-error: true
+        run: |
+          read -ra suites <<< "$NEON_HTTP_REVIEW_SUITES"
+          for suite in "${suites[@]}"; do
+            test -f "$suite"
+          done
+          bun test "${suites[@]}" --timeout 120000
+      - name: Run server tests with Neon HTTP
         working-directory: apps/server
-        env:
+        env: &neon-http-test-env
           CONTEXT_TEST_DATABASE_URL: ${{ env.NEON_PROXY_TEST_DATABASE_URL }}
           # Tests that load the app-root composition read the validated server environment.
           DATABASE_URL: ${{ env.NEON_PROXY_TEST_DATABASE_URL }}
           BETTER_AUTH_SECRET: integration-test-secret-not-for-production-use
           BETTER_AUTH_URL: http://localhost:3000
           CORS_ORIGIN: http://localhost:3001
-        run: bun test src --timeout 30000
+          # Asset Records, Asset Versions and Family Readiness exceed the proxy timeout.
+          # Production Experiments failed with storage_unavailable, and Project Archive
+          # download failed its stream cancellation assertion in the same CI run.
+          NEON_HTTP_ADVISORY_SUITES: >-
+            ./src/asset-records.integration.test.ts
+            ./src/asset-versions.integration.test.ts
+            ./src/family-readiness.integration.test.ts
+            ./src/features/production-experiments/server/tests/production-experiments.integration.test.ts
+            ./src/features/project-archives/server/tests/project-archive-download.test.ts
+        run: |
+          dedicated_suites="$PROJECT_ARCHIVE_ATOMIC_SUITES $NEON_HTTP_REVIEW_SUITES $NEON_HTTP_ADVISORY_SUITES"
+          suites=()
+          while IFS= read -r -d '' suite; do
+            case " $dedicated_suites " in
+              *" $suite "*) continue ;;
+            esac
+            suites+=("$suite")
+          done < <(find ./src -type f -name '*.test.ts' -print0)
+          test "${#suites[@]}" -gt 0
+          bun test "${suites[@]}" --timeout 30000
+      - name: Run known failing Neon HTTP suites (advisory)
+        if: ${{ !cancelled() && steps.test-database.outcome == 'success' }}
+        continue-on-error: true
+        working-directory: apps/server
+        env: *neon-http-test-env
+        run: |
+          read -ra suites <<< "$NEON_HTTP_ADVISORY_SUITES"
+          status=0
+          printf '### Neon HTTP advisory suites\n\n' >> "$GITHUB_STEP_SUMMARY"
+          for suite in "${suites[@]}"; do
+            if [[ ! -f "$suite" ]]; then
+              printf '::warning file=%s::Advisory suite file is missing. Update its CI entry.\n' "${suite#./}"
+              printf -- '- <code>%s</code> is missing.\n' "$suite" >> "$GITHUB_STEP_SUMMARY"
+              status=1
+            elif bun test "$suite" --timeout 30000; then
+              printf '::notice file=%s::Neon HTTP advisory suite passed. Review for required coverage.\n' "${suite#./}"
+              printf -- '- <code>%s</code> passed. Review for required coverage.\n' "$suite" >> "$GITHUB_STEP_SUMMARY"
+            else
+              printf -- '- <code>%s</code> failed. See the test output.\n' "$suite" >> "$GITHUB_STEP_SUMMARY"
+              status=1
+            fi
+          done
+          exit "$status"
 
   web-e2e:
     needs: changes
@@ -235,7 +305,7 @@ jobs:
   # The single check to require on `main`: passes when every needed job passed or was skipped.
   ci-ok:
     if: always()
-    needs: [changes, docs, quality, integration, web-e2e, desktop-webdriver, godot-golden]
+    needs: [changes, docs, conventions, quality, integration, web-e2e, desktop-webdriver, godot-golden]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

@@ -45,6 +45,7 @@ Each responsibility is built with its technology, not with the substitute beside
 | Drag and drop | dnd-kit | HTML drag events on sortable items |
 | Navigation | TanStack Router | `window.location` assignment, or `<a href>` to an app route |
 | Route registration state | TanStack Router search or the owning feature | A direct React `useState` or `useReducer` call in a web route registration; check `route-react-state` |
+| Interactive database transactions | Drizzle with Bun SQL | Calling `transaction()` on a Drizzle Neon HTTP database or a receiver whose type cannot be resolved; check `neon-http-transaction` in production source under `apps/server/src`, `packages/api/src`, `packages/auth/src` and `packages/db/src` |
 | Dithered fades and fills (ink fades, media surfaces) | Pre-generated static SVG images, a 2px cell and the ink colour from the Design Language, referenced as CSS images | A dither or noise library, a canvas or shader pass at runtime, or CSS gradients |
 
 ## Pixel Editor
@@ -93,7 +94,7 @@ Each responsibility is built with its technology, not with the substitute beside
 - Testing Library
 - Playwright
 - Opt-in database integration tests
-  - CI runs them in the `integration` job against a PostgreSQL service: profile tests use their own loopback databases cloned from a `db:push` schema template, and the required atomic write tests use Bun SQL for interactive transactions and `createDb` (neon-http) through the local Neon HTTP proxy for batches (`ghcr.io/timowilhelm/local-neon-http-proxy`, pinned by digest). `createDb` routes only the reserved host `db.localtest.me` to the proxy (`packages/db/src/local-neon-proxy.ts`).
+  - CI runs them in the `integration` job against a PostgreSQL service. Profile tests use their own loopback databases cloned from a `db:push` schema template. Server tests also run with `createDb` through the local Neon HTTP proxy. The [CI workflow](../.github/workflows/ci.yml) runs atomic Project Archive and Review Event suites in dedicated required steps. It reports each advisory suite in the job summary once the test database is ready, even if a required step fails. A passing advisory suite gets a notice for promotion review. `createDb` routes only the reserved host `db.localtest.me` to the proxy (`packages/db/src/local-neon-proxy.ts`).
 - Tauri WebDriver
 - Godot 4.x stable, 4.3 to 4.5 (user-approved platform dependency): the Godot Verified Engine Adapter targets this range, and the golden-project contract (`packages/api/src/godot-golden.test.ts`) runs headless Godot against `GODOT_BIN` (or `godot`/`godot4` on PATH). The required CI `godot-golden` matrix downloads and runs the official 4.3, 4.4 and 4.5 Linux binaries. Local runs without a binary skip the headless check and say so; the static golden-output checks always run. Unity is not a supported target.
 
@@ -103,11 +104,11 @@ Each responsibility is built with its technology, not with the substitute beside
 - Lefthook
 - GitHub Actions
   - CI runs on every pull request and `main` push. A `changes` job (dorny/paths-filter) skips the heavy jobs for docs-only (`docs/**`, `*.md`) changes and skips `desktop-webdriver` for server- or Fumadocs-only changes.
-  - Jobs: `docs` (lychee offline Markdown link and heading check, configured in `lychee.toml`), `quality` (Ultracite, types, unit tests), `integration` (disposable PostgreSQL migration tests and server integration tests), `web-e2e` (build + database-independent Playwright flows; report and traces uploaded on failure), `desktop-webdriver` (Tauri WebDriver; driver logs and failure screenshots uploaded on failure).
+  - Jobs: `docs` (lychee offline Markdown link and heading check, configured in `lychee.toml`), `conventions` (repository rules and their tests), `quality` (Ultracite, types, workspace unit tests), `integration` (disposable PostgreSQL migration tests and server integration tests), `web-e2e` (build + database-independent Playwright flows; report and traces uploaded on failure), `desktop-webdriver` (Tauri WebDriver; driver logs and failure screenshots uploaded on failure), `godot-golden` (Godot output contract).
   - `ci-ok` aggregates every job and is the single check to require on `main`; a skipped job passes it.
   - Shared Bun setup lives in `.github/actions/setup` and test database preparation in `.github/actions/test-database`; Bun, Playwright browser, desktop apt packages and Rust builds are cached.
   - React Doctor is advisory, runs only when `apps/web`, `apps/fumadocs` or `packages/ui` changes, and reports through its own check and PR comment.
-  - The `Conventions` workflow runs `bun run check:conventions` on every pull request and `main` push, docs included; unlike the jobs above it is not skipped for docs-only changes.
+  - The `conventions` job runs `bun run check:conventions` on docs-only changes too, because it reads rules from Markdown.
 
 ## Version constraints
 

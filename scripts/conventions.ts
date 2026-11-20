@@ -14,6 +14,7 @@ export type ExceptionPolicy = "none" | "reason";
 export interface CheckRule {
 	exception: ExceptionPolicy;
 	rule: string;
+	sourceDirectories?: string[];
 }
 
 export interface Conventions {
@@ -57,6 +58,7 @@ export const stackChecks = new Set([
 	"deprecated-query-fetch",
 	"form-state",
 	"hono-json-helper",
+	"neon-http-transaction",
 	"orpc-mutation-options",
 	"raw-control",
 	"raw-fetch",
@@ -85,6 +87,8 @@ const leadingPipe = /^\|/u;
 const trailingPipe = /\|$/u;
 const trailingSlash = /\/$/u;
 const stackCheck = /;\s*check `(?<check>[a-z][a-z0-9-]*)`(?<rest>.*)$/u;
+const sourceDirectory =
+	/^(?:apps|packages)\/[a-z0-9-]+\/src(?:\/[a-z0-9-]+)*$/u;
 const byText = (left: string, right: string) => left.localeCompare(right);
 const barrelFile = /^index\.[cm]?[jt]sx?$/u;
 const exceptionMarker =
@@ -219,10 +223,24 @@ function readStackChecks(markdown: string): Map<string, CheckRule> {
 				`${place} names check \`${id}\`, which scripts/conventions.ts does not implement or already read.`
 			);
 		}
-		checks.set(id, {
+		const rule = {
 			exception: suffix.includes("exception with a reason") ? "reason" : "none",
 			rule: `${place}: ${row[0]} uses ${row[technology]}, not ${cell.slice(0, match.index)}`,
-		});
+		} satisfies CheckRule;
+		if (id === "neon-http-transaction") {
+			const sourceDirectories = nonEmpty(
+				ticks(suffix),
+				`the source directories for ${id} in ${place}`
+			);
+			if (sourceDirectories.some((path) => !sourceDirectory.test(path))) {
+				throw new ConventionsError(
+					`${place} must list source directories under apps/ or packages/ for ${id}.`
+				);
+			}
+			checks.set(id, { ...rule, sourceDirectories });
+			continue;
+		}
+		checks.set(id, rule);
 	}
 	return checks;
 }
@@ -1217,6 +1235,130 @@ function findException(
 	}
 }
 
+const neonHttpDriver = /(?:^|\/)drizzle-orm\/neon-http\/driver\.d\.[cm]?ts$/u;
+const neonHttpSession = /(?:^|\/)drizzle-orm\/neon-http\/session\.d\.[cm]?ts$/u;
+
+function transactionReceiver(node: ts.Node): ts.Expression | undefined {
+	if (!ts.isCallExpression(node)) {
+		return;
+	}
+	const callee = node.expression;
+	if (
+		ts.isPropertyAccessExpression(callee) &&
+		callee.name.text === "transaction"
+	) {
+		return callee.expression;
+	}
+	if (
+		ts.isElementAccessExpression(callee) &&
+		ts.isStringLiteralLike(callee.argumentExpression) &&
+		callee.argumentExpression.text === "transaction"
+	) {
+		return callee.expression;
+	}
+}
+
+function isNeonHttpDatabase(checker: ts.TypeChecker, type: ts.Type): boolean {
+	if (type.isUnion()) {
+		return type.types.some((member) => isNeonHttpDatabase(checker, member));
+	}
+	const constraint = type.isTypeParameter()
+		? checker.getBaseConstraintOfType(type)
+		: undefined;
+	if (constraint) {
+		return isNeonHttpDatabase(checker, constraint);
+	}
+	if (
+		checker
+			.getPropertyOfType(type, "session")
+			?.declarations?.some((declaration) =>
+				neonHttpDriver.test(declaration.getSourceFile().fileName)
+			)
+	) {
+		return true;
+	}
+	// A receiver typed as PgAsyncDatabase carries its driver in the query
+	// result type of the shared session.
+	const metadata = checker.getPropertyOfType(type, "_");
+	const session =
+		metadata &&
+		checker.getPropertyOfType(checker.getTypeOfSymbol(metadata), "session");
+	const sessionType = session && checker.getTypeOfSymbol(session);
+	if (sessionType?.getSymbol()?.getName() !== "PgAsyncSession") {
+		return false;
+	}
+	const [queryResult] = checker.getTypeArguments(
+		sessionType as ts.TypeReference
+	);
+	return (
+		queryResult
+			?.getSymbol()
+			?.declarations?.some(
+				(declaration) =>
+					ts.isInterfaceDeclaration(declaration) &&
+					declaration.name.text === "NeonHttpQueryResultHKT" &&
+					neonHttpSession.test(declaration.getSourceFile().fileName)
+			) ?? false
+	);
+}
+
+function checkNeonHttpTransactions(context: Context): void {
+	const { conventions, report, root, sources } = context;
+	const rule = conventions.checks.get("neon-http-transaction");
+	const candidates = [
+		...new Set(
+			rule?.sourceDirectories?.flatMap((directory) =>
+				listFiles(root, directory)
+			)
+		),
+	].filter(
+		(path) =>
+			sourceFile.test(path) &&
+			!testFile.test(path) &&
+			sources.text(path).includes("transaction")
+	);
+	if (!candidates.length) {
+		return;
+	}
+	const program = ts.createProgram(
+		candidates.map((path) => join(root, path)),
+		{
+			module: ts.ModuleKind.ESNext,
+			moduleResolution: ts.ModuleResolutionKind.Bundler,
+			strict: true,
+			target: ts.ScriptTarget.ESNext,
+			types: [],
+		}
+	);
+	const checker = program.getTypeChecker();
+	for (const path of candidates) {
+		const ast = program.getSourceFile(join(root, path));
+		if (!ast) {
+			continue;
+		}
+		visit(ast, (node) => {
+			const receiver = transactionReceiver(node);
+			if (!receiver) {
+				return;
+			}
+			const type = checker.getTypeAtLocation(receiver);
+			const detail =
+				type.flags === ts.TypeFlags.Any
+					? "Cannot resolve transaction receiver type"
+					: isNeonHttpDatabase(checker, type) &&
+						"Drizzle Neon HTTP transaction";
+			if (detail) {
+				report({
+					check: "neon-http-transaction",
+					detail,
+					line: lineOf(ast, node),
+					path,
+				});
+			}
+		});
+	}
+}
+
 // --- Run --------------------------------------------------------------------
 
 const checkRunners: [string[], (context: Context) => void][] = [
@@ -1226,6 +1368,7 @@ const checkRunners: [string[], (context: Context) => void][] = [
 	[["barrel"], checkBarrels],
 	[["feature-import", "web-server-import"], checkImports],
 	[["server-test-placement"], checkServerTests],
+	[["neon-http-transaction"], checkNeonHttpTransactions],
 	[
 		[
 			"deprecated-query-fetch",
