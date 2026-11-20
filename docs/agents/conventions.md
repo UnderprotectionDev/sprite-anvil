@@ -1,6 +1,6 @@
 # Conventions check
 
-`bun run check:conventions` enforces the rules of [structure.md](../../structure.md) and the [tech stack's Responsibilities](../tech-stack.md#responsibilities) that can be read mechanically. Lefthook runs it before every commit and the `Conventions` workflow on every pull request. Its folder lists, names and checks come from those documents, so editing a rule there changes what is enforced; if a passage it reads is gone, the check stops and names it.
+`bun run check:conventions` enforces the rules of [structure.md](../../structure.md) and the [tech stack's Responsibilities](../tech-stack.md#responsibilities) that can be read mechanically. Lefthook runs it before every commit. The [CI workflow](../../.github/workflows/ci.yml) runs it on every pull request and `main` push, including docs-only changes, and includes the result in `ci-ok`. Its folder lists, names and checks come from those documents, so editing a rule there changes what is enforced; if a passage it reads is gone, the check stops and names it.
 
 ## When it fails
 

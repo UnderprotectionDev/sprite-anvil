@@ -38,7 +38,7 @@ API dayanakları [oRPC v1 Query entegrasyonu](https://v1.orpc.dev/docs/integrati
 | Dexie, Canvas 2D, PixiJS, Tauri 2 ve Tauri File System | [Dexie](../../apps/web/src/features/offline-staging/lib/offline-staging-store.ts), [Canvas](../../apps/web/src/features/pixel-editor/ui/components/pixel-canvas.tsx), [Pixi](../../apps/web/src/features/scene-qa-playground/ui/components/scene-qa-preview.tsx), [Tauri plugin](../../apps/web/src-tauri/src/lib.rs). |
 | Vitest, Testing Library, Playwright ve Tauri WebDriver | [Vitest](../../apps/web/vitest.config.ts), [Testing Library ve çalışma komutları](../../apps/web/package.json), [Playwright](../../apps/web/playwright.config.ts), [WebDriver](../../apps/web/wdio.conf.ts), [CI](../../.github/workflows/ci.yml). |
 | Godot ve fflate | [Godot matrisi](../../.github/workflows/ci.yml), [Godot zip](../../apps/web/src/features/export-bundles/lib/pack-godot-output.ts), [golden test girişi](../../packages/api/src/godot-golden.test.ts). |
-| Biome, Lefthook, GitHub Actions, Railway ve Railpack | [Biome](../../biome.json), [Lefthook](../../lefthook.yml), [Conventions workflow](../../.github/workflows/conventions.yml), [Railway app ve worker tanımları](../../.railway/railway.ts). Canlı builder ve dağıtım durumu §19’da. |
+| Biome, Lefthook, GitHub Actions, Railway ve Railpack | [Biome](../../biome.json), [Lefthook](../../lefthook.yml), [CI workflow](../../.github/workflows/ci.yml), [Railway app ve worker tanımları](../../.railway/railway.ts). Canlı builder ve dağıtım durumu §19’da. |
 
 ## 11. Spec eşlemesi
 

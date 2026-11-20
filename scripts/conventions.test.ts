@@ -6,6 +6,7 @@ import {
 	readdirSync,
 	readFileSync,
 	rmSync,
+	symlinkSync,
 	writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -122,6 +123,7 @@ test("the real documents yield every rule the check reads", () => {
 		"feature-name",
 		"form-state",
 		"hono-json-helper",
+		"neon-http-transaction",
 		"orpc-mutation-options",
 		"raw-control",
 		"raw-fetch",
@@ -143,6 +145,69 @@ test("the real documents yield every rule the check reads", () => {
 	expect(conventions.boundaryFolders).toEqual(["ui", "hooks", "lib", "store"]);
 	expect(conventions.serverLayer).toBe("server");
 	expect(conventions.serverTestFolder).toBe("tests");
+});
+
+test("rejects transaction calls on Neon HTTP receivers in production code", () => {
+	const neonHttpEntry = require.resolve("drizzle-orm/neon-http", {
+		paths: [join(repository, "packages/db")],
+	});
+	mkdirSync(join(root, "packages/db/node_modules"), { recursive: true });
+	symlinkSync(
+		dirname(dirname(neonHttpEntry)),
+		join(root, "packages/db/node_modules/drizzle-orm"),
+		"junction"
+	);
+	write(
+		"packages/db/src/database.ts",
+		`import { drizzle as neonHttp } from "drizzle-orm/neon-http";
+		import { drizzle as bunSql } from "drizzle-orm/bun-sql/postgres";
+		import type { NeonHttpQueryResultHKT } from "drizzle-orm/neon-http";
+		import type { PgAsyncDatabase } from "drizzle-orm/pg-core";
+		export const createDb = () => neonHttp("connection");
+		export type Database = ReturnType<typeof createDb>;
+		export type InteractiveDatabase = ReturnType<typeof bunSql>;
+		export type WidenedDatabase = PgAsyncDatabase<NeonHttpQueryResultHKT>;`
+	);
+	const path = "apps/server/src/storage.ts";
+	const storage = `import { createDb, type Database, type InteractiveDatabase, type WidenedDatabase } from "../../../packages/db/src/database";
+		function publish(db: Database, pooled: InteractiveDatabase, either: Database | InteractiveDatabase, widened: WidenedDatabase) {
+			db.transaction(() => {});
+			createDb()["transaction"](() => {});
+			either.transaction(async () => {});
+			db.$withAuth("token").transaction(async () => {});
+			db.$client.transaction(() => {});
+			pooled.transaction(() => {});
+			({ transaction() {} }).transaction();
+			widened.transaction(async () => {});
+		}`;
+	write(path, storage);
+	write("apps/server/src/storage.test.ts", storage);
+	expect(
+		collectViolations(root)
+			.violations.filter(
+				(violation) => violation.check === "neon-http-transaction"
+			)
+			.map(({ path: file, line }) => [file, line])
+	).toEqual([
+		[path, 3],
+		[path, 4],
+		[path, 5],
+		[path, 6],
+		[path, 10],
+	]);
+});
+
+test("reports unresolved transaction receiver types in the documented source directories", () => {
+	const path = "apps/tool/src/storage.ts";
+	write(
+		path,
+		`import { createDb } from "./missing"; createDb().transaction(async () => {});`
+	);
+	expect(found("neon-http-transaction")).toEqual([]);
+	editDocument(techStackDocument, "`apps/server/src`", "`apps/tool/src`");
+	expect(found("neon-http-transaction")).toEqual([
+		`neon-http-transaction ${path} Cannot resolve transaction receiver type`,
+	]);
 });
 
 test("a form that keeps per-input state is caught", () => {
