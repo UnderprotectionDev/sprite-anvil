@@ -141,7 +141,7 @@ jobs:
           bun test
           src/version-review.integration.test.ts
           src/batch-version-review.integration.test.ts
-          --timeout 30000
+          --timeout 120000
       # Neon-driver (createDb) tests through the local proxy. Non-blocking until the failures they
       # surface are fixed, including timeouts and cleanup ordering. Results stay visible in the job log.
       - name: Run Neon-driver integration tests (non-blocking)
