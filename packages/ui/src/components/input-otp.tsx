@@ -1,4 +1,5 @@
-import { cn } from "cn";
+import { cn } from "@sprite-anvil/ui/lib/utils";
+import { wellSurfaceClassName } from "@sprite-anvil/ui/lib/well-surface";
 import { OTPInput, OTPInputContext } from "input-otp";
 import { MinusIcon } from "lucide-react";
 import * as React from "react";
@@ -14,7 +15,7 @@ function InputOTP({
 		<OTPInput
 			className={cn("disabled:cursor-not-allowed", className)}
 			containerClassName={cn(
-				"cn-input-otp flex items-center has-disabled:opacity-50",
+				"cn-input-otp group/input-otp flex items-center gap-1.5 sm:gap-3",
 				containerClassName
 			)}
 			data-slot="input-otp"
@@ -27,16 +28,15 @@ function InputOTP({
 function InputOTPGroup({ className, ...props }: React.ComponentProps<"div">) {
 	return (
 		<div
-			className={cn(
-				"has-aria-invalid:border-destructive has-aria-invalid:ring-destructive/20 dark:has-aria-invalid:ring-destructive/40 flex items-center rounded-none has-aria-invalid:ring-1",
-				className
-			)}
+			className={cn("flex items-center gap-1.5 sm:gap-3", className)}
 			data-slot="input-otp-group"
 			{...props}
 		/>
 	);
 }
 
+// Paper · 01 Components · Input OTP. Separate 40 × 44 recessed slots, radius 8,
+// 12px apart so the 2px outline plus 2px offset never touches a neighbour.
 function InputOTPSlot({
 	index,
 	className,
@@ -50,7 +50,9 @@ function InputOTPSlot({
 	return (
 		<div
 			className={cn(
-				"border-input aria-invalid:border-destructive data-[active=true]:border-ring data-[active=true]:ring-ring/50 data-[active=true]:aria-invalid:border-destructive data-[active=true]:aria-invalid:ring-destructive/20 dark:bg-input/30 dark:data-[active=true]:aria-invalid:ring-destructive/40 relative flex size-8 items-center justify-center border-y border-r text-xs transition-all outline-none first:rounded-none first:border-l last:rounded-none data-[active=true]:z-10 data-[active=true]:ring-1",
+				wellSurfaceClassName,
+				"rounded-control text-foreground text-subhead data-[active=true]:focus-ring group-has-disabled/input-otp:text-workbench-utility-disabled-text relative flex h-11 w-10 items-center justify-center font-mono leading-5 outline-0 transition-colors duration-120 data-[active=true]:z-10",
+				"aria-invalid:outline-destructive group-has-[input[aria-invalid=true]]/input-otp:outline-destructive group-has-[input[aria-invalid=true]]/input-otp:outline-2 group-has-[input[aria-invalid=true]]/input-otp:outline-offset-2 aria-invalid:outline-2 aria-invalid:outline-offset-2",
 				className
 			)}
 			data-active={isActive}
@@ -60,7 +62,7 @@ function InputOTPSlot({
 			{char}
 			{hasFakeCaret ? (
 				<div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-					<div className="animate-caret-blink bg-foreground h-4 w-px duration-1000" />
+					<div className="animate-caret-blink bg-foreground h-[18px] w-px duration-1000" />
 				</div>
 			) : null}
 		</div>
@@ -71,7 +73,7 @@ function InputOTPSeparator({ ...props }: React.ComponentProps<"div">) {
 	return (
 		<div
 			aria-hidden="true"
-			className="flex items-center [&_svg:not([class*='size-'])]:size-4"
+			className="text-workbench-faint-text flex items-center [&_svg:not([class*='size-'])]:size-4"
 			data-slot="input-otp-separator"
 			{...props}
 		>

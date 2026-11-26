@@ -4,128 +4,230 @@
 @source "../../../apps/**/*.{ts,tsx}";
 @source "../**/*.{ts,tsx}";
 
+/* Sprite Anvil has one dark theme (Paper · 00 Foundations). There is no light
+ * palette; `dark:` variants resolve against the `.dark` class that the theme
+ * provider keeps on <html>, and every token below already is the dark value. */
 @custom-variant dark (&:is(.dark *));
 
 @font-face {
-	font-family: "IBM Plex Sans";
-	src: url("./fonts/IBMPlexSans.ttf") format("truetype");
+	font-family: "Inter";
+	src: url("./fonts/Inter.ttf") format("truetype");
 	font-style: normal;
-	font-weight: 100 700;
+	font-weight: 100 900;
 	font-display: swap;
 }
 
 @font-face {
-	font-family: "IBM Plex Mono";
-	src: url("./fonts/IBMPlexMono.ttf") format("truetype");
+	font-family: "Bricolage Grotesque";
+	src: url("./fonts/BricolageGrotesque.ttf") format("truetype");
 	font-style: normal;
-	font-weight: 400;
+	font-weight: 200 800;
 	font-display: swap;
 }
 
 @font-face {
-	font-family: "Jersey 10";
-	src: url("./fonts/Jersey10.ttf") format("truetype");
+	font-family: "Geist Mono";
+	src: url("./fonts/GeistMono.ttf") format("truetype");
 	font-style: normal;
-	font-weight: 400;
+	font-weight: 100 900;
 	font-display: swap;
 }
 
-@font-face {
-	font-family: "Pixelify Sans";
-	src: url("./fonts/PixelifySans.ttf") format("truetype");
-	font-style: normal;
-	font-weight: 400 700;
-	font-display: swap;
+/* Paper · 00 Foundations, bound by name. Every colour does one job: two things that
+ * share a hex share a meaning. Components use these names, never raw hex. */
+@theme {
+	/* Grounds + text */
+	--color-workbench-preview: #141414;
+	--color-workbench-scene: #121212;
+	--color-workbench-sidebar: #191919;
+	--color-workbench-strip: #1c1c1c;
+	--color-workbench-background: #232323;
+	--color-workbench-checker-dark-alt: #272727;
+	--color-workbench-panel: #333333;
+	--color-workbench-panel-hover: #3a3a3a;
+	--color-workbench-control: #3f3f3f;
+	--color-workbench-divider: #303030;
+	--color-workbench-row-selected: #2c2c2c;
+	--color-workbench-border-strong: #525252;
+	--color-pixel-edge: #0a0a0a;
+	--color-workbench-text: #f2f2f2;
+	--color-workbench-muted-text: #c9c9c9;
+	--color-workbench-faint-text: #ababab;
+	--color-workbench-label-text: #8a8a8a;
+	--color-workbench-link: #ffb67a;
+
+	/* Light, shade and edges of depth */
+	--color-workbench-raised-light: #ffffff24;
+	--color-workbench-well-shade: #00000040;
+	--color-workbench-well-light: #ffffff0d;
+	--color-workbench-well-rim: #ffffff0a;
+	--color-workbench-drop-shadow: #00000073;
+	--color-workbench-drop-shadow-strong: #0000008c;
+	--color-workbench-scrim: rgb(10 10 10 / 72%);
+
+	/* Action */
+	--color-workbench-action: #ff7b38;
+	--color-workbench-action-hover: #ff8f55;
+	--color-workbench-action-pressed: #ea6a2a;
+	--color-workbench-action-light: #ffb385;
+	--color-workbench-action-pressed-edge: #8f3710;
+	--color-pixel-action-low: #b94a16;
+	--color-workbench-on-action: #191919;
+
+	/* Utility (neutral raised controls) */
+	--color-workbench-utility: var(--color-workbench-control);
+	--color-workbench-utility-hover: #494949;
+	--color-workbench-utility-pressed: #353535;
+	--color-workbench-utility-disabled: #2b2b2b;
+	--color-workbench-utility-disabled-text: #7a7a7a;
+	--color-pixel-utility-low: #2a2a2a;
+
+	/* Selection and focus (editor blue) */
+	--color-workbench-selection: #2563eb;
+	--color-workbench-selection-hover: #3b76f0;
+	--color-workbench-selection-pressed: #1f52c9;
+	--color-workbench-selection-light: #5c8bf2;
+	--color-workbench-selection-pressed-edge: #12338a;
+	--color-pixel-selection-low: #1a47b8;
+	--color-workbench-on-selection: #ffffff;
+	--color-workbench-focus: #6f9aff;
+
+	/* Navigation (selected tab, segment, active nav chip) */
+	--color-workbench-nav: #ebebeb;
+	--color-workbench-nav-edge: #b4b4b4;
+	--color-workbench-nav-ink: #141414;
+	--color-workbench-nav-ink-muted: #4a4a4a;
+	--color-workbench-nav-badge: #dadada;
+
+	/* Hero (readiness block only) */
+	--color-workbench-hero: #5b2fe3;
+	--color-workbench-hero-edge: #3a17a8;
+	--color-workbench-hero-plate: #1c0858;
+	--color-workbench-hero-light: #8c6ff4;
+
+	/* Messages */
+	--color-workbench-danger: #ff3b6b;
+	--color-workbench-danger-hover: #ff5580;
+	--color-workbench-danger-pressed: #e02a5a;
+	--color-workbench-danger-light: #ff7c9c;
+	--color-workbench-danger-soft: #ff8fab;
+	--color-workbench-danger-pressed-edge: #8e1232;
+	--color-workbench-danger-wash: #3b1822;
+	--color-pixel-danger-low: #b8193f;
+	--color-workbench-success: #c8f03a;
+	--color-workbench-success-soft: #e2f98a;
+	--color-workbench-success-wash: #26310f;
+	--color-workbench-warning: #ffc93c;
+	--color-workbench-warning-ink: #b8901a;
+	--color-workbench-info: #6f9aff;
+	--color-workbench-info-soft: #a9c2ff;
+	--color-workbench-data: #3ccbea;
+	--color-pixel-data-low: #1b8fa8;
+	--color-workbench-review: #c3aeff;
+	--color-workbench-review-light: #ede7ff;
+	--color-pixel-review-low: #8f76e0;
+
+	/* Preview surfaces */
+	--color-workbench-checker-light: #d9d9d9;
+	--color-workbench-checker-light-alt: #c4c4c4;
+	--color-workbench-preview-light: #e8e8e8;
+
+	/* Status tags: glyph + label, never colour alone */
+	--color-status-blocked: #ff3b6b;
+	--color-status-not-assessed: #b0cbf2;
+	--color-status-ready-with-waivers: #1fd6a0;
+	--color-status-export-ready: #c8f03a;
+
+	/* Families. The heading token keeps Paper's legacy name. */
+	--font-sans: "Inter", system-ui, sans-serif;
+	/* Paper falls back to system-ui: Geist Mono has no ⌘ or ⌫, and a monospace
+	 * fallback (Menlo) draws them small and heavy next to the shortcut letters. */
+	--font-mono: "Geist Mono", system-ui, sans-serif;
+	--font-pixel-heading: "Bricolage Grotesque", system-ui, sans-serif;
+	--font-heading: var(--font-pixel-heading);
+
+	/* Type scale. Nothing below 13px except keyboard keys. */
+	--text-metric: 64px;
+	--text-metric--line-height: 64px;
+	--text-heading: 34px;
+	--text-heading--line-height: 40px;
+	--text-heading-compact: 20px;
+	--text-heading-compact--line-height: 28px;
+	--text-subhead: 16px;
+	--text-subhead--line-height: 24px;
+	--text-body: 15px;
+	--text-body--line-height: 24px;
+	--text-action: 15px;
+	--text-action--line-height: 20px;
+	--text-data: 14px;
+	--text-data--line-height: 20px;
+	--text-label: 13px;
+	--text-label--line-height: 18px;
+	--tracking-label: 0.04em;
+	--font-weight-medium: 500;
+	--font-weight-semibold: 600;
+
+	/* Radius: 8 button and card, 6 small control, 4 tag and kbd. */
+	--radius-card: 8px;
+	--radius-control: 8px;
+	--radius-control-sm: 6px;
+	--radius-tag: 4px;
+	--radius-overlay: 12px;
+	--radius-preview: 0px;
+	--radius-sm: 4px;
+	--radius-md: 6px;
+	--radius-lg: 8px;
+	--radius-xl: 8px;
+	--radius-2xl: 8px;
+	--radius-3xl: 8px;
+	--radius-4xl: 8px;
 }
 
+/* shadcn semantic variables → Design Language tokens (Paper · 01 "Token roles"). */
 :root {
-	--font-mono: "IBM Plex Mono", monospace;
-	--font-display: "Jersey 10", sans-serif;
-	--background: #eeede7;
-	--foreground: #161616;
-	--card: #faf9f5;
-	--card-foreground: #161616;
-	--popover: #faf9f5;
-	--popover-foreground: #161616;
-	--primary: #d9794e;
-	--primary-foreground: #161616;
-	--secondary: #e7e4dc;
-	--secondary-foreground: #161616;
-	--muted: #e7e4dc;
-	--muted-foreground: #5e5d61;
-	--accent: #d8d5cd;
-	--accent-foreground: #161616;
-	--destructive: #ad302b;
-	--border: #c8c4ba;
-	--input: #756f66;
-	--ring: #161616;
-	--chart-1: #293b85;
-	--chart-2: #a84b2c;
-	--chart-3: #2f6b57;
-	--chart-4: #8a5b1d;
-	--chart-5: #45637b;
-	--radius: 0px;
-	--sidebar: #faf9f5;
-	--sidebar-foreground: #161616;
-	--sidebar-primary: #293b85;
-	--sidebar-primary-foreground: #ffffff;
-	--sidebar-accent: #e7e4dc;
-	--sidebar-accent-foreground: #161616;
-	--sidebar-border: #c8c4ba;
-	--sidebar-ring: #161616;
-	--status-success: #2f6b57;
-	--status-danger: #ad302b;
-	--selection: #293b85;
-	--signal: #a84b2c;
-	--signal-foreground: #ffffff;
-}
-
-.dark {
-	--background: #141311;
-	--foreground: #eeeae3;
-	--card: #201f24;
-	--card-foreground: #eeeae3;
-	--popover: #1d1d20;
-	--popover-foreground: #eeeae3;
-	--primary: #d9794e;
-	--primary-foreground: #161616;
-	--secondary: #2a292f;
-	--secondary-foreground: #eeeae3;
-	--muted: #2a292f;
-	--muted-foreground: #a6a19a;
-	--accent: #38383b;
-	--accent-foreground: #eeeae3;
-	--destructive: #e87870;
-	--border: #484541;
-	--input: #756f66;
-	--ring: #eeeae3;
-	--chart-1: #4d69d4;
-	--chart-2: #d9794e;
-	--chart-3: #82b39d;
-	--chart-4: #d7a453;
-	--chart-5: #83b7db;
-	--sidebar: #1d1b18;
-	--sidebar-foreground: #eeeae3;
-	--sidebar-primary: #4d69d4;
-	--sidebar-primary-foreground: #ffffff;
-	--sidebar-accent: #2a292f;
-	--sidebar-accent-foreground: #eeeae3;
-	--sidebar-border: #484541;
-	--sidebar-ring: #eeeae3;
-	--status-success: #82b39d;
-	--status-danger: #e87870;
-	--selection: #4d69d4;
-	--signal: #d9794e;
-	--signal-foreground: #161616;
+	--background: var(--color-workbench-background);
+	--foreground: var(--color-workbench-text);
+	--card: var(--color-workbench-background);
+	--card-foreground: var(--color-workbench-text);
+	--popover: var(--color-workbench-background);
+	--popover-foreground: var(--color-workbench-text);
+	--primary: var(--color-workbench-action);
+	--primary-foreground: var(--color-workbench-on-action);
+	--secondary: var(--color-workbench-control);
+	--secondary-foreground: var(--color-workbench-text);
+	--muted: var(--color-pixel-utility-low);
+	--muted-foreground: var(--color-workbench-muted-text);
+	--accent: var(--color-workbench-panel);
+	--accent-foreground: var(--color-workbench-text);
+	--destructive: var(--color-workbench-danger);
+	--destructive-foreground: var(--color-workbench-on-action);
+	--border: var(--color-workbench-panel-hover);
+	--input: var(--color-pixel-edge);
+	--ring: var(--color-workbench-focus);
+	--chart-1: var(--color-workbench-data);
+	--chart-2: var(--color-workbench-action);
+	--chart-3: var(--color-workbench-success);
+	--chart-4: var(--color-workbench-review);
+	--chart-5: var(--color-workbench-warning);
+	--radius: var(--radius-card);
+	--sidebar: var(--color-workbench-sidebar);
+	--sidebar-foreground: var(--color-workbench-text);
+	--sidebar-primary: var(--color-workbench-action);
+	--sidebar-primary-foreground: var(--color-workbench-on-action);
+	--sidebar-accent: var(--color-workbench-panel);
+	--sidebar-accent-foreground: var(--color-workbench-text);
+	--sidebar-border: var(--color-workbench-divider);
+	--sidebar-ring: var(--color-workbench-focus);
+	/* Product aliases the feature stylesheets already read. */
+	--status-success: var(--color-workbench-success);
+	--status-danger: var(--color-workbench-danger);
+	--selection: var(--color-workbench-selection);
+	--signal: var(--color-workbench-action);
+	--signal-foreground: var(--color-workbench-on-action);
+	color-scheme: dark;
 }
 
 @theme inline {
-	--font-sans: "IBM Plex Sans", sans-serif;
-	--font-mono: "IBM Plex Mono", monospace;
-	--font-display: "Jersey 10", sans-serif;
-	--font-pixel: "Pixelify Sans", sans-serif;
-	--radius-control: 0px;
-	--radius-preview: 0px;
 	--color-sidebar-ring: var(--sidebar-ring);
 	--color-sidebar-border: var(--sidebar-border);
 	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -142,6 +244,7 @@
 	--color-ring: var(--ring);
 	--color-input: var(--input);
 	--color-border: var(--border);
+	--color-destructive-foreground: var(--destructive-foreground);
 	--color-destructive: var(--destructive);
 	--color-accent-foreground: var(--accent-foreground);
 	--color-accent: var(--accent);
@@ -157,13 +260,96 @@
 	--color-card: var(--card);
 	--color-foreground: var(--foreground);
 	--color-background: var(--background);
-	--radius-sm: 0px;
-	--radius-md: 0px;
-	--radius-lg: var(--radius);
-	--radius-xl: 0px;
-	--radius-2xl: 0px;
-	--radius-3xl: 0px;
-	--radius-4xl: 0px;
+}
+
+/* Raised face: flat fill, 1px top light, 3px dark bottom edge (2px on small
+ * controls). A role utility picks light + edge; `--bevel-depth` sets the edge
+ * and the label offset (`pb-(--bevel-depth)`). Pressing drops the face 2px. */
+@utility bevel {
+	--bevel-depth: 3px;
+	--bevel-light: var(--color-workbench-raised-light);
+	--bevel-edge: var(--color-pixel-utility-low);
+	box-shadow:
+		inset 0 1px 0 var(--bevel-light),
+		inset 0 calc(var(--bevel-depth) * -1) 0 var(--bevel-edge);
+}
+@utility bevel-utility {
+	--bevel-light: var(--color-workbench-raised-light);
+	--bevel-edge: var(--color-pixel-utility-low);
+}
+@utility bevel-action {
+	--bevel-light: var(--color-workbench-action-light);
+	--bevel-edge: var(--color-pixel-action-low);
+}
+@utility bevel-danger {
+	--bevel-light: var(--color-workbench-danger-light);
+	--bevel-edge: var(--color-pixel-danger-low);
+}
+@utility bevel-selection {
+	--bevel-light: var(--color-workbench-selection-light);
+	--bevel-edge: var(--color-pixel-selection-low);
+}
+@utility bevel-nav {
+	--bevel-light: var(--color-workbench-on-selection);
+	--bevel-edge: var(--color-workbench-nav-edge);
+}
+@utility bevel-edge {
+	--bevel-edge: var(--color-pixel-edge);
+}
+/* Order note: `well` and `floating` are utilities that come before `bg-*`, `shadow-*`
+ * and `ring-*` in the generated CSS, so those classes on the same element override
+ * them. Primitives that need to compose them use lib/well-surface.ts instead. */
+/* Recessed well: inputs, menus, popovers, segmented-control tracks. 1px #0A0A0A
+ * edge, soft inner shade on top, inner light on the bottom lip, 1px outer rim. */
+@utility well {
+	background-color: var(--color-workbench-preview);
+	border: 1px solid var(--color-pixel-edge);
+	box-shadow:
+		inset 0 1px 2px var(--color-workbench-well-shade),
+		inset 0 -1px 0 var(--color-workbench-well-light),
+		0 1px 0 var(--color-workbench-well-rim);
+}
+/* Floating material: dialogs, sheets, toasts. Ring, drop shadow, no bevel. */
+@utility floating {
+	background-color: var(--color-workbench-background);
+	box-shadow:
+		inset 0 0 0 1px var(--color-workbench-panel-hover),
+		0 16px 40px var(--color-workbench-drop-shadow-strong);
+}
+/* Keyboard focus ring: 2px focus blue outside the face (offset 2px). */
+@utility focus-ring {
+	outline: 2px solid var(--color-workbench-focus);
+	outline-offset: 2px;
+}
+
+/* Number inputs show one slim split control (up over down); the half under the
+ * pointer lights up. The Input component handles clicks and marks that half.
+ * Drawn as a background so Chromium, Firefox and WebKit look the same. */
+input[data-slot][type="number"] {
+	appearance: textfield;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='30' viewBox='0 0 22 30'%3E%3Cpath d='M.5 15V6.5a6 6 0 0 1 6-6h9a6 6 0 0 1 6 6V15z' fill='%232c2c2c'/%3E%3Cpath d='M.5 15v8.5a6 6 0 0 0 6 6h9a6 6 0 0 0 6-6V15z' fill='%232c2c2c'/%3E%3Crect x='.5' y='.5' width='21' height='29' rx='6' fill='none' stroke='%233a3a3a'/%3E%3Cpath d='M1 15h20' stroke='%233a3a3a'/%3E%3Cpath d='m8 9.25 3-3 3 3' stroke='%23ababab' fill='none' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='m8 20.75 3 3 3-3' stroke='%23ababab' fill='none' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right 5px center;
+}
+input[data-slot][type="number"][data-step="up"] {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='30' viewBox='0 0 22 30'%3E%3Cpath d='M.5 15V6.5a6 6 0 0 1 6-6h9a6 6 0 0 1 6 6V15z' fill='%233f3f3f'/%3E%3Cpath d='M.5 15v8.5a6 6 0 0 0 6 6h9a6 6 0 0 0 6-6V15z' fill='%232c2c2c'/%3E%3Crect x='.5' y='.5' width='21' height='29' rx='6' fill='none' stroke='%233a3a3a'/%3E%3Cpath d='M1 15h20' stroke='%233a3a3a'/%3E%3Cpath d='m8 9.25 3-3 3 3' stroke='%23f2f2f2' fill='none' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='m8 20.75 3 3 3-3' stroke='%23ababab' fill='none' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+input[data-slot][type="number"][data-step="down"] {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='30' viewBox='0 0 22 30'%3E%3Cpath d='M.5 15V6.5a6 6 0 0 1 6-6h9a6 6 0 0 1 6 6V15z' fill='%232c2c2c'/%3E%3Cpath d='M.5 15v8.5a6 6 0 0 0 6 6h9a6 6 0 0 0 6-6V15z' fill='%233f3f3f'/%3E%3Crect x='.5' y='.5' width='21' height='29' rx='6' fill='none' stroke='%233a3a3a'/%3E%3Cpath d='M1 15h20' stroke='%233a3a3a'/%3E%3Cpath d='m8 9.25 3-3 3 3' stroke='%23ababab' fill='none' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='m8 20.75 3 3 3-3' stroke='%23f2f2f2' fill='none' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+input[data-slot][type="number"][data-step="up"][data-pressed] {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='30' viewBox='0 0 22 30'%3E%3Cpath d='M.5 15V6.5a6 6 0 0 1 6-6h9a6 6 0 0 1 6 6V15z' fill='%23232323'/%3E%3Cpath d='M.5 15v8.5a6 6 0 0 0 6 6h9a6 6 0 0 0 6-6V15z' fill='%232c2c2c'/%3E%3Crect x='.5' y='.5' width='21' height='29' rx='6' fill='none' stroke='%233a3a3a'/%3E%3Cpath d='M1 15h20' stroke='%233a3a3a'/%3E%3Cpath d='m8 9.25 3-3 3 3' stroke='%23f2f2f2' fill='none' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='m8 20.75 3 3 3-3' stroke='%23ababab' fill='none' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+input[data-slot][type="number"][data-step="down"][data-pressed] {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='30' viewBox='0 0 22 30'%3E%3Cpath d='M.5 15V6.5a6 6 0 0 1 6-6h9a6 6 0 0 1 6 6V15z' fill='%232c2c2c'/%3E%3Cpath d='M.5 15v8.5a6 6 0 0 0 6 6h9a6 6 0 0 0 6-6V15z' fill='%23232323'/%3E%3Crect x='.5' y='.5' width='21' height='29' rx='6' fill='none' stroke='%233a3a3a'/%3E%3Cpath d='M1 15h20' stroke='%233a3a3a'/%3E%3Cpath d='m8 9.25 3-3 3 3' stroke='%23ababab' fill='none' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='m8 20.75 3 3 3-3' stroke='%23f2f2f2' fill='none' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+input[data-slot][type="number"]:is(:disabled, :read-only) {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='30' viewBox='0 0 22 30' opacity='.4'%3E%3Cpath d='M.5 15V6.5a6 6 0 0 1 6-6h9a6 6 0 0 1 6 6V15z' fill='%232c2c2c'/%3E%3Cpath d='M.5 15v8.5a6 6 0 0 0 6 6h9a6 6 0 0 0 6-6V15z' fill='%232c2c2c'/%3E%3Crect x='.5' y='.5' width='21' height='29' rx='6' fill='none' stroke='%233a3a3a'/%3E%3Cpath d='M1 15h20' stroke='%233a3a3a'/%3E%3Cpath d='m8 9.25 3-3 3 3' stroke='%23ababab' fill='none' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='m8 20.75 3 3 3-3' stroke='%23ababab' fill='none' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+input[data-slot][type="number"]::-webkit-inner-spin-button,
+input[data-slot][type="number"]::-webkit-outer-spin-button {
+	margin: 0;
+	appearance: none;
 }
 
 @layer base {
@@ -171,7 +357,7 @@
 		@apply border-border outline-ring/50;
 	}
 	body {
-		@apply font-sans bg-background text-foreground;
+		@apply font-sans text-body bg-background text-foreground;
 	}
 	html {
 		@apply font-sans;

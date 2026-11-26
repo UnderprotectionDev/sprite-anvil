@@ -1,7 +1,7 @@
 "use client";
 
 import { PreviewCard as PreviewCardPrimitive } from "@base-ui/react/preview-card";
-import { cn } from "cn";
+import { cn } from "@sprite-anvil/ui/lib/utils";
 
 function HoverCard({ ...props }: PreviewCardPrimitive.Root.Props) {
 	return <PreviewCardPrimitive.Root data-slot="hover-card" {...props} />;
@@ -16,7 +16,7 @@ function HoverCardTrigger({ ...props }: PreviewCardPrimitive.Trigger.Props) {
 function HoverCardContent({
 	className,
 	side = "bottom",
-	sideOffset = 4,
+	sideOffset = 8,
 	align = "center",
 	alignOffset = 4,
 	...props
@@ -36,7 +36,7 @@ function HoverCardContent({
 			>
 				<PreviewCardPrimitive.Popup
 					className={cn(
-						"data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:fade-in-0 data-open:zoom-in-95 data-closed:fade-out-0 data-closed:zoom-out-95 bg-popover text-popover-foreground ring-foreground/10 data-closed:animate-out data-open:animate-in z-50 w-64 origin-(--transform-origin) rounded-none p-2.5 text-xs/relaxed shadow-md ring-1 outline-hidden duration-100",
+						"data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:fade-in-0 data-open:zoom-in-95 data-closed:fade-out-0 data-closed:zoom-out-95 border-pixel-edge bg-workbench-preview text-popover-foreground data-closed:animate-out data-open:animate-in rounded-control text-data z-50 w-80 origin-(--transform-origin) border p-4 shadow-[inset_0_1px_2px_var(--color-workbench-well-shade),inset_0_-1px_0_var(--color-workbench-well-light),0_1px_0_var(--color-workbench-well-rim),0_8px_24px_var(--color-workbench-drop-shadow-strong)] outline-hidden duration-100 focus-visible:outline-none!",
 						className
 					)}
 					data-slot="hover-card-content"

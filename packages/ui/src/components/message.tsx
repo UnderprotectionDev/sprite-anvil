@@ -19,7 +19,7 @@ function Message({
 	return (
 		<div
 			className={cn(
-				"group/message relative flex w-full min-w-0 gap-1.5 text-xs data-[align=end]:flex-row-reverse",
+				"group/message text-label relative flex w-full min-w-0 gap-1.5 data-[align=end]:flex-row-reverse",
 				className
 			)}
 			data-align={align}
@@ -59,7 +59,7 @@ function MessageHeader({ className, ...props }: React.ComponentProps<"div">) {
 	return (
 		<div
 			className={cn(
-				"text-muted-foreground flex max-w-full min-w-0 items-center px-2.5 text-xs font-medium group-has-data-[variant=ghost]/message:px-0",
+				"text-muted-foreground text-label flex max-w-full min-w-0 items-center px-2.5 font-medium group-has-data-[variant=ghost]/message:px-0",
 				className
 			)}
 			data-slot="message-header"
@@ -72,7 +72,7 @@ function MessageFooter({ className, ...props }: React.ComponentProps<"div">) {
 	return (
 		<div
 			className={cn(
-				"text-muted-foreground flex max-w-full min-w-0 items-center px-2.5 text-xs font-medium group-has-data-[variant=ghost]/message:px-0 group-data-[align=end]/message:justify-end",
+				"text-muted-foreground text-label flex max-w-full min-w-0 items-center px-2.5 font-medium group-has-data-[variant=ghost]/message:px-0 group-data-[align=end]/message:justify-end",
 				className
 			)}
 			data-slot="message-footer"

@@ -1,19 +1,23 @@
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 import { Separator } from "@sprite-anvil/ui/components/separator";
+import { cn } from "@sprite-anvil/ui/lib/utils";
 import type { VariantProps } from "class-variance-authority";
 import { cva } from "class-variance-authority";
-import { cn } from "cn";
 
+// Paper · 01 Components · Button Group. Joined buttons share one 8px outer
+// contour with square inner corners; a 1px #0A0A0A separator splits them.
 const buttonGroupVariants = cva(
-	"flex w-fit items-stretch rounded-none *:focus-visible:relative *:focus-visible:z-10 has-[>[data-slot=button-group]]:gap-2 has-[select[aria-hidden=true]:last-child]:[&>[data-slot=select-trigger]:last-of-type]:rounded-none [&>[data-slot=select-trigger]:not([class*='w-'])]:w-fit [&>input]:flex-1",
+	"rounded-control flex w-fit items-stretch *:focus-visible:relative *:focus-visible:z-10 *:active:translate-y-0! has-[>[data-slot=button-group]]:gap-2 [&>[data-slot=select-trigger]:not([class*='w-'])]:w-fit [&>input]:flex-1",
 	{
 		variants: {
 			orientation: {
+				// Corners key off slotted siblings, not :first/:last-child, so the focus
+				// guards an open menu inserts after its trigger keep the outer radius.
 				horizontal:
-					"*:data-slot:rounded-r-none [&>[data-slot]~[data-slot]]:rounded-l-none [&>[data-slot]~[data-slot]]:border-l-0",
+					"[&>[data-slot]:has(~[data-slot])]:rounded-r-none [&>[data-slot]~[data-slot]]:rounded-l-none [&>[data-slot]~[data-slot]]:border-l-0",
 				vertical:
-					"flex-col *:data-slot:rounded-b-none [&>[data-slot]~[data-slot]]:rounded-t-none [&>[data-slot]~[data-slot]]:border-t-0",
+					"flex-col [&>[data-slot]:has(~[data-slot])]:rounded-b-none [&>[data-slot]~[data-slot]]:rounded-t-none [&>[data-slot]~[data-slot]]:border-t-0",
 			},
 		},
 		defaultVariants: {
@@ -48,7 +52,7 @@ function ButtonGroupText({
 		props: mergeProps<"div">(
 			{
 				className: cn(
-					"bg-muted flex items-center gap-2 rounded-none border px-2.5 text-xs font-medium [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4",
+					"rounded-control border-pixel-edge bg-pixel-utility-low text-data text-workbench-muted-text flex items-center gap-2 border px-3 font-medium [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4",
 					className
 				),
 			},
@@ -69,7 +73,7 @@ function ButtonGroupSeparator({
 	return (
 		<Separator
 			className={cn(
-				"bg-input relative self-stretch data-horizontal:mx-px data-horizontal:w-auto data-vertical:my-px data-vertical:h-auto",
+				"bg-pixel-edge relative shrink-0 self-stretch data-horizontal:h-px data-horizontal:w-auto data-vertical:h-auto data-vertical:w-px",
 				className
 			)}
 			data-slot="button-group-separator"
