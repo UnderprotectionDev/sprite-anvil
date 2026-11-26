@@ -3,32 +3,36 @@ import { cn } from "@sprite-anvil/ui/lib/utils";
 import type { VariantProps } from "class-variance-authority";
 import { cva } from "class-variance-authority";
 
+// Paper · 01 Components · Button. Raised flat face, 1px top light, 3px dark bottom
+// edge (2px on the 28px size). Pressing drops the face 2px and shrinks the edge to 1px.
 const buttonVariants = cva(
-	"group/button focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 inline-flex shrink-0 items-center justify-center rounded-none border border-transparent bg-clip-padding text-xs font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:ring-1 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:ring-1 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+	"group/button focus-visible:focus-ring aria-invalid:outline-destructive aria-invalid:focus-visible:outline-destructive! disabled:bg-pixel-utility-low disabled:text-workbench-utility-disabled-text inline-flex shrink-0 items-center justify-center pb-(--bevel-depth) whitespace-nowrap transition-colors duration-120 select-none disabled:pointer-events-none disabled:shadow-none aria-invalid:outline-2 aria-invalid:outline-offset-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-[18px]",
 	{
 		variants: {
 			variant: {
-				default: "bg-primary text-primary-foreground hover:bg-primary/80",
+				default:
+					"bevel bevel-action rounded-control bg-primary text-primary-foreground hover:bg-workbench-action-hover active:bg-workbench-action-pressed font-extrabold active:[--bevel-depth:1px] active:[--bevel-light:transparent] active:not-aria-[haspopup]:translate-y-0.5",
 				outline:
-					"border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+					"bevel bevel-utility rounded-control bg-workbench-utility text-foreground hover:bg-workbench-utility-hover aria-expanded:bg-workbench-utility-hover active:bg-workbench-utility-pressed font-semibold active:[--bevel-depth:1px] active:[--bevel-light:transparent] active:not-aria-[haspopup]:translate-y-0.5",
 				secondary:
-					"bg-secondary text-secondary-foreground aria-expanded:bg-secondary aria-expanded:text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)]",
+					"bevel bevel-utility rounded-control bg-workbench-utility text-foreground hover:bg-workbench-utility-hover aria-expanded:bg-workbench-utility-hover active:bg-workbench-utility-pressed font-semibold active:[--bevel-depth:1px] active:[--bevel-light:transparent] active:not-aria-[haspopup]:translate-y-0.5",
 				ghost:
-					"hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
+					"rounded-control text-foreground hover:bg-accent aria-expanded:bg-accent active:bg-workbench-utility-pressed bg-transparent font-semibold [--bevel-depth:0px] disabled:bg-transparent",
 				destructive:
-					"bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:focus-visible:ring-destructive/40 dark:hover:bg-destructive/30",
-				link: "text-primary underline-offset-4 hover:underline",
+					"bevel bevel-danger rounded-control bg-destructive text-destructive-foreground hover:bg-workbench-danger-hover active:bg-workbench-danger-pressed font-bold active:[--bevel-depth:1px] active:[--bevel-light:transparent] active:not-aria-[haspopup]:translate-y-0.5",
+				link: "rounded-control text-workbench-link hover:text-workbench-action-light bg-transparent font-semibold underline underline-offset-4 [--bevel-depth:0px] disabled:bg-transparent",
 			},
 			size: {
 				default:
-					"h-8 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
-				xs: "h-6 gap-1 rounded-none px-2 text-xs has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
-				sm: "h-7 gap-1 rounded-none px-2.5 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
-				lg: "h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
-				icon: "size-8",
-				"icon-xs": "size-6 rounded-none [&_svg:not([class*='size-'])]:size-3",
-				"icon-sm": "size-7 rounded-none",
-				"icon-lg": "size-9",
+					"text-action h-11 gap-2 px-5 has-data-[icon=inline-end]:pr-4 has-data-[icon=inline-start]:pl-4",
+				xs: "bevel-edge rounded-control-sm text-label h-7 gap-1.5 px-3 [--bevel-depth:2px] active:[--bevel-depth:1px] active:[--bevel-light:transparent] has-data-[icon=inline-end]:pr-2.5 has-data-[icon=inline-start]:pl-2.5 [&_svg:not([class*='size-'])]:size-3.5",
+				sm: "text-action h-9 gap-2 px-4 has-data-[icon=inline-end]:pr-3 has-data-[icon=inline-start]:pl-3",
+				lg: "text-action h-11 gap-2 px-6 has-data-[icon=inline-end]:pr-5 has-data-[icon=inline-start]:pl-5",
+				icon: "size-11 px-0",
+				"icon-xs":
+					"bevel-edge rounded-control-sm size-7 px-0 [--bevel-depth:2px] active:[--bevel-depth:1px] active:[--bevel-light:transparent] [&_svg:not([class*='size-'])]:size-3.5",
+				"icon-sm": "size-9 px-0",
+				"icon-lg": "size-11 px-0",
 			},
 		},
 		defaultVariants: {

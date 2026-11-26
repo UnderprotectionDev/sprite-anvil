@@ -1,6 +1,7 @@
 import { NavigationMenu as NavigationMenuPrimitive } from "@base-ui/react/navigation-menu";
+import { menuPanelClassName } from "@sprite-anvil/ui/lib/menu-recipe";
+import { cn } from "@sprite-anvil/ui/lib/utils";
 import { cva } from "class-variance-authority";
-import { cn } from "cn";
 import { ChevronDownIcon } from "lucide-react";
 
 function NavigationMenu({
@@ -32,7 +33,7 @@ function NavigationMenuList({
 	return (
 		<NavigationMenuPrimitive.List
 			className={cn(
-				"group flex flex-1 list-none items-center justify-center gap-0",
+				"group flex flex-1 list-none items-center justify-center gap-1",
 				className
 			)}
 			data-slot="navigation-menu-list"
@@ -55,7 +56,7 @@ function NavigationMenuItem({
 }
 
 const navigationMenuTriggerStyle = cva(
-	"group/navigation-menu-trigger hover:bg-muted focus:bg-muted focus-visible:ring-ring/50 data-open:bg-muted/50 data-popup-open:bg-muted/50 data-open:focus:bg-muted data-open:hover:bg-muted data-popup-open:hover:bg-muted inline-flex h-9 w-max items-center justify-center rounded-none px-2.5 py-1.5 text-xs font-medium transition-all outline-none focus-visible:ring-1 focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50"
+	"group/navigation-menu-trigger rounded-control text-data text-workbench-muted-text hover:bg-workbench-control hover:text-workbench-text focus-visible:focus-ring disabled:text-workbench-utility-disabled-text data-popup-open:border-pixel-edge data-popup-open:bg-workbench-preview data-popup-open:text-workbench-text data-open:border-pixel-edge data-open:bg-workbench-preview data-open:text-workbench-text inline-flex h-9 w-max items-center justify-center gap-1.5 border border-transparent px-3 py-0 font-medium transition-colors duration-120 outline-none disabled:pointer-events-none data-open:font-bold data-popup-open:font-bold data-popup-open:shadow-[inset_0_1px_2px_var(--color-workbench-well-shade),inset_0_-1px_0_var(--color-workbench-well-light),0_1px_0_var(--color-workbench-well-rim)]"
 );
 
 function NavigationMenuTrigger({
@@ -69,10 +70,10 @@ function NavigationMenuTrigger({
 			data-slot="navigation-menu-trigger"
 			{...props}
 		>
-			{children}{" "}
+			{children}
 			<ChevronDownIcon
 				aria-hidden="true"
-				className="relative top-px ml-1 size-3 transition duration-300 group-data-open/navigation-menu-trigger:rotate-180 group-data-popup-open/navigation-menu-trigger:rotate-180"
+				className="text-workbench-faint-text group-data-open/navigation-menu-trigger:text-workbench-text group-data-popup-open/navigation-menu-trigger:text-workbench-text size-3.5 shrink-0 transition duration-300 group-data-open/navigation-menu-trigger:rotate-180 group-data-popup-open/navigation-menu-trigger:rotate-180"
 			/>
 		</NavigationMenuPrimitive.Trigger>
 	);
@@ -85,7 +86,7 @@ function NavigationMenuContent({
 	return (
 		<NavigationMenuPrimitive.Content
 			className={cn(
-				"data-[motion=from-end]:slide-in-from-right-52 data-[motion=from-start]:slide-in-from-left-52 data-[motion=to-end]:slide-out-to-right-52 data-[motion=to-start]:slide-out-to-left-52 data-[motion^=from-]:fade-in data-[motion^=to-]:fade-out group-data-[viewport=false]/navigation-menu:data-open:fade-in-0 group-data-[viewport=false]/navigation-menu:data-open:zoom-in-95 group-data-[viewport=false]/navigation-menu:data-closed:fade-out-0 group-data-[viewport=false]/navigation-menu:data-closed:zoom-out-95 data-[motion^=from-]:animate-in data-[motion^=to-]:animate-out group-data-[viewport=false]/navigation-menu:bg-popover group-data-[viewport=false]/navigation-menu:text-popover-foreground group-data-[viewport=false]/navigation-menu:ring-foreground/10 group-data-[viewport=false]/navigation-menu:data-closed:animate-out group-data-[viewport=false]/navigation-menu:data-open:animate-in h-full w-auto p-1 transition-[opacity,transform,translate] duration-[0.35s] ease-[cubic-bezier(0.22,1,0.36,1)] group-data-[viewport=false]/navigation-menu:rounded-none group-data-[viewport=false]/navigation-menu:shadow group-data-[viewport=false]/navigation-menu:ring-1 group-data-[viewport=false]/navigation-menu:duration-300 data-ending-style:opacity-0 data-ending-style:data-activation-direction=left:translate-x-[50%] data-ending-style:data-activation-direction=right:translate-x-[-50%] data-starting-style:opacity-0 data-starting-style:data-activation-direction=left:translate-x-[-50%] data-starting-style:data-activation-direction=right:translate-x-[50%] **:data-[slot=navigation-menu-link]:focus:ring-0 **:data-[slot=navigation-menu-link]:focus:outline-none",
+				"data-[motion=from-end]:slide-in-from-right-52 data-[motion=from-start]:slide-in-from-left-52 data-[motion=to-end]:slide-out-to-right-52 data-[motion=to-start]:slide-out-to-left-52 data-[motion^=from-]:fade-in data-[motion^=to-]:fade-out data-[motion^=from-]:animate-in data-[motion^=to-]:animate-out h-full w-auto p-2 transition-[opacity,transform,translate] duration-[0.35s] ease-[cubic-bezier(0.22,1,0.36,1)] data-ending-style:opacity-0 data-ending-style:data-activation-direction=left:translate-x-[50%] data-ending-style:data-activation-direction=right:translate-x-[-50%] data-starting-style:opacity-0 data-starting-style:data-activation-direction=left:translate-x-[-50%] data-starting-style:data-activation-direction=right:translate-x-[50%]",
 				className
 			)}
 			data-slot="navigation-menu-content"
@@ -115,7 +116,12 @@ function NavigationMenuPositioner({
 				sideOffset={sideOffset}
 				{...props}
 			>
-				<NavigationMenuPrimitive.Popup className="data-[ending-style]:easing-[ease] xs:w-(--popup-width) bg-popover text-popover-foreground ring-foreground/10 relative h-(--popup-height) w-(--popup-width) origin-(--transform-origin) rounded-none shadow ring-1 transition-[opacity,transform,width,height,scale,translate] duration-[0.35s] ease-[cubic-bezier(0.22,1,0.36,1)] outline-none data-ending-style:scale-90 data-ending-style:opacity-0 data-ending-style:duration-150 data-starting-style:scale-90 data-starting-style:opacity-0">
+				<NavigationMenuPrimitive.Popup
+					className={cn(
+						menuPanelClassName,
+						"data-[ending-style]:easing-[ease] xs:w-(--popup-width) relative box-content h-(--popup-height) w-(--popup-width) origin-(--transform-origin) p-0 transition-[opacity,transform,width,height,scale,translate] duration-[0.35s] ease-[cubic-bezier(0.22,1,0.36,1)] data-ending-style:scale-90 data-ending-style:opacity-0 data-ending-style:duration-150 data-starting-style:scale-90 data-starting-style:opacity-0"
+					)}
+				>
 					<NavigationMenuPrimitive.Viewport className="relative size-full overflow-hidden" />
 				</NavigationMenuPrimitive.Popup>
 			</NavigationMenuPrimitive.Positioner>
@@ -130,7 +136,7 @@ function NavigationMenuLink({
 	return (
 		<NavigationMenuPrimitive.Link
 			className={cn(
-				"hover:bg-muted focus:bg-muted focus-visible:ring-ring/50 data-active:bg-muted/50 data-active:focus:bg-muted data-active:hover:bg-muted flex items-center gap-2 rounded-none p-2 text-xs transition-all outline-none focus-visible:ring-1 focus-visible:outline-1 in-data-[slot=navigation-menu-content]:rounded-none [&_svg:not([class*='size-'])]:size-4",
+				"rounded-control-sm text-data text-workbench-text hover:bg-workbench-background focus-visible:bg-workbench-background focus-visible:focus-ring data-active:bg-workbench-background flex flex-col gap-1 p-3 transition-colors duration-120 outline-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
 				className
 			)}
 			data-slot="navigation-menu-link"
@@ -152,7 +158,7 @@ function NavigationMenuIndicator({
 			data-slot="navigation-menu-indicator"
 			{...props}
 		>
-			<div className="bg-border relative top-[60%] h-2 w-2 rotate-45 rounded-none shadow-md" />
+			<div className="border-pixel-edge bg-workbench-preview relative top-[60%] h-2 w-2 rotate-45 rounded-none border" />
 		</NavigationMenuPrimitive.Icon>
 	);
 }

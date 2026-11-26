@@ -1,11 +1,14 @@
 import { Accordion as AccordionPrimitive } from "@base-ui/react/accordion";
-import { cn } from "cn";
+import { cn } from "@sprite-anvil/ui/lib/utils";
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 
 function Accordion({ className, ...props }: AccordionPrimitive.Root.Props) {
 	return (
 		<AccordionPrimitive.Root
-			className={cn("flex w-full flex-col", className)}
+			className={cn(
+				"rounded-card bg-workbench-strip flex w-full flex-col shadow-[inset_0_0_0_1px_var(--color-workbench-panel-hover)]",
+				className
+			)}
 			data-slot="accordion"
 			{...props}
 		/>
@@ -15,7 +18,10 @@ function Accordion({ className, ...props }: AccordionPrimitive.Root.Props) {
 function AccordionItem({ className, ...props }: AccordionPrimitive.Item.Props) {
 	return (
 		<AccordionPrimitive.Item
-			className={cn("not-last:border-b", className)}
+			className={cn(
+				"border-workbench-divider px-4 not-first:border-t",
+				className
+			)}
 			data-slot="accordion-item"
 			{...props}
 		/>
@@ -31,7 +37,7 @@ function AccordionTrigger({
 		<AccordionPrimitive.Header className="flex">
 			<AccordionPrimitive.Trigger
 				className={cn(
-					"group/accordion-trigger focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:after:border-ring **:data-[slot=accordion-trigger-icon]:text-muted-foreground relative flex flex-1 items-start justify-between rounded-none border border-transparent py-2.5 text-left text-xs font-medium transition-all outline-none hover:underline focus-visible:ring-1 data-disabled:pointer-events-none data-disabled:opacity-50 **:data-[slot=accordion-trigger-icon]:ml-auto **:data-[slot=accordion-trigger-icon]:size-4",
+					"group/accordion-trigger rounded-tag text-action text-foreground focus-visible:focus-ring data-disabled:text-workbench-utility-disabled-text **:data-[slot=accordion-trigger-icon]:text-muted-foreground hover:**:data-[slot=accordion-trigger-icon]:text-foreground aria-expanded:**:data-[slot=accordion-trigger-icon]:text-foreground relative flex min-h-11 flex-1 items-center gap-4 py-3 text-left font-semibold transition-colors outline-none data-disabled:pointer-events-none **:data-[slot=accordion-trigger-icon]:ml-auto **:data-[slot=accordion-trigger-icon]:size-4",
 					className
 				)}
 				data-slot="accordion-trigger"
@@ -58,13 +64,13 @@ function AccordionContent({
 }: AccordionPrimitive.Panel.Props) {
 	return (
 		<AccordionPrimitive.Panel
-			className="data-closed:animate-accordion-up data-open:animate-accordion-down overflow-hidden text-xs"
+			className="data-closed:animate-accordion-up data-open:animate-accordion-down text-data overflow-hidden"
 			data-slot="accordion-content"
 			{...props}
 		>
 			<div
 				className={cn(
-					"[&_a]:hover:text-foreground h-(--accordion-panel-height) pt-0 pb-2.5 data-ending-style:h-0 data-starting-style:h-0 [&_a]:underline [&_a]:underline-offset-3 [&_p:not(:last-child)]:mb-4",
+					"text-muted-foreground [&_a]:text-workbench-link [&_a]:hover:text-workbench-action-light h-(--accordion-panel-height) pt-0 pb-5 leading-[22px] data-ending-style:h-0 data-starting-style:h-0 [&_a]:underline [&_a]:underline-offset-3 [&_p:not(:last-child)]:mb-3",
 					className
 				)}
 			>

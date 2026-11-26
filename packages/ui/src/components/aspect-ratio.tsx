@@ -1,4 +1,4 @@
-import { cn } from "cn";
+import { cn } from "@sprite-anvil/ui/lib/utils";
 
 function AspectRatio({
 	ratio,

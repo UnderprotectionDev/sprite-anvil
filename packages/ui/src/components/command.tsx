@@ -8,11 +8,14 @@ import {
 	DialogTitle,
 } from "@sprite-anvil/ui/components/dialog";
 import {
-	InputGroup,
-	InputGroupAddon,
-} from "@sprite-anvil/ui/components/input-group";
+	menuPanelClassName,
+	menuRowClassName,
+	menuSeparatorClassName,
+	menuShortcutClassName,
+	menuWellClassName,
+} from "@sprite-anvil/ui/lib/menu-recipe";
+import { cn } from "@sprite-anvil/ui/lib/utils";
 import { Command as CommandPrimitive } from "cmdk";
-import { cn } from "cn";
 import { CheckIcon, SearchIcon } from "lucide-react";
 import type * as React from "react";
 
@@ -23,7 +26,8 @@ function Command({
 	return (
 		<CommandPrimitive
 			className={cn(
-				"bg-popover text-popover-foreground flex size-full flex-col overflow-hidden rounded-none",
+				menuPanelClassName,
+				"flex size-full flex-col gap-1 overflow-hidden",
 				className
 			)}
 			data-slot="command"
@@ -54,7 +58,7 @@ function CommandDialog({
 			</DialogHeader>
 			<DialogContent
 				className={cn(
-					"top-1/3 translate-y-0 overflow-hidden rounded-none p-0",
+					"rounded-card top-1/3 translate-y-0 gap-0 overflow-visible bg-transparent p-0 shadow-none sm:max-w-[480px]",
 					className
 				)}
 				showCloseButton={showCloseButton}
@@ -65,25 +69,35 @@ function CommandDialog({
 	);
 }
 
+/** `children` sit at the end of the search well (Paper: the ⌘ K key chips). */
 function CommandInput({
 	className,
+	children,
 	...props
-}: React.ComponentProps<typeof CommandPrimitive.Input>) {
+}: React.ComponentProps<typeof CommandPrimitive.Input> & {
+	children?: React.ReactNode;
+}) {
 	return (
-		<div className="border-b pb-0" data-slot="command-input-wrapper">
-			<InputGroup className="border-input/30 bg-input/30 h-8 border-none shadow-none! *:data-[slot=input-group-addon]:pl-2!">
-				<CommandPrimitive.Input
-					className={cn(
-						"w-full text-xs outline-hidden disabled:cursor-not-allowed disabled:opacity-50",
-						className
-					)}
-					data-slot="command-input"
-					{...props}
-				/>
-				<InputGroupAddon>
-					<SearchIcon className="size-4 shrink-0 opacity-50" />
-				</InputGroupAddon>
-			</InputGroup>
+		<div
+			className={cn(
+				menuWellClassName,
+				"rounded-control has-[input:focus-visible]:outline-workbench-focus flex h-10 shrink-0 items-center gap-2 pr-1.5 pl-2.5 has-[input:focus-visible]:outline-2 has-[input:focus-visible]:-outline-offset-2"
+			)}
+			data-slot="command-input-wrapper"
+		>
+			<SearchIcon
+				aria-hidden="true"
+				className="text-workbench-faint-text size-4 shrink-0"
+			/>
+			<CommandPrimitive.Input
+				className={cn(
+					"text-data text-workbench-text placeholder:text-workbench-faint-text disabled:text-workbench-utility-disabled-text h-full min-w-0 flex-1 bg-transparent outline-hidden focus-visible:outline-hidden! disabled:cursor-not-allowed",
+					className
+				)}
+				data-slot="command-input"
+				{...props}
+			/>
+			{children}
 		</div>
 	);
 }
@@ -95,7 +109,7 @@ function CommandList({
 	return (
 		<CommandPrimitive.List
 			className={cn(
-				"no-scrollbar max-h-72 scroll-py-0 overflow-x-hidden overflow-y-auto outline-none",
+				"no-scrollbar max-h-80 scroll-py-1 overflow-x-hidden overflow-y-auto outline-none",
 				className
 			)}
 			data-slot="command-list"
@@ -110,7 +124,7 @@ function CommandEmpty({
 }: React.ComponentProps<typeof CommandPrimitive.Empty>) {
 	return (
 		<CommandPrimitive.Empty
-			className={cn("py-6 text-center text-xs", className)}
+			className={cn("text-data text-workbench-muted-text p-3", className)}
 			data-slot="command-empty"
 			{...props}
 		/>
@@ -124,7 +138,7 @@ function CommandGroup({
 	return (
 		<CommandPrimitive.Group
 			className={cn(
-				"text-foreground **:[[cmdk-group-heading]]:text-muted-foreground overflow-hidden **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1.5 **:[[cmdk-group-heading]]:text-xs",
+				"text-workbench-text **:[[cmdk-group-heading]]:text-label **:[[cmdk-group-heading]]:text-workbench-faint-text overflow-hidden **:[[cmdk-group-heading]]:flex **:[[cmdk-group-heading]]:h-7 **:[[cmdk-group-heading]]:items-center **:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:font-medium",
 				className
 			)}
 			data-slot="command-group"
@@ -139,7 +153,7 @@ function CommandSeparator({
 }: React.ComponentProps<typeof CommandPrimitive.Separator>) {
 	return (
 		<CommandPrimitive.Separator
-			className={cn("bg-border -mx-1 h-px", className)}
+			className={cn(menuSeparatorClassName, className)}
 			data-slot="command-separator"
 			{...props}
 		/>
@@ -154,7 +168,9 @@ function CommandItem({
 	return (
 		<CommandPrimitive.Item
 			className={cn(
-				"group/command-item data-selected:bg-muted data-selected:text-foreground data-selected:*:[svg]:text-foreground relative flex cursor-default items-center gap-2 rounded-none px-2 py-2 text-xs outline-hidden select-none in-data-[slot=dialog-content]:rounded-none! data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+				"group/command-item",
+				menuRowClassName,
+				"data-[selected=true]:bg-workbench-panel data-[disabled=true]:text-workbench-label-text data-[disabled=true]:pointer-events-none data-[disabled=true]:[--menu-icon:var(--color-workbench-label-text)] data-[disabled=true]:[--menu-shortcut:var(--color-workbench-label-text)] data-[selected=true]:[--menu-icon:var(--color-workbench-text)]",
 				className
 			)}
 			data-slot="command-item"
@@ -172,10 +188,7 @@ function CommandShortcut({
 }: React.ComponentProps<"span">) {
 	return (
 		<span
-			className={cn(
-				"text-muted-foreground group-data-selected/command-item:text-foreground ml-auto text-xs tracking-widest",
-				className
-			)}
+			className={cn(menuShortcutClassName, className)}
 			data-slot="command-shortcut"
 			{...props}
 		/>

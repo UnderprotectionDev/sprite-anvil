@@ -34,7 +34,7 @@ export function TaskWorkspace({
 				>
 					{sections.map((section) => (
 						<TabsTrigger
-							className="min-h-11 flex-none px-3 text-left whitespace-normal"
+							className="min-h-11 max-w-full flex-none px-3 text-left whitespace-normal"
 							key={section.id}
 							value={section.id}
 						>

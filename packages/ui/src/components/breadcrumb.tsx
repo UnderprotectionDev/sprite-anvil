@@ -1,6 +1,6 @@
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
-import { cn } from "cn";
+import { cn } from "@sprite-anvil/ui/lib/utils";
 import { ChevronRightIcon, MoreHorizontalIcon } from "lucide-react";
 import type * as React from "react";
 
@@ -19,7 +19,7 @@ function BreadcrumbList({ className, ...props }: React.ComponentProps<"ol">) {
 	return (
 		<ol
 			className={cn(
-				"text-muted-foreground flex flex-wrap items-center gap-1.5 text-xs wrap-break-word",
+				"text-data text-workbench-muted-text flex flex-wrap items-center gap-2 font-medium wrap-break-word",
 				className
 			)}
 			data-slot="breadcrumb-list"
@@ -31,7 +31,10 @@ function BreadcrumbList({ className, ...props }: React.ComponentProps<"ol">) {
 function BreadcrumbItem({ className, ...props }: React.ComponentProps<"li">) {
 	return (
 		<li
-			className={cn("inline-flex items-center gap-1", className)}
+			className={cn(
+				"inline-flex items-center gap-2 [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+				className
+			)}
 			data-slot="breadcrumb-item"
 			{...props}
 		/>
@@ -47,7 +50,10 @@ function BreadcrumbLink({
 		defaultTagName: "a",
 		props: mergeProps<"a">(
 			{
-				className: cn("hover:text-foreground transition-colors", className),
+				className: cn(
+					"rounded-tag hover:text-workbench-text focus-visible:focus-ring inline-flex items-center gap-2 transition-colors duration-120 outline-none",
+					className
+				),
 			},
 			props
 		),
@@ -62,7 +68,10 @@ function BreadcrumbPage({ className, ...props }: React.ComponentProps<"span">) {
 	return (
 		<span
 			aria-current="page"
-			className={cn("text-foreground font-normal", className)}
+			className={cn(
+				"text-workbench-text inline-flex items-center gap-2 font-semibold",
+				className
+			)}
 			data-slot="breadcrumb-page"
 			{...props}
 		/>
@@ -77,7 +86,10 @@ function BreadcrumbSeparator({
 	return (
 		<li
 			aria-hidden="true"
-			className={cn("[&>svg]:size-3.5", className)}
+			className={cn(
+				"text-workbench-faint-text flex h-5 w-3.5 shrink-0 items-center justify-center [&>svg]:size-3.5",
+				className
+			)}
 			data-slot="breadcrumb-separator"
 			role="presentation"
 			{...props}
@@ -95,7 +107,7 @@ function BreadcrumbEllipsis({
 		<span
 			aria-hidden="true"
 			className={cn(
-				"flex size-5 items-center justify-center [&>svg]:size-4",
+				"rounded-tag text-workbench-text in-data-popup-open:border-pixel-edge in-data-popup-open:bg-workbench-preview flex size-5 items-center justify-center border border-transparent transition-colors duration-120 in-data-popup-open:shadow-[inset_0_1px_2px_var(--color-workbench-well-shade),inset_0_-1px_0_var(--color-workbench-well-light),0_1px_0_var(--color-workbench-well-rim)] [&>svg]:size-4",
 				className
 			)}
 			data-slot="breadcrumb-ellipsis"

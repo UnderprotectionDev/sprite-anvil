@@ -2,13 +2,13 @@
 
 import { Toast as ToastPrimitive } from "@base-ui/react/toast";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { cn } from "cn";
+import { cn } from "@sprite-anvil/ui/lib/utils";
 import {
-	CircleCheckIcon,
+	BanIcon,
+	CheckIcon,
+	ExclamationMarkIcon,
 	InfoIcon,
-	Loader2Icon,
-	OctagonXIcon,
-	TriangleAlertIcon,
+	LoaderCircleIcon,
 	XIcon,
 } from "lucide-react";
 import type * as React from "react";
@@ -40,7 +40,7 @@ function Toast({ className, ...props }: ToastPrimitive.Root.Props) {
 	return (
 		<ToastPrimitive.Root
 			className={cn(
-				"group/toast bg-popover text-popover-foreground focus-visible:border-ring focus-visible:ring-ring/50 pointer-events-auto absolute right-0 bottom-0 z-[calc(1000-var(--toast-index))] w-full origin-bottom rounded-none border shadow-lg will-change-transform outline-none select-none focus-visible:ring-[3px]",
+				"group/toast rounded-card bg-workbench-background text-workbench-text focus-visible:focus-ring pointer-events-auto absolute right-0 bottom-0 z-[calc(1000-var(--toast-index))] w-full origin-bottom shadow-[inset_0_0_0_1px_var(--color-workbench-panel-hover),0_8px_24px_var(--color-workbench-drop-shadow)] will-change-transform outline-none select-none",
 				"[--gap:0.75rem] [--height:var(--toast-frontmost-height,var(--toast-height))] [--offset-y:calc(var(--toast-offset-y)*-1+calc(var(--toast-index)*var(--gap)*-1)+var(--toast-swipe-movement-y))] [--peek:0.75rem] [--scale:calc(max(0,1-(var(--toast-index)*0.1)))] [--shrink:calc(1-var(--scale))]",
 				"h-(--height) [transform:translateX(var(--toast-swipe-movement-x))_translateY(calc(var(--toast-swipe-movement-y)-(var(--toast-index)*var(--peek))-(var(--shrink)*var(--height))))_scale(var(--scale))] [transition:transform_500ms_cubic-bezier(0.22,1,0.36,1),opacity_500ms,height_150ms]",
 				"after:absolute after:top-full after:left-0 after:h-[calc(var(--gap)+1px)] after:w-full after:content-['']",
@@ -79,7 +79,7 @@ function ToastContent({ className, ...props }: ToastPrimitive.Content.Props) {
 function ToastTitle({ className, ...props }: ToastPrimitive.Title.Props) {
 	return (
 		<ToastPrimitive.Title
-			className={cn("text-sm font-medium", className)}
+			className={cn("text-data text-workbench-text font-semibold", className)}
 			data-slot="toast-title"
 			{...props}
 		/>
@@ -92,7 +92,7 @@ function ToastDescription({
 }: ToastPrimitive.Description.Props) {
 	return (
 		<ToastPrimitive.Description
-			className={cn("text-muted-foreground text-sm", className)}
+			className={cn("text-label text-workbench-muted-text", className)}
 			data-slot="toast-description"
 			{...props}
 		/>
@@ -101,7 +101,7 @@ function ToastDescription({
 
 function ToastAction({
 	className,
-	render = <Button size="sm" variant="outline" />,
+	render = <Button size="xs" variant="outline" />,
 	...props
 }: ToastPrimitive.Action.Props) {
 	return (
@@ -117,14 +117,14 @@ function ToastAction({
 function ToastClose({
 	className,
 	children,
-	render = <Button size="icon-sm" variant="ghost" />,
+	render = <Button size="icon-xs" variant="ghost" />,
 	...props
 }: ToastPrimitive.Close.Props) {
 	return (
 		<ToastPrimitive.Close
 			aria-label="Close toast"
 			className={cn(
-				"text-muted-foreground hover:text-foreground relative shrink-0 after:absolute after:-inset-2 after:content-['']",
+				"text-workbench-muted-text hover:text-workbench-text relative shrink-0 after:absolute after:-inset-2 after:content-['']",
 				className
 			)}
 			data-slot="toast-close"
@@ -136,36 +136,49 @@ function ToastClose({
 	);
 }
 
+// Paper · 02 Display + feedback · Sonner: the tone lives only in the flat 32px
+// glyph block (radius 6); the toast surface stays neutral.
+const toastGlyphTone: Record<string, string> = {
+	success: "bg-workbench-success text-workbench-on-action",
+	info: "bg-workbench-data text-workbench-on-action",
+	warning: "bg-workbench-warning text-workbench-on-action",
+	error: "bg-workbench-danger text-workbench-on-action",
+	loading: "bg-workbench-control text-workbench-on-selection",
+};
+
 function ToastIcon({ type }: { type: string | undefined }) {
 	let icon: React.ReactNode = null;
 
 	if (type === "success") {
-		icon = <CircleCheckIcon aria-hidden="true" />;
+		icon = <CheckIcon aria-hidden="true" strokeWidth={3} />;
 	}
 
 	if (type === "info") {
-		icon = <InfoIcon aria-hidden="true" />;
+		icon = <InfoIcon aria-hidden="true" strokeWidth={2.6} />;
 	}
 
 	if (type === "warning") {
-		icon = <TriangleAlertIcon aria-hidden="true" />;
+		icon = <ExclamationMarkIcon aria-hidden="true" strokeWidth={3} />;
 	}
 
 	if (type === "error") {
-		icon = <OctagonXIcon aria-hidden="true" className="text-destructive" />;
+		icon = <BanIcon aria-hidden="true" strokeWidth={2.8} />;
 	}
 
 	if (type === "loading") {
-		icon = <Loader2Icon aria-hidden="true" className="animate-spin" />;
+		icon = <LoaderCircleIcon aria-hidden="true" className="animate-spin" />;
 	}
 
-	if (!icon) {
+	if (!(icon && type)) {
 		return null;
 	}
 
 	return (
 		<span
-			className="shrink-0 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4"
+			className={cn(
+				"rounded-control-sm flex size-8 shrink-0 items-center justify-center [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4",
+				toastGlyphTone[type]
+			)}
 			data-slot="toast-icon"
 		>
 			{icon}
@@ -180,7 +193,7 @@ function ToastList() {
 		<Toast key={toastItem.id} toast={toastItem}>
 			<ToastContent>
 				<ToastIcon type={toastItem.type} />
-				<div className="flex min-w-0 flex-1 flex-col gap-1">
+				<div className="flex min-w-0 flex-1 flex-col gap-0.5">
 					<ToastTitle />
 					<ToastDescription />
 				</div>

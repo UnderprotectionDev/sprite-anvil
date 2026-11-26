@@ -1,10 +1,13 @@
 import { Button } from "@sprite-anvil/ui/components/button";
-import { cn } from "cn";
+import { cn } from "@sprite-anvil/ui/lib/utils";
 import type { UseEmblaCarouselType } from "embla-carousel-react";
 import useEmblaCarousel from "embla-carousel-react";
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react";
 import * as React from "react";
 
+// Paper · 01 Components · 05 Data + media · Carousel. Embla steps through frames
+// with 16px gaps; previous and next are 36px Utility buttons 16px outside the
+// track, and a quiet dot row marks the current snap (active dot widens to 20px).
 type CarouselApi = UseEmblaCarouselType[1];
 type UseCarouselParameters = Parameters<typeof useEmblaCarousel>;
 type CarouselOptions = UseCarouselParameters[0];
@@ -186,8 +189,8 @@ function CarouselPrevious({
 			className={cn(
 				"absolute touch-manipulation",
 				orientation === "horizontal"
-					? "inset-y-0 -left-12 my-auto"
-					: "-top-12 left-1/2 -translate-x-1/2 rotate-90",
+					? "inset-y-0 -left-13 my-auto"
+					: "-top-13 left-1/2 -translate-x-1/2 rotate-90",
 				className
 			)}
 			data-slot="carousel-previous"
@@ -197,7 +200,7 @@ function CarouselPrevious({
 			variant={variant}
 			{...props}
 		>
-			<ChevronLeftIcon />
+			<ArrowLeftIcon className="size-4" />
 			<span className="sr-only">Previous slide</span>
 		</Button>
 	);
@@ -216,8 +219,8 @@ function CarouselNext({
 			className={cn(
 				"absolute touch-manipulation",
 				orientation === "horizontal"
-					? "inset-y-0 -right-12 my-auto"
-					: "-bottom-12 left-1/2 -translate-x-1/2 rotate-90",
+					? "inset-y-0 -right-13 my-auto"
+					: "-bottom-13 left-1/2 -translate-x-1/2 rotate-90",
 				className
 			)}
 			data-slot="carousel-next"
@@ -227,9 +230,50 @@ function CarouselNext({
 			variant={variant}
 			{...props}
 		>
-			<ChevronRightIcon />
+			<ArrowRightIcon className="size-4" />
 			<span className="sr-only">Next slide</span>
 		</Button>
+	);
+}
+
+function CarouselDots({ className, ...props }: React.ComponentProps<"div">) {
+	const { api } = useCarousel();
+	const [snapCount, setSnapCount] = React.useState(0);
+	const [selectedSnap, setSelectedSnap] = React.useState(0);
+
+	React.useEffect(() => {
+		if (!api) {
+			return;
+		}
+		const sync = () => {
+			setSnapCount(api.scrollSnapList().length);
+			setSelectedSnap(api.selectedScrollSnap());
+		};
+		sync();
+		api.on("reInit", sync);
+		api.on("select", sync);
+		return () => {
+			api.off("reInit", sync);
+			api.off("select", sync);
+		};
+	}, [api]);
+
+	return (
+		<div
+			aria-hidden="true"
+			className={cn("flex items-center justify-center gap-2", className)}
+			data-slot="carousel-dots"
+			{...props}
+		>
+			{Array.from({ length: snapCount }, (_, snap) => (
+				<span
+					className="bg-workbench-border-strong data-[active=true]:bg-workbench-text h-2 w-2 shrink-0 rounded-full transition-[width,background-color] duration-120 data-[active=true]:w-5"
+					data-active={snap === selectedSnap}
+					// biome-ignore lint/suspicious/noArrayIndexKey: Snap positions are a fixed, ordered list without other identity.
+					key={snap}
+				/>
+			))}
+		</div>
 	);
 }
 
@@ -237,6 +281,7 @@ export {
 	Carousel,
 	type CarouselApi,
 	CarouselContent,
+	CarouselDots,
 	CarouselItem,
 	CarouselNext,
 	CarouselPrevious,

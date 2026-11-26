@@ -1,8 +1,9 @@
 import { Label } from "@sprite-anvil/ui/components/label";
 import { Separator } from "@sprite-anvil/ui/components/separator";
+import { cn } from "@sprite-anvil/ui/lib/utils";
 import type { VariantProps } from "class-variance-authority";
 import { cva } from "class-variance-authority";
-import { cn } from "cn";
+import { CircleAlertIcon } from "lucide-react";
 import { useMemo } from "react";
 
 function FieldSet({ className, ...props }: React.ComponentProps<"fieldset">) {
@@ -26,7 +27,7 @@ function FieldLegend({
 	return (
 		<legend
 			className={cn(
-				"mb-2.5 font-medium data-[variant=label]:text-xs data-[variant=legend]:text-sm",
+				"data-[variant=label]:text-data data-[variant=legend]:text-subhead text-foreground mb-3 data-[variant=label]:font-medium data-[variant=legend]:font-semibold",
 				className
 			)}
 			data-slot="field-legend"
@@ -49,23 +50,20 @@ function FieldGroup({ className, ...props }: React.ComponentProps<"div">) {
 	);
 }
 
-const fieldVariants = cva(
-	"group/field data-[invalid=true]:text-destructive flex w-full gap-2",
-	{
-		variants: {
-			orientation: {
-				vertical: "flex-col *:w-full [&>.sr-only]:w-auto",
-				horizontal:
-					"flex-row items-center has-[>[data-slot=field-content]]:items-start *:data-[slot=field-label]:flex-auto has-[>[data-slot=field-content]]:[&>[role=checkbox],[role=radio]]:mt-px",
-				responsive:
-					"flex-col *:w-full @md/field-group:flex-row @md/field-group:items-center @md/field-group:*:w-auto @md/field-group:has-[>[data-slot=field-content]]:items-start @md/field-group:*:data-[slot=field-label]:flex-auto [&>.sr-only]:w-auto @md/field-group:has-[>[data-slot=field-content]]:[&>[role=checkbox],[role=radio]]:mt-px",
-			},
+const fieldVariants = cva("group/field flex w-full gap-2", {
+	variants: {
+		orientation: {
+			vertical: "flex-col *:w-full [&>.sr-only]:w-auto",
+			horizontal:
+				"flex-row items-center gap-x-2.5 has-[>[data-slot=field-content]]:items-start *:data-[slot=field-label]:flex-auto has-[>[data-slot=field-content]]:[&>[role=checkbox],[role=radio]]:mt-0.5",
+			responsive:
+				"flex-col *:w-full @md/field-group:flex-row @md/field-group:items-center @md/field-group:*:w-auto @md/field-group:has-[>[data-slot=field-content]]:items-start @md/field-group:*:data-[slot=field-label]:flex-auto [&>.sr-only]:w-auto @md/field-group:has-[>[data-slot=field-content]]:[&>[role=checkbox],[role=radio]]:mt-px",
 		},
-		defaultVariants: {
-			orientation: "vertical",
-		},
-	}
-);
+	},
+	defaultVariants: {
+		orientation: "vertical",
+	},
+});
 
 function Field({
 	className,
@@ -87,7 +85,7 @@ function FieldContent({ className, ...props }: React.ComponentProps<"div">) {
 	return (
 		<div
 			className={cn(
-				"group/field-content flex flex-1 flex-col gap-0.5 leading-snug",
+				"group/field-content flex flex-1 flex-col gap-1",
 				className
 			)}
 			data-slot="field-content"
@@ -104,8 +102,11 @@ function FieldLabel({
 		// biome-ignore lint/a11y/noLabelWithoutControl: pass-through label; the caller supplies htmlFor or the wrapped control.
 		<Label
 			className={cn(
-				"group/field-label peer/field-label has-[>[data-slot=field]]:has-[:focus-visible]:border-ring has-[>[data-slot=field]]:has-[:focus-visible]:ring-ring/50 has-data-checked:border-primary/30 has-data-checked:bg-primary/5 has-[>[data-slot=field]]:not-has-[:disabled,[data-disabled]]:hover:bg-muted/50 dark:has-data-checked:border-primary/20 dark:has-data-checked:bg-primary/10 flex w-fit gap-2 leading-snug group-data-[disabled=true]/field:opacity-50 has-[>[data-slot=field]]:rounded-none has-[>[data-slot=field]]:border has-[>[data-slot=field]]:has-[:focus-visible]:ring-1 *:data-[slot=field]:p-2",
-				"has-[>[data-slot=field]]:w-full has-[>[data-slot=field]]:flex-col",
+				"group/field-label peer/field-label group-data-[disabled=true]/field:text-workbench-faint-text flex w-fit gap-2",
+				// Choice card (a label wrapping a Field): flat 1px outline; the chosen card is
+				// a raised #333333 face with the focus-blue outline offset 2px.
+				"has-[>[data-slot=field]]:rounded-control has-[>[data-slot=field]]:border-workbench-panel-hover has-[>[data-slot=field]]:w-full has-[>[data-slot=field]]:flex-col has-[>[data-slot=field]]:border has-[>[data-slot=field]]:transition-colors has-[>[data-slot=field]]:duration-120 *:data-[slot=field]:px-4 *:data-[slot=field]:py-3.5",
+				"has-[>[data-slot=field]]:has-data-checked:border-workbench-control has-[>[data-slot=field]]:has-data-checked:bg-workbench-panel has-[>[data-slot=field]]:has-data-checked:focus-ring has-[>[data-slot=field]]:has-[:focus-visible]:focus-ring has-[>[data-slot=field]]:has-data-checked:shadow-[inset_0_1px_0_var(--color-workbench-raised-light),0_1px_0_var(--color-pixel-edge)]",
 				className
 			)}
 			data-slot="field-label"
@@ -118,7 +119,7 @@ function FieldTitle({ className, ...props }: React.ComponentProps<"div">) {
 	return (
 		<div
 			className={cn(
-				"flex w-fit items-center gap-2 text-xs/relaxed group-data-[disabled=true]/field:opacity-50",
+				"text-data text-foreground group-data-[disabled=true]/field:text-workbench-utility-disabled-text flex w-fit items-center gap-2 font-medium",
 				className
 			)}
 			data-slot="field-label"
@@ -131,9 +132,8 @@ function FieldDescription({ className, ...props }: React.ComponentProps<"p">) {
 	return (
 		<p
 			className={cn(
-				"text-muted-foreground text-left text-xs/relaxed leading-normal font-normal group-has-data-horizontal/field:text-balance [[data-variant=legend]+&]:-mt-1.5",
-				"last:mt-0 nth-last-2:-mt-1",
-				"[&>a:hover]:text-primary [&>a]:underline [&>a]:underline-offset-4",
+				"text-label text-muted-foreground text-left font-normal group-has-data-horizontal/field:text-balance [[data-variant=legend]+&]:-mt-1.5",
+				"[&>a:hover]:text-workbench-action-light [&>a]:text-workbench-link [&>a]:underline [&>a]:underline-offset-4",
 				className
 			)}
 			data-slot="field-description"
@@ -152,7 +152,7 @@ function FieldSeparator({
 	return (
 		<div
 			className={cn(
-				"relative -my-2 h-5 text-xs group-data-[variant=outline]/field-group:-mb-2",
+				"text-label relative -my-2 h-5 group-data-[variant=outline]/field-group:-mb-2",
 				className
 			)}
 			data-content={!!children}
@@ -162,7 +162,7 @@ function FieldSeparator({
 			<Separator className="absolute inset-0 top-1/2" />
 			{children ? (
 				<span
-					className="bg-background text-muted-foreground relative mx-auto block w-fit px-2"
+					className="bg-background text-workbench-faint-text relative mx-auto block w-fit px-2"
 					data-slot="field-separator-content"
 				>
 					{children}
@@ -212,12 +212,19 @@ function FieldError({
 
 	return (
 		<div
-			className={cn("text-destructive text-xs font-normal", className)}
+			className={cn(
+				"text-label text-workbench-danger-soft flex items-start gap-1.5 font-normal",
+				className
+			)}
 			data-slot="field-error"
 			role="alert"
 			{...props}
 		>
-			{content}
+			<CircleAlertIcon
+				aria-hidden="true"
+				className="text-workbench-danger-hover mt-px size-4 shrink-0"
+			/>
+			<div className="min-w-0 flex-1">{content}</div>
 		</div>
 	);
 }

@@ -69,7 +69,7 @@
 
 .context-heading h1 {
 	margin: 0.5rem 0 0.35rem;
-	font-family: var(--font-display);
+	font-family: var(--font-heading);
 	font-size: clamp(2.2rem, 5vw, 4rem);
 	font-weight: 500;
 	line-height: 1;
@@ -366,7 +366,7 @@
 .panel-heading h2,
 .ledger-header h2 {
 	margin: 0.25rem 0 0;
-	font-family: var(--font-display);
+	font-family: var(--font-heading);
 	font-size: 1.65rem;
 	font-weight: 500;
 	letter-spacing: -0.035em;
@@ -600,7 +600,7 @@
 
 .proposal-record h3 {
 	margin: 0.75rem 0 0.5rem;
-	font-family: var(--font-display);
+	font-family: var(--font-heading);
 	font-size: 1.2rem;
 	font-weight: 550;
 	line-height: 1.2;
@@ -819,7 +819,7 @@
 
 .ledger-empty h3 {
 	margin: 0.65rem 0 0.35rem;
-	font-family: var(--font-display);
+	font-family: var(--font-heading);
 	font-size: 1.1rem;
 	font-weight: 550;
 	color: var(--context-ink);

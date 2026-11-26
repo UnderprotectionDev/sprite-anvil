@@ -1,4 +1,5 @@
 import { Button } from "@sprite-anvil/ui/components/button";
+import { cn } from "@sprite-anvil/ui/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import {
 	Link,
@@ -7,6 +8,8 @@ import {
 	useSearch,
 } from "@tanstack/react-router";
 import { useSelector } from "@tanstack/react-store";
+import { XIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import { useEffect } from "react";
 import type { OpenRecordStore } from "@/utils/open-records";
 import { openRecordStore, rememberOpenRecord } from "@/utils/open-records";
@@ -93,35 +96,76 @@ export function OpenRecordTabs({
 	return (
 		<nav
 			aria-label="Open Asset Records"
-			className="bg-card flex min-w-0 flex-wrap gap-1 border-b p-2"
+			className="border-workbench-divider bg-workbench-sidebar flex min-w-0 flex-wrap gap-2 border-b px-3 py-2"
 		>
 			{tabs.map((tab) => (
-				<div
-					className="flex min-w-0 items-center border"
+				<OpenRecordTab
 					key={tab.assetRecordId}
-				>
-					<Link
-						aria-current={
-							assetRecordId === tab.assetRecordId ? "page" : undefined
-						}
-						className="aria-[current=page]:bg-accent inline-flex min-h-11 items-center px-3 text-sm"
-						params={{ projectId, assetRecordId: tab.assetRecordId }}
-						search={tab.versionId ? { versionId: tab.versionId } : {}}
-						to="/projects/$projectId/assets/$assetRecordId"
-					>
-						{tab.name}
-					</Link>
-					<Button
-						aria-label={`Close ${tab.name}`}
-						onClick={() => close(tab.assetRecordId)}
-						size="icon"
-						type="button"
-						variant="ghost"
-					>
-						×
-					</Button>
-				</div>
+					name={tab.name}
+					onClose={() => close(tab.assetRecordId)}
+					renderTitle={(titleProps) => (
+						<Link
+							{...titleProps}
+							params={{ projectId, assetRecordId: tab.assetRecordId }}
+							search={tab.versionId ? { versionId: tab.versionId } : {}}
+							to="/projects/$projectId/assets/$assetRecordId"
+						/>
+					)}
+					selected={assetRecordId === tab.assetRecordId}
+				/>
 			))}
 		</nav>
+	);
+}
+
+interface OpenRecordTabTitleProps {
+	"aria-current": "page" | undefined;
+	children: ReactNode;
+	className: string;
+}
+
+// Paper · 07 Shell + library · Closable Asset Tab. A 34px tab, radius 6, Inter 14 600.
+// Hover raises the #3F3F3F utility face; the selected tab is the #EBEBEB nav chip with
+// its #B4B4B4 bevel and dark ink. The title and the 28px close target are separate
+// focus stops; the title's focus ring is drawn around the whole tab.
+function OpenRecordTab({
+	name,
+	selected,
+	onClose,
+	renderTitle,
+	className,
+}: {
+	name: string;
+	selected: boolean;
+	onClose: () => void;
+	renderTitle: (titleProps: OpenRecordTabTitleProps) => ReactNode;
+	className?: string;
+}) {
+	return (
+		<div
+			className={cn(
+				"group/asset-tab rounded-control-sm text-workbench-muted-text has-[a:focus-visible]:focus-ring hover:bevel hover:bevel-utility hover:bg-workbench-utility hover:text-workbench-text data-selected:bevel data-selected:bevel-nav data-selected:bg-workbench-nav data-selected:text-workbench-nav-ink data-selected:hover:bevel-nav data-selected:hover:bg-workbench-nav data-selected:hover:text-workbench-nav-ink flex h-8.5 max-w-56 min-w-0 items-center gap-1.5 pr-1 pl-3 transition-colors duration-120 hover:pb-[3px] data-selected:pb-[3px] data-selected:font-bold",
+				className
+			)}
+			data-selected={selected || undefined}
+			data-slot="asset-tab"
+		>
+			{renderTitle({
+				"aria-current": selected ? "page" : undefined,
+				className:
+					"min-w-0 flex-1 truncate font-semibold text-data outline-none focus-visible:outline-none! group-data-selected/asset-tab:font-bold",
+				children: name,
+			})}
+			<Button
+				aria-label={`Close ${name}`}
+				className="text-workbench-muted-text hover:bevel hover:bevel-utility hover:bg-workbench-utility hover:text-workbench-text group-data-selected/asset-tab:text-workbench-nav-ink group-data-selected/asset-tab:hover:text-workbench-text hover:[--bevel-depth:3px] hover:[--bevel-edge:var(--color-pixel-utility-low)]!"
+				onClick={onClose}
+				size="icon-xs"
+				type="button"
+				variant="ghost"
+			>
+				<XIcon aria-hidden="true" />
+			</Button>
+		</div>
 	);
 }

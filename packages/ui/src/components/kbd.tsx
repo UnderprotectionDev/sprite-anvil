@@ -1,10 +1,10 @@
-import { cn } from "cn";
+import { cn } from "@sprite-anvil/ui/lib/utils";
 
 function Kbd({ className, ...props }: React.ComponentProps<"kbd">) {
 	return (
 		<kbd
 			className={cn(
-				"bg-muted in-data-[slot=tooltip-content]:bg-background/20 in-data-[slot=tooltip-content]:text-background text-muted-foreground dark:in-data-[slot=tooltip-content]:bg-background/10 pointer-events-none inline-flex h-5 w-fit min-w-5 items-center justify-center gap-1 rounded-none px-1 font-sans text-xs font-medium select-none [&_svg:not([class*='size-'])]:size-3",
+				"rounded-tag bg-workbench-control text-workbench-muted-text pointer-events-none inline-flex h-[22px] w-fit min-w-[22px] items-center justify-center gap-1 px-1.5 font-mono text-[12px] leading-4 select-none [&_svg:not([class*='size-'])]:size-3",
 				className
 			)}
 			data-slot="kbd"

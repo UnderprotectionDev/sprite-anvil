@@ -1,7 +1,7 @@
 "use client";
 
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
-import { cn } from "cn";
+import { cn } from "@sprite-anvil/ui/lib/utils";
 import type * as React from "react";
 
 function Popover({ ...props }: PopoverPrimitive.Root.Props) {
@@ -17,7 +17,7 @@ function PopoverContent({
 	align = "center",
 	alignOffset = 0,
 	side = "bottom",
-	sideOffset = 4,
+	sideOffset = 8,
 	...props
 }: PopoverPrimitive.Popup.Props &
 	Pick<
@@ -35,7 +35,7 @@ function PopoverContent({
 			>
 				<PopoverPrimitive.Popup
 					className={cn(
-						"data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:fade-in-0 data-open:zoom-in-95 data-closed:fade-out-0 data-closed:zoom-out-95 bg-popover text-popover-foreground ring-foreground/10 data-closed:animate-out data-open:animate-in z-50 flex w-72 origin-(--transform-origin) flex-col gap-2.5 rounded-none p-2.5 text-xs shadow-md ring-1 outline-hidden duration-100",
+						"data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:fade-in-0 data-open:zoom-in-95 data-closed:fade-out-0 data-closed:zoom-out-95 border-pixel-edge bg-workbench-preview text-popover-foreground data-closed:animate-out data-open:animate-in rounded-control text-data z-50 flex w-72 origin-(--transform-origin) flex-col gap-4 border p-4 shadow-[inset_0_1px_2px_var(--color-workbench-well-shade),inset_0_-1px_0_var(--color-workbench-well-light),0_1px_0_var(--color-workbench-well-rim),0_8px_24px_var(--color-workbench-drop-shadow-strong)] outline-hidden duration-100 focus-visible:outline-none!",
 						className
 					)}
 					data-slot="popover-content"
@@ -49,7 +49,7 @@ function PopoverContent({
 function PopoverHeader({ className, ...props }: React.ComponentProps<"div">) {
 	return (
 		<div
-			className={cn("flex flex-col gap-1 text-xs", className)}
+			className={cn("flex flex-col gap-0.5", className)}
 			data-slot="popover-header"
 			{...props}
 		/>
@@ -59,7 +59,7 @@ function PopoverHeader({ className, ...props }: React.ComponentProps<"div">) {
 function PopoverTitle({ className, ...props }: PopoverPrimitive.Title.Props) {
 	return (
 		<PopoverPrimitive.Title
-			className={cn("text-sm font-medium", className)}
+			className={cn("text-data text-foreground font-semibold", className)}
 			data-slot="popover-title"
 			{...props}
 		/>
@@ -72,7 +72,7 @@ function PopoverDescription({
 }: PopoverPrimitive.Description.Props) {
 	return (
 		<PopoverPrimitive.Description
-			className={cn("text-muted-foreground text-xs/relaxed", className)}
+			className={cn("text-muted-foreground text-label", className)}
 			data-slot="popover-description"
 			{...props}
 		/>

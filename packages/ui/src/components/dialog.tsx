@@ -2,7 +2,7 @@
 
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Button } from "@sprite-anvil/ui/components/button";
-import { cn } from "cn";
+import { cn } from "@sprite-anvil/ui/lib/utils";
 import { XIcon } from "lucide-react";
 import type * as React from "react";
 
@@ -29,7 +29,7 @@ function DialogOverlay({
 	return (
 		<DialogPrimitive.Backdrop
 			className={cn(
-				"data-open:fade-in-0 data-closed:fade-out-0 data-closed:animate-out data-open:animate-in fixed inset-0 isolate z-50 bg-black/10 duration-100 supports-backdrop-filter:backdrop-blur-xs",
+				"data-open:fade-in-0 data-closed:fade-out-0 data-closed:animate-out data-open:animate-in bg-workbench-scrim fixed inset-0 isolate z-50 duration-100",
 				className
 			)}
 			data-slot="dialog-overlay"
@@ -51,7 +51,7 @@ function DialogContent({
 			<DialogOverlay />
 			<DialogPrimitive.Popup
 				className={cn(
-					"data-open:fade-in-0 data-open:zoom-in-95 data-closed:fade-out-0 data-closed:zoom-out-95 bg-popover text-popover-foreground ring-foreground/10 data-closed:animate-out data-open:animate-in fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-none p-4 text-xs/relaxed ring-1 duration-100 outline-none sm:max-w-sm",
+					"group/dialog-content data-open:fade-in-0 data-open:zoom-in-95 data-closed:fade-out-0 data-closed:zoom-out-95 bg-popover text-popover-foreground data-closed:animate-out data-open:animate-in text-data rounded-overlay fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-5 p-6 shadow-[inset_0_0_0_1px_var(--color-workbench-panel-hover),0_16px_40px_var(--color-workbench-drop-shadow-strong)] duration-100 outline-none focus-visible:outline-none! sm:max-w-[420px]",
 					className
 				)}
 				data-slot="dialog-content"
@@ -63,13 +63,13 @@ function DialogContent({
 						data-slot="dialog-close"
 						render={
 							<Button
-								className="absolute top-2 right-2"
+								className="rounded-tag text-muted-foreground hover:text-foreground absolute top-4 right-3"
 								size="icon-sm"
 								variant="ghost"
 							/>
 						}
 					>
-						<XIcon />
+						<XIcon className="size-4" />
 						<span className="sr-only">Close</span>
 					</DialogPrimitive.Close>
 				) : null}
@@ -81,7 +81,10 @@ function DialogContent({
 function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
 	return (
 		<div
-			className={cn("flex flex-col gap-1 text-left", className)}
+			className={cn(
+				"flex flex-col gap-2 text-left group-has-[>[data-slot=dialog-close]]/dialog-content:pr-8",
+				className
+			)}
 			data-slot="dialog-header"
 			{...props}
 		/>
@@ -118,7 +121,10 @@ function DialogFooter({
 function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
 	return (
 		<DialogPrimitive.Title
-			className={cn("text-sm font-medium", className)}
+			className={cn(
+				"text-subhead text-foreground leading-5 font-semibold",
+				className
+			)}
 			data-slot="dialog-title"
 			{...props}
 		/>
@@ -132,7 +138,7 @@ function DialogDescription({
 	return (
 		<DialogPrimitive.Description
 			className={cn(
-				"text-muted-foreground *:[a]:hover:text-foreground text-xs/relaxed *:[a]:underline *:[a]:underline-offset-3",
+				"text-muted-foreground text-data *:[a]:text-workbench-link *:[a]:hover:text-workbench-action-light *:[a]:underline *:[a]:underline-offset-3",
 				className
 			)}
 			data-slot="dialog-description"

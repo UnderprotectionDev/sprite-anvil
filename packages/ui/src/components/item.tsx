@@ -1,16 +1,21 @@
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 import { Separator } from "@sprite-anvil/ui/components/separator";
+import { cn } from "@sprite-anvil/ui/lib/utils";
 import type { VariantProps } from "class-variance-authority";
 import { cva } from "class-variance-authority";
-import { cn } from "cn";
 import type * as React from "react";
+
+// Paper · 02 Display + feedback · Item. A list row with media, content and a
+// trailing action: 40px #141414 thumbnail well (radius 8), 12px row inset, title
+// Inter 16/20 600, meta 14/18 muted. A group is one flat #2A2A2A list with 1px
+// dividers; the selected row gets the 2px focus-blue inset outline.
 
 function ItemGroup({ className, ...props }: React.ComponentProps<"div">) {
 	return (
 		<div
 			className={cn(
-				"group/item-group flex w-full flex-col gap-4 has-data-[size=sm]:gap-2.5 has-data-[size=xs]:gap-2",
+				"group/item-group rounded-card bg-pixel-utility-low flex w-full flex-col overflow-hidden",
 				className
 			)}
 			data-slot="item-group"
@@ -25,7 +30,7 @@ function ItemSeparator({
 }: React.ComponentProps<typeof Separator>) {
 	return (
 		<Separator
-			className={cn("my-2", className)}
+			className={cn("bg-workbench-divider my-0", className)}
 			data-slot="item-separator"
 			orientation="horizontal"
 			{...props}
@@ -34,16 +39,17 @@ function ItemSeparator({
 }
 
 const itemVariants = cva(
-	"group/item focus-visible:border-ring focus-visible:ring-ring/50 [a]:hover:bg-muted flex w-full flex-wrap items-center rounded-none border text-xs transition-colors duration-100 outline-none focus-visible:ring-[3px] [a]:transition-colors",
+	"group/item text-data text-workbench-text focus-visible:outline-workbench-focus aria-selected:bg-workbench-row-selected aria-selected:outline-workbench-focus data-selected:bg-workbench-row-selected data-selected:outline-workbench-focus [a]:hover:bg-workbench-row-selected flex w-full flex-wrap items-center outline-0 transition-colors duration-100 focus-visible:outline-2 focus-visible:-outline-offset-2 aria-selected:rounded-[7px] aria-selected:outline-2 aria-selected:-outline-offset-2 data-selected:rounded-[7px] data-selected:outline-2 data-selected:-outline-offset-2 [a]:transition-colors",
 	{
 		variants: {
 			variant: {
-				default: "border-transparent",
-				outline: "border-border",
-				muted: "bg-muted/50 border-transparent",
+				default: "",
+				outline:
+					"rounded-card shadow-[inset_0_0_0_1px_var(--color-workbench-panel-hover)]",
+				muted: "rounded-card bg-pixel-utility-low",
 			},
 			size: {
-				default: "gap-2.5 px-3 py-2.5",
+				default: "gap-3 py-3 pr-2 pl-3",
 				sm: "gap-2.5 px-3 py-2.5",
 				xs: "gap-2 px-2.5 py-2 in-data-[slot=dropdown-menu-content]:p-0",
 			},
@@ -80,14 +86,14 @@ function Item({
 }
 
 const itemMediaVariants = cva(
-	"flex shrink-0 items-center justify-center gap-2 group-has-data-[slot=item-description]/item:translate-y-0.5 group-has-data-[slot=item-description]/item:self-start [&_svg]:pointer-events-none",
+	"flex shrink-0 items-center justify-center gap-2 [&_svg]:pointer-events-none",
 	{
 		variants: {
 			variant: {
 				default: "bg-transparent",
-				icon: "[&_svg:not([class*='size-'])]:size-4",
+				icon: "rounded-card bg-workbench-preview text-workbench-text size-10 group-data-[size=sm]/item:size-8 group-data-[size=xs]/item:size-6 [&_svg:not([class*='size-'])]:size-4",
 				image:
-					"size-10 overflow-hidden rounded-none group-data-[size=sm]/item:size-8 group-data-[size=xs]/item:size-6 [&_img]:size-full [&_img]:object-cover",
+					"rounded-card bg-workbench-preview size-10 overflow-hidden group-data-[size=sm]/item:size-8 group-data-[size=xs]/item:size-6 [&_img]:size-4/5 [&_img]:object-contain [&_img]:[image-rendering:pixelated]",
 			},
 		},
 		defaultVariants: {
@@ -115,7 +121,7 @@ function ItemContent({ className, ...props }: React.ComponentProps<"div">) {
 	return (
 		<div
 			className={cn(
-				"flex flex-1 flex-col gap-1 group-data-[size=xs]/item:gap-0 [&+[data-slot=item-content]]:flex-none",
+				"flex min-w-0 flex-1 flex-col gap-0.5 group-data-[size=xs]/item:gap-0 [&+[data-slot=item-content]]:flex-none",
 				className
 			)}
 			data-slot="item-content"
@@ -128,7 +134,7 @@ function ItemTitle({ className, ...props }: React.ComponentProps<"div">) {
 	return (
 		<div
 			className={cn(
-				"line-clamp-1 flex w-fit items-center gap-2 text-xs font-medium underline-offset-4",
+				"text-subhead text-workbench-text group-data-[size=sm]/item:text-data group-data-[size=xs]/item:text-data line-clamp-1 flex w-fit items-center gap-2 leading-5 font-semibold underline-offset-4",
 				className
 			)}
 			data-slot="item-title"
@@ -141,7 +147,7 @@ function ItemDescription({ className, ...props }: React.ComponentProps<"p">) {
 	return (
 		<p
 			className={cn(
-				"text-muted-foreground [&>a:hover]:text-primary line-clamp-2 text-left text-xs/relaxed font-normal group-data-[size=xs]/item:text-xs/relaxed [&>a]:underline [&>a]:underline-offset-4",
+				"text-data text-workbench-muted-text group-data-[size=xs]/item:text-label [&>a]:text-workbench-link [&>a:hover]:text-workbench-action-light line-clamp-2 text-left leading-[18px] font-normal [&>a]:underline [&>a]:underline-offset-4",
 				className
 			)}
 			data-slot="item-description"
@@ -153,7 +159,10 @@ function ItemDescription({ className, ...props }: React.ComponentProps<"p">) {
 function ItemActions({ className, ...props }: React.ComponentProps<"div">) {
 	return (
 		<div
-			className={cn("flex items-center gap-2", className)}
+			className={cn(
+				"text-workbench-muted-text group-aria-selected/item:text-workbench-text group-data-selected/item:text-workbench-text flex items-center gap-2 [&_svg:not([class*='size-'])]:size-4",
+				className
+			)}
 			data-slot="item-actions"
 			{...props}
 		/>
