@@ -31,7 +31,7 @@ async function openExportBundles(page: Page) {
 	await createProjectFromProjectsView(page, fixture);
 	await page
 		.getByRole("link", {
-			name: `${fixture.projectName} open Asset Records`,
+			name: `${fixture.projectName} open project`,
 		})
 		.click();
 	await page.getByRole("link", { name: "Export Bundles", exact: true }).click();

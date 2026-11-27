@@ -10,6 +10,8 @@ import {
 	projectArchiveRestoreInputSchema,
 	projectArchiveRestoreListInputSchema,
 	projectArchiveRestoreSchema,
+	restoreOperationReadInputSchema,
+	restoreOperationResultSchema,
 } from "../project-archive-restore";
 import type { ProjectArchiveRejection } from "../project-archives";
 import {
@@ -47,6 +49,8 @@ function restoreRejectionMessage(
 	rejection: ProjectArchiveRestoreRejection
 ): string {
 	switch (rejection.reason) {
+		case "project_name_conflict":
+			return "A project with this name already exists.";
 		case "archive_invalid":
 			return "The Project Archive failed verification, so no project was restored.";
 		case "file_storage_limit":
@@ -182,6 +186,35 @@ export const projectArchivesRouter = {
 				throw new ORPCError("NOT_FOUND", { message: projectNotFound });
 			}
 			return catalog;
+		}),
+	getRestoreOperation: protectedProcedure
+		.input(restoreOperationReadInputSchema)
+		.output(restoreOperationResultSchema)
+		.handler(async ({ context, input }) => {
+			const userId = context.session.user.id;
+			const catalog = await context.backgroundOperationStore?.list(
+				userId,
+				input.projectId
+			);
+			const operation = catalog?.find(
+				(item) => item.id === input.operationId && item.kind === "restore"
+			);
+			if (!(operation && context.projectArchiveRestoreResult)) {
+				throw new ORPCError("NOT_FOUND", {
+					message: "Restore operation not found.",
+				});
+			}
+			const result = await context.projectArchiveRestoreResult(
+				userId,
+				input,
+				operation
+			);
+			if (!result) {
+				throw new ORPCError("NOT_FOUND", {
+					message: "Restore operation does not match the selected archive.",
+				});
+			}
+			return { operation, restore: result.restore };
 		}),
 	getRestore: protectedProcedure
 		.input(projectArchiveRestoreGetInputSchema)

@@ -223,23 +223,21 @@ export const projectContextSchema = z
 	})
 	.strict();
 
-export const projectNameMaxLength = 120;
-export const projectArtDirectionMaxLength = 1000;
+export const projectNameMaxLength = 60;
+export const projectArtDirectionMaxLength = 400;
 
 export const projectContextCreateInputSchema = z
 	.object({
 		name: z.string().trim().min(1).max(projectNameMaxLength),
-		generalArtDirection: z
-			.string()
-			.trim()
-			.min(1)
-			.max(projectArtDirectionMaxLength),
+		generalArtDirection: z.string().trim().max(projectArtDirectionMaxLength),
 	})
 	.strict();
 
 export const projectCreateContract = oc
 	.errors(internalServerErrorMap)
-	.input(projectContextCreateInputSchema)
+	.input(
+		projectContextCreateInputSchema.extend({ requestId: z.uuid().optional() })
+	)
 	.output(outputType<ProjectRecord>());
 
 const evidenceSchema = z
@@ -496,7 +494,9 @@ export interface ProjectContextStore {
 	}) => Promise<ContextRevision | null>;
 	createProject: (
 		userId: string,
-		input: ProjectContextCreateInput
+		input: ProjectContextCreateInput,
+		previewKey?: string,
+		requestId?: string
 	) => Promise<ProjectContext>;
 	createProposal: (userId: string, proposal: ContextProposal) => Promise<void>;
 	getProposal: (

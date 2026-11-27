@@ -31,6 +31,7 @@ import {
 import { mountManagedSnapshotRoutes } from "./features/production-provenance/server/managed-snapshot-routes";
 import { mountProjectArchiveDownloadRoutes } from "./features/project-archives/server/project-archive-download-routes";
 import { mountProjectArchiveImportRoutes } from "./features/project-archives/server/project-archive-import-routes";
+import { setProjectPreviewKey } from "./features/projects/server/project-access-store";
 import { mountProjectRoutes } from "./features/projects/server/project-routes";
 import { mountReferenceProductionRoutes } from "./features/reference-production/server/reference-production-routes";
 import { mountRightsRecordEvidenceRoutes } from "./features/rights-evidence/server/rights-record-evidence-routes";
@@ -50,6 +51,7 @@ import {
 	managedOperationServices,
 	managedSnapshotStore,
 	productMeasurementRecorder,
+	projectAccess,
 	projectArchiveImportManifestLimit,
 	projectArchiveStorage,
 	referenceProductionStore,
@@ -106,6 +108,9 @@ app.use(
 			"X-Project-Archive-SHA256",
 			"X-Project-Archive-Size",
 			"X-Project-Archive-Name",
+			"X-Project-Name",
+			"X-Project-Id",
+			"X-Project-Art-Direction",
 		],
 		credentials: true,
 	})
@@ -116,6 +121,11 @@ app.on(["POST", "GET"], "/api/auth/*", async (c) => auth.handler(c.req.raw));
 app.get("/health", (c) => c.json(serializeHealthResponse()));
 
 mountProjectRoutes(app, {
+	createPreviewStorage: createServerAssetVersionStorage,
+	setPreviewKey: (ownerId, projectId, key) =>
+		setProjectPreviewKey(db, ownerId, projectId, key),
+	createProjectWithLook: (ownerId, input, key, requestId) =>
+		projectAccess.createProject(ownerId, input, key, requestId),
 	getSession: (headers) => auth.api.getSession({ headers }),
 	getProjectForUser: (userId, projectId) =>
 		getProjectForUser(db, userId, projectId),

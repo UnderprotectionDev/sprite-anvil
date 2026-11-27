@@ -19,9 +19,9 @@ export async function signUpWithFixture(page: Page, fixture: AccountFixture) {
 	await page.getByLabel("Email").fill(fixture.email);
 	await page.getByLabel("Password").fill(fixture.password);
 	await page.getByRole("button", { name: "Sign Up" }).click();
-	await expect(
-		page.getByRole("heading", { name: "Game projects" })
-	).toBeVisible({ timeout: 30_000 });
+	await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible({
+		timeout: 30_000,
+	});
 }
 
 export async function createProjectFromProjectsView(
@@ -29,8 +29,8 @@ export async function createProjectFromProjectsView(
 	fixture: ProjectFixture
 ) {
 	await page.getByRole("link", { name: "Projects" }).click();
-	await page.getByRole("button", { name: "New game project" }).click();
-	const dialog = page.getByRole("dialog", { name: "New game project" });
+	await page.getByRole("button", { name: "New project" }).click();
+	const dialog = page.getByRole("dialog", { name: "New project" });
 	await dialog.getByLabel("Game project name").fill(fixture.projectName);
 	await dialog
 		.getByLabel("General art direction")

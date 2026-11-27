@@ -27,6 +27,7 @@ import {
 import { RetryablePublicationError } from "@sprite-anvil/api/retryable-publication-error";
 import type { Database } from "@sprite-anvil/db";
 import { getProjectForUser } from "@sprite-anvil/db";
+import { ProjectNameConflictError } from "@sprite-anvil/db/project-name";
 import {
 	createProjectAssetVersionObjectKey,
 	createProjectImportInboxObjectKey,
@@ -494,12 +495,15 @@ export function createProjectArchiveRestoreStore(
 				sections: plan.sections,
 			});
 		} catch (error) {
-			if (!insertionStarted) {
+			if (!insertionStarted || error instanceof ProjectNameConflictError) {
 				try {
 					await removeCopies(copied, files, reservations);
 				} catch {
 					// Keep reservations for cleanup that could not be confirmed.
 				}
+			}
+			if (error instanceof ProjectNameConflictError) {
+				return { status: "rejected", reason: "project_name_conflict" };
 			}
 			throw error;
 		}

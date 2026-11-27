@@ -553,3 +553,25 @@ test("rejects a file beyond PostgreSQL integer storage capacity before publicati
 	);
 	expect((await setup({ source }).create()).status).toBe("created");
 });
+
+test("an archive preserves the initial Context Revision zero and the active revision", async () => {
+	const source = foundationSource();
+	const [active] = source.records.contextRevisions;
+	if (!active) {
+		throw new Error("Missing active revision");
+	}
+	const baseline = {
+		...active,
+		id: crypto.randomUUID(),
+		revisionNumber: 0,
+		state: "baseline" as const,
+	};
+	source.records.contextRevisions.unshift(baseline);
+	const { create, get } = setup({ source });
+	const created = await create();
+	const archive = await get(created.archive.id);
+	expect(
+		archive.sections.find((section) => section.name === "contextRevisions")
+			?.records
+	).toContainEqual(baseline);
+});

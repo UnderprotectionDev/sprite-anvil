@@ -195,7 +195,10 @@ export const productionExperimentStore = createProductionExperimentStore(db);
 export const productionRecipeStore = createProductionRecipeStore(db);
 export const importInboxStore = createImportInboxStore(db);
 export const pixelEditorStore = createPixelEditorStore(db);
-export const offlineConflictStore = createOfflineConflictStore(db);
+export const offlineConflictStore = createOfflineConflictStore(
+	db,
+	interactiveDb
+);
 export const sourceMetadataMappingProposalStore =
 	createSourceMetadataMappingProposalStore(db);
 export const assetVersionStore = createAssetVersionStore(db);
@@ -214,7 +217,7 @@ export const assetRecordTrackingStore = createAssetRecordTrackingStore(
 export function createServerAssetVersionStorage() {
 	return testAssetVersionStorage ?? createStorage(requireR2Config(ENV));
 }
-export const projectContextStore = createProjectContextStore(db);
+export const projectContextStore = createProjectContextStore(db, interactiveDb);
 export const referenceProductionStore = createReferenceProductionStore(db);
 const persistedRightsRecordStore = createRightsRecordStore(db);
 export const readinessPlanStore = createReadinessPlanStore({
@@ -367,7 +370,11 @@ export const managedSnapshotStore = createManagedSnapshotStore(db);
 export const projectContextScopeStore = createProjectContextScopeStore(db);
 export const specializedProfileContractStore =
 	createSpecializedProfileContractStore(db);
-export const projectAccess = createProjectAccessStore(db, projectContextStore);
+export const projectAccess = createProjectAccessStore(
+	db,
+	projectContextStore,
+	interactiveDb
+);
 export const auth = createAuth(ENV, db, desktopOrigins);
 
 export const backgroundScrollingTestStore =
@@ -412,6 +419,13 @@ export function createServerOperationServices(
 						store: projectArchiveRestoreStore,
 					}
 				: undefined,
+		projectDeletionOptions: archiveObjectStorage
+			? {
+					db: interactiveDb,
+					objects: archiveObjectStorage,
+					gate: createDatabaseManagedObjectReservations(db),
+				}
+			: undefined,
 		erasureOptions: archiveObjectStorage
 			? {
 					managedObjects: createDatabaseManagedObjectReservations(db),

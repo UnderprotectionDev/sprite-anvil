@@ -23,7 +23,7 @@ test("persists reference transfer constraints through the web flow", async ({
 	await createProjectFromProjectsView(page, fixture);
 	await page
 		.getByRole("link", {
-			name: `${fixture.projectName} open Asset Records`,
+			name: `${fixture.projectName} open project`,
 		})
 		.click();
 	await page

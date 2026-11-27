@@ -71,7 +71,7 @@ describe("Asset and Composite Version lineage", () => {
 			await (await $("input[name='email']")).setValue(fixture.email);
 			await (await $("input[name='password']")).setValue(fixture.password);
 			await (await $("button=Sign Up")).click();
-			await (await $("h1=Game projects")).waitForDisplayed();
+			await (await $("h1=Projects")).waitForDisplayed();
 
 			await (await $("a=Context Proposals")).click();
 			await (await $('//label[span[text()="Project name"]]/input')).setValue(

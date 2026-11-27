@@ -7,6 +7,7 @@ import type {
 	InteractiveDatabase,
 	InteractiveTransaction,
 } from "@sprite-anvil/db/interactive-database";
+import { assertAvailableProjectNameInTransaction } from "@sprite-anvil/db/project-name";
 import {
 	assetFamilyCanonicalDesigns,
 	assetFamilyRelationships,
@@ -431,6 +432,12 @@ export function createDatabaseProjectArchiveRestoreStorage(
 			)?.records ?? []) as FoundationRecords["contextRevisions"];
 			try {
 				await interactiveDb.transaction(async (tx) => {
+					await assertAvailableProjectNameInTransaction(
+						tx,
+						restore.createdByUserId,
+						record.projectName,
+						restore.restoredProjectId
+					);
 					await tx.insert(project).values({
 						id: restore.restoredProjectId,
 						name: record.projectName,

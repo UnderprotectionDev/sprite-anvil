@@ -5,6 +5,7 @@ import type { Context } from "@sprite-anvil/api/context";
 import { createFamilyReadinessStore } from "@sprite-anvil/api/family-readiness-store";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { createDb } from "@sprite-anvil/db";
+import { createInteractiveDatabase } from "@sprite-anvil/db/interactive-database";
 import { assetRecordMeasurements } from "@sprite-anvil/db/schema/asset-record-measurements";
 import {
 	assetFamilies,
@@ -54,7 +55,10 @@ function createTestDb(targetUrl: string) {
 }
 
 function createContext(database: ReturnType<typeof createDb>, userId: string) {
-	const projectContextStore = createProjectContextStore(database);
+	const projectContextStore = createProjectContextStore(
+		database,
+		createInteractiveDatabase({ DATABASE_URL: databaseUrl ?? "" })
+	);
 	return {
 		assetFamilyStore: createAssetFamilyStore(database),
 		familyReadinessStore: createFamilyReadinessStore(database),

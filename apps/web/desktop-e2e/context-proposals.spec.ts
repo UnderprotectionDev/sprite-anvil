@@ -21,7 +21,7 @@ describe("Project Context proposals", () => {
 			projectContextFixture.password
 		);
 		await (await $("button=Sign Up")).click();
-		await (await $("h1=Game projects")).waitForDisplayed();
+		await (await $("h1=Projects")).waitForDisplayed();
 
 		await (await $("a=Context Proposals")).click();
 		await (await $("h2=Create your first project")).waitForDisplayed();

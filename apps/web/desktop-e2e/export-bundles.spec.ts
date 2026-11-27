@@ -28,7 +28,7 @@ describe("Export Bundles", () => {
 		await $("input[name='email']").setValue(fixture.email);
 		await $("input[name='password']").setValue(fixture.password);
 		await (await $("button=Sign Up")).click();
-		await $("h1=Game projects").waitForDisplayed({ timeout: 30_000 });
+		await $("h1=Projects").waitForDisplayed({ timeout: 30_000 });
 
 		await (await $("a=Context Proposals")).click();
 		await $("//label[span[text()='Project name']]/input").setValue(

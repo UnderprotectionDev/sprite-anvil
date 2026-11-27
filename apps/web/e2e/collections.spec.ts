@@ -20,7 +20,7 @@ test("persists Collection membership changes through the web flow", async ({
 	await createProjectFromProjectsView(page, fixture);
 	await page
 		.getByRole("link", {
-			name: `${fixture.projectName} open Asset Records`,
+			name: `${fixture.projectName} open project`,
 		})
 		.click();
 	await page
@@ -31,12 +31,7 @@ test("persists Collection membership changes through the web flow", async ({
 	await page.getByRole("button", { name: "Create Asset Record" }).click();
 	await expect(page.getByRole("heading", { name: fixture.name })).toBeVisible();
 
-	await page.getByRole("link", { name: "Projects" }).click();
-	await page
-		.getByRole("link", {
-			name: `${fixture.projectName} manage Collections`,
-		})
-		.click();
+	await page.getByRole("link", { name: "Collections", exact: true }).click();
 	const collectionName = `Planning ${fixture.name}`;
 	await page.getByLabel("Collection name").fill(collectionName);
 	await page.getByRole("button", { name: "Create Collection" }).click();

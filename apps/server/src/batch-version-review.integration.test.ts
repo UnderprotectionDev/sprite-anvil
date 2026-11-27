@@ -3,6 +3,7 @@ import { call } from "@orpc/server";
 import type { Context } from "@sprite-anvil/api/context";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { createDb } from "@sprite-anvil/db";
+import { createInteractiveDatabase } from "@sprite-anvil/db/interactive-database";
 import { assetVersions } from "@sprite-anvil/db/schema/asset-versions";
 import { user } from "@sprite-anvil/db/schema/auth";
 import { createLocalTestDb } from "@sprite-anvil/db/testing";
@@ -18,7 +19,10 @@ function reviewContext(db: ReturnType<typeof createDb>, userId: string) {
 	return {
 		assetFamilyStore: createAssetFamilyStore(db),
 		assetVersionStore: createAssetVersionStore(db),
-		projectContextStore: createProjectContextStore(db),
+		projectContextStore: createProjectContextStore(
+			db,
+			createInteractiveDatabase({ DATABASE_URL: databaseUrl ?? "" })
+		),
 		projectContextScopeStore: createProjectContextScopeStore(db),
 		session: { user: { id: userId } } as Context["session"],
 		verifyAssetVersionContent: async () => true,

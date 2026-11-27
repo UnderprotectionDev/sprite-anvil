@@ -16,20 +16,20 @@ describe("Collections", () => {
 		await (await $("input[name='email']")).setValue(fixture.email);
 		await (await $("input[name='password']")).setValue(fixture.password);
 		await (await $("button=Sign Up")).click();
-		await (await $("h1=Game projects")).waitForDisplayed();
+		await (await $("h1=Projects")).waitForDisplayed();
 
 		await (await $("a=Projects")).click();
-		await openWorkspaceTask("New game project");
+		await openWorkspaceTask("New project");
 		await (await $("input#project-name")).setValue(fixture.projectName);
 		await (await $("textarea#project-art-direction")).setValue(
 			fixture.generalArtDirection
 		);
 		await (await $("button=Create project")).click();
 		await (
-			await $(`a[aria-label="${fixture.projectName} open Asset Records"]`)
+			await $(`a[aria-label="${fixture.projectName} open project"]`)
 		).waitForClickable();
 		await (
-			await $(`a[aria-label="${fixture.projectName} open Asset Records"]`)
+			await $(`a[aria-label="${fixture.projectName} open project"]`)
 		).click();
 
 		await openWorkspaceTask("New Asset Record");
@@ -38,13 +38,7 @@ describe("Collections", () => {
 		await (await $("button=Create Asset Record")).click();
 		await (await $(`h1=${fixture.name}`)).waitForDisplayed();
 
-		await (await $("a=Projects")).click();
-		await (
-			await $(`a[aria-label="${fixture.projectName} manage Collections"]`)
-		).waitForClickable();
-		await (
-			await $(`a[aria-label="${fixture.projectName} manage Collections"]`)
-		).click();
+		await (await $("a=Collections")).click();
 
 		const collectionName = `Planning ${fixture.name}`;
 		await (await $("input#collection-name")).setValue(collectionName);

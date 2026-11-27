@@ -4,6 +4,7 @@ import type { Context } from "@sprite-anvil/api/context";
 import type { ContextRule } from "@sprite-anvil/api/project-context";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { createDb } from "@sprite-anvil/db";
+import { createInteractiveDatabase } from "@sprite-anvil/db/interactive-database";
 import { user } from "@sprite-anvil/db/schema/auth";
 import { contextRevisions } from "@sprite-anvil/db/schema/project-context";
 import { eq } from "drizzle-orm";
@@ -38,7 +39,10 @@ test.skipIf(!databaseUrl)(
 			});
 			insertedUser = true;
 
-			const store = createProjectContextStore(db);
+			const store = createProjectContextStore(
+				db,
+				createInteractiveDatabase({ DATABASE_URL: databaseUrl ?? "" })
+			);
 			const scopeStore = createProjectContextScopeStore(db);
 			const context: Context = {
 				assetFamilyStore: createAssetFamilyStore(db),

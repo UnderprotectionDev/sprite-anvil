@@ -3,17 +3,14 @@ import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
 import { useForm } from "@tanstack/react-form";
-import { useMutation } from "@tanstack/react-query";
-import { useId, useRef } from "react";
+import { useId } from "react";
 import { z } from "zod";
 import { StatusMessage } from "@/components/status-message";
-import { isWriteOutcomeUncertain } from "@/utils/error-notification";
-import type { ArchiveImportAttempt } from "../../lib/upload-project-archive";
-import { uploadProjectArchive } from "../../lib/upload-project-archive";
+import { isZip, useArchiveImport } from "../../hooks/use-archive-import";
 
 const inputSchema = z.object({
 	name: z.string().trim().min(1).max(120),
-	file: z.custom<File>((value) => value instanceof File && value.size > 0),
+	file: z.custom<File>((value) => value instanceof File && isZip(value)),
 });
 
 export function ArchiveImportForm({
@@ -24,37 +21,26 @@ export function ArchiveImportForm({
 	onAccepted?: (operation: BackgroundOperation) => void;
 }) {
 	const id = useId();
-	const pending = useRef<ArchiveImportAttempt | null>(null);
-	const upload = useMutation({
-		mutationFn: uploadProjectArchive,
-		meta: { errorPresentation: "inline" },
-		onSuccess: (operation) => onAccepted?.(operation),
-	});
-	const uncertain = isWriteOutcomeUncertain(upload.error);
-	const locked = upload.isPending || uncertain || upload.isSuccess;
+	const { upload, uncertain, locked, submit, retry } = useArchiveImport(
+		projectId,
+		onAccepted
+	);
 	const form = useForm({
 		defaultValues: { name: "", file: null as File | null },
 		validators: { onSubmit: inputSchema },
 		onSubmit: ({ value }) => {
-			const parsed = inputSchema.parse(value);
-			const previous = pending.current;
-			const attempt =
-				previous?.file === parsed.file &&
-				previous.name === parsed.name &&
-				previous.projectId === projectId
-					? previous
-					: { ...parsed, projectId, idempotencyKey: crypto.randomUUID() };
-			pending.current = attempt;
-			upload.mutate(attempt);
+			submit(inputSchema.parse(value));
 		},
 	});
 	return (
 		<section
 			aria-label="Restore a portable Project Archive"
-			className="space-y-3 border p-4"
+			className="rounded-card border-workbench-divider bg-workbench-strip space-y-4 border p-5"
 		>
-			<h2>Restore a portable Project Archive</h2>
-			<p>
+			<h2 className="font-heading text-heading-compact font-bold">
+				Restore a portable Project Archive
+			</h2>
+			<p className="text-body text-workbench-muted-text">
 				Upload a previously downloaded ZIP to create an independent project. Its
 				original project does not need to exist.
 			</p>
@@ -67,7 +53,7 @@ export function ArchiveImportForm({
 			>
 				<form.Field name="file">
 					{(field) => (
-						<div>
+						<div className="rounded-card border-workbench-border-strong bg-workbench-preview grid gap-3 border border-dashed p-5">
 							<Label htmlFor={`${id}-file`}>Project Archive ZIP</Label>
 							<Input
 								accept=".zip,application/zip"
@@ -83,7 +69,7 @@ export function ArchiveImportForm({
 				</form.Field>
 				<form.Field name="name">
 					{(field) => (
-						<div>
+						<div className="grid gap-2">
 							<Label htmlFor={`${id}-name`}>Restored project name</Label>
 							<Input
 								disabled={locked}
@@ -110,20 +96,12 @@ export function ArchiveImportForm({
 					Upload and restore
 				</Button>
 			</form>
-			{uncertain && pending.current ? (
+			{uncertain ? (
 				<>
 					<StatusMessage tone="error">
 						The upload outcome is unknown. Retry the same archive and request.
 					</StatusMessage>
-					<Button
-						disabled={upload.isPending}
-						onClick={() => {
-							if (pending.current) {
-								upload.mutate(pending.current);
-							}
-						}}
-						type="button"
-					>
+					<Button disabled={upload.isPending} onClick={retry} type="button">
 						Retry archive import
 					</Button>
 				</>

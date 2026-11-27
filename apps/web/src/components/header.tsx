@@ -7,9 +7,18 @@ import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 } from "@sprite-anvil/ui/components/sidebar";
-import { Link, useParams, useSearch } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import {
+	Link,
+	useMatches,
+	useMatchRoute,
+	useParams,
+	useSearch,
+} from "@tanstack/react-router";
+import { Archive, ChartNoAxesCombined, LayoutGrid } from "lucide-react";
 import UserMenu from "@/features/account-access/ui/components/user-menu";
 import { authClient } from "@/lib/auth-client";
+import { orpc } from "@/utils/orpc";
 import { ModeToggle } from "./mode-toggle";
 import { OperationsDock } from "./operations-dock";
 import { ProjectNavigation } from "./project-navigation";
@@ -17,37 +26,89 @@ import { WorkbenchSearch } from "./workbench-search";
 
 export default function Header() {
 	const { data: session } = authClient.useSession();
+	const matchRoute = useMatchRoute();
 	const params = useParams({ strict: false });
 	const search = useSearch({ strict: false });
+	const routeId = useMatches({ select: (matches) => matches.at(-1)?.routeId });
+	const onDetails = routeId === "/_auth/projects_/$projectId/details";
+	const archiveTask =
+		routeId === "/_auth/projects_/$projectId/project-archives" &&
+		"task" in search &&
+		Boolean(search.task);
+	const paperWorkspace =
+		onDetails ||
+		archiveTask ||
+		routeId === "/_auth/projects" ||
+		routeId === "/_auth/project-archives" ||
+		routeId === "/_auth/account-settings";
+	const paperNavClass = paperWorkspace
+		? "rounded-[4px] px-2 font-medium"
+		: undefined;
 	const projectId =
-		params.projectId ?? ("projectId" in search ? search.projectId : undefined);
+		onDetails || archiveTask
+			? undefined
+			: (params.projectId ??
+				("projectId" in search ? search.projectId : undefined));
 	if (!session) {
 		return null;
 	}
 	return (
 		<Sidebar>
 			<SidebarHeader>
-				<Link className="dither-ink px-2 py-3 font-semibold" to="/projects">
+				<Link
+					className="font-heading flex h-[60px] items-center gap-[10px] px-2 text-lg font-bold"
+					to="/projects"
+				>
+					<img
+						alt=""
+						className="size-11"
+						height={44}
+						src="/logo.svg"
+						width={44}
+					/>
 					Sprite Anvil
 				</Link>
 				{projectId ? <WorkbenchSearch projectId={projectId} /> : null}
+				<p className="text-label text-workbench-faint-text px-2 font-mono tracking-widest uppercase">
+					Workspace
+				</p>
 				<SidebarMenu>
 					<SidebarMenuItem>
-						<SidebarMenuButton render={<Link to="/projects" />}>
-							Projects
+						<SidebarMenuButton
+							className={paperNavClass}
+							isActive={onDetails || routeId === "/_auth/projects"}
+							render={<Link activeOptions={{ exact: true }} to="/projects" />}
+						>
+							<LayoutGrid className="text-workbench-action" />{" "}
+							<span className="grow">Projects</span>
+							{paperWorkspace ? <ProjectCount /> : null}
 						</SidebarMenuButton>
 					</SidebarMenuItem>
 					<SidebarMenuItem>
-						<SidebarMenuButton render={<Link to="/measurements" />}>
-							Measurements
+						<SidebarMenuButton
+							className={paperNavClass}
+							isActive={
+								archiveTask || Boolean(matchRoute({ to: "/project-archives" }))
+							}
+							render={<Link to="/project-archives" />}
+						>
+							<Archive className="text-workbench-review" /> Project Archive
 						</SidebarMenuButton>
 					</SidebarMenuItem>
+					{paperWorkspace ? null : (
+						<SidebarMenuItem>
+							<SidebarMenuButton render={<Link to="/measurements" />}>
+								<ChartNoAxesCombined /> Measurements
+							</SidebarMenuButton>
+						</SidebarMenuItem>
+					)}
 				</SidebarMenu>
 			</SidebarHeader>
 			<SidebarContent>
 				{projectId ? (
 					<ProjectNavigation key={projectId} projectId={projectId} />
-				) : (
+				) : null}
+				{projectId || paperWorkspace ? null : (
 					<SidebarMenu>
 						<SidebarMenuItem>
 							<SidebarMenuButton
@@ -59,15 +120,34 @@ export default function Header() {
 					</SidebarMenu>
 				)}
 			</SidebarContent>
-			<SidebarFooter>
+			<SidebarFooter
+				className={
+					paperWorkspace ? "border-workbench-border-strong border-t" : undefined
+				}
+			>
 				{projectId ? (
 					<OperationsDock projectId={projectId} userId={session.user.id} />
 				) : null}
 				<div className="flex items-center gap-2">
-					<ModeToggle />
+					{paperWorkspace ? null : <ModeToggle />}
 					<UserMenu />
 				</div>
 			</SidebarFooter>
 		</Sidebar>
+	);
+}
+
+function ProjectCount() {
+	const projects = useQuery({
+		...orpc.projects.list.queryOptions(),
+		meta: { errorPresentation: "inline" },
+	});
+	if (!projects.data) {
+		return null;
+	}
+	return (
+		<span className="ml-auto font-mono text-[12px] font-semibold">
+			{projects.data.length}
+		</span>
 	);
 }

@@ -26,7 +26,7 @@ test("persists an Asset Record created through the web flow", async ({
 
 	await page
 		.getByRole("link", {
-			name: `${assetRecordFixture.projectName} open Asset Records`,
+			name: `${assetRecordFixture.projectName} open project`,
 		})
 		.click();
 	await page.getByRole("button", { name: "New Asset Record" }).waitFor();
@@ -89,7 +89,7 @@ test("persists an Asset Version, review, quality result, and legacy history", as
 	await createProjectFromProjectsView(page, versionFixture);
 	await page
 		.getByRole("link", {
-			name: `${versionFixture.projectName} open Asset Records`,
+			name: `${versionFixture.projectName} open project`,
 		})
 		.click();
 	await page
@@ -227,7 +227,7 @@ test("archives and restores an Asset Record through the web flow", async ({
 	await createProjectFromProjectsView(page, fixture);
 	await page
 		.getByRole("link", {
-			name: `${fixture.projectName} open Asset Records`,
+			name: `${fixture.projectName} open project`,
 		})
 		.click();
 	await page

@@ -1,3 +1,4 @@
+import { ORPCError } from "@orpc/server";
 import type {
 	ContextProposal,
 	ContextRevision,
@@ -12,6 +13,11 @@ import {
 } from "@sprite-anvil/api/project-context";
 import type { Database } from "@sprite-anvil/db";
 import { publishedProjectPredicate } from "@sprite-anvil/db";
+import type { InteractiveDatabase } from "@sprite-anvil/db/interactive-database";
+import {
+	assertAvailableProjectNameInTransaction,
+	ProjectNameConflictError,
+} from "@sprite-anvil/db/project-name";
 import { project as projectTable } from "@sprite-anvil/db/schema/project";
 import {
 	contextProposals,
@@ -40,7 +46,10 @@ function mapContextRevision(
 	});
 }
 
-export function createProjectContextStore(db: Database): ProjectContextStore {
+export function createProjectContextStore(
+	db: Database,
+	interactiveDb?: InteractiveDatabase
+): ProjectContextStore {
 	return {
 		async listProjects(userId) {
 			const rows = await db
@@ -119,41 +128,92 @@ export function createProjectContextStore(db: Database): ProjectContextStore {
 			});
 		},
 
-		async createProject(userId: string, input: ProjectContextCreateInput) {
-			const id = crypto.randomUUID();
+		async createProject(
+			userId: string,
+			input: ProjectContextCreateInput,
+			previewKey?: string,
+			requestId?: string
+		) {
+			const id = requestId ?? crypto.randomUUID();
 			const revisionId = crypto.randomUUID();
 			const createdAt = new Date();
-			const projectInsert = db
-				.insert(projectTable)
-				.values({
-					id,
-					ownerUserId: userId,
-					name: input.name,
-					generalArtDirection: input.generalArtDirection,
-					createdAt,
-				})
-				.returning();
-			const revisionInsert = db
-				.insert(contextRevisions)
-				.values({
-					id: revisionId,
-					projectId: id,
-					revisionNumber: 0,
-					state: "baseline",
-					sourceProposalId: null,
-					contractVersion: "context-rule/1.0.0",
-					rules: [],
-					createdByUserId: userId,
-					createdAt,
-				})
-				.returning();
+			if (!interactiveDb) {
+				throw new Error("Project creation storage unavailable.");
+			}
+			const { projectRecord, revision } = await interactiveDb
+				.transaction(async (tx) => {
+					await assertAvailableProjectNameInTransaction(
+						tx,
+						userId,
+						input.name,
+						id
+					);
+					if (requestId) {
+						const [existing] = await tx
+							.select()
+							.from(projectTable)
+							.where(
+								and(
+									eq(projectTable.id, id),
+									eq(projectTable.ownerUserId, userId)
+								)
+							);
+						if (existing) {
+							if (
+								existing.name !== input.name ||
+								existing.generalArtDirection !== input.generalArtDirection ||
+								existing.previewKey !== (previewKey ?? null)
+							) {
+								throw new ORPCError("CONFLICT", {
+									message: "Project creation request changed.",
+								});
+							}
+							const [existingRevision] = await tx
+								.select()
+								.from(contextRevisions)
+								.where(
+									and(
+										eq(contextRevisions.projectId, id),
+										eq(contextRevisions.revisionNumber, 0)
+									)
+								);
+							return { projectRecord: existing, revision: existingRevision };
+						}
+					}
+					const [insertedProject] = await tx
+						.insert(projectTable)
+						.values({
+							id,
+							ownerUserId: userId,
+							name: input.name,
+							generalArtDirection: input.generalArtDirection,
+							previewKey,
+							createdAt,
+						})
+						.returning();
+					const [insertedRevision] = await tx
+						.insert(contextRevisions)
+						.values({
+							id: revisionId,
+							projectId: id,
+							revisionNumber: 0,
+							state: "baseline",
+							sourceProposalId: null,
+							contractVersion: "context-rule/1.0.0",
+							rules: [],
+							createdByUserId: userId,
+							createdAt,
+						})
+						.returning();
 
-			const [projectRows, revisionRows] = await db.batch([
-				projectInsert,
-				revisionInsert,
-			]);
-			const [projectRecord] = projectRows;
-			const [revision] = revisionRows;
+					return { projectRecord: insertedProject, revision: insertedRevision };
+				})
+				.catch((error) => {
+					if (error instanceof ProjectNameConflictError) {
+						throw new ORPCError("CONFLICT", { message: error.message });
+					}
+					throw error;
+				});
 			if (!(projectRecord && revision)) {
 				throw new Error("Project Context could not be created");
 			}

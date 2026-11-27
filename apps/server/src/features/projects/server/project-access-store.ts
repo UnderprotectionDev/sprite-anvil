@@ -1,3 +1,4 @@
+import { ORPCError } from "@orpc/server";
 import { isExternalVisualAnalysisProviderPolicyVerified } from "@sprite-anvil/api/external-visual-analysis-policy";
 import type {
 	ContextAgentScope,
@@ -13,10 +14,17 @@ import {
 import type { ProjectContextStore } from "@sprite-anvil/api/project-context";
 import type { Database } from "@sprite-anvil/db";
 import { getProjectForUser, publishedProjectPredicate } from "@sprite-anvil/db";
+import type { InteractiveDatabase } from "@sprite-anvil/db/interactive-database";
+import {
+	assertAvailableProjectNameInTransaction,
+	ProjectNameConflictError,
+} from "@sprite-anvil/db/project-name";
+import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
+import { assetVersions } from "@sprite-anvil/db/schema/asset-versions";
 import { externalVisualAnalysisPermission } from "@sprite-anvil/db/schema/external-visual-analysis";
 import { project } from "@sprite-anvil/db/schema/project";
 import { toolAccessPermission } from "@sprite-anvil/db/schema/project-access";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 
 function toProjectRecord(
 	record: Pick<typeof project.$inferSelect, "createdAt" | "id" | "name">
@@ -74,30 +82,107 @@ function toExternalVisualAnalysisPermission(
 
 export function createProjectAccessStore(
 	db: Database,
-	projectContextStore: ProjectContextStore
+	projectContextStore: ProjectContextStore,
+	interactiveDb?: InteractiveDatabase
 ): ProjectAccessStore {
 	return {
-		async createProject(ownerId, input) {
-			const record = await projectContextStore.createProject(ownerId, input);
+		async createProject(ownerId, input, previewKey, requestId) {
+			const record = await projectContextStore.createProject(
+				ownerId,
+				input,
+				previewKey,
+				requestId
+			);
 			return {
 				createdAt: record.createdAt,
 				id: record.id,
 				name: record.name,
+				generalArtDirection: record.generalArtDirection,
+				hasPreview: Boolean(previewKey),
 			};
 		},
 		async getProject(ownerId, projectId) {
 			const record = await getProjectForUser(db, ownerId, projectId);
-			return record ? toProjectRecord(record) : null;
+			return record
+				? {
+						...toProjectRecord(record),
+						generalArtDirection: record.generalArtDirection,
+					}
+				: null;
+		},
+		async updateProject(ownerId, projectId, input) {
+			if (!interactiveDb) {
+				throw new Error("Project update storage unavailable.");
+			}
+			const record = await interactiveDb
+				.transaction(async (tx) => {
+					await assertAvailableProjectNameInTransaction(
+						tx,
+						ownerId,
+						input.name,
+						projectId
+					);
+					const [updated] = await tx
+						.update(project)
+						.set({
+							name: input.name,
+							generalArtDirection: input.generalArtDirection,
+						})
+						.where(
+							and(
+								eq(project.id, projectId),
+								eq(project.ownerUserId, ownerId),
+								publishedProjectPredicate()
+							)
+						)
+						.returning();
+					return updated;
+				})
+				.catch((error) => {
+					if (error instanceof ProjectNameConflictError) {
+						throw new ORPCError("CONFLICT", { message: error.message });
+					}
+					throw error;
+				});
+			return record
+				? {
+						...toProjectRecord(record),
+						generalArtDirection: record.generalArtDirection,
+					}
+				: null;
 		},
 		async listProjects(ownerId) {
 			const records = await db
-				.select()
+				.select({
+					id: project.id,
+					name: project.name,
+					createdAt: project.createdAt,
+					generalArtDirection: project.generalArtDirection,
+					previewKey: project.previewKey,
+					previewAssetVersionId: sql<string | null>`(
+						select av.id
+						from ${assetVersions} av
+						join ${assetRecords} ar on ar.id = av.asset_record_id
+							and ar.project_id = av.project_id
+						where av.project_id = "project"."id"
+							and ar.availability = 'active'
+							and ar.asset_category = 'background_parallax'
+							and av.integrity_verified = true
+						order by av.created_at desc, av.id
+						limit 1
+					)`,
+				})
 				.from(project)
 				.where(
 					and(eq(project.ownerUserId, ownerId), publishedProjectPredicate())
 				)
 				.orderBy(desc(project.createdAt));
-			return records.map(toProjectRecord);
+			return records.map((record) => ({
+				...toProjectRecord(record),
+				generalArtDirection: record.generalArtDirection,
+				previewAssetVersionId: record.previewAssetVersionId,
+				hasPreview: Boolean(record.previewKey),
+			}));
 		},
 		async listContextAgentPermissions(ownerId, projectId) {
 			const ownedProject = await getProjectForUser(db, ownerId, projectId);
@@ -280,4 +365,24 @@ export function createProjectAccessStore(
 			);
 		},
 	};
+}
+
+export async function setProjectPreviewKey(
+	db: Database,
+	ownerId: string,
+	projectId: string,
+	previewKey: string
+) {
+	const rows = await db
+		.update(project)
+		.set({ previewKey })
+		.where(
+			and(
+				eq(project.id, projectId),
+				eq(project.ownerUserId, ownerId),
+				publishedProjectPredicate()
+			)
+		)
+		.returning({ id: project.id });
+	return rows.length > 0;
 }

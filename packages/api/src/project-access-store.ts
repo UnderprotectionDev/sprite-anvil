@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { ProjectContextCreateInput } from "./project-context";
 
 export const contextAgentScopes = [
@@ -28,10 +29,26 @@ export type ConnectionScope = (typeof connectionScopes)[number];
 export type ExternalVisualAnalysisCategory =
 	(typeof externalVisualAnalysisCategories)[number];
 
+export const projectRecordResponseSchema = z
+	.object({
+		id: z.string().min(1),
+		name: z.string(),
+		createdAt: z.string(),
+		generalArtDirection: z.string().optional(),
+		hasPreview: z.boolean().optional(),
+		previewAssetVersionId: z.string().nullable().optional(),
+	})
+	.strict();
+
 export interface ProjectRecord {
 	createdAt: string;
+	generalArtDirection?: string;
+	/** A dedicated project look is stored separately from the asset library. */
+	hasPreview?: boolean;
 	id: string;
 	name: string;
+	/** Authorized Asset Version used only for the project card preview. */
+	previewAssetVersionId?: string | null;
 }
 
 export interface ToolAccessPermission {
@@ -56,7 +73,9 @@ export interface ExternalVisualAnalysisPermission {
 export interface ProjectAccessStore {
 	createProject: (
 		ownerId: string,
-		input: ProjectContextCreateInput
+		input: ProjectContextCreateInput,
+		previewKey?: string,
+		requestId?: string
 	) => Promise<ProjectRecord>;
 	getProject: (
 		ownerId: string,
@@ -100,4 +119,9 @@ export interface ProjectAccessStore {
 		projectId: string,
 		permissionId: string
 	) => Promise<boolean>;
+	updateProject?: (
+		ownerId: string,
+		projectId: string,
+		input: ProjectContextCreateInput
+	) => Promise<ProjectRecord | null>;
 }

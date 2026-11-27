@@ -7,7 +7,7 @@ import {
 	projectArchiveSections,
 	projectArchives,
 } from "@sprite-anvil/db/schema/project-archives";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import type {
 	ProjectArchiveRequestStorage,
 	ProjectArchiveStorage,
@@ -145,11 +145,17 @@ export function createDatabaseProjectArchiveStorage(
 		},
 		async list(projectId) {
 			const rows = await db
-				.select()
+				.select({
+					archive: projectArchives,
+					includedByteSize: sql<number>`coalesce((select sum(${projectArchiveFiles.byteSize}) from ${projectArchiveFiles} where ${projectArchiveFiles.archiveId}=${projectArchives.id} and ${projectArchiveFiles.presence}='included'),0)`,
+				})
 				.from(projectArchives)
 				.where(eq(projectArchives.projectId, projectId))
 				.orderBy(asc(projectArchives.createdAt), asc(projectArchives.id));
-			return rows.map(toArchive);
+			return rows.map((row) => ({
+				...toArchive(row.archive),
+				includedByteSize: Number(row.includedByteSize),
+			}));
 		},
 	};
 }

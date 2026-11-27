@@ -45,7 +45,7 @@ describe("Source Metadata Mapping Proposals", () => {
 			await (await $("input[name='email']")).setValue(fixture.email);
 			await (await $("input[name='password']")).setValue(fixture.password);
 			await (await $("button=Sign Up")).click();
-			await (await $("h1=Game projects")).waitForDisplayed();
+			await (await $("h1=Projects")).waitForDisplayed();
 
 			const visualWorldName = `${fixture.name} world`;
 			const identityName = `${fixture.name} identity`;
@@ -90,7 +90,7 @@ describe("Source Metadata Mapping Proposals", () => {
 			await openWorkspaceTask("Version and dependency operations");
 			await (await $("a=Projects")).click();
 			const projectLink = await $(
-				`a[aria-label="${fixture.projectName} open Asset Records"]`
+				`a[aria-label="${fixture.projectName} open project"]`
 			);
 			await projectLink.waitForClickable();
 			await projectLink.click();

@@ -1,10 +1,10 @@
-import { contextScopeSchema } from "@sprite-anvil/api/project-context";
+import {
+	contextScopeSchema,
+	projectContextCreateInputSchema,
+} from "@sprite-anvil/api/project-context";
 import z from "zod";
 
-export const projectSetupFormSchema = z.object({
-	name: z.string().min(1),
-	generalArtDirection: z.string().min(1),
-});
+export const projectSetupFormSchema = projectContextCreateInputSchema;
 
 export const proposalChangeDraftSchema = z
 	.object({

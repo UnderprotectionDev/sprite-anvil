@@ -25,10 +25,10 @@ describe("Asset Records", () => {
 			assetRecordFixture.password
 		);
 		await (await $("button=Sign Up")).click();
-		await (await $("h1=Game projects")).waitForDisplayed();
+		await (await $("h1=Projects")).waitForDisplayed();
 
 		await (await $("a=Projects")).click();
-		await openWorkspaceTask("New game project");
+		await openWorkspaceTask("New project");
 		await (await $("input#project-name")).setValue(
 			assetRecordFixture.projectName
 		);
@@ -38,7 +38,7 @@ describe("Asset Records", () => {
 		await (await $("button=Create project")).click();
 
 		const projectLink = await $(
-			`a[aria-label="${assetRecordFixture.projectName} open Asset Records"]`
+			`a[aria-label="${assetRecordFixture.projectName} open project"]`
 		);
 		await projectLink.waitForClickable();
 		await projectLink.click();
@@ -91,9 +91,9 @@ describe("Asset Records", () => {
 		await (await $("input[name='email']")).setValue(versionFixture.email);
 		await (await $("input[name='password']")).setValue(versionFixture.password);
 		await (await $("button=Sign Up")).click();
-		await (await $("h1=Game projects")).waitForDisplayed();
+		await (await $("h1=Projects")).waitForDisplayed();
 		await (await $("a=Projects")).click();
-		await openWorkspaceTask("New game project");
+		await openWorkspaceTask("New project");
 		await (await $("input#project-name")).setValue(versionFixture.projectName);
 		await (await $("textarea#project-art-direction")).setValue(
 			versionFixture.generalArtDirection
@@ -101,7 +101,7 @@ describe("Asset Records", () => {
 		await (await $("button=Create project")).click();
 
 		const projectLink = await $(
-			`a[aria-label="${versionFixture.projectName} open Asset Records"]`
+			`a[aria-label="${versionFixture.projectName} open project"]`
 		);
 		await projectLink.waitForClickable();
 		await projectLink.click();
@@ -245,9 +245,9 @@ describe("Asset Records", () => {
 		await (await $("input[name='email']")).setValue(fixture.email);
 		await (await $("input[name='password']")).setValue(fixture.password);
 		await (await $("button=Sign Up")).click();
-		await (await $("h1=Game projects")).waitForDisplayed();
+		await (await $("h1=Projects")).waitForDisplayed();
 		await (await $("a=Projects")).click();
-		await openWorkspaceTask("New game project");
+		await openWorkspaceTask("New project");
 		await (await $("input#project-name")).setValue(fixture.projectName);
 		await (await $("textarea#project-art-direction")).setValue(
 			fixture.generalArtDirection
@@ -255,7 +255,7 @@ describe("Asset Records", () => {
 		await (await $("button=Create project")).click();
 
 		const projectLink = await $(
-			`a[aria-label="${fixture.projectName} open Asset Records"]`
+			`a[aria-label="${fixture.projectName} open project"]`
 		);
 		await projectLink.waitForClickable();
 		await projectLink.click();

@@ -3,6 +3,7 @@ import { call } from "@orpc/server";
 import type { Context } from "@sprite-anvil/api/context";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { createDb } from "@sprite-anvil/db";
+import { createInteractiveDatabase } from "@sprite-anvil/db/interactive-database";
 import { legacyAssetAttestations } from "@sprite-anvil/db/schema/asset-production-history";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
 import {
@@ -25,7 +26,10 @@ import { createProjectContextScopeStore } from "./features/visual-worlds/server/
 const databaseUrl = process.env.CONTEXT_TEST_DATABASE_URL;
 
 function createContext(database: ReturnType<typeof createDb>, userId: string) {
-	const projectContextStore = createProjectContextStore(database);
+	const projectContextStore = createProjectContextStore(
+		database,
+		createInteractiveDatabase({ DATABASE_URL: databaseUrl ?? "" })
+	);
 	return {
 		assetFamilyStore: createAssetFamilyStore(database),
 		assetRecordStore: createAssetRecordStore(database),

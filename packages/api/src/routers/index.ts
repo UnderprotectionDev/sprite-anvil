@@ -16,6 +16,7 @@ import {
 	serializePrivateDataResponse,
 	serializeRpcHealthResponse,
 } from "../output-contracts";
+import { assertAvailableProjectName } from "../project-access-policy";
 import {
 	contextProposalActivationInputSchema,
 	contextProposalInputSchema,
@@ -371,14 +372,16 @@ const contextRouters = {
 		),
 		create: protectedProcedure
 			.input(projectContextCreateInputSchema)
-			.handler(async ({ context, input }) =>
-				projectContextSchema.parse(
-					await context.projectContextStore.createProject(
-						context.session.user.id,
-						input
-					)
-				)
-			),
+			.handler(async ({ context, input }) => {
+				const ownerId = context.session.user.id;
+				assertAvailableProjectName(
+					await context.projectContextStore.listProjects(ownerId),
+					input.name
+				);
+				return projectContextSchema.parse(
+					await context.projectContextStore.createProject(ownerId, input)
+				);
+			}),
 	},
 	contextProposals: {
 		list: protectedProcedure

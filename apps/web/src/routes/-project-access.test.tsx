@@ -123,6 +123,20 @@ vi.mock("@/utils/orpc", () => ({
 		},
 	},
 	orpc: {
+		projectContexts: {
+			list: {
+				queryOptions: () => ({
+					queryKey: ["project-contexts"],
+					queryFn: async () => [
+						{
+							id: projectId,
+							name: "Forest Quest",
+							generalArtDirection: "Soft light.",
+						},
+					],
+				}),
+			},
+		},
 		backgroundOperations: {
 			summary: {
 				queryOptions: ({ input }: { input: { projectId: string } }) => ({
@@ -153,6 +167,12 @@ vi.mock("@/utils/orpc", () => ({
 			},
 		},
 		projects: {
+			update: {
+				mutationOptions: (options?: object) => ({
+					...options,
+					mutationFn: () => Promise.reject(new Error("unexpected write")),
+				}),
+			},
 			create: {
 				mutationOptions: (options?: object) => ({
 					...options,
@@ -563,7 +583,7 @@ test("permission query failures provide a Sonner Retry action", async () => {
 	).toBeVisible();
 });
 
-test("the generated project route opens access from the authenticated project list", async () => {
+test("the generated project routes separate Details and project access", async () => {
 	const queryClient = new QueryClient({
 		defaultOptions: { queries: { retry: false } },
 	});
@@ -579,14 +599,20 @@ test("the generated project route opens access from the authenticated project li
 		</QueryClientProvider>
 	);
 
-	const manageAccessLink = await screen.findByRole("link", {
-		name: "Forest Quest manage permissions",
-	});
-	expect(manageAccessLink).toHaveAttribute(
-		"href",
-		`/projects/${projectId}/access`
+	fireEvent.click(await screen.findByRole("link", { name: "Details" }));
+	expect(await screen.findByRole("heading", { name: "Details" })).toBeVisible();
+	expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+	expect(await screen.findByLabelText("General art direction")).toHaveValue(
+		"Soft light."
 	);
-	fireEvent.click(manageAccessLink);
+	fireEvent.click(screen.getByRole("link", { name: "Back to Projects" }));
+	expect(
+		await screen.findByRole("heading", { name: "Projects" })
+	).toBeVisible();
+	await router.navigate({
+		to: "/projects/$projectId/access",
+		params: { projectId },
+	});
 
 	await waitFor(() =>
 		expect(router.state.location.pathname).toBe(`/projects/${projectId}/access`)

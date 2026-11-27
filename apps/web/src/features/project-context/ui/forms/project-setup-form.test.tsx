@@ -22,9 +22,9 @@ test("submits the typed project name and general art direction", async () => {
 	const name = screen.getByLabelText("Project name");
 	const artDirection = screen.getByLabelText("Art direction");
 	expect(name).toBeRequired();
-	expect(name).toHaveAttribute("maxLength", "120");
-	expect(artDirection).toBeRequired();
-	expect(artDirection).toHaveAttribute("maxLength", "1000");
+	expect(name).toHaveAttribute("maxLength", "60");
+	expect(artDirection).not.toBeRequired();
+	expect(artDirection).toHaveAttribute("maxLength", "400");
 
 	fireEvent.click(screen.getByRole("button", { name: "Create project" }));
 	expect(onSubmit).not.toHaveBeenCalled();

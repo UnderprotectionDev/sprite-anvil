@@ -16,9 +16,10 @@ test("persists a Specialized Profile Contract activation through the web flow", 
 	await signUpWithFixture(page, fixture);
 	await createProjectFromProjectsView(page, fixture);
 	await page
-		.getByRole("link", {
-			name: `${fixture.projectName} manage Specialized Profile Contracts`,
-		})
+		.getByRole("link", { name: `${fixture.projectName} open project` })
+		.click();
+	await page
+		.getByRole("link", { name: "Profile Contracts", exact: true })
 		.click();
 
 	await expect(

@@ -43,6 +43,7 @@ export * from "./project";
 export * from "./project-access";
 export * from "./project-archives";
 export * from "./project-context";
+export * from "./project-deletion";
 export * from "./provider-generation-records";
 export * from "./readiness-plans";
 export * from "./reference-production";

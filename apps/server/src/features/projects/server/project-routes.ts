@@ -1,4 +1,12 @@
+import { createHash } from "node:crypto";
+import { ORPCError } from "@orpc/server";
+import type { ProjectRecord as ProjectAccessRecord } from "@sprite-anvil/api/project-access-store";
+import { projectRecordResponseSchema } from "@sprite-anvil/api/project-access-store";
+import type { ProjectContextCreateInput } from "@sprite-anvil/api/project-context";
+import { projectContextCreateInputSchema } from "@sprite-anvil/api/project-context";
 import type { Context, Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
+import sharp from "sharp";
 import z from "zod";
 import type {
 	CloudflareConfig,
@@ -37,6 +45,16 @@ export interface ProjectRecord {
 export interface ProjectRouteDependencies {
 	cloudflareConfig: () => CloudflareConfig;
 	createId?: () => string;
+	createPreviewStorage?: () => Pick<
+		ReturnType<typeof createStorage>,
+		"delete" | "get" | "put"
+	>;
+	createProjectWithLook?: (
+		ownerId: string,
+		input: ProjectContextCreateInput,
+		key: string,
+		requestId: string
+	) => Promise<ProjectAccessRecord>;
 	createQueue: (
 		config: CloudflareConfig
 	) => Pick<ReturnType<typeof createQueue>, "send">;
@@ -48,6 +66,11 @@ export interface ProjectRouteDependencies {
 		projectId: string
 	) => Promise<ProjectRecord | null>;
 	getSession: (headers: Headers) => Promise<ProjectSession | null>;
+	setPreviewKey?: (
+		ownerId: string,
+		projectId: string,
+		key: string
+	) => Promise<boolean>;
 }
 
 type ProjectAccess =
@@ -126,10 +149,137 @@ async function twoDVisualAssetPreviewResponse(
 	return c.body(object.body, 200, headers);
 }
 
+async function decodeProjectLook(c: Context): Promise<
+	| { png: Buffer }
+	| {
+			error: "Unsupported image type" | "Invalid project image";
+			status: 415 | 400;
+	  }
+> {
+	const contentType = c.req.header("content-type")?.split(";")[0];
+	if (!["image/png", "image/jpeg", "image/webp"].includes(contentType ?? "")) {
+		return { error: "Unsupported image type", status: 415 } as const;
+	}
+	try {
+		const decoder = sharp(await c.req.arrayBuffer(), {
+			limitInputPixels: 16_000_000,
+			failOn: "warning",
+		});
+		const metadata = await decoder.metadata();
+		if (!["png", "jpeg", "webp"].includes(metadata.format ?? "")) {
+			return { error: "Invalid project image", status: 400 } as const;
+		}
+		return { png: await decoder.autoOrient().png().toBuffer() } as const;
+	} catch {
+		return { error: "Invalid project image", status: 400 } as const;
+	}
+}
+
+async function removePreviousProjectLook(
+	storage: Pick<ReturnType<typeof createStorage>, "delete">,
+	access: Extract<ProjectAccess, { ok: true }>,
+	key: string
+) {
+	const oldKey = access.project.previewKey;
+	if (
+		isOwnedLegacyPreviewKey(oldKey, access.ownerUserId) &&
+		oldKey.startsWith(`users/${access.ownerUserId}/project-look-`) &&
+		oldKey !== key
+	) {
+		await storage.delete(oldKey).catch(() => undefined);
+	}
+}
+
+function readProjectMetadata(c: Context) {
+	try {
+		return projectContextCreateInputSchema.safeParse({
+			name: decodeURIComponent(c.req.header("X-Project-Name") ?? ""),
+			generalArtDirection: decodeURIComponent(
+				c.req.header("X-Project-Art-Direction") ?? ""
+			),
+		});
+	} catch {
+		return null;
+	}
+}
+
+async function createProjectWithLook(
+	c: Context,
+	dependencies: ProjectRouteDependencies
+) {
+	c.header("Cache-Control", "private, no-store");
+	const session = await dependencies.getSession(c.req.raw.headers);
+	if (!session?.user) {
+		return c.json({ error: "Unauthorized" }, 401);
+	}
+	if (!dependencies.createProjectWithLook) {
+		return c.json({ error: "Project preview upload unavailable" }, 503);
+	}
+	const metadata = readProjectMetadata(c);
+	if (!metadata?.success) {
+		return c.json({ error: "Invalid project metadata" }, 400);
+	}
+	const decoded = await decodeProjectLook(c);
+	if ("error" in decoded) {
+		return c.json(serializePublicApiError(decoded.error), decoded.status);
+	}
+	const requestId = z
+		.uuid()
+		.safeParse(c.req.header("X-Project-Id") ?? crypto.randomUUID());
+	if (!requestId.success) {
+		return c.json({ error: "Invalid project creation identity" }, 400);
+	}
+	const digest = createHash("sha256").update(decoded.png).digest("hex");
+	const key = legacyAssetKeySchema.parse(
+		`users/${session.user.id}/project-look-${requestId.data}-${digest}.png`
+	);
+
+	const storage =
+		dependencies.createPreviewStorage?.() ??
+		dependencies.createStorage(dependencies.cloudflareConfig());
+	try {
+		await storage.put(
+			key,
+			new Blob([new Uint8Array(decoded.png)]).stream(),
+			"image/png",
+			decoded.png.byteLength
+		);
+	} catch {
+		return c.json({ error: "Project look could not be saved" }, 503);
+	}
+	try {
+		const record = await dependencies.createProjectWithLook(
+			session.user.id,
+			metadata.data,
+			key,
+			requestId.data
+		);
+		return c.json(projectRecordResponseSchema.parse(record), 201);
+	} catch (error) {
+		if (error instanceof ORPCError && error.code === "CONFLICT") {
+			const existing = await dependencies
+				.getProjectForUser(session.user.id, requestId.data)
+				.catch(() => undefined);
+			if (existing !== undefined && existing?.previewKey !== key) {
+				await storage.delete(key).catch(() => undefined);
+			}
+			return c.json({ error: "A project with this name already exists." }, 409);
+		}
+		// Publication is ambiguous: do not delete bytes which a committed project may reference.
+		return c.json({ error: "Project creation outcome is unknown." }, 503);
+	}
+}
+
 export function mountProjectRoutes(
 	app: Hono,
 	dependencies: ProjectRouteDependencies
 ) {
+	app.post(
+		"/api/projects/with-look",
+		bodyLimit({ maxSize: 16 * 1024 * 1024 }),
+		(c) => createProjectWithLook(c, dependencies)
+	);
+
 	app.get("/api/projects/:projectId", async (c) => {
 		c.header("Cache-Control", "private, no-store");
 		const access = await resolveProjectAccess(
@@ -196,7 +346,7 @@ export function mountProjectRoutes(
 			);
 		}
 
-		const twoDVisualAssetId = (dependencies.createId ?? crypto.randomUUID)();
+		const twoDVisualAssetId = dependencies.createId?.() ?? crypto.randomUUID();
 		const acceptedResponse =
 			serializeTwoDVisualAssetAcceptedResponse(twoDVisualAssetId);
 		const key = createProjectTwoDVisualAssetKey(
@@ -256,6 +406,74 @@ export function mountProjectRoutes(
 		}
 	);
 
+	app.post(
+		"/api/projects/:projectId/preview",
+		bodyLimit({ maxSize: 16 * 1024 * 1024 }),
+		async (c) => {
+			c.header("Cache-Control", "private, no-store");
+			const access = await resolveProjectAccess(
+				c.req.raw.headers,
+				c.req.param("projectId"),
+				dependencies
+			);
+			if (!access.ok) {
+				return errorResponse(c, access);
+			}
+			if (!dependencies.setPreviewKey) {
+				return c.json(
+					serializePublicApiError("Project preview upload unavailable"),
+					503
+				);
+			}
+			const decoded = await decodeProjectLook(c);
+			if ("error" in decoded) {
+				return c.json(serializePublicApiError(decoded.error), decoded.status);
+			}
+			const { png } = decoded;
+			const key = legacyAssetKeySchema.parse(
+				`users/${access.ownerUserId}/project-look-${dependencies.createId?.() ?? crypto.randomUUID()}.png`
+			);
+			const storage =
+				dependencies.createPreviewStorage?.() ??
+				dependencies.createStorage(dependencies.cloudflareConfig());
+			try {
+				await storage.put(
+					key,
+					new Blob([new Uint8Array(png)]).stream(),
+					"image/png",
+					png.byteLength
+				);
+				if (
+					!(await dependencies.setPreviewKey(
+						access.ownerUserId,
+						access.project.id,
+						key
+					))
+				) {
+					await storage.delete(key);
+					return c.json(serializePublicApiError("Not found"), 404);
+				}
+			} catch {
+				// A database response can be ambiguous; re-read before removing a stored object.
+				const current = await dependencies
+					.getProjectForUser(access.ownerUserId, access.project.id)
+					.catch(() => undefined);
+				if (current?.previewKey === key) {
+					return c.json({ saved: true });
+				}
+				if (current !== undefined) {
+					await storage.delete(key).catch(() => undefined);
+				}
+				return c.json(
+					serializePublicApiError("Project look could not be saved"),
+					503
+				);
+			}
+			await removePreviousProjectLook(storage, access, key);
+			return c.json({ saved: true });
+		}
+	);
+
 	app.get("/api/projects/:projectId/preview", async (c) => {
 		c.header("Cache-Control", "private, no-store");
 		const access = await resolveProjectAccess(
@@ -272,9 +490,10 @@ export function mountProjectRoutes(
 			return c.json(serializePublicApiError("Not found"), 404);
 		}
 
-		const object = await dependencies
-			.createStorage(dependencies.cloudflareConfig())
-			.get(access.project.previewKey);
+		const storage =
+			dependencies.createPreviewStorage?.() ??
+			dependencies.createStorage(dependencies.cloudflareConfig());
+		const object = await storage.get(access.project.previewKey);
 		return twoDVisualAssetPreviewResponse(c, object);
 	});
 }
