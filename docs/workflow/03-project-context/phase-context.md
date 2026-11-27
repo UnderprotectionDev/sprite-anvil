@@ -20,6 +20,10 @@ Sistem önerinin dayandığı Bağlam Sürümünü güncel sürümle karşılaş
 
 Palet, kontur ve benzeri kurallar sürümlü Stil Modüllerinde gruplanabilir. Başka projeye kopyalanan modül orada bağımsız Bağlam Önerisi olarak incelenir; kaynak projeyle canlı eşitlenmez. Bağlam Kuralı ve Bağlam Ajanı sözleşmelerinin tam sürümü korunur; bilinmeyen zorunlu alan veya ana sürüm etkinleştirmeyi durdurur. Göç eski sürümü yazmaz ve yeni sürüm kullanıcı etkinleştirmeden üretime girmez.
 
+### Kuralları Varlık Sürümlerinde Denetleme
+
+Etkin Bağlam Sürümü’nün ölçülebilir kuralları denetlenen Varlık Sürümlerine uygulanır; kullanıcı sonuç gruplarını inceler ve isterse Renk Birleştirme ile yeni Aday Sürüm oluşturur. Denetim inceleme veya kalite kararı üretmez.
+
 ## Tamamlanma Ölçütleri
 
 - Kullanıcı onayıyla oluşan etkin sürüm, çakışmasız kural zincirini ve üretime alınacak bağlam kopyasını aynı anlamla verir.

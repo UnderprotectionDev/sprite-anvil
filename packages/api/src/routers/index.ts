@@ -44,6 +44,7 @@ import { backgroundLayerLayoutsRouter } from "./background-layer-layouts";
 import { backgroundOperationsRouter } from "./background-operations";
 import { backgroundScrollingTestsRouter } from "./background-scrolling-tests";
 import { collectionsRouter } from "./collections";
+import { contextRuleChecksRouter } from "./context-rule-checks";
 import { deliveryFulfilmentRouter } from "./delivery-fulfilment";
 import { deliveryPlanningRouter } from "./delivery-planning";
 import { deliveryRefreshLocksRouter } from "./delivery-refresh-locks";
@@ -269,6 +270,7 @@ const featureRouters = {
 	assetRecords: assetRecordsRouter,
 	backgroundOperations: backgroundOperationsRouter,
 	collections: collectionsRouter,
+	contextRuleChecks: contextRuleChecksRouter,
 	animationMetadataPackage: animationMetadataPackageRouter,
 	generationPackages: generationPackagesRouter,
 	productionExperiments: productionExperimentsRouter,

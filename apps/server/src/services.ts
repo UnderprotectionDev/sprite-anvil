@@ -26,6 +26,7 @@ import { createBackgroundScrollingTestStore } from "./features/background-parall
 import { createAnimationTimingReviewStore } from "./features/character-animation-profile/server/animation-timing-review-store";
 import { createDirectionalReviewStore } from "./features/character-animation-profile/server/directional-review-store";
 import { createCollectionStore } from "./features/collections/server/collection-store";
+import { createContextRuleCheckStore } from "./features/context-rule-checks/server/context-rule-check-store";
 import { createDatabaseDeliveryFulfilmentStorage } from "./features/delivery-fulfilment/server/database-delivery-fulfilment-storage";
 import { createDatabaseFulfilmentMappingStorage } from "./features/delivery-fulfilment/server/database-fulfilment-mapping-storage";
 import { createDeliveryFulfilmentStore } from "./features/delivery-fulfilment/server/delivery-fulfilment-store";
@@ -368,6 +369,13 @@ export const deliveryRefreshLockStore = createDeliveryRefreshLockStore(db, {
 });
 export const managedSnapshotStore = createManagedSnapshotStore(db);
 export const projectContextScopeStore = createProjectContextScopeStore(db);
+export const contextRuleCheckStore = createContextRuleCheckStore(db, {
+	assetVersionStore,
+	createStorage: createServerAssetVersionStorage,
+	familyReadinessStore,
+	projectContextScopeStore,
+	projectContextStore,
+});
 export const specializedProfileContractStore =
 	createSpecializedProfileContractStore(db);
 export const projectAccess = createProjectAccessStore(

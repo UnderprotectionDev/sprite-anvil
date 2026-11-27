@@ -23,6 +23,8 @@ English terms are the canonical technical names used in code and contracts, and 
 | Style Module | Stil Modülü |
 | Active Context Revision | Etkin Bağlam Sürümü |
 | Context Override | Bağlam Kuralı İstisnası |
+| Context Rule Check | Bağlam Kuralı Denetimi |
+| Colour Merge | Renk Birleştirme |
 | Production Context Snapshot | Üretim Bağlamı Kopyası |
 | Asset Record | Varlık Kaydı |
 | Asset Category | Varlık Kategorisi |
@@ -200,6 +202,14 @@ _Avoid_: Latest file edit, context proposal
 **Context Override**:
 An explicit, traceable decision for a more specific scope to replace an inherited rule. Specificity follows operation, asset, asset family, theme, visual world, then project; contradictions within one scope remain unresolved conflicts.
 _Avoid_: Silent precedence, last write wins
+
+**Context Rule Check**:
+A deterministic, reproducible measurement of one exact Asset Version against the measurable Context Rules of one Context Revision. It reports the observed value, the limit, and a result group. It is evidence for the user and changes no Review Disposition, Applicability Status, or QA Readiness.
+_Avoid_: Revalidation, artistic verdict, QA result
+
+**Colour Merge**:
+A user-confirmed replacement of exact source colours with exact target colours in one Asset Version, which creates a new Candidate Version and leaves the source version unchanged.
+_Avoid_: Auto-fix, palette overwrite, quantisation
 
 **Production Context Snapshot**:
 The immutable subset of an active Context Revision, reference roles, and current instructions used to produce a candidate version.

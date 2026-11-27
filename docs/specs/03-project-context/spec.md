@@ -25,6 +25,8 @@ Tamamlanma kanıtı: Kullanıcı onayıyla oluşan etkin sürüm, çakışmasız
 9. Bir kullanıcı olarak geçersiz yapı, çözülmemiş kapsam veya referans çatışmasında etkinleştirmenin engellenmesini istiyorum; böylece doğrulanmamış set yetkili olmaz.
 10. Bir kullanıcı olarak öneriyi inceleyip açıkça etkinleştirerek yeni Bağlam Sürümü oluşturmak istiyorum; böylece üretim yalnız benim kesinleştirdiğim kuralları tüketir.
 11. Bir kullanıcı olarak üretim anında etkin Bağlam Sürümünün kullanılan kısmını Üretim Bağlamı Kopyasında sabitlemek istiyorum; böylece sonradan yapılan bağlam değişikliği geçmiş üretim girdisini değiştirmez.
+12. Bir kullanıcı olarak etkin kuralın hangi varlıklarda karşılanmadığını ölçülen değerle görmek istiyorum; böylece kural değişikliğinin etkisini inceleyebilirim.
+13. Bir kullanıcı olarak Renk Birleştirme sonucunu uygulamadan önce görmek ve yalnız onayımla yeni Aday Sürüm oluşturmak istiyorum; böylece kaynak sürüm ve sanat kararı bende kalır.
 
 ## Normatif gereksinimler
 
@@ -32,6 +34,7 @@ Tamamlanma kanıtı: Kullanıcı onayıyla oluşan etkin sürüm, çakışmasız
 - **CTX-02 — Bağlam önerisi:** Bağlam Ajanı, kullanıcı kararlarını ve gözlenen değişiklikleri sürümlü sözleşmeye uygun Bağlam Önerisi’ne dönüştürür. Öneri, dayandığı Bağlam Sürümü’nü, ajan/model bilgisini, önerilen kuralları ve doğrulama sonucunu kaydeder.
 - **CTX-03 — Etkinleştirme kapısı:** Kullanıcı inceleyip etkinleştirmedikçe öneri bağlamın parçası olmaz; ajan kendi önerisini etkinleştiremez. Veri yapısı hatası, çakışan kapsam veya çözülmemiş referans çatışması etkinleştirmeyi engeller.
 - **AUT-01 — Hazırlık ve kesinleştirme:** Hazırlık; kanıt, öneri veya taslak üretir. Kesinleştirme ise ürünün geçerli kaydını değiştirir.
+- **CTX-04 — Bağlam Kuralı Denetimi ve Renk Birleştirme:** Normatif metin [PRD 4.1](../../prd/03-project-and-asset-foundations.md) içindedir.
 
 
 ## Implementation Decisions
@@ -46,7 +49,13 @@ Tamamlanma kanıtı: Kullanıcı onayıyla oluşan etkin sürüm, çakışmasız
 - **Yetki ve sürüm sınırı:** Aşağıdaki PRD hükümleri normatiftir. Fazın iş kırılımı, başka bir özelliğin kararını bu kapsama eklemez. Kesin kullanıcı kararları ajan veya otomasyon tarafından verilmez.
 - **Kapsam sınırı:** Ajan öneriyi etkinleştiremez; ham context.md metni kullanıcıya yetkili kural düzenleme yolu olarak açılmaz.
 
+- **Kural denetimi (`CTX-04`):** `palette.max_colors` sayı türünde yapılandırılmış kural olarak eklenir; `outline.width` mevcut kuraldır. Ölçüm sunucuda mevcut `sharp` çözümlemesiyle yapılır. Sonuç, Asset Version içerik özeti ve ölçüm sürümüne bağlı olarak saklanır; yeni tablo yalnız genişletici migration ile eklenir. Sonuç grubu saklanmaz, okuma anında Etkin Bağlam Sürümü ve güncel durumlarla hesaplanır.
+- **Renk Birleştirme:** Yeni sürüm mevcut Asset Version depolama ve yayımlama yolundan `derived` kaynak türüyle oluşur; tekrar gönderilen istek ikinci sürüm üretmez.
+- **Görünüm:** Kural seçimi, `Any`/`All` eşleşmesi, sıralama ve seçili kayıt URL durumudur; ürün kaydını değiştirmez. Desteklenmeyen kural için sayı veya sonuç uydurulmaz.
+
 ## Testing Decisions
+
+- **Kural denetimi seam’i (`CTX-04`):** Saf ölçüm testi bilinen piksel dizilerinde renk sayısını, saydamlığı, kontur genişliğini, eşitlik kurallarını ve birleştirme sırasını sınar. Sunucu/API testi sahip olmayan kullanıcıyı, okunamayan içeriği, kapsam önceliğini, sürüm seçimini, dört sonuç grubunu, yeniden okumayı, tekrar eden isteği ve kaynak sürümün değişmediğini sınar. Görünüm ve Playwright testi gerçek kayıtlarla filtreyi, seçimi, önizlemeyi ve onaylanmadan sürüm oluşmadığını sınar.
 
 - **Project oluşturma ve ayrıntılar seam’i:** `projects-view.test.tsx` ve `projects-navigation.spec.ts` ayrı Details route’unu, kaydetme, mevcut ad kontrolü, görsel seçimi ile yaklaşım kopyalamanın ayrılığını, taslağın korunmasını ve dar/geniş pencerede taşma olmadığını sınar. `project-routes.test.ts` özel kapak yüklemesinde yetkisiz isteği, geçersiz dosyayı ve gerçek görüntü verisini doğrular; kalıcı kapak ve üstveri sayfa yenilenerek yeniden okunur. Kapaklı oluşturma, geçersiz dosyada proje oluşturulmaması ve eşzamanlı aynı adlı oluşturma/değiştirme girişimleri ayrı sunucu ve disposable PostgreSQL seam’inde doğrulanır.
 
@@ -76,6 +85,7 @@ Ajan öneriyi etkinleştiremez; ham context.md metni kullanıcıya yetkili kural
 - [`CTX-02`](../../prd/03-project-and-asset-foundations.md) — Bağlam önerisi.
 - [`CTX-03`](../../prd/03-project-and-asset-foundations.md) — Etkinleştirme kapısı.
 - [`AUT-01`](../../prd/03-project-and-asset-foundations.md) — Hazırlık ve kesinleştirme.
+- [`CTX-04`](../../prd/03-project-and-asset-foundations.md) — Bağlam Kuralı Denetimi ve Renk Birleştirme.
 
 **İlgili mimari sınırlar**
 

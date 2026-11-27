@@ -14,6 +14,7 @@ import type {
 } from "./background-operations";
 import type { BackgroundScrollingTestStore } from "./background-scrolling-tests";
 import type { CollectionStore } from "./collections";
+import type { ContextRuleCheckStore } from "./context-rule-checks";
 import type { ProjectContextScopeStore } from "./context-scopes";
 import type { FulfilmentMappingStore } from "./delivery-fulfilment";
 import type { DeliveryFulfilmentStore } from "./delivery-fulfilment-records";
@@ -122,6 +123,7 @@ export interface Context {
 		direction: "north" | "east" | "south" | "west"
 	) => Promise<import("./tileset-adjacency-reviews").TilesetSeamResult | null>;
 	collectionStore: CollectionStore;
+	contextRuleCheckStore?: ContextRuleCheckStore;
 	createSourceMetadataMappingProposal?: SourceMetadataMappingProposalCreator;
 	db: Database;
 	deletionReceiptStore?: DeletionReceiptStore;

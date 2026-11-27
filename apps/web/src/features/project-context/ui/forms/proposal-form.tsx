@@ -41,6 +41,7 @@ const structuredRuleLabels: Record<StructuredContextRuleId, string> = {
 	perspective: "Perspective",
 	"camera.approach": "Camera approach",
 	palette: "Palette",
+	"palette.max_colors": "Max colours",
 	outline: "Outline",
 	"outline.width": "Outline width",
 	shading: "Shading",

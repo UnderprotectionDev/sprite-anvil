@@ -8,6 +8,7 @@
 | --- | --- |
 | `CTX-01`–`CTX-03`, `AUT-01`, `IMP-01`–`IMP-03` | [Bölüm 8.1](10-acceptance-scenarios.md#81-tüm-profiller-için-ortak-senaryo-akışı) ortak akış; RAS-01–RAS-08 |
 | `AST-01`–`AST-05`, `AST-07`, `QLT-01`–`QLT-03` | RAS-01–RAS-08; YAS-01 |
+| `CTX-04` | `docs/specs/03-project-context` Testing Decisions; aynı sürüm dosyalarında web/masaüstü sonuç eşitliği |
 | `AST-06`, `VER-01` | [Bölüm 8.1](10-acceptance-scenarios.md#81-tüm-profiller-için-ortak-senaryo-akışı) adım 5; RAS-01 |
 | `DIM-01`–`DIM-03` | RAS-01, RAS-03, RAS-05 ve RAS-08 |
 | `IMP-04` | YAS-02; hedefli içe aktarma için [Bölüm 8.1](10-acceptance-scenarios.md#81-tüm-profiller-için-ortak-senaryo-akışı) adım 3 |

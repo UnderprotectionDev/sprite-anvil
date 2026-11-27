@@ -12,6 +12,24 @@ Yeni proje için ad ve genel sanat yaklaşımı yeterlidir; ayrıntılar ihtiya�
 
 Palet, kontur ve benzeri kurallar sürümlü Stil Modülleri’nde gruplanabilir; bunlar Proje Bağlamı’nın parçasıdır ve başka projeye kopyalandığında kaynakla otomatik eşitlenmez. Üretim Bağlamı Kopyası, etkin sürümden yalnızca işlem için gereken kuralları alır ve Üretim Paketi ile Aday Sürüm geçmişinde değişmez olarak saklanır.
 
+**CTX-04 — Bağlam Kuralı Denetimi ve Renk Birleştirme.** Sistem, Etkin Bağlam Sürümü’ndeki ölçülebilir kuralları Varlık Sürümlerinin kesin piksel içeriğine uygular. Aynı sürüm dosyası, aynı kural değeri ve aynı ölçüm sürümü her yüzeyde aynı sonucu verir. İlk sürümde ölçülebilir kurallar şunlardır:
+
+- **En çok renk (`palette.max_colors`):** Tam saydam olmayan piksellerdeki farklı RGBA değerlerinin sayısı sınırı aşamaz.
+- **Kontur genişliği (`outline.width`):** Saydam piksele veya görsel kenarına dört yönden komşu pikseller sınır pikselidir. Sınır piksellerinde en sık görülen renk kontur rengidir. Her kontur renkli sınır pikselinden içeri doğru kesintisiz aynı renk sayılır; en sık görülen uzunluk ölçülen genişliktir, eşitlikte büyük olan alınır. Ölçülen genişlik kural değerinden farklıysa kural karşılanmamıştır.
+
+Her Varlık Kaydının denetlenen sürümü son Onaylı sürümüdür; yoksa son Aday Sürümüdür. Etkin olmayan veya görsel sürümü bulunmayan kayıt denetlenmez. Kapsam önceliği ve istisnalar `CTX-03` ile aynıdır. Her kayıt tam olarak bir sonuç grubuna girer; sıra şöyledir:
+
+| Sonuç grubu | Koşul |
+| --- | --- |
+| `Passing` | Seçili bütün kurallar karşılanır. |
+| `Blocked` | En az bir kural karşılanmaz ve sürümün Kalite Kontrol Durumu Engel Var’dır. |
+| `Needs a look` | En az bir kural karşılanmaz ve sorun kontur genişliğidir veya önerilen Renk Birleştirme sınır piksellerini değiştirir. |
+| `Safe to merge` | Yalnız renk sayısı aşılmıştır ve önerilen Renk Birleştirme sınır piksellerini değiştirmez. |
+
+Okunamayan sürüm içeriği ölçülmez, hiçbir gruba sayılmaz ve ayrıca gösterilir. Denetim bir Kalite Uyarısıdır (`QLT-01`); tek başına İnceleme Kararı, Bağlama Uygunluk Durumu veya Kalite Kontrol Durumu üretmez. Yeniden denetleme yalnız ölçümü tekrarlar ve `AST-07` yeniden inceleme kararının yerini tutmaz.
+
+**Renk Birleştirme** yalnız en çok renk kuralı için önerilir. En az pikselde kullanılan renk, OKLab uzaklığı en küçük olan kalan renge eşlenir; bu adım sınır sağlanana kadar tekrarlanır. Eşitlikte RGBA değeri küçük olan renk seçilir. Kullanıcı her adımın hedef rengini mevcut renklerden değiştirebilir ve uygulamadan önce sonucu, kalan renk sayısını ve sınır piksellerine etkiyi görür. Yalnız kullanıcı onayı yeni bir Aday Sürüm oluşturur (`VER-01`, `AUT-01`); kaynak sürüm değişmez. Yeni sürüm kaynak sürümü, Bağlam Sürümü’nü ve renk eşlemesini üretim geçmişinde saklar. Aynı kaynak–hedef renk çifti bulunan diğer kayıtlar listelenebilir; kullanıcı seçtiklerine tek onayla uygulayabilir ve her kayıt ayrı Aday Sürüm alır.
+
 ### 4.2 Görsel Dünya, Tema ve ölçüler
 
 **DIM-01 — Görsel Dünya kapsamı.** Bir projede, her biri kendi görsel kurallarına sahip birden fazla Görsel Dünya bulunabilir. Örneğin oyun içi piksel sanatı, resimli portreler, arayüz ve tanıtım görselleri ayrı Görsel Dünyalar olabilir. Her Görsel Dünya içinde birden fazla Tema bulunabilir.
