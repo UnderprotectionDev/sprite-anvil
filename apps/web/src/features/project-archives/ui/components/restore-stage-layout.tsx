@@ -1,8 +1,8 @@
 import { cn } from "@sprite-anvil/ui/lib/utils";
 import { Check, CircleDashed, LoaderCircle, X } from "lucide-react";
 import type { ReactNode } from "react";
-import type { ProjectCoverRecord } from "@/components/project-cover";
 import { ProjectCover } from "@/components/project-cover";
+import type { ProjectCoverRecord } from "@/utils/project-cover";
 
 export type RestoreStageStatus =
 	| "Current"

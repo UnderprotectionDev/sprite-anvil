@@ -26,29 +26,8 @@ import { WorkbenchSearch } from "./workbench-search";
 
 export default function Header() {
 	const { data: session } = authClient.useSession();
-	const matchRoute = useMatchRoute();
-	const params = useParams({ strict: false });
-	const search = useSearch({ strict: false });
-	const routeId = useMatches({ select: (matches) => matches.at(-1)?.routeId });
-	const onDetails = routeId === "/_auth/projects_/$projectId/details";
-	const archiveTask =
-		routeId === "/_auth/projects_/$projectId/project-archives" &&
-		"task" in search &&
-		Boolean(search.task);
-	const paperWorkspace =
-		onDetails ||
-		archiveTask ||
-		routeId === "/_auth/projects" ||
-		routeId === "/_auth/project-archives" ||
-		routeId === "/_auth/account-settings";
-	const paperNavClass = paperWorkspace
-		? "rounded-[4px] px-2 font-medium"
-		: undefined;
-	const projectId =
-		onDetails || archiveTask
-			? undefined
-			: (params.projectId ??
-				("projectId" in search ? search.projectId : undefined));
+	const { onDetails, archiveTask, paperWorkspace, projectId, routeId } =
+		useWorkspaceNavigation();
 	if (!session) {
 		return null;
 	}
@@ -72,37 +51,11 @@ export default function Header() {
 				<p className="text-label text-workbench-faint-text px-2 font-mono tracking-widest uppercase">
 					Workspace
 				</p>
-				<SidebarMenu>
-					<SidebarMenuItem>
-						<SidebarMenuButton
-							className={paperNavClass}
-							isActive={onDetails || routeId === "/_auth/projects"}
-							render={<Link activeOptions={{ exact: true }} to="/projects" />}
-						>
-							<LayoutGrid className="text-workbench-action" />{" "}
-							<span className="grow">Projects</span>
-							{paperWorkspace ? <ProjectCount /> : null}
-						</SidebarMenuButton>
-					</SidebarMenuItem>
-					<SidebarMenuItem>
-						<SidebarMenuButton
-							className={paperNavClass}
-							isActive={
-								archiveTask || Boolean(matchRoute({ to: "/project-archives" }))
-							}
-							render={<Link to="/project-archives" />}
-						>
-							<Archive className="text-workbench-review" /> Project Archive
-						</SidebarMenuButton>
-					</SidebarMenuItem>
-					{paperWorkspace ? null : (
-						<SidebarMenuItem>
-							<SidebarMenuButton render={<Link to="/measurements" />}>
-								<ChartNoAxesCombined /> Measurements
-							</SidebarMenuButton>
-						</SidebarMenuItem>
-					)}
-				</SidebarMenu>
+				<WorkspaceMenu
+					archiveTask={archiveTask}
+					paperWorkspace={paperWorkspace}
+					projectsActive={onDetails || routeId === "/_auth/projects"}
+				/>
 			</SidebarHeader>
 			<SidebarContent>
 				{projectId ? (
@@ -134,6 +87,78 @@ export default function Header() {
 				</div>
 			</SidebarFooter>
 		</Sidebar>
+	);
+}
+
+function useWorkspaceNavigation() {
+	const params = useParams({ strict: false });
+	const search = useSearch({ strict: false });
+	const routeId = useMatches({ select: (matches) => matches.at(-1)?.routeId });
+	const onDetails = routeId === "/_auth/projects_/$projectId/details";
+	const archiveTask =
+		routeId === "/_auth/projects_/$projectId/project-archives" &&
+		"task" in search &&
+		Boolean(search.task);
+	const paperWorkspace =
+		onDetails ||
+		archiveTask ||
+		routeId === "/_auth/projects" ||
+		routeId === "/_auth/project-archives" ||
+		routeId === "/_auth/account-settings";
+	const projectId =
+		onDetails || archiveTask
+			? undefined
+			: (params.projectId ??
+				("projectId" in search ? search.projectId : undefined));
+	return { onDetails, archiveTask, paperWorkspace, projectId, routeId };
+}
+
+function WorkspaceMenu({
+	archiveTask,
+	paperWorkspace,
+	projectsActive,
+}: {
+	archiveTask: boolean;
+	paperWorkspace: boolean;
+	projectsActive: boolean;
+}) {
+	const matchRoute = useMatchRoute();
+	const paperNavClass = paperWorkspace
+		? "rounded-[4px] px-2 font-medium"
+		: undefined;
+	return (
+		<SidebarMenu>
+			<SidebarMenuItem>
+				<SidebarMenuButton
+					aria-label="Projects"
+					className={paperNavClass}
+					isActive={projectsActive}
+					render={<Link activeOptions={{ exact: true }} to="/projects" />}
+				>
+					<LayoutGrid className="text-workbench-action" />{" "}
+					<span className="grow">Projects</span>
+					{paperWorkspace ? <ProjectCount /> : null}
+				</SidebarMenuButton>
+			</SidebarMenuItem>
+			<SidebarMenuItem>
+				<SidebarMenuButton
+					className={paperNavClass}
+					isActive={
+						archiveTask || Boolean(matchRoute({ to: "/project-archives" }))
+					}
+					render={<Link to="/project-archives" />}
+				>
+					<Archive className="text-workbench-review" /> Project Archive
+				</SidebarMenuButton>
+			</SidebarMenuItem>
+			{paperWorkspace ? null : (
+				<SidebarMenuItem>
+					<SidebarMenuButton render={<Link to="/measurements" />}>
+						<ChartNoAxesCombined /> Measurements
+					</SidebarMenuButton>
+				</SidebarMenuItem>
+			)}
+		</SidebarMenu>
 	);
 }
 

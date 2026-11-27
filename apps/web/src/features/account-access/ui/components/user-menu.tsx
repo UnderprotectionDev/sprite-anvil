@@ -48,6 +48,8 @@ export default function UserMenu() {
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger
+				aria-description="Signed in · Email"
+				aria-label={session.user.name}
 				render={
 					<Button
 						className="h-auto min-w-0 flex-1 justify-start gap-2 px-2 py-2"

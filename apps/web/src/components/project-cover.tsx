@@ -1,22 +1,9 @@
 import { cn } from "@sprite-anvil/ui/lib/utils";
 import { ImageIcon } from "lucide-react";
 import { useState } from "react";
-import { projectApiUrl } from "@/utils/hono-api";
+import type { ProjectCoverRecord } from "@/utils/project-cover";
+import { projectCoverUrl } from "@/utils/project-cover";
 
-export interface ProjectCoverRecord {
-	hasPreview?: boolean;
-	id: string;
-	name: string;
-	previewAssetVersionId?: string | null;
-}
-export function projectCoverUrl(project: ProjectCoverRecord) {
-	if (project.hasPreview) {
-		return `${projectApiUrl(project.id)}/preview`;
-	}
-	return project.previewAssetVersionId
-		? `${projectApiUrl(project.id)}/asset-versions/${encodeURIComponent(project.previewAssetVersionId)}/preview`
-		: undefined;
-}
 export function ProjectCover({
 	project,
 	className = "",

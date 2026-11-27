@@ -1,7 +1,8 @@
 import type { BackgroundOperation } from "@sprite-anvil/api/background-operations";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRef } from "react";
 import { isWriteOutcomeUncertain } from "@/utils/error-notification";
+import { orpc } from "@/utils/orpc";
 import type { ArchiveImportAttempt } from "../lib/upload-project-archive";
 import { uploadProjectArchive } from "../lib/upload-project-archive";
 
@@ -13,11 +14,19 @@ export function useArchiveImport(
 	projectId: string,
 	onAccepted?: (operation: BackgroundOperation) => void
 ) {
+	const queryClient = useQueryClient();
 	const pending = useRef<ArchiveImportAttempt | null>(null);
 	const upload = useMutation({
 		mutationFn: uploadProjectArchive,
 		meta: { errorPresentation: "inline" },
-		onSuccess: onAccepted,
+		onSuccess: (operation) => {
+			void queryClient.invalidateQueries({
+				queryKey: orpc.backgroundOperations.list.queryOptions({
+					input: { projectId },
+				}).queryKey,
+			});
+			onAccepted?.(operation);
+		},
 	});
 	const uncertain = isWriteOutcomeUncertain(upload.error);
 	const locked = upload.isPending || uncertain || upload.isSuccess;

@@ -105,31 +105,13 @@ function useWorkspaceTitle() {
 }
 
 function RootComponent() {
-	const { data: session, error, isPending } = authClient.useSession();
-	const router = useRouter();
+	const { session, client, routeUserId, routeSessionId, sessionChanged } =
+		useWorkspaceSession();
 	const isLogin = useMatches({
 		select: (matches) => matches.some((match) => match.routeId === "/login"),
 	});
 	const workspaceTitle = useWorkspaceTitle();
 	const isWorkspace = Boolean(workspaceTitle);
-	const authContext = useAuthRouteContext();
-	const publicClient = useQueryClient();
-	const client = authContext?.queryClient ?? publicClient;
-	const routeUserId = authContext?.session?.user.id;
-	const routeSessionId = authContext?.session?.session.id;
-	const sessionChanged =
-		Boolean(routeUserId) &&
-		!(isPending || error) &&
-		(session?.user.id !== routeUserId ||
-			session?.session.id !== routeSessionId);
-
-	// Better Auth refreshes its session in response to sign-out in other tabs.
-	useEffect(() => {
-		if (sessionChanged) {
-			resetSessionQueryClient();
-			void router.invalidate();
-		}
-	}, [router, sessionChanged]);
 
 	return (
 		<QueryClientProvider client={client}>
@@ -188,6 +170,31 @@ function RootComponent() {
 			) : null}
 		</QueryClientProvider>
 	);
+}
+
+function useWorkspaceSession() {
+	const { data: session, error, isPending } = authClient.useSession();
+	const router = useRouter();
+	const authContext = useAuthRouteContext();
+	const publicClient = useQueryClient();
+	const client = authContext?.queryClient ?? publicClient;
+	const routeUserId = authContext?.session?.user.id;
+	const routeSessionId = authContext?.session?.session.id;
+	const sessionChanged =
+		Boolean(routeUserId) &&
+		!(isPending || error) &&
+		(session?.user.id !== routeUserId ||
+			session?.session.id !== routeSessionId);
+
+	// Better Auth refreshes its session in response to sign-out in other tabs.
+	useEffect(() => {
+		if (sessionChanged) {
+			resetSessionQueryClient();
+			void router.invalidate();
+		}
+	}, [router, sessionChanged]);
+
+	return { session, client, routeUserId, routeSessionId, sessionChanged };
 }
 
 function RootHeader({

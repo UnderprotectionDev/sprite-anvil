@@ -281,16 +281,7 @@ function ActiveArchiveCard({
 		mutationFn: () => downloadProjectArchive(item.projectId, item.id),
 		meta: { errorPresentation: "inline" },
 	});
-	const files = details?.manifest.files ?? [];
 	const size = archiveBytes(details) ?? 0;
-
-	const working = files.some(
-		(file) => file.kind === "working_file" && file.presence === "included"
-	);
-	const runtimeExcluded = files.some(
-		(file) =>
-			file.kind === "runtime_evidence_file" && file.presence === "excluded"
-	);
 	return (
 		<li
 			className="bg-workbench-background ring-workbench-selection/55 flex min-h-[420px] min-w-0 flex-1 flex-col gap-0 rounded-[4px] p-2 ring-1 ring-inset lg:min-h-0 lg:min-w-[min(624px,70vw)]"
@@ -316,26 +307,7 @@ function ActiveArchiveCard({
 				</div>
 				<div className="flex flex-wrap items-end gap-6">
 					<div className="flex grow flex-col gap-2">
-						{details ? (
-							<>
-								<p className="text-workbench-muted-text flex items-center gap-2 text-[14px]">
-									{working ? (
-										<Check className="text-workbench-success size-4" />
-									) : (
-										<Minus className="text-workbench-muted-text size-4" />
-									)}
-									{working
-										? "Working files included"
-										: "Working files not included"}
-								</p>
-								<p className="text-workbench-muted-text flex items-center gap-2 text-[14px]">
-									<Minus className="text-workbench-warning size-4" />
-									{runtimeExcluded
-										? "Large runtime evidence left out"
-										: "No excluded runtime evidence"}
-								</p>
-							</>
-						) : null}
+						<ArchiveFileCoverage details={details} />
 						<div className="mt-2 flex flex-wrap gap-2">
 							<Link
 								className={buttonVariants({ variant: "default" })}
@@ -375,5 +347,38 @@ function ActiveArchiveCard({
 				) : null}
 			</div>
 		</li>
+	);
+}
+
+function ArchiveFileCoverage({ details }: { details?: ProjectArchive }) {
+	if (!details) {
+		return null;
+	}
+	const files = details?.manifest.files ?? [];
+
+	const working = files.some(
+		(file) => file.kind === "working_file" && file.presence === "included"
+	);
+	const runtimeExcluded = files.some(
+		(file) =>
+			file.kind === "runtime_evidence_file" && file.presence === "excluded"
+	);
+	return (
+		<>
+			<p className="text-workbench-muted-text flex items-center gap-2 text-[14px]">
+				{working ? (
+					<Check className="text-workbench-success size-4" />
+				) : (
+					<Minus className="text-workbench-muted-text size-4" />
+				)}
+				{working ? "Working files included" : "Working files not included"}
+			</p>
+			<p className="text-workbench-muted-text flex items-center gap-2 text-[14px]">
+				<Minus className="text-workbench-warning size-4" />
+				{runtimeExcluded
+					? "Large runtime evidence left out"
+					: "No excluded runtime evidence"}
+			</p>
+		</>
 	);
 }

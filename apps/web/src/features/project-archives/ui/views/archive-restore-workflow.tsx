@@ -22,9 +22,9 @@ import {
 	Upload,
 } from "lucide-react";
 import { useState } from "react";
-import type { ProjectCoverRecord } from "@/components/project-cover";
 import { ProjectCover } from "@/components/project-cover";
 import { orpc } from "@/utils/orpc";
+import type { ProjectCoverRecord } from "@/utils/project-cover";
 import {
 	archiveDate,
 	archiveStats,
@@ -185,20 +185,15 @@ function RestoreProgress({
 		task === "upload"
 			? { id: projectId, name: "Portable Project Archive" }
 			: cover;
-	const completed =
-		operation?.status === "completed" && Boolean(verifiedRestore);
 	const missingResult = operation?.status === "completed" && !verifiedRestore;
-	const failed = operation?.status === "failed";
 	const cancelled = operation?.status === "cancelled";
-	const stopped = failed || cancelled;
-	let status: RestoreStageStatus = "Current";
-	if (failed || missingResult || listError) {
-		status = "Failed";
-	}
-	if (cancelled) {
-		status = "Cancelled";
-	}
-	if (completed && verifiedRestore) {
+	const verificationUnavailable = missingResult || listError;
+	const status = restoreProgressStatus(
+		operation?.status,
+		verificationUnavailable
+	);
+	const stopped = status !== "Current";
+	if (operation?.status === "completed" && verifiedRestore) {
 		return (
 			<RestoreStageLayout
 				active={2}
@@ -217,20 +212,16 @@ function RestoreProgress({
 		<RestoreStageLayout
 			active={1}
 			cover={sourceCover}
-			statuses={[
-				"Done",
-				status,
-				stopped || listError || missingResult ? "Not run" : "Waiting",
-			]}
+			statuses={["Done", status, stopped ? "Not run" : "Waiting"]}
 		>
-			{stopped || missingResult || listError ? (
+			{stopped ? (
 				<RestoreFailure
 					cancelled={cancelled}
 					onRestart={onRestart}
 					operation={operation}
 					operationId={operationId}
 					projectId={projectId}
-					verificationUnavailable={missingResult || listError}
+					verificationUnavailable={verificationUnavailable}
 				/>
 			) : (
 				<ActiveRestoreProgress
@@ -254,6 +245,19 @@ function RestoreProgress({
 			) : null}
 		</RestoreStageLayout>
 	);
+}
+
+function restoreProgressStatus(
+	status: BackgroundOperation["status"] | undefined,
+	verificationUnavailable: boolean
+): RestoreStageStatus {
+	if (status === "cancelled") {
+		return "Cancelled";
+	}
+	if (status === "failed" || verificationUnavailable) {
+		return "Failed";
+	}
+	return "Current";
 }
 
 function ActiveRestoreProgress({

@@ -141,18 +141,7 @@ function ProjectArchivesContent({
 					Working files are excluded unless selected.
 				</p>
 			)}
-			{task ? null : (
-				<ArchiveImportForm
-					onAccepted={() => {
-						void queryClient.invalidateQueries({
-							queryKey: orpc.backgroundOperations.list.queryOptions({
-								input: { projectId },
-							}).queryKey,
-						});
-					}}
-					projectId={projectId}
-				/>
-			)}
+			{task ? null : <ArchiveImportForm projectId={projectId} />}
 			<ArchiveOperationStatus
 				accepted={create.data}
 				error={operations.error}

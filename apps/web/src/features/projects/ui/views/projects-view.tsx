@@ -21,8 +21,7 @@ import {
 	Plus,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { ProjectCoverRecord } from "@/components/project-cover";
-import { ProjectCover, projectCoverUrl } from "@/components/project-cover";
+import { ProjectCover } from "@/components/project-cover";
 import { StatusMessage } from "@/components/status-message";
 import {
 	getSupportReference,
@@ -30,6 +29,8 @@ import {
 } from "@/utils/error-notification";
 import { mutationMeta } from "@/utils/mutation-meta";
 import { orpc } from "@/utils/orpc";
+import type { ProjectCoverRecord } from "@/utils/project-cover";
+import { projectCoverUrl } from "@/utils/project-cover";
 import type { ProjectLook } from "../../lib/project-look";
 import { createProjectWithLook } from "../../lib/project-look";
 import { ProjectDeletionHistory } from "../components/project-deletion-panel";
@@ -172,100 +173,15 @@ export function ProjectsView() {
 
 	return (
 		<main className="bg-workbench-sidebar flex h-full min-h-0 w-full flex-col overflow-hidden px-4 pt-7 pb-8 sm:px-8">
-			<header className="mb-5 flex shrink-0 flex-wrap items-center gap-3">
-				<h1 className="font-heading text-[30px] leading-9 font-bold">
-					Projects
-				</h1>
-				{projectsQuery.isPending ? (
-					<span
-						className="border-pixel-edge bg-workbench-preview text-workbench-muted-text flex h-8 items-center gap-2 rounded-[4px] border px-2 text-[13px]"
-						role="status"
-					>
-						<LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" />
-						Loading projects
-					</span>
-				) : null}
-				{projectsQuery.data ? (
-					<span className="border-pixel-edge bg-workbench-preview flex h-8 min-w-[26px] items-center justify-center rounded-[4px] border px-2.5 font-mono text-[18px] font-medium tracking-[0.04em]">
-						{projectsQuery.data.length}
-					</span>
-				) : null}
-				<div className="grow" />
-				{presentation === "grid" && visibleProjects.length > 4 ? (
-					<div className="flex gap-1">
-						<Button
-							aria-label="Previous project"
-							className="size-10 rounded-[4px]"
-							disabled={focusIndex === 0}
-							onClick={() => moveSelection(-1)}
-							size="icon"
-							type="button"
-							variant="outline"
-						>
-							<ChevronLeft />
-						</Button>
-						<Button
-							aria-label="Next project"
-							className="size-10 rounded-[4px]"
-							disabled={focusIndex >= visibleProjects.length - 1}
-							onClick={() => moveSelection(1)}
-							size="icon"
-							type="button"
-							variant="outline"
-						>
-							<ChevronRight />
-						</Button>
-					</div>
-				) : null}
-				<div
-					aria-label="Project presentation"
-					className="border-pixel-edge bg-workbench-preview flex gap-0.5 rounded-[4px] border p-[3px]"
-					role="group"
-				>
-					<Button
-						aria-label="Grid view"
-						aria-pressed={presentation === "grid"}
-						className={
-							presentation === "grid"
-								? "bevel-nav bg-workbench-nav text-workbench-nav-ink hover:bg-workbench-nav hover:text-workbench-nav-ink h-8 w-10 rounded-[3px]"
-								: "text-workbench-muted-text h-8 w-10 rounded-[3px]"
-						}
-						onClick={() => setPresentation("grid")}
-						size="icon-sm"
-						type="button"
-						variant="ghost"
-					>
-						<LayoutGrid className="size-4" />
-					</Button>
-					<Button
-						aria-label="List view"
-						aria-pressed={presentation === "list"}
-						className={
-							presentation === "list"
-								? "bevel-nav bg-workbench-nav text-workbench-nav-ink hover:bg-workbench-nav hover:text-workbench-nav-ink h-8 w-10 rounded-[3px]"
-								: "text-workbench-muted-text h-8 w-10 rounded-[3px]"
-						}
-						onClick={() => setPresentation("list")}
-						size="icon-sm"
-						type="button"
-						variant="ghost"
-					>
-						<List className="size-4" />
-					</Button>
-				</div>
-				<ProjectDeletionHistory />
-				<DialogTrigger
-					handle={dialogHandle}
-					render={
-						<Button
-							className="h-10 rounded-[4px] pr-4 pl-3.5 font-bold"
-							type="button"
-						/>
-					}
-				>
-					<Plus className="size-4" /> New project
-				</DialogTrigger>
-			</header>
+			<ProjectsToolbar
+				count={projectsQuery.data?.length}
+				createHandle={dialogHandle}
+				focusIndex={focusIndex}
+				isPending={projectsQuery.isPending}
+				onMoveSelection={moveSelection}
+				onPresentationChange={setPresentation}
+				presentation={presentation}
+			/>
 			<div className="flex min-h-0 flex-1 flex-col">
 				<section
 					aria-label="Your projects"
@@ -340,6 +256,119 @@ export function ProjectsView() {
 				</DialogContent>
 			</Dialog>
 		</main>
+	);
+}
+
+function ProjectsToolbar({
+	count,
+	isPending,
+	presentation,
+	onPresentationChange,
+	focusIndex,
+	onMoveSelection,
+	createHandle,
+}: {
+	count?: number;
+	isPending: boolean;
+	presentation: "grid" | "list";
+	onPresentationChange: (value: "grid" | "list") => void;
+	focusIndex: number;
+	onMoveSelection: (offset: number) => void;
+	createHandle: ReturnType<typeof createDialogHandle>;
+}) {
+	return (
+		<header className="mb-5 flex shrink-0 flex-wrap items-center gap-3">
+			<h1 className="font-heading text-[30px] leading-9 font-bold">Projects</h1>
+			{isPending ? (
+				<span
+					className="border-pixel-edge bg-workbench-preview text-workbench-muted-text flex h-8 items-center gap-2 rounded-[4px] border px-2 text-[13px]"
+					role="status"
+				>
+					<LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" />
+					Loading projects
+				</span>
+			) : null}
+			{count === undefined ? null : (
+				<span className="border-pixel-edge bg-workbench-preview flex h-8 min-w-[26px] items-center justify-center rounded-[4px] border px-2.5 font-mono text-[18px] font-medium tracking-[0.04em]">
+					{count}
+				</span>
+			)}
+			<div className="grow" />
+			{presentation === "grid" && (count ?? 0) > 4 ? (
+				<div className="flex gap-1">
+					<Button
+						aria-label="Previous project"
+						className="size-10 rounded-[4px]"
+						disabled={focusIndex === 0}
+						onClick={() => onMoveSelection(-1)}
+						size="icon"
+						type="button"
+						variant="outline"
+					>
+						<ChevronLeft />
+					</Button>
+					<Button
+						aria-label="Next project"
+						className="size-10 rounded-[4px]"
+						disabled={focusIndex >= (count ?? 0) - 1}
+						onClick={() => onMoveSelection(1)}
+						size="icon"
+						type="button"
+						variant="outline"
+					>
+						<ChevronRight />
+					</Button>
+				</div>
+			) : null}
+			<div
+				aria-label="Project presentation"
+				className="border-pixel-edge bg-workbench-preview flex gap-0.5 rounded-[4px] border p-[3px]"
+				role="group"
+			>
+				<Button
+					aria-label="Grid view"
+					aria-pressed={presentation === "grid"}
+					className={
+						presentation === "grid"
+							? "bevel-nav bg-workbench-nav text-workbench-nav-ink hover:bg-workbench-nav hover:text-workbench-nav-ink h-8 w-10 rounded-[3px]"
+							: "text-workbench-muted-text h-8 w-10 rounded-[3px]"
+					}
+					onClick={() => onPresentationChange("grid")}
+					size="icon-sm"
+					type="button"
+					variant="ghost"
+				>
+					<LayoutGrid className="size-4" />
+				</Button>
+				<Button
+					aria-label="List view"
+					aria-pressed={presentation === "list"}
+					className={
+						presentation === "list"
+							? "bevel-nav bg-workbench-nav text-workbench-nav-ink hover:bg-workbench-nav hover:text-workbench-nav-ink h-8 w-10 rounded-[3px]"
+							: "text-workbench-muted-text h-8 w-10 rounded-[3px]"
+					}
+					onClick={() => onPresentationChange("list")}
+					size="icon-sm"
+					type="button"
+					variant="ghost"
+				>
+					<List className="size-4" />
+				</Button>
+			</div>
+			<ProjectDeletionHistory />
+			<DialogTrigger
+				handle={createHandle}
+				render={
+					<Button
+						className="h-10 rounded-[4px] pr-4 pl-3.5 font-bold"
+						type="button"
+					/>
+				}
+			>
+				<Plus className="size-4" /> New project
+			</DialogTrigger>
+		</header>
 	);
 }
 

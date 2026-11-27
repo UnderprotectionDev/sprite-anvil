@@ -14,8 +14,8 @@ import { useForm, useSelector } from "@tanstack/react-form";
 import { Check, CircleAlert, Copy, Plus, Upload, X } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { z } from "zod";
-import type { ProjectCoverRecord } from "@/components/project-cover";
 import { ProjectCover } from "@/components/project-cover";
+import type { ProjectCoverRecord } from "@/utils/project-cover";
 import type { ProjectLook } from "../../lib/project-look";
 import {
 	CharacterCounter,
@@ -70,11 +70,6 @@ export function CreateProjectForm({
 	projects?: (ProjectCoverRecord & { generalArtDirection?: string })[];
 	defaultLookId?: string;
 }) {
-	const fileId = useId();
-	const look = useSelector(form.store, (state) => state.values.look);
-	const [imageError, setImageError] = useState<string>();
-	const { uploadedFile, selected } = resolveLook(look, projects, defaultLookId);
-	const localUrl = useLocalLookUrl(uploadedFile);
 	const locked = isSaving || writeOutcomeUncertain;
 	function nameUnavailable(name: string) {
 		return projects.some(
@@ -173,160 +168,12 @@ export function CreateProjectForm({
 						</p>
 					</section>
 				</div>
-				<section className="flex min-w-0 flex-col gap-[10px]">
-					<ProjectSectionHeading label="Start from a look" />
-					<div className="bg-workbench-scene ring-workbench-selection relative h-[240px] shrink-0 overflow-hidden rounded-[4px] ring-2 ring-inset">
-						{uploadedFile && localUrl ? (
-							<img
-								alt="Uploaded project look"
-								className="size-full object-cover object-[50%_40%]"
-								height={240}
-								src={localUrl}
-								width={576}
-							/>
-						) : null}
-						{!uploadedFile && selected ? (
-							<ProjectCover
-								className="size-full rounded-[4px]"
-								project={selected}
-							/>
-						) : null}
-						{uploadedFile || selected ? null : (
-							<p className="text-workbench-faint-text flex h-full items-center justify-center">
-								No starting look selected
-							</p>
-						)}
-						{uploadedFile || selected ? (
-							<span className="bg-workbench-selection text-workbench-on-selection absolute bottom-3 left-3 flex h-6 max-w-[80%] items-center truncate rounded-[2px] px-2 text-[12px] leading-4 font-semibold">
-								{uploadedFile ? "Your image" : selected?.name}
-							</span>
-						) : null}
-					</div>
-					<div className="-mx-1 -my-1 mt-1 flex items-start gap-[10px] overflow-x-auto px-1 py-1">
-						{projects.map((project) => (
-							<Button
-								aria-label={`Select ${project.name} look`}
-								aria-pressed={selected?.id === project.id}
-								className="text-workbench-muted-text flex h-auto w-[107px] shrink-0 flex-col items-stretch justify-start gap-2 p-0 text-left text-[14px] leading-[18px] font-normal whitespace-normal"
-								disabled={locked}
-								key={project.id}
-								onClick={() => {
-									setImageError(undefined);
-									form.setFieldValue("look", { project });
-								}}
-								type="button"
-								variant="ghost"
-							>
-								<div className="relative">
-									<ProjectCover
-										className={
-											selected?.id === project.id
-												? "ring-workbench-selection ring-offset-workbench-background h-[72px] w-full rounded-[3px] ring-2 ring-offset-2 [&_img]:object-center"
-												: "border-workbench-border-strong h-[72px] w-full rounded-[3px] border [&_img]:object-center"
-										}
-										project={project}
-									/>
-									{selected?.id === project.id ? (
-										<span
-											aria-hidden="true"
-											className="bg-workbench-selection text-workbench-on-selection ring-workbench-background absolute top-1.5 right-1.5 flex size-[18px] items-center justify-center rounded-[2px] ring-2"
-										>
-											<Check className="size-3" />
-										</span>
-									) : null}
-								</div>
-								<span
-									className={
-										selected?.id === project.id
-											? "text-workbench-text font-semibold"
-											: ""
-									}
-								>
-									{project.name}
-								</span>
-							</Button>
-						))}
-						{uploadedFile && localUrl ? (
-							<UploadedLookTile
-								disabled={locked}
-								onRemove={() => form.setFieldValue("look", null)}
-								url={localUrl}
-							/>
-						) : (
-							<label
-								className="text-workbench-muted-text relative flex w-[107px] shrink-0 cursor-pointer flex-col gap-2 text-[14px] leading-[18px] has-disabled:cursor-not-allowed"
-								htmlFor={fileId}
-							>
-								<form.Field name="look">
-									{(field) => (
-										<Input
-											accept="image/png,image/jpeg"
-											className="peer sr-only !h-px !w-px !border-0 !p-0"
-											disabled={locked}
-											id={fileId}
-											onChange={(event) => {
-												const file = event.target.files?.[0];
-												event.target.value = "";
-												if (!file) {
-													return;
-												}
-												if (
-													!["image/png", "image/jpeg"].includes(file.type) ||
-													file.size > 16 * 1024 * 1024
-												) {
-													setImageError("Choose a PNG or JPG up to 16 MB.");
-													return;
-												}
-												setImageError(undefined);
-												field.handleChange({ file });
-											}}
-											type="file"
-										/>
-									)}
-								</form.Field>
-								<span className="border-workbench-border-strong peer-focus-visible:ring-workbench-focus flex h-[72px] flex-col items-center justify-center gap-1.5 rounded-[3px] border border-dashed peer-focus-visible:ring-2">
-									<Upload className="size-5" />
-									<span className="font-mono text-[12px]">PNG · JPG</span>
-								</span>
-								<span>Upload image</span>
-							</label>
-						)}
-					</div>
-					{imageError ? (
-						<p className="text-workbench-danger" role="alert">
-							{imageError}
-						</p>
-					) : null}
-					<div className="border-workbench-divider mt-1 flex items-center gap-5 border-t pt-4">
-						<p className="text-workbench-muted-text min-w-0 grow text-[14px] leading-5">
-							{uploadedFile
-								? "Your image becomes this project’s look. Remove it to pick another."
-								: selected?.generalArtDirection || "No art approach provided."}
-						</p>
-						<Button
-							aria-label={
-								selected
-									? `Copy approach from ${selected.name}`
-									: "Copy approach"
-							}
-							className="h-10 shrink-0 rounded-[4px]"
-							disabled={locked || !selected?.generalArtDirection}
-							onClick={() =>
-								form.setFieldValue(
-									"generalArtDirection",
-									selected?.generalArtDirection?.slice(
-										0,
-										projectArtDirectionMaxLength
-									) ?? ""
-								)
-							}
-							type="button"
-							variant="outline"
-						>
-							<Copy /> Copy approach
-						</Button>
-					</div>
-				</section>
+				<ProjectLookPicker
+					defaultLookId={defaultLookId}
+					form={form}
+					locked={locked}
+					projects={projects}
+				/>
 			</div>
 			<form.Subscribe
 				selector={(state) => ({
@@ -360,6 +207,193 @@ export function CreateProjectForm({
 				)}
 			</form.Subscribe>
 		</form>
+	);
+}
+
+function ProjectLookPicker({
+	form,
+	locked,
+	projects,
+	defaultLookId,
+}: {
+	form: CreateProjectFormApi;
+	locked: boolean;
+	projects: (ProjectCoverRecord & { generalArtDirection?: string })[];
+	defaultLookId?: string;
+}) {
+	const fileId = useId();
+	const look = useSelector(form.store, (state) => state.values.look);
+	const [imageError, setImageError] = useState<string>();
+	const { uploadedFile, selected } = resolveLook(look, projects, defaultLookId);
+	const localUrl = useLocalLookUrl(uploadedFile);
+	return (
+		<section className="flex min-w-0 flex-col gap-[10px]">
+			<ProjectSectionHeading label="Start from a look" />
+			<ProjectLookPreview
+				localUrl={localUrl}
+				selected={selected}
+				uploadedFile={uploadedFile}
+			/>
+			<div className="-mx-1 -my-1 mt-1 flex items-start gap-[10px] overflow-x-auto px-1 py-1">
+				{projects.map((project) => (
+					<Button
+						aria-label={`Select ${project.name} look`}
+						aria-pressed={selected?.id === project.id}
+						className="text-workbench-muted-text flex h-auto w-[107px] shrink-0 flex-col items-stretch justify-start gap-2 p-0 text-left text-[14px] leading-[18px] font-normal whitespace-normal"
+						disabled={locked}
+						key={project.id}
+						onClick={() => {
+							setImageError(undefined);
+							form.setFieldValue("look", { project });
+						}}
+						type="button"
+						variant="ghost"
+					>
+						<div className="relative">
+							<ProjectCover
+								className={
+									selected?.id === project.id
+										? "ring-workbench-selection ring-offset-workbench-background h-[72px] w-full rounded-[3px] ring-2 ring-offset-2 [&_img]:object-center"
+										: "border-workbench-border-strong h-[72px] w-full rounded-[3px] border [&_img]:object-center"
+								}
+								project={project}
+							/>
+							{selected?.id === project.id ? (
+								<span
+									aria-hidden="true"
+									className="bg-workbench-selection text-workbench-on-selection ring-workbench-background absolute top-1.5 right-1.5 flex size-[18px] items-center justify-center rounded-[2px] ring-2"
+								>
+									<Check className="size-3" />
+								</span>
+							) : null}
+						</div>
+						<span
+							className={
+								selected?.id === project.id
+									? "text-workbench-text font-semibold"
+									: ""
+							}
+						>
+							{project.name}
+						</span>
+					</Button>
+				))}
+				{uploadedFile && localUrl ? (
+					<UploadedLookTile
+						disabled={locked}
+						onRemove={() => form.setFieldValue("look", null)}
+						url={localUrl}
+					/>
+				) : (
+					<label
+						className="text-workbench-muted-text relative flex w-[107px] shrink-0 cursor-pointer flex-col gap-2 text-[14px] leading-[18px] has-disabled:cursor-not-allowed"
+						htmlFor={fileId}
+					>
+						<form.Field name="look">
+							{(field) => (
+								<Input
+									accept="image/png,image/jpeg"
+									className="peer sr-only !h-px !w-px !border-0 !p-0"
+									disabled={locked}
+									id={fileId}
+									onChange={(event) => {
+										const file = event.target.files?.[0];
+										event.target.value = "";
+										if (!file) {
+											return;
+										}
+										if (
+											!["image/png", "image/jpeg"].includes(file.type) ||
+											file.size > 16 * 1024 * 1024
+										) {
+											setImageError("Choose a PNG or JPG up to 16 MB.");
+											return;
+										}
+										setImageError(undefined);
+										field.handleChange({ file });
+									}}
+									type="file"
+								/>
+							)}
+						</form.Field>
+						<span className="border-workbench-border-strong peer-focus-visible:ring-workbench-focus flex h-[72px] flex-col items-center justify-center gap-1.5 rounded-[3px] border border-dashed peer-focus-visible:ring-2">
+							<Upload className="size-5" />
+							<span className="font-mono text-[12px]">PNG · JPG</span>
+						</span>
+						<span>Upload image</span>
+					</label>
+				)}
+			</div>
+			{imageError ? (
+				<p className="text-workbench-danger" role="alert">
+					{imageError}
+				</p>
+			) : null}
+			<div className="border-workbench-divider mt-1 flex items-center gap-5 border-t pt-4">
+				<p className="text-workbench-muted-text min-w-0 grow text-[14px] leading-5">
+					{uploadedFile
+						? "Your image becomes this project’s look. Remove it to pick another."
+						: selected?.generalArtDirection || "No art approach provided."}
+				</p>
+				<Button
+					aria-label={
+						selected ? `Copy approach from ${selected.name}` : "Copy approach"
+					}
+					className="h-10 shrink-0 rounded-[4px]"
+					disabled={locked || !selected?.generalArtDirection}
+					onClick={() =>
+						form.setFieldValue(
+							"generalArtDirection",
+							selected?.generalArtDirection?.slice(
+								0,
+								projectArtDirectionMaxLength
+							) ?? ""
+						)
+					}
+					type="button"
+					variant="outline"
+				>
+					<Copy /> Copy approach
+				</Button>
+			</div>
+		</section>
+	);
+}
+
+function ProjectLookPreview({
+	uploadedFile,
+	localUrl,
+	selected,
+}: {
+	uploadedFile?: File | null;
+	localUrl?: string | null;
+	selected?: ProjectCoverRecord | null;
+}) {
+	return (
+		<div className="bg-workbench-scene ring-workbench-selection relative h-[240px] shrink-0 overflow-hidden rounded-[4px] ring-2 ring-inset">
+			{uploadedFile && localUrl ? (
+				<img
+					alt="Uploaded project look"
+					className="size-full object-cover object-[50%_40%]"
+					height={240}
+					src={localUrl}
+					width={576}
+				/>
+			) : null}
+			{!uploadedFile && selected ? (
+				<ProjectCover className="size-full rounded-[4px]" project={selected} />
+			) : null}
+			{uploadedFile || selected ? null : (
+				<p className="text-workbench-faint-text flex h-full items-center justify-center">
+					No starting look selected
+				</p>
+			)}
+			{uploadedFile || selected ? (
+				<span className="bg-workbench-selection text-workbench-on-selection absolute bottom-3 left-3 flex h-6 max-w-[80%] items-center truncate rounded-[2px] px-2 text-[12px] leading-4 font-semibold">
+					{uploadedFile ? "Your image" : selected?.name}
+				</span>
+			) : null}
+		</div>
 	);
 }
 

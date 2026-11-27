@@ -3,7 +3,7 @@ import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef } from "react";
+import { useState } from "react";
 import { z } from "zod";
 import { orpc } from "@/utils/orpc";
 export function ProjectDeletionApproval({
@@ -18,7 +18,7 @@ export function ProjectDeletionApproval({
 		...orpc.projects.deletion.prepare.queryOptions({ input: { projectId } }),
 		meta: { errorPresentation: "inline" },
 	});
-	const key = useRef(crypto.randomUUID());
+	const [key] = useState(() => crypto.randomUUID());
 	const approval = useMutation(
 		orpc.projects.deletion.approve.mutationOptions({
 			meta: { errorPresentation: "inline" },
@@ -54,7 +54,7 @@ export function ProjectDeletionApproval({
 				projectId,
 				scopeDigest: impact.data.scopeDigest,
 				confirmation: value.confirmation,
-				idempotencyKey: key.current,
+				idempotencyKey: key,
 			});
 		},
 	});

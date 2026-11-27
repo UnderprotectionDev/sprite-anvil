@@ -1,8 +1,8 @@
 import { projectRecordResponseSchema } from "@sprite-anvil/api/project-access-store";
 import type { ProjectContextCreateInput } from "@sprite-anvil/api/project-context";
-import type { ProjectCoverRecord } from "@/components/project-cover";
-import { projectCoverUrl } from "@/components/project-cover";
 import { honoGetBytes, honoPostFileJson, serverUrl } from "@/utils/hono-api";
+import type { ProjectCoverRecord } from "@/utils/project-cover";
+import { projectCoverUrl } from "@/utils/project-cover";
 
 export type ProjectLook = { project: ProjectCoverRecord } | { file: File };
 

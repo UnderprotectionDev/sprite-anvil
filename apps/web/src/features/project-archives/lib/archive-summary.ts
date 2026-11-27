@@ -2,7 +2,7 @@ import type {
 	ProjectArchive,
 	ProjectArchiveSummary,
 } from "@sprite-anvil/api/project-archives";
-import type { ProjectCoverRecord } from "@/components/project-cover";
+import type { ProjectCoverRecord } from "@/utils/project-cover";
 
 export type AccountArchive = ProjectArchiveSummary & {
 	projectName: string;
@@ -21,19 +21,21 @@ export function formatArchiveBytes(bytes: number | undefined) {
 export function includedArchiveSize(archive?: ProjectArchive) {
 	return formatArchiveBytes(archiveBytes(archive));
 }
+const archiveDateFormatter = new Intl.DateTimeFormat("en-GB", {
+	day: "2-digit",
+	month: "short",
+	year: "numeric",
+});
 export function archiveDate(value: string) {
-	return new Intl.DateTimeFormat("en-GB", {
-		day: "2-digit",
-		month: "short",
-		year: "numeric",
-	}).format(new Date(value));
+	return archiveDateFormatter.format(new Date(value));
 }
 export function archiveSectionCount(
 	sections: readonly { name: string; recordCount: number }[],
 	names: readonly string[]
 ) {
+	const includedNames = new Set(names);
 	return sections
-		.filter((section) => names.includes(section.name))
+		.filter((section) => includedNames.has(section.name))
 		.reduce((sum, section) => sum + section.recordCount, 0);
 }
 export function archiveStats(
