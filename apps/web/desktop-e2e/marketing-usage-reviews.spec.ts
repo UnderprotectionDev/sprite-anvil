@@ -56,11 +56,11 @@ describe("Marketing usage surface equivalence", () => {
 		const initialUrl = new URL(await browser.getUrl());
 		const origin = `${initialUrl.protocol}//${initialUrl.host}`;
 		await browser.url(`${origin}/login`);
-		await $("h2=Welcome Back").waitForDisplayed();
+		await $("h2=Sign in").waitForDisplayed();
 		await $("input[name='email']").setValue(fixture.email);
 		await $("input[name='password']").setValue(fixture.password);
 		await $("form button[type='submit']").click();
-		await $("h1=Game projects").waitForDisplayed();
+		await $("h1=Projects").waitForDisplayed();
 		await browser.url(`${origin}${result.familyPath}`);
 		await openWorkspaceTask("Profile reviews");
 		const review = await $(

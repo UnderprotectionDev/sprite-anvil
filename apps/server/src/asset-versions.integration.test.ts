@@ -6,6 +6,7 @@ import { unitVersionCorrectionUploadResponseSchema } from "@sprite-anvil/api/ass
 import type { Context } from "@sprite-anvil/api/context";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { createDb, getProjectForUser } from "@sprite-anvil/db";
+import { createInteractiveDatabase } from "@sprite-anvil/db/interactive-database";
 import { user } from "@sprite-anvil/db/schema/auth";
 import { generationPackages } from "@sprite-anvil/db/schema/generation-packages";
 import { providerGenerationRecords } from "@sprite-anvil/db/schema/provider-generation-records";
@@ -121,7 +122,10 @@ test.skipIf(!databaseUrl)(
 			});
 			insertedUser = true;
 
-			const projectContextStore = createProjectContextStore(db);
+			const projectContextStore = createProjectContextStore(
+				db,
+				createInteractiveDatabase({ DATABASE_URL: databaseUrl ?? "" })
+			);
 			const verifyAssetVersionContent = async (
 				requestedUserId: string,
 				requestedProjectId: string,
@@ -763,7 +767,10 @@ test.skipIf(!databaseUrl)(
 				new URL(databaseUrl).hostname === "127.0.0.1"
 					? createLocalTestDb({ DATABASE_URL: databaseUrl })
 					: createDb({ DATABASE_URL: databaseUrl });
-			const rereadProjectContextStore = createProjectContextStore(rereadDb);
+			const rereadProjectContextStore = createProjectContextStore(
+				rereadDb,
+				createInteractiveDatabase({ DATABASE_URL: databaseUrl ?? "" })
+			);
 			const rereadContext: Context = {
 				assetFamilyStore: createAssetFamilyStore(rereadDb),
 				assetVersionStore: createAssetVersionStore(rereadDb),

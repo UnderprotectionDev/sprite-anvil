@@ -26,7 +26,7 @@ test("the web app shows interim evidence, and offers no report without a run", a
 
 	await page
 		.getByRole("link", {
-			name: `${fixture.projectName} open Asset Records`,
+			name: `${fixture.projectName} open project`,
 		})
 		.click();
 	await page

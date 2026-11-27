@@ -19,7 +19,7 @@ describe("Generation Packages", () => {
 		await (await $("input[name='email']")).setValue(fixture.email);
 		await (await $("input[name='password']")).setValue(fixture.password);
 		await (await $("button=Sign Up")).click();
-		await (await $("h1=Game projects")).waitForDisplayed();
+		await (await $("h1=Projects")).waitForDisplayed();
 
 		await (await $("a=Context Proposals")).click();
 		await (await $("h2=Create your first project")).waitForDisplayed();
@@ -75,7 +75,7 @@ describe("Generation Packages", () => {
 		await (await $("a=Projects")).click();
 
 		const projectLink = await $(
-			`a[aria-label="${fixture.projectName} open Asset Records"]`
+			`a[aria-label="${fixture.projectName} open project"]`
 		);
 		await projectLink.waitForClickable();
 		await projectLink.click();

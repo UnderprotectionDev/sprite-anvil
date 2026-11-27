@@ -8,6 +8,7 @@ import type { Context } from "@sprite-anvil/api/context";
 import { referenceBoardUploadInputSchema } from "@sprite-anvil/api/reference-production";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { createDb } from "@sprite-anvil/db";
+import { createInteractiveDatabase } from "@sprite-anvil/db/interactive-database";
 import { legacyAssetAttestations } from "@sprite-anvil/db/schema/asset-production-history";
 import { assetRecordDerivatives } from "@sprite-anvil/db/schema/asset-record-derivatives";
 import { assetRecordMeasurements } from "@sprite-anvil/db/schema/asset-record-measurements";
@@ -98,7 +99,10 @@ test.skipIf(!databaseUrl)(
 			});
 			insertedUser = true;
 
-			const projectContextStore = createProjectContextStore(db);
+			const projectContextStore = createProjectContextStore(
+				db,
+				createInteractiveDatabase({ DATABASE_URL: databaseUrl ?? "" })
+			);
 			const context: Context = {
 				assetFamilyStore: createAssetFamilyStore(db),
 				assetVersionStore: createAssetVersionStore(db),

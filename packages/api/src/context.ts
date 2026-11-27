@@ -55,11 +55,16 @@ import type { PortraitIdentityReviewStore } from "./portrait-identity-reviews";
 import type { ProductionExperimentStore } from "./production-experiments";
 import type { ProductionRecipeStore } from "./production-recipes";
 import type { ProjectAccessStore } from "./project-access-store";
-import type { ProjectArchiveRestoreInput } from "./project-archive-restore";
+import type {
+	ProjectArchiveRestore,
+	ProjectArchiveRestoreInput,
+	RestoreOperationReadInput,
+} from "./project-archive-restore";
 import type { ProjectArchiveRestoreStore } from "./project-archive-restore-store";
 import type { ProjectArchiveStore } from "./project-archive-store";
 import type { ProjectArchiveCreateInput } from "./project-archives";
 import type { ProjectContextStore } from "./project-context";
+import type { ProjectDeletionStore } from "./project-deletion";
 import type { ProviderGenerationRecordStore } from "./provider-generation-records";
 import type { ReadinessPlanStore } from "./readiness-plans";
 import type { ReferenceProductionStore } from "./reference-production";
@@ -162,10 +167,17 @@ export interface Context {
 			input: ProjectArchiveRestoreInput
 		) => Promise<BackgroundOperation | null>;
 	};
+	/** Resolves the durable request and verified result, without parsing display text. */
+	projectArchiveRestoreResult?: (
+		userId: string,
+		input: RestoreOperationReadInput,
+		operation: BackgroundOperation
+	) => Promise<{ restore: ProjectArchiveRestore | null } | null>;
 	projectArchiveRestoreStore?: ProjectArchiveRestoreStore;
 	projectArchiveStore?: ProjectArchiveStore;
 	projectContextScopeStore: ProjectContextScopeStore;
 	projectContextStore: ProjectContextStore;
+	projectDeletionStore?: ProjectDeletionStore;
 	providerGenerationRecordStore?: ProviderGenerationRecordStore;
 	readAnimationMetadataPackageTarget?: AnimationMetadataPackageTargetReader;
 	readGameplayMetadataPackageTarget?: GameplayMetadataPackageTargetReader;

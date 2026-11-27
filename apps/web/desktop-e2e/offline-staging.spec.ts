@@ -48,17 +48,17 @@ describe("Offline staging", () => {
 			await (await $("input[name='email']")).setValue(fixture.email);
 			await (await $("input[name='password']")).setValue(fixture.password);
 			await (await $("button=Sign Up")).click();
-			await (await $("h1=Game projects")).waitForDisplayed();
+			await (await $("h1=Projects")).waitForDisplayed();
 
 			await (await $("a=Projects")).click();
-			await openWorkspaceTask("New game project");
+			await openWorkspaceTask("New project");
 			await (await $("input#project-name")).setValue(fixture.projectName);
 			await (await $("textarea#project-art-direction")).setValue(
 				fixture.generalArtDirection
 			);
 			await (await $("button=Create project")).click();
 			const projectLink = await $(
-				`a[aria-label="${fixture.projectName} open Asset Records"]`
+				`a[aria-label="${fixture.projectName} open project"]`
 			);
 			await projectLink.waitForClickable();
 			await projectLink.click();

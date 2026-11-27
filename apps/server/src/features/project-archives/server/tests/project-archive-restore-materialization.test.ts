@@ -159,6 +159,10 @@ test("the restore transaction materializes Visual Worlds and Themes using restor
 	const db = {
 		transaction: async (run: (tx: unknown) => Promise<void>) =>
 			run({
+				execute: async () => [],
+				select: () => ({
+					from: () => ({ where: () => ({ limit: async () => [] }) }),
+				}),
 				insert: (table: unknown) => ({
 					values: (rows: unknown | unknown[]) => {
 						writes.set(table, [

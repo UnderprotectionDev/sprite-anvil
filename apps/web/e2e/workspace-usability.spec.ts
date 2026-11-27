@@ -372,7 +372,7 @@ test("returns from an unknown page to the project list", async ({ page }) => {
 		.getByRole("link", { name: "Back to projects", exact: true })
 		.click();
 	await expect(
-		page.getByRole("heading", { name: "Game projects", exact: true })
+		page.getByRole("heading", { name: "Projects", exact: true })
 	).toBeVisible();
 });
 

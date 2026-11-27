@@ -32,6 +32,8 @@ Tamamlanma kanıtı: Arşiv içeriği ile dışarıda bırakılan büyük ikili 
 
 ## Implementation Decisions
 
+- **Account-level Project Archive (Paper):** Yetkili arşivler seçilebilir kartlar ve gerçek manifest sayımlarıyla sunulur. Create archive, ZIP upload ve Restore ayrı görev ekranlarıdır. Restore seçimi, bütünlük kontrolü ve yeni bağımsız Project bağlantısı yetkili Background Operation sonucuna dayanır; ilerleme kimliği URL üzerinden yeniden okunur. Seçili arşiv ile kesin işlem isteği sunucuda eşlenir; ZIP ve hesap arşivi için kanonik doğrulanmış restore kaydı okunur, sonuç yoksa başarı gösterilmez. Katalog byte toplamı yalnız içerilen dosyaların gerçek toplamıdır; tam arşiv başına sorgu yapılmaz.
+
 - **Arşiv sürümleri:** Yeni `project-archive/1.1.0` Visual World, Theme, Context Proposal, Import Inbox, Reference Board ve Managed Snapshot metadata kayıtlarını, seçilen dosyaları ve Family bağı olmayan Asset Record kayıtlarını taşır. `project-archive/1.0.0` okunabilir; eksik ilişkili kayıtları uydurularak geri yüklenmez.
 - **Temel arşiv kayıtları:** Sürümlü arşiv Bağlam Sürümlerini, varlık ilişkilerini ve dosyalarını, referans rollerini ve seçilmiş çalışma dosyalarını taşır. İçerilmeyen büyük ikili kanıtın kimliği, özeti ve eksikliği manifestte belirtilir; sırlar dışlanır.
 - **Üretim ve değerlendirme geçmişi:** Arşiv inceleme ve kalite geçmişini, metadata önerileri ile kullanıcı kararlarını, üretim kanıtı ve deneylerini, tarifleri ve hak kayıtlarını taşır.
@@ -46,6 +48,8 @@ Tamamlanma kanıtı: Arşiv içeriği ile dışarıda bırakılan büyük ikili 
 - **Kapsam sınırı:** Sırlar arşive konmaz; mevcut projeye sessiz üzerine yazma veya otomatik birleşme yapılmaz.
 
 ## Testing Decisions
+
+- **Paper görev seam’i:** `projects-navigation.spec.ts` restore görevinin gerçek route, işlem kimliği ile yenileme, doğrulanmış yeni Project bağlantısı ve başarısız durumda bağlantının bulunmaması davranışlarını sınar. Yanlış işlem kapsamı, doğrulanmış sonuç yokluğu ve ZIP restore sonucunun doğrudan yeni Project bağlantısı ayrıca sınanır. Taklitli işlem verileri sunucu bütünlük doğrulamasının canlı kanıtı değildir.
 
 - **Çalışma dosyası seçimi:** Yetkili proje kullanıcısı Managed Snapshot sayfalarından mevcut dosyaları seçer; erişilemeyen dosya seçilemez, seçilmeyen dosya arşivde dışlanmış görünür. Seçilen kesin kimlikler oluşturma ve belirsiz sonuç tekrarında korunur; yabancı veya bilinmeyen kimlik reddedilir.
 - **UI seam:** Gerçek Project Archives bileşeninde oluşturma ve restore isteğinin başarısı, belirsiz sonuçta aynı girdinin kilitli tekrar denemesi ve yetkili Background Operation readback durumu sınanır.

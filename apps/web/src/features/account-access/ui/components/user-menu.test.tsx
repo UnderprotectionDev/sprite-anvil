@@ -1,15 +1,27 @@
 // @vitest-environment jsdom
 
 import "@testing-library/jest-dom/vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import {
+	cleanup,
+	fireEvent,
+	render,
+	screen,
+	within,
+} from "@testing-library/react";
 import type { ComponentProps } from "react";
 import { afterEach, expect, test, vi } from "vitest";
 import UserMenu from "./user-menu";
 
+const artistName = /Artist/u;
+const account = vi.hoisted(() => ({
+	session: null as null | { user: { name: string; email: string } },
+	update: vi.fn(),
+}));
 vi.mock("@/lib/auth-client", () => ({
 	authClient: {
-		useSession: () => ({ data: null, isPending: false }),
+		useSession: () => ({ data: account.session, isPending: false }),
 		signOut: vi.fn(),
+		updateUser: account.update,
 	},
 }));
 vi.mock("@tanstack/react-router", () => ({
@@ -19,7 +31,11 @@ vi.mock("@tanstack/react-router", () => ({
 	useNavigate: () => vi.fn(),
 }));
 
-afterEach(cleanup);
+afterEach(() => {
+	cleanup();
+	account.session = null;
+	account.update.mockReset();
+});
 
 test("offers sign-in as one keyboard-focusable link to the login route", () => {
 	render(<UserMenu />);
@@ -27,4 +43,13 @@ test("offers sign-in as one keyboard-focusable link to the login route", () => {
 	expect(link).toHaveAttribute("href", "/login");
 	expect(within(link).queryByRole("button")).toBeNull();
 	expect(screen.queryByRole("button")).toBeNull();
+});
+
+test("account settings is a page link in the account menu", async () => {
+	account.session = { user: { name: "Artist", email: "artist@example.test" } };
+	render(<UserMenu />);
+	fireEvent.click(screen.getByRole("button", { name: artistName }));
+	expect(
+		await screen.findByRole("menuitem", { name: "Account settings" })
+	).toHaveAttribute("href", "/account-settings");
 });

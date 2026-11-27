@@ -215,7 +215,7 @@ export const foundationSectionSchemas = {
 			contractVersion: z.string(),
 			createdAt: timestampSchema,
 			id: idSchema,
-			revisionNumber: z.number().int().positive(),
+			revisionNumber: z.number().int().nonnegative(),
 			rules: z.array(z.unknown()),
 			sourceProposalId: idSchema.nullable(),
 			state: z.enum(["baseline", "active", "inactive"]),
@@ -383,6 +383,7 @@ export const projectArchiveSummarySchema = z
 		manifestDigest: archiveSha256Schema,
 		projectId: idSchema,
 		schemaVersion: z.string(),
+		includedByteSize: z.number().int().nonnegative().optional(),
 	})
 	.strict();
 export type ProjectArchiveSummary = z.infer<typeof projectArchiveSummarySchema>;

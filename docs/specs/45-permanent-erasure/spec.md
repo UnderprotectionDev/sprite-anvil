@@ -43,7 +43,11 @@ Tamamlanma kanıtı: Onaylanan kopyalar ve seçilen bütün kapsayıcılar etkin
 - **Yetki ve sürüm sınırı:** Aşağıdaki PRD hükümleri normatiftir. Fazın iş kırılımı, başka bir özelliğin kararını bu kapsama eklemez. Kesin kullanıcı kararları ajan veya otomasyon tarafından verilmez.
 - **Kapsam sınırı:** Harici kopyalar geri çağrılmış gibi sunulmaz; değişmez paket veya arşiv tek varlık için kısmen yazılmaz.
 
+- **Project kapsamındaki kalıcı silme (Paper · Accounts & Projects):** Project sahibi Details içindeki Danger zone'dan projenin kayıt ve yönetilen dosya sayılarını, başka Project tarafından referanslanan korunacak dosyaları ve yayımlanmamış yedek temizleme takvimini inceleyip kesin adı yazarak onaylar. Değişen içerik özetiyle eski onay reddedilir. Yetkili Deletion Job diğer aktif işlemler/teyitsiz managed-object yazımları varken başlamaz; silme başladıktan sonra geri alınabilir gibi gösterilmez. Project kapsamındaki kayıtlar bağımlılık sırasıyla, seçilen doğrulanmış yönetilen nesneler kendi kesin kapsamıyla kaldırılır. Bağımsız geri yüklenmiş Project'ler ve başka Project tarafından referanslanan nesneler korunur. İçeriksiz iş/makbuz kaynak Project silindikten sonra da yalnız sahibine görünür; yedek temizliği veya indirilen kopyaların geri alınması iddia edilmez.
+
 ## Testing Decisions
+
+- **Project silme seam’i:** project-deletion.integration.test.ts disposable loopback PostgreSQL ile sahiplik, yanlış onay, kesin etki dökümü, bağımlı kayıtların kaldırılması, diğer Project korunması ve iş kaydının Project sonrasında yeniden okunmasını, onay ile outbox kaydının birlikte yayımlanmasını, kesintiden sonra aynı iş kimliğiyle bariyerin yeniden alınmasını ve makbuzla bariyerin birlikte serbest bırakılmasını sınar. projects-navigation.spec.ts yanlış proje adıyla onayın engellenmesini ve kapsam çakışmasının formda gösterilmesini doğrular. project-deletion-tables.test.ts kapsamlı tablo envanterinin schema ile ve bağımlılık sırasıyla uyumunu doğrular. Nesne depolama testinde bellek adapteri kullanılır; canlı storage/yedek temizliği kanıtı değildir.
 
 - **Güncel döküm seam’i:** Başarılı hazırlama sonrasında aynı Asset Record için yeni hazırlama yeni bir idempotency anahtarıyla güncel kapsamı ister; başarısız veya belirsiz hazırlamanın tekrarı aynı anahtarı kullanır. Görünüm testi iki yolu ve değişen dökümde onayların sıfırlanmasını doğrular.
 

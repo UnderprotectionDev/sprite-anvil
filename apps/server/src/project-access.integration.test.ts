@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createDb } from "@sprite-anvil/db";
+import { createInteractiveDatabase } from "@sprite-anvil/db/interactive-database";
 import { user as userTable } from "@sprite-anvil/db/schema/auth";
 import { project as projectTable } from "@sprite-anvil/db/schema/project";
 import { contextRevisions } from "@sprite-anvil/db/schema/project-context";
@@ -16,7 +17,13 @@ test.skipIf(!databaseUrl)(
 			throw new Error("DATABASE_URL must point to an isolated test branch");
 		}
 		const db = createDb({ DATABASE_URL: databaseUrl });
-		const store = createProjectAccessStore(db, createProjectContextStore(db));
+		const store = createProjectAccessStore(
+			db,
+			createProjectContextStore(
+				db,
+				createInteractiveDatabase({ DATABASE_URL: databaseUrl ?? "" })
+			)
+		);
 		const ownerUserId = crypto.randomUUID();
 		await db.insert(userTable).values({
 			id: ownerUserId,

@@ -15,9 +15,61 @@ const upload = vi.hoisted(() => vi.fn());
 vi.mock("../../lib/upload-project-archive", () => ({
 	uploadProjectArchive: upload,
 }));
+vi.mock("@/utils/orpc", () => ({
+	orpc: {
+		backgroundOperations: {
+			list: {
+				queryOptions: ({ input }: { input: { projectId: string } }) => ({
+					queryKey: ["operations", input.projectId],
+				}),
+			},
+		},
+	},
+}));
+
 afterEach(() => {
 	cleanup();
 	upload.mockReset();
+});
+
+function submitArchive() {
+	const client = new QueryClient();
+	const scope = ["operations", "project"];
+	const otherScope = ["operations", "other"];
+	client.setQueryData(scope, { operations: [] });
+	client.setQueryData(otherScope, { operations: [] });
+	render(
+		<QueryClientProvider client={client}>
+			<ArchiveImportForm projectId="project" />
+		</QueryClientProvider>
+	);
+	fireEvent.change(screen.getByLabelText("Project Archive ZIP"), {
+		target: { files: [new File(["archive"], "project.zip")] },
+	});
+	fireEvent.change(screen.getByLabelText("Restored project name"), {
+		target: { value: "Restored" },
+	});
+	fireEvent.click(screen.getByRole("button", { name: "Upload and restore" }));
+	return { client, scope, otherScope };
+}
+
+test("an accepted ZIP restore refreshes only the operation list for its project", async () => {
+	upload.mockResolvedValue({ id: "accepted" });
+	const { client, scope, otherScope } = submitArchive();
+	await screen.findByText(
+		"Restore requested. Follow its progress in Background Operations."
+	);
+	expect(client.getQueryState(scope)?.isInvalidated).toBe(true);
+	expect(client.getQueryState(otherScope)?.isInvalidated).toBe(false);
+});
+
+test("a rejected ZIP does not invalidate operation lists", async () => {
+	upload.mockRejectedValue(
+		Object.assign(new Error("Invalid ZIP"), { status: 400 })
+	);
+	const { client, scope } = submitArchive();
+	await screen.findByText("Invalid ZIP");
+	expect(client.getQueryState(scope)?.isInvalidated).toBe(false);
 });
 
 test("uploads a portable ZIP and retries an unknown outcome with the same file and key", async () => {

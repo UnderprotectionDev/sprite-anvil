@@ -4,6 +4,7 @@ import type { Context } from "@sprite-anvil/api/context";
 import { createFamilyReadinessStore } from "@sprite-anvil/api/family-readiness-store";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { createDb } from "@sprite-anvil/db";
+import { createInteractiveDatabase } from "@sprite-anvil/db/interactive-database";
 import { assetRecords } from "@sprite-anvil/db/schema/asset-records";
 import {
 	assetVersions,
@@ -34,7 +35,10 @@ function reviewContext(db: ReturnType<typeof createDb>, userId: string) {
 		assetFamilyStore: createAssetFamilyStore(db),
 		assetVersionStore: createAssetVersionStore(db),
 		familyReadinessStore: createFamilyReadinessStore(db),
-		projectContextStore: createProjectContextStore(db),
+		projectContextStore: createProjectContextStore(
+			db,
+			createInteractiveDatabase({ DATABASE_URL: databaseUrl ?? "" })
+		),
 		projectContextScopeStore: createProjectContextScopeStore(db),
 		specializedProfileContractStore: createSpecializedProfileContractStore(db),
 		session: { user: { id: userId } } as Context["session"],

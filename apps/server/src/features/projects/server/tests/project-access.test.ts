@@ -104,6 +104,7 @@ function createMemoryProjectAccessStore(
 				createdAt: new Date().toISOString(),
 				id,
 				name: input.name,
+				generalArtDirection: input.generalArtDirection,
 				ownerId,
 			};
 			projects.set(project.id, project);
@@ -112,6 +113,15 @@ function createMemoryProjectAccessStore(
 		getProject(ownerId, projectId) {
 			const project = projects.get(projectId);
 			return Promise.resolve(project?.ownerId === ownerId ? project : null);
+		},
+		updateProject(ownerId, projectId, input) {
+			const project = projects.get(projectId);
+			if (!project || project.ownerId !== ownerId) {
+				return Promise.resolve(null);
+			}
+			const updated = { ...project, ...input };
+			projects.set(projectId, updated);
+			return Promise.resolve(updated);
 		},
 		listProjects(ownerId) {
 			return Promise.resolve(
@@ -630,4 +640,92 @@ test("a connection cannot access project data before a provider is selected", as
 	});
 
 	await expect(access).rejects.toMatchObject({ code: "FORBIDDEN" });
+});
+
+test("only an owning user can edit project metadata", async () => {
+	const { auth } = createTestAuth();
+	const store = createMemoryProjectAccessStore();
+	const owner = createRpcClient(
+		auth,
+		store,
+		await createUserSession(auth, "metadata-owner")
+	);
+	const other = createRpcClient(
+		auth,
+		store,
+		await createUserSession(auth, "metadata-other")
+	);
+	const project = await owner.projects.create({
+		name: "Original",
+		generalArtDirection: "Warm light",
+	});
+	await expect(
+		other.projects.update({
+			projectId: project.id,
+			name: "Changed",
+			generalArtDirection: "Other",
+		})
+	).rejects.toMatchObject({ code: "NOT_FOUND" });
+	await expect(
+		owner.projects.update({
+			projectId: project.id,
+			name: "Updated",
+			generalArtDirection: "Cool light",
+		})
+	).resolves.toMatchObject({
+		name: "Updated",
+		generalArtDirection: "Cool light",
+	});
+	expect(await owner.projects.get({ projectId: project.id })).toMatchObject({
+		name: "Updated",
+		generalArtDirection: "Cool light",
+	});
+});
+
+test("validates the Paper project name within the current account and permits an empty art approach", async () => {
+	const { auth } = createTestAuth();
+	const store = createMemoryProjectAccessStore();
+	const owner = createRpcClient(
+		auth,
+		store,
+		await createUserSession(auth, "name-owner")
+	);
+	const other = createRpcClient(
+		auth,
+		store,
+		await createUserSession(auth, "another-name-owner")
+	);
+	const project = await owner.projects.create({
+		name: "Moonlit Harbor",
+		generalArtDirection: "",
+	});
+	expect(project.name).toBe("Moonlit Harbor");
+	await expect(
+		owner.projects.create({ name: " moonlit harbor ", generalArtDirection: "" })
+	).rejects.toMatchObject({ code: "CONFLICT" });
+	const duplicateForAnotherAccount = await other.projects.create({
+		name: "Moonlit Harbor",
+		generalArtDirection: "",
+	});
+	expect(duplicateForAnotherAccount.id).not.toBe(project.id);
+	const anotherProject = await owner.projects.create({
+		name: "Another project",
+		generalArtDirection: "",
+	});
+	await expect(
+		owner.projects.update({
+			projectId: anotherProject.id,
+			name: "Moonlit Harbor",
+			generalArtDirection: "",
+		})
+	).rejects.toMatchObject({ code: "CONFLICT" });
+	await expect(
+		owner.projects.create({ name: "x".repeat(61), generalArtDirection: "" })
+	).rejects.toMatchObject({ code: "BAD_REQUEST" });
+	await expect(
+		owner.projects.create({
+			name: "Valid name",
+			generalArtDirection: "x".repeat(401),
+		})
+	).rejects.toMatchObject({ code: "BAD_REQUEST" });
 });

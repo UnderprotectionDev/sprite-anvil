@@ -4,6 +4,7 @@ export interface StoredProjectArchive {
 	createdAt: Date;
 	createdByUserId: string;
 	id: string;
+	includedByteSize?: number;
 	manifestDigest: string;
 	projectId: string;
 	/** Digest of the create request, so a repeated key with other content is a conflict. */

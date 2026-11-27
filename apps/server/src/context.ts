@@ -152,6 +152,9 @@ export async function createContext({
 		exportBundleStore,
 		platformEquivalenceStore,
 		projectArchiveRestoreStore,
+		projectDeletionStore: managedOperationServices?.projectDeletion,
+		projectArchiveRestoreResult:
+			managedOperationServices?.projectArchiveRestoreResult,
 		projectArchiveStore,
 		exportProfileStore,
 		fulfilmentMappingStore,

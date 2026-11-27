@@ -6,7 +6,11 @@ import {
 } from "@sprite-anvil/ui/components/sidebar";
 import { Toaster } from "@sprite-anvil/ui/components/sonner";
 import type { QueryClient } from "@tanstack/react-query";
-import { QueryClientProvider, useQueryClient } from "@tanstack/react-query";
+import {
+	QueryClientProvider,
+	useQuery,
+	useQueryClient,
+} from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import type { ErrorComponentProps } from "@tanstack/react-router";
 import {
@@ -18,13 +22,14 @@ import {
 	useRouter,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
+import { Archive, ChevronRight, House } from "lucide-react";
 import { useEffect } from "react";
-
 import Header from "@/components/header";
 import { OpenRecordTabs } from "@/components/open-record-tabs";
 import { ThemeProvider } from "@/components/theme-provider";
+import { WorkspaceSearch } from "@/components/workspace-search";
 import { authClient } from "@/lib/auth-client";
-import type { orpc } from "@/utils/orpc";
+import { orpc } from "@/utils/orpc";
 import { resetSessionQueryClient } from "@/utils/query-client";
 
 import "../index.css";
@@ -65,7 +70,109 @@ function useAuthRouteContext() {
 	});
 }
 
+function useWorkspaceTitle() {
+	return useMatches({
+		select: (matches) => {
+			const archiveTask = matches.find(
+				(match) =>
+					match.routeId === "/_auth/projects_/$projectId/project-archives"
+			)?.search.task;
+			if (archiveTask) {
+				return archiveTask === "create" ? "Create archive" : "Restore";
+			}
+			if (
+				matches.some((match) => match.routeId === "/_auth/account-settings")
+			) {
+				return "Account settings";
+			}
+			if (
+				matches.some(
+					(match) => match.routeId === "/_auth/projects_/$projectId/details"
+				)
+			) {
+				return "Details";
+			}
+			if (matches.some((match) => match.routeId === "/_auth/projects")) {
+				return "Projects";
+			}
+			if (
+				matches.some((match) => match.routeId === "/_auth/project-archives")
+			) {
+				return "Project Archive";
+			}
+		},
+	});
+}
+
 function RootComponent() {
+	const { session, client, routeUserId, routeSessionId, sessionChanged } =
+		useWorkspaceSession();
+	const isLogin = useMatches({
+		select: (matches) => matches.some((match) => match.routeId === "/login"),
+	});
+	const workspaceTitle = useWorkspaceTitle();
+	const isWorkspace = Boolean(workspaceTitle);
+
+	return (
+		<QueryClientProvider client={client}>
+			<HeadContent />
+			<ThemeProvider
+				attribute="class"
+				defaultTheme="dark"
+				disableTransitionOnChange
+				storageKey="vite-ui-theme"
+			>
+				<SidebarProvider
+					className={isWorkspace ? "h-svh min-h-0 overflow-hidden" : undefined}
+					style={
+						{
+							"--sidebar-width": isWorkspace ? "256px" : "308px",
+						} as React.CSSProperties
+					}
+				>
+					<a className="skip-link" href="#workspace-content">
+						Skip to content
+					</a>
+					{sessionChanged ? null : <Header />}
+					<SidebarInset
+						className={
+							isWorkspace ? "min-h-0 min-w-0 overflow-hidden" : undefined
+						}
+					>
+						{session && !sessionChanged && routeUserId === session.user.id ? (
+							<OpenRecordTabs key={routeSessionId} userId={session.user.id} />
+						) : null}
+						<RootHeader
+							isLogin={isLogin}
+							signedIn={Boolean(session)}
+							workspaceTitle={workspaceTitle}
+						/>
+						<div
+							className={
+								isWorkspace
+									? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+									: "min-w-0 flex-1"
+							}
+							id="workspace-content"
+							tabIndex={-1}
+						>
+							{sessionChanged ? null : <Outlet key={routeSessionId} />}
+						</div>
+					</SidebarInset>
+				</SidebarProvider>
+				<Toaster richColors />
+			</ThemeProvider>
+			{import.meta.env.DEV && import.meta.env.MODE !== "e2e" ? (
+				<>
+					<TanStackRouterDevtools position="bottom-left" />
+					<ReactQueryDevtools buttonPosition="bottom-right" position="bottom" />
+				</>
+			) : null}
+		</QueryClientProvider>
+	);
+}
+
+function useWorkspaceSession() {
 	const { data: session, error, isPending } = authClient.useSession();
 	const router = useRouter();
 	const authContext = useAuthRouteContext();
@@ -87,51 +194,95 @@ function RootComponent() {
 		}
 	}, [router, sessionChanged]);
 
+	return { session, client, routeUserId, routeSessionId, sessionChanged };
+}
+
+function RootHeader({
+	signedIn,
+	isLogin,
+	workspaceTitle,
+}: {
+	signedIn: boolean;
+	isLogin: boolean;
+	workspaceTitle?: string;
+}) {
 	return (
-		<QueryClientProvider client={client}>
-			<HeadContent />
-			<ThemeProvider
-				attribute="class"
-				defaultTheme="dark"
-				disableTransitionOnChange
-				storageKey="vite-ui-theme"
-			>
-				<SidebarProvider
-					style={{ "--sidebar-width": "308px" } as React.CSSProperties}
-				>
-					<a className="skip-link" href="#workspace-content">
-						Skip to content
-					</a>
-					{sessionChanged ? null : <Header />}
-					<SidebarInset>
-						{session && !sessionChanged && routeUserId === session.user.id ? (
-							<OpenRecordTabs key={routeSessionId} userId={session.user.id} />
-						) : null}
-						{session ? (
-							<SidebarTrigger />
-						) : (
-							<header className="border-b p-4">
-								<Link to="/projects">Sprite Anvil</Link>
-							</header>
-						)}
-						<div
-							className="min-w-0 flex-1"
-							id="workspace-content"
-							tabIndex={-1}
-						>
-							{sessionChanged ? null : <Outlet key={routeSessionId} />}
-						</div>
-					</SidebarInset>
-				</SidebarProvider>
-				<Toaster richColors />
-			</ThemeProvider>
-			{import.meta.env.DEV && import.meta.env.MODE !== "e2e" ? (
-				<>
-					<TanStackRouterDevtools position="bottom-left" />
-					<ReactQueryDevtools buttonPosition="bottom-right" position="bottom" />
-				</>
+		<>
+			{signedIn ? (
+				<div className="bg-workbench-sidebar border-workbench-divider flex h-[52px] shrink-0 items-center gap-3 border-b px-4">
+					<SidebarTrigger />
+					{workspaceTitle ? (
+						<>
+							<span className="bg-workbench-divider h-4 w-px" />
+							<span className="text-[14px] leading-5 font-semibold">
+								<WorkspaceBreadcrumb title={workspaceTitle} />
+							</span>
+							<WorkspaceSearch />
+						</>
+					) : null}
+				</div>
 			) : null}
-		</QueryClientProvider>
+			{signedIn || isLogin ? null : (
+				<header className="border-b p-4">
+					<Link to="/projects">Sprite Anvil</Link>
+				</header>
+			)}
+		</>
+	);
+}
+
+function WorkspaceBreadcrumb({ title }: { title: string }) {
+	if (title === "Details") {
+		return <DetailsBreadcrumb />;
+	}
+	if (title === "Restore" || title === "Create archive") {
+		return (
+			<span className="flex items-center gap-2">
+				<Link
+					className="text-workbench-muted-text flex items-center gap-2 font-medium"
+					to="/project-archives"
+				>
+					<Archive className="size-4" />
+					Project Archive
+				</Link>
+				<ChevronRight className="text-workbench-muted-text size-4" />
+				{title}
+			</span>
+		);
+	}
+	const Icon = title === "Project Archive" ? Archive : House;
+	return (
+		<span className="flex items-center gap-2">
+			<Icon className="text-workbench-muted-text size-4" />
+			{title}
+		</span>
+	);
+}
+
+function DetailsBreadcrumb() {
+	const projectId = useMatches({
+		select: (matches) =>
+			matches.find(
+				(match) => match.routeId === "/_auth/projects_/$projectId/details"
+			)?.params.projectId,
+	});
+	const projects = useQuery(orpc.projects.list.queryOptions());
+	const project = projects.data?.find((item) => item.id === projectId);
+	return (
+		<span className="flex items-center gap-2">
+			<Link
+				className="text-workbench-muted-text flex items-center gap-2 font-medium"
+				to="/projects"
+			>
+				<House className="size-4" />
+				Projects
+			</Link>
+			<span className="text-workbench-faint-text">›</span>
+			<span className="text-workbench-muted-text">
+				{project?.name ?? "Project"}
+			</span>
+			<span className="text-workbench-faint-text">›</span>Details
+		</span>
 	);
 }
 

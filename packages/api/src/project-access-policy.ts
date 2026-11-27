@@ -59,3 +59,21 @@ export async function assertProjectAccess(
 		throw new ORPCError("FORBIDDEN");
 	}
 }
+
+export function assertAvailableProjectName(
+	projects: readonly { id: string; name: string }[],
+	name: string,
+	exceptId?: string
+) {
+	if (
+		projects.some(
+			(project) =>
+				project.id !== exceptId &&
+				project.name.trim().toLowerCase() === name.trim().toLowerCase()
+		)
+	) {
+		throw new ORPCError("CONFLICT", {
+			message: "A project with this name already exists.",
+		});
+	}
+}

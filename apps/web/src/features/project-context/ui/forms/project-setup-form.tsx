@@ -1,4 +1,8 @@
 import type { ProjectContextCreateInput } from "@sprite-anvil/api/project-context";
+import {
+	projectArtDirectionMaxLength,
+	projectNameMaxLength,
+} from "@sprite-anvil/api/project-context";
 import { Button } from "@sprite-anvil/ui/components/button";
 import { Input } from "@sprite-anvil/ui/components/input";
 import { Label } from "@sprite-anvil/ui/components/label";
@@ -48,8 +52,8 @@ export function ProjectSetupForm({
 				) : null}
 			</div>
 			<p className="panel-copy">
-				A project name and art direction are enough to get started. This step
-				creates an empty base revision; it does not activate a rule.
+				A project name is enough to get started. Art direction is optional. This
+				step creates an empty base revision; it does not activate a rule.
 			</p>
 			<form
 				className="context-form"
@@ -66,7 +70,7 @@ export function ProjectSetupForm({
 							<Input
 								autoComplete="off"
 								disabled={isPending || isOutcomeUncertain}
-								maxLength={120}
+								maxLength={projectNameMaxLength}
 								name={field.name}
 								onBlur={field.handleBlur}
 								onChange={(event) => field.handleChange(event.target.value)}
@@ -83,12 +87,11 @@ export function ProjectSetupForm({
 							<span>Art direction</span>
 							<Textarea
 								disabled={isPending || isOutcomeUncertain}
-								maxLength={1000}
+								maxLength={projectArtDirectionMaxLength}
 								name={field.name}
 								onBlur={field.handleBlur}
 								onChange={(event) => field.handleChange(event.target.value)}
 								placeholder="Describe the visual world of the game in a few sentences."
-								required
 								rows={3}
 								value={field.state.value}
 							/>

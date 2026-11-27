@@ -3,6 +3,7 @@ import { call } from "@orpc/server";
 import type { Context } from "@sprite-anvil/api/context";
 import { appRouter } from "@sprite-anvil/api/routers/index";
 import { createDb } from "@sprite-anvil/db";
+import { createInteractiveDatabase } from "@sprite-anvil/db/interactive-database";
 import { user } from "@sprite-anvil/db/schema/auth";
 import { removeAssetCatalogFixture } from "./asset-catalog-integration-fixture";
 import { createAssetFamilyStore } from "./features/asset-families/server/asset-family-store";
@@ -35,7 +36,10 @@ test.skipIf(!databaseUrl)(
 			});
 			insertedUser = true;
 
-			const projectContextStore = createProjectContextStore(db);
+			const projectContextStore = createProjectContextStore(
+				db,
+				createInteractiveDatabase({ DATABASE_URL: databaseUrl ?? "" })
+			);
 			const context: Context = {
 				assetFamilyStore: createAssetFamilyStore(db),
 				assetVersionStore: createAssetVersionStore(db),
@@ -110,7 +114,10 @@ test.skipIf(!databaseUrl)(
 			);
 
 			const rereadDb = createDb({ DATABASE_URL: databaseUrl });
-			const rereadProjectContextStore = createProjectContextStore(rereadDb);
+			const rereadProjectContextStore = createProjectContextStore(
+				rereadDb,
+				createInteractiveDatabase({ DATABASE_URL: databaseUrl ?? "" })
+			);
 			const rereadContext: Context = {
 				assetFamilyStore: createAssetFamilyStore(rereadDb),
 				assetVersionStore: createAssetVersionStore(rereadDb),

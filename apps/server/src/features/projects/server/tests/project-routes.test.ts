@@ -8,6 +8,7 @@ import { memoryAdapter } from "better-auth/adapters/memory";
 import { testUtils } from "better-auth/plugins";
 import { eq, inArray } from "drizzle-orm";
 import { Hono } from "hono";
+import sharp from "sharp";
 import type { CloudflareConfig } from "../../../../cloudflare";
 import {
 	projectSummaryResponseSchema,
@@ -65,6 +66,12 @@ function createTestApp(
 		getSession?: ProjectRouteDependencies["getSession"];
 		createId?: () => string;
 		failQueue?: boolean;
+		createProjectWithLook?: ProjectRouteDependencies["createProjectWithLook"];
+		setPreviewKey?: (
+			ownerId: string,
+			projectId: string,
+			key: string
+		) => Promise<boolean>;
 	} = {}
 ) {
 	const calls = {
@@ -79,6 +86,8 @@ function createTestApp(
 	app.onError((_error, c) => c.json({ error: "Internal Server Error" }, 500));
 
 	mountProjectRoutes(app, {
+		setPreviewKey: overrides.setPreviewKey,
+		createProjectWithLook: overrides.createProjectWithLook,
 		getSession:
 			overrides.getSession ?? ((headers) => auth.api.getSession({ headers })),
 		getProjectForUser: (userId, id) => {
@@ -637,3 +646,107 @@ function optedOutOfStorage(calls: ReturnType<typeof createTestApp>["calls"]) {
 	expect(calls.deletedKeys).toEqual([]);
 	expect(calls.queuedKeys).toEqual([]);
 }
+
+test("stores a validated project look only for its owner", async () => {
+	const { auth } = createTestAuth();
+	const { headers } = await createUserSession(auth, "user-a");
+	const setPreviewKey = (ownerId: string, id: string, key: string) => {
+		expect(ownerId).toBe("user-a");
+		expect(id).toBe(projectId);
+		expect(key).toBe(`users/user-a/project-look-${twoDVisualAssetId}.png`);
+		return Promise.resolve(true);
+	};
+	const { app, calls } = createTestApp(auth, { setPreviewKey });
+	const image = await sharp({
+		create: { width: 8, height: 8, channels: 3, background: "#ff8822" },
+	})
+		.jpeg()
+		.toBuffer();
+	const response = await app.request(`/api/projects/${projectId}/preview`, {
+		method: "POST",
+		headers: new Headers({
+			...Object.fromEntries(headers),
+			"content-type": "image/jpeg",
+		}),
+		body: new Uint8Array(image),
+	});
+	expect(response.status).toBe(200);
+	expect(calls.putObject).toHaveLength(1);
+	expect(calls.putObject[0]?.contentType).toBe("image/png");
+	const invalid = await app.request(`/api/projects/${projectId}/preview`, {
+		method: "POST",
+		headers: new Headers({
+			...Object.fromEntries(headers),
+			"content-type": "image/jpeg",
+		}),
+		body: new TextEncoder().encode("not an image"),
+	});
+	expect(invalid.status).toBe(400);
+	const denied = await app.request(`/api/projects/${projectId}/preview`, {
+		method: "POST",
+		headers: { "content-type": "image/jpeg" },
+		body: new Uint8Array(image),
+	});
+	expect(denied.status).toBe(401);
+	const other = await createUserSession(auth, "user-b");
+	const foreign = await app.request(`/api/projects/${projectId}/preview`, {
+		method: "POST",
+		headers: new Headers({
+			...Object.fromEntries(other.headers),
+			"content-type": "image/jpeg",
+		}),
+		body: new Uint8Array(image),
+	});
+	expect(foreign.status).toBe(404);
+
+	expect(calls.putObject).toHaveLength(1);
+});
+
+test("creates a project only after the selected image has been verified and stored", async () => {
+	const { auth } = createTestAuth();
+	const { headers } = await createUserSession(auth, "user-a");
+	const received: string[] = [];
+	const fixture = createTestApp(auth, {
+		createProjectWithLook: (owner, input, key) => {
+			expect(owner).toBe("user-a");
+			expect(input.name).toBe("With look");
+			expect(fixture.calls.putObject).toHaveLength(1);
+			received.push(key);
+			return Promise.resolve({
+				id: projectId,
+				name: input.name,
+				createdAt: new Date().toISOString(),
+				hasPreview: true,
+			});
+		},
+	});
+	const requestHeaders = new Headers({
+		...Object.fromEntries(headers),
+		"content-type": "image/png",
+		"X-Project-Name": "With%20look",
+		"X-Project-Art-Direction": "",
+	});
+	const bad = await fixture.app.request("/api/projects/with-look", {
+		method: "POST",
+		headers: requestHeaders,
+		body: "invalid",
+	});
+	expect(bad.status).toBe(400);
+	expect(received).toHaveLength(0);
+	const img = await sharp({
+		create: { width: 8, height: 8, channels: 3, background: "#ff8822" },
+	})
+		.png()
+		.toBuffer();
+	const response = await fixture.app.request("/api/projects/with-look", {
+		method: "POST",
+		headers: requestHeaders,
+		body: new Uint8Array(img),
+	});
+	expect(response.status).toBe(201);
+	expect(await response.json()).toMatchObject({
+		id: projectId,
+		hasPreview: true,
+	});
+	expect(received).toHaveLength(1);
+});

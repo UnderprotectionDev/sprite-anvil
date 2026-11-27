@@ -56,7 +56,7 @@ test("creates and rereads the shared source metadata mapping proposal through th
 	await page.goto("/projects");
 	await page
 		.getByRole("link", {
-			name: `${fixture.projectName} open Asset Records`,
+			name: `${fixture.projectName} open project`,
 		})
 		.click();
 	await page

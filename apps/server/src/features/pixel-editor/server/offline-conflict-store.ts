@@ -5,11 +5,13 @@ import type {
 	OfflineConflictStore,
 } from "@sprite-anvil/api/offline-conflict";
 import type { Database } from "@sprite-anvil/db";
-import { getProjectForUser } from "@sprite-anvil/db";
+import { getProjectForUser, publishedProjectPredicate } from "@sprite-anvil/db";
+import type { InteractiveDatabase } from "@sprite-anvil/db/interactive-database";
 import {
 	offlineConflictRecords,
 	offlineConflictResolutions,
 } from "@sprite-anvil/db/schema/offline-conflicts";
+import { project } from "@sprite-anvil/db/schema/project";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 
 function toRecord(
@@ -43,7 +45,10 @@ function toResolution(
 	};
 }
 
-export function createOfflineConflictStore(db: Database): OfflineConflictStore {
+export function createOfflineConflictStore(
+	db: Database,
+	interactiveDb: InteractiveDatabase
+): OfflineConflictStore {
 	function ownedRecord(userId: string, projectId: string, conflictId: string) {
 		return and(
 			eq(offlineConflictRecords.id, conflictId),
@@ -96,11 +101,27 @@ export function createOfflineConflictStore(db: Database): OfflineConflictStore {
 			if (!(await getProjectForUser(db, userId, input.projectId))) {
 				throw new Error("Project not available to the user");
 			}
-			const [created] = await db
-				.insert(offlineConflictRecords)
-				.values({ ...input, ownerUserId: userId })
-				.onConflictDoNothing()
-				.returning();
+			const owned = and(
+				eq(project.id, input.projectId),
+				eq(project.ownerUserId, userId),
+				publishedProjectPredicate()
+			);
+			const created = await interactiveDb.transaction(async (tx) => {
+				const [locked] = await tx
+					.select({ id: project.id })
+					.from(project)
+					.where(owned)
+					.for("key share");
+				if (!locked) {
+					throw new Error("Project not available to the user");
+				}
+				const [row] = await tx
+					.insert(offlineConflictRecords)
+					.values({ ...input, ownerUserId: userId })
+					.onConflictDoNothing()
+					.returning();
+				return row;
+			});
 			if (created) {
 				return {
 					kind: "created",

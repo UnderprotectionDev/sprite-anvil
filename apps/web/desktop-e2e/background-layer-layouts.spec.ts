@@ -42,7 +42,7 @@ describe("Background Layer Layout", () => {
 			await $("input[name='password']").setValue(fixture.password);
 			await (await $("button=Sign Up")).click();
 			// The first webview navigation after signup can be slow on a cold start.
-			await $("h1=Game projects").waitForDisplayed({ timeout: 30_000 });
+			await $("h1=Projects").waitForDisplayed({ timeout: 30_000 });
 
 			await (await $("a=Context Proposals")).click();
 			await $("//label[span[text()='Project name']]/input").setValue(

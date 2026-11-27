@@ -59,7 +59,7 @@ export default function SignUpForm({
 	return (
 		<div className="w-full space-y-6">
 			<div className="space-y-2">
-				<h2 className="text-3xl font-semibold">Create Account</h2>
+				<h2 className="font-heading text-heading font-bold">Create Account</h2>
 				<p className="text-muted-foreground text-sm">
 					Set up your private project workspace.
 				</p>

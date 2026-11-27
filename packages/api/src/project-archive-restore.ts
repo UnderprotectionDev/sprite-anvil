@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { backgroundOperationSchema } from "./background-operations";
 import { compareCodeUnits } from "./compare-code-units";
 import type { DeliveryRecords } from "./project-archive-delivery";
 import {
@@ -66,6 +67,28 @@ export const projectArchiveRestoreGetInputSchema = z
 	.object({ projectId: uuidSchema, restoreId: uuidSchema })
 	.strict();
 
+/** A restore task URL must identify the exact operation and selected source. */
+export const restoreOperationReadInputSchema = z.discriminatedUnion("task", [
+	z
+		.object({
+			projectId: uuidSchema,
+			operationId: uuidSchema,
+			task: z.literal("restore"),
+			archiveId: uuidSchema,
+		})
+		.strict(),
+	z
+		.object({
+			projectId: uuidSchema,
+			operationId: uuidSchema,
+			task: z.literal("upload"),
+		})
+		.strict(),
+]);
+export type RestoreOperationReadInput = z.infer<
+	typeof restoreOperationReadInputSchema
+>;
+
 export const projectArchiveRestoreListInputSchema = z
 	.object({ projectId: uuidSchema })
 	.strict();
@@ -125,6 +148,16 @@ export const projectArchiveRestoreSchema = projectArchiveRestoreSummarySchema
 	.strict();
 export type ProjectArchiveRestore = z.infer<typeof projectArchiveRestoreSchema>;
 
+export const restoreOperationResultSchema = z
+	.object({
+		operation: backgroundOperationSchema,
+		restore: projectArchiveRestoreSchema.nullable(),
+	})
+	.strict();
+export type RestoreOperationResult = z.infer<
+	typeof restoreOperationResultSchema
+>;
+
 export const projectArchiveRestoreCatalogSchema = z
 	.object({ restores: z.array(projectArchiveRestoreSummarySchema) })
 	.strict();
@@ -133,6 +166,7 @@ export type ProjectArchiveRestoreCatalog = z.infer<
 >;
 
 export type ProjectArchiveRestoreRejection =
+	| { reason: "project_name_conflict" }
 	| { failures: string[]; reason: "archive_invalid" }
 	| { failures: string[]; reason: "restore_inconsistent" }
 	| { reason: "unsupported_content" }

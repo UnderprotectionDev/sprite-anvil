@@ -1,4 +1,5 @@
 import type { Database } from "@sprite-anvil/db";
+import { projectDeletionScopeSummary } from "@sprite-anvil/db/project-access";
 import type {
 	EnqueueRequest,
 	OperationHandler,
@@ -18,6 +19,9 @@ import type { ProjectArchiveOperationsOptions } from "./features/project-archive
 import { createProjectArchiveOperations } from "./features/project-archives/server/project-archive-operations";
 import type { ProjectArchiveRestoreOperationsOptions } from "./features/project-archives/server/project-archive-restore-operations";
 import { createProjectArchiveRestoreOperations } from "./features/project-archives/server/project-archive-restore-operations";
+import { createRestoreOperationResultReader } from "./features/project-archives/server/restore-operation-result";
+import type { ProjectDeletionServiceOptions } from "./features/projects/server/project-deletion-service";
+import { createProjectDeletionService } from "./features/projects/server/project-deletion-service";
 
 type ErasureOptions<T = ErasureDeletionOperationsOptions> =
 	T extends ErasureDeletionOperationsOptions
@@ -38,6 +42,10 @@ export function createManagedOperationServices(options: {
 	>;
 	importOptions?: Omit<ArchiveImportOptions, "operations" | "permanentFailure">;
 	erasureOptions?: ErasureOptions;
+	projectDeletionOptions?: Omit<
+		ProjectDeletionServiceOptions,
+		"permanentFailure" | "operationStorage"
+	>;
 }) {
 	let lifecycle: ReturnType<typeof createBackgroundOperationLifecycle>;
 	const operations = {
@@ -74,6 +82,13 @@ export function createManagedOperationServices(options: {
 			permanentFailure,
 			transientFailure: (message) => new TransientOperationError(message),
 		});
+	const projectDeletion =
+		options.projectDeletionOptions &&
+		createProjectDeletionService({
+			...options.projectDeletionOptions,
+			permanentFailure,
+			operationStorage: options.storage,
+		});
 	const handlers: Partial<
 		Record<"archive" | "restore" | "deletion", OperationHandler>
 	> = {};
@@ -99,18 +114,38 @@ export function createManagedOperationServices(options: {
 			throw permanentFailure("Restore request not found.");
 		};
 	}
-	if (erasure) {
-		handlers.deletion = erasure.execute;
+	if (erasure || projectDeletion) {
+		handlers.deletion = (context) => {
+			if (context.operation.scopeSummary === projectDeletionScopeSummary) {
+				if (!projectDeletion) {
+					throw permanentFailure("Project deletion service unavailable.");
+				}
+				return projectDeletion.execute(context);
+			}
+			if (!erasure) {
+				throw permanentFailure("Asset erasure service unavailable.");
+			}
+			return erasure.execute(context);
+		};
 	}
 	lifecycle = createBackgroundOperationLifecycle({
 		storage: options.storage,
 		transport: options.transport,
 		handlers,
 	});
+	const resultStore = options.restoreOptions?.store;
 	return {
 		lifecycle,
 		projectArchiveOperations: archive,
+		projectDeletion,
 		projectArchiveRestoreOperations: restore,
+		projectArchiveRestoreResult: resultStore
+			? createRestoreOperationResultReader({
+					managedRequests: options.restoreOptions?.requests,
+					importRequests: options.importOptions?.requests,
+					store: resultStore,
+				})
+			: undefined,
 		projectArchiveImportOperations: archiveImport,
 		erasureApprovalOperations: erasure,
 	};

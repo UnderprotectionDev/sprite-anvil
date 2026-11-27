@@ -2,19 +2,19 @@
 
 ## Problem Statement
 
-Sistem kullanıcı kararlarını kapsamı ve dayanağı belli kural önerilerine dönüştürür; yalnız kullanıcının doğruladığı çakışmasız sürüm üretimde yetkili olur. Yeni proje yalnız ad ve genel sanat yaklaşımıyla başlayabilir.
+Sistem kullanıcı kararlarını kapsamı ve dayanağı belli kural önerilerine dönüştürür; yalnız kullanıcının doğruladığı çakışmasız sürüm üretimde yetkili olur. Yeni proje yalnız adla başlayabilir; genel sanat yaklaşımı isteğe bağlı proje üstverisidir.
 
 ## Solution
 
 Sistem kullanıcı kararlarını kapsamı ve dayanağı belli kural önerilerine dönüştürür; yalnız kullanıcının doğruladığı çakışmasız sürüm üretimde yetkili olur.
 
-Yeni proje yalnız ad ve genel sanat yaklaşımıyla başlayabilir. Etkin kurallar işlem kapsamına göre çözülür ve sonraki üretimlerde yeniden sorulmadan kullanılabilir.
+Yeni proje yalnız adla başlayabilir; genel sanat yaklaşımı isteğe bağlı proje üstverisidir. Etkin kurallar işlem kapsamına göre çözülür ve sonraki üretimlerde yeniden sorulmadan kullanılabilir.
 
 Tamamlanma kanıtı: Kullanıcı onayıyla oluşan etkin sürüm, çakışmasız kural zincirini ve üretime alınacak bağlam kopyasını aynı anlamla verir.
 
 ## User Stories
 
-1. Bir kullanıcı olarak yeni projeyi yalnız adı ve genel sanat yaklaşımıyla başlatmak istiyorum; böylece ayrıntılı kurallar hazır olmadan çalışmaya başlayabilirim.
+1. Bir kullanıcı olarak yeni projeyi adı ve isteğe bağlı genel sanat yaklaşımıyla başlatmak istiyorum; böylece ayrıntılı kurallar hazır olmadan çalışmaya başlayabilirim.
 2. Bir kullanıcı olarak onaylanmış proje kurallarının kimliğini, kapsamını ve değerini yapılandırılmış Proje Bağlamında görmek istiyorum; böylece açıklayıcı metin yetkili kural sanılmaz.
 3. Bir kullanıcı olarak kararlarımı ve gözlenen değişiklikleri Bağlam Önerisi olarak hazırlatmak istiyorum; böylece olası kural değişikliği mevcut etkin sürümden ayrı kalır.
 4. Bir kullanıcı olarak her önerinin dayandığı Bağlam Sürümünü, ajan/model bilgisini, önerilen kuralları ve doğrulama sonucunu görmek istiyorum; böylece önerinin kaynağını ve geçerliliğini inceleyebilirim.
@@ -36,6 +36,8 @@ Tamamlanma kanıtı: Kullanıcı onayıyla oluşan etkin sürüm, çakışmasız
 
 ## Implementation Decisions
 
+- **Project oluşturma ve ayrıntılar (Paper · Accounts & Projects):** Ad en çok 60, isteğe bağlı genel sanat yaklaşımı en çok 400 karakterdir. Kullanıcının mevcut aynı adlı projeleri oluşturma ve ad değiştirme sırasında kontrol edilir. Ad kontrolü aynı sahip için atomik kesinleştirme ile korunur. Görsel seçim ve yaklaşım kopyalama ayrı eylemlerdir; seçilen veya yüklenen PNG/JPG yeni Project için bağımsız kapak olarak mevcut özel preview alanında saklanır; kapak doğrulanıp yüklenmeden Project ve başlangıç Context Revision yayımlanmaz. Ayrıntılar ayrı bir route üzerinde açılır; kaydedilen üstveri yetkili Context Revision kurallarını değiştirmez.
+
 - **Çalışma alanları:** Öneri inceleme, kural önerisi hazırlama ve Görsel Dünya/Tema düzenleme ayrı alanlardır. Alan değişimi taslağı korur; proje değişimi çalışma alanını yeni projeye bağlar. Proje seçimi URL ve ortak gezinmede görünür.
 
 - **Kural Değişikliği Önerme:** Kullanıcı kararları ve gözlenen değişiklikler, dayanak sürümü ve kanıtı belli yapılandırılmış bir Bağlam Önerisine dönüşür. Öneri taban Bağlam Sürümünü, ajan veya yapılandırılmış kontrolün kaynağını ve her ekleme, değiştirme ya da kaldırmanın dayanağını taşır. Serbest açıklama tek başına etkin kural değildir; ajan kullanılamadığında yapılandırılmış yaygın kararlar yine hazırlanabilir.
@@ -45,6 +47,8 @@ Tamamlanma kanıtı: Kullanıcı onayıyla oluşan etkin sürüm, çakışmasız
 - **Kapsam sınırı:** Ajan öneriyi etkinleştiremez; ham context.md metni kullanıcıya yetkili kural düzenleme yolu olarak açılmaz.
 
 ## Testing Decisions
+
+- **Project oluşturma ve ayrıntılar seam’i:** `projects-view.test.tsx` ve `projects-navigation.spec.ts` ayrı Details route’unu, kaydetme, mevcut ad kontrolü, görsel seçimi ile yaklaşım kopyalamanın ayrılığını, taslağın korunmasını ve dar/geniş pencerede taşma olmadığını sınar. `project-routes.test.ts` özel kapak yüklemesinde yetkisiz isteği, geçersiz dosyayı ve gerçek görüntü verisini doğrular; kalıcı kapak ve üstveri sayfa yenilenerek yeniden okunur. Kapaklı oluşturma, geçersiz dosyada proje oluşturulmaması ve eşzamanlı aynı adlı oluşturma/değiştirme girişimleri ayrı sunucu ve disposable PostgreSQL seam’inde doğrulanır.
 
 - Varlık Ailesi kapsamı mevcut üyelik ve Görsel Dünya ilişkilerinden çözülür; ailedeki Tema kurallarıyla açık istisna ve eski öneri çatışması `asset-family-context.test.ts` üzerinden sınanır.
 
